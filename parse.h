@@ -18,8 +18,6 @@ struct esl_fileparser_s {
 };
 typedef struct esl_fileparser_s ESL_FILEPARSER;
 
-extern int esl_parse_fgets(char **buf, int *n, FILE *fp);
-extern int esl_parse_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 extern int esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp);
 extern int esl_fileparse_set_commentchar(ESL_FILEPARSER *efp, char c);
 extern int esl_fileparse_nextline(ESL_FILEPARSER *efp);

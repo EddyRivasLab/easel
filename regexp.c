@@ -95,7 +95,7 @@ esl_regexp_Create(void)
  * Purpose:   Initializes a <machine> whose shell has already
  *            been allocated (usually on the stack).
  *
- * Returns:   (void).
+ * Returns:   void.
  */
 void
 esl_regexp_Inflate(ESL_REGEXP *machine)
@@ -109,7 +109,7 @@ esl_regexp_Inflate(ESL_REGEXP *machine)
  *
  * Purpose:   Destroy a machine created by <esl_regexp_Create()>.
  *
- * Returns:   (void)
+ * Returns:   void.
  */
 void
 esl_regexp_Destroy(ESL_REGEXP *machine)
@@ -125,7 +125,7 @@ esl_regexp_Destroy(ESL_REGEXP *machine)
  *
  * Purpose:   Deallocate inside a <machine>, leaving only the shell.
  *
- * Returns:   (void)
+ * Returns:   void.
  */
 void
 esl_regexp_Deflate(ESL_REGEXP *machine)

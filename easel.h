@@ -68,6 +68,8 @@ extern void *esl_malloc(char *file, int line, size_t size);
 extern void *esl_realloc(char *file, int line, void *p, size_t size);
 
 extern char *esl_strdup(char *s, int n);
+extern int   esl_fgets(char **buf, int *n, FILE *fp);
+extern int   esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 
 
 /* Making sure TRUE/FALSE are defined, for convenience
