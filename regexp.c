@@ -13,6 +13,21 @@
  *****************************************************************
  */    
 
+/* nomenclature note:
+ *    A "machine" is a persistent ESL_REGEXP object, which contains
+ *    an NDFA for a pattern, but the NDFA may change throughout
+ *    the life of the machine.
+ *    
+ *    An "NDFA" (nondeterministic finite automaton) refers to
+ *    an internal esl__regexp structure, which is Spencer's 
+ *    compiled pattern. We try to compile an NDFA once per
+ *    pattern.
+ *    
+ *    A "pattern" refers to actual regular expression we're trying
+ *    to match, represented as an ASCII string.
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,30 +36,101 @@
 #include <easel/easel.h>
 #include <easel/regexp.h>
 
+/* Function:  esl_regexp_Create()
+ * Incept:    SRE, Fri Jan  7 10:55:48 2005 [St. Louis]
+ *
+ * Purpose:   Creates a new <ESL_REGEXP> machine.
+ *
+ * Throws:    NULL on allocation failure.
+ *
+ * Xref:      STL9/p1
+ */
 ESL_REGEXP *
-esl_regexp_Create(char *rexstr)
+esl_regexp_Create(void)
 {
-  ESL_REGEXP *rex;
+  ESL_REGEXP *machine;
 
-  if ((rex = ESL_MALLOC(sizeof(ESL_REGEXP))) == NULL) return NULL;
-
-  /* Call Spencer code to compile the regexp from the provided pattern.
-   * Note that failure to compile is a fatal error: thus, we're not
-   * expecting patterns to come from the user, only from the application.
-   */
-  if ((rex->r = regcomp(rexstr)) == NULL) { free(rex); return NULL; }
-
-  
-  return rex;
+  if ((machine = ESL_MALLOC(sizeof(ESL_REGEXP))) == NULL) return NULL;
+  machine->ndfa = NULL;
+  return machine;
 }
 
+/* Function:  esl_regexp_Inflate()
+ * Incept:    SRE, Fri Jan  7 11:15:04 2005 [St. Louis]
+ *
+ * Purpose:   Initializes a <machine> whose shell has already
+ *            been allocated (usually on the stack).
+ *
+ * Returns:   (void).
+ */
 void
-esl_regexp_Destroy(ESL_REGEXP *rex)
+esl_regexp_Inflate(ESL_REGEXP *machine)
 {
-  if (rex->r != NULL) free(rex->r);
-  free(rex);
+  machine->ndfa = NULL; 
   return;
 }
+
+/* Function:  esl_regexp_Destroy()
+ * Incept:    SRE, Fri Jan  7 11:12:20 2005 [St. Louis]
+ *
+ * Purpose:   Destroy a machine created by <esl_regexp_Create()>.
+ *
+ * Returns:   (void)
+ */
+void
+esl_regexp_Destroy(ESL_REGEXP *machine)
+{
+  /* Spencer's clever alloc for the NDFA allows us to free it w/ free()  */
+  if (machine->ndfa != NULL) free(machine->ndfa); 
+  free(machine);
+  return;
+}
+
+/* Function:  esl_regexp_Deflate()
+ * Incept:    SRE, Fri Jan  7 11:20:36 2005 [St. Louis]
+ *
+ * Purpose:   Deallocate inside a <machine>, leaving only the shell.
+ *
+ * Returns:   (void)
+ */
+void
+esl_regexp_Deflate(ESL_REGEXP *machine)
+{
+  if (machine->ndfa != NULL) free(machine->ndfa); 
+  return;
+}
+
+
+/* Function:  esl_regexp_Match()
+ * Incept:    SRE, Fri Jan  7 11:24:02 2005 [St. Louis]
+ *
+ * Purpose:   Determine if string <s> matches the regular expression <pattern>,
+ *            using a <machine>.
+ *
+ * Returns:   <ESL_OK> if <pattern> matches <s>; 
+ *            <ESL_EOD> if it doesn't.
+ *            
+ * Throws:    <ESL_EMEM> on an allocation failure.
+ *            <ESL_EINVAL> if the <pattern> isn't a legal regexp.
+ */
+int
+esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s)
+{
+  int status;
+
+  /* 1. If the machine has an old NDFA, free it.
+   */
+  if (machine->ndfa != NULL) { free(machine->ndfa); machine->ndfa = NULL; }
+
+  /* 2. Call Spencer code to compile a new NDFA for this pattern.
+   */
+  if ((machine->ndfa = regcomp(pattern)) == NULL) ESL_ERROR(ESL_EINVAL, "regcomp() failed");
+  
+  /* 3. Call Spencer code to match the NDFA against the string.
+   */
+  return (regexec(machine->ndfa, s));
+}
+
 
 /* Function: Strparse()
  * 
@@ -136,30 +222,9 @@ Strparse(char *rexp, char *s, int ntok)
   return code;
 }
 
-/* Function: SqdClean()
- * Date:     SRE, Wed Oct 29 12:52:08 1997 [TWA 721]
- * 
- * Purpose:  Clean up any squid library allocations before exiting
- *           a program, so we don't leave unfree'd memory around
- *           and confuse a malloc debugger like Purify or dbmalloc.
- */
-void
-SqdClean(void)
-{
-  int i;
-
-  /* Free global substring buffers that Strparse() uses
-   */
-  for (i = 0; i <= 9; i++)
-    if (sqd_parse[i] != NULL) {
-      free(sqd_parse[i]);
-      sqd_parse[i] = NULL;
-    }
-}
-
-
-
-/* all code below is:
+/**************************************************************************************
+ **************************************************************************************
+ * This next big chunk of code is:
  * Copyright (c) 1986, 1993, 1995 by University of Toronto.
  * Written by Henry Spencer.  Not derived from licensed software.
  *
@@ -336,16 +401,15 @@ static void regoptail(struct comp *cp, char *p, char *val);
  * Beware that the optimization-preparation code in here knows about some
  * of the structure of the compiled regexp.
  */
-sqd_regexp *
+esl__regexp *
 regcomp(const char *exp)
 {
-	register sqd_regexp *r;
+	register esl__regexp *r;
 	register char *scan;
 	int flags;
 	struct comp co;
 
-	if (exp == NULL)
-		FAIL("NULL argument to regcomp");
+	if (exp == NULL) return NULL; 
 
 	/* First pass: determine size, legality. */
 	co.regparse = (char *)exp;
@@ -360,12 +424,12 @@ regcomp(const char *exp)
 
 	/* Small enough for pointer-storage convention? */
 	if (co.regsize >= 0x7fffL)	/* Probably could be 0xffffL. */
-		FAIL("regexp too big");
+	  return NULL;
 
 	/* Allocate space. */
-	r = (sqd_regexp *)malloc(sizeof(sqd_regexp) + (size_t)co.regsize);
+	r = (esl__regexp *)malloc(sizeof(esl__regexp) + (size_t)co.regsize);
 	if (r == NULL)
-		FAIL("out of space");
+	        ESL_ERROR_VAL(NULL, ESL_EMEM, "out of space");
 
 	/* Second pass: emit code. */
 	co.regparse = (char *)exp;
@@ -438,7 +502,7 @@ reg(register struct comp *cp, int paren, int *flagp)
 	if (paren) {
 		/* Make an OPEN node. */
 		if (cp->regnpar >= NSUBEXP)
-			FAIL("too many ()");
+		  return NULL; /* too many () */
 		parno = cp->regnpar;
 		cp->regnpar++;
 		ret = regnode(cp, OPEN+parno);
@@ -474,15 +538,14 @@ reg(register struct comp *cp, int paren, int *flagp)
 
 	/* Check for proper termination. */
 	if (paren && *cp->regparse++ != ')') {
-		FAIL("unterminated ()");
+	  return NULL; /* "unterminated ()" */
 	} else if (!paren && *cp->regparse != '\0') {
 		if (*cp->regparse == ')') {
-			FAIL("unmatched ()");
+		  ESL_ERROR_VAL(NULL, ESL_EINVAL, "unmatched ()");
 		} else
-			FAIL("internal error: junk on end");
+		  ESL_ERROR_VAL(NULL, ESL_EINVAL, "internal error: junk on end");
 		/* NOTREACHED */
 	}
-
 	return(ret);
 }
 
@@ -1301,6 +1364,14 @@ regerror(char *s)
   exit(EXIT_FAILURE);
   /* NOTREACHED */
 }
+/**************************************************************************************
+ * This ends the Spencer code.
+ **************************************************************************************/
+
+
+
+
+
 
 #ifdef NBA_TEAM_IN_STL
 int

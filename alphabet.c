@@ -41,7 +41,7 @@ esl_alphabet_Create(int type)
   case eslAMINO:  a = create_amino(); break;
   case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
-  default:        ESL_ERROR_NULL("Standard alphabets include only DNA, RNA, protein.");
+  default:        ESL_ERROR_VAL(NULL, ESL_EINVAL, "Standard alphabets include only DNA, RNA, protein.");
   }
   return a;
 }
@@ -81,8 +81,8 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 
   /* Argument checks.
    */
-  if (strlen(alphabet) != Kp) ESL_ERROR_NULL("alphabet length != Kp");
-  if (Kp < K+2)               ESL_ERROR_NULL("Kp too small in alphabet"); 
+  if (strlen(alphabet) != Kp) ESL_ERROR_VAL(NULL, ESL_EINVAL, "alphabet length != Kp");
+  if (Kp < K+2)               ESL_ERROR_VAL(NULL, ESL_EINVAL, "Kp too small in alphabet"); 
 
   /* Allocation.
    */
@@ -147,7 +147,7 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   if (a->ndegen   != NULL) free(a->ndegen);
  FAILURE1:
   if (a           != NULL) free(a);
-  ESL_ERROR_NULL("Failed to allocate alphabet.");
+  ESL_ERROR_VAL(NULL, ESL_EMEM, "Failed to allocate alphabet.");
 }
 
 
@@ -162,8 +162,7 @@ create_dna(void)
 
   /* Create the fundamental alphabet.
    */
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN", 4, 16)) == NULL) 
-    ESL_ERROR_NULL("Failed to create standard DNA alphabet");
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN", 4, 16)) == NULL) return NULL;
   a->type = eslDNA;
   
   /* Add desired synonyms in the input map.
@@ -201,8 +200,7 @@ create_rna(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN", 4, 16)) == NULL) 
-    ESL_ERROR_NULL("Failed to create standard RNA alphabet");
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN", 4, 16)) == NULL) return NULL;
   a->type = eslRNA;
   
   /* Add desired synonyms in the input map.
@@ -241,8 +239,7 @@ create_amino(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24)) == NULL)
-    ESL_ERROR_NULL("Failed to create standard amino alphabet");
+  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24)) == NULL) return NULL;
   a->type = eslAMINO;
   
   /* Add desired synonyms in the input map.

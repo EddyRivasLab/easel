@@ -14,15 +14,28 @@
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
  */
+
+/* ESL_ERROR(): 
+ * Most common.
+ * Send <code>, <mesg> to error handler; throw same <code>
+ * if error handler returns.
+ */
 #define ESL_ERROR(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
      return code; }\
      while (0)
 
-#define ESL_ERROR_NULL(mesg)  do {\
-     esl_error(ESL_EMEM, __FILE__, __LINE__, mesg);\
-     return NULL; }\
+/* ESL_ERROR_VAL():
+ * Used when we need to throw a value (such as NULL) that's not
+ * the same as our error code.
+ * Send <code>, <mesg> to error handler; throw <val> if
+ * error handler returns.
+ */
+#define ESL_ERROR_VAL(val, code, mesg)  do {\
+     esl_error(code, __FILE__, __LINE__, mesg);\
+     return val; }\
      while (0)
+
 
 #define ESL_OK         0	/* no error                     */
 #define ESL_EOL        1	/* end-of-line (often normal)   */

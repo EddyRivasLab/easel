@@ -35,14 +35,19 @@ struct esl__regexp {
 };
 
 
+/* This looks sort of stupid, wrapping a single ptr
+ * in a structure. The reason is that we want the machine
+ * to be persistent even if different NDFAs are compiled
+ * and used. Without this persistency, we would have
+ * to create/destroy every time we used a different pattern,
+ * instead of one create/destroy per block of code that
+ * uses regex matching functionaility.
+ *
+ * Plus, if we ever need to keep other persistent info 
+ * beyond Spencer's compiled NDFA, we have a place for it.
+ */
 struct esl_regexp_s {
-  struct esl__regexp *r;	 /* a compiled regexp */
-
-  /* We maintain internal allocated buffers to temporarily 
-   * hold matched substrings.
-   */
-  char *submatch[ESL_REX_NSUBEXP];
-  int   alloc[ESL_REX_NSUBEXP];
+  struct esl__regexp *ndfa;	 /* a compiled regexp */
 };
 typedef struct esl_regexp_s ESL_REGEXP;
 

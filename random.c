@@ -36,8 +36,8 @@ esl_randomness_Create(long seed)
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if (seed <= 0)                                    ESL_ERROR_NULL("bad seed");
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL("malloc failed");
+  if (seed <= 0)                                    ESL_ERROR_VAL(NULL, ESL_EINVAL, "bad seed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_VAL(NULL, ESL_EMEM,   "malloc failed");
   r->seed = seed;
 
   /* we observe that the first random number isn't very random, if
@@ -68,7 +68,7 @@ esl_randomness_CreateTimeseeded(void)
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL("malloc failed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_VAL(NULL, ESL_EMEM, "malloc failed");
   r->seed = time ((time_t *) NULL);
   while (burnin--) esl_random(r);
   return r;

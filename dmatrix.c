@@ -50,7 +50,7 @@ esl_dmatrix_Create(int n, int m)
   
  FAILURE:
   esl_dmatrix_Destroy(A);
-  ESL_ERROR_NULL("esl_dmx_Create(): malloc failed");
+  ESL_ERROR_VAL(NULL, ESL_EMEM, "esl_dmx_Create(): malloc failed");
 }
 
 
@@ -229,7 +229,7 @@ esl_permutation_Create(int n)
 
  FAILURE:
   esl_permutation_Free(P);
-  ESL_ERROR_NULL("esl_permutation_Create: malloc failed");
+  ESL_ERROR_VAL(NULL, ESL_EMEM, "esl_permutation_Create: malloc failed");
 }
   
 /* Function:  esl_permutation_Destroy()
