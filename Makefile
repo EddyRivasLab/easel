@@ -6,8 +6,10 @@ RANLIB  = ranlib
 
 HEADERS = \
 	bioparse_paml.h\
+	dirichlet.h\
 	dmatrix.h\
 	easel.h\
+	gamma.h\
 	interface_gsl.h\
 	interface_lapack.h\
 	parse.h\
@@ -17,8 +19,10 @@ HEADERS = \
 
 OBJS    = \
 	bioparse_paml.o\
+	dirichlet.o\
 	dmatrix.o\
 	easel.o\
+	gamma.o\
 	interface_gsl.o\
 	interface_lapack.o\
 	parse.o\

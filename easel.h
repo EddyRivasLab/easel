@@ -67,5 +67,9 @@ extern void *esl_realloc(char *file, int line, void *p, size_t size);
 #define FALSE 0
 #endif
 
+/* Some basic constants.
+ */
+#define ESL_CONSTANT_E    2.71828182845904523536028747135
+#define ESL_CONSTANT_PI   3.14159265358979323846264338328
 
 #endif /*ESL_EASEL_INCLUDED*/

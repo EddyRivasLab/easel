@@ -7,7 +7,10 @@
 #ifndef ESL_RATEMATRIX_INCLUDED
 #define ESL_RATEMATRIX_INCLUDED
 
-extern int esl_ratemx_Symm2Q(ESL_DMATRIX *s, double *pi, ESL_DMATRIX **ret_Q);
+extern int esl_ratemx_Symm2Q(ESL_DMATRIX *s, double *pi, ESL_DMATRIX *Q);
 extern int esl_ratemx_Normalize(ESL_DMATRIX *Q, double *pi, double x);
+extern int esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P);
+
+extern ESL_DMATRIX *esl_ratemx_CreateHKY(double *f, double alpha, double beta);
 
 #endif /*ESL_RATEMATRIX_INCLUDED*/

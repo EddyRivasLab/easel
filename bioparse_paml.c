@@ -40,9 +40,11 @@
  *                     lower triangular only (only j<i valid),
  *                     in Easel order "ACDEFGHIKLMNPQRSTVWY".
  *                     Allocated here; caller must free.
+ *                     Pass NULL if not wanted.
  *            ret_pi - RETURN: \pi_i vector of amino acid frequencies,
  *                     in Easel order "ACDEFGHIKLMNPQRSTVWY". 
  *                     Allocated here; caller must free.
+ *                     Pass NULL if not wanted.
  *
  * Returns:   ESL_OK on success;
  *              s, pi are allocated here, caller is responsible for freeing.

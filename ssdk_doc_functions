@@ -115,11 +115,6 @@ parse_function_documentation
 	# Remove leading comment symbols and spacing.
 	$comment =~ s| \*[ \t]*||g;
 	
-	# protect _ characters
-	$function[$n]   = &latex_safe($function[$n]);
-	$returntype[$n] = &latex_safe($returntype[$n]);
-	$args[$n]       = &latex_safe($args[$n]);
-
 	# Now, grab all the individual blocks of info from a structured
         # function header comment. Required fields:
         #       Function:
@@ -145,6 +140,11 @@ parse_function_documentation
 
 	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = $1; }
 	else {$throws[$n] = ""; }
+
+	# protect _ characters
+	$function[$n]   = &latex_safe($function[$n]);
+	$returntype[$n] = &latex_safe($returntype[$n]);
+	$args[$n]       = &latex_safe($args[$n]);
 
 	$n++;
     }

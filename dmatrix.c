@@ -384,6 +384,27 @@ esl_dmx_Scale(ESL_DMATRIX *A, double k)
   return ESL_OK;
 }
 
+
+/* Function:  esl_dmx_AddScale()
+ * 
+ * Purpose:   Calculates $A + kB$, leaves answer in <A>.
+ * 
+ * Throws:    <ESL_EINVAL> if matrices aren't the same dimensions.
+ */
+int
+esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
+{
+  int i,j;
+
+  if (A->n != B->n || A->m != B->n)
+    ESL_ERROR(ESL_EINCOMPAT, "matrices of different size");
+  for (i = 0; i < A->n; i++)
+    for (j = 0; j < A->m; j++)
+      A->mx[i][j] +=  k * B->mx[i][j];
+  return ESL_OK;
+}
+
+
 /* Function:  esl_dmx_Permute_PA()
  *
  * Purpose:   Computes <B = PA>: do a row-wise permutation of a square
