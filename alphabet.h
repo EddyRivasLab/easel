@@ -7,7 +7,7 @@
 
 /* Flags for alphabet types.
  */
-#define eslUNKNOWN     0
+#define eslUNKNOWN     0 /* 0 = unknown is a convention for other modules; don't change */
 #define eslRNA         1
 #define eslDNA         2		
 #define eslAMINO       3		

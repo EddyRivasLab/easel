@@ -8,7 +8,8 @@
 #define ESL_EASEL_INCLUDED
 
 #include <stdlib.h>
-#include <stdarg.h>
+#include <stdio.h>		/* for FILE */
+#include <stdarg.h>		/* for va_list */
 
 
 /* Error handling.
@@ -59,9 +60,10 @@ extern void esl_error_ResetDefaultHandler(void);
 extern void  esl_Free2D(void  **p, int dim1);
 extern void  esl_Free3D(void ***p, int dim1, int dim2);
 
-extern char *esl_strdup(char *s, int n);
-extern int   esl_fgets(char **buf, int *n, FILE *fp);
-extern int   esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+extern int esl_strdup(char *s, int n, char **ret_dup);
+extern int esl_strcat(char **dest, int ldest, char *src, int lsrc);
+extern int esl_fgets(char **buf, int *n, FILE *fp);
+extern int esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 
 extern int esl_FileExists(char *filename);
 extern int esl_FileConcat(char *dir, char *file, char **ret_path);
@@ -70,22 +72,22 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 			   FILE **ret_fp, char **ret_path);
 
 
-#define ESL_MALLOC(p, size) {\
+#define ESL_MALLOC(p, size) do {\
      (p) = malloc(size);\
      if ((p) == NULL) {\
        esl_error(ESL_EMEM, __FILE__, __LINE__, "malloc failed");\
        return ESL_EMEM;\
-     }}
+     }} while (0)
 
 /* See esl_msa_Expand() for first use example.
  */
-#define ESL_REALLOC(p, tmp, newsize) {\
+#define ESL_REALLOC(p, tmp, newsize) do {\
      (tmp) = realloc((p), (newsize));\
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
        esl_error(ESL_EMEM, __FILE__, __LINE__, "realloc failed");\
        return ESL_EMEM;\
-     }}
+     }} while (0)
 
 
 /* Making sure TRUE/FALSE are defined, for convenience
@@ -99,7 +101,6 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 
 /* Some basic constants.
  */
-#define eslWHITESPACE    " \t\n\r"
 #define eslCONSTANT_E    2.71828182845904523536028747135
 #define eslCONSTANT_PI   3.14159265358979323846264338328
 
@@ -124,6 +125,5 @@ extern int esl_FileEnvOpen(char *fname, char *env,
  */
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
  
-
 
 #endif /*ESL_EASEL_INCLUDED*/

@@ -98,7 +98,6 @@ esl_gamma_log(double x, double *ret_answer)
 int
 esl_gamma_sample(ESL_RANDOMNESS *r, double a, double *ret_answer)
 {
-  double part1, part2;
   double aint;
 
   if (a <= 0.) ESL_ERROR(ESL_EINVAL, "a <= 0 in esl_gamma_Sample()");
@@ -124,7 +123,7 @@ gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
   
   do {
     do {				/* generate candidate X */
-      Y = tan(ESL_CONSTANT_PI * esl_random(r)); 
+      Y = tan(eslCONSTANT_PI * esl_random(r)); 
       X = Y * sqrt(2.*a -1.) + a - 1.;
     } while (X <= 0.);
 				/* accept/reject X */
@@ -141,7 +140,7 @@ gamma_integer(ESL_RANDOMNESS *r, unsigned int a)	/* for small integer a, a < 12 
 
   U = 1.;
   for (i = 0; i < a; i++) 
-    U *= esl_random_positive(r);
+    U *= esl_rnd_UniformPositive(r);
   X = -log(U);
 
   return X;
@@ -151,10 +150,10 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
 {				/* Knuth 3.4.1, exercise 16, pp. 586-587 */
   double p, U, V, X, q;
   
-  p = ESL_CONSTANT_E / (a + ESL_CONSTANT_E);
+  p = eslCONSTANT_E / (a + eslCONSTANT_E);
   do {
     U = esl_random(r);
-    V = esl_random_positive(r);
+    V = esl_rnd_UniformPositive(r);
     if (U < p) {
       X = pow(V, 1./a);
       q = exp(-X);

@@ -14,6 +14,7 @@ HEADERS = \
 	getopts.h\
 	interface_gsl.h\
 	interface_lapack.h\
+	msa.h\
 	parse.h\
 	random.h\
 	ratematrix.h\
@@ -32,6 +33,7 @@ OBJS    = \
 	getopts.o\
 	interface_gsl.o\
 	interface_lapack.o\
+	msa.o\
 	parse.o\
 	random.o\
 	ratematrix.o\

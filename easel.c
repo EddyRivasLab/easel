@@ -101,30 +101,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
 
 
 
-/* Function: esl_strdup()
- * Date:     SRE, Wed May 19 17:57:28 1999 [St. Louis]
- *
- * Purpose: Returns a duplicate of string <s>. A version of the common
- *          but non-ANSI strdup() function. Can pass length <n>, if it's known,
- *          to save a strlen() call; else pass -1 to have the string length
- *          determined.
- *
- * Args:     s  - string to duplicate (NUL-terminated)
- *           n  - length of string, if known; -1 if unknown.
- *                
- * Returns:  allocated copy of string; NULL on failure.
- */
-char *
-esl_strdup(char *s, int n)
-{
-  char *new;
 
-  if (s == NULL) return NULL;
-  if (n < 0) n = strlen(s);
-  if ((new = malloc(sizeof(char) * (n+1))) == NULL) return NULL;
-  strcpy(new, s);
-  return new;
-}
 
 
 /* Function: esl_fgets()
@@ -219,6 +196,92 @@ esl_fgets(char **buf, int *n, FILE *fp)
   return ESL_OK;
 }
 
+/* Function: esl_strdup()
+ * Date:     SRE, Wed May 19 17:57:28 1999 [St. Louis]
+ *
+ * Purpose: Makes a duplicate of string <s>, puts it in <ret_dup>.
+ *          Caller can pass string length <n>, if it's known,
+ *          to save a strlen() call; else pass -1 to have the string length
+ *          determined.
+ *
+ * Args:     s       - string to duplicate (NUL-terminated)
+ *           n       - length of string, if known; -1 if unknown.
+ *           ret_dup - RETURN: duplicate of <s>.
+ *                
+ * Returns:  <ESL_OK> on success, and <ret_dup> is valid.
+ *
+ * Throws:   <ESL_EMEM> on allocation failure.
+ */
+int
+esl_strdup(char *s, int n, char **ret_dup)
+{
+  char *new;
+
+  if (ret_dup != NULL) *ret_dup = NULL;
+  if (s == NULL) return ESL_OK;
+  if (n < 0) n = strlen(s);
+  if ((new = malloc(sizeof(char) * (n+1))) == NULL) 
+    ESL_ERROR(ESL_EMEM, "malloc failed in esl_strdup()");
+  strcpy(new, s);
+  if (ret_dup != NULL) *ret_dup = new; else free(new);
+  return ESL_OK;
+}
+
+
+/* Function: esl_strcat()
+ * Date:     SRE, Thu May 13 09:36:32 1999 [St. Louis]
+ *
+ * Purpose:  Dynamic memory version of strcat().
+ *           Appends <src> to the string that <dest> points to,
+ *           extending allocation for dest if necessary. Caller
+ *           can optionally provide the length of <*dest> in
+ *           <ldest>, and the length of <src> in <lsrc); if 
+ *           either of these is -1, <esl_strcat()> calls <strlen()>
+ *           to determine the length. Providing length information,
+ *           if known, accelerates the routine.
+ *           
+ *           <*dest> may be NULL, in which case this is equivalent
+ *           to a <strdup()> of <src> (that is, <*dest> is malloc'ed
+ *           rather than realloc'ed). 
+ *           
+ *           <src> may be NULL, in which case <dest> is unmodified.
+ *           
+ * Note:     One timing experiment (100 successive appends of 
+ *           1-255 char) shows sre_strcat() has about a 20%
+ *           overhead relative to strcat(). If optional
+ *           length info is passed, sre_strcat() is about 30%
+ *           faster than strcat().
+ *           
+ * Args:     dest  - ptr to string (char **), '\0' terminated
+ *           ldest - length of dest, if known; or -1 if length unknown.
+ *           src   - string to append to dest, '\0' terminated       
+ *           lsrc  - length of src, if known; or -1 if length unknown.
+ *
+ * Returns:  <ESL_OK> on success; <*dest> is (probably) reallocated, 
+ *           modified, and '\0' terminated.
+ *           
+ * Throws:   <ESL_EMEM> on allocation failure.          
+ */
+int
+esl_strcat(char **dest, int ldest, char *src, int lsrc)
+{
+  void *p;
+  int   len1, len2;
+
+  if (ldest < 0) len1 = ((*dest == NULL) ? 0 : strlen(*dest));
+  else           len1 = ldest;
+
+  if (lsrc < 0)  len2 = ((  src == NULL) ? 0 : strlen(src)); 
+  else           len2 = lsrc;
+
+  if (len2 == 0) return ESL_OK;
+
+  if (*dest == NULL) ESL_MALLOC(*dest, sizeof(char) * (len2+1));
+  else               ESL_REALLOC(*dest, p, sizeof(char) * (len1+len2+1));
+
+  memcpy((*dest)+len1, src, len2+1);
+  return ESL_OK;
+}
 
 /* Function: esl_strtok()
  * Date:     SRE, Wed May 19 16:30:20 1999 [St. Louis]
@@ -362,7 +425,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
   int   nd, nf;
 
   if (ret_path != NULL) *ret_path = NULL;
-  if (nf == NULL) ESL_ERROR(ESL_EINVAL, "null file");
+  if (file == NULL) ESL_ERROR(ESL_EINVAL, "null file");
 
   nd   = (dir  != NULL)? strlen(dir)  : 0;
   nf   = strlen(file);
@@ -423,7 +486,7 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
   strcpy(new+nf+1, sfx);
 
   if (ret_newpath != NULL) *ret_newpath = new; else free(new);
-  return new;
+  return ESL_OK;
 }
 
 
@@ -483,8 +546,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
 
   if (env == NULL)               return ESL_ENOTFOUND;
   if ((s = getenv(env)) == NULL) return ESL_ENOTFOUND;
-  if ((dirlist = esl_strdup(s, -1)) == NULL) /* need a modifiable copy */
-    ESL_ERROR(ESL_EMEM, "malloc failed");
+  if (esl_strdup(s, -1, &dirlist) != ESL_OK) return ESL_EMEM;
 
   np   = strlen(fname) + strlen(s) + 2; /* upper bound on full path len */
   path = malloc(sizeof(char) * np);
@@ -500,8 +562,8 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
     }
   if (fp == NULL) { free(path); free(dirlist); return ESL_ENOTFOUND; }
 
-  if (ret_dir != NULL) { *ret_dir = path; } else free(path);
-  if (ret_fp  != NULL) { *ret_fp  = fp; }   else fclose(fp);
+  if (ret_path != NULL) { *ret_path = path; } else free(path);
+  if (ret_fp   != NULL) { *ret_fp   = fp; }   else fclose(fp);
   free(dirlist);
   return ESL_OK;
 }

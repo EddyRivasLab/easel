@@ -33,11 +33,11 @@ typedef struct {
   float *wgt;	                /* sequence weights [0..nseq-1]             */
   int    alen;			/* length of alignment (columns)            */
   int    nseq;			/* number of seqs in alignment              */
+  int    flags;			/* flags for what info has been set         */
 
-  /* Optional information that we understand, and might have.
+  /* Optional information that we understand, and that we might have.
    * (The occasionally useful stuff.)
    */
-  int    flags;			/* flags for what optional info is valid    */
   int    type;			/* eslRNA, eslDNA, eslAMINO, eslNONSTANDARD */
   char  *name;             	/* name of alignment, or NULL               */
   char  *desc;	                /* description of alignment, or NULL        */
@@ -50,13 +50,12 @@ typedef struct {
   char **sqdesc;		/* description lines for sequences i        */
   char **ss;                    /* per-seq secondary structures, or NULL    */
   char **sa;                    /* per-seq surface accessibilities, or NULL */
-  float  cutoff[eslMSA_MAXCUTS];/* NC/TC/GA cutoffs propagated to Pfam/Rfam */
-  int    cutset[eslMSA_MAXCUTS];/* TRUE if a cutoff is set; else FALSE      */
+  float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam */
+  int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE      */
 
   /* Info needed for maintenance of the data structure
    * (The hidden internal stuff.)
    */
-  GKI   *index;		        /* name ->seqidx hash table */
   int    sqalloc;		/* # seqs currently allocated for   */
   int   *sqlen;                 /* individual seq lengths during parsing    */
   int   *sslen;                 /* individual ss lengths during parsing     */
@@ -82,24 +81,26 @@ typedef struct {
   int     ngf;			/* number of unparsed #=GF lines        */
   int     alloc_ngf;		/* number of gf lines alloc'ed          */
 
-#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
   char  **gs_tag;               /* markup tags for unparsed #=GS lines     */
   char ***gs;                   /* [0..ngs-1][0..nseq-1][free text] markup */
-  GKI    *gs_idx;               /* hash of #=GS tag types                  */
   int     ngs;                  /* number of #=GS tag types                */
   
   char  **gc_tag;               /* markup tags for unparsed #=GC lines  */
   char  **gc;                   /* [0..ngc-1][0..alen-1] markup         */
-  GKI    *gc_idx;               /* hash of #=GC tag types               */
   int     ngc;                  /* number of #=GC tag types             */
 
   char  **gr_tag;               /* markup tags for unparsed #=GR lines   */
   char ***gr;                   /* [0..ngr][0..nseq-1][0..alen-1] markup */
-  GKI    *gr_idx;               /* hash of #=GR tag types                */
   int     ngr;			/* number of #=GR tag types              */
+
+#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
+  GKI    *index;	        /* name ->seqidx hash table */
+  GKI    *gs_idx;               /* hash of #=GS tag types   */
+  GKI    *gc_idx;               /* hash of #=GC tag types   */
+  GKI    *gr_idx;               /* hash of #=GR tag types   */
 #endif /*KEYHASH AUGMENTATION*/
 
-} MSA;
+} ESL_MSA;
 
 /* Flags for msa->flags
  */
@@ -141,7 +142,17 @@ typedef struct {
 #define eslMSAFILE_STOCKHOLM 101  /* Pfam/Rfam Stockholm format              */
 
 
+/* Declarations of the API
+ */
+extern ESL_MSA *esl_msa_Create(int nseq, int alen);
+extern void     esl_msa_Destroy(ESL_MSA *msa);
+extern int      esl_msa_Expand(ESL_MSA *msa);
 
+extern int  esl_msafile_Open(char *filename, int format, char *env, 
+			     ESL_MSAFILE **ret_msafp);
+extern void esl_msafile_Close(ESL_MSAFILE *afp);
+
+extern int esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 
 
 

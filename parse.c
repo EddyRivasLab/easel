@@ -132,7 +132,7 @@ esl_fileparse_token(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
 
   do {
     goodtok = FALSE;
-    tokcode = esl_parse_strtok(&(efp->s), " \t\n", &tok, &toklen);
+    tokcode = esl_strtok(&(efp->s), " \t\n", &tok, &toklen);
     if (tokcode == ESL_EOL ||
 	(tokcode == ESL_OK && *tok == efp->commentchar)) 
       {

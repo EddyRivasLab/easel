@@ -246,7 +246,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
 
   if ((sqfp->fp = fopen(seqfile,"r")) == NULL) 
     { free(sqfp); return ESL_ENOTFOUND; }
-  if ((sqfp->filename = esl_strdup(seqfile, -1)) == NULL) 
+  if (esl_strdup(seqfile, -1, &(sqfp->filename)) != ESL_OK) 
     { esl_sqfile_Close(sqfp); ESL_ERROR(ESL_EMEM, "allocation failed"); }
 
   /* Create an appropriate default input map for FASTA files.
