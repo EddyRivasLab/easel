@@ -13,44 +13,38 @@
 
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
- */
-
-/* ESL_ERROR(): 
- * Most common.
- * Send <code>, <mesg> to error handler; throw same <code>
- * if error handler returns.
+ *
+ * Wrapping in the while(0) loop allows one to write
+ *  if (something) ESL_ERROR(code,mesg); 
+ * without the trailing semicolon being a null statement
+ * after macro expansion.
  */
 #define ESL_ERROR(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
      return code; }\
      while (0)
 
-/* ESL_ERROR_VAL():
- * Used when we need to throw a value (such as NULL) that's not
- * the same as our error code.
- * Send <code>, <mesg> to error handler; throw <val> if
- * error handler returns.
- */
-#define ESL_ERROR_VAL(val, code, mesg)  do {\
+#define ESL_ERROR_NULL(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
-     return val; }\
+     return NULL; }\
      while (0)
 
 
-#define ESL_OK         0	/* no error                     */
-#define ESL_EOL        1	/* end-of-line (often normal)   */
-#define ESL_EOF        2	/* end-of-file (often normal)   */
-#define ESL_EMEM       3	/* malloc or realloc failed     */
-#define ESL_ENOFILE    4	/* file not found               */
-#define ESL_EFORMAT    5	/* file format not recognized   */
-#define ESL_EPARAM     6	/* bad parameter passed to func */
-#define ESL_EDIVZERO   7	/* attempted div by zero        */
-#define ESL_EINCOMPAT  8	/* incompatible parameters      */
-#define ESL_EINVAL     9	/* invalid argument             */
-#define ESL_ETESTFAIL  10	/* calculated test failure      */
-#define ESL_ESYSTEM    11	/* generic system call failure  */
-#define ESL_EOD        12 	/* end-of-data (often normal)   */
-#define ESL_EUNKNOWN   127      /* generic error, unidentified  */
+
+#define ESL_OK           0	/* no error/success/TRUE        */
+#define ESL_EOL          1	/* end-of-line (often normal)   */
+#define ESL_EOF          2	/* end-of-file (often normal)   */
+#define ESL_EOD          3 	/* end-of-data (often normal)   */
+#define ESL_EMEM         4	/* malloc or realloc failed     */
+#define ESL_ENOFILE      5	/* file not found               */
+#define ESL_EFORMAT      6	/* file format not correct      */
+#define ESL_EDIVZERO     8	/* attempted div by zero        */
+#define ESL_EINCOMPAT    9	/* incompatible parameters      */
+#define ESL_EINVAL      10	/* invalid argument/parameter   */
+#define ESL_ESYS        11	/* generic system call failure  */
+#define ESL_ECORRUPT    12	/* unexpected data corruption   */
+#define ESL_ELOGIC      13      /* "can't happen" logic error   */
+#define ESL_ESYNTAX     14      /* invalid syntax in input data */
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;

@@ -5,6 +5,7 @@
 APITEX =  alphabet\
 	  easel\
 	  random\
+	  regexp\
 	  sqio\
 	  stack
 
@@ -16,6 +17,7 @@ APITEX =  alphabet\
 AUTOTEX = alphabet\
 	  dmatrix\
 	  random\
+	  regexp\
 	  sqio\
 	  stack
 
@@ -30,5 +32,5 @@ autodoc:
 	done
 
 clean:
-	-rm *~ main.log main.out main.pdf
+	-rm *~ main.log main.out main.pdf main.aux main.toc
 	-rm autotext/*.tex

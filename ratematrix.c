@@ -184,7 +184,7 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
   int i,j;
 
   if ((Q = esl_dmatrix_Create(4, 4)) == NULL)
-    ESL_ERROR_VAL(NULL, ESL_EMEM, "malloc failed");   
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");   
   
   for (i = 0; i < 4; i++)
     {

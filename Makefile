@@ -16,6 +16,7 @@ HEADERS = \
 	parse.h\
 	random.h\
 	ratematrix.h\
+	regexp.h\
 	sqio.h\
 	stack.h\
 	vectorops.h
@@ -32,6 +33,7 @@ OBJS    = \
 	parse.o\
 	random.o\
 	ratematrix.o\
+	regexp.o\
 	sqio.o\
 	stack.o\
 	vectorops.o

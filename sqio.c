@@ -32,7 +32,7 @@ esl_sq_Create(void)
 {
   ESL_SQ *sq;
 
-  if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    ESL_ERROR_VAL(NULL, ESL_EMEM, "malloc failed");
+  if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
   if (esl_sq_Inflate(sq) != ESL_OK) { free(sq); return NULL; }
 
   return sq;

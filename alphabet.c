@@ -41,7 +41,7 @@ esl_alphabet_Create(int type)
   case eslAMINO:  a = create_amino(); break;
   case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
-  default:        ESL_ERROR_VAL(NULL, ESL_EINVAL, "Standard alphabets include only DNA, RNA, protein.");
+  default:        ESL_ERROR_NULL(ESL_EINVAL, "Standard alphabets include only DNA, RNA, protein.");
   }
   return a;
 }
@@ -81,8 +81,8 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 
   /* Argument checks.
    */
-  if (strlen(alphabet) != Kp) ESL_ERROR_VAL(NULL, ESL_EINVAL, "alphabet length != Kp");
-  if (Kp < K+2)               ESL_ERROR_VAL(NULL, ESL_EINVAL, "Kp too small in alphabet"); 
+  if (strlen(alphabet) != Kp) ESL_ERROR_NULL(ESL_EINVAL, "alphabet length != Kp");
+  if (Kp < K+2)               ESL_ERROR_NULL(ESL_EINVAL, "Kp too small in alphabet"); 
 
   /* Allocation.
    */
@@ -147,7 +147,7 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   if (a->ndegen   != NULL) free(a->ndegen);
  FAILURE1:
   if (a           != NULL) free(a);
-  ESL_ERROR_VAL(NULL, ESL_EMEM, "Failed to allocate alphabet.");
+  ESL_ERROR_NULL(ESL_EMEM, "Failed to allocate alphabet.");
 }
 
 
