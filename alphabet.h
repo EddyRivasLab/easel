@@ -7,6 +7,7 @@
 
 /* Flags for alphabet types.
  */
+#define eslUNKNOWN     0
 #define eslRNA         1
 #define eslDNA         2		
 #define eslAMINO       3		

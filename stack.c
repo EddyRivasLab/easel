@@ -64,12 +64,14 @@ esl_stack_ICreate(void)
 {
   ESL_STACK *ns;
   
-  if ((ns = ESL_MALLOC(sizeof(ESL_STACK))) == NULL) return NULL;
+  if ((ns = malloc(sizeof(ESL_STACK))) == NULL) 
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
 
   ns->nalloc   = ESL_STACK_INITALLOC;
   ns->pdata    = NULL;
   ns->cdata    = NULL;
-  if ((ns->idata = ESL_MALLOC(sizeof(int) * ns->nalloc)) == NULL) { free(ns); return NULL; }
+  if ((ns->idata = malloc(sizeof(int) * ns->nalloc)) == NULL)
+    { free(ns); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
   ns->n        = 0;
   return ns;
 }
@@ -88,11 +90,14 @@ esl_stack_CCreate(void)
 {
   ESL_STACK *cs;
   
-  if ((cs = ESL_MALLOC(sizeof(ESL_STACK))) == NULL) return NULL;
+  if ((cs = malloc(sizeof(ESL_STACK))) == NULL) 
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+
   cs->nalloc   = ESL_STACK_INITALLOC;
   cs->idata    = NULL;
   cs->pdata    = NULL;
-  if ((cs->cdata = ESL_MALLOC(sizeof(char) * cs->nalloc)) == NULL) { free(cs); return NULL; }
+  if ((cs->cdata = malloc(sizeof(char) * cs->nalloc)) == NULL)
+    { free(cs); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
   cs->n        = 0;
   return cs;
 }
@@ -111,12 +116,15 @@ esl_stack_PCreate(void)
 {
   ESL_STACK *ps;
   
-  if ((ps = ESL_MALLOC(sizeof(ESL_STACK))) == NULL) return NULL;
+  if ((ps = malloc(sizeof(ESL_STACK))) == NULL)
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
 
   ps->nalloc   = ESL_STACK_INITALLOC;
   ps->idata    = NULL;
   ps->cdata    = NULL;
-  if ((ps->pdata = ESL_MALLOC(sizeof(void *) * ps->nalloc)) == NULL) { free(ps); return NULL; }
+
+  if ((ps->pdata = malloc(sizeof(void *) * ps->nalloc)) == NULL)
+    { free(ps); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
   ps->n        = 0;
   return ps;
 }
@@ -168,8 +176,9 @@ esl_stack_IPush(ESL_STACK *ns, int x)
 
   if (ns->n == ns->nalloc) {
     ns->nalloc += ns->nalloc;	/* reallocate by doubling */
-    ptr = ESL_REALLOC(ns->idata, sizeof(int) * ns->nalloc);
-    if (ptr == NULL) return ESL_EMEM; else ns->idata = ptr;
+    ptr = realloc(ns->idata, sizeof(int) * ns->nalloc);
+    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed"); 
+    ns->idata = ptr;
   }
   ns->idata[ns->n] = x;
   ns->n++;
@@ -192,8 +201,9 @@ esl_stack_CPush(ESL_STACK *cs, char c)
 
   if (cs->n == cs->nalloc) {
     cs->nalloc += cs->nalloc;	/* reallocate by doubling */
-    ptr = ESL_REALLOC(cs->cdata, sizeof(char) * cs->nalloc);
-    if (ptr == NULL) return ESL_EMEM; else cs->cdata = ptr;
+    ptr = realloc(cs->cdata, sizeof(char) * cs->nalloc);
+    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed"); 
+    cs->cdata = ptr;
   }
   cs->cdata[cs->n] = c;
   cs->n++;
@@ -216,8 +226,9 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
 
   if (ps->n == ps->nalloc) {
     ps->nalloc += ps->nalloc;	/* reallocate by doubling */
-    ptr = ESL_REALLOC(ps->pdata, sizeof(void *) * ps->nalloc);
-    if (ptr == NULL) return ESL_EMEM; else ps->pdata = ptr;
+    ptr = realloc(ps->pdata, sizeof(void *) * ps->nalloc);
+    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed");
+    ps->pdata = ptr;
   }
   ps->pdata[ps->n] = p;
   ps->n++;

@@ -46,29 +46,58 @@ esl_error(int code, char *file, int line, char *format, ...)
   }
 }
 
-void *
-esl_malloc(char *file, int line, size_t size)
-{
-  void *ptr;
 
-  if ((ptr = malloc (size)) == NULL) {
-    esl_error(ESL_EMEM, file, line, "malloc of %ld bytes failed\n");
-    return NULL;
+
+/* Function:  esl_Free2D()
+ * Incept:    squid's Free2DArray(), 1999.
+ *
+ * Purpose:   Free a 2D pointer array <p>, where first dimension is
+ *            <dim1>. (That is, the array is <p[0..dim1-1][]>.)
+ *            Tolerates any of the pointers being NULL, to allow
+ *            sparse arrays.
+ *
+ * Returns:   void.
+ */
+void
+esl_Free2D(void **p, int dim1)
+{
+  int i;
+
+  if (p != NULL) {
+    for (i = 0; i < dim1; i++)
+      if (p[i] != NULL) free(p[i]);
+    free(p);
   }
-  return ptr;
+  return;
 }
 
-void *
-esl_realloc(char *file, int line, void *p, size_t size)
+/* Function:  esl_Free3D()
+ * Incept:    squid's Free3DArray(), 1999.
+ *
+ * Purpose:   Free a 3D pointer array <p>, where first and second
+ *            dimensions are <dim1>,<dim2>. (That is, the array is
+ *            <p[0..dim1-1][0..dim2-1][]>.) Tolerates any of the
+ *            pointers being NULL, to allow sparse arrays.
+ *
+ * Returns:   void.
+ */
+void
+esl_Free3D(void ***p, int dim1, int dim2)
 {
-  void *ptr;
+  int i, j;
 
-  if ((ptr = realloc(p, size)) == NULL) {
-    esl_error(ESL_EMEM, file, line, "realloc of %ld bytes failed\n", size);
-    return NULL;
+  if (p != NULL) {
+    for (i = 0; i < dim1; i++)
+      if (p[i] != NULL) {
+        for (j = 0; j < dim2; j++)
+          if (p[i][j] != NULL) free(p[i][j]);
+        free(p[i]);
+      }
+    free(p);
   }
-  return ptr;
 }
+
+
 
 
 /* Function: esl_strdup()

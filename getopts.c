@@ -17,9 +17,11 @@
 
 /* Forward declarations of private functions.
  */
-static int set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc);
+static int set_option(ESL_GETOPTS *g, int opti, char *optarg, 
+		      int setby, int do_alloc);
 static int get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti);
-static int get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti);
+static int get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, 
+			     int *ret_opti);
 static int esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
 static int process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
 static int process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
@@ -53,7 +55,9 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
   ESL_GETOPTS *g;
   int i;
 
-  if ((g = malloc(sizeof(ESL_GETOPTS))) == NULL) goto FAILURE;
+  if ((g = malloc(sizeof(ESL_GETOPTS))) == NULL) 
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+
   g->opt       = opt;
   g->argc      = 0;
   g->argv      = NULL;
@@ -78,9 +82,13 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
    * that only happens in config files; not in defaults, cmdline,
    * or environment.
    */
-  if ((g->val    = malloc(sizeof(char *) * g->nopts)) == NULL) goto FAILURE;
-  if ((g->setby  = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
-  if ((g->valloc = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
+  if ((g->val    = malloc(sizeof(char *) * g->nopts)) == NULL) 
+    { esl_getopts_Destroy(g); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+  if ((g->setby  = malloc(sizeof(int)    * g->nopts)) == NULL) 
+    { esl_getopts_Destroy(g); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+  if ((g->valloc = malloc(sizeof(int)    * g->nopts)) == NULL) 
+    { esl_getopts_Destroy(g); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+
   for (i = 0; i < g->nopts; i++) 
     {
       g->val[i]    = g->opt[i].defval;
@@ -95,15 +103,7 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
     if (verify_type_and_range(g, i, g->val[i], eslARG_SETBY_DEFAULT) != ESL_OK)
       { esl_getopts_Destroy(g); return NULL; }
 
-  /* Normal return.
-   */
   return g;
-
-  /* Abnormal return, on any alloc failure.
-   */
- FAILURE:
-  esl_getopts_Destroy(g);
-  ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
 }
 
 /* Function:  esl_getopts_Destroy()

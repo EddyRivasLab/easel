@@ -12,13 +12,13 @@
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
  */
-#define eslMSA_CUTOFF_TC1 0
-#define eslMSA_CUTOFF_TC2 1
-#define eslMSA_CUTOFF_GA1 2
-#define eslMSA_CUTOFF_GA2 3
-#define eslMSA_CUTOFF_NC1 4
-#define eslMSA_CUTOFF_NC2 5
-#define eslMSA_MAXCUTS    6
+#define eslMSA_TC1     0
+#define eslMSA_TC2     1
+#define eslMSA_GA1     2
+#define eslMSA_GA2     3
+#define eslMSA_NC1     4
+#define eslMSA_NC2     5
+#define eslMSA_NCUTS   6
 
 /* Object: ESL_MSA
  * 
@@ -53,19 +53,31 @@ typedef struct {
   float  cutoff[eslMSA_MAXCUTS];/* NC/TC/GA cutoffs propagated to Pfam/Rfam */
   int    cutset[eslMSA_MAXCUTS];/* TRUE if a cutoff is set; else FALSE      */
 
-  /* Optional information that we don't understand.
-   * (The stuff we're morally obligated to parse because it's
-   *  in a file's markup tags, but all we know how to do
-   *  is regurgitate it.)
+  /* Info needed for maintenance of the data structure
+   * (The hidden internal stuff.)
+   */
+  GKI   *index;		        /* name ->seqidx hash table */
+  int    sqalloc;		/* # seqs currently allocated for   */
+  int   *sqlen;                 /* individual seq lengths during parsing    */
+  int   *sslen;                 /* individual ss lengths during parsing     */
+  int   *salen;                 /* individual sa lengths during parsing     */
+  int    lastidx;		/* last index we saw; use for guessing next */
+
+  /* Optional information, especially Stockholm markup.
+   * (The stuff we don't understand, but we can regurgitate.)
    *
    * That is, we know what type of information it is, but it's
    * either (interpreted as) free-text comment, or it's Stockholm 
    * markup with unfamiliar tags.
+   * 
+   * Stockholm GF, GS, GC, and GR tags are only available by 
+   * augmentation with the keyhash module.
    */
   char  **comment;              /* free text comments, or NULL      */
   int     ncomment;		/* number of comment lines          */
   int     alloc_ncomment;	/* number of comment lines alloc'ed */
 
+#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
   char  **gf_tag;               /* markup tags for unparsed #=GF lines  */
   char  **gf;                   /* annotations for unparsed #=GF lines  */
   int     ngf;			/* number of unparsed #=GF lines        */
@@ -85,27 +97,19 @@ typedef struct {
   char ***gr;                   /* [0..ngr][0..nseq-1][0..alen-1] markup */
   GKI    *gr_idx;               /* hash of #=GR tag types                */
   int     ngr;			/* number of #=GR tag types              */
+#endif /*KEYHASH AUGMENTATION*/
 
-  /* Stuff we need for our own maintenance of the data structure
-   */
-  GKI   *index;		        /* name ->seqidx hash table */
-  int    nseqalloc;		/* number of seqs currently allocated for   */
-  int    nseqlump;		/* lump size for dynamic expansions of nseq */
-  int   *sqlen;                 /* individual seq lengths during parsing    */
-  int   *sslen;                 /* individual ss lengths during parsing     */
-  int   *salen;                 /* individual sa lengths during parsing     */
-  int    lastidx;		/* last index we saw; use for guessing next */
 } MSA;
 
 /* Flags for msa->flags
  */
-#define eslMSA_SET_WGT  (1 << 0)  /* 1 if wgts were set, 0 if default 1.0's */
+#define eslMSA_HASWGTS  (1 << 0)  /* 1 if wgts were set, 0 if default 1.0's */
 
 
                                      
 /* Object: MSAFILE
  * 
- * Defines an alignment file that's open for reading.
+ * Defines an alignment file that we open for reading.
  */
 typedef struct {
   FILE *f;                      /* open file pointer                         */
@@ -134,94 +138,14 @@ typedef struct {
  */
 #define eslMSAFILE_UNKNOWN   0	  /* unknown format                          */
 #define eslMSAFILE_STOCKHOLM 101  /* Pfam/Rfam Stockholm format              */
-#define eslMSAFILE_SELEX     102  /* Obsolete(!): old SELEX format           */
-#define eslMSAFILE_MSF	     103  /* GCG MSF format                          */
-#define eslMSAFILE_CLUSTAL   104  /* Clustal V/W format                      */
-#define eslMSAFILE_A2M	     105  /* aligned FASTA (A2M is UCSC terminology) */
-#define eslMSAFILE_PHYLIP    106  /* Felsenstein's PHYLIP format             */
-#define eslMSAFILE_EPS       107  /* Encapsulated PostScript (output only)   */
-
-#define IsAlignmentFormat(fmt)  ((fmt) > 100)
 
 
-/* from msa.c
- */
-extern MSAFILE *MSAFileOpen(char *filename, int format, char *env);
-extern MSA     *MSAFileRead(MSAFILE *afp);
-extern void     MSAFileClose(MSAFILE *afp);
-extern void     MSAFree(MSA *msa);
-extern void     MSAFileWrite(FILE *fp, MSA *msa, int outfmt, int do_oneline);
 
-extern int MSAFileRewind(MSAFILE *afp);
-extern int MSAFilePositionByKey(MSAFILE *afp, char *key);
-extern int MSAFilePositionByIndex(MSAFILE *afp, int idx);
 
-extern int   MSAFileFormat(MSAFILE *afp);
-extern MSA  *MSAAlloc(int nseq, int alen);
-extern void  MSAExpand(MSA *msa);
-extern char *MSAFileGetLine(MSAFILE *afp);
-extern void  MSASetSeqAccession(MSA *msa, int seqidx, char *acc);
-extern void  MSASetSeqDescription(MSA *msa, int seqidx, char *desc);
-extern void  MSAAddComment(MSA *msa, char *s);
-extern void  MSAAddGF(MSA *msa, char *tag, char *value);
-extern void  MSAAddGS(MSA *msa, char *tag, int seqidx, char *value);
-extern void  MSAAppendGC(MSA *msa, char *tag, char *value);
-extern char *MSAGetGC(MSA *msa, char *tag);
-extern void  MSAAppendGR(MSA *msa, char *tag, int seqidx, char *value);
-extern void  MSAVerifyParse(MSA *msa);
-extern int   MSAGetSeqidx(MSA *msa, char *name, int guess);
 
-extern MSA  *MSAFromAINFO(char **aseq, AINFO *ainfo);   
-
-extern void  MSAMingap(MSA *msa);
-extern void  MSANogap(MSA *msa);
-extern void  MSAShorterAlignment(MSA *msa, int *useme);
-extern void  MSASmallerAlignment(MSA *msa, int *useme, MSA **ret_new);
-
-extern char *MSAGetSeqAccession(MSA *msa, int idx);
-extern char *MSAGetSeqDescription(MSA *msa, int idx);
-extern char *MSAGetSeqSS(MSA *msa, int idx);
-extern char *MSAGetSeqSA(MSA *msa, int idx);
-
-extern float MSAAverageSequenceLength(MSA *msa);
-
-/* from a2m.c
- */
-extern MSA  *ReadA2M(MSAFILE *afp);
-extern void  WriteA2M(FILE *fp, MSA *msa);
-
-/* from clustal.c
- */
-extern MSA  *ReadClustal(MSAFILE *afp);
-extern void  WriteClustal(FILE *fp, MSA *msa);
-
-/* from eps.c
- */
-extern void EPSWriteSmallMSA(FILE *fp, MSA *msa);
-
-/* from msf.c
- */
-extern MSA  *ReadMSF(MSAFILE *afp);
-extern void  WriteMSF(FILE *fp, MSA *msa);
-
-/* from phylip.c
- */
-extern MSA  *ReadPhylip(MSAFILE *afp);
-extern void  WritePhylip(FILE *fp, MSA *msa);
-
-/* from selex.c
- */
-extern MSA  *ReadSELEX(MSAFILE *afp);
-extern void  WriteSELEX(FILE *fp, MSA *msa);
-extern void  WriteSELEXOneBlock(FILE *fp, MSA *msa);
-
-/* from stockholm.c
- */
-extern MSA  *ReadStockholm(MSAFILE *afp);
-extern void  WriteStockholm(FILE *fp, MSA *msa);
-extern void  WriteStockholmOneBlock(FILE *fp, MSA *msa);
 
 #endif /*ESL_MSA_INCLUDED*/
+
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

@@ -462,7 +462,8 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
   char *s;
   int   x;
 
-  if ((s = ESL_MALLOC(sizeof(char) * (len+1))) == NULL) return NULL;
+  if ((s = malloc(sizeof(char) * (len+1))) == NULL) 
+    ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
 
   for (x = 0; x < len; x++)
     s[x] = alphabet[esl_rnd_DChoose(r,p,n)];

@@ -65,8 +65,6 @@ sq = esl_sq_Create();
 esl_sq_Destroy(sq);
 \end{cchunk}
   
-
-
 \item [\ccode{Open,Close}] 
   Same as \ccode{Create()} and \ccode{Destroy()}, but specifically for
   objects associated with input/output streams. Example:
@@ -78,7 +76,6 @@ ESL_SIO     *sqfp;
 sqfp = esl_sio_Open(seqfile);
 esl_sio_Close(sqfp);
 \end{cchunk}
-
 
 
 \item [\ccode{Inflate,Deflate}]
@@ -99,6 +96,20 @@ ESL_SQ  sq;
 esl_sq_Inflate(&sq);
 esl_sq_Deflate(&sq);
 \end{cchunk}
+
+
+
+\item [\ccode{Expand,Squeeze}]
+   These deal with objects whose contents are not necessarily of a
+   fixed size, but can grow and require reallocation of internal data
+   fields. A function \ccode{esl\_foo\_Expand()} reallocates an
+   \ccode{ESL\_FOO} object to a larger size. Usually, reallocation
+   works by doubling the previous allocation. The redoubling strategy
+   can result in a fair amount of unused memory overhead (up to
+   50\%). A function \ccode{esl\_foo\_Squeeze()} takes a fully-grown
+   object and optimizes its memory usage, recovering this wastage
+   overhead, on the assumption that no more reallocation will be
+   done.
 
 
 

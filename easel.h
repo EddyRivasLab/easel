@@ -56,20 +56,23 @@ extern void esl_error(int code, char *file, int line, char *format, ...);
 extern void esl_error_SetHandler(esl_error_handler_f);
 extern void esl_error_ResetDefaultHandler(void);
 
-
-
-
-/* Memory allocation support
- */
-#define ESL_MALLOC(x)     esl_malloc(__FILE__, __LINE__, (x))
-#define ESL_REALLOC(x,y)  esl_realloc(__FILE__, __LINE__, (x), (y))   
-
-extern void *esl_malloc(char *file, int line, size_t size);
-extern void *esl_realloc(char *file, int line, void *p, size_t size);
+extern void  esl_Free2D(void  **p, int dim1);
+extern void  esl_Free3D(void ***p, int dim1, int dim2);
 
 extern char *esl_strdup(char *s, int n);
 extern int   esl_fgets(char **buf, int *n, FILE *fp);
 extern int   esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+
+
+/* See esl_msa_Expand() for first use example.
+ */
+#define ESL_REALLOC(p, tmp, newsize) {\
+     (tmp) = realloc((p), (newsize));\
+     if ((tmp) != NULL) (p) = (tmp);\
+     else {\
+       esl_error(ESL_EMEM, __FILE__, __LINE__, "realloc failed");\
+       return ESL_EMEM;\
+     }}
 
 
 /* Making sure TRUE/FALSE are defined, for convenience

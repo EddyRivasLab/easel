@@ -71,17 +71,17 @@ esl_sq_Inflate(ESL_SQ *sq)
   sq->ss       = NULL;	/* secondary structure input currently unimplemented */
   sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
 
-  if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) goto FAILURE;
-  if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) goto FAILURE;
-  if ((sq->desc = malloc(sizeof(char) * sq->dalloc)) == NULL) goto FAILURE;
-  if ((sq->seq  = malloc(sizeof(char) * sq->salloc)) == NULL) goto FAILURE; 
+  if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) 
+    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+  if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) 
+    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+  if ((sq->desc = malloc(sizeof(char) * sq->dalloc)) == NULL) 
+    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+  if ((sq->seq  = malloc(sizeof(char) * sq->salloc)) == NULL) 
+    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
 
   esl_sq_Reuse(sq);		/* this does the initialization */
   return ESL_OK;
-
- FAILURE:
-  esl_sq_Deflate(sq);
-  ESL_ERROR(ESL_EMEM, "malloc failed");
 }
 
 /* Function:  esl_sq_Reuse()
@@ -143,7 +143,8 @@ esl_sq_Squeeze(ESL_SQ *sq)
   
   len = nlen + alen + dlen + sq->n + 4;
 
-  if ((sq->optmem = ESL_MALLOC(sizeof(char) * len)) == NULL) return ESL_EMEM;
+  if ((sq->optmem = malloc(sizeof(char) * len)) == NULL) 
+    ESL_ERROR(ESL_EMEM, "allocation failed");
   
   name = sq->optmem;                    memcpy(name, sq->name, nlen+1);
   acc  = sq->optmem+(nlen+1);           memcpy(acc,  sq->acc,  alen+1);
@@ -229,7 +230,9 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   ESL_SQFILE *sqfp;
   int         x;
 
-  if ((sqfp = malloc(sizeof(ESL_SQFILE))) == NULL) return ESL_EMEM;
+  if ((sqfp = malloc(sizeof(ESL_SQFILE))) == NULL) 
+    ESL_ERROR(ESL_EMEM, "allocation failed");
+
   sqfp->fp         = NULL;
   sqfp->filename   = NULL;
   sqfp->format     = ESL_SQFORMAT_FASTA;
@@ -243,7 +246,8 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
 
   if ((sqfp->fp = fopen(seqfile,"r")) == NULL) 
     { free(sqfp); return ESL_ENOTFOUND; }
-  if ((sqfp->filename = esl_strdup(seqfile, -1)) == NULL) goto FAILURE;
+  if ((sqfp->filename = esl_strdup(seqfile, -1)) == NULL) 
+    { esl_sqfile_Close(sqfp); ESL_ERROR(ESL_EMEM, "allocation failed"); }
 
   /* Create an appropriate default input map for FASTA files.
    *   - accept anything alphabetic, case-insensitive;
@@ -256,7 +260,9 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
    *  somewhere, since we're partially duplicating work we're doing
    *  in alphabet.c's inmap too.)
    */
-  if ((sqfp->inmap = ESL_MALLOC(sizeof(int) * 256)) == NULL) goto FAILURE;
+  if ((sqfp->inmap = malloc(sizeof(int) * 256)) == NULL) 
+    { esl_sqfile_Close(sqfp); ESL_ERROR(ESL_EMEM, "allocation failed"); }
+
   for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'a'; x++) sqfp->inmap[x] = x - 'a';
@@ -272,10 +278,6 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
 
   *ret_sqfp = sqfp;
   return ESL_OK;
-
- FAILURE:
-  esl_sqfile_Close(sqfp);
-  ESL_ERROR(ESL_EMEM, "allocation failed in esl_sqfile_OpenFASTA()");
 }
 
 
@@ -507,7 +509,7 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
  * fread() a new block. If we're out of storage space, reallocate
  * it by doubling. Return the minimum number of bytes we can safely
  * process before we either run out of input buffer or we run out of storage
- * space. 
+ * space, or -1 if a realloc fails.
  *
  * This supports an idiom of
  *     while (nsafe = check_buffers()) {
@@ -516,15 +518,19 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
  *         pos++;
  *       }        
  *     }
+ *     if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
+ * 
  * which avoids having to check our buffers every character.
+ * 
  */
 static int
-check_buffers(FILE *fp, char *buf, int *nc, int *pos, char **s, int i, int *slen)
+check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
+	      char **s, int i, int *slen)
 {
   int inlen, savelen;
 
-  inlen = *nc - *pos;   	/* can read this many bytes before reloading buffer */
-  if (inlen == 0)		/* if we're at the end, reload now. */
+  inlen = *nc - *pos;  	/* can read this many bytes before reloading buffer */
+  if (inlen == 0)	/* if we're at the end, reload now. */
     {
       *nc   = fread(buf, sizeof(char), ESL_READBUFSIZE, fp);
       *pos  = 0;
@@ -533,12 +539,12 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos, char **s, int i, int *slen
 
   /* Note the -1 on savelen, which leaves room for a NUL terminator.
    */
-  savelen = *slen - i - 1;	/* can save this many bytes before reallocating space */
-  if (savelen == 0)		/* if we need to reallocate now... */
-    {				
-      savelen = *slen;		/* we will double, giving us as much more space as we had.*/
-      *slen  += *slen;		/* double the previous allocation */
-      *s = ESL_REALLOC(*s, sizeof(char) * *slen);
+  savelen = *slen - i - 1;	/* can save this many before realloc'ing */
+  if (savelen == 0)		/* if we need to reallocate now...       */
+    {				/* then double our space. */
+      savelen = *slen;		
+      *slen  += *slen;		
+      *s = realloc(*s, sizeof(char) * *slen);
       if (*s == NULL) return -1;
     }
 
@@ -550,7 +556,7 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos, char **s, int i, int *slen
 
 /*****************************************************************
  * Test driver:
- *    gcc -g -Wall -I. -o sqio_test -DESL_SQIO_TESTDRIVE sqio.c alphabet.c easel.c
+ * gcc -g -Wall -I. -o sqio_test -DESL_SQIO_TESTDRIVE sqio.c alphabet.c easel.c
  *****************************************************************/
 #ifdef ESL_SQIO_TESTDRIVE
 

@@ -84,7 +84,8 @@ esl_regexp_Create(void)
 {
   ESL_REGEXP *machine;
 
-  if ((machine = ESL_MALLOC(sizeof(ESL_REGEXP))) == NULL) return NULL;
+  if ((machine = malloc(sizeof(ESL_REGEXP))) == NULL) 
+    ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
   machine->ndfa = NULL;
   return machine;
 }

@@ -75,8 +75,10 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
   status = esl_fileparse_set_commentchar(efp, '#');
   if (status != ESL_OK) goto FAILURE;
 
-  if ((s    = esl_dmatrix_Create(20,20))   == NULL) { status = ESL_EMEM; goto FAILURE; }
-  if ((pi   = malloc(sizeof(double) * 20)) == NULL) { status = ESL_EMEM; goto FAILURE; }
+  if ((s    = esl_dmatrix_Create(20,20))   == NULL)
+    { status = ESL_EMEM; goto FAILURE; }
+  if ((pi   = malloc(sizeof(double) * 20)) == NULL) 
+    { status = ESL_EMEM; goto FAILURE; }
 
   /* constructs the alphabet permutation we need.
    * perm[i] -> original row/column i goes to row/column perm[i]
@@ -90,7 +92,8 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
    for (i = 1; i < 20; i++)
     for (j = 0; j < i; j++)
       {
-	if ((status = esl_fileparse_token(efp, &tok, NULL)) != ESL_OK) goto FAILURE;	
+	if ((status = esl_fileparse_token(efp, &tok, NULL)) != ESL_OK) 
+	  goto FAILURE;	
 	s->mx[perm[i]][perm[j]] = atof(tok);
 	s->mx[perm[j]][perm[i]] = s->mx[perm[i]][perm[j]];
       }
@@ -99,7 +102,8 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
     */
   for (i = 0; i < 20; i++)
     {
-      if ((status = esl_fileparse_token(efp, &tok, NULL)) != ESL_OK) goto FAILURE;	
+      if ((status = esl_fileparse_token(efp, &tok, NULL)) != ESL_OK) 
+	goto FAILURE;	
       pi[perm[i]] = atof(tok);
     }
 
