@@ -94,8 +94,8 @@ configuration mechanisms:
 
 \begin{cchunk}
 #include <stdio.h>
-#include <easel/easel.h>
-#include <easel/getopts.h>
+#include <easel.h>
+#include <esl_getopts.h>
 
 static ESL_OPTIONS options[] = {
   /* name          type    default  env_var  range toggles reqs incompats */
@@ -253,10 +253,16 @@ have \ccode{hmmbuild --evolveic 1.0} mean ``turn on the evolveic mode,
 and set its free parameter to 1.0''. The getopts module encourages you
 to separate this into two options, a boolean to activate the mode, and
 a real to configure the free parameter; perhaps \ccode{hmmbuild
---evolveic --infotarget 1.0}. Still, you can work around this by
-declaring \ccode{--evolveic} to take an untyped \ccode{eslARG\_STRING}
-option, then interpret NULL as ``off'', and convert a valid string to
-the real-valued parameter.
+--evolveic --infotarget 1.0}.
+
+Still, you can work around this. For a character argument, you can set
+the default to the empty string \verb+""+, which will be interpreted
+as a NUL character \verb+\0+, i.e.\ 0; your code can interpret value 0
+as unset. For a integer or real-valued argument, you can declare the
+argument as an untyped \ccode{eslARG\_STRING} with a default value of
+NULL, then have your code interpret NULL as ``off''.  You lose type
+and range checking when you do this, of course, and you have to
+convert the string to the appropriate type yourself.
    
 There is no way to turn a boolean option off by a command line option,
 environment variable, or configuration file. Booleans (and strings,

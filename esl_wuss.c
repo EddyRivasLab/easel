@@ -232,9 +232,12 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	} /* finished processing a subseq enclosed by a bp */
     } /* finished loop over j: end position on seq, 1..n*/
 
-  /* Anything that's left in the pda is external single-strand.
+  /* Anything that's left in the pda is either a face counter
+   * or external single-strand. Face counters are negative; 
+   * position indices are positive.
    */
-  while (esl_stack_IPop(pda, &i) == eslOK) ss[i-1] = ':';
+  while (esl_stack_IPop(pda, &i) == eslOK) 
+    if (i > 0) ss[i-1] = ':';
   ss[n] = '\0';
   status = eslOK;
 

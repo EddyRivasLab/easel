@@ -1,49 +1,19 @@
 /* compstruct - calculate accuracy of RNA secondary structure predictions
  *
- ***************************************************************** 
  * SRE, Mon Feb 14 10:03:57 2005
  * From squid's compstruct: SRE, Tue Aug 30 10:35:31 1994
  * SVN $Id$
- * 
- ***************************************************************** 
- * Note on obtaining sd/variance on individual measurements:
- *   The output is structured so it can be easily postprocessed to obtain
- *   more detailed summary statistics. Output for an individual structure
- *   looks like:
- *   
- *   DA0261:  ==  100.00  100.00
- *      21/21 trusted pairs correctly predicted (100.00% sensitivity)
- *      21/21 predicted pairs are true (100.00% PPV/specificity)
- *   
- *   If any error occurs parsing a structure, it won't be included
- *   in the totals, and its output would look like:
- *   
- *   seq2: [REJECTED: no test or trusted structure]
- *   
- *   The string "==", therefore, is a unique tag for individual 
- *   sequence results. The first number is the sensitivity; the second
- *   is the PPV (specificity) for this structure. 
- *   
- *   So, to get variance/sd info, pipe through grep and the avg script:
- *   
- *   Sensitivity statistics:
- *      compstruct trna1415.sto trna1415.sto | grep "==" | avg -f2
- *   PPV statistics
- *      compstruct trna1415.sto trna1415.sto | grep "==" | avg -f3
- *      
- *   SRE, Wed Feb  4 08:42:58 2004   
- *
- *****************************************************************
  */
 
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
-#include <easel/esl.h>
-#include <easel/getopts.h>
-#include <easel/msa.h>
-#include <easel/wuss.h>
+#include <easel.h>
+#include <esl_getopts.h>
+#include <esl_sqio.h>
+#include <esl_msa.h>
+#include <esl_wuss.h>
 
 static char banner[] = "\
 compstruct :: calculate accuracy of RNA secondary structure predictions";
@@ -55,7 +25,7 @@ Usage: compstruct [-options] <trusted file> <test file>\n\
   The markup must be in WUSS notation.\n\
 \n\
   Available options are:\n\
-   -h : print short help and usage info\n\
+   -h : help; print brief info on version and usage\n\
    -m : use Mathews' more relaxed criterion for correctness; allow +/-1 slip\n\
    -p : count pseudoknotted base pairs (default: ignore them)\n\
 ";
@@ -73,8 +43,6 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0 },
 };
 
-static int dealign(char *aseq, char *ss, int alen);
-
 int
 main(int argc, char **argv)
 {
@@ -87,7 +55,7 @@ main(int argc, char **argv)
   int          klen, tlen;	/* lengths of dealigned seqs       */
   int         *kct, *tct;       /* known, test CT rep of structure */
   int          i;		/* counter over sequences          */
-  int          pos, apos;	/* counter over residues           */
+  int          pos;		/* counter over residues           */
 
   int nseq;		/* total number of sequences in the files */
   int nseq_rejected;	/* total number of sequences rejected     */
@@ -136,7 +104,7 @@ main(int argc, char **argv)
   kfile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
   tfile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
   
-  if (! be_quiet) esl_banner(stdout, argv[0], banner);
+  if (! be_quiet) esl_banner(stdout, banner);
   esl_getopts_Destroy(go);
 
   /***********************************************
@@ -158,6 +126,8 @@ main(int argc, char **argv)
   nseq = nseq_rejected = 0;
   tot_positions = 0;
   
+  printf("%20s   %17s %17s\n", "", "[sensitivity]", "[PPV]");
+
   while (1)
     {
       kstatus = esl_msa_Read(kfp, &ka);
@@ -382,7 +352,7 @@ main(int argc, char **argv)
   printf("   %d/%d trusted pairs predicted (%.2f%% sensitivity)\n", 
 	 tot_kcorrect, tot_kpairs, 
 	 100. * (float) tot_kcorrect/ (float) tot_kpairs);
-  printf("   %d/%d predicted pairs correct (%.2f%% PPV, specificity)\n",
+  printf("   %d/%d predicted pairs correct (%.2f%% PPV)\n",
 	 tot_tcorrect, tot_tpairs, 
 	 100. * (float) tot_tcorrect/ (float) tot_tpairs);
   puts("");

@@ -26,7 +26,7 @@ PROGS = compstruct
 #
 all: 	$(PROGS) 
 
-${PROGS}: @EXEC_DEPENDENCY@
+${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 	${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} ${ESLLIBDIR} -o $@ $@.o ${OBJS} ${LIBS}
 
 .c.o:

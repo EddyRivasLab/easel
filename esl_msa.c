@@ -347,10 +347,10 @@ esl_msa_Expand(ESL_MSA *msa)
  * 
  * If the name does not already exist in the MSA, then it
  * is assumed to be a new sequence name that we need to store.
- * seqidx is set to msa:nseq, the MSA is Expand()'ed if necessary
- * to make room, the name is stored in msa:sqname[msa:nseq],
+ * seqidx is set to msa->nseq, the MSA is Expand()'ed if necessary
+ * to make room, the name is stored in msa->sqname[msa->nseq],
  * (and in the hash table, if we're keyhash augmented)
- * and msa:nseq is incremented.
+ * and msa->nseq is incremented.
  *
  * Returns:  <eslOK> on success, and the seqidx is 
  *           passed back via <ret_idx>. If <name> is new
@@ -379,8 +379,8 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
    */
 #ifdef eslAUGMENT_KEYHASH                  
   status = esl_key_Store(msa->index, name, &seqidx);
-  if (status == eslEDUP) return status;	/* already stored this name */
-  if (status != eslOK)   return status; /* an error. */
+  if (status == eslEDUP) { *ret_idx = seqidx; return eslOK; }
+  if (status != eslOK) return status; /* an error. */
 #else
   for (seqidx = 0; seqidx < msa->nseq; seqidx++)
     if (strcmp(msa->sqname[seqidx], name) == 0) break;
@@ -450,7 +450,7 @@ set_seq_description(ESL_MSA *msa, int seqidx, char *desc)
       for (i = 0; i < msa->sqalloc; i++)
 	msa->sqdesc[i] = NULL;
   }
-  if (msa->sqdesc[i] != NULL) free(msa->sqdesc[i]);
+  if (msa->sqdesc[seqidx] != NULL) free(msa->sqdesc[seqidx]);
   return (esl_strdup(desc, -1, &(msa->sqdesc[seqidx])));
 }
 
@@ -563,7 +563,7 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
 #ifdef eslAUGMENT_KEYHASH
       msa->gs_idx = esl_keyhash_Create();
       status = esl_key_Store(msa->gs_idx, tag, &tagidx);
-      if (status != eslOK) return status;
+      if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
@@ -661,7 +661,7 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
 #ifdef eslAUGMENT_KEYHASH
       msa->gc_idx = esl_keyhash_Create();
       status = esl_key_Store(msa->gc_idx, tag, &tagidx);      
-      if (status != eslOK) return status;
+      if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
@@ -732,7 +732,7 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
 #ifdef eslAUGMENT_KEYHASH
       msa->gr_idx = esl_keyhash_Create();
       status = esl_key_Store(msa->gr_idx, tag, &tagidx);
-      if (status != eslOK) return status;
+      if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
@@ -1114,9 +1114,9 @@ esl_msafile_Close(ESL_MSAFILE *afp)
   if (afp == NULL) return;
 
 #ifdef HAVE_POPEN /* gzip functionality */
-  if (afp->do_gzip)       pclose(afp->f);
+  if (afp->do_gzip && afp->f != NULL)    pclose(afp->f);
 #endif
-  if (! afp->do_stdin)    fclose(afp->f);
+  if (! afp->do_stdin && afp->f != NULL) fclose(afp->f);
   if (afp->fname != NULL) free(afp->fname);
   if (afp->buf  != NULL)  free(afp->buf);
 #ifdef eslSSI_INCLUDED
@@ -1970,6 +1970,186 @@ maxwidth(char **s, int n)
 /*-------------------- end of Stockholm format section ----------------------*/
 
 
+/* msa_column_subset()
+ * SRE, Sun Feb 27 10:05:07 2005
+ * From squid's MSAShorterAlignment(), 1999
+ * 
+ * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, where TRUE means
+ * "keep this column in the new alignment"; remove all columns annotated as 
+ * FALSE in the <useme> array. This is done in-place on the MSA, so the
+ * MSA is modified: <msa->alen> is reduced, <msa->aseq> is shrunk, and 
+ * all associated per-residue or per-column annotation is shrunk. 
+ * 
+ * Returns eslOK on success.
+ */
+static int
+msa_column_subset(ESL_MSA *msa, int *useme)
+{
+  int opos;			/* position in original alignment */
+  int npos;			/* position in new alignment      */
+  int idx;			/* sequence index */
+  int i;			/* markup index */
+
+  /* Since we're minimizing, we can overwrite in place, within the msa
+   * we've already got. 
+   * opos runs all the way to msa->alen to include (and move) the \0
+   * string terminators.
+   */
+  for (opos = 0, npos = 0; opos <= msa->alen; opos++)
+    {
+      if (opos < msa->alen && useme[opos] == FALSE) continue;
+
+      if (npos != opos)	/* small optimization */
+	{
+	  /* The alignment, and per-residue annotations */
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    {
+	      msa->aseq[idx][npos] = msa->aseq[idx][opos];
+	      if (msa->ss != NULL && msa->ss[idx] != NULL)
+		msa->ss[idx][npos] = msa->ss[idx][opos];
+	      if (msa->sa != NULL && msa->sa[idx] != NULL)
+		msa->sa[idx][npos] = msa->sa[idx][opos];
+	      for (i = 0; i < msa->ngr; i++)
+		if (msa->gr[i][idx] != NULL)
+		  msa->gr[i][idx][npos] = msa->gr[i][idx][opos];
+	    }	  
+	  /* The per-column annotations */
+	  if (msa->ss_cons != NULL) msa->ss_cons[npos] = msa->ss_cons[opos];
+	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
+	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
+	  for (i = 0; i < msa->ngc; i++)
+	    msa->gc[i][npos] = msa->gc[i][opos];
+	}
+      npos++;
+    }
+  msa->alen = npos-1;	/* -1 because npos includes NUL terminators */
+  return eslOK;
+}
+
+/* Function:  esl_msa_MinimGaps()
+ * Incept:    SRE, Sun Feb 27 11:03:42 2005 [St. Louis]
+ *
+ * Purpose:   Remove all columns in the multiple alignment <msa>
+ *            that consist entirely of characters in the string <gaps>;
+ *            typically, <gaps> is a list of gap characters like
+ *            "-_.". The <msa> is changed in-place to a smaller
+ *            (less wide) alignment containing fewer columns.
+ *            All per-residue and per-column annotation is altered
+ *            appropriately for the columns that remain in the new
+ *            alignment.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      squid's MSAMingap().
+ */
+int
+esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
+{
+  int *useme;		/* array of TRUE/FALSE flags for which cols to keep */
+  int apos;		/* column index   */
+  int idx;		/* sequence index */
+
+  ESL_MALLOC(useme, sizeof(int) * msa->alen);
+
+  for (apos = 0; apos < msa->alen; apos++)
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
+	  break;
+      if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
+    }
+  msa_column_subset(msa, useme);
+  free(useme);
+  return eslOK;
+}
+
+/* Function:  esl_msa_NoGaps()
+ * Incept:    SRE, Sun Feb 27 10:17:58 2005 [St. Louis]
+ *
+ * Purpose:   Remove all columns in the multiple alignment <msa>
+ *            that contain any characters in the string <gaps>;
+ *            typically, <gaps> is a list of gap characters like
+ *            "-_.". The <msa> is changed in-place to a smaller
+ *            (less wide) alignment containing fewer columns.
+ *            All per-residue and per-column annotation is altered
+ *            appropriately for the columns that remain in the new
+ *            alignment.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      squid's MSANogap().
+ */
+int
+esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
+{
+  int *useme;		/* array of TRUE/FALSE flags for which cols to keep */
+  int apos;		/* column index */
+  int idx;		/* sequence index */
+
+  ESL_MALLOC(useme, sizeof(int) * msa->alen);
+
+  for (apos = 0; apos < msa->alen; apos++)
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
+	  break;
+      if (idx == msa->nseq) useme[apos] = TRUE; else useme[apos] = FALSE;
+    }
+  msa_column_subset(msa, useme);
+  free(useme);
+  return eslOK;
+}
+
+
+/* Function:  esl_msa_SymConvert()
+ * Incept:    SRE, Sun Feb 27 11:20:41 2005 [St. Louis]
+ *
+ * Purpose:   In the aligned sequences in <msa>, convert any residue
+ *            in the string <oldsyms> to its counterpart (at the same
+ *            position) in string <newsyms>. 
+ *            
+ *            For example, to homogenize different gap symbols to one,
+ *            <oldsyms> could be "-_." and <newsyms> could be "---".
+ *            To convert DNA to RNA, <oldsyms> could be "Tt" and
+ *            <newsyms> could be "Uu". To convert IUPAC symbols to
+ *            N's, <oldsyms> could be "RYMKSWHBVDrymkswhbvd" and
+ *            <newsyms> could be "NNNNNNNNNNnnnnnnnnnn". 
+ *            
+ *            As a special case, if <newsyms> consists of a single
+ *            character, then any character in the <oldsyms> is 
+ *            converted to this character. For example, to
+ *            homogenize different gap symbols to one, <oldsyms>
+ *            can be "-_." and <newsyms> can be "-".
+ *            
+ *            Thus, <newsyms> must either be of the same length as
+ *            <oldsyms>, or of length 1. Anything else will cause
+ *            undefined behavior (and probably segfault). 
+ *            
+ *            The conversion is done in-place, so the <msa> is
+ *            modified.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
+{
+  int   apos;			/* column index */
+  int   idx;			/* sequence index */
+  char *sptr;
+  int   special;
+
+  special = (strlen(newsyms) == 1 ? TRUE : FALSE);
+
+  for (apos = 0; apos < msa->alen; apos++)
+    for (idx = 0; idx < msa->nseq; idx++)
+      if ((sptr = strchr(oldsyms, msa->aseq[idx][apos])) != NULL)
+	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
+  return eslOK;
+}
 
 /******************************************************************************
  * Example and test driver
@@ -2005,20 +2185,11 @@ main(int argc, char **argv)
 
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
   if (status == eslENOTFOUND) 
-    {
-      fprintf(stderr, "Alignment file %s not readable\n", filename);
-      exit(1);
-    } 
+    esl_fatal("Alignment file %s not readable\n", filename);
   else if (status == eslEFORMAT) 
-    {
-      fprintf(stderr, "Couldn't determine format of alignment %s\n", filename);
-      exit(1);
-    } 
+    esl_fatal("Couldn't determine format of alignment %s\n", filename);
   else if (status != eslOK) 
-    {
-      fprintf(stderr, "Alignment file open failed with error %d\n", status);
-      exit(1);
-    }
+    esl_fatal("Alignment file open failed with error %d\n", status);
 
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
@@ -2030,20 +2201,14 @@ main(int argc, char **argv)
       esl_msa_Destroy(msa);
     }
 
-  if (status == eslEFORMAT) 
-    {
-      fprintf(stderr, "Alignment parse error at line %d of file %s:\n%s\n", 
-	      afp->linenumber, afp->fname, afp->errbuf);
-      fprintf(stderr, "Offending line is: %s\n", afp->buf);
-      esl_msafile_Close(afp);
-      exit(1);
-    } 
-  else if (status != eslEOF) 
-    {
-      fprintf(stderr, "Alignment file read failed with error %d\n", status);
-      esl_msafile_Close(afp);
-      exit(1);
-    }
+  if (status == eslEFORMAT)
+	esl_fatal("\
+Alignment file parse error, line %d of file %s:\n\
+%s\n\
+Offending line is:\n\
+%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
+      else if (status != eslEOF)
+	esl_fatal("Alignment file read failed with error code %d\n", status);
 
   esl_msafile_Close(afp);
   exit(0);

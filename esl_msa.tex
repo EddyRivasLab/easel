@@ -8,7 +8,8 @@ sequence alignment. A \ccode{ESL\_MSAFILE} is an alignment file,
 opened for input. (No special object is needed for output of an
 alignment file; a normal C \ccode{FILE} stream is used for output.)
 
-\begin{tabular}{ll}
+\vspace{1em}
+\begin{tabular}{ll}\hline
    \multicolumn{2}{c}{\textbf{open/close of an msa file}}\\
 \ccode{esl\_msafile\_Open()}                & Opens alignment file for input.\\
 \ccode{esl\_msafile\_Close()}               & Closes an open alignment file.\\
@@ -21,7 +22,11 @@ alignment file; a normal C \ccode{FILE} stream is used for output.)
 \ccode{esl\_msa\_Expand()}                  & Expands allocation of an MSA.\\
    \multicolumn{2}{c}{\textbf{Format autodetermination}}\\
 \ccode{esl\_msa\_GuessFileFormat()}         & Guesses an input file format.\\
-\end{tabular}
+   \multicolumn{2}{c}{\textbf{Alterations of an MSA}}\\
+\ccode{esl\_msa\_NoGaps()}            & Removes columns containing any gaps.\\
+\ccode{esl\_msa\_MinimGaps()}         & Removes columns containing only gaps.\\
+\ccode{esl\_msa\_SymConvert()}        & A \ccode{tr//} op on the alignment.\\
+\end{tabular}\hline
 
 \subsection{Example of using the msa API}
 

@@ -68,7 +68,8 @@ esl_randomness_CreateTimeseeded(void)
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL)
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
   r->seed = time ((time_t *) NULL);
   while (burnin--) esl_random(r);
   return r;
@@ -169,8 +170,11 @@ esl_random(ESL_RANDOMNESS *r)
     {
       r->rnd1 = r->seed;
       r->rnd2 = r->seed;
-				/* Fill the table for Bays/Durham */
-      for (i = 0; i < 64; i++) {
+
+      /* Fill the table for Bays/Durham; first 64 (0..63)
+       * random #'s are for our table, 65th is to init r->rnd.
+       */
+      for (i = 0; i <= 64; i++) {
 	x    = a1*(r->rnd1%q1);   /* LCG1 in action... */
 	y    = r1*(r->rnd1/q1);
 	r->rnd1 = x-y;
@@ -181,12 +185,16 @@ esl_random(ESL_RANDOMNESS *r)
 	r->rnd2 = x-y;
 	if (r->rnd2 < 0) r->rnd2 += m2;
 
-	r->tbl[i] = r->rnd1 - r->rnd2;
-	if (r->tbl[i] < 0) r->tbl[i] += m1;
+	if (i < 64) {
+	  r->tbl[i] = r->rnd1 - r->rnd2;
+	  if (r->tbl[i] < 0) r->tbl[i] += m1;
+	} else {
+	  r->rnd = r->rnd1 - r->rnd2;
+	  if (r->rnd < 0) r->rnd += m1;
+	}
       }
       r->seed = 0;		/* drop the flag. */
     }/* end of initialization*/
-
 
   x    = a1*(r->rnd1%q1);   /* LCG1 in action... */
   y    = r1*(r->rnd1/q1);

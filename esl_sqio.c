@@ -11,10 +11,10 @@
 
 #include <easel.h>
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>	/* alphabet augmentation adds digital sequences */
+#include <esl_alphabet.h>	/* alphabet aug adds digital sequences */
 #endif 
 #ifdef eslAUGMENT_MSA
-#include <esl_msa.h>		/* msa augmentation adds ability to read MSAs   */
+#include <esl_msa.h>		/* msa aug adds ability to read MSAs   */
 #endif
 #include <esl_sqio.h>
 
@@ -530,13 +530,13 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
       {				/* load a new alignment */
 	esl_msa_Destroy(sqfp->msa);
 	status = esl_msa_Read(sqfp->afp, &(sqfp->msa));
-	if (status == eslEOF) return eslEOF;
 	if (status == eslEFORMAT)
 	  { /* oops, a parse error; upload the error info from afp to sqfp */
 	    sqfp->linenumber = sqfp->afp->linenumber;
 	    strcpy(sqfp->errbuf, sqfp->afp->errbuf); /* errbufs same size! */ 
 	    return eslEFORMAT;
 	  }
+	if (status != eslOK) return status;
 	sqfp->idx = 0;
       }
     /* grab next seq from alignment */
@@ -562,14 +562,16 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sq_Write(FILE *fp, int format, ESL_SQ *s)
+esl_sq_Write(FILE *fp, ESL_SQ *s, int format)
 {
+  int status;
+
 #ifdef eslAUGMENT_MSA
   ESL_MSA *msa;
 #endif
 
   switch (format) {
-  case eslSQFILE_FASTA: status = write_fasta(sqfp, s); break;
+  case eslSQFILE_FASTA: status = write_fasta(fp, s); break;
 
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
@@ -579,7 +581,7 @@ esl_sq_Write(FILE *fp, int format, ESL_SQ *s)
      * the MSA API.
      */
     if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
-    status = esl_msa_Write(fp, msa, sqfp->format);
+    status = esl_msa_Write(fp, msa, format);
     esl_msa_Destroy(msa);
     break;
 #endif /* msa augmentation */
@@ -813,12 +815,12 @@ write_fasta(FILE *fp, ESL_SQ *s)
   char  buf[61];
   int   pos;
 
-  fprintf(">%s %s %s\n", s->name, s->acc, s->desc);
+  fprintf(fp, ">%s %s %s\n", s->name, s->acc, s->desc);
   buf[60] = '\0';
   for (pos = 0; pos < s->n; pos += 60)
     {
       strncpy(buf, s->seq+pos, 60);
-      fprintf("%s\n", buf);
+      fprintf(fp, "%s\n", buf);
     }
   return eslOK;
 }
@@ -876,10 +878,6 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
   if (savelen < inlen) return savelen;  else return inlen;
 }
 /*------------------- end of FASTA i/o ---------------------------*/	       
-
-
-
-
 
 
 /*****************************************************************
@@ -978,15 +976,17 @@ extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s)
   /* Sequence... still aligned, for now
    */
   if (s->seq != NULL) free(s->seq);
-  s->seq    = msa->aseq[idx];
-  s->salloc = msa->alen;
+  s->seq         = msa->aseq[idx];
+  s->salloc      = msa->alen;
+  msa->aseq[idx] = NULL;
   
   /* Structure... still aligned, for now
    */
   if (msa->ss != NULL && msa->ss[idx] != NULL)
     {
       if (s->ss != NULL) free(s->ss);
-      s->ss = msa->ss[idx];
+      s->ss        = msa->ss[idx];
+      msa->ss[idx] = NULL;
     }
 
   /* Digital seq (dsq) is UNIMPLEMENTED, untouched here;
@@ -1020,6 +1020,7 @@ static int
 convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 {
   ESL_MSA *msa;
+  int      status;
 
   *ret_msa = NULL;
 
@@ -1027,7 +1028,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   if ((status = esl_strdup(sq->name, -1, &(msa->sqname[0]))) != eslOK)
     { esl_msa_Destroy(msa); return status; }
   
-  if (sq->acc != NULL)
+  if (*sq->acc != '\0')
     {
       msa->sqacc = malloc(sizeof(char *) * 1);
       if (msa->sqacc == NULL) 
@@ -1036,7 +1037,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 	{ esl_msa_Destroy(msa); return status; }
     }
 
-  if (sq->desc != NULL)
+  if (*sq->desc != '\0')
     {
       msa->sqdesc = malloc(sizeof(char *) * 1);
       if (msa->sqdesc == NULL) 
@@ -1068,6 +1069,98 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 /*****************************************************************
+ * Miscellaneous API functions
+ *****************************************************************/
+
+/* Function:  esl_sqfile_FormatCode()
+ * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
+ *
+ * Purpose:   Given <fmtstring>, return format code.  For example, if
+ *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
+ *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
+ *            known format case-insensitively.
+ *            
+ *            When augmented by msa, then alignment file formats
+ *            are recognized in addition to unaligned file formats.
+ */
+int
+esl_sqfile_FormatCode(char *fmtstring)
+{
+  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
+#ifdef eslAUGMENT_MSA
+  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
+  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
+#endif
+  return eslSQFILE_UNKNOWN;
+}
+
+
+/* Function:  esl_sqfile_FormatString()
+ * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
+ *
+ * Purpose:   Given a format code <fmt>, returns a string label for
+ *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
+ *            returns "FASTA". 
+ *            
+ *            When augmented by msa, then alignment file format codes
+ *            are recognized in addition to unaligned file format codes.
+ *
+ * Throws:    NULL if <fmt> is unrecognized.
+ *
+ * Xref:      
+ */
+char *
+esl_sqfile_FormatString(int fmt)
+{
+  switch (fmt) {
+  case eslSQFILE_UNKNOWN:    return "unknown";
+  case eslSQFILE_FASTA:      return "FASTA";
+#ifdef eslAUGMENT_MSA
+  case eslMSAFILE_STOCKHOLM: return "Stockholm";
+  case eslMSAFILE_PFAM:      return "Pfam";
+#endif
+  default:
+    ESL_ERROR_NULL(eslEINVAL, "No such format code");
+  }
+  /*NOTREACHED*/
+  return NULL;
+}
+
+/* Function:  esl_sqfile_IsAlignment()
+ * Incept:    SRE, Sun Feb 27 09:36:23 2005 [St. Louis]
+ *
+ * Purpose:   Returns TRUE if <fmt> is an alignment file
+ *            format code; else returns FALSE.
+ *            
+ *            This function only checks the convention
+ *            that <fmt> codes $<$100 are unaligned formats,
+ *            and $\geq$100 are aligned formats. It does
+ *            not check that <fmt> is a recognized format
+ *            code.
+ *
+ */
+int
+esl_sqfile_IsAlignment(int fmt)
+{
+  if (fmt >= 100) return TRUE;
+  else            return FALSE;
+}
+
+
+/*---------- end of miscellaneous API functions -----------------*/
+
+
+
+
+
+
+
+
+
+
+
+
+/*****************************************************************
  * Example:
  * gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
  * ./example <FASTA file>
@@ -1088,7 +1181,8 @@ main(int argc, char **argv)
   status = esl_sqfile_Open(seqfile, eslSQFILE_FASTA, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file");
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized");
-  else if (status == eslEINVAL)    esl_fatal("Can't autodetect");
+  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz");
+  else if (status != eslEOK)       esl_fatal("Open failed, code %d", status);
 
   sq = esl_sq_Create();
   while ((status = esl_sq_Read(sqfp, sq)) == eslOK)
@@ -1100,6 +1194,8 @@ main(int argc, char **argv)
   if (status == eslEFORMAT)
     esl_fatal("Parse failed, line %s, file %s:\n%s", 
 	      sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  else if (status != eslEOF)
+    esl_fatal("Sequence file read failed with code %d\n", status);
   
   esl_sq_Destroy(sq);
   esl_sqfile_Close(sqfp);

@@ -155,6 +155,9 @@ extern int  esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int  esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
 extern int  esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
+extern int esl_msa_MinimGaps(ESL_MSA *msa, char *gaps);
+extern int esl_msa_NoGaps(ESL_MSA *msa, char *gaps);
+extern int esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms);
 
 
 #endif /*eslMSA_INCLUDED*/

@@ -1,4 +1,4 @@
-/* sqio.h
+/* esl_sqio.h
  * Sequence file i/o.
  * 
  * SVN $Id$
@@ -7,6 +7,9 @@
 #define ESL_SQIO_INCLUDED
 
 #include <stdio.h>
+#ifdef eslAUGMENT_MSA
+#include <esl_msa.h>
+#endif
 
 /* name, accession, description, and sequence itself are of unlimited
  * length, but they are initially allocated to something sensible, as
@@ -110,6 +113,14 @@ extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env,
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 extern int  esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
-extern int  esl_sq_Write(FILE *fp, int format, ESL_SQ *s);
+extern int  esl_sq_Write(FILE *fp, ESL_SQ *s, int format);
+
+#ifdef eslAUGMENT_MSA
+extern int esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen);
+#endif
+
+extern int   esl_sqfile_FormatCode(char *fmtstring);
+extern char *esl_sqfile_FormatString(int fmt);
+extern int   esl_sqfile_IsAlignment(int fmt);
 
 #endif /*!ESL_SQIO_INCLUDED*/

@@ -23,8 +23,12 @@ The API consists of the following functions:
 \ccode{esl\_sq\_Create()}   & Creates a new \ccode{ESL\_SQ} object. \\
 \ccode{esl\_sq\_Reuse()}    & Resets an \ccode{ESL\_SQ} object for reuse. \\
 \ccode{esl\_sq\_Squeeze()}  & Optimizes an \ccode{ESL\_SQ}, destroys i/o buffers. \\
-\ccode{esl\_sq\_Destroy()}  & Destroys a created \ccode{ESL\_SQ}.\\\hline
-\end{tabular}
+\ccode{esl\_sq\_Destroy()}  & Destroys a created \ccode{ESL\_SQ}.\\
+    \multicolumn{2}{c}{\textbf{using file format codes}}\\
+\ccode{esl\_sqfile\_FormatCode()} & Converts format string to internal code\\
+\ccode{esl\_sqfile\_FormatString()} & Converts format code to string\\
+\ccode{esl\_sqfile\_IsAlignment()} & Checks if a code is alignment file fmt\\
+\end{tabular}\hline
 \end{center}
 
 \subsection{Example of using the sqio API}
