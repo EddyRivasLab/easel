@@ -1,0 +1,34 @@
+\documentclass[11pt]{article}
+\usepackage{fullpage}
+\usepackage{times}
+\usepackage{html}
+\usepackage{apalike}
+\usepackage{url}
+
+\input{macros}
+
+\begin{document}
+\bibliographystyle{apalike}
+
+\input{titlepage}
+\input{copyright}
+\newpage
+\tableofcontents
+\newpage
+
+\section{Easel}
+
+\subsection{Overview of data structures}
+
+\begin{tabular}{lll}\hline
+\textbf{Object}            & \textbf{Implemented in} & \textbf{Description}\\\hline
+\cstruct{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
+\cstruct{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\
+\cstruct{ESL\_FILEPARSER}  & \cfile{parse}           & Simple token-based input file parser\\
+\cstruct{ESL\_RANDOMNESS}  & \cfile{random}          & Random number generator\\
+\cstruct{ESL\_SEQFILE}     & \cfile{sqio}            & Biosequence file parser\\
+\cstruct{ESL\_SQ}          & \cfile{sqio}            & DNA/RNA/protein sequence data\\\hline
+\end{tabular}
+
+\end{document}
+

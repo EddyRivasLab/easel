@@ -28,6 +28,8 @@
  *
  * Returns:  ESL_OK   on success. 
  *           ESL_EOF  on normal end-of-file.
+ *
+ *           when ESL_OK:
  *           *buf points to a NUL-terminated line from the file.
  *           *n contains the current alloc'ed length for *buf.
  * 
@@ -130,19 +132,20 @@ esl_parse_fgets(char **buf, int *n, FILE *fp)
  *           char  buf[50] = "This is  a sentence.";
  *           
  *           s = buf;  
- *           tok = esl_parse_strtok(&s, " ", &len);
+ *           esl_parse_strtok(&s, " ", &tok, &len);
  *                tok is "This"; s is "is  a sentence."; len is 4.
- *           tok = esl_parse_strtok(&s, " ", &len);
+ *           esl_parse_strtok(&s, " ", &tok, &len);
  *                tok is "is"; s is " a sentence."; len is 2.
- *           tok = esl_parse_strtok(&s, " ", &len);
+ *           esl_parse_strtok(&s, " ", &tok, &len);
  *                tok is "a"; s is "sentence."; len is 1.
- *           tok = esl_parse_strtok(&s, " ", &len);
+ *           esl_parse_strtok(&s, " ", &tok, &len);
  *                tok is "sentence."; s is "\0"; len is 9.
- *           tok = esl_parse_strtok(&s, " ", &len);
+ *           esl_parse_strtok(&s, " ", &tok, &len);
  *                tok is NULL; s is "\0", len is undefined.
  *       
  * Args:     s     - a tmp, modifiable ptr to string
  *           delim - characters that delimits tokens
+ *           tok   - RETURN: ptr to \0-terminated token string
  *           len   - RETURN: length of token; pass NULL if not wanted
  *
  * Returns:  ESL_OK  on success: token points to next token, toklen is its length.
