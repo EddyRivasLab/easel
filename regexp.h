@@ -51,5 +51,20 @@ typedef struct {
 } ESL_REGEXP;
 
 
+/* Declaration of functions in the API
+ */
 
+extern ESL_REGEXP *esl_regexp_Create(void);
+extern void        esl_regexp_Inflate(ESL_REGEXP *machine);
+extern void        esl_regexp_Destroy(ESL_REGEXP *machine);
+extern void        esl_regexp_Deflate(ESL_REGEXP *machine);
+
+extern int  esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s);
+extern int  esl_regexp_Compile(ESL_REGEXP *machine, char *pattern);
+extern int  esl_regexp_MultipleMatches(ESL_REGEXP *machine, char **sptr);
+
+extern char *esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem);
+extern int   esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc);
+extern int   esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem, 
+				       int *ret_start, int *ret_end);
 #endif /*ESL_REGEXP_INCLUDED*/

@@ -515,6 +515,7 @@ static void regc(struct comp *cp, char c);
 static void reginsert(struct comp *cp, char op, char *opnd);
 static void regtail(struct comp *cp, char *p, char *val);
 static void regoptail(struct comp *cp, char *p, char *val);
+static char *regescape(struct comp *cp, char c);
 
 /*
  - regcomp - compile a regular expression into internal code
@@ -838,7 +839,23 @@ regatom(register struct comp *cp, int *flagp)
       cp->regparse++;
     }
     while ((c = *cp->regparse++) != '\0' && c != ']') {
-      if (c != '-')
+      /* SRE: inserted code for \t, \n, \r, \f here:
+       *   c is the \, and cp->regparse is an alphanumeric.
+       */
+      if (c == '\\') {
+	c = *cp->regparse++;
+	switch (c) {
+	case 'f': regc(cp, '\f'); break;
+	case 'n': regc(cp, '\n'); break;
+	case 'r': regc(cp, '\r'); break;
+	case 't': regc(cp, '\t'); break;
+	case '\\': regc(cp, '\\'); break;
+	default: 
+	  ESL_ERROR_NULL(ESL_ESYNTAX, "Invalid \\ escape inside range operator");
+	  break;
+	}
+      }/*end SRE*/
+      else if (c != '-')
 	regc(cp, c);
       else if ((c = *cp->regparse) == ']' || c == '\0')
 	regc(cp, '-');
@@ -883,9 +900,14 @@ regatom(register struct comp *cp, int *flagp)
   case '\\':
     if (*cp->regparse == '\0')
       ESL_ERROR_NULL(ESL_ESYNTAX, "trailing \\");
-    ret = regnode(cp, EXACTLY);
-    regc(cp, *cp->regparse++);
-    regc(cp, '\0');
+
+    if (! isalnum(*cp->regparse)) {
+      ret = regnode(cp, EXACTLY); /* SRE: original Spencer code */
+      regc(cp, *cp->regparse++);
+      regc(cp, '\0');
+    } else {			/* SRE: my dropped in escape-code handling */
+      ret = regescape(cp, *cp->regparse);
+    }
     *flagp |= HASWIDTH|SIMPLE;
     break;
 
@@ -1520,7 +1542,93 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 #endif /* regsub() currently disabled */
 /*============= end of Spencer's copyrighted regexp code =============================*/
 
+/* Spencer's code originally handled a backslashed alphanum
+ * like \t as t: in regatom(), the logic was:
+ *     ret = regnode(cp, EXACTLY);
+ *     regc(cp, *cp->regparse++);
+ *     regc(cp, '\0');
+ * Here we provide a drop-in replacement for these lines.
+ * We create an EXACTLY node for escapes, and a ANYBUT
+ * or ANYOF node for character classes. Then
+ * instead of pushing the char *cp->regparse onto the machine
+ * and incrementing cp->regparse, we interpret an alphanumeric
+ * character as an escape code, push one or more appropriate
+ * chars onto the machine, and advance regparse,
+ * before returning control to Spencer.
+ *
+ * that is: cp->regparse points to c when we come in,
+ * and it's an alphanumeric following a \. On return,
+ * we've advanced cp->regparse by one. 
+ */
+static char *
+regescape(struct comp *cp, char c)
+{
+  char *ret;
+  char x;
 
+  switch (c) {
+    /* escapes: */
+  case 'f': ret = regnode(cp, EXACTLY); regc(cp, '\f'); break;
+  case 'n': ret = regnode(cp, EXACTLY); regc(cp, '\n'); break;
+  case 'r': ret = regnode(cp, EXACTLY); regc(cp, '\r'); break;
+  case 't': ret = regnode(cp, EXACTLY); regc(cp, '\t'); break;
+
+    /* character classes: */
+  case 'd': 
+    ret = regnode(cp, ANYOF);
+    for (x = '0'; x <= '9'; x++) 
+      regc(cp, x);
+    break;
+
+  case 'D':
+    ret = regnode(cp, ANYBUT);
+    for (x = '0'; x <= '9'; x++) regc(cp, x);
+    break;
+
+  case 'w':
+    ret = regnode(cp, ANYOF);
+    for (x = '0'; x <= '9'; x++) regc(cp, x);
+    for (x = 'a'; x <= 'z'; x++) regc(cp, x);
+    for (x = 'A'; x <= 'Z'; x++) regc(cp, x);
+    regc(cp, '_');
+    break;
+
+  case 'W':
+    ret = regnode(cp, ANYBUT);
+    for (x = '0'; x <= '9'; x++) regc(cp, x);
+    for (x = 'a'; x <= 'z'; x++) regc(cp, x);
+    for (x = 'A'; x <= 'Z'; x++) regc(cp, x);
+    regc(cp, '_');
+    break;
+
+  case 's':
+    ret = regnode(cp, ANYOF);
+    regc(cp, ' ');
+    regc(cp, '\t');
+    regc(cp, '\n');
+    regc(cp, '\r');
+    regc(cp, '\f');
+    break;
+
+  case 'S':
+    ret = regnode(cp, ANYBUT);
+    regc(cp, ' ');
+    regc(cp, '\t');
+    regc(cp, '\n');
+    regc(cp, '\r');
+    regc(cp, '\f');
+    break;
+
+  default:
+    ESL_ERROR_NULL(ESL_ESYNTAX, "invalid \\ escape code");
+    /*NOTREACHED*/
+    break;
+  }
+
+  regc(cp, '\0');
+  cp->regparse++;
+  return ret;
+}
 
 
 /*****************************************************************
@@ -1563,7 +1671,7 @@ main(int argc, char **argv)
     }
   else if (status == ESL_EOD)
     {
-      printf("Pattern does not match in string\n.");
+      printf("Pattern does not match in string.\n");
     }
 
   esl_regexp_Destroy(m);
@@ -1744,6 +1852,8 @@ main(void)
 }
 #endif /* test driver */
 /*============= end of test driver and example code =============================*/
+
+
 
 
 

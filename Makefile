@@ -60,7 +60,9 @@ clean:
 
 reallyclean:
 	make clean
+	(cd documentation; make clean)
 	-rm easel/*.h
+
 
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]

@@ -2,14 +2,14 @@
 The regexp module contains portable functions for using regular
 expressions to match and parse strings.
 
-There are many different regular expression syntaxes.  Easel's regular
-expression machine has a simple syntax, allowing the most familiar and
-important regular expression operators. It takes advantage of a
-compact, public domain regular expression engine written by Henry
-Spencer at the University of Toronto. Easel's regular expressions are
-only a subset of the complex and powerful regular expression syntax in
-the Perl language, for example, but are sufficient for many useful
-parsing needs in a C application.
+There are many different regular expression syntaxes.  Easel
+implements a small regular expression machine with a limited syntax,
+allowing the most familiar and important regular expression
+operators. It takes advantage of a compact, public domain regular
+expression engine written by Henry Spencer at the University of
+Toronto. Easel's regular expressions are not as powerful as the
+regular expression syntax in the Perl language, for example, but are
+sufficient for many useful parsing needs in a C application.
 
 \subsection{The regexp API}
 
@@ -73,7 +73,7 @@ main(int argc, char **argv)
     }
   else if (status == ESL_EOD)
     {
-      printf("Pattern does not match in string\n.");
+      printf("Pattern does not match in string.\n");
     }
 
   esl_regexp_Destroy(m);
@@ -278,7 +278,7 @@ For example, parsing a bibliographic reference like ``Gene
 102:189-196(1991)'' might go something like:
 
 \begin{cchunk}
-  % ./example3  "([^ ]+) ([0-9]+):([0-9]+)-([0-9]+)\(([0-9]+)\)" "Gene 102:189-196(1991)"   5
+  % ./example3  "(\S+) (\d+):(\d+)-(\d+)\((\d+)\)" "Gene 102:189-196(1991)"   5
   token #1: 1..4, Gene
   token #2: 6..8, 102
   token #3: 10..12, 189
@@ -288,7 +288,6 @@ For example, parsing a bibliographic reference like ``Gene
 
 The tokens are numbered in the order that their open-parenthesis
 occurred in the expression, from left to right.
-
 
 \subsection{Syntax of regular expressions}
 
@@ -309,6 +308,9 @@ example, \ccode{foo?} matches fo and foo; \ccode{foo*} matches fo,
 foo, fooo, foooo and so on; \ccode{foo+} matches foo, fooo, foooo, and
 so on.
 
+\verb'^' is the beginning-of-string anchor, and \ccode{\$} is the
+end-of-string anchor. 
+
 \ccode{|} is the concatenation operator, specifying alternative ways
 to match. For example, \ccode{foo|bar|baz} matches baz, bar, or foo;
 \ccode{(foo|bar|baz)+} matches barfoobaz, foofoofoo, etc.
@@ -319,6 +321,34 @@ is grouped and treated as a single atom for purposes of a subsequent
 Anything inside \ccode{()} becomes a token, extractable by
 \ccode{\_Submatch*} functions.
 
+The backslash \verb+\+, when followed by any metacharacter (or in
+fact, any non-alphanumeric character), specifies that that character
+should be treated as an ordinary character.  For example, the pattern
+\verb+\\c:+ matches the string \verb+\c:+, since backslash is itself a
+metacharacter.
+
+A backslash followed by an alphanumeric character is either an
+\emph{escape character} or a \emph{character set}. Four escape
+characters are recognized: \verb+\f+ (form feed), \verb+\n+ (newline),
+\verb+\r+ (carriage return), and \verb+\t+ (TAB). Six character set
+codes are recognized, with the same meanings they have in Perl regular
+expressions:
+
+\begin{center}
+\begin{tabular}{lll} 
+\textbf{code} & \textbf{meaning}    & \textbf{equivalent to} \\
+ \verb+\d+    & digit               & \verb+[0-9]+ \\
+ \verb+\D+    & not a digit         & \verb+[^0-9]+ \\
+ \verb+\w+    & word character      & \verb+[0-9a-z_a-Z]+ \\
+ \verb+\W+    & non-word character  & \verb+[^0-9a-z_a-Z]+ \\
+ \verb+\s+    & whitespace          & \verb+[ \t\n\r\f]+ \\
+ \verb+\S+    & non-whitespace      & \verb+[^ \t\n\r\f]+ \\
+\end{tabular}
+\end{center}
+
+A backslash is followed by an alphanumeric character that is neither
+an escape code or a character set code is an error.
+
 \ccode{[} is the set (or range) operator. \footnote{An unmatched
 \ccode{]} is not a metacharacter, but a \ccode{[} metacharacter always
 implies a range and always must have a closing \ccode{]}.} The set of
@@ -327,24 +357,30 @@ atom. A set may be specified as a range of ASCII characters;
 \ccode{[a-z]}, for example, means any lower-case character from a to
 z, \ccode{[a-zA-Z]} means any alphabetic character, and \ccode{[0-9]}
 means any digit. For example, \ccode{fo[ox]} matches foo or
-fox. Additionally, \verb+[^+ implies the opposite, an ANYBUT atom:
-any character \emph{except} the set of characters named is a
-match. For example, \verb'foo[^ ]+' matches ``football'' in the
-string ``football game''.
+fox. Additionally, \verb+[^+ implies the opposite, an ANYBUT atom: any
+character \emph{except} the set of characters named is a match. For
+example, \verb'foo[^ ]+' matches ``football'' in the string ``football
+game''. 
 
-\verb'^' is the beginning-of-string anchor and \ccode{\$} is the
-end-of-string anchor. 
+Metacharacters are handled differently inside the \verb+[]+ range
+operator. The only special characters are \verb+]+, \verb+-+, and
+\verb+\+. A \verb+]+ character indicates the end of the range operator
+unless it immediately follows the \verb+[+, in which case it is
+treated as a normal character (thus, weirdly, \verb+[][{}()]+ will
+match any open/close brace/parenthesis character). The \verb+-+
+character indicates the middle of a three-character \verb+x-y+ ASCII
+range, unless it comes at the beginning or end of the range (thus
+\verb+[]-]+ recognizes either \verb+]+ or \verb+-+ as literals).  The
+\verb+\+ character indicates an escaped character. Only five such
+escape characters are recognized inside a range operator: \verb+\f+
+(form feed), \verb+\n+ (newline), \verb+\r+ (carriage return),
+\verb+\t+ (TAB), and \verb+\\+ (backslash itself). Character set codes
+like \verb+\s+ are not allowed within range operators.
 
-The backslash \verb+\+ is used to specify that the next character
-should be treated as an ordinary character, not a metacharacter. For
-example, the pattern \verb+\\c:+ matches the string \verb+\c:+, since
-backslash is itself a metacharacter.
 
-The Easel regular expression engine currently does not support Perl's
-useful backslash character set specifiers, such as \verb+\S+ and
-\verb+\s+. In fact, it does not even have a way to specify nonprinting
-characters like \verb+\t+ (TAB) or \verb+\n+ (NEWLINE); \verb+\t+ and
-\verb+\n+ are equivalent to normal \ccode{t} and \ccode{n} characters.
+
+
+
 
 
 

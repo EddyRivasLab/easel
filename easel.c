@@ -36,11 +36,11 @@ esl_error(int code, char *file, int line, char *format, ...)
     va_end(argp);
     return;
   } else {
-    fprintf(stderr, "Easel fatal error:\n");
+    fprintf(stderr, "Easel fatal error (file %s, line %d):\n", file, line);
     va_start(argp, format);
     vfprintf(stderr, format, argp);
     va_end(argp);
-    fprintf(stderr, "\nAborted at file %s, line %d.\n", file, line);
+    fprintf(stderr, "\n");
     fflush(stderr);
     abort();
   }
