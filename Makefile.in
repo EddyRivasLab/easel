@@ -11,6 +11,7 @@ RANLIB  = @RANLIB@
 HEADERS = \
 	easel.h\
 	esl_alphabet.h\
+	esl_fileparser.h\
 	esl_getopts.h\
 	esl_keyhash.h\
 	esl_msa.h\
@@ -18,11 +19,13 @@ HEADERS = \
 	esl_regexp.h\
 	esl_sqio.h\
 	esl_stack.h\
+	esl_vectorops.h\
 	esl_wuss.h
 
 OBJS    = \
 	easel.o\
 	esl_alphabet.o\
+	esl_fileparser.o\
 	esl_getopts.o\
 	esl_keyhash.o\
 	esl_msa.o\
@@ -30,6 +33,7 @@ OBJS    = \
 	esl_regexp.o\
 	esl_sqio.o\
 	esl_stack.o\
+	esl_vectorops.o\
 	esl_wuss.o
 
 all: libeasel.a

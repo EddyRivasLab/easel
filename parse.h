@@ -1,4 +1,5 @@
-/* parse.h
+/* esl_fileparser.h
+ * A simple token-based file parsing system.
  * 
  * SRE, Tue Jul 13 14:40:35 2004 [St. Louis]
  * SVN $Id$
@@ -9,19 +10,18 @@
 
 #include <stdio.h>
 
-struct esl_fileparser_s {
+typedef struct {
   FILE *fp;
   char *buf;
   int   buflen;
   char *s;
   char  commentchar;		/* often '#' */
-};
-typedef struct esl_fileparser_s ESL_FILEPARSER;
+} ESL_FILEPARSER;
 
-extern int esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp);
-extern int esl_fileparse_set_commentchar(ESL_FILEPARSER *efp, char c);
-extern int esl_fileparse_nextline(ESL_FILEPARSER *efp);
-extern int esl_fileparse_token(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen);
-extern int esl_fileparse_free(ESL_FILEPARSER *efp);
+extern ESL_FILEPARSER *esl_fileparser_Create(FILE *fp);
+extern int esl_fileparser_SetCommentChar(ESL_FILEPARSER *efp, char c);
+extern int esl_fileparser_GetToken(ESL_FILEPARSER *efp, 
+				   char **ret_tok, int *ret_toklen);
+extern int esl_fileparser_Destroy(ESL_FILEPARSER *efp);
 
 #endif /* ESL_PARSE_INCLUDED */
