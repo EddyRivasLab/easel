@@ -36,8 +36,8 @@ esl_randomness_Create(long seed)
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if (seed <= 0)                                    ESL_ERROR_NULL(ESL_EINVAL, "bad seed");
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(ESL_EMEM,   "malloc failed");
+  if (seed <= 0)                                    ESL_ERROR_NULL(eslEINVAL, "bad seed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(eslEMEM,   "malloc failed");
   r->seed = seed;
 
   /* we observe that the first random number isn't very random, if
@@ -68,7 +68,7 @@ esl_randomness_CreateTimeseeded(void)
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(eslEMEM, "malloc failed");
   r->seed = time ((time_t *) NULL);
   while (burnin--) esl_random(r);
   return r;
@@ -98,9 +98,9 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
  * Args:      r     - randomness object
  *            seed  - new seed to use; >0.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EINVAL> if seed is $<= 0$
+ * Throws:    <eslEINVAL> if seed is $<= 0$
  *
  * Xref:      STL8/p57.
  */
@@ -108,10 +108,10 @@ int
 esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
 {
   int burnin = 7;
-  if (seed <= 0) ESL_ERROR(ESL_EINVAL, "bad seed");
+  if (seed <= 0) ESL_ERROR(eslEINVAL, "bad seed");
   r->seed = seed;
   while (burnin--) esl_random(r);
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -463,7 +463,7 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
   int   x;
 
   if ((s = malloc(sizeof(char) * (len+1))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
+    ESL_ERROR_NULL(eslEMEM, "allocation failed");
 
   for (x = 0; x < len; x++)
     s[x] = alphabet[esl_rnd_DChoose(r,p,n)];

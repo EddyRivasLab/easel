@@ -30,7 +30,7 @@
  *            Q     - RETURN: rate matrix, square (NxN). 
  *                    Caller allocates the memory for this.
  *                    
- * Returns:   ESL_OK on success; Q is calculated.
+ * Returns:   eslOK on success; Q is calculated.
  * 
  * Xref:      STL8/p56.
  */
@@ -57,7 +57,7 @@ esl_ratemx_Symm2Q(ESL_DMATRIX *s, double *pi, ESL_DMATRIX *Q)
       Q->mx[i][i] = -1. * esl_vec_DSum(Q->mx[i], Q->n);
     }
 
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -78,7 +78,7 @@ esl_ratemx_Symm2Q(ESL_DMATRIX *s, double *pi, ESL_DMATRIX *Q)
  *            x   - expected subsitution rate per dt 
  *                  (1.0 = substitutions/site; 0.01 = PAMs)
  *
- * Returns:   ESL_OK on success;
+ * Returns:   eslOK on success;
  *            rate matrix Q is altered.
  *
  * Xref:      STL8/p56.
@@ -97,7 +97,7 @@ esl_ratemx_Normalize(ESL_DMATRIX *Q, double *pi, double x)
     for (j = 0; j < Q->n; j++)
       Q->mx[i][j] *= (x / sum);
 
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -122,7 +122,7 @@ esl_ratemx_Normalize(ESL_DMATRIX *Q, double *pi, double x)
  *            t    - time units
  *            P    - RETURN: substitution matrix       
  *
- * Returns:   ESL_OK on success; conditional probabilities are in P.
+ * Returns:   eslOK on success; conditional probabilities are in P.
  *
  * Xref:      
  */
@@ -134,8 +134,8 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   double       factor;
   int          k;
 
-  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
-  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
+  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(eslEMEM, "malloc failed");
+  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(eslEMEM, "malloc failed");
   
   esl_dmx_SetIdentity(P);
   factor = 1;
@@ -154,7 +154,7 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 
   esl_dmx_Free(tmp);
   esl_dmx_Free(C);
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -184,7 +184,7 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
   int i,j;
 
   if ((Q = esl_dmatrix_Create(4, 4)) == NULL)
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");   
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");   
   
   for (i = 0; i < 4; i++)
     {

@@ -2,21 +2,23 @@
  * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
  * SVN $Id$
  * 
- * Core functionality of easel: errors and memory allocations.
+ * Core functionality of easel: errors, memory allocations, constants,
+ * and configuration for portability.
  */
-#ifndef ESL_EASEL_INCLUDED
-#define ESL_EASEL_INCLUDED
+#ifndef eslEASEL_INCLUDED
+#define eslEASEL_INCLUDED
 
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
 
 
+
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
  *
  * Wrapping in the while(0) loop allows one to write
- *  if (something) ESL_ERROR(code,mesg); 
+ *     if (something) ESL_ERROR(code,mesg); 
  * without the trailing semicolon being a null statement
  * after macro expansion.
  */
@@ -30,27 +32,26 @@
      return NULL; }\
      while (0)
 
+#define eslOK              0	/* no error/success             */
+#define eslFAIL            1    /* failure                      */
+#define eslEOL             2	/* end-of-line (often normal)   */
+#define eslEOF             3	/* end-of-file (often normal)   */
+#define eslEOD             4 	/* end-of-data (often normal)   */
+#define eslEMEM            5	/* malloc or realloc failed     */
+#define eslENOTFOUND       6	/* file or key not found        */
+#define eslEFORMAT         7	/* file format not correct      */
+#define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */   
+#define eslEDIVZERO        9	/* attempted div by zero        */
+#define eslEINCOMPAT      10	/* incompatible parameters      */
+#define eslEINVAL         11	/* invalid argument/parameter   */
+#define eslESYS           12	/* generic system call failure  */
+#define eslECORRUPT       13	/* unexpected data corruption   */
+#define eslEINCONCEIVABLE 14    /* "can't happen" error         */
+#define eslESYNTAX        15    /* invalid syntax in input data */
+#define eslERANGE         16    /* value out of allowed range   */
 
-
-#define ESL_OK              0	/* no error/success/TRUE        */
-#define ESL_EOL             1	/* end-of-line (often normal)   */
-#define ESL_EOF             2	/* end-of-file (often normal)   */
-#define ESL_EOD             3 	/* end-of-data (often normal)   */
-#define ESL_EMEM            4	/* malloc or realloc failed     */
-#define ESL_ENOTFOUND       5	/* file or key not found        */
-#define ESL_EFORMAT         6	/* file format not correct      */
-#define ESL_EAMBIGUOUS      7   /* an ambiguity of some sort    */   
-#define ESL_EDIVZERO        8	/* attempted div by zero        */
-#define ESL_EINCOMPAT       9	/* incompatible parameters      */
-#define ESL_EINVAL         10	/* invalid argument/parameter   */
-#define ESL_ESYS           11	/* generic system call failure  */
-#define ESL_ECORRUPT       12	/* unexpected data corruption   */
-#define ESL_EINCONCEIVABLE 13   /* "can't happen" error         */
-#define ESL_ESYNTAX        14   /* invalid syntax in input data */
-#define ESL_ERANGE         15   /* value out of allowed range   */
-
-
-typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
+typedef void (*esl_error_handler_f)(int code, char *file, int line, 
+				    char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;
 
 extern void esl_error(int code, char *file, int line, char *format, ...);
@@ -72,11 +73,13 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 			   FILE **ret_fp, char **ret_path);
 
 
+/* Macros for allocation/reallocation idioms w/ error handling.
+ */
 #define ESL_MALLOC(p, size) do {\
      (p) = malloc(size);\
      if ((p) == NULL) {\
-       esl_error(ESL_EMEM, __FILE__, __LINE__, "malloc failed");\
-       return ESL_EMEM;\
+       esl_error(eslEMEM, __FILE__, __LINE__, "malloc failed");\
+       return eslEMEM;\
      }} while (0)
 
 /* See esl_msa_Expand() for first use example.
@@ -85,10 +88,9 @@ extern int esl_FileEnvOpen(char *fname, char *env,
      (tmp) = realloc((p), (newsize));\
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
-       esl_error(ESL_EMEM, __FILE__, __LINE__, "realloc failed");\
-       return ESL_EMEM;\
+       esl_error(eslEMEM, __FILE__, __LINE__, "realloc failed");\
+       return eslEMEM;\
      }} while (0)
-
 
 /* Making sure TRUE/FALSE are defined, for convenience
  */
@@ -107,7 +109,7 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 /* For now, we're only testing Easel on POSIX systems (Linux),
  * but eventually we'll want a pure ANSI C mode for portability
  */
-#define ESL_POSIX_AUGMENTATION
+#define eslPOSIX_AUGMENTATION
 
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
@@ -126,4 +128,4 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
  
 
-#endif /*ESL_EASEL_INCLUDED*/
+#endif /*eslEASEL_INCLUDED*/

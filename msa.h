@@ -4,8 +4,8 @@
  * SVN $Id$
  * SRE, Wed Jan 19 19:16:28 2005
  */
-#ifndef ESL_MSA_INCLUDED
-#define ESL_MSA_INCLUDED
+#ifndef eslMSA_INCLUDED
+#define eslMSA_INCLUDED
 
 #include <stdio.h>
 
@@ -93,13 +93,12 @@ typedef struct {
   char ***gr;                   /* [0..ngr][0..nseq-1][0..alen-1] markup */
   int     ngr;			/* number of #=GR tag types              */
 
-#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
+#ifdef eslKEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
   GKI    *index;	        /* name ->seqidx hash table */
   GKI    *gs_idx;               /* hash of #=GS tag types   */
   GKI    *gc_idx;               /* hash of #=GC tag types   */
   GKI    *gr_idx;               /* hash of #=GR tag types   */
-#endif /*KEYHASH AUGMENTATION*/
-
+#endif /*keyhash augmentation*/
 } ESL_MSA;
 
 /* Flags for msa->flags
@@ -152,11 +151,16 @@ extern int  esl_msafile_Open(char *filename, int format, char *env,
 			     ESL_MSAFILE **ret_msafp);
 extern void esl_msafile_Close(ESL_MSAFILE *afp);
 
+extern int  esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+extern int  esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
+extern int  esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
+
 extern int esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+extern int esl_msa_WriteStockholm(FILE *fp, ESL_MSA *msa);
+extern int esl_msa_WriteStockholmOneBlock(FILE *fp, ESL_MSA *msa);
 
 
-
-#endif /*ESL_MSA_INCLUDED*/
+#endif /*eslMSA_INCLUDED*/
 
 /*****************************************************************
  * @LICENSE@

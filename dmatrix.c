@@ -50,7 +50,7 @@ esl_dmatrix_Create(int n, int m)
   
  FAILURE:
   esl_dmatrix_Destroy(A);
-  ESL_ERROR_NULL(ESL_EMEM, "esl_dmx_Create(): malloc failed");
+  ESL_ERROR_NULL(eslEMEM, "esl_dmx_Create(): malloc failed");
 }
 
 
@@ -64,7 +64,7 @@ esl_dmatrix_Destroy(ESL_DMATRIX *A)
   if (A != NULL && A->mx != NULL && A->mx[0] != NULL) free(A->mx[0]);
   if (A != NULL && A->mx != NULL)                     free(A->mx);
   if (A != NULL)                                      free(A);
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmatrix_Dump()
@@ -85,7 +85,7 @@ esl_dmatrix_Destroy(ESL_DMATRIX *A)
  *            rowlabel -  optional: NULL, or character labels for rows
  *            collabel -  optional: NULL, or character labels for cols
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  */
 int
 esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
@@ -106,7 +106,7 @@ esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
     for (b = 0; b < A->m; b++) fprintf(ofp, "%8.4f ", A->mx[a][b]);
     fprintf(ofp, "\n");
   }
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -114,19 +114,19 @@ esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
  *
  * Purpose:   Copies <src> matrix into <dest> matrix.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EINCOMPAT> if <src>, <dest> are different sizes
+ * Throws:    <eslEINCOMPAT> if <src>, <dest> are different sizes
  */
 int
 esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
 {
   int i;
   if (dest->n != src->n || dest->m != src->n)
-    ESL_ERROR(ESL_EINCOMPAT, "matrices of different size");
+    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < src->n*src->m; i++)
     dest->mx[0][i] = src->mx[0][i];
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmatrix_Compare()
@@ -151,28 +151,28 @@ esl_dmatrix_Compare(ESL_DMATRIX *A, ESL_DMATRIX *B, double tol)
 /* Function:  esl_dmatrix_Set()
  *
  * Purpose:   Set all elements $a_{ij}$ in matrix <A> to <x>,
- *            and returns <ESL_OK>.
+ *            and returns <eslOK>.
  */
 int
 esl_dmatrix_Set(ESL_DMATRIX *A, double x)
 {
   int i;
   for (i = 0; i < A->n*A->m; i++) A->mx[0][i] = x;
-  return ESL_OK;
+  return eslOK;
 }
 
 
 /* Function:  esl_dmatrix_SetZero()
  *
  * Purpose:   Sets all elements $a_{ij}$ in matrix <A> to 0.0,
- *            and returns <ESL_OK>.
+ *            and returns <eslOK>.
  */
 int
 esl_dmatrix_SetZero(ESL_DMATRIX *A)
 {
   int i;
   for (i = 0; i < A->n*A->m; i++) A->mx[0][i] = 0.;
-  return ESL_OK;
+  return eslOK;
 }
   
 
@@ -180,19 +180,19 @@ esl_dmatrix_SetZero(ESL_DMATRIX *A)
  *
  * Purpose:   Given a square matrix <A>, sets all diagonal elements 
  *            $a_{ii}$ to 1, and all off-diagonal elements to 0.
- *            Returns <ESL_OK>.
+ *            Returns <eslOK>.
  *
- * Throws:    <ESL_EINVAL> if the matrix isn't square.
+ * Throws:    <eslEINVAL> if the matrix isn't square.
  */
 int
 esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
 {
   int i;
   
-  if (A->n != A->m) ESL_ERROR(ESL_EINVAL, "matrix isn't square");
+  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
   esl_dmatrix_SetZero(A);
   for (i = 0; i < A->n; i++) A->mx[i][i] = 1.;
-  return ESL_OK;
+  return eslOK;
 }
   
 
@@ -229,7 +229,7 @@ esl_permutation_Create(int n)
 
  FAILURE:
   esl_permutation_Free(P);
-  ESL_ERROR_NULL(ESL_EMEM, "esl_permutation_Create: malloc failed");
+  ESL_ERROR_NULL(eslEMEM, "esl_permutation_Create: malloc failed");
 }
   
 /* Function:  esl_permutation_Destroy()
@@ -241,7 +241,7 @@ esl_permutation_Destroy(ESL_PERMUTATION *P)
 {
   if (P != NULL && P->pi != NULL) free(P->pi);
   if (P != NULL)                  free(P);
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_permutation_Reuse()
@@ -275,7 +275,7 @@ esl_permutation_Reuse(ESL_PERMUTATION *P)
  *            rowlabel - optional: NULL, or character labels for rows
  *            collabel - optional: NULL, or character labels for cols
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  */
 int 
 esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collabel)
@@ -297,7 +297,7 @@ esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collab
       fprintf(ofp, "%3d ", (j == P->pi[i]) ? 1 : 0);
     fprintf(ofp, "\n");
   }
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -308,16 +308,16 @@ esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collab
  *           <A> is nxm; <B> is mxp; <C> is nxp.
  *           Matrix <C> must be allocated appropriately by the caller.
  *           
- * Throws:   <ESL_EINVAL> if matrices don't have compatible dimensions. 
+ * Throws:   <eslEINVAL> if matrices don't have compatible dimensions. 
  */
 int
 esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
 {
   int i, j, k;
 
-  if (A->m != B->n) ESL_ERROR(ESL_EINVAL, "can't multiply A,B");
-  if (A->n != C->n) ESL_ERROR(ESL_EINVAL, "A,C # of rows not equal");
-  if (B->m != C->m) ESL_ERROR(ESL_EINVAL, "B,C # of cols not equal");
+  if (A->m != B->n) ESL_ERROR(eslEINVAL, "can't multiply A,B");
+  if (A->n != C->n) ESL_ERROR(eslEINVAL, "A,C # of rows not equal");
+  if (B->m != C->m) ESL_ERROR(eslEINVAL, "B,C # of cols not equal");
 
   for (i = 0; i < A->n; i++)
     for (j = 0; j < B->m; j++)
@@ -326,14 +326,14 @@ esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
 	for (k = 0; k < A->m; k++)
 	  C->mx[i][j] += A->mx[i][k] * B->mx[k][j];
       }
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmx_Transpose()
  *
  * Purpose:   Transpose a square matrix <A> in place.
  *
- * Throws:    <ESL_EINVAL> if <A> isn't square.
+ * Throws:    <eslEINVAL> if <A> isn't square.
  */
 int
 esl_dmx_Transpose(ESL_DMATRIX *A)
@@ -341,11 +341,11 @@ esl_dmx_Transpose(ESL_DMATRIX *A)
   int    i,j;
   double swap;
 
-  if (A->n != A->m) ESL_ERROR(ESL_EINVAL, "matrix isn't square");
+  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
   for (i = 0; i < A->n; i++)
     for (j = i+1; j < A->m; j++)
       { swap = A->mx[i][j]; A->mx[i][j] = A->mx[j][i]; A->mx[j][i] = swap; }
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -354,7 +354,7 @@ esl_dmx_Transpose(ESL_DMATRIX *A)
  * Purpose:   <A = A+B>; adds matrix <B> to matrix <A> and leaves result
  *            in matrix <A>.
  *
- * Throws:    <ESL_EINVAL> if matrices aren't the same dimensions.
+ * Throws:    <eslEINVAL> if matrices aren't the same dimensions.
  */
 int
 esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B)
@@ -362,11 +362,11 @@ esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B)
   int i,j;
   
   if (A->n != B->n || A->m != B->n)
-    ESL_ERROR(ESL_EINCOMPAT, "matrices of different size");
+    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
       A->mx[i][j] +=  B->mx[i][j];
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmx_Scale()
@@ -381,7 +381,7 @@ esl_dmx_Scale(ESL_DMATRIX *A, double k)
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
       A->mx[i][j] *=  k;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -389,7 +389,7 @@ esl_dmx_Scale(ESL_DMATRIX *A, double k)
  * 
  * Purpose:   Calculates <A + kB>, leaves answer in <A>.
  * 
- * Throws:    <ESL_EINVAL> if matrices aren't the same dimensions.
+ * Throws:    <eslEINVAL> if matrices aren't the same dimensions.
  */
 int
 esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
@@ -397,11 +397,11 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
   int i,j;
 
   if (A->n != B->n || A->m != B->n)
-    ESL_ERROR(ESL_EINCOMPAT, "matrices of different size");
+    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
       A->mx[i][j] +=  k * B->mx[i][j];
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -412,7 +412,7 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
  *            the result in a square matrix <B> that the caller has
  *            allocated.
  *
- * Throws:    <ESL_EINVAL> if A, B, P do not have compatible dimensions.
+ * Throws:    <eslEINVAL> if A, B, P do not have compatible dimensions.
  */
 int
 esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
@@ -420,7 +420,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
   int i,ip,j;
 
   if (A->n != P->n || A->n != B->n || A->n != A->m || B->n != B->m)
-    ESL_ERROR(ESL_EINVAL, "matrix dimensions not compatible");
+    ESL_ERROR(eslEINVAL, "matrix dimensions not compatible");
 
   for (i = 0; i < A->n; i++)
     {
@@ -428,7 +428,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
       for (j = 0; j < A->m; j++)
 	B->mx[i][j] = A->mx[ip][j];
     }
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmx_LUP_decompose()
@@ -446,7 +446,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
  *            [Cormen, Leiserson, Rivest; "Algorithms", MIT Press,
  *            1999; p.759].
  *
- * Throws:    <ESL_EINVAL> if <A> isn't square, or if <P> isn't the right
+ * Throws:    <eslEINVAL> if <A> isn't square, or if <P> isn't the right
  *            size for <A>.
  */
 int
@@ -456,8 +456,8 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
   double max;
   double swap;
 
-  if (A->n != A->m) ESL_ERROR(ESL_EINVAL, "matrix isn't square");
-  if (P->n != A->n) ESL_ERROR(ESL_EINVAL, "permutation isn't the right size");
+  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
+  if (P->n != A->n) ESL_ERROR(eslEINVAL, "permutation isn't the right size");
   esl_permutation_Init(P);
 
   for (k = 0; k < A->n-1; k++)
@@ -471,7 +471,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 	  max = fabs(A->mx[i][k]);
 	  kpiv = i;
 	}
-      if (max == 0.) ESL_ERROR(ESL_EDIVZERO, "matrix is singular");
+      if (max == 0.) ESL_ERROR(eslEDIVZERO, "matrix is singular");
       
       /* Swap those rows (k and kpiv);
        * and keep track of that permutation in P. (misuse j for swapping integers)
@@ -489,7 +489,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 	    A->mx[i][j] -= A->mx[i][k] * A->mx[k][j];
 	}
     }
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -500,18 +500,18 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
  *            allocated <L> and <U> matrices of same size as <LU> for
  *            storing the results.
  *
- * Throws:    <ESL_EINVAL> if <LU>, <L>, <U> are not of compatible dimensions.
+ * Throws:    <eslEINVAL> if <LU>, <L>, <U> are not of compatible dimensions.
  */
 int
 esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
 {
   int i,j;
 
-  if (LU->n != LU->m) ESL_ERROR(ESL_EINVAL, "LU isn't square");
-  if (L->n  != L->m)  ESL_ERROR(ESL_EINVAL, "L isn't square");
-  if (U->n  != U->m)  ESL_ERROR(ESL_EINVAL, "U isn't square");
-  if (LU->n != L->n)  ESL_ERROR(ESL_EINVAL, "LU, L have incompatible dimensions");
-  if (LU->n != U->n)  ESL_ERROR(ESL_EINVAL, "LU, U have incompatible dimensions");
+  if (LU->n != LU->m) ESL_ERROR(eslEINVAL, "LU isn't square");
+  if (L->n  != L->m)  ESL_ERROR(eslEINVAL, "L isn't square");
+  if (U->n  != U->m)  ESL_ERROR(eslEINVAL, "U isn't square");
+  if (LU->n != L->n)  ESL_ERROR(eslEINVAL, "LU, L have incompatible dimensions");
+  if (LU->n != U->n)  ESL_ERROR(eslEINVAL, "LU, U have incompatible dimensions");
 
   esl_dmx_SetZero(L);
   esl_dmx_SetZero(U);
@@ -526,7 +526,7 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
       for (j = 0; j < i; j++)
 	L->mx[i][j] = LU->mx[i][j];
     }
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_dmx_Invert()
@@ -539,9 +539,9 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
  *            forward/back-substitution; xref [Cormen, Leiserson, 
  *            Rivest; "Algorithms", MIT Press 1999; p.753].
  *
- * Throws:    <ESL_EINVAL> if <A>, <Ai> do not have same dimensions, or
+ * Throws:    <eslEINVAL> if <A>, <Ai> do not have same dimensions, or
  *                         if <A> isn't square.
- *            <ESL_EMEM>   if internal allocations (for LU, and some other
+ *            <eslEMEM>   if internal allocations (for LU, and some other
  *                         bookkeeping) fail.
  */
 int
@@ -553,8 +553,8 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   double           *b  = NULL;	/* column vector of permuted identity matrix */
   int               i,j,k;
 
-  if (A->n != A->m)                   ESL_ERROR(ESL_EINVAL, "matrix isn't square");
-  if (A->n != Ai->n || A->m != Ai->m) ESL_ERROR(ESL_EINVAL, "matrices are different size");
+  if (A->n != A->m)                   ESL_ERROR(eslEINVAL, "matrix isn't square");
+  if (A->n != Ai->n || A->m != Ai->m) ESL_ERROR(eslEINVAL, "matrices are different size");
 
   /* Copy A to LU, and do an LU decomposition.
    */
@@ -607,13 +607,13 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   free(y);
   esl_dmatrix_Destroy(LU);
   esl_permutation_Destroy(P);
-  return ESL_OK;
+  return eslOK;
 
  FAILURE:
   if (y  != NULL) free(y);
   if (b  != NULL) free(b);
   if (LU != NULL) esl_dmatrix_Destroy(LU);
   if (P  != NULL) esl_permutation_Destroy(P);
-  ESL_ERROR(ESL_EMEM, "allocation failed in esl_dmx_Invert()");
+  ESL_ERROR(eslEMEM, "allocation failed in esl_dmx_Invert()");
 }
 

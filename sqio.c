@@ -34,8 +34,8 @@ esl_sq_Create(void)
   ESL_SQ *sq;
 
   if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
-  if (esl_sq_Inflate(sq) != ESL_OK) 
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  if (esl_sq_Inflate(sq) != eslOK) 
     { free(sq); return NULL; }
 
   return sq;
@@ -49,9 +49,9 @@ esl_sq_Create(void)
  *            on the stack), allocate and initialize its internals.
  *            Caller will free it with <esl_sq_Deflate()>.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EMEM> on allocation failure.
+ * Throws:    <eslEMEM> on allocation failure.
  */
 int
 esl_sq_Inflate(ESL_SQ *sq)
@@ -72,16 +72,16 @@ esl_sq_Inflate(ESL_SQ *sq)
   sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
 
   if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
   if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
   if ((sq->desc = malloc(sizeof(char) * sq->dalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
   if ((sq->seq  = malloc(sizeof(char) * sq->salloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(ESL_EMEM, "malloc failed"); }
+    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
 
   esl_sq_Reuse(sq);		/* this does the initialization */
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_sq_Reuse()
@@ -92,7 +92,7 @@ esl_sq_Inflate(ESL_SQ *sq)
  *            may be read into it. This allows sequential sequence
  *            input without a lot of wasted malloc()/free() cycling.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  */
 int
 esl_sq_Reuse(ESL_SQ *sq)
@@ -104,7 +104,7 @@ esl_sq_Reuse(ESL_SQ *sq)
   if (sq->dsq != NULL) sq->dsq[0] = '\0';
   if (sq->ss  != NULL) sq->ss[0]  = '\0';
   sq->n = 0;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_sq_Squeeze()
@@ -127,9 +127,9 @@ esl_sq_Reuse(ESL_SQ *sq)
  *            copies the internal data, and free's the
  *            dynamic input buffers. 
  *            
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EMEM> if reallocation fails.
+ * Throws:    <eslEMEM> if reallocation fails.
  */
 int
 esl_sq_Squeeze(ESL_SQ *sq)
@@ -144,7 +144,7 @@ esl_sq_Squeeze(ESL_SQ *sq)
   len = nlen + alen + dlen + sq->n + 4;
 
   if ((sq->optmem = malloc(sizeof(char) * len)) == NULL) 
-    ESL_ERROR(ESL_EMEM, "allocation failed");
+    ESL_ERROR(eslEMEM, "allocation failed");
   
   name = sq->optmem;                    memcpy(name, sq->name, nlen+1);
   acc  = sq->optmem+(nlen+1);           memcpy(acc,  sq->acc,  alen+1);
@@ -161,7 +161,7 @@ esl_sq_Squeeze(ESL_SQ *sq)
   sq->desc = desc;
   sq->seq  = seq;
   
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -214,15 +214,15 @@ esl_sq_Destroy(ESL_SQ *sq)
  * Args:      seqfile  - name of the file to open for reading
  *            ret_sqfp - RETURN: the opened <ESL_SQFILE>
  *
- * Returns:   <ESL_OK> on success; caller is responsible for
+ * Returns:   <eslOK> on success; caller is responsible for
  *            closing the <sqfp> with <esl_sqfile_Close()>.
  *            
- *            Returns <ESL_ENOTFOUND> if the file <seqfile> does not
+ *            Returns <eslENOTFOUND> if the file <seqfile> does not
  *            exist, or cannot be opened for reading (incorrect
  *            permissions, for example), or fread() results in
  *            a read error.
  *
- * Throws:    <ESL_EMEM> if an allocation fails.
+ * Throws:    <eslEMEM> if an allocation fails.
  */
 int
 esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
@@ -231,7 +231,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   int         x;
 
   if ((sqfp = malloc(sizeof(ESL_SQFILE))) == NULL) 
-    ESL_ERROR(ESL_EMEM, "allocation failed");
+    ESL_ERROR(eslEMEM, "allocation failed");
 
   sqfp->fp         = NULL;
   sqfp->filename   = NULL;
@@ -245,9 +245,9 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   sqfp->linenumber = 1;
 
   if ((sqfp->fp = fopen(seqfile,"r")) == NULL) 
-    { free(sqfp); return ESL_ENOTFOUND; }
-  if (esl_strdup(seqfile, -1, &(sqfp->filename)) != ESL_OK) 
-    { esl_sqfile_Close(sqfp); ESL_ERROR(ESL_EMEM, "allocation failed"); }
+    { free(sqfp); return eslENOTFOUND; }
+  if (esl_strdup(seqfile, -1, &(sqfp->filename)) != eslOK) 
+    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "allocation failed"); }
 
   /* Create an appropriate default input map for FASTA files.
    *   - accept anything alphabetic, case-insensitive;
@@ -261,7 +261,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
    *  in alphabet.c's inmap too.)
    */
   if ((sqfp->inmap = malloc(sizeof(int) * 256)) == NULL) 
-    { esl_sqfile_Close(sqfp); ESL_ERROR(ESL_EMEM, "allocation failed"); }
+    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "allocation failed"); }
 
   for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
@@ -274,10 +274,10 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   /* load the first block of data from the file into memory. 
    */
   sqfp->nc = fread(sqfp->buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
-  if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return ESL_ENOTFOUND; }
+  if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
 
   *ret_sqfp = sqfp;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -310,7 +310,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  *            \verb+sqfp->pos+ is at the first byte in the file (which
  *            must be a $>$ if it's FASTA format); or at a '$>$' 
  *            for a subsequent sequence 2..N; or at EOF, byte B+1
- *            in a B-byte file, in which case we return <ESL_EOF>.
+ *            in a B-byte file, in which case we return <eslEOF>.
  *            One of these conditions is guaranteed if you only call 
  *            <esl_sio_ReadFASTA()> on an open FASTA file, but
  *            operations that muck with the internals of a <sqfp> 
@@ -324,18 +324,18 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  * Args:      sqfp   - open ESL_SQFILE for reading a FASTA-format datafile
  *            s      - allocated ESL_SQ object         
  *
- * Returns:   <ESL_OK> on success; the newly read sequence info
+ * Returns:   <eslOK> on success; the newly read sequence info
  *               is stored in <s>.
- *            <ESL_EOF> when there is no sequence left in the file;
+ *            <eslEOF> when there is no sequence left in the file;
  *               (including first attempt to read an empty file).
- *            <ESL_EFORMAT> if there's a problem with the format,
+ *            <eslEFORMAT> if there's a problem with the format,
  *               such as an illegal character. The linenumber that 
  *               the error occurred at is in <sqfp->linenumber>, 
  *               and the line itself is <sqfp->buf>, which an 
  *               application can use to format a useful error
  *               message.
  *
- * Throws:    <ESL_EMEM> on an allocation failure, either in 
+ * Throws:    <eslEMEM> on an allocation failure, either in 
  *            name/description lengths or in the sequence data
  *            itself.
  *
@@ -387,7 +387,7 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
 
   /* If we have no more data, return EOF; we're done.
    */
-  if (sqfp->nc == 0 && feof(sqfp->fp)) return ESL_EOF;
+  if (sqfp->nc == 0 && feof(sqfp->fp)) return eslEOF;
 
   buf   = sqfp->buf;	/* These are some optimizations, avoid dereferences */
   nc    = sqfp->nc;
@@ -408,7 +408,7 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
   while (state != 6) {
     switch (state) {
     case 0:     /* START. Accept >, move to state 1. */
-      if (buf[pos] == '>') { pos++; state = 1; } else return ESL_EFORMAT;
+      if (buf[pos] == '>') { pos++; state = 1; } else return eslEFORMAT;
       break;
 
     case 1:     /* NAMESPACE. Switch to NAME state when we see a non-space. */
@@ -425,8 +425,8 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  else { state = 3; goto NAMEDONE; }
 	}
       }
-      if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
-      return ESL_EFORMAT; /* we ran out of data while still in a name. */
+      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+      return eslEFORMAT; /* we ran out of data while still in a name. */
     NAMEDONE:
       break;
 
@@ -448,8 +448,8 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
 	    { state = 5; pos++; goto DESCDONE; }
 	}
       }
-      if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
-      else return ESL_EFORMAT;	/* ran out of data while still in desc */
+      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+      else return eslEFORMAT;	/* ran out of data while still in desc */
     DESCDONE:
       break;
 
@@ -465,12 +465,12 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  else if (c == '\n') 
 	    { pos++; sqfp->linenumber++; }
 	  else if (inmap[c] == ESL_ILLEGAL_CHAR) 
-	    return ESL_EFORMAT;
+	    return eslEFORMAT;
 	  else
 	    { pos++; } /* IGNORED_CHARs, inc. \r */
 	}
       }
-      if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
+      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
       state = 6;
       break;
     } /* end of switch over FSA states */
@@ -498,7 +498,7 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
   s->desc[dpos] = '\0';
   s->seq[spos]  = '\0';
   
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -518,7 +518,7 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
  *         pos++;
  *       }        
  *     }
- *     if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
+ *     if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
  * 
  * which avoids having to check our buffers every character.
  * 
@@ -556,9 +556,9 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
 
 /*****************************************************************
  * Test driver:
- * gcc -g -Wall -I. -o sqio_test -DESL_SQIO_TESTDRIVE sqio.c alphabet.c easel.c
+ * gcc -g -Wall -I. -o sqio_test -DeslSQIO_TESTDRIVE sqio.c alphabet.c easel.c
  *****************************************************************/
-#ifdef ESL_SQIO_TESTDRIVE
+#ifdef eslSQIO_TESTDRIVE
 
 int
 main(void)
@@ -584,11 +584,11 @@ main(void)
    * seqs from a FASTA file.
    */
 
-  if (esl_sqfile_OpenFASTA(filename, &sqfp) != ESL_OK) abort();
+  if (esl_sqfile_OpenFASTA(filename, &sqfp) != eslOK) abort();
   sq = esl_sq_Create();
 
   n=0;
-  while (esl_sio_ReadFASTA(sqfp, sq) == ESL_OK)
+  while (esl_sio_ReadFASTA(sqfp, sq) == eslOK)
     {
       if (n==0 && strcmp(sq->seq, seq1) != 0) abort();
       if (n==1 && strcmp(sq->seq, seq2) != 0) abort();
@@ -599,4 +599,4 @@ main(void)
   esl_sqfile_Close(sqfp);
   return 0;
 }
-#endif /*ESL_SQIO_TESTDRIVE*/
+#endif /*eslSQIO_TESTDRIVE*/

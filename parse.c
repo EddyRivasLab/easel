@@ -24,11 +24,11 @@
  * Args:      fp        - open FILE to parse
  *            ret_efp   - RETURN: open ESL_FILEPARSER object
  *
- * Returns:   ESL_OK on success. ret_efp points to a new
+ * Returns:   eslOK on success. ret_efp points to a new
  *                   ESL_FILEPARSER object, which must be 
  *                   destroyed with esl_fileparse_close().
  *
- * Throws:    ESL_EMEM:  malloc/realloc failed.
+ * Throws:    eslEMEM:  malloc/realloc failed.
  *            
  * Xref:      STL8 p.56.
  */
@@ -39,7 +39,7 @@ esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp)
 
   *ret_efp = NULL;
   if ((efp = malloc(sizeof(ESL_FILEPARSER))) == NULL)
-    ESL_ERROR(ESL_EMEM, "malloc failed");
+    ESL_ERROR(eslEMEM, "malloc failed");
   efp->fp          = fp;
   efp->buf         = NULL;
   efp->buflen      = 0;
@@ -47,7 +47,7 @@ esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp)
   efp->commentchar = '\0';
 
   *ret_efp = efp;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_fileparse_set_commentchar()
@@ -62,13 +62,13 @@ esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp)
  * Args:      efp  - open fileparser
  *            c    - comment character ('#')        
  *
- * Returns:   ESL_OK.
+ * Returns:   eslOK.
  */
 int
 esl_fileparse_set_commentchar(ESL_FILEPARSER *efp, char c)
 {
   efp->commentchar = c;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -80,10 +80,10 @@ esl_fileparse_set_commentchar(ESL_FILEPARSER *efp, char c)
  *
  * Args:      efp  - open file parser
  *
- * Returns:   ESL_OK:   success
- *            ESL_EOF:  normal end of file
+ * Returns:   eslOK:   success
+ *            eslEOF:  normal end of file
  *
- * Throws:    ESL_EMEM: malloc/realloc failed in fgets()
+ * Throws:    eslEMEM: malloc/realloc failed in fgets()
  *
  * Xref:      STL8 p.56
  */
@@ -92,9 +92,9 @@ esl_fileparse_nextline(ESL_FILEPARSER *efp)
 {
   int eslcode;
 
-  if ((eslcode = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != ESL_OK) return eslcode;
+  if ((eslcode = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != eslOK) return eslcode;
   efp->s = efp->buf;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_fileparse_token()
@@ -107,10 +107,10 @@ esl_fileparse_nextline(ESL_FILEPARSER *efp)
  *            ret_tok    - RETURN: ptr to next field
  *            ret_toklen - RETURN: length of tok.       
  *
- * Returns:   ESL_OK:  tok, toklen contain valid data.
- *            ESL_EOF: normal end-of-file.
+ * Returns:   eslOK:  tok, toklen contain valid data.
+ *            eslEOF: normal end-of-file.
  *            
- * Throws:    ESL_EMEM: malloc/realloc failure somewhere.
+ * Throws:    eslEMEM: malloc/realloc failure somewhere.
  *
  * Xref:      STL8 p.56.
  */
@@ -127,25 +127,25 @@ esl_fileparse_token(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
 
   if (efp->buf == NULL) {
     fcode = esl_fileparse_nextline(efp);
-    if (fcode != ESL_OK) return fcode;
+    if (fcode != eslOK) return fcode;
   }
 
   do {
     goodtok = FALSE;
     tokcode = esl_strtok(&(efp->s), " \t\n", &tok, &toklen);
-    if (tokcode == ESL_EOL ||
-	(tokcode == ESL_OK && *tok == efp->commentchar)) 
+    if (tokcode == eslEOL ||
+	(tokcode == eslOK && *tok == efp->commentchar)) 
       {
 	fcode = esl_fileparse_nextline(efp);
-	if (fcode != ESL_OK) return fcode;
+	if (fcode != eslOK) return fcode;
       } 
-    else if (tokcode == ESL_OK) goodtok = TRUE;
+    else if (tokcode == eslOK) goodtok = TRUE;
     else return tokcode;
   } while (! goodtok);
 
   if (ret_tok != NULL)    *ret_tok    = tok;
   if (ret_toklen != NULL) *ret_toklen = toklen;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_fileparse_free()
@@ -157,7 +157,7 @@ esl_fileparse_token(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
  *
  * Args:      efp - fileparser to shut down.
  *
- * Returns:   ESL_OK, success.
+ * Returns:   eslOK, success.
  *
  * Throws:    (no abnormal error conditions)
  *
@@ -168,5 +168,5 @@ esl_fileparse_free(ESL_FILEPARSER *efp)
 {
   if (efp->buf != NULL) free(efp->buf);
   free(efp);
-  return ESL_OK;
+  return eslOK;
 }

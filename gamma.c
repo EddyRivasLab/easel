@@ -31,9 +31,9 @@ static double gamma_fraction(ESL_RANDOMNESS *r, double a);
  *            ret_answer : RETURN: the answer
  *
  * Returns:   Put the answer in *ret_answer;
- *            returns ESL_OK.
+ *            returns eslOK.
  *            
- *            returns ESL_EINVAL if x <= 0.
+ *            returns eslEINVAL if x <= 0.
  */
 int
 esl_gamma_log(double x, double *ret_answer)
@@ -57,7 +57,7 @@ esl_gamma_log(double x, double *ret_answer)
   
   /* Protect against invalid x<=0
    */
-  if (x <= 0.0)  ESL_ERROR(ESL_EINVAL, "invalid x <= 0 in esl_gamma_LogGamma()");
+  if (x <= 0.0)  ESL_ERROR(eslEINVAL, "invalid x <= 0 in esl_gamma_LogGamma()");
 
   xx       = x - 1.0;
   tx = tmp = xx + 11.0;
@@ -71,7 +71,7 @@ esl_gamma_log(double x, double *ret_answer)
   tx    += 0.5;
   value += 0.918938533 + (xx+0.5)*log(tx) - tx;
   *ret_answer = value;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -91,16 +91,16 @@ esl_gamma_log(double x, double *ret_answer)
  *           ret_answer - RETURN: a sample from Gamma(a, 1).
  *
  * Returns:  a gamma-distributed deviate is put in *ret_answer;
- *           returns ESL_OK.
+ *           returns eslOK.
  *
- *           Returns ESL_EINVAL for a <= 0.
+ *           Returns eslEINVAL for a <= 0.
  */
 int
 esl_gamma_sample(ESL_RANDOMNESS *r, double a, double *ret_answer)
 {
   double aint;
 
-  if (a <= 0.) ESL_ERROR(ESL_EINVAL, "a <= 0 in esl_gamma_Sample()");
+  if (a <= 0.) ESL_ERROR(eslEINVAL, "a <= 0 in esl_gamma_Sample()");
 
   aint = floor(a);
   if (a == aint && a < 12.) 
@@ -111,7 +111,7 @@ esl_gamma_sample(ESL_RANDOMNESS *r, double a, double *ret_answer)
     *ret_answer = gamma_fraction(r, a);
   else 
     *ret_answer = gamma_ahrens(r, aint) + gamma_fraction(r, a-aint);
-  return ESL_OK;
+  return eslOK;
 }
 
 static double

@@ -121,16 +121,16 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *           allocation of buf or the value of n while
  *           you're still doing esl_parse_fgets() calls with them.
  *
- * Returns:  ESL_OK   on success. 
- *           ESL_EOF  on normal end-of-file.
+ * Returns:  eslOK   on success. 
+ *           eslEOF  on normal end-of-file.
  *
- *           when ESL_OK:
+ *           when eslOK:
  *           *buf points to a NUL-terminated line from the file.
  *           *n contains the current alloc'ed length for *buf.
  * 
  *           Caller must free *buf eventually. 
  *
- * Throws:   ESL_EMEM on malloc/realloc failure.
+ * Throws:   eslEMEM on malloc/realloc failure.
  *
  * Example:  char *buf;
  *           int   n;
@@ -139,7 +139,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *           fp  = fopen("my_file", "r");
  *           buf = NULL;
  *           n   = 0;
- *           while (esl_fgets(&buf, &n, fp) == ESL_OK) 
+ *           while (esl_fgets(&buf, &n, fp) == eslOK) 
  *           {
  *             do stuff with buf;
  *           }
@@ -154,27 +154,27 @@ esl_fgets(char **buf, int *n, FILE *fp)
   if (*n == 0) 
     {
       if ((*buf = malloc(sizeof(char) * 128)) == NULL)
-	ESL_ERROR(ESL_EMEM, "malloc failed");
+	ESL_ERROR(eslEMEM, "malloc failed");
       *n   = 128;
     }
 
   /* Simple case 1. We're sitting at EOF, or there's an error.
    *                fgets() returns NULL, so we return EOF.
    */
-  if (fgets(*buf, *n, fp) == NULL) return ESL_EOF;
+  if (fgets(*buf, *n, fp) == NULL) return eslEOF;
 
   /* Simple case 2. fgets() got a string, and it reached EOF doing it.
    *                return success status, so caller can use
    *                the last line; on the next call we'll
    *                return the 0 for the EOF.
    */
-  if (feof(fp)) return ESL_OK;
+  if (feof(fp)) return eslOK;
 
   /* Simple case 3. We got a complete string, with \n,
    *                and don't need to extend the buffer.
    */
   len = strlen(*buf);
-  if ((*buf)[len-1] == '\n') return ESL_OK;
+  if ((*buf)[len-1] == '\n') return eslOK;
 
   /* The case we're waiting for. We have an incomplete string,
    * and we have to extend the buffer one or more times. Make
@@ -185,15 +185,15 @@ esl_fgets(char **buf, int *n, FILE *fp)
   while (1) {
     *n  += 128;
     if ((*buf = realloc(*buf, sizeof(char) * (*n))) == NULL) 
-      ESL_ERROR(ESL_EMEM, "realloc failed");
+      ESL_ERROR(eslEMEM, "realloc failed");
     s = *buf + pos;
-    if (fgets(s, 129, fp) == NULL) return ESL_OK;
+    if (fgets(s, 129, fp) == NULL) return eslOK;
     len = strlen(s);
-    if (s[len-1] == '\n') return ESL_OK;
+    if (s[len-1] == '\n') return eslOK;
     pos += 128;
   } 
   /*NOTREACHED*/
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function: esl_strdup()
@@ -208,9 +208,9 @@ esl_fgets(char **buf, int *n, FILE *fp)
  *           n       - length of string, if known; -1 if unknown.
  *           ret_dup - RETURN: duplicate of <s>.
  *                
- * Returns:  <ESL_OK> on success, and <ret_dup> is valid.
+ * Returns:  <eslOK> on success, and <ret_dup> is valid.
  *
- * Throws:   <ESL_EMEM> on allocation failure.
+ * Throws:   <eslEMEM> on allocation failure.
  */
 int
 esl_strdup(char *s, int n, char **ret_dup)
@@ -218,13 +218,13 @@ esl_strdup(char *s, int n, char **ret_dup)
   char *new;
 
   if (ret_dup != NULL) *ret_dup = NULL;
-  if (s == NULL) return ESL_OK;
+  if (s == NULL) return eslOK;
   if (n < 0) n = strlen(s);
   if ((new = malloc(sizeof(char) * (n+1))) == NULL) 
-    ESL_ERROR(ESL_EMEM, "malloc failed in esl_strdup()");
+    ESL_ERROR(eslEMEM, "malloc failed in esl_strdup()");
   strcpy(new, s);
   if (ret_dup != NULL) *ret_dup = new; else free(new);
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -257,10 +257,10 @@ esl_strdup(char *s, int n, char **ret_dup)
  *           src   - string to append to dest, '\0' terminated       
  *           lsrc  - length of src, if known; or -1 if length unknown.
  *
- * Returns:  <ESL_OK> on success; <*dest> is (probably) reallocated, 
+ * Returns:  <eslOK> on success; <*dest> is (probably) reallocated, 
  *           modified, and '\0' terminated.
  *           
- * Throws:   <ESL_EMEM> on allocation failure.          
+ * Throws:   <eslEMEM> on allocation failure.          
  */
 int
 esl_strcat(char **dest, int ldest, char *src, int lsrc)
@@ -274,37 +274,40 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
   if (lsrc < 0)  len2 = ((  src == NULL) ? 0 : strlen(src)); 
   else           len2 = lsrc;
 
-  if (len2 == 0) return ESL_OK;
+  if (len2 == 0) return eslOK;
 
   if (*dest == NULL) ESL_MALLOC(*dest, sizeof(char) * (len2+1));
   else               ESL_REALLOC(*dest, p, sizeof(char) * (len1+len2+1));
 
   memcpy((*dest)+len1, src, len2+1);
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function: esl_strtok()
  * Date:     SRE, Wed May 19 16:30:20 1999 [St. Louis]
  *
- * Purpose:  Thread-safe version of strtok().
- *
- *           Returns ptr to next token in a string: skips
- *            until it reaches a character that is not in the delim
- *            string, and sets beginning of token. Skips to
- *            next delim character (or '\0') to set the end; replaces that
- *            character with '\0'.
- *           If there's still more string left, sets s to point to next 
- *            character after the '\0' that was written, so successive 
- *            calls extract tokens in succession. If there was no string
- *            left, s points at the terminal '\0'. 
+ * Purpose:  Thread-safe version of strtok(), for parsing next token
+ *           in a string. Skips until it reaches a character that is
+ *           not in <delim> to set the beginning of the
+ *           token. Skips to next delim character (or '\0') to set the
+ *           end, and replaces that character with '\0'. <*s> is then
+ *           reset to point to the next character after
+ *           the '\0' that was written, so successive calls can extract
+ *           tokens in succession. Sets <*ret_tok> to point at the
+ *           beginning of the token, and <*ret_token> to the number
+ *           of characters in the token (exclusive of the \0), and
+ *           returns <eslOK>.
  *            
- *           If no token is found, returns NULL.
- *            
- *           Also returns the length of the token, which
- *           may save us a strlen() call in some applications.
+ *           If a token is not found -- if <*s> already points to
+ *           \0, or is a string composed entirely of characters in
+ *           <delim> -- then returns <eslEOL>; <*ret_tok> is set to
+ *           NULL, and <*ret_toklen> is set to 0.
  *           
- * Limitations:
- *           *s can't be a constant string, since we write to it.
+ *           Note that <*s> can't be a constant string, since we write
+ *           \0's to it; caller must be willing to have this string
+ *           modified. And since we walk <*s> through the string
+ *           as we parse, the caller wants to use a tmp pointer <*s>,
+ *           not the string itself.
  *                      
  * Example:  
  *           char *tok;
@@ -322,17 +325,16 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
  *           esl_strtok(&s, " ", &tok, &len);
  *                tok is "sentence."; s is "\0"; len is 9.
  *           esl_strtok(&s, " ", &tok, &len);
- *                tok is NULL; s is "\0", len is undefined.
+ *                this returned eslEOL;
+ *                tok is NULL; s is "\0", len is 0.
  *       
  * Args:     s     - a tmp, modifiable ptr to string
  *           delim - characters that delimits tokens
  *           tok   - RETURN: ptr to \0-terminated token string
  *           len   - RETURN: length of token; pass NULL if not wanted
  *
- * Returns:  ESL_OK  on success: token points to next token, toklen is its len.
- *           ESL_EOL on end of line.
- *
- * Throws:   (no abnormal error conditions)
+ * Returns:  <eslOK> on success: token points to next token, toklen is its len.
+ *           <eslEOL> on end of line.
  */
 int
 esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
@@ -345,7 +347,7 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
 
   begin = *s;
   begin += strspn(begin, delim);
-  if (! *begin) return ESL_EOL;
+  if (! *begin) return eslEOL;
 
   n = strcspn(begin, delim);
   end  = begin + n;
@@ -357,7 +359,7 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
 
   if (ret_tok    != NULL) *ret_tok    = begin;
   if (ret_toklen != NULL) *ret_toklen = n;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -409,12 +411,12 @@ esl_FileExists(char *filename)
  *            if <dir> is "/usr/local" and <file> is "lib/myapp/data",
  *            <ret_path> will be "/usr/local/lib/myapp/data".
  *
- * Returns:   <ESL_OK> on success, and puts the path
+ * Returns:   <eslOK> on success, and puts the path
  *            in <ret_path>; this string is allocated here, 
  *            and must be free'd by caller with <free()>.
  *
- * Throws:    <ESL_EMEM>   on allocation failure.
- *            <ESL_EINVAL> on bad argument.
+ * Throws:    <eslEMEM>   on allocation failure.
+ *            <eslEINVAL> on bad argument.
  *
  * Xref:      squid's FileConcat().
  */
@@ -425,12 +427,12 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
   int   nd, nf;
 
   if (ret_path != NULL) *ret_path = NULL;
-  if (file == NULL) ESL_ERROR(ESL_EINVAL, "null file");
+  if (file == NULL) ESL_ERROR(eslEINVAL, "null file");
 
   nd   = (dir  != NULL)? strlen(dir)  : 0;
   nf   = strlen(file);
   path = malloc (sizeof(char) * (nd+nf+2));
-  if (path == NULL) ESL_ERROR(ESL_EMEM, "malloc failed");
+  if (path == NULL) ESL_ERROR(eslEMEM, "malloc failed");
 
   if (dir == NULL)		     /* 1. silly caller didn't give a path */
     strcpy(path, file);
@@ -442,7 +444,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
     sprintf(path, "%s%c%s", dir, eslDIRSLASH, file);	
 
   if (ret_path != NULL) *ret_path = path; else free(path);
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -458,11 +460,11 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
  *            returns "foo.ssi". If <filename> is "foo.db" and <sfx>
  *            is "idx", returns "foo.idx". 
  *
- * Returns:   <ESL_OK> on success, and <ret_newpath> is set
+ * Returns:   <eslOK> on success, and <ret_newpath> is set
  *            string "<base_filename>.<sfx>". Caller must <free()>
  *            this string.
  *
- * Throws:    <ESL_EMEM> on allocation failure.
+ * Throws:    <eslEMEM> on allocation failure.
  *
  * Xref:      squid's FileAddSuffix().
  */
@@ -480,13 +482,13 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
   nf = (lastdot == NULL)? strlen(filename) : lastdot-filename;
   
   new = malloc(sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */
-  if (new == NULL) ESL_ERROR(ESL_EMEM, "malloc failed");
+  if (new == NULL) ESL_ERROR(eslEMEM, "malloc failed");
   strncpy(new, filename, nf);
   *(new+nf) = '.';
   strcpy(new+nf+1, sfx);
 
   if (ret_newpath != NULL) *ret_newpath = new; else free(new);
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -520,14 +522,14 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
  *            int   status;
  *            status = esl_FileEnvOpen("swiss42", "BLASTDB", &fp, &path);
  * 
- * Returns:   <ESL_OK> on success, and provides <ret_fp> and <ret_path>;
+ * Returns:   <eslOK> on success, and provides <ret_fp> and <ret_path>;
  *            <ret_fp> is opened here, and must be <fclose()>'d by caller;
  *            <ret_path> is allocated here, and must be <free()>'d by caller.
  *
- *            Returns <ESL_ENOTFOUND> if the file not found in any directory,
+ *            Returns <eslENOTFOUND> if the file not found in any directory,
  *            or if <env> does not contain any directories to look in.
  *
- * Throws:    <ESL_EMEM> on allocation error.
+ * Throws:    <eslEMEM> on allocation error.
  *
  * Xref:      squid's EnvFileOpen().
  */
@@ -544,13 +546,13 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (ret_fp   != NULL) *ret_fp   = NULL;
   if (ret_path != NULL) *ret_path = NULL;
 
-  if (env == NULL)               return ESL_ENOTFOUND;
-  if ((s = getenv(env)) == NULL) return ESL_ENOTFOUND;
-  if (esl_strdup(s, -1, &dirlist) != ESL_OK) return ESL_EMEM;
+  if (env == NULL)               return eslENOTFOUND;
+  if ((s = getenv(env)) == NULL) return eslENOTFOUND;
+  if (esl_strdup(s, -1, &dirlist) != eslOK) return eslEMEM;
 
   np   = strlen(fname) + strlen(s) + 2; /* upper bound on full path len */
   path = malloc(sizeof(char) * np);
-  if (path == NULL) { free(dirlist); ESL_ERROR(ESL_EMEM, "malloc failed");}
+  if (path == NULL) { free(dirlist); ESL_ERROR(eslEMEM, "malloc failed");}
 
   s  = dirlist;
   while (s != NULL) 
@@ -560,12 +562,12 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
       if ((fp = fopen(path, "r")) != NULL) break;      
       s = s2;
     }
-  if (fp == NULL) { free(path); free(dirlist); return ESL_ENOTFOUND; }
+  if (fp == NULL) { free(path); free(dirlist); return eslENOTFOUND; }
 
   if (ret_path != NULL) { *ret_path = path; } else free(path);
   if (ret_fp   != NULL) { *ret_fp   = fp; }   else fclose(fp);
   free(dirlist);
-  return ESL_OK;
+  return eslOK;
 }
 
 /*----------------- end of file path/name functions ------------------------*/

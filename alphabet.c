@@ -42,7 +42,7 @@ esl_alphabet_Create(int type)
   case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
   default:    
-    ESL_ERROR_NULL(ESL_EINVAL,
+    ESL_ERROR_NULL(eslEINVAL,
 		   "Standard alphabets include only DNA, RNA, protein.");
   }
   return a;
@@ -84,14 +84,14 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   /* Argument checks.
    */
   if (strlen(alphabet) != Kp) 
-    ESL_ERROR_NULL(ESL_EINVAL, "alphabet length != Kp");
+    ESL_ERROR_NULL(eslEINVAL, "alphabet length != Kp");
   if (Kp < K+2)               
-    ESL_ERROR_NULL(ESL_EINVAL, "Kp too small in alphabet"); 
+    ESL_ERROR_NULL(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
   if ((a = malloc(sizeof(ESL_ALPHABET))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
   a->sym    = NULL;
   a->degen  = NULL;
   a->ndegen = NULL;
@@ -99,17 +99,17 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   /* Allocation/init, level 2.
    */
   if ((a->sym    = malloc(sizeof(char)   * (Kp+1))) == NULL) 
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   if ((a->degen  = malloc(sizeof(char *) * Kp))     == NULL)
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   if ((a->ndegen = malloc(sizeof(int)    * Kp))     == NULL)
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   a->degen[0] = NULL;
 
   /* Allocation/init, level 3.
    */
   if ((a->degen[0] = malloc(sizeof(char) * (Kp*K))) == NULL) 
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   for (x = 1; x < Kp; x++)
     a->degen[x] = a->degen[0]+(K*x);
 
@@ -300,9 +300,9 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
  * Args:      sym   - symbol in the input alphabet; 'T' for example
  *            c     - symbol in the internal alphabet; 'U' for example
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EINVAL> if <c> is not in the internal alphabet.
+ * Throws:    <eslEINVAL> if <c> is not in the internal alphabet.
  */
 int
 esl_alphabet_SetSynonym(ESL_ALPHABET *a, char sym, char c)
@@ -311,10 +311,10 @@ esl_alphabet_SetSynonym(ESL_ALPHABET *a, char sym, char c)
   int   x;
 
   if ((sp = strchr(a->sym, c)) == NULL) 
-    ESL_ERROR(ESL_EINVAL, "symbol not in the alphabet");
+    ESL_ERROR(eslEINVAL, "symbol not in the alphabet");
   x = sp - a->sym;
   a->inmap[(int) sym] = x;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_alphabet_SetCaseInsensitive()
@@ -328,7 +328,7 @@ esl_alphabet_SetSynonym(ESL_ALPHABET *a, char sym, char c)
  *
  * Args:      a  - alphabet to make inmap case-insensitive.
  *                 
- * Returns:   <ESL_OK> on success.                
+ * Returns:   <eslOK> on success.                
  */
 int
 esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
@@ -341,7 +341,7 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
       if (a->inmap[lc] >= 0 && a->inmap[uc] < 0) a->inmap[uc] = a->inmap[lc];
       if (a->inmap[uc] >= 0 && a->inmap[lc] < 0) a->inmap[lc] = a->inmap[uc];
     }
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_alphabet_SetDegeneracy()
@@ -355,7 +355,7 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
  *            c   - degenerate character code; example: 'R'
  *            ds  - string of base characters for c; example: "AG"
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  */
 int
 esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
@@ -364,12 +364,12 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
   int   x,y;
 
   if ((sp = strchr(a->sym, c)) == NULL)
-    ESL_ERROR(ESL_EINVAL, "no such degenerate character");
+    ESL_ERROR(eslEINVAL, "no such degenerate character");
   x = sp - a->sym;
   
   while (*ds != '\0') {
     if ((sp = strchr(a->sym, *ds)) == NULL) 
-      ESL_ERROR(ESL_EINVAL, "no such base character");
+      ESL_ERROR(eslEINVAL, "no such base character");
     y = sp - a->sym;
 
     a->degen[x][y] = 1;
@@ -377,7 +377,7 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
     ds++;
   }
 
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -392,13 +392,13 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
  *           L       - length of sequence      
  *           ret_dsq - RETURN: the new digital sequence
  *           
- * Returns:  <ESL_OK> on success, and digitized sequence is passed 
+ * Returns:  <eslOK> on success, and digitized sequence is passed 
  *           back to the caller via <ret_dsq>; caller is reponsible
  *           for freeing this with free(dsq).
- *           Returns <ESL_EINVAL> if <seq> contains one or more characters
+ *           Returns <eslEINVAL> if <seq> contains one or more characters
  *           that are not recognized in the alphabet <a>.
  *           
- * Throws:   <ESL_EMEM> if allocation fails.          
+ * Throws:   <eslEMEM> if allocation fails.          
  */
 int
 esl_abc_CreateDigitalSequence(ESL_ALPHABET *a, char *seq, int L,char **ret_dsq)
@@ -407,11 +407,11 @@ esl_abc_CreateDigitalSequence(ESL_ALPHABET *a, char *seq, int L,char **ret_dsq)
 
   *ret_dsq = NULL;
   if ((dsq = malloc (sizeof(char) * (L+2))) == NULL) 
-    ESL_ERROR(ESL_EMEM, "malloc failed");
-  if (esl_abc_DigitizeSequence(a, seq, L, dsq) != ESL_OK)
-    ESL_ERROR(ESL_EINVAL, "failed to digitize sequence");
+    ESL_ERROR(eslEMEM, "malloc failed");
+  if (esl_abc_DigitizeSequence(a, seq, L, dsq) != eslOK)
+    ESL_ERROR(eslEINVAL, "failed to digitize sequence");
   *ret_dsq = dsq;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_abc_DigitizeSequence()
@@ -431,8 +431,8 @@ esl_abc_CreateDigitalSequence(ESL_ALPHABET *a, char *seq, int L,char **ret_dsq)
  *            L      - allocated length of dsq; max len of <seq> to digitize.
  *            dsq    - allocated space for digital sequence, 1..L
  *
- * Returns:   <ESL_OK> on success, and <dsq> contains newly digitized <seq>.
- *            <ESL_EINVAL> if any character of <seq> is not in the input map 
+ * Returns:   <eslOK> on success, and <dsq> contains newly digitized <seq>.
+ *            <eslEINVAL> if any character of <seq> is not in the input map 
  *            of the alphabet <a>.
  */
 int
@@ -447,15 +447,15 @@ esl_abc_DigitizeSequence(ESL_ALPHABET *a, char *seq, int L, char *dsq)
       x = a->inmap[(int) seq[i-1]];
       if (x < 0)
 	{
-	  esl_error(ESL_EINVAL, __FILE__, __LINE__, 
+	  esl_error(eslEINVAL, __FILE__, __LINE__, 
 		    "Symbol %c is not in the input alphabet", seq[i-1]);
-	  return ESL_EINVAL;
+	  return eslEINVAL;
 	}
       else dsq[i] = x;
     }
 
   dsq[i] = eslSENTINEL;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -624,7 +624,7 @@ main(void)
   degeneracy_float_scores();
   degeneracy_double_scores();
 
-  return ESL_OK;
+  return eslOK;
 }
 
 static void

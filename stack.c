@@ -26,14 +26,14 @@
  *   esl_stack_IPush(ns, 42);
  *   esl_stack_IPush(ns, 7);
  *   esl_stack_IPush(ns, 3);
- *   while (esl_stack_IPop(ns, &x) != ESL_EOD) 
+ *   while (esl_stack_IPop(ns, &x) != eslEOD) 
  *      printf("%d\n", x);
  *   esl_stack_Destroy(ns);   
  * 
  * Diagnostics:
  *   Create() functions return NULL on an allocation failure.
- *   Push()   functions throw  ESL_EMEM on an allocation failure.
- *   Pop()    functions return ESL_EOD when the stack is empty.
+ *   Push()   functions throw  eslEMEM on an allocation failure.
+ *   Pop()    functions return eslEOD when the stack is empty.
  *
  * Other functions:
  *   esl_stack_ObjectCount(ns)    :  returns # of objects in the stack
@@ -65,13 +65,13 @@ esl_stack_ICreate(void)
   ESL_STACK *ns;
   
   if ((ns = malloc(sizeof(ESL_STACK))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
 
   ns->nalloc   = ESL_STACK_INITALLOC;
   ns->pdata    = NULL;
   ns->cdata    = NULL;
   if ((ns->idata = malloc(sizeof(int) * ns->nalloc)) == NULL)
-    { free(ns); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { free(ns); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   ns->n        = 0;
   return ns;
 }
@@ -91,13 +91,13 @@ esl_stack_CCreate(void)
   ESL_STACK *cs;
   
   if ((cs = malloc(sizeof(ESL_STACK))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
 
   cs->nalloc   = ESL_STACK_INITALLOC;
   cs->idata    = NULL;
   cs->pdata    = NULL;
   if ((cs->cdata = malloc(sizeof(char) * cs->nalloc)) == NULL)
-    { free(cs); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { free(cs); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   cs->n        = 0;
   return cs;
 }
@@ -117,14 +117,14 @@ esl_stack_PCreate(void)
   ESL_STACK *ps;
   
   if ((ps = malloc(sizeof(ESL_STACK))) == NULL)
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+    ESL_ERROR_NULL(eslEMEM, "malloc failed");
 
   ps->nalloc   = ESL_STACK_INITALLOC;
   ps->idata    = NULL;
   ps->cdata    = NULL;
 
   if ((ps->pdata = malloc(sizeof(void *) * ps->nalloc)) == NULL)
-    { free(ps); ESL_ERROR_NULL(ESL_EMEM, "malloc failed"); }
+    { free(ps); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   ps->n        = 0;
   return ps;
 }
@@ -137,13 +137,13 @@ esl_stack_PCreate(void)
  *            can be of any data type; it retains its original
  *            type.
  *
- * Returns:   <ESL_OK>
+ * Returns:   <eslOK>
  */
 int
 esl_stack_Reuse(ESL_STACK *s)
 {
   s->n = 0;	/* it's that simple in this implementation */
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_Destroy()
@@ -165,9 +165,9 @@ esl_stack_Destroy(ESL_STACK *s)
  *
  * Purpose:   Push an integer <x> onto an integer stack <ns>.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EMEM> on reallocation failure.
+ * Throws:    <eslEMEM> on reallocation failure.
  */
 int
 esl_stack_IPush(ESL_STACK *ns, int x)
@@ -177,12 +177,12 @@ esl_stack_IPush(ESL_STACK *ns, int x)
   if (ns->n == ns->nalloc) {
     ns->nalloc += ns->nalloc;	/* reallocate by doubling */
     ptr = realloc(ns->idata, sizeof(int) * ns->nalloc);
-    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed"); 
+    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed"); 
     ns->idata = ptr;
   }
   ns->idata[ns->n] = x;
   ns->n++;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_CPush()
@@ -190,9 +190,9 @@ esl_stack_IPush(ESL_STACK *ns, int x)
  *
  * Purpose:   Push a character <c> onto a character stack <cs>.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EMEM> on reallocation failure.
+ * Throws:    <eslEMEM> on reallocation failure.
  */
 int
 esl_stack_CPush(ESL_STACK *cs, char c)
@@ -202,12 +202,12 @@ esl_stack_CPush(ESL_STACK *cs, char c)
   if (cs->n == cs->nalloc) {
     cs->nalloc += cs->nalloc;	/* reallocate by doubling */
     ptr = realloc(cs->cdata, sizeof(char) * cs->nalloc);
-    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed"); 
+    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed"); 
     cs->cdata = ptr;
   }
   cs->cdata[cs->n] = c;
   cs->n++;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_PPush()
@@ -215,9 +215,9 @@ esl_stack_CPush(ESL_STACK *cs, char c)
  *
  * Purpose:   Push a pointer <p> onto a pointer stack <ps>.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EMEM> on reallocation failure.
+ * Throws:    <eslEMEM> on reallocation failure.
  */
 int
 esl_stack_PPush(ESL_STACK *ps, void *p)
@@ -227,12 +227,12 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
   if (ps->n == ps->nalloc) {
     ps->nalloc += ps->nalloc;	/* reallocate by doubling */
     ptr = realloc(ps->pdata, sizeof(void *) * ps->nalloc);
-    if (ptr == NULL) ESL_ERROR(ESL_EMEM, "realloc failed");
+    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed");
     ps->pdata = ptr;
   }
   ps->pdata[ps->n] = p;
   ps->n++;
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_IPop()
@@ -241,15 +241,15 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
  * Purpose:   Pops an integer off the integer stack <ns>, and returns
  *            it through <ret_x>.
  *
- * Returns:   <ESL_OK> on success. <ESL_EOD> if stack is empty.
+ * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
  */
 int
 esl_stack_IPop(ESL_STACK *ns, int *ret_x)
 {
-  if (ns->n == 0) {*ret_x = 0; return ESL_EOD;}
+  if (ns->n == 0) {*ret_x = 0; return eslEOD;}
   ns->n--;
   *ret_x = ns->idata[ns->n];
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_CPop()
@@ -258,15 +258,15 @@ esl_stack_IPop(ESL_STACK *ns, int *ret_x)
  * Purpose:   Pops a character off the character stack <cs>, and returns
  *            it through <ret_c>.
  *
- * Returns:   <ESL_OK> on success. <ESL_EOD> if stack is empty.
+ * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
  */
 int
 esl_stack_CPop(ESL_STACK *cs, char *ret_c)
 {
-  if (cs->n == 0) {*ret_c = 0; return ESL_EOD;}
+  if (cs->n == 0) {*ret_c = 0; return eslEOD;}
   cs->n--;
   *ret_c = cs->cdata[cs->n];
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_PPop()
@@ -275,15 +275,15 @@ esl_stack_CPop(ESL_STACK *cs, char *ret_c)
  * Purpose:   Pops a pointer off the pointer stack <ps>, and returns
  *            it through <ret_p>.
  *
- * Returns:   <ESL_OK> on success. <ESL_EOD> if stack is empty.
+ * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
  */
 int
 esl_stack_PPop(ESL_STACK *ps, void **ret_p)
 {
-  if (ps->n == 0) {*ret_p = 0; return ESL_EOD;}
+  if (ps->n == 0) {*ret_p = 0; return eslEOD;}
   ps->n--;
   *ret_p = ps->pdata[ps->n];
-  return ESL_OK;
+  return eslOK;
 }
 
 /* Function:  esl_stack_ObjectCount()
@@ -319,7 +319,7 @@ esl_stack_Convert2String(ESL_STACK *cs)
 {
   char *s;
 
-  if (esl_stack_CPush(cs, '\0') != ESL_OK)
+  if (esl_stack_CPush(cs, '\0') != eslOK)
     { free(cs->cdata); free(cs); return NULL; } /* nul-terminate the data or self-destruct */
   s = cs->cdata;		           /* data is already just a string - just return ptr to it */
   free(cs);			           /* free the stack around it. */
@@ -335,14 +335,14 @@ esl_stack_Convert2String(ESL_STACK *cs)
  *            currently in the stack, the stack is emptied
  *            as if <esl_stack_Reuse()> had been called.
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  */
 int
 esl_stack_DiscardTopN(ESL_STACK *s, int n)
 {
   if (n <= s->n) s->n -= n;
   else           s->n = 0;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -383,11 +383,11 @@ main(void)
   /* pushing data: */
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != ESL_OK) ESL_ERROR(ESL_EMEM, "push failed");
+    if (esl_stack_IPush(s, i) != eslOK) ESL_ERROR(eslEMEM, "push failed");
 
   /* popping data: */
   n2 = 0;
-  while (esl_stack_IPop(s, &x) != ESL_EOD) n2++; 
+  while (esl_stack_IPop(s, &x) != eslEOD) n2++; 
   if (n1 != n2)
     { fprintf(stderr, "Put %d integers on; got %d off\n", n1, n2); return EXIT_FAILURE;}
 
@@ -395,10 +395,10 @@ main(void)
    */
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != ESL_OK) ESL_ERROR(ESL_EMEM, "push failed");
+    if (esl_stack_IPush(s, i) != eslOK) ESL_ERROR(eslEMEM, "push failed");
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_IPop(s, &x) != ESL_OK) { fprintf(stderr, "pop failed\n"); return 1; }
+    if (esl_stack_IPop(s, &x) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
     n2++; 
   }
   if (n1 != n2)
@@ -422,12 +422,12 @@ main(void)
       if ((obj = malloc(sizeof(int) * 64)) == NULL) 
 	{ fprintf(stderr, "memory allocation failed\n"); return 1; }
 
-      if (esl_stack_PPush(s, obj) != ESL_OK) 
+      if (esl_stack_PPush(s, obj) != eslOK) 
 	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
     }
 
   n2 = 0;
-  while (esl_stack_PPop(s, (void **) &obj) != ESL_EOD) {
+  while (esl_stack_PPop(s, (void **) &obj) != eslEOD) {
     free(obj); 
     n2++; 
   }
@@ -441,12 +441,12 @@ main(void)
       if ((obj = malloc(sizeof(int) * 64)) == NULL)
 	{ fprintf(stderr, "memory allocation failed\n"); return 1; }
 
-      if (esl_stack_PPush(s, obj) != ESL_OK) 
+      if (esl_stack_PPush(s, obj) != eslOK) 
 	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
     }
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_PPop(s, (void **) &obj) == ESL_EOD) 
+    if (esl_stack_PPop(s, (void **) &obj) == eslEOD) 
       { fprintf(stderr, "pop failed\n"); return 1; }
     free(obj); 
     n2++; 
@@ -465,9 +465,9 @@ main(void)
 
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != ESL_OK) ESL_ERROR(ESL_EMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
   n2 = 0;
-  while (esl_stack_CPop(s, &c) != ESL_EOD) {
+  while (esl_stack_CPop(s, &c) != eslEOD) {
     if (c != 'X') {
       fprintf(stderr, "Put X's on; got a %c off\n", c); 
       return 1;
@@ -478,10 +478,10 @@ main(void)
     { fprintf(stderr, "Put %d characters on; got %d off\n", n1, n2); return 1; }
 
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != ESL_OK) ESL_ERROR(ESL_EMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_CPop(s, &c) != ESL_OK) { fprintf(stderr, "pop failed\n"); return 1; }
+    if (esl_stack_CPop(s, &c) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
     n2++; 
   }
   if (n1 != n2)
@@ -489,7 +489,7 @@ main(void)
 
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != ESL_OK) ESL_ERROR(ESL_EMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
 
   /* Note: the Convert2String() call destroys the stack!
    */

@@ -26,7 +26,7 @@
  *            ret_answer - RETURN: log P(c | \alpha)
  *
  * Returns:   On success, log P(c | \alpha) is put in *ret_answer;
- *            returns ESL_OK.
+ *            returns eslOK.
  *
  * Throws:    (no abnormal error conditions)
  */
@@ -55,7 +55,7 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
   lnp += a2 + a3 - a1;
 
   *ret_answer = lnp;
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -72,7 +72,7 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
  *            p      - RETURN: sampled probability vector
  *                     (caller allocates 0..K-1).         
  *
- * Returns:   ESL_OK; p contains the sampled vector.
+ * Returns:   eslOK; p contains the sampled vector.
  *
  * Throws:    (no abnormal error conditions)
  */

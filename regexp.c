@@ -38,11 +38,11 @@
  *    and so a very common error will be an invalid regular expression
  *    syntax. There are 9 types of syntax errors caught by the
  *    regcomp() code and its friends. All of them generate an
- *    ESL_ESYNTAX error, with a terse message. Under the default
+ *    eslESYNTAX error, with a terse message. Under the default
  *    error handler this message will be printed and the code will halt.
  *    If you do not want invalid input regex syntax to halt your application,
  *    you can install a custom error handler that can handle
- *    the ESL_ESYNTAX errors as you wish.
+ *    the eslESYNTAX errors as you wish.
  */
 
 #include <stdio.h>
@@ -85,7 +85,7 @@ esl_regexp_Create(void)
   ESL_REGEXP *machine;
 
   if ((machine = malloc(sizeof(ESL_REGEXP))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
+    ESL_ERROR_NULL(eslEMEM, "allocation failed");
   machine->ndfa = NULL;
   return machine;
 }
@@ -142,10 +142,10 @@ esl_regexp_Deflate(ESL_REGEXP *machine)
  * Purpose:   Determine if string <s> matches the regular expression <pattern>,
  *            using a <machine>.
  *
- * Returns:   <ESL_OK> if <pattern> matches <s>; <ESL_EOD> if it doesn't.
+ * Returns:   <eslOK> if <pattern> matches <s>; <eslEOD> if it doesn't.
  *            
- * Throws:    <ESL_EINVAL> if the <pattern> couldn't be compiled for any reason.
- *            Throws <ESL_EINCONCEIVABLE> or <ESL_ECORRUPT> if something
+ * Throws:    <eslEINVAL> if the <pattern> couldn't be compiled for any reason.
+ *            Throws <eslEINCONCEIVABLE> or <eslECORRUPT> if something
  *            went wrong in the search phase.
  *            (At the failure point, an error was generated with an appropriate
  *            code and message; an <ESL_SYNTAX> code, for example, may have
@@ -155,7 +155,7 @@ int
 esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s)
 {
   if (machine->ndfa != NULL) { free(machine->ndfa); machine->ndfa = NULL; }
-  if ((machine->ndfa = regcomp(pattern)) == NULL) return ESL_EINVAL;
+  if ((machine->ndfa = regcomp(pattern)) == NULL) return eslEINVAL;
   return regexec(machine->ndfa, s);
 }
 
@@ -168,16 +168,16 @@ esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s)
  *            pattern for multiple searches (see
  *            <esl_regexp_MultipleMatches()>).
  *
- * Returns:   <ESL_OK> on success.
+ * Returns:   <eslOK> on success.
  *
- * Throws:    <ESL_EINVAL> if compilation fails.
+ * Throws:    <eslEINVAL> if compilation fails.
  */
 int
 esl_regexp_Compile(ESL_REGEXP *machine, char *pattern)
 {
   if (machine->ndfa != NULL) { free(machine->ndfa); machine->ndfa = NULL; }
-  if ((machine->ndfa = regcomp(pattern)) == NULL) return ESL_EINVAL;
-  return ESL_OK;
+  if ((machine->ndfa = regcomp(pattern)) == NULL) return eslEINVAL;
+  return eslOK;
 }
 
 
@@ -187,11 +187,11 @@ esl_regexp_Compile(ESL_REGEXP *machine, char *pattern)
  * Purpose:   Given a <machine> that contains a precompiled NDFA (see
  *            <esl_regexp_Compile()>, search it against a <string>.
  *            pointed to by <sptr>. When a match is found, returns
- *            <ESL_OK>, and resets <sptr> to point at the next character
+ *            <eslOK>, and resets <sptr> to point at the next character
  *            after the matched substring. (This may be 
  *            trailing NUL byte if the matched substring is at the
  *            very end of the string.)  If no match is found in the
- *            string, returns <ESL_EOD>.
+ *            string, returns <eslEOD>.
  *            
  *            Because <sptr> is changed, the caller should
  *            initialize and use a temporary pointer into the string
@@ -200,10 +200,10 @@ esl_regexp_Compile(ESL_REGEXP *machine, char *pattern)
  *
  * Example:   
  *            s = string;
- *            while (esl_regexp_MultipleMatches(m, &s) == ESL_OK)
+ *            while (esl_regexp_MultipleMatches(m, &s) == eslOK)
  *                // process one match at a time//;
  *
- * Throws:    <ESL_EINCONCEIVABLE> or <ESL_ECORRUPT> if something goes awry internally
+ * Throws:    <eslEINCONCEIVABLE> or <eslECORRUPT> if something goes awry internally
  *            during the search.
  */
 int
@@ -212,7 +212,7 @@ esl_regexp_MultipleMatches(ESL_REGEXP *machine, char **sptr)
   int status;
 
   status = regexec(machine->ndfa, *sptr);  
-  if (status == ESL_OK) 
+  if (status == eslOK) 
     *sptr = machine->ndfa->endp[0]; /* endp points exactly where we want. */
   else 
     *sptr = NULL;
@@ -245,13 +245,13 @@ esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem)
   int   len;
 
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR_NULL(ESL_EINVAL, "bad elem arg");
+    ESL_ERROR_NULL(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR_NULL(ESL_EINVAL, "no such submatch recorded");
+    ESL_ERROR_NULL(eslEINVAL, "no such submatch recorded");
 
   len = machine->ndfa->endp[elem] - machine->ndfa->startp[elem];
   if ((s = malloc(sizeof(char) * (len+1))) == NULL) 
-    ESL_ERROR_NULL(ESL_EMEM, "malloc failed for submatch");
+    ESL_ERROR_NULL(eslEMEM, "malloc failed for submatch");
 
   strncpy(s, machine->ndfa->startp[elem], len);
   s[len] = '\0';
@@ -271,10 +271,10 @@ esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem)
  *            <ESL_REGEXP_NSUB>=16) are up to 15 ()'d submatches in
  *            the pattern.
  *
- * Returns:   <ESL_OK> on success, and buffer contains the NUL-terminated
+ * Returns:   <eslOK> on success, and buffer contains the NUL-terminated
  *            substring. 
  *      
- * Throws:    <ESL_EINVAL> on any of several possible internal failures,
+ * Throws:    <eslEINVAL> on any of several possible internal failures,
  *            including the <buffer> being too small to contain the 
  *            substring.
  */
@@ -284,18 +284,18 @@ esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc)
   int   len;
 
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR(ESL_EINVAL, "bad elem arg");
+    ESL_ERROR(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR(ESL_EINVAL, "no such submatch recorded");
+    ESL_ERROR(eslEINVAL, "no such submatch recorded");
 
   len = machine->ndfa->endp[elem] - machine->ndfa->startp[elem];
   if (len >= nc) 
-    ESL_ERROR(ESL_EINVAL, "buffer too small to hold submatch");
+    ESL_ERROR(eslEINVAL, "buffer too small to hold submatch");
 
   strncpy(buffer, machine->ndfa->startp[elem], len);
   buffer[len] = '\0';
   
-  return ESL_OK;
+  return eslOK;
 }
 
 
@@ -327,10 +327,10 @@ esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc)
  *            found by a <esl_regexp_MultipleMatches()> call against
  *            a temp pointer into the target string.
  *
- * Returns:   <ESL_OK> on success, and <ret_start> and <ret_end>
+ * Returns:   <eslOK> on success, and <ret_start> and <ret_end>
  *            are set to the start/end coordinates of the submatch.
  *
- * Throws:    <ESL_EINVAL> on internal failures.
+ * Throws:    <eslEINVAL> on internal failures.
  *            The function is incapable of detecting a case in
  *            where <origin> is not in the same string that the
  *            <machine> matched like it should be. If a caller does
@@ -342,13 +342,13 @@ esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem,
 			  int *ret_start, int *ret_end)
 {
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR(ESL_EINVAL, "bad elem arg");
+    ESL_ERROR(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR(ESL_EINVAL, "no such submatch recorded");
+    ESL_ERROR(eslEINVAL, "no such submatch recorded");
 
   *ret_start = machine->ndfa->startp[elem] - origin;
   *ret_end   = machine->ndfa->endp[elem]   - origin - 1;
-  return ESL_OK;
+  return eslOK;
 }
 /*=================== end of the exposed API ==========================================*/
 
@@ -537,7 +537,7 @@ static char *regescape(struct comp *cp, char c);
  * Throws NULL on internal errors, or if <exp> is invalid.
  *  
  * Regular expressions with invalid syntax will fail to compile somewhere,
- * generating an ESL_ESYNTAX error with a terse but useful message.
+ * generating an eslESYNTAX error with a terse but useful message.
  * 
  */
 static esl__regexp *
@@ -549,7 +549,7 @@ regcomp(const char *exp)
 	struct comp co;
 
 	if (exp == NULL) 
-	  ESL_ERROR_NULL(ESL_EINVAL, "NULL argument to regcomp");
+	  ESL_ERROR_NULL(eslEINVAL, "NULL argument to regcomp");
 
 	/* First pass: determine size, legality. */
 	co.regparse = (char *)exp;
@@ -564,12 +564,12 @@ regcomp(const char *exp)
 
 	/* Small enough for pointer-storage convention? */
 	if (co.regsize >= 0x7fffL)	/* Probably could be 0xffffL. */
-	  ESL_ERROR_NULL(ESL_EMEM, "regexp too big");
+	  ESL_ERROR_NULL(eslEMEM, "regexp too big");
 
 	/* Allocate space. */
 	r = (esl__regexp *)malloc(sizeof(esl__regexp) + (size_t)co.regsize);
 	if (r == NULL)
-	  ESL_ERROR_NULL(ESL_EMEM, "out of space");
+	  ESL_ERROR_NULL(eslEMEM, "out of space");
 
 	/* Second pass: emit code. */
 	co.regparse = (char *)exp;
@@ -642,7 +642,7 @@ reg(register struct comp *cp, int paren, int *flagp)
   if (paren) {
 		/* Make an OPEN node. */
     if (cp->regnpar >= ESL_REGEXP_NSUB)
-	ESL_ERROR_NULL(ESL_ESYNTAX, "too many ()");
+	ESL_ERROR_NULL(eslESYNTAX, "too many ()");
     parno = cp->regnpar;
     cp->regnpar++;
     ret = regnode(cp, OPEN+parno);
@@ -678,12 +678,12 @@ reg(register struct comp *cp, int paren, int *flagp)
 
   /* Check for proper termination. */
   if (paren && *cp->regparse++ != ')') {
-    ESL_ERROR_NULL(ESL_ESYNTAX, "unterminated ()");
+    ESL_ERROR_NULL(eslESYNTAX, "unterminated ()");
   } else if (!paren && *cp->regparse != '\0') {
     if (*cp->regparse == ')') {
-      ESL_ERROR_NULL(ESL_ESYNTAX, "unmatched ()");
+      ESL_ERROR_NULL(eslESYNTAX, "unmatched ()");
     } else
-      ESL_ERROR_NULL(ESL_ECORRUPT, "internal error: junk on end");
+      ESL_ERROR_NULL(eslECORRUPT, "internal error: junk on end");
     /* NOTREACHED */
   }
   return(ret);
@@ -755,7 +755,7 @@ regpiece(register struct comp *cp, int *flagp)
 	}
 
 	if (!(flags&HASWIDTH) && op != '?')
-		ESL_ERROR_NULL(ESL_ESYNTAX, "*+ operand could be empty");
+		ESL_ERROR_NULL(eslESYNTAX, "*+ operand could be empty");
 	switch (op) {
 	case '*':	*flagp = WORST|SPSTART;			break;
 	case '+':	*flagp = WORST|SPSTART|HASWIDTH;	break;
@@ -790,7 +790,7 @@ regpiece(register struct comp *cp, int *flagp)
 	}
 	cp->regparse++;
 	if (ISREPN(*cp->regparse))
-	  ESL_ERROR_NULL(ESL_ESYNTAX, "nested *?+");
+	  ESL_ERROR_NULL(eslESYNTAX, "nested *?+");
 
 	return(ret);
 }
@@ -852,7 +852,7 @@ regatom(register struct comp *cp, int *flagp)
 	case 't': regc(cp, '\t'); break;
 	case '\\': regc(cp, '\\'); break;
 	default: 
-	  ESL_ERROR_NULL(ESL_ESYNTAX, "Invalid \\ escape inside range operator");
+	  ESL_ERROR_NULL(eslESYNTAX, "Invalid \\ escape inside range operator");
 	  break;
 	}
       }/*end SRE*/
@@ -864,7 +864,7 @@ regatom(register struct comp *cp, int *flagp)
 	range = (unsigned char)*(cp->regparse-2);
 	rangeend = (unsigned char)c;
 	if (range > rangeend)
-	  ESL_ERROR_NULL(ESL_ESYNTAX, "invalid [] range");
+	  ESL_ERROR_NULL(eslESYNTAX, "invalid [] range");
 	for (range++; range <= rangeend; range++)
 	  regc(cp, range);
 	cp->regparse++;
@@ -872,7 +872,7 @@ regatom(register struct comp *cp, int *flagp)
     }
     regc(cp, '\0');
     if (c != ']')
-      ESL_ERROR_NULL(ESL_ESYNTAX, "unmatched []");
+      ESL_ERROR_NULL(eslESYNTAX, "unmatched []");
     *flagp |= HASWIDTH|SIMPLE;
     break;
   }
@@ -887,20 +887,20 @@ regatom(register struct comp *cp, int *flagp)
   case '|':
   case ')':
     /* supposed to be caught earlier */
-    ESL_ERROR_NULL(ESL_ECORRUPT, "internal error: \\0|) unexpected");
+    ESL_ERROR_NULL(eslECORRUPT, "internal error: \\0|) unexpected");
     /*NOTREACHED*/
     break;
 
   case '?':
   case '+':
   case '*':
-    ESL_ERROR_NULL(ESL_ESYNTAX, "?+* follows nothing");
+    ESL_ERROR_NULL(eslESYNTAX, "?+* follows nothing");
     /*NOTREACHED*/
     break;
 
   case '\\':
     if (*cp->regparse == '\0')
-      ESL_ERROR_NULL(ESL_ESYNTAX, "trailing \\");
+      ESL_ERROR_NULL(eslESYNTAX, "trailing \\");
 
     if (! isalnum(*cp->regparse)) {
       ret = regnode(cp, EXACTLY); /* SRE: original Spencer code */
@@ -919,7 +919,7 @@ regatom(register struct comp *cp, int *flagp)
     cp->regparse--;
     len = strcspn(cp->regparse, META);
     if (len == 0)
-      ESL_ERROR_NULL(ESL_ECORRUPT, "strcspn 0");
+      ESL_ERROR_NULL(eslECORRUPT, "strcspn 0");
     ender = *(cp->regparse+len);
     if (len > 1 && ISREPN(ender))
       len--;		/* Back off clear of ?+* operand. */
@@ -1060,8 +1060,8 @@ static char *regprop(char *op);
 /*
  - regexec - match a regexp against a string
  *
- * Returns <ESL_OK> on match; <ESL_EOD> for no match.
- * Throws  <ESL_EINCONCEIVABLE>,<ESL_ECORRUPT> on internal errors.
+ * Returns <eslOK> on match; <eslEOD> for no match.
+ * Throws  <eslEINCONCEIVABLE>,<eslECORRUPT> on internal errors.
  */
 static int
 regexec(register esl__regexp *prog, const char *str)
@@ -1073,15 +1073,15 @@ regexec(register esl__regexp *prog, const char *str)
 
 	/* Be paranoid. */
 	if (prog == NULL || string == NULL) 
-	  ESL_ERROR(ESL_EINCONCEIVABLE, "NULL argument to regexec");
+	  ESL_ERROR(eslEINCONCEIVABLE, "NULL argument to regexec");
 
 	/* Check validity of program. */
 	if ((unsigned char)*prog->program != REGMAGIC) 
-	  ESL_ERROR(ESL_ECORRUPT, "corrupted regexp");
+	  ESL_ERROR(eslECORRUPT, "corrupted regexp");
 
 	/* If there is a "must appear" string, look for it. */
 	if (prog->regmust != NULL && strstr(string, prog->regmust) == NULL)
-	  return ESL_EOD;
+	  return eslEOD;
 
 	/* Mark beginning of line for ^ . */
 	ex.regbol = string;
@@ -1096,15 +1096,15 @@ regexec(register esl__regexp *prog, const char *str)
 	if (prog->regstart != '\0') {
 		/* We know what char it must start with. */
 		for (s = string; s != NULL; s = strchr(s+1, prog->regstart))
-		  if ((code = regtry(&ex, prog, s)) != ESL_EOD)
+		  if ((code = regtry(&ex, prog, s)) != eslEOD)
 		    return code;	/* match, or throwing an error up */
-		return ESL_EOD;	        /* no match in string */
+		return eslEOD;	        /* no match in string */
 	} else {
 		/* We don't -- general case. */
 		for (s = string; *s != '\0'; s++)
-		  if ((code = regtry(&ex, prog, s)) != ESL_EOD)
+		  if ((code = regtry(&ex, prog, s)) != eslEOD)
 		    return code; /* match, or throw an error up */
-		return ESL_EOD;  /* reached end of string, no match */
+		return eslEOD;  /* reached end of string, no match */
 	}
 	/* NOTREACHED */
 }
@@ -1112,8 +1112,8 @@ regexec(register esl__regexp *prog, const char *str)
 /*
  - regtry - try match at specific point
  * 
- * Returns <ESL_OK> on success, <ESL_EOD> failure.
- * Throws  <ESL_CORRUPT>,<ESL_EINCONCEIVABLE> on internal errors.
+ * Returns <eslOK> on success, <eslEOD> failure.
+ * Throws  <ESL_CORRUPT>,<eslEINCONCEIVABLE> on internal errors.
  */
 static int			
 regtry(register struct exec *ep, esl__regexp *prog, char *string)
@@ -1131,12 +1131,12 @@ regtry(register struct exec *ep, esl__regexp *prog, char *string)
 		*stp++ = NULL;
 		*enp++ = NULL;
 	}
-	if ((code = regmatch(ep, prog->program + 1)) == ESL_OK) {
+	if ((code = regmatch(ep, prog->program + 1)) == eslOK) {
 		prog->startp[0] = string;
 		prog->endp[0] = ep->reginput;
-		return ESL_OK;
+		return eslOK;
 	} else
-		return code;	/* ESL_EOD for normal non-match; or other thrown codes */
+		return code;	/* eslEOD for normal non-match; or other thrown codes */
 }
 
 /*
@@ -1149,8 +1149,8 @@ regtry(register struct exec *ep, esl__regexp *prog, char *string)
  * need to know whether the rest of the match failed) by a loop instead of
  * by recursion.
  * 
- * Returns <ESL_OK> on success, <ESL_EOD> on failure.
- * Throws  <ESL_ECORRUPT>,<ESL_EINCONCEIVABLE> on internal errors.
+ * Returns <eslOK> on success, <eslEOD> on failure.
+ * Throws  <eslECORRUPT>,<eslEINCONCEIVABLE> on internal errors.
  */
 static int	
 regmatch(register struct exec *ep, char *prog)
@@ -1173,15 +1173,15 @@ regmatch(register struct exec *ep, char *prog)
 		switch (OP(scan)) {
 		case BOL:
 			if (ep->reginput != ep->regbol)
-				return ESL_EOD;
+				return eslEOD;
 			break;
 		case EOL:
 			if (*ep->reginput != '\0')
-				return ESL_EOD;
+				return eslEOD;
 			break;
 		case ANY:
 			if (*ep->reginput == '\0')
-				return ESL_EOD;
+				return eslEOD;
 			ep->reginput++;
 			break;
 		case EXACTLY: {
@@ -1190,23 +1190,23 @@ regmatch(register struct exec *ep, char *prog)
 
 			/* Inline the first character, for speed. */
 			if (*opnd != *ep->reginput)
-				return ESL_EOD;
+				return eslEOD;
 			len = strlen(opnd);
 			if (len > 1 && strncmp(opnd, ep->reginput, len) != 0)
-				return ESL_EOD;
+				return eslEOD;
 			ep->reginput += len;
 			break;
 			}
 		case ANYOF:
 			if (*ep->reginput == '\0' ||
 					strchr(OPERAND(scan), *ep->reginput) == NULL)
-				return ESL_EOD;
+				return eslEOD;
 			ep->reginput++;
 			break;
 		case ANYBUT:
 			if (*ep->reginput == '\0' ||
 					strchr(OPERAND(scan), *ep->reginput) != NULL)
-				return ESL_EOD;
+				return eslEOD;
 			ep->reginput++;
 			break;
 		case NOTHING:
@@ -1219,7 +1219,7 @@ regmatch(register struct exec *ep, char *prog)
 			register const int no = OP(scan) - OPEN;
 			register char *const input = ep->reginput;
 
-			if ((code = regmatch(ep, next)) == ESL_OK) {
+			if ((code = regmatch(ep, next)) == eslOK) {
 				/*
 				 * Don't set startp if some later
 				 * invocation of the same parentheses
@@ -1227,9 +1227,9 @@ regmatch(register struct exec *ep, char *prog)
 				 */
 				if (ep->regstartp[no] == NULL)
 					ep->regstartp[no] = input;
-				return ESL_OK;
+				return eslOK;
 			} else
-				return code; /* usually ESL_EOD, except on error */
+				return code; /* usually eslEOD, except on error */
 		        /*NOTREACHED*/
 			break;
 		        }
@@ -1239,7 +1239,7 @@ regmatch(register struct exec *ep, char *prog)
 			register const int no = OP(scan) - CLOSE;
 			register char *const input = ep->reginput;
 
-			if ((code = regmatch(ep, next)) == ESL_OK) {
+			if ((code = regmatch(ep, next)) == eslOK) {
 				/*
 				 * Don't set endp if some later
 				 * invocation of the same parentheses
@@ -1247,9 +1247,9 @@ regmatch(register struct exec *ep, char *prog)
 				 */
 				if (ep->regendp[no] == NULL)
 					ep->regendp[no] = input;
-				return ESL_OK;
+				return eslOK;
 			} else
-				return code; /* usually ESL_EOD, except on error */
+				return code; /* usually eslEOD, except on error */
 			/*NOTREACHED*/
 			break;
 		        }
@@ -1260,12 +1260,12 @@ regmatch(register struct exec *ep, char *prog)
 				next = OPERAND(scan);	/* Avoid recursion. */
 			else {
 				while (OP(scan) == BRANCH) {
-				  if ((code = regmatch(ep, OPERAND(scan))) != ESL_EOD)
- 				            return code; /* usually ESL_OK, but also a thrown error*/
+				  if ((code = regmatch(ep, OPERAND(scan))) != eslEOD)
+ 				            return code; /* usually eslOK, but also a thrown error*/
 					ep->reginput = save;
 					scan = regnext(scan);
 				}
-				return ESL_EOD;
+				return eslEOD;
 				/*NOTREACHED*/
 			}
 			break;
@@ -1277,23 +1277,23 @@ regmatch(register struct exec *ep, char *prog)
 			register const size_t min = (OP(scan) == STAR) ? 0 : 1;
 			size_t no;
 
-			if (regrepeat(ep, OPERAND(scan), &no) != ESL_OK) return ESL_EINCONCEIVABLE;
+			if (regrepeat(ep, OPERAND(scan), &no) != eslOK) return eslEINCONCEIVABLE;
 			for (++no; no > min; no--) {
 				ep->reginput = save + no - 1;
 				/* If it could work, try it. */
 				if (nextch == '\0' || *ep->reginput == nextch)
-					if (regmatch(ep, next) == ESL_OK)
-						return ESL_OK;
+					if (regmatch(ep, next) == eslOK)
+						return eslOK;
 			}
-			return ESL_EOD;
+			return eslEOD;
 			/*NOTREACHED*/
 			break;
 			}
 		case END:
-			return ESL_OK;	/* Success! */
+			return eslOK;	/* Success! */
 			break;
 		default:
-		  ESL_ERROR(ESL_ECORRUPT, "regexp corruption");
+		  ESL_ERROR(eslECORRUPT, "regexp corruption");
 		  /*NOTREACHED*/
 		  break;
 		}
@@ -1303,14 +1303,14 @@ regmatch(register struct exec *ep, char *prog)
 	 * We get here only if there's trouble -- normally "case END" is
 	 * the terminating point.
 	 */
-	ESL_ERROR(ESL_ECORRUPT, "corrupted pointers");
+	ESL_ERROR(eslECORRUPT, "corrupted pointers");
 }
 
 /*
  - regrepeat - report how many times something simple would match, 
  *             via <ret_result>
- * Returns <ESL_OK> on success.
- * Throws  <ESL_EINCONCEIVABLE> - if node isn't a repeating one.
+ * Returns <eslOK> on success.
+ * Throws  <eslEINCONCEIVABLE> - if node isn't a repeating one.
  */
 static int
 regrepeat(register struct exec *ep, char *node, size_t *ret_count)
@@ -1322,33 +1322,33 @@ regrepeat(register struct exec *ep, char *node, size_t *ret_count)
 	switch (OP(node)) {
 	case ANY:
 	        *ret_count = strlen(ep->reginput);
-		return ESL_OK;
+		return eslOK;
 	case EXACTLY:
 		ch = *OPERAND(node);
 		count = 0;
 		for (scan = ep->reginput; *scan == ch; scan++)
 			count++;
 		*ret_count = count;
-		return ESL_OK;
+		return eslOK;
 	        /*NOTREACHED*/
 		break;
 	case ANYOF:
 		*ret_count = strspn(ep->reginput, OPERAND(node));
-		return ESL_OK;
+		return eslOK;
 	        /*NOTREACHED*/
 		break;
 	case ANYBUT:
 	        *ret_count = strcspn(ep->reginput, OPERAND(node));
-		return ESL_OK;
+		return eslOK;
 	        /*NOTREACHED*/
 		break;
 	default:		/* Oh dear.  Called inappropriately. */
-	        ESL_ERROR(ESL_EINCONCEIVABLE, "bad call of regrepeat");
+	        ESL_ERROR(eslEINCONCEIVABLE, "bad call of regrepeat");
  	        /*NOTREACHED*/
 		break;
 	}
         /* NOTREACHED */
-	return ESL_EINCONCEIVABLE;
+	return eslEINCONCEIVABLE;
 }
 
 /*
@@ -1497,8 +1497,8 @@ regprop(char *op)
 /*
  - regsub - perform substitutions after a regexp match
  *
- * Returns <ESL_OK> on success.
- * Throws  <ESL_EINCONCEIVABLE>, <ESL_ECORRUPT> on internal errors.
+ * Returns <eslOK> on success.
+ * Throws  <eslEINCONCEIVABLE>, <eslECORRUPT> on internal errors.
  */
 static int
 regsub(const esl__regexp *rp, const char *source, char *dest)
@@ -1511,10 +1511,10 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 	register size_t len;
 
 	if (prog == NULL || source == NULL || dest == NULL) 
-	  ESL_ERROR(ESL_EINCONCEIVABLE, "NULL parameter to regsub");
+	  ESL_ERROR(eslEINCONCEIVABLE, "NULL parameter to regsub");
 
 	if ((unsigned char)*(prog->program) != REGMAGIC) 
-	  ESL_ERROR(ESL_ECORRUPT, "damaged regexp");
+	  ESL_ERROR(eslECORRUPT, "damaged regexp");
 
 	while ((c = *src++) != '\0') {
 		if (c == '&')
@@ -1534,11 +1534,11 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 			(void) strncpy(dst, prog->startp[no], len);
 			dst += len;
 			if (*(dst-1) == '\0') 	/* strncpy hit NUL. */
-			  ESL_ERROR(ESL_ECORRUPT, "damaged match string");
+			  ESL_ERROR(eslECORRUPT, "damaged match string");
 		}
 	}
 	*dst++ = '\0';
-	return ESL_OK;
+	return eslOK;
 }
 #endif /* regsub() currently disabled */
 /*============= end of Spencer's copyrighted regexp code =============================*/
@@ -1621,7 +1621,7 @@ regescape(struct comp *cp, char c)
     break;
 
   default:
-    ESL_ERROR_NULL(ESL_ESYNTAX, "invalid \\ escape code");
+    ESL_ERROR_NULL(eslESYNTAX, "invalid \\ escape code");
     /*NOTREACHED*/
     break;
   }
@@ -1665,12 +1665,12 @@ main(int argc, char **argv)
 
   status = esl_regexp_Match(m, pattern, string);
 
-  if (status == ESL_OK) 
+  if (status == eslOK) 
     {
       esl_regexp_SubmatchCoords(m, string, 0, &i, &j);
       printf("Pattern matches string at positions %d..%d\n", i+1, j+1);
     }
-  else if (status == ESL_EOD)
+  else if (status == eslEOD)
     {
       printf("Pattern does not match in string.\n");
     }
@@ -1713,7 +1713,7 @@ main(int argc, char **argv)
 
   esl_regexp_Compile(m, pattern);
   s = string;
-  while ((status = esl_regexp_MultipleMatches(m, &s)) == ESL_OK)
+  while ((status = esl_regexp_MultipleMatches(m, &s)) == eslOK)
     {
       n++;
       esl_regexp_SubmatchCoords(m, string, 0, &i, &j);
@@ -1761,7 +1761,7 @@ main(int argc, char **argv)
   m = esl_regexp_Create();
 
   status = esl_regexp_Match(m, pattern, string);
-  if (status == ESL_OK) 
+  if (status == eslOK) 
     { 
       for (n = 1; n <= ntok; n++) 
 	{
@@ -1803,7 +1803,7 @@ main(void)
   /* simple matching test.
    */
   pattern = "foo";
-  if (esl_regexp_Match(m, pattern, string) != ESL_OK) abort();
+  if (esl_regexp_Match(m, pattern, string) != eslOK) abort();
   esl_regexp_SubmatchCoords(m, string, 0, &i, &j);
   if (i != 3 || j != 5) abort();
   s = esl_regexp_SubmatchDup(m, 0);
@@ -1816,7 +1816,7 @@ main(void)
    * and token 2 extraction grabs "oobaz" 13..17
    */
   pattern = "^aaaa*(foo|bar|baz)+([aboz]+).o\.[^a-z]aaa?$";
-  if (esl_regexp_Match(m, pattern, string) != ESL_OK) abort();
+  if (esl_regexp_Match(m, pattern, string) != eslOK) abort();
   esl_regexp_SubmatchCoords(m, string, 2, &i, &j);
   if (i != 12 || j != 16) abort();
   s = esl_regexp_SubmatchDup(m, 2);
@@ -1835,7 +1835,7 @@ main(void)
   esl_regexp_Compile(&ms, pattern);
   s = string;
   n = 0;
-  while ((status = esl_regexp_MultipleMatches(&ms, &s)) == ESL_OK)
+  while ((status = esl_regexp_MultipleMatches(&ms, &s)) == eslOK)
     {
       n++;
       esl_regexp_SubmatchCopy(&ms, 0, buf, 64);

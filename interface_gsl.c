@@ -35,8 +35,8 @@ esl_GSL_MatrixInversion(ESL_DMATRIX *A, ESL_DMATRIX **ret_Ai)
   permute = gsl_permutation_alloc(A->n);
   gsl_matrix_memcpy(LU, &Av.matrix);
 
-  if (gsl_linalg_LU_decomp(LU, permute, &signum) != 0) ESL_ERROR(ESL_EUNKNOWN, "gsl failed");
-  if (gsl_linalg_LU_invert(LU, permute, Aiv) != 0)     ESL_ERROR(ESL_EUNKNOWN, "gsl failed");
+  if (gsl_linalg_LU_decomp(LU, permute, &signum) != 0) ESL_ERROR(eslEUNKNOWN, "gsl failed");
+  if (gsl_linalg_LU_invert(LU, permute, Aiv) != 0)     ESL_ERROR(eslEUNKNOWN, "gsl failed");
 
   gsl_matrix_free(LU);
   gsl_permutation_free(permute);
@@ -49,7 +49,7 @@ esl_GSL_MatrixInversion(ESL_DMATRIX *A, ESL_DMATRIX **ret_Ai)
   gsl_matrix_free(Aiv);
   
   ret->Ai = Ai;
-  return ESL_OK;
+  return eslOK;
 }
 
 #endif /*ESL_WITH_GSL*/
