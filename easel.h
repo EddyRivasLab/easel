@@ -10,25 +10,28 @@
 #include <stdarg.h>
 
 /* Error handling.
- * Modeled on GNU Scientific Library (GSL).
+ * Originally modeled on GNU Scientific Library (GSL).
  */
 #define ESL_ERROR(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
      return code; }\
      while (0)
 
-#define ESL_ERROR_VAL(val, code, mesg)  do {\
-     esl_error(code, __FILE__, __LINE__, mesg);\
-     return val; }\
-     while (0)
-
-#define ESL_ERROR_VOID(code, mesg)  do {\
-     esl_error((code), __FILE__, __LINE__, (mesg));\
-     return; }\
+#define ESL_ERROR_NULL(mesg)  do {\
+     esl_error(ESL_EMEM, __FILE__, __LINE__, mesg);\
+     return NULL; }\
      while (0)
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;
+
+
+#define ESL_MALLOC(x)     esl_malloc(__FILE__, __LINE__, (x))
+#define ESL_REALLOC(x,y)  esl_realloc(__FILE__, __LINE__, (x), (y))   
+
+
+
+
 
 
 /* error codes used in Easel.
@@ -55,11 +58,11 @@ extern esl_error_handler_f esl_error_handler;
 #define FALSE 0
 #endif
 
-
-/* Functions in error.c
+/* Function declarations 
  */
 extern void esl_error(int code, char *file, int line, char *format, ...);
-extern void esl_Die(char *format, ...);
+extern void esl_error_SetHandler(void (*handler)(int code, char *file, int line, char *format, va_list argp));
+extern void esl_error_ResetDefaultHandler(void);
 
 
 #endif /*ESL_EASEL_INCLUDED*/

@@ -47,7 +47,7 @@ esl_sq_Reuse(ESL_SQ *sq)
 }
 
 int 
-esl_sq_Fini(ESL_SQ *sq)
+esl_sq_Release(ESL_SQ *sq)
 {
   if (sq->seq != NULL) free(sq->seq);
   if (sq->ss  != NULL) free(sq->ss);
