@@ -15,6 +15,23 @@
 #include <easel/easel.h>
 #include <easel/getopts.h>
 
+/* Forward declarations of private functions.
+ */
+static int get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti);
+static int get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti);
+static int esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
+static int process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
+static int process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
+static int verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby);
+static int is_integer(char *s);
+static int is_real(char *s);
+static int verify_integer_range(char *arg, char *range);
+static int verify_real_range(char *arg, char *range);
+static int verify_char_range(char *arg, char *range);
+static int parse_rangestring(char *range, char c, char **ret_lowerp, 
+			     int *ret_geq, char **ret_upperp, int *ret_leq);
+static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
+
 /* Function:  esl_getopts_Create()
  * Incept:    SRE, Tue Jan 11 11:24:16 2005 [St. Louis]
  *
@@ -30,11 +47,10 @@
  *            an invalid <opts> structure.
  */
 ESL_GETOPTS *
-esl_getopts_Create(struct opt_s *opt, char *usage)
+esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
 {
   ESL_GETOPTS *g;
-  char *optname;
-  int i,n;
+  int i;
 
   if ((g = malloc(sizeof(ESL_GETOPTS))) == NULL) goto FAILURE;
   g->opt       = opt;
@@ -60,7 +76,7 @@ esl_getopts_Create(struct opt_s *opt, char *usage)
   if ((g->setby = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
   for (i = 0; i < g->nopts; i++) 
     {
-      g->val[i]   = g->opt[i].default;
+      g->val[i]   = g->opt[i].defval;
       g->setby[i] = eslARG_SETBY_DEFAULT;
     }
 
@@ -211,7 +227,7 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
 	    {
 	      esl_error(ESL_EINVAL, __FILE__, __LINE__,
 			"Options %s and %s conflict in file %s, toggling each other.", 
-			  g->opt[togi].name, g->opt[i].name, filename);
+			  g->opt[togi].name, g->opt[opti].name, filename);
 	      return ESL_EINVAL;
 	    }
 	  g->setby[togi] = eslARG_SETBY_CFGFILE + g->nfiles; /* indirectly, but still */
@@ -254,10 +270,11 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
   char *optarg;
   char *s;
   int   togi;
+  int   status;
 
   for (i = 0; i < g->nopts; i++)
     if (g->opt[i].envvar != NULL &&
-	optarg = getenv(g->opt[i].envvar) != NULL)
+	(optarg = getenv(g->opt[i].envvar)) != NULL)
       {
 	/* Have we already set this option in the env, even indirectly? */
 	if (g->setby[i] == eslARG_SETBY_ENV)
@@ -299,7 +316,7 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
 	if (status != ESL_EOD) return status; /* not a normal end of optlist */
       }
   return ESL_OK;
-]
+}
 
 
 
@@ -370,7 +387,7 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
       if (g->setby[opti] == eslARG_SETBY_CMDLINE)
 	{
 	  esl_error(ESL_EINVAL, __FILE__, __LINE__, 
-		    "Option %s appears more than once on command line.\n\n%s", 
+		    "Option %s has already been set on command line.\n\n%s", 
 		    g->opt[opti].name, g->usage);
 	  return ESL_EINVAL;
 	}
@@ -397,7 +414,7 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 	    {
 	      esl_error(ESL_EINVAL, __FILE__, __LINE__,
 			"Options %s and %s conflict, toggling each other.\n\n%s", 
-			g->opt[togi].name, g->opt[i].name, g->usage);
+			g->opt[togi].name, g->opt[opti].name, g->usage);
 	      return ESL_EINVAL;
 	    }
 	  
@@ -438,20 +455,21 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
   char *s;
   int   status;
 
-  /* For all options that are set (turned on with non-NULL vals), 
+  /* For all options that are set (not in default configuration,
+   * and turned on with non-NULL vals), 
    * verify that all their required_opts are set.
    */
   for (i = 0; i < g->nopts; i++)
     {
-      if (g->val[i] != NULL)
+      if (g->setby[i] && g->val[i] != NULL)
 	{
 	  s = g->opt[i].required_opts;
 	  while ((status = process_optlist(g, &s, &reqi)) == ESL_OK)
 	    if (g->val[reqi] == NULL)
 	      {
 		esl_error(ESL_EINVAL, __FILE__, __LINE__,
-			  "Option %s requires (or has no effect without) option %s\n\n%s", 
-			  g->opt[i].name, g->opt[reqi].name, g->usage);
+			  "Option %s requires (or has no effect without) option(s) %s\n\n%s", 
+			  g->opt[i].name, g->opt[i].required_opts, g->usage);
 		return ESL_EINVAL;
 	      }
 	  if (status != ESL_EOD) return status;	/* non-normal end of optlist; throw status up */
@@ -463,25 +481,24 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
    */
   for (i = 0; i < g->nopts; i++)
     {
-      if (g->val[i] != NULL)
+      if (g->setby[i] && g->val[i] != NULL)
 	{
 	  s = g->opt[i].incompat_opts;
 	  while ((status = process_optlist(g, &s, &incompati)) == ESL_OK)
 	    if (g->val[incompati] != NULL)
 	      {
 		esl_error(ESL_EINVAL, __FILE__, __LINE__,
-			  "Option %s is incompatible with option %s\n\n%s", 
-			  g->opt[i].name, g->opt[incompati].name, g->usage);
+			  "Option %s is incompatible with option(s) %s\n\n%s", 
+			  g->opt[i].name, g->opt[i].incompat_opts, g->usage);
 		return ESL_EINVAL;
 	      }
-	  if (status != ESL_EOD) return status;	/* non-normal end of optlist; throw status up */
+	  /* non-normal end of optlist; throw status up */
+	  if (status != ESL_EOD) return status;	
 	}
     }
 
   return ESL_OK;
 }
-
-
 
 /* Function:  esl_opt_GetBooleanOption()
  * Incept:    SRE, Wed Jan 12 13:46:09 2005 [St. Louis]
@@ -527,7 +544,7 @@ esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
   return ESL_OK;
 }
 		
-/* Function:  esl_opt_GetRealOption()
+/* Function:  esl_opt_GetFloatOption()
  * Incept:    SRE, Wed Jan 12 13:46:27 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
@@ -538,7 +555,28 @@ esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
  * Throws:    <ESL_ENOTFOUND> if <optname> isn't a registered option.
  */
 int
-esl_opt_GetRealOption(ESL_GETOPTS *g, char *optname, int *ret_x)
+esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x)
+{
+  int opti;
+
+  if (get_optidx_exactly(g, optname, &opti) == ESL_ENOTFOUND)
+    ESL_ERROR(ESL_ENOTFOUND, "no such option");
+  *ret_x = atof(g->val[opti]);
+  return ESL_OK;
+}
+
+/* Function:  esl_opt_GetDoubleOption()
+ * Incept:    SRE, Wed Jan 12 13:46:27 2005 [St. Louis]
+ *
+ * Purpose:   Retrieves the configured value for option <optname>
+ *            from <g>, leaving it in <ret_x>.
+ *
+ * Returns:   <ESL_OK> on success.
+ *
+ * Throws:    <ESL_ENOTFOUND> if <optname> isn't a registered option.
+ */
+int
+esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x)
 {
   int opti;
 
@@ -697,7 +735,7 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
       return NULL;
     }
   else if (status != ESL_OK)
-    ESL_ERROR_NULL(ESL_INCONCEIVABLE, "unexpected error code");
+    ESL_ERROR_NULL(ESL_EINCONCEIVABLE, "unexpected error code");
 
   /* Normal return. Bump the argi and optind counters.
    */
@@ -731,28 +769,32 @@ get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti)
   int i;
 
   for (i = 0; i < g->nopts; i++)
-    if (strcmp(optname, g->opt[i].name) == 0) { *ret_opti = i; return ESL_OK}
+    if (strcmp(optname, g->opt[i].name) == 0) { *ret_opti = i; return ESL_OK; }
   return ESL_ENOTFOUND;
 }
 
 /* get_optidx_abbrev():
  * 
- * Find option named <optname> in <g>; set <ret_opti> to be
- * the index of the option, and return ESL_OK. Allow <optname>
- * to be an abbreviation of one of the option names in <g>,
- * so long as it is unambiguous.
+ * Find option named <optname> in <g>; set <ret_opti> to be the index
+ * of the option, and return ESL_OK. Allow <optname> to be an
+ * abbreviation of one of the option names in <g>, so long as it is
+ * unambiguous. If <n> is >0, the <optname> has an attached argument
+ * (--foo=arg) and <n> is the # of characters before the = character
+ * that we should match to find the option (5, in this example).
  * 
  * If the option is not found, return <ESL_ENOTFOUND>.
  * If <optname> ambiguously matches two or more options in <g>,
  * return <ESL_EAMBIGUOUS>.
  */
 static int
-get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int *ret_opti)
+get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti)
 {
   int nmatch = 0;
-  int n;
+  int i;
 
-  n = strlen(optname);		/* all of optname abbrev must match against the real name */
+  if (n == 0) 			/* unless we're told otherwise: */
+    n = strlen(optname);	/* all of optname abbrev must match against the real name */
+
   for (i = 0; i < g->nopts; i++)
     if (strncmp(g->opt[i].name, optname, n) == 0)
       {
@@ -786,22 +828,22 @@ get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int *ret_opti)
 static int
 esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 {
-  char *argptr;
   int   opti;
-  int   nmatch;
 
   *ret_optarg  = NULL; 
 
   /* Check to see if we've run out of options.
    * A '-' by itself is an argument (e.g. "read from stdin"), not an option.
    */
-  if (g->optind >= g->argc || g->argv[g->optind][0] != '-' || strcmp(g->argv[g->optind], "-") == 0)
+  if (g->optstring == NULL &&
+      (g->optind >= g->argc || g->argv[g->optind][0] != '-' || strcmp(g->argv[g->optind], "-") == 0))
     return ESL_EOD; 		/* normal end-of-data (end of options) return  */
 
   /* Check to see if we're being told that this is the end
    * of the options with the special "--" flag.
    */
-  if (strcmp(g->argv[g->optind], "--") == 0)
+  if (g->optstring == NULL &&
+      strcmp(g->argv[g->optind], "--") == 0)
     { 
       g->optind++;
       return ESL_EOD; 		/* also a normal end-of-data return */
@@ -818,7 +860,7 @@ esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
    * Watch out for the case where we're in the middle of a concatenated optstring
    * of single-letter options, a la -abc
    */
-  if (g->optstring == NULL && strncmp(g->argv[optind], "--", 2) == 0)
+  if (g->optstring == NULL && strncmp(g->argv[g->optind], "--", 2) == 0)
     process_longopt(g, &opti, ret_optarg);
   else 
     process_stdopt(g, &opti, ret_optarg);
@@ -856,25 +898,23 @@ esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 static int
 process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 {
-  int   i;		/* counter for options                               */
   int   opti;		/* option number found                               */
-  int   nmatch;		/* number of options in opt[] that match             */
   char *argptr;		/* ptr to arg in --foo=arg syntax                    */
-  int   arglen;		/* length of argv elem's option part (up to = or \0) */
+  int   n;		/* length of argv elem's option part (up to = or \0) */
   int   status;
 
   /* Deal with options of syntax "--foo=arg" w/o modifying argv.
    */
-  if ((argptr = strchr(g->argv[optind], '=')) != NULL)
-    { arglen = argptr - g->argv[optind]; argptr++; } /* bump argptr off the = to the arg itself */
+  if ((argptr = strchr(g->argv[g->optind], '=')) != NULL)
+    { n = argptr - g->argv[g->optind]; argptr++; } /* bump argptr off the = to the arg itself */
   else
-    { arglen = strlen(g->argv[optind]); } /* and argptr == NULL from above. */
+    { n = strlen(g->argv[g->optind]); } /* and argptr == NULL from above. */
 
   /* Figure out which option this is.
    * The trick here is to allow abbreviations, and identify
    * ambiguities while we're doing it. (GNU getopt allows abbrevs.)
    */
-  status = get_optidx_abbrev(g, g->argv[optind], &opti);
+  status = get_optidx_abbrev(g, g->argv[g->optind], n, &opti);
   if (status == ESL_EAMBIGUOUS)
     {
       esl_error(ESL_EINVAL, __FILE__, __LINE__,
@@ -900,7 +940,7 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
       else if (g->optind >= g->argc)
 	{
 	  esl_error(ESL_EINVAL, __FILE__, __LINE__,
-		    "Option %s requires an argument\n\n%s", g->opt[opti].name, usage);
+		    "Option %s requires an argument\n\n%s", g->opt[opti].name, g->usage);
 	  return ESL_EINVAL;
 	}
       else			/* "--foo 666" style, with a space */
@@ -911,13 +951,13 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
       if (argptr != NULL) 
 	{
 	  esl_error(ESL_EINVAL, __FILE__, __LINE__,
-		    "Option %s does not take an argument\n\n%s", g->opt[opti].name, usage);
+		    "Option %s does not take an argument\n\n%s", g->opt[opti].name, g->usage);
 	  return ESL_EINVAL;
 	}
       *ret_optarg = NULL;
     }
 
-  return;
+  return ESL_OK;
 }
 
 /* process_stdopt():
@@ -955,6 +995,8 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 static int
 process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 {
+  int opti;
+
   /* Do we need to start a new optstring in a new argv element?
    * (as opposed to still being in an optstring from a prev parse)
    */
@@ -978,12 +1020,12 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
     {
       if (*(g->optstring+1) != '\0')   /* attached argument case, a la -Warg */
 	*ret_optarg = g->optstring+1;
-      else if (g->optind+1 < g->argc)  /* unattached argument; assign optind, advance counter  */
+      else if (g->optind < g->argc)  /* unattached argument; assign optind, advance counter  */
 	*ret_optarg = g->argv[g->optind++];
       else 
 	{
 	  esl_error(ESL_EINVAL, __FILE__, __LINE__,
-		    "Option %s requires an argument\n\n%s", g->opt[opti].stdname, usage);
+		    "Option %s requires an argument\n\n%s", g->opt[opti].name, g->usage);
 	  return ESL_EINVAL;
 	}
       g->optstring = NULL;   /* An optchar that takes an arg must terminate an optstring. */
@@ -1023,12 +1065,13 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  * Throws:  <ESL_EINVAL>:         <val> is not the right type.
  *          <ESL_ERANGE>:         <val> is out of allowed range.
  *          <ESL_ESYNTAX>:        a range string format was bogus.
- *          <ESL_INCONCEIVABLE>:  "can't happen" internal errors.
+ *          <ESL_EINCONCEIVABLE>: "can't happen" internal errors.
  */
 static int
 verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 {
   char *where;
+  int   status;
 
   if       (setby == eslARG_SETBY_DEFAULT) where = "as default";
   else if  (setby == eslARG_SETBY_CMDLINE) where = "on cmdline";
@@ -1037,11 +1080,11 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 
   switch (g->opt[i].type) {
 
-  case eslARG_NONE:
-    esl_error(ESL_EINVAL, __FILE__, __LINE__, 
-	      "option %s takes no argument; got %s %s\n\n%s", 
-	      g->opt[i].name, val, where, g->usage);
-    return ESL_EINVAL;
+  case eslARG_NONE:	
+    /* treat as unchecked, because val may be "on", 0x1, "true", etc.:
+     * any non-NULL ptr means on, and NULL means off.
+     */
+    break;
 
   case eslARG_INT:
     if (! is_integer(val))
@@ -1052,21 +1095,21 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 	return ESL_EINVAL;
       }
 
-    status = verify_integer_range(val, range);
-    if (status == ESL_EINVAL)
+    status = verify_integer_range(val, g->opt[i].range);
+    if (status == ESL_ERANGE)
       {
-	esl_error(ESL_EINVAL, __FILE__, __LINE__, 
+	esl_error(ESL_ERANGE, __FILE__, __LINE__, 
 		  "option %s takes integer arg in range %s; got %s %s\n\n%s", 
 		  g->opt[i].name, g->opt[i].range, val, where, g->usage);
 	return ESL_EINVAL;
       }
-    else (status == ESL_ESYNTAX) /* ESL_ESYNTAX, or anything else */
+    else if (status == ESL_ESYNTAX) /* ESL_ESYNTAX, or anything else */
       {
 	esl_error(ESL_ESYNTAX, __FILE__, __LINE__, "range string %s for option %s is corrupt",
 		  g->opt[i].range, g->opt[i].name); 
 	return ESL_ESYNTAX;
       }
-    else if (status != ESL_OK) ESL_ERROR(ESL_INCONCEIVABLE, "unexpected error code");
+    else if (status != ESL_OK) ESL_ERROR(ESL_EINCONCEIVABLE, "unexpected error code");
     break;
 
   case eslARG_REAL:
@@ -1078,13 +1121,13 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 	return ESL_EINVAL;
       }
 
-    status == verify_real_range(val, range);
-    if (status == ESL_EINVAL)
+    status = verify_real_range(val, g->opt[i].range);
+    if (status == ESL_ERANGE)
       {
-	esl_error(ESL_EINVAL, __FILE__, __LINE__, 
+	esl_error(ESL_ERANGE, __FILE__, __LINE__, 
 		  "option %s takes real-valued arg in range %s; got %s %s\n\n%s", 
 		  g->opt[i].name, g->opt[i].range, val, where, g->usage);
-	return ESL_EINVAL;
+	return ESL_ERANGE;
       }
     else if (status == ESL_ESYNTAX)
       {
@@ -1092,7 +1135,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 		  g->opt[i].range, g->opt[i].name); 
 	return ESL_ESYNTAX;
       }
-    else if (status != ESL_OK) ESL_ERROR(ESL_INCONCEIVABLE, "unexpected error code");
+    else if (status != ESL_OK) ESL_ERROR(ESL_EINCONCEIVABLE, "unexpected error code");
     break;
 
   case eslARG_CHAR:
@@ -1103,13 +1146,13 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 		  g->opt[i].name, val, where, g->usage);
 	return ESL_EINVAL;
       }
-    status = verify_char_range(val, range);
-    if (status == ESL_EINVAL)
+    status = verify_char_range(val, g->opt[i].range);
+    if (status == ESL_ERANGE)
       {
-	esl_error(ESL_EINVAL, __FILE__, __LINE__, 
+	esl_error(ESL_ERANGE, __FILE__, __LINE__, 
 		  "option %s takes char arg in range %s; got %s %s\n\n%s", 
 		  g->opt[i].name, g->opt[i].range, val, where, g->usage);
-	return ESL_EINVAL;
+	return ESL_ERANGE;
       }
     else if (status == ESL_ESYNTAX)
       {
@@ -1117,7 +1160,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 		  g->opt[i].range, g->opt[i].name); 
 	return ESL_ESYNTAX;
       }
-    else if (status != ESL_OK) ESL_ERROR(ESL_INCONCEIVABLE, "unexpected error code");
+    else if (status != ESL_OK) ESL_ERROR(ESL_EINCONCEIVABLE, "unexpected error code");
     break;
 
   case eslARG_STRING: /* unchecked type. */
@@ -1273,7 +1316,6 @@ verify_integer_range(char *arg, char *range)
       if ((leq && ! (n <= upper)) || (!leq && !(n < upper)))
 	return ESL_ERANGE;
     }
-  }
   return ESL_OK;
 }
 
@@ -1313,7 +1355,7 @@ verify_real_range(char *arg, char *range)
 
   if (up != NULL) 
     {
-      upper = atoi(up);
+      upper = atof(up);
       if ((leq && ! (x <= upper)) || (!leq && !(x < upper)))
 	return ESL_ERANGE;
     }
@@ -1466,7 +1508,7 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
   if (i == g->nopts) 
     ESL_ERROR(ESL_EINVAL, "no such option");
 
-  *ret_opti = opti;
+  *ret_opti = i;
 
   if (s[n] == ',') *ret_s = s+n+1; 
   else             *ret_s = NULL;
@@ -1481,49 +1523,75 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 
 
 
-#ifdef GETOPT_TESTDRIVER 
-/* cc -DGETOPT_TESTDRIVER -L ~/lib/squid.linux/ getopt.c -lsquid
+#ifdef ESL_GETOPTS_TESTDRIVE 
+/* gcc -g -Wall -o test -I. -DESL_GETOPTS_TESTDRIVE getopts.c easel.c
  */
-ESL_OPTIONS options[] = {
-  /* name          type          default      env_var     toggles      requires     incompat_with */
-  { "-a",         eslARG_NONE,     TRUE,        NULL,      NULL         NULL,        NULL },
-  { "--hostname", eslARG_STRING, "unknown", "HOSTNAME",    NULL,        NULL,        NULL },
+
+#include <stdio.h>
+
+#include <easel/easel.h>
+#include <easel/getopts.h>
+
+static ESL_OPTIONS options[] = {
+  /* name          type         range   default   env_var  toggles  requires incompat_with */
+  { "-a",     eslARG_NONE,       NULL,   FALSE, "FOOTEST",   NULL,    NULL,   NULL },
+  { "-b",     eslARG_NONE,       NULL,   FALSE,     NULL, "--no-b",   NULL,   NULL },
+  { "--no-b", eslARG_NONE,       NULL,   FALSE,     NULL,     "-b",   NULL,   NULL },
+  { "-c",     eslARG_CHAR,  "a<=c<=z",    "x",      NULL,    NULL,    NULL,   NULL },
+  { "-n",     eslARG_INT,   "0<=n<10",    "0",      NULL,    NULL,    NULL,   NULL },
+  { "-x",     eslARG_REAL,    "0<x<1",  "0.5",      NULL,    NULL,    NULL,   NULL },
+  { "--lowx", eslARG_REAL,      "x>0",  "1.0",      NULL,    NULL,    NULL,   NULL },
+  { "--hix",  eslARG_REAL,      "x<1",  "0.9",      NULL,    NULL,    NULL,   NULL },
+  { "--lown", eslARG_INT,       "n>0",   "42",      NULL,    NULL,  "-a,-b",  NULL },
+  { "--hin",  eslARG_INT,       "n<0",   "-1",      NULL,    NULL,    NULL, "-a,-b" },
+  { "--host", eslARG_STRING,     NULL,      "", "HOSTNAME",  NULL,    NULL,   NULL },
   {  0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
+static char usage[] = "\
+Usage: test [-options] <arg>\n\
+";
 
-  { "--test2", sqdARG_FLOAT  },
-  { "--test3", sqdARG_STRING },
-  { "--test4", sqdARG_CHAR   },
-  { "-a",      sqdARG_NONE   },
-  { "-b",      sqdARG_INT    },
-};
-#define NOPTIONS (sizeof(OPTIONS) / sizeof(struct opt_s))
     
 int
 main(int argc, char **argv)
 {
-  int   optind;
-  char *optarg;
-  char *optname;
+  ESL_GETOPTS *go;
+  int   state;
+  char  c;
+  int   n;
+  float x;
+  char *s;
 
-  while (Getopt(argc, argv, OPTIONS, NOPTIONS, "Usage/help here",
-		&optind, &optname, &optarg))
-    {
-      printf("Option:   index: %d name: %s argument: %s\n",
-	     optind, optname, optarg);
-    }
-  while (optind < argc)
-    {
-      printf("Argument: index: %d name: %s\n", optind, argv[optind]);
-      optind++;
-    }
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessEnvironment(go);
+  esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
 
+  esl_opt_GetBooleanOption(go, "-a", &state);
+  printf("Option -a:     %s\n", (state == FALSE)? "off" : "on");
 
+  esl_opt_GetBooleanOption(go, "-b", &state);
+  printf("Option -b:     %s\n", (state == FALSE)? "off" : "on");
+
+  esl_opt_GetCharOption(go, "-c", &c);
+  printf("Option -c:     %c\n", c);
+
+  esl_opt_GetIntegerOption(go, "-n", &n);
+  printf("Option -n:     %d\n", n);
+
+  esl_opt_GetFloatOption(go, "-x", &x);
+  printf("Option -x:     %.1f\n", x);
+
+  esl_opt_GetStringOption(go, "--host", &s);
+  printf("Option --host: %s\n", s);
+
+  esl_getopts_Destroy(go);
+  exit(0);
 }
 
-
-#endif /*GETOPT_TESTDRIVER*/
+#endif /*ESL_GETOPTS_TESTDRIVE*/
+/*-------------- end of examples, test driver ********************/
 
 /*****************************************************************  
  * @LICENSE@

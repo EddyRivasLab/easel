@@ -11,6 +11,7 @@ HEADERS = \
 	dmatrix.h\
 	easel.h\
 	gamma.h\
+	getopts.h\
 	interface_gsl.h\
 	interface_lapack.h\
 	parse.h\
@@ -28,6 +29,7 @@ OBJS    = \
 	dmatrix.o\
 	easel.o\
 	gamma.o\
+	getopts.o\
 	interface_gsl.o\
 	interface_lapack.o\
 	parse.o\
