@@ -4,6 +4,7 @@
 #
 APITEX =  alphabet\
 	  easel\
+	  getopts\
 	  random\
 	  regexp\
 	  sqio\
@@ -16,6 +17,7 @@ APITEX =  alphabet\
 #
 AUTOTEX = alphabet\
 	  dmatrix\
+	  getopts\
 	  random\
 	  regexp\
 	  sqio\

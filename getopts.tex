@@ -1,17 +1,17 @@
 
-The getopts module is a more heavyweight version of command line
-parsing functions like POSIX \ccode{getopt()} and GNU's
-\ccode{getopt\_long()}. The familiar syntax of command line options is
+The getopts (opt) module contains command line parsing functionality,
+like POSIX \ccode{getopt()} and GNU's \ccode{getopt\_long()}, but with
+somewhat more power. The familiar syntax of command line options is
 the same (both standard POSIX one-character options and GNU long
-options), but much of the tedious checking of the validity of option
-and command line arguments that robust C applications are normally
-obligated to do for themselves is handled automatically by the
-internals of the Easel getopts module.
+options are allowed), but much of the tedious checking of the validity
+of option and command line arguments that robust C applications are
+normally obligated to do for themselves is handled automatically by
+the internals of the Easel getopts module. Additionally, the Easel
+getopts API allows options to be set from the command line,
+environment variables, and one or more configuration files.
 
-The Easel getopts API allows options to be set from the command line,
-environment variables, and one or more configuration files.  Option
-arguments and command line arguments may be automatically type checked
-(for instance, making sure an integer is provided when one is
+Option arguments and command line arguments may be automatically type
+checked (for instance, making sure an integer is provided when one is
 expected) and range checked (for instance, making sure that an
 argument that must be a probability in the range of 0.0-1.0 really
 is). Options may be linked into ``toggle groups'', such that setting
@@ -19,7 +19,7 @@ one option automatically unsets others. One can specify that an option
 makes no sense unless other required options are also set, or
 conversely that an option is incompatible with one or more other
 options being set. The entire configuration state of the application
-is stored in a single object.
+is stored in one object.
 
 \subsection{The getopts API}
 
@@ -35,6 +35,7 @@ The API defines the following functions:
        \multicolumn{2}{c}{\textbf{creating/destroying a configuration}}\\
 \ccode{esl\_getopts\_Create()}    & Creates a new \ccode{ESL\_GETOPTS} object. \\
 \ccode{esl\_getopts\_Destroy()}   & Destroys a created \ccode{ESL\_GETOPTS} object. \\
+\ccode{esl\_getopts\_Dump()}      & Dumps a configuration to an output stream. \\
        \multicolumn{2}{c}{\textbf{setting a configuration}}\\
 \ccode{esl\_opt\_ProcessConfigFile()}  & Parses options out of a configuration file.\\
 \ccode{esl\_opt\_ProcessEnvironment()} & Parses options out of environment variables.\\
@@ -49,38 +50,388 @@ The API defines the following functions:
 \ccode{esl\_opt\_GetCharOption()}      & Retrieve a single-character option argument.\\
 \ccode{esl\_opt\_GetStringOption()}    & Retrieve an option argument as a string.\\
        \multicolumn{2}{c}{\textbf{retrieving command line arguments}}\\
+\ccode{esl\_opt\_ArgNumber(g)}         & Retrieve number of cmdline args.\\
 \ccode{esl\_opt\_GetCmdlineArg()}      & Retrieve the next command line argument.\\
 \end{tabular}
 
-\subsection{Examples of using the getopts API}
+\subsection{An example of using the getopts API}
 
-\subsection{Features of getopts}
+The steps in using the getopts API are:
+
+\begin{itemize}
+\item The application defines an array of \ccode{ESL\_OPTIONS}
+      structures, one per option. Name, type, and default fields are
+      required; the other fields are optional.  The array is
+      terminated by an entry of all 0's.
+
+\item The application defines a helpful ``usage'' string. If the getopts
+      module encounters any problem with the configuration, it prints
+      an error message followed by this usage string.
+
+\item A \ccode{ESL\_GETOPTS} object is created, using the options
+      array and the usage string. At this point, all options are 
+      initialized to default values inside the object.
+
+\item The application now processes option settings from the command
+      line, environment variables, and one or more configuration
+      files. 
+ 
+\item The application recovers option settings one by one, and stores
+      them however and wherever it wants. 
+
+\item Command line arguments are then recovered, in order.
+
+\item Once the application has recovered all of its options and
+      arguments, it may free the \ccode{ESL\_GETOPTS} object. This 
+      object is the only place where memory is allocated; any string
+      retrieved as an option or argument, for example, is a pointer
+      to internal memory maintained by the object.
+\end{itemize}
+
+For example, the code below sets up four short options and two long
+options, without using any of getopts' optional validation or
+configuration mechanisms:
+
+\begin{cchunk}
+#include <stdio.h>
+#include <easel/easel.h>
+#include <easel/getopts.h>
+
+static ESL_OPTIONS options[] = {
+  /* name          type    default  env_var  range toggles reqs incompats */
+  { "-a",     eslARG_NONE,   FALSE,   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-b",     eslARG_NONE,  "TRUE",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-n",     eslARG_INT,      "0",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-x",     eslARG_REAL,   "1.0",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "--file", eslARG_STRING,  NULL,   NULL,  NULL,  NULL,  NULL, NULL },
+  { "--char", eslARG_CHAR,      "",   NULL,  NULL,  NULL,  NULL, NULL },
+  {  0, 0, 0, 0, 0, 0, 0, 0 },
+};
+
+static char usage[] = "\
+Usage: ./example1 [-options] <arg>\n\
+where options are:\n\
+  -a          : a boolean switch\n\
+  -b          : another boolean switch\n\
+  -n <n>      : an integer argument <n>\n\
+  -x <x>      : a real-valued argument <x>\n\
+  --file <f>  : a long option, with a string (filename) arg <f>\n\
+  --char <c>  : a long option, with a single character arg <c>\n\
+";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS *go;
+  int          opt_a;
+  int          opt_b;
+  int          opt_n;
+  float        opt_x;
+  char        *opt_file;
+  char         opt_char;
+  char        *arg;
+
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessCmdline(go, argc, argv);
+
+  esl_opt_GetBooleanOption(go, "-a",     &opt_a);
+  esl_opt_GetBooleanOption(go, "-b",     &opt_b);
+  esl_opt_GetIntegerOption(go, "-n",     &opt_n);
+  esl_opt_GetFloatOption(go,   "-x",     &opt_x);
+  esl_opt_GetStringOption(go,  "--file", &opt_file);
+  esl_opt_GetCharOption(go,    "--char", &opt_char);
+
+  arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+
+  esl_getopts_Destroy(go);
+
+  printf("Option -a:      %s\n", opt_a ? "on" : "off");
+  printf("Option -b:      %s\n", opt_b ? "on" : "off");
+  printf("Option -n:      %d\n", opt_n);
+  printf("Option -x:      %f\n", opt_x);
+  printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
+  printf("Option --char:  %c\n", opt_char);
+  printf("Cmdline arg:    %s\n", arg);
+
+  return 0;
+}
+\end{cchunk}
+
+An example of running this program:
+\begin{cchunk}
+   % ./example1 -ax 0.3 -n 42 --file foo --char x baz
+   Option -a:      on
+   Option -b:      on
+   Option -n:      42
+   Option -x:      0.300000
+   Option --file:  foo
+   Option --char:  x
+   Cmdline arg:    baz
+\end{cchunk}
+
+Note that because we set the default value of \ccode{-b} to TRUE in
+this example, it is always on whether we use the \ccode{-b} option or
+not.
+
+
+\subsection{Defining options in the \ccode{ESL\_OPTIONS} array}
+
+The \ccode{ESL\_OPTIONS} structure is declared in \ccode{getopts.h}
+as:
+
+\begin{cchunk}
+typedef struct {
+  char *name;		/* either short "-a" or long "--foo" style               */
+  int   type;		/* arg type, for type checking: (eslARG_INT, etc.)       */
+  char *defval;         /* default setting, or NULL ("default" is a C keyword)   */
+  char *envvar;	        /* associated environ var ("BLASTDB"), or NULL           */
+  char *range;		/* for range checking arg: ("0<=x<=1", etc.)             */
+  char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
+  char *required_opts;	/* comma-sep'd optlist: these must also be set           */
+  char *incompat_opts;	/* comma-sep'd optlist: these must not be set            */
+} ESL_OPTIONS;
+\end{cchunk}
+
+Aside from the option name, which is self-explanatory, how to set each of these
+fields in an options array is described in detail below:
 
    \subsubsection{Type checking}
-   
-   \subsubsection{Range checking}
+
+Five argument types are recognized:
+
+\begin{center}
+\begin{tabular}{lll}
+\textbf{flag}           & \textbf{description}    & \textbf{type checking} \\\hline
+\ccode{eslARG\_NONE}     & Boolean switch (on/off) & n/a                   \\
+\ccode{eslARG\_INT}      & integer                 & convertible by \ccode{atoi()}\\
+\ccode{eslARG\_REAL}     & float or double         & convertible by \ccode{atof()}\\
+\ccode{eslARG\_CHAR}     & one character           & single ASCII char \\
+\ccode{eslARG\_STRING}   & any string              & not checked\\
+\end{tabular}
+\end{center}
+
+All arguments are declared, configured, and stored internally as
+strings in a \ccode{ESL\_GETOPTS} object. For arguments that are
+declared to be of types \ccode{eslARG\_INT}, \ccode{eslARG\_REAL}, or
+\ccode{eslARG\_CHAR}, the string is checked to be sure it can be
+completely converted to the declared type.
+
+Strings (filenames, whatever) are of type \ccode{eslARG\_STRING}, and
+since any string is valid (including a NULL pointer), this type is not
+checked. An application can also declare an argument to be of type
+\ccode{eslARG\_STRING} if for some reason it wants to bypass type
+checking. The application would recover the option setting with
+\ccode{esl\_opt\_GetStringOption()} and then deal with any type
+conversion itself.
 
    \subsubsection{Default values}
 
+Since the \ccode{ESL\_GETOPTS} object stores all values internally as
+strings, default settings in the options array are also all provided
+as strings.
+
+Boolean defaults should be provided as \ccode{FALSE} or
+\ccode{\"TRUE\"}.  The syntax here is a little weird; the quotes
+around TRUE and the absence of quotes around FALSE are
+important. Internally, booleans are off if they're NULL, and on if
+they're non-NULL. Therefore default values of \ccode{FALSE},
+\ccode{NULL}, or \ccode{0} are all interpreted as ``off'', and any
+non-NULL string such as \ccode{"TRUE"}, \ccode{"on"}, or even
+\ccode{""} is interpreted as ``on''.
+
+Integer, real-valued, and character arguments are provided as strings:
+``42'' not 42, ``1.0'' not 1.0, and ``x'' not 'x'. 
+
+String arguments can be set to any string, or NULL. 
+
+Unlike boolean options which can be ``on'' or ``off'', or string
+options that can be set to a string or NULL, there is no way to set an
+integer, real, or char argument off. These options must always have a
+valid value. This prevents one from using the same option to turn on a
+behavior and configure a parameter. For instance, say you wanted to
+have \ccode{hmmbuild --evolveic 1.0} mean ``turn on the evolveic mode,
+and set its free parameter to 1.0''. The getopts module encourages you
+to separate this into two options, a boolean to activate the mode, and
+a real to configure the free parameter; perhaps \ccode{hmmbuild
+--evolveic --infotarget 1.0}. Still, you can work around this by
+declaring \ccode{--evolveic} to take an untyped \ccode{eslARG\_STRING}
+option, then interpret NULL as ``off'', and convert a valid string to
+the real-valued parameter.
+   
+There is no way to turn a boolean option off by a command line option,
+environment variable, or configuration file. Booleans (and strings,
+for that matter) can only be turned on when their option is
+selected. Booleans can be set to off by default, or toggled off
+indirectly by another option is turned on (see the section on toggle
+groups further below).
+
+   \subsubsection{Connecting an option to an environment variable}
+
+When a non-NULL environment variable name is connected to an option,
+\ccode{esl\_opt\_ProcessEnvironment()} will look for that name in the
+environment and sets the option value accordingly. Boolean options are
+set by setting the environment variable with no argument, for instance
+(in a C-shell),
+
+\begin{cchunk}
+  % setenv FOO_DEBUGGING
+\end{cchunk}
+
+and other options are set by setting the envvar to the appropriate
+argument, for instance (in a C-shell),
+
+\begin{cchunk}
+  % setenv FOO_DEBUG_LEVEL 5
+\end{cchunk}
+
+   \subsubsection{Range checking}
+
+If a non-NULL range is provided, a configured argument (including the
+specified default setting) will be checked to be sure it satisfies a
+lower bound, upper bound, or both. Range checking only applies to
+integer, real, and char arguments. Boolean and string arguments should
+set their range fields to NULL.
+
+In a range string, a character \ccode{n}, \ccode{x}, or \ccode{c} is
+used to represent the argument. Bounds may either be exclusive ($<$ or
+$>$) or inclusive ($>=$ or $<=$). Examples of range strings specifying
+lower bounds are \ccode{"n>=0"}, \ccode{"x>1.0"}, and
+\ccode{"c>=A"}. Examples of range strings specifying upper bounds are
+\ccode{"n<0"}, \ccode{"x<=100.0"}, and \ccode{"c<=Z"}. Examples of
+range strings specifying both lower and upper bounds are
+\ccode{"0<n<=100"}, \ccode{"0<=x<=1"}, and \ccode{"a<=c<=z"}.
+
+Range checking occurs before any option is set.
+
    \subsubsection{Setting toggle groups of options}
+
+If a non-NULL string \ccode{toggle\_opts} of ``toggle-tied'' options is
+set for option X, this is a comma-delimited list of additional options
+that are turned off when option X is turned on. This allows the
+application to define a set of options for which only one may be
+on. The application would set an appropriate one to be on by default,
+and the others to be off by default.
+
+For example, if you configure an option \ccode{-a} to have a
+\ccode{toggle\_opts} of \ccode{"-b,-c"}, then whenever \ccode{-a} is
+turned on, both \ccode{-b} and \ccode{-c} are automatically turned
+off. You'd also want to set \ccode{toggle\_opts} for \ccode{-b} to be
+\ccode{"-a,-c"} and \ccode{toggle\_opts} for \ccode{-c} to be
+\ccode{"-a,-b"}.
+
+Although booleans may only be turned ON when their option is present,
+you can easily get the semantics of an on/off switch by defining
+another option that works as the off switch when it is selected. For
+example, you could define (GNU-ish) boolean options \ccode{--foo} and
+\ccode{--no-foo}, and set \ccode{toggle\_opts} for \ccode{--foo} to be
+\ccode{"--no-foo"} and vice versa.  
+
+Toggle-tying should only be used for boolean options, but it will also
+work for string options (where turning a string option off means
+setting it to NULL). Toggle-tying an integer, real-valued, or char
+option will result in undefined behavior, because these options may
+not be turned off.
+
+Toggling behavior occurs immediately, whenever an option with a
+non-NULL \ccode{toggle\_opts} field is set.
 
    \subsubsection{Specifying required or incompatible options}
 
-The \ccode{required\_opts} and \ccode{incompat\_opts} fields
-SRE STOPPED HERE.
- of the \ccode{ESL\_OPTIONS} structure
-specified a comma-delimited list of options that may not also be on if
-this option is on. For example, \ccode{--Set this field to NULL if no
-such checking is necessary.
+If a non-NULL string \ccode{required\_opts} is provided for option X,
+this specifies a comma-delimited list of additional options that must
+be on if option X is set. 
 
-   \subsubsection{Specifying incompatible options}
+One case where this behavior is useful is when one (primary) option
+turns on a mode of application behavior, and other (secondary) options
+configure that mode. If a user tried to set the secondary options
+without turning on the mode in the first place, the application should
+issue a warning. So, if a mode was turned on by \ccode{--foomode} and
+configured by \ccode{--foolevel <x>}, one could set
+\ccode{required\_opts} to \ccode{"--foomode"} for the option
+\ccode{--foolevel}.
 
-The \ccode{incompat\_opts} field of the \ccode{ESL\_OPTIONS} structure
-specified a comma-delimited list of options that may not also be on if
-this option is on. For example, \ccode{--Set this field to NULL if no such checking is
-necessary.
+Required options are validated when the application calls
+\ccode{esl\_opt\_VerifyConfig()}, presumably after all configuration
+information has been processed. This delayed verification allows the
+primary options to be set anywhere and in any order, before or after
+secondary options are set.
 
-\subsection{Application configuration using getopts}
+The \ccode{incompat\_opts} field is the converse of
+\ccode{required\_opts}.It specifies a comma-delimited list of options
+that may \emph{not} also be on if option X is on.
+
+   \subsubsection{Example of a more fully featured \ccode{ESL\_OPTIONS} array}
+
+The test driver in \ccode{getopts.c} uses an options array that
+excercises all the optional features at least once:
+
+\begin{cchunk}
+static ESL_OPTIONS options[] = {
+  /* name          type         range   default   env_var  toggles  requires incompat_with */
+  { "-a",     eslARG_NONE,       NULL,   FALSE, "FOOTEST",   NULL,    NULL,        NULL },
+  { "-b",     eslARG_NONE,       NULL,   FALSE,     NULL, "--no-b",   NULL,        NULL },
+  { "--no-b", eslARG_NONE,       NULL,  "TRUE",     NULL,     "-b",   NULL,        NULL },
+  { "-c",     eslARG_CHAR,  "a<=c<=z",    "x",      NULL,    NULL,    NULL,        NULL },
+  { "-n",     eslARG_INT,   "0<=n<10",    "0",      NULL,    NULL,    NULL,        NULL },
+  { "-x",     eslARG_REAL,    "0<x<1",  "0.5",      NULL,    NULL,    NULL,        NULL },
+  { "--lowx", eslARG_REAL,      "x>0",  "1.0",      NULL,    NULL,    NULL,        NULL },
+  { "--hix",  eslARG_REAL,      "x<1",  "0.9",      NULL,    NULL,    NULL,        NULL },
+  { "--lown", eslARG_INT,       "n>0",   "42",      NULL,    NULL, "-a,--no-b",    NULL },
+  { "--hin",  eslARG_INT,       "n<0",   "-1",      NULL,    NULL,    NULL,     "-a,-b" },
+  { "--host", eslARG_STRING,     NULL,      "", "HOSTNAME",  NULL,    NULL,        NULL },
+  {  0, 0, 0, 0, 0, 0, 0, 0 },
+};
+\end{cchunk}
+
+\subsection{Command line parsing and beyond: config files and the environment}
+
+Once a \ccode{ESL\_GETOPTS} object has been loaded with an options
+array and initialized to default state by
+\ccode{esl\_getopts\_Create()}, a \ccode{esl\_opt\_ProcessCmdline()}
+call then processes all the options on the command line, updating the
+configuration. 
+
+Internally, the object keeps track of where the options end and
+command line arguments begin. The macro \ccode{esl\_opt\_ArgNumber()}
+returns the number of arguments remaining, which an application can
+use to verify that the command line contains the expected number of
+non-option arguments.  Subsequent calls to
+\ccode{esl\_opt\_GetCmdlineArg()} recover the arguments in order, and
+these arguments may optionally be type and range checked.
+
+The getopts module can configure options not only via the command
+line, but via environment and/or config files.  Connections to the
+environment -- the \ccode{env\_var} field of the options array -- are
+processed by a \ccode{esl\_opt\_ProcessEnvironment()} call.  An open
+config file is processed by a \ccode{esl\_opt\_ProcessConfigfile()}
+call. (The format of a config file is described below.) The
+application may process any number of config files -- for instance,
+there may be a master configuration installed in a system directory,
+and a personalized configuration in a user's home directory.
+
+The order of the different \ccode{Process*()} calls defines the
+precedence of who overrides who. For example, in the following code
+fragment:
+
+\begin{cchunk}
+   ESL_GETOPTS *g;        /* a created, initialized getopts config  */
+   FILE *masterfp;        /* a master config file, open for reading */
+   FILE *userfp;          /* a user's config file, open for reading */
+
+   esl_opt_ProcessConfigfile(g, "/usr/share/myapp/master.cfg", masterfp);
+   esl_opt_ProcessConfigfile(g, "~/.myapp.cfg",                userfp);
+   esl_opt_ProcessEnvironment(g);
+   esl_opt_ProcessCmdline(g, argc, argv);
+\end{cchunk}
+
+the precedence is defined as: defaults, master config file, local
+config file, environment, command line arguments. 
+
+
+\subsection{Configuring an application that uses getopts}
+
+(This section might usefully by cut and pasted into the documentation
+for a specific application, with modifications as appropriate.)
 
    \subsubsection{Command line option syntax}
 
@@ -123,7 +474,9 @@ characters, which would confuse the option argument parsers. Other
 characters should work but are not recommended.
 
 Multi-word arguments may be quoted: for example, \ccode{--hostname "my
-host"}.
+host"} or \ccode{-s "my string"}. However, only the space-separated
+syntaxes work for quoted multi-word arguments. \ccode{--hostname="my
+file"} and \ccode{-s\"my string\"} both fail.
 
    \subsubsection{Configuration file format}
 
@@ -143,24 +496,6 @@ be separated from options by whitespace. For example:
    -W arg         # Set -W to "arg"
 \end{cchunk}
 
-   \subsubsection{Environment variables}
-
-When a non-NULL environment variable name is connected to an option,
-\ccode{esl\_opt\_ProcessEnvironment()} looks for that name in the
-environment and sets the option value accordingly. Boolean options are
-set by setting the environment variable with no argument, for
-instance (in a C-shell),
-
-\begin{cchunk}
-  % setenv FOO_DEBUGGING
-\end{cchunk}
-
-and other options are set by setting the envvar to the appropriate
-argument, for instance (in a C-shell),
-
-\begin{cchunk}
-  % setenv FOO_DEBUG_LEVEL 5
-\end{cchunk}
 
 
 

@@ -249,7 +249,7 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
 
   begin = *s;
   begin += strspn(begin, delim);
-  if (! *begin) {ret_tok = NULL; return ESL_EOL;}
+  if (! *begin) {*ret_tok = NULL; return ESL_EOL;}
 
   n = strcspn(begin, delim);
   end  = begin + n;

@@ -19,9 +19,9 @@
 typedef struct {
   char *name;		/* either short "-a" or long "--foo" style               */
   int   type;		/* arg type, for type checking: (eslARG_INT, etc.)       */
-  char *range;		/* for range checking arg: ("0<=x<=1", etc.)             */
   char *defval;         /* default setting, or NULL ("default" is a C keyword)   */
   char *envvar;	        /* associated environ var ("BLASTDB"), or NULL           */
+  char *range;		/* for range checking arg: ("0<=x<=1", etc.)             */
   char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
   char *required_opts;	/* comma-sep'd optlist: these must also be set           */
   char *incompat_opts;	/* comma-sep'd optlist: these must not be set            */
@@ -56,6 +56,7 @@ typedef struct {
 
   char **val;		  /* config'ed val for each option (as string) */
   int   *setby;		  /* array [0..nopts-1] for who set option i   */
+  int   *valloc;          /* 0, or length of alloc for val[i]          */
 
   char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[] */
 } ESL_GETOPTS;
@@ -76,6 +77,7 @@ typedef struct {
  */
 extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt, char *usage);
 extern void         esl_getopts_Destroy(ESL_GETOPTS *g);
+extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);
 
 extern int esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp);
 extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
@@ -91,5 +93,8 @@ extern int esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c);
 extern int esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s);
 
 extern char *esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range);
+
+#define esl_opt_ArgNumber(g)  ((g)->argc - (g)->optind)
+
 
 #endif /* ESL_GETOPTS_INCLUDED */

@@ -17,6 +17,7 @@
 
 /* Forward declarations of private functions.
  */
+static int set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc);
 static int get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti);
 static int get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti);
 static int esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
@@ -62,6 +63,7 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
   g->nfiles    = 0;
   g->val       = NULL;
   g->setby     = NULL;
+  g->valloc    = NULL;
   g->optstring = NULL;
 
   /* Figure out the number of options.
@@ -71,13 +73,19 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
     g->nopts++;
   
   /* Set default values for all options.
+   * Note the valloc[] setting: we only need to dup strings
+   * into allocated space if the value is volatile memory, and
+   * that only happens in config files; not in defaults, cmdline,
+   * or environment.
    */
-  if ((g->val   = malloc(sizeof(char *) * g->nopts)) == NULL) goto FAILURE;
-  if ((g->setby = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
+  if ((g->val    = malloc(sizeof(char *) * g->nopts)) == NULL) goto FAILURE;
+  if ((g->setby  = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
+  if ((g->valloc = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
   for (i = 0; i < g->nopts; i++) 
     {
-      g->val[i]   = g->opt[i].defval;
-      g->setby[i] = eslARG_SETBY_DEFAULT;
+      g->val[i]    = g->opt[i].defval;
+      g->setby[i]  = eslARG_SETBY_DEFAULT;
+      g->valloc[i] = 0;	
     }
 
   /* Verify type/range of the defaults, even though it's
@@ -108,13 +116,58 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
 void
 esl_getopts_Destroy(ESL_GETOPTS *g)
 {
+  int i;
+
   if (g != NULL)
     {
-      if (g->val   != NULL) free(g->val);
-      if (g->setby != NULL) free(g->setby);
+      if (g->val   != NULL) 
+	{
+	  /* A few of our vals may have been allocated.
+	   */
+	  for (i = 0; i < g->nopts; i++)
+	    if (g->valloc[i] > 0)
+	      free(g->val[i]);
+	  free(g->val);
+	}
+      if (g->setby  != NULL) free(g->setby);
+      if (g->valloc != NULL) free(g->valloc);
       free(g);
     }
 }
+
+
+/* Function:  esl_getopts_Dump()
+ * Incept:    SRE, Tue Jan 18 09:11:39 2005 [St. Louis]
+ *
+ * Purpose:   Dump the state of <g> to an output stream
+ *            <ofp>, often stdout or stderr.
+ */
+void
+esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
+{
+  int i;
+
+  fprintf(ofp, "%12s %12s %9s\n", "Option", "Setting", "Set by");
+  fprintf(ofp, "------------ ------------ ---------\n");
+
+  for (i = 0; i < g->nopts; i++)
+    {
+      fprintf(ofp, "%-12s ", g->opt[i].name);
+
+      fprintf(ofp, "%-12s ", g->val[i]);
+      
+      if      (g->setby[i] == eslARG_SETBY_DEFAULT) fprintf(ofp, "(default) ");
+      else if (g->setby[i] == eslARG_SETBY_CMDLINE) fprintf(ofp, "cmdline   ");
+      else if (g->setby[i] == eslARG_SETBY_ENV)     fprintf(ofp, "environ   ");
+      else if (g->setby[i] >= eslARG_SETBY_CFGFILE) fprintf(ofp, "cfgfile   ");
+
+      fprintf(ofp, "\n");
+    }
+  return;
+}
+  
+
+
 
 /* Function:  esl_opt_ProcessConfigfile()
  * Incept:    SRE, Thu Jan 13 10:25:43 2005 [St. Louis]
@@ -122,7 +175,7 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
  * Purpose:   Given an open configuration file <fp> (and
  *            its name <filename>, for error reporting),
  *            parse it and set options in <g> accordingly.
- *            Anything following a <#> in the file is a
+ *            Anything following a <\#> in the file is a
  *            comment. Blank (or all-comment) lines are
  *            ignored. Data lines contain one option and
  *            its optional argument: for example <--foo arg>
@@ -147,7 +200,6 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
   char *comment;
   int   line;
   int   opti;
-  int   togi;
   int   status;
 
   line = 0;
@@ -185,7 +237,7 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
       }
 	
       /* Now we've got an optname and an optional optarg;
-       * process 'em.
+       * figure out what option this is.
        */
       if (get_optidx_exactly(g, optname, &opti) != ESL_OK) {
 	esl_error(ESL_EFORMAT, __FILE__, __LINE__,  
@@ -194,46 +246,15 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
 	return ESL_EFORMAT;
       }
 
-      /* Have we already set this option in this file, even indirectly? 
-       * Note the idiom for treating each configfile separately.
+      /* Set that option.
+       * Pass TRUE to set_option's do_alloc flag, because our buffer
+       * is volatile memory that's going away soon - set_option needs
+       * to strdup the arg, not just point to it.
        */
-      if (g->setby[opti] == eslARG_SETBY_CFGFILE + g->nfiles)
-	  {
-	    esl_error(ESL_EINVAL, __FILE__, __LINE__, 
-		      "Option %s was set more than once in cfg file %s.\n",
-		      optname, filename);
-	    return ESL_EINVAL;
-	  }
-
-      /* Type and range check the option argument.
-       */
-      if (verify_type_and_range(g, opti, optarg, eslARG_SETBY_CFGFILE+g->nfiles) != ESL_OK)
-	return ESL_EINVAL;
-
-      /* Set the option. 
-       */
-      g->setby[opti] = eslARG_SETBY_CFGFILE + g->nfiles;
-      if (g->opt[opti].type == eslARG_NONE) /* booleans: anything non-NULL is true, so 0x1 is fine */
-	g->val[opti] = (char *) TRUE;
-      else
-	g->val[opti] = optarg;
-
-      /* Unset all options toggle-tied to this one.
-       */
-      s = g->opt[opti].toggle_opts;
-      while ((status = process_optlist(g, &s, &togi)) == ESL_OK)
-	{
-	  if (g->setby[togi] == eslARG_SETBY_CFGFILE+g->nfiles)
-	    {
-	      esl_error(ESL_EINVAL, __FILE__, __LINE__,
-			"Options %s and %s conflict in file %s, toggling each other.", 
-			  g->opt[togi].name, g->opt[opti].name, filename);
-	      return ESL_EINVAL;
-	    }
-	  g->setby[togi] = eslARG_SETBY_CFGFILE + g->nfiles; /* indirectly, but still */
-	  g->val[togi] = NULL;	/* ok for false booleans too */
-	}
-      if (status != ESL_EOD) return status; /* not a normal end of optlist */
+      status = set_option(g, opti, optarg, 
+			  eslARG_SETBY_CFGFILE+g->nfiles,
+			  TRUE);
+      if (status != ESL_OK) return status;
     }
 
   if (buf != NULL) free(buf);
@@ -268,52 +289,14 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
 {
   int   i;
   char *optarg;
-  char *s;
-  int   togi;
   int   status;
 
   for (i = 0; i < g->nopts; i++)
     if (g->opt[i].envvar != NULL &&
 	(optarg = getenv(g->opt[i].envvar)) != NULL)
       {
-	/* Have we already set this option in the env, even indirectly? */
-	if (g->setby[i] == eslARG_SETBY_ENV)
-	  {
-	    esl_error(ESL_EINVAL, __FILE__, __LINE__, 
-		      "Option %s was set more than once in the environment.\n\n%s", 
-		      g->opt[i].name, g->usage);
-	    return ESL_EINVAL;
-	  }
-
-	/* Type and range check the option argument.
-	 */
-	if (verify_type_and_range(g, i, optarg, eslARG_SETBY_ENV) != ESL_OK)
-	  return ESL_EINVAL;
-
-	/* Set the option. 
-	 */
-	g->setby[i] = eslARG_SETBY_ENV;
-	if (g->opt[i].type == eslARG_NONE) /* booleans: anything non-NULL is true, so 0x1 is fine */
-	  g->val[i] = (char *) TRUE;
-	else
-	  g->val[i] = optarg;
-
-	/* Unset all options toggle-tied to this one.
-	 */
-	s = g->opt[i].toggle_opts;
-	while ((status = process_optlist(g, &s, &togi)) == ESL_OK)
-	  {
-	    if (g->setby[togi] == eslARG_SETBY_ENV)
-	      {
-		esl_error(ESL_EINVAL, __FILE__, __LINE__,
-			  "Options %s and %s conflict in environment, toggling each other.\n\n%s", 
-			  g->opt[togi].name, g->opt[i].name, g->usage);
-		return ESL_EINVAL;
-	      }
-	    g->setby[togi] = eslARG_SETBY_ENV; /* indirectly, but still */
-	    g->val[togi] = NULL;	/* ok for false booleans too */
-	  }
-	if (status != ESL_EOD) return status; /* not a normal end of optlist */
+	status = set_option(g, i, optarg, eslARG_SETBY_ENV, FALSE);
+	if (status != ESL_OK) return status;
       }
   return ESL_OK;
 }
@@ -368,8 +351,6 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 {
   int   opti;
   char *optarg;
-  char *s;		/* for walking thru toggle-tied optlist */
-  int   togi;		/* index of a toggle-tied option        */
   int   status;
 
   g->argc      = argc;
@@ -383,45 +364,8 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
    */
   while (esl_getopts(g, &opti, &optarg) == ESL_OK)
     {
-      /* Have we already set this option? */
-      if (g->setby[opti] == eslARG_SETBY_CMDLINE)
-	{
-	  esl_error(ESL_EINVAL, __FILE__, __LINE__, 
-		    "Option %s has already been set on command line.\n\n%s", 
-		    g->opt[opti].name, g->usage);
-	  return ESL_EINVAL;
-	}
-
-      /* Type and range check the option argument.
-       */
-      if (verify_type_and_range(g, opti, optarg, eslARG_SETBY_CMDLINE) != ESL_OK)
-	return ESL_EINVAL;
-
-      /* Set the option. 
-       */
-      g->setby[opti] = eslARG_SETBY_CMDLINE;
-      if (g->opt[opti].type == eslARG_NONE) /* booleans: anything non-NULL is true, so 0x1 is fine */
-	g->val[opti] = (char *) TRUE;
-      else
-	g->val[opti] = optarg;
-
-      /* Unset all options toggle-tied to this one.
-       */
-      s = g->opt[opti].toggle_opts;
-      while ((status = process_optlist(g, &s, &togi)) == ESL_OK)
-	{
-	  if (g->setby[togi] == eslARG_SETBY_CMDLINE)
-	    {
-	      esl_error(ESL_EINVAL, __FILE__, __LINE__,
-			"Options %s and %s conflict, toggling each other.\n\n%s", 
-			g->opt[togi].name, g->opt[opti].name, g->usage);
-	      return ESL_EINVAL;
-	    }
-	  
-	  g->setby[togi] = eslARG_SETBY_CMDLINE; /* indirectly, but still */
-	  g->val[togi] = NULL;	/* ok for false booleans too */
-	}
-      if (status != ESL_EOD) return status; /* not a normal end of optlist */
+      status = set_option(g, opti, optarg, eslARG_SETBY_CMDLINE, FALSE);
+      if (status != ESL_OK) return status;
     }
   return ESL_OK;
 }
@@ -635,7 +579,7 @@ esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
  * Purpose:   Returns ptr to the next argv[] element in <g> that 
  *            is a command-line argument (as opposed to an
  *            option or an option's argument). Type check it
- *            with <type> (pass eslARG_NONE or eslARG_STRING to
+ *            with <type> (pass <eslARG_NONE> or <eslARG_STRING> to
  *            skip type checking), and range check it with
  *            <range> (pass NULL to skip range checking).
  *
@@ -752,8 +696,109 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
 
 
 /*****************************************************************
- * Private functions for retrieving option indices
+ * Miscellaneous private functions 
  *****************************************************************/ 
+
+/* set_option()
+ * 
+ * Turn option <opti> ON (if it's a boolean) or set its option
+ * argument to <optarg>. Record that it was set by <setby> (e.g. 
+ * <eslARG_SETBY_CMDLINE>). 
+ * 
+ * <do_alloc> is a TRUE/FALSE flag. If <arg> is a pointer to a string
+ * that isn't going to go away (e.g. into argv[], or into the
+ * environment) we can get away with just pointing our option's val
+ * at <arg>. But if <arg> is pointing to something volatile (e.g. 
+ * the line buffer as we're reading a file) then we need to
+ * strdup the arg -- and remember that we did that, so we free()
+ * it when we destroy the getopts object.
+ */
+int
+set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
+{
+  int   arglen;
+  char *where;
+  char *s;
+  int   togi;
+  int   status;
+
+  if       (setby == eslARG_SETBY_DEFAULT) where = "as default";
+  else if  (setby == eslARG_SETBY_CMDLINE) where = "on cmdline";
+  else if  (setby == eslARG_SETBY_ENV)     where = "in env";
+  else if  (setby >= eslARG_SETBY_CFGFILE) where = "in cfgfile";
+
+  /* Have we already set this option? */
+  if (g->setby[opti] == setby)
+    {
+      esl_error(ESL_EINVAL, __FILE__, __LINE__, 
+		"Option %s has already been set %s.\n\n%s", 
+		g->opt[opti].name, where, g->usage);
+      return ESL_EINVAL;
+    }
+
+  /* Type and range check the option argument.
+   */
+  if (verify_type_and_range(g, opti, optarg, setby) != ESL_OK)
+    return ESL_EINVAL;
+  
+  /* Set the option, being careful about when val 
+   * is alloc'ed vs. not.
+   */
+  g->setby[opti] = setby;
+  if (g->opt[opti].type == eslARG_NONE)	/* booleans: any non-NULL is TRUE... */
+    g->val[opti] = (char *) TRUE;       /* so 0x1 will do fine. */
+  else
+    {
+      /* If do_alloc is FALSE or the optarg is NULL, then:
+       *    - free any previous alloc; 
+       *    - set the pointer.
+       */
+      if (!do_alloc || optarg == NULL) 
+	{
+	  if (g->valloc[opti] > 0) { free(g->val[opti]); g->valloc[opti] = 0; }
+	  g->val[opti] = optarg;
+	}
+      /* else do_alloc is TRUE, so:
+       *    - make sure we have enough room, either realloc'ing or malloc'ing
+       *    - copy the arg.
+       */
+      else
+	{
+	  arglen = strlen(optarg);
+	  if (g->valloc[opti] < arglen+1) 
+	    {
+	      if (g->valloc[opti] == 0)
+		g->val[opti] = malloc(sizeof(char) * (arglen+1));
+	      else
+		g->val[opti] = realloc(g->val[opti], sizeof(char) * (arglen+1));
+	      if (g->val[opti] == NULL) ESL_ERROR(ESL_EMEM, "allocation failed");
+	      g->valloc[opti] = arglen+1;
+	    }
+	  strcpy(g->val[opti], optarg);
+	}
+    }
+
+  /* Unset all options toggle-tied to this one.
+   */
+  s = g->opt[opti].toggle_opts;
+  while ((status = process_optlist(g, &s, &togi)) == ESL_OK)
+    {
+      if (g->setby[togi] == setby)
+	{
+	  esl_error(ESL_EINVAL, __FILE__, __LINE__,
+		    "Options %s and %s conflict, toggling each other.\n\n%s", 
+		    g->opt[togi].name, g->opt[opti].name, g->usage);
+	  return ESL_EINVAL;
+	}
+	  
+      g->setby[togi] = setby; /* indirectly, but still */
+      if (g->valloc[togi] > 0) 	/* careful about val's that were alloc'ed */
+	{ free(g->val[togi]); g->valloc[togi] = 0; }
+      g->val[togi] = NULL;    /* ok for false booleans too */
+    }
+  if (status != ESL_EOD) return status; /* not a normal end of optlist */
+  return ESL_OK;
+}
 
 /* get_optidx_exactly():
  * 
@@ -1217,11 +1262,11 @@ is_integer(char *s)
 }
 
 
-/* Function: is_real()
+/* is_real()
  * 
- * Purpose:  Returns TRUE if <s> is a string representation
- *           of a valid floating point number, convertable
- *           by atof().
+ * Returns TRUE if <s> is a string representation
+ * of a valid floating point number, convertable
+ * by atof().
  */
 static int
 is_real(char *s)
@@ -1519,32 +1564,105 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 /*------- end of private functions for processing optlists -----------*/
 
 
+/*****************************************************************
+ * Code examples, and a test driver
+ *****************************************************************/
 
+#ifdef ESL_GETOPTS_EXAMPLE1
+/* The starting example of "standard" getopts behavior, without
+ * any of the bells and whistles.
+ *   gcc -g -Wall -o example1 -I. -DESL_GETOPTS_EXAMPLE1 getopts.c easel.c
+ */
+
+#include <stdio.h>
+#include <easel/easel.h>
+#include <easel/getopts.h>
+
+static ESL_OPTIONS options[] = {
+  /* name          type    default  env_var  range toggles reqs incompats */
+  { "-a",     eslARG_NONE,   FALSE,   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-b",     eslARG_NONE,  "TRUE",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-n",     eslARG_INT,      "0",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "-x",     eslARG_REAL,   "1.0",   NULL,  NULL,  NULL,  NULL, NULL },
+  { "--file", eslARG_STRING,  NULL,   NULL,  NULL,  NULL,  NULL, NULL },
+  { "--char", eslARG_CHAR,      "",   NULL,  NULL,  NULL,  NULL, NULL },
+  {  0, 0, 0, 0, 0, 0, 0, 0 },
+};
+
+static char usage[] = "\
+Usage: ./example1 [-options] <arg>\n\
+where options are:\n\
+  -a          : a boolean switch\n\
+  -b          : another boolean switch\n\
+  -n <n>      : an integer argument <n>\n\
+  -x <x>      : a real-valued argument <x>\n\
+  --file <f>  : a long option, with a string (filename) arg <f>\n\
+  --char <c>  : a long option, with a single character arg <c>\n\
+";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS *go;
+  int          opt_a;
+  int          opt_b;
+  int          opt_n;
+  float        opt_x;
+  char        *opt_file;
+  char         opt_char;
+  char        *arg;
+
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessCmdline(go, argc, argv);
+
+  esl_opt_GetBooleanOption(go, "-a",     &opt_a);
+  esl_opt_GetBooleanOption(go, "-b",     &opt_b);
+  esl_opt_GetIntegerOption(go, "-n",     &opt_n);
+  esl_opt_GetFloatOption(go,   "-x",     &opt_x);
+  esl_opt_GetStringOption(go,  "--file", &opt_file);
+  esl_opt_GetCharOption(go,    "--char", &opt_char);
+
+  arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+
+  esl_getopts_Destroy(go);
+
+  printf("Option -a:      %s\n", opt_a ? "on" : "off");
+  printf("Option -b:      %s\n", opt_b ? "on" : "off");
+  printf("Option -n:      %d\n", opt_n);
+  printf("Option -x:      %f\n", opt_x);
+  printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
+  printf("Option --char:  %c\n", opt_char);
+  printf("Cmdline arg:    %s\n", arg);
+
+  return 0;
+}
+
+#endif /*ESL_GETOPTS_EXAMPLE1*/
 
 
 
 #ifdef ESL_GETOPTS_TESTDRIVE 
 /* gcc -g -Wall -o test -I. -DESL_GETOPTS_TESTDRIVE getopts.c easel.c
  */
-
+#include <stdlib.h>
 #include <stdio.h>
 
 #include <easel/easel.h>
 #include <easel/getopts.h>
 
 static ESL_OPTIONS options[] = {
-  /* name          type         range   default   env_var  toggles  requires incompat_with */
-  { "-a",     eslARG_NONE,       NULL,   FALSE, "FOOTEST",   NULL,    NULL,   NULL },
-  { "-b",     eslARG_NONE,       NULL,   FALSE,     NULL, "--no-b",   NULL,   NULL },
-  { "--no-b", eslARG_NONE,       NULL,   FALSE,     NULL,     "-b",   NULL,   NULL },
-  { "-c",     eslARG_CHAR,  "a<=c<=z",    "x",      NULL,    NULL,    NULL,   NULL },
-  { "-n",     eslARG_INT,   "0<=n<10",    "0",      NULL,    NULL,    NULL,   NULL },
-  { "-x",     eslARG_REAL,    "0<x<1",  "0.5",      NULL,    NULL,    NULL,   NULL },
-  { "--lowx", eslARG_REAL,      "x>0",  "1.0",      NULL,    NULL,    NULL,   NULL },
-  { "--hix",  eslARG_REAL,      "x<1",  "0.9",      NULL,    NULL,    NULL,   NULL },
-  { "--lown", eslARG_INT,       "n>0",   "42",      NULL,    NULL,  "-a,-b",  NULL },
-  { "--hin",  eslARG_INT,       "n<0",   "-1",      NULL,    NULL,    NULL, "-a,-b" },
-  { "--host", eslARG_STRING,     NULL,      "", "HOSTNAME",  NULL,    NULL,   NULL },
+  /* name          type     default   env_var    range   toggles  requires incompat_with */
+  { "-a",     eslARG_NONE,   FALSE, "FOOTEST",     NULL,    NULL,    NULL,      NULL },
+  { "-b",     eslARG_NONE,   FALSE,      NULL,     NULL,"--no-b",    NULL,      NULL },
+  { "--no-b", eslARG_NONE,  "TRUE",      NULL,     NULL,    "-b",    NULL,      NULL },
+  { "-c",     eslARG_CHAR,     "x",      NULL,"a<=c<=z",    NULL,    NULL,      NULL },
+  { "-n",     eslARG_INT,      "0",      NULL,"0<=n<10",    NULL,    NULL,      NULL },
+  { "-x",     eslARG_REAL,   "0.8",      NULL,  "0<x<1",    NULL,    NULL,      NULL },
+  { "--lowx", eslARG_REAL,   "1.0",      NULL,    "x>0",    NULL,    NULL,      NULL },
+  { "--hix",  eslARG_REAL,   "0.9",      NULL,    "x<1",    NULL,    NULL,      NULL },
+  { "--lown", eslARG_INT,     "42",      NULL,    "n>0",    NULL,  "-a,-b",     NULL },
+  { "--hin",  eslARG_INT,     "-1",      NULL,    "n<0",    NULL,    NULL,  "--no-b" },
+  { "--host", eslARG_STRING,    "","HOSTTEST",     NULL,    NULL,    NULL,      NULL },
   {  0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -1554,7 +1672,7 @@ Usage: test [-options] <arg>\n\
 
     
 int
-main(int argc, char **argv)
+main(void)
 {
   ESL_GETOPTS *go;
   int   state;
@@ -1562,29 +1680,125 @@ main(int argc, char **argv)
   int   n;
   float x;
   char *s;
+  char *file1 = "test.f1";
+  char *file2 = "test.f2";
+  FILE *f1, *f2;
+
+  /* Declare a "command line" internally.
+   */
+  int   argc = 9;		/* progname; 5 options; 2 args */
+  char *argv[] = { "progname", "-bc", "y", "-n9", "--hix=0.0", "--lown", "43", "arg1", "2005" };
+
+  /* Create a config file #1.
+   */
+  if ((f1 = fopen(file1, "w")) == NULL) exit(1);
+  fprintf(f1, "# Test config file #1\n");
+  fprintf(f1, "#\n");
+  fprintf(f1, "-b\n");
+  fprintf(f1, "-n 3\n");
+  fprintf(f1, "-x 0.5\n");
+  fclose(f1);
+
+  /* Create config file #2.
+   */
+  if ((f2 = fopen(file2, "w")) == NULL) exit(1);
+  fprintf(f2, "# Test config file #2\n");
+  fprintf(f2, "#\n");
+  fprintf(f2, "--no-b\n");
+  fprintf(f2, "--hin -33\n");
+  fprintf(f2, "--host www.nytimes.com\n");
+  fclose(f2);
+
+  /* Put some test vars in the environment.
+   */
+  putenv("FOOTEST=");
+  putenv("HOSTTEST=wasp.cryptogenomicon.org");
+
+  /* Open the test config files for reading.
+   */
+  if ((f1 = fopen(file1, "r")) == NULL) abort();
+  if ((f2 = fopen(file2, "r")) == NULL) abort();
 
   go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessConfigfile(go, file1, f1);
+  esl_opt_ProcessConfigfile(go, file2, f2);
   esl_opt_ProcessEnvironment(go);
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
 
+  fclose(f1);
+  fclose(f2);
+
+  /* Option -a is set ON by an environment variable.
+   */
   esl_opt_GetBooleanOption(go, "-a", &state);
-  printf("Option -a:     %s\n", (state == FALSE)? "off" : "on");
+  if (state != TRUE) abort();
 
+  /* Option -b is overridden twice, and ends up being
+   * ON because of the command line.
+   */
   esl_opt_GetBooleanOption(go, "-b", &state);
-  printf("Option -b:     %s\n", (state == FALSE)? "off" : "on");
+  if (state != TRUE) abort();
 
+  /* Option --no-b had better be off, therefore.
+   */
+  esl_opt_GetBooleanOption(go, "--no-b", &state);
+  if (state != FALSE) abort();
+
+  /* Option -c gets set to y by the command line, in
+   * an optstring.
+   */
   esl_opt_GetCharOption(go, "-c", &c);
-  printf("Option -c:     %c\n", c);
+  if (c != 'y') abort();
 
+  /* Option -n gets set in a cfgfile, then overridden 
+   * as a linked arg on the command line and set to 9.
+   */
   esl_opt_GetIntegerOption(go, "-n", &n);
-  printf("Option -n:     %d\n", n);
+  if (n != 9) abort();
 
+  /* Option -x is set from cfgfile #1 to 0.5.
+   */
   esl_opt_GetFloatOption(go, "-x", &x);
-  printf("Option -x:     %.1f\n", x);
+  if (x != 0.5) abort();
 
+  /* Option --lowx stays in default, 1.0.
+   */
+  esl_opt_GetFloatOption(go, "--lowx", &x);
+  if (x != 1.0) abort();
+
+  /* Option --hix is set to 0 on the command line in --arg=x format
+   */
+  esl_opt_GetFloatOption(go, "--hix", &x);
+  if (x != 0.0) abort();
+
+  /* Option --lown is set to 43 on the command line in --arg x format.
+   * It requires -a and -b to be ON, which they should be.
+   */
+  esl_opt_GetIntegerOption(go, "--lown", &n);
+  if (n != 43) abort();
+
+  /* Option --hin is set to -33 in cfg file #2.
+   * It requires --no-b to be OFF, which it should be.
+   */
+  esl_opt_GetIntegerOption(go, "--hin", &n);
+  if (n != -33) abort();
+
+  /* Option --host is set in cfg file #2,
+   * then overridden in the environment.
+   */
   esl_opt_GetStringOption(go, "--host", &s);
-  printf("Option --host: %s\n", s);
+  if (strcmp(s, "wasp.cryptogenomicon.org") != 0) abort();
+
+  /* Now the two remaining argv[] elements are the command line args
+   */
+  if (esl_opt_ArgNumber(go) != 2) abort();
+
+  s = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  if (strcmp(s, "arg1") != 0) abort();
+
+  s = esl_opt_GetCmdlineArg(go, eslARG_INT, "2005<=n<=2005");
+  if (strcmp(s, "2005") != 0) abort();
 
   esl_getopts_Destroy(go);
   exit(0);
