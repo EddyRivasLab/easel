@@ -133,11 +133,12 @@ typedef struct {
  * Must coexist with sqio.c/squid.h unaligned file format codes.
  * Rules:
  *     - 0 is an unknown/unassigned format 
- *     - <100 reserved for unaligned formats
+ *     - <=100 reserved for unaligned formats
  *     - >100 reserved for aligned formats
  */
-#define eslMSAFILE_UNKNOWN   0	  /* unknown format                          */
-#define eslMSAFILE_STOCKHOLM 101  /* Pfam/Rfam Stockholm format              */
+#define eslMSAFILE_UNKNOWN   0	  /* unknown format                              */
+#define eslMSAFILE_STOCKHOLM 101  /* Stockholm format, interleaved               */
+#define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
 
 
 /* Declarations of the API
@@ -154,9 +155,6 @@ extern int  esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int  esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
 extern int  esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
-extern int esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
-extern int esl_msa_WriteStockholm(FILE *fp, ESL_MSA *msa);
-extern int esl_msa_WriteStockholmOneBlock(FILE *fp, ESL_MSA *msa);
 
 
 #endif /*eslMSA_INCLUDED*/

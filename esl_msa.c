@@ -125,12 +125,12 @@ esl_msa_Create(int nseq, int alen)
   msa->gr             = NULL;
   msa->ngr            = 0;
 
-#ifdef eslKEYHASH_INCLUDED
+#ifdef eslAUGMENT_KEYHASH
   msa->index     = esl_keyhash_Create();
   msa->gs_idx    = NULL;
   msa->gc_idx    = NULL;
   msa->gr_idx    = NULL;
-#endif /*keyhash augmentation*/
+#endif /*eslAUGMENT_KEYHASH*/
 
   /* Allocation, round 2.
    */
@@ -212,7 +212,7 @@ esl_msa_Destroy(ESL_MSA *msa)
   esl_Free2D((void **) msa->gr_tag,  msa->ngr);
   esl_Free3D((void ***)msa->gr,      msa->ngr, msa->nseq);
 
-#ifdef eslKEYHASH_INCLUDED
+#ifdef eslAUGMENT_KEYHASH
   esl_keyhash_Destroy(msa->index);
   esl_keyhash_Destroy(msa->gs_idx);
   esl_keyhash_Destroy(msa->gc_idx);
@@ -377,8 +377,8 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
   /* Else look it up - either brute force
    * or, if we're keyhash-augmented, by hashing.
    */
-#ifdef eslKEYHASH_INCLUDED                  
-  status = esl_gki_Store(msa->index, name, &seqidx);
+#ifdef eslAUGMENT_KEYHASH                  
+  status = esl_key_Store(msa->index, name, &seqidx);
   if (status == eslEDUP) return status;	/* already stored this name */
   if (status != eslOK)   return status; /* an error. */
 #else
@@ -560,9 +560,9 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
   /* first GS tag? init w/ malloc  */
   if (msa->gs_tag == NULL)	
     {
-#ifdef eslKEYHASH_INCLUDED
+#ifdef eslAUGMENT_KEYHASH
       msa->gs_idx = esl_keyhash_Create();
-      status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
+      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
       if (status != eslOK) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -580,8 +580,8 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
        * tagidx < ngs; we already saw this tag;
        * tagidx == ngs; this is a new one.
        */
-#ifdef eslKEYHASH_INCLUDED
-      status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngs; tagidx++)
@@ -658,9 +658,9 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
    */
   if (msa->gc_tag == NULL)	/* first tag? init w/ malloc  */
     {
-#ifdef eslKEYHASH_INCLUDED
+#ifdef eslAUGMENT_KEYHASH
       msa->gc_idx = esl_keyhash_Create();
-      status = esl_gki_Store(msa->gc_idx, tag, &tagidx);      
+      status = esl_key_Store(msa->gc_idx, tag, &tagidx);      
       if (status != eslOK) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -673,8 +673,8 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
   else
     {			/* new tag? */
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
-#ifdef eslKEYHASH_INCLUDED
-      status = esl_gki_Store(msa->gc_idx, tag, &tagidx);
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gc_idx, tag, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngc; tagidx++)
@@ -729,9 +729,9 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
 
   if (msa->gr_tag == NULL)	/* first tag? init w/ malloc  */
     {
-#ifdef eslKEYHASH_INCLUDED
+#ifdef eslAUGMENT_KEYHASH
       msa->gr_idx = esl_keyhash_Create();
-      status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
+      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
       if (status != eslOK) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -747,8 +747,8 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
     {
       /* get tagidx for this GR tag. existing<ngr; new=ngr.
        */
-#ifdef eslKEYHASH_INCLUDED
-      status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngr; tagidx++)
@@ -1141,11 +1141,15 @@ msafile_getline(ESL_MSAFILE *afp)
 /*-------------------- end of ESL_MSAFILE functions -------------------------*/
 
 
-
-
 /******************************************************************************
  * Functions for general i/o of all formats                                   *
  *****************************************************************************/
+
+static int write_stockholm(FILE *fp, ESL_MSA *msa);
+static int write_pfam(FILE *fp, ESL_MSA *msa);
+static int read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+static int actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl);
+
 
 /* Function:  esl_msa_Read()
  * Incept:    SRE, Fri Jan 28 08:10:49 2005 [St. Louis]
@@ -1171,7 +1175,8 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   *ret_msa = NULL;
   
   switch (afp->format) {
-  case eslMSAFILE_STOCKHOLM: status = esl_msa_ReadStockholm(afp, &msa); break;
+  case eslMSAFILE_STOCKHOLM: status = read_stockholm(afp, &msa); break;
+  case eslMSAFILE_PFAM:      status = read_stockholm(afp, &msa); break;
   default:
     ESL_ERROR(eslEINCONCEIVABLE, "no such format");
   }
@@ -1196,7 +1201,8 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
 {
   int status;
   switch (fmt) {
-  case eslMSAFILE_STOCKHOLM: status = esl_msa_WriteStockholm(fp, msa); break;
+  case eslMSAFILE_STOCKHOLM: status = write_stockholm(fp, msa); break;
+  case eslMSAFILE_PFAM:      status = write_pfam(fp, msa);      break;
   default: 
     ESL_ERROR(eslEINCONCEIVABLE, "no such format");
   } 
@@ -1250,11 +1256,10 @@ static int parse_gc(ESL_MSA *msa, char *buf);
 static int parse_gr(ESL_MSA *msa, char *buf);
 static int parse_comment(ESL_MSA *msa, char *buf);
 static int parse_sequence(ESL_MSA *msa, char *buf);
-static int actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl);
 static int maxwidth(char **s, int n);
 
-/* Function:  esl_msa_ReadStockholm()
- * Incept:    SRE, Sun Jan 23 08:33:32 2005 [St. Louis]
+/* read_stockholm():
+ * SRE, Sun Jan 23 08:33:32 2005 [St. Louis]
  *
  * Purpose:   Parse the next alignment from an open Stockholm format alignment
  *            file <afp>, leaving the alignment in <ret_msa>.
@@ -1271,8 +1276,8 @@ static int maxwidth(char **s, int n);
  *
  * Xref:      squid's ReadStockholm(), 1999.
  */
-int
-esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
+static int
+read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   ESL_MSA   *msa;
   char      *s;
@@ -1395,8 +1400,8 @@ esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   return eslOK;
 }
 
-/* Function:  esl_msa_WriteStockholm()
- * Incept:    SRE, Fri Jan 28 09:24:02 2005 [St. Louis]
+/* write_stockholm():
+ * SRE, Fri Jan 28 09:24:02 2005 [St. Louis]
  *
  * Purpose:   Write an alignment <msa> in Stockholm format 
  *            to a stream <fp>, in multiblock format, with
@@ -1408,14 +1413,14 @@ esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *
  * Xref:      squid's WriteStockholm(), 1999.
  */
-int
-esl_msa_WriteStockholm(FILE *fp, ESL_MSA *msa)
+static int
+write_stockholm(FILE *fp, ESL_MSA *msa)
 {
   return (actually_write_stockholm(fp, msa, 50)); /* 50 char per block */
 }
 
-/* Function:  esl_msa_WriteStockholmOneBlock()
- * Incept:    SRE, Fri Jan 28 09:25:42 2005 [St. Louis]
+/* write_pfam():
+ * SRE, Fri Jan 28 09:25:42 2005 [St. Louis]
  *
  * Purpose:   Write an alignment <msa> in Stockholm format 
  *            to a stream <fp>, in single block (Pfam) format.
@@ -1426,8 +1431,8 @@ esl_msa_WriteStockholm(FILE *fp, ESL_MSA *msa)
  *
  * Xref:      squid's WriteStockholmOneBlock(), 1999.
  */
-int
-esl_msa_WriteStockholmOneBlock(FILE *fp, ESL_MSA *msa)
+static int
+write_pfam(FILE *fp, ESL_MSA *msa)
 {
   return (actually_write_stockholm(fp, msa, msa->alen)); /* one big block */
 }

@@ -14,7 +14,7 @@ The API defines five functions:
 \ccode{esl\_keyhash\_Create()}  & Create a new \ccode{ESL\_KEYHASH}. \\
 \ccode{esl\_keyhash\_Destroy()} & Destroys a created \ccode{ESL\_KEYHASH}. \\
 \ccode{esl\_keyhash\_Dump()}    & Dumps internal info from a \ccode{ESL\_KEYHASH}. \\
-\ccode{esl\_key\_Store()}       & Stores a key, returns associated index.\\
+\ccode{esl\_key\_Store()}       & Stores a key, gets an associated index.\\
 \ccode{esl\_key\_Lookup()}      & Looks up a key, returns index or -1.\\
 \end{tabular}
 
@@ -24,8 +24,8 @@ The idea behind using the keyhash module is shown in this fragment of
 pseudocode:
 
 \begin{cchunk}
-       #include <easel/easel.h>
-       #include <easel/keyhash.h>
+       #include <easel.h>
+       #include <esl_keyhash.h>
      
        ESL_KEYHASH *hash;
        int   idx;

@@ -19,11 +19,14 @@
 #include <esl_sqio.h>
 
 
+static int read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s);
+static int write_fasta(FILE *fp, ESL_SQ *s);
 static int check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
 			 char **s, int i, int *slen);
 
 #ifdef eslAUGMENT_MSA /* msa module augmentation provides msa<->sqio interop */
 static int extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
+static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 #endif
 
 /*****************************************************************
@@ -51,35 +54,15 @@ esl_sq_Create(void)
 
   if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    
     ESL_ERROR_NULL(eslEMEM, "malloc failed");
-  if (esl_sq_Inflate(sq) != eslOK) 
-    { free(sq); return NULL; }
 
-  return sq;
-}
-
-
-/* Function:  esl_sq_Inflate()
- * Incept:    SRE, Thu Dec 23 12:20:13 2004 [Zaragoza]
- *
- * Purpose:   Given an already allocated sequence object shell <sq> (usually
- *            on the stack), allocate and initialize its internals.
- *            Caller will free it with <esl_sq_Deflate()>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation failure.
- */
-int
-esl_sq_Inflate(ESL_SQ *sq)
-{
   /* Set up the initial allocation sizes.
    * Someday, we may want to allow an application to tune these
    * at runtime, rather than using compiletime defaults.
    */
-  sq->nalloc   = ESL_SQ_NAMECHUNK;	
-  sq->aalloc   = ESL_SQ_ACCCHUNK;
-  sq->dalloc   = ESL_SQ_DESCCHUNK;
-  sq->salloc   = ESL_SQ_SEQCHUNK; 
+  sq->nalloc   = eslSQ_NAMECHUNK;	
+  sq->aalloc   = eslSQ_ACCCHUNK;
+  sq->dalloc   = eslSQ_DESCCHUNK;
+  sq->salloc   = eslSQ_SEQCHUNK; 
 
   sq->name     = NULL;
   sq->seq      = NULL;
@@ -88,16 +71,16 @@ esl_sq_Inflate(ESL_SQ *sq)
   sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
 
   if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
+    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
+    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   if ((sq->desc = malloc(sizeof(char) * sq->dalloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
+    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
   if ((sq->seq  = malloc(sizeof(char) * sq->salloc)) == NULL) 
-    { esl_sq_Deflate(sq); ESL_ERROR(eslEMEM, "malloc failed"); }
+    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
 
   esl_sq_Reuse(sq);		/* this does the initialization */
-  return eslOK;
+  return sq;
 }
 
 /* Function:  esl_sq_Reuse()
@@ -186,17 +169,20 @@ esl_sq_Squeeze(ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sq_Deflate()
- * Incept:    SRE, Thu Dec 23 12:26:44 2004 [Zaragoza]
+/* Function:  esl_sq_Destroy()
+ * Incept:    SRE, Thu Dec 23 12:28:07 2004 [Zaragoza]
  *
- * Purpose:   Free internal memory in an Inflate()'d <sq>, 
- *            leaving its shell.
+ * Purpose:   Free a Create()'d <sq>.
  */
 void
-esl_sq_Deflate(ESL_SQ *sq)
+esl_sq_Destroy(ESL_SQ *sq)
 {
+  if (sq == NULL) return;
+
   if (sq->optmem != NULL)
-    { free(sq->optmem); sq->optmem = NULL; }
+    { 
+      free(sq->optmem); 
+    }
   else
     {
       if (sq->name   != NULL) free(sq->name);  
@@ -206,24 +192,6 @@ esl_sq_Deflate(ESL_SQ *sq)
       if (sq->dsq    != NULL) free(sq->dsq);   
       if (sq->ss     != NULL) free(sq->ss);    
     }
-  sq->name   = NULL; sq->nalloc = 0;
-  sq->acc    = NULL; sq->aalloc = 0;  
-  sq->desc   = NULL; sq->dalloc = 0;
-  sq->seq    = NULL; sq->salloc = 0;
-  sq->ss     = NULL;
-  sq->dsq    = NULL;
-  return;
-}
-
-/* Function:  esl_sq_Destroy()
- * Incept:    SRE, Thu Dec 23 12:28:07 2004 [Zaragoza]
- *
- * Purpose:   Free a Create()'d <sq>.
- */
-void
-esl_sq_Destroy(ESL_SQ *sq)
-{
-  esl_sq_Deflate(sq);
   free(sq);
   return;
 }
@@ -241,7 +209,7 @@ esl_sq_Destroy(ESL_SQ *sq)
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
  * 
  *            The format of the file is asserted to be <format> (for
- *            example, <eslSQFILE_FASTA> or <eslMSAFILE_STOCKHOLM>).
+ *            example, <eslSQFILE_FASTA>).
  *            If <format> is <eslSQFILE_UNKNOWN> then format
  *            autodetection is invoked. 
  *            
@@ -384,12 +352,12 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
       if ((cmd = malloc(sizeof(char) * (n+1+strlen("gzip -dc ")))) == NULL)
 	{ esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "cmd malloc failed"); }
-      sprintf(cmd, "gzip -dc %s", seqfile);
+      sprintf(cmd, "gzip -dc %s", sqfp->filename);
 
       if ((sqfp->fp = popen(cmd, "r")) == NULL)
 	{ esl_sqfile_Close(sqfp); return eslENOTFOUND; }
 
-      status = esl_strdup(seqfile, n, &(sqfp->filename));
+      status = esl_strdup(sqfp->filename, n, &(sqfp->filename));
       if (status != eslOK)
 	{ esl_sqfile_Close(sqfp); return eslEMEM; }
 
@@ -460,7 +428,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
      * load first block of data.
      */
   case eslSQFILE_FASTA:
-    sqfp->nc = fread(sqfp->buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
+    sqfp->nc = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
     if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
     break;
 
@@ -477,6 +445,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     sqfp->afp->buflen     = 0;
     sqfp->afp->do_gzip    = sqfp->do_gzip;
     sqfp->afp->do_stdin   = sqfp->do_stdin;
+    sqfp->afp->format     = sqfp->format;
     break;
 #endif /*eslAUGMENT_MSA*/
   }
@@ -553,7 +522,7 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
   int status;
 
   switch (sqfp->format) {
-  case eslSQFILE_FASTA: status = esl_sq_ReadFASTA(sqfp, s); break;
+  case eslSQFILE_FASTA: status = read_fasta(sqfp, s); break;
     
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
@@ -582,14 +551,55 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 }
 
 
+/* Function:  esl_sq_Write()
+ * Incept:    SRE, Fri Feb 25 16:10:32 2005 [St. Louis]
+ *
+ * Purpose:   Write sequence <s> to an open FILE <fp> in 
+ *            file format <format>. 
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_sq_Write(FILE *fp, int format, ESL_SQ *s)
+{
+#ifdef eslAUGMENT_MSA
+  ESL_MSA *msa;
+#endif
+
+  switch (format) {
+  case eslSQFILE_FASTA: status = write_fasta(sqfp, s); break;
+
+#ifdef eslAUGMENT_MSA
+  case eslMSAFILE_STOCKHOLM:
+  case eslMSAFILE_PFAM:
+    /* For writing single sequences in "alignment" format,
+     * we convert the SQ object to an MSA, then write using
+     * the MSA API.
+     */
+    if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
+    status = esl_msa_Write(fp, msa, sqfp->format);
+    esl_msa_Destroy(msa);
+    break;
+#endif /* msa augmentation */
+
+  default: 
+    ESL_ERROR(eslEINCONCEIVABLE, "no such format");
+  }
+
+  return status;
+}
+
+
 
 
 /*****************************************************************
  * FASTA format i/o
  *****************************************************************/
 
-/* Function:  esl_sq_ReadFASTA()
- * Incept:    SRE, Thu Dec 23 13:57:59 2004 [Zaragoza]
+/* read_fasta()
+ * SRE, Thu Dec 23 13:57:59 2004 [Zaragoza]
  *
  * Purpose:   Given an open <sqfp> for a FASTA file; read the next 
  *            sequence into <s>. Caller is responsible for creating
@@ -659,8 +669,8 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
  *            but indicates we're running pretty efficiently. The test
  *            data are in 1224-fileread-speed. 
  */
-int
-esl_sq_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
+static int
+read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 {
   int   npos = 0;	/* position in stored name        */
   int   dpos = 0;	/* position in stored description */
@@ -765,7 +775,7 @@ esl_sq_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
     } /* end of switch over FSA states */
 
     if (pos == nc) {		/* reload the buffer when it empties */
-      nc  = fread(buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
+      nc  = fread(buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       pos = 0;
     }
     
@@ -789,6 +799,30 @@ esl_sq_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
   
   return eslOK;
 }
+
+/* write_fasta():
+ * SRE, Fri Feb 25 16:18:45 2005
+ *
+ * Write a sequence <s> in FASTA format to the open stream <fp>.
+ *
+ * Returns <eslOK> on success.
+ */
+int
+write_fasta(FILE *fp, ESL_SQ *s)
+{
+  char  buf[61];
+  int   pos;
+
+  fprintf(">%s %s %s\n", s->name, s->acc, s->desc);
+  buf[60] = '\0';
+  for (pos = 0; pos < s->n; pos += 60)
+    {
+      strncpy(buf, s->seq+pos, 60);
+      fprintf("%s\n", buf);
+    }
+  return eslOK;
+}
+
 
 
 /* check_buffers()
@@ -821,7 +855,7 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
   inlen = *nc - *pos;  	/* can read this many bytes before reloading buffer */
   if (inlen == 0)	/* if we're at the end, reload now. */
     {
-      *nc   = fread(buf, sizeof(char), ESL_READBUFSIZE, fp);
+      *nc   = fread(buf, sizeof(char), eslREADBUFSIZE, fp);
       *pos  = 0;
       inlen = *nc - *pos;	/* (if this is still 0, we're at EOF.) */
     }
@@ -868,6 +902,8 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
  *           
  *            It is safe to pass a NULL <s> (an unset annotation), in 
  *            which case the function no-ops and returns 0.
+ *
+ *            Only available when <sqio> is augmented by <msa> module.
  *            
  * Note:      To dealign one or more annotation strings as well as the
  *            sequence itself, dealign the sequence last:
@@ -905,7 +941,7 @@ esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen)
  * Limitation: hardcodes the gapstring "-_."
  */
 static int
-extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
+extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s)
 {
   int n;
   
@@ -965,19 +1001,124 @@ extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
 
   return eslOK;
 }
+
+/* convert_sq_to_msa()
+ * SRE, Fri Feb 25 16:06:18 2005
+ * 
+ * Given a <sq>, create and return an "MSA" through <ret_msa>, which
+ * contains only the single unaligned sequence. <sq> is 
+ * not affected in any way. This is only to convert from the SQ
+ * object to an MSA object for the purpose of writing SQ in an MSA format
+ * file format.
+ * 
+ * Returns <eslOK> on success, and <*ret_msa> points to
+ * a new "alignment".
+ * 
+ * Throws <eslEMEM> on allocation error, and <*ret_msa> is NULL.
+ */
+static int
+convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
+{
+  ESL_MSA *msa;
+
+  *ret_msa = NULL;
+
+  msa = esl_msa_Create(1, sq->n);
+  if ((status = esl_strdup(sq->name, -1, &(msa->sqname[0]))) != eslOK)
+    { esl_msa_Destroy(msa); return status; }
+  
+  if (sq->acc != NULL)
+    {
+      msa->sqacc = malloc(sizeof(char *) * 1);
+      if (msa->sqacc == NULL) 
+	{ esl_msa_Destroy(msa); ESL_ERROR(eslEMEM, "malloc failed"); }
+      if ((status = esl_strdup(sq->acc, -1, &(msa->sqacc[0]))) != eslOK)
+	{ esl_msa_Destroy(msa); return status; }
+    }
+
+  if (sq->desc != NULL)
+    {
+      msa->sqdesc = malloc(sizeof(char *) * 1);
+      if (msa->sqdesc == NULL) 
+	{ esl_msa_Destroy(msa); ESL_ERROR(eslEMEM, "malloc failed"); }
+      if ((status = esl_strdup(sq->desc, -1, &(msa->sqdesc[0]))) != eslOK)
+	{ esl_msa_Destroy(msa); return status; }
+    }
+
+  strcpy(msa->aseq[0], sq->seq);
+  
+  if (sq->ss != NULL)
+    {
+      msa->ss = malloc(sizeof(char *) * 1);
+      if (msa->ss == NULL) 
+	{ esl_msa_Destroy(msa); ESL_ERROR(eslEMEM, "malloc failed"); }
+      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK)
+	{ esl_msa_Destroy(msa); return status; }
+    }
+  
+  msa->alen = sq->n;
+  msa->nseq = 1;
+
+  *ret_msa = msa;
+  return eslOK;
+}
+
 #endif /*eslAUGMENT_MSA*/
 /*---------- end of msa <-> sqio module interop -----------------*/
 
 
+/*****************************************************************
+ * Example:
+ * gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
+ * ./example <FASTA file>
+ *****************************************************************/
+#ifdef eslSQIO_EXAMPLE
+/*::cexcerpt::sqio_example::begin::*/
+#include <easel.h>
+#include <esl_sqio.h>
 
+int
+main(int argc, char **argv)
+{
+  ESL_SQ     *sq;
+  ESL_SQFILE *sqfp;
+  char       *seqfile = argv[1];
+  int         status;
 
+  status = esl_sqfile_Open(seqfile, eslSQFILE_FASTA, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized");
+  else if (status == eslEINVAL)    esl_fatal("Can't autodetect");
+
+  sq = esl_sq_Create();
+  while ((status = esl_sq_Read(sqfp, sq)) == eslOK)
+  {
+    /* use the sequence for whatever you want */
+    esl_sq_Reuse(sq);
+  }
+  
+  if (status == eslEFORMAT)
+    esl_fatal("Parse failed, line %s, file %s:\n%s", 
+	      sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  
+  esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+  return 0;
+}
+/*::cexcerpt::sqio_example::end::*/
+#endif /*eslSQIO_EXAMPLE*/
 
 
 /*****************************************************************
  * Test driver:
- * gcc -g -Wall -I. -o sqio_test -DeslSQIO_TESTDRIVE sqio.c alphabet.c easel.c
+ * gcc -g -Wall -I. -o test -DeslSQIO_TESTDRIVE esl_sqio.c easel.c
+ * ./test
  *****************************************************************/
 #ifdef eslSQIO_TESTDRIVE
+/*::cexcerpt::sqio_test::begin::*/
+#include <stdio.h>
+#include <easel.h>
+#include <esl_sqio.h>
 
 int
 main(void)
@@ -1002,12 +1143,11 @@ main(void)
   /* Example of the API for opening and reading 
    * seqs from a FASTA file.
    */
-
-  if (esl_sqfile_OpenFASTA(filename, &sqfp) != eslOK) abort();
+  if (esl_sqfile_Open(filename, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) abort();
   sq = esl_sq_Create();
 
   n=0;
-  while (esl_sio_ReadFASTA(sqfp, sq) == eslOK)
+  while (esl_sq_Read(sqfp, sq) == eslOK)
     {
       if (n==0 && strcmp(sq->seq, seq1) != 0) abort();
       if (n==1 && strcmp(sq->seq, seq2) != 0) abort();
@@ -1018,4 +1158,5 @@ main(void)
   esl_sqfile_Close(sqfp);
   return 0;
 }
+/*::cexcerpt::sqio_test::end::*/
 #endif /*eslSQIO_TESTDRIVE*/

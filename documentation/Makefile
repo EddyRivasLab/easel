@@ -2,43 +2,50 @@
 # in addition to the .c and .h files. The list of modules
 # that actually comply follows:
 #
-APITEX =  alphabet\
-	  easel\
-	  getopts\
-	  keyhash\
-	  msa\
-	  random\
-	  regexp\
-	  sqio\
-	  stack\
-	  wuss
-
+APITEX =  easel\
+	  esl_alphabet\
+	  esl_getopts\
+	  esl_keyhash\
+	  esl_msa\
+	  esl_random\
+	  esl_regexp\
+	  esl_sqio\
+	  esl_stack\
+	  esl_wuss
 
 # Each module should be able to be autodocumented, converting
 # its function headers to a .tex appendix file. The list of
 # modules that actually comply follows:
 #
-AUTOTEX = alphabet\
-	  dmatrix\
-	  getopts\
-	  keyhash\
-	  msa\
-	  random\
-	  regexp\
-	  sqio\
-	  stack\
-	  wuss
+AUTOTEX = esl_alphabet\
+	  esl_getopts\
+	  esl_keyhash\
+	  esl_msa\
+	  esl_random\
+	  esl_regexp\
+	  esl_sqio\
+	  esl_stack\
+	  esl_wuss
 
 pdf:
 	make autodoc
+	make cexcerpt
 	pdflatex main
 	bibtex   main
 	pdflatex main
 	pdflatex main
 
 autodoc:
+	mkdir -p autotext
 	for module in ${AUTOTEX}; do\
-	   ./autodoc_functions ../$$module.c > autotext/$${module}_functions.tex;\
+	   ./autodoc_functions ../$$module.c >  autotext/$${module}_functions.tex;\
+	done
+
+cexcerpt:
+	mkdir -p cexcerpts
+	for module in ${AUTOTEX}; do\
+	   ~/src/ssdk/cexcerpt ../$$module.c cexcerpts;\
+	   ~/src/ssdk/cexcerpt ../$$module.h cexcerpts;\
 	done
 
 clean:
@@ -48,4 +55,6 @@ clean:
 	-rm autotext/*.tex
 
 distclean:
+	-rm -rf cexcerpts
+	-rm -rf autotext
 	make clean

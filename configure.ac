@@ -69,6 +69,20 @@ AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
 AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 
 
+# If --enable-libversion, we're compiling and installing
+# the entire library in some location; activate all augmentation.
+#
+AC_ARG_ENABLE(libversion, 
+  [  --enable-libversion     Compile an installed library version of Easel], 
+  [
+    AC_MSG_NOTICE(libversion - activating all augmentations.)
+    AC_DEFINE(eslAUGMENT_KEYHASH)
+    AC_DEFINE(eslAUGMENT_MSA)
+    AC_DEFINE(eslAUGMENT_SSI)
+  ])
+
+
+
 # Checks for programs.
 #
 AC_PROG_CC
@@ -82,7 +96,7 @@ AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 # msa.c and sqio.c can read gzip'ed datafiles via popen(),
 # if popen() is available: set preprocessor variable HAVE_POPEN.
 # 
-AC_CHECK_FUNCS(popen);
+AC_CHECK_FUNCS(popen)
 
 
 
@@ -119,8 +133,11 @@ AC_DEFUN(CHECK_GNU_MAKE,[
 CHECK_GNU_MAKE
 
 
+
+
+
 # Write out easel.h header
-AC_CONFIG_HEADERS(easel.h)
+AC_CONFIG_HEADERS([easel.h])
 AC_CONFIG_FILES(miniapps/Makefile)
 AC_CONFIG_FILES(Makefile)
 

@@ -1,4 +1,4 @@
-\documentclass[11pt]{article}
+\documentclass[11pt]{book}
 % alternative fonts: 
 % times, mathptmx, mathpazo, newcent, bookman
 % xref http://www.ce.cmu.edu/~kijoo/latex2pdf.pdf
@@ -20,15 +20,16 @@
 \tableofcontents
 
 \newpage
-\section{Introduction}
+\chapter{Introduction}
 \input{intro}
 \vspace*{\fill}
 \begin{quote}
 \emph{Lack of skill dictates economy of style.} \hspace{3em} -- Joey Ramone
 \end{quote}     
 
-
 \newpage
+\chapter{Core modules}
+
 \section{The easel (esl) module: error handling and other fundamentals}
 \input{../easel}
 \vspace*{\fill}
@@ -43,70 +44,76 @@ error?} \hspace{3em} -- Franz Kafka, in \emph{The Castle}
 
 \newpage
 \section{The alphabet (abc) module: digitized biosequences}
-\input{../alphabet}
+\input{../esl_alphabet}
 \subsection{Functions in the alphabet (abc) module}
-\input{autotext/alphabet_functions}
+\input{autotext/esl_alphabet_functions}
 
-\newpage
-\section{The dmatrix (dmx) module: linear algebra for 2D double matrices}
-\subsection{Functions in the dmatrix (dmx) module}
-\input{autotext/dmatrix_functions}
+%\newpage
+%%n\section{The dmatrix (dmx) module: linear algebra for 2D double matrices}
+%\subsection{Functions in the dmatrix (dmx) module}
+%\input{autotext/dmatrix_functions}
 
 \newpage
 \section{The getopts (opt) module: command line option parsing and more}
-\input{../getopts}
+\input{../esl_getopts}
 \subsection{Functions in the getopts module}
-\input{autotext/getopts_functions}
+\input{autotext/esl_getopts_functions}
 
 \newpage
 \section{The keyhash (key) module: keyword hashing, associative array emulation}
-\input{../keyhash}
+\input{../esl_keyhash}
 \subsection{Functions in the keyhash module}
-\input{autotext/keyhash_functions}
+\input{autotext/esl_keyhash_functions}
 
 \newpage
 \section{The msa module: multiple sequence alignment i/o}
-\input{../msa}
+\input{../esl_msa}
 \subsection{Functions in the msa module}
-\input{autotext/msa_functions}
+\input{autotext/esl_msa_functions}
 
 \newpage
 \section{The random (rnd) module: pseudorandom numbers and basic sampling}
-\input{../random}
+\input{../esl_random}
 \subsection{Functions in the random (rnd) module}
-\input{autotext/random_functions}
+\input{autotext/esl_random_functions}
 
 \newpage
 \section{The regexp module: regular expression matching}
-\input{../regexp}
+\input{../esl_regexp}
 \subsection{Functions in the regexp module}
-\input{autotext/regexp_functions}
+\input{autotext/esl_regexp_functions}
 
 \newpage
-\section{The sqio (sio) module: input/output of unaligned sequence file formats}
-\input{../sqio}
+\section{The sqio module: i/o of unaligned sequence files}
+\input{../esl_sqio}
 \subsection{Functions in the sqio (sio) module}
-\input{autotext/sqio_functions}
+\input{autotext/esl_sqio_functions}
 
 \newpage
 \section{The stack module: pushdown stacks for integers, chars, and pointers}
-\input{../stack}
+\input{../esl_stack}
 \subsection{Functions in the stack module}
-\input{autotext/stack_functions}
+\input{autotext/esl_stack_functions}
 
 \newpage
 \section{The wuss module: RNA secondary structure annotation}
-\input{../wuss}
+\input{../esl_wuss}
 \subsection{Functions in the wuss module}
-\input{autotext/wuss_functions}
+\input{autotext/esl_wuss_functions}
 
 \newpage
+\chapter{File formats}
+
 \section{Stockholm format for multiple sequence alignments}
 \input{format_stockholm.tex}
 
 \newpage
 \section{WUSS notation for RNA secondary structures}
 \input{format_wuss.tex}
+
+\newpage
+\chapter{Appendix: design and construction notes}
+\input{doctricks}
 
 \newpage
 \newcommand{\bibfont}{\footnotesize}

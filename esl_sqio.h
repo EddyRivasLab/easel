@@ -24,21 +24,25 @@
  * for optimizing memory after seqs have been read, at a cost of
  * a ~20% speed hit (for memcpy()'ing within the seq to perfected space.
  */
-#define ESL_SQ_NAMECHUNK   32	/* allocation unit for name         */
-#define ESL_SQ_ACCCHUNK    32	/* allocation unit for accession    */
-#define ESL_SQ_DESCCHUNK  128	/* allocation unit for description  */
-#define ESL_SQ_SEQCHUNK   256	/* allocation unit for seqs         */
+#define eslSQ_NAMECHUNK   32	/* allocation unit for name         */
+#define eslSQ_ACCCHUNK    32	/* allocation unit for accession    */
+#define eslSQ_DESCCHUNK  128	/* allocation unit for description  */
+#define eslSQ_SEQCHUNK   256	/* allocation unit for seqs         */
 
 /* fread() is apparently the fastest portable way to input from disk;
  * the READBUFSIZE is the fixed size of a block to bring in at one time,
  * for character-based parsers (like the FASTA parser).
  */
-#define ESL_READBUFSIZE  4096
+#define eslREADBUFSIZE  4096
 
-#define ESL_SQFILE_UNKNOWN 0
-#define ESL_SQFILE_FASTA   1
-
-
+/* Unaligned file format codes
+ * These codes are coordinated with the msa module.
+ *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
+ *   - <=100 is reserved for sqio, for unaligned formats
+ *   - >100  is reserved for msa, for aligned formats
+ */
+#define eslSQFILE_UNKNOWN 0
+#define eslSQFILE_FASTA   1
 
 
 typedef struct {
@@ -48,11 +52,11 @@ typedef struct {
   int   format;		      /* Format of this file                      */
   int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
-  char  errbuf[512];	      /* parse error mesg. size must match msa.h  */
+  char  errbuf[512];	      /* parse error mesg. Size must match msa.h  */
 
   int  *inmap;		      /* pointer to an input map, 0..127  */
 
-  char  buf[ESL_READBUFSIZE]; /* buffer for fread() block input           */
+  char  buf[eslREADBUFSIZE];  /* buffer for fread() block input           */
   int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
   int   pos;		      /* current parsing position in the buffer   */
   int   linenumber;	      /* What line of the file this is (1..N)     */
@@ -78,35 +82,34 @@ typedef struct {
  * nalloc+aalloc+dalloc.
  */
 typedef struct {
-  char *name;	        /* name                     */
-  int   nalloc;		/* allocated length of name */
-  
-  char *acc;	        /* accession                     */
-  int   aalloc;	       	/* allocated length of accession */
+  /*::cexcerpt::sqio_sq::begin::*/
+  char *name;           /* name (mandatory)                                 */
+  char *acc;            /* optional accession ("\0" if no accession)        */
+  char *desc;           /* description ("\0" if no description)             */
+  char *seq;            /* sequence (mandatory) [0..n-1]                    */
+  char *ss;             /* secondary structure annotation [0..n-1], or NULL */
+  char *dsq;            /* digitized sequence [1..n], or NULL               */
+  int   n;              /* length of seq                                    */
+  /*::cexcerpt::sqio_sq::end::*/
 
-  char *desc;		/* description */
-  int   dalloc;		/* allocated length of description */
-
-  char *seq;		/* growing sequence during a normal parse, or NULL */
-  char *dsq;		/* growing digital seq during digital parse, or NULL */
-  char *ss;		/* secondary structure annotation    */
-  int   n;		/* current length of seq             */
-  int   salloc;		/* current allocation length for seq */
-
-  char *optmem;		/* optimized mem storage area; see esl_sq_Squeeze() */
+  char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
+  int   nalloc;         /* allocated length of name */
+  int   aalloc;         /* allocated length of accession */
+  int   dalloc;         /* allocated length of description */
+  int   salloc;         /* current allocation length for seq */
 } ESL_SQ;
 
 
 extern ESL_SQ *esl_sq_Create(void);
-extern int     esl_sq_Inflate(ESL_SQ *sq);
 extern int     esl_sq_Reuse(ESL_SQ *sq);
 extern int     esl_sq_Squeeze(ESL_SQ *sq);
-extern void    esl_sq_Deflate(ESL_SQ *sq);
 extern void    esl_sq_Destroy(ESL_SQ *sq);
 
-extern int  esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp);
+extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
+			    ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 
-extern int  esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s);
+extern int  esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
+extern int  esl_sq_Write(FILE *fp, int format, ESL_SQ *s);
 
 #endif /*!ESL_SQIO_INCLUDED*/

@@ -17,11 +17,6 @@
  */
 #define eslSENTINEL    127
 
-/* Flags in an <inmap>, input map.
- */ 
-#define ESL_ILLEGAL_CHAR -2
-#define ESL_IGNORED_CHAR -1
-
 struct esl_alphabet_s {
   int    type;		 /* eslDNA, eslRNA, esl_AMINO, or eslNONSTANDARD    */
   int    K;		 /* uniq alphabet size: 4 or 20                     */

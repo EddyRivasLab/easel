@@ -31,11 +31,9 @@
  * (depending on which files you have).
  *****************************************************************/
 
-#undef eslAUGMENT_KEYHASH	/* faster alignment input       [msa]       */
-#undef eslAUGMENT_SSI		/* fast indexing into datafiles [msa, sqio] */
-#undef eslAUGMENT_MSA		/* allow sqio to read MSA files [sqio]      */
-
-
+#undef eslAUGMENT_ALPHABET
+#undef eslAUGMENT_KEYHASH	
+#undef eslAUGMENT_MSA		
 
 
 /*------------------------------------------------------------------------*/
@@ -195,6 +193,18 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
  * This gets used in easel.c's *_File*() functions.
  */
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
+
+
+/* The simple concept of an "inmap" (input map) is shared between
+ * the alphabet, msa, and sqio modules, so we put it here to keep
+ * these modules separated.
+ */
+/* Flags in an <inmap>, input map.
+ */ 
+#define ESL_ILLEGAL_CHAR -2
+#define ESL_IGNORED_CHAR -1
+
+
 
 
 #endif /*eslEASEL_INCLUDED*/

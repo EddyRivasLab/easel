@@ -1,24 +1,25 @@
-\subsection{Overview of modules}
+\section{Overview of modules}
 \begin{tabular}{llll}\hline
 \textbf{Module} & \textbf{Description}       & \textbf{Requires} & \textbf{Augmentation(s)}\\\hline
-  \multicolumn{4}{c}{\textbf{Core modules}}\\
-easel           & Framework for using Easel         &  -             & \\
-alphabet        & Digitized biosequence alphabets   & easel          & \\
-dmatrix         & Matrix algebra                    & easel          & \\ 
-getopts         & Command line parsing              & easel          & \\
-keyhash         & Keyword hashing                   & easel          & \\
-msa             & Multiple sequence alignment i/o   & easel          & keyhash \\
-parse           & Token-based file parsing          & easel          & \\
-random          & Random number generator           & easel          & \\
-regexp          & Regular expression matching       & easel          & \\
-stack           & Pushdown stacks                   & easel          & \\
-vectorops       & Vector operations                 & easel          & \\\hline
+  \multicolumn{4}{c}{\textbf{Core module}}\\
+easel           & Framework for using Easel         &  -     & \\
+  \multicolumn{4}{c}{\textbf{Foundation modules}}\\
+alphabet        & Digitized biosequence alphabets   & easel  & \\
+dmatrix         & Matrix algebra                    & easel  & \\ 
+getopts         & Command line parsing              & easel  & \\
+keyhash         & Keyword hashing                   & easel  & \\
+msa             & Multiple sequence alignment i/o   & easel  & keyhash \\
+parse           & Token-based file parsing          & easel  & \\
+random          & Random number generator           & easel  & \\
+regexp          & Regular expression matching       & easel  & \\
+sqio            & Sequence file i/o                 & easel  & alphabet, msa\\
+stack           & Pushdown stacks                   & easel  & \\
+vectorops       & Vector operations                 & easel  & \\\hline
   \multicolumn{4}{c}{\textbf{Derived modules}}\\
 bioparse\_paml  & PAML rate matrix datafiles        & easel dmatrix parse & \\
 dirichlet       & Dirichlet densities               & easel gamma random & \\ 
 gamma           & Gamma densities                   & easel random & \\
 ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
-sqio            & Sequence file i/o                 & easel alphabet & \\
 wuss            & RNA structure annotation          & easel stack    & \\\hline
   \multicolumn{4}{c}{\textbf{Optional library interfaces}}\\
 interface\_gsl    & GNU Scientific Library          & easel dmatrix & \\
@@ -27,7 +28,7 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 
 
 
-\subsection{Overview of data structures}
+\section{Overview of data structures}
 
 \begin{tabular}{lll}\hline
 \textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
@@ -46,9 +47,127 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \ccode{ESL\_STACK}       & \cfile{stack}           & Pushdown stack\\\hline
 \end{tabular}
 
-\subsection{Function naming conventions in Easel}
+\section{Module design}
 
-\subsubsection{Object creation, initialization, destruction}
+Easel is designed to be used in two different ways: as a C library
+(\ccode{libeasel.a}) in the usual C way, or by grabbing individual
+source files without the rest of the library.
+
+The ability to borrow individual files from Easel makes it different
+from many other C libraries. For example, to get Easel's sequence file
+i/o API, for example, you just take the sqio module (the C source
+\ccode{esl_sqio.c} and the header \ccode{esl_sqio.h}), plus the
+obligatory Easel core (\ccode{easel.c} and \ccode{easel.h}). Most of
+Easel's modules can stand alone in this way (the \emph{base}
+modules). Only a few are dependent on other modules (the
+\emph{derived} modules), though even these can be used just by
+bringing along the modules they depend on.
+
+There are a couple of reasons to provide standalone capability. One
+reason came from teaching a computational molecular biology
+course. For homework programming assignments, I wanted to provide
+students with simple .c files with well-documented APIs for routine
+things like sequence i/o. This was to give them a head start, save
+them from implementing boring things, and let them concentrate on
+learning algorithms. But at the same time, I wanted them to be able to
+see where the functionality was coming from, and to study the .c files
+if they wanted, rather than treating the library as a black box -- so
+I wanted to give them a few .c files at a time, not a library.
+
+A second reason comes from my frustration with C libraries and code
+reuse in bioinformatics in general. If I want to take a single routine
+from someone's library (say, gods help us, the NCBI Toolkit), it's
+common that that routine has dependencies, and the dependencies have
+dependencies, and pretty soon I'm dragging the whole damned library in
+just to have access to the routine I wanted. I don't mind that in
+standard, widely installed system libraries, but if I'm making a
+robustly distributable bioinformatics application, I need to include
+in my package all my nonstandard dependencies -- and I really don't
+want to have to distribute the entire GNU Scientific Library just to
+pick up two GSL functions, all of LAPACK to get one numerical routine,
+and the whole NCBI Toolkit to pick up one Toolkit routine.
+
+Thus, Easel is very strictly modular in design. You never need the
+entire Easel library to use any one aspect of Easel's
+functionality. Most often, you need only the module you're interested
+in, plus the core easel module.
+
+To facilitate code reuse, Easel is licensed under a permissive open
+source license (the Creative Commons Attribution License) that allows
+you to freely modify and redistribute the code.
+
+In the end, some of my original intent of providing simple
+implementations as teaching examples has been lost. Rather than
+providing two implementations (my intended simple teaching example and
+a full-strength production example), Easel code is all production
+code. But the modularity remains, and it seems to be useful in other
+respects.  Modular design is just a Good Thing in general.  Easel
+modules can be unit-tested in absence of the rest of the library.
+And, though this remains to be seen, it should be easy for other
+people to contribute modules and extend Easel, and it should be easy
+for people to borrow and reuse Easel code.
+
+\section{The ``augmentation'' concept}
+
+The trouble with enforcing strict modular design is that while
+\emph{you} (the application writer) can take advantage of any or all
+of Easel's functionality as you wish, \emph{Easel} can't. An Easel
+module, by design, is as isolated as possible from all other Easel
+modules. It shouldn't use any functionality other than the essentials
+in the core \eslmod{easel} module. But what if module X would benefit
+from the cool features of module Y -- for instance, what if we want
+the \eslmod{sqio} sequence i/o module to have access to the fast file
+indexing capabilities of the \eslmod{ssi} module?  Start down this
+road, and pretty soon the library is full of dependencies, the modular
+design collapses, and we're back to a standard all-or-none C library.
+
+Easel introduces a concept called \emph{augmentation}. The base
+functionality of many Easel modules can be optionally \emph{augmented}
+by one or more other Easel modules. An augmentation confers optional
+powers on a module beyond its default standalone behavior.
+
+Sometimes, an augmentation adds new functions to a module's API.  For
+example, \eslmod{alphabet} augmentation of the sequence i/o module
+\eslmod{sqio} adds a function to the \eslmod{sqio} API for digitizing
+a sequence.
+
+Sometimes, an augmentation extends or generalizes the scope of one or
+more functions in the API. For instance, augmenting the \eslmod{sqio}
+module with \eslmod{msa} gives the ability to read alignment files as
+if they were sequential, unaligned sequence databases through
+\eslmod{sqio}'s existing API.
+
+And sometimes, an augmentation invisibly makes existing functions
+faster or more memory-efficient, without adding any new functionality
+per se.  For example, \eslmod{msa} can be augmented by
+\eslmod{keyhash}, which makes the \eslmod{msa} module capable of
+handling much larger alignments more efficiently than it does by
+default, because \eslmod{keyhash} gives it the ability to use fast
+hashing methods in its parsers.
+
+When Easel is installed as a library, all modules are fully
+augmented. This is done when the library is compiled. The
+\ccode{configure} script automatically enables all augmentations when
+it sets up the \ccode{easel.h} header, before compiling and installing
+the library.
+
+When you borrow an individual module from Easel, you choose whether to
+borrow any modules that augment it. To activate an augmentation, you
+not only have to compile and link the C code for the extra module
+(obviously), you also edit a line in the \ccode{easel.h} header file
+before compilation. There is a section at the top of \ccode{easel.h}
+that declares which augmentations are to be enabled. You
+\ccode{\#define} the appropriate flag for your augmentation to
+activate it; for instance, to augment with \eslmod{ssi}, you make sure
+\ccode{easel.h} has a line \ccode{\#define eslAUGMENT\_SSI} in place
+of \ccode{\#undef eslAUGMENT\_SSI}.
+
+Documentation for modules and their functions always distinguishes
+between default functionality and augmented functionality.
+
+\section{Function naming conventions in Easel}
+
+\subsection{Object creation, initialization, destruction}
 
 Most of Easel's objects are allocated on the heap; that is, accessed
 exclusively via pointers. Less often, routines may allow an object to
@@ -144,7 +263,7 @@ esl_sq_Destroy(sq);
 
 \end{sreitems}
 
-\subsubsection{Other common object manipulation functions}
+\subsection{Other common object manipulation functions}
 
 \begin{sreitems}{\ccode{\_Copy(src, dest)}}
 
@@ -176,10 +295,10 @@ identity matrix).
 \end{sreitems}
 
 
-\subsection{Discipline of writing Easel modules}
+\section{Discipline of writing Easel modules}
 
 
-\subsubsection{API}
+\subsection{API}
 
 \begin{enumerate}
 \item Exposed function names obey Easel conventions.
@@ -198,7 +317,7 @@ identity matrix).
 \end{enumerate}
 
 
-\subsubsection{Documentation}
+\subsection{Documentation}
 
 \begin{enumerate}
 \item Documentation in .tex files is written to application developers
@@ -215,7 +334,7 @@ identity matrix).
 \end{enumerate}
 
 
-\subsubsection{Testing}
+\subsection{Testing}
 
 \begin{enumerate}
 
