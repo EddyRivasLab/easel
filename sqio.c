@@ -213,7 +213,7 @@ esl_sq_Destroy(ESL_SQ *sq)
  * Returns:   <ESL_OK> on success; caller is responsible for
  *            closing the <sqfp> with <esl_sqfile_Close()>.
  *            
- *            Returns <ESL_ENOFILE> if the file <seqfile> does not
+ *            Returns <ESL_ENOTFOUND> if the file <seqfile> does not
  *            exist, or cannot be opened for reading (incorrect
  *            permissions, for example), or fread() results in
  *            a read error.
@@ -238,7 +238,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
 
-  if ((sqfp->fp = fopen(seqfile,"r")) == NULL) { free(sqfp); return ESL_ENOFILE; }
+  if ((sqfp->fp = fopen(seqfile,"r")) == NULL) { free(sqfp); return ESL_ENOTFOUND; }
   if ((sqfp->filename = esl_strdup(seqfile, -1))      == NULL) goto FAILURE;
 
   /* Create an appropriate default input map for FASTA files.
@@ -264,7 +264,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   /* load the first block of data from the file into memory. 
    */
   sqfp->nc = fread(sqfp->buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
-  if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return ESL_ENOFILE; }
+  if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return ESL_ENOTFOUND; }
 
   *ret_sqfp = sqfp;
   return ESL_OK;

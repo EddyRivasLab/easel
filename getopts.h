@@ -28,7 +28,6 @@ typedef struct {
   char  *usage;			/* command-line usage                  */
   int    optind;		/* where we are in argc                */
 
-  int   *islong;                /* TRUE if opt i is a long option (thus not concat'able)  */
   char **val;			/* configured value for each option (as a string) */
   int   *setby;			/* array [0..nopts-1] for who set each option     */
 

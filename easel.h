@@ -31,20 +31,23 @@
 
 
 
-#define ESL_OK           0	/* no error/success/TRUE        */
-#define ESL_EOL          1	/* end-of-line (often normal)   */
-#define ESL_EOF          2	/* end-of-file (often normal)   */
-#define ESL_EOD          3 	/* end-of-data (often normal)   */
-#define ESL_EMEM         4	/* malloc or realloc failed     */
-#define ESL_ENOFILE      5	/* file not found               */
-#define ESL_EFORMAT      6	/* file format not correct      */
-#define ESL_EDIVZERO     8	/* attempted div by zero        */
-#define ESL_EINCOMPAT    9	/* incompatible parameters      */
-#define ESL_EINVAL      10	/* invalid argument/parameter   */
-#define ESL_ESYS        11	/* generic system call failure  */
-#define ESL_ECORRUPT    12	/* unexpected data corruption   */
-#define ESL_ELOGIC      13      /* "can't happen" logic error   */
-#define ESL_ESYNTAX     14      /* invalid syntax in input data */
+#define ESL_OK              0	/* no error/success/TRUE        */
+#define ESL_EOL             1	/* end-of-line (often normal)   */
+#define ESL_EOF             2	/* end-of-file (often normal)   */
+#define ESL_EOD             3 	/* end-of-data (often normal)   */
+#define ESL_EMEM            4	/* malloc or realloc failed     */
+#define ESL_ENOTFOUND       5	/* file or key not found        */
+#define ESL_EFORMAT         6	/* file format not correct      */
+#define ESL_EAMBIGUOUS      7   /* an ambiguity of some sort    */   
+#define ESL_EDIVZERO        8	/* attempted div by zero        */
+#define ESL_EINCOMPAT       9	/* incompatible parameters      */
+#define ESL_EINVAL         10	/* invalid argument/parameter   */
+#define ESL_ESYS           11	/* generic system call failure  */
+#define ESL_ECORRUPT       12	/* unexpected data corruption   */
+#define ESL_EINCONCEIVABLE 13   /* "can't happen" error         */
+#define ESL_ESYNTAX        14   /* invalid syntax in input data */
+#define ESL_ERANGE         15   /* value out of allowed range   */
+
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;

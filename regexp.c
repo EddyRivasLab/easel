@@ -144,7 +144,7 @@ esl_regexp_Deflate(ESL_REGEXP *machine)
  * Returns:   <ESL_OK> if <pattern> matches <s>; <ESL_EOD> if it doesn't.
  *            
  * Throws:    <ESL_EINVAL> if the <pattern> couldn't be compiled for any reason.
- *            Throws <ESL_ELOGIC> or <ESL_ECORRUPT> if something
+ *            Throws <ESL_EINCONCEIVABLE> or <ESL_ECORRUPT> if something
  *            went wrong in the search phase.
  *            (At the failure point, an error was generated with an appropriate
  *            code and message; an <ESL_SYNTAX> code, for example, may have
@@ -202,7 +202,7 @@ esl_regexp_Compile(ESL_REGEXP *machine, char *pattern)
  *            while (esl_regexp_MultipleMatches(m, &s) == ESL_OK)
  *                // process one match at a time//;
  *
- * Throws:    <ESL_ELOGIC> or <ESL_ECORRUPT> if something goes awry internally
+ * Throws:    <ESL_EINCONCEIVABLE> or <ESL_ECORRUPT> if something goes awry internally
  *            during the search.
  */
 int
@@ -1060,7 +1060,7 @@ static char *regprop(char *op);
  - regexec - match a regexp against a string
  *
  * Returns <ESL_OK> on match; <ESL_EOD> for no match.
- * Throws  <ESL_ELOGIC>,<ESL_ECORRUPT> on internal errors.
+ * Throws  <ESL_EINCONCEIVABLE>,<ESL_ECORRUPT> on internal errors.
  */
 static int
 regexec(register esl__regexp *prog, const char *str)
@@ -1072,7 +1072,7 @@ regexec(register esl__regexp *prog, const char *str)
 
 	/* Be paranoid. */
 	if (prog == NULL || string == NULL) 
-	  ESL_ERROR(ESL_ELOGIC, "NULL argument to regexec");
+	  ESL_ERROR(ESL_EINCONCEIVABLE, "NULL argument to regexec");
 
 	/* Check validity of program. */
 	if ((unsigned char)*prog->program != REGMAGIC) 
@@ -1112,7 +1112,7 @@ regexec(register esl__regexp *prog, const char *str)
  - regtry - try match at specific point
  * 
  * Returns <ESL_OK> on success, <ESL_EOD> failure.
- * Throws  <ESL_CORRUPT>,<ESL_ELOGIC> on internal errors.
+ * Throws  <ESL_CORRUPT>,<ESL_EINCONCEIVABLE> on internal errors.
  */
 static int			
 regtry(register struct exec *ep, esl__regexp *prog, char *string)
@@ -1149,7 +1149,7 @@ regtry(register struct exec *ep, esl__regexp *prog, char *string)
  * by recursion.
  * 
  * Returns <ESL_OK> on success, <ESL_EOD> on failure.
- * Throws  <ESL_ECORRUPT>,<ESL_ELOGIC> on internal errors.
+ * Throws  <ESL_ECORRUPT>,<ESL_EINCONCEIVABLE> on internal errors.
  */
 static int	
 regmatch(register struct exec *ep, char *prog)
@@ -1276,7 +1276,7 @@ regmatch(register struct exec *ep, char *prog)
 			register const size_t min = (OP(scan) == STAR) ? 0 : 1;
 			size_t no;
 
-			if (regrepeat(ep, OPERAND(scan), &no) != ESL_OK) return ESL_ELOGIC;
+			if (regrepeat(ep, OPERAND(scan), &no) != ESL_OK) return ESL_EINCONCEIVABLE;
 			for (++no; no > min; no--) {
 				ep->reginput = save + no - 1;
 				/* If it could work, try it. */
@@ -1309,7 +1309,7 @@ regmatch(register struct exec *ep, char *prog)
  - regrepeat - report how many times something simple would match, 
  *             via <ret_result>
  * Returns <ESL_OK> on success.
- * Throws  <ESL_ELOGIC> - if node isn't a repeating one.
+ * Throws  <ESL_EINCONCEIVABLE> - if node isn't a repeating one.
  */
 static int
 regrepeat(register struct exec *ep, char *node, size_t *ret_count)
@@ -1342,12 +1342,12 @@ regrepeat(register struct exec *ep, char *node, size_t *ret_count)
 	        /*NOTREACHED*/
 		break;
 	default:		/* Oh dear.  Called inappropriately. */
-	        ESL_ERROR(ESL_ELOGIC, "bad call of regrepeat");
+	        ESL_ERROR(ESL_EINCONCEIVABLE, "bad call of regrepeat");
  	        /*NOTREACHED*/
 		break;
 	}
         /* NOTREACHED */
-	return ESL_ELOGIC;
+	return ESL_EINCONCEIVABLE;
 }
 
 /*
@@ -1497,7 +1497,7 @@ regprop(char *op)
  - regsub - perform substitutions after a regexp match
  *
  * Returns <ESL_OK> on success.
- * Throws  <ESL_ELOGIC>, <ESL_ECORRUPT> on internal errors.
+ * Throws  <ESL_EINCONCEIVABLE>, <ESL_ECORRUPT> on internal errors.
  */
 static int
 regsub(const esl__regexp *rp, const char *source, char *dest)
@@ -1510,7 +1510,7 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 	register size_t len;
 
 	if (prog == NULL || source == NULL || dest == NULL) 
-	  ESL_ERROR(ESL_ELOGIC, "NULL parameter to regsub");
+	  ESL_ERROR(ESL_EINCONCEIVABLE, "NULL parameter to regsub");
 
 	if ((unsigned char)*(prog->program) != REGMAGIC) 
 	  ESL_ERROR(ESL_ECORRUPT, "damaged regexp");
