@@ -46,6 +46,7 @@ static char experts[] = "\
     --gapsym <c>  : convert all gaps to character '<c>'\n\
     --wussify     : convert old format RNA structure markup lines to WUSS\n\
     --dewuss      : convert WUSS notation RNA structure markup to old format\n\
+    --fullwuss    : convert simple WUSS notation to full (output) WUSS\n\
 ";
 
 static ESL_OPTIONS options[] = {
@@ -62,8 +63,9 @@ static ESL_OPTIONS options[] = {
   { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL },
   { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--nogap", },
   { "--nogap",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--mingap,--gapsym" },
-  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss"  },
-  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify" },
+  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss,--fullwuss"  },
+  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--fullwuss" },
+  { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss" },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -94,6 +96,7 @@ main(int argc, char **argv)
   char  *gapsym;		/* NULL if unset; else, char for gaps        */
   int    wussify;		/* TRUE to convert old KH SS markup to WUSS  */
   int    dewuss;		/* TRUE to convert WUSS back to old KH       */
+  int    fullwuss;		/* TRUE to convert simple WUSS to full WUSS  */
 
   /*****************************************************************
    * Parse the command line
@@ -101,6 +104,7 @@ main(int argc, char **argv)
 
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
 
   esl_opt_GetBooleanOption(go, "-d",         &force_dna);
   esl_opt_GetBooleanOption(go, "-h",         &show_help);
@@ -116,6 +120,7 @@ main(int argc, char **argv)
   esl_opt_GetBooleanOption(go, "--nogap",    &do_nogap);
   esl_opt_GetBooleanOption(go, "--wussify",  &wussify);
   esl_opt_GetBooleanOption(go, "--dewuss",   &dewuss);
+  esl_opt_GetBooleanOption(go, "--fullwuss", &fullwuss);
   
   if (show_help) 
     {
@@ -212,6 +217,30 @@ main(int argc, char **argv)
 		    esl_wuss2kh(msa->ss[idx], msa->ss[idx]);
 	    }
 
+	  if (fullwuss)
+	    {
+	      if (msa->ss_cons != NULL)
+		{
+		  status = esl_wuss_full(msa->ss_cons, msa->ss_cons);
+		  if (status == eslESYNTAX) 
+		    esl_fatal("Bad consensus SS: not in WUSS format\n",);
+		  else if (status != eslOK)
+		    esl_fatal("Conversion of SS_cons failed, code %d\n", status);
+		}
+	      if (msa->ss != NULL)
+		for (idx = 0; idx < msa->nseq; idx++)
+		  if (msa->ss[idx] != NULL)
+		    {
+		      status = esl_wuss_full(msa->ss[idx], msa->ss[idx]);
+		      if (status == eslESYNTAX) 
+			esl_fatal("Bad SS for %s: not in WUSS format\n",
+				  msa->sqname[idx]);
+		      else if (status != eslOK)
+			esl_fatal("Conversion of SS for %s failed, code %d\n", 
+				  msa->sqname[idx], status);
+		    }
+	    }
+
 	  esl_msa_Write(ofp, msa, outfmt);
 	  esl_msa_Destroy(msa);
 	}
@@ -263,6 +292,16 @@ Offending line is:\n\
 	  
 	  if (wussify && sq->ss != NULL) esl_kh2wuss(sq->ss, sq->ss);	    
 	  if (dewuss  && sq->ss != NULL) esl_wuss2kh(sq->ss, sq->ss);	    
+
+	  if (fullwuss && sq->ss != NULL)
+	    {
+	      status = esl_wuss_full(sq->ss, sq->ss);
+	      if (status == eslESYNTAX) 
+		esl_fatal("Bad SS for %s: not in WUSS format\n", sq->name);
+	      else if (status != eslOK)
+		esl_fatal("Conversion of SS for %s failed, code %d\n", 
+			  sq->name, status);
+	    }
 
 	  esl_sq_Write(ofp, sq, outfmt);
 	  esl_sq_Reuse(sq);

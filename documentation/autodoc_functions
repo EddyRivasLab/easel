@@ -10,7 +10,7 @@
 #    1. .tex file needs to have \sreapi environment defined;
 #       see hmmer, squid, infernal, etc. "macro.tex" to get a copy.
 #
-#    2. .tex file needs to have \cvar command defined, to produce 
+#    2. .tex file needs to have \ccode command defined, to produce 
 #       courier (or whatever) computerese font for variables, macros,
 #       etc.
 #

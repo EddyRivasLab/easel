@@ -115,6 +115,20 @@ every amino acid residue to an N.
 .SH EXPERT OPTIONS
 
 .TP
+.B --dewuss
+Convert RNA secondary structure annotation strings from the new
+WUSS notation, <>, back to the old KHS format, ><. If the annotation
+is already in KHS, this option will corrupt it, without warning.
+Only SELEX and Stockholm format files have secondary structure
+markup.
+
+.TP
+.B --fullwuss
+Convert RNA secondary structure annotation strings from simple
+(input) WUSS notation to full (output) WUSS notation.
+
+
+.TP
 .BI --gapsym " <c>"
 Convert all gap characters to 
 .I <c>.
@@ -157,13 +171,7 @@ and individual) from old "KHS" format, ><, to the new WUSS notation,
 up, without warning. Only SELEX and Stockholm format files have
 secondary structure markup at present.
 
-.TP
-.B --dewuss
-Convert RNA secondary structure annotation strings from the new
-WUSS notation, <>, back to the old KHS format, ><. If the annotation
-is already in KHS, this option will corrupt it, without warning.
-Only SELEX and Stockholm format files have secondary structure
-markup.
+
 
 
 .SH AUTHOR

@@ -2031,8 +2031,8 @@ msa_column_subset(ESL_MSA *msa, int *useme)
  *
  * Purpose:   Remove all columns in the multiple alignment <msa>
  *            that consist entirely of characters in the string <gaps>;
- *            typically, <gaps> is a list of gap characters like
- *            "-_.". The <msa> is changed in-place to a smaller
+ *            typically, <gaps> is a list of gap characters.
+ *            <msa> is changed in-place to a smaller
  *            (less wide) alignment containing fewer columns.
  *            All per-residue and per-column annotation is altered
  *            appropriately for the columns that remain in the new
@@ -2070,8 +2070,8 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
  *
  * Purpose:   Remove all columns in the multiple alignment <msa>
  *            that contain any characters in the string <gaps>;
- *            typically, <gaps> is a list of gap characters like
- *            "-_.". The <msa> is changed in-place to a smaller
+ *            typically, <gaps> is a list of gap characters.
+ *            <msa> is changed in-place to a smaller
  *            (less wide) alignment containing fewer columns.
  *            All per-residue and per-column annotation is altered
  *            appropriately for the columns that remain in the new
@@ -2112,8 +2112,6 @@ esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
  *            in the string <oldsyms> to its counterpart (at the same
  *            position) in string <newsyms>. 
  *            
- *            For example, to homogenize different gap symbols to one,
- *            <oldsyms> could be "-_." and <newsyms> could be "---".
  *            To convert DNA to RNA, <oldsyms> could be "Tt" and
  *            <newsyms> could be "Uu". To convert IUPAC symbols to
  *            N's, <oldsyms> could be "RYMKSWHBVDrymkswhbvd" and
@@ -2121,9 +2119,7 @@ esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
  *            
  *            As a special case, if <newsyms> consists of a single
  *            character, then any character in the <oldsyms> is 
- *            converted to this character. For example, to
- *            homogenize different gap symbols to one, <oldsyms>
- *            can be "-_." and <newsyms> can be "-".
+ *            converted to this character. 
  *            
  *            Thus, <newsyms> must either be of the same length as
  *            <oldsyms>, or of length 1. Anything else will cause

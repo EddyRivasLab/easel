@@ -19,8 +19,8 @@ ESLINCDIR = -I..
 
 ## list of the miniapps to compile.
 #
-PROGS = compstruct
-
+PROGS = compstruct\
+	sreformat
 
 ## Targets defining how to make miniapp executables.
 #
@@ -31,8 +31,6 @@ ${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 
 .c.o:
 	${CC} ${CFLAGS} ${DEFS} ${ESLINCDIR} -c $<
-
-
 
 clean:
 	-rm *.o *~

@@ -11,6 +11,7 @@ APITEX =  easel\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_vectorops\
 	  esl_wuss
 
 # Each module should be able to be autodocumented, converting
@@ -25,6 +26,7 @@ AUTOTEX = esl_alphabet\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_vectorops\
 	  esl_wuss
 
 pdf:

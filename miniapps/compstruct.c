@@ -83,6 +83,7 @@ main(int argc, char **argv)
 
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
 
   fmt = eslMSAFILE_STOCKHOLM;
   esl_opt_GetBooleanOption(go,  "-h",      &show_help);

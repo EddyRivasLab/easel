@@ -1,4 +1,4 @@
-/* vectorops.c
+/* esl_vectorops.c
  * Operations on vectors of floats or doubles.
  * 
  * Can operate on vectors of doubles, floats, or integers - appropriate
@@ -25,13 +25,20 @@
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
  */                      
-  
 
 #include <math.h>
 #include <float.h>
-#include <easel/easel.h>
-#include <easel/vectorops.h>
 
+#include <easel.h>
+#include <esl_vectorops.h>
+
+/* Function:  esl_vec_DSet()
+ *            
+ * Purpose:   Sets all <n> items in <vec> to <value>.
+ *                        
+ *            <esl_vec_FSet()> and <esl_vec_ISet()> do the same,
+ *            for float and integer vectors.
+ */
 void
 esl_vec_DSet(double *vec, int n, double value)
 {
@@ -52,6 +59,13 @@ esl_vec_ISet(int *vec, int n, int value)
 }
 
 
+/* Function:  esl_vec_DScale()
+ *            
+ * Purpose:   Multiplies all <n> items in <vec> by <scale>.
+ *            
+ *            <esl_vec_FScale()> and <esl_vec_IScale()> do the same,
+ *            for float and integer vectors.
+ */
 void
 esl_vec_DScale(double *vec, int n, double scale)
 {
@@ -72,6 +86,13 @@ esl_vec_IScale(int *vec, int n, int scale)
 }
 
 
+/* Function:  esl_vec_DSum()
+ *            
+ * Purpose:   Returns the scalar sum of the <n> items in <vec>.
+ *            
+ *            <esl_vec_FSum()> and <esl_vec_ISum()> do the same,
+ *            but for float and integer vectors.
+ */
 double 
 esl_vec_DSum(double *vec, int n)
 {
@@ -98,6 +119,15 @@ esl_vec_ISum(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DAdd()
+ *
+ * Purpose:   Vector addition. Adds <vec2> to <vec1>, leaving
+ *            result in <vec1>. (<vec2> is unchanged.). 
+ *            Both vectors are of size <n>.
+ *            
+ *            <esl_vec_FAdd()> and <esl_vec_IAdd()> do the same,
+ *            for float and integer vectors.
+ */
 void
 esl_vec_DAdd(double *vec1, double *vec2, int n)
 {
@@ -118,6 +148,14 @@ esl_vec_IAdd(int *vec1, int *vec2, int n)
 }
 
 
+/* Function:  esl_vec_DCopy()
+ *
+ * Purpose:   Copies <vec2> to <vec1>. <vec2> is
+ *            unchanged. Both vectors are of size <n>.
+ *            
+ *            <esl_vec_FCopy()> and <esl_vec_ICopy()> do the same,
+ *            for float and integer vectors.
+ */
 void
 esl_vec_DCopy(double *vec1, double *vec2, int n)
 {
@@ -138,6 +176,14 @@ esl_vec_ICopy(int *vec1, int *vec2, int n)
 }
 
 
+/* Function:  esl_vec_DDot()
+ *
+ * Purpose:   Returns the scalar dot product <vec1> $\cdot$ <vec2>.
+ *            Both vectors are of size <n>.
+ *            
+ *            <esl_vec_FDot()> and <esl_vec_IDot()> do the same,
+ *            for float and integer vectors.
+ */
 double
 esl_vec_DDot(double *vec1, double *vec2, int n)
 {
@@ -163,6 +209,16 @@ esl_vec_IDot(int *vec1, int *vec2, int n)
   return result;
 }
 
+
+
+/* Function:  esl_vec_DMax()
+ *
+ * Purpose:   Returns the maximum value of the <n> values
+ *            in <vec>.
+ *            
+ *            <esl_vec_FMax()> and <esl_vec_IMax()> do the same,
+ *            for float and integer vectors.
+ */
 double
 esl_vec_DMax(double *vec, int n)
 {
@@ -198,6 +254,14 @@ esl_vec_IMax(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DMin()
+ *
+ * Purpose:   Returns the minimum value of the <n> values
+ *            in <vec>.
+ *            
+ *            <esl_vec_FMin()> and <esl_vec_IMin()> do the same,
+ *            for float and integer vectors.
+ */
 double
 esl_vec_DMin(double *vec, int n)
 {
@@ -233,6 +297,14 @@ esl_vec_IMin(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DArgMax()
+ *
+ * Purpose:   Returns the index of the maximum value in the <n> values
+ *            in <vec>.
+ *            
+ *            <esl_vec_FArgMax()> and <esl_vec_IArgMax()> do the same,
+ *            for float and integer vectors.
+ */
 int
 esl_vec_DArgMax(double *vec, int n)
 {
@@ -265,6 +337,14 @@ esl_vec_IArgMax(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DArgMin()
+ *
+ * Purpose:   Returns the index of the minimum value in the <n> values
+ *            in <vec>.
+ *            
+ *            <esl_vec_FArgMin()> and <esl_vec_IArgMin()> do the same,
+ *            for float and integer vectors.
+ */
 int
 esl_vec_DArgMin(double *vec, int n)
 {
@@ -296,6 +376,14 @@ esl_vec_IArgMin(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DNorm()
+ *
+ * Purpose:   Normalizes a probability vector <vec>,
+ *            such that $\sum_{i=1}{n} \mathrm{vec}_i = 1.0$.
+ *            
+ *            <esl_vec_FNorm()> does the same, for a probability vector
+ *            of floats.
+ */
 void
 esl_vec_DNorm(double *vec, int n)
 {
@@ -318,6 +406,15 @@ esl_vec_FNorm(float *vec, int n)
 }
 
 
+/* Function:  esl_vec_DLog()
+ *
+ * Purpose:   Converts a probability vector <vec> to a log
+ *            probability vector: takes the log of each of the <n> 
+ *            values in the vector.
+ *
+ *            <esl_vec_FLog()> does the same, for a probability vector
+ *            of floats.
+ */
 void
 esl_vec_DLog(double *vec, int n)
 {
@@ -336,19 +433,75 @@ esl_vec_FLog(float *vec, int n)
 }
 
 
+/* Function:  esl_vec_DEntropy()
+ *
+ * Purpose:   Returns the Shannon entropy of a probability vector <p>,
+ *            in bits ($\log_2$).
+ *
+ *            <esl_vec_FEntropy()> does the same, for a probability vector
+ *            of floats.
+ */
+double
+esl_vec_DEntropy(double *p, int n)
+{
+  int    i;
+  double entropy;
+
+  entropy = 0.;
+  for(i = 0; i < n; i++)
+    if (p[i] > 0.) entropy += p[i] * log(p[i]);
+  return(-1.44269504 * entropy); /* converts to bits */
+}
+float
+esl_vec_FEntropy(float *p, int n)
+{
+  int    i;
+  float  entropy;
+
+  entropy = 0.;
+  for(i = 0; i < n; i++)
+    if (p[i] > 0.) entropy += p[i] * log(p[i]);
+  return(-1.44269504 * entropy); /* converts to bits */
+}
+
+
+/* Function:  esl_vec_DExp()
+ *
+ * Purpose:   Converts a log probability vector <vec> back to a 
+ *            probability vector: exponentiates each of the <n> 
+ *            values in the vector.
+ *
+ *            <esl_vec_FExp()> does the same, for a log probability vector
+ *            of floats.
+ */
 void
 esl_vec_DExp(double *vec, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec[x] = exp(vec[x]);
+  esl_vec_DNorm(vec, n);
 }
 void
 esl_vec_FExp(float *vec, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec[x] = exp(vec[x]);
+  esl_vec_FNorm(vec, n);
 }
 
+/* Function:  esl_vec_DLogSum()
+ *
+ * Purpose:   <vec> is a log probability vector; return the log of the scalar sum
+ *            of the probabilities in <vec>. That is, the <n> elements in <vec>
+ *            are log probabilities, but the summation is done in probability
+ *            space, by exponentiating each of the <n> values in the vector,
+ *            summing, and returning the log of the sum. 
+ *
+ *            The trick is to do this without numerical underflow or overflow.
+ *
+ *            <esl_vec_FLogSum()> does the same, for a log probability vector
+ *            of floats.
+ */
 double
 esl_vec_DLogSum(double *vec, int n)
 {
@@ -379,25 +532,8 @@ esl_vec_FLogSum(float *vec, int n)
 }
 
 
-double
-esl_vec_DEntropy(double *p, int n)
-{
-  int    i;
-  double entropy;
 
-  entropy = 0.;
-  for(i = 0; i < n; i++)
-    if (p[i] > 0.) entropy += p[i] * log(p[i]);
-  return(-1.44269504 * entropy); /* converts to bits */
-}
-float
-esl_vec_FEntropy(float *p, int n)
-{
-  int    i;
-  float  entropy;
 
-  entropy = 0.;
-  for(i = 0; i < n; i++)
-    if (p[i] > 0.) entropy += p[i] * log(p[i]);
-  return(-1.44269504 * entropy); /* converts to bits */
-}
+/*****************************************************************  
+ * @LICENSE@
+ *****************************************************************/

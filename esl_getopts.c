@@ -1,4 +1,4 @@
-/* getopts.c
+/* esl_getopts.c
  * Implements a somewhat more powerful command line getopt interface
  * than the standard UNIX/POSIX call.
  * 
@@ -1614,6 +1614,7 @@ main(int argc, char **argv)
 
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
 
   esl_opt_GetBooleanOption(go, "-a",     &opt_a);
   esl_opt_GetBooleanOption(go, "-b",     &opt_b);

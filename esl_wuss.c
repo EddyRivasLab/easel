@@ -324,6 +324,62 @@ esl_kh2wuss(char *kh, char *ss)
 }
 
 
+/* Function:  esl_wuss_full()
+ * Incept:    SRE, Mon Feb 28 09:44:40 2005 [St. Louis]
+ *
+ * Purpose:   Given a simple ("input") WUSS format annotation string <oldss>,
+ *            convert it to full ("output") WUSS format in <newss>.
+ *            <newss> must be allocated by the caller to be at least as 
+ *            long as <oldss>. <oldss> and <newss> can be the same,
+ *            to convert a secondary structure string in place.
+ *
+ * Returns:   <eslSYNTAX> if <oldss> isn't in valid WUSS format.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINCONCEIVABLE> on internal error that can't happen.
+ */
+int
+esl_wuss_full(char *oldss, char *newss)
+{
+  char *tmp;
+  int  *ct;
+  int   n;
+  int   i;
+  int   status;
+
+  /* We can use the ct2wuss algorithm to generate a full WUSS string -
+   * convert to ct, then back to WUSS.  ct2wuss doesn't deal with pk's
+   * though, and we want to propagate pk annotation if it's there.  So
+   * we need two workspaces: ct array, and a temporary ss string that
+   * we use to hold non-pk annotation.  As a final step, we overlay
+   * the pk annotation from the original oldss annotation.
+   */
+  n = strlen(oldss);
+  if ((ct = malloc(sizeof(int)  * (n+1))) == NULL)
+    ESL_ERROR(eslEMEM, "malloc failed");
+  if ((tmp = malloc(sizeof(char) * (n+1))) == NULL)
+    { free(ct); ESL_ERROR(eslEMEM, "malloc failed"); }
+  
+  esl_wuss_nopseudo(oldss, tmp);/* tmp = nonpseudoknotted oldss */
+
+  status = esl_wuss2ct(tmp, n, ct);   /* ct  = oldss in ct format, no pks */
+  if (status != eslOK) return status; /* ESYNTAX or EMEM */
+
+  status = esl_ct2wuss(ct, n, tmp);   /* now tmp is a full WUSS string */
+  if (status == eslEINVAL) return eslEINCONCEIVABLE; /* we're sure, no pk's */
+  else if (status != eslOK) return status; /* EMEM, EINCONCEIVABLE  */
+  
+  for (i = 0; i < n; i++)
+    if (isalpha(oldss[i])) newss[i] = oldss[i];	/* transfer pk annotation */
+    else newss[i] = tmp[i];                     /* transfer new WUSS      */
+
+  free(ct);
+  free(tmp);
+  return eslOK;
+}
+
+
+
 /* Function:  esl_wuss_nopseudo()
  * Incept:    SRE, Tue Feb 15 11:02:43 2005 [St. Louis]
  *

@@ -1,4 +1,4 @@
-/* vectorops.h
+/* esl_vectorops.h
  * Header file for vectorops.c
  * 
  * SRE, Tue Oct  1 15:23:37 2002 [St. Louis]
@@ -54,14 +54,14 @@ extern void   esl_vec_FNorm(float *vec, int n);
 extern void   esl_vec_DLog(double *vec, int n);
 extern void   esl_vec_FLog(float *vec, int n);
 
+extern double esl_vec_DEntropy(double *p, int n);
+extern float  esl_vec_FEntropy(float *p, int n);
+
 extern void   esl_vec_DExp(double *vec, int n);
 extern void   esl_vec_FExp(float *vec, int n);
 
 extern double esl_vec_DLogSum(double *vec, int n);
 extern float  esl_vec_FLogSum(float *vec, int n);
-
-extern double esl_vec_DEntropy(double *p, int n);
-extern float  esl_vec_FEntropy(float *p, int n);
 
 
 #endif /* ESL_VECTOROPS_INCLUDED */
