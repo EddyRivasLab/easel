@@ -6,10 +6,10 @@ easel           & Framework for using Easel         &  -     & \\
   \multicolumn{4}{c}{\textbf{Foundation modules}}\\
 alphabet        & Digitized biosequence alphabets   & easel  & \\
 dmatrix         & Matrix algebra                    & easel  & \\ 
+fileparser      & Token-based data file input       & easel  & \\
 getopts         & Command line parsing              & easel  & \\
 keyhash         & Keyword hashing                   & easel  & \\
 msa             & Multiple sequence alignment i/o   & easel  & keyhash \\
-parse           & Token-based file parsing          & easel  & \\
 random          & Random number generator           & easel  & \\
 regexp          & Regular expression matching       & easel  & \\
 sqio            & Sequence file i/o                 & easel  & alphabet, msa\\
@@ -34,7 +34,7 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
 \ccode{ESL\_ALPHABET}    & \cfile{alphabet}        & Digitized sequence alphabet\\
 \ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
-\ccode{ESL\_FILEPARSER}  & \cfile{parse}           & Simple token-based input file parser\\
+\ccode{ESL\_FILEPARSER}  & \cfile{fileparser}      & Token-based input file parser\\
 \ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
 \ccode{ESL\_KEYHASH}     & \cfile{keyhash}         & Keyword hash table\\
 \ccode{ESL\_MSA}         & \cfile{msa}             & Multiple sequence alignment\\

@@ -7,6 +7,7 @@
  * 
  * esl_vec_{D,F,I}Set()         - set all items in vector to value.
  * esl_vec_{D,F,I}Scale()       - multiply all items in vector by scale
+ * esl_vec_{D,F,I}Increment()   - add a scalar to all items in vector
  * esl_vec_{D,F,I}Sum()         - return sum of values in vector
  * esl_vec_{D,F,I}Add()         - add vec2 to vec1.
  * esl_vec_{D,F,I}Copy()        - set vec1 to be same as vec2. 
@@ -84,6 +85,35 @@ esl_vec_IScale(int *vec, int n, int scale)
   int x;
   for (x = 0; x < n; x++) vec[x] *= scale;
 }
+
+
+/* Function:  esl_vec_DIncrement()
+ * Incept:    SRE, Mon Mar 21 11:56:57 2005 [St. Louis]
+ *
+ * Purpose:   Adds scalar <x> to all items in the <n>-vector <v>.
+ * 
+ *            <esl_vec_FIncrement()> and <esl_vec_IIncrement()> do the
+ *            same, for float and integer vectors.
+ */
+void
+esl_vec_DIncrement(double *v, int n, double x)
+{
+  int i;
+  for (i = 0; i < n; i++) v[i] += x;
+}
+void
+esl_vec_FIncrement(float *v, int n, float x)
+{
+  int i;
+  for (i = 0; i < n; i++) v[i] += x;
+}
+void
+esl_vec_IIncrement(int *v, int n, int x)
+{
+  int i;
+  for (i = 0; i < n; i++) v[i] += x;
+}
+
 
 
 /* Function:  esl_vec_DSum()

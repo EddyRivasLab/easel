@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include <easel.h>
-#include <esl_parse.h>
+#include <esl_fileparser.h>
 
 static int nextline(ESL_FILEPARSER *efp);
 
@@ -43,7 +43,6 @@ esl_fileparser_Create(FILE *fp)
   efp->s           = NULL;
   efp->commentchar = '\0';
 
-  *ret_efp = efp;
   return efp;
 }
 
@@ -53,13 +52,11 @@ esl_fileparser_Create(FILE *fp)
  * Purpose:   Defines a single character <c> for comments. Anything
  *            on a line following this character is ignored
  *            when parsing.
- *            
- *            <c> = '#' is a common convention.
  *
  * Args:      efp - open fileparser
- *            c    - comment character ('#')        
+ *            c    - comment character ('#', for example)        
  *
- * Returns:   eslOK.
+ * Returns:   <eslOK> on success.
  */
 int
 esl_fileparser_SetCommentChar(ESL_FILEPARSER *efp, char c)
@@ -104,7 +101,7 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
 
   do {
     goodtok = FALSE;
-    tokcode = esl_strtok(&(efp->s), " \t\n", &tok, &toklen);
+    tokcode = esl_strtok(&(efp->s), " \t\r\n", &tok, &toklen);
     if (tokcode == eslEOL ||
 	(tokcode == eslOK && *tok == efp->commentchar)) 
       {
@@ -167,3 +164,120 @@ nextline(ESL_FILEPARSER *efp)
   efp->s = efp->buf;
   return eslOK;
 }
+
+
+
+/*****************************************************************
+ * Example:
+ *    gcc -g -Wall -I. -o example -DeslFILEPARSER_EXAMPLE esl_fileparser.c easel.c
+ *    ./example <any file>
+ * Reads whitespace-delimited tokens from a file, and prints them
+ * out one at a time.
+ *****************************************************************/
+#ifdef eslFILEPARSER_EXAMPLE
+/*::cexcerpt::fileparser_example::begin::*/
+#include <stdio.h>
+#include <easel.h>
+#include <esl_fileparser.h>
+
+int 
+main(int argc, char **argv)
+{
+  ESL_FILEPARSER *efp;
+  char *filename;
+  FILE *fp;
+  char *tok;
+  int   toklen;
+  int   status;
+  int   ntok;
+
+  filename = argv[1];           
+  if ((fp = fopen(filename, "r")) == NULL) 
+    esl_fatal("File open failed");
+  
+  if ((efp = esl_fileparser_Create(fp)) == NULL) 
+    esl_fatal("Failed to associate stream with fileparser");
+  esl_fileparser_SetCommentChar(efp, '#');
+  
+  ntok = 1;
+  while ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK)
+    {
+      printf("%5d %3d %s\n", ntok, toklen, tok);
+      ntok++;
+    }
+  if (status != eslEOF)
+    esl_fatal("Abnormal parse termination");
+  
+  esl_fileparser_Destroy(efp);
+  fclose(fp);
+  return 0;
+}
+/*::cexcerpt::fileparser_example::end::*/
+#endif /*eslFILEPARSER_EXAMPLE*/
+
+
+
+
+/*****************************************************************
+ * Test driver:
+ *    gcc -g -Wall -I. -o test -DeslFILEPARSER_TESTDRIVE esl_fileparser.c easel.c
+ *    ./test
+ * Creates a test file "tmpxxx", then reads it back in.
+ *****************************************************************/
+#ifdef eslFILEPARSER_TESTDRIVE
+#include <stdio.h>
+#include <string.h>
+#include <easel.h>
+#include <esl_fileparser.h>
+
+int 
+main(int argc, char **argv)
+{
+  char *filename = "tmpxxx";
+  ESL_FILEPARSER *efp;
+  FILE *fp;
+  char *tok;
+  int   toklen;
+  int   status;
+  int   ntok;
+
+  /* Create a test file to read.
+   */
+  if ((fp = fopen(filename, "w")) == NULL)
+    esl_fatal("File open failed");
+  fprintf(fp, "# Full line comment\n");
+  fprintf(fp, "token1  # Trailing comment\n");
+  fprintf(fp, "\n");		/* blank line */
+  fprintf(fp, "   \n");		/* whitespace line */
+  fprintf(fp, "   # sowing comment/whitespace confusion...\n"); 
+  fprintf(fp, "token2\ttoken3  token4\n");
+  fprintf(fp, "token5");	/* file ends w/ no \n */
+  fclose(fp);
+
+  /* Read it back in. Should consist of 5 tokens, all of length 6.
+   */
+  if ((fp = fopen(filename, "r")) == NULL) 
+    esl_fatal("File open failed");
+  
+  if ((efp = esl_fileparser_Create(fp)) == NULL) 
+    esl_fatal("Failed to associate stream with fileparser");
+  esl_fileparser_SetCommentChar(efp, '#');
+  
+  ntok = 0;
+  while ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK)
+    {
+      if (toklen != 6)                   esl_fatal("bad token %s", tok);
+      if (strncmp(tok, "token", 5) != 0) esl_fatal("bad token %s", tok);
+      ntok++;
+    }
+  if (status != eslEOF)
+    esl_fatal("Abnormal parse termination");
+  if (ntok != 5) esl_fatal("bad token number %d\n", ntok);
+  
+  esl_fileparser_Destroy(efp);
+  fclose(fp);
+  return 0;
+}
+#endif /*eslFILEPARSER_TESTDRIVE*/
+
+

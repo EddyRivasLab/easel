@@ -4,6 +4,7 @@
 #
 APITEX =  easel\
 	  esl_alphabet\
+	  esl_fileparser\
 	  esl_getopts\
 	  esl_keyhash\
 	  esl_msa\
@@ -19,6 +20,7 @@ APITEX =  easel\
 # modules that actually comply follows:
 #
 AUTOTEX = esl_alphabet\
+	  esl_fileparser\
 	  esl_getopts\
 	  esl_keyhash\
 	  esl_msa\

@@ -16,6 +16,10 @@ extern void   esl_vec_DScale(double *vec, int n, double scale);
 extern void   esl_vec_FScale(float *vec, int n, float scale);
 extern void   esl_vec_IScale(int *vec, int n, int scale);
 
+extern void   esl_vec_DIncrement(double *v, int n, double x);
+extern void   esl_vec_FIncrement(float *v, int n, float x);
+extern void   esl_vec_IIncrement(int *v, int n, int x);
+
 extern double esl_vec_DSum(double *vec, int n);
 extern float  esl_vec_FSum(float *vec, int n);
 extern int    esl_vec_ISum(int *vec, int n);

@@ -3,7 +3,8 @@
 # SVN $Id$
 
 CC      = @CC@
-CFLAGS  = @CFLAGS@
+#CFLAGS  = @CFLAGS@
+CFLAGS  = -g -Wall  # for now, while debugging/developing
 AR      = @AR@ rcv
 LN      = ln
 RANLIB  = @RANLIB@
@@ -63,7 +64,6 @@ distclean:
 
 tags:
 	etags *.[ch] Makefile
-
 
 
 # magic SVN for setting keyword ID replacement on a new module foo:
