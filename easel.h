@@ -36,6 +36,7 @@
 #define ESL_EINVAL     9	/* invalid argument             */
 #define ESL_ETESTFAIL  10	/* calculated test failure      */
 #define ESL_ESYSTEM    11	/* generic system call failure  */
+#define ESL_EOD        12 	/* end-of-data (often normal)   */
 #define ESL_EUNKNOWN   127      /* generic error, unidentified  */
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
@@ -56,7 +57,7 @@ extern void esl_error_ResetDefaultHandler(void);
 extern void *esl_malloc(char *file, int line, size_t size);
 extern void *esl_realloc(char *file, int line, void *p, size_t size);
 
-
+extern char *esl_strdup(char *s, int n);
 
 
 /* Making sure TRUE/FALSE are defined, for convenience

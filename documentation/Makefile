@@ -1,4 +1,23 @@
+# Each module should have .tex documentation of its API,
+# in addition to the .c and .h files. The list of modules
+# that actually comply follows:
+#
+APITEX =  alphabet\
+	  easel\
+	  random\
+	  sqio\
+	  stack
 
+
+# Each module should be able to be autodocumented, converting
+# its function headers to a .tex appendix file. The list of
+# modules that actually comply follows:
+#
+AUTOTEX = alphabet\
+	  dmatrix\
+	  random\
+	  sqio\
+	  stack
 
 pdf:
 	make autodoc
@@ -6,7 +25,10 @@ pdf:
 	pdflatex main
 
 autodoc:
-	./autodoc_functions ../dmatrix.c > autotext/dmatrix_functions.tex
+	for module in ${AUTOTEX}; do\
+	   ./autodoc_functions ../$$module.c > autotext/$${module}_functions.tex;\
+	done
 
 clean:
-	\rm *~ main.log main.out main.pdf
+	-rm *~ main.log main.out main.pdf
+	-rm autotext/*.tex

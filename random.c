@@ -1,5 +1,4 @@
 /* random.c
- * 
  * Easel's portable, threadsafe random number generator.
  * 
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
@@ -9,99 +8,104 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+
 #include <easel/easel.h>
 #include <easel/random.h>
 
-/* Function:  esl_random_seed()
+
+/* Function:  esl_randomness_Create()
  * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
  *
- * Purpose:   Initialize the random number generator using
- *            a given random seed. Seed must be >0.
- *            Returns an ESL_RANDOMNESS object that 
- *            the esl_random() generator will use.
+ * Purpose:   Create a random number generator using
+ *            a given random seed. Seed must be $>0$.
+ *            Returns an <ESL_RANDOMNESS> object that 
+ *            the <esl_random()> generator will use.
  *            
- * Args:      seed >= 0.
+ * Args:      seed $>= 0$.
  *
- * Returns:   initialized ESL_RANDOMNESS * on success;
- *            caller free's with esl_random_free().
+ * Returns:   initialized <ESL_RANDOMNESS *> on success;
+ *            caller free's with <esl_randomness_Destroy()>.
  *              
- *            NULL on failure.
+ * Throws:    NULL on failure.
  * 
  * Xref:      STL8/p57.
  */
 ESL_RANDOMNESS *
-esl_random_seed(long seed)
+esl_randomness_Create(long seed)
 {
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if (seed <= 0)                                    ESL_ERROR_VAL(NULL, ESL_EINVAL, "bad seed");
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_VAL(NULL, ESL_EMEM,   "malloc failed");
+  if (seed <= 0)                                    ESL_ERROR_NULL("bad seed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL("malloc failed");
   r->seed = seed;
-  /* we observe that the first random number
-   * isn't very random, if closely spaced seeds are used, like what
-   * we get with using time().
-   * So, "burn in" the random chain just a little.
+
+  /* we observe that the first random number isn't very random, if
+   * closely spaced seeds are used, like what we get with using
+   * time().  So, "burn in" the random chain just a little.
    */
   while (burnin--) esl_random(r);
   return r;
 }
 
-/* Function:  esl_random_seed_time()
+/* Function:  esl_randomness_CreateTimeseeded()
  * Incept:    SRE, Wed Jul 14 11:22:54 2004 [St. Louis]
  *
- * Purpose:   Like esl_random_seed(), but initializes the
- *            the random number generator using a time() call 
- *            (# of msec since the POSIX epoch).
+ * Purpose:   Like <esl_randomness_Create()>, but initializes the
+ *            the random number generator using a POSIX <time()> call 
+ *            (\# of sec since the POSIX epoch).
  *
- * Args:      (void)
- *
- * Returns:   initialized ESL_RANDOMNESS * on success;
- *            caller free's with esl_random_free().
+ * Returns:   initialized <ESL_RANDOMNESS *> on success;
+ *            caller free's with <esl_randomness_Destroy()>.
  *              
- *            NULL on failure.
+ * Throws:    NULL on failure.
  * 
  * Xref:      STL8/p57.
  */
 ESL_RANDOMNESS *
-esl_random_seed_time(void)
+esl_randomness_CreateTimeseeded(void)
 {
   ESL_RANDOMNESS *r;
   int             burnin = 7;
 
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_VAL(NULL, ESL_EMEM,   "malloc failed");
+  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL("malloc failed");
   r->seed = time ((time_t *) NULL);
   while (burnin--) esl_random(r);
   return r;
 }
 
-/* Function:  esl_random_free()
+/* Function:  esl_randomness_Destroy()
  * Incept:    SRE, Wed Jul 14 13:19:08 2004 [St. Louis]
  *
- * Purpose:   Frees an ESL_RANDOMNESS object.
+ * Purpose:   Frees an <ESL_RANDOMNESS> object.
  */
-int
-esl_random_free(ESL_RANDOMNESS *r)
+void
+esl_randomness_Destroy(ESL_RANDOMNESS *r)
 {
   free(r);
-  return ESL_OK;
+  return;
 }
 
 
-/* Function:  esl_random_reseed()
+/* Function:  esl_randomness_Init()
  * Incept:    SRE, Wed Jul 14 13:13:05 2004 [St. Louis]
  *
- * Purpose:   Reset and reinitialize an existing ESL_RANDOMNESS
- *            object. (Not generally recommended.)
+ * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
+ *            object. (Not generally recommended; this does not
+ *            make a sequence of numbers more random, and may make
+ *            it less so.)
  *
  * Args:      r     - randomness object
  *            seed  - new seed to use; >0.
  *
- * Returns:   ESL_OK on success.
+ * Returns:   <ESL_OK> on success.
+ *
+ * Throws:    <ESL_EINVAL> if seed is $<= 0$
+ *
  * Xref:      STL8/p57.
  */
 int
-esl_random_reseed(ESL_RANDOMNESS *r, long seed)
+esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
 {
   int burnin = 7;
   if (seed <= 0) ESL_ERROR(ESL_EINVAL, "bad seed");
@@ -114,16 +118,15 @@ esl_random_reseed(ESL_RANDOMNESS *r, long seed)
 
 /* Function: esl_random()
  * 
- * Purpose:  Returns a uniform deviate x, 0.0 <= x < 1.0.
+ * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$.
  * 
- *           The "randomness object" r contains the information
+ *           The "randomness object" <r> contains the information
  *           we need for the generator; keeping it in an object
  *           (as opposed to static variables) makes us threadsafe.
- *           This object is created by esl_random_seed() or
- *           esl_random_seed_time(); it must be free'd eventually
- *           using esl_random_free().
+ *           This object is created by <esl_randomness_Create()> or
+ *           <esl_randomness_CreateTimeseeded()>.
  *
- *           If the seed in r is >0, that's a flag to reset
+ *           If the internal seed in <r> is $>0$, that's a flag to reset
  *           and reinitialize the generator.
  *           
  * Method:   Implements L'Ecuyer's algorithm for combining output
@@ -206,14 +209,14 @@ esl_random(ESL_RANDOMNESS *r)
 }
 
 
-/* Function: esl_random_positive()
+/* Function: esl_rnd_UniformPositive()
  * Incept:   SRE, Wed Jul 14 13:31:23 2004 [St. Louis]
  *
- * Purpose:  Same as esl_random(), but assure 0 < x < 1;
+ * Purpose:  Same as <esl_random()>, but assure $0 < x < 1$;
  *           (positive uniform deviate).
  */
 double
-esl_random_positive(ESL_RANDOMNESS *r)
+esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
 {
   double x;
   do { x = esl_random(r); } while (x == 0.0);
@@ -221,28 +224,24 @@ esl_random_positive(ESL_RANDOMNESS *r)
 }
 
 
-/* Function: esl_random_exponential()
+/* Function: esl_rnd_Exponential()
  * Date:     SRE, Mon Sep  6 21:24:29 1999 [St. Louis]
  *
  * Purpose:  Pick an exponentially distributed random variable
- *           0 > x >= infinity
- *           
- * Args:     r   - an ESL_RANDOMNESS object
- *
- * Returns:  x
+ *           $0 > x \geq \infty$.
  */
 double
-esl_random_exponential(ESL_RANDOMNESS *r)
+esl_rnd_Exponential(ESL_RANDOMNESS *r)
 {
-  return -log(esl_random_positive(r));
+  return -log(esl_rnd_UniformPositive(r));
 }    
 
 
-/* Function:  esl_random_gaussian()
+/* Function:  esl_rnd_Gaussian()
  * Incept:    SRE, Wed Jul 14 13:50:36 2004 [St. Louis]
  *
  * Purpose:   Pick a Gaussian-distributed random variable
- *            with some mean and standard deviation, and
+ *            with a given <mean> and standard deviation <stddev>, and
  *            return it.
  * 
  * Method:    Based on RANLIB.c gennor() public domain implementation.
@@ -259,10 +258,10 @@ esl_random_exponential(ESL_RANDOMNESS *r)
  *            mean   - mean of the Gaussian we're sampling from
  *            stddev - standard deviation of the Gaussian     
  *
- * Returns:   x
+ * Returns:   a Gaussian-distributed random variable x
  */
 double
-esl_random_gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
+esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
 {
   long   i;
   double snorm,u,s,ustar,aa,w,y,tt;
@@ -369,18 +368,17 @@ S160:
 }
 
 
-/* Functions: esl_random_DChoose(), esl_random_FChoose()
+/* Function:  esl_rnd_DChoose()
  *
- * Purpose:   Make a random choice from a normalized distribution.
- *            DChoose() is for double-precision vectors;
- *            FChoose() is for single-precision float vectors.
- *            Returns the number of the choice.
+ * Purpose:   Make a random choice from a normalized discrete
+ *            distribution <p> of <N> elements, where <p>
+ *            is double-precision. Returns the index of the
+ *            selected element.
  *
- * Limitation:
- *            All p's must be >> FLT_EPSILON or DBL_EPSILON.
+ *            All p's must be $>>$ <DBL_EPSILON>.
  */
 int
-esl_random_DChoose(ESL_RANDOMNESS *r, double *p, int N)
+esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N)
 {
   double roll;                  /* random fraction */
   double sum;                   /* integrated prob */
@@ -397,8 +395,18 @@ esl_random_DChoose(ESL_RANDOMNESS *r, double *p, int N)
   do { i = (int) (esl_random(r) * N); } while (p[i] == 0.);
   return i;
 }
+
+/* Function:  esl_rnd_FChoose()
+ *
+ * Purpose:   Make a random choice from a normalized discrete
+ *            distribution <p> of <N> elements, where <p>
+ *            is single-precision. Returns the index of the
+ *            selected element.
+ *
+ *            All p's must be $>>$ <FLT_EPSILON>.
+ */
 int
-esl_random_FChoose(ESL_RANDOMNESS *r, float *p, int N)
+esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 {
   float roll;                   /* random fraction */
   float sum;                    /* integrated prob */
@@ -418,9 +426,9 @@ esl_random_FChoose(ESL_RANDOMNESS *r, float *p, int N)
    * definition. This can happen when the total_sum is not really 1.0,
    * but something just less than that in the machine representation,
    * and the roll happens to also be very very close to 1. I have not
-   * examined this analytically. Empirically, it occurs at a frequency
+   * examined this analytically, but empirically, it occurs at a frequency
    * of about 1/10^8, as measured for bug #sq5. To work around, choose
-   * one of the *nonzero* p[i]'s at random.  (If you chooose *any*
+   * one of the *nonzero* p[i]'s at random.  (If you choose *any*
    * p[i] you get bug #sq5; routines like StrMarkov0() fail because
    * they choose impossible residues.)
    */
@@ -429,13 +437,13 @@ esl_random_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 }
 
 
-/* Function: esl_random_sequence()
+/* Function: esl_rnd_IID()
  * Incept:   SRE, Thu Aug  5 09:03:03 2004 [St. Louis]
  *
- * Purpose:  Generate an iid symbol sequence according
- *           to some alphabet, alphabet_size, probability
- *           distribution, and length. Return the
- *           sequence.
+ * Purpose:  Generate and return an iid symbol sequence of length <len>.
+ *           The legal symbol alphabet is given as a string
+ *           <alphabet> of <n> total symbols, and the iid probability 
+ *           of each residue is given in <p>.
  *
  * Args:     r         - ESL_RANDOMNESS object
  *           alphabet  - e.g. "ACGT"
@@ -443,21 +451,55 @@ esl_random_FChoose(ESL_RANDOMNESS *r, float *p, int N)
  *           n         - number of symbols in alphabet
  *           len       - length of generated sequence
  *
- * Return:   ptr to random sequence, or NULL on failure.
- *           sequence is allocated here, must be free'd by caller.
+ * Return:   ptr to the random sequence, which is allocated here,
+ *           and must be free'd by caller.
+ *
+ * Throws:   NULL on allocation failure.
  */
 char *
-esl_random_sequence(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
+esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
 {
   char *s;
   int   x;
 
-  if ((s = (char *) malloc(sizeof(char) * (len+1))) == NULL) 
-    ESL_ERROR_VAL(NULL, ESL_EMEM, "malloc failed");
+  if ((s = ESL_MALLOC(sizeof(char) * (len+1))) == NULL) return NULL;
 
   for (x = 0; x < len; x++)
-    s[x] = alphabet[esl_random_DChoose(r,p,n)];
+    s[x] = alphabet[esl_rnd_DChoose(r,p,n)];
   s[x] = '\0';
   return s;
 }
 
+
+
+/*****************************************************************
+ * Test driver:
+ *   gcc -g -Wall -I. -o test -DESL_RANDOM_TESTDRIVE random.c easel.c -lm
+ *****************************************************************/
+#ifdef ESL_RANDOM_TESTDRIVE
+#include <stdio.h>
+
+#include <easel/easel.h>
+#include <easel/random.h>
+
+int 
+main(void)
+{
+  ESL_RANDOMNESS *r;
+  double          x;
+  int             n;
+  
+  r = esl_randomness_Create(42); 
+  n = 10;
+
+  printf("A sequence of %d pseudorandom numbers:\n", n);
+  while (n--) {
+    x = esl_random(r);
+    printf("%f\n", x);
+  }
+
+  esl_randomness_Destroy(r);
+  return 0;
+}
+
+#endif /*ESL_RANDOM_TESTDRIVE*/

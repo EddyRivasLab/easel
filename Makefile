@@ -1,10 +1,11 @@
 CC      = gcc
-CFLAGS  = -g
+CFLAGS  = -g -Wall
 AR      = ar rcv
 LN      = ln
 RANLIB  = ranlib
 
 HEADERS = \
+	alphabet.h\
 	bioparse_paml.h\
 	dirichlet.h\
 	dmatrix.h\
@@ -15,9 +16,12 @@ HEADERS = \
 	parse.h\
 	random.h\
 	ratematrix.h\
+	sqio.h\
+	stack.h\
 	vectorops.h
 
 OBJS    = \
+	alphabet.o\
 	bioparse_paml.o\
 	dirichlet.o\
 	dmatrix.o\
@@ -28,6 +32,8 @@ OBJS    = \
 	parse.o\
 	random.o\
 	ratematrix.o\
+	sqio.o\
+	stack.o\
 	vectorops.o
 
 all: libeasel.a
@@ -47,4 +53,9 @@ symlinks:
 	done
 
 clean:
-	-rm -f ${OBJS} *~
+	-rm -f ${OBJS} *~ libeasel.a
+
+
+reallyclean:
+	make clean
+	-rm easel/*.h

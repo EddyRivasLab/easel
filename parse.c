@@ -198,7 +198,6 @@ esl_parse_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
 int
 esl_fileparse_create(FILE *fp, ESL_FILEPARSER **ret_efp)
 {
-  int             eslcode;
   ESL_FILEPARSER *efp;
 
   *ret_efp = NULL;

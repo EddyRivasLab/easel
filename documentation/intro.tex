@@ -1,0 +1,205 @@
+\subsection{Overview of modules}
+\begin{tabular}{lll}\hline
+\textbf{Module}            & \textbf{Description}                       & \textbf{Requires}\\\hline
+  \multicolumn{3}{c}{\textbf{Core modules}}\\
+easel                      & Framework for using Easel                  &  - \\
+alphabet                   & Digitized biosequence alphabets            & easel \\
+dmatrix                    & Matrix algebra                             & easel\\ 
+parse                      & File and line parsing routines             & easel\\
+random                     & Random number generator                    & easel\\
+stack                      & Pushdown stacks                            & easel\\
+vectorops                  & Vector operations                          & easel\\\hline
+  \multicolumn{3}{c}{\textbf{Derived modules}}\\
+sqio                       & Sequence file i/o                          & easel alphabet\\
+bioparse\_paml             & PAML rate matrix datafiles                 & easel dmatrix parse \\
+ratematrix                 & Evolutionary rate matrices                 & easel dmatrix vectorops\\
+gamma                      & Gamma densities and Gamma function         & easel random\\
+dirichlet                  & Dirichlet densities                        & easel gamma random\\ \hline     
+  \multicolumn{3}{c}{\textbf{Optional library interfaces}}\\
+interface\_gsl             & GNU Scientific Library                     & easel dmatrix\\
+interface\_lapack          & LAPACK linear algebra library              & easel dmatrix \\\hline
+\end{tabular}
+
+
+
+\subsection{Overview of data structures}
+
+\begin{tabular}{lll}\hline
+\textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
+\ccode{ESL\_ALPHABET}    & \cfile{alphabet}        & Digitized sequence alphabet\\
+\ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
+\ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\
+\ccode{ESL\_FILEPARSER}  & \cfile{parse}           & Simple token-based input file parser\\
+\ccode{ESL\_RANDOMNESS}  & \cfile{random}          & Random number generator\\
+\ccode{ESL\_SEQFILE}     & \cfile{sqio}            & Biosequence file parser\\
+\ccode{ESL\_SQ}          & \cfile{sqio}            & DNA/RNA/protein sequence data\\
+\ccode{ESL\_STACK}       & \cfile{stack}           & Pushdown stack\\\hline
+\end{tabular}
+
+\subsection{Function naming conventions in Easel}
+
+\subsubsection{Object creation, initialization, destruction}
+
+Most of Easel's objects are allocated on the heap; that is, accessed
+exclusively via pointers. Less often, routines may allow an object to
+be allocated on the stack.
+
+\begin{sreitems}{\ccode{Create,Destroy}}
+\item [\ccode{Create,Destroy}] 
+  \ccode{esl\_foo\_Create()} allocates and initializes a new \ccode{ESL\_FOO}
+  object, returning a pointer to the new
+  object. The \ccode{Create()} function is passed any necessary
+  initialization or size information in its arguments.
+  \ccode{esl\_foo\_Destroy(obj)} frees all the memory associated
+  with a \ccode{ESL\_FOO} object,  given a pointer to the object,
+  and returns \ccode{ESL\_OK}. Example:
+
+\begin{cchunk}
+ESL_SQ *sq;
+
+sq = esl_sq_Create();
+esl_sq_Destroy(sq);
+\end{cchunk}
+  
+
+
+\item [\ccode{Open,Close}] 
+  Same as \ccode{Create()} and \ccode{Destroy()}, but specifically for
+  objects associated with input/output streams. Example:
+
+\begin{cchunk}
+char        *seqfile = ``foo.seq'';
+ESL_SIO     *sqfp;
+
+sqfp = esl_sio_Open(seqfile);
+esl_sio_Close(sqfp);
+\end{cchunk}
+
+
+
+\item [\ccode{Inflate,Deflate}]
+  \ccode{esl\_foo\_Inflate(\&obj)} takes a pointer to the ``shell'' of an
+  \ccode{ESL\_FOO} object that has been allocated on the stack, and
+  allocates and initializes all the internals of it. The
+  \ccode{Inflate()} function is passed any necessary initialization or
+  size information in its arguments.  \ccode{esl\_foo\_Deflate(\&obj)}
+  frees all the internal memory associated with a \ccode{ESL\_FOO} object,
+  given a pointer to the object, but the object shell is left alone.
+  The only difference between \ccode{Create,Destroy} and
+  \ccode{Inflate,Deflate} is whether the object shell itself is to be
+  allocated, or not. Example:
+
+\begin{cchunk}
+ESL_SQ  sq;
+
+esl_sq_Inflate(&sq);
+esl_sq_Deflate(&sq);
+\end{cchunk}
+
+
+
+\item [\ccode{Reuse}] 
+   \ccode{esl\_foo\_Reuse(obj)} reinitializes an object exactly as a
+   \ccode{Create} or \ccode{Inflate} function would initialize it, \emph{without}
+   allocating new memory; it reuses memory that has
+   already been allocated when the object was originally created or
+   inflated. For some objects that are used sequentially (like,
+   sequences), reusing one object saves malloc()'s compared to
+   lots of Create/Destroy calls. A \ccode{Reuse} function does not
+   care whether the object was originally created by a \ccode{Create}
+   or a \ccode{Inflate} call. Example:
+
+\begin{cchunk}
+ESL_SQ *sq;
+
+sq = esl_sq_Create();
+  /* read a sequence into the sq object, have fun with it */
+
+esl_sq_Reuse(sq);
+  /* read a second sequence into it */
+
+esl_sq_Destroy(sq);
+\end{cchunk}
+
+\end{sreitems}
+
+\subsubsection{Other common object manipulation functions}
+
+\begin{sreitems}{\ccode{\_Copy(src, dest)}}
+
+\item[\ccode{\_Copy(src, dest)}]
+Copies \ccode{src} object into \ccode{dest}, where the caller has
+already created the empty \ccode{dest} object. Returns \ccode{ESL\_OK}
+on success; throws \ccode{ESL\_EINCOMPAT} if the objects are not
+compatible (for example, two matrices that are not the same size).
+
+The order of the arguments is always \ccode{src} $\rightarrow$
+\ccode{dest} (unlike the C library's \ccode{strcpy()} convention, which
+is the opposite order).
+
+\item[\ccode{\_Duplicate(obj)}] 
+
+Creates and returns a pointer to a duplicate of \ccode{obj}.
+Equivalent to (and is a shortcut for) \ccode{dest = \_Create();
+\_Copy(src, dest)}. Caller is responsible for free'ing the duplicate
+object, just as if it had been \ccode{\_Create}'d. Throws NULL if
+allocation fails.
+
+\item[\ccode{\_Set*(obj, value...)}]
+
+Initializes value(s) in \ccode{obj} to \ccode{value}. Special cases of
+\ccode{\_Set*} functions may exist, like \ccode{\_SetZero} (set to
+zero(s)), or \ccode{esl\_dmatrix\_SetIdentity} (set a dmatrix to an
+identity matrix).
+
+\end{sreitems}
+
+
+\subsection{Discipline of writing Easel modules}
+
+
+\subsubsection{API}
+
+\begin{enumerate}
+\item Exposed function names obey Easel conventions.
+
+\item All errors that can be thrown are caught.
+\end{enumerate}
+
+
+\subsubsection{Documentation}
+
+\begin{enumerate}
+\item Documentation in .tex files is written to application developers
+      (and me); documentation in .c comments is written to Easel
+      developers (and me).
+
+\item Every module has a .tex file documenting the module and its API,
+      and (if it makes sense) also the particular implementation.
+
+\item Every function exposed to the API can be autodocumented (comment
+      header can be converted to \LaTeX) with
+      \ccode{autodoc\_functions}, in order to produce appendices
+      summarizing the complete Easel function set.
+\end{enumerate}
+
+
+\subsubsection{Testing}
+
+\begin{enumerate}
+
+\item Every module has a test driver which exercises the API in some
+      simple way (and, in the process, provides a ``hello world''
+      level example of using the module).
+
+\end{enumerate}
+
+\begin{quote}
+Lack of skill dictates economy of style.\\
+ -- Joey Ramone
+\end{quote}     
+
+
+
+
+

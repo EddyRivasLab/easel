@@ -1,0 +1,75 @@
+
+The sqio (sio) module contains routines for input from unaligned
+sequence data files, such as FASTA files.
+
+It implements two objects. A \ccode{ESL\_SQFILE} object works much
+like an ANSI C \ccode{FILE}: it maintains information for an open
+sequence file while it's being read. The \ccode{ESL\_SQ} object
+contains information for a single sequence.
+
+\subsection{API}
+
+An example of using the \ccode{sqio} API: 
+
+\begin{cchunk}
+#include <easel/easel.h>
+#include <easel/alphabet.h>
+#include <easel/sqio.h>
+
+int
+main(void)
+{
+  ESL_SQ     *sq;
+  ESL_SQFILE *sqfp;
+  char        seqfile[] = "test.fa";
+
+  if (esl_sqfile_OpenFASTA(filename, &sqfp) != ESL_OK) abort();
+  sq = esl_sq_Create();
+
+  while (esl_sio_ReadFASTA(sqfp, sq) == ESL_OK)
+  {
+    /* use the sequence for whatever you want */
+    esl_sq_Reuse(sq);
+  }
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  return 0;
+}
+\end{cchunk}
+
+
+A FASTA file named \ccode{filename} is opened for reading by calling
+\ccode{esl\_sqfile\_OpenFASTA(filename, \&sqfp)}, which creates a new
+\ccode{ESL\_SQFILE} and returns it through the \ccode{sqfp} pointer.
+If the file doesn't exist, or can't be read properly, this function
+returns a \ccode{ESL\_ENOFILE} error code; the caller should check for
+this.
+
+The file is then read one sequence at a time by calling
+\ccode{esl\_sio\_ReadFASTA(sqfp, sq)}. This function returns
+\ccode{ESL\_OK} if it read a new sequence, and leaves that sequence in
+the \ccode{sq} object that the caller creates and provides.  When
+there is no more data in the file, the \ccode{ReadFASTA()n} function
+returns a \ccode{ESL\_EOF} code. If at any point the file does not
+appear to be in the proper format, the \ccode{ReadFASTA()} function
+returns a \ccode{ESL\_EFORMAT} code, and the application should deal
+with this helpfully (though the example above does not). The API
+currently doesn't make it terribly easy to figure out what went wrong,
+but the application can look at \ccode{sqfp->linenumber} to obtain the
+line number in the file at which the error occurred.
+
+The \ccode{ESL\_SQ} object contains the sequence name, (optional)
+description, and the sequence itself, as strings \ccode{sq->name},
+\ccode{sq->desc}, and \ccode{sq->seq}, respectively. The length of the
+sequence is in \ccode{sq->n}.
+
+A \ccode{ESL\_SQ} object can be recycled and used for the next
+sequence by calling \ccode{esl\_sq\_Reuse(sq)}. This is probably the
+most efficient way to read a database one sequence at a
+time. Alternatively, one could \ccode{esl\_sq\_Create()} as many
+sequences as needed, in order to read in a set of sequences.
+
+To clean up properly, a \ccode{ESL\_SQFILE} is closed with
+\ccode{esl\_sqfile\_Close()}, and a \ccode{ESL\_SQ} that was created
+is destroyed with \ccode{esl\_sq\_Destroy(sq)}.
+
