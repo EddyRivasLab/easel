@@ -3,8 +3,9 @@
 \textbf{Module}            & \textbf{Description}                       & \textbf{Requires}\\\hline
   \multicolumn{3}{c}{\textbf{Core modules}}\\
 easel                      & Framework for using Easel                  &  - \\
-alphabet                   & Digitized biosequence alphabets            & easel \\
+alphabet                   & Digitized biosequence alphabets            & easel\\
 dmatrix                    & Matrix algebra                             & easel\\ 
+getopts                    & Command line parsing \& application config & easel\\
 parse                      & File and line parsing routines             & easel\\
 random                     & Random number generator                    & easel\\
 regexp                     & Regular expression matching                & easel\\
@@ -29,11 +30,12 @@ interface\_lapack          & LAPACK linear algebra library              & easel 
 \textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
 \ccode{ESL\_ALPHABET}    & \cfile{alphabet}        & Digitized sequence alphabet\\
 \ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
+\ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
 \ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\
 \ccode{ESL\_FILEPARSER}  & \cfile{parse}           & Simple token-based input file parser\\
 \ccode{ESL\_RANDOMNESS}  & \cfile{random}          & Random number generator\\
 \ccode{ESL\_REGEXP}      & \cfile{regexp}          & Regular expression pattern-matching machine\\
-\ccode{ESL\_SEQFILE}     & \cfile{sqio}            & Biosequence file parser\\
+\ccode{ESL\_SEQFILE}     & \cfile{sqio}            & Biosequence file parser (unaligned)\\
 \ccode{ESL\_SQ}          & \cfile{sqio}            & DNA/RNA/protein sequence data\\
 \ccode{ESL\_STACK}       & \cfile{stack}           & Pushdown stack\\\hline
 \end{tabular}

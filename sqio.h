@@ -38,7 +38,7 @@
 #define ESL_SQFORMAT_FASTA  1
 
 
-struct esl_sqfile_s {
+typedef struct {
   FILE *fp;			/* Open file ptr                            */
   char *filename;		/* Name of file (for diagnostics)           */
   int   format;			/* Format of this file                      */
@@ -55,13 +55,12 @@ struct esl_sqfile_s {
   /* SSI indexing eventually goes here, including rpl,bpl counting;
    * xref squid.
    */
-};
-typedef struct esl_sqfile_s ESL_SQFILE;
+} ESL_SQFILE;
 
 /* Allocation of name, acc, desc is all in one malloc, of length
  * nalloc+aalloc+dalloc.
  */
-struct esl_sequence_s {
+typedef struct {
   char *name;	                /* name                     */
   int   nalloc;			/* allocated length of name */
   
@@ -78,8 +77,7 @@ struct esl_sequence_s {
   int   salloc;		        /* current allocation length for seq */
 
   char *optmem;			/* optimized mem storage area; see esl_sq_Squeeze() */
-};
-typedef struct esl_sequence_s ESL_SQ;
+} ESL_SQ;
 
 
 extern ESL_SQ *esl_sq_Create(void);

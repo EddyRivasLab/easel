@@ -11,7 +11,8 @@
 #include <easel/parse.h>
 #include <easel/sqio.h>
 
-static int check_buffers(FILE *fp, char *buf, int *nc, int *pos, char **s, int i, int *slen);
+static int check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
+			 char **s, int i, int *slen);
 
 /* Function:  esl_sq_Create()
  * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
@@ -32,8 +33,10 @@ esl_sq_Create(void)
 {
   ESL_SQ *sq;
 
-  if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
-  if (esl_sq_Inflate(sq) != ESL_OK) { free(sq); return NULL; }
+  if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    
+    ESL_ERROR_NULL(ESL_EMEM, "malloc failed");
+  if (esl_sq_Inflate(sq) != ESL_OK) 
+    { free(sq); return NULL; }
 
   return sq;
 }
@@ -64,9 +67,9 @@ esl_sq_Inflate(ESL_SQ *sq)
 
   sq->name     = NULL;
   sq->seq      = NULL;
-  sq->dsq      = NULL;		/* digital seq input currently unimplemented */
-  sq->ss       = NULL;		/* secondary structure input currently unimplemented */
-  sq->optmem   = NULL;		/* this stays NULL unless we Squeeze() the structure */
+  sq->dsq      = NULL;	/* digital seq input currently unimplemented         */
+  sq->ss       = NULL;	/* secondary structure input currently unimplemented */
+  sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
 
   if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) goto FAILURE;
   if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) goto FAILURE;
@@ -238,8 +241,9 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
 
-  if ((sqfp->fp = fopen(seqfile,"r")) == NULL) { free(sqfp); return ESL_ENOTFOUND; }
-  if ((sqfp->filename = esl_strdup(seqfile, -1))      == NULL) goto FAILURE;
+  if ((sqfp->fp = fopen(seqfile,"r")) == NULL) 
+    { free(sqfp); return ESL_ENOTFOUND; }
+  if ((sqfp->filename = esl_strdup(seqfile, -1)) == NULL) goto FAILURE;
 
   /* Create an appropriate default input map for FASTA files.
    *   - accept anything alphabetic, case-insensitive;
@@ -312,8 +316,8 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  *            requirement.
  *            
  *            The file must be a UNIX or DOS/Windows textfile, obeying
- *            EOL conventions of \verb+\n+ or \verb+\r\n+. Mac files pre OS9 that use
- *            an EOL convention of \verb+\r+ will fail.
+ *            EOL conventions of \verb+\n+ or \verb+\r\n+. Mac files pre 
+ *            OS9 that use an EOL convention of \verb+\r+ will fail.
  *
  * Args:      sqfp   - open ESL_SQFILE for reading a FASTA-format datafile
  *            s      - allocated ESL_SQ object         
@@ -377,25 +381,25 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
   int  *inmap;		/* ptr to the input map           */
   char *seq;            /* ptr to the growing sequence    */
   int   state;		/* state of our FSA parser        */
-  int   nsafe;          /* # of bytes we can safely move in both input/storage */
+  int   nsafe;          /* #bytes we can safely move in both input/storage */
 
   /* If we have no more data, return EOF; we're done.
    */
   if (sqfp->nc == 0 && feof(sqfp->fp)) return ESL_EOF;
 
-  buf   = sqfp->buf;	/* These are some optimizations, avoiding dereferences */
+  buf   = sqfp->buf;	/* These are some optimizations, avoid dereferences */
   nc    = sqfp->nc;
   pos   = sqfp->pos;
   inmap = sqfp->inmap;
   seq   = s->seq;
 
-  /* We parse one char at a time with a simple state machine; states are indexed:
-   *   0 = START     (on the >)              accepts >, moves to 1
-   *   1 = NAMESPACE (between > and name)    accepts space and stays;    else moves to 2
-   *   2 = NAME                              accepts nonspace and stays; else moves to 3
-   *   3 = DESCSPACE (between name and desc) accepts space and stays;    else moves to 4
-   *   4 = DESC                              accepts \n to move to 5;    else stays.
-   *   5 = SEQ                               accepts anything but > and stays; else (on >) moves to 6
+  /* We parse one char at a time with simple state machine; states are indexed:
+   *   0 = START     (on the >)    accepts >, moves to 1
+   *   1 = NAMESPACE (>^name)      accepts space, stays;    else moves to 2
+   *   2 = NAME                    accepts nonspace, stays; else moves to 3
+   *   3 = DESCSPACE (name^desc)   accepts space and stays; else moves to 4
+   *   4 = DESC                    accepts \n to move to 5; else stays.
+   *   5 = SEQ                     accepts !> and stays;    else (on >) 6
    *   6 = END                           
    */
   state = 0;
@@ -410,8 +414,9 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
       if   (c != ' ' && c != '\t') state = 2; else pos++; 
       break;
 
-    case 2:     /* NAME. Accept (and store) any non-whitespace. Else, move to state 3. */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, &(s->name), npos, &(s->nalloc))) > 0) {
+    case 2:     /* NAME. Accept/store non-whitespace. Else, move to state 3. */
+      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, 
+				    &(s->name), npos, &(s->nalloc))) > 0) {
 	while (nsafe--) {
 	  c = buf[pos];
 	  if   (!isspace(c)) { s->name[npos++] = c;  pos++;     }
@@ -423,35 +428,44 @@ esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
     NAMEDONE:
       break;
 
-    case 3:   /* DESCSPACE.  Accepts non-newline space and stays; else moves to state 4. */
+    case 3:   /* DESCSPACE.  Accepts non-newline space and stays; else 4. */
       c = buf[pos]; 
       if (c != ' ' && c != '\t') state = 4; else pos++;
       break;
 	  
-    case 4:   /* DESC. Accepts and stores everything up to next \n; accepts \n to move to state 5. */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, &(s->desc), dpos, &(s->dalloc))) > 0) {
+    case 4:   /* DESC. Accepts and stores up to \n; accepts \n & moves to 5. */
+      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos,
+				    &(s->desc), dpos, &(s->dalloc))) > 0) {
 	while (nsafe--) {
 	  c = buf[pos];
-	  if      (c != '\n') { s->desc[dpos++] = c;  pos++; sqfp->linenumber++; }
-	  else if (c == '\r') { pos++; } /* ignore \r part of DOS \r\n EOL */
-	  else                { state = 5; pos++; goto DESCDONE; }
-
+	  if      (c != '\n') 
+	    { s->desc[dpos++] = c;  pos++; sqfp->linenumber++; }
+	  else if (c == '\r') 
+	    { pos++; } /* ignore \r part of DOS \r\n EOL */
+	  else                
+	    { state = 5; pos++; goto DESCDONE; }
 	}
       }
       if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
-      else return ESL_EFORMAT;	/* we ran out of data while still in a description. */
+      else return ESL_EFORMAT;	/* ran out of data while still in desc */
     DESCDONE:
       break;
 
-    case 5:   /* SEQ. Accept/process according to the inmap; on '>' move to state 6.     */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, &seq, spos, &(s->salloc))) > 0) {
+    case 5:   /* SEQ. Accept/process according to inmap; on '>',  move to 6. */
+      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, 
+				    &seq, spos, &(s->salloc))) > 0) {
 	while (nsafe--) {
 	  c = buf[pos];
-	  if      (inmap[c] >= 0)                 { seq[spos++] = c; pos++; }
-	  else if (c == '>')                      goto FINISH; 
-	  else if (c == '\n')                     { pos++; sqfp->linenumber++; }
-	  else if (inmap[c] == ESL_ILLEGAL_CHAR)  return ESL_EFORMAT;
-	  else                                    { pos++; } /* IGNORED_CHARs, inc. \r */
+	  if      (inmap[c] >= 0)                
+	    { seq[spos++] = c; pos++; }
+	  else if (c == '>')               
+	    goto FINISH; 
+	  else if (c == '\n') 
+	    { pos++; sqfp->linenumber++; }
+	  else if (inmap[c] == ESL_ILLEGAL_CHAR) 
+	    return ESL_EFORMAT;
+	  else
+	    { pos++; } /* IGNORED_CHARs, inc. \r */
 	}
       }
       if (nsafe == -1) ESL_ERROR(ESL_EMEM, "realloc failed");
