@@ -178,7 +178,17 @@ identity matrix).
 \begin{enumerate}
 \item Exposed function names obey Easel conventions.
 
-\item All errors that can be thrown are caught.
+\item All \ccode{ret\_*} pointers for retrieving info from 
+      a function are implemented as optional.
+
+\item On any error (returned or thrown), a function releases any
+      memory it has allocated, and all \ccode{ret\_*} pointers are
+      \ccode{NULL} or 0, depending on their type.
+
+\item Any function that calls another Easel function must 
+      catch any thrown errors. Within Easel, we
+      can't assume that the error handler is set to be a fatal
+      one.
 \end{enumerate}
 
 

@@ -63,6 +63,12 @@ extern char *esl_strdup(char *s, int n);
 extern int   esl_fgets(char **buf, int *n, FILE *fp);
 extern int   esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 
+extern int esl_FileExists(char *filename);
+extern int esl_FileConcat(char *dir, char *file, char **ret_path);
+extern int esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
+extern int esl_FileEnvOpen(char *fname, char *env, 
+			   FILE **ret_fp, char **ret_path);
+
 
 /* See esl_msa_Expand() for first use example.
  */
@@ -88,5 +94,28 @@ extern int   esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
  */
 #define ESL_CONSTANT_E    2.71828182845904523536028747135
 #define ESL_CONSTANT_PI   3.14159265358979323846264338328
+
+/* For now, we're only testing Easel on POSIX systems (Linux),
+ * but eventually we'll want a pure ANSI C mode for portability
+ */
+#define ESL_POSIX_AUGMENTATION
+
+/* A placeholder for helping w/ portability of filenames/paths.
+ * I think, but have not tested, that:
+ *   VMS:    #define DIRSLASH ']'
+ *   MacOS:  #define DIRSLASH ':'
+ *   DOS:    #define DIRSLASH '\\'
+ * Setting DIRSLASH correctly is probably not the only thing
+ * that would need to be done to port to other OS's, but it's
+ * probably a start.
+ * 
+ * The code assumes that '.' is used for file name extensions,
+ * such as "foo.bar".
+ * 
+ * This gets used in easel.c's *_File*() functions.
+ */
+#define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
+ 
+
 
 #endif /*ESL_EASEL_INCLUDED*/

@@ -13,9 +13,15 @@
 #include <easel/msa.h>
 
 
+/******************************************************************************
+ * Functions for the ESL_MSA object                                           *
+ *     esl_msa_Create()                                                       *
+ *     esl_msa_Destroy()                                                      *
+ *     esl_msa_Expand()                                                       *
+ *****************************************************************************/
 
 /* Function: esl_msa_Create()
- * Incept:   squid's MSACreate(), 1999.
+ * Incept:   SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
  *
  * Purpose:  Creates and initializes an <ESL_MSA> object, and returns a
  *           pointer to it. Designed to be used in three ways:
@@ -37,12 +43,12 @@
  *              We provide an initial <nseq> that will be 
  *              expanded (by doubling) when needed. e.g.:
  *                \begin{cchunk}
- *                  msa = esl_msa_Create(10, 0);
+ *                  msa = esl_msa_Create(16, 0);
  *                  if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);
  *                \end{cchunk}   
  *                
  *           A created <msa> can only be <Expand()>'ed if <alen> is 0
- *           (i.e. case 3). 
+ *           (i.e. case 2,3). 
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
  *           <alen> - length of alignment in columns, or 0      
@@ -52,6 +58,8 @@
  *           is allocated.
  *           
  * Throws:   NULL on allocation failure.          
+ *
+ * Xref:     squid's MSAAlloc()
  */
 ESL_MSA *
 esl_msa_Create(int nseq, int alen)
@@ -159,9 +167,11 @@ esl_msa_Create(int nseq, int alen)
 
 
 /* Function:  esl_msa_Destroy()
- * Incept:    squid's MSAFree(), 1999.
+ * Incept:    SRE, Sun Jan 23 08:26:02 2005 [St. Louis]
  *
  * Purpose:   Destroys <msa>.
+ *
+ * Xref:      squid's MSADestroy().
  */
 void
 esl_msa_Destroy(ESL_MSA *msa)
@@ -214,7 +224,7 @@ esl_msa_Destroy(ESL_MSA *msa)
 
 
 /* Function:  esl_msa_Expand()
- * Incept:    squid's MSAExpand(), 1999.
+ * Incept:    SRE, Sun Jan 23 08:26:30 2005 [St. Louis]
  *
  * Purpose:   Double the current sequence allocation in <msa>.
  *            Typically used when we're reading an alignment sequentially 
@@ -227,6 +237,8 @@ esl_msa_Destroy(ESL_MSA *msa)
  *            
  *            <ESL_EINVAL> if <msa> is not growable: its <alen> field
  *            must be 0 to be growable.
+ *
+ * Xref:      squid's MSAExpand(), 1999.
  */
 int
 esl_msa_Expand(MSA *msa)
@@ -323,134 +335,21 @@ esl_msa_Expand(MSA *msa)
 }
 
 
-
-/* Function:  esl_msa_SetSeqAccession()
- * Incept:    squid's MSASetSeqAccession(), 1999.
+/* verify_parse()
  *
- * Purpose:   Sets the sequence accession field for sequence
- *            number <seqidx> in an alignment <msa>, by
- *            copying the string <acc>.
- *
- * Returns:   <ESL_OK> on success.
- * 
- * Throws:    <ESL_EMEM> on allocation failure.
- */
-int
-esl_msa_SetSeqAccession(MSA *msa, int seqidx, char *acc)
-{
-  int i;
-
-  /* If this is the first acccession, we have to
-   * initialize the whole optional array.
-   */
-  if (msa->sqacc == NULL) 
-    {
-      if ((msa->sqacc = malloc(sizeof(char *) * msa->sqalloc)) == NULL)
-	ESL_ERROR(ESL_EMEM, "malloc failed");
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->sqacc[i] = NULL;
-    }
-  /* If we already had an accession, that's weird, but free it. 
-   */
-  if (msa->sqacc[seqidx] != NULL) free(msa->sqacc[seqidx]);
-  
-  msa->sqacc[seqidx] = esl_strdup(acc, -1);
-}
-
-/* Function: esl_msa_SetSeqDescription()
- * Incept:   squid's MSASetSeqDescription(), 1999.
- *
- * Purpose:  Set the sequence description field for sequence number
- *           <seqidx> in an alignment <msa> by copying the string <desc>.
- *
- * Returns:  <ESL_OK> on success.
- * 
- * Throws:   <ESL_EMEM> on allocation failure.
- */
-int
-esl_msa_SetSeqDescription(MSA *msa, int seqidx, char *desc)
-{
-  int i;
-
-  if (msa->sqdesc == NULL) 
-    {
-      if ((msa->sqdesc = malloc(sizeof(char *) * msa->sqalloc)) == NULL)
-	ESL_ERROR(ESL_EMEM, "malloc failed");
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->sqdesc[i] = NULL;
-  }
-  if (msa->sqdesc[i] != NULL) free(msa->sqdesc[i]);
-  msa->sqdesc[seqidx] = esl_strdup(desc, -1);
-}
-
-
-/* Function: esl_msa_AddComment()
- * Date:     squid's MSAAddComment(), 1999.
- *
- * Purpose:  Copy an unparsed comment line <s> into the MSA structure <msa>.
- *
- * Returns:  <ESL_OK>.
- * 
- * Throws:   <ESL_EMEM> on allocation failure.
- */
-int
-esl_msaAddComment(MSA *msa, char *s)
-{
-  void *p;
-  int new;
-
-  /* If this is our first recorded comment, we need to malloc().
-   * Note the arbitrary starting size of 16 lines.
-   */
-  if (msa->comment == NULL) 
-    {
-      if ((msa->comment = malloc(sizeof(char *) * 16)) == NULL)
-	ESL_ERROR(ESL_EMEM, "malloc failed");
-      msa->alloc_ncomment = 16;
-    }
-
-  /* Check to see if reallocation for comment lines is needed;
-   * if so, redouble.
-   */
-  if (msa->ncomment == msa->alloc_ncomment) 
-    {
-      new = 2*msa->alloc_ncomment;
-      ESL_REALLOC(msa->comment, p, sizeof(char *) * new);
-      msa->alloc_ncomment = new;
-    }
-  msa->comment[msa->ncomment] = esl_strdup(s, -1);
-  msa->ncomment++;
-  return ESL_OK;
-}
-
-
-/*****************************************************************
- * Deleted (relative to squid's msa):
- *   MSAAddGF()
- *   MSAAddGS()
- *   MSAAppendGC()
- *   MSAGetGC()
- *   MSAAppendGR()
- * Restore when keyhash/GKI augmentation is implemented.
- *****************************************************************/
-
-/* Function: esl_msa_VerifyParse()
- * Date:     squid's MSAVerifyParse(), 1999.
- *
- * Purpose:  Last function called after a multiple alignment parser
- *           thinks it's done. Checks that parse was successful; makes sure
- *           required information is present; makes sure required
- *           information is consistent. Some fields that are
- *           only use during parsing may be freed (sqlen, for
- *           example), and some fields are finalized now (msa::alen
- *           is set, for example).
+ * Last function called after a multiple alignment parser thinks it's
+ * done. Checks that parse was successful; makes sure required
+ * information is present; makes sure required information is
+ * consistent. Some fields that are only use during parsing may be
+ * freed (sqlen, for example), and some fields are finalized now
+ * (msa::alen is set, for example).
  *
  * Returns:  <ESL_OK>.
  *           
  * Throws:   <ESL_EFORMAT> if a problem is detected.
  */
-int
-esl_msa_VerifyParse(MSA *msa)
+static int
+verify_parse(MSA *msa)
 {
   int idx;
 
@@ -568,103 +467,161 @@ esl_msa_VerifyParse(MSA *msa)
   return ESL_OK;
 }
 
-/*SRE_STOPPED_HERE*/
 
 
-/* Function: MSAFileOpen()
- * Date:     SRE, Tue May 18 13:22:01 1999 [St. Louis]
+/*---------------------- end of ESL_MSA functions ---------------------------*/
+
+
+
+
+/******************************************************************************
+ * Functions for an ESL_MSAFILE object                                        *
+ *     esl_msafile_Open()                                                     *
+ *     esl_msafile_Close()                                                    *
+ *****************************************************************************/
+
+/* Function: esl_msafile_Open()
+ * Date:     SRE, Sun Jan 23 08:30:33 2005 [St. Louis]
  *
- * Purpose:  Open an alignment database file and prepare
- *           for reading one alignment, or sequentially
- *           in the (rare) case of multiple MSA databases
- *           (e.g. Stockholm format).
+ * Purpose:  Open an alignment database file <filename> and prepare for
+ *           reading one alignment, or sequentially in the case of *
+ *           multiple MSA * databases (e.g. Stockholm format); returns
+ *           the opened file pointer in <ret_msafp>.
+ *          
+ *           There are one or two special cases for <filename>. If
+ *           <filename> is "-", then the alignment is read from
+ *           <stdin>. If <filename> * ends in ".gz", then the file is
+ *           assumed to be compressed * by gzip, and it is opened as a
+ *           pipe from <gunzip -dc>. (Auto-decompression of gzipp'ed files
+ *           is only available on POSIX-compliant systems, when 
+ *           <ESL_POSIX_AUGMENTATION> is defined at compile-time.)
+ *          
+ *           If <env> is non-NULL, then we look for <filename> in
+ *           one or more directories in a colon-delimited list
+ *           that is the value of the environment variable <env>.
+ *           (For example, if we had 
+ *              <setenv HMMERDB /nfs/db/Pfam:/nfs/db/Rfam> 
+ *           in the environment, a profile HMM application
+ *           might pass "HMMERDB" as <env>.)
+ *          
+ *          The file is asserted to be in format <fmt>, which is
+ *          either a known format like <eslMSAFILE_STOCKHOLM>, or
+ *          <eslMSAFILE_UNKNOWN>; if <fmt> is <eslMSAFILE_UNKNOWN>,
+ *          then format autodetection is invoked.
+ *
+ * Returns:  <ESL_OK> on success, and <ret_msafp> is set to point at
+ *           an open <MSAFILE *>. Caller frees this file pointer with
+ *           <esl_msafile_Close()>.
  *           
- * Args:     filename - name of file to open
- *                      if "-", read stdin
- *                      if it ends in ".gz", read from pipe to gunzip -dc
- *           format   - format of file (e.g. MSAFILE_STOCKHOLM)
- *           env      - environment variable for path (e.g. BLASTDB)
+ *           <ESL_ENOTFOUND> if <filename> cannot be opened.
+ *           <ESL_EFORMAT>   if autodetection is attempted and 
+ *           format cannot be determined.
+ *           
+ * Throws:   <ESL_EMEM> on allocation failure.
+ *           <ESL_EINVAL> if format autodetection is attempted on 
+ *           stdin or a gunzip pipe.
  *
- * Returns:  opened MSAFILE * on success.
- *           NULL on failure: 
- *             usually, because the file doesn't exist;
- *             for gzip'ed files, may also mean that gzip isn't in the path.
+ * Xref:     squid's MSAFileOpen(), 1999.
  */
-MSAFILE *
-MSAFileOpen(char *filename, int format, char *env)
+int
+esl_msafile_Open(char *filename, int format, char *env, 
+		 ESL_MSAFILE **ret_msafp)
 {
-  MSAFILE *afp;
+  ESL_MSAFILE *afp;
+  char *ssifile;
+  int  n;
   
-  afp        = MallocOrDie(sizeof(MSAFILE));
+  if (ret_msafp != NULL) *ret_msafp = NULL;
+
+  if ((afp = malloc(sizeof(ESL_MSAFILE))) == NULL)
+    ESL_ERROR(ESL_EMEM, "malloc failed");
+
+  n        = strlen(filename);
+  ssifile  = NULL;
+#ifdef ESL_SSI_INCLUDED		/* SSI augmentation */
+  afp->ssi = NULL;
+#endif
+
   if (strcmp(filename, "-") == 0)
     {
       afp->f         = stdin;
+      afp->fname     = esl_strdup("[STDIN]", -1);
       afp->do_stdin  = TRUE; 
       afp->do_gzip   = FALSE;
-      afp->fname     = sre_strdup("[STDIN]", -1);
-      afp->ssi       = NULL;	/* can't index stdin because we can't seek*/
     }
-#ifndef SRE_STRICT_ANSI		
-  /* popen(), pclose() aren't portable to non-POSIX systems; disable */
-  else if (Strparse("^.*\\.gz$", filename, 0))
+#ifdef ESL_POSIX_AUGMENTATION
+  /* popen(), pclose() aren't portable to non-POSIX systems; 
+   * disable this section in strict ANSI C mode.
+   */
+  /* tricky: if n= length of a string s, then
+   * s+n-i repositions pointer s at the last i chars
+   * of the string.
+   */
+  else if (strcmp(filename+n-3, ".gz") == 0)
     {
-      char cmd[256];
+      char *cmd;
 
       /* Note that popen() will return "successfully"
        * if file doesn't exist, because gzip works fine
        * and prints an error! So we have to check for
        * existence of file ourself.
        */
-      if (! FileExists(filename))
-	Die("%s: file does not exist", filename);
-      if (strlen(filename) + strlen("gzip -dc ") >= 256)
-	Die("filename > 255 char in MSAFileOpen()"); 
+      if (! esl_FileExists(filename))
+	{ 
+	  esl_msafile_Close(afp); 
+	  return ESL_ENOTFOUND; 
+	}
+      if ((cmd = malloc(sizeof(char) * (n+1+strlen("gzip -dc ")))) == NULL)
+	{ 
+	  esl_msafile_Close(afp);
+	  ESL_ERROR(ESL_EMEM, "malloc for cmd failed"); 
+	}
       sprintf(cmd, "gzip -dc %s", filename);
       if ((afp->f = popen(cmd, "r")) == NULL)
-	return NULL;
-
+	{ 
+	  esl_msafile_Close(afp); 
+	  return ESL_ENOTFOUND; 
+	}
+      afp->fname    = esl_strdup(filename, n);
       afp->do_stdin = FALSE;
       afp->do_gzip  = TRUE;
-      afp->fname    = sre_strdup(filename, -1);
-      /* we can't index a .gz file, because we can't seek in a pipe afaik */
-      afp->ssi      = NULL;	
     }
-#endif /*SRE_STRICT_ANSI*/
+#endif /*ESL_POSIX_AUGMENTATION*/
   else
     {
-      char *ssifile;
-      char *dir;
+      char *envfile;
 
       /* When we open a file, it may be either in the current
        * directory, or in the directory indicated by the env
-       * argument - and we have to construct the SSI filename accordingly.
+       * argument - and we construct an SSI filename accordingly.
+       * (Whether or not we're SSI augmented, in fact, for simplicity.)
        */
       if ((afp->f = fopen(filename, "r")) != NULL)
 	{
-	  ssifile = MallocOrDie(sizeof(char) * (strlen(filename) + 5));
-	  sprintf(ssifile, "%s.ssi", filename);
+	  esl_FileNewSuffix(filename, "ssi", &ssifile);
 	}
-      else if ((afp->f = EnvFileOpen(filename, env, &dir)) != NULL)
+      else if ((afp->f = EnvFileOpen(filename, env, &envfile)) != NULL)
 	{
-	  char *full;
-	  full = FileConcat(dir, filename);
-	  ssifile = MallocOrDie(sizeof(char) * (strlen(full) + strlen(filename)  + 5));
-	  sprintf(ssifile, "%s.ssi", full);
-	  free(dir);
+	  esl_FileNewSuffix(envfile, "ssi", &ssifile);
+	  free(envfile);
 	}
-      else return NULL;
+      else 
+	{ esl_msafile_Close(afp); return ESL_ENOTFOUND; }
 
       afp->do_stdin = FALSE;
       afp->do_gzip  = FALSE;
-      afp->fname    = sre_strdup(filename, -1);
-      afp->ssi      = NULL;
-
-      /* Open the SSI index file. If it doesn't exist, or
-       * it's corrupt, or some error happens, afp->ssi stays NULL.
-       */
-      SSIOpen(ssifile, &(afp->ssi));
-      free(ssifile);
+      afp->fname    = esl_strdup(filename, n);
     }
+
+  /* If augmented by SSI indexing:
+   * Open the SSI index file. If it doesn't exist, or
+   * it's corrupt, or some error happens, afp->ssi stays NULL.
+   */
+#ifdef ESL_SSI_INCLUDED
+  SSIOpen(ssifile, &(afp->ssi)); /* FIXME */
+#endif
+  if (ssifile != NULL) free (ssifile);
+
 
   /* Invoke autodetection if we haven't already been told what
    * to expect.
@@ -672,19 +629,280 @@ MSAFileOpen(char *filename, int format, char *env)
   if (format == MSAFILE_UNKNOWN)
     {
       if (afp->do_stdin == TRUE || afp->do_gzip)
-	Die("Can't autodetect alignment file format from a stdin or gzip pipe");
-      format = MSAFileFormat(afp);
+	{
+	  esl_msafile_Close(afp);
+	  ESL_ERROR(ESL_EINVAL, 
+		    "Can't autodetect alignment file fmt in stdin, gzip pipe");
+	}
+
+      format = esl_msa_GuessFileFormat(afp);
       if (format == MSAFILE_UNKNOWN)
-	Die("Can't determine format of multiple alignment file %s", afp->fname);
+	{
+	  esl_msafile_Close(afp);
+	  return ESL_EFORMAT;
+	}
     }
 
   afp->format     = format;
   afp->linenumber = 0;
   afp->buf        = NULL;
   afp->buflen     = 0;
-
-  return afp;
+  if (ret_afp != NULL) *ret_afp = afp; else esl_msafile_Close(afp);
+  return ESL_OK;
 }
+
+/* Function:  esl_msafile_Close()
+ * Incept:    SRE, Sun Jan 23 08:18:39 2005 [St. Louis]
+ *
+ * Purpose:   Close an open <ESL_MSAFILE>.
+ *
+ * Xref:      squid's MSAFileClose().
+ */
+void
+esl_msafile_Close(ESL_MSAFILE *afp)
+{
+  if (afp == NULL) return;
+
+#ifdef ESL_POSIX_AUGMENTATION /* gzip functionality only on POSIX systems */
+  if (afp->do_gzip)       pclose(afp->f);
+#endif
+  if (! afp->do_stdin)    fclose(afp->f);
+  if (afp->fname != NULL) free(afp->fname);
+  if (afp->buf  != NULL)  free(afp->buf);
+#ifdef ESL_SSI_INCLUDED
+  if (afp->ssi  != NULL)  SSIClose(afp->ssi); /* FIXME */
+#endif
+  free(afp);
+}
+
+/* msafile_getline():
+ * load the next line of <afp> into <afp>::<buf>. 
+ * Returns ESL_OK on success, ESL_EOF on normal eof.
+ * Throws ESL_EMEM on alloc failure.
+ */
+int
+msafile_getline(MSAFILE *afp)
+{
+  int status;
+  status = esl_fgets(&(afp->buf), &(afp->buflen), afp->f);
+  afp->linenumber++;
+  return status;
+}
+
+/*-------------------- end of ESL_MSAFILE functions -------------------------*/
+
+
+
+
+/******************************************************************************
+ * Functions for i/o of Stockholm format                                      *
+ *****************************************************************************/
+
+/* Function:  esl_msa_ReadStockholm()
+ * Incept:    SRE, Sun Jan 23 08:33:32 2005 [St. Louis]
+ *
+ * Purpose:   Parse the next alignment from an open Stockholm format alignment
+ *            file <afp>, leaving the alignment in <ret_msa>.
+ *
+ * Returns:   <ESL_OK> on success, and the alignment is in <ret_msa>.
+ *            <ESL_EOF> if there are no more alignments in <afp>. 
+ *            <ESL_EFORMAT> if parse fails because of a file format problem.
+ *
+ * Throws:    <ESL_EMEM> on allocation error.
+ *
+ * Xref:      squid's ReadStockholm(), 1999.
+ */
+int
+esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA *ret_msa)
+{
+  MSA   *msa;
+  char  *s;
+  int    status, status2;
+
+  if (feof(afp->f)) return ESL_EOF;
+  if (ret_msa != NULL) *ret_msa = NULL;
+
+  /* Initialize allocation of the MSA:
+   * make it growable, by giving it an initial blocksize of
+   * 16 seqs of 0 length.
+   */
+  msa = esl_msa_Create(16, 0);
+  if (msa == NULL) return ESL_EMEM;
+
+  /* Check the magic Stockholm header line.
+   * We have to skip blank lines here, else we perceive
+   * trailing blank lines in a file as a format error when
+   * reading in multi-record mode.
+   */
+  do {
+    status = msafile_getline(afp);
+    if (status != ESL_EOK) /* normal EOF, or thrown EMEM */
+      { esl_msa_Destroy(msa); return status; } 
+  } while (is_blankline(afp->buf));
+
+  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
+    { esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+
+  /* Read the alignment file one line at a time.
+   */
+  while ((status = msafile_getline(afp)) != ESL_OK) 
+    {
+      s = afp->buf;
+      while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
+
+      if (*s == '#') {
+	if      (strncmp(s, "#=GF", 4) == 0)   status2 = parse_gf(msa, s);
+	else if (strncmp(s, "#=GS", 4) == 0)   status2 = parse_gs(msa, s);
+	else if (strncmp(s, "#=GC", 4) == 0)   status2 = parse_gc(msa, s);
+	else if (strncmp(s, "#=GR", 4) == 0)   status2 = parse_gr(msa, s);
+	else                                   status2 = parse_comment(msa, s);
+      } 
+      else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
+      else if (*s == '\n')                   continue;
+      else                                   status2 = parse_sequence(msa, s);
+
+      if (status2 != ESL_OK)  
+	{ esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+    }
+  /* If we saw a normal // end, we would've successfully read a line,
+   * so when we get here, status (from the line read) should be ESL_OK.
+   */ 
+  if (status != ESL_OK)
+    { esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+  
+  /* Stockholm's complex, so give the newly parsed MSA a good
+   * going-over.
+   */
+  MSAVerifyParse(msa);
+  return msa;
+}
+
+static int
+is_blankline(char *s)
+{
+  for (; *s != '\0'; s++)
+    if (! isspace((int) *s)) return FALSE;
+  return TRUE;
+}
+
+
+
+/*-------------------- end of Stockholm format section ----------------------*/
+
+
+/* Function:  esl_msa_SetSeqAccession()
+ * Incept:    squid's MSASetSeqAccession(), 1999.
+ *
+ * Purpose:   Sets the sequence accession field for sequence
+ *            number <seqidx> in an alignment <msa>, by
+ *            copying the string <acc>.
+ *
+ * Returns:   <ESL_OK> on success.
+ * 
+ * Throws:    <ESL_EMEM> on allocation failure.
+ */
+int
+esl_msa_SetSeqAccession(MSA *msa, int seqidx, char *acc)
+{
+  int i;
+
+  /* If this is the first acccession, we have to
+   * initialize the whole optional array.
+   */
+  if (msa->sqacc == NULL) 
+    {
+      if ((msa->sqacc = malloc(sizeof(char *) * msa->sqalloc)) == NULL)
+	ESL_ERROR(ESL_EMEM, "malloc failed");
+      for (i = 0; i < msa->sqalloc; i++)
+	msa->sqacc[i] = NULL;
+    }
+  /* If we already had an accession, that's weird, but free it. 
+   */
+  if (msa->sqacc[seqidx] != NULL) free(msa->sqacc[seqidx]);
+  
+  msa->sqacc[seqidx] = esl_strdup(acc, -1);
+}
+
+/* Function: esl_msa_SetSeqDescription()
+ * Incept:   squid's MSASetSeqDescription(), 1999.
+ *
+ * Purpose:  Set the sequence description field for sequence number
+ *           <seqidx> in an alignment <msa> by copying the string <desc>.
+ *
+ * Returns:  <ESL_OK> on success.
+ * 
+ * Throws:   <ESL_EMEM> on allocation failure.
+ */
+int
+esl_msa_SetSeqDescription(MSA *msa, int seqidx, char *desc)
+{
+  int i;
+
+  if (msa->sqdesc == NULL) 
+    {
+      if ((msa->sqdesc = malloc(sizeof(char *) * msa->sqalloc)) == NULL)
+	ESL_ERROR(ESL_EMEM, "malloc failed");
+      for (i = 0; i < msa->sqalloc; i++)
+	msa->sqdesc[i] = NULL;
+  }
+  if (msa->sqdesc[i] != NULL) free(msa->sqdesc[i]);
+  msa->sqdesc[seqidx] = esl_strdup(desc, -1);
+}
+
+
+/* Function: esl_msa_AddComment()
+ * Date:     squid's MSAAddComment(), 1999.
+ *
+ * Purpose:  Copy an unparsed comment line <s> into the MSA structure <msa>.
+ *
+ * Returns:  <ESL_OK>.
+ * 
+ * Throws:   <ESL_EMEM> on allocation failure.
+ */
+int
+esl_msa_AddComment(MSA *msa, char *s)
+{
+  void *p;
+  int new;
+
+  /* If this is our first recorded comment, we need to malloc().
+   * Note the arbitrary starting size of 16 lines.
+   */
+  if (msa->comment == NULL) 
+    {
+      if ((msa->comment = malloc(sizeof(char *) * 16)) == NULL)
+	ESL_ERROR(ESL_EMEM, "malloc failed");
+      msa->alloc_ncomment = 16;
+    }
+
+  /* Check to see if reallocation for comment lines is needed;
+   * if so, redouble.
+   */
+  if (msa->ncomment == msa->alloc_ncomment) 
+    {
+      new = 2*msa->alloc_ncomment;
+      ESL_REALLOC(msa->comment, p, sizeof(char *) * new);
+      msa->alloc_ncomment = new;
+    }
+  msa->comment[msa->ncomment] = esl_strdup(s, -1);
+  msa->ncomment++;
+  return ESL_OK;
+}
+
+
+/*****************************************************************
+ * Deleted (relative to squid's msa):
+ *   MSAAddGF()
+ *   MSAAddGS()
+ *   MSAAppendGC()
+ *   MSAGetGC()
+ *   MSAAppendGR()
+ * Restore when keyhash/GKI augmentation is implemented.
+ *****************************************************************/
+
+
+
+
 
 
 /* Function: MSAFilePositionByKey()
@@ -766,37 +984,7 @@ MSAFileRead(MSAFILE *afp)
   return msa;
 }
 
-/* Function: MSAFileClose()
- * Date:     SRE, Tue May 18 14:05:28 1999 [St. Louis]
- *
- * Purpose:  Close an open MSAFILE.
- *
- * Args:     afp  - ptr to an open MSAFILE.
- *
- * Returns:  void
- */
-void
-MSAFileClose(MSAFILE *afp)
-{
-#ifndef SRE_STRICT_ANSI	 /* gzip functionality only on POSIX systems */
-  if (afp->do_gzip)    pclose(afp->f);
-#endif
-  if (! afp->do_stdin) fclose(afp->f);
-  if (afp->buf  != NULL) free(afp->buf);
-  if (afp->ssi  != NULL) SSIClose(afp->ssi);
-  if (afp->fname != NULL) free(afp->fname);
-  free(afp);
-}
 
-char *
-MSAFileGetLine(MSAFILE *afp)
-{
-  char *s;
-  if ((s = sre_fgets(&(afp->buf), &(afp->buflen), afp->f)) == NULL)
-    return NULL;
-  afp->linenumber++;
-  return afp->buf;
-}
 
 void 
 MSAFileWrite(FILE *fp, MSA *msa, int outfmt, int do_oneline)

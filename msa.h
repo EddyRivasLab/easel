@@ -107,7 +107,7 @@ typedef struct {
 
 
                                      
-/* Object: MSAFILE
+/* Object: ESL_MSAFILE
  * 
  * Defines an alignment file that we open for reading.
  */
@@ -126,7 +126,7 @@ typedef struct {
 #ifdef ESL_SSI_INCLUDED		/* AUGMENTATION: SSI indexing of an MSA db   */
   SSIFILE *ssi;		        /* open SSI index file; or NULL, if none.    */
 #endif
-} MSAFILE;
+} ESL_MSAFILE;
 
 
 /* Alignment file format codes.
