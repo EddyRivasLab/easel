@@ -31,7 +31,9 @@ dmatrix                    & Matrix algebra                             & easel\
   \multicolumn{3}{c}{\textbf{Derived modules}}\\
 sqio                       & Sequence file i/o                          & easel parse\\
 bioparse\_paml             & PAML rate matrix datafiles                 & easel dmatrix parse \\
-ratematrix                 & Evolutionary rate matrices                 & easel dmatrix vectorops\\\hline
+ratematrix                 & Evolutionary rate matrices                 & easel dmatrix vectorops\\
+gamma                      & Gamma densities and Gamma function         & easel random\\
+dirichlet                  & Dirichlet densities                        & easel gamma random\\ \hline     
   \multicolumn{3}{c}{\textbf{Optional library interfaces}}\\
 interface\_gsl             & Interface to GNU Scientific Library        & easel dmatrix\\
 interface\_lapack          & Interface to LAPACK linear algebra library & easel dmatrix \\\hline
@@ -235,6 +237,11 @@ error-throwing convention.
 
 \input{conventions}
 
-\input{foo}
+\section{Function reference}
+
+\subsection{dmatrix: matrix algebra routines}
+\input{autotext/dmatrix_functions}
+
+
 \end{document}
 

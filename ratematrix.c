@@ -134,8 +134,8 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   double       factor;
   int          k;
 
-  if ((tmp = esl_dmx_Alloc(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
-  if ((C   = esl_dmx_Alloc(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
+  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
+  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(ESL_EMEM, "malloc failed");
   
   esl_dmx_SetIdentity(P);
   factor = 1;
@@ -183,7 +183,7 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
   ESL_DMATRIX *Q;
   int i,j;
 
-  if ((Q = esl_dmx_Alloc(4, 4)) == NULL)
+  if ((Q = esl_dmatrix_Create(4, 4)) == NULL)
     ESL_ERROR_VAL(NULL, ESL_EMEM, "malloc failed");   
   
   for (i = 0; i < 4; i++)

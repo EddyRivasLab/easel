@@ -45,9 +45,9 @@ extern int          esl_dmx_Transpose(ESL_DMATRIX *A);
 extern int          esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B);
 extern int          esl_dmx_Scale(ESL_DMATRIX *A, double k);
 extern int          esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B);
-extern int          esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
+extern int          esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B);
 extern int          esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P);
 extern int          esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U);
-extern int          esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
+extern int          esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai);
 
 #endif /*ESL_DMATRIX_INCLUDED*/

@@ -58,13 +58,13 @@ esl_dmatrix_Create(int n, int m)
  *            
  * Purpose:   Frees an <ESL_DMATRIX> object.
  */
-void
+int
 esl_dmatrix_Destroy(ESL_DMATRIX *A)
 {
   if (A != NULL && A->mx != NULL && A->mx[0] != NULL) free(A->mx[0]);
   if (A != NULL && A->mx != NULL)                     free(A->mx);
   if (A != NULL)                                      free(A);
-  return;
+  return ESL_OK;
 }
 
 /* Function:  esl_dmatrix_Dump()
@@ -206,9 +206,9 @@ esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
  *            any given row or column contains only one 1. We store it
  *            more efficiently as a vector; each value $p_i$
  *            represents the column $j$ that has the 1. Thus, on
- *            initialization, $p_i = i \forall i = 0..n-1$.
+ *            initialization, $p_i = i$ for all $i = 0..n-1$.
  *
- * Returns:   A new <ESL\_PERMUTATION> object. Free with 
+ * Returns:   A new <ESL_PERMUTATION> object. Free with 
  *            <esl_permutation_Destroy()>.
  *
  * Throws:    NULL if allocation fails.
@@ -247,7 +247,7 @@ esl_permutation_Destroy(ESL_PERMUTATION *P)
 /* Function:  esl_permutation_Reuse()
  *
  * Purpose:   Resets a permutation matrix to
- *            $p_i = i \forall i = 0..n-1$.
+ *            $p_i = i$ for all $i = 0..n-1$.
  */
 int
 esl_permutation_Reuse(ESL_PERMUTATION *P)
@@ -275,7 +275,7 @@ esl_permutation_Reuse(ESL_PERMUTATION *P)
  *            rowlabel - optional: NULL, or character labels for rows
  *            collabel - optional: NULL, or character labels for cols
  *
- * Returns:   ESL_OK on success.
+ * Returns:   <ESL_OK> on success.
  */
 int 
 esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collabel)
@@ -387,7 +387,7 @@ esl_dmx_Scale(ESL_DMATRIX *A, double k)
 
 /* Function:  esl_dmx_AddScale()
  * 
- * Purpose:   Calculates $A + kB$, leaves answer in <A>.
+ * Purpose:   Calculates <A + kB>, leaves answer in <A>.
  * 
  * Throws:    <ESL_EINVAL> if matrices aren't the same dimensions.
  */
@@ -443,7 +443,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
  *            <A>.
  *            
  *            Implements Gaussian elimination with pivoting; xref
- *            [Cormen, Leiserson, Rivest; _Algorithms_, MIT Press,
+ *            [Cormen, Leiserson, Rivest; "Algorithms", MIT Press,
  *            1999; p.759].
  *
  * Throws:    <ESL_EINVAL> if <A> isn't square, or if <P> isn't the right
@@ -537,7 +537,7 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
  *            
  *            Peforms the inversion by LUP decomposition followed by 
  *            forward/back-substitution; xref [Cormen, Leiserson, 
- *            Rivest; _Algorithms_, MIT Press 1999; p.753].
+ *            Rivest; "Algorithms", MIT Press 1999; p.753].
  *
  * Throws:    <ESL_EINVAL> if <A>, <Ai> do not have same dimensions, or
  *                         if <A> isn't square.
@@ -605,8 +605,8 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
 
   free(b);
   free(y);
-  esl_dmatrix_Create(LU);
-  esl_permutation_Create(P);
+  esl_dmatrix_Destroy(LU);
+  esl_permutation_Destroy(P);
   return ESL_OK;
 
  FAILURE:

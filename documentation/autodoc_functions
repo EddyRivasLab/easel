@@ -104,9 +104,6 @@ parse_function_documentation
 	$function[$n]   = $3;
 	$args[$n]       = $4;
 
-	# Substitute <argname> with \cvar{argname} everywhere in the comments.
-	$comment =~ s|<(\S+)>|\\cvar\{\1\}|g;
-
 	# Delimit end of each block in the comments with a \n@*, for 
 	# convenience in getting out the individual blocks.
 	$comment =~ s|\n \* (\S)|\n@\* \1|g;
@@ -126,19 +123,20 @@ parse_function_documentation
 	if ($first_funcname =~ /^(\S+)\(\)/) { $first_funcname = $1; }
 	if ($first_funcname ne $function[$n]) { die "parse error; $first_funcname != $function[$n]";}
 
-	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = $1; }
+	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = &process_comment_text($1); }
 	else {$incept[$nfuncs] = ""; }
 
-	if ($comment =~ m|\n@\* Purpose:\s*(.+?)\n@\*|ms) { $purpose[$n] = $1; }
+
+	if ($comment =~ m|\n@\* Purpose:\s*(.+?)\n@\*|ms) { $purpose[$n] = &process_comment_text($1); }
 	else {next;}
 
 	if ($comment =~ m|\n@\* Args:\s*(.+?)\n@\*|ms) { $argdocs[$n] = $1; }
 	else {$argdocs = ""; }
     
-	if ($comment =~ m|\n@\* Returns:\s*(.+?)\n@\*|ms) { $returns[$n] = $1; }
+	if ($comment =~ m|\n@\* Returns:\s*(.+?)\n@\*|ms) { $returns[$n] = &process_comment_text($1); }
 	else {$returns[$nfuncs] = ""; }
 
-	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = $1; }
+	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = &process_comment_text($1); }
 	else {$throws[$n] = ""; }
 
 	# protect _ characters
@@ -149,6 +147,42 @@ parse_function_documentation
 	$n++;
     }
     $n;
+}
+
+
+# Function: process_comment_text
+#
+sub
+process_comment_text
+{
+    my ($text) = @_;
+    my (@s);			# old text, as chars
+    my (@s2);			# new text, as chars
+    my ($newtext);
+    my ($n);
+    my ($i);
+    my ($state);		# 0 = text; 1 = math; 2 = code. Finite automaton.
+
+    @s = split(//,$text);
+    $n = $#s + 1;
+
+    $state = 0;			# start in text state
+    for ($i = 0; $i < $n; $i++)
+    {
+        # State transitions in the text/math/code mode automaton
+        #
+	if    ($state == 0 && $s[$i] eq '$') { $state    = 1; push(@s2, '$'); }                  # enter math state
+	elsif ($state == 0 && $s[$i] eq '<') { $state    = 2; push(@s2, split(//, "\\ccode{")); } # enter code state
+	elsif ($state == 1 && $s[$i] eq '$') { $state    = 0; push(@s2, '$'); }                  # back to text state
+	elsif ($state == 2 && $s[$i] eq '>') { $state    = 0; push(@s2, '}'); }                  # back to text state.
+
+        # No state transition; deal with processing other characters according to state.
+        #
+        elsif ($state == 2 && $s[$i] eq '_') { push(@s2, '\\'); push(@s2, '_'); }
+        else  { push(@s2, $s[$i]); }
+    }
+    	
+    $newtext = join('',@s2);
 }
 
 

@@ -7,8 +7,8 @@
 #ifndef ESL_EASEL_INCLUDED
 #define ESL_EASEL_INCLUDED
 
+#include <stdlib.h>
 #include <stdarg.h>
-
 
 
 /* Error handling.
@@ -35,13 +35,14 @@
 #define ESL_EINCOMPAT  8	/* incompatible parameters      */
 #define ESL_EINVAL     9	/* invalid argument             */
 #define ESL_ETESTFAIL  10	/* calculated test failure      */
+#define ESL_ESYSTEM    11	/* generic system call failure  */
 #define ESL_EUNKNOWN   127      /* generic error, unidentified  */
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;
 
 extern void esl_error(int code, char *file, int line, char *format, ...);
-extern void esl_error_SetHandler(*esl_error_handler_func);
+extern void esl_error_SetHandler(esl_error_handler_f);
 extern void esl_error_ResetDefaultHandler(void);
 
 
