@@ -3,30 +3,44 @@
 struct esl_options_s {
   char *stdname;	/* one char option ("-a"), or NULL  */
   char *longname;	/* long option ("--foo"), or NULL   */
+  char *default;	/* default setting, or NULL */
   char *envname;	/* associated environ var ("BLASTDB"), or NULL */
   int   type;		/* for type checking: (eslARG_INT, etc.) */
   char *range;		/* for range checking: ("0<=x<=1", etc.) */
-  char *required_opts;	/* comma-sep'd list of opts that must also be set */
-  char *incompat_opts;	/* comma-sep'd list of opts that must not also be set */
+  char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
+  char *required_opts;	/* comma-sep'd optlist: these must also be set */
+  char *incompat_opts;	/* comma-sep'd optlist: these must not be set */
 };
 
 /* Argument types.
  */
-#define eslARG_NONE      0
-#define eslARG_INT       1
-#define eslARG_REAL      2
-#define eslARG_CHAR      3
-#define eslARG_STRING    4	/* unchecked type; includes filenames  */
+#define eslARG_NONE      0	/* option takes no argument (so, is boolean) */
+#define eslARG_INT       1	/* arg convertable by atoi()                 */
+#define eslARG_REAL      2	/* arg convertable by atof()                 */
+#define eslARG_CHAR      3	/* arg is a single character                 */
+#define eslARG_STRING    4	/* unchecked arg type; includes filenames    */
 
-struct esl_getopts_s {
+typedef struct {
+  struct esl_options_s *opt;    /* array of app-defined options        */
+  int    nopts;                 /* number of options                   */
+
   int    argc;			/* argc from command line              */
   char **argv;			/* argv from command line              */
   int    optind;		/* where we are in argc                */
-  struct esl_options_s *opt;    /* array of app-defined options        */
-  int    nopts;                 /* number of options                   */
-  char  *optstring;		/* ptr into a string of single-char opts in some argv[] */
 
-};
-typedef struct esl_getopts_s ESL_GETOPTS;
+  char **val;			/* configured value for each option (as a string) */
+  int   *setby;			/* array [0..nopts-1] for who set each option     */
+
+  char  *optstring;		/* internal state ptr into a string of single-char opts in some argv[] */
+} ESL_GETOPTS;
 
 
+/* Possible values of the <setby> variable in ESL_GETOPTS.
+ * Additionally, values of >3 also indicate a config file, in order 
+ * of _ProcessConfigFile() calls (that is, setby=3 is the first 
+ * config file, setby=4 is the second, etc.)
+ */
+#define eslARG_SETBY_DEFAULT  0
+#define eslARG_SETBY_CMDLINE  1
+#define eslARG_SETBY_ENV      2
+#define eslARG_SETBY_CFGFILE  3

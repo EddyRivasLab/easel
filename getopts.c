@@ -12,15 +12,47 @@
 #include <ctype.h>
 
 
+/* Function:  esl_getopts_Create()
+ * Incept:    SRE, Tue Jan 11 11:24:16 2005 [St. Louis]
+ *
+ * Purpose:   
+ * 
+ *            Stores ptrs to <argc>, <argv>, <opt>, <usage>. Does not
+ *            change these, nor their contents.
+ *            
+ *            Initializes.
+ *            
+ *            Sets default values for all options.
+
+
+
+ *            
+ *            
+
+ *
+ * Args:      
+ *
+ * Returns:   
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      
+ */
+
+
+
 ESL_GETOPTS *
 esl_getopts_Create(int argc, char **argv, struct opt_s *opt, char *usage)
 {
   ESL_GETOPTS *g;
+  char *optname;
+  int i;
 
-  if ((g = ESL_MALLOC(sizeof(ESL_GETOPTS))) == NULL) return NULL;
+  if ((g = malloc(sizeof(ESL_GETOPTS))) == NULL) goto FAILURE;
+  g->val    = NULL;
+  g->setby  = NULL;
   g->argc   = argc;
   g->argv   = argv;
-  g->optind = 1;		/* start on argv[1] */
   g->opt    = opt;
   g->usage  = usage;
 
@@ -30,12 +62,59 @@ esl_getopts_Create(int argc, char **argv, struct opt_s *opt, char *usage)
   while (g->opt[g->nopts].stdname != NULL && g->opt[g->nopts].longname != NULL)
     g->nopts++;
   
+  /* Initialize state.
+   */
+  g->optind    = 1;		/* will start on argv[1] */
+  g->optstring = NULL;		/* not processing any optstrings yet */
+
+  /* Set defaults.
+   */
+  if ((g->val   = malloc(sizeof(char *) * g->nopts)) == NULL) goto FAILURE;
+  if ((g->setby = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
+
+  for (i = 0; i < g->nopts; i++) {
+    g->val[i]   = g->opt[i].default;
+    g->setby[i] = eslARG_SETBY_DEFAULT;
+  }
+
+  /* What the hell, verify the defaults, even though it'd be 
+   * programmer error (not user error) if they're invalid. 
+   */
+  for (i = 0; i < g->nopts; i++) {
+    if      (g->opt[i].stdname  != NULL) optname = g->opt[i].stdname;
+    else if (g->opt[i].longname != NULL) optname = g->opt[i].longname;
+    else    ESL_ERROR_NULL(ESL_ELOGIC, "internal error: no option name");
+
+    if (g->opt[opti].type == eslARG_REAL)
+
+	  verify_integer(g->opt[i].stdname, usage, g->val[i], g->opt[opti].range);
+	else
+    else if (g->opt[opti].type == eslARG_REAL)
+      verify_real(*ret_optname, usage, g->val[i], g->opt[opti].range);
+    else if (g->opt[opti].type == eslARG_CHAR)
+      verify_char(*ret_optname, usage, g->val[i], g->opt[opti].range);
+  }
+
+  /* Normal return.
+   */
+  return g;
+
+  /* Abnormal return, on any alloc failure.
+   */
+ FAILURE:
+  esl_getopts_Destroy(g);
+  ESL_ERROR_NULL(ESL_EMEM, "allocation failed");
 }
 
 void
 esl_getopts_Destroy(ESL_GETOPTS *g)
 {
-
+  if (g != NULL)
+    {
+      if (g->val   != NULL) free(g->val);
+      if (g->setby != NULL) free(g->setby);
+      free(g);
+    }
 }
 
 int
@@ -97,8 +176,7 @@ esl_getopts(ESL_GETOPTS *g, char **ret_optname, char **ret_optarg)
     verify_real(*ret_optname, usage, *ret_optarg, g->opt[opti].range);
   else if (g->opt[opti].type == eslARG_CHAR)
     verify_char(*ret_optname, usage, *ret_optarg, g->opt[opti].range);
-  else if (g->opt[opti].type == eslARG_FILENAME)
-    verify_filename(*ret_optname, usage, *ret_optarg, g->opt[opti].range);
+
 
   return ESL_OK;
 }
