@@ -64,11 +64,11 @@ typedef struct {
   /* Optional MSA augmentation: the ability to read multiple alignment
    * files as sequential seq files.
    */
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
   ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
   ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
   int          idx;	      /* index of next seq to return, 0..nseq-1 */
-#endif /*eslAUGMENTED*/
+#endif /*eslAUGMENT_MSA*/
 } ESL_SQFILE;
 
 

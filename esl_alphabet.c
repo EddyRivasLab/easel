@@ -11,8 +11,8 @@
 #include <ctype.h>
 #include <math.h>
 
-#include <easel/easel.h>
-#include <easel/alphabet.h>
+#include <easel.h>
+#include <esl_alphabet.h>
 
 static ESL_ALPHABET *create_dna(void);
 static ESL_ALPHABET *create_rna(void);

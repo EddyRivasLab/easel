@@ -6,7 +6,6 @@
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
-
 #include <stdio.h>
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate

@@ -16,8 +16,8 @@
  *   say I want to push the numbers 42, 7, and 3 onto a stack,
  *   then pop them off and print them: 
  *   
- *   #include <easel/easel.h>
- *   #include <easel/stack.h>
+ *   #include <easel.h>
+ *   #include <esl_stack.h>
  *
  *   ESL_STACK *ns;
  *   int       x;
@@ -46,8 +46,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel/easel.h>
-#include <easel/stack.h>
+#include <easel.h>
+#include <esl_stack.h>
 
 
 /* Function:  esl_stack_ICreate()

@@ -50,8 +50,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel/easel.h>
-#include <easel/regexp.h>
+#include <easel.h>
+#include <esl_regexp.h>
 
 /* Forward declarations of Spencer's API as static, internalized in my module.
  */
@@ -1646,8 +1646,8 @@ regescape(struct comp *cp, char c)
  */
 
 #include <stdio.h> /* for printf() */
-#include <easel/easel.h>
-#include <easel/regexp.h>
+#include <easel.h>
+#include <esl_regexp.h>
 
 int
 main(int argc, char **argv)
@@ -1691,8 +1691,8 @@ main(int argc, char **argv)
  */
 
 #include <stdio.h> /* for printf() */
-#include <easel/easel.h>
-#include <easel/regexp.h>
+#include <easel.h>
+#include <esl_regexp.h>
 
 int
 main(int argc, char **argv)
@@ -1739,8 +1739,8 @@ main(int argc, char **argv)
  */
 #include <stdlib.h> /* for atoi()   */
 #include <stdio.h>  /* for printf() */
-#include <easel/easel.h>
-#include <easel/regexp.h>
+#include <easel.h>
+#include <esl_regexp.h>
 
 int
 main(int argc, char **argv)

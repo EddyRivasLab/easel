@@ -12,8 +12,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel/easel.h>
-#include <easel/getopts.h>
+#include <easel.h>
+#include <esl_getopts.h>
 
 /* Forward declarations of private functions.
  */
@@ -1575,8 +1575,8 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
  */
 
 #include <stdio.h>
-#include <easel/easel.h>
-#include <easel/getopts.h>
+#include <easel.h>
+#include <esl_getopts.h>
 
 static ESL_OPTIONS options[] = {
   /* name          type    default  env_var  range toggles reqs incompats */
@@ -1647,8 +1647,8 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <easel/easel.h>
-#include <easel/getopts.h>
+#include <easel.h>
+#include <esl_getopts.h>
 
 static ESL_OPTIONS options[] = {
   /* name          type     default   env_var    range   toggles  requires incompat_with */

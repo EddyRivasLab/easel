@@ -9,15 +9,14 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel/easel.h>
-#include <easel/sqio.h>
-
+#include <easel.h>
 #ifdef eslAUGMENT_ALPHABET
-#include <easel/alphabet.h>	/* alphabet augmentation adds digital sequences */
+#include <esl_alphabet.h>	/* alphabet augmentation adds digital sequences */
 #endif 
 #ifdef eslAUGMENT_MSA
-#include <easel/msa.h>		/* msa augmentation adds ability to read MSAs   */
+#include <esl_msa.h>		/* msa augmentation adds ability to read MSAs   */
 #endif
+#include <esl_sqio.h>
 
 
 static int check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
@@ -304,10 +303,10 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->nc         = 0;
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
   sqfp->afp        = NULL;
   sqfp->msa        = NULL;
-#endif /*eslAUGMENTED*/
+#endif /*eslAUGMENT_MSA*/
 
   /* Open the file. It may either be in the current directory,
    * or in a directory indicated by the <env> argument. We have
@@ -465,7 +464,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
     break;
 
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
     sqfp->linenumber = 0;	/* line-oriented input */
     sqfp->afp = malloc(sizeof(ESL_MSAFILE));
@@ -479,7 +478,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     sqfp->afp->do_gzip    = sqfp->do_gzip;
     sqfp->afp->do_stdin   = sqfp->do_stdin;
     break;
-#endif /*eslAUGMENTED*/
+#endif /*eslAUGMENT_MSA*/
   }
 
   *ret_sqfp = sqfp;
@@ -507,7 +506,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
   if (sqfp->ssifile  != NULL) free(sqfp->ssifile);
   if (sqfp->inmap    != NULL) free(sqfp->inmap);
 
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
   if (sqfp->afp      != NULL) 
     { /* Because we copied info from the seqfile object to
        * create the msafile object, we can't just close the 
@@ -517,7 +516,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
       free(sqfp->afp);
     }
   if (sqfp->msa      != NULL) esl_msa_Destroy(sqfp->msa);
-#endif
+#endif /*eslAUGMENT_MSA*/
 
   free(sqfp);
   return;
@@ -556,7 +555,7 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
   switch (sqfp->format) {
   case eslSQFILE_FASTA: status = esl_sq_ReadFASTA(sqfp, s); break;
     
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
     if (sqfp->msa == NULL || sqfp->idx >= sqfp->msa->nseq)
       {				/* load a new alignment */
@@ -576,7 +575,7 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
     sqfp->idx++;
     status = eslOK;
     break;
-#endif /*eslAUGMENTED*/
+#endif /*eslAUGMENT_MSA*/
   }
 
   return status;
@@ -853,7 +852,7 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
  * Functions specific to sqio <-> msa interoperation; 
  * require augmentation w/ msa module.
  *****************************************************************/
-#ifdef eslAUGMENTED
+#ifdef eslAUGMENT_MSA
 
 /* Function:  esl_sq_Dealign()
  * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
@@ -966,7 +965,7 @@ extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
 
   return eslOK;
 }
-#endif /*eslAUGMENTED*/
+#endif /*eslAUGMENT_MSA*/
 /*---------- end of msa <-> sqio module interop -----------------*/
 
 

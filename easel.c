@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include <easel/easel.h>
+#include <easel.h>
 
 static esl_error_handler_f esl_error_handler = NULL;
 

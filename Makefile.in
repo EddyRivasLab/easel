@@ -9,47 +9,28 @@ LN      = ln
 RANLIB  = @RANLIB@
 
 HEADERS = \
-	alphabet.h\
-	bioparse_paml.h\
-	dirichlet.h\
-	dmatrix.h\
 	easel.h\
-	esl.h\
-	gamma.h\
-	getopts.h\
-	interface_gsl.h\
-	interface_lapack.h\
-	keyhash.h\
-	msa.h\
-	parse.h\
-	random.h\
-	ratematrix.h\
-	regexp.h\
-	sqio.h\
-	stack.h\
-	vectorops.h\
-	wuss.h
+	esl_alphabet.h\
+	esl_getopts.h\
+	esl_keyhash.h\
+	esl_msa.h\
+	esl_random.h\
+	esl_regexp.h\
+	esl_sqio.h\
+	esl_stack.h\
+	esl_wuss.h
 
 OBJS    = \
-	alphabet.o\
-	bioparse_paml.o\
-	dirichlet.o\
-	dmatrix.o\
 	easel.o\
-	gamma.o\
-	getopts.o\
-	interface_gsl.o\
-	interface_lapack.o\
-	keyhash.o\
-	msa.o\
-	parse.o\
-	random.o\
-	ratematrix.o\
-	regexp.o\
-	sqio.o\
-	stack.o\
-	vectorops.o\
-	wuss.o
+	esl_alphabet.o\
+	esl_getopts.o\
+	esl_keyhash.o\
+	esl_msa.o\
+	esl_random.o\
+	esl_regexp.o\
+	esl_sqio.o\
+	esl_stack.o\
+	esl_wuss.o
 
 all: libeasel.a
 
@@ -60,12 +41,6 @@ libeasel.a: $(OBJS)
 	$(AR) libeasel.a $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
-
-symlinks:
-	mkdir -p easel
-	for header in ${HEADERS}; do\
-	   (cd easel; ${LN} -s ../$$header .);\
-	done
 
 clean:
 	-rm -f ${OBJS} libeasel.a
@@ -78,7 +53,6 @@ distclean:
 	(cd documentation; make distclean)
 	(cd miniapps; make distclean)
 	make clean
-	-rm easel/*.h
 	-rm easel.h
 	-rm -rf autom4te.cache
 	-rm Makefile

@@ -21,8 +21,8 @@
  * them with integer indices in an array:
  * moral equivalent of Perl's $foo{$key} = whatever, $bar{$key} = whatever:
  *
- *       #include <easel/easel.h>
- *       #include <easel/keyhash.h>
+ *       #include <easel.h>
+ *       #include <esl_keyhash.h>
  *     
  *       ESL_KEYHASH  *hash;
  *       int   idx;
@@ -51,8 +51,8 @@
 #include <string.h>
 #include <limits.h>
 
-#include <easel/easel.h>
-#include <easel/keyhash.h>
+#include <easel.h>
+#include <esl_keyhash.h>
 
 /* key_primes[] defines the ascending order of hash table sizes
  * that we use in upsizing the hash table dynamically.
@@ -370,8 +370,8 @@ key_upsize(ESL_KEYHASH *old)
  */
 #ifdef eslKEYHASH_EXAMPLE
 #include <stdio.h>
-#include <easel/easel.h>
-#include <easel/keyhash.h>
+#include <easel.h>
+#include <esl_keyhash.h>
 
 int
 main(int argc, char **argv)
@@ -430,8 +430,8 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <easel/easel.h>
-#include <easel/keyhash.h>
+#include <easel.h>
+#include <esl_keyhash.h>
 
 #define NSTORE  1200
 #define NLOOKUP 1200

@@ -9,8 +9,8 @@
 #include <math.h>
 #include <time.h>
 
-#include <easel/easel.h>
-#include <easel/random.h>
+#include <easel.h>
+#include <esl_random.h>
 
 
 /* Function:  esl_randomness_Create()
@@ -480,8 +480,8 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
 #ifdef ESL_RANDOM_TESTDRIVE
 #include <stdio.h>
 
-#include <easel/easel.h>
-#include <easel/random.h>
+#include <easel.h>
+#include <esl_random.h>
 
 int 
 main(void)

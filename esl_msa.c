@@ -10,11 +10,11 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel/easel.h>
-#ifdef eslAUGMENT
-#include <easel/keyhash.h>
+#include <easel.h>
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
 #endif
-#include <easel/msa.h>
+#include <esl_msa.h>
 
 
 /******************************************************************************
@@ -1974,16 +1974,16 @@ maxwidth(char **s, int n)
 /* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE msa.c easel.c 
  * time ./example SSU_rRNA_5
  * 
- * or add -DeslAUGMENT, and
- * gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT msa.c easel.c keyhash.c
+ * or add -DeslAUGMENT_KEYHASH, and
+ * gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT_KEYHASH msa.c easel.c keyhash.c
  */
 #include <stdio.h>
 
-#include <easel/easel.h>
-#ifdef eslAUGMENT
-#include <easel/keyhash.h>
+#include <easel.h>
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
 #endif
-#include <easel/msa.h>
+#include <esl_msa.h>
 
 int
 main(int argc, char **argv)
@@ -2049,17 +2049,17 @@ main(int argc, char **argv)
 /* gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE msa.c easel.c 
  * ./test
  * 
- * or add -DeslAUGMENT, and
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT msa.c easel.c keyhash.c
+ * or add -DeslAUGMENT_KEYHASH, and
+ * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT_KEYHASH msa.c easel.c keyhash.c
  */
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <easel/easel.h>
-#ifdef eslAUGMENT
-#include <easel/keyhash.h>
+#include <easel.h>
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
 #endif
-#include <easel/msa.h>
+#include <esl_msa.h>
 
 int
 main(int argc, char **argv)
