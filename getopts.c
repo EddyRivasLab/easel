@@ -23,12 +23,6 @@
  *            Initializes.
  *            
  *            Sets default values for all options.
-
-
-
- *            
- *            
-
  *
  * Args:      
  *
@@ -38,62 +32,91 @@
  *
  * Xref:      
  */
-
-
-
 ESL_GETOPTS *
-esl_getopts_Create(int argc, char **argv, struct opt_s *opt, char *usage)
+esl_getopts_Create(struct opt_s *opt, char *usage)
 {
   ESL_GETOPTS *g;
   char *optname;
-  int i;
+  int i,n;
 
   if ((g = malloc(sizeof(ESL_GETOPTS))) == NULL) goto FAILURE;
-  g->val    = NULL;
-  g->setby  = NULL;
-  g->argc   = argc;
-  g->argv   = argv;
-  g->opt    = opt;
-  g->usage  = usage;
+  g->opt       = opt;
+  g->argc      = 0;
+  g->argv      = NULL;
+  g->usage     = usage;
+  g->optind    = 1;
+  g->islong    = NULL;
+  g->val       = NULL;
+  g->setby     = NULL;
+  g->optstring = NULL;
 
   /* Figure out the number of options.
    */
   g->nopts = 0;
-  while (g->opt[g->nopts].stdname != NULL && g->opt[g->nopts].longname != NULL)
+  while (g->opt[g->nopts].name != NULL)
     g->nopts++;
   
-  /* Initialize state.
+  /* Set flags on whether option is long or not,
+   * for later convenience, by counting leading -'s.
    */
-  g->optind    = 1;		/* will start on argv[1] */
-  g->optstring = NULL;		/* not processing any optstrings yet */
+  if ((g->islong = malloc(sizeof(int) * g->nopts)) == NULL) goto FAILURE;
+  for (i = 0; i < g->nopts; i++)
+    {
+      if ((n = strspn(g->opt[i].name, "-")) == 2)
+	g->islong[i] = TRUE;
+      else if (n==1)
+	g->islong[i] = FALSE;
+      else
+	{
+	  esl_getopts_Destroy(g);	  
+	  ESL_ERROR_NULL(ESL_ECORRUPT, "internal error: malformed option");
+	}
+    }
 
-  /* Set defaults.
+  /* Set default values for all options.
    */
   if ((g->val   = malloc(sizeof(char *) * g->nopts)) == NULL) goto FAILURE;
   if ((g->setby = malloc(sizeof(int)    * g->nopts)) == NULL) goto FAILURE;
+  for (i = 0; i < g->nopts; i++) 
+    {
+      g->val[i]   = g->opt[i].default;
+      g->setby[i] = eslARG_SETBY_DEFAULT;
+    }
 
-  for (i = 0; i < g->nopts; i++) {
-    g->val[i]   = g->opt[i].default;
-    g->setby[i] = eslARG_SETBY_DEFAULT;
-  }
-
-  /* What the hell, verify the defaults, even though it'd be 
-   * programmer error (not user error) if they're invalid. 
+  /* What the hell, verify the type/range of the defaults, even though it's
+   * an application error (not user error) if they're invalid. 
    */
-  for (i = 0; i < g->nopts; i++) {
-    if      (g->opt[i].stdname  != NULL) optname = g->opt[i].stdname;
-    else if (g->opt[i].longname != NULL) optname = g->opt[i].longname;
-    else    ESL_ERROR_NULL(ESL_ELOGIC, "internal error: no option name");
+  for (i = 0; i < g->nopts; i++) 
+    {
+      switch (g->opt[i].type) {
+	
+      case eslARG_INT:
+	if (! is_integer(g->val[i])) {
+	  esl_getopts_Destroy(g);	  
+	  esl_error(ESL_ECORRUPT, __FILE__, __LINE__, 
+		    "option %s: expected integer valued default, got %s", 
+		    g->opt[i].name, g->opt[i].default);
+	  return NULL;
+	}
+	if (! verify_integer_range(g->val[i], g->opt[i].range)) {
+	  esl_getopts_Destroy(g);	  
+	  esl_error(ESL_ECORRUPT, __FILE__, __LINE__, 
+		    "option %s: expected integer default in range %s, got %s", 
+		    g->opt[i].name, g->opt[i].range, g->opt[i].default);
+	  return NULL;
+	}
+	break;
 
-    if (g->opt[opti].type == eslARG_REAL)
+      case eslARG_REAL:
+	if /* SRE STOPPED HERE */
+	  
 
-	  verify_integer(g->opt[i].stdname, usage, g->val[i], g->opt[opti].range);
-	else
-    else if (g->opt[opti].type == eslARG_REAL)
-      verify_real(*ret_optname, usage, g->val[i], g->opt[opti].range);
-    else if (g->opt[opti].type == eslARG_CHAR)
-      verify_char(*ret_optname, usage, g->val[i], g->opt[opti].range);
-  }
+	verify_integer(g->opt[i].name, usage, g->val[i], g->opt[i].range);
+      else if (g->opt[i].type == eslARG_REAL)
+	verify_real(g->opt[i].name, usage, g->val[i], g->opt[i].range);
+      else if (g->opt[i].type == eslARG_CHAR)
+	verify_char(g->opt[i].name, usage, g->val[i], g->opt[i].range);
+    }
 
   /* Normal return.
    */
@@ -117,22 +140,139 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
     }
 }
 
+
 int
-esl_opt_GetIndex(ESL_GETOPTS *g, char *option, int *ret_idx)
+esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 {
-  int i;
+  int   opti;
+  int   togi;			/* index of a toggle-tied option */
+  char *togname;		/* name of a toggle-tied option */
+  char *optname;
+  char *optarg;
+  char  buf[64];	/* must be large enough to hold largest option + \0 */
+  char  s;
+
+  g->argc      = argc;
+  g->argv      = argv;
+  g->optind    = 1;
+  g->optstring = NULL;
+
+  while (esl_getopts(g, &opti, &optname, &optarg) == ESL_OK)
+    {
+      /* Have we already set this option? */
+      if (g->setby[opti] == eslARG_SETBY_CMDLINE)
+	opterror(g, "Option %s appears more than once on command line", optname);
+
+      /* Set the option. 
+       */
+      g->setby[opti] = eslARG_SETBY_CMDLINE;
+      if (g->opt[opti].type == eslARG_NONE)
+	g->val[opti] = (char *) TRUE;
+      else
+	g->val[opti] = optarg;
+
+      /* Unset toggle-tied options.
+       */
+      s = g->opt[opti].toggle_opts;
+      while ((togi = process_optlist(g, &s, &togname)) != -1)
+	{
+	  if (g->setby[togi] == eslARG_SETBY_CMDLINE)
+	    opterror(g, "Options %s and %s conflict, toggling each other", togname, optname);
+	  
+	  g->setby[togi] = eslARG_SETBY_CMDLINE;
+	  if (g->opt[togi].type == eslARG_NONE)
+	    g->val[togi] = (char *) FALSE;
+	  else
+	    g->val[opti] = NULL;
+	}
+    }
+  return ESL_OK;
+}
+
+
+int
+esl_opt_VerifyConfig(ESL_GETOPTS *g)
+{
+  int   i,j;
+  char *s;
+  char *reqopt;
+
+  /* For all options that are set, 
+   * overify that all their required_opts are set.
+   */
   for (i = 0; i < g->nopts; i++)
     {
-      if (g->opt[i].stdname != NULL && strcmp(g->opt[i].stdname,  option) == 0)  break;
-      if (g->opt[i].longname != NULL && strcmp(g->opt[i].longname, option) == 0) break;
-    }
-  *ret_idx = i;
-  if (i == g->nopts) return ESL_EINVAL;
-  else               return ESL_EOK;
+      if (g->setby[i] != eslARG_SETBY_DEFAULT)
+	{
+	  s = g->opt[i].required_opts;
+	  while ((j = process_optlist(g, &s, &reqopt)) != -1)      
+	    {
+	      if (g->setby[j] == eslARG_SETBY_DEFAULT)
+		opterror(g, "%s requires (or has no effect without) %s", 
+
+	}
+
+
 }
+
+/* Return index <opti> of the next option in <s> up to 
+ * next comma, or -1 if we're out of data (s == NULL).
+ * Reset <s> to follow the ',' or to NULL if we've
+ * just done the last option in the list.
+ */
+int 
+process_optlist(ESL_GETOPTS *g, char **ret_s, char **ret_togname)
+{
+  char *s;
+  int   i;
+  int   n;
+  
+  if ((s = *ret_s) == NULL) return -1;
+  n = strcspn(s, ",");
+  if (s[1] == '-')		/* if 2nd char is a -, long option */
+    {
+      for (i = 0; i < g->nopts; i++)
+	if (g->opt[i].longname != NULL && strncmp(g->opt[i].longname, s, n) == 0) break;
+      if (i == g->nopts) return -1;
+      *ret_togname = g->opt[i].longname;
+    }
+  else 
+    {
+      for (i = 0; i < g->nopts; i++)
+	if (g->opt[i].stdname != NULL && strncmp(g->opt[i].stdname, s, n) == 0)  break;
+      if (i == g->nopts) return -1;
+      *ret_togname = g->opt[i].shortname;
+    }
+
+  if (s[n] == ',') *ret_s = s+n+1; 
+  else             *ret_s = NULL;
+  return i;
+}
+  
+
+
+int
+get_optidx(ESL_GETOPTS *g, char *option)
+{
+  int i;
+
+  if (option[1] == '-')		/* if 2nd char is -, this is a long option */
+    {
+      for (i = 0; i < g->nopts; i++)
+	if (g->opt[i].longname != NULL && strcmp(g->opt[i].longname, option) == 0) break;
+    }
+  else 				/* else we're a short option */
+    {
+      for (i = 0; i < g->nopts; i++)
+	if (g->opt[i].stdname != NULL && strcmp(g->opt[i].stdname,  option) == 0)  break;
+    }
+  if (i == g->nopts) return -1;
+  else               return i;
+}
+
       
 int
-esl_getopts(ESL_GETOPTS *g, char **ret_optname, char **ret_optarg)
+esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optname, char **ret_optarg)
 {
   char *argptr;
   int   opti;
@@ -177,6 +317,9 @@ esl_getopts(ESL_GETOPTS *g, char **ret_optname, char **ret_optarg)
   else if (g->opt[opti].type == eslARG_CHAR)
     verify_char(*ret_optname, usage, *ret_optarg, g->opt[opti].range);
 
+  /* Normal return.
+   */
+  *ret_opti = opti;
 
   return ESL_OK;
 }
@@ -367,9 +510,10 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optname, char **ret_opt
  * 
  * Verify that a string <arg> can be completely converted to an
  * integer by atoi(), and that the result is within the range
- * defined by <range> (if <range> is non-NULL).
+ * defined by <range> (if <range> is non-NULL). Returns 
+ * on successful verification; 
  *
- * Otherwise, use <option> and <usage> to format an error message
+ * 
  * to stderr, and exit the program.
  *
  * Returns ESL_OK on success.

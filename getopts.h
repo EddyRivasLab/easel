@@ -1,12 +1,11 @@
 
 
 struct esl_options_s {
-  char *stdname;	/* one char option ("-a"), or NULL  */
-  char *longname;	/* long option ("--foo"), or NULL   */
+  char *name;		/* either short "-a" or long "--foo" style */
   char *default;	/* default setting, or NULL */
-  char *envname;	/* associated environ var ("BLASTDB"), or NULL */
-  int   type;		/* for type checking: (eslARG_INT, etc.) */
-  char *range;		/* for range checking: ("0<=x<=1", etc.) */
+  char *envvar;	        /* associated environ var ("BLASTDB"), or NULL */
+  int   type;		/* arg type, for type checking: (eslARG_INT, etc.) */
+  char *range;		/* for range checking arg: ("0<=x<=1", etc.) */
   char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
   char *required_opts;	/* comma-sep'd optlist: these must also be set */
   char *incompat_opts;	/* comma-sep'd optlist: these must not be set */
@@ -26,8 +25,10 @@ typedef struct {
 
   int    argc;			/* argc from command line              */
   char **argv;			/* argv from command line              */
+  char  *usage;			/* command-line usage                  */
   int    optind;		/* where we are in argc                */
 
+  int   *islong;                /* TRUE if opt i is a long option (thus not concat'able)  */
   char **val;			/* configured value for each option (as a string) */
   int   *setby;			/* array [0..nopts-1] for who set each option     */
 
