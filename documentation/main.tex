@@ -19,6 +19,25 @@
 
 \section{Easel}
 
+\subsection{Overview of modules}
+\begin{tabular}{lll}\hline
+\textbf{Module}            & \textbf{Description}                       & \textbf{Requires}\\\hline
+  \multicolumn{3}{c}{\textbf{Core modules}}\\
+easel                      & Framework for using Easel                  &  - \\
+parse                      & File and line parsing routines             & easel\\
+random                     & Random number generator                    & easel\\
+vectorops                  & Vector operations                          & easel\\
+dmatrix                    & Matrix algebra                             & easel\\ \hline
+  \multicolumn{3}{c}{\textbf{Derived modules}}\\
+sqio                       & Sequence file i/o                          & easel parse\\
+bioparse\_paml             & PAML rate matrix datafiles                 & easel dmatrix parse \\
+ratematrix                 & Evolutionary rate matrices                 & easel dmatrix vectorops\\\hline
+  \multicolumn{3}{c}{\textbf{Optional library interfaces}}\\
+interface\_gsl             & Interface to GNU Scientific Library        & easel dmatrix\\
+interface\_lapack          & Interface to LAPACK linear algebra library & easel dmatrix \\\hline
+\end{tabular}
+
+
 
 \subsection{Overview of data structures}
 
@@ -209,93 +228,13 @@ if ((ptr = malloc(sizeof(int) * n)) == NULL)
   }
 \end{cchunk}
 
+For memory allocation and reallocation, Easel often uses two macros
+\cmacro{ESL\_MALLOC} and \cmacro{ESL\_REALLOC}, which encapsulate
+standard \cfunc{malloc} and \cfunc{realloc} calls in Easel's
+error-throwing convention.
 
+\input{conventions}
 
-
-
-
-\section{Function naming conventions}
-
-\subsection{Object creation, initialization, destruction}
-
-Most of Easel's objects are allocated on the heap; that is, accessed
-exclusively via pointers. Less often, routines may allow an object to
-be allocated on the stack.
-
-\begin{sreitems}{\cfunc{Create,Destroy}}
-\item [\cfunc{Create,Destroy}] 
-  \cfunc{esl\_foo\_Create()} allocates and initializes a new \cstruct{ESL\_FOO}
-  object, returning a pointer to the new
-  object. The \cfunc{Create()} function is passed any necessary
-  initialization or size information in its arguments.
-  \cfunc{esl\_foo\_Destroy(obj)} frees all the memory associated
-  with a \cstruct{ESL\_FOO} object,  given a pointer to the object.
-  Example:
-
-\begin{cchunk}
-ESL_SQ *sq;
-
-sq = esl_sq_Create();
-esl_sq_Destroy(sq);
-\end{cchunk}
-  
-\item [\cfunc{Open,Close}] 
-  Same as \cfunc{Create()} and \cfunc{Destroy()}, but specifically for
-  objects associated with input/output streams. Example:
-
-\begin{cchunk}
-char        *seqfile = ``foo.seq'';
-ESL_SEQFILE *sqfp;
-
-sqfp = esl_seqfile_Open(seqfile);
-esl_seqfile_Close(sqfp);
-\end{cchunk}
-
-\item [\cfunc{Init,Release}]
-  \cfunc{esl\_foo\_Init(\&obj)} takes a pointer to the ``shell'' of an
-  \cstruct{ESL\_FOO} object that has been allocated on the stack, and
-  allocates and initializes all the internals of it. The
-  \cfunc{Init()} function is also passed any necessary initialization or
-  size information in its arguments.  \cfunc{esl\_foo\_Release(\&obj)}
-  frees all the internal memory associated with a \cstruct{ESL\_FOO} object,
-  given a pointer to the object, but the object shell is left alone.
-  The only difference between \cfunc{Create,Destroy} and
-  \cfunc{Init,Release} is whether the object shell itself is to be
-  allocated, or not. Example:
-
-\begin{cchunk}
-ESL_SQ  sq;
-
-esl_sq_Init(&sq);
-esl_sq_Release(&sq);
-\end{cchunk}
-
-
-\item [\cfunc{Reuse}] 
-   \cfunc{esl\_foo\_Reuse(obj)} reinitializes an object (exactly as a
-   \cfunc{Create} or \cfunc{Init} function would initialize it), \emph{without}
-   allocating new memory; it reuses memory that has
-   already been allocated when the object was originally created or
-   initialized. For some objects that are used sequentially (like,
-   sequences), reusing one object saves malloc()'s compared to
-   lots of Create/Destroy calls. A \cfunc{Reuse} function does not
-   care whether the object was originally created by a \cfunc{Create}
-   or a \cfunc{Init} call. Example:
-
-\begin{cchunk}
-ESL_SQ *sq;
-
-sq = esl_sq_Create();
-  /* read a sequence into the sq object, have fun with it */
-esl_sq_Reuse(sq);
-  /* read a second sequence into it */
-esl_sq_Destroy(sq);
-\end{cchunk}
-
-
-
-\end{sreitems}
-
-
+\input{foo}
 \end{document}
 

@@ -9,6 +9,8 @@
 
 #include <stdarg.h>
 
+
+
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
  */
@@ -22,20 +24,6 @@
      return NULL; }\
      while (0)
 
-typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
-extern esl_error_handler_f esl_error_handler;
-
-
-#define ESL_MALLOC(x)     esl_malloc(__FILE__, __LINE__, (x))
-#define ESL_REALLOC(x,y)  esl_realloc(__FILE__, __LINE__, (x), (y))   
-
-
-
-
-
-
-/* error codes used in Easel.
- */
 #define ESL_OK         0	/* no error                     */
 #define ESL_EOL        1	/* end-of-line (often normal)   */
 #define ESL_EOF        2	/* end-of-file (often normal)   */
@@ -49,6 +37,27 @@ extern esl_error_handler_f esl_error_handler;
 #define ESL_ETESTFAIL  10	/* calculated test failure      */
 #define ESL_EUNKNOWN   127      /* generic error, unidentified  */
 
+typedef void (*esl_error_handler_f)(int code, char *file, int line, char *format, va_list argp);
+extern esl_error_handler_f esl_error_handler;
+
+extern void esl_error(int code, char *file, int line, char *format, ...);
+extern void esl_error_SetHandler(*esl_error_handler_func);
+extern void esl_error_ResetDefaultHandler(void);
+
+
+
+
+/* Memory allocation support
+ */
+#define ESL_MALLOC(x)     esl_malloc(__FILE__, __LINE__, (x))
+#define ESL_REALLOC(x,y)  esl_realloc(__FILE__, __LINE__, (x), (y))   
+
+extern void *esl_malloc(char *file, int line, size_t size);
+extern void *esl_realloc(char *file, int line, void *p, size_t size);
+
+
+
+
 /* Making sure TRUE/FALSE are defined, for convenience
  */
 #ifndef TRUE
@@ -57,12 +66,6 @@ extern esl_error_handler_f esl_error_handler;
 #ifndef FALSE
 #define FALSE 0
 #endif
-
-/* Function declarations 
- */
-extern void esl_error(int code, char *file, int line, char *format, ...);
-extern void esl_error_SetHandler(void (*handler)(int code, char *file, int line, char *format, va_list argp));
-extern void esl_error_ResetDefaultHandler(void);
 
 
 #endif /*ESL_EASEL_INCLUDED*/

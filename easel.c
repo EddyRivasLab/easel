@@ -48,12 +48,24 @@ esl_malloc(char *file, int line, size_t size)
 {
   void *ptr;
 
-  SQD_DPRINTF3(("MALLOC: %d bytes (file %s line %d)\n", size, file, line));
-  if ((ptr = malloc (size)) == NULL)
-    Die("malloc of %ld bytes failed: file %s line %d", size, file, line);
+  if ((ptr = malloc (size)) == NULL) {
+    esl_error(ESL_EMEM, file, line, "malloc of %ld bytes failed\n");
+    return NULL;
+  }
   return ptr;
 }
 
+void *
+esl_realloc(char *file, int line, void *p, size_t size)
+{
+  void *ptr;
+
+  if ((ptr = realloc(p, size)) == NULL) {
+    esl_error(ESL_EMEM, file, line, "realloc of %ld bytes failed\n", size);
+    return NULL;
+  }
+  return ptr;
+}
 
 
 /*****************************************************************

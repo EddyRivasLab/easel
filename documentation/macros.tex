@@ -1,4 +1,5 @@
 % Typography.
+\newcommand{\ccode}[1]{\texttt{#1}}
 \newcommand{\cmacro}[1]{\texttt{#1}}
 \newcommand{\cvar}[1]{\texttt{#1}}
 \newcommand{\cvartype}[1]{\texttt{#1}}
@@ -7,6 +8,26 @@
 \newcommand{\cfile}[1]{\texttt{#1}}
 
 \DefineVerbatimEnvironment{cchunk}{Verbatim}{fontsize=\scriptsize,xleftmargin=2.0\parindent}%
+
+% Description-like environment for documenting functions/APIs.
+% puts the description label in a minipage with a large hanging
+% indent.
+% Good christ this took a long time to develop.
+% hanging indent trick stolen from Peter Wilson's hanging.sty @CTAN
+% minipage allows multi-line label, and puts item on next line.
+% customized list inspired by Kopka/Daly _Guide to LaTeX_ p.213
+% SRE, Wed Dec 27 11:37:18 2000
+%
+\newenvironment{sreapi}{%
+     \begin{list}{}{%
+       \renewcommand{\makelabel}[1]{%
+         \begin{minipage}{\textwidth}%
+           \hangindent10em\hangafter1\noindent%
+           {\bfseries\texttt{##1}\vspace{0.8em}}%
+         \end{minipage}%
+     }}}%
+     {\end{list}}
+
 
 % Description-like environment for producing lists like:
 %
