@@ -1,26 +1,27 @@
 \subsection{Overview of modules}
-\begin{tabular}{lll}\hline
-\textbf{Module}            & \textbf{Description}                       & \textbf{Requires}\\\hline
-  \multicolumn{3}{c}{\textbf{Core modules}}\\
-easel                      & Framework for using Easel                  &  - \\
-alphabet                   & Digitized biosequence alphabets            & easel\\
-dmatrix                    & Matrix algebra                             & easel\\ 
-getopts                    & Command line parsing \& application config & easel\\
-msa                        & Multiple sequence alignment i/o            & easel\\
-parse                      & File and line parsing routines             & easel\\
-random                     & Random number generator                    & easel\\
-regexp                     & Regular expression matching                & easel\\
-stack                      & Pushdown stacks                            & easel\\
-vectorops                  & Vector operations                          & easel\\\hline
-  \multicolumn{3}{c}{\textbf{Derived modules}}\\
-sqio                       & Sequence file i/o                          & easel alphabet\\
-bioparse\_paml             & PAML rate matrix datafiles                 & easel dmatrix parse \\
-ratematrix                 & Evolutionary rate matrices                 & easel dmatrix vectorops\\
-gamma                      & Gamma densities and Gamma function         & easel random\\
-dirichlet                  & Dirichlet densities                        & easel gamma random\\ \hline     
-  \multicolumn{3}{c}{\textbf{Optional library interfaces}}\\
-interface\_gsl             & GNU Scientific Library                     & easel dmatrix\\
-interface\_lapack          & LAPACK linear algebra library              & easel dmatrix \\\hline
+\begin{tabular}{llll}\hline
+\textbf{Module} & \textbf{Description}       & \textbf{Requires} & \textbf{Augmentation(s)}\\\hline
+  \multicolumn{4}{c}{\textbf{Core modules}}\\
+easel           & Framework for using Easel         &  -             & \\
+alphabet        & Digitized biosequence alphabets   & easel          & \\
+dmatrix         & Matrix algebra                    & easel          & \\ 
+getopts         & Command line parsing              & easel          & \\
+keyhash         & Keyword hashing                   & easel          & \\
+msa             & Multiple sequence alignment i/o   & easel          & keyhash \\
+parse           & Token-based file parsing          & easel          & \\
+random          & Random number generator           & easel          & \\
+regexp          & Regular expression matching       & easel          & \\
+stack           & Pushdown stacks                   & easel          & \\
+vectorops       & Vector operations                 & easel          & \\\hline
+  \multicolumn{4}{c}{\textbf{Derived modules}}\\
+sqio            & Sequence file i/o                 & easel alphabet & \\
+bioparse\_paml  & PAML rate matrix datafiles        & easel dmatrix parse & \\
+ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
+gamma           & Gamma densities                   & easel random & \\
+dirichlet       & Dirichlet densities               & easel gamma random & \\ \hline     
+  \multicolumn{4}{c}{\textbf{Optional library interfaces}}\\
+interface\_gsl    & GNU Scientific Library          & easel dmatrix & \\
+interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \end{tabular}
 
 
@@ -33,6 +34,7 @@ interface\_lapack          & LAPACK linear algebra library              & easel 
 \ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
 \ccode{ESL\_FILEPARSER}  & \cfile{parse}           & Simple token-based input file parser\\
 \ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
+\ccode{ESL\_KEYHASH}     & \cfile{keyhash}         & Keyword hash table\\
 \ccode{ESL\_MSA}         & \cfile{msa}             & Multiple sequence alignment\\
 \ccode{ESL\_MSAFILE}     & \cfile{msa}             & Multiple sequence alignment file parser\\
 \ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\

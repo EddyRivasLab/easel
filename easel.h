@@ -50,6 +50,7 @@
 #define eslEINCONCEIVABLE 14    /* "can't happen" error         */
 #define eslESYNTAX        15    /* invalid syntax in input data */
 #define eslERANGE         16    /* value out of allowed range   */
+#define eslEDUP           17    /* saw a duplicate of something */
 
 /* Debugging hooks, w/ three levels (1-3).
  */

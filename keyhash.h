@@ -11,13 +11,13 @@
 
 #include <stdio.h>		/* for FILE */
 
-/* esl_gki_elem:
+/* esl_key_elem:
  *    key, array index pairs are kept in linked list structures.
  */
-struct esl_gki_elem {
+struct esl_key_elem {
   char *key;		
   int   idx;
-  struct esl_gki_elem *nxt;
+  struct esl_key_elem *nxt;
 };
 
 /* ESL_KEYHASH:
@@ -25,7 +25,7 @@ struct esl_gki_elem {
  *    contains a hash table and associated data
  */
 typedef struct {
-  struct esl_gki_elem **table;
+  struct esl_key_elem **table;
   
   int primelevel;
   int nhash;
@@ -36,8 +36,8 @@ extern ESL_KEYHASH *esl_keyhash_Create(void);
 extern void         esl_keyhash_Destroy(ESL_KEYHASH *h);
 extern void         esl_keyhash_Dump(FILE *fp, ESL_KEYHASH *h);
 
-extern int  esl_gki_Store(ESL_KEYHASH *h, char *key, int *ret_index);
-extern int  esl_gki_Lookup(ESL_KEYHASH *h, char *key);
+extern int  esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index);
+extern int  esl_key_Lookup(ESL_KEYHASH *h, char *key);
 
 
 #endif /* eslKEYHASH_INCLUDED */

@@ -5,6 +5,8 @@
 APITEX =  alphabet\
 	  easel\
 	  getopts\
+	  keyhash\
+	  msa\
 	  random\
 	  regexp\
 	  sqio\
@@ -18,6 +20,8 @@ APITEX =  alphabet\
 AUTOTEX = alphabet\
 	  dmatrix\
 	  getopts\
+	  keyhash\
+	  msa\
 	  random\
 	  regexp\
 	  sqio\

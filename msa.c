@@ -35,28 +35,29 @@ static int append_gc(ESL_MSA *msa, char *tag, char *value);
 static int append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value);
 static int verify_parse(ESL_MSA *msa, char *errbuf);
 
-/* Function: esl_msa_Create()
- * Incept:   SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
+/* Function:  esl_msa_Create()
+ * Incept:    SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
  *
- * Purpose:  Creates and initializes an <ESL_MSA> object, and returns a
- *           pointer to it. Designed to be used in three ways:
- * 
- *           1) We know exactly the dimensions of the alignment:
- *              both <nseq> and <alen>, e.g.:
- *                \begin{cchunk}
- *                   msa = esl_msa_Create(nseq, alen)
- *                \end{cchunk}
+ * Purpose:   Creates and initializes an <ESL_MSA> object, and returns a
+ *            pointer to it. Designed to be used in two ways. 
+ *            
+ *            1) If you know exactly the dimensions of the alignment,
+ *            both <nseq> and <alen>, then call: 
+ *            <msa = esl_msa_Create(nseq, alen)>.
  *                    
- *           2) We know the number of sequences but not alen.
- *              (We add sequences later.) e.g.:
- *                \begin{cchunk}
- *                   msa = esl_msa_Create(nseq, 0)
- *                \end{cchunk}
+ *            2) If you don't know the dimensions of the alignment (a
+ *            typical situation if you're parsing an alignment file),
+ *            then you can request 
+ *            SRE STOPPED HERE
+ * 
+ *            then call <msa = esl_msa_Create(nseq, 0)>. Sequences
+ *            will be dynamically allocated once <alen> is known.
  *              
- *           3) We don't even know the number of sequences, so
- *              we'll have to dynamically expand allocations.
- *              We provide an initial <nseq> that will be 
- *              expanded (by doubling) when needed. e.g.:
+ *            3) We don't even know the number of sequences, so
+ *            we'll have to dynamically expand allocations. This is
+ *            the typical situation
+ *               We provide an initial <nseq> that will be 
+ *               expanded (by doubling) when needed. e.g.:
  *                \begin{cchunk}
  *                  msa = esl_msa_Create(16, 0);
  *                  if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);
@@ -68,13 +69,13 @@ static int verify_parse(ESL_MSA *msa, char *errbuf);
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
  *           <alen> - length of alignment in columns, or 0      
  *
- * Returns:  pointer to new MSA object, w/ all values initialized.
- *           Note that msa->nseq is initialized to 0, even though space
- *           is allocated.
+ * Returns:   pointer to new MSA object, w/ all values initialized.
+ *            Note that msa->nseq is initialized to 0, even though space
+ *            is allocated.
  *           
- * Throws:   NULL on allocation failure.          
+ * Throws:    NULL on allocation failure.          
  *
- * Xref:     squid's MSAAlloc()
+ * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
 esl_msa_Create(int nseq, int alen)
@@ -91,7 +92,6 @@ esl_msa_Create(int nseq, int alen)
   msa->alen    = alen;		/* if 0, then we're growable. */
   msa->nseq    = 0;
   msa->flags   = 0;
-  msa->type    = 0;		/* =eslUNKNOWN; no alphabet type yet */
   msa->name    = NULL;
   msa->desc    = NULL;
   msa->acc     = NULL;
@@ -390,11 +390,9 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
    * or, if we're keyhash-augmented, by hashing.
    */
 #ifdef eslKEYHASH_INCLUDED                  
-  if ((seqidx = esl_gki_Lookup(msa->index, name)) >= 0)
-    { *ret_idx = seqidx; return eslOK; }
-				/* else, it's a new name */
   status = esl_gki_Store(msa->index, name, &seqidx);
-  if (status != eslOK) return status;
+  if (status == eslEDUP) return status;	/* already stored this name */
+  if (status != eslOK)   return status; /* an error. */
 #else
   for (seqidx = 0; seqidx < msa->nseq; seqidx++)
     if (strcmp(msa->sqname[seqidx], name) == 0) break;
@@ -595,12 +593,8 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
        * tagidx == ngs; this is a new one.
        */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = esl_gki_Lookup(msa->gs_idx, tag); 
-      if (tagidx < 0) {
-	status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
-	if (status != eslOK) return status;
-	ESL_DASSERT1((tagidx == msa->ngs));
-      }
+      status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngs; tagidx++)
 	if (strcmp(msa->gs_tag[tagidx], tag) == 0) break;
@@ -692,13 +686,8 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
     {			/* new tag? */
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = esl_gki_Lookup(msa->gc_idx, tag); 
-      if (tagidx < 0) 
-	{		
-	  status = esl_gki_Store(msa->gc_idx, tag, &tagidx);
-	  if (status != eslOK) return status;
-	  ESL_DASSERT1((tagidx == msa->ngc));
-	}
+      status = esl_gki_Store(msa->gc_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngc; tagidx++)
 	if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
@@ -771,13 +760,8 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
       /* get tagidx for this GR tag. existing<ngr; new=ngr.
        */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = esl_gki_Lookup(msa->gr_idx, tag); 
-      if (tagidx < 0) 
-	{	
-	  status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
-	  if (status != eslOK) return status;
-	  ESL_DASSERT1((tagidx == msa->ngr));
-	}
+      status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngr; tagidx++)
 	if (strcmp(msa->gr_tag[tagidx], tag) == 0) break;
@@ -2027,15 +2011,21 @@ main(int argc, char **argv)
   fmt      = eslMSAFILE_UNKNOWN;
 
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND) {
-    fprintf(stderr, "Alignment file %s not readable\n", filename);
-    exit(1);
-  } else if (status == eslEFORMAT) {
-    fprintf(stderr, "Couldn't determine format of alignment %s\n", filename);
-    exit(1);
-  } else if (status != eslOK) {
-    fprintf(stderr, "Alignment file open failed with error %d\n", status);
-  }
+  if (status == eslENOTFOUND) 
+    {
+      fprintf(stderr, "Alignment file %s not readable\n", filename);
+      exit(1);
+    } 
+  else if (status == eslEFORMAT) 
+    {
+      fprintf(stderr, "Couldn't determine format of alignment %s\n", filename);
+      exit(1);
+    } 
+  else if (status != eslOK) 
+    {
+      fprintf(stderr, "Alignment file open failed with error %d\n", status);
+      exit(1);
+    }
 
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
@@ -2043,29 +2033,28 @@ main(int argc, char **argv)
       nali++;
       printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
 	     nali, msa->name, msa->nseq, msa->alen);
-      esl_msa_WriteStockholm(stdout, msa);
+      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
       esl_msa_Destroy(msa);
     }
 
-  if (status == eslEFORMAT) {
-    fprintf(stderr, "Alignment parse error at line %d of file %s:\n%s\n", 
-	    afp->linenumber, afp->fname, afp->errbuf);
-    fprintf(stderr, "Offending line is: %s\n", afp->buf);
-    esl_msafile_Close(afp);
-    exit(1);
-  } else if (status != eslEOF) {
-    fprintf(stderr, "Alignment file read failed with error %d\n", status);
-    esl_msafile_Close(afp);
-    exit(1);
-  }
-  
-
+  if (status == eslEFORMAT) 
+    {
+      fprintf(stderr, "Alignment parse error at line %d of file %s:\n%s\n", 
+	      afp->linenumber, afp->fname, afp->errbuf);
+      fprintf(stderr, "Offending line is: %s\n", afp->buf);
+      esl_msafile_Close(afp);
+      exit(1);
+    } 
+  else if (status != eslEOF) 
+    {
+      fprintf(stderr, "Alignment file read failed with error %d\n", status);
+      esl_msafile_Close(afp);
+      exit(1);
+    }
 
   esl_msafile_Close(afp);
   exit(1);
 }
-
-
 #endif /*eslMSA_EXAMPLE*/
  
 

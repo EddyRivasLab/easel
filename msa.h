@@ -38,7 +38,6 @@ typedef struct {
   /* Optional information that we understand, and that we might have.
    * (The occasionally useful stuff.)
    */
-  int    type;			/* eslRNA, eslDNA, eslAMINO, eslNONSTANDARD */
   char  *name;             	/* name of alignment, or NULL               */
   char  *desc;	                /* description of alignment, or NULL        */
   char  *acc;	                /* accession of alignment, or NULL          */
@@ -92,7 +91,7 @@ typedef struct {
 
   /* Optional augmentation w/ keyhashes. 
    * This can significantly speed up parsing of large alignments
-   * with many (>10,000) sequences.
+   * with many (>1,000) sequences.
    */
 #ifdef eslKEYHASH_INCLUDED	
   ESL_KEYHASH  *index;	        /* name ->seqidx hash table */
