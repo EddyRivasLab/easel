@@ -174,7 +174,8 @@ process_comment_text
 	if    ($state == 0 && $s[$i] eq '$') { $state    = 1; push(@s2, '$'); }                  # enter math state
 	elsif ($state == 0 && $s[$i] eq '<') { $state    = 2; push(@s2, split(//, "\\ccode{")); } # enter code state
 	elsif ($state == 1 && $s[$i] eq '$') { $state    = 0; push(@s2, '$'); }                  # back to text state
-	elsif ($state == 2 && $s[$i] eq '>') { $state    = 0; push(@s2, '}'); }                  # back to text state.
+	elsif ($state == 2 && $s[$i] eq '>' && $s[$i-1] ne '-') 
+	{ $state    = 0; push(@s2, '}'); }                  # back to text state on >, unless it was ->
 
         # No state transition; deal with processing other characters according to state.
         #

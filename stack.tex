@@ -30,7 +30,7 @@ int main(void)
    esl_stack_IPush(ns, 42);
    esl_stack_IPush(ns, 7);
    esl_stack_IPush(ns, 3);
-   while (esl_stack_IPop(ns, &x) != ESL_EOD) 
+   while (esl_stack_IPop(ns, &x) != eslEOD) 
       printf("%d\n", x);
    esl_stack_Destroy(ns);   
 }
@@ -47,12 +47,12 @@ be reused without reallocation or recreation by
 original datatype.
 
 The \ccode{Push()} functions push one datum onto the stack, of the
-appropriate type. They throw \ccode{ESL\_EMEM} if the stack needs to
+appropriate type. They throw \ccode{eslEMEM} if the stack needs to
 reallocate internally but fails.
 
 The \ccode{Pop()} functions pop one datum off the stack, returning it
-through a passed pointer. They return \ccode{ESL\_OK} on success, and
-\ccode{ESL\_EOD} if the stack is empty.
+through a passed pointer. They return \ccode{eslOK} on success, and
+\ccode{eslEOD} if the stack is empty.
 
 \ccode{esl\_stack\_ObjectCount()} returns the number of objects stored
 in the stack. 

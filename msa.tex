@@ -29,20 +29,38 @@ alignment file; a normal C \ccode{FILE} stream is used for output.)
 
 \subsection{Example of using the msa API}
 
-Normally, you will only need to use four main functions from the API.
+Normally, you will only need to use five main functions from the API.
+
 To read an alignment (or alignments) from a file, you open the file
 with \ccode{esl\_msafile\_Open()} and read the alignment(s) with
-\ccode{esl\_msa\_Read()}; when you're done, close the file with
-\ccode{esl\_msafile\_Close()}. If you want to output an alignment, you
-open a normal C \ccode{FILE} stream, write the alignment(s) with
-\ccode{esl\_msa\_Read()}, and close the stream with C's
-\ccode{fclose()}.
+\ccode{esl\_msa\_Read()}; when you're done with an alignment, free it
+with \ccode{esl\_msa\_Destroy()}, and when you're done with the file,
+close it with \ccode{esl\_msafile\_Close()}. 
 
-Lots of things can go wrong with input from a user's file format, so
-the API tries to be careful about detecting different kinds of errors.
+If you want to output an alignment, you open a normal C \ccode{FILE}
+stream, write the alignment(s) with \ccode{esl\_msa\_Write()}, and
+close the stream with C's \ccode{fclose()}.
 
-Here's code that reads one or more alignment in from a file, and
-outputs them in Stockholm format:
+You may not need the other functions.  Normally, a new MSA is created
+in the \ccode{esl\_msa\_Read()} call, not by calling
+\ccode{esl\_msa\_Create()} directly, but the \ccode{\_Create()} and
+\ccode{\_Expand()} functions are provided by the API in case you need
+to write your own parser for a new format (and if so, you can follow
+one of the existing parsers in \ccode{msa.c} as an example. Similarly,
+the \ccode{esl\_msa\_GuessFileFormat()} function is normally called
+only from within \ccode{esl\_msafile\_Open()} when you open a new
+alignment file using format autodetection; but it's in the external
+API in case you find it useful for some other purpose (like, checking
+what Easel thinks a file's format is). And finally, the individual i/o
+functions for specific formats are visible in the external API, but
+you would normally just call the main \ccode{\_Read()} and
+\ccode{\_Write()} wrapper functions instead.
+
+Anyway, on to an example. The code bloats up a bit here because of
+error handling. Lots of things can go wrong with input from a user's
+file format, so the API tries to be careful about detecting different
+kinds of errors. Here's code that reads one or more alignment in from
+a file, and outputs them in Stockholm format:
 
 \begin{cchunk}
 #include <stdio.h>

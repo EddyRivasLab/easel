@@ -15,7 +15,7 @@ uniform deviate $x$ on the interval $0 \leq x < 1$.
 The algorithm implemented by \ccode{esl\_random()} is strong, but a
 bit slow compared to some other strong random number generators. It is
 essentially the \ccode{ran2()} generator from \emph{Numerical Recipes
-in C} \cite{Press92}. It implements L'Ecuyer's algorithm for combining
+in C} \citep{Press93}. It implements L'Ecuyer's algorithm for combining
 two linear congruential generators, with a Bays-Durham shuffle.
 
 The state of the random generator is encapsulated in an

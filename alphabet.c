@@ -247,7 +247,7 @@ create_amino(void)
   
   /* Add desired synonyms in the input map.
    */
-  esl_alphabet_SetSynonym(a, 'U', 'S');	    /* read selenocysteine U as a serine S */
+  esl_alphabet_SetSynonym(a, 'U', 'S');	    /* read SelCys U as a serine S */
   esl_alphabet_SetSynonym(a, '_', '-');     /* allow _ as a gap too */
   esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
@@ -393,8 +393,8 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
  *           ret_dsq - RETURN: the new digital sequence
  *           
  * Returns:  <eslOK> on success, and digitized sequence is passed 
- *           back to the caller via <ret_dsq>; caller is reponsible
- *           for freeing this with free(dsq).
+ *           back to the caller via <ret_dsq>; caller is responsible
+ *           for freeing this with <free(dsq)>.
  *           Returns <eslEINVAL> if <seq> contains one or more characters
  *           that are not recognized in the alphabet <a>.
  *           

@@ -14,11 +14,12 @@ regexp          & Regular expression matching       & easel          & \\
 stack           & Pushdown stacks                   & easel          & \\
 vectorops       & Vector operations                 & easel          & \\\hline
   \multicolumn{4}{c}{\textbf{Derived modules}}\\
-sqio            & Sequence file i/o                 & easel alphabet & \\
 bioparse\_paml  & PAML rate matrix datafiles        & easel dmatrix parse & \\
-ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
+dirichlet       & Dirichlet densities               & easel gamma random & \\ 
 gamma           & Gamma densities                   & easel random & \\
-dirichlet       & Dirichlet densities               & easel gamma random & \\ \hline     
+ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
+sqio            & Sequence file i/o                 & easel alphabet & \\
+wuss            & RNA structure annotation          & easel stack    & \\\hline
   \multicolumn{4}{c}{\textbf{Optional library interfaces}}\\
 interface\_gsl    & GNU Scientific Library          & easel dmatrix & \\
 interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
@@ -224,10 +225,10 @@ identity matrix).
 
 \end{enumerate}
 
-\begin{quote}
-Lack of skill dictates economy of style.\\
- -- Joey Ramone
-\end{quote}     
+
+
+
+
 
 
 

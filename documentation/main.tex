@@ -1,15 +1,18 @@
 \documentclass[11pt]{article}
+% alternative fonts: 
+% times, mathptmx, mathpazo, newcent, bookman
+% xref http://www.ce.cmu.edu/~kijoo/latex2pdf.pdf
+\usepackage{newcent}
 \usepackage{fullpage}
-\usepackage{times}
-\usepackage{html}
-\usepackage{apalike}
-\usepackage{url}
 \usepackage{fancyvrb}
+\usepackage[authoryear]{natbib}
+\usepackage[pdftex]{graphicx}
+\usepackage[backref,colorlinks]{hyperref}
+
 
 \input{macros}
 
 \begin{document}
-\bibliographystyle{apalike}
 
 \input{titlepage}
 \input{copyright}
@@ -19,10 +22,24 @@
 \newpage
 \section{Introduction}
 \input{intro}
+\vspace*{\fill}
+\begin{quote}
+\emph{Lack of skill dictates economy of style.} \hspace{3em} -- Joey Ramone
+\end{quote}     
+
 
 \newpage
 \section{The easel (esl) module: error handling and other fundamentals}
 \input{../easel}
+\vspace*{\fill}
+\begin{quote}
+\emph{Only a complete outsider could ask your question. Are there
+control authorities? There are nothing but control authorities. Of
+course, their purpose is not to uncover errors in the ordinary meaning
+of the word, since errors do not occur and even when an error does in
+fact occur, as in your case, who can say conclusively that it is an
+error?} \hspace{3em} -- Franz Kafka, in \emph{The Castle}
+\end{quote}     
 
 \newpage
 \section{The alphabet (abc) module: digitized biosequences}
@@ -77,6 +94,24 @@
 \subsection{Functions in the stack module}
 \input{autotext/stack_functions}
 
+\newpage
+\section{The wuss module: RNA secondary structure annotation}
+\input{../wuss}
+\subsection{Functions in the wuss module}
+\input{autotext/wuss_functions}
+
+\newpage
+\section{Stockholm format for multiple sequence alignments}
+\input{format_stockholm.tex}
+
+\newpage
+\section{WUSS notation for RNA secondary structures}
+\input{format_wuss.tex}
+
+\newpage
+\newcommand{\bibfont}{\footnotesize}
+\bibliographystyle{apalike}
+\bibliography{master,lab,books}
 
 \end{document}
 

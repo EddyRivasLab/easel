@@ -1,0 +1,47 @@
+################################################################
+# Makefile.in for Easel's miniapps
+# SVN $Id$
+SHELL = /bin/sh
+
+## your compiler and compiler flags.
+#
+CC       = @CC@
+CFLAGS   = @CFLAGS@
+DEFS     = @DEFS@
+LDFLAGS  = @LDFLAGS@
+LIBS     = -leasel @LIBS@ -lm
+
+## where is Easel?
+#
+ESLLIBDIR = -L..
+ESLINCDIR = -I..
+
+
+## list of the miniapps to compile.
+#
+PROGS = compstruct
+
+
+## Targets defining how to make miniapp executables.
+#
+all: 	$(PROGS) 
+
+${PROGS}: @EXEC_DEPENDENCY@
+	${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} ${ESLLIBDIR} -o $@ $@.o ${OBJS} ${LIBS}
+
+.c.o:
+	${CC} ${CFLAGS} ${DEFS} ${ESLINCDIR} -c $<
+
+
+
+clean:
+	-rm *.o *~
+
+distclean:
+	make clean
+	-rm -f ${PROGS}
+	-rm Makefile
+
+################################################################
+# @LICENSE@
+################################################################

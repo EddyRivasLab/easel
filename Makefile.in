@@ -1,8 +1,12 @@
-CC      = gcc
-CFLAGS  = -g -Wall
-AR      = ar rcv
+################################################################
+# Makefile for Easel
+# SVN $Id$
+
+CC      = @CC@
+CFLAGS  = @CFLAGS@
+AR      = @AR@ rcv
 LN      = ln
-RANLIB  = ranlib
+RANLIB  = @RANLIB@
 
 HEADERS = \
 	alphabet.h\
@@ -10,6 +14,7 @@ HEADERS = \
 	dirichlet.h\
 	dmatrix.h\
 	easel.h\
+	esl.h\
 	gamma.h\
 	getopts.h\
 	interface_gsl.h\
@@ -22,7 +27,8 @@ HEADERS = \
 	regexp.h\
 	sqio.h\
 	stack.h\
-	vectorops.h
+	vectorops.h\
+	wuss.h
 
 OBJS    = \
 	alphabet.o\
@@ -42,7 +48,8 @@ OBJS    = \
 	regexp.o\
 	sqio.o\
 	stack.o\
-	vectorops.o
+	vectorops.o\
+	wuss.o
 
 all: libeasel.a
 
@@ -61,13 +68,19 @@ symlinks:
 	done
 
 clean:
-	-rm -f ${OBJS} *~ libeasel.a
+	-rm -f ${OBJS} libeasel.a
+	-rm -f *~ TAGS
+	-rm -f config.log config.status
+	-rm -f example test
 
-
-reallyclean:
+distclean:
+	(cd documentation; make distclean)
+	(cd miniapps; make distclean)
 	make clean
-	(cd documentation; make clean)
 	-rm easel/*.h
+	-rm easel.h
+	-rm -rf autom4te.cache
+	-rm Makefile
 
 tags:
 	etags *.[ch] Makefile
@@ -76,3 +89,7 @@ tags:
 
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]
+
+################################################################
+# @LICENSE@
+################################################################

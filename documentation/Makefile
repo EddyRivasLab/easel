@@ -10,7 +10,8 @@ APITEX =  alphabet\
 	  random\
 	  regexp\
 	  sqio\
-	  stack
+	  stack\
+	  wuss
 
 
 # Each module should be able to be autodocumented, converting
@@ -25,10 +26,13 @@ AUTOTEX = alphabet\
 	  random\
 	  regexp\
 	  sqio\
-	  stack
+	  stack\
+	  wuss
 
 pdf:
 	make autodoc
+	pdflatex main
+	bibtex   main
 	pdflatex main
 	pdflatex main
 
@@ -38,5 +42,10 @@ autodoc:
 	done
 
 clean:
-	-rm *~ main.log main.out main.pdf main.aux main.toc
+	-rm *~ TAGS
+	-rm main.log main.out main.pdf main.aux main.toc 
+	-rm main.bbl main.blg main.brf
 	-rm autotext/*.tex
+
+distclean:
+	make clean

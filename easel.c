@@ -47,6 +47,19 @@ esl_error(int code, char *file, int line, char *format, ...)
   }
 }
 
+void
+esl_fatal(char *format, ...)
+{
+  va_list argp;
+
+  va_start(argp, format);
+  vfprintf(stderr, format, argp);
+  va_end(argp);
+  fprintf(stderr, "\n");
+  fflush(stderr);
+  exit(1);
+}
+
 
 
 /* Function:  esl_Free2D()
@@ -99,10 +112,45 @@ esl_Free3D(void ***p, int dim1, int dim2)
 }
 
 
+/* Function:  esl_banner()
+ * Incept:    SRE, Mon Feb 14 11:26:56 2005 [St. Louis]
+ *
+ * Purpose:   Print one-line <banner>, then version/copyright/license info
+ *            to <fp>. For example, 
+ *            <esl_banner(stdout, "compstruct :: compare RNA structures");>
+ *            Used by all the Easel miniapps.
+ *            
+ * Note:    
+ *    Needs to pick up preprocessor #define's from easel.h,
+ *    as set by ./configure:
+ *            
+ *    symbol          example
+ *    ------          ----------------
+ *    EASEL_VERSION   "0.1"
+ *    EASEL_DATE      "February 2005"
+ *    EASEL_COPYRIGHT "Copyright (C) 2004-2005 HHMI/Washington University"
+ *    EASEL_LICENSE   "Licensed under the Creative Commons Attribution License"
+ *
+ * Returns:   (void)
+ */
+void
+esl_banner(FILE *fp, char *banner)
+{
+  fprintf(fp, "%s\n", banner);
+  fprintf(fp, "Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE);
+  fprintf(fp, "%s\n", EASEL_COPYRIGHT);
+  fprintf(fp, "%s\n", EASEL_LICENSE);
+  fprintf(fp, "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+}
 
 
-
-
+/******************************************************************************
+ * Easel's replacements for C library functions:
+ *  fgets()  ->  esl_fgets()     fgets() with dynamic allocation
+ *  strdup() ->  esl_strdup()    strdup() is not ANSI
+ *  strcat() ->  esl_strcat()    strcat() with dynamic allocation
+ *  strtok() ->  esl_strtok()    threadsafe strtok()
+ *****************************************************************************/
 
 /* Function: esl_fgets()
  * Date:     SRE, Thu May 13 10:56:28 1999 [St. Louis]

@@ -1,9 +1,11 @@
-/* easel.h
+/* easel.h.in
  * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
  * SVN $Id$
- * 
+ *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
+ *
+ * Created from easel.h.in by ./configure.
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -13,12 +15,21 @@
 #include <stdarg.h>		/* for va_list */
 
 
+/*****************************************************************
+ * Version info, set by the ./configure script.
+ *****************************************************************/
+
+#undef EASEL_VERSION    
+#undef EASEL_DATE      
+#undef EASEL_COPYRIGHT 
+#undef EASEL_LICENSE   
+
 
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
  *
  * Wrapping in the while(0) loop allows one to write
- *     if (something) ESL_ERROR(code,mesg); 
+ *     if (something) ESL_ERROR(code,mesg);
  * without the trailing semicolon being a null statement
  * after macro expansion.
  */
@@ -41,7 +52,7 @@
 #define eslEMEM            5	/* malloc or realloc failed     */
 #define eslENOTFOUND       6	/* file or key not found        */
 #define eslEFORMAT         7	/* file format not correct      */
-#define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */   
+#define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */
 #define eslEDIVZERO        9	/* attempted div by zero        */
 #define eslEINCOMPAT      10	/* incompatible parameters      */
 #define eslEINVAL         11	/* invalid argument/parameter   */
@@ -62,45 +73,48 @@
 #define ESL_DPRINTF1(x)  printf x
 #define ESL_DASSERT1(x)  assert x
 #else
-#define ESL_DPRINTF1(x)  
+#define ESL_DPRINTF1(x)
 #define ESL_DASSERT1(x)
 #endif
 #if (eslDEBUGLEVEL >= 2)
 #define ESL_DPRINTF2(x)  printf x
 #define ESL_DASSERT2(x)  assert x
 #else
-#define ESL_DPRINTF2(x)  
+#define ESL_DPRINTF2(x)
 #define ESL_DASSERT2(x)
 #endif
 #if (eslDEBUGLEVEL >= 3)
 #define ESL_DPRINTF3(x)  printf x
 #define ESL_DASSERT3(x)  assert x
 #else
-#define ESL_DPRINTF3(x)  
+#define ESL_DPRINTF3(x)
 #define ESL_DASSERT3(x)
 #endif
 
-typedef void (*esl_error_handler_f)(int code, char *file, int line, 
+typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;
 
 extern void esl_error(int code, char *file, int line, char *format, ...);
 extern void esl_error_SetHandler(esl_error_handler_f);
 extern void esl_error_ResetDefaultHandler(void);
+extern void esl_fatal(char *format, ...);
 
-extern void  esl_Free2D(void  **p, int dim1);
-extern void  esl_Free3D(void ***p, int dim1, int dim2);
+extern void esl_Free2D(void  **p, int dim1);
+extern void esl_Free3D(void ***p, int dim1, int dim2);
 
-extern int esl_strdup(char *s, int n, char **ret_dup);
-extern int esl_strcat(char **dest, int ldest, char *src, int lsrc);
-extern int esl_fgets(char **buf, int *n, FILE *fp);
-extern int esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+extern void esl_banner(FILE *fp, char *banner);
 
-extern int esl_FileExists(char *filename);
-extern int esl_FileConcat(char *dir, char *file, char **ret_path);
-extern int esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
-extern int esl_FileEnvOpen(char *fname, char *env, 
-			   FILE **ret_fp, char **ret_path);
+extern int  esl_strdup(char *s, int n, char **ret_dup);
+extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
+extern int  esl_fgets(char **buf, int *n, FILE *fp);
+extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+
+extern int  esl_FileExists(char *filename);
+extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
+extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
+extern int  esl_FileEnvOpen(char *fname, char *env,
+			    FILE **ret_fp, char **ret_path);
 
 
 /* Macros for allocation/reallocation idioms w/ error handling.
@@ -149,13 +163,13 @@ extern int esl_FileEnvOpen(char *fname, char *env,
  * Setting DIRSLASH correctly is probably not the only thing
  * that would need to be done to port to other OS's, but it's
  * probably a start.
- * 
+ *
  * The code assumes that '.' is used for file name extensions,
  * such as "foo.bar".
- * 
+ *
  * This gets used in easel.c's *_File*() functions.
  */
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
- 
+
 
 #endif /*eslEASEL_INCLUDED*/

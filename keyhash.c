@@ -187,7 +187,7 @@ esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
   /* Was this key already stored?
    */
   for (new = h->table[val]; new != NULL; new = new->nxt)
-    if (strcmp(key, new->key) == 0) { *ret_idx = new->idx; return eslEDUP;}
+    if (strcmp(key, new->key) == 0) { *ret_index = new->idx; return eslEDUP;}
 
   /* If not, create the new element; don't change the hash until this
    * allocation succeeds.

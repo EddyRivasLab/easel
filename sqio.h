@@ -47,10 +47,10 @@ typedef struct {
 
   int  *inmap;			/* pointer to an input map, 0..127  */
 
-  char  buf[ESL_READBUFSIZE];	/* buffer for fread() block input                          */
+  char  buf[ESL_READBUFSIZE];	/* buffer for fread() block input           */
   int   nc;			/* # of valid chars in buf (usually full, but less at EOF) */  
-  int   pos;			/* current parsing position in the buffer                  */
-  int   linenumber;		/* What line of the file this is (1..N)                    */
+  int   pos;			/* current parsing position in the buffer   */
+  int   linenumber;		/* What line of the file this is (1..N)     */
 
   /* SSI indexing eventually goes here, including rpl,bpl counting;
    * xref squid.
@@ -61,22 +61,22 @@ typedef struct {
  * nalloc+aalloc+dalloc.
  */
 typedef struct {
-  char *name;	                /* name                     */
-  int   nalloc;			/* allocated length of name */
+  char *name;	        /* name                     */
+  int   nalloc;		/* allocated length of name */
   
-  char *acc;	                /* accession                     */
-  int   aalloc;			/* allocated length of accession */
+  char *acc;	        /* accession                     */
+  int   aalloc;	       	/* allocated length of accession */
 
-  char *desc;			/* description */
-  int   dalloc;			/* allocated length of description */
+  char *desc;		/* description */
+  int   dalloc;		/* allocated length of description */
 
-  char *seq;			/* growing sequence during a normal parse, or NULL */
-  char *dsq;		        /* growing digital seq during digital parse, or NULL */
-  char *ss;			/* secondary structure annotation    */
-  int   n;			/* current length of seq             */
-  int   salloc;		        /* current allocation length for seq */
+  char *seq;		/* growing sequence during a normal parse, or NULL */
+  char *dsq;		/* growing digital seq during digital parse, or NULL */
+  char *ss;		/* secondary structure annotation    */
+  int   n;		/* current length of seq             */
+  int   salloc;		/* current allocation length for seq */
 
-  char *optmem;			/* optimized mem storage area; see esl_sq_Squeeze() */
+  char *optmem;		/* optimized mem storage area; see esl_sq_Squeeze() */
 } ESL_SQ;
 
 

@@ -39,32 +39,20 @@ static int verify_parse(ESL_MSA *msa, char *errbuf);
  * Incept:    SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
  *
  * Purpose:   Creates and initializes an <ESL_MSA> object, and returns a
- *            pointer to it. Designed to be used in two ways. 
- *            
- *            1) If you know exactly the dimensions of the alignment,
- *            both <nseq> and <alen>, then call: 
- *            <msa = esl_msa_Create(nseq, alen)>.
- *                    
- *            2) If you don't know the dimensions of the alignment (a
- *            typical situation if you're parsing an alignment file),
- *            then you can request 
- *            SRE STOPPED HERE
- * 
- *            then call <msa = esl_msa_Create(nseq, 0)>. Sequences
- *            will be dynamically allocated once <alen> is known.
- *              
- *            3) We don't even know the number of sequences, so
- *            we'll have to dynamically expand allocations. This is
- *            the typical situation
- *               We provide an initial <nseq> that will be 
- *               expanded (by doubling) when needed. e.g.:
- *                \begin{cchunk}
- *                  msa = esl_msa_Create(16, 0);
- *                  if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);
- *                \end{cchunk}   
- *                
- *           A created <msa> can only be <Expand()>'ed if <alen> is 0
- *           (i.e. case 2,3). 
+ *            pointer to it. If you know exactly the dimensions of the
+ *            alignment, both <nseq> and <alen>, then <msa =
+ *            esl_msa_Create(nseq, alen)> allocates the whole thing at
+ *            once.  If you don't know the dimensions of the alignment
+ *            (a typical situation if you're parsing an alignment
+ *            file), then pass <alen>=0 (your parser must handle allocation
+ *            of individual sequences), and pass an <nseq> that
+ *            will be used as an initial allocation size; for example,
+ *            <msa = esl_msa_Create(16, 0)>. This allocation can be
+ *            expanded (by doubling) by calling <esl_msa_Expand()>, 
+ *            for example: 
+ *             <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
+ *
+ *           A created <msa> can only be <_Expand()>'ed if <alen> is 0.
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
  *           <alen> - length of alignment in columns, or 0      
@@ -793,7 +781,7 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
  * information is present; makes sure required information is
  * consistent. Some fields that are only use during parsing may be
  * freed (sqlen, for example), and some fields are finalized now
- * (msa::alen is set, for example). 
+ * (<msa->alen> is set, for example). 
  * 
  * <errbuf> is a place to sprintf an informative message about the
  * reason for a parse error. The caller provides an <errbuf>
@@ -1140,7 +1128,7 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 }
 
 /* msafile_getline():
- * load the next line of <afp> into <afp>::<buf>. 
+ * load the next line of <afp> into <afp->buf>. 
  * Returns eslOK on success, eslEOF on normal eof.
  * Throws eslEMEM on alloc failure.
  */
@@ -1170,7 +1158,7 @@ msafile_getline(ESL_MSAFILE *afp)
  * Returns:   <eslOK> on success, and <ret_msa> points at the
  *            new MSA object.
  *            <eslEOF> if there are no more alignments in the file.
- *            <eslEFORMAT> if there is a parse error, and <afp::errbuf>
+ *            <eslEFORMAT> if there is a parse error, and <afp->errbuf>
  *            is set to an informative message.
  *            
  * Throws:    <eslEMEM> on allocation failure.           
@@ -1223,12 +1211,12 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
  * Incept:    SRE, Fri Jan 28 07:29:00 2005 [St. Louis]
  *
  * Purpose:   Attempts to determine the format of an open alignment file
- *            <afp>, for which <afp::format> is <eslMSAFILE_UNKNOWN>. 
- *            If successful, sets <afp::format>.
+ *            <afp>, for which <afp->format> is <eslMSAFILE_UNKNOWN>. 
+ *            If successful, sets <afp->format>.
  *            
  *            Currently a placeholder: it always guesses Stockholm!
  *
- * Returns:   <eslOK> on success, and sets <afp::format>. 
+ * Returns:   <eslOK> on success, and sets <afp->format>. 
  *            <eslEFORMAT> if format can't be determined.
  *
  * Xref:      squid's MSAFileFormat()
@@ -1274,10 +1262,12 @@ static int maxwidth(char **s, int n);
  *            file <afp>, leaving the alignment in <ret_msa>.
  *
  * Returns:   <eslOK> on success, and the alignment is in <ret_msa>.
- *            <eslEOF> if there are no more alignments in <afp>. 
+ *            Returns <eslEOF> if there are no more alignments in <afp>,
+ *            and <ret_msa> is set to NULL.
  *            <eslEFORMAT> if parse fails because of a file format problem,
  *            in which case afp->errbuf is set to contain a formatted message 
- *            that indicates the cause of the problem.
+ *            that indicates the cause of the problem, and <ret_msa> is
+ *            set to NULL. 
  *
  * Throws:    <eslEMEM> on allocation error.
  *
@@ -2053,17 +2043,78 @@ main(int argc, char **argv)
     }
 
   esl_msafile_Close(afp);
-  exit(1);
+  exit(0);
 }
 #endif /*eslMSA_EXAMPLE*/
  
+#ifdef eslMSA_TESTDRIVE
+/* gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE msa.c easel.c 
+ * ./test
+ * 
+ * or add -DeslAUGMENT, and
+ * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT msa.c easel.c keyhash.c
+ */
+#include <stdlib.h>
+#include <stdio.h>
 
+#include <easel/easel.h>
+#ifdef eslAUGMENT
+#include <easel/keyhash.h>
+#endif
+#include <easel/msa.h>
+
+int
+main(int argc, char **argv)
+{
+  char         filename[] = "tmpxxx.ali";
+  int          fmt;
+  FILE        *fp;
+  ESL_MSAFILE *afp;
+  ESL_MSA     *msa;
+  int          status;
+
+  /* Create a test alignment. 
+   * Extensive format testing will rely on external example files;
+   * this is just going to be a quickie test that nothing's grossly
+   * wrong.
+   */
+  if ((fp = fopen(filename, "w")) == NULL) abort();
+  fprintf(fp, "# STOCKHOLM 1.0\n");
+  fprintf(fp, "seq1 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(fp, "seq2 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(fp, "\n");
+  fprintf(fp, "seq1 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(fp, "seq2 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(fp, "//\n");
+  fclose(fp);
+
+  /* Read it back in
+   */
+  fmt = eslMSAFILE_UNKNOWN;
+  status = esl_msafile_Open(filename, fmt, NULL, &afp);
+  if (status != eslOK) abort();
+
+  status = esl_msa_Read(afp, &msa);
+  if (status != eslOK) abort();
+
+  /* Check that it's ok.
+   */
+  if (msa->alen != 40) abort();
+  if (msa->nseq != 2)  abort();
+  if (strcmp(msa->aseq[0], "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY") != 0) abort();
+  if (strcmp(msa->aseq[1], "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY") != 0) abort();
+
+
+  /* Try to read one more; file should be empty, so we get EOF.
+   */
+  status = esl_msa_Read(afp, &msa); 
+  if (status != eslEOF) abort();
+  esl_msafile_Close(afp);
+  exit(0);
+}
+#endif /*eslMSA_TESTDRIVE*/
 
 /*-------------------- end of test drivers and examples ---------------------*/
-
-
-
-
 
 
 /*****************************************************************
