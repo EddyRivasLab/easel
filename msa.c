@@ -11,6 +11,9 @@
 #include <ctype.h>
 
 #include <easel/easel.h>
+#ifdef eslAUGMENT
+#include <easel/keyhash.h>
+#endif
 #include <easel/msa.h>
 
 
@@ -135,7 +138,7 @@ esl_msa_Create(int nseq, int alen)
   msa->ngr            = 0;
 
 #ifdef eslKEYHASH_INCLUDED
-  msa->index     = GKIInit();
+  msa->index     = esl_keyhash_Create();
   msa->gs_idx    = NULL;
   msa->gc_idx    = NULL;
   msa->gr_idx    = NULL;
@@ -222,16 +225,15 @@ esl_msa_Destroy(ESL_MSA *msa)
   esl_Free3D((void ***)msa->gr,      msa->ngr, msa->nseq);
 
 #ifdef eslKEYHASH_INCLUDED
-  GKIFree(msa->index);
-  GKIFree(msa->gs_idx);
-  GKIFree(msa->gc_idx);
-  GKIFree(msa->gr_idx);
+  esl_keyhash_Destroy(msa->index);
+  esl_keyhash_Destroy(msa->gs_idx);
+  esl_keyhash_Destroy(msa->gc_idx);
+  esl_keyhash_Destroy(msa->gr_idx);
 #endif /* keyhash augmentation */  
 
   free(msa);
   return;
 }
-
 
 
 /* Function:  esl_msa_Expand()
@@ -388,10 +390,11 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
    * or, if we're keyhash-augmented, by hashing.
    */
 #ifdef eslKEYHASH_INCLUDED                  
-  if ((seqidx = GKIKeyIndex(msa->index, name)) >= 0)
+  if ((seqidx = esl_gki_Lookup(msa->index, name)) >= 0)
     { *ret_idx = seqidx; return eslOK; }
 				/* else, it's a new name */
-  seqidx = GKIStoreKey(msa->index, name);
+  status = esl_gki_Store(msa->index, name, &seqidx);
+  if (status != eslOK) return status;
 #else
   for (seqidx = 0; seqidx < msa->nseq; seqidx++)
     if (strcmp(msa->sqname[seqidx], name) == 0) break;
@@ -572,9 +575,10 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
   if (msa->gs_tag == NULL)	
     {
 #ifdef eslKEYHASH_INCLUDED
-      msa->gs_idx = GKIInit();
-      tagidx      = GKIStoreKey(msa->gs_idx, tag);
-      SQD_DASSERT1((tagidx == 0));
+      msa->gs_idx = esl_keyhash_Create();
+      status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
+      if (status != eslOK) return status;
+      ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
 #endif
@@ -591,10 +595,11 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
        * tagidx == ngs; this is a new one.
        */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = GKIKeyIndex(msa->gs_idx, tag); 
+      tagidx  = esl_gki_Lookup(msa->gs_idx, tag); 
       if (tagidx < 0) {
-	tagidx = GKIStoreKey(msa->gs_idx, tag);
-	SQD_DASSERT1((tagidx == msa->ngs));
+	status = esl_gki_Store(msa->gs_idx, tag, &tagidx);
+	if (status != eslOK) return status;
+	ESL_DASSERT1((tagidx == msa->ngs));
       }
 #else
       for (tagidx = 0; tagidx < msa->ngs; tagidx++)
@@ -662,6 +667,7 @@ static int
 append_gc(ESL_MSA *msa, char *tag, char *value)
 {
   int   tagidx;
+  int   status;
   void *p;
 
   /* Is this an unparsed tag name that we recognize?
@@ -671,9 +677,10 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
   if (msa->gc_tag == NULL)	/* first tag? init w/ malloc  */
     {
 #ifdef eslKEYHASH_INCLUDED
-      msa->gc_idx = GKIInit();
-      tagidx      = GKIStoreKey(msa->gc_idx, tag);      
-      SQD_DASSERT1((tagidx == 0));
+      msa->gc_idx = esl_keyhash_Create();
+      status = esl_gki_Store(msa->gc_idx, tag, &tagidx);      
+      if (status != eslOK) return status;
+      ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
 #endif
@@ -685,11 +692,12 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
     {			/* new tag? */
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = GKIKeyIndex(msa->gc_idx, tag); 
+      tagidx  = esl_gki_Lookup(msa->gc_idx, tag); 
       if (tagidx < 0) 
 	{		
-	  tagidx = GKIStoreKey(msa->gc_idx, tag);
-	  SQD_DASSERT1((tagidx == msa->ngc));
+	  status = esl_gki_Store(msa->gc_idx, tag, &tagidx);
+	  if (status != eslOK) return status;
+	  ESL_DASSERT1((tagidx == msa->ngc));
 	}
 #else
       for (tagidx = 0; tagidx < msa->ngc; tagidx++)
@@ -708,8 +716,8 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
    */
   if (tagidx == msa->ngc) 
     {
-      if (esl_strdup(tag, -1, &(msa->gc_tag[tagidx])) != eslOK) 
-	return eslEMEM;
+      if ((status = esl_strdup(tag, -1, &(msa->gc_tag[tagidx]))) != eslOK)
+	return status;
       msa->ngc++;
     }
   return (esl_strcat(&(msa->gc[tagidx]), -1, value, -1));
@@ -740,13 +748,15 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
   void *p;
   int tagidx;
   int i;
+  int status;
 
   if (msa->gr_tag == NULL)	/* first tag? init w/ malloc  */
     {
 #ifdef eslKEYHASH_INCLUDED
-      msa->gr_idx = GKIInit();
-      tagidx      = GKIStoreKey(msa->gr_idx, tag);
-      SQD_DASSERT1((tagidx == 0));
+      msa->gr_idx = esl_keyhash_Create();
+      status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
+      if (status != eslOK) return status;
+      ESL_DASSERT1((tagidx == 0));
 #else
       tagidx = 0;
 #endif
@@ -761,11 +771,12 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
       /* get tagidx for this GR tag. existing<ngr; new=ngr.
        */
 #ifdef eslKEYHASH_INCLUDED
-      tagidx  = GKIKeyIndex(msa->gr_idx, tag); 
+      tagidx  = esl_gki_Lookup(msa->gr_idx, tag); 
       if (tagidx < 0) 
 	{	
-	  tagidx = GKIStoreKey(msa->gr_idx, tag);
-	  SQD_DASSERT1((tagidx == msa->ngr));
+	  status = esl_gki_Store(msa->gr_idx, tag, &tagidx);
+	  if (status != eslOK) return status;
+	  ESL_DASSERT1((tagidx == msa->ngr));
 	}
 #else
       for (tagidx = 0; tagidx < msa->ngr; tagidx++)
@@ -784,8 +795,8 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
 
   if (tagidx == msa->ngr) 
     {
-      if (esl_strdup(tag, -1, &(msa->gr_tag[tagidx])) != eslOK)
-	return eslEMEM;
+      if ((status = esl_strdup(tag, -1, &(msa->gr_tag[tagidx]))) != eslOK)
+	return status;
       msa->ngr++;
     }
   return (esl_strcat(&(msa->gr[tagidx][sqidx]), -1, value, -1));
@@ -1987,12 +1998,19 @@ maxwidth(char **s, int n)
  * Example and test driver
  *****************************************************************************/
 
-#ifdef eslMSA_EXAMPLE1
-/* gcc -g -Wall -o example1 -I. -DeslMSA_EXAMPLE1 msa.c easel.c 
+#ifdef eslMSA_EXAMPLE
+/* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE msa.c easel.c 
+ * time ./example SSU_rRNA_5
+ * 
+ * or add -DeslAUGMENT, and
+ * gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT msa.c easel.c keyhash.c
  */
 #include <stdio.h>
 
 #include <easel/easel.h>
+#ifdef eslAUGMENT
+#include <easel/keyhash.h>
+#endif
 #include <easel/msa.h>
 
 int
@@ -2007,7 +2025,7 @@ main(int argc, char **argv)
 
   filename = argv[1];
   fmt      = eslMSAFILE_UNKNOWN;
-  
+
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
   if (status == eslENOTFOUND) {
     fprintf(stderr, "Alignment file %s not readable\n", filename);
@@ -2048,7 +2066,7 @@ main(int argc, char **argv)
 }
 
 
-#endif /*eslMSA_EXAMPLE1*/
+#endif /*eslMSA_EXAMPLE*/
  
 
 

@@ -14,6 +14,7 @@ HEADERS = \
 	getopts.h\
 	interface_gsl.h\
 	interface_lapack.h\
+	keyhash.h\
 	msa.h\
 	parse.h\
 	random.h\
@@ -33,6 +34,7 @@ OBJS    = \
 	getopts.o\
 	interface_gsl.o\
 	interface_lapack.o\
+	keyhash.o\
 	msa.o\
 	parse.o\
 	random.o\

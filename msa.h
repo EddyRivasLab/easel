@@ -68,9 +68,6 @@ typedef struct {
    * That is, we know what type of information it is, but it's
    * either (interpreted as) free-text comment, or it's Stockholm 
    * markup with unfamiliar tags.
-   * 
-   * Stockholm GF, GS, GC, and GR tags are only available by 
-   * augmentation with the keyhash module.
    */
   char  **comment;              /* free text comments, or NULL      */
   int     ncomment;		/* number of comment lines          */
@@ -93,11 +90,15 @@ typedef struct {
   char ***gr;                   /* [0..ngr][0..nseq-1][0..alen-1] markup */
   int     ngr;			/* number of #=GR tag types              */
 
-#ifdef eslKEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
-  GKI    *index;	        /* name ->seqidx hash table */
-  GKI    *gs_idx;               /* hash of #=GS tag types   */
-  GKI    *gc_idx;               /* hash of #=GC tag types   */
-  GKI    *gr_idx;               /* hash of #=GR tag types   */
+  /* Optional augmentation w/ keyhashes. 
+   * This can significantly speed up parsing of large alignments
+   * with many (>10,000) sequences.
+   */
+#ifdef eslKEYHASH_INCLUDED	
+  ESL_KEYHASH  *index;	        /* name ->seqidx hash table */
+  ESL_KEYHASH  *gs_idx;         /* hash of #=GS tag types   */
+  ESL_KEYHASH  *gc_idx;         /* hash of #=GC tag types   */
+  ESL_KEYHASH  *gr_idx;         /* hash of #=GR tag types   */
 #endif /*keyhash augmentation*/
 } ESL_MSA;
 
@@ -124,7 +125,7 @@ typedef struct {
   int   do_stdin;		/* TRUE if f is stdin (won't close f)        */
   int   format;			/* format of alignment file we're reading    */
 
-#ifdef ESL_SSI_INCLUDED		/* AUGMENTATION: SSI indexing of an MSA db   */
+#ifdef eslSSI_INCLUDED		/* AUGMENTATION: SSI indexing of an MSA db   */
   SSIFILE *ssi;		        /* open SSI index file; or NULL, if none.    */
 #endif
 } ESL_MSAFILE;

@@ -478,7 +478,9 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
   if (ret_newpath != NULL) *ret_newpath = NULL;
 
   lastdot   = strrchr(filename, '.'); /* check for suffix to replace */
-  if (strchr(lastdot, eslDIRSLASH) != NULL) lastdot = NULL; /*foo.1/filename */
+  if (lastdot != NULL && 
+      strchr(lastdot, eslDIRSLASH) != NULL) 
+    lastdot = NULL; /*foo.1/filename case - don't be fooled.*/
   nf = (lastdot == NULL)? strlen(filename) : lastdot-filename;
   
   new = malloc(sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */

@@ -32,6 +32,7 @@
      return NULL; }\
      while (0)
 
+
 #define eslOK              0	/* no error/success             */
 #define eslFAIL            1    /* failure                      */
 #define eslEOL             2	/* end-of-line (often normal)   */
@@ -49,6 +50,34 @@
 #define eslEINCONCEIVABLE 14    /* "can't happen" error         */
 #define eslESYNTAX        15    /* invalid syntax in input data */
 #define eslERANGE         16    /* value out of allowed range   */
+
+/* Debugging hooks, w/ three levels (1-3).
+ */
+#ifndef eslDEBUGLEVEL
+#define eslDEBUGLEVEL 0
+#endif
+
+#if (eslDEBUGLEVEL >= 1)
+#define ESL_DPRINTF1(x)  printf x
+#define ESL_DASSERT1(x)  assert x
+#else
+#define ESL_DPRINTF1(x)  
+#define ESL_DASSERT1(x)
+#endif
+#if (eslDEBUGLEVEL >= 2)
+#define ESL_DPRINTF2(x)  printf x
+#define ESL_DASSERT2(x)  assert x
+#else
+#define ESL_DPRINTF2(x)  
+#define ESL_DASSERT2(x)
+#endif
+#if (eslDEBUGLEVEL >= 3)
+#define ESL_DPRINTF3(x)  printf x
+#define ESL_DASSERT3(x)  assert x
+#else
+#define ESL_DPRINTF3(x)  
+#define ESL_DASSERT3(x)
+#endif
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line, 
 				    char *format, va_list argp);
