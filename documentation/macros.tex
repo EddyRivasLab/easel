@@ -1,3 +1,26 @@
 % Typography.
+\newcommand{\cmacro}[1]{\texttt{#1}}
+\newcommand{\cvar}[1]{\texttt{#1}}
+\newcommand{\cvartype}[1]{\texttt{#1}}
 \newcommand{\cstruct}[1]{\texttt{#1}}
+\newcommand{\cfunc}[1]{\texttt{#1}}
 \newcommand{\cfile}[1]{\texttt{#1}}
+
+\DefineVerbatimEnvironment{cchunk}{Verbatim}{fontsize=\scriptsize,xleftmargin=2.0\parindent}%
+
+% Description-like environment for producing lists like:
+%
+%     label  stuff, stuff, stuff
+%
+%    label2  more stuff, more stuff,
+%            more stuff.
+% \begin{sreitems}{Longest label} \item[label] stuff, ... \end{sreitems}
+% SRE, Wed Dec 27 11:59:43 2000
+%
+\newenvironment{sreitems}[1]{%
+     \begin{list}{}{%
+       \settowidth{\labelwidth}{#1}%
+       \setlength{\leftmargin}{\labelwidth}%
+       \addtolength{\leftmargin}{\labelsep}%
+       }}
+     {\end{list}}
