@@ -9,10 +9,38 @@
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
-
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
+
+
+/*****************************************************************
+ * Available augmentations.
+ * 
+ * If you grab a single module from Easel to use it by itself,
+ * leave all these #undef'd; you have no augmentations.
+ * 
+ * If you grab additional Easel .c files, you can enable their
+ * augmentations they provide to other modules by #defining the
+ * modules you have below. Alternatively, you can -D them on
+ * the compile line, as in cc -DeslAUGMENT_SSI -DeslAUGMENT_MSA.
+ * 
+ * If you compile and install the complete Easel library, all of these
+ * get #defined automatically by ./configure. So, if you steal files
+ * from an installed library, just set these all back to #undef
+ * (depending on which files you have).
+ *****************************************************************/
+
+#undef eslAUGMENT_KEYHASH	/* faster alignment input       [msa]       */
+#undef eslAUGMENT_SSI		/* fast indexing into datafiles [msa, sqio] */
+#undef eslAUGMENT_MSA		/* allow sqio to read MSA files [sqio]      */
+
+
+
+
+/*------------------------------------------------------------------------*/
+/*------------ no user serviceable parts below this line -----------------*/
+/*------------------------------------------------------------------------*/
 
 
 /*****************************************************************
@@ -23,7 +51,6 @@
 #undef EASEL_DATE      
 #undef EASEL_COPYRIGHT 
 #undef EASEL_LICENSE   
-
 
 /* Error handling.
  * Originally modeled on GNU Scientific Library (GSL).
@@ -42,7 +69,6 @@
      esl_error(code, __FILE__, __LINE__, mesg);\
      return NULL; }\
      while (0)
-
 
 #define eslOK              0	/* no error/success             */
 #define eslFAIL            1    /* failure                      */
@@ -150,10 +176,10 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslCONSTANT_E    2.71828182845904523536028747135
 #define eslCONSTANT_PI   3.14159265358979323846264338328
 
-/* For now, we're only testing Easel on POSIX systems (Linux),
- * but eventually we'll want a pure ANSI C mode for portability
+/* msa.c and sqio.c can read gzip'ed files if popen() is available;
+ * popen() is not ANSI, though, it's POSIX.2.
  */
-#define eslPOSIX_AUGMENTATION
+#undef HAVE_POPEN
 
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:

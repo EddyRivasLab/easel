@@ -70,6 +70,7 @@ symlinks:
 clean:
 	-rm -f ${OBJS} libeasel.a
 	-rm -f *~ TAGS
+	-rm -f core.[0-9]*
 	-rm -f config.log config.status
 	-rm -f example test
 

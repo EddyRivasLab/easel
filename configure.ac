@@ -79,6 +79,13 @@ AC_PROG_RANLIB
 AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 
 
+# msa.c and sqio.c can read gzip'ed datafiles via popen(),
+# if popen() is available: set preprocessor variable HAVE_POPEN.
+# 
+AC_CHECK_FUNCS(popen);
+
+
+
 
 # GNU make check; format of makefile dependency lines for executables.
 # original from John Darrington <j.darrington@elvis.murdoch.edu.au> 

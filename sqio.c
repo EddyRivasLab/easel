@@ -1,5 +1,8 @@
 /* sqio.c
  * Sequence file i/o.
+ * 
+ * SRE, Thu Feb 17 17:45:51 2005
+ * SVN $Id$
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,12 +10,26 @@
 #include <ctype.h>
 
 #include <easel/easel.h>
-#include <easel/alphabet.h>
-#include <easel/parse.h>
 #include <easel/sqio.h>
+
+#ifdef eslAUGMENT_ALPHABET
+#include <easel/alphabet.h>	/* alphabet augmentation adds digital sequences */
+#endif 
+#ifdef eslAUGMENT_MSA
+#include <easel/msa.h>		/* msa augmentation adds ability to read MSAs   */
+#endif
+
 
 static int check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
 			 char **s, int i, int *slen);
+
+#ifdef eslAUGMENT_MSA /* msa module augmentation provides msa<->sqio interop */
+static int extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
+#endif
+
+/*****************************************************************
+ * Object manipulation for an ESL_SQ.
+ *****************************************************************/ 
 
 /* Function:  esl_sq_Create()
  * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
@@ -135,36 +152,39 @@ int
 esl_sq_Squeeze(ESL_SQ *sq)
 {
   int   nlen, alen, dlen, len;
-  char *name, *acc, *desc, *seq;
+  char *name, *acc, *desc, *seq, *ss, *dsq;
 
   nlen = strlen(sq->name);
   alen = strlen(sq->acc);
   dlen = strlen(sq->desc);
-  
-  len = nlen + alen + dlen + sq->n + 4;
+
+  len = nlen + alen + dlen + sq->n + 4; 
+  if (sq->ss  != NULL) len += sq->n+1;
+  if (sq->dsq != NULL) len += sq->n+2;
 
   if ((sq->optmem = malloc(sizeof(char) * len)) == NULL) 
     ESL_ERROR(eslEMEM, "allocation failed");
   
-  name = sq->optmem;                    memcpy(name, sq->name, nlen+1);
-  acc  = sq->optmem+(nlen+1);           memcpy(acc,  sq->acc,  alen+1);
-  desc = sq->optmem+(nlen+alen+2);      memcpy(desc, sq->desc, dlen+1);
-  seq  = sq->optmem+(nlen+alen+dlen+3); memcpy(seq,  sq->seq,  sq->n+1);
+  len  = 0;
+  name = sq->optmem+len; memcpy(name, sq->name, nlen+1);  len+=nlen+1;
+  acc  = sq->optmem+len; memcpy(acc,  sq->acc,  alen+1);  len+=alen+1;
+  desc = sq->optmem+len; memcpy(desc, sq->desc, dlen+1);  len+=dlen+1;
+  seq  = sq->optmem+len; memcpy(seq,  sq->seq,  sq->n+1); len+=sq->n+1;
 
-  free(sq->name); sq->nalloc = 0; sq->name = NULL;
-  free(sq->acc);  sq->aalloc = 0; sq->acc  = NULL;
-  free(sq->desc); sq->dalloc = 0; sq->desc = NULL;
-  free(sq->seq);  sq->salloc = 0; sq->seq  = NULL;
+  if (sq->ss != NULL)
+    { ss  = sq->optmem+len; memcpy(ss,  sq->ss,  sq->n+1); len+=sq->n+1; }
+  if (sq->dsq != NULL)
+    { dsq = sq->optmem+len; memcpy(dsq, sq->dsq, sq->n+2); len+=sq->n+2; }
 
-  sq->name = name;
-  sq->acc  = acc;
-  sq->desc = desc;
-  sq->seq  = seq;
+  free(sq->name); sq->nalloc = 0; sq->name = name;
+  free(sq->acc);  sq->aalloc = 0; sq->acc  = acc;
+  free(sq->desc); sq->dalloc = 0; sq->desc = desc;
+  free(sq->seq);  sq->salloc = 0; sq->seq  = seq;
+  if (sq->ss  != NULL) { free(sq->ss);  sq->ss  = ss; }
+  if (sq->dsq != NULL) { free(sq->dsq); sq->dsq = dsq;}
   
   return eslOK;
 }
-
-
 
 
 /* Function:  esl_sq_Deflate()
@@ -176,17 +196,23 @@ esl_sq_Squeeze(ESL_SQ *sq)
 void
 esl_sq_Deflate(ESL_SQ *sq)
 {
-  if (sq->name   != NULL) { free(sq->name);   sq->name   = NULL; }
-  if (sq->acc    != NULL) { free(sq->acc);    sq->acc    = NULL; }
-  if (sq->desc   != NULL) { free(sq->desc);   sq->desc   = NULL; }
-  if (sq->seq    != NULL) { free(sq->seq);    sq->seq    = NULL; }
-  if (sq->dsq    != NULL) { free(sq->dsq);    sq->dsq    = NULL; }
-  if (sq->ss     != NULL) { free(sq->ss);     sq->ss     = NULL; }
-  if (sq->optmem != NULL) { free(sq->optmem); sq->optmem = NULL; }
-  sq->nalloc = 0;
-  sq->aalloc = 0;
-  sq->dalloc = 0;
-  sq->salloc = 0;
+  if (sq->optmem != NULL)
+    { free(sq->optmem); sq->optmem = NULL; }
+  else
+    {
+      if (sq->name   != NULL) free(sq->name);  
+      if (sq->acc    != NULL) free(sq->acc);   
+      if (sq->desc   != NULL) free(sq->desc);  
+      if (sq->seq    != NULL) free(sq->seq);   
+      if (sq->dsq    != NULL) free(sq->dsq);   
+      if (sq->ss     != NULL) free(sq->ss);    
+    }
+  sq->name   = NULL; sq->nalloc = 0;
+  sq->acc    = NULL; sq->aalloc = 0;  
+  sq->desc   = NULL; sq->dalloc = 0;
+  sq->seq    = NULL; sq->salloc = 0;
+  sq->ss     = NULL;
+  sq->dsq    = NULL;
   return;
 }
 
@@ -202,54 +228,178 @@ esl_sq_Destroy(ESL_SQ *sq)
   free(sq);
   return;
 }
+/*----------------- end of ESL_SQ object functions -----------------*/
 
 
-/* Function:  esl_sqfile_OpenFASTA()
- * Incept:    SRE, Thu Dec 23 13:14:34 2004 [Zaragoza]
+/*****************************************************************
+ * ESL_SQFILE object functions
+ *****************************************************************/
+
+/* Function:  esl_sqfile_Open()
+ * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
- * Purpose:   Opens a FASTA sequence file <seqfile>, in
- *            preparation for <esl_sqfile_ReadFASTA()>; returns
- *            ptr to the <ESL_SQFILE> object via <ret_sqfp>.
- *
- * Args:      seqfile  - name of the file to open for reading
- *            ret_sqfp - RETURN: the opened <ESL_SQFILE>
- *
- * Returns:   <eslOK> on success; caller is responsible for
- *            closing the <sqfp> with <esl_sqfile_Close()>.
+ * Purpose:   Open a sequence file <filename> for sequential reading. 
+ *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
+ * 
+ *            The format of the file is asserted to be <format> (for
+ *            example, <eslSQFILE_FASTA> or <eslMSAFILE_STOCKHOLM>).
+ *            If <format> is <eslSQFILE_UNKNOWN> then format
+ *            autodetection is invoked. 
  *            
- *            Returns <eslENOTFOUND> if the file <seqfile> does not
- *            exist, or cannot be opened for reading (incorrect
- *            permissions, for example), or fread() results in
- *            a read error.
- *
- * Throws:    <eslEMEM> if an allocation fails.
+ *            There are two special cases for <filename>. If
+ *            <filename> is "-", the sequence data are read from a
+ *            <STDIN> pipe. If <filename> ends in ".gz", the file is assumed
+ *            to be compressed with <gzip>, and it is opened by a pipe
+ *            from <gzip -dc>; this only works on POSIX-compliant
+ *            systems that have pipes (specifically, the POSIX.2
+ *            popen() call); this code is included only if
+ *            <HAVE_POPEN> is defined at compile time. To use either
+ *            of these abilities, <format> must be defined, not unknown;
+ *            format autodetection requires a two-pass parse on a rewindable
+ *            stream, but pipes are not rewindable.
+ *            
+ *            If <env> is non-NULL, it is the name of an environment
+ *            variable that contains a colon-delimited list of
+ *            directories in which we may find this <filename>.
+ *            For example, if we had 
+ *            <setenv BLASTDB /nfs/db/blast-db:/nfs/db/genomes/>
+ *            in the environment, a database search application
+ *            could pass "BLASTDB" as <env>.
+ *            
+ * Returns:   <eslOK> on success, and <*ret_sqfp> points to a new
+ *            open <ESL_SQFILE>. Caller deallocates this object with
+ *            <esl_sqfile_Close()>. 
+ *            
+ *            Returns <eslENOTFOUND> if <filename> can't be opened.
+ *            Returns <eslEFORMAT> if the file is empty, or if
+ *            autodetection is attempted and the format can't be
+ *            determined.  Returns <eslEINVAL> if autodetection is
+ *            attempted on a stdin or gunzip pipe.  On any of these error
+ *            conditions, <*ret_sqfp> is returned NULL.
+ *             
+ * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
+esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 {
   ESL_SQFILE *sqfp;
+  int         status;		/* return status from an ESL call */
   int         x;
+  int         n;
 
-  if ((sqfp = malloc(sizeof(ESL_SQFILE))) == NULL) 
-    ESL_ERROR(eslEMEM, "allocation failed");
-
+  /* Allocate and initialize the structure to base values;
+   * only format is set correctly, though.
+   */
+  ESL_MALLOC(sqfp, sizeof(ESL_SQFILE));
+  *ret_sqfp        = NULL;
   sqfp->fp         = NULL;
   sqfp->filename   = NULL;
-  sqfp->format     = ESL_SQFORMAT_FASTA;
+  sqfp->ssifile    = NULL;
+  sqfp->format     = format;
   sqfp->do_gzip    = FALSE;
   sqfp->do_stdin   = FALSE;
+  sqfp->errbuf[0]  = '\0';
   sqfp->inmap      = NULL;
   sqfp->buf[0]     = '\0';
   sqfp->nc         = 0;
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
+#ifdef eslAUGMENTED
+  sqfp->afp        = NULL;
+  sqfp->msa        = NULL;
+#endif /*eslAUGMENTED*/
 
-  if ((sqfp->fp = fopen(seqfile,"r")) == NULL) 
-    { free(sqfp); return eslENOTFOUND; }
-  if (esl_strdup(seqfile, -1, &(sqfp->filename)) != eslOK) 
-    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "allocation failed"); }
+  /* Open the file. It may either be in the current directory,
+   * or in a directory indicated by the <env> argument. We have
+   * to construct the SSI filename accordingly. For normal operation
+   * (no pipes from stdin, gzip), this section opens the sqfp->fp,
+   * stores the filename in sqfp->filename, and sets sqfp->ssifile to
+   * the name of the SSI file that we should look for for this seq file.
+   * 
+   * stdin special case is handled here. fp is stdin pipe; filename
+   * is [STDIN]; ssifile left NULL.
+   */
+  if (strcmp(filename, "-") == 0) /* stdin */
+    {
+      status = esl_strdup("[STDIN]", -1, &(sqfp->filename));
+      if (status != eslOK) { esl_sqfile_Close(sqfp); return status; }
 
-  /* Create an appropriate default input map for FASTA files.
+      sqfp->fp       = stdin;
+      sqfp->do_stdin = TRUE;
+    }
+  else
+    {
+      char *envfile;
+      n = strlen(filename);  
+
+      /* Check the current working directory first.
+       */
+      if ((sqfp->fp = fopen(filename, "r")) != NULL)
+	{
+	  status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile));
+	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
+
+	  status = esl_strdup(filename, n, &(sqfp->filename));
+	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
+	}
+      /* then the env variable.
+       */
+      else if (env != NULL &&
+	       esl_FileEnvOpen(filename, env, &(sqfp->fp), &envfile)== eslOK)
+	{
+	  status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile));
+	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
+
+	  status = esl_strdup(envfile, -1, &(sqfp->filename));
+	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
+
+	  free(envfile);
+	}
+      else
+	{ esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+    }
+
+
+  /* Deal with the .gz special case.
+   * 
+   * To popen(), "success" means it found and executed gzip -dc.  If
+   * gzip -dc doesn't find our file, popen() still blithely returns
+   * success, so we have to be sure the file exists. Fortunately, we
+   * already know that, because we fopen()'ed it as a normal file in
+   * the section above.
+   * 
+   * For a .gz, close the fp we've got, and reopen it as a pipe from
+   * gzip -dc w/ popen(). (But if HAVE_POPEN isn't defined, then a .gz
+   * file is treated as a normal file.)
+   *
+   * After this section, fp, filename, ssifile, do_gzip, and do_stdin are
+   * all set correctly in the sqfile object.
+   */                           
+#ifdef HAVE_POPEN
+  n = strlen(sqfp->filename);
+  if (n > 3 && strcmp(sqfp->filename+n-3, ".gz") == 0) 
+    {
+      char *cmd;
+
+      fclose(sqfp->fp);
+
+      if ((cmd = malloc(sizeof(char) * (n+1+strlen("gzip -dc ")))) == NULL)
+	{ esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "cmd malloc failed"); }
+      sprintf(cmd, "gzip -dc %s", seqfile);
+
+      if ((sqfp->fp = popen(cmd, "r")) == NULL)
+	{ esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+
+      status = esl_strdup(seqfile, n, &(sqfp->filename));
+      if (status != eslOK)
+	{ esl_sqfile_Close(sqfp); return eslEMEM; }
+
+      sqfp->do_gzip  = TRUE;
+    }
+#endif /*HAVE_POPEN*/
+
+
+  /* Create an appropriate default input map for sequence files.
    *   - accept anything alphabetic, case-insensitive;
    *   - ignore whitespace;
    *   - anything else is illegal.
@@ -261,7 +411,7 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
    *  in alphabet.c's inmap too.)
    */
   if ((sqfp->inmap = malloc(sizeof(int) * 256)) == NULL) 
-    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "allocation failed"); }
+    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "inmap malloc failed"); }
 
   for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
@@ -271,10 +421,66 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
   sqfp->inmap['\n'] = ESL_IGNORED_CHAR;
   sqfp->inmap['\r'] = ESL_IGNORED_CHAR;	/* DOS eol compatibility */
 
-  /* load the first block of data from the file into memory. 
+
+  /* If we don't know the format yet, autodetect it now.
    */
-  sqfp->nc = fread(sqfp->buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
-  if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+  if (sqfp->format == eslSQFILE_UNKNOWN)
+    {
+      if (sqfp->do_stdin || sqfp->do_gzip) 
+	{ esl_sqfile_Close(sqfp); return eslEINVAL; }
+
+      /* UNFINISHED!! resolve how we're going to do this, w/ msa.  */
+
+      if (sqfp->format == eslSQFILE_UNKNOWN)
+	{ esl_sqfile_Close(sqfp); return eslEFORMAT; }
+    }
+
+  /* Up 'til now, everything we've done is independent of the format
+   * of the sequence file - we've only opened an appropriate stream. 
+   *               
+   * Now we preload the first data from the file, and how we do that
+   * depends on format. There are three possibilities:
+   *    - character-based parsers load into a fixed-size buf using fread().
+   *      (the FASTA parser, for example.)
+   *    
+   *    - line-based parsers would need to load into a dynamic buffer using
+   *      esl_fgets(). None are implemented yet, though.
+   *      
+   *    - Multiple alignment files handled specially, through the msa
+   *      interface; we create an MSAFILE object and copy our info into 
+   *      it; sqfp->msa stays NULL until we try to Read(), so we can
+   *      detect and appropriately report parsing problems.
+   *      
+   * Note on linenumber: character based parsers will bump the linenumber
+   * after they see a \n, so they init linenumber to 1. Line-based
+   * parsers bump the linenumber as they read a new line, so they should
+   * init linenumber to 0. It's 1 now; set to 0 if needed.
+   */              
+  switch (sqfp->format) {
+    /* Character based parsers that use fread();
+     * load first block of data.
+     */
+  case eslSQFILE_FASTA:
+    sqfp->nc = fread(sqfp->buf, sizeof(char), ESL_READBUFSIZE, sqfp->fp);
+    if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+    break;
+
+#ifdef eslAUGMENTED
+  case eslMSAFILE_STOCKHOLM:
+    sqfp->linenumber = 0;	/* line-oriented input */
+    sqfp->afp = malloc(sizeof(ESL_MSAFILE));
+    if (sqfp->afp == NULL) { esl_sqfile_Close(sqfp); return eslEMEM; }
+    sqfp->afp->f          = sqfp->fp;
+    sqfp->afp->fname      = sqfp->filename;
+    sqfp->afp->linenumber = sqfp->linenumber;
+    sqfp->afp->errbuf[0]  = '\0';
+    sqfp->afp->buf        = NULL;
+    sqfp->afp->buflen     = 0;
+    sqfp->afp->do_gzip    = sqfp->do_gzip;
+    sqfp->afp->do_stdin   = sqfp->do_stdin;
+    break;
+#endif /*eslAUGMENTED*/
+  }
 
   *ret_sqfp = sqfp;
   return eslOK;
@@ -291,15 +497,99 @@ esl_sqfile_OpenFASTA(char *seqfile, ESL_SQFILE **ret_sqfp)
 void
 esl_sqfile_Close(ESL_SQFILE *sqfp)
 {
-  if (sqfp->fp       != NULL) fclose(sqfp->fp);
+  if (sqfp == NULL) return;
+
+#ifdef HAVE_POPEN
+  if (sqfp->do_gzip)          pclose(sqfp->fp);
+#endif
+  if (! sqfp->do_stdin && sqfp->fp != NULL) fclose(sqfp->fp);
   if (sqfp->filename != NULL) free(sqfp->filename);
+  if (sqfp->ssifile  != NULL) free(sqfp->ssifile);
   if (sqfp->inmap    != NULL) free(sqfp->inmap);
+
+#ifdef eslAUGMENTED
+  if (sqfp->afp      != NULL) 
+    { /* Because we copied info from the seqfile object to
+       * create the msafile object, we can't just close the 
+       * msafile, or we'd end up w/ double fclose()/free()'s.
+       */
+      if (sqfp->afp->buf != NULL) free(sqfp->afp->buf);
+      free(sqfp->afp);
+    }
+  if (sqfp->msa      != NULL) esl_msa_Destroy(sqfp->msa);
+#endif
+
   free(sqfp);
   return;
 }
+/*------------------- ESL_SQFILE open/close -----------------------*/
 
 
-/* Function:  esl_sio_ReadFASTA()
+
+
+
+/* Function:  esl_sq_Read()
+ * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
+ *
+ * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
+ *            <sq>. Caller provides an allocated <s>, which will be
+ *            internally reallocated if its space is insufficient.
+ *
+ * Returns:   <eslOK> on success; the new sequence is stored in <s>.
+ * 
+ *            Returns <eslEOF> when there is no sequence left in the
+ *            file (including first attempt to read an empty file).
+ * 
+ *            Returns <eslEFORMAT> if there's a problem with the format,
+ *            such as an illegal character; the line number that the parse
+ *            error occurs on is in <sqfp->linenumber>, and an informative
+ *            error message is placed in <sqfp->errbuf>. 
+ *
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINCONCEIVABLE> on internal error.
+ */
+int
+esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
+{
+  int status;
+
+  switch (sqfp->format) {
+  case eslSQFILE_FASTA: status = esl_sq_ReadFASTA(sqfp, s); break;
+    
+#ifdef eslAUGMENTED
+  case eslMSAFILE_STOCKHOLM:
+    if (sqfp->msa == NULL || sqfp->idx >= sqfp->msa->nseq)
+      {				/* load a new alignment */
+	esl_msa_Destroy(sqfp->msa);
+	status = esl_msa_Read(sqfp->afp, &(sqfp->msa));
+	if (status == eslEOF) return eslEOF;
+	if (status == eslEFORMAT)
+	  { /* oops, a parse error; upload the error info from afp to sqfp */
+	    sqfp->linenumber = sqfp->afp->linenumber;
+	    strcpy(sqfp->errbuf, sqfp->afp->errbuf); /* errbufs same size! */ 
+	    return eslEFORMAT;
+	  }
+	sqfp->idx = 0;
+      }
+    /* grab next seq from alignment */
+    extract_sq_from_msa(sqfp->msa, sqfp->idx, s);
+    sqfp->idx++;
+    status = eslOK;
+    break;
+#endif /*eslAUGMENTED*/
+  }
+
+  return status;
+}
+
+
+
+
+/*****************************************************************
+ * FASTA format i/o
+ *****************************************************************/
+
+/* Function:  esl_sq_ReadFASTA()
  * Incept:    SRE, Thu Dec 23 13:57:59 2004 [Zaragoza]
  *
  * Purpose:   Given an open <sqfp> for a FASTA file; read the next 
@@ -307,7 +597,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  *            <s> initially; but it will be reallocated here if its space is 
  *            insufficient.
  *            
- *            \verb+sqfp->pos+ is at the first byte in the file (which
+ *            <sqfp->pos> is at the first byte in the file (which
  *            must be a $>$ if it's FASTA format); or at a '$>$' 
  *            for a subsequent sequence 2..N; or at EOF, byte B+1
  *            in a B-byte file, in which case we return <eslEOF>.
@@ -371,7 +661,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  *            data are in 1224-fileread-speed. 
  */
 int
-esl_sio_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
+esl_sq_ReadFASTA(ESL_SQFILE *sqfp, ESL_SQ *s)
 {
   int   npos = 0;	/* position in stored name        */
   int   dpos = 0;	/* position in stored description */
@@ -552,7 +842,137 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
    */
   if (savelen < inlen) return savelen;  else return inlen;
 }
-	       
+/*------------------- end of FASTA i/o ---------------------------*/	       
+
+
+
+
+
+
+/*****************************************************************
+ * Functions specific to sqio <-> msa interoperation; 
+ * require augmentation w/ msa module.
+ *****************************************************************/
+#ifdef eslAUGMENTED
+
+/* Function:  esl_sq_Dealign()
+ * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
+ *
+ * Purpose:   Dealign string <s> in place,  by removing any characters 
+ *            aligned to gaps in <aseq>. Gap characters are defined in the 
+ *            string <gapstring>; for example, <-_.>. Return the
+ *            unaligned length of <s> in characters. 
+ *            
+ *            <s> can be the same as <aseq> to dealign an aligned
+ *            sequence; or <s> may be an aligned annotation string
+ *            (secondary structure, surface accessibility codes).
+ *           
+ *            It is safe to pass a NULL <s> (an unset annotation), in 
+ *            which case the function no-ops and returns 0.
+ *            
+ * Note:      To dealign one or more annotation strings as well as the
+ *            sequence itself, dealign the sequence last:
+ *                n1 = esl_sq_Dealign(ss,   aseq, gapstring, alen);
+ *                n2 = esl_sq_Dealign(sa,   aseq, gapstring, alen);
+ *                n3 = esl_sq_Dealign(aseq, aseq, gapstring, alen);
+ *            Bonus paranoia if you verify that n1 == n2 == n3, but
+ *            this has to be true unless <s> is NULL.
+ */
+int
+esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen)
+{
+  int apos, n;
+  if (s == NULL) return 0;
+  
+  for (apos = 0, n = 0; apos < alen; apos++)
+    if (strchr(gapstring, aseq[apos]) == NULL)
+      s[n++] = s[apos];
+  return n;
+}
+
+
+
+/* extract_sq_from_msa():
+ * Move sequence <idx> from the <msa> into <s>, and dealign
+ * it and any associated per-residue annotation.
+ * 
+ * This is destructive - the pointers are redirected so that the <s>
+ * structure now points to data that the <msa> previously maintained,
+ * the <msa> data is NULL'ed, and any previous storage in <s> is free'd. 
+ * The <esl_msa_Destroy()> function checks for NULL'ed fields before 
+ * freeing them, so this wholesale pillaging of the <msa> is safe, so
+ * long as the caller has no intention of using it for anything else.
+ * 
+ * Limitation: hardcodes the gapstring "-_."
+ */
+static int
+extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
+{
+  int n;
+  
+  /* Name.
+   */
+  n = strlen(msa->sqname[idx]);
+  if (s->name != NULL) free(s->name);
+  s->name   = msa->sqname[idx];
+  s->nalloc = n;
+  msa->sqname[idx] = NULL;
+
+  /* Accession.
+   */
+  if (msa->sqacc != NULL && msa->sqacc[idx] != NULL)
+    {
+      n = strlen(msa->sqacc[idx]);
+      if (s->acc != NULL) free(s->acc);
+      s->acc    = msa->sqacc[idx];
+      s->aalloc = n;
+      msa->sqacc[idx] = NULL;
+    }
+  
+  /* Description.
+   */
+  if (msa->sqdesc != NULL && msa->sqdesc[idx] != NULL)
+    {
+      n = strlen(msa->sqdesc[idx]);
+      if (s->desc != NULL) free(s->desc);
+      s->desc   = msa->sqdesc[idx];
+      s->dalloc = n;
+      msa->sqdesc[idx] = NULL;
+    }
+
+  /* Sequence... still aligned, for now
+   */
+  if (s->seq != NULL) free(s->seq);
+  s->seq    = msa->aseq[idx];
+  s->salloc = msa->alen;
+  
+  /* Structure... still aligned, for now
+   */
+  if (msa->ss != NULL && msa->ss[idx] != NULL)
+    {
+      if (s->ss != NULL) free(s->ss);
+      s->ss = msa->ss[idx];
+    }
+
+  /* Digital seq (dsq) is UNIMPLEMENTED, untouched here;
+   * and optmem is untouched.
+   */
+
+  /* Dealign the ss and the seq.
+   * ASSUMES that the gap characters are -_.
+   */
+  esl_sq_Dealign(s->ss,  s->seq, "-_.", msa->alen);
+  s->n = esl_sq_Dealign(s->seq, s->seq, "-_.", msa->alen);
+
+  return eslOK;
+}
+#endif /*eslAUGMENTED*/
+/*---------- end of msa <-> sqio module interop -----------------*/
+
+
+
+
+
 
 /*****************************************************************
  * Test driver:

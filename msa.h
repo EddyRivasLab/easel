@@ -124,9 +124,9 @@ typedef struct {
   int   do_stdin;		/* TRUE if f is stdin (won't close f)        */
   int   format;			/* format of alignment file we're reading    */
 
-#ifdef eslSSI_INCLUDED		/* AUGMENTATION: SSI indexing of an MSA db   */
+#ifdef eslAUGMENTED		/* AUGMENTATION: SSI indexing of an MSA db   */
   SSIFILE *ssi;		        /* open SSI index file; or NULL, if none.    */
-#endif
+#endif /*eslAUGMENTED*/
 } ESL_MSAFILE;
 
 

@@ -928,8 +928,8 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  * Date:     SRE, Sun Jan 23 08:30:33 2005 [St. Louis]
  *
  * Purpose:  Open an alignment database file <filename> and prepare for
- *           reading one alignment, or sequentially in the case of *
- *           multiple MSA * databases (e.g. Stockholm format); returns
+ *           reading one alignment, or sequentially in the case of 
+ *           multiple MSA databases (e.g. Stockholm format); returns
  *           the opened file pointer in <ret_msafp>.
  *          
  *           There are one or two special cases for <filename>. If
@@ -937,8 +937,8 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  *           <stdin>. If <filename> * ends in ".gz", then the file is
  *           assumed to be compressed * by gzip, and it is opened as a
  *           pipe from <gunzip -dc>. (Auto-decompression of gzipp'ed files
- *           is only available on POSIX-compliant systems, when 
- *           <eslPOSIX_AUGMENTATION> is defined at compile-time.)
+ *           is only available on POSIX-compliant systems w/ popen(), when 
+ *           <HAVE_POPEN> is defined at compile-time.)
  *          
  *           If <env> is non-NULL, then we look for <filename> in
  *           one or more directories in a colon-delimited list
@@ -954,7 +954,7 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  *          then format autodetection is invoked.
  *
  * Returns:  <eslOK> on success, and <ret_msafp> is set to point at
- *           an open <MSAFILE *>. Caller frees this file pointer with
+ *           an open <ESL_MSAFILE>. Caller frees this file pointer with
  *           <esl_msafile_Close()>.
  *           
  *           Returns <eslENOTFOUND> if <filename> cannot be opened,
@@ -999,12 +999,11 @@ esl_msafile_Open(char *filename, int format, char *env,
     {
       afp->f         = stdin;
       afp->do_stdin  = TRUE; 
-      afp->do_gzip   = FALSE;
       status         = esl_strdup("[STDIN]", -1, &(afp->fname));
       if (status != eslOK) 
 	{ esl_msafile_Close(afp); return eslEMEM; }
     }
-#ifdef eslPOSIX_AUGMENTATION
+#ifdef HAVE_POPEN
   /* popen(), pclose() aren't portable to non-POSIX systems; 
    * disable this section in strict ANSI C mode.
    */
@@ -1012,7 +1011,7 @@ esl_msafile_Open(char *filename, int format, char *env,
    * s+n-i repositions pointer s at the last i chars
    * of the string.
    */
-  else if (strcmp(filename+n-3, ".gz") == 0)
+  else if (n > 3 && strcmp(filename+n-3, ".gz") == 0)
     {
       char *cmd;
 
@@ -1038,12 +1037,11 @@ esl_msafile_Open(char *filename, int format, char *env,
 	  return eslENOTFOUND; 
 	}
       status = esl_strdup(filename, n, &(afp->fname));
-      afp->do_stdin = FALSE;
       afp->do_gzip  = TRUE;
       if (status != eslOK)
 	{ esl_msafile_Close(afp); return eslEMEM; }
     }
-#endif /*eslPOSIX_AUGMENTATION*/
+#endif /*HAVE_POPEN*/
   else
     {
       char *envfile;
@@ -1115,7 +1113,7 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 {
   if (afp == NULL) return;
 
-#ifdef eslPOSIX_AUGMENTATION /* gzip functionality only on POSIX systems */
+#ifdef HAVE_POPEN /* gzip functionality */
   if (afp->do_gzip)       pclose(afp->f);
 #endif
   if (! afp->do_stdin)    fclose(afp->f);

@@ -201,8 +201,12 @@ main(int argc, char **argv)
 	      continue;
 	    }
 
-	  klen = dealign(ka->aseq[i], ka->ss[i], ka->alen);
-	  tlen = dealign(ta->aseq[i], ta->ss[i], ta->alen);
+	  esl_sq_Dealign(ka->ss[i], ka->aseq[i], "-_.", ka->alen);
+	  klen = esl_sq_Dealign(ka->aseq[i], ka->aseq[i], "-_.", ka->alen);
+
+	  esl_sq_Dealign(ta->ss[i], ta->aseq[i], "-_.", ta->alen);
+	  tlen = esl_sq_Dealign(ta->aseq[i], ta->aseq[i], "-_.", ta->alen);
+
 	  if (klen != tlen) 
 	    {
 	      printf("[REJECTED: seq lengths not identical]\n");
@@ -387,35 +391,6 @@ main(int argc, char **argv)
   esl_msafile_Close(kfp);
   return 0;
 }
-
-
-/* dealign()
- * 
- * Dealigns an aligned seq and its secondary structure
- * annotation in place (destroying the alignment); 
- * returns unaligned length.
- */
-static int
-dealign(char *aseq, char *ss, int alen)
-{
-  int apos, n;
-
-  for (apos = 0, n = 0; apos < alen; apos++)
-    {
-      if (strchr("-_.", aseq[apos]) == NULL)
-	{
-	  aseq[n] = aseq[apos];
-	  ss[n]   = ss[apos];
-	  n++;
-	}
-    }
-  aseq[n] = '\0';
-  ss[n] = '\0';
-  return n;
-}
-
-
-
 
 
 /*****************************************************************

@@ -553,7 +553,7 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
  *            through <ret_fp>, and the full path name to the file
  *            that was opened is returned through <ret_path>. 
  *            Caller can pass NULL in place of <ret_fp> or <ret_path>
- *            if it is not interested in one or both of these.
+ *            if it is not interested in one or both of these. 
  *            
  *            Does not look in the current directory unless "." is
  *            explicitly in the directory list provided by <env>.
@@ -607,7 +607,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   s  = dirlist;
   while (s != NULL) 
     {
-      if ((s2 = strchr(s, ':')) != NULL) { *s2 = '\0'; s2++;} /* ~=strtok(). */
+      if ((s2 = strchr(s, ':')) != NULL) { *s2 = '\0'; s2++;} /* ~=strtok() */
       sprintf(path, "%s%c%s", s, eslDIRSLASH, fname); /* // won't hurt */
       if ((fp = fopen(path, "r")) != NULL) break;      
       s = s2;

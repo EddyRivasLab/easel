@@ -35,27 +35,44 @@
  */
 #define ESL_READBUFSIZE  4096
 
-#define ESL_SQFORMAT_FASTA  1
+#define ESL_SQFILE_UNKNOWN 0
+#define ESL_SQFILE_FASTA   1
+
+
 
 
 typedef struct {
-  FILE *fp;			/* Open file ptr                            */
-  char *filename;		/* Name of file (for diagnostics)           */
-  int   format;			/* Format of this file                      */
-  int   do_gzip;		/* TRUE if we're reading from gzip -dc pipe */
-  int   do_stdin;		/* TRUE if we're reading from stdin         */
+  FILE *fp;		      /* Open file ptr                            */
+  char *filename;	      /* Name of file (for diagnostics)           */
+  char *ssifile;	      /* Name of SSI index file (for diagnostics) */
+  int   format;		      /* Format of this file                      */
+  int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
+  int   do_stdin;	      /* TRUE if we're reading from stdin         */
+  char  errbuf[512];	      /* parse error mesg. size must match msa.h  */
 
-  int  *inmap;			/* pointer to an input map, 0..127  */
+  int  *inmap;		      /* pointer to an input map, 0..127  */
 
-  char  buf[ESL_READBUFSIZE];	/* buffer for fread() block input           */
-  int   nc;			/* # of valid chars in buf (usually full, but less at EOF) */  
-  int   pos;			/* current parsing position in the buffer   */
-  int   linenumber;		/* What line of the file this is (1..N)     */
+  char  buf[ESL_READBUFSIZE]; /* buffer for fread() block input           */
+  int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
+  int   pos;		      /* current parsing position in the buffer   */
+  int   linenumber;	      /* What line of the file this is (1..N)     */
 
   /* SSI indexing eventually goes here, including rpl,bpl counting;
    * xref squid.
    */
+
+  /* Optional MSA augmentation: the ability to read multiple alignment
+   * files as sequential seq files.
+   */
+#ifdef eslAUGMENTED
+  ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
+  ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
+  int          idx;	      /* index of next seq to return, 0..nseq-1 */
+#endif /*eslAUGMENTED*/
 } ESL_SQFILE;
+
+
+
 
 /* Allocation of name, acc, desc is all in one malloc, of length
  * nalloc+aalloc+dalloc.
