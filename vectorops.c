@@ -302,7 +302,7 @@ esl_vec_DNorm(double *vec, int n)
   int    x;
   double sum;
 
-  sum = DSum(vec, n);
+  sum = esl_vec_DSum(vec, n);
   if (sum != 0.0) for (x = 0; x < n; x++) vec[x] /= sum;
   else            for (x = 0; x < n; x++) vec[x] = 1. / (double) n;
 }
@@ -312,7 +312,7 @@ esl_vec_FNorm(float *vec, int n)
   int    x;
   float  sum;
 
-  sum = FSum(vec, n);
+  sum = esl_vec_FSum(vec, n);
   if (sum != 0.0) for (x = 0; x < n; x++) vec[x] /= sum;
   else            for (x = 0; x < n; x++) vec[x] = 1. / (float) n;
 }
@@ -355,7 +355,7 @@ esl_vec_DLogSum(double *vec, int n)
   int x;
   double max, sum;
   
-  max = DMax(vec, n);
+  max = esl_vec_DMax(vec, n);
   sum = 0.0;
   for (x = 0; x < n; x++)
     if (vec[x] > max - 50.)
@@ -369,7 +369,7 @@ esl_vec_FLogSum(float *vec, int n)
   int x;
   float max, sum;
   
-  max = FMax(vec, n);
+  max = esl_vec_FMax(vec, n);
   sum = 0.0;
   for (x = 0; x < n; x++)
     if (vec[x] > max - 50.)

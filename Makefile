@@ -1,6 +1,7 @@
 CC      = gcc
 CFLAGS  = -g
 AR      = ar rcv
+LN      = ln
 RANLIB  = ranlib
 
 HEADERS = \
@@ -34,6 +35,12 @@ libeasel.a: $(OBJS)
 	$(AR) libeasel.a $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
+
+symlinks:
+	mkdir -p easel
+	for header in ${HEADERS}; do\
+	   (cd easel; ${LN} -s ../$$header .);\
+	done
 
 clean:
 	-rm -f ${OBJS} *~
