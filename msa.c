@@ -102,17 +102,18 @@ esl_msa_Create(int nseq, int alen)
   msa->lastidx = 0;
 
   /* Unparsed markup, including comments and Stockholm tags.
-   * Stockholm tags require augmentation with the keyhash module.
+   * GS, GC, and GR Stockholm tags require keyhash augmentation
    */
   msa->comment        = NULL;
   msa->ncomment       = 0;
   msa->alloc_ncomment = 0;
-#ifdef ESL_KEYHASH_INCLUDED
+
   msa->gf_tag         = NULL;
   msa->gf             = NULL;
   msa->ngf            = 0;
   msa->alloc_ngf      = 0;
 
+#ifdef ESL_KEYHASH_INCLUDED
   msa->gs_tag         = NULL;
   msa->gs             = NULL;
   msa->gs_idx         = NULL;
@@ -201,10 +202,9 @@ esl_msa_Destroy(ESL_MSA *msa)
   if (msa->salen   != NULL) free(msa->salen);
   
   esl_Free2D((void **) msa->comment, msa->ncomment);
-
-#ifdef ESL_KEYHASH_INCLUDED
   esl_Free2D((void **) msa->gf_tag,  msa->ngf);
   esl_Free2D((void **) msa->gf,      msa->ngf);
+#ifdef ESL_KEYHASH_INCLUDED
   esl_Free2D((void **) msa->gs_tag,  msa->ngs);
   esl_Free3D((void ***)msa->gs,      msa->ngs, msa->nseq);
   esl_Free2D((void **) msa->gc_tag,  msa->ngc);
@@ -334,6 +334,94 @@ esl_msa_Expand(MSA *msa)
   return ESL_OK;
 }
 
+/* msa_get_seqidx()
+ * 
+ * Find the index of a given sequence <name> in an <msa>.
+ * If caller has a good guess (for instance, the sequences are
+ * coming in a previously seen order in a block of seqs or annotation),
+ * the caller can pass this information in <guess>, or -1 if
+ * it has no guess.
+ * 
+ * This function behaves differently depending on whether
+ * keyhash augmentation is available or not. Without keyhashing,
+ * the name is identified by bruteforce search of the names
+ * in the <msa>. With keyhashing, we hash search, which should
+ * improve performance for large alignments.
+ * 
+ * If the name does not already exist in the MSA, then it
+ * is assumed to be a new sequence name that we need to store.
+ * seqidx is set to msa:nseq, the MSA is Expand()'ed if necessary
+ * to make room, the name is stored in msa:sqname[msa:nseq],
+ * (and in the hash table, if we're keyhash augmented)
+ * and msa:nseq is incremented.
+ *
+ * Returns:  ESL_OK on success, and the seqidx is 
+ *           passed back via <ret_idx>. If <name> is new
+ *           in the <msa>, the <name> is stored and the <msa> 
+ *           may be internally reallocated if needed.
+ */
+int
+msa_get_seqidx(MSA *msa, char *name, int guess, int *ret_idx)
+{
+  int seqidx;
+
+				/* can we guess? */
+  if (guess >= 0 && guess < msa->nseq && strcmp(name, msa->sqname[guess]) == 0) 
+    { *ret_idx = guess; return ESL_OK; }
+				/* else, a lookup in the index */
+  if ((seqidx = GKIKeyIndex(msa->index, name)) >= 0)
+    return seqidx;
+				/* else, it's a new name */
+  seqidx = GKIStoreKey(msa->index, name);
+  if (seqidx >= msa->nseqalloc)  MSAExpand(msa);
+
+  msa->sqname[seqidx] = sre_strdup(name, -1);
+  msa->nseq++;
+  return seqidx;
+}
+
+
+
+/* add_gf()
+ * 
+ * Add an unparsed #=GF markup line to the MSA, allocating
+ * as necessary. <tag> is the GF markup tag; <value> is
+ * the text associated w/ that tag.
+ * 
+ * Returns ESL_OK on success. 
+ * Throws ESL_EMEM on allocation failure.
+ */
+static int
+add_gf(ESL_MSA *msa, char *tag, char *value)
+{  
+  void *p;
+  int   n;
+
+  /* If this is our first recorded unparsed #=GF line, we need to malloc().
+   */
+  if (msa->gf_tag == NULL) {
+    ESL_MALLOC(msa->gf_tag, sizeof(char *) * 16);
+    ESL_MALLOC(msa->gf,     sizeof(char *) * 16);
+    msa->alloc_ngf = 16;
+  }
+  /* or if we're out of room for new GF's, realloc() by doubling
+   */
+  if (msa->ngf == msa->alloc_ngf) {
+    n = msa->alloc_ngf * 2;
+    ESL_REALLOC(msa->gf_tag, p, sizeof(char *) * n);
+    ESL_REALLOC(msa->gf,     p, sizeof(char *) * n);
+    msa->alloc_ngf = n;
+  }
+
+  if ((msa->gf_tag[msa->ngf] = esl_strdup(tag, -1)) == NULL)
+    ESL_ERROR(ESL_EMEM, "strdup failed");
+  if ((msa->gf[msa->ngf]     = esl_strdup(value, -1)) == NULL)
+    ESL_ERROR(ESL_EMEM, "strdup failed");
+  msa->ngf++;
+
+  return;
+}
+
 
 /* verify_parse()
  *
@@ -342,22 +430,27 @@ esl_msa_Expand(MSA *msa)
  * information is present; makes sure required information is
  * consistent. Some fields that are only use during parsing may be
  * freed (sqlen, for example), and some fields are finalized now
- * (msa::alen is set, for example).
+ * (msa::alen is set, for example). 
+ * 
+ * <errbuf> is a place to sprintf an informative message about the
+ * reason for a parse error. The caller provides an <errbuf>
+ * of at least 512 bytes.
  *
- * Returns:  <ESL_OK>.
+ * Returns:  <ESL_OK>, and errbuf is set to an empty string.
  *           
- * Throws:   <ESL_EFORMAT> if a problem is detected.
+ * Throws:   <ESL_EFORMAT> if a problem is detected, and an
+ *           informative message about the failure is in errbuf.
  */
 static int
-verify_parse(MSA *msa)
+verify_parse(MSA *msa, char *errbuf)
 {
   int idx;
 
   if (msa->nseq == 0) 
     {
-      esl_error(ESL_EFORMAT, __FILE__, __LINE__
-		"MSA parse error: no sequences were found for alignment %s",
-		msa->name != NULL ? msa->name : "");
+      sprintf(errbuf, 
+	      "MSA parse error: no sequences were found for alignment %.128s",
+	      msa->name != NULL ? msa->name : "");
       return ESL_EFORMAT;
     }
 
@@ -375,28 +468,28 @@ verify_parse(MSA *msa)
       /* aseq is required. */
       if (msa->aseq[idx] == NULL) 
 	{
-	  esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		    "MSA %s parse error: no sequence for %s",
-		    msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
+	  sprintf(errbuf,
+		  "MSA %.128s parse error: no sequence for %.128s",
+		  msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
 	  return ESL_EFORMAT;
 	}
 
       /* either all weights must be set, or none of them */
       if ((msa->flags & MSA_HASWGTS) && msa->wgt[idx] == -1.0)
 	{
-	  esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		    "MSA %s parse error: expected a weight for seq %s", 
-		    msa->name != NULL ? msa->name : "", msa->sqname[idx]);
+	  sprintf(errbuf,
+		  "MSA %.128s parse error: expected a weight for seq %.128s", 
+		  msa->name != NULL ? msa->name : "", msa->sqname[idx]);
 	  return ESL_EFORMAT;
 	}
 
       /* all aseq must be same length. */
       if (msa->sqlen[idx] != msa->alen)
 	{
-	  esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		    "MSA %s parse error: sequence %s: length %d, expected %d",
-		    msa->name != NULL ? msa->name : "",
-		    msa->sqname[idx], msa->sqlen[idx], msa->alen);
+	  sprintf(errbuf,
+	  "MSA %.128s parse error: sequence %.128s: length %d, expected %d",
+		  msa->name != NULL ? msa->name : "",
+		  msa->sqname[idx], msa->sqlen[idx], msa->alen);
 	  return ESL_EFORMAT;
 	}
 
@@ -405,10 +498,10 @@ verify_parse(MSA *msa)
 	  msa->ss[idx] != NULL && 
 	  msa->sslen[idx] != msa->alen) 
 	{
-	  esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		    "MSA %s parse error: GR SS for %s: length %d, expected %d",
-		    msa->name != NULL ? msa->name : "",
-		    msa->sqname[idx], msa->sslen[idx], msa->alen);
+	  sprintf(errbuf,
+	  "MSA %.128s parse error: GR SS for %.128s: length %d, expected %d",
+		  msa->name != NULL ? msa->name : "",
+		  msa->sqname[idx], msa->sslen[idx], msa->alen);
 	  return ESL_EFORMAT;
 	}
 				/* if SA is present, must have length right */
@@ -416,10 +509,10 @@ verify_parse(MSA *msa)
 	  msa->sa[idx] != NULL && 
 	  msa->salen[idx] != msa->alen) 
 	{
-	  esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		    "MSA %s parse error: GR SA for %s: length %d, expected %d",
-		    msa->name != NULL ? msa->name : "",
-		    msa->sqname[idx], msa->salen[idx], msa->alen);
+	  sprintf(errbuf,
+	  "MSA %.128s parse error: GR SA for %.128s: length %d, expected %d",
+		  msa->name != NULL ? msa->name : "",
+		  msa->sqname[idx], msa->salen[idx], msa->alen);
 	  return ESL_EFORMAT;
 	}
     }
@@ -427,30 +520,30 @@ verify_parse(MSA *msa)
   /* if cons SS is present, must have length right */
   if (msa->ss_cons != NULL && strlen(msa->ss_cons) != msa->alen) 
     {
-      esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		"MSA %s parse error: GC SS_cons markup: len %d, expected %d",
-		msa->name != NULL ? msa->name : "",
-		strlen(msa->ss_cons), msa->alen);
+      sprintf(errbuf,
+	      "MSA %.128s parse error: GC SS_cons markup: len %d, expected %d",
+	      msa->name != NULL ? msa->name : "",
+	      strlen(msa->ss_cons), msa->alen);
       return ESL_EFORMAT;
     }
 
   /* if cons SA is present, must have length right */
   if (msa->sa_cons != NULL && strlen(msa->sa_cons) != msa->alen) 
     {
-      esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		"MSA %s parse error: GC SA_cons markup: len %d, expected %d",
-		msa->name != NULL ? msa->name : "",
-		strlen(msa->sa_cons), msa->alen);
+      sprintf(errbuf,
+	      "MSA %.128s parse error: GC SA_cons markup: len %d, expected %d",
+	      msa->name != NULL ? msa->name : "",
+	      strlen(msa->sa_cons), msa->alen);
       return ESL_EFORMAT;
     }
 
   /* if RF is present, must have length right */
   if (msa->rf != NULL && strlen(msa->rf) != msa->alen) 
     {
-      esl_error(ESL_EFORMAT, __FILE__, __LINE__,
-		"MSA %s parse error: GC RF markup: len %d, expected %d",
-		msa->name != NULL ? msa->name : "",
-		strlen(msa->rf), msa->alen);
+      sprintf(errbuf,
+	      "MSA %.128s parse error: GC RF markup: len %d, expected %d",
+	      msa->name != NULL ? msa->name : "",
+	      strlen(msa->rf), msa->alen);
       return ESL_EFORMAT;
     }
 
@@ -513,8 +606,8 @@ verify_parse(MSA *msa)
  *           an open <MSAFILE *>. Caller frees this file pointer with
  *           <esl_msafile_Close()>.
  *           
- *           <ESL_ENOTFOUND> if <filename> cannot be opened.
- *           <ESL_EFORMAT>   if autodetection is attempted and 
+ *           Returns <ESL_ENOTFOUND> if <filename> cannot be opened,
+ *           or <ESL_EFORMAT> if autodetection is attempted and 
  *           format cannot be determined.
  *           
  * Throws:   <ESL_EMEM> on allocation failure.
@@ -535,12 +628,20 @@ esl_msafile_Open(char *filename, int format, char *env,
 
   if ((afp = malloc(sizeof(ESL_MSAFILE))) == NULL)
     ESL_ERROR(ESL_EMEM, "malloc failed");
+  afp->f          = NULL;
+  afp->fname      = NULL;
+  afp->linenumber = 0;
+  afp->errbuf[0]  = '\0';
+  afp->buf        = NULL;
+  afp->buflen     = 0;
+  afp->do_gzip    = FALSE;
+  afp->do_stdin   = FALSE;
+#ifdef ESL_SSI_INCLUDED		/* SSI augmentation */
+  afp->ssi = NULL;
+#endif  
 
   n        = strlen(filename);
   ssifile  = NULL;
-#ifdef ESL_SSI_INCLUDED		/* SSI augmentation */
-  afp->ssi = NULL;
-#endif
 
   if (strcmp(filename, "-") == 0)
     {
@@ -644,9 +745,6 @@ esl_msafile_Open(char *filename, int format, char *env,
     }
 
   afp->format     = format;
-  afp->linenumber = 0;
-  afp->buf        = NULL;
-  afp->buflen     = 0;
   if (ret_afp != NULL) *ret_afp = afp; else esl_msafile_Close(afp);
   return ESL_OK;
 }
@@ -706,21 +804,25 @@ msafile_getline(MSAFILE *afp)
  *
  * Returns:   <ESL_OK> on success, and the alignment is in <ret_msa>.
  *            <ESL_EOF> if there are no more alignments in <afp>. 
- *            <ESL_EFORMAT> if parse fails because of a file format problem.
+ *            <ESL_EFORMAT> if parse fails because of a file format problem,
+ *            in which case afp->errbuf is set to contain a formatted message 
+ *            that indicates the cause of the problem.
  *
  * Throws:    <ESL_EMEM> on allocation error.
  *
  * Xref:      squid's ReadStockholm(), 1999.
  */
 int
-esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA *ret_msa)
+esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 {
   MSA   *msa;
   char  *s;
-  int    status, status2;
+  int    status;
+  int    status2;
 
   if (feof(afp->f)) return ESL_EOF;
   if (ret_msa != NULL) *ret_msa = NULL;
+  afp->errbuf[0] = '\0';
 
   /* Initialize allocation of the MSA:
    * make it growable, by giving it an initial blocksize of
@@ -741,7 +843,11 @@ esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA *ret_msa)
   } while (is_blankline(afp->buf));
 
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
-    { esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+    { 
+      sprintf(afp->errbuf, "missing \"# STOCKHOLM\" header");
+      esl_msa_Destroy(msa); 
+      return ESL_EFORMAT; 
+    } 
 
   /* Read the alignment file one line at a time.
    */
@@ -751,30 +857,53 @@ esl_msa_ReadStockholm(ESL_MSAFILE *afp, ESL_MSA *ret_msa)
       while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
 
       if (*s == '#') {
-	if      (strncmp(s, "#=GF", 4) == 0)   status2 = parse_gf(msa, s);
-	else if (strncmp(s, "#=GS", 4) == 0)   status2 = parse_gs(msa, s);
-	else if (strncmp(s, "#=GC", 4) == 0)   status2 = parse_gc(msa, s);
-	else if (strncmp(s, "#=GR", 4) == 0)   status2 = parse_gr(msa, s);
-	else                                   status2 = parse_comment(msa, s);
+	if      (strncmp(s, "#=GF", 4) == 0 && 
+		 (status2 = parse_gf(msa, s)) != ESL_OK)
+	  sprintf(afp->errbuf, "failed to parse #=GF line");
+
+	else if (strncmp(s, "#=GS", 4) == 0 &&
+		 (status2 = parse_gs(msa, s)) != ESL_OK)
+	  sprintf(afp->errbuf, "failed to parse #=GS line");
+
+	else if (strncmp(s, "#=GC", 4) == 0 &&
+		 (status2 = parse_gc(msa, s)) != ESL_OK)
+	  sprintf(afp->errbuf, "failed to parse #=GC line");
+
+	else if (strncmp(s, "#=GR", 4) == 0 && 
+		 (status2 = parse_gr(msa, s)) != ESL_OK)
+	  sprintf(afp->errbuf, "failed to parse #=GR line");
+
+	else if ((status2 = parse_comment(msa, s)) != ESL_OK)
+	  sprintf(afp->errbuf, "failed to parse comment line");
       } 
       else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
       else if (*s == '\n')                   continue;
-      else                                   status2 = parse_sequence(msa, s);
+      else if ((status2 = parse_sequence(msa, s)) != ESL_OK)
+	sprintf(afp->errbuf, "failed to parse sequence line");
 
-      if (status2 != ESL_OK)  
-	{ esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+      if (status2 != ESL_OK) 
+	{ esl_msa_Destroy(msa); return status2; }
     }
   /* If we saw a normal // end, we would've successfully read a line,
    * so when we get here, status (from the line read) should be ESL_OK.
    */ 
   if (status != ESL_OK)
-    { esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+    { 
+      sprintf(afp->errbuf, "didn't find // at end of alignment %.128s",
+	      msa->name == NULL ? "" : msa->name);
+      esl_msa_Destroy(msa); 
+      return ESL_EFORMAT; 
+    } 
   
   /* Stockholm's complex, so give the newly parsed MSA a good
-   * going-over.
+   * going-over, and finalize the fields of the MSA data structure.
+   * verify_parse will fill in errbuf if it sees a problem.
    */
-  MSAVerifyParse(msa);
-  return msa;
+  if (verify_parse(msa, afp->errbuf) != ESL_OK)
+    { esl_msa_Destroy(msa); return ESL_EFORMAT; } 
+
+  if (ret_msa != NULL) *ret_msa = msa; else esl_msa_Destroy(msa);
+  return ESL_OK;
 }
 
 static int
@@ -784,6 +913,140 @@ is_blankline(char *s)
     if (! isspace((int) *s)) return FALSE;
   return TRUE;
 }
+
+/* Format of a GF line:
+ *    #=GF <featurename> <text>
+ * Returns ESL_OK on success; ESL_EFORMAT on parse failure.
+ * Throws ESL_EMEM on allocation failure.
+ */
+static int
+parse_gf(MSA *msa, char *buf)
+{
+  char *gf;
+  char *featurename;
+  char *text;
+  char *s;
+  int   n;
+
+  s = buf;
+  if ((esl_strtok(&s, eslWHITESPACE, &gf,          NULL)) != ESL_OK) return ESL_EFORMAT;
+  if ((esl_strtok(&s, eslWHITESPACE, &featurename, NULL)) != ESL_OK) return ESL_EFORMAT;
+  if ((esl_strtok(&s, "\n",          &text,        &n))   != ESL_OK) return ESL_EFORMAT;
+  while (*text && (*text == ' ' || *text == '\t')) text++;
+
+  if      (strcmp(featurename, "ID") == 0)
+    {
+      if ((msa->name = esl_strdup(text, n)) == NULL)
+	ESL_ERROR(ESL_EMEM, "strdup of alignment name failed"); 
+    }
+  else if (strcmp(featurename, "AC") == 0) 
+    {
+      if ((msa->acc = esl_strdup(text, n)) == NULL)
+	ESL_ERROR(ESL_EMEM, "strdup of alignment accession failed"); 
+    }
+  else if (strcmp(featurename, "DE") == 0) 
+    {
+      if ((msa->desc = esl_strdup(text, n)) == NULL)
+	ESL_ERROR(ESL_EMEM, "strdup of alignment description failed"); 
+    }
+  else if (strcmp(featurename, "AU") == 0) 
+    {
+      if ((msa->au = esl_strdup(text, n)) == NULL)
+	ESL_ERROR(ESL_EMEM, "strdup of alignment author failed"); 
+    }
+  else if (strcmp(featurename, "GA") == 0) 
+    {				/* Pfam has GA1, GA2. Rfam just has GA1. */
+      s = text;
+      if ((esl_strtok(&s, eslWHITESPACE, &text, NULL)) != ESL_OK) 
+	return ESL_EFORMAT;
+      msa->cutoff[eslMSA_GA1] = atof(text);
+      msa->cutset[eslMSA_GA1] = TRUE;
+      if ((esl_strtok(&s, eslWHITESPACE, &text, NULL)) != ESL_OK) 
+	{
+	  msa->cutoff[eslMSA_GA2] = atof(text);
+	  msa->cutset[eslMSA_GA2] = TRUE;
+	}
+    }
+  else if (strcmp(featurename, "NC") == 0) 
+    {
+      s = text;
+      if ((esl_strtok(&s, eslWHITESPACE, &text, NULL)) != ESL_OK) 
+	return ESL_EFORMAT;
+      msa->cutoff[eslMSA_NC1] = atof(text);
+      msa->cutset[eslMSA_NC1] = TRUE;
+      if ((esl_strtok(&s, eslWHITESPACE, &text, NULL)) != ESL_OK) 
+	{
+	  msa->cutoff[eslMSA_NC2] = atof(text);
+	  msa->cutset[eslMSA_NC2] = TRUE;
+	}
+    }
+  else if (strcmp(featurename, "TC") == 0) 
+    {
+      s = text;
+      if ((esl_strtok(&s, eslWHITESPACE, &text, NULL)) != ESL_OK) 
+	return ESL_EFORMAT;
+      msa->cutoff[eslMSA_TC1] = atof(text);
+      msa->cutset[eslMSA_TC1] = TRUE;
+      if ((esl_strtok(&s, WHITESPACE, &text, NULL)) != ESL_OK) 
+	{
+	  msa->cutoff[eslMSA_TC2] = atof(text);
+	  msa->cutset[eslMSA_TC2] = TRUE;
+	}
+    }
+  else 				/* an unparsed #=GF: */
+    return (add_gf(msa, featurename, text));
+
+  return ESL_OK;
+}
+
+
+/* Format of a GS line:
+ *    #=GS <seqname> <featurename> <text>
+ * Return ESL_OK on success.
+ */
+static int
+parse_gs(MSA *msa, char *buf)
+{
+  char *gs;
+  char *seqname;
+  char *featurename;
+  char *text; 
+  int   seqidx;
+  char *s;
+
+  s = buf;
+  if ((esl_strtok(&s, eslWHITESPACE, &gs,          NULL)) == NULL) return ESL_EFORMAT;
+  if ((esl_strtok(&s, eslWHITESPACE, &seqname,     NULL)) == NULL) return ESL_EFORMAT;
+  if ((esl_strtok(&s, eslWHITESPACE, &featurename, NULL)) == NULL) return ESL_EFORMAT;
+  if ((esl_strtok(&s, "\n",          &text,        NULL)) == NULL) return ESL_EFORMAT;
+  while (*text && (*text == ' ' || *text == '\t')) text++;
+  
+  /* GS usually follows another GS; guess lastidx+1
+   */
+  seqidx = MSAGetSeqidx(msa, seqname, msa->lastidx+1);
+  msa->lastidx = seqidx;
+
+  if (strcmp(featurename, "WT") == 0)
+    {
+      msa->wgt[seqidx]          = atof(text);
+      msa->flags |= MSA_SET_WGT;
+    }
+
+  else if (strcmp(featurename, "AC") == 0)
+    MSASetSeqAccession(msa, seqidx, text);
+
+  else if (strcmp(featurename, "DE") == 0)
+    MSASetSeqDescription(msa, seqidx, text);
+
+  else				
+    MSAAddGS(msa, featurename, seqidx, text);
+
+  return 1;
+}
+
+
+
+
 
 
 
@@ -890,15 +1153,6 @@ esl_msa_AddComment(MSA *msa, char *s)
 }
 
 
-/*****************************************************************
- * Deleted (relative to squid's msa):
- *   MSAAddGF()
- *   MSAAddGS()
- *   MSAAppendGC()
- *   MSAGetGC()
- *   MSAAppendGR()
- * Restore when keyhash/GKI augmentation is implemented.
- *****************************************************************/
 
 
 
@@ -1004,42 +1258,6 @@ MSAFileWrite(FILE *fp, MSA *msa, int outfmt, int do_oneline)
   }
 }
 
-/* Function: MSAGetSeqidx()
- * Date:     SRE, Wed May 19 15:08:25 1999 [St. Louis]
- *
- * Purpose:  From a sequence name, return seqidx appropriate
- *           for an MSA structure.
- *           
- *           1) try to guess the index. (pass -1 if you can't guess)
- *           2) Look up name in msa's hashtable.
- *           3) If it's a new name, store in msa's hashtable;
- *                                  expand allocs as needed;
- *                                  save sqname.
- *
- * Args:     msa   - alignment object
- *           name  - a sequence name
- *           guess - a guess at the right index, or -1 if no guess.
- *
- * Returns:  seqidx
- */
-int
-MSAGetSeqidx(MSA *msa, char *name, int guess)
-{
-  int seqidx;
-				/* can we guess? */
-  if (guess >= 0 && guess < msa->nseq && strcmp(name, msa->sqname[guess]) == 0) 
-    return guess;
-				/* else, a lookup in the index */
-  if ((seqidx = GKIKeyIndex(msa->index, name)) >= 0)
-    return seqidx;
-				/* else, it's a new name */
-  seqidx = GKIStoreKey(msa->index, name);
-  if (seqidx >= msa->nseqalloc)  MSAExpand(msa);
-
-  msa->sqname[seqidx] = sre_strdup(name, -1);
-  msa->nseq++;
-  return seqidx;
-}
 
 
 

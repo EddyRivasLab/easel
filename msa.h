@@ -77,12 +77,12 @@ typedef struct {
   int     ncomment;		/* number of comment lines          */
   int     alloc_ncomment;	/* number of comment lines alloc'ed */
 
-#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
   char  **gf_tag;               /* markup tags for unparsed #=GF lines  */
   char  **gf;                   /* annotations for unparsed #=GF lines  */
   int     ngf;			/* number of unparsed #=GF lines        */
   int     alloc_ngf;		/* number of gf lines alloc'ed          */
 
+#ifdef ESL_KEYHASH_INCLUDED	/* OPTIONAL AUGMENTATION: */
   char  **gs_tag;               /* markup tags for unparsed #=GS lines     */
   char ***gs;                   /* [0..ngs-1][0..nseq-1][free text] markup */
   GKI    *gs_idx;               /* hash of #=GS tag types                  */
@@ -115,6 +115,7 @@ typedef struct {
   FILE *f;                      /* open file pointer                         */
   char *fname;			/* name of file. used for diagnostic output  */
   int   linenumber;		/* what line are we on in the file           */
+  char  errbuf[512];		/* buffer for holding parse error info       */
 
   char *buf;			/* buffer for line input w/ sre_fgets()      */
   int   buflen;			/* current allocated length for buf          */

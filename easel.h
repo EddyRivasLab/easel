@@ -70,6 +70,13 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 			   FILE **ret_fp, char **ret_path);
 
 
+#define ESL_MALLOC(p, size) {\
+     (p) = malloc(size);\
+     if ((p) == NULL) {\
+       esl_error(ESL_EMEM, __FILE__, __LINE__, "malloc failed");\
+       return ESL_EMEM;\
+     }}
+
 /* See esl_msa_Expand() for first use example.
  */
 #define ESL_REALLOC(p, tmp, newsize) {\
@@ -92,8 +99,9 @@ extern int esl_FileEnvOpen(char *fname, char *env,
 
 /* Some basic constants.
  */
-#define ESL_CONSTANT_E    2.71828182845904523536028747135
-#define ESL_CONSTANT_PI   3.14159265358979323846264338328
+#define eslWHITESPACE    " \t\n\r"
+#define eslCONSTANT_E    2.71828182845904523536028747135
+#define eslCONSTANT_PI   3.14159265358979323846264338328
 
 /* For now, we're only testing Easel on POSIX systems (Linux),
  * but eventually we'll want a pure ANSI C mode for portability
