@@ -16,6 +16,7 @@ typedef struct {
   int   buflen;
   char *s;
   char  commentchar;		/* often '#' */
+  int   linenumber;		/* what line is loaded into buf; 1..nlines */
 } ESL_FILEPARSER;
 
 extern ESL_FILEPARSER *esl_fileparser_Create(FILE *fp);

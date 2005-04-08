@@ -562,7 +562,35 @@ esl_vec_FLogSum(float *vec, int n)
 }
 
 
-
+/* Function:  esl_vec_DLogNorm()
+ * Incept:    SRE, Thu Apr  7 17:45:39 2005 [St. Louis]
+ *
+ * Purpose:   Given an unnormalized log probability vector <vec>   
+ *            of length <n>, normalize it, leaving it as a log
+ *            probability vector. That is, $\sum_i exp(vec[i]) = 1$,
+ *            within machine precision.
+ *            
+ *            <esl_vec_FLogNorm()> does the same, but for a vector
+ *            of floats instead of doubles.
+ *
+ * Returns:   (void); <vec> is changed in place.
+ */
+void
+esl_vec_DLogNorm(double *vec, int n)
+{
+  double denom;
+  
+  denom = esl_vec_DLogSum(vec, n);
+  esl_vec_DIncrement(vec, n, -1.*denom);
+}
+void
+esl_vec_FLogNorm(float *vec, int n)
+{
+  float denom;
+  
+  denom = esl_vec_FLogSum(vec, n);
+  esl_vec_FIncrement(vec, n, -1.*denom);
+}
 
 /*****************************************************************  
  * @LICENSE@
