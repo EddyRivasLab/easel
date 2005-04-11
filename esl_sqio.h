@@ -55,7 +55,7 @@ typedef struct {
   int   format;		      /* Format of this file                      */
   int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
-  char  errbuf[512];	      /* parse error mesg. Size must match msa.h  */
+  char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
 
   int  *inmap;		      /* pointer to an input map, 0..127  */
 

@@ -1161,12 +1161,13 @@ esl_sqfile_IsAlignment(int fmt)
 
 
 /*****************************************************************
- * Example:
- * gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
- * ./example <FASTA file>
+ * Example main()
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
+ * run:     ./example <FASTA file>
+ */
 #include <easel.h>
 #include <esl_sqio.h>
 

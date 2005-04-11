@@ -114,7 +114,7 @@ typedef struct {
   FILE *f;                      /* open file pointer                         */
   char *fname;			/* name of file. used for diagnostic output  */
   int   linenumber;		/* what line are we on in the file           */
-  char  errbuf[512];		/* buffer for holding parse error info       */
+  char  errbuf[eslERRBUFSIZE];  /* buffer for holding parse error info       */
 
   char *buf;			/* buffer for line input w/ sre_fgets()      */
   int   buflen;			/* current allocated length for buf          */

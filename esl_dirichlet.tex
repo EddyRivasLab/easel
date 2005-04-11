@@ -1,0 +1,30 @@
+
+The dirichlet module contains routines for using Beta, Gamma, and
+Dirichlet densities. In particular, it implements mixture Dirichlet
+priors, which are useful in a variety of parameter estimation tasks.
+
+\subsection{The dirichlet API}
+
+The module implements one object, \ccode{ESL\_MIXDCHLET}, which holds
+a mixture Dirichlet prior. 
+
+The API consists of the following functions:
+
+\vspace{1em}
+\begin{tabular}{ll}\hline
+   \multicolumn{2}{c}{\textbf{mixture Dirichlet priors}}\\
+\ccode{esl\_mixdchlet\_Create()}            & Allocates a new mixture Dirichlet.\\
+\ccode{esl\_mixdchlet\_Destroy()}           & Free's a mixture Dirichlet.\\
+\ccode{esl\_mixdchlet\_MPParameters()}      & Mean posterior probability parameter estimation.\\
+   \multicolumn{2}{c}{\textbf{Dirichlet, Gamma density routines}}\\
+\ccode{esl\_dirichlet\_LogProbData()}       & $\log P( \mbox{count vector} \mid \mbox{mixture Dirichlet}$.\\
+\ccode{esl\_dirichlet\_LogProbProbs()}      & $\log P( \mbox{prob vector} \mid \mbox{mixture Dirichlet}$.\\
+\ccode{esl\_dirichlet\_LogGamma()}          & $\log \Gamma(x)$.\\
+   \multicolumn{2}{c}{\textbf{Sampling code (requires augmentation w/ random)}}\\
+\ccode{esl\_dirichlet\_Sample()}            & Sample a probability vector from simple Dirichlet.\\
+\ccode{esl\_dirichlet\_SampleBeta()}        & Sample from Beta$(\theta_1, \theta_2$).\\
+\ccode{esl\_dirichlet\_SampleGamma()}       & Sample from $\Gamma(a)$.\\
+   \multicolumn{2}{c}{\textbf{Input from file (requires augmentation w/ fileparser)}}\\
+\ccode{esl\_mixdchlet\_Read()}              & Input of a mixture Dirichlet from a file.\\ \hline
+\end{tabular}
+

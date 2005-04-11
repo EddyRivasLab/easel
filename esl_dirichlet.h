@@ -8,9 +8,6 @@
 #ifndef ESL_DIRICHLET_INCLUDED
 #define ESL_DIRICHLET_INCLUDED
 
-#ifdef eslAUGMENT_RANDOM
-#include <easel/random.h>
-#endif
 
 /* Structure: MIXDCHLET
  * 
@@ -27,16 +24,28 @@ typedef struct {
 
 extern ESL_MIXDCHLET *esl_mixdchlet_Create(int N, int K);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
+extern int            esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double *p);
 
 extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer);
+extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
 extern int esl_dirichlet_LogGamma(double x, double *ret_answer);
 
 
 /* Optional sampling code, when augmented by random module.
  */
 #ifdef eslAUGMENT_RANDOM
-extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, double *ret_answer)
+#include <easel/random.h>
 extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p);
+extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double *ret_answer);
+extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, double *ret_answer);
 #endif /*eslAUGMENT_RANDOM*/
+
+/* Optional file input code, when augmented by fileparser module
+ */
+#ifdef eslAUGMENT_FILEPARSER
+#include <easel/fileparser.h>
+extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
+#endif /*eslAUGMENT_FILEPARSER*/
+
 
 #endif /*ESL_DIRICHLET_INCLUDED*/

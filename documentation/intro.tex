@@ -17,8 +17,7 @@ stack           & Pushdown stacks                   & easel  & \\
 vectorops       & Vector operations                 & easel  & \\\hline
   \multicolumn{4}{c}{\textbf{Derived modules}}\\
 bioparse\_paml  & PAML rate matrix datafiles        & easel dmatrix parse & \\
-dirichlet       & Dirichlet densities               & easel gamma random & \\ 
-gamma           & Gamma densities                   & easel random & \\
+dirichlet       & Dirichlet densities               & easel vectorops  & fileparser, random \\ 
 ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
 wuss            & RNA structure annotation          & easel stack    & \\\hline
   \multicolumn{4}{c}{\textbf{Optional library interfaces}}\\
@@ -37,6 +36,7 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \ccode{ESL\_FILEPARSER}  & \cfile{fileparser}      & Token-based input file parser\\
 \ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
 \ccode{ESL\_KEYHASH}     & \cfile{keyhash}         & Keyword hash table\\
+\ccode{ESL\_MIXDCHLET}   & \cfile{dirichlet}       & Mixture Dirichlet prior\\
 \ccode{ESL\_MSA}         & \cfile{msa}             & Multiple sequence alignment\\
 \ccode{ESL\_MSAFILE}     & \cfile{msa}             & Multiple sequence alignment file parser\\
 \ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\

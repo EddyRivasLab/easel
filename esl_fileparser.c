@@ -43,6 +43,7 @@ esl_fileparser_Create(FILE *fp)
   efp->s           = NULL;
   efp->commentchar = '\0';
   efp->linenumber  = 0;
+  efp->errbuf[0]   = '\0';
 
   return efp;
 }
@@ -111,7 +112,8 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
 	if (fcode != eslOK) return fcode;
       } 
     else if (tokcode == eslOK) goodtok = TRUE;
-    else return tokcode;
+    else 
+      { sprintf(efp->errbuf, "esl_strtok() failed"); return tokcode;}
   } while (! goodtok);
 
   if (ret_tok != NULL)    *ret_tok    = tok;
@@ -162,7 +164,8 @@ nextline(ESL_FILEPARSER *efp)
 {
   int eslcode;
 
-  if ((eslcode = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != eslOK) return eslcode;
+  if ((eslcode = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != eslOK) 
+    { sprintf(efp->errbuf, "esl_fgets() failed"); return eslcode;}
   efp->s = efp->buf;
   efp->linenumber++;
   return eslOK;
@@ -209,8 +212,8 @@ main(int argc, char **argv)
       ntok++;
     }
   if (status != eslEOF)
-    esl_fatal("Abnormal parse termination at line %d of file %s",
-	      efp->linenumber, filename);
+    esl_fatal("Abnormal parse termination at line %d of file %s;\n%s",
+	      efp->linenumber, filename, efp->errbuf);
   
   esl_fileparser_Destroy(efp);
   fclose(fp);

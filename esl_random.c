@@ -236,7 +236,7 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
  * Date:     SRE, Mon Sep  6 21:24:29 1999 [St. Louis]
  *
  * Purpose:  Pick an exponentially distributed random variable
- *           $0 > x \geq \infty$.
+ *           $0 < x \leq \infty$.
  */
 double
 esl_rnd_Exponential(ESL_RANDOMNESS *r)
@@ -482,12 +482,14 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
 
 
 /*****************************************************************
- * Test driver:
- *   gcc -g -Wall -I. -o test -DESL_RANDOM_TESTDRIVE random.c easel.c -lm
+ * Example of using the random module
  *****************************************************************/
-#ifdef ESL_RANDOM_TESTDRIVE
+#ifdef eslRANDOM_EXAMPLE
+/*::cexcerpt::random_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE random.c easel.c -lm
+ * run:     ./example
+ */
 #include <stdio.h>
-
 #include <easel.h>
 #include <esl_random.h>
 
@@ -510,5 +512,5 @@ main(void)
   esl_randomness_Destroy(r);
   return 0;
 }
-
-#endif /*ESL_RANDOM_TESTDRIVE*/
+/*::cexcerpt::random_example::end::*/
+#endif /*ESL_RANDOM_EXAMPLE*/

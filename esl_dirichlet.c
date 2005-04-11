@@ -6,6 +6,9 @@
  * SVN $Id$
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+
 #include <easel.h>
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -71,59 +74,58 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri)
   free(pri);
 }
 
-/* Function:  
- * Incept:    SRE, Fri Apr  8 12:47:03 2005 [St. Louis]
+
+/* Function:  esl_mixdchlet_MPParameters()
+ * Incept:    SRE, Sat Apr  9 14:28:26 2005 [St. Louis]
  *
- * Purpose:   
+ * Purpose:   Parameter estimation for a count vector <c> of cardinality
+ *            <K>, and a mixture Dirichlet prior <pri>. Calculates
+ *            mean posterior estimates for probability parameters, and
+ *            returns them in <p>. Also returns the posterior probabilities
+ *            of each Dirichlet mixture component, $P(q \mid c)$, in <mix>.
+ *            Caller must provide allocated space for <mix> and <p>, both
+ *            of length <K>.
  *
- * Args:      
+ * Returns:   <eslOK> on success; <mix> contains posterior probabilities of
+ *            the Dirichlet components, and <p> contains mean posterior 
+ *            probability parameter estimates.
  *
- * Returns:   
- *
- * Throws:    (no abnormal error conditions)
- *
- * Xref:      
+ * Throws:    <esl_EINCOMPAT> if <pri> has different cardinality than <c>.
  */
-ESL_MIXDCHLET *
-esl_mixdchlet_Read(ESL_FILEPARSER *efp, char *errbuf)
+int
+esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double *p)
 {
-  ESL_MIXCHLET *pri;
-  int   K;			/* Dirichlet param vector size */
-  int   N;			/* number of mixture components */
-  char *tok;			/* ptr to a whitespace-delim, noncomment token */
-  int   toklen;			/* length of a parsed token */
-  int   status;			/* return status of an Easel call */
-  int   q;			/* counter over mixture components (0..N-1) */
-  int   i;			/* counter over params (0..K-1) */
+  int q;			/* counter over mixture components */
+  double val;
+  double totc;
+  double tota;
   
-  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
-  K = atoi(tok);
-  if (K < 1) { sprintf(errbuf, "Bad vector size %.32s\n", tok); goto FAILURE; }
-  
-  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
-  N = atoi(tok);
-  if (N < 1) { sprintf(errbuf, "Bad mixture number %.32s\n", tok); goto FAILURE; }
+  if (K != pri->K) ESL_ERROR(eslEINCOMPAT, "cvec's K != mixture Dirichlet's K");
 
-  pri = esl_mixdchlet_Create(N, K);
-  if (pri == NULL) { sprintf(errbuf, "mxdchlet alloc failed\n", tok); goto FAILURE; }
- 
-  for (q = 0; q < N; q++)
-    {
-      if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
-      pri->pq[q] = atof(tok);
-      if (pri->pq[q] < 0.0 || pri->pq[q] > 1.0) 
-	{ sprintf(errbuf, "bad mixture coefficient %.32s\n", tok); goto FAILURE; }      
+  /* Calculate mix[], the posterior probability
+   * P(q | c) of mixture component q given the count vector c.
+   */
+  for (q = 0; q < pri->nq; q++)
+    if (pri->pq[q] > 0.0)  
+      {
+	esl_dirichlet_LogProbData(c, pri->alpha[q], K, &val);
+	mix[q] =  val + log(pri->pq[q]);
+      }
+    else
+      mix[q] = -HUGE_VAL;
+  esl_vec_DLogNorm(mix, pri->nq);
+  esl_vec_DExp(mix, pri->nq);	/* mix[q] is now P(q|c) */
 
-      for (i = 0; i < K; i++)
-	{
-	  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
-	  pri->alpha[q][i] = atof(tok);
-	  if (pri->alpha[q][i] <= 0.0)
-	    { sprintf(errbuf, "Dirichlet params must be positive, got %.32s\n", tok); goto FAILURE; }      	  
-	}
-    }
-  esl_vec_DNorm(pri->pq, N);
-  return pri;
+  totc = esl_vec_DSum(c, K);
+  esl_vec_DSet(p, K, 0.);
+  for (x = 0; x < K; x++)
+    for (q = 0; q < pri->nq; q++)
+      {
+	tota = esl_vec_DSum(pri->alpha[q], K);
+	p[x] += mix[q] * (c[x] + pri->alpha[q][x]) / (totc + tota);
+      }
+  /* should be normalized already, but for good measure: */
+  esl_vec_DNorm(p, K);
 }
 
 
@@ -133,7 +135,7 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp, char *errbuf)
  * Purpose:   Given an observed count vector $c[0..K-1]$, 
  *            and a simple Dirichlet density parameterized by
  *            $\alpha[0..K-1]$;
- *            calculate and return $\log P(c \mid \alpha)$.
+ *            calculate $\log P(c \mid \alpha)$.
  *            
  *            This is $\int P(c \mid p) P(p \mid \alpha) dp$,
  *            an integral that can be solved analytically.
@@ -143,10 +145,11 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp, char *errbuf)
  *            K          - size of c, alpha vectors
  *            ret_answer - RETURN: log P(c | \alpha)
  *
- * Returns:   $\log P(c \mid \alpha)$.
+ * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
+ *            in <ret_answer>.
  */
-double
-esl_dirichlet_LogProbData(double *c, double *alpha, int K)
+int
+esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
 {
   double lnp;      
   double sum1, sum2, sum3;
@@ -172,41 +175,38 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K)
   return lnp;
 }
 
-int
-esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double *p)
+
+/* Function:  esl_dirichlet_LogProbProbs()
+ * Incept:    SRE, Sat Apr  9 14:35:17 2005 [St. Louis]
+ *
+ * Purpose:   Given Dirichlet parameter vector <alpha> and a probability
+ *            vector <p>, both of cardinality <K>; return
+ *            $\log P(p \mid alpha)$.
+ *            
+ * Xref:      Sjolander (1996) appendix, lemma 2.
+ */
+double
+esl_dirichlet_LogProbProbs(double *p, double *alpha, int K)
 {
-  int q;			/* counter over mixture components */
+  double sum;		        /* for Gammln(|alpha|) in Z     */
+  double logp;			/* RETURN: log P(p|alpha)       */
   double val;
-  double totc;
-  double tota;
-  
-  if (K != pri-K) ESL_ERROR(eslEINCOMPAT, "cvec's K != mixture Dirichlet's K");
+  int x;
 
-  /* Calculate mix[], the posterior probability
-   * P(q | c) of mixture component q given the count vector c.
-   */
-  for (q = 0; q < pri->nq; q++)
-    if (pri->pq[q] > 0.0)  
-      {
-	mix[q] =  log(pri->pq[q]);
-	mix[q] += esl_dirichlet_LogProbData(c, pri->alpha[q], K);
-      }
-    else
-      mix[q] = -HUGE_VAL;
-  esl_vec_DLogNorm(mix, pri->nq);
-  esl_vec_DExp(mix, pri->nq);	/* mix[q] is now P(q|c) */
-
-  totc = esl_vec_DSum(c, K);
-  esl_vec_DSet(p, K, 0.);
+  sum = logp = 0.0;
   for (x = 0; x < K; x++)
-    for (q = 0; q < pri->nq; q++)
+    if (p[x] > 0.0)		/* any param that is == 0.0 doesn't exist */
       {
-	tota = esl_vec_DSum(pri->alpha[q], K);
-	p[x] += mix[q] * (c[x] + pri->alpha[q][x]) / (totc + tota);
+	esl_dirichlet_LogGamma(alpha[x], &val);
+	logp -= val;
+	logp += (alpha[x]-1.0) * log(p[x]);
+	sum  += alpha[x];
       }
-  /* should be normalized already, but for good measure: */
-  esl_vec_DNorm(p, K);
+  esl_dirichlet_LogGamma(sum, &val);
+  logp += val;
+  return logp;
 }
+
 
 
 /* Function:  esl_dirichlet_LogGamma()
@@ -275,7 +275,6 @@ esl_dirichlet_LogGamma(double x, double *ret_answer)
  ***************************************************************** 
  */
 #ifdef eslAUGMENT_RANDOM
-
 static double gamma_ahrens(ESL_RANDOMNESS *r, double a);
 static double gamma_integer(ESL_RANDOMNESS *r, unsigned int a);
 static double gamma_fraction(ESL_RANDOMNESS *r, double a);
@@ -294,15 +293,36 @@ static double gamma_fraction(ESL_RANDOMNESS *r, double a);
  *                     (caller allocates 0..K-1).         
  *
  * Returns:   <eslOK>, and <p> will contain the sampled vector.
- *
- * Throws:    (no abnormal error conditions)
  */
 int
 esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
 {
-  int    x;
-  for (x = 0; x < K; x++) esl_dirichlet_SampleGamma(r, alpha[x], &(p[x]));
+  int x;
+  int status;  
+
+  for (x = 0; x < K; x++) 
+    if ((status = esl_dirichlet_SampleGamma(r, alpha[x], &(p[x]))) != eslOK) return status;
   esl_vec_DNorm(p, K);
+}
+
+/* Function:  esl_dirichlet_SampleBeta()
+ * Incept:    SRE, Sat Oct 25 12:20:31 2003 [Stanford]
+ *
+ * Purpose:   Samples from a Beta(theta1, theta2) density, leaves answer
+ *            in <ret_answer>. (Special case of sampling Dirichlet.)
+ *            
+ * Returns:   <eslOK>.           
+ */
+int
+esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double *ret_answer)
+{
+  int status;
+  double p, q;
+
+  if ((status = esl_dirichlet_SampleGamma(r, theta1, p)) != eslOK) return status;
+  if ((status = esl_dirichlet_SampleGamma(r, theta2, q)) != eslOK) return status;
+  *ret_answer = p / (p+q);
+  return eslOK;
 }
 
 
@@ -315,13 +335,13 @@ esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
  *           Also relies on examination of the implementation in
  *           the GNU Scientific Library (libgsl). The implementation
  *           relies on three separate gamma function algorithms:
- *           gamma_ahrens(), gamma_integer(), and gamma_fraction().
+ *           <gamma_ahrens()>, <gamma_integer()>, and <gamma_fraction()>.
  *
  * Args:     r          - random number generation seed
  *           alpha      - order of the gamma function
  *           ret_answer - RETURN: a sample from Gamma(a, 1).
  *
- * Returns:  a gamma-distributed deviate is put in *ret_answer;
+ * Returns:  a gamma-distributed deviate is put in <ret_answer>;
  *           returns <eslOK>.
  *
  * Throws:   <eslEINVAL> for $a <= 0$.
@@ -396,5 +416,84 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
   } while (U >= q);
   return X;
 }
-
 #endif /*eslAUGMENT_RANDOM*/
+
+
+
+/*****************************************************************
+ * File input code:
+ * only included when augmented by esl_fileparser module.
+ ***************************************************************** 
+ */
+#ifdef eslAUGMENT_FILEPARSER 
+/* Function:  esl_mixdchlet_Read()
+ * Incept:    SRE, Fri Apr  8 12:47:03 2005 [St. Louis]
+ *
+ * Purpose:   Reads a mixture Dirichlet from an open stream <efp>, using the 
+ *            <ESL_FILEPARSER> token-based parser. 
+ *            
+ *            The first two tokens are <K>, the length of the Dirichlet parameter
+ *            vector(s), and <N>, the number of mixture components. Then for
+ *            each of the <N> mixture components <i>, it reads a mixture coefficient
+ *            <pq[i]> followed by <K> Dirichlet parameters <alpha[i][0..K-1]>.
+ *            
+ *            This function may be called more than once on the same open file,
+ *            to read multiple different mixture Dirichlets from it (transitions,
+ *            match emissions, insert emissions, for example).
+ *
+ * Returns:   <eslOK> on success, and <ret_pri> contains a new <ESL_MIXDCHLET> object 
+ *            that the caller is responsible for free'ing.
+ *
+ * Throws:    <eslEFORMAT> on parse failure, in which case <efp->errbuf>
+ *            contains an informative diagnostic message, and <efp->linenumber>
+ *            contains the linenumber at which the parse failed.
+ */
+int
+esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
+{
+  ESL_MIXCHLET *pri;
+  int   K;			/* Dirichlet param vector size */
+  int   N;			/* number of mixture components */
+  char *tok;			/* ptr to a whitespace-delim, noncomment token */
+  int   toklen;			/* length of a parsed token */
+  int   status;			/* return status of an Easel call */
+  int   q;			/* counter over mixture components (0..N-1) */
+  int   i;			/* counter over params (0..K-1) */
+  
+  *ret_pri = pri = NULL;
+
+  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+  K = atoi(tok);
+  if (K < 1) { sprintf(efp->errbuf, "Bad vector size %.32s\n", tok); goto FAILURE; }
+  
+  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+  N = atoi(tok);
+  if (N < 1) { sprintf(efp->errbuf, "Bad mixture number %.32s\n", tok); goto FAILURE; }
+
+  pri = esl_mixdchlet_Create(N, K);
+  if (pri == NULL) { sprintf(efp->errbuf, "mxdchlet alloc failed\n", tok); goto FAILURE; }
+ 
+  for (q = 0; q < N; q++)
+    {
+      if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+      pri->pq[q] = atof(tok);
+      if (pri->pq[q] < 0.0 || pri->pq[q] > 1.0) 
+	{ sprintf(efp->errbuf, "bad mixture coefficient %.32s\n", tok); goto FAILURE; }      
+
+      for (i = 0; i < K; i++)
+	{
+	  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+	  pri->alpha[q][i] = atof(tok);
+	  if (pri->alpha[q][i] <= 0.0)
+	    { sprintf(efp->errbuf, "Dirichlet params must be positive, got %.32s\n", tok); goto FAILURE; } 
+	}
+    }
+  esl_vec_DNorm(pri->pq, N);
+  *ret_pri = pri;
+  return eslOK;
+
+ FAILURE:
+  esl_mixdchlet_Destroy(pri);
+  return eslEFORMAT;
+}
+#endif /* eslAUGMENT_FILEPARSER */

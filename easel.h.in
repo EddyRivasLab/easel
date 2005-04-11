@@ -114,6 +114,13 @@
 #define ESL_DASSERT3(x)
 #endif
 
+/* File parsers all contain a fixed length "errbuf" for failure
+ * diagnostics. 
+ */
+#define eslERRBUFSIZE 128
+
+
+
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
 extern esl_error_handler_f esl_error_handler;
