@@ -12,6 +12,7 @@ RANLIB  = @RANLIB@
 HEADERS = \
 	easel.h\
 	esl_alphabet.h\
+	esl_dirichlet.h\
 	esl_fileparser.h\
 	esl_getopts.h\
 	esl_keyhash.h\
@@ -26,6 +27,7 @@ HEADERS = \
 OBJS    = \
 	easel.o\
 	esl_alphabet.o\
+	esl_dirichlet.o\
 	esl_fileparser.o\
 	esl_getopts.o\
 	esl_keyhash.o\

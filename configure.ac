@@ -76,9 +76,11 @@ AC_ARG_ENABLE(libversion,
   [  --enable-libversion     Compile an installed library version of Easel], 
   [
     AC_MSG_NOTICE(libversion - activating all augmentations.)
+    AC_DEFINE(eslAUGMENT_ALPHABET)
+    AC_DEFINE(eslAUGMENT_FILEPARSER)
     AC_DEFINE(eslAUGMENT_KEYHASH)
     AC_DEFINE(eslAUGMENT_MSA)
-    AC_DEFINE(eslAUGMENT_SSI)
+    AC_DEFINE(eslAUGMENT_RANDOM)
   ])
 
 

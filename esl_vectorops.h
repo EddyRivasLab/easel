@@ -67,5 +67,8 @@ extern void   esl_vec_FExp(float *vec, int n);
 extern double esl_vec_DLogSum(double *vec, int n);
 extern float  esl_vec_FLogSum(float *vec, int n);
 
+extern void   esl_vec_DLogNorm(double *vec, int n);
+extern void   esl_vec_FLogNorm(float *vec, int n);
+
 
 #endif /* ESL_VECTOROPS_INCLUDED */

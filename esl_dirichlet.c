@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <easel.h>
 #ifdef eslAUGMENT_RANDOM
@@ -93,9 +94,10 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri)
  * Throws:    <esl_EINCOMPAT> if <pri> has different cardinality than <c>.
  */
 int
-esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double *p)
+esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, double *p)
 {
   int q;			/* counter over mixture components */
+  int x;
   double val;
   double totc;
   double tota;
@@ -105,7 +107,7 @@ esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double
   /* Calculate mix[], the posterior probability
    * P(q | c) of mixture component q given the count vector c.
    */
-  for (q = 0; q < pri->nq; q++)
+  for (q = 0; q < pri->N; q++)
     if (pri->pq[q] > 0.0)  
       {
 	esl_dirichlet_LogProbData(c, pri->alpha[q], K, &val);
@@ -113,19 +115,19 @@ esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double
       }
     else
       mix[q] = -HUGE_VAL;
-  esl_vec_DLogNorm(mix, pri->nq);
-  esl_vec_DExp(mix, pri->nq);	/* mix[q] is now P(q|c) */
+  esl_vec_DLogNorm(mix, pri->N); /* mix[q] is now P(q|c) */
 
   totc = esl_vec_DSum(c, K);
   esl_vec_DSet(p, K, 0.);
   for (x = 0; x < K; x++)
-    for (q = 0; q < pri->nq; q++)
+    for (q = 0; q < pri->N; q++)
       {
 	tota = esl_vec_DSum(pri->alpha[q], K);
 	p[x] += mix[q] * (c[x] + pri->alpha[q][x]) / (totc + tota);
       }
   /* should be normalized already, but for good measure: */
   esl_vec_DNorm(p, K);
+  return eslOK;
 }
 
 
@@ -172,7 +174,8 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
   esl_dirichlet_LogGamma(sum3 + 1., &a3);
   lnp += a2 + a3 - a1;
 
-  return lnp;
+  *ret_answer = lnp;
+  return eslOK;
 }
 
 
@@ -183,10 +186,12 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
  *            vector <p>, both of cardinality <K>; return
  *            $\log P(p \mid alpha)$.
  *            
+ * Returns:   <eslOK> on success, and the result is in <ret_answer>.           
+ *            
  * Xref:      Sjolander (1996) appendix, lemma 2.
  */
-double
-esl_dirichlet_LogProbProbs(double *p, double *alpha, int K)
+int
+esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
 {
   double sum;		        /* for Gammln(|alpha|) in Z     */
   double logp;			/* RETURN: log P(p|alpha)       */
@@ -204,7 +209,8 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K)
       }
   esl_dirichlet_LogGamma(sum, &val);
   logp += val;
-  return logp;
+  *ret_answer = logp;
+  return eslOK;
 }
 
 
@@ -303,6 +309,7 @@ esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
   for (x = 0; x < K; x++) 
     if ((status = esl_dirichlet_SampleGamma(r, alpha[x], &(p[x]))) != eslOK) return status;
   esl_vec_DNorm(p, K);
+  return eslOK;
 }
 
 /* Function:  esl_dirichlet_SampleBeta()
@@ -319,8 +326,8 @@ esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double
   int status;
   double p, q;
 
-  if ((status = esl_dirichlet_SampleGamma(r, theta1, p)) != eslOK) return status;
-  if ((status = esl_dirichlet_SampleGamma(r, theta2, q)) != eslOK) return status;
+  if ((status = esl_dirichlet_SampleGamma(r, theta1, &p)) != eslOK) return status;
+  if ((status = esl_dirichlet_SampleGamma(r, theta2, &q)) != eslOK) return status;
   *ret_answer = p / (p+q);
   return eslOK;
 }
@@ -451,7 +458,7 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
 int
 esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
 {
-  ESL_MIXCHLET *pri;
+  ESL_MIXDCHLET *pri;
   int   K;			/* Dirichlet param vector size */
   int   N;			/* number of mixture components */
   char *tok;			/* ptr to a whitespace-delim, noncomment token */
@@ -464,28 +471,28 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
 
   if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
   K = atoi(tok);
-  if (K < 1) { sprintf(efp->errbuf, "Bad vector size %.32s\n", tok); goto FAILURE; }
+  if (K < 1) { sprintf(efp->errbuf, "Bad vector size %.32s", tok); goto FAILURE; }
   
   if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
   N = atoi(tok);
-  if (N < 1) { sprintf(efp->errbuf, "Bad mixture number %.32s\n", tok); goto FAILURE; }
+  if (N < 1) { sprintf(efp->errbuf, "Bad mixture number %.32s", tok); goto FAILURE; }
 
   pri = esl_mixdchlet_Create(N, K);
-  if (pri == NULL) { sprintf(efp->errbuf, "mxdchlet alloc failed\n", tok); goto FAILURE; }
+  if (pri == NULL) { sprintf(efp->errbuf, "mxdchlet alloc failed"); goto FAILURE; }
  
   for (q = 0; q < N; q++)
     {
       if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
       pri->pq[q] = atof(tok);
       if (pri->pq[q] < 0.0 || pri->pq[q] > 1.0) 
-	{ sprintf(efp->errbuf, "bad mixture coefficient %.32s\n", tok); goto FAILURE; }      
+	{ sprintf(efp->errbuf, "bad mixture coefficient %.32s", tok); goto FAILURE; }      
 
       for (i = 0; i < K; i++)
 	{
 	  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
 	  pri->alpha[q][i] = atof(tok);
 	  if (pri->alpha[q][i] <= 0.0)
-	    { sprintf(efp->errbuf, "Dirichlet params must be positive, got %.32s\n", tok); goto FAILURE; } 
+	    { sprintf(efp->errbuf, "Dirichlet params must be positive, got %.32s", tok); goto FAILURE; } 
 	}
     }
   esl_vec_DNorm(pri->pq, N);
@@ -497,3 +504,205 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
   return eslEFORMAT;
 }
 #endif /* eslAUGMENT_FILEPARSER */
+
+
+
+
+/*****************************************************************
+ * Example main():
+ *****************************************************************/
+#ifdef eslDIRICHLET_EXAMPLE
+/*::cexcerpt::dirichlet_example::begin::*/
+/* compile: 
+    gcc -g -Wall -I. -o example -DeslDIRICHLET_EXAMPLE\
+      -DeslAUGMENT_RANDOM -DeslAUGMENT_FILEPARSER esl_random.c esl_fileparser.c\
+      esl_vectorops.c esl_dirichlet.c easel.c -lm
+ * run:     ./example <mixture Dirichlet file>
+ */
+#include <stdlib.h>
+#include <stdio.h>
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_fileparser.h>
+#include <esl_vectorops.h>
+#include <esl_dirichlet.h>
+
+int
+main(int argc, char **argv)
+{
+  FILE           *fp;
+  ESL_FILEPARSER *efp;
+  ESL_RANDOMNESS *r;
+  ESL_MIXDCHLET  *pri;
+  int             c,i,q,qused;
+  double         *counts, *probs, *iq, *ip;
+
+  /* Read in a mixture Dirichlet from a file. */
+  fp  = fopen(argv[1], "r");
+  efp = esl_fileparser_Create(fp);
+  if (esl_mixdchlet_Read(efp, &pri) != eslOK) {
+    fprintf(stderr, "%s;\ndirichlet file %s parse failed at line %d\n",
+	    efp->errbuf, argv[1], efp->linenumber);
+    exit(1);
+  }
+  esl_fileparser_Destroy(efp);
+  fclose(fp);  
+
+  /* Allocate some working spaces */
+  probs  = malloc(sizeof(double) * pri->K);
+  counts = malloc(sizeof(double) * pri->K);
+  iq     = malloc(sizeof(double) * pri->N);
+  ip     = malloc(sizeof(double) * pri->K);
+
+  /* Sample a probability vector from it. */
+  r = esl_randomness_CreateTimeseeded(); /* init the random generator */
+  qused = esl_rnd_DChoose(r, pri->pq, pri->N); /* sample a component */
+  esl_dirichlet_Sample(r, pri->alpha[qused], pri->K, probs);
+
+  printf("Component %2d: p[] = ", qused);
+  for (i = 0; i < pri->K; i++) printf("%.3f ", probs[i]);
+  printf("\n");
+
+  /* Sample a count vector from that prob vector. */
+  esl_vec_DSet(counts, pri->K, 0.);
+  for (c = 0; c < 20; c++)
+    counts[esl_rnd_DChoose(r, probs, pri->K)] += 1.;
+
+  printf("              c[] = ");
+  for (i = 0; i < pri->K; i++) printf("%5.0f ", counts[i]);
+  printf("\n");
+
+  /* Estimate a probability vector (ip) from those counts, and
+   * also get back the posterior prob P(q|c) of each component (iq). */
+  esl_mixdchlet_MPParameters(counts, pri->K, pri, iq, ip);
+
+  printf("  reestimated p[] = ");
+  for (i = 0; i < pri->K; i++) printf("%.3f ", ip[i]);
+  printf("\n");
+
+  q = esl_vec_DArgMax(iq, pri->N);
+  printf("probably generated by component %d; P(q%d | c) = %.3f\n",
+	 q, q, iq[q]);
+
+  esl_mixdchlet_Destroy(pri);
+  free(probs); free(counts); free(iq); free(ip);
+  return 0;
+}
+/*::cexcerpt::dirichlet_example::end::*/
+#endif /*eslDIRICHLET_EXAMPLE*/
+
+/*****************************************************************
+ * Test driver:
+ * gcc -g -Wall -I. -o test -DeslDIRICHLET_TESTDRIVE -DeslAUGMENT_FILEPARSER\
+ *    -DeslAUGMENT_RANDOM esl_fileparser.c esl_random.c esl_vectorops.c\
+ *    esl_dirichlet.c easel.c -lm
+ * ./test
+ *****************************************************************/
+#ifdef eslDIRICHLET_TESTDRIVE
+#define NCOMPONENTS 2
+#define NALPHA      6		/* dice example, 6 faces */
+#define NCOUNTS     1000
+#define NTRIALS     100
+
+int
+main(void)
+{
+  ESL_FILEPARSER *efp;
+  ESL_RANDOMNESS *r;
+  ESL_MIXDCHLET  *d1, *d2;
+  FILE *fp;
+  char  filename[] = "tmpxxx.pri";
+  int   q, i, c, t;
+
+  double pq[NCOMPONENTS] = {0.5, 0.5};
+  double alpha[NCOMPONENTS][NALPHA] = { {1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+					{0.1, 0.1, 0.1, 0.1, 0.1, 0.1} };
+  double counts[NALPHA];
+  double probs[NALPHA];
+  double iq[NCOMPONENTS];	/* inferred posterior probs over components */
+  double ip[NALPHA];		/* inferred probability parameters */
+  int    qused;
+  int    qguess;		/* inferred guess at which component  */
+  double maxdeviation;
+
+  /* Get hold of some reproducible randomness.
+   * (It has to be reproducible, because we need to be able
+   *  to guarantee that the tests will succeed, even though
+   *  we're doing a stochastic sampling procedure.)
+   */
+  if ((r = esl_randomness_Create(42)) == NULL) abort();
+
+  /* Create a mixture Dirichlet file.
+   */
+  if ((fp = fopen(filename, "w")) == NULL) abort();
+  fprintf(fp, "%d %d\n", NALPHA, NCOMPONENTS);
+  for (q = 0; q < NCOMPONENTS; q++)
+    {
+      fprintf(fp, "%.3f ", pq[q]);
+      for (i = 0; i < NALPHA; i++)
+	fprintf(fp, "%.3f ", alpha[q][i]);
+      fprintf(fp, "\n");
+    }
+  fclose(fp);
+  
+  /* Read it back in.
+   */
+  if ((fp = fopen(filename, "r")) == NULL) abort();
+  if ((efp = esl_fileparser_Create(fp)) == NULL) abort();
+  if (esl_mixdchlet_Read(efp, &d1) != eslOK) abort();
+  esl_fileparser_Destroy(efp);
+  fclose(fp);
+
+  /* Make a copy of it - artificially testing the _Create() call.
+   */
+  if ((d2 = esl_mixdchlet_Create(d1->N, d1->K)) == NULL) abort();
+  esl_vec_DCopy(d2->pq, d1->pq, d1->N);
+  for (q = 0; q < d1->N; q++)
+    esl_vec_DCopy(d2->alpha[q], d1->alpha[q], d1->K);
+
+  /* Sample from it.
+   */
+  for (t = 0; t < NTRIALS; t++)
+    {
+      qused = esl_rnd_DChoose(r, d2->pq, d2->N); /* sample a component */
+      esl_dirichlet_Sample(r, d2->alpha[qused], d2->K, probs);
+      esl_vec_DSet(counts, NALPHA, 0.);
+      for (c = 0; c < NCOUNTS; c++)
+	{
+	  i = esl_rnd_DChoose(r, probs, NALPHA);
+	  counts[i] += 1.;
+	}
+      /* printf("%1d ", qused); */
+  
+      /* Classify by posterior inference on the sampled probability vector.
+       */
+      for (q = 0; q < d2->N; q++)
+	{
+	  esl_dirichlet_LogProbProbs(probs, d2->alpha[q], d2->K, &(iq[q]));
+	  iq[q] += log(d2->pq[q]);
+	}
+      esl_vec_DLogNorm(iq, d2->N);
+      qguess = esl_vec_DArgMax(iq, d2->N); /* the MP guess from the probs */
+      /* printf("%1d ", qguess); */
+      if (qused != qguess) abort();
+  
+      /* Classify by posterior inference on the sampled count vector;
+       * and attempt to estimate the probability vector.
+       */
+      esl_mixdchlet_MPParameters(counts, d2->K, d2, iq, ip);
+      qguess = esl_vec_DArgMax(iq, d2->N); /* the MP guess from the counts */
+      /* printf("%1d ", qguess); */
+      if (qused != qguess) abort();
+
+      for (i = 0; i < d2->K; i++)
+	ip[i] = fabs(ip[i] - probs[i]); /* ip[] is now the differences rel to probs */
+      maxdeviation = esl_vec_DMax(ip, d2->K);
+      /* printf("%.3f\n", maxdeviation); */
+      if (maxdeviation > 0.05) abort();
+
+    }
+  esl_mixdchlet_Destroy(d1);
+  esl_mixdchlet_Destroy(d2);
+  return 0;
+}
+#endif /*eslDIRICHLET_TESTDRIVE*/

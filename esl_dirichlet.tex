@@ -28,3 +28,29 @@ The API consists of the following functions:
 \ccode{esl\_mixdchlet\_Read()}              & Input of a mixture Dirichlet from a file.\\ \hline
 \end{tabular}
 
+\subsection{Example of using the dirichlet API}
+
+An example that reads a mixture Dirichlet prior from a file, samples a
+probability vector from it, samples a count vector from the
+probability vector, then infers which mixture component generated the
+data and uses mean posterior estimation to reestimate the probability
+vector from the counts:
+
+\input{cexcerpts/dirichlet_example}
+
+\subsection{Accessing information in the ESL\_MIXDCHLET object}
+
+You may need to access the information in the \ccode{ESL\_MIXDCHLET}
+object. The data fields inside this structure are:
+
+\input{cexcerpts/dirichlet_mixdchlet}
+
+
+\subsection{Augmentations}
+
+The \ccode{esl\_dirichlet\_Sample*()} functions are only available
+when the module is augmented with the \ccode{random} module.
+
+The \ccode{esl\_dirichlet\_Read()} function is only available when the
+module is augmented with the \ccode{fileparser} module.
+

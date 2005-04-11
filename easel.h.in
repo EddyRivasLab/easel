@@ -32,8 +32,10 @@
  *****************************************************************/
 
 #undef eslAUGMENT_ALPHABET
+#undef eslAUGMENT_FILEPARSER
 #undef eslAUGMENT_KEYHASH	
 #undef eslAUGMENT_MSA		
+#undef eslAUGMENT_RANDOM
 
 
 /*------------------------------------------------------------------------*/

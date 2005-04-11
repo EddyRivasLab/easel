@@ -16,34 +16,43 @@
  * parameters).
  */
 typedef struct {
+ /*::cexcerpt::dirichlet_mixdchlet::begin::*/
   double  *pq;			/* mixture coefficients pq[0..N-1]          */
   double **alpha;               /* Dirichlet params alpha[0..N-1][0..K-1]   */
   int      N;			/* number of mixtures, e.g. 9 for Sjolander */
   int      K;			/* alphabet size, e.g. 20                   */
+ /*::cexcerpt::dirichlet_mixdchlet::end::*/
 } ESL_MIXDCHLET;
 
 extern ESL_MIXDCHLET *esl_mixdchlet_Create(int N, int K);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
-extern int            esl_mixdchlet_MPParameters(double *c, int K, MIXDCHLET *pri, double *mix, double *p);
+extern int            esl_mixdchlet_MPParameters(double *c, int K,
+						 ESL_MIXDCHLET *pri, double *mix, 
+						 double *p);
 
-extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer);
-extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
+extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K, 
+				     double *ret_answer);
+extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, 
+				      double *ret_answer);
 extern int esl_dirichlet_LogGamma(double x, double *ret_answer);
 
 
 /* Optional sampling code, when augmented by random module.
  */
 #ifdef eslAUGMENT_RANDOM
-#include <easel/random.h>
-extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p);
-extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double *ret_answer);
-extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, double *ret_answer);
+#include <esl_random.h>
+extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, 
+				double *p);
+extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
+				    double theta2, double *ret_answer);
+extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, 
+				     double *ret_answer);
 #endif /*eslAUGMENT_RANDOM*/
 
 /* Optional file input code, when augmented by fileparser module
  */
 #ifdef eslAUGMENT_FILEPARSER
-#include <easel/fileparser.h>
+#include <esl_fileparser.h>
 extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
 #endif /*eslAUGMENT_FILEPARSER*/
 

@@ -1213,6 +1213,7 @@ main(int argc, char **argv)
  *****************************************************************/
 #ifdef eslSQIO_TESTDRIVE
 /*::cexcerpt::sqio_test::begin::*/
+#include <stdlib.h>
 #include <stdio.h>
 #include <easel.h>
 #include <esl_sqio.h>

@@ -566,9 +566,8 @@ esl_vec_FLogSum(float *vec, int n)
  * Incept:    SRE, Thu Apr  7 17:45:39 2005 [St. Louis]
  *
  * Purpose:   Given an unnormalized log probability vector <vec>   
- *            of length <n>, normalize it, leaving it as a log
- *            probability vector. That is, $\sum_i exp(vec[i]) = 1$,
- *            within machine precision.
+ *            of length <n>, normalize it and make it a 
+ *            probability vector. 
  *            
  *            <esl_vec_FLogNorm()> does the same, but for a vector
  *            of floats instead of doubles.
@@ -582,6 +581,7 @@ esl_vec_DLogNorm(double *vec, int n)
   
   denom = esl_vec_DLogSum(vec, n);
   esl_vec_DIncrement(vec, n, -1.*denom);
+  esl_vec_DExp(vec, n);
 }
 void
 esl_vec_FLogNorm(float *vec, int n)
@@ -590,6 +590,7 @@ esl_vec_FLogNorm(float *vec, int n)
   
   denom = esl_vec_FLogSum(vec, n);
   esl_vec_FIncrement(vec, n, -1.*denom);
+  esl_vec_FExp(vec, n);
 }
 
 /*****************************************************************  
