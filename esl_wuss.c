@@ -332,6 +332,8 @@ esl_kh2wuss(char *kh, char *ss)
  *            <newss> must be allocated by the caller to be at least as 
  *            long as <oldss>. <oldss> and <newss> can be the same,
  *            to convert a secondary structure string in place.
+ *            
+ *            Pseudoknot annotation is preserved, if <oldss> had it.
  *
  * Returns:   <eslSYNTAX> if <oldss> isn't in valid WUSS format.
  *

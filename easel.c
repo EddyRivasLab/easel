@@ -251,6 +251,9 @@ esl_fgets(char **buf, int *n, FILE *fp)
  *          Caller can pass string length <n>, if it's known,
  *          to save a strlen() call; else pass -1 to have the string length
  *          determined.
+ *          
+ *          Tolerates <s> being NULL; in this case,
+ *          returns <eslOK> with <*ret_dup> set to NULL.
  *
  * Args:     s       - string to duplicate (NUL-terminated)
  *           n       - length of string, if known; -1 if unknown.

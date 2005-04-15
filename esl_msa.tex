@@ -65,74 +65,7 @@ file format, so the API tries to be careful about detecting different
 kinds of errors. Here's code that reads one or more alignment in from
 a file, and outputs them in Stockholm format:
 
-\begin{cchunk}
-#include <stdio.h>
-
-#include <easel/easel.h>
-#ifdef eslAUGMENT
-#include <easel/keyhash.h>
-#endif
-#include <easel/msa.h>
-
-int
-main(int argc, char **argv)
-{
-  char        *filename;
-  int          fmt;
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  int          status;
-  int          nali;
-
-  filename = argv[1];
-  fmt      = eslMSAFILE_UNKNOWN;
-
-  status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND) 
-    {
-      fprintf(stderr, "Alignment file %s not readable\n", filename);
-      exit(1);
-    } 
-  else if (status == eslEFORMAT) 
-    {
-      fprintf(stderr, "Couldn't determine format of alignment %s\n", filename);
-      exit(1);
-    } 
-  else if (status != eslOK) 
-    {
-      fprintf(stderr, "Alignment file open failed with error %d\n", status);
-      exit(1);
-    }
-
-  nali = 0;
-  while ((status = esl_msa_Read(afp, &msa)) == eslOK)
-    {
-      nali++;
-      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	     nali, msa->name, msa->nseq, msa->alen);
-      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
-      esl_msa_Destroy(msa);
-    }
-
-  if (status == eslEFORMAT) 
-    {
-      fprintf(stderr, "Alignment parse error at line %d of file %s:\n%s\n", 
-	      afp->linenumber, afp->fname, afp->errbuf);
-      fprintf(stderr, "Offending line is: %s\n", afp->buf);
-      esl_msafile_Close(afp);
-      exit(1);
-    } 
-  else if (status != eslEOF) 
-    {
-      fprintf(stderr, "Alignment file read failed with error %d\n", status);
-      esl_msafile_Close(afp);
-      exit(1);
-    }
-
-  esl_msafile_Close(afp);
-  exit(1);
-}
-\end{cchunk}
+\input{cexcerpts/msa_example}
 
 Some things that are special about the API are worth noting here.
 
@@ -173,14 +106,7 @@ follows:
 
 The following information is always available in an MSA.
 
-\begin{cchunk}
-  char **aseq;                  /* alignment itself, [0..nseq-1][0..alen-1] */
-  char **sqname;                /* sequence names, [0..nseq-1][]            */
-  float *wgt;                   /* sequence weights [0..nseq-1]             */
-  int    alen;                  /* length of alignment (columns)            */
-  int    nseq;                  /* number of seqs in alignment              */
-  int    flags;                 /* flags for what info has been set         */
-\end{cchunk}
+\input{cexcerpts/msa_mandatory}
 
 The alignment contains \ccode{nseq} sequences, each of which contains
 \ccode{alen} characters.
@@ -208,21 +134,7 @@ secondary structures are available for any sequence, and \ccode{ss[i]}
 will be NULL if some secondary structures are available, but not for
 sequence i. 
 
-\begin{cchunk}
-  char  *name;                  /* name of alignment, or NULL               */
-  char  *desc;                  /* description of alignment, or NULL        */
-  char  *acc;                   /* accession of alignment, or NULL          */
-  char  *au;                    /* "author" information, or NULL            */
-  char  *ss_cons;               /* consensus secondary structure, or NULL   */
-  char  *sa_cons;               /* consensus surface accessibility, or NULL */
-  char  *rf;                    /* reference coordinate system, or NULL     */
-  char **sqacc;                 /* accession numbers for sequences i        */
-  char **sqdesc;                /* description lines for sequences i        */
-  char **ss;                    /* per-seq secondary structures, or NULL    */
-  char **sa;                    /* per-seq surface accessibilities, or NULL */
-  float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam */
-  int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE      */
-\end{cchunk}
+\input{cexcerpts/msa_optional}
 
 These should be self-explanatory; but for more information, see the
 Stockholm format documentation. Each of these fields corresponds to
@@ -231,15 +143,7 @@ Stockholm markup.
 The \ccode{cutoff} array contains Pfam/Rfam curated score
 cutoffs. They are indexed as follows:
 
-\begin{cchunk}
-#define eslMSA_TC1     0
-#define eslMSA_TC2     1
-#define eslMSA_GA1     2
-#define eslMSA_GA2     3
-#define eslMSA_NC1     4
-#define eslMSA_NC2     5
-#define eslMSA_NCUTS   6
-\end{cchunk}
+\input{cexcerpts/msa_cutoffs}
 
 \subsubsection{Unparsed information}
 

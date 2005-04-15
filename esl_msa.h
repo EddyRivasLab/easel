@@ -1,4 +1,4 @@
-/* msa.h
+/* esl_msa.h
  * Multiple sequence alignment file i/o.
  * 
  * SVN $Id$
@@ -11,6 +11,7 @@
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
  */
+/*::cexcerpt::msa_cutoffs::begin::*/
 #define eslMSA_TC1     0
 #define eslMSA_TC2     1
 #define eslMSA_GA1     2
@@ -18,6 +19,7 @@
 #define eslMSA_NC1     4
 #define eslMSA_NC2     5
 #define eslMSA_NCUTS   6
+/*::cexcerpt::msa_cutoffs::end::*/
 
 /* Object: ESL_MSA
  * 
@@ -27,16 +29,19 @@ typedef struct {
   /* Mandatory information associated with the alignment.
    * (The important stuff.)
    */
+  /*::cexcerpt::msa_mandatory::begin::*/
   char **aseq;                  /* alignment itself, [0..nseq-1][0..alen-1] */
   char **sqname;                /* sequence names, [0..nseq-1][]            */
   float *wgt;	                /* sequence weights [0..nseq-1]             */
   int    alen;			/* length of alignment (columns)            */
   int    nseq;			/* number of seqs in alignment              */
   int    flags;			/* flags for what info has been set         */
+  /*::cexcerpt::msa_mandatory::end::*/
 
   /* Optional information that we understand, and that we might have.
    * (The occasionally useful stuff.)
    */
+  /*::cexcerpt::msa_optional::begin::*/
   char  *name;             	/* name of alignment, or NULL               */
   char  *desc;	                /* description of alignment, or NULL        */
   char  *acc;	                /* accession of alignment, or NULL          */
@@ -50,6 +55,7 @@ typedef struct {
   char **sa;                    /* per-seq surface accessibilities, or NULL */
   float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam */
   int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE      */
+  /*::cexcerpt::msa_optional::end::*/
 
   /* Info needed for maintenance of the data structure
    * (The hidden internal stuff.)
@@ -92,7 +98,7 @@ typedef struct {
    * This can significantly speed up parsing of large alignments
    * with many (>1,000) sequences.
    */
-#ifdef eslKEYHASH_INCLUDED	
+#ifdef eslAUGMENT_KEYHASH
   ESL_KEYHASH  *index;	        /* name ->seqidx hash table */
   ESL_KEYHASH  *gs_idx;         /* hash of #=GS tag types   */
   ESL_KEYHASH  *gc_idx;         /* hash of #=GC tag types   */
@@ -155,6 +161,7 @@ extern int  esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int  esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
 extern int  esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
+extern int esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, char *gaps, ESL_MSA **ret_new);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, char *gaps);
 extern int esl_msa_NoGaps(ESL_MSA *msa, char *gaps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms);

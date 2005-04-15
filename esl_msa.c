@@ -1,4 +1,4 @@
-/* msa.c
+/* esl_msa.c
  * Multiple sequence alignment file i/o.
  * 
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
@@ -1969,6 +1969,145 @@ maxwidth(char **s, int n)
 
 /*-------------------- end of Stockholm format section ----------------------*/
 
+/* Function:  esl_msa_SequenceSubset()
+ * Incept:    SRE, Wed Apr 13 10:05:44 2005 [St. Louis]
+ *
+ * Purpose:   Given an array <useme> (0..nseq-1) of TRUE/FALSE flags for each
+ *            sequence in an alignment <msa>; create a new alignment containing
+ *            only those seqs which are flagged useme=TRUE.
+ * 
+ *            If <gaps> is non-NULL, then any columns consisting exclusively
+ *            of gap characters (defined by the set of characters in the <gaps>
+ *            string) are removed from the subsetted alignment.
+ * 
+ *            Unparsed Stockholm annotation is not transferred to the new alignment.
+ * 
+ *            Weights are transferred literally; if they need to be renormalized
+ *            to some new total weight, the caller must do that.
+ *
+ * Returns:   <eslOK> on success, and <ret_new> is set to point at a new
+ *            (smaller) alignment.
+ *
+ * Throws:    <eslEINVAL> if the subset has no sequences in it;
+ *            <eslEMEM> on allocation error.
+ *
+ * Xref:      squid's MSASmallerAlignment(), 1999.
+ */
+int
+esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, char *gaps, ESL_MSA **ret_new)
+{
+  ESL_MSA *new;
+  int  nnew;			/* number of seqs in the new MSA */
+  int  oidx, nidx;		/* old, new indices */
+  int  i;
+  int  status;
+  
+  *ret_new = NULL;
+
+  nnew = 0; 
+  for (oidx = 0; oidx < msa->nseq; oidx++)
+    if (useme[oidx]) nnew++;
+  if (nnew == 0) ESL_ERROR(eslEINVAL, "No sequences selected");
+
+  new = esl_msa_Create(nnew, msa->alen);
+  if (new == NULL) return eslEMEM;
+  
+  for (nidx = 0, oidx = 0; oidx < msa->nseq; oidx++)
+    if (useme[oidx])
+      {
+	status = esl_strdup(msa->aseq[oidx], msa->alen, &(new->aseq[nidx]));
+	if (status != eslOK) { esl_msa_Destroy(new); return status; }
+
+	status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx]));
+	if (status != eslOK) { esl_msa_Destroy(new); return status; }
+
+	new->wgt[nidx] = msa->wgt[oidx];
+      
+	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
+	  status = set_seq_accession(new, nidx, msa->sqacc[i]);
+	  if (status != eslOK) { esl_msa_Destroy(new); return status; }
+	}
+
+	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
+	  status = set_seq_description(new, nidx, msa->sqdesc[i]);
+	  if (status != eslOK) { esl_msa_Destroy(new); return status; }
+	}
+
+	if (msa->ss != NULL && msa->ss[oidx] != NULL)
+	  {
+	    if (new->ss == NULL) {
+	      new->ss = malloc(sizeof(char *) * nnew);
+	      if (new->ss == NULL)  { esl_msa_Destroy(new); ESL_ERROR(eslEMEM, "malloc failed");}
+	    }
+	    status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]));
+	    if (status != eslOK)  { esl_msa_Destroy(new); return status; } 
+	  }
+      
+	if (msa->sa != NULL && msa->sa[oidx] != NULL)
+	  {
+	    if (new->sa == NULL) {
+	      new->sa = malloc(sizeof(char *) * nnew);
+	      if (new->sa == NULL) { esl_msa_Destroy(new); ESL_ERROR(eslEMEM, "malloc failed");}
+	    }
+	    status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]));
+	    if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+	  }
+	nidx++;
+      }
+
+  new->flags = msa->flags;
+
+  status = esl_strdup(msa->name, -1, &(new->name));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->desc, -1, &(new->desc));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->acc,  -1, &(new->acc));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->au,   -1, &(new->au));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+
+  status = esl_strdup(msa->rf, msa->alen, &(new->rf));
+  if (status != eslOK)  { esl_msa_Destroy(new); return status; }
+  
+  for (i = 0; i < eslMSA_NCUTS; i++) {
+    new->cutoff[i] = msa->cutoff[i];
+    new->cutset[i] = msa->cutset[i];
+  }
+  
+  new->nseq  = nnew;
+  new->sqalloc = nnew;
+  new->sqlen   = NULL;
+  new->sslen   = NULL;
+  new->salen   = NULL;
+  new->lastidx = -1;
+
+#ifdef eslAUGMENT_KEYHASH
+  esl_keyhash_Destroy(new->index);
+  new->index  = NULL;
+  new->gs_idx = NULL;
+  new->gc_idx = NULL;
+  new->gr_idx = NULL;
+#endif
+
+  if (gaps != NULL)
+    {
+      status = esl_msa_MinimGaps(new, gaps);
+      if (status != eslOK) { esl_msa_Destroy(new); return status; }
+    }
+
+  *ret_new = new;
+  return eslOK;
+}
+
 
 /* msa_column_subset()
  * SRE, Sun Feb 27 10:05:07 2005
@@ -2056,7 +2195,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
   for (apos = 0; apos < msa->alen; apos++)
     {
       for (idx = 0; idx < msa->nseq; idx++)
-	if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
+	if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
 	  break;
       if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
     }
@@ -2152,6 +2291,7 @@ esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
  *****************************************************************************/
 
 #ifdef eslMSA_EXAMPLE
+/*::cexcerpt::msa_example::begin::*/
 /* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE msa.c easel.c 
  * time ./example SSU_rRNA_5
  * 
@@ -2181,7 +2321,7 @@ main(int argc, char **argv)
 
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
   if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s not readable\n", filename);
+    esl_fatal("Alignment file %s doesn't exist or is not readable\n", filename);
   else if (status == eslEFORMAT) 
     esl_fatal("Couldn't determine format of alignment %s\n", filename);
   else if (status != eslOK) 
@@ -2209,6 +2349,7 @@ Offending line is:\n\
   esl_msafile_Close(afp);
   exit(0);
 }
+/*::cexcerpt::msa_example::end::*/
 #endif /*eslMSA_EXAMPLE*/
  
 #ifdef eslMSA_TESTDRIVE
