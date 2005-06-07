@@ -98,7 +98,7 @@ typedef struct {
    * This can significantly speed up parsing of large alignments
    * with many (>1,000) sequences.
    */
-#ifdef eslAUGMENT_KEYHASH
+#ifdef UNIMPLEMENTED /*eslAUGMENT_KEYHASH*/
   ESL_KEYHASH  *index;	        /* name ->seqidx hash table */
   ESL_KEYHASH  *gs_idx;         /* hash of #=GS tag types   */
   ESL_KEYHASH  *gc_idx;         /* hash of #=GC tag types   */
