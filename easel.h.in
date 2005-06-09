@@ -33,7 +33,7 @@
 
 #undef eslAUGMENT_ALPHABET
 #undef eslAUGMENT_FILEPARSER
-#undef eslAUGMENT_KEYHASH	
+/* #undef eslAUGMENT_KEYHASH  */ /* not yet! no keyhash module yet. */
 #undef eslAUGMENT_MSA		
 #undef eslAUGMENT_RANDOM
 
