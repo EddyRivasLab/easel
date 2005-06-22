@@ -28,9 +28,17 @@ extern void   esl_vec_DAdd(double *vec1, double *vec2, int n);
 extern void   esl_vec_FAdd(float *vec1, float *vec2, int n);
 extern void   esl_vec_IAdd(int *vec1, int *vec2, int n);
 
+extern void   esl_vec_DAddScaled(double *vec1, double *vec2, double a, int n);
+extern void   esl_vec_FAddScaled(float *vec1, float *vec2, float a, int n);
+extern void   esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n);
+
 extern void   esl_vec_DCopy(double *vec1, double *vec2, int n);
 extern void   esl_vec_FCopy(float *vec1, float *vec2, int n);
 extern void   esl_vec_ICopy(int *vec1, int *vec2, int n);
+
+extern void   esl_vec_DSwap(double *vec1, double *vec2, int n);
+extern void   esl_vec_FSwap(float *vec1, float *vec2, int n);
+extern void   esl_vec_ISwap(int *vec1, int *vec2, int n);
 
 extern double esl_vec_DDot(double *vec1, double *vec2, int n);
 extern float  esl_vec_FDot(float *vec1, float *vec2, int n);

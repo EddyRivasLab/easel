@@ -1,5 +1,5 @@
-/* random.c
- * Easel's portable, threadsafe random number generator.
+/* esl_random.c
+ * A portable, threadsafe random number generator.
  * 
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
  * SVN $Id$

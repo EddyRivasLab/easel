@@ -381,7 +381,7 @@ gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
   
   do {
     do {				/* generate candidate X */
-      Y = tan(eslCONSTANT_PI * esl_random(r)); 
+      Y = tan(eslCONST_PI * esl_random(r)); 
       X = Y * sqrt(2.*a -1.) + a - 1.;
     } while (X <= 0.);
 				/* accept/reject X */
@@ -408,7 +408,7 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
 {				/* Knuth 3.4.1, exercise 16, pp. 586-587 */
   double p, U, V, X, q;
   
-  p = eslCONSTANT_E / (a + eslCONSTANT_E);
+  p = eslCONST_E / (a + eslCONST_E);
   do {
     U = esl_random(r);
     V = esl_rnd_UniformPositive(r);

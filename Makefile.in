@@ -16,6 +16,7 @@ HEADERS = \
 	esl_fileparser.h\
 	esl_getopts.h\
 	esl_keyhash.h\
+	esl_minimizer.h\
 	esl_msa.h\
 	esl_random.h\
 	esl_regexp.h\
@@ -31,6 +32,7 @@ OBJS    = \
 	esl_fileparser.o\
 	esl_getopts.o\
 	esl_keyhash.o\
+	esl_minimizer.o\
 	esl_msa.o\
 	esl_random.o\
 	esl_regexp.o\

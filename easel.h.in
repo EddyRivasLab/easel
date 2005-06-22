@@ -87,6 +87,7 @@
 #define eslESYNTAX        15    /* invalid syntax in input data */
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
+#define eslECONVERGENCE   18    /* a failure to converge        */      
 
 /* Debugging hooks, w/ three levels (1-3).
  */
@@ -179,8 +180,9 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 
 /* Some basic constants.
  */
-#define eslCONSTANT_E    2.71828182845904523536028747135
-#define eslCONSTANT_PI   3.14159265358979323846264338328
+#define eslCONST_E    2.71828182845904523536028747135
+#define eslCONST_PI   3.14159265358979323846264338328
+#define eslCONST_GOLD 1.61803399
 
 /* msa.c and sqio.c can read gzip'ed files if popen() is available;
  * popen() is not ANSI, though, it's POSIX.2.

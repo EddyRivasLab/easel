@@ -72,10 +72,13 @@ AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 # If --enable-libversion, we're compiling and installing
 # the entire library in some location; activate all augmentation.
 #
-AC_ARG_ENABLE(libversion, 
-  [  --enable-libversion     Compile an installed library version of Easel], 
+AC_ARG_ENABLE(--enable-modular, 
+  [  --enable-modular        Compile and prepare modules for standalone use], 
+  [ 
+    AC_MSG_NOTICE([Compiling for standalone (independent) use of modules.])
+  ], 
   [
-    AC_MSG_NOTICE(libversion - activating all augmentations.)
+    AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
     AC_DEFINE(eslAUGMENT_KEYHASH)

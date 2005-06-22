@@ -66,6 +66,8 @@ esl_vec_ISet(int *vec, int n, int value)
  *            
  *            <esl_vec_FScale()> and <esl_vec_IScale()> do the same,
  *            for float and integer vectors.
+ *            
+ *            Essentially the same as BLAS1's xSCAL().
  */
 void
 esl_vec_DScale(double *vec, int n, double scale)
@@ -178,6 +180,37 @@ esl_vec_IAdd(int *vec1, int *vec2, int n)
 }
 
 
+/* Function: esl_vec_DAddScaled()
+ * 
+ * Purpose:  Scales <vec2> by scalar <a>, and adds that
+ *           to <vec1>. Both vectors are of size <n>. 
+ *           
+ *            <esl_vec_FAddScaled()> and <esl_vec_IAddScaled()> do the same,
+ *            for float and integer vectors.
+ *            
+ *            Essentially the same as BLAS1 xAXPY().
+ */
+void
+esl_vec_DAddScaled(double *vec1, double *vec2, double a, int n)
+{
+  int x;
+  for (x = 0; x < n; x++) vec1[x] += vec2[x] * a;
+}
+void
+esl_vec_FAddScaled(float *vec1, float *vec2, float a, int n)
+{
+  int x;
+  for (x = 0; x < n; x++) vec1[x] += vec2[x] * a;
+}
+void
+esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n)
+{
+  int x;
+  for (x = 0; x < n; x++) vec1[x] += vec2[x] * a;
+}
+
+
+
 /* Function:  esl_vec_DCopy()
  *
  * Purpose:   Copies <vec2> to <vec1>. <vec2> is
@@ -185,6 +218,8 @@ esl_vec_IAdd(int *vec1, int *vec2, int n)
  *            
  *            <esl_vec_FCopy()> and <esl_vec_ICopy()> do the same,
  *            for float and integer vectors.
+ *            
+ *            Essentially the same as BLAS1 xCOPY().
  */
 void
 esl_vec_DCopy(double *vec1, double *vec2, int n)
@@ -204,6 +239,47 @@ esl_vec_ICopy(int *vec1, int *vec2, int n)
   int x;
   for (x = 0; x < n; x++) vec1[x] = vec2[x];
 }
+
+
+/* Function:  esl_vec_DSwap()
+ *
+ * Purpose:   Swaps <vec2> and <vec1>. 
+ *            Both vectors are of size <n>.
+ *            
+ *            <esl_vec_FSwap()> and <esl_vec_ISwap()> do the same,
+ *            for float and integer vectors.
+ *            
+ *            Essentially the same as BLAS1 xSWAP().
+ */
+void
+esl_vec_DSwap(double *vec1, double *vec2, int n)
+{
+  int    x;
+  double tmp;
+
+  for (x = 0; x < n; x++) 
+    { tmp = vec1[x]; vec1[x] = vec2[x]; vec2[x] = tmp; }
+}
+void
+esl_vec_FSwap(float *vec1, float *vec2, int n)
+{
+  int   x;
+  float tmp;
+
+  for (x = 0; x < n; x++) 
+    { tmp = vec1[x]; vec1[x] = vec2[x]; vec2[x] = tmp; }
+}
+void
+esl_vec_ISwap(int *vec1, int *vec2, int n)
+{
+  int    x;
+  int tmp;
+
+  for (x = 0; x < n; x++) 
+    { tmp = vec1[x]; vec1[x] = vec2[x]; vec2[x] = tmp; }
+}
+
+
 
 
 /* Function:  esl_vec_DDot()
