@@ -8,6 +8,10 @@
 #define eslMSA_INCLUDED
 #include <stdio.h>
 
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
+#endif
+
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
  */

@@ -46,6 +46,10 @@
  */
 #define eslSQFILE_UNKNOWN 0
 #define eslSQFILE_FASTA   1
+#define eslSQFILE_EMBL    2	/* EMBL/Swissprot/TrEMBL */
+#define eslSQFILE_GENBANK 3	/* Genbank */
+#define eslSQFILE_DDBJ    4	/* DDBJ (currently passed to Genbank parser */
+#define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
 
 
 typedef struct {
@@ -57,12 +61,22 @@ typedef struct {
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
   char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
 
-  int  *inmap;		      /* pointer to an input map, 0..127  */
-
-  char  buf[eslREADBUFSIZE];  /* buffer for fread() block input           */
+  /* Our input buffer, whether using character-based parser [fread()]
+   * or line-based parser (esl_fgets()).
+   */
+  char *buf;		      /* buffer for fread() or fgets() input      */
+  int   balloc;		      /* allocated size of buf                    */
   int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
   int   pos;		      /* current parsing position in the buffer   */
   int   linenumber;	      /* What line of the file this is (1..N)     */
+
+  /* Format-specific information
+   */
+  int   addfirst;             /* TRUE to parse first line of seq record */
+  int   addend;	              /* TRUE to parse last line of seq record */
+  int   eof_is_ok;	      /* TRUE if record can end on EOF */
+  int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
+  int  *inmap;		      /* pointer to an input map, 0..255       */
 
   /* SSI indexing eventually goes here, including rpl,bpl counting;
    * xref squid.
@@ -111,6 +125,7 @@ extern void    esl_sq_Destroy(ESL_SQ *sq);
 extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
 			    ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
+extern int  esl_sqfile_DetermineFormat(FILE *fp);
 
 extern int  esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
 extern int  esl_sq_Write(FILE *fp, ESL_SQ *s, int format);
