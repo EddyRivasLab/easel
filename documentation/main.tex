@@ -5,7 +5,7 @@
 \usepackage{newcent}
 \usepackage{fullpage}
 \usepackage{fancyvrb}
-\usepackage[authoryear]{natbib}
+\usepackage[numbers,sort&compress]{natbib}
 \usepackage[pdftex]{graphicx}
 \usepackage[backref,colorlinks]{hyperref}
 
@@ -50,10 +50,13 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the alphabet (abc) module}
 \input{autotext/esl_alphabet_functions}
 
+
 %\newpage
 %\section{The dmatrix (dmx) module: linear algebra for 2D double matrices}
 %\subsection{Functions in the dmatrix (dmx) module}
 %\input{autotext/dmatrix_functions}
+
+
 
 \newpage
 \section{The dirichlet module: Beta, Gamma, Dirichlet densities and priors}
@@ -61,11 +64,23 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the dirichlet module}
 \input{autotext/esl_dirichlet_functions}
 
+
+
+\newpage
+\section{The evd module: extreme value (Gumbel) statistics}
+\input{../esl_evd}
+\subsection{Functions in the evd module}
+\input{autotext/esl_evd_functions}
+
+
+
 \newpage
 \section{The fileparser module: token-based data file input}
 \input{../esl_fileparser}
 \subsection{Functions in the fileparser module}
 \input{autotext/esl_fileparser_functions}
+
+
 
 \newpage
 \section{The getopts (opt) module: command line option parsing and more}
@@ -73,11 +88,15 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the getopts module}
 \input{autotext/esl_getopts_functions}
 
+
+
 \newpage
 \section{The keyhash (key) module: keyword hashing, associative array emulation}
 \input{../esl_keyhash}
 \subsection{Functions in the keyhash module}
 \input{autotext/esl_keyhash_functions}
+
+
 
 \newpage
 \section{The msa module: multiple sequence alignment i/o}
@@ -85,17 +104,21 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the msa module}
 \input{autotext/esl_msa_functions}
 
+
+
 \newpage
 \section{The random (rnd) module: pseudorandom numbers and basic sampling}
 \input{../esl_random}
 \subsection{Functions in the random (rnd) module}
 \input{autotext/esl_random_functions}
-
 \vspace*{\fill}
+
 \begin{quote}
 \emph{Nec Babylonios temptaris numeros.} \hspace{3em} -- Horace, Ode
 1.11. \\ 
 \end{quote}     
+
+
 
 \newpage
 \section{The regexp module: regular expression matching}
@@ -103,11 +126,15 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the regexp module}
 \input{autotext/esl_regexp_functions}
 
+
+
 \newpage
 \section{The sqio module: i/o of unaligned sequence files}
 \input{../esl_sqio}
 \subsection{Functions in the sqio (sio) module}
 \input{autotext/esl_sqio_functions}
+
+
 
 \newpage
 \section{The stack module: pushdown stacks for integers, chars, and pointers}
@@ -115,11 +142,15 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the stack module}
 \input{autotext/esl_stack_functions}
 
+
+
 \newpage
 \section{The vectorops module: simple vector operations}
 \input{../esl_vectorops}
 \subsection{Functions in the vectorops module}
 \input{autotext/esl_vectorops_functions}
+
+
 
 \newpage
 \section{The wuss module: RNA secondary structure annotation}
@@ -127,23 +158,31 @@ error?} \hspace{3em} -- Franz Kafka, \emph{The Castle}
 \subsection{Functions in the wuss module}
 \input{autotext/esl_wuss_functions}
 
+
+
 \newpage
 \chapter{File formats}
 
 \section{Stockholm format for multiple sequence alignments}
 \input{format_stockholm.tex}
 
+
+
 \newpage
 \section{WUSS notation for RNA secondary structures}
 \input{format_wuss.tex}
+
+
 
 \newpage
 \chapter{Appendix: design and construction notes}
 \input{doctricks}
 
+
+
 \newpage
 \newcommand{\bibfont}{\footnotesize}
-\bibliographystyle{apalike}
+\bibliographystyle{abbrvnat}
 \bibliography{master,lab,books}
 
 \end{document}

@@ -139,3 +139,7 @@ extern char *esl_sqfile_FormatString(int fmt);
 extern int   esl_sqfile_IsAlignment(int fmt);
 
 #endif /*!ESL_SQIO_INCLUDED*/
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

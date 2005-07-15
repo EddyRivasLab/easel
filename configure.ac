@@ -69,10 +69,13 @@ AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
 AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 
 
-# If --enable-libversion, we're compiling and installing
-# the entire library in some location; activate all augmentation.
+# --enable-modular       - configure for use of standalone modules
 #
-AC_ARG_ENABLE(--enable-modular, 
+# Default is to enable all augmentations and compile entire library.
+# With --enable-modular, any desired augmentations must be set
+# at compile-time by the user.
+#
+AC_ARG_ENABLE(modular, 
   [  --enable-modular        Compile and prepare modules for standalone use], 
   [ 
     AC_MSG_NOTICE([Compiling for standalone (independent) use of modules.])
@@ -81,10 +84,45 @@ AC_ARG_ENABLE(--enable-modular,
     AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
+    AC_DEFINE(eslAUGMENT_GUMBEL)
     AC_DEFINE(eslAUGMENT_KEYHASH)
+    AC_DEFINE(eslAUGMENT_MINIMIZER)
     AC_DEFINE(eslAUGMENT_MSA)
     AC_DEFINE(eslAUGMENT_RANDOM)
   ])
+
+# --enable-debugging=x    - set debugging level to <x> (1-3)
+#
+# At all levels, including 0, replaces CFLAGS w/ "-g -Wall" (so it assumes gcc).
+# Sets the eslDEBUGLEVEL preprocessor symbol to <x>
+#
+AC_ARG_ENABLE(debugging,
+[  --enable-debugging      set CFLAGS for debugging
+  --enable-debugging=x    also set diagnostics level to <x> (1-3) (3 = most verbose)],
+[ case $enable_debugging in
+   yes)  AC_MSG_NOTICE([enabled debugging diagnostics level 0 (CFLAGS only, no verbosity)])
+         CFLAGS="-g -Wall"
+         AC_DEFINE(eslDEBUGLEVEL, 0)
+         ;;
+     1)  AC_MSG_NOTICE([enabled debugging diagnostics level 1 (low verbosity)])
+         CFLAGS="-g -Wall"
+         AC_DEFINE(eslDEBUGLEVEL, 1)
+         ;;
+     2)  AC_MSG_NOTICE([enabled debugging diagnostics level 2 (moderate verbosity)])
+         CFLAGS="-g -Wall"
+         AC_DEFINE(eslDEBUGLEVEL, 2)
+         ;;
+     3)  AC_MSG_NOTICE([enabled debugging diagnostics level 3 (high verbosity)])
+         CFLAGS="-g -Wall"
+         AC_DEFINE(DEBUGLEVEL, 3)
+         ;;
+    no)  AC_MSG_NOTICE([debugging diagnostics disabled])
+         AC_DEFINE(eslDEBUGLEVEL, 0)
+         ;;
+     *)  echo "Ignoring unknown argument to --enable-debugging: $enable_debugging"
+         ;;
+esac])
+
 
 
 

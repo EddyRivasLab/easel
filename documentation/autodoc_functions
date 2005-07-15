@@ -98,6 +98,7 @@ parse_function_documentation
     my ($comment, $n, $first_funcname);
 
     $n = 0;
+    #                   /*   Function:   foo          \n double    \n foo   ( args    )  \n{
     while ($text =~ m|(/\*\s*Function:\s*[^\{]+\*/)\s*\n([^\{]+)\s*\n(\S+)\(([^\{]+)\)\s*\n\{|gms) {
 	$comment        = $1;
 	$returntype[$n] = $2;

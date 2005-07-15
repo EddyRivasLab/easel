@@ -8,9 +8,9 @@
 
 
 Easel is the C library that underlies bioinformatics software packages
-from the Eddy lab, including HMMER \citep{} and Infernal \citep{}, the
-software engines for the Pfam protein family database \citep{} and the
-Rfam RNA family database \citep{}.
+from the Eddy lab, including HMMER and Infernal, the
+software engines for the Pfam protein family database and the
+Rfam RNA family database.
 
 Easel results from years of accretion and gradual refactoring of a
 personal codebase for solving common problems encountered in writing
@@ -19,10 +19,10 @@ analysis.
 
 Easel is not intended to be an all-purpose solution nor a \emph{de
 facto} standard. Several general-purpose bioinformatics libraries are
-available that do aspire to such goals. The NCBI Toolkit \citep{} and
-the Ajax library in EMBOSS \citep{} are particularly comprehensive
-resources for C programming, and the BioPerl project is an admirably
-successful resource for Perl \citep{}.
+available that do aspire to such goals. The NCBI Toolkit and the Ajax
+library in EMBOSS are particularly comprehensive resources for C
+programming, and the BioPerl project is an admirably successful
+resource for Perl.
 
 Rather, Easel is intended to maintain a body of work from my lab in a
 useful form that new people in the lab can adopt quickly, and that
@@ -33,30 +33,30 @@ you would have them do unto you}:
 \begin{description}
 \item[\textbf{Documentation.}]  Effort has been invested in practical
 documentation, including this Guide, tutorial examples to Easel APIs,
-and source-level comments.\footnote{Too often I've tried to obtain a
+and source-level comments. All too often I've tried to obtain a
 routine and ended up unable to understand how to use it because of
-missing, incomplete, or obsolete documentation.}
+missing, incomplete, or obsolete documentation.
 
 \item[\textbf{Modularity.}]  Easel is designed to minimize
 dependencies between its routines, to help you take individual files
 (or individual routines) for your use, without having to include the
-entire library. \footnote{Too often I've tried to obtain a routine and
-found it deeply entangled in a large third-party library. I can either
-package the whole library in my software distribution (cumbersome, and
-a potential maintainability headache in the long run), or I try to
+entire library. All too often I've tried to obtain a routine and found it
+deeply entangled in a large third-party library. I can either package
+the whole library in my software distribution (cumbersome, and a
+potential maintainability headache in the long run), or I try to
 understand the code well enough to disentangle it. It usually seems
-easier to just rewrite it from scratch.}
+easier to just rewrite it from scratch.
 
 \item[\textbf{No license encumbrance.}]  Easel is freely available
 under a Creative Commons Attribution License. You can use it for
 anything you want, even commercial products, so long as you keep my
-copyright and license notice on the code. \footnote{Too often I've
-tried to reuse a routine and been blocked by someone's license
-terms. Even some open source licenses, such as the GNU General Public
-License (GPL), can impede right-minded developers who happen to use
-incompatible open-source licenses. The CC license just provides me
-some minimal legal ablative armor in case you like to sue people that
-give you stuff for free.}
+copyright and license notice on the code. All too often I've tried to
+reuse a routine and been blocked by someone's license terms. Even some
+open source licenses, such as the GNU General Public License (GPL),
+can impede right-minded developers who happen to use incompatible
+open-source licenses. The CC license just provides me some minimal
+legal ablative armor in case you like to sue people that give you
+stuff for free.
 \end{description}
 
 \section{Overview of modules}
@@ -120,7 +120,7 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \ccode{ESL\_STACK}       & \cfile{stack}           & Pushdown stack\\\hline
 \end{tabular}
 
-\section{Module design}
+\section{Using Easel as a library, or as individual modules}
 
 Easel is designed to be used in two different ways: as a C library
 (\ccode{libeasel.a}) in the usual C way, or by grabbing individual
@@ -180,7 +180,7 @@ And, though this remains to be seen, it should be easy for other
 people to contribute modules and extend Easel, and it should be easy
 for people to borrow and reuse Easel code.
 
-\section{The ``augmentation'' concept}
+\section{Easel's concept of module ``augmentation''}
 
 The trouble with enforcing strict modular design is that while
 \emph{you} (the application writer) can take advantage of any or all
@@ -238,7 +238,54 @@ of \ccode{\#undef eslAUGMENT\_SSI}.
 Documentation for modules and their functions always distinguishes
 between default functionality and augmented functionality.
 
-\section{Function naming conventions in Easel}
+
+\section{Test drivers and example code}
+
+At the end of each source code module is one or more \emph{drivers}
+that allow the module to be compiled and tested as independently as
+possible, with minimum dependencies on the rest of Easel.
+
+An \textbf{example} driver provides a \ccode{main()} that shows how to
+use the module. Example drivers are extracted verbatim from the source
+code for inclusion in the module chapters in this guide. Any command
+line arguments are documented both in the source code and in this
+guide. Example drivers are intended for anyone to use.
+
+A \textbf{test} driver is for unit testing. It provides a
+\ccode{main()} that runs some (preferably all) of a module's API. A
+test driver takes no command line arguments; it just runs one or more
+internal tests. Any failure indicates a bug. Test drivers are intended
+for the use by automated tests, or by a developer during debugging.
+
+A \textbf{stats} driver is for collecting some sort of statistics for
+the module, such as performance or accuracy. It is only intended for
+developer use. Any command line arguments are documented only in the
+source code.
+
+A driver is compiled by defining the appropriate flag at compile time:
+\ccode{eslMODULE\_EXAMPLE}, \ccode{eslMODULE\_TESTDRIVE}, or
+\ccode{eslMODULE\_STATS}, where \ccode{MODULE} is the name of the
+module. For example, to compile and run the \eslmod{sqio} example
+code:
+
+\begin{cchunk}
+   %  gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
+   %  ./example <FASTA file>
+\end{cchunk}
+
+or to compile and run the \eslmod{sqio} test driver:
+
+\begin{cchunk}
+   %  gcc -g -Wall -I. -o test -DeslSQIO_TESTDRIVE esl_sqio.c easel.c
+   %  ./test
+\end{cchunk}
+
+All modules have a test driver and an example driver. Only a few have
+stats drivers.
+
+
+
+\section{Function naming conventions}
 
 \subsection{Object creation, initialization, destruction}
 
@@ -366,6 +413,8 @@ zero(s)), or \ccode{esl\_dmatrix\_SetIdentity} (set a dmatrix to an
 identity matrix).
 
 \end{sreitems}
+
+
 
 
 \section{Discipline of writing Easel modules}

@@ -4,7 +4,7 @@
  * Easel's portable, threadsafe random number generator.
  * 
  * SRE, Wed Jul 14 11:23:57 2004 [St. Louis]
- * SVN $Id$
+ * SVN $Id: esl_random.h 35 2005-02-24 23:18:34Z eddy $
  */
 #ifndef ESL_RANDOM_INCLUDED
 #define ESL_RANDOM_INCLUDED
@@ -36,6 +36,7 @@ extern double esl_rnd_UniformExponential(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern int    esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N);
 extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N);
-extern char  *esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len);
+extern char  *esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, 
+			  int len);
 
 #endif /*ESL_RANDOM_INCLUDED*/

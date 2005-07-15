@@ -15,6 +15,9 @@ HEADERS = \
 	esl_dirichlet.h\
 	esl_fileparser.h\
 	esl_getopts.h\
+	esl_gev.h\
+	esl_gumbel.h\
+	esl_histogram.h\
 	esl_keyhash.h\
 	esl_minimizer.h\
 	esl_msa.h\
@@ -31,6 +34,9 @@ OBJS    = \
 	esl_dirichlet.o\
 	esl_fileparser.o\
 	esl_getopts.o\
+	esl_gev.o\
+	esl_gumbel.o\
+	esl_histogram.o\
 	esl_keyhash.o\
 	esl_minimizer.o\
 	esl_msa.o\
@@ -56,7 +62,7 @@ clean:
 	-rm -f *~ TAGS
 	-rm -f core.[0-9]*
 	-rm -f config.log config.status
-	-rm -f example test
+	-rm -f example test stats
 
 distclean:
 	(cd documentation; make distclean)

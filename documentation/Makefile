@@ -5,6 +5,7 @@
 APITEX =  easel\
 	  esl_alphabet\
 	  esl_dirichlet\
+	  esl_evd\
 	  esl_fileparser\
 	  esl_getopts\
 	  esl_keyhash\
@@ -22,6 +23,7 @@ APITEX =  easel\
 #
 AUTOTEX = esl_alphabet\
 	  esl_dirichlet\
+	  esl_evd\
 	  esl_fileparser\
 	  esl_getopts\
 	  esl_keyhash\
