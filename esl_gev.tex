@@ -1,0 +1,56 @@
+
+The generalized extreme value distribution (GEV) includes all three
+types of extreme value distributions: Type I (Gumbel), type II
+(Fr\'{e}chet), and type III (Weibull).
+
+Empirically, the scores of some
+sequence alignment algorithms appear to follow GEV distributions
+
+
+
+These statistical distributions
+are used to estimate the significance 
+
+
+
+\subsection{The gev API}
+
+The \eslmod{gev} API consists of the following functions:
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{ll}\hline
+    \multicolumn{2}{c}{\textbf{evaluating densities and distributions:}}\\
+\ccode{esl\_gev\_pdf()}     & Returns the probability density, $P(S=x)$.\\
+\ccode{esl\_gev\_logpdf()}  & Returns the log of the pdf, $\log P(S=x)$.\\
+\ccode{esl\_gev\_cdf()}     & Returns the cumulative probability distribution, $P(S \leq x)$.\\
+\ccode{esl\_gev\_logcdf()}  & Returns the log of the cdf, $\log P(S \leq x)$.\\
+\ccode{esl\_gev\_surv()}    & Returns right tail mass, 1-cdf, $P(S > x)$\\
+\ccode{esl\_gev\_logsurv()} & Returns log of 1-cdf, $\log P(S > x)$.\\
+    \multicolumn{2}{c}{\textbf{sampling:}}\\
+\ccode{esl\_gev\_Sample()}  & Returns a GEV-distributed random sample.\\
+    \multicolumn{2}{c}{\textbf{maximum a posteriori parameter fitting:}}\\
+\ccode{esl\_gev\_FitComplete()} & Estimates GEV parameters from complete data.\\
+\end{tabular}
+\end{center}
+\vspace{0.5em}
+
+\subsubsection{Augmentations: random, minimizer}
+
+The \ccode{esl\_gev\_Sample()} function requires augmenting with the
+\eslmod{random} module.
+
+The \ccode{esl\_gev\_FitComplete()} function requires augmenting with
+the \eslmod{minimizer} module.
+
+\subsection{Example of using the gev API}
+
+An example that samples 10,000 data points from a Fr\'{e}chet
+distribution with $\mu=-20$, $\lambda=0.4$, $alpha=0.1$; reports the
+min and max samples, and the probability mass to the left of the min
+and to the right of the max (both of which should be about
+$\frac{1}{10000}$, since we took 10,000 samples); and then fits those
+simulated data to a Gumbel and reports the fitted $\mu$ and $\lambda$:
+
+\input{cexcerpts/gev_example}
+

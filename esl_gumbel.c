@@ -768,9 +768,9 @@ main(int argc, char **argv)
     }
 
   z = esl_gumbel_surv(max, mu, lambda);           /* right tail p~1e-4 >= max */
-  printf("max = %6.1f  P(>=max) = %g\n", max, z);
+  printf("max = %6.1f  P(>max)  = %g\n", max, z);
   z = esl_gumbel_cdf(min, mu, lambda);             /* left tail p~1e-4 < min */
-  printf("min = %6.1f  P(<min)  = %g\n", min, z);
+  printf("min = %6.1f  P(<=min) = %g\n", min, z);
 
   esl_gumbel_FitComplete(x, n, &est_mu, &est_lambda); /* fit params to the data */
   

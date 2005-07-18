@@ -111,7 +111,6 @@ esl_min_Bracket(double *a, double *d, double *u, int n,
 	  if (i > 0) 	/* make prev b new c. unnecessary on first iteration */
 	    { esl_vec_DCopy(c, b, n); fc = fb; cx = bx; }
 	  bx /= eslCONST_GOLD;
-	  /*bx /= 4;	/* don't bother to maintain golden ratio; move (arbitrarily) fast */
 	  esl_vec_DCopy(b, a, n); 
 	  esl_vec_DAddScaled(b, d, bx, n); /* find new b */
 	  fb = (*func)(b, n, prm); 
@@ -127,7 +126,6 @@ esl_min_Bracket(double *a, double *d, double *u, int n,
 	  if (i > 0)   /* make prev c new b. wasted on iter 1. */
 	    { esl_vec_DCopy(b, c, n);  fb = fc; bx = cx; }
 	  cx *= eslCONST_GOLD; 
-	  /*cx *= 4.;    /* don't worry about golden ratio; move (arbitrarily) fast */
 	  esl_vec_DCopy(c, a, n);
 	  esl_vec_DAddScaled(c, d, cx, n); /* find new c */
 	  fc = (*func)(c, n, prm); 
@@ -153,6 +151,7 @@ esl_min_Bracket(double *a, double *d, double *u, int n,
   return eslOK;
 }
 
+#if eslDEBUGLEVEL >= 2
 static void
 show_line(double *ori, double *d, double *u, double n,
 	  double ax, double cx,
@@ -174,7 +173,7 @@ show_line(double *ori, double *d, double *u, double n,
       printf("%g  %g\n", xx, fx);
     }
 }
-
+#endif
 
 
 
@@ -324,8 +323,7 @@ brent(double *ori, double *dir, int n,
   esl_vec_DAddScaled(xvec, dir, x, n);
   if (ret_x  != NULL) *ret_x  = x;
   if (ret_fx != NULL) *ret_fx = fx;
-   printf("xx=%10.8f fx=%10.1f\n", x, fx);
-
+  ESL_DPRINTF1(("xx=%10.8f fx=%10.1f\n", x, fx));
 }
 
 
@@ -405,7 +403,9 @@ esl_min_LineSearch(double *ori, double *d, double *u, int n,
   ax = 0.;
   esl_min_Bracket(ori, d, u, n, func, prm, &fa, b, &bx, &fb, x, &cx, &fx);
 
-  /*  show_line(ori, d, u, n, ax, cx, func, prm, b); */
+#if eslDEBUGLEVEL >= 2
+   show_line(ori, d, u, n, ax, cx, func, prm, b); */
+#endif
 
   /* the main do loop is guaranteed to terminate; 
    * iterations are counted only for debugging output

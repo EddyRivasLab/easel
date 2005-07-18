@@ -1,55 +1,56 @@
 
-Sequence alignment scores often follow a Gumbel distribution.
-Estimating the statistical significance of scores requires using
-Gumbel statistics.
+The scores of local sequence alignments often follow a Gumbel
+distribution, so Gumbel statistics are often used to estimate the
+statistical significance of alignment scores.
 
 The Gumbel distribution is the so-called Type I extreme value
 distribution (EVD). It occurs so frequently in sequence analysis
 applications, compared to the type II (Fr\'{e}chet) and type III
 (Weibull) extreme value distributions, that ``Gumbel'' and ``EVD'' are
-often used interchangeably. This imprecision is also found in the name
-of Easel's \eslmod{evd} module, where the Gumbel distribution is the
-only extreme value distribution of interest.
+often used interchangeably in bioinformatics. Easel has a separate
+module, the \eslmod{gev} module, that implements the generalized
+extreme value distribution.
 
-\emph{Karlin/Altschul} statistics arise as a special case of the
-Gumbel distribution that apply to the scores of ungapped local
-alignments between infinitely long random sequences.  Karlin/Altschul
-statistics also apply reasonably well to the more useful case of
-gapped alignment of finite-length sequences.
+\emph{Karlin/Altschul} statistics are a special case of the Gumbel
+distribution that apply to the scores of ungapped local alignments
+between infinitely long random sequences. Karlin/Altschul statistics
+also apply reasonably well to the more useful case of gapped alignment
+of finite-length sequences. Karlin/Altschul statistics predict how the
+Gumbel's two parameters depend on the length of the query and target
+sequences. In the case of ungapped alignments, Karlin/Altschul
+statistics allow the Gumbel parameters to be estimated directly,
+without the need for a compute-intensive simulation.
 
-A canonical reference to extreme value statistics, especially maximum
-likelihood parameter fitting, is \citep{Lawless82}.
+\subsection{The gumbel API}
 
-\subsection{The evd API}
-
-The \eslmod{evd} API consists of the following functions:
+The \eslmod{gumbel} API consists of the following functions:
 
 \vspace{0.5em}
 \begin{center}
 \begin{tabular}{ll}\hline
     \multicolumn{2}{c}{\textbf{evaluating densities and distributions:}}\\
-\ccode{esl\_evd\_pdf()}     & Returns the probability density, $P(S=x)$.\\
-\ccode{esl\_evd\_logpdf()}  & Returns the log of the pdf, $\log P(S=x)$.\\
-\ccode{esl\_evd\_cdf()}     & Returns the cumulative probability distribution, $P(S<x)$.\\
-\ccode{esl\_evd\_logcdf()}  & Returns the log of the cdf, $\log P(S<x)$.\\
-\ccode{esl\_evd\_Pgeqx()}   & Returns right tail mass, 1-cdf, $P(S \geq x)$\\
-\ccode{esl\_evd\_logPgeqx()}& Returns log of 1-cdf, $\log P(S \geq x)$.\\
+\ccode{esl\_gumbel\_pdf()}     & Returns the probability density, $P(S=x)$.\\
+\ccode{esl\_gumbel\_logpdf()}  & Returns the log of the pdf, $\log P(S=x)$.\\
+\ccode{esl\_gumbel\_cdf()}     & Returns the cumulative probability distribution, $P(S \leq x)$.\\
+\ccode{esl\_gumbel\_logcdf()}  & Returns the log of the cdf, $\log P(S \leq x)$.\\
+\ccode{esl\_gumbel\_surv()}    & Returns right tail mass, 1-cdf, $P(S > x)$\\
+\ccode{esl\_gumbel\_logsurv()} & Returns log of 1-cdf, $\log P(S > x)$.\\
     \multicolumn{2}{c}{\textbf{sampling:}}\\
-\ccode{esl\_evd\_Sample()}  & Returns an EVD-distributed random sample.\\
+\ccode{esl\_gumbel\_Sample()}  & Returns a Gumbel-distributed random sample.\\
     \multicolumn{2}{c}{\textbf{maximum a posteriori parameter fitting:}}\\
-\ccode{esl\_evd\_FitComplete()} & Estimates $\mu,\lambda$ from complete data.\\
-\ccode{esl\_evd\_FitCensored()} & Estimates $\mu,\lambda$ from censored data.\\
-\ccode{esl\_evd\_FitTruncated()}& Estimates $\mu,\lambda$ from truncated data.\\\hline
+\ccode{esl\_gumbel\_FitComplete()} & Estimates $\mu,\lambda$ from complete data.\\
+\ccode{esl\_gumbel\_FitCensored()} & Estimates $\mu,\lambda$ from censored data.\\
+\ccode{esl\_gumbel\_FitTruncated()}& Estimates $\mu,\lambda$ from truncated data.\\\hline
 \end{tabular}
 \end{center}
 \vspace{0.5em}
 
 The Gumbel distribution depends on two parameters, $\mu$ and
 $\lambda$. When $\mu$ and $\lambda$ are known, the statistical
-significance (P-value) of a single score $x$ is $P(S \geq x)$,
-obtained by a call to \ccode{esl\_evd\_Pgeqx()}.  The E-value for
-obtaining that score or better in searching a database of $N$
-sequences is just $N P(S \geq x)$.
+significance (P-value) of a single score $x$ is $P(S>x)$, obtained by
+a call to \ccode{esl\_gumbel\_surv()}.  The E-value for obtaining that
+score or better in searching a database of $N$ sequences is just
+$NP(S>x)$.
 
 When $\mu$ and $\lambda$ are unknown, they are estimated from scores
 obtained from comparisons of simulated random data. (Analytical
@@ -60,14 +61,14 @@ types of data.
 
 \subsubsection{Augmentations: random, minimizer}
 
-The \ccode{esl\_evd\_Sample()} function requires augmenting with the
+The \ccode{esl\_gumbel\_Sample()} function requires augmenting with the
 \eslmod{random} module.
 
-The \ccode{esl\_evd\_FitTruncated()} function requires augmenting with
-the \eslmod{minimizer} module.
+The \ccode{esl\_gumbel\_FitTruncated()} function requires augmenting
+with the \eslmod{minimizer} module.
 
 
-\subsection{Example of using the evd API}
+\subsection{Example of using the gumbel API}
 
 An example that samples 10,000 data points from a Gumbel distribution
 with $\mu=-20$, $\lambda=0.4$; reports the min and max samples, and
@@ -76,7 +77,7 @@ max (both of which should be about $\frac{1}{10000}$, since we took
 10,000 samples); and then fits those simulated data to a Gumbel and
 reports the fitted $\mu$ and $\lambda$:
 
-\input{cexcerpts/evd_example}
+\input{cexcerpts/gumbel_example}
 
 
 

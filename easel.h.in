@@ -190,6 +190,8 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslCONST_E    2.71828182845904523536028747135
 #define eslCONST_PI   3.14159265358979323846264338328
 #define eslCONST_GOLD 1.61803399
+#define eslINFINITY   1e99999	/* force an overflow to get IEEE754 +inf */
+#define eslNaN        (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
 
 /* msa.c and sqio.c can read gzip'ed files if popen() is available;
  * popen() is not ANSI, though, it's POSIX.2.
