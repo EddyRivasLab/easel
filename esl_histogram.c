@@ -14,6 +14,12 @@
 #ifdef eslAUGMENT_GUMBEL
 #include <esl_gumbel.h>
 #endif
+#ifdef eslAUGMENT_GEV
+#include <esl_gev.h>
+#endif
+#ifdef eslAUGMENT_STATS
+#include <esl_stats.h>
+#endif
 
 /* Function:  esl_histogram_Create()
  * Incept:    SRE, Fri Jul  1 13:40:26 2005 [St. Louis]
@@ -324,7 +330,9 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
     }
 }
 
-
+/*****************************************************************
+ * Functions for setting expected histogram frequencies
+ *****************************************************************/
 #ifdef eslAUGMENT_GUMBEL
 int
 esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
@@ -340,8 +348,8 @@ esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
 
   for (i = 0; i < h->nbins; i++)
     {
-      x1 = i * h->w + h->xmin;	   /* scores in bin i are >= x1 */
-      x2 = (i+1) * h->w + h->xmin; /*     ...and < x2.          */
+      x1 = i * h->w + h->xmin;	   /* scores in bin i are > x1 */
+      x2 = (i+1) * h->w + h->xmin; /*     ...and <= x2.        */
 
       h->expect[i] = h->total *
 	(esl_gumbel_cdf(x2, mu, lambda) - esl_gumbel_cdf(x1, mu, lambda));
@@ -350,6 +358,111 @@ esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
   return eslOK;
 }
 #endif /*eslAUGMENT_GUMBEL*/
+
+#ifdef eslAUGMENT_GEV
+int
+esl_histogram_SetGEV(ESL_HISTOGRAM *h, double mu, double lambda, double alpha)
+{
+  int    i;
+  double x1,x2;
+
+  if (h->expect == NULL) 
+    {
+      h->expect = malloc(sizeof(double) * h->nbins);
+      if (h->expect == NULL) ESL_ERROR(eslEMEM, "malloc failed");
+    }
+
+  for (i = 0; i < h->nbins; i++)
+    {
+      x1 = i * h->w + h->xmin;	   /* scores in bin i are > x1 */
+      x2 = (i+1) * h->w + h->xmin; /*     ...and <= x2.        */
+
+      h->expect[i] = h->total *
+	(esl_gev_cdf(x2, mu, lambda, alpha) - esl_gev_cdf(x1, mu, lambda, alpha));
+    }
+  return eslOK;
+}
+#endif /*eslAUGMENT_GEV*/
+
+
+#ifdef eslAUGMENT_STATS
+int
+esl_histogram_GTestGoodness(ESL_HISTOGRAM *h, int ndeg, 
+			    int *ret_nbins, double *ret_G, double *ret_p)
+{
+  int    i;
+  int    nbins;			/* number of bins counted toward G */
+  double G = 0.;		/* the G-statistic */
+  double Gp;			/* P(test > G) by chi-square distribution */
+  int    status;
+  
+  /* Calculate the G statistic = 2 * log likelihood ratio.
+   */
+  nbins = 0;
+  for (i = 0; i < h->nbins; i++)
+    if (h->bin[i] > 0)
+      {
+	G += (double) h->bin[i] * log((double) h->bin[i]/ h->expect[i]);
+	nbins++;
+      }
+  G *= 2.;
+  
+  /* G is distributed approximately as \chi^2
+   */
+  if (nbins-1-ndeg >= 0) 
+    {
+      status = esl_stats_ChiSquaredTest(nbins-1-ndeg, G, &Gp);
+      if (status != eslOK) return status;
+    }
+  else Gp = 0.;
+
+  if (ret_nbins != NULL) *ret_nbins = nbins;
+  if (ret_G     != NULL) *ret_G     = G;
+  if (ret_p     != NULL) *ret_p     = Gp;
+  return eslOK;
+}
+
+int
+esl_histogram_ChiSquaredGoodness(ESL_HISTOGRAM *h, int ndeg, 
+				 int *ret_nbins, double *ret_X2, double *ret_p)
+{
+  int    i;
+  int    nbins;			/* number of bins counted toward X^2 */
+  double chisq = 0.;		/* the X^2 statistic */
+  double delta;			/* obs - exp in a bin */
+  double chip;		        /* P(test > X^2) by chi-square distribution */
+  int    status;
+  
+  /* Calculate the X^2 statistic = \sum_i (obs_i-exp_i)^2/exp, over
+   * all bins containing some minimum size (arbitrarily 5)
+   */
+  nbins = 0;
+  for (i = 0; i < h->nbins; i++)
+    if (h->bin[i] >= 5 && h->expect[i] >= 5) 
+      {
+	delta = h->bin[i] - h->expect[i];
+	chisq += delta * delta / h->expect[i];
+	nbins++;
+      }
+  
+  /* X^2 is distributed approximately as \chi^2
+   */
+  if (nbins-1-ndeg >= 0)
+    {
+      status = esl_stats_ChiSquaredTest(nbins-1-ndeg, chisq, &chip);
+      if (status != eslOK) return status;
+    }
+  else chip = 0.;
+
+  if (ret_nbins != NULL) *ret_nbins = nbins;
+  if (ret_X2    != NULL) *ret_X2    = chisq;
+  if (ret_p     != NULL) *ret_p     = chip;
+  return eslOK;
+}
+
+
+#endif /*eslAUGMENT_STATS*/
+
 
 /*****************************************************************
  * Example main()

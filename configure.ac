@@ -84,11 +84,13 @@ AC_ARG_ENABLE(modular,
     AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
+    AC_DEFINE(eslAUGMENT_GEV)
     AC_DEFINE(eslAUGMENT_GUMBEL)
     AC_DEFINE(eslAUGMENT_KEYHASH)
     AC_DEFINE(eslAUGMENT_MINIMIZER)
     AC_DEFINE(eslAUGMENT_MSA)
     AC_DEFINE(eslAUGMENT_RANDOM)
+    AC_DEFINE(eslAUGMENT_STATS)
   ])
 
 # --enable-debugging=x    - set debugging level to <x> (1-3)

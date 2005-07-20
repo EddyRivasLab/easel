@@ -33,7 +33,22 @@ extern int    esl_histogram_Add(ESL_HISTOGRAM *h, double x);
 extern int    esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h);
 extern void   esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h);
 
+#ifdef eslAUGMENT_GUMBEL
 extern int    esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda);
+#endif /*eslAUGMENT_GUMBEL*/
+
+#ifdef eslAUGMENT_GEV
+extern int    esl_histogram_SetGEV(ESL_HISTOGRAM *h, double mu, double lambda, double alpha);
+#endif /*eslAUGMENT_GEV*/
+
+#ifdef eslAUGMENT_STATS
+extern int    esl_histogram_GTestGoodness(ESL_HISTOGRAM *h, int ndeg, 
+					  int *ret_nbins, double *ret_G, 
+					  double *ret_p);
+extern int    esl_histogram_ChiSquaredGoodness(ESL_HISTOGRAM *h, int ndeg, 
+					       int *ret_nbins, double *ret_X2, 
+					       double *ret_p);
+#endif /*eslAUGMENT_STATS*/
 
 #endif /*!ESL_HISTOGRAM_INCLUDED*/
 /*****************************************************************

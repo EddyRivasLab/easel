@@ -29,14 +29,15 @@
 #include <float.h>
 
 #include <easel.h>
+#include <esl_stats.h>
+#include <esl_vectorops.h>
+#include <esl_gev.h>
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
 #ifdef eslAUGMENT_MINIMIZER
 #include <esl_minimizer.h>
 #endif
-#include <esl_vectorops.h>
-#include <esl_gev.h>
 
 extern void
 ConjugateGradientDescent(double *p, int n, double ftol, int *ret_iter,
@@ -192,8 +193,8 @@ esl_gev_surv(double x, double mu, double lambda, double alpha)
  *
  * Purpose:   Calculates the log survivor function $\log P(X>x)$ for a 
  *            generalized extreme value distribution (that is, 
- *            $\log (1 - \mbox(cdf))$); log of the right tail's probability
- *            mass; given quantile <x> and GEV location, scale, shape
+ *            $\log (1 - \mbox{cdf})$, the log of the right tail's probability
+ *            mass), given quantile <x> and GEV location, scale, shape
  *            parameters <mu>, <lambda>, <alpha>.
  */
 double
@@ -234,7 +235,7 @@ esl_gev_logsurv(double x, double mu, double lambda, double alpha)
 /* Function:  esl_gev_Sample()
  * Incept:    SRE, Wed Jul 13 08:30:49 2005 [St. Louis]
  *
- * Purpose:   Sample a GEV-distributed random variate
+ * Purpose:   Sample a GEV-distributed random variate,
  *            by the transformation method.
  */
 double
@@ -298,6 +299,7 @@ gev_complete_func(double *p, int nparam, void *dptr)
 }
 
 
+#if eslDEBUGLEVEL >= 2
 static void
 gev_numeric_grad(double *p, int nparam, void *dptr, double *dp)
 {
@@ -338,6 +340,7 @@ gev_numeric_grad(double *p, int nparam, void *dptr, double *dp)
   dp[1] = dw;
   dp[2] = dalpha;
 }
+#endif /*eslDEBUGLEVEL*/
 
 
 /* gev_complete_grad()
@@ -432,26 +435,31 @@ nr_dfunc(double *p, double *dp)
 }
 #endif
 
-/* mean_and_variance()
- * 
- * Return the mean and s^2, the unbiased estimator
- * of the population variance, for a sample of numbers <x>.
+
+/* Function:  esl_gev_FitComplete()
+ * Incept:    SRE, Mon Jul 18 17:36:02 2005 [St. Louis]
+ *
+ * Purpose:   Given an array of <n> GEV-distributed samples <x[0]..x[n-1>,
+ *            return maximum likelihood parameters <ret_mu>, 
+ *            <ret_lambda>, and <ret_alpha>.
+ *            
+ *            Uses a conjugate gradient descent algorithm that
+ *            can be computationally intensive. A typical problem
+ *            involving 10,000-100,000 points may take a second or
+ *            so to solve.
+ *
+ * Args:      x          - complete GEV-distributed data [0..n-1]
+ *            n          - number of samples in <x>
+ *            ret_mu     - RETURN: maximum likelihood estimate of mu         
+ *            ret_lambda - RETURN: maximum likelihood estimate of lambda
+ *            ret_alpha  - RETURN: maximum likelihood estimate of alpha
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ *
+ * Xref:      STL9/118-120.
  */
-static void
-mean_and_variance(double *x, int n, double *ret_mean, double *ret_var)
-{
-  double sum = 0.;
-  double sqsum = 0.;
-  int i;
-
-  for (i = 0; i < n; i++) { 
-    sum   += x[i];
-    sqsum += x[i]*x[i];
-  }
-  *ret_mean = sum / (double) n;
-  *ret_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
-}
-
 int
 esl_gev_FitComplete(double *x, int n, 
 		    double *ret_mu, double *ret_lambda, double *ret_alpha)
@@ -470,7 +478,7 @@ esl_gev_FitComplete(double *x, int n,
   data.phi = -DBL_MAX;
   data.z   = 0;
 
-  mean_and_variance(x, n, &mean, &variance);
+  esl_stats_Mean(x, n, &mean, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
   alpha  = 0.0001;
@@ -480,36 +488,33 @@ esl_gev_FitComplete(double *x, int n,
   p[1] = log(lambda);
   p[2] = alpha;
 
-  /* pass to the optimizer
-   */
-#if 0
-  int    niter;
-  nrdata.x   = x;
-  nrdata.n   = n;
-  nrdata.phi = -DBL_MAX;
-  nrdata.z   = 0;
-
-
-  ConjugateGradientDescent(p, 3, 1e-5, &niter, &fx, &nr_func, &nr_dfunc, NULL);
-
-  /* make 'em up, for now */
-  p[0] = mu;
-  p[1] = log(lambda);
-  p[2] = alpha;
-#endif
-
-
 
   /* initial step sizes */
   u[0] = 1.0;
   u[1] = fabs(log(0.02));
   u[2] = 0.02;
 
+  /* pass to the optimizer
+   */
   status = esl_min_ConjugateGradientDescent(p, u, 3, 
 					    &gev_complete_func, 
 					    &gev_complete_grad,
 					    (void *)(&data),
 					    1e-7, wrk, &fx);
+#if 0
+  /* test code that calls NR's copyrighted version of CG descent */
+  int    niter;
+  nrdata.x   = x;
+  nrdata.n   = n;
+  nrdata.phi = -DBL_MAX;
+  nrdata.z   = 0;
+
+  p[0] = mu;
+  p[1] = log(lambda);
+  p[2] = alpha;
+  ConjugateGradientDescent(p, 3, 1e-5, &niter, &fx, &nr_func, &nr_dfunc, NULL);
+#endif
+
   *ret_mu     = p[0];
   *ret_lambda = exp(p[1]);
   *ret_alpha  = p[2];
@@ -541,7 +546,9 @@ esl_gev_FitComplete(double *x, int n,
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
+  double  est_mu, est_lambda, est_alpha;
+  double  z;
+  int     i;
   int     n         = 10000; 	   /* simulate 10,000 samples */
   double  mu        = -20.0;       /* with mu = -20    */ 
   double  lambda    = 0.4;         /* and lambda = 0.4 */
@@ -549,16 +556,11 @@ main(int argc, char **argv)
   double  min       =  9999.;
   double  max       = -9999.;
   double *x         = malloc(sizeof(double) * n);
-  double est_mu, est_lambda, est_alpha;
-  double  z;
-  double  nll;
-  int     i;
+  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
 
-  nll = 0.;
   for (i = 0; i < n; i++)	/* generate the 10,000 samples */
     { 
       x[i] = esl_gev_Sample(r, mu, lambda, alpha);
-      nll -= esl_gev_logpdf(x[i], mu, lambda, alpha);
       if (x[i] < min) min = x[i];
       if (x[i] > max) max = x[i];
     }
@@ -570,21 +572,12 @@ main(int argc, char **argv)
 
   esl_gev_FitComplete(x, n, &est_mu, &est_lambda, &est_alpha);
  
-  z = 100. * fabs((est_mu - mu) / mu);
   printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
-	 mu, est_mu, z);
-  z = 100. * fabs((est_lambda - lambda) /lambda);
+	 mu,     est_mu,     100. * fabs((est_mu - mu) / mu));
   printf("Parametric lambda = %6.2f.  Estimated lambda = %6.2f.  Difference = %.1f%%.\n",
-	 lambda, est_lambda, z);
-  z = 100. * fabs((est_alpha - alpha) /alpha);
+	 lambda, est_lambda, 100. * fabs((est_lambda - lambda) /lambda));
   printf("Parametric alpha  = %6.4f.  Estimated alpha  = %6.4f.  Difference = %.1f%%.\n",
-	 alpha, est_alpha, z);
-
-  z = mu + (exp(-alpha*log(1/(double)n)) - 1 ) / (alpha*lambda);/* x at E=1*/
-  z = (double) n * esl_gev_surv(z, est_mu, est_lambda, est_alpha); /* E at x */
-  printf("Estimated E of x at true E=1: %6.4f\n", z);
-
-  printf("NLL at true parameters: %6.4f\n", nll);
+	 alpha,  est_alpha,  100. * fabs((est_alpha - alpha) /alpha));
 
   free(x);
   esl_randomness_Destroy(r);
@@ -599,7 +592,10 @@ main(int argc, char **argv)
      gcc -g -Wall -I. -o stats -DeslGEV_STATS -DeslAUGMENT_RANDOM\
        -DeslAUGMENT_MINIMIZER esl_gev.c esl_random.c esl_minimizer.c\
        esl_vectorops.c easel.c -lm
- * run:     ./example
+ * run:     ./stats <test#>...
+ * e.g. 
+ *          ./stats 1 2 3
+ * would run tests 1, 2, 3.
  */
 #include <stdio.h>
 #include <math.h>
@@ -608,120 +604,166 @@ main(int argc, char **argv)
 #include <esl_minimizer.h>
 #include <esl_gev.h>
 
+#define MAX_STATS_TESTS 10
 static void stats_sample(FILE *fp);
-
+static void stats_fittest(FILE *fp, int ntrials, int n, double mu, 
+			  double lambda, double alpha);
 int
 main(int argc, char **argv)
 {
   FILE *fp;
-  double  mu        = -20.0;       /* with mu = -20    */ 
-  double  lambda    = 0.4;         /* and lambda = 0.4 */
-  double  xmin      = -40.;
-  double  xmax      = 40.;
+  double  mu        = 0.0;
+  double  lambda    = 1.0;  
+  double  xmin      = -20.;
+  double  xmax      = 60.;
   double  xstep     = 0.1; 
   double  x,z;
+  int     do_test[MAX_STATS_TESTS+1];
+  int     i;
+
+  for (i = 0; i <= MAX_STATS_TESTS; i++) do_test[i] = 0;
+  for (i = 1; i < argc; i++)
+    do_test[atoi(argv[i])] = 1;
 
   /* stats.1: xmgrace xy file w/ densities for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.1", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, 0.0));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, 0.6));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, -0.6));
-  fprintf(fp, "&\n");
-  fclose(fp);
+  if (do_test[1]) {
+    if ((fp = fopen("stats.1", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, 0.0));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, 0.1));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_pdf(x, mu, lambda, -0.1));
+    fprintf(fp, "&\n");
+    fclose(fp);
+  }
 
   /* stats.2: xmgrace xy file w/ log densities for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.2", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logpdf(x, mu, lambda, 0.0);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+  if (do_test[2]) {
+    if ((fp = fopen("stats.2", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logpdf(x, mu, lambda, 0.0);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logpdf(x, mu, lambda, 0.1);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logpdf(x, mu, lambda, -0.1);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    fclose(fp);
   }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logpdf(x, mu, lambda, 0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
-  }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logpdf(x, mu, lambda, -0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
-  }
-  fprintf(fp, "&\n");
-  fclose(fp);
 
   /* stats.3: xmgrace xy file w/ CDF for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.3", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, 0.0));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, 0.6));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, -0.6));
-  fprintf(fp, "&\n");
-  fclose(fp);
-  
-  /* stats.4: xmgrace xy file w/ logCDF for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.4", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logcdf(x, mu, lambda, 0.0);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+  if (do_test[3]) {
+    if ((fp = fopen("stats.3", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, 0.0));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, 0.6));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_cdf(x, mu, lambda, -0.6));
+    fprintf(fp, "&\n");
+    fclose(fp);
   }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logcdf(x, mu, lambda, 0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+
+    /* stats.4: xmgrace xy file w/ logCDF for Gumbel, Frechet, Weibull */
+  if (do_test[4]) {
+    if ((fp = fopen("stats.4", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logcdf(x, mu, lambda, 0.0);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logcdf(x, mu, lambda, 0.2);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logcdf(x, mu, lambda, -0.2);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    fclose(fp);
   }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logcdf(x, mu, lambda, -0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
-  }
-  fprintf(fp, "&\n");
-  fclose(fp);
 
  /* stats.5: xmgrace xy file w/ surv for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.5", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, 0.0));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, 0.6));
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep)
-    fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, -0.6));
-  fprintf(fp, "&\n");
-  fclose(fp);
+  if (do_test[5]) {
+    if ((fp = fopen("stats.5", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, 0.0));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, 0.6));
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep)
+      fprintf(fp, "%.1f  %9.7f\n", x, esl_gev_surv(x, mu, lambda, -0.6));
+    fprintf(fp, "&\n");
+    fclose(fp);
+  }
 
  /* stats.6: xmgrace xy file w/ logsurv for Gumbel, Frechet, Weibull */
-  if ((fp = fopen("stats.6", "w")) == NULL) abort();
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logsurv(x, mu, lambda, 0.0);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+  if (do_test[6]) {
+    if ((fp = fopen("stats.6", "w")) == NULL) abort();
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logsurv(x, mu, lambda, 0.0);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logsurv(x, mu, lambda, 0.2);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    for (x = xmin; x <= xmax; x+= xstep) {
+      z = esl_gev_logsurv(x, mu, lambda, -0.2);
+      if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
+    }
+    fprintf(fp, "&\n");
+    fclose(fp);
   }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logsurv(x, mu, lambda, 0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
-  }
-  fprintf(fp, "&\n");
-  for (x = xmin; x <= xmax; x+= xstep) {
-    z = esl_gev_logsurv(x, mu, lambda, -0.2);
-    if (finite(z)) fprintf(fp, "%.1f  %9.7f\n", x, z);
-  }
-  fprintf(fp, "&\n");
-  fclose(fp);
 
   /* stats.7. R input file of 10,000 random GEV samples.
    */
-  if ((fp = fopen("stats.7", "w")) == NULL) abort();  
-  stats_sample(fp);
-  fclose(fp);
+  if (do_test[7]) {
+    if ((fp = fopen("stats.7", "w")) == NULL) abort();  
+    stats_sample(fp);
+    fclose(fp);
+  }
+
+  /* stats.8. Test 500 fits of the Frechet.
+   */
+  if (do_test[8]) {
+    if ((fp = fopen("stats.8", "w")) == NULL) abort();  
+    stats_fittest(fp, 500, 10000, mu, lambda, 0.2);
+    fclose(fp);
+  }
+
+  /* stats.9. Test 500 fits of the near-Gumbel
+   */
+  if (do_test[9]) {
+    if ((fp = fopen("stats.9", "w")) == NULL) abort();  
+    stats_fittest(fp, 500, 10000, mu, lambda, 0.00001);
+    fclose(fp);
+  }
+
+  /* stats.10. Test 500 fits of the Weibull
+   */
+  if (do_test[10]) {
+    if ((fp = fopen("stats.10", "w")) == NULL) abort();  
+    stats_fittest(fp, 500, 10000, mu, lambda, -0.2);
+    fclose(fp);
+  }
   return 0;
 }
 
@@ -769,6 +811,64 @@ stats_sample(FILE *fp)
       fprintf(fp, "%d\t%8.4f\t%8.4f\t%8.4f\n", i, a,b,c);
     }
   esl_randomness_Destroy(r);
+}
+
+/* stats_fittest()
+ * Samples <n> numbers from a GEV w/ parameters <mu>, <lambda>, <alpha>;
+ * then fits to a GEV and print info about how good the fit is.
+ * 
+ * Repeat this <ntrials> times. 
+ * 
+ * For each trial, outputs a line to <fp>:
+ *   <trial> <nll> <est_nll> <est_mu> <mu %error> <est_lambda> <%err>\
+ *     <est_alpha> <%err> <est E-val at parametric E=1>
+ * 
+ * Each sampled set is done with the random number generator seeded to
+ * the trial number. This should make each set reproducible and
+ * identical to the sets used to test R's fitting.
+ * 
+ * xref STL9/191; xref 2005/0718-weibull-debugging
+ */
+static void
+stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alpha)
+{
+  ESL_RANDOMNESS *r;
+  double *x;
+  int     i;
+  int     trial;
+  double  est_mu, est_lambda, est_alpha;
+  double  z;
+  double  nll, est_nll;
+
+  x       = malloc(sizeof(double) * n);
+  for (trial = 1; trial <= ntrials; trial++)
+    {
+      r = esl_randomness_Create(trial);
+      nll = 0.;
+      for (i = 0; i < n; i++) 
+	{
+	  x[i] = esl_gev_Sample(r, mu, lambda, alpha);
+	  nll -= esl_gev_logpdf(x[i], mu, lambda, alpha);
+	}
+      esl_randomness_Destroy(r);
+
+      esl_gev_FitComplete(x, n, &est_mu, &est_lambda, &est_alpha);      
+
+      est_nll = 0.;
+      for (i = 0; i < n; i++) 
+	est_nll -= esl_gev_logpdf(x[i], est_mu, est_lambda, est_alpha);
+
+      z = mu + (exp(-alpha*log(1/(double)n)) - 1 ) / (alpha*lambda);/* x at E=1*/
+      z = (double) n * esl_gev_surv(z, est_mu, est_lambda, est_alpha); /* E at x */
+
+      printf("%4d  %10.2f %10.2f  %8.3f  %8.3f %8.5f %8.3f %8.5f %8.3f %6.4f\n", 
+	     trial, nll, est_nll,
+	     est_mu,      100* fabs((est_mu-mu)/mu),
+	     est_lambda,  100* fabs((est_lambda-lambda)/lambda),
+	     est_alpha,   100* fabs((est_alpha-alpha)/alpha),
+	     z);
+    }
+  free(x);
 }
 #endif /*eslGEV_STATS*/
 

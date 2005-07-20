@@ -33,12 +33,13 @@
 
 #undef eslAUGMENT_ALPHABET
 #undef eslAUGMENT_FILEPARSER
+#undef eslAUGMENT_GEV
 #undef eslAUGMENT_GUMBEL
 /* #undef eslAUGMENT_KEYHASH  */ /* not yet! no keyhash module yet. */
 #undef eslAUGMENT_MINIMIZER
 #undef eslAUGMENT_MSA		
 #undef eslAUGMENT_RANDOM
-
+#undef eslAUGMENT_STATS
 
 /*------------------------------------------------------------------------*/
 /*------------ no user serviceable parts below this line -----------------*/

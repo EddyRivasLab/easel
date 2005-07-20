@@ -81,19 +81,19 @@ reports the fitted $\mu$ and $\lambda$:
 
 
 
-\subsection{Extreme value densities}
+\subsection{Gumbel densities}
 
 The probability density function (pdf) and the cumulative distribution
 function (cdf) of the extreme value distribution are:
 
 \begin{equation}
 P(x) = \lambda \exp \left[ -\lambda (x - \mu) - e^{- \lambda (x - \mu)} \right]
-\label{eqn:density}
+\label{eqn:gumbel_density}
 \end{equation}
 
 \begin{equation}
 P(S < x) = \exp \left[ -e^{-\lambda(x - \mu)} \right]
-\label{eqn:distribution}
+\label{eqn:gumbel_distribution}
 \end{equation}
 
 The extreme value density and distribution functions for $\mu = 0$ and
@@ -115,16 +115,14 @@ parameters, respectively:
 \end{minipage}
 }
 
-Gumbel distributions can have their long tail to the right or to the
+For more details, a classic reference is \citep{Lawless82}.  Gumbel
+distributions can have their long tail to the right or to the
 left. The form given here is for the long tail to the right.  This is
 the form that arises when the extreme value is a maximum, such as when
 our score is the maximum over the individual scores of all possible
 alignments. The equations in \citep{Lawless82} are for extremal
 minima; use $(x - u) = -(x - \mu)$ and $b = 1 / \lambda$ to convert
 Lawless' notation to the notation used here.
-
-
-
 
 
 \subsection{Fitting Gumbel distributions to observed data}
@@ -208,7 +206,7 @@ distribution, the log likelihood to optimize is:
 \begin{equation}
 \log L(\lambda, \mu) = n \log \lambda - \sum_{i=1}^{n} \lambda(x_i -
 \mu) - \sum_{i=1}^{n} e^{-\lambda(x_i - \mu)}
-\label{eqn:logL}
+\label{eqn:gev_logL}
 \end{equation}
 
 This objective function is differentiable with respect to $\mu$ and

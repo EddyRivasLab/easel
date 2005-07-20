@@ -18,6 +18,7 @@
 #include <esl_fileparser.h>
 #endif
 #include <esl_vectorops.h>
+#include <esl_stats.h>
 #include <esl_dirichlet.h>
 
 
@@ -164,14 +165,14 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
       sum1 += c[x] + alpha[x];
       sum2 += alpha[x];
       sum3 += c[x];
-      esl_dirichlet_LogGamma(alpha[x] + c[x], &a1); 
-      esl_dirichlet_LogGamma(c[x] + 1.,       &a2);
-      esl_dirichlet_LogGamma(alpha[x],        &a3);
+      esl_stats_LogGamma(alpha[x] + c[x], &a1); 
+      esl_stats_LogGamma(c[x] + 1.,       &a2);
+      esl_stats_LogGamma(alpha[x],        &a3);
       lnp  += a1 - a2 - a3;
     }
-  esl_dirichlet_LogGamma(sum1,      &a1);
-  esl_dirichlet_LogGamma(sum2,      &a2);
-  esl_dirichlet_LogGamma(sum3 + 1., &a3);
+  esl_stats_LogGamma(sum1,      &a1);
+  esl_stats_LogGamma(sum2,      &a2);
+  esl_stats_LogGamma(sum3 + 1., &a3);
   lnp += a2 + a3 - a1;
 
   *ret_answer = lnp;
@@ -202,12 +203,12 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
   for (x = 0; x < K; x++)
     if (p[x] > 0.0)		/* any param that is == 0.0 doesn't exist */
       {
-	esl_dirichlet_LogGamma(alpha[x], &val);
+	esl_stats_LogGamma(alpha[x], &val);
 	logp -= val;
 	logp += (alpha[x]-1.0) * log(p[x]);
 	sum  += alpha[x];
       }
-  esl_dirichlet_LogGamma(sum, &val);
+  esl_stats_LogGamma(sum, &val);
   logp += val;
   *ret_answer = logp;
   return eslOK;
@@ -215,61 +216,6 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
 
 
 
-/* Function:  esl_dirichlet_LogGamma()
- * Incept:    SRE, Tue Nov  2 13:47:01 2004 [St. Louis]
- *
- * Purpose:   Returns natural log of Gamma(x), for x > 0.0.
- * 
- * Credit:    Adapted from a public domain implementation in the
- *            NCBI core math library. Thanks to John Spouge and
- *            the NCBI. (According to NCBI, that's Dr. John
- *            "Gammas Galore" Spouge to you, pal.)
- *
- * Args:      x          : argument, x > 0.0
- *            ret_answer : RETURN: the answer
- *
- * Returns:   Put the answer in <ret_answer>; returns <eslOK>.
- *            
- * Throws:    <eslEINVAL> if $x <= 0$.
- */
-int
-esl_dirichlet_LogGamma(double x, double *ret_answer)
-{
-  int i;
-  double xx, tx;
-  double tmp, value;
-  static double cof[11] = {
-    4.694580336184385e+04,
-    -1.560605207784446e+05,
-    2.065049568014106e+05,
-    -1.388934775095388e+05,
-    5.031796415085709e+04,
-    -9.601592329182778e+03,
-    8.785855930895250e+02,
-    -3.155153906098611e+01,
-    2.908143421162229e-01,
-    -2.319827630494973e-04,
-    1.251639670050933e-10
-  };
-  
-  /* Protect against invalid x<=0
-   */
-  if (x <= 0.0)  ESL_ERROR(eslEINVAL, "invalid x <= 0 in esl_dirichlet_LogGamma()");
-
-  xx       = x - 1.0;
-  tx = tmp = xx + 11.0;
-  value    = 1.0;
-  for (i = 10; i >= 0; i--)	/* sum least significant terms first */
-    {
-      value += cof[i] / tmp;
-      tmp   -= 1.0;
-    }
-  value  = log(value);
-  tx    += 0.5;
-  value += 0.918938533 + (xx+0.5)*log(tx) - tx;
-  *ret_answer = value;
-  return eslOK;
-}
 
 
 

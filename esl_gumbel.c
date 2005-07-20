@@ -10,17 +10,15 @@
 #include <float.h>
 
 #include <easel.h>
+#include <esl_stats.h>
+#include <esl_vectorops.h>
+#include <esl_gumbel.h>
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
 #ifdef eslAUGMENT_MINIMIZER
 #include <esl_minimizer.h>
 #endif
-#include <esl_vectorops.h>
-#include <esl_gumbel.h>
-
-static void mean_and_variance(double *x, int n, double *ret_mean, double *ret_var);
-
 
 /*****************************************************************
  * Routines for evaluating densities and distributions
@@ -261,7 +259,7 @@ lawless416(double *x, int n, double lambda, double *ret_f, double *ret_df)
 int
 esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 {
-  double  mean, variance;
+  double  variance;
   double  lambda, mu;
   double  fx;			/* f(x)  */
   double  dfx;			/* f'(x) */
@@ -272,7 +270,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
    */
-  mean_and_variance(x, n, &mean, &variance);
+  esl_stats_Mean(x, n, NULL, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
 
   /* 2. Use Newton/Raphson to solve Lawless 4.1.6 and find ML lambda
@@ -336,6 +334,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   return 1;
 }
 
+#if eslDEBUGLEVEL >=2
 /* direct_mv_fit()
  * SRE, Wed Jun 29 08:23:47 2005
  * 
@@ -348,12 +347,12 @@ direct_mv_fit(double *x, int n, double *ret_mu, double *ret_lambda)
 {
   double mean, variance;
 
-  mean_and_variance(x, n, &mean, &variance);
+  esl_stats_Mean(x, n, &mean, &variance);
   *ret_lambda = eslCONST_PI / sqrt(6.*variance);
   *ret_mu     = mean - 0.57722/(*ret_lambda);
   return eslOK;
 }
-
+#endif
 
 /*------------------- end of complete data fit ---------------------------------*/
 
@@ -442,7 +441,7 @@ int
 esl_gumbel_FitCensored(double *x, int n, int z, double phi, 
 		       double *ret_mu, double *ret_lambda)
 {
-  double mean, variance;
+  double variance;
   double lambda, mu;
   double fx;			/* f(x)  */
   double dfx;			/* f'(x) */
@@ -453,7 +452,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
    */
-  mean_and_variance(x, n, &mean, &variance);
+  esl_stats_Mean(x, n, NULL, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
 
   /* 2. Use Newton/Raphson to solve Lawless 4.2.2 and find ML lambda
@@ -686,7 +685,7 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
    * distributed variates. They'll be off for a truncated sample, but
    * close enough to be a useful starting point.
    */
-  mean_and_variance(x, n, &mean, &variance);
+  esl_stats_Mean(x, n, &mean, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
 
@@ -708,26 +707,6 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
   return status;
 }
 #endif /*eslAUGMENT_MINIMIZER*/
-
-/* mean_and_variance()
- * 
- * Return the mean and s^2, the unbiased estimator
- * of the population variance, for a sample of numbers <x>.
- */
-static void
-mean_and_variance(double *x, int n, double *ret_mean, double *ret_var)
-{
-  double sum = 0.;
-  double sqsum = 0.;
-  int i;
-
-  for (i = 0; i < n; i++) { 
-    sum   += x[i];
-    sqsum += x[i]*x[i];
-  }
-  *ret_mean = sum / (double) n;
-  *ret_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
-}
 /*------------------------ end of fitting --------------------------------*/
 
 

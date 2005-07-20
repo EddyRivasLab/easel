@@ -34,8 +34,6 @@ extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K,
 				     double *ret_answer);
 extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, 
 				      double *ret_answer);
-extern int esl_dirichlet_LogGamma(double x, double *ret_answer);
-
 
 /* Optional sampling code, when augmented by random module.
  */

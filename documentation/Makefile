@@ -5,9 +5,10 @@
 APITEX =  easel\
 	  esl_alphabet\
 	  esl_dirichlet\
-	  esl_evd\
 	  esl_fileparser\
 	  esl_getopts\
+	  esl_gev\
+	  esl_gumbel\
 	  esl_keyhash\
 	  esl_msa\
 	  esl_random\
@@ -23,9 +24,10 @@ APITEX =  easel\
 #
 AUTOTEX = esl_alphabet\
 	  esl_dirichlet\
-	  esl_evd\
 	  esl_fileparser\
 	  esl_getopts\
+	  esl_gev\
+	  esl_gumbel\
 	  esl_keyhash\
 	  esl_msa\
 	  esl_random\

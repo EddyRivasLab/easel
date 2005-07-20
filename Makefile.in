@@ -25,6 +25,7 @@ HEADERS = \
 	esl_regexp.h\
 	esl_sqio.h\
 	esl_stack.h\
+	esl_stats.h\
 	esl_vectorops.h\
 	esl_wuss.h
 
@@ -44,6 +45,7 @@ OBJS    = \
 	esl_regexp.o\
 	esl_sqio.o\
 	esl_stack.o\
+	esl_stats.o\
 	esl_vectorops.o\
 	esl_wuss.o
 
