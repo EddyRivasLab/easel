@@ -11,25 +11,54 @@
 /* Structure: ESL_HISTOGRAM
  * 
  * Keeps a score histogram, in which scores are counted into bins of
- * size (width) w. A score of x is counted into bin i = (x-xmin)/w,
- * and bin i contains scores iw + xmin <= x < (i+1)w + xmin.
+ * size (width) w. 
+ *   histogram starts at bmin <= floor(xmin/w) * w
+ *   histogram ends at bmax >= ceil(xmax/w)*w
+ *   nb = (bmax-bmin)/w
+ *   each score x is counted into bin b = nb - (int) (bmax-x)/w
+ *   each bin b contains scores bw+bmin < x <= (b+1)w + bmin
+ *
  */  
 typedef struct {
-  int    *bin;		/* count bins, 0..nbins-1                                        */
-  int     nbins;        /* nbins  = 1 + ((xmax-xmin) / w)                                */
-  double  w;		/* width of each bin                                             */
-  double  xmin, xmax;	/* allocation bounds: all scores x must satisfy xmin <= x < xmax */
-  int     imin, imax;	/* indices of smallest, largest bins with any counts             */
+  /* The raw data. We always track xmin, xmax, n.
+   * Optionally, we keep all the samples, for fitting, for instance.
+   * Created dynamically as we use esl_histogram_Add().
+   */
+  double *x;		/* optional: raw sample values x[0..n-1]            */
+  double  xmin, xmax;	/* smallest, largest sample value observed          */
+  int     n;            /* total number of raw data samples                 */
+  int     nalloc;	/* current allocated size of x                      */
 
-  int     total;	/* total # of observed counts in bins    */
-  double *expect;	/* expected counts in bins, 0..nbins-1   */
+  /* The main (display) histogram is in fixed-width bins, and
+   * it's created dynamically as we use esl_histogram_Add().
+   */
+  int    *obs;		/* observed counts in bin b, 0..nb-1 (dynamic)      */
+  double *expect;	/* expected counts in bin b, 0..nb-1 (not resized)  */
+  double  bmin, bmax;	/* histogram bounds: all x satisfy bmin <= x < bmax */
+  int     imin, imax;	/* smallest, largest bin that contain obs[i] > 0    */
+  int     nb;           /* number of bins                                   */
+  double  w;		/* fixed width of each bin                          */
+
+  /* A secondary histogram, used for goodness-of-fit testing, is
+   * in roughly equal-sized bins of variable width. Requires that 
+   * we've kept all the data samples x[]. Created when we call
+   * esl_histogram_Finish().
+   */
+  int    *obs2;		/* obs counts in bin b, 0..nb2-1      */
+  double *expect2;	/* expected counts in bin b, 0..nb2-1 */
+  double *topx;		/* all values in bin b are <= topx[b] */
+  int     nb2;		/* # of bins in secondary histogram   */
+
 } ESL_HISTOGRAM;
 
 
-extern ESL_HISTOGRAM *esl_histogram_Create(double xmin, double xmax, double w);
+extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double w);
+extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
 extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
 
 extern int    esl_histogram_Add(ESL_HISTOGRAM *h, double x);
+extern int    esl_histogram_Finish(ESL_HISTOGRAM *h);
+
 extern int    esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h);
 extern void   esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h);
 

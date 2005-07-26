@@ -258,7 +258,7 @@ brent(double *ori, double *dir, int n,
   x=v=w= a + c*(b-a);           /* initial guess of x by golden section */
   esl_vec_DCopy(xvec, ori, n);  /* build xvec from ori, dir, x */
   esl_vec_DAddScaled(xvec, dir, x, n);
-  fx = (*func)(xvec, n, prm);   /* initial function evaluation */
+  fx=fv=fw = (*func)(xvec, n, prm);   /* initial function evaluation */
 
   e = 0.;
   while (1) /* algorithm is guaranteed to converge. */
