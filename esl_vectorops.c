@@ -602,6 +602,8 @@ esl_vec_FExp(float *vec, int n)
  *            are log probabilities, but the summation is done in probability
  *            space, by exponentiating each of the <n> values in the vector,
  *            summing, and returning the log of the sum. 
+ *            
+ *            That is: return $\log \sum_i e^{v_i}$.
  *
  *            The trick is to do this without numerical underflow or overflow.
  *

@@ -12,7 +12,158 @@
 #include <esl_vectorops.h>
 #include <esl_minimizer.h>
 
-/* Function:  esl_min_Bracket()
+static int bracket(double *a, double *d, double *u, int n, 
+		   double (*func)(double *, int, void *), void *prm, 
+		   double *ret_fa,
+		   double *b, double *ret_bx, double *ret_fb,
+		   double *c, double *ret_cx, double *ret_fc);
+static void brent(double *ori, double *dir, int n,
+		  double (*func)(double *, int, void *), void *prm,
+		  double a, double b, double eps, double t,
+		  double *xvec, double *ret_x, double *ret_fx);
+
+
+/* Function:  esl_min_ConjugateGradientDescent()
+ * Incept:    SRE, Wed Jun 22 08:49:42 2005 [St. Louis]
+ *
+ * Purpose:   n-dimensional minimization by Polak/Ribiere conjugate gradient descent.
+ *           
+ *            An initial point is provided by <x>, a vector of <n>
+ *            components. The caller also provides a function <*func()> that 
+ *            compute the objective function f(x) when called as 
+ *            <(*func)(x, n, prm)>, and a function <*dfunc()> that can
+ *            compute the gradient <dx> at <x> when called as 
+ *            <(*dfunc)(x, n, prm, dx)>, given an allocated vector <dx>
+ *            to put the derivative in. Any additional data or fixed
+ *            parameters that these functions require are passed by
+ *            the void pointer <prm>.
+ *            
+ *            The first step of each iteration is to try to bracket
+ *            the minimum along the current direction. The initial step
+ *            size is controlled by <u[]>; the first step will not exceed 
+ *            <u[i]> for any dimension <i>. (You can think of <u> as
+ *            being the natural "units" to use along a graph axis, if
+ *            you were plotting the objective function.)
+ *
+ *            The caller also provides an allocated workspace sufficient to
+ *            hold four allocated n-vectors. (4 * sizeof(double) * n).
+ *
+ *            Iterations continue until the objective function has changed
+ *            by less than a fraction <tol>. This should not be set to less than
+ *            sqrt(DBL_EPSILON). 
+ *
+ *            Upon return, <x> is the minimum, and <ret_fx> is f(x),
+ *            the function value at <x>.
+ *            
+ * Args:      x        - an initial guess n-vector; RETURN: x at the minimum
+ *            u        - "units": maximum initial step size along gradient when bracketing.
+ *            n        - dimensionality of all vectors
+ *            *func()  - function for computing objective function f(x)
+ *            *dfunc() - function for computing a gradient at x
+ *            prm      - void ptr to any data/params func,dfunc need 
+ *            tol      - convergence criterion applied to f(x)
+ *            wrk      - allocated 4xn-vector for workspace
+ *            ret_fx   - optRETURN: f(x) at the minimum
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslECONVERGENCE> if it fails to converge in MAXITERATIONS.
+ *
+ * Xref:      STL9/101.
+ */
+int
+esl_min_ConjugateGradientDescent(double *x, double *u, int n, 
+       				 double (*func)(double *, int, void *),
+				 void (*dfunc)(double *, int, void *, double *),
+				 void *prm, double tol, double *wrk, double *ret_fx)
+{
+  double oldfx;
+  double coeff;
+  int    i, i1;
+  double *dx, *cg, *w1, *w2;
+  double cvg;
+  double fa,fb,fc;
+  double ax,bx,cx;
+
+  dx = wrk;
+  cg = wrk + n;
+  w1 = wrk + 2*n;
+  w2 = wrk + 3*n;
+
+  oldfx = (*func)(x, n, prm);	/* init the objective function */
+  (*dfunc)(x, n, prm, dx);	/* find the current negative gradient, - df(x)/dxi  */
+
+  esl_vec_DScale(dx, n, -1.0);
+  esl_vec_DCopy(cg, dx, n);	/* and make that the first conjugate direction, cg  */
+
+  for (i = 0; i < MAXITERATIONS; i++)
+    {
+      ESL_DPRINTF1(("p: %5.2f %7.4f %7.4f  cg: %9.2f %9.2f %9.2f ", 
+		    x[0], x[1], x[2], cg[0], cg[1], cg[2]));
+
+      ax = 0.;
+      bracket(x, cg, u, n, func, prm, &fa, w1, &bx, &fb, w2, &cx, &fc);
+
+      /* Minimize along the line given by the conjugate gradient <cg> */
+      brent(x, cg, n, func, prm, ax,cx, 1e-7, 1e-8, w2, NULL, ret_fx);
+      esl_vec_DCopy(x, w2, n);
+
+      /* Find the negative gradient at that point (temporarily in w1) */
+      (*dfunc)(x, n, prm, w1);
+      esl_vec_DScale(w1, n, -1.0);
+
+      /* Calculate the Polak-Ribiere coefficient */
+      for (coeff = 0., i1 = 0; i1 < n; i1++)
+	coeff += (w1[i1] - dx[i1]) * w1[i1];
+      coeff /= esl_vec_DDot(dx, dx, n);
+      
+      /* Calculate the next conjugate gradient direction in w2 */
+      esl_vec_DCopy(w2, w1, n);
+      esl_vec_DAddScaled(w2, cg, coeff, n);
+
+      /* Finishing set up for next iteration: */
+      esl_vec_DCopy(dx, w1, n);
+      esl_vec_DCopy(cg, w2, n);
+
+      /* Now: x is the current point; 
+       *      *ret_fx is the function value at that point;
+       *      dx is the current gradient at x;
+       *      cg is the current conjugate gradient direction. 
+       */
+
+      /* Convergence test. 1e-9 factor is fudging the case where our
+       * minimum is at exactly f()=0.
+       */
+      cvg = 2.0 * fabs((oldfx-*ret_fx)) / (1e-9 + fabs(oldfx) + fabs(*ret_fx));
+
+#if eslDEBUGLEVEL >= 2
+      printf("\nesl_min_ConjugateGradientDescent():\n");
+      printf("new point:     ");
+      for (i = 0; i < n; i++)
+	printf("%g ", x[i]);
+
+      printf("\nnew gradient:  ");
+      for (i = 0; i < n; i++)
+	printf("%g ", dx[i]);
+
+      printf("\nnew direction: ");
+      for (i = 0; i < n; i++)
+	printf("%g ", cg[i]);
+
+      printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, *ret_fx, cvg);
+#endif
+
+      if (cvg <= tol) break;
+      oldfx = *ret_fx;
+    }
+  if (i == MAXITERATIONS) 
+    ESL_ERROR(eslECONVERGENCE, "Failed to converge in ConjugateGradientDescent()");
+
+  return eslOK;
+}
+
+
+/* bracket()
  * Incept:    SRE, Mon Jun 20 16:47:51 2005 [St. Louis]
  *
  * Purpose:   Brackets a minimum: starting at initial vector <a>
@@ -67,11 +218,11 @@
  * Xref:      STL9/109.
  */
 int
-esl_min_Bracket(double *a, double *d, double *u, int n, 
-		double (*func)(double *, int, void *), void *prm, 
-		double *ret_fa,
-		double *b, double *ret_bx, double *ret_fb,
-		double *c, double *ret_cx, double *ret_fc)
+bracket(double *a, double *d, double *u, int n, 
+	double (*func)(double *, int, void *), void *prm, 
+	double *ret_fa,
+	double *b, double *ret_bx, double *ret_fb,
+	double *c, double *ret_cx, double *ret_fc)
 {
   double fa, fb, fc;		/* f(a), f(b), f(c); f(b) < f(a), f(c) */
   double bx, cx;		/* scalar multipliers that give the b,c vectors */
@@ -151,30 +302,6 @@ esl_min_Bracket(double *a, double *d, double *u, int n,
   return eslOK;
 }
 
-#if eslDEBUGLEVEL >= 2
-static void
-show_line(double *ori, double *d, double *u, double n,
-	  double ax, double cx,
-	  double (*func)(double *, int, void *), void *prm, double *wrk)
-{
-  double bx, xx, fx;
-  int i;
-
-  bx = fabs(u[0] / d[0]);
-  for (i = 1; i < n; i++) {
-    xx = fabs(u[i] / d[i]);
-    if (xx < bx) bx = xx;
-  }
-  for (xx = ax; xx <= cx; xx += bx)
-    {
-      esl_vec_DCopy(wrk, ori, n); 
-      esl_vec_DAddScaled(wrk, d, xx, n); 
-      fx = (*func)(wrk, n, prm);
-      printf("%g  %g\n", xx, fx);
-    }
-}
-#endif
-
 
 
 /* brent():
@@ -217,7 +344,6 @@ show_line(double *ori, double *d, double *u, double n,
  *            combination of bisection search and parabolic
  *            interpolation; should exhibit superlinear convergence in
  *            most functions.
- *
  *
  * Args:      ori     - n-vector at origin
  *            dir     - direction vector (gradient) we're following from ori
@@ -330,282 +456,6 @@ brent(double *ori, double *dir, int n,
 
 
 
-/* Function:  esl_min_LineSearch()
- * Incept:    SRE, Tue Jun 21 15:31:30 2005 [St. Louis]
- *
- * Purpose:   Minimization along a gradient in n-dimensional space by 
- *            golden section search.
- *            
- *            We know there is a minimum on a line starting
- *            at <ori> in the direction of the gradient <d>,
- *            where these are vectors of dimension <n>.
- *            
- *            We provide the objective function <*func()>, and a void
- *            pointer to any necessary data and conditional parameters
- *            <prm>. The objective function will be evaluated at
- *            vectors <x> by calling <(*func)(x, n, prm)>. The
- *            provided function is responsible to casting <prm> to
- *            whatever it's supposed to be, which might be a ptr to a
- *            structure or a data vector, for example.
- *            
- *            We also provide an allocated <n>-vector <b> as
- *            temporary work space for the routine.
- *            
- *            The routine executes an iterative golden section
- *            search along this line, and narrows in on a
- *            suitably infinestimal interval in which the
- *            minimum must lie.
- *
- *            It stops when the objective function has not changed
- *            by more than a fraction <tol>. This should not be smaller
- *            than sqrt(DBL_EPSILON). 
- *            
- *            Upon convergence, it sets <x>, the vector at the minimum (caller
- *            provides this allocated memory); sets <ret_xx),
- *            the scalar multiplier used to find <x> from <ori>
- *            and the gradient; and sets <ret_fx>, the value of the
- *            objective function at the minimum <x>.
- *            
- *            <ori> and <d> are unchanged by this procedure.
- *            <b> is a temporary workspace.
- *            
- * Args:      ori	- n-vector at origin
- *            d         - gradient from ori
- *            u         - natural units for each dimension i
- *            n         - dimensionality of all vectors
- *            (*func)   - pointer to caller's objective function
- *            prm       - void pointer to any data that (*func) needs
- *            tol       - tolerance: test for convergence
- *            b         - n-vector to be used for workspace
- *            x         - RETURN: vector at the minimum
- *            ret_xx    - optRETURN: scalar multiplier that gave vector x
- *            ret_fx    - optRETURN: f(x)
- *
- * Returns:   <eslOK> on success.
- *
- * Xref:      STL9/110.
- */
-int
-esl_min_LineSearch(double *ori, double *d, double *u, int n,
-		   double (*func)(double *, int, void *), void *prm,
-		   double tol, double *b, 
-		   double *x, double *ret_xx, double *ret_fx)
-{
-  double xx, swap;
-  double fa, fb, fx;
-  double ax, bx, cx;
-  int    niter;
-
-  /* Bracket the minimum along line d first; this gives us scalar
-   * points $0 <= ax < bx < cx$ relative to vector d. That is, vectors
-   * at these points are determined as, for example, $a = ori + ax*d$.
-   */
-  ax = 0.;
-  esl_min_Bracket(ori, d, u, n, func, prm, &fa, b, &bx, &fb, x, &cx, &fx);
-
-#if eslDEBUGLEVEL >= 2
-   show_line(ori, d, u, n, ax, cx, func, prm, b); */
-#endif
-
-  /* the main do loop is guaranteed to terminate; 
-   * iterations are counted only for debugging output
-   */
-  niter = 0;
-  do {	
-    niter++;
-    if ((bx - ax) > (cx - bx))	/* find the larger interval */
-      {				/* a..b larger: set up a..x.b..c */
-	xx = (bx + ax*eslCONST_GOLD) / (1.+eslCONST_GOLD);
-	swap = xx; xx = bx; bx = swap; /* now a..b.x..c */
-      }
-    else	/* b..c larger: set up a..b.x..c */
-      xx = (cx + bx*eslCONST_GOLD) / (1.+eslCONST_GOLD);
-      
-    /* Calculate new vectors at b and x, along line d from ori. */
-    esl_vec_DCopy(b, ori, n);  esl_vec_DAddScaled(b, d, bx, n);
-    esl_vec_DCopy(x, ori, n);  esl_vec_DAddScaled(x, d, xx, n);
-  
-    /* Calculate new function values at those points */
-    fb = (*func)(b, n, prm);
-    fx = (*func)(x, n, prm);
-
-    if (fb < fx) 
-      { /* then a..b.x is the new bracketing; discard c */ 				
-	cx = xx;
-	fx = fb;
-      }
-    else /* else fx <= fb; discard a; b.x..c is the new bracketing */
-      {
-	ax = bx;
-	bx = xx;
-      }
-    /* now we have a new a.b.c bracket; in principle we also
-     * know which subinterval is larger, but it's not expensive
-     * to figure it out again when we loop now. */
-
-    /* printf("golden section: %g %g %g\n", ax,bx,cx); */
-
-  } while ((cx-ax)/bx > tol); 
-
-  ESL_DPRINTF1(("xx=%10.8f fx=%10.1f\n", bx, fx));
-  ESL_DPRINTF2(("\nesl_min_LineSearch(): %d iterations\n", niter));
-  ESL_DPRINTF2(("esl_min_LineSearch(): moved to %g along curr direction\n", bx));
-  ESL_DPRINTF2(("esl_min_LineSearch(): new f() is %g\n\n", fx));
-  
-  /* Minimum is at b. 
-   * Make sure we have x vector there: wasteful 50% of the time */
-  esl_vec_DCopy(x, ori, n); esl_vec_DAddScaled(x, d, bx, n); 
-  if (ret_xx != NULL) *ret_xx = bx;
-  if (ret_fx != NULL) *ret_fx = fx;
-  return eslOK;
-}
-
-
-  
-		   
-
-/* Function:  esl_min_ConjugateGradientDescent()
- * Incept:    SRE, Wed Jun 22 08:49:42 2005 [St. Louis]
- *
- * Purpose:   n-dimensional minimization by conjugate gradient descent.
- *           
- *            An initial point is provided by <x>, a vector of <n>
- *            components. The caller also provides a function <*func()> that 
- *            compute the objective function f(x) when called as 
- *            <(*func)(x, n, prm)>, and a function <*dfunc()> that can
- *            compute the gradient <dx> at <x> when called as 
- *            <(*dfunc)(x, n, prm, dx)>, given an allocated vector <dx>
- *            to put the derivative in. Any additional data or fixed
- *            parameters that these functions require are passed by
- *            the void pointer <prm>.
- *            
- *            The first step of each iteration is to try to bracket
- *            the minimum along the current direction. The initial step
- *            size is controlled by <u[]>; the first step will not exceed 
- *            <u[i]> for any dimension <i>. (You can think of <u> as
- *            being the natural "units" to use along a graph axis, if
- *            you were plotting the objective function.)
- *
- *            The caller also provides an allocated workspace sufficient to
- *            hold four allocated n-vectors. (4 * sizeof(double) * n).
- *
- *            Iterations continue until the objective function has changed
- *            by less than a fraction <tol>. This should not be set to less than
- *            sqrt(DBL_EPSILON). 
- *
- *            Upon return, <x> is the minimum, and <ret_fx> is f(x),
- *            the function value at <x>.
- *            
- * Args:      x        - an initial guess n-vector; RETURN: x at the minimum
- *            u        - "units": maximum initial step size along gradient when bracketing.
- *            n        - dimensionality of all vectors
- *            *func()  - function for computing objective function f(x)
- *            *dfunc() - function for computing a gradient at x
- *            prm      - void ptr to any data/params func,dfunc need 
- *            tol      - convergence criterion applied to f(x)
- *            wrk      - allocated 4xn-vector for workspace
- *            ret_fx   - optRETURN: f(x) at the minimum
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslECONVERGENCE> if it fails to converge in MAXITERATIONS.
- *
- * Xref:      STL9/101.
- */
-int
-esl_min_ConjugateGradientDescent(double *x, double *u, int n, 
-       				 double (*func)(double *, int, void *),
-				 void (*dfunc)(double *, int, void *, double *),
-				 void *prm, double tol, double *wrk, double *ret_fx)
-{
-  double oldfx;
-  double coeff;
-  int    i, i1;
-  double *dx, *cg, *w1, *w2;
-  double cvg;
-  double fa,fb,fc;
-  double ax,bx,cx;
-
-  dx = wrk;
-  cg = wrk + n;
-  w1 = wrk + 2*n;
-  w2 = wrk + 3*n;
-
-  oldfx = (*func)(x, n, prm);	/* init the objective function */
-  (*dfunc)(x, n, prm, dx);	/* find the current negative gradient, - df(x)/dxi  */
-
-  esl_vec_DScale(dx, n, -1.0);
-  esl_vec_DCopy(cg, dx, n);	/* and make that the first conjugate direction, cg  */
-
-  for (i = 0; i < MAXITERATIONS; i++)
-    {
-      ESL_DPRINTF1(("p: %5.2f %7.4f %7.4f  cg: %9.2f %9.2f %9.2f ", 
-		    x[0], x[1], x[2], cg[0], cg[1], cg[2]));
-
-      ax = 0.;
-      esl_min_Bracket(x, cg, u, n, func, prm, &fa, w1, &bx, &fb, w2, &cx, &fc);
-
-      /* Minimize along the line given by the conjugate gradient <cg> */
-      /*esl_min_LineSearch(x, cg, u, n, func, prm, 1e-4, w1, w2, NULL, ret_fx);*/
-      brent(x, cg, n, func, prm, ax,cx, 1e-7, 1e-8, w2, NULL, ret_fx);
-      esl_vec_DCopy(x, w2, n);
-
-      /* Find the negative gradient at that point (temporarily in w1) */
-      (*dfunc)(x, n, prm, w1);
-      esl_vec_DScale(w1, n, -1.0);
-
-      /* Calculate the Polak-Ribiere coefficient */
-      for (coeff = 0., i1 = 0; i1 < n; i1++)
-	coeff += (w1[i1] - dx[i1]) * w1[i1];
-      coeff /= esl_vec_DDot(dx, dx, n);
-      
-      /* Calculate the next conjugate gradient direction in w2 */
-      esl_vec_DCopy(w2, w1, n);
-      esl_vec_DAddScaled(w2, cg, coeff, n);
-
-      /* Finishing set up for next iteration: */
-      esl_vec_DCopy(dx, w1, n);
-      esl_vec_DCopy(cg, w2, n);
-
-      /* Now: x is the current point; 
-       *      *ret_fx is the function value at that point;
-       *      dx is the current gradient at x;
-       *      cg is the current conjugate gradient direction. 
-       */
-
-      /* Convergence test. 1e-9 factor is fudging the case where our
-       * minimum is at exactly f()=0.
-       */
-      cvg = 2.0 * fabs((oldfx-*ret_fx)) / (1e-9 + fabs(oldfx) + fabs(*ret_fx));
-
-#if eslDEBUGLEVEL >= 2
-      printf("\nesl_min_ConjugateGradientDescent():\n");
-      printf("new point:     ");
-      for (i = 0; i < n; i++)
-	printf("%g ", x[i]);
-
-      printf("\nnew gradient:  ");
-      for (i = 0; i < n; i++)
-	printf("%g ", dx[i]);
-
-      printf("\nnew direction: ");
-      for (i = 0; i < n; i++)
-	printf("%g ", cg[i]);
-
-      printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, *ret_fx, cvg);
-#endif
-
-      if (cvg <= tol) break;
-      oldfx = *ret_fx;
-    }
-  if (i == MAXITERATIONS) 
-    ESL_ERROR(eslECONVERGENCE, "Failed to converge in ConjugateGradientDescent()");
-
-  return eslOK;
-}
-
-
-
 
 
 /*****************************************************************
@@ -613,7 +463,8 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
  *****************************************************************/
 #ifdef eslMINIMIZER_EXAMPLE
 /*::cexcerpt::minimizer_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslMINIMIZER_EXAMPLE esl_minimizer.c esl_vectorops.c easel.c -lm
+/* compile:
+   gcc -g -Wall -I. -o example -DeslMINIMIZER_EXAMPLE esl_minimizer.c esl_vectorops.c easel.c -lm
  * run:     ./example 
  */
 #include <stdio.h>
@@ -655,11 +506,12 @@ main(int argc, char **argv)
   int    n = 6;
   double a[6] = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
   double x[6] = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
+  double u[6] = { 0.1, 0.1, 0.1, 0.1, 0.1, 0.1 };
   double wrk[24];
   double fx;
   int    i;
 
-  esl_min_ConjugateGradientDescent(x, n, 
+  esl_min_ConjugateGradientDescent(x, u, n, 
 				   &example_func, &example_dfunc, (void *) a, 
 				   0.0001, wrk, &fx);
 
