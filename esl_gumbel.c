@@ -113,21 +113,12 @@ esl_gumbel_logcdf(double x, double mu, double lambda)
 double
 esl_gumbel_surv(double x, double mu, double lambda)
 {
-  double y;
-  y = lambda*(x-mu);
+  double y  = lambda*(x-mu);
+  double ey = -exp(-y);
 
-  /* Near P=0.0 we'll use the approx P(S>=x) ~ e^-y, for "large" y,
-   * because 1-e^-x ~ x for small x.  What's a sufficiently large y to
-   * use P(S>=x) ~ e^-y?  For sure, we need to use the approx if
-   * exp(-e^-y) > 1-epsilon, that is, y > -log(epsilon), which is
-   * about 36. But the accuracy of the full calculation starts
-   * breaking down even lower than that; 0.5 is an arbitrary factor,
-   * tested empirically, where the two approaches give the most
-   * similar answers (to within about 10^-8). This crossover is at y >
-   * 18.
-   */
-  if (y > -0.5*log(DBL_EPSILON)) return exp(-y);
-  return (1 - exp(-exp(-y)));
+  /* Use 1-e^x ~ -x approximation here when e^-y is small. */
+  if (fabs(ey) < eslSMALLX1) return -ey;
+  else                       return 1 - exp(ey);
 }
 
 /* Function:  esl_gumbel_logsurv()
@@ -143,20 +134,17 @@ esl_gumbel_surv(double x, double mu, double lambda)
 double
 esl_gumbel_logsurv(double x, double mu, double lambda)
 {
-  double y;
-  y = lambda*(x-mu);
+  double y  = lambda*(x-mu);
+  double ey = -exp(-y);
 
-   /* For "large" y, we can use 1-e^-a = a to get log P(S>=y) ~ -y;
-   * .5 log(DBL_EPSILON) is an arbitrary crossover for 64-bit IEEE doubles.
+  /* The real calculation is log(1-exp(-exp(-y))).
+   * For "large" y, -exp(-y) is small, so 1-exp(-exp(-y) ~ exp(-y),
+   * and log of that gives us -y.
+   * For "small y", exp(-exp(-y) is small, and we can use log(1-x) ~ -x. 
    */
-  if (y > -0.5*log(DBL_EPSILON)) return -y;
-
-  /* For "small y", we can use log(1-x) ~ -x. 
-   * -2.9 is an arbitrary crossover, tested for 64-bit IEEE doubles
-   */
-  if (y < -2.9) return (-exp(-exp(-y)));
-
-   return log(1-exp(-exp(-y)));
+  if      (fabs(ey)      < eslSMALLX1) return -y;
+  else if (fabs(exp(ey)) < eslSMALLX1) return -exp(ey);
+  else                                 return log(1-exp(ey));
 }
 /*------------------ end of densities and distributions --------------------*/
 
@@ -418,7 +406,7 @@ lawless422(double *x, int n, int z, double phi,
  * 
  * Purpose: Given a left-censored array of Gumbel-distributed samples
  *          <x[0]..x[n-1]>, the number of censored samples <z>, and the
- *          censoring value <phi> (all <x[i]> $\geq$ <phi>).
+ *          censoring value <phi> (all <x[i]> $>$ <phi>).
  *          Find maximum likelihood parameters <mu> and <lambda>.
  *           
  * Algorithm: Uses approach described in [Lawless82]. Solves
@@ -614,14 +602,14 @@ tevd_grad(double *p, int nparam, void *dptr, double *dp)
   dmu = n * lambda;
   for (i = 0; i < n; i++) 
     dmu -= lambda * exp(-1. * lambda * (x[i] - mu));
-  dmu -= n * coeff;    /*!!*/
+  dmu -= n * coeff;    
 
   /* Partial derivative w.r.t. w=log(lambda).
    */
   dw = n;
   for (i = 0; i < n; i++) dw -= (x[i] - mu) * lambda;
   for (i = 0; i < n; i++) dw += (x[i] - mu) * lambda * exp(-1. * lambda * (x[i] - mu));
-  dw += n * (phi - mu) * coeff;    /*!!*/
+  dw += n * (phi - mu) * coeff;   
 
   /* Return the negative, because we're minimizing NLP, not maximizing.
    */

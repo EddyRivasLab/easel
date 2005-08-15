@@ -26,6 +26,9 @@ extern double esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double
 extern int esl_gev_FitComplete(double *x, int n, 
 			       double *ret_mu, double *ret_lambda, 
 			       double *ret_alpha);
+extern int esl_gev_FitCensored(double *x, int n, int z, double phi,
+			       double *ret_mu, double *ret_lambda, 
+			       double *ret_alpha);
 #endif /*eslAUGMENT_MINIMIZER*/
 
 

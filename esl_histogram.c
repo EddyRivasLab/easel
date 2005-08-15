@@ -90,6 +90,9 @@ esl_histogram_Create(double bmin, double bmax, double w)
   for (i = 0;  i < h->nb; i++)
     h->obs[i] = 0;
 
+  h->is_full     = FALSE;
+  h->is_finished = FALSE;
+
   return h;
 }
 
@@ -114,6 +117,8 @@ esl_histogram_CreateFull(double bmin, double bmax, double w)
   h->x      = malloc(sizeof(double) * h->nalloc);
   if (h->x == NULL)
     { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+
+  h->is_full = TRUE;
   return h;
 }
 
@@ -150,6 +155,7 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
+ *            <eslEINVAL> if the histogram was already finished.
  */
 int
 esl_histogram_Add(ESL_HISTOGRAM *h, double x)
@@ -157,10 +163,13 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   int b,i;			/* what bin we're in                       */
   int nnew;			/* # of new bins created by a reallocation */
 
+  if (h->is_finished)
+    ESL_ERROR(eslEINVAL, "Can't add to a finished histogram");
+
   /* If we're a full histogram, then we keep the raw x value,
    * reallocating as needed.
    */
-  if (h->x != NULL) 
+  if (h->is_full) 
     {
       if (h->nalloc == h->n) 
 	{
@@ -252,7 +261,7 @@ esl_histogram_Finish(ESL_HISTOGRAM *h)
   /* If we're a display-only histogram, not a full histogram
    * with raw sample data, we don't have anything to do; just return success.
    */
-  if (h->x == NULL) return eslOK; 
+  if (! h->is_full) { h->is_finished = TRUE; return eslOK; }
 
   /* Sort x such that x[0] is smallest, x[n-1] is largest value.
    */
@@ -289,6 +298,8 @@ esl_histogram_Finish(ESL_HISTOGRAM *h)
 
       prv_j = j;
     }
+
+  h->is_finished = TRUE;
   return eslOK;
 }
 static int
@@ -305,6 +316,36 @@ qsort_numerically(const void *xp1, const void *xp2)
 
 
 
+/* Function:  esl_histogram_GetRank()
+ * Incept:    SRE, Thu Jul 28 08:39:52 2005 [St. Louis]
+ *
+ * Purpose:   Retrieve the <rank>'th highest score from a 
+ *            full, finished histogram <h>. <rank> is 1..n, for
+ *            n total samples in the histogram.
+ *
+ * Throws:    <eslEINVAL> if the histogram is display-only,
+ *            if it isn't finished, or if <rank> isn't in
+ *            the range 1..n.
+ */
+int
+esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank)
+{
+  if (! h->is_full) 
+    ESL_ERROR(eslEINVAL, 
+	      "esl_histogram_GetRank() needs a full histogram");
+  if (! h->is_finished) 
+    ESL_ERROR(eslEINVAL, 
+	      "esl_histogram_GetRank() needs a finished, sorted histogram");
+  if (rank > h->n)
+    ESL_ERROR(eslEINVAL, 
+	      "no such rank: not that many scores in the histogram");
+  if (rank < 1)
+    ESL_ERROR(eslEINVAL, "histogram rank must be a value from 1..n");
+
+  return (h->x[h->n - rank + 1]);
+}
+
+
 /* Function:  esl_histogram_Print() 
  * Incept:    SRE, Sat Jul  2 16:03:37 2005 [St. Louis]
  *
@@ -316,8 +357,6 @@ qsort_numerically(const void *xp1, const void *xp2)
  *            h      - histogram to print
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    (no abnormal error conditions)
  */
 int
 esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
@@ -452,7 +491,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
  *            graphing program.
  *
  */
-void
+int
 esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 {
   int    i;
@@ -480,7 +519,39 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 	  }
       fprintf(fp, "&\n");
     }
+  return eslOK;
 }
+
+
+/* Function:  esl_histogram_PlotSurvival()
+ * Incept:    SRE, Fri Aug 12 08:40:37 2005 [St. Louis]
+ *
+ * Purpose:   Given a full histogram <h> - one with sorted list of
+ *            raw scores - output the empirical survival function
+ *            (1 - CDF) to an xmgrace XY file <fp>.
+ *
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEINVAL> if histogram hasn't been finished, or
+ *            if it isn't full.
+ */
+int
+esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
+{
+  int    i;
+
+  if (! h->is_full)    
+    ESL_ERROR(eslEINVAL, "need full histogram to plot empirical distributions");
+  if (! h->is_finished)
+    ESL_ERROR(eslEINVAL, "histogram not finished and sorted");
+
+  for (i = h->n-1; i >= 0; i--)	/* sorted w/ low score at 0, high at n-1 */
+    fprintf(fp, "%f\t%g\n", h->x[i], (double)(h->n-i)/(double)h->n);
+  fprintf(fp, "&\n");
+  return eslOK;
+}
+	      
+
 
 /*****************************************************************
  * Functions for setting expected histogram frequencies
@@ -509,7 +580,7 @@ esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
   /* Optionally (in a full histogram), set expectations in
    * the equal-binsize secondary histogram.
    */
-  if (h->x != NULL)
+  if (h->is_full)
     {
       if (h->expect2 == NULL)
 	ESL_MALLOC(h->expect2, sizeof(double) * h->nb2);
@@ -517,9 +588,9 @@ esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
       /* bin[0] is a tail, cdf up to topx[0] */
       h->expect2[0] = (double) h->n * esl_gumbel_cdf(h->topx[0], mu, lambda);
       /* bin[n-1] is a tail, survival function after topx[n-2] */
-      h->expect2[h->n-1] = (double)h->n * esl_gumbel_surv(h->topx[h->n-2], mu, lambda);
+      h->expect2[h->nb2-1] = (double)h->n * esl_gumbel_surv(h->topx[h->nb2-2], mu, lambda);
       /* remaining bins are differences between cdfs */
-      for (i = 1; i < h->n-1; i++)
+      for (i = 1; i < h->nb2-1; i++)
 	h->expect2[i] = (double) h->n *
 	  (esl_gumbel_cdf(h->topx[i],   mu, lambda) - 
 	   esl_gumbel_cdf(h->topx[i-1], mu, lambda));
@@ -553,7 +624,7 @@ esl_histogram_SetGEV(ESL_HISTOGRAM *h, double mu, double lambda, double alpha)
   /* Optionally (in a full histogram), set expectations in
    * the equal-binsize secondary histogram.
    */
-  if (h->x != NULL)
+  if (h->is_full)
     {
       if (h->expect2 == NULL)
 	ESL_MALLOC(h->expect2, sizeof(double) * h->nb2);
@@ -603,7 +674,9 @@ esl_histogram_SetGEV(ESL_HISTOGRAM *h, double mu, double lambda, double alpha)
  *
  * Returns:   <eslOK> on success.
  * 
- * Throws:    <eslERANGE> or <eslECONVERGENCE> may arise on internal
+ * Throws:    <eslEINVAL> if it isn't a full histogram, or if it isn't
+ *            sorted and finished. 
+ *            <eslERANGE> or <eslECONVERGENCE> may arise on internal
  *            errors in calculating the probability.
  */
 int
@@ -616,11 +689,14 @@ esl_histogram_GTestGoodness(ESL_HISTOGRAM *h, int nfitted,
   double Gp;			/* P(test > G) by chi-square distribution */
   int    status;
   
+  if (! h->is_full)     ESL_ERROR(eslEINVAL, "goodness tests need full histogram");
+  if (! h->is_finished) ESL_ERROR(eslEINVAL, "goodness tests need finished histogram");
+
   /* Calculate the G statistic = 2 * log likelihood ratio.
    */
   nbins = 0;
   for (i = 0; i < h->nb2; i++)
-    if (h->obs2[i] > 0)
+    if (h->obs2[i] > 0 && h->expect2[i] > 0)
       {
 	G += (double) h->obs2[i] * log((double) h->obs2[i]/ h->expect2[i]);
 	nbins++;
@@ -670,7 +746,9 @@ esl_histogram_GTestGoodness(ESL_HISTOGRAM *h, int nfitted,
  *
  * Returns:   <eslOK> on success.
  * 
- * Throws:    <eslERANGE> or <eslECONVERGENCE> may arise on internal
+ * Throws:    <eslEINVAL> if it isn't a full histogram, or if it isn't
+ *            sorted and finished. 
+ *            <eslERANGE> or <eslECONVERGENCE> may arise on internal
  *            errors in calculating the probability.
  */
 int
@@ -684,6 +762,9 @@ esl_histogram_ChiSquaredGoodness(ESL_HISTOGRAM *h, int nfitted,
   double chip;		        /* P(test > X^2) by chi-square distribution */
   int    status;
   
+  if (! h->is_full)     ESL_ERROR(eslEINVAL, "goodness tests need full histogram");
+  if (! h->is_finished) ESL_ERROR(eslEINVAL, "goodness tests need finished histogram");
+
   /* Calculate the X^2 statistic = \sum_i (obs_i-exp_i)^2/exp, over
    * all bins containing some minimum size (arbitrarily 5)
    */

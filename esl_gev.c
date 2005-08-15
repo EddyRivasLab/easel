@@ -39,13 +39,6 @@
 #include <esl_minimizer.h>
 #endif
 
-extern void
-ConjugateGradientDescent(double *p, int n, double ftol, int *ret_iter,
-			 double *ret_min, double (*func)(double *),
-			 void (*dfunc)(double *, double *),
-			 void (*pfunc)(double *, double, double *));
-
-
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
@@ -260,24 +253,25 @@ esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha)
  * Maximum likelihood fitting to GEV distributions
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
-
 /* Easel's conjugate gradient descent code allows a single void ptr to
- * point to any necessary fixed data, so we'll put everything into one
+ * point to any necessary fixed data, so we put everything into one
  * structure:
  */
 struct gev_data {
-  double *x;	/* data: n observed samples from a Gumbel */
-  int     n;	/* number of observed samples */
-  double  phi;	/* censoring or truncation threshold: all observed x_i >= phi */
-  int     z;	/* # of censored samples */
+  double *x;	        /* data: n observed samples    */
+  int     n;		/* number of observed samples  */
+
+  int     is_censored;	/* TRUE if a censored, not complete dataset           */
+  double  phi;	        /* censoring/truncation threshold: observed x_i > phi */
+  int     z;	        /* # of censored samples                              */
 };
 
-/* gev_complete_func():
- * Returns the negative log likelihood of a complete GEV data sample;
+/* gev_func():
+ * Returns the negative log likelihood of a complete or censored GEV data sample;
  * in the API of the conjugate gradient descent optimizer in esl_minimizer.
  */
 static double
-gev_complete_func(double *p, int nparam, void *dptr)
+gev_func(double *p, int nparam, void *dptr)
 {
   double mu, w, lambda, alpha;
   struct gev_data *data;
@@ -295,60 +289,19 @@ gev_complete_func(double *p, int nparam, void *dptr)
   logL = 0.;
   for (i = 0; i < data->n; i++)
     logL += esl_gev_logpdf(data->x[i], mu, lambda, alpha);
+
+  if (data->is_censored)
+    logL += data->z * esl_gev_logcdf(data->phi, mu, lambda, alpha);
+
   return -logL;			/* goal: minimize NLL */
 }
 
-
-#if eslDEBUGLEVEL >= 2
-static void
-gev_numeric_grad(double *p, int nparam, void *dptr, double *dp)
-{
-  double mu, w, lambda, alpha;
-  struct gev_data *data;
-  double *x;
-  double dmu, dw, dalpha;
-  double fx1,fx2;
-  double delta;
-    
-  /* Unpack what the optimizer gave us */
-  mu     = p[0];
-  w      = p[1];   /* w is a c.o.v. to allow unconstrained opt of lambda>0 */
-  lambda = exp(w);
-  alpha  = p[2];
-  data   = (struct gev_data *) dptr;
-  x      = data->x;
-
-  delta = 0.001;
-  fx1 =  gev_complete_func(p, 3, dptr);
-
-  p[0]  = mu + delta*mu;
-  fx2   = gev_complete_func(p, 3, dptr);
-  dmu   = (fx2-fx1)/(delta*mu);
-  p[0]  = mu;
-
-  p[1]  = w + delta*w;
-  fx2   = gev_complete_func(p, 3, dptr);
-  dw    = (fx2-fx1)/(delta*w);
-  p[1]  = w;
-
-  p[2]  = alpha + delta*alpha;
-  fx2   = gev_complete_func(p, 3, dptr);
-  dalpha= (fx2-fx1)/(delta*alpha);
-  p[2]  = alpha;
-
-  dp[0] = dmu;
-  dp[1] = dw;
-  dp[2] = dalpha;
-}
-#endif /*eslDEBUGLEVEL*/
-
-
-/* gev_complete_grad()
+/* gev_gradient()
  * Computes the gradient of the negative log likelihood of a complete
- * GEV sample; in the API of the CG optimizer.
+ * or censored GEV sample; in the API of the CG optimizer.
  */
 static void
-gev_complete_grad(double *p, int nparam, void *dptr, double *dp)
+gev_gradient(double *p, int nparam, void *dptr, double *dp)
 {
   double mu, w, lambda, alpha;
   struct gev_data *data;
@@ -403,11 +356,36 @@ gev_complete_grad(double *p, int nparam, void *dptr, double *dp)
 	dalpha -= y*exp(-y) / alpha;
       } else {
 	dalpha += lay1 / (alpha*alpha);
-	dalpha += y*exp( (-1/alpha)*lay1)/ (alpha*ay1);
-	dalpha -= lay1 * exp( (-1/alpha)*lay1) / (alpha*alpha);
+	dalpha += y    * exp(-lay1/alpha) / (alpha*ay1);
+	dalpha -= lay1 * exp(-lay1/alpha) / (alpha*alpha);
       }
     }
   dmu *= lambda;
+
+  /* Add the terms that come from the censored data gradient,
+   * if it's a censored dataset.
+   */
+  if (data->is_censored)
+    {
+      y    = lambda * (data->phi - mu);
+      ay   = alpha * y;
+      ay1  = 1 + ay;
+      lay1 = log(ay1);
+
+      if (fabs(ay) < 1e-12) 
+	{	/* special case of small alpha, converging towards Gumbel */
+	  dmu    -= data->z * lambda * exp(-y) / ay1;
+	  dw     += data->z * y      * exp(-y) / ay1;
+	  dalpha -= data->z * exp(-y) * y/alpha * ay/ay1;
+	}
+      else 
+	{	/* normal case */
+	  dmu    -= data->z * lambda * exp(-lay1/alpha) / ay1;
+	  dw     += data->z * y      * exp(-lay1/alpha) / ay1;
+	  dalpha -= data->z * exp(-lay1/alpha) *
+	    (lay1/(alpha*alpha) - y/(alpha*ay1));
+	}
+    }
 
   /* Return the negative gradient, because we're minimizing NLL,
    * not maximizing LL.
@@ -418,22 +396,54 @@ gev_complete_grad(double *p, int nparam, void *dptr, double *dp)
   return;
 }
 
-/*****************************************************************
- * temporary, while using NR to debug
+/* fitting_engine()
+ * Fitting code shared by the FitComplete() and FitCensored() API.
+ * 
+ * The fitting_engine(), in turn, is just an adaptor wrapped around
+ * the conjugate gradient descent minimizer.
  */
-#if 0
-static struct gev_data nrdata;
-static double 
-nr_func(double *p)
+static int
+fitting_engine(struct gev_data *data, 
+	       double *ret_mu, double *ret_lambda, double *ret_alpha)
 {
-  return (gev_complete_func(p, 3, (void*) &nrdata));
+  double p[3];			/* parameter vector                  */
+  double u[3];			/* max initial step size vector      */
+  double wrk[12];		/* 4 tmp vectors of length 3         */
+  double mean, variance;
+  double mu, lambda, alpha;	/* initial param guesses             */
+  double tol = 1e-6;		/* convergence criterion for CG      */
+  double fx;			/* f(x) at minimum; currently unused */
+  int    status;
+
+  /* Make an initial guess. 
+   * (very good guess for complete data; merely sufficient for censored)
+   */
+  esl_stats_Mean(data->x, data->n, &mean, &variance);
+  lambda = eslCONST_PI / sqrt(6.*variance);
+  mu     = mean - 0.57722/lambda;
+  alpha  = 0.0001;
+
+  p[0] = mu;
+  p[1] = log(lambda);	/* c.o.v. from lambda to w */
+  p[2] = alpha;
+
+  /* max initial step sizes: keeps bracketing from exploding */
+  u[0] = 1.0;
+  u[1] = fabs(log(0.02));
+  u[2] = 0.02;
+
+  /* pass problem to the optimizer
+   */
+  status = esl_min_ConjugateGradientDescent(p, u, 3, 
+					    &gev_func, 
+					    &gev_gradient,
+					    (void *)data,
+					    tol, wrk, &fx);
+  *ret_mu     = p[0];
+  *ret_lambda = exp(p[1]);
+  *ret_alpha  = p[2];
+  return status;
 }
-static void
-nr_dfunc(double *p, double *dp)
-{
-  gev_complete_grad(p, 3, (void *) &nrdata, dp);
-}
-#endif
 
 
 /* Function:  esl_gev_FitComplete()
@@ -445,8 +455,10 @@ nr_dfunc(double *p, double *dp)
  *            
  *            Uses a conjugate gradient descent algorithm that
  *            can be computationally intensive. A typical problem
- *            involving 10,000-100,000 points may take a second or
- *            so to solve.
+ *            involving 10,000-100,000 points may take a second 
+ *            to solve.
+ *            
+ * Note:      Just a wrapper: sets up the problem for fitting_engine().            
  *
  * Args:      x          - complete GEV-distributed data [0..n-1]
  *            n          - number of samples in <x>
@@ -465,63 +477,63 @@ esl_gev_FitComplete(double *x, int n,
 		    double *ret_mu, double *ret_lambda, double *ret_alpha)
 {
   struct gev_data data;
-  double fx;
-  double p[3];
-  double u[3];
-  double wrk[12];		/* 4 vectors of length 3 */
-  int    status;
-  double mean, variance;
-  double mu, lambda, alpha;
 
-  data.x   = x;
-  data.n   = n;
-  data.phi = -DBL_MAX;
-  data.z   = 0;
+  data.x           = x;
+  data.n           = n;
+  data.is_censored = FALSE;
+  data.phi         = -DBL_MAX;
+  data.z           = 0;
 
-  esl_stats_Mean(x, n, &mean, &variance);
-  lambda = eslCONST_PI / sqrt(6.*variance);
-  mu     = mean - 0.57722/lambda;
-  alpha  = 0.0001;
+  return (fitting_engine(&data, ret_mu, ret_lambda, ret_alpha));
+}
 
- /* make 'em up, for now */
-  p[0] = mu;
-  p[1] = log(lambda);
-  p[2] = alpha;
+/* Function:  esl_gev_FitCensored()
+ * Incept:    SRE, Fri Jul 29 09:44:39 2005 [St. Louis]
+ *
+ * Purpose:   Given a left-censored array of <n> GEV-distributed samples
+ *            <x[0]..x[n-1>, the number of censored samples <z>, and
+ *            the censoring value <phi> (where all $x_i > \phi$ and
+ *            all $z$ censored samples are $\leq \phi$);
+ *            return maximum likelihood parameters <ret_mu>, 
+ *            <ret_lambda>, and <ret_alpha>.
+ *            
+ * Args:      x          - censored GEV-distributed data [0..n-1], all > phi
+ *            n          - number of samples in <x>
+ *            z          - number of censored samples, all <= phi
+ *            phi        - censoring threshold
+ *            ret_mu     - RETURN: maximum likelihood estimate of mu         
+ *            ret_lambda - RETURN: maximum likelihood estimate of lambda
+ *            ret_alpha  - RETURN: maximum likelihood estimate of alpha
+ *
+ * Note:      Just a wrapper: sets up the problem for fitting_engine().            
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ *
+ * Xref:      STL9/133
+ */
+int
+esl_gev_FitCensored(double *x, int n, int z, double phi,
+		    double *ret_mu, double *ret_lambda, double *ret_alpha)
+{
+  struct gev_data data;
 
+  data.x           = x;
+  data.n           = n;
+  data.is_censored = TRUE;
+  data.phi         = phi;
+  data.z           = z;
 
-  /* initial step sizes */
-  u[0] = 1.0;
-  u[1] = fabs(log(0.02));
-  u[2] = 0.02;
-
-  /* pass to the optimizer
-   */
-  status = esl_min_ConjugateGradientDescent(p, u, 3, 
-					    &gev_complete_func, 
-					    &gev_complete_grad,
-					    (void *)(&data),
-					    1e-7, wrk, &fx);
-#if 0
-  /* test code that calls NR's copyrighted version of CG descent */
-  int    niter;
-  nrdata.x   = x;
-  nrdata.n   = n;
-  nrdata.phi = -DBL_MAX;
-  nrdata.z   = 0;
-
-  p[0] = mu;
-  p[1] = log(lambda);
-  p[2] = alpha;
-  ConjugateGradientDescent(p, 3, 1e-5, &niter, &fx, &nr_func, &nr_dfunc, NULL);
-#endif
-
-  *ret_mu     = p[0];
-  *ret_lambda = exp(p[1]);
-  *ret_alpha  = p[2];
-  return status;
+  return (fitting_engine(&data, ret_mu, ret_lambda, ret_alpha));
 }
 #endif /*eslAUGMENT_MINIMIZER*/
 /*--------------------------- end fitting ----------------------------------*/
+
+
+
+
+
 
 
 /****************************************************************************
@@ -676,7 +688,7 @@ main(int argc, char **argv)
     fclose(fp);
   }
 
-    /* stats.4: xmgrace xy file w/ logCDF for Gumbel, Frechet, Weibull */
+  /* stats.4: xmgrace xy file w/ logCDF for Gumbel, Frechet, Weibull */
   if (do_test[4]) {
     if ((fp = fopen("stats.4", "w")) == NULL) abort();
     for (x = xmin; x <= xmax; x+= xstep) {

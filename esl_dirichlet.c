@@ -258,6 +258,31 @@ esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
   return eslOK;
 }
 
+/* Function:  esl_dirichlet_SampleUniform()
+ * Incept:    SRE, Thu Aug 11 10:12:49 2005 [St. Louis]
+ *
+ * Purpose:   Sample a probability vector $p[0..K-1]$ uniformly, by
+ *            sampling from a Dirichlet of $\alpha_i = 1.0 \forall i$.
+ *
+ * Args:      r  - source of random numbers
+ *            K  - vector size
+ *            p  - RETURN: sampled prob vector, caller alloc'ed 0..K-1
+ *
+ * Returns:   <eslOK>, and <p> will contain the sampled vector.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p)
+{
+  int x;
+  for (x = 0; x < K; x++) 
+    esl_dirichlet_SampleGamma(r, 1.0, &(p[x]));
+  esl_vec_DNorm(p, K);
+  return eslOK;
+}
+
+
 /* Function:  esl_dirichlet_SampleBeta()
  * Incept:    SRE, Sat Oct 25 12:20:31 2003 [Stanford]
  *

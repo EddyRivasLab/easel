@@ -32,7 +32,6 @@ extern int             esl_randomness_Init(ESL_RANDOMNESS *r, long seed);
 extern double esl_random(ESL_RANDOMNESS *r);
 
 extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
-extern double esl_rnd_UniformExponential(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern int    esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N);
 extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N);

@@ -41,6 +41,7 @@ extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K,
 #include <esl_random.h>
 extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, 
 				double *p);
+extern int esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p);
 extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
 				    double theta2, double *ret_answer);
 extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, 

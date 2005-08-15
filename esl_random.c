@@ -232,19 +232,6 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
 }
 
 
-/* Function: esl_rnd_Exponential()
- * Date:     SRE, Mon Sep  6 21:24:29 1999 [St. Louis]
- *
- * Purpose:  Pick an exponentially distributed random variable
- *           $0 < x \leq \infty$.
- */
-double
-esl_rnd_Exponential(ESL_RANDOMNESS *r)
-{
-  return -log(esl_rnd_UniformPositive(r));
-}    
-
-
 /* Function:  esl_rnd_Gaussian()
  * Incept:    SRE, Wed Jul 14 13:50:36 2004 [St. Louis]
  *

@@ -49,6 +49,10 @@ typedef struct {
   double *topx;		/* all values in bin b are <= topx[b] */
   int     nb2;		/* # of bins in secondary histogram   */
 
+  /* Some status flags
+   */
+  int is_full;		/* TRUE when we're keeping raw data in x */
+  int is_finished;	/* TRUE when we've sorted x and binned the 2nd histogram */
 } ESL_HISTOGRAM;
 
 
@@ -59,8 +63,11 @@ extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
 extern int    esl_histogram_Add(ESL_HISTOGRAM *h, double x);
 extern int    esl_histogram_Finish(ESL_HISTOGRAM *h);
 
-extern int    esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h);
-extern void   esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h);
+extern int    esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank);
+
+extern int    esl_histogram_Print       (FILE *fp, ESL_HISTOGRAM *h);
+extern int    esl_histogram_Plot        (FILE *fp, ESL_HISTOGRAM *h);
+extern int    esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
 
 #ifdef eslAUGMENT_GUMBEL
 extern int    esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda);

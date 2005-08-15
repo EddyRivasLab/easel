@@ -194,6 +194,15 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslINFINITY   1e99999	/* force an overflow to get IEEE754 +inf */
 #define eslNaN        (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
 
+
+/* Define some crossovers for numerical approximations.
+ */
+/* log(1+x) ~ x and  1-e^x = -x approximation.
+ * Same threshold appears to be optimal for float or double x. xref STL9/138.
+ */
+#define eslSMALLX1    5e-9
+
+
 /* msa.c and sqio.c can read gzip'ed files if popen() is available;
  * popen() is not ANSI, though, it's POSIX.2.
  */
