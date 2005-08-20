@@ -1,7 +1,7 @@
 /* esl_gumbel.h
  * Gumbel (type I extreme value) distributions.
  * 
- * SRE, Mon Jun 27 08:44:41 2005
+ * SRE, Mon Jun 27 08:44:41 2005 [St. Louis]
  * SVN $Id$
  */
 #ifndef ESL_GUMBEL_INCLUDED

@@ -1,0 +1,45 @@
+
+The Weibull distribution may be useful for fitting fat-tail empirical
+distributions. 
+
+The Weibull is sometimes called a ``stretched exponential''
+distribution when its shape parameter $\tau$ is less than
+1. ``Stretched exponential'' distributions in the literature are
+either Weibull (PDF $ = \lambda \tau (\lambda x)^\tau exp\left[-
+(\lambda x)^tau]$ or a more simple PDF $\propto exp\left[-
+{\lambda(x-\mu}}^tau]$. The latter form does not have an analytical
+expression for the CDF, and it includes Gaussian tails as a special
+case ($\tau = 2$).
+
+\subsection{Weibull densities}
+
+The probability density function (PDF) is:
+
+\begin{equation}
+P(X=x) = \lambda \tau [\lambda(x - \mu)]^{\tau-1} e^{- [\lambda(x-\mu)]^tau}
+\label{eqn:weibull_pdf}
+\end{equation}
+
+The cumulative distribution function (CDF) is:
+
+\begin{equation}
+P(X \leq x) = 1 - e^{- [\lambda(x-\mu)]^tau}
+\label{eqn:weibull_cdf}
+\end{equation}
+
+Variate $x$ ranges $\mu \leq x < \infty$.
+
+Location parameter $\mu$ is unconstrained, $-\infty < \mu <
+\infty$. (Weibull distributions are usually represented without an
+explicit location parameter, implicitly assuming $\mu = 0$.)
+
+Scale parameter $\lambda$ is nonnegative, $\lambda > 0$. (Weibull
+distributions in the literature are also sometimes represented instead
+with a scale parameter $b = \frac{1}{\lambda}$.)
+
+Shape parameter $\tau$ is nonnegative, $\tau > 0$. 
+
+
+
+
+

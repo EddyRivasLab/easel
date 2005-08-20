@@ -9,20 +9,16 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <assert.h>
 
 #include <easel.h>
 #include <esl_histogram.h>
-#ifdef eslAUGMENT_GUMBEL
-#include <esl_gumbel.h>
-#endif
-#ifdef eslAUGMENT_GEV
-#include <esl_gev.h>
-#endif
-#ifdef eslAUGMENT_STATS
+
+#ifdef eslAUGMENT_STATS	 /* stats augmentation gives you goodness-of-fit testing */
 #include <esl_stats.h>
 #endif
 
-static int qsort_numerically(const void *xp1, const void *xp2);
+
 
 /* Function:  esl_histogram_Create()
  * Incept:    SRE, Fri Jul  1 13:40:26 2005 [St. Louis]
@@ -44,7 +40,7 @@ static int qsort_numerically(const void *xp1, const void *xp2);
  *            <esl_histogram_Create()> creates a simplified histogram
  *            object that collates only the "display" histogram. For
  *            a more complex object that also keeps the raw data samples,
- *            suited for fitting distributions and goodness-of-fit
+ *            better suited for fitting distributions and goodness-of-fit
  *            testing, use <esl_histogram_CreateFull()>.
  *  
  * Args:      bmin - caller guesses that minimum score will be > bmin
@@ -65,34 +61,28 @@ esl_histogram_Create(double bmin, double bmax, double w)
   if ((h = malloc(sizeof(ESL_HISTOGRAM))) == NULL)    
     ESL_ERROR_NULL(eslEMEM, "malloc failed");
 
-  h->x     = NULL;
-  h->xmin  =  DBL_MAX;
-  h->xmax  = -DBL_MAX;
-  h->n     = 0;
-  h->nalloc= 0;
+  h->xmin      =  DBL_MAX;
+  h->xmax      = -DBL_MAX;
+  h->n         = 0;
+  h->obs       = NULL;		/* briefly... */
+  h->expect    = NULL;		/* 'til a Set*() call */
+  h->bmin      = bmin;
+  h->bmax      = bmax;
+  h->nb        = (int)((bmax-bmin)/w);
+  h->imin      = h->nb;
+  h->imax      = -1;
+  h->w         = w;
 
-  h->obs   = NULL;		/* briefly... */
-  h->expect= NULL;		/* 'til a Set*() call */
-  h->bmin  = bmin;
-  h->bmax  = bmax;
-  h->nb    = (int)((bmax-bmin)/w);
-  h->imin  = h->nb;
-  h->imax  = -1;
-  h->w     = w;
+  h->x         = NULL;
+  h->nalloc    = 0;
 
-  h->obs2    = NULL;		/* 'til a Finish() call */
-  h->expect2 = NULL;            /* 'til a Set*() call   */
-  h->topx    = NULL;
-  h->nb2     = 0;
+  h->is_full   = FALSE;
+  h->is_sorted = FALSE;
 
   if ((h->obs = malloc(sizeof(int) * h->nb)) == NULL)
     { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed");}
   for (i = 0;  i < h->nb; i++)
     h->obs[i] = 0;
-
-  h->is_full     = FALSE;
-  h->is_finished = FALSE;
-
   return h;
 }
 
@@ -102,8 +92,8 @@ esl_histogram_Create(double bmin, double bmax, double w)
  * Purpose:   Alternative form of <esl_histogram_Create()> that 
  *            creates a more complex histogram that will contain not just the 
  *            display histogram, but also keeps track of all
- *            the raw sample values. A full histogram can be used
- *            for fitting distributions and goodness-of-fit 
+ *            the raw sample values. Having a complete vector of raw
+ *            samples improves distribution-fitting and goodness-of-fit 
  *            tests. 
  */
 ESL_HISTOGRAM *
@@ -135,9 +125,6 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
   if (h->x      != NULL) free(h->x);
   if (h->obs    != NULL) free(h->obs); 
   if (h->expect != NULL) free(h->expect);
-  if (h->obs2   != NULL) free(h->obs2);
-  if (h->expect2!= NULL) free(h->expect2);
-  if (h->topx   != NULL) free(h->topx);
   free(h);
   return;
 }
@@ -163,8 +150,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   int b,i;			/* what bin we're in                       */
   int nnew;			/* # of new bins created by a reallocation */
 
-  if (h->is_finished)
-    ESL_ERROR(eslEINVAL, "Can't add to a finished histogram");
+  h->is_sorted = FALSE;		/* not any more! */
 
   /* If we're a full histogram, then we keep the raw x value,
    * reallocating as needed.
@@ -180,7 +166,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
       h->x[h->n] = x;
     }
 
-  /* Collate x in the display histogram, reallocating the bins
+  /* Collate x in the histogram, reallocating the bins
    * if needed.
    */
   b = h->nb - (int) floor((h->bmax - x)/h->w);	
@@ -229,79 +215,9 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
 }
   
 
-/* Function:  esl_histogram_Finish()
- * Incept:    SRE, Tue Jul 26 13:35:14 2005 [St. Louis]
- *
- * Purpose:   Called after all data collation is complete, and no
- *            more calls to <esl_histogram_Add()> will be made.
- *            Do any necessary internal bookkeeping before we do
- *            any printing, plotting, distribution fitting or
- *            setting, or goodness-of-fit testing.
- *            
- * Note:      Currently, this involves just building the 
- *            secondary histogram, with roughly equal-sized bins,
- *            by sorting and partitioning the raw sample values <x>.          
- *            
- *            If there are lots of equal values in <x>, this can
- *            result in some bins containing more counts than
- *            expected, and some bins having zero, because a bin must
- *            contain all values $\leq$ the highest value in the bin.
- *            The goodness-of-fit tests must watch out for these empty bins.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation or reallocation failure.
+/* qsort_numerically:
+ * this'll be used in the next function.
  */
-int
-esl_histogram_Finish(ESL_HISTOGRAM *h)
-{
-  int i;
-  int j, prv_j;			/* indices into x[], dividing it into bins */
-
-  /* If we're a display-only histogram, not a full histogram
-   * with raw sample data, we don't have anything to do; just return success.
-   */
-  if (! h->is_full) { h->is_finished = TRUE; return eslOK; }
-
-  /* Sort x such that x[0] is smallest, x[n-1] is largest value.
-   */
-  qsort((void *) h->x, h->n, sizeof(double), qsort_numerically);
-
-  /* Number of bins for goodness-of-fit tests like G and X^2 
-   * is crucial but arbitrary, unfortunately. Some literature suggests
-   * using 2*n^{0.4}, which gives:
-   *        n    nbins     #/bin
-   *    -----    ------   ------
-   *     1000      31       32
-   *    10000      79      127
-   *   100000     200      500
-   *  1000000     502     1992
-   */
-  h->nb2 = 2* (int) pow((double) h->n, 0.4);
-  
-  /* Allocate for the secondary histogram (expect2 will be done later by
-   * a Set() function)
-   */
-  ESL_MALLOC(h->obs2, sizeof(int)    * h->nb2);
-  ESL_MALLOC(h->topx, sizeof(double) * h->nb2);
-
-  /* Partition the sorted data, being careful about skipping through ties.
-   */
-  prv_j = -1;
-  for (i = 0; i < h->nb2; i++)
-    {
-      j = (int) ((i+1)*h->n/h->nb2) - 1;    /* bin i contains (at least) up to x[j] */
-      while (j < h->n-1 && h->x[j+1] == h->x[j]) j++;  /* but also include ties */
-      
-      h->obs2[i] = j - prv_j; 	/* how many observations got put into bin i */
-      h->topx[i] = h->x[j];	/* the highest score x[] in bin i */
-
-      prv_j = j;
-    }
-
-  h->is_finished = TRUE;
-  return eslOK;
-}
 static int
 qsort_numerically(const void *xp1, const void *xp2)
 {
@@ -314,35 +230,88 @@ qsort_numerically(const void *xp1, const void *xp2)
   return 0;
 }
 
+/* Function:  esl_histogram_Sort()
+ * Incept:    SRE, Thu Aug 18 10:45:46 2005 [St. Louis]
+ *
+ * Purpose:   Sort the raw scores in a full histogram.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if you try to sort a default, non-full histogram that
+ *            doesn't have raw scores stored in it.
+ */
+int
+esl_histogram_Sort(ESL_HISTOGRAM *h)
+{
+  if (! h->is_full) ESL_ERROR(eslEINVAL, "not a full histogram, nothing to sort");
+
+  if (! h->is_sorted) 
+    {
+      qsort((void *) h->x, h->n, sizeof(double), qsort_numerically);
+      h->is_sorted = TRUE;
+    }
+  return eslOK;
+}
 
 
-/* Function:  esl_histogram_GetRank()
+/* Function:  esl_histogram_GetScoreAtRank()
  * Incept:    SRE, Thu Jul 28 08:39:52 2005 [St. Louis]
  *
  * Purpose:   Retrieve the <rank>'th highest score from a 
  *            full, finished histogram <h>. <rank> is 1..n, for
- *            n total samples in the histogram.
+ *            n total samples in the histogram; return it through
+ *            <ret_x>.
+ *            
+ *            If the raw scores aren't sorted, this function sorts
+ *            them all (an NlogN operation) before returning the score
+ *            you're looking for.
  *
  * Throws:    <eslEINVAL> if the histogram is display-only,
  *            if it isn't finished, or if <rank> isn't in
  *            the range 1..n.
  */
 int
-esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank)
+esl_histogram_GetScoreAtRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
 {
   if (! h->is_full) 
     ESL_ERROR(eslEINVAL, 
 	      "esl_histogram_GetRank() needs a full histogram");
-  if (! h->is_finished) 
-    ESL_ERROR(eslEINVAL, 
-	      "esl_histogram_GetRank() needs a finished, sorted histogram");
   if (rank > h->n)
     ESL_ERROR(eslEINVAL, 
 	      "no such rank: not that many scores in the histogram");
   if (rank < 1)
     ESL_ERROR(eslEINVAL, "histogram rank must be a value from 1..n");
 
-  return (h->x[h->n - rank + 1]);
+  esl_histogram_Sort(h);	/* make sure */
+  *ret_x = h->x[h->n - rank + 1];
+  return eslOK;
+}
+
+
+/* Function:  esl_histogram_GetBinBounds()
+ * Incept:    SRE, Wed Aug 17 08:02:17 2005 [St. Louis]
+ *
+ * Purpose:   For bin index <whichbin> in the histogram <h>,
+ *            retrieve the bounds <ret_low>..<ret_high> for
+ *            values in that bin. That is, all values $x$ in bin
+ *            <whichbin> satisfy $l < x \leq h$.
+ *
+ *            Also returns the bin width in <ret_delta>;
+ *            $h = l + \delta$.
+ *            
+ *            All three returned values are optional. Pass NULL
+ *            for any of them that you don't want.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_histogram_GetBinBounds(ESL_HISTOGRAM *h, int whichbin, 
+			   double *ret_low, double *ret_high, double *ret_delta)
+{
+  if (ret_low  != NULL) *ret_low  = h->w * whichbin     + h->bmin;
+  if (ret_high != NULL) *ret_high = h->w * (whichbin+1) + h->bmin;
+  if (ret_delta!= NULL) *ret_delta= h->w;
+  return eslOK;
 }
 
 
@@ -524,47 +493,76 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 
 
 /* Function:  esl_histogram_PlotSurvival()
- * Incept:    SRE, Fri Aug 12 08:40:37 2005 [St. Louis]
+ * Incept:    SRE, Wed Aug 17 08:26:10 2005 [St. Louis]
  *
- * Purpose:   Given a full histogram <h> - one with sorted list of
- *            raw scores - output the empirical survival function
- *            (1 - CDF) to an xmgrace XY file <fp>.
+ * Purpose:   Given a histogram <h>, output the empirical survival function
+ *            (1-CDF, P(X>x)) to an xmgrace XY file <fp>.
  *
+ *            If raw scores are available (in a full histogram) it uses those
+ *            for a higher-resolution plot. If not, it uses the binned scores
+ *            and produces a lower-resolution plot.
+ *            
  * Returns:   <eslOK> on success.
- * 
- * Throws:    <eslEINVAL> if histogram hasn't been finished, or
- *            if it isn't full.
  */
 int
 esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 {
-  int    i;
-
-  if (! h->is_full)    
-    ESL_ERROR(eslEINVAL, "need full histogram to plot empirical distributions");
-  if (! h->is_finished)
-    ESL_ERROR(eslEINVAL, "histogram not finished and sorted");
-
-  for (i = h->n-1; i >= 0; i--)	/* sorted w/ low score at 0, high at n-1 */
-    fprintf(fp, "%f\t%g\n", h->x[i], (double)(h->n-i)/(double)h->n);
+  int i;
+  int c = 0;
+  
+  if (h->is_full)    		/* use all (raw) scores? */
+    {
+      esl_histogram_Sort(h);
+      for (i = h->n-1; i >= 0; i--)	/* sorted w/ low score at 0, high at n-1 */
+	fprintf(fp, "%f\t%g\n", h->x[i], (double)(h->n-i)/(double)h->n);
+    }
+  else				/* else, use binned counts */
+    {
+      for (i = h->imax; i >= h->imin; i--)
+	{
+	  c   += h->obs[i];
+	  fprintf(fp, "%f\t%f\n", i*h->w + h->bmin, (double) c / (double) h->n);
+	}
+    }
   fprintf(fp, "&\n");
   return eslOK;
 }
-	      
 
 
-/*****************************************************************
- * Functions for setting expected histogram frequencies
- *****************************************************************/
-#ifdef eslAUGMENT_GUMBEL
+/* Function:  esl_histogram_SetExpect()
+ * Incept:    SRE, Wed Aug 17 17:36:58 2005 [St. Louis]
+ *
+ * Purpose:   Given a histogram <h> containing some number of empirically
+ *            observed binned counts, and a pointer to a function <(*cdf)()>
+ *            that describes the expected cumulative distribution function 
+ *            (CDF) conditional on some parameters <params>;
+ *            calculate the expected counts in each bin of the histogram,
+ *            and hold that information internally in the structure.
+ *            
+ *            Expected counts (when calculated) are displayed by 
+ *            <esl_histogram_Print()> and <esl_histogram_Plot()>.
+ *            
+ *            The caller provides a function <(*cdf)()> that calculates
+ *            the CDF via a generic interface, taking only two
+ *            arguments: a quantile <x> and a void pointer to whatever
+ *            parameters it needs, which it will cast and interpret.
+ *            The <params> void pointer to the given parameters will
+ *            just be passed along to the <(*cdf)()> function. The
+ *            caller will probably implement this <(*cdf)()> function as
+ *            a wrapper around its real CDF function that takes
+ *            explicit (non-void-pointer) arguments.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
 int
-esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
+esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
+			double (*cdf)(double x, void *params), void *params)
 {
   int    i;
   double x1,x2;
 
-  /* Set expectations in the display histogram (fixed-width bins)
-   */
   if (h->expect == NULL) 
     ESL_MALLOC(h->expect, sizeof(double) * h->nb);
 
@@ -572,227 +570,202 @@ esl_histogram_SetGumbel(ESL_HISTOGRAM *h, double mu, double lambda)
     {
       x1 = i * h->w + h->bmin;	   /* scores in bin i are > x1 */
       x2 = (i+1) * h->w + h->bmin; /*     ...and <= x2.        */
-
-      h->expect[i] = h->n *
-	(esl_gumbel_cdf(x2, mu, lambda) - esl_gumbel_cdf(x1, mu, lambda));
+      h->expect[i] = h->n * (*cdf)(x2, params) - (*cdf)(x1, params);
     }
-
-  /* Optionally (in a full histogram), set expectations in
-   * the equal-binsize secondary histogram.
-   */
-  if (h->is_full)
-    {
-      if (h->expect2 == NULL)
-	ESL_MALLOC(h->expect2, sizeof(double) * h->nb2);
-
-      /* bin[0] is a tail, cdf up to topx[0] */
-      h->expect2[0] = (double) h->n * esl_gumbel_cdf(h->topx[0], mu, lambda);
-      /* bin[n-1] is a tail, survival function after topx[n-2] */
-      h->expect2[h->nb2-1] = (double)h->n * esl_gumbel_surv(h->topx[h->nb2-2], mu, lambda);
-      /* remaining bins are differences between cdfs */
-      for (i = 1; i < h->nb2-1; i++)
-	h->expect2[i] = (double) h->n *
-	  (esl_gumbel_cdf(h->topx[i],   mu, lambda) - 
-	   esl_gumbel_cdf(h->topx[i-1], mu, lambda));
-    }
-
   return eslOK;
 }
-#endif /*eslAUGMENT_GUMBEL*/
-
-#ifdef eslAUGMENT_GEV
-int
-esl_histogram_SetGEV(ESL_HISTOGRAM *h, double mu, double lambda, double alpha)
-{
-  int    i;
-  double x1,x2;
-
-  /* Set expectations in the display histogram (fixed-width bins)
-   */
-  if (h->expect == NULL) 
-    ESL_MALLOC(h->expect, sizeof(double) * h->nb);
-
-  for (i = 0; i < h->nb; i++)
-    {
-      x1 = i * h->w + h->bmin;	   /* scores in bin i are > x1 */
-      x2 = (i+1) * h->w + h->bmin; /*     ...and <= x2.        */
-
-      h->expect[i] = (double) h->n *
-	(esl_gev_cdf(x2, mu, lambda, alpha) - esl_gev_cdf(x1, mu, lambda, alpha));
-    }
-
-  /* Optionally (in a full histogram), set expectations in
-   * the equal-binsize secondary histogram.
-   */
-  if (h->is_full)
-    {
-      if (h->expect2 == NULL)
-	ESL_MALLOC(h->expect2, sizeof(double) * h->nb2);
-
-      /* bin[0] is a tail, cdf up to topx[0] */
-      h->expect2[0] = (double) h->n * esl_gev_cdf(h->topx[0], mu, lambda, alpha);
-      /* bin[n-1] is a tail, survival function after topx[n-2] */
-      h->expect2[h->nb2-1] = (double)h->n * esl_gev_surv(h->topx[h->nb2-2], mu, lambda, alpha);
-      /* remaining bins are differences between cdfs */
-      for (i = 1; i < h->nb2-1; i++)
-	h->expect2[i] = (double) h->n *
-	  (esl_gev_cdf(h->topx[i],   mu, lambda, alpha) - 
-	   esl_gev_cdf(h->topx[i-1], mu, lambda, alpha));
-    }
-
-  return eslOK;
-}
-#endif /*eslAUGMENT_GEV*/
 
 
 #ifdef eslAUGMENT_STATS
-/* Function:  esl_histogram_GTestGoodness()
- * Incept:    SRE, Tue Jul 26 14:06:02 2005 [St. Louis]
+/* Function:  esl_histogram_Goodness()
+ * Incept:    SRE, Wed Aug 17 12:46:05 2005 [St. Louis]
  *
- * Purpose:   Given a full histogram <h>, with expectations already set by
- *            a prior Set() call, run a G test on the observed vs.
- *            expected numbers in the binned secondary histogram.
+ * Purpose:   Given a histogram <h> with observed counts,
+ *            and a pointer to a function <*cdf()> with parameters <params>,
+ *            describing the expected cumulative probability distribution 
+ *            function (CDF), of which <nfitted> ($\geq 0$) were fitted (and
+ *            thus should be subtracted from the degrees of freedom);
+ *            Perform a G-test and/or a chi-squared test for goodness of 
+ *            fit between observed and expected, and optionally return
+ *            the number of bins the data were sorted into
+ *            (<ret_bins>), the G statistic and its probability (<ret_G> and
+ *            <ret_Gp>), and the X$^2$ statistic and its probability
+ *            (<ret_X2> and <ret_X2p>). 
  *            
- *            The G statistic is distributed roughly \chi^2, with
- *            at most nbins-1 degrees of freedom. If the expectations
- *            were set using parameters fit to the observed data,
- *            then there are fewer degrees of freedom; <nfitted>
- *            is the number of fitted parameters, where <nfitted> $\geq 0$.
+ *            The function that calculates the CDF has a generic
+ *            interface, taking only two arguments: a quantile <x> and
+ *            a void pointer to whatever parameters it needs, which it
+ *            will cast and interpret.  The <params> void pointer to
+ *            the given parameters will just be passed along to the
+ *            <(*cdf)()> function. The caller will probably implement
+ *            a <(*cdf)()> function as a wrapper around a real CDF
+ *            function with explicit (non-void-pointer) arguments.
  *            
- *            Returns <ret_nbins>, the number of valid bins counted
- *            toward the G statistic; <ret_G>, the G statistic; and
- *            <ret_p>, the probability of obtaining a statistic of
- *            at least G, assuming a \chi^2 distribution with
- *            <nbins>-1-<ndeg> degrees of freedom. If <p> is small,
- *            the data are a poor fit to the expected distribution.
- *
- * Args:      h         - full histogram, expectations already Set()
- *            nfitted   - >=0; number of fitted parameters 
- *            ret_nbins - optRETURN: # of bins counted toward G statistic
- *            ret_G     - optRETURN: G statistic
- *            ret_p     - optRETURN: P(>=G)
- *
+ *            If a goodness-of-fit probability is less than some threshold
+ *            (usually taken to be 0.01 or 0.05), that is considered to
+ *            be evidence that the observed data are unlikely to be consistent
+ *            with the tested distribution.
+ *            
+ *            The two tests should give similar probabilities. In practice,
+ *            both goodness-of-fit tests are sensitive to arbitrary choices
+ *            in how the data are binned. Neither test is on a sound
+ *            theoretical footing.
+ *            
  * Returns:   <eslOK> on success.
- * 
- * Throws:    <eslEINVAL> if it isn't a full histogram, or if it isn't
- *            sorted and finished. 
- *            <eslERANGE> or <eslECONVERGENCE> may arise on internal
+ *
+ * Throws:    <eslERANGE> or <eslECONVERGENCE> may arise on internal
  *            errors in calculating the probability.
  */
 int
-esl_histogram_GTestGoodness(ESL_HISTOGRAM *h, int nfitted,
-			    int *ret_nbins, double *ret_G, double *ret_p)
+esl_histogram_Goodness(ESL_HISTOGRAM *h, 
+		       double (*cdf)(double x, void *params), void *params,
+		       int nfitted, int use_bindata,
+		       int *ret_nbins,
+		       double *ret_G,  double *ret_Gp,
+		       double *ret_X2, double *ret_X2p)
 {
-  int    i;
-  int    nbins;			/* number of bins counted toward G */
-  double G = 0.;		/* the G-statistic */
-  double Gp;			/* P(test > G) by chi-square distribution */
-  int    status;
-  
-  if (! h->is_full)     ESL_ERROR(eslEINVAL, "goodness tests need full histogram");
-  if (! h->is_finished) ESL_ERROR(eslEINVAL, "goodness tests need finished histogram");
+  int     *obs;			/* observed in bin i, [0..nb-1]   */
+  double  *exp;			/* expected in bin i, [0..nb-1    */
+  double  *topx;		/* all values in bin i <= topx[i] */
+  int      nb;			/* # of bins                      */
+  int      minc;		/* target # of counts/bin         */
+  int      i,b;
+  int      sum;
+  double   G, Gp;
+  double   X2, X2p;
+  double   tmp;
+  int      status;
 
-  /* Calculate the G statistic = 2 * log likelihood ratio.
+  /* Figure out how many bins we'd like to have, then allocate.
+   * Number of bins for goodness-of-fit tests like G and X^2 
+   * is crucial but arbitrary, unfortunately. Some literature suggests
+   * using 2*n^{0.4}, which gives:
+   *        n    nbins     #/bin
+   *    -----    ------   ------
+   *     1000      31       32
+   *    10000      79      127
+   *   100000     200      500
+   *  1000000     502     1992
    */
-  nbins = 0;
-  for (i = 0; i < h->nb2; i++)
-    if (h->obs2[i] > 0 && h->expect2[i] > 0)
-      {
-	G += (double) h->obs2[i] * log((double) h->obs2[i]/ h->expect2[i]);
-	nbins++;
-      }
-  G *= 2.;
+  nb   = 2* (int) pow((double) h->n, 0.4); /* "desired" nb. */
+  minc = h->n / (2*nb);		/* arbitrarily set min = 1/2 of the target # */
+  ESL_MALLOC(obs,  sizeof(int)    * (nb*2+1)); /* final nb must be <= 2*nb+1 */
+  ESL_MALLOC(exp,  sizeof(double) * (nb*2+1));
+  ESL_MALLOC(topx, sizeof(double) * (nb*2+1));
+
+  /* Determine the observed counts in each bin;
+   * If we have raw counts, sort and use them (unless overridden by use_bindata)
+   * If not, use the binned histogram. 
+   * In either case, sweep left to right on the histogram bins,
+   * collecting sum of counts, dropping the sum into the next bin 
+   * whenever we have more than <minc> counts.
+   * In the case of the raw counts, be careful that ties all go into
+   * the same bin.
+   */
+  if (! use_bindata && h->is_full)
+    {	/* collate raw counts */
+      esl_histogram_Sort(h);
+      sum = 0;
+      i = 0;
+      for (b = 0; b < h->n; b++) /* "b" here is a counter in the raw data */
+	{
+	  sum++;
+	  if (sum >= minc) { /* enough? then drop them in bin i */
+	    {
+	      while (b < h->n-1 && h->x[b+1] == h->x[b]) { sum++; b++; } /* ties */
+	      assert(i < nb*2+1);
+	      obs[i]  = sum;
+	      topx[i] = h->x[b];
+	      sum     = 0;
+	      i++;
+	    }
+	  }
+	}
+      obs[i-1] += sum;		/* add the remaining right tail to the last bin */
+      topx[i-1] = h->x[h->n-1]; /* by def'n */
+      nb        = i;
+    }
+  else
+    {	/* merge histogram bins */
+      sum = 0;
+      i   = 0;
+      for (b = h->imin; b <= h->imax; b++) 
+	{
+	  sum += h->obs[b];
+	  if (sum >= minc) {	/* if we have enough counts, drop them in i */
+	    assert(i < (nb*2+1));
+	    obs[i]  = sum;
+	    topx[i] = h->w*(b+1) + h->bmin;
+	    sum     = 0;
+	    i++;
+	  }
+	}
+      obs[i-1]  += sum;		/* add the right tail to our final bin        */
+      topx[i-1]  = h->w * (h->imax+1) + h->bmin;
+      nb         = i;		/* nb is now the actual # of bins, not target */
+    }
+
+  /* Determine the expected counts in each bin.
+   *  bin 0    is the left tail, <= topx[0];
+   *  bin nb-1 is the right tail, > topx[nb-2],  1-P(<= topx[nb-2]).
+   *  others are   P(<= topx[b]) - P(<topx[b-1]).
+   */
+  exp[0]    = (double) h->n * (*cdf)(topx[0], params);
+  exp[nb-1] = (double) h->n * (1 - (*cdf)(topx[nb-2], params));
+  for (i = 1; i < nb-1; i++)
+    exp[i] = (double) h->n *
+      ((*cdf)(topx[i], params) - (*cdf)(topx[i-1], params));
   
-  /* G is distributed approximately as \chi^2
-   */
-  if (nbins-1-nfitted >= 0) 
+  /* Calculate the G statistic: 2 * LLR  */
+  G = 0.;
+  for (i = 0; i < nb; i++)
     {
-      status = esl_stats_ChiSquaredTest(nbins-1-nfitted, G, &Gp);
+      if (exp[i] == 0) G = eslINFINITY;
+      else             G += (double) obs[i] * log ((double) obs[i] / exp[i]);
+    }
+  G *= 2;
+  
+  /* G is distributed approximately as \chi^2 */
+  if (nb-nfitted-1 >= 0 && G != eslINFINITY)
+    {
+      status = esl_stats_ChiSquaredTest(nb-nfitted-1, G, &Gp);
       if (status != eslOK) return status;
     }
   else Gp = 0.;
 
-  if (ret_nbins != NULL) *ret_nbins = nbins;
-  if (ret_G     != NULL) *ret_G     = G;
-  if (ret_p     != NULL) *ret_p     = Gp;
-  return eslOK;
-}
-
-/* Function:  esl_histogram_ChiSquaredGoodness()
- * Incept:    SRE, Tue Jul 26 14:18:02 2005 [St. Louis]
- *
- * Purpose:   Given a full histogram <h>, with expectations already set by
- *            a prior Set() call, run a chi-squared test on the observed vs.
- *            expected numbers in the binned secondary histogram.
- *            
- *            The X^2 statistic is distributed roughly \chi^2, with
- *            at most nbins-1 degrees of freedom. If the expectations
- *            were set using parameters fit to the observed data,
- *            then there are fewer degrees of freedom; <nfitted>
- *            is the number of fitted parameters, where <nfitted> $\geq 0$.
- *            
- *            Returns <ret_nbins>, the number of valid bins counted
- *            toward the X^2 statistic; <ret_X2>, the X^2 statistic; and
- *            <ret_p>, the probability of obtaining a statistic of
- *            at least X2, assuming a \chi^2 distribution with
- *            <nbins>-1-<ndeg> degrees of freedom. If <p> is small,
- *            the data are a poor fit to the expected distribution.
- *
- * Args:      h         - full histogram, expectations already Set()
- *            nfitted   - >=0; number of fitted parameters 
- *            ret_nbins - optRETURN: # of bins counted toward X^2 statistic
- *            ret_X2    - optRETURN: X^2 statistic
- *            ret_p     - optRETURN: P(>=X^2)
- *
- * Returns:   <eslOK> on success.
- * 
- * Throws:    <eslEINVAL> if it isn't a full histogram, or if it isn't
- *            sorted and finished. 
- *            <eslERANGE> or <eslECONVERGENCE> may arise on internal
- *            errors in calculating the probability.
- */
-int
-esl_histogram_ChiSquaredGoodness(ESL_HISTOGRAM *h, int nfitted, 
-				 int *ret_nbins, double *ret_X2, double *ret_p)
-{
-  int    i;
-  int    nbins;			/* number of bins counted toward X^2 */
-  double chisq = 0.;		/* the X^2 statistic */
-  double delta;			/* obs - exp in a bin */
-  double chip;		        /* P(test > X^2) by chi-square distribution */
-  int    status;
-  
-  if (! h->is_full)     ESL_ERROR(eslEINVAL, "goodness tests need full histogram");
-  if (! h->is_finished) ESL_ERROR(eslEINVAL, "goodness tests need finished histogram");
-
-  /* Calculate the X^2 statistic = \sum_i (obs_i-exp_i)^2/exp, over
-   * all bins containing some minimum size (arbitrarily 5)
-   */
-  nbins = 0;
-  for (i = 0; i < h->nb2; i++)
-    if (h->obs2[i] > 0 && h->expect2[i] > 0.)
-      {
-	delta = h->obs2[i] - h->expect2[i];
-	chisq += delta * delta / h->expect2[i];
-	nbins++;
-      }
-
-  
-  /* X^2 is distributed approximately as \chi^2
-   */
-  if (nbins-1-nfitted >= 0)
+  /* Calculate the X^2 statistic: \sum (obs_i - exp_i)^2 / exp_i */
+  X2 = 0.;
+  for (i = 0; i < nb; i++)
     {
-      status = esl_stats_ChiSquaredTest(nbins-1-nfitted, chisq, &chip);
+      if (exp[i] == 0) X2 = eslINFINITY;
+      else  {
+	tmp = obs[i] - exp[i];
+	X2 += tmp*tmp / exp[i];
+      }
+    }
+
+  /* X^2 is distributed approximately chi^2  */
+  if (nb-nfitted-1 >= 0 && X2 != eslINFINITY)
+    {
+      status = esl_stats_ChiSquaredTest(nb-nfitted-1, X2, &X2p);
       if (status != eslOK) return status;
     }
-  else chip = 0.;
+  else X2p = 0.;
 
-  if (ret_nbins != NULL) *ret_nbins = nbins;
-  if (ret_X2    != NULL) *ret_X2    = chisq;
-  if (ret_p     != NULL) *ret_p     = chip;
+  if (ret_nbins != NULL) *ret_nbins = nb;
+  if (ret_G     != NULL) *ret_G     = G;
+  if (ret_Gp    != NULL) *ret_Gp    = Gp;
+  if (ret_X2    != NULL) *ret_X2    = X2;
+  if (ret_X2p   != NULL) *ret_X2p   = X2p;
+  free(obs);
+  free(exp);
+  free(topx);
   return eslOK;
 }
-#endif /*eslAUGMENT_STATS*/
+#endif /* eslAUGMENT_STATS */
+
+
+
 
 
 /*****************************************************************

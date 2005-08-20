@@ -482,6 +482,117 @@ esl_vec_IArgMin(int *vec, int n)
 }
 
 
+/* some static functions to pass to qsort() that the 
+ * upcoming Sort() functions will call
+ */
+static int
+qsort_DIncreasing(const void *xp1, const void *xp2)
+{
+  double x1 = * (double *) xp1;
+  double x2 = * (double *) xp2; 
+  if (x1 < x2) return -1;
+  if (x1 > x2) return 1;
+  return 0;
+}
+static int
+qsort_FIncreasing(const void *xp1, const void *xp2)
+{
+  float x1 = * (float *) xp1;
+  float x2 = * (float *) xp2; 
+  if (x1 < x2) return -1;
+  if (x1 > x2) return 1;
+  return 0;
+}
+static int
+qsort_IIncreasing(const void *xp1, const void *xp2)
+{
+  int x1 = * (int *) xp1;
+  int x2 = * (int *) xp2; 
+  if (x1 < x2) return -1;
+  if (x1 > x2) return 1;
+  return 0;
+}
+static int
+qsort_DDecreasing(const void *xp1, const void *xp2)
+{
+  double x1 = * (double *) xp1;
+  double x2 = * (double *) xp2; 
+  if (x1 > x2) return -1;
+  if (x1 < x2) return 1;
+  return 0;
+}
+static int
+qsort_FDecreasing(const void *xp1, const void *xp2)
+{
+  float x1 = * (float *) xp1;
+  float x2 = * (float *) xp2; 
+  if (x1 > x2) return -1;
+  if (x1 < x2) return 1;
+  return 0;
+}
+static int
+qsort_IDecreasing(const void *xp1, const void *xp2)
+{
+  int x1 = * (int *) xp1;
+  int x2 = * (int *) xp2; 
+  if (x1 > x2) return -1;
+  if (x1 < x2) return 1;
+  return 0;
+}
+
+/* Function:  esl_vec_DSortIncreasing()
+ * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
+ *
+ * Purpose:   Sorts <vec> in place, from smallest to largest value.
+ *            (That is, <vec[0]> is the minimum and <vec[n-1]> is
+ *            the maximum.)
+ *            
+ *            <esl_vec_FSortIncreasing()> and <esl_vec_ISortIncreasing()>
+ *            do the same, for float and integer vectors.
+ */
+void
+esl_vec_DSortIncreasing(double *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(double), qsort_DIncreasing);
+}
+void
+esl_vec_FSortIncreasing(float *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(float), qsort_FIncreasing);
+}
+void
+esl_vec_ISortIncreasing(int *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(int), qsort_IIncreasing);
+}
+
+/* Function:  esl_vec_DSortDecreasing()
+ * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
+ *
+ * Purpose:   Sorts <vec> in place, from largest to smallest value.
+ *            (That is, <vec[0]> is the maximum and <vec[n-1]> is
+ *            the minimum.)
+ *            
+ *            <esl_vec_FSortDecreasing()> and <esl_vec_ISortDecreasing()>
+ *            do the same, for float and integer vectors.
+ */
+void
+esl_vec_DSortDecreasing(double *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(double), qsort_DDecreasing);
+}
+void
+esl_vec_FSortDecreasing(float *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(float), qsort_FDecreasing);
+}
+void
+esl_vec_ISortDecreasing(int *vec, int n)
+{
+  qsort((void *) vec, n, sizeof(int), qsort_IDecreasing);
+}
+
+
 /* Function:  esl_vec_DNorm()
  *
  * Purpose:   Normalizes a probability vector <vec>,
@@ -617,6 +728,7 @@ esl_vec_DLogSum(double *vec, int n)
   double max, sum;
   
   max = esl_vec_DMax(vec, n);
+  if (max == eslINFINITY) return eslINFINITY; /* avoid inf-inf below! */
   sum = 0.0;
   for (x = 0; x < n; x++)
     if (vec[x] > max - 50.)

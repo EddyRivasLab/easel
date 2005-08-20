@@ -13,13 +13,16 @@ HEADERS = \
 	easel.h\
 	esl_alphabet.h\
 	esl_dirichlet.h\
+	esl_exponential.h\
 	esl_fileparser.h\
 	esl_getopts.h\
 	esl_gev.h\
 	esl_gumbel.h\
 	esl_histogram.h\
+	esl_hyperexp.h\
 	esl_keyhash.h\
 	esl_minimizer.h\
+	esl_mixgev.h\
 	esl_msa.h\
 	esl_random.h\
 	esl_regexp.h\
@@ -27,19 +30,23 @@ HEADERS = \
 	esl_stack.h\
 	esl_stats.h\
 	esl_vectorops.h\
+	esl_weibull.h\
 	esl_wuss.h
 
 OBJS    = \
 	easel.o\
 	esl_alphabet.o\
 	esl_dirichlet.o\
+	esl_exponential.o\
 	esl_fileparser.o\
 	esl_getopts.o\
 	esl_gev.o\
 	esl_gumbel.o\
 	esl_histogram.o\
+	esl_hyperexp.o\
 	esl_keyhash.o\
 	esl_minimizer.o\
+	esl_mixgev.o\
 	esl_msa.o\
 	esl_random.o\
 	esl_regexp.o\
@@ -47,6 +54,7 @@ OBJS    = \
 	esl_stack.o\
 	esl_stats.o\
 	esl_vectorops.o\
+	esl_weibull.o\
 	esl_wuss.o
 
 all: libeasel.a

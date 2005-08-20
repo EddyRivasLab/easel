@@ -60,6 +60,14 @@ extern int    esl_vec_DArgMin(double *vec, int n);
 extern int    esl_vec_FArgMin(float *vec, int n);
 extern int    esl_vec_IArgMin(int *vec, int n);
 
+extern void   esl_vec_DSortIncreasing(double *vec, int n);
+extern void   esl_vec_FSortIncreasing(float  *vec, int n);
+extern void   esl_vec_ISortIncreasing(int    *vec, int n);
+
+extern void   esl_vec_DSortDecreasing(double *vec, int n);
+extern void   esl_vec_FSortDecreasing(float  *vec, int n);
+extern void   esl_vec_ISortDecreasing(int    *vec, int n);
+
 extern void   esl_vec_DNorm(double *vec, int n);
 extern void   esl_vec_FNorm(float *vec, int n);
 
