@@ -7,7 +7,9 @@
 #ifndef ESL_GEV_INCLUDED
 #define ESL_GEV_INCLUDED
 
-
+#ifdef eslAUGMENT_RANDOM
+#include <esl_random.h>
+#endif
 
 extern double esl_gev_pdf    (double x, double mu, double lambda, double alpha);
 extern double esl_gev_logpdf (double x, double mu, double lambda, double alpha);
@@ -15,10 +17,17 @@ extern double esl_gev_cdf    (double x, double mu, double lambda, double alpha);
 extern double esl_gev_logcdf (double x, double mu, double lambda, double alpha);
 extern double esl_gev_surv   (double x, double mu, double lambda, double alpha);
 extern double esl_gev_logsurv(double x, double mu, double lambda, double alpha);
+extern double esl_gev_invcdf (double p, double mu, double lambda, double alpha);
+
+extern double esl_gev_generic_cdf   (double x, void *params);
+extern double esl_gev_generic_invcdf(double p, void *params);
+
+extern int    esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
+			   double (*func)(double x, double mu, double lambda, double alpha), 
+			   double xmin, double xmax, double xstep);
 
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
 extern double esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha);
 #endif
 

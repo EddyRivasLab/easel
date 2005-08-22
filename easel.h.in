@@ -35,6 +35,7 @@
 #undef eslAUGMENT_FILEPARSER
 #undef eslAUGMENT_GEV
 #undef eslAUGMENT_GUMBEL
+#undef eslAUGMENT_HISTOGRAM
 /* #undef eslAUGMENT_KEYHASH  */ /* not yet! no keyhash module yet. */
 #undef eslAUGMENT_MINIMIZER
 #undef eslAUGMENT_MSA		

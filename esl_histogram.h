@@ -58,6 +58,9 @@ extern int esl_histogram_GetBinBounds(ESL_HISTOGRAM *h, int whichbin,
 extern int esl_histogram_Print       (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_Plot        (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
+extern int esl_histogram_PlotQQ      (FILE *fp, ESL_HISTOGRAM *h, 
+				      double (*invcdf)(double x, void *params),
+				      void *params);
 
 extern int esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
 				   double (*cdf)(double x, void *params),

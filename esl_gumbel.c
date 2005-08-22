@@ -146,8 +146,82 @@ esl_gumbel_logsurv(double x, double mu, double lambda)
   else if (fabs(exp(ey)) < eslSMALLX1) return -exp(ey);
   else                                 return log(1-exp(ey));
 }
+
+/* Function:  esl_gumbel_invcdf()
+ * Incept:    SRE, Sun Aug 21 12:14:06 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse CDF for a Gumbel distribution
+ *            with parameters <mu> and <lambda>. That is, returns
+ *            the quantile <x> at which the CDF is <p>.
+ */
+double
+esl_gumbel_invcdf(double p, double mu, double lambda)
+{
+  return mu - log(-1. * log(p)) / lambda;
+}
 /*------------------ end of densities and distributions --------------------*/
 
+
+/*****************************************************************
+ * Generic API routines: for general interface w/ histogram module
+ *****************************************************************/ 
+
+/* Function:  esl_gumbel_generic_cdf()
+ * Incept:    SRE, Sun Aug 21 12:10:49 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of CDF, for passing to histogram module's
+ *            <SetExpected()> and <Goodness()>.
+ */
+double
+esl_gumbel_generic_cdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_gumbel_cdf(x, p[0], p[1]);
+}
+
+
+/* Function:  esl_gumbel_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 12:12:27 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of inverse CDF, for passing to histogram 
+ *            module's <SetExpected()> and <Goodness()>.
+ */
+double
+esl_gumbel_generic_invcdf(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_gumbel_invcdf(p, v[0], v[1]);
+}
+/*------------------------- end of generic API --------------------------*/
+
+
+
+/****************************************************************************
+ * Routines for dumping plots for files
+ ****************************************************************************/ 
+
+/* Function:  esl_gumbel_Plot()
+ * Incept:    SRE, Sun Aug 21 13:21:37 2005 [St. Louis]
+ *
+ * Purpose:   Plot a Gumbel function <func> (for instance,
+ *            <esl_gumbel_pdf()>) for parameters <mu> and <lambda>, for
+ *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
+ *            output to an open stream <fp> in xmgrace XY input format.
+ *
+ * Returns:   <eslOK>.
+ */
+int
+esl_gumbel_Plot(FILE *fp, double mu, double lambda, 
+		double (*func)(double x, double mu, double lambda), 
+		double xmin, double xmax, double xstep)
+{
+  double x;
+  for (x = xmin; x <= xmax; x += xstep)
+    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda));
+  fprintf(fp, "&\n");
+  return eslOK;
+}
+/*-------------------- end plot dumping routines ---------------------------*/
 
 
 
@@ -167,7 +241,7 @@ esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
 {
   double p;
   p = esl_rnd_UniformPositive(r); 
-  return mu - log(-1. * log(p)) / lambda;
+  return esl_gumbel_invcdf(p, mu, lambda);
 } 
 #endif /*eslAUGMENT_RANDOM*/
 

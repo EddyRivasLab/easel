@@ -16,10 +16,11 @@
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
-
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_histogram.h>
 #include <esl_minimizer.h>
+#endif
+#ifdef eslAUGMENT_HISTOGRAM
+#include <esl_histogram.h>
 #endif
 
 /****************************************************************************
@@ -266,7 +267,49 @@ esl_hxp_logsurv(double x, ESL_HYPEREXP *h)
   
   return esl_vec_DLogSum(h->wrk, h->K);
 }
-/*-------------------- end densities & distributions ---------------------------*/
+
+/* Function:  esl_hxp_invcdf()
+ * Incept:    SRE, Sun Aug 21 15:32:29 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse CDF for a hyperexponential <h>
+ *            returning the quantile <x> at which the CDF is <p>.
+ *            
+ *            The inverse CDF of a mixture model has no
+ *            analytical expression as far as I'm aware. The calculation
+ *            here is a computationally expensive, brute force bisection
+ *            search in <x> using the CDF function. It will suffice for
+ *            a small number of calls (for plotting applications, for example),
+ *            but it is not sufficient for a large number of calls.
+ */
+double
+esl_hxp_invcdf(double p, ESL_HYPEREXP *h)
+{
+  double x1, x2, xm;		/* low, high guesses at x */
+  double f1, f2, fm;
+  double tol = 1e-6;
+
+  x1 = h->mu;
+  f1 = 0.;
+  x2 = h->mu + 1.;
+  do {				/* bracket */
+    x2 = x2 + 2.*(x2-x1);
+    f2 = esl_hxp_cdf(x2, h);
+  } while (f2 < p);
+
+  do {				/* bisection */
+    xm = (x1+x2) / 2.;
+    fm = esl_hxp_cdf(xm, h);
+    
+    if      (fm > p) x2 = xm;
+    else if (fm < p) x1 = xm;
+    else return xm;		/* unlikely case of fm==cdf */
+  } while ( (x2-x1)/(x1+x2-2*h->mu) > tol);
+
+  xm = (x1+x2) / 2.;
+  return xm;
+  
+}
+/*-------------------- end densities & distributions ------------------------*/
 
 
 
@@ -278,8 +321,8 @@ esl_hxp_logsurv(double x, ESL_HYPEREXP *h)
 /* Function:  esl_hxp_generic_cdf()
  * Incept:    SRE, Wed Aug 17 13:17:08 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of CDF call, for passing to histogram module's
- *            <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of CDF call, for passing to histogram
+ *            module's <SetExpected()> and <Goodness()>.
  */
 double
 esl_hxp_generic_cdf(double x, void *params)
@@ -288,6 +331,18 @@ esl_hxp_generic_cdf(double x, void *params)
   return esl_hxp_cdf(x, h);
 }
 
+/* Function:  esl_hxp_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 15:35:41 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of CDF call, for passing to histogram
+ *            module's <SetExpected()> and <Goodness()>.
+ */
+double
+esl_hxp_generic_invcdf(double x, void *params)
+{
+  ESL_HYPEREXP *h = (ESL_HYPEREXP *) params;
+  return esl_hxp_invcdf(x, h);
+}
 /*------------------------ end generic API ---------------------------------*/
 
 
@@ -591,6 +646,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 /****************************************************************************
  * Maximum likelihood fitting, complete binned data         xref STL9/143-144
  ****************************************************************************/ 
+#ifdef eslAUGMENT_HISTOGRAM
 /* minimizer API only allows us one generic void ptr to pass
  * our data through:
  */
@@ -788,6 +844,7 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   free(wrk);
   return status;
 }
+#endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/
 
 

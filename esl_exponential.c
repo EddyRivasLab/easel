@@ -20,12 +20,12 @@
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
-/* gotchas: 
- *   - any lambda > 0 is valid... including infinity! (fitting code
+/* watch out: 
+ *   - any lambda > 0 is valid... including infinity. (fitting codes
  *     may try to test such lambdas, and it must get back valid numbers,
  *     never an NaN, or it will fail.) Note that IEEE754 allows us
  *     to calculate log(inf) = inf, exp(-inf) = 0, and exp(inf) = inf.
- *     But remember that inf-inf = NaN, so Don't Do That.
+ *     But inf-inf = NaN, so Don't Do That.
  */
 
 /* Function:  esl_exp_pdf()
@@ -135,6 +135,85 @@ esl_exp_logsurv(double x, double mu, double lambda)
 }
 
 
+/* Function:  esl_exp_invcdf()
+ * Incept:    SRE, Sun Aug 21 12:22:24 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse of the CDF; given a <cdf> value
+ *            $0 <= p < 1$, returns the quantile $x$ at which the CDF
+ *            has that value.
+ */
+double 
+esl_exp_invcdf(double p, double mu, double lambda)
+{
+  return mu - 1/lambda * log(1. - p);
+}
+/*------------------ end of densities and distributions --------------------*/
+
+
+
+
+/*****************************************************************
+ * Generic API routines: for general interface w/ histogram module
+ *****************************************************************/ 
+
+/* Function:  esl_exp_generic_cdf()
+ * Incept:    SRE, Sun Aug 21 12:25:25 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of CDF, for passing to histogram module's
+ *            <SetExpected()> and <Goodness()>.
+ */
+double
+esl_exp_generic_cdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_exp_cdf(x, p[0], p[1]);
+}
+
+/* Function:  esl_exp_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 12:25:59 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of inverse CDF, for passing to histogram 
+ *            module's <SetExpected()> and <Goodness()>.
+ */
+double
+esl_exp_generic_invcdf(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_exp_invcdf(p, v[0], v[1]);
+}
+/*------------------------- end of generic API --------------------------*/
+
+
+
+/****************************************************************************
+ * Routines for dumping plots for files
+ ****************************************************************************/ 
+
+/* Function:  esl_exp_Plot()
+ * Incept:    SRE, Sun Aug 21 13:16:26 2005 [St. Louis]
+ *
+ * Purpose:   Plot some exponential function <func> (for instance,
+ *            <esl_exp_pdf()>) for parameters <mu> and <lambda>, for
+ *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
+ *            output to an open stream <fp> in xmgrace XY input format.
+ *
+ * Returns:   <eslOK>.
+ */
+int
+esl_exp_Plot(FILE *fp, double mu, double lambda, 
+	     double (*func)(double x, double mu, double lambda), 
+	     double xmin, double xmax, double xstep)
+{
+  double x;
+  for (x = xmin; x <= xmax; x += xstep)
+    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda));
+  fprintf(fp, "&\n");
+  return eslOK;
+}
+/*-------------------- end plot dumping routines ---------------------------*/
+
+
+
 /****************************************************************************
  * Routines for sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
@@ -153,7 +232,7 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
   double p, x;
   p = esl_rnd_UniformPositive(r); 
 
-  x = mu - 1/lambda * log(p);	/* really log(1-p), but if p is uniform on 0..1 
+  x = mu - 1/lambda * log(p);	/* really log(1-p), but if p uniform on 0..1 
 				 * then so is 1-p. 
                                  */
   return x;
@@ -198,6 +277,108 @@ esl_exp_FitComplete(double *x, int n, double mu, double *ret_lambda)
   *ret_lambda = 1./mean;	/* ML estimation is trivial in this case */
   return eslOK;
 }
+
+#ifdef eslAUGMENT_HISTOGRAM
+/* Function:  esl_exp_FitCompleteBinned()
+ * Incept:    SRE, Sun Aug 21 13:07:22 2005 [St. Louis]
+ *
+ * Purpose:   Given a histogram <g> with binned observations, where each
+ *            bin i holds some number of observed samples x with values from 
+ *            lower bound l to upper bound u (that is, $l < x \leq u$),
+ *            and given <mu>, the known offset (minimum value) of the
+ *            distribution; 
+ *            find maximum likelihood decay parameter $\lambda$ and 
+ *            return it in <*ret_lambda>.
+ *
+ *            The ML estimate is obtained analytically, so this is
+ *            fast. 
+ *            
+ *            If all the data are in one bin, the ML estimate of
+ *            $\lambda$ is $\infty$. This is mathematically correct,
+ *            but may be a situation the caller wants to avoid, perhaps
+ *            by choosing smaller bins.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double mu, double *ret_lambda)
+{
+  int    i;
+  double ai, bi, delta;
+  double sa, sb;
+  
+  delta = g->w;
+  sa = sb = 0.;
+  for (i = g->imin; i <= g->imax; i++) /* for each occupied bin */
+    {
+      if (g->obs[i] == 0) continue;
+      esl_histogram_GetBinBounds(g, i, &ai, &bi, NULL);
+      sa += g->obs[i] * (ai-mu);
+      sb += g->obs[i] * (bi-mu);
+    }
+  *ret_lambda = 1/delta * (log(sb) - log(sa));
+  return eslOK;
+}
+#endif /*eslAUGMENT_HISTOGRAM*/
+
+
+/****************************************************************************
+ * Example, test, and stats drivers
+ ****************************************************************************/ 
+/* Example main()
+ */
+#ifdef eslEXP_EXAMPLE
+/*::cexcerpt::exp_example::begin::*/
+/* compile:
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslEXP_EXAMPLE\
+     esl_exponential.c -leasel -lm
+ */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_histogram.h>
+#include <esl_random.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_HISTOGRAM  *h;
+  ESL_RANDOMNESS *r;
+  double mu     = -50.0;
+  double lambda = 0.5;
+  double elambda;
+  int    n      = 10000;
+  int    i;
+  double x;
+
+  r = esl_randomness_CreateTimeseeded();
+  h = esl_histogram_CreateFull(mu, 100., 0.1);
+  for (i = 0; i < n; i++)
+    {
+      x = esl_exp_Sample(r, mu, lambda);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_Sort(h);
+
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_exp_Plot(stdout, mu, lambda,
+	       &esl_exp_surv, h->xmin, h->xmax, 0.1);
+
+  /* ML fit to complete data, and plot fitted survival curve */
+  esl_exp_FitComplete(h->x, h->n, mu, &elambda);
+  esl_exp_Plot(stdout, mu, elambda, 
+	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_exp_FitCompleteBinned(h, mu, &elambda);
+  esl_exp_Plot(stdout, mu, elambda,
+	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
+  return 0;
+}
+/*::cexcerpt::exp_example::end::*/
+#endif /*eslEXP_EXAMPLE*/
+
 
 
 /****************************************************************************

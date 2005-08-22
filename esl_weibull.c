@@ -7,11 +7,9 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <float.h>
 
 #include <easel.h>
 #include <esl_stats.h>
-#include <esl_vectorops.h>
 #include <esl_weibull.h>
 
 #ifdef eslAUGMENT_RANDOM
@@ -85,7 +83,7 @@ esl_wei_cdf(double x, double mu, double lambda, double tau)
 /* Function:  esl_wei_logcdf()
  * Incept:    SRE, Tue Aug  9 15:21:52 2005 [St. Louis]
  *
- * Purpose:   Calculates the log of the cumulative distribution function for the
+ * Purpose:   Calculates the log of the cumulative distribution function for a
  *            Weibull, $P(X \leq x)$, given quantile <x>,
  *            offset <mu>, and parameters <lambda> and <tau>.
  */
@@ -134,7 +132,20 @@ esl_wei_logsurv(double x, double mu, double lambda, double tau)
 
   return -exp(tly);
 }
-/*-------------------- end densities & distributions ---------------------------*/
+
+/* Function:  esl_wei_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:50:00 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse CDF for a Weibull distribution
+ *            with parameters <mu>, <lambda>, and <tau>, returning
+ *            the quantile <x> at which the CDF is <p>, for $0<p<1$.
+ */
+double
+esl_wei_invcdf(double p, double mu, double lambda, double tau)
+{
+  return mu + 1/lambda * exp(1/tau * log(-log(p)));
+}
+/*-------------------- end densities & distributions ------------------------*/
 
 
 
@@ -155,6 +166,20 @@ esl_wei_generic_cdf(double x, void *params)
 {
   double *p = (double *) params;
   return esl_wei_cdf(x, p[0], p[1], p[2]);
+}
+
+/* Function:  esl_wei_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:51:33 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_wei_invcdf()>, taking
+ *            a void ptr to a double array containing $\mu$, $\lambda$,
+ *            $\tau$ parameters.
+ */
+double
+esl_wei_generic_invcdf(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_wei_invcdf(p, v[0], v[1], v[2]);
 }
 /*------------------------ end generic API ---------------------------------*/
 
@@ -205,11 +230,9 @@ esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
 double
 esl_wei_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 {
-  double p, x;
+  double p;
   p = esl_rnd_UniformPositive(r); 
-
-  x = mu + 1/lambda * exp(1/tau * log(-log(p)));
-  return x;
+  return esl_wei_invcdf(p, mu, lambda, tau);
 } 
 #endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
@@ -226,7 +249,6 @@ esl_wei_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 struct wei_data {
   double *x;	        /* data: n observed samples    */
   int     n;		/* number of observed samples  */
-
   double  mu;		/* mu is considered to be known, not fitted */
 };
 
@@ -241,22 +263,16 @@ wei_func(double *p, int nparam, void *dptr)
   struct wei_data *data;
   double logL;
   int    i; 
-  double x;
     
   /* Unpack what the optimizer gave us.
    */
   lambda = exp(p[0]); /* see below for c.o.v. notes */
-  tau    = exp(p[1]) / (1. + exp(p[1]));
+  tau    = exp(p[1]);
   data   = (struct wei_data *) dptr;
 
   logL = 0.;
   for (i = 0; i < data->n; i++)
-    {
-      x = data->x[i];
-      logL += log(esl_wei_cdf(x+0.1, data->mu, lambda, tau) -
-                  esl_wei_cdf(x, data->mu, lambda, tau));
-    }
-
+    logL += esl_wei_logpdf(data->x[i], data->mu, lambda, tau);
   return -logL;			/* goal: minimize NLL */
 }
 
@@ -307,13 +323,13 @@ esl_wei_FitComplete(double *x, int n, double mu,
 
   /* Change of variables;
    *   lambda > 0, so c.o.v.  lambda = exp^w,  w = log(lambda);
-   *   0<tau<1, so c.o.v.  tau=e^z/(1+e^z);    z = -log(1/tau -1).
+   *   tau > 0, same c.o.v.
    */
   p[0] = log(lambda);		
-  p[1] = -log(1./tau - 1.);	
+  p[1] = log(tau);
 
-  u[0] = fabs(log(0.1));	
-  u[1] = fabs(-log(1./0.1 - 1));
+  u[0] = 1.0;
+  u[1] = 1.0;
 
   /* pass problem to the optimizer
    */
@@ -322,9 +338,120 @@ esl_wei_FitComplete(double *x, int n, double mu,
 					    (void *)(&data),
 					    tol, wrk, &fx);
   *ret_lambda = exp(p[0]);
-  *ret_tau    = exp(p[1]) / (1+exp(p[1]));
+  *ret_tau    = exp(p[1]);
   return status;
 }
+
+#ifdef eslAUGMENT_HISTOGRAM
+struct wei_binned_data {
+  ESL_HISTOGRAM *h;	/* contains the binned observed data        */
+  double  mu;		/* mu is considered to be known, not fitted */
+};
+
+/* wei_binned_func():
+ * Returns the negative log likelihood of a binned data sample,
+ * in the API of the conjugate gradient descent optimizer in esl_minimizer.
+ */
+static double
+wei_binned_func(double *p, int nparam, void *dptr)
+{
+  struct wei_binned_data *data = (struct wei_binned_data *) dptr;
+  ESL_HISTOGRAM          *h    = data->h;
+  double lambda, tau;
+  double logL;
+  double ai,bi;
+  int    i; 
+    
+  /* Unpack what the optimizer gave us.
+   */
+  lambda = exp(p[0]); /* see below for c.o.v. notes */
+  tau    = exp(p[1]);
+
+  logL = 0.;
+  for (i = h->imin; i <= h->imax; i++)
+    {
+      if (h->obs[i] == 0) continue;
+
+      esl_histogram_GetBinBounds(h, i, &ai, &bi, NULL);
+      if (ai < data->mu) ai = data->mu;
+
+      logL += h->obs[i] * log(esl_wei_cdf(bi, data->mu, lambda, tau) -
+			      esl_wei_cdf(ai, data->mu, lambda, tau));
+    }
+  return -logL;			/* goal: minimize NLL */
+}
+
+/* Function:  esl_wei_FitCompleteBinned()
+ * Incept:    SRE, Sun Aug 21 15:17:45 2005 [St. Louis]
+ *
+ * Purpose:   Given a histogram <g> with binned observations, where each
+ *            bin i holds some number of observed samples x with values from 
+ *            lower bound l to upper bound u (that is, $l < x \leq u$), and
+ *            <mu>, the known offset (minimum value) of the distribution;
+ *            return maximum likelihood parameters <ret_lambda>
+ *            and <ret_tau>.
+ *            
+ * Args:      x          - complete GEV-distributed data [0..n-1]
+ *            n          - number of samples in <x>
+ *            mu         - lower bound of the distribution (all x_i > mu)
+ *            ret_lambda - RETURN: maximum likelihood estimate of lambda
+ *            ret_tau    - RETURN: maximum likelihood estimate of tau
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ *
+ * Xref:      STL9/136-137
+ */
+int
+esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double mu,
+			  double *ret_lambda, double *ret_tau)
+{
+  struct wei_binned_data data;
+  double p[2];			/* parameter vector                  */
+  double u[2];			/* max initial step size vector      */
+  double wrk[8];		/* 4 tmp vectors of length 2         */
+  double mean;
+  double lambda, tau;      	/* initial param guesses             */
+  double tol = 1e-6;		/* convergence criterion for CG      */
+  double fx;			/* f(x) at minimum; currently unused */
+  int    status;
+  int    i;
+
+  /* Make a good initial guess, based on exponential fit.
+   */
+  mean = 0.;
+  for (i = h->imin; i <= h->imax; i++) 
+    mean += (double)h->obs[i] * ((0.5*h->w)*i + h->bmin);
+  mu     = h->xmin;
+  lambda = 1 / (mean - mu);
+  tau    = 0.9;
+
+  /* load the data structure */
+  data.h   = h;
+  data.mu  = mu;
+
+  /* Change of variables;
+   *   lambda > 0, so c.o.v.  lambda = exp^w,  w = log(lambda);
+   *   tau > 0, same c.o.v.
+   */
+  p[0] = log(lambda);		
+  p[1] = log(tau);
+
+  u[0] = 1.0;
+  u[1] = 1.0;
+
+  /* pass problem to the optimizer
+   */
+  status = esl_min_ConjugateGradientDescent(p, u, 2, 
+					    &wei_binned_func, NULL,
+					    (void *)(&data),
+					    tol, wrk, &fx);
+  *ret_lambda = exp(p[0]);
+  *ret_tau    = exp(p[1]);
+  return status;
+}
+#endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/
 /*--------------------------- end fitting ----------------------------------*/
 

@@ -7,7 +7,9 @@
 #ifndef ESL_GUMBEL_INCLUDED
 #define ESL_GUMBEL_INCLUDED
 
-
+#ifdef eslAUGMENT_RANDOM
+#include <esl_random.h>
+#endif
 
 extern double  esl_gumbel_pdf    (double x, double mu, double lambda);
 extern double  esl_gumbel_logpdf (double x, double mu, double lambda);
@@ -15,9 +17,12 @@ extern double  esl_gumbel_cdf    (double x, double mu, double lambda);
 extern double  esl_gumbel_logcdf (double x, double mu, double lambda);
 extern double  esl_gumbel_surv   (double x, double mu, double lambda);
 extern double  esl_gumbel_logsurv(double x, double mu, double lambda);
+extern double  esl_gumbel_invcdf (double p, double mu, double lambda);
+
+extern double  esl_gumbel_generic_cdf   (double x, void *params);
+extern double  esl_gumbel_generic_invcdf(double p, void *params);
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
 extern double esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda);
 #endif
 

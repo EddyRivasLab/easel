@@ -1,7 +1,9 @@
 /* esl_mixgev.c
- * Statistical routines for mixtures of generalized extreme value distributions.
+ * Statistical routines for mixtures of generalized extreme value 
+ * distributions.
  * 
- * SRE, Mon Aug 15 08:48:19 2005  xref:STL9/139   [St. Louis]
+ * SRE, Mon Aug 15 08:48:19 2005 [St. Louis]
+ * xref STL9/139  
  * SVN $Id$
  */
 
@@ -284,7 +286,87 @@ esl_mixgev_logsurv(double x, ESL_MIXGEV *mg)
     }
   return esl_vec_DLogSum(mg->wrk, mg->K);
 }
-/*-------------------- end densities & distributions ---------------------------*/
+
+/* Function:  esl_mixgev_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:32:53 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse CDF for a mixture GEV <mg>,
+ *            returning the quantile <x> at which the CDF is <p>,
+ *            where $0 < p < 1$.
+ *            
+ *            The inverse CDF of a mixture model has no analytical
+ *            expression as far as I'm aware. The calculation here is
+ *            a brute force bisection search in <x> using the CDF
+ *            function. It will suffice for a small number of calls
+ *            (for plotting applications, for example), but beware, it is not
+ *            efficient.
+ */
+double
+esl_mixgev_invcdf(double p, ESL_MIXGEV *mg)
+{
+  double x1, x2, xm;		/* low, high guesses at x */
+  double f1, f2, fm;
+  double tol = 1e-6;
+
+  x2 = esl_vec_DMin(mg->mu, mg->K);
+  x1 = x2 - 1.;
+  do {				/* bracket, left side */
+    x1 = x1 + 2.*(x2-x1);
+    f1 = esl_mixgev_cdf(x1, mg);
+  } while (f1 > p);
+  do {				/* bracket, right side */
+    x2 = x2 + 2.*(x2-x1);
+    f2 = esl_mixgev_cdf(x2, mg);
+  } while (f2 < p);		
+
+  do {				/* bisection */
+    xm = (x1+x2) / 2.;
+    fm = esl_mixgev_cdf(xm, mg);
+    
+    if      (fm > p) x2 = xm;
+    else if (fm < p) x1 = xm;
+    else return xm;		/* unlikely case of fm==p */
+  } while ( (x2-x1)/(x1+x2+1e-9) > tol);
+
+  xm = (x1+x2) / 2.;
+  return xm;
+}
+/*-------------------- end densities & distributions ------------------------*/
+
+
+
+
+/****************************************************************************
+ * Generic API routines: for general interface w/ histogram module
+ ****************************************************************************/ 
+
+/* Function:  esl_mixgev_generic_cdf()
+ * Incept:    SRE, Sun Aug 21 14:44:06 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_mixgev_cdf()>, taking
+ *            a void ptr to a <ESL_MIXGEV> parameter structure.
+ */
+double
+esl_mixgev_generic_cdf(double x, void *params)
+{
+  ESL_MIXGEV *mg = (ESL_MIXGEV *) params;
+  return esl_mixgev_cdf(x, mg);
+}
+
+/* Function:  esl_mixgev_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:44:59 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_mixgev_invcdf()>, taking
+ *            a void ptr to a <ESL_MIXGEV> parameter structure.
+ */
+double
+esl_mixgev_generic_invcdf(double p, void *params)
+{
+  ESL_MIXGEV *mg = (ESL_MIXGEV *) params;
+  return esl_mixgev_invcdf(p, mg);
+}
+/*------------------------ end generic API ---------------------------------*/
+
 
 
 

@@ -1,0 +1,372 @@
+ID   SNRPA_DROME    STANDARD;      PRT;   216 AA.
+AC   P43332; Q9W4D7;
+DT   01-NOV-1995 (Rel. 32, Created)
+DT   01-NOV-1995 (Rel. 32, Last sequence update)
+DT   10-MAY-2005 (Rel. 47, Last annotation update)
+DE   U1 small nuclear ribonucleoprotein A (U1 snRNP protein A) (U1-A) (Sex
+DE   determination protein snf).
+GN   Name=snf; Synonyms=D25, fs(1)1621, liz; ORFNames=CG4528;
+OS   Drosophila melanogaster (Fruit fly).
+OC   Eukaryota; Metazoa; Arthropoda; Hexapoda; Insecta; Pterygota;
+OC   Neoptera; Endopterygota; Diptera; Brachycera; Muscomorpha;
+OC   Ephydroidea; Drosophilidae; Drosophila.
+OX   NCBI_TaxID=7227;
+RN   [1]
+RP   NUCLEOTIDE SEQUENCE.
+RX   MEDLINE=92350664; PubMed=1386424;
+RA   Harper D.S., Fresco L.D., Keene J.D.;
+RT   "RNA binding specificity of a Drosophila snRNP protein that shares
+RT   sequence homology with mammalian U1-A and U2-B' proteins.";
+RL   Nucleic Acids Res. 20:3645-3650(1992).
+RN   [2]
+RP   NUCLEOTIDE SEQUENCE.
+RC   STRAIN=Oregon-R;
+RX   MEDLINE=95011590; PubMed=7926776;
+RA   Flickinger T.W., Salz H.K.;
+RT   "The Drosophila sex determination gene snf encodes a nuclear protein
+RT   with sequence and functional similarity to the mammalian U1A snRNP
+RT   protein.";
+RL   Genes Dev. 8:914-925(1994).
+RN   [3]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+RC   STRAIN=Berkeley;
+RX   MEDLINE=20196006; PubMed=10731132; DOI=10.1126/science.287.5461.2185;
+RA   Adams M.D., Celniker S.E., Holt R.A., Evans C.A., Gocayne J.D.,
+RA   Amanatides P.G., Scherer S.E., Li P.W., Hoskins R.A., Galle R.F.,
+RA   George R.A., Lewis S.E., Richards S., Ashburner M., Henderson S.N.,
+RA   Sutton G.G., Wortman J.R., Yandell M.D., Zhang Q., Chen L.X.,
+RA   Brandon R.C., Rogers Y.-H.C., Blazej R.G., Champe M., Pfeiffer B.D.,
+RA   Wan K.H., Doyle C., Baxter E.G., Helt G., Nelson C.R., Miklos G.L.G.,
+RA   Abril J.F., Agbayani A., An H.-J., Andrews-Pfannkoch C., Baldwin D.,
+RA   Ballew R.M., Basu A., Baxendale J., Bayraktaroglu L., Beasley E.M.,
+RA   Beeson K.Y., Benos P.V., Berman B.P., Bhandari D., Bolshakov S.,
+RA   Borkova D., Botchan M.R., Bouck J., Brokstein P., Brottier P.,
+RA   Burtis K.C., Busam D.A., Butler H., Cadieu E., Center A., Chandra I.,
+RA   Cherry J.M., Cawley S., Dahlke C., Davenport L.B., Davies P.,
+RA   de Pablos B., Delcher A., Deng Z., Mays A.D., Dew I., Dietz S.M.,
+RA   Dodson K., Doup L.E., Downes M., Dugan-Rocha S., Dunkov B.C., Dunn P.,
+RA   Durbin K.J., Evangelista C.C., Ferraz C., Ferriera S., Fleischmann W.,
+RA   Fosler C., Gabrielian A.E., Garg N.S., Gelbart W.M., Glasser K.,
+RA   Glodek A., Gong F., Gorrell J.H., Gu Z., Guan P., Harris M.,
+RA   Harris N.L., Harvey D.A., Heiman T.J., Hernandez J.R., Houck J.,
+RA   Hostin D., Houston K.A., Howland T.J., Wei M.-H., Ibegwam C.,
+RA   Jalali M., Kalush F., Karpen G.H., Ke Z., Kennison J.A., Ketchum K.A.,
+RA   Kimmel B.E., Kodira C.D., Kraft C., Kravitz S., Kulp D., Lai Z.,
+RA   Lasko P., Lei Y., Levitsky A.A., Li J.H., Li Z., Liang Y., Lin X.,
+RA   Liu X., Mattei B., McIntosh T.C., McLeod M.P., McPherson D.,
+RA   Merkulov G., Milshina N.V., Mobarry C., Morris J., Moshrefi A.,
+RA   Mount S.M., Moy M., Murphy B., Murphy L., Muzny D.M., Nelson D.L.,
+RA   Nelson D.R., Nelson K.A., Nixon K., Nusskern D.R., Pacleb J.M.,
+RA   Palazzolo M., Pittman G.S., Pan S., Pollard J., Puri V., Reese M.G.,
+RA   Reinert K., Remington K., Saunders R.D.C., Scheeler F., Shen H.,
+RA   Shue B.C., Siden-Kiamos I., Simpson M., Skupski M.P., Smith T.,
+RA   Spier E., Spradling A.C., Stapleton M., Strong R., Sun E.,
+RA   Svirskas R., Tector C., Turner R., Venter E., Wang A.H., Wang X.,
+RA   Wang Z.-Y., Wassarman D.A., Weinstock G.M., Weissenbach J.,
+RA   Williams S.M., Woodage T., Worley K.C., Wu D., Yang S., Yao Q.A.,
+RA   Ye J., Yeh R.-F., Zaveri J.S., Zhan M., Zhang G., Zhao Q., Zheng L.,
+RA   Zheng X.H., Zhong F.N., Zhong W., Zhou X., Zhu S., Zhu X., Smith H.O.,
+RA   Gibbs R.A., Myers E.W., Rubin G.M., Venter J.C.;
+RT   "The genome sequence of Drosophila melanogaster.";
+RL   Science 287:2185-2195(2000).
+RN   [4]
+RP   GENOME REANNOTATION.
+RX   MEDLINE=22426069; PubMed=12537572;
+RA   Misra S., Crosby M.A., Mungall C.J., Matthews B.B., Campbell K.S.,
+RA   Hradecky P., Huang Y., Kaminker J.S., Millburn G.H., Prochnik S.E.,
+RA   Smith C.D., Tupy J.L., Whitfield E.J., Bayraktaroglu L., Berman B.P.,
+RA   Bettencourt B.R., Celniker S.E., de Grey A.D.N.J., Drysdale R.A.,
+RA   Harris N.L., Richter J., Russo S., Schroeder A.J., Shu S.Q.,
+RA   Stapleton M., Yamada C., Ashburner M., Gelbart W.M., Rubin G.M.,
+RA   Lewis S.E.;
+RT   "Annotation of the Drosophila melanogaster euchromatic genome: a
+RT   systematic review.";
+RL   Genome Biol. 3:RESEARCH0083.1-RESEARCH0083.22(2002).
+RN   [5]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA].
+RC   STRAIN=Berkeley;
+RX   MEDLINE=22426066; PubMed=12537569;
+RA   Stapleton M., Carlson J.W., Brokstein P., Yu C., Champe M.,
+RA   George R.A., Guarin H., Kronmiller B., Pacleb J.M., Park S., Wan K.H.,
+RA   Rubin G.M., Celniker S.E.;
+RT   "A Drosophila full-length cDNA resource.";
+RL   Genome Biol. 3:RESEARCH0080.1-RESEARCH0080.8(2002).
+CC   -!- FUNCTION: Binds stem loop II of U1 snRNA. It is the first snRNP to
+CC       interact with pre-mRNA. This interaction is required for the
+CC       subsequent binding of U2 snRNP and the U4/U6/U5 tri-snRNP (By
+CC       similarity). Plays a role in regulating sex-lethal splicing.
+CC   -!- SUBUNIT: Belongs to the spliceosome where it is associated with
+CC       snRNP U1.
+CC   -!- INTERACTION:
+CC       Q9V3N8:CG4103; NbExp=1; IntAct=EBI-174177, EBI-131989;
+CC   -!- SUBCELLULAR LOCATION: Nuclear.
+CC   -!- SIMILARITY: Belongs to the RNP U1 A/B" family.
+CC   -!- SIMILARITY: Contains 2 RRM (RNA recognition motif) domains.
+CC   --------------------------------------------------------------------------
+CC   This Swiss-Prot entry is copyright. It is produced through a collaboration
+CC   between  the Swiss Institute of Bioinformatics  and the  EMBL outstation -
+CC   the European Bioinformatics Institute.  There are no  restrictions on  its
+CC   use as long as its content is in no way modified and this statement is not
+CC   removed.
+CC   --------------------------------------------------------------------------
+DR   EMBL; M89775; AAA28441.1; -; mRNA.
+DR   EMBL; L29521; AAA28903.1; -; Genomic_DNA.
+DR   EMBL; AE003433; AAF46017.1; -; Genomic_DNA.
+DR   EMBL; AY061491; AAL29039.1; -; mRNA.
+DR   PIR; A54279; A54279.
+DR   HSSP; P09012; 1OIA.
+DR   SMR; P43332; 5-96, 136-216.
+DR   IntAct; P43332; -.
+DR   Ensembl; CG4528; Drosophila melanogaster.
+DR   FlyBase; FBgn0003449; snf.
+DR   GO; GO:0030532; C:small nuclear ribonucleoprotein complex; IDA.
+DR   GO; GO:0008248; F:pre-mRNA splicing factor activity; TAS.
+DR   GO; GO:0019099; P:female germ-line sex determination; NAS.
+DR   GO; GO:0009993; P:oogenesis (sensu Insecta); TAS.
+DR   GO; GO:0007539; P:primary sex determination, soma; NAS.
+DR   GO; GO:0008380; P:RNA splicing; TAS.
+DR   InterPro; IPR000504; RNP1_RRM.
+DR   Pfam; PF00076; RRM_1; 2.
+DR   SMART; SM00360; RRM; 2.
+DR   PROSITE; PS50102; RRM; 2.
+KW   mRNA processing; mRNA splicing; Nuclear protein; Repeat;
+KW   Ribonucleoprotein; RNA-binding; Spliceosome.
+FT   DOMAIN        7     86       RRM 1.
+FT   DOMAIN      142    216       RRM 2.
+FT   VARIANT      49     49       R -> H (in allele SNF1621; sterile).
+SQ   SEQUENCE   216 AA;  24547 MW;  5B736FFE36523373 CRC64;
+     MEMLPNQTIY INNLNEKIKK EELKKSLYAI FSQFGQILDI VALKTLKMRG QAFVIFKEIG
+     SASNALRTMQ GFPFYDKPMQ IAYSKSDSDI VAKIKGTFKE RPKKVKPPKP APGTDEKKDK
+     KKKPSSAENS NPNAQTEQPP NQILFLTNLP EETNEMMLSM LFNQFPGFKE VRLVPNRHDI
+     AFVEFTTELQ SNAAKEALQG FKITPTHAMK ITFAKK
+//
+ID   SNRPA_HUMAN    STANDARD;      PRT;   281 AA.
+AC   P09012;
+DT   01-NOV-1988 (Rel. 09, Created)
+DT   25-OCT-2004 (Rel. 45, Last sequence update)
+DT   13-SEP-2005 (Rel. 48, Last annotation update)
+DE   U1 small nuclear ribonucleoprotein A (U1 snRNP protein A) (U1A
+DE   protein) (U1-A).
+GN   Name=SNRPA;
+OS   Homo sapiens (Human).
+OC   Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+OC   Mammalia; Eutheria; Euarchontoglires; Primates; Catarrhini; Hominidae;
+OC   Homo.
+OX   NCBI_TaxID=9606;
+RN   [1]
+RP   NUCLEOTIDE SEQUENCE.
+RC   TISSUE=Liver;
+RX   MEDLINE=91340152; PubMed=1831431; DOI=10.1016/0378-1119(91)90077-O;
+RA   Nelissen R.L.H., Sillekens P.T.G., Beijer R.P.,
+RA   Geurts van Kessel A.H.M., van Venrooij W.J.;
+RT   "Structure, chromosomal localization and evolutionary conservation of
+RT   the gene encoding human U1 snRNP-specific A protein.";
+RL   Gene 102:189-196(1991).
+RN   [2]
+RP   NUCLEOTIDE SEQUENCE.
+RX   MEDLINE=88111575; PubMed=2962859;
+RA   Sillekens P.T.G., Habets W.J., Beijer R.P., van Venrooij W.J.;
+RT   "cDNA cloning of the human U1 snRNA-associated A protein: extensive
+RT   homology between U1 and U2 snRNP-specific proteins.";
+RL   EMBO J. 6:3841-3848(1987).
+RN   [3]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA].
+RC   TISSUE=Lung, and Lymph;
+RX   MEDLINE=22388257; PubMed=12477932; DOI=10.1073/pnas.242603899;
+RA   Strausberg R.L., Feingold E.A., Grouse L.H., Derge J.G.,
+RA   Klausner R.D., Collins F.S., Wagner L., Shenmen C.M., Schuler G.D.,
+RA   Altschul S.F., Zeeberg B., Buetow K.H., Schaefer C.F., Bhat N.K.,
+RA   Hopkins R.F., Jordan H., Moore T., Max S.I., Wang J., Hsieh F.,
+RA   Diatchenko L., Marusina K., Farmer A.A., Rubin G.M., Hong L.,
+RA   Stapleton M., Soares M.B., Bonaldo M.F., Casavant T.L., Scheetz T.E.,
+RA   Brownstein M.J., Usdin T.B., Toshiyuki S., Carninci P., Prange C.,
+RA   Raha S.S., Loquellano N.A., Peters G.J., Abramson R.D., Mullahy S.J.,
+RA   Bosak S.A., McEwan P.J., McKernan K.J., Malek J.A., Gunaratne P.H.,
+RA   Richards S., Worley K.C., Hale S., Garcia A.M., Gay L.J., Hulyk S.W.,
+RA   Villalon D.K., Muzny D.M., Sodergren E.J., Lu X., Gibbs R.A.,
+RA   Fahey J., Helton E., Ketteman M., Madan A., Rodrigues S., Sanchez A.,
+RA   Whiting M., Madan A., Young A.C., Shevchenko Y., Bouffard G.G.,
+RA   Blakesley R.W., Touchman J.W., Green E.D., Dickson M.C.,
+RA   Rodriguez A.C., Grimwood J., Schmutz J., Myers R.M.,
+RA   Butterfield Y.S.N., Krzywinski M.I., Skalska U., Smailus D.E.,
+RA   Schnerch A., Schein J.E., Jones S.J.M., Marra M.A.;
+RT   "Generation and initial analysis of more than 15,000 full-length human
+RT   and mouse cDNA sequences.";
+RL   Proc. Natl. Acad. Sci. U.S.A. 99:16899-16903(2002).
+RN   [4]
+RP   PROTEIN SEQUENCE OF 1-18, ACETYLATION SITE ALA-1, AND MASS
+RP   SPECTROMETRY.
+RC   TISSUE=B-cell lymphoma;
+RA   Bienvenut W.V.;
+RL   Unpublished observations (JAN-2004).
+RN   [5]
+RP   X-RAY CRYSTALLOGRAPHY (2.8 ANGSTROMS) OF 1-94.
+RX   MEDLINE=91061907; PubMed=2147232; DOI=10.1038/348515a0;
+RA   Nagai K., Oubridge C., Jessen T.-H., Li J., Evans P.R.;
+RT   "Crystal structure of the RNA-binding domain of the U1 small nuclear
+RT   ribonucleoprotein A.";
+RL   Nature 348:515-520(1990).
+RN   [6]
+RP   X-RAY CRYSTALLOGRAPHY (1.92 ANGSTROMS).
+RX   MEDLINE=95075454; PubMed=7984237; DOI=10.1038/372432a0;
+RA   Oubridge C., Ito N., Evans P.R., Teo C.-H., Nagai K.;
+RT   "Crystal structure at 1.92-A resolution of the RNA-binding domain of
+RT   the U1A spliceosomal protein complexed with an RNA hairpin.";
+RL   Nature 372:432-438(1994).
+RN   [7]
+RP   STRUCTURE BY NMR OF 10-93.
+RX   MEDLINE=91172834; PubMed=1826055;
+RA   Hoffman D.W., Query C.C., Golden B.L., White S.W., Keene J.D.;
+RT   "RNA-binding domain of the A protein component of the U1 small nuclear
+RT   ribonucleoprotein analyzed by NMR spectroscopy is structurally similar
+RT   to ribosomal proteins.";
+RL   Proc. Natl. Acad. Sci. U.S.A. 88:2495-2499(1991).
+RN   [8]
+RP   STRUCTURE BY NMR OF 1-101.
+RX   MEDLINE=94349935; PubMed=8070414;
+RA   Howe P.W.A., Nagai K., Neuhaus D., Varani G.;
+RT   "NMR studies of U1 snRNA recognition by the N-terminal RNP domain of
+RT   the human U1A protein.";
+RL   EMBO J. 13:3873-3881(1994).
+RN   [9]
+RP   STRUCTURE BY NMR OF 1-101.
+RX   MEDLINE=96186818; PubMed=8602269; DOI=10.1038/380646a0;
+RA   Allain F.H.-T., Gubser C.C., Howe P.W.A., Nagai K., Neuhaus D.,
+RA   Varani G.;
+RT   "Specificity of ribonucleoprotein interaction determined by RNA
+RT   folding during complex formulation.";
+RL   Nature 380:646-650(1996).
+RN   [10]
+RP   STRUCTURE BY NMR OF 1-116.
+RX   MEDLINE=96180024; PubMed=8609632; DOI=10.1006/jmbi.1996.0171;
+RA   Avis J.M., Allain F.H.-T., Howe P.W.A., Varani G., Nagai K.,
+RA   Neuhaus D.;
+RT   "Solution structure of the N-terminal RNP domain of U1A protein: the
+RT   role of C-terminal residues in structure stability and RNA binding.";
+RL   J. Mol. Biol. 257:398-411(1996).
+RN   [11]
+RP   STRUCTURE BY NMR OF 1-101.
+RX   MEDLINE=97459961; PubMed=9312034; DOI=10.1093/emboj/16.18.5764;
+RA   Allain F.H.-T., Howe P.W., Neuhaus D., Varani G.;
+RT   "Structural basis of the RNA-binding specificity of human U1A
+RT   protein.";
+RL   EMBO J. 16:5764-5772(1997).
+RN   [12]
+RP   STRUCTURE BY NMR OF 194-281.
+RX   MEDLINE=97410326; PubMed=9265619; DOI=10.1021/bi9709811;
+RA   Lu J., Hall K.B.;
+RT   "Tertiary structure of RBD2 and backbone dynamics of RBD1 and RBD2 of
+RT   the human U1A protein determined by NMR spectroscopy.";
+RL   Biochemistry 36:10393-10405(1997).
+RN   [13]
+RP   MUTAGENESIS, AND DETAILED STUDIES OF RNA-BINDING.
+RX   MEDLINE=92007796; PubMed=1833186;
+RA   Jessen T.-H., Oubridge C., Teo C.H., Pritchard C., Nagai K.;
+RT   "Identification of molecular contacts between the U1 A small nuclear
+RT   ribonucleoprotein and U1 RNA.";
+RL   EMBO J. 10:3447-3456(1991).
+CC   -!- FUNCTION: Binds stem loop II of U1 snRNA. It is the first snRNP to
+CC       interact with pre-mRNA. This interaction is required for the
+CC       subsequent binding of U2 snRNP and the U4/U6/U5 tri-snRNP.
+CC   -!- SUBUNIT: Belongs to the spliceosome where it is associated with
+CC       snRNP U1.
+CC   -!- SUBCELLULAR LOCATION: Nuclear.
+CC   -!- SIMILARITY: Belongs to the RNP U1 A/B" family.
+CC   -!- SIMILARITY: Contains 2 RRM (RNA recognition motif) domains.
+CC   --------------------------------------------------------------------------
+CC   This Swiss-Prot entry is copyright. It is produced through a collaboration
+CC   between  the Swiss Institute of Bioinformatics  and the  EMBL outstation -
+CC   the European Bioinformatics Institute.  There are no  restrictions on  its
+CC   use as long as its content is in no way modified and this statement is not
+CC   removed.
+CC   --------------------------------------------------------------------------
+DR   EMBL; M60784; AAA61245.1; -; Genomic_DNA.
+DR   EMBL; M60779; AAA61245.1; JOINED; Genomic_DNA.
+DR   EMBL; M60780; AAA61245.1; JOINED; Genomic_DNA.
+DR   EMBL; M60781; AAA61245.1; JOINED; Genomic_DNA.
+DR   EMBL; M60782; AAA61245.1; JOINED; Genomic_DNA.
+DR   EMBL; M60783; AAA61245.1; JOINED; Genomic_DNA.
+DR   EMBL; X06347; CAA29653.1; -; mRNA.
+DR   EMBL; BC000405; AAH00405.1; -; mRNA.
+DR   EMBL; BC008290; AAH08290.1; -; mRNA.
+DR   PIR; JQ1528; JQ1528.
+DR   PDB; 1AUD; NMR; A=1-101.
+DR   PDB; 1CX0; X-ray; A=3-96.
+DR   PDB; 1DRZ; X-ray; A=1-97.
+DR   PDB; 1DZ5; NMR; A/B=1-101.
+DR   PDB; 1FHT; NMR; @=1-116.
+DR   PDB; 1M5K; X-ray; C/F=1-99.
+DR   PDB; 1M5O; X-ray; C/F=1-99.
+DR   PDB; 1M5P; X-ray; C/F=1-99.
+DR   PDB; 1M5V; X-ray; C/F=1-99.
+DR   PDB; 1NU4; X-ray; A/B=1-97.
+DR   PDB; 1OIA; X-ray; A/B=1-94.
+DR   PDB; 1SJ3; X-ray; P=1-99.
+DR   PDB; 1SJ4; X-ray; P=1-99.
+DR   PDB; 1SJF; X-ray; A=1-99.
+DR   PDB; 1U6B; X-ray; A=1-97.
+DR   PDB; 1URN; X-ray; A/B/C=-.
+DR   PDB; 1VBX; X-ray; A=1-99.
+DR   PDB; 1VBY; X-ray; A=1-99.
+DR   PDB; 1VBZ; X-ray; A=1-99.
+DR   PDB; 1VC0; X-ray; A=1-99.
+DR   PDB; 1VC5; X-ray; A=1-99.
+DR   PDB; 1VC6; X-ray; A=1-99.
+DR   PDB; 1VC7; X-ray; A=1-99.
+DR   PDB; 2U1A; NMR; @=196-281.
+DR   PDB; 3UTR; Model; B/D=1-97.
+DR   Ensembl; ENSG00000077312; Homo sapiens.
+DR   Genew; HGNC:11151; SNRPA.
+DR   H-InvDB; HIX0015143; -.
+DR   Reactome; P09012; -.
+DR   MIM; 182285; -.
+DR   InterPro; IPR000504; RNP1_RRM.
+DR   Pfam; PF00076; RRM_1; 2.
+DR   SMART; SM00360; RRM; 2.
+DR   PROSITE; PS50102; RRM; 2.
+KW   3D-structure; Acetylation; Direct protein sequencing; mRNA processing;
+KW   mRNA splicing; Nuclear protein; Repeat; Ribonucleoprotein;
+KW   RNA-binding; Spliceosome.
+FT   INIT_MET      0      0
+FT   DOMAIN        9     88       RRM 1.
+FT   DOMAIN      207    281       RRM 2.
+FT   COMPBIAS    139    205       Pro-rich.
+FT   MOD_RES       1      1       N-acetylalanine.
+FT   MUTAGEN      10     10       T->V: Abolishes RNA binding.
+FT   MUTAGEN      12     12       Y->F: Substantially reduces RNA binding.
+FT   MUTAGEN      14     14       N->V: Abolishes RNA binding.
+FT   MUTAGEN      15     15       N->V: Substantially reduces RNA binding.
+FT   MUTAGEN      51     51       R->Q: Abolishes RNA binding.
+FT   STRAND       10     14
+FT   TURN         18     19
+FT   HELIX        22     33
+FT   TURN         34     36
+FT   STRAND       39     43
+FT   HELIX        48     50
+FT   TURN         51     52
+FT   STRAND       53     58
+FT   HELIX        61     71
+FT   TURN         72     73
+FT   STRAND       75     76
+FT   TURN         77     78
+FT   STRAND       79     80
+FT   STRAND       82     85
+FT   HELIX        92     96
+FT   STRAND      208    212
+FT   HELIX       220    228
+FT   TURN        229    229
+FT   TURN        231    232
+FT   STRAND      233    237
+FT   STRAND      245    250
+FT   HELIX       253    262
+FT   TURN        263    265
+FT   HELIX       268    270
+FT   TURN        271    271
+FT   STRAND      277    278
+SQ   SEQUENCE   281 AA;  31148 MW;  0D35F39F4C8B6500 CRC64;
+     AVPETRPNHT IYINNLNEKI KKDELKKSLY AIFSQFGQIL DILVSRSLKM RGQAFVIFKE
+     VSSATNALRS MQGFPFYDKP MRIQYAKTDS DIIAKMKGTF VERDRKREKR KPKSQETPAT
+     KKAVQGGGAT PVVGAVQGPV PGMPPMTQAP RIMHHMPGQP PYMPPPGMIP PPGLAPGQIP
+     PGAMPPQQLM PGQMPPAQPL SENPPNHILF LTNLPEETNE LMLSMLFNQF PGFKEVRLVP
+     GRHDIAFVEF DNEVQAGAAR DALQGFKITQ NNAMKISFAK K
+//

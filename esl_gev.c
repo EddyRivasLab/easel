@@ -30,11 +30,12 @@
 
 #include <easel.h>
 #include <esl_stats.h>
-#include <esl_vectorops.h>
 #include <esl_gev.h>
+
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
+
 #ifdef eslAUGMENT_MINIMIZER
 #include <esl_minimizer.h>
 #endif
@@ -129,7 +130,7 @@ esl_gev_cdf(double x, double mu, double lambda, double alpha)
 /* Function:  esl_gev_logcdf()
  * Incept:    SRE, Tue Jul 12 17:15:49 2005 [St. Louis]
  *
- * Purpose:   Calculates the log of the cumulative distribution function for the
+ * Purpose:   Calculates the log of the cumulative distribution function for a
  *            generalized extreme value distribution, $\log P(X \leq x)$, 
  *            given quantile <x> and GEV location, scale, shape
  *            parameters <mu>, <lambda>, <alpha>.
@@ -218,7 +219,88 @@ esl_gev_logsurv(double x, double mu, double lambda, double alpha)
    else if (lya1 < -2.9)                    return (-exp(-exp(-lya1)));
    else                                     return (log(1-exp(-exp(-lya1))));
 }
-/*-------------------- end densities & distributions ---------------------------*/
+
+/* Function:  esl_gev_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:14:14 2005 [St. Louis]
+ *
+ * Purpose:   Calculates the inverse CDF of the GEV: given a probability
+ *            <p> ($0 < p < 1$), returns the quantile <x> which would
+ *            give <p> as its CDF, for a generalized extreme value 
+ *            distribution with parameters <mu>, <lambda>, and <alpha>.
+ */
+double
+esl_gev_invcdf(double p, double mu, double lambda, double alpha)
+{
+  /* failover to Gumbel sample, for tiny alpha */
+  if (fabs(alpha) < 1e-12) return (mu - log(-1. * log(p)) / lambda);
+
+  return mu + (exp(-alpha*log(-log(p))) - 1.) / (alpha * lambda) ;
+}
+/*-------------------- end densities & distributions ------------------------*/
+
+
+
+/*****************************************************************
+ * Generic API routines: for general interface w/ histogram module
+ *****************************************************************/ 
+
+/* Function:  esl_gev_generic_cdf()
+ * Incept:    SRE, Sun Aug 21 14:18:19 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of CDF, for passing to histogram module's
+ *            <SetExpected()> and <Goodness()>.
+ */
+double
+esl_gev_generic_cdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_gev_cdf(x, p[0], p[1], p[2]);
+}
+
+/* Function:  esl_gev_generic_invcdf()
+ * Incept:    SRE, Sun Aug 21 14:18:41 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of inverse CDF, for passing to histogram 
+ *            module's <SetExpected()> and <Goodness()>.
+ */
+double
+esl_gev_generic_invcdf(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_gev_invcdf(p, v[0], v[1], v[2]);
+}
+/*------------------------- end of generic API --------------------------*/
+
+
+
+/****************************************************************************
+ * Routines for dumping plots for files
+ ****************************************************************************/ 
+
+/* Function:  esl_gev_Plot()
+ * Incept:    SRE, Sun Aug 21 14:20:34 2005 [St. Louis]
+ *
+ * Purpose:   Plot some GEV function <func> (for instance,
+ *            <esl_gev_pdf()>) for parameters <mu> and <lambda>, for
+ *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
+ *            output to an open stream <fp> in xmgrace XY input format.
+ *
+ * Returns:   <eslOK>.
+ */
+int
+esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
+	     double (*func)(double x, double mu, double lambda, double alpha), 
+	     double xmin, double xmax, double xstep)
+{
+  double x;
+  for (x = xmin; x <= xmax; x += xstep)
+    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, alpha));
+  fprintf(fp, "&\n");
+  return eslOK;
+}
+/*-------------------- end plot dumping routines ---------------------------*/
+
+
 
 
 /****************************************************************************
@@ -234,14 +316,9 @@ esl_gev_logsurv(double x, double mu, double lambda, double alpha)
 double
 esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha)
 {
-  double p, x;
+  double p;
   p = esl_rnd_UniformPositive(r); 
-
-  /* failover to Gumbel sample, for tiny alpha */
-  if (fabs(alpha) < 1e-12) return (mu - log(-1. * log(p)) / lambda);
-
-  x = mu + (exp(-alpha*log(-log(p))) - 1.) / (alpha * lambda) ;
-  return x;
+  return esl_gev_invcdf(p, mu, lambda, alpha);
 } 
 #endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
@@ -261,13 +338,13 @@ struct gev_data {
   double *x;	        /* data: n observed samples    */
   int     n;		/* number of observed samples  */
 
-  int     is_censored;	/* TRUE if a censored, not complete dataset           */
-  double  phi;	        /* censoring/truncation threshold: observed x_i > phi */
-  int     z;	        /* # of censored samples                              */
+  int     is_censored;	/* TRUE if a censored, not complete dataset      */
+  double  phi;	        /* censoring/truncation threshold: obs x_i > phi */
+  int     z;	        /* # of censored samples                         */
 };
 
 /* gev_func():
- * Returns the negative log likelihood of a complete or censored GEV data sample;
+ * Returns the neg log likelihood of a complete or censored GEV data sample;
  * in the API of the conjugate gradient descent optimizer in esl_minimizer.
  */
 static double

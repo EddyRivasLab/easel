@@ -11,7 +11,9 @@
 #include <esl_random.h>
 #endif
 
+#ifdef eslAUGMENT_HISTOGRAM
 #include <esl_histogram.h>
+#endif
 
 typedef struct {
   double *q;			/* mixture coefficients   [0..K-1]*/
@@ -33,8 +35,10 @@ extern double  esl_hxp_cdf    (double x, ESL_HYPEREXP *h);
 extern double  esl_hxp_logcdf (double x, ESL_HYPEREXP *h);
 extern double  esl_hxp_surv   (double x, ESL_HYPEREXP *h);
 extern double  esl_hxp_logsurv(double x, ESL_HYPEREXP *h);
+extern double  esl_hxp_invcdf (double p, ESL_HYPEREXP *h);
 
-extern double  esl_hxp_generic_cdf(double x, void *params);
+extern double  esl_hxp_generic_cdf   (double x, void *params);
+extern double  esl_hxp_generic_invcdf(double x, void *params);
 
 extern int esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
 			double (*func)(double x, ESL_HYPEREXP *h), 
@@ -47,8 +51,10 @@ extern double esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h);
 #ifdef eslAUGMENT_MINIMIZER
 extern int esl_hxp_FitGuess   (double *x, int n, ESL_HYPEREXP *h);
 extern int esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h);
+#ifdef eslAUGMENT_HISTOGRAM
 extern int esl_hxp_FitGuessBinned   (ESL_HISTOGRAM *g, ESL_HYPEREXP *h);
 extern int esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h);
+#endif
 #endif
 
 #endif /*ESL_HYPEREXP_INCLUDED*/

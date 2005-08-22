@@ -528,6 +528,58 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
   return eslOK;
 }
 
+/* Function:  esl_histogram_PlotQQ()
+ * Incept:    SRE, Sat Aug 20 14:15:01 2005 [St. Louis]
+ *
+ * Purpose:   Given a histogram <h> containing an empirically observed
+ *            distribution, and a pointer to a function <(*invcdf)()>
+ *            for an expected inverse cumulative distribution
+ *            function conditional on some parameters <params>;
+ *            output a Q-Q plot in xmgrace XY format to file <fp>.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h, 
+		     double (*invcdf)(double x, void *params), void *params)
+{
+  int i;
+  int c = 0;
+  double cdf;
+  double bi;
+  
+  if (h->is_full)    		/* use all (raw) scores? */
+    {
+      esl_histogram_Sort(h);
+
+      for (i = 0; i <= h->n-2; i++)   /* avoid last sample where cdf=1.0 */
+	{
+	  cdf = (double)(i+1)/(double)h->n;
+	  fprintf(fp, "%f\t%f\n", h->x[i], (*invcdf)(cdf, params));
+	}
+    }
+  else				/* else, use binned counts */
+    {
+      for (i = h->imin; i < h->imax; i--) /* again, avoid last bin, cdf=1.0 */
+	{
+	  c   += h->obs[i];
+	  cdf =  (double) c / h->n;
+	  esl_histogram_GetBinBounds(h, i, NULL, &bi, NULL);
+	  fprintf(fp, "%f\t%f\n", bi, (*invcdf)(cdf, params));
+	}
+    }
+  fprintf(fp, "&\n");
+
+  /* this plots a 45-degree expected QQ line:
+   */
+  fprintf(fp, "%f\t%f\n", h->xmin, h->xmin);
+  fprintf(fp, "%f\t%f\n", h->xmax, h->xmax);
+  fprintf(fp, "&\n");
+
+  return eslOK;
+}
+
+
 
 /* Function:  esl_histogram_SetExpect()
  * Incept:    SRE, Wed Aug 17 17:36:58 2005 [St. Louis]
