@@ -84,6 +84,8 @@ esl_sxp_cdf(double x, double mu, double lambda, double tau)
 
   if (x <= mu) return 0.;
   esl_stats_IncompleteGamma(1/tau, exp(tau * log(y)), &val);
+  
+  ESL_DASSERT1 (( !isnan(val)));
   return (1-val);
 }
 
@@ -355,6 +357,7 @@ esl_sxp_FitComplete(double *x, int n,
   return eslOK;
 }
 
+#ifdef eslAUGMENT_HISTOGRAM
 struct sxp_binned_data {
   ESL_HISTOGRAM *g;	/* contains the binned data    */
   double mu;		/* mu is not a learnable param */
@@ -369,9 +372,13 @@ sxp_complete_binned_func(double *p, int np, void *dptr)
   double ai, bi;		/* lower, upper bounds on bin */
   double lambda, tau;
   int    i;
+  double tmp;
 
   lambda = exp(p[0]);
   tau    = exp(p[1]);  
+
+  ESL_DASSERT1(( ! isnan(lambda) ));
+  ESL_DASSERT1(( ! isnan(tau) ));
   
   for (i = g->imin; i <= g->imax; i++) /* for each occupied bin */
     {
@@ -380,8 +387,10 @@ sxp_complete_binned_func(double *p, int np, void *dptr)
       esl_histogram_GetBinBounds(g, i, &ai, &bi, NULL);
       if (ai < data->mu) ai = data->mu; /* careful at leftmost bound */
 
-      logL += g->obs[i] * log(esl_sxp_cdf(bi, data->mu, lambda, tau) -
-			      esl_sxp_cdf(ai, data->mu, lambda, tau));
+      tmp = esl_sxp_cdf(bi, data->mu, lambda, tau) -
+            esl_sxp_cdf(ai, data->mu, lambda, tau);
+      if      (tmp == 0.) return eslINFINITY;
+      logL += g->obs[i] * log(tmp);
     }
   return -logL;			/* minimizing NLL */
 }
@@ -430,7 +439,7 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
   *ret_tau    = exp(p[1]);
   return eslOK;
 }
-
+#endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/
 
 /****************************************************************************
@@ -457,8 +466,8 @@ main(int argc, char **argv)
   ESL_HISTOGRAM  *h;
   ESL_RANDOMNESS *r;
   double mu     = -50.0;
-  double lambda = 0.5;
-  double tau    = 0.5;
+  double lambda = 2.5;
+  double tau    = 0.7;
   double emu, elam, etau;
   int    n      = 10000;
   int    i;

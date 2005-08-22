@@ -22,6 +22,10 @@ extern double  esl_gumbel_invcdf (double p, double mu, double lambda);
 extern double  esl_gumbel_generic_cdf   (double x, void *params);
 extern double  esl_gumbel_generic_invcdf(double p, void *params);
 
+extern int esl_gumbel_Plot(FILE *fp, double mu, double lambda, 
+			   double (*func)(double x, double mu, double lambda), 
+			   double xmin, double xmax, double xstep);
+
 #ifdef eslAUGMENT_RANDOM
 extern double esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda);
 #endif

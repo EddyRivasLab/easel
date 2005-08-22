@@ -76,8 +76,12 @@ esl_histogram_Create(double bmin, double bmax, double w)
   h->x         = NULL;
   h->nalloc    = 0;
 
-  h->is_full   = FALSE;
-  h->is_sorted = FALSE;
+  h->phi       = 0.;
+  h->z         = 0;
+
+  h->is_full     = FALSE;
+  h->is_sorted   = FALSE;
+  h->is_censored = FALSE;
 
   if ((h->obs = malloc(sizeof(int) * h->nb)) == NULL)
     { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed");}
@@ -128,6 +132,7 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
   free(h);
   return;
 }
+
 
 
 /* Function:  esl_histogram_Add()
@@ -513,7 +518,7 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
   if (h->is_full)    		/* use all (raw) scores? */
     {
       esl_histogram_Sort(h);
-      for (i = h->n-1; i >= 0; i--)	/* sorted w/ low score at 0, high at n-1 */
+      for (i = h->n-1; i >= 0; i--) /* sorted w/ low score at 0, high at n-1 */
 	fprintf(fp, "%f\t%g\n", h->x[i], (double)(h->n-i)/(double)h->n);
     }
   else				/* else, use binned counts */

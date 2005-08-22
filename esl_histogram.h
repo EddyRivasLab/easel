@@ -36,16 +36,28 @@ typedef struct {
   double *x;		/* optional: raw sample values x[0..n-1]            */
   int     nalloc;	/* current allocated size of x                      */
 
+  /* We need to know when a histogram contains censored data, for
+   * calculating expected #'s for bins that we use for goodness-of-fit.
+   */
+  double  phi;		/* censoring value; all x_i > phi             */
+  int     z;		/* # of censored values <= phi; total N = n+z */
+
   /* Some status flags
    */
   int is_full;		/* TRUE when we're keeping raw data in x   */
   int is_sorted;	/* TRUE if x is sorted smallest-to-largest */
+  int is_censored;	/* TRUE if data are censored               */
 } ESL_HISTOGRAM;
 
 
 extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double w);
 extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
 extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
+
+extern int            esl_histogram_SetCensoring(ESL_HISTOGRAM *h, double phi, int z);
+extern ESL_HISTOGRAM *esl_histogram_CensorByValue(ESL_HISTOGRAM *h, double phi)
+extern ESL_HISTOGRAM *esl_histogram_CensorByMass (ESL_HISTOGRAM *h, double tailfrac)
+
 
 extern int esl_histogram_Add(ESL_HISTOGRAM *h, double x);
 

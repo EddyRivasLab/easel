@@ -13,7 +13,6 @@
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
 
-
 /*****************************************************************
  * Available augmentations.
  * 
@@ -96,6 +95,10 @@
 /* Debugging hooks, w/ three levels (1-3).
  */
 #undef eslDEBUGLEVEL
+
+#if eslDEBUGLEVEL >= 1		/* for ESL_DASSERT() macros */
+#include <assert.h>
+#endif
 
 #if (eslDEBUGLEVEL >= 1)
 #define ESL_DPRINTF1(x)  printf x

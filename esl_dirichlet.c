@@ -339,7 +339,7 @@ esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, double *ret_answer)
   else if (a < 1.) 
     *ret_answer = gamma_fraction(r, a);
   else 
-    *ret_answer = gamma_ahrens(r, aint) + gamma_fraction(r, a-aint);
+    *ret_answer = gamma_integer(r, aint) + gamma_fraction(r, a-aint);
   return eslOK;
 }
 

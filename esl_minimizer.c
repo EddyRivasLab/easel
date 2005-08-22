@@ -41,6 +41,8 @@ numeric_derivative(double *x, double *u, int n,
       x[i] = tmp;
 
       dx[i] = (-0.5 * (f1-f2)) / delta;
+
+      ESL_DASSERT1((! isnan(dx[i])));
     }
 }
 
@@ -48,7 +50,7 @@ numeric_derivative(double *x, double *u, int n,
  * SRE, Wed Jul 27 11:43:32 2005 [St. Louis]
  *
  * Purpose:   Bracket a minimum. 
- *            
+ *
  *            The minimization is quasi-one-dimensional, 
  *            starting from an initial <n>-dimension vector <ori>
  *            in the <n>-dimensional direction <d>.
@@ -353,7 +355,7 @@ brent(double *ori, double *dir, int n,
   if (ret_x  != NULL) *ret_x  = x;
   if (ret_fx != NULL) *ret_fx = fx;
   ESL_DPRINTF2(("\nbrent(): %d iterations\n", niter));
-  ESL_DPRINTF1(("xx=%10.8f fx=%10.1f\n", x, fx));
+  ESL_DPRINTF2(("xx=%10.8f fx=%10.1f\n", x, fx));
 }
 
 
