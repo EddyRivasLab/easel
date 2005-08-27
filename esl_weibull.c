@@ -75,9 +75,9 @@ esl_wei_cdf(double x, double mu, double lambda, double tau)
   double y   = lambda*(x-mu);
   double tly = tau * log(y);
 
-  if      (x <= mu)          return 0.0;
-  else if (tly < eslSMALLX1) return exp(tly);
-  else                       return 1 - exp(-exp(tly));
+  if      (x <= mu)                return 0.0;
+  else if (fabs(tly) < eslSMALLX1) return exp(tly);
+  else                             return 1 - exp(-exp(tly));
 }
 
 /* Function:  esl_wei_logcdf()
@@ -93,9 +93,9 @@ esl_wei_logcdf(double x, double mu, double lambda, double tau)
   double y   = lambda*(x-mu);
   double tly = tau * log(y);
 
-  if      (tly < eslSMALLX1)              return tly;
-  else if (exp(-exp(tly)) < eslSMALLX1)   return -exp(-exp(tly)); 
-  else                                    return log(1 - exp(-exp(tly)));
+  if      (fabs(tly) < eslSMALLX1)              return tly;
+  else if (fabs(exp(-exp(tly))) < eslSMALLX1)   return -exp(-exp(tly)); 
+  else                                          return log(1 - exp(-exp(tly)));
 }
 
 
@@ -143,7 +143,7 @@ esl_wei_logsurv(double x, double mu, double lambda, double tau)
 double
 esl_wei_invcdf(double p, double mu, double lambda, double tau)
 {
-  return mu + 1/lambda * exp(1/tau * log(-log(p)));
+  return mu + 1/lambda * exp(1/tau * log(-log((1.-p))));
 }
 /*-------------------- end densities & distributions ------------------------*/
 
@@ -153,6 +153,20 @@ esl_wei_invcdf(double p, double mu, double lambda, double tau)
 /****************************************************************************
  * Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
+
+/* Function:  esl_wei_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 08:04:48 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_wei_pdf()>, taking
+ *            a void ptr to a double array containing $\mu$, $\lambda$,
+ *            $\tau$ parameters.
+ */
+double
+esl_wei_generic_pdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_wei_pdf(x, p[0], p[1], p[2]);
+}
 
 /* Function:  esl_wei_generic_cdf()
  * Incept:    SRE, Fri Aug 19 09:34:26 2005 [St. Louis]
@@ -166,6 +180,20 @@ esl_wei_generic_cdf(double x, void *params)
 {
   double *p = (double *) params;
   return esl_wei_cdf(x, p[0], p[1], p[2]);
+}
+
+/* Function:  esl_wei_generic_surv()
+ * Incept:    SRE, Fri Aug 19 09:34:26 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_wei_surv()>, taking
+ *            a void ptr to a double array containing $\mu$, $\lambda$,
+ *            $\tau$ parameters.
+ */
+double
+esl_wei_generic_surv(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_wei_surv(x, p[0], p[1], p[2]);
 }
 
 /* Function:  esl_wei_generic_invcdf()
@@ -361,6 +389,7 @@ wei_binned_func(double *p, int nparam, void *dptr)
   double logL;
   double ai,bi;
   int    i; 
+  double tmp;
     
   /* Unpack what the optimizer gave us.
    */
@@ -368,15 +397,21 @@ wei_binned_func(double *p, int nparam, void *dptr)
   tau    = exp(p[1]);
 
   logL = 0.;
-  for (i = h->imin; i <= h->imax; i++)
+  for (i = h->cmin; i <= h->imax; i++)
     {
       if (h->obs[i] == 0) continue;
 
-      esl_histogram_GetBinBounds(h, i, &ai, &bi, NULL);
+      ai = esl_histogram_Bin2LBound(h,i);
+      bi = esl_histogram_Bin2UBound(h,i);
       if (ai < data->mu) ai = data->mu;
 
-      logL += h->obs[i] * log(esl_wei_cdf(bi, data->mu, lambda, tau) -
-			      esl_wei_cdf(ai, data->mu, lambda, tau));
+      tmp = esl_wei_cdf(bi, data->mu, lambda, tau) -
+            esl_wei_cdf(ai, data->mu, lambda, tau);
+
+      if (tmp == 0.) return eslINFINITY;
+      ESL_DASSERT1( (tmp > 0.)); 
+
+      logL += h->obs[i] * log(tmp);
     }
   return -logL;			/* goal: minimize NLL */
 }
@@ -393,7 +428,7 @@ wei_binned_func(double *p, int nparam, void *dptr)
  *            
  * Args:      x          - complete GEV-distributed data [0..n-1]
  *            n          - number of samples in <x>
- *            mu         - lower bound of the distribution (all x_i > mu)
+ *            ret_mu     - lower bound of the distribution (all x_i > mu)
  *            ret_lambda - RETURN: maximum likelihood estimate of lambda
  *            ret_tau    - RETURN: maximum likelihood estimate of tau
  *
@@ -404,7 +439,7 @@ wei_binned_func(double *p, int nparam, void *dptr)
  * Xref:      STL9/136-137
  */
 int
-esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double mu,
+esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 			  double *ret_lambda, double *ret_tau)
 {
   struct wei_binned_data data;
@@ -412,18 +447,24 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double mu,
   double u[2];			/* max initial step size vector      */
   double wrk[8];		/* 4 tmp vectors of length 2         */
   double mean;
-  double lambda, tau;      	/* initial param guesses             */
+  double mu, lambda, tau;      	/* initial param guesses             */
   double tol = 1e-6;		/* convergence criterion for CG      */
   double fx;			/* f(x) at minimum; currently unused */
   int    status;
   int    i;
+  double ai;
 
   /* Make a good initial guess, based on exponential fit.
    */
   mean = 0.;
-  for (i = h->imin; i <= h->imax; i++) 
-    mean += (double)h->obs[i] * ((0.5*h->w)*i + h->bmin);
-  mu     = h->xmin;
+  for (i = h->cmin; i <= h->imax; i++) 
+    { 
+      ai = esl_histogram_Bin2LBound(h, i);
+      ai += 0.5*h->w;		/* midpoint in bin */
+      mean += (double)h->obs[i] * ai;
+    }
+  mean  /= h->No;
+  mu     = esl_histogram_Bin2LBound(h,h->cmin);
   lambda = 1 / (mean - mu);
   tau    = 0.9;
 
@@ -447,6 +488,7 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double mu,
 					    &wei_binned_func, NULL,
 					    (void *)(&data),
 					    tol, wrk, &fx);
+  *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
   return status;

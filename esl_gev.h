@@ -19,7 +19,9 @@ extern double esl_gev_surv   (double x, double mu, double lambda, double alpha);
 extern double esl_gev_logsurv(double x, double mu, double lambda, double alpha);
 extern double esl_gev_invcdf (double p, double mu, double lambda, double alpha);
 
+extern double esl_gev_generic_pdf   (double x, void *params);
 extern double esl_gev_generic_cdf   (double x, void *params);
+extern double esl_gev_generic_surv  (double x, void *params);
 extern double esl_gev_generic_invcdf(double p, void *params);
 
 extern int    esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,

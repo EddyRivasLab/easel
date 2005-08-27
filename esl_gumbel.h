@@ -19,7 +19,9 @@ extern double  esl_gumbel_surv   (double x, double mu, double lambda);
 extern double  esl_gumbel_logsurv(double x, double mu, double lambda);
 extern double  esl_gumbel_invcdf (double p, double mu, double lambda);
 
+extern double  esl_gumbel_generic_pdf   (double x, void *params);
 extern double  esl_gumbel_generic_cdf   (double x, void *params);
+extern double  esl_gumbel_generic_surv  (double x, void *params);
 extern double  esl_gumbel_generic_invcdf(double p, void *params);
 
 extern int esl_gumbel_Plot(FILE *fp, double mu, double lambda, 

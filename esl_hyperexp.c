@@ -318,11 +318,22 @@ esl_hxp_invcdf(double p, ESL_HYPEREXP *h)
  * Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
+/* Function:  esl_hxp_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 08:07:27 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of PDF call.
+ */
+double
+esl_hxp_generic_pdf(double x, void *params)
+{
+  ESL_HYPEREXP *h = (ESL_HYPEREXP *) params;
+  return esl_hxp_pdf(x, h);
+}
+
 /* Function:  esl_hxp_generic_cdf()
  * Incept:    SRE, Wed Aug 17 13:17:08 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of CDF call, for passing to histogram
- *            module's <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of CDF call.
  */
 double
 esl_hxp_generic_cdf(double x, void *params)
@@ -331,17 +342,28 @@ esl_hxp_generic_cdf(double x, void *params)
   return esl_hxp_cdf(x, h);
 }
 
+/* Function:  esl_hxp_generic_surv()
+ * Incept:    SRE, Thu Aug 25 08:07:50 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of survivor function.
+ */
+double
+esl_hxp_generic_surv(double x, void *params)
+{
+  ESL_HYPEREXP *h = (ESL_HYPEREXP *) params;
+  return esl_hxp_surv(x, h);
+}
+
 /* Function:  esl_hxp_generic_invcdf()
  * Incept:    SRE, Sun Aug 21 15:35:41 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of CDF call, for passing to histogram
- *            module's <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of inverse CDF.
  */
 double
-esl_hxp_generic_invcdf(double x, void *params)
+esl_hxp_generic_invcdf(double p, void *params)
 {
   ESL_HYPEREXP *h = (ESL_HYPEREXP *) params;
-  return esl_hxp_invcdf(x, h);
+  return esl_hxp_invcdf(p, h);
 }
 /*------------------------ end generic API ---------------------------------*/
 
@@ -666,11 +688,13 @@ hyperexp_complete_binned_func(double *p, int np, void *dptr)
   int    i,k;
 
   hyperexp_unpack_paramvector(p, np, h);
-  for (i = g->imin; i <= g->imax; i++) /* counting over occupied histogram bins */
+  delta = g->w;
+  /* counting over occupied, uncensored histogram bins */
+  for (i = g->cmin; i <= g->imax; i++) 
     {
       if (g->obs[i] == 0) continue; /* skip unoccupied ones */
 
-      esl_histogram_GetBinBounds(g, i, &ai, NULL, &delta);
+      ai    = esl_histogram_Bin2LBound(g, i);
       if (ai < h->mu) ai = h->mu; /* careful about the left boundary: no x < h->mu */
 
       for (k = 0; k < h->K; k++)
@@ -700,10 +724,13 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
   
   hyperexp_unpack_paramvector(p, np, h);
   esl_vec_DSet(dp, np, 0.);
-  for (i = g->imin; i <= g->imax; i++)
+  delta = g->w;
+
+  /* counting over occupied, uncensored histogram bins */
+  for (i = g->cmin; i <= g->imax; i++)
     {
       if (g->obs[i] == 0) continue;
-      esl_histogram_GetBinBounds(g, i, &ai, NULL, &delta);
+      ai = esl_histogram_Bin2LBound(g, i);
       if (ai < h->mu) ai = h->mu; /* careful about the left boundary: no x < h->mu */
 
       /* Calculate log (q_m alpha_m(a_i) terms
@@ -755,22 +782,24 @@ esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   int    n;
   int    i,k;
   int    nb;
-  double lowval;
+  double ai;
 
-  h->mu = g->xmin;
-  nb    = g->imax - g->imin + 1;
+  if (g->fit_describes == TAIL_FIT) h->mu = g->phi;
+  else                              h->mu = g->xmin;
+
+  nb    = g->imax - g->cmin + 1;
   k     = h->K-1;
   sum   = 0;
   n     = 0;
-  for (i = g->imax; i >= g->imin; i--)
+  for (i = g->imax; i >= g->cmin; i--)
     {
-      lowval  = g->w*(double)i+g->bmin; /* low bound in this bin */
-      if (lowval < g->xmin) lowval = g->xmin;
+      ai = esl_histogram_Bin2LBound(g,i);
+      if (ai < g->xmin) ai = g->xmin;
       n      += g->obs[i];
-      sum    += g->obs[i] * lowval;
+      sum    += g->obs[i] * ai;
       
-      if (i == g->imin + (k*nb)/h->K)
-	h->lambda[k--] = 1 / ((sum/(double) n) - lowval);
+      if (i == g->cmin + (k*nb)/h->K)
+	h->lambda[k--] = 1 / ((sum/(double) n) - ai);
     }
 
   for (k = 0; k < h->K; k++)

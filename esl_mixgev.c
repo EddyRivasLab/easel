@@ -340,6 +340,19 @@ esl_mixgev_invcdf(double p, ESL_MIXGEV *mg)
  * Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
+/* Function:  esl_mixgev_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 08:03:24 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_mixgev_pdf()>, taking
+ *            a void ptr to a <ESL_MIXGEV> parameter structure.
+ */
+double
+esl_mixgev_generic_pdf(double x, void *params)
+{
+  ESL_MIXGEV *mg = (ESL_MIXGEV *) params;
+  return esl_mixgev_pdf(x, mg);
+}
+
 /* Function:  esl_mixgev_generic_cdf()
  * Incept:    SRE, Sun Aug 21 14:44:06 2005 [St. Louis]
  *
@@ -351,6 +364,19 @@ esl_mixgev_generic_cdf(double x, void *params)
 {
   ESL_MIXGEV *mg = (ESL_MIXGEV *) params;
   return esl_mixgev_cdf(x, mg);
+}
+
+/* Function:  esl_mixgev_generic_surv()
+ * Incept:    SRE, Thu Aug 25 08:03:57 2005[St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_mixgev_surv()>, taking
+ *            a void ptr to a <ESL_MIXGEV> parameter structure.
+ */
+double
+esl_mixgev_generic_surv(double x, void *params)
+{
+  ESL_MIXGEV *mg = (ESL_MIXGEV *) params;
+  return esl_mixgev_surv(x, mg);
 }
 
 /* Function:  esl_mixgev_generic_invcdf()

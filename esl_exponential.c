@@ -11,8 +11,8 @@
 
 #include <easel.h>
 #include <esl_stats.h>
-#include <esl_vectorops.h>
 #include <esl_exponential.h>
+
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
@@ -156,11 +156,22 @@ esl_exp_invcdf(double p, double mu, double lambda)
  * Generic API routines: for general interface w/ histogram module
  *****************************************************************/ 
 
+/* Function:  esl_exp_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 07:58:34 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of PDF.
+ */
+double
+esl_exp_generic_pdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_exp_pdf(x, p[0], p[1]);
+}
+
 /* Function:  esl_exp_generic_cdf()
  * Incept:    SRE, Sun Aug 21 12:25:25 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of CDF, for passing to histogram module's
- *            <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of CDF.
  */
 double
 esl_exp_generic_cdf(double x, void *params)
@@ -169,11 +180,22 @@ esl_exp_generic_cdf(double x, void *params)
   return esl_exp_cdf(x, p[0], p[1]);
 }
 
+/* Function:  esl_exp_generic_surv()
+ * Incept:    SRE, Thu Aug 25 07:59:05 2005[St. Louis]
+ *
+ * Purpose:   Generic-API version of survival function.
+ */
+double
+esl_exp_generic_surv(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_exp_surv(x, p[0], p[1]);
+}
+
 /* Function:  esl_exp_generic_invcdf()
  * Incept:    SRE, Sun Aug 21 12:25:59 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of inverse CDF, for passing to histogram 
- *            module's <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of inverse CDF.
  */
 double
 esl_exp_generic_invcdf(double p, void *params)
@@ -251,13 +273,12 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
  * Incept:    SRE, Wed Aug 10 10:53:47 2005 [St. Louis]
  *
  * Purpose:   Given an array of <n> samples <x[0]..x[n-1]>, fit
- *            them to an exponential distribution starting at a
- *            known lower bound <mu> (all $x_i \geq \mu$). 
- *            Return maximum likelihood decay parameter <ret_lambda>.
+ *            them to an exponential distribution.
+ *            Return maximum likelihood parameters <ret_mu> and <ret_lambda>.
  *
  * Args:      x          - complete exponentially-distributed data [0..n-1]
  *            n          - number of samples in <x>
- *            mu         - lower bound of the distribution (all x_i >= mu)
+ *            ret_mu     - lower bound of the distribution (all x_i >= mu)
  *            ret_lambda - RETURN: maximum likelihood estimate of lambda
  *
  * Returns:   <eslOK> on success.
@@ -265,15 +286,21 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
  * Xref:      STL9/138.
  */
 int
-esl_exp_FitComplete(double *x, int n, double mu, double *ret_lambda)
+esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 {
-  double mean;
+  double mu, mean;
   int    i;
+
+  /* Define mu as the lowest score. mu=x is ok in the exponential.
+   */
+  mu = x[0];
+  for (i = 1; i < n; i++) if (x[i] < mu) mu = x[i];
 
   mean = 0.;
   for (i = 0; i < n; i++) mean += x[i] - mu;
   mean /= (double) n;
 
+  *ret_mu     = mu;
   *ret_lambda = 1./mean;	/* ML estimation is trivial in this case */
   return eslOK;
 }
@@ -284,13 +311,11 @@ esl_exp_FitComplete(double *x, int n, double mu, double *ret_lambda)
  *
  * Purpose:   Given a histogram <g> with binned observations, where each
  *            bin i holds some number of observed samples x with values from 
- *            lower bound l to upper bound u (that is, $l < x \leq u$),
- *            and given <mu>, the known offset (minimum value) of the
- *            distribution; 
- *            find maximum likelihood decay parameter $\lambda$ and 
- *            return it in <*ret_lambda>.
+ *            lower bound l to upper bound u (that is, $l < x \leq u$);
+ *            find maximum likelihood parameters $\mu,\lambda$ and 
+ *            return them in <*ret_mu>, <*ret_lambda>.
  *
- *            The ML estimate is obtained analytically, so this is
+ *            The ML estimates are obtained analytically, so this is
  *            fast. 
  *            
  *            If all the data are in one bin, the ML estimate of
@@ -301,21 +326,27 @@ esl_exp_FitComplete(double *x, int n, double mu, double *ret_lambda)
  * Returns:   <eslOK> on success.
  */
 int
-esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double mu, double *ret_lambda)
+esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
 {
   int    i;
   double ai, bi, delta;
   double sa, sb;
-  
+  double mu;
+
+  if (g->fit_describes == TAIL_FIT) mu = g->phi;  /* all x > mu in this case */
+  else                              mu = g->xmin; /* mu==x is ok */
+
   delta = g->w;
   sa = sb = 0.;
-  for (i = g->imin; i <= g->imax; i++) /* for each occupied bin */
+  for (i = g->cmin; i <= g->imax; i++) /* for each occupied bin */
     {
       if (g->obs[i] == 0) continue;
-      esl_histogram_GetBinBounds(g, i, &ai, &bi, NULL);
+      ai = esl_histogram_Bin2LBound(g,i);
+      bi = esl_histogram_Bin2UBound(g,i);
       sa += g->obs[i] * (ai-mu);
       sb += g->obs[i] * (bi-mu);
     }
+  *ret_mu     = mu;
   *ret_lambda = 1/delta * (log(sb) - log(sa));
   return eslOK;
 }
@@ -346,7 +377,7 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r;
   double mu     = -50.0;
   double lambda = 0.5;
-  double elambda;
+  double emu, elambda;
   int    n      = 10000;
   int    i;
   double x;
@@ -366,13 +397,13 @@ main(int argc, char **argv)
 	       &esl_exp_surv, h->xmin, h->xmax, 0.1);
 
   /* ML fit to complete data, and plot fitted survival curve */
-  esl_exp_FitComplete(h->x, h->n, mu, &elambda);
-  esl_exp_Plot(stdout, mu, elambda, 
+  esl_exp_FitComplete(h->x, h->n, &emu, &elambda);
+  esl_exp_Plot(stdout, emu, elambda, 
 	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
 
   /* ML fit to binned data, plot fitted survival curve  */
-  esl_exp_FitCompleteBinned(h, mu, &elambda);
-  esl_exp_Plot(stdout, mu, elambda,
+  esl_exp_FitCompleteBinned(h, &emu, &elambda);
+  esl_exp_Plot(stdout, emu, elambda,
 	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
   return 0;
 }

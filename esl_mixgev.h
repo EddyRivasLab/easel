@@ -36,7 +36,9 @@ extern double      esl_mixgev_surv   (double x, ESL_MIXGEV *mg);
 extern double      esl_mixgev_logsurv(double x, ESL_MIXGEV *mg);
 extern double      esl_mixgev_invcdf (double p, ESL_MIXGEV *mg);
 
+extern double      esl_mixgev_generic_pdf   (double x, void *params);
 extern double      esl_mixgev_generic_cdf   (double x, void *params);
+extern double      esl_mixgev_generic_surv  (double x, void *params);
 extern double      esl_mixgev_generic_invcdf(double p, void *params);
 
 extern int         esl_mixgev_Plot(FILE *fp, ESL_MIXGEV *mg,

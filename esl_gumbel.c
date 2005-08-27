@@ -166,11 +166,22 @@ esl_gumbel_invcdf(double p, double mu, double lambda)
  * Generic API routines: for general interface w/ histogram module
  *****************************************************************/ 
 
+/* Function:  esl_gumbel_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 07:56:04 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of PDF function.
+ */
+double
+esl_gumbel_generic_pdf(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_gumbel_pdf(p, v[0], v[1]);
+}
+
 /* Function:  esl_gumbel_generic_cdf()
  * Incept:    SRE, Sun Aug 21 12:10:49 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of CDF, for passing to histogram module's
- *            <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of CDF function.
  */
 double
 esl_gumbel_generic_cdf(double x, void *params)
@@ -179,12 +190,22 @@ esl_gumbel_generic_cdf(double x, void *params)
   return esl_gumbel_cdf(x, p[0], p[1]);
 }
 
+/* Function:  esl_gumbel_generic_surv()
+ * Incept:    SRE, Thu Aug 25 07:56:04 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API version of survival function.
+ */
+double
+esl_gumbel_generic_surv(double p, void *params)
+{
+  double *v = (double *) params;
+  return esl_gumbel_surv(p, v[0], v[1]);
+}
 
 /* Function:  esl_gumbel_generic_invcdf()
  * Incept:    SRE, Sun Aug 21 12:12:27 2005 [St. Louis]
  *
- * Purpose:   Generic-API version of inverse CDF, for passing to histogram 
- *            module's <SetExpected()> and <Goodness()>.
+ * Purpose:   Generic-API version of inverse CDF.
  */
 double
 esl_gumbel_generic_invcdf(double p, void *params)
@@ -192,6 +213,8 @@ esl_gumbel_generic_invcdf(double p, void *params)
   double *v = (double *) params;
   return esl_gumbel_invcdf(p, v[0], v[1]);
 }
+
+
 /*------------------------- end of generic API --------------------------*/
 
 

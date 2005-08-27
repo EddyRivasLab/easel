@@ -37,7 +37,9 @@ extern double  esl_hxp_surv   (double x, ESL_HYPEREXP *h);
 extern double  esl_hxp_logsurv(double x, ESL_HYPEREXP *h);
 extern double  esl_hxp_invcdf (double p, ESL_HYPEREXP *h);
 
+extern double  esl_hxp_generic_pdf   (double x, void *params);
 extern double  esl_hxp_generic_cdf   (double x, void *params);
+extern double  esl_hxp_generic_surv  (double x, void *params);
 extern double  esl_hxp_generic_invcdf(double x, void *params);
 
 extern int esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,

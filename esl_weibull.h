@@ -23,7 +23,9 @@ extern double esl_wei_surv   (double x, double mu, double lambda, double tau);
 extern double esl_wei_logsurv(double x, double mu, double lambda, double tau);
 extern double esl_wei_invcdf (double p, double mu, double lambda, double tau);
 
+extern double esl_wei_generic_pdf   (double x, void *params);
 extern double esl_wei_generic_cdf   (double x, void *params);
+extern double esl_wei_generic_surv  (double x, void *params);
 extern double esl_wei_generic_invcdf(double p, void *params);
 
 extern int esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
@@ -39,7 +41,7 @@ extern double esl_wei_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double
 extern int esl_wei_FitComplete(double *x, int n, double mu,
 			       double *ret_lambda, double *ret_tau);
 #ifdef eslAUGMENT_HISTOGRAM
-extern int esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double mu,
+extern int esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 				     double *ret_lambda, double *ret_tau);
 #endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/

@@ -25,6 +25,8 @@
 #ifdef eslAUGMENT_HISTOGRAM
 #include <esl_histogram.h>
 #endif
+
+
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
@@ -106,8 +108,6 @@ esl_sxp_logcdf(double x, double mu, double lambda, double tau)
   esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), &val);
   return log(1 - val);
 }
-
-
 
 /* Function:  esl_sxp_surv()
  * Incept:    SRE, Fri Aug 19 11:38:24 2005 [St. Louis]
@@ -197,6 +197,20 @@ esl_sxp_invcdf(double p, double mu, double lambda, double tau)
  * Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
+/* Function:  esl_sxp_generic_pdf()
+ * Incept:    SRE, Thu Aug 25 08:06:14 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_sxp_pdf()>, taking
+ *            a void ptr to a double array containing $\mu$, $\lambda$,
+ *            $\tau$ parameters.
+ */
+double
+esl_sxp_generic_pdf(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_sxp_pdf(x, p[0], p[1], p[2]);
+}
+
 /* Function:  esl_sxp_generic_cdf()
  * Incept:    SRE, Fri Aug 19 13:54:26 2005 [St. Louis]
  *
@@ -209,6 +223,20 @@ esl_sxp_generic_cdf(double x, void *params)
 {
   double *p = (double *) params;
   return esl_sxp_cdf(x, p[0], p[1], p[2]);
+}
+
+/* Function:  esl_sxp_generic_surv()
+ * Incept:    SRE, Thu Aug 25 08:06:33 2005 [St. Louis]
+ *
+ * Purpose:   Generic-API wrapper around <esl_sxp_surv()>, taking
+ *            a void ptr to a double array containing $\mu$, $\lambda$,
+ *            $\tau$ parameters.
+ */
+double
+esl_sxp_generic_surv(double x, void *params)
+{
+  double *p = (double *) params;
+  return esl_sxp_surv(x, p[0], p[1], p[2]);
 }
 
 /* Function:  esl_sxp_generic_invcdf()
@@ -380,11 +408,12 @@ sxp_complete_binned_func(double *p, int np, void *dptr)
   ESL_DASSERT1(( ! isnan(lambda) ));
   ESL_DASSERT1(( ! isnan(tau) ));
   
-  for (i = g->imin; i <= g->imax; i++) /* for each occupied bin */
+  for (i = g->cmin; i <= g->imax; i++) /* for each occupied bin */
     {
       if (g->obs[i] == 0) continue;
       
-      esl_histogram_GetBinBounds(g, i, &ai, &bi, NULL);
+      ai = esl_histogram_Bin2LBound(g, i);
+      bi = esl_histogram_Bin2UBound(g, i);
       if (ai < data->mu) ai = data->mu; /* careful at leftmost bound */
 
       tmp = esl_sxp_cdf(bi, data->mu, lambda, tau) -
@@ -417,7 +446,8 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
   int    status;
 
   /* initial guesses are arbitrary */
-  mu     = g->xmin; 	/* fix mu here; no point in optimizing it */
+  if (g->fit_describes == TAIL_FIT) mu = g->phi;   /* fix mu here; no point in optimizing it */
+  else                              mu = g->xmin; 	
   lambda = 1.0;
   tau    = 0.42;
 
