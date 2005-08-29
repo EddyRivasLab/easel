@@ -36,7 +36,9 @@ esl_wei_pdf(double x, double mu, double lambda, double tau)
   double y    = lambda * (x-mu);
   double val;
 
-  if (x < mu) return 0.;
+  if (x < mu)              return 0.;
+  if (x == mu && tau <  1) return eslINFINITY;
+  if (x == mu && tau >= 1) return 0.;
 
   val = lambda * tau * 
     exp((tau-1)*log(y)) *
@@ -57,7 +59,10 @@ esl_wei_logpdf(double x, double mu, double lambda, double tau)
   double y = lambda * (x-mu);
   double val;
 
-  if (x < mu) return -eslINFINITY;
+  if (x < mu)               return -eslINFINITY;
+  if (x == mu && tau <  1.) return  eslINFINITY; /* technically; but approaches it slowly*/
+  if (x == mu && tau >= 1.) return -eslINFINITY; /* same as above, also a slow approach  */
+
   val = log(tau) + tau*log(lambda) + (tau-1)*log(x-mu) - exp(tau * log(y));
   return val;
 }
