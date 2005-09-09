@@ -363,6 +363,99 @@ S160:
 }
 
 
+
+/* subfunctions that esl_rnd_Gamma() is going to call:
+ */
+static double
+gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
+{
+  double V;			/* uniform deviates */
+  double X,Y;
+  double test;
+  
+  do {
+    do {				/* generate candidate X */
+      Y = tan(eslCONST_PI * esl_random(r)); 
+      X = Y * sqrt(2.*a -1.) + a - 1.;
+    } while (X <= 0.);
+				/* accept/reject X */
+    V    = esl_random(r);
+    test = (1+Y*Y) * exp( (a-1.)* log(X/(a-1.)) - Y*sqrt(2.*a-1.));
+  } while (V > test);
+  return X;
+}
+static double
+gamma_integer(ESL_RANDOMNESS *r, unsigned int a)	/* for small integer a, a < 12 */
+{
+  int    i;
+  double U,X;
+
+  U = 1.;
+  for (i = 0; i < a; i++) 
+    U *= esl_rnd_UniformPositive(r);
+  X = -log(U);
+
+  return X;
+}
+static double
+gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
+{				/* Knuth 3.4.1, exercise 16, pp. 586-587 */
+  double p, U, V, X, q;
+  
+  p = eslCONST_E / (a + eslCONST_E);
+  do {
+    U = esl_random(r);
+    V = esl_rnd_UniformPositive(r);
+    if (U < p) {
+      X = pow(V, 1./a);
+      q = exp(-X);
+    } else {
+      X = 1. - log(V);
+      q = pow(X, a-1.);
+    }
+    U = esl_random(r);
+  } while (U >= q);
+  return X;
+}
+
+
+/* Function: esl_rnd_Gamma()
+ * Date:     SRE, Wed Apr 17 13:10:03 2002 [St. Louis]
+ *
+ * Purpose:  Return a random deviate distributed as Gamma(a, 1.).
+ *           
+ *           Follows Knuth, vol. 2 Seminumerical Algorithms, pp.133-134.
+ *           Also relies on examination of the implementation in
+ *           the GNU Scientific Library (libgsl). The implementation
+ *           relies on three separate gamma function algorithms:
+ *           <gamma_ahrens()>, <gamma_integer()>, and <gamma_fraction()>.
+ *
+ * Args:     r      - random number generation seed
+ *           a      - order of the gamma function; a > 0
+ *
+ * Returns:  the gamma-distributed deviate.
+ *
+ * Throws:   <eslEINVAL> for $a <= 0$.
+ */
+double
+esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
+{
+  double aint;
+
+  aint = floor(a);
+  if (a == aint && a < 12.) 
+    return gamma_integer(r, (unsigned int) a);
+  else if (a > 3.) 
+    return gamma_ahrens(r, a);
+  else if (a < 1.) 
+    return gamma_fraction(r, a);
+  else 
+    return gamma_integer(r, aint) + gamma_fraction(r, a-aint);
+  return eslOK;
+}
+
+
+
 /* Function:  esl_rnd_DChoose()
  *
  * Purpose:   Make a random choice from a normalized discrete

@@ -227,10 +227,6 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
  ***************************************************************** 
  */
 #ifdef eslAUGMENT_RANDOM
-static double gamma_ahrens(ESL_RANDOMNESS *r, double a);
-static double gamma_integer(ESL_RANDOMNESS *r, unsigned int a);
-static double gamma_fraction(ESL_RANDOMNESS *r, double a);
-
 /* Function:  esl_dirichlet_Sample()
  * Incept:    SRE, Tue Nov  2 14:30:31 2004 [St. Louis]
  *
@@ -250,10 +246,9 @@ int
 esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
 {
   int x;
-  int status;  
 
   for (x = 0; x < K; x++) 
-    if ((status = esl_dirichlet_SampleGamma(r, alpha[x], &(p[x]))) != eslOK) return status;
+    p[x] = esl_rnd_Gamma(r, alpha[x]);
   esl_vec_DNorm(p, K);
   return eslOK;
 }
@@ -277,7 +272,7 @@ esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p)
 {
   int x;
   for (x = 0; x < K; x++) 
-    esl_dirichlet_SampleGamma(r, 1.0, &(p[x]));
+    p[x] = esl_rnd_Gamma(r, 1.0);
   esl_vec_DNorm(p, K);
   return eslOK;
 }
@@ -294,105 +289,12 @@ esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p)
 int
 esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double *ret_answer)
 {
-  int status;
   double p, q;
 
-  if ((status = esl_dirichlet_SampleGamma(r, theta1, &p)) != eslOK) return status;
-  if ((status = esl_dirichlet_SampleGamma(r, theta2, &q)) != eslOK) return status;
+  p = esl_rnd_Gamma(r, theta1);
+  q = esl_rnd_Gamma(r, theta2);
   *ret_answer = p / (p+q);
   return eslOK;
-}
-
-
-/* Function: esl_dirichlet_SampleGamma()
- * Date:     SRE, Wed Apr 17 13:10:03 2002 [St. Louis]
- *
- * Purpose:  Return a random deviate distributed as Gamma(a, 1.).
- *           
- *           Follows Knuth, vol. 2 Seminumerical Algorithms, pp.133-134.
- *           Also relies on examination of the implementation in
- *           the GNU Scientific Library (libgsl). The implementation
- *           relies on three separate gamma function algorithms:
- *           <gamma_ahrens()>, <gamma_integer()>, and <gamma_fraction()>.
- *
- * Args:     r          - random number generation seed
- *           alpha      - order of the gamma function
- *           ret_answer - RETURN: a sample from Gamma(a, 1).
- *
- * Returns:  a gamma-distributed deviate is put in <ret_answer>;
- *           returns <eslOK>.
- *
- * Throws:   <eslEINVAL> for $a <= 0$.
- */
-int
-esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, double *ret_answer)
-{
-  double aint;
-
-  if (a <= 0.) ESL_ERROR(eslEINVAL, "a <= 0 in esl_dirichlet_SampleGamma()");
-
-  aint = floor(a);
-  if (a == aint && a < 12.) 
-    *ret_answer = gamma_integer(r, (unsigned int) a);
-  else if (a > 3.) 
-    *ret_answer = gamma_ahrens(r, a);
-  else if (a < 1.) 
-    *ret_answer = gamma_fraction(r, a);
-  else 
-    *ret_answer = gamma_integer(r, aint) + gamma_fraction(r, a-aint);
-  return eslOK;
-}
-
-static double
-gamma_ahrens(ESL_RANDOMNESS *r, double a)	/* for a >= 3 */
-{
-  double V;			/* uniform deviates */
-  double X,Y;
-  double test;
-  
-  do {
-    do {				/* generate candidate X */
-      Y = tan(eslCONST_PI * esl_random(r)); 
-      X = Y * sqrt(2.*a -1.) + a - 1.;
-    } while (X <= 0.);
-				/* accept/reject X */
-    V    = esl_random(r);
-    test = (1+Y*Y) * exp( (a-1.)* log(X/(a-1.)) - Y*sqrt(2.*a-1.));
-  } while (V > test);
-  return X;
-}
-static double
-gamma_integer(ESL_RANDOMNESS *r, unsigned int a)	/* for small integer a, a < 12 */
-{
-  int    i;
-  double U,X;
-
-  U = 1.;
-  for (i = 0; i < a; i++) 
-    U *= esl_rnd_UniformPositive(r);
-  X = -log(U);
-
-  return X;
-}
-static double
-gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
-{				/* Knuth 3.4.1, exercise 16, pp. 586-587 */
-  double p, U, V, X, q;
-  
-  p = eslCONST_E / (a + eslCONST_E);
-  do {
-    U = esl_random(r);
-    V = esl_rnd_UniformPositive(r);
-    if (U < p) {
-      X = pow(V, 1./a);
-      q = exp(-X);
-    } else {
-      X = 1. - log(V);
-      q = pow(X, a-1.);
-    }
-    U = esl_random(r);
-  } while (U >= q);
-  return X;
 }
 #endif /*eslAUGMENT_RANDOM*/
 
@@ -418,11 +320,17 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
  *            This function may be called more than once on the same open file,
  *            to read multiple different mixture Dirichlets from it (transitions,
  *            match emissions, insert emissions, for example).
+ *            
+ * Note:      One reason this function takes an ESL_FILEPARSER instead of 
+ *            a filename or an open FILE pointer is that file format errors
+ *            in Easel are non-fatal "normal" errors, and we want to record
+ *            an informative error message. The ESL_FILEPARSER has an error
+ *            buffer for this purpose. 
  *
  * Returns:   <eslOK> on success, and <ret_pri> contains a new <ESL_MIXDCHLET> object 
  *            that the caller is responsible for free'ing.
  *
- * Throws:    <eslEFORMAT> on parse failure, in which case <efp->errbuf>
+ *            <eslEFORMAT> on 'normal' parse failure, in which case <efp->errbuf>
  *            contains an informative diagnostic message, and <efp->linenumber>
  *            contains the linenumber at which the parse failed.
  */

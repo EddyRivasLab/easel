@@ -84,8 +84,9 @@ esl_histogram_Create(double bmin, double bmax, double w)
 
   h->is_full       = FALSE;
   h->is_sorted     = FALSE;
+  h->is_rounded    = FALSE;
+  h->is_tailfit    = FALSE;
   h->dataset_is    = COMPLETE;
-  h->fit_describes = COMPLETE_FIT;
 
   if ((h->obs = malloc(sizeof(int) * h->nb)) == NULL)
     { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed");}
@@ -162,8 +163,10 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   int b,i;			/* what bin we're in                       */
   int nnew;			/* # of new bins created by a reallocation */
 
-  /* Censoring info must only be set on a finished histogram */
-  if (h->dataset_is != COMPLETE)
+  /* Censoring info must only be set on a finished histogram;
+   * don't allow caller to add data after configuration has been declared
+   */
+  if (h->dataset_is != COMPLETE || h->is_tailfit)
     ESL_ERROR(eslEINVAL, "can't add more data to this histogram");
 
   h->is_sorted = FALSE;		/* not any more! */
@@ -466,7 +469,7 @@ esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double tfrac)
   return eslOK;
 }
 
-/* Function:  esl_histogram_SetTailfitting()
+/* Function:  esl_histogram_DeclareTailfitting()
  * Incept:    SRE, Tue Aug 23 10:59:11 2005 [St. Louis]
  *
  * Purpose:   Inform a histogram that the expected fit (and subsequent
@@ -477,17 +480,45 @@ esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double tfrac)
  *            
  *            This affects how expected numbers are calculated. If
  *            a tail fit is declared, expected numbers in the tail
- *            are calculated as <h->Nc-h->z> times the expected density.
+ *            are calculated as <Nx> $=$ <h->Nc-h->z> times the expected density.
  *            Otherwise, expected numbers in the tail are calculated
- *            as  <h->Nc> times the expected density.
+ *            as <Nx> $=$ <h->Nc> times the expected density.
+ *            
+ *            This must be called after the dataset is collected,
+ *            not before or during.
  */
 int
-esl_histogram_SetTailfitting(ESL_HISTOGRAM *h)
+esl_histogram_DeclareTailfitting(ESL_HISTOGRAM *h)
 {
-  h->Nx            = h->Nc - h->z; 
-  h->fit_describes = TAIL_FIT;
+  h->Nx         = h->Nc - h->z; 
+  h->is_tailfit = TRUE;
   return eslOK;
 }
+
+/* Function:  esl_histogram_DeclareRounding()
+ * Incept:    SRE, Tue Aug 30 11:42:07 2005 [St. Louis]
+ *
+ * Purpose:   Inform a histogram that the input data values are already
+ *            rounded (effectively pre-binned), and that (presumably) we have
+ *            created the histogram bin widths and bounds to align properly
+ *            to this rounding. The histogram will thereafter ignore
+ *            the raw data values <h->x[]> in any plotting or goodness of
+ *            fit evaluation, and only use the binned data. This avoids
+ *            artifactual results that arise from the discontinuity of 
+ *            the raw data values.
+ *            
+ *            The caller can of course still access the full <h->x[]>
+ *            data value array itself, if desired.
+ *
+ * Returns:   <eslOK>
+ */
+int
+esl_histogram_DeclareRounding(ESL_HISTOGRAM *h)
+{
+  h->is_rounded = TRUE;
+  return eslOK;
+}
+
 
 
 /* Function:  esl_histogram_SetExpect()
@@ -530,7 +561,9 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
   if (h->expect == NULL) 
     ESL_MALLOC(h->expect, sizeof(double) * h->nb);
 
-  for (i = 0; i < h->nb; i++)
+  for (i = 0; i < h->cmin; i++) h->expect[i] = 0.;
+
+  for (i = h->cmin; i < h->nb; i++)
     {
       ai = esl_histogram_Bin2LBound(h, i);
       bi = esl_histogram_Bin2UBound(h, i);
@@ -733,11 +766,11 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
  * Incept:    SRE, Wed Aug 17 08:26:10 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h>, output the empirical survival function
- *            (1-CDF, P(X>x)) to an xmgrace XY file <fp>.
+ *            (1-CDF, P(X>x)) to an xmgrace XY file <fp>. 
  *
  *            If raw scores are available (in a full histogram) it uses those
  *            for a higher-resolution plot. If not, it uses the binned scores
- *            and produces a lower-resolution plot.
+ *            and produces a lower-resolution empirical plot. 
  *            
  * Returns:   <eslOK> on success.
  */
@@ -747,11 +780,14 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
   int i;
   int c = 0;
   double lastx, delta; /* used to reduce the density of points in full plots */
+  double ai;
   
-  if (h->is_full)    		/* use all (raw) scores? */
+  /* The observed counts:
+   */
+  delta = h->w / 20.;
+  if (h->is_full && ! h->is_rounded) 	/* use all (raw) scores? */
     {
       esl_histogram_Sort(h);
-      delta = h->w / 20.;
 
       lastx = DBL_MAX;
       for (i = h->n-1; i >= h->z; i--) /* sorted w/ low score at 0, high at n-1 */
@@ -765,8 +801,11 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
     {
       for (i = h->imax; i >= h->cmin; i--)
 	{
-	  c   += h->obs[i];
-	  fprintf(fp, "%f\t%f\n", i*h->w + h->bmin, (double) c / (double) h->Nc);
+	  if (h->obs[i] > 0) {
+	    c   += h->obs[i];
+	    ai = esl_histogram_Bin2LBound(h, i);
+	    fprintf(fp, "%f\t%f\n", ai, (double) c / (double) h->Nc);
+	  }
 	}
     }
   fprintf(fp, "&\n");
@@ -803,14 +842,24 @@ esl_histogram_PlotTheory(FILE *fp, ESL_HISTOGRAM *h,
 {
   double x;
   double xmin, xmax, xstep;
+  double delta;
 
-  xmin  = (h->dataset_is == COMPLETE) ? h->xmin : h->phi;
-  xmax  = h->xmax;
-  xstep = h->w / 20.; 	/* plot points at 20x resolution of bin width */
+  /* delta is a fudge factor that we add onto the spread of the
+   * x axis beyond xmin and xmax, so we can see the theoretical fit
+   * extrapolated beyond where we have observed data. Heuristically,
+   * set delta to be the width of 25% of the number of occupied bins.
+   * (Definitely need delta to be a multiple of h->w.)
+   */
+  delta = h->w * (double) ((h->imax - h->cmin + 1) / 4);
+
+  xmin  = esl_histogram_Bin2LBound(h, h->cmin);
+  if (! h->is_tailfit) xmin -= delta;
+  xmax  = h->xmax + delta;
+  xstep = h->w;
 
   for (x = xmin; x <= xmax; x += xstep)
-    printf("%f\t%f\n", x, (*fx)(x, params));
-  printf("&\n");
+    fprintf(fp, "%f\t%g\n", x, ((double) h->Nx / (double) h->Nc) * (*fx)(x, params));
+  fprintf(fp, "&\n");
   return eslOK;
 }
 
@@ -844,10 +893,10 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
    * not 0. 
    */
   if ((h->dataset_is == TRUE_CENSORED || h->dataset_is == VIRTUAL_CENSORED)
-      && h->fit_describes == COMPLETE_FIT)	  
+      && h->is_tailfit)
     sum = h->z; 
 
-  if (h->is_full)    		/* use all (raw) scores? */
+  if (h->is_full && ! h->is_rounded)   		/* use all (raw) scores? */
     {
       esl_histogram_Sort(h);
       delta = h->w / 20.;
@@ -873,7 +922,7 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
     }
   else				/* else, use binned counts */
     {
-      for (i = h->cmin; i < h->imax; i--) /* again, avoid last bin, cdf=1.0 */
+      for (i = h->cmin; i < h->imax; i++) /* again, avoid last bin, cdf=1.0 */
 	{
 	  sum += (double) h->obs[i];
 	  cdf = sum / (double) h->Nx;
@@ -941,8 +990,7 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
 int
 esl_histogram_Goodness(ESL_HISTOGRAM *h, 
 		       double (*cdf)(double x, void *params), void *params,
-		       int nfitted, int use_bindata,
-		       int *ret_nbins,
+		       int nfitted, int *ret_nbins,
 		       double *ret_G,  double *ret_Gp,
 		       double *ret_X2, double *ret_X2p)
 {
@@ -979,7 +1027,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   ESL_MALLOC(topx, sizeof(double) * (nb*2+1));
 
   /* Determine the observed counts in each bin: that is, partition h->No.
-   * If we have raw counts, sort and use them (unless overridden by use_bindata)
+   * If we have raw counts that we can use, sort and use them.
    * If not, use the binned histogram. 
    * In either case, sweep left to right on the histogram bins,
    * collecting sum of counts, dropping the sum into the next bin 
@@ -988,7 +1036,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
    * the same bin.
    * Also be careful to respect virtual censoring.
    */
-  if (! use_bindata && h->is_full)
+  if (h->is_full && ! h->is_rounded)
     {	/* collate raw counts */
       esl_histogram_Sort(h);
 
@@ -1281,7 +1329,7 @@ sim_virtcensor_tail(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep,
   else
     esl_histogram_VirtCensorByMass(h, vm);
 
-  esl_histogram_SetTailfitting(h);
+  esl_histogram_DeclareTailfitting(h);
 
   ep[0] = h->phi;
   esl_exp_FitComplete(h->x+h->z, h->No, ep[0], &(ep[1]));
@@ -1303,7 +1351,7 @@ sim_truecensor_tail(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep, doub
     else z++;
   }
   esl_histogram_TrueCensoring(h, z, phi);
-  esl_histogram_SetTailfitting(h);
+  esl_histogram_DeclareTailfitting(h);
   ep[0] = phi;
   esl_exp_FitComplete(h->x, h->No, ep[0], &(ep[1]));
   esl_histogram_SetExpect(h, &esl_exp_generic_cdf, ep);

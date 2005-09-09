@@ -10,18 +10,32 @@
 
 #include <easel.h>
 #include <esl_stats.h>
+#include <esl_vectorops.h>
 #include <esl_weibull.h>
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
+#ifdef eslAUGMENT_HISTOGRAM
+#include <esl_histogram.h>
+#endif
 #ifdef eslAUGMENT_MINIMIZER
 #include <esl_minimizer.h>
 #endif
 
+
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
+/* mu <= x < infinity   
+ *    However, x=mu can be a problem: 
+ *    PDF-> 0 if tau > 1, infinity if tau < 1.
+ *
+ * lambda > 0
+ * tau > 0     [fat tail when tau < 1; inverse GEV when tau > 1; 
+ *              exponential when tau=1]
+ */
+
 
 /* Function:  esl_wei_pdf()
  * Incept:    SRE, Tue Aug  9 13:42:17 2005 [St. Louis]
@@ -36,9 +50,12 @@ esl_wei_pdf(double x, double mu, double lambda, double tau)
   double y    = lambda * (x-mu);
   double val;
 
-  if (x < mu)              return 0.;
-  if (x == mu && tau <  1) return eslINFINITY;
-  if (x == mu && tau >= 1) return 0.;
+  if (x < mu)               return 0.;
+  if (x == mu) {
+    if      (tau <  1.) return eslINFINITY;
+    else if (tau >  1.) return 0.;
+    else if (tau == 1.) return lambda;
+  }
 
   val = lambda * tau * 
     exp((tau-1)*log(y)) *
@@ -60,8 +77,11 @@ esl_wei_logpdf(double x, double mu, double lambda, double tau)
   double val;
 
   if (x < mu)               return -eslINFINITY;
-  if (x == mu && tau <  1.) return  eslINFINITY; /* technically; but approaches it slowly*/
-  if (x == mu && tau >= 1.) return -eslINFINITY; /* same as above, also a slow approach  */
+  if (x == mu) {
+    if      (tau <  1.) return  eslINFINITY; /* technically; but approaches it slowly*/
+    else if (tau >  1.) return -eslINFINITY; /* same as above, also a slow approach  */
+    else if (tau == 1.) return log(lambda);  /* special case, exponential */
+  }
 
   val = log(tau) + tau*log(lambda) + (tau-1)*log(x-mu) - exp(tau * log(y));
   return val;
@@ -98,6 +118,8 @@ esl_wei_logcdf(double x, double mu, double lambda, double tau)
   double y   = lambda*(x-mu);
   double tly = tau * log(y);
 
+  if (x <= mu) return -eslINFINITY;
+
   if      (fabs(tly) < eslSMALLX1)              return tly;
   else if (fabs(exp(-exp(tly))) < eslSMALLX1)   return -exp(-exp(tly)); 
   else                                          return log(1 - exp(-exp(tly)));
@@ -118,6 +140,8 @@ esl_wei_surv(double x, double mu, double lambda, double tau)
   double y   = lambda*(x-mu);
   double tly = tau * log(y);
 
+  if (x <= mu) return 1.0;
+
   return exp(-exp(tly));
 }
 
@@ -134,6 +158,8 @@ esl_wei_logsurv(double x, double mu, double lambda, double tau)
 {
   double y   = lambda*(x-mu);
   double tly = tau * log(y);
+
+  if (x <= mu) return 0.0;
 
   return -exp(tly);
 }
@@ -239,7 +265,8 @@ esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
 {
   double x;
   for (x = xmin; x <= xmax; x += xstep)
-    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau));
+    if (x > mu || tau >= 1.) /* don't try to plot at mu where pdf blows up */
+      fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau));
   fprintf(fp, "&\n");
   return eslOK;
 }
@@ -305,7 +332,10 @@ wei_func(double *p, int nparam, void *dptr)
 
   logL = 0.;
   for (i = 0; i < data->n; i++)
-    logL += esl_wei_logpdf(data->x[i], data->mu, lambda, tau);
+    {
+      if (tau < 1. && data->x[i] == data->mu) continue; /* hack: disallow infinity */
+      logL += esl_wei_logpdf(data->x[i], data->mu, lambda, tau);
+    }
   return -logL;			/* goal: minimize NLL */
 }
 
@@ -320,7 +350,7 @@ wei_func(double *p, int nparam, void *dptr)
  *            
  * Args:      x          - complete GEV-distributed data [0..n-1]
  *            n          - number of samples in <x>
- *            mu         - lower bound of the distribution (all x_i > mu)
+ *            ret_mu     - RETURN: lower bound of the distribution (all x_i >= mu)
  *            ret_lambda - RETURN: maximum likelihood estimate of lambda
  *            ret_tau    - RETURN: maximum likelihood estimate of tau
  *
@@ -331,28 +361,32 @@ wei_func(double *p, int nparam, void *dptr)
  * Xref:      STL9/136-137
  */
 int
-esl_wei_FitComplete(double *x, int n, double mu,
+esl_wei_FitComplete(double *x, int n, double *ret_mu,
 		    double *ret_lambda, double *ret_tau)
 {
   struct wei_data data;
   double p[2];			/* parameter vector                  */
   double u[2];			/* max initial step size vector      */
   double wrk[8];		/* 4 tmp vectors of length 2         */
-  double mean, variance;
-  double lambda, tau;      	/* initial param guesses             */
+  double mean;
+  double mu, lambda, tau;      	/* initial param guesses             */
   double tol = 1e-6;		/* convergence criterion for CG      */
   double fx;			/* f(x) at minimum; currently unused */
   int    status;
 
+  /* Make a good initial guess, based on exponential fit;
+   * set an arbitrary tau.
+   */
+  mu =  esl_vec_DMin(x, n);
+  esl_stats_Mean(x, n, &mean, NULL);
+  lambda = 1 / (mean - mu);
+  tau    = 0.9;
+
+  /* Load the data structure
+   */
   data.x   = x;
   data.n   = n;
   data.mu  = mu;
-
-  /* Make a good initial guess, based on exponential fit.
-   */
-  esl_stats_Mean(x, n, &mean, &variance);
-  lambda = 1 / (mean - mu);
-  tau    = 0.9;
 
   /* Change of variables;
    *   lambda > 0, so c.o.v.  lambda = exp^w,  w = log(lambda);
@@ -370,6 +404,7 @@ esl_wei_FitComplete(double *x, int n, double mu,
 					    &wei_func, NULL,
 					    (void *)(&data),
 					    tol, wrk, &fx);
+  *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
   return status;
@@ -459,8 +494,14 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
   int    i;
   double ai;
 
-  /* Make a good initial guess, based on exponential fit.
+  /* Set the fixed mu.
+   * Make a good initial guess of lambda, based on exponential fit.
+   * Choose an arbitrary tau.
    */
+  if      (h->is_tailfit) mu = h->phi;  /* all x > mu in this case */
+  else if (h->is_rounded) mu = esl_histogram_Bin2LBound(h, h->imin);
+  else                    mu = h->xmin; 
+
   mean = 0.;
   for (i = h->cmin; i <= h->imax; i++) 
     { 
@@ -469,8 +510,8 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
       mean += (double)h->obs[i] * ai;
     }
   mean  /= h->No;
-  mu     = esl_histogram_Bin2LBound(h,h->cmin);
   lambda = 1 / (mean - mu);
+
   tau    = 0.9;
 
   /* load the data structure */
@@ -504,226 +545,191 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 
 
 /****************************************************************************
- * Example, test, and stats drivers
+ * Example main()
  ****************************************************************************/ 
-/* Example main()
- */
 #ifdef eslWEI_EXAMPLE
 /*::cexcerpt::wei_example::begin::*/
 /* compile: 
-     gcc -g -Wall -I. -o example -DeslWEI_EXAMPLE -DeslAUGMENT_RANDOM\
-       -DeslAUGMENT_MINIMIZER esl_weibull.c esl_random.c esl_minimizer.c\
-       esl_vectorops.c easel.c -lm
-   or:
-     gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslWEI_EXAMPLE\
-       esl_weibull.c -leasel -lm
+     gcc -g -Wall -I. -o example -DeslWEI_EXAMPLE\
+       -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
+       esl_weibull.c esl_histogram.c esl_random.c esl_minimizer.c\
+       esl_stats.c esl_vectorops.c easel.c -lm
  * run:     ./example
  */
 #include <stdio.h>
 #include <easel.h>
 #include <esl_random.h>
-#include <esl_minimizer.h>
+#include <esl_histogram.h>
 #include <esl_weibull.h>
 
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = esl_randomness_Create(42);
   double  mu        = -2.1;         
   double  lambda    =  1.0;         
   double  tau       =  0.8;	   
-  double  min       = -2.0;
-  double  max       = 100.0;
-  double  step      = 0.1;
-  int     n         = 100000; 
-  double *x;
-  double  pdf;
+  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
+  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  int     n         = 10000; 
+  double  emu, elambda, etau;
+  double  x;
   int     i;
-  double  est_lambda, est_tau;
 
-  /*
-  for (x = min; x <= max; x += step)
-    { 
-      pdf = esl_wei_pdf(x, mu, lambda, tau);
-      printf("%.4f  %g\n", x, pdf);
-    }
-  printf("&\n");
-  */
-  
-  x = malloc(sizeof(double) * n);
-
-  pdf  = 0.;
   for (i = 0; i < n; i++)
     {
-      x[i]   = esl_wei_Sample(r, mu, lambda, tau);
-      pdf   += log(esl_wei_pdf(x[i], mu, lambda, tau));
+      x    = esl_wei_Sample(r, mu, lambda, tau);
+      esl_histogram_Add(h, x);
     }
-  printf("At parametric: -logL=%f\n", -pdf);
+  esl_histogram_Sort(h);
   
-  esl_wei_FitComplete(x, n, mu, &est_lambda, &est_tau);
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_wei_Plot(stdout, mu, lambda, tau,
+	       &esl_wei_surv,  h->xmin, h->xmax, 0.1);
 
-  printf("estimated lambda = %g\n", est_lambda);
-  printf("estimated tau    = %g\n", est_tau);
+  /* ML fit to complete data, and plot fitted survival curve */
+  esl_wei_FitComplete(h->x, h->n, &emu, &elambda, &etau);
+  esl_wei_Plot(stdout, emu, elambda, etau,
+	       &esl_wei_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_wei_FitCompleteBinned(h, &emu, &elambda, &etau);
+  esl_wei_Plot(stdout, emu, elambda, etau,
+	       &esl_wei_surv,  h->xmin, h->xmax, 0.1);
 
   esl_randomness_Destroy(r);
-  free(x);
+  esl_histogram_Destroy(h);
   return 0;
 }
 /*::cexcerpt::wei_example::end::*/
 #endif /*eslWEI_EXAMPLE*/
 
 
-#ifdef eslWEI_STATS
-/* compile: 
-     gcc -g -Wall -I. -o stats -DeslWEI_STATS -DeslAUGMENT_RANDOM\
-       -DeslAUGMENT_MINIMIZER esl_stretchexp.c esl_random.c esl_minimizer.c\
-       esl_vectorops.c easel.c -lm
-  or:
-     gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o stats -DeslWEI_STATS\
-       esl_stretchexp.c -leasel -lm
- * run:     ./stats <test#>...
- * e.g. 
- *          ./stats 1 2 3
- * would run tests 1, 2, 3.
- */
-#include <stdio.h>
-#include <math.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_minimizer.h>
-#include <esl_stretchexp.h>
 
-#define MAX_STATS_TESTS 10
-static void test_range(FILE *fp, double mu, double lambda, double tau);
+
+
+/****************************************************************************
+ * Test driver
+ ****************************************************************************/ 
+#ifdef eslWEI_TEST
+/* Compile:
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslWEI_TEST\
+    esl_weibull.c -leasel -lm
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <easel.h> 
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_weibull.h>
 
 int
 main(int argc, char **argv)
 {
-  FILE *fp;
-  double  mu        = 0.0;
-  double  lambda    = 1.0;  
-  double  tau       = 0.5;      
-  double  xmin      = 0.1;
-  double  xmax      = 40.;
-  double  xstep     = .1; 
-  double  x;
-  int     do_test[MAX_STATS_TESTS+1];
+  ESL_HISTOGRAM  *h;
+  ESL_RANDOMNESS *r;
+  double  mu        = 10.0;
+  double  lambda    =  1.0;  
+  double  tau       =  0.7;
+  int     n         = 10000;
+  double  binwidth  = 0.1;
+  double  emu, elambda, etau;
   int     i;
+  double  x;
 
-  if (argc == 1) {
-    printf("Diagnostic test output driver for stretchexp module.\n");
-    printf("Usage: ./stats <#> [<#>...]\n");
-    printf("Available test numbers:\n");
-    printf("#     Description        Output format   Output file\n");
-    printf("--  ------------------   -------------   -----------\n");
-    printf("1    pdf plot            xmgrace xy       stats.1   \n");
-    printf("2    log pdf plot        xmgrace xy       stats.2   \n");
-    printf("3    cdf plot            xmgrace xy       stats.3   \n");
-    printf("4    log cdf plot        xmgrace xy       stats.4   \n");
-    printf("5    survivor plot       xmgrace xy       stats.5   \n");
-    printf("6    log surv plot       xmgrace xy       stats.6   \n");
-    printf("7    range tests         R table          stats.7   \n");
-    printf("----------------------------------------------------\n");
-    printf("Using mu = %f, lambda = %f, tau = %f\n", mu, lambda, tau);
-    return 0;
+  int     opti;
+  int     be_verbose   = FALSE;
+  char   *plotfile     = NULL;
+  FILE   *pfp          = stdout;
+  int     plot_pdf     = FALSE;
+  int     plot_logpdf  = FALSE;
+  int     plot_cdf     = FALSE;
+  int     plot_logcdf  = FALSE;
+  int     plot_surv    = FALSE;
+  int     plot_logsurv = FALSE;
+  int     xmin_set     = FALSE;
+  double  xmin;
+  int     xmax_set     = FALSE;
+  double  xmax;
+  int     xstep_set    = FALSE;
+  double  xstep;
+
+  for (opti = 1; opti < argc && *(argv[opti]) == '-'; opti++)
+    {
+      if      (strcmp(argv[opti], "-m")  == 0) mu           = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-l")  == 0) lambda       = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-n")  == 0) n            = atoi(argv[++opti]);
+      else if (strcmp(argv[opti], "-o")  == 0) plotfile     = argv[++opti];
+      else if (strcmp(argv[opti], "-v")  == 0) be_verbose   = TRUE;
+      else if (strcmp(argv[opti], "-t")  == 0) tau          = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-w")  == 0) binwidth     = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-C")  == 0) plot_cdf     = TRUE;
+      else if (strcmp(argv[opti], "-LC") == 0) plot_logcdf  = TRUE;
+      else if (strcmp(argv[opti], "-P")  == 0) plot_pdf     = TRUE;
+      else if (strcmp(argv[opti], "-LP") == 0) plot_logpdf  = TRUE;
+      else if (strcmp(argv[opti], "-S")  == 0) plot_surv    = TRUE;
+      else if (strcmp(argv[opti], "-LS") == 0) plot_logsurv = TRUE;
+      else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
+      else ESL_ERROR(eslEINVAL, "bad option");
+    }
+
+  if (be_verbose)
+    printf("Parametric:  mu = %f   lambda = %f    tau = %f\n", mu, lambda, tau);
+
+  r = esl_randomness_CreateTimeseeded();
+  h = esl_histogram_CreateFull(mu, 100., binwidth);
+  if (plotfile != NULL) {
+    if ((pfp = fopen(plotfile, "w")) == NULL) 
+      ESL_ERROR(eslFAIL, "Failed to open plotfile");
   }
+  if (! xmin_set)  xmin  = mu;
+  if (! xmax_set)  xmax  = mu+40*(1./lambda);
+  if (! xstep_set) xstep = 0.1;
 
-  for (i = 0; i <= MAX_STATS_TESTS; i++) do_test[i] = 0;
-  for (i = 1; i < argc; i++)
-    do_test[atoi(argv[i])] = 1;
-
-  /* stats.1: density plot, xmgrace xy file */
-  if (do_test[1]) {
-    if ((fp = fopen("stats.1", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep)
-      fprintf(fp, "%.1f  %g\n", x, esl_wei_pdf(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-
-  /* stats.2: log density plot, xmgrace xy file */
-  if (do_test[2]) {
-    if ((fp = fopen("stats.2", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep)
-      fprintf(fp, "%.1f  %gf\n", x, esl_wei_logpdf(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-
-  /* stats.3: CDF plot, xmgrace xy file */
-  if (do_test[3]) {
-    if ((fp = fopen("stats.3", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep)
-      fprintf(fp, "%.1f  %g\n", x, esl_wei_cdf(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-
-  /* stats.4: log CDF plot, xmgrace xy file */
-  if (do_test[4]) {
-    if ((fp = fopen("stats.4", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep) 
-      fprintf(fp, "%.1f  %g\n", x, esl_wei_logcdf(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-  
-  /* stats.5: survivor plot (right tail), xmgrace xy file */
-  if (do_test[5]) {
-    if ((fp = fopen("stats.5", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep)
-      fprintf(fp, "%.1f  %g\n", x, esl_wei_surv(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-    
-  /* stats.6: log survivor plot, xmgrace xy file */
-  if (do_test[6]) {
-    if ((fp = fopen("stats.6", "w")) == NULL) abort();
-    for (x = xmin; x <= xmax; x+= xstep) 
-      fprintf(fp, "%.1f  %g\n", x, esl_wei_logsurv(x, mu, lambda, tau));
-    fprintf(fp, "&\n");
-    fclose(fp);
-  }
-
-  /* stats.7: test extreme range of x
-   */
-  if (do_test[7]) {
-    if ((fp = fopen("stats.7", "w")) == NULL) abort();
-    test_range(fp, mu, lambda, tau);
-    fclose(fp);
-  }
-  return 0;
-}
-
-static void
-test_range(FILE *fp, double mu, double lambda, double tau)
-{
-  double xpoints[] = { 0.,     1e-100, 1e-10,  1.0,   
-                       10.,    100,     200,   300,
-                       400,    500,     1000,   1e4,     
-                       1e100,  1e300};
-  double n = sizeof(xpoints)/sizeof(double);
-  int    i;
-  double x;
-
-  fprintf(fp, "%14s %14s %14s %14s %14s %14s %14s\n",
-	  "", "pdf", "logpdf", "cdf", "logcdf", "surv", "logsurv");
   for (i = 0; i < n; i++)
     {
-      x = xpoints[i];
-      fprintf(fp, "%14g ", x);
-      fprintf(fp, "%14g ", esl_wei_pdf    (x, mu, lambda, tau));
-      fprintf(fp, "%14g ", esl_wei_logpdf (x, mu, lambda, tau));
-      fprintf(fp, "%14g ", esl_wei_cdf    (x, mu, lambda, tau));
-      fprintf(fp, "%14g ", esl_wei_logcdf (x, mu, lambda, tau));
-      fprintf(fp, "%14g ", esl_wei_surv   (x, mu, lambda, tau));
-      fprintf(fp, "%14g ", esl_wei_logsurv(x, mu, lambda, tau));
-      fprintf(fp, "\n");
+      x = esl_wei_Sample(r, mu, lambda, tau);
+      esl_histogram_Add(h, x);
     }
-}
+  esl_histogram_Sort(h);
 
-#endif /*eslWEI_STATS*/
+  esl_wei_FitComplete(h->x, h->n, &emu, &elambda, &etau);
+  if (be_verbose)
+    printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
+	   emu, elambda, etau);
+  if (fabs( (emu-mu)/mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+
+  esl_wei_FitCompleteBinned(h, &emu, &elambda, &etau);
+  if (be_verbose)
+    printf("Binned data fit:  mu = %f   lambda = %f   tau = %f\n", 
+	   emu, elambda, etau);
+  if (fabs( (emu-mu)/mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+
+  if (plot_pdf)     esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_pdf,     xmin, xmax, xstep);
+  if (plot_logpdf)  esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_logpdf,  xmin, xmax, xstep);
+  if (plot_cdf)     esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_cdf,     xmin, xmax, xstep);
+  if (plot_logcdf)  esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_logcdf,  xmin, xmax, xstep);
+  if (plot_surv)    esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_surv,    xmin, xmax, xstep);
+  if (plot_logsurv) esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_logsurv, xmin, xmax, xstep);
+
+  if (plotfile != NULL) fclose(pfp);
+  return 0;
+}
+#endif /*eslEXP_TEST*/
 
 /*****************************************************************
  * @LICENSE@

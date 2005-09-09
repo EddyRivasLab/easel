@@ -44,8 +44,6 @@ extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K,
 extern int esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p);
 extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
 				    double theta2, double *ret_answer);
-extern int esl_dirichlet_SampleGamma(ESL_RANDOMNESS *r, double a, 
-				     double *ret_answer);
 #endif /*eslAUGMENT_RANDOM*/
 
 /* Optional file input code, when augmented by fileparser module

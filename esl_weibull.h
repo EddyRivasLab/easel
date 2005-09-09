@@ -38,7 +38,7 @@ extern double esl_wei_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double
 #endif
 
 #ifdef eslAUGMENT_MINIMIZER
-extern int esl_wei_FitComplete(double *x, int n, double mu,
+extern int esl_wei_FitComplete(double *x, int n, double *ret_mu,
 			       double *ret_lambda, double *ret_tau);
 #ifdef eslAUGMENT_HISTOGRAM
 extern int esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,

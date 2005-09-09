@@ -11,25 +11,27 @@
 
 #include <easel.h>
 #include <esl_stats.h>
-#include <esl_vectorops.h>  /* one DMin() call that could be removed*/
+#include <esl_vectorops.h>
 #include <esl_stretchexp.h>
-
-#include <esl_dirichlet.h>   /* just need SampleGamma() */
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
-#ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
-#endif
 #ifdef eslAUGMENT_HISTOGRAM
 #include <esl_histogram.h>
 #endif
-
+#ifdef eslAUGMENT_MINIMIZER
+#include <esl_minimizer.h>
+#endif
 
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
+/* mu <= x < infinity   
+ *    [x=mu is no problem, but watch out for evaluating log(0) when it is]
+ * lambda > 0
+ * tau > 0    [fat tailed when tau < 1; thin when tau > 1; exponential when tau = 1]
+ */
 
 /* Function:  esl_sxp_pdf()
  * Incept:    SRE, Fri Aug 19 11:17:47 2005 [St. Louis]
@@ -47,7 +49,10 @@ esl_sxp_pdf(double x, double mu, double lambda, double tau)
   
   if (x < mu) return 0.;
   esl_stats_LogGamma(1/tau, &gt);
-  val = (lambda * tau / exp(gt)) * exp(- exp(tau * log(y)));
+
+  if (x == mu) val = (lambda * tau / exp(gt));
+  else         val = (lambda * tau / exp(gt)) * exp(- exp(tau * log(y)));
+
   return val;
 }
 
@@ -67,7 +72,9 @@ esl_sxp_logpdf(double x, double mu, double lambda, double tau)
 
   if (x < mu) return -eslINFINITY;
   esl_stats_LogGamma(1/tau, &gt);
-  val = log(lambda) + log(tau) - gt - exp(tau*log(y));
+
+  if (x == mu) val = log(lambda) + log(tau) - gt;
+  else         val = log(lambda) + log(tau) - gt - exp(tau*log(y));
   return val;
 }
 
@@ -290,7 +297,6 @@ esl_sxp_Plot(FILE *fp, double mu, double lambda, double tau,
  * Routines for sampling (requires augmentation w/ random, dirichlet modules)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
-
 /* Function:  esl_sxp_Sample()
  * Incept:    SRE, Fri Aug 19 13:39:36 2005 [St. Louis]
  *
@@ -302,7 +308,7 @@ esl_sxp_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 {
   double t,x;
 
-  esl_dirichlet_SampleGamma(r, 1./tau, &t); 
+  t = esl_rnd_Gamma(r, 1./tau);
   x = mu + 1./lambda * exp(1./tau * log(t));
   return x;
 } 
@@ -355,14 +361,19 @@ esl_sxp_FitComplete(double *x, int n,
   struct sxp_data data;
   double p[2], u[2], wrk[8];
   double mu, tau, lambda;
+  double mean;
   double tol = 1e-6;
   double fx;
   int    status;
 
-  /* initial guesses */
-  mu     = esl_vec_DMin(x, n); 
-  lambda = 1.0;
-  tau    = 0.42;
+  /* initial guesses; mu is definitely = minimum x,
+   * and just use arbitrary #'s to init lambda, tau
+   */
+  mu =  esl_vec_DMin(x, n);
+  esl_stats_Mean(x, n, &mean, NULL);
+  lambda = 1 / (mean - mu);
+  tau    = 0.9;
+
 
   /* load data structure, param vector, and step vector */
   data.x  = x;
@@ -378,7 +389,6 @@ esl_sxp_FitComplete(double *x, int n,
 					     &sxp_complete_func, 
 					     NULL,
 					     (void *) (&data), tol, wrk, &fx);
-  
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
@@ -444,12 +454,28 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
   double tol = 1e-6;
   double fx;
   int    status;
+  double ai, mean;
+  int    i;
 
-  /* initial guesses are arbitrary */
-  if (g->fit_describes == TAIL_FIT) mu = g->phi;   /* fix mu here; no point in optimizing it */
-  else                              mu = g->xmin; 	
-  lambda = 1.0;
-  tau    = 0.42;
+  /* Set the fixed mu.
+   * Make a good initial guess of lambda, based on exponential fit.
+   * Choose an arbitrary tau.
+   */
+  if      (g->is_tailfit) mu = g->phi;  /* all x > mu in this case */
+  else if (g->is_rounded) mu = esl_histogram_Bin2LBound(g, g->imin);
+  else                    mu = g->xmin; 
+
+  mean = 0.;
+  for (i = g->cmin; i <= g->imax; i++) 
+    { 
+      ai = esl_histogram_Bin2LBound(g, i);
+      ai += 0.5*g->w;		/* midpoint in bin */
+      mean += (double)g->obs[i] * ai;
+    }
+  mean  /= g->No;
+  lambda = 1 / (mean - mu);
+
+  tau    = 0.9;
 
   /* load data structure, param vector, and step vector */
   data.g  = g;
@@ -473,19 +499,17 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 #endif /*eslAUGMENT_MINIMIZER*/
 
 /****************************************************************************
- * Example, test, and stats drivers
+ * Example main()
  ****************************************************************************/ 
-/* Example main()
- */
 #ifdef eslSXP_EXAMPLE
 /*::cexcerpt::sxp_example::begin::*/
 /* compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslSXP_EXAMPLE\
-     esl_stretchexp.c -leasel -lm
+   gcc -g -Wall -I. -o example -DeslSXP_EXAMPLE\
+     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
+      esl_stretchexp.c esl_histogram.c esl_random.c esl_minimizer.c esl_stats.c esl_vectorops.c easel.c -lm
  */
 #include <stdio.h>
 #include <easel.h>
-#include <esl_stats.h>
 #include <esl_random.h>
 #include <esl_histogram.h>
 #include <esl_stretchexp.h>
@@ -493,21 +517,19 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 int
 main(int argc, char **argv)
 {
-  ESL_HISTOGRAM  *h;
-  ESL_RANDOMNESS *r;
-  double mu     = -50.0;
-  double lambda = 2.5;
-  double tau    = 0.7;
+  double mu         = -50.0;
+  double lambda     = 2.5;
+  double tau        = 0.7;
+  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
+  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  int    n          = 10000;
   double emu, elam, etau;
-  int    n      = 10000;
   int    i;
   double x;
 
-  r = esl_randomness_CreateTimeseeded();
-  h = esl_histogram_CreateFull(mu, 100., 0.1);
   for (i = 0; i < n; i++)
     {
-      x = esl_sxp_Sample(r, mu, lambda, tau);
+      x  =  esl_sxp_Sample(r, mu, lambda, tau);
       esl_histogram_Add(h, x);
     }
   esl_histogram_Sort(h);
@@ -527,10 +549,138 @@ main(int argc, char **argv)
   esl_sxp_Plot(stdout, emu, elam, etau,
 	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
 
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
   return 0;
 }
 /*::cexcerpt::sxp_example::end::*/
 #endif /*eslSXP_EXAMPLE*/
+
+
+
+/****************************************************************************
+ * Test driver
+ ****************************************************************************/ 
+#ifdef eslSXP_TEST
+/* Compile:
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslSXP_TEST\
+    esl_stretchexp.c -leasel -lm
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <easel.h> 
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_stretchexp.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_HISTOGRAM  *h;
+  ESL_RANDOMNESS *r;
+  double  mu        = 10.0;
+  double  lambda    =  1.0;  
+  double  tau       =  0.7;
+  int     n         = 10000;
+  double  binwidth  = 0.1;
+  double  emu, elambda, etau;
+  int     i;
+  double  x;
+
+  int     opti;
+  int     be_verbose   = FALSE;
+  char   *plotfile     = NULL;
+  FILE   *pfp          = stdout;
+  int     plot_pdf     = FALSE;
+  int     plot_logpdf  = FALSE;
+  int     plot_cdf     = FALSE;
+  int     plot_logcdf  = FALSE;
+  int     plot_surv    = FALSE;
+  int     plot_logsurv = FALSE;
+  int     xmin_set     = FALSE;
+  double  xmin;
+  int     xmax_set     = FALSE;
+  double  xmax;
+  int     xstep_set    = FALSE;
+  double  xstep;
+
+  for (opti = 1; opti < argc && *(argv[opti]) == '-'; opti++)
+    {
+      if      (strcmp(argv[opti], "-m")  == 0) mu           = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-l")  == 0) lambda       = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-n")  == 0) n            = atoi(argv[++opti]);
+      else if (strcmp(argv[opti], "-o")  == 0) plotfile     = argv[++opti];
+      else if (strcmp(argv[opti], "-t")  == 0) tau          = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-v")  == 0) be_verbose   = TRUE;
+      else if (strcmp(argv[opti], "-w")  == 0) binwidth     = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-C")  == 0) plot_cdf     = TRUE;
+      else if (strcmp(argv[opti], "-LC") == 0) plot_logcdf  = TRUE;
+      else if (strcmp(argv[opti], "-P")  == 0) plot_pdf     = TRUE;
+      else if (strcmp(argv[opti], "-LP") == 0) plot_logpdf  = TRUE;
+      else if (strcmp(argv[opti], "-S")  == 0) plot_surv    = TRUE;
+      else if (strcmp(argv[opti], "-LS") == 0) plot_logsurv = TRUE;
+      else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
+      else ESL_ERROR(eslEINVAL, "bad option");
+    }
+
+  if (be_verbose)
+    printf("Parametric:  mu = %f   lambda = %f    tau = %f\n", mu, lambda, tau);
+
+  r = esl_randomness_CreateTimeseeded();
+  h = esl_histogram_CreateFull(mu, 100., binwidth);
+  if (plotfile != NULL) {
+    if ((pfp = fopen(plotfile, "w")) == NULL) 
+      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+  }
+  if (! xmin_set)  xmin  = mu;
+  if (! xmax_set)  xmax  = mu+40*(1./lambda);
+  if (! xstep_set) xstep = 0.1;
+
+  for (i = 0; i < n; i++)
+    {
+      x = esl_sxp_Sample(r, mu, lambda, tau);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_Sort(h);
+
+  esl_sxp_FitComplete(h->x, h->n, &emu, &elambda, &etau);
+  if (be_verbose)
+    printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
+	   emu, elambda, etau);
+  if (fabs( (emu-mu)/mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+
+  esl_sxp_FitCompleteBinned(h, &emu, &elambda, &etau);
+  if (be_verbose)
+    printf("Binned data fit:  mu = %f   lambda = %f   tau = %f\n", 
+	   emu, elambda, etau);
+  if (fabs( (emu-mu)/mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau ) > 0.10)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted tau > 10%\n");
+
+  if (plot_pdf)     esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_pdf,     xmin, xmax, xstep);
+  if (plot_logpdf)  esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_logpdf,  xmin, xmax, xstep);
+  if (plot_cdf)     esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_cdf,     xmin, xmax, xstep);
+  if (plot_logcdf)  esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_logcdf,  xmin, xmax, xstep);
+  if (plot_surv)    esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_surv,    xmin, xmax, xstep);
+  if (plot_logsurv) esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_logsurv, xmin, xmax, xstep);
+
+  if (plotfile != NULL) fclose(pfp);
+  return 0;
+}
+#endif /*eslSXP_TEST*/
+
 
 /*****************************************************************
  * @LICENSE@

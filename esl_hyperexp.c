@@ -1,14 +1,16 @@
 /* esl_hyperexp.c 
  * Statistical routines for hyperexponential distributions.
  * 
- * SRE, Mon Aug 15 08:29:45 2005  xref:STL9/140  [St. Louis]
+ * SRE, Mon Aug 15 08:29:45 2005 [St. Louis] 
+ * xref STL9/140  
  * SVN $Id$
  */
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <assert.h>
 
 #include <easel.h>
+#include <esl_stats.h>
 #include <esl_vectorops.h>
 #include <esl_exponential.h>
 #include <esl_hyperexp.h>
@@ -16,11 +18,14 @@
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
+#ifdef eslAUGMENT_HISTOGRAM
+#include <esl_histogram.h>
+#endif
 #ifdef eslAUGMENT_MINIMIZER
 #include <esl_minimizer.h>
 #endif
-#ifdef eslAUGMENT_HISTOGRAM
-#include <esl_histogram.h>
+#ifdef eslAUGMENT_FILEPARSER
+#include <esl_fileparser.h>
 #endif
 
 /****************************************************************************
@@ -53,7 +58,8 @@ esl_hyperexp_Create(int K)
   if ((h = malloc(sizeof(ESL_HYPEREXP))) == NULL)         goto FAILURE;
   h->q = h->lambda = h->wrk = NULL;
   h->fixlambda = NULL;
-  h->K = K;
+  h->K         = K;
+  h->fixmix    = FALSE;
 
   if ((h->q        = malloc(sizeof(double) * K)) == NULL) goto FAILURE;
   if ((h->lambda   = malloc(sizeof(double) * K)) == NULL) goto FAILURE;
@@ -125,20 +131,117 @@ esl_hyperexp_Copy(ESL_HYPEREXP *src, ESL_HYPEREXP *dest)
       dest->lambda[k]   = src->lambda[k];
       dest->fixlambda[k]= src->fixlambda[k];
     }
-  dest->mu = src->mu;
-  dest->K  = src->K;
+  dest->mu     = src->mu;
+  dest->K      = src->K;
+  dest->fixmix = src->fixmix;
   return eslOK;
 }
+
+/* Function:  esl_hyperexp_FixedUniformMixture()
+ * Incept:    SRE, Thu Sep  8 10:00:03 2005 [St. Louis]
+ *
+ * Purpose:   Set the mixture coeffients to a uniform (1/K) distribution,
+ *            and fix them there so they aren't estimable parameters.
+ */
+int
+esl_hyperexp_FixedUniformMixture(ESL_HYPEREXP *h)
+{
+  int k;
+  for (k = 0; k < h->K; k++) h->q[k] = 1./(double)h->K;
+  h->fixmix = TRUE;
+  return eslOK;
+}
+
+
+/* Function:  esl_hyperexp_SortComponents()
+ * Incept:    SRE, Thu Sep  8 10:09:29 2005 [St. Louis]
+ *
+ * Purpose:   Rearrange the components in a hyperexponential in
+ *            order of lambda values, with the highest lambda first.
+ *
+ *            Stupid O(K^2) selection sort algorithm here, because we
+ *            expect K to be small.
+ */
+int
+esl_hyperexp_SortComponents(ESL_HYPEREXP *h)
+{
+  int    k, kp;
+  char   ctmp;
+  double dtmp;
+
+  for (k = 0; k < h->K-1; k++)
+    {
+      kp = k + esl_vec_DArgMax(h->lambda+k, h->K-k);
+      if (k != kp) 
+	{
+	  dtmp = h->q[k];         h->q[k]         = h->q[kp];         h->q[kp]         = dtmp;
+	  dtmp = h->lambda[k];    h->lambda[k]    = h->lambda[kp];    h->lambda[kp]    = dtmp;
+	  ctmp = h->fixlambda[k]; h->fixlambda[k] = h->fixlambda[kp]; h->fixlambda[kp] = ctmp;
+	}
+    }
+  return eslOK;
+}
+
+
+/* Function:  esl_hyperexp_Write()
+ * Incept:    SRE, Thu Sep  1 09:34:33 2005 [St. Louis]
+ *
+ * Purpose:   Write hyperexponential parameters from <hxp> to an open <fp>.
+ *            
+ *            The output format is suitable for input by <esl_hyperexp_Read()>.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_hyperexp_Write(FILE *fp, ESL_HYPEREXP *hxp)
+{
+  int k;
+
+  fprintf(fp, "%8d     # number of components\n", hxp->K);
+  fprintf(fp, "%8.2f   # mu (for all components)\n", hxp->mu);
+  for (k = 0; k < hxp->K; k++)
+    fprintf(fp, "%8.6f %12.6f  # q[%d], lambda[%d]\n",
+	    hxp->q[k], hxp->lambda[k], k, k);
+  return eslOK;
+}
+
+
+/* Function:  esl_hyperexp_WriteOneLine()
+ * Incept:    SRE, Thu Sep  1 09:43:28 2005 [St. Louis]
+ *
+ * Purpose:   Write hyperexponential parameters from <hxp> to an open <fp>,
+ *            all on one line with no comments.
+ *            
+ *            The output format is suitable for input by <esl_hyperexp_Read()>,
+ *            but it's intended more as a diagnostic dump of the contents
+ *            of the object.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_hyperexp_WriteOneLine(FILE *fp, ESL_HYPEREXP *hxp)
+{
+  int k;
+
+  fprintf(fp, "%2d ", hxp->K);
+  fprintf(fp, "%6.2f ", hxp->mu);
+  for (k = 0; k < hxp->K; k++)
+    fprintf(fp, "%5.3f %9.6f ", hxp->q[k], hxp->lambda[k]);
+  fprintf(fp, "\n");
+  return eslOK;
+}
+
 /*----------------- end ESL_HYPEREXP object maintenance --------------------*/
-
-
-
 
 
 
 /****************************************************************************
  * Routines for evaluating densities and distributions
  ****************************************************************************/ 
+/* all lambda_k > 0
+ * all q_k are probabilities, \sum_k q_k = 1 [watch out for q_k=0 in log(q_k)].
+ * mu <= x < infinity   [mu=x is not a problem]
+ */
 
 /* Function:  esl_hxp_pdf()
  * Incept:    SRE, Mon Aug 15 09:17:34 2005 [St. Louis]
@@ -407,7 +510,6 @@ esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
  * Routines for sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
-
 /* Function:  esl_hxp_Sample()
  * Incept:    SRE, Mon Aug 15 10:10:26 2005 [St. Louis]
  *
@@ -423,6 +525,145 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
 }
 #endif /*eslAUGMENT_RANDOM*/
 /*--------------------------- end sampling ---------------------------------*/
+
+
+
+/****************************************************************************
+ * File input (mixture models are a little too complex to set on commandline)
+ ****************************************************************************/ 
+#ifdef eslAUGMENT_FILEPARSER
+/* Function:  esl_hyperexp_Read()
+ * Incept:    SRE, Thu Sep  1 08:20:46 2005 [St. Louis]
+ *
+ * Purpose:   Reads hyperexponential parameters from an open <e>.
+ *            which is an <ESL_FILEPARSER> tokenizer for an open stream.
+ *            
+ *            The first token is <K>, the number of mixture components.
+ *            The second token is <mu>, the x offset shared by all components.
+ *            Then for each mixture component <k=1..K>, it reads
+ *            a mixture coefficient <q[k]> and a decay parameter
+ *            <lambda[k]>.
+ *            
+ *            The <2K+2> data tokens must occur in this order, but
+ *            they can be grouped into any number of lines, because the
+ *            parser ignores line breaks.
+ *            
+ *            Anything after a <#> character on a line is a comment, and
+ *            is ignored.
+ *            
+ * Returns:   <eslOK> on success, and <ret_hxp> points to a new <ESL_HYPEREXP>
+ *            object.
+ *            <eslEFORMAT> on "normal" parse failure caused by a bad file 
+ *            format that's likely the user's fault.
+ *
+ * Throws:    <eslEMEM> if allocation of the new <ESL_HYPEREXP> fails.
+ *
+ * 
+ * FIXME: All our mixture models (esl_dirichlet, for example) should be
+ *        reconciled w/ identical interfaces & behaviour.
+ */
+int
+esl_hyperexp_Read(ESL_FILEPARSER *e, ESL_HYPEREXP **ret_hxp)
+{
+  ESL_HYPEREXP   *hxp = NULL;
+  char           *tok;
+  int             status = eslOK;
+  int             nc;
+  int             k;
+  double          sum;
+
+  esl_fileparser_SetCommentChar(e, '#');
+
+  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+  nc = atoi(tok);
+  if (nc < 1) {  
+    sprintf(e->errbuf, "Expected # of components K >= 1 as first token");
+    goto FAILURE;
+  }
+
+  if ((hxp = esl_hyperexp_Create(nc)) == NULL) return eslEMEM;
+  
+  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+  hxp->mu = atof(tok);
+
+  for (k = 0; k < hxp->K; k++)
+    {
+      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+      hxp->q[k] = atof(tok);
+      
+      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+      hxp->lambda[k] = atof(tok);
+
+      if (hxp->q[k] < 0. || hxp->q[k] > 1.) {
+	sprintf(e->errbuf, "Expected a mixture coefficient q[k], 0<=q[k]<=1");
+	goto FAILURE;
+      }
+      if (hxp->lambda[k] <= 0.) {
+	sprintf(e->errbuf, "Expected a lambda parameter, lambda>0");
+	goto FAILURE;
+      }
+    }
+  sum = esl_vec_DSum(hxp->q, hxp->K);
+  if (fabs(sum-1.0) > 0.05) {
+    sprintf(e->errbuf, "Expected mixture coefficients to sum to 1");
+    goto FAILURE;
+  }
+  esl_vec_DNorm(hxp->q, hxp->K);
+  *ret_hxp = hxp;
+  return eslOK;
+
+ FAILURE:
+  esl_hyperexp_Destroy(hxp); 
+  return eslEFORMAT;
+}
+
+/* Function:  esl_hyperexp_ReadFile()
+ * Incept:    SRE, Thu Sep  1 08:57:47 2005 [St. Louis]
+ *
+ * Purpose:   Convenience wrapper around <esl_hyperexp_Read()> that takes
+ *            a filename as an argument, instead of an open <ESL_FILEPARSER>.
+ *            
+ *            This lets you quickly read an object from a file, but it
+ *            limits your ability to deal gracefully and flexibly with
+ *            'normal' errors like 'file not found' or 'bad file format'.
+ *            Here, all errors are fatal.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on an allocation failure.
+ *            
+ *            <eslEFORMAT> on any parse error. Diagnostic information is
+ *            unavailable, because the <ESL_FILEPARSER> that's holding 
+ *            that information is internal to this function. 
+ *            
+ *            <eslENOTFOUND> on any failure to open the file.
+ */
+int
+esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp)
+{
+  FILE           *fp;
+  ESL_FILEPARSER *e;
+  int             status;
+
+  if ((fp = fopen(filename, "r")) == NULL) 
+    ESL_ERROR(eslENOTFOUND, "file not found");
+
+  if ((e = esl_fileparser_Create(fp)) == NULL) {
+    fclose(fp);
+    ESL_ERROR(eslEMEM, "failed to create fileparser");
+  }
+  esl_fileparser_SetCommentChar(e, '#');
+
+  status = esl_hyperexp_Read(e, ret_hxp);
+
+  esl_fileparser_Destroy(e);
+  fclose(fp);
+  return status;
+}
+#endif /*eslAUGMENT_FILEPARSER*/
+
+
+
 
 
 
@@ -460,21 +701,22 @@ hyperexp_pack_paramvector(double *p, int np, ESL_HYPEREXP *h)
   double z;			/* tmp variable */
 
   /* mixture coefficients */
-  z = log(h->q[0]);
   i = 0;
-  for (k = 1; k < h->K; k++) 
-    p[i++] = log(h->q[k]) - z;
+  if (! h->fixmix) {
+    z = log(h->q[0]);
+    for (k = 1; k < h->K; k++) 
+      p[i++] = log(h->q[k]) - z;
+  }
   
   /* exponential parameters */
   for (k = 0; k < h->K; k++)
     if (! h->fixlambda[k])
       p[i++] = log(h->lambda[k]);
-  /* you can assert(i==np) in debugging if you want */
 }
 
 /* Same as above but in reverse: given parameter vector <p>,
  * <np> = 2K-1, do appropriate c.o.v. back to desired parameter space, and
- * fill in the hyperexponential <h>.
+ * update the hyperexponential <h>.
  */
 static void
 hyperexp_unpack_paramvector(double *p, int np, ESL_HYPEREXP *h)
@@ -486,22 +728,25 @@ hyperexp_unpack_paramvector(double *p, int np, ESL_HYPEREXP *h)
   /* Fetch the params in their c.o.v. space first
    */
   i = 0;
-  h->q[0] = 0;	/* implicitly */
-  for (k = 1; k < h->K; k++) 
-    h->q[k] = p[i++]; 
+  if (! h->fixmix) {
+    h->q[0] = 0;	/* implicitly */
+    for (k = 1; k < h->K; k++) 
+      h->q[k] = p[i++]; 
+  }
   for (k = 0; k < h->K; k++)
     if (! h->fixlambda[k]) 
       h->lambda[k] = p[i++];
-  /* assert(i==np) */
   
   /* Convert mix coefficients back to probabilities;
    * their  c.o.v. is q_k = e^{Q_k} / \sum_k e^{Q_k}
    * which rearranges to exp(Q_k - log[\sum_k e^Q_k]),
    * and we have the DLogSum() function to compute the log sum.
    */
-  z = esl_vec_DLogSum(h->q, h->K);
-  for (k = 0; k < h->K; k++)
-    h->q[k] = exp(h->q[k] - z);
+  if (! h->fixmix) {
+    z = esl_vec_DLogSum(h->q, h->K);
+    for (k = 0; k < h->K; k++)
+      h->q[k] = exp(h->q[k] - z);
+  }
   
   /* lambda c.o.v. is \lambda = e^w */
   for (k = 0; k < h->K; k++)
@@ -541,7 +786,7 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
   esl_vec_DSet(dp, np, 0.);
   for (i = 0; i < data->n; i++)
     {
-      /* FIXME: I think the calculation below needs to be done
+      /* FIXME: I think the calculation below may need to be done
        * in log space, to avoid underflow errors; see complete_binned_gradient()
        */
       /* Precalculate q_k PDF_k(x) terms, and their sum */
@@ -550,8 +795,10 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
       pdf = esl_vec_DSum(h->wrk, h->K);
 
       pidx = 0;
-      for (k = 1; k < h->K; k++) /* generic d/dQ solution for mixture models */
-	dp[pidx++] -= h->wrk[k]/pdf - h->q[k];
+      if (! h->fixmix) {
+	for (k = 1; k < h->K; k++) /* generic d/dQ solution for mixture models */
+	  dp[pidx++] -= h->wrk[k]/pdf - h->q[k];
+      }
       
       for (k = 0; k < h->K; k++)
 	if (! h->fixlambda[k])
@@ -572,6 +819,8 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
  *            Assigns $q_k \propto \frac{1/k}$ and  $\mu = \min_i x_i$;
  *            splits $x$ into $K$ roughly equal-sized bins, and
  *            and assigns $\lambda_k$ as the ML estimate from bin $k$.
+ *            (If q_k coefficients have already been fixed to 
+ *            known values, this step is skipped.)
  */
 int
 esl_hxp_FitGuess(double *x, int n, ESL_HYPEREXP *h)
@@ -581,10 +830,11 @@ esl_hxp_FitGuess(double *x, int n, ESL_HYPEREXP *h)
   int    i,k;
   int    imin, imax;
 
-  h->mu = x[0];
+  h->mu = x[0];  /* minimum */
   for (k = 0; k < h->K; k++)
     {
-      h->q[k] = 1 / (double)(k+1); /* priors ~ 1, 1/2, 1/3... */
+      if (! h->fixmix) 
+	h->q[k] = 1 / (double)(k+1); /* priors ~ 1, 1/2, 1/3... */
 
       imin = (int) ((double)(k*n)/(double)h->K);
       imax = (int) ((double)((k+1)*n)/(double)h->K);
@@ -626,8 +876,9 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 
   /* Determine number of free parameters and allocate 
    */
-  np = h->K-1;	              /* K-1 mix coefficients...     */
-  for (i = 0; i < h->K; i++)  /* ...and up to K lambdas free */
+  np = 0;
+  if (! h->fixmix) np += h->K-1;  /* K-1 mix coefficients...     */
+  for (i = 0; i < h->K; i++)      /* ...and up to K lambdas free */
     if (! h->fixlambda[i]) np++;	
   p   = malloc(sizeof(double) * np);
   u   = malloc(sizeof(double) * np);
@@ -661,6 +912,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
   free(p);
   free(u);
   free(wrk);
+  esl_hyperexp_SortComponents(h);
   return status;
 }
 
@@ -747,8 +999,10 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
 
       /* Bump the gradients for Q_1..Q_{K-1} */
       pidx = 0;
-      for (k = 1; k < h->K; k++)
-	dp[pidx++] -= g->obs[i] * (exp(h->wrk[k] - z) - h->q[k]);
+      if (! h->fixmix) {
+	for (k = 1; k < h->K; k++)
+	  dp[pidx++] -= g->obs[i] * (exp(h->wrk[k] - z) - h->q[k]);
+      }
 	
       /* Bump the gradients for w_0..w_{K-1}
        */
@@ -774,6 +1028,8 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
  *            Assigns $q_k \propto \frac{1/k}$ and  $\mu = \min_i x_i$;
  *            splits $x$ into $K$ roughly equal-sized bins, and
  *            and assigns $\lambda_k$ as the ML estimate from bin $k$.
+ *            If the coefficients have already been set to known values,
+ *            this step is skipped.
  */
 int
 esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
@@ -784,8 +1040,9 @@ esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   int    nb;
   double ai;
 
-  if (g->fit_describes == TAIL_FIT) h->mu = g->phi;
-  else                              h->mu = g->xmin;
+  if      (g->is_tailfit) h->mu = g->phi;  /* all x > mu in this case */
+  else if (g->is_rounded) h->mu = esl_histogram_Bin2LBound(g, g->imin);
+  else                    h->mu = g->xmin; 
 
   nb    = g->imax - g->cmin + 1;
   k     = h->K-1;
@@ -802,8 +1059,10 @@ esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 	h->lambda[k--] = 1 / ((sum/(double) n) - ai);
     }
 
-  for (k = 0; k < h->K; k++)
-    h->q[k] = 1 / (double) h->K;
+  if (! h->fixmix) {
+    for (k = 0; k < h->K; k++)
+      h->q[k] = 1 / (double) h->K;
+  }
 
   return eslOK;
 }
@@ -838,8 +1097,9 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   double  tol = 1e-6;
   int     np;
 
-  np = h->K-1;                /* K-1 mix coefficients...      */
-  for (i = 0; i < h->K; i++)  /* ...and up to K lambdas free. */
+  np = 0;
+  if (! h->fixmix) np = h->K-1;  /* K-1 mix coefficients...      */
+  for (i = 0; i < h->K; i++)     /* ...and up to K lambdas free. */
     if (! h->fixlambda[i]) np++;
 
   p   = malloc(sizeof(double) * np);
@@ -871,110 +1131,248 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   free(p);
   free(u);
   free(wrk);
+  esl_hyperexp_SortComponents(h);
   return status;
 }
 #endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/
+/*--------------------------- end fitting ----------------------------------*/
+
 
 
 /****************************************************************************
  * Example main()
  ****************************************************************************/ 
-
 #ifdef eslHYPEREXP_EXAMPLE
 /*::cexcerpt::hyperexp_example::begin::*/
 /* compile: 
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslHYPEREXP_EXAMPLE\
-     esl_hyperexp.c esl_exponential.c eslesl_vectorops.c esl_histogram.c \
-     esl_random.c esl_minimizer.c easel.c -lm
-
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslHYPEREXP_EXAMPLE\
-     esl_hyperexp.c -leasel -lm
+   gcc -g -Wall -I. -o example -DeslHYPEREXP_EXAMPLE\
+     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
+      esl_hyperexp.c esl_exponential.c esl_histogram.c esl_random.c esl_minimizer.c\
+       esl_stats.c esl_vectorops.c easel.c -lm
  * run:     ./example
  */
 #include <stdio.h>
 #include <easel.h>
-#include <esl_hyperexp.h>
-#include <esl_histogram.h>
 #include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_hyperexp.h>
 
 int
 main(int argc, char **argv)
 {
-  FILE *fp;
   ESL_RANDOMNESS *r;		/* source of random numbers        */
   ESL_HISTOGRAM  *h;		/* histogram to store the data     */
-  ESL_HYPEREXP *hxp;		/* hyperexponential to sample from */
-  ESL_HYPEREXP *ehxp;		/* estimated hyperexponential      */
+  ESL_HYPEREXP   *hxp;		/* hyperexponential to sample from */
+  ESL_HYPEREXP   *ehxp;		/* estimated hyperexponential      */
   double      x;		/* sampled data point              */
   int         n = 100000;	/* number of samples               */
   int         i;
-  int         k;
-  double      nll;
-  double      min, max;
 
-  fp = fopen("data.xy", "w");
-
-  r   = esl_randomness_CreateTimeseeded();
-  h   = esl_histogram_CreateFull(-3, 100, 1.0);
   hxp = esl_hyperexp_Create(3);
   hxp->mu = -2.0;
   hxp->q[0]      = 0.6;    hxp->q[1]      = 0.3;   hxp->q[2]      = 0.1; 
   hxp->lambda[0] = 1.0;    hxp->lambda[1] = 0.3;   hxp->lambda[2] = 0.1;
 
-  nll = 0.;
+  r   = esl_randomness_CreateTimeseeded();
+  h   = esl_histogram_CreateFull(hxp->mu, 100, 1.0);
+
   for (i = 0; i < n; i++)
     {
       x    = esl_hxp_Sample(r, hxp);
-      nll -= esl_hxp_logpdf(x, hxp);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Finish(h);
-  min = h->x[0];
-  max = h->x[n-1];
-  printf("NLL of known hyperexp: %g\n", nll);
+  esl_histogram_Sort(h);
 
-  esl_histogram_PlotSurvival(fp, h);
-  esl_hxp_Plot(fp, hxp, &esl_hxp_surv, hxp->mu, max+5, 0.1);
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_hxp_Plot(stdout, hxp, &esl_hxp_surv, h->xmin, h->xmax, 0.1);
 
+  /* ML fit to complete data, and plot fitted survival curve */
   ehxp = esl_hyperexp_Create(3);
-  esl_hxp_FitGuess(h->x, n, ehxp);
-  /* esl_hyperexp_Copy(hxp, ehxp); */
-  esl_hxp_Plot(fp, ehxp, &esl_hxp_surv, hxp->mu, max+5, 0.1);
-  printf("Guessed:\n");
-  printf("Component   q      lambda\n");
-  for (k=0; k < 3; k++)
-    printf("%d\t%7.4f\t%7.4f\n",
-	   k, ehxp->q[k], ehxp->lambda[k]);
-  printf("and mu = %f\n", ehxp->mu);
-  nll = 0.;
-  for (i = 0; i < n; i++)
-    nll -= esl_hxp_logpdf(h->x[i], ehxp);
-  printf("NLL of guessed fit: %g\n", nll);
+  esl_hxp_FitGuess(h->x, h->n, ehxp);
+  esl_hxp_FitComplete(h->x, h->n, ehxp);
+  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
 
-  esl_hxp_FitComplete(h->x, n, ehxp);
-  esl_hxp_Plot(fp, ehxp, &esl_hxp_surv, hxp->mu, max+5, 0.1);
-  printf("Optimized:\n");
-  printf("Component   q      lambda\n");
-  for (k=0; k < 3; k++)
-    printf("%d\t%7.4f\t%7.4f\n",
-	   k, ehxp->q[k], ehxp->lambda[k]);
-  printf("and mu = %f\n", ehxp->mu);
-  nll = 0.;
-  for (i = 0; i < n; i++)
-    nll -= esl_hxp_logpdf(h->x[i], ehxp);
-  printf("NLL of optimized fit: %g\n", nll);
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_hxp_FitGuessBinned(h, ehxp);
+  esl_hxp_FitCompleteBinned(h, ehxp);
+  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
 
-  fclose(fp);
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
   esl_hyperexp_Destroy(hxp);
   esl_hyperexp_Destroy(ehxp);
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
   return 0;
 }
-
 /*::cexcerpt::hyperexp_example::end::*/
 #endif /*eslHYPEREXP_EXAMPLE*/
+
+
+
+
+/****************************************************************************
+ * Test driver
+ ****************************************************************************/ 
+#ifdef eslHXP_TEST
+/* Compile:
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslHXP_TEST\
+    esl_hyperexp.c -leasel -lm
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <easel.h> 
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_hyperexp.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_HISTOGRAM  *h;
+  ESL_RANDOMNESS *r;
+  ESL_HYPEREXP   *hxp;
+  ESL_HYPEREXP   *ehxp;
+  int     n         = 20000;
+  double  binwidth  = 0.1;
+  int     i;
+  double  x;
+  int     k, ek, mink;
+  double  mindiff, diff;
+
+  int     opti;
+  int     be_verbose   = FALSE;
+  char   *paramfile    = NULL;
+  char   *plotfile     = NULL;
+  FILE   *pfp          = stdout;
+  int     plot_pdf     = FALSE;
+  int     plot_logpdf  = FALSE;
+  int     plot_cdf     = FALSE;
+  int     plot_logcdf  = FALSE;
+  int     plot_surv    = FALSE;
+  int     plot_logsurv = FALSE;
+  int     xmin_set     = FALSE;
+  double  xmin;
+  int     xmax_set     = FALSE;
+  double  xmax;
+  int     xstep_set    = FALSE;
+  double  xstep;
+  int     do_fixmix    = FALSE;
+
+  for (opti = 1; opti < argc && *(argv[opti]) == '-'; opti++)
+    {
+      if      (strcmp(argv[opti], "-f")  == 0) do_fixmix    = TRUE;
+      else if (strcmp(argv[opti], "-i")  == 0) paramfile    = argv[++opti];
+      else if (strcmp(argv[opti], "-n")  == 0) n            = atoi(argv[++opti]);
+      else if (strcmp(argv[opti], "-o")  == 0) plotfile     = argv[++opti];
+      else if (strcmp(argv[opti], "-v")  == 0) be_verbose   = TRUE;
+      else if (strcmp(argv[opti], "-w")  == 0) binwidth     = atof(argv[++opti]);
+      else if (strcmp(argv[opti], "-C")  == 0) plot_cdf     = TRUE;
+      else if (strcmp(argv[opti], "-LC") == 0) plot_logcdf  = TRUE;
+      else if (strcmp(argv[opti], "-P")  == 0) plot_pdf     = TRUE;
+      else if (strcmp(argv[opti], "-LP") == 0) plot_logpdf  = TRUE;
+      else if (strcmp(argv[opti], "-S")  == 0) plot_surv    = TRUE;
+      else if (strcmp(argv[opti], "-LS") == 0) plot_logsurv = TRUE;
+      else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
+      else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
+      else ESL_ERROR(eslEINVAL, "bad option");
+    }
+
+  if (paramfile != NULL)
+    esl_hyperexp_ReadFile(paramfile, &hxp);
+  else 
+    {
+      hxp = esl_hyperexp_Create(3);
+      hxp->mu = -2.0;
+      hxp->q[0]      = 0.5;    hxp->q[1]      = 0.3;   hxp->q[2]      = 0.2; 
+      hxp->lambda[0] = 1.0;    hxp->lambda[1] = 0.3;   hxp->lambda[2] = 0.1;
+    }
+  if (do_fixmix) esl_hyperexp_FixedUniformMixture(hxp);	/* overrides q's above */
+
+  if (be_verbose) esl_hyperexp_WriteOneLine(stdout, hxp);
+
+  r = esl_randomness_CreateTimeseeded();
+  h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
+  if (plotfile != NULL) {
+    if ((pfp = fopen(plotfile, "w")) == NULL) 
+      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+  }
+  if (! xmin_set)  xmin  = hxp->mu;
+  if (! xmax_set)  xmax  = hxp->mu+ 20*(1. / esl_vec_DMin(hxp->lambda, hxp->K));
+  if (! xstep_set) xstep = 0.1;
+
+  for (i = 0; i < n; i++)
+    {
+      x = esl_hxp_Sample(r, hxp);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_Sort(h);
+
+  ehxp = esl_hyperexp_Create(hxp->K);
+  if (do_fixmix) esl_hyperexp_FixedUniformMixture(ehxp);
+  esl_hxp_FitGuess(h->x, h->n, ehxp);  
+  esl_hxp_FitComplete(h->x, h->n, ehxp);
+
+  if (be_verbose) esl_hyperexp_WriteOneLine(stdout, ehxp);
+
+  if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+  for (ek = 0; ek < ehxp->K; ek++)
+    {  /* try to match each estimated lambda up to a parametric lambda */
+      mindiff = 1.0;
+      mink    = -1;
+      for (k = 0; k < hxp->K; k++)
+	{
+	  diff =  fabs( (ehxp->lambda[ek] - hxp->lambda[k]) / hxp->lambda[k]);
+	  if (diff < mindiff) {
+	    mindiff = diff;
+	    mink    = k;
+	  }
+	}
+      if (mindiff > 0.50)
+	ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 50%\n");
+      if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
+	ESL_ERROR(eslFAIL, "Error in (complete) fitted q > 2-fold%\n");
+    }
+
+  esl_hxp_FitGuessBinned(h, ehxp);  
+  esl_hxp_FitCompleteBinned(h, ehxp);
+  if (be_verbose)  esl_hyperexp_WriteOneLine(stdout, ehxp);
+
+  if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
+     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+  for (ek = 0; ek < ehxp->K; ek++)
+    {  /* try to match each estimated lambda up to a parametric lambda */
+      mindiff = 1.0;
+      mink    = -1;
+      for (k = 0; k < hxp->K; k++)
+	{
+	  diff =  fabs( (ehxp->lambda[ek] - hxp->lambda[k]) / hxp->lambda[k]);
+	  if (diff < mindiff) {
+	    mindiff = diff;
+	    mink    = k;
+	  }
+	}
+      if (mindiff > 0.50)
+	ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 50%\n");
+      if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
+	ESL_ERROR(eslFAIL, "Error in (binned) fitted q > 2-fold\n");
+    }
+
+  if (plot_pdf)     esl_hxp_Plot(pfp, hxp, &esl_hxp_pdf,     xmin, xmax, xstep);
+  if (plot_logpdf)  esl_hxp_Plot(pfp, hxp, &esl_hxp_logpdf,  xmin, xmax, xstep);
+  if (plot_cdf)     esl_hxp_Plot(pfp, hxp, &esl_hxp_cdf,     xmin, xmax, xstep);
+  if (plot_logcdf)  esl_hxp_Plot(pfp, hxp, &esl_hxp_logcdf,  xmin, xmax, xstep);
+  if (plot_surv)    esl_hxp_Plot(pfp, hxp, &esl_hxp_surv,    xmin, xmax, xstep);
+  if (plot_logsurv) esl_hxp_Plot(pfp, hxp, &esl_hxp_logsurv, xmin, xmax, xstep);
+
+  if (plotfile != NULL) fclose(pfp);
+  return 0;
+}
+#endif /*eslHXP_TEST*/
 
 /*****************************************************************
  * @LICENSE@
