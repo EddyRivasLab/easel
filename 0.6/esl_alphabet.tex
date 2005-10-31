@@ -1,0 +1,300 @@
+The alphabet (abc) module contains routines for digitizing alphabetic
+biosequences.
+
+For many purposes, it is more convenient to represent the nucleotides
+and amino acids as array indices 0..3 or 0..19, respectively. It is
+also convenient to index a sequence as 1..L coordinates instead of C's
+0..L-1 array representation; in part for readability, and also because
+some codes (DP alignment algorithms, for example) have boundaries
+where coordinate 0 is reserved for an initialization condition.
+
+The digital alphabet accommodates gap symbols and IUPAC/IUBMB
+degenerate residue nomenclature. It allows for "synonymous" letter
+codes to map to the same residue (such as allowing T/U to mean the
+same thing in nucleic acid sequences, allowing technically non-IUBMB
+codes like the use of X to mean N in DNA sequences, or mapping
+modified residues onto the basic alphabet, such as mapping U
+(selenocysteine) onto S (serine) or X (unknown) for different
+purposes. Easel maintains all of this information in an
+\ccode{ESL\_ALPHABET} structure, which an application usually creates
+once, typically (but not necessarily) as a global variable.
+
+\subsection{API}
+
+A standard biosequence alphabet is created using
+\ccode{esl\_alphabet\_Create(type)}, where \ccode{type} can be
+\ccode{eslDNA}, \ccode{eslRNA}, or \ccode{eslAMINO}.
+
+An input sequence \ccode{seq} of length \ccode{L} is digitized
+according to alphabet \ccode{a}, creating a newly allocated digital
+sequence \ccode{dsq}, by calling
+\ccode{esl\_abc\_CreateDigitalSequence(a, seq, L, \&dsq)}. The caller
+must free \ccode{dsq} using \ccode{free(dsq)}.  Alternatively, if the
+caller has already allocated \ccode{L+2} (or more) bytes in
+\ccode{dsq}, it can call \ccode{esl\_abc\_DigitizeSequence(a, seq, L,
+dsq)}, which is the non-allocating version of
+\ccode{esl\_abc\_CreateDigitalSequence()}. 
+
+For an input sequence of length L, the digitized sequence (dsq) is an
+unsigned char array of L+2 bytes. \ccode{dsq[0]} and \ccode{dsq[L+1]}
+contain a sentinel byte of value \ccode{eslSENTINEL} (255).  Positions
+1..L hold the residues, where values 0..3 encode ACGT in DNA
+sequences, 0..3 encode ACGU in RNA sequences, and 0..19 encode AC..WY
+in amino acid sequences.
+
+Both sequence-digitizing functions return \ccode{ESL\_EINVAL} if the
+input sequence contains characters that are not in the
+alphabet. Because input sequences are often provided by a user (not
+the program), this is a common error that the application must check
+for.
+
+An example of creating a standard alphabet and digitizing a sequence
+is:
+
+\begin{cchunk}
+  ESL_ALPHABET  *a;
+  char           dnaseq[] = "GARYTC";
+  int            L        = 6;
+  unsigned char *dsq;
+  
+  a = esl_alphabet_Create(eslDNA);
+
+  if (esl_abc_CreateDigitalSequence(a, dnaseq, L, &dsq) == ESL_EINVAL)
+   {
+     fprintf(stderr, "Invalid character in the input sequence");
+     exit(1);
+   }
+
+  free(dsq);
+  esl_alphabet_Destroy(a);
+  return 0;
+}
+\end{cchunk}
+
+For more working examples of the API, see the test driver at the end
+of \cfile{alphabet.c}.
+
+\subsection{Standard alphabets: DNA, RNA, protein}
+
+Easel's \emph{internal alphabet} is a string (\ccode{a->sym}) of
+length K', which contains the K symbols of the base alphabet, a gap
+character, a degenerate ``any'' character, and (optionally) additional
+degenerate residue codes. The digital index used for each residue is
+the index of a residue in this string, 0..K'-1.
+
+The three standard internal alphabets are:
+
+\begin{tabular}{lllrr}
+\textbf{Type} & \textbf{sym}                     & Synonyms &\textbf{K} & \textbf{K'} \\
+eslDNA        & \ccode{ACGT-RYMKSWHBVDN}         & U=T; X=N & 4         &  16         \\
+eslRNA        & \ccode{ACGU-RYMKSWHBVDN}         & T=U; X=N & 4         &  16         \\
+eslAMINO      & \ccode{ACDEFGHIKLMNPQRSTVWY-BZX} & U=S      & 20        &  24         \\
+\end{tabular}
+
+The first K residues ([0..K-1]) are the \emph{base alphabet} (``ACGT''
+for example); the next residue (K) is always a gap symbol ('-' for
+example); the last residue (K'-1) is the degenerate code for ``any''
+or ``unknown'' ('N', for example); and the remaining residues
+([K+1..K'-2]) are the \emph{degenerate alphabet}, implementing
+standard IUPAC or IUBMB one-letter codes.
+
+The \ccode{sym} string is used to translate digital sequences back to
+output sequences for display, so it may be referred to as the internal
+alphabet or the output alphabet.  Thus, only the residues in the
+\ccode{sym} can be represented in output from Easel, although an
+application may convert some characters for its own purposes before
+displaying an alphabetic string (to use different gap symbols for
+insertions versus deletions, for instance; or to use upper/lower case
+conventions to represent match/insert positions).
+
+The DNA and RNA alphabets follow published IUBMB recommendations
+("Nomenclature for incompletely specified bases in nucleic acid
+sequences", Eur. J. Biochem. 150:1-5, 1985;
+\url{http://www.chem.qmul.ac.uk/iubmb/misc/naseq.html}), with the
+addition of X as a synonym for N (acquiescing to the BLAST filter
+standard of using X's to mask residues), and the use of U in RNA
+sequences in place of T; the use of ``synonyms'' is described in the
+following section on the input map.
+
+The one-letter code for amino acids follows section 3AA-21 of the
+IUPAC recommendations ("Nomenclature and symbolism for amino acids and
+peptides", Eur. J. Biochem. 138:9-37, 1985;
+\url{http://www.chem.qmul.ac.uk/iupac/AminoAcid/}]; augmented by U for
+selenocysteine, as recommended by the JCBN/NC-IUBMB Newsletter, 1999
+(\url{http://www.chem.qmul.ac.uk/iubmb/newsletter/1999/item3.html}),
+though it is not really a "degenerate" residue. Since we must map it
+onto one of the 20-letter code, we map it as a synonym of serine (S).
+
+\subsection{The input map}
+
+Input symbol sequences are converted into the internal digitized
+alphabet. This is facilitated by an \emph{input map}, which translates
+ASCII codes to the appropriate digitization. Symbols in the internal
+alphabet are mapped in the obvious way ('A' $\rightarrow$ 0, etc.);
+the input map additionally allows \emph{synonymous} input symbols,
+such as allowing T or U to be equivalent in DNA/RNA sequences, or
+allowing upper or lower case residues to be equivalent, or allowing
+additional gap symbols other than the standard one.
+
+Individual synonyms are added to an alphabet's input map by the call
+\ccode{esl\_alphabet\_SetSynonym()}; for example,
+\ccode{esl\_alphabet\_SetSynonym(alphabet, 'U', 'S')} indicates that a
+'U' (selenocysteine) in a sequence should be mapped onto 'S' (serine)
+internally in \ccode{alphabet}.
+
+\ccode{esl\_alphabet\_SetCaseInsensitive()} makes both upper case and
+lower case input alphabetic characters map to their equivalent in the
+internal alphabet in a case-insensitive manner.  This function works
+only on residues that have already been declared to be part of the
+alphabet, so it must be called \emph{after} all synonyms have been
+added.
+
+The standard DNA alphabet is set to be case-insensitive for input, and
+it defines U as a synonym for T (to allow input of RNA sequences as
+DNA), X as a synonym for N (because many sequence masking programs
+mistakenly use a non-IUBMB degeneracy symbol X to mean N, and we have
+to live with it), and '\_' and '.' as gap symbols in addition to
+'-'. The standard RNA alphabet is the same (except that it defines T
+as a synonym for U). (See \ccode{alphabet.c:create\_dna()}.)
+
+The standard protein alphabet is set to be case-insensitive for input.
+It defines U (selenocysteine) as a synonym for S (serine); not because
+this is biologically correct, but solely so that rare
+selenocysteine-containing sequences can be accepted as input and
+treated somewhat sensibly. And, like the nucleic acid alphabets, it
+adds '\_' and '.' as gap symbols in addition to '-'. (See
+\ccode{alphabet.c:create\_amino()}.)
+
+\subsubsection{Implementation of the input map}
+
+The \emph{input map} is implemented as an array
+\ccode{a->inmap[0..127]}.  \ccode{x = a->inmap[sym]} is the digital
+representation of \ccode{sym}, where $x = 0..K'-1$ or
+\ccode{eslSENTINEL}, and \ccode{sym} is a 7-bit unsigned ASCII
+character in the range 0..127.  The flag \ccode{a->inmap[sym] =
+eslSENTINEL} indicates that the symbol is unrecognized (not part of
+the legal alphabet).  The internal alphabet is mapped
+\ccode{a->inmap[a->sym[i]] = i} when an alphabet is created.
+
+
+\subsection{Degenerate residue codes}
+
+Dealing with real biosequences means dealing with some rarely
+occurring degenerate residue codes. Easel implements the standard
+IUPAC and IUBMB one-letter degeneracy codes for protein and nucleic
+acid, and provides an API to simplify an application's scoring of
+degenerate residue codes.
+
+When creating an alphabet, each degenerate symbol in the internal
+alphabet (residues \ccode{K+1}..\ccode{Kp-2}) must be initialized by
+calling \ccode{esl\_alphabet\_SetDegeneracy(alphabet, c, syms)}, which
+assigns degenerate alphabetic symbol \ccode{c} to the alphabetic
+symbols in the string \ccode{syms}; for example,
+\ccode{esl\_alphabet\_SetDegeneracy(a, 'R', ``AG'')} assigns R
+(purine) to mean A or G.  For the standard biosequence alphabets, this
+is done automatically to define the IUPAC degeneracy codes for amino
+acid residues and the IUBMB degeneracy codes for nucleic acid
+residues.  (The last residue, K'-1, is always the ``any'' character in
+any alphabet, and is initialized automatically in any alphabet, even
+customized alphabets.)
+
+To score a degenerate residue code $x$, Easel provides two kinds of
+functions. One set of functions assigns an average score:
+
+\[
+  S(x) =  \frac{\sum_{y \in D(x)}  S(y) } { |D(x)| },
+\]
+
+where $D(x)$ is the set of residues $y$ represented by degeneracy code
+$x$ (for example, $D(\mbox{R}) = \{ \mbox{A,G} \}$), $| D(x) |$ is the
+number of residues that the degeneracy code includes, and $S(y)$ is
+the score of a base residue $y$. Because scores $S(y)$ are commonly
+kept as integers, floats, or doubles, three functions are provided
+that differ only in the storage type of the scores:
+\ccode{esl\_abc\_AvgIScore(a,x,sc)}, \ccode{esl\_abc\_AvgFScore(a,x,sc)}, and
+\ccode{esl\_abc\_AvgDScore(a,x,sc)}, respectively, calculate an average
+score of residue \ccode{x} in alphabet \ccode{a} given a base score
+vector \ccode{sc[0]..sc[K-1]}.
+
+A second set of functions assigns an expected score, weighted by an
+expected occurrence probability $p_y$ of the residues $y$ (often the
+random background frequencies):
+
+\[
+  S(x) =  \frac{\sum_{y \in D(x)}  p_y S(y) } { \sum_{y \in D(x)} p_y },
+\]
+
+These three functions are \ccode{esl\_abc\_ExpectIScore(a,x,sc,p)},
+\ccode{esl\_abc\_ExpectFScore(a,x,sc,p)}, and
+\ccode{esl\_abc\_ExpectDScore(a,x,sc,p)}, respectively. For the integer
+and float versions, the probability vector is in floats, and for the
+double version, the probability vector is in doubles.
+
+An application would typically use these functions in one of two
+strategies to score degenerate codes: precalculation, or on-the-fly.
+To precalculate (as in HMMER), position-specific score vectors are
+length K', inclusive of degeneracy codes; the degenerate parts of
+these score vectors (positions \ccode{K+1..Kp-1}) are initialized
+using the appropriate function. 
+
+To score residues on-the-fly using base score vectors of length
+\ccode{K}, each input residue \ccode{x} is tested before scoring it
+appropriately.  \ccode{esl\_abc\_IsBasic(a, x)} returns \ccode{TRUE} if
+\ccode{x} is in the basic set of \ccode{K} residues in alphabet
+\ccode{a}, and \ccode{FALSE} otherwise. Similarly,
+\ccode{esl\_abc\_IsGap(a,x)} tests whether $x$ is a gap, and
+\ccode{esl\_abc\_IsDegenerate(a,x)} tests whether $x$ is a degenerate
+residue.
+
+\subsubsection{Implementation of the degeneracy map}
+
+The degeneracy map is implemented in a $K' \times K$ array
+\ccode{a->degen[0..Kp-1][0..K-1]} of 1/0 (TRUE/FALSE) flags, where
+\ccode{a->degen[x][y] == TRUE} indicates that the residue set $D(x)$
+for degeneracy code \ccode{x} contains basic residue \ccode{y}.
+\ccode{a->ndegen[x]} contains the cardinality $|D(x)|$ of the residue
+set for degeneracy code \ccode{x}.
+
+The degeneracy map is undefined for the special case of $x=K$, the
+digitized gap symbol.
+
+The last character in the internal alphabet is automatically assumed
+to be an ``any'' character (such as 'N' for DNA or RNA, 'X' for
+protein); \ccode{a->degen[Kp-1][i] = 1} for $i=0..K-1$, and
+\ccode{a->ndegen[Kp-1] = K} when the alphabet is created. All other
+degeneracy codes are added when the alphabet is created using
+\ccode{esl\_alphabet\_SetDegeneracy(alphabet, c, syms)}.
+
+\subsection{Creating custom alphabets}
+
+An example of creating a customized alphabet follows.
+
+\begin{cchunk}
+  ESL_ALPHABET *a;
+
+  /* 1. Create the base alphabet structure.
+   */
+  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24);
+
+  /* 2. Set synonyms in the input map, by calls to
+   *    esl_alphabet_SetSynonym.
+   */
+  esl_alphabet_SetSynonym(a, 'U', 'S');     /* read selenocysteine U as a serine S */
+  esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap character too */
+
+  /* 3. After all synonyms are set, (optionally) make
+   *    the map case-insensitive.
+   */
+  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
+
+  /* 4. Define all the degeneracy codes in the alphabet.
+   */
+  esl_alphabet_SetDegeneracy(a, 'Z', "QE"); /* read Z as {Q|E} */
+
+  /* (use the alphabet to read/digitize/score sequences */
+
+  esl_alphabet_Destroy(a);
+\end{cchunk}
+
+
+

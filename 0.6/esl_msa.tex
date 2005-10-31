@@ -1,0 +1,183 @@
+The msa module implements input parsers and output routines for
+multiple sequence alignment files.
+
+\subsection{The msa API}
+
+The module implements two objects. A \ccode{ESL\_MSA} holds a multiple
+sequence alignment. A \ccode{ESL\_MSAFILE} is an alignment file,
+opened for input. (No special object is needed for output of an
+alignment file; a normal C \ccode{FILE} stream is used for output.)
+
+The API consists of the following functions:
+
+\vspace{1em}
+\begin{tabular}{ll}\hline
+   \multicolumn{2}{c}{\textbf{open/close of an msa file}}\\
+\ccode{esl\_msafile\_Open()}                & Opens alignment file for input.\\
+\ccode{esl\_msafile\_Close()}               & Closes an open alignment file.\\
+   \multicolumn{2}{c}{\textbf{main msa i/o functions}}\\
+\ccode{esl\_msa\_Read()}                    & Reads an MSA from open file.\\
+\ccode{esl\_msa\_Write()}                   & Writes an MSA to open stream.\\
+   \multicolumn{2}{c}{\textbf{MSA object maintenance}}\\
+\ccode{esl\_msa\_Create()}                  & Creates a new MSA.\\
+\ccode{esl\_msa\_Destroy()}                 & Destroys a created MSA.\\
+\ccode{esl\_msa\_Expand()}                  & Expands allocation of an MSA.\\
+   \multicolumn{2}{c}{\textbf{Format autodetermination}}\\
+\ccode{esl\_msa\_GuessFileFormat()}         & Guesses an input file format.\\
+   \multicolumn{2}{c}{\textbf{Alterations of an MSA}}\\
+\ccode{esl\_msa\_NoGaps()}            & Removes columns containing any gaps.\\
+\ccode{esl\_msa\_MinimGaps()}         & Removes columns containing only gaps.\\
+\ccode{esl\_msa\_SymConvert()}        & A \ccode{tr//} op on the alignment.\\\hline
+\end{tabular}
+
+\subsection{Example of using the msa API}
+
+Normally, you will only need to use five main functions from the API.
+
+To read an alignment (or alignments) from a file, you open the file
+with \ccode{esl\_msafile\_Open()} and read the alignment(s) with
+\ccode{esl\_msa\_Read()}; when you're done with an alignment, free it
+with \ccode{esl\_msa\_Destroy()}, and when you're done with the file,
+close it with \ccode{esl\_msafile\_Close()}. 
+
+If you want to output an alignment, you open a normal C \ccode{FILE}
+stream, write the alignment(s) with \ccode{esl\_msa\_Write()}, and
+close the stream with C's \ccode{fclose()}.
+
+You may not need the other functions.  Normally, a new MSA is created
+in the \ccode{esl\_msa\_Read()} call, not by calling
+\ccode{esl\_msa\_Create()} directly, but the \ccode{\_Create()} and
+\ccode{\_Expand()} functions are provided by the API in case you need
+to write your own parser for a new format (and if so, you can follow
+one of the existing parsers in \ccode{msa.c} as an example. Similarly,
+the \ccode{esl\_msa\_GuessFileFormat()} function is normally called
+only from within \ccode{esl\_msafile\_Open()} when you open a new
+alignment file using format autodetection; but it's in the external
+API in case you find it useful for some other purpose (like, checking
+what Easel thinks a file's format is). And finally, the individual i/o
+functions for specific formats are visible in the external API, but
+you would normally just call the main \ccode{\_Read()} and
+\ccode{\_Write()} wrapper functions instead.
+
+Anyway, on to an example. The code bloats up a bit here because of
+error handling. Lots of things can go wrong with input from a user's
+file format, so the API tries to be careful about detecting different
+kinds of errors. Here's code that reads one or more alignment in from
+a file, and outputs them in Stockholm format:
+
+\input{cexcerpts/msa_example}
+
+Some things that are special about the API are worth noting here.
+
+\begin{enumerate}
+\item The format of the alignment file can either be automatically
+      detected, or set by the caller when the file is opened.
+      Autodetection is invoked when the caller passes a \ccode{fmt}
+      code of \ccode{eslMSAFILE\_UNKNOWN}. Autodetection is a ``best
+      effort'' guess, but it is not 100\% reliable - especially if the
+      input file isn't an alignment file at all. Autodetection is a
+      convenient default but the caller will usually want to provide a
+      way for the user to specify the input file format and override
+      autodetection, just in case.
+
+\item If reading of an alignment fails because something is wrong with
+      the file format, it's useful to give the user more information
+      about what went wrong than just ``parse failed''. If
+      \ccode{esl\_msa\_Read()} returns an \ccode{eslEFORMAT} error
+      when trying to read an alignment from an open file \ccode{afp},
+      the caller can use \ccode{afp->linenumber}, \ccode{afp->buf},
+      and \ccode{afp->errbuf} to get the line number in the file that
+      the error occurred, the text that was on that line, and a short
+      error message about what was wrong with it, respectively.
+
+\item The MSA module can be optionally \emph{augmented} by the keyhash
+      module at compile-time. This improves the speed of parsing large 
+      Stockholm format alignments.
+\end{enumerate}
+
+\subsection{Accessing alignment information in the MSA object}
+
+The information in the \ccode{ESL\_MSA} object is meant to be accessed
+directly, so you need to know what it contains. This object is defined
+and documented in \ccode{msa.h}. It contains various information, as
+follows:
+
+\subsubsection{Important/mandatory information}
+
+The following information is always available in an MSA.
+
+\input{cexcerpts/msa_mandatory}
+
+The alignment contains \ccode{nseq} sequences, each of which contains
+\ccode{alen} characters.
+
+\ccode{aseq[i]} is the i'th aligned sequence, numbered
+\ccode{0..nseq-1}. \ccode{aseq[i][j]} is the j'th character in aligned
+sequence i, numbered \ccode{0..alen-1}.
+
+\ccode{sqname[i]} is the name of the i'th sequence.
+
+\ccode{wgt[i]} is a non-negative real-valued weight for sequence
+i. This defaults to 1.0 if the alignment file did not provide weight
+data. You can determine whether weight data was parsed by checking
+\ccode{flags \& MSA\_HASWGTS}.
+
+\subsubsection{Optional information}
+
+The following information is optional; it is usually only provided by
+annotated Stockholm alignments (for instance, Pfam and Rfam database
+alignments). 
+
+Any pointer can be NULL if the information is unavailable. This is
+true at any level; for instance, \ccode{ss} will be NULL if no
+secondary structures are available for any sequence, and \ccode{ss[i]}
+will be NULL if some secondary structures are available, but not for
+sequence i. 
+
+\input{cexcerpts/msa_optional}
+
+These should be self-explanatory; but for more information, see the
+Stockholm format documentation. Each of these fields corresponds to
+Stockholm markup.
+
+The \ccode{cutoff} array contains Pfam/Rfam curated score
+cutoffs. They are indexed as follows:
+
+\input{cexcerpts/msa_cutoffs}
+
+\subsubsection{Unparsed information}
+
+The MSA object may also contain additional ``unparsed'' information
+from Stockholm files; that is, tags that are present but not
+recognized by the MSA module. This information is stored so that it
+may be regurgitated if the application needs to faithfully output the
+entire alignment file, even the bits that it didn't understand. If you
+need to access unparsed Stockholm tags, see the comments in
+\ccode{msa.h}.
+
+
+\subsection{Accepted formats}
+
+Currently, the MSA module only parses Stockholm format. 
+
+Stockholm format and other alignment formats are documented in a later
+chapter.
+
+\subsection{Reading from a pipe from compressed files}
+
+The module can read compressed alignment files.  If the
+\ccode{filename} passed to \ccode{esl\_msafile\_Open} ends in
+\ccode{.gz}, the file is assumed to be compressed with gzip. Instead
+of opening it normally, \ccode{esl\_msafile\_Open} opens it as a pipe
+through \ccode{gunzip -dc}. Obviously this only works on a POSIX
+system -- pipes have to work, specifically the \ccode{popen()} system
+call -- and \ccode{gunzip} must be installed and in the PATH.
+
+The module can also read from a standard input pipe. If the
+\ccode{filename} passed to \ccode{esl\_msafile\_Open} is \ccode{-},
+the alignment is read from \ccode{STDIN} rather than from a file.
+
+Because of the way format autodetection works, you cannot use it when
+reading from a pipe or compressed file. The application must know the
+appropriate format and pass that code it calls
+\ccode{esl\_msafile\_Open}.
