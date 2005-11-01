@@ -1,0 +1,179 @@
+The easel (esl) module implements a small set of functionality shared
+by all the modules: notably, the error-handling system.
+
+\subsection{Error handling conventions}
+
+Easel distinguishes two types of error conditions: ``normal'' errors
+that are ``returned'', and ``abnormal'' errors that are ``thrown''.
+
+Normal errors are conditions that are expected, that an application
+should want to know about. They often have to do with issues with user
+input; an EOF end-of-file indicator for an input file, for example. An
+Easel function that detects a normal error directly returns an
+appropriate normal status code (for example, by calling \ccode{return
+ESL\_EOF}.
+
+Abnormal errors are conditions that the application wishes would never
+happen. Most common is a lack of system resources (principally, memory
+allocation failures). An Easel function that detects an abnormal error
+condition does two things: 1) it calls the \cfunc{esl\_error()} error
+handler; and 2) if \cfunc{esl\_error} did not terminate the program,
+it returns an abnormal status code.
+
+By default, \cfunc{esl\_error()} just prints a short error message and
+aborts execution. Therefore, by default, Easel functions deal with
+their own problems (drastically) and never actually return these
+abnormal error codes. Thus, simple applications can rely on Easel to
+handle its own errors -- provided you don't mind that any fatal error
+in Easel will kill your whole program.
+
+In complex applications (graphical user interfaces, for example) where
+robustness is at a premium, and you really don't want a little failure
+in a low-level library crashing your whole environment, the default
+behavior of \cfunc{esl\_error} can be modified by assigning a new
+error handler that merely catches the information from Easel and
+reacts appropriately, instead of the default behavior of
+\ccode{abort()}'ing.
+
+By convention, the documentation of individual Easel functions refers
+to abnormal error conditions that are handled by \cfunc{esl\_error}
+before returning an error status code as \emph{thrown}, and normal
+error conditions that directly return an error status code as
+\emph{returned}.  From the perspective of an application developer
+using Easel, any returned error codes must always be checked for. If
+\cfunc{esl\_error} is left in its default, thrown errors do not need
+to be checked for, because \cfunc{esl\_error} handles them itself (by
+aborting). In a complex application where a custom nonfatal handler
+has been assigned to \cfunc{esl\_error()}, the application must check
+for both returned (normal) and thrown (abnormal) error codes.
+
+\subsection{Status codes}
+
+For most functions, the return status code is an integer,
+\cmacro{ESL\_OK} (0) on success and nonzero on failure. The error
+codes are defined in \cfile{easel.h}:
+
+\begin{cchunk}
+#define ESL_OK         0	/* no error                     */
+#define ESL_EOL        1	/* end-of-line (often normal)   */
+#define ESL_EOF        2	/* end-of-file (often normal)   */
+#define ESL_EMEM       3	/* malloc or realloc failed     */
+#define ESL_ENOFILE    4	/* file not found               */
+#define ESL_EFORMAT    5	/* file format not recognized   */
+#define ESL_EPARAM     6	/* bad parameter passed to func */
+#define ESL_EDIVZERO   7	/* attempted div by zero        */
+#define ESL_EINCOMPAT  8	/* incompatible parameters      */
+#define ESL_EINVAL     9	/* invalid argument             */
+#define ESL_ETESTFAIL  10	/* calculated test failure      */
+#define ESL_EUNKNOWN   127      /* generic error, unidentified  */
+\end{cchunk}
+
+Functions that allocate memory may instead return a valid pointer or
+NULL on failure. Functions that do this have no possible errors other
+than malloc() failure, so that a NULL return is synonymous with
+\cmacro{ESL\_EMEM}.
+
+Some functions have no detectable error conditions. These functions
+may return a meaningful result instead of a status code, or they may
+just return void. Easel is not dogmatic about requiring every function
+to return a status code.
+
+Whether a code is ``normal'' or ``abnormal'' depends on the function.
+The documentation for an individual function will say what normal
+status codes are returned directly, and what abnormal status codes can
+be thrown after calling \cfunc{esl\_error}.
+
+\subsection{Replacing the default error handler}
+
+\cfunc{esl\_error} gets as arguments a status code, file and
+linenumber for where the error occurred, and a \cfunc{printf}-style
+message. By default, it prints the message and exits:
+
+\begin{cchunk}
+Easel fatal error:
+Memory allocation failed.
+
+Aborted at file sqio.c, line 42. 
+\end{cchunk}
+
+An application can define its own handler for the same information,
+and override this default behavior. To do this, define the error
+handler with the following prototype:
+
+\begin{cchunk}
+extern void my_error_handler(int code, char *file, int line, char *format, va_list arg);
+\end{cchunk}
+
+An example implementation of an error handler:
+
+\begin{cchunk}
+#include <stdarg.h>
+
+void
+my_error_handler(int code, char *file, int line, char *format, va_list arg)
+{
+  fprintf(stderr, ``Easel threw an error (code %d):\n'', code);
+  vfprintf(stderr, format, arg);
+  fprintf(stderr, ``at line %d, file %s\b'', line, file);
+  return;
+}
+\end{cchunk}
+
+To configure Easel to use your error handler, call
+\cfunc{esl\_error\_SetHandler(\&my\_error\_handler)}. Usually you
+would do this before calling any other Easel functions.
+
+In principle, you can change error handlers at any time, including
+restoring the default handler with
+\cfunc{esl\_error\_RestoreDefaultHandler()}. However, the
+implementation of the handler uses a static function pointer that is
+not threadsafe, so in a threaded program, you would need to make sure
+that multiple threads do not try to change the handler at the same
+time.
+
+Since Easel functions also call Easel functions, the function that
+detected an error may not be the function that your application
+called.  If you implement a handler that does not exit the program, an
+abnormal error in Easel will generate a whole stack trace of
+\cfunc{esl\_error} messages, as the abnormal error percolates up from
+the function that detected the error, until the Easel function you
+called throws the abnormal error code back to your application. The
+first \cfunc{esl\_error} message is most relevant; any remaining
+messages arise from that error percolating up through the stack trace.
+A sophisticated replacement \cfunc{esl\_error} handler might push each
+\cfunc{esl\_error} message into a FIFO queue, where they will be
+waiting for the main application-specific error handler to access when
+the application gets its abnormal status code back from Easel.
+
+\subsection{Implementation of Easel's error-throwing convention}
+
+Easel implements its two-step error throwing convention (a call to
+\cfunc{esl\_error} with \cmacro{\_\_FILE\_\_} and \cmacro{\_\_LINE\_\_}
+information, followed by a return of a status code) in two macros,
+\cmacro{ESL\_ERROR(code, mesg)} (for integer error codes) and
+\cmacro{ESL\_ERROR\_NULL(mesg)} (for memory allocations that return
+NULL). An example:
+
+\begin{cchunk}
+if ((ptr = malloc(sizeof(int) * n)) == NULL) ESL_ERROR_NULL(``malloc failed'');
+\end{cchunk}
+
+Vanilla ANSI C does not support macros with variable arguments, so
+these macros can only be used when a message does not need to be
+formatted. When the message must be formatted, the two-step convention
+is called explicitly, as in this example:
+
+\begin{cchunk}
+if ((ptr = malloc(sizeof(int) * n)) == NULL)
+  {
+     esl_error(ESL_EMEM, __FILE__, __LINE__, ``malloc of %d ints failed'', n);
+     return NULL;
+  }
+\end{cchunk}
+
+For memory allocation and reallocation, Easel may use two macros
+\cmacro{ESL\_MALLOC} and \cmacro{ESL\_REALLOC}, which encapsulate
+standard \cfunc{malloc} and \cfunc{realloc} calls in Easel's
+error-throwing convention.
+
+

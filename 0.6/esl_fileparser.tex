@@ -1,0 +1,60 @@
+
+The fileparser module parses an input data file into one token at a
+time, allowing for arbitrary comments and whitespace.
+
+\subsection{The fileparser API}
+
+The module implements one object, a \ccode{ESL\_FILEPARSER}. This
+object holds the state of the parser.
+
+The API contains the following functions:
+
+\vspace{1em}
+\begin{center}
+\begin{tabular}{ll}\hline
+\ccode{esl\_fileparser\_Create()}        & Creates fileparser, given input stream.\\
+\ccode{esl\_fileparser\_SetCommentChar()}& Declares what character starts a comment.\\
+\ccode{esl\_fileparser\_GetToken()}      & Parse the next token.\\
+\ccode{esl\_fileparser\_Destroy()}       & Free's a created \ccode{ESL\_FILEPARSER}.\\\hline
+\end{tabular}
+\end{center}
+
+\subsection{Example of using the fileparser API}
+
+An example that opens a file, reads all its tokens one at a time, and
+prints out token number, token length, and the token itself:
+
+\input{cexcerpts/fileparser_example}
+
+The caller opens an input \ccode{FILE} stream normally (using
+\ccode{fopen()}, for example, to open a file). This input stream is
+associated with a new \ccode{ESL\_FILEPARSER} by calling
+\ccode{esl\_fileparser\_Create}.
+
+A single character can be defined to serve as a comment character
+(often \ccode{\#}), using the \ccode{esl\_fileparser\_SetCommentChar()}
+call. The parser will ignore the comment character, and the remainder
+of any line following a comment character.
+
+Each call to \ccode{esl\_fileparser\_GetToken()} retrieves one
+whitespace-delimited token from the input stream; the call returns
+\ccode{eslOK} if a token is parsed, and \ccode{eslEOF} when there are
+no more tokens in the file. Whitespace is defined as space, tab,
+newline, or carriage return (\verb+" \t\n\r"+).
+
+If the token is not what you expected (or if
+\ccode{esl\_fileparser\_GetToken()} fails for some reason, with a
+status code other than \ccode{<eslOK>} or \ccode{<eslEOF>}), you
+probably want to provide some diagnostic output to the user. For this
+reason, \ccode{efp->linenumber} contains the current linenumber in the
+file.  The actual contents of this line are not available in the
+\ccode{efp} object, because the input line buffer (\ccode{efp->buf})
+is modified as successive tokens are parsed out.
+
+When the caller is done, the fileparser is free'd by a call to
+\ccode{esl\_fileparser\_Destroy()}. The caller is also responsible for
+closing the stream in the appropriate manner (for instance by
+\ccode{fclose()}, if it was opened by \ccode{fopen()}).
+
+
+

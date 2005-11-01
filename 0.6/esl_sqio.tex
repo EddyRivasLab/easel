@@ -1,0 +1,186 @@
+
+The sqio module contains routines for input from unaligned sequence
+data files, such as FASTA files.
+
+\subsection{The sqio API}
+
+The sqio module implements two objects. A \ccode{ESL\_SQFILE} object
+works much like an ANSI C \ccode{FILE}: it maintains information for
+an open sequence file while it's being read. The \ccode{ESL\_SQ}
+object contains information for a single sequence.
+
+The API consists of the following functions:
+
+\vspace{1em}
+\begin{center}
+\begin{tabular}{ll}\hline
+    \multicolumn{2}{c}{\textbf{open/close of a sequence file}}\\
+\ccode{esl\_sqfile\_Open()}  & Opens a sequence file for reading.\\
+\ccode{esl\_sqfile\_Close()} & Closes an open sequence file.\\
+    \multicolumn{2}{c}{\textbf{sequence i/o}}\\
+\ccode{esl\_sq\_Read()}      & Reads a sequence from an open file.\\
+    \multicolumn{2}{c}{\textbf{sequence object maintenance}}\\
+\ccode{esl\_sq\_Create()}   & Creates a new \ccode{ESL\_SQ} object. \\
+\ccode{esl\_sq\_Reuse()}    & Resets an \ccode{ESL\_SQ} object for reuse. \\
+\ccode{esl\_sq\_Squeeze()}  & Optimizes an \ccode{ESL\_SQ}, destroys i/o buffers. \\
+\ccode{esl\_sq\_Destroy()}  & Destroys a created \ccode{ESL\_SQ}.\\
+    \multicolumn{2}{c}{\textbf{using file format codes}}\\
+\ccode{esl\_sqfile\_FormatCode()} & Converts format string to internal code\\
+\ccode{esl\_sqfile\_FormatString()} & Converts format code to string\\
+\ccode{esl\_sqfile\_IsAlignment()} & Checks if a code is alignment file fmt\\\hline
+\end{tabular}
+\end{center}
+
+\subsection{Example of using the sqio API}
+
+An example that opens a file, reads sequences from it one at a time,
+then closes the file:
+
+\input{cexcerpts/sqio_example}
+
+A FASTA file named \ccode{seqfile} is opened for reading by calling
+\ccode{esl\_sqfile\_Open(filename, format, env, \&sqfp)}, which
+creates a new \ccode{ESL\_SQFILE} and returns it through the
+\ccode{sqfp} pointer. If the \ccode{format} is passed as
+\ccode{eslSQFILE\_UNKNOWN}, then the format of the file is
+autodetected; here, we bypass autodetection by asserting that the file
+is in FASTA format by passing a \ccode{eslSQFILE\_FASTA} code. (See
+below for a list of valid codes and formats.) The optional \ccode{env}
+argument is described below too; here, we're passing \ccode{NULL} and
+not using it.
+
+Several things can go wrong in trying to open a sequence file that are
+beyond the control of Easel or your application, so it's important
+that you check the return code.  \ccode{esl\_sqfile\_Open()} returns
+\ccode{eslENOTFOUND} if the file can't be opened; \ccode{eslEFORMAT}
+if the file is empty, or if autodetection can't determine its format;
+and \ccode{eslEINVAL} if you try to autodetect format on an input
+stream that can't be autodetected (a nonrewindable stream: see below
+for info about reading from \ccode{stdin} and compressed
+files). (Additionally, an internal error might be thrown, which you
+should check for if you installed a nonfatal error handler).
+
+The file is then read one sequence at a time by calling
+\ccode{esl\_sq\_Read(sqfp, sq)}. This function returns \ccode{eslOK}
+if it read a new sequence, and leaves that sequence in the \ccode{sq}
+object that the caller provided.  When there is no more data in the
+file, \ccode{esl\_sq\_Read()} returns \ccode{eslEOF}. 
+
+If at any point the file does not appear to be in the proper format,
+\ccode{esl\_sq\_Read()} returns \ccode{eslEFORMAT}. The application
+must check for this. The API provides a little information about what
+went wrong and where. \ccode{sqfp->filename} is the name of the file
+that we were parsing (not necessarily the same as \ccode{seqfile};
+\ccode{sqfp->filename} can be a full pathname if we used an
+\ccode{env} argument to look for \ccode{seqfile} in installed database
+directories). \ccode{sqfp->linenumber} is the line number that we
+failed at. \ccode{sqfp->errbuf} is a brief explanatory message that
+gets filled in when a \ccode{eslEFORMAT} error occurs.
+  \footnote{Unlike in the MSA module, you don't get access to the
+  current line text; some of sqio's parsers use fast block-based
+  (\ccode{fread()}) input instead of line-based input.}
+
+We can reuse the same \ccode{ESL\_SQ} object for subsequent sequences
+by calling \ccode{esl\_sq\_Reuse()} on it when we're done with the
+previous sequence. If we wanted to load a set of sequences, we'd
+\ccode{\_Create()} an array of \ccode{ESL\_SQ} objects. If a set of
+sequences were going to be loaded into an array like this, and we
+cared about optimizing memory (the mechanics of memory allocation in
+\ccode{esl\_sq\_Read()} cost an overhead of up to 100\% additional
+memory for various input buffers), we could call
+\ccode{esl\_sq\_Squeeze()} on each one of them to destroy their input
+buffers and recover that memory.
+
+Finally, to clean up properly, a \ccode{ESL\_SQ} that was created is
+destroyed with \ccode{esl\_sq\_Destroy(sq)}, and a \ccode{ESL\_SQFILE}
+is closed with \ccode{esl\_sqfile\_Close()}.
+
+\subsection{Accessing information in the ESL\_SQ object}
+
+The information in an \ccode{ESL\_SQ} object is meant to be accessed
+directly, so you need to know what it contains. The object is defined
+and documented in \ccode{esl\_sqio.h}. It contains various information;
+the stuff you need to know is:
+
+\input{cexcerpts/sqio_sq}
+
+The sequence itself is in \ccode{seq}. It contains \ccode{n}
+residues. Residues are indexed \ccode{0..n-1} -- that is, \ccode{seq}
+is a standard C string. 
+
+A \ccode{name} string, containing the sequence name, is always
+present. If the file format provided a sequence accession or a
+sequence description, these strings are stored in \ccode{acc} and
+\ccode{desc}, respectively; if either is unavailable for this
+sequence, these strings are set to ``\verb+\0+''.
+
+If optional per-residue secondary structure annotation is available
+for the sequence, that annotation string is in \ccode{ss}, indexed the
+same as \ccode{seq}; else, \ccode{ss} is \ccode{NULL}.
+
+If the sequence has been digitized (see alphabet augmentation), the
+\ccode{1..n} digital sequence is in \ccode{dsq}; else \ccode{dsq} is
+\ccode{NULL}.
+
+\subsection{Accepted formats}
+
+Accepted unaligned sequence file formats (and their Easel format
+codes) are:
+
+\begin{tabular}{ll}
+\ccode{eslSQFILE\_FASTA} & FASTA format \\
+\end{tabular}
+
+Additionally, the code \ccode{eslSQFILE\_UNKNOWN} is recognized; it
+tells \ccode{esl\_sqfile\_Open()} to perform format autodetection.
+
+\subsection{Special input streams: stdin and compressed files}
+
+There are two special cases for input files. 
+
+The module can read sequence input from a stdin pipe. If the
+\ccode{seqfile} argument is ``-'', \ccode{esl\_sqfile\_Open()} ``opens''
+standard input (really, it just associates \ccode{stdin}, which is
+always open, with the \ccode{ESL\_SQFILE}). 
+
+The module can read compressed sequence files. If the \ccode{seqfile}
+argument to \ccode{esl\_sqfile\_Open()} ends in \ccode{.gz}, the file is
+assumed to be compressed with \ccode{gzip}; instead of opening it
+normally, \ccode{esl\_sqfile\_Open()} opens it as a pipe from
+\ccode{gunzip -dc}. Your system must support pipes to use this -
+specifically, it must support the \ccode{popen()} system call (POSIX.2
+compliant operating systems do). The \ccode{configure} script
+automatically checks this at compile-time and defines
+\ccode{HAVE\_POPEN} appropriately. Obviously, the user must also have
+\ccode{gunzip} installed and in his PATH.
+
+For both special cases, the catch is that you can't use format
+autodetection; you must provide a valid known format code when you
+read from stdin or from a compressed file. Pipes are not rewindable,
+and format autodetection relies on a two-pass algorithm: it reads
+partway into the file to determine the format, then rewinds to start
+parsing for real.
+
+\subsection{Augmentations}
+
+The sqio module is optionally augmented by up to two additional
+modules, as follows:
+
+\subsubsection{msa: read unaligned sequences sequentially from an alignment}
+
+If sqio is augmented with the msa module, then the sqio API gains the
+ability to read alignment file formats in addition to unaligned file
+formats. The sqio API remains exactly the same (the caller doesn't
+have to use any msa module functions).
+
+\subsubsection{alphabet: digitized sequences}
+
+At present, only placeholders exist in the code for this augmentation.
+The plan is to provide the ability to input sequences directly into
+\ccode{dsq} as pre-digitized sequences.
+
+
+
+
+
+
