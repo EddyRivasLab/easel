@@ -1,14 +1,13 @@
 
-The Pfam Consortium developed a format (based on extended SELEX)
-called ``Stockholm format''. The reasons for this are two-fold. First,
-there really is no standard accepted format for multiple sequence
-alignment files, so we don't feel guilty about inventing a new
-one. Second, the formats of popular multiple alignment software
-(e.g. CLUSTAL, GCG MSF, PHYLIP) do not support rich documentation and
-markup of the alignment.  Stockholm format was developed to support
-extensible markup of multiple sequence alignments, and we use this
-capability extensively in both RNA work (with structural markup) and
-the Pfam database (with extensive use of both annotation and markup).
+Stockholm format was developed by the Pfam Consortium to support
+extensible markup and annotation of multiple sequence alignments.
+
+Why yet another alignment file format?  Most importantly, the existing
+formats of popular multiple alignment software (e.g. CLUSTAL, GCG MSF,
+PHYLIP) do not support rich documentation and markup of the
+alignment. And since there is not yet a standard accepted format for
+multiple sequence alignment files, we don't feel too guilty about
+inventing a new one.
 
 \subsection{A minimal Stockholm file}
 \begin{cchunk}
@@ -21,32 +20,35 @@ seq3  ...EFMNRGHIKL
 seq1  MNPQTVWY
 seq2  MNPQTVWY
 seq3  MNPQT...
+//
 \end{cchunk}
 
-The simplest Stockholm file is pretty intuitive, easily generated in a
-text editor. It is usually easy to convert alignment formats into a
-``least common denominator'' Stockholm format. For instance, SELEX,
-GCG's MSF format, and the output of the CLUSTALV multiple alignment
-program are all similar interleaved formats.
+The first line in the file must be \ccode{\# STOCKHOLM x.y}, where
+\ccode{x.y} is a major/minor version number for the format
+specification. This line allows a parser to instantly identify the
+file format. There is currently only one version of Stockholm format,
+\ccode{1.0}.
 
-The first line in the file must be \ccode{\# STOCKHOLM 1.x}, where
-\ccode{x} is a minor version number for the format specification
-(and which currently has no effect on my parsers). This line allows a
-parser to instantly identify the file format.
+In the alignment, each line contains a name followed by the aligned
+sequence. Neither the name nor the aligned sequence may contain
+whitespace characters. Stockholm does not enforce any other character
+conventions on the name or the aligned sequence. Typically, gaps
+(indels) are indicated in an aligned sequence by a dash or period, but
+Stockholm format does not require this.
 
-In the alignment, each line contains a name, followed by the aligned
-sequence. A dash or period denotes a gap. If the alignment is too long
-to fit on one line, the alignment may be split into multiple blocks,
-with blocks separated by blank lines. The number of sequences, their
-order, and their names must be the same in every block. Within a given
-block, each (sub)sequence (and any associated \ccode{\#=GR} and
-\ccode{\#=GC} markup, see below) is of equal length, called the
-\emph{block length}. Block lengths may differ from block to block;
-the block length must be at least one residue, and there is no
-maximum.  
+If the alignment is too long to fit on one line, the alignment may be
+split into multiple blocks, with blocks separated by blank lines. The
+number of sequences, their order, and their names must be the same in
+every block. Within a given block, each (sub)sequence (and any
+associated \ccode{\#=GR} and \ccode{\#=GC} markup, see below) is of
+equal length, called the \emph{block length}. Block lengths may differ
+from block to block; the block length must be at least one residue,
+and there is no maximum.
 
-Other blank lines are ignored. You can add comments to the file on
-lines starting with a \ccode{\#}.
+Any line starting with a \ccode{\#} is considered to be a comment, and
+is ignored.
+
+Other blank lines in the file are ignored. 
 
 All other annotation is added using a tag/value comment style. The
 tag/value format is inherently extensible, and readily made
@@ -56,6 +58,13 @@ structure, sequence weights, a reference coordinate system for the
 columns, and database source information including name, accession
 number, and coordinates (for subsequences extracted from a longer
 source sequence) See below for details.
+
+It is usually easy to convert other alignment formats into a least
+common denominator Stockholm format. For instance, SELEX, GCG's MSF
+format, and the output of the CLUSTALW multiple alignment program are
+all closely related interleaved formats.
+
+
 
 \subsection{Syntax of Stockholm markup}
 
