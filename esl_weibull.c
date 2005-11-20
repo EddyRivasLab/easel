@@ -40,9 +40,8 @@
 /* Function:  esl_wei_pdf()
  * Incept:    SRE, Tue Aug  9 13:42:17 2005 [St. Louis]
  *
- * Purpose:   Calculates the probability density function for the 
- *            Weibull pdf $P(X=x)$, given quantile <x>, offset <mu>, 
- *            and parameters <lambda> and <tau>.
+ * Purpose:   Calculates the Weibull pdf $P(X=x)$, given quantile <x>,
+ *            offset <mu>, and parameters <lambda> and <tau>.
  */
 double
 esl_wei_pdf(double x, double mu, double lambda, double tau)

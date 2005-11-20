@@ -192,11 +192,12 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 
 /* Some basic constants.
  */
-#define eslCONST_E    2.71828182845904523536028747135
-#define eslCONST_PI   3.14159265358979323846264338328
-#define eslCONST_GOLD 1.61803399
-#define eslINFINITY   1e99999	/* force an overflow to get IEEE754 +inf */
-#define eslNaN        (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
+#define eslCONST_E     2.71828182845904523536028747135
+#define eslCONST_PI    3.14159265358979323846264338328
+#define eslCONST_EULER 0.57721566490153286060651209008
+#define eslCONST_GOLD  1.61803399
+#define eslINFINITY    1e99999	/* force an overflow to get IEEE754 +inf */
+#define eslNaN         (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
 
 
 /* Define some crossovers for numerical approximations.

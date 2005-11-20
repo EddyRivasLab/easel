@@ -15,6 +15,7 @@ HEADERS = \
 	esl_dirichlet.h\
 	esl_exponential.h\
 	esl_fileparser.h\
+	esl_gamma.h\
 	esl_getopts.h\
 	esl_gev.h\
 	esl_gumbel.h\
@@ -40,6 +41,7 @@ OBJS    = \
 	esl_dirichlet.o\
 	esl_exponential.o\
 	esl_fileparser.o\
+	esl_gamma.o\
 	esl_getopts.o\
 	esl_gev.o\
 	esl_gumbel.o\

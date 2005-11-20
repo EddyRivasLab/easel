@@ -101,19 +101,80 @@ esl_stats_LogGamma(double x, double *ret_answer)
 }
 
 
+/* Function:  esl_stats_Psi()
+ * Incept:    SRE, Tue Nov 15 13:57:59 2005 [St. Louis]
+ *
+ * Purpose:   Computes $\Psi(x)$ (the "digamma" function), which is
+ *            the derivative of log of the Gamma function:
+ *            $d/dx \log \Gamma(x) = \frac{\Gamma'(x)}{\Gamma(x)} = \Psi(x)$.
+ *            Argument $x$ is $> 0$. 
+ * 
+ *            This is J.M. Bernardo's "Algorithm AS103",
+ *            Appl. Stat. 25:315-317 (1976).  
+ */
+int
+esl_stats_Psi(double x, double *ret_answer)
+{
+  double answer = 0.;
+  double x2;
+
+  if (x <= 0.0) ESL_ERROR(eslERANGE, "invalid x <= 0 in esl_stats_Psi()");
+  
+  /* For small x, Psi(x) ~= -0.5772 - 1/x + O(x), we're done.
+   */
+  if (x <= 1e-5) {
+    *ret_answer = -eslCONST_EULER - 1./x;
+    return eslOK;
+  }
+
+  /* For medium x, use Psi(1+x) = \Psi(x) + 1/x to c.o.v. x,
+   * big enough for Stirling approximation to work...
+   */
+  while (x < 8.5) {
+    answer = answer - 1./x;
+    x += 1.;
+  }
+  
+  /* For large X, use Stirling approximation
+   */
+  x2 = 1./x;
+  answer += log(x) - 0.5 * x2;
+  x2 = x2*x2;
+  answer -= (1./12.)*x2;
+  answer += (1./120.)*x2*x2;
+  answer -= (1./252.)*x2*x2*x2;
+
+  *ret_answer = answer;
+  return eslOK;
+}
+
+
+
 /* Function: esl_stats_IncompleteGamma()
  * 
- * Purpose:  Returns $1 - P(a,x)$ where:
+ * Purpose:  Returns $P(a,x)$ and $Q(a,x) where:
  *           $P(a,x) = \frac{1}{\Gamma(a)} \int_{0}^{x} t^{a-1} e^{-t} dt$
  *                  $= \frac{\gamma(a,x)}{\Gamma(a)}$
- *                  $= 1 - \frac{\Gamma(a,x)}{\Gamma(a)}$.
+ *           $Q(a,x) = \frac{1}{\Gamma(a)} \int_{x}^{\infty} t^{a-1} e^{-t} dt$
+ *                  $= 1 - P(a,x)$
+ *
+ *           $P(a,x)$ is the CDF of a gamma density with $\lambda = 1$,
+ *           and $Q(a,x)$ is the survival function.
+ *           
+ *           For $x \simeq 0$, $P(a,x) \simeq 0$ and $Q(a,x) \simeq 1$; and
+ *           $P(a,x)$ is less prone to roundoff error. 
+ *           
+ *           The opposite is the case for large $x >> a$, where
+ *           $P(a,x) \simeq 1$ and $Q(a,x) \simeq 0$; there, $Q(a,x)$ is
+ *           less prone to roundoff error.
  *
  * Method:   Based on ideas from Numerical Recipes in C, Press et al.,
  *           Cambridge University Press, 1988. 
  *           
  * Args:     a          - for instance, degrees of freedom / 2     [a > 0]
  *           x          - for instance, chi-squared statistic / 2  [x >= 0] 
- *           ret_answer - RETURN: the answer, 1 - P(a,x)
+ *           ret_pax    - RETURN: P(a,x)
+ *           ret_qax    - RETURN: Q(a,x)
  *
  * Return:   <eslOK> on success.
  *
@@ -121,16 +182,18 @@ esl_stats_LogGamma(double x, double *ret_answer)
  *           <eslECONVERGENCE> if approximation fails to converge.
  */          
 int
-esl_stats_IncompleteGamma(double a, double x, double *ret_answer)
+esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 {
-  int iter;			/* iteration counter */
+  int    iter;			/* iteration counter */
+  double pax;			/* P(a,x) */
+  double qax;			/* Q(a,x) */
 
   if (a <= 0.) ESL_ERROR(eslERANGE, "esl_stats_IncompleteGamma(): a must be > 0");
   if (x <  0.) ESL_ERROR(eslERANGE, "esl_stats_IncompleteGamma(): x must be >= 0");
 
   /* For x > a + 1 the following gives rapid convergence;
-   * calculate 1 - P(a,x) = \frac{\Gamma(a,x)}{\Gamma(a)}:
-   *     use a continued fraction development for \Gamma(a,x).
+   * calculate Q(a,x) = \frac{\Gamma(a,x)}{\Gamma(a)},
+   * using a continued fraction development for \Gamma(a,x).
    */
   if (x > a+1) 
     {
@@ -170,8 +233,11 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_answer)
 				/* check for convergence */
 	  if (fabs((nu1-oldp)/nu1) < 1.e-7)
 	    {
-	      esl_stats_LogGamma(a, ret_answer);	      
-	      *ret_answer = nu1 * exp(a * log(x) - x - *ret_answer);
+	      esl_stats_LogGamma(a, &qax);	      
+	      qax = nu1 * exp(a * log(x) - x - qax);
+
+	      if (ret_pax != NULL) *ret_pax = 1 - qax;
+	      if (ret_qax != NULL) *ret_qax = qax;
 	      return eslOK;
 	    }
 
@@ -202,8 +268,11 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_answer)
 	  
 	  if (fabs(val/p) < 1.e-7)
 	    {
-	      esl_stats_LogGamma(a, ret_answer);
-	      *ret_answer = 1. - p * exp(a * log(x) - x - *ret_answer);
+	      esl_stats_LogGamma(a, &pax);
+	      pax = p * exp(a * log(x) - x - pax);
+
+	      if (ret_pax != NULL) *ret_pax = pax;
+	      if (ret_qax != NULL) *ret_qax = 1. - pax;
 	      return eslOK;
 	    }
 	}
@@ -237,7 +306,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_answer)
 int
 esl_stats_ChiSquaredTest(int v, double x, double *ret_answer)
 {
-  return esl_stats_IncompleteGamma((double)v/2, x/2, ret_answer);
+  return esl_stats_IncompleteGamma((double)v/2, x/2, NULL, ret_answer);
 }
 
 

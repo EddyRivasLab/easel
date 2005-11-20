@@ -9,7 +9,8 @@
 
 extern int esl_stats_Mean(double *x, int n, double *ret_mean, double *ret_var);
 extern int esl_stats_LogGamma(double x, double *ret_answer);
-extern int esl_stats_IncompleteGamma(double a, double x, double *ret_answer);
+extern int esl_stats_Psi(double x, double *ret_answer);
+extern int esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax);
 extern int esl_stats_ChiSquaredTest(int v, double x, double *ret_answer);
 
 #endif /*ESL_STATS_INCLUDED*/

@@ -3,7 +3,7 @@
  * 
  * SRE, Fri Aug 19 11:15:21 2005 [St. Louis] 
  * xref STL9/146
- * SVN $Id
+ * SVN $Id$
  */
 
 #include <stdio.h>
@@ -92,10 +92,10 @@ esl_sxp_cdf(double x, double mu, double lambda, double tau)
   double val;
 
   if (x <= mu) return 0.;
-  esl_stats_IncompleteGamma(1/tau, exp(tau * log(y)), &val);
+  esl_stats_IncompleteGamma(1/tau, exp(tau * log(y)), &val, NULL);
   
   ESL_DASSERT1 (( !isnan(val)));
-  return (1-val);
+  return val;
 }
 
 /* Function:  esl_sxp_logcdf()
@@ -112,8 +112,8 @@ esl_sxp_logcdf(double x, double mu, double lambda, double tau)
   double val;
 
   if (x <= mu) return -eslINFINITY;
-  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), &val);
-  return log(1 - val);
+  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), &val, NULL);
+  return log(val);
 }
 
 /* Function:  esl_sxp_surv()
@@ -131,7 +131,7 @@ esl_sxp_surv(double x, double mu, double lambda, double tau)
 
   if (x <= mu) return 1.0;
 
-  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), &val);
+  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), NULL, &val);
   return val;
 }
 
@@ -150,7 +150,7 @@ esl_sxp_logsurv(double x, double mu, double lambda, double tau)
 
   if (x <= mu) return 0.0;
 
-  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), &val);
+  esl_stats_IncompleteGamma(1./tau, exp(tau * log(y)), NULL, &val);
   return log(val);
 }
 
