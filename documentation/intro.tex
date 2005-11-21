@@ -7,45 +7,45 @@
 \end{quote}
 
 
-Easel is the C library that underlies bioinformatics software packages
-from the Eddy lab, including HMMER and Infernal, the
-software engines for the Pfam protein family database and the
-Rfam RNA family database.
+Easel is the C library that underlies some of the bioinformatics
+software packages from the Eddy lab, including HMMER and Infernal, the
+software engines for the Pfam protein family database and the Rfam RNA
+family database.
 
-Easel results from years of accretion and gradual refactoring of a
-personal codebase for solving common problems encountered in writing
-bioinformatics applications, particularly in the area of sequence
-analysis.
+Easel has accreted over the years, for solving common problems
+encountered in writing bioinformatics applications, particularly in
+the area of sequence analysis.
 
-Easel is not intended to be an all-purpose solution nor a \emph{de
-facto} standard. Several general-purpose bioinformatics libraries are
-available that do aspire to such goals. The NCBI Toolkit and the Ajax
-library in EMBOSS are particularly comprehensive resources for C
-programming, and the BioPerl project is an admirably successful
-resource for Perl.
+Easel is not intended to be an all-purpose sequence analysis library.
+It will naturally be biased towards problems that arise in HMMER,
+Infernal, and other probabilistic modeling applications.  Several
+general-purpose bioinformatics libraries are available that do aspire
+to such goals. The NCBI Toolkit and the Ajax library in EMBOSS are
+comprehensive resources for C programming. The BioPerl project is an
+admirably successful resource for Perl.
 
-Rather, Easel is intended to maintain a body of work from my lab in a
-useful form that new people in the lab can adopt quickly, and that
-other software developers outside the lab might also benefit from. Its
-design follows from a golden rule, \emph{do unto other developers as
-you would have them do unto you}:
+Easel is intended to maintain a body of work from my lab in a useful
+form that new people in the lab can adopt quickly. Other software
+developers outside the lab may also benefit from it. Its design
+follows from a golden rule, \emph{do unto other developers as you
+would have them do unto you}:
 
 \begin{description}
 \item[\textbf{Documentation.}]  Effort has been invested in practical
 documentation, including this Guide, tutorial examples to Easel APIs,
-and source-level comments. All too often I've tried to obtain a
-routine and ended up unable to understand how to use it because of
-missing, incomplete, or obsolete documentation.
+and source-level comments. All too often I've tried to obtain
+someone's routine and ended up unable to understand how to use it
+because of missing, incomplete, or obsolete documentation.
 
 \item[\textbf{Modularity.}]  Easel is designed to minimize
 dependencies between its routines, to help you take individual files
 (or individual routines) for your use, without having to include the
-entire library. All too often I've tried to obtain a routine and found it
-deeply entangled in a large third-party library. I can either package
-the whole library in my software distribution (cumbersome, and a
-potential maintainability headache in the long run), or I try to
-understand the code well enough to disentangle it. It usually seems
-easier to just rewrite it from scratch.
+entire library. All too often I've tried to obtain a routine and found
+it deeply entangled in a large library. I can either package the whole
+library in my software distribution (cumbersome, and a potential
+maintainability headache in the long run), or I try to understand the
+code well enough to disentangle it. Usually it seems easier to rewrite
+it from scratch.
 
 \item[\textbf{No license encumbrance.}]  Easel is freely available
 under a Creative Commons Attribution License. You can use it for
@@ -53,47 +53,56 @@ anything you want, even commercial products, so long as you keep my
 copyright and license notice on the code. All too often I've tried to
 reuse a routine and been blocked by someone's license terms. Even some
 open source licenses, such as the GNU General Public License (GPL),
-can impede right-minded developers who happen to use incompatible
-open-source licenses. The CC license just provides me some minimal
-legal ablative armor in case you like to sue people that give you
+can impede right-minded developers who use incompatible open-source
+licenses. The CC license provides me some minimal legal ablative
+armor, just in case you're the type that sues people that give you
 stuff for free.
 \end{description}
 
 \section{Overview of modules}
 
-Certain problems recur frequently in sequence analysis software. Each
-\ccode{.c} file in Easel contains one \emph{module} that deals with
-one such problem.
+Each \ccode{.c} file in Easel corresponds to one Easel \emph{module}.
 
 Parsing the variety of different sequence file formats, for instance,
-is a pain. The \eslmod{sqio} module (which shares some remote lines of
-descent from Don Gilbert's classic ReadSeq package) can automatically
-parse many common unaligned sequence formats, and the \eslmod{msa}
-module can parse many common multiple alignment formats.
+is common problem. The \eslmod{sqio} module (which shares some remote
+lines of descent from Don Gilbert's classic ReadSeq package) can
+automatically parse many common unaligned sequence formats, and the
+\eslmod{msa} module can parse many common multiple alignment formats.
 
 \begin{tabular}{llll}\hline
 \textbf{Module} & \textbf{Description}       & \textbf{Requires} & \textbf{Augmentation(s)}\\\hline
-  \multicolumn{4}{c}{\textbf{Core module}}\\
-easel           & Framework for using Easel         &  -     & \\
-  \multicolumn{4}{c}{\textbf{Foundation modules}}\\
-alphabet        & Digitized biosequence alphabets   & easel  & \\
-dmatrix         & Matrix algebra                    & easel  & \\ 
-fileparser      & Token-based data file input       & easel  & \\
-getopts         & Command line parsing              & easel  & \\
-keyhash         & Keyword hashing                   & easel  & \\
-msa             & Multiple sequence alignment i/o   & easel  & keyhash \\
-random          & Random number generator           & easel  & \\
-regexp          & Regular expression matching       & easel  & \\
-sqio            & Sequence file i/o                 & easel  & alphabet, msa\\
-stack           & Pushdown stacks                   & easel  & \\
-vectorops       & Vector operations                 & easel  & \\\hline
-  \multicolumn{4}{c}{\textbf{Derived modules}}\\
-bioparse\_paml  & PAML rate matrix datafiles        & easel dmatrix parse & \\
-dirichlet       & Dirichlet densities               & easel vectorops  & fileparser, random \\ 
-minimizer       & Multidimensional optimization     & easel vectorops  & \\
-ratematrix      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
-wuss            & RNA structure annotation          & easel stack    & \\\hline
-  \multicolumn{4}{c}{\textbf{Optional library interfaces}}\\
+  \multicolumn{4}{c}{\textbf{Core module:}}\\
+\eslmod{easel}  & Framework for using Easel         &  -     & \\
+  \multicolumn{4}{c}{\textbf{Foundation modules:}}\\
+\eslmod{alphabet} & Digitized biosequence alphabets   & easel  & \\
+\eslmod{dmatrix}         & Matrix algebra                    & easel  & \\ 
+\eslmod{fileparser}      & Token-based data file input       & easel  & \\
+\eslmod{getopts}         & Command line parsing              & easel  & \\
+\eslmod{keyhash}         & Keyword hashing                   & easel  & \\
+\eslmod{msa}             & Multiple sequence alignment i/o   & easel  & keyhash \\
+\eslmod{random}          & Random number generator           & easel  & \\
+\eslmod{regexp}          & Regular expression matching       & easel  & \\
+\eslmod{sqio}            & Sequence file i/o                 & easel  & alphabet, msa\\
+\eslmod{stack}           & Pushdown stacks                   & easel  & \\
+\eslmod{vectorops}       & Vector operations                 & easel  & \\\hline
+  \multicolumn{4}{c}{\textbf{Derived modules:}}\\
+\eslmod{bioparse\_paml}  & PAML rate matrix datafiles        & easel dmatrix parse & \\
+\eslmod{minimizer}       & Multidimensional optimization     & easel vectorops  & \\
+\eslmod{ratematrix}      & Evolutionary rate matrices        & easel dmatrix vectorops & \\
+\eslmod{wuss}            & RNA structure annotation          & easel stack    & \\\hline
+  \multicolumn{4}{c}{\textbf{Statistics modules:}}\\
+\eslmod{stats}        & Subcore for all statistics. & easel       & \\hline
+\eslmod{dirichlet}    & Dirichlet densities.        & easel stats vectorops & fileparser, random\\
+\eslmod{exponential}  & Exponential densities.      & easel stats & histogram random \\ 
+\eslmod{gamma}        & Gamma densities.            & easel stats & random \\ 
+\eslmod{gev}          & Generalized extreme value (GEV) densities. & easel stats vectorops & random, minimizer \\
+\eslmod{gumbel}       & Gumbel densities.           & easel stats vectorops  & random, minimizer \\
+\eslmod{hyperexp}     & Hyperexponential densities. & easel stats vectorops exponential & random, histogram, minimizer, fileparser \\
+\eslmod{mixdchlet}    & Mixture Dirichlet densities.& easel stats & \\
+\eslmod{mixgev}       & Mixture GEV densities.      & easel stats vectorops gev & random, minimizer \\
+\eslmod{stretchexp}   & Stretched exponential densities. & easel stats vectorops & random, histogram, minimizer \\
+\eslmod{weibull}      & Weibull densities.          & easel stats vectorops & random, histogram \\
+  \multicolumn{4}{c}{\textbf{Optional library interfaces:}}\\
 interface\_gsl    & GNU Scientific Library          & easel dmatrix & \\
 interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \end{tabular}
@@ -108,8 +117,10 @@ interface\_lapack & LAPACK linear algebra library   & easel dmatrix & \\\hline
 \ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
 \ccode{ESL\_FILEPARSER}  & \cfile{fileparser}      & Token-based input file parser\\
 \ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
+\ccode{ESL\_HYPEREXP}    & \cfile{hyperexp}        & Hyperexponential distribution\\
 \ccode{ESL\_KEYHASH}     & \cfile{keyhash}         & Keyword hash table\\
 \ccode{ESL\_MIXDCHLET}   & \cfile{dirichlet}       & Mixture Dirichlet prior\\
+\ccode{ESL\_MIXGEV}      & \cfile{mixgev}          & Mixture generalized EVD\\
 \ccode{ESL\_MSA}         & \cfile{msa}             & Multiple sequence alignment\\
 \ccode{ESL\_MSAFILE}     & \cfile{msa}             & Multiple sequence alignment file parser\\
 \ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\

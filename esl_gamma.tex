@@ -1,28 +1,23 @@
 
-\subsection{Gamma densities}
+\begin{tabular}{lcll}\hline
+Variate    & $x$         & \ccode{double} &  $\mu \leq x < \infty$ \\
+Location   & $\mu$       & \ccode{double} &  $-\infty < \mu < \infty$\\
+Scale      & $\lambda$   & \ccode{double} &  $\lambda > 0$ \\
+Shape      & $\tau$      & \ccode{double} &  $\tau > 0$ \\ \hline
+\end{tabular}
 
-The gamma probability density function (PDF) is:
+The probability density function (PDF) is:
 
-\begin{equation}:
-P(X=x) =  \frac{\lambda^{\tau}}{\Gamma(\tau)}  (x-\mu)^{\tau-1}  e^{-
-  \lambda (x - \mu)}
+\begin{equation}
+P(X=x) =  \frac{\lambda^{\tau}}{\Gamma(\tau)}  (x-\mu)^{\tau-1}  e^{-\lambda (x - \mu)}
 \label{eqn:gamma_pdf}
 \end{equation}
 
 The cumulative distribution function (CDF) does not have an analytical
-expression. It is calculated numerically using the incomplete Gamma
-function.
+expression. It is calculated numerically, using the incomplete Gamma
+function (\ccode{esl\_stats\_IncompleteGamma()}).
 
-Variate $x$ ranges $\mu \leq x < \infty$.
-
-Location parameter $\mu$ is real: $-\infty < \mu < \infty$.
-
-Scale parameter $\lambda$ is nonnegative real, $\lambda > 0$.
-
-Shape parameter $\tau$ is nonnegative real, $\tau > 0$.
-
-The standard Gamma distribution has $\mu = 0$, $\lambda = 1$.
-
+The ``standard Gamma distribution'' has $\mu = 0$, $\lambda = 1$.
 
 \subsection{Sampling}
 

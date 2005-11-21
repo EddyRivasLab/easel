@@ -5,17 +5,24 @@
 APITEX =  easel\
 	  esl_alphabet\
 	  esl_dirichlet\
+	  esl_exponential\
 	  esl_fileparser\
+	  esl_gamma\
 	  esl_getopts\
 	  esl_gev\
 	  esl_gumbel\
+	  esl_hyperexp\
 	  esl_keyhash\
+#	  esl_mixdchlet\
+	  esl_mixgev\
 	  esl_msa\
 	  esl_random\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_stretchexp\
 	  esl_vectorops\
+	  esl_weibull\
 	  esl_wuss
 
 # Each module should be able to be autodocumented, converting
@@ -24,17 +31,23 @@ APITEX =  easel\
 #
 AUTOTEX = esl_alphabet\
 	  esl_dirichlet\
+	  esl_exponential\
 	  esl_fileparser\
+	  esl_gamma\
 	  esl_getopts\
 	  esl_gev\
 	  esl_gumbel\
+	  esl_hyperexp\
 	  esl_keyhash\
+	  esl_mixgev\
 	  esl_msa\
 	  esl_random\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_stretchexp\
 	  esl_vectorops\
+	  esl_weibull\
 	  esl_wuss
 
 pdf:

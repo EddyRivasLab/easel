@@ -335,7 +335,7 @@ esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslECONVERGENCE> if bracketing or bisection fails;
- *            <eslEINVAL> if data cannot be gamma distributed (some x[i] < mu,
+ *            <eslEINVAL> if data cannot be gamma distributed (some <x[i] < mu>,
  *            or zero variance in x).
  *
  * Xref:      STL10/65.

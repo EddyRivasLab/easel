@@ -3,6 +3,13 @@ The dirichlet module contains routines for using Beta, Gamma, and
 Dirichlet densities. In particular, it implements mixture Dirichlet
 priors, which are useful in a variety of parameter estimation tasks.
 
+The Dirichlet PDF is:
+
+\begin{equation}
+ P(\vec{p}) = \frac{\Gamma{\sum_i \alpha_i}}{\prod_i \Gamma(\alpha_i)} \prod_i p_i^{\alpha_i-1}
+\end{equation}
+
+
 \subsection{The dirichlet API}
 
 The module implements one object, \ccode{ESL\_MIXDCHLET}, which holds

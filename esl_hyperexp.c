@@ -159,8 +159,8 @@ esl_hyperexp_FixedUniformMixture(ESL_HYPEREXP *h)
  * Purpose:   Rearrange the components in a hyperexponential in
  *            order of lambda values, with the highest lambda first.
  *
- *            Stupid O(K^2) selection sort algorithm here, because we
- *            expect K to be small.
+ *            Stupid $O(K^2)$ selection sort algorithm here, because we
+ *            expect $K$ to be small.
  */
 int
 esl_hyperexp_SortComponents(ESL_HYPEREXP *h)
@@ -548,7 +548,7 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
  *            they can be grouped into any number of lines, because the
  *            parser ignores line breaks.
  *            
- *            Anything after a <#> character on a line is a comment, and
+ *            Anything after a <\#> character on a line is a comment, and
  *            is ignored.
  *            
  * Returns:   <eslOK> on success, and <ret_hxp> points to a new <ESL_HYPEREXP>
