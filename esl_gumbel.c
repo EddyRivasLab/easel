@@ -411,13 +411,47 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
    */
   esum = 0.;
   for (i = 0; i < n; i++)
-    esum  += exp(-1 * lambda * x[i]);
-  mu = -1. * log(esum / n) / lambda;
+    esum  += exp(-lambda * x[i]);
+  mu = -log(esum / n) / lambda;
 
   *ret_lambda = lambda;
   *ret_mu     = mu;   
-  return 1;
+  return eslOK;
 }
+
+/* Function:  esl_gumbel_FitCompleteLoc()
+ * Incept:    SRE, Thu Nov 24 09:09:17 2005 [St. Louis]
+ *
+ * Purpose:   Given an array of Gumbel-distributed samples 
+ *            <x[0]..x[n-1]> (complete data), and a known
+ *            (or otherwise fixed) <lambda>, find a maximum
+ *            likelihood estimate for location parameter <mu>.
+ *            
+ * Algorithm: A straightforward simplification of FitComplete().           
+ *
+ * Args:     x          - list of Gumbel distributed samples
+ *           n          - number of samples
+ *           lambda     - known lambda (scale) parameter
+ *           ret_mu     : RETURN: ML estimate of mu
+ *           
+ * Returns:  <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
+{
+  double esum;
+  int    i;
+
+  /* Just substitute into Lawless 4.1.5 to find mu */
+  esum = 0.;
+  for (i = 0; i < n; i++)
+    esum  += exp(-lambda * x[i]);
+  *ret_mu = -log(esum / n) / lambda;
+  return eslOK;
+}
+
 
 #if eslDEBUGLEVEL >=2
 /* direct_mv_fit()
@@ -598,7 +632,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 
   *ret_lambda = lambda;
   *ret_mu     = mu;   
-  return 1;
+  return eslOK;
 }
 
 
