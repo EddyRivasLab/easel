@@ -995,7 +995,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 		       double *ret_X2, double *ret_X2p)
 {
   int     *obs;			/* observed in bin i, [0..nb-1]   */
-  double  *exp;			/* expected in bin i, [0..nb-1    */
+  double  *exp;			/* expected in bin i, [0..nb-1]   */
   double  *topx;		/* all values in bin i <= topx[i] */
   int      nb;			/* # of bins                      */
   int      minc;		/* target # of counts/bin         */
