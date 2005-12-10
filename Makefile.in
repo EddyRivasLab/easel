@@ -3,8 +3,7 @@
 # SVN $Id$
 
 CC      = @CC@
-#CFLAGS  = @CFLAGS@
-CFLAGS  = -g -Wall  # for now, while debugging/developing
+CFLAGS  = @CFLAGS@
 AR      = @AR@ rcv
 LN      = ln
 RANLIB  = @RANLIB@

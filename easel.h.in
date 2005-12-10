@@ -128,6 +128,11 @@
 #define eslERRBUFSIZE 128
 
 
+/* Function portability/configuration
+ */
+#undef HAVE_POPEN
+#undef HAVE_STRCASECMP
+
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
@@ -147,6 +152,15 @@ extern int  esl_strdup(char *s, int n, char **ret_dup);
 extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+
+#ifndef HAVE_STRCASECMP
+#ifdef _MSC_VER
+#define strcasecmp stricmp
+#else
+extern int  esl_strcasecmp(const char *s1, const char *s2);
+#define strcasecmp esl_strcasecmp
+#endif
+#endif
 
 extern int  esl_FileExists(char *filename);
 extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
@@ -196,7 +210,21 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslCONST_PI    3.14159265358979323846264338328
 #define eslCONST_EULER 0.57721566490153286060651209008
 #define eslCONST_GOLD  1.61803399
-#define eslINFINITY    1e99999	/* force an overflow to get IEEE754 +inf */
+
+/* Define <eslINFINITY> portably. Harder than it looks. 
+ * We assume we're in an IEEE 754 environment.
+ * We assume that HUGE_VAL in a IEEE754 environment is infinity.
+ * If we don't have HUGE_VAL set, we assume we can get infinity
+ * by division by zero. (But if we don't have HUGE_VAL, we probably
+ * have other problems; HUGE_VAL is required by ANSI spec).
+ * We can't portably get infinity by overflow (e.g. 1e9999);
+ * some compilers (Microsoft) will complain.
+ */
+#ifdef HUGE_VAL
+#define eslINFINITY    HUGE_VAL	 /* assume IEEE754 HUGE_VAL = infinity. ok? */
+#else
+#define eslINFINITY    (1.0/0.0) /* portable? */
+#endif
 #define eslNaN         (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
 
 
@@ -208,10 +236,6 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslSMALLX1    5e-9
 
 
-/* msa.c and sqio.c can read gzip'ed files if popen() is available;
- * popen() is not ANSI, though, it's POSIX.2.
- */
-#undef HAVE_POPEN
 
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:

@@ -1410,7 +1410,6 @@ main(int argc, char **argv)
   int    show_plot    = FALSE;
   int    show_surv    = FALSE;
   int    show_qq      = FALSE;
-  int    bin_goodness = FALSE;
   int    by_value     = FALSE;
   int    verbose      = FALSE;
   int    ntrials      = 1;
@@ -1423,7 +1422,6 @@ main(int argc, char **argv)
       else if (strcmp(argv[optind], "-3")  == 0)  test_type    = 3;
       else if (strcmp(argv[optind], "-4")  == 0)  test_type    = 4;
       else if (strcmp(argv[optind], "-5")  == 0)  test_type    = 5;
-      else if (strcmp(argv[optind], "-b")  == 0)  bin_goodness = TRUE;
       else if (strcmp(argv[optind], "-n")  == 0)  ntrials      = atoi(argv[++optind]);
       else if (strcmp(argv[optind], "-p")  == 0)  show_plot    = TRUE;
       else if (strcmp(argv[optind], "-P")  == 0)  show_print   = TRUE;
@@ -1494,7 +1492,7 @@ main(int argc, char **argv)
       if (test_type <= 3)
 	{
 	  esl_histogram_Goodness(h, esl_gumbel_generic_cdf, p, 
-			     0, bin_goodness, &nb, &G, &Gp, &X2, &X2p);
+			     0, &nb, &G, &Gp, &X2, &X2p);
 	  if (Gp  < minGp)  minGp  = Gp;
 	  if (X2p < minX2p) minX2p = X2p;
 	  if (verbose) 

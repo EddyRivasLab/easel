@@ -6,6 +6,20 @@
 #
 # xref autoconf macro archive at:  http://www.gnu.org/software/ac-archive/
 #
+# GNU recommends the following order:
+#   1. autoconf requirements
+#   2. AC_INIT
+#   3. info on the package
+#   4. checks for programs
+#   5. checks for libraries
+#   6. checks for header files
+#   7. checks for types
+#   8. checks for structures
+#   9. checks for compiler characteristics
+#  10. checks for library functions
+#  11. checks for system services
+#  12. AC_CONFIG_FILES
+#  13. AC_OUTPUT
 
 
 # AC_INIT information
@@ -38,9 +52,17 @@
 # The preprocessor symbols (version info) goes into easel.h.
 # Output variables are used in Makefiles.
 #
+
+
+
+
 AC_PREREQ(2.57)
 AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
-AC_MSG_NOTICE([configuring the Easel library for your system.])
+AC_MSG_NOTICE([Configuring the Easel library for your system.])
+
+################################################################
+# 3. Info on the package
+################################################################
 
 EASEL_RELCODE="easel0_1"
 EASEL_DATE="February 2005"
@@ -49,6 +71,8 @@ EASEL_LICENSE="Licensed and distributed under the Creative Commons Attribution L
 EASEL_LICENSETAG=cc
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://selab.wustl.edu/easel/"
+
+
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
@@ -68,6 +92,10 @@ AC_DEFINE_UNQUOTED(EASEL_COPYRIGHT, "$EASEL_COPYRIGHT")
 AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
 AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 
+################################################################
+# 3b. ./configure command line options, for optional config
+#     of the package
+################################################################
 
 # --enable-modular       - configure for use of standalone modules
 #
@@ -127,25 +155,15 @@ AC_ARG_ENABLE(debugging,
 esac])
 
 
+################################################################
+# 4. Checks for programs
+################################################################
 
-
-# Checks for programs.
-#
-AC_PROG_CC
-if test "$CC" = xlc; then
-   CFLAGS=$CFLAGS" -O3 -qarch=auto -qtune=auto"
-fi
+# Set output variable "RANLIB"
 AC_PROG_RANLIB
+
+# Set output variable "AR"
 AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
-
-
-# msa.c and sqio.c can read gzip'ed datafiles via popen(),
-# if popen() is available: set preprocessor variable HAVE_POPEN.
-# 
-AC_CHECK_FUNCS(popen)
-
-
-
 
 # GNU make check; format of makefile dependency lines for executables.
 # original from John Darrington <j.darrington@elvis.murdoch.edu.au> 
@@ -180,11 +198,44 @@ CHECK_GNU_MAKE
 
 
 
+# 5. Checks for libraries - none
+# 6. Checks for header files - none
+# 7. Checks for types - none
+# 8. Checks for structures - none
 
 
-# Write out easel.h header
+################################################################
+# 9. Checks for compiler characteristics
+################################################################
+
+# We can probably get fancier & more comprehensive about setting
+# optimization flags here. The IBM xlc settings are at request of IBM.
+# 
+AC_PROG_CC
+if test "$CC" = xlc; then
+   CFLAGS=$CFLAGS" -O3 -qarch=auto -qtune=auto"
+fi
+
+
+
+
+################################################################
+# 10. Checks for library functions
+################################################################
+
+AC_CHECK_FUNCS(popen)
+AC_CHECK_FUNCS(strcasecmp)
+
+
+# 11. Checks for system services  - none
+
+
+
+# 12. Write out easel.h header and the Makefiles
 AC_CONFIG_HEADERS([easel.h])
-AC_CONFIG_FILES(miniapps/Makefile)
-AC_CONFIG_FILES(Makefile)
+AC_CONFIG_FILES([miniapps/Makefile])
+AC_CONFIG_FILES([Makefile])
 
+
+# 13. voila!
 AC_OUTPUT

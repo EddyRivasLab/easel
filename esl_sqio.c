@@ -1660,7 +1660,11 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
  * Purpose:   Given <fmtstring>, return format code.  For example, if
  *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
  *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
- *            known format case-insensitively.
+ *            known format.
+ *            
+ *            The match is aggressively case insensitive: the <fmtstring>
+ *            is converted to all upper case. (We would use strcasecmp(),
+ *            but that isn't ANSI C.)
  *            
  *            When augmented by msa, then alignment file formats
  *            are recognized in addition to unaligned file formats.

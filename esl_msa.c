@@ -1980,10 +1980,12 @@ maxwidth(char **s, int n)
  *            of gap characters (defined by the set of characters in the <gaps>
  *            string) are removed from the subsetted alignment.
  * 
- *            Unparsed Stockholm annotation is not transferred to the new alignment.
- * 
- *            Weights are transferred literally; if they need to be renormalized
- *            to some new total weight, the caller must do that.
+ *            Unparsed Stockholm annotation is not transferred to the
+ *            new alignment.
+ *            
+ *            Weights are transferred literally; if they need to be
+ *            renormalized to some new total weight, the caller must
+ *            do that.
  *
  * Returns:   <eslOK> on success, and <ret_new> is set to point at a new
  *            (smaller) alignment.
@@ -2024,12 +2026,12 @@ esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, char *gaps, ESL_MSA **ret_new)
 	new->wgt[nidx] = msa->wgt[oidx];
       
 	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  status = set_seq_accession(new, nidx, msa->sqacc[i]);
+	  status = set_seq_accession(new, nidx, msa->sqacc[oidx]);
 	  if (status != eslOK) { esl_msa_Destroy(new); return status; }
 	}
 
 	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  status = set_seq_description(new, nidx, msa->sqdesc[i]);
+	  status = set_seq_description(new, nidx, msa->sqdesc[oidx]);
 	  if (status != eslOK) { esl_msa_Destroy(new); return status; }
 	}
 

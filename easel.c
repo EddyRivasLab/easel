@@ -1,6 +1,6 @@
 /* easel.c
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
- * SVN $Id$
+ * SVN $Id: easel.c 54 2005-04-15 18:13:20Z eddy $
  */
 
 #include <stdio.h>
@@ -414,7 +414,53 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
 }
 
 
+/*****************************************************************
+ * Easel's optional replacements for common but non-ANSI C functions.
+ * These alternatives are only compiled in when we need them,
+ * and their inclusion is controlled by #define's in easel.h.
+ *     strcasecmp() -> may be define'd to be esl_strcasecmp()
+ */
 
+/* Function:  esl_strcasecmp()
+ * Incept:    SRE, Sat Dec 10 09:44:13 2005 [St. Louis]
+ *
+ * Purpose:   Compare strings <s1> and <s2>. Return -1 if 
+ *            <s1> is alphabetically less than <s2>, 0 if they
+ *            match, and 1 if <s1> is alphabetically greater
+ *            than <s2>. All matching is case-insensitive.
+ *
+ * Args:      s1  - string 1, \0 terminated
+ *            s2  - string 2, \0 terminated      
+ *
+ * Returns:   -1, 0, or 1, if <s1> is less than, equal, or 
+ *            greater than <s2>, case-insensitively.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+#ifndef HAVE_STRCASECMP
+int
+esl_strcasecmp(const char *s1, const char *s2)
+{
+  int i, c1, c2;
+
+  for (i = 0; s1[i] != '\0' && s2[i] != '\0'; i++)
+    {
+      c1 = s1[i];	/* total paranoia. don't trust toupper() to    */
+      c2 = s2[i];       /* leave the original unmodified; make a copy. */
+  
+      if (islower(c1)) c1 = toupper(c1);
+      if (islower(c2)) c2 = toupper(c2);
+      
+      if      (c1 < c2) return -1;
+      else if (c1 > c2) return 1;
+    }
+
+  if      (s1[i] != '\0') return 1;   /* prefixes match, but s1 is longer */
+  else if (s2[i] != '\0') return -1;  /* prefixes match, s2 is longer */
+
+  return 0;  /* else, a case-insensitive match. */
+}
+#endif /* ! HAVE_STRCASECMP */
 
 
 /******************************************************************************
