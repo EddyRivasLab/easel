@@ -1,0 +1,73 @@
+The stack module implements pushdown stacks for storing integers,
+characters, or arbitrary pointers (objects).
+
+The module follows a convention of prepending \ccode{I}, \ccode{C},
+\ccode{P} to \ccode{Create()}, \ccode{Push()}, and \ccode{Pop()}
+function names, to indicate the stack's datatype as integer,
+character, or pointer, respectively. For example,
+\ccode{esl\_stack\_PCreate()} creates a stack for pointer
+storage. (This is also the naming convention in the \ccode{vectorops}
+module.)  Stacks can be thought of as typed objects, with the type
+defined by the \ccode{Create()} call; types may not be mixed for any
+particular created stack. (That is, you may not create a character
+stack and try to push an integer onto it.)
+
+\subsection{API}
+   
+An example of using the integer stack, pushing 42, 7, and 3 on, then
+popping them off:
+
+\begin{cchunk}
+#include <easel/easel.h>
+#include <easel/stack.h>
+
+int main(void)
+{
+   ESL_STACK *ns;
+   int        x;
+
+   ns = esl_stack_ICreate();
+   esl_stack_IPush(ns, 42);
+   esl_stack_IPush(ns, 7);
+   esl_stack_IPush(ns, 3);
+   while (esl_stack_IPop(ns, &x) != eslEOD) 
+      printf("%d\n", x);
+   esl_stack_Destroy(ns);   
+}
+\end{cchunk}
+
+The \ccode{Create()} functions create a stack for a particular
+purpose. \ccode{esl\_stack\_ICreate()} creates a stack for integers,
+\ccode{esl\_stack\_CCreate()} creates a stack for characters, and
+\ccode{esl\_stack\_PCreate()} creates a stack for pointers.  They
+throw NULL if an allocation fails.  All three stack types are free'd
+by a call to \ccode{esl\_stack\_Destroy()}. All three types can also
+be reused without reallocation or recreation by
+\ccode{esl\_stack\_Reuse()}. A \ccode{Reuse()}'d stack retains its
+original datatype.
+
+The \ccode{Push()} functions push one datum onto the stack, of the
+appropriate type. They throw \ccode{eslEMEM} if the stack needs to
+reallocate internally but fails.
+
+The \ccode{Pop()} functions pop one datum off the stack, returning it
+through a passed pointer. They return \ccode{eslOK} on success, and
+\ccode{eslEOD} if the stack is empty.
+
+\ccode{esl\_stack\_ObjectCount()} returns the number of objects stored
+in the stack. 
+
+A special function, \ccode{esl\_stack\_Convert2String()}, operates
+only on character stacks. It converts the stack structure to a
+NUL-terminated string, with characters in the same order they were
+pushed. The stack is destroyed by this operation, leaving a
+\ccode{char *} behind.
+
+\subsection{Allocation strategy}
+
+Stacks are initially allocated for a certain number of objects,
+defined by a compile-time constant \ccode{ESL\_STACK\_INITALLOC} in
+\ccode{stack.h}. The default is 128. Whenever a stack needs to grow,
+it reallocates by doubling its current allocation.
+
+

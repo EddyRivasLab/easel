@@ -1,0 +1,97 @@
+################################################################
+# Makefile for Easel
+# SVN $Id$
+
+CC      = @CC@
+CFLAGS  = @CFLAGS@
+AR      = @AR@ rcv
+LN      = ln
+RANLIB  = @RANLIB@
+
+HEADERS = \
+	easel.h\
+	esl_alphabet.h\
+	esl_dirichlet.h\
+	esl_exponential.h\
+	esl_fileparser.h\
+	esl_gamma.h\
+	esl_getopts.h\
+	esl_gev.h\
+	esl_gumbel.h\
+	esl_histogram.h\
+	esl_hyperexp.h\
+	esl_keyhash.h\
+	esl_minimizer.h\
+	esl_mixgev.h\
+	esl_msa.h\
+	esl_random.h\
+	esl_regexp.h\
+	esl_sqio.h\
+	esl_stack.h\
+	esl_stats.h\
+	esl_stretchexp.h\
+	esl_vectorops.h\
+	esl_weibull.h\
+	esl_wuss.h
+
+OBJS    = \
+	easel.o\
+	esl_alphabet.o\
+	esl_dirichlet.o\
+	esl_exponential.o\
+	esl_fileparser.o\
+	esl_gamma.o\
+	esl_getopts.o\
+	esl_gev.o\
+	esl_gumbel.o\
+	esl_histogram.o\
+	esl_hyperexp.o\
+	esl_keyhash.o\
+	esl_minimizer.o\
+	esl_mixgev.o\
+	esl_msa.o\
+	esl_random.o\
+	esl_regexp.o\
+	esl_sqio.o\
+	esl_stack.o\
+	esl_stats.o\
+	esl_stretchexp.o\
+	esl_vectorops.o\
+	esl_weibull.o\
+	esl_wuss.o
+
+all: libeasel.a
+
+.c.o:
+	${CC} -I. ${CFLAGS} ${DEFS} -c $<		
+
+libeasel.a: $(OBJS)
+	$(AR) libeasel.a $(OBJS)
+	$(RANLIB) libeasel.a
+	chmod 644 libeasel.a
+
+clean:
+	-rm -f ${OBJS} libeasel.a
+	-rm -f *~ TAGS
+	-rm -f core.[0-9]*
+	-rm -f config.log config.status
+	-rm -f example test stats
+
+distclean:
+	(cd documentation; make distclean)
+	(cd miniapps; make distclean)
+	make clean
+	-rm easel.h
+	-rm -rf autom4te.cache
+	-rm Makefile
+
+tags:
+	etags *.[ch] Makefile
+
+
+# magic SVN for setting keyword ID replacement on a new module foo:
+# svn propset svn:keywords "Id" foo.[ch]
+
+################################################################
+# @LICENSE@
+################################################################

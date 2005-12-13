@@ -1,0 +1,92 @@
+The random (rnd) module contains routines for generating pseudorandom
+numbers.
+
+The standard ANSI C library provides a random number generator in
+\ccode{rand()}. However, the implementation of \ccode{rand()} varies
+from platform to platform, thwarting reproducibility of results that
+depend on being able to reproduce the same pseudorandom number series.
+Moreover, on many platforms \ccode{rand()} is weak. It is desirable to
+have a standard, portable, strong pseudorandom number generator that
+generates reproducible pseudorandom number series on any platform.
+Thus Easel's \ccode{esl\_random()} function, which returns a
+double-precision uniform deviate $x$ on the interval $0 \leq x < 1$.
+
+\subsection{The random API}
+
+The module implements one object, \ccode{ESL\_RANDOMNESS}, which
+contains state information for the random number generator.  This
+object is meant to be opaque; you should not need to use its contents.
+Because the state of the generator is encapsulated this way, random
+number generation is reentrant and threadsafe. We can have more than
+one active generator and they will not interfere with each other. 
+
+The API consists of the following functions:
+
+\vspace{1em}
+\begin{tabular}{ll}\hline
+   \multicolumn{2}{c}{\textbf{the \ccode{ESL\_RANDOMNESS} object}}\\
+\ccode{esl\_randomness\_Create()}           & Creates new random number generator.\\
+\ccode{esl\_randomness\_CreateTimeSeeded()} & Creates new generator using current time as seed.\\
+\ccode{esl\_randomness\_Destroy()}          & Free's a random number generator.\\
+\ccode{esl\_randomness\_Init()}             & Re-seeds a random number generator.\\
+   \multicolumn{2}{c}{\textbf{random number sampling}}\\
+\ccode{esl\_random()}                       & Returns uniform deviate $0.0 \leq x < 1.0$.\\
+\ccode{esl\_rnd\_UniformPositive()}         & Returns uniform deviate $0.0 < x < 1.0$.\\
+\ccode{esl\_rnd\_Gaussian()}                & Gaussian-distributed deviate.\\
+\ccode{esl\_rnd\_Gamma()}                   & $\Gamma(a)$-distributed deviate.\\
+\ccode{esl\_rnd\_Choose()}                  & Choose a uniformly-distributed random integer.\\
+\ccode{esl\_rnd\_DChoose()}                 & Choose integer according to a probability vector.\\
+\ccode{esl\_rnd\_FChoose()}                 & Choose integer according to a probability vector.\\
+\ccode{esl\_rnd\_IID()}                     & Generate an i.i.d. symbol sequence.\\ \hline
+\end{tabular}
+
+The algorithm implemented by \ccode{esl\_random()} is strong, but a
+bit slow compared to some other strong random number generators. It is
+essentially the \ccode{ran2()} generator from \emph{Numerical Recipes
+in C} \citep{Press93}. It implements L'Ecuyer's algorithm for
+combining two linear congruential generators, with a Bays-Durham
+shuffle. The other elementary sampling functions provided by the
+random module all rely on the \ccode{esl\_random()} generator for
+their random numbers.
+
+
+\subsection{Example of using the random API}
+
+An example that initializes the random number generator with a seed of
+``42'', then samples 10 random numbers using \ccode{esl\_random()}:
+
+\input{cexcerpts/random_example}
+
+When a \ccode{ESL\_RANDOMNESS} object is created with
+\ccode{esl\_randomness\_Create()}, it needs to be given a \emph{seed},
+an integer $> 0$, which specifies the initial state of the
+generator. After a generator is seeded, it is typically never seeded
+again. A series of \ccode{esl\_random()} calls generates a
+pseudorandom number sequence from that starting point. If you create
+two \ccode{ESL\_RANDOMNESS} objects seeded identically, they are
+guaranteed to generate the same random number sequence on all
+platforms. This makes it possible to reproduce stochastic simulations.
+Thus, if you run the example multiple times, you get the same ten
+numbers, because the generator is always seeded with 42.
+
+Often one wants different runs to generate different random number
+sequences, which creates a chicken and the egg problem: how can we
+select a pseudorandom seed for the pseudorandom number generator? One
+standard method is to use the current time. Easel provides an
+alternate creation function
+\ccode{esl\_randomness\_CreateTimeseeded()}. If the precision of our
+clock is sufficiently fine, different runs of the program occur at
+different clock times. Easel relies on the POSIX clock for
+portability, but the POSIX clock has the drawback that it clicks in
+seconds, which is not very good precision. Two different
+\ccode{ESL\_RANDOMNESS} objects created in the same second will
+generate identical random number sequences. Change the
+\ccode{esl\_randomness\_Create(42)} call to
+\ccode{esl\_randomness\_CreateTimeseeded()} and recompile, and you'll
+get different number sequences with each run - provided you run the
+commands in different seconds, anyway.
+
+
+
+
+

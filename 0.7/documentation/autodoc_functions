@@ -1,0 +1,204 @@
+#! /usr/bin/perl
+
+# Usage:
+#   ./ssdk_doc_functions <C file>  
+# 
+# Input is a C .c file with my structured function header convention.
+# Output is .tex file suitable for inclusion in my LaTeX documentation.
+#
+# Requirements:
+#    1. .tex file needs to have \sreapi environment defined;
+#       see hmmer, squid, infernal, etc. "macro.tex" to get a copy.
+#
+#    2. .tex file needs to have \ccode command defined, to produce 
+#       courier (or whatever) computerese font for variables, macros,
+#       etc.
+#
+#   3. Functions must use headers according to my conventions, for example:
+#      (defined as sre-insert-my-function-header() in .emacs LISP)
+#
+#             /* Function:  function()
+#              * Incept:    SRE, Tue Nov 30 19:36:17 2004 [St. Louis]
+#              *
+#              * Purpose:   Given an <argument>, carry out an important
+#              *            function, and return an answer.
+#              *
+#              * Args:      argument - some text, or NULL
+#              *
+#              * Returns:   <SRE_SUCCESS> on success; <SRE_FAILED> on failure.
+#              *
+#              * Throws:    <SRE_MALLOC_FAILED> on an allocation failure.
+#              *
+#              * Xref:      STL8/p.159.
+#              */
+#              int
+#              function(char *argument)
+#              {
+#                 etc.
+#
+#     The Function and Purpose blocks are required.
+#     Only the Function, Purpose, Returns, and Throws blocks are used.  
+# 
+#     The exact spacing of the beginning of each line is important;
+#     for example, the parser depends on seeing "/* Function" at the beginning,
+#     " * \S" on a line starting a new block of info, and " *  " or
+#     " */" on a line that continues a previous info block. The exact
+#     spacing style of "int\nfunction(char *argument)\n{" is also essential.
+#     
+#
+# SRE, Tue Nov 30 19:43:47 2004
+
+
+$cfile = shift;
+
+$text  = `cat $cfile`;
+$n = &parse_function_documentation($text);
+
+print "\\begin{sreapi}\n";
+for ($i = 0; $i < $n; $i++) 
+{
+    printf "\\item[%s %s(%s)]\n",
+             $returntype[$i],
+             $function[$i],
+             $args[$i];
+
+    print "\n";
+    print $purpose[$i], "\n";
+    print "Returns ", $returns[$i], "\n" unless ($returns[$i] eq "");
+    print "Throws ",  $throws[$i],  "\n" unless ($throws[$i]  eq "");
+    print "\n\n";
+}
+print "\\end{sreapi}\n\n";
+exit;
+
+# Function: parse_function_documentation
+#
+# Purpose:  Given <text> from a .c file, parse it for my structured
+#           function documentation. Returns <n>, the number of 
+#           documented functions found; and it populates the following
+#           global arrays:
+#              function    - name of the function
+#              returntype  - C return type; for example, "int"
+#              args        - C argument list, from the func def'n
+#              purpose     - Text documenting the function
+#              incept      - OPTIONAL: date/name/place, else ""
+#              argdocs     - OPTIONAL: table documenting the args, else ""
+#              returns     - OPTIONAL: documentation of returned
+#                            information or codes; else "";
+#              throws      - OPTIONAL: documentation of returned 
+#                            abnormal error codes
+#
+#           Each of these is an array indexed <0..n-1>, for the <n>
+#           documented functions.
+#
+sub
+parse_function_documentation 
+{
+    my ($text) = @_;
+    my ($comment, $n, $first_funcname);
+
+    $n = 0;
+    #                   /*   Function:   foo          \n double    \n foo   ( args    )  \n{
+    while ($text =~ m|(/\*\s*Function:\s*[^\{]+\*/)\s*\n([^\{]+)\s*\n(\S+)\(([^\{]+)\)\s*\n\{|gms) {
+	$comment        = $1;
+	$returntype[$n] = $2;
+	$function[$n]   = $3;
+	$args[$n]       = $4;
+
+	# Delimit end of each block in the comments with a \n@*, for 
+	# convenience in getting out the individual blocks.
+	$comment =~ s|\n \* (\S)|\n@\* \1|g;
+	$comment =~ s|\n \*/|\n@\*/|g;
+
+	# Remove leading comment symbols and spacing.
+	$comment =~ s| \*[ \t]*||g;
+	
+	# Now, grab all the individual blocks of info from a structured
+        # function header comment. Required fields:
+        #       Function:
+        #       Purpose: 
+        #       the function and its args.
+        #
+	if ($comment =~ m|/\* Function:\s*(.+?)\n@\*|ms) { $first_funcname = $1; }
+	else {next;}
+	if ($first_funcname =~ /^(\S+)\(\)/) { $first_funcname = $1; }
+	if ($first_funcname ne $function[$n]) { die "parse error; $first_funcname != $function[$n]";}
+
+	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = &process_comment_text($1); }
+	else {$incept[$nfuncs] = ""; }
+
+
+	if ($comment =~ m|\n@\* Purpose:\s*(.+?)\n@\*|ms) { $purpose[$n] = &process_comment_text($1); }
+	else {next;}
+
+	if ($comment =~ m|\n@\* Args:\s*(.+?)\n@\*|ms) { $argdocs[$n] = $1; }
+	else {$argdocs = ""; }
+    
+	if ($comment =~ m|\n@\* Returns:\s*(.+?)\n@\*|ms) { $returns[$n] = &process_comment_text($1); }
+	else {$returns[$nfuncs] = ""; }
+
+	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = &process_comment_text($1); }
+	else {$throws[$n] = ""; }
+
+	# protect _ characters
+	$function[$n]   = &latex_safe($function[$n]);
+	$returntype[$n] = &latex_safe($returntype[$n]);
+	$args[$n]       = &latex_safe($args[$n]);
+
+	$n++;
+    }
+    $n;
+}
+
+
+# Function: process_comment_text
+#
+sub
+process_comment_text
+{
+    my ($text) = @_;
+    my (@s);			# old text, as chars
+    my (@s2);			# new text, as chars
+    my ($newtext);
+    my ($n);
+    my ($i);
+    my ($state);		# 0 = text; 1 = math; 2 = code. Finite automaton.
+
+    @s = split(//,$text);
+    $n = $#s + 1;
+
+    $state = 0;			# start in text state
+    for ($i = 0; $i < $n; $i++)
+    {
+        # State transitions in the text/math/code mode automaton
+        #
+	if    ($state == 0 && $s[$i] eq '$') { $state    = 1; push(@s2, '$'); }                  # enter math state
+	elsif ($state == 0 && $s[$i] eq '<') { $state    = 2; push(@s2, split(//, "\\ccode{")); } # enter code state
+	elsif ($state == 1 && $s[$i] eq '$') { $state    = 0; push(@s2, '$'); }                  # back to text state
+	elsif ($state == 2 && $s[$i] eq '>' && $s[$i-1] ne '-') 
+	{ $state    = 0; push(@s2, '}'); }                  # back to text state on >, unless it was ->
+
+        # No state transition; deal with processing other characters according to state.
+        #
+        elsif ($state == 2 && $s[$i] eq '_') { push(@s2, '\\'); push(@s2, '_'); }
+        else  { push(@s2, $s[$i]); }
+    }
+    	
+    $newtext = join('',@s2);
+}
+
+
+# Function: latex_safe
+# 
+# Purpose:  Given a <string>, substitute any unacceptable characters
+#           for LaTeX, as follows:
+#               _     - becomes \_
+#      
+sub
+latex_safe
+{
+    my ($string) = @_;
+
+    $string =~ s/_/\\_/g;
+    $string;
+}
