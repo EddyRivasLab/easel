@@ -1,0 +1,24 @@
+
+\begin{tabular}{lcll}\hline
+Variate    & $x$         & \ccode{double} & $\mu \leq x < \infty$ \\
+Location   & $\mu$       & \ccode{double} & $-\infty < \mu < \infty$\\
+Scale      & $\lambda$   & \ccode{double} & $\lambda > 0$ \\ \hline
+\end{tabular}
+
+The probability density function (PDF) is:
+
+\begin{equation}
+P(X=x) =  \lambda e^{-\lambda (x - \mu)}
+\end{equation}
+
+The cumulative distribution function (CDF) is:
+
+\begin{equation}
+P(X \leq x) = 1 - e^{-\lambda (x - \mu)}
+\end{equation}
+
+
+\section{Sampling}
+
+
+\section{Maximum likelihood fitting}
