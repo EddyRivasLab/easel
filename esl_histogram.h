@@ -67,7 +67,7 @@ extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double 
 extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
 extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
 
-extern int esl_histogram_Add(ESL_HISTOGRAM *h, double x);
+qextern int esl_histogram_Add(ESL_HISTOGRAM *h, double x);
 
 extern int esl_histogram_Sort(ESL_HISTOGRAM *h);
 extern int esl_histogram_GetScoreAtRank(ESL_HISTOGRAM *h, int rank, double *ret_x);

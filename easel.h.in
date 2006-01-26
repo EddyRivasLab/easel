@@ -136,7 +136,6 @@
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
-extern esl_error_handler_f esl_error_handler;
 
 extern void esl_error(int code, char *file, int line, char *format, ...);
 extern void esl_error_SetHandler(esl_error_handler_f);

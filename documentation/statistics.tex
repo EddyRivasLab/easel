@@ -1,6 +1,8 @@
 
-All statistics modules require the core \eslmod{easel} module, and the
-subcore \eslmod{stats} module.
+\section{Overview of all the statistics modules}
+
+All statistics modules require the \eslmod{stats} module, in addition
+to the core \eslmod{easel} module.
 
 Sampling routines require augmentation with the \eslmod{random}
 module. Using histograms (including the \ccode{*\_Plot} functions and
@@ -8,10 +10,11 @@ parameter fitting to binned data) requires augmentation with the
 \eslmod{histogram} module. Some parameter fitting functions require
 augmentation with the \eslmod{minimizer} module.
 
+\vspace{1em}
 \begin{tabular}{ll}\hline
-   \multicolumn{2}{c}{\textbf{subcore support:}}\\
+   \multicolumn{2}{c}{\textbf{Core support:}}\\
 \eslmod{stats}        & Shared and special functions. \\
-   \multicolumn{2}{c}{\textbf{distributions:}}\\
+   \multicolumn{2}{c}{\textbf{Distributions:}}\\
 \eslmod{dirichlet}    & Dirichlet densities. \\
 \eslmod{exponential}  & Exponential densities.\\
 \eslmod{gamma}        & Gamma densities.\\
@@ -22,9 +25,10 @@ augmentation with the \eslmod{minimizer} module.
 \eslmod{mixgev}       & Mixtures of generalized extreme value densities.\\
 \eslmod{stretchexp}   & Stretched exponential densities.\\
 \eslmod{weibull}      & Weibull densities.\\
+\hline
 \end{tabular}
 
-\section{Densities and distributions}
+\subsection{Available densities and distributions}
 
 Every module implements seven functions:
 
@@ -38,10 +42,13 @@ Every module implements seven functions:
 \ccode{esl\_*\_invcdf}   & ${ x \mid P(X \leq x) = p }$ & inverse CDF (often useful for sampling)\\
 \end{tabular}
 
-\subsection{Parameters}
+\subsubsection{Overview of parameters}
+
+A summary of the parameters of the elemental distributions is as
+follows:
 
 \begin{tabular}{lcccc} \hline
-\textbf{Distribution}&  \textbf{Location}  & \textbf{Scale} & \textbf{Shape} & \textbf{PDF} \\
+\textbf{Distribution}&  \textbf{Location}  & \textbf{Scale} & \textbf{Shape} & \textbf{PDF} \\\hline
 \eslmod{dirichlet}   & \multicolumn{3}{c}{ $\alpha_i > 0$, $i=1..K$ } & 
       $\frac{\Gamma{\sum_i \alpha_i}}{\prod_i \Gamma(\alpha_i)} \prod_i p_i^{\alpha_i-1}$\\
 \eslmod{exponential} &    $\mu$      &  $\lambda$     &   -          &    
@@ -64,6 +71,7 @@ Every module implements seven functions:
 Additionally, there are \textbf{mixture distributions} composed of a
 sum of one of the above elemental densities:
 
+\vspace{1em}
 \begin{tabular}{ll} \hline
 \textbf{Distribution} &  \textbf{PDF}\\ \hline
 \eslmod{hyperexp}     &  $\sum_k q_k P(x \mid \mbox{exponential:}\mu^k,\lambda^k)$\\
@@ -72,35 +80,23 @@ sum of one of the above elemental densities:
 \hline
 \end{tabular}
 
-\subsection{Dynamic range}
+\subsubsection{Dynamic range}
+
+
+\subsection{Using histograms}
+
+\subsection{Parameter fitting}
+\subsubsection{Complete data}
+\subsubsection{Binned data}
+\subsubsection{Censored data}
+\subsubsection{Truncated data}
 
 
 
-\section{Sampling}
+\subsection{Sampling}
 
 
 
-\section{Histograms}
-\subsection{generic API}
-
-
-
-
-\section{Parameter fitting}
-
-\subsection{Complete data}
-
-\subsection{Binned data}
-
-\subsection{Censored data}
-
-\subsection{Truncated data}
-
-
-\section{Mixture densities}
-
-
-\section{Fitting tails}
 
 
 

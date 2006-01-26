@@ -11,6 +11,7 @@ APITEX =  easel\
 	  esl_getopts\
 	  esl_gev\
 	  esl_gumbel\
+	  esl_histogram\
 	  esl_hyperexp\
 	  esl_keyhash\
 #	  esl_mixdchlet\
@@ -37,6 +38,7 @@ AUTOTEX = esl_alphabet\
 	  esl_getopts\
 	  esl_gev\
 	  esl_gumbel\
+	  esl_histogram\
 	  esl_hyperexp\
 	  esl_keyhash\
 	  esl_mixgev\

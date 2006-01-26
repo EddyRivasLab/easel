@@ -226,10 +226,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
       h->nb    += nnew;
     }
 
-  /* Bump the bin counter, and whatever other data we're keeping.
-   * Since censoring is "virtual" (we still keep the complete
-   * dataset), we just have to keep track of the number of
-   * censored samples, z, if it's already a censored histogram.
+  /* Bump the bin counter, and all the data sample counters.
    */
   h->obs[b]++;
   h->n++;
