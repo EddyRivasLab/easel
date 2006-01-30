@@ -23,37 +23,43 @@
 typedef struct {
   /* The histogram is kept as counts in fixed-width bins.
    */
-  double  xmin, xmax;	/* smallest, largest sample value observed          */
-  int     n;            /* total number of raw data samples                 */
   int    *obs;		/* observed counts in bin b, 0..nb-1 (dynamic)      */
-  double  bmin, bmax;	/* histogram bounds: all x satisfy bmin < x <= bmax */
-  int     imin, imax;	/* smallest, largest bin that contain obs[i] > 0    */
   int     nb;           /* number of bins                                   */
   double  w;		/* fixed width of each bin                          */
+  double  bmin, bmax;	/* histogram bounds: all x satisfy bmin < x <= bmax */
+  int     imin, imax;	/* smallest, largest bin that contain obs[i] > 0    */
 
   /* Optionally, in a "full" h, we can also keep all the raw samples in x.
    */
+  double  xmin, xmax;	/* smallest, largest sample value x observed        */
+  int     n;            /* total number of raw data samples                 */
   double *x;		/* optional: raw sample values x[0..n-1]            */
   int     nalloc;	/* current allocated size of x                      */
 
-  /* SetExpect() uses some theoretical distribution to set expect[0..nb-1].
-   * If that dist was fitted to a censored tail, the caller uses SetCensoring()
-   * to inform the histogram of that, setting phi and z.
+  /* The binned data might be censored (either truly, or virtually).
+   * This information has to be made available to a binned/censored
+   * parameter fitting function, and to goodness-of-fit tests.
    */
-  double *expect;	/* expected counts in bin b, 0..nb-1 (not resized)  */
   double  phi;		/* censoring value; all x_i > phi                   */
   int     cmin;		/* smallest bin index that contains uncensored data */
   int     z;		/* # of censored values <= phi                      */
   int     Nc;	        /* # samples in complete data (including unobs)     */
   int     No;		/* # of samples in observed data                    */
-  int     Nx;		/* # of samples modeled by a fitted distribution    */
+
+  /* Expected binned counts are set by SetExpect() or SetExpectedTail().
+   */
+  double *expect;	/* expected counts in bin b, 0..nb-1 (not resized)  */
+  int     emin;		/* smallest bin index that contains expected counts */
+  double  tailbase;	/* for tail fits: fitted x > tailbase               */
+  double  tailmass;	/* for tail fits: fractional prob in the tail       */
 
   /* Some status flags
    */
   int is_full;		/* TRUE when we're keeping raw data in x           */
+  int is_done;		/* TRUE if we prevent more Add()'s                 */
   int is_sorted;	/* TRUE if x is sorted smallest-to-largest         */
-  int is_rounded;	/* TRUE to use/display only bins, not raw          */
   int is_tailfit;	/* TRUE if expected dist only describes tail       */
+
   enum { COMPLETE, VIRTUAL_CENSORED, TRUE_CENSORED } dataset_is; 
 
 } ESL_HISTOGRAM;
@@ -62,33 +68,49 @@ typedef struct {
 #define esl_histogram_Bin2UBound(h,b)  ((h)->w*((b)+1) + (h)->bmin)
 #define esl_histogram_Score2Bin(h,x)   ((int) ceil( ((x - (h)->bmin) / h->w) - 1.))
 
-
+/* Creating/destroying histograms and collecting data:
+ */
 extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double w);
 extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
 extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
+extern int            esl_histogram_Add(ESL_HISTOGRAM *h, double x);
+extern int            esl_histogram_Sort(ESL_HISTOGRAM *h);
 
-qextern int esl_histogram_Add(ESL_HISTOGRAM *h, double x);
+/* Accessing data samples in a full histogram:
+ */
+extern int esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x);
+extern int esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n);
+extern int esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi, double **ret_x,
+				 int *ret_n, int *ret_z);
+extern int esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass, 
+				       double **ret_x, int *ret_n, int *ret_z);
 
-extern int esl_histogram_Sort(ESL_HISTOGRAM *h);
-extern int esl_histogram_GetScoreAtRank(ESL_HISTOGRAM *h, int rank, double *ret_x);
+/* Declarations about the binned data before parameter fitting:
+ */
+extern int esl_histogram_SetTrueCensoring(ESL_HISTOGRAM *h, int z, double phi);
+extern int esl_histogram_VirtCensor      (ESL_HISTOGRAM *h, double phi);
+extern int esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double pmass);
 
-extern int esl_histogram_TrueCensoring    (ESL_HISTOGRAM *h, int z, double phi);
-extern int esl_histogram_VirtCensorByValue(ESL_HISTOGRAM *h, double phi);
-extern int esl_histogram_VirtCensorByMass (ESL_HISTOGRAM *h, double tfrac);
-extern int esl_histogram_DeclareTailfitting(ESL_HISTOGRAM *h);
-extern int esl_histogram_DeclareRounding   (ESL_HISTOGRAM *h);
+
+/* Setting expected binned counts:
+ */
 extern int esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
 				   double (*cdf)(double x, void *params),
 				   void *params);
+extern int esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val,
+				double pmass,
+				double (*cdf)(double x, void *params), 
+ 			        void *params);
 
-
+/* Output/display of binned data:
+ */
 extern int esl_histogram_Print       (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_Plot        (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
-extern int esl_histogram_PlotTheory  (FILE *fp, ESL_HISTOGRAM *h, 
-				      double (*fx)(double, void *), void *params);
 extern int esl_histogram_PlotQQ      (FILE *fp, ESL_HISTOGRAM *h, 
-				      double (*invcdf)(double, void *), void *params);
+			      double (*invcdf)(double, void *), void *params);
+
+
 
 #ifdef eslAUGMENT_STATS
 extern int esl_histogram_Goodness(ESL_HISTOGRAM *h, 
