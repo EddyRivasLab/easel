@@ -5,54 +5,17 @@
  * SVN $Id$
  */
 
-/*
- * Creating/destroying histograms and collecting data:
- *  ESL_HISTOGRAM *esl_histogram_Create(double xmin, double xmax, double w)
- *  ESL_HISTOGRAM *esl_histogram_CreateFull(double xmin, double xmax, double w)
- *  void           esl_histogram_Destroy(ESL_HISTOGRAM *h)
- *  int            esl_histogram_Add(ESL_HISTOGRAM *h, double x)
- *  int            esl_histogram_Sort(ESL_HISTOGRAM *h)
- *
- * Accessing data samples in a full histogram:
- *  int esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
- *  int esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
- *  int esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi, 
- *                            double **ret_x, int *ret_n, int *ret_z)
- *  int esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass, 
- *                            double **ret_x, int *ret_n, int *ret_z)
- *    
- * Declarations about the binned data before parameter fitting:
- *  int esl_histogram_SetTrueCensoring(ESL_HISTOGRAM *h, int z, double phi)
- *  int esl_histogram_VirtCensor(ESL_HISTOGRAM *h, double phi)
- *  int esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double pmass)
- *  
- * Setting expected binned counts:
- *  int esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
- *	  	  double (*cdf)(double x, void *params), void *params)
- *  int esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, 
- *                double pmass, double (*cdf)(double x, void *params), 
- *  	          void *params)
- *  
- * Output/display of binned data:
- *   int esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h) 
- *   int esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
- *   int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
- *   int esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h, 
- *		     double (*invcdf)(double x, void *params), void *params)
- */
-
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <float.h>
 
 #include <easel.h>
+#include <esl_stats.h>
 #include <esl_histogram.h>
 #include <esl_vectorops.h>
 
-#ifdef eslAUGMENT_STATS	 /* stats augmentation gives goodness-of-fit testing */
-#include <esl_stats.h>
-#endif
+static int esl_histogram_sort(ESL_HISTOGRAM *h);
 
 
 /*****************************************************************
@@ -67,15 +30,21 @@
  *            bins of width <w>. Thus, a total of <xmax>-<xmin>/<w> bins
  *            are initially created. 
  *            
- *            The bounds <xmin> and <xmax> only need to be initial
- *            guesses.  The histogram object will reallocate itself
- *            dynamically as needed to accomodate scores that exceed
- *            current bounds.
- *
+ *            The lower bound <xmin> and the width <w> permanently
+ *            determine the offset and width of the binning.
  *            For example, <esl_histogram_Create(-100, 100, 0.5)> 
  *            would init the object to collect scores into 400 bins 
- *            $[-100<x<=-99.5],[-99.5<x<=-99.0]...[99.5<x<=100.0]$.
- *            
+ *            $[-100< x \leq -99.5],[-99.5 < x \leq -99.0]...[99.5 <x \leq 100.0]$.
+ *            Otherwise, the bounds <xmin> and <xmax> only need to be initial
+ *            guesses.  The histogram object will reallocate itself
+ *            dynamically as needed to accommodate scores that exceed
+ *            current bounds.
+ *
+ *            You can be sloppy about <xmax>; it does not have to
+ *            exactly match a bin upper bound. The initial allocation
+ *            is for all full-width bins with upper bounds $\leq
+ *            xmax$.
+ *
  *            <esl_histogram_Create()> creates a simplified histogram
  *            object that collates only the "display" histogram. For
  *            a more complex object that also keeps the raw data samples,
@@ -193,10 +162,10 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
- *            <eslEINVAL> for cases where something has been done
+ *            Throws <eslEINVAL> for cases where something has been done
  *            to the histogram that requires it to be 'finished', and
  *            adding more data is prohibited; for example, 
- *            if censoring information has already been set.
+ *            if tail or censoring information has already been set.
  */
 int
 esl_histogram_Add(ESL_HISTOGRAM *h, double x)
@@ -282,7 +251,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
 }
   
 
-/* Function:  esl_histogram_Sort()
+/* esl_histogram_sort()
  * Incept:    SRE, Thu Aug 18 10:45:46 2005 [St. Louis]
  *
  * Purpose:   Sort the raw scores in a full histogram. Has no effect on a
@@ -291,16 +260,179 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
  * Returns:   <eslOK> on success.
  */
 int
-esl_histogram_Sort(ESL_HISTOGRAM *h)
+esl_histogram_sort(ESL_HISTOGRAM *h)
 {
   if (h->is_sorted) return eslOK; /* already sorted, don't do anything */
   if (! h->is_full) return eslOK; /* nothing to sort */
-  if (h->is_done) ESL_ERROR(eslEINCONCEIVABLE, "unsorted data can't be done");
   
   esl_vec_DSortIncreasing(h->x, h->n);
   h->is_sorted = TRUE;
   return eslOK;
 }
+
+/*****************************************************************
+ * Declarations about the binned data before parameter fitting
+ *****************************************************************/ 
+
+/* Function:  esl_histogram_DeclareCensoring()
+ * Incept:    SRE, Tue Aug 23 10:00:14 2005 [St. Louis]
+ *
+ * Purpose:   Declare that the dataset collected in <h> is known to be a
+ *            censored distribution, where <z> samples were unobserved because
+ *            they had values $\leq$ some threshold <phi> ($\phi$).
+ *            
+ *            No more data can be added to the histogram with <_Add()>
+ *            after censoring information has been set.
+ *            
+ *            This function is for "true" censored datasets, where
+ *            the histogram truly contains no observed points
+ *            $x \leq \phi$, and the number that were censored is known
+ *            to be <z>. 
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if you try to set <phi> to a value that is
+ *            greater than the minimum <x> stored in the histogram.
+ */
+int
+esl_histogram_DeclareCensoring(ESL_HISTOGRAM *h, int z, double phi)
+{
+  if (phi > h->xmin) ESL_ERROR(eslEINVAL, "no uncensored x can be <= phi");
+
+  h->phi         = phi;
+  h->cmin        = h->imin;
+  h->z           = z;
+  h->Nc          = h->n + z;
+  h->No          = h->n;
+  h->dataset_is  = TRUE_CENSORED;
+  h->is_done     = TRUE;
+  return eslOK;
+}
+
+/* Function:  esl_histogram_DeclareRounding()
+ * Incept:    SRE, Tue Jan 31 13:52:10 2006 [St. Louis]
+ *
+ * Purpose:   Declare that the data sample values in the histogram <h>
+ *            are rounded off. Ideally, your bins in <h> should exactly 
+ *            match the rounding procedure. This raises a flag that
+ *            binned parameter fitting routines will use when they set
+ *            an origin, using the lower bound of the bin instead of
+ *            the lowest raw value in the bin.
+ */
+int
+esl_histogram_DeclareRounding(ESL_HISTOGRAM *h)
+{
+  h->is_rounded = TRUE;
+  return eslOK;
+}
+
+
+/* Function:  esl_histogram_SetTail()
+ * Incept:    SRE, Tue Aug 23 09:01:10 2005 [St. Louis]
+ *
+ * Purpose:   Suggest a threshold <phi> to split a histogram <h>
+ *            into "unobserved" data (values $\leq \phi$) and "observed" 
+ *            data (values $> \phi$). 
+ *
+ *            The suggested <phi> is revised downwards to a $\phi$ at the next 
+ *            bin lower bound, because operations on binned data in <h>
+ *            need to know unambiguously whether all the data in a given bin
+ *            will be counted as observed or unobserved. 
+ *
+ *            The probability mass that is in the resulting right tail
+ *            is optionally returned in <ret_newmass>. You need to know
+ *            this number if you're fitting a distribution solely to the
+ *            tail (an exponential tail, for example).
+ *
+ *            Any data point $x_i \leq \phi$ is then considered to be
+ *            in a censored (unobserved) region for purposes of parameter
+ *            fitting, calculating expected binned counts,
+ *            and binned goodness-of-fit tests. 
+ *            
+ *            No more data can be added to the histogram after
+ *            censoring information has been set.
+ *            
+ *            This function defines a "virtual" left-censoring: the
+ *            histogram actually contains complete data, but appropriate
+ *            flags are set to demarcate the "observed" data in the right
+ *            tail.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_histogram_SetTail(ESL_HISTOGRAM *h, double phi, double *ret_newmass)
+{
+  int b;
+
+  /* Usually, put true phi at the next bin lower bound, but
+   * watch for a special case where phi is already exactly equal to a 
+   * bin upper bound.
+   */
+  h->cmin = esl_histogram_Score2Bin(h,phi);
+  if (phi == esl_histogram_Bin2UBound(h,h->cmin)) h->phi = phi;
+  else   h->phi  = esl_histogram_Bin2LBound(h, h->cmin);
+
+  h->z    = 0;
+  for (b = h->imin; b < h->cmin; b++)
+    h->z += h->obs[b];
+  h->Nc         = h->n;		/* (redundant) */
+  h->No         = h->n - h->z;
+  h->dataset_is = VIRTUAL_CENSORED;
+  h->is_done    = TRUE;
+  if (ret_newmass != NULL) *ret_newmass = (double) h->No / (double) h->Nc;
+  return eslOK;
+}
+
+/* Function:  esl_histogram_SetTailByMass()
+ * Incept:    SRE, Tue Aug 23 08:10:39 2005 [St. Louis]
+ *
+ * Purpose:   Given a histogram <h> (with or without raw data samples),
+ *            find a cutoff score that at least fraction <pmass> of the samples
+ *            exceed. This threshold is stored internally in the histogram
+ *            as <h->phi>. The number of "virtually censored" samples (to the 
+ *            left, with scores $\leq \phi$) is stored internally in <h->z>.
+ *            
+ *            The identified cutoff score must be a lower bound for some bin
+ *            (bins can't be partially censored). The censored mass
+ *            will thus usually be a bit greater than <pmass>, as the
+ *            routine will find the highest satisfactory <h->phi>. The
+ *            narrower the bin widths, the more accurately the routine
+ *            will be able to satisfy the requested <frac>. The actual
+ *            probability mass in the right tail is optionally returned
+ *            in <ret_newmass>. You need to know this number if you're 
+ *            fitting a distribution solely to the tail (an exponential tail,
+ *            for example). It is safe for <ret_newmass> to point at 
+ *            <pmass>, in which case the suggested <pmass> will be overwritten
+ *            with the actual mass upon return.
+ *
+ *            This function defines that the binned data will be
+ *            fitted either as a tail, or as a (virtually) left-censored dataset.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_histogram_SetTailByMass(ESL_HISTOGRAM *h, double pmass, double *ret_newmass)
+{
+  int b;
+  int sum = 0;
+	    
+  for (b = h->imax; b >= h->imin; b--)
+    {
+      sum += h->obs[b];
+      if (sum >= (pmass * (double)h->n)) break;
+    }
+
+  h->phi         = esl_histogram_Bin2LBound(h,b);
+  h->z           = h->n - sum;
+  h->cmin        = b;
+  h->Nc          = h->n;	/* (redundant) */
+  h->No          = h->n - h->z;
+  h->dataset_is  = VIRTUAL_CENSORED;
+  h->is_done     = TRUE;
+  if (ret_newmass != NULL) *ret_newmass = (double) h->No / (double) h->Nc;
+  return eslOK;
+}
+
 
 
 /*****************************************************************
@@ -316,10 +448,12 @@ esl_histogram_Sort(ESL_HISTOGRAM *h)
  *            <ret_x>.
  *            
  *            If the raw scores aren't sorted, they are sorted
- *            first (an NlogN operation).
+ *            first (an $N \log N$ operation).
  *            
  *            This can be called at any time, even during data
  *            collection, to see the current <rank>'th highest score.
+ *
+ * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if the histogram is display-only,
  *            or if <rank> isn't in the range 1..n.
@@ -336,7 +470,7 @@ esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
   if (rank < 1)
     ESL_ERROR(eslEINVAL, "histogram rank must be a value from 1..n");
 
-  esl_histogram_Sort(h);	/* make sure */
+  esl_histogram_sort(h);	/* make sure */
   *ret_x = h->x[h->n - rank + 1];
   return eslOK;
 }
@@ -379,7 +513,7 @@ int
 esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
 {
   if (! h->is_full) ESL_ERROR(eslEINVAL, "not a full histogram");
-  esl_histogram_Sort(h);
+  esl_histogram_sort(h);
 
   *ret_x = h->x;
   *ret_n = h->n;
@@ -397,7 +531,7 @@ esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
  *            tail, as a ptr <ret_x> to an array of <ret_n> values 
  *            indexed <[0..n-1]> from lowest to highest score. 
  *            Optionally, it also returns the number of values in 
- *            rest of the histogram in <ret_z);
+ *            rest of the histogram in <ret_z>;
  *            this number is useful if you are going to fit
  *            the tail as a left-censored distribution.
  *            
@@ -430,7 +564,7 @@ esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi,
   int hi, lo, mid;
 
   if (! h->is_full) ESL_ERROR(eslEINVAL, "not a full histogram");
-  esl_histogram_Sort(h);
+  esl_histogram_sort(h);
 
   if      (h->n         == 0)   mid = h->n;  /* we'll return NULL, 0, n */  
   else if (h->x[0]       > phi) mid = 0;     /* we'll return x, n, 0    */
@@ -501,177 +635,19 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
   if (pmass < 0. || pmass > 1.) 
     ESL_ERROR(eslEINVAL, "pmass not a probability");
 
-  esl_histogram_Sort(h);
+  esl_histogram_sort(h);
 
   n = (int) ((float) h->n * pmass); /* rounds down, guaranteeing <= pmass */
 
   if (ret_x != NULL) *ret_x = h->x + (h->n - n);
   if (ret_n != NULL) *ret_n = n;
-  if (ret_z != NULL) *ret_z = h->n - z;
+  if (ret_z != NULL) *ret_z = h->n - n;
   h->is_done = TRUE;
   return eslOK;
 }
 
 
 
-
-/*****************************************************************
- * Declarations about the binned data before parameter fitting
- *****************************************************************/ 
-
-/* Function:  esl_histogram_SetTrueCensoring()
- * Incept:    SRE, Tue Aug 23 10:00:14 2005 [St. Louis]
- *
- * Purpose:   Declare that the dataset collected in <h> is known to be a
- *            censored distribution, where <z> samples were unobserved because
- *            they had values $\leq$ some threshold <phi>.
- *            
- *            No more data can be added to the histogram with <_Add()>
- *            after censoring information has been set.
- *            
- *            This function is for "true" censored datasets, where
- *            the histogram truly contains no observed points
- *            $x \leq phi$. 
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if you try to set <phi> to a value that is
- *            greater than the minimum <x> stored in the histogram.
- */
-int
-esl_histogram_SetTrueCensoring(ESL_HISTOGRAM *h, int z, double phi)
-{
-  if (phi > h->xmin) ESL_ERROR(eslEINVAL, "no uncensored x can be <= phi");
-
-  h->phi         = phi;
-  h->cmin        = h->imin;
-  h->z           = z;
-  h->Nc          = h->n + z;
-  h->No          = h->n;
-  h->dataset_is  = TRUE_CENSORED;
-  h->is_done     = TRUE;
-  return eslOK;
-}
-
-/* Function:  esl_histogram_VirtCensor()
- * Incept:    SRE, Tue Aug 23 09:01:10 2005 [St. Louis]
- *
- * Purpose:   Suggest a censoring threshold <phi> to split a histogram <h>
- *            into "unobserved" data (values $\leq \phi$) and "observed" 
- *            data (values $> \phi$). 
- *
- *            The suggested <phi> is revised downwards to a $\phi$ at the next 
- *            bin lower bound, because operations on binned data in <h>
- *            need to know unambiguously whether all the data in a bin
- *            will be counted as observed or unobserved. 
- *
- *            Any data point $x_i \leq phi$ is then considered to be
- *            in the censored region for purposes of parameter
- *            fitting, calculating expected binned counts,
- *            and binned goodness-of-fit tests. 
- *            
- *            No more data can be added to the histogram after
- *            censoring information has been set.
- *            
- *            This function defines a "virtual" censoring: the
- *            histogram actually contains complete data in <h->obs[]> (and
- *            <h->x>, for a full histogram with raw samples), but only
- *            the <h->Nc>-<h->z> samples above the threshold $\phi$
- *            are counted toward fitting distributions, calculating
- *            expected counts, and running goodness-of-fit tests.
- *            
- * Returns:   <eslOK> on success.
- */
-int
-esl_histogram_VirtCensor(ESL_HISTOGRAM *h, double phi)
-{
-  int b;
-
-  /* Usually, put true phi at the next bin lower bound, but
-   * watch for a special case where phi is already exactly equal to a 
-   * bin upper bound.
-   */
-  h->cmin = esl_histogram_Score2Bin(h,phi);
-  if (phi == esl_histogram_Bin2UBound(h,h->cmin)) h->phi = phi;
-  else   h->phi  = esl_histogram_Bin2LBound(h, h->cmin);
-
-  h->z    = 0;
-  for (b = h->imin; b < h->cmin; b++)
-    h->z += h->obs[b];
-  h->Nc         = h->n;		/* (redundant) */
-  h->No         = h->n - h->z;
-  h->dataset_is = VIRTUAL_CENSORED;
-  h->is_done    = TRUE;
-
-  esl_histogram_Sort(h); /* uncensored raw tail now starts at h->x+h->z */
-  return eslOK;
-}
-
-/* Function:  esl_histogram_VirtCensorByMass()
- * Incept:    SRE, Tue Aug 23 08:10:39 2005 [St. Louis]
- *
- * Purpose:   Given a histogram <h> (with or without raw data samples),
- *            find a cutoff score that at least fraction <pmass> of the samples
- *            exceed. This threshold is stored internally in the histogram
- *            as <h->phi>. The number of virtually censored samples (to the 
- *            left, with scores $\leq \phi$) is stored internally in <h->z>.
- *            
- *            The identified cutoff score must be a lower bound for some bin
- *            (bins can't be partially censored). The censored mass
- *            will thus usually be a bit greater than <pmass>, as the
- *            routine will find the highest satisfactory <h->phi>. The
- *            narrower the bin widths, the more accurately the routine
- *            will be able to satisfy the requested <frac>. The caller
- *            can figure out how much tail mass was really left 
- *            by calculating <(h->n-h->z)/h->n>.
- *            
- *            This function defines a virtually censored dataset.
- *            The complete data are still in <h->obs[]> (and possibly
- *            <h->x[]>. <h->n> (the number of stored samples) will
- *            equal <h->Nc> (the size of the complete data), but only
- *            the <Nc-z> "observed" data points are counted towards
- *            fitting distributions, calculating expected counts, and
- *            running goodness-of-fit tests.
- *            
- *            After calling <esl_histogram_VirtCensorByMass()> on a
- *            full histogram, the caller can retrieve the sorted
- *            censored data as <h->x+h->z>, which is a (partial)
- *            vector containing <h->Nc-h->z> numbers, all satisfying
- *            $x_i > \phi$.
- *            
- *            Additionally, after calling <esl_histogram_VirtCensorByMass()>
- *            on a histogram, the index of the first uncensored bin is in
- *            <h->cmin>. That is, the censored bins are <0..h->cmin-1>
- *            and the uncensored bins are <h->cmin..nb-1>; or
- *            alternatively, for the range of bins that contain
- *            counts, <h->imin..h->cmin-1> are censored and
- *            <h->cmin..h->imax>.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double pmass)
-{
-  int b;
-  int sum = 0;
-	    
-  for (b = h->imax; b >= h->imin; b--)
-    {
-      sum += h->obs[b];
-      if (sum >= (pmass * (double)h->n)) break;
-    }
-
-  h->phi         = esl_histogram_Bin2LBound(h,b);
-  h->z           = h->n - sum;
-  h->cmin        = b;
-  h->Nc          = h->n;	/* (redundant) */
-  h->No          = h->n - h->z;
-  h->dataset_is  = VIRTUAL_CENSORED;
-  h->is_done     = TRUE;
-
-  esl_histogram_Sort(h); /* uncensored raw tail now starts at h->x+h->z */
-  return eslOK;
-}
 
 
 
@@ -734,7 +710,7 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
  *            distribution function for the right (high-scoring) tail
  *            starting at <base_val> (all expected <x> $>$ <base_val>) and
  *            containing a fraction <pmass> of the complete data
- *            distribution (<pmass> $\geq 0$ and $\leq 1);
+ *            distribution (<pmass> $\geq 0$ and $\leq 1$);
  *            set the expected binned counts for all complete bins
  *            $\geq$ <base_val>. 
  *            
@@ -936,7 +912,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 /* Function:  esl_histogram_Plot()
  * Incept:    SRE, Mon Jan 30 11:09:01 2006 [St. Louis]
  *
- * Purpose:   Print observed (and expected, if set) counts
+ * Purpose:   Print observed (and expected, if set) binned counts
  *            in a histogram <h> to open file pointer <fp>
  *            in xmgrace XY input file format.
  *
@@ -979,6 +955,10 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
  * Purpose:   Given a histogram <h>, output the observed (and
  *            expected, if available) survival function $P(X>x)$
  *            to file pointer <fp> in xmgrace XY input file format.
+ *            
+ *            One point is plotted per bin, so the narrower the
+ *            bin width, the more smooth and accurate the resulting
+ *            plots will be.
  *
  * Returns:   <eslOK> on success.
  */
@@ -1043,7 +1023,7 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
   int    i;
   double cdf;
   double bi;
-  int    ibase;
+  int    bbase;
   double sum;
 
   /* on censored data, start counting observed cdf at z, not 0
@@ -1085,8 +1065,6 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
 
 
 
-
-#ifdef eslAUGMENT_STATS
 /* Function:  esl_histogram_Goodness()
  * Incept:    SRE, Wed Aug 17 12:46:05 2005 [St. Louis]
  *
@@ -1094,11 +1072,11 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
  *            where, for the expected counts, <nfitted> ($\geq 0$)
  *            parameters were fitted (and thus should be subtracted
  *            from the degrees of freedom);
- *            Perform a G-test and/or a chi-squared test for goodness of 
+ *            Perform a G-test and/or a $\chi^2$ test for goodness of 
  *            fit between observed and expected, and optionally return
  *            the number of bins the data were sorted into
  *            (<ret_bins>), the G statistic and its probability (<ret_G> and
- *            <ret_Gp>), and the X$^2$ statistic and its probability
+ *            <ret_Gp>), and the $\chi^2$ statistic and its probability
  *            (<ret_X2> and <ret_X2p>). 
  *            
  *            If a goodness-of-fit probability is less than some threshold
@@ -1113,8 +1091,8 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
  *            
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslERANGE> or <eslECONVERGENCE> may arise on internal
- *            errors in calculating the probability;
+ * Throws:    <eslERANGE> or <eslECONVERGENCE> on different internal
+ *            errors that can arise in calculating the probabilities;
  *            <eslEMEM> on internal allocation failure.
  */
 int
@@ -1257,49 +1235,277 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   free(topx);
   return eslOK;
 }
-#endif /* eslAUGMENT_STATS */
-
-
 
 
 
 /*****************************************************************
- * Example main()
+ * Five example main()'s for five use cases:
+ *    - complete data, fit to complete Gumbel
+ *    - complete data, high scores fit as censored Gumbel
+ *    - complete data, high scores fit to exponential tail
+ *    - censored data, fit as censored Gumbel
+ *    - complete data, binned, high scores fit to exponential tail
+ *
+ * (These same five cases are tested by ./test -t1 through ./test -t5.)
  *****************************************************************/
-#ifdef eslHISTOGRAM_EXAMPLE
-/*::cexcerpt::histogram_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslHISTOGRAM_EXAMPLE esl_histogram.c esl_random.c esl_stats.c easel.c -lm
+/* Case 1. Complete data fit to complete Gumbel.
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE1 esl_histogram.c -leasel -lm
  * run:     ./example 
  */
+#ifdef eslHISTOGRAM_EXAMPLE1
+/*::cexcerpt::histogram_example1::begin::*/
 #include <easel.h>
 #include <esl_random.h>
 #include <esl_histogram.h>
+#include <esl_gumbel.h>
 
 int
 main(int argc, char **argv)
 {
   ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_Create(-100, 100, 1);
-  int    nsamples    = 1000;
-  double mean        = 20.0;
-  double stddev      = 10.0;
-  int    i;
-  double x;
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n;
+  double  G, Gp, X2, X2p;
 
   for (i = 0; i < nsamples; i++) {
-    x = esl_rnd_Gaussian(r, mean, stddev);
+    x = esl_gumbel_Sample(r, mu, lambda);
     esl_histogram_Add(h, x);
   }
 
+  esl_histogram_GetData(h, &xv, &n);
+  esl_gumbel_FitComplete(xv, n, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
   esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
 
   esl_histogram_Destroy(h);
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE*/
+/*::cexcerpt::histogram_example1::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE1*/
 
+
+
+/* Case 2. complete data, high scores fit as censored Gumbel 
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE2 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE2
+/*::cexcerpt::histogram_example2::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n, z;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_GetTailByMass(h, 0.5, &xv, &n, &z); /* fit to right 50% */
+  esl_gumbel_FitCensored(xv, n, z, xv[0], &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example2::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE2*/
+
+
+/* Case 3. complete data, high scores fit to exponential tail
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE3 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE3
+/*::cexcerpt::histogram_example3::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_GetTailByMass(h, 0.1, &xv, &n, NULL); /* fit to 10% tail */
+  esl_exp_FitComplete(xv, n, z, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpectedTail(h, mu, 0.1, &esl_exp_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example3::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE3*/
+
+/* Case 4. complete data, high scores fit to exponential tail
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE4
+/*::cexcerpt::histogram_example4::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  phi         = 9.0;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n, z;
+  double  G, Gp, X2, X2p;
+
+  z = 0;
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    if (x > phi) esl_histogram_Add(h, x);
+    else         z++;
+  }
+
+  esl_histogram_GetData(h, &xv, &n);
+  esl_gumbel_FitCensored(xv, n, z, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example4::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE4*/
+
+/* Case 5. complete data, binned high scores fit to exponential tail
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE5
+/*::cexcerpt::histogram_example5::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_Create(-100, 100, 1.0);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double  actual_mass;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    x = ceil(x);      /* crudely simulate an x of limited precision */
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_SetTailByMass(h, 0.1, &actual_mass);
+  esl_histogram_SetRounding(h);
+  esl_exp_FitCompleteBinned(h, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpectedTail(h, mu, actual_mass, &esl_exp_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example5::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE5*/
 
 
 
@@ -1307,30 +1513,21 @@ main(int argc, char **argv)
  * Test driver code
  *****************************************************************/
 #ifdef eslHISTOGRAM_TEST
-/* compile: gcc -g -Wall -I. -L. -o test -DeslHISTOGRAM_TEST esl_histogram.c -leasel -lm
+/* compile: 
+ *   gcc -g -Wall -I. -L. -o test -DeslHISTOGRAM_TEST esl_histogram.c -leasel -lm
  * run:     
- *   ./test -1; ./test -2; ./test -3; ./test -4; ./test -5
- *   
- * Options for showing data for more detailed manual testing:
- *   -b      :  run goodness tests on binned data, not raw
- *   -n <n>  :  run <n> simulation trials, not just 1
- *   -p      :  dump empirical, expected histograms in xmgrace format to test.xy
- *   -P      :  print fancy ASCII histogram to stdout
- *   -q      :  dump QQ plot to test.xy
- *   -s      :  dump empirical, fitted survival plots to test.xy
- *   -v      :  verbose: print params, G tests, X^2 test to stdout
- *   -V      :  for tests -2 or -4: censor data by value, not by tail fraction
+ *   ./test -t1; ./test -t2; ./test -t3; ./test -t4; ./test -t5
  *   
  * Some suggestions for manual testing:
- *   ./test -1 -n 5 -v -s; xmgrace test.xy          
- *        examine 5 survivor plot fits, for -1 
- *        do -2 thru -5 too
- *     
- *   ./test -1 -n 5 -v -q; xmgrace test.xy          
- *        examine 5 QQ plot fits, for -1 
- *        do -2 thru -5 too
+ *   ./test -t1 -j1 -v --surv test.xy; xmgrace test.xy          
+ *        examine survivor plot fit, for -t1 
+ *        do -t2 thru -t5 too
+ *
+ *   ./test -t1 --j1 -v -qq test.xy; xmgrace test.xy          
+ *        examine QQ plot fit, for -t1 
+ *        do -t2 thru -t5 too
  *        
- *   ./test -1 -n 1000 -v > foo
+ *   ./test -t1 -v > foo
  *   grep "^Estimated" foo | awk '{print $9}' | sort -g > test.xy
  *        Look for straight line fit to G-test p values.
  *        sub $9->$13 for chi-squared
@@ -1338,115 +1535,62 @@ main(int argc, char **argv)
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include <easel.h>
-#include <esl_histogram.h>
-#include <esl_random.h>
+#include <esl_stats.h>
 #include <esl_gumbel.h>
 #include <esl_exponential.h>
+#include <esl_random.h>
+#include <esl_getopts.h>
 
-static ESL_HISTOGRAM *
-sim_complete_complete(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep)
-{
-  ESL_HISTOGRAM *h = esl_histogram_CreateFull(-100, 100, 0.1);
-  int    i;
-  double x;
-  
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, p[0], p[1]);
-    esl_histogram_Add(h, x);
-  }
-  esl_gumbel_FitComplete(h->x, h->n, &(ep[0]), &(ep[1]));
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, ep);
-  return h;
-}
-static ESL_HISTOGRAM *
-sim_virtcensor_complete(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep, 
-			double vm, int by_value) /*v is either a mass or a value*/
-{
-  ESL_HISTOGRAM *h = esl_histogram_CreateFull(-100, 100, 0.1);
-  int    i;
-  double x;
-  
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, p[0], p[1]);
-    esl_histogram_Add(h, x);
-  }
-  if (by_value)
-    esl_histogram_VirtCensorByValue(h, vm);
-  else
-    esl_histogram_VirtCensorByMass(h, vm);
+static ESL_OPTIONS options[] = {
+  /* name         type      default   env_var   range   toggles     reqs   incompat */
+  { "-j",       eslARG_INT,  "1000",  NULL,     "n>0",     NULL,  NULL,   NULL },
+  { "-m",       eslARG_INT,     "0",  NULL,    "n>=0",     NULL,  NULL,   NULL },
+  { "-n",       eslARG_INT, "10000",  NULL,     "n>0",     NULL,  NULL,   NULL },
+  { "-t",       eslARG_INT,     "1",  NULL, "1<=n<=5",     NULL,  NULL,   NULL },
+  { "-v",       eslARG_NONE,  FALSE,  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--ascii",  eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--cmass",  eslARG_REAL,  "0.7",  NULL, "0<=x<=1",     NULL,  NULL,   NULL },
+  { "--lambda", eslARG_REAL,  "0.8",  NULL,     "x>0",     NULL,  NULL,   NULL },
+  { "--mu",     eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--phi",    eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--plot",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--qq",     eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--surv",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
+  { "--tail",   eslARG_REAL,  "0.1",  NULL, "0<=x<=1",     NULL,  NULL,   NULL },
+  { 0,0,0,0,0,0,0,0 },
+};
 
-  esl_gumbel_FitCensored(h->x+h->z, h->No, h->z, h->phi, &(ep[0]), &(ep[1]));
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, ep);
-  return h;
-}
-static ESL_HISTOGRAM *
-sim_truecensor_complete(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep, double phi)
-{
-  ESL_HISTOGRAM *h = esl_histogram_CreateFull(-100, 100, 0.1);
-  int    i;
-  double x;
-  int    z = 0;
+static char usage[] = "\
+Usage: ./test [-options]\n\
+where options are:\n\
+\n\
+  -t <n>  : choice of test scenario [-t1 is default]:\n\
+     -t1    - complete data, fit to complete Gumbel\n\
+     -t2    - complete data, high scores fit as censored Gumbel\n\
+     -t3    - complete data, high scores fit to exponential tail\n\
+     -t4    - censored data, fit as censored Gumbel\n\
+     -t5    - complete data, binned, high scores fit to exponential tail\n\
+  -j <n>  : number of trials [1000]\n\
+  -n <n>  : number of training set samples [10000]\n\
+  -m <n>  : number of independent test set samples [default: use training set]\n\
+\n\
+Output options: (best to use -j1 when saving files)\n\
+  -v          : report verbose output [default is silent success/failure]\n\
+  --ascii <f> : output ASCII histogram to file <f>\n\
+  --plot <f>  : output histogram (densities) to xmgrace file <f>\n\
+  --qq <f>    : output Q-Q goodness of fit plot to xmgrace file <f>\n\
+  --surv <f>  : output survival (P(X>x)) plots to xmgrace file <f>\n\
+\n\
+  --mu <x>      : set Gumbel mu parameter to <x> [10.0]\n\
+  --lambda <x>  : set Gumbel lambda parameter to <x> [0.8]\n\
+  --phi <x>     : set data censoring threshold to <x> [10.0]\n\
+  --cmass <x>   : set virtual censoring mass to <x> [0.7]\n\
+  --tail <x>    : set tail mass for censored/tail fitting to <x> [0.1]\n\
+";
 
-  
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, p[0], p[1]);
-    if (x > phi)
-      esl_histogram_Add(h, x);
-    else z++;
-  }
-  esl_histogram_TrueCensoring(h, z, phi);
-  esl_gumbel_FitCensored(h->x, h->No, h->z, h->phi, &(ep[0]), &(ep[1]));
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, ep);
-  return h;
-}
-static ESL_HISTOGRAM *
-sim_virtcensor_tail(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep, 
-		    double vm, int by_value) /*v is either a mass or a value*/
-{
-  ESL_HISTOGRAM *h = esl_histogram_CreateFull(-100, 100, 0.1);
-  int    i;
-  double x;
-  
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, p[0], p[1]);
-    esl_histogram_Add(h, x);
-  }
-  if (by_value)
-    esl_histogram_VirtCensorByValue(h, vm);
-  else
-    esl_histogram_VirtCensorByMass(h, vm);
 
-  esl_histogram_DeclareTailfitting(h);
-
-  ep[0] = h->phi;
-  esl_exp_FitComplete(h->x+h->z, h->No, ep[0], &(ep[1]));
-  esl_histogram_SetExpect(h, &esl_exp_generic_cdf, ep);
-  return h;
-}
-static ESL_HISTOGRAM *
-sim_truecensor_tail(ESL_RANDOMNESS *r, int nsamples, double *p, double *ep, double phi)
-{
-  ESL_HISTOGRAM *h = esl_histogram_CreateFull(-100, 100, 0.1);
-  int    i;
-  double x;
-  int    z = 0;
-  
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, p[0], p[1]);
-    if (x > phi) 
-      esl_histogram_Add(h, x);
-    else z++;
-  }
-  esl_histogram_TrueCensoring(h, z, phi);
-  esl_histogram_DeclareTailfitting(h);
-  ep[0] = phi;
-  esl_exp_FitComplete(h->x, h->No, ep[0], &(ep[1]));
-  esl_histogram_SetExpect(h, &esl_exp_generic_cdf, ep);
-  return h;
-}
 static int
 binmacro_test(void)
 {
@@ -1477,164 +1621,255 @@ binmacro_test(void)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_Create(42);
-  ESL_HISTOGRAM *h;
-  double p[2] = { 10.0, 1.0 }; /* mu, lambda */
-  double ep[2];                /* reestimated params */
-  int    j;
-  int    nb;
-  double G, Gp, X2, X2p;
-  double  (*cdf)(double, void *);
-  double  (*invcdf)(double, void *);
-  double avg_ep[2];
-  int    nsamples = 10000;
-  double minGp    = 1.;
-  double minX2p   = 1.;
-  double phi;
-  double tfrac;
+  ESL_GETOPTS    *go;
+  ESL_RANDOMNESS *r;
+  ESL_HISTOGRAM  *h;
+  ESL_HISTOGRAM  *h1;
+  double          p[2];		/* parametric mu, lambda */
+  double          ep[2];	/* estimated mu, lambda  */
+  double          avg_ep[2];	/* average estimated mu, lambda over many trials */
+  int             ntrials, trial;
+  int             ntrain, ntest;
+  int             test_type;
+  enum { COLLECT_COMPLETE, COLLECT_CENSORED }   cstrategy;
+  enum { FIT_BINNED, FIT_SAMPLES }              bstrategy;
+  enum { FIT_COMPLETE, FIT_CENSORED, FIT_TAIL}  fstrategy;
+  double          phi;		/* censoring threshold   */
+  int             z;
+  double          cmass;
+  double          tailmass, save_tailmass;
+  int             nfitted;
+  int             nbins;
+  double          G, Gp, X2, X2p, minGp, minX2p;
+  int             verbose;
+  FILE           *outfp;
+  char           *ascfile, *plotfile, *survfile, *qqfile;
+  int     i;
+  double  x;
+  double *xv;
+  int     n;
 
-  int    optind       = 1;
-  char  *outfile      = "test.xy";
-  FILE  *fp;
-  int    show_print   = FALSE;
-  int    show_plot    = FALSE;
-  int    show_surv    = FALSE;
-  int    show_qq      = FALSE;
-  int    by_value     = FALSE;
-  int    verbose      = FALSE;
-  int    ntrials      = 1;
-  int    test_type    = 0;
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_GetIntegerOption(go, "-t",       &test_type);
+  esl_opt_GetIntegerOption(go, "-j",       &ntrials);
+  esl_opt_GetIntegerOption(go, "-n",       &ntrain);
+  esl_opt_GetIntegerOption(go, "-m",       &ntest);
+  esl_opt_GetBooleanOption(go, "-v",       &verbose);
+  esl_opt_GetDoubleOption (go, "--cmass",  &cmass);
+  esl_opt_GetDoubleOption (go, "--lambda", &(p[1]));
+  esl_opt_GetDoubleOption (go, "--mu",     &(p[0]));
+  esl_opt_GetDoubleOption (go, "--phi",    &phi);
+  esl_opt_GetDoubleOption (go, "--tail",   &save_tailmass);
+  esl_opt_GetStringOption (go, "--ascii",  &ascfile);
+  esl_opt_GetStringOption (go, "--plot",   &plotfile);
+  esl_opt_GetStringOption (go, "--qq",     &qqfile);
+  esl_opt_GetStringOption (go, "--surv",   &survfile);
 
-  while (optind < argc && *argv[optind] == '-')
-    {
-      if      (strcmp(argv[optind], "-1")  == 0)  test_type    = 1;
-      else if (strcmp(argv[optind], "-2")  == 0)  test_type    = 2;
-      else if (strcmp(argv[optind], "-3")  == 0)  test_type    = 3;
-      else if (strcmp(argv[optind], "-4")  == 0)  test_type    = 4;
-      else if (strcmp(argv[optind], "-5")  == 0)  test_type    = 5;
-      else if (strcmp(argv[optind], "-n")  == 0)  ntrials      = atoi(argv[++optind]);
-      else if (strcmp(argv[optind], "-p")  == 0)  show_plot    = TRUE;
-      else if (strcmp(argv[optind], "-P")  == 0)  show_print   = TRUE;
-      else if (strcmp(argv[optind], "-q")  == 0)  show_qq      = TRUE;
-      else if (strcmp(argv[optind], "-s")  == 0)  show_surv    = TRUE;
-      else if (strcmp(argv[optind], "-v")  == 0)  verbose      = TRUE;
-      else if (strcmp(argv[optind], "-V")  == 0)  by_value     = TRUE;
-      optind++;
-    }
-  if (test_type == 0) {
-    fprintf(stderr, "5 available test modes: choose option -1,-2,..,-5\n");
-    exit(1);
-  }
+  r         = esl_randomness_Create(42);
   avg_ep[0] = 0.;
   avg_ep[1] = 0.;
+  minGp     = 1.;
+  minX2p    = 1.;
+  tailmass  = save_tailmass;
 
-  fp = fopen(outfile, "w");
-
-  for (j = 0; j < ntrials; j++)
+  if (test_type == 1)
     {
-      switch (test_type) {
-      case 1: 	/* complete dataset fitted to Gumbel */
-	h   = sim_complete_complete(r, nsamples, p, ep);  
-	cdf    = &esl_gumbel_generic_cdf;
-	invcdf = &esl_gumbel_generic_invcdf;
-	break;
+      cstrategy = COLLECT_COMPLETE;
+      bstrategy = FIT_SAMPLES;
+      fstrategy = FIT_COMPLETE;
+    }
+  else if (test_type == 2)
+    {
+      cstrategy = COLLECT_COMPLETE;
+      bstrategy = FIT_SAMPLES;
+      fstrategy = FIT_CENSORED;
+    }
+  else if (test_type == 3)
+    {
+      cstrategy = COLLECT_COMPLETE;
+      bstrategy = FIT_SAMPLES;
+      fstrategy = FIT_TAIL;
+    }
+  else if (test_type == 4)
+    {
+      cstrategy = COLLECT_CENSORED;
+      bstrategy = FIT_SAMPLES;
+      fstrategy = FIT_CENSORED;
+    }
+  else if (test_type == 5)
+    {
+      cstrategy = COLLECT_COMPLETE;
+      bstrategy = FIT_BINNED;
+      fstrategy = FIT_TAIL;
+    }
 
-      case 2:	/* virtually censored dataset, censored fit to Gumbel */
-	phi      = 10.0;
-        tfrac    = 0.5;
-	if (by_value) h = sim_virtcensor_complete(r, nsamples, p, ep, phi,   TRUE);  
-	else          h = sim_virtcensor_complete(r, nsamples, p, ep, tfrac, FALSE);  
-	cdf    = &esl_gumbel_generic_cdf;
-	invcdf = &esl_gumbel_generic_invcdf;
-	break;
 
-      case 3:	/* true censored dataset, censored fit to gumbel */
-	phi    = 10.0;
-	h = sim_truecensor_complete(r, nsamples, p, ep, phi);
-	cdf    = &esl_gumbel_generic_cdf;
-	invcdf = &esl_gumbel_generic_invcdf;
-	break;
-
-      case 4:	/* virtual censored dataset, tail fit to exponential */
-	phi      = 12.5;
-        tfrac    = 0.1;
-	if (by_value) h = sim_virtcensor_tail(r, nsamples, p, ep, phi,   TRUE);
-	else          h = sim_virtcensor_tail(r, nsamples, p, ep, tfrac, FALSE);
-	cdf    = &esl_exp_generic_cdf;
-	invcdf = &esl_exp_generic_invcdf;
-	break;
-
-      case 5:	/* true censored dataset, tail fit to exponential */
-	phi      = 12.5;
-	h = sim_truecensor_tail(r, nsamples, p, ep, phi);
-	cdf    = &esl_exp_generic_cdf;
-	invcdf = &esl_exp_generic_invcdf;
-	break;
+  for (trial = 0; trial < ntrials; trial++)
+    {
+      /* Collection of the training data in <h>.
+       * Data set can either be complete, true censored, or virtual censored.
+       */
+      h = esl_histogram_CreateFull(-100, 100, 0.1);
+      z = 0;
+      for (i = 0; i < ntrain; i++) {
+	x = esl_gumbel_Sample(r, p[0], p[1]);
+	if (cstrategy != COLLECT_CENSORED || x > phi)
+	  esl_histogram_Add(h, x);
+	else
+	  z++;
       }
-	
-      avg_ep[0] += ep[0];
-      avg_ep[1] += ep[1];
+      if (cstrategy == COLLECT_CENSORED)
+	esl_histogram_DeclareCensoring(h, z, phi);
 
-      if (show_print) esl_histogram_Print(stdout, h);
-
-      /* parametric is always Gumbel
+      /* Parameter fitting.
+       * We test for four of twelve possible combinations of
+       * collection strategy, binned vs. raw data, and complete,
+       * censored, vs. tail fitting.
+       *   1. complete Gumbel data, raw, fit to a Gumbel.
+       *   2. complete Gumbel data, raw, tail fit as a censored Gumbel
+       *   3. complete Gumbel data, raw, tail fit to an exponential tail
+       *   4. censored Gumbel data, raw, censored fit to a Gumbel
+       *   5  complete Gumbel data, binned, fit to an exponential tail.
        */
-      if (test_type <= 3)
+      if (cstrategy == COLLECT_COMPLETE &&
+	  bstrategy == FIT_SAMPLES &&
+	  fstrategy == FIT_COMPLETE)
 	{
-	  esl_histogram_Goodness(h, esl_gumbel_generic_cdf, p, 
-			     0, &nb, &G, &Gp, &X2, &X2p);
-	  if (Gp  < minGp)  minGp  = Gp;
-	  if (X2p < minX2p) minX2p = X2p;
-	  if (verbose) 
-	    printf("Parametric: %6.2f %6.4f nb %4d G %g\tGp %g\tX2 %g\tX2p %g\n",
-		   p[0], p[1], nb, G, Gp, X2, X2p);
+	  esl_histogram_GetData(h, &xv, &n);
+	  esl_gumbel_FitComplete(xv, n, &(ep[0]), &ep[1]);
 	}
+      else if (cstrategy == COLLECT_COMPLETE &&
+	       bstrategy == FIT_SAMPLES &&
+	       fstrategy == FIT_CENSORED)
+	{
+	  esl_histogram_GetTailByMass(h, cmass, &xv, &n, &z);
+	  esl_gumbel_FitCensored(xv, n, z, xv[0], &(ep[0]), &ep[1]);
+	}
+      else if (cstrategy == COLLECT_COMPLETE &&
+	       bstrategy == FIT_SAMPLES &&
+	       fstrategy == FIT_TAIL)
+	{
+	  esl_histogram_GetTailByMass(h, tailmass, &xv, &n, &z);
+	  esl_exp_FitComplete(xv, n, &(ep[0]), &ep[1]);
+	}
+      else if (cstrategy == COLLECT_CENSORED &&
+	       bstrategy == FIT_SAMPLES &&
+	       fstrategy == FIT_CENSORED)
+	{
+	  esl_histogram_GetData(h, &xv, &n);
+	  esl_gumbel_FitCensored(xv, n, h->z, h->phi, &(ep[0]), &ep[1]);
+	}
+      else if (cstrategy == COLLECT_COMPLETE &&
+	       bstrategy == FIT_BINNED &&
+	       fstrategy == FIT_TAIL)
+	{
+	  tailmass = save_tailmass; /* reset to original for each trial. */
+	  esl_histogram_SetTailByMass(h, tailmass, &tailmass);
+	  esl_exp_FitCompleteBinned(h, &(ep[0]), &ep[1]);
+	}
+      else
+	ESL_ERROR(eslEINVAL, "not a scenario we currently test");
 
-      /* fitted may be Gumbel or exponential; use "cdf" ptr
+      /* Keep track of average estimated mu, lambda
+       * for automated testing purposes.
        */
-      esl_histogram_Goodness(h, cdf, ep, 
-			     2, bin_goodness, &nb, &G, &Gp, &X2, &X2p);
+      avg_ep[0] += ep[0] / (double) ntrials;
+      avg_ep[1] += ep[1] / (double) ntrials;
+
+      /* Test data can either be the same as the training data,
+       * or a new test set.
+       */
+      if (ntest > 0)
+	{
+	  h1 = esl_histogram_CreateFull(-100.05, 100.05, 0.2);
+	  z = 0;
+	  for (i = 0; i < ntest; i++) {
+	    x = esl_gumbel_Sample(r, p[0], p[1]);
+	    if (cstrategy != COLLECT_CENSORED || x > phi)
+	      esl_histogram_Add(h1, x);
+	    else
+	      z++;
+	  }
+	  if (cstrategy == COLLECT_CENSORED)
+	    esl_histogram_DeclareCensoring(h, z, phi);
+	}
+      else h1 = h;
+      
+
+      /* Set expected binned counts in the test data, h1:
+       */
+      if (fstrategy == FIT_TAIL)
+	esl_histogram_SetExpectedTail(h1, ep[0], tailmass, 
+				      &esl_exp_generic_cdf, ep);
+      else
+	esl_histogram_SetExpect(h1, &esl_gumbel_generic_cdf, ep);
+
+  
+      /* Evaluate goodness-of-fit
+       */
+      nfitted =  (ntest == 0)? 2 : 0;
+      esl_histogram_Goodness(h1, nfitted, &nbins, &G, &Gp, &X2, &X2p);
+
+      /* Track minimum goodness of fit probs, for automated testing
+       */
       if (Gp  < minGp)  minGp  = Gp;
       if (X2p < minX2p) minX2p = X2p;
+
       if (verbose)
 	printf("Estimated:  %6.2f %6.4f nb %4d G %g\tGp %g\tX2 %g\tX2p %g\n",
-	       ep[0], ep[1], nb, G, Gp, X2, X2p);
+	       ep[0], ep[1], nbins, G, Gp, X2, X2p);
 
-      if (show_plot) esl_histogram_Plot(fp, h);
-      if (show_qq)   esl_histogram_PlotQQ(fp, h, invcdf, ep);
-      
-      if (show_surv) {
-	esl_histogram_PlotSurvival(fp, h);
-	if (test_type <= 3)
-	  esl_gumbel_Plot(fp, ep[0], ep[1], &esl_gumbel_surv, h->xmin-5, h->xmax+5, 0.1);
-	else
-	  esl_exp_Plot(fp, ep[0], ep[1], &esl_exp_surv, h->phi, h->xmax+5, 0.1);
-      }
+      /* Output files, if requested.
+       * (Best if ntrials=1. Will overwrite previous trials.)
+       */
+      if (ascfile != NULL)
+	{
+	  outfp = fopen(ascfile, "w");
+	  esl_histogram_Print(outfp, h1);
+	  fclose(outfp);
+	}
+      if (plotfile != NULL)
+	{
+	  outfp = fopen(plotfile, "w");
+	  esl_histogram_Plot(outfp,  h1);
+	  fclose(outfp);
+	}
+      if (survfile != NULL)  
+	{
+	  outfp = fopen(survfile, "w");
+	  esl_histogram_PlotSurvival(outfp,  h1);
+	  fclose(outfp);
+	}
+      if (qqfile != NULL)
+	{
+	  outfp = fopen(qqfile, "w");
+	  if (fstrategy == FIT_TAIL)
+	    esl_histogram_PlotQQ(outfp, h1, &esl_exp_generic_invcdf, ep);
+	  else
+	    esl_histogram_PlotQQ(outfp, h1, &esl_gumbel_generic_invcdf, ep);
+	  fclose(outfp);
+	}
 
       esl_histogram_Destroy(h);
+      if (ntest > 0) esl_histogram_Destroy(h1);
     }
-  fclose(fp);
 
-  avg_ep[0] /= (double) ntrials;
-  avg_ep[1] /= (double) ntrials;
-
-  /* Trap bad fits.
+  /* Trap badness in an automated test.
    */
-  if (test_type <= 3 && fabs(avg_ep[0] - p[0]) > 0.1)
+  if (fstrategy != FIT_TAIL && fabs(avg_ep[0] - p[0]) > 0.1)
     ESL_ERROR(eslFAIL, "Something awry with Gumbel mu fit");
   if (fabs(avg_ep[1] - p[1]) > 0.1)
     ESL_ERROR(eslFAIL, "Something awry with lambda fit");
-
-  if (minGp < 1. / (1000. * ntrials))
+ if (minGp < 1. / (1000. * ntrials))
     ESL_ERROR(eslFAIL, "Something awry with G-test");
   if (minX2p < 1. / (1000. * ntrials))
     ESL_ERROR(eslFAIL, "Something awry with chi squared test");
 
   /* Smaller final tests
    */
-  if (! binmacro_test()) exit(0);
-  esl_randomness_Destroy(r);
+  if (! binmacro_test()) exit(1);
+
   return 0;
 }
 #endif /*eslHISTOGRAM_TEST*/
-

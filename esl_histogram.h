@@ -59,7 +59,7 @@ typedef struct {
   int is_done;		/* TRUE if we prevent more Add()'s                 */
   int is_sorted;	/* TRUE if x is sorted smallest-to-largest         */
   int is_tailfit;	/* TRUE if expected dist only describes tail       */
-
+  int is_rounded;	/* TRUE if values aren't more accurate than bins   */
   enum { COMPLETE, VIRTUAL_CENSORED, TRUE_CENSORED } dataset_is; 
 
 } ESL_HISTOGRAM;
@@ -74,7 +74,15 @@ extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double 
 extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
 extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
 extern int            esl_histogram_Add(ESL_HISTOGRAM *h, double x);
-extern int            esl_histogram_Sort(ESL_HISTOGRAM *h);
+
+/* Declarations about the binned data before parameter fitting:
+ */
+extern int esl_histogram_DeclareCensoring(ESL_HISTOGRAM *h, int z, double phi);
+extern int esl_histogram_DeclareRounding (ESL_HISTOGRAM *h);
+extern int esl_histogram_SetTail         (ESL_HISTOGRAM *h, double phi,   
+					  double *ret_newmass);
+extern int esl_histogram_SetTailByMass   (ESL_HISTOGRAM *h, double pmass,
+					  double *ret_newmass);
 
 /* Accessing data samples in a full histogram:
  */
@@ -84,12 +92,6 @@ extern int esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi, double **ret_x,
 				 int *ret_n, int *ret_z);
 extern int esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass, 
 				       double **ret_x, int *ret_n, int *ret_z);
-
-/* Declarations about the binned data before parameter fitting:
- */
-extern int esl_histogram_SetTrueCensoring(ESL_HISTOGRAM *h, int z, double phi);
-extern int esl_histogram_VirtCensor      (ESL_HISTOGRAM *h, double phi);
-extern int esl_histogram_VirtCensorByMass(ESL_HISTOGRAM *h, double pmass);
 
 
 /* Setting expected binned counts:
@@ -110,15 +112,12 @@ extern int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotQQ      (FILE *fp, ESL_HISTOGRAM *h, 
 			      double (*invcdf)(double, void *), void *params);
 
-
-
-#ifdef eslAUGMENT_STATS
-extern int esl_histogram_Goodness(ESL_HISTOGRAM *h, 
-				  double (*cdf)(double x, void *params),
-				  void *params, int nfitted, int *ret_nbins,
+/* Goodness of fit testing
+ */
+extern int esl_histogram_Goodness(ESL_HISTOGRAM *h, int nfitted, 
+				  int *ret_nbins,
 				  double *ret_G,  double *ret_Gp,
 				  double *ret_X2, double *ret_X2p);
-#endif
 
 
 

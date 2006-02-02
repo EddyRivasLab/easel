@@ -315,21 +315,45 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 /* Function:  esl_exp_FitCompleteBinned()
  * Incept:    SRE, Sun Aug 21 13:07:22 2005 [St. Louis]
  *
- * Purpose:   Given a histogram <g> with binned observations, where each
+ * Purpose:   Fit a complete exponential distribution to the observed
+ *            binned data in a histogram <g>, where each
  *            bin i holds some number of observed samples x with values from 
  *            lower bound l to upper bound u (that is, $l < x \leq u$);
  *            find maximum likelihood parameters $\mu,\lambda$ and 
  *            return them in <*ret_mu>, <*ret_lambda>.
+ *            
+ *            If the binned data in <g> were set to focus on 
+ *            a tail by virtual censoring, the "complete" exponential is 
+ *            fitted to this tail. The caller then also needs to
+ *            remember what fraction of the probability mass was in this
+ *            tail.
+ *            
+ *            The ML estimate for $mu$ is the smallest observed
+ *            sample.  For complete data, <ret_mu> is generally set to
+ *            the smallest observed sample value, except in the
+ *            special case of a "rounded" complete dataset, where
+ *            <ret_mu> is set to the lower bound of the smallest
+ *            occupied bin. For tails, <ret_mu> is set to the cutoff
+ *            threshold <phi>, where we are guaranteed that <phi> is
+ *            at the lower bound of a bin (by how the histogram
+ *            object sets tails). 
  *
- *            The ML estimates are obtained analytically, so this is
- *            fast. 
+ *            The ML estimate for <ret_lambda> has an analytical 
+ *            solution, so this routine is fast. 
  *            
  *            If all the data are in one bin, the ML estimate of
- *            $\lambda$ is $\infty$. This is mathematically correct,
- *            but may be a situation the caller wants to avoid, perhaps
+ *            $\lambda$ will be $\infty$. This is mathematically correct,
+ *            but is probably a situation the caller wants to avoid, perhaps
  *            by choosing smaller bins.
  *
+ *            This function currently cannot fit an exponential tail
+ *            to truly censored, binned data, because it assumes that
+ *            all bins have equal width, but in true censored data, the
+ *            lower cutoff <phi> may fall anywhere in the first bin.
+ *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if dataset is true-censored.
  */
 int
 esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
@@ -339,9 +363,15 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
   double sa, sb;
   double mu;
 
-  if      (g->is_tailfit) mu = g->phi;  /* all x > mu in this case */
-  else if (g->is_rounded) mu = esl_histogram_Bin2LBound(g, g->imin);
-  else                    mu = g->xmin; /* mu==x is ok */
+  if (g->dataset_is == COMPLETE)
+    {
+      if   (g->is_rounded) mu = esl_histogram_Bin2LBound(g, g->imin);
+      else                 mu = g->xmin;
+    }
+  else if (g->dataset_is == VIRTUAL_CENSORED) /* i.e., we'll fit to tail */
+    mu = g->phi;
+  else if (g->dataset_is == TRUE_CENSORED)
+    ESL_ERROR(eslEINVAL, "can't fit true censored dataset");
 
   delta = g->w;
   sa = sb = 0.;

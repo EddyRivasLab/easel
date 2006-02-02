@@ -1,12 +1,13 @@
 /* easel.c
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
- * SVN $Id: easel.c 54 2005-04-15 18:13:20Z eddy $
+ * SVN $Id$
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <easel.h>
 
