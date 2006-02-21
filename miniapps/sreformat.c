@@ -1,4 +1,4 @@
-/* sreformat - convert sequence file formats
+/* esl-reformat - convert sequence file formats
  *             
  * SRE, Sun Feb 27 08:24:33 2005
  * from squid's sreformat (1993).
@@ -18,10 +18,10 @@
 
 
 static char banner[] = "\
-sreformat :: convert sequence file formats";
+esl-reformat :: convert sequence file formats";
 
 static char usage[] = "\
-Usage: sreformat [-options] <format> <seqfile>\n\
+Usage: esl-reformat [-options] <format> <seqfile>\n\
   Output format choices: Unaligned      Aligned\n\
                          -----------    -------\n\
                          fasta          stockholm\n\
@@ -223,7 +223,7 @@ main(int argc, char **argv)
 		{
 		  status = esl_wuss_full(msa->ss_cons, msa->ss_cons);
 		  if (status == eslESYNTAX) 
-		    esl_fatal("Bad consensus SS: not in WUSS format\n",);
+		    esl_fatal("Bad consensus SS: not in WUSS format\n");
 		  else if (status != eslOK)
 		    esl_fatal("Conversion of SS_cons failed, code %d\n", status);
 		}

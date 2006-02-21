@@ -1,11 +1,11 @@
-.TH "sreformat" 1 "@EASEL_DATE@" "Easel @PACKAGE_VERSION@" "Easel"
+.TH "esl-reformat" 1 "@EASEL_DATE@" "Easel @PACKAGE_VERSION@" "Easel miniapps"
 
 .SH NAME
 .TP 
-sreformat - convert sequence file formats
+esl-reformat - convert sequence file formats
 
 .SH SYNOPSIS
-.B sreformat
+.B esl-reformat
 .I [options]
 .I format
 .I seqfile
@@ -13,7 +13,7 @@ sreformat - convert sequence file formats
 
 .SH DESCRIPTION
 
-.B sreformat
+.B esl-reformat
 reads the sequence file
 .I seqfile
 in any supported format, reformats it

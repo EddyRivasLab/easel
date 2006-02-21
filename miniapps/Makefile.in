@@ -19,8 +19,9 @@ ESLINCDIR = -I..
 
 ## list of the miniapps to compile.
 #
-PROGS = compstruct\
-	sreformat
+PROGS = esl-compstruct\
+	esl-histplot\
+	esl-reformat
 
 ## Targets defining how to make miniapp executables.
 #

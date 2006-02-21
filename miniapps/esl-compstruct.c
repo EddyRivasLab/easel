@@ -1,4 +1,4 @@
-/* compstruct - calculate accuracy of RNA secondary structure predictions
+/* esl-compstruct - calculate accuracy of RNA secondary structure predictions
  *
  * SRE, Mon Feb 14 10:03:57 2005
  * From squid's compstruct: SRE, Tue Aug 30 10:35:31 1994
@@ -16,10 +16,10 @@
 #include <esl_wuss.h>
 
 static char banner[] = "\
-compstruct :: calculate accuracy of RNA secondary structure predictions";
+esl-compstruct :: calculate accuracy of RNA secondary structure predictions";
 
 static char usage[]  = "\
-Usage: compstruct [-options] <trusted file> <test file>\n\
+Usage: esl-compstruct [-options] <trusted file> <test file>\n\
   Both files must be in Stockholm format with secondary structure markup.\n\
   Sequences must occur in the same order in the two files.\n\
   The markup must be in WUSS notation.\n\
