@@ -1741,6 +1741,7 @@ actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
   char *buf;
   int  currpos;
   char *s, *tok;
+  int  acpl;            /* actual number of character per line */
   
   /* Figure out how much space we need for name + markup
    * to keep the alignment in register. Required by Stockholm
@@ -1885,25 +1886,27 @@ actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
    */
   for (currpos = 0; currpos < msa->alen; currpos += cpl)
     {
+      acpl = (msa->alen - currpos > cpl)? cpl : msa->alen - currpos;
+
       if (currpos > 0) fprintf(fp, "\n");
       for (i = 0; i < msa->nseq; i++)
 	{
-	  strncpy(buf, msa->aseq[i] + currpos, cpl);
-	  buf[cpl] = '\0';	      
+	  strncpy(buf, msa->aseq[i] + currpos, acpl);
+	  buf[acpl] = '\0';	      
 	  fprintf(fp, "%-*s %s\n", 
 		  margin-1, msa->sqname[i], buf);
 
 	  if (msa->ss != NULL && msa->ss[i] != NULL) {
-	    strncpy(buf, msa->ss[i] + currpos, cpl);
-	    buf[cpl] = '\0';	 
+	    strncpy(buf, msa->ss[i] + currpos, acpl);
+	    buf[acpl] = '\0';	 
 	    fprintf(fp, "#=GR %-*s %-*s %s\n", 
 		    maxname,          msa->sqname[i],
 		    margin-maxname-7, "SS",
 		    buf);
 	  }
 	  if (msa->sa != NULL && msa->sa[i] != NULL) {
-	    strncpy(buf, msa->sa[i] + currpos, cpl);
-	    buf[cpl] = '\0';
+	    strncpy(buf, msa->sa[i] + currpos, acpl);
+	    buf[acpl] = '\0';
 	    fprintf(fp, "#=GR %-*s %-*s %s\n",
 		    maxname,          msa->sqname[i],
 		    margin-maxname-7, "SA",
@@ -1911,8 +1914,8 @@ actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
 	  }
 	  for (j = 0; j < msa->ngr; j++)
 	    if (msa->gr[j][i] != NULL) {
-	      strncpy(buf, msa->gr[j][i] + currpos, cpl);
-	      buf[cpl] = '\0';
+	      strncpy(buf, msa->gr[j][i] + currpos, acpl);
+	      buf[acpl] = '\0';
 	      fprintf(fp, "#=GR %-*s %-*s %s\n", 
 		      maxname,          msa->sqname[i],
 		      margin-maxname-7, msa->gr_tag[j],
@@ -1920,25 +1923,25 @@ actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
 	    }
 	}
       if (msa->ss_cons != NULL) {
-	strncpy(buf, msa->ss_cons + currpos, cpl);
-	buf[cpl] = '\0';
+	strncpy(buf, msa->ss_cons + currpos, acpl);
+	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", buf);
       }
 
       if (msa->sa_cons != NULL) {
-	strncpy(buf, msa->sa_cons + currpos, cpl);
-	buf[cpl] = '\0';
+	strncpy(buf, msa->sa_cons + currpos, acpl);
+	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", buf);
       }
 
       if (msa->rf != NULL) {
-	strncpy(buf, msa->rf + currpos, cpl);
-	buf[cpl] = '\0';
+	strncpy(buf, msa->rf + currpos, acpl);
+	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf);
       }
       for (j = 0; j < msa->ngc; j++) {
-	strncpy(buf, msa->gc[j] + currpos, cpl);
-	buf[cpl] = '\0';
+	strncpy(buf, msa->gc[j] + currpos, acpl);
+	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, msa->gc_tag[j], buf);
       }
     }
