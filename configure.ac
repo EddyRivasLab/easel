@@ -199,7 +199,12 @@ CHECK_GNU_MAKE
 
 
 # 5. Checks for libraries - none
-# 6. Checks for header files - none
+
+
+# 6. Checks for header files
+AC_CHECK_HEADERS([unistd.h])
+
+
 # 7. Checks for types - none
 # 8. Checks for structures - none
 
@@ -220,12 +225,12 @@ fi
 
 
 ################################################################
-# 10. Checks for library functions
+# 10. Checks for library functions: define HAVE_FOO
 ################################################################
 
 AC_CHECK_FUNCS(popen)
 AC_CHECK_FUNCS(strcasecmp)
-
+AC_CHECK_FUNCS(times)
 
 # 11. Checks for system services  - none
 

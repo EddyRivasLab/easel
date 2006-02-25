@@ -21,6 +21,7 @@ APITEX =  easel\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_stopwatch\
 	  esl_stretchexp\
 	  esl_vectorops\
 	  esl_weibull\
@@ -47,6 +48,7 @@ AUTOTEX = esl_alphabet\
 	  esl_regexp\
 	  esl_sqio\
 	  esl_stack\
+	  esl_stopwatch\
 	  esl_stretchexp\
 	  esl_vectorops\
 	  esl_weibull\

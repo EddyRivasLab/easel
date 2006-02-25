@@ -127,12 +127,15 @@
  */
 #define eslERRBUFSIZE 128
 
+/* Header includes/configuration
+ */
+#undef HAVE_UNISTD_H
 
 /* Function portability/configuration
  */
 #undef HAVE_POPEN
 #undef HAVE_STRCASECMP
-
+#undef HAVE_TIMES
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
