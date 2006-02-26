@@ -1,25 +1,25 @@
 
-The scores of local sequence alignments often follow a Gumbel
-distribution, so Gumbel statistics are often used to estimate the
-statistical significance of alignment scores.
+Gumbel statistics are often used to estimate the statistical
+significance of local alignment scores.
 
 The Gumbel distribution is the so-called Type I extreme value
 distribution (EVD). It occurs so frequently in sequence analysis
 applications, compared to the type II (Fr\'{e}chet) and type III
 (Weibull) extreme value distributions, that ``Gumbel'' and ``EVD'' are
-often used interchangeably in bioinformatics. Easel has a separate
-module, the \eslmod{gev} module, that implements the generalized
-extreme value distribution.
+often sloppily used interchangeably in bioinformatics. Easel has a
+separate module, the \eslmod{gev} module, that implements the
+generalized extreme value distribution.
 
-\emph{Karlin/Altschul} statistics are a special case of the Gumbel
+Karlin/Altschul statistics are a special case of the Gumbel
 distribution that apply to the scores of ungapped local alignments
-between infinitely long random sequences. Karlin/Altschul statistics
-also apply reasonably well to the more useful case of gapped alignment
-of finite-length sequences. Karlin/Altschul statistics predict how the
-Gumbel's two parameters depend on the length of the query and target
-sequences. In the case of ungapped alignments, Karlin/Altschul
-statistics allow the Gumbel parameters to be estimated directly,
-without the need for a compute-intensive simulation.
+between infinitely long random sequences. Empirically, Karlin/Altschul
+statistics also apply reasonably well to the more useful case of
+gapped alignment of finite-length sequences. Karlin/Altschul
+statistics predict how the Gumbel's two parameters depend on the
+length of the query and target sequences. In the case of ungapped
+alignments, Karlin/Altschul statistics allow the Gumbel parameters to
+be estimated directly, without the need for a compute-intensive
+simulation.
 
 \subsection{The gumbel API}
 
@@ -39,7 +39,9 @@ The \eslmod{gumbel} API consists of the following functions:
 \ccode{esl\_gumbel\_Sample()}  & Returns a Gumbel-distributed random sample.\\
     \multicolumn{2}{c}{\textbf{maximum a posteriori parameter fitting:}}\\
 \ccode{esl\_gumbel\_FitComplete()} & Estimates $\mu,\lambda$ from complete data.\\
+\ccode{esl\_gumbel\_FitCompleteLoc()} & Estimates $\mu$ when $\lambda$ is known.\\
 \ccode{esl\_gumbel\_FitCensored()} & Estimates $\mu,\lambda$ from censored data.\\
+\ccode{esl\_gumbel\_FitCensoredLoc()} & Estimates $\mu$ when $\lambda$ is known.\\
 \ccode{esl\_gumbel\_FitTruncated()}& Estimates $\mu,\lambda$ from truncated data.\\\hline
 \end{tabular}
 \end{center}

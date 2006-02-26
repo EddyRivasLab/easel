@@ -38,6 +38,8 @@ extern int esl_gumbel_FitCompleteLoc(double *x, int n, double lambda,
 				     double *ret_mu);
 extern int esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 				  double *ret_mu, double *ret_lambda);
+extern int esl_gumbel_FitCensoredLoc(double *x, int n, int z, double phi, 
+				     double lambda, double *ret_mu);
 #ifdef eslAUGMENT_MINIMIZER
 extern int esl_gumbel_FitTruncated(double *x, int n, double phi, 
 				double *ret_mu, double *ret_lambda);

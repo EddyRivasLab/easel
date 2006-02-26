@@ -1094,7 +1094,8 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
  *            
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslERANGE> or <eslECONVERGENCE> on different internal
+ * Throws:    <eslEINVAL> if expected counts have not been set in
+ *            the histogram; <eslERANGE> or <eslECONVERGENCE> on different internal
  *            errors that can arise in calculating the probabilities;
  *            <eslEMEM> on internal allocation failure.
  */
@@ -1118,6 +1119,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   int      hmax;
   int      nobs;
   double   nexp;
+
+  if (h->expect == NULL) ESL_ERROR(eslEINVAL, "no expected counts in that histogram");
 
   /* Determine the smallest histogram bin included in 
    * the goodness of fit evaluation.
@@ -1387,7 +1390,7 @@ main(int argc, char **argv)
   }
 
   esl_histogram_GetTailByMass(h, 0.1, &xv, &n, NULL); /* fit to 10% tail */
-  esl_exp_FitComplete(xv, n, z, &mu, &lambda);
+  esl_exp_FitComplete(xv, n, &mu, &lambda);
 
   params[0] = mu;
   params[1] = lambda;
@@ -1405,7 +1408,7 @@ main(int argc, char **argv)
 /*::cexcerpt::histogram_example3::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE3*/
 
-/* Case 4. complete data, high scores fit to exponential tail
+/* Case 4. censored data, high scores fit as a censored Gumbel tail
  * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
  * run:     ./example 
  */

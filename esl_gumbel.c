@@ -636,6 +636,48 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 }
 
 
+/* Function:  esl_gumbel_FitCensoredLoc()
+ * Incept:    SRE, Mon Feb  6 11:33:10 2006 [St. Louis]
+ *
+ * Purpose:   Given a left-censored array of Gumbel distributed samples
+ *            <x[0>..x[n-1>, the number of samples <z>, and the censoring
+ *            value <phi> (where all <x[i] $>$ <phi>), and a known
+ *            (or at least fixed) <lambda>;
+ *            find the maximum likelihood estimate of the location
+ *            parameter $\mu$ and return it in <ret_mu>.
+ *
+ * Note:      A straightforward simplification of FitCensored().
+ *
+ * Args:     x          - array of Gumbel-distributed samples, 0..n-1
+ *           n          - number of observed samples
+ *           z          - number of censored samples
+ *           phi        - censoring value (all x_i >= phi)
+ *           lambda     - known scale parameter $\lambda$      
+ *           ret_mu     : RETURN: ML estimate of $\mu$
+ *           
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_gumbel_FitCensoredLoc(double *x, int n, int z, double phi, double lambda, 
+			  double *ret_mu)
+{
+  double esum;
+  int    i;
+
+  /* Immediately substitute into Lawless 4.2.3 to find mu, because
+   * lambda is known.
+   */
+  esum = 0.;
+  for (i = 0; i < n; i++) 	          /* contribution from observed data */
+    esum  += exp(-lambda * x[i]);
+  esum += z * exp(-1. * lambda * phi);    /* term from censored data */
+  *ret_mu = -log(esum / (double) n) / lambda;        
+  return eslOK;
+}
+
+
 /*****************************************************************
  * Truncated data, MAP parameters (requires minimizer augmentation)
  *****************************************************************/ 

@@ -297,7 +297,7 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   double mu, mean;
   int    i;
 
-  /* Define mu as the lowest score. mu=x is ok in the exponential.
+  /* ML mu is the lowest score. mu=x is ok in the exponential.
    */
   mu = x[0];
   for (i = 1; i < n; i++) if (x[i] < mu) mu = x[i];
@@ -307,7 +307,7 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   mean /= (double) n;
 
   *ret_mu     = mu;
-  *ret_lambda = 1./mean;	/* ML estimation is trivial in this case */
+  *ret_lambda = 1./mean;	/* ML estimate trivial & analytic */
   return eslOK;
 }
 
