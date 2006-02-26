@@ -79,4 +79,4 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
 }
 
 
-#endif /*ESL_WITH_LACPACK*/
+#endif /*ESL_WITH_LAPACK*/

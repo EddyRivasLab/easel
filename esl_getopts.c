@@ -1568,12 +1568,12 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
  * Code examples, and a test driver
  *****************************************************************/
 
-#ifdef eslGETOPTS_EXAMPLE1
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
  *   gcc -g -Wall -o example1 -I. -DeslGETOPTS_EXAMPLE1 getopts.c easel.c
  */
-
+#ifdef eslGETOPTS_EXAMPLE1
+/*::cexcerpt::getopts_example1::begin::*/
 #include <stdio.h>
 #include <easel.h>
 #include <esl_getopts.h>
@@ -1637,7 +1637,7 @@ main(int argc, char **argv)
 
   return 0;
 }
-
+/*::cexcerpt::getopts_example1::end::*/
 #endif /*eslGETOPTS_EXAMPLE1*/
 
 
@@ -1651,6 +1651,7 @@ main(int argc, char **argv)
 #include <easel.h>
 #include <esl_getopts.h>
 
+/*::cexcerpt::getopts_bigarray::begin::*/
 static ESL_OPTIONS options[] = {
   /* name          type     default   env_var    range   toggles  requires incompat_with */
   { "-a",     eslARG_NONE,   FALSE, "FOOTEST",     NULL,    NULL,    NULL,      NULL },
@@ -1666,6 +1667,7 @@ static ESL_OPTIONS options[] = {
   { "--host", eslARG_STRING,    "","HOSTTEST",     NULL,    NULL,    NULL,      NULL },
   {  0, 0, 0, 0, 0, 0, 0, 0 },
 };
+/*::cexcerpt::getopts_bigarray::end::*/
 
 static char usage[] = "\
 Usage: test [-options] <arg>\n\

@@ -254,10 +254,13 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
 /* esl_histogram_sort()
  * Incept:    SRE, Thu Aug 18 10:45:46 2005 [St. Louis]
  *
- * Purpose:   Sort the raw scores in a full histogram. Has no effect on a
- *            normal histogram, or on a full histogram that is already sorted.
+ * Purpose:   Sort the raw scores in a full histogram, from smallest to
+ *            largest. Has no effect on a normal histogram, or on a full
+ *            histogram that is already sorted.
  *
  * Returns:   <eslOK> on success.
+ *            Upon return, <h->x[h->n-1]> is the high score, <h->x[0]> is the 
+ *            low score. 
  */
 int
 esl_histogram_sort(ESL_HISTOGRAM *h)
@@ -977,7 +980,7 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
       if (h->obs[i] > 0) {
 	c   += h->obs[i];
 	ai = esl_histogram_Bin2LBound(h, i);
-	fprintf(fp, "%f\t%f\n", ai, c / (double) h->Nc);
+	fprintf(fp, "%f\t%g\n", ai, c / (double) h->Nc);
       }
     }
   fprintf(fp, "&\n");
@@ -992,7 +995,7 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 	  if (h->expect[i] > 0.) {
 	    c += h->expect[i];
 	    ai = esl_histogram_Bin2LBound(h, i);
-	    fprintf(fp, "%f\t%f\n", ai, c / (double) h->Nc);
+	    fprintf(fp, "%f\t%g\n", ai, c / (double) h->Nc);
 	  }
 	}
       fprintf(fp, "&\n");

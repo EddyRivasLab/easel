@@ -119,7 +119,7 @@ main(int argc, char **argv)
 
   buf  = NULL;
   nbuf = 0;
-  while (esl_fgets(&buf, &n, fp) == eslOK)
+  while (esl_fgets(&buf, &nbuf, ifp) == eslOK)
     {
       s = buf;
       for (i = 0; i < which_field; i++)

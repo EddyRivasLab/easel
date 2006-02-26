@@ -16,16 +16,18 @@
  * terminated by a structure containing { NULL, NULL, NULL, 0, NULL,
  * NULL, NULL, NULL} (or more simply, just 0 in all 8 fields.)
  */
+/*::cexcerpt::getopts_object::begin::*/
 typedef struct {
-  char *name;		/* either short "-a" or long "--foo" style               */
-  int   type;		/* arg type, for type checking: (eslARG_INT, etc.)       */
+  char *name;           /* either short "-a" or long "--foo" style               */
+  int   type;           /* arg type, for type checking: (eslARG_INT, etc.)       */
   char *defval;         /* default setting, or NULL ("default" is a C keyword)   */
-  char *envvar;	        /* associated environ var ("BLASTDB"), or NULL           */
-  char *range;		/* for range checking arg: ("0<=x<=1", etc.)             */
-  char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
-  char *required_opts;	/* comma-sep'd optlist: these must also be set           */
-  char *incompat_opts;	/* comma-sep'd optlist: these must not be set            */
+  char *envvar;         /* associated environ var ("BLASTDB"), or NULL           */
+  char *range;          /* for range checking arg: ("0<=x<=1", etc.)             */
+  char *toggle_opts;    /* comma-sep'd optlist: turn these off if this opt is on */
+  char *required_opts;  /* comma-sep'd optlist: these must also be set           */
+  char *incompat_opts;  /* comma-sep'd optlist: these must not be set            */
 } ESL_OPTIONS;
+/*::cexcerpt::getopts_object::end::*/
 
 /* Argument types: the "type" variable in <ESL_OPTIONS>.
  */

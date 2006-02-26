@@ -192,6 +192,7 @@ esl_banner(FILE *fp, char *banner)
  *           {
  *             do stuff with buf;
  *           }
+ *           if (buf != NULL) free(buf);
  */
 int
 esl_fgets(char **buf, int *n, FILE *fp)

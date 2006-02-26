@@ -92,70 +92,7 @@ For example, the code below sets up four short options and two long
 options, without using any of getopts' optional validation or
 configuration mechanisms:
 
-\begin{cchunk}
-#include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
-
-static ESL_OPTIONS options[] = {
-  /* name          type    default  env_var  range toggles reqs incompats */
-  { "-a",     eslARG_NONE,   FALSE,   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-b",     eslARG_NONE,  "TRUE",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-n",     eslARG_INT,      "0",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-x",     eslARG_REAL,   "1.0",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "--file", eslARG_STRING,  NULL,   NULL,  NULL,  NULL,  NULL, NULL },
-  { "--char", eslARG_CHAR,      "",   NULL,  NULL,  NULL,  NULL, NULL },
-  {  0, 0, 0, 0, 0, 0, 0, 0 },
-};
-
-static char usage[] = "\
-Usage: ./example1 [-options] <arg>\n\
-where options are:\n\
-  -a          : a boolean switch\n\
-  -b          : another boolean switch\n\
-  -n <n>      : an integer argument <n>\n\
-  -x <x>      : a real-valued argument <x>\n\
-  --file <f>  : a long option, with a string (filename) arg <f>\n\
-  --char <c>  : a long option, with a single character arg <c>\n\
-";
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS *go;
-  int          opt_a;
-  int          opt_b;
-  int          opt_n;
-  float        opt_x;
-  char        *opt_file;
-  char         opt_char;
-  char        *arg;
-
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-
-  esl_opt_GetBooleanOption(go, "-a",     &opt_a);
-  esl_opt_GetBooleanOption(go, "-b",     &opt_b);
-  esl_opt_GetIntegerOption(go, "-n",     &opt_n);
-  esl_opt_GetFloatOption(go,   "-x",     &opt_x);
-  esl_opt_GetStringOption(go,  "--file", &opt_file);
-  esl_opt_GetCharOption(go,    "--char", &opt_char);
-
-  arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-
-  esl_getopts_Destroy(go);
-
-  printf("Option -a:      %s\n", opt_a ? "on" : "off");
-  printf("Option -b:      %s\n", opt_b ? "on" : "off");
-  printf("Option -n:      %d\n", opt_n);
-  printf("Option -x:      %f\n", opt_x);
-  printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
-  printf("Option --char:  %c\n", opt_char);
-  printf("Cmdline arg:    %s\n", arg);
-
-  return 0;
-}
-\end{cchunk}
+\input{cexcerpts/getopts_example1}
 
 An example of running this program:
 \begin{cchunk}
@@ -179,18 +116,7 @@ not.
 The \ccode{ESL\_OPTIONS} structure is declared in \ccode{getopts.h}
 as:
 
-\begin{cchunk}
-typedef struct {
-  char *name;		/* either short "-a" or long "--foo" style               */
-  int   type;		/* arg type, for type checking: (eslARG_INT, etc.)       */
-  char *defval;         /* default setting, or NULL ("default" is a C keyword)   */
-  char *envvar;	        /* associated environ var ("BLASTDB"), or NULL           */
-  char *range;		/* for range checking arg: ("0<=x<=1", etc.)             */
-  char *toggle_opts;	/* comma-sep'd optlist: turn these off if this opt is on */
-  char *required_opts;	/* comma-sep'd optlist: these must also be set           */
-  char *incompat_opts;	/* comma-sep'd optlist: these must not be set            */
-} ESL_OPTIONS;
-\end{cchunk}
+\input{cexcerpts/getopts_object}
 
 Aside from the option name, which is self-explanatory, how to set each of these
 fields in an options array is described in detail below:
@@ -369,25 +295,10 @@ that may \emph{not} also be on if option X is on.
    \subsubsection{Example of a more fully featured \ccode{ESL\_OPTIONS} array}
 
 The test driver in \ccode{getopts.c} uses an options array that
-excercises all the optional features at least once:
+exercises all the optional features at least once:
 
-\begin{cchunk}
-static ESL_OPTIONS options[] = {
-  /* name          type         range   default   env_var  toggles  requires incompat_with */
-  { "-a",     eslARG_NONE,       NULL,   FALSE, "FOOTEST",   NULL,    NULL,        NULL },
-  { "-b",     eslARG_NONE,       NULL,   FALSE,     NULL, "--no-b",   NULL,        NULL },
-  { "--no-b", eslARG_NONE,       NULL,  "TRUE",     NULL,     "-b",   NULL,        NULL },
-  { "-c",     eslARG_CHAR,  "a<=c<=z",    "x",      NULL,    NULL,    NULL,        NULL },
-  { "-n",     eslARG_INT,   "0<=n<10",    "0",      NULL,    NULL,    NULL,        NULL },
-  { "-x",     eslARG_REAL,    "0<x<1",  "0.5",      NULL,    NULL,    NULL,        NULL },
-  { "--lowx", eslARG_REAL,      "x>0",  "1.0",      NULL,    NULL,    NULL,        NULL },
-  { "--hix",  eslARG_REAL,      "x<1",  "0.9",      NULL,    NULL,    NULL,        NULL },
-  { "--lown", eslARG_INT,       "n>0",   "42",      NULL,    NULL, "-a,--no-b",    NULL },
-  { "--hin",  eslARG_INT,       "n<0",   "-1",      NULL,    NULL,    NULL,     "-a,-b" },
-  { "--host", eslARG_STRING,     NULL,      "", "HOSTNAME",  NULL,    NULL,        NULL },
-  {  0, 0, 0, 0, 0, 0, 0, 0 },
-};
-\end{cchunk}
+\input{cexcerpts/getopts_bigarray}
+
 
 \subsection{Command line parsing and beyond: config files and the environment}
 
