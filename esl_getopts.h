@@ -16,7 +16,7 @@
  * terminated by a structure containing { NULL, NULL, NULL, 0, NULL,
  * NULL, NULL, NULL} (or more simply, just 0 in all 8 fields.)
  */
-/*::cexcerpt::getopts_object::begin::*/
+/*::cexcerpt::options_object::begin::*/
 typedef struct {
   char *name;           /* either short "-a" or long "--foo" style               */
   int   type;           /* arg type, for type checking: (eslARG_INT, etc.)       */
@@ -26,8 +26,10 @@ typedef struct {
   char *toggle_opts;    /* comma-sep'd optlist: turn these off if this opt is on */
   char *required_opts;  /* comma-sep'd optlist: these must also be set           */
   char *incompat_opts;  /* comma-sep'd optlist: these must not be set            */
+  char *help;		/* help/usage string                                     */
+  int   docgrouptag;	/* integer tag for documentation groups                  */
 } ESL_OPTIONS;
-/*::cexcerpt::getopts_object::end::*/
+/*::cexcerpt::options_object::end::*/
 
 /* Argument types: the "type" variable in <ESL_OPTIONS>.
  */
@@ -38,13 +40,13 @@ typedef struct {
 #define eslARG_STRING    4	/* unchecked arg type; includes filenames    */
 
 
-
 /* Object: ESL_GETOPTS
  * 
  * An <ESL_GETOPTS> object is created to parse configuration
  * from command line options, config file(s), and environment
  * variables.
  */
+/*::cexcerpt::getopts_object::begin::*/
 typedef struct {
   ESL_OPTIONS *opt;       /* array of app-defined options              */
   int          nopts;     /* number of options                         */
@@ -62,6 +64,7 @@ typedef struct {
 
   char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[] */
 } ESL_GETOPTS;
+/*::cexcerpt::getopts_object::end::*/
 
 
 /* Possible values of the <setby> variable in ESL_GETOPTS.
@@ -84,19 +87,17 @@ extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);
 extern int esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp);
 extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
 extern int esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv);
-
 extern int esl_opt_VerifyConfig(ESL_GETOPTS *g);
 
-extern int esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state);
-extern int esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n);
-extern int esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x);
-extern int esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x);
-extern int esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c);
-extern int esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s);
-
+extern int   esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state);
+extern int   esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n);
+extern int   esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x);
+extern int   esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x);
+extern int   esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c);
+extern int   esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s);
 extern char *esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range);
-
 #define esl_opt_ArgNumber(g)  ((g)->argc - (g)->optind)
 
+extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 
 #endif /* ESL_GETOPTS_INCLUDED */

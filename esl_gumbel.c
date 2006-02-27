@@ -640,8 +640,8 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
  * Incept:    SRE, Mon Feb  6 11:33:10 2006 [St. Louis]
  *
  * Purpose:   Given a left-censored array of Gumbel distributed samples
- *            <x[0>..x[n-1>, the number of samples <z>, and the censoring
- *            value <phi> (where all <x[i] $>$ <phi>), and a known
+ *            <x[0>..x[n-1]>, the number of samples <z>, and the censoring
+ *            value <phi> (where all <x[i]> $>$ <phi>), and a known
  *            (or at least fixed) <lambda>;
  *            find the maximum likelihood estimate of the location
  *            parameter $\mu$ and return it in <ret_mu>.

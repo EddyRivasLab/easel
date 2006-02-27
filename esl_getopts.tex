@@ -1,25 +1,35 @@
 
-The getopts (opt) module contains command line parsing functionality,
-like POSIX \ccode{getopt()} and GNU's \ccode{getopt\_long()}, but with
-somewhat more power. The familiar syntax of command line options is
-the same (both standard POSIX one-character options and GNU long
-options are allowed), but much of the tedious checking of the validity
-of option and command line arguments that robust C applications are
-normally obligated to do for themselves is handled automatically by
-the internals of the Easel getopts module. Additionally, the Easel
-getopts API allows options to be set from the command line,
-environment variables, and one or more configuration files.
+The getopts module interprets the familiar UNIX command line syntax,
+allowing both standard POSIX one-character options and GNU-style long
+options, in addition to command line arguments. The implementation
+shares similarities with POSIX \ccode{getopt()} and GNU's
+\ccode{getopt\_long()}, but has somewhat more power, at the cost of
+enforcing a fairly specific style.
 
-Option arguments and command line arguments may be automatically type
-checked (for instance, making sure an integer is provided when one is
-expected) and range checked (for instance, making sure that an
-argument that must be a probability in the range of 0.0-1.0 really
-is). Options may be linked into ``toggle groups'', such that setting
-one option automatically unsets others. One can specify that an option
-makes no sense unless other required options are also set, or
-conversely that an option is incompatible with one or more other
-options being set. The entire configuration state of the application
-is stored in one object.
+Options can be set from the command line, environment variables, and
+one or more configuration files.
+
+Option and commandline arguments can be automatically checked for
+valid type (integers, real numbers, characters, or strings), and
+numeric arguments can be checked for valid range (for instance,
+ensuring that a probability is in the range $0 \leq x \leq 1$).
+
+Options can be linked into ``toggle groups'', such that setting one
+option automatically unsets others. 
+
+You can specify that an option makes no sense unless other required
+options are also set, or conversely that an option is incompatible
+with one or more other options being set. 
+
+A standardized usage display for command line options can be printed
+directly from the internal information, including default values and
+range restrictions when line length allows. 
+
+You configure all this by defining an array of \ccode{ESL\_OPTIONS}
+structures that provide the necessary information. This array is
+passed into a \ccode{ESL\_GETOPTS} object, which is used to determine
+and store the configuration state of your application according to the
+command line, environment variables, and configuration files.
 
 \subsection{The getopts API}
 
@@ -50,7 +60,7 @@ The API defines the following functions:
 \ccode{esl\_opt\_GetCharOption()}      & Retrieve a single-character option argument.\\
 \ccode{esl\_opt\_GetStringOption()}    & Retrieve an option argument as a string.\\
        \multicolumn{2}{c}{\textbf{retrieving command line arguments}}\\
-\ccode{esl\_opt\_ArgNumber(g)}         & Retrieve number of cmdline args.\\
+\ccode{esl\_opt\_ArgNumber()}          & Retrieve number of cmdline args.\\
 \ccode{esl\_opt\_GetCmdlineArg()}      & Retrieve the next command line argument.\\
 \end{tabular}
 
@@ -92,7 +102,11 @@ For example, the code below sets up four short options and two long
 options, without using any of getopts' optional validation or
 configuration mechanisms:
 
+\begin{figure}
 \input{cexcerpts/getopts_example1}
+\caption{An example of using the getopts module.}
+\label{fig:getopts_example1}
+\end{figure}
 
 An example of running this program:
 \begin{cchunk}
@@ -116,7 +130,7 @@ not.
 The \ccode{ESL\_OPTIONS} structure is declared in \ccode{getopts.h}
 as:
 
-\input{cexcerpts/getopts_object}
+\input{cexcerpts/options_object}
 
 Aside from the option name, which is self-explanatory, how to set each of these
 fields in an options array is described in detail below:

@@ -35,6 +35,12 @@ static int parse_rangestring(char *range, char c, char **ret_lowerp,
 			     int *ret_geq, char **ret_upperp, int *ret_leq);
 static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
 
+
+
+/*****************************************************************
+ * 1. The ESL_GETOPTS object
+ *****************************************************************/ 
+
 /* Function:  esl_getopts_Create()
  * Incept:    SRE, Tue Jan 11 11:24:16 2005 [St. Louis]
  *
@@ -167,7 +173,9 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
 }
   
 
-
+/*****************************************************************
+ * 2. Setting and testing a configuration
+ *****************************************************************/ 
 
 /* Function:  esl_opt_ProcessConfigfile()
  * Incept:    SRE, Thu Jan 13 10:25:43 2005 [St. Louis]
@@ -444,6 +452,12 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
   return eslOK;
 }
 
+
+
+/*****************************************************************
+ * 3. Retrieving option settings and command line args
+ *****************************************************************/ 
+
 /* Function:  esl_opt_GetBooleanOption()
  * Incept:    SRE, Wed Jan 12 13:46:09 2005 [St. Louis]
  *
@@ -687,6 +701,139 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
   g->argi++;
   return arg;
 }
+
+/*****************************************************************
+ * 4. Formatting option help
+ *****************************************************************/ 
+
+/* Function:  esl_opt_DisplayHelp()
+ * Incept:    SRE, Sun Feb 26 12:36:07 2006 [St. Louis]
+ *
+ * Purpose:   For each option in <go>, print one line of brief
+ *            documentation for it, consisting of the option name
+ *            (and argument, if any) and the help string. If space
+ *            allows, default values for the options (if any) are
+ *            shown in brackets. If space still allows, range restrictions 
+ *            for the options (if any) are shown in parentheses.
+ *
+ *            If <docgroup> is non-zero, help lines are only printed
+ *            for options with the matching <go->opt[i].docgrouptag>.
+ *            This allows the caller to group option documentation
+ *            into multiple sections with different headers. To
+ *            print all options in one call, pass 0 for <docgroup>.
+ *            
+ *            <indent> specifies how many spaces to prefix each line with.
+ *            
+ *            <textwidth> specifies the maximum text width for the
+ *            line.  This would typically be 80 characters. Lines are
+ *            not allowed to exceed this length. If a line does exceed
+ *            this length, range restriction display is silently
+ *            dropped (for all options). If any line still exceeds
+ *            <textwidth>, the default value display is silently dropped,
+ *            for all options. If any line still exceeds <textwidth>, even 
+ *            though it now consists almost solely of the option name and 
+ *            its help string, an <eslEINVAL> error is thrown. The
+ *            caller should either shorten the help string(s) or 
+ *            increase the <textwidth>.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if one or more help lines are too long for
+ *            the specified <textwidth>.
+ */
+int
+esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
+		    int textwidth)
+{
+  int optwidth     = 0;		/* maximum width for "-foo <n>" options */
+  int helpwidth[3] = {0,0,0};	/* 0=everything; 1=with defaults, no range; 2=help string only */
+  int show_defaults;
+  int show_ranges;
+  int i, n;
+
+  /* Figure out the field widths we need in the output.
+   */
+  for (i = 0; i < go->nopts; i++)
+    if (! docgroup || docgroup == go->opt[i].docgrouptag)
+      {
+	n = strlen(go->opt[i].name);                /* "--foo"  */
+	if (go->opt[i].type != eslARG_NONE) n += 4; /* + " <n>" */ 
+	if (n > optwidth) optwidth = n;
+
+	n = 2;                                 /* init with " : " */
+	if (go->opt[i].help != NULL) 
+	  n = strlen(go->opt[i].help) + 1;     /* include " " in width */
+	if (n > helpwidth[2]) helpwidth[2] = n;
+
+	if (go->opt[i].defval != NULL)
+	  n += strlen(go->opt[i].defval) + 4;  /* include "  []" in width */
+	if (n > helpwidth[1]) helpwidth[1] = n;
+
+	if (go->opt[i].range != NULL)
+	  n += strlen(go->opt[i].range) + 4;   /* include "  ()" in width */
+	if (n > helpwidth[0]) helpwidth[0] = n;
+      }
+
+  /* Figure out what we have room for.
+   */
+  if (indent + optwidth + helpwidth[0] <= textwidth)
+    {
+      show_defaults = TRUE;
+      show_ranges   = TRUE;
+    }
+  else if (indent + optwidth + helpwidth[1] <= textwidth)
+    {
+      show_defaults = TRUE;
+      show_ranges   = FALSE;
+    }
+  else if (indent + optwidth + helpwidth[2] <= textwidth)
+    {
+      show_defaults = FALSE;
+      show_ranges   = FALSE;
+    }
+  else
+    ESL_ERROR(eslEINVAL, "Help line too long");
+
+
+  /* Format and print the options in this docgroup.
+   */
+  for (i = 0; i < go->nopts; i++)
+    if (! docgroup || docgroup == go->opt[i].docgrouptag)
+      {
+	fprintf(ofp, "%*s", indent, "");
+	n = 0;
+	fprintf(ofp, "%s",  go->opt[i].name);
+	n += strlen(go->opt[i].name);
+
+	switch (go->opt[i].type) {
+	case eslARG_NONE:    break;
+	case eslARG_INT:     fprintf(ofp, " <n>"); n += 4; break;
+	case eslARG_REAL:    fprintf(ofp, " <x>"); n += 4; break;
+	case eslARG_CHAR:    fprintf(ofp, " <c>"); n += 4; break;
+	case eslARG_STRING:  fprintf(ofp, " <s>"); n += 4; break;
+	}
+
+	fprintf(ofp, "%*s", optwidth-n, "");
+	fprintf(ofp, " :");
+
+	if (go->opt[i].help != NULL)
+	  fprintf(ofp, " %s", go->opt[i].help);
+	
+	if (show_defaults && go->opt[i].defval != NULL) 
+	  if (go->opt[i].type != eslARG_CHAR || *(go->opt[i].defval) != '\0')
+	    fprintf(ofp, "  [%s]", go->opt[i].defval);
+
+	if (show_ranges && go->opt[i].range != NULL)
+	  fprintf(ofp, "  (%s)", go->opt[i].range);
+
+	fprintf(ofp, "\n");
+      }
+
+  /* Fini.
+   */
+  return eslOK;
+}
+
 
 
 /*------------------ end of the public API -----------------------*/
@@ -1570,7 +1717,7 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
- *   gcc -g -Wall -o example1 -I. -DeslGETOPTS_EXAMPLE1 getopts.c easel.c
+ *   gcc -g -Wall -o example1 -I. -DeslGETOPTS_EXAMPLE1 esl_getopts.c easel.c
  */
 #ifdef eslGETOPTS_EXAMPLE1
 /*::cexcerpt::getopts_example1::begin::*/
@@ -1579,31 +1726,24 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 #include <esl_getopts.h>
 
 static ESL_OPTIONS options[] = {
-  /* name          type    default  env_var  range toggles reqs incompats */
-  { "-a",     eslARG_NONE,   FALSE,   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-b",     eslARG_NONE,  "TRUE",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-n",     eslARG_INT,      "0",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "-x",     eslARG_REAL,   "1.0",   NULL,  NULL,  NULL,  NULL, NULL },
-  { "--file", eslARG_STRING,  NULL,   NULL,  NULL,  NULL,  NULL, NULL },
-  { "--char", eslARG_CHAR,      "",   NULL,  NULL,  NULL,  NULL, NULL },
-  {  0, 0, 0, 0, 0, 0, 0, 0 },
+  /* name        type       def   env  range toggles reqs incomp help                       docgroup */
+  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            1 },
+  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               1 },
+  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         1 },
+  { "-n",     eslARG_INT,     "0", NULL,"n>=0",NULL, NULL, NULL, "an integer argument",            2 },
+  { "-x",     eslARG_REAL,  "1.0", NULL,"x<100",NULL,NULL, NULL, "a real-valued argument",         2 },
+  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 2 },
+  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",2 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-static char usage[] = "\
-Usage: ./example1 [-options] <arg>\n\
-where options are:\n\
-  -a          : a boolean switch\n\
-  -b          : another boolean switch\n\
-  -n <n>      : an integer argument <n>\n\
-  -x <x>      : a real-valued argument <x>\n\
-  --file <f>  : a long option, with a string (filename) arg <f>\n\
-  --char <c>  : a long option, with a single character arg <c>\n\
-";
+static char usage[] = "Usage: ./example1 [-options] <arg>";
 
 int
 main(int argc, char **argv)
 {
   ESL_GETOPTS *go;
+  int          show_help;
   int          opt_a;
   int          opt_b;
   int          opt_n;
@@ -1616,6 +1756,16 @@ main(int argc, char **argv)
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
 
+  esl_opt_GetBooleanOption(go, "-h", &show_help);
+  if (show_help) {
+    puts(""); puts(usage); 
+    puts("\n  where some available options are:");
+    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1=1st docgroup; 2=indentation; 80=width */
+    puts("\n  and some more available options are:");
+    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 2=2nd docgroup; 2=indentation; 80=width */
+    return 0;
+  }
+
   esl_opt_GetBooleanOption(go, "-a",     &opt_a);
   esl_opt_GetBooleanOption(go, "-b",     &opt_b);
   esl_opt_GetIntegerOption(go, "-n",     &opt_n);
@@ -1623,8 +1773,12 @@ main(int argc, char **argv)
   esl_opt_GetStringOption(go,  "--file", &opt_file);
   esl_opt_GetCharOption(go,    "--char", &opt_char);
 
+  if (esl_opt_ArgNumber(go) != 1) {
+    puts("Incorrect number of command line arguments.");
+    puts(usage);
+    return 1;
+  }
   arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-
   esl_getopts_Destroy(go);
 
   printf("Option -a:      %s\n", opt_a ? "on" : "off");
@@ -1634,7 +1788,6 @@ main(int argc, char **argv)
   printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
   printf("Option --char:  %c\n", opt_char);
   printf("Cmdline arg:    %s\n", arg);
-
   return 0;
 }
 /*::cexcerpt::getopts_example1::end::*/
@@ -1643,7 +1796,7 @@ main(int argc, char **argv)
 
 
 #ifdef eslGETOPTS_TESTDRIVE 
-/* gcc -g -Wall -o test -I. -DeslGETOPTS_TESTDRIVE getopts.c easel.c
+/* gcc -g -Wall -o test -I. -DeslGETOPTS_TESTDRIVE esl_getopts.c easel.c
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -1653,19 +1806,19 @@ main(int argc, char **argv)
 
 /*::cexcerpt::getopts_bigarray::begin::*/
 static ESL_OPTIONS options[] = {
-  /* name          type     default   env_var    range   toggles  requires incompat_with */
-  { "-a",     eslARG_NONE,   FALSE, "FOOTEST",     NULL,    NULL,    NULL,      NULL },
-  { "-b",     eslARG_NONE,   FALSE,      NULL,     NULL,"--no-b",    NULL,      NULL },
-  { "--no-b", eslARG_NONE,  "TRUE",      NULL,     NULL,    "-b",    NULL,      NULL },
-  { "-c",     eslARG_CHAR,     "x",      NULL,"a<=c<=z",    NULL,    NULL,      NULL },
-  { "-n",     eslARG_INT,      "0",      NULL,"0<=n<10",    NULL,    NULL,      NULL },
-  { "-x",     eslARG_REAL,   "0.8",      NULL,  "0<x<1",    NULL,    NULL,      NULL },
-  { "--lowx", eslARG_REAL,   "1.0",      NULL,    "x>0",    NULL,    NULL,      NULL },
-  { "--hix",  eslARG_REAL,   "0.9",      NULL,    "x<1",    NULL,    NULL,      NULL },
-  { "--lown", eslARG_INT,     "42",      NULL,    "n>0",    NULL,  "-a,-b",     NULL },
-  { "--hin",  eslARG_INT,     "-1",      NULL,    "n<0",    NULL,    NULL,  "--no-b" },
-  { "--host", eslARG_STRING,    "","HOSTTEST",     NULL,    NULL,    NULL,      NULL },
-  {  0, 0, 0, 0, 0, 0, 0, 0 },
+  /* name    type        default env_var  range toggles req  incompat help                  docgroup */
+ { "-a",     eslARG_NONE, FALSE,"FOOTEST",NULL,  NULL,  NULL,  NULL,  "toggle b on",               1 },
+ { "-b",     eslARG_NONE, FALSE,  NULL,   NULL,"--no-b",NULL,  NULL,  "toggle a on",               1 },
+ { "--no-b", eslARG_NONE,"TRUE",  NULL,   NULL,   "-b", NULL,  NULL,  "toggle b off",              1 },
+ { "-c",     eslARG_CHAR,   "x",  NULL,"a<=c<=z",NULL,  NULL,  NULL,  "character arg",             2 },
+ { "-n",     eslARG_INT,    "0",  NULL,"0<=n<10",NULL,  NULL,  NULL,  "integer arg",               2 },
+ { "-x",     eslARG_REAL, "0.8",  NULL, "0<x<1", NULL,  NULL,  NULL,  "real-value arg",            2 },
+ { "--lowx", eslARG_REAL, "1.0",  NULL,   "x>0", NULL,  NULL,  NULL,  "real arg with lower bound", 2 },
+ { "--hix",  eslARG_REAL, "0.9",  NULL,   "x<1", NULL,  NULL,  NULL,  "real arg with upper bound", 2 },
+ { "--lown", eslARG_INT,   "42",  NULL,   "n>0", NULL,"-a,-b", NULL,  "int arg with lower bound",  2 },
+ { "--hin",  eslARG_INT,   "-1",  NULL,   "n<0", NULL,  NULL,"--no-b","int arg with upper bound",  2 },
+ { "--host", eslARG_STRING, "","HOSTTEST",NULL,  NULL,  NULL,  NULL,  "string arg with env var",   3 },
+ {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 /*::cexcerpt::getopts_bigarray::end::*/
 
@@ -1813,3 +1966,6 @@ main(void)
 /*****************************************************************  
  * @LICENSE@
  *****************************************************************/
+
+
+
