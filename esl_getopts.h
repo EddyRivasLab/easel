@@ -26,8 +26,8 @@ typedef struct {
   char *toggle_opts;    /* comma-sep'd optlist: turn these off if this opt is on */
   char *required_opts;  /* comma-sep'd optlist: these must also be set           */
   char *incompat_opts;  /* comma-sep'd optlist: these must not be set            */
-  char *help;		/* help/usage string                                     */
-  int   docgrouptag;	/* integer tag for documentation groups                  */
+  char *help;           /* help/usage string                                     */
+  int   docgrouptag;    /* integer tag for documentation groups                  */
 } ESL_OPTIONS;
 /*::cexcerpt::options_object::end::*/
 
@@ -46,7 +46,6 @@ typedef struct {
  * from command line options, config file(s), and environment
  * variables.
  */
-/*::cexcerpt::getopts_object::begin::*/
 typedef struct {
   ESL_OPTIONS *opt;       /* array of app-defined options              */
   int          nopts;     /* number of options                         */
@@ -64,7 +63,6 @@ typedef struct {
 
   char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[] */
 } ESL_GETOPTS;
-/*::cexcerpt::getopts_object::end::*/
 
 
 /* Possible values of the <setby> variable in ESL_GETOPTS.

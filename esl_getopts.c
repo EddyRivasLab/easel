@@ -53,7 +53,7 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
  * Returns:   ptr to the new <ESL_GETOPTS> object.
  *
  * Throws:    NULL on failure, including allocation failures or
- *            an invalid <opts> structure.
+ *            an invalid <ESL_OPTIONS> structure.
  */
 ESL_GETOPTS *
 esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
@@ -329,24 +329,24 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
  *            command line options and their option arguments, for
  *            subsequent retrieval by <esl_opt_Get*Option()>
  *            functions.  <g> also contains an <optind> state variable
- *            pointing to the next argv[] element that is not an
+ *            pointing to the next <argv[]> element that is not an
  *            option; <esl_opt_GetArgument()> uses this to retrieves
  *            command line arguments in order of appearance.
  *            
  *            
- *            The parser starts with argv[1] and reads argv[] elements
+ *            The parser starts with <argv[1]> and reads <argv[]> elements
  *            in order until it reaches an element that is not an option; 
- *            at this point, all subsequent argv[] elements are 
+ *            at this point, all subsequent <argv[]> elements are 
  *            interpreted as arguments to the application.
  *            
- *            Any argv[] element encountered in the command line that
- *            starts with "-" is an option, except "-" or "--" by
- *            themselves. "-" by itself is interpreted as a command
- *            line argument (usually meaning "read from stdin instead
- *            of a filename"). "--" by itself is interpreted as
- *            "end of options"; all subsequent argv[] elements are
+ *            Any <argv[]> element encountered in the command line that
+ *            starts with <- > is an option, except <- > or <-- > by
+ *            themselves. <- > by itself is interpreted as a command
+ *            line argument (usually meaning ``read from stdin instead
+ *            of a filename''). <-- > by itself is interpreted as
+ *            ``end of options''; all subsequent <argv[]> elements are
  *            interpreted as command-line arguments even if they
- *            begin with "-". 
+ *            begin with <- >. 
  *
  * Returns:   <eslOK> on success. <g> is loaded with
  *            all option settings specified on the cmdline.
@@ -388,9 +388,9 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
  *            verify that the configuration is self-consistent:
  *            for every option that is set, make sure that any
  *            required options are also set, and that no
- *            incompatible options are set. "Set" means
+ *            incompatible options are set. ``Set'' means
  *            the configured value is non-NULL (including booleans),
- *            and "not set" means the value is NULL. (That is,
+ *            and ``not set'' means the value is NULL. (That is,
  *            we don't go by <setby>, which refers to who
  *            determined the state of an option, even if
  *            it is turned off.)
@@ -590,7 +590,7 @@ esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
 /* Function:  esl_opt_GetCmdlineArg()
  * Incept:    SRE, Thu Jan 13 09:21:34 2005 [St. Louis]
  *
- * Purpose:   Returns ptr to the next argv[] element in <g> that 
+ * Purpose:   Returns ptr to the next <argv[]> element in <g> that 
  *            is a command-line argument (as opposed to an
  *            option or an option's argument). Type check it
  *            with <type> (pass <eslARG_NONE> or <eslARG_STRING> to
@@ -1717,37 +1717,34 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
- *   gcc -g -Wall -o example1 -I. -DeslGETOPTS_EXAMPLE1 esl_getopts.c easel.c
+ *   gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
  */
-#ifdef eslGETOPTS_EXAMPLE1
-/*::cexcerpt::getopts_example1::begin::*/
+#ifdef eslGETOPTS_EXAMPLE
+/*::cexcerpt::getopts_example::begin::*/
 #include <stdio.h>
 #include <easel.h>
 #include <esl_getopts.h>
 
 static ESL_OPTIONS options[] = {
-  /* name        type       def   env  range toggles reqs incomp help                       docgroup */
-  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            1 },
-  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               1 },
-  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         1 },
-  { "-n",     eslARG_INT,     "0", NULL,"n>=0",NULL, NULL, NULL, "an integer argument",            2 },
-  { "-x",     eslARG_REAL,  "1.0", NULL,"x<100",NULL,NULL, NULL, "a real-valued argument",         2 },
-  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 2 },
-  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",2 },
+  /* name        type       def   env  range toggles reqs incomp help                       docgroup*/
+  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            0},
+  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               0},
+  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         0},
+  { "-n",     eslARG_INT,     "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",            0},
+  { "-x",     eslARG_REAL,  "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",         0},
+  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 0},
+  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",0},
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
-
-static char usage[] = "Usage: ./example1 [-options] <arg>";
+static char usage[] = "Usage: ./example [-options] <arg>";
 
 int
 main(int argc, char **argv)
 {
   ESL_GETOPTS *go;
   int          show_help;
-  int          opt_a;
-  int          opt_b;
-  int          opt_n;
-  float        opt_x;
+  int          opt_a, opt_b, opt_n;	
+  float        opt_x;		
   char        *opt_file;
   char         opt_char;
   char        *arg;
@@ -1755,17 +1752,13 @@ main(int argc, char **argv)
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
-
   esl_opt_GetBooleanOption(go, "-h", &show_help);
   if (show_help) {
-    puts(""); puts(usage); 
-    puts("\n  where some available options are:");
-    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1=1st docgroup; 2=indentation; 80=width */
-    puts("\n  and some more available options are:");
-    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 2=2nd docgroup; 2=indentation; 80=width */
+    puts(usage); 
+    puts("\n  where options are:");
+    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-
   esl_opt_GetBooleanOption(go, "-a",     &opt_a);
   esl_opt_GetBooleanOption(go, "-b",     &opt_b);
   esl_opt_GetIntegerOption(go, "-n",     &opt_n);
@@ -1779,7 +1772,6 @@ main(int argc, char **argv)
     return 1;
   }
   arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-  esl_getopts_Destroy(go);
 
   printf("Option -a:      %s\n", opt_a ? "on" : "off");
   printf("Option -b:      %s\n", opt_b ? "on" : "off");
@@ -1788,10 +1780,12 @@ main(int argc, char **argv)
   printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
   printf("Option --char:  %c\n", opt_char);
   printf("Cmdline arg:    %s\n", arg);
+
+  esl_getopts_Destroy(go);
   return 0;
 }
-/*::cexcerpt::getopts_example1::end::*/
-#endif /*eslGETOPTS_EXAMPLE1*/
+/*::cexcerpt::getopts_example::end::*/
+#endif /*eslGETOPTS_EXAMPLE*/
 
 
 
