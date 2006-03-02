@@ -30,9 +30,9 @@ typedef struct {
   /* elapsed/user/sys are t-t0 results for the last time the
    * watch was Stop()'ed.
    */
-  double elapsed;		/* elapsed time, seconds */
-  double user;			/* CPU time, seconds */
-  double sys;			/* system time, seconds */
+  double elapsed;               /* elapsed time, seconds */
+  double user;                  /* CPU time, seconds     */
+  double sys;                   /* system time, seconds  */
 } ESL_STOPWATCH;
 
 

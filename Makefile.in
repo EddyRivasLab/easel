@@ -29,6 +29,7 @@ HEADERS = \
 	esl_sqio.h\
 	esl_stack.h\
 	esl_stats.h\
+	esl_stopwatch.h\
 	esl_stretchexp.h\
 	esl_vectorops.h\
 	esl_weibull.h\
@@ -55,6 +56,7 @@ OBJS    = \
 	esl_sqio.o\
 	esl_stack.o\
 	esl_stats.o\
+	esl_stopwatch.o\
 	esl_stretchexp.o\
 	esl_vectorops.o\
 	esl_weibull.o\

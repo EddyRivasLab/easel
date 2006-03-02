@@ -1,6 +1,20 @@
 # configure.ac
 # Process this file with autoconf to produce the Easel configuration script.
 #
+# reminders to save re-reading autoconf manual for the n'th time:
+#   - output variables:
+#        are defined here as normal shell variables, e.g. FOO="my string"
+#        are made into output variables by calling AC_SUBST(FOO)
+#        any occurrence of @FOO@ in an output file is then substituted
+#        I think this only happens in files we assign w/ AC_CONFIG_FILES;
+#        that's the Makefile.in's.
+#
+#   - C preprocessor symbols:
+#        are defined here by calling AC_DEFINE(FOO) or AC_DEFINE(FOO, [42])
+#        then #undef FOO lines in easel.h.in become #define FOO or #define FOO 42
+#        I think this only happens in header files that we assign
+#        w/ AC_CONFIG_HEADERS -- which means, easel.h.in
+#
 # SRE, Mon Feb 14 10:51:07 2005
 # SVN $Id$
 #
@@ -54,11 +68,10 @@
 #
 
 
-
-
 AC_PREREQ(2.57)
 AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
+
 
 ################################################################
 # 3. Info on the package
@@ -71,8 +84,6 @@ EASEL_LICENSE="Licensed and distributed under the Creative Commons Attribution L
 EASEL_LICENSETAG=cc
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://selab.wustl.edu/easel/"
-
-
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
@@ -201,11 +212,67 @@ CHECK_GNU_MAKE
 # 5. Checks for libraries - none
 
 
-# 6. Checks for header files
+# 6. Checks for header files.
+#    Defines preprocessor symbols like HAVE_UNISTD_H
 AC_CHECK_HEADERS([unistd.h])
+AC_CHECK_HEADERS([stdint.h])
+AC_CHECK_HEADERS([inttypes.h])
 
 
-# 7. Checks for types - none
+# 7. Checks for types.
+#    ssi module needs exact-size integer types.
+#    Sets output variables ESL_UINT16, ESL_UINT32, and ESL_UINT64.
+#    We try to use ISO C uint*_t's, if stdint.h is present; 
+#    else, we start guessing different ANSI C unsigned types.
+#
+AC_CHECK_SIZEOF(unsigned short)
+AC_CHECK_SIZEOF(unsigned int)
+AC_CHECK_SIZEOF(unsigned long)
+AC_CHECK_SIZEOF(unsigned long long)
+AC_CHECK_TYPE(uint16_t,
+   [AC_DEFINE(ESL_UINT16, uint16_t)],
+   [
+     if test "$ac_cv_sizeof_unsigned_short" -eq 2; then
+       AC_DEFINE(ESL_UINT16, [unsigned short])
+     elif test "$ac_cv_sizeof_unsigned_int" -eq 2; then
+       AC_DEFINE(ESL_UINT16, [unsigned int])
+     else	
+       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint16.")
+     fi
+   ]
+)
+AC_CHECK_TYPE(uint32_t, 
+   [AC_DEFINE(ESL_UINT32, uint32_t)],
+   [
+     if test "$ac_cv_sizeof_unsigned_int" -eq 4; then
+       AC_DEFINE(ESL_UINT32, [unsigned int])
+     elif test "$ac_cv_sizeof_unsigned_long" -eq 4; then
+       AC_DEFINE(ESL_UINT32, [unsigned long])
+     elif test "$ac_cv_sizeof_unsigned_short" -eq 4; then
+       AC_DEFINE(ESL_UINT32, [unsigned short])
+     else	
+       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint32.")
+     fi
+   ]
+)
+AC_CHECK_TYPE(uint64_t, 
+   [AC_DEFINE(ESL_UINT64, uint64_t)],
+   [
+     if test "$ac_cv_sizeof_unsigned_long" -eq 8; then
+       AC_DEFINE(ESL_UINT64, [unsigned long])
+     elif test "$ac_cv_sizeof_unsigned_long_long" -eq 8; then
+       AC_DEFINE(ESL_UINT64, [unsigned long long])
+     elif test "$ac_cv_sizeof_unsigned_int" -eq 8; then
+       AC_DEFINE(ESL_UINT64, [unsigned int])
+     else	
+       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint64.")
+     fi
+   ]
+)
+
+
+
+
 # 8. Checks for structures - none
 
 

@@ -38,8 +38,8 @@ object that holds the configuration state of the application, and an
 configurable option. An application defines an array of
 \ccode{ESL\_OPTIONS} to declare what options it will allow.
 
-\begin{table}[ht]
-\begin{tabular}{ll}
+\begin{table}
+\begin{tabular}{ll}\hline
        \multicolumn{2}{c}{\textbf{the \ccode{ESL\_GETOPTS} object}}\\
 \ccode{esl\_getopts\_Create()}    & Creates a new \ccode{ESL\_GETOPTS} object. \\
 \ccode{esl\_getopts\_Destroy()}   & Destroys a created \ccode{ESL\_GETOPTS} object. \\
@@ -60,6 +60,7 @@ configurable option. An application defines an array of
 \ccode{esl\_opt\_GetCmdlineArg()}      & Retrieve the next command line argument.\\
        \multicolumn{2}{c}{\textbf{formatting option documentation}}\\
 \ccode{esl\_opt\_DisplayHelp()}        & Formats one-line help for each option.\\
+\hline
 \end{tabular}
 \caption{The \eslmod{getopts} API.}
 \label{tbl:getopts_api}
@@ -76,7 +77,7 @@ are:
 
 \begin{figure}
 \input{cexcerpts/getopts_example}
-\caption{An example of using the getopts module.}
+\caption{An example of using the \eslmod{getopts} module.}
 \label{fig:getopts_example}
 \end{figure}
 

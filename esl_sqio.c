@@ -1853,6 +1853,53 @@ main(void)
 /*::cexcerpt::sqio_test::end::*/
 #endif /*eslSQIO_TESTDRIVE*/
 
+/*****************************************************************
+ * Benchmark driver (testing sqio speed)
+ * gcc -O2 -I. -L. -o benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel
+ * ./benchmark <seqfile>
+ *****************************************************************/
+#ifdef eslSQIO_BENCHMARK
+#include <stdlib.h>
+#include <stdio.h>
+#include <easel.h>
+#include <esl_sqio.h>
+#include <esl_stopwatch.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_STOPWATCH *w;
+  ESL_SQ        *sq;
+  ESL_SQFILE    *sqfp;
+  FILE          *fp;
+  char          *filename;
+  int            n;
+  int            format = eslSQFILE_FASTA;
+
+  filename = argv[1];
+
+  w = esl_stopwatch_Create();
+  sq = esl_sq_Create();
+  if (esl_sqfile_Open(filename, format, NULL, &sqfp) != eslOK) abort();
+
+  n=0;
+  esl_stopwatch_Start(w);
+  while (esl_sq_Read(sqfp, sq) == eslOK)
+    {
+      n++;
+      esl_sq_Reuse(sq);
+    }
+  esl_stopwatch_Stop(w);
+  esl_stopwatch_Display(stdout, w, NULL);
+  printf("Read %d sequences.\n", n);
+
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  esl_stopwatch_Destroy(w);
+  return 0;
+}
+#endif /*eslSQIO_BENCHMARK*/
+
 
 /*****************************************************************
  * @LICENSE@

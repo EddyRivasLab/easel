@@ -20,11 +20,7 @@ human-interpretable time in seconds; and it provides a standard output
 function for formatting times, similar to the output of the standard
 UNIX \ccode{time} command line utility for timing processes.
 
-\subsection{The stopwatch API}
-
-The API consists of the following functions:
-
-\vspace{1em}
+\begin{table}
 \begin{tabular}{ll}\hline
 \ccode{esl\_stopwatch\_Create()}  & Creates new stopwatch.\\
 \ccode{esl\_stopwatch\_Destroy()} & Frees a stopwatch.\\
@@ -34,7 +30,11 @@ The API consists of the following functions:
 \ccode{esl\_stopwatch\_Include()} & Merges a stopwatch's time into a master.\\
 \hline
 \end{tabular}
-\vspace{1em}
+\caption{The \eslmod{stopwatch} API.}
+\label{tbl:stopwatch_api}
+\end{table}
+
+Table~\ref{tbl:stopwatch_api} lists the functions in the API.
 
 Starting a stopwatch with \ccode{esl\_stopwatch\_Start()} initializes
 a base time, t0. Stopping a stopwatch with
@@ -46,15 +46,38 @@ is stopped. A stopwatch can be stopped any number of times, measuring
 increasing time from the same base. A stopwatch can also be started
 any number of times, resetting the base each time it is set.
 
-\subsection{Example of using the stopwatch API}
+Figure~\ref{fig:stopwatch_example} shows a small example that measures
+a boring \ccode{sleep(5)} call, which will of course show an elapsed
+wall time of 5 seconds.  Change the \ccode{sleep(5)} call to something
+cpu- or system-intensive to see a non-zero measurement of cpu or
+system time.
 
-An example:
-
+\begin{figure}
 \input{cexcerpts/stopwatch_example}
+\caption{An example of using the \eslmod{stopwatch} module.}
+\label{fig:stopwatch_example}
+\end{figure}
 
-That will only show an elapsed wall time of 5 seconds.  Change the
-\ccode{sleep(5)} call to something cpu- or system-intensive to see a
-non-zero measurement of cpu or system time.
+\subsection{Displaying and retrieving times}
+
+The \ccode{esl\_stopwatch\_Display()} function prints a line
+containing the cpu time, system time, aggregated cpu+system time, and
+the elapsed (wall clock) time. For example:
+
+\begin{cchunk}
+CPU Time: 142.55u 7.17s 00:02:29.72 Elapsed: 00:02:35
+\end{cchunk}
+
+If you want to access the times in seconds for your own purposes, the
+relevant fields in a stopped \ccode{ESL\_STOPWATCH} object are:
+
+\begin{cchunk}
+  double elapsed;               /* elapsed time, seconds */
+  double user;                  /* CPU time, seconds     */
+  double sys;                   /* system time, seconds  */
+\end{cchunk}
+
+
 
 \subsection{Stopwatch precision and system dependency}
 

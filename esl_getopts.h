@@ -1,4 +1,5 @@
-/* getopts.h
+/* esl_getopts.h
+ * 
  * Command line, config file, and environment variable
  * configuration of an application. Extends standard
  * UNIX/POSIX/GNU getopt().
@@ -99,3 +100,6 @@ extern char *esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range);
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 
 #endif /* ESL_GETOPTS_INCLUDED */
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
