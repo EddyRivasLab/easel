@@ -72,7 +72,6 @@ AC_PREREQ(2.57)
 AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
-
 ################################################################
 # 3. Info on the package
 ################################################################
@@ -298,13 +297,17 @@ fi
 AC_CHECK_FUNCS(popen)
 AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)
+AC_FUNC_FSEEKO
 
-# 11. Checks for system services  - none
+# 11. Checks for system services 
+AC_SYS_LARGEFILE
+
 
 
 
 # 12. Write out easel.h header and the Makefiles
 AC_CONFIG_HEADERS([easel.h])
+AC_CONFIG_HEADERS([esl_ssi.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([Makefile])
 

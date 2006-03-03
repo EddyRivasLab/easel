@@ -1,0 +1,150 @@
+/* esl_ssi.h [created from esl_ssi.h.in by ./configure]
+ * 
+ * "simple sequence indices": fast record lookups in large files by keyword.
+ * 
+ * SVN $Id$
+ * SRE, Thu Mar  2 15:54:51 2006 [St. Louis]
+ */
+#ifndef ESL_SSI_INCLUDED
+#define ESL_SSI_INCLUDED
+
+/* The following #define's are configured by ./configure.
+ */
+#undef _FILE_OFFSET_BITS
+#undef _LARGE_FILES
+#undef _LARGEFILE_SOURCE
+#undef HAVE_STDINT_H
+#undef HAVE_INTTYPES_H
+#undef ESL_UINT16
+#undef ESL_UINT32
+#undef ESL_UINT64
+
+
+/* Conditional inclusion of non-ANSI C headers that make life easier.
+ */
+#ifdef HAVE_STDINT_H	
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
+/* Limits.
+ */
+#define eslSSI_MAXFILES 32767	     /* 2^15-1 */
+#define eslSSI_MAXKEYS  2147483647L  /* 2^31-1 */
+#define eslSSI_MAXRAM   200	     /* >200MB indices trigger external sort */
+
+
+/* ESL_OFFSET
+ * Portable file position offsets compatible with arithmetic operations.
+ * (The portable fpos_t type is opaque.)
+ *
+ * Use the union to save space, since the two offset types are
+ * mutually exclusive, controlled by "mode"
+ */
+typedef struct {
+  char mode;			/* eslOFFSET32, for example               */
+  union {
+    ESL_UINT32   i32;           /* an offset that fseek() can use         */
+    ESL_UINT64   i64;           /* an offset that e.g. fseeko64() can use */
+  } off;
+} ESL_OFFSET;
+
+#define eslOFFSET32    0
+#define eslOFFSET64    1
+
+
+/* ESL_SSI
+ * Using an existing SSI index file.
+ */ 
+typedef struct {
+  FILE        *fp;              /* open SSI index file                 */
+  ESL_UINT32   flags;           /* optional behavior flags             */
+  ESL_UINT16   nfiles;          /* number of files = 16 bit int        */
+  ESL_UINT32   nprimary;        /* number of primary keys              */
+  ESL_UINT32   nsecondary;      /* number of secondary keys            */
+  ESL_UINT32   flen;            /* length of filenames (inc '\0')      */
+  ESL_UINT32   plen;            /* length of primary keys (inc '\0')   */
+  ESL_UINT32   slen;            /* length of secondary keys (inc '\0') */
+  ESL_UINT32   frecsize;        /* # bytes in a file record            */
+  ESL_UINT32   precsize;        /* # bytes in a primary key record     */
+  ESL_UINT32   srecsize;        /* # bytes in a secondary key record   */
+  ESL_OFFSET   foffset;         /* disk offset, start of file records  */
+  ESL_OFFSET   poffset;         /* disk offset, start of pri key recs  */
+  ESL_OFFSET   soffset;         /* disk offset, start of sec key recs  */
+  
+  char imode;                   /* mode for index file offsets, 32 v. 64 bit */
+  char smode;                   /* mode for seq file offsets, 32 v. 64 bit */
+
+  /* File information:
+   */
+  char       **filename;        /* list of file names [0..nfiles-1]    */
+  ESL_UINT32  *fileformat;      /* file formats                        */
+  ESL_UINT32  *fileflags;       /* optional per-file behavior flags    */
+  ESL_UINT32  *bpl;             /* bytes per line in file              */
+  ESL_UINT32  *rpl;             /* residues per line in file           */
+} ESL_SSI;
+
+/* optional per-index behavior flags in ESL_SSIFILE's flags:
+ */
+#define eslSSI_USE64        1<<0	/* seq offsets are 64-bit        */
+#define eslSSI_USE64_INDEX  1<<1	/* index file offsets are 64-bit */
+
+/* optional per-file behavior flags in ESL_SSIFILE's fileflags:
+ */
+#define eslSSI_FAST_SUBSEQ  1<<0	/* can do subseq lookup in this file */
+
+
+
+/* ESL_NEWSSI
+ * Creating a new ssi index.
+ */
+typedef struct {		/* Primary key data: */
+  char        *key;             /* key name          */
+  ESL_UINT16   fnum;		/* file number       */
+  ESL_OFFSET   r_off;		/* record offset     */
+  ESL_OFFSET   d_off;		/* data offset       */
+  ESL_UINT32   len;		/* sequence length   */
+} ESL_PKEY;
+
+typedef struct {		/* Secondary key data: */
+  char        *key;             /* secondary key name  */
+  char        *pkey;            /* primary key name    */ 
+} ESL_SKEY;
+
+typedef struct {
+  int           smode;		/* sequence mode: eslOFFSET32 or 64       */
+  int           imode;		/* index mode:    eslOFFSET32 or 64       */
+  int           external;	/* TRUE if pkeys and skeys are on disk    */
+  int           max_ram;	/* threshold in MB to trigger extern sort */
+
+  char        **filenames;
+  ESL_UINT32   *fileformat;
+  ESL_UINT32   *bpl;
+  ESL_UINT32   *rpl;
+  ESL_UINT32    flen;		/* length of longest filename, inc '\0' */
+  ESL_UINT16    nfiles;
+  
+  ESL_PKEY     *pkeys;
+  ESL_UINT32    plen;	        /* length of longest pkey, including '\0' */
+  ESL_UINT32    nprimary;
+  char         *ptmpfile;	/* name of tmp file, for external sort mode */
+  FILE         *ptmp;	        /* handle on open ptmpfile */
+
+  ESL_SKEY     *skeys;
+  ESL_UINT32    slen;        	/* length of longest skey, including '\0' */
+  ESL_UINT32    nsecondary;
+  char         *stmpfile;	/* name of tmp file, for external sort mode */
+  FILE         *stmp;	        /* handle on open ptmpfile */
+} ESL_NEWSSI;
+
+
+
+
+
+
+#endif /* ESL_SSI_INCLUDED */
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
