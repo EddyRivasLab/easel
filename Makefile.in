@@ -82,8 +82,8 @@ clean:
 distclean:
 	(cd documentation; make distclean)
 	(cd miniapps; make distclean)
+	-rm esl_config.h
 	make clean
-	-rm easel.h
 	-rm -rf autom4te.cache
 	-rm Makefile
 

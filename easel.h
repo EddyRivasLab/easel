@@ -1,10 +1,11 @@
-/* easel.h [created from easel.h.in by ./configure]
+/* easel.h.in
+ * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
+ * SVN $Id$
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
  *
- * SVN $Id$
- * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
+ * Created from easel.h.in by ./configure.
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -129,6 +130,29 @@
 /* Header includes/configuration
  */
 #undef HAVE_UNISTD_H
+#undef HAVE_STDINT_H
+#undef HAVE_INTTYPES_H
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
+/* Exact-size integer types.
+ * If you see "FIXME" below, the configure script failed to
+ * find appropriate types. This shouldn't happen, but if it
+ * does, you can try to replace the FIXME(s) with appropriate 
+ * type(s).
+ */
+#undef ESL_UINT16
+#undef ESL_UINT32
+#undef ESL_UINT64
+typedef ESL_UINT16 esl_uint16;
+typedef ESL_UINT32 esl_uint32;
+typedef ESL_UINT64 esl_uint64;
+
 
 /* Function portability/configuration
  */

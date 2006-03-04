@@ -1,0 +1,68 @@
+/* esl_config.h.in  [input to configure]
+ * 
+ * System-dependent configuration of Easel, by autoconf.
+ * 
+ * This file should be included in all Easel .c files before
+ * anything else, because it may set #define's that control
+ * behaviour of system includes and system libraries. An example
+ * is large file support.
+ * 
+ * SVN $Id$
+ * SRE, Fri Mar  3 08:03:32 2006 [St. Louis]
+ */
+#ifndef ESL_CONFIG_INCLUDED
+#define ESL_CONFIG_INCLUDED
+
+/* Version info.
+ */
+#undef EASEL_VERSION    
+#undef EASEL_DATE      
+#undef EASEL_COPYRIGHT 
+#undef EASEL_LICENSE   
+
+/* Debugging verbosity (0=none;3=most verbose)
+ */
+#undef eslDEBUGLEVEL
+
+/* System headers
+ */
+#undef HAVE_UNISTD_H
+#undef HAVE_STDINT_H
+#undef HAVE_INTTYPES_H
+
+/* Types
+ * Make sure we have C99-standard fixed-width unsigned types
+ */
+#undef ESL_UINT16
+#undef ESL_UINT32
+#undef ESL_UINT64
+#ifndef HAVE_UINT16_T
+typedef ESL_UINT16 uint16_t 
+#endif
+#ifndef HAVE_UINT32_T
+typedef ESL_UINT32 uint32_t 
+#endif
+#ifndef HAVE_UINT64_T
+typedef ESL_UINT64 uint64_t 
+#endif
+
+
+/* Functions
+ */
+#undef HAVE_POPEN
+#undef HAVE_STRCASECMP
+#undef HAVE_TIMES
+#undef HAVE_FSEEKO
+
+/* Large file support
+ */
+#undef _FILE_OFFSET_BITS
+#undef _LARGE_FILES
+#undef _LARGEFILE_SOURCE
+
+
+
+#endif /*ESL_CONFIG_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
