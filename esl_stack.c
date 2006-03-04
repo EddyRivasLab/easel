@@ -41,6 +41,7 @@
  *
  * SVN $Id$
  */ 
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

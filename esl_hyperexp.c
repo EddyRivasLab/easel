@@ -5,6 +5,8 @@
  * xref STL9/140  
  * SVN $Id$
  */
+#include <esl_config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

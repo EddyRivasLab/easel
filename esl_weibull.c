@@ -4,6 +4,7 @@
  * SRE, Tue Aug  9 10:35:06 2005 [St. Louis]
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <math.h>

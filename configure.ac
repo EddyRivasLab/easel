@@ -220,15 +220,16 @@ AC_CHECK_HEADERS([inttypes.h])
 
 # 7. Checks for types.
 #    ssi module needs exact-size integer types.
-#    Sets output variables ESL_UINT16, ESL_UINT32, and ESL_UINT64.
+#    Defines ESL_UINT16, ESL_UINT32, and ESL_UINT64.
 #    We try to use ISO C uint*_t's, if stdint.h is present; 
 #    else, we start guessing different ANSI C unsigned types.
 #
+AC_C_BIGENDIAN
 AC_CHECK_SIZEOF(unsigned short)
 AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
 AC_CHECK_SIZEOF(unsigned long long)
-AC_CHECK_TYPE(uint16_t,
+AC_CHECK_TYPES(uint16_t,
    [AC_DEFINE(ESL_UINT16, uint16_t)],
    [
      if test "$ac_cv_sizeof_unsigned_short" -eq 2; then
@@ -240,7 +241,7 @@ AC_CHECK_TYPE(uint16_t,
      fi
    ]
 )
-AC_CHECK_TYPE(uint32_t, 
+AC_CHECK_TYPES(uint32_t, 
    [AC_DEFINE(ESL_UINT32, uint32_t)],
    [
      if test "$ac_cv_sizeof_unsigned_int" -eq 4; then
@@ -254,7 +255,7 @@ AC_CHECK_TYPE(uint32_t,
      fi
    ]
 )
-AC_CHECK_TYPE(uint64_t, 
+AC_CHECK_TYPES(uint64_t, 
    [AC_DEFINE(ESL_UINT64, uint64_t)],
    [
      if test "$ac_cv_sizeof_unsigned_long" -eq 8; then
@@ -268,6 +269,10 @@ AC_CHECK_TYPE(uint64_t,
      fi
    ]
 )
+
+# Make sure we have off_t - this macro typedefs it as a long if we don't.
+AC_TYPE_OFF_T
+
 
 
 
@@ -299,17 +304,18 @@ AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)
 AC_FUNC_FSEEKO
 
+
+
 # 11. Checks for system services 
 AC_SYS_LARGEFILE
 
 
 
-
-# 12. Write out easel.h header and the Makefiles
-AC_CONFIG_HEADERS([easel.h])
-AC_CONFIG_HEADERS([esl_ssi.h])
+# 12. Write out esl_config.h header and the Makefiles
+AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([Makefile])
+
 
 
 # 13. voila!

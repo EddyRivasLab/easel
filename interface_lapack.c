@@ -6,6 +6,8 @@
  * SVN $Id$
  */
 
+#include <esl_config.h>
+
 #include <stdlib.h>
 #include <easel/easel.h>
 #include <easel/dmatrix.h>

@@ -8,6 +8,7 @@
  * SRE, Tue Jul 13 13:23:21 2004 [St. Louis]
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

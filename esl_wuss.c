@@ -6,6 +6,8 @@
  * xref squid wuss.c.
  */
 
+#include <esl_config.h>
+
 #include <string.h>
 #include <ctype.h>
 

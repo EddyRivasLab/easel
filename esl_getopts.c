@@ -6,6 +6,7 @@
  * SRE, Sat Jan  1 08:50:21 2005 [Panticosa, Spain]
  * xref STL8/p152; STL9/p5.
  */
+#include <esl_config.h>
 
 #include <stdlib.h> 
 #include <stdio.h> 

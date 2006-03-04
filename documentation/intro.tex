@@ -7,30 +7,30 @@
 \end{quote}
 
 
-Easel is the C library that underlies some of the bioinformatics
+Easel is a C code library that underlies some of the bioinformatics
 software packages from the Eddy lab, including HMMER and Infernal, the
-software engines for the Pfam protein family database and the Rfam RNA
-family database.
+software engines that in turn underlie the Pfam protein family
+database and the Rfam RNA family database. Easel is meant to maintain
+a body of work from my lab in a useful form, such that new people in
+the lab can avoid reinventing the wheel as many times as I have.
 
-Easel has accreted over the years, for solving common problems
-encountered in writing bioinformatics applications, particularly in
-the area of sequence analysis.
+Easel has arisen by accretion. As such, it is not intended to be an
+all-purpose sequence analysis library.  General-purpose bioinformatics
+libraries are available that do aspire to such goals. The NCBI Toolkit
+and the Ajax library in EMBOSS are comprehensive resources for C
+programming. The BioPerl project is an extraordinary resource for
+Perl.
 
-Easel is not intended to be an all-purpose sequence analysis library.
-It will naturally be biased towards problems that arise in HMMER,
-Infernal, and other probabilistic modeling applications.  Several
-general-purpose bioinformatics libraries are available that do aspire
-to such goals. The NCBI Toolkit and the Ajax library in EMBOSS are
-comprehensive resources for C programming. The BioPerl project is an
-admirably successful resource for Perl.
+Easel's design reflects some of my opinions about the way the world
+should work but usually doesn't. First, it is \textbf{documented}.
+And not just by mass of paper -- there are tutorial examples to every
+Easel API, intended to make it easy to start using any given Easel
+module.
 
-Easel is intended to maintain a body of work from my lab in a useful
-form that new people in the lab can adopt quickly. Other software
-developers outside the lab may also benefit from it. Its design
-follows from a golden rule, \emph{do unto other developers as you
-would have them do unto you}:
 
-\begin{description}
+
+
+
 \item[\textbf{Documentation.}]  Effort has been invested in practical
 documentation, including this Guide, tutorial examples to Easel APIs,
 and source-level comments. All too often I've tried to obtain

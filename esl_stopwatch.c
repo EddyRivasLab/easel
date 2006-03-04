@@ -8,6 +8,7 @@
  * SRE, Fri Nov 26 14:54:21 1999 [St. Louis] [HMMER]
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <easel.h>
 #include <esl_stopwatch.h>

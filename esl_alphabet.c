@@ -5,6 +5,7 @@
  * SVN $Id$
  * SRE, Tue Dec  7 13:49:43 2004
  */
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <string.h>

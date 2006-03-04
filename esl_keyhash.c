@@ -45,6 +45,7 @@
  *       }   
  *       esl_keyhash_Destroy();
  */
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

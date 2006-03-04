@@ -44,6 +44,7 @@
  *    you can install a custom error handler that can handle
  *    the eslESYNTAX errors as you wish.
  */
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

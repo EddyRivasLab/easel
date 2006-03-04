@@ -5,6 +5,7 @@
  * SRE, Tue Jul 13 15:36:48 2004
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <stdlib.h>
 #include <easel/easel.h>

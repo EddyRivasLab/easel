@@ -2,6 +2,7 @@
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <stdio.h>
 #include <stdlib.h>

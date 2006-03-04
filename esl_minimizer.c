@@ -7,6 +7,7 @@
  * SRE, Wed Jun 22 11:37:29 2005
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <math.h>
 #include <float.h>
