@@ -34,6 +34,7 @@
  */ 
 typedef struct {
   FILE      *fp;              /* open SSI index file                 */
+  uint32_t   flags;	      /* optional behavior flags             */
   uint16_t   nfiles;          /* number of files = 16 bit int        */
   uint32_t   nprimary;        /* number of primary keys              */
   uint32_t   nsecondary;      /* number of secondary keys            */
@@ -54,9 +55,21 @@ typedef struct {
    */
   char     **filename;        /* list of file names [0..nfiles-1]    */
   uint32_t  *fileformat;      /* file formats                        */
+  uint32_t  *fileflags;	      /* optional per-file behavior flags    */
   uint32_t  *bpl;             /* bytes per line in file              */
   uint32_t  *rpl;             /* residues per line in file           */
 } ESL_SSI;
+
+/* Flags for the <ssi->flags> bit vector. 
+ * Can add flags, but don't change the existing ones; they're locked
+ * into reverse compatibility with older SSI files.
+ */
+#define eslSSI_USE64        (1 << 0)  /* key offsets (in the indexed files) are 64-bit */
+#define eslSSI_USE64_INDEX  (1 << 1)  /* index file itself is so large that its offsets are 64-bit */
+
+/* Flags for the <ssi->fileflags> bit vectors.
+ */
+#define eslSSI_FASTSUBSEQ   (1<<0)    /* we can do fast subseq lookup calculations on this file */
 
 
 /* ESL_NEWSSI
