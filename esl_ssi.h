@@ -1,6 +1,8 @@
 /* esl_ssi.h [created from esl_ssi.h.in by ./configure]
  * 
- * "simple sequence indices": fast record lookups in large files by keyword.
+ * "simple sequence indices": 
+ * fast sequence record lookup in large files by keywords, such
+ * as names or accessions.
  * 
  * SVN $Id$
  * SRE, Thu Mar  2 15:54:51 2006 [St. Louis]
@@ -21,7 +23,7 @@
  */
 #define eslSSI_MAXFILES 32767	     /* 2^15-1 */
 #define eslSSI_MAXKEYS  2147483647L  /* 2^31-1 */
-#define eslSSI_MAXRAM   200	     /* >200MB indices trigger external sort */
+#define eslSSI_MAXRAM   256	     /* >256MB indices trigger external sort */
 
 #ifndef HAVE_FSEEKO
 #define fseeko fseek
@@ -73,7 +75,7 @@ typedef struct {
 
 
 /* ESL_NEWSSI
- * Creating a new ssi index.
+ * Used to create a new SSI index.
  */
 typedef struct {		/* Primary key data: */
   char      *key;               /* key name          */
@@ -102,19 +104,52 @@ typedef struct {
   ESL_PKEY   *pkeys;
   uint32_t    plen;	        /* length of longest pkey, including '\0' */
   uint32_t    nprimary;
-  char       *ptmpfile;	        /* name of tmp file, for external sort mode */
+  char       *ptmpfile;		/* primary key tmpfile name, for extern sort */
   FILE       *ptmp;	        /* handle on open ptmpfile */
 
   ESL_SKEY   *skeys;
   uint32_t    slen;        	/* length of longest skey, including '\0' */
   uint32_t    nsecondary;
-  char       *stmpfile;	        /* name of tmp file, for external sort mode */
+  char       *stmpfile;		/* secondary key tmpfile name, for extern sort */
   FILE       *stmp;	        /* handle on open ptmpfile */
 } ESL_NEWSSI;
 
 
+#define eslSSI_FCHUNK  16	/* chunk size for file name reallocation */
+#define eslSSI_KCHUNK  128	/* and for key reallocation              */
 
-/* Binary file portability
+
+
+/* 1. Using SSI indices
+ */
+extern int  esl_ssi_Open(char *filename, ESL_SSI **ret_ssi);
+extern void esl_ssi_Close(ESL_SSI *ssi);
+extern int  esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key,
+				    uint16_t *ret_fh, off_t *ret_offset);
+extern int  esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey,
+				      uint16_t *ret_fh, off_t *ret_offset);
+extern int  esl_ssi_GetSubseqOffset(ESL_SSI *ssi, char key, long requested_start,
+				    uint16_t *ret_fh, off_t *record_offset, 
+				    off_t *data_offset, long *ret_actual_start);
+extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
+			     char **ret_filename, int *ret_format);
+
+
+/* 2. Creating SSI indices
+ */
+extern ESL_NEWSSI *esl_newssi_Create(void);
+extern int  esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename,
+			       int fmt, uint16_t *ret_fh);
+extern int  esl_newssi_SetFastSubseqFile(ESL_NEWSSI *ns, uint16_t fh,
+					 int bpl, int rpl);
+extern int  esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
+				     off_t r_off, off_t d_off, uint32_t L);
+extern int  esl_newssi_AddSecondaryKey(ESL_NEWSSI *ns, char *skey, char *pkey);
+extern int  esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns);
+extern void esl_newssi_Destroy(ESL_NEWSSI *ns);
+
+
+/* 3. Binary file portability
  */
 extern void     esl_byteswap(char *swap, int nbytes);
 extern uint16_t esl_ntoh16(uint16_t netshort);
@@ -130,7 +165,7 @@ extern int      esl_fwrite_i16(FILE *fp, esl_uint16 n);
 extern int      esl_fwrite_i32(FILE *fp, esl_uint32 n);
 extern int      esl_fwrite_i64(FILE *fp, esl_uint64 n);
 extern int	esl_fread_offset(FILE *fp, int mode, off_t *ret_offset);
-extern int      esl_fwrite_offset(FILE *fp, off_t *offset);
+extern int      esl_fwrite_offset(FILE *fp, off_t offset);
 
 
 #endif /* ESL_SSI_INCLUDED */

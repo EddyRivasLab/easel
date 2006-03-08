@@ -470,6 +470,7 @@ esl_strcasecmp(const char *s1, const char *s2)
  * File path/name manipulation functions                                      *
  *                                                                            *
  * Sufficiently widespread in the modules that we make them core.             *
+ * (Should be moved to their own module eventually)                           *
  *****************************************************************************/
 
 /* Function:  esl_FileExists()
@@ -490,6 +491,58 @@ esl_FileExists(char *filename)
   if ((fp = fopen(filename, "r"))) { fclose(fp); return TRUE; }
   return FALSE;
 }
+
+
+/* Function:  esl_FileTail()
+ * Incept:    SRE, Tue Mar  7 08:30:00 2006 [St. Louis]
+ *
+ * Purpose:   Given a full pathname <path>, extract the filename
+ *            without the directory path; return it via  
+ *            <ret_filename>. <ret_filename> space is allocated
+ *            here, and must be free'd by the caller.
+ *            For example: 
+ *               </foo/bar/baz.1> becomes <baz.1>;
+ *               <foo/bar>        becomes <bar>; 
+ *               <foo>            becomes <foo>; and
+ *               </>              becomes the empty string.
+ *            
+ *            If <nosuffix> is <TRUE>, the rightmost trailing ".foo" extension
+ *            is removed too. The suffix is defined as everything following
+ *            the rightmost period in the filename in <path>:
+ *            with <nosuffix> <TRUE>, 
+ *                <foo.2/bar.idx> becomes <bar>,
+ *                <foo.2/bar>     becomes <bar>, and
+ *                <foo.2/bar.1.3> becomes <bar.1>.  
+ *            
+ * Args:      path     - full pathname to process, "/foo/bar/baz.1"
+ *            nosuffix - TRUE to remove rightmost suffix from the filename
+ *            ret_file - RETURN: filename portion of the path.
+ *                     
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_FileTail(char *path, int nosuffix, char *ret_file)
+{
+  char *tail;
+  char *lastslash;
+  char *lastdot;
+				/* remove directory prefix */
+  lastslash = strrchr(path, eslDIRSLASH);
+  ESL_MALLOC(tail, sizeof(char) * (strlen(path)+1)); /* a little overkill */
+  if (lastslash == NULL) strcpy(tail, file);
+  else                   strcpy(tail, lastslash+1);
+				/* remove trailing suffix */
+  if (nosuffix) {
+    if ((lastdot = strrchr(tail, '.')) != NULL)
+      *lastdot = '\0';
+  }
+  *ret_file = tail;
+  return eslOK;
+}
+
+
 
 
 /* Function:  esl_FileConcat()

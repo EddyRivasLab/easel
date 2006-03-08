@@ -54,13 +54,19 @@
 #undef EASEL_COPYRIGHT 
 #undef EASEL_LICENSE   
 
-/* Error handling.
- * Originally modeled on GNU Scientific Library (GSL).
+/* Error handling w/ a garbage collection convention.
  *
- * Wrapping in the while(0) loop allows one to write
+ * Using the ESL_ERROR_GOTO macro requires that you have an "int status" variable
+ * in scope, and that you have a CLEANEXIT target for the goto.
+ * It allows a function to throw an unexpected error through a nonfatal
+ * error handler, while still cleaning up any allocated memory and closing
+ * any open streams, and returning the error status flag to the caller.
+ *
+ * Wrapping these in while(0) loops allows one to write
  *     if (something) ESL_ERROR(code,mesg);
  * without the trailing semicolon being a null statement
  * after macro expansion.
+ * 
  */
 #define ESL_ERROR(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
@@ -71,6 +77,38 @@
      esl_error(code, __FILE__, __LINE__, mesg);\
      return NULL; }\
      while (0)
+
+#define ESL_ERROR_GOTO(code, mesg)  do {\
+     status = code;\
+     esl_error(code, __FILE__, __LINE__, mesg);\
+     goto CLEANEXIT; }\
+     while (0)
+
+/* Macros for allocation/reallocation idioms w/ error handling.
+ * Like ESL_ERROR(), both assume the existence of a CLEANEXIT
+ * goto target, and a status flag.
+ */
+#define ESL_MALLOC(p, size) do {\
+     if (((p) = malloc(size)) == NULL) {\
+       status = eslEMEM;\
+       esl_error(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
+       goto CLEANEXIT;\
+     }} while (0)
+     
+/* ESL_REALLOC() 
+ * tmp is a void *. we need it so we don't let go of the memory
+ * we've already got allocated, if the realloc fails, else we can't
+ * clean up.
+ */
+#define ESL_REALLOC(p, tmp, newsize) do {\
+     (tmp) = realloc((p), (newsize));\
+     if ((tmp) != NULL) (p) = (tmp);\
+     else {\
+       status = eslEMEM;\
+       esl_error(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
+       goto CLEANEXIT;\
+     }} while (0)
+
 
 #define eslOK              0	/* no error/success             */
 #define eslFAIL            1    /* failure                      */
@@ -188,30 +226,13 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #endif
 
 extern int  esl_FileExists(char *filename);
+extern int  esl_FileTail(char *path, int nosuffix, char *ret_file);
 extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
 extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,
 			    FILE **ret_fp, char **ret_path);
 
 
-/* Macros for allocation/reallocation idioms w/ error handling.
- */
-#define ESL_MALLOC(p, size) do {\
-     (p) = malloc(size);\
-     if ((p) == NULL) {\
-       esl_error(eslEMEM, __FILE__, __LINE__, "malloc failed");\
-       return eslEMEM;\
-     }} while (0)
-
-/* See esl_msa_Expand() for first use example.
- */
-#define ESL_REALLOC(p, tmp, newsize) do {\
-     (tmp) = realloc((p), (newsize));\
-     if ((tmp) != NULL) (p) = (tmp);\
-     else {\
-       esl_error(eslEMEM, __FILE__, __LINE__, "realloc failed");\
-       return eslEMEM;\
-     }} while (0)
 
 /* Making sure TRUE/FALSE are defined, for convenience
  */
