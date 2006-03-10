@@ -1,10 +1,10 @@
 
-The getopts module interprets the familiar UNIX command line syntax,
-allowing both standard POSIX one-character options and GNU-style long
-options, in addition to command line arguments. The implementation
-shares similarities with POSIX \ccode{getopt()} and GNU's
-\ccode{getopt\_long()}, but has somewhat more power, at the cost of
-enforcing a fairly specific style.
+The \eslmod{getopts} module interprets the familiar UNIX command line
+syntax, allowing both standard POSIX one-character options and
+GNU-style long options, in addition to command line arguments. The
+implementation shares similarities with POSIX \ccode{getopt()} and
+GNU's \ccode{getopt\_long()}, but has somewhat more power, at the cost
+of enforcing a fairly specific style.
 
 Options can be set from the command line, environment variables, and
 one or more configuration files.
@@ -39,6 +39,7 @@ configurable option. An application defines an array of
 \ccode{ESL\_OPTIONS} to declare what options it will allow.
 
 \begin{table}
+\begin{center}
 \begin{tabular}{ll}\hline
        \multicolumn{2}{c}{\textbf{the \ccode{ESL\_GETOPTS} object}}\\
 \ccode{esl\_getopts\_Create()}    & Creates a new \ccode{ESL\_GETOPTS} object. \\
@@ -62,6 +63,7 @@ configurable option. An application defines an array of
 \ccode{esl\_opt\_DisplayHelp()}        & Formats one-line help for each option.\\
 \hline
 \end{tabular}
+\end{center}
 \caption{The \eslmod{getopts} API.}
 \label{tbl:getopts_api}
 \end{table}

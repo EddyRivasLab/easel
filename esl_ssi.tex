@@ -1,0 +1,466 @@
+
+The \eslmod{ssi} module is for creating and using ``SSI''
+(sequence/subsequence index) files. SSI indexes flatfile databases by
+names and/or accessions, enabling fast record retrieval.
+
+An SSI index is a binary file that stores sequence names or accessions
+as \emph{keys} that it can look up rapidly. It differentiates between
+\emph{primary keys} and \emph{secondary keys} (aliases).  There is one
+and only one primary key per sequence. There can be more than one
+secondary key (alias) per sequence. Both primary and secondary keys
+must be unique identifiers (no two records have the same key).  A
+program for sequence retrieval might create an SSI index with
+accessions as primary keys, and names as secondary keys.
+
+Records can also be retrieved by number from the list of primary keys.
+This may be useful for distributed data-parallel applications, which
+can use SSI to rapidly position individual processes at different
+record ranges in a flatfile database.
+
+A single SSI file can index a sequence database that consists of more
+than one individual sequence file. For example, the Genbank database
+is distributed as a large number of flatfiles, and one SSI file
+suffices to index them all.
+
+In sequence files with consistently formatted line lengths, SSI
+indices can allow a specific subsequence in a sequence record to be
+identified rapidly. This is useful when the sequence records are very
+large, such as whole assembled genomes or chromosomes.
+
+SSI indices are designed with sequence databases in mind, but SSI can
+also be used to index records in other types of flatfile
+databases. For example, HMMER uses SSI to index HMM databases like
+Pfam.
+
+There is no limit to the length of primary keys, secondary keys, or
+filenames. Up to 32767 files, 2.1 billion primary keys, and 2.1
+billion secondary keys can be stored in one SSI index. The size of the
+indexed flatfile database files is effectively unlimited (up to 9.2
+million terabytes) on systems that support 64-bit
+filesystems.\footnote{Most modern operating systems have 64-bit
+filesystems, either because they are fully 64-bit, or because they are
+32-bit systems supporting standard Large File Summit (LFS)
+extensions.} Binary SSI indices are portable between different
+machines.\footnote{The sole exception is that SSI indices built for
+64-bit filesystems cannot be read on a fully 32-bit filesystem.}
+
+Table~\ref{tbl:ssi_api} lists the functions in the \eslmod{ssi} API.
+A \eslmod{ESL\_SSI} object is used for reading an index, and a
+\eslmod{ESL\_NEWSSI} object is used for creating one. There is also a
+set of functions for portable binary file i/o.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ll}\hline
+       \multicolumn{2}{c}{\textbf{Reading SSI indices}}\\
+\ccode{esl\_ssi\_Open()}         & Open an SSI index as an \ccode{ESL\_SSI}.\\
+\ccode{esl\_ssi\_Close()}        & Close an SSI index.\\
+\ccode{esl\_ssi\_FindName()}     & Look up a primary or secondary key.\\
+\ccode{esl\_ssi\_FindNumber()}   & Look up the n'th primary key.\\
+\ccode{esl\_ssi\_FindSubseq()}   & Look up a specific subsequence start.\\
+\ccode{esl\_ssi\_FileInfo()}     & Retrieve a file name and format code.\\
+       \multicolumn{2}{c}{\textbf{Creating SSI indices}}\\
+\ccode{esl\_newssi\_Create()}    & Create a new \ccode{ESL\_NEWSSI}.\\
+\ccode{esl\_newssi\_AddFile()}   & Add a filename to an index.\\
+\ccode{esl\_newssi\_SetSubseq()} & Declare that file is suitable for fast subseq lookup.\\
+\ccode{esl\_newssi\_AddKey()}    & Add a primary key to index.\\
+\ccode{esl\_newssi\_AddAlias()}  & Add a secondary key (alias) to index.\\
+\ccode{esl\_newssi\_Write()}     & Save an index to an SSI file.\\
+\ccode{esl\_newssi\_Destroy()}   & Free an \ccode{ESL\_NEWSSI}.\\
+       \multicolumn{2}{c}{\textbf{Portable binary i/o}}\\
+\ccode{esl\_byteswap()}         & Swap between big-endian and little-endian.\\
+\ccode{esl\_ntoh16()}           & Convert 16bit int from portable order to host order.\\
+\ccode{esl\_ntoh32()}           & Convert 32bit int from portable order to host order.\\
+\ccode{esl\_ntoh64()}           & Convert 64bit int from portable order to host order.\\
+\ccode{esl\_hton16()}           & Convert 16bit int from host order to portable order.\\
+\ccode{esl\_hton32()}           & Convert 32bit int from host order to portable order.\\
+\ccode{esl\_hton64()}           & Convert 64bit int from host order to portable order.\\
+\ccode{esl\_fread\_i16()}        & Read 16bit int portably.\\
+\ccode{esl\_fread\_i32()}        & Read 32bit int portably.\\
+\ccode{esl\_fread\_i64()}        & Read 64bit int portably.\\
+\ccode{esl\_fwrite\_i16()}       & Write 16bit int portably.\\
+\ccode{esl\_fwrite\_i32()}       & Write 32bit int portably.\\
+\ccode{esl\_fwrite\_i64()}       & Write 64bit int portably.\\
+\ccode{esl\_fread\_offset()}     & Read a disk offset (\ccode{off\_t}) portably.\\
+\ccode{esl\_fwrite\_offset()}    & Write a disk offset (\ccode{off\_t}) portably.\\
+\hline
+\end{tabular}
+\end{center}
+\caption{The \eslmod{ssi} API.}
+\label{tbl:ssi_api}
+\end{table}
+
+
+\subsection{An example of creating an SSI index}
+
+Figure~\ref{fig:ssi_example} shows a program that creates an SSI index
+for a FASTA sequence file, in which sequence records start with a line
+like:
+\begin{cchunk}
+ >SEQ_NAME  Rest of the line is a free-text description.
+\end{cchunk}
+
+\begin{figure}
+\input{cexcerpts/ssi_example}
+\caption{An example of indexing the sequence records in a FASTA file.}
+\label{fig:ssi_example}
+\end{figure}
+
+\begin{itemize}
+\item A new index is created (\ccode{esl\_newssi\_Create()}).
+
+\item Each file to be indexed is added to the index by a call to
+      \ccode{esl\_newssi\_AddFile()}. This returns a \emph{file handle}
+      (\ccode{fh}) that you will need when you add primary keys. In
+      this example, there is only one file and only one file handle.
+
+\item You need to determine the disk offset at the exact beginning of
+      each sequence record. You retrieve your current position in the
+      file using an \ccode{ftello()} call.
+
+\item You add each primary key to the index with a
+      \ccode{esl\_newssi\_AddKey()} call. You provide the handle of the
+      file that key is in, and the offset to the start of this key's
+      sequence record.
+
+\item The \ccode{esl\_fgets()} function (part of the \eslmod{easel} 
+      foundation module) is a way of reading text files line by line, 
+      no matter how long each line might be: \ccode{esl\_fgets()}
+      reallocates its buffer <buf> as needed.
+
+\item The \ccode{esl\_FileNewSuffix()} function is also part of the
+      \eslmod{easel} foundation; here, it makes it easy to create a
+      SSI file name by replacing the FASTA file's suffix (if any) with
+      \ccode{.ssi}. However, you can name SSI indices anything you
+      want.
+
+\item \ccode{esl\_newssi\_Write()} saves the index to an open file.
+
+\item Finally, the index structure is freed by
+      \ccode{esl\_newssi\_Destroy()}.
+\end{itemize}
+
+To compile and run the program, given a FASTA file \ccode{foo.fa} that
+you provide:
+
+\begin{cchunk}
+  % cc -o example -DeslSSI_EXAMPLE esl_ssi.c -leasel -lm
+  % ./example foo.fa
+\end{cchunk}
+
+This will create a new SSI file called \ccode{foo.ssi}.
+
+
+\subsection{An example of using an SSI index}
+
+Figure~\ref{fig:ssi_example2} shows a program that retrieves a FASTA
+sequence record by its name, using an SSI index.
+
+\begin{figure}
+\input{cexcerpts/ssi_example2}
+\caption{An example of retrieving a sequence by name from a FASTA
+  file, using an SSI index.}
+\label{fig:ssi_example2}
+\end{figure}
+
+\begin{itemize}
+\item \ccode{esl\_ssi\_Open()} opens the SSI index file.
+
+\item \ccode{esl\_ssi\_FindName()} looks up the record by its name.
+      Primary keys are checked first, then secondary keys. If it is
+      found, \ccode{fh} contains a file handle (what file it's in),
+      and \ccode{offset} contains the position of the desired record
+      in that file.
+
+\item The file handle \ccode{fh} is looked up in the file index with
+      \ccode{esl\_ssi\_FileInfo()}, and the name of the file and a
+      format code are returned. The format code is useful if you need
+      to hand the filename off to different kinds of file parsers,
+      depending on what file type it is. (SSI can index files in
+      heterogenous formats.)
+
+\item After that, you use the retrieved information however you need,
+      independent of the SSI index. The example emphasizes this, by
+      freeing the SSI index immediately with \ccode{esl\_ssi\_Destroy()}
+      after it knows \ccode{fafile} and \ccode{offset}. The example
+      opens the file, positions the disk with \ccode{fseeko()}, and
+      reads a sequence record out of it one line at a time, until it
+      reaches EOF or the start of the next sequence record.
+\end{itemize}
+
+
+
+
+
+\subsection{SSI file format} 
+
+There are four sections to the SSI file:
+\begin{sreitems}{\textbf{Secondary keys}}
+\item[\textbf{Header}] 
+Contains a magic number indicating SSI version number, followed by
+information about the number and sizes of items in the index.
+
+\item[\textbf{Files}]
+Contains one or more \emph{file records}, one per sequence file that's
+indexed. These contain information about the individual files.
+
+\item[\textbf{Primary keys}]
+Contains one or more \emph{primary key records}, one per primary key.
+
+\item[\textbf{Secondary keys}]
+Contains one or more \emph{secondary key records}, one per secondary key.
+\end{sreitems}
+
+All numeric quantities are stored as fixed-width unsigned integers in
+network (bigendian) order, for crossplatform portability of the index
+files, using types \ccode{uint16\_t}, \ccode{uint32\_t}, and
+\ccode{uint64\_t}.\footnote{These types are available on C99-compliant
+systems. On other systems, Easel automatically defines appropriate
+substitutes at configuration time.}  Values may need to be cast to
+signed quantities, so only half of their dynamic range is valid
+(e.g. 0..32,767 for values of type \ccode{uint16\_t}; 0..2,146,483,647
+(2 billion) for \ccode{uint32\_t}; and 0..9.22e18 (9 million trillion)
+for \ccode{uint64\_t}). 
+
+File offsets (type \ccode{off\_t}) are assumed to be either 32-bit or
+64-bit signed integers. Easel uses 64-bit offsets if at all possible
+on your system. Flags in the SSI header specify whether the SSI file
+has stored 32 versus 64-bit offsets. 
+
+\subsubsection{Header section}
+
+The header section contains:
+
+\vspace{1em}
+\begin{tabular}{llrr}
+Variable          & Description                                      & Bytes      & Type \\\hline
+\ccode{magic}      & SSI version magic number.                       &  4         & \ccode{uint32\_t}\\
+\ccode{flags}      & Optional behavior flags (see below)             &  4         & \ccode{uint32\_t}\\
+\ccode{nfiles}     & Number of files in file section.                &  2         & \ccode{uint16\_t}\\
+\ccode{nprimary}   & Number of primary keys.                         &  4         & \ccode{uint32\_t}\\
+\ccode{nsecondary} & Number of secondary keys.                       &  4         & \ccode{uint32\_t}\\
+\ccode{flen}       & Length of filenames (incl. '\verb+\0+')         &  4         & \ccode{uint32\_t}\\
+\ccode{plen}       & Length of primary key names (incl. '\verb+\0+') &  4         & \ccode{uint32\_t}\\
+\ccode{slen}       & Length of sec. key names (incl. '\verb+\0+')    &  4         & \ccode{uint32\_t}\\
+\ccode{frecsize}   & \# of bytes in a file record                    &  4         & \ccode{uint32\_t}\\
+\ccode{precsize}   & \# of bytes in a primary key record             &  4         & \ccode{uint32\_t}\\
+\ccode{srecsize}   & \# of bytes in a sec. key record                &  4         & \ccode{uint32\_t}\\
+\ccode{foffset}    & disk offset, start of file records              &  \dag      & \ccode{off\_t}\\
+\ccode{poffset}    & disk offset, start of primary key recs          &  \dag      & \ccode{off\_t}\\
+\ccode{soffset}    & disk offset, start of sec. key records          &  \dag      & \ccode{off\_t}\\
+\end{tabular}
+\vspace{1em}
+
+The optional behavior flags are:
+
+\vspace{1em}
+\begin{tabular}{lll}
+Flag             & Value& Note\\ \hline
+\ccode{eslSSI\_USE64}         & $1 \ll 0$ & Offsets in the indexed files are 64-bit.\\
+\ccode{eslSSI\_USE64\_INDEX}  & $1 \ll 1$ & The SSI index itself uses 64-bit offsets .\\\hline
+\end{tabular}
+\vspace{1em}
+
+The use of two separate flags is historical.\footnote{SSI is older
+than Easel. The previous implementation used 32-bit offsets whereever
+possible, and only extended to 64-bit offsets when necessary. 64-bit
+offsets in sequence files are commonly needed (vertebrate genomes
+routinely exceed 2 GB), but 64-bit offsets in the SSI index itself are
+only needed when an index itself exceeds 2GB, which takes an enormous
+number of records. Thus in older SSI files, the \ccode{eslSSI\_USE64}
+flag is often up, but the \ccode{eslSSI\_USE64\_INDEX} flag is almost
+never up. Easel has a simpler implementation, and now always uses
+64-bit offsets when possible - so either both flags are up, or both
+are down.} When \ccode{eslSSI\_USE64} is set, the sequence file(s) are
+large, and the offsets stored in primary key records are 64-bit not
+32-bit (shown below as \ddag in the primary key table).  If
+\ccode{eslSSI\_USE64\_INDEX} is set, the index file itself is large,
+and the three index file offsets (\ccode{foffset}, \ccode{poffset},
+and \ccode{soffset}, indicated as \dag\ in the above table) are 64-bit
+integers.
+
+The reason to explicitly record various record sizes
+(\ccode{frecsize}, \ccode{precsize}, \ccode{srecsize}) and index file
+positions (\ccode{foffset}, \ccode{poffset}, \ccode{soffset}) is to
+allow for future extensions. More fields might be added without
+breaking older SSI parsers. The format is meant to be both forwards-
+and backwards-compatible.
+
+\subsubsection{File section}
+
+The file section consists of \ccode{nfiles} file records. Each record
+is \ccode{frecsize} bytes long, and contains:
+
+\vspace{1em}
+\begin{tabular}{llrr}
+Variable & Description                                       & Bytes & Type \\\hline
+\ccode{filename} & Name of file (possibly including full path)       & \ccode{flen} & char *\\
+\ccode{format}   & Format code for file                              & 4    & \ccode{uint32\_t} \\
+\ccode{flags}    & Optional behavior flags                           & 4    & \ccode{uint32\_t} \\
+\ccode{bpl}      & Bytes per sequence data line                      & 4    & \ccode{uint32\_t} \\
+\ccode{rpl}      & Residues per sequence data line                   & 4    & \ccode{uint32\_t} \\\hline
+\end{tabular}
+\vspace{1em}
+
+When a SSI file is written, \ccode{frecsize} is equal to the sum of
+the sizes above.  When a SSI file is read by a parser, it is possible
+that \ccode{frecsize} is larger than the parser expects, if the parser
+is expecting an older version of the SSI format: additional fields
+might be present, beyond what the parser expects. The parser will only
+try to understand the data up to the \ccode{frecsize} it expected to
+see, but still knows the \ccode{frecsize} that is operative in this
+SSI file, for purposes of skipping around in the index file.
+
+An SSI index might reside in the same directory as the data file(s) it
+indexes, so \ccode{filename} might be relative to the location of the
+SSI index. Alternatively, \ccode{filename} might be a full path. These
+semantics are not enforced by the \eslmod{ssi} module. Rather, this is
+an issue for an SSI-enabled application to define for
+itself. SSI-enabled applications would typically include program(s)
+for creating indices and program(s) for using them. Different
+applications might employ different conventions for where the indices
+are expected to be, relative to the sequence files, so long as that
+convention is consistently applied by both index creator and index
+user.
+
+Similarly, the \eslmod{ssi} module does not specify the meaning of the
+\ccode{format} code. An SSI-enabled application may use this field to
+associate any useful format code (or indeed, any other number) with
+each indexed file. A typical use, though, would be sequence file
+format codes like \ccode{eslSQFILE\_FASTA} or
+\ccode{eslMSAFILE\_STOCKHOLM} from the \eslmod{sqio} or \eslmod{msa}
+modules.
+
+Only one possible optional behavior flag is currently defined:
+
+\vspace{1em}
+\begin{tabular}{lll}
+Flag             & Value& Note\\ \hline
+\ccode{eslSSI\_FASTSUBSEQ} & $1 \ll 0$ & Fast subseq retrieval is possible for this file.\\\hline
+\end{tabular}
+\vspace{1em}
+
+When \ccode{eslSSI\_FASTSUBSEQ} is set, \ccode{bpl} and \ccode{rpl}
+are nonzero. They can be used to calculate the offset of subsequence
+positions in the data file. This optional behavior is described a bit
+later.
+
+\subsubsection{Primary key section}
+
+The primary key section consists of \ccode{nprimary} records. Each
+record is \ccode{precsize} bytes long, and contains:
+
+\vspace{1em}
+\begin{tabular}{llrr}
+Variable   & Description                                 & Bytes      & Type \\\hline
+\ccode{key}	   & Key name (seq name, identifier, accession) & \ccode{plen}& char *\\
+\ccode{fnum}       & File number (0..nfiles-1)                   & 2          & \ccode{uint16\_t}\\
+\ccode{r\_off}      & Offset to start of record                   & \ddag      & \ccode{off\_t}\\
+\ccode{d\_off}      & Offset to start of sequence data            & \ddag      & \ccode{off\_t}\\
+\ccode{len}        & Length of data (e.g. seq length, residues)  & 4          & \ccode{uint32\_t} \\\hline
+\end{tabular} 
+\vspace{1em}
+
+The two offsets are sequence file offsets that may be either 8 or 4
+bytes (indicated by \ddag above). They are usually 64-bit (8 byte)
+signed integers; the \ccode{eslSSI\_USE64} flag for the index is
+raised if they are. If an SSI index is created on a system that only
+allows 32-bit offsets (and hence cannot have files $>$2 GB), they are
+32-bit (4-byte) unsigned integers, and the \ccode{eslSSI\_USE64} flag
+is off.
+
+\ccode{r\_off} (the \emph{record offset}) is always valid. It indicates
+the position of the start of the record.
+
+\ccode{d\_off} (the \emph{data offset}) and \ccode{len} are optional;
+they are only meaningful if \ccode{eslSSI\_FASTSUBSEQ} is set on this
+key's file. \ccode{d\_off} gives the disk position of the first line in
+the sequence data. \ccode{len} is the length of the sequence. It is
+necessary for bounds checking in a subsequence retrieval. We calculate
+subsequence offsets by arithmetic starting from a base of
+\ccode{d\_off}, and we have to be sure we don't try to reposition the
+disk outside the valid data.
+
+\subsubsection{Secondary key section}
+
+The secondary key section consists of \ccode{nsecondary} records. Each
+record is \ccode{srecsize} bytes long, and contains:
+
+\vspace{1em}
+\begin{tabular}{llrr}
+Variable   & Description                                   & Bytes      & Type \\\hline
+\ccode{key}   & Key name (seq name, identifier, accession)  & \ccode{slen}& char *\\
+\ccode{pkey}  & Primary key                                 &
+\ccode{plen}& char *\\\hline
+\end{tabular}
+\vspace{1em}
+
+That is, secondary keys are simply associated with primary keys as
+\emph{aliases}.  There can be many secondary keys for a given record.
+However, all keys (primary and secondary) must be unique: no key can
+occur more than once in the index.
+
+\subsection{Fast subsequence retrieval}
+
+In some files (notably vertebrate chromosome contigs) the size of each
+sequence is large. It may be slow (even prohibitively slow) to extract
+a desired subsequence, even if an SSI index says how to find the
+sequence record quickly, if you have to read the entire sequence into
+memory to extract the right part of it.
+
+If the sequence data file is consistently formatted so that each line
+in each record (except the last one) is of the same length, in both
+bytes and residues, we can determine a disk offset of the start of any
+subsequence by arithmetic. For example, a simple well-formatted FASTA
+file with 50 residues per line would have 51 bytes per sequence line
+(counting the '\verb+\0+') (\ccode{bpl}=51, \ccode{rpl}=50). Position
+$i$ in a sequence $1..L$ will be on line $l =
+(i-1)/\mbox{\ccode{rpl}}$, and line $l$ starts at disk offset $l *
+\mbox{\ccode{bpl}}$ relative to the start of the sequence data. 
+
+If there are no nonsequence characters in the data line except the
+terminal '\verb+\0+' (which is true iff \ccode{bpl} = \ccode{rpl}+1
+and 1 residue = 1 byte), we can precisely identify the disk position
+of any residue $i$ (\emph{single residue resolution}):
+
+\[
+\mbox{relative offset of residue $i$} =
+\left((i-1)/\mbox{\ccode{rpl}}\right)*\mbox{\ccode{bpl}} + (i-1) \% \mbox{ \ccode{rpl}}
+\]
+
+Even for sequence data lines with extra characters (e.g. spaces,
+coordinates, whatever), we can still identify the start of the text
+line that residue $i$ is on (\emph{line resolution}).  A parser can be
+positioned at the beginning of the appropriate line $l$, which starts
+at residue $(l*\mbox{\ccode{rpl}}) + 1$, and it can start reading from
+there (e.g. the line that $i$ is on) rather than the beginning of the
+whole sequence record.
+
+When creating an index, your program is responsible for determining if
+\ccode{bpl} and \ccode{rpl} are consistent throughout a file. If so,
+you call \ccode{esl\_newssi\_SetSubseq()} on that file's handle to set
+\ccode{bpl}, \ccode{rpl}, and the \ccode{eslSSI\_FASTSUBSEQ}
+flag. Then, when using that index, you can use the
+\ccode{esl\_ssi\_FindSubseq()} call to retrieve not only the filehandle
+\ccode{fh} and record offset \ccode{r\_off} for a key; you also provide
+a desired start position \ccode{requested\_start} for the subsequence
+you want to retrieve, and the routine gives you back a data offset
+\ccode{d\_off}, which corresponds to a actual starting position
+\ccode{actual\_start} that is also returned. For single residue
+resolution, \ccode{actual\_start} is \ccode{requested\_start}, and the
+data offset \ccode{d\_off} will position you right at the residue you
+want; you position the file with \ccode{fseeko()} and start reading
+your subsequence immediately. When we can only achieve line
+resolution, \ccode{actual\_start} is $\leq$ \ccode{requested\_start};
+you position the disk to the start of the appropriate line with
+\ccode{fseeko()}, start reading, and skip zero or more residues to
+reach your \ccode{requested\_start}. Your application must be prepared
+to deal with line resolution; it must not assume that
+\ccode{requested\_start} and \ccode{actual\_start} are identical.
+
+Data is always read ``left to right''.  To read a reverse complemented
+strand in DNA files, read your subsequence in forward orientation
+first, and reverse complement it later.
+
+
+

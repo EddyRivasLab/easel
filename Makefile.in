@@ -27,6 +27,7 @@ HEADERS = \
 	esl_random.h\
 	esl_regexp.h\
 	esl_sqio.h\
+	esl_ssi.h\
 	esl_stack.h\
 	esl_stats.h\
 	esl_stopwatch.h\
@@ -54,6 +55,7 @@ OBJS    = \
 	esl_random.o\
 	esl_regexp.o\
 	esl_sqio.o\
+	esl_ssi.o\
 	esl_stack.o\
 	esl_stats.o\
 	esl_stopwatch.o\

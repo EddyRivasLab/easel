@@ -1,17 +1,23 @@
-/* easel.h.in
+/* easel.h
  * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
  * SVN $Id$
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
- *
- * Created from easel.h.in by ./configure.
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
+
+#include <esl_config.h>
+
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
+#ifdef HAVE_STDINT_H
+#include <stdint.h>		/* for uint32_t and the like, on C99 systems */
+#elif  HAVE_INTTYPES_H
+#include <inttypes.h>		/* some systems supposedly put uints here */
+#endif
 
 /*****************************************************************
  * Available augmentations.
@@ -45,6 +51,8 @@
 /*------------ no user serviceable parts below this line -----------------*/
 /*------------------------------------------------------------------------*/
 
+
+
 /*****************************************************************
  * Version info, set by the ./configure script.
  *****************************************************************/
@@ -54,19 +62,38 @@
 #undef EASEL_COPYRIGHT 
 #undef EASEL_LICENSE   
 
-/* Error handling w/ a garbage collection convention.
- *
- * Using the ESL_ERROR_GOTO macro requires that you have an "int status" variable
- * in scope, and that you have a CLEANEXIT target for the goto.
- * It allows a function to throw an unexpected error through a nonfatal
- * error handler, while still cleaning up any allocated memory and closing
- * any open streams, and returning the error status flag to the caller.
- *
- * Wrapping these in while(0) loops allows one to write
- *     if (something) ESL_ERROR(code,mesg);
- * without the trailing semicolon being a null statement
- * after macro expansion.
+
+
+/*****************************************************************
+ * Error handling and allocation macros,
+ * including a garbage collection convention.
+ *****************************************************************/
+
+/* Macro: ESL_DIE()
  * 
+ * The error-throwing convention. Requires that you have an
+ * <int status> variable in scope, and that you have a <CLEANEXIT>
+ * target for the goto. Allows an error handler to catch an error,
+ * but return control (eventually) to the application, without
+ * leaking memory inside Easel.
+ * 
+ * Wrapping macros in <while(0)> loops allows one to write
+ *     <if (something) ESL_DIE(code,mesg);>
+ * without the trailing semicolon being a null statement
+ * after macro expansion. 
+ */
+#define ESL_DIE(code, mesg)  do {\
+     status = code;\
+     esl_error(code, __FILE__, __LINE__, mesg);\
+     goto CLEANEXIT; }\
+     while (0)
+
+/* Macros: ESL_ERROR(), ESL_ERROR_NULL()
+ * 
+ * Error-throwing conventions for simpler cases,
+ * with no garbage collection to worry about. No
+ * <int status> variable or <CLEANEXIT> target need
+ * to be in scope.
  */
 #define ESL_ERROR(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
@@ -78,29 +105,23 @@
      return NULL; }\
      while (0)
 
-#define ESL_ERROR_GOTO(code, mesg)  do {\
-     status = code;\
-     esl_error(code, __FILE__, __LINE__, mesg);\
-     goto CLEANEXIT; }\
-     while (0)
 
-/* Macros for allocation/reallocation idioms w/ error handling.
- * Like ESL_ERROR(), both assume the existence of a CLEANEXIT
- * goto target, and a status flag.
+/* Macros: ESL_ALLOC(), ESL_RALLOC()
+ * 
+ * Allocation and reallocation wrappers, including convention for
+ * error handling and error recovery. Like ESL_DIE(), they require
+ * that you have an <int status> variable in scope, and a <CLEANEXIT>
+ * target for the goto. ESL_REALLOC() additionally requires a
+ * <void *> ptr to be provided as <tmp>.
  */
-#define ESL_MALLOC(p, size) do {\
+#define ESL_ALLOC(p, size) do {\
      if (((p) = malloc(size)) == NULL) {\
        status = eslEMEM;\
        esl_error(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
        goto CLEANEXIT;\
      }} while (0)
-     
-/* ESL_REALLOC() 
- * tmp is a void *. we need it so we don't let go of the memory
- * we've already got allocated, if the realloc fails, else we can't
- * clean up.
- */
-#define ESL_REALLOC(p, tmp, newsize) do {\
+
+#define ESL_RALLOC(p, tmp, newsize) do {\
      (tmp) = realloc((p), (newsize));\
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
@@ -109,7 +130,28 @@
        goto CLEANEXIT;\
      }} while (0)
 
+/* Macros: ESL_MALLOC(), ESL_REALLOC()
+ * [Deprecated: use ESL_ALLOC(), ESL_RALLOC()]
+ * 
+ * Deprecated allocation wrappers, with no garbage collection.
+ */
+#define ESL_MALLOC(p, size) do {\
+     (p) = malloc(size);\
+     if ((p) == NULL) {\
+       esl_error(eslEMEM, __FILE__, __LINE__, "malloc failed");\
+       return eslEMEM;\
+     }} while (0)
 
+#define ESL_REALLOC(p, tmp, newsize) do {\
+     (tmp) = realloc((p), (newsize));\
+     if ((tmp) != NULL) (p) = (tmp);\
+     else {\
+       esl_error(eslEMEM, __FILE__, __LINE__, "realloc failed");\
+       return eslEMEM;\
+     }} while (0)
+     
+/* Return codes for error handling
+ */
 #define eslOK              0	/* no error/success             */
 #define eslFAIL            1    /* failure                      */
 #define eslEOL             2	/* end-of-line (often normal)   */
@@ -165,18 +207,17 @@
  */
 #define eslERRBUFSIZE 128
 
+
+
+
+
 /* Header includes/configuration
  */
 #undef HAVE_UNISTD_H
 #undef HAVE_STDINT_H
 #undef HAVE_INTTYPES_H
 
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
+
 
 /* Exact-size integer types.
  * If you see "FIXME" below, the configure script failed to

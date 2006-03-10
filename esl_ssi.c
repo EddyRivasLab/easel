@@ -42,8 +42,8 @@ static int  binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
  *            
  * Throws:    <eslEMEM> on allocation error.
  */
-ESL_SSI *
-esl_ssi_Open(char *filename)
+int
+esl_ssi_Open(char *filename, ESL_SSI *ret_ssi)
 {
   ESL_SSI *ssi = NULL;
   int      status;
@@ -52,7 +52,7 @@ esl_ssi_Open(char *filename)
 
   /* Initialize the SSI structure, null'ing so we can autocleanup.
    */
-  ESL_MALLOC(ssi, sizeof(ESL_SSI));
+  ESL_ALLOC(ssi, sizeof(ESL_SSI));
   ssi->fp         = NULL;
   ssi->filename   = NULL;
   ssi->fileformat = NULL;
@@ -115,18 +115,18 @@ esl_ssi_Open(char *filename)
   status = eslEFORMAT;
   if (ssi->nfiles == 0) goto CLEANEXIT;
 
-  ESL_MALLOC(ssi->filename,   sizeof(char *) * ssi->nfiles);
+  ESL_ALLOC(ssi->filename,   sizeof(char *) * ssi->nfiles);
   for (i = 0; i < ssi->nfiles; i++)  ssi->filename[i] = NULL; 
-  ESL_MALLOC(ssi->fileformat, sizeof(uint32_t) * ssi->nfiles);
-  ESL_MALLOC(ssi->fileflags,  sizeof(uint32_t) * ssi->nfiles);
-  ESL_MALLOC(ssi->bpl,        sizeof(uint32_t) * ssi->nfiles);
-  ESL_MALLOC(ssi->rpl,        sizeof(uint32_t) * ssi->nfiles);
+  ESL_ALLOC(ssi->fileformat, sizeof(uint32_t) * ssi->nfiles);
+  ESL_ALLOC(ssi->fileflags,  sizeof(uint32_t) * ssi->nfiles);
+  ESL_ALLOC(ssi->bpl,        sizeof(uint32_t) * ssi->nfiles);
+  ESL_ALLOC(ssi->rpl,        sizeof(uint32_t) * ssi->nfiles);
 
   /* (most) mallocs done, now we read.
    */
   for (i = 0; i < ssi->nfiles; i++) 
     {
-      ESL_MALLOC(ssi->filename[i], sizeof(char)* ssi->flen);
+      ESL_ALLOC(ssi->filename[i], sizeof(char)* ssi->flen);
 
       /* We have to explicitly position, because header and file 
        * records may expand in the future; frecsize and foffset 
@@ -179,7 +179,7 @@ esl_ssi_Close(ESL_SSI *ssi)
 }  
 
 
-/* Function: esl_ssi_GetOffsetByName()
+/* Function: esl_ssi_FindName()
  * Date:     SRE, Sun Dec 31 13:55:31 2000 [St. Louis]
  *
  * Purpose:  Looks up the string <key> in index <ssi>.
@@ -200,7 +200,7 @@ esl_ssi_Close(ESL_SSI *ssi)
  *                        certainly reflects some kind of misformatting.
  */
 int
-esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_offset)
+esl_ssi_FindName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_offset)
 {
   int       status;
   char     *pkey   = NULL;
@@ -231,10 +231,10 @@ esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_of
 
       /* We have the secondary key; flip to its primary key, then look that up.
        */
-	ESL_MALLOC(pkey, sizeof(char) * ssi->plen);
+	ESL_ALLOC(pkey, sizeof(char) * ssi->plen);
 	status = eslEFORMAT;
 	if (fread(pkey, sizeof(char), ssi->plen, ssi->fp) != ssi->plen) goto CLEANEXIT;
-	status = SSIGetOffsetByName(ssi, pkey, &fh, &offset);
+	status = esl_ssi_FindName(ssi, pkey, &fh, &offset);
 	if (status != eslOK) goto CLEANEXIT;
       }
     }
@@ -257,7 +257,7 @@ esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_of
 
 
 
-/* Function:  esl_ssi_GetOffsetByNumber()
+/* Function:  esl_ssi_FindNumber()
  * Incept:    SRE, Mon Jan  1 19:42:42 2001 [St. Louis]
  *
  * Purpose:   Looks up primary key number <nkey> in the open index
@@ -281,8 +281,7 @@ esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_of
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey, 
-			  uint16_t *ret_fh, off_t *ret_offset)
+esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
 {
   int      status;
   uint16_t fh;
@@ -291,7 +290,7 @@ esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey,
 
 
   if (n >= sfp->nprimary) { status = eslENOTFOUND; goto CLEANEXIT; }
-  ESL_MALLOC(pkey, sizeof(char) * ssi->plen);
+  ESL_ALLOC(pkey, sizeof(char) * ssi->plen);
 
   status = eslEFORMAT;
   if (fseeko(ssi->fp, ssi->poffset + ssi->precsize*n, SEEK_SET) != 0)         goto CLEANEXIT;
@@ -315,7 +314,7 @@ esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey,
 }
 
 
-/* Function: esl_ssi_GetSubseqOffset()
+/* Function: esl_ssi_FindSubseq()
  * Date:     SRE, Mon Jan  1 19:49:31 2001 [St. Louis]
  *
  * Purpose:  Fast subsequence retrieval:
@@ -350,9 +349,9 @@ esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey,
  *                        <1..len> for the target sequence.
  */
 int
-esl_ssi_GetSubseqOffset(ESL_SSI *ssi, char key, long requested_start,
-			unit16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
-			long *ret_actual_start)
+esl_ssi_FindSubseq(ESL_SSI *ssi, char key, long requested_start,
+		   unit16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
+		   long *ret_actual_start)
 {
   int      status;
   uint16_t fh;
@@ -361,10 +360,10 @@ esl_ssi_GetSubseqOffset(ESL_SSI *ssi, char key, long requested_start,
   uint32_t len;
   int      r, b, i, l;	/* tmp variables for "clarity", to match docs */
   
-  /* Look up the key. Rely on the fact that esl_ssi_GetOffsetByName()
+  /* Look up the key. Rely on the fact that esl_ssi_FindName()
    * leaves the index file positioned at the rest of the data for this key.
    */
-  status = esl_ssi_GetOffsetByName(ssi, key, &fh, &r_off);
+  status = esl_ssi_FindName(ssi, key, &fh, &r_off);
   if (status != eslOK) goto CLEANEXIT;
 
   /* Check that we're allowed to do subseq lookup on that file.
@@ -450,7 +449,7 @@ esl_ssi_FileInfo(ESL_SSI *ssi, int fh, char **ret_filename, int *ret_format)
 {
   int status;
 
-  if (fh < 0 || fh >= ssi->nfiles) ESL_ERROR_GOTO(eslEINVAL, "no such file number");
+  if (fh < 0 || fh >= ssi->nfiles) ESL_DIE(eslEINVAL, "no such file number");
   *ret_filename = ssi->filename[fh];
   *ret_format   = ssi->fileformat[fh];
   status = eslOK;
@@ -498,7 +497,7 @@ binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
   
   if (maxidx == 0) return eslENOTFOUND; /* special case: empty index */
 
-  ESL_MALLOC(name, (sizeof(char)*klen));
+  ESL_ALLOC(name, (sizeof(char)*klen));
 
   left  = 0;
   right = maxidx-1;
@@ -553,7 +552,7 @@ esl_newssi_Create(void)
   int status;
   ESL_NEWSSI *ns = NULL;
 
-  ESL_MALLOC(ns, sizeof(ESL_NEWSSI));
+  ESL_ALLOC(ns, sizeof(ESL_NEWSSI));
 
   ns->external   = FALSE;	    /* we'll switch to external sort if...       */
   ns->max_ram    = eslSSI_MAXRAM;   /* ... if we exceed this memory limit in MB. */
@@ -578,12 +577,12 @@ esl_newssi_Create(void)
    * we free anything non-NULL if any malloc fails.
    * filenames[] array doesn't have to be NULL'ed because we're tracking nfiles.
    */
-  ESL_MALLOC(ns->filenames,  sizeof(char *)   * eslSSI_FCHUNK);
-  ESL_MALLOC(ns->fileformat, sizeof(uint32_t) * eslSSI_FCHUNK);
-  ESL_MALLOC(ns->bpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
-  ESL_MALLOC(ns->rpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
-  ESL_MALLOC(ns->pkeys,      sizeof(ESL_PKEY) * eslSSI_KCHUNK);
-  ESL_MALLOC(ns->skeys,      sizeof(ESL_SKEY) * eslSSI_KCHUNK);
+  ESL_ALLOC(ns->filenames,  sizeof(char *)   * eslSSI_FCHUNK);
+  ESL_ALLOC(ns->fileformat, sizeof(uint32_t) * eslSSI_FCHUNK);
+  ESL_ALLOC(ns->bpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
+  ESL_ALLOC(ns->rpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
+  ESL_ALLOC(ns->pkeys,      sizeof(ESL_PKEY) * eslSSI_KCHUNK);
+  ESL_ALLOC(ns->skeys,      sizeof(ESL_SKEY) * eslSSI_KCHUNK);
   status = eslOK;
 
  CLEANEXIT:
@@ -630,7 +629,7 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
   if ((n+1) > ns->flen) ns->flen = n+1;
 
   status = esl_FileTail(filename, FALSE, &(ns->filenames[ns->nfiles]));
-  if (status != eslOK) ESL_ERROR_GOTO(status, "esl_FileTail() failed");
+  if (status != eslOK) ESL_DIE(status, "esl_FileTail() failed");
   
   ns->fileformat[ns->nfiles] = fmt;
   ns->bpl[ns->nfiles]        = 0;
@@ -640,10 +639,10 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
 
   if (ns->nfiles % eslSSI_FBLOCK == 0) {
     void  *tmp;
-    ESL_REALLOC(ns->filenames,  tmp, sizeof(char *)   * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_REALLOC(ns->fileformat, tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_REALLOC(ns->bpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_REALLOC(ns->rpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
+    ESL_RALLOC(ns->filenames,  tmp, sizeof(char *)   * (ns->nfiles+eslSSI_FBLOCK));
+    ESL_RALLOC(ns->fileformat, tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
+    ESL_RALLOC(ns->bpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
+    ESL_RALLOC(ns->rpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
   }
   status = eslOK;
 
@@ -655,7 +654,7 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
 
 
 
-/* Function:  esl_newssi_SetFastSubseqFile()
+/* Function:  esl_newssi_SetSubseq()
  * Incept:    SRE, Tue Mar  7 09:03:59 2006 [St. Louis]
  *
  * Purpose:   Declare that the file associated with handle <fh> is
@@ -677,12 +676,12 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
  * Throws:    <eslEINVAL> on invalid argument(s).
  */
 int
-esl_newssi_SetFastSubseqFile(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
+esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
 {
   int status;
 
-  if (fh < 0 || fh >= ns->nfiles) ESL_ERROR_GOTO(eslEINVAL, "invalid file number");
-  if (bpl <= 0 || rpl <= 0)       ESL_ERROR_GOTO(eslEINVAL, "invalid bpl or rpl");
+  if (fh < 0 || fh >= ns->nfiles) ESL_DIE(eslEINVAL, "invalid file number");
+  if (bpl <= 0 || rpl <= 0)       ESL_DIE(eslEINVAL, "invalid bpl or rpl");
   ns->bpl[fh] = bpl;
   ns->rpl[fh] = rpl;
   status = eslOK;
@@ -692,7 +691,7 @@ esl_newssi_SetFastSubseqFile(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
 }
 
 
-/* Function: esl_newssi_AddPrimaryKey()
+/* Function: esl_newssi_AddKey()
  * Date:     SRE, Tue Jan  2 11:50:54 2001 [St. Louis]
  *
  * Purpose:  Register primary key <key> in new index <ns>, while telling
@@ -735,13 +734,13 @@ esl_newssi_SetFastSubseqFile(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
  *           <eslEMEM>   on allocation failure.       
  */
 int
-esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
-			 off_t r_off, off_t d_off, uint32_t L)
+esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
+		  off_t r_off, off_t d_off, uint32_t L)
 {
   int status;
   int n;			/* a string length */
   
-  if (fh < 0 || fh >= eslSSI_MAXFILES) ESL_ERROR_GOTO(eslEINVAL, "invalid fh");
+  if (fh < 0 || fh >= eslSSI_MAXFILES) ESL_DIE(eslEINVAL, "invalid fh");
   if (ns->nprimary >= eslSSI_MAXKEYS)  return eslERANGE;
 
   /* Before adding the key: check how big our index is.
@@ -781,7 +780,7 @@ esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
       /* Else: internal mode, keep keys in memory...
        */
       if (esl_strdup(key, n, &(ns->pkeys[ns->nprimary].key)) != eslOK)
-	ESL_ERROR_GOTO(eslEMEM, "esl_strdup failed");
+	ESL_DIE(eslEMEM, "esl_strdup failed");
       ns->pkeys[ns->nprimary].fnum  = fh;
       ns->pkeys[ns->nprimary].r_off = r_off;
       ns->pkeys[ns->nprimary].d_off = d_off;
@@ -792,7 +791,7 @@ esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
        */
       if (ns->nprimary % eslSSI_KCHUNK == 0) {
 	void *tmp;
-	ESL_REALLOC(ns->pkeys, tmp, sizeof(ESL_PKEY) * (ns->nprimary+eslSSI_KCHUNK));
+	ESL_RALLOC(ns->pkeys, tmp, sizeof(ESL_PKEY) * (ns->nprimary+eslSSI_KCHUNK));
       }
     }
   status = eslOK;
@@ -801,17 +800,17 @@ esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
   return status;
 }
 
-/* Function:  esl_newssi_AddSecondaryKey()
+/* Function:  esl_newssi_AddAlias()
  * Incept:    SRE, Tue Mar  7 15:49:43 2006 [St. Louis]
  *
- * Purpose:   Registers secondary key <skey> in index <ns>, and 
- *            map it to the primary key <pkey>. <pkey> must already
- *            have been registered. That is, when someone looks up <skey>,
- *            we'll retrieve record <pkey>. 
+ * Purpose:   Registers secondary key <alias> in index <ns>, and 
+ *            map it to the primary key <key>. <key> must already
+ *            have been registered. That is, when someone looks up <alias>,
+ *            we'll retrieve record <key>. 
  *            
  * Args:      <ns>    - ssi index being constructed
- *            <skey>  - secondary key to register
- *            <pkey>  - primary key to associate with <skey>.                  
+ *            <alias> - secondary key to register
+ *            <key>   - primary key to associate with <skey>.                  
  *
  * Returns:   <eslOK>        on success;
  *            <eslERANGE>    if registering this key would exceed the maximum
@@ -824,7 +823,7 @@ esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_newssi_AddSecondaryKey(ESL_NEWSSI *ns, char *skey, char *pkey)
+esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key)
 {
   int status;
   int n;			/* a string length */
@@ -859,7 +858,7 @@ esl_newssi_AddSecondaryKey(ESL_NEWSSI *ns, char *skey, char *pkey)
 
       if (ns->nsecondary % eslSSI_KCHUNK == 0) {
 	void *tmp;
-	ESL_REALLOC(ns->skeys, tmp, sizeof(ESL_SKEY) * (g->nsecondary+eslSSI_KCHUNK));
+	ESL_RALLOC(ns->skeys, tmp, sizeof(ESL_SKEY) * (g->nsecondary+eslSSI_KCHUNK));
       }
     }
 
@@ -893,7 +892,7 @@ esl_newssi_AddSecondaryKey(ESL_NEWSSI *ns, char *skey, char *pkey)
 int
 esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 {
-  int      status, 		/* needed: we will use ESL_ERROR_GOTO_GOTO()     */
+  int      status, 		/* convention                               */
            i;			/* counter over files, keys                 */
   uint32_t header_flags,	/* bitflags in the header                   */
            file_flags,		/* bitflags for a file record               */
@@ -915,9 +914,9 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
    * full binary lengths; pkey->key (for instance) is not guaranteed
    * to be allocated for the final maximum plen.
    */
-  ESL_MALLOC(fk, sizeof(char) * ns->flen);
-  ESL_MALLOC(pk, sizeof(char) * ns->plen);
-  ESL_MALLOC(sk, sizeof(char) * ns->slen);
+  ESL_ALLOC(fk, sizeof(char) * ns->flen);
+  ESL_ALLOC(pk, sizeof(char) * ns->plen);
+  ESL_ALLOC(sk, sizeof(char) * ns->slen);
 
   /* How big is the index? If it's going to be > 2GB, we better have
    * 64-bit offsets. (2047 (instead of 2048) gives us
@@ -971,7 +970,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
        * up.
        */
       if (strlen(ns->ptmpfile) > 256 || strlen(ns->ptmpfile) > 256) 
-	ESL_ERROR_GOTO(eslEINVAL, "tmpfile name too long"); 
+	ESL_DIE(eslEINVAL, "tmpfile name too long"); 
 
       status = eslESYS;	/* any premature return now is ESYS error */
       fclose(ns->ptmp);
@@ -1094,7 +1093,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 
   status = eslOK;
 
- CLEANEXIT: /* CLEANEXIT target required by the use of ESL_ERROR_GOTO(). */
+ CLEANEXIT: 
   if (pk  != NULL)       free(pk);
   if (sk  != NULL)       free(sk);
   if (buf != NULL)       free(buf);
@@ -1286,16 +1285,16 @@ parse_pkey(char *buf, ESL_PKEY *pkey)
   int   n;
   
   s = buf;
-  if (esl_strtok(&s, "\t\n", &(pkey->key), &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
-  if (esl_strtok(&s, "\t\n", &tok,         &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(pkey->key), &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok,         &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
   pkey->fnum = (uint16_t) atoi(tok);
 
-  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
   if (sizeof(off_t) == 4)  pkey->r_off  = (off_t) strtoul (tok, NULL, 10);
   else                     pkey->r_off  = (off_t) strtoull(tok, NULL, 10);
-  else                     ESL_ERROR_GOTO(eslINCONCEIVABLE, "whoa - weird off_t");
+  else                     ESL_DIE(eslINCONCEIVABLE, "whoa - weird off_t");
 
-  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
   pkey->len = (uint32_t) strtoul(tok, NULL, 10);
   status = eslOK;
 
@@ -1310,8 +1309,8 @@ parse_skey(char *buf, ESL_SKEY *skey)
   int   n;
   
   s = buf;
-  if (esl_strtok(&s, "\t\n", &(skey->key),  &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
-  if (esl_strtok(&s, "\t\n", &(skey->pkey), &n) != eslOK) ESL_ERROR_GOTO(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(skey->key),  &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(skey->pkey), &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
   status = eslOK;
 
 CLEANEXIT:
@@ -1545,14 +1544,13 @@ esl_fread_offset(FILE *fp, int mode, off_t *ret_offset)
   else if (mode == 32 && sizeof(off_t) == 8)
     {
       esl_uint32 x;
-      if (esl_fread_i32(fp, &x) != eslOK) return eslFAIL;
+      if (esl_fread_i32(fp, &x) != eslOK) { *ret_offset = 0; return eslFAIL; }
       *ret_offset = (uint64_t) x;
       return eslOK;
     }
-
   if (mode != 32 && mode != 64) ESL_ERROR(eslEINVAL, "mode must be 32 or 64");
   else ESL_ERROR(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
-  /*UNREACHED*/
+  /*NOTREACHED*/
   return eslEINCONCEIVABLE;
 }
 
@@ -1573,10 +1571,109 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 {
   if      (sizeof(off_t) == 4) return esl_fwrite_i32(fp, offset);
   else if (sizeof(off_t) == 8) return esl_fwrite_i64(fp, offset);
-  else ESL_ERROR(eslEINVAL, "off_t is neither 32-bit nor 64-bit");
+  else ESL_DIE(eslEINVAL, "off_t is neither 32-bit nor 64-bit");
   /*UNREACHED*/
   return eslINCONCEIVABLE;
 }
+
+
+
+/*****************************************************************
+ * Example code.
+ ****************************************************************/
+#ifdef eslSSI_EXAMPLE
+/*::cexcerpt::ssi_example::begin::*/
+#include <easel.h>
+#include <stdio.h>
+
+int main(int argc, char **argv)
+{
+  ESL_NEWSSI *ns;
+  char    *fafile;		/* name of FASTA file                   */
+  FILE    *fp;			/* opened FASTA file for reading        */
+  char    *ssifile;		/* name of SSI file                     */
+  FILE    *sfp;			/* opened SSI file for writing          */
+  uint16_t fh;			/* file handle SSI associates w/ fafile */
+  char    *buf = NULL;		/* growable buffer for esl_fgets()      */
+  int      n   = 0;		/* length of buf                        */
+  char    *s, *seqname;		
+  off_t    seq_offset;
+
+  /* Collect the sequence names from a FASTA file into an index */
+  fafile = argv[1];
+  ns = esl_newssi_Create();
+  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open file %s", fafile);
+  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add file %s to index", fafile);
+
+  seq_offset = ftello(fp);
+  while (esl_fgets(&buf, &n, fp) == eslOK)
+    {
+      if (*buf == '>') {
+	s = buf+1;                              /* skip past >                */
+	esl_strtok(s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
+	esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0);
+      }
+      seq_offset = ftello(fp);				 
+    }
+  free(buf);
+  fclose(fp);
+
+  /* Save the index to disk */
+  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name an ssi file for %s", fafile);
+  if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
+  if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
+  fclose(sfp);
+  free(ssifile);
+  esl_newssi_Destroy(ns);  
+
+  return 0;
+}
+/*::cexcerpt::ssi_example::end::*/
+#endif /*eslSSI_EXAMPLE*/
+
+
+#ifdef eslSSI_EXAMPLE2
+/*::cexcerpt::ssi_example2::begin::*/
+#include <easel.h>
+#include <stdio.h>
+
+int main(int argc, char **argv)
+{
+  ESL_SSI *ssi;
+  char    *seqname;		/* name of sequence to retrieve         */
+  char    *ssifile;		/* name of SSI file                     */
+  uint16_t fh;			/* file handle SSI associates w/ fafile */
+  char    *fafile;		/* name of FASTA file                   */
+  int      fmt;                 /* format code (1, in this example)     */
+  off_t    offset;              /* disk offset of seqname in fafile     */
+  FILE    *fp;			/* opened FASTA file for reading        */
+  char    *buf = NULL;		/* growable buffer for esl_fgets()      */
+  int      n = 0;		/* size of buffer                       */
+
+  seqname = argv[1];
+  ssifile = argv[2];
+
+  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open ssi file %s", ssifile);
+  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s in ssi index %s", seqname, ssifile);
+  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to retrieve file name for handle %d\n", fh);
+  esl_ssi_Destroy(ssi);  
+
+  if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
+  if (fseeko(fp, offset, SEEK_SET)                 != 0)      esl_fatal("failed to position file %s", fafile);
+  if (esl_fgets(&buf, &n, fp)                      != eslOK)  esl_fatal("failed to get name/desc line");
+  do {
+    puts(buf); 
+  } while (esl_fgets(&buf, &n, fp) != eslOK && *buf != '>');
+  
+  fclose(fp);  
+  free(buf);
+  return 0;
+}
+/*::cexcerpt::ssi_example2::end::*/
+#endif /*eslSSI_EXAMPLE2*/
+
+
+
 
 
 /*****************************************************************

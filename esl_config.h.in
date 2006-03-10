@@ -36,6 +36,7 @@
 #undef ESL_UINT16
 #undef ESL_UINT32
 #undef ESL_UINT64
+
 #ifndef HAVE_UINT16_T
 typedef ESL_UINT16 uint16_t 
 #endif

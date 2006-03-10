@@ -124,15 +124,16 @@ typedef struct {
  */
 extern int  esl_ssi_Open(char *filename, ESL_SSI **ret_ssi);
 extern void esl_ssi_Close(ESL_SSI *ssi);
-extern int  esl_ssi_GetOffsetByName(ESL_SSI *ssi, char *key,
-				    uint16_t *ret_fh, off_t *ret_offset);
-extern int  esl_ssi_GetOffsetByNumber(ESL_SSI *ssi, int nkey,
-				      uint16_t *ret_fh, off_t *ret_offset);
-extern int  esl_ssi_GetSubseqOffset(ESL_SSI *ssi, char key, long requested_start,
-				    uint16_t *ret_fh, off_t *record_offset, 
-				    off_t *data_offset, long *ret_actual_start);
+extern int  esl_ssi_FindName(ESL_SSI *ssi, char *key,
+			     uint16_t *ret_fh, off_t *ret_offset);
+extern int  esl_ssi_FindNumber(ESL_SSI *ssi, int nkey,
+			       uint16_t *ret_fh, off_t *ret_offset);
+extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, char key, long requested_start,
+			       uint16_t *ret_fh, off_t *record_offset, 
+			       off_t *data_offset, long *ret_actual_start);
 extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
 			     char **ret_filename, int *ret_format);
+
 
 
 /* 2. Creating SSI indices
@@ -140,11 +141,11 @@ extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
 extern ESL_NEWSSI *esl_newssi_Create(void);
 extern int  esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename,
 			       int fmt, uint16_t *ret_fh);
-extern int  esl_newssi_SetFastSubseqFile(ESL_NEWSSI *ns, uint16_t fh,
-					 int bpl, int rpl);
-extern int  esl_newssi_AddPrimaryKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
-				     off_t r_off, off_t d_off, uint32_t L);
-extern int  esl_newssi_AddSecondaryKey(ESL_NEWSSI *ns, char *skey, char *pkey);
+extern int  esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh,
+				 int bpl, int rpl);
+extern int  esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
+			      off_t r_off, off_t d_off, uint32_t L);
+extern int  esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key);
 extern int  esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns);
 extern void esl_newssi_Destroy(ESL_NEWSSI *ns);
 

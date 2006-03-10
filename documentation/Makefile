@@ -20,6 +20,7 @@ APITEX =  easel\
 	  esl_random\
 	  esl_regexp\
 	  esl_sqio\
+	  esl_ssi\
 	  esl_stack\
 	  esl_stopwatch\
 	  esl_stretchexp\
@@ -47,6 +48,7 @@ AUTOTEX = esl_alphabet\
 	  esl_random\
 	  esl_regexp\
 	  esl_sqio\
+	  esl_ssi\
 	  esl_stack\
 	  esl_stopwatch\
 	  esl_stretchexp\
