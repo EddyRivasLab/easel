@@ -33,6 +33,9 @@
 /* Types
  * Make sure we have C99-standard fixed-width unsigned types
  */
+#undef HAVE_UINT16_T
+#undef HAVE_UINT32_T
+#undef HAVE_UINT64_T
 #undef ESL_UINT16
 #undef ESL_UINT32
 #undef ESL_UINT64

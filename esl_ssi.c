@@ -43,7 +43,7 @@ static int  binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_ssi_Open(char *filename, ESL_SSI *ret_ssi)
+esl_ssi_Open(char *filename, ESL_SSI **ret_ssi)
 {
   ESL_SSI *ssi = NULL;
   int      status;
@@ -133,7 +133,7 @@ esl_ssi_Open(char *filename, ESL_SSI *ret_ssi)
        * give us forwards compatibility. 
        */ 
       status = eslEFORMAT;
-      if (fseeko(ssi->fp, ssi->foffset + (n * ssi->frecsize), SEEK_SET) != 0) goto CLEANEXIT;
+      if (fseeko(ssi->fp, ssi->foffset + (i * ssi->frecsize), SEEK_SET) != 0) goto CLEANEXIT;
       if (fread(ssi->filename[i],sizeof(char),ssi->flen, ssi->fp)!=ssi->flen) goto CLEANEXIT;
       if (esl_fread_i32(ssi->fp, &(ssi->fileformat[i])))                      goto CLEANEXIT;
       if (esl_fread_i32(ssi->fp, &(ssi->fileflags[i])))                       goto CLEANEXIT;
@@ -173,7 +173,7 @@ esl_ssi_Close(ESL_SSI *ssi)
   }
   if (ssi->fileformat != NULL) free(ssi->fileformat);
   if (ssi->fileflags  != NULL) free(ssi->fileflags);
-  if (ssi->bpl        != NULL) free(ssi->>bpl);
+  if (ssi->bpl        != NULL) free(ssi->bpl);
   if (ssi->rpl        != NULL) free(ssi->rpl);
   free(ssi);
 }  
@@ -289,11 +289,11 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
   char    *pkey = NULL;
 
 
-  if (n >= sfp->nprimary) { status = eslENOTFOUND; goto CLEANEXIT; }
+  if (nkey >= ssi->nprimary) { status = eslENOTFOUND; goto CLEANEXIT; }
   ESL_ALLOC(pkey, sizeof(char) * ssi->plen);
 
   status = eslEFORMAT;
-  if (fseeko(ssi->fp, ssi->poffset + ssi->precsize*n, SEEK_SET) != 0)         goto CLEANEXIT;
+  if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0)         goto CLEANEXIT;
   if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)             != ssi->plen) goto CLEANEXIT;
   if (esl_fread_i16(ssi->fp, &fh)                               != eslOK)     goto CLEANEXIT;
   if (esl_fread_offset(ssi->fp, ssi->smode, ret_offset)         != eslOK)     goto CLEANEXIT;
@@ -349,8 +349,8 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
  *                        <1..len> for the target sequence.
  */
 int
-esl_ssi_FindSubseq(ESL_SSI *ssi, char key, long requested_start,
-		   unit16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
+esl_ssi_FindSubseq(ESL_SSI *ssi, char *key, long requested_start,
+		   uint16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
 		   long *ret_actual_start)
 {
   int      status;
@@ -445,11 +445,11 @@ esl_ssi_FindSubseq(ESL_SSI *ssi, char key, long requested_start,
  * Throws:   <eslEINVAL> if there is no such file number <fh>.
  */
 int
-esl_ssi_FileInfo(ESL_SSI *ssi, int fh, char **ret_filename, int *ret_format)
+esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int *ret_format)
 {
   int status;
 
-  if (fh < 0 || fh >= ssi->nfiles) ESL_DIE(eslEINVAL, "no such file number");
+  if (fh >= ssi->nfiles) ESL_DIE(eslEINVAL, "no such file number");
   *ret_filename = ssi->filename[fh];
   *ret_format   = ssi->fileformat[fh];
   status = eslOK;
@@ -532,7 +532,7 @@ binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
 static int current_newssi_size(ESL_NEWSSI *ns);
 static int activate_external_sort(ESL_NEWSSI *ns);
 static int parse_pkey(char *buf, ESL_PKEY *pkey);
-static int parse_skey(char *buf, ESL_PKEY *pkey);
+static int parse_skey(char *buf, ESL_SKEY *skey);
 static int pkeysort(const void *k1, const void *k2);
 static int skeysort(const void *k1, const void *k2);
 
@@ -637,12 +637,12 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
   fh                         = ns->nfiles;   /* handle is simply = file number */
   ns->nfiles++;
 
-  if (ns->nfiles % eslSSI_FBLOCK == 0) {
+  if (ns->nfiles % eslSSI_FCHUNK == 0) {
     void  *tmp;
-    ESL_RALLOC(ns->filenames,  tmp, sizeof(char *)   * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_RALLOC(ns->fileformat, tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_RALLOC(ns->bpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
-    ESL_RALLOC(ns->rpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FBLOCK));
+    ESL_RALLOC(ns->filenames,  tmp, sizeof(char *)   * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_RALLOC(ns->fileformat, tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_RALLOC(ns->bpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_RALLOC(ns->rpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
   }
   status = eslOK;
 
@@ -680,8 +680,8 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
 {
   int status;
 
-  if (fh < 0 || fh >= ns->nfiles) ESL_DIE(eslEINVAL, "invalid file number");
-  if (bpl <= 0 || rpl <= 0)       ESL_DIE(eslEINVAL, "invalid bpl or rpl");
+  if (fh >= ns->nfiles)      ESL_DIE(eslEINVAL, "invalid file number");
+  if (bpl <= 0 || rpl <= 0)  ESL_DIE(eslEINVAL, "invalid bpl or rpl");
   ns->bpl[fh] = bpl;
   ns->rpl[fh] = rpl;
   status = eslOK;
@@ -740,7 +740,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
   int status;
   int n;			/* a string length */
   
-  if (fh < 0 || fh >= eslSSI_MAXFILES) ESL_DIE(eslEINVAL, "invalid fh");
+  if (fh >= eslSSI_MAXFILES)           ESL_DIE(eslEINVAL, "invalid fh");
   if (ns->nprimary >= eslSSI_MAXKEYS)  return eslERANGE;
 
   /* Before adding the key: check how big our index is.
@@ -838,27 +838,27 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key)
 
   /* Update maximum secondary key length, if necessary.
    */
-  n = strlen(skey)+1;
+  n = strlen(alias)+1;
   if (n > ns->slen) ns->slen = n;
 
   /* if external mode: write info to disk.
    */
   if (ns->external) 
     {
-      fprintf(ns->stmp, "%s\t%s\n", skey, pkey);
+      fprintf(ns->stmp, "%s\t%s\n", alias, key);
       ns->nsecondary++;
     }
   else
     {
       /* else, internal mode... store info in memory.
        */
-      if ((status = esl_strdup(skey, n, &(ns->skeys[ns->nsecondary].key)))   != eslOK) goto CLEANEXIT;
-      if ((status = esl_strdup(pkey, -1, &(ns->skeys[ns->nsecondary].pkey))) != eslOK) goto CLEANEXIT;
+      if ((status = esl_strdup(alias, n, &(ns->skeys[ns->nsecondary].key))) != eslOK) goto CLEANEXIT;
+      if ((status = esl_strdup(key, -1, &(ns->skeys[ns->nsecondary].pkey))) != eslOK) goto CLEANEXIT;
       ns->nsecondary++;
 
       if (ns->nsecondary % eslSSI_KCHUNK == 0) {
 	void *tmp;
-	ESL_RALLOC(ns->skeys, tmp, sizeof(ESL_SKEY) * (g->nsecondary+eslSSI_KCHUNK));
+	ESL_RALLOC(ns->skeys, tmp, sizeof(ESL_SKEY) * (ns->nsecondary+eslSSI_KCHUNK));
       }
     }
 
@@ -926,7 +926,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
    * millions of keys for nothing. Ah well.
    */
   if (current_newssi_size(ns) >= 2047 && sizeof(off_t) != 8)
-    { status = eslEFAIL; goto CLEANEXIT; }
+    { status = eslFAIL; goto CLEANEXIT; }
 
   /* Magic-looking numbers come from adding up sizes 
    * of things in bytes: they match current_newssi_size().
@@ -959,7 +959,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
    * LC_COLLATE=en_US, and this'll give a sort "bug" in which it doesn't
    * sort by byte order.
    */
-  if (g->external) 
+  if (ns->external) 
     {
       char cmd[1024];
 
@@ -979,7 +979,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
       if (system(cmd) != 0)                              goto CLEANEXIT;
       if ((ns->ptmp = fopen(ns->ptmpfile, "r")) == NULL) goto CLEANEXIT;
 
-      fclose(g->stmp);
+      fclose(ns->stmp);
       ns->stmp = NULL;
       sprintf(cmd, "env LC_ALL=POSIX sort -o %s %s\n", ns->stmpfile, ns->stmpfile);
       if (system(cmd) != 0)                              goto CLEANEXIT;
@@ -992,24 +992,21 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
     }
 
   /* Write the header
-   */
-  if ((fp = fopen(file,"wb")) == NULL)  { status = eslENOTFOUND; goto CLEANEXIT; }
-
-  status = eslEFAIL;		/* any write error is an EFAIL */
-  if (esl_fwrite_i32(fp, v20magic)     != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, header_flags) != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i16(fp, g->nfiles)    != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, g->nprimary)  != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, g->nsecondary)!= eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, g->flen)      != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, g->plen)      != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, g->slen)      != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, frecsize)     != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, precsize)     != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_i32(fp, srecsize)     != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_offset(fp, foffset)   != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_offset(fp, poffset)   != eslOK) goto CLEANEXIT;
-  if (esl_fwrite_offset(fp, soffset)   != eslOK) goto CLEANEXIT;
+  status = eslFAIL;		/* any write error is a FAIL */
+  if (esl_fwrite_i32(fp, v20magic)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, header_flags)  != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i16(fp, ns->nfiles)    != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, ns->nprimary)  != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, ns->nsecondary)!= eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, ns->flen)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, ns->plen)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, ns->slen)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, frecsize)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, precsize)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_i32(fp, srecsize)      != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_offset(fp, foffset)    != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_offset(fp, poffset)    != eslOK) goto CLEANEXIT;
+  if (esl_fwrite_offset(fp, soffset)    != eslOK) goto CLEANEXIT;
 
   /* Write the file section
    */
@@ -1019,7 +1016,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
       if (ns->bpl[i] > 0 && ns->rpl[i] > 0) file_flags |= eslSSI_FASTSUBSEQ;
       strcpy(fk, ns->filenames[i]);
 
-      status     = eslEFAIL;
+      status     = eslFAIL;
       if (fwrite(fk, sizeof(char), ns->flen, fp) != ns->flen) goto CLEANEXIT;
       if (esl_fwrite_i32(fp, ns->fileformat[i])  != eslOK)    goto CLEANEXIT;              
       if (esl_fwrite_i32(fp, file_flags)         != eslOK)    goto CLEANEXIT;             
@@ -1038,7 +1035,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  if (parse_pkey(buf, &pkey)         != eslOK)    goto CLEANEXIT;
 	  strcpy(pk, pkey.key);
 
-	  status = eslEFAIL;		/* any write error is an EFAIL */
+	  status = eslFAIL;		/* any write error is an EFAIL */
 	  if (fwrite(pk,sizeof(char),ns->plen,fp) != ns->plen) goto CLEANEXIT;
 	  if (esl_fwrite_i16(   fp, pkey.fnum)    != eslOK)    goto CLEANEXIT;   
 	  if (esl_fwrite_offset(fp, pkey.r_off)   != eslOK)    goto CLEANEXIT;
@@ -1052,12 +1049,12 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	{
 	  strcpy(pk, ns->pkeys[i].key);
 
-	  status = eslEFAIL;
-	  if (fwrite(pk,sizeof(char),ns->plen,fp)     != ns->plen) goto CLEANEXIT;
-	  if (esl_write_i16(   fp, g->pkeys[i].fnum)  != eslOK)    goto CLEANEXIT;
-	  if (esl_write_offset(fp, g->pkeys[i].r_off) != eslOK)    goto CLEANEXIT;
-	  if (esl_write_offset(fp, g->pkeys[i].d_off) != eslOK)    goto CLEANEXIT;
-	  if (esl_write_i32(   fp, g->pkeys[i].len)   != eslOK)    goto CLEANEXIT;
+	  status = eslFAIL;
+	  if (fwrite(pk,sizeof(char),ns->plen,fp)      != ns->plen) goto CLEANEXIT;
+	  if (esl_write_i16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto CLEANEXIT;
+	  if (esl_write_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto CLEANEXIT;
+	  if (esl_write_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto CLEANEXIT;
+	  if (esl_write_i32(   fp, ns->pkeys[i].len)   != eslOK)    goto CLEANEXIT;
 	}
     }
 
@@ -1073,7 +1070,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  strcpy(sk, skey.key);
 	  strcpy(pk, skey.pkey);
 
-	  status = eslEFAIL;
+	  status = eslFAIL;
 	  if (fwrite(sk, sizeof(char), ns->slen, fp) != ns->slen) goto CLEANEXIT;
 	  if (fwrite(pk, sizeof(char), ns->plen, fp) != ns->plen) goto CLEANEXIT;
 	}
@@ -1085,7 +1082,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  strcpy(sk, ns->skeys[i].key);
 	  strcpy(pk, ns->skeys[i].pkey);
 
-	  status = eslEFAIL;
+	  status = eslFAIL;
 	  if (fwrite(sk, sizeof(char), ns->slen, fp) != ns->slen) goto CLEANEXIT;
 	  if (fwrite(pk, sizeof(char), ns->plen, fp) != ns->plen) goto CLEANEXIT;
 	} 
@@ -1179,9 +1176,9 @@ current_newssi_size(ESL_NEWSSI *ns)
   srecsize = ns->plen + ns->slen;
   total = (42 +		               /* header size, if 64bit index offsets */
 	   3 * sizeof(off_t) + 
-	   frecsize * g->nfiles +      /* file section size                   */
-	   precsize * g->nprimary +    /* primary key section size            */
-	   srecsize * g->nsecondary) / /* secondary key section size          */
+	   frecsize * ns->nfiles +      /* file section size                   */
+	   precsize * ns->nprimary +    /* primary key section size            */
+	   srecsize * ns->nsecondary) / /* secondary key section size          */
           1048576L;
   return (int) total;
 }
@@ -1210,8 +1207,8 @@ activate_external_sort(ESL_NEWSSI *ns)
   if (esl_FileExists(ns->stmpfile)) goto CLEANEXIT;
   
   status = eslENOTFOUND;
-  if ((ns->ptmp = fopen(g->ptmpfile, "w")) == NULL) goto CLEANEXIT;
-  if ((ns->stmp = fopen(g->stmpfile, "w")) == NULL) goto CLEANEXIT;
+  if ((ns->ptmp = fopen(ns->ptmpfile, "w")) == NULL) goto CLEANEXIT;
+  if ((ns->stmp = fopen(ns->stmpfile, "w")) == NULL) goto CLEANEXIT;
 
   /* Flush the current indices.
    */
@@ -1285,14 +1282,17 @@ parse_pkey(char *buf, ESL_PKEY *pkey)
   int   n;
   
   s = buf;
-  if (esl_strtok(&s, "\t\n", &(pkey->key), &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
-  if (esl_strtok(&s, "\t\n", &tok,         &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(pkey->key), &n) != eslOK)
+    ESL_DIE(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok,         &n) != eslOK) 
+    ESL_DIE(eslEFORMAT, "parse failed");
+
   pkey->fnum = (uint16_t) atoi(tok);
 
   if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
-  if (sizeof(off_t) == 4)  pkey->r_off  = (off_t) strtoul (tok, NULL, 10);
-  else                     pkey->r_off  = (off_t) strtoull(tok, NULL, 10);
-  else                     ESL_DIE(eslINCONCEIVABLE, "whoa - weird off_t");
+  if      (sizeof(off_t) == 4) pkey->r_off  = (off_t) strtoul (tok, NULL, 10);
+  else if (sizeof(off_t) == 8) pkey->r_off  = (off_t) strtoull(tok, NULL, 10);
+  else                         ESL_DIE(eslEINCONCEIVABLE, "whoa - weird off_t");
 
   if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_DIE(eslEFORMAT, "parse failed");
   pkey->len = (uint32_t) strtoul(tok, NULL, 10);
@@ -1539,17 +1539,25 @@ esl_fwrite_i64(FILE *fp, uint64_t n)
 int			
 esl_fread_offset(FILE *fp, int mode, off_t *ret_offset)
 {
-  if      (mode == 64 && sizeof(off_t) == 8) return esl_fread_i64(fp, ret_offset);
-  else if (mode == 32 && sizeof(off_t) == 4) return esl_fread_i32(fp, ret_offset);
-  else if (mode == 32 && sizeof(off_t) == 8)
+  uint32_t  x32;
+  uint64_t  x64;
+
+  if      (mode == 64 && sizeof(off_t) == 8) 
     {
-      esl_uint32 x;
-      if (esl_fread_i32(fp, &x) != eslOK) { *ret_offset = 0; return eslFAIL; }
-      *ret_offset = (uint64_t) x;
+      if (esl_fread_i64(fp, &x64) != eslOK) { *ret_offset = 0; return eslFAIL; }
+      *ret_offset = (off_t) x64;
       return eslOK;
     }
-  if (mode != 32 && mode != 64) ESL_ERROR(eslEINVAL, "mode must be 32 or 64");
-  else ESL_ERROR(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
+  else if (mode == 32)
+    {
+      if (esl_fread_i32(fp, &x32) != eslOK) { *ret_offset = 0; return eslFAIL; }
+      *ret_offset = (off_t) x32;
+      return eslOK;
+    }
+  else if (mode != 32 && mode != 64) 
+    ESL_ERROR(eslEINVAL, "mode must be 32 or 64");
+  else 
+    ESL_ERROR(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
   /*NOTREACHED*/
   return eslEINCONCEIVABLE;
 }
@@ -1571,9 +1579,9 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 {
   if      (sizeof(off_t) == 4) return esl_fwrite_i32(fp, offset);
   else if (sizeof(off_t) == 8) return esl_fwrite_i64(fp, offset);
-  else ESL_DIE(eslEINVAL, "off_t is neither 32-bit nor 64-bit");
+  else ESL_ERROR(eslEINVAL, "off_t is neither 32-bit nor 64-bit");
   /*UNREACHED*/
-  return eslINCONCEIVABLE;
+  return eslEINCONCEIVABLE;
 }
 
 

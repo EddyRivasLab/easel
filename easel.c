@@ -523,7 +523,7 @@ esl_FileExists(char *filename)
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_FileTail(char *path, int nosuffix, char *ret_file)
+esl_FileTail(char *path, int nosuffix, char **ret_file)
 {
   char *tail;
   char *lastslash;
@@ -531,7 +531,7 @@ esl_FileTail(char *path, int nosuffix, char *ret_file)
 				/* remove directory prefix */
   lastslash = strrchr(path, eslDIRSLASH);
   ESL_MALLOC(tail, sizeof(char) * (strlen(path)+1)); /* a little overkill */
-  if (lastslash == NULL) strcpy(tail, file);
+  if (lastslash == NULL) strcpy(tail, path);
   else                   strcpy(tail, lastslash+1);
 				/* remove trailing suffix */
   if (nosuffix) {

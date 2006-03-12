@@ -51,19 +51,6 @@
 /*------------ no user serviceable parts below this line -----------------*/
 /*------------------------------------------------------------------------*/
 
-
-
-/*****************************************************************
- * Version info, set by the ./configure script.
- *****************************************************************/
-
-#undef EASEL_VERSION    
-#undef EASEL_DATE      
-#undef EASEL_COPYRIGHT 
-#undef EASEL_LICENSE   
-
-
-
 /*****************************************************************
  * Error handling and allocation macros,
  * including a garbage collection convention.
@@ -174,7 +161,6 @@
 
 /* Debugging hooks, w/ three levels (1-3).
  */
-#undef eslDEBUGLEVEL
 
 #if eslDEBUGLEVEL >= 1		/* for ESL_DASSERT() macros */
 #include <assert.h>
@@ -207,38 +193,6 @@
  */
 #define eslERRBUFSIZE 128
 
-
-
-
-
-/* Header includes/configuration
- */
-#undef HAVE_UNISTD_H
-#undef HAVE_STDINT_H
-#undef HAVE_INTTYPES_H
-
-
-
-/* Exact-size integer types.
- * If you see "FIXME" below, the configure script failed to
- * find appropriate types. This shouldn't happen, but if it
- * does, you can try to replace the FIXME(s) with appropriate 
- * type(s).
- */
-#undef ESL_UINT16
-#undef ESL_UINT32
-#undef ESL_UINT64
-typedef ESL_UINT16 esl_uint16;
-typedef ESL_UINT32 esl_uint32;
-typedef ESL_UINT64 esl_uint64;
-
-
-/* Function portability/configuration
- */
-#undef HAVE_POPEN
-#undef HAVE_STRCASECMP
-#undef HAVE_TIMES
-
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
 
@@ -267,7 +221,7 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #endif
 
 extern int  esl_FileExists(char *filename);
-extern int  esl_FileTail(char *path, int nosuffix, char *ret_file);
+extern int  esl_FileTail(char *path, int nosuffix, char **ret_file);
 extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
 extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,

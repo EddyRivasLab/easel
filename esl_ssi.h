@@ -128,9 +128,9 @@ extern int  esl_ssi_FindName(ESL_SSI *ssi, char *key,
 			     uint16_t *ret_fh, off_t *ret_offset);
 extern int  esl_ssi_FindNumber(ESL_SSI *ssi, int nkey,
 			       uint16_t *ret_fh, off_t *ret_offset);
-extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, char key, long requested_start,
-			       uint16_t *ret_fh, off_t *record_offset, 
-			       off_t *data_offset, long *ret_actual_start);
+extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, char *key, long requested_start,
+			       uint16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
+			       long *ret_actual_start);
 extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
 			     char **ret_filename, int *ret_format);
 
@@ -159,12 +159,12 @@ extern uint64_t esl_ntoh64(uint64_t net_int64);
 extern uint16_t esl_hton16(uint16_t hostshort);
 extern uint32_t esl_hton32(uint32_t hostlong);
 extern uint64_t esl_hton64(uint64_t host_int64);
-extern int      esl_fread_i16(FILE *fp, esl_uint16 *ret_result);
-extern int      esl_fread_i32(FILE *fp, esl_uint32 *ret_result);
-extern int      esl_fread_i64(FILE *fp, esl_uint64 *ret_result);
-extern int      esl_fwrite_i16(FILE *fp, esl_uint16 n);
-extern int      esl_fwrite_i32(FILE *fp, esl_uint32 n);
-extern int      esl_fwrite_i64(FILE *fp, esl_uint64 n);
+extern int      esl_fread_i16(FILE *fp, uint16_t *ret_result);
+extern int      esl_fread_i32(FILE *fp, uint32_t *ret_result);
+extern int      esl_fread_i64(FILE *fp, uint64_t *ret_result);
+extern int      esl_fwrite_i16(FILE *fp, uint16_t n);
+extern int      esl_fwrite_i32(FILE *fp, uint32_t n);
+extern int      esl_fwrite_i64(FILE *fp, uint64_t n);
 extern int	esl_fread_offset(FILE *fp, int mode, off_t *ret_offset);
 extern int      esl_fwrite_offset(FILE *fp, off_t offset);
 
