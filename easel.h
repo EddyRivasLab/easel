@@ -1,9 +1,10 @@
 /* easel.h
- * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
- * SVN $Id$
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
+ *
+ * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
+ * SVN $Id$
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -18,6 +19,8 @@
 #elif  HAVE_INTTYPES_H
 #include <inttypes.h>		/* some systems supposedly put uints here */
 #endif
+
+
 
 /*****************************************************************
  * Available augmentations.

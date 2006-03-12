@@ -20,9 +20,18 @@
 #undef EASEL_COPYRIGHT 
 #undef EASEL_LICENSE   
 
+/* Large file support
+ * Must precede any header file inclusion.
+ */
+#undef _FILE_OFFSET_BITS
+#undef _LARGE_FILES
+#undef _LARGEFILE_SOURCE
+
+
 /* Debugging verbosity (0=none;3=most verbose)
  */
 #undef eslDEBUGLEVEL
+
 
 /* System headers
  */
@@ -30,24 +39,31 @@
 #undef HAVE_STDINT_H
 #undef HAVE_INTTYPES_H
 
+#ifdef HAVE_STDINT_H	
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 /* Types
  * Make sure we have C99-standard fixed-width unsigned types
  */
 #undef HAVE_UINT16_T
 #undef HAVE_UINT32_T
 #undef HAVE_UINT64_T
-#undef ESL_UINT16
-#undef ESL_UINT32
-#undef ESL_UINT64
 
 #ifndef HAVE_UINT16_T
-typedef ESL_UINT16 uint16_t 
+#undef ESL_UINT16
+typedef ESL_UINT16 uint16_t;
 #endif
 #ifndef HAVE_UINT32_T
-typedef ESL_UINT32 uint32_t 
+#undef ESL_UINT32
+typedef ESL_UINT32 uint32_t; 
 #endif
 #ifndef HAVE_UINT64_T
-typedef ESL_UINT64 uint64_t 
+#undef ESL_UINT64
+typedef ESL_UINT64 uint64_t; 
 #endif
 
 
@@ -58,11 +74,7 @@ typedef ESL_UINT64 uint64_t
 #undef HAVE_TIMES
 #undef HAVE_FSEEKO
 
-/* Large file support
- */
-#undef _FILE_OFFSET_BITS
-#undef _LARGE_FILES
-#undef _LARGEFILE_SOURCE
+
 
 
 
