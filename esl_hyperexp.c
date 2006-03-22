@@ -1169,6 +1169,8 @@ main(int argc, char **argv)
   ESL_HYPEREXP   *ehxp;		/* estimated hyperexponential      */
   double      x;		/* sampled data point              */
   int         n = 100000;	/* number of samples               */
+  double     *data;
+  int         ndata;
   int         i;
 
   hxp = esl_hyperexp_Create(3);
@@ -1184,7 +1186,7 @@ main(int argc, char **argv)
       x    = esl_hxp_Sample(r, hxp);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+  esl_histogram_GetData(h, &data, &ndata);
 
   /* Plot the empirical (sampled) and expected survivals */
   esl_histogram_PlotSurvival(stdout, h);
@@ -1192,8 +1194,8 @@ main(int argc, char **argv)
 
   /* ML fit to complete data, and plot fitted survival curve */
   ehxp = esl_hyperexp_Create(3);
-  esl_hxp_FitGuess(h->x, h->n, ehxp);
-  esl_hxp_FitComplete(h->x, h->n, ehxp);
+  esl_hxp_FitGuess(data, ndata, ehxp);
+  esl_hxp_FitComplete(data, ndata, ehxp);
   esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
 
   /* ML fit to binned data, plot fitted survival curve  */
@@ -1216,10 +1218,10 @@ main(int argc, char **argv)
 /****************************************************************************
  * Test driver
  ****************************************************************************/ 
-#ifdef eslHXP_TEST
+#ifdef eslHYPEREXP_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslHXP_TEST\
-    esl_hyperexp.c -leasel -lm
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test\
+    -DeslHYPEREXP_TESTDRIVE esl_hyperexp.c -leasel -lm
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -1241,6 +1243,8 @@ main(int argc, char **argv)
   double  binwidth  = 0.1;
   int     i;
   double  x;
+  double *data;
+  int     ndata;
   int     k, ek, mink;
   double  mindiff, diff;
 
@@ -1311,12 +1315,13 @@ main(int argc, char **argv)
       x = esl_hxp_Sample(r, hxp);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+
+  esl_histogram_GetData(h, &data, &ndata); /* get sorted data vector */
 
   ehxp = esl_hyperexp_Create(hxp->K);
   if (do_fixmix) esl_hyperexp_FixedUniformMixture(ehxp);
-  esl_hxp_FitGuess(h->x, h->n, ehxp);  
-  esl_hxp_FitComplete(h->x, h->n, ehxp);
+  esl_hxp_FitGuess(data, ndata, ehxp);  
+  esl_hxp_FitComplete(data, ndata, ehxp);
 
   if (be_verbose) esl_hyperexp_WriteOneLine(stdout, ehxp);
 
@@ -1374,7 +1379,7 @@ main(int argc, char **argv)
   if (plotfile != NULL) fclose(pfp);
   return 0;
 }
-#endif /*eslHXP_TEST*/
+#endif /*eslHYPEREXP_TESTDRIVE*/
 
 /*****************************************************************
  * @LICENSE@

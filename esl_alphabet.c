@@ -610,7 +610,7 @@ esl_abc_ExpectDScore(ESL_ALPHABET *a, char x, double *sc, double *p)
  *    alphabet.c easel.c 
  *****************************************************************
  */ 
-#ifdef ESL_ALPHABET_TESTDRIVE
+#ifdef eslALPHABET_TESTDRIVE
 
 static void basic_examples(void);
 static void degeneracy_integer_scores(void);
@@ -762,7 +762,7 @@ degeneracy_double_scores(void)
   return;
 }
 
-#endif /*ESL_ALPHABET_TESTDRIVE*/
+#endif /*eslALPHABET_TESTDRIVE*/
 
 /*****************************************************************  
  * @LICENSE@

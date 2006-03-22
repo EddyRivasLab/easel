@@ -355,7 +355,7 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
  *    ./test
  * Returns 0 (success) w/ no output, or returns 1 and says why.
  *****************************************************************/
-#ifdef ESL_STACK_TESTDRIVE
+#ifdef eslSTACK_TESTDRIVE
 int 
 main(void)
 {
@@ -503,7 +503,7 @@ main(void)
 
   return EXIT_SUCCESS;
 }
-#endif /*ESL_STACK_TESTDRIVE*/
+#endif /*eslSTACK_TESTDRIVE*/
 
 /*****************************************************************  
  * @LICENSE@

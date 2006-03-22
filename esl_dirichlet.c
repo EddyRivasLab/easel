@@ -484,6 +484,11 @@ main(int argc, char **argv)
 #define NCOUNTS     1000
 #define NTRIALS     100
 
+#include <easel.h>
+#include <esl_fileparser.h>
+#include <esl_random.h>
+#include <esl_dirichlet.h>
+
 int
 main(void)
 {

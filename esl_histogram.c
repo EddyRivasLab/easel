@@ -809,6 +809,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
    * it later.
    */
   maxbar = 0;
+  imode  = 0;
   for (i = 0; i < h->nb; i++)
     if (h->obs[i] > maxbar) 
       {
@@ -1519,9 +1520,9 @@ main(int argc, char **argv)
 /*****************************************************************
  * Test driver code
  *****************************************************************/
-#ifdef eslHISTOGRAM_TEST
+#ifdef eslHISTOGRAM_TESTDRIVE
 /* compile: 
- *   gcc -g -Wall -I. -L. -o test -DeslHISTOGRAM_TEST esl_histogram.c -leasel -lm
+ *   gcc -g -Wall -I. -L. -o test -DeslHISTOGRAM_TESTDRIVE esl_histogram.c -leasel -lm
  * run:     
  *   ./test -t1; ./test -t2; ./test -t3; ./test -t4; ./test -t5
  *   
@@ -1552,7 +1553,7 @@ main(int argc, char **argv)
 
 static ESL_OPTIONS options[] = {
   /* name         type      default   env_var   range   toggles     reqs   incompat */
-  { "-j",       eslARG_INT,  "1000",  NULL,     "n>0",     NULL,  NULL,   NULL },
+  { "-j",       eslARG_INT,   "100",  NULL,     "n>0",     NULL,  NULL,   NULL },
   { "-m",       eslARG_INT,     "0",  NULL,    "n>=0",     NULL,  NULL,   NULL },
   { "-n",       eslARG_INT, "10000",  NULL,     "n>0",     NULL,  NULL,   NULL },
   { "-t",       eslARG_INT,     "1",  NULL, "1<=n<=5",     NULL,  NULL,   NULL },
@@ -1579,7 +1580,7 @@ where options are:\n\
      -t3    - complete data, high scores fit to exponential tail\n\
      -t4    - censored data, fit as censored Gumbel\n\
      -t5    - complete data, binned, high scores fit to exponential tail\n\
-  -j <n>  : number of trials [1000]\n\
+  -j <n>  : number of trials [100]\n\
   -n <n>  : number of training set samples [10000]\n\
   -m <n>  : number of independent test set samples [default: use training set]\n\
 \n\
@@ -1879,4 +1880,4 @@ main(int argc, char **argv)
 
   return 0;
 }
-#endif /*eslHISTOGRAM_TEST*/
+#endif /*eslHISTOGRAM_TESTDRIVE*/

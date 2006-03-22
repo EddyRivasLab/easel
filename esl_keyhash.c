@@ -443,8 +443,9 @@ main(int argc, char **argv)
 {
   ESL_KEYHASH *h;
   char keys[NSTORE+NLOOKUP][KEYLEN+1]; 
-  int  i,j;
+  int  i,j,nk,k42;
   int  nmissed;
+  int  status;
 
   /* Generate 2400 random k=2 keys. 26^2 = 676 possible.
    * We'll store the first 1200 and search on the remaining
@@ -459,16 +460,21 @@ main(int argc, char **argv)
 	keys[i][j] = 'a' + (rand() % 26); /* yeah, low-order bits; so sue me */
       keys[i][j] = '\0';
     }
-  /* spike a known one in.
+  /* spike a known one in (XX.. at key 42).
    */
   for (j = 0; j < KEYLEN; j++)
     keys[42][j] = 'X';
 
   h = esl_keyhash_Create();
+  nk = 0;
   for (i = 0; i < NSTORE; i++)
     {
-      esl_key_Store(h, keys[i], &j);
-      assert(i==j);
+      status = esl_key_Store(h, keys[i], &j);
+      if      (status == eslOK)   { assert(j==nk); nk++; }
+      else if (status == eslEDUP) { assert(j<nk); }
+      else esl_fatal("store failed.");
+
+      if (i == 42) { k42 = j;}	/* remember where key 42 went */
     }
   nmissed = 0;
   for (i = NSTORE; i < NSTORE+NLOOKUP; i++)
@@ -477,7 +483,7 @@ main(int argc, char **argv)
       if (j == -1) nmissed++;
     }
   j = esl_key_Lookup(h, keys[42]);
-  assert(j==42);
+  assert(j==k42);
 
   /* 
   printf("missed %d/%d (%.1f%%)\n", nmissed, NLOOKUP, 

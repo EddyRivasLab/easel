@@ -418,13 +418,15 @@ main(int argc, char **argv)
   double emu, elambda;
   int    i;
   double x;
+  double *data;
+  int     ndata;
 
   for (i = 0; i < n; i++)
     {
       x = esl_exp_Sample(r, mu, lambda);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+  esl_histogram_GetData(h, &data, &ndata);
 
   /* Plot the empirical (sampled) and expected survivals */
   esl_histogram_PlotSurvival(stdout, h);
@@ -432,7 +434,7 @@ main(int argc, char **argv)
 	       &esl_exp_surv, h->xmin, h->xmax, 0.1);
 
   /* ML fit to complete data, and plot fitted survival curve */
-  esl_exp_FitComplete(h->x, h->n, &emu, &elambda);
+  esl_exp_FitComplete(data, ndata, &emu, &elambda);
   esl_exp_Plot(stdout, emu, elambda, 
 	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
 
@@ -452,9 +454,9 @@ main(int argc, char **argv)
 /****************************************************************************
  * Test driver
  ****************************************************************************/ 
-#ifdef eslEXP_TEST
+#ifdef eslEXP_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslEXP_TEST\
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslEXP_TESTDRIVE\
     esl_exponential.c -leasel -lm
 */
 #include <stdio.h>
@@ -478,6 +480,8 @@ main(int argc, char **argv)
   double  emu, elambda;
   int     i;
   double  x;
+  double *data;
+  int     ndata;
 
   int     opti;
   int     be_verbose   = FALSE;
@@ -534,9 +538,9 @@ main(int argc, char **argv)
       x = esl_exp_Sample(r, mu, lambda);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+  esl_histogram_GetData(h, &data, &ndata);
 
-  esl_exp_FitComplete(h->x, h->n, &emu, &elambda);
+  esl_exp_FitComplete(data, ndata, &emu, &elambda);
   if (be_verbose)
     printf("Complete data fit:  mu = %f   lambda = %f\n", emu, elambda);
   if (fabs( (emu-mu)/mu ) > 0.01)
@@ -562,7 +566,7 @@ main(int argc, char **argv)
   if (plotfile != NULL) fclose(pfp);
   return 0;
 }
-#endif /*eslEXP_TEST*/
+#endif /*eslEXP_TESTDRIVE*/
 
 /*****************************************************************
  * @LICENSE@

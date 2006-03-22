@@ -8,6 +8,9 @@
 
 #include <esl_config.h>
 
+#include <stdio.h>
+#include <string.h>
+
 #include <easel.h>
 #include <esl_ssi.h>
 
@@ -833,7 +836,7 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key)
   /* Before adding the key: check how big our index is.
    * If it's getting too large, switch to external mode.
    */
-  if (!ns->external && current_index_size(ns) >= ns->max_ram) 
+  if (!ns->external && current_newssi_size(ns) >= ns->max_ram) 
     if ((status = activate_external_sort(ns)) != eslOK) goto CLEANEXIT;
 
   /* Update maximum secondary key length, if necessary.
@@ -992,6 +995,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
     }
 
   /* Write the header
+   */
   status = eslFAIL;		/* any write error is a FAIL */
   if (esl_fwrite_i32(fp, v20magic)      != eslOK) goto CLEANEXIT;
   if (esl_fwrite_i32(fp, header_flags)  != eslOK) goto CLEANEXIT;
@@ -1051,10 +1055,10 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 
 	  status = eslFAIL;
 	  if (fwrite(pk,sizeof(char),ns->plen,fp)      != ns->plen) goto CLEANEXIT;
-	  if (esl_write_i16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto CLEANEXIT;
-	  if (esl_write_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto CLEANEXIT;
-	  if (esl_write_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto CLEANEXIT;
-	  if (esl_write_i32(   fp, ns->pkeys[i].len)   != eslOK)    goto CLEANEXIT;
+	  if (esl_fwrite_i16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto CLEANEXIT;
+	  if (esl_fwrite_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto CLEANEXIT;
+	  if (esl_fwrite_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto CLEANEXIT;
+	  if (esl_fwrite_i32(   fp, ns->pkeys[i].len)   != eslOK)    goto CLEANEXIT;
 	}
     }
 
@@ -1254,6 +1258,7 @@ activate_external_sort(ESL_NEWSSI *ns)
   } else {
     if (ns->ptmp != NULL) { fclose(ns->ptmp); ns->ptmp = NULL; }
     if (ns->stmp != NULL) { fclose(ns->stmp); ns->stmp = NULL; }
+    return status;
   }
 }
 

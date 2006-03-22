@@ -1,6 +1,13 @@
 /* esl_sqio.c
  * Sequence file i/o.
  * 
+ * Sections:
+ *    1. The ESL_SQ object API.
+ *    2. The ESL_SQFILE object API.
+ *    3. The sequence input/output API.
+ *    4. Internal functions.
+ *    5. Test and example code.
+ * 
  * Shares remote evolutionary homology with Don Gilbert's seminal,
  * public domain ReadSeq package. Last common ancestor was 1991 or so.
  * Vestiges of that history still remain in the design. Thanks Don!
@@ -65,13 +72,13 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 
 
 /*****************************************************************
- * Routines for dealing with the ESL_SQ object.
+ * 1. Routines for dealing with the ESL_SQ object.
  *****************************************************************/ 
 
 /* Function:  esl_sq_Create()
  * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
  *
- * Purpose:   Creates a new <ESL_SQ> sequence object. 
+ * Purpose:   Creates an empty <ESL_SQ> sequence object. 
  *            Implemented as a wrapper around <esl_sq_Inflate()>,
  *            which does everything but allocate the shell
  *            itself. Caller frees with <esl_sq_Destroy()>.
@@ -85,10 +92,10 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 ESL_SQ *
 esl_sq_Create(void)
 {
-  ESL_SQ *sq;
+  int status;
+  ESL_SQ *sq = NULL;
 
-  if ((sq = malloc(sizeof(ESL_SQ))) == NULL)    
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(sq, sizeof(ESL_SQ));
 
   /* Set up the initial allocation sizes.
    * Someday, we may want to allow an application to tune these
@@ -105,24 +112,117 @@ esl_sq_Create(void)
   sq->ss       = NULL;	/* secondary structure input currently unimplemented */
   sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
 
-  if ((sq->name = malloc(sizeof(char) * sq->nalloc)) == NULL) 
-    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-  if ((sq->acc  = malloc(sizeof(char) * sq->aalloc)) == NULL) 
-    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-  if ((sq->desc = malloc(sizeof(char) * sq->dalloc)) == NULL) 
-    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-  if ((sq->seq  = malloc(sizeof(char) * sq->salloc)) == NULL) 
-    { esl_sq_Destroy(sq); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-
-  esl_sq_Reuse(sq);		/* this does the initialization */
+  ESL_ALLOC(sq->name, sizeof(char) * sq->nalloc);
+  ESL_ALLOC(sq->acc,  sizeof(char) * sq->aalloc);
+  ESL_ALLOC(sq->desc, sizeof(char) * sq->dalloc);
+  ESL_ALLOC(sq->seq,  sizeof(char) * sq->salloc);
+  esl_sq_Reuse(sq);	/* this does the initialization */
   return sq;
+
+ CLEANEXIT:
+  esl_sq_Destroy(sq);
+  return NULL;
 }
+
+/* Function:  esl_sq_CreateFrom()
+ * Incept:    SRE, Wed Mar 22 09:17:04 2006 [St. Louis]
+ *
+ * Purpose:   Create a new <ESL_SQ> object from elemental data;
+ *            this provides an interface between non-Easel code
+ *            and Easel's object.
+ *            
+ *            Makes copies of all data. Caller is still
+ *            responsible for memory of name, seq, etc.
+ *            
+ *            <ss> is an optional alphabetic secondary structure 
+ *            annotation string. If provided, its length must match
+ *            the length of <seq>.
+ *            
+ *            The object is growable; you can use <esl_sq_Reuse()>
+ *            on it.
+ *
+ * Args:      name    -  name of the sequence
+ *            seq     -  the sequence (alphabetic)
+ *            desc    -  optional: description line [or NULL]
+ *            acc     -  optional: accession [or NULL]
+ *            ss      -  optional: secondary structure annotation [or NULL]
+ *
+ * Returns:   a pointer to the new object. Free with
+ *            <esl_sq_Destroy()>.
+ *
+ * Throws:    NULL on allocation failure.
+ */
+ESL_SQ *
+esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
+{
+  int status;
+  ESL_SQ *sq = NULL;
+  int  n;
+
+  if (name == NULL) ESL_DIE(eslEINVAL, "must provide seq name");
+  if (seq  == NULL) ESL_DIE(eslEINVAL, "must provide seq");
+
+  ESL_ALLOC(sq, sizeof(ESL_SQ));
+  sq->name = sq->acc = sq->desc = sq->seq = sq->ss = sq->dsq = sq->optmem = NULL;
+  
+  n = strlen(name)+1;
+  ESL_ALLOC(sq->name, sizeof(char) * n);
+  strcpy(sq->name, name);
+  sq->nalloc = n;
+  
+  n = strlen(seq)+1;
+  ESL_ALLOC(sq->seq, sizeof(char) * n);
+  strcpy(sq->seq, seq);
+  sq->salloc = n;
+
+  if (desc != NULL) 
+    {
+      n = strlen(desc)+1;
+      ESL_ALLOC(sq->desc, sizeof(char) * n);
+      strcpy(sq->desc, desc);
+      sq->dalloc = n;
+    } 
+  else 
+    {
+      sq->dalloc   = eslSQ_DESCCHUNK;
+      ESL_ALLOC(sq->desc, sizeof(char) * sq->dalloc);    
+      sq->desc[0] = '\0';
+    }
+
+  if (acc != NULL) 
+    {
+      n = strlen(acc)+1;
+      ESL_ALLOC(sq->acc, sizeof(char) * n);
+      strcpy(sq->acc, acc);
+      sq->aalloc = n;
+    } 
+  else 
+    {
+      sq->aalloc   = eslSQ_ACCCHUNK;
+      ESL_ALLOC(sq->acc,  sizeof(char) * sq->aalloc);
+      sq->acc[0] = '\0';
+    }
+
+  if (ss != NULL) 
+    {
+      n = strlen(ss)+1;
+      if (n != sq->salloc) ESL_DIE(eslEINVAL, "ss, seq lengths mismatch");
+      ESL_ALLOC(sq->ss, sizeof(char) * n);
+      strcpy(sq->ss, ss);
+    } 
+  return sq;
+
+ CLEANEXIT: /* on failure: */		  
+  esl_sq_Destroy(sq);
+  return NULL;
+}
+
 
 /* Function:  esl_sq_Reuse()
  * Incept:    SRE, Thu Dec 23 12:23:51 2004 [Zaragoza]
  *
- * Purpose:   Given a sequence object <sq> already in use (Create()'d or
- *            Inflate()'d); reinitialize all its data, so a new seq
+ * Purpose:   Given a sequence object <sq> already in use;
+ *            reinitialize all its data, so a new seq
  *            may be read into it. This allows sequential sequence
  *            input without a lot of wasted malloc()/free() cycling.
  *
@@ -168,6 +268,7 @@ esl_sq_Reuse(ESL_SQ *sq)
 int
 esl_sq_Squeeze(ESL_SQ *sq)
 {
+  int   status;
   int   nlen, alen, dlen, len;
   char *name, *acc, *desc, *seq, *ss, *dsq;
 
@@ -179,8 +280,7 @@ esl_sq_Squeeze(ESL_SQ *sq)
   if (sq->ss  != NULL) len += sq->n+1;
   if (sq->dsq != NULL) len += sq->n+2;
 
-  if ((sq->optmem = malloc(sizeof(char) * len)) == NULL) 
-    ESL_ERROR(eslEMEM, "allocation failed");
+  ESL_ALLOC(sq->optmem, sizeof(char) * len);
   
   len  = 0;
   name = sq->optmem+len; memcpy(name, sq->name, nlen+1);  len+=nlen+1;
@@ -201,6 +301,9 @@ esl_sq_Squeeze(ESL_SQ *sq)
   if (sq->dsq != NULL) { free(sq->dsq); sq->dsq = dsq;}
   
   return eslOK;
+
+ CLEANEXIT:
+  return status;
 }
 
 
@@ -236,7 +339,7 @@ esl_sq_Destroy(ESL_SQ *sq)
 
 
 /*****************************************************************
- * Routines for dealing with the ESL_SQFILE object.
+ * Section 2. Routines for dealing with the ESL_SQFILE object.
  *****************************************************************/ 
 
 /* Function:  esl_sqfile_Open()
@@ -286,14 +389,15 @@ esl_sq_Destroy(ESL_SQ *sq)
 int
 esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 {
-  ESL_SQFILE *sqfp;
+  ESL_SQFILE *sqfp    = NULL;
+  char       *envfile = NULL;
   int         status;		/* return status from an ESL call */
   int         n;
 
   /* Allocate and initialize the structure to base values;
    * only format is set correctly, though.
    */
-  ESL_MALLOC(sqfp, sizeof(ESL_SQFILE));
+  ESL_ALLOC(sqfp, sizeof(ESL_SQFILE));
   *ret_sqfp        = NULL;
   sqfp->fp         = NULL;
   sqfp->filename   = NULL;
@@ -325,42 +429,32 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
    */
   if (strcmp(filename, "-") == 0) /* stdin */
     {
-      status = esl_strdup("[STDIN]", -1, &(sqfp->filename));
-      if (status != eslOK) { esl_sqfile_Close(sqfp); return status; }
-
+      if ((status = esl_strdup("[STDIN]", -1, &(sqfp->filename))) != eslOK) goto CLEANEXIT;
       sqfp->fp       = stdin;
       sqfp->do_stdin = TRUE;
     }
   else
     {
-      char *envfile;
       n = strlen(filename);  
 
       /* Check the current working directory first.
        */
       if ((sqfp->fp = fopen(filename, "r")) != NULL)
 	{
-	  status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile));
-	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
-
-	  status = esl_strdup(filename, n, &(sqfp->filename));
-	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
+	  if ((status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile))) != eslOK) goto CLEANEXIT;
+	  if ((status = esl_strdup(filename, n, &(sqfp->filename)))           != eslOK) goto CLEANEXIT;
 	}
       /* then the env variable.
        */
       else if (env != NULL &&
 	       esl_FileEnvOpen(filename, env, &(sqfp->fp), &envfile)== eslOK)
 	{
-	  status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile));
-	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
-
-	  status = esl_strdup(envfile, -1, &(sqfp->filename));
-	  if (status != eslOK) { esl_sqfile_Close(sqfp); return status;}
-
-	  free(envfile);
+	  if ((status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile))) != eslOK) goto CLEANEXIT;
+	  if ((status = esl_strdup(envfile, -1, &(sqfp->filename)))          != eslOK) goto CLEANEXIT;
+	  free(envfile); envfile = NULL;
 	}
       else
-	{ esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+	{ status = eslENOTFOUND; goto CLEANEXIT;}
     }
 
 
@@ -387,17 +481,10 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
       fclose(sqfp->fp);
 
-      if ((cmd = malloc(sizeof(char) * (n+1+strlen("gzip -dc ")))) == NULL)
-	{ esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "cmd malloc failed"); }
+      ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
       sprintf(cmd, "gzip -dc %s", sqfp->filename);
-
-      if ((sqfp->fp = popen(cmd, "r")) == NULL)
-	{ esl_sqfile_Close(sqfp); return eslENOTFOUND; }
-
-      status = esl_strdup(sqfp->filename, n, &(sqfp->filename));
-      if (status != eslOK)
-	{ esl_sqfile_Close(sqfp); return eslEMEM; }
-
+      if ((sqfp->fp = popen(cmd, "r")) == NULL)	{ status = eslENOTFOUND; goto CLEANEXIT; }
+      if ((status = esl_strdup(sqfp->filename, n, &(sqfp->filename))) != eslOK) goto CLEANEXIT;
       sqfp->do_gzip  = TRUE;
     }
 #endif /*HAVE_POPEN*/
@@ -406,21 +493,17 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   /* Allocate the input map. config_* functions set this up later,
    * depending on format.
    */
-  if ((sqfp->inmap = malloc(sizeof(int) * 256)) == NULL) 
-    { esl_sqfile_Close(sqfp); ESL_ERROR(eslEMEM, "inmap malloc failed"); }
-
+  ESL_ALLOC(sqfp->inmap, sizeof(int) * 256);
 
   /* If we don't know the format yet, autodetect it now.
    */
   if (sqfp->format == eslSQFILE_UNKNOWN)
     {
-      if (sqfp->do_stdin || sqfp->do_gzip) 
-	{ esl_sqfile_Close(sqfp); return eslEINVAL; }
+      if (sqfp->do_stdin || sqfp->do_gzip)   { status = eslEINVAL;  goto CLEANEXIT; }
 
-      sqfp->format = esl_sqfile_DetermineFormat(sqfp->fp);
+      sqfp->format = esl_sqio_WhatFormat(sqfp->fp);
 
-      if (sqfp->format == eslSQFILE_UNKNOWN)
-	{ esl_sqfile_Close(sqfp); return eslEFORMAT; }
+      if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto CLEANEXIT; }
     }
 
   /* Up 'til now, everything we've done is independent of the format
@@ -450,8 +533,8 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     sqfp->linenumber = 0;
     config_embl(sqfp);
     status = loadline(sqfp);
-    if (status == eslEOF) { esl_sqfile_Close(sqfp); return eslEFORMAT; }
-    else if (status != eslOK) { esl_sqfile_Close(sqfp); return status; }
+    if (status == eslEOF)     { status = eslEFORMAT; goto CLEANEXIT; }
+    else if (status != eslOK) { goto CLEANEXIT; }
     break;
 
   case eslSQFILE_GENBANK:
@@ -459,8 +542,8 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     sqfp->linenumber = 0;
     config_genbank(sqfp);
     status = loadline(sqfp);
-    if (status == eslEOF) { esl_sqfile_Close(sqfp); return eslEFORMAT; }
-    else if (status != eslOK) { esl_sqfile_Close(sqfp); return status; }
+    if (status == eslEOF)     { status = eslEFORMAT; goto CLEANEXIT; }
+    else if (status != eslOK) { goto CLEANEXIT; }
     break;
 
     /* Character based parsers that use fread();
@@ -468,21 +551,16 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
      */
   case eslSQFILE_FASTA:
     sqfp->balloc = eslREADBUFSIZE;
-    sqfp->buf    = malloc(sizeof(char) * sqfp->balloc);
+    ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
     config_fasta(sqfp);
-    if (sqfp->buf == NULL) { 
-      esl_sqfile_Close(sqfp); 
-      ESL_ERROR(eslEMEM, "malloc failed");
-    }
     sqfp->nc = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
-    if (ferror(sqfp->fp)) {  esl_sqfile_Close(sqfp); return eslENOTFOUND; }
+    if (ferror(sqfp->fp)) { status = eslENOTFOUND; goto CLEANEXIT; }
     break;
 
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
     sqfp->linenumber = 0;	/* line-oriented input */
-    sqfp->afp = malloc(sizeof(ESL_MSAFILE));
-    if (sqfp->afp == NULL) { esl_sqfile_Close(sqfp); return eslEMEM; }
+    ESL_ALLOC(sqfp->afp, sizeof(ESL_MSAFILE));
     sqfp->afp->f          = sqfp->fp;
     sqfp->afp->fname      = sqfp->filename;
     sqfp->afp->linenumber = sqfp->linenumber;
@@ -498,6 +576,11 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
   *ret_sqfp = sqfp;
   return eslOK;
+
+ CLEANEXIT:
+  if (envfile != NULL) free(envfile);
+  esl_sqfile_Close(sqfp); 
+  return status;
 }
 
 
@@ -544,12 +627,10 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- * Sequence i/o API
+ * Section 3. Sequence i/o API
  *****************************************************************/ 
 
-
-
-/* Function:  esl_sq_Read()
+/* Function:  esl_sqio_Read()
  * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
@@ -570,7 +651,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
+esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 {
   int status;
 
@@ -613,7 +694,7 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 }
 
 
-/* Function:  esl_sq_Write()
+/* Function:  esl_sqio_Write()
  * Incept:    SRE, Fri Feb 25 16:10:32 2005 [St. Louis]
  *
  * Purpose:   Write sequence <s> to an open FILE <fp> in 
@@ -624,7 +705,7 @@ esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sq_Write(FILE *fp, ESL_SQ *s, int format)
+esl_sqio_Write(FILE *fp, ESL_SQ *s, int format)
 {
   int status;
 
@@ -655,7 +736,7 @@ esl_sq_Write(FILE *fp, ESL_SQ *s, int format)
   return status;
 }
 
-/* Function:  esl_sqfile_DetermineFormat()
+/* Function:  esl_sqio_WhatFormat()
  * Incept:    SRE, Mon Jun 20 19:07:44 2005 [St. Louis]
  *
  * Purpose:   Determine the format of a (rewindable) open file <fp>;
@@ -667,7 +748,7 @@ esl_sq_Write(FILE *fp, ESL_SQ *s, int format)
  * Returns:   File format code, such as <eslSQFILE_FASTA>.
  */
 int
-esl_sqfile_DetermineFormat(FILE *fp)
+esl_sqio_WhatFormat(FILE *fp)
 {
   char buf[eslREADBUFSIZE];
   int fmt;
@@ -689,13 +770,99 @@ esl_sqfile_DetermineFormat(FILE *fp)
   return fmt;
 }
 
+/* Function:  esl_sqio_FormatCode()
+ * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
+ *
+ * Purpose:   Given <fmtstring>, return format code.  For example, if
+ *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
+ *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
+ *            known format.
+ *            
+ *            The match is aggressively case insensitive: the <fmtstring>
+ *            is converted to all upper case. (We would use strcasecmp(),
+ *            but that isn't ANSI C.)
+ *            
+ *            When augmented by msa, then alignment file formats
+ *            are recognized in addition to unaligned file formats.
+ */
+int
+esl_sqio_FormatCode(char *fmtstring)
+{
+  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
+  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
+  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
+  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
+  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
+#ifdef eslAUGMENT_MSA
+  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
+  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
+#endif
+  return eslSQFILE_UNKNOWN;
+}
+
+
+/* Function:  esl_sqio_FormatString()
+ * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
+ *
+ * Purpose:   Given a format code <fmt>, returns a string label for
+ *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
+ *            returns "FASTA". 
+ *            
+ *            When augmented by msa, then alignment file format codes
+ *            are recognized in addition to unaligned file format codes.
+ *
+ * Throws:    NULL if <fmt> is unrecognized.
+ *
+ * Xref:      
+ */
+char *
+esl_sqio_FormatString(int fmt)
+{
+  switch (fmt) {
+  case eslSQFILE_UNKNOWN:    return "unknown";
+  case eslSQFILE_FASTA:      return "FASTA";
+  case eslSQFILE_EMBL:       return "EMBL";
+  case eslSQFILE_GENBANK:    return "Genbank";
+  case eslSQFILE_DDBJ:       return "DDBJ";
+  case eslSQFILE_UNIPROT:    return "Uniprot";
+#ifdef eslAUGMENT_MSA
+  case eslMSAFILE_STOCKHOLM: return "Stockholm";
+  case eslMSAFILE_PFAM:      return "Pfam";
+#endif
+  default:
+    ESL_ERROR_NULL(eslEINVAL, "No such format code");
+  }
+  /*NOTREACHED*/
+  return NULL;
+}
+
+/* Function:  esl_sqio_IsAlignment()
+ * Incept:    SRE, Sun Feb 27 09:36:23 2005 [St. Louis]
+ *
+ * Purpose:   Returns TRUE if <fmt> is an alignment file
+ *            format code; else returns FALSE.
+ *            
+ *            This function only checks the convention
+ *            that <fmt> codes $<$100 are unaligned formats,
+ *            and $\geq$100 are aligned formats. It does
+ *            not check that <fmt> is a recognized format
+ *            code.
+ *
+ */
+int
+esl_sqio_IsAlignment(int fmt)
+{
+  if (fmt >= 100) return TRUE;
+  else            return FALSE;
+}
+
 /*--------------------- end of i/o API ----------------------------*/
 
 
 
 
 /*****************************************************************
- * Internal routines for line-oriented parsers
+ * Section 4. Internal routines for line-oriented parsers
  *****************************************************************/ 
 
 static int
@@ -929,7 +1096,7 @@ config_embl(ESL_SQFILE *sqfp)
 
 /* read_embl()
  * 
- * Called by esl_sq_Read() as the EMBL-specific parser;
+ * Called by esl_sqio_Read() as the EMBL-specific parser;
  * <sqfp> is an opened <ESL_SQFILE>;
  * <sq> is an allocated and initialized <ESL_SQ>.
  * 
@@ -1652,96 +1819,6 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 
-/*****************************************************************
- * Miscellaneous API functions
- *****************************************************************/
-
-/* Function:  esl_sqfile_FormatCode()
- * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
- *
- * Purpose:   Given <fmtstring>, return format code.  For example, if
- *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
- *            <eslSQFILE_UNKNOWN> if <fmtstring> doesn't exactly match a 
- *            known format.
- *            
- *            The match is aggressively case insensitive: the <fmtstring>
- *            is converted to all upper case. (We would use strcasecmp(),
- *            but that isn't ANSI C.)
- *            
- *            When augmented by msa, then alignment file formats
- *            are recognized in addition to unaligned file formats.
- */
-int
-esl_sqfile_FormatCode(char *fmtstring)
-{
-  if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
-  if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
-  if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
-  if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
-  if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
-#ifdef eslAUGMENT_MSA
-  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
-  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
-#endif
-  return eslSQFILE_UNKNOWN;
-}
-
-
-/* Function:  esl_sqfile_FormatString()
- * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
- *
- * Purpose:   Given a format code <fmt>, returns a string label for
- *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
- *            returns "FASTA". 
- *            
- *            When augmented by msa, then alignment file format codes
- *            are recognized in addition to unaligned file format codes.
- *
- * Throws:    NULL if <fmt> is unrecognized.
- *
- * Xref:      
- */
-char *
-esl_sqfile_FormatString(int fmt)
-{
-  switch (fmt) {
-  case eslSQFILE_UNKNOWN:    return "unknown";
-  case eslSQFILE_FASTA:      return "FASTA";
-  case eslSQFILE_EMBL:       return "EMBL";
-  case eslSQFILE_GENBANK:    return "Genbank";
-  case eslSQFILE_DDBJ:       return "DDBJ";
-  case eslSQFILE_UNIPROT:    return "Uniprot";
-#ifdef eslAUGMENT_MSA
-  case eslMSAFILE_STOCKHOLM: return "Stockholm";
-  case eslMSAFILE_PFAM:      return "Pfam";
-#endif
-  default:
-    ESL_ERROR_NULL(eslEINVAL, "No such format code");
-  }
-  /*NOTREACHED*/
-  return NULL;
-}
-
-/* Function:  esl_sqfile_IsAlignment()
- * Incept:    SRE, Sun Feb 27 09:36:23 2005 [St. Louis]
- *
- * Purpose:   Returns TRUE if <fmt> is an alignment file
- *            format code; else returns FALSE.
- *            
- *            This function only checks the convention
- *            that <fmt> codes $<$100 are unaligned formats,
- *            and $\geq$100 are aligned formats. It does
- *            not check that <fmt> is a recognized format
- *            code.
- *
- */
-int
-esl_sqfile_IsAlignment(int fmt)
-{
-  if (fmt >= 100) return TRUE;
-  else            return FALSE;
-}
-/*---------- end of miscellaneous API functions -----------------*/
 
 
 
@@ -1781,7 +1858,7 @@ main(int argc, char **argv)
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
   sq = esl_sq_Create();
-  while ((status = esl_sq_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
   {
     /* use the sequence for whatever you want */
     printf("Read %12s: length %d\n", sq->name, sq->n);
@@ -1841,7 +1918,7 @@ main(void)
   sq = esl_sq_Create();
 
   n=0;
-  while (esl_sq_Read(sqfp, sq) == eslOK)
+  while (esl_sqio_Read(sqfp, sq) == eslOK)
     {
       if (n==0 && strcmp(sq->seq, seq1) != 0) abort();
       if (n==1 && strcmp(sq->seq, seq2) != 0) abort();
@@ -1886,7 +1963,7 @@ main(int argc, char **argv)
 
   n=0;
   esl_stopwatch_Start(w);
-  while (esl_sq_Read(sqfp, sq) == eslOK)
+  while (esl_sqio_Read(sqfp, sq) == eslOK)
     {
       n++;
       esl_sq_Reuse(sq);

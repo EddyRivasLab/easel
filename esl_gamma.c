@@ -492,6 +492,8 @@ main(int argc, char **argv)
   double elam, etau;
   int    i;
   double x;
+  double *data;
+  int     ndata;
 
   /* Take <n> gamma-distributed random samples. */
   for (i = 0; i < n; i++)
@@ -499,7 +501,7 @@ main(int argc, char **argv)
       x  =  esl_gam_Sample(r, mu, lambda, tau);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+  esl_histogram_GetData(h, &data, &ndata);
 
   /* Plot the empirical (sampled) and expected survivals */
   esl_histogram_PlotSurvival(stdout, h);
@@ -507,7 +509,7 @@ main(int argc, char **argv)
 	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
 
   /* ML fit to complete data, and plot fitted survival curve */
-  esl_gam_FitComplete(h->x, h->n, mu, &elam, &etau);
+  esl_gam_FitComplete(data, ndata, mu, &elam, &etau);
   esl_gam_Plot(stdout, mu, elam, etau,
 	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
 
@@ -523,9 +525,9 @@ main(int argc, char **argv)
 /****************************************************************************
  * Test driver
  ****************************************************************************/ 
-#ifdef eslGAM_TEST
+#ifdef eslGAMMA_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslGAM_TEST\
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslGAMMA_TESTDRIVE\
     esl_gamma.c -leasel -lm
 */
 #include <stdio.h>
@@ -550,6 +552,8 @@ main(int argc, char **argv)
   double  elambda, etau;
   int     i;
   double  x;
+  double *data;
+  int     ndata;
 
   int     opti;
   int     be_verbose   = FALSE;
@@ -607,9 +611,9 @@ main(int argc, char **argv)
       x = esl_gam_Sample(r, mu, lambda, tau);
       esl_histogram_Add(h, x);
     }
-  esl_histogram_Sort(h);
+  esl_histogram_GetData(h, &data, &ndata);
 
-  esl_gam_FitComplete(h->x, h->n, mu, &elambda, &etau);
+  esl_gam_FitComplete(data, ndata, mu, &elambda, &etau);
   if (be_verbose)
     printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   mu, elambda, etau);
@@ -628,7 +632,7 @@ main(int argc, char **argv)
   if (plotfile != NULL) fclose(pfp);
   return 0;
 }
-#endif /*eslGAM_TEST*/
+#endif /*eslGAMMA_TESTDRIVE*/
 
 /*****************************************************************
  * @LICENSE@

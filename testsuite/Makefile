@@ -19,5 +19,8 @@ ALL:  ${PROGS}
 $(PROGS): %: %.o ../libeasel.a
 	cc -o $@ -L ${EASELLIB} $@.o -leasel -lm
 
+check:
+	./sqc 2 testsuite.sqc .
+
 clean:
-	-rm -f *.o *~ ${PROGS}
+	-rm -f *.o *~ ${PROGS} testdriver

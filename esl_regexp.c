@@ -1637,12 +1637,12 @@ regescape(struct comp *cp, char c)
  * 3 code examples, and the test driver 
  *****************************************************************/
 
-#ifdef ESL_REGEXP_EXAMPLE1
+#ifdef eslREGEXP_EXAMPLE1
 /* Single match example.
  * Find first match of <pattern> in <string>; 
  * print coords of complete match.
  *
- * gcc -g -Wall -o example1 -I. -DESL_REGEXP_EXAMPLE1 regexp.c easel.c
+ * gcc -g -Wall -o example1 -I. -DeslREGEXP_EXAMPLE1 regexp.c easel.c
  * ./example1 <pattern> <string>
  */
 
@@ -1679,15 +1679,15 @@ main(int argc, char **argv)
   esl_regexp_Destroy(m);
   exit(0);
 }
-#endif /* ESL_REGEXP_EXAMPLE1*/
+#endif /* eslREGEXP_EXAMPLE1*/
 
 
-#ifdef ESL_REGEXP_EXAMPLE2
+#ifdef eslREGEXP_EXAMPLE2
 /* Multiple match example.
  * Matches <pattern> against <string> multiple times, until
  * no more matches are found.
  * 
- * gcc -g -Wall -o example2 -I. -DESL_REGEXP_EXAMPLE2 regexp.c easel.c
+ * gcc -g -Wall -o example2 -I. -DeslREGEXP_EXAMPLE2 regexp.c easel.c
  * ./example2 <pattern> <string>
  */
 
@@ -1726,16 +1726,16 @@ main(int argc, char **argv)
   esl_regexp_Destroy(m);
   exit(0);
 }
-#endif /* ESL_REGEXP_EXAMPLE2 */
+#endif /* eslREGEXP_EXAMPLE2 */
 
 
-#ifdef ESL_REGEXP_EXAMPLE3 
+#ifdef eslREGEXP_EXAMPLE3 
 
 /* Token parsing example.
  * Match a <pattern> that contains <ntok> ()-tokens
  * against <string>; parse out the submatches to each () token.
  * 
- * gcc -g -Wall -o example3 -I. -DESL_REGEXP_EXAMPLE3 regexp.c easel.c
+ * gcc -g -Wall -o example3 -I. -DeslREGEXP_EXAMPLE3 regexp.c easel.c
  * ./example3 <pattern> <string> <ntok>
  */
 #include <stdlib.h> /* for atoi()   */
@@ -1775,14 +1775,14 @@ main(int argc, char **argv)
   esl_regexp_Destroy(m);
   exit(0);
 }
-#endif /*ESL_REGEXP_EXAMPLE3*/
+#endif /*eslREGEXP_EXAMPLE3*/
 
-#ifdef ESL_REGEXP_TESTDRIVE
+#ifdef eslREGEXP_TESTDRIVE
 /* A test driver exercises every function in the
  * external API at least once, and tries to uncover
  * obvious problems. 
  *
- * gcc -g -Wall -o test -I. -DESL_REGEXP_TESTDRIVE regexp.c easel.c
+ * gcc -g -Wall -o test -I. -DeslREGEXP_TESTDRIVE regexp.c easel.c
  * ./test
  */
 int

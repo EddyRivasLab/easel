@@ -118,6 +118,7 @@ typedef struct {
 
 
 extern ESL_SQ *esl_sq_Create(void);
+extern ESL_SQ *esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss);
 extern int     esl_sq_Reuse(ESL_SQ *sq);
 extern int     esl_sq_Squeeze(ESL_SQ *sq);
 extern void    esl_sq_Destroy(ESL_SQ *sq);
@@ -125,21 +126,20 @@ extern void    esl_sq_Destroy(ESL_SQ *sq);
 extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
 			    ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
-extern int  esl_sqfile_DetermineFormat(FILE *fp);
 
-extern int  esl_sq_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
-extern int  esl_sq_Write(FILE *fp, ESL_SQ *s, int format);
-
+extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
+extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format);
+extern int   esl_sqio_WhatFormat(FILE *fp);
+extern int   esl_sqio_FormatCode(char *fmtstring);
+extern char *esl_sqio_FormatString(int fmt);
+extern int   esl_sqio_IsAlignment(int fmt);
 #ifdef eslAUGMENT_MSA
 extern int esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen);
 #endif
 
-extern int   esl_sqfile_FormatCode(char *fmtstring);
-extern char *esl_sqfile_FormatString(int fmt);
-extern int   esl_sqfile_IsAlignment(int fmt);
+
 
 #endif /*!ESL_SQIO_INCLUDED*/
-
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

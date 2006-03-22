@@ -20,40 +20,6 @@
 #include <inttypes.h>		/* some systems supposedly put uints here */
 #endif
 
-
-
-/*****************************************************************
- * Available augmentations.
- * 
- * If you grab a single module from Easel to use it by itself,
- * leave all these #undef'd; you have no augmentations.
- * 
- * If you grab additional Easel .c files, you can enable their
- * augmentations they provide to other modules by #defining the
- * modules you have below. Alternatively, you can -D them on
- * the compile line, as in cc -DeslAUGMENT_SSI -DeslAUGMENT_MSA.
- * 
- * If you compile and install the complete Easel library, all of these
- * get #defined automatically by ./configure. So, if you steal files
- * from an installed library, just set these all back to #undef
- * (depending on which files you have).
- *****************************************************************/
-
-#undef eslAUGMENT_ALPHABET
-#undef eslAUGMENT_FILEPARSER
-#undef eslAUGMENT_GEV
-#undef eslAUGMENT_GUMBEL
-#undef eslAUGMENT_HISTOGRAM
-/* #undef eslAUGMENT_KEYHASH  */ /* not yet! no keyhash module yet. */
-#undef eslAUGMENT_MINIMIZER
-#undef eslAUGMENT_MSA		
-#undef eslAUGMENT_RANDOM
-#undef eslAUGMENT_STATS
-
-/*------------------------------------------------------------------------*/
-/*------------ no user serviceable parts below this line -----------------*/
-/*------------------------------------------------------------------------*/
-
 /*****************************************************************
  * Error handling and allocation macros,
  * including a garbage collection convention.
