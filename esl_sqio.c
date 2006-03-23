@@ -79,9 +79,7 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
  * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
  *
  * Purpose:   Creates an empty <ESL_SQ> sequence object. 
- *            Implemented as a wrapper around <esl_sq_Inflate()>,
- *            which does everything but allocate the shell
- *            itself. Caller frees with <esl_sq_Destroy()>.
+ *            Caller frees with <esl_sq_Destroy()>.
  *            
  * Args:      (void)
  *

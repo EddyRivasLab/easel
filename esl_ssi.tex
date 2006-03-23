@@ -294,7 +294,7 @@ is \ccode{frecsize} bytes long, and contains:
 \vspace{1em}
 \begin{tabular}{llrr}
 Variable & Description                                       & Bytes & Type \\\hline
-\ccode{filename} & Name of file (possibly including full path)       & \ccode{flen} & char *\\
+\ccode{filename} & Name of file (possibly including full path)       & \ccode{flen} & \ccode{char *}\\
 \ccode{format}   & Format code for file                              & 4    & \ccode{uint32\_t} \\
 \ccode{flags}    & Optional behavior flags                           & 4    & \ccode{uint32\_t} \\
 \ccode{bpl}      & Bytes per sequence data line                      & 4    & \ccode{uint32\_t} \\
@@ -353,7 +353,7 @@ record is \ccode{precsize} bytes long, and contains:
 \vspace{1em}
 \begin{tabular}{llrr}
 Variable   & Description                                 & Bytes      & Type \\\hline
-\ccode{key}	   & Key name (seq name, identifier, accession) & \ccode{plen}& char *\\
+\ccode{key}	   & Key name (seq name, identifier, accession) & \ccode{plen}& \ccode{char *}\\
 \ccode{fnum}       & File number (0..nfiles-1)                   & 2          & \ccode{uint16\_t}\\
 \ccode{r\_off}      & Offset to start of record                   & \ddag      & \ccode{off\_t}\\
 \ccode{d\_off}      & Offset to start of sequence data            & \ddag      & \ccode{off\_t}\\
@@ -389,9 +389,9 @@ record is \ccode{srecsize} bytes long, and contains:
 \vspace{1em}
 \begin{tabular}{llrr}
 Variable   & Description                                   & Bytes      & Type \\\hline
-\ccode{key}   & Key name (seq name, identifier, accession)  & \ccode{slen}& char *\\
+\ccode{key}   & Key name (seq name, identifier, accession)  & \ccode{slen}& \ccode{char *}\\
 \ccode{pkey}  & Primary key                                 &
-\ccode{plen}& char *\\\hline
+\ccode{plen}& \ccode{char *}\\\hline
 \end{tabular}
 \vspace{1em}
 

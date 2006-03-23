@@ -1596,27 +1596,28 @@ esl_fwrite_offset(FILE *fp, off_t offset)
  ****************************************************************/
 #ifdef eslSSI_EXAMPLE
 /*::cexcerpt::ssi_example::begin::*/
-#include <easel.h>
 #include <stdio.h>
+#include <easel.h>
+#include <esl_ssi.h>
 
 int main(int argc, char **argv)
 {
   ESL_NEWSSI *ns;
-  char    *fafile;		/* name of FASTA file                   */
-  FILE    *fp;			/* opened FASTA file for reading        */
-  char    *ssifile;		/* name of SSI file                     */
-  FILE    *sfp;			/* opened SSI file for writing          */
-  uint16_t fh;			/* file handle SSI associates w/ fafile */
-  char    *buf = NULL;		/* growable buffer for esl_fgets()      */
-  int      n   = 0;		/* length of buf                        */
+  char    *fafile;              /* name of FASTA file                   */
+  FILE    *fp;                  /* opened FASTA file for reading        */
+  char    *ssifile;             /* name of SSI file                     */
+  FILE    *sfp;                 /* opened SSI file for writing          */
+  uint16_t fh;                  /* file handle SSI associates w/ fafile */
+  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
+  int      n   = 0;             /* length of buf                        */
   char    *s, *seqname;		
   off_t    seq_offset;
 
   /* Collect the sequence names from a FASTA file into an index */
   fafile = argv[1];
   ns = esl_newssi_Create();
-  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open file %s", fafile);
-  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add file %s to index", fafile);
+  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open %s", fafile);
+  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add %s to index", fafile);
 
   seq_offset = ftello(fp);
   while (esl_fgets(&buf, &n, fp) == eslOK)
@@ -1632,7 +1633,7 @@ int main(int argc, char **argv)
   fclose(fp);
 
   /* Save the index to disk */
-  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name an ssi file for %s", fafile);
+  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name ssi file for %s", fafile);
   if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
   if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
   fclose(sfp);
@@ -1647,28 +1648,29 @@ int main(int argc, char **argv)
 
 #ifdef eslSSI_EXAMPLE2
 /*::cexcerpt::ssi_example2::begin::*/
-#include <easel.h>
 #include <stdio.h>
+#include <easel.h>
+#include <esl_ssi.h>
 
 int main(int argc, char **argv)
 {
   ESL_SSI *ssi;
-  char    *seqname;		/* name of sequence to retrieve         */
-  char    *ssifile;		/* name of SSI file                     */
-  uint16_t fh;			/* file handle SSI associates w/ fafile */
-  char    *fafile;		/* name of FASTA file                   */
+  char    *seqname;             /* name of sequence to retrieve         */
+  char    *ssifile;             /* name of SSI file                     */
+  uint16_t fh;                  /* file handle SSI associates w/ fafile */
+  char    *fafile;              /* name of FASTA file                   */
   int      fmt;                 /* format code (1, in this example)     */
   off_t    offset;              /* disk offset of seqname in fafile     */
-  FILE    *fp;			/* opened FASTA file for reading        */
-  char    *buf = NULL;		/* growable buffer for esl_fgets()      */
-  int      n = 0;		/* size of buffer                       */
+  FILE    *fp;                  /* opened FASTA file for reading        */
+  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
+  int      n = 0;               /* size of buffer                       */
 
   seqname = argv[1];
   ssifile = argv[2];
 
-  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open ssi file %s", ssifile);
-  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s in ssi index %s", seqname, ssifile);
-  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to retrieve file name for handle %d\n", fh);
+  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open %s", ssifile);
+  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s", seqname);
+  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to get filename %d\n", fh);
   esl_ssi_Destroy(ssi);  
 
   if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
@@ -1686,6 +1688,48 @@ int main(int argc, char **argv)
 #endif /*eslSSI_EXAMPLE2*/
 
 
+#ifdef eslSSI_TESTDRIVE
+#include <stdio.h>
+#include <easel.h>
+#include <esl_ssi.h>
+#include <esl_random.h>
+
+int main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r;
+  FILE  *fp;
+  int    nseq, i, maxL;
+  char **seq;
+  int   *seqlen;
+  char  *alphabet = "ACGT";
+  double p = { 0.25, 0.25, 0.25, 0.25 };
+  char  *fafile;
+
+  nseq   = 10;
+  maxL   = 1000;
+  fafile = "xxxssi-test.fa";
+  
+  /* Create 10 sequences of random lengths up to 1000.
+   */
+  r = esl_randomness_CreateTimeseeded();
+  ESL_MALLOC(seq,    sizeof(char *) * nseq);
+  ESL_MALLOC(seqlen, sizeof(int)    * nseq);
+  for (i = 0; i < nseq; i++)
+    {
+      seqlen[i] = 1 + esl_rnd_Choose(r, maxL); /* 1..maxL */
+      seq[i]    = esl_rnd_IID(r, "ACGT", p, 4, seqlen[i]);
+    }
+
+  /* Save them to a FASTA file.
+   */
+  if ((fp = fopen(fafile, "w")) == NULL) esl_fatal("failed to open %s", fafile);
+
+  free(seqlen);
+  free(seq);
+  esl_randomness_Destroy(r);
+
+}
+#endif /*eslSSI_TESTDRIVE*/
 
 
 
