@@ -65,6 +65,7 @@ typedef struct {
    * or line-based parser (esl_fgets()).
    */
   char *buf;		      /* buffer for fread() or fgets() input      */
+  off_t boff;		      /* disk offset to start of buffer           */
   int   balloc;		      /* allocated size of buf                    */
   int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
   int   pos;		      /* current parsing position in the buffer   */
@@ -78,9 +79,10 @@ typedef struct {
   int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
   int  *inmap;		      /* pointer to an input map, 0..255       */
 
-  /* SSI indexing eventually goes here, including rpl,bpl counting;
-   * xref squid.
+  /* SSI subseq indexing: tracking residues per line, bytes per line
    */
+  int   rpl;		      /* residues per line; -1 if unset, 0 if inval */
+  int   bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
 
   /* Optional MSA augmentation: the ability to read multiple alignment
    * files as sequential seq files.
@@ -108,6 +110,10 @@ typedef struct {
   char *dsq;            /* digitized sequence [1..n], or NULL               */
   int   n;              /* length of seq                                    */
   /*::cexcerpt::sqio_sq::end::*/
+
+  /* SSI index info */
+  off_t roff;		/* record offset (start of record)      */
+  off_t doff;		/* data offset (start of sequence data) */
 
   char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
   int   nalloc;         /* allocated length of name */

@@ -1691,16 +1691,19 @@ int main(int argc, char **argv)
 #ifdef eslSSI_TESTDRIVE
 #include <stdio.h>
 #include <easel.h>
+#include <esl_sqio.h>
 #include <esl_ssi.h>
 #include <esl_random.h>
 
 int main(int argc, char **argv)
 {
   ESL_RANDOMNESS *r;
+  ESL_SQ         *sq;
   FILE  *fp;
   int    nseq, i, maxL;
   char **seq;
   int   *seqlen;
+  char  *seqname[32];
   char  *alphabet = "ACGT";
   double p = { 0.25, 0.25, 0.25, 0.25 };
   char  *fafile;
@@ -1718,11 +1721,20 @@ int main(int argc, char **argv)
     {
       seqlen[i] = 1 + esl_rnd_Choose(r, maxL); /* 1..maxL */
       seq[i]    = esl_rnd_IID(r, "ACGT", p, 4, seqlen[i]);
+      sprintf(sqname[i], "seq%d\n", i);
     }
 
   /* Save them to a FASTA file.
    */
   if ((fp = fopen(fafile, "w")) == NULL) esl_fatal("failed to open %s", fafile);
+  for (i = 0; i < nseq; i++)
+    {
+      sq = esl_sq_CreateFrom(
+      esl_sqio_Write(fp, sq, eslSQFILE_FASTA);
+
+
+    }
+
 
   free(seqlen);
   free(seq);

@@ -95,26 +95,23 @@ esl_sq_Create(void)
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
 
-  /* Set up the initial allocation sizes.
-   * Someday, we may want to allow an application to tune these
-   * at runtime, rather than using compiletime defaults.
-   */
+  sq->name     = NULL;
+  sq->acc      = NULL;
+  sq->desc     = NULL;
+  sq->seq      = NULL;
+  sq->ss       = NULL;	/* secondary structure input currently unimplemented */
+  sq->dsq      = NULL;	/* digital seq input currently unimplemented         */
+  sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
   sq->nalloc   = eslSQ_NAMECHUNK;	
   sq->aalloc   = eslSQ_ACCCHUNK;
   sq->dalloc   = eslSQ_DESCCHUNK;
   sq->salloc   = eslSQ_SEQCHUNK; 
 
-  sq->name     = NULL;
-  sq->seq      = NULL;
-  sq->dsq      = NULL;	/* digital seq input currently unimplemented         */
-  sq->ss       = NULL;	/* secondary structure input currently unimplemented */
-  sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
-
   ESL_ALLOC(sq->name, sizeof(char) * sq->nalloc);
   ESL_ALLOC(sq->acc,  sizeof(char) * sq->aalloc);
   ESL_ALLOC(sq->desc, sizeof(char) * sq->dalloc);
   ESL_ALLOC(sq->seq,  sizeof(char) * sq->salloc);
-  esl_sq_Reuse(sq);	/* this does the initialization */
+  esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
   return sq;
 
  CLEANEXIT:
@@ -208,6 +205,9 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
       ESL_ALLOC(sq->ss, sizeof(char) * n);
       strcpy(sq->ss, ss);
     } 
+
+  sq->doff = -1;
+  sq->roff = -1;
   return sq;
 
  CLEANEXIT: /* on failure: */		  
@@ -235,7 +235,9 @@ esl_sq_Reuse(ESL_SQ *sq)
   if (sq->seq != NULL) sq->seq[0] = '\0';
   if (sq->dsq != NULL) sq->dsq[0] = '\0';
   if (sq->ss  != NULL) sq->ss[0]  = '\0';
-  sq->n = 0;
+  sq->n    = 0;
+  sq->doff = -1;
+  sq->roff = -1;
   return eslOK;
 }
 
@@ -406,10 +408,13 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->errbuf[0]  = '\0';
   sqfp->inmap      = NULL;
   sqfp->buf        = NULL;
+  sqfp->boff       = 0;
   sqfp->balloc     = 0;
   sqfp->nc         = 0;
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
+  sqfp->rpl        = -1;
+  sqfp->bpl        = -1;
 #ifdef eslAUGMENT_MSA
   sqfp->afp        = NULL;
   sqfp->msa        = NULL;
@@ -548,10 +553,12 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
      * load first block of data.
      */
   case eslSQFILE_FASTA:
+    sqfp->linenumber = 1;
     sqfp->balloc = eslREADBUFSIZE;
     ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
     config_fasta(sqfp);
-    sqfp->nc = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+    sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+    sqfp->boff = 0;
     if (ferror(sqfp->fp)) { status = eslENOTFOUND; goto CLEANEXIT; }
     break;
 
@@ -884,6 +891,7 @@ loadline(ESL_SQFILE *sqfp)
 {
   int status;
 
+  sqfp->boff = ftello(sqfp->fp);
   status = esl_fgets(&(sqfp->buf), &(sqfp->balloc), sqfp->fp);
   if (status != eslOK)  return status;
 
@@ -1347,7 +1355,7 @@ config_fasta(ESL_SQFILE *sqfp)
  *            for a subsequent sequence 2..N; or at EOF, byte B+1
  *            in a B-byte file, in which case we return <eslEOF>.
  *            One of these conditions is guaranteed if you only call 
- *            <esl_sio_ReadFASTA()> on an open FASTA file, but
+ *            <read_fasta()> on an open FASTA file, but
  *            operations that muck with the internals of a <sqfp> 
  *            (such as indexing/lookup) have to be careful of this
  *            requirement.
