@@ -56,7 +56,6 @@ typedef struct {
   FILE *fp;		      /* Open file ptr                            */
   char *filename;	      /* Name of file (for diagnostics)           */
   char *ssifile;	      /* Name of SSI index file (for diagnostics) */
-  int   format;		      /* Format of this file                      */
   int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
   char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
@@ -73,16 +72,20 @@ typedef struct {
 
   /* Format-specific information
    */
-  int   addfirst;             /* TRUE to parse first line of seq record */
-  int   addend;	              /* TRUE to parse last line of seq record */
-  int   eof_is_ok;	      /* TRUE if record can end on EOF */
+  int   format;		      /* Format code of this file                    */
+  int   is_linebased;	      /* TRUE for fgets() parsers; FALSE for fread() */
+  int   addfirst;             /* TRUE to parse first line of seq record      */
+  int   addend;	              /* TRUE to parse last line of seq record       */
+  int   eof_is_ok;	      /* TRUE if record can end on EOF               */
   int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
-  int  *inmap;		      /* pointer to an input map, 0..255       */
+  int  *inmap;		      /* pointer to an input map, 0..255             */
 
   /* SSI subseq indexing: tracking residues per line, bytes per line
    */
   int   rpl;		      /* residues per line; -1 if unset, 0 if inval */
   int   bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
+  int   lastrpl;	      /* tmp var used only when indexing            */
+  int   lastbpl;	      /* ditto                                      */
 
   /* Optional MSA augmentation: the ability to read multiple alignment
    * files as sequential seq files.
@@ -139,6 +142,9 @@ extern int   esl_sqio_WhatFormat(FILE *fp);
 extern int   esl_sqio_FormatCode(char *fmtstring);
 extern char *esl_sqio_FormatString(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
+extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);
+extern int   esl_sqio_Rewind(ESL_SQFILE *sqfp);
+
 #ifdef eslAUGMENT_MSA
 extern int esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen);
 #endif

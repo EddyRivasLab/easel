@@ -59,7 +59,7 @@ static int  end_genbank(char *buf);
 static void config_fasta(ESL_SQFILE *sqfp);
 static int  read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s);
 static int  write_fasta(FILE *fp, ESL_SQ *s);
-static int  check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
+static int  check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos, 
 			 char **s, int i, int *slen);
 
 /* Optional MSA<->sqio interoperability */
@@ -413,8 +413,10 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->nc         = 0;
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
-  sqfp->rpl        = -1;
-  sqfp->bpl        = -1;
+  sqfp->rpl        = -1;	/* -1=unset */
+  sqfp->bpl        = -1;	/* -1=unset */
+  sqfp->lastrpl    = -1;	/* -1=unset */
+  sqfp->lastbpl    = 0;		/* -1=unset */
 #ifdef eslAUGMENT_MSA
   sqfp->afp        = NULL;
   sqfp->msa        = NULL;
@@ -509,62 +511,24 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
       if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto CLEANEXIT; }
     }
 
-  /* Up 'til now, everything we've done is independent of the format
-   * of the sequence file - we've only opened an appropriate stream. 
-   *               
-   * Now we preload the first data from the file, and how we do that
-   * depends on format. There are three possibilities:
-   *    - character-based parsers load into a fixed-size buf using fread().
-   *      (the FASTA parser, for example.)
-   *    
-   *    - line-based parsers would need to load into a dynamic buffer using
-   *      esl_fgets(). None are implemented yet, though.
-   *      
-   *    - Multiple alignment files handled specially, through the msa
-   *      interface; we create an MSAFILE object and copy our info into 
-   *      it; sqfp->msa stays NULL until we try to Read(), so we can
-   *      detect and appropriately report parsing problems.
-   *      
-   * Note on linenumber: character based parsers will bump the linenumber
-   * after they see a \n, so they init linenumber to 1. Line-based
-   * parsers bump the linenumber as they read a new line, so they should
-   * init linenumber to 0. It's 1 now; set to 0 if needed.
-   */              
+
+  /* Configure the <sqfp> for this specific format.
+   */
   switch (sqfp->format) {
-  case eslSQFILE_EMBL:
-  case eslSQFILE_UNIPROT:
-    sqfp->linenumber = 0;
-    config_embl(sqfp);
-    status = loadline(sqfp);
-    if (status == eslEOF)     { status = eslEFORMAT; goto CLEANEXIT; }
-    else if (status != eslOK) { goto CLEANEXIT; }
-    break;
-
-  case eslSQFILE_GENBANK:
-  case eslSQFILE_DDBJ:
-    sqfp->linenumber = 0;
-    config_genbank(sqfp);
-    status = loadline(sqfp);
-    if (status == eslEOF)     { status = eslEFORMAT; goto CLEANEXIT; }
-    else if (status != eslOK) { goto CLEANEXIT; }
-    break;
-
-    /* Character based parsers that use fread();
-     * load first block of data.
-     */
-  case eslSQFILE_FASTA:
-    sqfp->linenumber = 1;
-    sqfp->balloc = eslREADBUFSIZE;
-    ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
-    config_fasta(sqfp);
-    sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
-    sqfp->boff = 0;
-    if (ferror(sqfp->fp)) { status = eslENOTFOUND; goto CLEANEXIT; }
-    break;
+  case eslSQFILE_EMBL:     config_embl(sqfp);    break;
+  case eslSQFILE_UNIPROT:  config_embl(sqfp);    break;
+  case eslSQFILE_GENBANK:  config_genbank(sqfp); break;
+  case eslSQFILE_DDBJ:     config_genbank(sqfp); break;
+  case eslSQFILE_FASTA:    config_fasta(sqfp);   break;
 
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
     sqfp->linenumber = 0;	/* line-oriented input */
+    sqfp->is_linebased = TRUE;
+    sqfp->addfirst = FALSE;	/* no-op for msa's */
+    sqfp->addend   = FALSE;	/* no-op for msa's */
+    sqfp->eof_is_ok= FALSE;	/* no-op for msa's */
+    sqfp->endTest  = NULL;	/* no-op for msa's */
     ESL_ALLOC(sqfp->afp, sizeof(ESL_MSAFILE));
     sqfp->afp->f          = sqfp->fp;
     sqfp->afp->fname      = sqfp->filename;
@@ -578,6 +542,28 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     break;
 #endif /*eslAUGMENT_MSA*/
   }
+
+  /* Preload the first line or chunk of the file into buf.
+   */
+  if (! esl_sqio_IsAlignment(sqfp->format))
+    {
+      if (sqfp->is_linebased)
+	{
+	  sqfp->linenumber = 0;
+	  status = loadline(sqfp);
+	  if (status == eslEOF)     { status = eslEFORMAT; goto CLEANEXIT; }
+	  else if (status != eslOK) { goto CLEANEXIT; }
+	}
+      else
+	{
+	  sqfp->linenumber = 1;
+	  sqfp->balloc = eslREADBUFSIZE;
+	  ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
+	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+	  sqfp->boff = 0;
+	  if (ferror(sqfp->fp)) { status = eslEFORMAT; goto CLEANEXIT; }
+	}
+    }
 
   *ret_sqfp = sqfp;
   return eslOK;
@@ -861,7 +847,81 @@ esl_sqio_IsAlignment(int fmt)
   else            return FALSE;
 }
 
+
+/* Function:  esl_sqio_Position()
+ * Incept:    SRE, Tue Mar 28 13:21:47 2006 [St. Louis]
+ *
+ * Purpose:   Reposition an open <sqfp> to offset <r_off>, which
+ *            must be the offset to the start of a sequence record.
+ *            
+ *            Only normal sequence files can be positioned; not
+ *            a standard input stream, gunzip stream, or a multiple
+ *            alignment file interface.
+ *            
+ *            After <esl_sqio_Position()> is called, 
+ *            <sqfp->linenumber> is relative to that start position.
+ *            
+ *            See the SSI module for manipulating offsets and indices.
+ *
+ * Returns:   <eslOK>     on success;
+ *            <eslEINVAL> if the <sqfp> is not positionable;
+ *            <eslEOF>    if no data can be read from this position.
+ *
+ * Throws:    <eslESYS> if the fseeko() or fread() call fails;
+ *            <eslEMEM> on (re-)allocation failure.
+ */
+int
+esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off)
+{
+  int status;
+
+  if (sqfp->do_stdin || sqfp->do_gzip  ||  
+      esl_sqio_IsAlignment(sqfp->format)) return eslEINVAL;
+
+  if (fseeko(sqfp->fp, r_off, SEEK_SET) != 0)
+    ESL_ERROR(eslESYS, "fseeko() failed");
+
+  if (sqfp->is_linebased)
+    {
+      sqfp->linenumber = 0;
+      if ((status = loadline(sqfp)) != eslOK) return status;
+    }
+  else
+    {
+      sqfp->linenumber = 1;
+      sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+      sqfp->boff = r_off;
+      if (ferror(sqfp->fp)) { return eslESYS; }
+    }
+  return eslOK;
+}
+
+/* Function:  esl_sqio_Rewind()
+ * Incept:    SRE, Tue Mar 28 14:10:56 2006 [St. Louis]
+ *
+ * Purpose:   Rewind an open <sqfp> to its beginning.   
+ *
+ *            Only normal sequence files can be positioned; not
+ *            a standard input stream, gunzip stream, or a multiple
+ *            alignment file interface.
+ *
+ * Returns:   <eslOK>     on success;
+ *            <eslEINVAL> if the <sqfp> is not positionable;
+ *            <eslEOF>    if no data can be read from this position.
+ *
+ * Throws:    <eslESYS> if the fseeko() or fread() call fails;
+ *            <eslEMEM> on (re-)allocation failure.
+ */
+int
+esl_sqio_Rewind(ESL_SQFILE *sqfp)
+{
+  return esl_sqio_Position(sqfp, 0);
+}
+
+
+
 /*--------------------- end of i/o API ----------------------------*/
+
 
 
 
@@ -879,8 +939,15 @@ is_blankline(char *s)
 }
 
 
-/* Fetch a line into the sqfile's buffer;
- * increment line number.
+/* Fetch a line into the sqfile's buffer.
+ * 
+ * On return:
+ *    sqfp->buf        the next line in the file
+ *    sqfp->nc         the length of buf in bytes, inclusive of \n
+ *    sqfp->boff       disk offset to start of buf
+ *    sqfp->pos        initialized to 0 (start of buf)
+ *    sqfp->linenumber what line buf is (1..N in file)
+ *    sqfp->balloc     current buffer allocation might have been increased
  * 
  * Returns <eslOK>  on success;
  *         <eslEOF> if no more data is left in file (no errmsg)
@@ -903,16 +970,24 @@ loadline(ESL_SQFILE *sqfp)
 
 /* addseq():
  * 
- * Add a line of sequence (from the line buffer in the sqfp) to the
- * growing sequence.
+ * <sqfp->buf> is a sequence data line.
+ * Add residues from it to the growing sequence in <sq>.
  *
  * Uses the <sqfp->inmap> to decide whether to skip a character
  * (ESL_IGNORED_CHAR), report an error (ESL_ILLEGAL_CHAR), or store
- * it.
- *
- * <sq->seq> is not null-terminated upon return, because we expect to
- * keep adding to it; generic_readseq() is responsible for the \0.
  * 
+ * On return:
+ *   sq->seq     now includes residues from sqfp->buf; not nul-terminated yet;
+ *                 generic_readseq() is responsible for the eventual \0.
+ *   sq->n       has increased by # of residues on this line
+ *   sq->salloc  may have increased, if sq->seq was reallocated
+ *   
+ *   sqfp->pos     points to \0 at end of buf.
+ *   sqfp->rpl     might have been init'd to prev lastrpl, or invalidated (0)
+ *   sqfp->bpl     might have been init'd to prev lastbpl, or invalidated (0)
+ *   sqfp->lastrpl contains # of residues read from this line
+ *   sqfp->lastbpl contains # of bytes on this line (incl of \n).
+ *
  * Returns <eslOK> on success;
  *         <eslEFORMAT> on detecting an illegal character. (msg recorded)
  * Throws  <eslEMEM> on realloc failure.                   
@@ -920,17 +995,33 @@ loadline(ESL_SQFILE *sqfp)
 static int
 addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
+  int n0;
+
+  /* First, some bookkeeping, based on the *previous* seq line we read.
+   * Each time we add a sequence line, we're potentially responsible for 
+   * updating rpl and bpl, for sequence indexing. (xref stl10/128)
+   */
+  if (sqfp->rpl != 0 && sqfp->lastrpl != -1) {
+    if      (sqfp->rpl     == -1) 	 sqfp->rpl = sqfp->lastrpl; /* init */
+    else if (sqfp->lastrpl != sqfp->rpl) sqfp->rpl = 0;	            /* inval*/
+  }
+  if (sqfp->bpl != 0 && sqfp->lastbpl != -1) {
+    if      (sqfp->bpl     == -1)        sqfp->bpl = sqfp->lastbpl; /* init  */
+    else if (sqfp->lastbpl != sqfp->bpl) sqfp->bpl = 0;             /* inval */
+  }
+
+  /* Now, add the line.
+   */
+  n0 = sq->n;
   while (sqfp->buf[sqfp->pos] != '\0')
     {
-      /* Transfer the acceptable chars from buffer to seq. */
       if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] >= 0)
 	sq->seq[sq->n++] = sqfp->buf[sqfp->pos++];
       else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == ESL_IGNORED_CHAR)
 	sqfp->pos++;
       else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == ESL_ILLEGAL_CHAR)
 	{
-	  sprintf(sqfp->errbuf, "Illegal char %c in sequence", 
-		  sqfp->buf[sqfp->pos]);
+	  sprintf(sqfp->errbuf, "Illegal %c in sequence", sqfp->buf[sqfp->pos]);
 	  return eslEFORMAT;
 	}
 
@@ -942,24 +1033,39 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
 	  if (sq->seq == NULL) ESL_ERROR(eslEMEM, "realloc failed");
 	}
     }
-  return eslOK;			/* eslOK; eslEFORMAT, eslEMEM */
+
+  sqfp->lastrpl = sq->n - n0;	/* remember # of residues on this line. */
+  sqfp->lastbpl = sqfp->nc;     /* remember # of bytes on this line.    */
+  return eslOK;			/* eslOK; eslEFORMAT, eslEMEM           */
 }
 
 /* generic_readseq():
- * 
+ *
  * The <sqfp> is positioned at the beginning of the sequence data
  * in a record. If <sqfp->addfirst> is TRUE, the sequence data
- * includes the current line in <sqfp->buf>. Else, the first line
- * of sequence data is the next line in the file.
+ * includes the *current* line in <sqfp->buf>. Else, the first line
+ * of sequence data is the *next* line in the file.
  * 
  * Reads sequence data until the format's endTest() returns TRUE
  * on the last line; or on EOF, if the format can also end a record on 
  * an EOF.
  *
- * On return, the <sqfp> is still loaded with the last line that was
- * read. This line is considered to be part of the sequence
- * data if <sqfp->addend> is true; else, it is the first line
- * of the next sequence record.
+ * On return:
+ *   sq->seq    contains the sequence of this record, NUL-terminated
+ *   sq->n      the number of residues in seq
+ *   sq->doff   disk offset to the start of the sequence data
+ *   sq->salloc might be increased, if seq was reallocated
+ *
+ *   sqfp->buf  contains the last line that was read. If <sqfp->addend>
+ *              is TRUE, this line was read as sequence data for this
+ *              record; if <sqfp->addend> is false, it is to be the first
+ *              line of the next sequence record in the file.
+ *   sqfp->nc   number of bytes in buf, incl of \n
+ *   sqfp->pos  is undefined (it depends on whether buf was a seq line or not)
+ *   sqfp->rpl  is either initialized (>0), inval (0), or left unset (-1)
+ *   sqfp->bpl  (ditto)             
+ *   sqfp->lastrpl  contains # of residues in the final seq data line.
+ *   sqfp->lastbpl  # of bytes on the final seq data line.
  * 
  * Returns <eslOK> on success;
  *         <eslEOF> on abnormal (premature) EOF;     (no mesg)
@@ -972,7 +1078,10 @@ generic_readseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
   int status;
   int done   = 0;
 
+  sqfp->lastrpl = sqfp->lastbpl = -1; /* init */
+
   if (sqfp->addfirst) {
+    sq->doff = sqfp->boff;
     status = addseq(sqfp, sq);
     if (status != eslOK) return status;
   }
@@ -1085,9 +1194,11 @@ config_embl(ESL_SQFILE *sqfp)
 {
   int x;
 
-  sqfp->addfirst = FALSE;
-  sqfp->addend   = FALSE;
-  sqfp->endTest  = &end_embl;
+  sqfp->is_linebased = TRUE;
+  sqfp->addfirst     = FALSE;
+  sqfp->addend       = FALSE;
+  sqfp->eof_is_ok    = FALSE;	/* records end with // */
+  sqfp->endTest      = &end_embl;
 
   /* The input map.
    */
@@ -1148,6 +1259,7 @@ read_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
     sprintf(sqfp->errbuf, "Failed to parse name on ID line"); 
     return status;
   }
+  sq->roff = sqfp->boff;	/* record the offset of the ID line */
   
   /* Look for SQ line; parsing optional info as we go.
    */
@@ -1233,9 +1345,12 @@ config_genbank(ESL_SQFILE *sqfp)
 {
   int x;
 
-  sqfp->addfirst = FALSE;
-  sqfp->addend   = FALSE;
-  sqfp->endTest  = &end_genbank;
+  sqfp->is_linebased = TRUE;
+  sqfp->addfirst     = FALSE;
+  sqfp->addend       = FALSE;
+  sqfp->eof_is_ok    = FALSE;	/* records end with //  */
+  sqfp->endTest      = &end_genbank;
+
 
   for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
@@ -1264,6 +1379,7 @@ read_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
     sprintf(sqfp->errbuf, "Failed to parse name on LOCUS line"); 
     return status;
   }
+  sq->roff = sqfp->boff;	/* record the disk offset to the LOCUS line */
   
   /* Look for ORIGIN line, parsing optional info as we go.
    */
@@ -1333,6 +1449,12 @@ config_fasta(ESL_SQFILE *sqfp)
 {
   int x;
 
+  sqfp->is_linebased = FALSE;
+  sqfp->addfirst     = FALSE;	/* no-op in a fread() parser */
+  sqfp->addend       = FALSE;	/* ditto */
+  sqfp->eof_is_ok    = TRUE;	/* unused, but fasta can indeed end w/ eof. */
+  sqfp->endTest      = NULL;	/* unused in a fread() parser */
+  
   for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
@@ -1427,6 +1549,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   char *seq;            /* ptr to the growing sequence    */
   int   state;		/* state of our FSA parser        */
   int   nsafe;          /* #bytes we can safely move in both input/storage */
+  int   at_linestart;	/* TRUE when we're at first char of a data line    */
 
   /* If we have no more data, return EOF; we're done. (a normal return)
    */
@@ -1452,7 +1575,12 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
     switch (state) {
     case 0:     /* START. Accept >, move to state 1. Skip blank lines.*/
       if      (isspace(buf[pos])) { pos++; }
-      else if (buf[pos] == '>')   { pos++; state = 1; } 
+      else if (buf[pos] == '>')   
+	{ 
+	  s->roff = sqfp->boff + pos;
+	  pos++; 
+	  state = 1;
+	} 
       else 
 	{ 
 	  sprintf(sqfp->errbuf, "No > name/descline found."); 
@@ -1466,7 +1594,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
       break;
 
     case 2:     /* NAME. Accept/store non-whitespace. Else, move to state 3. */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, 
+      while ((nsafe = check_buffers(sqfp->fp, &(sqfp->boff), buf, &nc, &pos, 
 				    &(s->name), npos, &(s->nalloc))) > 0) {
 	while (nsafe--) {
 	  c = buf[pos];
@@ -1486,7 +1614,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
       break;
 	  
     case 4:   /* DESC. Accepts and stores up to \n; accepts \n & moves to 5. */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos,
+      while ((nsafe = check_buffers(sqfp->fp, &(sqfp->boff), buf, &nc, &pos,
 				    &(s->desc), dpos, &(s->dalloc))) > 0) {
 	while (nsafe--) {
 	  c = buf[pos];
@@ -1505,16 +1633,42 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
       break;
 
     case 5:   /* SEQ. Accept/process according to inmap; on '>',  move to 6. */
-      while ((nsafe = check_buffers(sqfp->fp, buf, &nc, &pos, 
+      s->doff = sqfp->boff + pos;
+      sqfp->lastrpl = sqfp->lastbpl = -1;
+      at_linestart  = TRUE;
+
+      while ((nsafe = check_buffers(sqfp->fp, &(sqfp->boff), buf, &nc, &pos, 
 				    &seq, spos, &(s->salloc))) > 0) {
 	while (nsafe--) {
+	  /* At start of every new data line, do bookkeeping for rpl, bpl
+	   * based on *previous* line lengths */
+	  if (at_linestart) {
+	    if (sqfp->rpl != 0 && sqfp->lastrpl != -1) {
+	      if      (sqfp->rpl     == -1) 	 sqfp->rpl = sqfp->lastrpl; /* init */
+	      else if (sqfp->lastrpl != sqfp->rpl) sqfp->rpl = 0;	            /* inval*/
+	    }
+	    if (sqfp->bpl != 0 && sqfp->lastbpl != -1) {
+	      if      (sqfp->bpl     == -1)        sqfp->bpl = sqfp->lastbpl; /* init  */
+	      else if (sqfp->lastbpl != sqfp->bpl) sqfp->bpl = 0;             /* inval */
+	    }
+	    at_linestart = FALSE;
+	    sqfp->lastrpl = 0;
+	    sqfp->lastbpl = 0;
+	  }
+
+	  /* bookkeeping complete, now deal with the character.
+	   */
 	  c = buf[pos];
 	  if      (inmap[c] >= 0)                
-	    { seq[spos++] = c; pos++; }
+	    { seq[spos++] = c; pos++; sqfp->lastrpl++; }
 	  else if (c == '>')               
 	    goto FINISH; 
-	  else if (c == '\n') 
-	    { pos++; sqfp->linenumber++; }
+	  else if (c == '\n') 	/* end of a seq line */
+	    { 
+	      pos++; 
+	      sqfp->linenumber++; 
+	      at_linestart = TRUE;
+	    }
 	  else if (inmap[c] == ESL_ILLEGAL_CHAR) 
 	    {
 	      sprintf(sqfp->errbuf, "Illegal char %c found in sequence.", c); 
@@ -1522,6 +1676,8 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	    }
 	  else
 	    { pos++; } /* IGNORED_CHARs, inc. \r */
+
+	  sqfp->lastbpl++;
 	}
       }
       if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
@@ -1531,6 +1687,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 
     if (pos == nc) {		/* reload the buffer when it empties */
       nc  = fread(buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+      sqfp->boff = ftello(sqfp->fp);
       pos = 0;
     }
     
@@ -1602,7 +1759,7 @@ write_fasta(FILE *fp, ESL_SQ *s)
  * 
  */
 static int
-check_buffers(FILE *fp, char *buf, int *nc, int *pos, 
+check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos, 
 	      char **s, int i, int *slen)
 {
   int inlen, savelen;
@@ -1611,6 +1768,7 @@ check_buffers(FILE *fp, char *buf, int *nc, int *pos,
   if (inlen == 0)	/* if we're at the end, reload now. */
     {
       *nc   = fread(buf, sizeof(char), eslREADBUFSIZE, fp);
+      *boff = ftello(fp);
       *pos  = 0;
       inlen = *nc - *pos;	/* (if this is still 0, we're at EOF.) */
     }
