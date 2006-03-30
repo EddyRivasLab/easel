@@ -1,5 +1,14 @@
 /* esl_random.c
  * A portable, threadsafe random number generator.
+ *
+ *  1. The ESL_RANDOMNESS object.
+ *  2. The generator, esl_random().
+ *  3. Other sampling routines.
+ *  4. The example driver.
+ *  5. The test driver.
+ *  
+ * See http://csrc.nist.gov/rng/ for the NIST random number
+ * generation test suite.
  * 
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
  * SVN $Id$
@@ -13,6 +22,10 @@
 #include <easel.h>
 #include <esl_random.h>
 
+
+/*****************************************************************
+ * 1. The ESL_RANDOMNESS object
+ *****************************************************************/
 
 /* Function:  esl_randomness_Create()
  * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
@@ -115,8 +128,13 @@ esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
   while (burnin--) esl_random(r);
   return eslOK;
 }
+/*----------- end of ESL_RANDOMNESS object functions --------------*/
 
 
+
+/*****************************************************************
+ * 2. The generator, esl_random() 
+ *****************************************************************/  
 
 /* Function: esl_random()
  * 
@@ -216,7 +234,13 @@ esl_random(ESL_RANDOMNESS *r)
 
   return ((double) r->rnd / (double) m1);  
 }
+/*----------- end of esl_random() --------------*/
 
+
+
+/*****************************************************************
+ * 3. Other sampling routines
+ *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
  * Incept:   SRE, Wed Jul 14 13:31:23 2004 [St. Louis]
@@ -456,15 +480,46 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 }
 
 
-
 /* Function:  esl_rnd_DChoose()
  *
  * Purpose:   Make a random choice from a normalized discrete
  *            distribution <p> of <N> elements, where <p>
  *            is double-precision. Returns the index of the
  *            selected element.
+ *            
+ *            <p> must be a normalized probability distribution
+ *            (i.e. must sum to one). Sampling distribution is
+ *            undefined otherwise: that is, a choice will always
+ *            be returned, but it might be an arbitrary one.
  *
  *            All p's must be $>>$ <DBL_EPSILON>.
+ *            
+ *            <esl_rnd_FChoose()> is the same, but for floats in <p>.
+ *
+ * Note:      Why the while (1) loop? Very rarely, because of machine
+ *            floating point representation, our roll is "impossibly" 
+ *            >= total sum, even though any roll of esl_random() is 
+ *            < 1.0 and the total sum is supposed to be 1.0 by
+ *            definition. This can happen when the total_sum is not
+ *            really 1.0, but something just less than that in the 
+ *            machine representation, and the roll happens to also be 
+ *            very very close to 1. I have not examined this analytically, 
+ *            but empirically, it occurs at a frequency of about 1/10^8
+ *            as measured for bug #sq5... which suggests it is on the
+ *            order of machine epsilon (not surprisingly). The while 
+ *            loop makes you go around and try again; it must eventually
+ *            succeed.
+ *            
+ *            The while() loop then makes the function vulnerable to
+ *            an infinite loop if <p> sums to <=0 -- which shouldn't
+ *            happen, but we shouldn't infinite loop if it does,
+ *            either.  That's why there's a check on the sum of
+ *            <p>. We return -1 in this case, a non-standard error code
+ *            for Easel.
+ *            
+ * Returns:   the random choice, <0..N-1>.           
+ * 
+ * Throws:    -1 on failure.
  */
 int
 esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N)
@@ -475,54 +530,38 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N)
 
   roll    = esl_random(r);
   sum     = 0.0;
-  for (i = 0; i < N; i++)
-    {
-      sum += p[i];
-      if (roll < sum) return i;
-    }
-  /* See comment on this next line in FChoose() */
-  do { i = (int) (esl_random(r) * N); } while (p[i] == 0.);
-  return i;
-}
 
-/* Function:  esl_rnd_FChoose()
- *
- * Purpose:   Make a random choice from a normalized discrete
- *            distribution <p> of <N> elements, where <p>
- *            is single-precision. Returns the index of the
- *            selected element.
- *
- *            All p's must be $>>$ <FLT_EPSILON>.
- */
+  while (1) {	/* see note in header about this while() */
+    for (i = 0; i < N; i++)
+      {
+	sum += p[i];
+	if (roll < sum) return i;  /* success! */
+      }
+    if (sum < 0.99) return -1;    /* avoid inf loop */
+  }
+  /*UNREACHED*/
+  return -1;
+}
 int
 esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 {
-  float roll;                   /* random fraction */
-  float sum;                    /* integrated prob */
-  int   i;                      /* counter over the probs */
+  float  roll;                  /* random fraction */
+  float  sum;                   /* integrated prob */
+  int    i;                     /* counter over the probs */
 
   roll    = esl_random(r);
   sum     = 0.0;
-  for (i = 0; i < N; i++)
-    {
-      sum += p[i];
-      if (roll < sum) return i;
-    }
 
-  /* Very rarely, because of machine floating point representation,
-   * our roll is "impossibly" >= total sum, even though any roll of
-   * esl_random() is < 1.0 and the total sum is supposed to be 1.0 by
-   * definition. This can happen when the total_sum is not really 1.0,
-   * but something just less than that in the machine representation,
-   * and the roll happens to also be very very close to 1. I have not
-   * examined this analytically, but empirically, it occurs at a frequency
-   * of about 1/10^8, as measured for bug #sq5. To work around, choose
-   * one of the *nonzero* p[i]'s at random.  (If you choose *any*
-   * p[i] you get bug #sq5; routines like StrMarkov0() fail because
-   * they choose impossible residues.)
-   */
-  do { i = (int) (esl_random(r) * N); } while (p[i] == 0.);
-  return i;
+  while (1) {	/* see note in header about this while() */
+    for (i = 0; i < N; i++)
+      {
+	sum += p[i];
+	if (roll < sum) return i; /* success */
+      }
+    if (sum < 0.99) return -1;	  /* bail out, avoid inf loop */
+  }
+  /*UNREACHED*/
+  return -1;
 }
 
 
@@ -563,7 +602,7 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
 
 
 /*****************************************************************
- * Example of using the random module
+ * 4. Example of using the random module
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
@@ -594,4 +633,102 @@ main(void)
   return 0;
 }
 /*::cexcerpt::random_example::end::*/
-#endif /*ESL_RANDOM_EXAMPLE*/
+#endif /*eslRANDOM_EXAMPLE*/
+
+
+/*****************************************************************
+ * 5. Test driver
+ *****************************************************************/
+
+/* gcc -o testdrive -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
+ */
+#ifdef eslRANDOM_TESTDRIVE
+
+/* The esl_random() unit test:
+ * a binned frequency test.
+ */
+static int
+unit_random(long seed, int n, int nbins, double *ret_X2p)
+{
+  int status;
+  ESL_RANDOMNESS *r      = NULL;
+  int            *counts = NULL;
+  double          X2p    = 0.;
+  int             i;
+  double          X2, exp, diff;
+
+  ESL_MALLOC(counts, sizeof(int) * nbins);
+  esl_vec_ISet(counts, nbins, 0);
+
+  /* This contrived call sequence exercises CreateTimeseeded() and
+   * Init(), while leaving us a reproducible chain.
+   */
+  r = esl_randomness_CreateTimeseeded();
+  esl_randomness_Init(r, seed);
+
+  for (i = 0; i < n; i++)
+    counts[esl_rnd_Choose(r, nbins)]++;
+
+  /* X^2 value: \sum (o_i - e_i)^2 / e_i */
+  for (X2 = 0., i = 0; i < nbins; i++) {
+    exp  = (double) n / (double) nbins;
+    diff = (double) counts[i] - exp;
+    X2 +=  diff*diff/exp;
+  }
+  if ((status = esl_stats_ChiSquaredTest(nbins, X2, &X2p)) != eslOK) goto CLEANEXIT;
+
+  if (X2p < 0.01) status = eslFAIL;
+  else            status = eslOK;
+  
+  if (ret_X2p != NULL) *ret_X2p = X2p;
+  esl_randomness_Destroy(r);
+  free(counts);
+  return status;
+}
+
+/* The DChoose() and FChoose() unit tests.
+ */
+static int
+unit_dchoose(ESL_RANDOMNESS *r, int n, int nbins, double *ret_X2p)
+{
+  double *pd;
+  float  *pf;
+  int    *ct;
+
+  ESL_MALLOC(pd, sizeof(double) * nbins);
+  ESL_MALLOC(pf, sizeof(float)  * nbins);
+  ESL_MALLOC(ct, sizeof(int)    * nbins);
+  esl_dirichlet_SampleUniform(r, nbins, pd);
+}
+ 
+static void
+print_long_bits(FILE *fp, long i)
+{
+  int b;
+
+  for (b = 0; b < sizeof(long)*8-1; b++)  /* don't print the sign bit. */
+    {
+      if (i & 01) fprintf(fp, "1");
+      else        fprintf(fp, "0");
+      i >>= 1;
+    }
+  fprintf(fp, "\n");
+}
+
+int
+main(int argc, char **argv)
+{
+  int             n     = 1000000;
+  int             nbins = 20;
+  int             seed  = 42;
+  double          X2p;
+  int             i;
+  int             be_verbose = TRUE;
+
+  if (unit_random(seed, n, nbins, &X2p) != eslOK) 
+    esl_fatal("unit test for esl_random() failed.");
+  if (be_verbose) printf("random:   %g\n", X2p);
+
+  return 0;
+}
+#endif /*eslRANDOM_TESTDRIVE*/

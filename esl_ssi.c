@@ -1716,7 +1716,7 @@ int main(int argc, char **argv)
    */
   r = esl_randomness_CreateTimeseeded();
   ESL_MALLOC(seq,    sizeof(char *) * nseq);
-  ESL_MALLOC(seqlen, sizeof(int)    * nseq);
+  ESL_MALLOC(seqlen, sizeogf(int)    * nseq);
   for (i = 0; i < nseq; i++)
     {
       seqlen[i] = 1 + esl_rnd_Choose(r, maxL); /* 1..maxL */
