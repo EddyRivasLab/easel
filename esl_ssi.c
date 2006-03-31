@@ -1671,7 +1671,7 @@ int main(int argc, char **argv)
   if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open %s", ssifile);
   if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s", seqname);
   if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to get filename %d\n", fh);
-  esl_ssi_Destroy(ssi);  
+  esl_ssi_Close(ssi);  
 
   if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
   if (fseeko(fp, offset, SEEK_SET)                 != 0)      esl_fatal("failed to position file %s", fafile);
@@ -1697,21 +1697,40 @@ int main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r;
-  ESL_SQ         *sq;
+  ESL_RANDOMNESS *r    = NULL;
+  ESL_NEWSSI     *ns   = NULL;
+  ESL_SSI        *ssi  = NULL;
+  ESL_SQ         *sq   = NULL;
+  ESL_SQFILE     *sqfp = NULL;
   FILE  *fp;
-  int    nseq, i, maxL;
+  FILE  *ssifp;
+  uint16_t fh;
+  int    nseq, nfiles, i, j, maxL;
+  char **sqfile;
   char **seq;
+  char **seqname;
   int   *seqlen;
-  char  *seqname[32];
+  char   query[32];
+  char  *qfile;
+  int    qfmt;
+  off_t  roff;
   char  *alphabet = "ACGT";
   double p = { 0.25, 0.25, 0.25, 0.25 };
-  char  *fafile;
+  char  *fafile  = NULL, 
+        *ssifile = NULL;
 
+  nfiles = 3;
   nseq   = 10;
   maxL   = 1000;
   fafile = "xxxssi-test.fa";
   
+  /* Create <nfiles> sequence file names, each with 
+   * <nseq> sequences, with random lengths up to <maxL>.
+   */
+  for (j = 0; j < nfiles; j++)
+    {
+
+
   /* Create 10 sequences of random lengths up to 1000.
    */
   r = esl_randomness_CreateTimeseeded();
@@ -1729,15 +1748,63 @@ int main(int argc, char **argv)
   if ((fp = fopen(fafile, "w")) == NULL) esl_fatal("failed to open %s", fafile);
   for (i = 0; i < nseq; i++)
     {
-      sq = esl_sq_CreateFrom(
+      sq = esl_sq_CreateFrom(sqname[i], seq[i], NULL, NULL, NULL);
       esl_sqio_Write(fp, sq, eslSQFILE_FASTA);
-
-
+      esl_sq_Destroy(sq);
     }
+  fclose(fp);
+
+  /* Create an ssi index.
+   */
+  ns = esl_newssi_Create();
+  sq = esl_sq_Create();
+  if (esl_sqfile_Open(fafile, eslSQFILE_UNKNOWN, NULL, &sqfp) != eslOK)
+    esl_fatal("failed to open fasta file %s", fafile);
+  esl_newssi_AddFile(ns, fafile, sqfp->format, &fh);
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+    {
+      esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->n);
+      esl_sq_Reuse(sq);
+    }
+  if (status != eslEOF) esl_fatal("sequence read failure");
+  esl_sq_Destroy(sq);
+
+  /* Save the SSI index to a file.
+   */
+  esl_FileNewSuffix(fafile, "ssi", &ssifile);
+  if ((ssifp = fopen(ssifile, "w")) == NULL) esl_fatal("failed to open ssi file");
+  esl_newssi_Write(ssifp, ns);
+  fclose(sfp);
+  free(ssifile);
+  esl_newssi_Destroy(ns);
+  
+  /* Open the SSI index - now we'll use it.
+   */
+  if (esl_ssi_Open(ssifile, ssi) != eslOK) esl_fatal("failed to open ssi index");
+  sq = esl_sq_Create();
+  
+  sprintf(query, "seq%d", 1 + esl_rnd_Choose(r, nseq));
+  esl_ssi_FindName(ssi, query, &fh, &roff);
+  esl_ssi_FileInfo(ssi, fh, &qfile, &qfmt);
+
+  if (esl_sqfile_Open(qfile, qfmt, NULL, &sqfp) != eslOK)
+    esl_fatal("failed to open fasta file %s", qfile);
+  esl_sqio_Position(sqfp, roff);
+  if (esl_sq_Read(sqfp, sq) != eslOK) esl_fatal("failed to read seq %s", query);
+
+  if (sq->
 
 
+  esl_sq_Reuse(sq);
+  
+
+  free(qfile);
+  esl_sq_Destroy(sq);
+  esl_ssi_Close(ssi);
+
+  
   free(seqlen);
-  free(seq);
+  for (i = 0; i < nseq; i++) free(seq[i]);
   esl_randomness_Destroy(r);
 
 }

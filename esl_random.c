@@ -644,11 +644,88 @@ main(void)
  */
 #ifdef eslRANDOM_TESTDRIVE
 
+#include <stdio.h>
+#include <easel.h>
+#include <esl_getopts.h>
+#include <esl_dirichlet.h>
+#include <esl_vectorops.h>
+#include <esl_random.h>
+
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
+  {"-b",  eslARG_INT,      "20", NULL, "n>0",NULL, NULL, NULL, "number of test bins",               0},
+  {"-n",  eslARG_INT, "1000000", NULL, "n>0",NULL, NULL, NULL, "number of samples",                 0},
+  {"-s",  eslARG_INT,      "42", NULL, "n>0",NULL, NULL, NULL, "random number seed",                0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
+  {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[] = "Usage: ./testdrive [-options]";
+
+static int unit_random(long seed, int n, int nbins, int be_verbose);
+static int unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose);
+static int save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n);
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go;
+  ESL_RANDOMNESS *r;
+  int             n, nbins, seed, be_verbose, show_help;
+  double          X2p;
+  char           *bitfile;
+  int             i;
+
+  /* Command line parsing
+   */
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
+  esl_opt_GetBooleanOption(go, "-h", &show_help);
+  if (show_help) {
+    puts(usage); 
+    puts("\n  where options are:");
+    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
+    return 0;
+  }
+  esl_opt_GetIntegerOption(go, "-b", &nbins);
+  esl_opt_GetIntegerOption(go, "-n", &n);
+  esl_opt_GetIntegerOption(go, "-s", &seed);
+  esl_opt_GetBooleanOption(go, "-v", &be_verbose);
+  esl_opt_GetStringOption (go, "--bitfile", &bitfile);
+
+  if (esl_opt_ArgNumber(go) != 0) {
+    puts("Incorrect number of command line arguments.");
+    puts(usage);
+    return 1;
+  }
+
+  /* Initialization
+   */
+  r = esl_randomness_Create(seed);
+
+  /* Unit tests
+   */
+  if (unit_random(seed, n, nbins, be_verbose) != eslOK) esl_fatal("unit test for esl_random() failed.");
+  if (unit_choose(r,    n, nbins, be_verbose) != eslOK) esl_fatal("unit test for {FD}Choose() failed.");
+
+  /* Optional datafiles.
+   */
+  if (bitfile != NULL) save_bitfile(bitfile, r, n);
+
+  /* Exit.
+   */
+  esl_randomness_Destroy(r);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+
 /* The esl_random() unit test:
  * a binned frequency test.
  */
 static int
-unit_random(long seed, int n, int nbins, double *ret_X2p)
+unit_random(long seed, int n, int nbins, int be_verbose)
 {
   int status;
   ESL_RANDOMNESS *r      = NULL;
@@ -657,7 +734,7 @@ unit_random(long seed, int n, int nbins, double *ret_X2p)
   int             i;
   double          X2, exp, diff;
 
-  ESL_MALLOC(counts, sizeof(int) * nbins);
+  ESL_ALLOC(counts, sizeof(int) * nbins);
   esl_vec_ISet(counts, nbins, 0);
 
   /* This contrived call sequence exercises CreateTimeseeded() and
@@ -675,60 +752,108 @@ unit_random(long seed, int n, int nbins, double *ret_X2p)
     diff = (double) counts[i] - exp;
     X2 +=  diff*diff/exp;
   }
-  if ((status = esl_stats_ChiSquaredTest(nbins, X2, &X2p)) != eslOK) goto CLEANEXIT;
+  esl_stats_ChiSquaredTest(nbins, X2, &X2p);
+  if (be_verbose) printf("random():  \t%g\n", X2p);
 
   if (X2p < 0.01) status = eslFAIL;
   else            status = eslOK;
   
-  if (ret_X2p != NULL) *ret_X2p = X2p;
-  esl_randomness_Destroy(r);
-  free(counts);
+ CLEANEXIT:
+  if (r != NULL)       esl_randomness_Destroy(r);
+  if (counts != NULL) free(counts);
   return status;
 }
 
 /* The DChoose() and FChoose() unit tests.
  */
 static int
-unit_dchoose(ESL_RANDOMNESS *r, int n, int nbins, double *ret_X2p)
+unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 {
-  double *pd;
-  float  *pf;
-  int    *ct;
+  int     status;
+  double *pd = NULL;
+  float  *pf = NULL;
+  int    *ct = NULL;
+  int     i;
+  double  X2, diff, exp, X2p;
 
-  ESL_MALLOC(pd, sizeof(double) * nbins);
-  ESL_MALLOC(pf, sizeof(float)  * nbins);
-  ESL_MALLOC(ct, sizeof(int)    * nbins);
+  ESL_ALLOC(pd, sizeof(double) * nbins);
+  ESL_ALLOC(pf, sizeof(float)  * nbins);
+  ESL_ALLOC(ct, sizeof(int)    * nbins);
+
+  /* Sample a random multinomial probability vector.  */
   esl_dirichlet_SampleUniform(r, nbins, pd);
+  esl_vec_D2F(pd, nbins, pf);
+
+  /* Sample observed counts using DChoose(). */
+  esl_vec_ISet(ct, nbins, 0);
+  for (i = 0; i < n; i++)
+    ct[esl_rnd_DChoose(r, pd, nbins)]++;
+
+  /* X^2 test on those observed counts. */
+  for (X2 = 0., i=0; i < nbins; i++) {
+    exp = (double) n * pd[i];
+    diff = (double) ct[i] - exp;
+    X2 += diff*diff/exp;
+  }
+  esl_stats_ChiSquaredTest(nbins, X2, &X2p);
+  if (be_verbose) printf("DChoose():  \t%g\n", X2p);
+  if (X2p < 0.01) { status = eslFAIL; goto CLEANEXIT; }
+
+  /* Repeat above for FChoose(). */
+  esl_vec_ISet(ct, nbins, 0);
+  for (i = 0; i < n; i++)
+    ct[esl_rnd_FChoose(r, pf, nbins)]++;
+  for (X2 = 0., i=0; i < nbins; i++) {
+    exp = (double) n * pd[i];
+    diff = (double) ct[i] - exp;
+    X2 += diff*diff/exp;
+  }
+  esl_stats_ChiSquaredTest(nbins, X2, &X2p);
+  if (be_verbose) printf("FChoose():  \t%g\n", X2p);
+  if (X2p < 0.01) { status = eslFAIL; goto CLEANEXIT; }
+  
+  status =  eslOK;
+ CLEANEXIT:
+  if (pd != NULL) free(pd);
+  if (pf != NULL) free(pf);
+  if (ct != NULL) free(ct);
+  return status;
 }
  
-static void
-print_long_bits(FILE *fp, long i)
+static int
+save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 {
-  int b;
+  FILE *fp = NULL;
+  int status;
+  int b,i;
+  long x;
 
-  for (b = 0; b < sizeof(long)*8-1; b++)  /* don't print the sign bit. */
+  /* Open the file. 
+   */
+  if ((fp = fopen(bitfile, "w")) == NULL) 
+    esl_fatal("failed to open %s for writing", bitfile);
+
+  /* Sample <n> random numbers, output 31n random bits to the file.
+   */
+  for (i = 0; i < n; i++)
     {
-      if (i & 01) fprintf(fp, "1");
-      else        fprintf(fp, "0");
-      i >>= 1;
+      esl_random(r);
+      x = r->rnd;		/* peek inside, get the 31 bit random long */
+
+      for (b = 0; b < 31; b++)  /* don't print the sign bit. */
+	{
+	  if (x & 01) fprintf(fp, "1");
+	  else        fprintf(fp, "0");
+	  x >>= 1;
+	}
+      fprintf(fp, "\n");
     }
-  fprintf(fp, "\n");
+
+  status = eslOK;
+ CLEANEXIT:
+  if (fp != NULL) fclose(fp);
+  return status;
 }
 
-int
-main(int argc, char **argv)
-{
-  int             n     = 1000000;
-  int             nbins = 20;
-  int             seed  = 42;
-  double          X2p;
-  int             i;
-  int             be_verbose = TRUE;
 
-  if (unit_random(seed, n, nbins, &X2p) != eslOK) 
-    esl_fatal("unit test for esl_random() failed.");
-  if (be_verbose) printf("random:   %g\n", X2p);
-
-  return 0;
-}
 #endif /*eslRANDOM_TESTDRIVE*/

@@ -32,7 +32,8 @@ APITEX =  easel\
 # its function headers to a .tex appendix file. The list of
 # modules that actually comply follows:
 #
-AUTOTEX = esl_alphabet\
+AUTOTEX = easel\
+	  esl_alphabet\
 	  esl_dirichlet\
 	  esl_exponential\
 	  esl_fileparser\

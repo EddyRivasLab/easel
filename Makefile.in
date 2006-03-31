@@ -74,6 +74,9 @@ libeasel.a: $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
 
+check:
+	(cd testsuite; make check)
+
 clean:
 	-rm -f ${OBJS} libeasel.a
 	-rm -f *~ TAGS

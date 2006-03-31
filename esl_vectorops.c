@@ -16,12 +16,21 @@
  * esl_vec_{D,F,I}Min()         - return value of minimum element in vector 
  * esl_vec_{D,F,I}ArgMax()      - return index of maximum element in vector
  * esl_vec_{D,F,I}ArgMin()      - return index of minimum element in vector
+ * esl_vec_{D,F,I}SortIncreasing() - sort from smallest to largest
+ * esl_vec_{D,F,I}SortDecreasing() - sort from largest to smallest
+ *
+ * esl_vec_D2F()                - copy double vector to float vector
+ * esl_vec_F2D()                - copy float vector to double vector
+ * esl_vec_I2F()                - copy integer vector to float vector
+ * esl_vec_I2D()                - copy integer vector to double vector
  * 
  * esl_vec_{D,F}Norm()          - normalize a probability vector of length n.
  * esl_vec_{D,F}Log()           - convert to log probabilities 
+ * esl_vec_{D,F}Entropy()       - return Shannon entropy of probability vector, in bits
+ *
  * esl_vec_{D,F}Exp()           - convert log p's back to probabilities
  * esl_vec_{D,F}LogSum()        - given vector of log p's; return log of summed p's.
- * esl_vec_{D,F}Entropy()       - return Shannon entropy of probability vector, in bits
+ * esl_vec_{D,F}LogNorm()       - given vec of unnormalized log p's; normalize, make it a p vector
  *                        
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
@@ -593,6 +602,45 @@ esl_vec_ISortDecreasing(int *vec, int n)
 {
   qsort((void *) vec, n, sizeof(int), qsort_IDecreasing);
 }
+
+
+/* Function:  esl_vec_D2F()
+ * Incept:    SRE, Thu Mar 30 09:04:17 2006 [St. Louis]
+ *
+ * Purpose:   Copy a double vector <src> to a float vector <dst>. Caller
+ *            provides space in the float vector that is at
+ *            least <n>.
+ *            
+ *            Similarly, <esl_vec_F2D()> converts float to double; 
+ *            <esl_vec_I2D()> converts integer to double; 
+ *            <esl_vec_I2F()> converts integer to float.
+ */
+void
+esl_vec_D2F(double *src, int n, float *dst)
+{
+  int i;
+  for (i = 0; i < n; i++) dst[i] = src[i];
+}
+void
+esl_vec_F2D(float *src, int n, double *dst)
+{
+  int i;
+  for (i = 0; i < n; i++) dst[i] = src[i];
+}
+void
+esl_vec_I2F(int *src, int n, float *dst)
+{
+  int i;
+  for (i = 0; i < n; i++) dst[i] = src[i];
+}
+void
+esl_vec_I2D(int *src, int n, double *dst)
+{
+  int i;
+  for (i = 0; i < n; i++) dst[i] = src[i];
+}
+
+
 
 
 /* Function:  esl_vec_DNorm()

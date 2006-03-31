@@ -112,11 +112,9 @@ typedef struct {
   char *ss;             /* secondary structure annotation [0..n-1], or NULL */
   char *dsq;            /* digitized sequence [1..n], or NULL               */
   int   n;              /* length of seq                                    */
+  off_t roff;		/* record offset (start of record)                  */
+  off_t doff;		/* data offset (start of sequence data)             */
   /*::cexcerpt::sqio_sq::end::*/
-
-  /* SSI index info */
-  off_t roff;		/* record offset (start of record)      */
-  off_t doff;		/* data offset (start of sequence data) */
 
   char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
   int   nalloc;         /* allocated length of name */
@@ -142,6 +140,7 @@ extern int   esl_sqio_WhatFormat(FILE *fp);
 extern int   esl_sqio_FormatCode(char *fmtstring);
 extern char *esl_sqio_FormatString(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
+
 extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);
 extern int   esl_sqio_Rewind(ESL_SQFILE *sqfp);
 

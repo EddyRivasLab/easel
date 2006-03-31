@@ -312,7 +312,7 @@ esl_strdup(char *s, int n, char **ret_dup)
  *           lsrc  - length of src, if known; or -1 if length unknown.
  *
  * Returns:  <eslOK> on success; <*dest> is (probably) reallocated, 
- *           modified, and '\0' terminated.
+ *           modified, and nul-terminated.
  *           
  * Throws:   <eslEMEM> on allocation failure.          
  */
@@ -343,22 +343,22 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
  * Purpose:  Thread-safe version of strtok(), for parsing next token
  *           in a string. Skips until it reaches a character that is
  *           not in <delim> to set the beginning of the
- *           token. Skips to next delim character (or '\0') to set the
- *           end, and replaces that character with '\0'. <*s> is then
+ *           token. Skips to next delim character (or <NUL>) to set the
+ *           end, and replaces that character with <NUL>. <*s> is then
  *           reset to point to the next character after
- *           the '\0' that was written, so successive calls can extract
+ *           the <NUL> that was written, so successive calls can extract
  *           tokens in succession. Sets <*ret_tok> to point at the
  *           beginning of the token, and <*ret_token> to the number
- *           of characters in the token (exclusive of the \0), and
+ *           of characters in the token (exclusive of the <NUL>), and
  *           returns <eslOK>.
  *            
  *           If a token is not found -- if <*s> already points to
- *           \0, or is a string composed entirely of characters in
+ *           <NUL>, or is a string composed entirely of characters in
  *           <delim> -- then returns <eslEOL>; <*ret_tok> is set to
  *           NULL, and <*ret_toklen> is set to 0.
  *           
  *           Note that <*s> can't be a constant string, since we write
- *           \0's to it; caller must be willing to have this string
+ *           <NUL>'s to it; caller must be willing to have this string
  *           modified. And since we walk <*s> through the string
  *           as we parse, the caller wants to use a tmp pointer <*s>,
  *           not the string itself.
@@ -424,6 +424,7 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
  *     strcasecmp() -> may be define'd to be esl_strcasecmp()
  */
 
+#ifndef HAVE_STRCASECMP
 /* Function:  esl_strcasecmp()
  * Incept:    SRE, Sat Dec 10 09:44:13 2005 [St. Louis]
  *
@@ -440,7 +441,6 @@ esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
  *
  * Throws:    (no abnormal error conditions)
  */
-#ifndef HAVE_STRCASECMP
 int
 esl_strcasecmp(const char *s1, const char *s2)
 {
