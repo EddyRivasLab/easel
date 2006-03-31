@@ -168,6 +168,7 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   n = strlen(seq)+1;
   ESL_ALLOC(sq->seq, sizeof(char) * n);
   strcpy(sq->seq, seq);
+  sq->n      = n-1;
   sq->salloc = n;
 
   if (desc != NULL) 
@@ -559,8 +560,8 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 	  sqfp->linenumber = 1;
 	  sqfp->balloc = eslREADBUFSIZE;
 	  ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
-	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
 	  sqfp->boff = 0;
+	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
 	  if (ferror(sqfp->fp)) { status = eslEFORMAT; goto CLEANEXIT; }
 	}
     }
@@ -889,8 +890,8 @@ esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off)
   else
     {
       sqfp->linenumber = 1;
-      sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       sqfp->boff = r_off;
+      sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       if (ferror(sqfp->fp)) { return eslESYS; }
     }
   return eslOK;
@@ -1686,8 +1687,8 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
     } /* end of switch over FSA states */
 
     if (pos == nc) {		/* reload the buffer when it empties */
-      nc  = fread(buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       sqfp->boff = ftello(sqfp->fp);
+      nc  = fread(buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       pos = 0;
     }
     
@@ -1767,8 +1768,8 @@ check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos,
   inlen = *nc - *pos;  	/* can read this many bytes before reloading buffer */
   if (inlen == 0)	/* if we're at the end, reload now. */
     {
-      *nc   = fread(buf, sizeof(char), eslREADBUFSIZE, fp);
       *boff = ftello(fp);
+      *nc   = fread(buf, sizeof(char), eslREADBUFSIZE, fp);
       *pos  = 0;
       inlen = *nc - *pos;	/* (if this is still 0, we're at EOF.) */
     }

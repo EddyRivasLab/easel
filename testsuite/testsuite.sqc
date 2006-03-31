@@ -49,6 +49,9 @@
 1 prep     sqio-compile           gcc -o testdriver -I.. -L.. -g -Wall -DeslSQIO_TESTDRIVE ../esl_sqio.c -leasel -lm
 1 exercise sqio-testdrive         @testdriver@
 
+1 prep     ssi-compile            gcc -o testdriver -I.. -L.. -g -Wall -DeslSSI_TESTDRIVE ../esl_ssi.c -leasel -lm
+1 exercise ssi-testdrive          @testdriver@
+
 1 prep     stack-compile          gcc -o testdriver -I.. -L.. -g -Wall -DeslSTACK_TESTDRIVE ../esl_stack.c -leasel -lm
 1 exercise stack-testdrive        @testdriver@
 
