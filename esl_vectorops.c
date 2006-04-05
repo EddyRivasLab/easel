@@ -224,7 +224,7 @@ esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n)
 
 /* Function:  esl_vec_DCopy()
  *
- * Purpose:   Copies <vec2> to <vec1>. <vec2> is
+ * Purpose:   Copies <src> to <dest>. <src> is
  *            unchanged. Both vectors are of size <n>.
  *            
  *            <esl_vec_FCopy()> and <esl_vec_ICopy()> do the same,
@@ -233,22 +233,22 @@ esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n)
  *            Essentially the same as BLAS1 xCOPY().
  */
 void
-esl_vec_DCopy(double *vec1, double *vec2, int n)
+esl_vec_DCopy(double *dest, double *src, int n)
 {
   int x;
-  for (x = 0; x < n; x++) vec1[x] = vec2[x];
+  for (x = 0; x < n; x++) dest[x] = src[x];
 }
 void
-esl_vec_FCopy(float *vec1, float *vec2, int n)
+esl_vec_FCopy(float *dest, float *src, int n)
 {
   int x;
-  for (x = 0; x < n; x++) vec1[x] = vec2[x];
+  for (x = 0; x < n; x++) dest[x] = src[x];
 }
 void
-esl_vec_ICopy(int *vec1, int *vec2, int n)
+esl_vec_ICopy(int *dest, int *src, int n)
 {
   int x;
-  for (x = 0; x < n; x++) vec1[x] = vec2[x];
+  for (x = 0; x < n; x++) dest[x] = src[x];
 }
 
 

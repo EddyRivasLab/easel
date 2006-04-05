@@ -179,7 +179,7 @@ extern int  esl_strdup(char *s, int n, char **ret_dup);
 extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
-
+extern int  esl_strchop(char *s, int n);
 #ifndef HAVE_STRCASECMP
 #ifdef _MSC_VER
 #define strcasecmp stricmp
@@ -270,8 +270,8 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
  */
 /* Flags in an <inmap>, input map.
  */ 
-#define ESL_ILLEGAL_CHAR -2
-#define ESL_IGNORED_CHAR -1
+#define  eslILLEGAL_CHAR -2
+#define  eslIGNORED_CHAR -1
 
 
 

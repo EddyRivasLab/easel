@@ -975,7 +975,7 @@ loadline(ESL_SQFILE *sqfp)
  * Add residues from it to the growing sequence in <sq>.
  *
  * Uses the <sqfp->inmap> to decide whether to skip a character
- * (ESL_IGNORED_CHAR), report an error (ESL_ILLEGAL_CHAR), or store
+ * (eslIGNORED_CHAR), report an error (eslILLEGAL_CHAR), or store
  * 
  * On return:
  *   sq->seq     now includes residues from sqfp->buf; not nul-terminated yet;
@@ -1018,9 +1018,9 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
     {
       if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] >= 0)
 	sq->seq[sq->n++] = sqfp->buf[sqfp->pos++];
-      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == ESL_IGNORED_CHAR)
+      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == eslIGNORED_CHAR)
 	sqfp->pos++;
-      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == ESL_ILLEGAL_CHAR)
+      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == eslILLEGAL_CHAR)
 	{
 	  sprintf(sqfp->errbuf, "Illegal %c in sequence", sqfp->buf[sqfp->pos]);
 	  return eslEFORMAT;
@@ -1203,13 +1203,13 @@ config_embl(ESL_SQFILE *sqfp)
 
   /* The input map.
    */
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
+  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  sqfp->inmap[' ']  = ESL_IGNORED_CHAR;
-  sqfp->inmap['\t'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\n'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\r'] = ESL_IGNORED_CHAR;	/* DOS eol compatibility */
+  sqfp->inmap[' ']  = eslIGNORED_CHAR;
+  sqfp->inmap['\t'] = eslIGNORED_CHAR;
+  sqfp->inmap['\n'] = eslIGNORED_CHAR;
+  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
 }
 
 /* read_embl()
@@ -1353,14 +1353,14 @@ config_genbank(ESL_SQFILE *sqfp)
   sqfp->endTest      = &end_genbank;
 
 
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
+  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  for (x = '0'; x <= '9'; x++) sqfp->inmap[x] = ESL_IGNORED_CHAR;
-  sqfp->inmap[' ']  = ESL_IGNORED_CHAR;
-  sqfp->inmap['\t'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\n'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\r'] = ESL_IGNORED_CHAR;	/* DOS eol compatibility */
+  for (x = '0'; x <= '9'; x++) sqfp->inmap[x] = eslIGNORED_CHAR;
+  sqfp->inmap[' ']  = eslIGNORED_CHAR;
+  sqfp->inmap['\t'] = eslIGNORED_CHAR;
+  sqfp->inmap['\n'] = eslIGNORED_CHAR;
+  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
 } 
 
 static int
@@ -1456,13 +1456,13 @@ config_fasta(ESL_SQFILE *sqfp)
   sqfp->eof_is_ok    = TRUE;	/* unused, but fasta can indeed end w/ eof. */
   sqfp->endTest      = NULL;	/* unused in a fread() parser */
   
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = ESL_ILLEGAL_CHAR;
+  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  sqfp->inmap[' ']  = ESL_IGNORED_CHAR;
-  sqfp->inmap['\t'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\n'] = ESL_IGNORED_CHAR;
-  sqfp->inmap['\r'] = ESL_IGNORED_CHAR;	/* DOS eol compatibility */
+  sqfp->inmap[' ']  = eslIGNORED_CHAR;
+  sqfp->inmap['\t'] = eslIGNORED_CHAR;
+  sqfp->inmap['\n'] = eslIGNORED_CHAR;
+  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
 }
 
 /* read_fasta()
@@ -1670,7 +1670,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	      sqfp->linenumber++; 
 	      at_linestart = TRUE;
 	    }
-	  else if (inmap[c] == ESL_ILLEGAL_CHAR) 
+	  else if (inmap[c] == eslILLEGAL_CHAR) 
 	    {
 	      sprintf(sqfp->errbuf, "Illegal char %c found in sequence.", c); 
 	      return eslEFORMAT;

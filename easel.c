@@ -466,6 +466,36 @@ esl_strcasecmp(const char *s1, const char *s2)
 #endif /* ! HAVE_STRCASECMP */
 
 
+/*****************************************************************
+ * and some extra str*() functions...
+ *****************************************************************/ 
+
+/* Function:  esl_strchop()
+ * Incept:    SRE, Mon Apr  3 10:24:14 2006 [St. Louis]
+ *
+ * Purpose:   Chops trailing whitespace off of a string <s> (or if <s>
+ *            is NULL, do nothing).
+ *            <n> is the length of the input string, if known; or pass <n=-1>
+ *            if length is unknown. 
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      from squid's StringChop().
+ */
+int
+esl_strchop(char *s, int n)
+{
+  int i;
+  if (s == NULL) return eslOK;
+  if (n < 0) n = strlen(s);
+  for (i = n-1; i>=0 && isspace((int) s[i]); i--); 
+  s[i+1] = '\0';
+  return eslOK;
+}
+
+
 /******************************************************************************
  * File path/name manipulation functions                                      *
  *                                                                            *

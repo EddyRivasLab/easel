@@ -1,6 +1,11 @@
 /* alphabet.c
  * Implements the standard digitized alphabets for biosequences.
- * (See alphabet.tex for API and other documentation.)
+ * 
+ *    1. ESL_ALPHABET object  - a digital alphabet
+ *    2. Digitized sequences (char *dsq)
+ *    3. Other routines in the API
+ *    4. Example code
+ *    5. Test driver
  * 
  * SVN $Id$
  * SRE, Tue Dec  7 13:49:43 2004
@@ -15,10 +20,14 @@
 #include <easel.h>
 #include <esl_alphabet.h>
 
+
+/*****************************************************************
+ * 1. The ESL_ALPHABET object
+ *****************************************************************/ 
+
 static ESL_ALPHABET *create_dna(void);
 static ESL_ALPHABET *create_rna(void);
 static ESL_ALPHABET *create_amino(void);
-
 
 /* Function:  esl_alphabet_Create()
  * Incept:    SRE, Mon Dec 20 10:21:54 2004 [Zaragoza]
@@ -55,62 +64,56 @@ esl_alphabet_Create(int type)
  *
  * Purpose:   Creates a customized biosequence alphabet,
  *            and returns a ptr to it. The alphabet type is set 
- *            to eslNONSTANDARD.
+ *            to <eslNONSTANDARD>.
  *            
  *            <alphabet> is the internal alphabet string;
  *            <K> is the size of the base alphabet;
  *            <Kp> is the total size of the alphabet string. 
  *            
- *            In the alphabet string, residues 0..K-1 are the base alphabet; 
- *            residue K is the canonical gap (indel) symbol; 
- *            residue Kp-1 is an "any" symbol (such as N or X); 
- *            and residues K+1..Kp-1 are additional degeneracy symbols.
+ *            In the alphabet string, residues <0..K-1> are the base alphabet; 
+ *            residue <K> is the canonical gap (indel) symbol; 
+ *            residue <Kp-1> is an "any" symbol (such as N or X); 
+ *            and residues <K+1..Kp-1> are additional degeneracy symbols.
  *            The gap and the "any" symbol are mandatory even for
- *            nonstandard alphabets, so $Kp >= K+2$.
+ *            nonstandard alphabets, so $Kp \geq K+2$.
  *            
  * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN"
  *            K        - base size; example 4
- *            Kp       - total size; example 16
+ *            Kp       - total size, including gap, degeneracies; example 16
  *
  * Returns:   pointer to new <ESL_ALPHABET> structure
  *
- * Throws:    NULL if any allocation or initialization fails.
+ * Throws:    <NULL> if any allocation or initialization fails.
  */
 ESL_ALPHABET *
 esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 {
   ESL_ALPHABET *a;
   int           c,x,y;
+  int           status;
 
   /* Argument checks.
    */
-  if (strlen(alphabet) != Kp) 
-    ESL_ERROR_NULL(eslEINVAL, "alphabet length != Kp");
-  if (Kp < K+2)               
-    ESL_ERROR_NULL(eslEINVAL, "Kp too small in alphabet"); 
+  if (strlen(alphabet) != Kp) ESL_ERROR_NULL(eslEINVAL, "alphabet length != Kp");
+  if (Kp < K+2)               ESL_ERROR_NULL(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
-  if ((a = malloc(sizeof(ESL_ALPHABET))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(a, sizeof(ESL_ALPHABET));
   a->sym    = NULL;
   a->degen  = NULL;
   a->ndegen = NULL;
   
   /* Allocation/init, level 2.
    */
-  if ((a->sym    = malloc(sizeof(char)   * (Kp+1))) == NULL) 
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-  if ((a->degen  = malloc(sizeof(char *) * Kp))     == NULL)
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-  if ((a->ndegen = malloc(sizeof(int)    * Kp))     == NULL)
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(a->sym,    sizeof(char)   * (Kp+1));
+  ESL_ALLOC(a->degen,  sizeof(char *) * Kp);
+  ESL_ALLOC(a->ndegen, sizeof(int)    * Kp);
   a->degen[0] = NULL;
 
   /* Allocation/init, level 3.
    */
-  if ((a->degen[0] = malloc(sizeof(char) * (Kp*K))) == NULL) 
-    { esl_alphabet_Destroy(a); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(a->degen[0], sizeof(char) * (Kp*K));
   for (x = 1; x < Kp; x++)
     a->degen[x] = a->degen[0]+(K*x);
 
@@ -121,11 +124,10 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   a->Kp   = Kp;
   strcpy(a->sym, alphabet);
 
-  /* Initialize the input map;
-   * note duplication of similar work in sqio.c, which we should
-   * someday abstract away and standardize.
+  /* Initialize the input map, mapping ASCII seq chars to digital codes,
+   * and -1 (illegal, unmapped) for everything else.
    */
-  for (c = 0; c < 128; c++)   a->inmap[c]               = ESL_ILLEGAL_CHAR;
+  for (c = 0; c < 128; c++)   a->inmap[c]               = eslILLEGAL_CHAR;
   for (x = 0; x < a->Kp; x++) a->inmap[(int) a->sym[x]] = x;  
 
   /* Initialize the degeneracy map:
@@ -151,6 +153,9 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   /* Successful return.
    * (Caller still must set degeneracies and synonyms.)
    */
+  status = eslOK;
+ CLEANEXIT:
+  if (status != eslOK) { esl_alphabet_Destroy(a); a = NULL; }
   return a;
 }
 
@@ -262,34 +267,6 @@ create_amino(void)
 }
 
 
-
-/* Function:  esl_alphabet_Destroy()
- * Incept:    SRE, Mon Dec 20 10:27:23 2004 [Zaragoza]
- *
- * Purpose:   Free's an <ESL_ALPHABET> structure.
- *
- * Args:      a  - the <ESL_ALPHABET> to free.
- *
- * Returns:   (void).
- */
-void
-esl_alphabet_Destroy(ESL_ALPHABET *a)
-{
-  if (a == NULL) return;
-
-  if (a->sym      != NULL) free(a->sym);
-  if (a->ndegen   != NULL) free(a->ndegen);
-  if (a->degen    != NULL) 
-    {
-      if (a->degen[0] != NULL) free(a->degen[0]);
-      free(a->degen);
-    }
-  free(a);
-}
-
-
-
-
 /* Function:  esl_alphabet_SetSynonym()
  * Incept:    SRE, Mon Dec 20 10:40:33 2004 [Zaragoza]
  *
@@ -377,12 +354,43 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
     a->ndegen[x]++;
     ds++;
   }
-
   return eslOK;
 }
 
 
-/* Function: esl_abc_CreateDigitalSequence()
+
+/* Function:  esl_alphabet_Destroy()
+ * Incept:    SRE, Mon Dec 20 10:27:23 2004 [Zaragoza]
+ *
+ * Purpose:   Free's an <ESL_ALPHABET> structure.
+ *
+ * Args:      a  - the <ESL_ALPHABET> to free.
+ *
+ * Returns:   (void).
+ */
+void
+esl_alphabet_Destroy(ESL_ALPHABET *a)
+{
+  if (a == NULL) return;
+
+  if (a->sym      != NULL) free(a->sym);
+  if (a->ndegen   != NULL) free(a->ndegen);
+  if (a->degen    != NULL) 
+    {
+      if (a->degen[0] != NULL) free(a->degen[0]);
+      free(a->degen);
+    }
+  free(a);
+}
+
+
+
+/*****************************************************************
+ * 2. Digitized sequences: char *dsq[1..L], with sentinels at 0,L+1
+ *****************************************************************/ 
+
+
+/* Function: esl_dsq_Create()
  * 
  * Purpose:  Given an alphabet <a> and a sequence <seq> of length <L> 
  *           residues, allocate and create a digitized sequence
@@ -402,20 +410,21 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
  * Throws:   <eslEMEM> if allocation fails.          
  */
 int
-esl_abc_CreateDigitalSequence(ESL_ALPHABET *a, char *seq, int L,char **ret_dsq)
+esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, char **ret_dsq)
 {
   char *dsq;
+  int   status;
 
-  *ret_dsq = NULL;
-  if ((dsq = malloc (sizeof(char) * (L+2))) == NULL) 
-    ESL_ERROR(eslEMEM, "malloc failed");
-  if (esl_abc_DigitizeSequence(a, seq, L, dsq) != eslOK)
-    ESL_ERROR(eslEINVAL, "failed to digitize sequence");
+  ESL_ALLOC(dsq, sizeof(char) * (L+2));
+  status = esl_dsq_Set(a, seq, L, dsq);
+  
+ CLEANEXIT:
+  if (status != eslOK) { free(dsq); dsq = NULL; }
   *ret_dsq = dsq;
-  return eslOK;
+  return status;
 }
 
-/* Function:  esl_abc_DigitizeSequence()
+/* Function:  esl_dsq_Set()
  * Incept:    SRE, Mon Dec 20 16:40:31 2004 [Zaragoza]
  *
  * Purpose:   Given an allocated <dsq> of length <L> (that is, array of
@@ -433,43 +442,47 @@ esl_abc_CreateDigitalSequence(ESL_ALPHABET *a, char *seq, int L,char **ret_dsq)
  *            dsq    - allocated space for digital sequence, 1..L
  *
  * Returns:   <eslOK> on success, and <dsq> contains newly digitized <seq>.
- *            <eslEINVAL> if any character of <seq> is not in the input map 
- *            of the alphabet <a>.
+ *            Returns <eslEINVAL> if any character of <seq> is not in the 
+ *            input map of the alphabet <a>; the <dsq> is still valid, with
+ *            "unknown residue" codes where the invalid characters were.
  */
 int
-esl_abc_DigitizeSequence(ESL_ALPHABET *a, char *seq, int L, char *dsq)
+esl_dsq_Set(ESL_ALPHABET *a, char *seq, int L, char *dsq)
 {
   int i;
   int x;
+  int status;
 
+  status = eslOK;
   dsq[0] = eslSENTINEL;
   for (i = 1; i <= L && seq[i-1] != '\0'; i++) 
     { 
       x = a->inmap[(int) seq[i-1]];
-      if (x < 0)
-	{
-	  esl_error(eslEINVAL, __FILE__, __LINE__, 
-		    "Symbol %c is not in the input alphabet", seq[i-1]);
-	  return eslEINVAL;
-	}
+      if (x < 0) { status = eslEINVAL; dsq[i] = a->Kp-1; } /* "unknown" code */
       else dsq[i] = x;
     }
-
   dsq[i] = eslSENTINEL;
-  return eslOK;
+  return status;
 }
 
+/*****************************************************************
+ * 3. Other routines
+ *****************************************************************/ 
 
-/* Function:  esl_abc_AvgIScore()
+/* Function:  esl_abc_IAvgScore()
  * Incept:    SRE, Tue Dec 21 10:53:57 2004 [Zaragoza]
  *
  * Purpose:   Given a (degenerate) residue code <x> in alphabet
  *            <a>, and an array of integer scores <sc> for the residues
  *            in the base alphabet, calculate and return the 
  *            average score (rounded to nearest integer).
+ *            
+ *            <esl_abc_FAvgScore()> and <esl_abc_DAvgScore()> do the
+ *            same, but for float and double scores instead of integers
+ *            (for real-valued scores, no rounding is done).
  */
 int
-esl_abc_AvgIScore(ESL_ALPHABET *a, char x, int *sc)
+esl_abc_IAvgScore(ESL_ALPHABET *a, char x, int *sc)
 {
   float result = 0.;
   int i;
@@ -480,17 +493,8 @@ esl_abc_AvgIScore(ESL_ALPHABET *a, char x, int *sc)
   if (result < 0) return (int) (result - 0.5);
   else            return (int) (result + 0.5);
 }
-
-/* Function:  esl_abc_AvgFScore()
- * Incept:    SRE, Tue Dec 21 10:56:52 2004 [Zaragoza]
- *
- * Purpose:   Given a (degenerate) residue code <x> in alphabet
- *            <a>, and an array of float scores <sc> for the residues
- *            in the base alphabet, calculate and return the 
- *            average score.
- */
 float
-esl_abc_AvgFScore(ESL_ALPHABET *a, char x, float *sc)
+esl_abc_FAvgScore(ESL_ALPHABET *a, char x, float *sc)
 {
   float result = 0.;
   int   i;
@@ -500,17 +504,8 @@ esl_abc_AvgFScore(ESL_ALPHABET *a, char x, float *sc)
   result /= (float) a->ndegen[(int) x];
   return result;
 }
-  
-/* Function:  esl_abc_AvgDScore()
- * Incept:    SRE, Tue Dec 21 10:57:30 2004 [Zaragoza]
- *
- * Purpose:   Given a (degenerate) residue code <x> in alphabet
- *            <a>, and an array of double scores <sc> for the residues
- *            in the base alphabet, calculate and return the 
- *            average score.
- */
 double
-esl_abc_AvgDScore(ESL_ALPHABET *a, char x, double *sc)
+esl_abc_DAvgScore(ESL_ALPHABET *a, char x, double *sc)
 {
   double result = 0.;
   int    i;
@@ -522,7 +517,7 @@ esl_abc_AvgDScore(ESL_ALPHABET *a, char x, double *sc)
 }
 
 
-/* Function:  esl_abc_ExpectIScore()
+/* Function:  esl_abc_IExpectScore()
  * Incept:    SRE, Tue Dec 21 11:02:46 2004 [Zaragoza]
  *
  * Purpose:   Given a (degenerate) residue code <x> in alphabet <a>, an
@@ -531,9 +526,13 @@ esl_abc_AvgDScore(ESL_ALPHABET *a, char x, double *sc)
  *            occurrence frequencies of the residues in the base
  *            alphabet, calculate and return the expected score
  *            (weighted by the occurrence frequencies).
+ *            
+ *            <esl_abc_FExpectScore()> and <esl_abc_DExpectScore()> do the
+ *            same, but for float and double scores instead of integers
+ *            (for real-valued scores, no rounding is done).
  */
 int
-esl_abc_ExpectIScore(ESL_ALPHABET *a, char x, int *sc, float *p)
+esl_abc_IExpectScore(ESL_ALPHABET *a, char x, int *sc, float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -548,19 +547,8 @@ esl_abc_ExpectIScore(ESL_ALPHABET *a, char x, int *sc, float *p)
   if (result < 0) return (int) (result - 0.5);
   else            return (int) (result + 0.5);
 }
-
-/* Function:  esl_abc_ExpectFScore()
- * Incept:    SRE, Tue Dec 21 11:04:48 2004 [Zaragoza]
- *
- * Purpose:   Given a (degenerate) residue code <x> in alphabet <a>, an
- *            array of float scores <sc> for the residues in the base
- *            alphabet, and background frequencies <p> for the
- *            occurrence frequencies of the residues in the base
- *            alphabet, calculate and return the expected score
- *            (weighted by the occurrence frequencies).
- */
 float
-esl_abc_ExpectFScore(ESL_ALPHABET *a, char x, float *sc, float *p)
+esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc, float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -574,19 +562,8 @@ esl_abc_ExpectFScore(ESL_ALPHABET *a, char x, float *sc, float *p)
   result /= denom;
   return result;
 }
-
-/* Function:  esl_abc_ExpectDScore()
- * Incept:    SRE, Tue Dec 21 11:06:10 2004 [Zaragoza]
- *
- * Purpose:   Given a (degenerate) residue code <x> in alphabet <a>, an
- *            array of double scores <sc> for the residues in the base
- *            alphabet, and background frequencies <p> for the
- *            occurrence frequencies of the residues in the base
- *            alphabet, calculate and return the expected score
- *            (weighted by the occurrence frequencies).
- */
 double
-esl_abc_ExpectDScore(ESL_ALPHABET *a, char x, double *sc, double *p)
+esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc, double *p)
 {
   double result = 0.;
   double denom  = 0.;
@@ -602,20 +579,90 @@ esl_abc_ExpectDScore(ESL_ALPHABET *a, char x, double *sc, double *p)
 }
 
 
+/*****************************************************************
+ * 4. Examples
+ *****************************************************************/ 
+
+/*   gcc -g -Wall -o example -I. -DeslALPHABET_EXAMPLE esl_alphabet.c easel.c
+ */
+#ifdef eslALPHABET_EXAMPLE
+/*::cexcerpt::alphabet_example::begin::*/
+#include <easel.h>
+#include <esl_alphabet.h>
+int main(void)
+{
+  ESL_ALPHABET  *a;
+  char           dnaseq[] = "GARYTC";
+  int            L        = 6;
+  unsigned char *dsq;
+  
+  a = esl_alphabet_Create(eslDNA);
+
+  if (esl_dsq_Create(a, dnaseq, L, &dsq) != eslOK) esl_fatal("failed to digitize the sequence");
+
+  free(dsq);
+  esl_alphabet_Destroy(a);
+  return 0;
+}
+/*::cexcerpt::alphabet_example::begin::*/
+#endif /*eslALPHABET_EXAMPLE*/
+
+
+/*   gcc -g -Wall -o example -I. -DeslALPHABET_EXAMPLE2 esl_alphabet.c easel.c
+ */
+#ifdef eslALPHABET_EXAMPLE2
+/*::cexcerpt::alphabet_example2::begin::*/
+#include <easel.h>
+#include <esl_alphabet.h>
+int main(void)
+{ 
+  ESL_ALPHABET *a;
+
+  /* 1. Create the base alphabet structure.
+   */
+  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTUVWY-BZX", 21, 25);
+
+  /* 2. Set synonyms in the input map.
+   */
+  esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap character too */
+
+  /* 3. After all synonyms are set, (optionally) you can make
+   *    the map case-insensitive.
+   */
+  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input too */
+
+  /* 4. Define the optional degeneracy codes in the alphabet, one at a time.
+   *    The 'any' character X is automatically set up.
+   */
+  esl_alphabet_SetDegeneracy(a, 'B', "DN"); /* read B as {D|N} */
+  esl_alphabet_SetDegeneracy(a, 'Z', "QE"); /* read Z as {Q|E} */
+
+  /* (5. use the alphabet to read/digitize/score sequences/whatever) */
+
+  /* 6. Remember to free it when you're done with it.
+   */
+  esl_alphabet_Destroy(a);
+
+  return 0;
+}
+/*::cexcerpt::alphabet_example2::begin::*/
+#endif /*eslALPHABET_EXAMPLE2*/
 
 
 /*****************************************************************
- * Test driver:
- * gcc -g -Wall -I. -o alphabet_test -DESL_ALPHABET_TESTDRIVE\
- *    alphabet.c easel.c 
- *****************************************************************
- */ 
-#ifdef eslALPHABET_TESTDRIVE
+ * 5. Test driver.
+ *****************************************************************/
 
+/* gcc -g -Wall -I. -o testdriver -DeslALPHABET_TESTDRIVE alphabet.c -leasel -lm
+ */
+#ifdef eslALPHABET_TESTDRIVE
 static void basic_examples(void);
 static void degeneracy_integer_scores(void);
 static void degeneracy_float_scores(void);
 static void degeneracy_double_scores(void);
+
+#include <easel.h>
+#include <esl_alphabet.h>
 
 int
 main(void)
@@ -643,7 +690,7 @@ basic_examples(void)
    */
   a1 = esl_alphabet_Create(eslDNA);
   L  = strlen(dnaseq);
-  esl_abc_CreateDigitalSequence(a1, dnaseq, L, &dsq);
+  esl_dsq_Create(a1, dnaseq, L, &dsq);
   esl_alphabet_Destroy(a1);
 
   /* Example 2. 
@@ -652,7 +699,7 @@ basic_examples(void)
    * correctly synonymous on input).
    */
   a2 = esl_alphabet_Create(eslRNA);
-  esl_abc_CreateDigitalSequence(a2, dnaseq, L, &dsq2);
+  esl_dsq_Create(a2, dnaseq, L, &dsq2);
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
   esl_alphabet_Destroy(a2);
@@ -662,7 +709,7 @@ basic_examples(void)
    * while reusing memory already allocated in dsq.
    */
   a1 = esl_alphabet_Create(eslAMINO);
-  esl_abc_DigitizeSequence(a1, aaseq, L, dsq);
+  esl_dsq_Set(a1, aaseq, L, dsq);
   
   /* Example 4.
    * Create a custom alphabet almost the same as the amino
@@ -674,7 +721,7 @@ basic_examples(void)
   esl_alphabet_SetCaseInsensitive(a2);       /* allow lower case input */
   esl_alphabet_SetDegeneracy(a2, 'Z', "QE");
 
-  esl_abc_DigitizeSequence(a2, aaseq, L, dsq2);
+  esl_dsq_Set(a2, aaseq, L, dsq2);
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
 
@@ -699,12 +746,12 @@ degeneracy_integer_scores(void)
   a     = esl_alphabet_Create(eslDNA);  
 
   x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_AvgIScore(a, x, sc); 
+  val   = esl_abc_IAvgScore(a, x, sc); 
   /* average of -1,-6,6,1 = 0 */
   if (val != 0) abort();
 
   x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_ExpectIScore(a, x, sc, p);  
+  val   = esl_abc_IExpectScore(a, x, sc, p);  
   /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
   if (val != -2) abort();
 
@@ -724,12 +771,12 @@ degeneracy_float_scores(void)
   a     = esl_alphabet_Create(eslRNA);  
 
   x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_AvgFScore(a, x, sc); 
+  val   = esl_abc_FAvgScore(a, x, sc); 
   /* average of -1,-6,6,1 = 0 */
   if (fabs(val - 0.) > 0.0001) abort();
 
   x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_ExpectFScore(a, x, sc, p);  
+  val   = esl_abc_FExpectScore(a, x, sc, p);  
   /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
   if (fabs(val + 2.) > 0.0001) abort();
 
@@ -749,12 +796,12 @@ degeneracy_double_scores(void)
   a     = esl_alphabet_Create(eslRNA);  
 
   x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_AvgDScore(a, x, sc); 
+  val   = esl_abc_DAvgScore(a, x, sc); 
   /* average of -1,-6,6,1 = 0 */
   if (fabs(val - 0.) > 0.0001) abort();
 
   x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_ExpectDScore(a, x, sc, p); 
+  val   = esl_abc_DExpectScore(a, x, sc, p); 
   /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
   if (fabs(val + 2.) > 0.0001) abort();
 
