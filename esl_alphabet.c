@@ -598,13 +598,14 @@ int main(void)
   
   a = esl_alphabet_Create(eslDNA);
 
-  if (esl_dsq_Create(a, dnaseq, L, &dsq) != eslOK) esl_fatal("failed to digitize the sequence");
+  if (esl_dsq_Create(a, dnaseq, L, &dsq) != eslOK) 
+    esl_fatal("failed to digitize the sequence");
 
   free(dsq);
   esl_alphabet_Destroy(a);
   return 0;
 }
-/*::cexcerpt::alphabet_example::begin::*/
+/*::cexcerpt::alphabet_example::end::*/
 #endif /*eslALPHABET_EXAMPLE*/
 
 
@@ -618,34 +619,27 @@ int main(void)
 { 
   ESL_ALPHABET *a;
 
-  /* 1. Create the base alphabet structure.
-   */
+  /* 1. Create the base alphabet structure. */
   a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTUVWY-BZX", 21, 25);
 
-  /* 2. Set synonyms in the input map.
-   */
+  /* 2. Set synonyms in the input map.  */
   esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap character too */
 
-  /* 3. After all synonyms are set, (optionally) you can make
-   *    the map case-insensitive.
-   */
+  /* 3. After all synonyms are set, (optionally) make map case-insensitive. */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input too */
 
   /* 4. Define the optional degeneracy codes in the alphabet, one at a time.
-   *    The 'any' character X is automatically set up.
-   */
+   *    The 'any' character X is automatically set up.  */
   esl_alphabet_SetDegeneracy(a, 'B', "DN"); /* read B as {D|N} */
   esl_alphabet_SetDegeneracy(a, 'Z', "QE"); /* read Z as {Q|E} */
 
-  /* (5. use the alphabet to read/digitize/score sequences/whatever) */
+  /* (do stuff) */
 
-  /* 6. Remember to free it when you're done with it.
-   */
+  /* 6. Remember to free it when you're done with it. */
   esl_alphabet_Destroy(a);
-
   return 0;
 }
-/*::cexcerpt::alphabet_example2::begin::*/
+/*::cexcerpt::alphabet_example2::end::*/
 #endif /*eslALPHABET_EXAMPLE2*/
 
 

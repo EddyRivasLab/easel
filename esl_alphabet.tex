@@ -26,7 +26,7 @@ $L+2$, where \ccode{dsq[1..L]} are digitized residues, and
 \ccode{dsq[0]} and \ccode{dsq[L+1]} are sentinel bytes (of value
 \ccode{eslSENTINEL}, 127).
 
-\begin{table}
+\begin{table}[hbp]
 \begin{center}
 \begin{tabular}{ll}\hline
    \multicolumn{2}{c}{\textbf{the \ccode{ESL\_ALPHABET} object}}\\
@@ -103,12 +103,14 @@ this string, \ccode{0..Kp-1}.
 
 The three standard internal alphabets are:
 
+\begin{table}[h]
 \begin{tabular}{llccrr}
 \textbf{Type} & \textbf{sym}                             & Synonyms & gap chars   & \ccode{K} & \ccode{Kp} \\
-\ccode{eslDNA}        & \ccode{ACGT-RYMKSWHBVDN}         & U=T; X=N & \ccode{-_.} & 4         &  16         \\
-\ccode{eslRNA}        & \ccode{ACGU-RYMKSWHBVDN}         & T=U; X=N & \ccode{-_.} & 4         &  16         \\
-\ccode{eslAMINO}      & \ccode{ACDEFGHIKLMNPQRSTVWY-BZX} & U=S      & \ccode{-_.} & 20        &  24         \\
+\ccode{eslDNA}        & \ccode{ACGT-RYMKSWHBVDN}         & U=T; X=N & \ccode{-\_.} & 4         &  16         \\
+\ccode{eslRNA}        & \ccode{ACGU-RYMKSWHBVDN}         & T=U; X=N & \ccode{-\_.} & 4         &  16         \\
+\ccode{eslAMINO}      & \ccode{ACDEFGHIKLMNPQRSTVWY-BZX} & U=S      & \ccode{-\_.} & 20        &  24         \\
 \end{tabular}
+\end{table}
 
 The first K residues (\ccode{[0..K-1]}) are the \emph{base alphabet}
 (\ccode{ACGT} for DNA, for example).  The next residue (K) is the
@@ -192,7 +194,7 @@ Internally, an \textbf{input map}, \ccode{a->inmap[0..127]}, specifies
 how ASCII text symbol is converted to digital
 code. \ccode{a->inmap['T'] = 3} in the standard DNA alphabet, for
 example. Synonymous residues are thus easily handled. For example,
-\ccode{esl\_alphabet\_SetSynonym(a, 'U', 'T') sets
+\ccode{esl\_alphabet\_SetSynonym(a, 'U', 'T')} sets
 \ccode{a->inmap['U'] = a->inmap['T']}. Illegal input characters are
 mapped to value \ccode{eslILLEGAL\_CHAR}.
 
