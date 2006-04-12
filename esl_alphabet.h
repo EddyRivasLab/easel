@@ -51,6 +51,8 @@ extern float  esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc,
 				   float *p);
 extern double esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc,
 				   double *p);
+extern int    esl_abc_FCount(ESL_ALPHABET *abc, float *ct, int x, float wt);
+extern int    esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt);
 extern char  *esl_abc_Type(int type);
 
 #define esl_abc_DigitizeSymbol(a, c) ((char) a->inmap[c])

@@ -63,11 +63,6 @@
 # new preprocessor symbol of our own:
 #     EASEL_VERSION    e.g. "1.9a"
 #
-# The preprocessor symbols (version info) goes into easel.h.
-# Output variables are used in Makefiles.
-#
-
-
 AC_PREREQ(2.57)
 AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
@@ -80,7 +75,7 @@ EASEL_RELCODE="easel0_1"
 EASEL_DATE="February 2005"
 EASEL_COPYRIGHT="Copyright (C) 2004-2005 HHMI/Washington University School of Medicine"
 EASEL_LICENSE="Licensed and distributed under the Creative Commons Attribution License."
-EASEL_LICENSETAG=cc
+EASEL_LICENSETAG=gnu
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://selab.wustl.edu/easel/"
 
@@ -155,7 +150,7 @@ AC_ARG_ENABLE(debugging,
          ;;
      3)  AC_MSG_NOTICE([enabled debugging diagnostics level 3 (high verbosity)])
          CFLAGS="-g -Wall"
-         AC_DEFINE(DEBUGLEVEL, 3)
+         AC_DEFINE(eslDEBUGLEVEL, 3)
          ;;
     no)  AC_MSG_NOTICE([debugging diagnostics disabled])
          AC_DEFINE(eslDEBUGLEVEL, 0)

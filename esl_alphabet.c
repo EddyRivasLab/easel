@@ -579,6 +579,76 @@ esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc, double *p)
 }
 
 
+/* Function:  esl_abc_Type()
+ * Incept:    SRE, Wed Apr 12 12:23:24 2006 [St. Louis]
+ *
+ * Purpose:   For diagnostics and other output: given an internal
+ *            alphabet code <type> (<eslRNA>, for example), return
+ *            ptr to an internal string ("RNA", for example). 
+ */
+char *
+esl_abc_Type(int type)
+{
+  switch (type) {
+  case eslUNKNOWN:     return "unknown";
+  case eslRNA:         return "RNA";
+  case eslDNA:         return "DNA";
+  case eslAMINO:       return "protein";
+  case eslNONSTANDARD: return "nonstandard/custom";
+  default:             return "BOGUS";
+  }
+}
+
+
+/* Function:  esl_abc_FCount()
+ * Incept:    SRE, Wed Apr 12 17:16:35 2006 [St. Louis]
+ *
+ * Purpose:   Count a possibly degenerate digital symbol <x> (0..Kp-1)
+ *            into a counts array <ct> for base symbols (0..K-1).
+ *            Assign the symbol a weight of <wt> (often just 1.0).
+ *            The count weight of a degenerate symbol is divided equally
+ *            across the possible base symbols. 
+ *            
+ *            <x> can be a gap; if so, <ct> must be allocated 0..K,
+ *            not 0..K-1.
+ *            
+ *            <esl_abc_DCount()> does the same, but for double-precision
+ *            count vectors and weights.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_abc_FCount(ESL_ALPHABET *abc, float *ct, int x, float wt)
+{
+  int y;
+
+  if (x < abc->K) 
+    ct[x] += wt;
+  else
+    for (y = 0; y < abc->K; y++) {
+      if (abc->degen[x][y])
+	ct[x] += wt / (float) abc->ndegen[x];
+    }
+  return eslOK;
+}
+int
+esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt)
+{
+  int y;
+
+  if (x < abc->K) 
+    ct[x] += wt;
+  else
+    for (y = 0; y < abc->K; y++) {
+      if (abc->degen[x][y])
+	ct[x] += wt / (double) abc->ndegen[x];
+    }
+  return eslOK;
+}
+
+
+
+
 /*****************************************************************
  * 4. Examples
  *****************************************************************/ 
