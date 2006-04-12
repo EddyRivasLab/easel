@@ -51,6 +51,7 @@ extern float  esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc,
 				   float *p);
 extern double esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc,
 				   double *p);
+extern char  *esl_abc_Type(int type);
 
 #define esl_abc_DigitizeSymbol(a, c) ((char) a->inmap[c])
 #define esl_abc_IsDegenerate(a, x)   ((x) > a->K && (x) < a->Kp)

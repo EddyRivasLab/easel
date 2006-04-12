@@ -385,7 +385,7 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
  * Args:     s     - a tmp, modifiable ptr to string
  *           delim - characters that delimits tokens
  *           tok   - RETURN: ptr to \0-terminated token string
- *           len   - RETURN: length of token; pass NULL if not wanted
+ *           len   - optRETURN: length of token; pass NULL if not wanted
  *
  * Returns:  <eslOK> on success: token points to next token, toklen is its len.
  *           <eslEOL> on end of line.
