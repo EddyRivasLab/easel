@@ -5,6 +5,7 @@
 APITEX =  easel\
 	  esl_alphabet\
 	  esl_dirichlet\
+	  dmatrix\
 	  esl_exponential\
 	  esl_fileparser\
 	  esl_gamma\
@@ -35,6 +36,7 @@ APITEX =  easel\
 AUTOTEX = easel\
 	  esl_alphabet\
 	  esl_dirichlet\
+	  dmatrix\
 	  esl_exponential\
 	  esl_fileparser\
 	  esl_gamma\

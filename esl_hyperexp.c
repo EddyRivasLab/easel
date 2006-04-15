@@ -690,10 +690,10 @@ struct hyperexp_data {
  * <p> must be allocated for at least (2K-1) doubles: K-1 mixture 
  * coefficients and K lambda parameters. (mu is not a free param).
  *
- * First K-1 are Q_1..Q_K-1 mixture coefficient parameters; Q_0 implicitly 0;
- *  cov is q_k = e^{Q_k} / \sum_j e^{Q_j};    Q_k = log(q_k) - log(q_0).
+ * First K-1 are $Q_1..Q_{K-1}$ mixture coefficient parameters; $Q_0$ implicitly 0;
+ *  cov is $q_k = \frac{e^{Q_k}}{\sum_j e^{Q_j}}$;  $Q_k = \log(q_k) - \log(q_0)$.
  * Then K lambda params;
- * lambda cov is lambda = e^w, w = log(lambda).
+ * lambda cov is $\lambda = e^w$, $w = \log(\lambda)$.
  */
 static void
 hyperexp_pack_paramvector(double *p, int np, ESL_HYPEREXP *h)
@@ -809,7 +809,7 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
 }
 
 
-/* Function:  esl_hyperexp_FitGuess()
+/* Function:  esl_hxp_FitGuess()
  * Incept:    SRE, Mon Aug 15 14:02:02 2005 [St. Louis]
  *
  * Purpose:   Given a sorted vector of <n> observed data samples <x[]>,
@@ -818,10 +818,10 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
  *            point for further optimization -- and return those parameters
  *            in <h>.
  *
- *            Assigns $q_k \propto \frac{1/k}$ and  $\mu = \min_i x_i$;
+ *            Assigns $q_k \propto \frac{1}{k}$ and  $\mu = \min_i x_i$;
  *            splits $x$ into $K$ roughly equal-sized bins, and
  *            and assigns $\lambda_k$ as the ML estimate from bin $k$.
- *            (If q_k coefficients have already been fixed to 
+ *            (If $q_k$ coefficients have already been fixed to 
  *            known values, this step is skipped.)
  */
 int
@@ -1019,7 +1019,7 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
     }  
 }
 
-/* Function:  esl_hyperexp_FitGuessBinned()
+/* Function:  esl_hxp_FitGuessBinned()
  * Incept:    SRE, Mon Aug 15 14:02:02 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <g> with binned observations;
@@ -1027,7 +1027,7 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
  *            as a starting point for further optimization -- and return 
  *            those parameters in <h>.
  *
- *            Assigns $q_k \propto \frac{1/k}$ and  $\mu = \min_i x_i$;
+ *            Assigns $q_k \propto \frac{1}{k}$ and  $\mu = \min_i x_i$;
  *            splits $x$ into $K$ roughly equal-sized bins, and
  *            and assigns $\lambda_k$ as the ML estimate from bin $k$.
  *            If the coefficients have already been set to known values,

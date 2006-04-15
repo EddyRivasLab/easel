@@ -717,7 +717,7 @@ int main(void)
  * 5. Test driver.
  *****************************************************************/
 
-/* gcc -g -Wall -I. -o testdriver -DeslALPHABET_TESTDRIVE alphabet.c -leasel -lm
+/* gcc -g -Wall -I. -o testdriver -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel -lm
  */
 #ifdef eslALPHABET_TESTDRIVE
 static void basic_examples(void);

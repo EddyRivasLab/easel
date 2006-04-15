@@ -9,12 +9,20 @@
 #include <stdio.h>
 
 
-struct esl_dmatrix_s {
-  double **mx;			/* matrix: mx, mx[0] are allocated. */
-  int      n;			/* rows    */
-  int      m;			/* columns */
-};
-typedef struct esl_dmatrix_s ESL_DMATRIX;
+typedef struct {
+  /*mx, mx[0] are allocated. */
+/*::cexcerpt::dmatrix_obj::begin::*/
+  double **mx;                  /* mx[i][j] is i'th row, j'th col */
+  int      n;                   /* rows    */
+  int      m;                   /* columns */
+/*::cexcerpt::dmatrix_obj::end::*/
+} ESL_DMATRIX;
+
+
+typedef struct {
+  int     *pi;
+  int      n;
+} ESL_PERMUTATION;
 
 extern ESL_DMATRIX *esl_dmatrix_Create(int n, int m);
 extern int          esl_dmatrix_Destroy(ESL_DMATRIX *A);
@@ -26,19 +34,11 @@ extern int          esl_dmatrix_SetZero(ESL_DMATRIX *A);
 extern int          esl_dmatrix_SetIdentity(ESL_DMATRIX *A);
 
 
-struct esl_permutation_s {
-  int     *pi;
-  int      n;
-};
-typedef struct esl_permutation_s ESL_PERMUTATION;
 
 extern ESL_PERMUTATION *esl_permutation_Create(int n);
 extern int              esl_permutation_Destroy(ESL_PERMUTATION *P);
 extern int              esl_permutation_Reuse(ESL_PERMUTATION *P);
 extern int              esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collabel);
-
-
-
 
 extern int          esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C);
 extern int          esl_dmx_Transpose(ESL_DMATRIX *A);
@@ -51,3 +51,8 @@ extern int          esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMA
 extern int          esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai);
 
 #endif /*ESL_DMATRIX_INCLUDED*/
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
+

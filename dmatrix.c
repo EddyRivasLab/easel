@@ -4,7 +4,6 @@
  * Implements ESL_DMATRIX (double-precision matrix) and 
  * ESL_PERMUTATION (permutation matrix) objects.
  * 
- * Other easel modules required: easel
  * 
  * SRE, Tue Jul 13 14:42:14 2004 [St. Louis]
  * SVN $Id$
@@ -14,8 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <easel/easel.h>
-#include <easel/dmatrix.h>
+
+#include <easel.h>
+#include <esl_dmatrix.h>
 
 
 /* Function:  esl_dmatrix_Create()
@@ -133,7 +133,7 @@ esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
 /* Function:  esl_dmatrix_Compare()
  *
  * Purpose:   Compares matrix <A> to matrix <B>. If all elements
- *            $a_{ij}$ and $b_{ij}$ differ by less than <fabs(tol)>,
+ *            differ by less than <fabs(tol)>,
  *            return <TRUE>; else return <FALSE>. 
  */
 int
@@ -180,8 +180,8 @@ esl_dmatrix_SetZero(ESL_DMATRIX *A)
 /* Function:  esl_dmatrix_SetIdentity()
  *
  * Purpose:   Given a square matrix <A>, sets all diagonal elements 
- *            $a_{ii}$ to 1, and all off-diagonal elements to 0.
- *            Returns <eslOK>.
+ *            $a_{ii}$ to 1, and all off-diagonal elements $a_{ij},
+ *            j \ne i$ to 0. Returns <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if the matrix isn't square.
  */
@@ -329,6 +329,7 @@ esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
       }
   return eslOK;
 }
+
 
 /* Function:  esl_dmx_Transpose()
  *
@@ -618,3 +619,84 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   ESL_ERROR(eslEMEM, "allocation failed in esl_dmx_Invert()");
 }
 
+
+/*****************************************************************
+ * Example code
+ *****************************************************************/ 
+
+/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c
+ */
+#ifdef eslDMATRIX_EXAMPLE
+/*::cexcerpt::dmatrix_example::begin::*/
+#include <easel.h>
+#include <esl_dmatrix.h>
+
+int main(void)
+{
+  ESL_DMATRIX *A, *B, *C;
+
+  A = esl_dmatrix_Create(4,4);
+  B = esl_dmatrix_Create(4,4);
+  C = esl_dmatrix_Create(4,4);
+  
+  esl_dmatrix_SetIdentity(A);
+  esl_dmatrix_Copy(A, B);
+
+  esl_dmx_Multiply(A,B,C);
+
+  esl_dmatrix_Dump(stdout, C, NULL, NULL);
+
+  esl_dmatrix_Destroy(A);
+  esl_dmatrix_Destroy(B);
+  esl_dmatrix_Destroy(C);
+}
+/*::cexcerpt::dmatrix_example::end::*/
+#endif /*eslDMATRIX_EXAMPLE*/
+
+
+/*****************************************************************
+ * Test driver
+ *****************************************************************/ 
+
+/*   gcc -g -Wall -o testdriver -I. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
+ */
+#ifdef eslDMATRIX_TESTDRIVE
+#include <easel.h>
+#include <esl_dmatrix.h>
+
+int main(void)
+{
+  ESL_DMATRIX *A, *B, *C;
+
+  A = esl_dmatrix_Create(4,4);
+  B = esl_dmatrix_Create(4,4);
+  C = esl_dmatrix_Create(4,4);
+  
+  esl_dmatrix_SetIdentity(A);   /* A=I */
+  esl_dmx_Invert(A, B);		/* B=I-1=I */
+  esl_dmx_Multiply(A,B,C);	/* C=I */
+  esl_dmx_Transpose(A);         /* A=I still */
+
+  esl_dmx_Scale(A, 0.5);	/* A= 0.5I */
+  esl_dmx_AddScale(B, -0.5, C);	/* B= 0.5I */
+  
+  esl_dmx_Add(A,B);		/* A=I */
+  esl_dmx_Scale(B, 2.0);	/* B=I */
+
+  if (esl_dmx_Compare(A, B, 1e-6) != TRUE) esl_fatal("A != B");
+  if (esl_dmx_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != C");
+  esl_dmx_Copy(B, C);
+  if (esl_dmx_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != copied B");    
+
+  esl_dmatrix_Destroy(A);
+  esl_dmatrix_Destroy(B);
+  esl_dmatrix_Destroy(C);
+  return 0;
+}
+#endif /*eslDMATRIX_TESTDRIVE*/
+
+
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
