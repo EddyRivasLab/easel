@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <easel.h>
 #include <esl_dmatrix.h>
@@ -95,9 +96,9 @@ esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
 
   fprintf(ofp, "     ");
   if (collabel != NULL) 
-    for (b = 0; b < A->n; b++) fprintf(ofp, "       %c ", collabel[b]);
+    for (b = 0; b < A->m; b++) fprintf(ofp, "       %c ", collabel[b]);
   else
-    for (b = 0; b < A->n; b++) fprintf(ofp, "%8d ", b+1);
+    for (b = 0; b < A->m; b++) fprintf(ofp, "%8d ", b+1);
   fprintf(ofp, "\n");
 
   for (a = 0; a < A->n; a++) {
@@ -218,7 +219,6 @@ ESL_PERMUTATION *
 esl_permutation_Create(int n)
 {
   ESL_PERMUTATION *P = NULL;
-  int i;
 
   if ((P = malloc(sizeof(ESL_PERMUTATION))) == NULL) goto FAILURE;
   P->pi = NULL;
@@ -229,7 +229,7 @@ esl_permutation_Create(int n)
   return P;
 
  FAILURE:
-  esl_permutation_Free(P);
+  esl_permutation_Destroy(P);
   ESL_ERROR_NULL(eslEMEM, "esl_permutation_Create: malloc failed");
 }
   
@@ -249,6 +249,8 @@ esl_permutation_Destroy(ESL_PERMUTATION *P)
  *
  * Purpose:   Resets a permutation matrix to
  *            $p_i = i$ for all $i = 0..n-1$.
+ *            
+ * Returns:   <eslOK> on success.           
  */
 int
 esl_permutation_Reuse(ESL_PERMUTATION *P)
@@ -256,6 +258,7 @@ esl_permutation_Reuse(ESL_PERMUTATION *P)
   int i;
   for (i = 0; i < P->n; i++)
     P->pi[i] = i;
+  return eslOK;
 }
 
 
@@ -460,7 +463,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 
   if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
   if (P->n != A->n) ESL_ERROR(eslEINVAL, "permutation isn't the right size");
-  esl_permutation_Init(P);
+  esl_permutation_Reuse(P);
 
   for (k = 0; k < A->n-1; k++)
     {
@@ -515,8 +518,8 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
   if (LU->n != L->n)  ESL_ERROR(eslEINVAL, "LU, L have incompatible dimensions");
   if (LU->n != U->n)  ESL_ERROR(eslEINVAL, "LU, U have incompatible dimensions");
 
-  esl_dmx_SetZero(L);
-  esl_dmx_SetZero(U);
+  esl_dmatrix_SetZero(L);
+  esl_dmatrix_SetZero(U);
 
   for (i = 0; i < LU->n; i++)
     for (j = i; j < LU->m; j++)
@@ -624,7 +627,7 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
  * Example code
  *****************************************************************/ 
 
-/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c
+/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm
  */
 #ifdef eslDMATRIX_EXAMPLE
 /*::cexcerpt::dmatrix_example::begin::*/
@@ -649,6 +652,7 @@ int main(void)
   esl_dmatrix_Destroy(A);
   esl_dmatrix_Destroy(B);
   esl_dmatrix_Destroy(C);
+  return 0;
 }
 /*::cexcerpt::dmatrix_example::end::*/
 #endif /*eslDMATRIX_EXAMPLE*/
@@ -658,7 +662,7 @@ int main(void)
  * Test driver
  *****************************************************************/ 
 
-/*   gcc -g -Wall -o testdriver -I. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
+/*   gcc -g -Wall -o testdriver -I. -L. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
  */
 #ifdef eslDMATRIX_TESTDRIVE
 #include <easel.h>
@@ -683,10 +687,10 @@ int main(void)
   esl_dmx_Add(A,B);		/* A=I */
   esl_dmx_Scale(B, 2.0);	/* B=I */
 
-  if (esl_dmx_Compare(A, B, 1e-6) != TRUE) esl_fatal("A != B");
-  if (esl_dmx_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != C");
-  esl_dmx_Copy(B, C);
-  if (esl_dmx_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != copied B");    
+  if (esl_dmatrix_Compare(A, B, 1e-6) != TRUE) esl_fatal("A != B");
+  if (esl_dmatrix_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != C");
+  esl_dmatrix_Copy(B, C);
+  if (esl_dmatrix_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != copied B");    
 
   esl_dmatrix_Destroy(A);
   esl_dmatrix_Destroy(B);

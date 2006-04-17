@@ -5,7 +5,7 @@
 APITEX =  easel\
 	  esl_alphabet\
 	  esl_dirichlet\
-	  dmatrix\
+	  esl_dmatrix\
 	  esl_exponential\
 	  esl_fileparser\
 	  esl_gamma\
@@ -15,7 +15,6 @@ APITEX =  easel\
 	  esl_histogram\
 	  esl_hyperexp\
 	  esl_keyhash\
-#	  esl_mixdchlet\
 	  esl_mixgev\
 	  esl_msa\
 	  esl_random\
@@ -36,7 +35,7 @@ APITEX =  easel\
 AUTOTEX = easel\
 	  esl_alphabet\
 	  esl_dirichlet\
-	  dmatrix\
+	  esl_dmatrix\
 	  esl_exponential\
 	  esl_fileparser\
 	  esl_gamma\

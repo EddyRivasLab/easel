@@ -12,6 +12,7 @@ HEADERS = \
 	easel.h\
 	esl_alphabet.h\
 	esl_dirichlet.h\
+	esl_dmatrix.h\
 	esl_exponential.h\
 	esl_fileparser.h\
 	esl_gamma.h\
@@ -40,6 +41,7 @@ OBJS    = \
 	easel.o\
 	esl_alphabet.o\
 	esl_dirichlet.o\
+	esl_dmatrix.o\
 	esl_exponential.o\
 	esl_fileparser.o\
 	esl_gamma.o\

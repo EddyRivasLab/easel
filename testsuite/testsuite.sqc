@@ -13,6 +13,9 @@
 1 prep     dirichlet-compile      gcc -o testdriver -I.. -L.. -g -Wall -DeslDIRICHLET_TESTDRIVE ../esl_dirichlet.c -leasel -lm
 1 exercise dirichlet-testdrive    @testdriver@
 
+1 prep     dmatrix-compile        gcc -o testdriver -I.. -L.. -g -Wall -DeslDMATRIX_TESTDRIVE ../esl_dmatrix.c -leasel -lm
+1 exercise dmatrix-testdrive      @testdriver@
+
 1 prep     exp-compile            gcc -o testdriver -I.. -L.. -g -Wall -DeslEXP_TESTDRIVE ../esl_exponential.c -leasel -lm
 1 exercise exp-testdrive          @testdriver@
 
