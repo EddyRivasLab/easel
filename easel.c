@@ -78,7 +78,6 @@ void
 esl_Free2D(void **p, int dim1)
 {
   int i;
-
   if (p != NULL) {
     for (i = 0; i < dim1; i++)
       if (p[i] != NULL) free(p[i]);

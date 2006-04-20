@@ -25,6 +25,34 @@
  * including a garbage collection convention.
  *****************************************************************/
 
+/* Am currently playing with different conventions.
+ */
+
+/* Macro: ESL_FAIL()
+ * 
+ * Like ESL_DIE(), but we goto a <FAILURE> block, carrying
+ * our <status> code, to clean up.
+ */
+/*::cexcerpt::error_macros::begin::*/
+#define ESL_ERROR(code, ...)  do {\
+     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
+     return code; }\
+     while (0)
+
+#define ESL_FAIL(code, ...)  do {\
+     status = code;\
+     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
+     goto FAILURE; }\
+     while (0)
+/*::cexcerpt::error_macros::end::*/
+
+
+#define ESL_DIE(code, ...)  do {\
+     status = code;\
+     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
+     goto CLEANEXIT; }\
+     while (0)
+
 /* Macro: ESL_DIE()
  * 
  * The error-throwing convention. Requires that you have an
@@ -38,11 +66,19 @@
  * without the trailing semicolon being a null statement
  * after macro expansion. 
  */
-#define ESL_DIE(code, mesg)  do {\
-     status = code;\
-     esl_error(code, __FILE__, __LINE__, mesg);\
-     goto CLEANEXIT; }\
+
+
+/* ESL_TRY is deprecated. Instead use:
+ *    if ((status = esl_call()) != eslOK)  goto FAILURE;
+ */
+#define ESL_TRY(call)   do {\
+     status = call;\
+     if (status != eslOK) goto CLEANEXIT; }\
      while (0)
+
+
+
+
 
 /* Macros: ESL_ERROR(), ESL_ERROR_NULL()
  * 
@@ -51,10 +87,7 @@
  * <int status> variable or <CLEANEXIT> target need
  * to be in scope.
  */
-#define ESL_ERROR(code, mesg)  do {\
-     esl_error(code, __FILE__, __LINE__, mesg);\
-     return code; }\
-     while (0)
+
 
 #define ESL_ERROR_NULL(code, mesg)  do {\
      esl_error(code, __FILE__, __LINE__, mesg);\
@@ -108,25 +141,29 @@
      
 /* Return codes for error handling
  */
-#define eslOK              0	/* no error/success             */
+/*::cexcerpt::statuscodes::begin::*/
+#define eslOK              0    /* no error/success             */
 #define eslFAIL            1    /* failure                      */
-#define eslEOL             2	/* end-of-line (often normal)   */
-#define eslEOF             3	/* end-of-file (often normal)   */
-#define eslEOD             4 	/* end-of-data (often normal)   */
-#define eslEMEM            5	/* malloc or realloc failed     */
-#define eslENOTFOUND       6	/* file or key not found        */
-#define eslEFORMAT         7	/* file format not correct      */
+#define eslEOL             2    /* end-of-line (often normal)   */
+#define eslEOF             3    /* end-of-file (often normal)   */
+#define eslEOD             4    /* end-of-data (often normal)   */
+#define eslEMEM            5    /* malloc or realloc failed     */
+#define eslENOTFOUND       6    /* file or key not found        */
+#define eslEFORMAT         7    /* file format not correct      */
 #define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */
-#define eslEDIVZERO        9	/* attempted div by zero        */
-#define eslEINCOMPAT      10	/* incompatible parameters      */
-#define eslEINVAL         11	/* invalid argument/parameter   */
-#define eslESYS           12	/* generic system call failure  */
-#define eslECORRUPT       13	/* unexpected data corruption   */
+#define eslEDIVZERO        9    /* attempted div by zero        */
+#define eslEINCOMPAT      10    /* incompatible parameters      */
+#define eslEINVAL         11    /* invalid argument/parameter   */
+#define eslESYS           12    /* generic system call failure  */
+#define eslECORRUPT       13    /* unexpected data corruption   */
 #define eslEINCONCEIVABLE 14    /* "can't happen" error         */
 #define eslESYNTAX        15    /* invalid syntax in input data */
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslECONVERGENCE   18    /* a failure to converge        */      
+/*::cexcerpt::statuscodes::end::*/
+
+
 
 /* Debugging hooks, w/ three levels (1-3).
  */

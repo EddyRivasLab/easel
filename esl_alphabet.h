@@ -56,8 +56,12 @@ extern int    esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt);
 extern char  *esl_abc_Type(int type);
 
 #define esl_abc_DigitizeSymbol(a, c) ((char) a->inmap[c])
-#define esl_abc_IsDegenerate(a, x)   ((x) > a->K && (x) < a->Kp)
-#define esl_abc_IsBasic(a, x)        ((x) >= 0   && (x) < a->K)
-#define esl_abc_IsGap(a, x)          ((x) == a->K)
+#define esl_abc_XIsDegenerate(a, x)  ((x) > a->K && (x) < a->Kp)
+#define esl_abc_XIsBasic(a, x)       ((x) >= 0   && (x) < a->K)
+#define esl_abc_XIsGap(a, x)         ((x) == a->K)
+
+#define esl_abc_CIsDegenerate(a, c)  ((a->inmap[c]) > a->K && (a->inmap[c]) < a->Kp)
+#define esl_abc_CIsBasic(a, c)       ((a->inmap[c]) >= 0   && (a->inmap[c]) < a->K)
+#define esl_abc_CIsGap(a, c)         ((a->inmap[c]) == a->K)
 
 #endif /*!ESL_ALPHABET_INCLUDED*/

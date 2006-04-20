@@ -625,6 +625,8 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
     {
     case eslARG_NONE:	/* wouldn't make sense here, but treat as unchecked. */
     case eslARG_STRING:	/* unchecked. */
+    case eslARG_INFILE:
+    case eslARG_OUTFILE:
       status = eslOK;
       break;
 
@@ -812,6 +814,8 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
 	case eslARG_REAL:    fprintf(ofp, " <x>"); n += 4; break;
 	case eslARG_CHAR:    fprintf(ofp, " <c>"); n += 4; break;
 	case eslARG_STRING:  fprintf(ofp, " <s>"); n += 4; break;
+	case eslARG_INFILE:  fprintf(ofp, " <f>"); n += 4; break;
+	case eslARG_OUTFILE: fprintf(ofp, " <f>"); n += 4; break;
 	}
 
 	fprintf(ofp, "%*s", optwidth-n, "");
@@ -931,6 +935,8 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
   s = g->opt[opti].toggle_opts;
   while ((status = process_optlist(g, &s, &togi)) == eslOK)
     {
+      if (togi == opti) continue; /* ignore ourself, so we can have one toggle list per group */
+
       if (g->setby[togi] == setby)
 	{
 	  esl_error(eslEINVAL, __FILE__, __LINE__,
@@ -1356,7 +1362,9 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
     else if (status != eslOK) ESL_ERROR(eslEINCONCEIVABLE, "unexpected error code");
     break;
 
-  case eslARG_STRING: /* unchecked type. */
+  case eslARG_STRING:  /* unchecked type. */
+  case eslARG_INFILE:  
+  case eslARG_OUTFILE: 
     if (g->opt[i].range != NULL)
       {
 	esl_error(eslEINVAL, __FILE__, __LINE__, 
@@ -1800,11 +1808,12 @@ main(int argc, char **argv)
 #include <esl_getopts.h>
 
 /*::cexcerpt::getopts_bigarray::begin::*/
+#define BGROUP "-b,--no-b"
 static ESL_OPTIONS options[] = {
   /* name    type        default env_var  range toggles req  incompat help                  docgroup */
- { "-a",     eslARG_NONE, FALSE,"FOOTEST",NULL,  NULL,  NULL,  NULL,  "toggle b on",               1 },
- { "-b",     eslARG_NONE, FALSE,  NULL,   NULL,"--no-b",NULL,  NULL,  "toggle a on",               1 },
- { "--no-b", eslARG_NONE,"TRUE",  NULL,   NULL,   "-b", NULL,  NULL,  "toggle b off",              1 },
+ { "-a",     eslARG_NONE, FALSE,"FOOTEST",NULL,  NULL,  NULL,  NULL,  "toggle a on",               1 },
+ { "-b",     eslARG_NONE, FALSE,  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b on",               1 },
+ { "--no-b", eslARG_NONE,"TRUE",  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b off",              1 },
  { "-c",     eslARG_CHAR,   "x",  NULL,"a<=c<=z",NULL,  NULL,  NULL,  "character arg",             2 },
  { "-n",     eslARG_INT,    "0",  NULL,"0<=n<10",NULL,  NULL,  NULL,  "integer arg",               2 },
  { "-x",     eslARG_REAL, "0.8",  NULL, "0<x<1", NULL,  NULL,  NULL,  "real-value arg",            2 },

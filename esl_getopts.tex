@@ -162,6 +162,8 @@ Five argument types are recognized:
 \ccode{eslARG\_REAL}     & float or double         & convertible by \ccode{atof()}\\
 \ccode{eslARG\_CHAR}     & one character           & single ASCII char \\
 \ccode{eslARG\_STRING}   & any string              & not checked\\
+\ccode{eslARG\_INFILE}   & an input filename       & not checked\\
+\ccode{eslARG\_OUTFILE}  & an output filename      & not checked\\
 \end{tabular}
 \end{center}
 
@@ -171,13 +173,21 @@ declared to be of types \ccode{eslARG\_INT}, \ccode{eslARG\_REAL}, or
 \ccode{eslARG\_CHAR}, the string is checked to be sure it can be
 completely converted to the declared type.
 
-Strings (filenames, whatever) are of type \ccode{eslARG\_STRING}, and
-since any string is valid (including a NULL pointer), this type is not
-checked. An application can also declare an argument to be of type
+Strings are of type \ccode{eslARG\_STRING}, and since any string is
+valid (including a NULL pointer), this type is not checked. An
+application can also declare an argument to be of type
 \ccode{eslARG\_STRING} if for some reason it wants to bypass type
 checking. The application would recover the option setting with
 \ccode{esl\_opt\_GetStringOption()} and then deal with any type
 conversion itself.
+
+Input and output filenames can be declared as \ccode{eslARG_INFILE}
+and \ccode{eslARG_OUTFILE}, respectively. Currently both are unchecked
+types that are treated the same as a \ccode{eslARG_STRING}, except
+that their arguments are indicated as \ccode{<f>} instead of
+\ccode{<s>} in help output. In the future, it might be useful to
+automatically check that input files exist and can be read, and that
+output files can be written.
 
    \subsubsection{Default values}
 
@@ -282,19 +292,35 @@ Range checking occurs before any option is set.
 
    \subsubsection{Setting toggle groups of options}
 
-If a non-NULL string \ccode{toggle\_opts} of ``toggle-tied'' options is
-set for option X, this is a comma-delimited list of additional options
-that are turned off when option X is turned on. This allows the
-application to define a set of options for which only one may be
-on. The application would set an appropriate one to be on by default,
-and the others to be off by default.
+If a non-NULL string \ccode{toggle\_opts} of ``toggle-tied'' options
+is set for option X, this is a comma-delimited list of options that
+are turned off when option X is turned on. This allows the application
+to define a group of options for which only one may be on. The
+application would set an appropriate one to be on by default, and the
+others to be off by default.
 
 For example, if you configure an option \ccode{-a} to have a
 \ccode{toggle\_opts} of \ccode{"-b,-c"}, then whenever \ccode{-a} is
 turned on, both \ccode{-b} and \ccode{-c} are automatically turned
-off. You'd also want to set \ccode{toggle\_opts} for \ccode{-b} to be
-\ccode{"-a,-c"} and \ccode{toggle\_opts} for \ccode{-c} to be
-\ccode{"-a,-b"}.
+off. 
+
+But this only defines the behavior when \ccode{-a} is selected.  To
+get all three options to behave as a toggle group, you'd also want to
+set \ccode{toggle\_opts} for \ccode{-b} to \ccode{"-a,-c"}, and
+\ccode{toggle\_opts} for \ccode{-c} to \ccode{"-a,-b"}. This is a
+little redundant and messy; it's the result of the line-oriented,
+one-option-at-a-time definition of the \ccode{ESL\_OPTIONS}.  These
+lists can get quite long, too.
+
+An option has no effect on itself when it appears in its own
+toggle-tied list. This lets you reduce the mess a bit. You can
+\ccode{\#define} a toggle group string: 
+
+\begin{cchunk}
+  #define OPTGROUP1 "--option1,--option2,--option3,--option4"
+\end{cchunk}
+
+and use that \ccode{\#define} macro in the \ccode{ESL\_OPTIONS}.
 
 Although booleans may only be turned ON when their option is present,
 you can easily get the semantics of an on/off switch by defining
