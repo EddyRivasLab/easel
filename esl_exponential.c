@@ -564,6 +564,9 @@ main(int argc, char **argv)
   if (plot_logsurv) esl_exp_Plot(pfp, mu, lambda, &esl_exp_logsurv, xmin, xmax, xstep);
 
   if (plotfile != NULL) fclose(pfp);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
   return 0;
 }
 #endif /*eslEXP_TESTDRIVE*/

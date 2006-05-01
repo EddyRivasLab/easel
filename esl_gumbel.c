@@ -946,14 +946,15 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r;
+  ESL_RANDOMNESS *r = NULL;
   int    totalN;
   int    n;
   double phi;		/* truncation threshold. */
   int    i;
-  double *x;
+  double *x = NULL;
   double  mu, lambda;
   double  est_mu, est_lambda;
+  int     status;
 
   totalN = 10000;
   mu     = -20.;
@@ -961,7 +962,7 @@ main(int argc, char **argv)
   phi    = -20.;
 
   r = esl_randomness_Create(42); /* make the sims reproducible */
-  x = malloc(sizeof(double) * totalN);
+  ESL_ALLOC(x, sizeof(double) * totalN);
   
   /* Test complete data fitting on simulated data.
    * Don't tolerate more than 1% error in mu, 3% in lambda.
@@ -995,6 +996,11 @@ main(int argc, char **argv)
   free(x);
   esl_randomness_Destroy(r);
   return 0;
+
+ FAILURE:
+  if (x != NULL) free(x);
+  if (r != NULL) esl_randomness_Destroy(r);
+  return status;
 }
 #endif /*eslGUMBEL_TESTDRIVE*/
 

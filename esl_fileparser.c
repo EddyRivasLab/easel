@@ -27,17 +27,17 @@ static int nextline(ESL_FILEPARSER *efp);
  * Returns:   a new <ESL_FILEPARSER> object, which must be 
  *            free'd by the caller with <esl_fileparser_Destroy()>.
  *
- * Throws:    <eslEMEM>:  malloc/realloc failed.
+ * Throws:    <eslEMEM> if an allocation failed.
  *            
  * Xref:      STL8 p.56.
  */
 ESL_FILEPARSER *
 esl_fileparser_Create(FILE *fp)
 {
-  ESL_FILEPARSER *efp;
+  int status;
+  ESL_FILEPARSER *efp = NULL;
 
-  if ((efp = malloc(sizeof(ESL_FILEPARSER))) == NULL)
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(efp, sizeof(ESL_FILEPARSER));
   efp->fp          = fp;
   efp->buf         = NULL;
   efp->buflen      = 0;
@@ -47,6 +47,10 @@ esl_fileparser_Create(FILE *fp)
   efp->errbuf[0]   = '\0';
 
   return efp;
+  
+ FAILURE:
+  esl_fileparser_Destroy(efp);
+  return NULL;
 }
 
 /* Function:  esl_fileparser_SetCommentChar()
@@ -82,7 +86,7 @@ esl_fileparser_SetCommentChar(ESL_FILEPARSER *efp, char c)
  * Returns:   <eslOK> if <tok>, <toklen> contain valid data.
  *            <eslEOF> on normal end-of-file.
  *            
- * Throws:    <eslEMEM> malloc/realloc failure somewhere.
+ * Throws:    <eslEMEM> if an allocation fails.
  *
  * Xref:      STL8 p.56.
  */
@@ -156,7 +160,7 @@ esl_fileparser_Destroy(ESL_FILEPARSER *efp)
  * Returns:   eslOK:   success
  *            eslEOF:  normal end of file
  *
- * Throws:    eslEMEM: malloc/realloc failed in fgets()
+ * Throws:    <eslEMEM> if a reallocation failed in fgets()
  *
  * Xref:      STL8 p.56
  */

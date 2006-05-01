@@ -718,7 +718,7 @@ main(int argc, char **argv)
 
 #define MAX_STATS_TESTS 10
 static void stats_sample(FILE *fp);
-static void stats_fittest(FILE *fp, int ntrials, int n, double mu, 
+static int  stats_fittest(FILE *fp, int ntrials, int n, double mu, 
 			  double lambda, double alpha);
 int
 main(int argc, char **argv)
@@ -941,18 +941,19 @@ stats_sample(FILE *fp)
  * 
  * xref STL9/191; xref 2005/0718-weibull-debugging
  */
-static void
+static int
 stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alpha)
 {
-  ESL_RANDOMNESS *r;
-  double *x;
+  ESL_RANDOMNESS *r = NULL;
+  double *x         = NULL;
   int     i;
   int     trial;
   double  est_mu, est_lambda, est_alpha;
   double  z;
   double  nll, est_nll;
+  int     status;
 
-  x       = malloc(sizeof(double) * n);
+  ESL_ALLOC(x, sizeof(double) * n);
   for (trial = 1; trial <= ntrials; trial++)
     {
       r = esl_randomness_Create(trial);
@@ -981,6 +982,10 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
 	     z);
     }
   free(x);
+  return eslOK;
+
+ FAILURE:
+  return status; 
 }
 #endif /*eslGEV_STATS*/
 

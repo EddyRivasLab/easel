@@ -51,11 +51,18 @@ extern float  esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc,
 				   float *p);
 extern double esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc,
 				   double *p);
+
+extern int    esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc);
+extern int    esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc);
+extern int    esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc);
+extern int    esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p);
+extern int    esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p);
+extern int    esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p);
 extern int    esl_abc_FCount(ESL_ALPHABET *abc, float *ct, int x, float wt);
 extern int    esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt);
 extern char  *esl_abc_Type(int type);
 
-#define esl_abc_DigitizeSymbol(a, c) ((char) a->inmap[c])
+#define esl_abc_DigitizeSymbol(a, c) ((char) a->inmap[(int)c])
 #define esl_abc_XIsDegenerate(a, x)  ((x) > a->K && (x) < a->Kp)
 #define esl_abc_XIsBasic(a, x)       ((x) >= 0   && (x) < a->K)
 #define esl_abc_XIsGap(a, x)         ((x) == a->K)

@@ -59,16 +59,15 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
  * Returns:   ptr to new <ESL_HISTOGRAM> object, which caller is responsible
  *            for free'ing with <esl_histogram_Destroy()>.
  *
- * Throws:    NULL on allocation failure.
+ * Throws:    <NULL> on allocation failure.
  */
 ESL_HISTOGRAM *
 esl_histogram_Create(double xmin, double xmax, double w)
 {
   ESL_HISTOGRAM *h = NULL;
-  int i;
+  int status;
 
-  if ((h = malloc(sizeof(ESL_HISTOGRAM))) == NULL)    
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(h, sizeof(ESL_HISTOGRAM));
 
   h->xmin      =  DBL_MAX;	/* xmin/xmax are the observed min/max */
   h->xmax      = -DBL_MAX;
@@ -99,13 +98,16 @@ esl_histogram_Create(double xmin, double xmax, double w)
   h->is_done       = FALSE;
   h->is_sorted     = FALSE;
   h->is_tailfit    = FALSE;
+  h->is_rounded    = FALSE;
   h->dataset_is    = COMPLETE;
 
-  if ((h->obs = malloc(sizeof(int) * h->nb)) == NULL)
-    { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed");}
-  for (i = 0;  i < h->nb; i++)
-    h->obs[i] = 0;
+  ESL_ALLOC(h->obs, sizeof(int) * h->nb);
+  esl_vec_ISet(h->obs, h->nb, 0);
   return h;
+
+ FAILURE:
+  esl_histogram_Destroy(h);
+  return NULL;
 }
 
 /* Function:  esl_histogram_CreateFull()
@@ -121,17 +123,19 @@ esl_histogram_Create(double xmin, double xmax, double w)
 ESL_HISTOGRAM *
 esl_histogram_CreateFull(double xmin, double xmax, double w)
 {
+  int status;
   ESL_HISTOGRAM *h = esl_histogram_Create(xmin, xmax, w);
   if (h == NULL) return NULL;
 
   h->n      = 0;		/* make sure */
   h->nalloc = 128;		/* arbitrary initial allocation size */
-  h->x      = malloc(sizeof(double) * h->nalloc);
-  if (h->x == NULL)
-    { esl_histogram_Destroy(h); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
-
+  ESL_ALLOC(h->x, sizeof(double) * h->nalloc);
   h->is_full = TRUE;
   return h;
+
+ FAILURE:
+  esl_histogram_Destroy(h);
+  return NULL;
 }
 
 
@@ -167,11 +171,14 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
  *            to the histogram that requires it to be 'finished', and
  *            adding more data is prohibited; for example, 
  *            if tail or censoring information has already been set.
+ *            On either failure, initial state of <h> is preserved.
  */
 int
 esl_histogram_Add(ESL_HISTOGRAM *h, double x)
 {
-  int b,i;			/* what bin we're in                       */
+  int   status;
+  void *tmp;
+  int b;			/* what bin we're in                       */
   int nnew;			/* # of new bins created by a reallocation */
 
   /* Censoring info must only be set on a finished histogram;
@@ -180,34 +187,27 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   if (h->is_done)
     ESL_ERROR(eslEINVAL, "can't add more data to this histogram");
 
-  h->is_sorted = FALSE;		/* not any more! */
-
-  /* If we're a full histogram, then we keep the raw x value,
-   * reallocating as needed.
+  /* If we're a full histogram, check whether we need to reallocate
+   * the full data vector.
    */
-  if (h->is_full) 
+  if (h->is_full && h->nalloc == h->n) 
     {
-      if (h->nalloc == h->n) 
-	{
-	  h->nalloc *= 2;
-	  h->x = realloc(h->x, sizeof(double) * h->nalloc);
-	  if (h->x == NULL) ESL_ERROR(eslEMEM, "reallocation failed");
-	}
-      h->x[h->n] = x;
+      ESL_RALLOC(h->x, tmp, sizeof(double) * h->nalloc * 2);
+      h->nalloc *= 2;
     }
 
   /* Which bin will we want to put x into?
    */
   b = esl_histogram_Score2Bin(h,x);
 
-  /* Make sure we have that bin...
-   * Reallocate below?
+  /* Make sure we have that bin. Realloc as needed.
+   * If that reallocation succeeds, we can no longer fail;
+   * so we can change the state of h.
    */
-  if (b < 0) 
+  if (b < 0)    /* Reallocate below? */
     {				
       nnew = -b*2;	/* overallocate by 2x */
-      h->obs = realloc(h->obs, sizeof(int) * (nnew+ h->nb));
-      if (h->obs == NULL) { ESL_ERROR(eslEMEM, "reallocation failed"); }
+      ESL_RALLOC(h->obs, tmp, sizeof(int) * (nnew+ h->nb));
       
       memmove(h->obs+nnew, h->obs, sizeof(int) * h->nb);
       h->nb    += nnew;
@@ -216,19 +216,13 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
       h->imin  += nnew;
       h->cmin  += nnew;
       if (h->imax > -1) h->imax += nnew;
-      for (i = 0; i < nnew; i++) h->obs[i] = 0;
+      esl_vec_ISet(h->obs, nnew, 0);
     }
-  /* Reallocate above?
-   */
-  else if (b >= h->nb)
+  else if (b >= h->nb)  /* Reallocate above? */
     {
       nnew = (b-h->nb+1) * 2; /* 2x overalloc */
-      
-      h->obs = realloc(h->obs, sizeof(int) * (nnew+ h->nb));
-      if (h->obs == NULL) { ESL_ERROR(eslEMEM, "reallocation failed"); }
-
-      for (i = h->nb; i < h->nb+nnew; i++)
-	h->obs[i] = 0;      
+      ESL_RALLOC(h->obs, tmp, sizeof(int) * (nnew+ h->nb));
+      esl_vec_ISet(h->obs+h->nb, nnew, 0);
       if (h->imin == h->nb) { /* boundary condition of no data yet*/
 	h->imin+=nnew; 
 	h->cmin+=nnew;
@@ -236,6 +230,12 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
       h->bmax  += nnew*h->w;
       h->nb    += nnew;
     }
+
+  /* If we're a full histogram, then we keep the raw x value,
+   * reallocating as needed.
+   */
+  if (h->is_full)  h->x[h->n] = x;
+  h->is_sorted = FALSE;		/* not any more! */
 
   /* Bump the bin counter, and all the data sample counters.
    */
@@ -249,6 +249,9 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   if (x > h->xmax) h->xmax = x;
   if (x < h->xmin) h->xmin = x;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
   
 
@@ -681,17 +684,18 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
  *            
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEMEM> on allocation failure.
+ * Throws:    <eslEMEM> on allocation failure; state of <h> is preserved.
  */
 int
 esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
 			double (*cdf)(double x, void *params), void *params)
 {
+  int    status;
   int    i;
   double ai,bi;			/* ai < x <= bi : lower,upper bounds in bin */
 
   if (h->expect == NULL) 
-    ESL_MALLOC(h->expect, sizeof(double) * h->nb);
+    ESL_ALLOC(h->expect, sizeof(double) * h->nb);
 
   for (i = 0; i < h->nb; i++)
     {
@@ -704,6 +708,9 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
 
   h->is_done = TRUE;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 /* Function:  esl_histogram_SetExpectedTail()
@@ -737,15 +744,14 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
 			      double (*cdf)(double x, void *params), 
 			      void *params)
 {
+  int status;
   int b;
   double ai, bi;
 
-  h->emin = 1 + esl_histogram_Score2Bin(h, base_val);
+  if (h->expect == NULL)  ESL_ALLOC(h->expect, sizeof(double) * h->nb);
 
-  if (h->expect == NULL) 
-    ESL_MALLOC(h->expect, sizeof(double) * h->nb);
-  for (b = 0; b < h->emin; b++) 
-    h->expect[b] = 0.;
+  h->emin = 1 + esl_histogram_Score2Bin(h, base_val);
+  esl_vec_DSet(h->expect, h->emin, 0.);
 
   for (b = h->emin; b < h->nb; b++)
     {
@@ -760,6 +766,9 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
   h->is_tailfit = TRUE;
   h->is_done    = TRUE;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 
@@ -1107,9 +1116,9 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 		       double *ret_G,  double *ret_Gp,
 		       double *ret_X2, double *ret_X2p)
 {
-  int     *obs;			/* observed in bin i, [0..nb-1]   */
-  double  *exp;			/* expected in bin i, [0..nb-1]   */
-  double  *topx;		/* all values in bin i <= topx[i] */
+  int     *obs  = NULL;		/* observed in bin i, [0..nb-1]   */
+  double  *exp  = NULL;		/* expected in bin i, [0..nb-1]   */
+  double  *topx = NULL;		/* all values in bin i <= topx[i] */
   int      nb;			/* # of re-bins                   */
   int      minc;		/* minimum target # of counts/bin */
   int      i,b;
@@ -1158,9 +1167,9 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
    */
   nb   = 2* (int) pow((double) nobs, 0.4); /* "desired" nb. */
   minc = 1 + nobs / (2*nb);	/* arbitrarily set min = 1/2 of the target # */
-  ESL_MALLOC(obs,  sizeof(int)    * (nb*2+1)); /* final nb must be <= 2*nb+1 */
-  ESL_MALLOC(exp,  sizeof(double) * (nb*2+1));
-  ESL_MALLOC(topx, sizeof(double) * (nb*2+1));
+  ESL_ALLOC(obs,  sizeof(int)    * (nb*2+1)); /* final nb must be <= 2*nb+1 */
+  ESL_ALLOC(exp,  sizeof(double) * (nb*2+1));
+  ESL_ALLOC(topx, sizeof(double) * (nb*2+1));
 
   /* Determine the observed counts in each bin: that is, partition 
    * the <sum> in the evaluated region.
@@ -1242,6 +1251,17 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   free(exp);
   free(topx);
   return eslOK;
+
+ FAILURE:
+  if (ret_nbins != NULL) *ret_nbins = 0;
+  if (ret_G     != NULL) *ret_G     = 0.;
+  if (ret_Gp    != NULL) *ret_Gp    = 0.;
+  if (ret_X2    != NULL) *ret_X2    = 0.;
+  if (ret_X2p   != NULL) *ret_X2p   = 0.;
+  if (obs  != NULL) free(obs);
+  if (exp  != NULL) free(exp);
+  if (topx != NULL) free(topx);
+  return status;
 }
 
 
@@ -1673,6 +1693,7 @@ main(int argc, char **argv)
   esl_opt_GetStringOption (go, "--plot",   &plotfile);
   esl_opt_GetStringOption (go, "--qq",     &qqfile);
   esl_opt_GetStringOption (go, "--surv",   &survfile);
+  esl_getopts_Destroy(go);
 
   r         = esl_randomness_Create(42);
   avg_ep[0] = 0.;
@@ -1877,7 +1898,8 @@ main(int argc, char **argv)
   /* Smaller final tests
    */
   if (! binmacro_test()) exit(1);
-
+  
+  esl_randomness_Destroy(r);
   return 0;
 }
 #endif /*eslHISTOGRAM_TESTDRIVE*/

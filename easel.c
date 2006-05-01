@@ -179,7 +179,7 @@ esl_banner(FILE *fp, char *banner)
  * 
  *           Caller must free *buf eventually. 
  *
- * Throws:   eslEMEM on malloc/realloc failure.
+ * Throws:   <eslEMEM> on an allocation failure.
  *
  * Example:  char *buf;
  *           int   n;
@@ -197,14 +197,15 @@ esl_banner(FILE *fp, char *banner)
 int
 esl_fgets(char **buf, int *n, FILE *fp)
 {
+  int   status;
+  void *p;
   char *s;
   int   len;
   int   pos;
 
   if (*n == 0) 
     {
-      if ((*buf = malloc(sizeof(char) * 128)) == NULL)
-	ESL_ERROR(eslEMEM, "malloc failed");
+      ESL_ALLOC(*buf, sizeof(char) * 128);
       *n   = 128;
     }
 
@@ -233,9 +234,8 @@ esl_fgets(char **buf, int *n, FILE *fp)
    */
   pos = (*n)-1;
   while (1) {
+    ESL_RALLOC(*buf, p, sizeof(char) * (*n+128));
     *n  += 128;
-    if ((*buf = realloc(*buf, sizeof(char) * (*n))) == NULL) 
-      ESL_ERROR(eslEMEM, "realloc failed");
     s = *buf + pos;
     if (fgets(s, 129, fp) == NULL) return eslOK;
     len = strlen(s);
@@ -244,6 +244,12 @@ esl_fgets(char **buf, int *n, FILE *fp)
   } 
   /*NOTREACHED*/
   return eslOK;
+
+ FAILURE:
+  if (*buf != NULL) free(*buf);
+  *buf = NULL;
+  *n   = 0;
+  return status;
 }
 
 /* Function: esl_strdup()
@@ -268,16 +274,23 @@ esl_fgets(char **buf, int *n, FILE *fp)
 int
 esl_strdup(char *s, int n, char **ret_dup)
 {
-  char *new;
+  int   status;
+  char *new = NULL;
 
   if (ret_dup != NULL) *ret_dup = NULL;
   if (s == NULL) return eslOK;
   if (n < 0) n = strlen(s);
-  if ((new = malloc(sizeof(char) * (n+1))) == NULL) 
-    ESL_ERROR(eslEMEM, "malloc failed in esl_strdup()");
+
+  ESL_ALLOC(new, sizeof(char) * (n+1));
   strcpy(new, s);
+
   if (ret_dup != NULL) *ret_dup = new; else free(new);
   return eslOK;
+
+ FAILURE:
+  if (new     != NULL) free(new);
+  if (ret_dup != NULL) *ret_dup = NULL;
+  return status;
 }
 
 
@@ -294,8 +307,8 @@ esl_strdup(char *s, int n, char **ret_dup)
  *           if known, accelerates the routine.
  *           
  *           <*dest> may be NULL, in which case this is equivalent
- *           to a <strdup()> of <src> (that is, <*dest> is malloc'ed
- *           rather than realloc'ed). 
+ *           to a <strdup()> of <src> (that is, <*dest> is allocated
+ *           rather than reallocated). 
  *           
  *           <src> may be NULL, in which case <dest> is unmodified.
  *           
@@ -313,12 +326,14 @@ esl_strdup(char *s, int n, char **ret_dup)
  * Returns:  <eslOK> on success; <*dest> is (probably) reallocated, 
  *           modified, and nul-terminated.
  *           
- * Throws:   <eslEMEM> on allocation failure.          
+ * Throws:   <eslEMEM> on allocation failure; initial state of <dest> 
+ *           is unaffected.
  */
 int
 esl_strcat(char **dest, int ldest, char *src, int lsrc)
 {
   void *p;
+  int   status;
   int   len1, len2;
 
   if (ldest < 0) len1 = ((*dest == NULL) ? 0 : strlen(*dest));
@@ -329,11 +344,14 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
 
   if (len2 == 0) return eslOK;
 
-  if (*dest == NULL) ESL_MALLOC(*dest, sizeof(char) * (len2+1));
-  else               ESL_REALLOC(*dest, p, sizeof(char) * (len1+len2+1));
+  if (*dest == NULL) ESL_ALLOC(*dest, sizeof(char) * (len2+1));
+  else               ESL_RALLOC(*dest, p, sizeof(char) * (len1+len2+1));
 
   memcpy((*dest)+len1, src, len2+1);
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 /* Function: esl_strtok()
@@ -554,12 +572,13 @@ esl_FileExists(char *filename)
 int
 esl_FileTail(char *path, int nosuffix, char **ret_file)
 {
-  char *tail;
+  int   status;
+  char *tail = NULL;
   char *lastslash;
   char *lastdot;
 				/* remove directory prefix */
   lastslash = strrchr(path, eslDIRSLASH);
-  ESL_MALLOC(tail, sizeof(char) * (strlen(path)+1)); /* a little overkill */
+  ESL_ALLOC(tail, sizeof(char) * (strlen(path)+1)); /* a little overkill */
   if (lastslash == NULL) strcpy(tail, path);
   else                   strcpy(tail, lastslash+1);
 				/* remove trailing suffix */
@@ -569,6 +588,11 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
   }
   *ret_file = tail;
   return eslOK;
+
+ FAILURE:
+  if (tail != NULL) free(tail);
+  *ret_file = NULL;
+  return status;
 }
 
 
@@ -605,16 +629,16 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
 int
 esl_FileConcat(char *dir, char *file, char **ret_path)
 {
-  char *path;
+  char *path = NULL;
   int   nd, nf;
+  int   status;
 
   if (ret_path != NULL) *ret_path = NULL;
   if (file == NULL) ESL_ERROR(eslEINVAL, "null file");
 
   nd   = (dir  != NULL)? strlen(dir)  : 0;
   nf   = strlen(file);
-  path = malloc (sizeof(char) * (nd+nf+2));
-  if (path == NULL) ESL_ERROR(eslEMEM, "malloc failed");
+  ESL_ALLOC(path, sizeof(char) * (nd+nf+2));
 
   if (dir == NULL)		     /* 1. silly caller didn't give a path */
     strcpy(path, file);
@@ -627,6 +651,11 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
 
   if (ret_path != NULL) *ret_path = path; else free(path);
   return eslOK;
+
+ FAILURE:
+  if (path     != NULL) free(path);
+  if (ret_path != NULL) *ret_path = NULL;
+  return status;
 }
 
 
@@ -653,9 +682,10 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
 int 
 esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
 {
-  char *new;
+  char *new = NULL;
   char *lastdot;
   int   nf;
+  int   status;
 
   if (ret_newpath != NULL) *ret_newpath = NULL;
 
@@ -665,14 +695,18 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
     lastdot = NULL; /*foo.1/filename case - don't be fooled.*/
   nf = (lastdot == NULL)? strlen(filename) : lastdot-filename;
   
-  new = malloc(sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */
-  if (new == NULL) ESL_ERROR(eslEMEM, "malloc failed");
+  ESL_ALLOC(new, sizeof(char) * (nf+strlen(sfx)+2)); /* '.' too */
   strncpy(new, filename, nf);
   *(new+nf) = '.';
   strcpy(new+nf+1, sfx);
 
   if (ret_newpath != NULL) *ret_newpath = new; else free(new);
   return eslOK;
+
+ FAILURE:
+  if (new         != NULL) free(new);
+  if (ret_newpath != NULL) *ret_newpath = NULL;
+  return status;
 }
 
 
@@ -723,8 +757,9 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   FILE *fp;
   char *dirlist;		/* :-separated list of directories */
   char *s, *s2;                 /* ptrs into elems in env list */
-  char *path;
+  char *path = NULL;
   int   np;
+  int   status;
 
   fp = NULL;
   if (ret_fp   != NULL) *ret_fp   = NULL;
@@ -735,8 +770,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (esl_strdup(s, -1, &dirlist) != eslOK) return eslEMEM;
 
   np   = strlen(fname) + strlen(s) + 2; /* upper bound on full path len */
-  path = malloc(sizeof(char) * np);
-  if (path == NULL) { free(dirlist); ESL_ERROR(eslEMEM, "malloc failed");}
+  ESL_ALLOC(path, sizeof(char) * np);
 
   s  = dirlist;
   while (s != NULL) 
@@ -752,6 +786,14 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (ret_fp   != NULL) { *ret_fp   = fp; }   else fclose(fp);
   free(dirlist);
   return eslOK;
+
+ FAILURE:
+  if (path     != NULL) free(path);
+  if (fp       != NULL) fclose(fp);
+  if (dirlist  != NULL) free(dirlist);
+  if (ret_path != NULL) *ret_path = NULL;
+  if (ret_fp   != NULL) *ret_fp   = NULL;
+  return status;
 }
 
 /*----------------- end of file path/name functions ------------------------*/

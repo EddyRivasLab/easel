@@ -345,8 +345,8 @@ esl_kh2wuss(char *kh, char *ss)
 int
 esl_wuss_full(char *oldss, char *newss)
 {
-  char *tmp;
-  int  *ct;
+  char *tmp = NULL;
+  int  *ct  = NULL;
   int   n;
   int   i;
   int   status;
@@ -359,19 +359,17 @@ esl_wuss_full(char *oldss, char *newss)
    * the pk annotation from the original oldss annotation.
    */
   n = strlen(oldss);
-  if ((ct = malloc(sizeof(int)  * (n+1))) == NULL)
-    ESL_ERROR(eslEMEM, "malloc failed");
-  if ((tmp = malloc(sizeof(char) * (n+1))) == NULL)
-    { free(ct); ESL_ERROR(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(ct,  sizeof(int)  * (n+1));
+  ESL_ALLOC(tmp, sizeof(char) * (n+1));
   
   esl_wuss_nopseudo(oldss, tmp);/* tmp = nonpseudoknotted oldss */
 
   status = esl_wuss2ct(tmp, n, ct);   /* ct  = oldss in ct format, no pks */
-  if (status != eslOK) return status; /* ESYNTAX or EMEM */
+  if (status != eslOK) goto FAILURE;
 
   status = esl_ct2wuss(ct, n, tmp);   /* now tmp is a full WUSS string */
-  if (status == eslEINVAL) return eslEINCONCEIVABLE; /* we're sure, no pk's */
-  else if (status != eslOK) return status; /* EMEM, EINCONCEIVABLE  */
+  if (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto FAILURE; }/* we're sure, no pk's */
+  else if (status != eslOK) goto FAILURE; /* EMEM, EINCONCEIVABLE  */
   
   for (i = 0; i < n; i++)
     if (isalpha(oldss[i])) newss[i] = oldss[i];	/* transfer pk annotation */
@@ -380,6 +378,11 @@ esl_wuss_full(char *oldss, char *newss)
   free(ct);
   free(tmp);
   return eslOK;
+
+ FAILURE:
+  free(ct);
+  free(tmp);
+  return status;
 }
 
 
@@ -448,16 +451,17 @@ main(int argc, char **argv)
 ,,,,,<<<<<<<<____>>>>>>>>,,,,,,,,,,}}}}}}}------------------\
 -}-}}}}}}}}}}::::";
   int  len;
-  int *ct1;
-  int *ct2;
-  char *ss2;
+  int  *ct1 = NULL;
+  int  *ct2 = NULL;
+  char *ss2 = NULL;
   int  i;
   int  nbp, nbp_true, npk;
+  int  status;
 
   len = strlen(ss);
-  ESL_MALLOC(ct1, sizeof(int)  * (len+1));
-  ESL_MALLOC(ct2, sizeof(int)  * (len+1));
-  ESL_MALLOC(ss2, sizeof(char) * (len+1));
+  ESL_ALLOC(ct1, sizeof(int)  * (len+1));
+  ESL_ALLOC(ct2, sizeof(int)  * (len+1));
+  ESL_ALLOC(ss2, sizeof(char) * (len+1));
   nbp_true = npk = 0;
   for (i = 0; i < len; i++)
     {
@@ -490,7 +494,16 @@ main(int argc, char **argv)
   if (esl_ct2wuss(ct1, len, ss2)     != eslOK) abort();
   if (strcmp(ss_nopk, ss2) != 0) abort();
 
+  free(ct1);
+  free(ct2);
+  free(ss2);
   return 0;
+
+ FAILURE:
+  free(ct1);
+  free(ct2);
+  free(ss2);
+  return status;
 }
 #endif /*eslWUSS_TESTDRIVE*/
 

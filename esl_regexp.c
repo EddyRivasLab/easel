@@ -83,12 +83,15 @@ static void         regdump(esl__regexp *r);
 ESL_REGEXP *
 esl_regexp_Create(void)
 {
-  ESL_REGEXP *machine;
+  int status;
+  ESL_REGEXP *machine = NULL;
 
-  if ((machine = malloc(sizeof(ESL_REGEXP))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "allocation failed");
+  ESL_ALLOC(machine, sizeof(ESL_REGEXP));
   machine->ndfa = NULL;
   return machine;
+
+ FAILURE:
+  return NULL;
 }
 
 /* Function:  esl_regexp_Inflate()
@@ -244,20 +247,21 @@ esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem)
 {
   char *s;
   int   len;
+  int   status;
 
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR_NULL(eslEINVAL, "bad elem arg");
+    ESL_FAIL(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR_NULL(eslEINVAL, "no such submatch recorded");
+    ESL_FAIL(eslEINVAL, "no such submatch recorded");
 
   len = machine->ndfa->endp[elem] - machine->ndfa->startp[elem];
-  if ((s = malloc(sizeof(char) * (len+1))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "malloc failed for submatch");
-
+  ESL_ALLOC(s, sizeof(char) * (len+1));
   strncpy(s, machine->ndfa->startp[elem], len);
   s[len] = '\0';
-  
   return s;
+
+ FAILURE:
+  return NULL;
 }
 
 /* Function:  esl_regexp_SubmatchCopy()
@@ -283,20 +287,24 @@ int
 esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc)
 {
   int   len;
+  int   status;
 
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR(eslEINVAL, "bad elem arg");
+    ESL_FAIL(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR(eslEINVAL, "no such submatch recorded");
+    ESL_FAIL(eslEINVAL, "no such submatch recorded");
 
   len = machine->ndfa->endp[elem] - machine->ndfa->startp[elem];
   if (len >= nc) 
-    ESL_ERROR(eslEINVAL, "buffer too small to hold submatch");
+    ESL_FAIL(eslEINVAL, "buffer too small to hold submatch");
 
   strncpy(buffer, machine->ndfa->startp[elem], len);
   buffer[len] = '\0';
-  
   return eslOK;
+
+ FAILURE:
+  buffer[0] = '\0';
+  return status;
 }
 
 
@@ -342,14 +350,21 @@ int
 esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem, 
 			  int *ret_start, int *ret_end)
 {
+  int status;
+
   if (elem >= ESL_REGEXP_NSUB || elem < 0) 
-    ESL_ERROR(eslEINVAL, "bad elem arg");
+    ESL_FAIL(eslEINVAL, "bad elem arg");
   if (machine->ndfa->startp[elem] == NULL || machine->ndfa->endp[elem] == NULL)
-    ESL_ERROR(eslEINVAL, "no such submatch recorded");
+    ESL_FAIL(eslEINVAL, "no such submatch recorded");
 
   *ret_start = machine->ndfa->startp[elem] - origin;
   *ret_end   = machine->ndfa->endp[elem]   - origin - 1;
   return eslOK;
+
+ FAILURE:
+  *ret_start = 0;
+  *ret_end   = 0;
+  return status;
 }
 /*=================== end of the exposed API ==========================================*/
 
@@ -544,13 +559,13 @@ static char *regescape(struct comp *cp, char c);
 static esl__regexp *
 regcomp(const char *exp)
 {
-	register esl__regexp *r;
+        int status;
+	register esl__regexp *r = NULL;
 	register char *scan;
 	int flags;
 	struct comp co;
 
-	if (exp == NULL) 
-	  ESL_ERROR_NULL(eslEINVAL, "NULL argument to regcomp");
+	if (exp == NULL) ESL_FAIL(eslEINVAL, "NULL argument to regcomp");
 
 	/* First pass: determine size, legality. */
 	co.regparse = (char *)exp;
@@ -560,25 +575,21 @@ regcomp(const char *exp)
 	co.regdummy[1] = co.regdummy[2] = 0;
 	co.regcode = co.regdummy;
 	regc(&co, REGMAGIC);
-	if (reg(&co, 0, &flags) == NULL)
-		return(NULL);
+	if (reg(&co, 0, &flags) == NULL) goto FAILURE;
 
 	/* Small enough for pointer-storage convention? */
 	if (co.regsize >= 0x7fffL)	/* Probably could be 0xffffL. */
-	  ESL_ERROR_NULL(eslEMEM, "regexp too big");
+	  ESL_FAIL(eslEMEM, "regexp too big");
 
 	/* Allocate space. */
-	r = (esl__regexp *)malloc(sizeof(esl__regexp) + (size_t)co.regsize);
-	if (r == NULL)
-	  ESL_ERROR_NULL(eslEMEM, "out of space");
+	ESL_ALLOC(r, sizeof(esl__regexp) + (size_t)co.regsize);
 
 	/* Second pass: emit code. */
 	co.regparse = (char *)exp;
 	co.regnpar = 1;
 	co.regcode = r->program;
 	regc(&co, REGMAGIC);
-	if (reg(&co, 0, &flags) == NULL)
-		return(NULL);
+	if (reg(&co, 0, &flags) == NULL) goto FAILURE;
 
 	/* Dig out information for optimizations. */
 	r->regstart = '\0';		/* Worst-case defaults. */
@@ -618,6 +629,10 @@ regcomp(const char *exp)
 	}
 
 	return(r);
+
+ FAILURE:
+	if (r != NULL) free(r);
+	return NULL;
 }
 
 /*
@@ -632,6 +647,7 @@ regcomp(const char *exp)
 static char *
 reg(register struct comp *cp, int paren, int *flagp)
 {
+  int status;
   register char *ret = NULL;   /* SRE: NULL init added to silence gcc */
   register char *br;
   register char *ender;
@@ -642,8 +658,8 @@ reg(register struct comp *cp, int paren, int *flagp)
 
   if (paren) {
 		/* Make an OPEN node. */
-    if (cp->regnpar >= ESL_REGEXP_NSUB)
-	ESL_ERROR_NULL(eslESYNTAX, "too many ()");
+    if (cp->regnpar >= ESL_REGEXP_NSUB) 
+	ESL_FAIL(eslESYNTAX, "too many ()");
     parno = cp->regnpar;
     cp->regnpar++;
     ret = regnode(cp, OPEN+parno);
@@ -679,15 +695,18 @@ reg(register struct comp *cp, int paren, int *flagp)
 
   /* Check for proper termination. */
   if (paren && *cp->regparse++ != ')') {
-    ESL_ERROR_NULL(eslESYNTAX, "unterminated ()");
+    ESL_FAIL(eslESYNTAX, "unterminated ()");
   } else if (!paren && *cp->regparse != '\0') {
     if (*cp->regparse == ')') {
-      ESL_ERROR_NULL(eslESYNTAX, "unmatched ()");
+      ESL_FAIL(eslESYNTAX, "unmatched ()");
     } else
-      ESL_ERROR_NULL(eslECORRUPT, "internal error: junk on end");
+      ESL_FAIL(eslECORRUPT, "internal error: junk on end");
     /* NOTREACHED */
   }
   return(ret);
+
+ FAILURE:
+  return NULL;
 }
 
 /*
@@ -740,6 +759,7 @@ regbranch(register struct comp *cp, int *flagp)
 static char *
 regpiece(register struct comp *cp, int *flagp)
 {
+        int status;
 	register char *ret;
 	register char op;
 	register char *next;
@@ -756,7 +776,7 @@ regpiece(register struct comp *cp, int *flagp)
 	}
 
 	if (!(flags&HASWIDTH) && op != '?')
-		ESL_ERROR_NULL(eslESYNTAX, "*+ operand could be empty");
+	  ESL_FAIL(eslESYNTAX, "*+ operand could be empty");
 	switch (op) {
 	case '*':	*flagp = WORST|SPSTART;			break;
 	case '+':	*flagp = WORST|SPSTART|HASWIDTH;	break;
@@ -791,9 +811,12 @@ regpiece(register struct comp *cp, int *flagp)
 	}
 	cp->regparse++;
 	if (ISREPN(*cp->regparse))
-	  ESL_ERROR_NULL(eslESYNTAX, "nested *?+");
+	  ESL_FAIL(eslESYNTAX, "nested *?+");
 
 	return(ret);
+
+ FAILURE:
+	return NULL;
 }
 
 /*
@@ -812,6 +835,7 @@ regatom(register struct comp *cp, int *flagp)
 {
   register char *ret;
   int flags;
+  int status;
 
   *flagp = WORST;		/* Tentatively. */
 
@@ -853,7 +877,7 @@ regatom(register struct comp *cp, int *flagp)
 	case 't': regc(cp, '\t'); break;
 	case '\\': regc(cp, '\\'); break;
 	default: 
-	  ESL_ERROR_NULL(eslESYNTAX, "Invalid \\ escape inside range operator");
+	  ESL_FAIL(eslESYNTAX, "Invalid \\ escape inside range operator");
 	  break;
 	}
       }/*end SRE*/
@@ -865,7 +889,7 @@ regatom(register struct comp *cp, int *flagp)
 	range = (unsigned char)*(cp->regparse-2);
 	rangeend = (unsigned char)c;
 	if (range > rangeend)
-	  ESL_ERROR_NULL(eslESYNTAX, "invalid [] range");
+	  ESL_FAIL(eslESYNTAX, "invalid [] range");
 	for (range++; range <= rangeend; range++)
 	  regc(cp, range);
 	cp->regparse++;
@@ -873,7 +897,7 @@ regatom(register struct comp *cp, int *flagp)
     }
     regc(cp, '\0');
     if (c != ']')
-      ESL_ERROR_NULL(eslESYNTAX, "unmatched []");
+      ESL_FAIL(eslESYNTAX, "unmatched []");
     *flagp |= HASWIDTH|SIMPLE;
     break;
   }
@@ -888,20 +912,20 @@ regatom(register struct comp *cp, int *flagp)
   case '|':
   case ')':
     /* supposed to be caught earlier */
-    ESL_ERROR_NULL(eslECORRUPT, "internal error: \\0|) unexpected");
+    ESL_FAIL(eslECORRUPT, "internal error: \\0|) unexpected");
     /*NOTREACHED*/
     break;
 
   case '?':
   case '+':
   case '*':
-    ESL_ERROR_NULL(eslESYNTAX, "?+* follows nothing");
+    ESL_FAIL(eslESYNTAX, "?+* follows nothing");
     /*NOTREACHED*/
     break;
 
   case '\\':
     if (*cp->regparse == '\0')
-      ESL_ERROR_NULL(eslESYNTAX, "trailing \\");
+      ESL_FAIL(eslESYNTAX, "trailing \\");
 
     if (! isalnum(*cp->regparse)) {
       ret = regnode(cp, EXACTLY); /* SRE: original Spencer code */
@@ -920,7 +944,7 @@ regatom(register struct comp *cp, int *flagp)
     cp->regparse--;
     len = strcspn(cp->regparse, META);
     if (len == 0)
-      ESL_ERROR_NULL(eslECORRUPT, "strcspn 0");
+      ESL_FAIL(eslECORRUPT, "strcspn 0");
     ender = *(cp->regparse+len);
     if (len > 1 && ISREPN(ender))
       len--;		/* Back off clear of ?+* operand. */
@@ -935,6 +959,9 @@ regatom(register struct comp *cp, int *flagp)
   }
   }
   return(ret);
+  
+ FAILURE:
+  return NULL;
 }
 
 /*
@@ -1565,6 +1592,7 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 static char *
 regescape(struct comp *cp, char c)
 {
+  int   status;
   char *ret;
   char x;
 
@@ -1622,7 +1650,7 @@ regescape(struct comp *cp, char c)
     break;
 
   default:
-    ESL_ERROR_NULL(eslESYNTAX, "invalid \\ escape code");
+    ESL_FAIL(eslESYNTAX, "invalid \\ escape code");
     /*NOTREACHED*/
     break;
   }
@@ -1630,6 +1658,9 @@ regescape(struct comp *cp, char c)
   regc(cp, '\0');
   cp->regparse++;
   return ret;
+
+ FAILURE:
+  return NULL;
 }
 
 
@@ -1822,6 +1853,7 @@ main(void)
   if (i != 12 || j != 16) abort();
   s = esl_regexp_SubmatchDup(m, 2);
   if (strcmp(s, "oobaz") != 0) abort();
+  free(s);
 
   esl_regexp_Destroy(m);
 

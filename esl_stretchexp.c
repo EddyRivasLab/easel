@@ -682,6 +682,8 @@ main(int argc, char **argv)
   if (plot_logsurv) esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_logsurv, xmin, xmax, xstep);
 
   if (plotfile != NULL) fclose(pfp);
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
   return 0;
 }
 #endif /*eslSXP_TESTDRIVE*/

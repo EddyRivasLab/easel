@@ -41,8 +41,7 @@ extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern double esl_rnd_Gamma(ESL_RANDOMNESS *r, double a);
 extern int    esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N);
 extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N);
-extern char  *esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, 
-			  int len);
+extern int    esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char **ret_s);
 
 #endif /*ESL_RANDOM_INCLUDED*/
 

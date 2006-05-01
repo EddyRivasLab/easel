@@ -4,11 +4,12 @@
  * SRE, Tue Jul 13 15:51:23 2004 [St. Louis]
  * SVN $Id$
  */
+#include <esl_config.h>
 
-#include <easel/easel.h>
-#include <easel/dmatrix.h>
-#include <easel/vectorops.h>
-#include <easel/ratematrix.h>
+#include <easel.h>
+#include <esl_dmatrix.h>
+#include <esl_vectorops.h>
+#include <esl_ratematrix.h>
 
 /* Function:  esl_ratemx_Symm2Q()
  * Incept:    SRE, Tue Jul 13 15:52:41 2004 [St. Louis]
@@ -129,13 +130,13 @@ esl_ratemx_Normalize(ESL_DMATRIX *Q, double *pi, double x)
 int
 esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 {
-  ESL_DMATRIX *tmp;             /* keeps running product Q^k */
-  ESL_DMATRIX *C;
+  ESL_DMATRIX *tmp = NULL;             /* keeps running product Q^k */
+  ESL_DMATRIX *C   = NULL;
   double       factor;
   int          k;
 
-  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(eslEMEM, "malloc failed");
-  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL)  ESL_ERROR(eslEMEM, "malloc failed");
+  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto FAILURE;
+  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto FAILURE;
   
   esl_dmx_SetIdentity(P);
   factor = 1;
@@ -152,9 +153,14 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
       esl_dmx_Copy(C, tmp);	           /* tmp = C = Q^{k+1} */
     }
 
-  esl_dmx_Free(tmp);
-  esl_dmx_Free(C);
+  esl_dmatrix_Destroy(tmp);
+  esl_dmatrix_Destroy(C);
   return eslOK;
+
+ FAILURE:
+  esl_dmatrix_Destroy(tmp);
+  esl_dmatrix_Destroy(C);
+  return status;
 }
 
 
@@ -180,11 +186,10 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 ESL_DMATRIX *
 esl_ratemx_CreateHKY(double *f, double alpha, double beta)
 {
-  ESL_DMATRIX *Q;
+  ESL_DMATRIX *Q = NULL;
   int i,j;
 
-  if ((Q = esl_dmatrix_Create(4, 4)) == NULL)
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");   
+  if ((Q = esl_dmatrix_Create(4, 4)) == NULL) goto FAILURE;
   
   for (i = 0; i < 4; i++)
     {
@@ -197,4 +202,8 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
     }
   esl_ratemx_Normalize(Q, f, 1.0);
   return Q;
+
+ FAILURE:
+  esl_dmatrix_Destroy(Q);
+  return NULL;
 }

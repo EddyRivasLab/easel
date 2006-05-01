@@ -47,11 +47,12 @@
 ESL_RANDOMNESS *
 esl_randomness_Create(long seed)
 {
-  ESL_RANDOMNESS *r;
+  ESL_RANDOMNESS *r      = NULL;
   int             burnin = 7;
+  int             status;
 
-  if (seed <= 0)                                    ESL_ERROR_NULL(eslEINVAL, "bad seed");
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL) ESL_ERROR_NULL(eslEMEM,   "malloc failed");
+  if (seed <= 0) ESL_FAIL(eslEINVAL, "bad seed");
+  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
   r->seed = seed;
 
   /* we observe that the first random number isn't very random, if
@@ -60,6 +61,9 @@ esl_randomness_Create(long seed)
    */
   while (burnin--) esl_random(r);
   return r;
+
+ FAILURE:
+  return NULL;
 }
 
 /* Function:  esl_randomness_CreateTimeseeded()
@@ -79,14 +83,17 @@ esl_randomness_Create(long seed)
 ESL_RANDOMNESS *
 esl_randomness_CreateTimeseeded(void)
 {
-  ESL_RANDOMNESS *r;
+  ESL_RANDOMNESS *r      = NULL;
   int             burnin = 7;
+  int             status;
 
-  if ((r = malloc(sizeof(ESL_RANDOMNESS))) == NULL)
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
   r->seed = time ((time_t *) NULL);
   while (burnin--) esl_random(r);
   return r;
+
+ FAILURE:
+  return NULL;
 }
 
 /* Function:  esl_randomness_Destroy()
@@ -568,35 +575,42 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 /* Function: esl_rnd_IID()
  * Incept:   SRE, Thu Aug  5 09:03:03 2004 [St. Louis]
  *
- * Purpose:  Generate and return an iid symbol sequence of length <len>.
+ * Purpose:  Generate and return an iid symbol sequence of length <L>.
  *           The legal symbol alphabet is given as a string
- *           <alphabet> of <n> total symbols, and the iid probability 
- *           of each residue is given in <p>.
+ *           <alphabet> of <K> total symbols, and the iid probability 
+ *           of each residue is given in <p>. The new string is
+ *           allocated here and returned in <ret_s>.
  *
  * Args:     r         - ESL_RANDOMNESS object
  *           alphabet  - e.g. "ACGT"
  *           p         - probability distribution [0..n-1]
- *           n         - number of symbols in alphabet
- *           len       - length of generated sequence
+ *           K         - number of symbols in alphabet
+ *           L         - length of generated sequence
+ *           ret_s     - RETURN: the generated sequence.
  *
- * Return:   ptr to the random sequence, which is allocated here,
- *           and must be free'd by caller.
+ * Return:   <eslOK> on success, and <ret_s> points to the random sequence,
+ *           which is allocated here and must be free()'d by caller.
  *
- * Throws:   NULL on allocation failure.
+ * Throws:   <eslEMEM> on failure, and <ret_s> is returned <NULL>.
  */
-char *
-esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int n, int len)
+int
+esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char **ret_s)
 {
-  char *s;
+  int   status;
+  char *s = NULL;
   int   x;
 
-  if ((s = malloc(sizeof(char) * (len+1))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "allocation failed");
-
-  for (x = 0; x < len; x++)
-    s[x] = alphabet[esl_rnd_DChoose(r,p,n)];
+  ESL_ALLOC(s, sizeof(char) * (L+1));
+  for (x = 0; x < L; x++)
+    s[x] = alphabet[esl_rnd_DChoose(r,p,K)];
   s[x] = '\0';
-  return s;
+
+  *ret_s = s;
+  return eslOK;
+
+ FAILURE:
+  *ret_s = NULL;
+  return status;
 }
 
 
@@ -754,12 +768,14 @@ unit_random(long seed, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("random():  \t%g\n", X2p);
+  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
 
-  if (X2p < 0.01) status = eslFAIL;
-  else            status = eslOK;
+  esl_randomness_Destroy(r);
+  free(counts);
+  return eslOK;
   
- CLEANEXIT:
-  if (r != NULL)       esl_randomness_Destroy(r);
+ FAILURE:
+  if (r      != NULL) esl_randomness_Destroy(r);
   if (counts != NULL) free(counts);
   return status;
 }
@@ -797,7 +813,7 @@ unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("DChoose():  \t%g\n", X2p);
-  if (X2p < 0.01) { status = eslFAIL; goto CLEANEXIT; }
+  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
 
   /* Repeat above for FChoose(). */
   esl_vec_ISet(ct, nbins, 0);
@@ -810,10 +826,14 @@ unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("FChoose():  \t%g\n", X2p);
-  if (X2p < 0.01) { status = eslFAIL; goto CLEANEXIT; }
+  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
   
-  status =  eslOK;
- CLEANEXIT:
+  free(pd);
+  free(pf);
+  free(ct);
+  return eslOK;
+
+ FAILURE:
   if (pd != NULL) free(pd);
   if (pf != NULL) free(pf);
   if (ct != NULL) free(ct);
@@ -848,9 +868,10 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 	}
       fprintf(fp, "\n");
     }
+  fclose(fp);
+  return eslOK;
 
-  status = eslOK;
- CLEANEXIT:
+ FAILURE:
   if (fp != NULL) fclose(fp);
   return status;
 }

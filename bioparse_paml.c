@@ -76,10 +76,8 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
   status = esl_fileparse_set_commentchar(efp, '#');
   if (status != eslOK) goto FAILURE;
 
-  if ((s    = esl_dmatrix_Create(20,20))   == NULL)
-    { status = eslEMEM; goto FAILURE; }
-  if ((pi   = malloc(sizeof(double) * 20)) == NULL) 
-    { status = eslEMEM; goto FAILURE; }
+  if ((s    = esl_dmatrix_Create(20,20))   == NULL) { status = eslEMEM; goto FAILURE; }
+  ESL_ALLOC(pi, sizeof(double) * 20);
 
   /* constructs the alphabet permutation we need.
    * perm[i] -> original row/column i goes to row/column perm[i]
@@ -115,7 +113,7 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
 
  FAILURE:
   if (efp != NULL) esl_fileparse_free(efp);
-  if (s   != NULL) esl_dmx_Free(s);
+  if (s   != NULL) esl_dmatrix_Destroy(s);
   if (pi  != NULL) free(pi);
   return status;
 }

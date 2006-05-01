@@ -15,23 +15,25 @@
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
 #ifdef HAVE_STDINT_H
-#include <stdint.h>		/* for uint32_t and the like, on C99 systems */
+#include <stdint.h>		/* for uint32_t and the like (C99) */
 #elif  HAVE_INTTYPES_H
-#include <inttypes.h>		/* some systems supposedly put uints here */
+#include <inttypes.h>		/* some systems allegedly put uints here */
 #endif
 
 /*****************************************************************
- * Error handling and allocation macros,
- * including a garbage collection convention.
+ * Error handling and allocation macros;
+ * implementation of Easel's conventions for exception handling,
+ * with garbage collection and documented failure states.
  *****************************************************************/
 
-/* Am currently playing with different conventions.
- */
-
-/* Macro: ESL_FAIL()
- * 
- * Like ESL_DIE(), but we goto a <FAILURE> block, carrying
- * our <status> code, to clean up.
+/* ESL_ERROR()  - throwing an exception, without cleanup.
+ * ESL_FAIL()   - throwing an exception, with cleanup and failure state;
+ *                requires <int status> in scope, and <FAILURE:> target.
+ *
+ * Wrapping these macros in <while(0)> loops allows a statement:
+ *       if (something) ESL_FAIL(code,mesg);
+ * without the trailing semicolon being a null statement after 
+ * macro expansion.
  */
 /*::cexcerpt::error_macros::begin::*/
 #define ESL_ERROR(code, ...)  do {\
@@ -47,67 +49,18 @@
 /*::cexcerpt::error_macros::end::*/
 
 
-#define ESL_DIE(code, ...)  do {\
-     status = code;\
-     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
-     goto CLEANEXIT; }\
-     while (0)
-
-/* Macro: ESL_DIE()
+/* ESL_ALLOC(), ESL_RALLOC():
  * 
- * The error-throwing convention. Requires that you have an
- * <int status> variable in scope, and that you have a <CLEANEXIT>
- * target for the goto. Allows an error handler to catch an error,
- * but return control (eventually) to the application, without
- * leaking memory inside Easel.
- * 
- * Wrapping macros in <while(0)> loops allows one to write
- *     <if (something) ESL_DIE(code,mesg);>
- * without the trailing semicolon being a null statement
- * after macro expansion. 
+ * Allocation and reallocation wrappers.
+ * Both require <int status> in scope, and <FAILURE:> goto target.
+ * ESL_RALLOC() also requires <void *> ptr to be provided as <tmp>.
  */
-
-
-/* ESL_TRY is deprecated. Instead use:
- *    if ((status = esl_call()) != eslOK)  goto FAILURE;
- */
-#define ESL_TRY(call)   do {\
-     status = call;\
-     if (status != eslOK) goto CLEANEXIT; }\
-     while (0)
-
-
-
-
-
-/* Macros: ESL_ERROR(), ESL_ERROR_NULL()
- * 
- * Error-throwing conventions for simpler cases,
- * with no garbage collection to worry about. No
- * <int status> variable or <CLEANEXIT> target need
- * to be in scope.
- */
-
-
-#define ESL_ERROR_NULL(code, mesg)  do {\
-     esl_error(code, __FILE__, __LINE__, mesg);\
-     return NULL; }\
-     while (0)
-
-
-/* Macros: ESL_ALLOC(), ESL_RALLOC()
- * 
- * Allocation and reallocation wrappers, including convention for
- * error handling and error recovery. Like ESL_DIE(), they require
- * that you have an <int status> variable in scope, and a <CLEANEXIT>
- * target for the goto. ESL_REALLOC() additionally requires a
- * <void *> ptr to be provided as <tmp>.
- */
+/*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
      if (((p) = malloc(size)) == NULL) {\
        status = eslEMEM;\
        esl_error(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
-       goto CLEANEXIT;\
+       goto FAILURE;\
      }} while (0)
 
 #define ESL_RALLOC(p, tmp, newsize) do {\
@@ -116,30 +69,12 @@
      else {\
        status = eslEMEM;\
        esl_error(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
-       goto CLEANEXIT;\
+       goto FAILURE;\
      }} while (0)
+/*::cexcerpt::alloc_macros::end::*/
 
-/* Macros: ESL_MALLOC(), ESL_REALLOC()
- * [Deprecated: use ESL_ALLOC(), ESL_RALLOC()]
- * 
- * Deprecated allocation wrappers, with no garbage collection.
- */
-#define ESL_MALLOC(p, size) do {\
-     (p) = malloc(size);\
-     if ((p) == NULL) {\
-       esl_error(eslEMEM, __FILE__, __LINE__, "malloc failed");\
-       return eslEMEM;\
-     }} while (0)
-
-#define ESL_REALLOC(p, tmp, newsize) do {\
-     (tmp) = realloc((p), (newsize));\
-     if ((tmp) != NULL) (p) = (tmp);\
-     else {\
-       esl_error(eslEMEM, __FILE__, __LINE__, "realloc failed");\
-       return eslEMEM;\
-     }} while (0)
      
-/* Return codes for error handling
+/* Return codes for error handler
  */
 /*::cexcerpt::statuscodes::begin::*/
 #define eslOK              0    /* no error/success             */
@@ -167,7 +102,6 @@
 
 /* Debugging hooks, w/ three levels (1-3).
  */
-
 #if eslDEBUGLEVEL >= 1		/* for ESL_DASSERT() macros */
 #include <assert.h>
 #endif

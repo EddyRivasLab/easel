@@ -31,16 +31,17 @@
 ESL_STOPWATCH *
 esl_stopwatch_Create(void)
 {
-  ESL_STOPWATCH *w;
+  int status;
+  ESL_STOPWATCH *w = NULL;
 
-  w = malloc(sizeof(ESL_STOPWATCH));
-  if (w == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
-
+  ESL_ALLOC(w, sizeof(ESL_STOPWATCH));
   w->elapsed = 0.;
   w->user    = 0.;
   w->sys     = 0.;
   return w;
+
+ FAILURE:
+  return NULL;
 }
 
 /* Function:  esl_stopwatch_Destroy()

@@ -630,6 +630,9 @@ main(int argc, char **argv)
   if (plot_logsurv) esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_logsurv, xmin, xmax, xstep);
 
   if (plotfile != NULL) fclose(pfp);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
   return 0;
 }
 #endif /*eslGAMMA_TESTDRIVE*/

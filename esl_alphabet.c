@@ -1,4 +1,4 @@
-/* alphabet.c
+/* esl_alphabet.c
  * Implements the standard digitized alphabets for biosequences.
  * 
  *    1. ESL_ALPHABET object  - a digital alphabet
@@ -45,6 +45,7 @@ static ESL_ALPHABET *create_amino(void);
 ESL_ALPHABET *
 esl_alphabet_Create(int type)
 {
+  int           status;
   ESL_ALPHABET *a;
 
   switch(type) { 
@@ -52,10 +53,12 @@ esl_alphabet_Create(int type)
   case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
   default:    
-    ESL_ERROR_NULL(eslEINVAL,
-		   "Standard alphabets include only DNA, RNA, protein.");
+    ESL_FAIL(eslEINVAL, "Standard alphabets include only DNA, RNA, protein.");
   }
   return a;
+
+ FAILURE:
+  return NULL;
 }
 
 
@@ -94,8 +97,8 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 
   /* Argument checks.
    */
-  if (strlen(alphabet) != Kp) ESL_ERROR_NULL(eslEINVAL, "alphabet length != Kp");
-  if (Kp < K+2)               ESL_ERROR_NULL(eslEINVAL, "Kp too small in alphabet"); 
+  if (strlen(alphabet) != Kp) ESL_FAIL(eslEINVAL, "alphabet length != Kp");
+  if (Kp < K+2)               ESL_FAIL(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
@@ -150,13 +153,11 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   a->ndegen[Kp-1]  = K;
   for (x = 0; x < a->K; x++) a->degen[Kp-1][x] = 1;
 
-  /* Successful return.
-   * (Caller still must set degeneracies and synonyms.)
-   */
-  status = eslOK;
- CLEANEXIT:
-  if (status != eslOK) { esl_alphabet_Destroy(a); a = NULL; }
   return a;
+
+ FAILURE:
+  esl_alphabet_Destroy(a);
+  return NULL;
 }
 
 
@@ -412,15 +413,18 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
 int
 esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, char **ret_dsq)
 {
-  char *dsq;
+  char *dsq = NULL;
   int   status;
 
   ESL_ALLOC(dsq, sizeof(char) * (L+2));
   status = esl_dsq_Set(a, seq, L, dsq);
-  
- CLEANEXIT:
-  if (status != eslOK) { free(dsq); dsq = NULL; }
+
   *ret_dsq = dsq;
+  return eslOK;
+  
+ FAILURE:
+  if (dsq != NULL) free(dsq);
+  *ret_dsq = NULL;
   return status;
 }
 
@@ -578,25 +582,93 @@ esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc, double *p)
   return result;
 }
 
-
-/* Function:  esl_abc_Type()
- * Incept:    SRE, Wed Apr 12 12:23:24 2006 [St. Louis]
+/* Function:  esl_abc_IAvgScVec()
+ * Incept:    SRE, Thu Apr  6 12:12:25 2006 [AA890 enroute to Boston]
  *
- * Purpose:   For diagnostics and other output: given an internal
- *            alphabet code <type> (<eslRNA>, for example), return
- *            ptr to an internal string ("RNA", for example). 
+ * Purpose:   Given an alphabet <a> and a score vector <sc> of length
+ *            <a->Kp> that contains integer scores for the base
+ *            alphabet (<0..a->K-1>), fill out the rest of the score 
+ *            vector, calculating average scores for 
+ *            degenerate residues using <esl_abc_IAvgScore()>.
+ *            
+ *            The score, if any, for a gap character is not touched by
+ *            this function.
+ *            
+ *            <esl_abc_FAvgScVec()> and <esl_abc_DAvgScVec()> do
+ *            the same, but for score vectors of floats or doubles,
+ *            respectively.
+ *
+ * Returns:   <eslOK> on success.
  */
-char *
-esl_abc_Type(int type)
+int
+esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc)
 {
-  switch (type) {
-  case eslUNKNOWN:     return "unknown";
-  case eslRNA:         return "RNA";
-  case eslDNA:         return "DNA";
-  case eslAMINO:       return "protein";
-  case eslNONSTANDARD: return "nonstandard/custom";
-  default:             return "BOGUS";
-  }
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_IAvgScore(a, x, sc);
+  return eslOK;
+}
+int
+esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc)
+{
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_FAvgScore(a, x, sc);
+  return eslOK;
+}
+int
+esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc)
+{
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_DAvgScore(a, x, sc);
+  return eslOK;
+}
+
+/* Function:  esl_abc_IExpectScVec()
+ * Incept:    SRE, Thu Apr  6 12:23:52 2006 [AA 890 enroute to Boston]
+ *
+ * Purpose:   Given an alphabet <a>, a score vector <sc> of length
+ *            <a->Kp> that contains integer scores for the base
+ *            alphabet (<0..a->K-1>), and residue occurrence probabilities
+ *            <p[0..a->K-1]>; fill out the rest of the score 
+ *            vector, calculating expected scores for 
+ *            degenerate residues using <esl_abc_IExpectScore()>.
+ *            
+ *            The score, if any, for a gap character is not touched by
+ *            this function.
+ *            
+ *            <esl_abc_FExpectScVec()> and <esl_abc_DExpectScVec()> do
+ *            the same, but for score vectors of floats or doubles,
+ *            respectively. The probabilities <p> are floats for the
+ *            integer and float versions, and doubles for the double
+ *            version.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p)
+{
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_IExpectScore(a, x, sc, p);
+  return eslOK;
+}
+int
+esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p)
+{
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_FExpectScore(a, x, sc, p);
+  return eslOK;
+}
+int
+esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p)
+{
+  int x;
+  for (x = a->Kp+1; x <= a->Kp; x++)
+    sc[x] = esl_abc_DExpectScore(a, x, sc, p);
+  return eslOK;
 }
 
 
@@ -646,6 +718,25 @@ esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt)
   return eslOK;
 }
 
+/* Function:  esl_abc_Type()
+ * Incept:    SRE, Wed Apr 12 12:23:24 2006 [St. Louis]
+ *
+ * Purpose:   For diagnostics and other output: given an internal
+ *            alphabet code <type> (<eslRNA>, for example), return
+ *            ptr to an internal string ("RNA", for example). 
+ */
+char *
+esl_abc_Type(int type)
+{
+  switch (type) {
+  case eslUNKNOWN:     return "unknown";
+  case eslRNA:         return "RNA";
+  case eslDNA:         return "DNA";
+  case eslAMINO:       return "protein";
+  case eslNONSTANDARD: return "nonstandard/custom";
+  default:             return "BOGUS";
+  }
+}
 
 
 
@@ -717,7 +808,7 @@ int main(void)
  * 5. Test driver.
  *****************************************************************/
 
-/* gcc -g -Wall -I. -o testdriver -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel -lm
+/* gcc -g -Wall -I. -L. -o testdriver -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel -lm
  */
 #ifdef eslALPHABET_TESTDRIVE
 static void basic_examples(void);

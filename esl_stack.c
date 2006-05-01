@@ -63,18 +63,20 @@
 ESL_STACK *
 esl_stack_ICreate(void)
 {
-  ESL_STACK *ns;
+  int status;
+  ESL_STACK *ns = NULL;
   
-  if ((ns = malloc(sizeof(ESL_STACK))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
-
+  ESL_ALLOC(ns, sizeof(ESL_STACK));
   ns->nalloc   = ESL_STACK_INITALLOC;
   ns->pdata    = NULL;
   ns->cdata    = NULL;
-  if ((ns->idata = malloc(sizeof(int) * ns->nalloc)) == NULL)
-    { free(ns); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(ns->idata, sizeof(int) * ns->nalloc);
   ns->n        = 0;
   return ns;
+
+ FAILURE:
+  esl_stack_Destroy(ns);
+  return NULL;
 }
 
 /* Function:  esl_stack_CCreate()
@@ -89,18 +91,20 @@ esl_stack_ICreate(void)
 ESL_STACK *
 esl_stack_CCreate(void)
 {
-  ESL_STACK *cs;
+  int status;
+  ESL_STACK *cs = NULL;
   
-  if ((cs = malloc(sizeof(ESL_STACK))) == NULL) 
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
-
+  ESL_ALLOC(cs, sizeof(ESL_STACK));
   cs->nalloc   = ESL_STACK_INITALLOC;
   cs->idata    = NULL;
   cs->pdata    = NULL;
-  if ((cs->cdata = malloc(sizeof(char) * cs->nalloc)) == NULL)
-    { free(cs); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(cs->cdata, sizeof(char) * cs->nalloc);
   cs->n        = 0;
   return cs;
+
+ FAILURE:
+  esl_stack_Destroy(cs);
+  return NULL;
 }
 
 /* Function:  esl_stack_PCreate()
@@ -115,19 +119,20 @@ esl_stack_CCreate(void)
 ESL_STACK *
 esl_stack_PCreate(void)
 {
-  ESL_STACK *ps;
+  int status;
+  ESL_STACK *ps = NULL;
   
-  if ((ps = malloc(sizeof(ESL_STACK))) == NULL)
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
-
+  ESL_ALLOC(ps, sizeof(ESL_STACK));
   ps->nalloc   = ESL_STACK_INITALLOC;
   ps->idata    = NULL;
   ps->cdata    = NULL;
-
-  if ((ps->pdata = malloc(sizeof(void *) * ps->nalloc)) == NULL)
-    { free(ps); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(ps->pdata, sizeof(void *) * ps->nalloc);
   ps->n        = 0;
   return ps;
+
+ FAILURE:
+  esl_stack_Destroy(ps);
+  return NULL;
 }
 
 /* Function:  esl_stack_Reuse()
@@ -173,17 +178,19 @@ esl_stack_Destroy(ESL_STACK *s)
 int
 esl_stack_IPush(ESL_STACK *ns, int x)
 {
+  int  status;
   int *ptr;
 
   if (ns->n == ns->nalloc) {
+    ESL_RALLOC(ns->idata, ptr, sizeof(int) * ns->nalloc * 2);
     ns->nalloc += ns->nalloc;	/* reallocate by doubling */
-    ptr = realloc(ns->idata, sizeof(int) * ns->nalloc);
-    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed"); 
-    ns->idata = ptr;
   }
   ns->idata[ns->n] = x;
   ns->n++;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 /* Function:  esl_stack_CPush()
@@ -198,17 +205,19 @@ esl_stack_IPush(ESL_STACK *ns, int x)
 int
 esl_stack_CPush(ESL_STACK *cs, char c)
 {
+  int  status;
   char *ptr;
 
   if (cs->n == cs->nalloc) {
+    ESL_RALLOC(cs->cdata, ptr, sizeof(char) * cs->nalloc * 2);
     cs->nalloc += cs->nalloc;	/* reallocate by doubling */
-    ptr = realloc(cs->cdata, sizeof(char) * cs->nalloc);
-    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed"); 
-    cs->cdata = ptr;
   }
   cs->cdata[cs->n] = c;
   cs->n++;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 /* Function:  esl_stack_PPush()
@@ -223,17 +232,19 @@ esl_stack_CPush(ESL_STACK *cs, char c)
 int
 esl_stack_PPush(ESL_STACK *ps, void *p)
 {
+  int status;
   void *ptr;
 
   if (ps->n == ps->nalloc) {
+    ESL_RALLOC(ps->pdata, ptr, sizeof(void *) * ps->nalloc * 2);
     ps->nalloc += ps->nalloc;	/* reallocate by doubling */
-    ptr = realloc(ps->pdata, sizeof(void *) * ps->nalloc);
-    if (ptr == NULL) ESL_ERROR(eslEMEM, "realloc failed");
-    ps->pdata = ptr;
   }
   ps->pdata[ps->n] = p;
   ps->n++;
   return eslOK;
+
+ FAILURE:
+  return status;
 }
 
 /* Function:  esl_stack_IPop()
@@ -350,22 +361,23 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
 /*****************************************************************
  * Test driver and API example for the pushdown stack module.
  * To compile:
- *    gcc -g -Wall -I. -DESL_STACK_TESTDRIVE -o test stack.c easel.c
+ *    gcc -g -Wall -I. -L. -DeslSTACK_TESTDRIVE -o testdrive esl_stack.c -leasel -lm
  * To run:
- *    ./test
- * Returns 0 (success) w/ no output, or returns 1 and says why.
+ *    ./testdrive
+ * Returns 0 (success) w/ no output, or returns nonzero and says why.
  *****************************************************************/
 #ifdef eslSTACK_TESTDRIVE
 int 
 main(void)
 {
-  ESL_STACK *s;
+  ESL_STACK *s = NULL;
   int       *obj;
   int        x;
   char       c;
   char      *str;
   int        n1, n2;
   int        i;
+  int        status;
 
   /* Exercise of integer stacks.
    * 
@@ -420,9 +432,7 @@ main(void)
   n1 = 257;
   for (i = 0; i < n1; i++)
     {
-      if ((obj = malloc(sizeof(int) * 64)) == NULL) 
-	{ fprintf(stderr, "memory allocation failed\n"); return 1; }
-
+      ESL_ALLOC(obj, sizeof(int) * 64);
       if (esl_stack_PPush(s, obj) != eslOK) 
 	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
     }
@@ -439,8 +449,7 @@ main(void)
   n1 = 257;
   for (i = 0; i < n1; i++)
     {
-      if ((obj = malloc(sizeof(int) * 64)) == NULL)
-	{ fprintf(stderr, "memory allocation failed\n"); return 1; }
+      ESL_ALLOC(obj, sizeof(int) * 64);
 
       if (esl_stack_PPush(s, obj) != eslOK) 
 	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
@@ -500,8 +509,10 @@ main(void)
     return 1;
   }
   free(str);
-
   return EXIT_SUCCESS;
+
+ FAILURE:
+  return status;
 }
 #endif /*eslSTACK_TESTDRIVE*/
 

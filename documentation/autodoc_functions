@@ -1,7 +1,7 @@
 #! /usr/bin/perl
 
 # Usage:
-#   ./ssdk_doc_functions <C file>  
+#   ./autodoc_functions <C file>  
 # 
 # Input is a C .c file with my structured function header convention.
 # Output is .tex file suitable for inclusion in my LaTeX documentation.

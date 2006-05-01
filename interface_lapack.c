@@ -34,11 +34,11 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
   int    info;
   int    status;
 
-  if ((VL = esl_dmx_Alloc(A->n,A->n)) == NULL)            { status = eslEMEM; goto FAILURE; }
-  if ((VR = esl_dmx_Alloc(A->n,A->n)) == NULL)            { status = eslEMEM; goto FAILURE; }
-  if ((Er = malloc(sizeof(double) * A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
-  if ((Ei = malloc(sizeof(double) * A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
-  if ((work = malloc(sizeof(double) * 4 * A->n)) == NULL) { status = eslEMEM; goto FAILURE; }
+  if ((VL = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
+  if ((VR = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
+  ESL_ALLOC(Er,   sizeof(double) * A->n);
+  ESL_ALLOC(Ei,   sizeof(double) * A->n);
+  ESL_ALLOC(work, sizeof(double) * 4 * A->n);
 
   jobvl = (ret_VL == NULL) ? 'N' : 'V';	/* do we want left eigenvectors? */
   jobvr = (ret_VR == NULL) ? 'N' : 'V'; /* do we want right eigenvectors? */
@@ -64,14 +64,18 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
   esl_dmx_Transpose(VL);
   esl_dmx_Transpose(VR);
 
-  if (ret_VL != NULL) *ret_VL = VL; else esl_dmx_Free(VL);
-  if (ret_VR != NULL) *ret_VR = VR; else esl_dmx_Free(VR);
+  if (ret_VL != NULL) *ret_VL = VL; else esl_dmatrix_Destroy(VL);
+  if (ret_VR != NULL) *ret_VR = VR; else esl_dmatrix_Destroy(VR);
   if (ret_Er != NULL) *ret_Er = Er; else free(Er);
   if (ret_Ei != NULL) *ret_Ei = Ei; else free(Ei);
   free(work);
   return eslOK;
 
  FAILURE:
+  if (ret_VL != NULL) *ret_VL = NULL;
+  if (ret_VR != NULL) *ret_VR = NULL;
+  if (ret_Er != NULL) *ret_Er = NULL;
+  if (ret_Ei != NULL) *ret_Ei = NULL;
   if (VL   != NULL) free(VL);
   if (VR   != NULL) free(VR);
   if (Er   != NULL) free(Er);

@@ -36,18 +36,19 @@
 ESL_MIXDCHLET *
 esl_mixdchlet_Create(int N, int K)
 {
+  int status;
   ESL_MIXDCHLET *pri = NULL;
   int q;
 
-  if ((pri = malloc(sizeof(ESL_MIXDCHLET))) == NULL) goto FAILURE;
+  ESL_ALLOC(pri, sizeof(ESL_MIXDCHLET));
   pri->pq = NULL; 
   pri->alpha = NULL;
 
-  if ((pri->pq = malloc(sizeof(double) * N)) == NULL) goto FAILURE;
-  if ((pri->alpha = malloc(sizeof(double *) * N)) == NULL) goto FAILURE;
+  ESL_ALLOC(pri->pq,    sizeof(double)   * N);
+  ESL_ALLOC(pri->alpha, sizeof(double *) * N);
   pri->alpha[0] = NULL;
 
-  if ((pri->alpha[0] = malloc(sizeof(double) * N * K)) == NULL) goto FAILURE;
+  ESL_ALLOC(pri->alpha[0], sizeof(double) * N * K);
   for (q = 1; q < N; q++)
     pri->alpha[q] = pri->alpha[0] + q*K;
 
@@ -57,7 +58,7 @@ esl_mixdchlet_Create(int N, int K)
 
  FAILURE:
   esl_mixdchlet_Destroy(pri);
-  ESL_ERROR_NULL(eslEMEM, "malloc failed in esl_mixdchlet_Create()");
+  return NULL;
 }
 
 /* Function:  esl_mixdchlet_Destroy()
@@ -465,6 +466,7 @@ main(int argc, char **argv)
 	 q, q, iq[q]);
 
   esl_mixdchlet_Destroy(pri);
+  esl_randomness_Destroy(r);
   free(probs); free(counts); free(iq); free(ip);
   return 0;
 }

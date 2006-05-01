@@ -179,7 +179,7 @@ int
 esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
 {
   int val;
-  struct esl_key_elem *new;
+  struct esl_key_elem *new = NULL;
   int status;
 
   if (ret_index != NULL) *ret_index = -1;
@@ -193,12 +193,12 @@ esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
   /* If not, create the new element; don't change the hash until this
    * allocation succeeds.
    * 
-   * We could optimize these mallocs by keeping a pool
-   * of memory, rather than malloc'ing every individual key.
+   * We could optimize these allocations by keeping a pool
+   * of memory, rather than allocating every individual key.
    */
-  ESL_MALLOC(new, sizeof(struct esl_key_elem));
-  if ((status = esl_strdup(key, -1, &(new->key))) != eslOK)
-    { free(new); return status; }
+  ESL_ALLOC(new, sizeof(struct esl_key_elem));
+  new->key = NULL;
+  if ((status = esl_strdup(key, -1, &(new->key))) != eslOK) goto FAILURE;
   new->idx = h->nkeys;
   
   /* Insert the new element at hash->table[val], at the head
@@ -211,10 +211,18 @@ esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
   /* Time to upsize? If we're 3x saturated, expand the hash table.
    */
   if (h->nkeys > 3*h->nhash && h->primelevel < eslKEY_NPRIMES-1)
-    key_upsize(h);
+    if ((status = key_upsize(h)) != eslOK) goto FAILURE;
 
   if (ret_index != NULL) *ret_index = h->nkeys-1; 
   return eslOK;
+
+ FAILURE:
+  if (new != NULL) {
+    if (new->key != NULL) free(new->key);
+    free(new);
+  }
+  if (ret_index != NULL) *ret_index = -1;
+  return status;
 }
 
 /* Function:  esl_key_Lookup()
@@ -254,24 +262,30 @@ esl_key_Lookup(ESL_KEYHASH *h, char *key)
 static ESL_KEYHASH *
 key_alloc(int primelevel)
 {
-  ESL_KEYHASH *hash;
+  int status;
+  ESL_KEYHASH *hash = NULL;
   int  i;
 
   if (primelevel < 0 || primelevel >= eslKEY_NPRIMES) 
-    ESL_ERROR_NULL(eslEINCONCEIVABLE, "bad primelevel in key_alloc()");
+    ESL_FAIL(eslEINCONCEIVABLE, "bad primelevel in key_alloc()");
   
-  if ((hash = malloc(sizeof(ESL_KEYHASH))) == NULL)
-    ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  ESL_ALLOC(hash, sizeof(ESL_KEYHASH));
+  hash->table = NULL;
 
   hash->primelevel = primelevel;
   hash->nhash      = key_primes[hash->primelevel];
-  hash->table      = malloc(sizeof(struct esl_key_elem) * hash->nhash);
-  if (hash->table == NULL) 
-    { free(hash); ESL_ERROR_NULL(eslEMEM, "malloc failed"); }
+  ESL_ALLOC(hash->table, sizeof(struct esl_key_elem) * hash->nhash);
   for (i = 0; i < hash->nhash; i++)
     hash->table[i] = NULL;
   hash->nkeys = 0;
   return hash;
+
+ FAILURE:
+  if (hash != NULL) {
+    if (hash->table != NULL) free(hash->table);
+    free(hash);
+  }
+  return NULL;
 }  
 
 
@@ -315,9 +329,12 @@ key_hashvalue(ESL_KEYHASH *hash, char *key)
  *
  * Args:     old - the KEY hash table to reallocate.
  *
- * Returns:  <eslOK> on success (the hash table is changed);
- *           <eslEMEM> on failure; the table is already at its maximum size,
- *              or an allocation failed. The hash table is returned unchanged.
+ * Returns:  <eslOK> on success. 'Success' includes the case
+ *           where the hash table is already at its maximum size,
+ *           and cannot be upsized any more.
+ *           
+ * Throws:   <eslEMEM> on allocation failure, and
+ *           the hash table is left in its initial state.
  */
 static int
 key_upsize(ESL_KEYHASH *old)
@@ -328,8 +345,10 @@ key_upsize(ESL_KEYHASH *old)
   struct esl_key_elem *nptr;
   int       val;
 
-  if (old->primelevel >= eslKEY_NPRIMES-1) return eslEMEM;
+  if (old->primelevel >= eslKEY_NPRIMES-1) return eslOK; /* quasi-success */
+
   new = key_alloc(old->primelevel+1);
+  if (new == NULL) return eslEMEM; /* percolation */
 
   /* Read the old, store in the new, while *not changing*
    * any key indices. Because of the way the lists are

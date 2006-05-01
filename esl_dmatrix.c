@@ -29,30 +29,32 @@
  * 
  * Returns:   A new <ESL_DMATRIX> object. Free with <esl_dmatrix_Destroy()>.
  *
- * Throws:    <NULL> if malloc failed.
+ * Throws:    <NULL> if allocation failed.
  */
 ESL_DMATRIX *
 esl_dmatrix_Create(int n, int m)
 {
   ESL_DMATRIX *A = NULL;
   int r;
+  int status;
 
-  if ((A     = malloc(sizeof(ESL_DMATRIX))) == NULL) goto FAILURE;
+  ESL_ALLOC(A, sizeof(ESL_DMATRIX));
   A->mx = NULL;
   A->n  = n;
   A->m  = m;
 
-  if ((A->mx = malloc(sizeof(double *) * n)) == NULL) goto FAILURE;
+  ESL_ALLOC(A->mx, sizeof(double *) * n);
   A->mx[0] = NULL;
-  if ((A->mx[0] = malloc(sizeof(double) * n * m)) == NULL) goto FAILURE;
 
+  ESL_ALLOC(A->mx[0], sizeof(double) * n * m);
   for (r = 1; r < n; r++)
     A->mx[r] = A->mx[0] + r*n;
+
   return A;
   
  FAILURE:
   esl_dmatrix_Destroy(A);
-  ESL_ERROR_NULL(eslEMEM, "esl_dmx_Create(): malloc failed");
+  return NULL;
 }
 
 
@@ -218,19 +220,20 @@ esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
 ESL_PERMUTATION *
 esl_permutation_Create(int n)
 {
+  int status;
   ESL_PERMUTATION *P = NULL;
 
-  if ((P = malloc(sizeof(ESL_PERMUTATION))) == NULL) goto FAILURE;
+  ESL_ALLOC(P, sizeof(ESL_PERMUTATION));
   P->pi = NULL;
   P->n  = n;
-  if ((P->pi = malloc(sizeof(int) * n)) == NULL) goto FAILURE;
+  ESL_ALLOC(P->pi, sizeof(int) * n);
 
   esl_permutation_Reuse(P);	/* initialize it */
   return P;
 
  FAILURE:
   esl_permutation_Destroy(P);
-  ESL_ERROR_NULL(eslEMEM, "esl_permutation_Create: malloc failed");
+  return NULL;
 }
   
 /* Function:  esl_permutation_Destroy()
@@ -557,6 +560,7 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   double           *y  = NULL;	/* column vector, intermediate calculation   */
   double           *b  = NULL;	/* column vector of permuted identity matrix */
   int               i,j,k;
+  int               status;
 
   if (A->n != A->m)                   ESL_ERROR(eslEINVAL, "matrix isn't square");
   if (A->n != Ai->n || A->m != Ai->m) ESL_ERROR(eslEINVAL, "matrices are different size");
@@ -581,8 +585,8 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
    * 
    * Do that for all columns.
    */
-  if ((b = malloc(sizeof(double) * A->n)) == NULL) goto FAILURE;
-  if ((y = malloc(sizeof(double) * A->n)) == NULL) goto FAILURE;
+  ESL_ALLOC(b, sizeof(double) * A->n);
+  ESL_ALLOC(y, sizeof(double) * A->n);
 
   for (k = 0; k < A->m; k++)	/* for each column... */
     {
@@ -619,7 +623,7 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   if (b  != NULL) free(b);
   if (LU != NULL) esl_dmatrix_Destroy(LU);
   if (P  != NULL) esl_permutation_Destroy(P);
-  ESL_ERROR(eslEMEM, "allocation failed in esl_dmx_Invert()");
+  return status;
 }
 
 

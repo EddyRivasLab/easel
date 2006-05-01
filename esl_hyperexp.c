@@ -54,19 +54,20 @@
 ESL_HYPEREXP *
 esl_hyperexp_Create(int K)
 {
-  ESL_HYPEREXP *h;
+  int           status;
+  ESL_HYPEREXP *h = NULL;
   int           k;
 
-  if ((h = malloc(sizeof(ESL_HYPEREXP))) == NULL)         goto FAILURE;
+  ESL_ALLOC(h, sizeof(ESL_HYPEREXP));
   h->q = h->lambda = h->wrk = NULL;
   h->fixlambda = NULL;
   h->K         = K;
   h->fixmix    = FALSE;
 
-  if ((h->q        = malloc(sizeof(double) * K)) == NULL) goto FAILURE;
-  if ((h->lambda   = malloc(sizeof(double) * K)) == NULL) goto FAILURE;
-  if ((h->wrk      = malloc(sizeof(double) * K)) == NULL) goto FAILURE;
-  if ((h->fixlambda= malloc(sizeof(char)   * K)) == NULL) goto FAILURE;
+  ESL_ALLOC(h->q,         sizeof(double) * K);
+  ESL_ALLOC(h->lambda,    sizeof(double) * K);
+  ESL_ALLOC(h->wrk,       sizeof(double) * K);
+  ESL_ALLOC(h->fixlambda, sizeof(char)   * K);
 
   for (k = 0; k < K; k++)
     {
@@ -79,7 +80,7 @@ esl_hyperexp_Create(int K)
   
  FAILURE:
   esl_hyperexp_Destroy(h);
-  ESL_ERROR_NULL(eslEMEM, "malloc failed");
+  return NULL;
 }
 
 /* Function:  esl_hyperexp_Destroy()
@@ -583,7 +584,7 @@ esl_hyperexp_Read(ESL_FILEPARSER *e, ESL_HYPEREXP **ret_hxp)
     goto FAILURE;
   }
 
-  if ((hxp = esl_hyperexp_Create(nc)) == NULL) return eslEMEM;
+  if ((hxp = esl_hyperexp_Create(nc)) == NULL) return eslEMEM; /* percolation */
   
   if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
   hxp->mu = atof(tok);
@@ -860,15 +861,21 @@ esl_hxp_FitGuess(double *x, int n, ESL_HYPEREXP *h)
  *            by conjugate gradient descent optimization, starting
  *            from <h> and leaving the final optimized solution in
  *            <h>.
+ *            
+ * Returns:   <eslOK> on success, and <h> contains the fitted 
+ *            hyperexponential parameters.
+ *            
+ * Throws:    <eslEMEM> on allocation error, and <h> is left in
+ *            in its initial state.           
  */
 int
 esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 {
   struct hyperexp_data data;
   int     status;
-  double *p;
-  double *u;
-  double *wrk;
+  double *p   = NULL;
+  double *u   = NULL;
+  double *wrk = NULL;
   double  tol;
   int     np;
   double  fx;
@@ -882,9 +889,9 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
   if (! h->fixmix) np += h->K-1;  /* K-1 mix coefficients...     */
   for (i = 0; i < h->K; i++)      /* ...and up to K lambdas free */
     if (! h->fixlambda[i]) np++;	
-  p   = malloc(sizeof(double) * np);
-  u   = malloc(sizeof(double) * np);
-  wrk = malloc(sizeof(double) * np * 4);
+  ESL_ALLOC(p,   sizeof(double) * np);
+  ESL_ALLOC(u,   sizeof(double) * np);
+  ESL_ALLOC(wrk, sizeof(double) * np * 4);
 
   /* Copy shared info into the "data" structure
    */
@@ -906,6 +913,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 					    &hyperexp_complete_func, 
 					    &hyperexp_complete_gradient,
 					    (void *) (&data), tol, wrk, &fx);
+  if (status != eslOK) goto FAILURE;
 
   /* Convert the final parameter vector back to a hyperexponential
    */
@@ -915,6 +923,12 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
   free(u);
   free(wrk);
   esl_hyperexp_SortComponents(h);
+  return eslOK;
+
+ FAILURE:
+  if (p   != NULL) free(p);
+  if (u   != NULL) free(u);
+  if (wrk != NULL) free(wrk);
   return status;
 }
 
@@ -1084,16 +1098,17 @@ esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    (no abnormal error conditions)
+ * Throws:    <eslEMEM> on allocation error, and <h> is left in its
+ *            initial state.
  */
 int 
 esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 {
   struct hyperexp_binned_data data;
   int     status;
-  double *p;
-  double *u;
-  double *wrk;
+  double *p   = NULL;
+  double *u   = NULL;
+  double *wrk = NULL;
   double  fx;
   int     i;
   double  tol = 1e-6;
@@ -1104,9 +1119,9 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   for (i = 0; i < h->K; i++)     /* ...and up to K lambdas free. */
     if (! h->fixlambda[i]) np++;
 
-  p   = malloc(sizeof(double) * np);
-  u   = malloc(sizeof(double) * np);
-  wrk = malloc(sizeof(double) * np * 4);
+  ESL_ALLOC(p,   sizeof(double) * np);
+  ESL_ALLOC(u,   sizeof(double) * np);
+  ESL_ALLOC(wrk, sizeof(double) * np * 4);
 
   /* Copy shared info into the "data" structure  */
   data.g     = g;
@@ -1125,6 +1140,7 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 					    &hyperexp_complete_binned_func, 
 					    &hyperexp_complete_binned_gradient,
 					    (void *) (&data), tol, wrk, &fx);
+  if (status != eslOK) goto FAILURE;
 
   /* Convert the final parameter vector back to a hyperexponential
    */
@@ -1134,6 +1150,12 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   free(u);
   free(wrk);
   esl_hyperexp_SortComponents(h);
+  return eslOK;
+
+ FAILURE:
+  if (p   != NULL) free(p);
+  if (u   != NULL) free(u);
+  if (wrk != NULL) free(wrk);
   return status;
 }
 #endif /*eslAUGMENT_HISTOGRAM*/
@@ -1377,6 +1399,10 @@ main(int argc, char **argv)
   if (plot_logsurv) esl_hxp_Plot(pfp, hxp, &esl_hxp_logsurv, xmin, xmax, xstep);
 
   if (plotfile != NULL) fclose(pfp);
+  esl_histogram_Destroy(h);
+  esl_hyperexp_Destroy(hxp);
+  esl_hyperexp_Destroy(ehxp);
+  esl_randomness_Destroy(r);
   return 0;
 }
 #endif /*eslHYPEREXP_TESTDRIVE*/
