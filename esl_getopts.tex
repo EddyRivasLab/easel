@@ -181,9 +181,9 @@ checking. The application would recover the option setting with
 \ccode{esl\_opt\_GetStringOption()} and then deal with any type
 conversion itself.
 
-Input and output filenames can be declared as \ccode{eslARG_INFILE}
-and \ccode{eslARG_OUTFILE}, respectively. Currently both are unchecked
-types that are treated the same as a \ccode{eslARG_STRING}, except
+Input and output filenames can be declared as \ccode{eslARG\_INFILE}
+and \ccode{eslARG\_OUTFILE}, respectively. Currently both are unchecked
+types that are treated the same as a \ccode{eslARG\_STRING}, except
 that their arguments are indicated as \ccode{<f>} instead of
 \ccode{<s>} in help output. In the future, it might be useful to
 automatically check that input files exist and can be read, and that

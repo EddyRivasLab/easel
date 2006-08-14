@@ -28,6 +28,7 @@ extern ESL_DMATRIX *esl_dmatrix_Create(int n, int m);
 extern int          esl_dmatrix_Destroy(ESL_DMATRIX *A);
 extern int          esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel);
 extern int          esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest);
+extern ESL_DMATRIX *esl_dmatrix_Duplicate(ESL_DMATRIX *old);
 extern int          esl_dmatrix_Compare(ESL_DMATRIX *A, ESL_DMATRIX *B, double tol);
 extern int          esl_dmatrix_Set(ESL_DMATRIX *A, double x);
 extern int          esl_dmatrix_SetZero(ESL_DMATRIX *A);

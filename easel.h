@@ -245,6 +245,12 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define  eslIGNORED_CHAR -1
 
 
+/* Some generic macros for swapping, min, and max.
+ */
+#define ESL_SWAP(x, y, type)  do { type tmp = x; x = y; y = tmp; } while (0)
+#define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
+#define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
+
 
 
 #endif /*eslEASEL_INCLUDED*/

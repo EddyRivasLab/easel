@@ -93,11 +93,11 @@ Table~\ref{tbl:statuscodes}.
 \label{tbl:statuscodes}
 \end{table}
 
-There are some exceptions. Some \ccode{*_Create()} functions that
+There are some exceptions. Some \ccode{*\_Create()} functions that
 allocate and create new objects follow a convention of returning a
 valid pointer on success, and \ccode{NULL} on failure; these are
 functions that only fail by memory allocation failure. Destructor
-functions (\ccode{*_Destroy()}) always return \ccode{void}, and must
+functions (\ccode{*\_Destroy()}) always return \ccode{void}, and must
 have no points of failure of their own, because destructors can be
 called when we're already handling an exception. Finally, there are
 some functions that simply return an answer, rather than a status

@@ -133,6 +133,28 @@ esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
   return eslOK;
 }
 
+
+/* Function:  esl_dmatrix_Duplicate()
+ * Incept:    SRE, Tue May  2 14:38:45 2006 [St. Louis]
+ *
+ * Purpose:   Duplicates <old> matrix.
+ *
+ * Returns:   pointer to the new copy; caller frees with 
+ *            <esl_dmatrix_Destroy()>.
+ *
+ * Throws:    <NULL> on allocation failure.
+ */
+ESL_DMATRIX *
+esl_dmatrix_Duplicate(ESL_DMATRIX *old)
+{
+  ESL_DMATRIX *new;
+
+  if ( (new = esl_dmatrix_Create(old->n, old->m)) == NULL) return NULL;
+  esl_dmatrix_Copy(old, new);
+  return new;
+}
+
+
 /* Function:  esl_dmatrix_Compare()
  *
  * Purpose:   Compares matrix <A> to matrix <B>. If all elements

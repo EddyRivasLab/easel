@@ -1,5 +1,7 @@
-/* alphabet.h [abc]
+/* esl_alphabet.h [abc]
  * Digital representation of biosequence symbols in Easel.
+ *
+ * SVN $Id$
  * SRE, Tue Nov 23 19:44:01 2004 [St. Louis]
  */
 #ifndef ESL_ALPHABET_INCLUDED
@@ -72,3 +74,7 @@ extern char  *esl_abc_Type(int type);
 #define esl_abc_CIsGap(a, c)         ((a->inmap[c]) == a->K)
 
 #endif /*!ESL_ALPHABET_INCLUDED*/
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
