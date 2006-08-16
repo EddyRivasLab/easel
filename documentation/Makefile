@@ -1,3 +1,6 @@
+CEXCERPT = ../../ssdk/cexcerpt
+
+
 # Each module should have .tex documentation of its API,
 # in addition to the .c and .h files. The list of modules
 # that actually comply follows:
@@ -75,8 +78,8 @@ autodoc:
 cexcerpt:
 	mkdir -p cexcerpts
 	for module in ${AUTOTEX}; do\
-	   ~/src/ssdk/cexcerpt ../$$module.c cexcerpts;\
-	   ~/src/ssdk/cexcerpt ../$$module.h cexcerpts;\
+	   ${CEXCERPT} ../$$module.c cexcerpts;\
+	   ${CEXCERPT} ../$$module.h cexcerpts;\
 	done
 
 clean:

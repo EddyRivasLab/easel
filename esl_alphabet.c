@@ -221,8 +221,7 @@ create_rna(void)
   esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap too */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
 
-  
-  /* Define IUBMB degenerate symbols other than the N.
+  /* Define degenerate symbols.
    */
   esl_alphabet_SetDegeneracy(a, 'R', "AG");
   esl_alphabet_SetDegeneracy(a, 'Y', "CU");
@@ -234,7 +233,6 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'B', "CGU");
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
-
   return a;
 }
 
@@ -247,7 +245,7 @@ create_amino(void)
 {
   ESL_ALPHABET *a;
 
-  /* Create the fundamental alphabet
+  /* Create the internal alphabet
    */
   if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24)) == NULL) return NULL;
   a->type = eslAMINO;
@@ -262,7 +260,13 @@ create_amino(void)
   /* Define IUPAC degenerate symbols other than the X.
    */
   esl_alphabet_SetDegeneracy(a, 'B', "ND");
+  esl_alphabet_SetDegeneracy(a, 'J', "IL");
   esl_alphabet_SetDegeneracy(a, 'Z', "QE");
+
+  /* Define unusual residues as one-to-one degeneracies.
+   */
+  esl_alphabet_SetDegeneracy(a, 'U', "C"); /* selenocysteine is scored as cysteine */
+  esl_alphabet_SetDegeneracy(a, 'O', "K"); /* pyrrolysine is scored as lysine      */
 
   return a;
 }
@@ -781,20 +785,21 @@ int main(void)
   ESL_ALPHABET *a;
 
   /* 1. Create the base alphabet structure. */
-  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTUVWY-BZX", 21, 25);
+  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNOPQRSTUVWYBJZX-~", 22, 28);
 
-  /* 2. Set synonyms in the input map.  */
-  esl_alphabet_SetSynonym(a, '.', '-');     /* allow . as a gap character too */
+  /* 2. Set your equivalences in the input map.  */
+  esl_alphabet_SetEquiv(a, '.', '-');     /* allow . as a gap character too */
 
   /* 3. After all synonyms are set, (optionally) make map case-insensitive. */
   esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input too */
 
-  /* 4. Define the optional degeneracy codes in the alphabet, one at a time.
-   *    The 'any' character X is automatically set up.  */
+  /* 4. Define your optional degeneracy codes in the alphabet, one at a time.
+   *    The 'any' character X was automatically set up.  */
   esl_alphabet_SetDegeneracy(a, 'B', "DN"); /* read B as {D|N} */
+  esl_alphabet_SetDegeneracy(a, 'J', "IL"); /* read B as {I|L} */
   esl_alphabet_SetDegeneracy(a, 'Z', "QE"); /* read Z as {Q|E} */
 
-  /* (do stuff) */
+  /* 5. (do your stuff) */
 
   /* 6. Remember to free it when you're done with it. */
   esl_alphabet_Destroy(a);

@@ -23,7 +23,7 @@ application would do anyway.
 Easel processes all \textbf{exceptions} with one function,
 \eslfunc{esl\_error()}, which takes an error code, error message,
 source file name, and source line number as arguments.
-\eslfunc{esl\_error()}, hands this information to a customizable error
+\eslfunc{esl\_error()} hands this information to a customizable error
 handling function. The default error handler is a fatal one, which
 performs the simple behavior: it prints the error message to
 \ccode{stderr} and aborts execution. Therefore, by default,
@@ -241,9 +241,7 @@ Two wrapper macros implement this convention for almost all
 exceptions: \eslfunc{ESL\_ERROR()} and \eslfunc{ESL\_FAIL()}. They are
 defined in \ccode{easel.h} as:
 
-\begin{cchunk}
 \input{cexcerpts/error_macros}
-\end{cchunk}
 
 \eslfunc{ESL\_ERROR()} is the simpler version for when cleanup isn't
 necessary. It just calls \eslfunc{esl\_error()} and returns the status

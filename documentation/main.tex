@@ -1,9 +1,14 @@
-\documentclass[11pt]{book}
+\documentclass[10pt]{book}
 % alternative fonts: 
 % times, mathptmx, mathpazo, newcent, bookman
 % xref http://www.ce.cmu.edu/~kijoo/latex2pdf.pdf
-\usepackage{newcent}
-\usepackage{fullpage}
+\usepackage{bookman}
+
+
+
+
+%\usepackage{fullpage}
+\usepackage{relsize}   % the \smaller command, used in \ccode for example
 \usepackage{fancyvrb}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[pdftex]{graphicx}
@@ -19,20 +24,24 @@
 \newpage
 \tableofcontents
 
+% A \sloppy command helps a lot with line justification; 
+% we have a lot of \texttt's in this thing, and they screw up justification.
+\sloppy
+
 \newpage
 \chapter{Introduction}
 \input{intro}
+
+\begin{quote}
+ \emph{...using another person's software is sometimes treated like 
+ using their toothbrush.}\\
+\hspace*{1em}\hfill - Webb Miller \citep{Miller01}
+\end{quote}
 
 \vspace*{\fill}
 \begin{quote}
 \hspace*{1em}\hfill \emph{Lack of skill dictates economy of style.} \hspace{1em} -- Joey Ramone
 \end{quote}     
-
-%\vspace*{\fill}
-%\begin{quote}
-%\emph{The problem Autoconf addresses is that the world is a mess.}
-%\hspace{3em} -- GNU Autoconf documentation
-%\end{quote}     
 
 
 \newpage

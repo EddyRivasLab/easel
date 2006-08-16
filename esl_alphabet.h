@@ -1,6 +1,5 @@
-/* esl_alphabet.h [abc]
+/* 
  * Digital representation of biosequence symbols in Easel.
- *
  * SVN $Id$
  * SRE, Tue Nov 23 19:44:01 2004 [St. Louis]
  */
@@ -15,19 +14,20 @@
 #define eslAMINO       3		
 #define eslNONSTANDARD 4
 
-/* Value of the sentinel bytes (0,L+1) in a dsq.
+/* Value of sentinel bytes (0 and L+1) in a dsq.
  */
 #define eslSENTINEL    127
 
 typedef struct {
   int    type;		 /* eslDNA, eslRNA, eslAMINO, or eslNONSTANDARD     */
   int    K;		 /* uniq alphabet size: 4 or 20                     */
-  int    Kp;		 /* total size of alphabet + gap + IUPAC degen      */
-  char  *sym;            /* "ACGT-RYMKSWHBVDN", for instance    [0..Kp-1]   */ 
+  int    Kp;		 /* total size: alphabet + degen + gap + missing    */
+  char  *sym;            /* "ACGTRYMKSWHBVDN-~", for instance    [0..Kp-1]  */
   int    inmap[128];     /* inmap['A'] = 0, etc: dsq[] index for a symbol   */
-  char **degen;          /* 1/0, which syms inc which res [0..Kp-1][0..K-1] */
-  int   *ndegen;	 /* # of degenerate residues per code  [0..Kp-1]    */
+  char **degen;          /* 1/0, which syms inc which res [0..Kp-3][0..K-1] */
+  int   *ndegen;	 /* # of degenerate residues per code  [0..Kp-3]    */
 } ESL_ALPHABET;
+
 
 /* 1. An ESL_ALPHABET object.
  */
