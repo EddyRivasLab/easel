@@ -499,7 +499,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   /* Allocate the input map. config_* functions set this up later,
    * depending on format.
    */
-  ESL_ALLOC(sqfp->inmap, sizeof(int) * 256);
+  ESL_ALLOC(sqfp->inmap, sizeof(int) * 128);
 
   /* If we don't know the format yet, autodetect it now.
    */
@@ -1003,6 +1003,7 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
   int   status;
   void *tmp;
   int   n0;
+  int   symbol;
 
   /* First, some bookkeeping, based on the *previous* seq line we read.
    * Each time we add a sequence line, we're potentially responsible for 
@@ -1020,15 +1021,33 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
   /* Now, add the line.
    */
   n0 = sq->n;
-  while (sqfp->buf[sqfp->pos] != '\0')
+  while ((symbol = sqfp->buf[sqfp->pos]) != '\0')
     {
-      if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] >= 0)
-	sq->seq[sq->n++] = sqfp->buf[sqfp->pos++];
-      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == eslIGNORED_CHAR)
-	sqfp->pos++;
-      else if (sqfp->inmap[(int) sqfp->buf[sqfp->pos]] == eslILLEGAL_CHAR)
+      if (isascii(symbol))
 	{
-	  sprintf(sqfp->errbuf, "Illegal %c in sequence", sqfp->buf[sqfp->pos]);
+	  if (sqfp->inmap[symbol] >= 0)
+	    {
+	      sq->seq[sq->n++] = symbol;
+	      sqfp->pos++;
+	    }
+	  else if (sqfp->inmap[symbol] == eslILLEGAL_CHAR)
+	    {
+	      sprintf(sqfp->errbuf, "Illegal %c in sequence", symbol);
+	      return eslEFORMAT;
+	    }
+	  else if (sqfp->inmap[symbol] == eslIGNORED_CHAR)
+	    {
+	      sqfp->pos++;
+	    }
+	  else 
+	    {			/* inmap[] shouldn't have any other value */
+	      sprintf(sqfp->errbuf, "Internal inmap corruption");
+	      return eslECORRUPT;
+	    }
+	}
+      else
+	{
+	  sprintf(sqfp->errbuf, "Non-ASCII char %d in sequence", symbol);
 	  return eslEFORMAT;
 	}
 
@@ -1220,7 +1239,7 @@ config_embl(ESL_SQFILE *sqfp)
 
   /* The input map.
    */
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
+  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
   sqfp->inmap[' ']  = eslIGNORED_CHAR;
@@ -1370,7 +1389,7 @@ config_genbank(ESL_SQFILE *sqfp)
   sqfp->endTest      = &end_genbank;
 
 
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
+  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
   for (x = '0'; x <= '9'; x++) sqfp->inmap[x] = eslIGNORED_CHAR;
@@ -1473,7 +1492,7 @@ config_fasta(ESL_SQFILE *sqfp)
   sqfp->eof_is_ok    = TRUE;	/* unused, but fasta can indeed end w/ eof. */
   sqfp->endTest      = NULL;	/* unused in a fread() parser */
   
-  for (x = 0;   x <  256; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
+  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
   for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
   for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
   sqfp->inmap[' ']  = eslIGNORED_CHAR;
@@ -1521,6 +1540,7 @@ config_fasta(ESL_SQFILE *sqfp)
  * Throws:    <eslEMEM> on an allocation failure, either in 
  *            name/description lengths or in the sequence data
  *            itself.
+ *            <eslECORRUPT> if the inmap is corrupted somehow.
  *
  * Xref:      STL8/p148; 2004/1224-fileread-speed
  *            Design goals: improve speed over SQUID's ReadSeq(); remove
@@ -1677,7 +1697,12 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  /* bookkeeping complete, now deal with the character.
 	   */
 	  c = buf[pos];
-	  if      (inmap[c] >= 0)                
+	  if (! isascii(c))
+	    {
+	      sprintf(sqfp->errbuf, "Non-ASCII char %d found in sequence.", c); 
+	      return eslEFORMAT;
+	    }
+	  else if (inmap[c] >= 0)                
 	    { seq[spos++] = c; pos++; sqfp->lastrpl++; }
 	  else if (c == '>')               
 	    goto FINISH; 
@@ -1692,8 +1717,13 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	      sprintf(sqfp->errbuf, "Illegal char %c found in sequence.", c); 
 	      return eslEFORMAT;
 	    }
-	  else
-	    { pos++; } /* IGNORED_CHARs, inc. \r */
+	  else if (inmap[c] == eslIGNORED_CHAR) 
+	    { pos++; } 
+	  else		
+	    {
+	      sprintf(sqfp->errbuf, "Internal corruption of an inmap"); 
+	      return eslECORRUPT;
+	    }
 
 	  sqfp->lastbpl++;
 	}

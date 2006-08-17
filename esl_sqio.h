@@ -78,7 +78,7 @@ typedef struct {
   int   addend;	              /* TRUE to parse last line of seq record       */
   int   eof_is_ok;	      /* TRUE if record can end on EOF               */
   int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
-  int  *inmap;		      /* pointer to an input map, 0..255             */
+  int  *inmap;		      /* pointer to an input map, 0..127             */
 
   /* SSI subseq indexing: tracking residues per line, bytes per line
    */

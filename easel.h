@@ -237,7 +237,13 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 
 /* The simple concept of an "inmap" (input map) is shared between
  * the alphabet, msa, and sqio modules, so we put it here to keep
- * these modules separated.
+ * these modules separated. 
+ * 
+ * inmaps are "int inmap[128]", valid for mapping 7-bit ASCII chars
+ * (so test isascii(c) first). Making inmap entries of type int and
+ * using negative numbers for the error flags is important: we can then
+ * test validity simply by "if (inmap[c] >= 0)" in code that isn't
+ * using the alphabet module.
  */
 /* Flags in an <inmap>, input map.
  */ 
