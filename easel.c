@@ -795,7 +795,6 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (ret_fp   != NULL) *ret_fp   = NULL;
   return status;
 }
-
 /*----------------- end of file path/name functions ------------------------*/
 
 

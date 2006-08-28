@@ -22,7 +22,7 @@
 
 /*****************************************************************
  * Error handling and allocation macros;
- * implementation of Easel's conventions for exception handling,
+ * Implementation of Easel's conventions for exception handling,
  * with garbage collection and documented failure states.
  *****************************************************************/
 
@@ -32,7 +32,7 @@
  *
  * Wrapping these macros in <while(0)> loops allows a statement:
  *       if (something) ESL_FAIL(code,mesg);
- * without the trailing semicolon being a null statement after 
+ * without the trailing semicolon becoming a null statement after 
  * macro expansion.
  */
 /*::cexcerpt::error_macros::begin::*/
@@ -98,6 +98,10 @@
 #define eslECONVERGENCE   18    /* a failure to converge        */      
 /*::cexcerpt::statuscodes::end::*/
 
+/* File parsers all contain a fixed length "errbuf" for failure
+ * diagnostics. 
+ */
+#define eslERRBUFSIZE 128
 
 
 /* Debugging hooks, w/ three levels (1-3).
@@ -128,10 +132,6 @@
 #define ESL_DASSERT3(x)
 #endif
 
-/* File parsers all contain a fixed length "errbuf" for failure
- * diagnostics. 
- */
-#define eslERRBUFSIZE 128
 
 typedef void (*esl_error_handler_f)(int code, char *file, int line,
 				    char *format, va_list argp);
@@ -166,7 +166,6 @@ extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
 extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,
 			    FILE **ret_fp, char **ret_path);
-
 
 
 /* Making sure TRUE/FALSE are defined, for convenience
@@ -235,21 +234,34 @@ extern int  esl_FileEnvOpen(char *fname, char *env,
 #define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
 
 
-/* The simple concept of an "inmap" (input map) is shared between
- * the alphabet, msa, and sqio modules, so we put it here to keep
- * these modules separated. 
+/* Digitized sequences.
+ * Most of this support is in the alphabet module, but we externalize it
+ * into the easel foundation because ESL_INMAP is used in unaugmented
+ * sqio, msa modules.
  * 
- * inmaps are "int inmap[128]", valid for mapping 7-bit ASCII chars
- * (so test isascii(c) first). Making inmap entries of type int and
- * using negative numbers for the error flags is important: we can then
- * test validity simply by "if (inmap[c] >= 0)" in code that isn't
- * using the alphabet module.
+ * A digital sequence residue (ESL_DSQ) is an unsigned 8-bit type
+ * (0..255).  A valid digital residue has a value in the range 0..127
+ * (Easel can represent alphabets of up to 128 different characters).
+ * Values 128..255 are reserved for flags.
+ *
+ * An "inmap" is ESL_DSQ[128], or *ESL_DSQ allocated for 128 values;
+ * it is a many-to-one construct for mapping 7-bit ASCII chars (in
+ * range 0..127) either to new ASCII chars (in the case of raw
+ * sequence input in sqio, msa) or to digital codes (in the alphabet
+ * module).  Valid mapped values are 0..127; any value in range
+ * 128..255 is some kind of flag.
  */
-/* Flags in an <inmap>, input map.
- */ 
-#define  eslILLEGAL_CHAR -2
-#define  eslIGNORED_CHAR -1
+typedef uint8_t ESL_DSQ;
+#define eslDSQ_SENTINEL 255	/* sentinel bytes 0,L+1 in a dsq */
+#define eslDSQ_ILLEGAL  254	/* input symbol is unmapped and unexpected */
+#define eslDSQ_IGNORED  253     /* input symbol is unmapped and ignored */
 
+/* If you try to test sym > 0 && sym <= 127 below, instead of isascii(sym),
+ * you'll get a compiler warning for an always-successful test regardless
+ * of whether a char is signed or unsigned. So we trust that isascii() is
+ * doing the Right Thing.
+ */
+#define esl_inmap_IsValid(inmap, sym)  (isascii(sym) && (inmap)[sym] <= 127)
 
 /* Some generic macros for swapping, min, and max.
  */

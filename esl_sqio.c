@@ -269,9 +269,10 @@ esl_sq_Reuse(ESL_SQ *sq)
 int
 esl_sq_Squeeze(ESL_SQ *sq)
 {
-  int   status;
-  int   nlen, alen, dlen, len;
-  char *name, *acc, *desc, *seq, *ss, *dsq;
+  int      status;
+  int      nlen, alen, dlen, len;
+  char    *name, *acc, *desc, *seq, *ss;
+  ESL_DSQ *dsq;
 
   nlen = strlen(sq->name);
   alen = strlen(sq->acc);
@@ -394,6 +395,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   char       *envfile = NULL;
   int         status;		/* return status from an ESL call */
   int         n;
+  ESL_DSQ     x;
 
   /* Allocate and initialize the structure to base values;
    * only format is set correctly, though.
@@ -407,7 +409,6 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->do_gzip    = FALSE;
   sqfp->do_stdin   = FALSE;
   sqfp->errbuf[0]  = '\0';
-  sqfp->inmap      = NULL;
   sqfp->buf        = NULL;
   sqfp->boff       = 0;
   sqfp->balloc     = 0;
@@ -496,10 +497,9 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 #endif /*HAVE_POPEN*/
 
 
-  /* Allocate the input map. config_* functions set this up later,
-   * depending on format.
+  /* Init the input map. 
    */
-  ESL_ALLOC(sqfp->inmap, sizeof(int) * 128);
+  for (x = 0; x < 128; x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
 
   /* If we don't know the format yet, autodetect it now.
    */
@@ -597,8 +597,6 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
   if (sqfp->filename != NULL) free(sqfp->filename);
   if (sqfp->ssifile  != NULL) free(sqfp->ssifile);
   if (sqfp->buf      != NULL) free(sqfp->buf);
-  if (sqfp->inmap    != NULL) free(sqfp->inmap);
-
 
 #ifdef eslAUGMENT_MSA
   if (sqfp->afp      != NULL) 
@@ -979,7 +977,7 @@ loadline(ESL_SQFILE *sqfp)
  * Add residues from it to the growing sequence in <sq>.
  *
  * Uses the <sqfp->inmap> to decide whether to skip a character
- * (eslIGNORED_CHAR), report an error (eslILLEGAL_CHAR), or store
+ * (eslDSQ_IGNORED), report an error (eslDSQ_ILLEGAL), or store it.
  * 
  * On return:
  *   sq->seq     now includes residues from sqfp->buf; not nul-terminated yet;
@@ -1023,32 +1021,29 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
   n0 = sq->n;
   while ((symbol = sqfp->buf[sqfp->pos]) != '\0')
     {
-      if (isascii(symbol))
+      if (esl_inmap_IsValid(sqfp->inmap, symbol) == eslOK)
 	{
-	  if (sqfp->inmap[symbol] >= 0)
-	    {
-	      sq->seq[sq->n++] = symbol;
-	      sqfp->pos++;
-	    }
-	  else if (sqfp->inmap[symbol] == eslILLEGAL_CHAR)
-	    {
-	      sprintf(sqfp->errbuf, "Illegal %c in sequence", symbol);
-	      return eslEFORMAT;
-	    }
-	  else if (sqfp->inmap[symbol] == eslIGNORED_CHAR)
-	    {
-	      sqfp->pos++;
-	    }
-	  else 
-	    {			/* inmap[] shouldn't have any other value */
-	      sprintf(sqfp->errbuf, "Internal inmap corruption");
-	      return eslECORRUPT;
-	    }
+	  sq->seq[sq->n++] = sqfp->inmap[symbol];
+	  sqfp->pos++;
 	}
-      else
+      else if (! isascii(symbol))
 	{
 	  sprintf(sqfp->errbuf, "Non-ASCII char %d in sequence", symbol);
 	  return eslEFORMAT;
+	}
+      else if (sqfp->inmap[symbol] == eslDSQ_ILLEGAL)
+	{
+	  sprintf(sqfp->errbuf, "Illegal %c in sequence", symbol);
+	  return eslEFORMAT;
+	}
+      else if (sqfp->inmap[symbol] == eslDSQ_IGNORED)
+	{
+	  sqfp->pos++;
+	}
+      else 
+	{			/* inmap[] shouldn't have any other value */
+	  sprintf(sqfp->errbuf, "Internal inmap corruption");
+	  return eslECORRUPT;
 	}
 
       /* Realloc seq as needed */
@@ -1239,13 +1234,12 @@ config_embl(ESL_SQFILE *sqfp)
 
   /* The input map.
    */
-  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
-  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
-  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  sqfp->inmap[' ']  = eslIGNORED_CHAR;
-  sqfp->inmap['\t'] = eslIGNORED_CHAR;
-  sqfp->inmap['\n'] = eslIGNORED_CHAR;
-  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
+  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
+  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
+  sqfp->inmap[' ']  = eslDSQ_IGNORED;
+  sqfp->inmap['\t'] = eslDSQ_IGNORED;
+  sqfp->inmap['\n'] = eslDSQ_IGNORED;
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;	/* DOS eol compatibility */
 }
 
 /* read_embl()
@@ -1388,15 +1382,13 @@ config_genbank(ESL_SQFILE *sqfp)
   sqfp->eof_is_ok    = FALSE;	/* records end with //  */
   sqfp->endTest      = &end_genbank;
 
-
-  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
-  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
-  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  for (x = '0'; x <= '9'; x++) sqfp->inmap[x] = eslIGNORED_CHAR;
-  sqfp->inmap[' ']  = eslIGNORED_CHAR;
-  sqfp->inmap['\t'] = eslIGNORED_CHAR;
-  sqfp->inmap['\n'] = eslIGNORED_CHAR;
-  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
+  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
+  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
+  for (x = '0'; x <= '9'; x++) sqfp->inmap[x] = eslDSQ_IGNORED;
+  sqfp->inmap[' ']  = eslDSQ_IGNORED;
+  sqfp->inmap['\t'] = eslDSQ_IGNORED;
+  sqfp->inmap['\n'] = eslDSQ_IGNORED;
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;	/* DOS eol compatibility */
 } 
 
 static int
@@ -1492,13 +1484,12 @@ config_fasta(ESL_SQFILE *sqfp)
   sqfp->eof_is_ok    = TRUE;	/* unused, but fasta can indeed end w/ eof. */
   sqfp->endTest      = NULL;	/* unused in a fread() parser */
   
-  for (x = 0;   x <  128; x++) sqfp->inmap[x] = eslILLEGAL_CHAR;
-  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x - 'A';
-  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x - 'a';
-  sqfp->inmap[' ']  = eslIGNORED_CHAR;
-  sqfp->inmap['\t'] = eslIGNORED_CHAR;
-  sqfp->inmap['\n'] = eslIGNORED_CHAR;
-  sqfp->inmap['\r'] = eslIGNORED_CHAR;	/* DOS eol compatibility */
+  for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
+  for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
+  sqfp->inmap[' ']  = eslDSQ_IGNORED;
+  sqfp->inmap['\t'] = eslDSQ_IGNORED;
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;	/* DOS eol compatibility */
+  /* \n is special - fasta reader detects it as an eol */
 }
 
 /* read_fasta()
@@ -1583,7 +1574,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   char *buf;		/* ptr to the input buffer        */
   int   nc;		/* number of chars in the buffer  */
   int   pos;		/* position in the buffer         */
-  int  *inmap;		/* ptr to the input map           */
+  unsigned char *inmap; /* ptr to the input map           */
   char *seq;            /* ptr to the growing sequence    */
   int   state;		/* state of our FSA parser        */
   int   nsafe;          /* #bytes we can safely move in both input/storage */
@@ -1697,27 +1688,27 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  /* bookkeeping complete, now deal with the character.
 	   */
 	  c = buf[pos];
-	  if (! isascii(c))
+	  if (esl_inmap_IsValid(sqfp->inmap, c))
+	    { seq[spos++] = c; pos++; sqfp->lastrpl++; }
+	  else if (! isascii(c))
 	    {
 	      sprintf(sqfp->errbuf, "Non-ASCII char %d found in sequence.", c); 
 	      return eslEFORMAT;
 	    }
-	  else if (inmap[c] >= 0)                
-	    { seq[spos++] = c; pos++; sqfp->lastrpl++; }
 	  else if (c == '>')               
 	    goto FINISH; 
-	  else if (c == '\n') 	/* end of a seq line */
+	  else if (c == '\n') 	/* end of a seq line. */
 	    { 
 	      pos++; 
 	      sqfp->linenumber++; 
 	      at_linestart = TRUE;
 	    }
-	  else if (inmap[c] == eslILLEGAL_CHAR) 
+	  else if (inmap[c] == eslDSQ_ILLEGAL) 
 	    {
 	      sprintf(sqfp->errbuf, "Illegal char %c found in sequence.", c); 
 	      return eslEFORMAT;
 	    }
-	  else if (inmap[c] == eslIGNORED_CHAR) 
+	  else if (inmap[c] == eslDSQ_IGNORED) 
 	    { pos++; } 
 	  else		
 	    {
@@ -2106,6 +2097,7 @@ main(void)
   char        seq2[] = "AAGCTT";
   char        filename[] = "tmpxxx.seq";
   int         n;
+  int         status;
 
   /* Create a FASTA file containing two sequences.
    */
@@ -2123,7 +2115,7 @@ main(void)
   sq = esl_sq_Create();
 
   n=0;
-  while (esl_sqio_Read(sqfp, sq) == eslOK)
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
     {
       if (n==0 && strcmp(sq->seq, seq1) != 0) abort();
       if (n==1 && strcmp(sq->seq, seq2) != 0) abort();
@@ -2131,6 +2123,10 @@ main(void)
       n++;
       esl_sq_Reuse(sq);
     }
+  if (status != eslEOF) 
+    esl_fatal("Parse failed, line %d, file %s:\n%s", 
+	      sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
   return 0;

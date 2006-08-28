@@ -75,14 +75,16 @@ esl_alphabet_Create(int type)
  *            
  *            In the alphabet string, residues <0..K-1> are the base alphabet; 
  *            residue <K> is the canonical gap (indel) symbol; 
- *            residue <Kp-1> is an "any" symbol (such as N or X); 
- *            and residues <K+1..Kp-1> are additional degeneracy symbols.
- *            The gap and the "any" symbol are mandatory even for
- *            nonstandard alphabets, so $Kp \geq K+2$.
+ *            residues <K+1..Kp-3> are additional degeneracy symbols (possibly 0 of them);
+ *            residue <Kp-2> is an "any" symbol (such as N or X); 
+ *            and residue <Kp-1> is a "missing data" gap symbol.
  *            
- * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN"
+ *            The two gap symbols and the "any" symbol are mandatory even for
+ *            nonstandard alphabets, so $Kp \geq K+3$.
+ *            
+ * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN~"
  *            K        - base size; example 4
- *            Kp       - total size, including gap, degeneracies; example 16
+ *            Kp       - total size, including gap, degeneracies; example 17
  *
  * Returns:   pointer to new <ESL_ALPHABET> structure
  *
@@ -98,7 +100,7 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   /* Argument checks.
    */
   if (strlen(alphabet) != Kp) ESL_FAIL(eslEINVAL, "alphabet length != Kp");
-  if (Kp < K+2)               ESL_FAIL(eslEINVAL, "Kp too small in alphabet"); 
+  if (Kp < K+3)               ESL_FAIL(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
@@ -128,9 +130,9 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
   strcpy(a->sym, alphabet);
 
   /* Initialize the input map, mapping ASCII seq chars to digital codes,
-   * and -1 (illegal, unmapped) for everything else.
+   * and eslDSQ_ILLEGAL for everything else.
    */
-  for (c = 0; c < 128; c++)   a->inmap[c]               = eslILLEGAL_CHAR;
+  for (c = 0; c < 128; c++)   a->inmap[c]               = eslDSQ_ILLEGAL;
   for (x = 0; x < a->Kp; x++) a->inmap[(int) a->sym[x]] = x;  
 
   /* Initialize the degeneracy map:
@@ -150,8 +152,8 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
       a->degen[x][x] = 1;
     }
                                 /* "any" character */
-  a->ndegen[Kp-1]  = K;
-  for (x = 0; x < a->K; x++) a->degen[Kp-1][x] = 1;
+  a->ndegen[Kp-2]  = K;
+  for (x = 0; x < a->K; x++) a->degen[Kp-2][x] = 1;
 
   return a;
 
@@ -172,7 +174,7 @@ create_dna(void)
 
   /* Create the fundamental alphabet.
    */
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN", 4, 16)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
   a->type = eslDNA;
   
   /* Add desired synonyms in the input map.
@@ -210,7 +212,7 @@ create_rna(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN", 4, 16)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
   a->type = eslRNA;
   
   /* Add desired synonyms in the input map.
@@ -247,7 +249,7 @@ create_amino(void)
 
   /* Create the internal alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28)) == NULL) return NULL;
   a->type = eslAMINO;
   
   /* Add desired synonyms in the input map.
@@ -290,8 +292,8 @@ create_amino(void)
 int
 esl_alphabet_SetSynonym(ESL_ALPHABET *a, char sym, char c)
 {
-  char *sp;
-  int   x;
+  char    *sp;
+  ESL_DSQ  x;
 
   if ((sp = strchr(a->sym, c)) == NULL) 
     ESL_ERROR(eslEINVAL, "symbol not in the alphabet");
@@ -312,6 +314,9 @@ esl_alphabet_SetSynonym(ESL_ALPHABET *a, char sym, char c)
  * Args:      a  - alphabet to make inmap case-insensitive.
  *                 
  * Returns:   <eslOK> on success.                
+ * 
+ * Throws:    <eslECORRUPT> if any lower/uppercase symbol pairs
+ *            are already both mapped to different symbols.
  */
 int
 esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
@@ -321,8 +326,12 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
   for (lc = 'a'; lc <= 'z'; lc++)
     {
       uc = lc; toupper(uc);
-      if (a->inmap[lc] >= 0 && a->inmap[uc] < 0) a->inmap[uc] = a->inmap[lc];
-      if (a->inmap[uc] >= 0 && a->inmap[lc] < 0) a->inmap[lc] = a->inmap[uc];
+
+      if      (esl_abc_CIsValid(a, lc) && ! esl_abc_CIsValid(a, uc)) a->inmap[uc] = a->inmap[lc];
+      else if (esl_abc_CIsValid(a, uc) && ! esl_abc_CIsValid(a, lc)) a->inmap[lc] = a->inmap[uc];
+      else if (esl_abc_CIsValid(a, lc) && esl_abc_CIsValid(a, uc) && a->inmap[uc] != a->inmap[lc])
+	ESL_ERROR(eslECORRUPT, "symbols %c and %c map differently already (%c vs. %c)",
+		  lc, uc, a->inmap[lc], a->inmap[uc]);
     }
   return eslOK;
 }
@@ -343,8 +352,8 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
 int
 esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
 {
-  char *sp;
-  int   x,y;
+  char   *sp;
+  ESL_DSQ x,y;
 
   if ((sp = strchr(a->sym, c)) == NULL)
     ESL_ERROR(eslEINVAL, "no such degenerate character");
@@ -415,12 +424,12 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
  * Throws:   <eslEMEM> if allocation fails.          
  */
 int
-esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, char **ret_dsq)
+esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ **ret_dsq)
 {
-  char *dsq = NULL;
-  int   status;
+  ESL_DSQ *dsq = NULL;
+  int      status;
 
-  ESL_ALLOC(dsq, sizeof(char) * (L+2));
+  ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
   status = esl_dsq_Set(a, seq, L, dsq);
 
   *ret_dsq = dsq;
@@ -455,21 +464,22 @@ esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, char **ret_dsq)
  *            "unknown residue" codes where the invalid characters were.
  */
 int
-esl_dsq_Set(ESL_ALPHABET *a, char *seq, int L, char *dsq)
+esl_dsq_Set(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ *dsq)
 {
-  int i;
-  int x;
-  int status;
+  ESL_DSQ x;
+  int     i;
+  int     status;
 
   status = eslOK;
-  dsq[0] = eslSENTINEL;
+  dsq[0] = eslDSQ_SENTINEL;
   for (i = 1; i <= L && seq[i-1] != '\0'; i++) 
     { 
-      x = a->inmap[(int) seq[i-1]];
-      if (x < 0) { status = eslEINVAL; dsq[i] = a->Kp-1; } /* "unknown" code */
-      else dsq[i] = x;
+      if (esl_abc_CIsValid(a, seq[i-1]))
+	dsq[i] = a->inmap[(int) seq[i-1]];
+      else
+	{ status = eslEINVAL; dsq[i] = a->Kp-2; } /* "unknown" code */
     }
-  dsq[i] = eslSENTINEL;
+  dsq[i] = eslDSQ_SENTINEL;
   return status;
 }
 
@@ -490,7 +500,7 @@ esl_dsq_Set(ESL_ALPHABET *a, char *seq, int L, char *dsq)
  *            (for real-valued scores, no rounding is done).
  */
 int
-esl_abc_IAvgScore(ESL_ALPHABET *a, char x, int *sc)
+esl_abc_IAvgScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc)
 {
   float result = 0.;
   int i;
@@ -502,7 +512,7 @@ esl_abc_IAvgScore(ESL_ALPHABET *a, char x, int *sc)
   else            return (int) (result + 0.5);
 }
 float
-esl_abc_FAvgScore(ESL_ALPHABET *a, char x, float *sc)
+esl_abc_FAvgScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc)
 {
   float result = 0.;
   int   i;
@@ -513,7 +523,7 @@ esl_abc_FAvgScore(ESL_ALPHABET *a, char x, float *sc)
   return result;
 }
 double
-esl_abc_DAvgScore(ESL_ALPHABET *a, char x, double *sc)
+esl_abc_DAvgScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc)
 {
   double result = 0.;
   int    i;
@@ -540,7 +550,7 @@ esl_abc_DAvgScore(ESL_ALPHABET *a, char x, double *sc)
  *            (for real-valued scores, no rounding is done).
  */
 int
-esl_abc_IExpectScore(ESL_ALPHABET *a, char x, int *sc, float *p)
+esl_abc_IExpectScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc, float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -556,7 +566,7 @@ esl_abc_IExpectScore(ESL_ALPHABET *a, char x, int *sc, float *p)
   else            return (int) (result + 0.5);
 }
 float
-esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc, float *p)
+esl_abc_FExpectScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc, float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -571,7 +581,7 @@ esl_abc_FExpectScore(ESL_ALPHABET *a, char x, float *sc, float *p)
   return result;
 }
 double
-esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc, double *p)
+esl_abc_DExpectScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc, double *p)
 {
   double result = 0.;
   double denom  = 0.;
@@ -607,7 +617,7 @@ esl_abc_DExpectScore(ESL_ALPHABET *a, char x, double *sc, double *p)
 int
 esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_IAvgScore(a, x, sc);
   return eslOK;
@@ -615,7 +625,7 @@ esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc)
 int
 esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_FAvgScore(a, x, sc);
   return eslOK;
@@ -623,7 +633,7 @@ esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc)
 int
 esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_DAvgScore(a, x, sc);
   return eslOK;
@@ -653,7 +663,7 @@ esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc)
 int
 esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_IExpectScore(a, x, sc, p);
   return eslOK;
@@ -661,7 +671,7 @@ esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p)
 int
 esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_FExpectScore(a, x, sc, p);
   return eslOK;
@@ -669,7 +679,7 @@ esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p)
 int
 esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p)
 {
-  int x;
+  ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
     sc[x] = esl_abc_DExpectScore(a, x, sc, p);
   return eslOK;
@@ -694,9 +704,9 @@ esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_FCount(ESL_ALPHABET *abc, float *ct, int x, float wt)
+esl_abc_FCount(ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
 {
-  int y;
+  ESL_DSQ y;
 
   if (x < abc->K) 
     ct[x] += wt;
@@ -708,9 +718,9 @@ esl_abc_FCount(ESL_ALPHABET *abc, float *ct, int x, float wt)
   return eslOK;
 }
 int
-esl_abc_DCount(ESL_ALPHABET *abc, double *ct, int x, double wt)
+esl_abc_DCount(ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
 {
-  int y;
+  ESL_DSQ y;
 
   if (x < abc->K) 
     ct[x] += wt;
@@ -756,10 +766,10 @@ esl_abc_Type(int type)
 #include <esl_alphabet.h>
 int main(void)
 {
-  ESL_ALPHABET  *a;
-  char           dnaseq[] = "GARYTC";
-  int            L        = 6;
-  unsigned char *dsq;
+  ESL_ALPHABET *a;
+  char          dnaseq[] = "GARYTC";
+  int           L        = 6;
+  ESL_DSQ      *dsq;
   
   a = esl_alphabet_Create(eslDNA);
 
@@ -785,7 +795,7 @@ int main(void)
   ESL_ALPHABET *a;
 
   /* 1. Create the base alphabet structure. */
-  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNOPQRSTUVWYBJZX-~", 22, 28);
+  a = esl_alphabet_CreateCustom("ACDEFGHIKLMNOPQRSTUVWY-BJZX~", 22, 28);
 
   /* 2. Set your equivalences in the input map.  */
   esl_alphabet_SetEquiv(a, '.', '-');     /* allow . as a gap character too */
@@ -842,7 +852,7 @@ basic_examples(void)
   char           dnaseq[] = "GARYTCN";
   char           aaseq[]  = "EFILQZU";
   int            L;
-  char          *dsq, *dsq2;
+  ESL_DSQ       *dsq, *dsq2;
   int            i;
 
   /* Example 1. 
@@ -876,7 +886,7 @@ basic_examples(void)
    * acid alphabet; digitize the same protein seq, reusing
    * memory in dsq2; check that seqs are identical.
    */
-  a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BZX", 20, 24);
+  a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28);
   esl_alphabet_SetSynonym(a2, 'U', 'S');     /* read selenocys U as serine S */
   esl_alphabet_SetCaseInsensitive(a2);       /* allow lower case input */
   esl_alphabet_SetDegeneracy(a2, 'Z', "QE");
@@ -898,7 +908,7 @@ static void
 degeneracy_integer_scores(void)
 {
   ESL_ALPHABET *a;
-  int           x;
+  ESL_DSQ       x;
   float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
   int           sc[] = { -1,  -6,   6,   1};
   int           val;
@@ -923,7 +933,7 @@ static void
 degeneracy_float_scores(void)
 {
   ESL_ALPHABET *a;
-  int           x;
+  ESL_DSQ       x;
   float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
   float         sc[] = { -1., -6.,  6., 1.};
   float         val;
@@ -948,7 +958,7 @@ static void
 degeneracy_double_scores(void)
 {
   ESL_ALPHABET *a;
-  int           x;
+  ESL_DSQ       x;
   double        p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
   double        sc[] = { -1., -6.,  6., 1.};
   double        val;
@@ -974,3 +984,4 @@ degeneracy_double_scores(void)
 /*****************************************************************  
  * @LICENSE@
  *****************************************************************/
+

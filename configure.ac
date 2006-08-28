@@ -63,7 +63,7 @@
 # new preprocessor symbol of our own:
 #     EASEL_VERSION    e.g. "1.9a"
 #
-AC_PREREQ(2.57)
+AC_PREREQ(2.60)
 AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
@@ -214,63 +214,18 @@ AC_CHECK_HEADERS([inttypes.h])
 
 
 # 7. Checks for types.
-#    ssi module needs exact-size integer types.
-#    Defines ESL_UINT16, ESL_UINT32, and ESL_UINT64.
-#    We try to use ISO C uint*_t's, if stdint.h is present; 
-#    else, we start guessing different ANSI C unsigned types.
+#    - Define WORDS_BIGENDIAN on bigendian platforms.
+#    - Make sure we have C99 exact-size integer types; 
+#      ssi uses 16, 32, and 64-bit ints, and we
+#      use 8-bit unsigned chars for digitized sequence.
+#    - Make sure we have off_t.
 #
 AC_C_BIGENDIAN
-AC_CHECK_SIZEOF(unsigned short)
-AC_CHECK_SIZEOF(unsigned int)
-AC_CHECK_SIZEOF(unsigned long)
-AC_CHECK_SIZEOF(unsigned long long)
-AC_CHECK_TYPES(uint16_t,
-   [AC_DEFINE(ESL_UINT16, uint16_t)],
-   [
-     if test "$ac_cv_sizeof_unsigned_short" -eq 2; then
-       AC_DEFINE(ESL_UINT16, [unsigned short])
-     elif test "$ac_cv_sizeof_unsigned_int" -eq 2; then
-       AC_DEFINE(ESL_UINT16, [unsigned int])
-     else	
-       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint16.")
-     fi
-   ]
-)
-AC_CHECK_TYPES(uint32_t, 
-   [AC_DEFINE(ESL_UINT32, uint32_t)],
-   [
-     if test "$ac_cv_sizeof_unsigned_int" -eq 4; then
-       AC_DEFINE(ESL_UINT32, [unsigned int])
-     elif test "$ac_cv_sizeof_unsigned_long" -eq 4; then
-       AC_DEFINE(ESL_UINT32, [unsigned long])
-     elif test "$ac_cv_sizeof_unsigned_short" -eq 4; then
-       AC_DEFINE(ESL_UINT32, [unsigned short])
-     else	
-       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint32.")
-     fi
-   ]
-)
-AC_CHECK_TYPES(uint64_t, 
-   [AC_DEFINE(ESL_UINT64, uint64_t)],
-   [
-     if test "$ac_cv_sizeof_unsigned_long" -eq 8; then
-       AC_DEFINE(ESL_UINT64, [unsigned long])
-     elif test "$ac_cv_sizeof_unsigned_long_long" -eq 8; then
-       AC_DEFINE(ESL_UINT64, [unsigned long long])
-     elif test "$ac_cv_sizeof_unsigned_int" -eq 8; then
-       AC_DEFINE(ESL_UINT64, [unsigned int])
-     else	
-       AC_MSG_WARN("You will need to manually edit easel.h to typedef esl_uint64.")
-     fi
-   ]
-)
-
-# Make sure we have off_t - this macro typedefs it as a long if we don't.
+AC_TYPE_UINT8_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
 AC_TYPE_OFF_T
-
-
-
-
 
 # 8. Checks for structures - none
 

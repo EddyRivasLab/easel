@@ -17,7 +17,7 @@ ALL:  ${PROGS}
 	${CC} -I ${EASELLIB} ${CFLAGS} ${DEFS} -c $<		
 
 $(PROGS): %: %.o ../libeasel.a
-	cc -o $@ -L ${EASELLIB} $@.o -leasel -lm
+	cc ${CFLAGS} -o $@ -L ${EASELLIB} $@.o -leasel -lm
 
 check:
 	./sqc 2 testsuite.sqc .

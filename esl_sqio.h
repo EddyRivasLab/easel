@@ -78,7 +78,7 @@ typedef struct {
   int   addend;	              /* TRUE to parse last line of seq record       */
   int   eof_is_ok;	      /* TRUE if record can end on EOF               */
   int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
-  int  *inmap;		      /* pointer to an input map, 0..127             */
+  ESL_DSQ inmap[128];	      /* an input map, 0..127                        */
 
   /* SSI subseq indexing: tracking residues per line, bytes per line
    */
@@ -105,15 +105,15 @@ typedef struct {
  */
 typedef struct {
   /*::cexcerpt::sqio_sq::begin::*/
-  char *name;           /* name (mandatory)                                 */
-  char *acc;            /* optional accession ("\0" if no accession)        */
-  char *desc;           /* description ("\0" if no description)             */
-  char *seq;            /* sequence (mandatory) [0..n-1]                    */
-  char *ss;             /* secondary structure annotation [0..n-1], or NULL */
-  char *dsq;            /* digitized sequence [1..n], or NULL               */
-  int   n;              /* length of seq                                    */
-  off_t roff;		/* record offset (start of record)                  */
-  off_t doff;		/* data offset (start of sequence data)             */
+  char    *name;           /* name (mandatory)                                 */
+  char    *acc;            /* optional accession ("\0" if no accession)        */
+  char    *desc;           /* description ("\0" if no description)             */
+  char    *seq;            /* sequence (mandatory) [0..n-1]                    */
+  char    *ss;             /* secondary structure annotation [0..n-1], or NULL */
+  ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL               */
+  int      n;              /* length of seq                                    */
+  off_t    roff;	   /* record offset (start of record)                  */
+  off_t    doff;	   /* data offset (start of sequence data)             */
   /*::cexcerpt::sqio_sq::end::*/
 
   char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */

@@ -361,25 +361,24 @@ code. \ccode{a->inmap['T'] = 3} in the standard DNA alphabet, for
 example, and the call \ccode{esl\_alphabet\_SetSynonym(a, 'U', 'T')}
 sets \ccode{a->inmap['U'] = a->inmap['T']}. 
 
-The elements in input maps are of type \ccode{signed int}. In addition
-to values that can be cast to the \ccode{unsigned char} codes in a
-digitized sequence, an input map contains two additional flags. 
-. All other input characters are illegal, and are mapped to value
-\ccode{eslILLEGAL\_CHAR}.
-
-
+The elements in input maps are of type \ccode{unsigned char}. Legal
+values are 0..127 (values that can be cast to the \ccode{unsigned
+char} codes in a digitized sequence) and two additional flags with
+negative values, \ccode{eslILLEGAL\_CHAR} (255) and
+\ccode{eslIGNORED\_CHAR} (254).
 
 \subsection{Unusual or modified residues}
 
 In addition to the canonical 4 or 20 residues and their ambiguity
-codes, there are also many unusual and/or modified residues.  There
-are many posttranscriptional or posttranslational modifications on
-residues in RNAs and proteins, for example, and some databases try to
-capture this information in a single-letter alphabetic code, such as
-the Sprinzl transfer RNA database \cite{Sprinzl98}. And even aside
-from modified residues, proteins contain at least two additional
-genetically encoded amino acids that are known, selenocysteine and
-pyrrolysine. Selenocysteine is supposed to be represented by a
+codes, there are many unusual and/or modified residues. For instance,
+there are many posttranscriptional or posttranslational modifications
+on residues in RNAs and proteins. Some databases try to capture this
+information in a single-letter alphabetic code, such as the Sprinzl
+transfer RNA database \cite{Sprinzl98}. 
+
+Additionally, and perhaps more importantly, proteins are known to
+contain at least two additional genetically encoded amino acids,
+selenocysteine and pyrrolysine. Selenocysteine is represented by a
 \ccode{U} according to the IUPAC standard, and pyrrolysine is
 represented by a \ccode{O} in the RESID database at EBI.
 
@@ -387,25 +386,24 @@ Unusual one-letter residue codes pose a tradeoff issue for sequence
 analysis applications. On the one hand, an application should
 recognize symbols for unusual or modified residues, and be able to
 represent them both internally and in any sequence output. For
-example, no application should read a selenocysteine residue
+example, no application should read an input selenocysteine residue
 (\ccode{U}) and output it as a cysteine (\ccode{C}) -- this changes
-the original sequence and causes data corruption.\footnote{Aat least
-one the main public protein databases (Uniprot) has already chosen to
-replace all selenocysteines with \ccode{C} and all pyrrolysines with
-\ccode{K}, for fear of breaking legacy sequence analysis software --
-so this data corruption has already happened, for the entire
-database.}  On the other hand, most sequence analysis applications
-would not want to take the trouble to define a canonical alphabet
-larger than the usual 4 or 20 residues, and then have to parameterize
-that alphabet, just to be able to handle a few rare
-residues. (Pyrrolysine, for example, has only been found in a handful
-of proteins in a few Archaea.) It is useful to be able to deal with
-probability parameters and scores only for the canonical
-alphabet. However, on yet another hand, one might want to write a
-specialized application that \emph{does} treat and parameterize
-unusual residues as part of its canonical alphabet -- for instance, an
-application for analyzing posttranscriptional tRNA modifications, for
-example.
+the original sequence and causes data corruption.\footnote{However, at
+least one the main public protein databases (Uniprot) has already
+chosen to replace all selenocysteines with \ccode{C} and all
+pyrrolysines with \ccode{K}, for fear of breaking legacy sequence
+analysis software.  So, this data corruption is already a fact of
+life.}  On the other hand, most sequence analysis applications would
+not want to take the trouble to define a canonical alphabet larger
+than the usual 4 or 20 residues, and then have to parameterize that
+alphabet, just to be able to handle a few rare residues. (Pyrrolysine,
+for example, has only been found in a handful of proteins in a few
+Archaea.) It is useful to be able to deal with probability parameters
+and scores only for the canonical alphabet. However (on yet another
+hand!) in some cases one \emph{would} want to write a specialized
+application that parameterizes unusual residues as part of its
+canonical alphabet -- for instance, an application for analyzing
+posttranscriptional tRNA modifications, for example.
 
 Therefore, Easel must not force an input selenocysteine or pyrrolysine
 (or any other unusual residue) to be recoded as an arbitrary symbol
@@ -413,20 +411,21 @@ Therefore, Easel must not force an input selenocysteine or pyrrolysine
 treated as equivalences, but must be allowed to be part of the
 internal alphabet.  However, Easel \emph{can} allow unusual symbols to
 be treated as noncanonical, and \emph{score} them as some other
-arbitrary residue, as an approximation. For most purposes, unusual
-symbols are therefore best handled as a special kind of degeneracy,
-with a one-to-one degeneracy map from the unusual symbol to the
-``closest'' canonical residue.
+arbitrary residue, as a reasonable approximation. Thus for most
+purposes, unusual symbols are best handled as a special kind of
+degeneracy, with a one-to-one degeneracy map from the unusual symbol
+to the ``closest'' canonical residue.
 
-The default amino acid alphabet accepts selenocysteine (\ccode{U}) and
-pyrrolysine symbols (\ccode{O}), mapping them as ``degeneracies'' onto
-cysteine (\ccode{C}) and lysine (\ccode{K}), respectively.
+Therefore, the default amino acid alphabet accepts selenocysteine
+(\ccode{U}) and pyrrolysine symbols (\ccode{O}) and represents them in
+the internal alphabet, and maps them as ``degeneracies'' onto cysteine
+(\ccode{C}) and lysine (\ccode{K}), respectively.
 
-An application can also define any custom alphabet it chooses, as
-described below.
+When that behavior is not suitable, an application can also define any
+custom alphabet it chooses, as described below.
 
 
-\subsection{Example of creating a custom alphabet}
+\subsection{Creating a custom alphabet}
 
 Figure~\ref{fig:alphabet_example2} shows an example of creating a
 customized 22-letter amino acid alphabet that includes the \ccode{U}

@@ -27,10 +27,10 @@ it out without installing it.
 After you obtain an Easel source tarball (from
 \url{http://selab.janelia.org/easel}, for example), it should compile
 out of the box on any UNIX, Linux, or Mac OS/X operating
-system\footnote{You need a C compilation environment, which may not be
-installed. If not, install the free GNU C compiler, or another compiler, or
-see your local systems guru if you can't compile C programs.} with
-this incantation (where \ccode{xxx} is a version number):
+system\footnote{You need a C compilation environment, which you might
+not have. If not, install a C compiler first, such as the free GNU gcc
+compiler, or see your local system guru.} with this incantation
+(where \ccode{xxx} is a version number):
 
 \begin{cchunk}
 % tar zxf easel-xxx.tar.gz
@@ -45,11 +45,11 @@ quality control tests. All of these should pass. You should now see
 \ccode{libeasel.a} in the directory.
 
 Every source code module (that is, each \ccode{.c} file) ends with one
-or more \textbf{driver programs}, including programs for unit tests
+or more \esldef{driver programs}, including programs for unit tests
 and benchmarks. These are \ccode{main()} functions that can be
 conditionally included when the module is compiled. Among them is
-always at least one \textbf{example} driver that shows you how to use
-the module. You can find the example code in module \eslmod{foo} by
+always at least one \esldef{example driver} that shows you how to use
+the module. You can find the example code in a module \eslmod{foo} by
 searching the \ccode{esl\_foo.c} file for the tag
 \ccode{eslFOO\_EXAMPLE}. To compile the example for module
 \eslmod{foo} as a working program, do:
@@ -86,21 +86,21 @@ themselves).  Compile your example code like this:
    % cc -o foo_example -L. -I. foo_example.c esl_foo.c -leasel -lm
 \end{cchunk}
 
-That's it. You're already compiling Easel programs that you can modify
-and play around with. If you're the type (like me) that learns best by
-example, you're on your way. The next section (below) will introduce
-the different modules in Easel, so you can see what you might be
-interested in. When you want to know more about a module, either check
-that module's chapter in this guide, or just read the module's source
-code. Most of the documentation is compiled automatically from the
-source code comments anyway.
+That's it. Now you can compile Easel-based programs that you can
+modify and play around with. If you're the type (like me) that learns
+best by example, you're on your way. The next section (below) will
+introduce the different modules in Easel, so you can see what you
+might be interested in. When you want to know more about a module,
+either check that module's chapter in this guide, or just read the
+module's source code. Most of the documentation is compiled
+automatically from the source code comments anyway.
 
 If you decide you want to install Easel permanently, see the full
 installation instructions in chapter~\ref{chapter:installation}.
 
 \section{Overview of Easel's modules}
 
-Each \ccode{.c} file in Easel corresponds to one Easel \emph{module}.
+Each \ccode{.c} file in Easel corresponds to one Easel \esldef{module}.
 A module consists of a group of functions for some
 task. Table~\ref{tbl:module_list} shows a list of all the modules. For
 example, the \eslmod{sqio} module can automatically parse many common

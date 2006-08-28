@@ -97,7 +97,7 @@ esl_dst_CPairId(ESL_ALPHABET *abc, char *asq1, char *asq2,
 		double *ret_pid, int *ret_nid, int *ret_n)
 {
   int     status;
-  char    x1,x2;
+  ESL_DSQ x1,x2;
   int     idents;               /* total identical positions  */
   int     len1, len2;           /* lengths of seqs            */
   int     i;                    /* position in aligned seqs   */
@@ -121,13 +121,13 @@ esl_dst_CPairId(ESL_ALPHABET *abc, char *asq1, char *asq2,
 	  x1 = esl_abc_DigitizeSymbol(abc, asq1[i]);
 	  x2 = esl_abc_DigitizeSymbol(abc, asq2[i]);
 
-	  if (x1 == eslILLEGAL_CHAR) ESL_FAIL(eslECORRUPT, "illegal character %c in seq 1", asq1[i]);
-	  if (x2 == eslILLEGAL_CHAR) ESL_FAIL(eslECORRUPT, "illegal character %c in seq 2", asq2[i]);
+	  if (x1 == eslDSQ_ILLEGAL) ESL_FAIL(eslECORRUPT, "illegal character %c in seq 1", asq1[i]);
+	  if (x2 == eslDSQ_ILLEGAL) ESL_FAIL(eslECORRUPT, "illegal character %c in seq 2", asq2[i]);
 
-	  if (esl_abc_XIsBasic(abc, x1)) len1++;
-	  if (esl_abc_XIsBasic(abc, x2)) len2++;
+	  if (esl_abc_XIsCanonical(abc, x1)) len1++;
+	  if (esl_abc_XIsCanonical(abc, x2)) len2++;
 
-	  if (esl_abc_XIsBasic(abc, x1) && esl_abc_XIsBasic(abc, x2) && x1 == x2)
+	  if (esl_abc_XIsCanonical(abc, x1) && esl_abc_XIsCanonical(abc, x2) && x1 == x2)
 	    idents++;
 	}
     }
@@ -156,8 +156,8 @@ esl_dst_CPairId(ESL_ALPHABET *abc, char *asq1, char *asq2,
  *            <adsq2> are digitized aligned sequences, in alphabet
  *            <abc>. Otherwise, same as <esl_dst_PairId()>.
  *            
- * Args:      adsq1        - aligned digital seq 1
- *            adsq2        - aligned digital seq 2
+ * Args:      ax1          - aligned digital seq 1
+ *            ax2          - aligned digital seq 2
  *            ret_pid      - optRETURN: pairwise identity, 0<=x<=1
  *            ret_nid      - optRETURN: # of identities
  *            ret_n        - optRETURN: denominator MIN(len1,len2)
@@ -168,7 +168,7 @@ esl_dst_CPairId(ESL_ALPHABET *abc, char *asq1, char *asq2,
  * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
  */
 int
-esl_dst_XPairId(ESL_ALPHABET *abc, char *ax1, char *ax2, 
+esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2, 
 		double *ret_distance, int *ret_nid, int *ret_n)
 {
   int     status;
@@ -177,18 +177,18 @@ esl_dst_XPairId(ESL_ALPHABET *abc, char *ax1, char *ax2,
   int     i;                    /* position in aligned seqs   */
 
   idents = len1 = len2 = 0;
-  for (i = 1; ax1[i] != eslSENTINEL && ax2[i] != eslSENTINEL; i++) 
+  for (i = 1; ax1[i] != eslDSQ_SENTINEL && ax2[i] != eslDSQ_SENTINEL; i++) 
     {
-      if (esl_abc_XIsBasic(abc, ax1[i])) len1++;
-      if (esl_abc_XIsBasic(abc, ax2[i])) len2++;
+      if (esl_abc_XIsCanonical(abc, ax1[i])) len1++;
+      if (esl_abc_XIsCanonical(abc, ax2[i])) len2++;
 
-      if (esl_abc_XIsBasic(abc, ax1[i]) && esl_abc_XIsBasic(abc, ax2[i])
+      if (esl_abc_XIsCanonical(abc, ax1[i]) && esl_abc_XIsCanonical(abc, ax2[i])
 	  && ax1[i] == ax2[i])
 	idents++;
     }
   if (len2 < len1) len1 = len2;
 
-  if (ax1[i] != eslSENTINEL || ax2[i] != eslSENTINEL) 
+  if (ax1[i] != eslDSQ_SENTINEL || ax2[i] != eslDSQ_SENTINEL) 
     ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
 
   if (ret_distance != NULL)  *ret_distance = ( len1==0 ? 0. : (double) idents / (double) len1 );
@@ -270,7 +270,7 @@ esl_dst_CPairIdMx(ESL_ALPHABET *abc, char **as, int N, ESL_DMATRIX **ret_S)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XPairIdMx(ESL_ALPHABET *abc, char **ax, int N, ESL_DMATRIX **ret_S)
+esl_dst_XPairIdMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
 {
   int status;
   ESL_DMATRIX *S = NULL;
@@ -361,7 +361,7 @@ esl_dst_CDiffMx(ESL_ALPHABET *abc, char **as, int N, ESL_DMATRIX **ret_D)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XDiffMx(ESL_ALPHABET *abc, char **ax, int N, ESL_DMATRIX **ret_D)
+esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
 {
   int status;
   ESL_DMATRIX *D = NULL;
@@ -497,7 +497,7 @@ esl_dst_CJukesCantor(ESL_ALPHABET *abc, char *as1, char *as2,
 		     double *ret_distance, double *ret_variance)
 {
   int     status;
-  char    x1,x2;		/* digitized residues */
+  ESL_DSQ x1,x2;		/* digitized residues */
   int     n1, n2;               /* number of observed identities, substitutions */
   int     i;                    /* position in aligned seqs   */
 
@@ -508,7 +508,7 @@ esl_dst_CJukesCantor(ESL_ALPHABET *abc, char *as1, char *as2,
     {
       x1 = esl_abc_DigitizeSymbol(abc, as1[i]);
       x2 = esl_abc_DigitizeSymbol(abc, as2[i]);
-      if (esl_abc_XIsBasic(abc, x1) && esl_abc_XIsBasic(abc, x2))
+      if (esl_abc_XIsCanonical(abc, x1) && esl_abc_XIsCanonical(abc, x2))
 	{
 	  if (x1 == x2) n1++;
 	  else          n2++;
@@ -556,7 +556,7 @@ esl_dst_CJukesCantor(ESL_ALPHABET *abc, char *as1, char *as2,
  *            to <HUGE_VAL>.
  */
 int
-esl_dst_XJukesCantor(ESL_ALPHABET *abc, char *ax, char *ay, 
+esl_dst_XJukesCantor(ESL_ALPHABET *abc, ESL_DSQ *ax, ESL_DSQ *ay, 
 		     double *ret_distance, double *ret_variance)
 {
   int     status;
@@ -564,15 +564,15 @@ esl_dst_XJukesCantor(ESL_ALPHABET *abc, char *ax, char *ay,
   int     i;                    /* position in aligned seqs   */
 
   n1 = n2 = 0;
-  for (i = 1; ax[i] != eslSENTINEL && ay[i] != eslSENTINEL; i++) 
+  for (i = 1; ax[i] != eslDSQ_SENTINEL && ay[i] != eslDSQ_SENTINEL; i++) 
     {
-      if (esl_abc_XIsBasic(abc, ax[i]) && esl_abc_XIsBasic(abc, ay[i]))
+      if (esl_abc_XIsCanonical(abc, ax[i]) && esl_abc_XIsCanonical(abc, ay[i]))
 	{
 	  if (ax[i] == ay[i]) n1++;
 	  else                n2++;
 	}
     }
-  if (ax[i] != eslSENTINEL || ay[i] != eslSENTINEL) 
+  if (ax[i] != eslDSQ_SENTINEL || ay[i] != eslDSQ_SENTINEL) 
     ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
   
   return jukescantor(n1, n2, abc->K, ret_distance, ret_variance);
@@ -688,7 +688,7 @@ esl_dst_CJukesCantorMx(ESL_ALPHABET *abc, char **aseq, int nseq,
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, char **ax, int nseq, 
+esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq, 
 		       ESL_DMATRIX **ret_D, ESL_DMATRIX **ret_V)
 {
   int          status;
@@ -825,8 +825,8 @@ main(int argc, char **argv)
   int i;
   int j;
   int seed;
-  char **as = NULL;		/* aligned character seqs (random, iid) */
-  char **ax = NULL;		/* digitized alignment                  */
+  char    **as = NULL;		/* aligned character seqs (random, iid) */
+  ESL_DSQ **ax = NULL;		/* digitized alignment                  */
   double p[4];			/* ACGT probabilities */
   double pid;
   int    nid;
@@ -862,7 +862,7 @@ main(int argc, char **argv)
 
   esl_vec_DSet(p, 4, 0.25);
   ESL_ALLOC(as, sizeof(char *) * N);
-  ESL_ALLOC(ax, sizeof(char *) * N);
+  ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
   for (i = 0; i < N; i++) as[i] = ax[i] = NULL;
   for (i = 0; i < N; i++) esl_rnd_IID(r, "ACGT", p, 4, L, &(as[i]));
   for (i = 0; i < N; i++) esl_dsq_Create(abc, as[i], L, &(ax[i]));
