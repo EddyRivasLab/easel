@@ -260,8 +260,8 @@ esl_fgets(char **buf, int *n, FILE *fp)
  *          to save a strlen() call; else pass -1 to have the string length
  *          determined.
  *          
- *          Tolerates <s> being NULL; in this case,
- *          returns <eslOK> with <*ret_dup> set to NULL.
+ *          Tolerates <s> being <NULL>; in which case,
+ *          returns <eslOK> with <*ret_dup> set to <NULL>.
  *
  * Args:     s       - string to duplicate (NUL-terminated)
  *           n       - length of string, if known; -1 if unknown.
@@ -306,11 +306,11 @@ esl_strdup(char *s, int n, char **ret_dup)
  *           to determine the length. Providing length information,
  *           if known, accelerates the routine.
  *           
- *           <*dest> may be NULL, in which case this is equivalent
+ *           <*dest> may be <NULL>, in which case this is equivalent
  *           to a <strdup()> of <src> (that is, <*dest> is allocated
  *           rather than reallocated). 
  *           
- *           <src> may be NULL, in which case <dest> is unmodified.
+ *           <src> may be <NULL>, in which case <dest> is unmodified.
  *           
  * Note:     One timing experiment (100 successive appends of 
  *           1-255 char) shows sre_strcat() has about a 20%

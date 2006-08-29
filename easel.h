@@ -64,7 +64,8 @@
      }} while (0)
 
 #define ESL_RALLOC(p, tmp, newsize) do {\
-     (tmp) = realloc((p), (newsize));\
+     if ((p) == NULL) { (tmp) = malloc(newsize);         }\
+     else             { (tmp) = realloc((p), (newsize)); }\
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
        status = eslEMEM;\
@@ -96,6 +97,7 @@
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslECONVERGENCE   18    /* a failure to converge        */      
+#define eslECONTRACT      19    /* an API contract violation    */
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure
@@ -261,7 +263,7 @@ typedef uint8_t ESL_DSQ;
  * of whether a char is signed or unsigned. So we trust that isascii() is
  * doing the Right Thing.
  */
-#define esl_inmap_IsValid(inmap, sym)  (isascii(sym) && (inmap)[sym] <= 127)
+#define esl_inmap_IsValid(inmap, sym)  (isascii(sym) && (inmap)[(int)sym] <= 127)
 
 /* Some generic macros for swapping, min, and max.
  */
@@ -270,5 +272,8 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
 
+#ifndef eslAUGMENT_ALPHABET
+#define ESL_ALPHABET void
+#endif
 
 #endif /*eslEASEL_INCLUDED*/

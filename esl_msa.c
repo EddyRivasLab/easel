@@ -1,5 +1,13 @@
-/* esl_msa.c
- * Multiple sequence alignment file i/o.
+/* Multiple sequence alignment file i/o.
+ *    
+ * Contents:   
+ *    1. The ESL_MSA object.
+ *    2. The ESL_MSAFILE object.
+ *    3. Digitized MSA's. (Alphabet augmentation required.)
+ *    4. General i/o API, for all alignment formats.
+ *    5. Miscellaneous functions for manipulating MSAs
+ *    6. Example driver
+ *    7. Test driver
  * 
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
  * SVN $Id$
@@ -19,13 +27,11 @@
 
 
 /******************************************************************************
- * Functions for the ESL_MSA object                                           *
- *     esl_msa_Create()                                                       *
- *     esl_msa_Destroy()                                                      *
- *     esl_msa_Expand()                                                       *
+ * 1. The ESL_MSA object                                           
  *****************************************************************************/
 /* Forward declarations of private MSA functions
  */
+static ESL_MSA *create_mostly(int nseq, int alen);
 static int get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx);
 static int set_seq_accession(ESL_MSA *msa, int seqidx, char *acc);
 static int set_seq_description(ESL_MSA *msa, int seqidx, char *desc);
@@ -40,20 +46,78 @@ static int verify_parse(ESL_MSA *msa, char *errbuf);
  * Incept:    SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
  *
  * Purpose:   Creates and initializes an <ESL_MSA> object, and returns a
- *            pointer to it. If you know exactly the dimensions of the
- *            alignment, both <nseq> and <alen>, then <msa =
- *            esl_msa_Create(nseq, alen)> allocates the whole thing at
- *            once.  If you don't know the dimensions of the alignment
- *            (a typical situation if you're parsing an alignment
- *            file), then pass <alen>=0 (your parser must handle allocation
- *            of individual sequences), and pass an <nseq> that
- *            will be used as an initial allocation size; for example,
- *            <msa = esl_msa_Create(16, 0)>. This allocation can be
- *            expanded (by doubling) by calling <esl_msa_Expand()>, 
- *            for example: 
+ *            pointer to it. 
+ *  
+ *            If you know exactly the dimensions of the alignment,
+ *            both <nseq> and <alen>, then <msa = esl_msa_Create(nseq,
+ *            alen)> allocates the whole thing at once.
+ *            
+ *            If you don't know the dimensions of the alignment (a
+ *            typical situation if you're parsing an alignment file),
+ *            then pass <alen>=0 (your parser must handle allocation
+ *            of individual sequences), and pass an <nseq> that will
+ *            be used as an initial allocation size; for example, <msa
+ *            = esl_msa_Create(16, 0)>. This allocation can be
+ *            expanded (by doubling) by calling <esl_msa_Expand()>,
+ *            for example:
  *             <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
  *
  *           A created <msa> can only be <_Expand()>'ed if <alen> is 0.
+ *
+ * Args:     <nseq> - number of sequences, or nseq allocation blocksize
+ *           <alen> - length of alignment in columns, or 0      
+ *
+ * Returns:   pointer to new MSA object, w/ all values initialized.
+ *            Note that <msa->nseq> is initialized to 0, even though space
+ *            is allocated.
+ *           
+ * Throws:    <NULL> on allocation failure.          
+ *
+ * Xref:      squid's MSAAlloc()
+ */
+ESL_MSA *
+esl_msa_Create(int nseq, int alen)
+{
+  int      status;
+  ESL_MSA *msa;
+  int      i;
+
+  msa = create_mostly(nseq, alen); /* aseq is null upon successful return */
+  if (msa == NULL) return NULL; /* already threw error in mostly_create, so percolate */
+
+  ESL_ALLOC(msa->aseq,   sizeof(char *) * nseq);
+  for (i = 0; i < nseq; i++)
+    msa->aseq[i] = NULL;
+
+  if (alen != 0)
+    for (i = 0; i < nseq; i++)
+      ESL_ALLOC(msa->aseq[i], sizeof(char) * (alen+1));
+
+  return msa;
+
+ FAILURE:
+  esl_msa_Destroy(msa);
+  return NULL;
+}
+
+
+/* create_mostly()
+ * SRE, Sun Aug 27 16:40:00 2006 [Leesburg]
+ *
+ * This is the routine called by esl_msa_Create() and esl_msa_CreateDigital()
+ * that does all allocation except the aseq/ax alignment data.
+ * 
+ * <nseq> may be the exact known # of seqs in an alignment; or <nseq>
+ * may be an allocation block size (to be expanded by doubling, in
+ * esl_msa_Expand(), as in:
+ *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
+ * 
+ * <alen> may be the exact length of an alignment, in columns; or it
+ * may be 0, which states that your parser will take responsibility
+ * for expanding as needed as new input is read into a growing new
+ * alignment.
+ *
+ * A created <msa> can only be <_Expand()>'ed if <alen> is 0.
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
  *           <alen> - length of alignment in columns, or 0      
@@ -63,11 +127,9 @@ static int verify_parse(ESL_MSA *msa, char *errbuf);
  *            is allocated.
  *           
  * Throws:    NULL on allocation failure.          
- *
- * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
-esl_msa_Create(int nseq, int alen)
+create_mostly(int nseq, int alen)
 {
   int      status;
   ESL_MSA *msa     = NULL;
@@ -80,6 +142,10 @@ esl_msa_Create(int nseq, int alen)
   msa->alen    = alen;		/* if 0, then we're growable. */
   msa->nseq    = 0;
   msa->flags   = 0;
+
+  msa->abc     = NULL;
+  msa->ax      = NULL;
+
   msa->name    = NULL;
   msa->desc    = NULL;
   msa->acc     = NULL;
@@ -134,7 +200,6 @@ esl_msa_Create(int nseq, int alen)
 
   /* Allocation, round 2.
    */
-  ESL_ALLOC(msa->aseq,   sizeof(char *) * nseq);
   ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
   ESL_ALLOC(msa->wgt,    sizeof(float)  * nseq);
   ESL_ALLOC(msa->sqlen,  sizeof(int)    * nseq);
@@ -143,7 +208,6 @@ esl_msa_Create(int nseq, int alen)
    */
   for (i = 0; i < nseq; i++)
     {
-      msa->aseq[i]   = NULL;
       msa->sqname[i] = NULL;
       msa->sqlen[i]  = 0;
       msa->wgt[i]    = -1.0;	/* "unset so far" */
@@ -175,7 +239,11 @@ esl_msa_Destroy(ESL_MSA *msa)
 {
   if (msa == NULL) return;
 
-  esl_Free2D((void **) msa->aseq,   msa->nseq);
+  if (msa->aseq != NULL) 
+    esl_Free2D((void **) msa->aseq, msa->nseq);
+  if (msa->ax != NULL) 
+    esl_Free2D((void **) msa->ax, msa->nseq);
+
   esl_Free2D((void **) msa->sqname, msa->nseq);
   esl_Free2D((void **) msa->sqacc,  msa->nseq);
   esl_Free2D((void **) msa->sqdesc, msa->nseq);
@@ -224,7 +292,7 @@ esl_msa_Destroy(ESL_MSA *msa)
  * Purpose:   Double the current sequence allocation in <msa>.
  *            Typically used when we're reading an alignment sequentially 
  *            from a file, so we don't know nseq 'til we're done.
- *
+ *            
  * Returns:   <eslOK> on success.
  * 
  * Throws:    <eslEMEM> on reallocation failure; <msa> is undamaged,
@@ -249,7 +317,12 @@ esl_msa_Expand(ESL_MSA *msa)
   old = msa->sqalloc;
   new = 2*old;
 
-  ESL_RALLOC(msa->aseq,   p, sizeof(char *) * new);
+  /* Normally either aseq (ascii) or ax (digitized) would be active, not both.
+   * We could make sure that that's true, but that's checked elsewhere.           
+   */
+  if (msa->aseq != NULL) ESL_RALLOC(msa->aseq, p, sizeof(char *)    * new);
+  if (msa->ax   != NULL) ESL_RALLOC(msa->ax,   p, sizeof(ESL_DSQ *) * new);
+
   ESL_RALLOC(msa->sqname, p, sizeof(char *) * new);
   ESL_RALLOC(msa->wgt,    p, sizeof(float)  * new);
   ESL_RALLOC(msa->sqlen,  p, sizeof(int)    * new);
@@ -274,7 +347,8 @@ esl_msa_Expand(ESL_MSA *msa)
 
   for (i = old; i < new; i++)
     {
-      msa->aseq[i]   = NULL;
+      if (msa->aseq != NULL) msa->aseq[i] = NULL;
+      if (msa->ax   != NULL) msa->ax[i]   = NULL;
       msa->sqname[i] = NULL;
       msa->wgt[i]    = -1.0;	/* -1.0 means "unset so far" */
       msa->sqlen[i]  = 0;
@@ -830,8 +904,9 @@ verify_parse(ESL_MSA *msa, char *errbuf)
    */
   for (idx = 0; idx < msa->nseq; idx++)
     {
-      /* aseq is required. */
-      if (msa->aseq[idx] == NULL) 
+      /* either ax or aseq is required. */
+      if ((msa->aseq != NULL && msa->aseq[idx] == NULL) && 
+	  (msa->ax   != NULL && msa->ax[idx]   == NULL))
 	{
 	  sprintf(errbuf,
 		  "MSA %.128s parse error: no sequence for %.128s",
@@ -923,19 +998,14 @@ verify_parse(ESL_MSA *msa, char *errbuf)
   if (msa->salen != NULL) { free(msa->salen); msa->salen = NULL; }
   return eslOK;
 }
-
-
-
 /*---------------------- end of ESL_MSA functions ---------------------------*/
 
 
 
-
 /******************************************************************************
- * Functions for an ESL_MSAFILE object                                        *
- *     esl_msafile_Open()                                                     *
- *     esl_msafile_Close()                                                    *
+ * 2. The ESL_MSAFILE object                                       
  *****************************************************************************/
+static int msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp);
 
 /* Function: esl_msafile_Open()
  * Date:     SRE, Sun Jan 23 08:30:33 2005 [St. Louis]
@@ -979,10 +1049,17 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  *           stdin or a gunzip pipe.
  *
  * Xref:     squid's MSAFileOpen(), 1999.
+ * 
+ * Note      Implemented as a wrapper around msafile_open(), because
+ *           esl_msafile_OpenDigital() shares almost all the same code.
  */
 int
-esl_msafile_Open(char *filename, int format, char *env, 
-		 ESL_MSAFILE **ret_msafp)
+esl_msafile_Open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
+{
+  return msafile_open(filename, format, env, ret_msafp);
+}
+static int
+msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
 {
   ESL_MSAFILE *afp = NULL;
   char *ssifile;
@@ -1093,6 +1170,8 @@ esl_msafile_Open(char *filename, int format, char *env,
   return status;
 }
 
+
+
 /* Function:  esl_msafile_Close()
  * Incept:    SRE, Sun Jan 23 08:18:39 2005 [St. Louis]
  *
@@ -1134,9 +1213,242 @@ msafile_getline(ESL_MSAFILE *afp)
 
 
 /******************************************************************************
- * Functions for general i/o of all formats                                   *
+ * 3. Digitized MSA's (ALPHABET augmentation required)
  *****************************************************************************/
+#ifdef eslAUGMENT_ALPHABET
+/* Function:  esl_msa_CreateDigital()
+ * Incept:    SRE, Sun Aug 27 16:49:58 2006 [Leesburg]
+ *
+ * Purpose:   Same as <esl_msa_Create()>, except the returned MSA is configured
+ *            for a digital alignment using internal alphabet <abc>, instead of 
+ *            a text alignment.
+ *   
+ *            Internally, this means the <ax> field is allocated instead of
+ *            the <aseq> field, and the <eslMSA_DIGITAL> flag is raised.
+ *
+ * Args:     <nseq> - number of sequences, or nseq allocation blocksize
+ *           <alen> - length of alignment in columns, or 0      
+ *
+ * Returns:   pointer to new MSA object, w/ all values initialized.
+ *            Note that <msa->nseq> is initialized to 0, even though space
+ *            is allocated.
+ *           
+ * Throws:    NULL on allocation failure.          
+ *
+ * Xref:      squid's MSAAlloc()
+ */
+ESL_MSA *
+esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
+{
+  int      status;
+  ESL_MSA *msa;
+  int      i;
 
+  msa = create_mostly(nseq, alen); /* aseq is null upon successful return */
+  if (msa == NULL) return NULL; /* already threw error in mostly_create, so percolate */
+
+  ESL_ALLOC(msa->ax,   sizeof(ESL_DSQ *) * nseq);
+  for (i = 0; i < nseq; i++)
+    msa->ax[i] = NULL;
+
+  if (alen != 0)
+    for (i = 0; i < nseq; i++)
+      ESL_ALLOC(msa->ax[i], sizeof(ESL_DSQ) * (alen+1));
+
+  msa->abc    = abc;
+  msa->flags |= eslMSA_DIGITAL;
+  return msa;
+
+ FAILURE:
+  esl_msa_Destroy(msa);
+  return NULL;
+}
+
+/* Function:  esl_msa_Digitize()
+ * Incept:    SRE, Sat Aug 26 17:33:08 2006 [AA 5302 to Dulles]
+ *
+ * Purpose:   Given an alignment <msa> in text mode, convert it to
+ *            digital mode, using alphabet <abc>.
+ *            
+ *            Internally, the <ax> digital alignment field is filled,
+ *            the <aseq> text alignment field is destroyed and free'd,
+ *            a copy of the alphabet pointer is kept in the msa's
+ *            <abc> reference, and the <eslMSA_DIGITAL> flag is raised
+ *            in <flags>.
+ *
+ * Args:      abc    - digital alphabet
+ *            msa    - multiple alignment to digitize
+ *
+ * Returns:   <eslOK> on success;
+ *            <eslEINVAL> if one or more sequences contain invalid characters
+ *            that can't be digitized. If this happens, the <msa> is returned
+ *            unaltered - left in text mode, with <aseq> as it was. (This is
+ *            a normal error, because msa->aseq may be user input that we 
+ *            haven't validated yet.)
+ *
+ * Throws:    <eslEMEM> on allocation failure; in this case, state of <msa> may be 
+ *            wedged, and it should only be destroyed, not used.
+ */
+int
+esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
+{
+  int status;
+  int i;
+
+  /* Contract checks
+   */
+  if (msa->aseq == NULL)           ESL_ERROR(eslECONTRACT, "msa has no text alignment");
+  if (msa->ax   != NULL)           ESL_ERROR(eslECONTRACT, "msa already has digital alignment");
+  if (msa->flags & eslMSA_DIGITAL) ESL_ERROR(eslECONTRACT, "msa is flagged as digital");
+
+  /* Validate before we convert. Then we can leave the <aseq> untouched if
+   * any of the sequences contain invalid characters.
+   */
+  for (i = 0; i < msa->nseq; i++)
+    if (esl_abc_ValidateSeq(abc, msa->aseq[i], msa->alen, NULL) != eslOK) 
+      return eslEINVAL;
+
+  /* Convert, sequence-by-sequence, free'ing aseq as we go.
+   * (For large alignments, the memory required by a temporary 2x
+   * duplication of the alignment space might be significant.)
+   */
+  ESL_ALLOC(msa->ax, msa->sqalloc * sizeof(ESL_DSQ *));
+  for (i = 0; i < msa->nseq; i++)
+    {
+      ESL_ALLOC(msa->ax[i], (msa->alen+2) * sizeof(ESL_DSQ));
+      status = esl_abc_Digitize(abc, msa->aseq[i], msa->alen, msa->ax[i]);
+      if (status != eslOK) goto FAILURE;
+      free(msa->aseq[i]);
+    }    
+  for (; i < msa->sqalloc; i++) 
+    msa->ax[i] = NULL;
+  free(msa->aseq);
+
+  msa->abc   =  abc;
+  msa->flags |= eslMSA_DIGITAL;
+  return eslOK;
+
+ FAILURE:
+  return status;
+}
+
+/* Function:  esl_msa_Textize()
+ * Incept:    SRE, Sat Aug 26 18:14:30 2006 [AA 5302 to Dulles]
+ *
+ * Purpose:   Given an alignment <msa> in digital mode, convert it
+ *            to text mode.
+ *            
+ *            Internally, the <aseq> text alignment field is filled, the
+ *            <ax> digital alignment field is destroyed and free'd, the
+ *            msa's <abc> digital alphabet reference is nullified, and 
+ *            the <eslMSA_DIGITAL> flag is dropped in <flags>.
+ *            
+ * Args:      msa   - multiple alignment to convert to text
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslECORRUPT> if one or more of the digitized alignment strings
+ *            contain invalid characters.
+ */
+int
+esl_msa_Textize(ESL_MSA *msa)
+{
+  int status;
+  int i;
+
+  /* Contract checks
+   */
+  if (msa->ax   == NULL)               ESL_ERROR(eslECONTRACT, "msa has no digital alignment");
+  if (msa->aseq != NULL)               ESL_ERROR(eslECONTRACT, "msa already has text alignment");
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_ERROR(eslECONTRACT, "msa is not flagged as digital");
+  if (msa->abc  == NULL)               ESL_ERROR(eslECONTRACT, "msa has no digital alphabet");
+
+  /* Convert, sequence-by-sequence, free'ing ax as we go.
+   */
+  ESL_ALLOC(msa->aseq, msa->sqalloc * sizeof(char *));
+  for (i = 0; i < msa->nseq; i++)
+    {
+      ESL_ALLOC(msa->aseq[i], (msa->alen+1) * sizeof(char));
+      status = esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, msa->aseq[i]);
+      if (status != eslOK) goto FAILURE;
+      free(msa->ax[i]);
+    }
+  for (; i < msa->sqalloc; i++)
+    msa->aseq[i] = NULL;
+  
+  msa->abc    = NULL;      	 /* nullify reference (caller still owns real abc) */
+  msa->flags &= ~eslMSA_DIGITAL; /* drop the flag */
+  return eslOK;
+
+ FAILURE:
+  return status;
+}
+
+/* Function:  esl_msafile_OpenDigital()
+ * Incept:    SRE, Sun Aug 27 17:40:33 2006 [Leesburg]
+ *
+ * Purpose:   Same as <esl_msafile_Open()>, except the alignment file
+ *            will be read into a digitized internal representation,
+ *            using internal alphabet <abc>, rather than the default
+ *            internal ASCII text representation.
+ *            
+ * Args:      abc      - pointer to internal alphabet
+ *            filename - name of alignment data file to open;
+ *                       if "*.gz", attempt to read through <gunzip -dc> using <popen()>;
+ *                       or "-" for stdin 
+ *            format   - file format code (e.g. <eslMSAFILE_STOCKHOLM>);
+ *                       or <eslMSAFILE_UNKNOWN> to invoke format autodetection.
+ *            env      - NULL, or the name of an environment variable from which
+ *                       to retrieve a colon-delimited directory list to search
+ *                       for <filename> in. (e.g. "HMMERDB")
+ *            ret_msafp - RETURN: open MSAFILE.
+ *
+ * Returns:  <eslOK> on success, and <ret_msafp> is set to point at
+ *           an open <ESL_MSAFILE>. Caller frees this file pointer with
+ *           <esl_msafile_Close()>.
+ *           
+ *           <eslENOTFOUND> if <filename> cannot be opened;
+ *           <eslEFORMAT> if autodetection is attempted and format
+ *           cannot be determined.
+ *           
+ * Throws:   <eslEMEM> on allocation failure.
+ *           <eslEINVAL> if format autodetection is attempted on 
+ *           stdin or a gunzip pipe.
+ */
+int
+esl_msafile_OpenDigital(ESL_ALPHABET *abc, char *filename, 
+			int format, char *env, ESL_MSAFILE **ret_msafp)
+{
+  ESL_MSAFILE *msafp;
+  int          status;
+
+  status = msafile_open(filename, format, env, &msafp);
+  if (status != eslOK) return status;
+
+  msafp->abc        = abc;
+  msafp->do_digital = TRUE;
+  return eslOK;
+}
+#else /* if eslAUGMENT_ALPHABET is not defined */
+ESL_MSA *esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
+{ esl_fatal("Alphabet augmentation required."); } 
+int esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
+{ esl_fatal("Alphabet augmentation required."); }
+int esl_msa_Textize(ESL_MSA *msa)
+{ esl_fatal("Alphabet augmentation required."); }
+int esl_msafile_OpenDigital(ESL_ALPHABET *abc, char *filename, 
+			    int format, char *env, ESL_MSAFILE **ret_msafp)
+{ esl_fatal("Alphabet augmentation required."); }
+#endif 
+/*---------------------- end of digital MSA functions -----------------------*/
+
+
+
+
+/******************************************************************************
+ * 4. General i/o API, all alignment formats                                 
+ *****************************************************************************/
 static int write_stockholm(FILE *fp, ESL_MSA *msa);
 static int write_pfam(FILE *fp, ESL_MSA *msa);
 static int read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
@@ -1225,12 +1537,7 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
   afp->format = eslMSAFILE_STOCKHOLM;
   return eslOK;
 }
-
-
-
 /*-------------------- end of general i/o functions -------------------------*/
-
-
 
 
 
@@ -1678,10 +1985,16 @@ parse_sequence(ESL_MSA *msa, char *buf)
   if (status != eslOK) return status;
   msa->lastidx = seqidx;
 
-  status = esl_strcat(&(msa->aseq[seqidx]), msa->sqlen[seqidx], text, len);
-  msa->sqlen[seqidx] += len;
+  if (msa->flags & eslMSA_DIGITAL)
+    {
+      status = esl_abc_dsqcat(msa->abc, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len);
+    }
+  else
+    {
+      status = esl_strcat(&(msa->aseq[seqidx]), msa->sqlen[seqidx], text, len);
+      msa->sqlen[seqidx] += len;
+    }
   return status;
-
 }
 
 
@@ -1945,9 +2258,14 @@ maxwidth(char **s, int n)
       }
   return max;
 }
-
-
 /*-------------------- end of Stockholm format section ----------------------*/
+
+
+
+
+/*****************************************************************
+ * 5. Miscellaneous functions for manipulating MSAs
+ *****************************************************************/
 
 /* Function:  esl_msa_SequenceSubset()
  * Incept:    SRE, Wed Apr 13 10:05:44 2005 [St. Louis]
@@ -2254,11 +2572,12 @@ esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
 	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
   return eslOK;
 }
+/*-------------------- end of misc MSA functions ----------------------*/
+
 
 /******************************************************************************
- * Example and test driver
+ * 6. Example driver
  *****************************************************************************/
-
 #ifdef eslMSA_EXAMPLE
 /*::cexcerpt::msa_example::begin::*/
 /* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE msa.c easel.c 
@@ -2320,7 +2639,12 @@ Offending line is:\n\
 }
 /*::cexcerpt::msa_example::end::*/
 #endif /*eslMSA_EXAMPLE*/
+/*-------------------- end of example driver ---------------------*/
+
  
+/******************************************************************************
+ * 7. Test driver
+ *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE msa.c easel.c 
  * ./test
@@ -2389,7 +2713,7 @@ main(int argc, char **argv)
 }
 #endif /*eslMSA_TESTDRIVE*/
 
-/*-------------------- end of test drivers and examples ---------------------*/
+/*-------------------- end of test driver ---------------------*/
 
 
 /*****************************************************************

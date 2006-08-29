@@ -40,8 +40,11 @@ extern void          esl_alphabet_Destroy(ESL_ALPHABET *a);
 
 /* 2. Digitized sequences.
  */
-extern int esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ **ret_dsq);
-extern int esl_dsq_Set   (ESL_ALPHABET *a, char *seq, int L, ESL_DSQ *dsq);
+extern int esl_abc_Digitize(ESL_ALPHABET *a, char    *seq, int L, ESL_DSQ *dsq);
+extern int esl_abc_Textize (ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char    *seq);
+extern int esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup);
+extern int esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n);
+extern int esl_abc_dsqlen(ESL_DSQ *dsq);
 
 /* 3. Other routines in the API.
  */
@@ -61,24 +64,32 @@ extern int    esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p);
 extern int    esl_abc_FCount(ESL_ALPHABET *abc, float *ct,  ESL_DSQ x, float  wt);
 extern int    esl_abc_DCount(ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt);
 extern char  *esl_abc_Type(int type);
+extern int    esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf);
 
 /* In the tests below, remember the rules of order in internal alphabets:
  *   Canonical alphabet   Gap   Degeneracies  (X/N)  Missing data
  *        0..K-1           K      K+1..Kp-2   (Kp-2)   Kp-1
  *         ACGT            -     RYMKSWHBVDN   (N)      ~
+ *                           
+ * ESL_DSQ is an unsigned 8-bit type, so don't bother testing it for >= 0. 
  */
 #define esl_abc_DigitizeSymbol(a, c) (a->inmap[(int)c])
-#define esl_abc_XIsValid(a, x)       ((x) >= 0 && (x) < a->Kp)
-#define esl_abc_XIsCanonical(a, x)   ((x) >= 0 && (x) < a->K)
+#define esl_abc_XIsValid(a, x)       ((x) < a->Kp)
+#define esl_abc_XIsCanonical(a, x)   ((x) < a->K)
+#define esl_abc_XIsGap(a, x)         ((x) == (a)->K)
 #define esl_abc_XIsDegenerate(a, x)  ((x) > a->K && (x) < a->Kp-1)
-#define esl_abc_XIsGap(a, x)         ((x) == a->K)
-#define esl_abc_XIsMissing(a, x)     ((x) == a->Kp-1)
+#define esl_abc_XIsUnknown(a, x)     ((x) == (a)->Kp-2)
+#define esl_abc_XIsMissing(a, x)     ((x) == (a)->Kp-1)
 
-#define esl_abc_CIsValid(a, c)       (isascii(c) && (a)->inmap[c] < (a)->Kp)
-#define esl_abc_CIsCanonical(a, c)   ((a)->inmap[c] < (a)->K)
-#define esl_abc_CIsDegenerate(a, c)  ((a)->inmap[c] > (a)->K  && (a)->inmap[c] < (a)->Kp-1)
-#define esl_abc_CIsGap(a, c)         ((a)->inmap[c] == (a)->K)
-#define esl_abc_CIsMissing(a, c)     ((a)->inmap[c] == (a)->Kp-1)
+#define esl_abc_CIsValid(a, c)       (isascii(c) && (a)->inmap[(int)c] < (a)->Kp)
+#define esl_abc_CIsCanonical(a, c)   ((a)->inmap[(int)c] < (a)->K)
+#define esl_abc_CIsGap(a, c)         ((a)->inmap[(int)c] == (a)->K)
+#define esl_abc_CIsDegenerate(a, c)  ((a)->inmap[(int)c] > (a)->K  && (a)->inmap[(int)c] < (a)->Kp-1)
+#define esl_abc_CIsUnknown(a, c)     ((a)->inmap[(int)c] == (a)->Kp-2)
+#define esl_abc_CIsMissing(a, c)     ((a)->inmap[(int)c] == (a)->Kp-1)
+
+#define esl_abc_XGetUnknown(a)       ((a)->Kp-2)
+#define esl_abc_CGetUnknown(a)       ((a)->inmap[(int)(a)->Kp-2])
 
 #endif /*!ESL_ALPHABET_INCLUDED*/
 

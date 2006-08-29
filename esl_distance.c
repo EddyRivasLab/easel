@@ -865,7 +865,11 @@ main(int argc, char **argv)
   ESL_ALLOC(ax, sizeof(ESL_DSQ *) * N);
   for (i = 0; i < N; i++) as[i] = ax[i] = NULL;
   for (i = 0; i < N; i++) esl_rnd_IID(r, "ACGT", p, 4, L, &(as[i]));
-  for (i = 0; i < N; i++) esl_dsq_Create(abc, as[i], L, &(ax[i]));
+  for (i = 0; i < N; i++) 
+    {
+      ESL_ALLOC(ax[i], sizeof(ESL_DSQ) * (L+2));
+      esl_abc_Digitize(abc, as[i], L, ax[i]);
+    }
 
   /* CPairId() tests: self-comparisons give 1
    */

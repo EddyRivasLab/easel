@@ -403,85 +403,260 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
  * 2. Digitized sequences: char *dsq[1..L], with sentinels at 0,L+1
  *****************************************************************/ 
 
-
-/* Function: esl_dsq_Create()
+/* Function: esl_abc_Digitize()
+ * Incept:   SRE, Sun Aug 27 11:18:56 2006 [Leesburg]
  * 
- * Purpose:  Given an alphabet <a> and a sequence <seq> of length <L> 
- *           residues, allocate and create a digitized sequence
- *           and return it through <ret_dsq>. Caller must free the dsq.
+ * Purpose:  Given an alphabet <a> and an ASCII sequence <seq> of
+ *           length <L> residues, digitize the sequence and put it
+ *           in <dsq>. Caller provides space in <dsq> allocated for
+ *           at least <L+2> <ESL_DSQ> residues.
  *           
  * Args:     a       - internal alphabet
- *           seq     - sequence to be digitized (0..L-1, alphabetic)
+ *           seq     - sequence to be digitized (0..L-1, alphabetic);
+ *                     does not need to be NUL-terminated.
  *           L       - length of sequence      
- *           ret_dsq - RETURN: the new digital sequence
+ *           dsq     - RETURN: the new digital sequence (caller allocates,
+ *                     at least <(L+2) * sizeof(ESL_DSQ)>).
  *           
- * Returns:  <eslOK> on success, and digitized sequence is passed 
- *           back to the caller via <ret_dsq>; caller is responsible
- *           for freeing this with <free(dsq)>.
+ * Returns:  <eslOK> on success.
  *           Returns <eslEINVAL> if <seq> contains one or more characters
- *           that are not recognized in the alphabet <a>.
- *           
- * Throws:   <eslEMEM> if allocation fails.          
+ *           that are not recognized in the alphabet <a>. (This is classed
+ *           as a normal error, because the <seq> may be user input.)
+ *           If this happens, the digital sequence <dsq> is still valid upon
+ *           return; invalid ASCII characters are replaced by ambiguities
+ *           (X or N).
  */
 int
-esl_dsq_Create(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ **ret_dsq)
+esl_abc_Digitize(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ *dsq)
 {
-  ESL_DSQ *dsq = NULL;
-  int      status;
-
-  ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
-  status = esl_dsq_Set(a, seq, L, dsq);
-
-  *ret_dsq = dsq;
-  return eslOK;
-  
- FAILURE:
-  if (dsq != NULL) free(dsq);
-  *ret_dsq = NULL;
-  return status;
-}
-
-/* Function:  esl_dsq_Set()
- * Incept:    SRE, Mon Dec 20 16:40:31 2004 [Zaragoza]
- *
- * Purpose:   Given an allocated <dsq> of length <L> (that is, array of
- *            <L>+2 chars), reuse it, digitizing up to <L> characters of <seq>,
- *            according to the alphabet <a>. <seq> may be of any length, but
- *            <dsq> will not contain more than <L> characters of it.
- *            
- *            Usually, both <dsq> and <seq> have the same number of
- *            residues <L>, but the API allows <dsq> to be a window on
- *            a longer sequence.
- *            
- * Args:      a      - internal alphabet
- *            seq    - alphabetic input sequence
- *            L      - allocated length of dsq; max len of <seq> to digitize.
- *            dsq    - allocated space for digital sequence, 1..L
- *
- * Returns:   <eslOK> on success, and <dsq> contains newly digitized <seq>.
- *            Returns <eslEINVAL> if any character of <seq> is not in the 
- *            input map of the alphabet <a>; the <dsq> is still valid, with
- *            "unknown residue" codes where the invalid characters were.
- */
-int
-esl_dsq_Set(ESL_ALPHABET *a, char *seq, int L, ESL_DSQ *dsq)
-{
-  ESL_DSQ x;
-  int     i;
   int     status;
+  int     i;
+  ESL_DSQ x;
 
   status = eslOK;
   dsq[0] = eslDSQ_SENTINEL;
   for (i = 1; i <= L && seq[i-1] != '\0'; i++) 
     { 
-      if (esl_abc_CIsValid(a, seq[i-1]))
-	dsq[i] = a->inmap[(int) seq[i-1]];
+      x = a->inmap[(int) seq[i-1]];
+      if (esl_abc_XIsValid(a, x))
+	dsq[i] = x;
       else
-	{ status = eslEINVAL; dsq[i] = a->Kp-2; } /* "unknown" code */
+	{
+	  status = eslEINVAL;
+	  dsq[i] = esl_abc_XGetUnknown(a);
+	}
     }
-  dsq[i] = eslDSQ_SENTINEL;
+  dsq[L+1] = eslDSQ_SENTINEL;
   return status;
 }
+
+/* Function:  esl_abc_Textize()
+ * Incept:    SRE, Sun Aug 27 11:14:58 2006 [Leesburg]
+ *
+ * Purpose:   Make an ASCII sequence <seq> by converting a digital
+ *            sequence <dsq> of length <L> back to text, according to
+ *            the digital alphabet <a>. 
+ *            
+ *            Caller provides space in <seq> allocated for at least
+ *            <L+1> bytes (<(L+1) * sizeof(char)>).
+ *
+ * Args:      a   - internal alphabet
+ *            dsq - digital sequence to be converted (1..L)
+ *            L   - length of dsq
+ *            seq - RETURN: the new text sequence (caller allocated
+ *                  space, at least <(L+1) * sizeof(char)>).
+ *            
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslECORRUPT> if something's wrong with the <dsq>, like
+ *            a premature sentinel byte or an invalid residue. 
+ */
+int
+esl_abc_Textize(ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char *seq)
+{
+  int i;
+  
+  for (i = 0; i < L; i++)
+    {
+      if (esl_abc_XIsValid(a, dsq[i+1]) != eslOK) 
+	ESL_ERROR(eslECORRUPT, "bad code in dsq");
+      seq[i] = a->sym[dsq[i+1]];
+    }
+  seq[i] = '\0';
+  return eslOK;
+}
+
+/* Function:  esl_abc_dsqdup()
+ * Incept:    SRE, Tue Aug 29 13:51:05 2006 [Janelia]
+ *
+ * Purpose:   Like <esl_strdup()>, but for digitized sequences:
+ *            make a duplicate of <dsq> and leave it in <ret_dup>.
+ *            Caller can pass the string length <L> if it's known, saving
+ *            some overhead; else pass <-1> and the length will be
+ *            determined for you.
+ *            
+ *            Tolerates <dsq> being <NULL>; in which case, returns
+ *            <eslOK> with <*ret_dup> set to <NULL>.
+ *
+ * Args:      dsq     - digital sequence to duplicate (w/ sentinels at 0,L+1)
+ *            L       - length of dsq in residues, if known; -1 if unknown
+ *            ret_dup - RETURN: allocated duplicate of <dsq>, which caller will
+ *                      free.
+ *
+ * Returns:   <eslOK> on success, and leaves a pointer in <ret_dup>.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      STL11/48
+ */
+int 
+esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
+{
+  int      status;
+  ESL_DSQ *new = NULL;
+
+  *ret_dup = NULL;
+  if (dsq == NULL) return eslOK;
+  if (L < 0) L = esl_abc_dsqlen(dsq);
+
+  ESL_ALLOC(new, sizeof(ESL_DSQ) * (L+2));
+  memcpy(new, dsq, sizeof(ESL_DSQ) * (L+2));
+  return eslOK;
+
+ FAILURE:
+  if (new     != NULL) free(new);
+  if (ret_dup != NULL) *ret_dup = NULL;
+  return status;
+}
+
+
+/* Function:  esl_abc_dsqcat()
+ * Incept:    SRE, Tue Aug 29 14:01:59 2006 [Janelia]
+ *
+ * Purpose: Like <esl_strcat()>, except specialized for digitizing a
+ *            biosequence text string and appending it to a growing
+ *            digital sequence. The growing digital sequence is <dsq>,
+ *            currently of length <L> residues; we append <s> to it,
+ *            of length <n> symbols, after digitization.  Upon return,
+ *            <dsq> has been reallocated and <L> is set to the new
+ *            length (which is why both must be passed by reference).
+ *            
+ *            Note that the final <L> is not necessarily the initial
+ *            <L> plus <n>, because the text string <s> may contain
+ *            symbols that are defined to be ignored
+ *            (<eslDSQ_IGNORED>) in the input map of this alphabet.
+ *            (The final <L> is guaranteed to be $\leq$ <L+n> though.>
+ *            
+ *            If the initial <L> is unknown, pass <-1>, and it will be
+ *            determined by counting the residues in <dsq>.
+ *            
+ *            Similarly, if <n> is unknown, pass <-1> and it will be
+ *            determined by counting the symbols in <s>
+ *            
+ *            <dsq> may be <NULL>, in which case this call is
+ *            equivalent to an allocation and digitization just of
+ *            <s>.
+ *            
+ *            <s> may also be <NULL>, in which case <dsq> is
+ *            unmodified; <L> would be set to the correct length of
+ *            <dsq> if it was passed as <-1> (unknown).
+ *            
+ * Args:      abc  - digital alphabet to use
+ *            dsq  - reference to the current digital seq to append to 
+ *                   (with sentinel bytes at 0,L+1); may be <NULL>. 
+ *                   Upon return, this will probably have 
+ *                   been reallocated, and it will contain the original
+ *                   <dsq> with <s> digitized and appended.
+ *            L    - reference to the current length of <dsq> in residues;
+ *                   may be <-1> if unknown. Upon return, <L> is set to
+ *                   the new length of <dsq>, after <s> is appended.
+ *            s    - NUL-terminated ASCII text sequence to append. May
+ *                   contain ignored text characters (flagged with
+ *                   <eslDSQ_IGNORED> in the input map of alphabet <abc>).  
+ *            n    - Length of <s> in characters, if known; or <-1> if 
+ *                   unknown.
+ *
+ * Returns:   <eslOK> on success; <dsq> contains the result of digitizing
+ *            and appending <s> to the original <dsq>; and <L> contains
+ *            the new length of the <dsq> result in residues.
+ *            
+ *            If any of the characters in <s> are illegal in the alphabet
+ *            <abc>, these characters are digitized as unknown residues, 
+ *            and the function returns <eslEINVAL>. The caller might want
+ *            to call <esl_abc_ValidateSeq()> on <s> if it wants to figure
+ *            out where digitization goes awry and get a more informative
+ *            error report. This is a normal error, because the string <s>
+ *            might be user input.
+ *
+ * Throws:    <eslEMEM> on allocation or reallocation failure;
+ *
+ * Xref:      STL11/48.
+ */
+int
+esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
+{
+  int     status;
+  void   *p;
+  int     newL;
+  int     xpos, cpos;
+  ESL_DSQ x;
+
+  if (*L < 0) newL = ((*dsq == NULL) ? 0 : esl_abc_dsqlen(*dsq));
+  else        newL = *L;
+
+  if (n < 0)  n = ((s == NULL) ? 0 : strlen(s));
+
+  /* below handles weird case of empty s (including empty dsq and empty s):
+   * just hand dsq and its length right back to the caller.
+   */
+  if (n == 0) { *L = newL; return eslOK; } 
+
+  if (*dsq == NULL) ESL_ALLOC(*dsq, sizeof(ESL_DSQ)     * (n+2));
+  else              ESL_RALLOC(*dsq, p, sizeof(ESL_DSQ) * (newL+n+2)); /* most we'll need */
+
+  /* Watch these coords. Start in the 0..n-1 text string at 0;
+   * start in the 1..L dsq at L+1, overwriting its terminal 
+   * sentinel byte.
+   */
+  status = eslOK;
+  for (xpos = newL+1, cpos = 0; s[cpos] != '\0'; cpos++)
+    {
+      x = a->inmap[(int) s[cpos]];
+      if (esl_abc_XIsValid(a, x))
+	*dsq[xpos++] = x;
+      else if (x == eslDSQ_IGNORED)
+	;
+      else 
+	{
+	  *dsq[xpos++] = esl_abc_XGetUnknown(a);
+	  status = eslEINVAL;
+	}
+    }
+  *dsq[xpos] = eslDSQ_SENTINEL;
+  *L = xpos-1;
+  return status;
+
+ FAILURE:
+  *L = newL;
+  return status;
+}
+
+
+/* Function:  esl_abc_dsqlen()
+ * Incept:    SRE, Tue Aug 29 13:49:02 2006 [Janelia]
+ *
+ * Purpose:   Returns the length of digitized sequence <dsq>
+ *            in residues. The <dsq> must be properly terminated
+ *            by a sentinel byte (<eslDSQ_SENTINEL>). 
+ */
+int 
+esl_abc_dsqlen(ESL_DSQ *dsq)
+{
+  int n = 0;
+  while (dsq[n+1] != eslDSQ_SENTINEL) n++;
+  return n;
+}
+
 
 /*****************************************************************
  * 3. Other routines
@@ -753,6 +928,55 @@ esl_abc_Type(int type)
 }
 
 
+/* Function:  esl_abc_ValidateSeq()
+ * Incept:    SRE, Sat Aug 26 17:40:00 2006 [St. Louis]
+ *
+ * Purpose:   Check that sequence <seq> of length <L> can be digitized
+ *            without error; all its symbols are valid in alphabet
+ *            <a>. If so, return <eslOK>. If not, return <eslEINVAL>.
+ *            
+ *            <errbuf> is either passed as <NULL>, or a pointer to an
+ *            error string buffer allocated by the caller for
+ *            <eslERRBUFSIZE> characters. If <errbuf> is non-NULL, and
+ *            the sequence is invalid, an error message is placed in
+ *            <errbuf>.
+ *
+ * Args:      a      - digital alphabet
+ *            seq    - sequence to validate [0..L-1]; NUL-termination unnecessary
+ *            L      - length of <seq>
+ *            errbuf - NULL, or ptr to <eslERRBUFSIZE> chars of allocated space 
+ *                     for an error message.
+ *
+ * Returns:   <eslOK> if <seq> is valid; <eslEINVAL> if not.
+ *
+ * Throws:    (no abnormal error conditions).
+ */
+int
+esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf)
+{
+  int i;
+  int firstpos = -1;
+  int nbad     = 0;
+
+  for (i = 0; i < L; i++)
+    {
+      if (esl_abc_CIsValid(a, seq[i]) != eslOK)
+	{
+	  if (firstpos == -1) firstpos = i;
+	  nbad++;
+	}
+    }
+
+  if (nbad == 0)  return eslOK;
+
+  if (errbuf != NULL) 
+    sprintf(errbuf, "%d bad chars (including bad %c at pos %d)", 
+	    nbad, seq[firstpos], firstpos);
+  return eslEINVAL;
+}
+
+
+
 
 /*****************************************************************
  * 4. Examples
@@ -773,7 +997,10 @@ int main(void)
   
   a = esl_alphabet_Create(eslDNA);
 
-  if (esl_dsq_Create(a, dnaseq, L, &dsq) != eslOK) 
+  if ((dsq = malloc(sizeof(ESL_DSQ * (L+2)))) == NULL)
+    esl_fatal("malloc failed");
+    
+  if (esl_abc_Digitize(a, dnaseq, L, dsq) != eslOK) 
     esl_fatal("failed to digitize the sequence");
 
   free(dsq);
@@ -860,7 +1087,9 @@ basic_examples(void)
    */
   a1 = esl_alphabet_Create(eslDNA);
   L  = strlen(dnaseq);
-  esl_dsq_Create(a1, dnaseq, L, &dsq);
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)
+    esl_fatal("malloc failed");
+  esl_abc_Digitize(a1, dnaseq, L, dsq);
   esl_alphabet_Destroy(a1);
 
   /* Example 2. 
@@ -869,7 +1098,9 @@ basic_examples(void)
    * correctly synonymous on input).
    */
   a2 = esl_alphabet_Create(eslRNA);
-  esl_dsq_Create(a2, dnaseq, L, &dsq2);
+  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)
+    esl_fatal("malloc failed");
+  esl_abc_Digitize(a2, dnaseq, L, dsq2);
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
   esl_alphabet_Destroy(a2);
@@ -879,7 +1110,7 @@ basic_examples(void)
    * while reusing memory already allocated in dsq.
    */
   a1 = esl_alphabet_Create(eslAMINO);
-  esl_dsq_Set(a1, aaseq, L, dsq);
+  esl_abc_Digitize(a1, aaseq, L, dsq);
   
   /* Example 4.
    * Create a custom alphabet almost the same as the amino
@@ -891,7 +1122,7 @@ basic_examples(void)
   esl_alphabet_SetCaseInsensitive(a2);       /* allow lower case input */
   esl_alphabet_SetDegeneracy(a2, 'Z', "QE");
 
-  esl_dsq_Set(a2, aaseq, L, dsq2);
+  esl_abc_Digitize(a2, aaseq, L, dsq2);
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
 
