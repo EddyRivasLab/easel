@@ -213,12 +213,6 @@ create_mostly(int nseq, int alen)
       msa->wgt[i]    = -1.0;	/* "unset so far" */
     }
 
-  /* Allocation, round 3.
-   */
-  if (alen != 0)
-    for (i = 0; i < nseq; i++)
-      ESL_ALLOC(msa->aseq[i], sizeof(char) * (alen+1));
-
   return msa;
 
  FAILURE:

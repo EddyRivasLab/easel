@@ -139,12 +139,12 @@ main(int argc, char **argv)
   infmt = eslSQFILE_UNKNOWN;
   if (informat != NULL)
     {
-      infmt = esl_sqfile_FormatCode(informat);
+      infmt = esl_sqio_FormatCode(informat);
       if (infmt == eslSQFILE_UNKNOWN)
 	esl_fatal("%s is not a recognized input seqfile format\n");
     }
     
-  outfmt = esl_sqfile_FormatCode(outformat);
+  outfmt = esl_sqio_FormatCode(outformat);
   if (outfmt == eslSQFILE_UNKNOWN)
     esl_fatal("%s is not a recognized output seqfile format\n");
 
@@ -163,7 +163,7 @@ main(int argc, char **argv)
   /* If the output format is an alignment, then the input format
    * has to be an alignment.
    */
-  if (esl_sqfile_IsAlignment(outfmt))
+  if (esl_sqio_IsAlignment(outfmt))
     {
       ESL_MSAFILE *afp;
       ESL_MSA     *msa;
@@ -275,7 +275,7 @@ Offending line is:\n\
 	esl_fatal("Open of seqfile %s failed, code %d\n", infile, status);
       
       sq = esl_sq_Create();
-      while ((status = esl_sq_Read(sqfp, sq)) == eslOK)
+      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
 	  if (force_lower) symconvert(sq->seq, 
 				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -303,7 +303,7 @@ Offending line is:\n\
 			  sq->name, status);
 	    }
 
-	  esl_sq_Write(ofp, sq, outfmt);
+	  esl_sqio_Write(ofp, sq, outfmt);
 	  esl_sq_Reuse(sq);
 	}
 

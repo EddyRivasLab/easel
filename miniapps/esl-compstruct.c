@@ -76,6 +76,7 @@ main(int argc, char **argv)
   int do_mathews;	/* TRUE to do Mathews' criterion for "correct" */
   int count_pseudoknots;/* TRUE to count pseudoknotted base pairs      */
 
+  int   status;
   
   /***********************************************
    * Parse command line
@@ -191,8 +192,8 @@ main(int argc, char **argv)
 	      esl_wuss_nopseudo(ta->ss[i], ta->ss[i]);
 	    }
 
-	  ESL_MALLOC(kct, sizeof(int) * (klen+1));
-	  ESL_MALLOC(tct, sizeof(int) * (tlen+1));
+	  ESL_ALLOC(kct, sizeof(int) * (klen+1));
+	  ESL_ALLOC(tct, sizeof(int) * (tlen+1));
 	  if (esl_wuss2ct(ka->ss[i], klen, kct) != eslOK)
 	    {
 	      printf("[REJECTED: bad trusted structure]\n");
@@ -361,6 +362,9 @@ main(int argc, char **argv)
   esl_msafile_Close(tfp);
   esl_msafile_Close(kfp);
   return 0;
+
+ FAILURE:
+  return status;
 }
 
 
