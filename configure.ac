@@ -124,7 +124,9 @@ AC_ARG_ENABLE(modular,
     AC_DEFINE(eslAUGMENT_MINIMIZER)
     AC_DEFINE(eslAUGMENT_MSA)
     AC_DEFINE(eslAUGMENT_RANDOM)
+    AC_DEFINE(eslAUGMENT_SSI)
     AC_DEFINE(eslAUGMENT_STATS)
+    AC_DEFINE(eslLIBRARY)
   ])
 
 # --enable-debugging=x    - set debugging level to <x> (1-3)
@@ -249,6 +251,7 @@ fi
 # 10. Checks for library functions: define HAVE_FOO
 ################################################################
 
+AC_CHECK_FUNCS(mkstemp)
 AC_CHECK_FUNCS(popen)
 AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)

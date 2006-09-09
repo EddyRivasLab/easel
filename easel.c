@@ -62,6 +62,20 @@ esl_fatal(char *format, ...)
   exit(1);
 }
 
+/* esl_nonfatal_handler()
+ * SRE, Fri Sep  8 10:59:14 2006 [Janelia]
+ * 
+ * This stub is here to support the test harnesses, when they 
+ * have eslTEST_THROWING turned on to test that thrown errors
+ * are handled properly when a nonfatal error handler is
+ * registered by the application.
+ */
+void
+esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp)
+{
+  return;
+}
+
 
 
 /* Function:  esl_Free2D()
@@ -513,6 +527,7 @@ esl_strchop(char *s, int n)
 }
 
 
+
 /******************************************************************************
  * File path/name manipulation functions                                      *
  *                                                                            *
@@ -565,7 +580,8 @@ esl_FileExists(char *filename)
  *            nosuffix - TRUE to remove rightmost suffix from the filename
  *            ret_file - RETURN: filename portion of the path.
  *                     
- * Returns:   <eslOK> on success.
+ * Returns:   <eslOK> on success, and <ret_file> points to a newly
+ *            allocated string containing the filename.
  *
  * Throws:    <eslEMEM> on allocation failure.
  */
@@ -594,9 +610,6 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
   *ret_file = NULL;
   return status;
 }
-
-
-
 
 /* Function:  esl_FileConcat()
  * Incept:    SRE, Sat Jan 22 07:28:46 2005 [St. Louis]
@@ -794,6 +807,41 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (ret_path != NULL) *ret_path = NULL;
   if (ret_fp   != NULL) *ret_fp   = NULL;
   return status;
+}
+
+/* Function:  esl_tmpfile()
+ * Incept:    SRE, Wed Sep  6 08:15:15 2006 [Janelia]
+ *
+ * Purpose:   Assign a unique temporary file name and open it as a
+ *            <FILE> for writing. The <template> argument is a
+ *            pathname template, a modifiable string ending in
+ *            "XXXXXX" (for example, "/tmp/eslXXXXXX").
+ *            
+ * Note:      Uses POSIX <mkstemp()>, which may not be sufficiently portable.
+ *
+ * Returns:   <eslOK> on success; <template> is modified to contain the
+ *            name of the tempfile; and <ret_fp> points to a new <FILE>
+ *            stream for the opened tempfile.
+ *
+ * Throws:    <eslESYS> if <mkstemp()> call fails. Now contents of <template>
+ *            are undefined, and <ret_fp> is returned NULL.
+ */
+int
+esl_tmpfile(char *template, FILE **ret_fp)
+{
+  FILE *fp;
+  int   fd;
+
+#ifdef HAVE_MKSTEMP
+  if ((fd = mkstemp(template)) < 0 ||
+      (fp = fdopen(fd, "w"))  == NULL)
+    ESL_ERROR(eslESYS, "Either mkstemp() or fdopen() failed.");
+#else
+  esl_fatal("Portability problem: I don't have a mkstemp() replacement");
+#endif
+  
+  *ret_fp = fp;
+  return eslOK;
 }
 /*----------------- end of file path/name functions ------------------------*/
 

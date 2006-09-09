@@ -1,18 +1,12 @@
 % Typography.
-\newcommand{\ccode}[1]{{\small\texttt{#1}}}
-\newcommand{\emcode}[1]{{\small\bfseries\texttt{#1}}}
-\newcommand{\esldef}[1]{{\bfseries{#1}}}                    % Define/introduce a term (to be indexed)
-\newcommand{\prog}[1]{\small\texttt{#1}}
-\newcommand{\eslmod}[1]{{\smaller\bfseries\texttt{#1}}}
-\newcommand{\eslfunc}[1]{\hyperlink{man:#1}{{\small\texttt{#1}}}}
+\newcommand{\ccode}[1]{{\smaller\texttt{#1}}}
+\newcommand{\emcode}[1]{{\smaller\texttt{\textbf{#1}}}}
+\newcommand{\esldef}[1]{\textbf{#1}}                    % Define/introduce a term (to be indexed)
+\newcommand{\prog}[1]{{\smaller\textsc{#1}}}
+\newcommand{\eslmod}[1]{{\textsf{\textup{\textbf{#1}}}}}
 
-% Eliminate the ones below someday. 
-\newcommand{\cmacro}[1]{\texttt{#1}}
-\newcommand{\cvar}[1]{\texttt{#1}}
-\newcommand{\cvartype}[1]{\texttt{#1}}
-\newcommand{\cstruct}[1]{\texttt{#1}}
-\newcommand{\cfunc}[1]{\texttt{#1}}
-\newcommand{\cfile}[1]{\texttt{#1}}
+% \api* functions are for the API summary tables.
+\newcommand{\apisubhead}[1]{\multicolumn{2}{|c|}{\rule[-0.4em]{0em}{1.5em}\textbf{#1}}}
 
 \def\argmax{\mathop{\mathrm{argmax}}\limits}
 \def\argmin{\mathop{\mathrm{argmin}}\limits}

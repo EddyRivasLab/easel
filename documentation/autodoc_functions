@@ -61,16 +61,20 @@ if ($show_api_table)
 {
     printf("\\begin{table}[hbp]\n");
     printf("\\begin{center}\n");
-    printf("\\begin{tabular}{ll}\\hline\n");
-    printf("\\multicolumn{2}{c}{\\textbf{A API table subheader}}\\\\\n");
+    printf("{\\small\n");
+    printf("\\begin{tabular}{|ll|}\\hline\n");
+    printf("\\apisubhead{subheading example}\\\\\n");
     for ($i = 0; $i < $n; $i++) 
     {
-	printf("\\hyperlink{man:%s()}{\\ccode{%s()}} &  \\\\\n", $function[$i], $function[$i]);
+	printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & Description.\\\\\n",
+	       $function[$i], $pfunction[$i]);
     }
+    printf("\\apisubhead{subheading (with \\eslmod{foo} augmentation)}\\\\\n");
     printf("\\hline\n");
     printf("\\end{tabular}\n");
+    printf("}\n");
     printf("\\end{center}\n");
-    printf("\\caption{The API for foo.}\n");
+    printf("\\caption{The \\eslmod{foo} API.}\n");
     printf("\\label{tbl:foo_api}\n");
     printf("\\end{table}\n");
 }
@@ -79,10 +83,10 @@ else
     print "\\begin{sreapi}\n";
     for ($i = 0; $i < $n; $i++) 
     {
-	printf("\\hypertarget{man:%s()}\n{", $function[$i]);
+	printf("\\hypertarget{func:%s()}\n{", $function[$i]);
 	printf "\\item[%s %s(%s)]",
            	$returntype[$i],
-	        $function[$i],
+	        $pfunction[$i],
 	        $args[$i];
 	printf("}\n");
 
@@ -166,8 +170,9 @@ parse_function_documentation
 	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = &process_comment_text($1); }
 	else {$throws[$n] = ""; }
 
-	# protect _ characters
-	$function[$n]   = &latex_safe($function[$n]);
+	# protect _ characters. $function contains original name, for use as
+        # hypertarget tag; $pfunction contains the protected function name, for output.
+	$pfunction[$n]  = &latex_safe($function[$n]);
 	$returntype[$n] = &latex_safe($returntype[$n]);
 	$args[$n]       = &latex_safe($args[$n]);
 

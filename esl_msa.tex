@@ -1,63 +1,101 @@
-The msa module implements input parsers and output routines for
-multiple sequence alignment files.
-
-\subsection{The msa API}
+The \eslmod{msa} module implements input parsers and output routines
+for multiple sequence alignment files. 
 
 The module implements two objects. A \ccode{ESL\_MSA} holds a multiple
 sequence alignment. A \ccode{ESL\_MSAFILE} is an alignment file,
 opened for input. (No special object is needed for output of an
-alignment file; a normal C \ccode{FILE} stream is used for output.)
+alignment file. A normal C \ccode{FILE} stream is used for output.)
+The API for the \eslmod{msa} module is summarized in
+Table~\ref{tbl:msa_api}.
 
-The API consists of the following functions:
+MSAs are normally stored in an \ccode{ESL\_MSA} as text data.
+Augmentation with the \eslmod{alphabet} module allows MSAs to be input
+as digital data, or converted to and from digital data. 
 
-\vspace{1em}
-\begin{tabular}{ll}\hline
-   \multicolumn{2}{c}{\textbf{open/close of an msa file}}\\
-\ccode{esl\_msafile\_Open()}                & Opens alignment file for input.\\
-\ccode{esl\_msafile\_Close()}               & Closes an open alignment file.\\
-   \multicolumn{2}{c}{\textbf{main msa i/o functions}}\\
-\ccode{esl\_msa\_Read()}                    & Reads an MSA from open file.\\
-\ccode{esl\_msa\_Write()}                   & Writes an MSA to open stream.\\
-   \multicolumn{2}{c}{\textbf{MSA object maintenance}}\\
-\ccode{esl\_msa\_Create()}                  & Creates a new MSA.\\
-\ccode{esl\_msa\_Destroy()}                 & Destroys a created MSA.\\
-\ccode{esl\_msa\_Expand()}                  & Expands allocation of an MSA.\\
-   \multicolumn{2}{c}{\textbf{Format autodetermination}}\\
-\ccode{esl\_msa\_GuessFileFormat()}         & Guesses an input file format.\\
-   \multicolumn{2}{c}{\textbf{Alterations of an MSA}}\\
-\ccode{esl\_msa\_NoGaps()}            & Removes columns containing any gaps.\\
-\ccode{esl\_msa\_MinimGaps()}         & Removes columns containing only gaps.\\
-\ccode{esl\_msa\_SymConvert()}        & A \ccode{tr//} op on the alignment.\\\hline
+Augmentation with the \eslmod{ssi} module allows rapid random access
+of SSI-indexed large MSA database files like Pfam or Rfam. When
+augmented, the \ccode{esl\_msafile\_Open()} and
+\ccode{esl\_msafile\_OpenDigital()} functions automatically open an
+accompanying SSI index, if it is present.
+
+Augmentation with the \eslmod{keyhash} module allows much better
+performance on parsing large Stockholm alignment files, by
+accelerating indexing of some internal data structures.
+
+\begin{table}[hbp]
+\begin{center}
+{\small
+\begin{tabular}{|ll|}\hline
+%
+\apisubhead{the \ccode{ESL\_MSA} object}\\
+\hyperlink{func:esl_msa_Create()}{\ccode{esl\_msa\_Create()}} & 
+   Creates a \ccode{ESL\_MSA}.\\
+\hyperlink{func:esl_msa_Destroy()}{\ccode{esl\_msa\_Destroy()}} & 
+   Frees a \ccode{ESL\_MSA}.\\
+\hyperlink{func:esl_msa_Expand()}{\ccode{esl\_msa\_Expand()}} & 
+   Reallocates a \ccode{ESL\_MSA} for more sequences.\\
+%
+\apisubhead{the \ccode{ESL\_MSAFILE} object}\\
+\hyperlink{func:esl_msafile_Open()}{\ccode{esl\_msafile\_Open()}} & 
+   Opens an MSA file for input.\\
+\hyperlink{func:esl_msafile_Close()}{\ccode{esl\_msafile\_Close()}} & 
+   Closes an open MSA file.\\
+%
+\apisubhead{i/o of multiple alignment data}\\
+\hyperlink{func:esl_msa_Read()}{\ccode{esl\_msa\_Read()}} &
+   Read next MSA from file.\\
+\hyperlink{func:esl_msa_Write()}{\ccode{esl\_msa\_Write()}} & 
+   Write an MSA to file.\\
+\hyperlink{func:esl_msa_GuessFileFormat()}{\ccode{esl\_msa\_GuessFileFormat()}}&
+   Try to determine file format of MSA file.\\
+\apisubhead{manipulating MSAs}\\
+\hyperlink{func:esl_msa_SequenceSubset()}{\ccode{esl\_msa\_SequenceSubset()}}& 
+   Select subset of sequences into a smaller MSA.\\
+\hyperlink{func:esl_msa_MinimGaps()}{\ccode{esl\_msa\_MinimGaps()}} &
+   Remove columns containing all gap symbols.\\
+\hyperlink{func:esl_msa_NoGaps()}{\ccode{esl\_msa\_NoGaps()}} &
+   Remove columns containing any gap symbol.\\
+\hyperlink{func:esl_msa_SymConvert()}{\ccode{esl\_msa\_SymConvert()}}& 
+   Global search/replace of symbols in an MSA.\\
+%
+\apisubhead{digital mode (with \eslmod{alphabet} augmentation)}\\
+\hyperlink{func:esl_msa_CreateDigital()}{\ccode{esl\_msa\_CreateDigital()}}&
+   Create MSA object for digitized storage.\\
+\hyperlink{func:esl_msafile_OpenDigital()}{\ccode{esl\_msafile\_OpenDigital()}}&
+   Open MSA file for digital input.\\
+\hyperlink{func:esl_msa_Digitize()}{\ccode{esl\_msa\_Digitize()}} & 
+   Convert existing MSA to digital.\\
+\hyperlink{func:esl_msa_Textize()}{\ccode{esl\_msa\_Textize()}} & 
+   Convert digital MSA to normal text MSA.\\
+\hline
 \end{tabular}
+}
+\end{center}
+\caption{The \eslmod{msa} API. Requires: \eslmod{easel},
+\eslmod{msa}. Optional augmentation: \eslmod{alphabet},
+\eslmod{keyhash}, \eslmod{ssi}.}
+\label{tbl:msa_api}
+\end{table}
 
 \subsection{Example of using the msa API}
 
-Normally, you will only need to use five main functions from the API.
-
 To read an alignment (or alignments) from a file, you open the file
 with \ccode{esl\_msafile\_Open()} and read the alignment(s) with
-\ccode{esl\_msa\_Read()}; when you're done with an alignment, free it
-with \ccode{esl\_msa\_Destroy()}, and when you're done with the file,
-close it with \ccode{esl\_msafile\_Close()}. 
+\ccode{esl\_msa\_Read()}. When you're done with an alignment, you free
+it with \ccode{esl\_msa\_Destroy()}. When you're done with the file,
+you close it with \ccode{esl\_msafile\_Close()}.
 
-If you want to output an alignment, you open a normal C \ccode{FILE}
-stream, write the alignment(s) with \ccode{esl\_msa\_Write()}, and
-close the stream with C's \ccode{fclose()}.
+To output an alignment, open a normal C \ccode{FILE} stream, write the
+alignment(s) with \ccode{esl\_msa\_Write()}, and close the stream with
+C's \ccode{fclose()}.
 
-You may not need the other functions.  Normally, a new MSA is created
-in the \ccode{esl\_msa\_Read()} call, not by calling
-\ccode{esl\_msa\_Create()} directly, but the \ccode{\_Create()} and
-\ccode{\_Expand()} functions are provided by the API in case you need
-to write your own parser for a new format (and if so, you can follow
-one of the existing parsers in \ccode{msa.c} as an example. Similarly,
-the \ccode{esl\_msa\_GuessFileFormat()} function is normally called
-only from within \ccode{esl\_msafile\_Open()} when you open a new
-alignment file using format autodetection; but it's in the external
-API in case you find it useful for some other purpose (like, checking
-what Easel thinks a file's format is). And finally, the individual i/o
-functions for specific formats are visible in the external API, but
-you would normally just call the main \ccode{\_Read()} and
-\ccode{\_Write()} wrapper functions instead.
+You may not need the other functions in the object and i/o API, unless
+you are writing your own routine for creating
+MSAs. \ccode{esl\_msa\_Read()} calls the \ccode{esl\_msa\_Create()}
+and \ccode{esl\_msa\_Expand()} functions as part of its
+work. \ccode{esl\_msafile\_Open()} calls
+\ccode{esl\_msa\_GuessFileFormat()} in order to do format
+autodetection.
 
 Anyway, on to an example. The code bloats up a bit here because of
 error handling. Lots of things can go wrong with input from a user's
@@ -67,7 +105,7 @@ a file, and outputs them in Stockholm format:
 
 \input{cexcerpts/msa_example}
 
-Some things that are special about the API are worth noting here.
+Some things that are special about the API are worth noting.
 
 \begin{enumerate}
 \item The format of the alignment file can either be automatically
@@ -90,21 +128,24 @@ Some things that are special about the API are worth noting here.
       the error occurred, the text that was on that line, and a short
       error message about what was wrong with it, respectively.
 
-\item The MSA module can be optionally \emph{augmented} by the keyhash
-      module at compile-time. This improves the speed of parsing large 
-      Stockholm format alignments.
+\item Note the example of \eslmod{keyhash} augmentation, just by
+      including \ccode{esl\_keyhash.h} header. The effects of
+      \eslmod{keyhash} augmentation are all internal the \eslmod{msa}
+      module, rather than providing any new functions.
 \end{enumerate}
 
-\subsection{Accessing alignment information in the MSA object}
+\subsection{Accessing alignment data}
 
 The information in the \ccode{ESL\_MSA} object is meant to be accessed
 directly, so you need to know what it contains. This object is defined
-and documented in \ccode{msa.h}. It contains various information, as
-follows:
+and documented in \ccode{esl\_msa.h}. It contains various information,
+as follows:
 
 \subsubsection{Important/mandatory information}
 
-The following information is always available in an MSA.
+The following information is always available in an MSA (except
+digital-mode alignments, which replace \ccode{aseq[][]} with
+\ccode{ax[][]}, as described later):
 
 \input{cexcerpts/msa_mandatory}
 
@@ -153,8 +194,7 @@ recognized by the MSA module. This information is stored so that it
 may be regurgitated if the application needs to faithfully output the
 entire alignment file, even the bits that it didn't understand. If you
 need to access unparsed Stockholm tags, see the comments in
-\ccode{msa.h}.
-
+\ccode{esl\_msa.h}.
 
 \subsection{Accepted formats}
 
@@ -163,21 +203,44 @@ Currently, the MSA module only parses Stockholm format.
 Stockholm format and other alignment formats are documented in a later
 chapter.
 
-\subsection{Reading from a pipe from compressed files}
+\subsection{Digital versus text representation}
+
+The multiple alignment is normally stored as ASCII text symbols in a
+2D array \ccode{char ** aseq[0..nseq-1][0..alen-1]}. Optionally, when
+augmented with the \eslmod{alphabet} module, the multiple alignment
+may alternatively be stored as digital data in an Easel internal
+alphabet.
+
+An \ccode{ESL\_MSA} may therefore be in either \esldef{text mode} or
+\esldef{digital mode}. Text mode is the default behavior. An
+\ccode{ESL\_MSA} is in digital mode if its \ccode{eslMSA\_DIGITAL} flag
+is up (\ccode{msa->flags \& eslMSA\_DIGITAL} is \ccode{TRUE}). When the
+alignment data are in digital mode, they are stored internally as a 2D
+digital sequence array \ccode{ESL\_DSQ ** ax[0..nseq-1][1..alen]}, and
+the \ccode{aseq} field is \ccode{NULL}.
+
+To use a digital internal representation, it is most efficient to read
+directly as digital data, using a \ccode{esl\_msafile\_OpenDigital()}
+call in place of \ccode{esl\_msafile\_Open()}. You can also change the
+mode of an MSA from text to digital using
+\ccode{esl\_msa\_Digitize()}, and digital to text using
+\ccode{esl\_msa\_Textize()}.
+
+\subsection{Reading from stdin or gzip-compressed files}
 
 The module can read compressed alignment files.  If the
-\ccode{filename} passed to \ccode{esl\_msafile\_Open} ends in
+\ccode{filename} passed to \ccode{esl\_msafile\_Open()} ends in
 \ccode{.gz}, the file is assumed to be compressed with gzip. Instead
-of opening it normally, \ccode{esl\_msafile\_Open} opens it as a pipe
+of opening it normally, \ccode{esl\_msafile\_Open()} opens it as a pipe
 through \ccode{gunzip -dc}. Obviously this only works on a POSIX
 system -- pipes have to work, specifically the \ccode{popen()} system
 call -- and \ccode{gunzip} must be installed and in the PATH.
 
 The module can also read from a standard input pipe. If the
-\ccode{filename} passed to \ccode{esl\_msafile\_Open} is \ccode{-},
+\ccode{filename} passed to \ccode{esl\_msafile\_Open()} is \ccode{-},
 the alignment is read from \ccode{STDIN} rather than from a file.
 
 Because of the way format autodetection works, you cannot use it when
 reading from a pipe or compressed file. The application must know the
 appropriate format and pass that code it calls
-\ccode{esl\_msafile\_Open}.
+\ccode{esl\_msafile\_Open()}.

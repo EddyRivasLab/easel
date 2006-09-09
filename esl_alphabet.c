@@ -2,7 +2,7 @@
  * Implements the standard digitized alphabets for biosequences.
  * 
  *    1. ESL_ALPHABET object  - a digital alphabet
- *    2. Digitized sequences (char *dsq)
+ *    2. Digitized sequences (ESL_DSQ *)
  *    3. Other routines in the API
  *    4. Example code
  *    5. Test driver
@@ -325,7 +325,7 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
 
   for (lc = 'a'; lc <= 'z'; lc++)
     {
-      uc = lc; toupper(uc);
+      uc = toupper(lc);
 
       if      (esl_abc_CIsValid(a, lc) && ! esl_abc_CIsValid(a, uc)) a->inmap[uc] = a->inmap[lc];
       else if (esl_abc_CIsValid(a, uc) && ! esl_abc_CIsValid(a, lc)) a->inmap[lc] = a->inmap[uc];
@@ -478,13 +478,70 @@ esl_abc_Textize(ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char *seq)
   
   for (i = 0; i < L; i++)
     {
-      if (esl_abc_XIsValid(a, dsq[i+1]) != eslOK) 
+      if (! esl_abc_XIsValid(a, dsq[i+1]))
 	ESL_ERROR(eslECORRUPT, "bad code in dsq");
       seq[i] = a->sym[dsq[i+1]];
     }
   seq[i] = '\0';
   return eslOK;
 }
+
+
+/* Function:  esl_abc_TextizeN()
+ * Incept:    SRE, Tue Sep  5 09:28:38 2006 [Janelia] STL11/54.
+ *
+ * Purpose:   Similar in semantics to <strncpy()>, this procedure takes
+ *            a window of <L> residues in a digitized sequence
+ *            starting at the residue pointed to by <dptr>,
+ *            converts them to ASCII text representation, and 
+ *            copies them into the buffer <buf>.
+ *            
+ *            <buf> must be at least <L> residues long; <L+1>, if the
+ *            caller needs to NUL-terminate it.
+ *            
+ *            If a sentinel byte is encountered in the digitized
+ *            sequence before <L> residues have been copied, <buf> is
+ *            NUL-terminated there. Otherwise, like <strncpy()>, <buf>
+ *            will not be NUL-terminated.
+ *            
+ *            Note that because digital sequences are indexed <1..N>,
+ *            not <0..N-1>, the caller must be careful about
+ *            off-by-one errors in <dptr>. For example, to copy from
+ *            the first residue of a digital sequence <dsq>, you must
+ *            pass <dptr=dsq+1>, not <dptr=dsq>. The text in <buf>
+ *            on the other hand is a normal C string indexed <0..L-1>.
+ *
+ * Args:      a     - reference to an internal alphabet
+ *            dptr  - ptr to starting residue in a digital sequence
+ *            L     - number of residues to convert and copy
+ *            buf   - text buffer to store the <L> converted residues in
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslECORRUPT> if something's wrong with <dsq>, like a bogus
+ *            symbol.
+ */
+int
+esl_abc_TextizeN(ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf)
+{
+  int i;
+
+  for (i = 0; i < L; i++)
+    {
+      if (dptr[i] == eslDSQ_SENTINEL) 
+	{ 
+	  buf[i] = '\0';
+	  return eslOK;
+	}
+
+      if (! esl_abc_XIsValid(a, dptr[i]))
+	ESL_ERROR(eslECORRUPT, "bad code in dsq");
+
+      buf[i] = a->sym[dptr[i]];
+    }
+  return eslOK;
+}
+
 
 /* Function:  esl_abc_dsqdup()
  * Incept:    SRE, Tue Aug 29 13:51:05 2006 [Janelia]
@@ -521,11 +578,13 @@ esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
 
   ESL_ALLOC(new, sizeof(ESL_DSQ) * (L+2));
   memcpy(new, dsq, sizeof(ESL_DSQ) * (L+2));
+  
+  *ret_dup = new;
   return eslOK;
 
  FAILURE:
   if (new     != NULL) free(new);
-  if (ret_dup != NULL) *ret_dup = NULL;
+  *ret_dup = NULL;
   return status;
 }
 
@@ -611,8 +670,11 @@ esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
    */
   if (n == 0) { *L = newL; return eslOK; } 
 
-  if (*dsq == NULL) ESL_ALLOC(*dsq, sizeof(ESL_DSQ)     * (n+2));
-  else              ESL_RALLOC(*dsq, p, sizeof(ESL_DSQ) * (newL+n+2)); /* most we'll need */
+  if (*dsq == NULL) {		/* an entirely new dsq must be allocated *and* initialized with left sentinel. */
+    ESL_ALLOC(*dsq, sizeof(ESL_DSQ)     * (n+2));
+    (*dsq)[0] = eslDSQ_SENTINEL;
+  } else			/* else, existing dsq is just reallocated; left sentinel already in place. */
+    ESL_RALLOC(*dsq, p, sizeof(ESL_DSQ) * (newL+n+2)); /* most we'll need */
 
   /* Watch these coords. Start in the 0..n-1 text string at 0;
    * start in the 1..L dsq at L+1, overwriting its terminal 
@@ -623,16 +685,16 @@ esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
     {
       x = a->inmap[(int) s[cpos]];
       if (esl_abc_XIsValid(a, x))
-	*dsq[xpos++] = x;
+	(*dsq)[xpos++] = x;
       else if (x == eslDSQ_IGNORED)
 	;
       else 
 	{
-	  *dsq[xpos++] = esl_abc_XGetUnknown(a);
+	  (*dsq)[xpos++] = esl_abc_XGetUnknown(a);
 	  status = eslEINVAL;
 	}
     }
-  *dsq[xpos] = eslDSQ_SENTINEL;
+  (*dsq)[xpos] = eslDSQ_SENTINEL;
   *L = xpos-1;
   return status;
 
@@ -960,7 +1022,7 @@ esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf)
 
   for (i = 0; i < L; i++)
     {
-      if (esl_abc_CIsValid(a, seq[i]) != eslOK)
+      if (! esl_abc_CIsValid(a, seq[i]))
 	{
 	  if (firstpos == -1) firstpos = i;
 	  nbad++;
@@ -1050,7 +1112,7 @@ int main(void)
  * 5. Test driver.
  *****************************************************************/
 
-/* gcc -g -Wall -I. -L. -o testdriver -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel -lm
+/* gcc -g -Wall -I. -L. -o test -DeslALPHABET_TESTDRIVE esl_alphabet.c easel.c -lm
  */
 #ifdef eslALPHABET_TESTDRIVE
 static void basic_examples(void);
@@ -1076,8 +1138,8 @@ static void
 basic_examples(void)
 {
   ESL_ALPHABET  *a1, *a2;
-  char           dnaseq[] = "GARYTCN";
-  char           aaseq[]  = "EFILQZU";
+  char           dnaseq[] = "GARYtcN";
+  char           aaseq[]  = "EFILqzU";
   int            L;
   ESL_DSQ       *dsq, *dsq2;
   int            i;
@@ -1085,11 +1147,11 @@ basic_examples(void)
   /* Example 1. 
    * Create a DNA alphabet; digitize a DNA sequence.
    */
-  a1 = esl_alphabet_Create(eslDNA);
+  if ((a1 = esl_alphabet_Create(eslDNA)) == NULL)      abort();
   L  = strlen(dnaseq);
-  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)
-    esl_fatal("malloc failed");
-  esl_abc_Digitize(a1, dnaseq, L, dsq);
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) abort();
+  if (esl_abc_Digitize(a1, dnaseq, L, dsq) != eslOK)   abort();
+  if (esl_abc_dsqlen(dsq) != L)                        abort();
   esl_alphabet_Destroy(a1);
 
   /* Example 2. 
@@ -1097,10 +1159,9 @@ basic_examples(void)
    * make sure it is equal to the dsq above (so T=U were
    * correctly synonymous on input).
    */
-  a2 = esl_alphabet_Create(eslRNA);
-  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)
-    esl_fatal("malloc failed");
-  esl_abc_Digitize(a2, dnaseq, L, dsq2);
+  if ((a2 = esl_alphabet_Create(eslRNA)) == NULL)       abort();
+  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) abort();
+  if (esl_abc_Digitize(a2, dnaseq, L, dsq2) != eslOK)   abort();
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
   esl_alphabet_Destroy(a2);
@@ -1109,20 +1170,20 @@ basic_examples(void)
    * Create an amino alphabet; digitize a protein sequence, 
    * while reusing memory already allocated in dsq.
    */
-  a1 = esl_alphabet_Create(eslAMINO);
-  esl_abc_Digitize(a1, aaseq, L, dsq);
+  if ((a1 = esl_alphabet_Create(eslAMINO)) == NULL)     abort();
+  if (esl_abc_Digitize(a1, aaseq, L, dsq) != eslOK)     abort();
   
   /* Example 4.
    * Create a custom alphabet almost the same as the amino
    * acid alphabet; digitize the same protein seq, reusing
    * memory in dsq2; check that seqs are identical.
    */
-  a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28);
-  esl_alphabet_SetSynonym(a2, 'U', 'S');     /* read selenocys U as serine S */
-  esl_alphabet_SetCaseInsensitive(a2);       /* allow lower case input */
-  esl_alphabet_SetDegeneracy(a2, 'Z', "QE");
+  if ((a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28)) == NULL) abort();
+  if (esl_alphabet_SetSynonym(a2, 'U', 'S') != eslOK)     abort();  /* read selenocys U as serine S */
+  if (esl_alphabet_SetCaseInsensitive(a2)   != eslOK)     abort();  /* allow lower case input */
+  if (esl_alphabet_SetDegeneracy(a2, 'Z', "QE") != eslOK) abort();
 
-  esl_abc_Digitize(a2, aaseq, L, dsq2);
+  if (esl_abc_Digitize(a2, aaseq, L, dsq2) != eslOK)      abort();
   for (i = 1; i <= L; i++)
     if (dsq[i] != dsq2[i]) abort();
 

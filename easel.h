@@ -142,6 +142,7 @@ extern void esl_error(int code, char *file, int line, char *format, ...);
 extern void esl_error_SetHandler(esl_error_handler_f);
 extern void esl_error_ResetDefaultHandler(void);
 extern void esl_fatal(char *format, ...);
+extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
 
 extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
@@ -168,7 +169,7 @@ extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
 extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,
 			    FILE **ret_fp, char **ret_path);
-
+extern int  esl_tmpfile(char *template, FILE **ret_fp);
 
 /* Making sure TRUE/FALSE are defined, for convenience
  */
@@ -271,9 +272,5 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
-
-#ifndef eslAUGMENT_ALPHABET
-#define ESL_ALPHABET void
-#endif
 
 #endif /*eslEASEL_INCLUDED*/

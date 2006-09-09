@@ -58,7 +58,7 @@ searching the \ccode{esl\_foo.c} file for the tag
    % cc -o example -L. -I. -DeslFOO_EXAMPLE esl_foo.c -leasel -lm
 \end{cchunk}
 
-You might need to replace the standard $\ccode{cc}$ with a different
+You might need to replace the standard \ccode{cc} with a different
 compiler name, depending on your system. Linking to the standard math
 library (\ccode{-lm}) may not be necessary, depending on what module
 you're compiling, but it won't hurt. The \ccode{-L.} and \ccode{-I.}
@@ -215,27 +215,27 @@ code design, focusing each module around a common datatype.
 \begin{table}
 \begin{tabular}{lll}\hline
 \textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
-\ccode{ESL\_ALPHABET}    & \cfile{alphabet}        & Digitized sequence alphabet\\
-\ccode{ESL\_DMATRIX}     & \cfile{dmatrix}         & 2D double-precision matrix for linear algebra \\
-\ccode{ESL\_FILEPARSER}  & \cfile{fileparser}      & Token-based input file parser\\
-\ccode{ESL\_GETOPTS}     & \cfile{getopts}         & Application configuration state\\
-\ccode{ESL\_HISTOGRAM}   & \cfile{histogram}       & Collecting/fitting data histograms\\
-\ccode{ESL\_HYPEREXP}    & \cfile{hyperexp}        & Hyperexponential distribution\\
-\ccode{ESL\_KEYHASH}     & \cfile{keyhash}         & Keyword hash table\\
-\ccode{ESL\_MIXDCHLET}   & \cfile{dirichlet}       & Mixture Dirichlet prior\\
-\ccode{ESL\_MIXGEV}      & \cfile{mixgev}          & Mixture generalized EVD\\
-\ccode{ESL\_MSA}         & \cfile{msa}             & Multiple sequence alignment\\
-\ccode{ESL\_MSAFILE}     & \cfile{msa}             & Multiple sequence alignment file parser\\
-\ccode{ESL\_NEWSSI}      & \cfile{ssi}             & New SSI index being created\\
-\ccode{ESL\_OPTIONS}     & \cfile{getopts}         & Configuration of a command-line option\\
-\ccode{ESL\_PERMUTATION} & \cfile{dmatrix}         & Permutation matrix used in linear algebra\\
-\ccode{ESL\_RANDOMNESS}  & \cfile{random}          & Random number generator\\
-\ccode{ESL\_REGEXP}      & \cfile{regexp}          & Regular expression pattern-matching machine\\
-\ccode{ESL\_SQ}          & \cfile{sqio}            & DNA/RNA/protein sequence data\\
-\ccode{ESL\_SQFILE}      & \cfile{sqio}            & Biosequence file parser (unaligned)\\
-\ccode{ESL\_SSI}         & \cfile{ssi}             & An SSI index being used\\
-\ccode{ESL\_STACK}       & \cfile{stack}           & Pushdown stack\\
-\ccode{ESL\_STOPWATCH}   & \cfile{stopwatch}       & Timer for parts of a program\\
+\ccode{ESL\_ALPHABET}    & \eslmod{alphabet}        & Digitized sequence alphabet\\
+\ccode{ESL\_DMATRIX}     & \eslmod{dmatrix}         & 2D double-precision matrix for linear algebra \\
+\ccode{ESL\_FILEPARSER}  & \eslmod{fileparser}      & Token-based input file parser\\
+\ccode{ESL\_GETOPTS}     & \eslmod{getopts}         & Application configuration state\\
+\ccode{ESL\_HISTOGRAM}   & \eslmod{histogram}       & Collecting/fitting data histograms\\
+\ccode{ESL\_HYPEREXP}    & \eslmod{hyperexp}        & Hyperexponential distribution\\
+\ccode{ESL\_KEYHASH}     & \eslmod{keyhash}         & Keyword hash table\\
+\ccode{ESL\_MIXDCHLET}   & \eslmod{dirichlet}       & Mixture Dirichlet prior\\
+\ccode{ESL\_MIXGEV}      & \eslmod{mixgev}          & Mixture generalized EVD\\
+\ccode{ESL\_MSA}         & \eslmod{msa}             & Multiple sequence alignment\\
+\ccode{ESL\_MSAFILE}     & \eslmod{msa}             & Multiple sequence alignment file parser\\
+\ccode{ESL\_NEWSSI}      & \eslmod{ssi}             & New SSI index being created\\
+\ccode{ESL\_OPTIONS}     & \eslmod{getopts}         & Configuration of a command-line option\\
+\ccode{ESL\_PERMUTATION} & \eslmod{dmatrix}         & Permutation matrix used in linear algebra\\
+\ccode{ESL\_RANDOMNESS}  & \eslmod{random}          & Random number generator\\
+\ccode{ESL\_REGEXP}      & \eslmod{regexp}          & Regular expression pattern-matching machine\\
+\ccode{ESL\_SQ}          & \eslmod{sqio}            & DNA/RNA/protein sequence data\\
+\ccode{ESL\_SQFILE}      & \eslmod{sqio}            & Biosequence file parser (unaligned)\\
+\ccode{ESL\_SSI}         & \eslmod{ssi}             & An SSI index being used\\
+\ccode{ESL\_STACK}       & \eslmod{stack}           & Pushdown stack\\
+\ccode{ESL\_STOPWATCH}   & \eslmod{stopwatch}       & Timer for parts of a program\\
 \hline
 \end{tabular}
 \caption{Overview of Easel's objects.}
@@ -431,23 +431,39 @@ identity matrix).
 
 \section{Discipline of writing Easel modules}
 
+In the language below, some words have specific meanings. \emph{Must}
+means a true requirement: noncompliance means the code is
+broken. \emph{Shall} means a requirement for \emph{new} Easel code,
+including revisions to existing modules, though it is understood that
+older Easel code is ``grandfathered in'' and may not currently meet
+this spec. (The analogy is in how housing construction codes evolve
+and improve. New housing codes don't force all old construction to be
+immediately renovated to meet the new requirements, but it does force
+all new homes and renovations to meet current requirements. Thus, over
+time, housing evolves and improves.)  \emph{Should} means a best
+practice, the preferred or recommended choice among compliant
+alternatives. \emph{May} means a non-preferred or less frequent choice
+among compliant alternatives.\footnote{If you're familiar with
+RFC2119, it considers ``must'', ``required'', and ``shall'' to be
+equivalent. It is designed for static specifications. It does not
+define a term suitable for evolving a specification and grandfathering
+in older code.}
 
 \subsection{API}
 
 \begin{enumerate}
-\item Exposed function names obey Easel conventions.
+\item Exposed function names shall obey Easel conventions.
 
-\item All \ccode{ret\_*} pointers for retrieving info from 
-      a function are implemented as optional.
+\item All \ccode{ret\_*} pointers for retrieving info from a function
+      shall be optional.
 
-\item On any error (returned or thrown), a function releases any
+\item On any error (returned or thrown), a function must release any
       memory it has allocated, and all \ccode{ret\_*} pointers are
       \ccode{NULL} or 0, depending on their type.
 
-\item Any function that calls another Easel function must 
-      catch any thrown errors. Within Easel, we
-      can't assume that the error handler is set to be a fatal
-      one.
+\item Any Easel function that calls another Easel function must catch
+      any thrown errors. Within the library, we can't assume that the
+      error handler is set to be a fatal one.
 \end{enumerate}
 
 
@@ -467,15 +483,64 @@ identity matrix).
       summarizing the complete Easel function set.
 \end{enumerate}
 
+\subsection{Example code}
 
-\subsection{Testing}
+\begin{enumerate}
+\item Every module has an example driver that exercises the API in
+      some simple way (and, in the process, provides a ``hello world''
+      level example of using the module).
+\end{enumerate}
+
+\subsection{Test code}
+
+\footnote{The current poster child of test code is the \eslmod{msa}
+module, as of 8 Sept 2006, but even it is not fully compliant; it does
+not exercise all augmentations yet.}
 
 \begin{enumerate}
 
-\item Every module has a test driver which exercises the API in some
-      simple way (and, in the process, provides a ``hello world''
-      level example of using the module).
+\item Each module shall have a test driver \ccode{main()}, compiled by 
+      a \ccode{-DeslFOO\_TESTDRIVE} flag.
 
+\item The testdriver program must return \ccode{eslOK} (zero, a normal
+      UNIX success code) if tests succeed, and non-zero on failure.
+
+\item The testdriver shall work in minimal standalone mode, 
+      standalone mode with any or all possible augmentations, 
+      or in full library. Example compile lines:
+\begin{cchunk}
+      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE esl_msa.c easel.c
+      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c
+      % gcc -g -Wall -o test -I. -L. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+\end{cchunk}
+
+\item The testdriver shall respond to a \ccode{eslTEST\_THROWING}
+      compile-time definition by registering a nonfatal error handler,
+      as in:
+\begin{cchunk}
+      #ifdef eslTEST_THROWING
+        esl_error_SetHandler(&esl_nonfatal_handler);
+      #endif
+\end{cchunk}
+
+\item Upon detecting a failure, the testdriver shall call
+      \ccode{abort()} as soon as possible to facilitate
+      tracing/debugging (or equivalently, it uses
+      \ccode{assert()}). Garbage collection (including memory, opened
+      files, or created temporary files) is not required, and may be
+      counterproductive -- it may be advantageous for debugging
+      purposes to leave the temporary file for a failed test on disk,
+      for debugging.
+
+\item Each function, procedure, and macro in the exposed API shall
+      have a unit test procedure. A unit test for
+      \ccode{esl\_foo\_Baz()} is named (\ccode{static int
+      utest\_Baz()}. A unit test returns \ccode{eslOK} on success.  On
+      detecting a failure, a unit test should call \ccode{abort()}
+      immediately to facilitate tracing/debugging; less preferably, a
+      unit test may return \ccode{eslFAIL} to the main test driver.
+
+\item The testdriver shall exercise all possible augmentations.
 \end{enumerate}
 
 
