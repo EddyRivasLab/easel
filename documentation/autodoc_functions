@@ -18,6 +18,7 @@
 #      (defined as sre-insert-my-function-header() in .emacs LISP)
 #
 #             /* Function:  function()
+#              * Synopsis:  A short (half-line) description.
 #              * Incept:    SRE, Tue Nov 30 19:36:17 2004 [St. Louis]
 #              *
 #              * Purpose:   Given an <argument>, carry out an important
@@ -37,7 +38,7 @@
 #                 etc.
 #
 #     The Function and Purpose blocks are required.
-#     Only the Function, Purpose, Returns, and Throws blocks are used.  
+#     Only the Function, Synopsis, Purpose, Returns, and Throws blocks are used.  
 # 
 #     The exact spacing of the beginning of each line is important;
 #     for example, the parser depends on seeing "/* Function" at the beginning,
@@ -66,8 +67,13 @@ if ($show_api_table)
     printf("\\apisubhead{subheading example}\\\\\n");
     for ($i = 0; $i < $n; $i++) 
     {
-	printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & Description.\\\\\n",
-	       $function[$i], $pfunction[$i]);
+	if ($synopsis[$i] ne "") {
+	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & %s\\\\\n",
+		   $function[$i], $pfunction[$i], $synopsis[$i]);
+	} else {
+	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & Description.\\\\\n",
+		   $function[$i], $pfunction[$i]);
+	}
     }
     printf("\\apisubhead{subheading (with \\eslmod{foo} augmentation)}\\\\\n");
     printf("\\hline\n");
@@ -107,10 +113,12 @@ exit;
 #           function documentation. Returns <n>, the number of 
 #           documented functions found; and it populates the following
 #           global arrays:
-#              function    - name of the function
+#              function    - verbatim name of the function 
+#              pfunction   - name of the function, protected for LaTeX (\_ not _, for example)
 #              returntype  - C return type; for example, "int"
 #              args        - C argument list, from the func def'n
 #              purpose     - Text documenting the function
+#              synopsis    - OPTIONAL: short half-line description, else ""
 #              incept      - OPTIONAL: date/name/place, else ""
 #              argdocs     - OPTIONAL: table documenting the args, else ""
 #              returns     - OPTIONAL: documentation of returned
@@ -154,9 +162,11 @@ parse_function_documentation
 	if ($first_funcname =~ /^(\S+)\(\)/) { $first_funcname = $1; }
 	if ($first_funcname ne $function[$n]) { die "parse error; $first_funcname != $function[$n]";}
 
-	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = &process_comment_text($1); }
-	else {$incept[$nfuncs] = ""; }
+	if ($comment =~ m|\n@\* Synopsis:\s*(.+?)\n@\*|ms) { $synopsis[$n] = &process_comment_text($1); }
+	else {$synopsis[$n] = ""; }
 
+	if ($comment =~ m|\n@\* Incept:\s*(.+?)\n@\*|ms) { $incept[$n] = &process_comment_text($1); }
+	else {$incept[$n] = ""; }
 
 	if ($comment =~ m|\n@\* Purpose:\s*(.+?)\n@\*|ms) { $purpose[$n] = &process_comment_text($1); }
 	else {next;}
@@ -165,7 +175,7 @@ parse_function_documentation
 	else {$argdocs = ""; }
     
 	if ($comment =~ m|\n@\* Returns:\s*(.+?)\n@\*|ms) { $returns[$n] = &process_comment_text($1); }
-	else {$returns[$nfuncs] = ""; }
+	else {$returns[$n] = ""; }
 
 	if ($comment =~ m|\n@\* Throws:\s*(.+?)\n@\*|ms) { $throws[$n] = &process_comment_text($1); }
 	else {$throws[$n] = ""; }

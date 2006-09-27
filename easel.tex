@@ -314,24 +314,32 @@ error?}\\ \hspace*{\fill} -- Franz Kafka, \emph{The Castle}
 
 \subsection{Input maps}
 
-Manipulating the ASCII strings that represent biosequence data
-requires frequent massaging. An input file might have sequence data
-mixed up with numerical coordinates and punctuation for human
-readability. We might want to distinguish characters that represent
-residues (that should be input) from characters for coordinates and
-punctuation (that should be ignored) from characters that aren't
-supposed to be present at all (that should trigger an error or
-warning). Also, in representing a sequence string internally, we might
-want to map the symbols in an input string onto a smaller internal
-alphabet. For example, we might want to be case-insensitive (allow
-both T and t to represent thymine), or we might want to allow an input
-T to mean U in a program that deals with RNA sequence analysis, so
-that input files can either contain RNA or DNA sequence data.  Easel
-reuses a concept of an \esldef{input map} in routines involved in
-reading and representing input character sequences, for example in the
-\eslmod{alphabet}, \eslmod{sqio}, and \eslmod{msa} modules. An input
-map is a many-to-one mapping of the 128 7-bit ASCII symbol codes
-(0..127) onto new ASCII symbol codes.
+An \esldef{input map} is for converting input ASCII symbols to
+internal encodings. It is a many-to-one mapping of the 128 7-bit ASCII
+symbol codes (0..127) onto new ASCII symbol codes. It is defined as
+an \ccode{unsigned char inmap[128]} or a \ccode{unsigned char *}
+allocated for 128 entries.
 
-An input map is defined as an \ccode{unsigned char inmap[128]} or a
-\ccode{unsigned char *} allocated for 128 entries. 
+Input maps are used in two contexts: for filtering ASCII text input
+into internal text strings, and for converting ASCII input or internal
+ASCII strings into internal digitized sequences (an \eslmod{alphabet}
+object contains an input map that it uses for digitization).
+
+The rationale for input maps is the following. The ASCII strings that
+represent biosequence data require frequent massaging. An input file
+might have sequence data mixed up with numerical coordinates and
+punctuation for human readability. We might want to distinguish
+characters that represent residues (that should be input) from
+characters for coordinates and punctuation (that should be ignored)
+from characters that aren't supposed to be present at all (that should
+trigger an error or warning). Also, in representing a sequence string
+internally, we might want to map the symbols in an input string onto a
+smaller internal alphabet. For example, we might want to be
+case-insensitive (allow both T and t to represent thymine), or we
+might want to allow an input T to mean U in a program that deals with
+RNA sequence analysis, so that input files can either contain RNA or
+DNA sequence data.  Easel reuses the input map concept in routines
+involved in reading and representing input character sequences, for
+example in the \eslmod{alphabet}, \eslmod{sqio}, and \eslmod{msa}
+modules.
+

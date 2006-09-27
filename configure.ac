@@ -116,6 +116,7 @@ AC_ARG_ENABLE(modular,
   [
     AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
+    AC_DEFINE(eslAUGMENT_DMATRIX)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
     AC_DEFINE(eslAUGMENT_GEV)
     AC_DEFINE(eslAUGMENT_GUMBEL)

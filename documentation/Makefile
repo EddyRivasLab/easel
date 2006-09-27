@@ -1,13 +1,25 @@
 CEXCERPT = ../../ssdk/cexcerpt
 
-
-# Each module should have .tex documentation of its API,
-# in addition to the .c and .h files. The list of modules
-# that actually comply follows:
+# Each module in this list obeys three documentation conventions:
 #
-APITEX =  easel\
+#  1. It has a .tex file documenting its API.
+#     These are handwritten, in the source directory with
+#     the .c and .h files.
+#
+#  2. It can be processed with autodoc_functions to
+#     produce the function documentation appendix to 
+#     each module. These appendices go to the 
+#     autotext/ subdir.
+#
+#  3. It can be processed with cexcerpts to extract 
+#     verbatim code fragments for inclusion in the 
+#     documentation. These fragments go to the cexcerpts/
+#     subdir.
+#
+MODULES = easel\
 	  esl_alphabet\
 	  esl_dirichlet\
+	  esl_distance\
 	  esl_dmatrix\
 	  esl_exponential\
 	  esl_fileparser\
@@ -27,36 +39,7 @@ APITEX =  easel\
 	  esl_stack\
 	  esl_stopwatch\
 	  esl_stretchexp\
-	  esl_vectorops\
-	  esl_weibull\
-	  esl_wuss
-
-# Each module should be able to be autodocumented, converting
-# its function headers to a .tex appendix file. The list of
-# modules that actually comply follows:
-#
-AUTOTEX = easel\
-	  esl_alphabet\
-	  esl_dirichlet\
-	  esl_dmatrix\
-	  esl_exponential\
-	  esl_fileparser\
-	  esl_gamma\
-	  esl_getopts\
-	  esl_gev\
-	  esl_gumbel\
-	  esl_histogram\
-	  esl_hyperexp\
-	  esl_keyhash\
-	  esl_mixgev\
-	  esl_msa\
-	  esl_random\
-	  esl_regexp\
-	  esl_sqio\
-	  esl_ssi\
-	  esl_stack\
-	  esl_stopwatch\
-	  esl_stretchexp\
+	  esl_tree\
 	  esl_vectorops\
 	  esl_weibull\
 	  esl_wuss
@@ -71,13 +54,13 @@ pdf:
 
 autodoc:
 	mkdir -p autotext
-	for module in ${AUTOTEX}; do\
+	for module in ${MODULES}; do\
 	   ./autodoc_functions ../$$module.c >  autotext/$${module}_functions.tex;\
 	done
 
 cexcerpt:
 	mkdir -p cexcerpts
-	for module in ${AUTOTEX}; do\
+	for module in ${MODULES}; do\
 	   ${CEXCERPT} ../$$module.c cexcerpts;\
 	   ${CEXCERPT} ../$$module.h cexcerpts;\
 	done
@@ -86,6 +69,7 @@ clean:
 	-rm *~ TAGS
 	-rm main.log main.out main.pdf main.aux main.toc 
 	-rm main.bbl main.blg main.brf
+	-rm typography.log typography.aux typography.out
 	-rm autotext/*.tex
 
 distclean:

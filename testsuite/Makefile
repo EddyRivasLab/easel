@@ -23,4 +23,8 @@ check:
 	./sqc 2 testsuite.sqc .
 
 clean:
+	-rm -f testdrive-*
 	-rm -f *.o *~ ${PROGS} testdriver
+
+distclean:
+	make clean

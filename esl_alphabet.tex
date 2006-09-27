@@ -68,12 +68,14 @@ sequence \ccode{dsq} is an \ccode{unsigned char *} array of length
 \ccode{esl\_alphabet\_Create()}       & Create alphabet of standard type. \\
 \ccode{esl\_alphabet\_CreateCustom()} & Create a custom alphabet. \\
 \ccode{esl\_alphabet\_SetEquiv()}     & Define an equivalent symbol. \\
-\ccode{esl\_alphabet\_SetCaseInsensitive()} & Make a custom alphabet case insensitive. \\
+\ccode{esl\_alphabet\_SetCaseInsensitive()} & Make an alphabet's input map case insensitive. \\
 \ccode{esl\_alphabet\_SetDegeneracy()} & Define degenerate symbol in custom alphabet. \\
 \ccode{esl\_alphabet\_Destroy()}      & Frees an alphabet object. \\
    \multicolumn{2}{c}{\textbf{Digitized sequences}}\\
-\ccode{esl\_dsq\_Create()}       & Allocate and create a new \ccode{dsq}. \\
-\ccode{esl\_dsq\_Set()}          & Digitize a sequence into existing \ccode{dsq} space. \\
+\ccode{esl\_abc\_CreateDsq()}         & Digitize a sequence into new \ccode{dsq} space. \\
+\ccode{esl\_abc\_Digitize()}          & Digitize a sequence into existing \ccode{dsq} space. \\
+
+
    \multicolumn{2}{c}{\textbf{Other functions}}\\
 \ccode{esl\_abc\_\{I,F,D\}AvgScore()}  & Calculate avg score of degenerate residue.\\
 \ccode{esl\_abc\_\{I,F,D\}ExpectScore()} & Calculate expected score of degenerate residue.\\

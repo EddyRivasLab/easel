@@ -793,7 +793,8 @@ esl_sqio_FormatCode(char *fmtstring)
 }
 
 
-/* Function:  esl_sqio_FormatString()
+/* Function:  esl_sqio_DescribeFormat()
+ * Synopsis:  Returns descriptive string for file format code.
  * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
  *
  * Purpose:   Given a format code <fmt>, returns a string label for
@@ -804,11 +805,9 @@ esl_sqio_FormatCode(char *fmtstring)
  *            are recognized in addition to unaligned file format codes.
  *
  * Throws:    NULL if <fmt> is unrecognized.
- *
- * Xref:      
  */
 char *
-esl_sqio_FormatString(int fmt)
+esl_sqio_DescribeFormat(int fmt)
 {
   int status;
 

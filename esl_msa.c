@@ -1356,7 +1356,7 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
   for (i = 0; i < msa->nseq; i++)
     {
       ESL_ALLOC(msa->ax[i], (msa->alen+2) * sizeof(ESL_DSQ));
-      status = esl_abc_Digitize(abc, msa->aseq[i], msa->alen, msa->ax[i]);
+      status = esl_abc_Digitize(abc, msa->aseq[i], msa->ax[i]);
       if (status != eslOK) goto FAILURE;
       free(msa->aseq[i]);
     }    

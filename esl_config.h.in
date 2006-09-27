@@ -73,6 +73,7 @@
  *****************************************************************/
 
 #undef eslAUGMENT_ALPHABET
+#undef eslAUGMENT_DMATRIX
 #undef eslAUGMENT_FILEPARSER
 #undef eslAUGMENT_GEV
 #undef eslAUGMENT_GUMBEL

@@ -180,13 +180,6 @@ extern int  esl_tmpfile(char *template, FILE **ret_fp);
 #define FALSE 0
 #endif
 
-#ifndef MIN
-#define MIN(a,b)         (((a)<(b))?(a):(b))
-#endif
-#ifndef MAX
-#define MAX(a,b)         (((a)>(b))?(a):(b))
-#endif
-
 /* Some basic constants.
  */
 #define eslCONST_E     2.71828182845904523536028747135
@@ -271,6 +264,5 @@ typedef uint8_t ESL_DSQ;
 #define ESL_SWAP(x, y, type)  do { type tmp = x; x = y; y = tmp; } while (0)
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
-
 
 #endif /*eslEASEL_INCLUDED*/

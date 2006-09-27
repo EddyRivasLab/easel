@@ -138,7 +138,7 @@ extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
 extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format);
 extern int   esl_sqio_WhatFormat(FILE *fp);
 extern int   esl_sqio_FormatCode(char *fmtstring);
-extern char *esl_sqio_FormatString(int fmt);
+extern char *esl_sqio_DescribeFormat(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
 
 extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);

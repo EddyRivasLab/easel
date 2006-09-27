@@ -424,9 +424,21 @@ Initializes value(s) in \ccode{obj} to \ccode{value}. Special cases of
 zero(s)), or \ccode{esl\_dmatrix\_SetIdentity} (set a dmatrix to an
 identity matrix).
 
+\item[\ccode{\_Get*(obj...)}]
+
+Retrieves specific data from in \ccode{obj}.
 \end{sreitems}
 
+\subsection{Other API naming conventions}
+\begin{sreitems}{\ccode{\_Copy(src, dest)}}
 
+\item[\ccode{\_DescribeXXX()}]
+
+Given an internal code (an \ccode{enum} or \ccode{\#define} constant),
+return a pointer to an informative string, for diagnostics and other
+output. The string is static.
+
+\end{sreitems}
 
 
 \section{Discipline of writing Easel modules}
@@ -455,11 +467,12 @@ in older code.}
 \item Exposed function names shall obey Easel conventions.
 
 \item All \ccode{ret\_*} pointers for retrieving info from a function
-      shall be optional.
-
+      shall be optional: that is, they may be passed as NULL for
+      any returned results the caller doesn't want.
+      
 \item On any error (returned or thrown), a function must release any
-      memory it has allocated, and all \ccode{ret\_*} pointers are
-      \ccode{NULL} or 0, depending on their type.
+      memory it has allocated, and all \ccode{ret\_*} pointers are set
+      to \ccode{NULL} or 0, depending on their type.
 
 \item Any Easel function that calls another Easel function must catch
       any thrown errors. Within the library, we can't assume that the
@@ -495,7 +508,7 @@ in older code.}
 
 \footnote{The current poster child of test code is the \eslmod{msa}
 module, as of 8 Sept 2006, but even it is not fully compliant; it does
-not exercise all augmentations yet.}
+not exercise SSI augmentations yet.}
 
 \begin{enumerate}
 
@@ -514,6 +527,23 @@ not exercise all augmentations yet.}
       % gcc -g -Wall -o test -I. -L. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
 \end{cchunk}
 
+\item Upon detecting a failure, the testdriver shall call
+      \ccode{abort()} as soon as possible to facilitate
+      tracing/debugging (or equivalently, it uses
+      \ccode{assert()}). Garbage collection (including memory, opened
+      files, or created temporary files) is not required, and may even
+      be counterproductive. For example, for debugging purposes, it
+      may be advantageous not to delete a temporary file from a failed
+      test.
+
+\item Each function, procedure, and macro in the exposed API shall
+      have a unit test procedure. A unit test for
+      \ccode{esl\_foo\_Baz()} is named (\ccode{static int
+      utest\_Baz()}. A unit test returns \ccode{eslOK} on success.  On
+      detecting a failure, a unit test should call \ccode{abort()}
+      immediately to facilitate tracing/debugging; less preferably, a
+      unit test may return \ccode{eslFAIL} to the main test driver.
+
 \item The testdriver shall respond to a \ccode{eslTEST\_THROWING}
       compile-time definition by registering a nonfatal error handler,
       as in:
@@ -523,22 +553,8 @@ not exercise all augmentations yet.}
       #endif
 \end{cchunk}
 
-\item Upon detecting a failure, the testdriver shall call
-      \ccode{abort()} as soon as possible to facilitate
-      tracing/debugging (or equivalently, it uses
-      \ccode{assert()}). Garbage collection (including memory, opened
-      files, or created temporary files) is not required, and may be
-      counterproductive -- it may be advantageous for debugging
-      purposes to leave the temporary file for a failed test on disk,
-      for debugging.
-
-\item Each function, procedure, and macro in the exposed API shall
-      have a unit test procedure. A unit test for
-      \ccode{esl\_foo\_Baz()} is named (\ccode{static int
-      utest\_Baz()}. A unit test returns \ccode{eslOK} on success.  On
-      detecting a failure, a unit test should call \ccode{abort()}
-      immediately to facilitate tracing/debugging; less preferably, a
-      unit test may return \ccode{eslFAIL} to the main test driver.
+\item Unit tests shall check thrown errors, using code
+      wrapped in \ccode{\#ifdef eslTEST\_THROWING}.
 
 \item The testdriver shall exercise all possible augmentations.
 \end{enumerate}

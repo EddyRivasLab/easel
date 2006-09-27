@@ -126,7 +126,7 @@ int
 esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
 {
   int i;
-  if (dest->n != src->n || dest->m != src->n)
+  if (dest->n != src->n || dest->m != src->m)
     ESL_ERROR(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < src->n*src->m; i++)
     dest->mx[0][i] = src->mx[0][i];
