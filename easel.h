@@ -261,7 +261,7 @@ typedef uint8_t ESL_DSQ;
 
 /* Some generic macros for swapping, min, and max.
  */
-#define ESL_SWAP(x, y, type)  do { type tmp = x; x = y; y = tmp; } while (0)
+#define ESL_SWAP(x, y, type)  do { type tmpxyz = (x); (x) = (y); (y) = tmpxyz; } while (0)
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 

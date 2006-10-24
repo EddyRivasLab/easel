@@ -21,23 +21,22 @@ appropriate message to \ccode{stderr} -- that's all a simple
 application would do anyway.
 
 Easel processes all \textbf{exceptions} with one function,
-\ccode{esl\_error()}, which takes an error code, error message,
-source file name, and source line number as arguments.
-\ccode{esl\_error()} hands this information to a customizable error
-handling function. The default error handler is a fatal one, which
-performs the simple behavior: it prints the error message to
-\ccode{stderr} and aborts execution. Therefore, by default,
-applications can rely on Easel to handle its own exceptions.  In an
-application that wants to handle all exceptions itself, and wants a
-guarantee that execution will never terminate from within Easel, a
-custom nonfatal error handler can be assigned to \ccode{esl\_error()},
-one which merely catches the information from Easel (and reacts
-appropriately) but returns control to Easel at the point of
-failure. Easel percolates the error code up through its call stack
-until control returns to your application with an appropriate nonzero
-error code. \footnote{The idioms used in Easel to handle serious
-exceptions non-fatally look a lot like exception handling in more
-modern languages like C++/Java.}
+\ccode{esl\_error()}, which takes an error code, error message, source
+file name, and source line number as arguments.  \ccode{esl\_error()}
+hands this information to a customizable error handling function. The
+default error handler is a fatal one, which performs the simple
+behavior: it prints the error message to \ccode{stderr} and aborts
+execution. Therefore, by default, applications can rely on Easel to
+handle its own exceptions.  In an application that wants to handle all
+exceptions itself, and wants a guarantee that execution will never
+terminate from within Easel, a custom nonfatal error handler can be
+assigned to \ccode{esl\_error()}, one which merely catches the
+information from Easel (and reacts appropriately) but returns control
+to Easel at the point of failure. Easel percolates the error code up
+through its call stack until control returns to your application with
+an appropriate nonzero error code. \footnote{The idioms used in Easel
+to handle serious exceptions non-fatally look somewhat like exception
+handling in more modern languages like C++/Java.}
 
 Easel distinguishes exceptions from \textbf{normal errors}. ``Normal''
 errors are conditions that any application should handle gracefully,
@@ -73,10 +72,10 @@ be optionally enabled in development code, or from test harnesses that
 call the always-fatal \ccode{esl\_fatal()} function when they detect a
 problem they're testing for. For example, Easel uses conditionally
 compiled assertions to test for violations of Easel's API design
-contracts. \footnote{``Design-by-contract'' is a useful software
-engineering concept introduced by the Eiffel language
-[\url{www.eiffel.com}]. C does not inherently support DBC, but Easel
-partially emulates it using assertions.}
+contracts. \footnote{``Design-by-contract'' is a concept introduced by
+the Eiffel language [\url{www.eiffel.com}]. C does not inherently
+support DBC, but sometimes Easel partially emulates it using
+assertions.}
 
 \subsection{Error handling: application perspective}
 

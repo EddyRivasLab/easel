@@ -261,7 +261,7 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
   double p, x;
   p = esl_rnd_UniformPositive(r); 
 
-  x = mu - 1/lambda * log(p);	/* really log(1-p), but if p uniform on 0..1 
+  x = mu - 1./lambda * log(p);	/* really log(1-p), but if p uniform on 0..1 
 				 * then so is 1-p. 
                                  */
   return x;
