@@ -92,14 +92,14 @@ esl_dst_CPairId(char *asq1, char *asq2,
 	idents++;
     }
   if (asq1[i] != '\0' || asq2[i] != '\0') 
-    ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
 
   if (ret_pid  != NULL)  *ret_pid = ( len1==0 ? 0. : (double) idents / (double) ESL_MIN(len1,len2));
   if (ret_nid  != NULL)  *ret_nid = idents;
   if (ret_n    != NULL)  *ret_n   = len1;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ret_pid  != NULL)  *ret_pid = 0.;
   if (ret_nid  != NULL)  *ret_nid = 0;
   if (ret_n    != NULL)  *ret_n   = 0;
@@ -166,11 +166,11 @@ esl_dst_CJukesCantor(int K, char *as1, char *as2,
 	}
     }
   if (as1[i] != '\0' || as2[i] != '\0') 
-    ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
   
   return jukescantor(n1, n2, K, ret_distance, ret_variance); /* can throw eslEDIVZERO */
 
- FAILURE:
+ ERROR:
   if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
   if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
   return status;
@@ -228,14 +228,14 @@ esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2,
   if (len2 < len1) len1 = len2;
 
   if (ax1[i] != eslDSQ_SENTINEL || ax2[i] != eslDSQ_SENTINEL) 
-    ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
 
   if (ret_distance != NULL)  *ret_distance = ( len1==0 ? 0. : (double) idents / (double) len1 );
   if (ret_nid      != NULL)  *ret_nid      = idents;
   if (ret_n        != NULL)  *ret_n        = len1;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ret_distance != NULL)  *ret_distance = 0.;
   if (ret_nid      != NULL)  *ret_nid      = 0;
   if (ret_n        != NULL)  *ret_n        = 0;
@@ -291,11 +291,11 @@ esl_dst_XJukesCantor(ESL_ALPHABET *abc, ESL_DSQ *ax, ESL_DSQ *ay,
 	}
     }
   if (ax[i] != eslDSQ_SENTINEL || ay[i] != eslDSQ_SENTINEL) 
-    ESL_FAIL(eslEINVAL, "strings not same length, not aligned");
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
   
   return jukescantor(n1, n2, abc->K, ret_distance, ret_variance);
 
- FAILURE:
+ ERROR:
   if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
   if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
   return status;
@@ -341,7 +341,7 @@ esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
   int status;
   int i,j;
 
-  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto FAILURE;
+  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
   
   for (i = 0; i < N; i++)
     {
@@ -350,14 +350,14 @@ esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
 	{
 	  status = esl_dst_CPairId(as[i], as[j], &(S->mx[i][j]), NULL, NULL);
 	  if (status != eslOK)
-	    ESL_FAIL(status, "Pairwise identity calculation failed at seqs %d,%d\n", i,j);
+	    ESL_XEXCEPTION(status, "Pairwise identity calculation failed at seqs %d,%d\n", i,j);
 	  S->mx[j][i] =  S->mx[i][j];
 	}
     }
   if (ret_S != NULL) *ret_S = S; else esl_dmatrix_Destroy(S);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (S     != NULL)  esl_dmatrix_Destroy(S);
   if (ret_S != NULL) *ret_S = NULL;
   return status;
@@ -392,7 +392,7 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
   int i,j;
 
   status = esl_dst_CPairIdMx(as, N, &D);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   for (i = 0; i < N; i++)
     {
@@ -407,7 +407,7 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
   if (ret_D != NULL) *ret_D = D; else esl_dmatrix_Destroy(D);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D     != NULL)  esl_dmatrix_Destroy(D);
   if (ret_D != NULL) *ret_D = NULL;
   return status;
@@ -456,8 +456,8 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
   ESL_DMATRIX *V = NULL;
   int          i,j;
 
-  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto FAILURE;
-  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto FAILURE;
+  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
+  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
 
   for (i = 0; i < nseq; i++)
     {
@@ -468,7 +468,7 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
 	  status = esl_dst_CJukesCantor(K, aseq[i], aseq[j], 
 					&(D->mx[i][j]), &(V->mx[i][j]));
 	  if (status != eslOK) 
-	    ESL_FAIL(status, "J/C calculation failed at seqs %d,%d", i,j);
+	    ESL_XEXCEPTION(status, "J/C calculation failed at seqs %d,%d", i,j);
 
 	  D->mx[j][i] = D->mx[i][j];
 	  V->mx[j][i] = V->mx[i][j];
@@ -478,7 +478,7 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
   if (ret_V != NULL) *ret_V = V;  else esl_dmatrix_Destroy(V);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D     != NULL) esl_dmatrix_Destroy(D);
   if (V     != NULL) esl_dmatrix_Destroy(V);
   if (ret_D != NULL) *ret_D = NULL;
@@ -527,7 +527,7 @@ esl_dst_XPairIdMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
   ESL_DMATRIX *S = NULL;
   int i,j;
 
-  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto FAILURE;
+  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
   
   for (i = 0; i < N; i++)
     {
@@ -536,14 +536,14 @@ esl_dst_XPairIdMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
 	{
 	  status = esl_dst_XPairId(abc, ax[i], ax[j], &(S->mx[i][j]), NULL, NULL);
 	  if (status != eslOK)
-	    ESL_FAIL(status, "Pairwise identity calculation failed at seqs %d,%d\n", i,j);
+	    ESL_XEXCEPTION(status, "Pairwise identity calculation failed at seqs %d,%d\n", i,j);
 	  S->mx[j][i] =  S->mx[i][j];
 	}
     }
   if (ret_S != NULL) *ret_S = S; else esl_dmatrix_Destroy(S);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (S     != NULL)  esl_dmatrix_Destroy(S);
   if (ret_S != NULL) *ret_S = NULL;
   return status;
@@ -579,7 +579,7 @@ esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
   int i,j;
 
   status = esl_dst_XPairIdMx(abc, ax, N, &D);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   for (i = 0; i < N; i++)
     {
@@ -593,7 +593,7 @@ esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
   if (ret_D != NULL) *ret_D = D; else esl_dmatrix_Destroy(D);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D     != NULL)  esl_dmatrix_Destroy(D);
   if (ret_D != NULL) *ret_D = NULL;
   return status;
@@ -640,8 +640,8 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
   int          status;
   int          i,j;
 
-  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto FAILURE;
-  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto FAILURE;
+  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
+  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
 
   for (i = 0; i < nseq; i++)
     {
@@ -652,7 +652,7 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
 	  status = esl_dst_XJukesCantor(abc, ax[i], ax[j], 
 					&(D->mx[i][j]), &(V->mx[i][j]));
 	  if (status != eslOK) 
-	    ESL_FAIL(status, "J/C calculation failed at digital aseqs %d,%d", i,j);
+	    ESL_XEXCEPTION(status, "J/C calculation failed at digital aseqs %d,%d", i,j);
 
 	  D->mx[j][i] = D->mx[i][j];
 	  V->mx[j][i] = V->mx[i][j];
@@ -662,7 +662,7 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
   if (ret_V != NULL) *ret_V = V;  else esl_dmatrix_Destroy(V);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D     != NULL) esl_dmatrix_Destroy(D);
   if (V     != NULL) esl_dmatrix_Destroy(V);
   if (ret_D != NULL) *ret_D = NULL;
@@ -701,7 +701,7 @@ jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, double *ret
   ESL_DASSERT1( (n2 >= 0) );
   ESL_DASSERT1( (alphabet_size >= 0) );
 
-  if (n1+n2 == 0) { status = eslEDIVZERO; goto FAILURE; }
+  if (n1+n2 == 0) { status = eslEDIVZERO; goto ERROR; }
 
   K = (double) alphabet_size;
   D = (double) n2 / (double) (n1+n2);
@@ -722,7 +722,7 @@ jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, double *ret
   if (ret_variance != NULL)  *ret_variance = variance;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
   if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
   return status;
@@ -1147,7 +1147,7 @@ main(int argc, char **argv)
 #endif
   return eslOK;
 
- FAILURE:
+ ERROR:
   return eslFAIL;
 }
 #endif /*eslDISTANCE_TESTDRIVE*/

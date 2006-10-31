@@ -678,7 +678,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_ERROR(eslEINVAL, "bad option");
+      else ESL_EXCEPTION(eslEINVAL, "bad option");
     }
 
   if (be_verbose)
@@ -688,7 +688,7 @@ main(int argc, char **argv)
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = mu;
   if (! xmax_set)  xmax  = mu+40*(1./lambda);
@@ -706,22 +706,22 @@ main(int argc, char **argv)
     printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   emu, elambda, etau);
   if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
   if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
   if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted tau > 10%\n");
 
   esl_wei_FitCompleteBinned(h, &emu, &elambda, &etau);
   if (be_verbose)
     printf("Binned data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   emu, elambda, etau);
   if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
   if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
   if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
 
   if (plot_pdf)     esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_wei_Plot(pfp, mu, lambda, tau, &esl_wei_logpdf,  xmin, xmax, xstep);

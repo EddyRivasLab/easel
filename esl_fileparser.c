@@ -48,7 +48,7 @@ esl_fileparser_Create(FILE *fp)
 
   return efp;
   
- FAILURE:
+ ERROR:
   esl_fileparser_Destroy(efp);
   return NULL;
 }

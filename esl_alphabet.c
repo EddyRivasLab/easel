@@ -56,11 +56,11 @@ esl_alphabet_Create(int type)
   case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
   default:    
-    ESL_FAIL(eslEINVAL, "Standard alphabets include only DNA, RNA, protein.");
+    ESL_XEXCEPTION(eslEINVAL, "Standard alphabets include only DNA, RNA, protein.");
   }
   return a;
 
- FAILURE:
+ ERROR:
   return NULL;
 }
 
@@ -102,8 +102,8 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 
   /* Argument checks.
    */
-  if (strlen(alphabet) != Kp) ESL_FAIL(eslEINVAL, "alphabet length != Kp");
-  if (Kp < K+3)               ESL_FAIL(eslEINVAL, "Kp too small in alphabet"); 
+  if (strlen(alphabet) != Kp) ESL_XEXCEPTION(eslEINVAL, "alphabet length != Kp");
+  if (Kp < K+3)               ESL_XEXCEPTION(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
@@ -161,7 +161,7 @@ esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
 
   return a;
 
- FAILURE:
+ ERROR:
   esl_alphabet_Destroy(a);
   return NULL;
 }
@@ -302,9 +302,9 @@ esl_alphabet_SetEquiv(ESL_ALPHABET *a, char sym, char c)
 
   /* Contract checks */
   if ((sp = strchr(a->sym, sym)) != NULL)
-    ESL_ERROR(eslEINVAL, "symbol %c is already in internal alphabet, can't equivalence it", sym);
+    ESL_EXCEPTION(eslEINVAL, "symbol %c is already in internal alphabet, can't equivalence it", sym);
   if ((sp = strchr(a->sym, c)) == NULL) 
-    ESL_ERROR(eslEINVAL, "char %c not in the alphabet, can't map to it", c);
+    ESL_EXCEPTION(eslEINVAL, "char %c not in the alphabet, can't map to it", c);
 
   x = sp - a->sym;
   a->inmap[(int) sym] = x;
@@ -342,7 +342,7 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
       if      (esl_abc_CIsValid(a, lc) && ! esl_abc_CIsValid(a, uc)) a->inmap[uc] = a->inmap[lc];
       else if (esl_abc_CIsValid(a, uc) && ! esl_abc_CIsValid(a, lc)) a->inmap[lc] = a->inmap[uc];
       else if (esl_abc_CIsValid(a, lc) && esl_abc_CIsValid(a, uc) && a->inmap[uc] != a->inmap[lc])
-	ESL_ERROR(eslECORRUPT, "symbols %c and %c map differently already (%c vs. %c)",
+	ESL_EXCEPTION(eslECORRUPT, "symbols %c and %c map differently already (%c vs. %c)",
 		  lc, uc, a->inmap[lc], a->inmap[uc]);
     }
   return eslOK;
@@ -380,7 +380,7 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
   ESL_DSQ x,y;
 
   if ((sp = strchr(a->sym, c)) == NULL)
-    ESL_ERROR(eslEINVAL, "no such degenerate character");
+    ESL_EXCEPTION(eslEINVAL, "no such degenerate character");
   x = sp - a->sym;
 
   /* A degenerate character must have code K+1..Kp-3.
@@ -388,14 +388,14 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
    * created, and can't be remapped.
    */
   if (x == a->Kp-2) 
-    ESL_ERROR(eslEINVAL, "can't redefine all-degenerate char %c", c);
+    ESL_EXCEPTION(eslEINVAL, "can't redefine all-degenerate char %c", c);
   if (x < a->K+1 || x >= a->Kp-1) 
-    ESL_ERROR(eslEINVAL, "char %c isn't in expected position in alphabet", c);
+    ESL_EXCEPTION(eslEINVAL, "char %c isn't in expected position in alphabet", c);
   
   while (*ds != '\0') {
-    if ((sp = strchr(a->sym, *ds)) == NULL) ESL_ERROR(eslEINVAL, "no such base character");
+    if ((sp = strchr(a->sym, *ds)) == NULL) ESL_EXCEPTION(eslEINVAL, "no such base character");
     y = sp - a->sym;
-    if (! esl_abc_XIsCanonical(a, y))       ESL_ERROR(eslEINVAL, "can't map degeneracy to noncanonical character");
+    if (! esl_abc_XIsCanonical(a, y))       ESL_EXCEPTION(eslEINVAL, "can't map degeneracy to noncanonical character");
 
     a->degen[x][y] = 1;
     a->ndegen[x]++;
@@ -520,7 +520,7 @@ esl_abc_CreateDsq(ESL_ALPHABET *a, char *seq, ESL_DSQ **ret_dsq)
   if (ret_dsq != NULL) *ret_dsq = dsq; else free(dsq);
   return status;
 
- FAILURE:
+ ERROR:
   if (dsq != NULL)      free(dsq);
   if (ret_dsq != NULL) *ret_dsq = NULL;
   return status;
@@ -700,7 +700,7 @@ esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
   *ret_dup = new;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (new     != NULL)  free(new);
   if (ret_dup != NULL) *ret_dup = NULL;
   return status;
@@ -817,7 +817,7 @@ esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
   *L = xpos-1;
   return status;
 
- FAILURE:
+ ERROR:
   *L = newL;
   return status;
 }
@@ -1533,7 +1533,7 @@ utest_Digitize(void)
   esl_alphabet_Destroy(a);
   return eslOK;
   
- FAILURE:
+ ERROR:
   abort();
 }
 
@@ -1558,7 +1558,7 @@ utest_Textize(void)
   esl_alphabet_Destroy(a);
   return eslOK;
 
- FAILURE:
+ ERROR:
   abort();
 }
 

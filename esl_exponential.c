@@ -372,7 +372,7 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
   else if (g->dataset_is == VIRTUAL_CENSORED) /* i.e., we'll fit to tail */
     mu = g->phi;
   else if (g->dataset_is == TRUE_CENSORED)
-    ESL_ERROR(eslEINVAL, "can't fit true censored dataset");
+    ESL_EXCEPTION(eslEINVAL, "can't fit true censored dataset");
 
   delta = g->w;
   sa = sb = 0.;
@@ -517,7 +517,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_ERROR(eslEINVAL, "bad option");
+      else ESL_EXCEPTION(eslEINVAL, "bad option");
     }
 
   if (be_verbose)
@@ -527,7 +527,7 @@ main(int argc, char **argv)
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = mu;
   if (! xmax_set)  xmax  = mu+20* (1./lambda);
@@ -544,17 +544,17 @@ main(int argc, char **argv)
   if (be_verbose)
     printf("Complete data fit:  mu = %f   lambda = %f\n", emu, elambda);
   if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
   if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
 
   esl_exp_FitCompleteBinned(h, &emu, &elambda);
   if (be_verbose)
     printf("Binned data fit:  mu = %f   lambda = %f\n", emu, elambda);
   if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
   if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
 
   if (plot_pdf)     esl_exp_Plot(pfp, mu, lambda, &esl_exp_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_exp_Plot(pfp, mu, lambda, &esl_exp_logpdf,  xmin, xmax, xstep);

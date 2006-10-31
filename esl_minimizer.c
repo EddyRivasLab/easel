@@ -181,7 +181,7 @@ bracket(double *ori, double *d, int n, double firststep,
       fc = (*func)(wrk, n, prm);
       niter++;
       if (niter > 100) 
-	ESL_ERROR(eslECONVERGENCE, "Failed to bracket a minimum.");
+	ESL_EXCEPTION(eslECONVERGENCE, "Failed to bracket a minimum.");
     }
 
   /* We're about to return. Assure the caller that the points
@@ -465,7 +465,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        * has screwed something up.
        */
       if (fx == eslINFINITY || fx == -eslINFINITY)
-	ESL_ERROR(eslERANGE, "minimum not finite");
+	ESL_EXCEPTION(eslERANGE, "minimum not finite");
 
       /* Find the negative gradient at that point (temporarily in w1) */
       if (dfunc != NULL) 
@@ -533,7 +533,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       oldfx = fx;
     }
   if (i == MAXITERATIONS) 
-    ESL_ERROR(eslECONVERGENCE, "Failed to converge in ConjugateGradientDescent()");
+    ESL_EXCEPTION(eslECONVERGENCE, "Failed to converge in ConjugateGradientDescent()");
 
   if (ret_fx != NULL) *ret_fx = fx;
   return eslOK;

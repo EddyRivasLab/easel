@@ -78,7 +78,7 @@ esl_hyperexp_Create(int K)
   h->mu = 0.;
   return h;
   
- FAILURE:
+ ERROR:
   esl_hyperexp_Destroy(h);
   return NULL;
 }
@@ -126,7 +126,7 @@ esl_hyperexp_Copy(ESL_HYPEREXP *src, ESL_HYPEREXP *dest)
   int k;
 
   if (dest->K < src->K) 
-    ESL_ERROR(eslEINCOMPAT, "hyperexponential too small to copy into");
+    ESL_EXCEPTION(eslEINCOMPAT, "hyperexponential too small to copy into");
 
   for (k = 0; k < src->K; k++)
     {
@@ -577,45 +577,45 @@ esl_hyperexp_Read(ESL_FILEPARSER *e, ESL_HYPEREXP **ret_hxp)
 
   esl_fileparser_SetCommentChar(e, '#');
 
-  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto ERROR;
   nc = atoi(tok);
   if (nc < 1) {  
     sprintf(e->errbuf, "Expected # of components K >= 1 as first token");
-    goto FAILURE;
+    goto ERROR;
   }
 
   if ((hxp = esl_hyperexp_Create(nc)) == NULL) return eslEMEM; /* percolation */
   
-  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+  if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto ERROR;
   hxp->mu = atof(tok);
 
   for (k = 0; k < hxp->K; k++)
     {
-      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto ERROR;
       hxp->q[k] = atof(tok);
       
-      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto FAILURE;
+      if ((status = esl_fileparser_GetToken(e, &tok, NULL)) != eslOK) goto ERROR;
       hxp->lambda[k] = atof(tok);
 
       if (hxp->q[k] < 0. || hxp->q[k] > 1.) {
 	sprintf(e->errbuf, "Expected a mixture coefficient q[k], 0<=q[k]<=1");
-	goto FAILURE;
+	goto ERROR;
       }
       if (hxp->lambda[k] <= 0.) {
 	sprintf(e->errbuf, "Expected a lambda parameter, lambda>0");
-	goto FAILURE;
+	goto ERROR;
       }
     }
   sum = esl_vec_DSum(hxp->q, hxp->K);
   if (fabs(sum-1.0) > 0.05) {
     sprintf(e->errbuf, "Expected mixture coefficients to sum to 1");
-    goto FAILURE;
+    goto ERROR;
   }
   esl_vec_DNorm(hxp->q, hxp->K);
   *ret_hxp = hxp;
   return eslOK;
 
- FAILURE:
+ ERROR:
   esl_hyperexp_Destroy(hxp); 
   return eslEFORMAT;
 }
@@ -649,11 +649,11 @@ esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp)
   int             status;
 
   if ((fp = fopen(filename, "r")) == NULL) 
-    ESL_ERROR(eslENOTFOUND, "file not found");
+    ESL_EXCEPTION(eslENOTFOUND, "file not found");
 
   if ((e = esl_fileparser_Create(fp)) == NULL) {
     fclose(fp);
-    ESL_ERROR(eslEMEM, "failed to create fileparser");
+    ESL_EXCEPTION(eslEMEM, "failed to create fileparser");
   }
   esl_fileparser_SetCommentChar(e, '#');
 
@@ -913,7 +913,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 					    &hyperexp_complete_func, 
 					    &hyperexp_complete_gradient,
 					    (void *) (&data), tol, wrk, &fx);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a hyperexponential
    */
@@ -925,7 +925,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
   esl_hyperexp_SortComponents(h);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (p   != NULL) free(p);
   if (u   != NULL) free(u);
   if (wrk != NULL) free(wrk);
@@ -1140,7 +1140,7 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 					    &hyperexp_complete_binned_func, 
 					    &hyperexp_complete_binned_gradient,
 					    (void *) (&data), tol, wrk, &fx);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a hyperexponential
    */
@@ -1152,7 +1152,7 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
   esl_hyperexp_SortComponents(h);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (p   != NULL) free(p);
   if (u   != NULL) free(u);
   if (wrk != NULL) free(wrk);
@@ -1306,7 +1306,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_ERROR(eslEINVAL, "bad option");
+      else ESL_EXCEPTION(eslEINVAL, "bad option");
     }
 
   if (paramfile != NULL)
@@ -1326,7 +1326,7 @@ main(int argc, char **argv)
   h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = hxp->mu;
   if (! xmax_set)  xmax  = hxp->mu+ 20*(1. / esl_vec_DMin(hxp->lambda, hxp->K));
@@ -1348,7 +1348,7 @@ main(int argc, char **argv)
   if (be_verbose) esl_hyperexp_WriteOneLine(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
   for (ek = 0; ek < ehxp->K; ek++)
     {  /* try to match each estimated lambda up to a parametric lambda */
       mindiff = 1.0;
@@ -1362,9 +1362,9 @@ main(int argc, char **argv)
 	  }
 	}
       if (mindiff > 0.50)
-	ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 50%\n");
+	ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 50%\n");
       if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
-	ESL_ERROR(eslFAIL, "Error in (complete) fitted q > 2-fold%\n");
+	ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted q > 2-fold%\n");
     }
 
   esl_hxp_FitGuessBinned(h, ehxp);  
@@ -1372,7 +1372,7 @@ main(int argc, char **argv)
   if (be_verbose)  esl_hyperexp_WriteOneLine(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
-     ESL_ERROR(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
   for (ek = 0; ek < ehxp->K; ek++)
     {  /* try to match each estimated lambda up to a parametric lambda */
       mindiff = 1.0;
@@ -1386,9 +1386,9 @@ main(int argc, char **argv)
 	  }
 	}
       if (mindiff > 0.50)
-	ESL_ERROR(eslFAIL, "Error in (binned) fitted lambda > 50%\n");
+	ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 50%\n");
       if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
-	ESL_ERROR(eslFAIL, "Error in (binned) fitted q > 2-fold\n");
+	ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted q > 2-fold\n");
     }
 
   if (plot_pdf)     esl_hxp_Plot(pfp, hxp, &esl_hxp_pdf,     xmin, xmax, xstep);

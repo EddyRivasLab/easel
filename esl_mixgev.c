@@ -83,7 +83,7 @@ esl_mixgev_Create(int K)
     }
   return mg;
   
- FAILURE:
+ ERROR:
   esl_mixgev_Destroy(mg);
   return NULL;
 }
@@ -133,7 +133,7 @@ esl_mixgev_Copy(ESL_MIXGEV *src, ESL_MIXGEV *dest)
   int k;
 
   if (dest->K < src->K) 
-    ESL_ERROR(eslEINCOMPAT, "mixture GEV too small to copy into");
+    ESL_EXCEPTION(eslEINCOMPAT, "mixture GEV too small to copy into");
 
   for (k = 0; k < src->K; k++)
     {
@@ -693,7 +693,7 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
 
   status = esl_min_ConjugateGradientDescent(p, u, np, &mixgev_complete_func, NULL,
 					    (void *) (&data), tol, wrk, &fx);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   /* Convert the final parameter vector back to a mixture GEV
    */
@@ -704,7 +704,7 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
   free(wrk);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (p != NULL)   free(p);
   if (u != NULL)   free(u);
   if (wrk != NULL) free(wrk);

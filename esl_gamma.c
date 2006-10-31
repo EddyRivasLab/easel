@@ -366,7 +366,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fb < 0.) break;	/* a,b now bracket */
 	  a = b; fa = fb;	/* else fb>0, so b is a better left bracket than a */
 	}
-      if (i == 100) ESL_ERROR(eslECONVERGENCE, "failed to bracket");
+      if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "failed to bracket");
     }
   else if (fc < 0.)		/* fx<0 means tau is too large, search left */
     {
@@ -377,7 +377,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fa > 0.) break;   /* a,b now bracket */
 	  b = a; fb = fa;	/* else fa<0, so a is a better right bracket than b */
 	}
-      if (i == 100) ESL_ERROR(eslECONVERGENCE, "failed to bracket");
+      if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "failed to bracket");
     }  
   
   /* Rootfinding, 2.: Bisection search.
@@ -396,7 +396,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	break;
       }
     }
-  if (i == 100) ESL_ERROR(eslECONVERGENCE, "bisection search failed");
+  if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "bisection search failed");
 
   *ret_lambda = c / mean;
   *ret_tau    = c;
@@ -420,7 +420,7 @@ tau_by_moments(double *x, int n, double mu, double *ret_tau, double *ret_mean, d
   mean = var = logsum = 0.;
   for (i = 0; i < n; i++)
     {
-      if (x[i] < mu) ESL_ERROR(eslEINVAL, "No x[i] can be < mu in gamma data");
+      if (x[i] < mu) ESL_EXCEPTION(eslEINVAL, "No x[i] can be < mu in gamma data");
       mean   += x[i] - mu;	   /* mean is temporarily just the sum */
       logsum += log(x[i] - mu);
       var  += (x[i]-mu)*(x[i]-mu); /* var is temporarily the sum of squares */
@@ -430,7 +430,7 @@ tau_by_moments(double *x, int n, double mu, double *ret_tau, double *ret_mean, d
   logsum /= (double) n;
 
   if (var == 0.)		/* and if mean = 0, var = 0 anyway. */
-    ESL_ERROR(eslEINVAL, "Zero variance in allegedly gamma-distributed dataset");
+    ESL_EXCEPTION(eslEINVAL, "Zero variance in allegedly gamma-distributed dataset");
   
   if (ret_tau    != NULL) *ret_tau    = mean * mean / var;
   if (ret_mean   != NULL) *ret_mean   = mean;
@@ -590,7 +590,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_ERROR(eslEINVAL, "bad option");
+      else ESL_EXCEPTION(eslEINVAL, "bad option");
     }
 
   if (be_verbose)
@@ -600,7 +600,7 @@ main(int argc, char **argv)
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_ERROR(eslFAIL, "Failed to open plotfile");
+      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = mu;
   if (! xmax_set)  xmax  = mu+40*(1./lambda);
@@ -618,9 +618,9 @@ main(int argc, char **argv)
     printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   mu, elambda, etau);
   if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
   if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_ERROR(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted tau > 10%\n");
 
   if (plot_pdf)     esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_logpdf,  xmin, xmax, xstep);

@@ -12,30 +12,30 @@
 
 #include <easel.h>
 
-static esl_error_handler_f esl_error_handler = NULL;
+static esl_exception_handler_f esl_exception_handler = NULL;
 
 
 void
-esl_error_SetHandler(void (*handler)(int code, char *file, int line, 
-				     char *format, va_list argp))
+esl_exception_SetHandler(void (*handler)(int code, char *file, int line, 
+					 char *format, va_list argp))
 {
-  esl_error_handler = handler;
+  esl_exception_handler = handler;
 }
 
 void
-esl_error_ResetDefaultHandler(void)
+esl_exception_ResetDefaultHandler(void)
 {
-  esl_error_handler = NULL;
+  esl_exception_handler = NULL;
 }
 
 void
-esl_error(int code, char *file, int line, char *format, ...)
+esl_exception(int code, char *file, int line, char *format, ...)
 {
   va_list argp;
 
-  if (esl_error_handler != NULL) {
+  if (esl_exception_handler != NULL) {
     va_start(argp, format);
-    (*esl_error_handler)(code, file, line, format, argp);
+    (*esl_exception_handler)(code, file, line, format, argp);
     va_end(argp);
     return;
   } else {
@@ -259,7 +259,7 @@ esl_fgets(char **buf, int *n, FILE *fp)
   /*NOTREACHED*/
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (*buf != NULL) free(*buf);
   *buf = NULL;
   *n   = 0;
@@ -301,7 +301,7 @@ esl_strdup(char *s, int n, char **ret_dup)
   if (ret_dup != NULL) *ret_dup = new; else free(new);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (new     != NULL) free(new);
   if (ret_dup != NULL) *ret_dup = NULL;
   return status;
@@ -364,7 +364,7 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
   memcpy((*dest)+len1, src, len2+1);
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -605,7 +605,7 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
   *ret_file = tail;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (tail != NULL) free(tail);
   *ret_file = NULL;
   return status;
@@ -647,7 +647,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
   int   status;
 
   if (ret_path != NULL) *ret_path = NULL;
-  if (file == NULL) ESL_ERROR(eslEINVAL, "null file");
+  if (file == NULL) ESL_EXCEPTION(eslEINVAL, "null file");
 
   nd   = (dir  != NULL)? strlen(dir)  : 0;
   nf   = strlen(file);
@@ -665,7 +665,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
   if (ret_path != NULL) *ret_path = path; else free(path);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (path     != NULL) free(path);
   if (ret_path != NULL) *ret_path = NULL;
   return status;
@@ -716,7 +716,7 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
   if (ret_newpath != NULL) *ret_newpath = new; else free(new);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (new         != NULL) free(new);
   if (ret_newpath != NULL) *ret_newpath = NULL;
   return status;
@@ -800,7 +800,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   free(dirlist);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (path     != NULL) free(path);
   if (fp       != NULL) fclose(fp);
   if (dirlist  != NULL) free(dirlist);
@@ -835,7 +835,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
 #ifdef HAVE_MKSTEMP
   if ((fd = mkstemp(template)) < 0 ||
       (fp = fdopen(fd, "w"))  == NULL)
-    ESL_ERROR(eslESYS, "Either mkstemp() or fdopen() failed.");
+    ESL_EXCEPTION(eslESYS, "Either mkstemp() or fdopen() failed.");
 #else
   esl_fatal("Portability problem: I don't have a mkstemp() replacement");
 #endif

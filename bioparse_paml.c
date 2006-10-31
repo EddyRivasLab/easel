@@ -71,12 +71,12 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
   char           *sptr;  
 
   status = esl_fileparse_create(fp, &efp);
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   status = esl_fileparse_set_commentchar(efp, '#');
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
-  if ((s    = esl_dmatrix_Create(20,20))   == NULL) { status = eslEMEM; goto FAILURE; }
+  if ((s    = esl_dmatrix_Create(20,20))   == NULL) { status = eslEMEM; goto ERROR; }
   ESL_ALLOC(pi, sizeof(double) * 20);
 
   /* constructs the alphabet permutation we need.
@@ -92,7 +92,7 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
     for (j = 0; j < i; j++)
       {
 	if ((status = esl_fileparse_token(efp, &tok, NULL)) != eslOK) 
-	  goto FAILURE;	
+	  goto ERROR;	
 	s->mx[perm[i]][perm[j]] = atof(tok);
 	s->mx[perm[j]][perm[i]] = s->mx[perm[i]][perm[j]];
       }
@@ -102,7 +102,7 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
   for (i = 0; i < 20; i++)
     {
       if ((status = esl_fileparse_token(efp, &tok, NULL)) != eslOK) 
-	goto FAILURE;	
+	goto ERROR;	
       pi[perm[i]] = atof(tok);
     }
 
@@ -111,7 +111,7 @@ esl_bio_ParsePAMLRateData(FILE *fp, ESL_DMATRIX **ret_s, double **ret_pi)
   if (ret_pi != NULL) *ret_pi = pi; else free(pi);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (efp != NULL) esl_fileparse_free(efp);
   if (s   != NULL) esl_dmatrix_Destroy(s);
   if (pi  != NULL) free(pi);

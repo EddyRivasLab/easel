@@ -21,46 +21,71 @@
 #endif
 
 /*****************************************************************
- * Error handling and allocation macros;
- * Implementation of Easel's conventions for exception handling,
- * with garbage collection and documented failure states.
+ * Macros implementing Easel's error handling conventions
  *****************************************************************/
-
-/* ESL_ERROR()  - throwing an exception, without cleanup.
- * ESL_FAIL()   - throwing an exception, with cleanup and failure state;
- *                requires <int status> in scope, and <FAILURE:> target.
+/* ESL_FAIL()       - return an error message, without cleanup.
+ * ESL_XFAIL()      - return an error message, with cleanup.
+ * ESL_EXCEPTION()  - throwing an exception, without cleanup.
+ * ESL_XEXCEPTION() - throwing an exception, with cleanup.
+ * ESL_FWD()        - percolate an exception outwards, without cleanup.
+ * ESL_XFWD()       - percolate an exception outwards, with cleanup.
+ * 
+ * The X versions (with cleanup) require the caller to have an
+ * <int status> variable and a <ERROR:> goto target in scope.
  *
  * Wrapping these macros in <while(0)> loops allows a statement:
- *       if (something) ESL_FAIL(code,mesg);
+ *       if (something) ESL_XEXCEPTION(code,mesg);
  * without the trailing semicolon becoming a null statement after 
  * macro expansion.
  */
 /*::cexcerpt::error_macros::begin::*/
-#define ESL_ERROR(code, ...)  do {\
-     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
+#define ESL_FAIL(code, errbuf, ...) do {\
+     if (errbuf != NULL) sprintf(errbuf, __VA_ARGS__);\
      return code; }\
      while (0)
 
-#define ESL_FAIL(code, ...)  do {\
+#define ESL_XFAIL(code, errbuf, ...) do {\
      status = code;\
-     esl_error(code, __FILE__, __LINE__, __VA_ARGS__);\
-     goto FAILURE; }\
+     if (errbuf != NULL) sprintf(errbuf, __VA_ARGS__);\
+     goto ERROR; }\
      while (0)
+
+#define ESL_EXCEPTION(code, ...)  do {\
+     esl_exception(code, __FILE__, __LINE__, __VA_ARGS__);\
+     return code; }\
+     while (0)
+
+#define ESL_XEXCEPTION(code, ...)  do {\
+     status = code;\
+     esl_exception(code, __FILE__, __LINE__, __VA_ARGS__);\
+     goto ERROR; }\
+     while (0)
+
+#define ESL_FWD(code)  do {\
+     esl_exception(code, __FILE__, __LINE__, "[percolated]");\
+     return code; }\
+     while (0);
+
+#define ESL_XFWD(code) do {\
+     status = code;\
+     esl_exception(code, __FILE__, __LINE__, "[percolated]");\
+     goto ERROR; }\
+     while (0);
 /*::cexcerpt::error_macros::end::*/
 
 
 /* ESL_ALLOC(), ESL_RALLOC():
  * 
  * Allocation and reallocation wrappers.
- * Both require <int status> in scope, and <FAILURE:> goto target.
+ * Both require <int status> in scope, and <ERROR:> goto target.
  * ESL_RALLOC() also requires <void *> ptr to be provided as <tmp>.
  */
 /*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
      if (((p) = malloc(size)) == NULL) {\
        status = eslEMEM;\
-       esl_error(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
-       goto FAILURE;\
+       esl_exception(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
+       goto ERROR;\
      }} while (0)
 
 #define ESL_RALLOC(p, tmp, newsize) do {\
@@ -69,8 +94,8 @@
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
        status = eslEMEM;\
-       esl_error(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
-       goto FAILURE;\
+       esl_exception(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
+       goto ERROR;\
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
 
@@ -135,12 +160,12 @@
 #endif
 
 
-typedef void (*esl_error_handler_f)(int code, char *file, int line,
-				    char *format, va_list argp);
+typedef void (*esl_exception_handler_f)(int code, char *file, int line,
+					char *format, va_list argp);
 
-extern void esl_error(int code, char *file, int line, char *format, ...);
-extern void esl_error_SetHandler(esl_error_handler_f);
-extern void esl_error_ResetDefaultHandler(void);
+extern void esl_exception(int code, char *file, int line, char *format, ...);
+extern void esl_exception_SetHandler(esl_exception_handler_f);
+extern void esl_exception_ResetDefaultHandler(void);
 extern void esl_fatal(char *format, ...);
 extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
 

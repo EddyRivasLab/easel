@@ -113,7 +113,7 @@ esl_msa_Create(int nseq, int alen)
     }
   return msa;
 
- FAILURE:
+ ERROR:
   esl_msa_Destroy(msa);
   return NULL;
 }
@@ -235,7 +235,7 @@ create_mostly(int nseq, int alen)
 
   return msa;
 
- FAILURE:
+ ERROR:
   esl_msa_Destroy(msa);
   return NULL;
 }
@@ -328,7 +328,7 @@ esl_msa_Expand(ESL_MSA *msa)
   int   i,j;
 
   if (msa->alen > 0) 
-    ESL_ERROR(eslEINVAL, "that MSA is not growable");
+    ESL_EXCEPTION(eslEINVAL, "that MSA is not growable");
 
   old = msa->sqalloc;
   new = 2*old;
@@ -419,7 +419,7 @@ esl_msa_Expand(ESL_MSA *msa)
   msa->sqalloc = new;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -522,7 +522,7 @@ set_seq_accession(ESL_MSA *msa, int seqidx, char *acc)
   if (msa->sqacc[seqidx] != NULL) free(msa->sqacc[seqidx]);
   return (esl_strdup(acc, -1, &(msa->sqacc[seqidx])));
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -550,7 +550,7 @@ set_seq_description(ESL_MSA *msa, int seqidx, char *desc)
   if (msa->sqdesc[seqidx] != NULL) free(msa->sqdesc[seqidx]);
   return (esl_strdup(desc, -1, &(msa->sqdesc[seqidx])));
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -583,11 +583,11 @@ add_comment(ESL_MSA *msa, char *s)
     ESL_RALLOC(msa->comment, p, sizeof(char *) * msa->alloc_ncomment * 2);
     msa->alloc_ncomment *= 2;
   }
-  if ((status = esl_strdup(s, -1, &(msa->comment[msa->ncomment]))) != eslOK) goto FAILURE;
+  if ((status = esl_strdup(s, -1, &(msa->comment[msa->ncomment]))) != eslOK) goto ERROR;
   msa->ncomment++;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -624,12 +624,12 @@ add_gf(ESL_MSA *msa, char *tag, char *value)
     msa->alloc_ngf = n;
   }
 
-  if ((status = esl_strdup(tag,  -1,  &(msa->gf_tag[msa->ngf]))) != eslOK) goto FAILURE;
-  if ((status = esl_strdup(value, -1, &(msa->gf[msa->ngf])))     != eslOK) goto FAILURE;
+  if ((status = esl_strdup(tag,  -1,  &(msa->gf_tag[msa->ngf]))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(value, -1, &(msa->gf[msa->ngf])))     != eslOK) goto ERROR;
   msa->ngf++;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -705,7 +705,7 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
    */
   if (tagidx == msa->ngs) 
     {
-      if ((status = esl_strdup(tag, -1, &(msa->gs_tag[tagidx]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(tag, -1, &(msa->gs_tag[tagidx]))) != eslOK) goto ERROR;
       msa->ngs++;
     }
   
@@ -715,7 +715,7 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
    */
   if (msa->gs[tagidx][sqidx] == NULL)
     {
-      if ((status = esl_strdup(value, -1, &(msa->gs[tagidx][sqidx]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(value, -1, &(msa->gs[tagidx][sqidx]))) != eslOK) goto ERROR;
     }
   else 
     {			
@@ -728,7 +728,7 @@ add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
     }
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 } 
 
@@ -779,7 +779,7 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
 #ifdef eslAUGMENT_KEYHASH
       status = esl_key_Store(msa->gc_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) goto FAILURE;
+      if (status != eslOK && status != eslEDUP) goto ERROR;
 #else
       for (tagidx = 0; tagidx < msa->ngc; tagidx++)
 	if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
@@ -797,12 +797,12 @@ append_gc(ESL_MSA *msa, char *tag, char *value)
    */
   if (tagidx == msa->ngc) 
     {
-      if ((status = esl_strdup(tag, -1, &(msa->gc_tag[tagidx]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(tag, -1, &(msa->gc_tag[tagidx]))) != eslOK) goto ERROR;
       msa->ngc++;
     }
   return (esl_strcat(&(msa->gc[tagidx]), -1, value, -1));
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -873,12 +873,12 @@ append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
 
   if (tagidx == msa->ngr) 
     {
-      if ((status = esl_strdup(tag, -1, &(msa->gr_tag[tagidx]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(tag, -1, &(msa->gr_tag[tagidx]))) != eslOK) goto ERROR;
       msa->ngr++;
     }
   return (esl_strcat(&(msa->gr[tagidx][sqidx]), -1, value, -1));
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -1121,7 +1121,7 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
     {
       afp->f         = stdin;
       afp->do_stdin  = TRUE; 
-      if ((status = esl_strdup("[STDIN]", -1, &(afp->fname))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup("[STDIN]", -1, &(afp->fname))) != eslOK) goto ERROR;
     }
 #ifdef HAVE_POPEN
   /* popen(), pclose() aren't portable to non-POSIX systems; 
@@ -1140,11 +1140,11 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
        * and prints an error! So we have to check for
        * existence of file ourself.
        */
-      if (! esl_FileExists(filename))	      { status = eslENOTFOUND; goto FAILURE; }
+      if (! esl_FileExists(filename))	      { status = eslENOTFOUND; goto ERROR; }
       ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
       sprintf(cmd, "gzip -dc %s", filename);
-      if ((afp->f = popen(cmd, "r")) == NULL) { status = eslENOTFOUND; goto FAILURE; }
-      if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK)  goto FAILURE;
+      if ((afp->f = popen(cmd, "r")) == NULL) { status = eslENOTFOUND; goto ERROR; }
+      if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK)  goto ERROR;
       afp->do_gzip  = TRUE;
     }
 #endif /*HAVE_POPEN*/
@@ -1167,11 +1167,11 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
 	  free(envfile);
 	}
       else 
-	{ status = eslENOTFOUND; goto FAILURE;}
+	{ status = eslENOTFOUND; goto ERROR;}
 
       afp->do_stdin = FALSE;
       afp->do_gzip  = FALSE;
-      if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK) goto ERROR;
     }
 
 #ifdef eslAUGMENT_SSI
@@ -1191,9 +1191,9 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
   if (format == eslMSAFILE_UNKNOWN)
     {
       if (afp->do_stdin == TRUE || afp->do_gzip)
-	ESL_FAIL(eslEINVAL, "Can't autodetect alignment file fmt in stdin, gzip pipe");
+	ESL_XEXCEPTION(eslEINVAL, "Can't autodetect alignment file fmt in stdin, gzip pipe");
       if (esl_msa_GuessFileFormat(afp) != eslOK)
-	{ status = eslEFORMAT; goto FAILURE; }
+	{ status = eslEFORMAT; goto ERROR; }
     }
   else 
     afp->format     = format;
@@ -1201,7 +1201,7 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
   if (ret_msafp != NULL) *ret_msafp = afp; else esl_msafile_Close(afp);
   return eslOK;
 
- FAILURE:
+ ERROR:
   esl_msafile_Close(afp); 
   if (ret_msafp != NULL) *ret_msafp = NULL;
   return status;
@@ -1299,7 +1299,7 @@ esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
   msa->flags |= eslMSA_DIGITAL;
   return msa;
 
- FAILURE:
+ ERROR:
   esl_msa_Destroy(msa);
   return NULL;
 }
@@ -1337,9 +1337,9 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
 
   /* Contract checks
    */
-  if (msa->aseq == NULL)           ESL_ERROR(eslECONTRACT, "msa has no text alignment");
-  if (msa->ax   != NULL)           ESL_ERROR(eslECONTRACT, "msa already has digital alignment");
-  if (msa->flags & eslMSA_DIGITAL) ESL_ERROR(eslECONTRACT, "msa is flagged as digital");
+  if (msa->aseq == NULL)           ESL_EXCEPTION(eslECONTRACT, "msa has no text alignment");
+  if (msa->ax   != NULL)           ESL_EXCEPTION(eslECONTRACT, "msa already has digital alignment");
+  if (msa->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslECONTRACT, "msa is flagged as digital");
 
   /* Validate before we convert. Then we can leave the <aseq> untouched if
    * any of the sequences contain invalid characters.
@@ -1357,7 +1357,7 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
     {
       ESL_ALLOC(msa->ax[i], (msa->alen+2) * sizeof(ESL_DSQ));
       status = esl_abc_Digitize(abc, msa->aseq[i], msa->ax[i]);
-      if (status != eslOK) goto FAILURE;
+      if (status != eslOK) goto ERROR;
       free(msa->aseq[i]);
     }    
   for (; i < msa->sqalloc; i++) 
@@ -1369,7 +1369,7 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
   msa->flags |= eslMSA_DIGITAL;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -1400,10 +1400,10 @@ esl_msa_Textize(ESL_MSA *msa)
 
   /* Contract checks
    */
-  if (msa->ax   == NULL)               ESL_ERROR(eslECONTRACT, "msa has no digital alignment");
-  if (msa->aseq != NULL)               ESL_ERROR(eslECONTRACT, "msa already has text alignment");
-  if (! (msa->flags & eslMSA_DIGITAL)) ESL_ERROR(eslECONTRACT, "msa is not flagged as digital");
-  if (msa->abc  == NULL)               ESL_ERROR(eslECONTRACT, "msa has no digital alphabet");
+  if (msa->ax   == NULL)               ESL_EXCEPTION(eslECONTRACT, "msa has no digital alignment");
+  if (msa->aseq != NULL)               ESL_EXCEPTION(eslECONTRACT, "msa already has text alignment");
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslECONTRACT, "msa is not flagged as digital");
+  if (msa->abc  == NULL)               ESL_EXCEPTION(eslECONTRACT, "msa has no digital alphabet");
 
   /* Convert, sequence-by-sequence, free'ing ax as we go.
    */
@@ -1412,7 +1412,7 @@ esl_msa_Textize(ESL_MSA *msa)
     {
       ESL_ALLOC(msa->aseq[i], (msa->alen+1) * sizeof(char));
       status = esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, msa->aseq[i]);
-      if (status != eslOK) goto FAILURE;
+      if (status != eslOK) goto ERROR;
       free(msa->ax[i]);
     }
   for (; i < msa->sqalloc; i++)
@@ -1424,7 +1424,7 @@ esl_msa_Textize(ESL_MSA *msa)
   msa->flags &= ~eslMSA_DIGITAL; /* drop the flag */
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -1514,7 +1514,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   case eslMSAFILE_STOCKHOLM: status = read_stockholm(afp, &msa); break;
   case eslMSAFILE_PFAM:      status = read_stockholm(afp, &msa); break;
   default:
-    ESL_ERROR(eslEINCONCEIVABLE, "no such format");
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   }
 
   *ret_msa = msa;
@@ -1540,7 +1540,7 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   case eslMSAFILE_STOCKHOLM: status = write_stockholm(fp, msa); break;
   case eslMSAFILE_PFAM:      status = write_pfam(fp, msa);      break;
   default: 
-    ESL_ERROR(eslEINCONCEIVABLE, "no such format");
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
   return status;
 }
@@ -1615,7 +1615,7 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   int        status;
   int        status2;
 
-  if (feof(afp->f))  { status = eslEOF; goto FAILURE; }
+  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
   afp->errbuf[0] = '\0';
 
   /* Initialize allocation of the MSA:
@@ -1625,14 +1625,14 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 #ifdef eslAUGMENT_ALPHABET
   if (afp->do_digital == TRUE &&
       (msa = esl_msa_CreateDigital(afp->abc, 16, 0))  == NULL) 
-    { status = eslEMEM; goto FAILURE; }
+    { status = eslEMEM; goto ERROR; }
 
 #endif
   if (afp->do_digital == FALSE &&
       (msa = esl_msa_Create(16, 0))  == NULL)
-    { status = eslEMEM; goto FAILURE; }
+    { status = eslEMEM; goto ERROR; }
   if (msa == NULL)    
-    { status = eslEMEM; goto FAILURE; }
+    { status = eslEMEM; goto ERROR; }
 
   /* Check the magic Stockholm header line.
    * We have to skip blank lines here, else we perceive
@@ -1640,14 +1640,14 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    * reading in multi-record mode.
    */
   do {
-    if ((status = msafile_getline(afp)) != eslOK) goto FAILURE;
+    if ((status = msafile_getline(afp)) != eslOK) goto ERROR;
   } while (is_blankline(afp->buf));
 
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
     { 
       sprintf(afp->errbuf, "missing \"# STOCKHOLM\" header");
       status = eslEFORMAT; 
-      goto FAILURE;
+      goto ERROR;
     } 
 
   /* Read the alignment file one line at a time.
@@ -1662,34 +1662,34 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	if      (strncmp(s, "#=GF", 4) == 0)
 	  {
 	    if ((status = parse_gf(msa, s)) != eslOK)
-	      { sprintf(afp->errbuf, "failed to parse #=GF line"); goto FAILURE; }
+	      { sprintf(afp->errbuf, "failed to parse #=GF line"); goto ERROR; }
 	  }
 
 	else if (strncmp(s, "#=GS", 4) == 0)
 	  {
 	    if ((status = parse_gs(msa, s)) != eslOK)
-	      {	sprintf(afp->errbuf, "failed to parse #=GS line"); goto FAILURE; }
+	      {	sprintf(afp->errbuf, "failed to parse #=GS line"); goto ERROR; }
 	  }
 
 	else if (strncmp(s, "#=GC", 4) == 0)
 	  {
 	    if  ((status = parse_gc(msa, s)) != eslOK)
-	      {	sprintf(afp->errbuf, "failed to parse #=GC line"); goto FAILURE; }
+	      {	sprintf(afp->errbuf, "failed to parse #=GC line"); goto ERROR; }
 	  }
 
 	else if (strncmp(s, "#=GR", 4) == 0)
 	  {
 	    if ((status = parse_gr(msa, s)) != eslOK)
-	      {	sprintf(afp->errbuf, "failed to parse #=GR line"); goto FAILURE; }
+	      {	sprintf(afp->errbuf, "failed to parse #=GR line"); goto ERROR; }
 	  }
 
 	else if ((status = parse_comment(msa, s)) != eslOK)
-	  { sprintf(afp->errbuf, "failed to parse comment line"); goto FAILURE; }
+	  { sprintf(afp->errbuf, "failed to parse comment line"); goto ERROR; }
       } 
       else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
       else if (*s == '\n')                   continue;
       else if ((status = parse_sequence(msa, s)) != eslOK)
-	{ sprintf(afp->errbuf, "failed to parse sequence line"); goto FAILURE; }
+	{ sprintf(afp->errbuf, "failed to parse sequence line"); goto ERROR; }
     }
   /* If we saw a normal // end, we would've successfully read a line,
    * so when we get here, status (from the line read) should be eslOK.
@@ -1699,7 +1699,7 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
       sprintf(afp->errbuf, "didn't find // at end of alignment %.128s",
 	      msa->name == NULL ? "" : msa->name);
       status = eslEFORMAT;
-      goto FAILURE;
+      goto ERROR;
     } 
   
   /* Stockholm fmt is complex, so give the newly parsed MSA a good
@@ -1707,12 +1707,12 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    * verify_parse will fill in errbuf if it sees a problem.
    */
   if (verify_parse(msa, afp->errbuf) != eslOK)
-    { status = eslEFORMAT; goto FAILURE; } 
+    { status = eslEFORMAT; goto ERROR; } 
 
   if (ret_msa != NULL) *ret_msa = msa; else esl_msa_Destroy(msa);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (msa != NULL)      esl_msa_Destroy(msa);
   if (ret_msa != NULL) *ret_msa = NULL;
   return status;
@@ -1984,7 +1984,7 @@ parse_gr(ESL_MSA *msa, char *buf)
     status = append_gr(msa, tag, seqidx, text);
   return status;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -2288,7 +2288,7 @@ actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
   free(buf);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (buf != NULL) free(buf);
   return status;
 }
@@ -2367,7 +2367,7 @@ esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new)
   nnew = 0; 
   for (oidx = 0; oidx < msa->nseq; oidx++)
     if (useme[oidx]) nnew++;
-  if (nnew == 0) ESL_ERROR(eslEINVAL, "No sequences selected");
+  if (nnew == 0) ESL_EXCEPTION(eslEINVAL, "No sequences selected");
 
   /* Note that the Create() calls allocate exact space for the sequences,
    * so we will strcpy()/memcpy() into them below.
@@ -2375,13 +2375,13 @@ esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new)
 #ifdef eslAUGMENT_ALPHABET
   if ((msa->flags & eslMSA_DIGITAL) &&
       (new = esl_msa_CreateDigital(msa->abc, nnew, msa->alen)) == NULL)
-    {status = eslEMEM; goto FAILURE; }
+    {status = eslEMEM; goto ERROR; }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL) &&
       (new = esl_msa_Create(nnew, msa->alen)) == NULL) 
-    {status = eslEMEM; goto FAILURE; }
+    {status = eslEMEM; goto ERROR; }
   if (new == NULL) 
-    {status = eslEMEM; goto FAILURE; }
+    {status = eslEMEM; goto ERROR; }
   
   for (nidx = 0, oidx = 0; oidx < msa->nseq; oidx++)
     if (useme[oidx])
@@ -2392,41 +2392,41 @@ esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new)
 #endif
 	if (! (msa->flags & eslMSA_DIGITAL))
 	  strcpy(new->aseq[nidx], msa->aseq[oidx]);
-	if ((status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx])))    != eslOK) goto FAILURE;
+	if ((status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx])))    != eslOK) goto ERROR;
 
 	new->wgt[nidx] = msa->wgt[oidx];
       
 	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto FAILURE;
+	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
 	}
 
 	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto FAILURE;
+	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
 	}
 
 	if (msa->ss != NULL && msa->ss[oidx] != NULL)
 	  {
 	    if (new->ss == NULL) ESL_ALLOC(new->ss, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]))) != eslOK) goto FAILURE;
+	    if ((status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]))) != eslOK) goto ERROR;
 	  }
       
 	if (msa->sa != NULL && msa->sa[oidx] != NULL)
 	  {
 	    if (new->sa == NULL) ESL_ALLOC(new->sa, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]))) != eslOK) goto FAILURE;
+	    if ((status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]))) != eslOK) goto ERROR;
 	  }
 	nidx++;
       }
 
   new->flags = msa->flags;
 
-  if ((status = esl_strdup(msa->name, -1, &(new->name))) != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->desc, -1, &(new->desc))) != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->acc,  -1, &(new->acc)))  != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->au,   -1, &(new->au)))   != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto FAILURE;
-  if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto FAILURE;
+  if ((status = esl_strdup(msa->name, -1, &(new->name))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->desc, -1, &(new->desc))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->acc,  -1, &(new->acc)))  != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->au,   -1, &(new->au)))   != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto ERROR;
   
   for (i = 0; i < eslMSA_NCUTS; i++) {
     new->cutoff[i] = msa->cutoff[i];
@@ -2454,7 +2454,7 @@ esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new)
   *ret_new = new;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (new != NULL) esl_msa_Destroy(new);
   *ret_new = NULL;
   return status;
@@ -2587,7 +2587,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
   free(useme);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (useme != NULL) free(useme);
   return status;
 }
@@ -2659,7 +2659,7 @@ esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
   free(useme);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (useme != NULL) free(useme);
   return status;
 }
@@ -2708,9 +2708,9 @@ esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
   int   special;
 
   if (msa->flags & eslMSA_DIGITAL)
-    ESL_ERROR(eslEINVAL, "can't SymConvert on digital mode alignment");
+    ESL_EXCEPTION(eslEINVAL, "can't SymConvert on digital mode alignment");
   if ((strlen(oldsyms) != strlen(newsyms)) && strlen(newsyms) != 1)
-    ESL_ERROR(eslEINVAL, "invalid newsyms/oldsyms pair");
+    ESL_EXCEPTION(eslEINVAL, "invalid newsyms/oldsyms pair");
 
   special = (strlen(newsyms) == 1 ? TRUE : FALSE);
 
@@ -3332,7 +3332,7 @@ main(int argc, char **argv)
 #endif
 
 #ifdef eslTEST_THROWING
-  esl_error_SetHandler(&esl_nonfatal_handler);
+  esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
 
   /* Create a known Stockholm test alignment in a tempfile.

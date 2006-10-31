@@ -74,7 +74,7 @@ esl_stack_ICreate(void)
   ns->n        = 0;
   return ns;
 
- FAILURE:
+ ERROR:
   esl_stack_Destroy(ns);
   return NULL;
 }
@@ -102,7 +102,7 @@ esl_stack_CCreate(void)
   cs->n        = 0;
   return cs;
 
- FAILURE:
+ ERROR:
   esl_stack_Destroy(cs);
   return NULL;
 }
@@ -130,7 +130,7 @@ esl_stack_PCreate(void)
   ps->n        = 0;
   return ps;
 
- FAILURE:
+ ERROR:
   esl_stack_Destroy(ps);
   return NULL;
 }
@@ -189,7 +189,7 @@ esl_stack_IPush(ESL_STACK *ns, int x)
   ns->n++;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -216,7 +216,7 @@ esl_stack_CPush(ESL_STACK *cs, char c)
   cs->n++;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -243,7 +243,7 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
   ps->n++;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -396,7 +396,7 @@ main(void)
   /* pushing data: */
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != eslOK) ESL_ERROR(eslEMEM, "push failed");
+    if (esl_stack_IPush(s, i) != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
 
   /* popping data: */
   n2 = 0;
@@ -408,7 +408,7 @@ main(void)
    */
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != eslOK) ESL_ERROR(eslEMEM, "push failed");
+    if (esl_stack_IPush(s, i) != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
     if (esl_stack_IPop(s, &x) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
@@ -475,7 +475,7 @@ main(void)
 
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
   n2 = 0;
   while (esl_stack_CPop(s, &c) != eslEOD) {
     if (c != 'X') {
@@ -488,7 +488,7 @@ main(void)
     { fprintf(stderr, "Put %d characters on; got %d off\n", n1, n2); return 1; }
 
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
     if (esl_stack_CPop(s, &c) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
@@ -499,7 +499,7 @@ main(void)
 
   n1 = 257;
   for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_ERROR(eslEMEM, "push failed");
+    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
 
   /* Note: the Convert2String() call destroys the stack!
    */
@@ -511,7 +511,7 @@ main(void)
   free(str);
   return EXIT_SUCCESS;
 
- FAILURE:
+ ERROR:
   return status;
 }
 #endif /*eslSTACK_TESTDRIVE*/

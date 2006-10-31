@@ -56,7 +56,7 @@ esl_mixdchlet_Create(int N, int K)
   pri->K = K;
   return pri;
 
- FAILURE:
+ ERROR:
   esl_mixdchlet_Destroy(pri);
   return NULL;
 }
@@ -105,7 +105,7 @@ esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, do
   double totc;
   double tota;
   
-  if (K != pri->K) ESL_ERROR(eslEINCOMPAT, "cvec's K != mixture Dirichlet's K");
+  if (K != pri->K) ESL_EXCEPTION(eslEINCOMPAT, "cvec's K != mixture Dirichlet's K");
 
   /* Calculate mix[], the posterior probability
    * P(q | c) of mixture component q given the count vector c.
@@ -350,37 +350,37 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
   
   *ret_pri = pri = NULL;
 
-  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto ERROR;
   K = atoi(tok);
-  if (K < 1) { sprintf(efp->errbuf, "Bad vector size %.32s", tok); goto FAILURE; }
+  if (K < 1) { sprintf(efp->errbuf, "Bad vector size %.32s", tok); goto ERROR; }
   
-  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto ERROR;
   N = atoi(tok);
-  if (N < 1) { sprintf(efp->errbuf, "Bad mixture number %.32s", tok); goto FAILURE; }
+  if (N < 1) { sprintf(efp->errbuf, "Bad mixture number %.32s", tok); goto ERROR; }
 
   pri = esl_mixdchlet_Create(N, K);
-  if (pri == NULL) { sprintf(efp->errbuf, "mxdchlet alloc failed"); goto FAILURE; }
+  if (pri == NULL) { sprintf(efp->errbuf, "mxdchlet alloc failed"); goto ERROR; }
  
   for (q = 0; q < N; q++)
     {
-      if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+      if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto ERROR;
       pri->pq[q] = atof(tok);
       if (pri->pq[q] < 0.0 || pri->pq[q] > 1.0) 
-	{ sprintf(efp->errbuf, "bad mixture coefficient %.32s", tok); goto FAILURE; }      
+	{ sprintf(efp->errbuf, "bad mixture coefficient %.32s", tok); goto ERROR; }      
 
       for (i = 0; i < K; i++)
 	{
-	  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto FAILURE;
+	  if ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) goto ERROR;
 	  pri->alpha[q][i] = atof(tok);
 	  if (pri->alpha[q][i] <= 0.0)
-	    { sprintf(efp->errbuf, "Dirichlet params must be positive, got %.32s", tok); goto FAILURE; } 
+	    { sprintf(efp->errbuf, "Dirichlet params must be positive, got %.32s", tok); goto ERROR; } 
 	}
     }
   esl_vec_DNorm(pri->pq, N);
   *ret_pri = pri;
   return eslOK;
 
- FAILURE:
+ ERROR:
   esl_mixdchlet_Destroy(pri);
   return eslEFORMAT;
 }

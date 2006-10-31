@@ -34,8 +34,8 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
   int    info;
   int    status;
 
-  if ((VL = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
-  if ((VR = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto FAILURE; }
+  if ((VL = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto ERROR; }
+  if ((VR = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto ERROR; }
   ESL_ALLOC(Er,   sizeof(double) * A->n);
   ESL_ALLOC(Ei,   sizeof(double) * A->n);
   ESL_ALLOC(work, sizeof(double) * 4 * A->n);
@@ -71,7 +71,7 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
   free(work);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ret_VL != NULL) *ret_VL = NULL;
   if (ret_VR != NULL) *ret_VR = NULL;
   if (ret_Er != NULL) *ret_Er = NULL;

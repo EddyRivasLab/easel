@@ -198,7 +198,7 @@ esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
    */
   ESL_ALLOC(new, sizeof(struct esl_key_elem));
   new->key = NULL;
-  if ((status = esl_strdup(key, -1, &(new->key))) != eslOK) goto FAILURE;
+  if ((status = esl_strdup(key, -1, &(new->key))) != eslOK) goto ERROR;
   new->idx = h->nkeys;
   
   /* Insert the new element at hash->table[val], at the head
@@ -211,12 +211,12 @@ esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index)
   /* Time to upsize? If we're 3x saturated, expand the hash table.
    */
   if (h->nkeys > 3*h->nhash && h->primelevel < eslKEY_NPRIMES-1)
-    if ((status = key_upsize(h)) != eslOK) goto FAILURE;
+    if ((status = key_upsize(h)) != eslOK) goto ERROR;
 
   if (ret_index != NULL) *ret_index = h->nkeys-1; 
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (new != NULL) {
     if (new->key != NULL) free(new->key);
     free(new);
@@ -267,7 +267,7 @@ key_alloc(int primelevel)
   int  i;
 
   if (primelevel < 0 || primelevel >= eslKEY_NPRIMES) 
-    ESL_FAIL(eslEINCONCEIVABLE, "bad primelevel in key_alloc()");
+    ESL_XEXCEPTION(eslEINCONCEIVABLE, "bad primelevel in key_alloc()");
   
   ESL_ALLOC(hash, sizeof(ESL_KEYHASH));
   hash->table = NULL;
@@ -280,7 +280,7 @@ key_alloc(int primelevel)
   hash->nkeys = 0;
   return hash;
 
- FAILURE:
+ ERROR:
   if (hash != NULL) {
     if (hash->table != NULL) free(hash->table);
     free(hash);

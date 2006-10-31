@@ -135,8 +135,8 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   double       factor;
   int          k;
 
-  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto FAILURE;
-  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto FAILURE;
+  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
+  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
   
   esl_dmx_SetIdentity(P);
   factor = 1;
@@ -157,7 +157,7 @@ esl_ratemx_TaylorExp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   esl_dmatrix_Destroy(C);
   return eslOK;
 
- FAILURE:
+ ERROR:
   esl_dmatrix_Destroy(tmp);
   esl_dmatrix_Destroy(C);
   return status;
@@ -189,7 +189,7 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
   ESL_DMATRIX *Q = NULL;
   int i,j;
 
-  if ((Q = esl_dmatrix_Create(4, 4)) == NULL) goto FAILURE;
+  if ((Q = esl_dmatrix_Create(4, 4)) == NULL) goto ERROR;
   
   for (i = 0; i < 4; i++)
     {
@@ -203,7 +203,7 @@ esl_ratemx_CreateHKY(double *f, double alpha, double beta)
   esl_ratemx_Normalize(Q, f, 1.0);
   return Q;
 
- FAILURE:
+ ERROR:
   esl_dmatrix_Destroy(Q);
   return NULL;
 }

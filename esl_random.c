@@ -51,7 +51,7 @@ esl_randomness_Create(long seed)
   int             burnin = 7;
   int             status;
 
-  if (seed <= 0) ESL_FAIL(eslEINVAL, "bad seed");
+  if (seed <= 0) ESL_XEXCEPTION(eslEINVAL, "bad seed");
   ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
   r->seed = seed;
 
@@ -62,7 +62,7 @@ esl_randomness_Create(long seed)
   while (burnin--) esl_random(r);
   return r;
 
- FAILURE:
+ ERROR:
   return NULL;
 }
 
@@ -92,7 +92,7 @@ esl_randomness_CreateTimeseeded(void)
   while (burnin--) esl_random(r);
   return r;
 
- FAILURE:
+ ERROR:
   return NULL;
 }
 
@@ -130,7 +130,7 @@ int
 esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
 {
   int burnin = 7;
-  if (seed <= 0) ESL_ERROR(eslEINVAL, "bad seed");
+  if (seed <= 0) ESL_EXCEPTION(eslEINVAL, "bad seed");
   r->seed = seed;
   while (burnin--) esl_random(r);
   return eslOK;
@@ -608,7 +608,7 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char **r
   *ret_s = s;
   return eslOK;
 
- FAILURE:
+ ERROR:
   *ret_s = NULL;
   return status;
 }
@@ -768,13 +768,13 @@ unit_random(long seed, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("random():  \t%g\n", X2p);
-  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
+  if (X2p < 0.01) { status = eslFAIL; goto ERROR; }
 
   esl_randomness_Destroy(r);
   free(counts);
   return eslOK;
   
- FAILURE:
+ ERROR:
   if (r      != NULL) esl_randomness_Destroy(r);
   if (counts != NULL) free(counts);
   return status;
@@ -813,7 +813,7 @@ unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("DChoose():  \t%g\n", X2p);
-  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
+  if (X2p < 0.01) { status = eslFAIL; goto ERROR; }
 
   /* Repeat above for FChoose(). */
   esl_vec_ISet(ct, nbins, 0);
@@ -826,14 +826,14 @@ unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   }
   esl_stats_ChiSquaredTest(nbins, X2, &X2p);
   if (be_verbose) printf("FChoose():  \t%g\n", X2p);
-  if (X2p < 0.01) { status = eslFAIL; goto FAILURE; }
+  if (X2p < 0.01) { status = eslFAIL; goto ERROR; }
   
   free(pd);
   free(pf);
   free(ct);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (pd != NULL) free(pd);
   if (pf != NULL) free(pf);
   if (ct != NULL) free(ct);
@@ -871,7 +871,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
   fclose(fp);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (fp != NULL) fclose(fp);
   return status;
 }

@@ -193,7 +193,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	      else /* ct[i]>0, != j: i is paired, but not to j: pseudoknot! */
 		{
 		  esl_stack_Destroy(pda); esl_stack_Destroy(aux);	 
-		  ESL_ERROR(eslEINVAL, "pseudoknots not permitted yet");
+		  ESL_EXCEPTION(eslEINVAL, "pseudoknots not permitted yet");
 		}
 	    }
 	  
@@ -212,7 +212,7 @@ esl_ct2wuss(int *ct, int n, char *ss)
 	  case -4: ss[i-1] = '{'; ss[j-1] = '}'; break;
 	  default:
 	    esl_stack_Destroy(pda); esl_stack_Destroy(aux);
-	    ESL_ERROR(eslEINCONCEIVABLE, "no such face code");
+	    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such face code");
 	  }
 	  if (esl_stack_IPush(pda, minface) != eslOK) goto FINISH;
 
@@ -365,11 +365,11 @@ esl_wuss_full(char *oldss, char *newss)
   esl_wuss_nopseudo(oldss, tmp);/* tmp = nonpseudoknotted oldss */
 
   status = esl_wuss2ct(tmp, n, ct);   /* ct  = oldss in ct format, no pks */
-  if (status != eslOK) goto FAILURE;
+  if (status != eslOK) goto ERROR;
 
   status = esl_ct2wuss(ct, n, tmp);   /* now tmp is a full WUSS string */
-  if (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto FAILURE; }/* we're sure, no pk's */
-  else if (status != eslOK) goto FAILURE; /* EMEM, EINCONCEIVABLE  */
+  if (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }/* we're sure, no pk's */
+  else if (status != eslOK) goto ERROR; /* EMEM, EINCONCEIVABLE  */
   
   for (i = 0; i < n; i++)
     if (isalpha(oldss[i])) newss[i] = oldss[i];	/* transfer pk annotation */
@@ -379,7 +379,7 @@ esl_wuss_full(char *oldss, char *newss)
   free(tmp);
   return eslOK;
 
- FAILURE:
+ ERROR:
   free(ct);
   free(tmp);
   return status;
@@ -499,7 +499,7 @@ main(int argc, char **argv)
   free(ss2);
   return 0;
 
- FAILURE:
+ ERROR:
   free(ct1);
   free(ct2);
   free(ss2);

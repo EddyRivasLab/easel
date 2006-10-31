@@ -105,7 +105,7 @@ esl_histogram_Create(double xmin, double xmax, double w)
   esl_vec_ISet(h->obs, h->nb, 0);
   return h;
 
- FAILURE:
+ ERROR:
   esl_histogram_Destroy(h);
   return NULL;
 }
@@ -133,7 +133,7 @@ esl_histogram_CreateFull(double xmin, double xmax, double w)
   h->is_full = TRUE;
   return h;
 
- FAILURE:
+ ERROR:
   esl_histogram_Destroy(h);
   return NULL;
 }
@@ -185,7 +185,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
    * don't allow caller to add data after configuration has been declared
    */
   if (h->is_done)
-    ESL_ERROR(eslEINVAL, "can't add more data to this histogram");
+    ESL_EXCEPTION(eslEINVAL, "can't add more data to this histogram");
 
   /* If we're a full histogram, check whether we need to reallocate
    * the full data vector.
@@ -250,7 +250,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   if (x < h->xmin) h->xmin = x;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
   
@@ -304,7 +304,7 @@ esl_histogram_sort(ESL_HISTOGRAM *h)
 int
 esl_histogram_DeclareCensoring(ESL_HISTOGRAM *h, int z, double phi)
 {
-  if (phi > h->xmin) ESL_ERROR(eslEINVAL, "no uncensored x can be <= phi");
+  if (phi > h->xmin) ESL_EXCEPTION(eslEINVAL, "no uncensored x can be <= phi");
 
   h->phi         = phi;
   h->cmin        = h->imin;
@@ -469,13 +469,13 @@ int
 esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
 {
   if (! h->is_full) 
-    ESL_ERROR(eslEINVAL, 
+    ESL_EXCEPTION(eslEINVAL, 
 	      "esl_histogram_GetRank() needs a full histogram");
   if (rank > h->n)
-    ESL_ERROR(eslEINVAL, 
+    ESL_EXCEPTION(eslEINVAL, 
 	      "no such rank: not that many scores in the histogram");
   if (rank < 1)
-    ESL_ERROR(eslEINVAL, "histogram rank must be a value from 1..n");
+    ESL_EXCEPTION(eslEINVAL, "histogram rank must be a value from 1..n");
 
   esl_histogram_sort(h);	/* make sure */
   *ret_x = h->x[h->n - rank + 1];
@@ -519,7 +519,7 @@ esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
 int
 esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
 {
-  if (! h->is_full) ESL_ERROR(eslEINVAL, "not a full histogram");
+  if (! h->is_full) ESL_EXCEPTION(eslEINVAL, "not a full histogram");
   esl_histogram_sort(h);
 
   *ret_x = h->x;
@@ -570,7 +570,7 @@ esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi,
 {
   int hi, lo, mid;
 
-  if (! h->is_full) ESL_ERROR(eslEINVAL, "not a full histogram");
+  if (! h->is_full) ESL_EXCEPTION(eslEINVAL, "not a full histogram");
   esl_histogram_sort(h);
 
   if      (h->n         == 0)   mid = h->n;  /* we'll return NULL, 0, n */  
@@ -638,9 +638,9 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
   int n;
 
   if (! h->is_full) 
-    ESL_ERROR(eslEINVAL, "not a full histogram");
+    ESL_EXCEPTION(eslEINVAL, "not a full histogram");
   if (pmass < 0. || pmass > 1.) 
-    ESL_ERROR(eslEINVAL, "pmass not a probability");
+    ESL_EXCEPTION(eslEINVAL, "pmass not a probability");
 
   esl_histogram_sort(h);
 
@@ -709,7 +709,7 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
   h->is_done = TRUE;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -767,7 +767,7 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
   h->is_done    = TRUE;
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -1131,7 +1131,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   int      nobs;
   double   nexp;
 
-  if (h->expect == NULL) ESL_ERROR(eslEINVAL, "no expected counts in that histogram");
+  if (h->expect == NULL) ESL_EXCEPTION(eslEINVAL, "no expected counts in that histogram");
 
   /* Determine the smallest histogram bin included in 
    * the goodness of fit evaluation.
@@ -1252,7 +1252,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   free(topx);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ret_nbins != NULL) *ret_nbins = 0;
   if (ret_G     != NULL) *ret_G     = 0.;
   if (ret_Gp    != NULL) *ret_Gp    = 0.;
@@ -1798,7 +1798,7 @@ main(int argc, char **argv)
 	  esl_exp_FitCompleteBinned(h, &(ep[0]), &ep[1]);
 	}
       else
-	ESL_ERROR(eslEINVAL, "not a scenario we currently test");
+	ESL_EXCEPTION(eslEINVAL, "not a scenario we currently test");
 
       /* Keep track of average estimated mu, lambda
        * for automated testing purposes.
@@ -1887,13 +1887,13 @@ main(int argc, char **argv)
   /* Trap badness in an automated test.
    */
   if (fstrategy != FIT_TAIL && fabs(avg_ep[0] - p[0]) > 0.1)
-    ESL_ERROR(eslFAIL, "Something awry with Gumbel mu fit");
+    ESL_EXCEPTION(eslFAIL, "Something awry with Gumbel mu fit");
   if (fabs(avg_ep[1] - p[1]) > 0.1)
-    ESL_ERROR(eslFAIL, "Something awry with lambda fit");
+    ESL_EXCEPTION(eslFAIL, "Something awry with lambda fit");
  if (minGp < 1. / (1000. * ntrials))
-    ESL_ERROR(eslFAIL, "Something awry with G-test");
+    ESL_EXCEPTION(eslFAIL, "Something awry with G-test");
   if (minX2p < 1. / (1000. * ntrials))
-    ESL_ERROR(eslFAIL, "Something awry with chi squared test");
+    ESL_EXCEPTION(eslFAIL, "Something awry with chi squared test");
 
   /* Smaller final tests
    */

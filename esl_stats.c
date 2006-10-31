@@ -84,7 +84,7 @@ esl_stats_LogGamma(double x, double *ret_answer)
   
   /* Protect against invalid x<=0
    */
-  if (x <= 0.0)  ESL_ERROR(eslERANGE, "invalid x <= 0 in esl_stats_LogGamma()");
+  if (x <= 0.0)  ESL_EXCEPTION(eslERANGE, "invalid x <= 0 in esl_stats_LogGamma()");
 
   xx       = x - 1.0;
   tx = tmp = xx + 11.0;
@@ -119,7 +119,7 @@ esl_stats_Psi(double x, double *ret_answer)
   double answer = 0.;
   double x2;
 
-  if (x <= 0.0) ESL_ERROR(eslERANGE, "invalid x <= 0 in esl_stats_Psi()");
+  if (x <= 0.0) ESL_EXCEPTION(eslERANGE, "invalid x <= 0 in esl_stats_Psi()");
   
   /* For small x, Psi(x) ~= -0.5772 - 1/x + O(x), we're done.
    */
@@ -189,8 +189,8 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
   double pax;			/* P(a,x) */
   double qax;			/* Q(a,x) */
 
-  if (a <= 0.) ESL_ERROR(eslERANGE, "esl_stats_IncompleteGamma(): a must be > 0");
-  if (x <  0.) ESL_ERROR(eslERANGE, "esl_stats_IncompleteGamma(): x must be >= 0");
+  if (a <= 0.) ESL_EXCEPTION(eslERANGE, "esl_stats_IncompleteGamma(): a must be > 0");
+  if (x <  0.) ESL_EXCEPTION(eslERANGE, "esl_stats_IncompleteGamma(): x must be >= 0");
 
   /* For x > a + 1 the following gives rapid convergence;
    * calculate Q(a,x) = \frac{\Gamma(a,x)}{\Gamma(a)},
@@ -244,7 +244,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 
 	  oldp = nu1;
 	}
-      ESL_ERROR(eslECONVERGENCE,
+      ESL_EXCEPTION(eslECONVERGENCE,
 		"esl_stats_IncompleteGamma(): fraction failed to converge");
     }
   else /* x <= a+1 */
@@ -277,7 +277,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 	      return eslOK;
 	    }
 	}
-      ESL_ERROR(eslECONVERGENCE,
+      ESL_EXCEPTION(eslECONVERGENCE,
 		"esl_stats_IncompleteGamma(): series failed to converge");
     }
   /*NOTREACHED*/

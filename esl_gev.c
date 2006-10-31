@@ -984,7 +984,7 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
   free(x);
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status; 
 }
 #endif /*eslGEV_STATS*/

@@ -363,7 +363,7 @@ main(int argc, char **argv)
   esl_msafile_Close(kfp);
   return 0;
 
- FAILURE:
+ ERROR:
   return status;
 }
 

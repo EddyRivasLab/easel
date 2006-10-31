@@ -52,7 +52,7 @@ esl_dmatrix_Create(int n, int m)
 
   return A;
   
- FAILURE:
+ ERROR:
   esl_dmatrix_Destroy(A);
   return NULL;
 }
@@ -127,7 +127,7 @@ esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
 {
   int i;
   if (dest->n != src->n || dest->m != src->m)
-    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
+    ESL_EXCEPTION(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < src->n*src->m; i++)
     dest->mx[0][i] = src->mx[0][i];
   return eslOK;
@@ -215,7 +215,7 @@ esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
 {
   int i;
   
-  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
+  if (A->n != A->m) ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
   esl_dmatrix_SetZero(A);
   for (i = 0; i < A->n; i++) A->mx[i][i] = 1.;
   return eslOK;
@@ -253,7 +253,7 @@ esl_permutation_Create(int n)
   esl_permutation_Reuse(P);	/* initialize it */
   return P;
 
- FAILURE:
+ ERROR:
   esl_permutation_Destroy(P);
   return NULL;
 }
@@ -344,9 +344,9 @@ esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
 {
   int i, j, k;
 
-  if (A->m != B->n) ESL_ERROR(eslEINVAL, "can't multiply A,B");
-  if (A->n != C->n) ESL_ERROR(eslEINVAL, "A,C # of rows not equal");
-  if (B->m != C->m) ESL_ERROR(eslEINVAL, "B,C # of cols not equal");
+  if (A->m != B->n) ESL_EXCEPTION(eslEINVAL, "can't multiply A,B");
+  if (A->n != C->n) ESL_EXCEPTION(eslEINVAL, "A,C # of rows not equal");
+  if (B->m != C->m) ESL_EXCEPTION(eslEINVAL, "B,C # of cols not equal");
 
   for (i = 0; i < A->n; i++)
     for (j = 0; j < B->m; j++)
@@ -371,7 +371,7 @@ esl_dmx_Transpose(ESL_DMATRIX *A)
   int    i,j;
   double swap;
 
-  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
+  if (A->n != A->m) ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
   for (i = 0; i < A->n; i++)
     for (j = i+1; j < A->m; j++)
       { swap = A->mx[i][j]; A->mx[i][j] = A->mx[j][i]; A->mx[j][i] = swap; }
@@ -392,7 +392,7 @@ esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B)
   int i,j;
   
   if (A->n != B->n || A->m != B->n)
-    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
+    ESL_EXCEPTION(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
       A->mx[i][j] +=  B->mx[i][j];
@@ -427,7 +427,7 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
   int i,j;
 
   if (A->n != B->n || A->m != B->n)
-    ESL_ERROR(eslEINCOMPAT, "matrices of different size");
+    ESL_EXCEPTION(eslEINCOMPAT, "matrices of different size");
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
       A->mx[i][j] +=  k * B->mx[i][j];
@@ -450,7 +450,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
   int i,ip,j;
 
   if (A->n != P->n || A->n != B->n || A->n != A->m || B->n != B->m)
-    ESL_ERROR(eslEINVAL, "matrix dimensions not compatible");
+    ESL_EXCEPTION(eslEINVAL, "matrix dimensions not compatible");
 
   for (i = 0; i < A->n; i++)
     {
@@ -486,8 +486,8 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
   double max;
   double swap;
 
-  if (A->n != A->m) ESL_ERROR(eslEINVAL, "matrix isn't square");
-  if (P->n != A->n) ESL_ERROR(eslEINVAL, "permutation isn't the right size");
+  if (A->n != A->m) ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
+  if (P->n != A->n) ESL_EXCEPTION(eslEINVAL, "permutation isn't the right size");
   esl_permutation_Reuse(P);
 
   for (k = 0; k < A->n-1; k++)
@@ -501,7 +501,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 	  max = fabs(A->mx[i][k]);
 	  kpiv = i;
 	}
-      if (max == 0.) ESL_ERROR(eslEDIVZERO, "matrix is singular");
+      if (max == 0.) ESL_EXCEPTION(eslEDIVZERO, "matrix is singular");
       
       /* Swap those rows (k and kpiv);
        * and keep track of that permutation in P. (misuse j for swapping integers)
@@ -537,11 +537,11 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
 {
   int i,j;
 
-  if (LU->n != LU->m) ESL_ERROR(eslEINVAL, "LU isn't square");
-  if (L->n  != L->m)  ESL_ERROR(eslEINVAL, "L isn't square");
-  if (U->n  != U->m)  ESL_ERROR(eslEINVAL, "U isn't square");
-  if (LU->n != L->n)  ESL_ERROR(eslEINVAL, "LU, L have incompatible dimensions");
-  if (LU->n != U->n)  ESL_ERROR(eslEINVAL, "LU, U have incompatible dimensions");
+  if (LU->n != LU->m) ESL_EXCEPTION(eslEINVAL, "LU isn't square");
+  if (L->n  != L->m)  ESL_EXCEPTION(eslEINVAL, "L isn't square");
+  if (U->n  != U->m)  ESL_EXCEPTION(eslEINVAL, "U isn't square");
+  if (LU->n != L->n)  ESL_EXCEPTION(eslEINVAL, "LU, L have incompatible dimensions");
+  if (LU->n != U->n)  ESL_EXCEPTION(eslEINVAL, "LU, U have incompatible dimensions");
 
   esl_dmatrix_SetZero(L);
   esl_dmatrix_SetZero(U);
@@ -584,13 +584,13 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   int               i,j,k;
   int               status;
 
-  if (A->n != A->m)                   ESL_ERROR(eslEINVAL, "matrix isn't square");
-  if (A->n != Ai->n || A->m != Ai->m) ESL_ERROR(eslEINVAL, "matrices are different size");
+  if (A->n != A->m)                   ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
+  if (A->n != Ai->n || A->m != Ai->m) ESL_EXCEPTION(eslEINVAL, "matrices are different size");
 
   /* Copy A to LU, and do an LU decomposition.
    */
-  if ((LU = esl_dmatrix_Create(A->n, A->m)) == NULL) goto FAILURE;
-  if ((P  = esl_permutation_Create(A->n))   == NULL) goto FAILURE;
+  if ((LU = esl_dmatrix_Create(A->n, A->m)) == NULL) goto ERROR;
+  if ((P  = esl_permutation_Create(A->n))   == NULL) goto ERROR;
   esl_dmatrix_Copy(A, LU);
   esl_dmx_LUP_decompose(LU, P);
 
@@ -640,7 +640,7 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   esl_permutation_Destroy(P);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (y  != NULL) free(y);
   if (b  != NULL) free(b);
   if (LU != NULL) esl_dmatrix_Destroy(LU);

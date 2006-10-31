@@ -40,7 +40,7 @@ esl_stopwatch_Create(void)
   w->sys     = 0.;
   return w;
 
- FAILURE:
+ ERROR:
   return NULL;
 }
 

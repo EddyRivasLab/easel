@@ -3,86 +3,64 @@ by all the modules: notably, the error-handling system.
 
 \section{Error handling}
 
-Easel is intended for use in applications ranging from quick \& dirty
-one-off command line applications to complex graphical user interfaces
-and parallel systems. Simple and complex applications have different
-views of how errors and exceptions should be handled by a library.  On
-the one hand, a robust application wants a guarantee that execution
-never terminates within a library routine; control should be returned
-to the application even in the most dire and unexpected
-circumstances. We don't want Easel to crash a whole graphical user
-environment, for example. And because an application is not
-necessarily associated with a terminal, Easel cannot print error
-messages directly to \emph{stderr}; \emph{stderr} may not go anywhere
-useful. On the other hand, a quick \& dirty command line application
-doesn't want to use lots of code checking for various dire and
-unexpected errors. It would prefer to have Easel crash out with an
-appropriate message to \ccode{stderr} -- that's all a simple
-application would do anyway.
+Easel might be used in applications ranging from small command line
+utilities to complex graphical user interfaces and parallel
+systems. Simple and complex applications have different needs for how
+errors should be handled by a library.
 
-Easel processes all \textbf{exceptions} with one function,
-\ccode{esl\_error()}, which takes an error code, error message, source
-file name, and source line number as arguments.  \ccode{esl\_error()}
-hands this information to a customizable error handling function. The
-default error handler is a fatal one, which performs the simple
-behavior: it prints the error message to \ccode{stderr} and aborts
-execution. Therefore, by default, applications can rely on Easel to
-handle its own exceptions.  In an application that wants to handle all
-exceptions itself, and wants a guarantee that execution will never
-terminate from within Easel, a custom nonfatal error handler can be
-assigned to \ccode{esl\_error()}, one which merely catches the
-information from Easel (and reacts appropriately) but returns control
-to Easel at the point of failure. Easel percolates the error code up
-through its call stack until control returns to your application with
-an appropriate nonzero error code. \footnote{The idioms used in Easel
-to handle serious exceptions non-fatally look somewhat like exception
-handling in more modern languages like C++/Java.}
+In a simple application, we don't want to write a lot of code to
+checking return codes for unexpected problems. We would prefer to have
+Easel crash out with an appropriate message to \ccode{stderr} -- after
+all, that's all a simple application would do anyway.
 
-Easel distinguishes exceptions from \textbf{normal errors}. ``Normal''
-errors are conditions that any application should handle gracefully,
-even a simple application. One example is an end-of-file indicator
-from an input routine. Most importantly, any problem that is the fault
-of the user (typo in a command line argument, bad file format, and
-suchlike) is called a normal error. (Bad user input is ``normal''. It
-should not crash a program with an exception.) Easel functions handle
-normal errors by directly returning an appropriate nonzero status code
-to the caller, without sending a message through the handler in
-\ccode{esl\_error()}. A limitation of this approach is that your
-application only gets a status code, not a message, when a normal
-error occurs. Often the status code is sufficient for your application
-to know what happened. For instance, \ccode{eslEOF} means end-of-file,
-so your application might report \ccode{"premature end of file"} if it
-receives such a status code unexpectedly. But when the error involves
-a file format syntax problem (for instance) a terse \ccode{eslESYNTAX}
-return code is not as useful as knowing \ccode{"Parse failed at line
-42 of file foo.data: expected integer, got nothing"}. File parsers in
-Easel are generally encapsulated in objects; these objects include a
-\ccode{errbuf[]} string that contains a useful error message when a
-parser function returns a normal error. (For instance, see the
-\eslmod{sqio} module and its \ccode{ESL\_SQFILE} object for sequence
-file parsing.)
+On the other hand, there are certain problems that even the simplest
+command-line applications should handle gracefully. Errors involving
+user input (including typos in command line arguments, bad file
+formats, nonexistent files, or bad file permissions) are ``normal''
+and should be expected. Users will do anything.
 
-Easel also distinguishes a third class of error, termed
-\textbf{violations}. Violations are bugs: problems that should never
-arise in production code, and that should be caught during development
-and testing. Violations result in an \ccode{abort()} and immediate
-program termination; therefore, they never occur in production
-code. They are generated by two mechanisms: from assertions that can
-be optionally enabled in development code, or from test harnesses that
-call the always-fatal \ccode{esl\_fatal()} function when they detect a
-problem they're testing for. For example, Easel uses conditionally
-compiled assertions to test for violations of Easel's API design
-contracts. \footnote{``Design-by-contract'' is a concept introduced by
-the Eiffel language [\url{www.eiffel.com}]. C does not inherently
-support DBC, but sometimes Easel partially emulates it using
-assertions.}
+In a complex application, we may want to guarantee that execution
+never terminates within a library routine. In this case, library
+functions always need to return control to the application, even in
+the most unexpected circumstances, so the application can fail
+gracefully. A failure in an Easel routine should not suddenly crash a
+whole graphical user environment, for example. Additionally, because a
+complex application may not even be associated with a terminal, a
+library cannot count on printing error messages directly to
+\ccode{stderr}.
 
-\subsection{Error handling: application perspective}
+These considerations motivate Easel's error handling conventions.
+Most Easel procedures return an integer status code. An \ccode{eslOK}
+code indicates that the procedure succeeded. A nonzero code indicates
+an error. Easel distinguishes two kinds of errors:
 
-Almost all Easel functions return an integer status code, where
-\ccode{eslOK} (0) indicates success and a nonzero code indicates a
-failure. The list of status codes is shown in
-Table~\ref{tbl:statuscodes}.
+\begin{itemize}
+\item \textbf{Failures} include normal ``errors'' (like a read failing
+  when the end of a file is reached), and errors that are the user's
+  fault, such as bad input (which are also normal, because users will
+  do anything.) We say that failures are \textbf{returned} by Easel
+  functions. All applications should check the return status of any
+  Easel function that might return a failure code. Relatively few
+  Easel functions can return failure codes. The ones that do are
+  generally functions having to do with reading user input.
+
+\item \textbf{Exceptions} are errors that are the fault of Easel (bugs
+in my code) or your application (bugs in your code) or the system
+(resource allocation failures). We say that exceptions are
+\textbf{thrown} by Easel functions. By default, exceptions result in
+immediate termination of your program. Optionally, you may provide
+your own exception handler, in which case Easel functions may return
+nonzero exception codes (in addition to any nonzero failure codes).
+\end{itemize}
+
+The documentation for each Easel function lists what failure codes it
+may return, as well as what exception codes it may throw (if a
+nonfatal exception handler has been registered), in addition to the
+\ccode{eslOK} normal status code. The list of possible status codes is
+shown in Table~\ref{tbl:statuscodes}. There is no intrinsic
+distinction between failure codes and exception codes. Codes that
+indicate failures in one function may indicate exceptions in another
+function.
 
 \begin{table}
 \begin{center}
@@ -92,49 +70,158 @@ Table~\ref{tbl:statuscodes}.
 \label{tbl:statuscodes}
 \end{table}
 
-There are some exceptions. Some \ccode{*\_Create()} functions that
-allocate and create new objects follow a convention of returning a
-valid pointer on success, and \ccode{NULL} on failure; these are
-functions that only fail by memory allocation failure. Destructor
-functions (\ccode{*\_Destroy()}) always return \ccode{void}, and must
-have no points of failure of their own, because destructors can be
-called when we're already handling an exception. Functions with names
-containing \ccode{Is}, such as \ccode{esl\_abc\_XIsValid()}, are tests
-that return \ccode{TRUE} or \ccode{FALSE}. Finally, there are some
-functions that simply return an answer, rather than a status code;
-these must be functions that have no failure points. Easel is not
-completely dogmatic.
+Not all Easel functions return status codes. \ccode{*\_Create()}
+functions that allocate and create new objects usually follow a
+convention of returning a valid pointer on success, and \ccode{NULL}
+on failure; these are functions that only fail by memory allocation
+failure. Destructor functions (\ccode{*\_Destroy()}) always return
+\ccode{void}, and must have no points of failure of their own, because
+destructors can be called when we're already handling an
+exception. Functions with names containing \ccode{Is}, such as
+\ccode{esl\_abc\_XIsValid()}, are tests that return \ccode{TRUE} or
+\ccode{FALSE}. Finally, there are some ``true'' functions that simply
+return an answer, rather than a status code; these must be functions
+that have no points of failure.
 
-Documentation of individual Easel functions refers to exceptions that
-are handled by \ccode{esl\_error()} as \textbf{thrown}, and normal
-error conditions that directly return an error status code as
-\textbf{returned}.  From the perspective of an application developer
-using Easel, any \emph{returned} error codes \textbf{must} always be
-checked. Moreover, a function's documentation always lists all
-possible return codes that you need to deal with.  In contrast, a
-simple application does not need to pay attention to thrown exceptions
-at all. The default error handler deals with them (fatally). However,
-an application that registers a custom nonfatal error handler does
-need to check for both returned errors and thrown exceptions. Although
-each function's documentation \emph{in principle} lists all thrown
-exceptions, \emph{in practice}, an application developer should not
-trust this list. Because exceptions may percolate up from other Easel
-calls, it is easy to forget to document all possible
-exceptions.\footnote{If we combined a static code analyzer with a
-script that understands Easel's exception conventions, we could
-automate the enumeration of all possible codes. This would be a Good
-Thing to do in the future.} An application that's catching exceptions
-should always have a failsafe catch for any nonzero return status. For
-example, a minimal try/catch idiom for an application calling a Easel
-function is something like:
+\subsection{Failure messages} 
+
+When failures occur, often the failure status code is sufficient for
+your application to know what went wrong. For instance, \ccode{eslEOF}
+means end-of-file, so your application might report \ccode{"premature
+end of file"} if it receives such a status code unexpectedly. But for
+failures involving a file format syntax problem (for instance) a terse
+\ccode{eslESYNTAX} return code is not as useful as knowing
+\ccode{"Parse failed at line 42 of file foo.data, where I expected to
+see an integer, but I saw nothing"}. When your application might want
+more information to format an informative failure message for the
+user, the Easel API provides (somewhere) a message buffer called
+\ccode{errbuf[]}.
+
+In many cases, file parsers in Easel are encapsulated in objects. In
+these cases, the object itself allocates an \ccode{errbuf[]} message
+string. (For instance, see the \eslmod{sqio} module and its
+\ccode{ESL\_SQFILE} object for sequence file parsing.)  In a few
+cases, the \ccode{errbuf[]} is part of the procedure's call API, and
+space is provided by the caller. In such cases, the caller either
+passes \ccode{NULL} (no failure message is requested) or a pointer to
+allocated space for at least \ccode{eslERRBUFSIZE} chars. (For
+instance, see the \eslmod{tree} module and the
+\ccode{esl\_tree\_ReadNewick()} parser.)
+
+Easel uses \ccode{sprintf()} to format the messages in
+\ccode{errbuf[]}'s. Each individual call guarantees that the size of
+its message cannot overflow \ccode{eslERRBUFSIZE} chars, so none of
+these \ccode{sprintf()} calls represent possible security
+vulnerabilities (buffer overrun attacks).
+
+
+\subsection{Exception handling}
+
+Easel's default exception handler prints a message to \ccode{stderr}
+and aborts execution of your program, as in:
+
+\begin{cchunk}
+   Easel exception: Memory allocation failed.
+   Aborted at file sqio.c, line 42. 
+\end{cchunk}
+
+Therefore, by default, Easel handles its own exceptions internally,
+and exception status codes are not returned to your
+application. Simple applications don't need to worry about checking
+for exceptions.
+
+If your application wants to handle exceptions itself -- for instance,
+if you want a guarantee that execution will never terminate from
+within Easel -- or even if you simply want to change the format of
+these messages, you can register a custom exception handler which will
+catch the information from Easel and react appropriately. If your
+exception handler prints a message and exits, Easel will still just
+abort without returning exception codes. If your exception handler is
+nonfatal (returning \ccode{void}), Easel procedures then percolate the
+exception code up through the call stack until the exception code is
+returned to your application.
+
+To provide your own exception handler, you define your exception
+handler with the following prototype:
+
+\begin{cchunk}
+extern void my_exception_handler(int code, char *file, int line, char *format, va_list arg);
+\end{cchunk}
+
+An example implementation of a nonfatal exception handler:
+
+\begin{cchunk}
+#include <stdarg.h>
+
+void
+my_exception_handler(int code, char *file, int line, char *format, va_list arg)
+{
+  fprintf(stderr, ``Easel threw an exception (code %d):\n'', code);
+  if (format != NULL) vfprintf(stderr, format, arg);
+  fprintf(stderr, ``at line %d, file %s\b'', line, file);
+  return;
+}
+\end{cchunk}
+
+The \ccode{code}, \ccode{file}, and \ccode{line} are always
+present. The formatted message (the \ccode{format} and \ccode{va\_list
+arg}) is optional; the \ccode{format} might be
+\ccode{NULL}. (\ccode{NULL} messages are used when percolating
+exceptions up a stack trace, for example.)
+
+Then, to register your exception handler, you call
+\ccode{esl\_exception\_SetHandler(\&my\_error\_handler)} in your
+application. Normally you would do this before calling any other Easel
+functions. However, in principle, you can change error handlers at any
+time. You can also restore the default handler at any time with
+\ccode{esl\_exception\_RestoreDefaultHandler()}.
+
+The implementation of the exception handler relies on a static
+function pointer that is not threadsafe. If you are writing a threaded
+program, you need to make sure that multiple threads do not try to
+change the handler at the same time.
+
+Because Easel functions call other Easel functions, the function that
+first throws an exception may not be the function that your
+application called.  If you implement a nonfatal handler, an exception
+may result in a partial or complete stack trace of exceptions, as the
+original exception percolates back to your application. Your exception
+handler should be able to deal with a stack trace. The first exception
+code and message will be the most relevant. Subsequent codes and
+messages arise from that exception percolating upwards. 
+
+For example, a sophisticated replacement exception handler might push
+each code/message pair into a FIFO queue. When your application
+receives an exception code from an Easel call, your application can
+might then access this queue, and see where the exception occurred in
+Easel, and what messages Easel left for you. A less sophisticated
+replacement exception handler might just register the first
+code/message pair, and ignore the subsequent exceptions from
+percolating up the stack trace. Note the difference between the
+exception handler that you register with Easel (which operates inside
+Easel, and must obey Easel's conventions) and any error handling you
+do in your own application after Easel returns a nonzero status code
+to you (which is your own business).
+
+Although each function's documentation \emph{in principle} lists all
+thrown exceptions, \emph{in practice}, you should not trust this
+list. Because of exceptions percolating up from other Easel calls, it
+is too easy to forget to document all possible exception
+codes.\footnote{Someday we should combine a static code analyzer with
+a script that understands Easel's exception conventions, and automate
+the enumeration of all possible codes.} If you are catching
+exceptions, you should program defensively here, and always have a
+failsafe catch for any nonzero return status. For example, a minimal
+try/catch idiom for an application calling a Easel function is
+something like:
 
 \begin{cchunk}
      int status;
-     if ((status = esl_foo_function()) != eslOK)  my_failure_function();
+     if ((status = esl_foo_function()) != eslOK)  my_failure();
 \end{cchunk}
 
-A little more complex one that catches some specific errors, but has a
-failsafe for everything else, is:
+Or, a little more complex one that catches some specific errors, but
+has a failsafe for everything else, is:
 
 \begin{cchunk}
      int status;
@@ -143,115 +230,64 @@ failsafe for everything else, is:
      else if (status != eslOK)   my_failure("Unexpected exception %d\n\", status);
 \end{cchunk}
 
-Finally, the exception-catching idiom used in Easel's own source is
-one way of consistently cleaning up and guaranteeing a certain state
-upon failure, before percolating an exception code upwards:
 
-\begin{cchunk}
-     int status;
-     if ((status = esl_foo_function()) != eslOK)  goto FAILURE;
-     ... do other stuff...
-     return eslOK;
+\subsection{Violations}
 
-  FAILURE:
-     free(whatever);
-     set(any return variables);
-     return status;
-\end{cchunk}
+Internally, Easel also distinguishes a third class of error, termed a
+\textbf{fatal violation}. Violations never arise in production code;
+they are used to catch bugs during development and testing. Violations
+always result in immediate program termination. They are generated by
+two mechanisms: from assertions that can be optionally enabled in
+development code, or from test harnesses that call the always-fatal
+\ccode{esl\_fatal()} function when they detect a problem they're
+testing for.
 
 
-\subsection{Replacing the default error handler}
 
-\ccode{esl\_error()} gets as arguments a status code, file and
-linenumber for where the error occurred, and a \ccode{printf()}-style
-message. By default, it prints the message and exits:
-
-\begin{cchunk}
-Easel fatal error:
-Memory allocation failed.
-
-Aborted at file sqio.c, line 42. 
-\end{cchunk}
-
-An application can define its own handler for the same information,
-and override this default behavior. To do this, you define the error
-handler with the following prototype:
-
-\begin{cchunk}
-extern void my_error_handler(int code, char *file, int line, char *format, va_list arg);
-\end{cchunk}
-
-An example implementation of an error handler:
-
-\begin{cchunk}
-#include <stdarg.h>
-
-void
-my_error_handler(int code, char *file, int line, char *format, va_list arg)
-{
-  fprintf(stderr, ``Easel threw an error (code %d):\n'', code);
-  vfprintf(stderr, format, arg);
-  fprintf(stderr, ``at line %d, file %s\b'', line, file);
-  return;
-}
-\end{cchunk}
-
-To configure Easel to use your error handler, call
-\ccode{esl\_error\_SetHandler(\&my\_error\_handler)}. Normally you
-would do this before calling any other Easel functions.
-
-However, in principle, you can change error handlers at any time --
-including restoring the default handler with
-\ccode{esl\_error\_RestoreDefaultHandler()}.  The implementation of
-the handler relies on a static function pointer that is not
-threadsafe, so if you are writing a threaded program, you want to make
-sure that multiple threads do not try to change the handler at the
-same time.
-
-Because Easel functions may call other Easel functions, the function
-that first detects an error may not be the function that your
-application called.  If you implement a nonfatal handler, an abnormal
-error in Easel may generate a partial stack trace of
-\ccode{esl\_error()} messages, as the exception percolates up from the
-function that detected the error, until control finally returns to
-your application. Your error handler should deal with the possibility
-of this stack trace. The first \ccode{esl\_error()} message is most
-relevant, and subsequent messages arise from that error percolating up
-through the stack trace.  For example, a sophisticated replacement
-\ccode{esl\_error()} handler might push each \ccode{esl\_error()}
-message into a FIFO queue, where they will be waiting for a main
-application-specific error handler to access when your application
-gets its thrown exception code back from Easel.
-
-\subsection{Internal API for exception handling}
+\subsection{Internal API for error handling}
 
 You only need to understand this section if you want to understand
 Easel's source code (or other code that uses Easel conventions, like
 HMMER), or if you want to use Easel's error conventions in your own
 source code.
 
-Throwing an exception involves two or three steps. The first is a call
-to \ccode{esl\_error()} with a status code, \ccode{\_\_FILE\_\_} and
-\ccode{\_\_LINE\_\_} information, and an error message. The second (if
-necessary) is to clean up and set the failure state (which may include
-free'ing allocated memory, restoring an object to its original state,
-and setting any returned variables to the values they should have on
-failure). The third is to return the error code.
+The potentially tricky design issue is the following. One the one
+hand, you want to be able to return an error or throw an exception
+``quickly'' (in less than a line of code). On the other hand, it might
+require several lines of code to free any resources, set an
+appropriate return state, and set the appropriate nonzero status code
+before leaving the function. 
 
-Two wrapper macros implement this convention for almost all
-exceptions: \ccode{ESL\_ERROR()} and \ccode{ESL\_FAIL()}. They are
-defined in \ccode{easel.h} as:
+Easel uses the following error-handling macros:
+
+\begin{center}
+{\small
+\begin{tabular}{|ll|}\hline
+\ccode{ESL\_FAIL(code, errbuf, mesg, ...)}   & Format errbuf, return failure code. \\
+\ccode{ESL\_EXCEPTION(code, mesg, ...)}      & Throw an exception, return exception code. \\
+\ccode{ESL\_FWD(code)}                       & Percolate an exception upwards. \\
+\ccode{ESL\_XFAIL(code, errbuf, mesg, ...)}  & A failure message, with cleanup convention.\\
+\ccode{ESL\_XEXCEPTION(code, mesg, ...)}     & An exception, with cleanup convention.\\
+\ccode{ESL\_XFWD(code)}                      & Percolate an exception, with cleanup convention.\\
+\hline
+\end{tabular}
+}
+\end{center}
+
+They are implementated in \ccode{easel.h} as:
 
 \input{cexcerpts/error_macros}
 
-\ccode{ESL\_ERROR()} is the simpler version for when cleanup isn't
-necessary. It just calls \ccode{esl\_error()} and returns the status
-code. \ccode{ESL\_FAIL()} implements the three-step version when a
-cleanup is needed before the return. It is an offensive little
-abomination, because it's not self-contained. It requires an
-\ccode{int status} variable in scope, a \ccode{FAILURE:} target for
-the \ccode{goto} - and it uses a \ccode{goto}. But if you can stomach
-that, it provides for a fairly clean idiom for catching exceptions and
+The \ccode{ESL\_FAIL} and \ccode{ESL\_XFAIL} macros are only used when
+a failure message needs to be formatted. For the simpler case where we
+just return an error code, Easel simply uses \ccode{return code;} or
+\ccode{status = code; goto ERROR;}, respectively.
+
+The \ccode{X} versions, with the cleanup convention, are sure to
+offend some programmers' sensibilities. They require the function to
+provide an \ccode{int status} variable in scope, and they require an
+\ccode{ERROR:} target for a \ccode{goto}. But if you can stomach that,
+they provide for a fairly clean idiom for catching exceptions and
 cleaning up, and cleanly setting different return variable states on
 success versus failure, as illustrated by this pseudoexample:
 
@@ -263,30 +299,24 @@ foo(char **ret_buf, char **ret_fp)
     char *buf = NULL;
     FILE *fp  = NULL;
 
-    if ((buf = malloc(100))  == NULL) ESL_FAIL(eslEMEM,      "malloc failed");
-    if ((fp  = fopen("foo")) == NULL) ESL_FAIL(eslENOTFOUND, "file open failed");
+    if ((buf = malloc(100))  == NULL) ESL_XEXCEPTION(eslEMEM,      "malloc failed");
+    if ((fp  = fopen("foo")) == NULL) ESL_XEXCEPTION(eslENOTFOUND, "file open failed");
 
     *ret_buf = buf;
     *ret_fp  = fp;
     return eslOK;
 
-  FAILURE:
+  ERROR:
     if (buf != NULL) free(buf);  *ret_buf = NULL;
     if (fp  != NULL) fclose(fp); *ret_fp  = NULL;
     return status;
 }
 \end{cchunk}
 
-After a lot of putzing about with different conventions, I think that
-might be about as clean as you can make exception handling in C. An
-alternative is to actually implement \ccode{try} and \ccode{catch},
-using \ccode{setjmp()}/\ccode{longjmp()}, but I don't find such code
-to be very pretty.
-
-For memory allocation and reallocation, Easel also uses two macros
-\ccode{ESL\_ALLOC()} and \ccode{ESL\_RALLOC()}, which encapsulate
-standard \ccode{malloc()} and \ccode{realloc()} calls in Easel's
-error-throwing convention.
+Additionally, for memory allocation and reallocation, Easel implements
+two macros \ccode{ESL\_ALLOC()} and \ccode{ESL\_RALLOC()}, which
+encapsulate standard \ccode{malloc()} and \ccode{realloc()} calls
+inside Easel's exception-throwing convention.
 
 
 \vspace*{\fill}

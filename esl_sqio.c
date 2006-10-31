@@ -114,7 +114,7 @@ esl_sq_Create(void)
   esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
   return sq;
 
- FAILURE:
+ ERROR:
   esl_sq_Destroy(sq);
   return NULL;
 }
@@ -154,8 +154,8 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   ESL_SQ *sq = NULL;
   int  n;
 
-  if (name == NULL) ESL_FAIL(eslEINVAL, "must provide seq name");
-  if (seq  == NULL) ESL_FAIL(eslEINVAL, "must provide seq");
+  if (name == NULL) ESL_XEXCEPTION(eslEINVAL, "must provide seq name");
+  if (seq  == NULL) ESL_XEXCEPTION(eslEINVAL, "must provide seq");
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
   sq->name = sq->acc = sq->desc = sq->seq = sq->ss = sq->dsq = sq->optmem = NULL;
@@ -202,7 +202,7 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   if (ss != NULL) 
     {
       n = strlen(ss)+1;
-      if (n != sq->salloc) ESL_FAIL(eslEINVAL, "ss, seq lengths mismatch");
+      if (n != sq->salloc) ESL_XEXCEPTION(eslEINVAL, "ss, seq lengths mismatch");
       ESL_ALLOC(sq->ss, sizeof(char) * n);
       strcpy(sq->ss, ss);
     } 
@@ -211,7 +211,7 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   sq->roff = -1;
   return sq;
 
- FAILURE:
+ ERROR:
   esl_sq_Destroy(sq);
   return NULL;
 }
@@ -304,7 +304,7 @@ esl_sq_Squeeze(ESL_SQ *sq)
   
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -436,7 +436,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
    */
   if (strcmp(filename, "-") == 0) /* stdin */
     {
-      if ((status = esl_strdup("[STDIN]", -1, &(sqfp->filename))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup("[STDIN]", -1, &(sqfp->filename))) != eslOK) goto ERROR;
       sqfp->fp       = stdin;
       sqfp->do_stdin = TRUE;
     }
@@ -448,20 +448,20 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
        */
       if ((sqfp->fp = fopen(filename, "r")) != NULL)
 	{
-	  if ((status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile))) != eslOK) goto FAILURE;
-	  if ((status = esl_strdup(filename, n, &(sqfp->filename)))           != eslOK) goto FAILURE;
+	  if ((status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile))) != eslOK) goto ERROR;
+	  if ((status = esl_strdup(filename, n, &(sqfp->filename)))           != eslOK) goto ERROR;
 	}
       /* then the env variable.
        */
       else if (env != NULL &&
 	       esl_FileEnvOpen(filename, env, &(sqfp->fp), &envfile)== eslOK)
 	{
-	  if ((status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile))) != eslOK) goto FAILURE;
-	  if ((status = esl_strdup(envfile, -1, &(sqfp->filename)))          != eslOK) goto FAILURE;
+	  if ((status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile))) != eslOK) goto ERROR;
+	  if ((status = esl_strdup(envfile, -1, &(sqfp->filename)))          != eslOK) goto ERROR;
 	  free(envfile); envfile = NULL;
 	}
       else
-	{ status = eslENOTFOUND; goto FAILURE;}
+	{ status = eslENOTFOUND; goto ERROR;}
     }
 
 
@@ -490,8 +490,8 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
       ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
       sprintf(cmd, "gzip -dc %s", sqfp->filename);
-      if ((sqfp->fp = popen(cmd, "r")) == NULL)	{ status = eslENOTFOUND; goto FAILURE; }
-      if ((status = esl_strdup(sqfp->filename, n, &(sqfp->filename))) != eslOK) goto FAILURE;
+      if ((sqfp->fp = popen(cmd, "r")) == NULL)	{ status = eslENOTFOUND; goto ERROR; }
+      if ((status = esl_strdup(sqfp->filename, n, &(sqfp->filename))) != eslOK) goto ERROR;
       sqfp->do_gzip  = TRUE;
     }
 #endif /*HAVE_POPEN*/
@@ -505,11 +505,11 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
    */
   if (sqfp->format == eslSQFILE_UNKNOWN)
     {
-      if (sqfp->do_stdin || sqfp->do_gzip)   { status = eslEINVAL;  goto FAILURE; }
+      if (sqfp->do_stdin || sqfp->do_gzip)   { status = eslEINVAL;  goto ERROR; }
 
       sqfp->format = esl_sqio_WhatFormat(sqfp->fp);
 
-      if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto FAILURE; }
+      if (sqfp->format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto ERROR; }
     }
 
 
@@ -552,8 +552,8 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 	{
 	  sqfp->linenumber = 0;
 	  status = loadline(sqfp);
-	  if (status == eslEOF)     { status = eslEFORMAT; goto FAILURE; }
-	  else if (status != eslOK) { goto FAILURE; }
+	  if (status == eslEOF)     { status = eslEFORMAT; goto ERROR; }
+	  else if (status != eslOK) { goto ERROR; }
 	}
       else
 	{
@@ -562,7 +562,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 	  ESL_ALLOC(sqfp->buf, sizeof(char) * sqfp->balloc);
 	  sqfp->boff = 0;
 	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
-	  if (ferror(sqfp->fp)) { status = eslEFORMAT; goto FAILURE; }
+	  if (ferror(sqfp->fp)) { status = eslEFORMAT; goto ERROR; }
 	}
     }
 
@@ -570,7 +570,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   *ret_sqfp = sqfp;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (envfile != NULL) free(envfile);
   esl_sqfile_Close(sqfp); 
   *ret_sqfp = NULL;
@@ -722,7 +722,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format)
 #endif /* msa augmentation */
 
   default: 
-    ESL_ERROR(eslEINCONCEIVABLE, "no such format");
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   }
 
   return status;
@@ -822,10 +822,10 @@ esl_sqio_DescribeFormat(int fmt)
   case eslMSAFILE_STOCKHOLM: return "Stockholm";
   case eslMSAFILE_PFAM:      return "Pfam";
 #endif
-  default: ESL_FAIL(eslEINVAL, "No such format code");
+  default: ESL_XEXCEPTION(eslEINVAL, "No such format code");
   }
 
- FAILURE:
+ ERROR:
   return NULL;
 }
 
@@ -881,7 +881,7 @@ esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off)
       esl_sqio_IsAlignment(sqfp->format)) return eslEINVAL;
 
   if (fseeko(sqfp->fp, r_off, SEEK_SET) != 0)
-    ESL_ERROR(eslESYS, "fseeko() failed");
+    ESL_EXCEPTION(eslESYS, "fseeko() failed");
 
   if (sqfp->is_linebased)
     {
@@ -1057,7 +1057,7 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
   sqfp->lastbpl = sqfp->nc;     /* remember # of bytes on this line.    */
   return eslOK;			/* eslOK; eslEFORMAT, eslEMEM           */
 
- FAILURE:
+ ERROR:
   return status;
 }
 
@@ -1160,7 +1160,7 @@ set_name(ESL_SQ *sq, char *s, char *delim)
   strcpy(sq->name, tok);
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 static int
@@ -1181,7 +1181,7 @@ set_accession(ESL_SQ *sq, char *s, char *delim)
   strcpy(sq->acc, tok);
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 static int
@@ -1207,7 +1207,7 @@ append_description(ESL_SQ *sq, char *s, char *delim)
   strcpy(sq->desc + dlen + 1, tok);
   return eslOK;
 
- FAILURE:
+ ERROR:
   return status;
 }
 /*------------------- line-oriented parsers -----------------------*/
@@ -1630,7 +1630,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  else { state = 3; goto NAMEDONE; }
 	}
       }
-      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+      if (nsafe == -1) ESL_EXCEPTION(eslEMEM, "realloc failed");
       sprintf(sqfp->errbuf, "File ended within a seq name."); 
       return eslEFORMAT; /* we ran out of data while still in a name. */
     NAMEDONE:
@@ -1654,7 +1654,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	    { state = 5; pos++; sqfp->linenumber++; goto DESCDONE; }
 	}
       }
-      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+      if (nsafe == -1) ESL_EXCEPTION(eslEMEM, "realloc failed");
       sprintf(sqfp->errbuf, "File ended within a description line."); 
       return eslEFORMAT;	/* ran out of data while still in desc */
     DESCDONE:
@@ -1718,7 +1718,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  sqfp->lastbpl++;
 	}
       }
-      if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+      if (nsafe == -1) ESL_EXCEPTION(eslEMEM, "realloc failed");
       state = 6;
       break;
     } /* end of switch over FSA states */
@@ -1791,7 +1791,7 @@ write_fasta(FILE *fp, ESL_SQ *s)
  *         pos++;
  *       }        
  *     }
- *     if (nsafe == -1) ESL_ERROR(eslEMEM, "realloc failed");
+ *     if (nsafe == -1) ESL_EXCEPTION(eslEMEM, "realloc failed");
  * 
  * which avoids having to check our buffers every character.
  * 
@@ -1973,19 +1973,19 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   ESL_MSA *msa;
   int      status;
 
-  if ((msa = esl_msa_Create(1, sq->n)) == NULL) { status = eslEMEM; goto FAILURE; }
-  if ((status = esl_strdup(sq->name, -1, &(msa->sqname[0]))) != eslOK) goto FAILURE;
+  if ((msa = esl_msa_Create(1, sq->n)) == NULL) { status = eslEMEM; goto ERROR; }
+  if ((status = esl_strdup(sq->name, -1, &(msa->sqname[0]))) != eslOK) goto ERROR;
   
   if (*sq->acc != '\0')
     {
       ESL_ALLOC(msa->sqacc, sizeof(char *) * 1);
-      if ((status = esl_strdup(sq->acc, -1, &(msa->sqacc[0]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(sq->acc, -1, &(msa->sqacc[0]))) != eslOK) goto ERROR;
     }
 
   if (*sq->desc != '\0')
     {
       ESL_ALLOC(msa->sqdesc, sizeof(char *) * 1);
-      if ((status = esl_strdup(sq->desc, -1, &(msa->sqdesc[0]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(sq->desc, -1, &(msa->sqdesc[0]))) != eslOK) goto ERROR;
     }
 
   strcpy(msa->aseq[0], sq->seq);
@@ -1993,7 +1993,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   if (sq->ss != NULL)
     {
       ESL_ALLOC(msa->ss, sizeof(char *) * 1);
-      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto FAILURE;
+      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto ERROR;
     }
   
   msa->alen = sq->n;
@@ -2002,7 +2002,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   *ret_msa = msa;
   return eslOK;
 
- FAILURE:
+ ERROR:
   esl_msa_Destroy(msa);
   *ret_msa = NULL;
   return status;

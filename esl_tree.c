@@ -100,10 +100,75 @@ esl_tree_Create(int ntaxa)
   T->nalloc = ntaxa;
   return T;
   
- FAILURE:
+ ERROR:
   esl_tree_Destroy(T);
   return NULL;
 }
+
+/* Function:  esl_tree_Grow()
+ * Synopsis:  Doubles a tree's taxon allocation.
+ * Incept:    SRE, Fri Oct 27 08:49:47 2006 [Janelia]
+ *
+ * Purpose:   Given a tree <T>, double the number of taxa it is
+ *            currently allocated to hold.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure. In this case, 
+ *            the data in the tree are unaffected.
+ */
+int
+esl_tree_Grow(ESL_TREE *T)
+{
+  void *tmp;
+  int   nnew;
+  int   status;
+  int   i;
+
+  nnew = T->nalloc * 2;
+
+  /* There are N-1 interior nodes, so arrays of info for
+   * interior nodes are allocated for (nnew-1), whereas
+   * arrays of info for the N taxa are allocated (nnew).
+   */
+  ESL_RALLOC(T->parent, tmp, sizeof(int)    * (nnew-1));
+  ESL_RALLOC(T->left,   tmp, sizeof(int)    * (nnew-1));
+  ESL_RALLOC(T->right,  tmp, sizeof(int)    * (nnew-1));
+  ESL_RALLOC(T->ld,     tmp, sizeof(double) * (nnew-1));
+  ESL_RALLOC(T->rd,     tmp, sizeof(double) * (nnew-1));
+
+  /* 0..N-2 were already initialized or used.
+   * Initialize newly alloced space N-1..nnew-2.
+   */
+  for (i = T->nalloc-1; i < nnew-1; i++)
+    {
+      T->parent[i] = 0;
+      T->left[i  ] = 0;
+      T->right[i]  = 0;
+      T->ld[i]   = 0.;
+      T->rd[i]   = 0.;
+    }
+
+  if (T->parent_of_otu != NULL)  {
+    ESL_RALLOC(T->parent_of_otu, tmp, sizeof(int)    * nnew);
+    for (i = T->nalloc; i < nnew; i++) T->parent_of_otu[i] = 0;
+  }
+  if (T->taxonlabel    != NULL)  {
+    ESL_RALLOC(T->taxonlabel,    tmp, sizeof(char *) * nnew);
+    for (i = T->nalloc; i < nnew; i++) T->taxonlabel[i] = NULL;
+  }
+  if (T->nodelabel     != NULL)  {
+    ESL_RALLOC(T->nodelabel,     tmp, sizeof(char *) * (nnew-1));
+    for (i = T->nalloc-1; i < nnew-1; i++) T->nodelabel[i] = NULL;
+  }
+
+  T->nalloc = nnew;
+  return eslOK;
+
+ ERROR:
+  return eslEMEM;
+}
+
 
 /* Function:  esl_tree_MapTaxaParents()
  * Synopsis:  Construct the lookup map for each taxon's parent node.
@@ -136,9 +201,10 @@ esl_tree_MapTaxaParents(ESL_TREE *T)
 #if (eslDEBUGLEVEL >= 1)
   esl_vec_ISet(T->parent_of_otu, T->N, -1);
 #endif
+  if ((ns = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
 
-  if ((ns = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto FAILURE; }
-  if ((status = esl_stack_IPush(ns, 0)) != eslOK) goto FAILURE;	/* init: push root  */
+  /* init: push root  */
+  if ((status = esl_stack_IPush(ns, 0)) != eslOK) goto ERROR;	
 
   while ((status = esl_stack_IPop(ns, &parent)) == eslOK)
     {
@@ -157,12 +223,106 @@ esl_tree_MapTaxaParents(ESL_TREE *T)
 #endif
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (ns               != NULL) esl_stack_Destroy(ns);
   if (T->parent_of_otu != NULL) { free(T->parent_of_otu); T->parent_of_otu = NULL; }
   return status;
 }
   
+
+/* Function:  esl_tree_RenumberNodes()
+ * Synopsis:  Assure nodes are numbered in preorder.
+ * Incept:    SRE, Fri Oct 27 09:33:26 2006 [Janelia]
+ *
+ * Purpose:   Given a tree <T> whose internal nodes might be numbered in
+ *            any order, with the sole requirement that node 0 is the
+ *            root; renumber the internal nodes (if necessary) to be in Easel's
+ *            convention of preorder traversal. No other aspect of <T> is
+ *            altered (including its allocation size).
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      STL11/77
+ */
+int
+esl_tree_RenumberNodes(ESL_TREE *T)
+{
+  ESL_TREE  *T2  = NULL;
+  ESL_STACK *vs  = NULL;
+  int       *map = NULL;
+  int        v,new;
+  int        status;
+  int        needs_rearranging = FALSE;
+
+
+  /* Pass 1. Preorder traverse of T by its children links;
+   *         construct map[old] -> new.
+   */
+  ESL_ALLOC(map, sizeof(int) * (T->N-1));
+  if (( vs = esl_stack_ICreate()) == NULL) ESL_XFWD(eslEMEM);
+  if (esl_stack_IPush(vs, 0) != eslOK)     ESL_XFWD(eslEMEM);
+  new = 0;
+  while (esl_stack_IPop(vs, &v) == eslOK)
+    {
+      if (v != new) needs_rearranging = TRUE;
+      map[v] = new++;
+      if (T->right[v] > 0 && esl_stack_IPush(vs, T->right[v]) != eslOK) ESL_XFWD(eslEMEM);
+      if (T->left[v]  > 0 && esl_stack_IPush(vs, T->left[v])  != eslOK) ESL_XFWD(eslEMEM);
+    }
+  if (! needs_rearranging) return eslOK;
+
+  /* Pass 2. Construct the guts of correctly numbered new T2.
+   *         (traversal order doesn't matter here)
+   */
+  if (( T2 = esl_tree_Create(T->nalloc)) == NULL) ESL_XFWD(eslEMEM);
+  if (T->nodelabel     != NULL) ESL_ALLOC(T2->nodelabel,     sizeof(char *) * (T->nalloc-1));
+  if (T->parent_of_otu != NULL) ESL_ALLOC(T2->parent_of_otu, sizeof(int)    * (T->nalloc));
+  
+  for (v = 0; v < T->N-1; v++)
+    {
+      T2->parent[map[v]] = map[T->parent[v]];
+      if (T->left[v]  > 0) T2->left[map[v]]   = map[T->left[v]];  /* internal nodes renumbered... */
+      else                 T2->left[map[v]]   = T->left[v];       /* ...taxon indices unchanged */
+      if (T->right[v] > 0) T2->right[map[v]]  = map[T->right[v]];
+      else                 T2->right[map[v]]  = T->right[v];
+      T2->ld[map[v]]     = T->ld[v];
+      T2->rd[map[v]]     = T->rd[v];
+  
+      if (T->parent_of_otu != NULL) {
+	if (T->left[v]  <= 0) T2->parent_of_otu[T->left[v]]  = map[v];
+	if (T->right[v] <= 0) T2->parent_of_otu[T->right[v]] = map[v];
+      }
+
+      if (T->nodelabel != NULL)
+	T2->nodelabel[map[v]] = T2->nodelabel[v];
+    }
+
+  /* Finally, swap the new guts of T2 with the old guts of T;
+   * destroy T2 and return. T is now renumbered.
+   */
+  ESL_SWAP(T->parent,        T2->parent,         int *);
+  ESL_SWAP(T->left,          T2->left,           int *);
+  ESL_SWAP(T->right,         T2->right,          int *);
+  ESL_SWAP(T->ld,            T2->ld,             double *);
+  ESL_SWAP(T->rd,            T2->rd,             double *);
+  ESL_SWAP(T->parent_of_otu, T2->parent_of_otu,  int *);
+  ESL_SWAP(T->nodelabel,     T2->nodelabel,      char **);
+
+  free(map);
+  esl_stack_Destroy(vs);
+  esl_tree_Destroy(T2);
+  return eslOK;
+
+ ERROR:
+  if (map != NULL) free(map);
+  if (vs  != NULL) esl_stack_Destroy(vs);
+  if (T2  != NULL) esl_tree_Destroy(T2);
+  return status;
+
+}
+
 
 
 /* Function:  esl_tree_Destroy()
@@ -281,7 +441,7 @@ newick_write_taxonlabel(FILE *fp, ESL_TREE *T, int v)
   else if (newick_validate_quoted(T->taxonlabel[v]) == eslOK)
     newick_write_quoted(fp, T->taxonlabel[v]);
   else
-    ESL_ERROR(eslECORRUPT, "bad taxon label");
+    ESL_EXCEPTION(eslECORRUPT, "bad taxon label");
 
   return eslOK;
 }
@@ -306,7 +466,7 @@ newick_write_nodelabel(FILE *fp, ESL_TREE *T, int v)
   else if (newick_validate_quoted(T->nodelabel[v]) == eslOK)
     newick_write_quoted(fp, T->nodelabel[v]);
   else
-    ESL_ERROR(eslECORRUPT, "bad node label");
+    ESL_EXCEPTION(eslECORRUPT, "bad node label");
 
   return eslOK;
 }
@@ -323,19 +483,19 @@ newick_write_branchlength(FILE *fp, ESL_TREE *T, int v)
   double branchlength;
 
   if (! T->show_branchlengths)   return eslOK;
-  if (T->parent_of_otu == NULL)  ESL_ERROR(eslECONTRACT, "T must have parent_of_otu");
+  if (T->parent_of_otu == NULL)  ESL_EXCEPTION(eslECONTRACT, "T must have parent_of_otu");
   
   if (v <= 0)			/* leaf */
     {
       if      (T->left [T->parent_of_otu[-v]] == v) branchlength = T->ld[T->parent_of_otu[-v]];
       else if (T->right[T->parent_of_otu[-v]] == v) branchlength = T->rd[T->parent_of_otu[-v]]; 
-      else    ESL_ERROR(eslECORRUPT, "Can't find branch length");
+      else    ESL_EXCEPTION(eslECORRUPT, "Can't find branch length");
     }
   else				/* internal node */
     {
       if      (T->left [T->parent[v]] == v) branchlength = T->ld[T->parent[v]];
       else if (T->right[T->parent[v]] == v) branchlength = T->rd[T->parent[v]]; 
-      else    ESL_ERROR(eslECORRUPT, "Can't find branch length");
+      else    ESL_EXCEPTION(eslECORRUPT, "Can't find branch length");
     }
 
   fprintf(fp, ":%f", branchlength);
@@ -379,10 +539,10 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
   char c;
   int  status;
 
-  if ((vs = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto FAILURE; }
-  if ((cs = esl_stack_CCreate()) == NULL) { status = eslEMEM; goto FAILURE; }
+  if ((vs = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
+  if ((cs = esl_stack_CCreate()) == NULL) { status = eslEMEM; goto ERROR; }
   
-  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto FAILURE;
+  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
   
   /* Initialization.
    * Push a trifurcation (swallowing the right internal node) if unrooted;
@@ -396,20 +556,20 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
   if (T->show_unrooted && T->right[0] > 0)
     {
       v = T->right[0];
-      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto FAILURE;
-      if ((status = esl_stack_IPush(vs, T->right[v])) != eslOK) goto FAILURE;
-      if ((status = esl_stack_CPush(cs, ','))         != eslOK) goto FAILURE;
-      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto FAILURE;
-      if ((status = esl_stack_IPush(vs, T->left[v]))  != eslOK) goto FAILURE;
+      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto ERROR;
+      if ((status = esl_stack_IPush(vs, T->right[v])) != eslOK) goto ERROR;
+      if ((status = esl_stack_CPush(cs, ','))         != eslOK) goto ERROR;
+      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto ERROR;
+      if ((status = esl_stack_IPush(vs, T->left[v]))  != eslOK) goto ERROR;
     }
   else 
     {
-      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto FAILURE;
-      if ((status = esl_stack_IPush(vs, T->right[0])) != eslOK) goto FAILURE;
+      if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto ERROR;
+      if ((status = esl_stack_IPush(vs, T->right[0])) != eslOK) goto ERROR;
     }
-  if ((status = esl_stack_CPush(cs, ','))             != eslOK) goto FAILURE;
-  if ((status = esl_stack_CPush(cs, 'x'))             != eslOK) goto FAILURE;
-  if ((status = esl_stack_IPush(vs, T->left[0]))      != eslOK) goto FAILURE;
+  if ((status = esl_stack_CPush(cs, ','))             != eslOK) goto ERROR;
+  if ((status = esl_stack_CPush(cs, 'x'))             != eslOK) goto ERROR;
+  if ((status = esl_stack_IPush(vs, T->left[0]))      != eslOK) goto ERROR;
 
 
   /* Main iteration. Pop off stacks 'til they're empty.
@@ -418,36 +578,36 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
     {
       if (c == ',') { fputc(',', fp); continue; } /* comma doesn't have a v stacked with it */
 
-      if ((status = esl_stack_IPop(vs, &v)) != eslOK) goto FAILURE;
+      if ((status = esl_stack_IPop(vs, &v)) != eslOK) goto ERROR;
 
       switch (c) {
       case 'x':			/* a subtree, which could be a node or a taxon: */
 	if (v > 0)		/* internal node 1..N-2*/
 	  {
 	    fputc('(', fp);
-	    if ((status = esl_stack_CPush(cs, ')'))         != eslOK) goto FAILURE;
-	    if ((status = esl_stack_IPush(vs, v))           != eslOK) goto FAILURE;
-	    if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto FAILURE;
-	    if ((status = esl_stack_IPush(vs, T->right[v])) != eslOK) goto FAILURE;
-	    if ((status = esl_stack_CPush(cs, ','))         != eslOK) goto FAILURE;
-	    if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto FAILURE;
-	    if ((status = esl_stack_IPush(vs, T->left[v]))  != eslOK) goto FAILURE;
+	    if ((status = esl_stack_CPush(cs, ')'))         != eslOK) goto ERROR;
+	    if ((status = esl_stack_IPush(vs, v))           != eslOK) goto ERROR;
+	    if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto ERROR;
+	    if ((status = esl_stack_IPush(vs, T->right[v])) != eslOK) goto ERROR;
+	    if ((status = esl_stack_CPush(cs, ','))         != eslOK) goto ERROR;
+	    if ((status = esl_stack_CPush(cs, 'x'))         != eslOK) goto ERROR;
+	    if ((status = esl_stack_IPush(vs, T->left[v]))  != eslOK) goto ERROR;
 	  }
 	else			/* taxon -(N-1)..0 */
 	  { 	    /* -v below to convert taxon code to 0..N-1 */
-	    if ((status = newick_write_taxonlabel  (fp, T, -v)) != eslOK) goto FAILURE;
-	    if ((status = newick_write_branchlength(fp, T,  v)) != eslOK) goto FAILURE;
+	    if ((status = newick_write_taxonlabel  (fp, T, -v)) != eslOK) goto ERROR;
+	    if ((status = newick_write_branchlength(fp, T,  v)) != eslOK) goto ERROR;
 	  }
 	break;
 
       case ')':			/* closing an internal node. v > 0 is a node code. */
 	fputc(')', fp);
-	if ((status = newick_write_nodelabel   (fp, T, v)) != eslOK) goto FAILURE;
-	if ((status = newick_write_branchlength(fp, T, v)) != eslOK) goto FAILURE;
+	if ((status = newick_write_nodelabel   (fp, T, v)) != eslOK) goto ERROR;
+	if ((status = newick_write_branchlength(fp, T, v)) != eslOK) goto ERROR;
 	break;
 
       default:
-	ESL_ERROR(eslEINCONCEIVABLE, "bad state code");
+	ESL_EXCEPTION(eslEINCONCEIVABLE, "bad state code");
 	break;
       }
     }
@@ -464,12 +624,474 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
   esl_stack_Destroy(cs);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (vs != NULL) esl_stack_Destroy(vs);
   if (cs != NULL) esl_stack_Destroy(cs);
   return status;
 
 }
+
+
+/* newick_advance_buffer()
+ * 
+ * Advance the read buffer by one character; reload it
+ * if we reach the end. <eslOK> on success, and <eslEOF>
+ * if the read fails.
+ */
+static int
+newick_advance_buffer(FILE *fp, char *buf, int *pos, int *nc)
+{
+  (*pos)++;
+  if (*pos == *nc)
+    {
+      *nc = fread(buf, sizeof(char), 4096, fp);
+      if (*nc == 0) return eslEOF;
+      *pos = 0;
+    }
+  return eslOK;
+}
+
+/* newick_skip_whitespace()
+ * 
+ * Given the 4k input buffer <buf>, which currently contains
+ * <*nc> total characters and is positioned at position <*pos>,
+ * move <*pos> to be at the first nonwhitespace character,
+ * skipping any Newick comments ([...]) encountered. Read
+ * new data from the stream <fp> into <buf> as needed.
+ * 
+ * Return <eslOK> on success. <*pos> is reset to point at a
+ * non-whitespace input character. <*nc> may be reset and the contents
+ * of <buf> altered if a new block was read from <fp> into <buf>.
+ * 
+ * Returns <eslEOF> if end-of-file is reached in <fp> before a data
+ * character is found, or if a read error occurs.
+ */
+static int
+newick_skip_whitespace(FILE *fp, char *buf, int *pos, int *nc)
+{
+  int commentlevel = 0;
+
+  while (commentlevel > 0 || isspace(buf[*pos]) || buf[*pos] == '[')
+    {
+      if (buf[*pos] == '[') commentlevel++;
+      if (buf[*pos] == ']') commentlevel--;
+      if (newick_advance_buffer(fp, buf, pos, nc) == eslEOF) return eslEOF;
+    }
+  return eslOK;
+}  
+
+
+/* newick_parse_quoted_label()
+ * 
+ * On entry, buf[pos] == '\'': the opening single quote.
+ * On exit,  buf[pos] is positioned at the next data character following the closing
+ *           single quote; possibly the ':' for a branch length;
+ *           and <ret_label> points to a newly allocated, NUL-terminated string
+ *          containing the label that was read (possibly the empty string).
+ * Returns eslOK on success.
+ *
+ * Returns eslEFORMAT on parse error, eslEOF if it runs out of data.
+ */
+static int
+newick_parse_quoted_label(FILE *fp, char *buf, int *pos, int *nc, char **ret_label)
+{
+  char *label  = NULL;
+  void *tmp;
+  int   n      = 0;
+  int   nalloc = 0;
+  int   status;
+  
+  nalloc = 32;  
+  ESL_ALLOC(label, sizeof(char) * nalloc);
+
+  /* advance past the opening ' */
+  if (buf[*pos] != '\'')  ESL_XFWD(eslEFORMAT);
+  if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
+
+  /* skip leading whitespace (\n and comments forbidden in quoted label) */
+  while (buf[*pos] == '\t' || buf[*pos] == ' ')   
+    if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
+
+  /* Read the label */
+  while (1) {
+    if (buf[*pos] == '\'') {	/* watch out for escaped single quotes, '' */
+      if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
+      if (buf[*pos] != '\'') break; /* we've just moved past the last ' */
+    }
+    label[n++] = buf[*pos]; 
+    if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
+    if (n == (nalloc-1)) {  /* reallocate label if it fills, leave room for NUL */
+      ESL_RALLOC(label, tmp, sizeof(char) * (nalloc * 2));
+      nalloc *= 2;
+    }
+  }
+  
+  /* backtrack over any trailing whitespace and nul-terminate. */
+  while (isspace(label[n-1]) && n > 0) n--; 
+  label[n] = '\0';
+  *ret_label = label;
+  return eslOK;
+
+ ERROR:
+  if (label != NULL) { free(label); *ret_label = NULL; }
+  return status;
+
+}
+
+/* newick_parse_unquoted_label
+ *
+ * On entry, buf[pos] == first character in the label.
+ * On exit,  buf[pos] is positioned at the next data character following the end
+ *           of the label --  one of "),\t\n;[:"  --
+ *           and <ret_label> points to a newly allocated, NUL-terminated string
+ *           containing the label that was read (possibly the empty string).
+ * Returns eslOK on success.
+ *
+ * Returns eslEFORMAT on parse error, eslEOF if it runs out of data.
+ */
+static int
+newick_parse_unquoted_label(FILE *fp, char *buf, int *pos, int *nc, char **ret_label)
+{
+  char *label  = NULL;
+  char *tmp    = NULL;
+  int   n      = 0;
+  int   nalloc = 0;
+  int   status;
+  
+  nalloc = 32;  
+  ESL_ALLOC(label, sizeof(char) * nalloc);
+
+  while (1) {
+    if (strchr("(]",          buf[*pos]) != NULL) { status = eslEFORMAT; goto ERROR; }
+    if (strchr(" \t\n)[':;,", buf[*pos]) != NULL) { break; }
+    label[n++] = buf[*pos];
+    if (newick_advance_buffer(fp, buf, pos, nc) == eslEOF) { status = eslEOF; goto ERROR; }
+
+    if (n == (nalloc-1)) {  /* reallocate label if it fills, leave room for NUL */
+      ESL_RALLOC(label, tmp, sizeof(char) * (nalloc * 2));
+      nalloc *= 2;
+    }
+  }    
+  label[n]   = '\0';
+  *ret_label = label;
+  return eslOK;
+
+ ERROR:
+  if (label != NULL) { free(label); *ret_label = NULL; }
+  return status;
+}
+
+/* newick_parse_branchlength
+ *
+ * On entry, buf[pos] == ':'
+ * On exit,  buf[pos] is positioned at the next data character following the end
+ *           of the branchlength --  one of "),\t\n;[:"  
+ *           and <ret_d> is the branch length that was read.
+ *
+ * Returns eslOK  on success;
+ *
+ * Returns eslEFORMAT on parse error (including nonexistent branch lengths),
+ *         eslEOF if it runs out of data in the file.
+ */
+static int
+newick_parse_branchlength(FILE *fp, char *buf, int *pos, int *nc, double *ret_d)
+{
+  char *branch = NULL;
+  char *tmp    = NULL;
+  int   n      = 0;
+  int   nalloc = 0;
+  int   status;
+  
+  nalloc = 32;  
+  ESL_ALLOC(branch, sizeof(char) * nalloc);
+
+  if (buf[*pos] != ':') { status = eslEFORMAT; goto ERROR; }
+  if (newick_advance_buffer(fp, buf, pos, nc) != eslOK)  goto ERROR;
+
+  while (1) {
+    if (strchr("(]",          buf[*pos]) != NULL) { status = eslEFORMAT; goto ERROR; }
+    if (strchr(" \t\n)[':;,", buf[*pos]) != NULL) break;
+    branch[n++] = buf[*pos];
+    if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
+
+    if (n == (nalloc-1)) {  /* reallocate label if it fills, leave room for NUL */
+      ESL_RALLOC(branch, tmp, sizeof(char) * (nalloc * 2));
+      nalloc *= 2;
+    }
+  }    
+
+  branch[n]   = '\0';
+  *ret_d = strtod(branch, &tmp);
+  if (n == 0 || tmp != branch+n) { status = eslEFORMAT; goto ERROR; }
+  free(branch);
+  return eslOK;
+
+ ERROR:
+  if (branch != NULL) free(branch);
+  *ret_d = 0.;
+  return status;
+}
+
+
+
+
+/* Function:  esl_tree_ReadNewick()
+ * Synopsis:  Input a Newick format tree.
+ * Incept:    SRE, Wed Oct 25 09:25:19 2006 [Janelia]
+ *
+ * Purpose:   Read a Newick format tree from an open input stream <fp>.
+ *            Return the new tree in <ret_T>. 
+ *            
+ *            The new tree <T> will have the optional <T->taxonlabel> and
+ *            <T->nodelabel> arrays allocated, containing names of all the
+ *            taxa and nodes. Whenever no label appeared in the Newick file
+ *            for a node or taxon, the label is set to the empty string.
+ *            
+ *            Caller may optionally provide an <errbuf> of at least
+ *            <eslERRBUFSIZE> chars, to retrieve diagnostic information
+ *            in case of a parsing problem; or <errbuf> may be passed as
+ *            <NULL>.
+ *
+ * Args:      fp      - open input stream
+ *            errbuf  - NULL, or allocated space for >= eslERRBUFSIZE chars
+ *            ret_T   - RETURN: the new tree.     
+ *
+ * Returns:   Returns <eslOK> on success, and <ret_T> points
+ *            to the new tree.
+ *
+ *            Returns <eslEFORMAT> on parse errors, such as premature EOF
+ *            or bad syntax in the Newick file. In this case, <ret_T> is
+ *            returned NULL, and the <errbuf> (if provided> contains an
+ *            informative error message.
+ *
+ * Throws:    <eslEMEM> on memory allocation errors.
+ *            <eslEINCONCEIVABLE> may also arise in case of internal bugs.
+ *
+ * Xref:      STL11/75
+ */
+int
+esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T) 
+{
+  ESL_TREE  *T   = NULL;	/* the new, growing tree */
+  ESL_STACK *cs  = NULL;	/* state stack: possible states are LRX);,  */
+  ESL_STACK *vs  = NULL;	/* node index stack: LRX) states are associated with node #'s */
+  int        status;
+  char       buf[4096];		/* 4K input buffer */
+  int        pos,nc;		/* position in buf, and number of chars in buf */
+  char       c;			/* current state */
+  int        v;		        /* current node idx */
+  int        currnode;
+  int        currtaxon;
+  char      *label;		/* a parsed label */
+  double     d;			/* a parsed branch length */
+  
+  if (errbuf != NULL) *errbuf = '\0';
+  if ((vs = esl_stack_ICreate()) == NULL) ESL_XFWD(eslEMEM);
+  if ((cs = esl_stack_CCreate()) == NULL) ESL_XFWD(eslEMEM);
+
+  /* Create the tree, initially allocated for 32 taxa.
+   * Allocate for taxon and node labels, too.
+   */
+  if ((T  = esl_tree_Create(32)) == NULL) ESL_XFWD(eslEMEM);
+  ESL_ALLOC(T->taxonlabel, sizeof(char *) * 32);
+  ESL_ALLOC(T->nodelabel,  sizeof(char *) * 31);
+  for (currtaxon = 0; currtaxon < 32; currtaxon++) T->taxonlabel[currtaxon] = NULL;
+  for (currnode  = 0; currnode  < 31; currnode++)  T->nodelabel[currnode]   = NULL;
+
+  /* Load the input buffer
+   */
+  if ((nc = fread(buf, sizeof(char), 4096, fp)) == 0) 
+    ESL_XFAIL(eslEFORMAT, errbuf, "file is empty.");
+  pos = 0;
+  
+  /* Initialization: 
+   *    create the root node in the tree;
+   *    push L,R...); onto the stacks; 
+   *    swallow the first ( in the file.
+   */
+  T->parent[0] = 0;
+  currnode     = 1;
+  currtaxon    = 0;
+  if (esl_stack_CPush(cs, ';') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, ')') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, 'X') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, 'R') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, ',') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, 'L') != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
+
+  if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
+    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+  if (buf[pos] != '(') 
+    ESL_XFAIL(eslEFORMAT, errbuf, "file is not in Newick format.");
+  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
+    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+
+  /* Iteration.
+   */
+  while ((status = esl_stack_CPop(cs, &c)) == eslOK)
+    {
+      if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
+	ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+
+      if (c == ',')
+	{ 
+	  if (buf[pos] != ',') 
+	    ESL_XFAIL(eslEFORMAT, errbuf, "expected a comma, saw %c.", buf[pos]);
+	  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
+	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+	  continue;
+	}
+
+      else if (c == ';')
+	{
+	  if (buf[pos] != ';')
+	    ESL_XFAIL(eslEFORMAT, errbuf, "expected a semicolon, saw %c.", buf[pos]);
+	  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
+	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+	  break;		/* end of the Newick file */
+	}
+
+      else if (c == 'L' || c == 'R') /* c says, we expect to add a subtree next */
+	{
+	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); /* v = parent of currnode */
+	  
+	  if (buf[pos] == '(')	/* a new interior node attaches to v */
+	    {
+	      T->parent[currnode] = v;
+	      if (c == 'L') T->left[v]  = currnode;
+	      else          T->right[v] = currnode;
+
+	      if (esl_stack_CPush(cs, ')')        != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'X')        != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'R')        != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, ',')        != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'L')        != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+
+	      if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
+		ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+	      currnode++;
+	    }
+	  else /* a taxon attaches to v */
+	    {
+	      if (buf[pos] == '\'') { /* a quoted label, for a new taxon attached to v*/
+		if ((status = newick_parse_quoted_label(fp, buf, &pos, &nc,   &label)) != eslOK)  
+		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a quoted taxon label");
+	      } else {               /* an unquoted label, for a new taxon attached to v */
+		if ((status = newick_parse_unquoted_label(fp, buf, &pos, &nc, &label)) != eslOK)  
+		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse an unquoted taxon label");
+	      }
+
+	      if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
+		ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely");
+
+	      d = 0.;
+	      if (buf[pos] == ':') {
+		if ((status = newick_parse_branchlength(fp, buf, &pos, &nc, &d)) != eslOK)   
+		  ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a branch length");
+	      }
+	      
+	      if (c == 'L') { T->left[v]  = -currtaxon;  T->ld[v] = d; }
+	      else          { T->right[v] = -currtaxon;  T->rd[v] = d; }         
+
+	      T->taxonlabel[currtaxon]  = label;
+	      currtaxon++;
+	    }
+	}
+
+      else if (c == ')')	/* c says, expect to close an interior node next */
+	{
+	  /* get v = the interior node we're closing, naming, and setting a branch length to */
+	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); 
+	  if (buf[pos] != ')') ESL_XFAIL(eslEFORMAT, errbuf, "Parse error: expected ) to close node #%d\n", v);
+
+	  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
+	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+
+	  if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
+	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+
+	  if (buf[pos] == '\'') { 
+	    if ((status = newick_parse_quoted_label(fp, buf, &pos, &nc, &label)) != eslOK)    
+	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a quoted node label");
+	  } else {               /* an unquoted label, for a new taxon attached to v */
+	    if ((status = newick_parse_unquoted_label(fp, buf, &pos, &nc, &label)) != eslOK) 
+	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse an unquoted node label");
+	  }
+	  
+	  if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
+	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
+
+	  d = 0.;
+	  if (buf[pos] == ':') {
+	    if ((status = newick_parse_branchlength(fp, buf, &pos, &nc, &d)) != eslOK)  
+	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a branch length");
+	  }
+
+	  if      (T->left [T->parent[v]] == v) T->ld[T->parent[v]] = d;
+	  else if (T->right[T->parent[v]] == v) T->rd[T->parent[v]] = d;
+
+	  T->nodelabel[v] = label;
+	}
+
+      else if (c == 'X')	/* optionally, multifurcations: if we see a comma, we have another node to deal with */
+	{ 			
+	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); 
+	  if (buf[pos] != ',') continue;
+
+	  /* v = the interior node that is multifurcated.
+           * What we're going to do is to create a new node y; move the existing right child of v 
+           * to the left child of y; and connect y as the new right child of v with a branch 
+           * length of zero. The right child of y is now open. Then, we push a X->,RX production, so the next subtree will
+           * be parsed as the right child of y. We can do this ad infinitum, resulting in
+           * a representation of a multifurcation as, for example, a (A,(B,(C,(D,E)))) binary
+           * subtree with zero length interior branches for a five-way multifurcation.
+           *
+           * This swapping destroys the order of the nodes: they will not be in preorder traversal.
+           * This is temporarily ok. We renumber later.
+	   */
+	  T->left[currnode]      = T->right[v];
+	  T->ld[currnode]        = T->rd[v];
+	  T->parent[currnode]    = v;
+	  if (T->right[v] > 0) T->parent[T->right[v]] = currnode;
+	  T->right[v]            = currnode;
+	  T->rd[v]               = 0.;
+	  
+	  if (esl_stack_CPush(cs, 'X')        != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_CPush(cs, 'R')        != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);	  
+	  if (esl_stack_CPush(cs, ',')        != eslOK)  ESL_XFWD(eslEMEM);	  
+	  currnode++;
+	}
+
+      if (currnode == T->nalloc-1 || currtaxon == T->nalloc) 
+	{
+	  if (esl_tree_Grow(T) != eslOK) ESL_XFWD(eslEMEM);
+	}
+    }
+
+  esl_tree_RenumberNodes(T);
+  esl_stack_Destroy(cs);
+  esl_stack_Destroy(vs);
+  *ret_T = T;
+  return eslOK;
+
+ ERROR:
+  if (T  != NULL) esl_tree_Destroy(T);
+  if (cs != NULL) esl_stack_Destroy(cs);
+  if (vs != NULL) esl_stack_Destroy(vs);
+  *ret_T = NULL;
+  return status;
+}
+  
 
 
 /*-------------------- end, Newick i/o --------------------------*/
@@ -507,7 +1129,7 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
 
   /* We need taxon parent map in tree 2, but not tree 1.
    */
-  if ((status = esl_tree_MapTaxaParents(T2)) != eslOK) goto FAILURE;
+  if ((status = esl_tree_MapTaxaParents(T2)) != eslOK) goto ERROR;
 
   /* We're going to use the tree mapping function M(g) [Goodman79]:
    * M[g] for node g in T1 is the index of the lowest node in T2
@@ -536,7 +1158,7 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
   free(Mg);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (Mg != NULL) free(Mg);
   return status;
 }
@@ -692,7 +1314,7 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
 	  case eslWPGMA:            D->mx[i][col] = (D->mx[i][col] + D->mx[j][col]) / 2.;    break;
 	  case eslSINGLE_LINKAGE:   D->mx[i][col] = ESL_MIN(D->mx[i][col], D->mx[j][col]);   break;
 	  case eslCOMPLETE_LINKAGE: D->mx[i][col] = ESL_MAX(D->mx[i][col], D->mx[j][col]);   break;
-	  default:                  ESL_FAIL(eslEINCONCEIVABLE, "no such strategy");
+	  default:                  ESL_XEXCEPTION(eslEINCONCEIVABLE, "no such strategy");
 	  }
 	  D->mx[col][i] = D->mx[i][col];
 	}
@@ -713,7 +1335,7 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
   if (ret_T != NULL) *ret_T = T;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D      != NULL) esl_dmatrix_Destroy(D);
   if (T      != NULL) esl_tree_Destroy(T);
   if (height != NULL) free(height);
@@ -846,7 +1468,7 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
    * node (in <branchpapa>) and a 0/1 flag (in <branchside>)
    * for the branch to the left vs. right child.
    */
-  if ((T = esl_tree_Create(N)) == NULL)  goto FAILURE;
+  if ((T = esl_tree_Create(N)) == NULL)  goto ERROR;
   ESL_ALLOC(branchpapa, sizeof(int) * N);
   ESL_ALLOC(branchside, sizeof(int) * N);
   
@@ -916,7 +1538,7 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
   free(branchside);
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (T          != NULL) esl_tree_Destroy(T);
   if (branchpapa != NULL) free(branchpapa);
   if (branchside != NULL) free(branchside);
@@ -961,14 +1583,14 @@ esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D)
   int status;
 
   D = esl_dmatrix_Create(T->N, T->N); /* creates a NxN square symmetric matrix; really only need triangular */
-  if (D == NULL) { status = eslEMEM; goto FAILURE; }
+  if (D == NULL) { status = eslEMEM; goto ERROR; }
 
-  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto FAILURE;
+  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
 
   for (i = 0; i < T->N; i++)
     {
       D->mx[i][i] = 0.;		/* by definition */
-      for (j = i; j < T->N; j++)
+      for (j = i+1; j < T->N; j++)
 	{
 	  a  = T->parent_of_otu[i];
 	  b  = T->parent_of_otu[j];
@@ -989,7 +1611,7 @@ esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D)
   *ret_D = D;
   return eslOK;
 
- FAILURE:
+ ERROR:
   if (D != NULL) esl_dmatrix_Destroy(D);
   *ret_D = NULL;
   return status;
@@ -1021,7 +1643,7 @@ verify_ultrametricity(ESL_TREE *T)
       parent = T->parent_of_otu[i];
       if       (T->left[parent]  == -i) d[i] += T->ld[parent];
       else if  (T->right[parent] == -i) d[i] += T->rd[parent];
-      else     ESL_ERROR(eslEINCONCEIVABLE, "oops");
+      else     ESL_EXCEPTION(eslEINCONCEIVABLE, "oops");
 
       while (parent != 0)	/* upwards to the root */
 	{
@@ -1029,7 +1651,7 @@ verify_ultrametricity(ESL_TREE *T)
 	  parent = T->parent[child];
 	  if      (T->left[parent]  == child) d[i] += T->ld[parent];
 	  else if (T->right[parent] == child) d[i] += T->rd[parent];
-	  else    ESL_ERROR(eslEINCONCEIVABLE, "oops");
+	  else    ESL_EXCEPTION(eslEINCONCEIVABLE, "oops");
 	}
     }
 
@@ -1052,7 +1674,7 @@ verify_ultrametricity(ESL_TREE *T)
   free(d);
   return status;
   
- FAILURE:
+ ERROR:
   if (d != NULL) free(d);
   return status;
 }
@@ -1136,8 +1758,12 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example.
+ * 8. Examples.
  *****************************************************************/
+
+/* The first example is an example of inferring a tree by the
+ * UPGMA algorithm, starting from a multiple sequence alignment.
+ */
 #ifdef eslTREE_EXAMPLE
 /*::cexcerpt::tree_example::begin::*/
 /* To compile: gcc -g -Wall -o example -I. -DeslTREE_EXAMPLE esl_tree.c esl_dmatrix.c esl_msa.c easel.c -lm
@@ -1169,6 +1795,37 @@ int main(int argc, char **argv)
   return eslOK;
 }
 /*::cexcerpt::tree_example::end::*/
+#endif /*eslTREE_EXAMPLE*/
+
+
+/* The second example is an example of reading in a Newick format tree.
+ */
+#ifdef eslTREE_EXAMPLE2
+/*::cexcerpt::tree_example2::begin::*/
+/* To compile: gcc -g -Wall -o example -I. -DeslTREE_EXAMPLE2 esl_tree.c esl_dmatrix.c esl_msa.c easel.c -lm
+ *         or: gcc -g -Wall -o example -I. -L. -DeslTREE_EXAMPLE2 esl_tree.c -leasel -lm
+ *     To run: ./example <Newick file>
+ */
+#include <easel.h>
+#include <esl_msa.h>
+#include <esl_distance.h>
+#include <esl_tree.h>
+
+int main(int argc, char **argv)
+{
+  ESL_TREE    *T;
+  char         errbuf[eslERRBUFSIZE];
+  FILE        *fp;
+
+  if ((fp = fopen(argv[1], "r"))           == NULL) esl_fatal("Failed to open %s", argv[1]);
+  if (esl_tree_ReadNewick(fp, errbuf, &T) != eslOK) esl_fatal("Failed to read tree: %s", errbuf);
+  esl_tree_WriteNewick(stdout, T);
+
+  esl_tree_Destroy(T);
+  fclose(fp);
+  return eslOK;
+}
+/*::cexcerpt::tree_example2::end::*/
 #endif /*eslTREE_EXAMPLE*/
 
 

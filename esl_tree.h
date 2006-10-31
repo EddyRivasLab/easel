@@ -65,12 +65,14 @@ typedef struct {
 /* 1. The ESL_TREE object.
  */
 extern ESL_TREE *esl_tree_Create(int ntaxa);
+extern int       esl_tree_Grow(ESL_TREE *T);
 extern int       esl_tree_MapTaxaParents(ESL_TREE *T);
 extern void      esl_tree_Destroy(ESL_TREE *T);
 
 /* 2. Newick format i/o
  */
-extern int       esl_tree_WriteNewick(FILE *fp, ESL_TREE *T);
+extern int  esl_tree_WriteNewick(FILE *fp, ESL_TREE *T);
+extern int  esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T);
 
 /* 3. Tree comparison algorithms.
  */
