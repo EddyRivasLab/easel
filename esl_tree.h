@@ -60,6 +60,17 @@ typedef struct {
 
 } ESL_TREE;
 
+/* UPGMA, average-link, minimum-link, and maximum-link clustering are
+ * all implemented by one algorithm, cluster_engine(), in esl_tree.c.
+ * We define some flags (within the scope of the tree module) to
+ * control the behavior, as we call the algorithm engine from four
+ * different API functions.
+ */
+#define eslUPGMA            0
+#define eslWPGMA            1
+#define eslSINGLE_LINKAGE   2
+#define eslCOMPLETE_LINKAGE 3
+
 
 
 /* 1. The ESL_TREE object.
@@ -67,6 +78,8 @@ typedef struct {
 extern ESL_TREE *esl_tree_Create(int ntaxa);
 extern int       esl_tree_Grow(ESL_TREE *T);
 extern int       esl_tree_MapTaxaParents(ESL_TREE *T);
+extern int       esl_tree_RenumberNodes(ESL_TREE *T);
+extern int       esl_tree_VerifyUltrametric(ESL_TREE *T);
 extern void      esl_tree_Destroy(ESL_TREE *T);
 
 /* 2. Newick format i/o

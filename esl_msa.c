@@ -221,7 +221,7 @@ create_mostly(int nseq, int alen)
   /* Allocation, round 2.
    */
   ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
-  ESL_ALLOC(msa->wgt,    sizeof(float)  * nseq);
+  ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
   ESL_ALLOC(msa->sqlen,  sizeof(int)    * nseq);
 
   /* Initialize at the second level.
@@ -342,7 +342,7 @@ esl_msa_Expand(ESL_MSA *msa)
 #endif /*eslAUGMENT_ALPHABET*/
 
   ESL_RALLOC(msa->sqname, p, sizeof(char *) * new);
-  ESL_RALLOC(msa->wgt,    p, sizeof(float)  * new);
+  ESL_RALLOC(msa->wgt,    p, sizeof(double) * new);
   ESL_RALLOC(msa->sqlen,  p, sizeof(int)    * new);
 
   if (msa->ss != NULL) 

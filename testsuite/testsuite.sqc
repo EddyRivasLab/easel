@@ -7,6 +7,9 @@
 #################################################################
 # Test drivers for each module.
 ################################################################
+
+# Missing: easel 
+
 1 prep     alphabet-compile       gcc -o testdrive-alphabet -I.. -L.. -g -Wall -DeslALPHABET_TESTDRIVE ../esl_alphabet.c -leasel -lm
 1 exercise alphabet-testdrive     @testdrive-alphabet@
 
@@ -31,6 +34,8 @@
 1 prep     getopts-compile        gcc -o testdrive-getopts -I.. -L.. -g -Wall -DeslGETOPTS_TESTDRIVE ../esl_getopts.c -leasel -lm
 1 exercise getopts-testdrive      @testdrive-getopts@
 
+# Missing: gev
+
 1 prep     gumbel-compile         gcc -o testdrive-gumbel -I.. -L.. -g -Wall -DeslGUMBEL_TESTDRIVE ../esl_gumbel.c -leasel -lm
 1 exercise gumbel-testdrive       @testdrive-gumbel@
 
@@ -43,8 +48,16 @@
 1 prep     keyhash-compile        gcc -o testdrive-keyhash -I.. -L.. -g -Wall -DeslKEYHASH_TESTDRIVE ../esl_keyhash.c -leasel -lm
 1 exercise keyhash-testdrive      @testdrive-keyhash@
 
+# Missing: minimizer
+# Missing: mixgev
+
 1 prep     msa-compile            gcc -o testdrive-msa -I.. -L.. -g -Wall -DeslMSA_TESTDRIVE ../esl_msa.c -leasel -lm
 1 exercise msa-testdrive          @testdrive-msa@
+
+# Missing: msacluster
+
+1 prep     msaweight-compile      gcc -o testdrive-msaweight -I.. -L.. -g -Wall -DeslMSAWEIGHT_TESTDRIVE ../esl_msaweight.c -leasel -lm
+1 exercise msaweight-testdrive    @testdrive-msaweight@
 
 1 prep     random-compile         gcc -o testdrive-random -I.. -L.. -g -Wall -DeslRANDOM_TESTDRIVE ../esl_random.c -leasel -lm
 1 exercise random-testdrive       @testdrive-random@
@@ -61,8 +74,16 @@
 1 prep     stack-compile          gcc -o testdrive-stack -I.. -L.. -g -Wall -DeslSTACK_TESTDRIVE ../esl_stack.c -leasel -lm
 1 exercise stack-testdrive        @testdrive-stack@
 
+# Missing: stats
+# Missing: stopwatch
+
 1 prep     sxp-compile            gcc -o testdrive-sxp -I.. -L.. -g -Wall -DeslSXP_TESTDRIVE ../esl_stretchexp.c -leasel -lm
 1 exercise sxp-testdrive          @testdrive-sxp@
+
+1 prep     tree-compile           gcc -o testdrive-tree -I.. -L.. -g -Wall -DeslTREE_TESTDRIVE ../esl_tree.c -leasel -lm
+1 exercise tree-testdrive         @testdrive-tree@
+
+# Missing: vectorops
 
 1 prep     weibull-compile        gcc -o testdrive-weibull -I.. -L.. -g -Wall -DeslWEIBULL_TESTDRIVE ../esl_weibull.c -leasel -lm
 1 exercise weibull-testdrive      @testdrive-weibull@

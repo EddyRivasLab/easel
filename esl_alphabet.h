@@ -48,6 +48,7 @@ extern int esl_abc_TextizeN (ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf);
 extern int esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup);
 extern int esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n);
 extern int esl_abc_dsqlen(ESL_DSQ *dsq);
+extern int esl_abc_dsqrlen(ESL_ALPHABET *a, ESL_DSQ *dsq);
 
 /* 3. Other routines in the API.
  */

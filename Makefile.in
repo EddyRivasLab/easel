@@ -26,6 +26,8 @@ HEADERS = \
 	esl_minimizer.h\
 	esl_mixgev.h\
 	esl_msa.h\
+	esl_msacluster.h\
+	esl_msaweight.h\
 	esl_random.h\
 	esl_regexp.h\
 	esl_sqio.h\
@@ -57,6 +59,8 @@ OBJS    = \
 	esl_minimizer.o\
 	esl_mixgev.o\
 	esl_msa.o\
+	esl_msacluster.o\
+	esl_msaweight.o\
 	esl_random.o\
 	esl_regexp.o\
 	esl_sqio.o\

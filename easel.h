@@ -174,6 +174,9 @@ extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 extern void esl_banner(FILE *fp, char *banner);
 
+extern int  esl_DCompare(double a, double b, double tol);
+extern int  esl_FCompare(float  a, float  b, float  tol);
+
 extern int  esl_strdup(char *s, int n, char **ret_dup);
 extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);

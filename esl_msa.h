@@ -40,12 +40,12 @@ typedef struct {
    * (The important stuff.)
    */
   /*::cexcerpt::msa_mandatory::begin::*/
-  char **aseq;                  /* alignment itself, [0..nseq-1][0..alen-1] */
-  char **sqname;                /* sequence names, [0..nseq-1][]            */
-  float *wgt;                   /* sequence weights [0..nseq-1]             */
-  int    alen;                  /* length of alignment (columns)            */
-  int    nseq;                  /* number of seqs in alignment              */
-  int    flags;                 /* flags for what info has been set         */
+  char  **aseq;                /* alignment itself, [0..nseq-1][0..alen-1] */
+  char  **sqname;              /* sequence names, [0..nseq-1][]            */
+  double *wgt;                 /* sequence weights [0..nseq-1]             */
+  int     alen;                /* length of alignment (columns)            */
+  int     nseq;                /* number of seqs in alignment              */
+  int     flags;               /* flags for what info has been set         */
   /*::cexcerpt::msa_mandatory::end::*/
 
 #ifdef eslAUGMENT_ALPHABET

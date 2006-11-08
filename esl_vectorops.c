@@ -11,6 +11,7 @@
  * esl_vec_{D,F,I}Sum()         - return sum of values in vector
  * esl_vec_{D,F,I}Add()         - add vec2 to vec1.
  * esl_vec_{D,F,I}Copy()        - set vec1 to be same as vec2. 
+ * esl_vec_{D,F,I}Compare()     - compare vec1 to vec2 for equality.
  * esl_vec_{D,F,I}Dot()         - return dot product of two vectors.
  * esl_vec_{D,F,I}Max()         - return value of maximum element in vector
  * esl_vec_{D,F,I}Min()         - return value of minimum element in vector 
@@ -250,6 +251,44 @@ esl_vec_ICopy(int *dest, int *src, int n)
   int x;
   for (x = 0; x < n; x++) dest[x] = src[x];
 }
+
+
+/* Function:  esl_vec_DCompare()
+ * Incept:    SRE, Mon Nov  6 10:20:28 2006 [Janelia]
+ *
+ * Purpose:   Compare <vec1> to <vec2> for equality, by
+ *            comparing each cognate element pair. Both vectors 
+ *            are of size <n>. Equality of elements is
+ *            defined by being $\leq$ fractional tolerance <tol> 
+ *            for floating point comparisons, and strict equality
+ *            for integer comparisons. Return <eslOK>
+ *            if the vectors are equal, and <eslFAIL> if not.
+ *
+ *            <esl_vec_FCompare()> and <esl_vec_ICompare()> do the same,
+ *            for float and integer vectors.
+ */
+int
+esl_vec_DCompare(double *vec1, double *vec2, int n, double tol)
+{
+  int i;
+  for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
+  return eslOK;
+}
+int
+esl_vec_FCompare(float *vec1, float *vec2, int n, float tol)
+{
+  int i;
+  for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
+  return eslOK;
+}
+int
+esl_vec_ICompare(int *vec1, int *vec2, int n)
+{
+  int i;
+  for (i = 0; i < n; i++) if (vec1[i] != vec2[i]) return eslFAIL;
+  return eslOK;
+}
+
 
 
 /* Function:  esl_vec_DSwap()

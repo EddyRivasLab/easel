@@ -9,7 +9,7 @@
  *   5. Generating simulated trees.
  *   6. Unit tests.
  *   7. Test driver.
- *   8. Example code.
+ *   8. Examples.
  *   9. Copyright notice and license.
  * 
  * SVN $Id$
@@ -22,6 +22,7 @@
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include <easel.h>
 #include <esl_tree.h>
@@ -219,7 +220,7 @@ esl_tree_MapTaxaParents(ESL_TREE *T)
   esl_stack_Destroy(ns);
 
 #if (eslDEBUGLEVEL >= 1)
-  for (child = 0; child < N; child++) assert(T->parent_of_otu[child] >= 0);
+  for (child = 0; child < T->N; child++) assert(T->parent_of_otu[child] >= 0);
 #endif
   return eslOK;
 
@@ -323,6 +324,58 @@ esl_tree_RenumberNodes(ESL_TREE *T)
 
 }
 
+/* Function:  esl_tree_VerifyUltrametric()
+ * Incept:    SRE, Tue Nov  7 15:25:40 2006 [Janelia]
+ *
+ * Purpose:   Verify that tree <T> is ultrametric. 
+ *
+ * Returns:   <eslOK> if so; <eslFAIL> if not.
+ *
+ * Throws:    <eslEMEM> on an allocation failure.
+ */
+int
+esl_tree_VerifyUltrametric(ESL_TREE *T)
+{
+  double *d = NULL;		/* Distance from root for each OTU */
+  int status;
+  int i, child, parent;
+  
+  /* First, calculate distance from root to each taxon.
+   * (This chunk of code might be useful to put on its own someday.)
+   */
+  ESL_ALLOC(d, sizeof(double) * T->N);
+  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
+  for (i = 0; i < T->N; i++)
+    {
+      d[i]   = 0.0;
+      child  = i;
+      parent = T->parent_of_otu[i];
+      if       (T->left[parent]  == -i) d[i] += T->ld[parent];
+      else if  (T->right[parent] == -i) d[i] += T->rd[parent];
+      else     ESL_XEXCEPTION(eslEINCONCEIVABLE, "oops");
+
+      while (parent != 0)	/* upwards to the root */
+	{
+	  child  = parent;
+	  parent = T->parent[child];
+	  if      (T->left[parent]  == child) d[i] += T->ld[parent];
+	  else if (T->right[parent] == child) d[i] += T->rd[parent];
+	  else    ESL_XEXCEPTION(eslEINCONCEIVABLE, "oops");
+	}
+    }
+
+  /* In an ultrametric tree, all those distances must be equal.
+   */
+  for (i = 1; i < T->N; i++)
+    if ((status = esl_DCompare(d[0], d[i], 0.0001)) != eslOK) break;
+
+  free(d);
+  return status;
+  
+ ERROR:
+  if (d != NULL) free(d);
+  return status;
+}
 
 
 /* Function:  esl_tree_Destroy()
@@ -345,6 +398,9 @@ esl_tree_Destroy(ESL_TREE *T)
   free(T);
   return;
 }
+
+
+
 /*----------------- end, ESL_TREE object -----------------------*/
 
 
@@ -1174,16 +1230,6 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
  * 4. Clustering algorithms for tree construction.
  *****************************************************************/
 
-/* UPGMA, average-link, minimum-link, and maximum-link clustering
- * are all implemented by one algorithm, cluster_engine(). We define some flags
- * (within the scope of the tree module) to control the behavior,
- * as we call the algorithm engine from four different API functions.
- */
-#define eslUPGMA            0
-#define eslWPGMA            1
-#define eslSINGLE_LINKAGE   2
-#define eslCOMPLETE_LINKAGE 3
-
 /* cluster_engine()
  * 
  * Implements four clustering algorithms for tree construction:
@@ -1203,6 +1249,18 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
  * Returns <eslOK> on success.
  * 
  * Throws <eslEMEM> on allocation failure.
+ * 
+ * Complexity: O(N^2) in memory, O(N^3) in time.
+ * 
+ * This function can be optimized. Memory usage is at least
+ * 4x more than necessary. First, we don't need to make a copy of D
+ * if the caller doesn't mind it being consumed. Second, D only
+ * needs to be lower- or upper-triangular, because it's symmetric,
+ * but that requires changing dmatrix module. In time,
+ * O(N^2 log N) if not O(N^2) should be possible, by being more
+ * sophisticated about identifying the minimum element; 
+ * see Gronau and Moran (2006).
+ * 
  */
 static int
 cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
@@ -1460,8 +1518,8 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
   int       bidx;	        	/* index of an active branch */
   int       status;
 
-  ESL_DASSERT1(r != NULL);
-  ESL_DASSERT1(N >= 2);
+  ESL_DASSERT1( (r != NULL) );
+  ESL_DASSERT1( (N >= 2) );
 
   /* Kuhner/Felsenstein uses a list of active branches,
    * which we implement by tracking the index of the parent
@@ -1625,61 +1683,6 @@ esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D)
 #ifdef eslTREE_TESTDRIVE
 
 static int
-verify_ultrametricity(ESL_TREE *T)
-{
-  double *d = NULL;		/* Distance from root for each OTU */
-  int status;
-  int i, child, parent;
-  
-  /* First, calculate distance from root to each taxon.
-   * (This chunk of code might be useful to put on its own someday.)
-   */
-  ESL_ALLOC(d, sizeof(double) * T->N);
-  esl_tree_MapTaxaParents(T);
-  for (i = 0; i < T->N; i++)
-    {
-      d[i]   = 0.0;
-      child  = i;
-      parent = T->parent_of_otu[i];
-      if       (T->left[parent]  == -i) d[i] += T->ld[parent];
-      else if  (T->right[parent] == -i) d[i] += T->rd[parent];
-      else     ESL_EXCEPTION(eslEINCONCEIVABLE, "oops");
-
-      while (parent != 0)	/* upwards to the root */
-	{
-	  child  = parent;
-	  parent = T->parent[child];
-	  if      (T->left[parent]  == child) d[i] += T->ld[parent];
-	  else if (T->right[parent] == child) d[i] += T->rd[parent];
-	  else    ESL_EXCEPTION(eslEINCONCEIVABLE, "oops");
-	}
-    }
-
-  /* In an ultrametric tree, all those distances must be equal.
-   */
-  status = eslOK;
-  if (d[0] == 0.0)
-    {
-      for (i = 1; i < T->N; i++)
-	if (d[i] != 0.0) 
-	  { status = eslFAIL; break; }
-    }
-  else
-    {
-      for (i = 1; i < T->N; i++)
-	if ((fabs(d[i] - d[0]) / d[0]) > 0.0001) 
-	  { status = eslFAIL; break; }
-    }
-
-  free(d);
-  return status;
-  
- ERROR:
-  if (d != NULL) free(d);
-  return status;
-}
-
-static int
 utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
 {
   ESL_TREE *T1 = NULL;
@@ -1697,23 +1700,24 @@ utest_UPGMA(ESL_RANDOMNESS *r, int ntaxa)
 {
   ESL_TREE    *T1 = NULL;
   ESL_TREE    *T2 = NULL;
-  ESL_DMATRIX *D  = NULL;
+  ESL_DMATRIX *D1 = NULL;
+  ESL_DMATRIX *D2 = NULL;
 
-  if (esl_tree_Simulate(r, ntaxa, &T1)  != eslOK) abort();
-  if (esl_tree_ToDistanceMatrix(T1, &D) != eslOK) abort();
-  if (esl_tree_UPGMA(D, &T2)            != eslOK) abort();
+  if (esl_tree_Simulate(r, ntaxa, &T1)   != eslOK) abort();
+  if (esl_tree_ToDistanceMatrix(T1, &D1) != eslOK) abort();
+  if (esl_tree_UPGMA(D1, &T2)            != eslOK) abort();
 
-  esl_dmatrix_Dump(stdout, D, NULL, NULL);
-  esl_tree_WriteNewick(stdout, T1);
-  esl_tree_WriteNewick(stdout, T2);
+  if (esl_tree_VerifyUltrametric(T1)     != eslOK) abort();
+  if (esl_tree_VerifyUltrametric(T2)     != eslOK) abort();
+  if (esl_tree_Compare(T1, T2)           != 0)     abort();
 
-  if (verify_ultrametricity(T1)         != eslOK) abort();
-  if (verify_ultrametricity(T2)         != eslOK) abort();
-  if (esl_tree_Compare(T1, T2)          != 0)     abort();
+  if (esl_tree_ToDistanceMatrix(T1, &D2) != eslOK) abort();
+  if (esl_dmatrix_Compare(D1, D2, 0.001) != eslOK) abort();
 
   esl_tree_Destroy(T1);
   esl_tree_Destroy(T2);
-  esl_dmatrix_Destroy(D);
+  esl_dmatrix_Destroy(D1);
+  esl_dmatrix_Destroy(D2);
   return eslOK;
 }
 

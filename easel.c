@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <math.h>
 #include <ctype.h>
 
 #include <easel.h>
@@ -156,6 +157,33 @@ esl_banner(FILE *fp, char *banner)
   fprintf(fp, "%s\n", EASEL_COPYRIGHT);
   fprintf(fp, "%s\n", EASEL_LICENSE);
   fprintf(fp, "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+}
+
+
+/* Function:  esl_DCompare()
+ * Incept:    SRE, Mon Nov  6 10:11:47 2006 [Janelia]
+ *
+ * Purpose:   Compare two floating point scalars <a> and <b> for equality.
+ *            Equality is defined by being within a fractional tolerance <tol>,
+ *            as <fabs(a-b)/(a+b)> $\leq$ <tol>. Return <eslOK> if equal,
+ *            <eslFAIL> if not.
+ *            
+ *            <esl_DCompare()> and <esl_FCompare()> work on <double> and <float>
+ *            scalars, respectively.
+ */
+int
+esl_DCompare(double a, double b, double tol)
+{
+  if (a == b)                   return eslOK;	/* includes a+b=0 case */
+  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+  return eslFAIL;
+}
+int
+esl_FCompare(float a, float b, float tol)
+{
+  if (a == b)                   return eslOK;	/* includes a+b=0 case */
+  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+  return eslFAIL;
 }
 
 

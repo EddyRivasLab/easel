@@ -157,20 +157,21 @@ esl_dmatrix_Duplicate(ESL_DMATRIX *old)
 
 /* Function:  esl_dmatrix_Compare()
  *
- * Purpose:   Compares matrix <A> to matrix <B>. If all elements
- *            differ by less than <fabs(tol)>,
- *            return <TRUE>; else return <FALSE>. 
+ * Purpose:   Compares matrix <A> to matrix <B> element by element,
+ *            using <esl_DCompare()> on each cognate element pair, 
+ *            with equality defined by a fractional tolerance <tol>.
+ *            If all elements are equal, return <eslOK>; else return <eslFAIL>. 
  */
 int
 esl_dmatrix_Compare(ESL_DMATRIX *A, ESL_DMATRIX *B, double tol)
 {
   int i,j;
-  if (A->n != B->n) return FALSE;
-  if (A->m != B->m) return FALSE;
+  if (A->n != B->n) return eslFAIL;
+  if (A->m != B->m) return eslFAIL;
   for (i = 0; i < A->n; i++)
     for (j = 0; j < A->m; j++)
-      if (fabs(A->mx[i][j] - B->mx[i][j]) > tol) return FALSE;
-  return TRUE;
+      if (esl_DCompare(A->mx[i][j], B->mx[i][j], tol) == eslFAIL) return eslFAIL;
+  return eslOK;
 }
 
 
@@ -713,10 +714,10 @@ int main(void)
   esl_dmx_Add(A,B);		/* A=I */
   esl_dmx_Scale(B, 2.0);	/* B=I */
 
-  if (esl_dmatrix_Compare(A, B, 1e-6) != TRUE) esl_fatal("A != B");
-  if (esl_dmatrix_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != C");
+  if (esl_dmatrix_Compare(A, B, 1e-6) != eslOK) esl_fatal("A != B");
+  if (esl_dmatrix_Compare(A, C, 1e-6) != eslOK) esl_fatal("A != C");
   esl_dmatrix_Copy(B, C);
-  if (esl_dmatrix_Compare(A, C, 1e-6) != TRUE) esl_fatal("A != copied B");    
+  if (esl_dmatrix_Compare(A, C, 1e-6) != eslOK) esl_fatal("A != copied B");    
 
   esl_dmatrix_Destroy(A);
   esl_dmatrix_Destroy(B);

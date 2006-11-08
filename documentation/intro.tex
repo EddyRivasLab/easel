@@ -265,39 +265,6 @@ into an object and access elemental data directly.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-A \textbf{test} driver is for unit testing. It provides a
-\ccode{main()} that runs some (preferably all) of a module's API. A
-test driver takes no command line arguments; it just runs one or more
-internal tests. Any failure indicates a bug. Test drivers are intended
-for the use by automated tests, or by a developer during debugging.
-
-A \textbf{stats} driver is for collecting some sort of statistics for
-the module, such as performance or accuracy. It is only intended for
-developer use. Any command line arguments are documented only in the
-source code.
-
-A driver is compiled by defining the appropriate flag at compile time:
-\ccode{eslMODULE\_EXAMPLE}, \ccode{eslMODULE\_TESTDRIVE}, or
-\ccode{eslMODULE\_STATS}, where \ccode{MODULE} is the name of the
-module. For example, to compile and run the \eslmod{sqio} example
-code:
-
-\begin{cchunk}
-   %  gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
-   %  ./example <FASTA file>
-\end{cchunk}
-
-or to compile and run the \eslmod{sqio} test driver:
-
-\begin{cchunk}
-   %  gcc -g -Wall -I. -o test -DeslSQIO_TESTDRIVE esl_sqio.c easel.c
-   %  ./test
-\end{cchunk}
-
-All modules have a test driver and an example driver. Only a few have
-stats drivers.
-
-
 
 \section{Function naming conventions}
 
@@ -429,6 +396,21 @@ identity matrix).
 \item[\ccode{\_Get*(obj...)}]
 
 Retrieves specific data from in \ccode{obj}.
+
+
+\item[\ccode{\_Compare*(obj1, obj2...)}]
+
+Compares \ccode{obj1} to \ccode{obj2}. Returns \ccode{eslOK} if the
+contents are judged to be identical, and \ccode{eslFAIL} if they
+differ. When the comparison involves floating point scalar
+comparisons, a fractional tolerance argument \ccode{tol} is also
+passed. 
+
+
+% examples: esl_dmatrix_Compare(), static msa_compare(),
+%   esl_tree_Compare(), esl_vec_{DFI}Compare().
+
+
 \end{sreitems}
 
 \subsection{Other API naming conventions}
@@ -497,100 +479,4 @@ in older code.}
       \ccode{autodoc\_functions}, in order to produce appendices
       summarizing the complete Easel function set.
 \end{enumerate}
-
-\subsection{Example code}
-
-\begin{enumerate}
-\item Every module has an example driver that exercises the API in
-      some simple way (and, in the process, provides a ``hello world''
-      level example of using the module).
-\end{enumerate}
-
-\subsection{Test code}
-
-\footnote{The current poster child of test code is the \eslmod{msa}
-module, as of 8 Sept 2006, but even it is not fully compliant; it does
-not exercise SSI augmentations yet.}
-
-\begin{enumerate}
-
-\item Each module shall have a test driver \ccode{main()}, compiled by 
-      a \ccode{-DeslFOO\_TESTDRIVE} flag.
-
-\item The testdriver program must return \ccode{eslOK} (zero, a normal
-      UNIX success code) if tests succeed, and non-zero on failure.
-
-\item The testdriver shall work in minimal standalone mode, 
-      standalone mode with any or all possible augmentations, 
-      or in full library. Example compile lines:
-\begin{cchunk}
-      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE esl_msa.c easel.c
-      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c
-      % gcc -g -Wall -o test -I. -L. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
-\end{cchunk}
-
-\item Upon detecting a failure, the testdriver shall call
-      \ccode{abort()} as soon as possible to facilitate
-      tracing/debugging (or equivalently, it uses
-      \ccode{assert()}). Garbage collection (including memory, opened
-      files, or created temporary files) is not required, and may even
-      be counterproductive. For example, for debugging purposes, it
-      may be advantageous not to delete a temporary file from a failed
-      test.
-
-\item Each function, procedure, and macro in the exposed API shall
-      have a unit test procedure. A unit test for
-      \ccode{esl\_foo\_Baz()} is named \ccode{static int
-      utest\_Baz()}. A unit test returns \ccode{eslOK} on success.  On
-      detecting a failure, a unit test should call \ccode{abort()}
-      immediately to facilitate tracing/debugging; less preferably, a
-      unit test may return \ccode{eslFAIL} to the main test driver.
-
-\item If a unit test or testdriver needs to create a temporary file
-      (to test i/o), the tmpfile is created with
-      \ccode{esl\_tmpfile()}:
-
-\begin{cchunk}
-          char  tmpfile[] = "/tmp/eslXXXXXX";
-          FILE *fp;
-
-          if (esl_tmpfile(tmpfile, &fp) != eslOK) abort();
-          write_stuff_to(fp);
-          fclose(fp);
-
-          if ((fp = fopen(tmpfile)) == NULL)      abort();
-          read_stuff_from(fp);
-          fclose(fp);
-
-          remove(tmpfile);
-\end{cchunk}
-
-      Thus tmp files created by Easel's test suite have a common
-      naming convention and exist in a common place. On a test
-      failure, the tmp file remains, to assist debugging; on a test
-      success, the tmp file is removed.
-
-\item The testdriver shall respond to a \ccode{eslTEST\_THROWING}
-      compile-time definition by registering a nonfatal error handler,
-      as in:
-\begin{cchunk}
-      #ifdef eslTEST_THROWING
-        esl_error_SetHandler(&esl_nonfatal_handler);
-      #endif
-\end{cchunk}
-
-\item Unit tests shall check thrown errors, using code
-      wrapped in \ccode{\#ifdef eslTEST\_THROWING}.
-
-\item The testdriver shall exercise all possible augmentations.
-\end{enumerate}
-
-
-
-
-
-
-
-
-
 

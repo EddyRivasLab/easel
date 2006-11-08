@@ -1837,6 +1837,9 @@ check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos,
  *****************************************************************/
 #ifdef eslAUGMENT_MSA
 
+
+
+
 /* Function:  esl_sq_Dealign()
  * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
  *

@@ -826,15 +826,35 @@ esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
  * Synopsis:  Returns the length of a digital sequence.
  * Incept:    SRE, Tue Aug 29 13:49:02 2006 [Janelia]
  *
- * Purpose:   Returns the length of digitized sequence <dsq>
- *            in residues. The <dsq> must be properly terminated
- *            by a sentinel byte (<eslDSQ_SENTINEL>). 
+ * Purpose:   Returns the length of digitized sequence <dsq> in
+ *            positions (including gaps, if any). The <dsq> must be
+ *            properly terminated by a sentinel byte
+ *            (<eslDSQ_SENTINEL>).  
  */
 int 
 esl_abc_dsqlen(ESL_DSQ *dsq)
 {
   int n = 0;
   while (dsq[n+1] != eslDSQ_SENTINEL) n++;
+  return n;
+}
+
+/* Function:  esl_abc_dsqrlen()
+ * Synopsis:  Returns the number of residues in a digital seq.
+ * Incept:    SRE, Sat Nov  4 09:41:40 2006 [Janelia]
+ *
+ * Purpose:   Returns the unaligned length of digitized sequence
+ *            <dsq>, in residues, not counting any gaps or
+ *            missing data symbols. 
+ */
+int
+esl_abc_dsqrlen(ESL_ALPHABET *abc, ESL_DSQ *dsq)
+{
+  int n = 0;
+  int i;
+
+  for (i = 1; dsq[i] != eslDSQ_SENTINEL; i++)
+    if (esl_abc_XIsResidue(abc, dsq[i])) n++;
   return n;
 }
 /*-------------- end, digital sequences (ESL_DSQ) ---------------*/
