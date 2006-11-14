@@ -241,6 +241,46 @@ create_mostly(int nseq, int alen)
 }
 
 
+/* Function:  esl_msa_CreateFromString()
+ * Incept:    SRE, Sat Nov 11 12:09:04 2006 [Janelia]
+ *
+ * Purpose:   A convenience for making small test cases in the test
+ *            suites: given the contents of a complete multiple
+ *            sequence alignment file as a single string <s> in
+ *            alignment format <fmt>, convert it to an <ESL_MSA>.
+ *
+ * Returns:   a pointer to the new <ESL_MSA> on success.
+ *
+ * Throws:    <NULL> if it fails to obtain, open, or read the temporary file
+ *            that it puts the string <s> in.
+ */
+ESL_MSA *
+esl_msa_CreateFromString(char *s, int fmt)
+{
+  char         tmpfile[10] = "eslXXXXXX";
+  FILE        *fp          = NULL;
+  ESL_MSAFILE *mfp         = NULL;
+  ESL_MSA     *msa         = NULL;
+
+  if (esl_tmpfile_named(tmpfile, &fp)            != eslOK) goto ERROR;
+  fprintf(fp, s);
+  fclose(fp); 
+  fp = NULL;
+  if (esl_msafile_Open(tmpfile, fmt, NULL, &mfp) != eslOK) goto ERROR;
+  if (esl_msa_Read(mfp, &msa)                    != eslOK) goto ERROR;
+
+  esl_msafile_Close(mfp);
+  remove(tmpfile);
+  return msa;
+
+ ERROR:
+  if (fp  != NULL) fclose(fp);
+  if (mfp != NULL) esl_msafile_Close(mfp);
+  if (strcmp(tmpfile, "eslXXXXXX") != 0) remove(tmpfile);
+  if (msa != NULL) esl_msa_Destroy(msa);                        
+  return NULL;
+}
+
 /* Function:  esl_msa_Destroy()
  * Incept:    SRE, Sun Jan 23 08:26:02 2005 [St. Louis]
  *
@@ -2826,7 +2866,7 @@ Offending line is:\n\
 /* write_known_msa()
  * Write a known MSA to a tmpfile in Stockholm format.
  */
-static int
+static void
 write_known_msa(FILE *ofp)
 {
   fprintf(ofp, "# STOCKHOLM 1.0\n");
@@ -2838,35 +2878,35 @@ write_known_msa(FILE *ofp)
   fprintf(ofp, "seq2 ACDEFGHIKLMNPQRSTVWYyyy\n");
   fprintf(ofp, "seq3 ACDEFGHIKLMNPQRSTVWYyyy\n");
   fprintf(ofp, "//\n");
-  return eslOK;
+  return;
 }
   
 /* compare_to_known() 
  * SRE, Thu Sep  7 09:52:07 2006 [Janelia]
  * Spotcheck an ESL_MSA to make sure it matches the test known alignment.
  */
-static int
+static void
 compare_to_known(ESL_MSA *msa)
 {
-  if (msa->alen != 47)                     abort();
-  if (msa->nseq != 3)                      abort();
-  if (strcmp(msa->sqname[1], "seq2") != 0) abort();
+  if (msa->alen != 47)                     esl_fatal("bad alen");
+  if (msa->nseq != 3)                      esl_fatal("bad nseq");
+  if (strcmp(msa->sqname[1], "seq2") != 0) esl_fatal("bad sqname");
 #ifdef eslAUGMENT_ALPHABET
   if (msa->flags & eslMSA_DIGITAL)
     {
-      if (! esl_abc_XIsGap(msa->abc, msa->ax[0][2]))      abort();
-      if (! esl_abc_XIsMissing(msa->abc, msa->ax[0][47])) abort();
-      if (msa->ax[1][1]  != 0)                            abort(); /* 0=A */
-      if (msa->ax[1][47] != 19)                           abort(); /* 19=Y */
+      if (! esl_abc_XIsGap(msa->abc, msa->ax[0][2]))      esl_fatal("no gap where expected");
+      if (! esl_abc_XIsMissing(msa->abc, msa->ax[0][47])) esl_fatal("no missing-data symbol where expected");
+      if (msa->ax[1][1]  != 0)                            esl_fatal("spotcheck on ax failed"); /* 0=A */
+      if (msa->ax[1][47] != 19)                           esl_fatal("spotcheck on ax failed"); /*19=Y */
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL))
     {
-      if (strcasecmp(msa->aseq[0], "--ACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWY~~~") != 0) abort();
-      if (strcasecmp(msa->aseq[1], "aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy") != 0) abort();
-      if (strcasecmp(msa->aseq[2], "aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy") != 0) abort();
+      if (strcasecmp(msa->aseq[0], "--ACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWY~~~") != 0) esl_fatal("aseq 0 is bad");
+      if (strcasecmp(msa->aseq[1], "aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy") != 0) esl_fatal("aseq 1 is bad");
+      if (strcasecmp(msa->aseq[2], "aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy") != 0) esl_fatal("aseq 2 is bad");
     }
-  return eslOK;
+  return;
 }
 
 /* msa_compare()
@@ -2877,7 +2917,7 @@ compare_to_known(ESL_MSA *msa)
  * Not a complete comparison: just checks mode, sequence names, and aligned data.
  * MSAs have to be in same mode (text vs. digital).
  */
-static int
+static void
 msa_compare(ESL_MSA *m1, ESL_MSA *m2)
 {
   int i;
@@ -2885,40 +2925,39 @@ msa_compare(ESL_MSA *m1, ESL_MSA *m2)
   if (m1->nseq  != m2->nseq   ||
       m1->alen  != m2->alen   ||
       m1->flags != m2->flags)
-    abort();
+    esl_fatal("msa1, msa2 differ in nseq, alen, or flags");
 
   for (i = 0; i < m1->nseq; i++)
     {
-      if (strcmp(m1->sqname[i], m2->sqname[i]) != 0) abort();
+      if (strcmp(m1->sqname[i], m2->sqname[i]) != 0) esl_fatal("msa1, msa2 sqnames differ for %d", i);
 #ifdef eslAUGMENT_ALPHABET
       if ((m1->flags & eslMSA_DIGITAL) && 
 	  memcmp(m1->ax[i], m2->ax[i], sizeof(ESL_DSQ) * (m1->alen+2)) != 0) 
-	abort();
+	esl_fatal("msa1, msa2 digital sequences differ for %d", i);
 #endif
       if (! (m1->flags & eslMSA_DIGITAL) && 
 	  strcmp(m1->aseq[i], m2->aseq[i]) != 0) 
-	abort();
+	esl_fatal("msa1, msa2 sequences differ for %d", i);
     }
-  return eslOK;
+  return;
 }
 
 /* Unit tests for every function in the exposed API
  */
-static int
+static void
 utest_Create(void)
 {
   ESL_MSA *msa = NULL;
 
   msa = esl_msa_Create(16, 0);	  /* nseq blocksize 16, growable */
   esl_msa_Destroy(msa);
-
   msa = esl_msa_Create(16, 100);  /* nseq=16, alen=100, not growable */
   esl_msa_Destroy(msa);
 
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_Destroy(void)
 {
   ESL_MSA *msa = NULL;
@@ -2937,10 +2976,10 @@ utest_Destroy(void)
 #endif
 
   esl_msa_Destroy(NULL);	  /* should tolerate NULL argument */
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_Expand(void)
 {
   ESL_MSA *msa = NULL;
@@ -2949,105 +2988,107 @@ utest_Expand(void)
 #endif
 
   msa = esl_msa_Create(16, 0);                	    /* growable */
-  if (esl_msa_Expand(msa) != eslOK) abort(); /* expand by 2x in nseq */
+  if (esl_msa_Expand(msa) != eslOK) esl_fatal("Expand failed"); /* expand by 2x in nseq */
   esl_msa_Destroy(msa);
 
   msa = esl_msa_Create(16, 100);                        /* not growable */
 #ifdef eslTEST_THROWING
-  if (esl_msa_Expand(msa) != eslEINVAL) abort(); /* should fail w/ EINVAL*/
+  if (esl_msa_Expand(msa) != eslEINVAL) esl_fatal("Expand should have failed but didn't"); /* should fail w/ EINVAL*/
 #endif
   esl_msa_Destroy(msa);
   
 #ifdef eslAUGMENT_ALPHABET
   abc = esl_alphabet_Create(eslDNA);
   msa = esl_msa_CreateDigital(abc, 16, 0);               /* growable */
-  if (esl_msa_Expand(msa) != eslOK) abort(); /* expand by 2x in nseq */
+  if (esl_msa_Expand(msa) != eslOK) esl_fatal("Expand failed"); /* expand by 2x in nseq */
   esl_msa_Destroy(msa);
 
   msa = esl_msa_CreateDigital(abc, 16, 100);                 /* not growable */
 #ifdef eslTEST_THROWING
-  if (esl_msa_Expand(msa) != eslEINVAL) abort(); /* should fail w/ EINVAL*/
+  if (esl_msa_Expand(msa) != eslEINVAL) esl_fatal("Expand should have failed but didn't"); /* should fail w/ EINVAL*/
 #endif /* eslTEST_THROWING*/
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
 #endif
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_Open(char *tmpfile)	/* filename must be in /tmp */
 {
+  char        *msg      = "Open() unit test failed";
   ESL_MSAFILE *msafp    = NULL;
   int          status;
   
   status = esl_msafile_Open(tmpfile, eslMSAFILE_UNKNOWN, NULL, &msafp); 
-  if (status != eslOK) abort();
+  if (status != eslOK) esl_fatal(msg);
   esl_msafile_Close(msafp);
 
   status = esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &msafp);
-  if (status != eslOK) abort();
+  if (status != eslOK) esl_fatal(msg);
   esl_msafile_Close(msafp);
 
 #ifdef HAVE_PUTENV
-  putenv("ESLTEST=/tmp");
+  putenv("ESLTEST=./");
   esl_FileTail(tmpfile, FALSE, &filename);
   status = esl_msafile_Open(filename, eslMSAFILE_STOCKHOLM, "ESLTEST", &msafp);
-  if (status != eslOK) abort();
+  if (status != eslOK) esl_fatal(msg);
   esl_msafile_Close(msafp);
   free(filename);
 #endif
 
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_Close(char *filename)
 {
   ESL_MSAFILE *msafp    = NULL;
   int status;
 
   status = esl_msafile_Open(filename, eslMSAFILE_UNKNOWN, NULL, &msafp); 
-  if (status != eslOK) abort();
+  if (status != eslOK) esl_fatal("Close() unit test failed");
   esl_msafile_Close(msafp);
-  
-  esl_msafile_Close(NULL);	/* should be fine */
-  return eslOK;
+  esl_msafile_Close(NULL);	/* should work */
+  return;
 }
 
 #ifdef eslAUGMENT_ALPHABET
-static int
+static void
 utest_CreateDigital(ESL_ALPHABET *abc)
 {
+  char    *msg = "CreateDigital() unit test failure";
   ESL_MSA *msa = NULL;
 
   msa = esl_msa_CreateDigital(abc, 16, 0);	  /* nseq blocksize 16, growable */
-  if (! (msa->flags & eslMSA_DIGITAL)) abort();
-  if (msa->ax   == NULL)               abort();
-  if (msa->aseq != NULL)               abort();
-  if (esl_msa_Expand(msa) != eslOK)    abort(); /* should grow */
+  if (! (msa->flags & eslMSA_DIGITAL)) esl_fatal(msg);
+  if (msa->ax   == NULL)               esl_fatal(msg);
+  if (msa->aseq != NULL)               esl_fatal(msg);
+  if (esl_msa_Expand(msa) != eslOK)    esl_fatal(msg);
   esl_msa_Destroy(msa);
 
   msa = esl_msa_CreateDigital(abc, 16, 100);  /* nseq=16, alen=100, not growable */
 #ifdef eslTEST_THROWING
-  if (esl_msa_Expand(msa) != eslEINVAL) abort(); /* shouldn't grow */
+  if (esl_msa_Expand(msa) != eslEINVAL) esl_fatal(msg); /* shouldn't grow */
 #endif
   esl_msa_Destroy(msa);
 
-  return eslOK;
+  return;
 }
 #endif /*eslAUGMENT_ALPHABET*/
 
 #ifdef eslAUGMENT_ALPHABET
-static int
+static void
 utest_Digitize(ESL_ALPHABET *abc, char *filename)
 {
+  char        *msg = "Digitize() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
   int c, i, pos;
 
   /* Get ourselves a copy of the known alignment that we can muck with */
-  if (esl_msafile_Open(filename, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK)  abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK)                                       abort();
+  if (esl_msafile_Open(filename, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK)  esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK)                                       esl_fatal(msg);
   esl_msafile_Close(mfp);
   
   /* Deliberately corrupt it with inval character in the middle */
@@ -3055,126 +3096,126 @@ utest_Digitize(ESL_ALPHABET *abc, char *filename)
   pos = msa->alen / 2;
   c   = msa->aseq[i][pos];
   msa->aseq[i][pos] = '%';
-  if (esl_msa_Digitize(abc, msa) != eslEINVAL) abort(); /* should detect corruption as normal error */
+  if (esl_msa_Digitize(abc, msa) != eslEINVAL) esl_fatal(msg); /* should detect corruption as normal error */
   msa->aseq[i][pos] = c;	                               /* restore original         */
-  if (compare_to_known(msa)      != eslOK)     abort();
-  if (esl_msa_Digitize(abc, msa) != eslOK)     abort(); /* should be fine now       */
-  if (compare_to_known(msa)      != eslOK)     abort();
+  compare_to_known(msa);
+  if (esl_msa_Digitize(abc, msa) != eslOK)     esl_fatal(msg); /* should be fine now       */
+  compare_to_known(msa);
 
   esl_msa_Destroy(msa);
-  return eslOK;
+  return;
 }
 #endif /*eslAUGMENT_ALPHABET*/
 
 
 #ifdef eslAUGMENT_ALPHABET
-static int
+static void
 utest_Textize(ESL_ALPHABET *abc, char *filename)
 {
+  char        *msg = "Textize() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
 
-  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_UNKNOWN, NULL, &mfp) != eslOK)  abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK)   abort();
-  if (esl_msa_Textize(msa)    != eslOK)   abort();
-  if (compare_to_known(msa)   != eslOK)   abort();
+  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_UNKNOWN, NULL, &mfp) != eslOK)  esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK)   esl_fatal(msg);
+  if (esl_msa_Textize(msa)    != eslOK)   esl_fatal(msg);
+  compare_to_known(msa);
 
   esl_msafile_Close(mfp);
   esl_msa_Destroy(msa);
-  return eslOK;
+  return;
 }
 #endif /*eslAUGMENT_ALPHABET*/
 
 #ifdef eslAUGMENT_ALPHABET
-static int
+static void
 utest_OpenDigital(ESL_ALPHABET *abc, char *filename)  /* filename must be in /tmp */
 {
-  ESL_MSAFILE *msafp    = NULL;
+  char        *msg   = "OpenDigital() unit test failure";
+  ESL_MSAFILE *msafp = NULL;
   
-  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_UNKNOWN, NULL, &msafp) != eslOK) abort();
-  esl_msafile_Close(msafp);
-  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_STOCKHOLM, NULL, &msafp) != eslOK) abort();
-  esl_msafile_Close(msafp);
+  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_UNKNOWN,   NULL, &msafp) != eslOK) esl_fatal(msg);  esl_msafile_Close(msafp);
+  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_STOCKHOLM, NULL, &msafp) != eslOK) esl_fatal(msg);  esl_msafile_Close(msafp);
 #ifdef HAVE_PUTENV
-  putenv("ESLTEST=/tmp");
+  putenv("ESLTEST=./");
   esl_FileTail(tmpfile, FALSE, &filename);
-  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_STOCKHOLM, "ESLTEST", &msafp) != eslOK) abort();
+  if (esl_msafile_OpenDigital(abc, filename, eslMSAFILE_STOCKHOLM, "ESLTEST", &msafp) != eslOK) esl_fatal(msg);
   esl_msafile_Close(msafp);
   free(filename);
 #endif
-  return eslOK;
+  return;
 }
 #endif /*eslAUGMENT_ALPHABET*/
 
-static int
+static void
 utest_Read(char *filename)
 {
-  ESL_MSAFILE *mfp    = NULL;
-  ESL_MSA     *msa    = NULL;
+  char        *msg = "Read() unit test failure";
+  ESL_MSAFILE *mfp = NULL;
+  ESL_MSA     *msa = NULL;
 
-  if (esl_msafile_Open(filename, eslMSAFILE_UNKNOWN, NULL, &mfp) != eslOK)  abort();  
-
-  if (esl_msa_Read(mfp, &msa) != eslOK)  abort();
-  if (compare_to_known(msa)   != eslOK)  abort();
+  if (esl_msafile_Open(filename, eslMSAFILE_UNKNOWN, NULL, &mfp) != eslOK)  esl_fatal(msg);  
+  if (esl_msa_Read(mfp, &msa) != eslOK)  esl_fatal(msg);
+  compare_to_known(msa);
   esl_msa_Destroy(msa);
 
-  if (esl_msa_Read(mfp, &msa) != eslEOF) abort();
-  if (msa != NULL)                       abort();
+  if (esl_msa_Read(mfp, &msa) != eslEOF) esl_fatal(msg);
+  if (msa != NULL)                       esl_fatal(msg);
 
   esl_msafile_Close(mfp);
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_Write(ESL_MSA *msa1)
 {
+  char        *msg  = "Write() unit test failure";
   ESL_MSAFILE *mfp  = NULL;
   ESL_MSA     *msa2 = NULL;
   FILE        *fp   = NULL;
   int      i;
   int      formats[] = { eslMSAFILE_STOCKHOLM, eslMSAFILE_PFAM, -1 }; /* -1=sentinel */
-  char    *template = "/tmp/eslXXXXXX";
-  char     tmpfile[32];
+  char     template[10] = "eslXXXXXX";
+  char     tmpfile[10];
 
   for (i = 0; formats[i] != -1; i++)
     {
       strcpy(tmpfile, template);
-      if (esl_tmpfile(tmpfile, &fp) != eslOK) abort();
-      if (esl_msa_Write(fp, msa1, formats[i]) != eslOK) abort();
+      if (esl_tmpfile_named(tmpfile, &fp) != eslOK)     esl_fatal(msg);
+      if (esl_msa_Write(fp, msa1, formats[i]) != eslOK) esl_fatal(msg);
       fclose(fp);
   
 #ifdef eslAUGMENT_ALPHABET
       if ((msa1->flags & eslMSA_DIGITAL) &&
-	  esl_msafile_OpenDigital(msa1->abc, tmpfile, formats[i], NULL, &mfp) != eslOK)
-	abort();
+	  esl_msafile_OpenDigital(msa1->abc, tmpfile, formats[i], NULL, &mfp) != eslOK)	esl_fatal(msg);
 #endif
       if (! (msa1->flags & eslMSA_DIGITAL) &&
-	  esl_msafile_Open(tmpfile, formats[i], NULL, &mfp) != eslOK)
-	abort();
+	  esl_msafile_Open(tmpfile, formats[i], NULL, &mfp) != eslOK) esl_fatal(msg);
 
-      if (esl_msa_Read(mfp, &msa2) != eslOK) abort();
-      if (msa_compare(msa1, msa2) != eslOK)  abort();
+      if (esl_msa_Read(mfp, &msa2) != eslOK) esl_fatal(msg);
+      msa_compare(msa1, msa2);
       
       esl_msafile_Close(mfp);
       esl_msa_Destroy(msa2);
       remove(tmpfile);      
     }      
-  return eslOK;
+  return;
 }
 
-static int
+static void
 utest_GuessFileFormat(void)
 {
   /* SRE: To be filled in. Currently, esl_msa_GuessFileFormat() is a placeholder that
    * always guesses Stockholm
    */
-  return eslOK;
+  return;
 }
 
 
-static int 
+static void
 utest_SequenceSubset(ESL_MSA *m1)
 {
+  char    *msg   = "SequenceSubset() unit test failure";
   ESL_MSA *m2    = NULL;
   int     *useme = NULL;
   int      i,j;
@@ -3186,138 +3227,141 @@ utest_SequenceSubset(ESL_MSA *m1)
     if (i%2 == 0) { useme[i] = TRUE; n2++; }
     else          useme[i] = FALSE;
 
-  if (esl_msa_SequenceSubset(m1, useme, &m2) != eslOK) abort();
-  if (m2->nseq != n2) abort();
+  if (esl_msa_SequenceSubset(m1, useme, &m2) != eslOK) esl_fatal(msg);
+  if (m2->nseq != n2) esl_fatal(msg);
   
   for (i = 0, j = 0; i < m1->nseq; i++)
     {
       if (useme[i])
 	{
-	  if (strcmp(m1->sqname[i], m2->sqname[j]) != 0) abort();
-	  if (! (m1->flags & eslMSA_DIGITAL) && (strcmp(m1->aseq[i],   m2->aseq[j])  != 0)) abort();
+	  if (strcmp(m1->sqname[i], m2->sqname[j]) != 0) esl_fatal(msg);
+	  if (! (m1->flags & eslMSA_DIGITAL) && (strcmp(m1->aseq[i],   m2->aseq[j])  != 0)) esl_fatal(msg);
 #ifdef eslAUGMENT_ALPHABET
-	  if (  (m1->flags & eslMSA_DIGITAL) && memcmp(m1->ax[i], m2->ax[j], sizeof(ESL_DSQ) * (m1->alen+2)) != 0) abort();
+	  if (  (m1->flags & eslMSA_DIGITAL) && memcmp(m1->ax[i], m2->ax[j], sizeof(ESL_DSQ) * (m1->alen+2)) != 0) esl_fatal(msg);
 #endif
 	  j++;
 	}
     }  
   esl_msa_Destroy(m2);
   free(useme);
-  return eslOK;
+  return;
 }
 
-static int 
+static void
 utest_MinimGaps(char *tmpfile)
 {
+  char        *msg = "MinimGaps() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET *abc = NULL;
 #endif
 
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK)                                    abort();
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, "-~") != eslOK) abort();
-  if (msa->alen        != 45)  abort(); /* orig =47, with one all - column and one all ~ column */
-  if (msa->aseq[0][11] != 'L') abort(); /* L shifted from column 13->12 */
-  if (msa->aseq[0][18] != 'T') abort(); /* T shifted from column 21->19 */
+  if (esl_msa_MinimGaps(msa, "-~") != eslOK) esl_fatal(msg);
+  if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
+  if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
   esl_msa_Destroy(msa);
 
 #ifdef eslAUGMENT_ALPHABET
-  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) abort();
-  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK) abort();
+  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
+  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL) != eslOK) abort();
-  if (msa->alen        != 45)  abort(); /* orig =47, with one all - column and one all ~ column */
-  if (esl_msa_Textize(msa) != eslOK) abort();
-  if (msa->aseq[0][11] != 'L') abort(); /* L shifted from column 13->12 */
-  if (msa->aseq[0][18] != 'T') abort(); /* T shifted from column 21->19 */
+  if (esl_msa_MinimGaps(msa, NULL) != eslOK) esl_fatal(msg);
+  if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
+  if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
+  if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
 #endif
-  return eslOK;
+  return;
 }  
 
-static int 
+static void
 utest_NoGaps(char *tmpfile)
 {
+  char        *msg = "NoGaps() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET *abc = NULL;
 #endif
 
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK)                                    abort();
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, "-~") != eslOK) abort();
-  if (msa->alen        != 40)  abort(); /* orig =47, w/ 7 columns with gaps */
-  if (msa->aseq[0][9]  != 'L') abort(); /* L shifted from column 13->10  */
-  if (msa->aseq[0][16] != 'T') abort(); /* T shifted from column 21->17 */
-  if (msa->aseq[0][39] != 'Y') abort(); /* Y shifted from column 47->40 */
+  if (esl_msa_NoGaps(msa, "-~") != eslOK) esl_fatal(msg);
+  if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, w/ 7 columns with gaps */
+  if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
+  if (msa->aseq[0][16] != 'T') esl_fatal(msg); /* T shifted from column 21->17 */
+  if (msa->aseq[0][39] != 'Y') esl_fatal(msg); /* Y shifted from column 47->40 */
   esl_msa_Destroy(msa);
 
 #ifdef eslAUGMENT_ALPHABET
-  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) abort();
-  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK) abort();
+  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
+  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, NULL) != eslOK) abort();
-  if (msa->alen        != 40)  abort(); /* orig =47, with one all - column and one all ~ column */
-  if (esl_msa_Textize(msa) != eslOK) abort();
-  if (msa->aseq[0][9]  != 'L') abort(); /* L shifted from column 13->10  */
-  if (msa->aseq[0][16] != 'T') abort(); /* T shifted from column 21->17 */
-  if (msa->aseq[0][39] != 'Y') abort(); /* Y shifted from column 47->40 */
+  if (esl_msa_NoGaps(msa, NULL) != eslOK) esl_fatal(msg);
+  if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
+  if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
+  if (msa->aseq[0][16] != 'T') esl_fatal(msg); /* T shifted from column 21->17 */
+  if (msa->aseq[0][39] != 'Y') esl_fatal(msg); /* Y shifted from column 47->40 */
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
 #endif
-  return eslOK;
+  return;
 }  
 
-static int
+static void
 utest_SymConvert(char *tmpfile)
 {
+  char        *msg = "SymConvert() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET *abc = NULL;
 #endif
 
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK)                                    abort();
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
 
   /* many->one version */
-  if (esl_msa_SymConvert(msa, "VWY", "-")   != eslOK) abort(); /* 6 columns convert to all-gap: now 8/47 */
-  if (esl_msa_MinimGaps(msa, "-~")          != eslOK) abort(); /* now we're 39 columns long */
-  if (msa->alen                             != 39)    abort();
+  if (esl_msa_SymConvert(msa, "VWY", "-")   != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
+  if (esl_msa_MinimGaps(msa, "-~")          != eslOK) esl_fatal(msg); /* now we're 39 columns long */
+  if (msa->alen                             != 39)    esl_fatal(msg);
 
   /* many->many version */
-  if (esl_msa_SymConvert(msa, "DEF", "VWY") != eslOK) abort();
-  if (msa->aseq[0][4]                       != 'V')   abort();
-  if (msa->aseq[0][5]                       != 'W')   abort();
-  if (msa->aseq[0][23]                      != 'Y')   abort(); /* F in orig col 29; -5; converted to Y */
+  if (esl_msa_SymConvert(msa, "DEF", "VWY") != eslOK) esl_fatal(msg);
+  if (msa->aseq[0][4]                       != 'V')   esl_fatal(msg);
+  if (msa->aseq[0][5]                       != 'W')   esl_fatal(msg);
+  if (msa->aseq[0][23]                      != 'Y')   esl_fatal(msg); /* F in orig col 29; -5; converted to Y */
 
   /* bad calls */
 #ifdef eslTEST_THROWING
-  if (esl_msa_SymConvert(msa, "XXX", "XX")  != eslEINVAL) abort(); /* check for clean fail on mismatched args */
+  if (esl_msa_SymConvert(msa, "XXX", "XX")  != eslEINVAL) esl_fatal(msg); /* check for clean fail on mismatched args */
 #endif
   esl_msa_Destroy(msa);
   
 #ifdef eslAUGMENT_ALPHABET
-  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) abort();
-  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK) abort();
+  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
+  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
 #ifdef eslTEST_THROWING
-  if (esl_msa_SymConvert(msa, "Tt", "Uu") != eslEINVAL) abort(); /* must cleanly fail on digital mode msa */
+  if (esl_msa_SymConvert(msa, "Tt", "Uu") != eslEINVAL) esl_fatal(msg); /* must cleanly fail on digital mode msa */
 #endif
   esl_msa_Destroy(msa);
   esl_alphabet_Destroy(abc);
 #endif
-  return eslOK;
+  return;
 }
 
 int
@@ -3326,7 +3370,7 @@ main(int argc, char **argv)
   ESL_MSAFILE    *mfp  = NULL;
   ESL_MSA        *msa  = NULL;
   FILE           *fp   = NULL;
-  char            tmpfile[] = "/tmp/eslXXXXXX"; /* tmpfile template */
+  char            tmpfile[10] = "eslXXXXXX"; /* tmpfile template */
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET   *abc  = NULL;
 #endif
@@ -3337,45 +3381,48 @@ main(int argc, char **argv)
 
   /* Create a known Stockholm test alignment in a tempfile.
    */
-  if (esl_tmpfile(tmpfile, &fp) != eslOK) abort();
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to create tmpfile");
   write_known_msa(fp);
   fclose(fp);
 
   /* Read it back in for use in tests.
    * text and once as digital.
    */
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK) abort();
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("Failed to open MSA tmp file");
+  if (esl_msa_Read(mfp, &msa)                                     != eslOK) esl_fatal("Failed to read MSA tmp file");
   esl_msafile_Close(mfp);
 
   /* Unit tests
    */
-  if (utest_Create()                   != eslOK) abort();
-  if (utest_Destroy()                  != eslOK) abort();
-  if (utest_Expand()                   != eslOK) abort();
-  if (utest_Open(tmpfile)              != eslOK) abort();
-  if (utest_Close(tmpfile)             != eslOK) abort();
-  if (utest_Read(tmpfile)              != eslOK) abort();
-  if (utest_Write(msa)                 != eslOK) abort();
-  if (utest_GuessFileFormat()          != eslOK) abort();
-  if (utest_SequenceSubset(msa)        != eslOK) abort();
-  if (utest_MinimGaps(tmpfile)         != eslOK) abort();
-  if (utest_NoGaps(tmpfile)            != eslOK) abort();
-  if (utest_SymConvert(tmpfile)        != eslOK) abort();
+  utest_Create();
+  utest_Destroy();
+  utest_Expand();
+  utest_Open(tmpfile);
+  utest_Close(tmpfile);
+  utest_Read(tmpfile);
+  utest_Write(msa);
+  utest_GuessFileFormat();
+  utest_SequenceSubset(msa);
+  utest_MinimGaps(tmpfile);
+  utest_NoGaps(tmpfile);
+  utest_SymConvert(tmpfile);
 
   esl_msa_Destroy(msa);
 
 #ifdef eslAUGMENT_ALPHABET
-  if ((abc = esl_alphabet_Create(eslAMINO))     == NULL)  abort();
-  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) abort();
-  if (esl_msa_Read(mfp, &msa) != eslOK) abort();
+  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) 
+    esl_fatal("alphabet creation failed");
+  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) 
+    esl_fatal("MSA digital open failed");
+  if (esl_msa_Read(mfp, &msa) != eslOK) 
+    esl_fatal("MSA digital read failed");
   esl_msafile_Close(mfp);
 
-  if (utest_CreateDigital(abc)         != eslOK) abort();
-  if (utest_Digitize(abc, tmpfile)     != eslOK) abort();
-  if (utest_Textize(abc, tmpfile)      != eslOK) abort();
-  if (utest_OpenDigital(abc, tmpfile)  != eslOK) abort();
-  if (utest_Write(msa)                 != eslOK) abort();
+  utest_CreateDigital(abc);
+  utest_Digitize(abc, tmpfile);
+  utest_Textize(abc, tmpfile);
+  utest_OpenDigital(abc, tmpfile);
+  utest_Write(msa);
 
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);

@@ -1,4 +1,17 @@
-/* easel.c
+/* Easel's foundation.
+ * 
+ * Contents:
+ *    1. Error handling conventions.
+ *    2. Memory allocation/deallocation conventions.
+ *    3. Standard banner for Easel miniapplications.
+ *    4. Replacements for some C library functions.
+ *    5. File path/name manipulation, including tmpfiles.
+ *    6. Some scalar math convenience functions.
+ *    7. Unit tests [need to be written]
+ *    8. Test driver [needs to be written]
+ *    9. Examples. [need to be written]
+ *   10. Copyright and license. 
+ * 
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  * SVN $Id$
  */
@@ -7,14 +20,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <easel.h>
 
-static esl_exception_handler_f esl_exception_handler = NULL;
 
+/*****************************************************************
+ * 1. Error handling.
+ *****************************************************************/
+static esl_exception_handler_f esl_exception_handler = NULL;
 
 void
 esl_exception_SetHandler(void (*handler)(int code, char *file, int line, 
@@ -76,8 +95,14 @@ esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp)
 {
   return;
 }
+/*---------------- end, error handling conventions --------------*/
 
 
+
+
+/*****************************************************************
+ * 2. Memory allocation/deallocation conventions.
+ *****************************************************************/
 
 /* Function:  esl_Free2D()
  * Incept:    squid's Free2DArray(), 1999.
@@ -126,7 +151,12 @@ esl_Free3D(void ***p, int dim1, int dim2)
     free(p);
   }
 }
+/*------------- end, memory allocation conventions --------------*/
 
+
+/*****************************************************************
+ * 3. Standard banner for Easel miniapplications.
+ *****************************************************************/
 
 /* Function:  esl_banner()
  * Incept:    SRE, Mon Feb 14 11:26:56 2005 [St. Louis]
@@ -159,36 +189,13 @@ esl_banner(FILE *fp, char *banner)
   fprintf(fp, "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
 }
 
+/*-------------------- end, standard miniapp banner --------------------------*/
 
-/* Function:  esl_DCompare()
- * Incept:    SRE, Mon Nov  6 10:11:47 2006 [Janelia]
- *
- * Purpose:   Compare two floating point scalars <a> and <b> for equality.
- *            Equality is defined by being within a fractional tolerance <tol>,
- *            as <fabs(a-b)/(a+b)> $\leq$ <tol>. Return <eslOK> if equal,
- *            <eslFAIL> if not.
- *            
- *            <esl_DCompare()> and <esl_FCompare()> work on <double> and <float>
- *            scalars, respectively.
- */
-int
-esl_DCompare(double a, double b, double tol)
-{
-  if (a == b)                   return eslOK;	/* includes a+b=0 case */
-  if (fabs(a-b) / (a+b) <= tol) return eslOK;
-  return eslFAIL;
-}
-int
-esl_FCompare(float a, float b, float tol)
-{
-  if (a == b)                   return eslOK;	/* includes a+b=0 case */
-  if (fabs(a-b) / (a+b) <= tol) return eslOK;
-  return eslFAIL;
-}
+
 
 
 /******************************************************************************
- * Easel's replacements for C library functions:
+ * 4. Replacements for C library functions
  *  fgets()  ->  esl_fgets()     fgets() with dynamic allocation
  *  strdup() ->  esl_strdup()    strdup() is not ANSI
  *  strcat() ->  esl_strcat()    strcat() with dynamic allocation
@@ -553,14 +560,16 @@ esl_strchop(char *s, int n)
   s[i+1] = '\0';
   return eslOK;
 }
+/*----------------- end, C library replacements  -------------------------*/
+
 
 
 
 /******************************************************************************
- * File path/name manipulation functions                                      *
- *                                                                            *
- * Sufficiently widespread in the modules that we make them core.             *
- * (Should be moved to their own module eventually)                           *
+ * 5. File path/name manipulation functions, including tmpfiles                             
+ *                                                                      
+ * Sufficiently widespread in the modules that we make them core.       
+ * (Should be moved to their own module eventually)                     
  *****************************************************************************/
 
 /* Function:  esl_FileExists()
@@ -664,6 +673,7 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
  *
  * Throws:    <eslEMEM>   on allocation failure.
  *            <eslEINVAL> on bad argument.
+ *            In either case, <ret_path> is returned NULL.
  *
  * Xref:      squid's FileConcat().
  */
@@ -690,7 +700,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
   else				     /* 4. <dir>/<file> (usual case)   */
     sprintf(path, "%s%c%s", dir, eslDIRSLASH, file);	
 
-  if (ret_path != NULL) *ret_path = path; else free(path);
+  *ret_path = path;
   return eslOK;
 
  ERROR:
@@ -840,39 +850,250 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
 /* Function:  esl_tmpfile()
  * Incept:    SRE, Wed Sep  6 08:15:15 2006 [Janelia]
  *
- * Purpose:   Assign a unique temporary file name and open it as a
- *            <FILE> for writing. The <template> argument is a
- *            pathname template, a modifiable string ending in
- *            "XXXXXX" (for example, "/tmp/eslXXXXXX").
+ * Purpose:   Open a secure temporary <FILE *> handle and return it in
+ *            <ret_fp>. The file is opened in read-write mode (<w+b>)
+ *            with permissions 0600, as an atomic operation using the
+ *            POSIX <mkstemp()> function.
+ * 
+ *            The <template> argument is a modifiable string that must
+ *            end in "XXXXXX" (for example, "eslXXXXXX"). The
+ *            <template> is used to construct a unique tmpfile name.
  *            
- * Note:      Uses POSIX <mkstemp()>, which may not be sufficiently portable.
+ *            The file is opened in a standard temporary file
+ *            directory. The path is obtained from the environment
+ *            variable <TMPDIR>; failing that, from the environment
+ *            variable <TMP>; and failing that, </tmp> is used. If the
+ *            process is running <setuid> or <setgid>, then the
+ *            environment variables are ignored, and the temp file is
+ *            always created in </tmp>.
+ *            
+ *            The created tmpfile is not persistent and is not visible
+ *            to a directory listing. The caller may <rewind()> the
+ *            <ret_fp> and do cycles of reading and/or writing, but
+ *            once the <ret_fp> is closed, the file disappears.  The
+ *            caller does not need to <remove()> or <unlink()> it (and
+ *            in fact, cannot do so, because it does not know the
+ *            tmpfile's name).
+ *            
+ *            This function is a secure replacement for ANSI C
+ *            <tmpfile()>, which is said to be insecurely implemented on
+ *            some platforms.
  *
- * Returns:   <eslOK> on success; <template> is modified to contain the
- *            name of the tempfile; and <ret_fp> points to a new <FILE>
- *            stream for the opened tempfile.
+ * Returns:   <eslOK> on success, and now <ret_fp> points to a new <FILE *>
+ *            stream for the opened tempfile. 
  *
- * Throws:    <eslESYS> if <mkstemp()> call fails. Now contents of <template>
- *            are undefined, and <ret_fp> is returned NULL.
+ * Throws:    <eslESYS> if a system call (including the <mkstemp()> call)
+ *            fails, and and <ret_fp> is returned NULL. One possible
+ *            problem is if the temporary directory doesn't exist or
+ *            is not writable. This is considered to be a system
+ *            error, not a user error, so Easel handles it as an exception.
+ *            
+ * Xref:      STL11/85. Substantially copied from David Wheeler, 
+ *            "Secure Programming for Linux and Unix HOWTO", 
+ *            http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/introduction.html.
+ *            Copyright (C) 1999-2001 David A. Wheeler.
+ *            Licensed under the MIT license; see Appendix C of the HOWTO.
+ *            Thanks, David, for the clearest explanation of the issues 
+ *            that I've seen.
+ *            
+ *            I also referred to H. Chen, D. Dean, and D. Wagner,
+ *            "Model checking one million lines of C code", 
+ *            In: Network and Distributed System Security Symposium, pp 171-185,
+ *            San Diego, CA, February 2004;
+ *            http://www.cs.ucdavis.edu/~hchen/paper/ndss04.pdf.
+ *            Wheeler's implementation obeys Chen et al's "Property 5", 
+ *            governing secure use of tempfiles.
  */
 int
 esl_tmpfile(char *template, FILE **ret_fp)
 {
-  FILE *fp;
+  char *tmpdir = NULL;
+  char *path   = NULL;
+  FILE *fp     = NULL;
   int   fd;
+  int   status;
+  mode_t old_mode;
 
-#ifdef HAVE_MKSTEMP
-  if ((fd = mkstemp(template)) < 0 ||
-      (fp = fdopen(fd, "w"))  == NULL)
-    ESL_EXCEPTION(eslESYS, "Either mkstemp() or fdopen() failed.");
-#else
-  esl_fatal("Portability problem: I don't have a mkstemp() replacement");
-#endif
-  
+  /* Determine what tmp directory to use, and construct the
+   * file name.
+   */
+  if (getuid() == geteuid() && getgid() == getegid()) 
+    {
+      tmpdir = getenv("TMPDIR");
+      if (tmpdir == NULL) tmpdir == getenv("TMP");
+    }
+  if (tmpdir == NULL) tmpdir = "/tmp";
+  if ((status = esl_FileConcat(tmpdir, template, &path)) != eslOK) goto ERROR; 
+
+  old_mode = umask(077);
+  if ((fd = mkstemp(path)) <  0)        ESL_XEXCEPTION(eslESYS, "mkstemp() failed.");
+  umask(old_mode);
+  if ((fp = fdopen(fd, "w+b")) == NULL) ESL_XEXCEPTION(eslESYS, "fdopen() failed.");
+  if (unlink(path) < 0)                 ESL_XEXCEPTION(eslESYS, "unlink() failed.");
+
+  *ret_fp = fp;
+  return eslOK;
+
+ ERROR:
+  if (path != NULL) free(path);
+  if (fp   != NULL) fclose(fp);
+  *ret_fp = NULL;
+  return status;
+}
+
+/* Function:  esl_tmpfile_named()
+ * Incept:    SRE, Sat Nov 11 09:13:25 2006 [Janelia]
+ *
+ * Purpose:   Open a persistant temporary file relative to the current
+ *            working directory. The file name is constructed from the
+ *            <template> argument, which must be a modifiable string
+ *            ending in the six characters "XXXXXX".  These are
+ *            replaced by a unique character string by a call to POSIX
+ *            <mkstemp()>. For example, <template> might be
+ *            <eslXXXXXX> on input, and <esl12ab34> on return; or, to
+ *            put the tmp file in a subdirectory under the current
+ *            working directory, something like <my_subdir/eslXXXXXX>
+ *            on input resulting in something like
+ *            <my_subdir/esl12ab34> on return.  The tmpfile is opened
+ *            for reading and writing (in mode <w+b> with permissions
+ *            0600) and the opened <FILE *> handle is returned through
+ *            <ret_fp>.
+ *            
+ *            The created tmpfile is persistent: it will be visible in
+ *            a directory listing, and will remain after program
+ *            termination unless the caller explicitly removes it by a
+ *            <remove()> or <unlink()> call.
+ *
+ *            To use this function securely, if you reopen the
+ *            tmpfile, you must only reopen it for reading, not
+ *            writing, and you must not trust the contents.
+ *            
+ *            Because the <template> will be modified, it cannot be
+ *            a string constant (especially on a picky compiler like
+ *            gcc). 
+ *
+ * Returns:   <eslOK> on success, <template> contains the name of the
+ *            tmpfile, and <ret_fp> contains a new <FILE *> stream for the
+ *            opened file. 
+ *             
+ *            <eslFAIL> on failure, and <ret_fp> is returned NULL and
+ *            the contents of <template> are undefined. The most
+ *            common reason for a failure will be that the caller does
+ *            not have write permission for the directory that
+ *            <template> is in. Easel handles this as a normal (user)
+ *            failure, not an exception, because these permissions are
+ *            most likely in the user's control (in contrast to
+ *            <esl_tmpfile()>, which always uses a system <TMPDIR>
+ *            that should always be user-writable on a properly
+ *            configured POSIX system).
+ *
+ * Xref:      STL11/85.
+ */
+int
+esl_tmpfile_named(char *template, FILE **ret_fp)
+{
+  FILE  *fp;
+  mode_t old_mode;
+  int    fd;
+
+  *ret_fp = NULL;
+  old_mode = umask(077);
+  if ((fd = mkstemp(template)) <  0)    return eslFAIL;
+  umask(old_mode);
+  if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
+
   *ret_fp = fp;
   return eslOK;
 }
+
+
 /*----------------- end of file path/name functions ------------------------*/
 
+
+
+
+/*****************************************************************
+ * 6. Some scalar math convenience functions.
+ *****************************************************************/
+
+/* Function:  esl_DCompare()
+ * Incept:    SRE, Mon Nov  6 10:11:47 2006 [Janelia]
+ *
+ * Purpose:   Compare two floating point scalars <a> and <b> for equality.
+ *            Equality is defined by being within a fractional tolerance <tol>,
+ *            as <fabs(a-b)/(a+b)> $\leq$ <tol>. Return <eslOK> if equal,
+ *            <eslFAIL> if not.
+ *            
+ *            <esl_DCompare()> and <esl_FCompare()> work on <double> and <float>
+ *            scalars, respectively.
+ */
+int
+esl_DCompare(double a, double b, double tol)
+{
+  if (a == b)                   return eslOK;	/* includes a+b=0 case */
+  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+  return eslFAIL;
+}
+int
+esl_FCompare(float a, float b, float tol)
+{
+  if (a == b)                   return eslOK;	/* includes a+b=0 case */
+  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+  return eslFAIL;
+}
+/*-------------- end, scalar math convenience --------------------*/
+
+
+
+
+/*****************************************************************
+ * 7. Unit tests.
+ *****************************************************************/
+#ifdef eslEASEL_TESTDRIVE
+
+static void
+utest_tmpfile_named(void)
+{
+  char *msg          = "tmpfile_named unit test failed";
+  char  tmpfile[32]  = "eslXXXXXX";
+  FILE *fp           = NULL;
+  char  buf[256];
+
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fprintf(fp, "Unit test.\n");
+  fclose(fp);
+  if ((fp = fopen(tmpfile, "r"))   == NULL)  esl_fatal(msg);
+  if (fgets(buf, 256, fp)          == NULL)  esl_fatal(msg);
+  if (strcmp(buf, "Unit test.\n")  != 0)     esl_fatal(msg);
+  fclose(fp);
+  remove(tmpfile);
+  return;
+}
+
+#endif /*eslEASEL_TESTDRIVE*/
+
+
+/*****************************************************************
+ * 8. Test driver.
+ *****************************************************************/
+
+#ifdef eslEASEL_TESTDRIVE
+/* gcc -g -Wall -o test -I. -L. -DeslEASEL_TESTDRIVE easel.c -leasel -lm
+ * ./test
+ */
+#include <easel.h>
+
+int main(void)
+{
+
+#ifdef eslTEST_THROWING
+  esl_exception_SetHandler(&esl_nonfatal_handler);
+#endif
+
+  utest_tmpfile_named();
+  return eslOK;
+}
+#endif /*eslEASEL_TESTDRIVE*/
 
 /*****************************************************************
  * @LICENSE@

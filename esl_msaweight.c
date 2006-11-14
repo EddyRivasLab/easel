@@ -136,6 +136,7 @@ esl_msaweight_GSC(ESL_MSA *msa)
 #else
   if ((status = esl_tree_UPGMA(D, &T)) != eslOK) goto ERROR; 
 #endif
+  esl_tree_SetCladesizes(T);	
 
   ESL_ALLOC(x, sizeof(double) * (T->N-1));
   
@@ -167,12 +168,23 @@ esl_msaweight_GSC(ESL_MSA *msa)
       lw = T->ld[i];   if (T->left[i]  > 0) lw += x[T->left[i]];
       rw = T->rd[i];   if (T->right[i] > 0) rw += x[T->right[i]];
 
-      if (lw+rw == 0.) {
-	lx = rx = x[i]/2.;
-      } else {
-	lx = x[i] * lw/(lw+rw);
-	rx = x[i] * rw/(lw+rw);
-      }
+      if (lw+rw == 0.) 
+	{
+	  /* A special case arises in GSC weights when all branch lengths in a subtree are 0.
+	   * In this case, all seqs in this clade should get equal weights, sharing x[i] equally.
+           * So, split x[i] in proportion to cladesize, not to branch weight.
+	   */
+	  if (T->left[i] > 0)  lx =  x[i] * ((double) T->cladesize[T->left[i]]  / (double) T->cladesize[i]);
+	  else                 lx =  x[i] / (double) T->cladesize[i];
+
+	  if (T->right[i] > 0) rx =  x[i] * ((double) T->cladesize[T->right[i]] / (double) T->cladesize[i]);
+	  else                 rx =  x[i] / (double) T->cladesize[i];
+	} 
+      else /* normal case: x[i] split in proportion to branch weight. */
+	{
+	  lx = x[i] * lw/(lw+rw);
+	  rx = x[i] * rw/(lw+rw);
+	}
       
       if (T->left[i]  <= 0) msa->wgt[-(T->left[i])] = lx + T->ld[i];
       else                  x[T->left[i]] = lx + T->ld[i];
@@ -491,15 +503,13 @@ utest_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect)
 int
 main(int argc, char **argv)
 {
-  ESL_ALPHABET *aa_abc, *nt_abc;
-  char tmpfile[] = "/tmp/eslXXXXXX"; 
-  FILE *fp = NULL;
-  ESL_MSAFILE *mfp = NULL;
-  ESL_MSA *msa1 = NULL,
-          *msa2 = NULL, 
-          *msa3 = NULL,
-          *msa4 = NULL,
-          *msa5 = NULL;
+  ESL_ALPHABET *aa_abc = NULL,
+               *nt_abc = NULL;
+  ESL_MSA      *msa1   = NULL,
+               *msa2   = NULL, 
+               *msa3   = NULL,
+               *msa4   = NULL,
+               *msa5   = NULL;
   double uniform[5] = { 1.0, 1.0, 1.0, 1.0, 1.0 };
   double wgt2[5]    = { 0.833333, 0.833333, 0.833333, 0.833333, 1.66667 }; /* GSC, PB give same answer */
   double gsc3[4]    = { 1.125000, 0.875000, 0.875000, 1.125000 };
@@ -509,90 +519,25 @@ main(int argc, char **argv)
   double pb4[4]     = { 0.800000, 0.800000, 1.000000, 1.400000 };
   double blosum4[4] = { 0.666667, 0.666667, 1.333333, 1.333333 };
   
-  if ((aa_abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal("failed to create amino alphabet");
-  if ((nt_abc = esl_alphabet_Create(eslDNA))   == NULL) esl_fatal("failed to create DNA alphabet");
-  if (esl_tmpfile(tmpfile, &fp) != eslOK)               esl_fatal("Failed to create tmp file");
+  if ((aa_abc = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal("failed to create amino alphabet");
+  if ((nt_abc = esl_alphabet_Create(eslDNA))   == NULL)  esl_fatal("failed to create DNA alphabet");
 
-  /* Create test alignment 1: all sequences identical.
-   * Any weighting method should assign uniform weights to this.
+  /* msa1: all sequences identical. Any weighting method should assign uniform weights.
+   * msa2: the "contrived" example of [Henikoff94b]. Obvious "correct" solution is 1==2, 3==4, and 5==2x other weights.
+   * msa3: the "nitrogenase segments" example of [Henikoff94b].
+   * msa4: alignment that makes the same distances as Figure 4 from [Gerstein94]
+   * msa5: gap pathology. no information here, so weighting methods should resort to uniform weights.
    */
-  fprintf(fp, "\
-# STOCKHOLM 1.0\n\n\
-seq1 AAAAA\n\
-seq2 AAAAA\n\
-seq3 AAAAA\n\
-seq4 AAAAA\n\
-seq5 AAAAA\n\
-//\n");
-  fclose(fp);
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("failed to open msa file 1");
-  if (esl_msa_Read(mfp, &msa1) != eslOK) esl_fatal("failed to read msa file 1");
-  esl_msafile_Close(mfp);
-
-  /* Create test alignment 2: the "contrived" example of [Henikoff94b]
-   * The obvious "correct" weights are 1==2, 3==4, and 5==2x other weights.
-   */
-  if ((fp = fopen(tmpfile, "w")) == NULL) esl_fatal("Failed to open tmpfile");
-  fprintf(fp, "\
-# STOCKHOLM 1.0\n\n\
-seq1 AAAAA\n\
-seq2 AAAAA\n\
-seq3 CCCCC\n\
-seq4 CCCCC\n\
-seq5 TTTTT\n\
-//\n");
-  fclose(fp);
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("failed to open msa file 2");
-  if (esl_msa_Read(mfp, &msa2) != eslOK) esl_fatal("failed to read msa file 2");
-  esl_msafile_Close(mfp);
-
-  /* Create test alignment 3: the "nitrogenase segments" example of [Henikoff94b]
-   */
-  if ((fp = fopen(tmpfile, "w")) == NULL) esl_fatal("Failed to open tmpfile");
-  fprintf(fp, "\
-# STOCKHOLM 1.0\n\n\
-NIFE_CLOPA GYVGS\n\
-NIFD_AZOVI GFDGF\n\
-NIFD_BRAJA GYDGF\n\
-NIFK_ANASP GYQGG\n\
-//\n");
-  fclose(fp);
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("failed to open msa file 3");
-  if (esl_msa_Read(mfp, &msa3) != eslOK) esl_fatal("failed to read msa file 3");
-  esl_msafile_Close(mfp);
-
-  /* Create test alignment 4: an alignment that makes the same 
-   *                          distances as in Figure 4 from [Gerstein94]
-   */
-  if ((fp = fopen(tmpfile, "w")) == NULL) esl_fatal("Failed to open tmpfile");
-  fprintf(fp, "\
-# STOCKHOLM 1.0\n\n\
-A  AAAAAAAAAA\n\
-B  TTAAAAAAAA\n\
-C  ATAAAACCCC\n\
-D  GGGAAGGGGG\n\
-//\n");
-  fclose(fp);
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("failed to open msa file 4");
-  if (esl_msa_Read(mfp, &msa4) != eslOK) esl_fatal("failed to read msa file 4");
-  esl_msafile_Close(mfp);
-
-  /* Create test alignment 5: pathology. Weighting methods should have
-   * nothing to go on here, so they should resort to uniform weights.
-   */
-  if ((fp = fopen(tmpfile, "w")) == NULL) esl_fatal("Failed to open tmpfile");
-  fprintf(fp, "\
-# STOCKHOLM 1.0\n\n\
-A  A----\n\
-B  -C---\n\
-C  --G--\n\
-D  ---T-\n\
-E  ----T\n\
-//\n");
-  fclose(fp);
-  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("failed to open msa file 4");
-  if (esl_msa_Read(mfp, &msa5) != eslOK) esl_fatal("failed to read msa file 5");
-  esl_msafile_Close(mfp);
+  if ((msa1 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 AAAAA\nseq4 AAAAA\nseq5 AAAAA\n//\n", 
+				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 1 creation failed");
+  if ((msa2 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\nseq3 CCCCC\nseq4 CCCCC\nseq5 TTTTT\n//\n",
+				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 2 creation failed");
+  if ((msa3 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nNIFE_CLOPA GYVGS\nNIFD_AZOVI GFDGF\nNIFD_BRAJA GYDGF\nNIFK_ANASP GYQGG\n//\n",
+				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 3 creation failed");
+  if ((msa4 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  AAAAAAAAAA\nB  TTAAAAAAAA\nC  ATAAAACCCC\nD  GGGAAGGGGG\n//\n",
+				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 4 creation failed");
+  if ((msa5 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  A----\nB  -C---\nC  --G--\nD  ---T-\nE  ----T\n//\n",
+				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 5 creation failed");
 
   if (utest_GSC(aa_abc, msa1, uniform) != eslOK) esl_fatal("GSC unit test failed");
   if (utest_GSC(nt_abc, msa1, uniform) != eslOK) esl_fatal("GSC unit test failed");
@@ -638,7 +583,6 @@ E  ----T\n\
   esl_msa_Destroy(msa3);
   esl_msa_Destroy(msa4);
   esl_msa_Destroy(msa5);
-  remove(tmpfile);
   esl_alphabet_Destroy(aa_abc);
   esl_alphabet_Destroy(nt_abc);
   exit(0);
@@ -777,6 +721,9 @@ main(int argc, char **argv)
 	  nbad++;
       if (nbad > 0) nbadali++;
       nbadwgt += nbad;
+
+      if (nbad > 0) printf("%-20s  :: alignment shows %d weights that differ (out of %d) \n", 
+			   msa->name, nbad, msa->nseq);
 
       esl_msa_Destroy(msa);
       free(sqd);

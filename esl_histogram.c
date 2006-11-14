@@ -32,14 +32,15 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
  *            are initially created. 
  *            
  *            The lower bound <xmin> and the width <w> permanently
- *            determine the offset and width of the binning.
- *            For example, <esl_histogram_Create(-100, 100, 0.5)> 
- *            would init the object to collect scores into 400 bins 
- *            $[-100< x \leq -99.5],[-99.5 < x \leq -99.0]...[99.5 <x \leq 100.0]$.
- *            Otherwise, the bounds <xmin> and <xmax> only need to be initial
- *            guesses.  The histogram object will reallocate itself
- *            dynamically as needed to accommodate scores that exceed
- *            current bounds.
+ *            determine the offset and width of the binning, but not
+ *            the range.  For example, <esl_histogram_Create(-100,
+ *            100, 0.5)> would init the object to collect scores into
+ *            400 bins $[-100< x \leq -99.5],[-99.5 < x \leq
+ *            -99.0]...[99.5 <x \leq 100.0]$.  Aside from this, the
+ *            range specified by the bounds <xmin> and <xmax> only
+ *            needs to be an initial guess. The histogram object will
+ *            reallocate itself dynamically as needed to accommodate
+ *            scores that exceed current bounds.
  *
  *            You can be sloppy about <xmax>; it does not have to
  *            exactly match a bin upper bound. The initial allocation

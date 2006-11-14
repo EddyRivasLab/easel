@@ -112,41 +112,33 @@ nonzero code on failure, as is standard for UNIX
 applications. Automated test harnesses (including \ccode{sqc}) rely on
 this.
 
-Upon detecting a failure, a test driver shall terminate execution as
-soon as possible to facilitate tracing/debugging, either by calling
-\ccode{esl\_fatal()} with an informative error message, or by simply
-calling \ccode{abort()}. Garbage collection (including memory, opened
-files, or created temporary files) is not required, and may even be
+A test driver generates no output upon success. Upon detecting a
+failure, a test driver shall terminate execution as soon as possible
+to facilitate tracing/debugging by calling \ccode{esl\_fatal()}, with
+an informative error message. (The automated test harness,
+\ccode{sqc}, will discard this message.) \footnote{Calling
+\ccode{abort()} doesn't work because it generates an abnormal signal
+that messes up \ccode{sqc}'s output. Calling \ccode{exit(1)} doesn't
+leave an informative message, so a command line user can't readily
+tell an error occurred.  Throwing an exception doesn't work because we
+will also be testing the code under a nonfatal exception handler.}
+Garbage collection upon a failure (including memory, opened files, or
+created temporary files) is not required, and may even be
 counterproductive.  For example, for debugging purposes, it may be
 advantageous not to delete a temporary file from a failed test.
 
-A test driver shall generate no output upon success, but it shall
-generate output on failure, even if that output is just the output of
-an \ccode{abort()} call.  The automated \ccode{sqc} test harness
-relies only on the exit code, and discards any output.  However, the
-test driver may be run interactively at the command line, and failures
-should be obvious to a command-line user.
-
-Thus a successful test run would look like:
+Thus, from the command line, a successful test run looks like:
 
 \begin{cchunk}
       % ./test
       %
 \end{cchunk}
 
-and a failure that calls \ccode{abort()} like:
+and a failure looks like:
 
 \begin{cchunk}
       % ./test
-      Abort (core dumped)
-      %
-\end{cchunk}
-
-and a failure that calls \ccode{esl\_fatal()} like:
-
-\begin{cchunk}
-      % ./test
-      yoyodyne exercise imploded.
+      yoyodyne exercise on fire, send help.
       %
 \end{cchunk}
 
@@ -157,11 +149,11 @@ i/o), the tmpfile is created with \ccode{esl\_tmpfile()}:
    char  tmpfile[] = "/tmp/eslXXXXXX";
    FILE *fp;
 
-   if (esl_tmpfile(tmpfile, &fp) != eslOK) abort();
+   if (esl_tmpfile(tmpfile, &fp) != eslOK) esl_fatal("failed to create tmpfile");
    write_stuff_to(fp);
    fclose(fp);
 
-   if ((fp = fopen(tmpfile)) == NULL)      abort();
+   if ((fp = fopen(tmpfile)) == NULL) esl_fatal("failed to open tmpfile");
    read_stuff_from(fp);
    fclose(fp);
 

@@ -198,6 +198,7 @@ extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,
 			    FILE **ret_fp, char **ret_path);
 extern int  esl_tmpfile(char *template, FILE **ret_fp);
+extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
 
 /* Making sure TRUE/FALSE are defined, for convenience
  */

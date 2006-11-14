@@ -1,5 +1,4 @@
-/* esl_tree.c
- * Phylogenetic trees.
+/* Phylogenetic trees.
  * 
  * Contents:
  *   1. The ESL_TREE object.
@@ -38,8 +37,8 @@
 /* Function:  esl_tree_Create()
  * Incept:    SRE, Tue May  2 14:10:17 2006 [St. Louis]
  *
- * Purpose:   Allocates an empty tree structure for <ntaxa> taxa,
- *            and return a ptr to it. <ntaxa> must be $\geq 2$.
+ * Purpose:   Allocate an empty tree structure for <ntaxa> taxa
+ *            and return a pointer to it. <ntaxa> must be $\geq 2$.
  *
  * Args:      <ntaxa>   - number of taxa
  *
@@ -85,9 +84,10 @@ esl_tree_Create(int ntaxa)
 
   /* Optional info starts NULL
    */
-  T->parent_of_otu = NULL;
-  T->taxonlabel    = NULL;
-  T->nodelabel     = NULL;
+  T->taxaparent  = NULL;
+  T->cladesize   = NULL;
+  T->taxonlabel  = NULL;
+  T->nodelabel   = NULL;
 
   /* Tree output options default to PHYLIP style
    */
@@ -106,12 +106,71 @@ esl_tree_Create(int ntaxa)
   return NULL;
 }
 
+/* Function:  esl_tree_CreateGrowable()
+ * Incept:    SRE, Mon Nov 13 14:22:22 2006 [Janelia]
+ *
+ * Purpose:   Allocate a growable tree structure for an initial
+ *            allocation of <nalloc> taxa, and return a pointer to it.
+ *            <nalloc> must be $\geq 2$.
+ *
+ * Args:      <nalloc>  - initial allocation size for number of taxa
+ *
+ * Returns:   pointer to a new growable <ESL_TREE> object; caller frees 
+ *            this with <esl_tree_Destroy()>.
+ *
+ * Throws:    <NULL> if allocation fails.
+ */
+ESL_TREE *
+esl_tree_CreateGrowable(int nalloc)
+{
+  ESL_TREE *T = esl_tree_Create(nalloc);
+  if (T == NULL) return NULL;
+
+  T->N = 0;
+  return T;
+}
+
+
+/* Function:  esl_tree_CreateFromString()
+ * Incept:    SRE, Tue Nov 14 10:01:08 2006 [Janelia]
+ *
+ * Purpose:   A convenience for making small test cases in the test
+ *            suites: given the contents of a Newick file as a 
+ *            single string <s>, convert it to an <ESL_TREE>.
+ *
+ * Returns:   a pointer to the new <ESL_TREE> on success.
+ *
+ * Throws:    <NULL> if it fails to obtain, open, or read the
+ *            temporary file that it puts the string <s> in.
+ */
+ESL_TREE *
+esl_tree_CreateFromString(char *s)
+{
+  char      tmpfile[10] = "eslXXXXXX";
+  FILE     *fp          = NULL;
+  ESL_TREE *T           = NULL;
+
+  if (esl_tmpfile(tmpfile, &fp)         != eslOK) goto ERROR;
+  fprintf(fp, s);
+  rewind(fp);
+  if (esl_tree_ReadNewick(fp, NULL, &T) != eslOK) goto ERROR;
+  fclose(fp);
+  return T;
+
+ ERROR:
+  if (fp  != NULL) fclose(fp);
+  if (T   != NULL) esl_tree_Destroy(T);
+  return NULL;
+}
+
+
+
 /* Function:  esl_tree_Grow()
- * Synopsis:  Doubles a tree's taxon allocation.
  * Incept:    SRE, Fri Oct 27 08:49:47 2006 [Janelia]
  *
- * Purpose:   Given a tree <T>, double the number of taxa it is
- *            currently allocated to hold.
+ * Purpose:   Given a tree <T>, make sure it can hold one more taxon;
+ *            reallocate internally if necessary by doubling the
+ *            number of taxa it is currently allocated to hold.
  *
  * Returns:   <eslOK> on success.
  *
@@ -125,6 +184,8 @@ esl_tree_Grow(ESL_TREE *T)
   int   nnew;
   int   status;
   int   i;
+
+  if (T->N < T->nalloc) return eslOK; /* do we have room for next taxon? */
 
   nnew = T->nalloc * 2;
 
@@ -150,18 +211,29 @@ esl_tree_Grow(ESL_TREE *T)
       T->rd[i]   = 0.;
     }
 
-  if (T->parent_of_otu != NULL)  {
-    ESL_RALLOC(T->parent_of_otu, tmp, sizeof(int)    * nnew);
-    for (i = T->nalloc; i < nnew; i++) T->parent_of_otu[i] = 0;
-  }
-  if (T->taxonlabel    != NULL)  {
-    ESL_RALLOC(T->taxonlabel,    tmp, sizeof(char *) * nnew);
-    for (i = T->nalloc; i < nnew; i++) T->taxonlabel[i] = NULL;
-  }
-  if (T->nodelabel     != NULL)  {
-    ESL_RALLOC(T->nodelabel,     tmp, sizeof(char *) * (nnew-1));
-    for (i = T->nalloc-1; i < nnew-1; i++) T->nodelabel[i] = NULL;
-  }
+  if (T->taxaparent != NULL)  
+    {
+      ESL_RALLOC(T->taxaparent, tmp, sizeof(int)    * nnew);
+      for (i = T->nalloc; i < nnew; i++) T->taxaparent[i] = 0;
+    }
+
+  if (T->cladesize != NULL)  
+    {
+      ESL_RALLOC(T->cladesize, tmp, sizeof(int)    * nnew);
+      for (i = T->nalloc; i < nnew; i++) T->cladesize[i] = 0;
+    }
+
+  if (T->taxonlabel    != NULL)  
+    {
+      ESL_RALLOC(T->taxonlabel,    tmp, sizeof(char *) * nnew);
+      for (i = T->nalloc; i < nnew; i++) T->taxonlabel[i] = NULL;
+    }
+
+  if (T->nodelabel     != NULL)  
+    {
+      ESL_RALLOC(T->nodelabel,     tmp, sizeof(char *) * (nnew-1));
+      for (i = T->nalloc-1; i < nnew-1; i++) T->nodelabel[i] = NULL;
+    }
 
   T->nalloc = nnew;
   return eslOK;
@@ -171,13 +243,12 @@ esl_tree_Grow(ESL_TREE *T)
 }
 
 
-/* Function:  esl_tree_MapTaxaParents()
- * Synopsis:  Construct the lookup map for each taxon's parent node.
+/* Function:  esl_tree_SetTaxaParents()
  * Incept:    SRE, Fri Sep 22 13:39:49 2006 [Janelia]
  *
- * Purpose:   Constructs the <T->parent_of_otu[]> map in the tree
+ * Purpose:   Constructs the <T->taxaparent[]> array in the tree
  *            structure <T>, by an O(N) traversal of the tree.
- *            Upon return, <T->parent_of_otu[i]> is the index
+ *            Upon return, <T->taxaparent[i]> is the index
  *            of the internal node that taxon <i> is a child of.
  *
  * Args:      T   - the tree structure to map
@@ -190,46 +261,63 @@ esl_tree_Grow(ESL_TREE *T)
  * Xref:      STL11/63
  */
 int
-esl_tree_MapTaxaParents(ESL_TREE *T)
+esl_tree_SetTaxaParents(ESL_TREE *T)
 {
-  ESL_STACK *ns = NULL;
-  int parent, child;
+  int i;
   int status;
 
-  if (T->parent_of_otu != NULL) return eslOK; /* map already exists. */
+  if (T->taxaparent != NULL) return eslOK; /* map already exists. */
+  ESL_ALLOC(T->taxaparent, sizeof(int) * T->N);
 
-  ESL_ALLOC(T->parent_of_otu, sizeof(int) * T->N);
-#if (eslDEBUGLEVEL >= 1)
-  esl_vec_ISet(T->parent_of_otu, T->N, -1);
-#endif
-  if ((ns = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
-
-  /* init: push root  */
-  if ((status = esl_stack_IPush(ns, 0)) != eslOK) goto ERROR;	
-
-  while ((status = esl_stack_IPop(ns, &parent)) == eslOK)
+  for (i = 0; i < T->N-1; i++)	/* traversal order doesn't matter */
     {
-      child = T->left[parent];
-      if (child <= 0) T->parent_of_otu[-child] = parent;
-      else	      esl_stack_IPush(ns, child);
-
-      child = T->right[parent];
-      if (child <= 0) T->parent_of_otu[-child] = parent;
-      else	      esl_stack_IPush(ns, child);
+      if (T->left[i]  <= 0) T->taxaparent[-(T->left[i])]  = i;
+      if (T->right[i] <= 0) T->taxaparent[-(T->right[i])] = i;
     }
-  esl_stack_Destroy(ns);
-
-#if (eslDEBUGLEVEL >= 1)
-  for (child = 0; child < T->N; child++) assert(T->parent_of_otu[child] >= 0);
-#endif
   return eslOK;
 
  ERROR:
-  if (ns               != NULL) esl_stack_Destroy(ns);
-  if (T->parent_of_otu != NULL) { free(T->parent_of_otu); T->parent_of_otu = NULL; }
+  if (T->taxaparent != NULL) { free(T->taxaparent); T->taxaparent = NULL; }
   return status;
 }
   
+
+/* Function:  esl_tree_SetCladesizes()
+ * Incept:    SRE, Thu Nov  9 10:03:17 2006 [Janelia]
+ *
+ * Purpose:   Constructs the <T->cladesize[]> array in tree structure
+ *            <T>. Upon successful return, <T->cladesize[i]> is the
+ *            number of taxa contained by the clade rooted at node <i>
+ *            in the tree. For example, <T->cladesize[0]> is $N$ by
+ *            definition, because 0 is the root of the tree.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error; in this case, the
+ *            original <T> is unmodified.
+ */
+int 
+esl_tree_SetCladesizes(ESL_TREE *T)
+{
+  int i;
+  int status;
+
+  if (T->cladesize != NULL) return eslOK; /* already set. */
+  ESL_ALLOC(T->cladesize, sizeof(int) * (T->N-1));
+  esl_vec_ISet(T->cladesize, T->N-1, 0);
+
+  for (i = T->N-2; i >= 0; i--)	
+    {                        /* taxon:   ...else...   internal node:  */          
+      if (T->left[i]  <= 0) T->cladesize[i]++; else T->cladesize[i] += T->cladesize[T->left[i]];
+      if (T->right[i] <= 0) T->cladesize[i]++; else T->cladesize[i] += T->cladesize[T->right[i]];
+    }
+  return eslOK;
+
+ ERROR:
+  if (T->cladesize != NULL) { free(T->cladesize); T->cladesize = NULL; }
+  return status;
+}
+
 
 /* Function:  esl_tree_RenumberNodes()
  * Synopsis:  Assure nodes are numbered in preorder.
@@ -278,8 +366,9 @@ esl_tree_RenumberNodes(ESL_TREE *T)
    *         (traversal order doesn't matter here)
    */
   if (( T2 = esl_tree_Create(T->nalloc)) == NULL) ESL_XFWD(eslEMEM);
-  if (T->nodelabel     != NULL) ESL_ALLOC(T2->nodelabel,     sizeof(char *) * (T->nalloc-1));
-  if (T->parent_of_otu != NULL) ESL_ALLOC(T2->parent_of_otu, sizeof(int)    * (T->nalloc));
+  T2->N = T->N;
+  if (T->nodelabel  != NULL) ESL_ALLOC(T2->nodelabel,  sizeof(char *) * (T->nalloc-1));
+  if (T->taxaparent != NULL) ESL_ALLOC(T2->taxaparent, sizeof(int)    * (T->nalloc));
   
   for (v = 0; v < T->N-1; v++)
     {
@@ -291,9 +380,9 @@ esl_tree_RenumberNodes(ESL_TREE *T)
       T2->ld[map[v]]     = T->ld[v];
       T2->rd[map[v]]     = T->rd[v];
   
-      if (T->parent_of_otu != NULL) {
-	if (T->left[v]  <= 0) T2->parent_of_otu[T->left[v]]  = map[v];
-	if (T->right[v] <= 0) T2->parent_of_otu[T->right[v]] = map[v];
+      if (T->taxaparent != NULL) {
+	if (T->left[v]  <= 0) T2->taxaparent[T->left[v]]  = map[v];
+	if (T->right[v] <= 0) T2->taxaparent[T->right[v]] = map[v];
       }
 
       if (T->nodelabel != NULL)
@@ -303,13 +392,13 @@ esl_tree_RenumberNodes(ESL_TREE *T)
   /* Finally, swap the new guts of T2 with the old guts of T;
    * destroy T2 and return. T is now renumbered.
    */
-  ESL_SWAP(T->parent,        T2->parent,         int *);
-  ESL_SWAP(T->left,          T2->left,           int *);
-  ESL_SWAP(T->right,         T2->right,          int *);
-  ESL_SWAP(T->ld,            T2->ld,             double *);
-  ESL_SWAP(T->rd,            T2->rd,             double *);
-  ESL_SWAP(T->parent_of_otu, T2->parent_of_otu,  int *);
-  ESL_SWAP(T->nodelabel,     T2->nodelabel,      char **);
+  ESL_SWAP(T->parent,     T2->parent,      int *);
+  ESL_SWAP(T->left,       T2->left,        int *);
+  ESL_SWAP(T->right,      T2->right,       int *);
+  ESL_SWAP(T->ld,         T2->ld,          double *);
+  ESL_SWAP(T->rd,         T2->rd,          double *);
+  ESL_SWAP(T->taxaparent, T2->taxaparent,  int *);
+  ESL_SWAP(T->nodelabel,  T2->nodelabel,   char **);
 
   free(map);
   esl_stack_Destroy(vs);
@@ -344,12 +433,12 @@ esl_tree_VerifyUltrametric(ESL_TREE *T)
    * (This chunk of code might be useful to put on its own someday.)
    */
   ESL_ALLOC(d, sizeof(double) * T->N);
-  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
+  if ((status = esl_tree_SetTaxaParents(T)) != eslOK) goto ERROR;
   for (i = 0; i < T->N; i++)
     {
       d[i]   = 0.0;
       child  = i;
-      parent = T->parent_of_otu[i];
+      parent = T->taxaparent[i];
       if       (T->left[parent]  == -i) d[i] += T->ld[parent];
       else if  (T->right[parent] == -i) d[i] += T->rd[parent];
       else     ESL_XEXCEPTION(eslEINCONCEIVABLE, "oops");
@@ -378,6 +467,73 @@ esl_tree_VerifyUltrametric(ESL_TREE *T)
 }
 
 
+/* Function:  esl_tree_Validate()
+ * Incept:    SRE, Thu Nov  9 11:03:04 2006 [Janelia]
+ *
+ * Purpose:   Validates the integrity of the data structure in <T>.
+ *            Returns <eslOK> if the internal data in <T> are
+ *            consistent and valid. Returns <eslFAIL> if not.
+ */
+int
+esl_tree_Validate(ESL_TREE *T)
+{
+  int N;
+  int i, c;
+  int shouldbe;
+  
+  N = T->N; /* just to save writing T->N so many times below  */
+  if (N < 2)             return eslFAIL;
+  if (T->parent[0] != 0) return eslFAIL;
+  if (T->nalloc < N)     return eslFAIL;
+
+  /* Verify preorder tree numbering.
+   */
+  for (i = 0; i < N-1; i++)
+    {
+      if (T->left[i]  > 0 && T->left[i]  < i) return eslFAIL; 
+      if (T->right[i] > 0 && T->right[i] < i) return eslFAIL; 
+    }
+
+  /* Range checks on values. */
+  for (i = 0; i < N-1; i++)
+    {
+      if (T->parent[i] < 0      || T->parent[i]     > N-2)  return eslFAIL;
+      if (T->left[i]   < -(N-1) || T->left[i]       > N-2)  return eslFAIL;
+      if (T->right[i]  < -(N-1) || T->right[i]      > N-2)  return eslFAIL;
+      if (T->ld[i] < 0.)                                    return eslFAIL;
+      if (T->rd[i] < 0.)                                    return eslFAIL;
+      if (T->taxaparent != NULL &&
+	  (T->taxaparent[i] < 0 || T->taxaparent[i] > N-2)) return eslFAIL;
+      if (T->cladesize  != NULL &&
+	  (T->cladesize[i] < 0  || T->cladesize[i]  > N))   return eslFAIL;
+    }
+
+  /* more sophisticated integrity checks on parent-child relations in
+     nodes ...*/
+  for (i = 1; i < T->N-1; i++)
+    if (T->left[T->parent[i]] != i && T->right[T->parent[i]] != i) return eslFAIL;
+
+  /* ...and between terminal nodes and taxa.
+   */
+  if (T->taxaparent != NULL)
+    for (c = 0; c < T->N; c++)
+      if (T->left[T->taxaparent[c]] != -c && T->right[T->taxaparent[c]] != -c) return eslFAIL;
+
+  /* check on cladesizes */
+  if (T->cladesize != NULL)
+    for (i = 0; i < T->N-1; i++)
+      {
+	shouldbe = 0;
+	if (T->left[i]  > 0) shouldbe += T->cladesize[T->left[i]];  else shouldbe++;
+	if (T->right[i] > 0) shouldbe += T->cladesize[T->right[i]]; else shouldbe++;
+	if (shouldbe != T->cladesize[i]) return eslFAIL;
+      }
+
+  return eslOK;
+}
+
+
+
 /* Function:  esl_tree_Destroy()
  * Incept:    SRE, Tue May  2 14:18:31 2006 [St. Louis]
  *
@@ -388,13 +544,14 @@ esl_tree_Destroy(ESL_TREE *T)
 {
   if (T == NULL) return;
 
-  if (T->parent        != NULL) free(T->parent);
-  if (T->left          != NULL) free(T->left);
-  if (T->right         != NULL) free(T->right);
-  if (T->ld            != NULL) free(T->ld);
-  if (T->rd            != NULL) free(T->rd);
-  if (T->parent_of_otu != NULL) free(T->parent_of_otu);
-  
+  if (T->parent     != NULL) free(T->parent);
+  if (T->left       != NULL) free(T->left);
+  if (T->right      != NULL) free(T->right);
+  if (T->ld         != NULL) free(T->ld);
+  if (T->rd         != NULL) free(T->rd);
+  if (T->taxaparent != NULL) free(T->taxaparent);
+  if (T->cladesize  != NULL) free(T->cladesize);
+
   free(T);
   return;
 }
@@ -538,13 +695,13 @@ newick_write_branchlength(FILE *fp, ESL_TREE *T, int v)
 {
   double branchlength;
 
-  if (! T->show_branchlengths)   return eslOK;
-  if (T->parent_of_otu == NULL)  ESL_EXCEPTION(eslECONTRACT, "T must have parent_of_otu");
+  if (! T->show_branchlengths) return eslOK;
+  if (T->taxaparent == NULL)   ESL_EXCEPTION(eslECONTRACT, "T must have taxaparent");
   
   if (v <= 0)			/* leaf */
     {
-      if      (T->left [T->parent_of_otu[-v]] == v) branchlength = T->ld[T->parent_of_otu[-v]];
-      else if (T->right[T->parent_of_otu[-v]] == v) branchlength = T->rd[T->parent_of_otu[-v]]; 
+      if      (T->left [T->taxaparent[-v]] == v) branchlength = T->ld[T->taxaparent[-v]];
+      else if (T->right[T->taxaparent[-v]] == v) branchlength = T->rd[T->taxaparent[-v]]; 
       else    ESL_EXCEPTION(eslECORRUPT, "Can't find branch length");
     }
   else				/* internal node */
@@ -598,7 +755,7 @@ esl_tree_WriteNewick(FILE *fp, ESL_TREE *T)
   if ((vs = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; }
   if ((cs = esl_stack_CCreate()) == NULL) { status = eslEMEM; goto ERROR; }
   
-  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
+  if ((status = esl_tree_SetTaxaParents(T)) != eslOK) goto ERROR;
   
   /* Initialization.
    * Push a trifurcation (swallowing the right internal node) if unrooted;
@@ -948,7 +1105,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
   /* Create the tree, initially allocated for 32 taxa.
    * Allocate for taxon and node labels, too.
    */
-  if ((T  = esl_tree_Create(32)) == NULL) ESL_XFWD(eslEMEM);
+  if ((T  = esl_tree_CreateGrowable(32)) == NULL) ESL_XFWD(eslEMEM);
   ESL_ALLOC(T->taxonlabel, sizeof(char *) * 32);
   ESL_ALLOC(T->nodelabel,  sizeof(char *) * 31);
   for (currtaxon = 0; currtaxon < 32; currtaxon++) T->taxonlabel[currtaxon] = NULL;
@@ -964,10 +1121,24 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
    *    create the root node in the tree;
    *    push L,R...); onto the stacks; 
    *    swallow the first ( in the file.
+   *
+   * A note on memory management in the growing tree:
+   *  we are going to keep T->N set to the number of taxa
+   *  that the tree *will* contain, given the number of nodes
+   *  it currently *does* contain. Before we try to add
+   *  any new node, we call the Grow() routine, which will
+   *  check T->N against T->nalloc. This strategy works 
+   *  because nodes always get added before their children
+   *  taxa, so the # of taxa is always <= nodes-1: that is,
+   *  our need for reallocation is driven by new nodes, 
+   *  never by new taxa; that is, if we have enough room
+   *  for nodes, we automatically have enough room for the
+   *  taxa.
    */
   T->parent[0] = 0;
   currnode     = 1;
-  currtaxon    = 0;
+  currtaxon    = 0;		
+  T->N         = 2;   /* c.f. note above: T->N is the # of taxa we *would* hold, given currnode=1*/
   if (esl_stack_CPush(cs, ';') != eslOK)  ESL_XFWD(eslEMEM);
   if (esl_stack_CPush(cs, ')') != eslOK)  ESL_XFWD(eslEMEM);
   if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
@@ -1017,23 +1188,25 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	  
 	  if (buf[pos] == '(')	/* a new interior node attaches to v */
 	    {
+	      if (esl_tree_Grow(T) != eslOK) ESL_XFWD(eslEMEM);	/* c.f. memory management note: check that we can add new node */
+
 	      T->parent[currnode] = v;
 	      if (c == 'L') T->left[v]  = currnode;
 	      else          T->right[v] = currnode;
 
-	      if (esl_stack_CPush(cs, ')')        != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'X')        != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'R')        != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, ',')        != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'L')        != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, ')')      != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'X')      != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'R')      != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, ',')      != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, 'L')      != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
 
 	      if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
 		ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
-	      currnode++;
+	      currnode++;		/* T->N == # of internal nodes/idx of next internal node */
 	    }
 	  else /* a taxon attaches to v */
 	    {
@@ -1091,8 +1264,10 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	      ESL_XFAIL(eslEFORMAT, errbuf, "failed to parse a branch length");
 	  }
 
-	  if      (T->left [T->parent[v]] == v) T->ld[T->parent[v]] = d;
-	  else if (T->right[T->parent[v]] == v) T->rd[T->parent[v]] = d;
+	  if (v > 0) { /* branch length to root node is meaningless, ignore it */
+	    if      (T->left [T->parent[v]] == v) T->ld[T->parent[v]] = d;
+	    else if (T->right[T->parent[v]] == v) T->rd[T->parent[v]] = d;
+	  }
 
 	  T->nodelabel[v] = label;
 	}
@@ -1113,25 +1288,23 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
            * This swapping destroys the order of the nodes: they will not be in preorder traversal.
            * This is temporarily ok. We renumber later.
 	   */
-	  T->left[currnode]      = T->right[v];
-	  T->ld[currnode]        = T->rd[v];
-	  T->parent[currnode]    = v;
-	  if (T->right[v] > 0) T->parent[T->right[v]] = currnode;
-	  T->right[v]            = currnode;
-	  T->rd[v]               = 0.;
+	  T->left[currnode]   = T->right[v];
+	  T->ld[currnode]     = T->rd[v];
+	  T->parent[currnode] = v;
+	  if (T->right[v] > 0)
+	    T->parent[T->right[v]] = currnode;
+	  T->right[v]         = currnode;
+	  T->rd[v]            = 0.;
 	  
-	  if (esl_stack_CPush(cs, 'X')        != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_CPush(cs, 'R')        != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_IPush(vs, currnode)   != eslOK)  ESL_XFWD(eslEMEM);	  
-	  if (esl_stack_CPush(cs, ',')        != eslOK)  ESL_XFWD(eslEMEM);	  
+	  if (esl_stack_CPush(cs, 'X')       != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_IPush(vs, currnode)  != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_CPush(cs, 'R')       != eslOK)  ESL_XFWD(eslEMEM);
+	  if (esl_stack_IPush(vs, currnode)  != eslOK)  ESL_XFWD(eslEMEM);	  
+	  if (esl_stack_CPush(cs, ',')       != eslOK)  ESL_XFWD(eslEMEM);	  
 	  currnode++;
 	}
 
-      if (currnode == T->nalloc-1 || currtaxon == T->nalloc) 
-	{
-	  if (esl_tree_Grow(T) != eslOK) ESL_XFWD(eslEMEM);
-	}
+      T->N = currnode + 1; /* c.f. memory management note: keep T->N = # of taxa the tree *would* hold, given currnode */
     }
 
   esl_tree_RenumberNodes(T);
@@ -1185,7 +1358,7 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
 
   /* We need taxon parent map in tree 2, but not tree 1.
    */
-  if ((status = esl_tree_MapTaxaParents(T2)) != eslOK) goto ERROR;
+  if ((status = esl_tree_SetTaxaParents(T2)) != eslOK) goto ERROR;
 
   /* We're going to use the tree mapping function M(g) [Goodman79]:
    * M[g] for node g in T1 is the index of the lowest node in T2
@@ -1200,11 +1373,11 @@ esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
   for (g = T1->N-2; g >= 0; g--)
     {
       child = T1->left[g];
-      if (child <= 0)  a = T2->parent_of_otu[-child]; 
+      if (child <= 0)  a = T2->taxaparent[-child]; 
       else             a = T2->parent[Mg[child]];
 
       child = T1->right[g];
-      if (child <= 0)  b = T2->parent_of_otu[-child]; 
+      if (child <= 0)  b = T2->taxaparent[-child]; 
       else             b = T2->parent[Mg[child]];
 
       if (a != b) { free(Mg); return eslFAIL; } /* a shortcut in SDI: special case for exact tree comparison */
@@ -1643,15 +1816,15 @@ esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D)
   D = esl_dmatrix_Create(T->N, T->N); /* creates a NxN square symmetric matrix; really only need triangular */
   if (D == NULL) { status = eslEMEM; goto ERROR; }
 
-  if ((status = esl_tree_MapTaxaParents(T)) != eslOK) goto ERROR;
+  if ((status = esl_tree_SetTaxaParents(T)) != eslOK) goto ERROR;
 
   for (i = 0; i < T->N; i++)
     {
       D->mx[i][i] = 0.;		/* by definition */
       for (j = i+1; j < T->N; j++)
 	{
-	  a  = T->parent_of_otu[i];
-	  b  = T->parent_of_otu[j];
+	  a  = T->taxaparent[i];
+	  b  = T->taxaparent[j];
 	  d  = (T->left[a] == -i) ? T->ld[a] : T->rd[a];
 	  d += (T->left[b] == -j) ? T->ld[b] : T->rd[b];
 	  while (a != b)	/* a brute force LCA algorithm */
@@ -1682,43 +1855,80 @@ esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D)
  *****************************************************************/
 #ifdef eslTREE_TESTDRIVE
 
-static int
-utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
+static void
+utest_OptionalInformation(ESL_RANDOMNESS *r, int ntaxa)
 {
-  ESL_TREE *T1 = NULL;
+  char *msg = "optional information fields unit test failed";
+  ESL_TREE *T;
 
-  if (esl_tree_Simulate(r, ntaxa, &T1) != eslOK)  abort();
-  if (esl_tree_WriteNewick(stdout, T1) != eslOK)  abort();
+  if (esl_tree_Simulate(r, ntaxa, &T) != eslOK) esl_fatal(msg);
+  if (esl_tree_SetTaxaParents(T)      != eslOK) esl_fatal(msg);
+  if (esl_tree_SetCladesizes(T)       != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T)            != eslOK) esl_fatal(msg);
   
-  esl_tree_Destroy(T1);
-  return eslOK;
+  esl_tree_Destroy(T);
+  return;
 }
 
 
-static int
+static void
+utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
+{
+  char     *msg    = "esl_tree_WriteNewick unit test failed";
+  char   tmpfile[] = "eslXXXXXX";
+  FILE     *fp     = NULL;
+  ESL_TREE *T1     = NULL;
+  ESL_TREE *T2     = NULL;
+  char  errbuf[eslERRBUFSIZE];
+
+  if (esl_tmpfile(tmpfile, &fp)            != eslOK) esl_fatal(msg);
+  if (esl_tree_Simulate(r, ntaxa, &T1)     != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T1)                != eslOK) esl_fatal(msg);
+  if (esl_tree_WriteNewick(fp, T1)         != eslOK) esl_fatal(msg);
+  rewind(fp);
+  if (esl_tree_ReadNewick(fp, errbuf, &T2) != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T2)                != eslOK) esl_fatal(msg);
+
+  esl_tree_WriteNewick(stdout, T1);
+  esl_tree_WriteNewick(stdout, T2);
+
+  if (esl_tree_Compare(T1, T2)             != eslOK) esl_fatal(msg);
+  fclose(fp);
+
+  esl_tree_Destroy(T1);
+  esl_tree_Destroy(T2);
+  return;
+
+}
+
+
+static void
 utest_UPGMA(ESL_RANDOMNESS *r, int ntaxa)
 {
+  char        *msg = "esl_tree_UPGMA unit test failed";
   ESL_TREE    *T1 = NULL;
   ESL_TREE    *T2 = NULL;
   ESL_DMATRIX *D1 = NULL;
   ESL_DMATRIX *D2 = NULL;
 
-  if (esl_tree_Simulate(r, ntaxa, &T1)   != eslOK) abort();
-  if (esl_tree_ToDistanceMatrix(T1, &D1) != eslOK) abort();
-  if (esl_tree_UPGMA(D1, &T2)            != eslOK) abort();
+  if (esl_tree_Simulate(r, ntaxa, &T1)   != eslOK) esl_fatal(msg);
+  if (esl_tree_ToDistanceMatrix(T1, &D1) != eslOK) esl_fatal(msg);
+  if (esl_tree_UPGMA(D1, &T2)            != eslOK) esl_fatal(msg);
 
-  if (esl_tree_VerifyUltrametric(T1)     != eslOK) abort();
-  if (esl_tree_VerifyUltrametric(T2)     != eslOK) abort();
-  if (esl_tree_Compare(T1, T2)           != 0)     abort();
+  if (esl_tree_Validate(T1)              != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T2)              != eslOK) esl_fatal(msg);
+  if (esl_tree_VerifyUltrametric(T1)     != eslOK) esl_fatal(msg);
+  if (esl_tree_VerifyUltrametric(T2)     != eslOK) esl_fatal(msg);
+  if (esl_tree_Compare(T1, T2)           != eslOK) esl_fatal(msg);
 
-  if (esl_tree_ToDistanceMatrix(T1, &D2) != eslOK) abort();
-  if (esl_dmatrix_Compare(D1, D2, 0.001) != eslOK) abort();
+  if (esl_tree_ToDistanceMatrix(T1, &D2) != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_Compare(D1, D2, 0.001) != eslOK) esl_fatal(msg);
 
   esl_tree_Destroy(T1);
   esl_tree_Destroy(T2);
   esl_dmatrix_Destroy(D1);
   esl_dmatrix_Destroy(D2);
-  return eslOK;
+  return;
 }
 
 #endif /*eslTREE_TESTDRIVE*/
@@ -1745,11 +1955,14 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r = NULL;
   int ntaxa;
 
-  r     = esl_randomness_Create(42);
+  r     = esl_randomness_Create(41);
   ntaxa = 20;
   
-  if ((utest_WriteNewick(r, ntaxa)) != eslOK)  abort();
-  if ((utest_UPGMA(r, ntaxa))       != eslOK)  abort();
+  utest_WriteNewick(r, 5);
+
+  utest_OptionalInformation(r, ntaxa); /* SetTaxaparents(), SetCladesizes() */
+  utest_WriteNewick(r, ntaxa);
+  utest_UPGMA(r, ntaxa);
 
   esl_randomness_Destroy(r);
   return eslOK;

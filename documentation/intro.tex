@@ -10,12 +10,12 @@ hope is a useful form, so that new people in my lab can avoid
 reinventing the wheel as many times as I have. Perhaps it will also be
 useful to you.
 
-Easel is \textbf{documented} with tutorial examples that are intended
-to make it easy to get started with any given Easel module. It is
-\textbf{modular}, to help you extract individual files or functions
-for use in your own code, without having to disentangle the entire
-library. It is \textbf{freely distributed} as open source so that you
-can use and modify Easel for anything, including commercial purposes.
+Easel's documentation includes tutorial examples to make it easy to
+get started with any given Easel module. Easel is modular, to help you
+extract individual files or functions for use in your own code,
+without having to disentangle the entire library. Easel is freely
+distributed as open source so that you can use and modify it for
+anything, including commercial purposes.
 
 \section{Quick start}
 
@@ -259,126 +259,311 @@ into an object and access elemental data directly.
 
 
 
+\section{Interfaces and design patterns}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-(... BELOW HERE IS STILL JUNK ...)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Emerson said ``a foolish consistency is the hobgoblin of little
+minds''. Easel, like Emerson, is not overly concerned with
+consistency. However, similar functions are channeled towards common
+design patterns, called \esldef{interfaces}, that are guidelines for a
+shared behavior and a shared naming convention. Reuse of design
+patterns helps Easel follow certain best practices that may be the
+result of hard-won experience. Shared interface designs also help
+reduce the apparent complexity of the library, by making many
+functions behave in predictable ways, so it is easier to learn to use
+new Easel modules. Many of Easel's functions follow interface
+guidelines.
 
+Most Easel functions have three part names like
+\ccode{esl\_foo\_BarBaz()}, where the \ccode{esl} prefix defines an
+Easel-specific namespace (to keep Easel functions from clashing with
+the names of an application's functions), \ccode{foo} is the
+lower-case base name of the Easel object that is acted on (or the
+module that this function is in), and \ccode{BarBaz()} describes what
+the function does.  If there are two or more functions
+\ccode{esl\_foo\_BarBaz()}, \ccode{esl\_bar\_BarBaz()}, etc., then we
+can talk about the \ccode{\_BarBaz()} interface. 
 
+Conversely, if there is a \ccode{\_BarBaz()} interface, then any
+function named something like \ccode{esl\_foo\_BarBaz()} or
+\ccode{esl\_foo\_BarBazQux()} follows it. For example,
+\ccode{esl\_sq\_Create()} is going to create a \ccode{ESL\_SQ}
+sequence object, following interface guidelines for \ccode{\_Create()}
+functions.
 
-\section{Function naming conventions}
+\subsection{Creating and destroying new objects}
 
-\subsection{Object creation, initialization, destruction}
+Most Easel objects are allocated and free'd by
+\ccode{\_Create()/\_Destroy()} interface. Creating an object often
+just means allocating space for it, so that some other routine can
+fill data into it. It does not necessarily mean that the object
+contains valid data.
 
-Most of Easel's objects are allocated on the heap; that is, accessed
-exclusively via pointers. Less often, routines may allow an object to
-be allocated on the stack.
+In summary:
 
-\begin{sreitems}{\ccode{Create,Destroy}}
-\item [\ccode{Create,Destroy}] 
-  \ccode{esl\_foo\_Create()} allocates and initializes a new \ccode{ESL\_FOO}
-  object, returning a pointer to the new
-  object. The \ccode{Create()} function is passed any necessary
-  initialization or size information in its arguments.
-  \ccode{esl\_foo\_Destroy(obj)} frees all the memory associated
-  with a \ccode{ESL\_FOO} object,  given a pointer to the object,
-  and returns \ccode{ESL\_OK}. Example:
+\begin{sreapi}
+\hypertarget{ifc:Create} 
+{\item[\_Create(N)]}
 
+A \ccode{\_Create()} interface takes any necessary initialization or
+size information as arguments (there may not be any), and it returns a
+pointer to the newly allocated object. If an (optional) number of
+elements \ccode{N} is provided, this specifies the number of elements
+that the object is going to contain (thus, creating a fixed-size
+object; contrast the \ccode{\_CreateGrowable()} interface).  In the
+event of any failure, the procedure throws \ccode{NULL}.
+
+\hypertarget{ifc:Destroy} 
+{\item[\_Destroy(obj)]}
+A \ccode{\_Destroy()} interface takes an object pointer as an
+argument, and frees all the memory associated with it.
+\end{sreapi}
+
+For example:
 \begin{cchunk}
-ESL_SQ *sq;
-
-sq = esl_sq_Create();
-esl_sq_Destroy(sq);
-\end{cchunk}
-  
-\item [\ccode{Open,Close}] 
-  Same as \ccode{Create()} and \ccode{Destroy()}, but specifically for
-  objects associated with input/output streams. Example:
-
-\begin{cchunk}
-char        *seqfile = ``foo.seq'';
-ESL_SIO     *sqfp;
-
-sqfp = esl_sio_Open(seqfile);
-esl_sio_Close(sqfp);
-\end{cchunk}
-
-
-\item [\ccode{Inflate,Deflate}]
-  \ccode{esl\_foo\_Inflate(\&obj)} takes a pointer to the ``shell'' of an
-  \ccode{ESL\_FOO} object that has been allocated on the stack, and
-  allocates and initializes all the internals of it. The
-  \ccode{Inflate()} function is passed any necessary initialization or
-  size information in its arguments.  \ccode{esl\_foo\_Deflate(\&obj)}
-  frees all the internal memory associated with a \ccode{ESL\_FOO} object,
-  given a pointer to the object, but the object shell is left alone.
-  The only difference between \ccode{Create,Destroy} and
-  \ccode{Inflate,Deflate} is whether the object shell itself is to be
-  allocated, or not. Example:
-
-\begin{cchunk}
-ESL_SQ  sq;
-
-esl_sq_Inflate(&sq);
-esl_sq_Deflate(&sq);
-\end{cchunk}
-
-
-
-\item [\ccode{Expand,Squeeze}]
-   These deal with objects whose contents are not necessarily of a
-   fixed size, but can grow and require reallocation of internal data
-   fields. A function \ccode{esl\_foo\_Expand()} reallocates an
-   \ccode{ESL\_FOO} object to a larger size. Usually, reallocation
-   works by doubling the previous allocation. The redoubling strategy
-   can result in a fair amount of unused memory overhead (up to
-   50\%). A function \ccode{esl\_foo\_Squeeze()} takes a fully-grown
-   object and optimizes its memory usage, recovering this wastage
-   overhead, on the assumption that no more reallocation will be
-   done.
-
-
-
-\item [\ccode{Reuse}] 
-   \ccode{esl\_foo\_Reuse(obj)} reinitializes an object exactly as a
-   \ccode{Create} or \ccode{Inflate} function would initialize it, \emph{without}
-   allocating new memory; it reuses memory that has
-   already been allocated when the object was originally created or
-   inflated. For some objects that are used sequentially (like,
-   sequences), reusing one object saves malloc()'s compared to
-   lots of Create/Destroy calls. A \ccode{Reuse} function does not
-   care whether the object was originally created by a \ccode{Create}
-   or a \ccode{Inflate} call. Example:
-
-\begin{cchunk}
-ESL_SQ *sq;
-
-sq = esl_sq_Create();
-  /* read a sequence into the sq object, have fun with it */
-
-esl_sq_Reuse(sq);
-  /* read a second sequence into it */
-
-esl_sq_Destroy(sq);
+   ESL_SQ *sq;
+   sq = esl_sq_Create();
+   esl_sq_Destroy(sq);
 \end{cchunk}
 
-\end{sreitems}
 
-\subsection{Other common object manipulation functions}
 
-\begin{sreitems}{\ccode{\_Copy(src, dest)}}
+\subsubsection{Open input streams}
 
-\item[\ccode{\_Copy(src, dest)}]
+Some objects (such as \ccode{ESL\_SQFILE} and \ccode{ESL\_MSAFILE})
+correspond to open input streams -- usually an open file, but possibly
+reading from a pipe. Such objects are \ccode{\_Open()}'ed and
+\ccode{\_Close()'d}, not created and destroyed.
+
+Input stream objects have to be capable of handling normal failures,
+because of bad user input. Input stream objects contain an
+\ccode{errbuf[eslERRBUFSIZE]} field to capture informative parse error
+messages. 
+
+In summary:
+
+\begin{sreapi}
+\hypertarget{ifc:Open} 
+{\item[\_Open(file, formatcode, \&ret\_obj)]}
+
+Opens the \ccode{file}, which is in a format indicated by
+\ccode{formatcode} for reading; return the open input object in
+\ccode{ret\_obj}. A \ccode{formatcode} of 0 typically means unknown,
+in which case the \ccode{\_Open()} procedure attempts to autodetect
+the format. If the \ccode{file} is \ccode{"-"}, the object is
+configured to read from the \ccode{stdin} stream instead of opening a
+file. If the \ccode{file} ends in a \ccode{.gz} suffix, the object is
+configured to read from a pipe from \ccode{gzip -dc}. Returns
+\ccode{eslENOTFOUND} if \ccode{file} cannot be opened, and
+\ccode{eslEFORMAT} if autodetection is attempted but the format cannot
+be determined.
+
+\hypertarget{ifc:Close} 
+{\item[\_Close(obj)]}
+
+Closes the input stream \ccode{obj}. Returns \ccode{void}.
+\end{sreapi}
+
+
+For example:
+
+\begin{cchunk}
+    char        *seqfile = "foo.fa";
+    ESL_SQFILE  *sqfp;
+
+    esl_sqio_Open(seqfile, eslSQFILE_FASTA, NULL, &sqfp);
+    esl_sqio_Close(sqfp);
+\end{cchunk}
+
+
+
+\subsubsection{Growable objects}
+
+Some objects need to be reallocated and expanded during their use.
+These objects are called \esldef{growable}.
+
+In some cases, the whole purpose of the object is to have elements
+added to it, such as \ccode{ESL\_STACK} (pushdown stacks) and
+\ccode{ESL\_HISTOGRAM} (histograms). In these cases, the normal
+\ccode{\_Create()} interface performs an initial allocation, and the
+object keeps track of both its current contents size (often
+\ccode{obj->N}) and the current allocation size (often
+\ccode{obj->nalloc}). 
+
+In some other cases, objects might be either growable or not,
+depending on how they're being used. This happens, for instance, when
+we have routines for parsing input data to create a new object, and we
+need to dynamically reallocate as we go because the input doesn't tell
+us the total size when we start. For instance, with \ccode{ESL\_TREE}
+(phylogenetic trees), sometimes we know exactly the size of the tree
+we need to create (because we're making a tree ourselves), and
+sometimes we need to create a growable object (because we're reading a
+tree from a file). In these cases, the normal \ccode{\_Create()}
+interface creates a static, nongrowable object of known size, and a
+\ccode{\_CreateGrowable()} interface specifies an initial allocation
+for a growable object.
+
+Easel usually handles its own reallocation of growable objects. For
+instance, many growable objects have an interface called something
+like \ccode{\_Add()} or \ccode{\_Push()} for storing the next element
+in the object, and this interface will deal with increasing allocation
+size as needed.  In a few cases, a public \ccode{\_Grow()} interface
+is provided for reallocating an object to a larger size, in cases
+where a caller might need to grow the object itself. \ccode{\_Grow()}
+only increases an allocation when it is necessary, so that a caller
+can call \ccode{\_Grow()} before every attempt to add a new
+element. An example of where a public \ccode{\_Grow()} interface is
+generally provided is when an object might be input from different
+file formats, and an application may need to create its own
+parser. Although creating an input parser requires familiarity with
+the Easel object's internal data structures, at least the
+\ccode{\_Grow()} interface frees the caller from having to understand
+its memory management.
+
+Growable objects waste memory, because they are overallocated in order
+to reduce the number of calls to \ccode{malloc()}.  The wastage is
+bounded (to a maximum of two-fold, for the default doubling
+strategies, once an object has exceeded its initial allocation size)
+but nonetheless may not always be tolerable.  A \ccode{\_Shrink()}
+interface optimizes the memory usage in an object and converts it to a
+nongrowable, fixed-size form. 
+
+In summary: 
+
+\begin{sreapi}
+\hypertarget{ifc:CreateGrowable}
+{\item[\_CreateGrowable(nalloc)]}
+
+A \ccode{\_CreateGrowable()} interface creates a growable
+\ccode{obj}. If a size argument like \ccode{nalloc} is provided, it
+specifies an initial allocation size, not the number of elements.
+
+\hypertarget{ifc:Grow}
+{\item[\_Grow(obj)]}
+
+Check to see if \ccode{obj} can hold another element. If not, increase
+the allocation, according to internally stored rules on reallocation
+strategy (usually, by doubling).
+
+\hypertarget{ifc:Shrink}
+{\item[\_Shrink(obj)]}
+
+Optimize the memory usage in growable object \ccode{obj}, converting
+it to a fixed-size, nongrowable object.
+
+\hypertarget{ifc:CreateCustom}
+{\item[\_CreateCustom(my\_nalloc)]}
+
+A \ccode{\_CreateCustom()} interface to a growable object might enable
+a caller to alter the object's default initial allocation size, for
+cases where the \ccode{Create()} interface uses a hardcoded default
+size and this default size might not suffice for all applications.
+
+\hypertarget{ifc:SetGrowth}
+{\item[\_SetGrowth(obj, nfactor)]}
+
+Growable objects are usually reallocated by increasing the current
+allocation by some factor. The default reallocation factor is usually
+2, so that objects usually grow by doubling. The API may provide a
+\ccode{\_SetGrowth()} interface for changing the reallocation factor
+for \ccode{obj} to \ccode{nfactor} at any time.
+\end{sreapi}
+
+
+
+
+\subsubsection{Reusable objects}
+
+Memory allocation is computationally expensive. An application needs
+to minimize \ccode{malloc()/free()} calls in performance-critical
+regions. In loops where one \ccode{\_Destroy()}'s an old object only
+to \ccode{\_Create()} the next one, such as a sequential input loop
+that processes objects from a file one at a time, one generally wants
+to \ccode{\_Reuse()} the same object instead:
+
+\begin{sreapi}
+\hypertarget{ifc:Reuse}
+{\item[\_Reuse(obj)]}
+
+A \ccode{\_Reuse()} interface takes an existing object and
+reinitializes it as a new object, while reusing as much memory as
+possible. It replaces a \ccode{\_Destroy()/\_Create()} pair. A
+\ccode{\_Reuse()} interface does not care whether the object was
+originally created by a \ccode{\_Create()} or a \ccode{\_Inflate()}
+call (see below), or whether the object is growable or not (if it was
+growable, it remains growable).
+\end{sreapi}
+
+For example:
+
+\begin{cchunk}
+   ESL_SQFILE *sqfp;
+   ESL_SQ     *sq;
+
+   esl_sqfile_Open(\"foo.fa\", eslSQFILE_FASTA, NULL, &sqfp);
+   sq = esl_sq_Create();
+   while (esl_sqio_Read(sqfp, sq) == eslOK)
+    {
+       /* do stuff with this sq */
+       esl_sq_Reuse(sq);
+    }
+   esl_sq_Destroy(sq);
+\end{cchunk}
+
+
+\subsubsection{Stack-allocated objects}
+
+Most of Easel's objects are allocated on the heap; that is,
+\ccode{malloc()'ed} memory accessed exclusively via pointers. Less
+often, an interface may allow the shell of an object to be allocated
+on the stack instead, using \ccode{\_Inflate(),\_Deflate()}.  The only
+difference between \ccode{\_Inflate(),\_Deflate()} and
+\ccode{\_Create(),\_Destroy()} is whether the object shell itself
+needs to be allocated, or not:
+
+\begin{sreapi}
+\hypertarget{ifc:Inflate}
+{\item[\_Inflate()]}
+
+An \ccode{\_Inflate(\&foo)} interface is the on-stack version of
+\ccode{foo = \_Create()}. The contents of an existing object shell
+are allocated just as in \ccode{\_Create()}.
+
+\hypertarget{ifc:Deflate}
+{\item[\_Deflate()]}
+
+A \ccode{\_Deflate(\&foo)} interface is the on-stack version of
+\ccode{\_Destroy(foo)}. The contents of an object shell are free'd,
+just as in \ccode{\_Destroy()}.
+\end{sreapi}
+
+For example:
+
+\begin{cchunk}
+   ESL_SQ  sq;
+
+   esl_sq_Inflate(&sq);
+   esl_sq_Deflate(&sq);
+\end{cchunk}
+
+
+\subsection{Manipulating and accessing objects}
+
+\begin{sreapi}
+\hypertarget{ifc:Copy}
+{\item[\_Copy(src, dest)]}
+
 Copies \ccode{src} object into \ccode{dest}, where the caller has
-already created the empty \ccode{dest} object. Returns \ccode{ESL\_OK}
-on success; throws \ccode{ESL\_EINCOMPAT} if the objects are not
-compatible (for example, two matrices that are not the same size).
+already created an appropriately allocated and empty \ccode{dest}
+object. Returns \ccode{ESL\_OK} on success; throws
+\ccode{ESL\_EINCOMPAT} if the objects are not compatible (for example,
+two matrices that are not the same size).
 
-The order of the arguments is always \ccode{src} $\rightarrow$
-\ccode{dest} (unlike the C library's \ccode{strcpy()} convention, which
-is the opposite order).
+Note that the order of the arguments is always \ccode{src}
+$\rightarrow$ \ccode{dest} (unlike the C library's \ccode{strcpy()}
+convention, which is the opposite order).
 
-\item[\ccode{\_Duplicate(obj)}] 
+\hypertarget{ifc:Duplicate}
+{\item[\ccode{\_Duplicate(obj)}] }
 
 Creates and returns a pointer to a duplicate of \ccode{obj}.
 Equivalent to (and is a shortcut for) \ccode{dest = \_Create();
@@ -386,19 +571,23 @@ Equivalent to (and is a shortcut for) \ccode{dest = \_Create();
 object, just as if it had been \ccode{\_Create}'d. Throws NULL if
 allocation fails.
 
+\hypertarget{ifc:Set}
 \item[\ccode{\_Set*(obj, value...)}]
 
-Initializes value(s) in \ccode{obj} to \ccode{value}. Special cases of
-\ccode{\_Set*} functions may exist, like \ccode{\_SetZero} (set to
-zero(s)), or \ccode{esl\_dmatrix\_SetIdentity} (set a dmatrix to an
+Initializes some value(s) in \ccode{obj} to
+\ccode{value}. \ccode{\_Set} functions have some appropriate longer
+name, like \ccode{\_SetZero()} (set something in an object to
+zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set a dmatrix to an
 identity matrix).
 
-\item[\ccode{\_Get*(obj...)}]
+\hypertarget{ifc:Get}
+{\item[\ccode{\_Get*(obj, ..., \&ret\_value)}]}
 
-Retrieves specific data from in \ccode{obj}.
+Retrieves some specified data from \ccode{obj}, leave it in
+\ccode{ret\_value}.
 
-
-\item[\ccode{\_Compare*(obj1, obj2...)}]
+\hypertarget{ifc:Compare}
+{\item[\ccode{\_Compare*(obj1, obj2...)}]}
 
 Compares \ccode{obj1} to \ccode{obj2}. Returns \ccode{eslOK} if the
 contents are judged to be identical, and \ccode{eslFAIL} if they
@@ -406,23 +595,23 @@ differ. When the comparison involves floating point scalar
 comparisons, a fractional tolerance argument \ccode{tol} is also
 passed. 
 
-
 % examples: esl_dmatrix_Compare(), static msa_compare(),
 %   esl_tree_Compare(), esl_vec_{DFI}Compare().
 
+\end{sreapi}
 
-\end{sreitems}
 
-\subsection{Other API naming conventions}
-\begin{sreitems}{\ccode{\_Copy(src, dest)}}
 
-\item[\ccode{\_DescribeXXX()}]
+\subsection{Other interfaces}
+
+\begin{sreapi}
+\hypertarget{ifc:Describe}
+{\item[\ccode{\_DescribeXXX()}]}
 
 Given an internal code (an \ccode{enum} or \ccode{\#define} constant),
 return a pointer to an informative string, for diagnostics and other
 output. The string is static.
-
-\end{sreitems}
+\end{sreapi}
 
 
 \section{Discipline of writing Easel modules}

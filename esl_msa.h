@@ -173,6 +173,7 @@ typedef struct {
  */
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int alen);
+extern ESL_MSA *esl_msa_CreateFromString(char *s, int fmt);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
 

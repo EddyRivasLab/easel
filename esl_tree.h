@@ -38,7 +38,8 @@ typedef struct {
   /* Derived (optional) information, that we can reconstruct if
    * we need to from the mandatory info above.
    */
-  int    *parent_of_otu;  /* for each taxon [0..N-1]: index of its parent node, 0..N-2. */
+  int    *taxaparent;   /* for taxa  [0..N-1]: index of its parent node, 0..N-2. */
+  int    *cladesize;	/* for nodes [0..N-2]: how many taxa contained in this clade, 1..N */
 
   /* Optional information
    */
@@ -76,10 +77,14 @@ typedef struct {
 /* 1. The ESL_TREE object.
  */
 extern ESL_TREE *esl_tree_Create(int ntaxa);
+extern ESL_TREE *esl_tree_CreateGrowable(int nalloc);
+extern ESL_TREE *esl_tree_CreateFromString(char *s);
 extern int       esl_tree_Grow(ESL_TREE *T);
-extern int       esl_tree_MapTaxaParents(ESL_TREE *T);
+extern int       esl_tree_SetTaxaParents(ESL_TREE *T);
+extern int       esl_tree_SetCladesizes(ESL_TREE *T);
 extern int       esl_tree_RenumberNodes(ESL_TREE *T);
 extern int       esl_tree_VerifyUltrametric(ESL_TREE *T);
+extern int       esl_tree_Validate(ESL_TREE *T);
 extern void      esl_tree_Destroy(ESL_TREE *T);
 
 /* 2. Newick format i/o
