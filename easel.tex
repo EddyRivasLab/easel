@@ -349,34 +349,33 @@ methods for creating temporary files, even using standard library
 calls, are known to create exploitable security holes
 \citep{Wheeler03,ChenDeanWagner04}.
 
-Easel provides a secure portable POSIX procedure for obtaining an open
-temporary file handle, \ccode{esl\_tmpfile()}. This replaces the ANSI C
-\ccode{tmpfile()} function, which is said to be insecurely implemented
-on some platforms.  Because closing and reopening a temporary file can
-create an exploitable race condition under certain circumstances,
-\ccode{esl\_tmpfile()} does not return the name of the invisible file
-it creates, only an open \ccode{FILE *} handle to it. The tmpfile is
-not persistent, and it automatically vanishes when the \ccode{FILE *}
-handle is closed. The tmpfile is created in the usual system
-world-writable temporary directory, as indicated by \ccode{TMPDIR} or
-\ccode{TMP} environment variables, or \ccode{/tmp} if neither
-environment variable is defined.
+Easel provides a secure and portable POSIX procedure for obtaining an
+open temporary file handle, \ccode{esl\_tmpfile()}. This replaces the
+ANSI C \ccode{tmpfile()} function, which is said to be insecurely
+implemented on some platforms.  Because closing and reopening a
+temporary file can create an exploitable race condition under certain
+circumstances, \ccode{esl\_tmpfile()} does not return the name of the
+invisible file it creates, only an open \ccode{FILE *} handle to
+it. The tmpfile is not persistent, meaning that it automatically
+vanishes when the \ccode{FILE *} handle is closed. The tmpfile is
+created in the usual system world-writable temporary directory, as
+indicated by \ccode{TMPDIR} or \ccode{TMP} environment variables, or
+\ccode{/tmp} if neither environment variable is defined.
 
-However, it is sometimes useful, if not necessary, to close and reopen
-a temporary file. For example, Easel's own test suites generate a
-variety of input files for testing input parsers. For this purpose,
-Easel provides the \ccode{esl\_tmpfile\_named()} procedure for
-creating a persistent tmpfile, which returns both an open \ccode{<FILE
-*>} handle and the name of the file.  Because the tmpfile name is
-known, the file may be closed and reopened.
-\ccode{esl\_tmpfile\_named()} creates its files relative to the
-current working directory, not in \ccode{TMPDIR}, in order to reduce
-the chances of creating the file in a shared directory where a race
-condition might be exploited. Nonetheless, secure use of
+Still, it is sometimes useful, even necessary, to close and reopen a
+temporary file. For example, Easel's own test suites generate a
+variety of input files for testing input parsers.  Easel also provides
+the \ccode{esl\_tmpfile\_named()} procedure for creating a persistent
+tmpfile, which returns both an open \ccode{<FILE *>} handle and the
+name of the file. Because the tmpfile name is known, the file may be
+closed and reopened.  \ccode{esl\_tmpfile\_named()} creates its files
+relative to the current working directory, not in \ccode{TMPDIR}, in
+order to reduce the chances of creating the file in a shared directory
+where a race condition might be exploited. Nonetheless, secure use of
 \ccode{esl\_tmpfile\_named()} requires that you must only reopen a
-tmpfile for reading, not writing, and you must not trust the contents.
-(It may be possible for an attacker to replace the tmpfile with a
-symlink to another file.)
+tmpfile for reading only, not for writing, and moreover, you must not
+trust the contents.  (It may be possible for an attacker to replace
+the tmpfile with a symlink to another file.)
 
 \section{Internals}
 

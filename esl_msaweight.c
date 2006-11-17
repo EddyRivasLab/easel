@@ -438,15 +438,17 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
 static int
 utest_GSC(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
 {
-  if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal("GSC weighting failed");
-  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong GSC weights");
+  char *msg = "GSC weights unit test failure";
+
+  if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal(msg);
+  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
   if (abc != NULL) 
     {
-      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal("failed to digitize alignment");
-      if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal("GSC weighting failed");
-      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong GSC weights");
-      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal("failed to textize alignment");
+      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal(msg);
+      if (esl_msaweight_GSC(msa)                               != eslOK) esl_fatal(msg);
+      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
+      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
   return eslOK;
 }
@@ -454,15 +456,17 @@ utest_GSC(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
 static int
 utest_PB(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
 {
-  if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal("PB weighting failed");
-  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong PB weights");
+  char *msg = "PB weights unit test failure";
+
+  if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal(msg);
+  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
   if (abc != NULL) 
     {
-      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal("failed to digitize alignment");
-      if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal("PB weighting failed");
-      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong PB weights");
-      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal("failed to textize alignment");
+      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal(msg);
+      if (esl_msaweight_PB(msa)                                != eslOK) esl_fatal(msg);
+      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
+      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
   return eslOK;
 }
@@ -470,15 +474,17 @@ utest_PB(ESL_ALPHABET *abc, ESL_MSA *msa, double *expect)
 static int
 utest_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect)
 {
-  if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal("BLOSUM weighting failed");
-  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong BLOSUM weights");
+  char *msg = "BLOSUM weights unit test failure";
+
+  if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal(msg);
+  if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
   
   if (abc != NULL) 
     {
-      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal("failed to digitize alignment");
-      if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal("BLOSUM weighting failed");
-      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal("Wrong BLOSUM weights");
-      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal("failed to textize alignment");
+      if (esl_msa_Digitize(abc, msa)                           != eslOK) esl_fatal(msg);
+      if (esl_msaweight_BLOSUM(msa, maxid)                     != eslOK) esl_fatal(msg);
+      if (esl_vec_DCompare(msa->wgt, expect, msa->nseq, 0.001) != eslOK) esl_fatal(msg);
+      if (esl_msa_Textize(msa)                                 != eslOK) esl_fatal(msg);
     }
   return eslOK;
 }
@@ -523,7 +529,7 @@ main(int argc, char **argv)
   if ((nt_abc = esl_alphabet_Create(eslDNA))   == NULL)  esl_fatal("failed to create DNA alphabet");
 
   /* msa1: all sequences identical. Any weighting method should assign uniform weights.
-   * msa2: the "contrived" example of [Henikoff94b]. Obvious "correct" solution is 1==2, 3==4, and 5==2x other weights.
+   * msa2: "contrived" example of [Henikoff94b]. "Correct" solution is 1==2, 3==4, and 5==2x other weights.
    * msa3: the "nitrogenase segments" example of [Henikoff94b].
    * msa4: alignment that makes the same distances as Figure 4 from [Gerstein94]
    * msa5: gap pathology. no information here, so weighting methods should resort to uniform weights.
@@ -539,44 +545,44 @@ main(int argc, char **argv)
   if ((msa5 = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nA  A----\nB  -C---\nC  --G--\nD  ---T-\nE  ----T\n//\n",
 				       eslMSAFILE_STOCKHOLM)) == NULL) esl_fatal("msa 5 creation failed");
 
-  if (utest_GSC(aa_abc, msa1, uniform) != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(nt_abc, msa1, uniform) != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(aa_abc, msa2, wgt2)    != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(nt_abc, msa2, wgt2)    != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(aa_abc, msa3, gsc3)    != eslOK) esl_fatal("GSC unit test failed");
+  utest_GSC(aa_abc, msa1, uniform);
+  utest_GSC(nt_abc, msa1, uniform);
+  utest_GSC(aa_abc, msa2, wgt2);
+  utest_GSC(nt_abc, msa2, wgt2);
+  utest_GSC(aa_abc, msa3, gsc3);
   /* no nt test on msa3: it's protein-only */
-  if (utest_GSC(aa_abc, msa4, gsc4)    != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(nt_abc, msa4, gsc4)    != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(aa_abc, msa5, uniform) != eslOK) esl_fatal("GSC unit test failed");
-  if (utest_GSC(aa_abc, msa5, uniform) != eslOK) esl_fatal("GSC unit test failed");
+  utest_GSC(aa_abc, msa4, gsc4);
+  utest_GSC(nt_abc, msa4, gsc4);
+  utest_GSC(aa_abc, msa5, uniform);
+  utest_GSC(aa_abc, msa5, uniform);
 
-  if (utest_PB(aa_abc, msa1, uniform) != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(nt_abc, msa1, uniform) != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(aa_abc, msa2, wgt2)    != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(nt_abc, msa2, wgt2)    != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(aa_abc, msa3, pb3)     != eslOK) esl_fatal("PB unit test failed");
+  utest_PB(aa_abc, msa1, uniform);
+  utest_PB(nt_abc, msa1, uniform);
+  utest_PB(aa_abc, msa2, wgt2);
+  utest_PB(nt_abc, msa2, wgt2);
+  utest_PB(aa_abc, msa3, pb3);
   /* no nt test on msa3: it's protein-only */
-  if (utest_PB(aa_abc, msa4, pb4)     != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(nt_abc, msa4, pb4)     != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(aa_abc, msa5, uniform) != eslOK) esl_fatal("PB unit test failed");
-  if (utest_PB(nt_abc, msa5, uniform) != eslOK) esl_fatal("PB unit test failed");
+  utest_PB(aa_abc, msa4, pb4);
+  utest_PB(nt_abc, msa4, pb4);
+  utest_PB(aa_abc, msa5, uniform);
+  utest_PB(nt_abc, msa5, uniform);
 
-  if (utest_BLOSUM(aa_abc, msa1, 0.62, uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(nt_abc, msa1, 0.62, uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(aa_abc, msa2, 0.62, wgt2)    != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(nt_abc, msa2, 0.62, wgt2)    != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(aa_abc, msa3, 0.62, blosum3) != eslOK) esl_fatal("BLOSUM unit test failed");
+  utest_BLOSUM(aa_abc, msa1, 0.62, uniform);
+  utest_BLOSUM(nt_abc, msa1, 0.62, uniform);
+  utest_BLOSUM(aa_abc, msa2, 0.62, wgt2);
+  utest_BLOSUM(nt_abc, msa2, 0.62, wgt2);
+  utest_BLOSUM(aa_abc, msa3, 0.62, blosum3);
   /* no nt test on msa3: it's protein-only */
-  if (utest_BLOSUM(aa_abc, msa4, 0.62, blosum4) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(nt_abc, msa4, 0.62, blosum4) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(aa_abc, msa5, 0.62, uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(nt_abc, msa5, 0.62, uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
+  utest_BLOSUM(aa_abc, msa4, 0.62, blosum4);
+  utest_BLOSUM(nt_abc, msa4, 0.62, blosum4);
+  utest_BLOSUM(aa_abc, msa5, 0.62, uniform);
+  utest_BLOSUM(nt_abc, msa5, 0.62, uniform);
 
   /* BLOSUM weights have the peculiar property of going flat at maxid=0.0 (everyone
    * clusters) or maxid=1.0 (nobody clusters).
    */
-  if (utest_BLOSUM(aa_abc, msa4, 0.0,  uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
-  if (utest_BLOSUM(aa_abc, msa4, 1.0,  uniform) != eslOK) esl_fatal("BLOSUM unit test failed");
+  utest_BLOSUM(aa_abc, msa4, 0.0,  uniform);
+  utest_BLOSUM(aa_abc, msa4, 1.0,  uniform);
 
   esl_msa_Destroy(msa1);
   esl_msa_Destroy(msa2);
@@ -599,8 +605,11 @@ main(int argc, char **argv)
  *****************************************************************/
 #ifdef eslMSAWEIGHT_REGRESSION
 /* Verify same results as SQUID.
- * To compile: gcc -g -Wall -o regression -I. -L. -L ~/src/squid -I ~/src/squid -DeslMSAWEIGHT_REGRESSION esl_msaweight.c -leasel -lsquid -lm
- *     To run: ./regression <MSA file>
+ * To compile:
+       gcc -g -Wall -o regression -I. -L. -L ~/src/squid -I ~/src/squid -DeslMSAWEIGHT_REGRESSION\
+          esl_msaweight.c -leasel -lsquid -lm
+ * To run: 
+ *     ./regression <MSA file>
  *     
  * Script for regression testing on Pfam:
  *     ./regression -q  --maxN 4000 /misc/data0/databases/Pfam/Pfam-A.full

@@ -319,6 +319,60 @@ esl_tree_SetCladesizes(ESL_TREE *T)
 }
 
 
+/* Function:  esl_tree_SetTaxonlabels()
+ * Incept:    SRE, Tue Nov 14 19:29:00 2006 [UA 921, IAD-SFO]
+ *
+ * Purpose:   Given an array of taxon names <names[0..N-1]> with the
+ *            same order and number as the taxa in tree <T>, make a
+ *            copy of those names in <T>. For example, <names> might
+ *            be the sequence names in a multiple alignment,
+ *            <msa->sqname>.
+ *            
+ *            If the tree already had taxon names assigned to it, they
+ *            are replaced.
+ *            
+ *            As a special case, if the <names> argument is passed as
+ *            <NULL>, then the taxon labels are set to a string
+ *            corresponding to their internal index; that is, taxon 0
+ *            is labeled "0". 
+ *
+ * Returns:   <eslOK> on success, and internal state of <T>
+ *            (specifically, <T->taxonlabel[]>) now contains a copy
+ *            of the taxa names.
+ *
+ * Throws:    <eslEMEM> on allocation failure. <T->taxonlabel[]> will be
+ *            <NULL> (even if it was already set).
+ */
+int
+esl_tree_SetTaxonlabels(ESL_TREE *T, char **names)
+{
+  int i;
+  int status;
+  
+  if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->N);
+  ESL_ALLOC(T->taxonlabel, sizeof(char **) * T->N);
+  for (i = 0; i < T->N; i++) T->taxonlabel[i] = NULL;
+
+  if (names != NULL) 
+    {
+      for (i = 0; i < T->N; i++)
+	if ((status = esl_strdup(names[i], -1, &(T->taxonlabel[i]))) != eslOK) goto ERROR;
+    }
+  else
+    {
+      for (i = 0; i < T->N; i++)
+	{
+	  ESL_ALLOC(T->taxonlabel[i], sizeof(char) * 32); /* enough width for any conceivable int */
+	  snprintf(T->taxonlabel[i], 32, "%d", i);
+	}
+    }
+  return eslOK;
+
+ ERROR:
+  if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->N);
+  return status;
+}
+
 /* Function:  esl_tree_RenumberNodes()
  * Synopsis:  Assure nodes are numbered in preorder.
  * Incept:    SRE, Fri Oct 27 09:33:26 2006 [Janelia]
@@ -1334,9 +1388,19 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
  * Incept:    SRE, Fri Sep 22 14:05:09 2006 [Janelia]
  *
  * Purpose:   Given two trees <T1> and <T2> for the same
- *            set of <N> taxa (represented in the trees by the same 
- *            indices, <0..N-1>), compare the topologies of the
+ *            set of <N> taxa, compare the topologies of the
  *            two trees.
+ *            
+ *            The routine must be able to determine which taxa are
+ *            equivalent in <T1> and <T2>. If <T1> and <T2> both have
+ *            taxon labels set, then the routine compares labels.
+ *            This is the usual case. (Therefore, the <N> labels must
+ *            all be different, or the routine will be unable to do
+ *            this mapping uniquely.) As a special case, if neither
+ *            <T1> nor <T2> has taxon labels, then the indexing of
+ *            taxa <0..N-1> is assumed to be exactly the same in the
+ *            two trees. (And if one tree has labels and the other
+ *            does not, an <eslEINVAL> exception is thrown.)
  *            
  *            For comparing unrooted topologies, be sure that <T1> and
  *            <T2> both obey the unrooted tree convention that the
@@ -1346,49 +1410,90 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
  * Returns:   <eslOK> if tree topologies are identical. <eslFAIL>
  *            if they aren't.           
  *            
- * Throws:    <eslEMEM> on allocation error.
+ * Throws:    <eslEMEM> on allocation error. <eslEINVAL> if the taxa in
+ *            the trees can't be mapped uniquely and completely to
+ *            each other (because one tree doesn't have labels and
+ *            one does, or because the labels aren't unique, or the
+ *            two trees have different taxa).
  */
 int
 esl_tree_Compare(ESL_TREE *T1, ESL_TREE *T2)
 {
-  int *Mg;			/* the M(g) tree-mapping function    */
+  int *Mg   = NULL;		/* the M(g) tree-mapping function for internal nodes [0..N-2] */
+  int *Mgt  = NULL;		/* the M(g) tree-mapping function for leaves (taxa), [0..N-1] */
   int  g, child;		/* node indices for parent, children */
   int  a,b;
   int  status;
+
+  if (T1->N != T2->N) ESL_EXCEPTION(eslEINVAL, "trees don't have the same # of taxa");
 
   /* We need taxon parent map in tree 2, but not tree 1.
    */
   if ((status = esl_tree_SetTaxaParents(T2)) != eslOK) goto ERROR;
 
-  /* We're going to use the tree mapping function M(g) [Goodman79]:
-   * M[g] for node g in T1 is the index of the lowest node in T2
+  /* We're going to use the tree mapping function M(g) [Goodman79].
+   * In the implementation here, we split it into two, Mg[] for internal
+   * nodes 0..N-2 and Mgt[] for taxa 0..N-1.
+   *
+   * Mg[g] for node g in T1 is the index of the lowest node in T2
    * that contains the same children taxa as the subtree 
    * under g in T1.
+   *
+   * For the taxa, Mgt[g] for taxon g in T1 is the index of the
+   * corresponding taxon in T2. If neither tree has taxon labels
+   * Mgt[g] = g for all g. Otherwise we have to compare labels. Right
+   * now, we do this by brute force, which is O(N^2); if this ever
+   * becomes rate limiting, replace it with a keyhash to make it O(N)
+   * (and in fact, the keyhash of taxon names could even become part
+   * of the ESL_TREE).
    */
-  ESL_ALLOC(Mg, sizeof(int) * (T1->N-1));
+  ESL_ALLOC(Mg,  sizeof(int) * (T1->N-1));  
+  ESL_ALLOC(Mgt, sizeof(int) * (T1->N));
+  if (T1->taxonlabel != NULL && T2->taxonlabel != NULL)
+    {
+      esl_vec_ISet(Mgt, T1->N, -1);	/* flags for "unset" */
+      for (a = 0; a < T1->N; a++)
+	{
+	  for (b = 0; b < T1->N; b++)
+	    if (strcmp(T1->taxonlabel[a], T2->taxonlabel[b]) == 0) 
+	      { Mgt[a] = b; break; }
+	}
+      for (a = 0; a < T1->N; a++)
+	if (Mgt[a] == -1) ESL_XEXCEPTION(eslEINVAL, "couldn't map taxa");
+    }
+  else if (T1->taxonlabel == NULL && T2->taxonlabel == NULL)
+    {
+      for (a = 0; a < T1->N; a++)
+	Mgt[a] = a;
+    }
+  else
+    ESL_XEXCEPTION(eslEINVAL, "either both trees must have taxon labels, or neither");      
 
-  /* We use the SDI algorithm [ZmasekEddy01] to construct M(g),
-   * by postorder traversal of T1
+  /* Finally, we use the SDI algorithm [ZmasekEddy01] to construct
+   * M(g) for internal nodes, by postorder traversal of T1.
    */
   for (g = T1->N-2; g >= 0; g--)
     {
       child = T1->left[g];
-      if (child <= 0)  a = T2->taxaparent[-child]; 
+      if (child <= 0)  a = T2->taxaparent[Mgt[-child]]; 
       else             a = T2->parent[Mg[child]];
 
       child = T1->right[g];
-      if (child <= 0)  b = T2->taxaparent[-child]; 
+      if (child <= 0)  b = T2->taxaparent[Mgt[-child]]; 
       else             b = T2->parent[Mg[child]];
 
-      if (a != b) { free(Mg); return eslFAIL; } /* a shortcut in SDI: special case for exact tree comparison */
+      /* a shortcut in SDI: special case for exact tree comparison: */
+      if (a != b) { free(Mg); free(Mgt); return eslFAIL; } 
       Mg[g] = a;
     }
 
   free(Mg);
+  free(Mgt);
   return eslOK;
 
  ERROR:
-  if (Mg != NULL) free(Mg);
+  if (Mg  != NULL) free(Mg);
+  if (Mgt != NULL) free(Mgt);
   return status;
 }
 
@@ -1883,22 +1988,18 @@ utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
 
   if (esl_tmpfile(tmpfile, &fp)            != eslOK) esl_fatal(msg);
   if (esl_tree_Simulate(r, ntaxa, &T1)     != eslOK) esl_fatal(msg);
+  if (esl_tree_SetTaxonlabels(T1, NULL)    != eslOK) esl_fatal(msg);
   if (esl_tree_Validate(T1)                != eslOK) esl_fatal(msg);
   if (esl_tree_WriteNewick(fp, T1)         != eslOK) esl_fatal(msg);
   rewind(fp);
   if (esl_tree_ReadNewick(fp, errbuf, &T2) != eslOK) esl_fatal(msg);
   if (esl_tree_Validate(T2)                != eslOK) esl_fatal(msg);
-
-  esl_tree_WriteNewick(stdout, T1);
-  esl_tree_WriteNewick(stdout, T2);
-
   if (esl_tree_Compare(T1, T2)             != eslOK) esl_fatal(msg);
   fclose(fp);
 
   esl_tree_Destroy(T1);
   esl_tree_Destroy(T2);
   return;
-
 }
 
 
@@ -1955,11 +2056,9 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r = NULL;
   int ntaxa;
 
-  r     = esl_randomness_Create(41);
+  r     = esl_randomness_CreateTimeseeded();
   ntaxa = 20;
   
-  utest_WriteNewick(r, 5);
-
   utest_OptionalInformation(r, ntaxa); /* SetTaxaparents(), SetCladesizes() */
   utest_WriteNewick(r, ntaxa);
   utest_UPGMA(r, ntaxa);

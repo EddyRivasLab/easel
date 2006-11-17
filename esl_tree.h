@@ -82,6 +82,7 @@ extern ESL_TREE *esl_tree_CreateFromString(char *s);
 extern int       esl_tree_Grow(ESL_TREE *T);
 extern int       esl_tree_SetTaxaParents(ESL_TREE *T);
 extern int       esl_tree_SetCladesizes(ESL_TREE *T);
+extern int       esl_tree_SetTaxonlabels(ESL_TREE *T, char **names);
 extern int       esl_tree_RenumberNodes(ESL_TREE *T);
 extern int       esl_tree_VerifyUltrametric(ESL_TREE *T);
 extern int       esl_tree_Validate(ESL_TREE *T);

@@ -1,8 +1,6 @@
 The \eslmod{alphabet} module contains routines for digitizing
 alphabetic biosequences.
 
-
-
 It is convenient to represent nucleotides and amino acids as array
 indices 0..3 or 0..19, respectively, for efficiency as well as other
 reasons. It is also convenient to index biosequences in 1..L
@@ -25,7 +23,7 @@ mechanisms for dealing with several other biosequence coding issues:
 
   \item Standard and nonstandard symbols for unusual residues, such as
         selenocysteine (\ccode{U}) and pyrrolysine (\ccode{O}) in
-        proteins ;
+        proteins;
 
   \item \emph{Ad hoc} symbols representing modified residues, such as
         the slew of one-letter codes used to annotate
@@ -36,9 +34,9 @@ mechanisms for dealing with several other biosequence coding issues:
         both \ccode{a} and \ccode{A} to mean alanine in amino acid
         sequences;
 
-  \item Tolerating common malpractices, like the use of \ccode{X}
-       instead of \ccode{N} as a degeneracy code in nucleic acid
-       sequence;
+  \item Tolerating common malpractices in the field, like the use of
+       \ccode{X} instead of \ccode{N} as a degeneracy code in nucleic
+       acid sequence;
 
   \item The semantic difference between a gap symbol and a missing
         data symbol in sequence alignments.

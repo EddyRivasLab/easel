@@ -1,11 +1,11 @@
-/* esl_msacluster.c
- * Sequence clustering algorithms
+/* Sequence clustering algorithms
  * 
  * SVN $Id$
  * SRE, Sun Nov  5 10:06:53 2006 [Janelia]
  */
 
 #include <esl_config.h>
+
 #include <easel.h>
 #include <esl_alphabet.h>
 #include <esl_msa.h>
