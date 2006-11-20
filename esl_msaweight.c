@@ -607,10 +607,13 @@ main(int argc, char **argv)
 /* Verify same results as SQUID.
  * To compile:
        gcc -g -Wall -o regression -I. -L. -L ~/src/squid -I ~/src/squid -DeslMSAWEIGHT_REGRESSION\
-          esl_msaweight.c -leasel -lsquid -lm
+          esl_msaweight.c esl_msacluster.c -leasel -lsquid -lm
  * To run: 
  *     ./regression <MSA file>
  *     
+ * It's essential to recompiling esl_msacluster under the eslMSAWEIGHT_REGRESSION flag
+ * too, because some squid compatibility code needs to get compiled in.
+ *
  * Script for regression testing on Pfam:
  *     ./regression -q  --maxN 4000 /misc/data0/databases/Pfam/Pfam-A.full
  *     ./regression --blosum -q  /misc/data0/databases/Pfam/Pfam-A.full

@@ -12,6 +12,13 @@
 #include <esl_vectorops.h>
 #include <esl_distance.h>
 
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+#include <ctype.h>
+static double squid_distance(char *s1, char *s2);
+static double squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2);
+#endif
+
+
 /* Function:  esl_msacluster_SingleLinkage()
  * Synopsis:  Single linkage clustering by percent identity.
  * Incept:    SRE, Sun Nov  5 10:11:45 2006 [Janelia]
@@ -131,12 +138,18 @@ esl_msacluster_SingleLinkage(ESL_MSA *msa, double maxid, int **ret_c, int *ret_n
 	  c[v] = nc;		/* assign it to component nc */
 	  for (i = na-1; i >= 0; i--)/* backwards, becase of deletion/swapping we do*/
 	    {
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+	      if (msa->flags & eslMSA_DIGITAL)
+   	        pid = 1. - squid_xdistance(msa->abc, msa->ax[v], msa->ax[a[i]]);
+	      else
+		pid = 1. - squid_distance(msa->aseq[v], msa->aseq[a[i]]);
+#else
 	      if (msa->flags & eslMSA_DIGITAL)
 		status = esl_dst_XPairId(msa->abc, msa->ax[v], msa->ax[a[i]], &pid, NULL, NULL);
 	      else
 		status = esl_dst_CPairId(msa->aseq[v], msa->aseq[a[i]], &pid, NULL, NULL);
 	      if (status != eslOK) goto ERROR;
-		
+#endif
 	      if (pid >= maxid) /* linked? */
 		{			
 		  w = a[i]; a[i] = a[na-1]; na--; /* delete w from a (note swap) */
@@ -164,6 +177,42 @@ esl_msacluster_SingleLinkage(ESL_MSA *msa, double maxid, int **ret_c, int *ret_n
   return status;
 }
 
+
+/* 
+ * When regression testing against squid, we have to replace
+ * Easel's distance calculations with a simpler, (even) less robust 
+ * calculation that squid did.
+ */
+#if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
+static double 
+squid_distance(char *s1, char *s2)
+{
+  int diff  = 0;
+  int valid = 0;
+
+  for (; *s1 != '\0'; s1++, s2++)
+    {
+      if (!isalpha(*s1) || !isalpha(*s2)) continue;
+      if (*s1 != *s2) diff++;
+      valid++;
+    }
+  return (valid > 0 ? ((double) diff / (double) valid) : 0.0);
+}
+static double
+squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2)
+{
+  int diff  = 0;
+  int valid = 0;
+
+  for (; *x1 != eslDSQ_SENTINEL; x1++, x2++)
+    {
+      if (esl_abc_XIsGap(a, *x1) || esl_abc_XIsGap(a, *x2)) continue;
+      if (*x1 != *x2) diff++;
+      valid++;
+    }
+  return (valid > 0 ? ((double) diff / (double) valid) : 0.0);
+}
+#endif /* eslMSACLUSTER_REGRESSION || eslMSAWEIGHT_REGRESSION */
 
 /*****************************************************************
  * @LICENSE@
