@@ -120,7 +120,7 @@ bracket(double *ori, double *d, int n, double firststep,
   double fa,fb,fc;		/* f() evaluations at those points */
   double swapper;
   int    niter;
-
+  int i1;
   
   /* Set and evaluate our first two points f(a) and f(b), which
    * are initially at 0.0 and <firststep>.
@@ -179,6 +179,7 @@ bracket(double *ori, double *d, int n, double firststep,
       esl_vec_DCopy(wrk, ori, n);
       esl_vec_DAddScaled(wrk, d, cx, n);
       fc = (*func)(wrk, n, prm);
+
       niter++;
       if (niter > 100) 
 	ESL_EXCEPTION(eslECONVERGENCE, "Failed to bracket a minimum.");
@@ -445,12 +446,12 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       /* Figure out the initial step size.
        */
        bx = fabs(u[0] / cg[0]);
-       for (i = 1; i < n; i++)
+       for (i1 = 1; i1 < n; i1++)
 	 {
-	   cx = fabs(u[i] / cg[i]);
+	   cx = fabs(u[i1] / cg[i1]);
 	   if (cx < bx) bx = cx;
 	 }
-
+ 
        /* Bracket the minimum.
 	*/
        bracket(x, cg, n, bx, func, prm, w1,
@@ -502,21 +503,21 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 #if eslDEBUGLEVEL >= 2
       printf("\nesl_min_ConjugateGradientDescent():\n");
       printf("new point:     ");
-      for (i = 0; i < n; i++)
-	printf("%g ", x[i]);
+      for (i1 = 0; i1 < n; i1++)
+	printf("%g ", x[i1]);
 
       printf("\nnew gradient:    ");
-      for (i = 0; i < n; i++)
-	printf("%g ", dx[i]);
+      for (i1 = 0; i1 < n; i1++)
+	printf("%g ", dx[i1]);
 
       numeric_derivative(x, u, n, func, prm, 1e-4, w1);
       printf("\n(numeric grad):  ");
-      for (i = 0; i < n; i++)
-	printf("%g ", w1[i]);
+      for (i1 = 0; i1 < n; i1++)
+	printf("%g ", w1[i1]);
 
       printf("\nnew direction: ");
-      for (i = 0; i < n; i++)
-	printf("%g ", cg[i]);
+      for (i1 = 0; i1 < n; i1++)
+	printf("%g ", cg[i1]);
 
       printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, fx, cvg);
 #endif
@@ -526,9 +527,9 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       /* Second (failsafe) convergence test: a zero direction can happen, 
        * and it either means we're stuck or we're finished (most likely stuck)
        */
-      for (i = 0; i < n; i++) 
-	if (cg[i] != 0.) break;
-      if  (i == n) break;
+      for (i1 = 0; i1 < n; i1++) 
+	if (cg[i1] != 0.) break;
+      if  (i1 == n) break;
 
       oldfx = fx;
     }
