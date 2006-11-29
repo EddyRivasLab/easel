@@ -120,7 +120,6 @@ bracket(double *ori, double *d, int n, double firststep,
   double fa,fb,fc;		/* f() evaluations at those points */
   double swapper;
   int    niter;
-  int i1;
   
   /* Set and evaluate our first two points f(a) and f(b), which
    * are initially at 0.0 and <firststep>.
