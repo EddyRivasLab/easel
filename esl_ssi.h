@@ -12,6 +12,7 @@
 
 /* Conditional inclusion of non-ANSI C headers that make life easier.
  */
+#include <sys/types.h>
 #ifdef HAVE_STDINT_H	
 #include <stdint.h>
 #endif
