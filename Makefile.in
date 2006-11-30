@@ -95,6 +95,14 @@ clean:
 	-rm -f config.log config.status
 	-rm -f example test testdrive stats
 
+# The "implode" target is used when we've got Easel as a subdirectory
+# of a larger project, like Infernal or HMMER, and we're building a
+# distribution for that larger project. We remove any "personal
+# information" from Easel. Eventually that'd include our bug tracking,
+# for instance, but right now there's nothing to do.
+implode:
+	-echo Nothing needs to implode in Easel yet.
+
 distclean:
 	(cd documentation; make distclean)
 	(cd testsuite;     make distclean)
