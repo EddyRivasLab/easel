@@ -72,6 +72,10 @@ extern void   esl_vec_DSortDecreasing(double *vec, int n);
 extern void   esl_vec_FSortDecreasing(float  *vec, int n);
 extern void   esl_vec_ISortDecreasing(int    *vec, int n);
 
+extern int    esl_vec_DDump(FILE *ofp, double *v, int n, char *label);
+extern int    esl_vec_FDump(FILE *ofp, float *v,  int n, char *label);
+extern int    esl_vec_IDump(FILE *ofp, int *v,    int n, char *label);
+
 extern void   esl_vec_DNorm(double *vec, int n);
 extern void   esl_vec_FNorm(float *vec, int n);
 
@@ -90,5 +94,10 @@ extern float  esl_vec_FLogSum(float *vec, int n);
 extern void   esl_vec_DLogNorm(double *vec, int n);
 extern void   esl_vec_FLogNorm(float *vec, int n);
 
+extern int    esl_vec_DValidate(double *vec, int n, double tol);
+extern int    esl_vec_FValidate(float  *vec, int n, float  tol);
+
+extern int    esl_vec_DLogValidate(double *vec, int n, double tol);
+extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol);
 
 #endif /* ESL_VECTOROPS_INCLUDED */

@@ -161,7 +161,7 @@ bracket(double *ori, double *d, int n, double firststep,
   esl_vec_DCopy(wrk, ori, n);
   esl_vec_DAddScaled(wrk, d, cx, n);
   fc = (*func)(wrk, n, prm);
-
+  
   /* We're not satisfied until fb < fa, fc; 
    * throughout the routine, we guarantee that fb < fa;
    * so we just check fc.
@@ -178,6 +178,12 @@ bracket(double *ori, double *d, int n, double firststep,
       esl_vec_DCopy(wrk, ori, n);
       esl_vec_DAddScaled(wrk, d, cx, n);
       fc = (*func)(wrk, n, prm);
+
+      /* This is a rare instance. We've reach the minimum
+       * by trying to bracket it. Also check that not all
+       * three points are the same.
+       */
+      if (ax != bx && bx != cx && fa == fb && fb == fc) break;
 
       niter++;
       if (niter > 100) 
@@ -431,6 +437,13 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
   w2 = wrk + 3*n;
 
   oldfx = (*func)(x, n, prm);	/* init the objective function */
+  
+  /* Bail out if the function is +/-inf: this can happen if the caller
+   * has screwed something up, or has chosen a bad start point.
+   */
+  if (oldfx == eslINFINITY || oldfx == -eslINFINITY)
+    ESL_EXCEPTION(eslERANGE, "minimum not finite");
+
   if (dfunc != NULL) 
     {
       (*dfunc)(x, n, prm, dx);	/* find the current negative gradient, - df(x)/dxi  */
@@ -440,6 +453,16 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 
   esl_vec_DCopy(cg, dx, n);	/* and make that the first conjugate direction, cg  */
 
+  /* (failsafe) convergence test: a zero direction can happen, 
+   * and it either means we're stuck or we're finished (most likely stuck)
+   */
+  for (i1 = 0; i1 < n; i1++) 
+    if (cg[i1] != 0.) break;
+  if  (i1 == n) {
+    if (ret_fx != NULL) *ret_fx = oldfx;
+    return eslOK;
+  }
+  
   for (i = 0; i < MAXITERATIONS; i++)
     {
       /* Figure out the initial step size.
@@ -456,10 +479,10 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        bracket(x, cg, n, bx, func, prm, w1,
 	      &ax, &bx, &cx, 
 	      &fa, &fb, &fc);
-
-      /* Minimize along the line given by the conjugate gradient <cg> */
-      brent(x, cg, n, func, prm, ax,cx, 1e-3, 1e-8, w2, NULL, &fx);
-      esl_vec_DCopy(x, w2, n);
+       
+       /* Minimize along the line given by the conjugate gradient <cg> */
+       brent(x, cg, n, func, prm, ax, cx, 1e-3, 1e-8, w2, NULL, &fx);
+       esl_vec_DCopy(x, w2, n);
 
       /* Bail out if the function is now +/-inf: this can happen if the caller
        * has screwed something up.
@@ -521,7 +544,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, fx, cvg);
 #endif
 
-      if (cvg <= tol) break;
+     if (cvg <= tol) break;
 
       /* Second (failsafe) convergence test: a zero direction can happen, 
        * and it either means we're stuck or we're finished (most likely stuck)

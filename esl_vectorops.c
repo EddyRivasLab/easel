@@ -19,6 +19,7 @@
  * esl_vec_{D,F,I}ArgMin()      - return index of minimum element in vector
  * esl_vec_{D,F,I}SortIncreasing() - sort from smallest to largest
  * esl_vec_{D,F,I}SortDecreasing() - sort from largest to smallest
+ * esl_vec_{D,F,I}Dump()        - dump vector to an output stream
  *
  * esl_vec_D2F()                - copy double vector to float vector
  * esl_vec_F2D()                - copy float vector to double vector
@@ -32,6 +33,9 @@
  * esl_vec_{D,F}Exp()           - convert log p's back to probabilities
  * esl_vec_{D,F}LogSum()        - given vector of log p's; return log of summed p's.
  * esl_vec_{D,F}LogNorm()       - given vec of unnormalized log p's; normalize, make it a p vector
+ *                        
+ * esl_vec_{D,F}Validate()      - validate a probability vector
+ * esl_vec_{D,F}LogValidate()   - validate a log probability vector
  *                        
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
@@ -643,6 +647,77 @@ esl_vec_ISortDecreasing(int *vec, int n)
 }
 
 
+/* Function:  esl_vec_DDump()
+ * Incept:    ER, Thu Jul 21 12:54:56 CDT 2005 [St. Louis]
+ *
+ * Purpose:   Given a vector, dump it to stream <ofp>.
+ * 
+ *            If <label> is non-NULL, they represent
+ *            single-character labels to put on the vector. 
+ *            (For example, these might be a sequence alphabet).
+ *            Numbers 1..n is used if <label> is NULL.
+ *
+ * Args:      ofp   -  output file pointer; stdout, for example.
+ *            v     -  vector to dump.
+ *            label -  optional: NULL, or character labels
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_vec_DDump(FILE *ofp, double *v, int n, char *label)
+{
+  int a;
+
+  fprintf(ofp, "     ");
+  if (label != NULL) 
+    for (a = 0; a < n; a++) fprintf(ofp, "       %c ", label[a]);
+  else
+    for (a = 0; a < n; a++) fprintf(ofp, "%8d ", a+1);
+  fprintf(ofp, "\n");
+  
+  fprintf(ofp, "      ");
+  for (a = 0; a < n; a++) fprintf(ofp, "%8.8f ", v[a]);
+  fprintf(ofp, "\n");
+
+  return eslOK;
+}
+int
+esl_vec_FDump(FILE *ofp, float *v, int n, char *label)
+{
+  int a;
+
+  fprintf(ofp, "     ");
+  if (label != NULL) 
+    for (a = 0; a < n; a++) fprintf(ofp, "       %c ", label[a]);
+  else
+    for (a = 0; a < n; a++) fprintf(ofp, "%8d ", a+1);
+  fprintf(ofp, "\n");
+  
+  fprintf(ofp, "      ");
+  for (a = 0; a < n; a++) fprintf(ofp, "%8.4f ", v[a]);
+  fprintf(ofp, "\n");
+
+  return eslOK;
+}
+int
+esl_vec_IDump(FILE *ofp, int *v, int n, char *label)
+{
+  int a;
+
+  fprintf(ofp, "     ");
+  if (label != NULL) 
+    for (a = 0; a < n; a++) fprintf(ofp, "       %c ", label[a]);
+  else
+    for (a = 0; a < n; a++) fprintf(ofp, "%8d ", a+1);
+  fprintf(ofp, "\n");
+  
+  fprintf(ofp, "      ");
+  for (a = 0; a < n; a++) fprintf(ofp, "%8d ", v[a]);
+  fprintf(ofp, "\n");
+
+  return eslOK;
+}
+
 /* Function:  esl_vec_D2F()
  * Incept:    SRE, Thu Mar 30 09:04:17 2006 [St. Louis]
  *
@@ -752,7 +827,7 @@ esl_vec_DEntropy(double *p, int n)
 {
   int    i;
   double entropy;
-
+ 
   entropy = 0.;
   for(i = 0; i < n; i++)
     if (p[i] > 0.) entropy += p[i] * log(p[i]);
@@ -870,6 +945,100 @@ esl_vec_FLogNorm(float *vec, int n)
   denom = esl_vec_FLogSum(vec, n);
   esl_vec_FIncrement(vec, n, -1.*denom);
   esl_vec_FExp(vec, n);
+}
+
+/* Function:  esl_vec_DValidate()
+ * Incept:    ER, Tue Dec  5 09:38:54 EST 2006 [janelia]
+ *
+ * Purpose:   Validate a probability vector <vec> of length <n>.
+ *            Each element has to be between 0 and 1, and
+ *            the sum of all elements has to be 1.
+ *
+ * Args:      v   - p vector to validate.
+ *            n   - dimensionality of v
+ *            tol - convergence criterion applied to sum of v
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_vec_DValidate(double *vec, int n, double tol)
+{
+  int    x;
+  double sum = 0.;
+
+  if (n == 0) return eslOK;
+
+  for (x = 0; x < n; x++) {
+    if (vec[x] < 0.0 || vec[x] > 1.0) return eslFAIL;
+    sum += vec[x];
+  }
+
+  if (fabs(sum - 1.0) > tol) return eslFAIL;
+
+  return eslOK;
+}
+int
+esl_vec_FValidate(float *vec, int n, float tol)
+{
+  int   x;
+  float sum = 0.;
+
+  if (n == 0) return eslOK;
+
+  for (x = 0; x < n; x++) {
+    if (vec[x] < 0.0 || vec[x] > 1.0) return eslFAIL;
+    sum += vec[x];
+  }
+
+  if (fabs(sum - 1.0) > tol) return eslFAIL;
+
+  return eslOK;
+}
+
+/* Function:  esl_vec__DLogValidate()
+ * Incept:    ER,  Tue Dec  5 09:46:51 EST 2006 [janelia]
+ *
+ * Purpose:   Validate a log probability vector <vec> of length <n>.
+ *            The exp of each element has to be between 0 and 1, and
+ *            the sum of all elements has to be 1.
+ *
+ * Args:      v   - log p vector to validate.
+ *            n   - dimensionality of v
+ *            tol - convergence criterion applied to sum of exp v
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_vec_DLogValidate(double *vec, int n, double tol)
+{
+  double *expvec;
+
+  if (n == 0) return eslOK;
+
+  expvec = malloc(sizeof(double)*n);
+  esl_vec_DCopy(expvec, vec, n);
+  esl_vec_DExp(expvec, n); 
+  if (esl_vec_DValidate(expvec, n, tol) != eslOK) return eslFAIL;
+
+  free(expvec);
+
+  return eslOK;
+}
+int
+esl_vec_FLogValidate(float *vec, int n, float tol)
+{
+  float  *expvec;
+
+  if (n == 0) return eslOK;
+
+  expvec = malloc(sizeof(float)*n);
+  esl_vec_FCopy(expvec, vec, n);
+  esl_vec_FExp(expvec, n); 
+  if (esl_vec_FValidate(expvec, n, tol) != eslOK) return eslFAIL;
+
+  free(expvec);
+
+  return eslOK;
 }
 
 /*****************************************************************  
