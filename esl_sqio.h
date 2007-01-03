@@ -7,7 +7,9 @@
 #define ESL_SQIO_INCLUDED
 
 #include <stdio.h>
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 #ifdef eslAUGMENT_MSA
 #include <esl_msa.h>
 #endif

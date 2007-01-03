@@ -448,6 +448,25 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
  * 3. Retrieving option settings and command line args
  *****************************************************************/ 
 
+/* Function:  esl_opt_IsSet()
+ * Incept:    SRE, Wed Jan  3 11:19:25 2007 [Janelia]
+ *
+ * Purpose:   Returns <TRUE> if option <optname> was set to a non-default
+ *            value on the command line, in the environment, or in 
+ *            a configuration file. Returns <FALSE> if the option remains
+ *            at its default value, or if the option doesn't exist.
+ */
+int
+esl_opt_IsSet(ESL_GETOPTS *g, char *optname)
+{
+  int opti;
+
+  if (get_optidx_exactly(g, optname, &opti) == eslOK &&
+      g->setby[opti] != eslARG_SETBY_DEFAULT) 
+    return TRUE;
+  return FALSE;
+}    
+
 /* Function:  esl_opt_GetBooleanOption()
  * Incept:    SRE, Wed Jan 12 13:46:09 2005 [St. Louis]
  *
@@ -1659,7 +1678,6 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS *go;
-  int          show_help;
   int          opt_a, opt_b, opt_n;	
   float        opt_x;		
   char        *opt_file;
@@ -1669,8 +1687,7 @@ main(int argc, char **argv)
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  if (esl_opt_IsSet(go, "-h"))
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */

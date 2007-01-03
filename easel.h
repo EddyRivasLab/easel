@@ -123,6 +123,7 @@
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslECONVERGENCE   18    /* a failure to converge        */      
 #define eslECONTRACT      19    /* an API contract violation    */
+#define eslENORESULT      20    /* no result was obtained       */
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure
@@ -209,12 +210,15 @@ extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
 #define FALSE 0
 #endif
 
-/* Some basic constants.
+/* Some basic constants. 
+ * Assuming IEEE754 math with 64-bit doubles (53-bit mantissas), we 
+ * want 17 significant decimal digits in our constants. More is
+ * a waste (but we do it anyway).
  */
 #define eslCONST_E     2.71828182845904523536028747135
 #define eslCONST_PI    3.14159265358979323846264338328
 #define eslCONST_EULER 0.57721566490153286060651209008
-#define eslCONST_GOLD  1.61803399
+#define eslCONST_GOLD  1.618033988749894
 
 /* Define <eslINFINITY> portably. Harder than it looks. 
  * We assume we're in an IEEE 754 environment.

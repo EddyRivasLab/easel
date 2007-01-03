@@ -158,7 +158,13 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   if (seq  == NULL) ESL_XEXCEPTION(eslEINVAL, "must provide seq");
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
-  sq->name = sq->acc = sq->desc = sq->seq = sq->ss = sq->dsq = sq->optmem = NULL;
+  sq->name   = NULL;
+  sq->acc    = NULL;
+  sq->desc   = NULL;
+  sq->seq    = NULL;
+  sq->ss     = NULL;
+  sq->dsq    = NULL;
+  sq->optmem = NULL;
   
   n = strlen(name)+1;
   ESL_ALLOC(sq->name, sizeof(char) * n);

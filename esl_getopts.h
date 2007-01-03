@@ -91,6 +91,7 @@ extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
 extern int esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv);
 extern int esl_opt_VerifyConfig(ESL_GETOPTS *g);
 
+extern int   esl_opt_IsSet(ESL_GETOPTS *g, char *optname);
 extern int   esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state);
 extern int   esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n);
 extern int   esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x);

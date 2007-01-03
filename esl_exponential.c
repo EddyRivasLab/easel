@@ -1,5 +1,4 @@
-/* esl_exponential.c
- * Statistical routines for exponential distributions.
+/* Statistical routines for exponential distributions.
  * 
  * SRE, Wed Aug 10 08:15:57 2005 [St. Louis]
  * xref STL9/138  

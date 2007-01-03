@@ -196,6 +196,23 @@ entire alignment file, even the bits that it didn't understand. If you
 need to access unparsed Stockholm tags, see the comments in
 \ccode{esl\_msa.h}.
 
+\subsubsection{Off-by-one issues in indexing alignment columns}
+
+With one exception, all arrays over alignment columns are normal C
+string arrays, indexed \ccode{0..alen-1}. This includes optional
+information such as \ccode{msa->rf[]} (the reference annotation line)
+and \ccode{msa->cs[]} (the consensus structure annotation line).
+
+The exception is a digitized sequence alignment, \ccode{msa->ax[][]}
+(see below), where columns are indexed 1..alen and sentinel bytes at
+positions 0 and alen+1, following Easel's convention for digitized
+sequences.
+
+Thus, when your code is manipulating a digitized alignment and using
+optional information like the reference annotation line or the
+consensus structure line, you must be careful of the off-by-one
+difference in how the two types of data are indexed.
+
 \subsection{Accepted formats}
 
 Currently, the MSA module only parses Stockholm format. 

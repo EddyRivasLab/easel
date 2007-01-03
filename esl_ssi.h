@@ -10,9 +10,11 @@
 #ifndef ESL_SSI_INCLUDED
 #define ESL_SSI_INCLUDED
 
-/* Conditional inclusion of non-ANSI C headers that make life easier.
+/* Conditional inclusion of non-ANSI C headers that make life easier
  */
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 #ifdef HAVE_STDINT_H	
 #include <stdint.h>
 #endif

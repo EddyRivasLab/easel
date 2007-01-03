@@ -211,6 +211,7 @@ CHECK_GNU_MAKE
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H
+AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_HEADERS([stdint.h])
 AC_CHECK_HEADERS([inttypes.h])
