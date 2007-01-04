@@ -1264,7 +1264,7 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 #ifdef HAVE_POPEN /* gzip functionality */
   if (afp->do_gzip && afp->f != NULL)    pclose(afp->f);
 #endif
-  if (! afp->do_stdin && afp->f != NULL) fclose(afp->f);
+  if (!afp->do_gzip && ! afp->do_stdin && afp->f != NULL) fclose(afp->f);
   if (afp->fname != NULL) free(afp->fname);
   if (afp->buf  != NULL)  free(afp->buf);
 #ifdef eslAUGMENT_SSI
