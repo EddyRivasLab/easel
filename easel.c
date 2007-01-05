@@ -1081,7 +1081,7 @@ utest_tmpfile_named(void)
 /* gcc -g -Wall -o test -I. -L. -DeslEASEL_TESTDRIVE easel.c -leasel -lm
  * ./test
  */
-#include <easel.h>
+#include "easel.h"
 
 int main(void)
 {
@@ -1094,6 +1094,51 @@ int main(void)
   return eslOK;
 }
 #endif /*eslEASEL_TESTDRIVE*/
+
+/*****************************************************************
+ * 9. Examples.
+ *****************************************************************/
+
+#ifdef eslEASEL_EXAMPLE_TMPFILES
+/*::cexcerpt::easel_example_tmpfiles::begin::*/
+/* gcc -g -Wall -o example -I. -L. -DeslEASEL_EXAMPLE_TMPFILES easel.c -leasel -lm
+ * ./example
+ */
+#include "easel.h"
+
+int main(void)
+{
+  char  tmpfile1[32]  = "eslXXXXXX"; /* a transient, secure tmpfile: 6 X's are important */
+  char  tmpfile2[32]  = "eslXXXXXX"; /* a named tmpfile                                  */
+  FILE *fp            = NULL;
+  char  buf[256];
+
+  /* Example of using a secure, unnamed tmpfile. 
+   * Note, the new tmpfile is automatically deleted, so to cleanup, just fclose() the FILE */
+  esl_tmpfile(tmpfile1, &fp);
+  fprintf(fp, "Hello world!\n");
+  rewind(fp);
+  fgets(buf, 256, fp);
+  printf("first temp file says: %s\n", buf);
+  fclose(fp);
+
+  /* Example of reasonably securely using a named tmpfile. 
+   * To cleanup, must both fclose() the FILE and remove() the file by name */
+  esl_tmpfile_named(tmpfile2, &fp);
+  fprintf(fp, "Hello insecure world!\n");
+  fclose(fp);		/* tmpfile2 now exists on disk and can be closed/reopened */
+
+  fp = fopen(tmpfile2, "r");
+  fgets(buf, 256, fp);
+  printf("second temp file says: %s\n", buf);
+  fclose(fp);
+  remove(tmpfile2);	/* disk file cleanup necessary with this version. */
+
+  return eslOK;
+}
+/*::cexcerpt::easel_example_tmpfiles::end::*/
+#endif /*eslEASEL_EXAMPLE_TMPFILES*/
+
 
 /*****************************************************************
  * @LICENSE@

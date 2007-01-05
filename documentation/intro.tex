@@ -597,6 +597,29 @@ passed.
 
 % examples: esl_dmatrix_Compare(), static msa_compare(),
 %   esl_tree_Compare(), esl_vec_{DFI}Compare().
+\end{sreapi}
+
+
+
+\subsection{Debugging, testing, development interfaces}
+
+\begin{sreapi}
+\hypertarget{ifc:Dump}
+{\item[\ccode{\_Dump*(FILE *fp, obj...)}]}
+
+Prints the internals of an object in human-readable, easily parsable
+tabular ASCII form. Useful during debugging and development to view
+the entire object at a glance. Returns \ccode{eslOK} on success.
+
+\hypertarget{ifc:Validate}
+{\item[\ccode{\_Validate*(obj...)}]}
+
+Checks that the internals of \ccode{obj} are all right. Returns
+\ccode{eslOK} if they are, and throws \ccode{eslFAIL} if they
+aren't. Like an \ccode{assert()} call, a \ccode{\_Validate()} call is
+mainly intended for debugging and catching serious coding errors in
+development code; whether to include such calls in production code is
+a judgement call.
 
 \end{sreapi}
 

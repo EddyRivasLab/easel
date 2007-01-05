@@ -6,6 +6,8 @@
 #ifndef ESL_ALPHABET_INCLUDED
 #define ESL_ALPHABET_INCLUDED
 
+#include "easel.h"
+
 /* Flags for alphabet types.
  */
 #define eslUNKNOWN     0 /* 0=unknown is easel-wide convention; don't change */

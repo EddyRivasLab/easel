@@ -3386,7 +3386,6 @@ main(int argc, char **argv)
   fclose(fp);
 
   /* Read it back in for use in tests.
-   * text and once as digital.
    */
   if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal("Failed to open MSA tmp file");
   if (esl_msa_Read(mfp, &msa)                                     != eslOK) esl_fatal("Failed to read MSA tmp file");
