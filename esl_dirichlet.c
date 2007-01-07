@@ -229,7 +229,7 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
  ***************************************************************** 
  */
 #ifdef eslAUGMENT_RANDOM
-/* Function:  esl_dirichlet_Sample()
+/* Function:  esl_dirichlet_DSample()
  * Incept:    SRE, Tue Nov  2 14:30:31 2004 [St. Louis]
  *
  * Purpose:   Given a Dirichlet density parameterized by $\alpha[0..K-1]$,
@@ -245,7 +245,7 @@ esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, double *ret_answer)
  * Returns:   <eslOK>, and <p> will contain the sampled vector.
  */
 int
-esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
+esl_dirichlet_DSample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
 {
   int x;
 
@@ -255,7 +255,24 @@ esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
   return eslOK;
 }
 
-/* Function:  esl_dirichlet_SampleUniform()
+/* Function:  esl_dirichlet_FSample()
+ * Incept:    SRE, Sat Jan  6 17:09:05 2007 [Casa de Gatos]
+ *
+ * Purpose:   Same as <esl_dirichlet_DSample()>, except it
+ *            works in single-precision floats, not doubles.
+ */
+int
+esl_dirichlet_FSample(ESL_RANDOMNESS *r, float *alpha, int K, float *p)
+{
+  int x;
+
+  for (x = 0; x < K; x++) 
+    p[x] = (float) esl_rnd_Gamma(r, (double) alpha[x]);
+  esl_vec_FNorm(p, K);
+  return eslOK;
+}
+
+/* Function:  esl_dirichlet_DSampleUniform()
  * Incept:    SRE, Thu Aug 11 10:12:49 2005 [St. Louis]
  *
  * Purpose:   Sample a probability vector $p[0..K-1]$ uniformly, by
@@ -270,12 +287,28 @@ esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p)
+esl_dirichlet_DSampleUniform(ESL_RANDOMNESS *r, int K, double *p)
 {
   int x;
   for (x = 0; x < K; x++) 
     p[x] = esl_rnd_Gamma(r, 1.0);
   esl_vec_DNorm(p, K);
+  return eslOK;
+}
+
+/* Function:  esl_dirichlet_FSampleUniform()
+ * Incept:    SRE, Sat Jan  6 17:10:54 2007 [Casa de Gatos]
+ *
+ * Purpose:   Same as <esl_dirichlet_DSampleUniform()>, except it
+ *            works in single-precision floats, not doubles.
+ */
+int
+esl_dirichlet_FSampleUniform(ESL_RANDOMNESS *r, int K, float *p)
+{
+  int x;
+  for (x = 0; x < K; x++) 
+    p[x] = (float) esl_rnd_Gamma(r, 1.0);
+  esl_vec_FNorm(p, K);
   return eslOK;
 }
 

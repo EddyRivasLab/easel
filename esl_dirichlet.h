@@ -39,9 +39,10 @@ extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K,
  */
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
-extern int esl_dirichlet_Sample(ESL_RANDOMNESS *r, double *alpha, int K, 
-				double *p);
-extern int esl_dirichlet_SampleUniform(ESL_RANDOMNESS *r, int K, double *p);
+extern int esl_dirichlet_DSample(ESL_RANDOMNESS *r, double *alpha, int K, double *p);
+extern int esl_dirichlet_FSample(ESL_RANDOMNESS *r, float  *alpha, int K, float  *p);
+extern int esl_dirichlet_DSampleUniform(ESL_RANDOMNESS *r, int K, double *p);
+extern int esl_dirichlet_FSampleUniform(ESL_RANDOMNESS *r, int K, float  *p);
 extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
 				    double theta2, double *ret_answer);
 #endif /*eslAUGMENT_RANDOM*/

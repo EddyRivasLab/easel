@@ -31,14 +31,21 @@ Table~\ref{tbl:vectorops_api} lists the functions in the
 \ccode{esl\_vec\_\{D,F,I\}ArgMin()}      & Return index of minimum element in vector.\\
 \ccode{esl\_vec\_\{D,F,I\}SortIncreasing()}& Sort vector from smallest to largest.\\
 \ccode{esl\_vec\_\{D,F,I\}SortDecreasing()}& Sort vector from largest to smallest.\\
+\ccode{esl\_vec\_\{D,F,I\}Dump()         & Output vector to a stream as text.\\
+    \multicolumn{2}{c}{\textbf{Type conversions}}\\
+\ccode{esl\_vec\_\{D,I\}2F()             & Convert to single precision floats. \\
+\ccode{esl\_vec\_\{F,I\}2D()             & Convert to double precision floats. \\
     \multicolumn{2}{c}{\textbf{Probability vectors}}\\
 \ccode{esl\_vec\_\{D,F\}Norm()}          & Normalize a probability vector of length n.\\
 \ccode{esl\_vec\_\{D,F\}Log()}           & Convert all items in vec to log probabilities. \\
 \ccode{esl\_vec\_\{D,F\}Entropy()}       & Return Shannon entropy of probability vector, in bits\\
+\ccode{esl\_vec\_\{D,F\}Validate()}      & Verify that vector sums to one.\\
     \multicolumn{2}{c}{\textbf{Log probability vectors}}\\
 \ccode{esl\_vec\_\{D,F\}Exp()}           & Convert log p's back to probabilities\\
 \ccode{esl\_vec\_\{D,F\}LogSum()}        & Given vector of log p's; return log of summed p's.\\
 \ccode{esl\_vec\_\{D,F\}LogNorm()}       & Normalize a log p vector, making it a prob vector. \\
+\ccode{esl\_vec\_\{D,F\}LogValidate()}   & Verifies that vector sums to one (in prob space). \\
+
 \end{tabular}
 \end{center}
 \caption{The \eslmod{vectorops} API.}

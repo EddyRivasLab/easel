@@ -76,6 +76,11 @@ extern int    esl_vec_DDump(FILE *ofp, double *v, int n, char *label);
 extern int    esl_vec_FDump(FILE *ofp, float *v,  int n, char *label);
 extern int    esl_vec_IDump(FILE *ofp, int *v,    int n, char *label);
 
+extern void   esl_vec_D2F(double *src, int n, float *dst);
+extern void   esl_vec_F2D(float *src, int n, double *dst);
+extern void   esl_vec_I2F(int *src, int n, float *dst);
+extern void   esl_vec_I2D(int *src, int n, double *dst);
+
 extern void   esl_vec_DNorm(double *vec, int n);
 extern void   esl_vec_FNorm(float *vec, int n);
 

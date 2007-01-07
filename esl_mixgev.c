@@ -605,7 +605,7 @@ esl_mixgev_FitGuess(ESL_RANDOMNESS *r, double *x, int n, ESL_MIXGEV *mg)
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
 
-  esl_dirichlet_SampleUniform(r, mg->K, mg->q);
+  esl_dirichlet_DSampleUniform(r, mg->K, mg->q);
   for (k = 0; k < mg->K; k++)
     {
       mg->mu[k]     = mu     + 0.2 * mu     * (esl_random(r) - 0.5);

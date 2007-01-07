@@ -797,7 +797,7 @@ unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   ESL_ALLOC(ct, sizeof(int)    * nbins);
 
   /* Sample a random multinomial probability vector.  */
-  esl_dirichlet_SampleUniform(r, nbins, pd);
+  esl_dirichlet_DSampleUniform(r, nbins, pd);
   esl_vec_D2F(pd, nbins, pf);
 
   /* Sample observed counts using DChoose(). */

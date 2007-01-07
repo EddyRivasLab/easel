@@ -502,9 +502,9 @@ utest_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect)
 /* gcc -g -Wall -o test -L. -I. -DeslMSAWEIGHT_TESTDRIVE esl_msaweight.c -leasel -lm
  * ./test
  */
-#include <easel.h>
-#include <esl_msa.h>
-#include <esl_msaweight.h>
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msaweight.h"
 
 int
 main(int argc, char **argv)
