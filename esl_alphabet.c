@@ -1214,7 +1214,7 @@ esl_abc_FCount(ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
   else
     for (y = 0; y < abc->K; y++) {
       if (abc->degen[x][y])
-	ct[x] += wt / (float) abc->ndegen[x];
+	ct[y] += wt / (float) abc->ndegen[x];
     }
   return eslOK;
 }
@@ -1230,7 +1230,7 @@ esl_abc_DCount(ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
   else
     for (y = 0; y < abc->K; y++) {
       if (abc->degen[x][y])
-	ct[x] += wt / (double) abc->ndegen[x];
+	ct[y] += wt / (double) abc->ndegen[x];
     }
   return eslOK;
 }
@@ -1314,10 +1314,12 @@ esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf)
  * 4. Unit tests.
  *****************************************************************/
 #ifdef eslALPHABET_TESTDRIVE
+#include "esl_vectorops.h"
 
-static int 
+static int
 utest_Create(void) 
 {
+  char msg[]  = "esl_alphabet_Create() unit test failed";
   int types[] = { eslDNA, eslRNA, eslAMINO };
   int Karr[]  = {      4,      4,       20 };
   int Kparr[] = {     17,     17,       28 };
@@ -1327,20 +1329,20 @@ utest_Create(void)
 
   for (i = 0; i < 3; i++)
     {
-      if ((a = esl_alphabet_Create(types[i])) == NULL) abort();
-      if (a->type != types[i])       abort();
-      if (a->K    != Karr[i])        abort();
-      if (a->Kp   != Kparr[i])       abort();
-      if (strlen(a->sym) != a->Kp)   abort();
+      if ((a = esl_alphabet_Create(types[i])) == NULL) esl_fatal(msg);
+      if (a->type != types[i])       esl_fatal(msg);
+      if (a->K    != Karr[i])        esl_fatal(msg);
+      if (a->Kp   != Kparr[i])       esl_fatal(msg);
+      if (strlen(a->sym) != a->Kp)   esl_fatal(msg);
 
       x = esl_abc_XGetGap(a);
-      if (a->ndegen[x] != 0)       abort();
+      if (a->ndegen[x] != 0)       esl_fatal(msg);
 
       x = esl_abc_XGetUnknown(a);
-      if (a->ndegen[x] != a->K)    abort();
+      if (a->ndegen[x] != a->K)    esl_fatal(msg);
   
       x = esl_abc_XGetMissing(a);
-      if (a->ndegen[x] != 0)       abort();
+      if (a->ndegen[x] != 0)       esl_fatal(msg);
 
       esl_alphabet_Destroy(a);
     }
@@ -1348,125 +1350,129 @@ utest_Create(void)
   /* Thrown errors
    */
 #ifdef eslTEST_THROWING
-  if (esl_alphabet_Create(-1)             != NULL) abort();
-  if (esl_alphabet_Create(eslUNKNOWN)     != NULL) abort();
-  if (esl_alphabet_Create(eslNONSTANDARD) != NULL) abort();
+  if (esl_alphabet_Create(-1)             != NULL) esl_fatal(msg);
+  if (esl_alphabet_Create(eslUNKNOWN)     != NULL) esl_fatal(msg);
+  if (esl_alphabet_Create(eslNONSTANDARD) != NULL) esl_fatal(msg);
 #endif
   
   return eslOK;
 }
 
-static int 
+static int
 utest_CreateCustom(void) 
 {
+  char msg[]  = "esl_alphabet_CreateCustom() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "AaU-~Z";
   ESL_DSQ      expect[] = { eslDSQ_SENTINEL, 0, 0, 15, 20, 25, 23, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
   
-  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZX~", 20, 26)) == NULL) abort();
-  if (esl_alphabet_SetEquiv(a, 'O', 'K')       != eslOK) abort();  /* read pyrrolysine O as lysine K */
-  if (esl_alphabet_SetEquiv(a, 'U', 'S')       != eslOK) abort();  /* read selenocys U as serine S */
-  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK) abort();  /* allow lower case input */
-  if (esl_alphabet_SetDegeneracy(a, 'Z', "QE") != eslOK) abort();
+  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZX~", 20, 26)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, 'O', 'K')       != eslOK) esl_fatal(msg);  /* read pyrrolysine O as lysine K */
+  if (esl_alphabet_SetEquiv(a, 'U', 'S')       != eslOK) esl_fatal(msg);  /* read selenocys U as serine S */
+  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK) esl_fatal(msg);  /* allow lower case input */
+  if (esl_alphabet_SetDegeneracy(a, 'Z', "QE") != eslOK) esl_fatal(msg);
   
-  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) abort();
+  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
 
   free(dsq);
   esl_alphabet_Destroy(a);
 
 #ifdef eslTEST_THROWING
-  if (esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN~", 4, 20) != NULL) abort(); /* Kp mismatches string length */
+  if (esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN~", 4, 20) != NULL) esl_fatal(msg); /* Kp mismatches string length */
 #endif
 
   return eslOK;
 }
 
-static int 
+static int
 utest_SetEquiv(void) 
 {
+  char msg[]  = "esl_alphabet_SetEquiv() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "a1&";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 4, 6, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-N~", 4, 7)) == NULL) abort();
-  if (esl_alphabet_SetEquiv(a, 'a', 'A') != eslOK)              abort();
-  if (esl_alphabet_SetEquiv(a, '1', '-') != eslOK)              abort();
-  if (esl_alphabet_SetEquiv(a, '&', '~') != eslOK)              abort();
+  if ((a = esl_alphabet_CreateCustom("ACGT-N~", 4, 7)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, 'a', 'A') != eslOK)              esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, '1', '-') != eslOK)              esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, '&', '~') != eslOK)              esl_fatal(msg);
   
 #ifdef eslTEST_THROWING
-  if (esl_alphabet_SetEquiv(a, 'G', 'C') != eslEINVAL)          abort(); /* sym is already in internal alphabet */
-  if (esl_alphabet_SetEquiv(a, '2', 'V') != eslEINVAL)          abort(); /* c is not in internal alphabet */
+  if (esl_alphabet_SetEquiv(a, 'G', 'C') != eslEINVAL)          esl_fatal(msg); /* sym is already in internal alphabet */
+  if (esl_alphabet_SetEquiv(a, '2', 'V') != eslEINVAL)          esl_fatal(msg); /* c is not in internal alphabet */
 #endif
 
-  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) abort();
+  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);
   return eslOK;
 }
 
-static int 
+static int
 utest_SetCaseInsensitive(void)
 {
+  char msg[]  = "esl_alphabet_SetCaseInsensitive() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "ACGT";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
 
-  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL) abort();
-  if (esl_alphabet_SetCaseInsensitive(a) != eslOK)              abort();
-  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) abort();
+  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetCaseInsensitive(a) != eslOK)              esl_fatal(msg);
+  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);
 
 #ifdef TEST_THROWING
-  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL)       abort();
-  if (esl_alphabet_SetEquiv(a, 'A', 'c')              != eslOK)       abort(); /* now input A maps to internal c */
-  if (esl_alphabet_SetCaseInsensitive(a)              != eslECORRUPT) abort(); /* and this fails, can't remap A  */
+  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL)       esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, 'A', 'c')              != eslOK)       esl_fatal(msg); /* now input A maps to internal c */
+  if (esl_alphabet_SetCaseInsensitive(a)              != eslECORRUPT) esl_fatal(msg); /* and this fails, can't remap A  */
   esl_alphabet_Destroy(a);
 #endif
 
   return eslOK;
 }
 
-static int 
+static int
 utest_SetDegeneracy(void) 
 {
+  char msg[]  = "esl_alphabet_SetDegeneracy() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "yrn";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 6, 5, 7, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
   ESL_DSQ       x;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) abort();
-  if (esl_alphabet_SetDegeneracy(a, 'R', "AG") != eslOK)          abort();
-  if (esl_alphabet_SetDegeneracy(a, 'Y', "CT") != eslOK)          abort();
-  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK)          abort();
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetDegeneracy(a, 'R', "AG") != eslOK)          esl_fatal(msg);
+  if (esl_alphabet_SetDegeneracy(a, 'Y', "CT") != eslOK)          esl_fatal(msg);
+  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK)          esl_fatal(msg);
 
-  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) abort();
+  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
 
-  x = esl_abc_DigitizeSymbol(a, 'a');  if (a->ndegen[x] != 1) abort();
-  x = esl_abc_DigitizeSymbol(a, 'r');  if (a->ndegen[x] != 2) abort();
-  x = esl_abc_DigitizeSymbol(a, 'y');  if (a->ndegen[x] != 2) abort();
-  x = esl_abc_DigitizeSymbol(a, 'n');  if (a->ndegen[x] != 4) abort();
+  x = esl_abc_DigitizeSymbol(a, 'a');  if (a->ndegen[x] != 1) esl_fatal(msg);
+  x = esl_abc_DigitizeSymbol(a, 'r');  if (a->ndegen[x] != 2) esl_fatal(msg);
+  x = esl_abc_DigitizeSymbol(a, 'y');  if (a->ndegen[x] != 2) esl_fatal(msg);
+  x = esl_abc_DigitizeSymbol(a, 'n');  if (a->ndegen[x] != 4) esl_fatal(msg);
 
   free(dsq);
   esl_alphabet_Destroy(a);
   
 #ifdef TEST_THROWING
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) abort();
-  if (esl_abc_SetDegeneracy(a, 'z', "AC")    != eslEINVAL)        abort(); /* can't map char not in alphabet */
-  if (esl_abc_SetDegeneracy(a, 'N', "ACGT")  != eslEINVAL)        abort(); /* can't remap N */
-  if (esl_abc_SetDegeneracy(a, 'A', "GT")    != eslEINVAL)        abort(); /* can't map a nondegen character */
-  if (esl_abc_SetDegeneracy(a, '-', "GT")    != eslEINVAL)        abort(); /*   ... or a gap... */
-  if (esl_abc_SetDegeneracy(a, '~', "GT")    != eslEINVAL)        abort(); /*   ... or missing data. */
-  if (esl_abc_SetDegeneracy(a, 'R', "XY")    != eslEINVAL)        abort(); /* can't map to unknown chars... */
-  if (esl_abc_SetDegeneracy(a, 'R', "YN")    != eslEINVAL)        abort(); /*   ... nor to noncanonical chars... */
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
+  if (esl_abc_SetDegeneracy(a, 'z', "AC")    != eslEINVAL)        esl_fatal(msg); /* can't map char not in alphabet */
+  if (esl_abc_SetDegeneracy(a, 'N', "ACGT")  != eslEINVAL)        esl_fatal(msg); /* can't remap N */
+  if (esl_abc_SetDegeneracy(a, 'A', "GT")    != eslEINVAL)        esl_fatal(msg); /* can't map a nondegen character */
+  if (esl_abc_SetDegeneracy(a, '-', "GT")    != eslEINVAL)        esl_fatal(msg); /*   ... or a gap... */
+  if (esl_abc_SetDegeneracy(a, '~', "GT")    != eslEINVAL)        esl_fatal(msg); /*   ... or missing data. */
+  if (esl_abc_SetDegeneracy(a, 'R', "XY")    != eslEINVAL)        esl_fatal(msg); /* can't map to unknown chars... */
+  if (esl_abc_SetDegeneracy(a, 'R', "YN")    != eslEINVAL)        esl_fatal(msg); /*   ... nor to noncanonical chars... */
   esl_alphabet_Destroy(a);
 #endif
   return eslOK;
@@ -1475,63 +1481,67 @@ utest_SetDegeneracy(void)
 static int
 utest_SetIgnored(void)
 {
+  char msg[]  = "esl_alphabet_SetIgnored() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "y \trn";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 6, 5, 15, eslDSQ_SENTINEL };
   int           L = 5;
   ESL_DSQ      *dsq;
 
-  if ((a = esl_alphabet_Create(eslRNA)) == NULL) abort();
-  if (esl_alphabet_SetIgnored(a, " \t") != eslOK) abort();
+  if ((a = esl_alphabet_Create(eslRNA)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetIgnored(a, " \t") != eslOK) esl_fatal(msg);
 
-  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * L) != 0) abort();
+  if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * L) != 0) esl_fatal(msg);
   free(dsq);
   esl_alphabet_Destroy(a);
   return eslOK;
 }
 
 
-static int 
+static int
 utest_Destroy(void) 
 {
+  char msg[]  = "esl_alphabet_Destroy() unit test failed";
   ESL_ALPHABET *a;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) abort();
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
   esl_alphabet_Destroy(a);
   esl_alphabet_Destroy(NULL);	/* should be robust against NULL pointers */
   return eslOK;
 }
 
-static int 
+static int
 utest_CreateDsq(void) 
 {
+  char msg[]  = "esl_abc_CreateDsq() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "ACDEF";
   char          badseq[]  = "1@%34";
   ESL_DSQ      *dsq;
   ESL_DSQ       x;
 
-  if ((a = esl_alphabet_Create(eslAMINO)) == NULL) abort();
+  if ((a = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
 
-  if (esl_abc_CreateDsq(a, goodseq, &dsq) != eslOK) abort();
-  if (dsq[1] != 0 || dsq[2] != 1) abort(); /* spot check */
+  if (esl_abc_CreateDsq(a, goodseq, &dsq) != eslOK) esl_fatal(msg);
+  if (dsq[1] != 0 || dsq[2] != 1) esl_fatal(msg); /* spot check */
   free(dsq);
   
-  if (esl_abc_CreateDsq(a, badseq, &dsq) != eslEINVAL) abort();
+  if (esl_abc_CreateDsq(a, badseq, &dsq) != eslEINVAL) esl_fatal(msg);
   x = esl_abc_XGetUnknown(a);
-  if (dsq[1] != x || dsq[2] != x) abort(); /* bad chars all X's now, upon failure */
+  if (dsq[1] != x || dsq[2] != x) esl_fatal(msg); /* bad chars all X's now, upon failure */
   free(dsq);
 
-  if (esl_abc_CreateDsq(a, goodseq, NULL) != eslOK) abort();
+  if (esl_abc_CreateDsq(a, goodseq, NULL) != eslOK) esl_fatal(msg);
   
   esl_alphabet_Destroy(a);
   return eslOK;
 }
 
-static int 
+static int
 utest_Digitize(void) 
 {
+  char msg[]  = "esl_abc_Digitize() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "ACDEF";
   char          badseq[]  = "1@%34";
@@ -1541,25 +1551,27 @@ utest_Digitize(void)
 
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (strlen(goodseq)+2));
 
-  if ((a = esl_alphabet_Create(eslAMINO)) == NULL) abort();
+  if ((a = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
   esl_abc_Digitize(a, goodseq, dsq);
-  if (dsq[1] != 0 || dsq[2] != 1) abort(); /* spot check */
+  if (dsq[1] != 0 || dsq[2] != 1) esl_fatal(msg); /* spot check */
 
   esl_abc_Digitize(a, badseq, dsq);
   x = esl_abc_XGetUnknown(a);
-  if (dsq[1] != x || dsq[2] != x) abort(); /* bad chars all X's now, upon failure */
+  if (dsq[1] != x || dsq[2] != x) esl_fatal(msg); /* bad chars all X's now, upon failure */
 
   free(dsq);
   esl_alphabet_Destroy(a);
   return eslOK;
   
  ERROR:
-  abort();
+  esl_fatal(msg);
+  return status;
 }
 
-static int 
+static int
 utest_Textize(void) 
 {
+  char msg[]  = "esl_abc_Textize() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "acdef";
   char         *newseq;
@@ -1569,22 +1581,24 @@ utest_Textize(void)
 
   L = strlen(goodseq);
   ESL_ALLOC(newseq, sizeof(char) * (L+1));
-  if ((a = esl_alphabet_Create(eslAMINO))    == NULL)  abort();
-  if (esl_abc_CreateDsq(a, goodseq, &dsq)   != eslOK) abort();
-  if (esl_abc_Textize(a, dsq, L, newseq )   != eslOK) abort();
-  if (strcmp(newseq, "ACDEF")               != 0)     abort();
+  if ((a = esl_alphabet_Create(eslAMINO))    == NULL)  esl_fatal(msg);
+  if (esl_abc_CreateDsq(a, goodseq, &dsq)   != eslOK) esl_fatal(msg);
+  if (esl_abc_Textize(a, dsq, L, newseq )   != eslOK) esl_fatal(msg);
+  if (strcmp(newseq, "ACDEF")               != 0)     esl_fatal(msg);
   free(dsq);
   free(newseq);
   esl_alphabet_Destroy(a);
   return eslOK;
 
  ERROR:
-  abort();
+  esl_fatal(msg);
+  return status;
 }
 
-static int 
+static int
 utest_TextizeN(void) 
 {
+  char msg[]  = "esl_abc_TextizeN() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "acdefrynacdef";
   ESL_DSQ      *dsq;
@@ -1593,28 +1607,29 @@ utest_TextizeN(void)
   int           W;
 
   L = strlen(goodseq);
-  if ((a = esl_alphabet_Create(eslAMINO))    == NULL)  abort();
-  if (esl_abc_CreateDsq(a, goodseq, &dsq) != eslOK) abort();
+  if ((a = esl_alphabet_Create(eslAMINO))    == NULL)  esl_fatal(msg);
+  if (esl_abc_CreateDsq(a, goodseq, &dsq) != eslOK) esl_fatal(msg);
 
   dptr = dsq+6; 		/* points to "r", residue 6         */
   W    = 5;			/* copy/convert 5 residues "rynac"  */
-  if (esl_abc_TextizeN(a, dptr, W, goodseq)  != eslOK) abort();
-  if (strcmp(goodseq, "RYNACrynacdef")       != 0)     abort();
+  if (esl_abc_TextizeN(a, dptr, W, goodseq)  != eslOK) esl_fatal(msg);
+  if (strcmp(goodseq, "RYNACrynacdef")       != 0)     esl_fatal(msg);
 
   /* test a case where we hit eslDSQ_SENTINEL, and nul-terminate */
   dptr = dsq+10; 		/* points to "c", residue 10        */
   W    = 20;			/* copy/convert remaining residues "cdef"  */
-  if (esl_abc_TextizeN(a, dptr, W, goodseq)  != eslOK) abort();
-  if (strcmp(goodseq, "CDEF")                != 0)     abort();
+  if (esl_abc_TextizeN(a, dptr, W, goodseq)  != eslOK) esl_fatal(msg);
+  if (strcmp(goodseq, "CDEF")                != 0)     esl_fatal(msg);
   
   free(dsq);
   esl_alphabet_Destroy(a);
   return eslOK;
 }
 
-static int 
+static int
 utest_dsqdup(void) 
 {
+  char msg[]  = "esl_abc_dsqdup() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "ACGt";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, eslDSQ_SENTINEL };
@@ -1622,15 +1637,15 @@ utest_dsqdup(void)
   int           L;
 
   L = strlen(goodseq);
-  if ((a = esl_alphabet_Create(eslRNA))           == NULL)  abort();
-  if (esl_abc_CreateDsq(a, goodseq, &d1)          != eslOK) abort();
+  if ((a = esl_alphabet_Create(eslRNA))           == NULL)  esl_fatal(msg);
+  if (esl_abc_CreateDsq(a, goodseq, &d1)          != eslOK) esl_fatal(msg);
 
-  if (esl_abc_dsqdup(d1, -1, &d2)                 != eslOK) abort();
-  if (memcmp(d2, expect, sizeof(ESL_DSQ) * (L+2)) != 0)     abort();
+  if (esl_abc_dsqdup(d1, -1, &d2)                 != eslOK) esl_fatal(msg);
+  if (memcmp(d2, expect, sizeof(ESL_DSQ) * (L+2)) != 0)     esl_fatal(msg);
   free(d2);
 
-  if (esl_abc_dsqdup(d1, L, &d2)                  != eslOK) abort();
-  if (memcmp(d2, expect, sizeof(ESL_DSQ) * (L+2)) != 0)     abort();
+  if (esl_abc_dsqdup(d1, L, &d2)                  != eslOK) esl_fatal(msg);
+  if (memcmp(d2, expect, sizeof(ESL_DSQ) * (L+2)) != 0)     esl_fatal(msg);
   free(d2);
   
   free(d1);
@@ -1638,9 +1653,10 @@ utest_dsqdup(void)
   return eslOK;
 }
 
-static int 
+static int
 utest_dsqcat(void) 
 {
+  char msg[]  = "esl_abc_dsqcat() unit test failed";
   ESL_ALPHABET *a;
   char          goodseq[] = "ACGt";
   char          addseq[]  = "RYMK";
@@ -1650,35 +1666,204 @@ utest_dsqcat(void)
 
   L1 = strlen(goodseq);
   L2 = strlen(addseq);
-  if ((a = esl_alphabet_Create(eslRNA))           == NULL)  abort();
+  if ((a = esl_alphabet_Create(eslRNA))           == NULL)  esl_fatal(msg);
 
-  if (esl_abc_CreateDsq(a, goodseq, &dsq)           != eslOK) abort();
-  if (esl_abc_dsqcat(a, &dsq, &L1, addseq, L2)      != eslOK) abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)     abort();
+  if (esl_abc_CreateDsq(a, goodseq, &dsq)           != eslOK) esl_fatal(msg);
+  if (esl_abc_dsqcat(a, &dsq, &L1, addseq, L2)      != eslOK) esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)     esl_fatal(msg);
   free(dsq);
 
   L1 = -1;
-  if (esl_abc_CreateDsq(a, goodseq, &dsq)         != eslOK) abort();
-  if (esl_abc_dsqcat(a, &dsq, &L1, addseq, -1)    != eslOK) abort();
-  if (L1 != esl_abc_dsqlen(dsq))                            abort();
-  if (L1 != strlen(goodseq) + strlen(addseq))               abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)   abort();
+  if (esl_abc_CreateDsq(a, goodseq, &dsq)         != eslOK) esl_fatal(msg);
+  if (esl_abc_dsqcat(a, &dsq, &L1, addseq, -1)    != eslOK) esl_fatal(msg);
+  if (L1 != esl_abc_dsqlen(dsq))                            esl_fatal(msg);
+  if (L1 != strlen(goodseq) + strlen(addseq))               esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)   esl_fatal(msg);
   free(dsq);
 
   dsq = NULL;
   L1  = 0;
-  if (esl_abc_dsqcat(a, &dsq, &L1, goodseq, -1)    != eslOK) abort();
-  if (esl_abc_dsqcat(a, &dsq, &L1, addseq,  -1)    != eslOK) abort();
-  if (L1 != esl_abc_dsqlen(dsq))                            abort();
-  if (L1 != strlen(goodseq) + strlen(addseq))                abort();
-  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)   abort();
+  if (esl_abc_dsqcat(a, &dsq, &L1, goodseq, -1)    != eslOK) esl_fatal(msg);
+  if (esl_abc_dsqcat(a, &dsq, &L1, addseq,  -1)    != eslOK) esl_fatal(msg);
+  if (L1 != esl_abc_dsqlen(dsq))                             esl_fatal(msg);
+  if (L1 != strlen(goodseq) + strlen(addseq))                esl_fatal(msg);
+  if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (L1+2)) != 0)    esl_fatal(msg);
   free(dsq);
   
   esl_alphabet_Destroy(a);
   return eslOK;
 }
+
+/* dsqlen    unit test goes here */
+/* dsqrlen   unit test goes here */
+/* utest_Match goes here */
+  
+/* This serves to unit test multiple functions:
+ *    esl_abc_IAvgScore()
+ *    esl_abc_IExpectScore()
+ */
+static int
+degeneracy_integer_scores(void)
+{
+  char *msg = "degeneracy_integer_scores unit test failed";
+  ESL_ALPHABET *a;
+  ESL_DSQ       x;
+  float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
+  int           sc[] = { -1,  -6,   6,   1};
+  int           val;
+
+  a     = esl_alphabet_Create(eslDNA);  
+
+  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
+  val   = esl_abc_IAvgScore(a, x, sc); 
+  /* average of -1,-6,6,1 = 0 */
+  if (val != 0) esl_fatal(msg);
+
+  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
+  val   = esl_abc_IExpectScore(a, x, sc, p);  
+  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
+  if (val != -2) esl_fatal(msg);
+
+  esl_alphabet_Destroy(a);
+  return eslOK;
+}
+
+/* This serves to unit test multiple functions:
+ *    esl_abc_FAvgScore()
+ *    esl_abc_FExpectScore()
+ */
+static int
+degeneracy_float_scores(void)
+{
+  char *msg = "degeneracy_float_scores unit test failed";
+  ESL_ALPHABET *a;
+  ESL_DSQ       x;
+  float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
+  float         sc[] = { -1., -6.,  6., 1.};
+  float         val;
+
+  a     = esl_alphabet_Create(eslRNA);  
+
+  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
+  val   = esl_abc_FAvgScore(a, x, sc); 
+  /* average of -1,-6,6,1 = 0 */
+  if (fabs(val - 0.) > 0.0001) esl_fatal(msg);
+
+  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
+  val   = esl_abc_FExpectScore(a, x, sc, p);  
+  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
+  if (fabs(val + 2.) > 0.0001) esl_fatal(msg);
+
+  esl_alphabet_Destroy(a);
+  return eslOK;
+}
+
+/* This serves to unit test multiple functions:
+ *    esl_abc_DAvgScore()
+ *    esl_abc_DExpectScore()
+ */
+
+static int
+degeneracy_double_scores(void)
+{
+  char *msg = "degeneracy_double_scores unit test failed";
+  ESL_ALPHABET *a;
+  ESL_DSQ       x;
+  double        p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
+  double        sc[] = { -1., -6.,  6., 1.};
+  double        val;
+
+  a     = esl_alphabet_Create(eslRNA);  
+
+  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
+  val   = esl_abc_DAvgScore(a, x, sc); 
+  /* average of -1,-6,6,1 = 0 */
+  if (fabs(val - 0.) > 0.0001) esl_fatal(msg);
+
+  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
+  val   = esl_abc_DExpectScore(a, x, sc, p); 
+  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
+  if (fabs(val + 2.) > 0.0001) esl_fatal(msg);
+
+  esl_alphabet_Destroy(a);
+  return eslOK;
+}
+
+/* utest_IAvgScVec */
+/* utest_FAvgScVec */
+/* utest_DAvgScVec */
+/* utest_IExpectScVec */
+/* utest_FExpectScVec */
+/* utest_DExpectScVec */
+
+static int
+utest_FCount(void)
+{
+  char         *msg = "FCount unit test failure";
+  ESL_ALPHABET *a = NULL;
+  ESL_DSQ       x;
+  char         *teststring = "X~-Z.UAX";
+  char         *s;
+  int           status;
+
+  /* 0.1 from 2 X's; U -> +1 C; A -> +1 A;  Z-> +0.5 Q,E; ~ ignored; .,- -> +2 gaps */
+  /*                          A    C    D    E    F    G    H    I    K    L    M    N    P    Q    R    S    T    V    W    Y    - */
+  float       expect[21] = { 1.1, 1.1, 0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0 };
+  float      *vec;
+
+  a = esl_alphabet_Create(eslAMINO);
+  ESL_ALLOC(vec, sizeof(float) * (a->K+1)); /* include gap char for this test */
+  esl_vec_FSet(vec, a->K+1, 0.);
+  for (s = teststring; *s != '\0'; s++)
+    {
+      x = esl_abc_DigitizeSymbol(a, *s);
+      if (esl_abc_FCount(a, vec, x, 1.0) != eslOK) esl_fatal(msg);
+    }
+  if (esl_vec_FCompare(vec, expect, a->K+1, 0.0001) != eslOK) esl_fatal(msg);
+  
+  esl_alphabet_Destroy(a);
+  free(vec);
+  return eslOK;
+      
+ ERROR:
+  esl_fatal("allocation failed");
+  return status;
+}
+
+static int
+utest_DCount(void)
+{
+  char         *msg = "DCount unit test failure";
+  ESL_ALPHABET *a = NULL;
+  ESL_DSQ       x;
+  char         *teststring = "X~-Z.UAX";
+  char         *s;
+  int           status;
+
+  /* 0.1 from 2 X's; U -> +1 C; A -> +1 A;  Z-> +0.5 Q,E; ~ ignored; .,- -> +2 gaps */
+  /*                          A    C    D    E    F    G    H    I    K    L    M    N    P    Q    R    S    T    V    W    Y    - */
+  double      expect[21] = { 1.1, 1.1, 0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0 };
+  double      *vec;
+
+  a = esl_alphabet_Create(eslAMINO);
+  ESL_ALLOC(vec, sizeof(double) * (a->K+1)); /* include gap char for this test */
+  esl_vec_DSet(vec, a->K+1, 0.);
+  for (s = teststring; *s != '\0'; s++)
+    {
+      x = esl_abc_DigitizeSymbol(a, *s);
+      if (esl_abc_DCount(a, vec, x, 1.0) != eslOK) esl_fatal(msg);
+    }
+  if (esl_vec_DCompare(vec, expect, a->K+1, 0.0001) != eslOK) esl_fatal(msg);
+  
+  esl_alphabet_Destroy(a);
+  free(vec);
+  return eslOK;
+      
+ ERROR:
+  esl_fatal("allocation failed");
+  return status;
+}
 #endif /* eslALPHABET_TESTDRIVE*/
-/* unit tests complete down to esl_abc_dsqlen()... more to come */
 /*-------------------- end, unit tests --------------------------*/
 
 
@@ -1694,10 +1879,7 @@ utest_dsqcat(void)
  * valgrind ./test
  */
 #ifdef eslALPHABET_TESTDRIVE
-static void basic_examples(void);
-static void degeneracy_integer_scores(void);
-static void degeneracy_float_scores(void);
-static void degeneracy_double_scores(void);
+static int basic_examples(void);
 
 #include <easel.h>
 #include <esl_alphabet.h>
@@ -1706,20 +1888,23 @@ int
 main(void)
 {
 
-  if (utest_Create()                 != eslOK) return eslFAIL;
-  if (utest_CreateCustom()           != eslOK) return eslFAIL;
-  if (utest_SetEquiv()               != eslOK) return eslFAIL;
-  if (utest_SetCaseInsensitive()     != eslOK) return eslFAIL;
-  if (utest_SetDegeneracy()          != eslOK) return eslFAIL;
-  if (utest_SetIgnored()             != eslOK) return eslFAIL;
-  if (utest_Destroy()                != eslOK) return eslFAIL;
+  utest_Create();
+  utest_CreateCustom();
+  utest_SetEquiv();
+  utest_SetCaseInsensitive();
+  utest_SetDegeneracy();
+  utest_SetIgnored();
+  utest_Destroy();
 
-  if (utest_CreateDsq()              != eslOK) return eslFAIL;
-  if (utest_Digitize()               != eslOK) return eslFAIL;
-  if (utest_Textize()                != eslOK) return eslFAIL;
-  if (utest_TextizeN()               != eslOK) return eslFAIL;
-  if (utest_dsqdup()                 != eslOK) return eslFAIL;
-  if (utest_dsqcat()                 != eslOK) return eslFAIL;
+  utest_CreateDsq();
+  utest_Digitize();
+  utest_Textize();
+  utest_TextizeN();
+  utest_dsqdup();
+  utest_dsqcat();
+
+  utest_FCount();
+  utest_DCount();
 
   basic_examples();
   degeneracy_integer_scores();
@@ -1729,9 +1914,10 @@ main(void)
   return eslOK;
 }
 
-static void
+static int
 basic_examples(void)
 {
+  char *msg = "basic alphabet example tests failed";
   ESL_ALPHABET  *a1, *a2;
   char           dnaseq[] = "GARYtcN";
   char           aaseq[]  = "EFILqzU";
@@ -1742,11 +1928,11 @@ basic_examples(void)
   /* Example 1. 
    * Create a DNA alphabet; digitize a DNA sequence.
    */
-  if ((a1 = esl_alphabet_Create(eslDNA)) == NULL)      abort();
+  if ((a1 = esl_alphabet_Create(eslDNA)) == NULL)      esl_fatal(msg);
   L  = strlen(dnaseq);
-  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) abort();
-  if (esl_abc_Digitize(a1, dnaseq, dsq) != eslOK)   abort();
-  if (esl_abc_dsqlen(dsq) != L)                        abort();
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) esl_fatal(msg);
+  if (esl_abc_Digitize(a1, dnaseq, dsq) != eslOK)   esl_fatal(msg);
+  if (esl_abc_dsqlen(dsq) != L)                        esl_fatal(msg);
   esl_alphabet_Destroy(a1);
 
   /* Example 2. 
@@ -1754,32 +1940,32 @@ basic_examples(void)
    * make sure it is equal to the dsq above (so T=U were
    * correctly synonymous on input).
    */
-  if ((a2 = esl_alphabet_Create(eslRNA)) == NULL)       abort();
-  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) abort();
-  if (esl_abc_Digitize(a2, dnaseq, dsq2) != eslOK)   abort();
+  if ((a2 = esl_alphabet_Create(eslRNA)) == NULL)       esl_fatal(msg);
+  if ((dsq2 = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL) esl_fatal(msg);
+  if (esl_abc_Digitize(a2, dnaseq, dsq2) != eslOK)   esl_fatal(msg);
   for (i = 1; i <= L; i++)
-    if (dsq[i] != dsq2[i]) abort();
+    if (dsq[i] != dsq2[i]) esl_fatal(msg);
   esl_alphabet_Destroy(a2);
 
   /* Example 3.
    * Create an amino alphabet; digitize a protein sequence, 
    * while reusing memory already allocated in dsq.
    */
-  if ((a1 = esl_alphabet_Create(eslAMINO)) == NULL)     abort();
-  if (esl_abc_Digitize(a1, aaseq, dsq) != eslOK)     abort();
+  if ((a1 = esl_alphabet_Create(eslAMINO)) == NULL)     esl_fatal(msg);
+  if (esl_abc_Digitize(a1, aaseq, dsq) != eslOK)     esl_fatal(msg);
   
   /* Example 4.
    * Create a custom alphabet almost the same as the amino
    * acid alphabet; digitize the same protein seq, reusing
    * memory in dsq2; check that seqs are identical.
    */
-  if ((a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28)) == NULL) abort();
-  if (esl_alphabet_SetCaseInsensitive(a2)   != eslOK)     abort();  /* allow lower case input */
-  if (esl_alphabet_SetDegeneracy(a2, 'Z', "QE") != eslOK) abort();
+  if ((a2 = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetCaseInsensitive(a2)   != eslOK)     esl_fatal(msg);  /* allow lower case input */
+  if (esl_alphabet_SetDegeneracy(a2, 'Z', "QE") != eslOK) esl_fatal(msg);
 
-  if (esl_abc_Digitize(a2, aaseq, dsq2) != eslOK)      abort();
+  if (esl_abc_Digitize(a2, aaseq, dsq2) != eslOK)      esl_fatal(msg);
   for (i = 1; i <= L; i++)
-    if (dsq[i] != dsq2[i]) abort();
+    if (dsq[i] != dsq2[i]) esl_fatal(msg);
 
   /* clean up.
    */
@@ -1787,83 +1973,9 @@ basic_examples(void)
   esl_alphabet_Destroy(a2);
   free(dsq);
   free(dsq2);
+  return eslOK;
 }
 
-
-static void
-degeneracy_integer_scores(void)
-{
-  ESL_ALPHABET *a;
-  ESL_DSQ       x;
-  float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
-  int           sc[] = { -1,  -6,   6,   1};
-  int           val;
-
-  a     = esl_alphabet_Create(eslDNA);  
-
-  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_IAvgScore(a, x, sc); 
-  /* average of -1,-6,6,1 = 0 */
-  if (val != 0) abort();
-
-  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_IExpectScore(a, x, sc, p);  
-  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
-  if (val != -2) abort();
-
-  esl_alphabet_Destroy(a);
-  return;
-}
-
-static void
-degeneracy_float_scores(void)
-{
-  ESL_ALPHABET *a;
-  ESL_DSQ       x;
-  float         p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
-  float         sc[] = { -1., -6.,  6., 1.};
-  float         val;
-
-  a     = esl_alphabet_Create(eslRNA);  
-
-  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_FAvgScore(a, x, sc); 
-  /* average of -1,-6,6,1 = 0 */
-  if (fabs(val - 0.) > 0.0001) abort();
-
-  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_FExpectScore(a, x, sc, p);  
-  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
-  if (fabs(val + 2.) > 0.0001) abort();
-
-  esl_alphabet_Destroy(a);
-  return;
-}
-
-static void
-degeneracy_double_scores(void)
-{
-  ESL_ALPHABET *a;
-  ESL_DSQ       x;
-  double        p[]  = {0.4, 0.1, 0.1, 0.4}; /* A/T biased background */
-  double        sc[] = { -1., -6.,  6., 1.};
-  double        val;
-
-  a     = esl_alphabet_Create(eslRNA);  
-
-  x     = esl_abc_DigitizeSymbol(a, 'N'); /* any: A/C/G/T */
-  val   = esl_abc_DAvgScore(a, x, sc); 
-  /* average of -1,-6,6,1 = 0 */
-  if (fabs(val - 0.) > 0.0001) abort();
-
-  x     = esl_abc_DigitizeSymbol(a, 'M');     /* M = A/C */
-  val   = esl_abc_DExpectScore(a, x, sc, p); 
-  /* expectation of -1,-6 given p = 0.4,0.1 = -2 */
-  if (fabs(val + 2.) > 0.0001) abort();
-
-  esl_alphabet_Destroy(a);
-  return;
-}
 
 #endif /*eslALPHABET_TESTDRIVE*/
 
