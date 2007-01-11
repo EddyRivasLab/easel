@@ -614,11 +614,12 @@ main(int argc, char **argv)
   int    n = 6;
   double a[6] = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
   double x[6] = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
+  double u[6] = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
   double wrk[24];
   double fx;
   int    i;
 
-  esl_min_ConjugateGradientDescent(x, n, 
+  esl_min_ConjugateGradientDescent(x, u, n, 
 				   &example_func, &example_dfunc, (void *) a, 
 				   0.0001, wrk, &fx);
 
