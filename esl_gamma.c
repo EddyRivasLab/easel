@@ -30,7 +30,7 @@ static double tau_function(double tau, double mean, double logsum);
 /* Function:  esl_gam_pdf()
  * Incept:    SRE, Sun Nov 13 16:42:43 2005 [HHMI HQ]
  *
- * Purpose:   Calculates the gamma PDF $P(X=x)$ given quantile <x>,
+ * Purpose:   Calculates the gamma PDF $P(X=x)$ given value <x>,
  *            location parameter <mu>, scale parameter <lambda>, and shape
  *            parameter <tau>.
  */
@@ -52,7 +52,7 @@ esl_gam_pdf(double x, double mu, double lambda, double tau)
  * Incept:    SRE, Mon Nov 14 12:45:36 2005 [HHMI HQ]
  *
  * Purpose:   Calculates log of the probability density function
- *            for the gamma, $\log P(X=x)$, given quantile <x>,
+ *            for the gamma, $\log P(X=x)$, given value <x>,
  *            location parameter <mu>, scale parameter <lambda>, and 
  *            shape parameter <tau>.
  */
@@ -74,7 +74,7 @@ esl_gam_logpdf(double x, double mu, double lambda, double tau)
  * Incept:    SRE, Mon Nov 14 12:47:36 2005 [HHMI HQ]
  *
  * Purpose:   Calculates the cumulative distribution function
- *            for the gamma, $P(X \leq x)$, given quantile <x>, 
+ *            for the gamma, $P(X \leq x)$, given value <x>, 
  *            location parameter <mu>, scale parameter <lambda>, and 
  *            shape parameter <tau>.
  *
@@ -97,7 +97,7 @@ esl_gam_cdf(double x, double mu, double lambda, double tau)
  * Incept:    SRE, Mon Nov 14 13:10:21 2005 [HHMI HQ]
  *
  * Purpose:   Calculates the log of the cumulative distribution function 
- *            for the gamma, $\log P(X \leq x)$, given quantile <x>, location
+ *            for the gamma, $\log P(X \leq x)$, given value <x>, location
  *            parameter <mu>, scale parameter <lambda>, and shape 
  *            parameter <tau>.
  */
@@ -117,7 +117,7 @@ esl_gam_logcdf(double x, double mu, double lambda, double tau)
  * Incept:    SRE, Mon Nov 14 13:13:51 2005 [HHMI HQ]
  *
  * Purpose:   Calculates the survival function for the gamma, $P(X > x)$,
- *            given quantile <x>, location parameter <mu>, scale parameter 
+ *            given value <x>, location parameter <mu>, scale parameter 
  *            <lambda>, and shape parameter <tau>.
  */
 double
@@ -137,7 +137,7 @@ esl_gam_surv(double x, double mu, double lambda, double tau)
  * Incept:    SRE, Mon Nov 14 13:14:05 2005 [HHMI HQ]
  *
  * Purpose:   Calculates the log of the survival function for the gamma, 
- *            $\log P(X > x)$, given quantile <x>, location parameter <mu>,
+ *            $\log P(X > x)$, given value <x>, location parameter <mu>,
  *            scale parameter <lambda>, and shape parameter <tau>.
  *            
  *            Relies on <esl_stats_IncompleteGamma()>, which has limited
@@ -162,7 +162,7 @@ esl_gam_logsurv(double x, double mu, double lambda, double tau)
  *
  * Purpose:   Calculates the inverse CDF for a gamma with location
  *            parameter <mu>, scale parameter <lambda> and shape
- *            parameter <tau>, returning the quantile <x> at which the
+ *            parameter <tau>, returning the value <x> at which the
  *            CDF is <p>.
  *            
  *            This inverse CDF is solved by a computationally expensive,
@@ -275,7 +275,7 @@ esl_gam_generic_invcdf(double x, void *params)
  *
  * Purpose:   Plot some gamma distribution function <func> (for instance,
  *            <esl_gam_pdf()>) for parameters <mu>, <lambda>, and <tau>, for
- *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
+ *            a range of values x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
  * Returns:   <eslOK>.

@@ -38,7 +38,7 @@
  * Incept:    SRE, Wed Aug 10 08:30:46 2005 [St. Louis]
  *
  * Purpose:   Calculates the probability density function for the
- *            exponential, $P(X=x)$, given quantile <x>, offset <mu>,
+ *            exponential, $P(X=x)$, given value <x>, offset <mu>,
  *            and decay parameter <lambda>.
  */
 double
@@ -52,7 +52,7 @@ esl_exp_pdf(double x, double mu, double lambda)
  * Incept:    SRE, Wed Aug 10 08:35:06 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the
- *            exponential, $P(X=x)$, given quantile <x>, offset <mu>,
+ *            exponential, $P(X=x)$, given value <x>, offset <mu>,
  *            and decay parameter <lambda>.
  */
 double
@@ -72,7 +72,7 @@ esl_exp_logpdf(double x, double mu, double lambda)
  * Incept:    SRE, Wed Aug 10 08:36:04 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function for the
- *            exponential, $P(X \leq x)$, given quantile <x>, offset <mu>,
+ *            exponential, $P(X \leq x)$, given value <x>, offset <mu>,
  *            and decay parameter <lambda>.
  */
 double
@@ -91,7 +91,7 @@ esl_exp_cdf(double x, double mu, double lambda)
  * Incept:    SRE, Wed Aug 10 10:03:28 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function
- *            for the exponential, $log P(X \leq x)$, given quantile <x>,
+ *            for the exponential, $log P(X \leq x)$, given value <x>,
  *            offset <mu>, and decay parameter <lambda>.
  */
 double
@@ -116,7 +116,7 @@ esl_exp_logcdf(double x, double mu, double lambda)
  *
  * Purpose:   Calculates the survivor function, $P(X>x)$ (that is, 1-CDF,
  *            the right tail probability mass) for an exponential distribution,
- *            given quantile <x>, offset <mu>, and decay parameter <lambda>.
+ *            given value <x>, offset <mu>, and decay parameter <lambda>.
  */
 double
 esl_exp_surv(double x, double mu, double lambda)
@@ -130,7 +130,7 @@ esl_exp_surv(double x, double mu, double lambda)
  *
  * Purpose:   Calculates the log survivor function, $\log P(X>x)$ (that is,
  *            log(1-CDF), the log of the right tail probability mass) for an 
- *            exponential distribution, given quantile <x>, offset <mu>, and 
+ *            exponential distribution, given value <x>, offset <mu>, and 
  *            decay parameter <lambda>.
  */
 double
@@ -145,7 +145,7 @@ esl_exp_logsurv(double x, double mu, double lambda)
  * Incept:    SRE, Sun Aug 21 12:22:24 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse of the CDF; given a <cdf> value
- *            $0 <= p < 1$, returns the quantile $x$ at which the CDF
+ *            $0 <= p < 1$, returns the value $x$ at which the CDF
  *            has that value.
  */
 double 
@@ -222,7 +222,7 @@ esl_exp_generic_invcdf(double p, void *params)
  *
  * Purpose:   Plot some exponential function <func> (for instance,
  *            <esl_exp_pdf()>) for parameters <mu> and <lambda>, for
- *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
+ *            a range of values x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
  * Returns:   <eslOK>.
