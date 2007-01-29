@@ -1389,8 +1389,6 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
       return eslEINVAL;
 
   /* Convert, sequence-by-sequence, free'ing aseq as we go.
-   * (For large alignments, the memory required by a temporary 2x
-   * duplication of the alignment space might be significant.)
    */
   ESL_ALLOC(msa->ax, msa->sqalloc * sizeof(ESL_DSQ *));
   for (i = 0; i < msa->nseq; i++)

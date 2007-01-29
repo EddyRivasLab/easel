@@ -471,7 +471,7 @@ main(int argc, char **argv)
   /* Sample a probability vector from it. */
   r = esl_randomness_CreateTimeseeded(); /* init the random generator */
   qused = esl_rnd_DChoose(r, pri->pq, pri->N); /* sample a component */
-  esl_dirichlet_Sample(r, pri->alpha[qused], pri->K, probs);
+  esl_dirichlet_DSample(r, pri->alpha[qused], pri->K, probs);
 
   printf("Component %2d: p[] = ", qused);
   for (i = 0; i < pri->K; i++) printf("%.3f ", probs[i]);
@@ -585,7 +585,7 @@ main(void)
   for (t = 0; t < NTRIALS; t++)
     {
       qused = esl_rnd_DChoose(r, d2->pq, d2->N); /* sample a component */
-      esl_dirichlet_Sample(r, d2->alpha[qused], d2->K, probs);
+      esl_dirichlet_DSample(r, d2->alpha[qused], d2->K, probs);
       esl_vec_DSet(counts, NALPHA, 0.);
       for (c = 0; c < NCOUNTS; c++)
 	{

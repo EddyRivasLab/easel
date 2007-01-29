@@ -1,5 +1,4 @@
-/* esl_sqio.h
- * Sequence file i/o.
+/* Unaligned sequence file i/o.
  * 
  * SVN $Id$
  */
@@ -10,8 +9,11 @@
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
+#ifdef eslAUGMENT_ALPHABET
+#include "esl_alphabet.h"
+#endif
 #ifdef eslAUGMENT_MSA
-#include <esl_msa.h>
+#include "esl_msa.h"
 #endif
 
 /* name, accession, description, and sequence itself are of unlimited
@@ -55,6 +57,12 @@
 #define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
 
 
+
+
+
+/* ESL_SQFILE:
+ * An open sequence file for reading.
+ */
 typedef struct {
   FILE *fp;		      /* Open file ptr                            */
   char *filename;	      /* Name of file (for diagnostics)           */
@@ -103,8 +111,24 @@ typedef struct {
 
 
 
-/* Allocation of name, acc, desc is all in one malloc, of length
- * nalloc+aalloc+dalloc.
+/* ESL_SQ:
+ * A biosequence.
+ * 
+ * Can be either in text mode <seq>, or digital mode <dsq>. 
+ * One of them has to be NULL, and the other contains the data.
+ *
+ * Designed to be reused for subsequent sequences, rather than
+ * free'd and reallocated - thus, we keep track of the allocated
+ * sizes of all the strings.
+ * 
+ * Notes on when we need to reallocate:
+ *    - In a text mode sequence (seq 0..n-1), byte salloc-1 is
+ *      reserved for the NUL, so the sequence is full when
+ *      n == salloc-1.
+ *          
+ *    - In a digital mode sequence (dsq 1..n), bytes 0 and salloc-1
+ *      are reserved for sentinel bytes, so the reallocation condition
+ *      is when n == salloc-2.
  */
 typedef struct {
   /*::cexcerpt::sqio_sq::begin::*/
@@ -119,6 +143,10 @@ typedef struct {
   off_t    doff;	   /* data offset (start of sequence data)             */
   /*::cexcerpt::sqio_sq::end::*/
 
+#ifdef eslAUGMENT_ALPHABET
+  ESL_ALPHABET *abc;	   /* reference to the alphabet for <dsq> */
+#endif
+
   char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
   int   nalloc;         /* allocated length of name */
   int   aalloc;         /* allocated length of accession */
@@ -130,8 +158,18 @@ typedef struct {
 extern ESL_SQ *esl_sq_Create(void);
 extern ESL_SQ *esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss);
 extern int     esl_sq_Reuse(ESL_SQ *sq);
+extern int     esl_sq_Grow(ESL_SQ *sq, int *ret_nsafe);
 extern int     esl_sq_Squeeze(ESL_SQ *sq);
 extern void    esl_sq_Destroy(ESL_SQ *sq);
+
+extern int     esl_sq_SetName(ESL_SQ *sq, char *name);
+extern int     esl_sq_CAddResidue(ESL_SQ *sq, char c);
+
+#ifdef eslAUGMENT_ALPHABET
+extern ESL_SQ *esl_sq_CreateDigital(ESL_ALPHABET *abc);
+extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
+#endif
+
 
 extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
 			    ESL_SQFILE **ret_sqfp);

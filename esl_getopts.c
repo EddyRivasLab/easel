@@ -476,6 +476,7 @@ esl_opt_IsSet(ESL_GETOPTS *g, char *optname)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> isn't a boolean option.
  */
 int
 esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state)
@@ -484,6 +485,8 @@ esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_NONE)
+    ESL_EXCEPTION(eslEINVAL,    "option %s is not a boolean", optname);
 
   if (g->val[opti] == NULL) *ret_state = FALSE;
   else                      *ret_state = TRUE;
@@ -499,6 +502,7 @@ esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> isn't an integer option.
  */
 int
 esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
@@ -507,6 +511,8 @@ esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_INT)
+    ESL_EXCEPTION(eslEINVAL,    "option %s does not take an integer arg", optname);
   *ret_n = atoi(g->val[opti]);
   return eslOK;
 }
@@ -520,6 +526,7 @@ esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> isn't a real-valued option.
  */
 int
 esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x)
@@ -528,6 +535,9 @@ esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_REAL)
+    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a real-valued arg", optname);
+
   *ret_x = atof(g->val[opti]);
   return eslOK;
 }
@@ -541,6 +551,7 @@ esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> isn't a real-valued option.
  */
 int
 esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x)
@@ -549,6 +560,9 @@ esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_REAL)
+    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a real-valued arg", optname);
+
   *ret_x = atof(g->val[opti]);
   return eslOK;
 }
@@ -562,6 +576,7 @@ esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> isn't a char option.
  */
 int
 esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c)
@@ -570,6 +585,9 @@ esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_CHAR)
+    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a char arg", optname);
+
   *ret_c = *g->val[opti];
   return eslOK;
 }
@@ -578,11 +596,17 @@ esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c)
  * Incept:    SRE, Wed Jan 12 13:47:36 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_s>.
+ *            from <g>, leaving it in <ret_s>. 
+ *
+ *            This retrieves options of type <eslARG_STRING>,
+ *            obviously, but also options of type <eslARG_INFILE>
+ *            and <eslARG_OUTFILE>.
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
+ *            <eslEINVAL> if <optname> doesn't take a string,
+ *            infile, or outfile argument.
  */
 int
 esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
@@ -591,6 +615,10 @@ esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
     ESL_EXCEPTION(eslENOTFOUND, "no such option");
+  if (g->opt[opti].type != eslARG_STRING &&
+      g->opt[opti].type != eslARG_INFILE &&
+      g->opt[opti].type != eslARG_OUTFILE)
+    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a string arg", optname);
   *ret_s = g->val[opti];
   return eslOK;
 }

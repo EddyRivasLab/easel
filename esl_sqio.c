@@ -1,5 +1,4 @@
-/* esl_sqio.c
- * Sequence file i/o.
+/* Unaligned sequence file i/o.
  * 
  * Sections:
  *    1. The ESL_SQ object API.
@@ -16,21 +15,21 @@
  * SVN $Id$
  */
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
+#include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>	/* alphabet aug adds digital sequences */
+#include "esl_alphabet.h"	/* alphabet aug adds digital sequences */
 #endif 
 #ifdef eslAUGMENT_MSA
-#include <esl_msa.h>		/* msa aug adds ability to read MSAs   */
+#include "esl_msa.h"		/* msa aug adds ability to read MSAs as unaligned seqs  */
 #endif
-#include <esl_sqio.h>
+#include "esl_sqio.h"
 
 /* Generic functions for line-based parsers.
  */
@@ -61,6 +60,9 @@ static int  read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s);
 static int  write_fasta(FILE *fp, ESL_SQ *s);
 static int  check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos, 
 			 char **s, int i, int *slen);
+#ifdef eslAUGMENT_ALPHABET
+static int  write_digital_fasta(FILE *fp, ESL_SQ *s);
+#endif
 
 /* Optional MSA<->sqio interoperability */
 #ifdef eslAUGMENT_MSA
@@ -75,20 +77,11 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
  * 1. Routines for dealing with the ESL_SQ object.
  *****************************************************************/ 
 
-/* Function:  esl_sq_Create()
- * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
- *
- * Purpose:   Creates an empty <ESL_SQ> sequence object. 
- *            Caller frees with <esl_sq_Destroy()>.
- *            
- * Args:      (void)
- *
- * Returns:   pointer to the new <ESL_SQ>.
- *
- * Throws:    NULL if allocation fails.
+/* Create and CreateDigital() (see below) are almost identical, so
+ * their shared guts are here:
  */
-ESL_SQ *
-esl_sq_Create(void)
+static ESL_SQ *
+sq_create(int do_digital)
 {
   int status;
   ESL_SQ *sq = NULL;
@@ -100,7 +93,7 @@ esl_sq_Create(void)
   sq->desc     = NULL;
   sq->seq      = NULL;
   sq->ss       = NULL;	/* secondary structure input currently unimplemented */
-  sq->dsq      = NULL;	/* digital seq input currently unimplemented         */
+  sq->dsq      = NULL;	
   sq->optmem   = NULL;	/* this stays NULL unless we Squeeze() the structure */
   sq->nalloc   = eslSQ_NAMECHUNK;	
   sq->aalloc   = eslSQ_ACCCHUNK;
@@ -110,14 +103,71 @@ esl_sq_Create(void)
   ESL_ALLOC(sq->name, sizeof(char) * sq->nalloc);
   ESL_ALLOC(sq->acc,  sizeof(char) * sq->aalloc);
   ESL_ALLOC(sq->desc, sizeof(char) * sq->dalloc);
-  ESL_ALLOC(sq->seq,  sizeof(char) * sq->salloc);
+  if (do_digital) ESL_ALLOC(sq->dsq,  sizeof(ESL_DSQ) * sq->salloc);
+  else            ESL_ALLOC(sq->seq,  sizeof(char)    * sq->salloc);
+
   esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
   return sq;
 
  ERROR:
   esl_sq_Destroy(sq);
   return NULL;
+}  
+
+/* Function:  esl_sq_Create()
+ * Incept:    SRE, Thu Dec 23 11:57:00 2004 [Zaragoza]
+ *
+ * Purpose:   Creates an empty <ESL_SQ> sequence object, with
+ *            internal fields allocated to reasonable initial sizes. 
+ *            
+ * Args:      (void)
+ *
+ * Returns:   a pointer to the new <ESL_SQ>. Caller frees this with
+ *            <esl_sq_Destroy()>.
+ *
+ * Throws:    NULL if allocation fails.
+ */
+ESL_SQ *
+esl_sq_Create(void)
+{
+  return sq_create(FALSE);
 }
+
+#ifdef eslAUGMENT_ALPHABET
+/* Function:  esl_sq_CreateDigital()
+ * Incept:    SRE, Tue Jan  9 16:42:35 2007 [Janelia]
+ *
+ * Purpose:   Creates an empty digital <ESL_SQ> sequence object, with
+ *            internal fields allocated to reasonable initial sizes.
+ *            
+ *            Additionally, the first byte of the digital sequence 
+ *            (<s->dsq>, internally) is initialized to a sentinel,
+ *            but the terminal sentinel byte is the caller's
+ *            responsibility.
+ *
+ * Args:      (void)
+ *
+ * Returns:   a pointer to the new <ESL_SQ>
+ *
+ * Throws:    <NULL> if an allocation fails.
+ *
+ * Xref:      STL11/124
+ */
+ESL_SQ *
+esl_sq_CreateDigital(ESL_ALPHABET *abc)
+{
+  ESL_SQ *s;
+  if ((s = sq_create(TRUE)) != NULL)
+    {
+      s->abc    = abc;
+      s->dsq[0] = eslDSQ_SENTINEL;
+    }
+  return s;
+}
+#endif /*eslAUGMENT_ALPHABET*/
+
+
+
 
 /* Function:  esl_sq_CreateFrom()
  * Incept:    SRE, Wed Mar 22 09:17:04 2006 [St. Louis]
@@ -248,6 +298,58 @@ esl_sq_Reuse(ESL_SQ *sq)
   return eslOK;
 }
 
+/* Function:  esl_sq_Grow()
+ * Incept:    SRE, Wed Jan 10 08:26:23 2007 [Janelia]
+ *
+ * Purpose:   Assure that the sequence <sq> can hold at least
+ *            one more residue, whether in digital or text mode.
+ *            Reallocate if necessary. Optionally returns the number
+ *            of residues that can be added before the next call
+ *            to <esl_sq_Grow()> in <ret_nsafe>.
+ *            
+ *            The terminal <NUL> or sentinel count as a 'residue'
+ *            for this: that is, you may need to call <esl_sq_Grow()>
+ *            before terminating a new sequence.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on reallocation failure. In this case, the
+ *            original <sq> is untouched, and <*ret_nsafe> is returned
+ *            as 0.
+ *
+ * Xref:      STL11/125.
+ */
+int
+esl_sq_Grow(ESL_SQ *sq, int *ret_nsafe)
+{
+  void *tmp;
+  int   new;
+  int   nsafe;
+  int   status;
+
+  if (sq->seq != NULL)  nsafe = sq->salloc - sq->n;         /* text */
+  else                  nsafe = (sq->salloc-1) - sq->n;     /* digital: -1 because 0 is a sentinel       */
+
+  if (nsafe < 1)
+    {  /* reallocate by doubling (shouldn't need more, but if we do, keep doubling) */
+      new = sq->salloc;
+      do { nsafe += new; new  *=2; } while (nsafe < 1);
+      
+      if (sq->seq != NULL) ESL_RALLOC(sq->seq, tmp, new * sizeof(ESL_DSQ));	/* text */
+      else                 ESL_RALLOC(sq->dsq, tmp, new * sizeof(ESL_DSQ));	/* digital */
+      sq->salloc = new;
+    }
+
+  if (ret_nsafe != NULL) *ret_nsafe = nsafe;
+  return eslOK;
+
+ ERROR:
+  if (ret_nsafe != NULL) *ret_nsafe = 0;
+  return status;
+}
+
+
+
 /* Function:  esl_sq_Squeeze()
  * Incept:    SRE, Sat Dec 25 04:30:47 2004 [Zaragoza]
  *
@@ -343,6 +445,95 @@ esl_sq_Destroy(ESL_SQ *sq)
 }
 /*----------------- end of ESL_SQ object functions -----------------*/
 
+
+/* Function:  esl_sq_SetName()
+ * Incept:    SRE, Thu Jan 11 08:42:53 2007 [Janelia]
+ *
+ * Purpose:   Set the name of the sequence <sq> to <name>, reallocating
+ *            as needed.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetName(ESL_SQ *sq, char *name)
+{
+  int   n;
+  void *tmp;
+  int   status;
+
+  n = strlen(name);
+  if (n+1 > sq->nalloc) {
+    ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
+    sq->nalloc = n+1;
+  }
+  strcpy(sq->name, name);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_sq_CAddResidue()
+ * Incept:    SRE, Wed Jan 10 07:58:20 2007 [Janelia]
+ *
+ * Purpose:   Add one residue <c> onto a growing text mode sequence <sq>,
+ *            and deal with any necessary reallocation.
+ *
+ *            The sequence in <sq> is not <NUL>-terminated. To 
+ *            finish and NUL-terminate <sq>, call 
+ *            <esl_sq_CAddResidue(sq, 0)>.
+ *            
+ * Note:      Not the most efficient routine, but convenient in some
+ *            routines. Parsers (where speed is at a premium) typically
+ *            use addseq() instead.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on re-allocation failure.
+ *
+ * Xref:      STL11/125.
+ */
+int
+esl_sq_CAddResidue(ESL_SQ *sq, char c)
+{
+  if (esl_sq_Grow(sq, NULL) != eslOK) return eslEMEM;
+  sq->seq[sq->n] = c;
+  if (c != '\0') sq->n++;
+  return eslOK;
+}
+
+
+#ifdef eslAUGMENT_ALPHABET
+/* Function:  esl_sq_XAddResidue()
+ * Incept:    SRE, Wed Jan 10 08:23:23 2007 [Janelia]
+ *
+ * Purpose:   Like <esl_sq_CAddResidue()>, except for digital mode
+ *            sequence: add a digital residue <x> onto a growing
+ *            digital sequence <sq>. 
+ *            
+ *            The digital sequence in <sq> must be explicitly
+ *            terminated when you're done adding to it; call
+ *            <esl_sq_XAddResidue(sq, eslDSQ_SENTINEL)>.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on re-allocation failure.
+ *
+ * Xref:      STL11/125.
+ */
+int
+esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x)
+{
+  if (esl_sq_Grow(sq, NULL) != eslOK) return eslEMEM;
+  sq->dsq[sq->n+1] = x;
+  if (x != eslDSQ_SENTINEL) sq->n++;
+  return eslOK;
+}
+#endif /*eslAUGMENT_ALPHABET*/
 
 
 
@@ -706,31 +897,43 @@ int
 esl_sqio_Write(FILE *fp, ESL_SQ *s, int format)
 {
   int status;
-
 #ifdef eslAUGMENT_MSA
   ESL_MSA *msa;
 #endif
 
-  switch (format) {
-  case eslSQFILE_FASTA: status = write_fasta(fp, s); break;
+  if (s->seq != NULL) 		/* text mode */
+    {
+      switch (format) {
+      case eslSQFILE_FASTA: status = write_fasta(fp, s); break;
 
 #ifdef eslAUGMENT_MSA
-  case eslMSAFILE_STOCKHOLM:
-  case eslMSAFILE_PFAM:
-    /* For writing single sequences in "alignment" format,
-     * we convert the SQ object to an MSA, then write using
-     * the MSA API.
-     */
-    if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
-    status = esl_msa_Write(fp, msa, format);
-    esl_msa_Destroy(msa);
-    break;
+      case eslMSAFILE_STOCKHOLM:
+      case eslMSAFILE_PFAM:
+	/* For writing single sequences in "alignment" format,
+	 * we convert the SQ object to an MSA, then write using
+	 * the MSA API.
+	 */
+	if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
+	status = esl_msa_Write(fp, msa, format);
+	esl_msa_Destroy(msa);
+	break;
 #endif /* msa augmentation */
 
-  default: 
-    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
-  }
-
+      default: 
+	ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
+      }
+    }
+  else				/* digital mode */
+    {
+#if defined (eslAUGMENT_ALPHABET)
+      switch (format) {
+      case eslSQFILE_FASTA: status = write_digital_fasta(fp, s); break;
+      default:              ESL_EXCEPTION(eslEINCONCEIVABLE, "only supporting fasta for digital output currently");
+      }
+#else
+      ESL_EXCEPTION(eslEINCONCEIVABLE, "whoops, how did I get a digital sequence?");
+#endif
+    }
   return status;
 }
 
@@ -1763,7 +1966,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
  *
  * Returns <eslOK> on success.
  */
-int
+static int
 write_fasta(FILE *fp, ESL_SQ *s)
 {
   char  buf[61];
@@ -1779,6 +1982,35 @@ write_fasta(FILE *fp, ESL_SQ *s)
   return eslOK;
 }
 
+#ifdef eslAUGMENT_ALPHABET
+/* write_digital_fasta():
+ * SRE, Tue Jan  9 16:26:52 2007 [Janelia] [Keb' Mo', Suitcase]
+ * 
+ * Write a digital sequence <s> in FASTA format to open stream <fp>.
+ * 
+ * Returns <eslOK> on success.
+ */
+static int
+write_digital_fasta(FILE *fp, ESL_SQ *s)
+{
+  char buf[61];
+  int  pos;
+  
+  fprintf(fp, ">%s", s->name);
+  if (s->acc[0]  != 0) fprintf(fp, " %s", s->acc);
+  if (s->desc[0] != 0) fprintf(fp, " %s", s->desc);
+  fputc('\n', fp);
+
+  buf[60] = '\0';
+  for (pos = 1; pos <= s->n; pos+=60)
+    {
+      esl_abc_TextizeN(s->abc, s->dsq+pos, 60, buf);
+      fputs(buf, fp);
+      fputc('\n', fp);
+    }
+  return eslOK;
+}
+#endif /*eslAUGMENT_ALPHABET*/
 
 
 /* check_buffers()
