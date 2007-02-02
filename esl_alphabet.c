@@ -1282,27 +1282,24 @@ esl_abc_DescribeType(int type)
 int
 esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf)
 {
+  int status;
   int i;
   int firstpos = -1;
   int nbad     = 0;
 
-  if (errbuf != NULL) errbuf[0] = '\0';
-
-  for (i = 0; i < L; i++)
-    {
-      if (! esl_abc_CIsValid(a, seq[i]))
-	{
-	  if (firstpos == -1) firstpos = i;
-	  nbad++;
-	}
+  if (errbuf) *errbuf = 0;
+  for (i = 0; i < L; i++) {
+    if (! esl_abc_CIsValid(a, seq[i])) {
+      if (firstpos == -1) firstpos = i;
+      nbad++;
     }
+  }
+  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%d bad chars (including bad %c at pos %d)", 
+			  nbad, seq[firstpos], firstpos);
+  return eslOK;
 
-  if (nbad == 0)  return eslOK;
-
-  if (errbuf != NULL) 
-    sprintf(errbuf, "%d bad chars (including bad %c at pos %d)", 
-	    nbad, seq[firstpos], firstpos);
-  return eslEINVAL;
+ ERROR:
+  return status;
 }
 /*---------------- end, other API functions ---------------------*/
 

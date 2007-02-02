@@ -384,9 +384,9 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
  *            for every option that is set, make sure that any
  *            required options are also set, and that no
  *            incompatible options are set. ``Set'' means
- *            the configured value is non-NULL (including booleans),
- *            and ``not set'' means the value is NULL. (That is,
- *            we don't go by <setby>, which refers to who
+ *            the configured value is non-default and non-NULL (including booleans),
+ *            and ``not set'' means the value is default or NULL. (That is,
+ *            we don't go solely by <setby>, which refers to who
  *            determined the state of an option, even if
  *            it is turned off.)
  *
@@ -408,11 +408,11 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
    */
   for (i = 0; i < g->nopts; i++)
     {
-      if (g->setby[i] && g->val[i] != NULL)
+      if (g->setby[i] != eslARG_SETBY_DEFAULT && g->val[i] != NULL)
 	{
 	  s = g->opt[i].required_opts;
 	  while ((status = process_optlist(g, &s, &reqi)) == eslOK)
-	    if (g->val[reqi] == NULL)
+	    if (g->setby[reqi] == eslARG_SETBY_DEFAULT || g->val[reqi] == NULL)
 	      ESL_EXCEPTION(eslEINVAL,
 			    "Option %s requires (or has no effect without) option(s) %s\n\n%s", 
 			    g->opt[i].name, g->opt[i].required_opts, g->usage);
@@ -422,15 +422,16 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
     }
 
   /* For all options that are set (turned on with non-NULL vals),
-   * verify that no incompatible options are set.
+   * verify that no incompatible options are set to non-default
+   * values (notice the setby[incompati] check)
    */
   for (i = 0; i < g->nopts; i++)
     {
-      if (g->setby[i] && g->val[i] != NULL)
+      if (g->setby[i] != eslARG_SETBY_DEFAULT && g->val[i] != NULL)
 	{
 	  s = g->opt[i].incompat_opts;
 	  while ((status = process_optlist(g, &s, &incompati)) == eslOK)
-	    if (g->val[incompati] != NULL)
+	    if (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL)
 	      ESL_EXCEPTION(eslEINVAL,
 			    "Option %s is incompatible with option(s) %s\n\n%s", 
 			    g->opt[i].name, g->opt[i].incompat_opts, g->usage);

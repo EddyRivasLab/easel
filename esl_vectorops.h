@@ -99,10 +99,10 @@ extern float  esl_vec_FLogSum(float *vec, int n);
 extern void   esl_vec_DLogNorm(double *vec, int n);
 extern void   esl_vec_FLogNorm(float *vec, int n);
 
-extern int    esl_vec_DValidate(double *vec, int n, double tol);
-extern int    esl_vec_FValidate(float  *vec, int n, float  tol);
+extern int    esl_vec_DValidate(double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FValidate(float  *vec, int n, float  tol, char *errbuf);
 
-extern int    esl_vec_DLogValidate(double *vec, int n, double tol);
-extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol);
+extern int    esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf);
+extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol, char *errbuf);
 
 #endif /* ESL_VECTOROPS_INCLUDED */

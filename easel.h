@@ -219,6 +219,7 @@ extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
 #define eslCONST_PI    3.14159265358979323846264338328
 #define eslCONST_EULER 0.57721566490153286060651209008
 #define eslCONST_GOLD  1.618033988749894
+#define eslCONST_LOG2  0.69314718055994529
 
 /* Define <eslINFINITY> portably. Harder than it looks. 
  * We assume we're in an IEEE 754 environment.

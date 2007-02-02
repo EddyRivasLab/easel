@@ -612,12 +612,22 @@ tabular ASCII form. Useful during debugging and development to view
 the entire object at a glance. Returns \ccode{eslOK} on success.
 
 \hypertarget{ifc:Validate}
-{\item[\ccode{\_Validate*(obj...)}]}
+{\item[\ccode{\_Validate*(obj, errbuf...)}]}
 
 Checks that the internals of \ccode{obj} are all right. Returns
 \ccode{eslOK} if they are, and throws \ccode{eslFAIL} if they
-aren't. Like an \ccode{assert()} call, a \ccode{\_Validate()} call is
-mainly intended for debugging and catching serious coding errors in
+aren't. Additionally, if the caller provides a non-\ccode{NULL}
+message buffer \ccode{errbuf}, on failure, an informative message
+describing the reason for the failure is formatted and left in
+\ccode{errbuf}. If the caller provides this message buffer, it must
+allocate it for at least \ccode{p7_ERRBUFSIZE} characters.
+
+The intent of a \ccode{_Validate()} call is to detect problems as
+normal errors, so they may be handled gracefully or even silently, if
+that's what the caller wants to do. (Throwing exceptions instead would
+give the caller no flexibility in dealing with failed validations.)
+Like an \ccode{assert()} call, a \ccode{\_Validate()} call is mainly
+intended for debugging and catching serious coding errors in
 development code; whether to include such calls in production code is
 a judgement call.
 

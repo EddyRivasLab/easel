@@ -954,90 +954,120 @@ esl_vec_FLogNorm(float *vec, int n)
  *            Each element has to be between 0 and 1, and
  *            the sum of all elements has to be 1.
  *
- * Args:      v   - p vector to validate.
- *            n   - dimensionality of v
- *            tol - convergence criterion applied to sum of v
+ * Args:      v      - p vector to validate.
+ *            n      - dimensionality of v
+ *            tol    - convergence criterion applied to sum of v
+ *            errbuf - NULL, or a failure message buffer allocated
+ *                     for at least p7_ERRBUFSIZE chars. 
  *
- * Returns:   <eslOK> on success.
+ * Returns:   <eslOK> on success, or <eslFAIL> on validation failure.
+ *            Upon failure, if caller provided a non-<NULL> <errbuf>,
+ *            an informative message is left there.
  */
 int
-esl_vec_DValidate(double *vec, int n, double tol)
+esl_vec_DValidate(double *vec, int n, double tol, char *errbuf)
 {
+  int    status;
   int    x;
   double sum = 0.;
 
+  if (errbuf) *errbuf = 0;
   if (n == 0) return eslOK;
 
   for (x = 0; x < n; x++) {
-    if (vec[x] < 0.0 || vec[x] > 1.0) return eslFAIL;
+    if (vec[x] < 0.0 || vec[x] > 1.0)
+      ESL_XFAIL(eslFAIL, errbuf, "value %d is not a probability between 0..1", x);
     sum += vec[x];
   }
 
-  if (fabs(sum - 1.0) > tol) return eslFAIL;
-
+  if (fabs(sum - 1.0) > tol) 
+    ESL_XFAIL(eslFAIL, errbuf, "vector does not sum to 1.0");
   return eslOK;
+
+ ERROR:
+  return status;
 }
 int
-esl_vec_FValidate(float *vec, int n, float tol)
+esl_vec_FValidate(float *vec, int n, float tol, char *errbuf)
 {
+  int   status;
   int   x;
   float sum = 0.;
 
+  if (errbuf) *errbuf = 0;
   if (n == 0) return eslOK;
 
   for (x = 0; x < n; x++) {
-    if (vec[x] < 0.0 || vec[x] > 1.0) return eslFAIL;
+    if (vec[x] < 0.0 || vec[x] > 1.0)
+      ESL_XFAIL(eslFAIL, errbuf, "value %d is not a probability between 0..1", x);
     sum += vec[x];
   }
 
-  if (fabs(sum - 1.0) > tol) return eslFAIL;
-
+  if (fabs(sum - 1.0) > tol) 
+    ESL_XFAIL(eslFAIL, errbuf, "vector does not sum to 1.0");
   return eslOK;
+
+ ERROR:
+  return status;
 }
 
-/* Function:  esl_vec__DLogValidate()
+/* Function:  esl_vec_DLogValidate()
  * Incept:    ER,  Tue Dec  5 09:46:51 EST 2006 [janelia]
  *
  * Purpose:   Validate a log probability vector <vec> of length <n>.
  *            The exp of each element has to be between 0 and 1, and
  *            the sum of all elements has to be 1.
  *
- * Args:      v   - log p vector to validate.
- *            n   - dimensionality of v
- *            tol - convergence criterion applied to sum of exp v
+ * Args:      v      - log p vector to validate.
+ *            n      - dimensionality of v
+ *            tol    - convergence criterion applied to sum of exp v
+ *            errbuf - NULL, or a failure message buffer allocated
+ *                     for at least p7_ERRBUFSIZE chars. 
  *
- * Returns:   <eslOK> on success.
+ * Returns:   <eslOK> on success, or <eslFAIL> on failure; upon failure,
+ *            if caller provided a non-<NULL> <errbuf>, an informative
+ *            message is left there.
+ *            
+ * Throws:    <eslEMEM> on allocation failure.           
  */
 int
-esl_vec_DLogValidate(double *vec, int n, double tol)
+esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf)
 {
-  double *expvec;
+  int     status;
+  double *expvec = NULL;
 
+  if (errbuf) *errbuf = 0;
   if (n == 0) return eslOK;
 
-  expvec = malloc(sizeof(double)*n);
+  ESL_ALLOC(expvec, sizeof(double)*n);
   esl_vec_DCopy(expvec, vec, n);
   esl_vec_DExp(expvec, n); 
-  if (esl_vec_DValidate(expvec, n, tol) != eslOK) return eslFAIL;
-
+  if ((status = esl_vec_DValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
   free(expvec);
-
   return eslOK;
+
+ ERROR:
+  if (expvec != NULL) free(expvec);
+  return status;
 }
 int
-esl_vec_FLogValidate(float *vec, int n, float tol)
+esl_vec_FLogValidate(float *vec, int n, float tol, char *errbuf)
 {
-  float  *expvec;
+  int     status;
+  float  *expvec = NULL;
 
+  if (errbuf) *errbuf = 0;
   if (n == 0) return eslOK;
 
-  expvec = malloc(sizeof(float)*n);
+  ESL_ALLOC(expvec, sizeof(float)*n);
   esl_vec_FCopy(expvec, vec, n);
   esl_vec_FExp(expvec, n); 
-  if (esl_vec_FValidate(expvec, n, tol) != eslOK) return eslFAIL;
-
+  if ((status = esl_vec_FValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
   free(expvec);
+  return eslOK;
 
+ ERROR:
+  if (expvec != NULL) free(expvec);
   return eslOK;
 }
 

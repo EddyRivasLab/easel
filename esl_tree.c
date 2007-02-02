@@ -526,52 +526,74 @@ esl_tree_VerifyUltrametric(ESL_TREE *T)
  *
  * Purpose:   Validates the integrity of the data structure in <T>.
  *            Returns <eslOK> if the internal data in <T> are
- *            consistent and valid. Returns <eslFAIL> if not.
+ *            consistent and valid. Returns <eslFAIL> if not,
+ *            and if a non-<NULL> message buffer <errbuf> has been
+ *            provided by the caller, an informative message is
+ *            left in <errbuf> describing the reason for the 
+ *            failure.
+ *            
+ * Args:      T      - tree structure to validate
+ *            errbuf - NULL, or a buffer of at least p7_ERRBUFSIZE
+ *                     chars to contain an error message upon
+ *                     any validation failure.
  */
 int
-esl_tree_Validate(ESL_TREE *T)
+esl_tree_Validate(ESL_TREE *T, char *errbuf)
 {
   int N;
   int i, c;
   int shouldbe;
+  int status;
   
+  if (errbuf != NULL) *errbuf = 0;
+
   N = T->N; /* just to save writing T->N so many times below  */
-  if (N < 2)             return eslFAIL;
-  if (T->parent[0] != 0) return eslFAIL;
-  if (T->nalloc < N)     return eslFAIL;
+  if (N < 2)             ESL_XFAIL(eslFAIL, errbuf, "number of taxa is less than 2");
+  if (T->parent[0] != 0) ESL_XFAIL(eslFAIL, errbuf, "parent of root 0 should be set to 0");
+  if (T->nalloc < N)     ESL_XFAIL(eslFAIL, errbuf, "number of taxa N is less than allocation");
 
   /* Verify preorder tree numbering.
    */
   for (i = 0; i < N-1; i++)
     {
-      if (T->left[i]  > 0 && T->left[i]  < i) return eslFAIL; 
-      if (T->right[i] > 0 && T->right[i] < i) return eslFAIL; 
+      if (T->left[i]  > 0 && T->left[i]  < i)
+	ESL_XFAIL(eslFAIL, errbuf, "l child of node %d not in preorder", i);
+      if (T->right[i] > 0 && T->right[i] < i)
+	ESL_XFAIL(eslFAIL, errbuf, "r child of node %d not in preorder", i);
     }
 
   /* Range checks on values. */
   for (i = 0; i < N-1; i++)
     {
-      if (T->parent[i] < 0      || T->parent[i]     > N-2)  return eslFAIL;
-      if (T->left[i]   < -(N-1) || T->left[i]       > N-2)  return eslFAIL;
-      if (T->right[i]  < -(N-1) || T->right[i]      > N-2)  return eslFAIL;
-      if (T->ld[i] < 0.)                                    return eslFAIL;
-      if (T->rd[i] < 0.)                                    return eslFAIL;
-      if (T->taxaparent != NULL &&
-	  (T->taxaparent[i] < 0 || T->taxaparent[i] > N-2)) return eslFAIL;
-      if (T->cladesize  != NULL &&
-	  (T->cladesize[i] < 0  || T->cladesize[i]  > N))   return eslFAIL;
+      if (T->parent[i] < 0      || T->parent[i]     > N-2)
+	ESL_XFAIL(eslFAIL, errbuf, "parent idx of node %d invalid", i);
+      if (T->left[i]   < -(N-1) || T->left[i]       > N-2)  
+	ESL_XFAIL(eslFAIL, errbuf, "left child idx of node %d invalid", i);
+      if (T->right[i]  < -(N-1) || T->right[i]      > N-2)  
+	ESL_XFAIL(eslFAIL, errbuf, "right child idx of node %d invalid", i);
+      if (T->ld[i] < 0.)                                   
+	ESL_XFAIL(eslFAIL, errbuf, "negative l branch length at node %d", i);
+      if (T->rd[i] < 0.)       
+	ESL_XFAIL(eslFAIL, errbuf, "negative r branch length at node %d", i);
+      if (T->cladesize  != NULL && (T->cladesize[i] < 0  || T->cladesize[i]  > N))
+	ESL_XFAIL(eslFAIL, errbuf, "invalid cladesize at node %d", i);
     }
+  for (c = 0; c < N; c++)
+    if (T->taxaparent != NULL && (T->taxaparent[c] < 0 || T->taxaparent[c] > N-2))
+      ESL_XFAIL(eslFAIL, errbuf, "invalid taxaparent at node %d", c);
 
   /* more sophisticated integrity checks on parent-child relations in
      nodes ...*/
   for (i = 1; i < T->N-1; i++)
-    if (T->left[T->parent[i]] != i && T->right[T->parent[i]] != i) return eslFAIL;
+    if (T->left[T->parent[i]] != i && T->right[T->parent[i]] != i)
+      ESL_XFAIL(eslFAIL, errbuf, "parent/child link discrepancy at internal node %d\n", i);
 
   /* ...and between terminal nodes and taxa.
    */
   if (T->taxaparent != NULL)
     for (c = 0; c < T->N; c++)
-      if (T->left[T->taxaparent[c]] != -c && T->right[T->taxaparent[c]] != -c) return eslFAIL;
+      if (T->left[T->taxaparent[c]] != -c && T->right[T->taxaparent[c]] != -c) 
+	ESL_XFAIL(eslFAIL, errbuf, "parent/child link discrepancy at taxon %d\n", c);
 
   /* check on cladesizes */
   if (T->cladesize != NULL)
@@ -580,10 +602,14 @@ esl_tree_Validate(ESL_TREE *T)
 	shouldbe = 0;
 	if (T->left[i]  > 0) shouldbe += T->cladesize[T->left[i]];  else shouldbe++;
 	if (T->right[i] > 0) shouldbe += T->cladesize[T->right[i]]; else shouldbe++;
-	if (shouldbe != T->cladesize[i]) return eslFAIL;
+	if (shouldbe != T->cladesize[i]) 
+	  ESL_XFAIL(eslFAIL, errbuf, "incorrect cladesize at node %d", i);
       }
 
   return eslOK;
+
+ ERROR:
+  return status;
 }
 
 
@@ -1969,7 +1995,7 @@ utest_OptionalInformation(ESL_RANDOMNESS *r, int ntaxa)
   if (esl_tree_Simulate(r, ntaxa, &T) != eslOK) esl_fatal(msg);
   if (esl_tree_SetTaxaParents(T)      != eslOK) esl_fatal(msg);
   if (esl_tree_SetCladesizes(T)       != eslOK) esl_fatal(msg);
-  if (esl_tree_Validate(T)            != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T, NULL)      != eslOK) esl_fatal(msg);
   
   esl_tree_Destroy(T);
   return;
@@ -1989,11 +2015,11 @@ utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
   if (esl_tmpfile(tmpfile, &fp)            != eslOK) esl_fatal(msg);
   if (esl_tree_Simulate(r, ntaxa, &T1)     != eslOK) esl_fatal(msg);
   if (esl_tree_SetTaxonlabels(T1, NULL)    != eslOK) esl_fatal(msg);
-  if (esl_tree_Validate(T1)                != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T1, NULL)          != eslOK) esl_fatal(msg);
   if (esl_tree_WriteNewick(fp, T1)         != eslOK) esl_fatal(msg);
   rewind(fp);
   if (esl_tree_ReadNewick(fp, errbuf, &T2) != eslOK) esl_fatal(msg);
-  if (esl_tree_Validate(T2)                != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T2, NULL)          != eslOK) esl_fatal(msg);
   if (esl_tree_Compare(T1, T2)             != eslOK) esl_fatal(msg);
   fclose(fp);
 
@@ -2016,8 +2042,8 @@ utest_UPGMA(ESL_RANDOMNESS *r, int ntaxa)
   if (esl_tree_ToDistanceMatrix(T1, &D1) != eslOK) esl_fatal(msg);
   if (esl_tree_UPGMA(D1, &T2)            != eslOK) esl_fatal(msg);
 
-  if (esl_tree_Validate(T1)              != eslOK) esl_fatal(msg);
-  if (esl_tree_Validate(T2)              != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T1, NULL)        != eslOK) esl_fatal(msg);
+  if (esl_tree_Validate(T2, NULL)        != eslOK) esl_fatal(msg);
   if (esl_tree_VerifyUltrametric(T1)     != eslOK) esl_fatal(msg);
   if (esl_tree_VerifyUltrametric(T2)     != eslOK) esl_fatal(msg);
   if (esl_tree_Compare(T1, T2)           != eslOK) esl_fatal(msg);
