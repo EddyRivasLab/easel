@@ -3,9 +3,12 @@
  *
  *  1. The ESL_RANDOMNESS object.
  *  2. The generator, esl_random().
- *  3. Other sampling routines.
- *  4. The example driver.
- *  5. The test driver.
+ *  3. Other fundamental sampling (including Gaussian, gamma).
+ *  4. Multinomial sampling from discrete probability n-vectors.
+ *  5. Generating iid sequences, either text or digital mode.
+ *  6. Unit tests.
+ *  7. The test driver.
+ *  8. An example of using the random module.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -24,7 +27,7 @@
 
 
 /*****************************************************************
- * 1. The ESL_RANDOMNESS object
+ * 1. The ESL_RANDOMNESS object.
  *****************************************************************/
 
 /* Function:  esl_randomness_Create()
@@ -246,7 +249,7 @@ esl_random(ESL_RANDOMNESS *r)
 
 
 /*****************************************************************
- * 3. Other sampling routines
+ * 3. Other fundamental sampling (including Gaussian, gamma)
  *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
@@ -487,6 +490,10 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 }
 
 
+/*****************************************************************
+ * 4. Multinomial sampling from discrete probability n-vectors
+ *****************************************************************/ 
+
 /* Function:  esl_rnd_DChoose()
  *
  * Purpose:   Make a random choice from a normalized discrete
@@ -572,168 +579,111 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 }
 
 
+/*****************************************************************
+ * 5. Generating iid sequences, either text or digital mode.
+ *****************************************************************/ 
+
 /* Function: esl_rnd_IID()
  * Incept:   SRE, Thu Aug  5 09:03:03 2004 [St. Louis]
  *
- * Purpose:  Generate and return an iid symbol sequence of length <L>.
- *           The legal symbol alphabet is given as a string
- *           <alphabet> of <K> total symbols, and the iid probability 
- *           of each residue is given in <p>. The new string is
- *           allocated here and returned in <ret_s>.
+ * Purpose:  Generate a NUL-terminated iid symbol string of length <L>,
+ *           0..L-1 and leave it in <s>. The symbol alphabet is given
+ *           as a string <alphabet> of <K> total symbols, and the iid
+ *           probability of each residue is given in <p>. The caller
+ *           must provide an <s> that is allocated for at least
+ *           <(L+1)*sizeof(char)>, for <L> residues and a NUL terminator.
+ *           
+ *           <esl_rnd_fIID()> does the same, but for a floating point
+ *           probability vector <p>, rather than a double precision
+ *           vector.
  *
  * Args:     r         - ESL_RANDOMNESS object
  *           alphabet  - e.g. "ACGT"
  *           p         - probability distribution [0..n-1]
  *           K         - number of symbols in alphabet
  *           L         - length of generated sequence
- *           ret_s     - RETURN: the generated sequence.
+ *           s         - the generated sequence.
+ *                       Caller allocated, >= (L+1) * sizeof(char).
  *
- * Return:   <eslOK> on success, and <ret_s> points to the random sequence,
- *           which is allocated here and must be free()'d by caller.
- *
- * Throws:   <eslEMEM> on failure, and <ret_s> is returned <NULL>.
+ * Return:   <eslOK> on success.
  */
 int
-esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char **ret_s)
+esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char *s)
 {
-  int   status;
-  char *s = NULL;
   int   x;
 
-  ESL_ALLOC(s, sizeof(char) * (L+1));
   for (x = 0; x < L; x++)
     s[x] = alphabet[esl_rnd_DChoose(r,p,K)];
   s[x] = '\0';
-
-  *ret_s = s;
   return eslOK;
-
- ERROR:
-  *ret_s = NULL;
-  return status;
 }
-
-
-
-/*****************************************************************
- * 4. Example of using the random module
- *****************************************************************/
-#ifdef eslRANDOM_EXAMPLE
-/*::cexcerpt::random_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE random.c easel.c -lm
- * run:     ./example
- */
-#include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-
-int 
-main(void)
-{
-  ESL_RANDOMNESS *r;
-  double          x;
-  int             n;
-  
-  r = esl_randomness_Create(42); 
-  n = 10;
-
-  printf("A sequence of %d pseudorandom numbers:\n", n);
-  while (n--) {
-    x = esl_random(r);
-    printf("%f\n", x);
-  }
-
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::random_example::end::*/
-#endif /*eslRANDOM_EXAMPLE*/
-
-
-/*****************************************************************
- * 5. Test driver
- *****************************************************************/
-
-/* gcc -o testdrive -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
- */
-#ifdef eslRANDOM_TESTDRIVE
-
-#include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_dirichlet.h>
-#include <esl_vectorops.h>
-#include <esl_random.h>
-
-static ESL_OPTIONS options[] = {
-  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
-  {"-b",  eslARG_INT,      "20", NULL, "n>0",NULL, NULL, NULL, "number of test bins",               0},
-  {"-n",  eslARG_INT, "1000000", NULL, "n>0",NULL, NULL, NULL, "number of samples",                 0},
-  {"-s",  eslARG_INT,      "42", NULL, "n>0",NULL, NULL, NULL, "random number seed",                0},
-  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
-  {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
-  { 0,0,0,0,0,0,0,0,0,0},
-};
-static char usage[] = "Usage: ./testdrive [-options]";
-
-static int unit_random(long seed, int n, int nbins, int be_verbose);
-static int unit_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose);
-static int save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n);
-
 int
-main(int argc, char **argv)
+esl_rnd_fIID(ESL_RANDOMNESS *r, char *alphabet, float *p, int K, int L, char *s)
 {
-  ESL_GETOPTS    *go;
-  ESL_RANDOMNESS *r;
-  int             n, nbins, seed, be_verbose, show_help;
-  double          X2p;
-  char           *bitfile;
-  int             i;
+  int   x;
 
-  /* Command line parsing
-   */
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
-    puts(usage); 
-    puts("\n  where options are:");
-    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
-    return 0;
-  }
-  esl_opt_GetIntegerOption(go, "-b", &nbins);
-  esl_opt_GetIntegerOption(go, "-n", &n);
-  esl_opt_GetIntegerOption(go, "-s", &seed);
-  esl_opt_GetBooleanOption(go, "-v", &be_verbose);
-  esl_opt_GetStringOption (go, "--bitfile", &bitfile);
-
-  if (esl_opt_ArgNumber(go) != 0) {
-    puts("Incorrect number of command line arguments.");
-    puts(usage);
-    return 1;
-  }
-
-  /* Initialization
-   */
-  r = esl_randomness_Create(seed);
-
-  /* Unit tests
-   */
-  if (unit_random(seed, n, nbins, be_verbose) != eslOK) esl_fatal("unit test for esl_random() failed.");
-  if (unit_choose(r,    n, nbins, be_verbose) != eslOK) esl_fatal("unit test for {FD}Choose() failed.");
-
-  /* Optional datafiles.
-   */
-  if (bitfile != NULL) save_bitfile(bitfile, r, n);
-
-  /* Exit.
-   */
-  esl_randomness_Destroy(r);
-  esl_getopts_Destroy(go);
-  return 0;
+  for (x = 0; x < L; x++)
+    s[x] = alphabet[esl_rnd_FChoose(r,p,K)];
+  s[x] = '\0';
+  return eslOK;
 }
+
+
+/* Function: esl_rnd_xIID()
+ * Incept:   SRE, Sat Feb 17 16:39:01 2007 [Casa de Gatos]
+ *
+ * Purpose:  Generate an IID digital sequence of length <L> (1..L) and
+ *           leave it in <dsq>. The iid probability of each residue is
+ *           given in the probability vector <p>, and the number of
+ *           possible residues (the alphabet size) is given by <K>.
+ *           (Only the alphabet size <K> is needed here, as opposed to
+ *           a digital <ESL_ALPHABET>,, though the caller presumably
+ *           has a digital alphabet.) The caller must provide a <dsq>
+ *           allocated for at least <L+2> residues of type <ESL_DSQ>;
+ *           <L> residues and leading/trailing digital sentinel bytes.
+ *           
+ *           <esl_rnd_xfIID()> does the same, but for a
+ *           single-precision float vector <p> rather than a
+ *           double-precision vector <p>.
+ *
+ * Args:     r         - ESL_RANDOMNESS object
+ *           p         - probability distribution [0..n-1]
+ *           K         - number of symbols in alphabet
+ *           L         - length of generated sequence
+ *           ret_s     - RETURN: the generated sequence. 
+ *                       (Caller-allocated, >= (L+2)*ESL_DSQ)
+ *
+ * Return:   <eslOK> on success.
+ */
+int
+esl_rnd_xIID(ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq)
+{
+  int   x;
+
+  dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
+  for (x = 0; x < L; x++) 
+    dsq[x] = esl_rnd_DChoose(r,p,K);
+  return eslOK;
+}
+int
+esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
+{
+  int   x;
+
+  dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
+  for (x = 0; x < L; x++) 
+    dsq[x] = esl_rnd_FChoose(r,p,K);
+  return eslOK;
+}
+
+
+/*****************************************************************
+ * 6. Unit tests.
+ *****************************************************************/
+
+#ifdef eslRANDOM_TESTDRIVE
+#include <esl_vectorops.h>
+#include <esl_stats.h>
 
 /* The esl_random() unit test:
  * a binned frequency test.
@@ -844,7 +794,6 @@ static int
 save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 {
   FILE *fp = NULL;
-  int status;
   int b,i;
   long x;
 
@@ -870,11 +819,131 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
     }
   fclose(fp);
   return eslOK;
-
- ERROR:
-  if (fp != NULL) fclose(fp);
-  return status;
 }
-
-
 #endif /*eslRANDOM_TESTDRIVE*/
+
+
+/*****************************************************************
+ * 7. The test driver.
+ *****************************************************************/
+
+/* gcc -o testdrive -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
+ */
+#ifdef eslRANDOM_TESTDRIVE
+
+#include <stdio.h>
+#include <easel.h>
+#include <esl_getopts.h>
+#include <esl_dirichlet.h>
+#include <esl_vectorops.h>
+#include <esl_random.h>
+
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
+  {"-b",  eslARG_INT,      "20", NULL, "n>0",NULL, NULL, NULL, "number of test bins",               0},
+  {"-n",  eslARG_INT, "1000000", NULL, "n>0",NULL, NULL, NULL, "number of samples",                 0},
+  {"-s",  eslARG_INT,      "42", NULL, "n>0",NULL, NULL, NULL, "random number seed",                0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
+  {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[] = "Usage: ./testdrive [-options]";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go;
+  ESL_RANDOMNESS *r;
+  int             n, nbins, seed, be_verbose, show_help;
+  double          X2p;
+  char           *bitfile;
+  int             i;
+
+  /* Command line parsing
+   */
+  go = esl_getopts_Create(options, usage);
+  esl_opt_ProcessCmdline(go, argc, argv);
+  esl_opt_VerifyConfig(go);
+  esl_opt_GetBooleanOption(go, "-h", &show_help);
+  if (show_help) {
+    puts(usage); 
+    puts("\n  where options are:");
+    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
+    return 0;
+  }
+  esl_opt_GetIntegerOption(go, "-b", &nbins);
+  esl_opt_GetIntegerOption(go, "-n", &n);
+  esl_opt_GetIntegerOption(go, "-s", &seed);
+  esl_opt_GetBooleanOption(go, "-v", &be_verbose);
+  esl_opt_GetStringOption (go, "--bitfile", &bitfile);
+
+  if (esl_opt_ArgNumber(go) != 0) {
+    puts("Incorrect number of command line arguments.");
+    puts(usage);
+    return 1;
+  }
+
+  /* Initialization
+   */
+  r = esl_randomness_Create(seed);
+
+  /* Unit tests
+   */
+  if (unit_random(seed, n, nbins, be_verbose) != eslOK) esl_fatal("unit test for esl_random() failed.");
+  if (unit_choose(r,    n, nbins, be_verbose) != eslOK) esl_fatal("unit test for {FD}Choose() failed.");
+
+  /* Optional datafiles.
+   */
+  if (bitfile != NULL) save_bitfile(bitfile, r, n);
+
+  /* Exit.
+   */
+  esl_randomness_Destroy(r);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+#endif /*eslRANDOM_TESTDRIVE*/
+
+
+
+/*****************************************************************
+ * 8. An example of using the random module.
+ *****************************************************************/
+#ifdef eslRANDOM_EXAMPLE
+/*::cexcerpt::random_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE random.c easel.c -lm
+ * run:     ./example
+ */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_random.h>
+
+int 
+main(void)
+{
+  ESL_RANDOMNESS *r;
+  double          x;
+  int             n;
+  
+  r = esl_randomness_Create(42); 
+  n = 10;
+
+  printf("A sequence of %d pseudorandom numbers:\n", n);
+  while (n--) {
+    x = esl_random(r);
+    printf("%f\n", x);
+  }
+
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::random_example::end::*/
+#endif /*eslRANDOM_EXAMPLE*/
+
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/
+
+

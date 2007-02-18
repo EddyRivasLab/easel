@@ -1749,8 +1749,10 @@ int main(int argc, char **argv)
   for (i = 0; i < nseq*nfiles; i++)
     {
       seqlen[i] = 1 + esl_rnd_Choose(r, maxL); /* 1..maxL */
-      esl_rnd_IID(r, "ACGT", p, 4, seqlen[i], &(seq[i]));
+      ESL_ALLOC(seq[i], sizeof(char) * (seqlen[i]+1));
       ESL_ALLOC(seqname[i],sizeof(char) * 64);
+
+      esl_rnd_IID(r, "ACGT", p, 4, seqlen[i], seq[i]);
       sprintf(seqname[i], "seq%d-file%d", i, i/nseq);
     }
 

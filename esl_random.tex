@@ -1,17 +1,12 @@
 The \eslmod{random} module contains routines for generating
 pseudorandom numbers. The heart of the module is the
-\ccode{esl\_random()} pseudorandom number generator. Other elementary
-sampling functions provided by the random module rely on
-\ccode{esl\_random()} as their random number source.
+\ccode{esl\_random()} pseudorandom number generator. The module also
+provides other elementary sampling functions, all relying on
+\ccode{esl\_random()} as their pseudorandom number source.  
 
-\ccode{esl\_random()} is portable, and it gives reproducible results
-on all platforms. In contrast, ANSI C \ccode{rand()} implementations
-(for example) in system libraries will typically differ on different
-platforms.
-
-\ccode{esl\_random()} is reentrant and threadsafe. Many generator
-implementations are not, including implementations of ANSI C
-\ccode{rand()}.
+Unlike some implementations of pseudorandom number generators,
+\ccode{esl\_random()} is portable, reentrant, and threadsafe, and it
+gives reproducible results on all platforms.
 
 The \ccode{esl\_random()} algorithm is a strong one. It is essentially
 the \ccode{ran2()} generator from \emph{Numerical Recipes in C}
@@ -23,19 +18,19 @@ normalizing a random integer on the interval 0..2147483562.  According
 to Press \emph{et al.}, it has a period of $> 2 \times
 10^{18}$. 
 
-The bit stream generated internally by \ccode{esl\_random()} passes 14
+A bit stream generated internally by \ccode{esl\_random()} passes 14
 tests in a National Institute of Standards and Technology statistical
-benchmark for cryptanalysis \citep{Rukhin01}, with performance
-comparable to random binary sequences from irrational
-numbers.\footnote{The NIST tests are necessary but not sufficient to
-show adequate ``randomness''. Indeed, though the bitstream does pass
-NIST benchmarks, the 31 individual bits in \ccode{esl\_random()}'s
-internal unnormalized random integer are not random, because its
-maximum value is slightly less than $2^{31}-1$. Only the double value
-returned by \ccode{esl\_random()} should be used as a random sample,
-or the integer value of \ccode{r->rnd}, but not the 31 individual bits
-of \ccode{r->rnd}.  The fact that the bitstream passes the NIST tests
-just indicates that there are no glaring problems in the generator.}
+benchmark for cryptanalysis \citep{Rukhin01} with performance
+comparable to binary sequences from irrational numbers.\footnote{The
+NIST tests are necessary but not sufficient to show adequate
+``randomness''. Although the bitstream passes NIST benchmarks, the 31
+individual bits in \ccode{esl\_random()}'s internal unnormalized
+random integer are not adequately random, because its maximum value is
+slightly less than $2^{31}-1$. Only the double value returned by
+\ccode{esl\_random()} should be used as a random sample, or the
+integer value of \ccode{r->rnd}, but not the 31 individual bits of
+\ccode{r->rnd}.  The fact that the bitstream passes the NIST tests
+only indicates that there are no glaring problems in the generator.}
 
 Table~\ref{tbl:random_api} lists the functions in the \eslmod{random}
 API. The module implements one object, \ccode{ESL\_RANDOMNESS}, which
@@ -57,15 +52,20 @@ real that \ccode{esl\_random()} returned, you can access
 \ccode{esl\_randomness\_CreateTimeSeeded()} & Creates new generator using current time as seed.\\
 \ccode{esl\_randomness\_Destroy()}          & Free's a random number generator.\\
 \ccode{esl\_randomness\_Init()}             & Re-seeds a random number generator.\\
-   \multicolumn{2}{c}{\textbf{random number sampling}}\\
+   \multicolumn{2}{c}{\textbf{fundamental sampling}}\\
 \ccode{esl\_random()}                       & Returns uniform deviate $0.0 \leq x < 1.0$.\\
 \ccode{esl\_rnd\_UniformPositive()}         & Returns uniform deviate $0.0 < x < 1.0$.\\
 \ccode{esl\_rnd\_Gaussian()}                & Gaussian-distributed deviate.\\
 \ccode{esl\_rnd\_Gamma()}                   & $\Gamma(a)$-distributed deviate.\\
+   \multicolumn{2}{c}{\textbf{multinomial sampling}}\\
 \ccode{esl\_rnd\_Choose()}                  & Choose a uniformly-distributed random integer.\\
 \ccode{esl\_rnd\_DChoose()}                 & Choose integer according to a probability vector.\\
 \ccode{esl\_rnd\_FChoose()}                 & Choose integer according to a probability vector.\\
-\ccode{esl\_rnd\_IID()}                     & Generate an i.i.d. symbol sequence.\\ \hline
+   \multicolumn{2}{c}{\textbf{iid sequence generation}}\\
+\ccode{esl\_rnd\_IID()}                     & Generate an i.i.d. text sequence.\\ 
+\ccode{esl\_rnd\_fIID()}                    & (single-precision version)\\ 
+\ccode{esl\_rnd\_xIID()}                    & Generate an i.i.d. digitized sequence.\\ 
+\ccode{esl\_rnd\_xfIID()}                   & (single-precision version)\\ \hline
 \end{tabular}
 \end{center}
 \caption{The \eslmod{random} API.}

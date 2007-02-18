@@ -34,14 +34,24 @@ extern int             esl_randomness_Init(ESL_RANDOMNESS *r, long seed);
  */
 extern double esl_random(ESL_RANDOMNESS *r);
 
-/* 3. Other sampling routines.
+/* 3. Other fundamental sampling (including Gaussian, gamma).
  */
 extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern double esl_rnd_Gamma(ESL_RANDOMNESS *r, double a);
+
+/* 4. Multinomial sampling from discrete probability n-vectors.
+ */
 extern int    esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N);
 extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N);
-extern int    esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char **ret_s);
+
+/* 5. Generating iid sequences, either text or digital mode.
+ */
+extern int esl_rnd_IID  (ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char *s);
+extern int esl_rnd_fIID (ESL_RANDOMNESS *r, char *alphabet, float  *p, int K, int L, char *s);
+extern int esl_rnd_xIID (ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq);
+extern int esl_rnd_xfIID(ESL_RANDOMNESS *r, float  *p, int K, int L, ESL_DSQ *dsq);
+
 
 #endif /*ESL_RANDOM_INCLUDED*/
 

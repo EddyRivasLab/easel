@@ -1099,15 +1099,16 @@ main(int argc, char **argv)
   r   = esl_randomness_Create(seed);
   for (i = 0; i < 4; i++) p[i] = 0.25;
   ESL_ALLOC(as, sizeof(char *) * N);
-  for (i = 0; i < N; i++) as[i] = NULL;
-  esl_rnd_IID(r, "ACGT", p, 4, L, &(as[0]));
-  esl_strdup(as[0], L, &(as[1]));
-  esl_rnd_IID(r, "ACGT", p, 4, L, &(as[2]));
+  for (i = 0; i < N; i++) 
+    ESL_ALLOC(as[i], sizeof(char) * (L+1));
+  esl_rnd_IID(r, "ACGT", p, 4, L, as[0]);
+  strcpy(as[1], as[0]);
+  esl_rnd_IID(r, "ACGT", p, 4, L, as[2]);
   for (j = 0; j < L; j++)
     while (as[2][j] == as[0][j])
       as[2][j] = "ACGT"[esl_rnd_Choose(r, 4)];
   for (i = 3; i < N; i++)
-    esl_rnd_IID(r, "ACGT", p, 4, L, &(as[i]));
+    esl_rnd_IID(r, "ACGT", p, 4, L, as[i]);
 
 #ifdef eslAUGMENT_ALPHABET
   abc = esl_alphabet_Create(eslDNA);
