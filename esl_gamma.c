@@ -335,7 +335,7 @@ esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if bracketing or bisection fails;
+ * Throws:    <eslENOHALT> if bracketing or bisection fails;
  *            <eslEINVAL> if data cannot be gamma distributed (some <x[i] < mu>,
  *            or zero variance in x).
  *
@@ -366,7 +366,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fb < 0.) break;	/* a,b now bracket */
 	  a = b; fa = fb;	/* else fb>0, so b is a better left bracket than a */
 	}
-      if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "failed to bracket");
+      if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
     }
   else if (fc < 0.)		/* fx<0 means tau is too large, search left */
     {
@@ -377,7 +377,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fa > 0.) break;   /* a,b now bracket */
 	  b = a; fb = fa;	/* else fa<0, so a is a better right bracket than b */
 	}
-      if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "failed to bracket");
+      if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
     }  
   
   /* Rootfinding, 2.: Bisection search.
@@ -396,7 +396,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	break;
       }
     }
-  if (i == 100) ESL_EXCEPTION(eslECONVERGENCE, "bisection search failed");
+  if (i == 100) ESL_EXCEPTION(eslENOHALT, "bisection search failed");
 
   *ret_lambda = c / mean;
   *ret_tau    = c;

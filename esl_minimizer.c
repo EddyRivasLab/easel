@@ -105,7 +105,7 @@ numeric_derivative(double *x, double *u, int n,
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if it fails to converge.
+ * Throws:    <eslENOHALT> if it fails to converge.
  *
  * Xref:      STL9/130.
  */
@@ -187,7 +187,7 @@ bracket(double *ori, double *d, int n, double firststep,
 
       niter++;
       if (niter > 100) 
-	ESL_EXCEPTION(eslECONVERGENCE, "Failed to bracket a minimum.");
+	ESL_EXCEPTION(eslENOHALT, "Failed to bracket a minimum.");
     }
 
   /* We're about to return. Assure the caller that the points
@@ -410,7 +410,7 @@ brent(double *ori, double *dir, int n,
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if it fails to converge in MAXITERATIONS.
+ * Throws:    <eslENOHALT> if it fails to converge in MAXITERATIONS.
  *            <eslERANGE> if the minimum is not finite, which may
  *            indicate a problem in the implementation or choice of <*func()>.
  *
@@ -556,7 +556,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       oldfx = fx;
     }
   if (i == MAXITERATIONS) 
-    ESL_EXCEPTION(eslECONVERGENCE, "Failed to converge in ConjugateGradientDescent()");
+    ESL_EXCEPTION(eslENOHALT, "Failed to converge in ConjugateGradientDescent()");
 
   if (ret_fx != NULL) *ret_fx = fx;
   return eslOK;

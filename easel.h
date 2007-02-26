@@ -121,7 +121,7 @@
 #define eslESYNTAX        15    /* invalid syntax in input data */
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
-#define eslECONVERGENCE   18    /* a failure to converge        */      
+#define eslENOHALT        18    /* a failure to converge        */      
 #define eslECONTRACT      19    /* an API contract violation    */
 #define eslENORESULT      20    /* no result was obtained       */
 /*::cexcerpt::statuscodes::end::*/

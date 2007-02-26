@@ -1107,7 +1107,7 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if expected counts have not been set in
- *            the histogram; <eslERANGE> or <eslECONVERGENCE> on different internal
+ *            the histogram; <eslERANGE> or <eslENOHALT> on different internal
  *            errors that can arise in calculating the probabilities;
  *            <eslEMEM> on internal allocation failure.
  */

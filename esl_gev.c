@@ -568,7 +568,7 @@ fitting_engine(struct gev_data *data,
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:    <eslENOHALT> if the fit doesn't converge.
  *
  * Xref:      STL9/118-120.
  */
@@ -609,7 +609,7 @@ esl_gev_FitComplete(double *x, int n,
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:    <eslENOHALT> if the fit doesn't converge.
  *
  * Xref:      STL9/133
  */

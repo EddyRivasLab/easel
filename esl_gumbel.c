@@ -340,7 +340,7 @@ lawless416(double *x, int n, double lambda, double *ret_f, double *ret_df)
  *           
  * Returns:  <eslOK> on success.
  * 
- * Throws:   <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:   <eslENOHALT> if the fit doesn't converge.
  */
 int
 esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
@@ -389,7 +389,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 	{		
 	  right *= 2.;		/* arbitrary leap to the right */
 	  if (right > 100.) /* no reasonable lambda should be > 100, we assert */
-	    ESL_EXCEPTION(eslECONVERGENCE, "Failed to bracket root in esl_gumbel_FitComplete().");
+	    ESL_EXCEPTION(eslENOHALT, "Failed to bracket root in esl_gumbel_FitComplete().");
 	  lawless416(x, n, right, &fx, &dfx);
 	}
 
@@ -403,7 +403,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 	  else          right = mid;
 	}
       if (i == 100) 
-	ESL_EXCEPTION(eslECONVERGENCE, "Even bisection search failed in esl_gumbel_FitComplete().");
+	ESL_EXCEPTION(eslENOHALT, "Even bisection search failed in esl_gumbel_FitComplete().");
 
       lambda = mid;
     }
@@ -555,7 +555,7 @@ lawless422(double *x, int n, int z, double phi,
  *           
  * Returns:  <eslOK> on success.
  *
- * Throws:   <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:   <eslENOHALT> if the fit doesn't converge.
  */
 int
 esl_gumbel_FitCensored(double *x, int n, int z, double phi, 
@@ -605,7 +605,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 	{
 	  right *= 2.;
 	  if (right > 100.) /* no reasonable lambda should be > 100, we assert */
-	    ESL_EXCEPTION(eslECONVERGENCE, "Failed to bracket root in esl_gumbel_FitCensored().");
+	    ESL_EXCEPTION(eslENOHALT, "Failed to bracket root in esl_gumbel_FitCensored().");
 	  lawless422(x, n, z, phi, right, &fx, &dfx);
 	}
 
@@ -619,7 +619,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 	  else          right = mid;
 	}
       if (i == 100) 
-	ESL_EXCEPTION(eslECONVERGENCE, "Even bisection search failed in esl_gumbel_FitCensored().");
+	ESL_EXCEPTION(eslENOHALT, "Even bisection search failed in esl_gumbel_FitCensored().");
       lambda = mid;
     }
 
@@ -820,7 +820,7 @@ tevd_grad(double *p, int nparam, void *dptr, double *dp)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:    <eslENOHALT> if the fit doesn't converge.
  */
 int
 esl_gumbel_FitTruncated(double *x, int n, double phi, 

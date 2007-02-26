@@ -180,7 +180,7 @@ esl_stats_Psi(double x, double *ret_answer)
  * Return:   <eslOK> on success.
  *
  * Throws:   <eslERANGE> if a or x is out of accepted range.
- *           <eslECONVERGENCE> if approximation fails to converge.
+ *           <eslENOHALT> if approximation fails to converge.
  */          
 int
 esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
@@ -244,7 +244,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 
 	  oldp = nu1;
 	}
-      ESL_EXCEPTION(eslECONVERGENCE,
+      ESL_EXCEPTION(eslENOHALT,
 		"esl_stats_IncompleteGamma(): fraction failed to converge");
     }
   else /* x <= a+1 */
@@ -277,7 +277,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 	      return eslOK;
 	    }
 	}
-      ESL_EXCEPTION(eslECONVERGENCE,
+      ESL_EXCEPTION(eslENOHALT,
 		"esl_stats_IncompleteGamma(): series failed to converge");
     }
   /*NOTREACHED*/
@@ -302,7 +302,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslERANGE> if <v> or <x> are out of valid range.
- *            <eslECONVERGENCE> if iterative calculation fails.
+ *            <eslENOHALT> if iterative calculation fails.
  */
 int
 esl_stats_ChiSquaredTest(int v, double x, double *ret_answer)

@@ -356,7 +356,7 @@ wei_func(double *p, int nparam, void *dptr)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:    <eslENOHALT> if the fit doesn't converge.
  *
  * Xref:      STL9/136-137
  */
@@ -474,7 +474,7 @@ wei_binned_func(double *p, int nparam, void *dptr)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslECONVERGENCE> if the fit doesn't converge.
+ * Throws:    <eslENOHALT> if the fit doesn't converge.
  *
  * Xref:      STL9/136-137
  */
