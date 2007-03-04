@@ -1719,7 +1719,7 @@ int main(int argc, char **argv)
   int    qfmt;
   off_t  roff;
   double p[4] = { 0.25, 0.25, 0.25, 0.25 };
-  char  *ssifile = NULL;
+  char   ssifile[32] = "esltmpXXXXXX";
   int    status;
   int    be_verbose;
 
@@ -1735,7 +1735,7 @@ int main(int argc, char **argv)
   for (j = 0; j < nfiles; j++)
     {
       ESL_ALLOC(sqfile[j], sizeof(char) * 32);
-      sprintf(sqfile[j], "xxxssi-test%d.fa", j);
+      sprintf(sqfile[j], "esltmpXXXXXX");
     } 
 
   /* Create <nfiles*nseq> sequences with random 
@@ -1760,8 +1760,7 @@ int main(int argc, char **argv)
    */
   for (j = 0; j < nfiles; j++)
     {
-      if ((fp = fopen(sqfile[j], "w")) == NULL) 
-	esl_fatal("failed to open %s", sqfile[j]);
+      if (esl_tmpfile_named(sqfile[j], &fp) != eslOK) esl_fatal("failed to open %s", sqfile[j]);
       for (i = j*nseq; i < (j+1)*nseq; i++)
 	{
 	  sq = esl_sq_CreateFrom(seqname[i], seq[i], NULL, NULL, NULL);
@@ -1793,12 +1792,10 @@ int main(int argc, char **argv)
 
   /* Save the SSI index to a file.
    */
-  esl_strdup("xxxssi-test.ssi", -1, &ssifile);
-  if ((ssifp = fopen(ssifile, "wb")) == NULL) esl_fatal("failed to open ssi file");
+  if (esl_tmpfile_named(ssifile, &ssifp) != eslOK)  esl_fatal("failed to open ssi file");
   esl_newssi_Write(ssifp, ns);
   esl_newssi_Destroy(ns);
   fclose(ssifp);
-
   
   /* Open the SSI index - now we'll use it to retrieve
    * <nq> random sequences.
@@ -1831,13 +1828,15 @@ int main(int argc, char **argv)
       esl_sqfile_Close(sqfp);
     }
   
+  for (j = 0; j < nfiles; j++) remove(sqfile[j]);
+  remove(ssifile);
   status = eslOK;
+
   /* flowthrough is safe: garbage collection only below. */
  ERROR:
   esl_sq_Destroy(sq);
   esl_ssi_Close(ssi);
   esl_randomness_Destroy(r);
-  if (ssifile != NULL) free(ssifile);
   if (seqlen  != NULL) free(seqlen);
   esl_Free2D((void **) seqname, nseq*nfiles);
   esl_Free2D((void **) seq,     nseq*nfiles);

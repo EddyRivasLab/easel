@@ -1432,7 +1432,8 @@ main(int argc, char **argv)
 #endif /*eslHISTOGRAM_EXAMPLE3*/
 
 /* Case 4. censored data, high scores fit as a censored Gumbel tail
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
+ * compile: 
+     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
  * run:     ./example 
  */
 #ifdef eslHISTOGRAM_EXAMPLE4
@@ -1466,7 +1467,7 @@ main(int argc, char **argv)
   }
 
   esl_histogram_GetData(h, &xv, &n);
-  esl_gumbel_FitCensored(xv, n, z, &mu, &lambda);
+  esl_gumbel_FitCensored(xv, n, z, phi, &mu, &lambda);
 
   params[0] = mu;
   params[1] = lambda;
@@ -1485,7 +1486,8 @@ main(int argc, char **argv)
 #endif /*eslHISTOGRAM_EXAMPLE4*/
 
 /* Case 5. complete data, binned high scores fit to exponential tail
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
+ * compile:
+     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
  * run:     ./example 
  */
 #ifdef eslHISTOGRAM_EXAMPLE5
@@ -1517,7 +1519,7 @@ main(int argc, char **argv)
   }
 
   esl_histogram_SetTailByMass(h, 0.1, &actual_mass);
-  esl_histogram_SetRounding(h);
+  esl_histogram_DeclareRounding(h);
   esl_exp_FitCompleteBinned(h, &mu, &lambda);
 
   params[0] = mu;

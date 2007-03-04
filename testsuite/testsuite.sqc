@@ -10,86 +10,86 @@
 
 # Missing: easel 
 
-1 prep     alphabet-compile       gcc -o testdrive-alphabet -I.. -L.. -g -Wall -DeslALPHABET_TESTDRIVE ../esl_alphabet.c -leasel -lm
-1 exercise alphabet-testdrive     @testdrive-alphabet@
+1 prep     alphabet-compile   gcc -o alphabet_utest -I.. -L.. -g -Wall -DeslALPHABET_TESTDRIVE ../esl_alphabet.c -leasel -lm
+1 exercise alphabet-utest     @alphabet_utest@
 
-1 prep     dirichlet-compile      gcc -o testdrive-dirichlet -I.. -L.. -g -Wall -DeslDIRICHLET_TESTDRIVE ../esl_dirichlet.c -leasel -lm
-1 exercise dirichlet-testdrive    @testdrive-dirichlet@
+1 prep     dirichlet-compile  gcc -o dirichlet_utest -I.. -L.. -g -Wall -DeslDIRICHLET_TESTDRIVE ../esl_dirichlet.c -leasel -lm
+1 exercise dirichlet-utest    @dirichlet_utest@
 
-1 prep     distance-compile       gcc -o testdrive-distance -I.. -L.. -g -Wall -DeslDISTANCE_TESTDRIVE ../esl_distance.c -leasel -lm
-1 exercise distance-testdrive     @testdrive-distance@
+1 prep     distance-compile   gcc -o distance_utest -I.. -L.. -g -Wall -DeslDISTANCE_TESTDRIVE ../esl_distance.c -leasel -lm
+1 exercise distance-utest     @distance_utest@
 
-1 prep     dmatrix-compile        gcc -o testdrive-dmatrix -I.. -L.. -g -Wall -DeslDMATRIX_TESTDRIVE ../esl_dmatrix.c -leasel -lm
-1 exercise dmatrix-testdrive      @testdrive-dmatrix@
+1 prep     dmatrix-compile    gcc -o dmatrix_utest -I.. -L.. -g -Wall -DeslDMATRIX_TESTDRIVE ../esl_dmatrix.c -leasel -lm
+1 exercise dmatrix-utest      @dmatrix_utest@
 
-1 prep     exp-compile            gcc -o testdrive-exponential -I.. -L.. -g -Wall -DeslEXP_TESTDRIVE ../esl_exponential.c -leasel -lm
-1 exercise exp-testdrive          @testdrive-exponential@
+1 prep     exponential-compile gcc -o exponential_utest -I.. -L.. -g -Wall -DeslEXPONENTIAL_TESTDRIVE ../esl_exponential.c -leasel -lm
+1 exercise exponential-utest   @exponential_utest@
 
-1 prep     fileparser-compile     gcc -o testdrive-fileparser -I.. -L.. -g -Wall -DeslFILEPARSER_TESTDRIVE ../esl_fileparser.c -leasel -lm
-1 exercise fileparser-testdrive   @testdrive-fileparser@
+1 prep     fileparser-compile gcc -o fileparser_utest -I.. -L.. -g -Wall -DeslFILEPARSER_TESTDRIVE ../esl_fileparser.c -leasel -lm
+1 exercise fileparser-utest   @fileparser_utest@
 
-1 prep     gamma-compile          gcc -o testdrive-gamma -I.. -L.. -g -Wall -DeslGAMMA_TESTDRIVE ../esl_gamma.c -leasel -lm
-1 exercise gamma-testdrive        @testdrive-gamma@
+1 prep     gamma-compile      gcc -o gamma_utest -I.. -L.. -g -Wall -DeslGAMMA_TESTDRIVE ../esl_gamma.c -leasel -lm
+1 exercise gamma-utest        @gamma_utest@
 
-1 prep     getopts-compile        gcc -o testdrive-getopts -I.. -L.. -g -Wall -DeslGETOPTS_TESTDRIVE ../esl_getopts.c -leasel -lm
-1 exercise getopts-testdrive      @testdrive-getopts@
+1 prep     getopts-compile    gcc -o getopts_utest -I.. -L.. -g -Wall -DeslGETOPTS_TESTDRIVE ../esl_getopts.c -leasel -lm
+1 exercise getopts-utest      @getopts_utest@
 
 # Missing: gev
 
-1 prep     gumbel-compile         gcc -o testdrive-gumbel -I.. -L.. -g -Wall -DeslGUMBEL_TESTDRIVE ../esl_gumbel.c -leasel -lm
-1 exercise gumbel-testdrive       @testdrive-gumbel@
+1 prep     gumbel-compile     gcc -o gumbel_utest -I.. -L.. -g -Wall -DeslGUMBEL_TESTDRIVE ../esl_gumbel.c -leasel -lm
+1 exercise gumbel-utest       @gumbel_utest@
 
-1 prep     histogram-compile      gcc -o testdrive-histogram -I.. -L.. -g -Wall -DeslHISTOGRAM_TESTDRIVE ../esl_histogram.c -leasel -lm
-1 exercise histogram-testdrive    @testdrive-histogram@
+1 prep     histogram-compile  gcc -o histogram_utest -I.. -L.. -g -Wall -DeslHISTOGRAM_TESTDRIVE ../esl_histogram.c -leasel -lm
+1 exercise histogram-utest    @histogram_utest@
 
-1 prep     hyperexp-compile       gcc -o testdrive-hyperexp -I.. -L.. -g -Wall -DeslHYPEREXP_TESTDRIVE ../esl_hyperexp.c -leasel -lm
-1 exercise hyperexp-testdrive     @testdrive-hyperexp@
+1 prep     hyperexp-compile   gcc -o hyperexp_utest -I.. -L.. -g -Wall -DeslHYPEREXP_TESTDRIVE ../esl_hyperexp.c -leasel -lm
+1 exercise hyperexp-utest     @hyperexp_utest@
 
-1 prep     keyhash-compile        gcc -o testdrive-keyhash -I.. -L.. -g -Wall -DeslKEYHASH_TESTDRIVE ../esl_keyhash.c -leasel -lm
-1 exercise keyhash-testdrive      @testdrive-keyhash@
+1 prep     keyhash-compile    gcc -o keyhash_utest -I.. -L.. -g -Wall -DeslKEYHASH_TESTDRIVE ../esl_keyhash.c -leasel -lm
+1 exercise keyhash-utest      @keyhash_utest@
 
 # Missing: minimizer
 # Missing: mixgev
 
-1 prep     msa-compile            gcc -o testdrive-msa -I.. -L.. -g -Wall -DeslMSA_TESTDRIVE ../esl_msa.c -leasel -lm
-1 exercise msa-testdrive          @testdrive-msa@
+1 prep     msa-compile        gcc -o msa_utest -I.. -L.. -g -Wall -DeslMSA_TESTDRIVE ../esl_msa.c -leasel -lm
+1 exercise msa-utest          @msa_utest@
 
 # Missing: msacluster
 
-1 prep     msaweight-compile      gcc -o testdrive-msaweight -I.. -L.. -g -Wall -DeslMSAWEIGHT_TESTDRIVE ../esl_msaweight.c -leasel -lm
-1 exercise msaweight-testdrive    @testdrive-msaweight@
+1 prep     msaweight-compile  gcc -o msaweight_utest -I.. -L.. -g -Wall -DeslMSAWEIGHT_TESTDRIVE ../esl_msaweight.c -leasel -lm
+1 exercise msaweight-utest    @msaweight_utest@
 
-1 prep     random-compile         gcc -o testdrive-random -I.. -L.. -g -Wall -DeslRANDOM_TESTDRIVE ../esl_random.c -leasel -lm
-1 exercise random-testdrive       @testdrive-random@
+1 prep     random-compile     gcc -o random_utest -I.. -L.. -g -Wall -DeslRANDOM_TESTDRIVE ../esl_random.c -leasel -lm
+1 exercise random-utest       @random_utest@
 
-1 prep     regexp-compile         gcc -o testdrive-regexp -I.. -L.. -g -Wall -DeslREGEXP_TESTDRIVE ../esl_regexp.c -leasel -lm
-1 exercise regexp-testdrive       @testdrive-regexp@
+1 prep     regexp-compile     gcc -o regexp_utest -I.. -L.. -g -Wall -DeslREGEXP_TESTDRIVE ../esl_regexp.c -leasel -lm
+1 exercise regexp-utest       @regexp_utest@
 
-1 prep     sqio-compile           gcc -o testdrive-sqio -I.. -L.. -g -Wall -DeslSQIO_TESTDRIVE ../esl_sqio.c -leasel -lm
-1 exercise sqio-testdrive         @testdrive-sqio@
+1 prep     sqio-compile       gcc -o sqio_utest -I.. -L.. -g -Wall -DeslSQIO_TESTDRIVE ../esl_sqio.c -leasel -lm
+1 exercise sqio-utest         @sqio_utest@
 
-1 prep     ssi-compile            gcc -o testdrive-ssi -I.. -L.. -g -Wall -DeslSSI_TESTDRIVE ../esl_ssi.c -leasel -lm
-1 exercise ssi-testdrive          @testdrive-ssi@
+1 prep     ssi-compile        gcc -o ssi_utest -I.. -L.. -g -Wall -DeslSSI_TESTDRIVE ../esl_ssi.c -leasel -lm
+1 exercise ssi-utest          @ssi_utest@
 
-1 prep     stack-compile          gcc -o testdrive-stack -I.. -L.. -g -Wall -DeslSTACK_TESTDRIVE ../esl_stack.c -leasel -lm
-1 exercise stack-testdrive        @testdrive-stack@
+1 prep     stack-compile      gcc -o stack_utest -I.. -L.. -g -Wall -DeslSTACK_TESTDRIVE ../esl_stack.c -leasel -lm
+1 exercise stack-utest        @stack_utest@
 
 # Missing: stats
 # Missing: stopwatch
 
-1 prep     sxp-compile            gcc -o testdrive-sxp -I.. -L.. -g -Wall -DeslSXP_TESTDRIVE ../esl_stretchexp.c -leasel -lm
-1 exercise sxp-testdrive          @testdrive-sxp@
+1 prep     sxp-compile        gcc -o sxp_utest -I.. -L.. -g -Wall -DeslSXP_TESTDRIVE ../esl_stretchexp.c -leasel -lm
+1 exercise sxp-utest          @sxp_utest@
 
-1 prep     tree-compile           gcc -o testdrive-tree -I.. -L.. -g -Wall -DeslTREE_TESTDRIVE ../esl_tree.c -leasel -lm
-1 exercise tree-testdrive         @testdrive-tree@
+1 prep     tree-compile       gcc -o tree_utest -I.. -L.. -g -Wall -DeslTREE_TESTDRIVE ../esl_tree.c -leasel -lm
+1 exercise tree-utest         @tree_utest@
 
 # Missing: vectorops
 
-1 prep     weibull-compile        gcc -o testdrive-weibull -I.. -L.. -g -Wall -DeslWEIBULL_TESTDRIVE ../esl_weibull.c -leasel -lm
-1 exercise weibull-testdrive      @testdrive-weibull@
+1 prep     weibull-compile    gcc -o weibull_utest -I.. -L.. -g -Wall -DeslWEIBULL_TESTDRIVE ../esl_weibull.c -leasel -lm
+1 exercise weibull-utest      @weibull_utest@
 
-1 prep     wuss-compile           gcc -o testdrive-wuss -I.. -L.. -g -Wall -DeslWUSS_TESTDRIVE ../esl_wuss.c -leasel -lm
-1 exercise wuss-testdrive         @testdrive-wuss@
+1 prep     wuss-compile       gcc -o wuss_utest -I.. -L.. -g -Wall -DeslWUSS_TESTDRIVE ../esl_wuss.c -leasel -lm
+1 exercise wuss-utest         @wuss_utest@
 
 
 

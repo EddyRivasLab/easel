@@ -856,7 +856,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
  *            POSIX <mkstemp()> function.
  * 
  *            The <template> argument is a modifiable string that must
- *            end in "XXXXXX" (for example, "eslXXXXXX"). The
+ *            end in "XXXXXX" (for example, "esltmpXXXXXX"). The
  *            <template> is used to construct a unique tmpfile name.
  *            
  *            The file is opened in a standard temporary file
@@ -932,6 +932,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
   if (unlink(path) < 0)                 ESL_XEXCEPTION(eslESYS, "unlink() failed.");
 
   *ret_fp = fp;
+  free(path);
   return eslOK;
 
  ERROR:
@@ -950,11 +951,11 @@ esl_tmpfile(char *template, FILE **ret_fp)
  *            ending in the six characters "XXXXXX".  These are
  *            replaced by a unique character string by a call to POSIX
  *            <mkstemp()>. For example, <template> might be
- *            <eslXXXXXX> on input, and <esl12ab34> on return; or, to
+ *            <esltmpXXXXXX> on input, and <esltmp12ab34> on return; or, to
  *            put the tmp file in a subdirectory under the current
- *            working directory, something like <my_subdir/eslXXXXXX>
+ *            working directory, something like <my_subdir/esltmpXXXXXX>
  *            on input resulting in something like
- *            <my_subdir/esl12ab34> on return.  The tmpfile is opened
+ *            <my_subdir/esltmp12ab34> on return.  The tmpfile is opened
  *            for reading and writing (in mode <w+b> with permissions
  *            0600) and the opened <FILE *> handle is returned through
  *            <ret_fp>.
@@ -970,7 +971,12 @@ esl_tmpfile(char *template, FILE **ret_fp)
  *            
  *            Because the <template> will be modified, it cannot be
  *            a string constant (especially on a picky compiler like
- *            gcc). 
+ *            gcc). You have to declare it with something like
+ *               <char tmpfile[32] = "esltmpXXXXXX";> 
+ *            not 
+ *               <char *tmpfile    = "esltmpXXXXXX";> 
+ *            because a compiler is allowed to make the <*tmpfile> version
+ *            a constant.
  *
  * Returns:   <eslOK> on success, <template> contains the name of the
  *            tmpfile, and <ret_fp> contains a new <FILE *> stream for the
@@ -1055,7 +1061,7 @@ static void
 utest_tmpfile_named(void)
 {
   char *msg          = "tmpfile_named unit test failed";
-  char  tmpfile[32]  = "eslXXXXXX";
+  char  tmpfile[32]  = "esltmpXXXXXX";
   FILE *fp           = NULL;
   char  buf[256];
 
@@ -1099,7 +1105,7 @@ int main(void)
  * 9. Examples.
  *****************************************************************/
 
-#ifdef eslEASEL_EXAMPLE_TMPFILES
+#ifdef eslEASEL_EXAMPLE2
 /*::cexcerpt::easel_example_tmpfiles::begin::*/
 /* gcc -g -Wall -o example -I. -L. -DeslEASEL_EXAMPLE_TMPFILES easel.c -leasel -lm
  * ./example
@@ -1108,8 +1114,8 @@ int main(void)
 
 int main(void)
 {
-  char  tmpfile1[32]  = "eslXXXXXX"; /* a transient, secure tmpfile: 6 X's are important */
-  char  tmpfile2[32]  = "eslXXXXXX"; /* a named tmpfile                                  */
+  char  tmpfile1[32]  = "esltmpXXXXXX"; /* a transient, secure tmpfile: 6 X's are important */
+  char  tmpfile2[32]  = "esltmpXXXXXX"; /* a named tmpfile                                  */
   FILE *fp            = NULL;
   char  buf[256];
 
@@ -1137,7 +1143,7 @@ int main(void)
   return eslOK;
 }
 /*::cexcerpt::easel_example_tmpfiles::end::*/
-#endif /*eslEASEL_EXAMPLE_TMPFILES*/
+#endif /*eslEASEL_EXAMPLE2*/
 
 
 /*****************************************************************

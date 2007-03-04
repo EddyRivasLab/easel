@@ -1993,7 +1993,7 @@ int main(void)
   
   a = esl_alphabet_Create(eslDNA);
 
-  if ((dsq = malloc(sizeof(ESL_DSQ * (L+2)))) == NULL)
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)
     esl_fatal("malloc failed");
     
   if (esl_abc_Digitize(a, dnaseq, dsq) != eslOK) 

@@ -163,6 +163,22 @@ AC_ARG_ENABLE(debugging,
 esac])
 
 
+# --enable-gcov      - compile for code coverage testing
+#
+# Replaces CC with "gcc" and CFLAGS with "-g -Wall -fprofile-arcs -ftest-coverage".
+# Running programs (notably the test suite) will then generate .gcda files,
+# which the gcov tool can read.
+#
+AC_ARG_ENABLE(gcov, 
+  [  --enable-gcov        Compile with instrumentation for code coverage testing], 
+  [ 
+    AC_MSG_NOTICE([Compiling with gcov instrumentation.])
+    CC="gcc"
+    CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
+  ])
+
+
+
 ################################################################
 # 4. Checks for programs
 ################################################################

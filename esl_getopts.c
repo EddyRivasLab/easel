@@ -1682,7 +1682,8 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
- *   gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
+ * Compile:
+     gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
  */
 #ifdef eslGETOPTS_EXAMPLE
 /*::cexcerpt::getopts_example::begin::*/
@@ -1716,7 +1717,7 @@ main(int argc, char **argv)
   go = esl_getopts_Create(options, usage);
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
-  if (esl_opt_IsSet(go, "-h"))
+  if (esl_opt_IsSet(go, "-h")) {
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
@@ -1794,8 +1795,8 @@ main(void)
   int   n;
   float x;
   char *s;
-  char *file1 = "test.f1";
-  char *file2 = "test.f2";
+  char file1[32] = "esltmpXXXXXX";
+  char file2[32] = "esltmpXXXXXX";
   FILE *f1, *f2;
 
   /* Declare a "command line" internally.
@@ -1805,7 +1806,7 @@ main(void)
 
   /* Create a config file #1.
    */
-  if ((f1 = fopen(file1, "w")) == NULL) exit(1);
+  if (esl_tmpfile_named(file1, &f1) != eslOK) esl_fatal("failed to create named tmpfile 1");
   fprintf(f1, "# Test config file #1\n");
   fprintf(f1, "#\n");
   fprintf(f1, "-b\n");
@@ -1815,7 +1816,7 @@ main(void)
 
   /* Create config file #2.
    */
-  if ((f2 = fopen(file2, "w")) == NULL) exit(1);
+  if (esl_tmpfile_named(file2, &f2) != eslOK) esl_fatal("failed to create named tmpfile 2");
   fprintf(f2, "# Test config file #2\n");
   fprintf(f2, "#\n");
   fprintf(f2, "--no-b\n");
@@ -1915,6 +1916,8 @@ main(void)
   if (strcmp(s, "2005") != 0) abort();
 
   esl_getopts_Destroy(go);
+  remove(file1);
+  remove(file2);
   exit(0);
 }
 

@@ -467,10 +467,10 @@ tau_function(double tau, double mean, double logsum)
 /****************************************************************************
  * Example main()
  ****************************************************************************/ 
-#ifdef eslGAM_EXAMPLE
+#ifdef eslGAMMA_EXAMPLE
 /*::cexcerpt::gam_example::begin::*/
 /* compile:
-   gcc -g -Wall -I. -o example -DeslGAM_EXAMPLE\
+   gcc -g -Wall -I. -o example -DeslGAMMA_EXAMPLE\
      -DeslAUGMENT_RANDOM -DeslAUGMENT_HISTOGRAM\
      esl_gamma.c esl_random.c esl_histogram.c esl_stats.c easel.c -lm
  */
@@ -518,7 +518,7 @@ main(int argc, char **argv)
   return 0;
 }
 /*::cexcerpt::gam_example::end::*/
-#endif /*eslGAM_EXAMPLE*/
+#endif /*eslGAMMA_EXAMPLE*/
 
 
 

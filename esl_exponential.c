@@ -393,10 +393,10 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
 /****************************************************************************
  * Example main()
  ****************************************************************************/ 
-#ifdef eslEXP_EXAMPLE
+#ifdef eslEXPONENTIAL_EXAMPLE
 /*::cexcerpt::exp_example::begin::*/
 /* compile:
-   gcc -g -Wall -I. -o example -DeslEXP_EXAMPLE\
+   gcc -g -Wall -I. -o example -DeslEXPONENTIAL_EXAMPLE\
      -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_STATS\
      esl_exponential.c esl_histogram.c esl_random.c esl_stats.c easel.c -lm
  */
@@ -447,15 +447,15 @@ main(int argc, char **argv)
   return 0;
 }
 /*::cexcerpt::exp_example::end::*/
-#endif /*eslEXP_EXAMPLE*/
+#endif /*eslEXPONENTIAL_EXAMPLE*/
 
 
 /****************************************************************************
  * Test driver
  ****************************************************************************/ 
-#ifdef eslEXP_TESTDRIVE
+#ifdef eslEXPONENTIAL_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslEXP_TESTDRIVE\
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslEXPONENTIAL_TESTDRIVE\
     esl_exponential.c -leasel -lm
 */
 #include <stdio.h>
@@ -568,7 +568,7 @@ main(int argc, char **argv)
   esl_histogram_Destroy(h);
   return 0;
 }
-#endif /*eslEXP_TESTDRIVE*/
+#endif /*eslEXPONENTIAL_TESTDRIVE*/
 
 /*****************************************************************
  * @LICENSE@

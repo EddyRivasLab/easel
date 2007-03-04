@@ -723,13 +723,13 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
 #ifdef eslMIXGEV_EXAMPLE
 /*::cexcerpt::mixgev_example::begin::*/
 /* compile: 
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o example -DeslMIXGEV_EXAMPLE\
-     mixgev.c -leasel -lm 
+   gcc -g -Wall -I. -L. -o example -DeslMIXGEV_EXAMPLE esl_mixgev.c -leasel -lm 
  * run:     ./example
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <easel.h>
-#include <mixgev.h>
+#include <esl_mixgev.h>
 #include <esl_random.h>
 
 int
@@ -757,7 +757,7 @@ main(int argc, char **argv)
   min = 99999;
   max = -99999;
 
-  x = malloc(x, sizeof(double) * n);
+  x = malloc(sizeof(double) * n);
   for (i = 0; i < n; i++)
     {
       x[i] = esl_mixgev_Sample(r, mg);
@@ -778,7 +778,7 @@ main(int argc, char **argv)
   emg = esl_mixgev_Create(2);
   esl_mixgev_FitGuess(r, x, n, emg); 
   /*  esl_mixgev_Copy(mg, emg); */
-  esl_mixgev_SetGumbelConstraint(emg, 0); 
+  esl_mixgev_ForceGumbel(emg, 0); 
   esl_mixgev_FitComplete(x, n, emg);
 
   printf("Component   q      mu   lambda  alpha\n");

@@ -547,10 +547,10 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 /****************************************************************************
  * Example main()
  ****************************************************************************/ 
-#ifdef eslWEI_EXAMPLE
+#ifdef eslWEIBULL_EXAMPLE
 /*::cexcerpt::wei_example::begin::*/
 /* compile: 
-     gcc -g -Wall -I. -o example -DeslWEI_EXAMPLE\
+     gcc -g -Wall -I. -o example -DeslWEIBULL_EXAMPLE\
        -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
        esl_weibull.c esl_histogram.c esl_random.c esl_minimizer.c\
        esl_stats.c esl_vectorops.c easel.c -lm
@@ -604,7 +604,7 @@ main(int argc, char **argv)
   return 0;
 }
 /*::cexcerpt::wei_example::end::*/
-#endif /*eslWEI_EXAMPLE*/
+#endif /*eslWEIBULL_EXAMPLE*/
 
 
 

@@ -620,9 +620,9 @@ aren't. Additionally, if the caller provides a non-\ccode{NULL}
 message buffer \ccode{errbuf}, on failure, an informative message
 describing the reason for the failure is formatted and left in
 \ccode{errbuf}. If the caller provides this message buffer, it must
-allocate it for at least \ccode{p7_ERRBUFSIZE} characters.
+allocate it for at least \ccode{p7\_ERRBUFSIZE} characters.
 
-The intent of a \ccode{_Validate()} call is to detect problems as
+The intent of a \ccode{\_Validate()} call is to detect problems as
 normal errors, so they may be handled gracefully or even silently, if
 that's what the caller wants to do. (Throwing exceptions instead would
 give the caller no flexibility in dealing with failed validations.)

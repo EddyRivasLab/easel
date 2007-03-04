@@ -84,8 +84,13 @@ libeasel.a: $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
 
+# `make check`: run user testsuite
 check:
 	(cd testsuite; make check)
+
+# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
+dcheck:
+	(cd testsuite; make dcheck)
 
 clean:
 	-rm -f ${OBJS} libeasel.a

@@ -257,7 +257,7 @@ create_mostly(int nseq, int alen)
 ESL_MSA *
 esl_msa_CreateFromString(char *s, int fmt)
 {
-  char         tmpfile[10] = "eslXXXXXX";
+  char         tmpfile[16] = "esltmpXXXXXX";
   FILE        *fp          = NULL;
   ESL_MSAFILE *mfp         = NULL;
   ESL_MSA     *msa         = NULL;
@@ -276,7 +276,7 @@ esl_msa_CreateFromString(char *s, int fmt)
  ERROR:
   if (fp  != NULL) fclose(fp);
   if (mfp != NULL) esl_msafile_Close(mfp);
-  if (strcmp(tmpfile, "eslXXXXXX") != 0) remove(tmpfile);
+  if (strcmp(tmpfile, "esltmpXXXXXX") != 0) remove(tmpfile);
   if (msa != NULL) esl_msa_Destroy(msa);                        
   return NULL;
 }
@@ -3173,8 +3173,8 @@ utest_Write(ESL_MSA *msa1)
   FILE        *fp   = NULL;
   int      i;
   int      formats[] = { eslMSAFILE_STOCKHOLM, eslMSAFILE_PFAM, -1 }; /* -1=sentinel */
-  char     template[10] = "eslXXXXXX";
-  char     tmpfile[10];
+  char     template[16] = "esltmpXXXXXX";
+  char     tmpfile[16];
 
   for (i = 0; formats[i] != -1; i++)
     {
@@ -3368,7 +3368,7 @@ main(int argc, char **argv)
   ESL_MSAFILE    *mfp  = NULL;
   ESL_MSA        *msa  = NULL;
   FILE           *fp   = NULL;
-  char            tmpfile[10] = "eslXXXXXX"; /* tmpfile template */
+  char            tmpfile[16] = "esltmpXXXXXX"; /* tmpfile template */
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET   *abc  = NULL;
 #endif
@@ -3424,6 +3424,7 @@ main(int argc, char **argv)
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 #endif
+  remove(tmpfile);
   exit(0);	/* success  */
 }
 #endif /*eslMSA_TESTDRIVE*/

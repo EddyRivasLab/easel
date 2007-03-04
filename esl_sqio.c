@@ -2335,13 +2335,13 @@ main(void)
   FILE       *fp;
   char        seq1[] = "GAATTC";
   char        seq2[] = "AAGCTT";
-  char        filename[] = "tmpxxx.seq";
+  char        tmpfile[32] = "esltmpXXXXXX";
   int         n;
   int         status;
 
   /* Create a FASTA file containing two sequences.
    */
-  if ((fp = fopen(filename, "w")) == NULL) abort();
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to open tmpfile");
   fprintf(fp, ">seq1 seq1's description goes here\n");
   fprintf(fp, "%s\n", seq1);
   fprintf(fp, ">seq2 seq2's description goes here\n");
@@ -2351,7 +2351,7 @@ main(void)
   /* Example of the API for opening and reading 
    * seqs from a FASTA file.
    */
-  if (esl_sqfile_Open(filename, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) abort();
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) abort();
   sq = esl_sq_Create();
 
   n=0;
@@ -2369,6 +2369,7 @@ main(void)
 
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
+  remove(tmpfile);
   return 0;
 }
 /*::cexcerpt::sqio_test::end::*/

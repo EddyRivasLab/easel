@@ -508,10 +508,12 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * Test driver:
- * gcc -g -Wall -I. -o test -DeslDIRICHLET_TESTDRIVE -DeslAUGMENT_FILEPARSER\
+ * gcc -g -Wall -I. -o dirichlet_utest -DeslDIRICHLET_TESTDRIVE -DeslAUGMENT_FILEPARSER\
  *    -DeslAUGMENT_RANDOM esl_fileparser.c esl_random.c esl_vectorops.c\
  *    esl_dirichlet.c easel.c -lm
- * ./test
+ * or
+ *   gcc -g -Wall -I. -L. -o dirichlet_utest -DeslDIRICHLET_TESTDRIVE esl_dirichlet.c -leasel -lm
+ *   ./dirichlet_utest
  *****************************************************************/
 #ifdef eslDIRICHLET_TESTDRIVE
 #define NCOMPONENTS 2
@@ -527,11 +529,12 @@ main(int argc, char **argv)
 int
 main(void)
 {
-  ESL_FILEPARSER *efp;
-  ESL_RANDOMNESS *r;
-  ESL_MIXDCHLET  *d1, *d2;
-  FILE *fp;
-  char  filename[] = "tmpxxx.pri";
+  ESL_FILEPARSER *efp = NULL;
+  ESL_RANDOMNESS *r   = NULL;
+  ESL_MIXDCHLET  *d1  = NULL,
+                 *d2  = NULL;
+  FILE           *fp  = NULL;
+  char      tmpfile[] = "esltmpXXXXXX";
   int   q, i, c, t;
 
   double pq[NCOMPONENTS] = {0.5, 0.5};
@@ -552,9 +555,13 @@ main(void)
    */
   if ((r = esl_randomness_Create(42)) == NULL) abort();
 
-  /* Create a mixture Dirichlet file.
+  /* Create a named tmpfile
    */
-  if ((fp = fopen(filename, "w")) == NULL) abort();
+
+
+  /* Create a mixture Dirichlet file, as a named tmpfile.
+   */
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("Failed to open tmp file for writing.");
   fprintf(fp, "%d %d\n", NALPHA, NCOMPONENTS);
   for (q = 0; q < NCOMPONENTS; q++)
     {
@@ -567,15 +574,15 @@ main(void)
   
   /* Read it back in.
    */
-  if ((fp = fopen(filename, "r")) == NULL) abort();
-  if ((efp = esl_fileparser_Create(fp)) == NULL) abort();
-  if (esl_mixdchlet_Read(efp, &d1) != eslOK) abort();
+  if ((fp = fopen(tmpfile, "r")) == NULL)        esl_fatal("Failed to reopen the tmp file.");
+  if ((efp = esl_fileparser_Create(fp)) == NULL) esl_fatal("Failed to create fileparser");
+  if (esl_mixdchlet_Read(efp, &d1) != eslOK)     esl_fatal("Failed to read Dirichlet mixture file");
   esl_fileparser_Destroy(efp);
   fclose(fp);
 
   /* Make a copy of it - artificially testing the _Create() call.
    */
-  if ((d2 = esl_mixdchlet_Create(d1->N, d1->K)) == NULL) abort();
+  if ((d2 = esl_mixdchlet_Create(d1->N, d1->K)) == NULL) esl_fatal("Failed to create mixture Dirichlet object");
   esl_vec_DCopy(d2->pq, d1->pq, d1->N);
   for (q = 0; q < d1->N; q++)
     esl_vec_DCopy(d2->alpha[q], d1->alpha[q], d1->K);
@@ -604,7 +611,7 @@ main(void)
       esl_vec_DLogNorm(iq, d2->N);
       qguess = esl_vec_DArgMax(iq, d2->N); /* the MP guess from the probs */
       /* printf("%1d ", qguess); */
-      if (qused != qguess) abort();
+      if (qused != qguess) esl_fatal("inference test failed"); 
   
       /* Classify by posterior inference on the sampled count vector;
        * and attempt to estimate the probability vector.
@@ -612,15 +619,18 @@ main(void)
       esl_mixdchlet_MPParameters(counts, d2->K, d2, iq, ip);
       qguess = esl_vec_DArgMax(iq, d2->N); /* the MP guess from the counts */
       /* printf("%1d ", qguess); */
-      if (qused != qguess) abort();
+      if (qused != qguess) esl_fatal("inference test failed"); 
 
       for (i = 0; i < d2->K; i++)
 	ip[i] = fabs(ip[i] - probs[i]); /* ip[] is now the differences rel to probs */
       maxdeviation = esl_vec_DMax(ip, d2->K);
       /* printf("%.3f\n", maxdeviation); */
-      if (maxdeviation > 0.05) abort();
+      if (maxdeviation > 0.05) esl_fatal("inference test failed"); 
 
     }
+
+  remove(tmpfile);
+  esl_randomness_Destroy(r);
   esl_mixdchlet_Destroy(d1);
   esl_mixdchlet_Destroy(d2);
   return 0;

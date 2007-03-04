@@ -146,7 +146,7 @@ esl_tree_CreateGrowable(int nalloc)
 ESL_TREE *
 esl_tree_CreateFromString(char *s)
 {
-  char      tmpfile[10] = "eslXXXXXX";
+  char      tmpfile[16] = "esltmpXXXXXX";
   FILE     *fp          = NULL;
   ESL_TREE *T           = NULL;
 
@@ -350,8 +350,8 @@ esl_tree_SetTaxonlabels(ESL_TREE *T, char **names)
   int status;
   
   if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->N);
-  ESL_ALLOC(T->taxonlabel, sizeof(char **) * T->N);
-  for (i = 0; i < T->N; i++) T->taxonlabel[i] = NULL;
+  ESL_ALLOC(T->taxonlabel, sizeof(char **) * T->nalloc);
+  for (i = 0; i < T->nalloc; i++) T->taxonlabel[i] = NULL;
 
   if (names != NULL) 
     {
@@ -369,7 +369,7 @@ esl_tree_SetTaxonlabels(ESL_TREE *T, char **names)
   return eslOK;
 
  ERROR:
-  if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->N);
+  if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->nalloc);
   return status;
 }
 
@@ -414,15 +414,21 @@ esl_tree_RenumberNodes(ESL_TREE *T)
       if (T->right[v] > 0 && esl_stack_IPush(vs, T->right[v]) != eslOK) ESL_XFWD(eslEMEM);
       if (T->left[v]  > 0 && esl_stack_IPush(vs, T->left[v])  != eslOK) ESL_XFWD(eslEMEM);
     }
-  if (! needs_rearranging) return eslOK;
+  if (! needs_rearranging) { status = eslOK; goto ERROR; } /* not an error; just cleaning up & returning eslOK. */
 
   /* Pass 2. Construct the guts of correctly numbered new T2.
    *         (traversal order doesn't matter here)
    */
   if (( T2 = esl_tree_Create(T->nalloc)) == NULL) ESL_XFWD(eslEMEM);
   T2->N = T->N;
-  if (T->nodelabel  != NULL) ESL_ALLOC(T2->nodelabel,  sizeof(char *) * (T->nalloc-1));
-  if (T->taxaparent != NULL) ESL_ALLOC(T2->taxaparent, sizeof(int)    * (T->nalloc));
+  if (T->nodelabel   != NULL) {
+    ESL_ALLOC(T2->nodelabel,   sizeof(char *) * (T2->nalloc-1));
+    for (v = 0; v < T2->nalloc-1; v++) T2->nodelabel[v] = NULL;
+  }
+  if (T->taxaparent != NULL)  {
+    ESL_ALLOC(T2->taxaparent, sizeof(int)    * (T2->nalloc));
+    for (v = 0; v < T2->nalloc; v++)   T2->taxaparent[v] = 0;
+  }
   
   for (v = 0; v < T->N-1; v++)
     {
@@ -631,7 +637,8 @@ esl_tree_Destroy(ESL_TREE *T)
   if (T->rd         != NULL) free(T->rd);
   if (T->taxaparent != NULL) free(T->taxaparent);
   if (T->cladesize  != NULL) free(T->cladesize);
-
+  if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->nalloc);
+  if (T->nodelabel  != NULL) esl_Free2D((void **) T->nodelabel,  T->nalloc-1);
   free(T);
   return;
 }
@@ -2005,11 +2012,11 @@ utest_OptionalInformation(ESL_RANDOMNESS *r, int ntaxa)
 static void
 utest_WriteNewick(ESL_RANDOMNESS *r, int ntaxa)
 {
-  char     *msg    = "esl_tree_WriteNewick unit test failed";
-  char   tmpfile[] = "eslXXXXXX";
-  FILE     *fp     = NULL;
-  ESL_TREE *T1     = NULL;
-  ESL_TREE *T2     = NULL;
+  char     *msg      = "esl_tree_WriteNewick unit test failed";
+  char   tmpfile[32] = "esltmpXXXXXX";
+  FILE     *fp       = NULL;
+  ESL_TREE *T1       = NULL;
+  ESL_TREE *T2       = NULL;
   char  errbuf[eslERRBUFSIZE];
 
   if (esl_tmpfile(tmpfile, &fp)            != eslOK) esl_fatal(msg);

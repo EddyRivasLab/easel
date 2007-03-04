@@ -8,16 +8,16 @@
 
 #include <stdio.h>
 
-
 typedef struct {
   /*mx, mx[0] are allocated. */
 /*::cexcerpt::dmatrix_obj::begin::*/
   double **mx;                  /* mx[i][j] is i'th row, j'th col */
   int      n;                   /* rows    */
   int      m;                   /* columns */
+  enum { eslGENERAL, eslUPPER } type;
 /*::cexcerpt::dmatrix_obj::end::*/
+  int      ncells;		/* number of valid cells (nxm in standard matrix) */
 } ESL_DMATRIX;
-
 
 typedef struct {
   int     *pi;
@@ -25,6 +25,7 @@ typedef struct {
 } ESL_PERMUTATION;
 
 extern ESL_DMATRIX *esl_dmatrix_Create(int n, int m);
+extern ESL_DMATRIX *esl_dmatrix_CreateUpper(int n);
 extern int          esl_dmatrix_Destroy(ESL_DMATRIX *A);
 extern int          esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel);
 extern int          esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest);
@@ -34,7 +35,9 @@ extern int          esl_dmatrix_Set(ESL_DMATRIX *A, double x);
 extern int          esl_dmatrix_SetZero(ESL_DMATRIX *A);
 extern int          esl_dmatrix_SetIdentity(ESL_DMATRIX *A);
 
-
+extern double esl_dmx_Max(ESL_DMATRIX *A);
+extern double esl_dmx_Min(ESL_DMATRIX *A);
+extern double esl_dmx_Sum(ESL_DMATRIX *A);
 
 extern ESL_PERMUTATION *esl_permutation_Create(int n);
 extern int              esl_permutation_Destroy(ESL_PERMUTATION *P);

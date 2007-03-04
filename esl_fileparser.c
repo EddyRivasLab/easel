@@ -234,7 +234,6 @@ main(int argc, char **argv)
  * Test driver:
  *    gcc -g -Wall -I. -o test -DeslFILEPARSER_TESTDRIVE esl_fileparser.c easel.c
  *    ./test
- * Creates a test file "tmpxxx", then reads it back in.
  *****************************************************************/
 #ifdef eslFILEPARSER_TESTDRIVE
 #include <stdio.h>
@@ -245,7 +244,7 @@ main(int argc, char **argv)
 int 
 main(int argc, char **argv)
 {
-  char *filename = "tmpxxx";
+  char  tmpfile[32] = "esltmpXXXXXX";
   ESL_FILEPARSER *efp;
   FILE *fp;
   char *tok;
@@ -255,8 +254,7 @@ main(int argc, char **argv)
 
   /* Create a test file to read.
    */
-  if ((fp = fopen(filename, "w")) == NULL)
-    esl_fatal("File open failed");
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("File open failed");
   fprintf(fp, "# Full line comment\n");
   fprintf(fp, "token1  # Trailing comment\n");
   fprintf(fp, "\n");		/* blank line */
@@ -268,7 +266,7 @@ main(int argc, char **argv)
 
   /* Read it back in. Should consist of 5 tokens, all of length 6.
    */
-  if ((fp = fopen(filename, "r")) == NULL) 
+  if ((fp = fopen(tmpfile, "r")) == NULL) 
     esl_fatal("File open failed");
   
   if ((efp = esl_fileparser_Create(fp)) == NULL) 
@@ -288,6 +286,7 @@ main(int argc, char **argv)
   
   esl_fileparser_Destroy(efp);
   fclose(fp);
+  remove(tmpfile);
   return 0;
 }
 #endif /*eslFILEPARSER_TESTDRIVE*/
