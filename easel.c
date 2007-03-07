@@ -920,7 +920,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
   if (getuid() == geteuid() && getgid() == getegid()) 
     {
       tmpdir = getenv("TMPDIR");
-      if (tmpdir == NULL) tmpdir == getenv("TMP");
+      if (tmpdir == NULL) tmpdir = getenv("TMP");
     }
   if (tmpdir == NULL) tmpdir = "/tmp";
   if ((status = esl_FileConcat(tmpdir, template, &path)) != eslOK) goto ERROR; 

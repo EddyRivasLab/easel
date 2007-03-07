@@ -661,7 +661,7 @@ esl_rnd_xIID(ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq)
   int   x;
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
-  for (x = 0; x < L; x++) 
+  for (x = 1; x <= L; x++) 
     dsq[x] = esl_rnd_DChoose(r,p,K);
   return eslOK;
 }
@@ -671,7 +671,7 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
   int   x;
 
   dsq[0] = dsq[L+1] = eslDSQ_SENTINEL;
-  for (x = 0; x < L; x++) 
+  for (x = 1; x <= L; x++) 
     dsq[x] = esl_rnd_FChoose(r,p,K);
   return eslOK;
 }

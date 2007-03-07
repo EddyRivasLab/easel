@@ -386,9 +386,9 @@ esl_sq_Squeeze(ESL_SQ *sq)
   alen = strlen(sq->acc);
   dlen = strlen(sq->desc);
 
-  len = nlen + alen + dlen + sq->n + 4; 
+  len = nlen + alen + dlen + 3; 
+  if (sq->seq != NULL) len += sq->n+1;
   if (sq->ss  != NULL) len += sq->n+1;
-  if (sq->dsq != NULL) len += sq->n+2;
 
   ESL_ALLOC(sq->optmem, sizeof(char) * len);
   
@@ -396,20 +396,22 @@ esl_sq_Squeeze(ESL_SQ *sq)
   name = sq->optmem+len; memcpy(name, sq->name, nlen+1);  len+=nlen+1;
   acc  = sq->optmem+len; memcpy(acc,  sq->acc,  alen+1);  len+=alen+1;
   desc = sq->optmem+len; memcpy(desc, sq->desc, dlen+1);  len+=dlen+1;
-  seq  = sq->optmem+len; memcpy(seq,  sq->seq,  sq->n+1); len+=sq->n+1;
+  if (sq->seq != NULL) 
+    { seq  = sq->optmem+len; memcpy(seq, sq->seq,  sq->n+1); len+=sq->n+1;}
+  if (sq->ss  != NULL)
+    { ss   = sq->optmem+len; memcpy(ss,  sq->ss,   sq->n+1); len+=sq->n+1;}
 
-  if (sq->ss != NULL)
-    { ss  = sq->optmem+len; memcpy(ss,  sq->ss,  sq->n+1); len+=sq->n+1; }
-  if (sq->dsq != NULL)
-    { dsq = sq->optmem+len; memcpy(dsq, sq->dsq, sq->n+2); len+=sq->n+2; }
+  if (sq->dsq != NULL) {
+    ESL_ALLOC(dsq, sizeof(ESL_DSQ) * sq->n+2);
+    memcpy(dsq, sq->dsq, sizeof(ESL_DSQ) * sq->n+2);
+  }
 
   free(sq->name); sq->nalloc = 0; sq->name = name;
   free(sq->acc);  sq->aalloc = 0; sq->acc  = acc;
   free(sq->desc); sq->dalloc = 0; sq->desc = desc;
-  free(sq->seq);  sq->salloc = 0; sq->seq  = seq;
+  if (sq->seq != NULL) { free(sq->seq); sq->salloc = 0; sq->seq  = seq; }
+  if (sq->dsq != NULL) { free(sq->dsq); sq->salloc = 0; sq->dsq  = dsq; }
   if (sq->ss  != NULL) { free(sq->ss);  sq->ss  = ss; }
-  if (sq->dsq != NULL) { free(sq->dsq); sq->dsq = dsq;}
-  
   return eslOK;
 
  ERROR:
