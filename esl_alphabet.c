@@ -658,6 +658,24 @@ esl_abc_TextizeN(ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf)
 }
 
 
+/* Function:  esl_abc_dsqcpy()
+ * Incept:    SRE, Fri Feb 23 08:45:10 2007 [Casa de Gatos]
+ *
+ * Purpose:   Given a digital sequence <dsq> of length <L>,
+ *            make a copy of it in <dcopy>. Caller provides
+ *            storage in <dcopy> for at least <L+2> <ESL_DSQ>
+ *            residues.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_abc_dsqcpy(ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
+{
+  memcpy(dcopy, dsq, sizeof(ESL_DSQ) * (L+2));
+  return eslOK;
+}
+
+
 /* Function:  esl_abc_dsqdup()
  * Synopsis:  Duplicate a digital sequence.
  * Incept:    SRE, Tue Aug 29 13:51:05 2006 [Janelia]

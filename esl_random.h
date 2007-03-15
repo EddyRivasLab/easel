@@ -52,6 +52,24 @@ extern int esl_rnd_fIID (ESL_RANDOMNESS *r, char *alphabet, float  *p, int K, in
 extern int esl_rnd_xIID (ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq);
 extern int esl_rnd_xfIID(ESL_RANDOMNESS *r, float  *p, int K, int L, ESL_DSQ *dsq);
 
+/* 6. Randomizing sequences.
+ */
+extern int esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *new);
+extern int esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *new);
+extern int esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *new);
+extern int esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *new);
+extern int esl_rnd_CReverse(char *s, char *new);
+extern int esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *new);
+
+extern int esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *new);
+extern int esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new);
+extern int esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new);
+extern int esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new);
+extern int esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *new);
+extern int esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, ESL_DSQ *s, int L, int w, ESL_DSQ *new);
+
+/* 7. Randomizing alignments.
+ */
 
 #endif /*ESL_RANDOM_INCLUDED*/
 

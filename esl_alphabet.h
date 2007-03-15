@@ -47,6 +47,7 @@ extern int esl_abc_CreateDsq(ESL_ALPHABET *a, char *seq, ESL_DSQ **ret_dsq);
 extern int esl_abc_Digitize (ESL_ALPHABET *a, char *seq, ESL_DSQ *dsq);
 extern int esl_abc_Textize  (ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char    *seq);
 extern int esl_abc_TextizeN (ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf);
+extern int esl_abc_dsqcpy(ESL_DSQ *dsq, int L, ESL_DSQ *dcopy);
 extern int esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup);
 extern int esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n);
 extern int esl_abc_dsqlen(ESL_DSQ *dsq);
