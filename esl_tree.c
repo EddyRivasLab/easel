@@ -1604,8 +1604,8 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
    * NxN copy of the distance matrix, which we'll iteratively whittle down to 2x2;
    * tree for N taxa;
    */
-  if ((D = esl_dmatrix_Duplicate(D_original)) == NULL) return eslEMEM;
-  if ((T = esl_tree_Create(D->n))             == NULL) return eslEMEM;
+  if ((D = esl_dmatrix_Clone(D_original)) == NULL) return eslEMEM;
+  if ((T = esl_tree_Create(D->n))         == NULL) return eslEMEM;
   ESL_ALLOC(idx,    sizeof(int)    *  D->n);
   ESL_ALLOC(nin,    sizeof(int)    *  D->n);
   ESL_ALLOC(height, sizeof(double) * (D->n-1));

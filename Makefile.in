@@ -2,11 +2,14 @@
 # Makefile for Easel
 # SVN $Id$
 
-CC      = @CC@
-CFLAGS  = @CFLAGS@
-AR      = @AR@ rcv
-LN      = ln
-RANLIB  = @RANLIB@
+CC       = @CC@
+CFLAGS   = @CFLAGS@
+AR       = @AR@ rcv
+LN       = ln
+RANLIB   = @RANLIB@
+LDFLAGS  = @LDFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LIBGSL   = @LIBGSL@
 
 HEADERS = \
 	easel.h\
@@ -28,7 +31,9 @@ HEADERS = \
 	esl_msa.h\
 	esl_msacluster.h\
 	esl_msaweight.h\
+	esl_paml.h\
 	esl_random.h\
+	esl_ratematrix.h\
 	esl_regexp.h\
 	esl_sqio.h\
 	esl_ssi.h\
@@ -61,7 +66,9 @@ OBJS    = \
 	esl_msa.o\
 	esl_msacluster.o\
 	esl_msaweight.o\
+	esl_paml.o\
 	esl_random.o\
+	esl_ratematrix.o\
 	esl_regexp.o\
 	esl_sqio.o\
 	esl_ssi.o\

@@ -958,7 +958,7 @@ esl_vec_FLogNorm(float *vec, int n)
  *            n      - dimensionality of v
  *            tol    - convergence criterion applied to sum of v
  *            errbuf - NULL, or a failure message buffer allocated
- *                     for at least p7_ERRBUFSIZE chars. 
+ *                     for at least <eslERRBUFSIZE> chars. 
  *
  * Returns:   <eslOK> on success, or <eslFAIL> on validation failure.
  *            Upon failure, if caller provided a non-<NULL> <errbuf>,

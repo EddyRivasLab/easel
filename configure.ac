@@ -64,7 +64,7 @@
 #     EASEL_VERSION    e.g. "1.9a"
 #
 AC_PREREQ(2.60)
-AC_INIT(Easel, 0.1, eddy@genetics.wustl.edu, easel)
+AC_INIT(Easel, 0.1, eddys@janelia.hhmi.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 ################################################################
@@ -72,12 +72,12 @@ AC_MSG_NOTICE([Configuring the Easel library for your system.])
 ################################################################
 
 EASEL_RELCODE="easel0_1"
-EASEL_DATE="February 2005"
-EASEL_COPYRIGHT="Copyright (C) 2004-2005 HHMI/Washington University School of Medicine"
-EASEL_LICENSE="Licensed and distributed under the Creative Commons Attribution License."
-EASEL_LICENSETAG=gnu
+EASEL_DATE="March 2007"
+EASEL_COPYRIGHT="Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus"
+EASEL_LICENSE="Freely distributed under the Janelia Software License."
+EASEL_LICENSETAG=jsl
 EASEL_VERSION=$PACKAGE_VERSION
-EASEL_URL="http://selab.wustl.edu/easel/"
+EASEL_URL="http://easel.janelia.org/"
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
@@ -170,7 +170,7 @@ esac])
 # which the gcov tool can read.
 #
 AC_ARG_ENABLE(gcov, 
-  [  --enable-gcov        Compile with instrumentation for code coverage testing], 
+  [  --enable-gcov           Compile with instrumentation for code coverage testing], 
   [ 
     AC_MSG_NOTICE([Compiling with gcov instrumentation.])
     CC="gcc"
@@ -178,6 +178,22 @@ AC_ARG_ENABLE(gcov,
   ])
 
 
+# --with-gsl        - enable hooks into the GSL (GNU Scientific Library)
+#
+# The (action-if-given) is blank: using --with-gsl sets $with_gsl to 'yes',
+# and --without-gsl sets $with_gsl to 'no'. If neither is given,
+# $with_gsl is set to 'check', and we'll try to use GSL anyway if we
+# can find it.
+# 
+# We interpret the $with_gsl setting later, in the "checks for libraries" section.
+AC_ARG_WITH([gsl],
+            [AS_HELP_STRING([--with-gsl],
+                           [use the GSL, GNU Scientific Library (default is no)])],
+            [if test "x$withval" != xno ; then 
+               AC_MSG_NOTICE([Enabling hooks into the GNU Scientific Library (GSL)])
+             fi
+            ],
+	    [with_gsl=no])
 
 ################################################################
 # 4. Checks for programs
@@ -222,8 +238,21 @@ CHECK_GNU_MAKE
 
 
 
-# 5. Checks for libraries - none
+# 5. Checks for libraries.
 
+LIBGSL=
+AS_IF([test "x$with_gsl" != xno],
+      [AC_CHECK_LIB([gsl], [gsl_expm1], 
+           [AC_SUBST([LIBGSL], ["-lgsl -lgslcblas"])
+            AC_DEFINE([HAVE_LIBGSL], [1], [Define if you have libgsl])
+           ],
+           [if test "x$with_gsl" != xcheck; then
+             AC_MSG_FAILURE(
+               [--with-gsl was given, but GSL library was not found])
+            fi
+           ],
+           [-lgslcblas]
+        )])
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H

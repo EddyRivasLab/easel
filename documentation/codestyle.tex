@@ -1,194 +1,761 @@
 
-This appendix describes Easel's coding style. It will probably only be
-of interest to Easel developers, not to application developers who are
-just using the Easel library.
+This chapter describes Easel, from an Easel developer's perspective:
+how a module's source code is organized and documented. It provides a
+guide for implementing new modules and for reading existing ones.
 
-\section{Test and example code}
+Like Emerson, Easel is not overly concerned with
+consistency. Nonetheless, Easel modules are organized in similar ways,
+and similar functions are channeled towards common \esldef{interfaces}
+that provide guidelines for a shared behavior and a shared naming
+convention. These shared patterns have been established as a result of
+experience. Common interface designs also help reduce the apparent
+complexity of the library, by making many functions behave in
+predictable ways, so it is easier to learn for a programmer to use new
+Easel modules.
 
-Each module contains one or more \ccode{main()} functions for testing
-and example purposes, enclosed in \ccode{\#ifdef}'s to control
-conditional compilation.
+Some of the language in this chapter is intended to convey specific
+legalistic meaning:
 
-There are currently five different types of \ccode{main()} functions
-in Easel modules:
+\begin{itemize} 
+\item \emph{Must} indicates a requirement: noncompliance means the
+code is broken.
 
-\begin{description} 
+\item \emph{Shall} means a requirement for \emph{new and revised}
+Easel code, but older Easel code is ``grandfathered in'' and may not
+necessarily meet this spec. (The analogy is in how housing
+construction codes are used to drive evolutionary improvement. New
+housing codes don't force all old construction to be immediately
+renovated to meet the new requirements, but new homes and renovations
+do need to meet modern requirements. Over time, this means housing
+evolves and improves.)\footnote{If you're familiar with RFC2119, it
+considers ``must'', ``required'', and ``shall'' to mean the same
+thing, unlike Easel. RFC2119 was designed for static
+specifications. It does not define terms suitable for an evolving
+specification.}
 
-\item[\textbf{Examples}] Every module has at least one example
-  \ccode{main()} that provides a ``hello world'' level example of
-  using the module's API. Examples are enclosed in \ccode{cexcerpt}
-  tags for extraction and verbatim inclusion in the documentation.
-  They are enclosed by \ccode{\#ifdef eslFOO\_EXAMPLE} tags, where
-  \ccode{FOO} is the name of the module.
+\item \emph{Should} means a best practice, the preferred or
+recommended choice among compliant alternatives.
 
-\item[\textbf{Automated test drivers}] These are run by the automated
-  test suite in \ccode{testsuite/testsuite.sqc} when one does a
-  \ccode{make check} on the package. They include unit tests on
-  individual functions as well as more sophisticated tests of the
-  module as a whole. They are enclosed by \ccode{\#ifdef
-  eslFOO\_TESTDRIVE} tags.
+\item \emph{May} means a non-preferred or less frequent choice among
+compliant alternatives.
 
-\item[\textbf{Regression/comparison tests}] These tests link to at
-  least one other existing library that provides comparable
-  functionality, such as the old SQUID library or the GNU Scientific
-  Library, and test that Easel's functionality performs at least as
-  well as the 'competition'. These tests are run on demand, and not
-  included in automated testing, because the other libraries may only
-  be present on a subset of our development machines. They are
-  enclosed by \ccode{\#ifdef eslFOO\_REGRESSION} tags.
-
-\item[\textbf{Benchmark tests}] These tests run a standardized
-  performance benchmark and collect time and/or memory
-  statistics. They may generate output suitable for graphing. They are
-  run on demand. They are enclosed by \ccode{\#ifdef eslFOO\_BENCHMARK} tags.
-
-\item[\textbf{Statistics generators}] These tests collect statistics
-  used to characterize the module's scientific performance, such as
-  its accuracy at some task. They may generate graphing output, and they
-  are run on demand. They are enclosed by \ccode{\#ifdef eslFOO\_STATS} tags.
-\end{description}  
-
-All modules have at least one test driver and one example. Other tests
-and examples are optional. When there is more than one \ccode{main()}
-of a given type, the additional tags are numbered starting from 2: for
-example, a module with three example \ccode{main()'s} would have three
-tags for conditional compilation, \ccode{eslFOO\_EXAMPLE},
-\ccode{eslFOO\_EXAMPLE2}, and \ccode{eslFOO\_EXAMPLE3}.
+\item Any other statement, such as ``Each module consists of three
+files'' indicates a best practice that is used with few or no
+exceptions.
+\end{itemize}
 
 
-Which driver is compiled (if any) is controlled by conditional
-compilation of the module \ccode{.c} file with the appropriate
-flag. For example, to compile and run the \eslmod{sqio} test driver as
-a standalone module:
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Nomenclature}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+   \subsection{Module names}
+
+Module names should be ten characters or less.\footnote{sqc assumes
+  this in its output formatting, for example.}
+
+If a module is organized around an object, they should have the same
+name: for example, the \eslmod{alphabet} module implements the
+\ccode{ESL\_ALPHABET} object.
+
+The module should also have a three-letter abbreviation. For instance,
+the \eslmod{alphabet} module is also known by the abbreviation
+\eslmod{abc}. The three-letter code is used to construct shorter
+function and macro names.
+
+Each module consists of three files: a .c source code file, a .h
+header file, and a .tex documentation file. These filenames are
+constructed from the module name. For example, the \eslmod{dmatrix}
+module is implemented in \ccode{esl\_dmatrix.c},
+\ccode{esl\_dmatrix.h}, and \ccode{esl\_dmatrix.tex}.
+
+
+   \subsection{Functions}
+
+Function names are tripartite, constructed as
+\ccode{esl\_\{tag\}\_\{name\}}.  The \ccode{\{tag\}} is either an
+object name, the module's full name, or the module's three-letter
+abbreviation. The \ccode{\{name\}} can be anything, but some names are
+standard and indicate the use of a common interface.
+
+In a module that implements one or more objects, different tags are
+used to indicate functions that operate directly on objects via common
+interfaces, versus other functions in the exposed API.  Functions that
+act directly on an object using a common interface should be named by
+the object name, such as \ccode{esl\_alphabet\_Create()}.\ccode{This
+is a clumsy C version of what C++ would do with namespaces, object
+methods, and constructors/destructors.} Other functions in the API of
+a module should be named by the three-letter code, such as
+\ccode{esl\_abc\_Digitize()}.
+
+In modules that implement no objects, a single tag is used. The
+\ccode{\{tag\}} can either be the full module name or the three-letter
+abbreviation. Whichever is used, that choice should be used
+consistently in all exposed functions in a given module.
+
+Only exposed (\ccode{extern}) functions must follow these rules. In
+general, private (\ccode{static}) functions can have any name.
+
+Sometimes essentially the same function must be provided for different
+data types, in which case one-letter prefixes are used to indicate
+datatype:
+
+\begin{tabular}{ll}
+\ccode{C} & \ccode{char} type, or a standard C string \\
+\ccode{X} & \ccode{ESL\_DSQ} type, or an Easel digitized sequence\\
+\ccode{I} & \ccode{int} type \\
+\ccode{F} & \ccode{float} type \\
+\ccode{D} & \ccode{double} type \\
+\end{tabular}
+
+For example, \eslmod{vectorops} uses this convention heavily;
+\ccode{esl\_vec\_FNorm()} normalizes a vector of floats and
+\ccode{esl\_vec\_DNorm()} normalizes a vector of doubles.  A second
+example is in \eslmod{random}, which provides routines for shuffling
+either text strings or digitized sequences, such as
+\ccode{esl\_rnd\_CShuffle()} and \ccode{esl\_rnd\_XShuffle()}.
+
+   \subsection{Macros}
+
+Macro names start with \ccode{ESL\_} and are all upper case, as in
+\ccode{ESL\_EXCEPTION()}.
+
+Macros that only become available when debugging hooks are activated
+at compile time are prefixed\ccode{ESL\_D} and end with the debugging
+level, as in the \ccode{ESL\_DPRINTF2()} macro that is activated at
+level 2 debugging.
+
+   \subsection{Constants}
+
+Constants (including both \ccode{\#define}'s and \ccode{enum}'s) start
+with \ccode{esl} followed by all upper case, as in
+\ccode{eslINFINITY}.
+
+Error codes are \ccode{eslE} followed by upper case, as in
+\ccode{eslEDIVZERO}, except for \ccode{eslOK} and \ccode{eslFAIL}.
+
+Magic mathematical constants start with \ccode{eslCONST\_} followed by
+an upper case name, as in \ccode{eslCONST\_PI}.
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The .c source file}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The .c file starts with a block comment that contains a line stating
+the module's purpose; a table of contents listing the sections the
+file is organized into (see below); an incept stamp (initials and
+date) to help track the provenance of this file \footnote{The physical
+place where the code was started and the music we were listening to
+may also be nostalgically noted on the incept line.}; and an
+\ccode{SVN \$Id\$} tag that is filled in by Subversion.  The name of
+the file should not appear in this comment. It is redundant, and
+becomes just one more thing to change if we ever rename the module.
+
+Included headers are next. The \ccode{esl\_config.h} header must
+always be first, because it contains platform-independent
+configuration code that may affect even the standard library header
+files. Standard headers like \ccode{stdio.h} come next, then Easel's
+main header \ccode{easel.h}; then headers of any other Easel modules
+this module depends on; then any headers for modules this module can
+be augmented with, surrounded by appropriate \ccode{\#ifdef}'s; then
+the module's own header. For example, the \ccode{\#include}'s in the
+\eslmod{msa} module look like:
 
 \begin{cchunk}
-   %  gcc -g -Wall -I. -o test -DeslSQIO_TESTDRIVE esl_sqio.c easel.c -lm
-   %  ./test
+#include <esl_config.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#include <easel.h>
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
+#endif
+#ifdef eslAUGMENT_ALPHABET
+#include <esl_alphabet.h>
+#endif
+#ifdef eslAUGMENT_SSI
+#include <esl_ssi.h>
+#endif
+#include <esl_msa.h>
 \end{cchunk}
 
-or to compile and run it in full library configuration:
+The rest of the file is split into sections, which are numbered and
+given one-line titles that appear in the table of contents, comments
+in front of each code section in the .c file, and comments in front of
+that section's declarations in the .h file. Because of the numbering
+and titling, it is easy to locate a particular section of code by
+searching on the number (and possibly the title).  A common section
+structure includes the following, in this order:
+
+\begin{description}
+
+\item[\textbf{The \ccode{FOOBAR} object.}]
+
+  These routines create and destroy objects, setting and getting
+  information in objects, cloning and copying objects (i.e.  copies
+  with or without new memory allocation), or comparing objects for
+  equality. Common interfaces include:
+
+  \begin{itemize}
+      \item \ccode{foobar\_Create*()}
+      \item \ccode{foobar\_Set*()}
+      \item \ccode{foobar\_Get*()}
+      \item \ccode{foobar\_Add*()}
+      \item \ccode{foobar\_Copy*()}
+      \item \ccode{foobar\_Clone*()}
+      \item \ccode{foobar\_Compare*()}
+      \item \ccode{foobar\_Destroy*()}
+  \end{itemize}
+
+  Input streams are opened/closed rather than created/destroyed.
+  Common interfaces for input stream objects include:
+
+  \begin{itemize}
+      \item \ccode{foobar\_Open*()}
+      \item \ccode{foobar\_Close*()}
+  \end{itemize}
+
+  Some objects are reusable, to save cycles of malloc/free.
+  Common interfaces for reusable objects include:
+
+  \begin{itemize}
+      \item \ccode{foobar\_Reuse*()}
+      \item \ccode{foobar\_Grow*()}
+      \item \ccode{foobar\_GrowTo()}
+      \item \ccode{foobar\_Shrink()}
+  \end{itemize}
+
+  All routines in the object section follow one of these common
+  interfaces. Anything else is in the Exposed API section.
+
+\item[\textbf{Debugging/dev code for the object.}]
+
+  Most objects can be validated or dumped to an output stream
+  for inspection.
+
+  \begin{itemize}
+      \item \ccode{foobar\_Validate*()}
+      \item \ccode{foobar\_Dump*()}
+  \end{itemize}
+
+\item[\textbf{The rest of the base API.}]
+
+  Everything else that is part of the API for this module in its
+  baseline (unaugmented) form. Usually these functions don't follow
+  any particular common interface.  These might be split across
+  multiple sections.
+
+  API functions typically have abbreviated names like
+  \ccode{esl\_foo\_DoSomething()} instead of the object name
+  \ccode{esl\_foobar\_SetSomething()}.
+
+\item[\textbf{Augmented API, if any.}]
+
+  Any functions that are only available with one or more augmentations
+  are split into separate sections. 
+
+\item[\textbf{Private functions.}]
+
+  Easel isn't rigorous about where private (non-exposed) functions go,
+  but they often go in a separate section in about the middle of the
+  \ccode{.c} file, after the API and before the drivers.
+
+\item[\textbf{Stats driver (if any).}]
+
+  Some modules have a \ccode{main()} for collecting statistics and
+  generating plots analyzing the scientific performance of a module.
+
+\item[\textbf{Benchmark driver (if any).}]
+
+  Some modules have a \ccode{main()} for running timing benchmarks.
+
+\item[\textbf{Regression driver (if any).}]
+
+  Some modules have a \ccode{main()} for comparing the performance of
+  a module to previous instantiations of it in Easel, in other
+  codebases of ours (SQUID, for example), or in other available
+  libraries (GSL, for example).
+
+\item [\textbf{Unit tests.}]
+ 
+  The unit tests are internal controls that test that the module's API
+  works as advertised.
+
+\item [\textbf{Test driver.}]
+
+  All modules have an automated test driver is a \ccode{main()} that
+  runs the unit tests.
+ 
+\item [\textbf{Example code.}]
+
+  All modules have at least one \ccode{main()} showing an example of
+  how to use the main features of the module.
+
+\item [\textbf{Copyright/license information.}]
+
+  Easel is freely available under the Janelia Software License (JSL),
+  but these stamps aren't added until a distribution is
+  packaged. Instead, each file ends with a \ccode{@LICENSE@} tag. This
+  placeholder is automatically replaced by the correct license
+  statement at packaging time. This gives us the ability to package
+  specially licensed versions, if needed.
+
+\end{description}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The .h header file}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+...
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The .tex documentation file}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+...
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Function names and common interfaces}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Most Easel functions have three part names like
+\ccode{esl\_foo\_BarBaz()}, where the \ccode{esl} prefix defines an
+Easel-specific namespace (to keep Easel functions from clashing with
+the names of an application's functions), \ccode{foo} is the
+lower-case base name of the Easel object that is acted on (or the
+module that this function is in), and \ccode{BarBaz()} describes what
+the function does.  If there are two or more functions
+\ccode{esl\_foo\_BarBaz()}, \ccode{esl\_bar\_BarBaz()}, etc., then we
+can talk about the \ccode{\_BarBaz()} interface. 
+
+Conversely, if there is a \ccode{\_BarBaz()} interface, then any
+function named something like \ccode{esl\_foo\_BarBaz()} or
+\ccode{esl\_foo\_BarBazQux()} follows it. For example,
+\ccode{esl\_sq\_Create()} is going to create a \ccode{ESL\_SQ}
+sequence object, following interface guidelines for \ccode{\_Create()}
+functions.
+
+\subsection{Creating and destroying new objects}
+
+Most Easel objects are allocated and free'd by
+\ccode{\_Create()/\_Destroy()} interface. Creating an object often
+just means allocating space for it, so that some other routine can
+fill data into it. It does not necessarily mean that the object
+contains valid data.
+
+In summary:
+
+\begin{sreapi}
+\hypertarget{ifc:Create} 
+{\item[\_Create(N)]}
+
+A \ccode{\_Create()} interface takes any necessary initialization or
+size information as arguments (there may not be any), and it returns a
+pointer to the newly allocated object. If an (optional) number of
+elements \ccode{N} is provided, this specifies the number of elements
+that the object is going to contain (thus, creating a fixed-size
+object; contrast the \ccode{\_CreateGrowable()} interface).  In the
+event of any failure, the procedure throws \ccode{NULL}.
+
+\hypertarget{ifc:Destroy} 
+{\item[\_Destroy(obj)]}
+A \ccode{\_Destroy()} interface takes an object pointer as an
+argument, and frees all the memory associated with it.
+\end{sreapi}
+
+For example:
+\begin{cchunk}
+   ESL_SQ *sq;
+   sq = esl_sq_Create();
+   esl_sq_Destroy(sq);
+\end{cchunk}
+
+
+
+\subsubsection{Open input streams}
+
+Some objects (such as \ccode{ESL\_SQFILE} and \ccode{ESL\_MSAFILE})
+correspond to open input streams -- usually an open file, but possibly
+reading from a pipe. Such objects are \ccode{\_Open()}'ed and
+\ccode{\_Close()'d}, not created and destroyed.
+
+Input stream objects have to be capable of handling normal failures,
+because of bad user input. Input stream objects contain an
+\ccode{errbuf[eslERRBUFSIZE]} field to capture informative parse error
+messages. 
+
+In summary:
+
+\begin{sreapi}
+\hypertarget{ifc:Open} 
+{\item[\_Open(file, formatcode, \&ret\_obj)]}
+
+Opens the \ccode{file}, which is in a format indicated by
+\ccode{formatcode} for reading; return the open input object in
+\ccode{ret\_obj}. A \ccode{formatcode} of 0 typically means unknown,
+in which case the \ccode{\_Open()} procedure attempts to autodetect
+the format. If the \ccode{file} is \ccode{"-"}, the object is
+configured to read from the \ccode{stdin} stream instead of opening a
+file. If the \ccode{file} ends in a \ccode{.gz} suffix, the object is
+configured to read from a pipe from \ccode{gzip -dc}. Returns
+\ccode{eslENOTFOUND} if \ccode{file} cannot be opened, and
+\ccode{eslEFORMAT} if autodetection is attempted but the format cannot
+be determined.
+
+\hypertarget{ifc:Close} 
+{\item[\_Close(obj)]}
+
+Closes the input stream \ccode{obj}. Returns \ccode{void}.
+\end{sreapi}
+
+
+For example:
 
 \begin{cchunk}
-   %  gcc -g -Wall -I. -L. -o test -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
-   %  ./test
+    char        *seqfile = "foo.fa";
+    ESL_SQFILE  *sqfp;
+
+    esl_sqio_Open(seqfile, eslSQFILE_FASTA, NULL, &sqfp);
+    esl_sqio_Close(sqfp);
 \end{cchunk}
 
-Regressions, benchmarks, and stats tests may be full-fledged Easel
-applications that link to the complete library and use any module.
-The main automated test (the one compiled by defining \ccode{\#ifdef
-eslFOO\_TESTDRIVE}) must be a minimal program, though, designed to be
-linked to a minimal subset of Easel.This is especially important in
-the Easel core modules, which need to be tested in standalone
-configuration, one or more augmented configurations, and full library
-configuration. Consequently, for example, the main automated test
-never uses \ccode{getopts}, whereas other tests usually do. This makes
-the main automated test rigid (which is ok, because it's automated)
-and the other tests more configurable (which is ok, because they're
-run on demand). 
 
-\subsection{Automated test drivers}
 
-A \esldef{test driver} is for unit testing at the module and
-individual function levels. It provides a \ccode{main()} that runs
-some (preferably all) of a module's API.
+\subsubsection{Growable objects}
 
-Each module shall have at least one test driver.
+Some objects need to be reallocated and expanded during their use.
+These objects are called \esldef{growable}.
 
-A test driver shall work in minimal standalone configuration, in any
-possible augmented configuration, or in full library
-configuration. Example compilations:
+In some cases, the whole purpose of the object is to have elements
+added to it, such as \ccode{ESL\_STACK} (pushdown stacks) and
+\ccode{ESL\_HISTOGRAM} (histograms). In these cases, the normal
+\ccode{\_Create()} interface performs an initial allocation, and the
+object keeps track of both its current contents size (often
+\ccode{obj->N}) and the current allocation size (often
+\ccode{obj->nalloc}). 
+
+In some other cases, objects might be either growable or not,
+depending on how they're being used. This happens, for instance, when
+we have routines for parsing input data to create a new object, and we
+need to dynamically reallocate as we go because the input doesn't tell
+us the total size when we start. For instance, with \ccode{ESL\_TREE}
+(phylogenetic trees), sometimes we know exactly the size of the tree
+we need to create (because we're making a tree ourselves), and
+sometimes we need to create a growable object (because we're reading a
+tree from a file). In these cases, the normal \ccode{\_Create()}
+interface creates a static, nongrowable object of known size, and a
+\ccode{\_CreateGrowable()} interface specifies an initial allocation
+for a growable object.
+
+Easel usually handles its own reallocation of growable objects. For
+instance, many growable objects have an interface called something
+like \ccode{\_Add()} or \ccode{\_Push()} for storing the next element
+in the object, and this interface will deal with increasing allocation
+size as needed.  In a few cases, a public \ccode{\_Grow()} interface
+is provided for reallocating an object to a larger size, in cases
+where a caller might need to grow the object itself. \ccode{\_Grow()}
+only increases an allocation when it is necessary, so that a caller
+can call \ccode{\_Grow()} before every attempt to add a new
+element. An example of where a public \ccode{\_Grow()} interface is
+generally provided is when an object might be input from different
+file formats, and an application may need to create its own
+parser. Although creating an input parser requires familiarity with
+the Easel object's internal data structures, at least the
+\ccode{\_Grow()} interface frees the caller from having to understand
+its memory management.
+
+Growable objects waste memory, because they are overallocated in order
+to reduce the number of calls to \ccode{malloc()}.  The wastage is
+bounded (to a maximum of two-fold, for the default doubling
+strategies, once an object has exceeded its initial allocation size)
+but nonetheless may not always be tolerable.  A \ccode{\_Shrink()}
+interface optimizes the memory usage in an object and converts it to a
+nongrowable, fixed-size form. 
+
+In summary: 
+
+\begin{sreapi}
+\hypertarget{ifc:CreateGrowable}
+{\item[\_CreateGrowable(nalloc)]}
+
+A \ccode{\_CreateGrowable()} interface creates a growable
+\ccode{obj}. If a size argument like \ccode{nalloc} is provided, it
+specifies an initial allocation size, not the number of elements.
+
+\hypertarget{ifc:Grow}
+{\item[\_Grow(obj)]}
+
+Check to see if \ccode{obj} can hold another element. If not, increase
+the allocation, according to internally stored rules on reallocation
+strategy (usually, by doubling).
+
+\hypertarget{ifc:Shrink}
+{\item[\_Shrink(obj)]}
+
+Optimize the memory usage in growable object \ccode{obj}, converting
+it to a fixed-size, nongrowable object.
+
+\hypertarget{ifc:CreateCustom}
+{\item[\_CreateCustom(my\_nalloc)]}
+
+A \ccode{\_CreateCustom()} interface to a growable object might enable
+a caller to alter the object's default initial allocation size, for
+cases where the \ccode{Create()} interface uses a hardcoded default
+size and this default size might not suffice for all applications.
+
+\hypertarget{ifc:SetGrowth}
+{\item[\_SetGrowth(obj, nfactor)]}
+
+Growable objects are usually reallocated by increasing the current
+allocation by some factor. The default reallocation factor is usually
+2, so that objects usually grow by doubling. The API may provide a
+\ccode{\_SetGrowth()} interface for changing the reallocation factor
+for \ccode{obj} to \ccode{nfactor} at any time.
+\end{sreapi}
+
+
+
+
+\subsubsection{Reusable objects}
+
+Memory allocation is computationally expensive. An application needs
+to minimize \ccode{malloc()/free()} calls in performance-critical
+regions. In loops where one \ccode{\_Destroy()}'s an old object only
+to \ccode{\_Create()} the next one, such as a sequential input loop
+that processes objects from a file one at a time, one generally wants
+to \ccode{\_Reuse()} the same object instead:
+
+\begin{sreapi}
+\hypertarget{ifc:Reuse}
+{\item[\_Reuse(obj)]}
+
+A \ccode{\_Reuse()} interface takes an existing object and
+reinitializes it as a new object, while reusing as much memory as
+possible. It replaces a \ccode{\_Destroy()/\_Create()} pair. A
+\ccode{\_Reuse()} interface does not care whether the object was
+originally created by a \ccode{\_Create()} or a \ccode{\_Inflate()}
+call (see below), or whether the object is growable or not (if it was
+growable, it remains growable).
+\end{sreapi}
+
+For example:
+
 \begin{cchunk}
-      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE esl_msa.c easel.c -lm
-      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
-      % gcc -g -Wall -o test -I. -L. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+   ESL_SQFILE *sqfp;
+   ESL_SQ     *sq;
+
+   esl_sqfile_Open(\"foo.fa\", eslSQFILE_FASTA, NULL, &sqfp);
+   sq = esl_sq_Create();
+   while (esl_sqio_Read(sqfp, sq) == eslOK)
+    {
+       /* do stuff with this sq */
+       esl_sq_Reuse(sq);
+    }
+   esl_sq_Destroy(sq);
 \end{cchunk}
 
-A test driver shall take no command line arguments, and shall depend
-on no external files.  Any files that it might need, it generates as
-tmpfiles for itself. 
 
-A test driver shall return zero (\ccode{eslOK}) on success, and a
-nonzero code on failure, as is standard for UNIX
-applications. Automated test harnesses (including \ccode{sqc}) rely on
-this.
+\subsubsection{Stack-allocated objects}
 
-A test driver generates no output upon success. Upon detecting a
-failure, a test driver shall terminate execution as soon as possible
-to facilitate tracing/debugging by calling \ccode{esl\_fatal()}, with
-an informative error message. (The automated test harness,
-\ccode{sqc}, will discard this message.) \footnote{Calling
-\ccode{abort()} doesn't work because it generates an abnormal signal
-that messes up \ccode{sqc}'s output. Calling \ccode{exit(1)} doesn't
-leave an informative message, so a command line user can't readily
-tell an error occurred.  Throwing an exception doesn't work because we
-will also be testing the code under a nonfatal exception handler.}
-Garbage collection upon a failure (including memory, opened files, or
-created temporary files) is not required, and may even be
-counterproductive.  For example, for debugging purposes, it may be
-advantageous not to delete a temporary file from a failed test.
+Most of Easel's objects are allocated on the heap; that is,
+\ccode{malloc()'ed} memory accessed exclusively via pointers. Less
+often, an interface may allow the shell of an object to be allocated
+on the stack instead, using \ccode{\_Inflate(),\_Deflate()}.  The only
+difference between \ccode{\_Inflate(),\_Deflate()} and
+\ccode{\_Create(),\_Destroy()} is whether the object shell itself
+needs to be allocated, or not:
 
-Thus, from the command line, a successful test run looks like:
+\begin{sreapi}
+\hypertarget{ifc:Inflate}
+{\item[\_Inflate()]}
+
+An \ccode{\_Inflate(\&foo)} interface is the on-stack version of
+\ccode{foo = \_Create()}. The contents of an existing object shell
+are allocated just as in \ccode{\_Create()}.
+
+\hypertarget{ifc:Deflate}
+{\item[\_Deflate()]}
+
+A \ccode{\_Deflate(\&foo)} interface is the on-stack version of
+\ccode{\_Destroy(foo)}. The contents of an object shell are free'd,
+just as in \ccode{\_Destroy()}.
+\end{sreapi}
+
+For example:
 
 \begin{cchunk}
-      % ./test
-      %
+   ESL_SQ  sq;
+
+   esl_sq_Inflate(&sq);
+   esl_sq_Deflate(&sq);
 \end{cchunk}
 
-and a failure looks like:
 
-\begin{cchunk}
-      % ./test
-      yoyodyne exercise on fire, send help.
-      %
-\end{cchunk}
+\subsection{Manipulating and accessing objects}
 
-If a unit test or testdriver needs to create a temporary file (to test
-i/o), the tmpfile is created with \ccode{esl\_tmpfile()}:
+\begin{sreapi}
+\hypertarget{ifc:Copy}
+{\item[\_Copy(src, dest)]}
 
-\begin{cchunk}
-   char  tmpfile[] = "/tmp/eslXXXXXX";
-   FILE *fp;
+Copies \ccode{src} object into \ccode{dest}, where the caller has
+already created an appropriately allocated and empty \ccode{dest}
+object. Returns \ccode{ESL\_OK} on success; throws
+\ccode{ESL\_EINCOMPAT} if the objects are not compatible (for example,
+two matrices that are not the same size).
 
-   if (esl_tmpfile(tmpfile, &fp) != eslOK) esl_fatal("failed to create tmpfile");
-   write_stuff_to(fp);
-   fclose(fp);
+Note that the order of the arguments is always \ccode{src}
+$\rightarrow$ \ccode{dest} (unlike the C library's \ccode{strcpy()}
+convention, which is the opposite order).
 
-   if ((fp = fopen(tmpfile)) == NULL) esl_fatal("failed to open tmpfile");
-   read_stuff_from(fp);
-   fclose(fp);
+\hypertarget{ifc:Duplicate}
+{\item[\ccode{\_Duplicate(obj)}] }
 
-   remove(tmpfile);
-\end{cchunk}
+Creates and returns a pointer to a duplicate of \ccode{obj}.
+Equivalent to (and is a shortcut for) \ccode{dest = \_Create();
+\_Copy(src, dest)}. Caller is responsible for free'ing the duplicate
+object, just as if it had been \ccode{\_Create}'d. Throws NULL if
+allocation fails.
 
-Thus tmp files created by Easel's test suite have a common naming
-convention and exist in a common place. On a test failure, the tmp
-file remains, to assist debugging; on a test success, the tmp file is
-removed.
+\hypertarget{ifc:Set}
+\item[\ccode{\_Set*(obj, value...)}]
 
-\subsection{Test drivers aim for complete code coverage}
+Initializes some value(s) in \ccode{obj} to
+\ccode{value}. \ccode{\_Set} functions have some appropriate longer
+name, like \ccode{\_SetZero()} (set something in an object to
+zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set a dmatrix to an
+identity matrix).
 
-Each function, procedure, and macro in the exposed API shall be
-tested. Often this will take the form of one unit test function per
-API component. These unit tests are in a separate section of the
-module's code. The test driver calls each unit test, and possibly more
-than once with different arguments.  A unit test for
-\ccode{esl\_foo\_Baz()} is named \ccode{static int utest\_Baz()}. A
-unit test returns \ccode{eslOK} on success.  On detecting a failure, a
-unit test should call \ccode{abort()} or \ccode{esl\_fatal()}
-immediately to facilitate tracing/debugging, rather than returning a
-failure code to the driver. In some cases, when it is judged to be
-inefficient to write unit tests at such a low level, unit testing is
-instead done with composite test functions that exercise more than one
-API component.
+\hypertarget{ifc:Get}
+{\item[\ccode{\_Get*(obj, ..., \&ret\_value)}]}
 
-The testdriver shall respond to a \ccode{eslTEST\_THROWING}
-compile-time definition by registering a nonfatal error handler, as
-in:
-\begin{cchunk}
-      #ifdef eslTEST_THROWING
-        esl_error_SetHandler(&esl_nonfatal_handler);
-      #endif
-\end{cchunk}
+Retrieves some specified data from \ccode{obj}, leave it in
+\ccode{ret\_value}.
+
+\hypertarget{ifc:Compare}
+{\item[\ccode{\_Compare*(obj1, obj2...)}]}
+
+Compares \ccode{obj1} to \ccode{obj2}. Returns \ccode{eslOK} if the
+contents are judged to be identical, and \ccode{eslFAIL} if they
+differ. When the comparison involves floating point scalar
+comparisons, a fractional tolerance argument \ccode{tol} is also
+passed. 
+
+% examples: esl_dmatrix_Compare(), static msa_compare(),
+%   esl_tree_Compare(), esl_vec_{DFI}Compare().
+\end{sreapi}
+
+
+
+\subsection{Debugging, testing, development interfaces}
+
+\begin{sreapi}
+\hypertarget{ifc:Dump}
+{\item[\ccode{\_Dump*(FILE *fp, obj...)}]}
+
+Prints the internals of an object in human-readable, easily parsable
+tabular ASCII form. Useful during debugging and development to view
+the entire object at a glance. Returns \ccode{eslOK} on success.
+
+\hypertarget{ifc:Validate}
+{\item[\ccode{\_Validate*(obj, errbuf...)}]}
+
+Checks that the internals of \ccode{obj} are all right. Returns
+\ccode{eslOK} if they are, and returns \ccode{eslFAIL} if they
+aren't. Additionally, if the caller provides a non-\ccode{NULL}
+message buffer \ccode{errbuf}, on failure, an informative message
+describing the reason for the failure is formatted and left in
+\ccode{errbuf}. If the caller provides this message buffer, it must
+allocate it for at least \ccode{p7\_ERRBUFSIZE} characters.
+
+Because a \ccode{\_Validate()} call is primarily intended for
+debugging, failures are classified as normal (returned) errors.
+(Throwing exceptions instead would give the caller no flexibility in
+dealing with failed validations.) The caller can then print an
+appropriately informative failure message, using the \ccode{errbuf},
+for example. (A \ccode{\_Validate()} call might also be included in
+production code, so it needs to use the \ccode{errbuf} mechanism to
+return its informative failure message; it cannot, for instance, call
+\ccode{esl\_fatal()} or the like directly, because that would mean
+crashing out of production code.)
+
+\end{sreapi}
+
+
+
+\subsection{Other interfaces}
+
+\begin{sreapi}
+\hypertarget{ifc:Describe}
+{\item[\ccode{\_DescribeXXX()}]}
+
+Given an internal code (an \ccode{enum} or \ccode{\#define} constant),
+return a pointer to an informative string, for diagnostics and other
+output. The string is static.
+\end{sreapi}
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{An Easel function}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+...
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{An Easel object}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+...
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Unit tests}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Unit tests are called by the test driver (see below). There is often
+one unit test assigned to each exposed function in the API. Sometimes,
+it makes sense to test several exposed functions in a single unit test
+function. 
+
+Like the test driver, the unit test section is wrapped in a
+\ccode{\#ifdef eslFOO\_TESTDRIVE}, so it is conditionally compiled only
+for testing purposes.
+
+A unit test for \ccode{esl\_foo\_Baz()} is named \ccode{static void
+utest\_Baz()}. 
+
+Upon success, unit tests return void. The test driver just calls 
+unit tests one after another.
+
+Upon any failure, a unit test calls \ccode{esl\_fatal()} with an error
+message, and terminates. It should not use any other error-catching
+mechanism; it aids debugging if the test program terminates
+immediately, using a single function that we can easily breakpoint at
+(\ccode{break esl\_fatal} in GDB). It must not use \ccode{abort()}, in
+particular, because this will screw up the output of scripts running
+automated tests in \ccode{make check} and \ccode{make dcheck}. These
+scripts trap the \ccode{stderr} from \ccode{esl\_fatal()} correctly.
+It must not use \ccode{exit(1)} either, because that leaves no error
+message, so someone running a test program on the command line can't
+easily tell that it failed.
+
+Every function, procedure, and macro in the exposed API shall be
+tested by one or more unit tests. The unit tests aim for complete code
+coverage. This is measured by code coverage tests using GCOV.
 
 Unit tests shall attempt to deliberately generate exceptions and
 failures, and test that the appropriate error code is returned.  This
@@ -198,9 +765,12 @@ handler installed, because exceptions would cause the program to
 terminate with a nonzero code, and this would look like a test failure
 to an automated test harness.
 
-A test driver shall exercise all possible augmentations.
+Unit tests shall test all possible combinations of augmentations that
+may affect a function.
 
-We currently use the GNU \textsc{gcov} program to measure code
+\subsection{Using GCOV} 
+
+We use the GNU \textsc{gcov} program to measure code
 coverage. \textsc{gcov} works best with unoptimized code, so that the
 optimizer doesn't combine any lines of code, and it is only compatible
 with the \textsc{gcc} compiler. An example of measuring code coverage
@@ -221,6 +791,282 @@ for the \eslmod{msa} module in full library configuration:
 The file \ccode{esl\_msa.c.gcov} contains an annotated source listing
 of the \ccode{.c} file, showing which lines were and weren't covered
 by the test suite.
+
+The \ccode{coverage\_test.pl} script in testsuite automates coverage
+testing for all Easel modules. To run it:
+
+\begin{cchunk} 
+   % testsuite/coverage_test.pl
+\end{cchunk}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Drivers}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each module contains one or more \ccode{main()} functions for testing
+and example purposes, enclosed in \ccode{\#ifdef}'s to control
+conditional compilation.
+
+There are currently five different types of \ccode{main()} functions
+in Easel modules:
+
+\begin{description} 
+
+\item[\textbf{Automated test driver.}] Each module has one (and only
+  one) \ccode{main()} that runs the unit tests and any other automated
+  for the module. The test driver is compiled and run by the testsuite
+  in \ccode{testsuite/testsuite.sqc} when one does a \ccode{make
+  check} on the package. It is also run by several of the automated
+  tools used in development, including the coverage (\ccode{gcov}) and
+  memory (\ccode{valgrind}) tests.  The test driver is enclosed by
+  \ccode{\#ifdef eslFOO\_TESTDRIVE} tags.
+
+\item[\textbf{Regression/comparison tests.}] (Optional.) These tests
+  link to at least one other existing library that provides comparable
+  functionality, such as the old SQUID library or the GNU Scientific
+  Library, and test that Easel's functionality performs at least as
+  well as the 'competition'. These tests are run on demand, and not
+  included in automated testing, because the other libraries may only
+  be present on a subset of our development machines. They are
+  enclosed by \ccode{\#ifdef eslFOO\_REGRESSION} tags.
+
+\item[\textbf{Benchmark tests.}] (Optional.) These tests run a
+  standardized performance benchmark and collect time and/or memory
+  statistics. They may generate output suitable for graphing. They are
+  run on demand, not by automated tools. They are enclosed by
+  \ccode{\#ifdef eslFOO\_BENCHMARK} tags.
+
+\item[\textbf{Statistics generators.}] (Optional.) These tests collect
+  statistics used to characterize the module's scientific performance,
+  such as its accuracy at some task. They may generate graphing
+  output. They are run on demand, not by automated tools. They are
+  enclosed by \ccode{\#ifdef eslFOO\_STATS} tags.
+
+\item[\textbf{Examples.}] Every module has at least one example
+  \ccode{main()} that provides a ``hello world'' level example of
+  using the module's API. Examples are enclosed in \ccode{cexcerpt}
+  tags for extraction and verbatim inclusion in the documentation.
+  They are enclosed by \ccode{\#ifdef eslFOO\_EXAMPLE} tags, where
+  \ccode{FOO} is the name of the module.
+\end{description}  
+
+All modules have at least one test driver and one example. Other tests
+and examples are optional. When there is more than one \ccode{main()}
+of a given type, the additional tags are numbered starting from 2: for
+example, a module with three example \ccode{main()'s} would have three
+tags for conditional compilation, \ccode{eslFOO\_EXAMPLE},
+\ccode{eslFOO\_EXAMPLE2}, and \ccode{eslFOO\_EXAMPLE3}.
+
+These drivers appear as separate sections in that order. The test
+driver is first so it's close to the unit test code. The examples are
+last so they are easy to locate.
+
+The format of the conditional compilation tags for all the drivers
+(including test and example drivers) must be obeyed. Some test scripts
+are scanning the .c files and identifying these tags
+automatically. For instance, the driver compilation test identify any
+tag named
+\ccode{esl\$(MODULENAME)\_\{TESTDRIVE,EXAMPLE,REGRESSION,BENCHMARK,STATS\}*}
+and attempt to compile the code with that tag defined.
+
+Which driver is compiled (if any) is controlled by conditional
+compilation of the module's \ccode{.c} file with the appropriate
+tag. For example, to compile and run the \eslmod{sqio} test driver as
+a standalone module:
+
+\begin{cchunk}
+   %  gcc -g -Wall -I. -o test -DeslSQIO_TESTDRIVE esl_sqio.c easel.c -lm
+   %  ./test
+\end{cchunk}
+
+or to compile and run it in full library configuration:
+
+\begin{cchunk}
+   %  gcc -g -Wall -I. -L. -o test -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
+   %  ./test
+\end{cchunk}
+
+\subsection{The test driver}
+
+One of the more important components of an Easel module is the
+automated test driver. This \ccode{main()} is used in unit testing,
+memory checking, and code coverage analysis.
+
+A test driver shall work with the module in minimal standalone configuration, in any
+possible augmented configuration, or in full library
+configuration. Example compilations:
+\begin{cchunk}
+      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE esl_msa.c easel.c -lm
+      % gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DeslAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
+      % gcc -g -Wall -o test -I. -L. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+\end{cchunk}
+
+A test driver shall require no command line arguments, and shall
+require no external files, except for tmpfiles that it generates.
+
+Test drivers should not use command line options at all, because of
+the requirement that the driver must compile in a minimal standalone
+configuration (i.e., without \eslmod{getopts}). 
+
+A test driver returns zero (\ccode{eslOK}) upon success, and a nonzero
+code on failure, as is standard for UNIX command line
+applications. Automated test harnesses (including \ccode{sqc}) rely on
+this.
+
+A test driver generates no output on \ccode{stdout} by default. 
+
+Like unit tests, a test driver (and any tests it runs) shall terminate
+execution as soon as possible to facilitate tracing/debugging by
+calling \ccode{esl\_fatal()}, with an informative error message. 
+
+\footnote{Calling \ccode{abort()} doesn't work because it generates an
+abnormal signal that messes up \ccode{sqc}'s output. Calling
+\ccode{exit(1)} doesn't leave an informative message, so a command
+line user can't readily tell an error occurred.  Throwing an exception
+doesn't work because we will also be testing the code under a nonfatal
+exception handler.}  Garbage collection upon a failure (including
+memory, opened files, or created temporary files) is not required, and
+may even be counterproductive.  For example, for debugging purposes,
+it may be advantageous not to delete a temporary file from a failed
+test.
+
+Thus, from the command line, a successful test run looks like:
+
+\begin{cchunk}
+      % ./test
+      %
+\end{cchunk}
+
+and a failure looks like:
+
+\begin{cchunk}
+      % ./test
+      yoyodyne exercise on fire, send help.
+      %
+\end{cchunk}
+
+
+
+
+\subsubsection{using temporary files in test drivers}
+
+If a unit test or testdriver needs to create a named temporary file
+(to test i/o), the tmpfile is created with
+\ccode{esl\_tmpfile\_named()}:
+
+\begin{cchunk}
+   char  tmpfile[16] = "esltmpXXXXXX";
+   FILE *fp;
+
+   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("failed to create tmpfile");
+   write_stuff_to(fp);
+   fclose(fp);
+
+   if ((fp = fopen(tmpfile)) == NULL) esl_fatal("failed to open tmpfile");
+   read_stuff_from(fp);
+   fclose(fp);
+
+   remove(tmpfile);
+\end{cchunk}
+
+Thus tmp files created by Easel's test suite have a common naming
+convention, and are put in the current working directory. On a test
+failure, the tmp file remains, to assist debugging; on a test success,
+the tmp file is removed. The \ccode{make clean} targets in Makefiles
+are looking to remove files matching the target \ccode{esltmp??????}.
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{autodoc - extracting LaTeX documentation from source files}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{cexcerpt - extracting C source snippets}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This book includes many examples of C code that are extracted verbatim
+from Easel's C source files, using \prog{cexcerpt}, which is part of
+the SSDK.
+
+The \ccode{documentation/Makefile} runs \prog{cexcerpt} on every
+module .c and .h file. The extracted cexcerpts are placed in .tex
+files in the temporary \ccode{cexcerpts/} subdirectory.
+
+Usage: \ccode{cexcerpt <file.c> <dir>}. Processes C source file
+\ccode{file.c}; extracts all tagged excerpts, and puts them in a file
+in directory \ccode{<dir>}.
+
+An excerpt is marked with special comments in the C file:
+\begin{cchunk}
+/*::cexcerpt::my_example::begin::*/
+   while (esl_sq_Read(sqfp, sq) == eslOK)
+     { n++; }
+/*::cexcerpt::my_example::end::*/
+\end{cchunk}
+
+The cexcerpt marker's format is \ccode{::cexcerpt::<tag>::begin::} (or
+end). A comment containing a cexcerpt marker must be the first text on
+the source line. A cexcerpt comment may be followed on the line by
+whitespace or a second comment.
+
+The \ccode{<tag>} is used to construct the file name, as
+\ccode{<tag>.tex}.  In the example, the tag \ccode{my\_example} creates
+a file \ccode{my\_example.tex} in \ccode{<dir>}.
+
+All the text between the cexcerpt markers is put in the file.  In
+addition, this text is wrapped in a \ccode{cchunk} environment.  This
+file can then be included in a \LaTeX\ file.
+
+For best results, the C source should be free of TAB characters.
+"M-x untabify" on the region to clean them out.
+
+Cexcerpts can't overlap or nest in any way in the C file. Only one tag
+can be active at a time.
+
+\section{Automated test reports}
+
+  \subsection{Unit tests}
+
+  \subsection{Driver compilation checks}
+
+  \subsection{Code coverage (gcov)}
+
+  \subsection{Memory checking (valgrind)}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Development environment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Easel is developed on GNU/Linux systems with the following freely
+available tools installed:
+
+{\small
+\begin{tabular}{ll}
+GNU gcc         & Compiler \\
+GNU gdb         & Debugger\\
+GNU autoconf    & Platform-independent Makefile generator\\
+GNU make        & Make utility\\
+GNU emacs       & Editor    \\
+GNU gprof       & Profiling and optimization tool \\
+GNU gcov        & Code coverage analysis\\
+Perl            & Scripting language\\
+LaTeX           & Typesetting\\
+Subversion      & Revision control\\
+Valgrind        & Memory bounds and leak checking\\
+\end{tabular}
+}
 
 
 

@@ -1,14 +1,20 @@
-/* dmatrix.c
- * Matrix algebra operations in double-precision matrices.
+/* Linear algebra operations in double-precision matrices.
  * 
  * Implements ESL_DMATRIX (double-precision matrix) and 
  * ESL_PERMUTATION (permutation matrix) objects.
  * 
+ * Table of contents:
+ *   1. The ESL_DMATRIX object.
+ *   2. Debugging/validation code for ESL_DMATRIX.
+ *   3. The ESL_PERMUTATION object.
+ *   4. Debugging/validation code for ESL_PERMUTATION.
+ *   5. The rest of the dmatrix API.
+ *   6. Optional: Interoperability with GSL.
+ *   7. Optional: Interfaces to LAPACK
+ *
  * To do:
- *   - table of contents here for .c,.h file, section splits
  *   - eventually probably want additional matrix types
  *   - unit tests poor 
- *   
  *
  * SRE, Tue Jul 13 14:42:14 2004 [St. Louis]
  * SVN $Id$
@@ -21,8 +27,13 @@
 #include <math.h>
 
 #include <easel.h>
+#include <esl_vectorops.h>
 #include <esl_dmatrix.h>
 
+
+/*****************************************************************
+ * 1. The ESL_DMATRIX object.
+ *****************************************************************/
 
 /* Function:  esl_dmatrix_Create()
  *
@@ -137,58 +148,9 @@ esl_dmatrix_Destroy(ESL_DMATRIX *A)
   return eslOK;
 }
 
-/* Function:  esl_dmatrix_Dump()
- * Incept:    SRE, Mon Nov 29 19:21:20 2004 [St. Louis]
- *
- * Purpose:   Given a matrix <A>, dump it to output stream <ofp> in human-readable
- *            format.
- * 
- *            If <rowlabel> or <collabel> are non-NULL, they specify a
- *            string of single-character labels to put on the rows and
- *            columns, respectively. (For example, these might be a
- *            sequence alphabet for a 4x4 or 20x20 rate matrix or
- *            substitution matrix.)  Numbers <1..ncols> or <1..nrows> are
- *            used if <collabel> or <rowlabel> are passed as <NULL>.
- *
- * Args:      ofp      -  output file pointer; stdout, for example.
- *            A        -  matrix to dump.
- *            rowlabel -  optional: NULL, or character labels for rows
- *            collabel -  optional: NULL, or character labels for cols
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
-{
-  int a,b;
 
-  fprintf(ofp, "     ");
-  if (collabel != NULL) 
-    for (b = 0; b < A->m; b++) fprintf(ofp, "       %c ", collabel[b]);
-  else
-    for (b = 0; b < A->m; b++) fprintf(ofp, "%8d ", b+1);
-  fprintf(ofp, "\n");
 
-  for (a = 0; a < A->n; a++) {
-    if (rowlabel != NULL)      fprintf(ofp, "    %c ", rowlabel[a]);
-    else                       fprintf(ofp, "%5d ",    a+1);
 
-    for (b = 0; b < A->m; b++) {
-      switch (A->type) {
-      case eslUPPER:
-	if (a > b) 	fprintf(ofp, "%8s ", "");
-	else            fprintf(ofp, "%8.4f ", A->mx[a][b]); 
-	break;
-
-       default: case eslGENERAL:
-	fprintf(ofp, "%8.4f ", A->mx[a][b]); 
-	break;
-      }
-      fprintf(ofp, "\n");
-    }
-  }
-  return eslOK;
-}
 
 
 /* Function:  esl_dmatrix_Copy()
@@ -211,7 +173,7 @@ esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
  *            <src>.
  */
 int
-esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
+esl_dmatrix_Copy(const ESL_DMATRIX *src, ESL_DMATRIX *dest)
 {
   int i,j;
 
@@ -246,7 +208,7 @@ esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
 }
 
 
-/* Function:  esl_dmatrix_Duplicate()
+/* Function:  esl_dmatrix_Clone()
  * Incept:    SRE, Tue May  2 14:38:45 2006 [St. Louis]
  *
  * Purpose:   Duplicates matrix <A>, making a copy in newly
@@ -258,7 +220,7 @@ esl_dmatrix_Copy(ESL_DMATRIX *src, ESL_DMATRIX *dest)
  * Throws:    <NULL> on allocation failure.
  */
 ESL_DMATRIX *
-esl_dmatrix_Duplicate(ESL_DMATRIX *A)
+esl_dmatrix_Clone(const ESL_DMATRIX *A)
 {
   ESL_DMATRIX *new;
 
@@ -365,58 +327,62 @@ esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
   
 
 
-/* Function:  esl_dmx_Max()
- * Incept:    SRE, Thu Mar  1 14:46:48 2007 [Janelia]
+/* Function:  esl_dmatrix_Dump()
+ * Incept:    SRE, Mon Nov 29 19:21:20 2004 [St. Louis]
  *
- * Purpose:   Returns the maximum value of all the elements $a_{ij}$ in matrix <A>.
+ * Purpose:   Given a matrix <A>, dump it to output stream <ofp> in human-readable
+ *            format.
+ * 
+ *            If <rowlabel> or <collabel> are non-NULL, they specify a
+ *            string of single-character labels to put on the rows and
+ *            columns, respectively. (For example, these might be a
+ *            sequence alphabet for a 4x4 or 20x20 rate matrix or
+ *            substitution matrix.)  Numbers <1..ncols> or <1..nrows> are
+ *            used if <collabel> or <rowlabel> are passed as <NULL>.
+ *
+ * Args:      ofp      -  output file pointer; stdout, for example.
+ *            A        -  matrix to dump.
+ *            rowlabel -  optional: NULL, or character labels for rows
+ *            collabel -  optional: NULL, or character labels for cols
+ *
+ * Returns:   <eslOK> on success.
  */
-double
-esl_dmx_Max(ESL_DMATRIX *A)
+int
+esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel)
 {
-  int    i;
-  double best;
+  int a,b;
 
-  best = A->mx[0][0];
-  for (i = 0; i < A->ncells; i++)
-    if (A->mx[0][i] > best) best = A->mx[0][i];
-  return best;
+  fprintf(ofp, "     ");
+  if (collabel != NULL) 
+    for (b = 0; b < A->m; b++) fprintf(ofp, "       %c ", collabel[b]);
+  else
+    for (b = 0; b < A->m; b++) fprintf(ofp, "%8d ", b+1);
+  fprintf(ofp, "\n");
+
+  for (a = 0; a < A->n; a++) {
+    if (rowlabel != NULL)      fprintf(ofp, "    %c ", rowlabel[a]);
+    else                       fprintf(ofp, "%5d ",    a+1);
+
+    for (b = 0; b < A->m; b++) {
+      switch (A->type) {
+      case eslUPPER:
+	if (a > b) 	fprintf(ofp, "%8s ", "");
+	else            fprintf(ofp, "%8.4f ", A->mx[a][b]); 
+	break;
+
+       default: case eslGENERAL:
+	fprintf(ofp, "%8.4f ", A->mx[a][b]); 
+	break;
+      }
+    }
+    fprintf(ofp, "\n");
+  }
+  return eslOK;
 }
 
-/* Function:  esl_dmx_Min()
- * Incept:    SRE, Thu Mar  1 14:49:29 2007 [Janelia]
- *
- * Purpose:   Returns the minimum value of all the elements $a_{ij}$ in matrix <A>.
- */
-double
-esl_dmx_Min(ESL_DMATRIX *A)
-{
-  int    i;
-  double best;
-
-  best = A->mx[0][0];
-  for (i = 0; i < A->ncells; i++)
-    if (A->mx[0][i] < best) best = A->mx[0][i];
-  return best;
-}
-
-
-/* Function:  esl_dmx_Sum()
- * Incept:    SRE, Thu Mar  1 16:45:16 2007
- *
- * Purpose:   Returns the scalar sum of all the elements $a_{ij}$ in matrix <A>,
- *            $\sum_{ij} a_{ij}$.
- */
-double
-esl_dmx_Sum(ESL_DMATRIX *A)
-{
-  int    i;
-  double sum = 0.;
-
-  for (i = 0; i < A->ncells; i++)
-    sum += A->mx[0][i];
-  return sum;
-}
-
+/*****************************************************************
+ * 3. The ESL_PERMUTATION object.
+ *****************************************************************/
 
 /* Function:  esl_permutation_Create()
  *
@@ -483,6 +449,10 @@ esl_permutation_Reuse(ESL_PERMUTATION *P)
 }
 
 
+/*****************************************************************
+ * 4. Debugging/validation for ESL_PERMUTATION.
+ *****************************************************************/
+
 /* Function:  esl_permutation_Dump()
  *
  * Purpose:   Given a permutation matrix <P>, dump it to output stream <ofp>
@@ -525,6 +495,91 @@ esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collab
   return eslOK;
 }
 
+/*****************************************************************
+ * 5. The rest of the dmatrix API.
+ *****************************************************************/
+
+
+
+/* Function:  esl_dmx_Max()
+ * Incept:    SRE, Thu Mar  1 14:46:48 2007 [Janelia]
+ *
+ * Purpose:   Returns the maximum value of all the elements $a_{ij}$ in matrix <A>.
+ */
+double
+esl_dmx_Max(ESL_DMATRIX *A)
+{
+  int    i;
+  double best;
+
+  best = A->mx[0][0];
+  for (i = 0; i < A->ncells; i++)
+    if (A->mx[0][i] > best) best = A->mx[0][i];
+  return best;
+}
+
+/* Function:  esl_dmx_Min()
+ * Incept:    SRE, Thu Mar  1 14:49:29 2007 [Janelia]
+ *
+ * Purpose:   Returns the minimum value of all the elements $a_{ij}$ in matrix <A>.
+ */
+double
+esl_dmx_Min(ESL_DMATRIX *A)
+{
+  int    i;
+  double best;
+
+  best = A->mx[0][0];
+  for (i = 0; i < A->ncells; i++)
+    if (A->mx[0][i] < best) best = A->mx[0][i];
+  return best;
+}
+
+
+/* Function:  esl_dmx_MinMax()
+ * Incept:    SRE, Wed Mar 14 16:58:03 2007 [Janelia]
+ *
+ * Purpose:   Finds the maximum and minimum values of the
+ *            elements $a_{ij}$ in matrix <A>, and returns
+ *            them in <ret_min> and <ret_max>.
+ *            
+ * Returns:   <eslOK> on success.            
+ *            
+ */
+int
+esl_dmx_MinMax(ESL_DMATRIX *A, double *ret_min, double *ret_max)
+{
+  double min, max;
+  int i;
+
+  min = max = A->mx[0][0];
+  for (i = 0; i < A->ncells; i++) {
+    if (A->mx[0][i] < min) min = A->mx[0][i];
+    if (A->mx[0][i] > max) max = A->mx[0][i];
+  }
+  *ret_min = min;
+  *ret_max = max;
+  return eslOK;
+}
+
+
+
+/* Function:  esl_dmx_Sum()
+ * Incept:    SRE, Thu Mar  1 16:45:16 2007
+ *
+ * Purpose:   Returns the scalar sum of all the elements $a_{ij}$ in matrix <A>,
+ *            $\sum_{ij} a_{ij}$.
+ */
+double
+esl_dmx_Sum(ESL_DMATRIX *A)
+{
+  int    i;
+  double sum = 0.;
+
+  for (i = 0; i < A->ncells; i++)
+    sum += A->mx[0][i];
+  return sum;
+}
 
 
 /* Function: esl_dmx_Multiply()
@@ -536,7 +591,7 @@ esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collab
  *           Not supported for anything but general (<eslGENERAL>)
  *           matrix type, at present.
  *           
- * Throws:   <eslEINVAL> if matrices don't have compatible dimensions,
+ * Throws:   <eslECONTRACT> if matrices don't have compatible dimensions,
  *           or if any of them isn't a general (<eslGENERAL>) matrix.
  */
 int
@@ -544,12 +599,12 @@ esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
 {
   int i, j, k;
 
-  if (A->m    != B->n)       ESL_EXCEPTION(eslEINVAL, "can't multiply A,B");
-  if (A->n    != C->n)       ESL_EXCEPTION(eslEINVAL, "A,C # of rows not equal");
-  if (B->m    != C->m)       ESL_EXCEPTION(eslEINVAL, "B,C # of cols not equal");
-  if (A->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "A isn't of type eslGENERAL");
-  if (B->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "B isn't of type eslGENERAL");
-  if (C->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "B isn't of type eslGENERAL");
+  if (A->m    != B->n)       ESL_EXCEPTION(eslECONTRACT, "can't multiply A,B");
+  if (A->n    != C->n)       ESL_EXCEPTION(eslECONTRACT, "A,C # of rows not equal");
+  if (B->m    != C->m)       ESL_EXCEPTION(eslECONTRACT, "B,C # of cols not equal");
+  if (A->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "A isn't of type eslGENERAL");
+  if (B->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "B isn't of type eslGENERAL");
+  if (C->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "B isn't of type eslGENERAL");
 
   for (i = 0; i < A->n; i++)
     for (j = 0; j < B->m; j++)
@@ -562,13 +617,83 @@ esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C)
 }
 
 
+/* Function:  esl_dmx_Exp()
+ * Incept:    SRE, Thu Mar  8 18:41:38 2007 [Janelia]
+ *
+ * Purpose:   Calculate the matrix exponential $\mathbf{P} = e^{t\mathbf{Q}}$,
+ *            using the Taylor series approximation:
+ *            
+ *            \begin{eqnarray*}
+ *              e^{t\mathbf{Q}} & = & \sum_{k=0}^{\infty} \frac{t^k \mathbf{Q}^k} {k!} \\
+ *                              & = & \mathbf{I} + t\mathbf{Q} + \frac{t^2 \mathbf{Q^2}}{2}...
+ *            \end{eqnarray*}
+ *                              
+ *            <Q> must be a square matrix of type <eslGENERAL>.
+ *            Caller provides an allocated <P> matrix of the same size and type as <Q>.
+ *            
+ *            A typical use of this function is to calculate a
+ *            conditional substitution probability matrix $\mathbf{P}$
+ *            (whose elements $P_{xy}$ are conditional substitution
+ *            probabilities $\mathrm{Prob}(y \mid x, t)$ from time $t$
+ *            and instantaneous rate matrix $\mathbf{Q}$.
+ *
+ * Args:      Q  - matrix to exponentiate (an instantaneous rate matrix)
+ *            t  - time units
+ *            P  - RESULT: e^tQ.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      
+ */
+int
+esl_dmx_Exp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
+{
+  int status;
+  ESL_DMATRIX *tmp = NULL;	/* keeps running product Q^k */
+  ESL_DMATRIX *C   = NULL;	/* need storage for matrix multiply result */
+  double factor   = 1.0;
+  int    k;
+    
+  if (Q->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "Q isn't general");
+  if (Q->n    != Q->m)       ESL_EXCEPTION(eslECONTRACT, "Q isn't square");
+  if (P->type != Q->type)    ESL_EXCEPTION(eslECONTRACT, "P isn't of same type as Q");
+  if (P->n    != P->m)       ESL_EXCEPTION(eslECONTRACT, "P isn't square");
+  if (P->n    != Q->n)       ESL_EXCEPTION(eslECONTRACT, "P isn't same size as Q");
+
+  if ((tmp = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
+  if ((C   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
+  
+  esl_dmatrix_SetIdentity(P);
+  esl_dmatrix_Copy(Q, tmp);       /* tmp is now = Q */
+  
+  for (k = 1; k < 100; k++)
+    {
+      factor *= t/k;
+      esl_dmx_AddScale(P, factor, tmp);    /* P += factor*tmp */
+      esl_dmx_Multiply(tmp, Q, C);         /* C = tmp*Q */
+      esl_dmatrix_Copy(C, tmp);	           /* tmp = C = Q^{k+1} */
+    }
+
+  esl_dmatrix_Destroy(tmp);
+  esl_dmatrix_Destroy(C);
+  return eslOK;
+
+ ERROR:
+  esl_dmatrix_Destroy(tmp);
+  esl_dmatrix_Destroy(C);
+  return status;
+}
+
+
 /* Function:  esl_dmx_Transpose()
  *
  * Purpose:   Transpose a square matrix <A> in place.
  *
  *            <A> must be a general (<eslGENERAL>) matrix type.
  *
- * Throws:    <eslEINVAL> if <A> isn't square, or if it isn't
+ * Throws:    <eslECONTRACT> if <A> isn't square, or if it isn't
  *            of type <eslGENERAL>.
  */
 int
@@ -577,8 +702,8 @@ esl_dmx_Transpose(ESL_DMATRIX *A)
   int    i,j;
   double swap;
 
-  if (A->n    != A->m)       ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
-  if (A->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "A isn't of type eslGENERAL");
+  if (A->n    != A->m)       ESL_EXCEPTION(eslECONTRACT, "matrix isn't square");
+  if (A->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "A isn't of type eslGENERAL");
 
   for (i = 0; i < A->n; i++)
     for (j = i+1; j < A->m; j++)
@@ -598,7 +723,7 @@ esl_dmx_Transpose(ESL_DMATRIX *A)
  *            zero (i.e. <B> must also be upper triangular, though
  *            not necessarily packed upper triangular).
  *
- * Throws:    <eslEINVAL> if matrices aren't the same dimensions, or
+ * Throws:    <eslECONTRACT> if matrices aren't the same dimensions, or
  *            if <A> is <eslUPPER> and any cell $i>j$ in
  *            <B> is nonzero.
  */
@@ -607,8 +732,8 @@ esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B)
 {
   int    i,j;
   
-  if (A->n    != B->n)              ESL_EXCEPTION(eslEINVAL, "matrices of different size");
-  if (A->m    != B->m)              ESL_EXCEPTION(eslEINVAL, "matrices of different size");
+  if (A->n    != B->n)              ESL_EXCEPTION(eslECONTRACT, "matrices of different size");
+  if (A->m    != B->m)              ESL_EXCEPTION(eslECONTRACT, "matrices of different size");
 
   if (A->type == B->type)	/* in this case, can just add cell by cell */
     {
@@ -624,7 +749,7 @@ esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B)
       if (B->type != eslUPPER) {
 	for (i = 1; i < A->n; i++)
 	  for (j = 0; j < i; j++)
-	    if (B->mx[i][j] != 0.) ESL_EXCEPTION(eslEINVAL, "<B> has nonzero cells in lower triangle");
+	    if (B->mx[i][j] != 0.) ESL_EXCEPTION(eslECONTRACT, "<B> has nonzero cells in lower triangle");
       }
       for (i = 0; i < A->n; i++)
 	for (j = i; j < A->m; j++)
@@ -655,7 +780,7 @@ esl_dmx_Scale(ESL_DMATRIX *A, double k)
  *            Only defined for matrices of the same type (<eslGENERAL>
  *            or <eslUPPER>).
  * 
- * Throws:    <eslEINVAL> if matrices aren't the same dimensions, or
+ * Throws:    <eslECONTRACT> if matrices aren't the same dimensions, or
  *            of different types.
  */
 int
@@ -663,9 +788,9 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
 {
   int i;
 
-  if (A->n    != B->n)    ESL_EXCEPTION(eslEINVAL, "matrices of different size");
-  if (A->m    != B->m)    ESL_EXCEPTION(eslEINVAL, "matrices of different size");
-  if (A->type != A->type) ESL_EXCEPTION(eslEINVAL, "matrices of different type");
+  if (A->n    != B->n)    ESL_EXCEPTION(eslECONTRACT, "matrices of different size");
+  if (A->m    != B->m)    ESL_EXCEPTION(eslECONTRACT, "matrices of different size");
+  if (A->type != A->type) ESL_EXCEPTION(eslECONTRACT, "matrices of different type");
 
   for (i = 0; i < A->ncells; i++) A->mx[0][i] +=  k * B->mx[0][i];
   return eslOK;
@@ -679,7 +804,7 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B)
  *            the result in a square matrix <B> that the caller has
  *            allocated.
  *
- * Throws:    <eslEINVAL> if <A>, <B>, <P> do not have compatible dimensions,
+ * Throws:    <eslECONTRACT> if <A>, <B>, <P> do not have compatible dimensions,
  *            or if <A> or <B> is not of type <eslGENERAL>.
  */
 int
@@ -687,12 +812,12 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
 {
   int i,ip,j;
 
-  if (A->n    != P->n)       ESL_EXCEPTION(eslEINVAL, "matrix dimensions not compatible");
-  if (A->n    != B->n)       ESL_EXCEPTION(eslEINVAL, "matrix dimensions not compatible");
-  if (A->n    != A->m)       ESL_EXCEPTION(eslEINVAL, "matrix dimensions not compatible");
-  if (B->n    != B->m)       ESL_EXCEPTION(eslEINVAL, "matrix dimensions not compatible");
-  if (A->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "matrix A not of type eslGENERAL");
-  if (B->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "matrix B not of type eslGENERAL");
+  if (A->n    != P->n)       ESL_EXCEPTION(eslECONTRACT, "matrix dimensions not compatible");
+  if (A->n    != B->n)       ESL_EXCEPTION(eslECONTRACT, "matrix dimensions not compatible");
+  if (A->n    != A->m)       ESL_EXCEPTION(eslECONTRACT, "matrix dimensions not compatible");
+  if (B->n    != B->m)       ESL_EXCEPTION(eslECONTRACT, "matrix dimensions not compatible");
+  if (A->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "matrix A not of type eslGENERAL");
+  if (B->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "matrix B not of type eslGENERAL");
 
   for (i = 0; i < A->n; i++)
     {
@@ -717,7 +842,7 @@ esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B)
  *            Implements Gaussian elimination with pivoting 
  *            \citep[p.~759]{Cormen99}.
  *
- * Throws:    <eslEINVAL> if <A> isn't square, or if <P> isn't the right
+ * Throws:    <eslECONTRACT> if <A> isn't square, or if <P> isn't the right
  *            size for <A>, or if <A> isn't of general type.
  */
 int
@@ -727,9 +852,9 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
   double max;
   double swap;
 
-  if (A->n    != A->m)       ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
-  if (P->n    != A->n)       ESL_EXCEPTION(eslEINVAL, "permutation isn't the right size");
-  if (A->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "matrix isn't of general type");
+  if (A->n    != A->m)       ESL_EXCEPTION(eslECONTRACT, "matrix isn't square");
+  if (P->n    != A->n)       ESL_EXCEPTION(eslECONTRACT, "permutation isn't the right size");
+  if (A->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "matrix isn't of general type");
   esl_permutation_Reuse(P);
 
   for (k = 0; k < A->n-1; k++)
@@ -776,7 +901,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
  *            (<eslGENERAL>) or packed (<eslUPPER>) form.
  *            <LU> and <L> must be of <eslGENERAL> type.
  *
- * Throws:    <eslEINVAL> if <LU>, <L>, <U> are not of compatible dimensions,
+ * Throws:    <eslECONTRACT> if <LU>, <L>, <U> are not of compatible dimensions,
  *            or if <LU> or <L> aren't of general type. 
  */
 int
@@ -784,13 +909,13 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
 {
   int i,j;
 
-  if (LU->n    != LU->m)      ESL_EXCEPTION(eslEINVAL, "LU isn't square");
-  if (L->n     != L->m)       ESL_EXCEPTION(eslEINVAL, "L isn't square");
-  if (U->n     != U->m)       ESL_EXCEPTION(eslEINVAL, "U isn't square");
-  if (LU->n    != L->n)       ESL_EXCEPTION(eslEINVAL, "LU, L have incompatible dimensions");
-  if (LU->n    != U->n)       ESL_EXCEPTION(eslEINVAL, "LU, U have incompatible dimensions");
-  if (LU->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "matrix isn't of general type");
-  if (L->type  != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "matrix isn't of general type");
+  if (LU->n    != LU->m)      ESL_EXCEPTION(eslECONTRACT, "LU isn't square");
+  if (L->n     != L->m)       ESL_EXCEPTION(eslECONTRACT, "L isn't square");
+  if (U->n     != U->m)       ESL_EXCEPTION(eslECONTRACT, "U isn't square");
+  if (LU->n    != L->n)       ESL_EXCEPTION(eslECONTRACT, "LU, L have incompatible dimensions");
+  if (LU->n    != U->n)       ESL_EXCEPTION(eslECONTRACT, "LU, U have incompatible dimensions");
+  if (LU->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "matrix isn't of general type");
+  if (L->type  != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "matrix isn't of general type");
 
   esl_dmatrix_SetZero(L);
   esl_dmatrix_SetZero(U);
@@ -818,7 +943,7 @@ esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U)
  *            Peforms the inversion by LUP decomposition followed by 
  *            forward/back-substitution \citep[p.~753]{Cormen99}.
  *
- * Throws:    <eslEINVAL> if <A>, <Ai> do not have same dimensions, 
+ * Throws:    <eslECONTRACT> if <A>, <Ai> do not have same dimensions, 
  *                        if <A> isn't square, or if either isn't of
  *                        type <eslGENERAL>.
  *            <eslEMEM>   if internal allocations (for LU, and some other
@@ -834,10 +959,10 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
   int               i,j,k;
   int               status;
 
-  if (A->n     != A->m)                   ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
-  if (A->n     != Ai->n || A->m != Ai->m) ESL_EXCEPTION(eslEINVAL, "matrices are different size");
-  if (A->type  != eslGENERAL)             ESL_EXCEPTION(eslEINVAL, "matrix A not of general type");
-  if (Ai->type != eslGENERAL)             ESL_EXCEPTION(eslEINVAL, "matrix B not of general type");
+  if (A->n     != A->m)                   ESL_EXCEPTION(eslECONTRACT, "matrix isn't square");
+  if (A->n     != Ai->n || A->m != Ai->m) ESL_EXCEPTION(eslECONTRACT, "matrices are different size");
+  if (A->type  != eslGENERAL)             ESL_EXCEPTION(eslECONTRACT, "matrix A not of general type");
+  if (Ai->type != eslGENERAL)             ESL_EXCEPTION(eslECONTRACT, "matrix B not of general type");
 
   /* Copy A to LU, and do an LU decomposition.
    */
@@ -902,38 +1027,198 @@ esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai)
 
 
 /*****************************************************************
- * Example code
- *****************************************************************/ 
+ * 6. Optional: interoperability with GSL
+ *****************************************************************/
+#ifdef HAVE_LIBGSL
 
-/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm
- */
-#ifdef eslDMATRIX_EXAMPLE
-/*::cexcerpt::dmatrix_example::begin::*/
-#include <easel.h>
-#include <esl_dmatrix.h>
+#include <gsl/gsl_matrix.h>
 
-int main(void)
+int
+esl_dmx_MorphGSL(ESL_DMATRIX *E, gsl_matrix **ret_G)
 {
-  ESL_DMATRIX *A, *B, *C;
+  gsl_matrix *G = NULL;
+  int i,j;
 
-  A = esl_dmatrix_Create(4,4);
-  B = esl_dmatrix_Create(4,4);
-  C = esl_dmatrix_Create(4,4);
-  
-  esl_dmatrix_SetIdentity(A);
-  esl_dmatrix_Copy(A, B);
+  if (E->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "can only morph general matrices to GSL right now");
 
-  esl_dmx_Multiply(A,B,C);
-
-  esl_dmatrix_Dump(stdout, C, NULL, NULL);
-
-  esl_dmatrix_Destroy(A);
-  esl_dmatrix_Destroy(B);
-  esl_dmatrix_Destroy(C);
-  return 0;
+  G = gsl_matrix_alloc(E->m, E->n);
+  for (i = 0; i < E->m; i++)
+    for (j = 0; j < E->n; j++)
+      gsl_matrix_set(G, i, j, E->mx[i][j]);
+  *ret_G = G;
+  return eslOK;
 }
-/*::cexcerpt::dmatrix_example::end::*/
-#endif /*eslDMATRIX_EXAMPLE*/
+
+int
+esl_dmx_UnmorphGSL(gsl_matrix *G, ESL_DMATRIX **ret_E)
+{
+  ESL_DMATRIX *E = NULL;
+  int i,j;
+  
+  if ((E = esl_dmatrix_Create(G->size1, G->size2)) == NULL) return eslEMEM;
+  for (i = 0; i < G->size1; i++)
+    for (j = 0; j < G->size2; j++)
+      E->mx[i][j] = gsl_matrix_get(G, i, j);
+  *ret_E = E;
+  return eslOK;
+}
+
+#endif /*HAVE_LIBGSL*/
+
+/*****************************************************************
+ * 7. Optional: Interfaces to LAPACK
+ *****************************************************************/
+#ifdef HAVE_LIBLAPACK
+
+/* To include LAPACK code, you need to:
+ *   1. declare the C interface to the Fortran routine,
+ *      appending _ to the Fortran routine's name (dgeev becomes dgeev_)
+ *      
+ *   2. Remember to transpose matrices into column-major
+ *      Fortran form
+ *      
+ *   3. everything must be passed by reference, not by value
+ *   
+ *   4. you don't need any include files, just lapack.a
+ *   
+ *   5. Add -llapack to the compile line.
+ *      (It doesn't appear that blas or g2c are needed?)
+ */   
+
+/* Declare the C interface to the Fortran77 dgeev routine
+ * provided by the LAPACK library:
+ */
+extern void  dgeev_(char *jobvl, char *jobvr, int *n, double *a,
+                    int *lda, double *wr, double *wi, double *vl,
+                    int *ldvl, double *vr, int *ldvr,
+                    double *work, int *lwork, int *info);
+
+
+/* Function:  esl_dmx_Diagonalize()
+ * Incept:    SRE, Thu Mar 15 09:28:03 2007 [Janelia]
+ *
+ * Purpose:   Given a square real matrix <A>, diagonalize it:
+ *            solve for $U^{-1} A U = diag(\lambda_1... \lambda_n)$.
+ *            
+ *            Upon return, <ret_Er> and <ret_Ei> are vectors
+ *            containing the real and complex parts of the eigenvalues
+ *            $\lambda_i$; <ret_UL> is the $U^{-1}$ matrix containing
+ *            the left eigenvectors; and <ret_UR> is the $U$ matrix
+ *            containing the right eigenvectors.
+ *            
+ *            <ret_UL> and <ret_UR> are optional; pass <NULL> for
+ *            either if you don't want that set of eigenvectors.
+ *
+ *            This is a C interface to the <dgeev()> routine in the
+ *            LAPACK linear algebra library.
+ *            
+ * Args:      A       -  square nxn matrix to diagonalize
+ *            ret_Er  - RETURN: real part of eigenvalues (0..n-1)
+ *            ret_Ei  - RETURN: complex part of eigenvalues (0..n-1)
+ *            ret_UL  - optRETURN: nxn matrix of left eigenvectors
+ *            ret_UR  - optRETURN: 
+ *
+ * Returns:   <eslOK> on success.
+ *            <ret_Er> and <ret_Ei> (and <ret_UL>,<ret_UR> when they are
+ *            requested) are allocated here, and must be free'd by the caller.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            In this case, the four return pointers are returned <NULL>.
+ *
+ * Xref:      J1/19.
+ */
+int
+esl_dmx_Diagonalize(const ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX **ret_UL, ESL_DMATRIX **ret_UR)
+{
+  int          status;
+  double      *Er   = NULL;
+  double      *Ei   = NULL;
+  ESL_DMATRIX *At   = NULL;
+  ESL_DMATRIX *UL   = NULL;
+  ESL_DMATRIX *UR   = NULL;
+  double      *work = NULL;
+  char   jobul, jobur;
+  int    lda;
+  int    ldul, ldur;
+  int    lwork;
+  int    info;
+
+  if (A->n != A->m) ESL_EXCEPTION(eslEINVAL, "matrix isn't square");
+
+  if ((At = esl_dmatrix_Clone(A))          == NULL)       { status = eslEMEM; goto ERROR; } 
+  if ((UL = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto ERROR; }
+  if ((UR = esl_dmatrix_Create(A->n,A->n)) == NULL)       { status = eslEMEM; goto ERROR; }
+  ESL_ALLOC(Er,   sizeof(double) * A->n);
+  ESL_ALLOC(Ei,   sizeof(double) * A->n);
+  ESL_ALLOC(work, sizeof(double) * 8 * A->n);
+
+  jobul = (ret_UL == NULL) ? 'N' : 'V';	/* do we want left eigenvectors? */
+  jobur = (ret_UR == NULL) ? 'N' : 'V'; /* do we want right eigenvectors? */
+  lda   = A->n; 
+  ldul  = A->n;
+  ldur  = A->n;
+  lwork = 8*A->n;
+
+  /* Fortran convention is colxrow, not rowxcol; so transpose
+   * a copy of A before passing it to a Fortran routine.
+   */
+  esl_dmx_Transpose(At);
+
+  /* The actual Fortran77 interface call to LAPACK.
+   * All args must be passed by reference.
+   * Fortran 2D arrays are 1D: so pass the A[0] part of a DSMX.
+   */
+  dgeev_(&jobul, &jobur, &(At->n), At->mx[0], &lda, Er, Ei, UL->mx[0], &ldul, UR->mx[0], &ldur, work, &lwork, &info);
+  if (info < 0) ESL_XEXCEPTION(eslEINVAL, "argument %d to LAPACK dgeev is invalid", -info);
+  if (info > 0) ESL_XEXCEPTION(eslEINVAL, "diagonalization failed; only eigenvalues %d..%d were computed", info+1, At->n);
+
+  /* Now, UL, UR are transposed (col x row), so transpose them back to
+   * C language convention.
+   */
+  esl_dmx_Transpose(UL);
+  esl_dmx_Transpose(UR);
+
+  esl_dmatrix_Destroy(At);
+  if (ret_UL != NULL) *ret_UL = UL; else esl_dmatrix_Destroy(UL);
+  if (ret_UR != NULL) *ret_UR = UR; else esl_dmatrix_Destroy(UR);
+  if (ret_Er != NULL) *ret_Er = Er; else free(Er);
+  if (ret_Ei != NULL) *ret_Ei = Ei; else free(Ei);
+  free(work);
+  return eslOK;
+
+ ERROR:
+  if (ret_UL != NULL) *ret_UL = NULL;
+  if (ret_UR != NULL) *ret_UR = NULL;
+  if (ret_Er != NULL) *ret_Er = NULL;
+  if (ret_Ei != NULL) *ret_Ei = NULL;
+  if (At   != NULL) esl_dmatrix_Destroy(At);
+  if (UL   != NULL) esl_dmatrix_Destroy(UL);
+  if (UR   != NULL) esl_dmatrix_Destroy(UR);
+  if (Er   != NULL) free(Er);
+  if (Ei   != NULL) free(Ei);
+  if (work != NULL) free(work);
+  return status;
+}
+
+
+#endif /*HAVE_LIBLAPACK*/
+
+/*****************************************************************
+ * Unit tests
+ *****************************************************************/ 
+#ifdef eslDMATRIX_TESTDRIVE
+
+static void
+utest_Exp()
+{
+  
+  
+
+}
+
+
+#endif /*eslDMATRIX_TESTDRIVE*/
+
 
 
 /*****************************************************************
@@ -976,6 +1261,41 @@ int main(void)
   return 0;
 }
 #endif /*eslDMATRIX_TESTDRIVE*/
+
+
+/*****************************************************************
+ * Example code
+ *****************************************************************/ 
+
+/*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm
+ */
+#ifdef eslDMATRIX_EXAMPLE
+/*::cexcerpt::dmatrix_example::begin::*/
+#include <easel.h>
+#include <esl_dmatrix.h>
+
+int main(void)
+{
+  ESL_DMATRIX *A, *B, *C;
+
+  A = esl_dmatrix_Create(4,4);
+  B = esl_dmatrix_Create(4,4);
+  C = esl_dmatrix_Create(4,4);
+  
+  esl_dmatrix_SetIdentity(A);
+  esl_dmatrix_Copy(A, B);
+
+  esl_dmx_Multiply(A,B,C);
+
+  esl_dmatrix_Dump(stdout, C, NULL, NULL);
+
+  esl_dmatrix_Destroy(A);
+  esl_dmatrix_Destroy(B);
+  esl_dmatrix_Destroy(C);
+  return 0;
+}
+/*::cexcerpt::dmatrix_example::end::*/
+#endif /*eslDMATRIX_EXAMPLE*/
 
 
 

@@ -46,6 +46,10 @@
 #undef uint64_t
 #undef off_t
 
+/* Optional packages
+ */
+#undef HAVE_LIBGSL
+
 /* Functions
  */
 #undef HAVE_MKSTEMP
