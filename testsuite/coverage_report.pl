@@ -10,12 +10,17 @@
 # from scratch, do 
 #    ./coverage_report.pl -c
 #
+# It assumes you have 'sloccount' installed, so it can count 
+# ANSI C lines in files with no test driver. If you don't, use
+#    ./coverage_report.pl -s
+#
 # SRE, Thu Mar  1 19:22:57 2007 (Janelia)
 # SVN $Id$
 require  "getopts.pl";
-&Getopts('c');
-if ($opt_c) { $do_recompile   = 1; }
 $have_sloccount = 1;
+&Getopts('cs');
+if ($opt_c) { $do_recompile     = 1; }
+if ($opt_s) { $have_sloccount   = 0; }
 
 $CC     = "gcc";
 $CFLAGS = "-g -Wall -fprofile-arcs -ftest-coverage";
@@ -69,12 +74,13 @@ foreach $module (@modules) {
     $nsuccess++;
 
     $output = `gcov $module`;
-    if ($output =~ /Lines executed:\s*(\d+\.\d+)% of\s+(\d+)/) {
+    if ($output =~ /File.*$module.*\nLines executed:\s*(\d+\.\d+)% of\s+(\d+)/) {
 	$pct_cvg        = $1;
 	$nlines         += $2;
 	$nlines_covered += $1*$2/100;
 	printf("%6.2f%% coverage\n", $pct_cvg);
     }
+    else {die "failed to parse gcov output";}
 }
 
 if ($have_sloccount) {

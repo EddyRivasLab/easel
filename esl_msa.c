@@ -1377,9 +1377,9 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
 
   /* Contract checks
    */
-  if (msa->aseq == NULL)           ESL_EXCEPTION(eslECONTRACT, "msa has no text alignment");
-  if (msa->ax   != NULL)           ESL_EXCEPTION(eslECONTRACT, "msa already has digital alignment");
-  if (msa->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslECONTRACT, "msa is flagged as digital");
+  if (msa->aseq == NULL)           ESL_EXCEPTION(eslEINVAL, "msa has no text alignment");
+  if (msa->ax   != NULL)           ESL_EXCEPTION(eslEINVAL, "msa already has digital alignment");
+  if (msa->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslEINVAL, "msa is flagged as digital");
 
   /* Validate before we convert. Then we can leave the <aseq> untouched if
    * any of the sequences contain invalid characters.
@@ -1438,10 +1438,10 @@ esl_msa_Textize(ESL_MSA *msa)
 
   /* Contract checks
    */
-  if (msa->ax   == NULL)               ESL_EXCEPTION(eslECONTRACT, "msa has no digital alignment");
-  if (msa->aseq != NULL)               ESL_EXCEPTION(eslECONTRACT, "msa already has text alignment");
-  if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslECONTRACT, "msa is not flagged as digital");
-  if (msa->abc  == NULL)               ESL_EXCEPTION(eslECONTRACT, "msa has no digital alphabet");
+  if (msa->ax   == NULL)               ESL_EXCEPTION(eslEINVAL, "msa has no digital alignment");
+  if (msa->aseq != NULL)               ESL_EXCEPTION(eslEINVAL, "msa already has text alignment");
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslEINVAL, "msa is not flagged as digital");
+  if (msa->abc  == NULL)               ESL_EXCEPTION(eslEINVAL, "msa has no digital alphabet");
 
   /* Convert, sequence-by-sequence, free'ing ax as we go.
    */

@@ -30,13 +30,14 @@ extern ESL_DMATRIX *esl_dmatrix_CreateUpper(int n);
 extern int          esl_dmatrix_Destroy(ESL_DMATRIX *A);
 extern int          esl_dmatrix_Copy   (const ESL_DMATRIX *src, ESL_DMATRIX *dest);
 extern ESL_DMATRIX *esl_dmatrix_Clone  (const ESL_DMATRIX *old);
-extern int          esl_dmatrix_Compare(ESL_DMATRIX *A, ESL_DMATRIX *B, double tol);
+extern int          esl_dmatrix_Compare(const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol);
 extern int          esl_dmatrix_Set    (ESL_DMATRIX *A, double x);
 extern int          esl_dmatrix_SetZero(ESL_DMATRIX *A);
 extern int          esl_dmatrix_SetIdentity(ESL_DMATRIX *A);
 
 /* 2. Debugging/validation for ESL_DMATRIX. */
-extern int          esl_dmatrix_Dump(FILE *ofp, ESL_DMATRIX *A, char *rowlabel, char *collabel);
+extern int          esl_dmatrix_Dump(FILE *ofp, const ESL_DMATRIX *A, 
+				     const char *rowlabel, const char *collabel);
 
 /* 3. The ESL_PERMUTATION object. */
 extern ESL_PERMUTATION *esl_permutation_Create(int n);
@@ -44,29 +45,31 @@ extern int              esl_permutation_Destroy(ESL_PERMUTATION *P);
 extern int              esl_permutation_Reuse(ESL_PERMUTATION *P);
 
 /* 4. Debugging/validation for ESL_PERMUTATION. */
-extern int              esl_permutation_Dump(FILE *ofp, ESL_PERMUTATION *P, char *rowlabel, char *collabel);
+extern int              esl_permutation_Dump(FILE *ofp, const ESL_PERMUTATION *P, 
+					     const char *rowlabel, const char *collabel);
 
 /* 5. The rest of the dmatrix API. */
-extern double       esl_dmx_Max    (ESL_DMATRIX *A);
-extern double       esl_dmx_Min    (ESL_DMATRIX *A);
-extern double       esl_dmx_Sum    (ESL_DMATRIX *A);
-extern int          esl_dmx_MinMax(ESL_DMATRIX *A, double *ret_min, double *ret_max);
-extern int          esl_dmx_Multiply(ESL_DMATRIX *A, ESL_DMATRIX *B, ESL_DMATRIX *C);
-extern int          esl_dmx_Exp(ESL_DMATRIX *Q, double t, ESL_DMATRIX *P);
+extern double       esl_dmx_Max    (const ESL_DMATRIX *A);
+extern double       esl_dmx_Min    (const ESL_DMATRIX *A);
+extern double       esl_dmx_Sum    (const ESL_DMATRIX *A);
+extern int          esl_dmx_MinMax(const ESL_DMATRIX *A, double *ret_min, double *ret_max);
+extern int          esl_dmx_FrobeniusNorm(const ESL_DMATRIX *A, double *ret_fnorm);
+extern int          esl_dmx_Multiply(const ESL_DMATRIX *A, const ESL_DMATRIX *B, ESL_DMATRIX *C);
+extern int          esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P);
 extern int          esl_dmx_Transpose(ESL_DMATRIX *A);
-extern int          esl_dmx_Add(ESL_DMATRIX *A, ESL_DMATRIX *B);
+extern int          esl_dmx_Add(ESL_DMATRIX *A, const ESL_DMATRIX *B);
 extern int          esl_dmx_Scale(ESL_DMATRIX *A, double k);
-extern int          esl_dmx_AddScale(ESL_DMATRIX *A, double k, ESL_DMATRIX *B);
-extern int          esl_dmx_Permute_PA(ESL_PERMUTATION *P, ESL_DMATRIX *A, ESL_DMATRIX *B);
+extern int          esl_dmx_AddScale(ESL_DMATRIX *A, double k, const ESL_DMATRIX *B);
+extern int          esl_dmx_Permute_PA(const ESL_PERMUTATION *P, const ESL_DMATRIX *A, ESL_DMATRIX *B);
 extern int          esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P);
-extern int          esl_dmx_LU_separate(ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U);
-extern int          esl_dmx_Invert(ESL_DMATRIX *A, ESL_DMATRIX *Ai);
+extern int          esl_dmx_LU_separate(const ESL_DMATRIX *LU, ESL_DMATRIX *L, ESL_DMATRIX *U);
+extern int          esl_dmx_Invert(const ESL_DMATRIX *A, ESL_DMATRIX *Ai);
 
 /* 6. Optional: interoperability with GSL */
 #ifdef HAVE_LIBGSL
 #include <gsl/gsl_matrix.h>
-extern int          esl_dmx_MorphGSL(ESL_DMATRIX *E, gsl_matrix **ret_G);
-extern int          esl_dmx_UnmorphGSL(gsl_matrix *G, ESL_DMATRIX **ret_E);
+extern int          esl_dmx_MorphGSL(const ESL_DMATRIX *E, gsl_matrix **ret_G);
+extern int          esl_dmx_UnmorphGSL(const gsl_matrix *G, ESL_DMATRIX **ret_E);
 #endif
 
 /* 7. Optional: interfaces to LAPACK  */

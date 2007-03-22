@@ -783,7 +783,7 @@ newick_write_branchlength(FILE *fp, ESL_TREE *T, int v)
   double branchlength;
 
   if (! T->show_branchlengths) return eslOK;
-  if (T->taxaparent == NULL)   ESL_EXCEPTION(eslECONTRACT, "T must have taxaparent");
+  if (T->taxaparent == NULL)   ESL_EXCEPTION(eslEINVAL, "T must have taxaparent");
   
   if (v <= 0)			/* leaf */
     {

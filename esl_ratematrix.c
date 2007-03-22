@@ -79,7 +79,7 @@
  *
  * Returns:   <eslOK> on success.
  * 
- * Throws:    <eslECONTRACT> if <Q> isn't a 20x20 general matrix; and
+ * Throws:    <eslEINVAL> if <Q> isn't a 20x20 general matrix; and
  *            the state of <Q> is undefined.
  */
 int
@@ -111,7 +111,7 @@ esl_rmx_SetWAG(ESL_DMATRIX *Q, double *pi)
   int i,j,z;
   
   if (Q->m != 20 || Q->n != 20 || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a 20x20 general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a 20x20 general matrix");
 
   /* 1. Transfer the wag E lower triagonal matrix directly into Q. */
   z = 0;
@@ -157,7 +157,7 @@ esl_rmx_SetJukesCantor(ESL_DMATRIX *Q)
   double pi[4] = { 0.25, 0.25, 0.25, 0.25 };
 
   if (Q->m != 4 || Q->n != 4 || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a 4x4 general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a 4x4 general matrix");
   
   for (i = 0; i < 4; i++) {
     for (j = 0; j < 4; j++)
@@ -189,7 +189,7 @@ esl_rmx_SetKimura(ESL_DMATRIX *Q, double alpha, double beta)
   double pi[4] = { 0.25, 0.25, 0.25, 0.25 };
 
   if (Q->m != 4 || Q->n != 4 || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a 4x4 general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a 4x4 general matrix");
   
   for (i = 0; i < 4; i++) {
     for (j = 0; j < 4; j++)
@@ -219,7 +219,7 @@ esl_rmx_SetF81(ESL_DMATRIX *Q, double *pi)
   int i,j;
 
   if (Q->m != 4 || Q->n != 4 || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a 4x4 general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a 4x4 general matrix");
   
   for (i = 0; i < 4; i++) {
     for (j = 0; j < 4; j++)
@@ -259,7 +259,7 @@ esl_rmx_SetHKY( ESL_DMATRIX *Q, double *pi, double alpha, double beta)
   int i,j;
 
   if (Q->m != 4 || Q->n != 4 || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a 4x4 general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a 4x4 general matrix");
   
   for (i = 0; i < 4; i++) {
     for (j = 0; j < 4; j++)
@@ -314,7 +314,7 @@ esl_rmx_ValidateP(ESL_DMATRIX *P, double tol, char *errbuf)
   int    i,j;
   double sum;
 
-  if (P->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "P must be type eslGENERAL to be validated");
+  if (P->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "P must be type eslGENERAL to be validated");
 
   for (i = 0; i < P->n; i++)
     {
@@ -365,8 +365,8 @@ esl_rmx_ValidateQ(ESL_DMATRIX *Q, double tol, char *errbuf)
   int    i,j;
   double qi;
 
-  if (Q->type != eslGENERAL) ESL_EXCEPTION(eslECONTRACT, "Q must be type eslGENERAL to be validated");
-  if (Q->n    != Q->m)       ESL_EXCEPTION(eslECONTRACT, "a rate matrix Q must be square");
+  if (Q->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "Q must be type eslGENERAL to be validated");
+  if (Q->n    != Q->m)       ESL_EXCEPTION(eslEINVAL, "a rate matrix Q must be square");
 
   for (i = 0; i < Q->n; i++)
     {
@@ -419,7 +419,7 @@ esl_rmx_ScaleTo(ESL_DMATRIX *Q, double *pi, double unit)
   double  sum = 0.;
 
   if (Q->m != Q->n || Q->type != eslGENERAL)
-    ESL_EXCEPTION(eslECONTRACT, "Q must be a square general matrix");
+    ESL_EXCEPTION(eslEINVAL, "Q must be a square general matrix");
 
   for (i = 0; i < Q->m; i++)
     for (j = 0; j < Q->n; j++)
@@ -463,7 +463,7 @@ esl_rmx_E2Q(ESL_DMATRIX *E, double *pi, ESL_DMATRIX *Q)
 {
   int          i,j;
 
-  if (E->n != Q->n) ESL_EXCEPTION(eslECONTRACT, "E and Q sizes differ");
+  if (E->n != Q->n) ESL_EXCEPTION(eslEINVAL, "E and Q sizes differ");
 
   /* Scale all off-diagonals to pi[j] * E[i][j].
    */
@@ -491,16 +491,21 @@ esl_rmx_E2Q(ESL_DMATRIX *E, double *pi, ESL_DMATRIX *Q)
  *****************************************************************/
 
 #ifdef eslRATEMATRIX_BENCHMARK
-#ifdef HAVE_LIBGSL
 
 /* 
+  without GSL:
+  gcc -O2 -I. -L. -o benchmark -DeslRATEMATRIX_BENCHMARK esl_ratematrix.c -leasel -lm
+
+  with GSL:
   gcc -g -Wall -I. -L. -o benchmark -DeslRATEMATRIX_BENCHMARK -DHAVE_LIBGSL esl_dmatrix.c esl_ratematrix.c -leasel -lgsl -lgslcblas -lm
  */
 
 #include <esl_config.h>
 
+#ifdef HAVE_LIBGSL
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
+#endif
 
 #include <easel.h>
 #include <esl_stopwatch.h>
@@ -513,12 +518,14 @@ main(void)
   ESL_STOPWATCH *w = NULL;
   ESL_DMATRIX *Q  = NULL;
   ESL_DMATRIX *P  = NULL;
-  gsl_matrix  *Qg = NULL;
-  gsl_matrix  *Pg = NULL;
   double       t = 5.0;
   int          esl_iterations = 100;
-  int          gsl_iterations = 100;
   int          i;
+#ifdef HAVE_LIBGSL
+  gsl_matrix  *Qg = NULL;
+  gsl_matrix  *Pg = NULL;
+  int          gsl_iterations = 100;
+#endif
 
   w = esl_stopwatch_Create();
   Q = esl_dmatrix_Create(20, 20);
@@ -531,6 +538,7 @@ main(void)
   esl_stopwatch_Stop(w);
   printf("Easel takes:   %g sec\n", w->user / (double) esl_iterations);
 
+#ifdef HAVE_LIBGSL
   if (esl_dmx_MorphGSL(Q, &Qg)             != eslOK) esl_fatal("morph to gsl_matrix failed");
   if ((Pg = gsl_matrix_alloc(20, 20))      == NULL)  esl_fatal("gsl alloc failed");
   gsl_matrix_scale(Qg, t);
@@ -541,15 +549,16 @@ main(void)
   esl_stopwatch_Stop(w);
   printf("  GSL takes:   %g sec\n", w->user / (double) gsl_iterations);
 
-  esl_dmatrix_Destroy(Q);
-  esl_dmatrix_Destroy(P);
   gsl_matrix_free(Qg);
   gsl_matrix_free(Pg);
+#endif /*HAVE_LIBGSL*/
+
+  esl_dmatrix_Destroy(Q);
+  esl_dmatrix_Destroy(P);
   esl_stopwatch_Destroy(w);
   return 0;
 }
 
-#endif /*HAVE_LIBGSL*/
 #endif /*eslRATEMATRIX_BENCHMARK*/
 
 
@@ -629,16 +638,32 @@ utest_SetWAG(void)
   char errbuf[eslERRBUFSIZE];
   ESL_DMATRIX *Q = NULL;
   ESL_DMATRIX *P = NULL;
-  double       t = 2.0;
+  double       t = 50.0;	/* sufficiently large to drive e^tQ to stationarity  */
+  double       pi[20];
+  int          i;
 
   if ((Q = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
   if ((P = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
 
+  /* This tests that exponentiating WAG gives a stable conditional 
+   * probability matrix solution. (It doesn't particularly test that
+   * WAG was set correctly, but how could we have screwed that up?)
+   */
   if (esl_rmx_SetWAG(Q, NULL)              != eslOK) esl_fatal("_SetWAG() failed");
   if (esl_dmx_Exp(Q, t, P)                 != eslOK) esl_fatal("matrix exponentiation failed");
+  if (esl_rmx_ValidateP(P, 1e-7, errbuf)   != eslOK) esl_fatal("P validation failed: %s", errbuf);
+  if (esl_rmx_ValidateQ(Q, 1e-7, errbuf)   != eslOK) esl_fatal("Q validation failed: %s", errbuf);
 
-  if (esl_rmx_ValidateP(P, 0.0001, errbuf) != eslOK) esl_fatal("P validation failed: %s", errbuf);
-  if (esl_rmx_ValidateQ(Q, 0.0001, errbuf) != eslOK) esl_fatal("Q validation failed: %s", errbuf);
+  /* This tests setting WAG to different stationary pi's than default,
+   * then tests that exponentiating to large t reaches those stationaries.
+   */
+  esl_vec_DSet(pi, 20, 0.05);
+  if (esl_rmx_SetWAG(Q, pi)                != eslOK) esl_fatal("_SetWAG() failed");
+  if (esl_dmx_Exp(Q, t, P)                 != eslOK) esl_fatal("matrix exponentiation failed");
+  if (esl_rmx_ValidateP(P, 1e-7, errbuf)   != eslOK) esl_fatal("P validation failed: %s", errbuf);
+  if (esl_rmx_ValidateQ(Q, 1e-7, errbuf)   != eslOK) esl_fatal("Q validation failed: %s", errbuf);
+  for (i = 0; i < 20; i++)
+    if (esl_vec_DCompare(P->mx[i], pi, 20, 1e-7) != eslOK) esl_fatal("P didn't converge to right pi's");
 
   esl_dmatrix_Destroy(Q);
   esl_dmatrix_Destroy(P);
@@ -646,67 +671,52 @@ utest_SetWAG(void)
 }
   
 #ifdef HAVE_LIBLAPACK
-
 static void
 utest_Diagonalization(void)
 {
-  ESL_DMATRIX *Q = NULL;
-  ESL_DMATRIX *P = NULL;
-  ESL_DMATRIX *C = NULL;
-  ESL_DMATRIX *D = NULL;
-  double      *Er;
-  double      *Ei;
-  ESL_DMATRIX *UL;
-  ESL_DMATRIX *UR;
+  ESL_DMATRIX *P      = NULL;
+  ESL_DMATRIX *P2     = NULL;
+  ESL_DMATRIX *C      = NULL;
+  ESL_DMATRIX *D      = NULL;
+  double      *lambda = NULL;		/* eigenvalues */
+  ESL_DMATRIX *U      = NULL;		/* left eigenvectors */
+  ESL_DMATRIX *Ui     = NULL;		/* inverse of U */
   int  i,j;
 
-  /*
-  if ((Q = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
-  if ((P = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
-  if ((C = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
-  if ((D = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal("malloc failed");
-  if (esl_rmx_SetWAG(Q, NULL)              != eslOK) esl_fatal("_SetWAG() failed");
-  */
+  /* Create a J/C probability matrix for t=1:
+   *    1/4 + 3/4 e^{-4/3 at}
+   *    1/4 - 1/4 e^{-4/3 at}
+   */
+  if ((P  = esl_dmatrix_Create(4, 4))    == NULL)  esl_fatal("malloc failed");
+  if ((C  = esl_dmatrix_Create(4, 4))    == NULL)  esl_fatal("malloc failed");
+  if ((Ui = esl_dmatrix_Create(4, 4))    == NULL)  esl_fatal("malloc failed");
+  if ((D  = esl_dmatrix_Create(4, 4))    == NULL)  esl_fatal("malloc failed");
+  if ((P2 = esl_dmatrix_Create(4, 4))    == NULL)  esl_fatal("malloc failed");
+  for (i = 0; i < 4; i++)
+    for (j = 0; j < 4; j++)
+      if (i == j) P->mx[i][j] = 0.25 + 0.75 * exp(-4./3.);
+      else        P->mx[i][j] = 0.25 - 0.25 * exp(-4./3.);
 
-  if ((Q = esl_dmatrix_Create(4, 4))     == NULL)  esl_fatal("malloc failed");
-  if ((P = esl_dmatrix_Create(4, 4))     == NULL)  esl_fatal("malloc failed");
-  if ((C = esl_dmatrix_Create(4, 4))     == NULL)  esl_fatal("malloc failed");
-  if ((D = esl_dmatrix_Create(4, 4))     == NULL)  esl_fatal("malloc failed");
-  if (esl_rmx_SetJukesCantor(Q)         != eslOK)  esl_fatal("_Set() failed");
+  /* Diagonalize it
+   */
+  if (esl_dmx_Diagonalize(P, &lambda, NULL, &U, NULL) != eslOK) esl_fatal("diagonalization failed");
 
-  if (esl_dmx_Diagonalize(Q, &Er, &Ei, &UL, &UR) != eslOK) esl_fatal("diagonalization failed");
-
-  for (i = 0; i < Q->n; i++) {
-    printf("eigenvalue %d = %g\n", i, Er[i]);
-    if (Ei[i] != 0.) esl_fatal("at least one eigenvalue is complex, and I can't deal with that");
-  }
-
-  esl_dmatrix_Dump(stdout, UL, NULL, NULL);
-  esl_dmatrix_Dump(stdout, UR, NULL, NULL);
-
+  /* Calculate P^k by U [diag(lambda_i)]^k U^{-1}
+   */
   esl_dmatrix_SetZero(D);
-  for (i = 0; i < Q->n; i++) D->mx[i][i] = Er[i];
+  for (i = 0; i < P->n; i++) D->mx[i][i] = lambda[i];
+  esl_dmx_Invert(U, Ui);
+  esl_dmx_Multiply(U, D,  C);
+  esl_dmx_Multiply(C, Ui, P2);
 
-  /* Verify UL Q UR = diag(lambdas) */
-  esl_dmx_Multiply(UL, Q, C);
-  esl_dmx_Multiply(C, UR, D);
+  if (esl_dmatrix_Compare(P, P2, 1e-7) != eslOK) esl_fatal("diagonalization unit test failed");
 
-  esl_dmatrix_Dump(stdout, D, NULL, NULL);
-
-  for (i = 0; i < Q->n; i++) {
-    if (esl_DCompare(D->mx[i][i], Er[i], 1e-7) != eslOK) esl_fatal("eigenvalue %d isn't right", i);
-    for (j = 0; j < Q->n; j++) {
-      if (i != j && esl_DCompare(D->mx[i][i], 0.0, 1e-7) != eslOK) esl_fatal("eigenvectors are messed up somehow");
-    }
-  }
-
-  free(Er);
-  free(Ei);
-  esl_dmatrix_Destroy(UL);
-  esl_dmatrix_Destroy(UR);
+  free(lambda);
+  esl_dmatrix_Destroy(P2);
+  esl_dmatrix_Destroy(Ui);
+  esl_dmatrix_Destroy(U);
   esl_dmatrix_Destroy(D);
   esl_dmatrix_Destroy(C);
-  esl_dmatrix_Destroy(Q);
   esl_dmatrix_Destroy(P);
   return;
 }

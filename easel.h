@@ -122,8 +122,7 @@
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslENOHALT        18    /* a failure to converge        */      
-#define eslECONTRACT      19    /* an API contract violation    */
-#define eslENORESULT      20    /* no result was obtained       */
+#define eslENORESULT      19    /* no result was obtained       */
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure

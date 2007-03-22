@@ -1,14 +1,16 @@
 
 
+Easel is a C code library for computational analysis of biological
+sequences using probabilistic models.  Easel is used by HMMER and
+Infernal, the software packages that the Pfam and Rfam protein and RNA
+family databases rely on. Like any code library, Easel aims to make
+applications more robust and easier to develop, by providing a set of
+reusable, documented, and well-tested functions.
 
-
-Easel is a C code library for bioinformatics applications.  Some of
-the Eddy lab's software packages depend on Easel, including HMMER and
-Infernal, the software engines that the Pfam and Rfam protein and RNA
-family databases rely on. Easel organizes a body of my work in what I
-hope is a useful form, so that new people in my lab can avoid
-reinventing the wheel as many times as I have. Perhaps it will also be
-useful to you.
+Easel's functionality includes generative probabilistic models of
+sequences, phylogenetic models of evolution, bioinformatics tools for
+sequence manipulation and annotation, numerical computing, and some
+basic utilities. 
 
 Easel's documentation includes tutorial examples to make it easy to
 get started with any given Easel module. Easel is modular, to help you
@@ -19,9 +21,9 @@ anything, including commercial purposes.
 
 \section{Quick start}
 
-Let's assume you just want to take a quick tour, because you're
-deciding whether Easel is useful or not. You can compile Easel and try
-it out without installing it. 
+Let's assume you just want to take a quick tour. Maybe you're deciding
+whether Easel is useful or not. You can compile Easel and try it out
+without installing it.
 
 After you obtain an Easel source tarball (from
 \url{http://selab.janelia.org/easel}, for example), it should compile
@@ -42,6 +44,9 @@ compiler, or see your local system guru.} with this incantation
 The \ccode{make check} command is optional. It runs a battery of
 quality control tests. All of these should pass. You should now see
 \ccode{libeasel.a} in the directory.
+
+If you decide you want to install Easel permanently, see the full
+installation instructions in chapter~\ref{chapter:installation}.
 
 Every source code module (that is, each \ccode{.c} file) ends with one
 or more \esldef{driver programs}, including programs for unit tests
@@ -84,16 +89,11 @@ themselves).  Compile your example code like this:
 \end{cchunk}
 
 That's it. Now you can compile Easel-based programs that you can
-modify and play around with. If you're the type (like me) that learns
-best by example, you're on your way. The next section (below) will
-introduce the different modules in Easel, so you can see what you
-might be interested in. When you want to know more about a module,
-either check that module's chapter in this guide, or just read the
-module's source code. Most of the documentation is compiled
-automatically from the source code comments anyway.
+modify and play around with. If you're the type (like me) that prefers
+to learn by example, you're on your way.  
 
-If you decide you want to install Easel permanently, see the full
-installation instructions in chapter~\ref{chapter:installation}.
+The next question is, does Easel provide any functionality you're
+interested in?  
 
 \section{Overview of Easel's modules}
 
