@@ -32,9 +32,9 @@ extern void   esl_vec_DAddScaled(double *vec1, double *vec2, double a, int n);
 extern void   esl_vec_FAddScaled(float *vec1, float *vec2, float a, int n);
 extern void   esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n);
 
-extern void   esl_vec_DCopy(double *dest, double *src, int n);
-extern void   esl_vec_FCopy(float *dest, float *src, int n);
-extern void   esl_vec_ICopy(int *dest, int *src, int n);
+extern void   esl_vec_DCopy(const double *src, const int n, double *dest);
+extern void   esl_vec_FCopy(const float  *src, const int n, float *dest);
+extern void   esl_vec_ICopy(const   int  *src, const int n, int *dest);
 
 extern int    esl_vec_DCompare(double *vec1, double *vec2, int n, double tol);
 extern int    esl_vec_FCompare(float *vec1, float *vec2, int n, float tol);

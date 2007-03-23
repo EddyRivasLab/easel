@@ -128,7 +128,7 @@ bracket(double *ori, double *d, int n, double firststep,
   fa = (*func)(ori, n, prm);
 
   bx = firststep;
-  esl_vec_DCopy(wrk, ori, n);
+  esl_vec_DCopy(ori, n, wrk);
   esl_vec_DAddScaled(wrk, d, bx, n);
   fb = (*func)(wrk, n, prm);
 
@@ -158,7 +158,7 @@ bracket(double *ori, double *d, int n, double firststep,
    * In many cases, we'll immediately be done.
    */
   cx = bx + (bx-ax)*1.618;
-  esl_vec_DCopy(wrk, ori, n);
+  esl_vec_DCopy(ori, n, wrk);
   esl_vec_DAddScaled(wrk, d, cx, n);
   fc = (*func)(wrk, n, prm);
   
@@ -175,7 +175,7 @@ bracket(double *ori, double *d, int n, double firststep,
       ax = bx; bx = cx;
       fa = fb; fb = fc;
       cx = bx+(bx-ax)*1.618;
-      esl_vec_DCopy(wrk, ori, n);
+      esl_vec_DCopy(ori, n, wrk);
       esl_vec_DAddScaled(wrk, d, cx, n);
       fc = (*func)(wrk, n, prm);
 
@@ -292,7 +292,7 @@ brent(double *ori, double *dir, int n,
   int    niter;			/* number of iterations */
 
   x=v=w= a + c*(b-a);           /* initial guess of x by golden section */
-  esl_vec_DCopy(xvec, ori, n);  /* build xvec from ori, dir, x */
+  esl_vec_DCopy(ori, n, xvec);  /* build xvec from ori, dir, x */
   esl_vec_DAddScaled(xvec, dir, x, n);
   fx=fv=fw = (*func)(xvec, n, prm);   /* initial function evaluation */
 
@@ -335,7 +335,7 @@ brent(double *ori, double *dir, int n,
       if      (fabs(d) >= tol) u = x+d;
       else if (d > 0)          u = x+tol;
       else                     u = x-tol;
-      esl_vec_DCopy(xvec, ori, n);  /* build xvec from ori, dir, u */
+      esl_vec_DCopy(ori, n, xvec);  /* build xvec from ori, dir, u */
       esl_vec_DAddScaled(xvec, dir, u, n);
       fu = (*func)(xvec, n, prm);   /* f(u) */
 
@@ -357,7 +357,7 @@ brent(double *ori, double *dir, int n,
 
   /* Return.
    */
-  esl_vec_DCopy(xvec, ori, n);  /* build final xvec from ori, dir, x */
+  esl_vec_DCopy(ori, n, xvec);  /* build final xvec from ori, dir, x */
   esl_vec_DAddScaled(xvec, dir, x, n);
   if (ret_x  != NULL) *ret_x  = x;
   if (ret_fx != NULL) *ret_fx = fx;
@@ -451,7 +451,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
     } 
   else numeric_derivative(x, u, n, func, prm, 1e-4, dx); /* resort to brute force */
 
-  esl_vec_DCopy(cg, dx, n);	/* and make that the first conjugate direction, cg  */
+  esl_vec_DCopy(dx, n, cg);	/* and make that the first conjugate direction, cg  */
 
   /* (failsafe) convergence test: a zero direction can happen, 
    * and it either means we're stuck or we're finished (most likely stuck)
@@ -482,7 +482,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        
        /* Minimize along the line given by the conjugate gradient <cg> */
        brent(x, cg, n, func, prm, ax, cx, 1e-3, 1e-8, w2, NULL, &fx);
-       esl_vec_DCopy(x, w2, n);
+       esl_vec_DCopy(w2, n, x);
 
       /* Bail out if the function is now +/-inf: this can happen if the caller
        * has screwed something up.
@@ -504,12 +504,12 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       coeff /= esl_vec_DDot(dx, dx, n);
       
       /* Calculate the next conjugate gradient direction in w2 */
-      esl_vec_DCopy(w2, w1, n);
+      esl_vec_DCopy(w1, n, w2);
       esl_vec_DAddScaled(w2, cg, coeff, n);
 
       /* Finishing set up for next iteration: */
-      esl_vec_DCopy(dx, w1, n);
-      esl_vec_DCopy(cg, w2, n);
+      esl_vec_DCopy(w1, n, dx);
+      esl_vec_DCopy(w2, n, cg);
 
       /* Now: x is the current point; 
        *      fx is the function value at that point;

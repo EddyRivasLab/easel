@@ -583,9 +583,9 @@ main(void)
   /* Make a copy of it - artificially testing the _Create() call.
    */
   if ((d2 = esl_mixdchlet_Create(d1->N, d1->K)) == NULL) esl_fatal("Failed to create mixture Dirichlet object");
-  esl_vec_DCopy(d2->pq, d1->pq, d1->N);
+  esl_vec_DCopy(d1->pq, d1->N, d2->pq);
   for (q = 0; q < d1->N; q++)
-    esl_vec_DCopy(d2->alpha[q], d1->alpha[q], d1->K);
+    esl_vec_DCopy(d1->alpha[q], d1->K, d2->alpha[q]);
 
   /* Sample from it.
    */

@@ -238,19 +238,19 @@ esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n)
  *            Essentially the same as BLAS1 xCOPY().
  */
 void
-esl_vec_DCopy(double *dest, double *src, int n)
+esl_vec_DCopy(const double *src, const int n, double *dest)
 {
   int x;
   for (x = 0; x < n; x++) dest[x] = src[x];
 }
 void
-esl_vec_FCopy(float *dest, float *src, int n)
+esl_vec_FCopy(const float *src, const int n, float *dest)
 {
   int x;
   for (x = 0; x < n; x++) dest[x] = src[x];
 }
 void
-esl_vec_ICopy(int *dest, int *src, int n)
+esl_vec_ICopy(const int *src, const int n, int *dest)
 {
   int x;
   for (x = 0; x < n; x++) dest[x] = src[x];
@@ -1040,7 +1040,7 @@ esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf)
   if (n == 0) return eslOK;
 
   ESL_ALLOC(expvec, sizeof(double)*n);
-  esl_vec_DCopy(expvec, vec, n);
+  esl_vec_DCopy(vec, n, expvec);
   esl_vec_DExp(expvec, n); 
   if ((status = esl_vec_DValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
   free(expvec);
@@ -1060,7 +1060,7 @@ esl_vec_FLogValidate(float *vec, int n, float tol, char *errbuf)
   if (n == 0) return eslOK;
 
   ESL_ALLOC(expvec, sizeof(float)*n);
-  esl_vec_FCopy(expvec, vec, n);
+  esl_vec_FCopy(vec, n, expvec);
   esl_vec_FExp(expvec, n); 
   if ((status = esl_vec_FValidate(expvec, n, tol, errbuf)) != eslOK) goto ERROR;
   free(expvec);
