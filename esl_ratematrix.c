@@ -485,6 +485,60 @@ esl_rmx_E2Q(ESL_DMATRIX *E, double *pi, ESL_DMATRIX *Q)
 }
 
 
+/* Function:  esl_rmx_RelativeEntropy()
+ * Incept:    SRE, Fri Mar 23 09:18:26 2007 [Janelia]
+ *
+ * Purpose:   Given a conditional substitution probability matrix <P>,
+ *            with stationary probabilities <pi>, calculate its
+ *            relative entropy $H$:
+ *            
+ *               $H_t = \sum_{ij} P(j \mid i,t) \pi_i \log_2 \frac{P(j \mid i,t)} {\pi_j}$
+ *               
+ *            This assumes that the stationary probabilities are the
+ *            same as the background (null model) probabilities.   
+ *
+ * Returns:   the relative entropy, $H$, in bits
+ */
+double
+esl_rmx_RelativeEntropy(ESL_DMATRIX *P, double *pi)
+{
+  double H = 0.;
+  int    i,j;
+
+  for (i = 0; i < P->m; i++)
+    for (j = 0; j < P->n; j++)
+      H += P->mx[i][j] * pi[i] * log(P->mx[i][j] / pi[j]);
+  return H / eslCONST_LOG2;
+}
+  
+/* Function:  esl_rmx_ExpectedScore()
+ * Incept:    SRE, Fri Mar 23 09:32:05 2007 [Janelia]
+ *
+ * Purpose:   Given a conditional substitution probability matrix <P>
+ *            with stationary probabilities <pi>, calculate its
+ *            expected score:
+ *            
+ *               $ = \sum_{ij} \pi_j \pi_i \log_2 \frac{P(j \mid i,t)} {\pi_j}$
+ *               
+ *            This assumes that the stationary probabilities are the
+ *            same as the background (null model) probabilities.   
+ *
+ * Returns:   the expected score, in bits
+ */
+double
+esl_rmx_ExpectedScore(ESL_DMATRIX *P, double *pi)
+{
+  double S = 0.;
+  int    i,j;
+
+  for (i = 0; i < P->m; i++)
+    for (j = 0; j < P->n; j++)
+      S += pi[j] * pi[i] * log(P->mx[i][j] / pi[j]);
+  return S / eslCONST_LOG2;
+}
+
+
+
 
 /*****************************************************************
  * 4. Benchmark driver
