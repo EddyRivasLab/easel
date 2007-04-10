@@ -1,7 +1,6 @@
-/* ratematrix.h
- * Header for evolutionary rate matrix routines in ratemx.c
+/* Routines for manipulating evolutionary rate matrices.
  * 
- * SRE, Tue Jul 13 16:09:05 2004 [St. Louos]
+ * SRE, Tue Jul 13 16:09:05 2004 [St. Louis]
  * SVN $Id$
  */
 #ifndef ESL_RATEMATRIX_INCLUDED

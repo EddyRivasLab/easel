@@ -406,17 +406,18 @@ esl_strcat(char **dest, int ldest, char *src, int lsrc)
 /* Function: esl_strtok()
  * Date:     SRE, Wed May 19 16:30:20 1999 [St. Louis]
  *
- * Purpose:  Thread-safe version of strtok(), for parsing next token
- *           in a string. Skips until it reaches a character that is
- *           not in <delim> to set the beginning of the
- *           token. Skips to next delim character (or <NUL>) to set the
- *           end, and replaces that character with <NUL>. <*s> is then
- *           reset to point to the next character after
- *           the <NUL> that was written, so successive calls can extract
- *           tokens in succession. Sets <*ret_tok> to point at the
- *           beginning of the token, and <*ret_token> to the number
- *           of characters in the token (exclusive of the <NUL>), and
- *           returns <eslOK>.
+ * Purpose: Thread-safe version of strtok() for parsing next token in
+ *           a string. Increments <*s> while <**s> is a character in
+ *           <delim>, then stops; the first non-<delim> character
+ *           defines the beginning of a token. Increments <*s> until it
+ *           reaches the next delim character (or <NUL>); this defines
+ *           the end of the token, and this character is replaced with
+ *           <NUL>. <*s> is then reset to point to the next character
+ *           after the <NUL> that was written, so successive calls can
+ *           extract tokens in succession. Sets <*ret_tok> to point at
+ *           the beginning of the token, and <*ret_token> to the
+ *           number of characters in the token (exclusive of the
+ *           <NUL>), and returns <eslOK>.
  *            
  *           If a token is not found -- if <*s> already points to
  *           <NUL>, or is a string composed entirely of characters in

@@ -1,12 +1,10 @@
-/* esl_minimizer.h
- * Multidimensional optimization by conjugate gradient descent.
+/* Multidimensional optimization by conjugate gradient descent.
  * 
  * SRE, Wed Jun 22 09:53:05 2005
  * SVN $Id$
  */
-
-
 #ifndef ESL_MINIMIZER_INCLUDED
+#define ESL_MINIMIZER_INCLUDED
 
 #define MAXITERATIONS 100
 
