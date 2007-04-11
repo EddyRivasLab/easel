@@ -35,6 +35,7 @@ HEADERS = \
 	esl_random.h\
 	esl_ratematrix.h\
 	esl_regexp.h\
+	esl_rootfinder.h\
 	esl_scorematrix.h\
 	esl_sqio.h\
 	esl_ssi.h\
@@ -71,6 +72,7 @@ OBJS    = \
 	esl_random.o\
 	esl_ratematrix.o\
 	esl_regexp.o\
+	esl_rootfinder.o\
 	esl_scorematrix.o\
 	esl_sqio.o\
 	esl_ssi.o\
