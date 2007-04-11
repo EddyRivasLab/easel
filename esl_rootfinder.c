@@ -1,5 +1,13 @@
 /* Finding roots.
  * 
+ * Contents:
+ *   1. The ESL_ROOTFINDER object.
+ *   2. One-dimensional root finding.
+ *   3. Unit tests.
+ *   4. Test driver.
+ *   5. Examples.
+ *   6. Copyright and license information.
+ * 
  * SRE, Fri Apr  6 09:14:13 2007 [Janelia]
  * SVN $Id$
  */
@@ -13,6 +21,35 @@
  * 1. The ESL_ROOTFINDER object.
  *****************************************************************/
 
+/* Function:  esl_rootfinder_CreateBracketer()
+ * Synopsis:  Creates ESL_ROOTFINDER for bisection method.
+ * Incept:    SRE, Tue Apr 10 19:54:09 2007 [Janelia]
+ *
+ * Purpose:   Create a bisection rootfinder that will find a value x in
+ *            the open interval <xl..xr> such that $f(x) = 0$, where a
+ *            pointer to the function $f(x)$ is passed as <func()>.
+ *            
+ *            Caller provides a <func()> that takes two arguments:
+ *            <x>, and a void pointer to any additional parameters that
+ *            $f(x)$ depends on; it returns $f(x)$. 
+ *            
+ *            Caller is responsible for being sure that a root
+ *            actually exists in the open interval <xl..xr>.
+ *            
+ *            The bisection method may be slow, but it is guaranteed
+ *            to converge to the root, provided that the brackets
+ *            enclose one.
+ *
+ * Args:      (*func)() - ptr to function that evaluates f(x)
+ *            params    - ptr to parameters to be passed to (*func)()
+ *            xl,xr     - interval to seek root x in
+ *
+ * Returns:   pointer to a new ESL_ROOTFINDER structure.
+ *
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINVAL> if <xl..xr> cannot bracket a root because $f(x_l)$
+ *            $f(x_r)$ have the same sign.
+ */
 ESL_ROOTFINDER *
 esl_rootfinder_CreateBracketer(double (*func)(double, void*), void *params, double xl, double xr)
 {
@@ -48,6 +85,37 @@ esl_rootfinder_CreateBracketer(double (*func)(double, void*), void *params, doub
 }
 
 
+/* Function:  esl_rootfinder_CreatePolisher()
+ * Synopsis:  Creates ESL_ROOTFINDER for Newton/Raphson method.
+ * Incept:    SRE, Tue Apr 10 20:47:42 2007 [Janelia]
+ *
+ * Purpose:   Create a Newton/Raphson rootfinder that will find 
+ *            a root of a function $f(x) = 0$ using first derivative
+ *            information and an initial guess at the root $x$. 
+ *            
+ *            Caller provides a pointer <*fdf()> to a function that
+ *            takes four arguments. The first two are the current <x>
+ *            value, and a void pointer to any additional parameters
+ *            that $f(x)$ depends on. <*fdf()> calculates the function
+ *            $f(x)$ and the derivative $f'(x)$ and returns them
+ *            through the remaining two arguments.
+ *            
+ *            The Newton/Raphson algorithm is not guaranteed to
+ *            succeed. Caller needs to worry about this, and should
+ *            provide an initial guess for $x$ that is "suitably
+ *            close" to the root: hence the name "polisher" for this
+ *            sort of root finding.
+ *
+ * Args:      (*fdf)() - ptr to function that returns f(x) and f'(x)
+ *            params   - ptr to parameters to be passed to (*fdf)()
+ *            guess    - initial guess 
+ *
+ * Returns:   
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      
+ */
 ESL_ROOTFINDER *
 esl_rootfinder_CreatePolisher(void (*fdf)(double, void*, double*, double*), void *params, double guess)
 {
@@ -273,4 +341,3 @@ int main(void)
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/
-
