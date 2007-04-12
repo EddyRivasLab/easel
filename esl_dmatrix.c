@@ -4,13 +4,17 @@
  * ESL_PERMUTATION (permutation matrix) objects.
  * 
  * Table of contents:
- *   1. The ESL_DMATRIX object.
- *   2. Debugging/validation code for ESL_DMATRIX.
- *   3. The ESL_PERMUTATION object.
- *   4. Debugging/validation code for ESL_PERMUTATION.
- *   5. The rest of the dmatrix API.
- *   6. Optional: Interoperability with GSL.
+ *   1. The ESL_DMATRIX object
+ *   2. Debugging/validation code for ESL_DMATRIX
+ *   3. The ESL_PERMUTATION object
+ *   4. Debugging/validation code for ESL_PERMUTATION
+ *   5. The rest of the dmatrix API
+ *   6. Optional: Interoperability with GSL
  *   7. Optional: Interfaces to LAPACK
+ *   8. Unit tests
+ *   9. Test driver
+ *  10. Examples
+ *  11. Copyright and license 
  *
  * To do:
  *   - eventually probably want additional matrix types
@@ -1018,10 +1022,10 @@ esl_dmx_Invert(const ESL_DMATRIX *A, ESL_DMATRIX *Ai)
 
   /* Copy A to LU, and do an LU decomposition.
    */
-  if ((LU = esl_dmatrix_Create(A->n, A->m)) == NULL) goto ERROR;
-  if ((P  = esl_permutation_Create(A->n))   == NULL) goto ERROR;
-  esl_dmatrix_Copy(A, LU);
-  esl_dmx_LUP_decompose(LU, P);
+  if ((LU = esl_dmatrix_Create(A->n, A->m)) == NULL)  goto ERROR;
+  if ((P  = esl_permutation_Create(A->n))   == NULL)  goto ERROR;
+  if ( esl_dmatrix_Copy(A, LU)              != eslOK) goto ERROR;
+  if ( esl_dmx_LUP_decompose(LU, P)         != eslOK) goto ERROR;
 
   /* Now we have:
    *   PA = LU
@@ -1260,38 +1264,64 @@ esl_dmx_Diagonalize(const ESL_DMATRIX *A, double **ret_Er, double **ret_Ei,
 #endif /*HAVE_LIBLAPACK*/
 
 /*****************************************************************
- * Unit tests
+ * 8. Unit tests
  *****************************************************************/ 
 #ifdef eslDMATRIX_TESTDRIVE
 
-static void
-utest_Copy(void)
+static void 
+utest_misc_ops(void)
 {
-  int          n = 10;
-  ESL_DMATRIX *G, *G2;
-  ESL_DMATRIX *U;
-  int          i;
+  char *msg = "miscellaneous unit test failed";
+  ESL_DMATRIX *A, *B, *C;
+  int  n = 20;
 
-  /* Set a simple matrix with values 1..n*n
-   */
-  G = esl_dmatrix_Create(n,n);
-  for (i = 0; i < n*n; i++) G->mx[0][i] = i;
-
-  G2 = esl_dmatrix_Create(n,n);
+  if ((A = esl_dmatrix_Create(n,n)) == NULL) esl_fatal(msg);
+  if ((B = esl_dmatrix_Create(n,n)) == NULL) esl_fatal(msg);
+  if ((C = esl_dmatrix_Create(n,n)) == NULL) esl_fatal(msg);
   
-  /* SRE STOPPED HERE */
-  U = esl_dmatrix_CreateUpper(n);
+  if (esl_dmatrix_SetIdentity(A)    != eslOK) esl_fatal(msg);   /* A=I */
+  if (esl_dmx_Invert(A, B)          != eslOK) esl_fatal(msg);	/* B=I^-1=I */
+  if (esl_dmx_Multiply(A,B,C)       != eslOK) esl_fatal(msg);	/* C=I */
+  if (esl_dmx_Transpose(A)          != eslOK) esl_fatal(msg);   /* A=I still */
 
+  if (esl_dmx_Scale(A, 0.5)         != eslOK) esl_fatal(msg);	/* A= 0.5I */
+  if (esl_dmx_AddScale(B, -0.5, C)  != eslOK) esl_fatal(msg);	/* B= 0.5I */
   
+  if (esl_dmx_Add(A,B)              != eslOK) esl_fatal(msg);	/* A=I */
+  if (esl_dmx_Scale(B, 2.0)         != eslOK) esl_fatal(msg);	/* B=I */
+  
+  if (esl_dmatrix_Compare(A, B, 1e-12) != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_Compare(A, C, 1e-12) != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_Copy(B, C)           != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_Compare(A, C, 1e-12) != eslOK) esl_fatal(msg);
+
+  esl_dmatrix_Destroy(A);
+  esl_dmatrix_Destroy(B);
+  esl_dmatrix_Destroy(C);
+  return;
 }
-  
+
 
 static void
-utest_Exp()
+utest_Invert(ESL_DMATRIX *A)
 {
-  
-  
+  char *msg = "Failure in matrix inversion unit test";
+  ESL_DMATRIX *Ai = NULL;
+  ESL_DMATRIX *B  = NULL;
+  ESL_DMATRIX *I  = NULL;
 
+  if ((Ai = esl_dmatrix_Create(A->n, A->m)) == NULL)  esl_fatal(msg);
+  if ((B  = esl_dmatrix_Create(A->n, A->m)) == NULL)  esl_fatal(msg);
+  if ((I  = esl_dmatrix_Create(A->n, A->m)) == NULL)  esl_fatal(msg);
+  if (esl_dmx_Invert(A, Ai)                 != eslOK) esl_fatal("matrix inversion failed");
+  if (esl_dmx_Multiply(A,Ai,B)              != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_SetIdentity(I)            != eslOK) esl_fatal(msg);
+  if (esl_dmatrix_Compare(B,I, 1e-12)       != eslOK) esl_fatal("inverted matrix isn't right");
+  
+  esl_dmatrix_Destroy(Ai);
+  esl_dmatrix_Destroy(B);
+  esl_dmatrix_Destroy(I);
+  return;
 }
 
 
@@ -1300,49 +1330,44 @@ utest_Exp()
 
 
 /*****************************************************************
- * Test driver
+ * 9. Test driver
  *****************************************************************/ 
 
-/*   gcc -g -Wall -o testdriver -I. -L. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
+/*   gcc -g -Wall -o test -I. -L. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
  */
 #ifdef eslDMATRIX_TESTDRIVE
 #include <easel.h>
 #include <esl_dmatrix.h>
+#include <esl_random.h>
 
 int main(void)
 {
-  ESL_DMATRIX *A, *B, *C;
+  ESL_RANDOMNESS *r;
+  ESL_DMATRIX *A;
+  int          n    = 30;
+  int          seed = 42;
+  int          i,j;
+  double       range = 100.;
 
-  A = esl_dmatrix_Create(4,4);
-  B = esl_dmatrix_Create(4,4);
-  C = esl_dmatrix_Create(4,4);
-  
-  esl_dmatrix_SetIdentity(A);   /* A=I */
-  esl_dmx_Invert(A, B);		/* B=I-1=I */
-  esl_dmx_Multiply(A,B,C);	/* C=I */
-  esl_dmx_Transpose(A);         /* A=I still */
+  /* Create a square matrix with random values from  -range..range */
+  if ((r = esl_randomness_Create(seed)) == NULL) esl_fatal("failed to create random source");
+  if ((A = esl_dmatrix_Create(n, n))    == NULL) esl_fatal("failed to create matrix");
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++)
+      A->mx[i][j] = esl_random(r) * range * 2.0 - range;
 
-  esl_dmx_Scale(A, 0.5);	/* A= 0.5I */
-  esl_dmx_AddScale(B, -0.5, C);	/* B= 0.5I */
-  
-  esl_dmx_Add(A,B);		/* A=I */
-  esl_dmx_Scale(B, 2.0);	/* B=I */
+  utest_misc_ops();
+  utest_Invert(A);
 
-  if (esl_dmatrix_Compare(A, B, 1e-6) != eslOK) esl_fatal("A != B");
-  if (esl_dmatrix_Compare(A, C, 1e-6) != eslOK) esl_fatal("A != C");
-  esl_dmatrix_Copy(B, C);
-  if (esl_dmatrix_Compare(A, C, 1e-6) != eslOK) esl_fatal("A != copied B");    
-
+  esl_randomness_Destroy(r);
   esl_dmatrix_Destroy(A);
-  esl_dmatrix_Destroy(B);
-  esl_dmatrix_Destroy(C);
   return 0;
 }
 #endif /*eslDMATRIX_TESTDRIVE*/
 
 
 /*****************************************************************
- * Example code
+ * 10. Examples
  *****************************************************************/ 
 
 /*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm

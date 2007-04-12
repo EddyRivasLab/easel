@@ -1026,10 +1026,15 @@ esl_tmpfile_named(char *template, FILE **ret_fp)
 /* Function:  esl_DCompare()
  * Incept:    SRE, Mon Nov  6 10:11:47 2006 [Janelia]
  *
- * Purpose:   Compare two floating point scalars <a> and <b> for equality.
- *            Equality is defined by being within a fractional tolerance <tol>,
- *            as <fabs(a-b)/(a+b)> $\leq$ <tol>. Return <eslOK> if equal,
- *            <eslFAIL> if not.
+ * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
+ *            Return <eslOK> if equal, <eslFAIL> if not.
+ *            
+ *            Equality is defined by being within a relative
+ *            epsilon <tol>, as <2*fabs(a-b)/(a+b)> $\leq$ <tol>.
+ *            Additionally, we catch the special cases where <a>
+ *            and/or <b> are 0 or -0. If both are, return <eslOK>; if
+ *            one is, check that the absolute value of the other is
+ *            $\leq$ <tol>.
  *            
  *            <esl_DCompare()> and <esl_FCompare()> work on <double> and <float>
  *            scalars, respectively.
@@ -1037,15 +1042,19 @@ esl_tmpfile_named(char *template, FILE **ret_fp)
 int
 esl_DCompare(double a, double b, double tol)
 {
-  if (a == b)                   return eslOK;	/* includes a+b=0 case */
-  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+  if (a == b)                               return eslOK;
+  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
+  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
+  if (2.*fabs(a-b) / (a+b) <= tol)          return eslOK;
   return eslFAIL;
 }
 int
 esl_FCompare(float a, float b, float tol)
-{
-  if (a == b)                   return eslOK;	/* includes a+b=0 case */
-  if (fabs(a-b) / (a+b) <= tol) return eslOK;
+{ 
+  if (a == b)                               return eslOK;
+  if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
+  if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
+  if (2.*fabs(a-b) / (a+b) <= tol)          return eslOK;
   return eslFAIL;
 }
 /*-------------- end, scalar math convenience --------------------*/

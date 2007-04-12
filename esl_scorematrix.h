@@ -7,6 +7,8 @@
 #define ESL_SCOREMATRIX_INCLUDED
 
 #include <esl_alphabet.h>
+#include <esl_dmatrix.h>
+#include <esl_random.h>
 
 /* 
  * allocation is in one array in s[0].
@@ -21,7 +23,7 @@ typedef struct {
 
   /* bookkeeping for degenerate residues */
   char *isval;			/* 0..Kp-1: which residues of alphabet have valid scores in S. */
-  ESL_ALPHABET *abc_r;		/* reference to the alphabet: includes K, Kp, and sym order */
+  const ESL_ALPHABET *abc_r;	/* reference to the alphabet: includes K, Kp, and sym order */
 
   /* bookkeeping that lets us output exactly the residue order we read in a matrix file */
   int   nc;			/* number of residues with scores (inclusive of *, if present) */
@@ -35,19 +37,24 @@ typedef struct {
 
 
 /* 1. The ESL_SCOREMATRIX object. */
-extern ESL_SCOREMATRIX *esl_scorematrix_Create(ESL_ALPHABET *abc);
+extern ESL_SCOREMATRIX *esl_scorematrix_Create(const ESL_ALPHABET *abc);
 extern int              esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S);
+extern int              esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t);
 extern int              esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_DMATRIX *P,
 						     const double *fi, const double *fj);
 extern int              esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2);
+extern int              esl_scorematrix_Max(const ESL_SCOREMATRIX *S);
+extern int              esl_scorematrix_Min(const ESL_SCOREMATRIX *S);
 extern void             esl_scorematrix_Destroy(ESL_SCOREMATRIX *S);
 
 /* 2. Reading/writing score matrices. */
 extern int  esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCOREMATRIX **ret_S);
-extern int  esl_scorematrix_Write(FILE *fp, ESL_SCOREMATRIX *S);
+extern int  esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S);
 
 /* 3. Interpreting score matrices probabilistically. */
-extern int  esl_scorematrix_ReverseEngineer(ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda);
+extern int esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const int lambda, ESL_DMATRIX *P);
+extern int esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, double *ret_lambda);
+extern int esl_scorematrix_ReverseEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda);
 
 
 #endif /*ESL_SCOREMATRIX_INCLUDED*/
