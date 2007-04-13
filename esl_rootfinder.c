@@ -11,6 +11,7 @@
  * SRE, Fri Apr  6 09:14:13 2007 [Janelia]
  * SVN $Id$
  */
+#include <esl_config.h>
 
 #include <math.h>
 
@@ -42,7 +43,7 @@
  * Args:      (*func)() - ptr to function that evaluates f(x)
  *            params    - ptr to parameters to be passed to (*func)()
  *
- * Returns:   pointer to a new ESL_ROOTFINDER structure.
+ * Returns:   pointer to a new <ESL_ROOTFINDER> structure.
  *
  * Throws:    <NULL> on allocation failure.
  */

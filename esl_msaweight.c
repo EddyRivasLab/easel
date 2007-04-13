@@ -611,7 +611,7 @@ main(int argc, char **argv)
  * To run: 
  *     ./regression <MSA file>
  *     
- * It's essential to recompiling esl_msacluster under the eslMSAWEIGHT_REGRESSION flag
+ * It's essential to recompile esl_msacluster under the eslMSAWEIGHT_REGRESSION flag
  * too, because some squid compatibility code needs to get compiled in.
  *
  * Script for regression testing on Pfam:

@@ -6,6 +6,8 @@
 #ifndef ESL_ROOTFINDER_INCLUDED
 #define ESL_ROOTFINDER_INCLUDED
 
+#include <esl_config.h>
+
 typedef struct {
   int   (*func)(double, void*, double*);
   int   (*fdf) (double, void*, double*, double*);

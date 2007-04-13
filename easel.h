@@ -27,8 +27,6 @@
  * ESL_XFAIL()      - return an error message, with cleanup.
  * ESL_EXCEPTION()  - throwing an exception, without cleanup.
  * ESL_XEXCEPTION() - throwing an exception, with cleanup.
- * ESL_FWD()        - percolate an exception outwards, without cleanup.
- * ESL_XFWD()       - percolate an exception outwards, with cleanup.
  * 
  * The X versions (with cleanup) require the caller to have an
  * <int status> variable and a <ERROR:> goto target in scope.
@@ -60,17 +58,6 @@
      esl_exception(code, __FILE__, __LINE__, __VA_ARGS__);\
      goto ERROR; }\
      while (0)
-
-#define ESL_FWD(code)  do {\
-     esl_exception(code, __FILE__, __LINE__, "[percolated]");\
-     return code; }\
-     while (0);
-
-#define ESL_XFWD(code) do {\
-     status = code;\
-     esl_exception(code, __FILE__, __LINE__, "[percolated]");\
-     goto ERROR; }\
-     while (0);
 /*::cexcerpt::error_macros::end::*/
 
 
@@ -159,49 +146,7 @@
 #define ESL_DASSERT3(x)
 #endif
 
-
-typedef void (*esl_exception_handler_f)(int code, char *file, int line,
-					char *format, va_list argp);
-
-extern void esl_exception(int code, char *file, int line, char *format, ...);
-extern void esl_exception_SetHandler(esl_exception_handler_f);
-extern void esl_exception_ResetDefaultHandler(void);
-extern void esl_fatal(char *format, ...);
-extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
-
-extern void esl_Free2D(void  **p, int dim1);
-extern void esl_Free3D(void ***p, int dim1, int dim2);
-
-extern void esl_banner(FILE *fp, char *banner);
-
-extern int  esl_DCompare(double a, double b, double tol);
-extern int  esl_FCompare(float  a, float  b, float  tol);
-
-extern int  esl_strdup(char *s, int n, char **ret_dup);
-extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
-extern int  esl_fgets(char **buf, int *n, FILE *fp);
-extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
-extern int  esl_strchop(char *s, int n);
-#ifndef HAVE_STRCASECMP
-#ifdef _MSC_VER
-#define strcasecmp stricmp
-#else
-extern int  esl_strcasecmp(const char *s1, const char *s2);
-#define strcasecmp esl_strcasecmp
-#endif
-#endif
-
-extern int  esl_FileExists(char *filename);
-extern int  esl_FileTail(char *path, int nosuffix, char **ret_file);
-extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
-extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
-extern int  esl_FileEnvOpen(char *fname, char *env,
-			    FILE **ret_fp, char **ret_path);
-extern int  esl_tmpfile(char *template, FILE **ret_fp);
-extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
-
-/* Making sure TRUE/FALSE are defined, for convenience
- */
+/* Making sure TRUE/FALSE are defined, for convenience */
 #ifndef TRUE
 #define TRUE 1
 #endif
@@ -297,5 +242,57 @@ typedef uint8_t ESL_DSQ;
 #define ESL_SWAP(x, y, type)  do { type tmpxyz = (x); (x) = (y); (y) = tmpxyz; } while (0)
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
+
+
+/* 1. Error handling. */
+typedef void (*esl_exception_handler_f)(int code, char *file, int line,
+					char *format, va_list argp);
+extern void esl_exception(int code, char *file, int line, char *format, ...);
+extern void esl_exception_SetHandler(esl_exception_handler_f);
+extern void esl_exception_ResetDefaultHandler(void);
+extern void esl_fatal(char *format, ...);
+extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
+
+/* 2. Memory allocation/deallocation conventions. */
+extern void esl_Free2D(void  **p, int dim1);
+extern void esl_Free3D(void ***p, int dim1, int dim2);
+
+/* 3. Standard banner for Easel miniapplications. */
+extern void esl_banner(FILE *fp, char *banner);
+
+/* 4. Replacements for C library functions */
+extern int  esl_strdup(char *s, int n, char **ret_dup);
+extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
+extern int  esl_fgets(char **buf, int *n, FILE *fp);
+extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+extern int  esl_strchop(char *s, int n);
+#ifndef HAVE_STRCASECMP
+#ifdef _MSC_VER
+#define strcasecmp stricmp
+#else
+extern int  esl_strcasecmp(const char *s1, const char *s2);
+#define strcasecmp esl_strcasecmp
+#endif
+#endif
+
+/* 5. File path/name manipulation functions, including tmpfiles */
+extern int  esl_FileExists(char *filename);
+extern int  esl_FileTail(char *path, int nosuffix, char **ret_file);
+extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
+extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
+extern int  esl_FileEnvOpen(char *fname, char *env,
+			    FILE **ret_fp, char **ret_path);
+extern int  esl_tmpfile(char *template, FILE **ret_fp);
+extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
+
+/* 6. Some scalar math convenience functions. */
+extern int  esl_DCompare(double a, double b, double tol);
+extern int  esl_FCompare(float  a, float  b, float  tol);
+
+/* 7. Commonly used background composition (iid) frequencies. */
+extern int  esl_composition_BL62(double *f);
+extern int  esl_composition_WAG(double *f);
+extern int  esl_composition_SW34(double *f);
+
 
 #endif /*eslEASEL_INCLUDED*/

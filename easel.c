@@ -7,10 +7,11 @@
  *    4. Replacements for some C library functions.
  *    5. File path/name manipulation, including tmpfiles.
  *    6. Some scalar math convenience functions.
- *    7. Unit tests [need to be written]
- *    8. Test driver [needs to be written]
- *    9. Examples. [need to be written]
- *   10. Copyright and license. 
+ *    7. Commonly used background composition (iid) frequencies.
+ *    8. Unit tests [need to be written]
+ *    9. Test driver [needs to be written]
+ *   10. Examples. [need to be written]
+ *   11. Copyright and license. 
  * 
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  * SVN $Id$
@@ -1063,7 +1064,127 @@ esl_FCompare(float a, float b, float tol)
 
 
 /*****************************************************************
- * 7. Unit tests.
+ * 7. Commonly used background composition (iid) frequencies. 
+ *****************************************************************/
+
+/* Function:  esl_composition_BL62()
+ * Incept:    SRE, Fri Apr 13 16:00:34 2007 [Janelia]
+ *
+ * Purpose:   Sets <f> to the background frequencies used in
+ *            \citep{Henikoff92} to calculate the BLOSUM62
+ *            substitution matrix. Caller provides space in <f>
+ *            allocated for at least 20 doubles.  The entries are in
+ *            alphabetic order A..Y, same as the standard Easel amino
+ *            acid alphabet order.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_composition_BL62(double *f)
+{
+  f[0]  = 0.074;
+  f[1]  = 0.025;
+  f[2]  = 0.054;
+  f[3]  = 0.054;
+  f[4]  = 0.047;
+  f[5]  = 0.074;
+  f[6]  = 0.026;
+  f[7]  = 0.068;
+  f[8]  = 0.058;
+  f[9]  = 0.099;
+  f[10] = 0.025;
+  f[11] = 0.045;
+  f[12] = 0.039;
+  f[13] = 0.034;
+  f[14] = 0.052;
+  f[15] = 0.057;
+  f[16] = 0.051;
+  f[17] = 0.073;
+  f[18] = 0.013;
+  f[19] = 0.032;
+  return eslOK;
+}
+
+/* Function:  esl_composition_WAG()
+ * Incept:    SRE, Fri Apr 13 16:02:48 2007 [Janelia]
+ *
+ * Purpose:   Sets <f> to the background frequencies used in
+ *            \citep{WhelanGoldman01} to calculate the WAG rate
+ *            matrix. Caller provides space in <f> allocated for at
+ *            least 20 doubles.  The entries are in alphabetic order
+ *            A..Y, same as the standard Easel amino acid alphabet
+ *            order.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_composition_WAG(double *f)
+{
+  f[0]  = 0.086628;                     /* A */
+  f[1]  = 0.019308;	                /* C */
+  f[2]  = 0.057045;	                /* D */
+  f[3]  = 0.058059;	                /* E */
+  f[4]  = 0.038432;	                /* F */
+  f[5]  = 0.083252;	                /* G */
+  f[6]  = 0.024431;	                /* H */
+  f[7]  = 0.048466;	                /* I */
+  f[8]  = 0.062029;	                /* K */
+  f[9]  = 0.086209;	                /* L */
+  f[10] = 0.019503;	                /* M */
+  f[11] = 0.039089;	                /* N */
+  f[12] = 0.045763;	                /* P */
+  f[13] = 0.036728;	                /* Q */
+  f[14] = 0.043972;	                /* R */
+  f[15] = 0.069518;	                /* S */
+  f[16] = 0.061013;	                /* T */
+  f[17] = 0.070896;	                /* V */
+  f[18] = 0.014386;	                /* W */
+  f[19] = 0.035274;	                /* Y */
+  return eslOK;
+}
+
+/* Function:  esl_composition_SW34()
+ * Incept:    SRE, Fri Apr 13 16:03:46 2007 [Janelia]
+ *
+ * Purpose:   Sets <f> to the background frequencies observed in
+ *            Swissprot release 34 (21.2M residues).  Caller provides
+ *            space in <f> allocated for at least 20 doubles.  The
+ *            entries are in alphabetic order A..Y, same as the
+ *            standard Easel amino acid alphabet order.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_composition_SW34(double *f)
+{
+  f[0]  = 0.075520;                     /* A */
+  f[1]  = 0.016973;                     /* C */
+  f[2]  = 0.053029;                     /* D */
+  f[3]  = 0.063204;                     /* E */
+  f[4]  = 0.040762;                     /* F */
+  f[5]  = 0.068448;                     /* G */
+  f[6]  = 0.022406;                     /* H */
+  f[7]  = 0.057284;                     /* I */
+  f[8]  = 0.059398;                     /* K */
+  f[9]  = 0.093399;                     /* L */
+  f[10] = 0.023569;                     /* M */
+  f[11] = 0.045293;                     /* N */
+  f[12] = 0.049262;                     /* P */
+  f[13] = 0.040231;                     /* Q */
+  f[14] = 0.051573;                     /* R */
+  f[15] = 0.072214;                     /* S */
+  f[16] = 0.057454;                     /* T */
+  f[17] = 0.065252;                     /* V */
+  f[18] = 0.012513;                     /* W */
+  f[19] = 0.031985;                     /* Y */
+  return eslOK;
+}
+/*-------------- end, background compositions -------------------*/
+
+
+
+/*****************************************************************
+ * 8. Unit tests.
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
 
@@ -1090,7 +1211,7 @@ utest_tmpfile_named(void)
 
 
 /*****************************************************************
- * 8. Test driver.
+ * 9. Test driver.
  *****************************************************************/
 
 #ifdef eslEASEL_TESTDRIVE
@@ -1112,7 +1233,7 @@ int main(void)
 #endif /*eslEASEL_TESTDRIVE*/
 
 /*****************************************************************
- * 9. Examples.
+ * 10. Examples.
  *****************************************************************/
 
 #ifdef eslEASEL_EXAMPLE2

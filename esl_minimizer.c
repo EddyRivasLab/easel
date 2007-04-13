@@ -393,7 +393,7 @@ brent(double *ori, double *dir, int n,
  *
  *            Iterations continue until the objective function has changed
  *            by less than a fraction <tol>. This should not be set to less than
- *            sqrt(DBL_EPSILON). 
+ *            sqrt(<DBL_EPSILON>). 
  *
  *            Upon return, <x> is the minimum, and <ret_fx> is f(x),
  *            the function value at <x>.

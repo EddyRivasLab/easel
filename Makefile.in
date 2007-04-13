@@ -31,6 +31,7 @@ HEADERS = \
 	esl_msa.h\
 	esl_msacluster.h\
 	esl_msaweight.h\
+	esl_normal.h\
 	esl_paml.h\
 	esl_random.h\
 	esl_ratematrix.h\
@@ -43,6 +44,7 @@ HEADERS = \
 	esl_stats.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
+	esl_swat.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_weibull.h\
@@ -68,6 +70,7 @@ OBJS    = \
 	esl_msa.o\
 	esl_msacluster.o\
 	esl_msaweight.o\
+	esl_normal.o\
 	esl_paml.o\
 	esl_random.o\
 	esl_ratematrix.o\
@@ -80,6 +83,7 @@ OBJS    = \
 	esl_stats.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
+	esl_swat.o\
 	esl_tree.o\
 	esl_vectorops.o\
 	esl_weibull.o\

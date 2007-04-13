@@ -404,22 +404,22 @@ esl_tree_RenumberNodes(ESL_TREE *T)
    *         construct map[old] -> new.
    */
   ESL_ALLOC(map, sizeof(int) * (T->N-1));
-  if (( vs = esl_stack_ICreate()) == NULL) ESL_XFWD(eslEMEM);
-  if (esl_stack_IPush(vs, 0) != eslOK)     ESL_XFWD(eslEMEM);
+  if (( vs = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; };
+  if (esl_stack_IPush(vs, 0) != eslOK)     { status = eslEMEM; goto ERROR; };
   new = 0;
   while (esl_stack_IPop(vs, &v) == eslOK)
     {
       if (v != new) needs_rearranging = TRUE;
       map[v] = new++;
-      if (T->right[v] > 0 && esl_stack_IPush(vs, T->right[v]) != eslOK) ESL_XFWD(eslEMEM);
-      if (T->left[v]  > 0 && esl_stack_IPush(vs, T->left[v])  != eslOK) ESL_XFWD(eslEMEM);
+      if (T->right[v] > 0 && esl_stack_IPush(vs, T->right[v]) != eslOK) { status = eslEMEM; goto ERROR; };
+      if (T->left[v]  > 0 && esl_stack_IPush(vs, T->left[v])  != eslOK) { status = eslEMEM; goto ERROR; };
     }
   if (! needs_rearranging) { status = eslOK; goto ERROR; } /* not an error; just cleaning up & returning eslOK. */
 
   /* Pass 2. Construct the guts of correctly numbered new T2.
    *         (traversal order doesn't matter here)
    */
-  if (( T2 = esl_tree_Create(T->nalloc)) == NULL) ESL_XFWD(eslEMEM);
+  if (( T2 = esl_tree_Create(T->nalloc)) == NULL) { status = eslEMEM; goto ERROR; };
   T2->N = T->N;
   if (T->nodelabel   != NULL) {
     ESL_ALLOC(T2->nodelabel,   sizeof(char *) * (T2->nalloc-1));
@@ -1005,7 +1005,7 @@ newick_parse_quoted_label(FILE *fp, char *buf, int *pos, int *nc, char **ret_lab
   ESL_ALLOC(label, sizeof(char) * nalloc);
 
   /* advance past the opening ' */
-  if (buf[*pos] != '\'')  ESL_XFWD(eslEFORMAT);
+  if (buf[*pos] != '\'') { status = eslEFORMAT; goto ERROR; }
   if ((status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK) goto ERROR;
 
   /* skip leading whitespace (\n and comments forbidden in quoted label) */
@@ -1186,13 +1186,13 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
   double     d;			/* a parsed branch length */
   
   if (errbuf != NULL) *errbuf = '\0';
-  if ((vs = esl_stack_ICreate()) == NULL) ESL_XFWD(eslEMEM);
-  if ((cs = esl_stack_CCreate()) == NULL) ESL_XFWD(eslEMEM);
+  if ((vs = esl_stack_ICreate()) == NULL) { status = eslEMEM; goto ERROR; };
+  if ((cs = esl_stack_CCreate()) == NULL) { status = eslEMEM; goto ERROR; };
 
   /* Create the tree, initially allocated for 32 taxa.
    * Allocate for taxon and node labels, too.
    */
-  if ((T  = esl_tree_CreateGrowable(32)) == NULL) ESL_XFWD(eslEMEM);
+  if ((T  = esl_tree_CreateGrowable(32)) == NULL) { status = eslEMEM; goto ERROR; };
   ESL_ALLOC(T->taxonlabel, sizeof(char *) * 32);
   ESL_ALLOC(T->nodelabel,  sizeof(char *) * 31);
   for (currtaxon = 0; currtaxon < 32; currtaxon++) T->taxonlabel[currtaxon] = NULL;
@@ -1226,16 +1226,16 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
   currnode     = 1;
   currtaxon    = 0;		
   T->N         = 2;   /* c.f. note above: T->N is the # of taxa we *would* hold, given currnode=1*/
-  if (esl_stack_CPush(cs, ';') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_CPush(cs, ')') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_CPush(cs, 'X') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_CPush(cs, 'R') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_CPush(cs, ',') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_CPush(cs, 'L') != eslOK)  ESL_XFWD(eslEMEM);
-  if (esl_stack_IPush(vs, 0)   != eslOK)  ESL_XFWD(eslEMEM);
+  if (esl_stack_CPush(cs, ';') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_CPush(cs, ')') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_IPush(vs, 0)   != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_CPush(cs, 'X') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_IPush(vs, 0)   != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_CPush(cs, 'R') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_IPush(vs, 0)   != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_CPush(cs, ',') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_CPush(cs, 'L') != eslOK)  { status = eslEMEM; goto ERROR; };
+  if (esl_stack_IPush(vs, 0)   != eslOK)  { status = eslEMEM; goto ERROR; };
 
   if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
     ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
@@ -1271,25 +1271,25 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 
       else if (c == 'L' || c == 'R') /* c says, we expect to add a subtree next */
 	{
-	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); /* v = parent of currnode */
+	  if (esl_stack_IPop(vs, &v) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* v = parent of currnode */
 	  
 	  if (buf[pos] == '(')	/* a new interior node attaches to v */
 	    {
-	      if (esl_tree_Grow(T) != eslOK) ESL_XFWD(eslEMEM);	/* c.f. memory management note: check that we can add new node */
+	      if (esl_tree_Grow(T) != eslOK) { status = eslEMEM; goto ERROR; };	/* c.f. memory management note: check that we can add new node */
 
 	      T->parent[currnode] = v;
 	      if (c == 'L') T->left[v]  = currnode;
 	      else          T->right[v] = currnode;
 
-	      if (esl_stack_CPush(cs, ')')      != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'X')      != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'R')      != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, ',')      != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_CPush(cs, 'L')      != eslOK)  ESL_XFWD(eslEMEM);
-	      if (esl_stack_IPush(vs, currnode) != eslOK)  ESL_XFWD(eslEMEM);
+	      if (esl_stack_CPush(cs, ')')      != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_CPush(cs, 'X')      != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_CPush(cs, 'R')      != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_CPush(cs, ',')      != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_CPush(cs, 'L')      != eslOK)  { status = eslEMEM; goto ERROR; };
+	      if (esl_stack_IPush(vs, currnode) != eslOK)  { status = eslEMEM; goto ERROR; };
 
 	      if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
 		ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
@@ -1325,7 +1325,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
       else if (c == ')')	/* c says, expect to close an interior node next */
 	{
 	  /* get v = the interior node we're closing, naming, and setting a branch length to */
-	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); 
+	  if (( status = esl_stack_IPop(vs, &v))  != eslOK)  goto ERROR;
 	  if (buf[pos] != ')') ESL_XFAIL(eslEFORMAT, errbuf, "Parse error: expected ) to close node #%d\n", v);
 
 	  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
@@ -1361,7 +1361,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 
       else if (c == 'X')	/* optionally, multifurcations: if we see a comma, we have another node to deal with */
 	{ 			
-	  if (esl_stack_IPop(vs, &v) != eslOK) ESL_XFWD(eslEINCONCEIVABLE); 
+	  if ((status = esl_stack_IPop(vs, &v)) != eslOK) goto ERROR;
 	  if (buf[pos] != ',') continue;
 
 	  /* v = the interior node that is multifurcated.
@@ -1383,11 +1383,11 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	  T->right[v]         = currnode;
 	  T->rd[v]            = 0.;
 	  
-	  if (esl_stack_CPush(cs, 'X')       != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_IPush(vs, currnode)  != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_CPush(cs, 'R')       != eslOK)  ESL_XFWD(eslEMEM);
-	  if (esl_stack_IPush(vs, currnode)  != eslOK)  ESL_XFWD(eslEMEM);	  
-	  if (esl_stack_CPush(cs, ',')       != eslOK)  ESL_XFWD(eslEMEM);	  
+	  if (esl_stack_CPush(cs, 'X')       != eslOK)  { status = eslEMEM; goto ERROR; };
+	  if (esl_stack_IPush(vs, currnode)  != eslOK)  { status = eslEMEM; goto ERROR; };
+	  if (esl_stack_CPush(cs, 'R')       != eslOK)  { status = eslEMEM; goto ERROR; };
+	  if (esl_stack_IPush(vs, currnode)  != eslOK)  { status = eslEMEM; goto ERROR; };	  
+	  if (esl_stack_CPush(cs, ',')       != eslOK)  { status = eslEMEM; goto ERROR; };	  
 	  currnode++;
 	}
 

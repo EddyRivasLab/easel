@@ -178,14 +178,13 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t)
   int i,j;
   ESL_DMATRIX *Q = NULL;
   ESL_DMATRIX *P = NULL;
-  static double wagpi[20] = {
-    0.086628, 0.019308, 0.057045, 0.058059, 0.038432, 0.083252, 0.024431, 0.048466, 0.062029, 0.086209,
-    0.019503, 0.039089, 0.045763, 0.036728, 0.043972, 0.069518, 0.061013, 0.070896, 0.014386, 0.035274};
+  static double wagpi[20];
 
   if (S->K != 20) ESL_EXCEPTION(eslEINVAL, "Must be using an amino acid alphabet (K=20) to make WAG-based matrices");
 
   if (( Q = esl_dmatrix_Create(20, 20)) == NULL)  goto ERROR;
   if (( P = esl_dmatrix_Create(20, 20)) == NULL)  goto ERROR;
+  if ( esl_composition_WAG(wagpi)       != eslOK) goto ERROR;
   if ( esl_rmx_SetWAG(Q, wagpi)         != eslOK) goto ERROR;
   if ( esl_dmx_Exp(Q, t, P)             != eslOK) goto ERROR;
 
@@ -241,17 +240,20 @@ esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_
     for (j = 0; j < S->abc_r->K; j++)
       {
 	sc = log(P->mx[i][j] / (fi[i] * fj[j])) / lambda;
-	S->s[i][j] = sc + (sc>0 ? 0.5 : -0.5); /* that's rounding to the nearest integer */
+	S->s[i][j] = (int) (sc + (sc>0 ? 0.5 : -0.5)); /* that's rounding to the nearest integer */
       }
 
   for (i = 0; i < S->abc_r->K; i++)
     S->isval[i] = TRUE;
   S->nc = S->abc_r->K;
+
   strncpy(S->outorder, S->abc_r->sym, S->abc_r->K);
   S->outorder[S->nc] = '\0';
-  
   return eslOK;
 }
+
+
+
 
 
 /* Function:  esl_scorematrix_Compare()
@@ -1040,26 +1042,30 @@ int
 main(int argc, char **argv)
 {
   ESL_ALPHABET    *abc = NULL;	/* amino acid alphabet */
+  ESL_SCOREMATRIX *BL62= NULL;	/* BLOSUM62 matrix */
   ESL_SCOREMATRIX *S0  = NULL;	/* original score matrix (calculated from P, fi, fj) */
   ESL_DMATRIX     *P0  = NULL;	/* original P_ij joint probabilities */
   ESL_DMATRIX     *Q   = NULL;	/* WAG rate matrix */
   double           lambda0;	/* true lambda used to construct S */
   double           t;
   int              i,j;
-  static double wagpi[20] = {
-    0.086628, 0.019308, 0.057045, 0.058059, 0.038432, 0.083252, 0.024431, 0.048466, 0.062029, 0.086209,
-    0.019503, 0.039089, 0.045763, 0.036728, 0.043972, 0.069518, 0.061013, 0.070896, 0.014386, 0.035274};
+  static double    wagpi[20];
 
   /* Allocations */
   if ((abc = esl_alphabet_Create(eslAMINO))      == NULL)  esl_fatal("allocation of alphabet failed");
+  if ((BL62= esl_scorematrix_Create(abc))        == NULL)  esl_fatal("allocation of BLOSUM62 failed");
   if ((S0  = esl_scorematrix_Create(abc))        == NULL)  esl_fatal("allocation of scorematrix failed");
   if ((P0  = esl_dmatrix_Create(abc->K, abc->K)) == NULL)  esl_fatal("P allocation failed");
   if ((Q   = esl_dmatrix_Create(abc->K, abc->K)) == NULL)  esl_fatal("Q allocation failed");
+
+  /* Make a BLOSUM matrix */
+  if ( esl_scorematrix_SetBLOSUM62(BL62) != eslOK) esl_fatal("failed to set a BLOSUM matrix");
 
   /* Make a WAG-based score matrix with small lambda. */
   lambda0 = 0.00635;
   t    = 2.0;
   esl_scorematrix_SetWAG(S0, lambda0, t);
+  esl_composition_WAG(wagpi);
 
   /* Redo some calculations to get the known probabilistic basis of that S */
   if ( esl_rmx_SetWAG(Q, wagpi)  != eslOK) esl_fatal("failed to set WAG");
@@ -1070,6 +1076,7 @@ main(int argc, char **argv)
 
   /* The unit test battery
    */
+  utest_ReadWrite(abc, BL62);
   utest_ReadWrite(abc, S0);
   utest_SolveLambda(abc, S0, P0, wagpi, lambda0);
   utest_yualtschul(P0, wagpi);
@@ -1077,6 +1084,7 @@ main(int argc, char **argv)
 
   esl_dmatrix_Destroy(Q);
   esl_dmatrix_Destroy(P0);
+  esl_scorematrix_Destroy(BL62);
   esl_scorematrix_Destroy(S0);
   esl_alphabet_Destroy(abc);
 

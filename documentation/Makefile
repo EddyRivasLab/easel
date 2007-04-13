@@ -30,15 +30,24 @@ MODULES = easel\
 	  esl_histogram\
 	  esl_hyperexp\
 	  esl_keyhash\
+	  esl_minimizer\
 	  esl_mixgev\
 	  esl_msa\
+	  esl_msacluster\
+	  esl_msaweight\
+	  esl_normal\
+	  esl_paml\
 	  esl_random\
+	  esl_ratematrix\
 	  esl_regexp\
+	  esl_rootfinder\
+	  esl_scorematrix\
 	  esl_sqio\
 	  esl_ssi\
 	  esl_stack\
 	  esl_stopwatch\
 	  esl_stretchexp\
+	  esl_swat\
 	  esl_tree\
 	  esl_vectorops\
 	  esl_weibull\

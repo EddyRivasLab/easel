@@ -54,24 +54,9 @@
 
 
 \newpage
-\chapter{Core modules}
-
-\section{\eslmod{alphabet}: digitized biosequences}
-\input{../esl_alphabet}
-\subsection{Functions in the alphabet module}
-\input{autotext/esl_alphabet_functions}
-
-\newpage
-\section{\eslmod{dirichlet}: Beta, Gamma, Dirichlet densities and priors}
-\input{../esl_dirichlet}
-\subsection{Functions in the dirichlet module}
-\input{autotext/esl_dirichlet_functions}
-
-\newpage
-\section{\eslmod{dmatrix}: 2D matrices and linear algebra}
-\input{../esl_dmatrix}
-\subsection{Functions in the dmatrix module}
-\input{autotext/esl_dmatrix_functions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Utility modules}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\chapter{Core modules}
 
 \newpage
 \section{\eslmod{fileparser}: token-based data file input}
@@ -92,12 +77,6 @@
 \input{autotext/esl_keyhash_functions}
 
 \newpage
-\section{\eslmod{msa}: multiple sequence alignment i/o}
-\input{../esl_msa}
-\subsection{Functions in the msa module}
-\input{autotext/esl_msa_functions}
-
-\newpage
 \section{\eslmod{random}: pseudorandom numbers and basic sampling}
 \input{../esl_random}
 \subsection{Functions in the random (rnd) module}
@@ -116,10 +95,27 @@
 \input{autotext/esl_regexp_functions}
 
 \newpage
-\section{\eslmod{rootfinder}: finding roots of equations}
-\input{../esl_rootfinder}
-\subsection{Functions in the rootfinder module}
-\input{autotext/esl_rootfinder_functions}
+\section{\eslmod{stack}: pushdown stacks for integers, chars, and pointers}
+\input{../esl_stack}
+\subsection{Functions in the stack module}
+\input{autotext/esl_stack_functions}
+
+\newpage
+\section{\eslmod{stopwatch}: timing parts of programs}
+\input{../esl_stopwatch}
+\subsection{Functions in the stopwatch module}
+\input{autotext/esl_stopwatch_functions}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Biosequence data i/o modules}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section{\eslmod{alphabet}: digitized biosequences}
+\input{../esl_alphabet}
+\subsection{Functions in the alphabet module}
+\input{autotext/esl_alphabet_functions}
 
 \newpage
 \section{\eslmod{sqio}: i/o of unaligned sequence files}
@@ -133,23 +129,69 @@
 \subsection{Functions in the ssi module}
 \input{autotext/esl_ssi_functions}
 
-\newpage
-\section{\eslmod{stack}: pushdown stacks for integers, chars, and pointers}
-\input{../esl_stack}
-\subsection{Functions in the stack module}
-\input{autotext/esl_stack_functions}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Multiple sequence alignment modules}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \newpage
-\section{\eslmod{stopwatch}: timing parts of programs}
-\input{../esl_stopwatch}
-\subsection{Functions in the stopwatch module}
-\input{autotext/esl_stopwatch_functions}
+\section{\eslmod{msa}: Multiple sequence alignment i/o}
+\input{../esl_msa}
+\subsection{Functions in the msa module}
+\input{autotext/esl_msa_functions}
 
 \newpage
-\section{\eslmod{vectorops}: simple vector operations}
-\input{../esl_vectorops}
-\subsection{Functions in the vectorops module}
-\input{autotext/esl_vectorops_functions}
+\section{\eslmod{msacluster}: Clustering aligned sequence families}
+\input{../esl_msacluster}
+\subsection{Functions in the msacluster module}
+\input{autotext/esl_msacluster_functions}
+
+\newpage
+\section{\eslmod{msaweight}: Ad hoc sequence weighting}
+\input{../esl_msaweight}
+\subsection{Functions in the msaweight module}
+\input{autotext/esl_msaweight_functions}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Pairwise sequence alignment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section{\eslmod{swat}: Smith/Waterman local alignment}
+\input{../esl_swat}
+\subsection{Functions in the swat module}
+\input{autotext/esl_swat_functions}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Probabilistic modeling modules}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section{\eslmod{scorematrix}: Pairwise alignment scores}
+\input{../esl_scorematrix}
+\subsection{Functions in the scorematrix module}
+\input{autotext/esl_scorematrix_functions}
+
+\newpage
+\section{\eslmod{ratematrix}: Continuous-time Markov models of evolution}
+\input{../esl_ratematrix}
+\subsection{Functions in the ratematrix module}
+\input{autotext/esl_ratematrix_functions}
+
+\newpage
+\section{\eslmod{paml}: Reading data files from PAML}
+\input{../esl_paml}
+\subsection{Functions in the paml module}
+\input{autotext/esl_paml_functions}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Sequence annotation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \newpage
 \section{\eslmod{wuss}: RNA secondary structure annotation}
@@ -158,8 +200,33 @@
 \input{autotext/esl_wuss_functions}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Numerical computing}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\newpage
+\section{\eslmod{vectorops}: Vector operations}
+\input{../esl_vectorops}
+\subsection{Functions in the vectorops module}
+\input{autotext/esl_vectorops_functions}
 
+\newpage
+\section{\eslmod{dmatrix}: 2D matrices and linear algebra}
+\input{../esl_dmatrix}
+\subsection{Functions in the dmatrix module}
+\input{autotext/esl_dmatrix_functions}
+
+\newpage
+\section{\eslmod{minimizer}: Conjugate gradient descent}
+\input{../esl_minimizer}
+\subsection{Functions in the minimizer module}
+\input{autotext/esl_minimizer_functions}
+
+\newpage
+\section{\eslmod{rootfinder}: One-dimensional rootfinding}
+\input{../esl_rootfinder}
+\subsection{Functions in the rootfinder module}
+\input{autotext/esl_rootfinder_functions}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Phylogenetic inference modules}
@@ -193,6 +260,12 @@
 \input{../esl_histogram}
 \subsection{Functions in the histogram module}
 \input{autotext/esl_histogram_functions}
+
+\newpage
+\section{\eslmod{dirichlet}: Beta, Gamma, Dirichlet densities and priors}
+\input{../esl_dirichlet}
+\subsection{Functions in the dirichlet module}
+\input{autotext/esl_dirichlet_functions}
 
 \newpage
 \section{\eslmod{exponential}: Exponential distributions}
@@ -235,6 +308,12 @@
 %\input{../esl_mixgev}
 \subsection{Functions in the mixgev module}
 \input{autotext/esl_mixgev_functions}
+
+\newpage
+\section{\eslmod{normal}: Normal (Gaussian) distributions}
+\input{../esl_normal}
+\subsection{Functions in the normal module}
+\input{autotext/esl_normal_functions}
 
 \newpage
 \section{\eslmod{stretchexp}: Stretched exponential distributions}

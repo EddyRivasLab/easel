@@ -11,7 +11,7 @@ $a=5$, $b=2$ and $c=-1$ (note that this function has two roots, one
 $<0$ and one $>0$; the bracket $0..100$ makes the example find only
 the positive root):
 
-\input{rootfinder_example}
+\input{cexcerpts/rootfinder_example}
 
 
 To use the Newton/Raphson method, you provide a function that computes
@@ -20,7 +20,7 @@ guess for the root $x$. An example of using the Newton/Raphson method
 to compute the root of the same function above (which has a derivative
 $df(x)/dx = 2ax + b$) is:
 
-\input{rootfinder_example2}
+\input{cexcerpts/rootfinder_example2}
 
 In this example, because the initial guess was negative, the other
 root gets found.
@@ -30,7 +30,7 @@ bisection method does not require derivative information, and it
 requires the caller to provide an interval $(x_L..x_R)$ in which the
 root lies ($f(x_L)$ and $f(x_R)$ have opposite signs). Newton/Raphson
 uses derivative information, and it only needs an initial guess for
-$x$, not an interval. Thus there are two different \ccode{_Create*()}
+$x$, not an interval. Thus there are two different \ccode{\_Create*()}
 routines, \ccode{esl\_rootfinder\_CreateBracketer()} for initializing
 a bisection method, and \ccode{esl\_rootfinder\_CreatePolisher()} for
 initializing a Newton/Raphson method. The reason for the more general

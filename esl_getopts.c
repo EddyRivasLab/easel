@@ -417,7 +417,7 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 			    "Option %s requires (or has no effect without) option(s) %s\n\n%s", 
 			    g->opt[i].name, g->opt[i].required_opts, g->usage);
 
-	  if (status != eslEOD) ESL_FWD(status);
+	  if (status != eslEOD) return status;
 	}
     }
 
@@ -436,7 +436,7 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 			    "Option %s is incompatible with option(s) %s\n\n%s", 
 			    g->opt[i].name, g->opt[i].incompat_opts, g->usage);
 
-	  if (status != eslEOD) ESL_FWD(status);  
+	  if (status != eslEOD) return status;
 	}
     }
 

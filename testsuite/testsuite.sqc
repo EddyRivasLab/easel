@@ -22,6 +22,9 @@
 1 prep     dmatrix-compile    gcc -o dmatrix_utest -I.. -L.. -g -Wall -DeslDMATRIX_TESTDRIVE ../esl_dmatrix.c -leasel -lm
 1 exercise dmatrix-utest      @dmatrix_utest@
 
+1 prep     easel-compile      gcc -o easel_utest -I.. -L.. -g -Wall -DeslEASEL_TESTDRIVE ../easel.c -leasel -lm
+1 exercise easel-utest        @easel_utest@
+
 1 prep     exponential-compile gcc -o exponential_utest -I.. -L.. -g -Wall -DeslEXPONENTIAL_TESTDRIVE ../esl_exponential.c -leasel -lm
 1 exercise exponential-utest   @exponential_utest@
 
@@ -59,11 +62,23 @@
 1 prep     msaweight-compile  gcc -o msaweight_utest -I.. -L.. -g -Wall -DeslMSAWEIGHT_TESTDRIVE ../esl_msaweight.c -leasel -lm
 1 exercise msaweight-utest    @msaweight_utest@
 
+1 prep     normal-compile     gcc -o normal_utest -I.. -L.. -g -Wall -DeslNORMAL_TESTDRIVE ../esl_normal.c -leasel -lm
+1 exercise normal-utest       @normal_utest@
+
 1 prep     random-compile     gcc -o random_utest -I.. -L.. -g -Wall -DeslRANDOM_TESTDRIVE ../esl_random.c -leasel -lm
 1 exercise random-utest       @random_utest@
 
+1 prep     ratematrix-compile gcc -o ratematrix_utest -I.. -L.. -g -Wall -DeslRATEMATRIX_TESTDRIVE ../esl_ratematrix.c -leasel -lm
+1 exercise ratematrix-utest   @ratematrix_utest@
+
 1 prep     regexp-compile     gcc -o regexp_utest -I.. -L.. -g -Wall -DeslREGEXP_TESTDRIVE ../esl_regexp.c -leasel -lm
 1 exercise regexp-utest       @regexp_utest@
+
+1 prep     rootfinder-compile gcc -o rootfinder_utest -I.. -L.. -g -Wall -DeslROOTFINDER_TESTDRIVE ../esl_rootfinder.c -leasel -lm
+1 exercise rootfinder-utest   @rootfinder_utest@
+
+1 prep     scorematrix-cc     gcc -o scorematrix_utest -I.. -L.. -g -Wall -DeslSCOREMATRIX_TESTDRIVE ../esl_scorematrix.c -leasel -lm
+1 exercise scorematrix-utest  @scorematrix_utest@
 
 1 prep     sqio-compile       gcc -o sqio_utest -I.. -L.. -g -Wall -DeslSQIO_TESTDRIVE ../esl_sqio.c -leasel -lm
 1 exercise sqio-utest         @sqio_utest@

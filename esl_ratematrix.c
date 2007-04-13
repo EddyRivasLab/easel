@@ -105,13 +105,12 @@ esl_rmx_SetWAG(ESL_DMATRIX *Q, double *pi)
     0.212483, 0.137505, 0.665309, 0.515706, 0.071917, 0.139405, 0.215737, 1.163920, 0.523742, 0.110864,
     0.365369, 0.240735, 0.543833, 0.325711, 0.196303, 6.454280, 0.103604, 3.873440, 0.420170, 0.133264,
     0.398618, 0.428437, 1.086000, 0.216046, 0.227710, 0.381533, 0.786993, 0.291148, 0.314730, 2.485390};
-  static double wagpi[20] = {
-    0.086628, 0.019308, 0.057045, 0.058059, 0.038432, 0.083252, 0.024431, 0.048466, 0.062029, 0.086209,
-    0.019503, 0.039089, 0.045763, 0.036728, 0.043972, 0.069518, 0.061013, 0.070896, 0.014386, 0.035274};
+  static double wagpi[20];
   int i,j,z;
   
   if (Q->m != 20 || Q->n != 20 || Q->type != eslGENERAL)
     ESL_EXCEPTION(eslEINVAL, "Q must be a 20x20 general matrix");
+  esl_composition_WAG(wagpi);
 
   /* 1. Transfer the wag E lower triagonal matrix directly into Q. */
   z = 0;
@@ -398,7 +397,7 @@ esl_rmx_ValidateQ(ESL_DMATRIX *Q, double tol, char *errbuf)
  *            rate per dt is <unit>.
  *
  *            Expected substitution rate is:
- *               \sum_i \sum_j pi_i Q_ij  \forall i \neq j
+ *               $\sum_i \sum_j pi_i Q_ij  \forall i \neq j$
  *
  *            <unit> typically taken to be 1.0, so time units are substitutions/site.
  *            An exception is PAM, where <unit> = 0.01 for 1 PAM unit.
@@ -810,12 +809,7 @@ main(void)
  * 8. Example driver
  *****************************************************************/
 
-#ifdef eslRATEMATRIX_EXAMPLE
-/* gcc -g -Wall -o example -I. -L. -DeslRATEMATRIX_EXAMPLE esl_ratematrix.c -leasel -lm
- * ./example
- */
 
-#endif /*eslRATEMATRIX_EXAMPLE*/
 
 /*****************************************************************
  * @LICENSE@

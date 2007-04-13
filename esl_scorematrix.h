@@ -7,6 +7,7 @@
 #define ESL_SCOREMATRIX_INCLUDED
 
 #include <esl_alphabet.h>
+#include <esl_fileparser.h>
 #include <esl_dmatrix.h>
 #include <esl_random.h>
 
