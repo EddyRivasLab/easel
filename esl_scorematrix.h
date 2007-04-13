@@ -52,7 +52,7 @@ extern int  esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCO
 extern int  esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S);
 
 /* 3. Interpreting score matrices probabilistically. */
-extern int esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const int lambda, ESL_DMATRIX *P);
+extern int esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const double lambda, ESL_DMATRIX *P);
 extern int esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, double *ret_lambda);
 extern int esl_scorematrix_ReverseEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda);
 

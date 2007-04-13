@@ -125,6 +125,11 @@ esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
     {   0,  -2,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -2,  -1,  -1,   0,   0,  -1,  -2,  -1,   0,  -1,   0,  -1,   0,   0,  -1,   0,  },
     {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  },
   };
+  /* The BLOSUM62 background frequencies are the actual frequencies used to create
+   * the matrix in 1992. */
+  /*                           A      C      D      E      F      G      H      I      K      L      M      N      P      Q      R      S      T      V      W      Y */
+  /* double blosum62f[20] = { 0.074, 0.025, 0.054, 0.054, 0.047, 0.074, 0.026, 0.068, 0.058, 0.099, 0.025, 0.045, 0.039, 0.034, 0.052, 0.057, 0.051, 0.073, 0.013, 0.032 };
+   */
 
   for (x = 0;           x < S->K;  x++)      S->isval[x] = TRUE;
   for (x = S->abc_r->K; x < S->Kp; x++)      S->isval[x] = FALSE;
@@ -151,9 +156,10 @@ esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
  * Synopsis:  Parameterize a score matrix from the WAG evolutionary model.           
  * Incept:    SRE, Thu Apr 12 13:23:28 2007 [Janelia]
  *
- * Purpose:   Parameterize an amino acid score matrix <S> using the WAG rate matrix as 
- *            the underlying evolutionary model, at a distance of <t> substitutions/site,
- *            with scale factor <lambda>.
+ * Purpose:   Parameterize an amino acid score matrix <S> using the WAG
+ *            rate matrix \citep{WhelanGoldman01} as the underlying
+ *            evolutionary model, at a distance of <t>
+ *            substitutions/site, with scale factor <lambda>.
  *
  * Args:      S      - score matrix to set parameters in. Must be created for
  *                     an amino acid alphabet.
@@ -540,7 +546,7 @@ esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
  * Returns:   <eslOK> on success, and the joint probabilities are in <P>.
  */
 int
-esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const int lambda, ESL_DMATRIX *P)
+esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const double lambda, ESL_DMATRIX *P)
 {
   int i,j;
 
@@ -574,6 +580,7 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
 	*ret_fx  += tmp;
 	*ret_dfx += tmp * (double) p->S->s[i][j];
       }
+  *ret_fx -= 1.0;
   return eslOK;
 }
 
@@ -600,12 +607,24 @@ esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const do
   ESL_ROOTFINDER *R = NULL;
   struct lambda_params p;
   double lambda_guess;
+  double fx, dfx;
   p.fi = fi;
   p.fj = fj;
   p.S  = S;
 
-  if ((  R = esl_rootfinder_CreateFDF(lambda_fdf, &p) ) == NULL) { status = eslEMEM; goto ERROR; }
+  /* It's important that we come at the root from the far side, where
+   * f(lambda) is positive; else we may identify the root we don't want
+   * at lambda=0.
+   */
   lambda_guess = 1. / (double) esl_scorematrix_Max(S);
+  for (; lambda_guess < 50.; lambda_guess *= 2.0) {
+    lambda_fdf(lambda_guess, &p, &fx, &dfx);
+    if (fx > 0) break;
+  }
+  if (fx <= 0) ESL_EXCEPTION(eslEINVAL, "Failed to bracket root for solving lambda");
+
+  /* Find lambda by Newton/Raphson */
+  if ((  R = esl_rootfinder_CreateFDF(lambda_fdf, &p) ) == NULL) { status = eslEMEM; goto ERROR; }
   if (( status = esl_root_NewtonRaphson(R, lambda_guess, ret_lambda))  != eslOK) goto ERROR;
   
   if (P != NULL) {
@@ -873,6 +892,11 @@ main(int argc, char **argv)
 #endif /*eslSCOREMATRIX_UTILITY1*/
 
 
+
+
+
+
+
 /*****************************************************************
  * 5. Unit tests.
  *****************************************************************/
@@ -881,141 +905,122 @@ main(int argc, char **argv)
 #include <esl_dirichlet.h>
 
 static void
-utest_ReadWrite(void)
+utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
 {
   char tmpfile[16]     = "esltmpXXXXXX";
   FILE            *fp  = NULL;
-  ESL_ALPHABET    *abc = NULL;
-  ESL_SCOREMATRIX *S   = NULL;
   ESL_SCOREMATRIX *S2  = NULL;
   ESL_FILEPARSER  *efp = NULL;
   
-  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal("allocation of alphabet failed");
-  if ((S   = esl_scorematrix_Create(abc))   == NULL)  esl_fatal("allocation of scorematrix failed");
-  if (esl_scorematrix_SetBLOSUM62(S)        != eslOK) esl_fatal("failed to set mx to BLOSUM62");
   if (esl_tmpfile_named(tmpfile, &fp)       != eslOK) esl_fatal("failed to open tmp file");
-  if (esl_scorematrix_Write(fp, S)          != eslOK) esl_fatal("failed to write BLOSUM62 matrix");
+  if (esl_scorematrix_Write(fp, S)          != eslOK) esl_fatal("failed to write test matrix");
   fclose(fp);
 
   if (esl_fileparser_Open(tmpfile, &efp)    != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
   if (esl_scorematrix_Read(efp, abc, &S2)   != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
   if (esl_scorematrix_Compare(S, S2)        != eslOK) esl_fatal("the two test matrices aren't identical");
   
-  /*  remove(tmpfile); */
+  remove(tmpfile); 
   esl_fileparser_Close(efp);
   esl_scorematrix_Destroy(S2);
-  esl_scorematrix_Destroy(S);
-  esl_alphabet_Destroy(abc);
   return;
 }
 
 
-/* The test for the ReverseEngineer() function is to create a
- * reasonable score matrix from WAG; then backcalculate it.
- */
 static void
-utest_ReverseEngineer(void)
+utest_SolveLambda(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
 {
-  ESL_ALPHABET    *abc = NULL;
-  ESL_SCOREMATRIX *S   = NULL;	/* original score matrix (calculated from P, fi, fj) */
-  ESL_DMATRIX     *P   = NULL;	/* original P_ij joint probabilities (randomly sampled)*/
-  double          *fi  = NULL;	/* original f_i query composition (randomly sampled) */
-  double          *fj  = NULL;	/* original f'_j target composition (calculated from P_ij) */
-  double           lambda;	/* true lambda used to construct S */
-  double           lambda2;	/* reconstructed lambda */
-  double           t;
+  char *msg = "SolveLambda() unit test failed";
+  ESL_DMATRIX     *P    = NULL;
+  double           lambda;
 
-  /* Allocations */
-  if ((abc = esl_alphabet_Create(eslAMINO))      == NULL)  esl_fatal("allocation of alphabet failed");
-  if ((S   = esl_scorematrix_Create(abc))        == NULL)  esl_fatal("allocation of scorematrix failed");
-  if ((P   = esl_dmatrix_Create(abc->K, abc->K)) == NULL)  esl_fatal("P allocation failed");
-  if ((fi  = malloc(sizeof(double) * abc->K))    == NULL)  esl_fatal("fi allocation failed");
-  if ((fj  = malloc(sizeof(double) * abc->K))    == NULL)  esl_fatal("fj allocation failed");
+  if ((P   = esl_dmatrix_Create(S0->K, S0->K))== NULL)  esl_fatal(msg);
 
-  /* Make a WAG-based score matrix with small lambda. */
-  lambda = 0.00635;
-  t      = 2.0;
-  esl_scorematrix_SetWAG(S, lambda, t);
+  if (esl_scorematrix_SolveLambda(S0, wagpi, wagpi, P, &lambda) != eslOK) esl_fatal(msg);
 
-  /* Reverse engineer it */
-  if (esl_scorematrix_ReverseEngineer(S, P, fi, fj, &lambda2) != eslOK) esl_fatal("reverse engineering failed");
+  if (esl_DCompare(lambda0, lambda, 1e-3)     != eslOK) esl_fatal("lambda is wrong");
+  if (esl_DCompare(esl_dmx_Sum(P), 1.0, 1e-9) != eslOK) esl_fatal("P doesn't sum to 1");
+  if (esl_dmatrix_Compare(P0, P, 1e-2)        != eslOK) esl_fatal("P is wrong");
 
-  /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
-  if (esl_DCompare(lambda, lambda2, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
-  if (esl_DCompare(esl_dmx_Sum(P),  1.0, 0.001) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
-
-  free(fj);
-  free(fi);
   esl_dmatrix_Destroy(P);
-  esl_scorematrix_Destroy(S);
-  esl_alphabet_Destroy(abc);
   return;
 }
+ 
 
 /* The scores->pij reverse engineering engine works with scores in doubles,
  * so we can separate effects of rounding to integers in standard
  * score matrices.
  */
 static void 
-utest_yualtschul(void)
+utest_yualtschul(ESL_DMATRIX *P0, double *wagpi)
 {
   char *msg = "reverse engineering engine test failed";
-  static double wagpi[20] = {
-    0.086628, 0.019308, 0.057045, 0.058059, 0.038432, 0.083252, 0.024431, 0.048466, 0.062029, 0.086209,
-    0.019503, 0.039089, 0.045763, 0.036728, 0.043972, 0.069518, 0.061013, 0.070896, 0.014386, 0.035274};
-  ESL_DMATRIX      *Q  = NULL;
-  ESL_DMATRIX      *P  = NULL;	/* original P_ij joint probabilities (randomly sampled)*/
-  double            lambda;	/* true lambda used to construct S */
   ESL_DMATRIX     *S   = NULL;	/* original score matrix, in double form, not rounded to ints (calculated from P, fi, fj) */
-  double           lambda2;	/* backcalculated lambda */
-  ESL_DMATRIX     *P2  = NULL;	/* backcalculated P_ij joint probabilities */
-  double          *fi2 = NULL;	/* backcalculated f_i query composition */
-  double          *fj2 = NULL;	/* backcalculated f'_j target composition */
+  ESL_DMATRIX     *P   = NULL;	/* backcalculated P_ij joint probabilities */
+  double          *fi  = NULL;	/* backcalculated f_i query composition */
+  double          *fj  = NULL;	/* backcalculated f'_j target composition */
+  double           lambda0;	/* true lambda */
+  double           lambda;	/* backcalculated lambda */
   int              i,j;
-  double           t;
 
   /* Allocations */
-  if (( Q  = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal(msg);
-  if (( P  = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal(msg);
   if (( S  = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal(msg);
-  if (( P2 = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal(msg);
-  if ((fi2 = malloc(sizeof(double) * 20))    == NULL)  esl_fatal(msg);
-  if ((fj2 = malloc(sizeof(double) * 20))    == NULL)  esl_fatal(msg);
+  if (( P  = esl_dmatrix_Create(20, 20))     == NULL)  esl_fatal(msg);
+  if ((fi  = malloc(sizeof(double) * 20))    == NULL)  esl_fatal(msg);
+  if ((fj  = malloc(sizeof(double) * 20))    == NULL)  esl_fatal(msg);
 
   /* Make a WAG-based score matrix in double-precision, without rounding to integers */
-  lambda = 0.3;
-  t      = 2.0;
-  if ( esl_rmx_SetWAG(Q, wagpi)         != eslOK) esl_fatal(msg);
-  if ( esl_dmx_Exp(Q, t, P)             != eslOK) esl_fatal(msg);
+  lambda0 = 0.3;
   for (i = 0; i < 20; i++) 
     for (j = 0; j < 20; j++)
-      {
-	P->mx[i][j] *= wagpi[i];	/* P_ij = P(j|i) pi_i */
-	S->mx[i][j] = log(P->mx[i][j] / (wagpi[i] * wagpi[j])) / lambda;
-      }
+      S->mx[i][j] = log(P0->mx[i][j] / (wagpi[i] * wagpi[j])) / lambda0;
 
   /* Reverse engineer it in double precision */
-  if ( yualtschul_engine(S, P2, fi2, fj2, &lambda2) != eslOK) esl_fatal("reverse engineering engine failed");
+  if ( yualtschul_engine(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering engine failed");
 
   /* Validate the solution (expect more accuracy from this than from integer scores) */
-  if (esl_DCompare(lambda, lambda2, 1e-4)      != eslOK) esl_fatal("failed to get right lambda");
+  if (esl_DCompare(lambda0, lambda, 1e-4)      != eslOK) esl_fatal("failed to get right lambda");
   if (esl_DCompare(esl_dmx_Sum(P),  1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");  
+  if (esl_dmatrix_Compare(P, P0, 1e-3)         != eslOK) esl_fatal("failed to recover correct P_ij");
   for (i = 0; i < 20; i++) 
     {
-      if (esl_DCompare(fi2[i],   fj2[i], 1e-6) != eslOK) esl_fatal("background fi, fj not the same");
-      if (esl_DCompare(wagpi[i], fi2[i], 1e-3) != eslOK) esl_fatal("failed to reconstruct WAG backgrounds");  
-      for (j = 0; j < 20; j++)
-	if (esl_DCompare(P->mx[i][j], P2->mx[i][j], 1e-3) != eslOK) esl_fatal("failed to recover correct P_ij");
+      if (esl_DCompare(fi[i],    fj[i],  1e-6) != eslOK) esl_fatal("background fi, fj not the same");
+      if (esl_DCompare(wagpi[i], fi[i],  1e-3) != eslOK) esl_fatal("failed to reconstruct WAG backgrounds");  
     }
 
-  free(fj2);
-  free(fi2);
-  esl_dmatrix_Destroy(P2);
+  free(fj);
+  free(fi);
   esl_dmatrix_Destroy(S);
   esl_dmatrix_Destroy(P);
-  esl_dmatrix_Destroy(Q);
   return;
 }
+
+
+static void
+utest_ReverseEngineer(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
+{
+  ESL_DMATRIX     *P  = NULL;
+  double          *fi = NULL;
+  double          *fj = NULL;
+  double           lambda;	/* reconstructed lambda */
+
+  if ((P   = esl_dmatrix_Create(S0->K, S0->K)) == NULL)  esl_fatal("P allocation failed");
+  if ((fi  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fi allocation failed");
+  if ((fj  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fj allocation failed");
+
+  if (esl_scorematrix_ReverseEngineer(S0, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
+
+  /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
+  if (esl_DCompare(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
+  if (esl_DCompare(esl_dmx_Sum(P),  1.0, 0.001) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
+  if (esl_dmatrix_Compare(P, P0, 0.1)           != eslOK) esl_fatal("reconstructed P is wrong");
+
+  free(fj);
+  free(fi);
+  esl_dmatrix_Destroy(P);
+  return;
+}
+
 
 #endif /*eslSCOREMATRIX_TESTDRIVE*/
 
@@ -1023,7 +1028,6 @@ utest_yualtschul(void)
 /*****************************************************************
  * 6. Test driver.
  *****************************************************************/
-
 /* 
     gcc -g -Wall -I. -L. -o test -DeslSCOREMATRIX_TESTDRIVE esl_scorematrix.c -leasel -lm
     ./test
@@ -1035,10 +1039,46 @@ utest_yualtschul(void)
 int 
 main(int argc, char **argv)
 {
-  utest_ReadWrite();
-  utest_ReverseEngineer(); 
-  /* utest_ReverseEngineerX(); */
-  utest_yualtschul();
+  ESL_ALPHABET    *abc = NULL;	/* amino acid alphabet */
+  ESL_SCOREMATRIX *S0  = NULL;	/* original score matrix (calculated from P, fi, fj) */
+  ESL_DMATRIX     *P0  = NULL;	/* original P_ij joint probabilities */
+  ESL_DMATRIX     *Q   = NULL;	/* WAG rate matrix */
+  double           lambda0;	/* true lambda used to construct S */
+  double           t;
+  int              i,j;
+  static double wagpi[20] = {
+    0.086628, 0.019308, 0.057045, 0.058059, 0.038432, 0.083252, 0.024431, 0.048466, 0.062029, 0.086209,
+    0.019503, 0.039089, 0.045763, 0.036728, 0.043972, 0.069518, 0.061013, 0.070896, 0.014386, 0.035274};
+
+  /* Allocations */
+  if ((abc = esl_alphabet_Create(eslAMINO))      == NULL)  esl_fatal("allocation of alphabet failed");
+  if ((S0  = esl_scorematrix_Create(abc))        == NULL)  esl_fatal("allocation of scorematrix failed");
+  if ((P0  = esl_dmatrix_Create(abc->K, abc->K)) == NULL)  esl_fatal("P allocation failed");
+  if ((Q   = esl_dmatrix_Create(abc->K, abc->K)) == NULL)  esl_fatal("Q allocation failed");
+
+  /* Make a WAG-based score matrix with small lambda. */
+  lambda0 = 0.00635;
+  t    = 2.0;
+  esl_scorematrix_SetWAG(S0, lambda0, t);
+
+  /* Redo some calculations to get the known probabilistic basis of that S */
+  if ( esl_rmx_SetWAG(Q, wagpi)  != eslOK) esl_fatal("failed to set WAG");
+  if ( esl_dmx_Exp(Q, t, P0)     != eslOK) esl_fatal("failed to exponentiate WAG");
+  for (i = 0; i < 20; i++) 
+    for (j = 0; j < 20; j++)
+      P0->mx[i][j] *= wagpi[i];	/* P_ij = P(j|i) pi_i */
+
+  /* The unit test battery
+   */
+  utest_ReadWrite(abc, S0);
+  utest_SolveLambda(abc, S0, P0, wagpi, lambda0);
+  utest_yualtschul(P0, wagpi);
+  utest_ReverseEngineer(S0, P0, wagpi, lambda0); 
+
+  esl_dmatrix_Destroy(Q);
+  esl_dmatrix_Destroy(P0);
+  esl_scorematrix_Destroy(S0);
+  esl_alphabet_Destroy(abc);
 
   return 0;
 }
@@ -1047,8 +1087,6 @@ main(int argc, char **argv)
 /*****************************************************************
  * 7. Example program
  *****************************************************************/
-
-
 /* 
     gcc -g -Wall -I. -L. -o example -DeslSCOREMATRIX_EXAMPLE esl_scorematrix.c -leasel -lm
     ./example <score matrix file>
