@@ -141,6 +141,7 @@ typedef struct {
   int      n;              /* length of seq                                    */
   off_t    roff;	   /* record offset (start of record)                  */
   off_t    doff;	   /* data offset (start of sequence data)             */
+  int      flags;          /* flags for what info has been set                 */
   /*::cexcerpt::sqio_sq::end::*/
 
 #ifdef eslAUGMENT_ALPHABET
@@ -154,6 +155,9 @@ typedef struct {
   int   salloc;         /* current allocation length for seq */
 } ESL_SQ;
 
+/* Flags for sq->flags
+ */
+#define eslSQ_DIGITAL (1 << 0)  /* if dsq[] is used instead of seq[] */
 
 extern ESL_SQ *esl_sq_Create(void);
 extern ESL_SQ *esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss);
@@ -165,15 +169,17 @@ extern void    esl_sq_Destroy(ESL_SQ *sq);
 extern int     esl_sq_SetName(ESL_SQ *sq, char *name);
 extern int     esl_sq_CAddResidue(ESL_SQ *sq, char c);
 
-#ifdef eslAUGMENT_ALPHABET
-extern ESL_SQ *esl_sq_CreateDigital(ESL_ALPHABET *abc);
-extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
-#endif
-
-
 extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
 			    ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
+
+/* Digitized sequences (ALPHABET augmentation required) */
+#ifdef eslAUGMENT_ALPHABET
+extern ESL_SQ *esl_sq_CreateDigital(ESL_ALPHABET *abc);
+extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
+extern int     esl_sq_Digitize(ESL_ALPHABET *abc, ESL_SQ *sq);
+extern int     esl_sq_Textize(ESL_SQ *sq);
+#endif
 
 extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
 extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format);
