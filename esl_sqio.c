@@ -1349,7 +1349,6 @@ addseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (esl_inmap_IsValid(sqfp->inmap, symbol) == eslOK)
 	{
 #ifdef eslAUGMENT_ALPHABET
-	  /*02.28.07*/
 	  if (sq->flags & eslSQ_DIGITAL)
 	    sq->dsq[++sq->n] = esl_abc_DigitizeSymbol(sq->abc, symbol);
 	  else
@@ -1461,7 +1460,6 @@ generic_readseq(ESL_SQFILE *sqfp, ESL_SQ *sq)
     }
   } while (!done);
 
-  /* 02.28.07 */
 #ifdef eslAUGMENT_ALPHABET
   if (sq->flags & eslSQ_DIGITAL)
     sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
@@ -1923,7 +1921,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   unsigned char *inmap; /* ptr to the input map                  */
   char *seq;            /* ptr to the growing sequence           */
   char **seq_addr;      /* address of seq* or NULL if seq = NULL */
-  /* 02.28.07 */
   ESL_DSQ *dsq;         /* ptr to growing digitized seq          */
   ESL_DSQ **dsq_addr;   /* address of dsq* or NULL if dsq = NULL */
   int   state;		/* state of our FSA parser               */
@@ -1939,7 +1936,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   nc    = sqfp->nc;
   pos   = sqfp->pos;
   inmap = sqfp->inmap;
-  /* 02.28.07 */
   dsq   = NULL;
 #ifdef eslAUGMENT_ALPHABET
   if (s->flags & eslSQ_DIGITAL)
@@ -2023,22 +2019,8 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
       sqfp->lastrpl = sqfp->lastbpl = -1;
       at_linestart  = TRUE;
 
-      /* 02.28.07 
-       * Can we modify the check_buffers function so it takes both &seq and
-       * &dsq, one of which is NULL, then uses appropriate one inside func
-       * to realloc as nec. */
-      /* It is called above for reallocating s->name, and s->desc, so we 
-       * have to either write a duplicate function for ESL_DSQ instead of 
-       * char, or pass a digitial flag and a void ptr (?) and allocate 
-       * either char or ESL_DSQ based on the flag. */
-      /* HERE: left off after changing check_buffers in ugly way, and adding
-       * 2 lines below: */
       if(seq == NULL) seq_addr = NULL; else seq_addr = &seq;
       if(dsq == NULL) dsq_addr = NULL; else dsq_addr = &dsq;
-      /* ORIG LINE:
-	 while ((nsafe = check_buffers(sqfp->fp, &(sqfp->boff), buf, &nc, &pos, 
-				    &seq, spos, &(s->salloc))) > 0) {
-      */
 
       while ((nsafe = check_buffers(sqfp->fp, &(sqfp->boff), buf, &nc, &pos, 
 				    seq_addr, dsq_addr, spos, &(s->salloc))) > 0) {
@@ -2073,10 +2055,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 		seq[spos++] = c;
 	      pos++;
 	      sqfp->lastrpl++;
-	      /* 02.28.07
-	       * Why is c an int, while buf a char*? 
-	       * Why is readseq() line : sq->seq[sq->n++] = sqfp->inmap[symbol];*/
-	      /* ORIG LINE: { seq[spos++] = c; pos++; sqfp->lastrpl++; }*/
 	    }
 	  else if (! isascii(c))
 	    {
@@ -2128,7 +2106,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
    */
   s->name[npos] = '\0';
   s->desc[dpos] = '\0';
-  /* 02.28.07 */
 #ifdef eslAUGMENT_ALPHABET
   if (s->flags & eslSQ_DIGITAL)
     dsq[spos+1] = eslDSQ_SENTINEL;
@@ -2139,7 +2116,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   /* Reset the data that we took copies of.
    */
 #ifdef eslAUGMENT_ALPHABET
-  /* 02.28.07 */
   if (s->flags & eslSQ_DIGITAL)
     s->dsq = dsq;
   else
@@ -2256,14 +2232,12 @@ check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos,
 
   /* Note the -1 on savelen, which leaves room for a NUL terminator.
    */
-  /* 02.28.07 */
   if(dsq == NULL) savelen = *slen - i - 1;	/* can save this many before realloc'ing */
   else            savelen = *slen - i - 2;	/* can save this many before realloc'ing */
   if (savelen == 0)		/* if we need to reallocate now...       */
     {				/* then double our space. */
       savelen = *slen;		
       *slen  += *slen;		
-      /* 02.28.07 Why not ESL_RALLOC()? */
       /* Exactly 1 of s and dsq is NULL, part of the contract */
       if(s != NULL)
 	{
