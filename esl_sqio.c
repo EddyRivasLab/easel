@@ -508,8 +508,6 @@ esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x)
 /*****************************************************************
  * Section 2. Routines for dealing with the ESL_SQFILE object.
  *****************************************************************/ 
-static int sqfile_open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp);
-
 /* Function:  esl_sqfile_Open()
  * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
@@ -1926,7 +1924,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   int   state;		/* state of our FSA parser               */
   int   nsafe;          /* #bytes we can safely move in both input/storage */
   int   at_linestart;	/* TRUE when we're at first char of a data line    */
-  int   status;
 
   /* If we have no more data, return EOF; we're done. (a normal return)
    */
@@ -2126,9 +2123,6 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
   sqfp->nc      = nc;
 
   return eslOK;
-
- ERROR:
-  return status;
 }
 
 /* write_fasta():
@@ -2447,50 +2441,6 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
  * Section 6. Test and example code.
  *****************************************************************/ 
 
-/*****************************************************************
- * Example main()
- *****************************************************************/
-#ifdef eslSQIO_EXAMPLE
-/*::cexcerpt::sqio_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
- * run:     ./example <FASTA file>
- */
-#include <easel.h>
-#include <esl_sqio.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_SQ     *sq;
-  ESL_SQFILE *sqfp;
-  int         status;
-  int         format = eslSQFILE_UNKNOWN;
-  char       *seqfile = argv[1];
-
-  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
-  if      (status == eslENOTFOUND) esl_fatal("No such file.");
-  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
-  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
-  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
-
-  sq = esl_sq_Create();
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
-  {
-    /* use the sequence for whatever you want */
-    printf("Read %12s: length %d\n", sq->name, sq->n);
-    esl_sq_Reuse(sq);
-  }
-  if (status != eslEOF) 
-    esl_fatal("Parse failed, line %d, file %s:\n%s", 
-	      sqfp->linenumber, sqfp->filename, sqfp->errbuf);
-  
-  esl_sq_Destroy(sq);
-  esl_sqfile_Close(sqfp);
-  return 0;
-}
-/*::cexcerpt::sqio_example::end::*/
-#endif /*eslSQIO_EXAMPLE*/
-
 
 
 
@@ -2672,6 +2622,50 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslSQIO_BENCHMARK*/
+
+/*****************************************************************
+ * Example main()
+ *****************************************************************/
+#ifdef eslSQIO_EXAMPLE
+/*::cexcerpt::sqio_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
+ * run:     ./example <FASTA file>
+ */
+#include <easel.h>
+#include <esl_sqio.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_SQ     *sq;
+  ESL_SQFILE *sqfp;
+  int         status;
+  int         format = eslSQFILE_UNKNOWN;
+  char       *seqfile = argv[1];
+
+  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  sq = esl_sq_Create();
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  {
+    /* use the sequence for whatever you want */
+    printf("Read %12s: length %d\n", sq->name, sq->n);
+    esl_sq_Reuse(sq);
+  }
+  if (status != eslEOF) 
+    esl_fatal("Parse failed, line %d, file %s:\n%s", 
+	      sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  
+  esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+  return 0;
+}
+/*::cexcerpt::sqio_example::end::*/
+#endif /*eslSQIO_EXAMPLE*/
 
 
 /*****************************************************************

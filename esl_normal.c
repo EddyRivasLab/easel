@@ -1,4 +1,6 @@
 /* Statistical routines for normal distributions
+ * (This module is currently incomplete and not fully tested,
+ *  though it compiles cleanly.)
  * 
  * SRE, Tue Nov 21 14:12:59 2006 [Janelia]
  * SVN $Id$
@@ -64,7 +66,6 @@ double
 esl_normal_cdf(double x, double mu, double sigma)
 {
   double z;
-  double result;
 
   z = (x - mu) / sigma;
   return 0.5 + 0.5 * erf(z / sqrt(2.));
@@ -84,7 +85,6 @@ double
 esl_normal_surv(double x, double mu, double sigma)
 {
   double z;
-  double result;
 
   z = (x - mu) / sigma;
   return erfc(z / sqrt(2.));
