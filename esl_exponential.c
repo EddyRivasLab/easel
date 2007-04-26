@@ -1,5 +1,17 @@
 /* Statistical routines for exponential distributions.
  * 
+ * Contents:
+ *   1. Routines for evaluating densities and distributions
+ *   2. Generic API routines: for general interface w/ histogram module
+ *   3. Routines for dumping plots for files
+ *   4. Routines for sampling (requires random module)
+ *   5. Maximum likelihood fitting
+ *   6. Stats driver
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Example
+ *  10. Copyright and license information
+ *
  * SRE, Wed Aug 10 08:15:57 2005 [St. Louis]
  * xref STL9/138  
  * SVN $Id$
@@ -21,7 +33,7 @@
 #endif
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 1. Routines for evaluating densities and distributions
  ****************************************************************************/ 
 /* lambda > 0
  * mu <= x < infinity
@@ -159,7 +171,7 @@ esl_exp_invcdf(double p, double mu, double lambda)
 
 
 /*****************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 2. Generic API routines: for general interface w/ histogram module
  *****************************************************************/ 
 
 /* Function:  esl_exp_generic_pdf()
@@ -214,7 +226,7 @@ esl_exp_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 3. Routines for dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_exp_Plot()
@@ -243,7 +255,7 @@ esl_exp_Plot(FILE *fp, double mu, double lambda,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 4. Routines for sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 
@@ -272,7 +284,7 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
 
 
 /****************************************************************************
- * Maximum likelihood fitting
+ * 5. Maximum likelihood fitting
  ****************************************************************************/ 
 
 /* Function:  esl_exp_FitComplete()
@@ -310,6 +322,40 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   *ret_lambda = 1./mean;	/* ML estimate trivial & analytic */
   return eslOK;
 }
+
+/* Function:  esl_exp_FitCompleteScale()
+ * Incept:    SRE, Wed Apr 25 11:18:22 2007 [Janelia]
+ *
+ * Purpose:   Given an array of <n> samples <x[0]..x[n-1]>, fit
+ *            them to an exponential distribution of known location
+ *            parameter <mu>. Return maximum likelihood scale 
+ *            parameter <ret_lambda>. 
+ *            
+ *            All $x_i \geq \mu$.
+ *
+ * Args:      x          - complete exponentially-distributed data [0..n-1]
+ *            n          - number of samples in <x>
+ *            mu         - lower bound of the distribution (all x_i >= mu)
+ *            ret_lambda - RETURN: maximum likelihood estimate of lambda
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Xref:      J1/49.
+ */
+int
+esl_exp_FitCompleteScale(double *x, int n, double mu, double *ret_lambda)
+{
+  double mean;
+  int    i;
+
+  mean = 0.;
+  for (i = 0; i < n; i++) mean += x[i] - mu;
+  mean /= (double) n;
+
+  *ret_lambda = 1./mean;	/* ML estimate trivial & analytic */
+  return eslOK;
+}
+
 
 #ifdef eslAUGMENT_HISTOGRAM
 /* Function:  esl_exp_FitCompleteBinned()
@@ -361,7 +407,7 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
   int    i;
   double ai, bi, delta;
   double sa, sb;
-  double mu;
+  double mu = 0.;
 
   if (g->dataset_is == COMPLETE)
     {
@@ -391,72 +437,77 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
 
 
 /****************************************************************************
- * Example main()
+ * 6. Stats driver
  ****************************************************************************/ 
-#ifdef eslEXPONENTIAL_EXAMPLE
-/*::cexcerpt::exp_example::begin::*/
-/* compile:
-   gcc -g -Wall -I. -o example -DeslEXPONENTIAL_EXAMPLE\
-     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_STATS\
-     esl_exponential.c esl_histogram.c esl_random.c esl_stats.c easel.c -lm
+#ifdef eslEXPONENTIAL_STATS
+/* Compiles statistics on the accuracy of ML estimation of an exponential tail.
+ * compile: gcc -g -O2 -Wall -I. -L. -o stats -DeslEXPONENTIAL_STATS esl_exponential.c -leasel -lm
+ * run:     ./stats > stats.out
+ * 
+ * Output is, for each trial:
+ *     <trial #>   <fitted mu>  <fitted lambda> 
+ *
+ * To get mean, stddev of lambda estimates:
+ *    % ./stats | avg -f2      
  */
 #include <stdio.h>
+
 #include <easel.h>
+#include <esl_getopts.h>
 #include <esl_random.h>
-#include <esl_histogram.h>
 #include <esl_exponential.h>
 
 int
 main(int argc, char **argv)
 {
-  double mu         = -50.0;
-  double lambda     = 0.5;
   ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
-  int    n          = 10000;
-  double emu, elambda;
+  int    ntrials;		/* number of estimates to gather */
+  int    N;			/* number of samples collected to make each estimate */
+  double mu, lambda;		/* parametric location, scale */
+  double est_mu, est_lambda;	/* estimated location, scale */
+  int    trial;
   int    i;
-  double x;
-  double *data;
-  int     ndata;
+  double *x;
 
-  for (i = 0; i < n; i++)
+  /* Configuration: (change & recompile as needed)
+   */
+  ntrials = 1000;
+  mu      = 0.;
+  lambda  = 0.693;
+  N       = 95;
+
+  x = malloc(sizeof(double) *N);
+  for (trial = 0; trial < ntrials; trial++)
     {
-      x = esl_exp_Sample(r, mu, lambda);
-      esl_histogram_Add(h, x);
+      for (i = 0; i < N; i++)
+	x[i] = esl_exp_Sample(r, mu, lambda);
+      esl_exp_FitComplete(x, N, &est_mu, &est_lambda);
+
+      /*
+      est_mu = mu;
+      esl_exp_FitCompleteScale(x, N, est_mu, &est_lambda);
+      */      
+      printf("%4d  %8.4f  %8.4f\n", i, est_mu, est_lambda);
     }
-  esl_histogram_GetData(h, &data, &ndata);
-
-  /* Plot the empirical (sampled) and expected survivals */
-  esl_histogram_PlotSurvival(stdout, h);
-  esl_exp_Plot(stdout, mu, lambda,
-	       &esl_exp_surv, h->xmin, h->xmax, 0.1);
-
-  /* ML fit to complete data, and plot fitted survival curve */
-  esl_exp_FitComplete(data, ndata, &emu, &elambda);
-  esl_exp_Plot(stdout, emu, elambda, 
-	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
-
-  /* ML fit to binned data, plot fitted survival curve  */
-  esl_exp_FitCompleteBinned(h, &emu, &elambda);
-  esl_exp_Plot(stdout, emu, elambda,
-	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
-
-  esl_randomness_Destroy(r);
-  esl_histogram_Destroy(h);
+  free(x);
   return 0;
 }
-/*::cexcerpt::exp_example::end::*/
-#endif /*eslEXPONENTIAL_EXAMPLE*/
+#endif /*eslEXPONENTIAL_STATS*/  
+
+
+
 
 
 /****************************************************************************
- * Test driver
+ * 7. Unit tests
+ ****************************************************************************/ 
+
+/****************************************************************************
+ * 8. Test driver
  ****************************************************************************/ 
 #ifdef eslEXPONENTIAL_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslEXPONENTIAL_TESTDRIVE\
-    esl_exponential.c -leasel -lm
+   gcc -g -Wall -I. -L. -o test -DeslEXPONENTIAL_TESTDRIVE esl_exponential.c -leasel -lm
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -569,6 +620,67 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslEXPONENTIAL_TESTDRIVE*/
+
+
+/****************************************************************************
+ * 9. Example 
+ ****************************************************************************/ 
+#ifdef eslEXPONENTIAL_EXAMPLE
+/*::cexcerpt::exp_example::begin::*/
+/* compile:
+   gcc -g -Wall -I. -o example -DeslEXPONENTIAL_EXAMPLE\
+     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_STATS\
+     esl_exponential.c esl_histogram.c esl_random.c esl_stats.c easel.c -lm
+ */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  double mu         = -50.0;
+  double lambda     = 0.5;
+  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
+  int    n          = 10000;
+  double emu, elambda;
+  int    i;
+  double x;
+  double *data;
+  int     ndata;
+
+  for (i = 0; i < n; i++)
+    {
+      x = esl_exp_Sample(r, mu, lambda);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_GetData(h, &data, &ndata);
+
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_exp_Plot(stdout, mu, lambda,
+	       &esl_exp_surv, h->xmin, h->xmax, 0.1);
+
+  /* ML fit to complete data, and plot fitted survival curve */
+  esl_exp_FitComplete(data, ndata, &emu, &elambda);
+  esl_exp_Plot(stdout, emu, elambda, 
+	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_exp_FitCompleteBinned(h, &emu, &elambda);
+  esl_exp_Plot(stdout, emu, elambda,
+	       &esl_exp_surv,  h->xmin, h->xmax, 0.1);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
+  return 0;
+}
+/*::cexcerpt::exp_example::end::*/
+#endif /*eslEXPONENTIAL_EXAMPLE*/
+
 
 /*****************************************************************
  * @LICENSE@

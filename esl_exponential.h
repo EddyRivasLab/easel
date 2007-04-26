@@ -35,7 +35,8 @@ extern int    esl_exp_Plot(FILE *fp, double mu, double lambda,
 extern double esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda);
 #endif
 
-extern int esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lam);
+extern int esl_exp_FitComplete     (double *x, int n, double *ret_mu, double *ret_lambda);
+extern int esl_exp_FitCompleteScale(double *x, int n, double      mu, double *ret_lambda);
 
 #ifdef eslAUGMENT_HISTOGRAM
 extern int esl_exp_FitCompleteBinned(ESL_HISTOGRAM *h, 

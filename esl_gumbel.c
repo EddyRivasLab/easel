@@ -1,5 +1,16 @@
-/* esl_gumbel.c
- * Statistical routines for Gumvel (type I extreme value) distributions.
+/* Statistical routines for Gumbel (type I extreme value) distributions.
+ * 
+ * Contents:
+ *   1. Routine for evaluating densities and distributions
+ *   2. Generic API routines: for general interface w/ histogram module
+ *   3. Routines for dumping plots to files
+ *   4. Routines for sampling (requires random module)
+ *   5. Maximum likelihood fitting to data (requires minimizer module)
+ *   6. Stats driver
+ *   7. Unit tests
+ *   8. Test driver
+ *   9. Example
+ *  10. Copyright and license information
  * 
  * SRE, Thu Jun 23 11:48:39 2005
  * SVN $Id$
@@ -22,7 +33,7 @@
 #endif
 
 /*****************************************************************
- * Routines for evaluating densities and distributions
+ * 1. Routines for evaluating densities and distributions
  *****************************************************************/ 
 
 /* Function:  esl_gumbel_pdf()
@@ -164,7 +175,7 @@ esl_gumbel_invcdf(double p, double mu, double lambda)
 
 
 /*****************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 2. Generic API routines: for general interface w/ histogram module
  *****************************************************************/ 
 
 /* Function:  esl_gumbel_generic_pdf()
@@ -221,7 +232,7 @@ esl_gumbel_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 3. Routines for dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_gumbel_Plot()
@@ -250,7 +261,7 @@ esl_gumbel_Plot(FILE *fp, double mu, double lambda,
 
 
 /*****************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 4. Routines for sampling (requires augmentation w/ random module)
  *****************************************************************/ 
 
 #ifdef eslAUGMENT_RANDOM
@@ -274,7 +285,7 @@ esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
 
 
 /*****************************************************************
- * Routines for maximum likelihood fitting Gumbels to data
+ * 5. Routines for maximum likelihood fitting Gumbels to data
  * (fitting truncated distributions requires augmentation w/ minimizer module)
  *****************************************************************/ 
 
@@ -871,144 +882,11 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
 #endif /*eslAUGMENT_MINIMIZER*/
 /*------------------------ end of fitting --------------------------------*/
 
-
-
 /*****************************************************************
- * Example, test, and stats drivers
- *****************************************************************/ 
-/* Example main()
- */
-#ifdef eslGUMBEL_EXAMPLE
-/*::cexcerpt::gumbel_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslGUMBEL_EXAMPLE -DeslAUGMENT_RANDOM esl_gumbel.c esl_random.c esl_vectorops.c easel.c -lm
- * run:     ./example
- */
-#include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_gumbel.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
-  int     n         = 10000; 	/* simulate 10,000 samples */
-  double  mu        = -20.0;       /* with mu = -20 */ 
-  double  lambda    = 0.4;         /* and lambda = 0.4 */
-  double  min       =  9999.;
-  double  max       = -9999.;
-  double *x         = malloc(sizeof(double) * n);
-  double  z, est_mu, est_lambda;
-  int     i;
-
-  for (i = 0; i < n; i++)	/* generate the 10,000 samples */
-    { 
-      x[i] = esl_gumbel_Sample(r, mu, lambda);
-      if (x[i] < min) min = x[i];
-      if (x[i] > max) max = x[i];
-    }
-
-  z = esl_gumbel_surv(max, mu, lambda);           /* right tail p~1e-4 >= max */
-  printf("max = %6.1f  P(>max)  = %g\n", max, z);
-  z = esl_gumbel_cdf(min, mu, lambda);             /* left tail p~1e-4 < min */
-  printf("min = %6.1f  P(<=min) = %g\n", min, z);
-
-  esl_gumbel_FitComplete(x, n, &est_mu, &est_lambda); /* fit params to the data */
-  
-  z = 100. * fabs((est_mu - mu) / mu);
-  printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
-	 mu, est_mu, z);
-  z = 100. * fabs((est_lambda - lambda) /lambda);
-  printf("Parametric lambda = %6.1f.  Estimated lambda = %6.2f.  Difference = %.1f%%.\n",
-	 lambda, est_lambda, z);
-
-  free(x);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::gumbel_example::end::*/
-#endif /*eslGUMBEL_EXAMPLE*/
-
-
-/* Test driver's main()
- */
-#ifdef eslGUMBEL_TESTDRIVE
-/* compile: gcc -g -Wall -I. -o test -DeslGUMBEL_TESTDRIVE -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER esl_gumbel.c esl_random.c esl_minimizer.c esl_vectorops.c easel.c -lm
- * run:     ./test
- */
-#include <stdio.h>
-
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_minimizer.h>
-#include <esl_gumbel.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r = NULL;
-  int    totalN;
-  int    n;
-  double phi;		/* truncation threshold. */
-  int    i;
-  double *x = NULL;
-  double  mu, lambda;
-  double  est_mu, est_lambda;
-  int     status;
-
-  totalN = 10000;
-  mu     = -20.;
-  lambda = 0.4;
-  phi    = -20.;
-
-  r = esl_randomness_Create(42); /* make the sims reproducible */
-  ESL_ALLOC(x, sizeof(double) * totalN);
-  
-  /* Test complete data fitting on simulated data.
-   * Don't tolerate more than 1% error in mu, 3% in lambda.
-   */
-  for (i = 0; i < totalN; i++)
-    x[i] = esl_gumbel_Sample(r, mu, lambda);
-  esl_gumbel_FitComplete(x, totalN, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.03) abort();
-
-  /* Test censored fitting on simulated data, for 
-   * the right tail mass above the mode.
-   * Don't tolerate more than 1% error in mu, 4% in lambda.
-   */
-  for (n=0, i = 0; i < totalN; i++)
-    if (x[i] >= phi) x[n++] = x[i];
-  esl_gumbel_FitCensored(x, n, totalN-n, phi, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.04) abort();
-
-  /* Test truncated fitting on simulated data.
-   * Don't tolerate more than 5% error in mu, 8% in lambda.
-   */
-#ifdef eslAUGMENT_MINIMIZER
-  esl_gumbel_FitTruncated(x, n, phi, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.05) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.08) abort();
-#endif /*eslAUGMENT_MINIMIZER*/
-
-
-  free(x);
-  esl_randomness_Destroy(r);
-  return 0;
-
- ERROR:
-  if (x != NULL) free(x);
-  if (r != NULL) esl_randomness_Destroy(r);
-  return status;
-}
-#endif /*eslGUMBEL_TESTDRIVE*/
-
-
-/* Stats driver's main()
- */
+ * 6. Stats driver
+ *****************************************************************/
 #ifdef eslGUMBEL_STATS
-/* compile: gcc -g -Wall -I. -o stats -DeslGUMBEL_STATS -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER esl_gumbel.c esl_random.c esl_minimizer.c esl_vectorops.c easel.c -lm
+/* compile: gcc -g -O2 -Wall -I. -L. -o stats -DeslGUMBEL_STATS esl_gumbel.c -leasel -lm
  * run:     ./stats > stats.out
  * process w/ lines like:
  *    grep "complete    100" stats.out | awk '{$i = 100*($5-$4)/$4; if ($i < 0) $i = -$i; print $i}' | avg
@@ -1045,12 +923,12 @@ main(int argc, char **argv)
 
   ntrials = 500;
   mu      = -20.0;
-  lambda  = 0.4;
+  lambda  = 0.693;
   phi     = -15.;
 
-  do_complete  = FALSE;		/* Flip these on/off as desired */
+  do_complete  = TRUE;		/* Flip these on/off as desired */
   do_censored  = FALSE;
-  do_truncated = TRUE;
+  do_truncated = FALSE;
 
   r = esl_randomness_CreateTimeseeded();
   x = malloc(sizeof(double) * totalN[nexps-1]);
@@ -1124,6 +1002,143 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslGUMBEL_STATS*/
+
+/*****************************************************************
+ * 7. Unit tests.
+ *****************************************************************/ 
+
+
+/*****************************************************************
+ * 8. Test driver.
+ *****************************************************************/ 
+#ifdef eslGUMBEL_TESTDRIVE
+/* compile: gcc -g -Wall -I. -o test -DeslGUMBEL_TESTDRIVE -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER esl_gumbel.c esl_random.c esl_minimizer.c esl_vectorops.c easel.c -lm
+ * run:     ./test
+ */
+#include <stdio.h>
+
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_minimizer.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r = NULL;
+  int    totalN;
+  int    n;
+  double phi;		/* truncation threshold. */
+  int    i;
+  double *x = NULL;
+  double  mu, lambda;
+  double  est_mu, est_lambda;
+  int     status;
+
+  totalN = 10000;
+  mu     = -20.;
+  lambda = 0.4;
+  phi    = -20.;
+
+  r = esl_randomness_Create(42); /* make the sims reproducible */
+  ESL_ALLOC(x, sizeof(double) * totalN);
+  
+  /* Test complete data fitting on simulated data.
+   * Don't tolerate more than 1% error in mu, 3% in lambda.
+   */
+  for (i = 0; i < totalN; i++)
+    x[i] = esl_gumbel_Sample(r, mu, lambda);
+  esl_gumbel_FitComplete(x, totalN, &est_mu, &est_lambda);
+  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
+  if (fabs((est_lambda-lambda)/lambda) > 0.03) abort();
+
+  /* Test censored fitting on simulated data, for 
+   * the right tail mass above the mode.
+   * Don't tolerate more than 1% error in mu, 4% in lambda.
+   */
+  for (n=0, i = 0; i < totalN; i++)
+    if (x[i] >= phi) x[n++] = x[i];
+  esl_gumbel_FitCensored(x, n, totalN-n, phi, &est_mu, &est_lambda);
+  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
+  if (fabs((est_lambda-lambda)/lambda) > 0.04) abort();
+
+  /* Test truncated fitting on simulated data.
+   * Don't tolerate more than 5% error in mu, 8% in lambda.
+   */
+#ifdef eslAUGMENT_MINIMIZER
+  esl_gumbel_FitTruncated(x, n, phi, &est_mu, &est_lambda);
+  if (fabs((est_mu    -mu)    /mu)     > 0.05) abort();
+  if (fabs((est_lambda-lambda)/lambda) > 0.08) abort();
+#endif /*eslAUGMENT_MINIMIZER*/
+
+
+  free(x);
+  esl_randomness_Destroy(r);
+  return 0;
+
+ ERROR:
+  if (x != NULL) free(x);
+  if (r != NULL) esl_randomness_Destroy(r);
+  return status;
+}
+#endif /*eslGUMBEL_TESTDRIVE*/
+
+
+/*****************************************************************
+ * 9. Example.
+ *****************************************************************/ 
+#ifdef eslGUMBEL_EXAMPLE
+/*::cexcerpt::gumbel_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslGUMBEL_EXAMPLE -DeslAUGMENT_RANDOM esl_gumbel.c esl_random.c esl_vectorops.c easel.c -lm
+ * run:     ./example
+ */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
+  int     n         = 10000; 	/* simulate 10,000 samples */
+  double  mu        = -20.0;       /* with mu = -20 */ 
+  double  lambda    = 0.4;         /* and lambda = 0.4 */
+  double  min       =  9999.;
+  double  max       = -9999.;
+  double *x         = malloc(sizeof(double) * n);
+  double  z, est_mu, est_lambda;
+  int     i;
+
+  for (i = 0; i < n; i++)	/* generate the 10,000 samples */
+    { 
+      x[i] = esl_gumbel_Sample(r, mu, lambda);
+      if (x[i] < min) min = x[i];
+      if (x[i] > max) max = x[i];
+    }
+
+  z = esl_gumbel_surv(max, mu, lambda);           /* right tail p~1e-4 >= max */
+  printf("max = %6.1f  P(>max)  = %g\n", max, z);
+  z = esl_gumbel_cdf(min, mu, lambda);             /* left tail p~1e-4 < min */
+  printf("min = %6.1f  P(<=min) = %g\n", min, z);
+
+  esl_gumbel_FitComplete(x, n, &est_mu, &est_lambda); /* fit params to the data */
+  
+  z = 100. * fabs((est_mu - mu) / mu);
+  printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
+	 mu, est_mu, z);
+  z = 100. * fabs((est_lambda - lambda) /lambda);
+  printf("Parametric lambda = %6.1f.  Estimated lambda = %6.2f.  Difference = %.1f%%.\n",
+	 lambda, est_lambda, z);
+
+  free(x);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::gumbel_example::end::*/
+#endif /*eslGUMBEL_EXAMPLE*/
+
+
 
 
 /*****************************************************************

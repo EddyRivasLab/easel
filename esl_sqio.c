@@ -2505,12 +2505,12 @@ main(void)
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
 
-  /* Potentially repeat using digitial sequences. */
+  /* Potentially repeat using digital sequences. */
 #ifdef eslAUGMENT_ALPHABET
   if ((abc = esl_alphabet_Create(eslDNA)) == NULL) 
     esl_fatal("alphabet creation failed");
 
-  if (esl_sqfile_Open(filename, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) abort();
+  if (esl_sqfile_Open(tmpfile, eslSQFILE_FASTA, NULL, &sqfp) != eslOK) abort();
   sq = esl_sq_CreateDigital(abc);
 
   n=0;
