@@ -1,0 +1,123 @@
+
+The keyhash (key) module contains routines for emulating Perl
+associative arrays, by associating keywords with an integer array
+index, and storing the association in a hash table for rapid access.
+
+\subsection{The keyhash API}
+
+The module implements one object: the hash table,
+\ccode{ESL\_KEYHASH}.
+
+The API defines five functions: 
+
+\begin{tabular}{ll}
+\ccode{esl\_keyhash\_Create()}  & Create a new \ccode{ESL\_KEYHASH}. \\
+\ccode{esl\_keyhash\_Destroy()} & Destroys a created \ccode{ESL\_KEYHASH}. \\
+\ccode{esl\_keyhash\_Dump()}    & Dumps internal info from a \ccode{ESL\_KEYHASH}. \\
+\ccode{esl\_key\_Store()}       & Stores a key, gets an associated index.\\
+\ccode{esl\_key\_Lookup()}      & Looks up a key, returns index or -1.\\
+\end{tabular}
+
+\subsection{Example of using the keyhash API}
+
+The idea behind using the keyhash module is shown in this fragment of
+pseudocode:
+
+\begin{cchunk}
+       #include <easel.h>
+       #include <esl_keyhash.h>
+     
+       ESL_KEYHASH *hash;
+       int   idx;
+       char  key;
+       
+       hash = esl_keyhash_Create();
+ (Storing:) 
+       (foreach key) {
+          esl_key_Store(hash, key, &idx);       
+          (reallocate foo, bar as needed)
+          foo[idx] = whatever;
+          bar[idx] = whatever;
+       }     
+ (Reading:)
+       (foreach key) {
+          idx = esl_key_Lookup(hash, key);
+          if (idx == -1) {no_such_key; }
+          (do something with) foo[idx];
+          (do something with) bar[idx];
+       }   
+       esl_keyhash_Destroy();
+\end{cchunk}
+
+That is, the application maintains info in normal C-style arrays that
+are indexed by an integer index value, and it uses the keyhash to
+associate a specific keyword with an integer index. To store info, you
+first store the keyword and obtain a new index (this simply starts at
+0 and counts up, as you store successive keys), then you store the
+info in appropriate arrays at that index. To look up info, you look up
+the keyword to obtain the index, then you access the info by indexing
+into your arrays.
+
+This is a (laborious) moral equivalent of Perl's associative arrays, as
+in \ccode{\$foo\{\$key\} = whatever; \$bar\{\$key\} = whatever}.
+
+The following (contrived) example is real C code to store keywords
+listed from one file, and looks up keywords listed in a second
+file. It doesn't demonstrate the idea of using the index to store and
+retrieve additional info associated with the keyword, but it does
+demonstrate the real C API to keyhash.
+
+\begin{cchunk}
+#include <stdio.h>
+#include <easel/easel.h>
+#include <easel/keyhash.h>
+
+int
+main(int argc, char **argv)
+{
+  FILE        *fp;
+  char         buf[256];
+  char        *s, *tok;
+  ESL_KEYHASH *h;
+  int          idx;
+  int          nstored, nsearched, nshared;
+
+  h = esl_keyhash_Create();
+
+  /* Read/store keys from file 1.
+   */
+  if ((fp = fopen(argv[1], "r")) == NULL)
+    { fprintf(stderr, "couldn't open %s\n", argv[1]); exit(1); }
+  nstored = 0;
+  while (fgets(buf, 256, fp) != NULL)
+    {
+      s = buf;
+      esl_strtok(&s, " \t\r\n", &tok, NULL);
+      esl_key_Store(h, tok, &idx);
+      nstored++;
+    }
+  fclose(fp);
+  printf("Stored %d keys.\n", nstored);
+
+  /* Look up keys from file 2.
+   */
+  if ((fp = fopen(argv[2], "r")) == NULL)
+    { fprintf(stderr, "couldn't open %s\n", argv[2]); exit(1); }
+  nsearched = nshared = 0;
+  while (fgets(buf, 256, fp) != NULL)
+    {
+      s = buf;
+      esl_strtok(&s, " \t\r\n", &tok, NULL);
+
+      idx = esl_key_Lookup(h, tok);
+      if (idx != -1) nshared++;
+      nsearched++;
+    }
+  fclose(fp);
+  printf("Looked up %d keys.\n", nsearched);
+  printf("In common: %d keys.\n", nshared);
+
+  esl_keyhash_Destroy(h);
+  return 0;
+}
+\end{cchunk}
