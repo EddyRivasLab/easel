@@ -857,9 +857,9 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
  *            with permissions 0600, as an atomic operation using the
  *            POSIX <mkstemp()> function.
  * 
- *            The <template> argument is a modifiable string that must
+ *            The <basename6X> argument is a modifiable string that must
  *            end in "XXXXXX" (for example, "esltmpXXXXXX"). The
- *            <template> is used to construct a unique tmpfile name.
+ *            <basename6X> is used to construct a unique tmpfile name.
  *            
  *            The file is opened in a standard temporary file
  *            directory. The path is obtained from the environment
@@ -907,7 +907,7 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
  *            governing secure use of tempfiles.
  */
 int
-esl_tmpfile(char *template, FILE **ret_fp)
+esl_tmpfile(char *basename6X, FILE **ret_fp)
 {
   char *tmpdir = NULL;
   char *path   = NULL;
@@ -925,7 +925,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
       if (tmpdir == NULL) tmpdir = getenv("TMP");
     }
   if (tmpdir == NULL) tmpdir = "/tmp";
-  if ((status = esl_FileConcat(tmpdir, template, &path)) != eslOK) goto ERROR; 
+  if ((status = esl_FileConcat(tmpdir, basename6X, &path)) != eslOK) goto ERROR; 
 
   old_mode = umask(077);
   if ((fd = mkstemp(path)) <  0)        ESL_XEXCEPTION(eslESYS, "mkstemp() failed.");
@@ -949,10 +949,10 @@ esl_tmpfile(char *template, FILE **ret_fp)
  *
  * Purpose:   Open a persistant temporary file relative to the current
  *            working directory. The file name is constructed from the
- *            <template> argument, which must be a modifiable string
+ *            <basename6X> argument, which must be a modifiable string
  *            ending in the six characters "XXXXXX".  These are
  *            replaced by a unique character string by a call to POSIX
- *            <mkstemp()>. For example, <template> might be
+ *            <mkstemp()>. For example, <basename6X> might be
  *            <esltmpXXXXXX> on input, and <esltmp12ab34> on return; or, to
  *            put the tmp file in a subdirectory under the current
  *            working directory, something like <my_subdir/esltmpXXXXXX>
@@ -971,7 +971,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
  *            tmpfile, you must only reopen it for reading, not
  *            writing, and you must not trust the contents.
  *            
- *            Because the <template> will be modified, it cannot be
+ *            Because the <basename6X> will be modified, it cannot be
  *            a string constant (especially on a picky compiler like
  *            gcc). You have to declare it with something like
  *               <char tmpfile[32] = "esltmpXXXXXX";> 
@@ -980,15 +980,15 @@ esl_tmpfile(char *template, FILE **ret_fp)
  *            because a compiler is allowed to make the <*tmpfile> version
  *            a constant.
  *
- * Returns:   <eslOK> on success, <template> contains the name of the
+ * Returns:   <eslOK> on success, <basename6X> contains the name of the
  *            tmpfile, and <ret_fp> contains a new <FILE *> stream for the
  *            opened file. 
  *             
  *            <eslFAIL> on failure, and <ret_fp> is returned NULL and
- *            the contents of <template> are undefined. The most
+ *            the contents of <basename6X> are undefined. The most
  *            common reason for a failure will be that the caller does
  *            not have write permission for the directory that
- *            <template> is in. Easel handles this as a normal (user)
+ *            <basename6X> is in. Easel handles this as a normal (user)
  *            failure, not an exception, because these permissions are
  *            most likely in the user's control (in contrast to
  *            <esl_tmpfile()>, which always uses a system <TMPDIR>
@@ -998,7 +998,7 @@ esl_tmpfile(char *template, FILE **ret_fp)
  * Xref:      STL11/85.
  */
 int
-esl_tmpfile_named(char *template, FILE **ret_fp)
+esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 {
   FILE  *fp;
   mode_t old_mode;
@@ -1006,7 +1006,7 @@ esl_tmpfile_named(char *template, FILE **ret_fp)
 
   *ret_fp = NULL;
   old_mode = umask(077);
-  if ((fd = mkstemp(template)) <  0)    return eslFAIL;
+  if ((fd = mkstemp(basename6X)) <  0)    return eslFAIL;
   umask(old_mode);
   if ((fp = fdopen(fd, "w+b")) == NULL) return eslFAIL;
 

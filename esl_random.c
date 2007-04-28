@@ -688,7 +688,7 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
 /* Function:  esl_rnd_CShuffle()
  * Incept:    SRE, Fri Feb 23 08:17:50 2007 [Casa de Gatos]
  *
- * Purpose:   Returns a shuffled version of <s> in <new>, given
+ * Purpose:   Returns a shuffled version of <s> in <shuffled>, given
  *            a source of randomness <r>.
  *            
  *            Caller provides allocated storage for <shuffled>, for at
@@ -700,18 +700,18 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *new)
+esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *shuffled)
 {
   int  L, i;
   char c;
 
   L = strlen(s);
-  if (new != s) strcpy(new, s);
+  if (shuffled != s) strcpy(shuffled, s);
   while (L > 1) {
-    i        = esl_rnd_Choose(r, L);
-    c        = new[i];
-    new[i]   = new[L-1];
-    new[L-1] = c;
+    i             = esl_rnd_Choose(r, L);
+    c             = shuffled[i];
+    shuffled[i]   = shuffled[L-1];
+    shuffled[L-1] = c;
     L--;
   }
   return eslOK;
@@ -922,11 +922,11 @@ esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *shuffled)
 /* Function:  esl_rnd_CMarkov0()
  * Incept:    SRE, Sat Feb 24 08:47:43 2007 [Casa de Gatos]
  *
- * Purpose:   Makes a random string <new> with the same length and
+ * Purpose:   Makes a random string <markoved> with the same length and
  *            0-th order Markov properties as <s>, given randomness
  *            source <r>.
  *            
- *            <s> and <new> can be point to the same storage, in which
+ *            <s> and <markoved> can be point to the same storage, in which
  *            case <s> is randomized in place, destroying the original
  *            string.
  *            
@@ -934,16 +934,16 @@ esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *shuffled)
  *            Statistics are collected case-insensitively over 26 possible
  *            residues. The random string is generated all upper case.
  *
- * Args:      s    - input string
- *            new  - randomly generated string 
- *                   (storage allocated by caller, at least strlen(s)+1)
+ * Args:      s         - input string
+ *            markoved  - randomly generated string 
+ *                        (storage allocated by caller, at least strlen(s)+1)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *new)
+esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *markoved)
 {
   int    L;
   int    i; 
@@ -966,8 +966,8 @@ esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *new)
 
   /* Generate a random string using those p's. */
   for (i = 0; i < L; i++)
-    new[i] = esl_rnd_DChoose(r, p, 26) + 'A';
-  new[i] = '\0';
+    markoved[i] = esl_rnd_DChoose(r, p, 26) + 'A';
+  markoved[i] = '\0';
 
   return eslOK;
 }
@@ -975,11 +975,11 @@ esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *new)
 /* Function:  esl_rnd_CMarkov1()
  * Incept:    SRE, Sat Feb 24 09:21:46 2007 [Casa de Gatos]
  *
- * Purpose:   Makes a random string <new> with the same length and
+ * Purpose:   Makes a random string <markoved> with the same length and
  *            1st order (di-residue) Markov properties as <s>, given
  *            randomness source <r>.
  *            
- *            <s> and <new> can be point to the same storage, in which
+ *            <s> and <markoved> can be point to the same storage, in which
  *            case <s> is randomized in place, destroying the original
  *            string.
  *            
@@ -987,16 +987,16 @@ esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *new)
  *            Statistics are collected case-insensitively over 26 possible
  *            residues. The random string is generated all upper case.
  *
- * Args:      s    - input string
- *            new  - new randomly generated string 
- *                   (storage allocated by caller, at least strlen(s)+1)
+ * Args:      s         - input string
+ *            markoved  - new randomly generated string 
+ *                        (storage allocated by caller, at least strlen(s)+1)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *new) 
+esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *markoved) 
 {
   int    L;
   int    i; 
@@ -1038,14 +1038,14 @@ esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *new)
 
   /* Generate a random string using those p's. */
   x = esl_rnd_DChoose(r, p0, 26);
-  new[0] = x + 'A';
+  markoved[0] = x + 'A';
   for (i = 1; i < L; i++)
     {
-      y = esl_rnd_DChoose(r, p[x], 26);
-      new[i] = y + 'A';
-      x = y;
+      y           = esl_rnd_DChoose(r, p[x], 26);
+      markoved[i] = y + 'A';
+      x           = y;
     } 
-  new[L] = '\0';
+  markoved[L] = '\0';
 
   return eslOK;
 }
@@ -1053,21 +1053,21 @@ esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *new)
 /* Function:  esl_rnd_CReverse()
  * Incept:    SRE, Sat Feb 24 10:06:34 2007 [Casa de Gatos]
  *
- * Purpose:   Returns a reversed version of <s> in <new>. 
+ * Purpose:   Returns a reversed version of <s> in <rev>. 
  * 
  *            There are no restrictions on the symbols that <s>
  *            might contain.
  * 
- *            Caller provides storage in <new> for at least
+ *            Caller provides storage in <rev> for at least
  *            <(strlen(s)+1)*sizeof(char)>.
  *            
- *            <s> and <new> can point to the same storage, in which
+ *            <s> and <rev> can point to the same storage, in which
  *            case <s> is reversed in place.
  *            
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_CReverse(char *s, char *new)
+esl_rnd_CReverse(char *s, char *rev)
 {
   int  L, i;
   char c;
@@ -1076,11 +1076,11 @@ esl_rnd_CReverse(char *s, char *new)
   for (i = 0; i < L/2; i++)
     {				/* swap ends */
       c          = s[L-i-1];
-      new[L-i-1] = s[i];
-      new[i]     = c;
+      rev[L-i-1] = s[i];
+      rev[i]     = c;
     }
-  if (L%2) { new[i] = s[i]; } /* don't forget middle residue in odd-length s */
-  new[L] = '\0';
+  if (L%2) { rev[i] = s[i]; } /* don't forget middle residue in odd-length s */
+  rev[L] = '\0';
   return eslOK;
 }
 
@@ -1088,36 +1088,36 @@ esl_rnd_CReverse(char *s, char *new)
  * Incept:   SRE, Sat Feb 24 10:17:59 2007 [Casa de Gatos]
  * 
  * Purpose:  Given string <s>, shuffle residues in nonoverlapping
- *           windows of width <w>, and put the result in <new>.
+ *           windows of width <w>, and put the result in <shuffled>.
  *           See [Pearson88].
  *
- *           <s> and <new> can be identical to shuffle in place.
+ *           <s> and <shuffled> can be identical to shuffle in place.
  * 
- *           Caller provides storage in <new> for at least
+ *           Caller provides storage in <shuffled> for at least
  *           <(strlen(s)+1)*sizeof(char)>.
  *
- * Args:     s   - string to shuffle in windows
- *           w   - window size (typically 10 or 20)      
- *           new - allocated space for window-shuffled result.
+ * Args:     s        - string to shuffle in windows
+ *           w        - window size (typically 10 or 20)      
+ *           shuffled - allocated space for window-shuffled result.
  *           
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *new)
+esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *shuffled)
 {
   int  L;
   char c;
   int  i, j, k;
 
   L = strlen(s);
-  if (new != s) strcpy(new, s);
+  if (shuffled != s) strcpy(shuffled, s);
   for (i = 0; i < L; i += w)
     for (j = ESL_MIN(L-1, i+w-1); j > i; j--)
       {
-	k        = i + esl_rnd_Choose(r, j-i);
-	c        = new[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
-	new[k]   = new[j];
-	new[j]   = c;
+	k             = i + esl_rnd_Choose(r, j-i);
+	c             = shuffled[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
+	shuffled[k]   = shuffled[j];
+	shuffled[j]   = c;
       }
   return eslOK;
 }
@@ -1129,7 +1129,7 @@ esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *new)
  * Incept:    SRE, Fri Feb 23 08:24:20 2007 [Casa de Gatos]
  *
  * Purpose:   Given a digital sequence <dsq> of length <L> residues,
- *            shuffle it, and leave the shuffled version in <new>.
+ *            shuffle it, and leave the shuffled version in <shuffled>.
  *            
  *            Caller provides allocated storage for <shuffled> for at
  *            least the same length as <dsq>. 
@@ -1140,17 +1140,17 @@ esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *new)
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *new)
+esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
 {
   int     i;
   ESL_DSQ x;
 
-  if (dsq != new) esl_abc_dsqcpy(dsq, L, new);
+  if (dsq != shuffled) esl_abc_dsqcpy(dsq, L, shuffled);
   while (L > 1) {
-    i      = 1 + esl_rnd_Choose(r, L);
-    x      = new[i];
-    new[i] = new[L];
-    new[L] = x;
+    i           = 1 + esl_rnd_Choose(r, L);
+    x           = shuffled[i];
+    shuffled[i] = shuffled[L];
+    shuffled[L] = x;
     L--;
   }
   return eslOK;
@@ -1290,7 +1290,7 @@ esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuff
  * Purpose:   Same as <esl_rnd_CMarkov0()>, except for a digital
  *            sequence <dsq> of length <L>, encoded in a digital 
  *            alphabet of <K> residues; caller provides storage
- *            for the randomized sequence <new> for at least 
+ *            for the randomized sequence <markoved> for at least 
  *            <L+2> <ESL_DSQ> residues, including the two flanking
  *            sentinel bytes.
  *            
@@ -1306,7 +1306,7 @@ esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuff
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
+esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved)
 {
   int     status;
   int     i; 
@@ -1327,9 +1327,9 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
     for (x = 0; x < K; x++) p[x] /= (double) L;
 
   for (i = 1; i <= L; i++)
-    new[i] = esl_rnd_DChoose(r, p, K);
-  new[0]   = eslDSQ_SENTINEL;
-  new[L+1] = eslDSQ_SENTINEL;
+    markoved[i] = esl_rnd_DChoose(r, p, K);
+  markoved[0]   = eslDSQ_SENTINEL;
+  markoved[L+1] = eslDSQ_SENTINEL;
 
   free(p);
   return eslOK;
@@ -1347,11 +1347,11 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
  * Purpose:   Same as <esl_rnd_CMarkov1()>, except for a digital
  *            sequence <dsq> of length <L>, encoded in a digital 
  *            alphabet of <K> residues. Caller provides storage
- *            for the randomized sequence <new> for at least 
+ *            for the randomized sequence <markoved> for at least 
  *            <L+2> <ESL_DSQ> residues, including the two flanking
  *            sentinel bytes.
  *            
- *            <dsq> and <new> can be point to the same storage, in which
+ *            <dsq> and <markoved> can be point to the same storage, in which
  *            case <dsq> is randomized in place, destroying the original
  *            string.
  *            
@@ -1360,12 +1360,12 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
  *            degeneracies, or missing data, pass the alphabet's
  *            <Kp> size, not its canonical <K>.
  *
- * Args:      dsq  - input digital sequence 1..L
- *            L    - length of dsq
- *            K    - residue codes in dsq are in range 0..K-1
- *            new  - new randomly generated digital sequence;
- *                   storage allocated by caller, at least (L+2)*ESL_DSQ;
- *                   may be same as dsq to randomize in place.
+ * Args:      dsq       - input digital sequence 1..L
+ *            L         - length of dsq
+ *            K         - residue codes in dsq are in range 0..K-1
+ *            markoved  - new randomly generated digital sequence;
+ *                        storage allocated by caller, at least (L+2)*ESL_DSQ;
+ *                        may be same as dsq to randomize in place.
  *
  * Returns:   <eslOK> on success.
  *
@@ -1374,7 +1374,7 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new) 
+esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved) 
 {
   int      status;
   int      i; 
@@ -1416,12 +1416,12 @@ esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
     }
 
   /* Generate a random string using those p's. */
-  new[1] = esl_rnd_DChoose(r, p0, K);
+  markoved[1] = esl_rnd_DChoose(r, p0, K);
   for (i = 2; i <= L; i++)
-    new[i] = esl_rnd_DChoose(r, p[new[i-1]], K);
+    markoved[i] = esl_rnd_DChoose(r, p[markoved[i-1]], K);
 
-  new[0]   = eslDSQ_SENTINEL;
-  new[L+1] = eslDSQ_SENTINEL;
+  markoved[0]   = eslDSQ_SENTINEL;
+  markoved[L+1] = eslDSQ_SENTINEL;
 
   esl_Free2D((void**)p, K);
   free(p0);
@@ -1438,18 +1438,18 @@ esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *new)
  * Incept:    SRE, Sat Feb 24 10:13:30 2007 [Casa de Gatos]
  *
  * Purpose:   Given a digital sequence <dsq> of length <L>, return
- *            reversed version of it in <new>. 
+ *            reversed version of it in <rev>. 
  * 
- *            Caller provides storage in <new> for at least
+ *            Caller provides storage in <rev> for at least
  *            <(L+2)*sizeof(ESL_DSQ)>.
  *            
- *            <s> and <new> can point to the same storage, in which
+ *            <s> and <rev> can point to the same storage, in which
  *            case <s> is reversed in place.
  *            
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *new)
+esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *rev)
 {
   int     i;
   ESL_DSQ x;
@@ -1457,12 +1457,12 @@ esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *new)
   for (i = 1; i <= L/2; i++)
     {				/* swap ends */
       x          = dsq[L-i+1];
-      new[L-i+1] = dsq[i];
-      new[i]     = x;
+      rev[L-i+1] = dsq[i];
+      rev[i]     = x;
     }
-  if (L%2) { new[i] = dsq[i]; } /* don't forget middle residue in odd-length dsq */
-  new[0]   = eslDSQ_SENTINEL;
-  new[L+1] = eslDSQ_SENTINEL;
+  if (L%2) { rev[i] = dsq[i]; } /* don't forget middle residue in odd-length dsq */
+  rev[0]   = eslDSQ_SENTINEL;
+  rev[L+1] = eslDSQ_SENTINEL;
   return eslOK;
 }
 
@@ -1472,34 +1472,34 @@ esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *new)
  * 
  * Purpose:  Given a digital sequence <dsq> of length <L>, shuffle
  *           residues in nonoverlapping windows of width <w>, and put
- *           the result in <new>.  See [Pearson88].
+ *           the result in <shuffled>.  See [Pearson88].
  *
- *           Caller provides storage in <new> for at least
+ *           Caller provides storage in <shuffled> for at least
  *           <L+2)*sizeof(ESL_DSQ)>.
  *           
- *           <dsq> and <new> can be identical to shuffle in place.
+ *           <dsq> and <shuffled> can be identical to shuffle in place.
  *
- * Args:     dsq - digital sequence to shuffle in windows
- *           L   - length of <dsq>
- *           w   - window size (typically 10 or 20)      
- *           new - allocated space for window-shuffled result.
+ * Args:     dsq      - digital sequence to shuffle in windows
+ *           L        - length of <dsq>
+ *           w        - window size (typically 10 or 20)      
+ *           shuffled - allocated space for window-shuffled result.
  *           
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int w, ESL_DSQ *new)
+esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int w, ESL_DSQ *shuffled)
 {
   ESL_DSQ x;
   int  i, j, k;
 
-  if (dsq != new) esl_abc_dsqcpy(dsq, L, new);
+  if (dsq != shuffled) esl_abc_dsqcpy(dsq, L, shuffled);
   for (i = 1; i <= L; i += w)
     for (j = ESL_MIN(L, i+w-1); j > i; j--)
       {
-	k        = i + esl_rnd_Choose(r, j-i+1);
-	x        = new[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
-	new[k]   = new[j];
-	new[j]   = x;
+	k           = i + esl_rnd_Choose(r, j-i+1);
+	x           = shuffled[k];  /* semantics of a j,k swap, because we might be shuffling in-place */
+	shuffled[k] = shuffled[j];
+	shuffled[j] = x;
       }
   return eslOK;
 }
@@ -1719,7 +1719,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   char   *logmsg  = "Failure in one of the CShuffle* unit tests";
   int     status;
   char   *s   = NULL;
-  char   *new = NULL;
+  char   *s2  = NULL;
   int    *m1  = NULL,
          *m2  = NULL;	    /* mono, before and after */
   int   **di1 = NULL,
@@ -1729,7 +1729,7 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
 
   /* allocations */
   ESL_ALLOC(s,   sizeof(char)   * (L+1));
-  ESL_ALLOC(new, sizeof(char)   * (L+1));
+  ESL_ALLOC(s2,  sizeof(char)   * (L+1));
   ESL_ALLOC(p,   sizeof(double) * K);
   if (composition_allocate(26, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(26, &m2, &di2) != eslOK) esl_fatal(logmsg);
@@ -1739,65 +1739,65 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   if (esl_rnd_IID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_CShuffle: mono composition should stay exactly the same, di may change */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffle(r, s, new)                 != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffle(r, s, s2)                  != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
 
   /* esl_rnd_CShuffle, in place */
-  strcpy(s, new);
-  if (composition(new, L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffle(r, new, new)               != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  strcpy(s, s2);
+  if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffle(r, s2, s2)                 != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
 
   /* esl_rnd_CShuffleDP: mono and di compositions stay exactly the same */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s, L, m1,  di1)                 != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffleDP(r, s, new)               != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffleDP(r, s, s2)                != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, 26)   != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
 
   /* esl_rnd_CShuffleDP, in place */
-  strcpy(s, new);
-  if (composition(new, L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffleDP(r, new, new)             != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  strcpy(s, s2);
+  if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffleDP(r, s2, s2)               != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, 26)   != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
   
   /* esl_rnd_CShuffleWindows(): mono composition stays the same */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffleWindows(r, s, w, new)       != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffleWindows(r, s, w, s2)        != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
   
   /* esl_rnd_CShuffleWindows(), in place */
-  strcpy(s, new);
-  if (composition(new, L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CShuffleWindows(r, new, w, new)     != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  strcpy(s, s2);
+  if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CShuffleWindows(r, s2, w, s2)       != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
   
   /* esl_rnd_CReverse(): two reverses (one in place) give the same seq back */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CReverse(s, new)                    != eslOK) esl_fatal(logmsg);      
-  if (composition(new, L, m2, di2)                != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_CReverse(s, s2)                     != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
-  if (strcmp(new, s) == 0)                                  esl_fatal(logmsg); 
-  if (esl_rnd_CReverse(new, new)                  != eslOK) esl_fatal(logmsg);      
-  if (strcmp(new, s) != 0)                                  esl_fatal(logmsg); 
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
+  if (esl_rnd_CReverse(s2, s2)                    != eslOK) esl_fatal(logmsg);      
+  if (strcmp(s2, s) != 0)                                   esl_fatal(logmsg); 
 
   free(s);
-  free(new);
+  free(s2);
   free(p);
   free(m1);
   free(m2);
@@ -1823,7 +1823,7 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   char   *logmsg = "Failure in a CMarkov*() unit test";
   int     status;
   char   *s   = NULL;
-  char   *new = NULL;
+  char   *s2  = NULL;
   float  *p   = NULL;
   int     K;
   int     pzero;
@@ -1836,7 +1836,7 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   K = strlen(alphabet);
   ESL_ALLOC(p,   sizeof(float)  * K);
   ESL_ALLOC(s,   sizeof(char)   * (L+1));
-  ESL_ALLOC(new, sizeof(char)   * (L+1));
+  ESL_ALLOC(s2,  sizeof(char)   * (L+1));
   if (composition_allocate(26, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(26, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
@@ -1848,20 +1848,20 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   if (esl_rnd_fIID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_CMarkov0()  */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)  != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CMarkov0(r, s, new)   != eslOK) esl_fatal(logmsg);
-  if (composition(new, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
+  if (esl_rnd_CMarkov0(r, s, s2)    != eslOK) esl_fatal(logmsg);
+  if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   if (m1[pzero]                     != 0)     esl_fatal(logmsg);  
   if (m2[pzero]                     != 0)     esl_fatal(logmsg);  
-  if (strcmp(new, s)                == 0)     esl_fatal(logmsg);  
+  if (strcmp(s2, s)                 == 0)     esl_fatal(logmsg);  
   
   /* esl_rnd_CMarkov0(), in place */
-  strcpy(s, new);
-  if (esl_rnd_CMarkov0(r, new, new) != eslOK) esl_fatal(logmsg);
-  if (composition(new, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
+  strcpy(s, s2);
+  if (esl_rnd_CMarkov0(r, s2, s2)   != eslOK) esl_fatal(logmsg);
+  if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   if (m2[pzero]                     != 0)     esl_fatal(logmsg);  
-  if (strcmp(new, s)                == 0)     esl_fatal(logmsg);  
+  if (strcmp(s2, s)                 == 0)     esl_fatal(logmsg);  
   
   /* generate string with all homodiresidues set to 0 */
   if (esl_dirichlet_FSampleUniform(r, K, p)  != eslOK) esl_fatal(logmsg);
@@ -1871,28 +1871,28 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
       s[i] = alphabet[(1+strchr(alphabet,s[i])-alphabet)%K];
   
   /* esl_rnd_CMarkov1()  */
-  memset(new, 0, (L+1)*sizeof(char));
+  memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)  != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_CMarkov1(r, s, new)   != eslOK) esl_fatal(logmsg);
-  if (composition(new, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
+  if (esl_rnd_CMarkov1(r, s, s2)    != eslOK) esl_fatal(logmsg);
+  if (composition(s2, L, m2, di2)   != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                   != 0)     esl_fatal(logmsg);  
     if (di2[x][x]                   != 0)     esl_fatal(logmsg);  
   }
-  if (strcmp(new, s)                == 0)     esl_fatal(logmsg);  
+  if (strcmp(s2, s)                 == 0)     esl_fatal(logmsg);  
 
   /* esl_rnd_CMarkov1(), in place  */
-  strcpy(s, new);
-  if (esl_rnd_CMarkov1(r, new, new) != eslOK) esl_fatal(logmsg);
-  if (composition(new, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
+  strcpy(s, s2);
+  if (esl_rnd_CMarkov1(r, s2, s2)  != eslOK)   esl_fatal(logmsg);
+  if (composition(s2, L, m2, di2)  != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                   != 0)     esl_fatal(logmsg);  
     if (di2[x][x]                   != 0)     esl_fatal(logmsg);  
   }
-  if (strcmp(new, s)                == 0)     esl_fatal(logmsg);  
+  if (strcmp(s2, s)                 == 0)     esl_fatal(logmsg);  
   
   free(s);
-  free(new);
+  free(s2);
   free(p);
   free(m1);
   free(m2);
@@ -1918,7 +1918,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   char    *logmsg  = "Failure in one of the XShuffle* unit tests";
   int      status;
   ESL_DSQ *dsq   = NULL;
-  ESL_DSQ *new   = NULL;
+  ESL_DSQ *ds2   = NULL;
   int     *m1    = NULL,
           *m2    = NULL;    /* mono, before and after */
   int    **di1   = NULL,
@@ -1928,7 +1928,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
 
   /* allocations */
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
-  ESL_ALLOC(new, sizeof(ESL_DSQ) * (L+2));
+  ESL_ALLOC(ds2, sizeof(ESL_DSQ) * (L+2));
   ESL_ALLOC(p,   sizeof(double)  * K);
   if (composition_allocate(K, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
@@ -1938,59 +1938,59 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (esl_rnd_xfIID(r, p, K, L, dsq)        != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_XShuffle: mono composition should stay exactly the same, di may change */
-  memset(new, eslDSQ_SENTINEL, (L+2));
+  memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffle(r, dsq, L, new)           != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffle(r, dsq, L, ds2)           != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_XShuffle, in place */
-  if (esl_abc_dsqcpy(new, L, dsq)                != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffle(r, new, L, new)           != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffle(r, ds2, L, ds2)           != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_XShuffleDP: mono and di compositions stay exactly the same */
-  memset(new, eslDSQ_SENTINEL, (L+2));
+  memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffleDP(r, dsq, L, K, new)      != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffleDP(r, dsq, L, K, ds2)      != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_XShuffleDP, in place */
-  if (esl_abc_dsqcpy(new, L, dsq)                != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffleDP(r, new, L, K, new)      != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffleDP(r, ds2, L, K, ds2)      != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
   
   /* esl_rnd_XShuffleWindows(): mono composition stays the same */
-  memset(new, eslDSQ_SENTINEL, (L+2));
+  memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffleWindows(r, dsq, L, w, new) != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffleWindows(r, dsq, L, w, ds2) != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
   
   /* esl_rnd_XShuffleWindows(), in place */
-  if (esl_abc_dsqcpy(new, L, dsq)                != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XShuffleWindows(r, new, L, w, new) != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XShuffleWindows(r, ds2, L, w, ds2) != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
   
   /* esl_rnd_XReverse(): two reverses (one in place) give the same seq back */
-  memset(new, eslDSQ_SENTINEL, (L+2));
+  memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1, di1)            != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XReverse(dsq, L, new)               != eslOK) esl_fatal(logmsg);      
-  if (xcomposition(new, L, K, m2, di2)            != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XReverse(dsq, L, ds2)               != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)            != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, NULL, m2, NULL, K)  != eslOK) esl_fatal(logmsg);
-  if (memcmp((void *) new, (void *) dsq, sizeof(ESL_DSQ)*(L+2)) == 0) esl_fatal(logmsg); 
-  if (esl_rnd_XReverse(new, L, new)               != eslOK) esl_fatal(logmsg);      
-  if (memcmp((void *) new, (void *) dsq, sizeof(ESL_DSQ)*(L+2)) != 0) esl_fatal(logmsg); 
+  if (memcmp((void *) ds2, (void *) dsq, sizeof(ESL_DSQ)*(L+2)) == 0) esl_fatal(logmsg); 
+  if (esl_rnd_XReverse(ds2, L, ds2)               != eslOK) esl_fatal(logmsg);      
+  if (memcmp((void *) ds2, (void *) dsq, sizeof(ESL_DSQ)*(L+2)) != 0) esl_fatal(logmsg); 
 
   free(dsq);
-  free(new);
+  free(ds2);
   free(p);
   free(m1);
   free(m2);
@@ -2013,7 +2013,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   char    *logmsg = "Failure in an XMarkov*() unit test";
   int      status;
   ESL_DSQ *dsq = NULL;
-  ESL_DSQ *new = NULL;
+  ESL_DSQ *ds2 = NULL;
   int     *m1  = NULL, 
           *m2  = NULL;    /* mono, before and after */
   int    **di1 = NULL,
@@ -2024,7 +2024,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
 
   /* allocations */
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
-  ESL_ALLOC(new, sizeof(ESL_DSQ) * (L+2));
+  ESL_ALLOC(ds2, sizeof(ESL_DSQ) * (L+2));
   ESL_ALLOC(p,   sizeof(double)  * K);
   if (composition_allocate(K, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
@@ -2037,20 +2037,20 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   if (esl_rnd_xfIID(r, p, K, L, dsq)         != eslOK) esl_fatal(logmsg);
 
   /* esl_rnd_XMarkov0()  */
-  memset(new, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
+  memset(ds2, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
   if (xcomposition(dsq, L, K, m1, di1)        != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XMarkov0(r, dsq, L, K, new)     != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
+  if (esl_rnd_XMarkov0(r, dsq, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   if (m1[pzero]                               != 0)     esl_fatal(logmsg);  
   if (m2[pzero]                               != 0)     esl_fatal(logmsg);  
-  if (memcmp(new, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
+  if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
   
   /* esl_rnd_CMarkov0(), in place */
-  if (esl_abc_dsqcpy(new, L, dsq)             != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XMarkov0(r, new, L, K, new)     != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
+  if (esl_abc_dsqcpy(ds2, L, dsq)             != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XMarkov0(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   if (m2[pzero]                               != 0)     esl_fatal(logmsg);  
-  if (memcmp(new, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
+  if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
   
   /* generate string with all homodiresidues set to 0 */
   if (esl_dirichlet_FSampleUniform(r, K, p)   != eslOK) esl_fatal(logmsg);
@@ -2060,28 +2060,28 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
       dsq[i] = (dsq[i]+1)%K;
     
   /* esl_rnd_XMarkov1()  */
-  memset(new, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
+  memset(ds2, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
   if (xcomposition(dsq, L, K, m1, di1)        != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XMarkov1(r, dsq, L, K, new)     != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
+  if (esl_rnd_XMarkov1(r, dsq, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                             != 0)     esl_fatal(logmsg);  
     if (di2[x][x]                             != 0)     esl_fatal(logmsg);  
   }
-  if (memcmp(new, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
+  if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
 
   /* esl_rnd_CMarkov1(), in place  */
-  if (esl_abc_dsqcpy(new, L, dsq)             != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_XMarkov1(r, new, L, K, new)     != eslOK) esl_fatal(logmsg);
-  if (xcomposition(new, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
+  if (esl_abc_dsqcpy(ds2, L, dsq)             != eslOK) esl_fatal(logmsg);
+  if (esl_rnd_XMarkov1(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
   for (x = 0; x < K; x++) {
     if (di1[x][x]                             != 0)     esl_fatal(logmsg);  
     if (di2[x][x]                             != 0)     esl_fatal(logmsg);  
   }
-  if (memcmp(new, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
+  if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
   
   free(dsq);
-  free(new);
+  free(ds2);
   free(p);
   free(m1);
   free(m2);
