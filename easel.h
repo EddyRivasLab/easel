@@ -282,8 +282,8 @@ extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
 extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(char *fname, char *env,
 			    FILE **ret_fp, char **ret_path);
-extern int  esl_tmpfile(char *template, FILE **ret_fp);
-extern int  esl_tmpfile_named(char *template, FILE **ret_fp);
+extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
+extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 
 /* 6. Some scalar math convenience functions. */
 extern int  esl_DCompare(double a, double b, double tol);

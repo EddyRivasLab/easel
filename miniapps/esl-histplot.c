@@ -33,9 +33,12 @@ static ESL_OPTIONS options[] = {
   {"--max", eslARG_REAL,  "100.",NULL, NULL, NULL, NULL, NULL, "initial upper bound of histogram",        3 },
   {"--surv", eslARG_NONE, FALSE, NULL, NULL, NULL, NULL, NULL, "output survival plot, not histogram",     3 },
    
-  {"--gumbel",        eslARG_NONE,FALSE,NULL, NULL, NULL, NULL, NULL,   "fit data to a Gumbel distribution",                   4 }, 
-  {"--gumbel-lambda", eslARG_REAL,"0.693", NULL, NULL, NULL, NULL, NULL, "fit data to a Gumbel distribution w/ known lambda",   4 }, 
-  {"--exp-tail",      eslARG_REAL, "0.01", NULL, NULL, NULL, NULL, NULL,  "fit tail to an exponential distribution",             4 },
+  {"--gumbel",    eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit data to a Gumbel distribution",                   4 }, 
+  {"--exptail",   eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit tail to an exponential distribution",             4 },
+  {"--gumloc",    eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit data to a Gumbel distribution w/ known lambda",   4 }, 
+  {"--exptailloc",eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit tail to an exponential tail w/ known lambda",     4 }, 
+  {"--lambda",    eslARG_REAL,"0.693",NULL,NULL, NULL, NULL, NULL,   "set known lambda",            4 },    
+  {"-p",          eslARG_REAL,"0.01", NULL,NULL, NULL, NULL, NULL,   "set tail mass to fit to",     4 },    
 
   { 0,0,0,0,0,0,0,0,0,0},
 };
@@ -56,11 +59,12 @@ main(int argc, char **argv)
   double          hmin;		/* initial histogram lower bound                */
   double          hmax;		/* initial histogram upper bound                */
   double          hbinsize;	/* histogram's bin size                         */
-  int             is_binary;	/* datafile is a binary file of doubles         */
 
   double *xv;
   int     n;
   double  params[2];
+  double  lambda;
+  double  tailp;
 
   /*****************************************************************
    * Parse the command line
@@ -83,9 +87,11 @@ main(int argc, char **argv)
   }
   esl_opt_GetIntegerOption(go, "-f",         &which_field);
   esl_opt_GetStringOption (go, "-o",         &outfile);
+  esl_opt_GetDoubleOption (go, "-p",         &tailp);
   esl_opt_GetDoubleOption (go, "-w",         &hbinsize);
   esl_opt_GetDoubleOption (go, "--min",      &hmin);
   esl_opt_GetDoubleOption (go, "--max",      &hmax);
+  esl_opt_GetDoubleOption (go, "--lambda",   &lambda);
 
   if (esl_opt_ArgNumber(go) != 1) 
     esl_fatal("Incorrect number of command line arguments.\n%s\n", usage); 
@@ -157,19 +163,24 @@ main(int argc, char **argv)
       esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
     }
-  else if (esl_opt_IsSet(go, "--gumbel-lambda"))
+  else if (esl_opt_IsSet(go, "--gumloc"))
     {
-      esl_opt_GetDoubleOption(go, "--gumbel-lambda", &(params[1]));
+      params[1] = lambda;
       esl_histogram_GetData(h, &xv, &n);
       esl_gumbel_FitCompleteLoc(xv, n, params[1], &(params[0]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
     }
-  else if (esl_opt_IsSet(go, "--exp-tail"))
+  else if (esl_opt_IsSet(go, "--exptail"))
     {
-      double tailp;
-      esl_opt_GetDoubleOption(go, "--exp-tail", &tailp);
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
       esl_exp_FitComplete(xv, n, &(params[0]), &(params[1]));
+      esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
+    }
+  else if (esl_opt_IsSet(go, "--exptailloc"))
+    {
+      params[1] = lambda;
+      esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
+      params[0] = xv[0];	/* might be able to do better than minimum score, but this'll do */
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
     }
       
