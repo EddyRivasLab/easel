@@ -176,7 +176,7 @@ esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
  *           Requires that long int's have at least 32 bits.
  *           
  *           Reliable and portable, but slow. Benchmarks on wrasse,
- *           using Linux gcc and Linux glibc rand() (see randspeed, in Testsuite):
+ *           using Linux gcc and Linux glibc rand() (see randspeed, Testsuite):
  *           sre_random():    0.5 usec/call
  *           rand():          0.2 usec/call
  *           

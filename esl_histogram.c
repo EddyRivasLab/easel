@@ -1,5 +1,4 @@
-/* esl_histogram.c
- * Collecting and displaying histograms.
+/* Collecting and displaying histograms.
  *
  * SRE, Fri Jul  1 13:21:45 2005 [St. Louis]
  * SVN $Id$
@@ -67,13 +66,14 @@ esl_histogram_Create(double xmin, double xmax, double w)
 {
   ESL_HISTOGRAM *h = NULL;
   int status;
+  int i;
 
   ESL_ALLOC(h, sizeof(ESL_HISTOGRAM));
 
   h->xmin      =  DBL_MAX;	/* xmin/xmax are the observed min/max */
   h->xmax      = -DBL_MAX;
   h->n         = 0;
-  h->obs       = NULL;		/* briefly... */
+  h->obs       = NULL;		/* will get allocated below... */
   h->bmin      = xmin;		/* bmin/bmax are the allocated bounds */
   h->bmax      = xmax;
   h->nb        = (int)((xmax-xmin)/w);
@@ -102,8 +102,8 @@ esl_histogram_Create(double xmin, double xmax, double w)
   h->is_rounded    = FALSE;
   h->dataset_is    = COMPLETE;
 
-  ESL_ALLOC(h->obs, sizeof(int) * h->nb);
-  esl_vec_ISet(h->obs, h->nb, 0);
+  ESL_ALLOC(h->obs, sizeof(uint64_t) * h->nb);
+  for (i = 0; i < h->nb; i++) h->obs[i] = 0;
   return h;
 
  ERROR:
@@ -181,6 +181,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   void *tmp;
   int b;			/* what bin we're in                       */
   int nnew;			/* # of new bins created by a reallocation */
+  int bi;
 
   /* Censoring info must only be set on a finished histogram;
    * don't allow caller to add data after configuration has been declared
@@ -208,22 +209,22 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   if (b < 0)    /* Reallocate below? */
     {				
       nnew = -b*2;	/* overallocate by 2x */
-      ESL_RALLOC(h->obs, tmp, sizeof(int) * (nnew+ h->nb));
+      ESL_RALLOC(h->obs, tmp, sizeof(uint64_t) * (nnew+ h->nb));
       
-      memmove(h->obs+nnew, h->obs, sizeof(int) * h->nb);
+      memmove(h->obs+nnew, h->obs, sizeof(uint64_t) * h->nb);
       h->nb    += nnew;
       b        += nnew;
       h->bmin  -= nnew*h->w;
       h->imin  += nnew;
       h->cmin  += nnew;
       if (h->imax > -1) h->imax += nnew;
-      esl_vec_ISet(h->obs, nnew, 0);
+      for (bi = 0; bi < nnew; bi++) h->obs[bi] = 0;
     }
   else if (b >= h->nb)  /* Reallocate above? */
     {
       nnew = (b-h->nb+1) * 2; /* 2x overalloc */
       ESL_RALLOC(h->obs, tmp, sizeof(int) * (nnew+ h->nb));
-      esl_vec_ISet(h->obs+h->nb, nnew, 0);
+      for (bi = h->nb; bi < h->nb+nnew; bi++) h->obs[bi] = 0;
       if (h->imin == h->nb) { /* boundary condition of no data yet*/
 	h->imin+=nnew; 
 	h->cmin+=nnew;
@@ -422,7 +423,7 @@ int
 esl_histogram_SetTailByMass(ESL_HISTOGRAM *h, double pmass, double *ret_newmass)
 {
   int b;
-  int sum = 0;
+  uint64_t sum = 0;
 	    
   for (b = h->imax; b >= h->imin; b--)
     {
@@ -636,7 +637,7 @@ int
 esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
 			    double **ret_x, int *ret_n, int *ret_z)
 {
-  int n;
+  uint64_t n;
 
   if (! h->is_full) 
     ESL_EXCEPTION(eslEINVAL, "not a full histogram");
@@ -645,7 +646,7 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
 
   esl_histogram_sort(h);
 
-  n = (int) ((float) h->n * pmass); /* rounds down, guaranteeing <= pmass */
+  n = (uint64_t) ((double) h->n * pmass); /* rounds down, guaranteeing <= pmass */
 
   if (ret_x != NULL) *ret_x = h->x + (h->n - n);
   if (ret_n != NULL) *ret_n = n;
@@ -801,17 +802,17 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
 int
 esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 {
-  int    i;
-  double x;
-  int maxbar;
-  int imode;
-  int units;
-  int num;
-  char buffer[81];		/* output line buffer */
-  int  pos;			/* position in output line buffer */
-  int  ilowbound, lowcount;	/* cutoffs on the low side  */
-  int  ihighbound, highcount;	/* cutoffs on the high side */
-  int  emptybins = 3;
+  int      i;
+  double   x;
+  uint64_t maxbar;
+  int      imode;
+  uint64_t units;
+  int      num;
+  char     buffer[81];		  /* output line buffer */
+  int      pos;			  /* position in output line buffer */
+  uint64_t lowcount, highcount;	  
+  int      ilowbound, ihighbound; 
+  int      emptybins = 3;
 
   /* Find out how we'll scale the histogram.  We have 58 characters to
    * play with on a standard 80-column terminal display: leading "%6.1f
@@ -855,7 +856,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 
   /* Print the histogram
    */
-  fprintf(fp, "%6s %6s %6s  (one = represents %d sequences)\n", 
+  fprintf(fp, "%6s %6s %6s  (one = represents %lld sequences)\n", 
 	  "score", "obs", "exp", units);
   fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---");
   buffer[80] = '\0';
@@ -871,7 +872,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
       else if (i > ihighbound) continue;
       else if (i == ilowbound && i != h->imin) 
 	{
-	  sprintf(buffer, "<%5.1f %6d %6s|", x+h->w, lowcount, "-");
+	  sprintf(buffer, "<%5.1f %6lld %6s|", x+h->w, lowcount, "-");
 	  if (lowcount > 0) {
 	    num = 1+(lowcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
@@ -881,7 +882,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 	}
       else if (i == ihighbound && i != h->imax)
 	{
-	  sprintf(buffer, ">%5.1f %6d %6s|", x, highcount, "-");
+	  sprintf(buffer, ">%5.1f %6lld %6s|", x, highcount, "-");
 	  if (highcount > 0) {
 	    num = 1+(highcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
@@ -892,12 +893,23 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 
       /* Deal with most cases
        */
-      if (h->expect != NULL) 
-	sprintf(buffer, "%6.1f %6d %6d|", 
-		x, h->obs[i], (int) h->expect[i]);
+      if (h->obs[i] < 1000000)	/* displayable in 6 figures or less? */
+	{
+	  if (h->expect != NULL) 
+	    sprintf(buffer, "%6.1f %6lld %6d|", x, h->obs[i], (int) h->expect[i]);
+	  else
+	    sprintf(buffer, "%6.1f %6lld %6s|", x, h->obs[i], "-");
+	}
       else
-	sprintf(buffer, "%6.1f %6d %6s|", x, h->obs[i], "-");
-      buffer[21] = ' ';		/* sprintf writes a null char */
+	{
+	  if (h->expect != NULL) 
+	    sprintf(buffer, "%6.1f %6.2e %6.2e|", x, (double) h->obs[i], h->expect[i]);
+	  else
+	    sprintf(buffer, "%6.1f %6.2e %6s|",   x, (double) h->obs[i], "-");
+
+	}
+      buffer[21] = ' ';		/* sprintf writes a null char; replace it */
+
 
       /* Mark the histogram bar for observed hits
        */ 
@@ -945,7 +957,7 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
     if (h->obs[i] > 0)
       {
 	x = esl_histogram_Bin2LBound(h,i);
-	fprintf(fp, "%f %d\n", x, h->obs[i]);
+	fprintf(fp, "%f %lld\n", x, h->obs[i]);
       }
   fprintf(fp, "&\n");
 
@@ -981,7 +993,8 @@ int
 esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 {
   int i;
-  double c;
+  uint64_t c;
+  double   esum;
   double ai;
   
   /* The observed binned counts:
@@ -992,7 +1005,7 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
       if (h->obs[i] > 0) {
 	c   += h->obs[i];
 	ai = esl_histogram_Bin2LBound(h, i);
-	fprintf(fp, "%f\t%g\n", ai, c / (double) h->Nc);
+	fprintf(fp, "%f\t%g\n", ai, (double) c / (double) h->Nc);
       }
     }
   fprintf(fp, "&\n");
@@ -1001,13 +1014,13 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
    */
   if (h->expect != NULL) 
     {
-      c = 0.;
+      esum = 0.;
       for (i = h->nb-1; i >= 0; i--)
 	{
-	  if (h->expect[i] > 0.) {
-	    c += h->expect[i];
+	  if (h->expect[i] > 0.) { 
+	    esum += h->expect[i];        /* some worry about 1+eps=1 problem here */
 	    ai = esl_histogram_Bin2LBound(h, i);
-	    fprintf(fp, "%f\t%g\n", ai, c / (double) h->Nc);
+	    fprintf(fp, "%f\t%g\n", ai, esum / (double) h->Nc);
 	  }
 	}
       fprintf(fp, "&\n");
@@ -1035,31 +1048,31 @@ int
 esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h, 
 		     double (*invcdf)(double x, void *params), void *params)
 {
-  int    i;
-  double cdf;
-  double bi;
-  int    bbase;
-  double sum;
+  int      i;
+  double   cdf;
+  double   bi;
+  int      bbase;
+  uint64_t sum;
 
   /* on censored data, start counting observed cdf at z, not 0
    */
   if (h->dataset_is == TRUE_CENSORED || h->dataset_is == VIRTUAL_CENSORED)
     sum = h->z; 
   else
-    sum = 0.;
+    sum = 0;
 
   /* Determine smallest bin included in goodness of fit eval
    */
   bbase = h->cmin;
   if (h->is_tailfit && h->emin > bbase) bbase = h->emin;
-  for (i = h->cmin; i < bbase; i++) sum += (double) h->obs[i];
+  for (i = h->cmin; i < bbase; i++) sum +=  h->obs[i];
   
   /* The q-q plot:
    */
   for (i = bbase; i < h->imax; i++) /* avoid last bin where upper cdf=1.0 */
     {
-      sum += (double) h->obs[i];
-      cdf = sum / (double) h->Nc;
+      sum += h->obs[i];
+      cdf = (double) sum / (double) h->Nc;
 
       if (h->is_tailfit) cdf = (cdf + h->tailmass - 1.) / (h->tailmass);
 
@@ -1117,19 +1130,19 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 		       double *ret_G,  double *ret_Gp,
 		       double *ret_X2, double *ret_X2p)
 {
-  int     *obs  = NULL;		/* observed in bin i, [0..nb-1]   */
-  double  *exp  = NULL;		/* expected in bin i, [0..nb-1]   */
-  double  *topx = NULL;		/* all values in bin i <= topx[i] */
+  uint64_t *obs  = NULL;	/* observed in bin i, [0..nb-1]   */
+  double   *exp  = NULL;	/* expected in bin i, [0..nb-1]   */
+  double   *topx = NULL;	/* all values in bin i <= topx[i] */
   int      nb;			/* # of re-bins                   */
-  int      minc;		/* minimum target # of counts/bin */
+  uint64_t minc;		/* minimum target # of counts/bin */
   int      i,b;
   double   G, Gp;
   double   X2, X2p;
   double   tmp;
   int      status;
   int      bbase;
-  int      hmax;
-  int      nobs;
+  uint64_t hmax;
+  uint64_t nobs;
   double   nexp;
 
   if (h->expect == NULL) ESL_EXCEPTION(eslEINVAL, "no expected counts in that histogram");
@@ -1168,9 +1181,9 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
    */
   nb   = 2* (int) pow((double) nobs, 0.4); /* "desired" nb. */
   minc = 1 + nobs / (2*nb);	/* arbitrarily set min = 1/2 of the target # */
-  ESL_ALLOC(obs,  sizeof(int)    * (nb*2+1)); /* final nb must be <= 2*nb+1 */
-  ESL_ALLOC(exp,  sizeof(double) * (nb*2+1));
-  ESL_ALLOC(topx, sizeof(double) * (nb*2+1));
+  ESL_ALLOC(obs,  sizeof(uint64_t) * (nb*2+1)); /* final nb must be <= 2*nb+1 */
+  ESL_ALLOC(exp,  sizeof(double)   * (nb*2+1));
+  ESL_ALLOC(topx, sizeof(double)   * (nb*2+1));
 
   /* Determine the observed counts in each bin: that is, partition 
    * the <sum> in the evaluated region.
@@ -1178,7 +1191,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
    * collecting sum of counts, dropping the sum into the next re-bin 
    * whenever we have more than <minc> counts.
    */
-  nobs = nexp = 0;
+  nobs = 0;
+  nexp = 0.;
   for (i = 0, b = bbase; b <= h->imax; b++) 
     {
       nobs += h->obs[b];
@@ -1190,7 +1204,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 	obs[i]  = nobs;
 	exp[i]  = nexp;
 	topx[i] = esl_histogram_Bin2UBound(h,b);
-	nobs = nexp = 0;
+	nobs = 0;
+	nexp = 0.;
 	i++;
       }
     }
@@ -1203,7 +1218,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   X2 = 0.;
   for (i = 0; i < nb; i++)
     {
-      tmp = obs[i] - exp[i];
+      tmp = (double) obs[i] - exp[i];
       X2 += tmp*tmp / exp[i];
     }
   /* X^2 is distributed approximately chi^2. */
@@ -1217,7 +1232,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   /* The G test assumes that #exp=#obs (the X^2 test didn't).
    * If that's not true, renormalize to make it so. 
    */
-  nobs = nexp = 0;
+  nobs = 0;
+  nexp = 0.;
   for (i = 0; i < nb; i++) 
     {
       nobs += obs[i];

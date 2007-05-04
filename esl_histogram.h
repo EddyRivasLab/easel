@@ -1,5 +1,4 @@
-/* esl_histogram.h
- * Collection and display of score histograms.
+/* Collection and display of score histograms.
  * 
  * SRE, Fri Jul  1 13:22:45 2005 [St. Louis]
  * SVN $Id$
@@ -19,32 +18,35 @@
  *   nb = (bmax-bmin)/w
  *   each score x is counted into bin b = nb - (int) (bmax-x)/w
  *   each bin b contains scores bw+bmin < x <= (b+1)w + bmin
+ * 
+ * Anything having to do with the counts themselves (obs, n, etc)
+ * is a uint64_t, with range 0..2^64-1  (up to 2e19).
  */  
 typedef struct {
   /* The histogram is kept as counts in fixed-width bins.
    */
-  int    *obs;		/* observed counts in bin b, 0..nb-1 (dynamic)      */
-  int     nb;           /* number of bins                                   */
-  double  w;		/* fixed width of each bin                          */
-  double  bmin, bmax;	/* histogram bounds: all x satisfy bmin < x <= bmax */
-  int     imin, imax;	/* smallest, largest bin that contain obs[i] > 0    */
+  uint64_t *obs;	/* observed counts in bin b, 0..nb-1 (dynamic)      */
+  int       nb;         /* number of bins                                   */
+  double    w;		/* fixed width of each bin                          */
+  double    bmin, bmax;	/* histogram bounds: all x satisfy bmin < x <= bmax */
+  int       imin, imax;	/* smallest, largest bin that contain obs[i] > 0    */
 
   /* Optionally, in a "full" h, we can also keep all the raw samples in x.
    */
-  double  xmin, xmax;	/* smallest, largest sample value x observed        */
-  int     n;            /* total number of raw data samples                 */
-  double *x;		/* optional: raw sample values x[0..n-1]            */
-  int     nalloc;	/* current allocated size of x                      */
+  double    xmin, xmax;	/* smallest, largest sample value x observed        */
+  uint64_t  n;          /* total number of raw data samples                 */
+  double   *x;		/* optional: raw sample values x[0..n-1]            */
+  uint64_t  nalloc;	/* current allocated size of x                      */
 
   /* The binned data might be censored (either truly, or virtually).
    * This information has to be made available to a binned/censored
    * parameter fitting function, and to goodness-of-fit tests.
    */
-  double  phi;		/* censoring value; all x_i > phi                   */
-  int     cmin;		/* smallest bin index that contains uncensored data */
-  int     z;		/* # of censored values <= phi                      */
-  int     Nc;	        /* # samples in complete data (including unobs)     */
-  int     No;		/* # of samples in observed data                    */
+  double   phi;		/* censoring value; all x_i > phi                   */
+  int      cmin;	/* smallest bin index that contains uncensored data */
+  uint64_t z;		/* # of censored values <= phi                      */
+  uint64_t Nc;	        /* # samples in complete data (including unobs)     */
+  uint64_t No;		/* # of samples in observed data                    */
 
   /* Expected binned counts are set by SetExpect() or SetExpectedTail().
    */
