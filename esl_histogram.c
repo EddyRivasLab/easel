@@ -1,5 +1,13 @@
 /* Collecting and displaying histograms.
- *
+ * 
+ *  1. Creating/destroying histograms and collecting data.
+ *  2. Declarations about the binned data before parameter fitting.
+ *  3. Routines for accessing data samples in a full histogram.
+ *  4. Setting expected counts
+ *  5. Output and display of binned data.
+ *  6. Test driver.
+ *  7. Examples.
+ *  
  * SRE, Fri Jul  1 13:21:45 2005 [St. Louis]
  * SVN $Id$
  */
@@ -19,10 +27,11 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
 
 
 /*****************************************************************
- * Creating/destroying histograms and collecting data.
+ * 1. Creating/destroying histograms and collecting data.
  *****************************************************************/
 
 /* Function:  esl_histogram_Create()
+ * Synopsis:  Create a new <ESL_HISTOGRAM>.
  * Incept:    SRE, Fri Jul  1 13:40:26 2005 [St. Louis]
  *
  * Purpose:   Creates and returns a new histogram object, initially
@@ -112,6 +121,7 @@ esl_histogram_Create(double xmin, double xmax, double w)
 }
 
 /* Function:  esl_histogram_CreateFull()
+ * Synopsis:  A <ESL_HISTOGRAM> to keep all data samples.
  * Incept:    SRE, Tue Jul 26 13:19:27 2005 [St. Louis]
  *
  * Purpose:   Alternative form of <esl_histogram_Create()> that 
@@ -141,6 +151,7 @@ esl_histogram_CreateFull(double xmin, double xmax, double w)
 
 
 /* Function:  esl_histogram_Destroy()
+ * Synopsis:  Frees a <ESL_HISTOGRAM>.
  * Incept:    SRE, Sat Jul  2 19:41:17 2005 [St. Louis]
  *
  * Purpose:   Frees an <ESL_HISTOGRAM> object <h>.
@@ -157,6 +168,7 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
 }
 
 /* Function:  esl_histogram_Add()
+ * Synopsis:  Add a sample to the histogram.
  * Incept:    SRE, Sat Jul  2 19:41:45 2005 [St. Louis]
  *
  * Purpose:   Adds score <x> to a histogram <h>.
@@ -280,10 +292,11 @@ esl_histogram_sort(ESL_HISTOGRAM *h)
 }
 
 /*****************************************************************
- * Declarations about the binned data before parameter fitting
+ * 2. Declarations about the binned data before parameter fitting
  *****************************************************************/ 
 
 /* Function:  esl_histogram_DeclareCensoring()
+ * Synopsis:  Collected data were left-censored.
  * Incept:    SRE, Tue Aug 23 10:00:14 2005 [St. Louis]
  *
  * Purpose:   Declare that the dataset collected in <h> is known to be a
@@ -319,6 +332,7 @@ esl_histogram_DeclareCensoring(ESL_HISTOGRAM *h, int z, double phi)
 }
 
 /* Function:  esl_histogram_DeclareRounding()
+ * Synopsis:  Declare collected data were no more accurate than bins.
  * Incept:    SRE, Tue Jan 31 13:52:10 2006 [St. Louis]
  *
  * Purpose:   Declare that the data sample values in the histogram <h>
@@ -337,6 +351,7 @@ esl_histogram_DeclareRounding(ESL_HISTOGRAM *h)
 
 
 /* Function:  esl_histogram_SetTail()
+ * Synopsis:  Declare only tail $>$ some threshold is considered "observed".
  * Incept:    SRE, Tue Aug 23 09:01:10 2005 [St. Louis]
  *
  * Purpose:   Suggest a threshold <phi> to split a histogram <h>
@@ -393,6 +408,7 @@ esl_histogram_SetTail(ESL_HISTOGRAM *h, double phi, double *ret_newmass)
 }
 
 /* Function:  esl_histogram_SetTailByMass()
+ * Synopsis:  Declare only right tail mass is considered "observed".
  * Incept:    SRE, Tue Aug 23 08:10:39 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> (with or without raw data samples),
@@ -445,10 +461,11 @@ esl_histogram_SetTailByMass(ESL_HISTOGRAM *h, double pmass, double *ret_newmass)
 
 
 /*****************************************************************
- * Routines for accessing data samples in a full histogram.
+ * 3. Routines for accessing data samples in a full histogram.
  *****************************************************************/
 
 /* Function:  esl_histogram_GetRank()
+ * Synopsis:  Retrieve n'th high score.
  * Incept:    SRE, Thu Jul 28 08:39:52 2005 [St. Louis]
  *
  * Purpose:   Retrieve the <rank>'th highest score from a 
@@ -485,6 +502,7 @@ esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
 }
 
 /* Function:  esl_histogram_GetData()
+ * Synopsis:  Retrieve vector of all raw scores.
  * Incept:    SRE, Fri Jan 27 07:57:21 2006 [St. Louis]
  *
  * Purpose:   Retrieve the raw data values from the histogram <h>.
@@ -533,6 +551,7 @@ esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
 
 
 /* Function:  esl_histogram_GetTail()
+ * Synopsis:  Retrieve all raw scores above some threshold.
  * Incept:    SRE, Fri Jan 27 07:56:38 2006 [St. Louis]
  *
  * Purpose:   Given a full histogram <h>, retrieve all data values 
@@ -599,6 +618,7 @@ esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi,
 
 
 /* Function:  esl_histogram_GetTailByMass()
+ * Synopsis:  Retrieve all raw scores in right tail mass.
  * Incept:    SRE, Sun Jan 29 17:56:37 2006 [St. Louis]
  *
  * Purpose:   Given a full histogram <h>, retrieve the data values in
@@ -659,12 +679,12 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
 
 
 
-
 /*****************************************************************
- * Setting expected counts
+ * 4. Setting expected counts
  *****************************************************************/ 
 
 /* Function:  esl_histogram_SetExpect()
+ * Synopsis:  Set expected counts for complete distribution.
  * Incept:    SRE, Wed Aug 17 17:36:58 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> containing some number of empirically
@@ -716,6 +736,7 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
 }
 
 /* Function:  esl_histogram_SetExpectedTail()
+ * Synopsis:  Set expected counts for right tail.
  * Incept:    SRE, Mon Jan 30 08:57:57 2006 [St. Louis]
  *
  * Purpose:   Given a histogram <h>, and a pointer to a generic function
@@ -777,10 +798,11 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
 
 
 /*****************************************************************
- * Output and display of binned data.
+ * 5. Output and display of binned data.
  *****************************************************************/ 
 
 /* Function:  esl_histogram_Print() 
+ * Synopsis:  Print a "pretty" ASCII histogram.
  * Incept:    SRE, Sat Jul  2 16:03:37 2005 [St. Louis]
  *
  * Purpose:   Print a "prettified" display histogram <h> to a file 
@@ -937,6 +959,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 }
   
 /* Function:  esl_histogram_Plot()
+ * Synopsis:  Output a histogram in xmgrace XY format.
  * Incept:    SRE, Mon Jan 30 11:09:01 2006 [St. Louis]
  *
  * Purpose:   Print observed (and expected, if set) binned counts
@@ -977,6 +1000,7 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 }
 
 /* Function:  esl_histogram_PlotSurvival()
+ * Synopsis:  Output $P(X>x)$ in xmgrace XY format.
  * Incept:    SRE, Mon Jan 30 11:11:05 2006 [St. Louis]
  *
  * Purpose:   Given a histogram <h>, output the observed (and
@@ -1029,6 +1053,7 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 }
 
 /* Function:  esl_histogram_PlotQQ()
+ * Synopsis:  Output a Q-Q plot in xmgrace XY format.
  * Incept:    SRE, Sat Aug 20 14:15:01 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> containing an empirically observed
@@ -1094,6 +1119,7 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
 
 
 /* Function:  esl_histogram_Goodness()
+ * Synopsis:  Evaluate fit between observed, expected. 
  * Incept:    SRE, Wed Aug 17 12:46:05 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> with observed and expected counts,
@@ -1281,283 +1307,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   return status;
 }
 
-
-
 /*****************************************************************
- * Five example main()'s for five use cases:
- *    - complete data, fit to complete Gumbel
- *    - complete data, high scores fit as censored Gumbel
- *    - complete data, high scores fit to exponential tail
- *    - censored data, fit as censored Gumbel
- *    - complete data, binned, high scores fit to exponential tail
- *
- * (These same five cases are tested by ./test -t1 through ./test -t5.)
- *****************************************************************/
-/* Case 1. Complete data fit to complete Gumbel.
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE1 esl_histogram.c -leasel -lm
- * run:     ./example 
- */
-#ifdef eslHISTOGRAM_EXAMPLE1
-/*::cexcerpt::histogram_example1::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
-  int     nsamples    = 10000;
-  double  mu          = 10.0;
-  double  lambda      = 0.8;
-  double  params[2];
-  int     i;
-  double  x;
-  double *xv;
-  int     n;
-  double  G, Gp, X2, X2p;
-
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, mu, lambda);
-    esl_histogram_Add(h, x);
-  }
-
-  esl_histogram_GetData(h, &xv, &n);
-  esl_gumbel_FitComplete(xv, n, &mu, &lambda);
-
-  params[0] = mu;
-  params[1] = lambda;
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
-
-  esl_histogram_Print(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
-  printf("G   = %f  p = %f\n", G, Gp);
-  printf("X^2 = %f  p = %f\n", X2, X2p);
-
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::histogram_example1::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE1*/
-
-
-
-/* Case 2. complete data, high scores fit as censored Gumbel 
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE2 esl_histogram.c -leasel -lm
- * run:     ./example 
- */
-#ifdef eslHISTOGRAM_EXAMPLE2
-/*::cexcerpt::histogram_example2::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
-  int     nsamples    = 10000;
-  double  mu          = 10.0;
-  double  lambda      = 0.8;
-  double  params[2];
-  int     i;
-  double  x;
-  double *xv;
-  int     n, z;
-  double  G, Gp, X2, X2p;
-
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, mu, lambda);
-    esl_histogram_Add(h, x);
-  }
-
-  esl_histogram_GetTailByMass(h, 0.5, &xv, &n, &z); /* fit to right 50% */
-  esl_gumbel_FitCensored(xv, n, z, xv[0], &mu, &lambda);
-
-  params[0] = mu;
-  params[1] = lambda;
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
-
-  esl_histogram_Print(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
-  printf("G   = %f  p = %f\n", G, Gp);
-  printf("X^2 = %f  p = %f\n", X2, X2p);
-
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::histogram_example2::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE2*/
-
-
-/* Case 3. complete data, high scores fit to exponential tail
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE3 esl_histogram.c -leasel -lm
- * run:     ./example 
- */
-#ifdef eslHISTOGRAM_EXAMPLE3
-/*::cexcerpt::histogram_example3::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-#include <esl_exponential.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
-  int     nsamples    = 10000;
-  double  mu          = 10.0;
-  double  lambda      = 0.8;
-  double  params[2];
-  int     i;
-  double  x;
-  double *xv;
-  int     n;
-  double  G, Gp, X2, X2p;
-
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, mu, lambda);
-    esl_histogram_Add(h, x);
-  }
-
-  esl_histogram_GetTailByMass(h, 0.1, &xv, &n, NULL); /* fit to 10% tail */
-  esl_exp_FitComplete(xv, n, &mu, &lambda);
-
-  params[0] = mu;
-  params[1] = lambda;
-  esl_histogram_SetExpectedTail(h, mu, 0.1, &esl_exp_generic_cdf, &params);
-
-  esl_histogram_Print(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
-  printf("G   = %f  p = %f\n", G, Gp);
-  printf("X^2 = %f  p = %f\n", X2, X2p);
-
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::histogram_example3::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE3*/
-
-/* Case 4. censored data, high scores fit as a censored Gumbel tail
- * compile: 
-     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
- * run:     ./example 
- */
-#ifdef eslHISTOGRAM_EXAMPLE4
-/*::cexcerpt::histogram_example4::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
-  int     nsamples    = 10000;
-  double  mu          = 10.0;
-  double  lambda      = 0.8;
-  double  phi         = 9.0;
-  double  params[2];
-  int     i;
-  double  x;
-  double *xv;
-  int     n, z;
-  double  G, Gp, X2, X2p;
-
-  z = 0;
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, mu, lambda);
-    if (x > phi) esl_histogram_Add(h, x);
-    else         z++;
-  }
-
-  esl_histogram_GetData(h, &xv, &n);
-  esl_gumbel_FitCensored(xv, n, z, phi, &mu, &lambda);
-
-  params[0] = mu;
-  params[1] = lambda;
-  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
-
-  esl_histogram_Print(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
-  printf("G   = %f  p = %f\n", G, Gp);
-  printf("X^2 = %f  p = %f\n", X2, X2p);
-
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::histogram_example4::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE4*/
-
-/* Case 5. complete data, binned high scores fit to exponential tail
- * compile:
-     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
- * run:     ./example 
- */
-#ifdef eslHISTOGRAM_EXAMPLE5
-/*::cexcerpt::histogram_example5::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-#include <esl_exponential.h>
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
-  ESL_HISTOGRAM  *h  = esl_histogram_Create(-100, 100, 1.0);
-  int     nsamples    = 10000;
-  double  mu          = 10.0;
-  double  lambda      = 0.8;
-  double  params[2];
-  int     i;
-  double  x;
-  double  actual_mass;
-  double  G, Gp, X2, X2p;
-
-  for (i = 0; i < nsamples; i++) {
-    x = esl_gumbel_Sample(r, mu, lambda);
-    x = ceil(x);      /* crudely simulate an x of limited precision */
-    esl_histogram_Add(h, x);
-  }
-
-  esl_histogram_SetTailByMass(h, 0.1, &actual_mass);
-  esl_histogram_DeclareRounding(h);
-  esl_exp_FitCompleteBinned(h, &mu, &lambda);
-
-  params[0] = mu;
-  params[1] = lambda;
-  esl_histogram_SetExpectedTail(h, mu, actual_mass, &esl_exp_generic_cdf, &params);
-
-  esl_histogram_Print(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
-  printf("G   = %f  p = %f\n", G, Gp);
-  printf("X^2 = %f  p = %f\n", X2, X2p);
-
-  esl_histogram_Destroy(h);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::histogram_example5::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE5*/
-
-
-
-/*****************************************************************
- * Test driver code
+ * 6. Test driver.
  *****************************************************************/
 #ifdef eslHISTOGRAM_TESTDRIVE
 /* compile: 
@@ -1922,3 +1673,283 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslHISTOGRAM_TESTDRIVE*/
+
+
+
+/*****************************************************************
+ * 7. Examples
+ *****************************************************************/
+
+/*****************************************************************
+ * Five example main()'s for five use cases:
+ *    - complete data, fit to complete Gumbel
+ *    - complete data, high scores fit as censored Gumbel
+ *    - complete data, high scores fit to exponential tail
+ *    - censored data, fit as censored Gumbel
+ *    - complete data, binned, high scores fit to exponential tail
+ *
+ * (These same five cases are tested by ./test -t1 through ./test -t5.)
+ *****************************************************************/
+/* Case 1. Complete data fit to complete Gumbel.
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE1 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE1
+/*::cexcerpt::histogram_example1::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_GetData(h, &xv, &n);
+  esl_gumbel_FitComplete(xv, n, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example1::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE1*/
+
+
+
+/* Case 2. complete data, high scores fit as censored Gumbel 
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE2 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE2
+/*::cexcerpt::histogram_example2::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n, z;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_GetTailByMass(h, 0.5, &xv, &n, &z); /* fit to right 50% */
+  esl_gumbel_FitCensored(xv, n, z, xv[0], &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example2::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE2*/
+
+
+/* Case 3. complete data, high scores fit to exponential tail
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE3 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE3
+/*::cexcerpt::histogram_example3::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_GetTailByMass(h, 0.1, &xv, &n, NULL); /* fit to 10% tail */
+  esl_exp_FitComplete(xv, n, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpectedTail(h, mu, 0.1, &esl_exp_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example3::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE3*/
+
+/* Case 4. censored data, high scores fit as a censored Gumbel tail
+ * compile: 
+     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE4 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE4
+/*::cexcerpt::histogram_example4::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  phi         = 9.0;
+  double  params[2];
+  int     i;
+  double  x;
+  double *xv;
+  int     n, z;
+  double  G, Gp, X2, X2p;
+
+  z = 0;
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    if (x > phi) esl_histogram_Add(h, x);
+    else         z++;
+  }
+
+  esl_histogram_GetData(h, &xv, &n);
+  esl_gumbel_FitCensored(xv, n, z, phi, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example4::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE4*/
+
+/* Case 5. complete data, binned high scores fit to exponential tail
+ * compile:
+     gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE5 esl_histogram.c -leasel -lm
+ * run:     ./example 
+ */
+#ifdef eslHISTOGRAM_EXAMPLE5
+/*::cexcerpt::histogram_example5::begin::*/
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_histogram.h>
+#include <esl_gumbel.h>
+#include <esl_exponential.h>
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_HISTOGRAM  *h  = esl_histogram_Create(-100, 100, 1.0);
+  int     nsamples    = 10000;
+  double  mu          = 10.0;
+  double  lambda      = 0.8;
+  double  params[2];
+  int     i;
+  double  x;
+  double  actual_mass;
+  double  G, Gp, X2, X2p;
+
+  for (i = 0; i < nsamples; i++) {
+    x = esl_gumbel_Sample(r, mu, lambda);
+    x = ceil(x);      /* crudely simulate an x of limited precision */
+    esl_histogram_Add(h, x);
+  }
+
+  esl_histogram_SetTailByMass(h, 0.1, &actual_mass);
+  esl_histogram_DeclareRounding(h);
+  esl_exp_FitCompleteBinned(h, &mu, &lambda);
+
+  params[0] = mu;
+  params[1] = lambda;
+  esl_histogram_SetExpectedTail(h, mu, actual_mass, &esl_exp_generic_cdf, &params);
+
+  esl_histogram_Print(stdout, h);
+  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  printf("G   = %f  p = %f\n", G, Gp);
+  printf("X^2 = %f  p = %f\n", X2, X2p);
+
+  esl_histogram_Destroy(h);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::histogram_example5::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE5*/
+
+
+

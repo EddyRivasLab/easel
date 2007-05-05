@@ -1,4 +1,3 @@
-# configure.ac
 # Process this file with autoconf to produce the Easel configuration script.
 #
 # reminders to save re-reading autoconf manual for the n'th time:
