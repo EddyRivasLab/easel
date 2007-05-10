@@ -1,6 +1,14 @@
-/* esl_getopts.c
- * Implements a somewhat more powerful command line getopt interface
+/* Implements a somewhat more powerful command line getopt interface
  * than the standard UNIX/POSIX call.
+ * 
+ * Contents:
+ *    1. The ESL_GETOPTS object.
+ *    2. Setting and testing a configuration.
+ *    3. Retrieving option settings and command line args.
+ *    4. Formatting option help.
+ *    5. Private functions.
+ *    6. Test driver.
+ *    7. Example.
  * 
  * SVN $Id$
  * SRE, Sat Jan  1 08:50:21 2005 [Panticosa, Spain]
@@ -43,12 +51,12 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
  *****************************************************************/ 
 
 /* Function:  esl_getopts_Create()
+ * Synopsis:  Create a new <ESL_GETOPTS> object.
  * Incept:    SRE, Tue Jan 11 11:24:16 2005 [St. Louis]
  *
  * Purpose:   Creates an <ESL_GETOPTS> object, given the
- *            array of valid options <opt> (NULL-element-terminated)
- *            and a (possibly long, multiline) help/usage string
- *            in <usage>. Sets default values for all config 
+ *            array of valid options <opt> (NULL-element-terminated).
+ *            Sets default values for all config 
  *            options (as defined in <opt>).
  *
  * Returns:   ptr to the new <ESL_GETOPTS> object.
@@ -57,7 +65,7 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
  *            an invalid <ESL_OPTIONS> structure.
  */
 ESL_GETOPTS *
-esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
+esl_getopts_Create(ESL_OPTIONS *opt)
 {
   ESL_GETOPTS *g = NULL;
   int status;
@@ -68,7 +76,6 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
   g->opt       = opt;
   g->argc      = 0;
   g->argv      = NULL;
-  g->usage     = usage;
   g->optind    = 1;
   g->argi      = 1;		/* number cmdline arguments 1..n */
   g->nfiles    = 0;
@@ -76,6 +83,7 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
   g->setby     = NULL;
   g->valloc    = NULL;
   g->optstring = NULL;
+  g->errbuf[0] = '\0';
 
   /* Figure out the number of options.
    */
@@ -114,6 +122,7 @@ esl_getopts_Create(ESL_OPTIONS *opt, char *usage)
 }
 
 /* Function:  esl_getopts_Destroy()
+ * Synopsis:  Destroys an <ESL_GETOPTS> object.
  * Incept:    SRE, Thu Jan 13 08:55:10 2005 [St. Louis]
  *
  * Purpose:   Free's a created <ESL_GETOPTS> object.
@@ -144,6 +153,7 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 
 
 /* Function:  esl_getopts_Dump()
+ * Synopsis:  Dumps a summary of a <ESL_GETOPTS> configuration.
  * Incept:    SRE, Tue Jan 18 09:11:39 2005 [St. Louis]
  *
  * Purpose:   Dump the state of <g> to an output stream
@@ -179,6 +189,7 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
  *****************************************************************/ 
 
 /* Function:  esl_opt_ProcessConfigfile()
+ * Synopsis:  Parses options in a config file.
  * Incept:    SRE, Thu Jan 13 10:25:43 2005 [St. Louis]
  *
  * Purpose:   Given an open configuration file <fp> (and
@@ -191,12 +202,15 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
  *            or <-a>. All option arguments are type and
  *            range checked, as specified in <g>.
  *            
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEFORMAT> on a parse or format error in the file.
- *            <eslEINVAL> if an option argument fails a type or range
- *            check, or if an option is set twice by the same config
- *            file.
+ * Returns:   <eslOK> on success.  
+ * 
+ *            Returns <eslESYNTAX> on parse or format error in the
+ *            file, or f option argument fails a type or range check,
+ *            or if an option is set twice by the same config file.
+ *            In any of these "normal" (user) error cases, <g->errbuf>
+ *            is set to a useful error message to indicate the error.
+ *            
+ * Throws:    <eslEMEM> on allocation problem.            
  */
 int
 esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
@@ -204,16 +218,18 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
   char *buf = NULL;
   int   n   = 0;
   char *s;
-  char *optname;
-  char *optarg;
+  char *optname;		/* tainted: from user's input file */
+  char *optarg;			/* tainted: from user's input file */
   char *comment;
   int   line;
   int   opti;
   int   status;
 
   line = 0;
-  while (esl_fgets(&buf, &n, fp) == eslOK)
+  while ((status = esl_fgets(&buf, &n, fp)) != eslEOF)
     {
+      if (status != eslOK) return status; /* esl_fgets() failed (EMEM) */
+
       line++;
       optname = NULL;
       optarg  = NULL;
@@ -225,9 +241,9 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
       if (optname   == NULL) continue; /* blank line */
       if (*optname  == '#')  continue; /* comment line */
       if (*optname  != '-') 
-	ESL_EXCEPTION(eslEFORMAT, 
-		      "Parse failed at line %d of cfg file %s (saw %s, not an option)\n",
-		      line, filename, optname);
+	ESL_FAIL(eslESYNTAX, g->errbuf,
+		 "Parse failed at line %d of cfg file %.24s (saw %.24s, not an option)\n",
+		 line, filename, optname);
       
       /* Second token, if present, is the arg
        */
@@ -237,17 +253,17 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
        */
       esl_strtok(&s, " \t\n", &comment, NULL);
       if (comment != NULL && *comment != '#') 
-	ESL_EXCEPTION(eslEFORMAT, 
-		      "Parse failed at line %d of cfg file %s (saw %s, not a comment)\n",
-		      line, filename, comment);
+	ESL_FAIL(eslESYNTAX, g->errbuf,
+		 "Parse failed at line %d of cfg file %.24s (saw %.24s, not a comment)\n",
+		 line, filename, comment);
 	
       /* Now we've got an optname and an optional optarg;
        * figure out what option this is.
        */
       if (get_optidx_exactly(g, optname, &opti) != eslOK) 
-	ESL_EXCEPTION(eslEFORMAT,
-		      "%s is not a recognized option (config file %s, line %d)\n",
-		      optname, filename, line);
+	ESL_FAIL(eslESYNTAX, g->errbuf,
+		 "%.24s is not a recognized option (config file %.24s, line %d)\n",
+		 optname, filename, line);
 
       /* Set that option.
        * Pass TRUE to set_option's do_alloc flag, because our buffer
@@ -269,6 +285,7 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
 
 
 /* Function:  esl_opt_ProcessEnvironment()
+ * Synopsis:  Parses options in the environment.
  * Incept:    SRE, Thu Jan 13 10:17:58 2005 [St. Louis]
  *
  * Purpose:   For any option defined in <g> that can be modified
@@ -283,9 +300,11 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
  *            
  * Returns:   <eslOK> on success, and <g> is loaded with all
  *            options specified in the environment.
- *
- * Throws:    <eslEINVAL> on any failure, including type/range
- *            check failures.
+ *            Returns <eslEINVAL> on user input problems, 
+ *            including type/range check failures, and 
+ *            sets <g->errbuf> to a useful error message.
+ *            
+ * Throws:    <eslEMEM> on allocation problem.            
  */
 int
 esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
@@ -307,6 +326,7 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
 
 
 /* Function:  esl_opt_ProcessCmdline()
+ * Synopsis:  Parses options from the command line.
  * Incept:    SRE, Wed Jan 12 10:12:43 2005 [St. Louis]
  *
  * Purpose:   Process a command line (<argc> and <argv>), parsing out
@@ -345,9 +365,12 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
  *
  * Returns:   <eslOK> on success. <g> is loaded with
  *            all option settings specified on the cmdline.
- *
- * Throws:    <eslEINVAL> on any cmdline parsing problem,
- *            including option argument type/range check failures.
+ *            Returns <eslEINVAL> on any cmdline parsing problem,
+ *            including option argument type/range check failures,
+ *            and sets <g->errbuf> to a useful error message for
+ *            the user.
+ *            
+ * Throws:    <eslEMEM> on allocation problem.           
  */
 int
 esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
@@ -376,6 +399,7 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 
 
 /* Function:  esl_opt_VerifyConfig()
+ * Synopsis:  Validates configuration after options are set.
  * Incept:    SRE, Wed Jan 12 10:21:46 2005 [St. Louis]
  *
  * Purpose:   Given a <g> that we think is fully configured now --
@@ -391,9 +415,13 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
  *            it is turned off.)
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if a required option is not set, or
- *            if an incompatible option is set.
+ *            <eslESYNTAX> if a required option is not set, or
+ *            if an incompatible option is set; in this case, sets 
+ *            <g->errbuf> to contain a useful error message for
+ *            the user.
+ *            
+ * Throws:    <eslEINVAL> if something's wrong with the <ESL_OPTIONS>
+ *            structure itself -- a coding error in the application.           
  */
 int
 esl_opt_VerifyConfig(ESL_GETOPTS *g)
@@ -411,13 +439,14 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
       if (g->setby[i] != eslARG_SETBY_DEFAULT && g->val[i] != NULL)
 	{
 	  s = g->opt[i].required_opts;
-	  while ((status = process_optlist(g, &s, &reqi)) == eslOK)
-	    if (g->setby[reqi] == eslARG_SETBY_DEFAULT || g->val[reqi] == NULL)
-	      ESL_EXCEPTION(eslEINVAL,
-			    "Option %s requires (or has no effect without) option(s) %s\n\n%s", 
-			    g->opt[i].name, g->opt[i].required_opts, g->usage);
-
-	  if (status != eslEOD) return status;
+	  while ((status = process_optlist(g, &s, &reqi)) != eslEOD) 
+	    {
+	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
+	      if (g->setby[reqi] == eslARG_SETBY_DEFAULT || g->val[reqi] == NULL)
+		ESL_FAIL(eslESYNTAX, g->errbuf,
+			 "Option %.24s requires (or has no effect without) option(s) %.24s", 
+			 g->opt[i].name, g->opt[i].required_opts);
+	    }
 	}
     }
 
@@ -430,16 +459,16 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
       if (g->setby[i] != eslARG_SETBY_DEFAULT && g->val[i] != NULL)
 	{
 	  s = g->opt[i].incompat_opts;
-	  while ((status = process_optlist(g, &s, &incompati)) == eslOK)
-	    if (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL)
-	      ESL_EXCEPTION(eslEINVAL,
-			    "Option %s is incompatible with option(s) %s\n\n%s", 
-			    g->opt[i].name, g->opt[i].incompat_opts, g->usage);
-
-	  if (status != eslEOD) return status;
+	  while ((status = process_optlist(g, &s, &incompati)) != eslEOD)
+	    {
+	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
+	      if (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL)
+		ESL_FAIL(eslESYNTAX, g->errbuf,
+			 "Option %.24s is incompatible with option(s) %.24s", 
+			 g->opt[i].name, g->opt[i].incompat_opts);
+	    }
 	}
     }
-
   return eslOK;
 }
 
@@ -449,183 +478,135 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
  * 3. Retrieving option settings and command line args
  *****************************************************************/ 
 
-/* Function:  esl_opt_IsSet()
+/* Function:  esl_opt_IsDefault()
+ * Synopsis:  Returnes <TRUE> if option remained at default setting.
  * Incept:    SRE, Wed Jan  3 11:19:25 2007 [Janelia]
  *
- * Purpose:   Returns <TRUE> if option <optname> was set to a non-default
- *            value on the command line, in the environment, or in 
- *            a configuration file. Returns <FALSE> if the option remains
- *            at its default value, or if the option doesn't exist.
+ * Purpose:   Returns <TRUE> if option <optname> remained at its
+ *            default state; returns <FALSE> if <optname> was 
+ *            set on the command line, in the environment, or in 
+ *            a configuration file (even if it was reset to the
+ *            default value). 
  */
 int
-esl_opt_IsSet(ESL_GETOPTS *g, char *optname)
+esl_opt_IsDefault(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
-  if (get_optidx_exactly(g, optname, &opti) == eslOK &&
-      g->setby[opti] != eslARG_SETBY_DEFAULT) 
-    return TRUE;
+  if (get_optidx_exactly(g, optname, &opti) != eslOK)  esl_fatal("no such option %s\n", optname);
+  if (g->setby[opti] == eslARG_SETBY_DEFAULT)          return TRUE;
   return FALSE;
 }    
 
-/* Function:  esl_opt_GetBooleanOption()
+/* Function:  esl_opt_GetBoolean()
+ * Synopsis:  Retrieve <TRUE>/<FALSE> for a boolean option.
  * Incept:    SRE, Wed Jan 12 13:46:09 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured TRUE/FALSE value for option <optname>
- *            from <g>, leaving it in <ret_state>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> isn't a boolean option.
+ *            from <g>.
  */
 int
-esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state)
+esl_opt_GetBoolean(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
+    esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_NONE)
-    ESL_EXCEPTION(eslEINVAL,    "option %s is not a boolean", optname);
+    esl_fatal("option %s is not a boolean", optname);
 
-  if (g->val[opti] == NULL) *ret_state = FALSE;
-  else                      *ret_state = TRUE;
-  return eslOK;
+  if (g->val[opti] == NULL) return FALSE;
+  else                      return TRUE;
 }
 
-/* Function:  esl_opt_GetIntegerOption()
+/* Function:  esl_opt_GetInteger()
+ * Synopsis:  Retrieve value of an integer option.
  * Incept:    SRE, Wed Jan 12 11:37:28 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_n>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> isn't an integer option.
+ *            from <g>.
  */
 int
-esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n)
+esl_opt_GetInteger(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
+    esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_INT)
-    ESL_EXCEPTION(eslEINVAL,    "option %s does not take an integer arg", optname);
-  *ret_n = atoi(g->val[opti]);
-  return eslOK;
+    esl_fatal("option %s does not take an integer arg", optname);
+  return atoi(g->val[opti]);
 }
 		
-/* Function:  esl_opt_GetFloatOption()
+/* Function:  esl_opt_GetReal()
+ * Synopsis:  Retrieve value of a real-valued option.
  * Incept:    SRE, Wed Jan 12 13:46:27 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_x>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> isn't a real-valued option.
+ *            from <g>.
  */
-int
-esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x)
+double
+esl_opt_GetReal(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
+    esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_REAL)
-    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a real-valued arg", optname);
+    esl_fatal("option %s does not take a real-valued arg", optname);
 
-  *ret_x = atof(g->val[opti]);
-  return eslOK;
+  return (atof(g->val[opti]));
 }
 
-/* Function:  esl_opt_GetDoubleOption()
- * Incept:    SRE, Wed Jan 12 13:46:27 2005 [St. Louis]
- *
- * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_x>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> isn't a real-valued option.
- */
-int
-esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x)
-{
-  int opti;
-
-  if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
-  if (g->opt[opti].type != eslARG_REAL)
-    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a real-valued arg", optname);
-
-  *ret_x = atof(g->val[opti]);
-  return eslOK;
-}
-
-/* Function:  esl_opt_GetCharOption()
+/* Function:  esl_opt_GetChar()
+ * Synopsis:  Retrieve value of a character option.
  * Incept:    SRE, Wed Jan 12 13:47:36 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_c>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> isn't a char option.
+ *            from <g>.
  */
-int
-esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c)
+char
+esl_opt_GetChar(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
+    esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_CHAR)
-    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a char arg", optname);
+    esl_fatal("option %s does not take a char arg", optname);
 
-  *ret_c = *g->val[opti];
-  return eslOK;
+  return (*g->val[opti]);
 }
 
-/* Function:  esl_opt_GetStringOption()
+/* Function:  esl_opt_GetString()
+ * Synopsis:  Retrieve value of a string option.
  * Incept:    SRE, Wed Jan 12 13:47:36 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
- *            from <g>, leaving it in <ret_s>. 
+ *            from <g>.
  *
  *            This retrieves options of type <eslARG_STRING>,
  *            obviously, but also options of type <eslARG_INFILE>
  *            and <eslARG_OUTFILE>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOTFOUND> if <optname> isn't a registered option.
- *            <eslEINVAL> if <optname> doesn't take a string,
- *            infile, or outfile argument.
  */
-int
-esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
+char *
+esl_opt_GetString(ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
   if (get_optidx_exactly(g, optname, &opti) == eslENOTFOUND)
-    ESL_EXCEPTION(eslENOTFOUND, "no such option");
+    esl_fatal("no such option %s\n", optname);
   if (g->opt[opti].type != eslARG_STRING &&
       g->opt[opti].type != eslARG_INFILE &&
       g->opt[opti].type != eslARG_OUTFILE)
-    ESL_EXCEPTION(eslEINVAL,    "option %s does not take a string arg", optname);
-  *ret_s = g->val[opti];
-  return eslOK;
+    esl_fatal("option %s does not take a string arg", optname);
+
+  return g->val[opti];
 }
 
 
-/* Function:  esl_opt_GetCmdlineArg()
+/* Function:  esl_opt_GetArg()
+ * Synopsis:  Retrieve next command line argument.
  * Incept:    SRE, Thu Jan 13 09:21:34 2005 [St. Louis]
  *
  * Purpose:   Returns ptr to the next <argv[]> element in <g> that 
@@ -635,21 +616,19 @@ esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s)
  *            skip type checking), and range check it with
  *            <range> (pass NULL to skip range checking).
  *
- * Returns:   ptr to next argument.
- *
- * Throws:    <NULL> if we run out of arguments, or an arg
- *            fails a type/range check. On failure, prints
- *            an error message complete with application help/usage 
- *            info. 
+ * Returns:   a pointer to next argument on success.
+ *            Returns <NULL> if there are no more arguments, or
+ *            if the argument fails a type/range check; in these cases,
+ *            <g->errbuf> is set to contain a useful error message
+ *            for the user.
  */
 char *
-esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
+esl_opt_GetArg(ESL_GETOPTS *g, int type, char *range)
 {
   char *arg;
   int   status = eslOK;
   
-  if (g->optind >= g->argc) 
-    ESL_XEXCEPTION(eslEOD, "Not enough command line arguments.\n\n%s", g->usage);
+  if (g->optind >= g->argc) ESL_FAIL(NULL, g->errbuf, "No more command line arguments.");
 
   arg = g->argv[g->optind];
 
@@ -665,53 +644,53 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
 
     case eslARG_INT: 
       if (! is_integer(arg))
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d should be an integer; got %s\n\n%s",
-		 g->argi, arg, g->usage);
+	ESL_FAIL(NULL, g->errbuf,
+		 "cmdline arg %d should be an integer; got %.24s",
+		 g->argi, arg);
 
-      if ((status = verify_integer_range(arg, range)) == eslEINVAL)
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d should be integer in range %s; got %s\n\n%s", 
-		 g->argi, range, arg, g->usage);
+      if ((status = verify_integer_range(arg, range)) != eslOK)
+	ESL_FAIL(NULL, g->errbuf, 
+		 "cmdline arg %d should be integer in range %.24s; got %.24s", 
+		 g->argi, range, arg);
       break;
 
     case eslARG_REAL:
       if (! is_real(arg))
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d should be a real-valued number; got %s\n\n%s",
-		 g->argi, arg, g->usage);
+	ESL_FAIL(NULL, g->errbuf, 
+		 "cmdline arg %d should be a real-valued number; got %.24s",
+		 g->argi, arg);
 
-      if ((status = verify_real_range(arg, range)) == eslEINVAL)
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d takes real number in range %s; got %s\n\n%s", 
-		 g->argi, range, arg, g->usage);
+      if ((status = verify_real_range(arg, range)) != eslOK)
+	ESL_FAIL(NULL, g->errbuf,
+		 "cmdline arg %d takes real number in range %.24s; got %.24s", 
+		 g->argi, range, arg);
       break;
 
     case eslARG_CHAR:
       if (strlen(arg) > 1)
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d should be a single char; got %s\n\n%s",
-		 g->argi, arg, g->usage);
+	ESL_FAIL(NULL, g->errbuf,
+		 "cmdline arg %d should be a single char; got %.24s",
+		 g->argi, arg);
 
-      if ((status = verify_char_range(arg, range)) == eslEINVAL)
-	ESL_XEXCEPTION(eslEINVAL, "cmdline arg %d takes char in range %s; got %s\n\n%s", 
-		 g->argi, range, arg, g->usage);
+      if ((status = verify_char_range(arg, range)) != eslOK)
+	ESL_FAIL(NULL, g->errbuf,
+		 "cmdline arg %d takes char in range %.24s; got %.24s", 
+		 g->argi, range, arg);
       break;
 
-    default: ESL_XEXCEPTION(eslEINCONCEIVABLE, "no such arg type");
+    default: esl_fatal("no such arg type");
     }
 
-  /* Now, catch generic errors from range checking:
+  /* Now, catch coding errors from range checking:
    */
-  if (status == eslESYNTAX)
-    ESL_XEXCEPTION(eslESYNTAX, "range string %s for arg %d is corrupt",
-	     range, g->argi); 
-  else if (status != eslOK)
-    ESL_XEXCEPTION(eslEINCONCEIVABLE, "unexpected error code");
+  if (status == eslESYNTAX)   esl_fatal("range string %s for arg %d is corrupt", range, g->argi); 
+  else if (status != eslOK)   esl_fatal("unexpected error code");
 
   /* Normal return. Bump the argi and optind counters.
    */
   g->optind++;
   g->argi++;
   return arg;
-
- ERROR:
-  return NULL;
 }
 
 /*****************************************************************
@@ -719,6 +698,7 @@ esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range)
  *****************************************************************/ 
 
 /* Function:  esl_opt_DisplayHelp()
+ * Synopsis:  Formats one-line help for each option.
  * Incept:    SRE, Sun Feb 26 12:36:07 2006 [St. Louis]
  *
  * Purpose:   For each option in <go>, print one line of brief
@@ -857,7 +837,7 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
 
 
 /*****************************************************************
- * Miscellaneous private functions 
+ * 5. Miscellaneous private functions 
  *****************************************************************/ 
 
 /* set_option()
@@ -873,6 +853,13 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
  * the line buffer as we're reading a file) then we need to
  * strdup the arg -- and remember that we did that, so we free()
  * it when we destroy the getopts object.
+ * 
+ * All user errors (problems with optarg) are normal (returned) errors of 
+ * type <eslESYNTAX>, which leave an error message in <g->errbuf>. 
+ * 
+ * May also throw <eslEMEM> on allocation failure, or <eslEINVAL>
+ * if something's wrong internally, usually indicating a coding error
+ * in the application's <ESL_OPTIONS> structure.
  */
 int
 set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
@@ -891,13 +878,13 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
 
   /* Have we already set this option? */
   if (g->setby[opti] == setby)
-    ESL_XEXCEPTION(eslEINVAL, "Option %s has already been set %s.\n\n%s", 
-	     g->opt[opti].name, where, g->usage);
+    ESL_FAIL(eslESYNTAX, g->errbuf,
+	     "Option %.24s has already been set %s.", 
+	     g->opt[opti].name, where);
 
   /* Type and range check the option argument.
    */
-  if (verify_type_and_range(g, opti, optarg, setby) != eslOK)
-    return eslEINVAL;		/* percolation */
+  if (verify_type_and_range(g, opti, optarg, setby) != eslOK) return eslESYNTAX;	
   
   /* Set the option, being careful about when val 
    * is alloc'ed vs. not.
@@ -925,10 +912,8 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
 	  arglen = strlen(optarg);
 	  if (g->valloc[opti] < arglen+1) 
 	    {
-	      if (g->valloc[opti] == 0)
-		ESL_ALLOC(g->val[opti], sizeof(char) * (arglen+1));
-	      else
-		ESL_RALLOC(g->val[opti], tmp, sizeof(char) * (arglen+1));
+	      if (g->valloc[opti] == 0)	ESL_ALLOC (g->val[opti],      sizeof(char) * (arglen+1));
+	      else    		        ESL_RALLOC(g->val[opti], tmp, sizeof(char) * (arglen+1));
 	      g->valloc[opti] = arglen+1;
 	    }
 	  strcpy(g->val[opti], optarg);
@@ -938,20 +923,21 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
   /* Unset all options toggle-tied to this one.
    */
   s = g->opt[opti].toggle_opts;
-  while ((status = process_optlist(g, &s, &togi)) == eslOK)
+  while ((status = process_optlist(g, &s, &togi)) != eslEOD)
     {
+      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
       if (togi == opti) continue; /* ignore ourself, so we can have one toggle list per group */
 
       if (g->setby[togi] == setby)
-	ESL_XEXCEPTION(eslEINVAL, "Options %s and %s conflict, toggling each other.\n\n%s", 
-		 g->opt[togi].name, g->opt[opti].name, g->usage);
+	ESL_FAIL(eslESYNTAX, g->errbuf,
+		 "Options %.24s and %.24s conflict, toggling each other.", 
+		 g->opt[togi].name, g->opt[opti].name);
 	  
       g->setby[togi] = setby; /* indirectly, but still */
       if (g->valloc[togi] > 0) 	/* careful about val's that were alloc'ed */
 	{ free(g->val[togi]); g->valloc[togi] = 0; }
       g->val[togi] = NULL;    /* ok for false booleans too */
     }
-  if (status != eslEOD) return status; /* not a normal end of optlist */
   return eslOK;
 
  ERROR:
@@ -1085,17 +1071,18 @@ esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  * Allow unambiguous abbreviations of long options when matching;
  * e.g. --foo is ok for matching a long option --foobar.
  * 
- * Returns eslOK on success, returning the option number through
+ * Returns <eslOK> on success, returning the option number through
  * <ret_opti>, and a ptr to its argument through <ret_optarg> (or NULL
  * if this option takes no argument.) Internally, g->optind is
  * advanced to next argv element (+1, +2, +1, respectively, for --foo,
  * --foo arg, --foo=arg).
  *
- * Throws eslEINVAL and issues a useful error mesg if:
+ * Returns <eslESYNTAX> and sets a useful error mesg in <g->errbuf> if:
  *   1. Option can't be found in opt[].
  *   2. Option abbreviation is ambiguous, matching opt[] nonuniquely.
  *   3. Option takes an argument, but no argument found.
  *   4. Option does not take an argument, but one was provided by =arg syntax.
+ * All of these are user input errors.
  * 
  */
 static int
@@ -1119,9 +1106,11 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
    */
   status = get_optidx_abbrev(g, g->argv[g->optind], n, &opti);
   if (status == eslEAMBIGUOUS)
-    ESL_XEXCEPTION(eslEINVAL, "Abbreviated option \"%s\" is ambiguous.\n\n%s", g->argv[g->optind], g->usage);
-  if (status == eslENOTFOUND)
-    ESL_XEXCEPTION(eslEINVAL, "No such option \"%s\".\n\n%s", g->argv[g->optind], g->usage);
+    ESL_FAIL(eslESYNTAX, g->errbuf, "Abbreviated option \"%.24s\" is ambiguous.", g->argv[g->optind]);
+  else if (status == eslENOTFOUND)
+    ESL_FAIL(eslESYNTAX, g->errbuf, "No such option \"%.24s\".", g->argv[g->optind]);
+  else if (status != eslOK)
+    ESL_EXCEPTION(eslEINCONCEIVABLE, g->errbuf, "Something went wrong with option \"%.24s\".", g->argv[g->optind]);
 
   *ret_opti    = opti;
   g->optind++;	/* optind was on the option --foo; advance the counter to next argv element */
@@ -1133,21 +1122,17 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
       if (argptr != NULL)	/* if --foo=arg syntax, then we already found it */
 	*ret_optarg = argptr;
       else if (g->optind >= g->argc)
-	ESL_XEXCEPTION(eslEINVAL, "Option %s requires an argument\n\n%s", g->opt[opti].name, g->usage);
+	ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires an argument.", g->opt[opti].name);
       else			/* "--foo 666" style, with a space */
 	*ret_optarg = g->argv[g->optind++];	/* assign optind as the arg, advance counter */
     }
   else  /* if there's not supposed to be an arg, but there is, then die */
     {
       if (argptr != NULL) 
-	ESL_XEXCEPTION(eslEINVAL, "Option %s does not take an argument\n\n%s", g->opt[opti].name, g->usage);
+	ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s does not take an argument.", g->opt[opti].name);
       *ret_optarg = NULL;
     }
-
   return eslOK;
-
- ERROR:
-  return status;
 }
 
 /* process_stdopt():
@@ -1171,22 +1156,22 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  *       -abcW arg
  *       -abcWarg
  *       
- * Process next optchar; return eslOK on success, returning option
+ * Process next optchar; return <eslOK> on success, returning option
  * number through <ret_opti> and a pointer to any argument through
  * <ret_optarg>. Internally, optind is advanced to the next argv element;
  * either 0, +1, or +2, depending on whether we're still processing an
  * optstring from a prev optind, starting a new optstring, or reading
  * a "-W arg" form, respectively.
  * 
- * Throws <eslEINVAL> and issues helpful error mesg if:
+ * Returns <eslESYNTAX> and sets <g->errbuf> to a helpful error mesg if:
  *   1. The option doesn't exist.
  *   2. The option takes an option, but none was found.
+ * Both are user input errors.
  */
 static int
 process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 {
   int opti;
-  int status;
 
   /* Do we need to start a new optstring in a new argv element?
    * (as opposed to still being in an optstring from a prev parse)
@@ -1199,7 +1184,7 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
   for (opti = 0; opti < g->nopts; opti++)
     if (*(g->optstring) == g->opt[opti].name[1]) break;	/* this'll also fail appropriately for long opts. */
   if (opti == g->nopts)
-    ESL_XEXCEPTION(eslEINVAL, "No such option \"-%c\".\n\n%s", *(g->optstring), g->usage);
+    ESL_FAIL(eslESYNTAX, g->errbuf, "No such option \"-%c\".", *(g->optstring));
   *ret_opti    = opti;
 
   /* Find the argument, if there's supposed to be one */
@@ -1210,7 +1195,7 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
       else if (g->optind < g->argc)  /* unattached argument; assign optind, advance counter  */
 	*ret_optarg = g->argv[g->optind++];
       else 
-	ESL_XEXCEPTION(eslEINVAL, "Option %s requires an argument\n\n%s", g->opt[opti].name, g->usage);
+	ESL_FAIL(eslESYNTAX, "Option %.24s requires an argument", g->opt[opti].name);
 
       g->optstring = NULL;   /* An optchar that takes an arg must terminate an optstring. */
     }
@@ -1223,9 +1208,6 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 	g->optstring = NULL;           /* nope, that's it; move to next field in args */
     }
   return eslOK;
-
- ERROR:
-  return status;
 }
 /*----------- end of private functions for processing command line options -------------*/
 
@@ -1248,17 +1230,16 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  * by saying who was responsible for a bad <val>.
  *
  * Returns: <eslOK> on success.
+ *          Returns <eslESYNTAX> if <val> fails type/range checking,
+ *          and <g->errbuf> is set to contain an error report for the user.
  *
- * Throws:  <eslEINVAL>:         <val> is not the right type.
- *          <eslERANGE>:         <val> is out of allowed range.
- *          <eslESYNTAX>:        a range string format was bogus.
+ * Throws:  <eslEINVAL>:         a range string format was bogus.
  *          <eslEINCONCEIVABLE>: "can't happen" internal errors.
  */
 static int
 verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 {
   char *where;
-  int   status;
 
   if       (setby == eslARG_SETBY_DEFAULT) where = "as default";
   else if  (setby == eslARG_SETBY_CMDLINE) where = "on cmdline";
@@ -1275,50 +1256,38 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 
   case eslARG_INT:
     if (! is_integer(val))
-      ESL_EXCEPTION(eslEINVAL, "option %s takes integer arg; got %s %s\n\n%s", 
-		g->opt[i].name, val, where, g->usage);
+      ESL_FAIL(eslESYNTAX, g->errbuf, 
+	       "option %.24s takes integer arg; got %.24s %s", 
+	       g->opt[i].name, val, where);
 
-    status = verify_integer_range(val, g->opt[i].range);
-    if (status == eslERANGE)
-      ESL_EXCEPTION(eslERANGE, "option %s takes integer arg in range %s; got %s %s\n\n%s", 
-		g->opt[i].name, g->opt[i].range, val, where, g->usage);
-    else if (status == eslESYNTAX) 
-      ESL_EXCEPTION(eslESYNTAX, "range string %s for option %s is corrupt",
-		g->opt[i].range, g->opt[i].name); 
-    else if (status != eslOK) 
-      ESL_EXCEPTION(eslEINCONCEIVABLE, "unexpected error code");
+    if (verify_integer_range(val, g->opt[i].range) != eslOK)
+      ESL_FAIL(eslESYNTAX, g->errbuf,
+	       "option %.24s takes integer arg in range %.24s; got %.24s %s", 
+	       g->opt[i].name, g->opt[i].range, val, where);
     break;
 
   case eslARG_REAL:
     if (! is_real(val))
-      ESL_EXCEPTION(eslEINVAL, "option %s takes real-valued arg; got %s %s\n\n%s", 
-		g->opt[i].name, val, where, g->usage);
+      ESL_FAIL(eslESYNTAX, g->errbuf, 
+	       "option %.24s takes real-valued arg; got %.24s %s",
+	       g->opt[i].name, val, where);
 
-    status = verify_real_range(val, g->opt[i].range);
-    if (status == eslERANGE)
-      ESL_EXCEPTION(eslERANGE, "option %s takes real-valued arg in range %s; got %s %s\n\n%s", 
-		g->opt[i].name, g->opt[i].range, val, where, g->usage);
-    else if (status == eslESYNTAX)
-      ESL_EXCEPTION(eslESYNTAX, "range string %s for option %s is corrupt",
-		g->opt[i].range, g->opt[i].name); 
-    else if (status != eslOK) 
-      ESL_EXCEPTION(eslEINCONCEIVABLE, "unexpected error code");
+    if (verify_real_range(val, g->opt[i].range) != eslOK)
+      ESL_FAIL(eslESYNTAX, g->errbuf,
+	       "option %.24s takes real-valued arg in range %.24s; got %.24s %s", 
+	       g->opt[i].name, g->opt[i].range, val, where);
     break;
 
   case eslARG_CHAR:
     if (strlen(g->val[i]) > 1)
-      ESL_EXCEPTION(eslEINVAL, "option %s takes char arg; got %s %s\n\n%s", 
-		g->opt[i].name, val, where, g->usage);
+      ESL_FAIL(eslESYNTAX, g->errbuf,
+	       "option %.24s takes char arg; got %.24s %s",
+	       g->opt[i].name, val, where);
 
-    status = verify_char_range(val, g->opt[i].range);
-    if (status == eslERANGE)
-      ESL_EXCEPTION(eslERANGE, "option %s takes char arg in range %s; got %s %s\n\n%s", 
-		g->opt[i].name, g->opt[i].range, val, where, g->usage);
-    else if (status == eslESYNTAX)
-      ESL_EXCEPTION(eslESYNTAX, "range string %s for option %s is corrupt",
-		g->opt[i].range, g->opt[i].name); 
-    else if (status != eslOK) 
-      ESL_EXCEPTION(eslEINCONCEIVABLE, "unexpected error code");
+    if (verify_char_range(val, g->opt[i].range) != eslOK)
+      ESL_FAIL(eslESYNTAX, g->errbuf, 
+	       "option %.24s takes char arg in range %.24s; got %.24s %s", 
+	       g->opt[i].name, g->opt[i].range, val, where);
     break;
 
   case eslARG_STRING:  /* unchecked type. */
@@ -1423,14 +1392,12 @@ is_real(char *s)
 
 /* verify_integer_range():
  * 
- * Returns <eslOK> if the string <arg>, when converted 
- * to an integer by atoi(), gives a value that lies within
- * the given <range>, if <range> is non-NULL. (If
- * <range> is NULL, there is no constraint on the range
- * of this <arg>, so return TRUE.) Else, <arg> does
- * not lie in the <range>; return <eslERANGE>. If
- * <range> is misformatted, return <eslESYNTAX>, so caller
- * can print a reasonable error message.
+ * Returns <eslOK> if the string <arg>, when converted to an integer
+ * by atoi(), gives a value that lies within the given <range>, if
+ * <range> is non-NULL. (If <range> is NULL, there is no constraint on
+ * the range of this <arg>, so return TRUE.) Else, <arg> does not lie
+ * in the <range>; return <eslERANGE> (a user input error). If <range>
+ * itself is misformatted, return <eslEINVAL> (a coding error).
  * 
  * Range must be in one of three formats, matched
  * by these regexps (though regexps aren't used by the
@@ -1444,7 +1411,7 @@ is_real(char *s)
  * 
  * Returns:  <eslOK>:      <arg> is within allowed <range>.
  *           <eslERANGE>:  <arg> is not within allowed <range>.
- *           <eslESYNTAX>: something wrong with <range> string.
+ *           <eslEINVAL>:  something wrong with <range> string.
  */
 static int
 verify_integer_range(char *arg, char *range)
@@ -1457,22 +1424,17 @@ verify_integer_range(char *arg, char *range)
   if (range == NULL) return eslOK;
   n = atoi(arg);
 
-  if (parse_rangestring(range, 'n', &lp, &geq, &up, &leq) != eslOK) 
-    return eslESYNTAX;
+  if (parse_rangestring(range, 'n', &lp, &geq, &up, &leq) != eslOK) return eslEINVAL;
 
-  if (lp != NULL)
-    {
-      lower = atoi(lp);
-      if ((geq && ! (n >= lower)) || (!geq && !(n > lower)))
-	return eslERANGE;
-    }
+  if (lp != NULL) {
+    lower = atoi(lp);
+    if ((geq && ! (n >= lower)) || (!geq && !(n > lower))) return eslERANGE;
+  }
 
-  if (up != NULL) 
-    {
-      upper = atoi(up);
-      if ((leq && ! (n <= upper)) || (!leq && !(n < upper)))
-	return eslERANGE;
-    }
+  if (up != NULL) {
+    upper = atoi(up);
+    if ((leq && ! (n <= upper)) || (!leq && !(n < upper))) return eslERANGE;
+  }
   return eslOK;
 }
 
@@ -1487,7 +1449,7 @@ verify_integer_range(char *arg, char *range)
  *
  * Returns:  <eslOK>:      <arg> is within allowed <range>.
  *           <eslERANGE>:  <arg> is not within allowed <range>.
- *           <eslESYNTAX>: something wrong with <range> string.
+ *           <eslEINVAL>: something wrong with <range> string.
  */
 static int
 verify_real_range(char *arg, char *range)
@@ -1501,7 +1463,7 @@ verify_real_range(char *arg, char *range)
   x = atof(arg);
   
   if (parse_rangestring(range, 'x', &lp, &geq, &up, &leq) != eslOK) 
-    return eslESYNTAX;
+    return eslEINVAL;
 
   if (lp != NULL)
     {
@@ -1533,7 +1495,7 @@ verify_real_range(char *arg, char *range)
  *
  * Returns:  <eslOK>:      <arg> is within allowed <range>.
  *           <eslERANGE>:  <arg> is not within allowed <range>.
- *           <eslESYNTAX>: something wrong with <range> string.
+ *           <eslEINVAL>: something wrong with <range> string.
  */
 static int
 verify_char_range(char *arg, char *range)
@@ -1546,7 +1508,7 @@ verify_char_range(char *arg, char *range)
   c = *arg;
 
   if (parse_rangestring(range, 'c', &lower, &geq, &upper, &leq) != eslOK) 
-    return eslESYNTAX;
+    return eslEINVAL;
 
   if (lower != NULL)
     {
@@ -1576,7 +1538,7 @@ verify_char_range(char *arg, char *range)
  * atoi() or atof() as appropriate.
  * Sets geq, leq flags to TRUE if bounds are supposed to be inclusive.
  * 
- * Returns <eslOK> on success, <eslESYNTAX> if the range string
+ * Returns <eslOK> on success, <eslEINVAL> if the range string
  * is invalid. No errors are thrown here, so caller can format a
  * useful error message if range string is bogus.
  */
@@ -1588,7 +1550,7 @@ parse_rangestring(char *range, char c, char **ret_lowerp, int *ret_geq, char **r
   *ret_geq    = *ret_leq    = FALSE;	/* 'til proven otherwise */
   *ret_lowerp = *ret_upperp = NULL;     /* 'til proven otherwise */
 
-  if ((ptr = strchr(range, c)) == NULL) return eslESYNTAX;
+  if ((ptr = strchr(range, c)) == NULL) return eslEINVAL;
   if (ptr == range)	/* we're "n>=a" or "n<=b" form, where n came first */  
     {
       if (ptr[1] == '>') /* "n>=a" form; lower bound */
@@ -1601,16 +1563,16 @@ parse_rangestring(char *range, char c, char **ret_lowerp, int *ret_geq, char **r
 	  if (ptr[2] == '=') { *ret_leq = TRUE; *ret_upperp = ptr+3; }
 	  else *ret_upperp = ptr+2;
 	}
-      else return eslESYNTAX;
+      else return eslEINVAL;
     }
   else	/* we're in a<=n<=b form; upper bound after n, lower before */
     {
-      if (*(ptr+1) != '<') return eslESYNTAX;
+      if (*(ptr+1) != '<') return eslEINVAL;
       if (*(ptr+2) == '=') { *ret_leq = TRUE; *ret_upperp = ptr+3; } else *ret_upperp = ptr+2;
 
       ptr--;
       if (*ptr == '=') { *ret_geq = TRUE; ptr--; }
-      if (*ptr != '<') return eslESYNTAX;
+      if (*ptr != '<') return eslEINVAL;
       *ret_lowerp = range;	/* start of string */
     }
   return eslOK;
@@ -1639,9 +1601,8 @@ parse_rangestring(char *range, char c, char **ret_lowerp, int *ret_geq, char **r
  *          out of the list and <ret_opti> is valid;
  *          <eslEOD> if no more option remains (<s> is NULL,
  *          or points to a \0).
- *          
- * Throws:  <eslEINVAL> if an option in the list isn't
- *          recognized.         
+ *          <eslEINVAL> if an option in the list isn't
+ *          recognized (a coding error).         
  */
 static int 
 process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
@@ -1662,11 +1623,9 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
    */
   for (i = 0; i < g->nopts; i++)
     if (strncmp(g->opt[i].name, s, n) == 0) break;
-  if (i == g->nopts) 
-    ESL_EXCEPTION(eslEINVAL, "no such option");
+  if (i == g->nopts) return eslEINVAL;
 
   *ret_opti = i;
-
   if (s[n] == ',') *ret_s = s+n+1; 
   else             *ret_s = NULL;
 
@@ -1676,82 +1635,10 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 /*------- end of private functions for processing optlists -----------*/
 
 
+
 /*****************************************************************
- * Code examples, and a test driver
+ * 6. Test driver.
  *****************************************************************/
-
-/* The starting example of "standard" getopts behavior, without
- * any of the bells and whistles.
- * Compile:
-     gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
- */
-#ifdef eslGETOPTS_EXAMPLE
-/*::cexcerpt::getopts_example::begin::*/
-#include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
-
-static ESL_OPTIONS options[] = {
-  /* name        type       def   env  range toggles reqs incomp help                       docgroup*/
-  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            0},
-  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               0},
-  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         0},
-  { "-n",     eslARG_INT,     "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",            0},
-  { "-x",     eslARG_REAL,  "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",         0},
-  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 0},
-  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",0},
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-static char usage[] = "Usage: ./example [-options] <arg>";
-
-int
-main(int argc, char **argv)
-{
-  ESL_GETOPTS *go;
-  int          opt_a, opt_b, opt_n;	
-  float        opt_x;		
-  char        *opt_file;
-  char         opt_char;
-  char        *arg;
-
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  if (esl_opt_IsSet(go, "-h")) {
-    puts(usage); 
-    puts("\n  where options are:");
-    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
-    return 0;
-  }
-  esl_opt_GetBooleanOption(go, "-a",     &opt_a);
-  esl_opt_GetBooleanOption(go, "-b",     &opt_b);
-  esl_opt_GetIntegerOption(go, "-n",     &opt_n);
-  esl_opt_GetFloatOption(go,   "-x",     &opt_x);
-  esl_opt_GetStringOption(go,  "--file", &opt_file);
-  esl_opt_GetCharOption(go,    "--char", &opt_char);
-
-  if (esl_opt_ArgNumber(go) != 1) {
-    puts("Incorrect number of command line arguments.");
-    puts(usage);
-    return 1;
-  }
-  arg = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-
-  printf("Option -a:      %s\n", opt_a ? "on" : "off");
-  printf("Option -b:      %s\n", opt_b ? "on" : "off");
-  printf("Option -n:      %d\n", opt_n);
-  printf("Option -x:      %f\n", opt_x);
-  printf("Option --file:  %s\n", opt_file == NULL? "(null)" : opt_file);
-  printf("Option --char:  %c\n", opt_char);
-  printf("Cmdline arg:    %s\n", arg);
-
-  esl_getopts_Destroy(go);
-  return 0;
-}
-/*::cexcerpt::getopts_example::end::*/
-#endif /*eslGETOPTS_EXAMPLE*/
-
-
 
 #ifdef eslGETOPTS_TESTDRIVE 
 /* gcc -g -Wall -o test -I. -DeslGETOPTS_TESTDRIVE esl_getopts.c easel.c
@@ -1781,20 +1668,10 @@ static ESL_OPTIONS options[] = {
 };
 /*::cexcerpt::getopts_bigarray::end::*/
 
-static char usage[] = "\
-Usage: test [-options] <arg>\n\
-";
-
-    
 int
 main(void)
 {
   ESL_GETOPTS *go;
-  int   state;
-  char  c;
-  int   n;
-  float x;
-  char *s;
   char file1[32] = "esltmpXXXXXX";
   char file2[32] = "esltmpXXXXXX";
   FILE *f1, *f2;
@@ -1831,89 +1708,38 @@ main(void)
 
   /* Open the test config files for reading.
    */
-  if ((f1 = fopen(file1, "r")) == NULL) abort();
-  if ((f2 = fopen(file2, "r")) == NULL) abort();
+  if ((f1 = fopen(file1, "r")) == NULL) esl_fatal("getopts fopen() 1 failed");
+  if ((f2 = fopen(file2, "r")) == NULL) esl_fatal("getopts fopen() 2 failed");
 
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessConfigfile(go, file1, f1);
-  esl_opt_ProcessConfigfile(go, file2, f2);
-  esl_opt_ProcessEnvironment(go);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessConfigfile(go, file1, f1) != eslOK) esl_fatal("getopts failed to process config file 1");
+  if (esl_opt_ProcessConfigfile(go, file2, f2) != eslOK) esl_fatal("getopts failed to process config file 2");
+  if (esl_opt_ProcessEnvironment(go)           != eslOK) esl_fatal("getopts failed to process environment");
+  if (esl_opt_ProcessCmdline(go, argc, argv)   != eslOK) esl_fatal("getopts failed to process command line");
+  if (esl_opt_VerifyConfig(go)                 != eslOK) esl_fatal("getopts config fails validation");
 
   fclose(f1);
   fclose(f2);
 
-  /* Option -a is set ON by an environment variable.
-   */
-  esl_opt_GetBooleanOption(go, "-a", &state);
-  if (state != TRUE) abort();
-
-  /* Option -b is overridden twice, and ends up being
-   * ON because of the command line.
-   */
-  esl_opt_GetBooleanOption(go, "-b", &state);
-  if (state != TRUE) abort();
-
-  /* Option --no-b had better be off, therefore.
-   */
-  esl_opt_GetBooleanOption(go, "--no-b", &state);
-  if (state != FALSE) abort();
-
-  /* Option -c gets set to y by the command line, in
-   * an optstring.
-   */
-  esl_opt_GetCharOption(go, "-c", &c);
-  if (c != 'y') abort();
-
-  /* Option -n gets set in a cfgfile, then overridden 
-   * as a linked arg on the command line and set to 9.
-   */
-  esl_opt_GetIntegerOption(go, "-n", &n);
-  if (n != 9) abort();
-
-  /* Option -x is set from cfgfile #1 to 0.5.
-   */
-  esl_opt_GetFloatOption(go, "-x", &x);
-  if (x != 0.5) abort();
-
-  /* Option --lowx stays in default, 1.0.
-   */
-  esl_opt_GetFloatOption(go, "--lowx", &x);
-  if (x != 1.0) abort();
-
-  /* Option --hix is set to 0 on the command line in --arg=x format
-   */
-  esl_opt_GetFloatOption(go, "--hix", &x);
-  if (x != 0.0) abort();
-
-  /* Option --lown is set to 43 on the command line in --arg x format.
-   * It requires -a and -b to be ON, which they should be.
-   */
-  esl_opt_GetIntegerOption(go, "--lown", &n);
-  if (n != 43) abort();
-
-  /* Option --hin is set to -33 in cfg file #2.
-   * It requires --no-b to be OFF, which it should be.
-   */
-  esl_opt_GetIntegerOption(go, "--hin", &n);
-  if (n != -33) abort();
-
-  /* Option --host is set in cfg file #2,
-   * then overridden in the environment.
-   */
-  esl_opt_GetStringOption(go, "--host", &s);
-  if (strcmp(s, "wasp.cryptogenomicon.org") != 0) abort();
+  if (esl_opt_GetBoolean(go, "-a")     != TRUE)  esl_fatal("getopts failed on -a"); /* -a is ON: by environment */
+  if (esl_opt_GetBoolean(go, "-b")     != TRUE)  esl_fatal("getopts failed on -b"); /* -b is toggled twice, ends up ON */
+  if (esl_opt_GetBoolean(go, "--no-b") != FALSE) esl_fatal("getopts failed on --no-b");	/* so --no-b is OFF */
+  if (esl_opt_GetChar   (go, "-c")     != 'y')   esl_fatal("getopts failed on -c"); /* set to y on cmdline in an optstring */
+  if (esl_opt_GetInteger(go, "-n")     != 9)     esl_fatal("getopts failed on -n"); /* cfgfile, then on cmdline as linked arg*/
+  if (esl_opt_GetReal   (go, "-x")     != 0.5)   esl_fatal("getopts failed on -x"); /* cfgfile #1 */
+  if (esl_opt_GetReal   (go, "--lowx") != 1.0)   esl_fatal("getopts failed on --lowx"); /* stays at default */
+  if (esl_opt_GetReal   (go, "--hix")  != 0.0)   esl_fatal("getopts failed on --hix"); /* arg=x format on cmdline */
+  if (esl_opt_GetInteger(go, "--lown") != 43)    esl_fatal("getopts failed on --lown"); /* cmdline; requires -a -b */
+  if (esl_opt_GetInteger(go, "--hin")  != -33)   esl_fatal("getopts failed on --hin"); /* cfgfile 2; requires --no-b to be off */
+  if (strcmp(esl_opt_GetString(go, "--host"), "wasp.cryptogenomicon.org") != 0)
+    esl_fatal("getopts failed on --host"); /* cfgfile 2, then overridden by environment */
 
   /* Now the two remaining argv[] elements are the command line args
    */
-  if (esl_opt_ArgNumber(go) != 2) abort();
+  if (esl_opt_ArgNumber(go) != 2) esl_fatal("getopts failed with wrong arg number");
 
-  s = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-  if (strcmp(s, "arg1") != 0) abort();
-
-  s = esl_opt_GetCmdlineArg(go, eslARG_INT, "2005<=n<=2005");
-  if (strcmp(s, "2005") != 0) abort();
+  if (strcmp("arg1", esl_opt_GetArg(go, eslARG_STRING, NULL)) != 0)         esl_fatal("getopts failed on argument 1");
+  if (strcmp("2005", esl_opt_GetArg(go, eslARG_INT, "2005<=n<=2005")) != 0) esl_fatal("getopts failed on argument 2");
 
   esl_getopts_Destroy(go);
   remove(file1);
@@ -1922,7 +1748,72 @@ main(void)
 }
 
 #endif /*eslGETOPTS_TESTDRIVE*/
-/*-------------- end of examples, test driver ********************/
+/*-------------- end of test driver -------------------------*/
+
+/*****************************************************************
+ * 7. Example.
+ *****************************************************************/
+
+/* The starting example of "standard" getopts behavior, without
+ * any of the bells and whistles.
+ * Compile:
+     gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
+ */
+#ifdef eslGETOPTS_EXAMPLE
+/*::cexcerpt::getopts_example::begin::*/
+#include <stdio.h>
+#include <easel.h>
+#include <esl_getopts.h>
+
+static ESL_OPTIONS options[] = {
+  /* name        type       def   env  range toggles reqs incomp help                       docgroup*/
+  { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            0},
+  { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               0},
+  { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         0},
+  { "-n",     eslARG_INT,     "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",            0},
+  { "-x",     eslARG_REAL,  "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",         0},
+  { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 0},
+  { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",0},
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[] = "Usage: ./example [-options] <arg>";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS *go;
+  char        *arg;
+
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
+    puts(usage); 
+    puts("\n  where options are:");
+    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
+    return 0;
+  }
+  if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
+  if ((arg = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("bad argument: %s", go->errbuf);
+
+  printf("Option -a:      %s\n", esl_opt_GetBoolean(go, "-a") ? "on" : "off");
+  printf("Option -b:      %s\n", esl_opt_GetBoolean(go, "-b") ? "on" : "off");
+  printf("Option -n:      %d\n", esl_opt_GetInteger(go, "-n"));
+  printf("Option -x:      %f\n", esl_opt_GetReal(   go, "-x"));
+  if (esl_opt_IsDefault(go, "--file"))
+    printf("Option --file:  (not set)\n");
+  else
+    printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
+  printf("Option --char:  %c\n", esl_opt_GetChar(go, "--char"));
+  printf("Cmdline arg:    %s\n", arg);
+
+  esl_getopts_Destroy(go);
+  return 0;
+}
+/*::cexcerpt::getopts_example::end::*/
+#endif /*eslGETOPTS_EXAMPLE*/
+/*-------------- end of example ----------------------*/
 
 /*****************************************************************  
  * @LICENSE@

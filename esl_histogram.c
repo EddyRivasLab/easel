@@ -878,8 +878,8 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 
   /* Print the histogram
    */
-  fprintf(fp, "%6s %6s %6s  (one = represents %lld sequences)\n", 
-	  "score", "obs", "exp", units);
+  fprintf(fp, "%6s %6s %6s  (one = represents %llu sequences)\n", 
+	  "score", "obs", "exp", (unsigned long long) units);
   fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---");
   buffer[80] = '\0';
   buffer[79] = '\n';
@@ -894,7 +894,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
       else if (i > ihighbound) continue;
       else if (i == ilowbound && i != h->imin) 
 	{
-	  sprintf(buffer, "<%5.1f %6lld %6s|", x+h->w, lowcount, "-");
+	  sprintf(buffer, "<%5.1f %6llu %6s|", x+h->w, (unsigned long long) lowcount, "-");
 	  if (lowcount > 0) {
 	    num = 1+(lowcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
@@ -904,7 +904,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 	}
       else if (i == ihighbound && i != h->imax)
 	{
-	  sprintf(buffer, ">%5.1f %6lld %6s|", x, highcount, "-");
+	  sprintf(buffer, ">%5.1f %6llu %6s|", x, (unsigned long long) highcount, "-");
 	  if (highcount > 0) {
 	    num = 1+(highcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
@@ -918,9 +918,9 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
       if (h->obs[i] < 1000000)	/* displayable in 6 figures or less? */
 	{
 	  if (h->expect != NULL) 
-	    sprintf(buffer, "%6.1f %6lld %6d|", x, h->obs[i], (int) h->expect[i]);
+	    sprintf(buffer, "%6.1f %6llu %6d|", x, (unsigned long long) h->obs[i], (int) h->expect[i]);
 	  else
-	    sprintf(buffer, "%6.1f %6lld %6s|", x, h->obs[i], "-");
+	    sprintf(buffer, "%6.1f %6llu %6s|", x, (unsigned long long) h->obs[i], "-");
 	}
       else
 	{
@@ -980,7 +980,7 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
     if (h->obs[i] > 0)
       {
 	x = esl_histogram_Bin2LBound(h,i);
-	fprintf(fp, "%f %lld\n", x, h->obs[i]);
+	fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]);
       }
   fprintf(fp, "&\n");
 
@@ -1316,6 +1316,12 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
  * run:     
  *   ./test -t1; ./test -t2; ./test -t3; ./test -t4; ./test -t5
  *   
+ *   -t1    - complete data, fit to complete Gumbel\n\
+ *   -t2    - complete data, high scores fit as censored Gumbel\n\
+ *   -t3    - complete data, high scores fit to exponential tail\n\
+ *   -t4    - censored data, fit as censored Gumbel\n\
+ *   -t5    - complete data, binned, high scores fit to exponential tail\n\
+ *
  * Some suggestions for manual testing:
  *   ./test -t1 -j1 -v --surv test.xy; xmgrace test.xy          
  *        examine survivor plot fit, for -t1 
@@ -1341,53 +1347,26 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 #include <esl_random.h>
 #include <esl_getopts.h>
 
+
+
 static ESL_OPTIONS options[] = {
   /* name         type      default   env_var   range   toggles     reqs   incompat */
-  { "-j",       eslARG_INT,   "100",  NULL,     "n>0",     NULL,  NULL,   NULL },
-  { "-m",       eslARG_INT,     "0",  NULL,    "n>=0",     NULL,  NULL,   NULL },
-  { "-n",       eslARG_INT, "10000",  NULL,     "n>0",     NULL,  NULL,   NULL },
-  { "-t",       eslARG_INT,     "1",  NULL, "1<=n<=5",     NULL,  NULL,   NULL },
-  { "-v",       eslARG_NONE,  FALSE,  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--ascii",  eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--cmass",  eslARG_REAL,  "0.7",  NULL, "0<=x<=1",     NULL,  NULL,   NULL },
-  { "--lambda", eslARG_REAL,  "0.8",  NULL,     "x>0",     NULL,  NULL,   NULL },
-  { "--mu",     eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--phi",    eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--plot",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--qq",     eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--surv",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL },
-  { "--tail",   eslARG_REAL,  "0.1",  NULL, "0<=x<=1",     NULL,  NULL,   NULL },
-  { 0,0,0,0,0,0,0,0 },
+  { "-j",       eslARG_INT,   "100",  NULL,     "n>0",     NULL,  NULL,   NULL, "number of trials",                  0 },
+  { "-m",       eslARG_INT,     "0",  NULL,    "n>=0",     NULL,  NULL,   NULL, "number of test samples",            0 },
+  { "-n",       eslARG_INT, "10000",  NULL,     "n>0",     NULL,  NULL,   NULL, "number of training samples",        0 },
+  { "-t",       eslARG_INT,     "1",  NULL, "1<=n<=5",     NULL,  NULL,   NULL, "test type choice, 1-5",             0 },
+  { "-v",       eslARG_NONE,  FALSE,  NULL,      NULL,     NULL,  NULL,   NULL, "be verbose?",                       0 },
+  { "--ascii",  eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL, "output ASCII histogram to <f>",     0 },
+  { "--cmass",  eslARG_REAL,  "0.7",  NULL, "0<=x<=1",     NULL,  NULL,   NULL, "set virtual censoring mass to <x>", 0 },
+  { "--lambda", eslARG_REAL,  "0.8",  NULL,     "x>0",     NULL,  NULL,   NULL, "set Gumbel lambda param to <x>",    0 },
+  { "--mu",     eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL, "set Gumbel mu param to <x>",        0 },
+  { "--phi",    eslARG_REAL, "10.0",  NULL,      NULL,     NULL,  NULL,   NULL, "set censoring threshold to <x>",    0 },
+  { "--plot",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL, "output histogram to xmgrace file <f>", 0 },
+  { "--qq",     eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL, "output Q-Q goodness of fit to xmgrace file <f>", 0 },
+  { "--surv",   eslARG_STRING, NULL,  NULL,      NULL,     NULL,  NULL,   NULL, "output survival plot to xmgrace file <f>", 0 },
+  { "--tail",   eslARG_REAL,  "0.1",  NULL, "0<=x<=1",     NULL,  NULL,   NULL, "set tail mass for fitting to <x>", 0 },
+  { 0,0,0,0,0,0,0,0,0,0 },
 };
-
-static char usage[] = "\
-Usage: ./test [-options]\n\
-where options are:\n\
-\n\
-  -t <n>  : choice of test scenario [-t1 is default]:\n\
-     -t1    - complete data, fit to complete Gumbel\n\
-     -t2    - complete data, high scores fit as censored Gumbel\n\
-     -t3    - complete data, high scores fit to exponential tail\n\
-     -t4    - censored data, fit as censored Gumbel\n\
-     -t5    - complete data, binned, high scores fit to exponential tail\n\
-  -j <n>  : number of trials [100]\n\
-  -n <n>  : number of training set samples [10000]\n\
-  -m <n>  : number of independent test set samples [default: use training set]\n\
-\n\
-Output options: (best to use -j1 when saving files)\n\
-  -v          : report verbose output [default is silent success/failure]\n\
-  --ascii <f> : output ASCII histogram to file <f>\n\
-  --plot <f>  : output histogram (densities) to xmgrace file <f>\n\
-  --qq <f>    : output Q-Q goodness of fit plot to xmgrace file <f>\n\
-  --surv <f>  : output survival (P(X>x)) plots to xmgrace file <f>\n\
-\n\
-  --mu <x>      : set Gumbel mu parameter to <x> [10.0]\n\
-  --lambda <x>  : set Gumbel lambda parameter to <x> [0.8]\n\
-  --phi <x>     : set data censoring threshold to <x> [10.0]\n\
-  --cmass <x>   : set virtual censoring mass to <x> [0.7]\n\
-  --tail <x>    : set tail mass for censored/tail fitting to <x> [0.1]\n\
-";
-
 
 static int
 binmacro_test(void)
@@ -1447,22 +1426,22 @@ main(int argc, char **argv)
   double *xv;
   int     n;
 
-  go = esl_getopts_Create(options, usage);
+  go = esl_getopts_Create(options);
   esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_GetIntegerOption(go, "-t",       &test_type);
-  esl_opt_GetIntegerOption(go, "-j",       &ntrials);
-  esl_opt_GetIntegerOption(go, "-n",       &ntrain);
-  esl_opt_GetIntegerOption(go, "-m",       &ntest);
-  esl_opt_GetBooleanOption(go, "-v",       &verbose);
-  esl_opt_GetDoubleOption (go, "--cmass",  &cmass);
-  esl_opt_GetDoubleOption (go, "--lambda", &(p[1]));
-  esl_opt_GetDoubleOption (go, "--mu",     &(p[0]));
-  esl_opt_GetDoubleOption (go, "--phi",    &phi);
-  esl_opt_GetDoubleOption (go, "--tail",   &save_tailmass);
-  esl_opt_GetStringOption (go, "--ascii",  &ascfile);
-  esl_opt_GetStringOption (go, "--plot",   &plotfile);
-  esl_opt_GetStringOption (go, "--qq",     &qqfile);
-  esl_opt_GetStringOption (go, "--surv",   &survfile);
+  test_type     = esl_opt_GetInteger(go, "-t");
+  ntrials       = esl_opt_GetInteger(go, "-j");
+  ntrain        = esl_opt_GetInteger(go, "-n");
+  ntest         = esl_opt_GetInteger(go, "-m");
+  verbose       = esl_opt_GetBoolean(go, "-v");
+  cmass         = esl_opt_GetReal   (go, "--cmass");
+  p[1]          = esl_opt_GetReal   (go, "--lambda");
+  p[0]          = esl_opt_GetReal   (go, "--mu");
+  phi           = esl_opt_GetReal   (go, "--phi");
+  save_tailmass = esl_opt_GetReal   (go, "--tail");
+  ascfile       = esl_opt_GetString (go, "--ascii");
+  plotfile      = esl_opt_GetString (go, "--plot");
+  qqfile        = esl_opt_GetString (go, "--qq");
+  survfile      = esl_opt_GetString (go, "--surv");
   esl_getopts_Destroy(go);
 
   r         = esl_randomness_Create(42);

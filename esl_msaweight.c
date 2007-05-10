@@ -660,7 +660,6 @@ main(int argc, char **argv)
   int          nwgt    = 0;
   int          nbadwgt = 0;
   int i;
-  int show_help;
   int be_quiet;
   int do_gsc;
   int do_pb;
@@ -671,29 +670,28 @@ main(int argc, char **argv)
 
   /* Process command line
    */
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("failed to parse cmd line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("failed to parse cmd line: %s\n", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-  esl_opt_GetBooleanOption(go, "-q",       &be_quiet);
-  esl_opt_GetBooleanOption(go, "--blosum", &do_blosum);
-  esl_opt_GetBooleanOption(go, "--gsc",    &do_gsc);
-  esl_opt_GetBooleanOption(go, "--pb",     &do_pb);
-  esl_opt_GetDoubleOption (go, "--id",     &maxid);
-  esl_opt_GetDoubleOption (go, "--tol",    &tol);
-  esl_opt_GetIntegerOption(go, "--maxN",   &maxN);
+  be_quiet  = esl_opt_GetBoolean(go, "-q");
+  do_blosum = esl_opt_GetBoolean(go, "--blosum");
+  do_gsc    = esl_opt_GetBoolean(go, "--gsc");
+  do_pb     = esl_opt_GetBoolean(go, "--pb");
+  maxid     = esl_opt_GetReal   (go, "--id");
+  tol       = esl_opt_GetReal   (go, "--tol");
+  maxN      = esl_opt_GetInteger(go, "--maxN");
   if (esl_opt_ArgNumber(go) != 1) {
     puts("Incorrect number of command line arguments.");
     puts(usage);
     return 1;
   }
-  msafile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  msafile = esl_opt_GetArg(go, eslARG_STRING, NULL);
   esl_getopts_Destroy(go);
 
   /* Weight one or more alignments from input file
@@ -801,7 +799,6 @@ main(int argc, char **argv)
   char        *msafile;
   ESL_MSAFILE *afp;
   ESL_MSA     *msa;
-  int          show_help;
   int          do_gsc;
   int          do_pb;
   int          do_blosum;
@@ -811,27 +808,26 @@ main(int argc, char **argv)
 
   /* Process command line
    */
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("failed to parse cmd line: %s", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("failed to parse cmd line: %s", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-  esl_opt_GetBooleanOption(go, "--blosum", &do_blosum);
-  esl_opt_GetBooleanOption(go, "--gsc",    &do_gsc);
-  esl_opt_GetBooleanOption(go, "--pb",     &do_pb);
-  esl_opt_GetDoubleOption (go, "--id",     &maxid);
-  esl_opt_GetIntegerOption(go, "--maxN",   &maxN);
+  do_blosum = esl_opt_GetBoolean(go, "--blosum");
+  do_gsc    = esl_opt_GetBoolean(go, "--gsc");
+  do_pb     = esl_opt_GetBoolean(go, "--pb");
+  maxid     = esl_opt_GetReal   (go, "--id");
+  maxN      = esl_opt_GetInteger(go, "--maxN");
   if (esl_opt_ArgNumber(go) != 1) {
     puts("Incorrect number of command line arguments.");
     puts(usage);
     return 1;
   }
-  msafile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  if ((msafile = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("failed to parse cmd line: %s", go->errbuf);
   esl_getopts_Destroy(go);
 
   w = esl_stopwatch_Create();
@@ -905,7 +901,6 @@ main(int argc, char **argv)
   char        *msafile;
   ESL_MSAFILE *afp;
   ESL_MSA     *msa;
-  int          show_help;
   int          do_gsc;
   int          do_pb;
   int          do_blosum;
@@ -917,27 +912,26 @@ main(int argc, char **argv)
 
   /* Process command line
    */
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("%s", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("%s", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE){
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-  esl_opt_GetBooleanOption(go, "--blosum", &do_blosum);
-  esl_opt_GetBooleanOption(go, "--gsc",    &do_gsc);
-  esl_opt_GetBooleanOption(go, "--pb",     &do_pb);
-  esl_opt_GetDoubleOption (go, "--id",     &maxid);
-  esl_opt_GetIntegerOption(go, "--maxN",   &maxN);
+  do_blosum = esl_opt_GetBoolean(go, "--blosum");
+  do_gsc    = esl_opt_GetBoolean(go, "--gsc");
+  do_pb     = esl_opt_GetBoolean(go, "--pb");
+  maxid     = esl_opt_GetReal   (go, "--id");
+  maxN      = esl_opt_GetInteger(go, "--maxN");
   if (esl_opt_ArgNumber(go) != 1) {
     puts("Incorrect number of command line arguments.");
     puts(usage);
     return 1;
   }
-  msafile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  if ((msafile = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("%s", go->errbuf);
   esl_getopts_Destroy(go);
 
   /* Weight one or more alignments from input file

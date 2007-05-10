@@ -1,10 +1,10 @@
 
-The \eslmod{getopts} module interprets the familiar UNIX command line
-syntax, allowing both standard POSIX one-character options and
-GNU-style long options, in addition to command line arguments. The
-implementation shares similarities with POSIX \ccode{getopt()} and
-GNU's \ccode{getopt\_long()}, but has somewhat more power, at the cost
-of enforcing a fairly specific style.
+The \eslmod{getopts} module interprets UNIX command line syntax. It
+allows both standard POSIX one-character options and GNU-style long
+options, in addition to command line arguments. The implementation
+shares similarities with POSIX \ccode{getopt()} and GNU's
+\ccode{getopt\_long()}, but has somewhat more power, at the cost of
+enforcing a fairly specific style.
 
 Options can be set from the command line, environment variables, and
 one or more configuration files.
@@ -31,6 +31,15 @@ passed into a \ccode{ESL\_GETOPTS} object, which is used to determine
 and store the configuration state of your application according to the
 command line, environment variables, and configuration files.
 
+The \ccode{ESL\_GETOPTS} object can then be queried directly when your
+program executes configuration-dependent steps. There is often no need
+to store configuration information in any other variables in your
+program. This simplifies code structure, and it allows you to pass the
+complete configuration state of your application in one capsule to
+functions other than \ccode{main()}. This is especially useful in
+applications where \ccode{main()} is a dispatch wrapper; masters and
+workers in a parallelized MPI program, for example.
+
 Table~\ref{tbl:getopts_api} lists the functions in the
 \eslmod{getopts} API. The module implements a \ccode{ESL\_GETOPTS}
 object that holds the configuration state of the application, and an
@@ -38,32 +47,32 @@ object that holds the configuration state of the application, and an
 configurable option. An application defines an array of
 \ccode{ESL\_OPTIONS} to declare what options it will allow.
 
-\begin{table}
+\begin{table}[hbp]
 \begin{center}
-\begin{tabular}{ll}\hline
-       \multicolumn{2}{c}{\textbf{the \ccode{ESL\_GETOPTS} object}}\\
-\ccode{esl\_getopts\_Create()}    & Creates a new \ccode{ESL\_GETOPTS} object. \\
-\ccode{esl\_getopts\_Destroy()}   & Destroys a created \ccode{ESL\_GETOPTS} object. \\
-\ccode{esl\_getopts\_Dump()}      & Dumps a configuration to an output stream. \\
-       \multicolumn{2}{c}{\textbf{setting and testing a configuration}}\\
-\ccode{esl\_opt\_ProcessConfigFile()}  & Parses options out of a configuration file.\\
-\ccode{esl\_opt\_ProcessEnvironment()} & Parses options out of environment variables.\\
-\ccode{esl\_opt\_ProcessCmdline()}     & Parses options from the command line.\\
-\ccode{esl\_opt\_VerifyConfig()}       & Tests required and incompatible opts.\\
-       \multicolumn{2}{c}{\textbf{retrieving option settings and arguments}}\\
-\ccode{esl\_opt\_IsSet()}              & Returns TRUE if specified option was set.\\
-\ccode{esl\_opt\_GetBooleanOption()}   & Retrieve the state of a TRUE/FALSE option setting.\\
-\ccode{esl\_opt\_GetIntegerOption()}   & Retrieve an integer option argument.\\
-\ccode{esl\_opt\_GetFloatOption()}     & Retrieve a float option argument.\\
-\ccode{esl\_opt\_GetDoubleOption()}    & Retrieve a double option argument.\\
-\ccode{esl\_opt\_GetCharOption()}      & Retrieve a single-character option argument.\\
-\ccode{esl\_opt\_GetStringOption()}    & Retrieve an option argument as a string.\\
-\ccode{esl\_opt\_ArgNumber()}          & Retrieve number of cmdline args.\\
-\ccode{esl\_opt\_GetCmdlineArg()}      & Retrieve the next command line argument.\\
-       \multicolumn{2}{c}{\textbf{formatting option documentation}}\\
-\ccode{esl\_opt\_DisplayHelp()}        & Formats one-line help for each option.\\
+{\small
+\begin{tabular}{|ll|}\hline
+\apisubhead{the \ccode{ESL\_GETOPTS} object}\\
+\hyperlink{func:esl_getopts_Create()}{\ccode{esl\_getopts\_Create()}} & Create a new \ccode{ESL\_GETOPTS} object.\\
+\hyperlink{func:esl_getopts_Destroy()}{\ccode{esl\_getopts\_Destroy()}} & Destroys an \ccode{ESL\_GETOPTS} object.\\
+\hyperlink{func:esl_getopts_Dump()}{\ccode{esl\_getopts\_Dump()}} & Dumps a summary of a \ccode{ESL\_GETOPTS} configuration.\\
+\apisubhead{setting and testing a configuration}\\
+\hyperlink{func:esl_opt_ProcessConfigfile()}{\ccode{esl\_opt\_ProcessConfigfile()}} & Parses options in a config file.\\
+\hyperlink{func:esl_opt_ProcessEnvironment()}{\ccode{esl\_opt\_ProcessEnvironment()}} & Parses options in the environment.\\
+\hyperlink{func:esl_opt_ProcessCmdline()}{\ccode{esl\_opt\_ProcessCmdline()}} & Parses options from the command line.\\
+\hyperlink{func:esl_opt_VerifyConfig()}{\ccode{esl\_opt\_VerifyConfig()}} & Validates configuration after options are set.\\
+\apisubhead{retrieving option settings and arguments}\\
+\hyperlink{func:esl_opt_IsDefault()}{\ccode{esl\_opt\_IsDefault()}} & Returnes \ccode{TRUE} if option remained at default setting.\\
+\hyperlink{func:esl_opt_GetBoolean()}{\ccode{esl\_opt\_GetBoolean()}} & Retrieve \ccode{TRUE}/\ccode{FALSE} for a boolean option.\\
+\hyperlink{func:esl_opt_GetInteger()}{\ccode{esl\_opt\_GetInteger()}} & Retrieve value of an integer option.\\
+\hyperlink{func:esl_opt_GetReal()}{\ccode{esl\_opt\_GetReal()}} & Retrieve value of a real-valued option.\\
+\hyperlink{func:esl_opt_GetChar()}{\ccode{esl\_opt\_GetChar()}} & Retrieve value of a character option.\\
+\hyperlink{func:esl_opt_GetString()}{\ccode{esl\_opt\_GetString()}} & Retrieve value of a string option.\\
+\hyperlink{func:esl_opt_GetArg()}{\ccode{esl\_opt\_GetArg()}} & Retrieve next command line argument.\\
+\apisubhead{formatting option documentation}\\
+\hyperlink{func:esl_opt_DisplayHelp()}{\ccode{esl\_opt\_DisplayHelp()}} & Formats one-line help for each option.\\
 \hline
 \end{tabular}
+}
 \end{center}
 \caption{The \eslmod{getopts} API.}
 \label{tbl:getopts_api}
@@ -91,25 +100,35 @@ are:
       string shouldn't be left NULL unless you're being lazy). The
       array is terminated by an entry of all 0's.
 
-\item The application defines a helpful ``usage'' string. If the getopts
-      module encounters any problem with the configuration, it prints
-      an error message followed by this usage string.
+\item An application typically defines a helpful ``usage'' string,
+      which it prints out as part of help messages or error messages.
+      The \eslmod{getopts} module doesn't need this, though, so you're
+      free to format your messages however you like.
 
 \item A \ccode{ESL\_GETOPTS} object is created, using the options
-      array and the usage string. At this point, all options are 
-      initialized to default values inside the object.
+      array. At this point, all options are initialized to default
+      values inside the object.
 
 \item The application now processes option settings from the command
       line, environment variables, and one or more configuration
       files. The application can do this in any precedence order it
-      chooses.
+      chooses. In the example, only the command line is processed.
  
-\item The application recovers option settings one by one, and stores
-      them wherever it wants. 
+\item The call to \ccode{esl_opt_VerifyConfig(go)} validates the
+      configuration, before you attempt to retrieve any information
+      from it.
 
-\item Command line arguments are then recovered, in order.
+\item Many of my applications (including Easel applications) typically
+      look for a \ccode{-h} option immediately, to print a short help
+      page. This isn't required by \eslmod{getopts}.
 
-\item The application goes off and does its thing.
+\item The application will typically retrieve, validate, and store its
+      non-optional command line arguments in order and one at a time
+      using \ccode{esl\_opt\_GetArg()} calls early in the program.
+  
+\item The application may then go off and do its thing, using
+      \ccode{\_Get*()} calls (and the \ccode{\_IsDefault()} call) to
+      retrieve option information when needed.
 
 \item On exit, the \ccode{ESL\_GETOPTS} object is free'd. This 
       object is the only place where memory is allocated. Any string
@@ -121,7 +140,7 @@ are:
 
 An example of running this program:
 \begin{cchunk}
-   % ./example1 -ax 0.3 -n 42 --file foo --char x baz
+   % ./example -ax 0.3 -n 42 --file foo --char x baz
    Option -a:      on
    Option -b:      on
    Option -n:      42

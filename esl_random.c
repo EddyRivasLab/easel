@@ -2131,7 +2131,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS    *go;
   ESL_RANDOMNESS *r;
-  int             n, nbins, seed, be_verbose, show_help;
+  int             n, nbins, seed, be_verbose;
   char           *bitfile;
   int             L;
   char           *alphabet = "ACGT";
@@ -2141,23 +2141,21 @@ main(int argc, char **argv)
 
   /* Command line parsing
    */
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("%s", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("%s", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-  esl_opt_GetIntegerOption(go, "-b", &nbins);
-  esl_opt_GetIntegerOption(go, "-n", &n);
-  esl_opt_GetIntegerOption(go, "-s", &seed);
-  esl_opt_GetBooleanOption(go, "-v", &be_verbose);
-  esl_opt_GetIntegerOption(go, "-L", &L);
-  esl_opt_GetStringOption (go, "--bitfile", &bitfile);
-
+  nbins      = esl_opt_GetInteger(go, "-b");
+  n          = esl_opt_GetInteger(go, "-n");
+  seed       = esl_opt_GetInteger(go, "-s");
+  be_verbose = esl_opt_GetBoolean(go, "-v");
+  L          = esl_opt_GetInteger(go, "-L");
+  bitfile    = esl_opt_GetString (go, "--bitfile");
   if (esl_opt_ArgNumber(go) != 0) {
     puts("Incorrect number of command line arguments.");
     puts(usage);

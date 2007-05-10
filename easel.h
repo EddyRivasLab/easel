@@ -105,11 +105,12 @@
 #define eslESYS           12    /* generic system call failure  */
 #define eslECORRUPT       13    /* unexpected data corruption   */
 #define eslEINCONCEIVABLE 14    /* "can't happen" error         */
-#define eslESYNTAX        15    /* invalid syntax in input data */
+#define eslESYNTAX        15    /* invalid user input syntax    */
 #define eslERANGE         16    /* value out of allowed range   */
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslENOHALT        18    /* a failure to converge        */      
 #define eslENORESULT      19    /* no result was obtained       */
+#define eslETYPE          20	/* invalid type of argument     */
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure

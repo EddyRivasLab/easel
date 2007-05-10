@@ -1,6 +1,4 @@
-/* esl_getopts.h
- * 
- * Command line, config file, and environment variable
+/* Command line, config file, and environment variable
  * configuration of an application. Extends standard
  * UNIX/POSIX/GNU getopt().
  * 
@@ -9,6 +7,8 @@
  */
 #ifndef ESL_GETOPTS_INCLUDED
 #define ESL_GETOPTS_INCLUDED
+
+#include <easel.h>
 
 /* Object: ESL_OPTIONS
  * 
@@ -56,7 +56,6 @@ typedef struct {
 
   int    argc;		  /* argc from command line                    */
   char **argv;		  /* argv from command line                    */
-  char  *usage;		  /* command-line usage                        */
   int    optind;	  /* where we are in argc                      */
   int    argi;		  /* what command line arg we're on            */
   int    nfiles;	  /* # of cfgfiles that have been processed    */
@@ -66,6 +65,8 @@ typedef struct {
   int   *valloc;          /* 0, or length of alloc for val[i]          */
 
   char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[] */
+
+  char  errbuf[eslERRBUFSIZE];	/* buffer for reporting user error     */
 } ESL_GETOPTS;
 
 
@@ -82,7 +83,7 @@ typedef struct {
 
 /* The visible API.
  */
-extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt, char *usage);
+extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt);
 extern void         esl_getopts_Destroy(ESL_GETOPTS *g);
 extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);
 
@@ -91,14 +92,13 @@ extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
 extern int esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv);
 extern int esl_opt_VerifyConfig(ESL_GETOPTS *g);
 
-extern int   esl_opt_IsSet(ESL_GETOPTS *g, char *optname);
-extern int   esl_opt_GetBooleanOption(ESL_GETOPTS *g, char *optname, int *ret_state);
-extern int   esl_opt_GetIntegerOption(ESL_GETOPTS *g, char *optname, int *ret_n);
-extern int   esl_opt_GetFloatOption(ESL_GETOPTS *g, char *optname, float *ret_x);
-extern int   esl_opt_GetDoubleOption(ESL_GETOPTS *g, char *optname, double *ret_x);
-extern int   esl_opt_GetCharOption(ESL_GETOPTS *g, char *optname, char *ret_c);
-extern int   esl_opt_GetStringOption(ESL_GETOPTS *g, char *optname, char **ret_s);
-extern char *esl_opt_GetCmdlineArg(ESL_GETOPTS *g, int type, char *range);
+extern int    esl_opt_IsDefault(ESL_GETOPTS *g, char *optname);
+extern int    esl_opt_GetBoolean(ESL_GETOPTS *g, char *optname);
+extern int    esl_opt_GetInteger(ESL_GETOPTS *g, char *optname);
+extern double esl_opt_GetReal(ESL_GETOPTS *g, char *optname);
+extern char   esl_opt_GetChar(ESL_GETOPTS *g, char *optname);
+extern char  *esl_opt_GetString(ESL_GETOPTS *g, char *optname);
+extern char  *esl_opt_GetArg(ESL_GETOPTS *g, int type, char *range);
 #define esl_opt_ArgNumber(g)  ((g)->argc - (g)->optind)
 
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);

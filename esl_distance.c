@@ -1059,7 +1059,6 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r = NULL;
   char  **as = NULL;		/* aligned character seqs (random, iid) */
   int     N,L;			/* # of seqs, and their aligned lengths */
-  int show_help;
   int seed;
   int i,j;
   int status;
@@ -1071,19 +1070,18 @@ main(int argc, char **argv)
 
   /* Process command line
    */
-  go = esl_getopts_Create(options, usage);
+  go = esl_getopts_Create(options);
   esl_opt_ProcessCmdline(go, argc, argv);
   esl_opt_VerifyConfig(go);
-  esl_opt_GetBooleanOption(go, "-h", &show_help);
-  if (show_help) {
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
     puts(usage); 
     puts("\n  where options are:");
     esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
     return 0;
   }
-  esl_opt_GetIntegerOption(go, "-L",     &L);
-  esl_opt_GetIntegerOption(go, "-N",     &N);
-  esl_opt_GetIntegerOption(go, "--seed", &seed);
+  L    = esl_opt_GetInteger(go, "-L");
+  N    = esl_opt_GetInteger(go, "-N");
+  seed = esl_opt_GetInteger(go, "--seed");
   if (esl_opt_ArgNumber(go) != 0) {
     puts("Incorrect number of command line arguments.");
     puts(usage);

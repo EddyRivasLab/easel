@@ -209,6 +209,7 @@ structure includes the following, in this order:
       \item \ccode{foobar\_Create*()}
       \item \ccode{foobar\_Set*()}
       \item \ccode{foobar\_Get*()}
+      \item \ccode{foobar\_Fetch*()}
       \item \ccode{foobar\_Add*()}
       \item \ccode{foobar\_Copy*()}
       \item \ccode{foobar\_Clone*()}
@@ -628,7 +629,7 @@ object, just as if it had been \ccode{\_Create}'d. Throws NULL if
 allocation fails.
 
 \hypertarget{ifc:Set}
-\item[\ccode{\_Set*(obj, value...)}]
+{\item[\ccode{\_Set*(obj, value...)}]}
 
 Initializes some value(s) in \ccode{obj} to
 \ccode{value}. \ccode{\_Set} functions have some appropriate longer
@@ -637,9 +638,19 @@ zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set a dmatrix to an
 identity matrix).
 
 \hypertarget{ifc:Get}
-{\item[\ccode{\_Get*(obj, ..., \&ret\_value)}]}
+{\item[\ccode{value = \_Get*(obj, ...)}]}
 
-Retrieves some specified data from \ccode{obj}, leave it in
+Retrieves some specified data from \ccode{obj} and returns it
+directly. Because no error code can be returned, a \ccode{\_Get()}
+call must be a simple access call within the object, guaranteed to
+succeed. \ccode{\_Get()} methods may often be implemented as macros.
+(\ccode{\_Fetch()} interfaces are for more complex access methods that
+might fail, and require an error code return.)
+
+\hypertarget{ifc:Fetch}
+{\item[\ccode{\_Fetch*(obj, ..., \&ret\_value)}]}
+
+Retrieves some specified data from \ccode{obj} and puts it in
 \ccode{ret\_value}.
 
 \hypertarget{ifc:Compare}

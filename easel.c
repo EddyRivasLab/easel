@@ -220,14 +220,14 @@ esl_banner(FILE *fp, char *banner)
  *           allocation of buf or the value of n while
  *           you're still doing esl_parse_fgets() calls with them.
  *
- * Returns:  eslOK   on success. 
- *           eslEOF  on normal end-of-file.
+ * Returns:  <eslOK> on success. 
+ *           Returns <eslEOF> on normal end-of-file.
  *
- *           when eslOK:
- *           *buf points to a NUL-terminated line from the file.
- *           *n contains the current alloc'ed length for *buf.
+ *           When <eslOK>:
+ *           <*buf> points to a <NUL>-terminated line from the file.
+ *           <*n> contains the current allocated length for <*buf>.
  * 
- *           Caller must free *buf eventually. 
+ *           Caller must free <*buf> eventually. 
  *
  * Throws:   <eslEMEM> on an allocation failure.
  *
