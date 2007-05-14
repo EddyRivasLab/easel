@@ -39,6 +39,7 @@ typedef struct {
 
 /* 1. The ESL_SCOREMATRIX object. */
 extern ESL_SCOREMATRIX *esl_scorematrix_Create(const ESL_ALPHABET *abc);
+extern int              esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t);
 extern int              esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_DMATRIX *P,
@@ -46,7 +47,6 @@ extern int              esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const d
 extern int              esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2);
 extern int              esl_scorematrix_Max(const ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_Min(const ESL_SCOREMATRIX *S);
-extern double           esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, double lambda);
 extern int              esl_scorematrix_IsSymmetric(const ESL_SCOREMATRIX *S);
 extern void             esl_scorematrix_Destroy(ESL_SCOREMATRIX *S);
 
@@ -55,9 +55,14 @@ extern int  esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCO
 extern int  esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S);
 
 /* 3. Interpreting score matrices probabilistically. */
-extern int esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const double lambda, ESL_DMATRIX *P);
-extern int esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, double *ret_lambda);
-extern int esl_scorematrix_RevEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda);
+extern int esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
+				     const double lambda, ESL_DMATRIX *P);
+extern int esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
+				       ESL_DMATRIX *P, double *ret_lambda);
+extern int esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj,
+				      double *ret_lambda, double *ret_D);
+extern int esl_scorematrix_RevEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, 
+				       double *fi, double *fj, double *ret_lambda);
 
 
 #endif /*ESL_SCOREMATRIX_INCLUDED*/

@@ -82,6 +82,39 @@ esl_scorematrix_Create(const ESL_ALPHABET *abc)
   return NULL;
 }
 
+/* Function:  esl_scorematrix_SetIdentity()
+ * Synopsis:  Set matrix to +1 match, 0 mismatch.
+ * Incept:    SRE, Mon Apr 16 20:17:00 2007 [Janelia]
+ *
+ * Purpose:   Sets score matrix <S> to be +1 for a match, 
+ *            0 for a mismatch. <S> may be for any alphabet.
+ *            
+ *            Rarely useful in real use, but may be useful to create
+ *            simple examples (including debugging).
+ *
+ * Returns:   <eslOK> on success, and the scores in <S> are set.
+ */
+int
+esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S)
+{
+  int a;
+  int x;
+
+  for (a = 0; a < S->abc_r->Kp*S->abc_r->Kp; a++) S->s[0][a] = 0;
+  for (a = 0; a < S->K; a++)                      S->s[a][a] = 1;
+
+  for (x = 0;           x < S->K;  x++)      S->isval[x] = TRUE;
+  for (x = S->abc_r->K; x < S->Kp; x++)      S->isval[x] = FALSE;
+  
+  strncpy(S->outorder, S->abc_r->sym, S->K);  
+  S->outorder[S->K] = '\0';
+  S->nc             = S->K;
+  S->has_stop       = FALSE;
+  S->stopsc         = 0;
+  S->stopstopsc     = 0;
+  return eslOK;
+}
+
 /* Function:  esl_scorematrix_SetBLOSUM62
  * Synopsis:  Set matrix to BLOSUM62 scores.
  * Incept:    SRE, Tue Apr  3 13:22:03 2007 [Janelia]
@@ -320,30 +353,6 @@ esl_scorematrix_Min(const ESL_SCOREMATRIX *S)
   return min;
 }
 
-/* Function:  esl_scorematrix_RelEntropy()
- * Synopsis:  Returns relative entropy of a matrix.
- * Incept:    SRE, Sat May 12 18:14:02 2007 [Janelia]
- *
- * Purpose:   Returns the relative entropy of score matrix <S> in bits,
- *            given its background distributions <fi> and <fj>
- *            and its scale <lambda>. 
- */
-double
-esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, double lambda)
-{
-  double pij;
-  double D = 0;
-  int    i,j;
-
-  for (i = 0; i < S->K; i++)
-    for (j = 0; j < S->K; j++)
-      {
-	pij = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
-	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
-      }
-  D /= eslCONST_LOG2;
-  return D;
-}
 
 /* Function:  esl_scorematrix_IsSymmetric()
  * Synopsis:  Returns <TRUE> for symmetric matrix.
@@ -651,7 +660,8 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, double *ret_lambda)
+esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, 
+			    double *ret_lambda)
 {
   int status;
   ESL_ROOTFINDER *R = NULL;
@@ -690,6 +700,58 @@ esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const do
 }  
 
 
+/* Function:  esl_scorematrix_RelEntropy()
+ * Synopsis:  Calculates relative entropy of a matrix.
+ * Incept:    SRE, Sat May 12 18:14:02 2007 [Janelia]
+ *
+ * Purpose:   Calculates the relative entropy of score matrix <S> in
+ *            bits, given its background distributions <fi> and <fj>.
+ *            Return the relative entropy in <ret_D>. Optionally,
+ *            return the calculated $\lambda$ parameter in <ret_lambda>;
+ *            pass <NULL> if $\lambda$ isn't wanted.
+ *
+ * Args:      S          - score matrix
+ *            fi         - background freqs for sequence i
+ *            fj         - background freqs for sequence j
+ *            ret_lambda - optRETURN: fitted lambda
+ *            ret_D      - RETURN: relative entropy.
+ * 
+ * Returns:   <eslOK> on success, and <ret_D> contains the relative
+ *            entropy, and <ret_lambda> (if non-<NULL>) contains
+ *            the fitted $\lambda$.
+ *
+ * Throws:    <eslEMEM> on allocation error. In this case, both
+ *            <ret_lambda> and <ret_D> are returned as 0.0.
+ */
+int
+esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj,
+			   double *ret_lambda, double *ret_D)
+{
+  int    status;
+  double lambda;
+  double pij;
+  double D = 0;
+  int    i,j;
+
+  status = esl_scorematrix_SolveLambda(S, fi, fj, NULL, &lambda);
+  if (status != eslOK) goto ERROR;
+
+  for (i = 0; i < S->K; i++)
+    for (j = 0; j < S->K; j++)
+      {
+	pij = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
+	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
+      }
+  D /= eslCONST_LOG2;
+  if (ret_lambda != NULL) *ret_lambda = lambda;
+  *ret_D = D;
+  return eslOK;
+
+ ERROR:
+  if (ret_lambda != NULL) *ret_lambda = 0.;
+  *ret_D = 0.;
+  return status;
+}
 
 
 /* This section is an implementation of one of the ideas in
@@ -1164,7 +1226,7 @@ int main(int argc, char **argv)
   ESL_DMATRIX     *P         = esl_dmatrix_Create(abc->K, abc->K);
   double          *fi        = malloc(sizeof(double) * abc->K);
   double          *fj        = malloc(sizeof(double) * abc->K);
-  double           lambda;
+  double           lambda, D;
   
   /* Input an amino acid score matrix from a file. */
   if ( esl_fileparser_Open(scorefile, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
@@ -1174,11 +1236,16 @@ int main(int argc, char **argv)
   /* Reverse engineer it to get implicit probabilistic model. */
   if ( esl_scorematrix_RevEngineer(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
+
   /* Print some info, and the joint probabilities. */
   if (esl_scorematrix_IsSymmetric(S)) printf("Matrix is a standard symmetric matrix\n");
   else                                printf("Matrix is a nonstandard asymmetric matrix\n"); 
   printf("Lambda is %g\n\n", lambda);
-  printf("Relative entropy is %.4f bits\n", esl_scorematrix_RelEntropy(S, fi, fj, lambda));
+
+  esl_scorematrix_RelEntropy(S, fi, fj, &lambda, &D);
+  printf("lambda           = %g\n", lambda);
+  printf("Relative entropy = %.4f bits\n\n", D); 
+
   printf("Implicit joint probabilities are:\n");
   esl_dmatrix_Dump(stdout, P, abc->sym, abc->sym);
   printf("fi's are:\n");

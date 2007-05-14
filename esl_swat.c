@@ -201,8 +201,16 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- *
+ * Unit tests
  *****************************************************************/
+
+void
+utest_Score(char *s1, char *s2, ESL_SCOREMATRIX *S, int gop, int gex, int expect_score)
+{
+  ESL_DSQ *x = NULL;
+  ESL_DSQ *y = NULL;
+
+}
 
 
 
