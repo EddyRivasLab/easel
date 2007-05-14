@@ -87,8 +87,11 @@ extern void   esl_vec_FNorm(float *vec, int n);
 extern void   esl_vec_DLog(double *vec, int n);
 extern void   esl_vec_FLog(float *vec, int n);
 
-extern double esl_vec_DEntropy(double *p, int n);
-extern float  esl_vec_FEntropy(float *p, int n);
+extern double esl_vec_DEntropy(const double *p, int n);
+extern float  esl_vec_FEntropy(const float *p, int n);
+
+extern double esl_vec_DRelEntropy(const double *p, const double *f, int n);
+extern float  esl_vec_FRelEntropy(const float  *p, const float  *f, int n);
 
 extern void   esl_vec_DExp(double *vec, int n);
 extern void   esl_vec_FExp(float *vec, int n);

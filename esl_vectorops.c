@@ -1,42 +1,16 @@
-/* esl_vectorops.c
- * Operations on vectors of floats or doubles.
+/* Operations on vectors of floats or doubles.
  * 
  * Can operate on vectors of doubles, floats, or integers - appropriate
  * routine is prefixed with D, F, or I. For example, esl_vec_DSet() is
  * the Set routine for a vector of doubles; esl_vec_ISet() is for integers.
  * 
- * esl_vec_{D,F,I}Set()         - set all items in vector to value.
- * esl_vec_{D,F,I}Scale()       - multiply all items in vector by scale
- * esl_vec_{D,F,I}Increment()   - add a scalar to all items in vector
- * esl_vec_{D,F,I}Sum()         - return sum of values in vector
- * esl_vec_{D,F,I}Add()         - add vec2 to vec1.
- * esl_vec_{D,F,I}Copy()        - set vec1 to be same as vec2. 
- * esl_vec_{D,F,I}Compare()     - compare vec1 to vec2 for equality.
- * esl_vec_{D,F,I}Dot()         - return dot product of two vectors.
- * esl_vec_{D,F,I}Max()         - return value of maximum element in vector
- * esl_vec_{D,F,I}Min()         - return value of minimum element in vector 
- * esl_vec_{D,F,I}ArgMax()      - return index of maximum element in vector
- * esl_vec_{D,F,I}ArgMin()      - return index of minimum element in vector
- * esl_vec_{D,F,I}SortIncreasing() - sort from smallest to largest
- * esl_vec_{D,F,I}SortDecreasing() - sort from largest to smallest
- * esl_vec_{D,F,I}Dump()        - dump vector to an output stream
- *
- * esl_vec_D2F()                - copy double vector to float vector
- * esl_vec_F2D()                - copy float vector to double vector
- * esl_vec_I2F()                - copy integer vector to float vector
- * esl_vec_I2D()                - copy integer vector to double vector
+ * Contents:
+ *    1. The vectorops API.
+ *    2. Unit tests.
+ *    3. Test driver.
+ *    4. Examples.
+ *    5. Copyright and license information.
  * 
- * esl_vec_{D,F}Norm()          - normalize a probability vector of length n.
- * esl_vec_{D,F}Log()           - convert to log probabilities 
- * esl_vec_{D,F}Entropy()       - return Shannon entropy of probability vector, in bits
- *
- * esl_vec_{D,F}Exp()           - convert log p's back to probabilities
- * esl_vec_{D,F}LogSum()        - given vector of log p's; return log of summed p's.
- * esl_vec_{D,F}LogNorm()       - given vec of unnormalized log p's; normalize, make it a p vector
- *                        
- * esl_vec_{D,F}Validate()      - validate a probability vector
- * esl_vec_{D,F}LogValidate()   - validate a log probability vector
- *                        
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
  */                      
@@ -50,6 +24,7 @@
 #include <esl_vectorops.h>
 
 /* Function:  esl_vec_DSet()
+ * Synopsis:  Set all items in vector to scalar value.
  *            
  * Purpose:   Sets all <n> items in <vec> to <value>.
  *                        
@@ -77,6 +52,7 @@ esl_vec_ISet(int *vec, int n, int value)
 
 
 /* Function:  esl_vec_DScale()
+ * Synopsis:  Multiply all items in vector by scalar value.
  *            
  * Purpose:   Multiplies all <n> items in <vec> by <scale>.
  *            
@@ -106,6 +82,7 @@ esl_vec_IScale(int *vec, int n, int scale)
 
 
 /* Function:  esl_vec_DIncrement()
+ * Synopsis:  Add a scalar to all items in a vector.
  * Incept:    SRE, Mon Mar 21 11:56:57 2005 [St. Louis]
  *
  * Purpose:   Adds scalar <x> to all items in the <n>-vector <v>.
@@ -135,6 +112,7 @@ esl_vec_IIncrement(int *v, int n, int x)
 
 
 /* Function:  esl_vec_DSum()
+ * Synopsis:  Returns $\sum_i x_i$. 
  *            
  * Purpose:   Returns the scalar sum of the <n> items in <vec>.
  *            
@@ -168,6 +146,7 @@ esl_vec_ISum(int *vec, int n)
 
 
 /* Function:  esl_vec_DAdd()
+ * Synopsis:  Vector addition of two vectors.
  *
  * Purpose:   Vector addition. Adds <vec2> to <vec1>, leaving
  *            result in <vec1>. (<vec2> is unchanged.). 
@@ -197,6 +176,7 @@ esl_vec_IAdd(int *vec1, int *vec2, int n)
 
 
 /* Function: esl_vec_DAddScaled()
+ * Synopsis: Scale <vec2> and add it to <vec1>.
  * 
  * Purpose:  Scales <vec2> by scalar <a>, and adds that
  *           to <vec1>. Both vectors are of size <n>. 
@@ -228,6 +208,7 @@ esl_vec_IAddScaled(int *vec1, int *vec2, int a, int n)
 
 
 /* Function:  esl_vec_DCopy()
+ * Synopsis:  Set <dest> vector to same values as <src>.
  *
  * Purpose:   Copies <src> to <dest>. <src> is
  *            unchanged. Both vectors are of size <n>.
@@ -258,6 +239,7 @@ esl_vec_ICopy(const int *src, const int n, int *dest)
 
 
 /* Function:  esl_vec_DCompare()
+ * Synopsis:  Return <eslOK> if two vectors are equal.
  * Incept:    SRE, Mon Nov  6 10:20:28 2006 [Janelia]
  *
  * Purpose:   Compare <vec1> to <vec2> for equality, by
@@ -296,6 +278,7 @@ esl_vec_ICompare(int *vec1, int *vec2, int n)
 
 
 /* Function:  esl_vec_DSwap()
+ * Synopsis:  Swap two vectors.
  *
  * Purpose:   Swaps <vec2> and <vec1>. 
  *            Both vectors are of size <n>.
@@ -304,6 +287,9 @@ esl_vec_ICompare(int *vec1, int *vec2, int n)
  *            for float and integer vectors.
  *            
  *            Essentially the same as BLAS1 xSWAP().
+ *            
+ *            You will be better off swapping the pointers to
+ *            the vectors, if that's feasible.
  */
 void
 esl_vec_DSwap(double *vec1, double *vec2, int n)
@@ -337,6 +323,7 @@ esl_vec_ISwap(int *vec1, int *vec2, int n)
 
 
 /* Function:  esl_vec_DDot()
+ * Synopsis:  Return the dot product of two vectors.
  *
  * Purpose:   Returns the scalar dot product <vec1> $\cdot$ <vec2>.
  *            Both vectors are of size <n>.
@@ -372,6 +359,7 @@ esl_vec_IDot(int *vec1, int *vec2, int n)
 
 
 /* Function:  esl_vec_DMax()
+ * Synopsis:  Return value of the maximum element in a vector.           
  *
  * Purpose:   Returns the maximum value of the <n> values
  *            in <vec>.
@@ -415,6 +403,7 @@ esl_vec_IMax(int *vec, int n)
 
 
 /* Function:  esl_vec_DMin()
+ * Synopsis:  Return value of the minimum element in a vector.           
  *
  * Purpose:   Returns the minimum value of the <n> values
  *            in <vec>.
@@ -458,6 +447,7 @@ esl_vec_IMin(int *vec, int n)
 
 
 /* Function:  esl_vec_DArgMax()
+ * Synopsis:  Return index of maximum element in a vector.           
  *
  * Purpose:   Returns the index of the maximum value in the <n> values
  *            in <vec>.
@@ -498,6 +488,7 @@ esl_vec_IArgMax(int *vec, int n)
 
 
 /* Function:  esl_vec_DArgMin()
+ * Synopsis:  Return index of minimum element in a vector.           
  *
  * Purpose:   Returns the index of the minimum value in the <n> values
  *            in <vec>.
@@ -595,6 +586,7 @@ qsort_IDecreasing(const void *xp1, const void *xp2)
 }
 
 /* Function:  esl_vec_DSortIncreasing()
+ * Synopsis:  Sort vector from smallest to largest.          
  * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
  *
  * Purpose:   Sorts <vec> in place, from smallest to largest value.
@@ -621,6 +613,7 @@ esl_vec_ISortIncreasing(int *vec, int n)
 }
 
 /* Function:  esl_vec_DSortDecreasing()
+ * Synopsis:  Sort vector from largest to smallest.          
  * Incept:    SRE, Wed Aug 17 10:44:31 2005 [St. Louis]
  *
  * Purpose:   Sorts <vec> in place, from largest to smallest value.
@@ -648,6 +641,7 @@ esl_vec_ISortDecreasing(int *vec, int n)
 
 
 /* Function:  esl_vec_DDump()
+ * Synopsis:  Output vector to a stream as text.            
  * Incept:    ER, Thu Jul 21 12:54:56 CDT 2005 [St. Louis]
  *
  * Purpose:   Given a vector, dump it to stream <ofp>.
@@ -670,13 +664,13 @@ esl_vec_DDump(FILE *ofp, double *v, int n, char *label)
 
   fprintf(ofp, "     ");
   if (label != NULL) 
-    for (a = 0; a < n; a++) fprintf(ofp, "       %c ", label[a]);
+    for (a = 0; a < n; a++) fprintf(ofp, "         %c ", label[a]);
   else
-    for (a = 0; a < n; a++) fprintf(ofp, "%8d ", a+1);
+    for (a = 0; a < n; a++) fprintf(ofp, "%10d ", a+1);
   fprintf(ofp, "\n");
   
   fprintf(ofp, "      ");
-  for (a = 0; a < n; a++) fprintf(ofp, "%8.8f ", v[a]);
+  for (a = 0; a < n; a++) fprintf(ofp, "%10.6f ", v[a]);
   fprintf(ofp, "\n");
 
   return eslOK;
@@ -688,13 +682,13 @@ esl_vec_FDump(FILE *ofp, float *v, int n, char *label)
 
   fprintf(ofp, "     ");
   if (label != NULL) 
-    for (a = 0; a < n; a++) fprintf(ofp, "       %c ", label[a]);
+    for (a = 0; a < n; a++) fprintf(ofp, "         %c ", label[a]);
   else
-    for (a = 0; a < n; a++) fprintf(ofp, "%8d ", a+1);
+    for (a = 0; a < n; a++) fprintf(ofp, "%10d ", a+1);
   fprintf(ofp, "\n");
   
   fprintf(ofp, "      ");
-  for (a = 0; a < n; a++) fprintf(ofp, "%8.4f ", v[a]);
+  for (a = 0; a < n; a++) fprintf(ofp, "%10.6f ", v[a]);
   fprintf(ofp, "\n");
 
   return eslOK;
@@ -719,6 +713,7 @@ esl_vec_IDump(FILE *ofp, int *v, int n, char *label)
 }
 
 /* Function:  esl_vec_D2F()
+ * Synopsis:  Convert between single-precision and double-precision vectors.            
  * Incept:    SRE, Thu Mar 30 09:04:17 2006 [St. Louis]
  *
  * Purpose:   Copy a double vector <src> to a float vector <dst>. Caller
@@ -758,6 +753,7 @@ esl_vec_I2D(int *src, int n, double *dst)
 
 
 /* Function:  esl_vec_DNorm()
+ * Synopsis:  Normalize probability vector.           
  *
  * Purpose:   Normalizes a probability vector <vec>,
  *            such that $\sum_{i=1}{n} \mathrm{vec}_i = 1.0$.
@@ -788,6 +784,7 @@ esl_vec_FNorm(float *vec, int n)
 
 
 /* Function:  esl_vec_DLog()
+ * Synopsis:  Convert probability vector elements to log probabilities.           
  *
  * Purpose:   Converts a probability vector <vec> to a log
  *            probability vector: takes the log of each of the <n> 
@@ -815,15 +812,20 @@ esl_vec_FLog(float *vec, int n)
 
 
 /* Function:  esl_vec_DEntropy()
+ * Synopsis:  Return Shannon entropy of p-vector, in bits.           
  *
  * Purpose:   Returns the Shannon entropy of a probability vector <p>,
- *            in bits ($\log_2$).
+ *            in bits ($\log_2$), defined as \citep{CoverThomas}:
+ *            
+ *            \[
+ *               H = \sum_x p_x \log_2 p_x.
+ *            \]
  *
  *            <esl_vec_FEntropy()> does the same, for a probability vector
  *            of floats.
  */
 double
-esl_vec_DEntropy(double *p, int n)
+esl_vec_DEntropy(const double *p, int n)
 {
   int    i;
   double entropy;
@@ -834,7 +836,7 @@ esl_vec_DEntropy(double *p, int n)
   return(-1.44269504 * entropy); /* converts to bits */
 }
 float
-esl_vec_FEntropy(float *p, int n)
+esl_vec_FEntropy(const float *p, int n)
 {
   int    i;
   float  entropy;
@@ -845,8 +847,56 @@ esl_vec_FEntropy(float *p, int n)
   return(-1.44269504 * entropy); /* converts to bits */
 }
 
+/* Function:  esl_vec_DRelEntropy()
+ * Synopsis:  Return relative entropy $D(p \parallel q)$ in bits.
+ * Incept:    SRE, Fri May 11 09:03:07 2007 [Janelia]
+ *
+ * Purpose:   Returns Shannon relative entropy of probability
+ *            vectors <p> and <q> in bits, also known as the
+ *            Kullback Leibler "distance" \citep[p.18]{CoverThomas}:
+ *            
+ *            \[
+ *               D(p \parallel f) = \sum_x  p_x \log_2 \frac{p_x}{q_x}.
+ *            \]
+ *
+ *            If for any $x$ $q_x = 0$ and $p_x > 0$, the relative
+ *            entropy is $\infty$.
+ *
+ *            <esl_vec_FRelEntropy()> does the same, for probability
+ *            vectors of floats.
+ */
+double
+esl_vec_DRelEntropy(const double *p, const double *q, int n)
+{
+  int    i;
+  double kl;
+ 
+  kl = 0.;
+  for(i = 0; i < n; i++)
+    if (p[i] > 0.) {
+      if (q[i] == 0.) return eslINFINITY;
+      else            kl += p[i] * log(p[i]/q[i]);
+    }
+  return(1.44269504 * kl); /* converts to bits */
+}
+float
+esl_vec_FRelEntropy(const float *p, const float *q, int n)
+{
+  int    i;
+  float  kl;
+
+  kl = 0.;
+  for(i = 0; i < n; i++)
+    if (p[i] > 0.) {
+      if (q[i] == 0.) return eslINFINITY;
+      else            kl += p[i] * log(p[i]/q[i]);
+    }
+  return(1.44269504 * kl); /* converts to bits */
+}
+
 
 /* Function:  esl_vec_DExp()
+ * Synopsis:  Converts log probability vector elements to probabilities.           
  *
  * Purpose:   Converts a log probability vector <vec> back to a 
  *            probability vector: exponentiates each of the <n> 
@@ -871,6 +921,7 @@ esl_vec_FExp(float *vec, int n)
 }
 
 /* Function:  esl_vec_DLogSum()
+ * Synopsis:  Given log-p-vector, return log of sum of probabilities.
  *
  * Purpose:   <vec> is a log probability vector; return the log of the scalar sum
  *            of the probabilities in <vec>. That is, the <n> elements in <vec>
@@ -917,6 +968,7 @@ esl_vec_FLogSum(float *vec, int n)
 
 
 /* Function:  esl_vec_DLogNorm()
+ * Synopsis:  Normalize a log p-vector, make it a p-vector.           
  * Incept:    SRE, Thu Apr  7 17:45:39 2005 [St. Louis]
  *
  * Purpose:   Given an unnormalized log probability vector <vec>   
@@ -948,6 +1000,7 @@ esl_vec_FLogNorm(float *vec, int n)
 }
 
 /* Function:  esl_vec_DValidate()
+ * Synopsis:  Verifies that vector is p-vector.
  * Incept:    ER, Tue Dec  5 09:38:54 EST 2006 [janelia]
  *
  * Purpose:   Validate a probability vector <vec> of length <n>.
@@ -1012,6 +1065,7 @@ esl_vec_FValidate(float *vec, int n, float tol, char *errbuf)
 }
 
 /* Function:  esl_vec_DLogValidate()
+ * Synopsis:  Verify that vector is a log-p-vector.           
  * Incept:    ER,  Tue Dec  5 09:46:51 EST 2006 [janelia]
  *
  * Purpose:   Validate a log probability vector <vec> of length <n>.
@@ -1070,6 +1124,122 @@ esl_vec_FLogValidate(float *vec, int n, float tol, char *errbuf)
   if (expvec != NULL) free(expvec);
   return eslOK;
 }
+
+
+
+/*****************************************************************
+ * 2. Unit tests
+ *****************************************************************/ 
+#ifdef eslVECTOROPS_TESTDRIVE
+static void
+utest_pvectors(void)
+{
+  char  *msg   = "pvector unit test failed";
+  double p1[4] = { 0.25, 0.25, 0.25, 0.25 };
+  double p2[4];
+  double p3[4];
+  float  p1f[4]; 
+  float  p2f[4] = { 0.0,   0.5, 0.5,  0.0  };
+  float  p3f[4];
+  int    n = 4;
+  double result;
+
+  esl_vec_D2F(p1,  n, p1f);
+  esl_vec_F2D(p2f, n, p2);  
+
+  if (esl_vec_DValidate(p1,  n, 1e-12, NULL) != eslOK) esl_fatal(msg);
+  if (esl_vec_FValidate(p1f, n, 1e-7,  NULL) != eslOK) esl_fatal(msg);
+
+  result = esl_vec_DEntropy(p1,  n);          if (esl_DCompare(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FEntropy(p1f, n);          if (esl_DCompare(2.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_DEntropy(p2,  n);          if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FEntropy(p2f, n);          if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+
+  result = esl_vec_DRelEntropy(p2,  p1,  n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+  result = esl_vec_FRelEntropy(p2f, p1f, n);  if (esl_DCompare(1.0, result, 1e-9) != eslOK) esl_fatal(msg);
+
+  result = esl_vec_DRelEntropy(p1,  p2,  n);  if (result != eslINFINITY)  esl_fatal(msg);
+  result = esl_vec_FRelEntropy(p1f, p2f, n);  if (result != eslINFINITY)  esl_fatal(msg);
+
+  esl_vec_DLog(p2, n);
+  if (esl_vec_DLogValidate(p2, n, 1e-12, NULL) != eslOK) esl_fatal(msg);
+  esl_vec_DExp(p2, n);
+  if (p2[0] != 0.) esl_fatal(msg);
+
+  esl_vec_FLog(p2f, n);
+  if (esl_vec_FLogValidate(p2f, n, 1e-7, NULL) != eslOK) esl_fatal(msg);
+  esl_vec_FExp(p2f, n);
+  if (p2f[0] != 0.) esl_fatal(msg);
+
+  esl_vec_DCopy(p2, n, p3);
+  esl_vec_DScale(p3, n, 10.);
+  esl_vec_DNorm(p3, n);
+  if (esl_vec_DCompare(p2, p3, n, 1e-12) != eslOK) esl_fatal(msg);
+
+  esl_vec_DLog(p3, n);
+  result = esl_vec_DLogSum(p3, n); if (esl_DCompare(0.0, result, 1e-12) != eslOK) esl_fatal(msg);
+  esl_vec_DIncrement(p3, n, 2.0);
+  esl_vec_DLogNorm(p3, n);
+  if (esl_vec_DCompare(p2, p3, n, 1e-12) != eslOK) esl_fatal(msg);
+
+  esl_vec_FCopy(p2f, n, p3f);
+  esl_vec_FScale(p3f, n, 10.);
+  esl_vec_FNorm(p3f, n);
+  if (esl_vec_FCompare(p2f, p3f, n, 1e-7) != eslOK) esl_fatal(msg);
+
+  esl_vec_FLog(p3f, n);
+  result = esl_vec_FLogSum(p3f, n); if (esl_DCompare(0.0, result, 1e-7) != eslOK) esl_fatal(msg);
+  esl_vec_FIncrement(p3f, n, 2.0);
+  esl_vec_FLogNorm(p3f, n);
+  if (esl_vec_FCompare(p2f, p3f, n, 1e-7) != eslOK) esl_fatal(msg);
+
+  return;
+}
+#endif /*eslVECTOROPS_TESTDRIVE*/
+
+
+/*****************************************************************
+ * 3. Test driver
+ *****************************************************************/ 
+
+/*   gcc -g -Wall -o test -I. -L. -DeslVECTOROPS_TESTDRIVE esl_vectorops.c -leasel -lm
+ */
+#ifdef eslVECTOROPS_TESTDRIVE
+#include <easel.h>
+#include <esl_vectorops.h>
+
+int main(void)
+{
+  utest_pvectors();
+  return 0;
+}
+#endif /*eslVECTOROPS_TESTDRIVE*/
+
+/*****************************************************************
+ * 4. Examples
+ *****************************************************************/ 
+
+#ifdef eslVECTOROPS_EXAMPLE
+/*::cexcerpt::vectorops_example::begin::*/
+/*   gcc -g -Wall -o example -I. -DeslVECTOROPS_EXAMPLE esl_vectorops.c easel.c -lm   */
+#include <easel.h>
+#include <esl_vectorops.h>
+
+int main(void)
+{
+  double *p;
+  char    labels[] = "ACGT";
+  int     n = 4;
+
+  p = malloc(sizeof(double) * n);
+  esl_vec_DSet(p, n, 1.0);
+  esl_vec_DNorm(p, n);
+  esl_vec_DDump(stdout, p, n, labels);
+  free(p);
+  return 0;
+}
+/*::cexcerpt::vectorops_example::end::*/
+#endif /*eslVECTOROPS_EXAMPLE*/
 
 /*****************************************************************  
  * @LICENSE@

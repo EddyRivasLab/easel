@@ -98,7 +98,8 @@
 1 prep     tree-compile       gcc -o tree_utest -I.. -L.. -g -Wall -DeslTREE_TESTDRIVE ../esl_tree.c -leasel -lm
 1 exercise tree-utest         @tree_utest@
 
-# Missing: vectorops
+1 prep     vectorops-compile  gcc -o vectorops_utest -I.. -L.. -g -Wall -DeslVECTOROPS_TESTDRIVE ../esl_vectorops.c -leasel -lm
+1 exercise vectorops-utest    @vectorops_utest@
 
 1 prep     weibull-compile    gcc -o weibull_utest -I.. -L.. -g -Wall -DeslWEIBULL_TESTDRIVE ../esl_weibull.c -leasel -lm
 1 exercise weibull-utest      @weibull_utest@

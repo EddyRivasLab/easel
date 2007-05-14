@@ -33,6 +33,7 @@
  *****************************************************************/
 
 /* Function:  esl_scorematrix_Create()
+ * Synopsis:  Create an <ESL_SCOREMATRIX>.
  * Incept:    SRE, Mon Apr  2 08:38:10 2007 [Janelia]
  *
  * Purpose:   Allocates a score matrix for alphabet <abc>, initializes
@@ -82,6 +83,7 @@ esl_scorematrix_Create(const ESL_ALPHABET *abc)
 }
 
 /* Function:  esl_scorematrix_SetBLOSUM62
+ * Synopsis:  Set matrix to BLOSUM62 scores.
  * Incept:    SRE, Tue Apr  3 13:22:03 2007 [Janelia]
  *
  * Purpose:   Set the 20x20 canonical residue scores in an 
@@ -153,7 +155,7 @@ esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
 
 
 /* Function:  esl_scorematrix_SetWAG()
- * Synopsis:  Parameterize a score matrix from the WAG evolutionary model.           
+ * Synopsis:  Set matrix using the WAG evolutionary model.           
  * Incept:    SRE, Thu Apr 12 13:23:28 2007 [Janelia]
  *
  * Purpose:   Parameterize an amino acid score matrix <S> using the WAG
@@ -206,7 +208,7 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t)
 
 
 /* Function:  esl_scorematrix_SetFromProbs()
- * Synopsis:  Set new score matrix scores from target and background probabilities.
+ * Synopsis:  Set matrix from target and background probabilities.
  * Incept:    SRE, Wed Apr 11 17:37:45 2007 [Janelia]
  *
  * Purpose:   Sets the scores in a new score matrix <S> from target joint
@@ -227,8 +229,6 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t)
  *            fj     - target background probabilities 
  *
  * Returns:   <eslOK> on success, and <S> contains the calculated score matrix.
- *
- * Throws:    (no abnormal error conditions)
  */
 int
 esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_DMATRIX *P, const double *fi, const double *fj)
@@ -257,6 +257,7 @@ esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_
 
 
 /* Function:  esl_scorematrix_Compare()
+ * Synopsis:  Compare two matrices for equality.
  * Incept:    SRE, Tue Apr  3 14:17:12 2007 [Janelia]
  *
  * Purpose:   Compares two score matrices; returns <eslOK> if they 
@@ -319,14 +320,56 @@ esl_scorematrix_Min(const ESL_SCOREMATRIX *S)
   return min;
 }
 
+/* Function:  esl_scorematrix_RelEntropy()
+ * Synopsis:  Returns relative entropy of a matrix.
+ * Incept:    SRE, Sat May 12 18:14:02 2007 [Janelia]
+ *
+ * Purpose:   Returns the relative entropy of score matrix <S> in bits,
+ *            given its background distributions <fi> and <fj>
+ *            and its scale <lambda>. 
+ */
+double
+esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, double lambda)
+{
+  double pij;
+  double D = 0;
+  int    i,j;
+
+  for (i = 0; i < S->K; i++)
+    for (j = 0; j < S->K; j++)
+      {
+	pij = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
+	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
+      }
+  D /= eslCONST_LOG2;
+  return D;
+}
+
+/* Function:  esl_scorematrix_IsSymmetric()
+ * Synopsis:  Returns <TRUE> for symmetric matrix.
+ * Incept:    SRE, Sat May 12 18:17:17 2007 [Janelia]
+ *
+ * Purpose:   Returns <TRUE> if matrix <S> is symmetric,
+ *            or <FALSE> if it's not.
+ */
+int
+esl_scorematrix_IsSymmetric(const ESL_SCOREMATRIX *S)
+{
+  int i,j;
+
+  for (i = 0; i < S->K; i++)
+    for (j = i; j < S->K; j++)
+      if (S->s[i][j] != S->s[j][i]) return FALSE;
+  return TRUE;
+}
+
 
 
 /* Function:  esl_scorematrix_Destroy()
+ * Synopsis:  Frees a matrix.
  * Incept:    SRE, Mon Apr  2 08:46:44 2007 [Janelia]
  *
  * Purpose:   Frees a score matrix.
- *
- * Returns:   (void).
  */
 void
 esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
@@ -343,11 +386,15 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
 }
 
 
+
+
+
 /*****************************************************************
  * 2. Reading/writing score matrices.
  *****************************************************************/
 
 /* Function:  esl_scorematrix_Read()
+ * Synopsis:  Read a standard matrix input file.
  * Incept:    SRE, Mon Apr  2 08:26:40 2007 [Janelia]
  *
  * Purpose:   Given a pointer <efp> to an open file parser for a file
@@ -477,6 +524,7 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCOREMATRIX **r
 }
 
 /* Function:  esl_scorematrix_Write()
+ * Synopsis:  Write a BLAST-compatible score matrix file.
  * Incept:    SRE, Tue Apr  3 13:55:10 2007 [Janelia]
  *
  * Purpose:   Writes a score matrix <S> to an open stream <fp>, in 
@@ -535,7 +583,7 @@ esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
  *****************************************************************/ 
 
 /* Function:  esl_scorematrix_ObtainPij()
- * Synopsis:  Obtain $P_{ij}$ from score matrix with known $\lambda$ and background $f$'s.
+ * Synopsis:  Obtain $P_{ij}$ for matrix with known $\lambda$ and background. 
  * Incept:    SRE, Thu Apr 12 17:46:20 2007 [Janelia]
  *
  * Purpose:   Given a score matrix <S> with known <lambda> and known
@@ -770,7 +818,7 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   return status;
 }
 
-/* Function:  esl_scorematrix_ReverseEngineer()
+/* Function:  esl_scorematrix_RevEngineer()
  * Synopsis:  Calculate the probabilistic basis of a score matrix.
  * Incept:    SRE, Wed Apr 11 07:56:44 2007 [Janelia]
  *
@@ -812,7 +860,7 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  * Xref:      J1/35.
  */
 int
-esl_scorematrix_ReverseEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
+esl_scorematrix_RevEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
 {
   int status;
   int i,j;
@@ -1010,7 +1058,7 @@ utest_ReverseEngineer(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, doubl
   if ((fi  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fi allocation failed");
   if ((fj  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fj allocation failed");
 
-  if (esl_scorematrix_ReverseEngineer(S0, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
+  if (esl_scorematrix_RevEngineer(S0, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
   /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
   if (esl_DCompare(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
@@ -1095,15 +1143,16 @@ main(int argc, char **argv)
 /*****************************************************************
  * 7. Example program
  *****************************************************************/
-/* 
-    gcc -g -Wall -I. -L. -o example -DeslSCOREMATRIX_EXAMPLE esl_scorematrix.c -leasel -lm
+#ifdef eslSCOREMATRIX_EXAMPLE
+/*::cexcerpt::scorematrix_example::begin::*/
+/*  gcc -g -Wall -I. -L. -o example -DeslSCOREMATRIX_EXAMPLE esl_scorematrix.c -leasel -lm
     ./example <score matrix file>
 */
-#ifdef eslSCOREMATRIX_EXAMPLE
 #include <easel.h>
 #include <esl_alphabet.h>
 #include <esl_fileparser.h>
 #include <esl_dmatrix.h>
+#include <esl_vectorops.h>
 #include <esl_scorematrix.h>
 
 int main(int argc, char **argv)
@@ -1123,12 +1172,19 @@ int main(int argc, char **argv)
   esl_fileparser_Close(efp);
 
   /* Reverse engineer it to get implicit probabilistic model. */
-  if ( esl_scorematrix_ReverseEngineer(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
+  if ( esl_scorematrix_RevEngineer(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
-  /* Print lambda, and the joint probabilities. */
+  /* Print some info, and the joint probabilities. */
+  if (esl_scorematrix_IsSymmetric(S)) printf("Matrix is a standard symmetric matrix\n");
+  else                                printf("Matrix is a nonstandard asymmetric matrix\n"); 
   printf("Lambda is %g\n\n", lambda);
+  printf("Relative entropy is %.4f bits\n", esl_scorematrix_RelEntropy(S, fi, fj, lambda));
   printf("Implicit joint probabilities are:\n");
   esl_dmatrix_Dump(stdout, P, abc->sym, abc->sym);
+  printf("fi's are:\n");
+  esl_vec_DDump(stdout, fi, S->K, abc->sym);
+  printf("fj's are:\n");
+  esl_vec_DDump(stdout, fj, S->K, abc->sym);
 
   free(fi);
   free(fj);
@@ -1137,6 +1193,7 @@ int main(int argc, char **argv)
   esl_alphabet_Destroy(abc);
   return 0;
 }
+/*::cexcerpt::scorematrix_example::end::*/
 #endif /*eslSCOREMATRIX_EXAMPLE*/
 
 

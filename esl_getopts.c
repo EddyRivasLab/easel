@@ -28,7 +28,7 @@
  */
 static int set_option(ESL_GETOPTS *g, int opti, char *optarg, 
 		      int setby, int do_alloc);
-static int get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti);
+static int get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti);
 static int get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, 
 			     int *ret_opti);
 static int esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
@@ -377,7 +377,7 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 {
   int   opti;
   char *optarg;
-  int   status;
+  int   status, setstatus;
 
   g->argc      = argc;
   g->argv      = argv;
@@ -388,12 +388,13 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
    * which advances g->optind as the index of the next argv element we need
    * to look at.
    */
-  while (esl_getopts(g, &opti, &optarg) == eslOK)
+  while ((status = esl_getopts(g, &opti, &optarg)) == eslOK)
     {
-      status = set_option(g, opti, optarg, eslARG_SETBY_CMDLINE, FALSE);
-      if (status != eslOK) return status;
+      setstatus = set_option(g, opti, optarg, eslARG_SETBY_CMDLINE, FALSE);
+      if (setstatus != eslOK) return setstatus;
     }
-  return eslOK;
+  if (status == eslEOD) return eslOK;
+  else                  return status;
 }
 
 
@@ -489,7 +490,7 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
  *            default value). 
  */
 int
-esl_opt_IsDefault(ESL_GETOPTS *g, char *optname)
+esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -506,7 +507,7 @@ esl_opt_IsDefault(ESL_GETOPTS *g, char *optname)
  *            from <g>.
  */
 int
-esl_opt_GetBoolean(ESL_GETOPTS *g, char *optname)
+esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -527,7 +528,7 @@ esl_opt_GetBoolean(ESL_GETOPTS *g, char *optname)
  *            from <g>.
  */
 int
-esl_opt_GetInteger(ESL_GETOPTS *g, char *optname)
+esl_opt_GetInteger(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -546,7 +547,7 @@ esl_opt_GetInteger(ESL_GETOPTS *g, char *optname)
  *            from <g>.
  */
 double
-esl_opt_GetReal(ESL_GETOPTS *g, char *optname)
+esl_opt_GetReal(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -566,7 +567,7 @@ esl_opt_GetReal(ESL_GETOPTS *g, char *optname)
  *            from <g>.
  */
 char
-esl_opt_GetChar(ESL_GETOPTS *g, char *optname)
+esl_opt_GetChar(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -590,7 +591,7 @@ esl_opt_GetChar(ESL_GETOPTS *g, char *optname)
  *            and <eslARG_OUTFILE>.
  */
 char *
-esl_opt_GetString(ESL_GETOPTS *g, char *optname)
+esl_opt_GetString(const ESL_GETOPTS *g, char *optname)
 {
   int opti;
 
@@ -645,36 +646,36 @@ esl_opt_GetArg(ESL_GETOPTS *g, int type, char *range)
     case eslARG_INT: 
       if (! is_integer(arg))
 	ESL_FAIL(NULL, g->errbuf,
-		 "cmdline arg %d should be an integer; got %.24s",
+		 "Command line arg %d should be an integer; got %.24s",
 		 g->argi, arg);
 
       if ((status = verify_integer_range(arg, range)) != eslOK)
 	ESL_FAIL(NULL, g->errbuf, 
-		 "cmdline arg %d should be integer in range %.24s; got %.24s", 
+		 "Command line arg %d should be integer in range %.24s; got %.24s", 
 		 g->argi, range, arg);
       break;
 
     case eslARG_REAL:
       if (! is_real(arg))
 	ESL_FAIL(NULL, g->errbuf, 
-		 "cmdline arg %d should be a real-valued number; got %.24s",
+		 "Command line arg %d should be a real-valued number; got %.24s",
 		 g->argi, arg);
 
       if ((status = verify_real_range(arg, range)) != eslOK)
 	ESL_FAIL(NULL, g->errbuf,
-		 "cmdline arg %d takes real number in range %.24s; got %.24s", 
+		 "Command line arg %d takes real number in range %.24s; got %.24s", 
 		 g->argi, range, arg);
       break;
 
     case eslARG_CHAR:
       if (strlen(arg) > 1)
 	ESL_FAIL(NULL, g->errbuf,
-		 "cmdline arg %d should be a single char; got %.24s",
+		 "Command line arg %d should be a single char; got %.24s",
 		 g->argi, arg);
 
       if ((status = verify_char_range(arg, range)) != eslOK)
 	ESL_FAIL(NULL, g->errbuf,
-		 "cmdline arg %d takes char in range %.24s; got %.24s", 
+		 "Command line arg %d takes char in range %.24s; got %.24s", 
 		 g->argi, range, arg);
       break;
 
@@ -926,14 +927,15 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
   while ((status = process_optlist(g, &s, &togi)) != eslEOD)
     {
       if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
-      if (togi == opti) continue; /* ignore ourself, so we can have one toggle list per group */
+      if (togi == opti)         continue; /* ignore ourself, so we can have one toggle list per group */
+      if (g->val[togi] == NULL) continue; /* it's already off; don't touch it */
 
       if (g->setby[togi] == setby)
 	ESL_FAIL(eslESYNTAX, g->errbuf,
 		 "Options %.24s and %.24s conflict, toggling each other.", 
 		 g->opt[togi].name, g->opt[opti].name);
 	  
-      g->setby[togi] = setby; /* indirectly, but still */
+      g->setby[togi] = setby;   /* indirectly, but still */
       if (g->valloc[togi] > 0) 	/* careful about val's that were alloc'ed */
 	{ free(g->val[togi]); g->valloc[togi] = 0; }
       g->val[togi] = NULL;    /* ok for false booleans too */
@@ -953,7 +955,7 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
  * If the option is not found, return eslENOTFOUND.
  */
 static int
-get_optidx_exactly(ESL_GETOPTS *g, char *optname, int *ret_opti)
+get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti)
 {
   int i;
 
@@ -1012,13 +1014,15 @@ get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti)
  * Return <eslOK> on success, <eslEOD> if we're out of
  * options. 
  * 
- * Throws <eslEINVAL> if something's wrong with the options.
+ * Returns <eslESYNTAX> and sets <g->errbuf> to a useful error
+ * message if something's wrong with one of the user's options.
+ *
+ * Throws <eslEINVAL> if something's wrong internally with the 
+ * <ESL_OPTIONS> structure. 
  */
 static int
 esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 {
-  int   opti;
-
   *ret_optarg  = NULL; 
 
   /* Check to see if we've run out of options.
@@ -1050,14 +1054,9 @@ esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
    * of single-letter options, a la -abc
    */
   if (g->optstring == NULL && strncmp(g->argv[g->optind], "--", 2) == 0)
-    process_longopt(g, &opti, ret_optarg);
+    return process_longopt(g, ret_opti, ret_optarg);
   else 
-    process_stdopt(g, &opti, ret_optarg);
-
-  /* Normal return.
-   */
-  *ret_opti = opti;
-  return eslOK;
+    return process_stdopt(g, ret_opti, ret_optarg);
 }
 
 /* process_longopt():
@@ -1083,7 +1082,7 @@ esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  *   3. Option takes an argument, but no argument found.
  *   4. Option does not take an argument, but one was provided by =arg syntax.
  * All of these are user input errors.
- * 
+
  */
 static int
 process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
@@ -1246,8 +1245,14 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
   else if  (setby == eslARG_SETBY_ENV)     where = "in env";
   else if  (setby >= eslARG_SETBY_CFGFILE) where = "in cfgfile";
 
-  switch (g->opt[i].type) {
+  /* A special case: Any option may be "unset" by default by having a
+   * NULL default value.  Thus, for instance, an eslARG_REAL can be
+   * off by default, or set to a value by a command line option.
+   */
+  if (setby == eslARG_SETBY_DEFAULT && val == NULL) 
+    return eslOK;
 
+  switch (g->opt[i].type) {
   case eslARG_NONE:	
     /* treat as unchecked, because val may be "on", 0x1, "true", etc.:
      * any non-NULL ptr means on, and NULL means off.
@@ -1257,7 +1262,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
   case eslARG_INT:
     if (! is_integer(val))
       ESL_FAIL(eslESYNTAX, g->errbuf, 
-	       "option %.24s takes integer arg; got %.24s %s", 
+	       "Option %.24s takes integer arg; got %.24s %s", 
 	       g->opt[i].name, val, where);
 
     if (verify_integer_range(val, g->opt[i].range) != eslOK)
@@ -1269,24 +1274,24 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
   case eslARG_REAL:
     if (! is_real(val))
       ESL_FAIL(eslESYNTAX, g->errbuf, 
-	       "option %.24s takes real-valued arg; got %.24s %s",
+	       "Option %.24s takes real-valued arg; got %.24s %s",
 	       g->opt[i].name, val, where);
 
     if (verify_real_range(val, g->opt[i].range) != eslOK)
       ESL_FAIL(eslESYNTAX, g->errbuf,
-	       "option %.24s takes real-valued arg in range %.24s; got %.24s %s", 
+	       "Option %.24s takes real-valued arg in range %.24s; got %.24s %s", 
 	       g->opt[i].name, g->opt[i].range, val, where);
     break;
 
   case eslARG_CHAR:
     if (strlen(g->val[i]) > 1)
       ESL_FAIL(eslESYNTAX, g->errbuf,
-	       "option %.24s takes char arg; got %.24s %s",
+	       "Option %.24s takes char arg; got %.24s %s",
 	       g->opt[i].name, val, where);
 
     if (verify_char_range(val, g->opt[i].range) != eslOK)
       ESL_FAIL(eslESYNTAX, g->errbuf, 
-	       "option %.24s takes char arg in range %.24s; got %.24s %s", 
+	       "Option %.24s takes char arg in range %.24s; got %.24s %s", 
 	       g->opt[i].name, g->opt[i].range, val, where);
     break;
 

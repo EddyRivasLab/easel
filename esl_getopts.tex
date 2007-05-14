@@ -114,7 +114,7 @@ are:
       files. The application can do this in any precedence order it
       chooses. In the example, only the command line is processed.
  
-\item The call to \ccode{esl_opt_VerifyConfig(go)} validates the
+\item The call to \ccode{esl\_opt\_VerifyConfig(go)} validates the
       configuration, before you attempt to retrieve any information
       from it.
 
@@ -228,35 +228,18 @@ absence of quotes around \ccode{FALSE} are important. \ccode{FALSE},
 internal representation.
 
 Integer, real-valued, and character arguments must be provided as
-strings: ``42'' not 42, ``1.0'' not 1.0, and ``x'' not 'x'. 
+strings: ``42'' not 42, ``1.0'' not 1.0, and ``x'' not 'x'.  String
+arguments can be set to any string.
 
-String arguments can be set to any string, or NULL. 
+Sometimes you want to have an option that is off by default, but can
+be optionally set to a value. That is, you may want to combine a
+boolean switch and a integer-, real-, char-, or string-valued
+option. To do this, the default value of any option type may be
+\ccode{NULL}, which means ``unset''. When your code checks for the
+value of such an option, it must first use
+\ccode{esl\_opt\_IsDefault()} to check if it remained unset, before
+attempting to \ccode{esl\_opt\_Get*()} the value.
 
-To set a character argument off by default, use an empty string
-(\ccode{""}), not \ccode{NULL}. The first character in this string is
-\ccode{\\0}, so when you retrieve the character value,
-\ccode{esl\_opt\_GetCharOption()} will return \ccode{\\0}. Your
-application can interpret that as ``off''.
-
-So, while boolean options can be ``off'', string options can be NULL,
-and character options can be the empty string, there is no way to set
-an integer or real-valued argument off. Numeric option arguments must
-always have a valid value. This prevents you from using the same
-option to turn on a behavior and to configure a parameter. For
-instance, say you wanted to have \ccode{hmmbuild --evolveic 1.0} mean
-``turn on the evolveic mode, and set its free parameter to 1.0''. The
-getopts module encourages you to separate this into two options -- a
-boolean to activate the mode, and a real to configure the free
-parameter, such as \ccode{hmmbuild --evolveic --infotarget 1.0}.
-
-If you really hate this behavior, here's a workaround.  Declare the
-argument as an untyped \ccode{eslARG\_STRING} with a default value of
-NULL. Retrieve the argument value as a string with
-\ccode{esl\_opt\_GetStringOption()}; have your application interpret
-\ccode{NULL} as ``unset'', and convert non-\ccode{NULL} strings to the
-appropiate numeric type yourself.  You lose automatic type and range
-checking when you do this, of course.
-   
 There is no way to turn a boolean option off by a command line option,
 environment variable, or configuration file. Booleans (and strings,
 for that matter) can only be turned on when their option is

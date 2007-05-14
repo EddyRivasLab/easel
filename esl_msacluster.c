@@ -95,13 +95,17 @@ static double squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2);
  *
  * Args:      msa     - multiple alignment to cluster
  *            maxid   - pairwise identity threshold: cluster if $\geq$ <maxid>
- *            ret_c   - RETURN: cluster assignments for each sequence
- *            ret_nc  - RETURN: number of clusters        
+ *            ret_c   - optRETURN: cluster assignments for each sequence
+ *            ret_nc  - optRETURN: number of clusters        
 
  * Returns:   <eslOK> on success; the <ret_c[0..nseq-1]> array contains cluster
  *            indices <0..nc-1> assigned to each sequence, and <ret_nc> contains
  *            the number of clusters. The <ret_c> array is allocated here, and
  *            must be free'd by the caller. The input <msa> is unmodified.
+ *            
+ *            The caller may pass <NULL> for either <ret_c> or
+ *            <ret_nc> if it is only interested in one of the two
+ *            results.
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
@@ -109,7 +113,7 @@ static double squid_xdistance(ESL_ALPHABET *a, ESL_DSQ *x1, ESL_DSQ *x2);
  *            and <ret_nc> is set to 0, and the <msa> is unmodified.
  */
 int
-esl_msacluster_SingleLinkage(ESL_MSA *msa, double maxid, int **ret_c, int *ret_nc)
+esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, int **ret_c, int *ret_nc)
 {
   int  na, *a = NULL;           /* stack of available vertices */
   int  nb, *b = NULL;           /* stack of working vertices   */
@@ -164,16 +168,16 @@ esl_msacluster_SingleLinkage(ESL_MSA *msa, double maxid, int **ret_c, int *ret_n
    */
   free(a);
   free(b);
-  *ret_c  = c;
-  *ret_nc = nc;
+  if (ret_c  != NULL) *ret_c  = c; else free(c);
+  if (ret_nc != NULL) *ret_nc = nc;
   return eslOK;
 
  ERROR:
   if (c != NULL) free(c);
   if (b != NULL) free(b);
   if (a != NULL) free(a);
-  *ret_c  = NULL;
-  *ret_nc = 0;
+  if (ret_c  != NULL) *ret_c  = NULL;
+  if (ret_nc != NULL) *ret_nc = 0;
   return status;
 }
 

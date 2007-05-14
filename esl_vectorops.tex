@@ -38,7 +38,8 @@ Table~\ref{tbl:vectorops_api} lists the functions in the
     \multicolumn{2}{c}{\textbf{Probability vectors}}\\
 \ccode{esl\_vec\_\{D,F\}Norm()}          & Normalize a probability vector of length n.\\
 \ccode{esl\_vec\_\{D,F\}Log()}           & Convert all items in vec to log probabilities. \\
-\ccode{esl\_vec\_\{D,F\}Entropy()}       & Return Shannon entropy of probability vector, in bits\\
+\ccode{esl\_vec\_\{D,F\}Entropy()}       & Return Shannon entropy of probability vector $p$, in bits\\
+\ccode{esl\_vec\_\{D,F\}RelEntropy()}    & Return relative entropy $D(p \parallel q)$ of $p,q$, in bits\\
 \ccode{esl\_vec\_\{D,F\}Validate()}      & Verify that vector sums to one.\\
     \multicolumn{2}{c}{\textbf{Log probability vectors}}\\
 \ccode{esl\_vec\_\{D,F\}Exp()}           & Convert log p's back to probabilities\\
