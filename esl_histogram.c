@@ -235,7 +235,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   else if (b >= h->nb)  /* Reallocate above? */
     {
       nnew = (b-h->nb+1) * 2; /* 2x overalloc */
-      ESL_RALLOC(h->obs, tmp, sizeof(int) * (nnew+ h->nb));
+      ESL_RALLOC(h->obs, tmp, sizeof(uint64_t) * (nnew+ h->nb));
       for (bi = h->nb; bi < h->nb+nnew; bi++) h->obs[bi] = 0;
       if (h->imin == h->nb) { /* boundary condition of no data yet*/
 	h->imin+=nnew; 
