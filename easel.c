@@ -160,12 +160,30 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *****************************************************************/
 
 /* Function:  esl_banner()
+ * Synopsis:  print standard Easel application output header
  * Incept:    SRE, Mon Feb 14 11:26:56 2005 [St. Louis]
  *
- * Purpose:   Print one-line <banner>, then version/copyright/license info
- *            to <fp>. For example, 
- *            <esl_banner(stdout, "compstruct :: compare RNA structures");>
- *            Used by all the Easel miniapps.
+ * Purpose:   Print the standard Easel command line application banner
+ *            to <fp>, constructing it from <progname> (the name of the
+ *            program) and a short one-line description <banner>.
+ *            For example, 
+ *            <esl_banner(stdout, "compstruct", "compare RNA structures");>
+ *            might result in:
+ *            
+ *            \begin{cchunk}
+ *            # compstruct :: compare RNA structures
+ *            # Easel 0.1 (February 2005)
+ *            # Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus
+ *            # Freely licensed under the Janelia Software License.
+ *            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *            \end{cchunk}
+ *              
+ *            <progname> would typically be an application's
+ *            <argv[0]>, rather than a fixed string. This allows the
+ *            program to be renamed, or called under different names
+ *            via symlinks. Any path in the <progname> is discarded;
+ *            for instance, if <progname> is "/usr/local/bin/esl-compstruct",
+ *            "esl-compstruct" is used as the program name.
  *            
  * Note:    
  *    Needs to pick up preprocessor #define's from easel.h,
@@ -174,21 +192,75 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *    symbol          example
  *    ------          ----------------
  *    EASEL_VERSION   "0.1"
- *    EASEL_DATE      "February 2005"
- *    EASEL_COPYRIGHT "Copyright (C) 2004-2005 HHMI/Washington University"
- *    EASEL_LICENSE   "Licensed under the Creative Commons Attribution License"
+ *    EASEL_DATE      "May 2007"
+ *    EASEL_COPYRIGHT "Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus"
+ *    EASEL_LICENSE   "Freely licensed under the Janelia Software License."
  *
  * Returns:   (void)
  */
 void
-esl_banner(FILE *fp, char *banner)
+esl_banner(FILE *fp, char *progname, char *banner)
 {
-  fprintf(fp, "%s\n", banner);
-  fprintf(fp, "Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE);
-  fprintf(fp, "%s\n", EASEL_COPYRIGHT);
-  fprintf(fp, "%s\n", EASEL_LICENSE);
-  fprintf(fp, "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  char *appname = NULL;
+
+  if (esl_FileTail(progname, FALSE, &appname) != eslOK) appname = progname;
+
+  fprintf(fp, "# %s :: %s\n", appname, banner);
+  fprintf(fp, "# Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE);
+  fprintf(fp, "# %s\n", EASEL_COPYRIGHT);
+  fprintf(fp, "# %s\n", EASEL_LICENSE);
+  fprintf(fp, "# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+
+  if (appname != NULL) free(appname);
+  return;
 }
+
+
+/* Function:  esl_usage()
+ * Synopsis:  print standard Easel application usage help line
+ * Incept:    SRE, Wed May 16 09:04:42 2007 [Janelia]
+ *
+ * Purpose:   Given a usage string <usage> and the name of the program
+ *            <progname>, output a standardized usage/help
+ *            message. <usage> is minimally a one line synopsis like
+ *            "[options] <filename>", but it may extend to multiple
+ *            lines to explain the command line arguments in more 
+ *            detail. It should not describe the options; that's the
+ *            job of the getopts module, and its <esl_opt_DisplayHelp()> 
+ *            function.
+ *            
+ *            This is used by the Easel miniapps, and may be useful in
+ *            other applications as well.
+ *
+ *            As in <esl_banner()>, the <progname> is typically passed
+ *            as <argv[0]>, and any path prefix is ignored.
+ *            
+ *            For example, if <argv[0]> is </usr/local/bin/esl-compstruct>,
+ *            then 
+ *            
+ *            \begin{cchunk}
+ *              esl_usage(stdout, argv[0], "[options] <trusted file> <test file>">
+ *            \end{cchunk}
+ *            
+ *            produces
+ *            
+ *            \begin{cchunk}
+ *              Usage: esl-compstruct [options] <trusted file> <test file>
+ *            \end{cchunk}  
+ *              
+ * Returns:   (void).
+ */
+void
+esl_usage(FILE *fp, char *progname, char *usage)
+{
+  char *appname = NULL;
+
+  if (esl_FileTail(progname, FALSE, &appname) != eslOK) appname = progname;
+  fprintf(fp, "Usage: %s %s\n", appname, usage);
+  if (appname != NULL) free(appname);
+  return;
+}
+
 
 /*-------------------- end, standard miniapp banner --------------------------*/
 
@@ -322,7 +394,7 @@ esl_fgets(char **buf, int *n, FILE *fp)
  * Throws:   <eslEMEM> on allocation failure.
  */
 int
-esl_strdup(char *s, int n, char **ret_dup)
+esl_strdup(const char *s, int n, char **ret_dup)
 {
   int   status;
   char *new = NULL;
@@ -380,7 +452,7 @@ esl_strdup(char *s, int n, char **ret_dup)
  *           is unaffected.
  */
 int
-esl_strcat(char **dest, int ldest, char *src, int lsrc)
+esl_strcat(char **dest, int ldest, const char *src, int lsrc)
 {
   void *p;
   int   status;
@@ -586,7 +658,7 @@ esl_strchop(char *s, int n)
  * Xref:      squid's FileExists().
  */
 int
-esl_FileExists(char *filename)
+esl_FileExists(const char *filename)
 {
   FILE *fp;
   if ((fp = fopen(filename, "r"))) { fclose(fp); return TRUE; }
@@ -625,7 +697,7 @@ esl_FileExists(char *filename)
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_FileTail(char *path, int nosuffix, char **ret_file)
+esl_FileTail(const char *path, int nosuffix, char **ret_file)
 {
   int   status;
   char *tail = NULL;
@@ -680,7 +752,7 @@ esl_FileTail(char *path, int nosuffix, char **ret_file)
  * Xref:      squid's FileConcat().
  */
 int
-esl_FileConcat(char *dir, char *file, char **ret_path)
+esl_FileConcat(const char *dir, const char *file, char **ret_path)
 {
   char *path = NULL;
   int   nd, nf;
@@ -733,7 +805,7 @@ esl_FileConcat(char *dir, char *file, char **ret_path)
  * Xref:      squid's FileAddSuffix().
  */
 int 
-esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
+esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
 {
   char *new = NULL;
   char *lastdot;
@@ -805,7 +877,7 @@ esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath)
  * Xref:      squid's EnvFileOpen().
  */
 int
-esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
+esl_FileEnvOpen(const char *fname, const char *env, FILE **opt_fp, char **opt_path)
 {
   FILE *fp;
   char *dirlist;		/* :-separated list of directories */
@@ -815,8 +887,8 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   int   status;
 
   fp = NULL;
-  if (ret_fp   != NULL) *ret_fp   = NULL;
-  if (ret_path != NULL) *ret_path = NULL;
+  if (opt_fp   != NULL) *opt_fp   = NULL;
+  if (opt_path != NULL) *opt_path = NULL;
 
   if (env == NULL)               return eslENOTFOUND;
   if ((s = getenv(env)) == NULL) return eslENOTFOUND;
@@ -835,8 +907,8 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
     }
   if (fp == NULL) { free(path); free(dirlist); return eslENOTFOUND; }
 
-  if (ret_path != NULL) { *ret_path = path; } else free(path);
-  if (ret_fp   != NULL) { *ret_fp   = fp; }   else fclose(fp);
+  if (opt_path != NULL) { *opt_path = path; } else free(path);
+  if (opt_fp   != NULL) { *opt_fp   = fp; }   else fclose(fp);
   free(dirlist);
   return eslOK;
 
@@ -844,8 +916,8 @@ esl_FileEnvOpen(char *fname, char *env, FILE **ret_fp, char **ret_path)
   if (path     != NULL) free(path);
   if (fp       != NULL) fclose(fp);
   if (dirlist  != NULL) free(dirlist);
-  if (ret_path != NULL) *ret_path = NULL;
-  if (ret_fp   != NULL) *ret_fp   = NULL;
+  if (opt_path != NULL) *opt_path = NULL;
+  if (opt_fp   != NULL) *opt_fp   = NULL;
   return status;
 }
 

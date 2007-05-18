@@ -927,6 +927,83 @@ esl_sq_Textize(ESL_SQ *sq)
   return status;
 }
 #endif /* eslAUGMENT_ALPHABET */
+
+
+/* Function:  esl_sq_GuessAlphabet()
+ * Synopsis:  Guess alphabet type of a sequence.
+ * Incept:    SRE, Wed May 16 11:03:44 2007 [Janelia]
+ *
+ * Purpose:   Guess the alphabet type of biosequence <sq>, and store the
+ *            guess in <*ret_type>.
+ *            
+ *            All 26 letters are valid in the amino alphabet (even O
+ *            and J now), so the DNA alphabet is necessarily a subset.
+ *            Therefore most protein sequences can be identified
+ *            unambiguously (because they use letters that only occur
+ *            in amino acid sequence), but DNA sequences cannot be.
+ *            
+ *            The sequence must contain more than 10 residues, or it
+ *            is called <eslUNKNOWN>.
+ *            
+ *            Specifically, this routine calls the sequence <eslDNA>
+ *            if it consists only of the residues ACGTN and all four
+ *            of ACGT occur. (And analogously for <eslRNA>, ACGU$+$N.)
+ *            It calls the sequence <eslAMINO> either if it contains
+ *            an amino-specific letter (EFIJLOPQZ), or if it contains
+ *            at least 15 of the 20 canonical amino acids and consists
+ *            only of canonical amino acids or X.
+
+ *            Thus DNA sequences containing IUPAC degeneracies other
+ *            than N are called <eslUNKNOWN>, rather than hazarding a
+ *            guess. It may be possible to improve on this in the
+ *            future by using residue occurrence frequencies.
+ *            
+ *            Note that a sequence of "ATATATA..." will be called
+ *            <eslUNKNOWN>, whereas a sequence "ACGTACGTACGT..."
+ *            (which could conceivably be "ala-cys-gly-thr...") will
+ *            be called <eslDNA>. Peptides of simple mono and di-amino
+ *            acid compositions are known, but I have not (yet) seen a
+ *            peptide consisting only of all four residues ACGT.
+ *            
+ *            The routine is designed to be conservative, calling
+ *            <eslUNKNOWN> rather than making errors. In a test on the
+ *            Oct 2006 version of the NCBI nonredundant databases,
+ *            this routine called 0 <eslDNA> and 5694 <eslUNKNOWN> on
+ *            4.0M protein sequences (99.9% classification, no errors)
+ *            and 0 <eslAMINO> and 155756 <eslUNKNOWN> in 4.4M DNA
+ *            sequences (96% classification, no errors). (Actually,
+ *            one DNA call was made in the protein database. That
+ *            entry was indeed a DNA contaminant, and it has since
+ *            been removed by NCBI.)
+ *
+ * Returns:   <eslOK> on success, and <*ret_type> is set to
+ *            <eslAMINO>, <eslRNA>, or <eslDNA>.
+ *
+ *            Returns <eslEAMBIGUOUS> if unable to determine the
+ *            alphabet type; in this case, <*ret_type> is set to 
+ *            <eslUNKNOWN>.
+ *
+ * Xref:      J1/62; 2007/0517-easel-guess-alphabet
+ */
+int
+esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)
+{
+  int ct[26];
+  int x, i;
+  int n = 0;
+
+  for (x = 0; x < 26; x++) ct[x] = 0;
+  for (i = 0; i < sq->n; i++) {
+    x = toupper(sq->seq[i]) - 'A';
+    if (x < 0 || x > 26) continue;
+    ct[x]++;
+    n++;
+    if (n > 10000) break;	/* we oughta know by now! */
+  }
+  return esl_abc_GuessAlphabet(ct, ret_type);
+}
+
+
 /*-------------------- end of digital sequence functions --------------------*/
 
 
@@ -1127,14 +1204,10 @@ esl_sqio_FormatCode(char *fmtstring)
  *            
  *            When augmented by msa, then alignment file format codes
  *            are recognized in addition to unaligned file format codes.
- *
- * Throws:    NULL if <fmt> is unrecognized.
  */
 char *
 esl_sqio_DescribeFormat(int fmt)
 {
-  int status;
-
   switch (fmt) {
   case eslSQFILE_UNKNOWN:    return "unknown";
   case eslSQFILE_FASTA:      return "FASTA";
@@ -1146,10 +1219,9 @@ esl_sqio_DescribeFormat(int fmt)
   case eslMSAFILE_STOCKHOLM: return "Stockholm";
   case eslMSAFILE_PFAM:      return "Pfam";
 #endif
-  default: ESL_XEXCEPTION(eslEINVAL, "No such format code");
+  default: esl_fatal("no such format code");
   }
-
- ERROR:
+  /*NOTREACHED*/
   return NULL;
 }
 
@@ -2642,6 +2714,7 @@ main(int argc, char **argv)
   int         status;
   int         format = eslSQFILE_UNKNOWN;
   char       *seqfile = argv[1];
+  int         type;
 
   status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file.");
@@ -2653,7 +2726,7 @@ main(int argc, char **argv)
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
   {
     /* use the sequence for whatever you want */
-    printf("Read %12s: length %d\n", sq->name, sq->n);
+    printf("Read %12s: length %6d\n", sq->name, sq->n);
     esl_sq_Reuse(sq);
   }
   if (status != eslEOF) 

@@ -52,7 +52,7 @@ typedef struct {
   /* When augmented w/ digital alphabets, we can store pre-digitized data in
    * ax[][], instead of the text info in aseq[][].
    */
-  ESL_ALPHABET  *abc;		/* reference ptr to alphabet            */
+  ESL_ALPHABET  *abc;    	/* reference ptr to alphabet            */
   ESL_DSQ      **ax;		/* digitized aseqs [0..nseq-1][1..alen] */
 #endif
 
@@ -149,16 +149,18 @@ typedef struct {
 
   int   do_digital;		/* TRUE to digitize seqs directly into ax    */
 #ifdef eslAUGMENT_ALPHABET
-  ESL_ALPHABET *abc;		/* AUGMENTATION (alphabet): digitized input  */
+  const ESL_ALPHABET *abc;	/* AUGMENTATION (alphabet): digitized input  */
 #endif
 #ifdef eslAUGMENT_SSI		/* AUGMENTATION: SSI indexing of an MSA db   */
   ESL_SSI *ssi;		        /* open SSI index file; or NULL, if none.    */
 #endif
+
+  ESL_MSA *msa_cache;		/* occasional lookahead at next MSA; GuessAlphabet() */
 } ESL_MSAFILE;
 
 
 /* Alignment file format codes.
- * Must coexist with sqio.c/squid.h unaligned file format codes.
+ * Must coexist with sqio unaligned file format codes.
  * Rules:
  *     - 0 is an unknown/unassigned format 
  *     - <=100 reserved for unaligned formats
@@ -173,34 +175,41 @@ typedef struct {
  */
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int alen);
-extern ESL_MSA *esl_msa_CreateFromString(char *s, int fmt);
+extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
 
 /* 2. The ESL_MSAFILE object */
-extern int  esl_msafile_Open(char *filename, int format, char *env, 
+extern int  esl_msafile_Open(const char *filename, int format, const char *env, 
 			     ESL_MSAFILE **ret_msafp);
 extern void esl_msafile_Close(ESL_MSAFILE *afp);
 
 /* 3. Digitized MSA's (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
-extern ESL_MSA *esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen);
-extern int      esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa);
+extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
+extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen);
+extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa);
 extern int      esl_msa_Textize(ESL_MSA *msa);
-extern int      esl_msafile_OpenDigital(ESL_ALPHABET *abc, char *filename, 
-					int format, char *env, ESL_MSAFILE **ret_msafp);
+extern int      esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type);
+extern int      esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 
+					int format, const char *env, ESL_MSAFILE **ret_msafp);
+extern int      esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc);
+
+
 #endif
 
 /* 4. General i/o API, all alignment formats */
-extern int esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
-extern int esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
-extern int esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
+extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+extern int   esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt);
+extern char *esl_msa_DescribeFormat(int fmt);
+extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
+
 
 /* 5. Miscellaneous functions for manipulating MSAs */
-extern int esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new);
-extern int esl_msa_MinimGaps(ESL_MSA *msa, char *gaps);
-extern int esl_msa_NoGaps(ESL_MSA *msa, char *gaps);
-extern int esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms);
+extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
+extern int esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps);
+extern int esl_msa_NoGaps(ESL_MSA *msa, const char *gaps);
+extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
 
 #endif /*eslMSA_INCLUDED*/
 

@@ -123,9 +123,9 @@ esl_msaweight_GSC(ESL_MSA *msa)
    * UPGMA on a fractional difference matrix - pretty crude.
    */
   if (msa->flags & eslMSA_DIGITAL) {
-    if ((status = esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
+    if ((status = esl_dst_XDiffMx(msa->abc, (const ESL_DSQ **) msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
   } else {
-    if ((status = esl_dst_CDiffMx(msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
+    if ((status = esl_dst_CDiffMx((const char **) msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
   }
 
   /* oi, look out here.  UPGMA is correct, but old squid library uses

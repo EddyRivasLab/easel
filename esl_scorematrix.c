@@ -207,7 +207,7 @@ esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
  *            <eslEMEM> on allocation failure.
  */
 int
-esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t)
+esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, double lambda, double t)
 {
   int status;
   int i,j;
@@ -264,7 +264,7 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, const double lambda, const double t)
  * Returns:   <eslOK> on success, and <S> contains the calculated score matrix.
  */
 int
-esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_DMATRIX *P, const double *fi, const double *fj)
+esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, double lambda, const ESL_DMATRIX *P, const double *fi, const double *fj)
 {
   int    i,j;
   double sc;
@@ -286,15 +286,69 @@ esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, const double lambda, const ESL_
 }
 
 
+/* Function:  esl_scorematrix_Copy()
+ * Synopsis:  Copy <src> matrix to <dest>.
+ * Incept:    SRE, Tue May 15 10:24:20 2007 [Janelia]
+ *
+ * Purpose:   Copy <src> score matrix into <dest>. Caller
+ *            has allocated <dest> for the same alphabet as
+ *            <src>.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINCOMPAT> if <dest> isn't allocated for
+ *            the same alphabet as <src>.
+ */
+int
+esl_scorematrix_Copy(const ESL_SCOREMATRIX *src, ESL_SCOREMATRIX *dest)
+{
+  int i,j;
 
+  if (src->abc_r->type != dest->abc_r->type || src->K != dest->K || src->Kp != dest->Kp)
+    ESL_EXCEPTION(eslEINCOMPAT, "source and dest score matrix types don't match");
+
+  for (i = 0; i < src->K; i++)
+    for (j = 0; j < src->K; j++)
+      dest->s[i][j] = src->s[i][j];
+  for (i = 0; i < src->Kp; i++)
+    dest->isval[i] = src->isval[i];
+  dest->nc = src->nc;
+  for (i = 0; i < src->nc; i++)
+    dest->outorder[i] = src->outorder[i];
+  dest->outorder[dest->nc] = '\0';
+  dest->has_stop   = src->has_stop;
+  dest->stopsc     = src->stopsc;
+  dest->stopstopsc = src->stopstopsc;
+  return eslOK;
+}
+
+/* Function:  esl_scorematrix_Clone()
+ * Synopsis:  Allocate a duplicate of a matrix. 
+ * Incept:    SRE, Tue May 15 10:24:20 2007 [Janelia]
+ *
+ * Purpose:   Allocates a new matrix and makes it a duplicate
+ *            of <S>. Return a pointer to the new matrix.
+ *
+ * Throws:    <NULL> on allocation failure.
+ */
+ESL_SCOREMATRIX *
+esl_scorematrix_Clone(const ESL_SCOREMATRIX *S)
+{
+  ESL_SCOREMATRIX *dup = NULL;
+
+  if ((dup = esl_scorematrix_Create(S->abc_r)) == NULL)  return NULL;
+  if (esl_scorematrix_Copy(S, dup)             != eslOK) { esl_scorematrix_Destroy(dup); return NULL; }
+  return dup;
+}
 
 
 /* Function:  esl_scorematrix_Compare()
  * Synopsis:  Compare two matrices for equality.
  * Incept:    SRE, Tue Apr  3 14:17:12 2007 [Janelia]
  *
- * Purpose:   Compares two score matrices; returns <eslOK> if they 
- *            are identical, <eslFAIL> if they differ.
+ * Purpose:   Compares two score matrices. Returns <eslOK> if they 
+ *            are identical, <eslFAIL> if they differ. Every aspect
+ *            of the two matrices is compared.
  */
 int
 esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2)
@@ -312,9 +366,32 @@ esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2)
   
   for (a = 0; a < S1->Kp; a++)
     for (b = 0; b < S1->Kp; b++)
-      if (S1->s[a][b] != S2->s[a][b])          return eslFAIL;
+      if (S1->s[a][b] != S2->s[a][b]) return eslFAIL;
   return eslOK;
 }
+
+/* Function:  esl_scorematrix_CompareCanon()
+ * Synopsis:  Compares scores of canonical residues for equality.
+ * Incept:    SRE, Tue May 15 11:00:38 2007 [Janelia]
+ *
+ * Purpose:   Compares the scores of canonical residues in 
+ *            two score matrices <S1> and <S2> for equality.
+ *            Returns <eslOK> if they are identical, <eslFAIL> 
+ *            if they differ. Peripheral aspects of the scoring matrices
+ *            having to do with noncanonical residues, output
+ *            order, and suchlike are ignored.
+ */
+int
+esl_scorematrix_CompareCanon(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2)
+{
+  int a,b;
+
+  for (a = 0; a < S1->K; a++)
+    for (b = 0; b < S1->K; b++)
+      if (S1->s[a][b] != S2->s[a][b]) return eslFAIL;
+  return eslOK;
+}
+
 
 
 /* Function:  esl_scorematrix_Max()
@@ -402,7 +479,7 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
  * 2. Reading/writing score matrices.
  *****************************************************************/
 
-/* Function:  esl_scorematrix_Read()
+/* Function:  esl_sco_Read()
  * Synopsis:  Read a standard matrix input file.
  * Incept:    SRE, Mon Apr  2 08:26:40 2007 [Janelia]
  *
@@ -435,7 +512,7 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCOREMATRIX **ret_S)
+esl_sco_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *abc, ESL_SCOREMATRIX **ret_S)
 {
   int status;
   ESL_SCOREMATRIX *S     = NULL;
@@ -532,7 +609,7 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCOREMATRIX **r
   return status;
 }
 
-/* Function:  esl_scorematrix_Write()
+/* Function:  esl_sco_Write()
  * Synopsis:  Write a BLAST-compatible score matrix file.
  * Incept:    SRE, Tue Apr  3 13:55:10 2007 [Janelia]
  *
@@ -543,7 +620,7 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *abc, ESL_SCOREMATRIX **r
  * Returns:   <eslOK> on success.
  */
 int
-esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
+esl_sco_Write(FILE *fp, const ESL_SCOREMATRIX *S)
 {
   int a,b;			
   int x,y;
@@ -591,32 +668,6 @@ esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
  * 3. Interpreting score matrices probabilistically.
  *****************************************************************/ 
 
-/* Function:  esl_scorematrix_ObtainPij()
- * Synopsis:  Obtain $P_{ij}$ for matrix with known $\lambda$ and background. 
- * Incept:    SRE, Thu Apr 12 17:46:20 2007 [Janelia]
- *
- * Purpose:   Given a score matrix <S> with known <lambda> and known
- *            query and target background frequencies <fi> and <fj>, calculate
- *            joint probabilities <P>.
- *            
- *            Caller provides square <P> matrix allocated for <S->K>
- *            $\times$ <S->K> joint residue probabilities $p_{ij}$. 
- *
- * Returns:   <eslOK> on success, and the joint probabilities are in <P>.
- */
-int
-esl_scorematrix_ObtainPij(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, const double lambda, ESL_DMATRIX *P)
-{
-  int i,j;
-
-  for (i = 0; i < S->K; i++)
-    for (j = 0; j < S->K; j++)
-      P->mx[i][j] = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
-  return eslOK;
-}
-
-
-
 struct lambda_params {
   const double *fi;
   const double *fj;
@@ -643,36 +694,58 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
   return eslOK;
 }
 
-/* Function:  esl_scorematrix_SolveLambda()
- * Synopsis:  Find $\lambda$ for score matrix, given background.
- * Incept:    SRE, Thu Apr 12 18:09:41 2007 [Janelia]
+/* Function:  esl_sco_ProbifyGivenBG()
+ * Synopsis:  Obtain $P_{ij}$ for matrix with known $\lambda$ and background. 
+ * Incept:    SRE, Thu Apr 12 17:46:20 2007 [Janelia]
  *
- * Purpose:   Given valid score matrix <S> and query and target background
- *            probabilities <fi>, <fj>, solve for $\lambda$. 
+ * Purpose:   Given a score matrix <S> and known query and target
+ *            background frequencies <fi> and <fj>, calculate scale
+ *            <lambda> and implicit target probabilities \citep{Altschul01}. 
+ *            Optionally returns either (or both) in <opt_lambda> and <opt_P>.
  *
- * Args:      
+ *            The implicit target probabilities are returned in a
+ *            newly allocated $K \times K$ <ESL_DMATRIX>, over only
+ *            the canonical (typically 4 or 20) residues in the
+ *            residue alphabet.
+ *            
+ * Args:      S          - score matrix
+ *            fi         - background frequencies for sequence i
+ *            fj         - background frequencies for sequence j
+ *            opt_lambda - optRETURN: calculated $\lambda$ parameter
+ *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a KxK DMATRIX.                  
  *
- * Returns:   <eslOK> on success, and $\lambda$ is returned in <ret_lambda>;
- *            additionally, if caller provides a non-<NULL> <P> allocated
- *            for joint probabilities $p_{ij}$, the joint probabilities are
- *            calculated and left there.
- *
- * Throws:    <eslEMEM> on allocation failure.
+ * Returns:   <eslOK> on success, <*ret_lambda> contains the
+ *            calculated $\lambda$ parameter, and <*ret_P> points to
+ *            the target probability matrix (which is allocated here,
+ *            and must be free'd by caller with <esl_dmatrix_Destroy(*ret_P)>.
+ *            
+ * Throws:    <eslEMEM> on allocation error; 
+ *            <eslEINVAL> if matrix is invalid and has no solution for $\lambda$;
+ *            <eslENOHALT> if the solver fails to find $\lambda$.
+ *            In these cases, <*ret_lambda> is 0.0, and <*ret_P> is <NULL>. 
  */
 int
-esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, ESL_DMATRIX *P, 
-			    double *ret_lambda)
+esl_sco_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
+		       double *opt_lambda, ESL_DMATRIX **opt_P)
 {
-  int status;
+  int    status;
   ESL_ROOTFINDER *R = NULL;
+  ESL_DMATRIX    *P = NULL;
   struct lambda_params p;
   double lambda_guess;
+  double lambda;
+  int    i,j;
   double fx, dfx;
+
+  /* First, solve for lambda by rootfinding.
+   */
+  /* Set up the data passed to the lambda_fdf function. */
   p.fi = fi;
   p.fj = fj;
   p.S  = S;
 
-  /* It's important that we come at the root from the far side, where
+  /* Bracket the root.
+   * It's important that we come at the root from the far side, where
    * f(lambda) is positive; else we may identify the root we don't want
    * at lambda=0.
    */
@@ -683,84 +756,42 @@ esl_scorematrix_SolveLambda(const ESL_SCOREMATRIX *S, const double *fi, const do
   }
   if (fx <= 0) ESL_EXCEPTION(eslEINVAL, "Failed to bracket root for solving lambda");
 
-  /* Find lambda by Newton/Raphson */
-  if ((  R = esl_rootfinder_CreateFDF(lambda_fdf, &p) ) == NULL) { status = eslEMEM; goto ERROR; }
-  if (( status = esl_root_NewtonRaphson(R, lambda_guess, ret_lambda))  != eslOK) goto ERROR;
+  /* Create a solver and find lambda by Newton/Raphson */
+  if ((    R   = esl_rootfinder_CreateFDF(lambda_fdf, &p) )         == NULL) { status = eslEMEM; goto ERROR; }
+  if (( status = esl_root_NewtonRaphson(R, lambda_guess, &lambda))  != eslOK) goto ERROR;
   
-  if (P != NULL) {
-    if ((status = esl_scorematrix_ObtainPij(S, fi, fj, *ret_lambda, P)) != eslOK) goto ERROR;
-  }
+  /* Now, given solution for lambda, calculate P
+   */
+  if (opt_P != NULL) 
+    {
+      if ((P = esl_dmatrix_Create(S->K, S->K)) == NULL) { status = eslEMEM; goto ERROR; }
+      for (i = 0; i < S->K; i++)
+	for (j = 0; j < S->K; j++)
+	  P->mx[i][j] = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
+    }
+
   esl_rootfinder_Destroy(R);
+  if (opt_lambda != NULL) *opt_lambda = lambda;
+  if (opt_P      != NULL) *opt_P      = P;  
   return eslOK;
 
  ERROR:
   if (R != NULL) esl_rootfinder_Destroy(R);
-  *ret_lambda = 0.;
+  if (opt_lambda != NULL) *opt_lambda = 0.;
+  if (opt_P      != NULL) *opt_P      = NULL;
   return status;
-}  
 
 
-/* Function:  esl_scorematrix_RelEntropy()
- * Synopsis:  Calculates relative entropy of a matrix.
- * Incept:    SRE, Sat May 12 18:14:02 2007 [Janelia]
- *
- * Purpose:   Calculates the relative entropy of score matrix <S> in
- *            bits, given its background distributions <fi> and <fj>.
- *            Return the relative entropy in <ret_D>. Optionally,
- *            return the calculated $\lambda$ parameter in <ret_lambda>;
- *            pass <NULL> if $\lambda$ isn't wanted.
- *
- * Args:      S          - score matrix
- *            fi         - background freqs for sequence i
- *            fj         - background freqs for sequence j
- *            ret_lambda - optRETURN: fitted lambda
- *            ret_D      - RETURN: relative entropy.
- * 
- * Returns:   <eslOK> on success, and <ret_D> contains the relative
- *            entropy, and <ret_lambda> (if non-<NULL>) contains
- *            the fitted $\lambda$.
- *
- * Throws:    <eslEMEM> on allocation error. In this case, both
- *            <ret_lambda> and <ret_D> are returned as 0.0.
- */
-int
-esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj,
-			   double *ret_lambda, double *ret_D)
-{
-  int    status;
-  double lambda;
-  double pij;
-  double D = 0;
-  int    i,j;
-
-  status = esl_scorematrix_SolveLambda(S, fi, fj, NULL, &lambda);
-  if (status != eslOK) goto ERROR;
-
-  for (i = 0; i < S->K; i++)
-    for (j = 0; j < S->K; j++)
-      {
-	pij = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
-	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
-      }
-  D /= eslCONST_LOG2;
-  if (ret_lambda != NULL) *ret_lambda = lambda;
-  *ret_D = D;
-  return eslOK;
-
- ERROR:
-  if (ret_lambda != NULL) *ret_lambda = 0.;
-  *ret_D = 0.;
-  return status;
 }
+
 
 
 /* This section is an implementation of one of the ideas in
  * Yu and Altschul, PNAS 100:15688, 2003 [YuAltschul03]:
- * given a valid score matrix, calculate its probabilistic
+ * Given a valid score matrix, calculate its probabilistic
  * basis (P_ij, f_i, f_j, and lambda), on the assumption that
  * the background probabilities are the marginals of P_ij.
  */
-
 struct yualtschul_params {
   ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */		
   ESL_DMATRIX *M;   /* not a param per se: alloc'ed storage for M matrix provided to the objective function */
@@ -799,12 +830,12 @@ yualtschul_func(double lambda, void *params, double *ret_fx)
  *
  * This function backcalculates the probabilistic basis for a score
  * matrix S, when S is a double-precision matrix. Providing this
- * as a separate "engine" and writing esl_scorematrix_ReverseEngineer()
+ * as a separate "engine" and writing esl_sco_Probify()
  * as a wrapper around it allows us to separately test inaccuracy
  * due to numerical performance of our linear algebra, versus 
  * inaccuracy due to integer roundoff in integer scoring matrices.
  * 
- * It is not uncommon for this to fail, when S is derived from
+ * It is not uncommon for this to fail when S is derived from
  * integer scores. Because the scores may have been provided by the
  * user, and this may be our first chance to detect the "user error"
  * of an invalid matrix, this engine returns <eslENORESULT> as a normal error
@@ -880,21 +911,20 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   return status;
 }
 
-/* Function:  esl_scorematrix_RevEngineer()
+/* Function:  esl_sco_Probify()
  * Synopsis:  Calculate the probabilistic basis of a score matrix.
  * Incept:    SRE, Wed Apr 11 07:56:44 2007 [Janelia]
  *
  * Purpose:   Reverse engineering of a score matrix: given a "valid"
  *            substitution matrix <S>, obtain implied joint
- *            probabilities <P>, query composition <fi>, target
- *            composition <fj>, and scale <lambda>, by assuming that
- *            <fi> and <fj> are the appropriate marginals of <P>.
+ *            probabilities $p_{ij}$, query composition $f_i$, target
+ *            composition $f_j$, and scale $\lambda$, by assuming that
+ *            $f_i$ and $f_j$ are the appropriate marginals of $p_{ij}$.
+ *            Optionally return any or all of these solutions in
+ *            <*opt_P>, <*opt_fi>, <*opt_fj>, and <*opt_lambda>.
  *
- *            This implements the algorithm described by [YuAltschul03].
- *            
- *            Caller provides the allocated space for a $K \times K$
- *            matrix <P>, and $K$-vectors <fi> and <fj>, where
- *            $K$ is the base alphabet size (<S->K>). 
+ *            This implements an algorithm described in
+ *            \citep{YuAltschul03}.
  *            
  *            This algorithm works fine in principle, but when it is
  *            applied to rounded integer scores with small dynamic
@@ -907,28 +937,39 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            lambda = 0.3466, half-bits) can be successfully reverse
  *            engineered (albeit with some loss of accuracy;
  *            calculated lambda is 0.3240) but other common matrices
- *            may fail.
+ *            may fail. This failure results in a normal returned
+ *            error of <eslENORESULT>. 
  *            
- * Args:      
+ * Args:      S          - score matrix 
+ *            opt_P      - optRETURN: KxK matrix of implied target probs $p_{ij}$
+ *            opt_fi     - optRETURN: vector of K $f_i$ background probs, 0..K-1
+ *            opt_fj     - optRETURN: vector of K $f_j$ background probs, 0..K-1
+ *            opt_lambda - optRETURN: calculated $\lambda$ parameter
  *
- * Returns:   <eslOK> on success, and <P>, <fi>, <fj>, and <ret_lambda>
- *            contain the results.
+ * Returns:   <eslOK> on success, and <ret_P>, <ret_fi>, <ret_fj>, and <ret_lambda>
+ *            point to the results (for any of these that were passed non-<NULL>).
  *            
- *            <eslENORESULT> if the algorithm fails to determine a
- *            valid solution.
+ *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
  *
  * Throws:    <eslEMEM> on allocation failure.
  *
  * Xref:      J1/35.
  */
 int
-esl_scorematrix_RevEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
+esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, double **opt_fj, double *opt_lambda)
 {
   int status;
+  ESL_DMATRIX  *Sd  = NULL;
+  ESL_DMATRIX  *P   = NULL;
+  double       *fi  = NULL;
+  double       *fj  = NULL;
+  double        lambda;
   int i,j;
-  ESL_DMATRIX    *Sd  = NULL;
 
-  if (( Sd = esl_dmatrix_Create(S->K, S->K))  == NULL)  goto ERROR;
+  if (( Sd = esl_dmatrix_Create(S->K, S->K))  == NULL) {status = eslEMEM; goto ERROR; }
+  if (( P  = esl_dmatrix_Create(S->K, S->K))  == NULL) {status = eslEMEM; goto ERROR; }
+  ESL_ALLOC(fi, sizeof(double) * S->K);
+  ESL_ALLOC(fj, sizeof(double) * S->K);
 
   /* Construct a double-precision dmatrix from S.
    * I've tried integrating over the rounding uncertainty by
@@ -940,18 +981,80 @@ esl_scorematrix_RevEngineer(const ESL_SCOREMATRIX *S, ESL_DMATRIX *P, double *fi
       Sd->mx[i][j] = (double) S->s[i][j];
 
   /* Reverse engineer the doubles */
-  if ((status = yualtschul_engine(Sd, P, fi, fj, ret_lambda)) != eslOK) goto ERROR;
+  if ((status = yualtschul_engine(Sd, P, fi, fj, &lambda)) != eslOK) goto ERROR;
       
   esl_dmatrix_Destroy(Sd);
+  if (opt_P      != NULL) *opt_P      = P;       else esl_dmatrix_Destroy(P);
+  if (opt_fi     != NULL) *opt_fi     = fi;      else free(fi);
+  if (opt_fj     != NULL) *opt_fj     = fj;      else free(fj);
+  if (opt_lambda != NULL) *opt_lambda = lambda;
   return eslOK;
 
  ERROR:
   if (Sd  != NULL) esl_dmatrix_Destroy(Sd);
+  if (P   != NULL) esl_dmatrix_Destroy(P);
+  if (fi  != NULL) free(fi);
+  if (fj  != NULL) free(fj);
+  if (opt_P      != NULL) *opt_P      = NULL;
+  if (opt_fi     != NULL) *opt_fi     = NULL;
+  if (opt_fj     != NULL) *opt_fj     = NULL;
+  if (opt_lambda != NULL) *opt_lambda = 0.;
   return status;
 }
 
 
 
+/* Function:  esl_sco_RelEntropy()
+ * Synopsis:  Calculates relative entropy of a matrix.
+ * Incept:    SRE, Sat May 12 18:14:02 2007 [Janelia]
+ *
+ * Purpose:   Calculates the relative entropy of score matrix <S> in
+ *            bits, given its background distributions <fi> and <fj> and
+ *            its scale <lambda>.
+ *
+ * Args:      S          - score matrix
+ *            fi         - background freqs for sequence i
+ *            fj         - background freqs for sequence j
+ *            lambda     - scale factor $\lambda$ for <S>
+ *            ret_D      - RETURN: relative entropy.
+ * 
+ * Returns:   <eslOK> on success, and <ret_D> contains the relative
+ *            entropy.
+ *
+ * Throws:    <eslEMEM> on allocation error. 
+ *            <eslEINVAL> if the implied $p_{ij}$'s don't sum to one,
+ *            probably indicating that <lambda> was not the correct
+ *            <lambda> for <S>, <fi>, and <fj>.
+ *            In either exception, <ret_D> is returned as 0.0.
+ */
+int
+esl_sco_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, double lambda, double *ret_D)
+{
+  int    status;
+  double pij;
+  double sum = 0.;
+  int    i,j;
+  double D = 0;
+
+  for (i = 0; i < S->K; i++)
+    for (j = 0; j < S->K; j++)
+      {
+	pij  = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
+	sum += pij;
+	if (pij > 0.) D += pij * log(pij / (fi[i] * fj[j]));
+	
+      }
+  if (esl_DCompare(sum, 1.0, 1e-3) != eslOK) 
+    ESL_XEXCEPTION(eslEINVAL, "pij's don't sum to one: bad lambda?");
+
+  D /= eslCONST_LOG2;
+  *ret_D = D;
+  return eslOK;
+
+ ERROR:
+  *ret_D = 0.;
+  return status;
+}
 
 
 
@@ -1025,11 +1128,11 @@ utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
   ESL_FILEPARSER  *efp = NULL;
   
   if (esl_tmpfile_named(tmpfile, &fp)       != eslOK) esl_fatal("failed to open tmp file");
-  if (esl_scorematrix_Write(fp, S)          != eslOK) esl_fatal("failed to write test matrix");
+  if (esl_sco_Write(fp, S)                  != eslOK) esl_fatal("failed to write test matrix");
   fclose(fp);
 
   if (esl_fileparser_Open(tmpfile, &efp)    != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
-  if (esl_scorematrix_Read(efp, abc, &S2)   != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
+  if (esl_sco_Read(efp, abc, &S2)           != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
   if (esl_scorematrix_Compare(S, S2)        != eslOK) esl_fatal("the two test matrices aren't identical");
   
   remove(tmpfile); 
@@ -1040,15 +1143,13 @@ utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
 
 
 static void
-utest_SolveLambda(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
+utest_ProbifyGivenBG(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
 {
-  char *msg = "SolveLambda() unit test failed";
+  char *msg = "ProbifyGivenBG() unit test failed";
   ESL_DMATRIX     *P    = NULL;
   double           lambda;
 
-  if ((P   = esl_dmatrix_Create(S0->K, S0->K))== NULL)  esl_fatal(msg);
-
-  if (esl_scorematrix_SolveLambda(S0, wagpi, wagpi, P, &lambda) != eslOK) esl_fatal(msg);
+  if (esl_sco_ProbifyGivenBG(S0, wagpi, wagpi, &lambda, &P) != eslOK) esl_fatal(msg);
 
   if (esl_DCompare(lambda0, lambda, 1e-3)     != eslOK) esl_fatal("lambda is wrong");
   if (esl_DCompare(esl_dmx_Sum(P), 1.0, 1e-9) != eslOK) esl_fatal("P doesn't sum to 1");
@@ -1108,19 +1209,20 @@ utest_yualtschul(ESL_DMATRIX *P0, double *wagpi)
 }
 
 
+/* utest_Probify()
+ * This tests Probify on a matrix that was calculated from probabilities in the first
+ * place. It verifies that the reconstructed Pij matrix matches the original Pij's
+ * that the score matrix was built from.
+ */
 static void
-utest_ReverseEngineer(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
+utest_Probify(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda0)
 {
   ESL_DMATRIX     *P  = NULL;
   double          *fi = NULL;
   double          *fj = NULL;
   double           lambda;	/* reconstructed lambda */
 
-  if ((P   = esl_dmatrix_Create(S0->K, S0->K)) == NULL)  esl_fatal("P allocation failed");
-  if ((fi  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fi allocation failed");
-  if ((fj  = malloc(sizeof(double) * S0->K))   == NULL)  esl_fatal("fj allocation failed");
-
-  if (esl_scorematrix_RevEngineer(S0, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
+  if (esl_sco_Probify(S0, &P, &fi, &fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
   /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
   if (esl_DCompare(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
@@ -1133,6 +1235,33 @@ utest_ReverseEngineer(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, doubl
   return;
 }
 
+/* utest_ProbifyBLOSUM()
+ * This tests Probify on a score matrix where the original Pij's are treated as
+ * unknown. It verifies that if you create a new score matrix from the reconstructed
+ * Pij's, you get the original score matrix back. BLOSUM62 makes a good example,
+ * hence the name.
+  */
+static void
+utest_ProbifyBLOSUM(ESL_SCOREMATRIX *BL62)
+{
+  char *msg = "failure in ProbifyBLOSUM() unit test";
+  ESL_DMATRIX     *P  = NULL;
+  double          *fi = NULL;
+  double          *fj = NULL;
+  double           lambda;	
+  ESL_SCOREMATRIX *S2 = NULL;
+
+  if (( S2 = esl_scorematrix_Clone(BL62))                  == NULL) esl_fatal(msg);
+  if (esl_sco_Probify(BL62, &P, &fi, &fj, &lambda)        != eslOK) esl_fatal(msg);
+  if (esl_scorematrix_SetFromProbs(S2, lambda, P, fi, fj) != eslOK) esl_fatal(msg);
+  if (esl_scorematrix_CompareCanon(BL62, S2)              != eslOK) esl_fatal(msg);
+  
+  free(fj);
+  free(fi);
+  esl_scorematrix_Destroy(S2);
+  esl_dmatrix_Destroy(P);
+  return;
+}
 
 #endif /*eslSCOREMATRIX_TESTDRIVE*/
 
@@ -1188,9 +1317,10 @@ main(int argc, char **argv)
    */
   utest_ReadWrite(abc, BL62);
   utest_ReadWrite(abc, S0);
-  utest_SolveLambda(abc, S0, P0, wagpi, lambda0);
+  utest_ProbifyGivenBG(S0, P0, wagpi, lambda0);
   utest_yualtschul(P0, wagpi);
-  utest_ReverseEngineer(S0, P0, wagpi, lambda0); 
+  utest_Probify(S0, P0, wagpi, lambda0); 
+  utest_ProbifyBLOSUM(BL62);
 
   esl_dmatrix_Destroy(Q);
   esl_dmatrix_Destroy(P0);
@@ -1223,27 +1353,25 @@ int main(int argc, char **argv)
   ESL_ALPHABET    *abc       = esl_alphabet_Create(eslAMINO);
   ESL_FILEPARSER  *efp       = NULL;
   ESL_SCOREMATRIX *S         = NULL;
-  ESL_DMATRIX     *P         = esl_dmatrix_Create(abc->K, abc->K);
-  double          *fi        = malloc(sizeof(double) * abc->K);
-  double          *fj        = malloc(sizeof(double) * abc->K);
+  ESL_DMATRIX     *P         = NULL;
+  double          *fi        = NULL;
+  double          *fj        = NULL;
   double           lambda, D;
   
   /* Input an amino acid score matrix from a file. */
   if ( esl_fileparser_Open(scorefile, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
-  if ( esl_scorematrix_Read(efp, abc, &S)   != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
+  if ( esl_sco_Read(efp, abc, &S)           != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
   esl_fileparser_Close(efp);
 
   /* Reverse engineer it to get implicit probabilistic model. */
-  if ( esl_scorematrix_RevEngineer(S, P, fi, fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
-
+  if ( esl_sco_Probify(S, &P, &fi, &fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
   /* Print some info, and the joint probabilities. */
   if (esl_scorematrix_IsSymmetric(S)) printf("Matrix is a standard symmetric matrix\n");
   else                                printf("Matrix is a nonstandard asymmetric matrix\n"); 
   printf("Lambda is %g\n\n", lambda);
 
-  esl_scorematrix_RelEntropy(S, fi, fj, &lambda, &D);
-  printf("lambda           = %g\n", lambda);
+  esl_sco_RelEntropy(S, fi, fj, lambda, &D);
   printf("Relative entropy = %.4f bits\n\n", D); 
 
   printf("Implicit joint probabilities are:\n");
@@ -1252,6 +1380,11 @@ int main(int argc, char **argv)
   esl_vec_DDump(stdout, fi, S->K, abc->sym);
   printf("fj's are:\n");
   esl_vec_DDump(stdout, fj, S->K, abc->sym);
+
+  esl_composition_BL62(fi);
+  esl_sco_ProbifyGivenBG(S, fi, fi, &lambda, &P);
+  esl_sco_RelEntropy(S, fi, fi, lambda, &D);
+  printf("Using blosum62 background, lambda = %.4f, rel entropy = %.4f\n", lambda, D);
 
   free(fi);
   free(fj);

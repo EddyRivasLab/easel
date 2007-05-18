@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <easel.h>
 #include <esl_getopts.h>
@@ -14,31 +15,29 @@
 #include <esl_gumbel.h>
 
 
-static char banner[] = "\
-esl-histplot :: collate data histogram, output xmgrace datafile";
+static char banner[] = "collate a data histogram, output xmgrace datafile";
 
-static char usage[] = "\
-Usage: esl-histplot [-options] <datafile>";
+static char usage[] = "[-options] <datafile>";
 
 static ESL_OPTIONS options[] = {
-  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
-  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                     1 },
-  {"-o",  eslARG_OUTFILE, NULL,  NULL, NULL, NULL, NULL, NULL, "output file for histogram",               1},
+  /* name           type         default env rng  togs  reqs inc    help                                          docgrp */
+  {"-h",          eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"show help and usage",                               1 },
+  {"-o",          eslARG_OUTFILE, NULL,NULL,NULL, NULL,NULL,NULL,"output file for histogram",                         1 },
 
-  {"-b",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "input file is binary, array of doubles",  2 },
-  {"-f",  eslARG_INT,       "1", NULL, "n>0",NULL, NULL, "-b", "which field to read on text line (1..n)", 2 },
+  {"-b",          eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"input file is binary, array of doubles",            2 },
+  {"-f",          eslARG_INT,      "1",NULL,"n>0",NULL,NULL,"-b","which field to read on text line (1..n)",           2 },
 
-  {"-w",   eslARG_REAL,   "1.0", NULL, NULL, NULL, NULL, NULL, "bin size for histogram",                  3 },
-  {"--min", eslARG_REAL, "-100.",NULL, NULL, NULL, NULL, NULL, "initial lower bound of histogram",        3 },
-  {"--max", eslARG_REAL,  "100.",NULL, NULL, NULL, NULL, NULL, "initial upper bound of histogram",        3 },
-  {"--surv", eslARG_NONE, FALSE, NULL, NULL, NULL, NULL, NULL, "output survival plot, not histogram",     3 },
+  {"-w",          eslARG_REAL,   "1.0",NULL,NULL, NULL,NULL,NULL,"bin size for histogram",                            3 },
+  {"--min",       eslARG_REAL, "-100.",NULL,NULL, NULL,NULL,NULL,"initial lower bound of histogram",                  3 },
+  {"--max",       eslARG_REAL,  "100.",NULL,NULL, NULL,NULL,NULL,"initial upper bound of histogram",                  3 },
+  {"--surv",      eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"output survival plot, not histogram",               3 },
    
-  {"--gumbel",    eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit data to a Gumbel distribution",                   4 }, 
-  {"--exptail",   eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit tail to an exponential distribution",             4 },
-  {"--gumloc",    eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit data to a Gumbel distribution w/ known lambda",   4 }, 
-  {"--exptailloc",eslARG_NONE,FALSE, NULL, NULL, NULL, NULL, NULL,   "fit tail to an exponential tail w/ known lambda",     4 }, 
-  {"--lambda",    eslARG_REAL,"0.693",NULL,NULL, NULL, NULL, NULL,   "set known lambda",            4 },    
-  {"-p",          eslARG_REAL,"0.01", NULL,NULL, NULL, NULL, NULL,   "set tail mass to fit to",     4 },    
+  {"--gumbel",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution",                 4 }, 
+  {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",           4 },
+  {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
+  {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
+  {"--lambda",    eslARG_REAL,"0.693", NULL,NULL, NULL,NULL,NULL,"set known lambda",                                  4 },    
+  {"-p",          eslARG_REAL, "0.01", NULL,NULL, NULL,NULL,NULL,"set tail mass to fit to",                           4 },    
 
   { 0,0,0,0,0,0,0,0,0,0},
 };
@@ -70,34 +69,46 @@ main(int argc, char **argv)
    * Parse the command line
    *****************************************************************/
 
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-  if (esl_opt_IsSet(go, "-h")) {
-    puts(usage);
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK)
+    {
+      printf("Failed to parse command line: %s\n", go->errbuf);
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+    
+  if (esl_opt_GetBoolean(go, "-h")) {
+    esl_banner(stdout, argv[0], banner);
+    esl_usage (stdout, argv[0], usage);
     puts("\nGeneral options are:");
-    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 0= group; 2 = indentation; 80=textwidth*/
+    esl_opt_DisplayHelp(stdout, go, 1, 2, 80); /* 1= group; 2 = indentation; 80=textwidth*/
     puts("\nOptions that control how to read the input file:");
-    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 1= group; 2 = indentation; 80=textwidth*/
+    esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 2= group; 2 = indentation; 80=textwidth*/
     puts("\nOptions that control how to display the output XY file:");
-    esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 2= group; 2 = indentation; 80=textwidth*/
+    esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 3= group; 2 = indentation; 80=textwidth*/
     puts("\nOptional ML fitting of the data to distributions:");
-    esl_opt_DisplayHelp(stdout, go, 4, 2, 80); /* 3= group; 2 = indentation; 80=textwidth*/
+    esl_opt_DisplayHelp(stdout, go, 4, 2, 80); /* 4= group; 2 = indentation; 80=textwidth*/
     return eslOK;
   }
-  esl_opt_GetIntegerOption(go, "-f",         &which_field);
-  esl_opt_GetStringOption (go, "-o",         &outfile);
-  esl_opt_GetDoubleOption (go, "-p",         &tailp);
-  esl_opt_GetDoubleOption (go, "-w",         &hbinsize);
-  esl_opt_GetDoubleOption (go, "--min",      &hmin);
-  esl_opt_GetDoubleOption (go, "--max",      &hmax);
-  esl_opt_GetDoubleOption (go, "--lambda",   &lambda);
+  which_field = esl_opt_GetInteger(go, "-f");
+  outfile     = esl_opt_GetString (go, "-o");
+  tailp       = esl_opt_GetReal   (go, "-p");
+  hbinsize    = esl_opt_GetReal   (go, "-w");
+  hmin        = esl_opt_GetReal   (go, "--min");
+  hmax        = esl_opt_GetReal   (go, "--max");
+  lambda      = esl_opt_GetReal   (go, "--lambda");
 
   if (esl_opt_ArgNumber(go) != 1) 
-    esl_fatal("Incorrect number of command line arguments.\n%s\n", usage); 
+    {
+      printf("Incorrect number of command line arguments.\n");
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
 
-  datafile = esl_opt_GetCmdlineArg(go, eslARG_INFILE, NULL);
-
+  datafile = esl_opt_GetArg(go, eslARG_INFILE, NULL);
 
   /*****************************************************************
    * Open the input and output datafiles, and init the histogram.
@@ -123,7 +134,7 @@ main(int argc, char **argv)
    * Collect the data
    *****************************************************************/
 
-  if (esl_opt_IsSet(go, "-b"))
+  if (esl_opt_GetBoolean(go, "-b"))
     {
       while (fread(&x, sizeof(double), 1, ifp) == 1)
 	esl_histogram_Add(h, x);
@@ -157,26 +168,26 @@ main(int argc, char **argv)
    * Optionally, fit the data
    *****************************************************************/
 
-  if (esl_opt_IsSet(go, "--gumbel"))
+  if (esl_opt_GetBoolean(go, "--gumbel"))
     {
       esl_histogram_GetData(h, &xv, &n);
       esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
     }
-  else if (esl_opt_IsSet(go, "--gumloc"))
+  else if (esl_opt_GetBoolean(go, "--gumloc"))
     {
       params[1] = lambda;
       esl_histogram_GetData(h, &xv, &n);
       esl_gumbel_FitCompleteLoc(xv, n, params[1], &(params[0]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
     }
-  else if (esl_opt_IsSet(go, "--exptail"))
+  else if (esl_opt_GetBoolean(go, "--exptail"))
     {
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
       esl_exp_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
     }
-  else if (esl_opt_IsSet(go, "--exptailloc"))
+  else if (esl_opt_GetBoolean(go, "--exptailloc"))
     {
       params[1] = lambda;
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
@@ -188,8 +199,8 @@ main(int argc, char **argv)
    * Output
    *****************************************************************/
 
-  if   (esl_opt_IsSet(go, "--surv"))  esl_histogram_PlotSurvival(ofp, h);
-  else                                esl_histogram_Plot(ofp, h);
+  if   (esl_opt_GetBoolean(go, "--surv")) esl_histogram_PlotSurvival(ofp, h);
+  else                                    esl_histogram_Plot(ofp, h);
 
 
   /*****************************************************************

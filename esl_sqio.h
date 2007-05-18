@@ -179,6 +179,7 @@ extern ESL_SQ *esl_sq_CreateDigital(ESL_ALPHABET *abc);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_Digitize(ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
+extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
 #endif
 
 extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);

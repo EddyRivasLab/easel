@@ -94,7 +94,7 @@ esl_alphabet_Create(int type)
  * Throws:    <NULL> if any allocation or initialization fails.
  */
 ESL_ALPHABET *
-esl_alphabet_CreateCustom(char *alphabet, int K, int Kp)
+esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
 {
   ESL_ALPHABET *a;
   int           c,x,y;
@@ -427,10 +427,10 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
  * Returns:   <eslOK> on success.
  */
 int
-esl_alphabet_SetIgnored(ESL_ALPHABET *a, char *ignoredchars)
+esl_alphabet_SetIgnored(ESL_ALPHABET *a, const char *ignoredchars)
 {
-  char *c;
-  for (c = ignoredchars; *c != '\0'; c++) a->inmap[(int)(*c)] = eslDSQ_IGNORED;
+  int i;
+  for (i = 0; ignoredchars[i] != '\0'; i++) a->inmap[(int)ignoredchars[i]] = eslDSQ_IGNORED;
   return eslOK;
 }
 
@@ -507,7 +507,7 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
  * Xref:      STL11/63
  */
 int
-esl_abc_CreateDsq(ESL_ALPHABET *a, char *seq, ESL_DSQ **ret_dsq)
+esl_abc_CreateDsq(const ESL_ALPHABET *a, const char *seq, ESL_DSQ **ret_dsq)
 {
   ESL_DSQ *dsq = NULL;
   int      status;
@@ -550,7 +550,7 @@ esl_abc_CreateDsq(ESL_ALPHABET *a, char *seq, ESL_DSQ **ret_dsq)
  *           (X or N).
  */
 int
-esl_abc_Digitize(ESL_ALPHABET *a, char *seq, ESL_DSQ *dsq)
+esl_abc_Digitize(const ESL_ALPHABET *a, const char *seq, ESL_DSQ *dsq)
 {
   int     status;
   int     i;			/* position in seq */
@@ -597,7 +597,7 @@ esl_abc_Digitize(ESL_ALPHABET *a, char *seq, ESL_DSQ *dsq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_Textize(ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char *seq)
+esl_abc_Textize(const ESL_ALPHABET *a, const ESL_DSQ *dsq, int L, char *seq)
 {
   int i;
   
@@ -641,7 +641,7 @@ esl_abc_Textize(ESL_ALPHABET *a, ESL_DSQ *dsq, int L, char *seq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_TextizeN(ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf)
+esl_abc_TextizeN(const ESL_ALPHABET *a, const ESL_DSQ *dptr, int L, char *buf)
 {
   int i;
 
@@ -669,7 +669,7 @@ esl_abc_TextizeN(ESL_ALPHABET *a, ESL_DSQ *dptr, int L, char *buf)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_dsqcpy(ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
+esl_abc_dsqcpy(const ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
 {
   memcpy(dcopy, dsq, sizeof(ESL_DSQ) * (L+2));
   return eslOK;
@@ -701,7 +701,7 @@ esl_abc_dsqcpy(ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
  * Xref:      STL11/48
  */
 int 
-esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
+esl_abc_dsqdup(const ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
 {
   int      status;
   ESL_DSQ *new = NULL;
@@ -789,7 +789,7 @@ esl_abc_dsqdup(ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
  * Xref:      STL11/48.
  */
 int
-esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
+esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, const char *s, int n)
 {
   int     status;
   void   *p;
@@ -850,7 +850,7 @@ esl_abc_dsqcat(ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, char *s, int n)
  *            (<eslDSQ_SENTINEL>).  
  */
 int 
-esl_abc_dsqlen(ESL_DSQ *dsq)
+esl_abc_dsqlen(const ESL_DSQ *dsq)
 {
   int n = 0;
   while (dsq[n+1] != eslDSQ_SENTINEL) n++;
@@ -866,7 +866,7 @@ esl_abc_dsqlen(ESL_DSQ *dsq)
  *            missing data symbols. 
  */
 int
-esl_abc_dsqrlen(ESL_ALPHABET *abc, ESL_DSQ *dsq)
+esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
 {
   int n = 0;
   int i;
@@ -879,8 +879,68 @@ esl_abc_dsqrlen(ESL_ALPHABET *abc, ESL_DSQ *dsq)
 
 
 /*****************************************************************
- * 3. Other routines
+ * 3. Other routines in the API.
  *****************************************************************/ 
+
+/* Function:  esl_abc_GuessAlphabet()
+ * Synopsis:  Guess alphabet type from residue composition.
+ * Incept:    SRE, Wed May 16 11:08:29 2007 [Janelia]
+ *
+ * Purpose:   Guess the alphabet type from a residue composition.
+ *            The input <ct[0..25]> array contains observed counts of 
+ *            the letters A..Z, case-insensitive. 
+ *            
+ *            Provided that the compositions contains more than 10
+ *            residues, the composition is called <eslDNA> if it
+ *            consists only of the residues ACGTN and all four of ACGT
+ *            occur (and analogously for <eslRNA>, ACGU$+$N); and it
+ *            calls the sequence <eslAMINO> either if it contains an
+ *            amino-specific letter (EFIJLOPQZ), or if it contains at
+ *            least 15 of the 20 canonical amino acids and consists
+ *            only of canonical amino acids or X.
+ *            
+ *
+ * Returns:   <eslOK> on success, and <*ret_type> is set to
+ *            <eslAMINO>, <eslRNA>, or <eslDNA>.
+ *
+ *            Returns <eslEAMBIGUOUS> if unable to determine the
+ *            alphabet type; in this case, <*ret_type> is set to 
+ *            <eslUNKNOWN>.
+ */
+int
+esl_abc_GuessAlphabet(const int *ct, int *ret_type)
+{
+  int  type = eslUNKNOWN;
+  char aaonly[]    = "EFIJLOPQZ";
+  char allcanon[]  = "ACG";
+  char aacanon[]   = "DHKMRSVWY";
+  int  n1, n2, n3, nn, nt, nu, nx, n; /* n's are counts */
+  int  x1, x2, x3, xn, xt, xu;	      /* x's are how many different residues are represented */
+  int  i, x;
+
+  x1 = x2 = x3 = xn = xt = xu = 0;
+  n1 = n2 = n3 = n = 0;
+  for (i = 0; i < 26;                i++) n  += ct[i];
+  for (i = 0; aaonly[i]   != '\0'; i++) { x = ct[aaonly[i]   - 'A']; if (x > 0) { n1 += x; x1++; } }
+  for (i = 0; allcanon[i] != '\0'; i++) { x = ct[allcanon[i] - 'A']; if (x > 0) { n2 += x; x2++; } }
+  for (i = 0; aacanon[i]  != '\0'; i++) { x = ct[aacanon[i]  - 'A']; if (x > 0) { n3 += x; x3++; } }
+  nt = ct['T' - 'A']; xt = (nt > 0) ? 1 : 0;
+  nu = ct['U' - 'A']; xu = (nu > 0) ? 1 : 0;
+  nx = ct['X' - 'A']; 
+  nn = ct['N' - 'A']; 
+
+  if      (n  <= 10)                                                type = eslUNKNOWN;
+  else if (n1 > 0)                                                  type = eslAMINO; /* contains giveaway, aa-only chars */
+  else if (n2+nt+nn == n && x2+xt == 4)                             type = eslDNA;   /* all DNA canon (or N), all four seen */
+  else if (n2+nu+nn == n && x2+xu == 4)                             type = eslRNA;   /* all RNA canon (or N), all four seen */
+  else if (n1+n2+n3+nn+nt+nx == n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; /* all aa canon (or X); more aa canon than ambig; all 20 seen */
+  
+  *ret_type = type;
+  if (type == eslUNKNOWN) return eslEAMBIGUOUS;
+  else                    return eslOK;
+}
+
+
 
 /* Function:  esl_abc_Match()
  * Synopsis:  Returns the probability that two symbols match.
@@ -920,7 +980,7 @@ esl_abc_dsqrlen(ESL_ALPHABET *abc, ESL_DSQ *dsq)
  *            residues <x> and <y>.
  */
 double
-esl_abc_Match(ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p)
+esl_abc_Match(const ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p)
 {
   int    i;
   double prob;
@@ -989,7 +1049,7 @@ esl_abc_Match(ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p)
  * Returns:  average score for symbol <x>          
  */
 int
-esl_abc_IAvgScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc)
+esl_abc_IAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const int *sc)
 {
   float result = 0.;
   int i;
@@ -1002,7 +1062,7 @@ esl_abc_IAvgScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc)
   else            return (int) (result + 0.5);
 }
 float
-esl_abc_FAvgScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc)
+esl_abc_FAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const float *sc)
 {
   float result = 0.;
   int   i;
@@ -1014,7 +1074,7 @@ esl_abc_FAvgScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc)
   return result;
 }
 double
-esl_abc_DAvgScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc)
+esl_abc_DAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc)
 {
   double result = 0.;
   int    i;
@@ -1056,7 +1116,7 @@ esl_abc_DAvgScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc)
  * Returns:  average score for symbol <x>          
  */
 int
-esl_abc_IExpectScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc, float *p)
+esl_abc_IExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const int *sc, const float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -1073,7 +1133,7 @@ esl_abc_IExpectScore(ESL_ALPHABET *a, ESL_DSQ x, int *sc, float *p)
   else            return (int) (result + 0.5);
 }
 float
-esl_abc_FExpectScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc, float *p)
+esl_abc_FExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const float *sc, const float *p)
 {
   float  result = 0.;
   float  denom  = 0.;
@@ -1089,7 +1149,7 @@ esl_abc_FExpectScore(ESL_ALPHABET *a, ESL_DSQ x, float *sc, float *p)
   return result;
 }
 double
-esl_abc_DExpectScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc, double *p)
+esl_abc_DExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc, const double *p)
 {
   double result = 0.;
   double denom  = 0.;
@@ -1126,7 +1186,7 @@ esl_abc_DExpectScore(ESL_ALPHABET *a, ESL_DSQ x, double *sc, double *p)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc)
+esl_abc_IAvgScVec(const ESL_ALPHABET *a, int *sc)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1134,7 +1194,7 @@ esl_abc_IAvgScVec(ESL_ALPHABET *a, int *sc)
   return eslOK;
 }
 int
-esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc)
+esl_abc_FAvgScVec(const ESL_ALPHABET *a, float *sc)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1142,7 +1202,7 @@ esl_abc_FAvgScVec(ESL_ALPHABET *a, float *sc)
   return eslOK;
 }
 int
-esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc)
+esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1174,7 +1234,7 @@ esl_abc_DAvgScVec(ESL_ALPHABET *a, double *sc)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p)
+esl_abc_IExpectScVec(const ESL_ALPHABET *a, int *sc, const float *p)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1182,7 +1242,7 @@ esl_abc_IExpectScVec(ESL_ALPHABET *a, int *sc, float *p)
   return eslOK;
 }
 int
-esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p)
+esl_abc_FExpectScVec(const ESL_ALPHABET *a, float *sc, const float *p)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1190,7 +1250,7 @@ esl_abc_FExpectScVec(ESL_ALPHABET *a, float *sc, float *p)
   return eslOK;
 }
 int
-esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p)
+esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p)
 {
   ESL_DSQ x;
   for (x = a->Kp+1; x <= a->Kp; x++)
@@ -1219,7 +1279,7 @@ esl_abc_DExpectScVec(ESL_ALPHABET *a, double *sc, double *p)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_FCount(ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
+esl_abc_FCount(const ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
 {
   ESL_DSQ y;
 
@@ -1235,7 +1295,7 @@ esl_abc_FCount(ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
   return eslOK;
 }
 int
-esl_abc_DCount(ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
+esl_abc_DCount(const ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
 {
   ESL_DSQ y;
 
@@ -1266,8 +1326,8 @@ esl_abc_DescribeType(int type)
   case eslUNKNOWN:     return "unknown";
   case eslRNA:         return "RNA";
   case eslDNA:         return "DNA";
-  case eslAMINO:       return "protein";
-  case eslNONSTANDARD: return "nonstandard/custom";
+  case eslAMINO:       return "amino";
+  case eslNONSTANDARD: return "custom";
   default:             return "BOGUS";
   }
 }
@@ -1298,7 +1358,7 @@ esl_abc_DescribeType(int type)
  * Throws:    (no abnormal error conditions).
  */
 int
-esl_abc_ValidateSeq(ESL_ALPHABET *a, char *seq, int L, char *errbuf)
+esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int L, char *errbuf)
 {
   int status;
   int i;

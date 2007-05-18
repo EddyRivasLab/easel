@@ -91,7 +91,7 @@ OBJS    = \
 
 all: libeasel.a
 
-.c.o:
+.c.o: 
 	${CC} -I. ${CFLAGS} ${DEFS} -c $<		
 
 libeasel.a: $(OBJS)

@@ -1,3 +1,4 @@
+/*::cexcerpt::header_example::begin::*/
 /* Multiple sequence alignment file i/o.
  *    
  * Contents:   
@@ -5,13 +6,19 @@
  *    2. The ESL_MSAFILE object.
  *    3. Digitized MSA's. (Alphabet augmentation required.)
  *    4. General i/o API, for all alignment formats.
- *    5. Miscellaneous functions for manipulating MSAs
- *    6. Example driver
- *    7. Test driver
+ *    5. Miscellaneous functions for manipulating MSAs.
+ *    6. Benchmark driver.
+ *    7. Unit tests.
+ *    8. Test driver.
+ *    9. Example driver.
+ *   10 . Copyright and license information.
  * 
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
  * SVN $Id$
  */
+/*::cexcerpt::header_example::end::*/
+
+/*::cexcerpt::include_example::begin::*/
 #include <esl_config.h>
 
 #include <stdio.h>
@@ -30,7 +37,7 @@
 #include <esl_ssi.h>
 #endif
 #include <esl_msa.h>
-
+/*::cexcerpt::include_example::end::*/
 
 /******************************************************************************
  * 1. The ESL_MSA object                                           
@@ -255,7 +262,7 @@ create_mostly(int nseq, int alen)
  *            that it puts the string <s> in.
  */
 ESL_MSA *
-esl_msa_CreateFromString(char *s, int fmt)
+esl_msa_CreateFromString(const char *s, int fmt)
 {
   char         tmpfile[16] = "esltmpXXXXXX";
   FILE        *fp          = NULL;
@@ -1075,7 +1082,7 @@ verify_parse(ESL_MSA *msa, char *errbuf)
 /******************************************************************************
  * 2. The ESL_MSAFILE object                                       
  *****************************************************************************/
-static int msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp);
+static int msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **ret_msafp);
 
 /* Function: esl_msafile_Open()
  * Date:     SRE, Sun Jan 23 08:30:33 2005 [St. Louis]
@@ -1124,12 +1131,12 @@ static int msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret
  *           esl_msafile_OpenDigital() shares almost all the same code.
  */
 int
-esl_msafile_Open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
+esl_msafile_Open(const char *filename, int format, const char *env, ESL_MSAFILE **ret_msafp)
 {
   return msafile_open(filename, format, env, ret_msafp);
 }
 static int
-msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
+msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **ret_msafp)
 {
   ESL_MSAFILE *afp = NULL;
   char *ssifile;
@@ -1153,6 +1160,7 @@ msafile_open(char *filename, int format, char *env, ESL_MSAFILE **ret_msafp)
 #ifdef eslAUGMENT_SSI		
   afp->ssi        = NULL;	         
 #endif  
+  afp->msa_cache  = NULL;
 
   n        = strlen(filename);
   ssifile  = NULL;
@@ -1270,6 +1278,7 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 #ifdef eslAUGMENT_SSI
   if (afp->ssi  != NULL)  esl_ssi_Close(afp->ssi); 
 #endif /* eslAUGMENT_SSI*/
+  if (afp->msa_cache != NULL) esl_msa_Destroy(afp->msa_cache);
   free(afp);
 }
 
@@ -1293,6 +1302,109 @@ msafile_getline(ESL_MSAFILE *afp)
  * 3. Digitized MSA's (ALPHABET augmentation required)
  *****************************************************************************/
 #ifdef eslAUGMENT_ALPHABET
+/* Function:  esl_msa_GuessAlphabet()
+ * Synopsis:  Guess alphabet of MSA.
+ * Incept:    SRE, Fri May 18 09:55:08 2007 [Janelia]
+ *
+ * Purpose:   Guess whether the sequences in the <msa> are
+ *            <eslDNA>, <eslRNA>, or <eslAMINO>, and return
+ *            that guess in <*ret_type>.
+ *            
+ *            The determination is made based on the classifications
+ *            of the individual sequences in the alignment. At least
+ *            one sequence must contain ten residues or more to be
+ *            classified. If one or more sequences is called
+ *            <eslAMINO> and one or more is called <eslDNA>/<eslRNA>,
+ *            the alignment's alphabet is considered to be
+ *            indeterminate (<eslUNKNOWN>). If some sequences are
+ *            <eslDNA> and some are <eslRNA>, the alignment is called
+ *            <eslDNA>; this should cause no problems, because Easel
+ *            reads U as a synonym for T in DNA sequence anyway.
+ *            
+ *            Tested on Pfam 21.0 and Rfam 7.0, this routine correctly
+ *            classified all 8957 Pfam alignments as protein, and 503
+ *            Rfam alignments as RNA (both seed and full alignments).
+ *
+ * Returns:   <eslOK> on success, and <*ret_type> is set
+ *            to <eslDNA>, <eslRNA>, or <eslAMINO>. 
+ *            
+ *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to
+ *            <eslUNKNOWN> if the alphabet cannot be reliably guessed.
+ *
+ * Xref:      J1/62
+ */
+int
+esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
+{
+  int namino   = 0,
+      ndna     = 0,
+      nrna     = 0,
+      nunknown = 0;
+  int type;
+  int i,j,x,n;
+  int ct[26];
+
+  if (msa->flags & eslMSA_DIGITAL) { *ret_type = msa->abc->type; return eslOK; }
+
+  *ret_type = eslUNKNOWN;
+
+  /* On wide alignments, we're better off looking at individual sequence
+   * classifications. We don't want to end up calling the whole alignment
+   * indeterminate just because a few sequences have degenerate residue
+   * codes.
+   */
+  for (i = 0; i < msa->nseq; i++) 
+    {
+      for (x = 0; x < 26; x++) ct[x] = 0;
+      for (n = 0, j = 0; j < msa->alen; j++) {
+	x = toupper(msa->aseq[i][j]) - 'A';
+	if (x < 0 || x > 26) continue;
+	ct[x]++;
+	n++;
+	if (n > 10000) break;	/* ought to know by now */
+      }
+      esl_abc_GuessAlphabet(ct, &type);
+
+      switch (type) {
+      case eslAMINO:   namino++; break;
+      case eslDNA:     ndna++;   break;
+      case eslRNA:     nrna++;   break;
+      default:         nunknown++; 
+      }
+    }
+  if      (namino    > 0 && (ndna+nrna)   == 0) *ret_type = eslAMINO;
+  else if (ndna      > 0 && (nrna+namino) == 0) *ret_type = eslDNA;
+  else if (nrna      > 0 && (ndna+namino) == 0) *ret_type = eslRNA;
+  else if (ndna+nrna > 0 && namino        == 0) *ret_type = eslDNA;
+
+  /* On narrow alignments, no single sequence may be long enough to 
+   * be classified, but we can determine alphabet from composition
+   * of the complete alignment. Of course, degenerate residue codes in
+   * a DNA alignment will still screw us.
+   */
+  if (*ret_type == eslUNKNOWN)
+    {
+
+      n = 0;
+      for (x = 0; x < 26; x++) ct[x] = 0;
+      for (i = 0; i < msa->nseq; i++) {
+	for (j = 0; j < msa->alen; j++) {
+	  x = toupper(msa->aseq[i][j]) - 'A';
+	  if (x < 0 || x > 26) continue;
+	  ct[x]++;
+	  n++;
+	  if (n > 10000) break;	/* ought to know by now */
+	}
+	if (n > 10000) break;	
+      }
+      esl_abc_GuessAlphabet(ct, ret_type);
+    }
+
+  if (*ret_type == eslUNKNOWN) return eslEAMBIGUOUS;
+  else                         return eslOK;
+}
+
+
 /* Function:  esl_msa_CreateDigital()
  * Incept:    SRE, Sun Aug 27 16:49:58 2006 [Leesburg]
  *
@@ -1315,7 +1427,7 @@ msafile_getline(ESL_MSAFILE *afp)
  * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
-esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
+esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen)
 {
   int      status;
   ESL_MSA *msa;
@@ -1335,7 +1447,7 @@ esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
       msa->nseq = nseq;
     }
 
-  msa->abc    = abc;
+  msa->abc    = (ESL_ALPHABET *) abc; /* this cast away from const-ness is deliberate & safe. */
   msa->flags |= eslMSA_DIGITAL;
   return msa;
 
@@ -1370,7 +1482,7 @@ esl_msa_CreateDigital(ESL_ALPHABET *abc, int nseq, int alen)
  *            wedged, and it should only be destroyed, not used.
  */
 int
-esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
+esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa)
 {
   int status;
   int i;
@@ -1403,7 +1515,7 @@ esl_msa_Digitize(ESL_ALPHABET *abc, ESL_MSA *msa)
   free(msa->aseq);
   msa->aseq = NULL;
 
-  msa->abc   =  abc;
+  msa->abc   =  (ESL_ALPHABET *) abc; /* convince compiler that removing const-ness is safe */
   msa->flags |= eslMSA_DIGITAL;
   return eslOK;
 
@@ -1466,6 +1578,72 @@ esl_msa_Textize(ESL_MSA *msa)
   return status;
 }
 
+
+
+/* Function:  esl_msafile_GuessAlphabet()
+ * Synopsis:  Guess what kind of sequences the alignment file contains.
+ * Incept:    SRE, Wed May 16 10:45:37 2007 [Janelia]
+ *
+ * Purpose:   Guess the alphabet of the sequences in the open
+ *            <ESL_MSAFILE> -- <eslDNA>, <eslRNA>, or <eslAMINO> --
+ *            based on the composition of the next MSA in the
+ *            file. Usually this would be the first MSA, because we
+ *            would call <esl_msafile_GuessAlphabet()> immediately
+ *            after opening a new MSA file.
+ *            
+ * Returns:   Returns <eslOK> on success, and <*ret_type> is set
+ *            to <eslDNA>, <eslRNA>, or <eslAMINO>. 
+ *            
+ *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to
+ *            <eslUNKNOWN> if the first alignment in the file contains
+ *            no more than ten residues total, or if its alphabet
+ *            cannot be reliably guessed (it contains IUPAC degeneracy
+ *            codes, but no amino acid specific residues).
+ * 
+ *            Returns <eslEFORMAT> if a parse error is encountered
+ *            in trying to read the alignment file. <msafp->errbuf>
+ *            is set to a useful error message if this occurs; 
+ *            <*ret_type> is set to <eslUNKNOWN>.
+ *
+ *            Returns <eslENODATA> if the file is empty and no
+ *            alignment was found; <*ret_type> is set to <eslUNKNOWN>.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      J1/62.
+ */
+int
+esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type)
+{
+  int      status;
+  ESL_MSA *msa = NULL;
+  
+  /* If the msafp is digital mode, we already know the type (so why
+   * are we being called?) If do_digital is TRUE, msafp->abc is
+   * non-NULL: 
+   */
+  if (msafp->abc != NULL) { *ret_type = msafp->abc->type; return eslOK; } /* that was easy */
+
+  /* Read first alignment, collect its residue composition for
+   * passing off to esl_abc_GuessAlphabet()
+   */
+  status = esl_msa_Read(msafp, &msa);
+  if      (status == eslEOF)     return eslENODATA;
+  else if (status != eslOK)      return status;
+
+  /* Store the msa in the MSAFILE's cache.  This is because if we're
+   * reading from stdin or a gzip pipe, we'll have trouble rewinding
+   * to prepare for the first msa_Read() call.
+   */
+  msafp->msa_cache = msa;
+
+  /* And over to msa_GuessAlphabet() for the decision.
+   */
+  return esl_msa_GuessAlphabet(msa, ret_type);
+}
+
+
+
 /* Function:  esl_msafile_OpenDigital()
  * Incept:    SRE, Sun Aug 27 17:40:33 2006 [Leesburg]
  *
@@ -1498,20 +1676,46 @@ esl_msa_Textize(ESL_MSA *msa)
  *           stdin or a gunzip pipe.
  */
 int
-esl_msafile_OpenDigital(ESL_ALPHABET *abc, char *filename, 
-			int format, char *env, ESL_MSAFILE **ret_msafp)
+esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 
+			int format, const char *env, ESL_MSAFILE **ret_msafp)
 {
   ESL_MSAFILE *msafp;
   int          status;
 
   if ((status = msafile_open(filename, format, env, &msafp)) != eslOK) return status;
-  msafp->abc        = abc;
-  msafp->do_digital = TRUE;
+  esl_msafile_SetDigital(msafp, abc);
 
   *ret_msafp = msafp;
   return eslOK;
 }
 #endif /* eslAUGMENT_ALPHABET */
+
+
+/* Function:  esl_msafile_SetDigital()
+ * Synopsis:  Set an open <ESL_MSAFILE> to read in digital mode.
+ * Incept:    SRE, Wed May 16 10:40:24 2007 [Janelia]
+ *
+ * Purpose:   Given an open <ESL_MSAFILE>, set it so that all subsequent
+ *            calls to <esl_msa_Read()> will read multiple alignments
+ *            in digital mode instead of text mode, using alphabet
+ *            <abc>.
+ *            
+ *            <esl_msafile_Open(); esl_msafile_SetDigital()> is
+ *            equivalent to <esl_msfile_OpenDigital()>. The two-step
+ *            version is useful if you don't already know the alphabet
+ *            type for your msa file, and you need to call
+ *            <esl_msafile_GuessAlphabet()> after opening the file but
+ *            before setting its digital alphabet.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
+{
+  msafp->abc        = abc;
+  msafp->do_digital = TRUE;
+  return eslOK;
+}
 /*---------------------- end of digital MSA functions -----------------------*/
 
 
@@ -1519,10 +1723,10 @@ esl_msafile_OpenDigital(ESL_ALPHABET *abc, char *filename,
 /******************************************************************************
  * 4. General i/o API, all alignment formats                                 
  *****************************************************************************/
-static int write_stockholm(FILE *fp, ESL_MSA *msa);
-static int write_pfam(FILE *fp, ESL_MSA *msa);
+static int write_stockholm(FILE *fp, const ESL_MSA *msa);
+static int write_pfam(FILE *fp, const ESL_MSA *msa);
 static int read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
-static int actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl);
+static int actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl);
 
 
 /* Function:  esl_msa_Read()
@@ -1533,9 +1737,15 @@ static int actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl);
  *
  * Returns:   <eslOK> on success, and <ret_msa> points at the
  *            new MSA object.
- *            <eslEOF> if there are no more alignments in the file.
- *            <eslEFORMAT> if there is a parse error, and <afp->errbuf>
+ *            
+ *            Returns <eslEOF> if there are no more alignments in the file.
+ *            
+ *            Returns <eslEFORMAT> if there is a parse error, and <afp->errbuf>
  *            is set to an informative message.
+ *            
+ *            <eslEINVAL> if we're trying to read a digital alignment,
+ *            but one or more residues are seen in the file that
+ *            aren't valid in our alphabet.
  *            
  * Throws:    <eslEMEM> on allocation failure.           
  *            <eslEINCONCEIVABLE> on internal error.
@@ -1547,7 +1757,30 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   int      status;
 
   *ret_msa = NULL;
-  
+
+  /* If we've just used GuessAlphabet(), we have an MSA already read
+   * and stored in the MSAFILE's cache. Just return it, after worrying
+   * about whether it's supposed to be in digital or text mode. (It
+   * should always be in text mode, and maybe in need of Digitize(),
+   * given how GuessAlphabet works now; but this is coded for more
+   * generality in case we use the MSA cache some other way in the
+   * future.)
+   */
+  if (afp->msa_cache != NULL) 
+    {
+      if      (afp->do_digital   && !(afp->msa_cache->flags & eslMSA_DIGITAL))
+	status = esl_msa_Digitize(afp->abc, afp->msa_cache);
+      else if (! afp->do_digital && (afp->msa_cache->flags & eslMSA_DIGITAL))
+	status = esl_msa_Textize(afp->msa_cache);
+      if (status != eslOK) return status;
+
+      *ret_msa         = afp->msa_cache;
+      afp->msa_cache = NULL;
+      return eslOK;
+    }
+
+  /* Otherwise, read the next MSA from the file.
+   */      
   switch (afp->format) {
   case eslMSAFILE_STOCKHOLM: status = read_stockholm(afp, &msa); break;
   case eslMSAFILE_PFAM:      status = read_stockholm(afp, &msa); break;
@@ -1571,7 +1804,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
+esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 {
   int status;
   switch (fmt) {
@@ -1583,6 +1816,33 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   return status;
 }
 
+
+/* Function:  esl_msa_DescribeFormat()
+ * Synopsis:  Convert internal file format code to text string.
+ * Incept:    SRE, Fri May 18 11:59:58 2007 [Janelia]
+ *
+ * Purpose:   Given an internal file format code <fmt> 
+ *            (<eslMSAFILE_STOCKHOLM>, for example), returns
+ *            a string suitable for printing ("Stockholm",
+ *            for example).
+ *            
+ * Note:      Keep in sync with <esl_sqio_DescribeFormat()>.
+ *            The reason we don't just use <esl_sqio_DescribeFormat()>
+ *            is so the msa module can be used without the sqio
+ *            module.
+ */
+char *
+esl_msa_DescribeFormat(int fmt)
+{
+  switch (fmt) {
+  case eslMSAFILE_UNKNOWN:   return "unknown";
+  case eslMSAFILE_STOCKHOLM: return "Stockholm";
+  case eslMSAFILE_PFAM:      return "Pfam";
+  default:                   esl_fatal("no such format code");
+  }
+  /*NOTREACHED*/
+  return NULL;
+}
 
 
 /* Function:  esl_msa_GuessFileFormat()
@@ -1640,6 +1900,9 @@ static int maxwidth(char **s, int n);
  *            in which case afp->errbuf is set to contain a formatted message 
  *            that indicates the cause of the problem, and <ret_msa> is
  *            set to NULL. 
+ *
+ *            Returns <eslEINVAL> if we're trying to read a digital alignment,
+ *            and an invalid residue is found that can't be digitized.
  *
  * Throws:    <eslEMEM> on allocation error.
  *
@@ -1771,7 +2034,7 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  * Xref:      squid's WriteStockholm(), 1999.
  */
 static int
-write_stockholm(FILE *fp, ESL_MSA *msa)
+write_stockholm(FILE *fp, const ESL_MSA *msa)
 {
   return (actually_write_stockholm(fp, msa, 50)); /* 50 char per block */
 }
@@ -1789,7 +2052,7 @@ write_stockholm(FILE *fp, ESL_MSA *msa)
  * Xref:      squid's WriteStockholmOneBlock(), 1999.
  */
 static int
-write_pfam(FILE *fp, ESL_MSA *msa)
+write_pfam(FILE *fp, const ESL_MSA *msa)
 {
   return (actually_write_stockholm(fp, msa, msa->alen)); /* one big block */
 }
@@ -2045,6 +2308,8 @@ parse_comment(ESL_MSA *msa, char *buf)
 /* parse_sequence():
  * Format of line is:
  *     <name>  <aligned text>
+ * 
+ * On digital sequence, returns <eslEINVAL> if any of the residues can't be digitized.
  */
 static int
 parse_sequence(ESL_MSA *msa, char *buf)
@@ -2097,7 +2362,7 @@ parse_sequence(ESL_MSA *msa, char *buf)
  * Throws:   eslEMEM on allocation failure.
  */
 static int
-actually_write_stockholm(FILE *fp, ESL_MSA *msa, int cpl)
+actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
 {
   int  i, j;
   int  maxname;		/* maximum name length     */
@@ -2392,7 +2657,7 @@ maxwidth(char **s, int n)
  * Xref:      squid's MSASmallerAlignment(), 1999.
  */
 int
-esl_msa_SequenceSubset(ESL_MSA *msa, int *useme, ESL_MSA **ret_new)
+esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 {
   ESL_MSA *new = NULL;
   int  nnew;			/* number of seqs in the new MSA */
@@ -2588,7 +2853,7 @@ msa_column_subset(ESL_MSA *msa, int *useme)
  * Xref:      squid's MSAMingap().
  */
 int
-esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
+esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 {
   int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
   int apos;		/* column index   */
@@ -2660,7 +2925,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *gaps)
  * Xref:      squid's MSANogap().
  */
 int
-esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
+esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 {
   int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
   int apos;		/* column index */
@@ -2738,7 +3003,7 @@ esl_msa_NoGaps(ESL_MSA *msa, char *gaps)
  *            and <newsyms> strings aren't valid together.
  */
 int
-esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
+esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
 {
   int   apos;			/* column index */
   int   idx;			/* sequence index */
@@ -2761,105 +3026,85 @@ esl_msa_SymConvert(ESL_MSA *msa, char *oldsyms, char *newsyms)
 /*-------------------- end of misc MSA functions ----------------------*/
 
 
+
+
 /******************************************************************************
- * 6. Example driver
+ * 6. Benchmark driver.
  *****************************************************************************/
-#ifdef eslMSA_EXAMPLE
-/*::cexcerpt::msa_example::begin::*/
-/* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE esl_msa.c easel.c 
- * time ./example SSU_rRNA_5 > /dev/null
- *   [345.118u 31.564s 10:45.60 58.3%  SRE, Tue Sep  5 11:52:41 2006]
- * 
- * or add -DeslAUGMENT_KEYHASH, and
- * gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c
- *   [33.353u 1.681s 0:35.04 99.9% SRE, Tue Sep  5 11:55:00 2006]
- *   
+#ifdef eslMSA_BENCHMARK
+
+
+/* gcc -O2 -o benchmark -I. -L. -DeslMSA_BENCHMARK esl_msa.c -leasel -lm
+ * ./benchmark Pfam
  */
 #include <stdio.h>
 
 #include <easel.h>
-#ifdef eslAUGMENT_KEYHASH
-#include <esl_keyhash.h>
-#endif
+#include <esl_getopts.h>
 #include <esl_msa.h>
+
+static ESL_OPTIONS options[] = {
+ { 0,0,0,0,0,0,0,0 },
+};
 
 int
 main(int argc, char **argv)
 {
-  char        *filename;
-  int          fmt;
+  ESL_GETOPTS *go        = NULL;	/* command line options */
+  char        *filename  = NULL;        /* input MSA file */
+  int          fmt;		        /* format of the file */
   ESL_MSAFILE *afp;
   ESL_MSA     *msa;
   int          status;
   int          nali;
+  int          alphatype;
 
-  filename = argv[1];
+  /* Parse the command line
+   */
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_ArgNumber(go)                  != 1)      esl_fatal("Incorrect number of command line arguments.\n");
+  filename = esl_opt_GetArg(go, eslARG_INFILE, NULL);
   fmt      = eslMSAFILE_UNKNOWN;
 
+  /* Open the alignment file in text mode
+   */
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", filename);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", filename);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file open failed with error %d\n", status);
+  if (status == eslENOTFOUND)     esl_fatal("Alignment file %s doesn't exist or is not readable\n", filename);
+  else if (status == eslEFORMAT)  esl_fatal("Couldn't determine format of alignment %s\n", filename);
+  else if (status != eslOK)       esl_fatal("Alignment file open failed with error %d\n", status);
 
+  /* Loop over all the alignments.
+   */
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
       nali++;
-      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	     nali, msa->name, msa->nseq, msa->alen);
-      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+      esl_msa_GuessAlphabet(msa, &alphatype);
+      printf("%5d %15s %6d %5d %7s\n", 
+	     nali, msa->name, msa->nseq, msa->alen, esl_abc_DescribeType(alphatype));
       esl_msa_Destroy(msa);
     }
-
   if (status == eslEFORMAT)
-	esl_fatal("\
-Alignment file parse error, line %d of file %s:\n\
-%s\n\
-Offending line is:\n\
-%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-      else if (status != eslEOF)
-	esl_fatal("Alignment file read failed with error code %d\n", status);
+    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
+	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);
+  else if (status != eslEOF)
+    esl_fatal("Alignment file read failed with error code %d\n", status);
 
+  esl_getopts_Destroy(go);
   esl_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msa_example::end::*/
-#endif /*eslMSA_EXAMPLE*/
-/*-------------------- end of example driver ---------------------*/
+#endif /*eslMSA_BENCHMARK*/
+/*---------------------- end of benchmark driver ----------------------*/
 
- 
+
+
 /******************************************************************************
- * 7. Test driver
+ * 7. Unit tests
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
-/* 
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
- * gcc -g -Wall -o test -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * gcc -g -Wall -o test -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * ./test
- */
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <easel.h>
-#ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
-#endif
-#ifdef eslAUGMENT_KEYHASH
-#include <esl_keyhash.h>
-#endif
-#ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
-#endif
-#ifdef eslAUGMENT_SSI
-#include <esl_ssi.h>
-#endif
-#include <esl_msa.h>
 
 /* write_known_msa()
  * Write a known MSA to a tmpfile in Stockholm format.
@@ -3362,6 +3607,43 @@ utest_SymConvert(char *tmpfile)
   return;
 }
 
+#endif /* eslMSA_TESTDRIVE */
+/*------------------------ end of unit tests --------------------------------*/
+
+
+
+
+/*****************************************************************************
+ * 8. Test driver
+ *****************************************************************************/
+#ifdef eslMSA_TESTDRIVE
+/* 
+ * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
+ * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
+ * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
+ * gcc -g -Wall -o test -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * gcc -g -Wall -o test -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * ./test
+ */
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <easel.h>
+#ifdef eslAUGMENT_ALPHABET
+#include <esl_alphabet.h>
+#endif
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
+#endif
+#ifdef eslAUGMENT_RANDOM
+#include <esl_random.h>
+#endif
+#ifdef eslAUGMENT_SSI
+#include <esl_ssi.h>
+#endif
+#include <esl_msa.h>
+
+
 int
 main(int argc, char **argv)
 {
@@ -3429,6 +3711,81 @@ main(int argc, char **argv)
 }
 #endif /*eslMSA_TESTDRIVE*/
 /*-------------------- end of test driver ---------------------*/
+
+
+
+
+/******************************************************************************
+ * 9. Example.
+ *****************************************************************************/
+#ifdef eslMSA_EXAMPLE
+/*::cexcerpt::msa_example::begin::*/
+/* gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE esl_msa.c easel.c 
+ * time ./example SSU_rRNA_5 > /dev/null
+ *   [345.118u 31.564s 10:45.60 58.3%  SRE, Tue Sep  5 11:52:41 2006]
+ * 
+ * or add -DeslAUGMENT_KEYHASH, and
+ * gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c
+ *   [33.353u 1.681s 0:35.04 99.9% SRE, Tue Sep  5 11:55:00 2006]
+ *   
+ */
+#include <stdio.h>
+
+#include <easel.h>
+#ifdef eslAUGMENT_KEYHASH
+#include <esl_keyhash.h>
+#endif
+#include <esl_msa.h>
+
+int
+main(int argc, char **argv)
+{
+  char        *filename;
+  int          fmt;
+  ESL_MSAFILE *afp;
+  ESL_MSA     *msa;
+  int          status;
+  int          nali;
+
+  filename = argv[1];
+  fmt      = eslMSAFILE_UNKNOWN;
+
+  status = esl_msafile_Open(filename, fmt, NULL, &afp);
+  if (status == eslENOTFOUND) 
+    esl_fatal("Alignment file %s doesn't exist or is not readable\n", filename);
+  else if (status == eslEFORMAT) 
+    esl_fatal("Couldn't determine format of alignment %s\n", filename);
+  else if (status != eslOK) 
+    esl_fatal("Alignment file open failed with error %d\n", status);
+
+  nali = 0;
+  while ((status = esl_msa_Read(afp, &msa)) == eslOK)
+    {
+      nali++;
+      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
+	     nali, msa->name, msa->nseq, msa->alen);
+      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+      esl_msa_Destroy(msa);
+    }
+
+  if (status == eslEFORMAT)
+	esl_fatal("\
+Alignment file parse error, line %d of file %s:\n\
+%s\n\
+Offending line is:\n\
+%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
+      else if (status != eslEOF)
+	esl_fatal("Alignment file read failed with error code %d\n", status);
+
+  esl_msafile_Close(afp);
+  exit(0);
+}
+/*::cexcerpt::msa_example::end::*/
+
+#endif /*eslMSA_EXAMPLE*/
+/*------------------------ end of example -----------------------*/
+
+ 
 
 
 /*****************************************************************

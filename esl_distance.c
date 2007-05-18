@@ -2,14 +2,15 @@
  *
  * Contents:
  *    1. Pairwise distances for aligned text sequences.
- *    2. Pairwise distances for aligned digital seqs.     [alphabet]
- *    3. Distance matrices for aligned text sequences.    [dmatrix]
- *    4. Distance matrices for aligned digital sequences. [alphabet,dmatrix]
- *    5. Private (static) functions.
- *    6. Unit tests.
- *    7. Test driver.
- *    8. Example.
- *    9. Copyright notice and license.
+ *    2. Pairwise distances for aligned digital seqs.       [alphabet]
+ *    3. Distance matrices for aligned text sequences.      [dmatrix]
+ *    4. Distance matrices for aligned digital sequences.   [alphabet,dmatrix]
+ *    5. Average pairwise identity for multiple alignments. [alphabet,random]
+ *    6. Private (static) functions.
+ *    7. Unit tests.
+ *    8. Test driver.
+ *    9. Example.
+ *   10. Copyright notice and license.
  *    
  * SVN $Id$
  * SRE, Mon Apr 17 20:05:43 2006 [St. Louis]
@@ -27,13 +28,14 @@
 #ifdef eslAUGMENT_DMATRIX
 #include <esl_dmatrix.h>
 #endif
+#ifdef eslAUGMENT_RANDOM
+#include <esl_random.h>   
+#endif
+
 
 /* Forward declaration of our static functions.
  */
-static int jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, double *ret_variance);
-
-
-
+static int jukescantor(int n1, int n2, int alphabet_size, double *opt_distance, double *opt_variance);
 
 
 /*****************************************************************
@@ -46,10 +48,10 @@ static int jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, 
  *
  * Purpose:   Calculates pairwise fractional identity between two
  *            aligned character strings <asq1> and <asq2>. 
- *            Return this distance in <ret_pid>; return the
- *            number of identities counted in <ret_nid>; and
+ *            Return this distance in <opt_pid>; return the
+ *            number of identities counted in <opt_nid>; and
  *            return the denominator <MIN(len1,len2)> in
- *            <ret_n>.
+ *            <opt_n>.
  *            
  *            Alphabetic symbols <[a-zA-Z]> are compared
  *            case-insensitively for identity. Any nonalphabetic
@@ -63,19 +65,19 @@ static int jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, 
  *
  * Args:      asq1         - aligned character string 1
  *            asq2         - aligned character string 2
- *            ret_pid      - optRETURN: pairwise identity, 0<=x<=1
- *            ret_nid      - optRETURN: # of identities
- *            ret_n        - optRETURN: denominator MIN(len1,len2)
+ *            opt_pid      - optRETURN: pairwise identity, 0<=x<=1
+ *            opt_nid      - optRETURN: # of identities
+ *            opt_n        - optRETURN: denominator MIN(len1,len2)
  *
- * Returns:   <eslOK> on success. <ret_pid>, <ret_nid>, <ret_n>
+ * Returns:   <eslOK> on success. <opt_pid>, <opt_nid>, <opt_n>
  *            contain the answers (for whichever were passed non-NULL). 
  *
  * Throws:    <eslEINVAL> if the strings are different lengths
  *            (not aligned).
  */
 int
-esl_dst_CPairId(char *asq1, char *asq2, 
-		double *ret_pid, int *ret_nid, int *ret_n)
+esl_dst_CPairId(const char *asq1, const char *asq2, 
+		double *opt_pid, int *opt_nid, int *opt_n)
 {
   int     status;
   int     idents;               /* total identical positions  */
@@ -94,15 +96,15 @@ esl_dst_CPairId(char *asq1, char *asq2,
   if (asq1[i] != '\0' || asq2[i] != '\0') 
     ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
 
-  if (ret_pid  != NULL)  *ret_pid = ( len1==0 ? 0. : (double) idents / (double) ESL_MIN(len1,len2));
-  if (ret_nid  != NULL)  *ret_nid = idents;
-  if (ret_n    != NULL)  *ret_n   = len1;
+  if (opt_pid  != NULL)  *opt_pid = ( len1==0 ? 0. : (double) idents / (double) ESL_MIN(len1,len2));
+  if (opt_nid  != NULL)  *opt_nid = idents;
+  if (opt_n    != NULL)  *opt_n   = len1;
   return eslOK;
 
  ERROR:
-  if (ret_pid  != NULL)  *ret_pid = 0.;
-  if (ret_nid  != NULL)  *ret_nid = 0;
-  if (ret_n    != NULL)  *ret_n   = 0;
+  if (opt_pid  != NULL)  *opt_pid = 0.;
+  if (opt_nid  != NULL)  *opt_nid = 0;
+  if (opt_n    != NULL)  *opt_n   = 0;
   return status;
 }
 
@@ -116,9 +118,9 @@ esl_dst_CPairId(char *asq1, char *asq2,
  *            substitutions/site, for an alphabet of <K> residues
  *            (<K=4> for nucleic acid, <K=20> for proteins). The
  *            maximum likelihood estimate for the distance is
- *            optionally returned in <ret_distance>. The large-sample
+ *            optionally returned in <opt_distance>. The large-sample
  *            variance for the distance estimate is
- *            returned in <ret_variance>.
+ *            optionally returned in <opt_variance>.
  *            
  *            Alphabetic symbols <[a-zA-Z]> are compared
  *            case-insensitively to count the number of identities
@@ -131,8 +133,8 @@ esl_dst_CPairId(char *asq1, char *asq2,
  * Args:      K            - size of the alphabet (4 or 20)
  *            as1          - 1st aligned seq, 0..L-1, \0-terminated
  *            as2          - 2nd aligned seq, 0..L-1, \0-terminated 
- *            ret_distance - RETURN: ML estimate of distance d
- *            ret_variance - RETURN: large-sample variance of d
+ *            opt_distance - optRETURN: ML estimate of distance d
+ *            opt_variance - optRETURN: large-sample variance of d
  *
  * Returns:   <eslOK> on success.
  * 
@@ -148,8 +150,8 @@ esl_dst_CPairId(char *asq1, char *asq2,
  *            as <HUGE_VAL>.
  */
 int
-esl_dst_CJukesCantor(int K, char *as1, char *as2, 
-		     double *ret_distance, double *ret_variance)
+esl_dst_CJukesCantor(int K, const char *as1, const char *as2, 
+		     double *opt_distance, double *opt_variance)
 {
   int     status;
   int     n1, n2;               /* number of observed identities, substitutions */
@@ -168,13 +170,14 @@ esl_dst_CJukesCantor(int K, char *as1, char *as2,
   if (as1[i] != '\0' || as2[i] != '\0') 
     ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
   
-  return jukescantor(n1, n2, K, ret_distance, ret_variance); /* can throw eslEDIVZERO */
+  return jukescantor(n1, n2, K, opt_distance, opt_variance); /* can throw eslEDIVZERO */
 
  ERROR:
-  if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
-  if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
+  if (opt_distance != NULL)  *opt_distance = HUGE_VAL;
+  if (opt_variance != NULL)  *opt_variance = HUGE_VAL;
   return status;
 }
+
 /*------- end, pairwise distances for aligned text seqs ---------*/
 
 
@@ -197,18 +200,19 @@ esl_dst_CJukesCantor(int K, char *as1, char *as2,
  * Args:      abc          - digital alphabet in use
  *            ax1          - aligned digital seq 1
  *            ax2          - aligned digital seq 2
- *            ret_pid      - RETURN: pairwise identity, 0<=x<=1
- *            ret_nid      - RETURN: # of identities
- *            ret_n        - RETURN: denominator MIN(len1,len2)
+ *            opt_pid      - optRETURN: pairwise identity, 0<=x<=1
+ *            opt_nid      - optRETURN: # of identities
+ *            opt_n        - optRETURN: denominator MIN(len1,len2)
  *
- * Returns:   <eslOK> on success. <ret_distance>, <ret_nid>, <ret_n>
- *            contain the answers.
+ * Returns:   <eslOK> on success. <opt_distance>, <opt_nid>, <opt_n>
+ *            contain the answers, for any of these that were passed
+ *            non-<NULL> pointers.
  *
  * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
  */
 int
-esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2, 
-		double *ret_distance, int *ret_nid, int *ret_n)
+esl_dst_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, 
+		double *opt_distance, int *opt_nid, int *opt_n)
 {
   int     status;
   int     idents;               /* total identical positions  */
@@ -230,15 +234,15 @@ esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2,
   if (ax1[i] != eslDSQ_SENTINEL || ax2[i] != eslDSQ_SENTINEL) 
     ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
 
-  if (ret_distance != NULL)  *ret_distance = ( len1==0 ? 0. : (double) idents / (double) len1 );
-  if (ret_nid      != NULL)  *ret_nid      = idents;
-  if (ret_n        != NULL)  *ret_n        = len1;
+  if (opt_distance != NULL)  *opt_distance = ( len1==0 ? 0. : (double) idents / (double) len1 );
+  if (opt_nid      != NULL)  *opt_nid      = idents;
+  if (opt_n        != NULL)  *opt_n        = len1;
   return eslOK;
 
  ERROR:
-  if (ret_distance != NULL)  *ret_distance = 0.;
-  if (ret_nid      != NULL)  *ret_nid      = 0;
-  if (ret_n        != NULL)  *ret_n        = 0;
+  if (opt_distance != NULL)  *opt_distance = 0.;
+  if (opt_nid      != NULL)  *opt_nid      = 0;
+  if (opt_n        != NULL)  *opt_n        = 0;
   return status;
 }
 
@@ -250,9 +254,9 @@ esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2,
  * Purpose:   Calculate the generalized Jukes-Cantor distance between two
  *            aligned digital strings <ax> and <ay>, in substitutions/site, 
  *            using alphabet <abc> to evaluate identities and differences.
- *            The maximum likelihood estimate for the distance is returned in
- *            <ret_distance>. The large-sample variance for the distance
- *            estimate is optionally returned in <ret_variance>.
+ *            The maximum likelihood estimate for the distance is optionally returned in
+ *            <opt_distance>. The large-sample variance for the distance
+ *            estimate is optionally returned in <opt_variance>.
  *            
  *            Identical to <esl_dst_CJukesCantor()>, except that it takes
  *            digital sequences instead of character strings.
@@ -260,8 +264,8 @@ esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2,
  * Args:      abc          - bioalphabet to use for comparisons
  *            ax           - 1st digital aligned seq
  *            ay           - 2nd digital aligned seq
- *            ret_distance - RETURN: ML estimate of distance d
- *            ret_variance - RETURN: large-sample variance of d
+ *            opt_distance - optRETURN: ML estimate of distance d
+ *            opt_variance - optRETURN: large-sample variance of d
  *
  * Returns:   <eslOK> on success. As in <esl_dst_CJukesCantor()>, the
  *            distance and variance may be infinite, in which case they
@@ -274,8 +278,8 @@ esl_dst_XPairId(ESL_ALPHABET *abc, ESL_DSQ *ax1, ESL_DSQ *ax2,
  *            to <HUGE_VAL>.
  */
 int
-esl_dst_XJukesCantor(ESL_ALPHABET *abc, ESL_DSQ *ax, ESL_DSQ *ay, 
-		     double *ret_distance, double *ret_variance)
+esl_dst_XJukesCantor(const ESL_ALPHABET *abc, const ESL_DSQ *ax, const ESL_DSQ *ay, 
+		     double *opt_distance, double *opt_variance)
 {
   int     status;
   int     n1, n2;               /* number of observed identities, substitutions */
@@ -293,11 +297,11 @@ esl_dst_XJukesCantor(ESL_ALPHABET *abc, ESL_DSQ *ax, ESL_DSQ *ay,
   if (ax[i] != eslDSQ_SENTINEL || ay[i] != eslDSQ_SENTINEL) 
     ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
   
-  return jukescantor(n1, n2, abc->K, ret_distance, ret_variance);
+  return jukescantor(n1, n2, abc->K, opt_distance, opt_variance);
 
  ERROR:
-  if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
-  if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
+  if (opt_distance != NULL)  *opt_distance = HUGE_VAL;
+  if (opt_variance != NULL)  *opt_variance = HUGE_VAL;
   return status;
 }
 
@@ -335,7 +339,7 @@ esl_dst_XJukesCantor(ESL_ALPHABET *abc, ESL_DSQ *ax, ESL_DSQ *ay,
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
+esl_dst_CPairIdMx(const char **as, int N, ESL_DMATRIX **ret_S)
 {
   ESL_DMATRIX *S = NULL;
   int status;
@@ -385,7 +389,7 @@ esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
+esl_dst_CDiffMx(const char **as, int N, ESL_DMATRIX **ret_D)
 {
   ESL_DMATRIX *D = NULL;
   int status;
@@ -422,8 +426,8 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
  *            <nseq> aligned character sequences in an alphabet of
  *            <K> letters (usually 4 for DNA, 20 for protein);
  *            calculate a symmetric Jukes/Cantor pairwise distance
- *            matrix for all sequence pairs, and return the distance
- *            matrix in <ret_D>, and a symmetric matrix of the
+ *            matrix for all sequence pairs, and optionally return the distance
+ *            matrix in <ret_D>, and optionally return a symmetric matrix of the
  *            large-sample variances for those ML distance estimates
  *            in <ret_V>.
  *            
@@ -434,8 +438,8 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
  * Args:      K      - size of the alphabet (usually 4 or 20)
  *            aseq   - aligned sequences [0.nseq-1][0..L-1]
  *            nseq   - number of aseqs
- *            ret_D  - RETURN: [0..nseq-1]x[0..nseq-1] symmetric distance mx
- *            ret_V  - RETURN: matrix of variances.
+ *            opt_D  - optRETURN: [0..nseq-1]x[0..nseq-1] symmetric distance mx
+ *            opt_V  - optRETURN: matrix of variances.
  *
  * Returns:   <eslOK> on success. <D> and <V> contain the
  *            distance matrix (and variances); caller frees these with
@@ -448,8 +452,8 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CJukesCantorMx(int K, char **aseq, int nseq, 
-		       ESL_DMATRIX **ret_D, ESL_DMATRIX **ret_V)
+esl_dst_CJukesCantorMx(int K, const char **aseq, int nseq, 
+		       ESL_DMATRIX **opt_D, ESL_DMATRIX **opt_V)
 {
   int          status;
   ESL_DMATRIX *D = NULL;
@@ -474,15 +478,15 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
 	  V->mx[j][i] = V->mx[i][j];
 	}
     }
-  if (ret_D != NULL) *ret_D = D;  else esl_dmatrix_Destroy(D);
-  if (ret_V != NULL) *ret_V = V;  else esl_dmatrix_Destroy(V);
+  if (opt_D != NULL) *opt_D = D;  else esl_dmatrix_Destroy(D);
+  if (opt_V != NULL) *opt_V = V;  else esl_dmatrix_Destroy(V);
   return eslOK;
 
  ERROR:
   if (D     != NULL) esl_dmatrix_Destroy(D);
   if (V     != NULL) esl_dmatrix_Destroy(V);
-  if (ret_D != NULL) *ret_D = NULL;
-  if (ret_V != NULL) *ret_V = NULL;
+  if (opt_D != NULL) *opt_D = NULL;
+  if (opt_V != NULL) *opt_V = NULL;
   return status;
 }
 
@@ -521,7 +525,7 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XPairIdMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
+esl_dst_XPairIdMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
 {
   int status;
   ESL_DMATRIX *S = NULL;
@@ -572,7 +576,7 @@ esl_dst_XPairIdMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
+esl_dst_XDiffMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
 {
   int status;
   ESL_DMATRIX *D = NULL;
@@ -607,7 +611,7 @@ esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
  *            consisting of <nseq> aligned digital sequences in
  *            bioalphabet <abc>, calculate a symmetric Jukes/Cantor
  *            pairwise distance matrix for all sequence pairs;
- *            return the distance matrix in <ret_D> and 
+ *            optionally return the distance matrix in <ret_D> and 
  *            a matrix of the large-sample variances for those ML distance
  *            estimates in <ret_V>.
  *            
@@ -618,8 +622,8 @@ esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
  * Args:      abc    - bioalphabet for <aseq>
  *            ax     - aligned digital sequences [0.nseq-1][1..L]
  *            nseq   - number of aseqs
- *            ret_D  - RETURN: [0..nseq-1]x[0..nseq-1] symmetric distance mx
- *            ret_V  - RETURN: matrix of variances.
+ *            opt_D  - optRETURN: [0..nseq-1]x[0..nseq-1] symmetric distance mx
+ *            opt_V  - optRETURN: matrix of variances.
  *
  * Returns:   <eslOK> on success. <D> (and optionally <V>) contain the
  *            distance matrix (and variances). Caller frees these with
@@ -632,8 +636,8 @@ esl_dst_XDiffMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq, 
-		       ESL_DMATRIX **ret_D, ESL_DMATRIX **ret_V)
+esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int nseq, 
+		       ESL_DMATRIX **opt_D, ESL_DMATRIX **opt_V)
 {
   ESL_DMATRIX *D = NULL;
   ESL_DMATRIX *V = NULL;
@@ -658,15 +662,15 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
 	  V->mx[j][i] = V->mx[i][j];
 	}
     }
-  if (ret_D != NULL) *ret_D = D;  else esl_dmatrix_Destroy(D);
-  if (ret_V != NULL) *ret_V = V;  else esl_dmatrix_Destroy(V);
+  if (opt_D != NULL) *opt_D = D;  else esl_dmatrix_Destroy(D);
+  if (opt_V != NULL) *opt_V = V;  else esl_dmatrix_Destroy(V);
   return eslOK;
 
  ERROR:
   if (D     != NULL) esl_dmatrix_Destroy(D);
   if (V     != NULL) esl_dmatrix_Destroy(V);
-  if (ret_D != NULL) *ret_D = NULL;
-  if (ret_V != NULL) *ret_V = NULL;
+  if (opt_D != NULL) *opt_D = NULL;
+  if (opt_V != NULL) *opt_V = NULL;
   return status;
 }
 #endif /*eslAUGMENT_ALPHABET && eslAUGMENT_DMATRIX*/
@@ -675,7 +679,155 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
 
 
 /*****************************************************************
- * 5. Private (static) functions
+ * 5. Average pairwise identity for multiple alignments
+ *****************************************************************/
+
+#ifdef eslAUGMENT_RANDOM
+/* Function:  esl_dst_CAverageId()
+ * Synopsis:  Calculate avg identity for multiple alignment
+ * Incept:    SRE, Fri May 18 15:02:38 2007 [Janelia]
+ *
+ * Purpose:   Calculates the average pairwise fractional identity in
+ *            a multiple sequence alignment <as>, consisting of <N>
+ *            aligned character sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise identity (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dsq_CPairId()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_id> contains the average
+ *            fractional identity.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_id> is set to 0.
+ */
+int
+esl_dst_CAverageId(const char **as, int N, int max_comparisons, double *ret_id)
+{
+  int    status;
+  double id;
+  double sum;
+  int    i,j,n;
+  
+  if (N <= 1) { *ret_id = 1.; return eslOK; }
+  *ret_id = 0.;
+
+  /* Is nseq small enough that we can average over all pairwise comparisons? */
+  if ((N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+	for (j = i+1; j < N; j++)
+	  {
+	    if ((status = esl_dst_CPairId(as[i], as[j], &id, NULL, NULL)) != eslOK) return status;
+	    sum += id;
+	  }
+      id /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else				
+    {
+      ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+
+      for (n = 0; n < max_comparisons; n++)
+	{
+	  do { i = esl_rnd_Choose(r, N); j = esl_rnd_Choose(r, N); } while (j == i); /* make sure j != i */
+	  if ((status = esl_dst_CPairId(as[i], as[j], &id, NULL, NULL)) != eslOK) return status;
+	  sum += id;
+	}
+      id /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_id = id;
+  return eslOK;
+}
+#endif /* eslAUGMENT_RANDOM */
+
+#if defined(eslAUGMENT_RANDOM) && defined(eslAUGMENT_ALPHABET)
+/* Function:  esl_dst_XAverageId()
+ * Synopsis:  Calculate avg identity for digital MSA 
+ * Incept:    SRE, Fri May 18 15:19:14 2007 [Janelia]
+ *
+ * Purpose:   Calculates the average pairwise fractional identity in
+ *            a digital multiple sequence alignment <ax>, consisting of <N>
+ *            aligned digital sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise identity (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dsq_XPairId()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_id> contains the average
+ *            fractional identity.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_id> is set to 0.
+ */
+int
+esl_dst_XAverageId(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, int max_comparisons, double *ret_id)
+{
+  int    status;
+  double id;
+  double sum;
+  int    i,j,n;
+  
+  if (N <= 1) { *ret_id = 1.; return eslOK; }
+  *ret_id = 0.;
+
+  /* Is N small enough that we can average over all pairwise comparisons? */
+  if ((N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+	for (j = i+1; j < N; j++)
+	  {
+	    if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+	    sum += id;
+	  }
+      sum /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else				
+    {
+      ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+
+      for (n = 0; n < max_comparisons; n++)
+	{
+	  do { i = esl_rnd_Choose(r, N); j = esl_rnd_Choose(r, N); } while (j == i); /* make sure j != i */
+	  if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
+	  sum += id;
+	}
+      sum /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_id = sum;
+  return eslOK;
+}
+#endif /* eslAUGMENT_RANDOM && eslAUGMENT_ALPHABET */
+
+
+
+
+
+/*****************************************************************
+ * 6. Private (static) functions
  *****************************************************************/
 
 /* jukescantor()
@@ -690,7 +842,7 @@ esl_dst_XJukesCantorMx(ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
  * Returns <eslEDIVZERO> if there are no data (<n1+n2=0>).
  */
 static int
-jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, double *ret_variance)
+jukescantor(int n1, int n2, int alphabet_size, double *opt_distance, double *opt_variance)
 {
   int    status;
   double D, K, N;
@@ -718,20 +870,20 @@ jukescantor(int n1, int n2, int alphabet_size, double *ret_distance, double *ret
       distance =   -log(x) * K/(K-1);
       variance =  exp( 2.*K*distance/(K-1) ) * D * (1.-D) / N;
     }
-  if (ret_distance != NULL)  *ret_distance = distance;
-  if (ret_variance != NULL)  *ret_variance = variance;
+  if (opt_distance != NULL)  *opt_distance = distance;
+  if (opt_variance != NULL)  *opt_variance = variance;
   return eslOK;
 
  ERROR:
-  if (ret_distance != NULL)  *ret_distance = HUGE_VAL;
-  if (ret_variance != NULL)  *ret_variance = HUGE_VAL;
+  if (opt_distance != NULL)  *opt_distance = HUGE_VAL;
+  if (opt_variance != NULL)  *opt_variance = HUGE_VAL;
   return status;
 }
 /*--------------- end of private functions ----------------------*/
 
 
 /*****************************************************************
- * 6. Unit tests.
+ * 7. Unit tests.
  *****************************************************************/ 
 #ifdef eslDISTANCE_TESTDRIVE
 
@@ -1007,7 +1159,7 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
 
 
 /*****************************************************************
- * Test driver.
+ * 8. Test driver.
  *****************************************************************/ 
 
 /* 
@@ -1155,7 +1307,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example.
+ * 9. Example.
  *****************************************************************/ 
 
 #ifdef eslDISTANCE_EXAMPLE

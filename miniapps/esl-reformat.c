@@ -1,4 +1,4 @@
-/* esl-reformat - convert sequence file formats
+/* Convert sequence file formats
  *             
  * SRE, Sun Feb 27 08:24:33 2005
  * from squid's sreformat (1993).
@@ -17,55 +17,32 @@
 
 
 
-static char banner[] = "\
-esl-reformat :: convert sequence file formats";
+static char banner[] = "convert sequence file formats";
 
-static char usage[] = "\
-Usage: esl-reformat [-options] <format> <seqfile>\n\
+static char usage[] = "[-options] <format> <seqfile>\n\
   Output format choices: Unaligned      Aligned\n\
                          -----------    -------\n\
                          fasta          stockholm\n\
                                         pfam\n\
-\n\
-  Available options are:\n\
-  -h     : help; print brief info on version and usage\n\
-  -o <f> : send output to file <f>, not stdout\n\
-  -d     : force DNA alphabet for nucleic acid sequence\n\
-  -r     : force RNA alphabet for nucleic acid sequence\n\
-  -l     : force lower case\n\
-  -u     : force upper case\n\
-  -x     : convert non-IUPAC chars (i.e. X's) in DNA to N's\n\
-  -n     : remove IUPAC codes; convert all ambig chars in DNA to N's\n\
-";
-
-static char experts[] = "\
-  Expert options:\n\
-    --informat <s>: input sequence file is in format <s>\n\
-    --mingap      : remove columns containing all gaps (seqfile=alignment)\n\
-    --nogap       : remove columns containing any gaps (seqfile=alignment)\n\
-    --gapsym <c>  : convert all gaps to character '<c>'\n\
-    --wussify     : convert old format RNA structure markup lines to WUSS\n\
-    --dewuss      : convert WUSS notation RNA structure markup to old format\n\
-    --fullwuss    : convert simple WUSS notation to full (output) WUSS\n\
-";
+\n";
 
 static ESL_OPTIONS options[] = {
-   /* name          type        default env   range togs  reqs  incompat */
-  { "-d",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-r" },
-  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL },
-  { "-l",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-u" },
-  { "-n",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-x" },
-  { "-o",         eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL },
-  { "-r",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-d" },
-  { "-u",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-l" },
-  { "-x",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-n" },
-  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, "--mingap,--nogap" },
-  { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL },
-  { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--nogap", },
-  { "--nogap",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--mingap,--gapsym" },
-  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss,--fullwuss"  },
-  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--fullwuss" },
-  { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss" },
+   /* name          type        default env   range togs  reqs  incompat                     help                                      docgroup */
+  { "-d",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-r",                  "convert to DNA alphabet (U->T)",                     0 },
+  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,                  "help; print brief info on version and usage",        0 },
+  { "-l",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-u",                  "convert to lower case",                              0 },
+  { "-n",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-x",                  "remove DNA IUPAC codes; convert ambig chars to N",   0 },
+  { "-o",         eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "send output to file <f>, not stdout",                0 },
+  { "-r",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-d",                  "convert to RNA alphabet (T->U)",                     0 }, 
+  { "-u",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-l",                  "convert to upper case",                              0 },
+  { "-x",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-n",                  "convert non-IUPAC chars (e.g. X) in DNA to N",       0 },
+  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, "--mingap,--nogap",    "convert all gaps to character <c>",                  0 },
+  { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "input sequence file is in format <s>",               0 },
+  { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--nogap",             "remove columns containing all gaps (seqfile=MSA)",   0 },
+  { "--nogap",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--mingap,--gapsym",   "remove columns containing any gaps (seqfile=MSA)",   0 },
+  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss,--fullwuss", "convert old RNA structure markup lines to WUSS",     0 },
+  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--fullwuss","convert WUSS RNA structure markup to old format",    0 },
+  { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -84,7 +61,6 @@ main(int argc, char **argv)
 
   char  *informat;		/* input format as string; "fasta"           */
   char  *outfile;		/* output file, or NULL                      */
-  int    show_help;		/* TRUE to show help/usage                   */
   int    force_rna;		/* TRUE to force RNA alphabet                */
   int    force_dna;		/* TRUE to force DNA alphabet                */
   int    force_lower;		/* TRUE to force lower case                  */
@@ -102,39 +78,50 @@ main(int argc, char **argv)
    * Parse the command line
    *****************************************************************/
 
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-
-  esl_opt_GetBooleanOption(go, "-d",         &force_dna);
-  esl_opt_GetBooleanOption(go, "-h",         &show_help);
-  esl_opt_GetBooleanOption(go, "-l",         &force_lower);
-  esl_opt_GetBooleanOption(go, "-n",         &iupac_to_n);
-  esl_opt_GetStringOption( go, "-o",         &outfile);
-  esl_opt_GetBooleanOption(go, "-r",         &force_rna);
-  esl_opt_GetBooleanOption(go, "-u",         &force_upper);
-  esl_opt_GetBooleanOption(go, "-x",         &x_is_bad);
-  esl_opt_GetStringOption( go, "--gapsym",   &gapsym);
-  esl_opt_GetStringOption( go, "--informat", &informat);
-  esl_opt_GetBooleanOption(go, "--mingap",   &do_mingap);
-  esl_opt_GetBooleanOption(go, "--nogap",    &do_nogap);
-  esl_opt_GetBooleanOption(go, "--wussify",  &wussify);
-  esl_opt_GetBooleanOption(go, "--dewuss",   &dewuss);
-  esl_opt_GetBooleanOption(go, "--fullwuss", &fullwuss);
-  
-  if (show_help) 
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK)
     {
-      esl_banner(stdout, banner);
-      puts(usage);
-      puts(experts);
+      printf("Failed to parse command line: %s\n", go->errbuf);
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+
+  if (esl_opt_GetBoolean(go, "-h"))
+    {
+      esl_banner(stdout, argv[0], banner);
+      esl_usage (stdout, argv[0], usage);
+      puts("  where options are:\n");
+      esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0= group; 2 = indentation; 80=textwidth*/
       exit(EXIT_SUCCESS);
     }
 
-  if (esl_opt_ArgNumber(go) != 2) 
-    esl_fatal("Incorrect number of command line arguments.\n%s\n", usage); 
+  force_dna   = esl_opt_GetBoolean(go, "-d");
+  force_lower = esl_opt_GetBoolean(go, "-l");
+  iupac_to_n  = esl_opt_GetBoolean(go, "-n");
+  outfile     = esl_opt_GetString (go, "-o");
+  force_rna   = esl_opt_GetBoolean(go, "-r");
+  force_upper = esl_opt_GetBoolean(go, "-u");
+  x_is_bad    = esl_opt_GetBoolean(go, "-x");
+  gapsym      = esl_opt_GetString( go, "--gapsym");
+  informat    = esl_opt_GetString( go, "--informat");
+  do_mingap   = esl_opt_GetBoolean(go, "--mingap");
+  do_nogap    = esl_opt_GetBoolean(go, "--nogap");
+  wussify     = esl_opt_GetBoolean(go, "--wussify");
+  dewuss      = esl_opt_GetBoolean(go, "--dewuss");
+  fullwuss    = esl_opt_GetBoolean(go, "--fullwuss");
 
-  outformat = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-  infile    = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  if (esl_opt_ArgNumber(go) != 2) 
+    {
+      printf("Incorrect number of command line arguments.\n");
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+
+  outformat = esl_opt_GetArg(go, eslARG_STRING, NULL);
+  infile    = esl_opt_GetArg(go, eslARG_STRING, NULL);
 
   infmt = eslSQFILE_UNKNOWN;
   if (informat != NULL)

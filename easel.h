@@ -110,7 +110,8 @@
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslENOHALT        18    /* a failure to converge        */      
 #define eslENORESULT      19    /* no result was obtained       */
-#define eslETYPE          20	/* invalid type of argument     */
+#define eslENODATA        20	/* no data provided, file empty */
+#define eslETYPE          21	/* invalid type of argument     */
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure
@@ -259,11 +260,12 @@ extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 /* 3. Standard banner for Easel miniapplications. */
-extern void esl_banner(FILE *fp, char *banner);
+extern void esl_banner(FILE *fp, char *progname, char *banner);
+extern void esl_usage (FILE *fp, char *progname, char *usage);
 
 /* 4. Replacements for C library functions */
-extern int  esl_strdup(char *s, int n, char **ret_dup);
-extern int  esl_strcat(char **dest, int ldest, char *src, int lsrc);
+extern int  esl_strdup(const char *s, int n, char **ret_dup);
+extern int  esl_strcat(char **dest, int ldest, const char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 extern int  esl_strchop(char *s, int n);
@@ -277,11 +279,11 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #endif
 
 /* 5. File path/name manipulation functions, including tmpfiles */
-extern int  esl_FileExists(char *filename);
-extern int  esl_FileTail(char *path, int nosuffix, char **ret_file);
-extern int  esl_FileConcat(char *dir, char *file, char **ret_path);
-extern int  esl_FileNewSuffix(char *filename, char *sfx, char **ret_newpath);
-extern int  esl_FileEnvOpen(char *fname, char *env,
+extern int  esl_FileExists(const char *filename);
+extern int  esl_FileTail(const char *path, int nosuffix, char **ret_file);
+extern int  esl_FileConcat(const char *dir, const char *file, char **ret_path);
+extern int  esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath);
+extern int  esl_FileEnvOpen(const char *fname, const char *env,
 			    FILE **ret_fp, char **ret_path);
 extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
 extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);

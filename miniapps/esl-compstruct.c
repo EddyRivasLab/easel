@@ -15,32 +15,22 @@
 #include <esl_msa.h>
 #include <esl_wuss.h>
 
-static char banner[] = "\
-esl-compstruct :: calculate accuracy of RNA secondary structure predictions";
+static char banner[] = "calculate accuracy of RNA secondary structure predictions";
 
 static char usage[]  = "\
-Usage: esl-compstruct [-options] <trusted file> <test file>\n\
+[-options] <trusted file> <test file>\n\
   Both files must be in Stockholm format with secondary structure markup.\n\
   Sequences must occur in the same order in the two files.\n\
   The markup must be in WUSS notation.\n\
-\n\
-  Available options are:\n\
-   -h : help; print brief info on version and usage\n\
-   -m : use Mathews' more relaxed criterion for correctness; allow +/-1 slip\n\
-   -p : count pseudoknotted base pairs (default: ignore them)\n\
-";
-
-static char experts[] = "\
-   --quiet        : suppress verbose header (used in regression testing)\n\
-"; 
+\n";
 
 static ESL_OPTIONS options[] = {
-  /* name       type        default env   range togs  reqs  incompat */
-  { "-h",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL },
-  { "-m",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL },
-  { "-p",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL },
-  { "--quiet", eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL },
-  { 0,0,0,0,0,0,0,0 },
+  /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
+  { "-h",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "help; show brief info on version and usage",                     0 },
+  { "-m",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "use Mathews'relaxed criterion for correctness; allow +/-1 slip", 0 },
+  { "-p",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "count pseudoknotted base pairs",                                 0 },
+  { "--quiet", eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "suppress verbose header",                                        0 },
+  { 0,0,0,0,0,0,0,0,0,0 },
 };
 
 int
@@ -71,43 +61,46 @@ main(int argc, char **argv)
   int tot_tcorrect;	/* total true pairs in all test structures     */
   int tot_positions;	/* total # of bases                            */
 
-  int show_help;	/* TRUE to show usage/help messages and exit   */
-  int be_quiet;		/* TRUE to silence verbose banner              */
-  int do_mathews;	/* TRUE to do Mathews' criterion for "correct" */
-  int count_pseudoknots;/* TRUE to count pseudoknotted base pairs      */
-
   int   status;
-  
+
   /***********************************************
    * Parse command line
    ***********************************************/
 
-  go = esl_getopts_Create(options, usage);
-  esl_opt_ProcessCmdline(go, argc, argv);
-  esl_opt_VerifyConfig(go);
-
-  fmt = eslMSAFILE_STOCKHOLM;
-  esl_opt_GetBooleanOption(go,  "-h",      &show_help);
-  esl_opt_GetBooleanOption(go,  "-m",      &do_mathews);
-  esl_opt_GetBooleanOption(go,  "-p",      &count_pseudoknots);
-  esl_opt_GetBooleanOption(go,  "--quiet", &be_quiet);
-  
-  if (show_help) 
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK)
     {
-      esl_banner(stdout, banner);
-      puts(usage);
-      puts(experts);
+      printf("Failed to parse command line: %s\n", go->errbuf);
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+
+  if (esl_opt_GetBoolean(go, "-h") )
+    {
+      esl_banner(stdout, argv[0], banner);
+      esl_usage (stdout, argv[0], usage);
+      puts("\n where options are:");
+      esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
       exit(EXIT_SUCCESS);
     }
 
   if (esl_opt_ArgNumber(go) != 2) 
-    esl_fatal("Incorrect number of command line arguments.\n%s\n", usage); 
+    {
+      printf("Incorrect number of command line arguments.\n");
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
 
-  kfile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
-  tfile = esl_opt_GetCmdlineArg(go, eslARG_STRING, NULL);
+  kfile = esl_opt_GetArg(go, eslARG_STRING, NULL);
+  tfile = esl_opt_GetArg(go, eslARG_STRING, NULL);
   
-  if (! be_quiet) esl_banner(stdout, banner);
-  esl_getopts_Destroy(go);
+  if (! esl_opt_GetBoolean(go, "--quiet")) 
+    esl_banner(stdout, argv[0], banner);
+
+  fmt = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
    * Open the two Stockholm files.
@@ -186,7 +179,8 @@ main(int argc, char **argv)
 	      continue;
 	    }
 	  
-	  if (! count_pseudoknots)
+	  /* not counting pseudoknots? suppress them in the ss strings*/
+	  if (! esl_opt_GetBoolean(go,  "-p")) 
 	    {
 	      esl_wuss_nopseudo(ka->ss[i], ka->ss[i]);
 	      esl_wuss_nopseudo(ta->ss[i], ta->ss[i]);
@@ -263,7 +257,7 @@ main(int argc, char **argv)
 	      {
 		kpairs++;	/* don't doublecount */
 
-		if (do_mathews) {
+		if (esl_opt_GetBoolean(go,  "-m")) { /* mathews' version */
 		  if (tct[pos] == kct[pos] ||                      /* i,j    */
 		      (pos > 1     && tct[pos-1] == kct[pos])   || /* i-1, j */
 		      (pos < klen  && tct[pos+1] == kct[pos])   || /* i+1, j */
@@ -282,7 +276,7 @@ main(int argc, char **argv)
 	      {
 		tpairs++;
 
-		if (do_mathews) {
+		if (esl_opt_GetBoolean(go,  "-m")) { /* mathews' version */
 		  if (kct[pos] == tct[pos] ||                      /* i,j    */
 		      (pos > 1     && kct[pos-1] == tct[pos])   || /* i-1, j */
 		      (pos < tlen  && kct[pos+1] == tct[pos])   || /* i+1, j */
@@ -359,6 +353,7 @@ main(int argc, char **argv)
 	 100. * (float) tot_tcorrect/ (float) tot_tpairs);
   puts("");
 
+  esl_getopts_Destroy(go);
   esl_msafile_Close(tfp);
   esl_msafile_Close(kfp);
   return 0;

@@ -646,7 +646,9 @@ esl_dmx_Multiply(const ESL_DMATRIX *A, const ESL_DMATRIX *B, ESL_DMATRIX *C)
 }
 
 
+/*::cexcerpt::function_comment_example::begin::*/
 /* Function:  esl_dmx_Exp()
+ * Synopsis:  Calculates matrix exponential $\mathbf{P} = e^{t\mathbf{Q}}$.
  * Incept:    SRE, Thu Mar  8 18:41:38 2007 [Janelia]
  *
  * Purpose:   Calculates the matrix exponential $\mathbf{P} = e^{t\mathbf{Q}}$,
@@ -664,17 +666,18 @@ esl_dmx_Multiply(const ESL_DMATRIX *A, const ESL_DMATRIX *B, ESL_DMATRIX *C)
  *
  * Args:      Q  - matrix to exponentiate (an instantaneous rate matrix)
  *            t  - time units
- *            P  - RESULT: e^tQ.
+ *            P  - RESULT: $e^{tQ}$.
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  *
- * Xref:      
+ * Xref:      J1/19.
  */
 int
 esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 {
+/*::cexcerpt::function_comment_example::end::*/
   int status;
   ESL_DMATRIX *Qz   = NULL;	/* Q/2^z rescaled matrix*/
   ESL_DMATRIX *Qpow = NULL;	/* keeps running product Q^k */
