@@ -1,22 +1,20 @@
-The \eslmod{random} module contains routines for generating
-pseudorandom numbers. The heart of the module is the
-\ccode{esl\_random()} pseudorandom number generator. The module also
-provides other elementary sampling functions, all relying on
-\ccode{esl\_random()} as their pseudorandom number source.  
+The \eslmod{random} module contains routines for generating uniformly
+distributed pseudorandom numbers, sampling random deviates from
+distributions, and randomizing or shuffling sequences.  The heart of
+the module is the \ccode{esl\_random()} pseudorandom number generator.
 
-Unlike some implementations of pseudorandom number generators,
-\ccode{esl\_random()} is portable, reentrant, and threadsafe, and it
-gives reproducible results on all platforms.
+The \ccode{esl\_random()} random number generator is portable,
+reentrant, and threadsafe. It gives reproducible results on all
+platforms.
 
 The \ccode{esl\_random()} algorithm is a strong one. It is essentially
 the \ccode{ran2()} generator from \emph{Numerical Recipes in C}
 \citep{Press93}, implementing L'Ecuyer's algorithm for combining two
 linear congruential generators, with a Bays-Durham shuffle. It
 generates pseudorandom double-precision real numbers on the interval
-$0.0 \leq x < 1.0$, with a minimum spacing of about 4.7e-10, by
-normalizing a random integer on the interval 0..2147483562.  According
-to Press \emph{et al.}, it has a period of $> 2 \times
-10^{18}$. 
+$[0,1)$ with a minimum spacing of about 4.7e-10, by normalizing a
+random integer on the interval 0..2147483562.  According to Press
+\emph{et al.}, it has a period of $> 2 \times 10^{18}$.
 
 A bit stream generated internally by \ccode{esl\_random()} passes 14
 tests in a National Institute of Standards and Technology statistical
@@ -30,7 +28,8 @@ slightly less than $2^{31}-1$. Only the double value returned by
 \ccode{esl\_random()} should be used as a random sample, or the
 integer value of \ccode{r->rnd}, but not the 31 individual bits of
 \ccode{r->rnd}.  The fact that the bitstream passes the NIST tests
-only indicates that there are no glaring problems in the generator.}
+only indicates that there are no glaring problems in
+\ccode{esl\_random()}'s generator.}
 
 Table~\ref{tbl:random_api} lists the functions in the \eslmod{random}
 API. The module implements one object, \ccode{ESL\_RANDOMNESS}, which
@@ -44,29 +43,45 @@ real that \ccode{esl\_random()} returned, you can access
 \ccode{r->rnd} in the \ccode{ESL\_RANDOMNESS} object \ccode{r} after a
 \ccode{esl\_random(r)} call.)
 
-\begin{table}[bhp]
+\begin{table}[hbp]
 \begin{center}
-\begin{tabular}{ll}\hline
-   \multicolumn{2}{c}{\textbf{the \ccode{ESL\_RANDOMNESS} object}}\\
-\ccode{esl\_randomness\_Create()}           & Creates new random number generator.\\
-\ccode{esl\_randomness\_CreateTimeSeeded()} & Creates new generator using current time as seed.\\
-\ccode{esl\_randomness\_Destroy()}          & Free's a random number generator.\\
-\ccode{esl\_randomness\_Init()}             & Re-seeds a random number generator.\\
-   \multicolumn{2}{c}{\textbf{fundamental sampling}}\\
-\ccode{esl\_random()}                       & Returns uniform deviate $0.0 \leq x < 1.0$.\\
-\ccode{esl\_rnd\_UniformPositive()}         & Returns uniform deviate $0.0 < x < 1.0$.\\
-\ccode{esl\_rnd\_Gaussian()}                & Gaussian-distributed deviate.\\
-\ccode{esl\_rnd\_Gamma()}                   & $\Gamma(a)$-distributed deviate.\\
-   \multicolumn{2}{c}{\textbf{multinomial sampling}}\\
-\ccode{esl\_rnd\_Choose()}                  & Choose a uniformly-distributed random integer.\\
-\ccode{esl\_rnd\_DChoose()}                 & Choose integer according to a probability vector.\\
-\ccode{esl\_rnd\_FChoose()}                 & Choose integer according to a probability vector.\\
-   \multicolumn{2}{c}{\textbf{iid sequence generation}}\\
-\ccode{esl\_rnd\_IID()}                     & Generate an i.i.d. text sequence.\\ 
-\ccode{esl\_rnd\_fIID()}                    & (single-precision version)\\ 
-\ccode{esl\_rnd\_xIID()}                    & Generate an i.i.d. digitized sequence.\\ 
-\ccode{esl\_rnd\_xfIID()}                   & (single-precision version)\\ \hline
+{\small
+\begin{tabular}{|ll|}\hline
+\apisubhead{The \ccode{ESL\_RANDOMNESS} object.}\\
+\hyperlink{func:esl_randomness_Create()}{\ccode{esl\_randomness\_Create()}} & Create an RNG with a given seed.\\
+\hyperlink{func:esl_randomness_CreateTimeseeded()}{\ccode{esl\_randomness\_CreateTimeseeded()}} & Create an RNG with a quasirandom seed.\\
+\hyperlink{func:esl_randomness_Destroy()}{\ccode{esl\_randomness\_Destroy()}} & Free an RNG.            \\
+\hyperlink{func:esl_randomness_Init()}{\ccode{esl\_randomness\_Init()}} & Reinitialize an RNG.           \\
+\hyperlink{func:esl_randomness_GetSeed()}{\ccode{esl\_randomness\_GetSeed()}} & Returns the value of the seed.\\
+\apisubhead{The generator, \ccode{esl\_random()}}\\
+\hyperlink{func:esl_random()}{\ccode{esl\_random()}} & Generate a uniform random deviate $0.0 <= x < 1.0$.
+\\
+\apisubhead{Other fundamental sampling (including Gaussian, gamma)}\\
+\hyperlink{func:esl_rnd_UniformPositive()}{\ccode{esl\_rnd\_UniformPositive()}} & Generate a uniform positive random deviate $0 < x < 1$.\\
+\hyperlink{func:esl_rnd_Gaussian()}{\ccode{esl\_rnd\_Gaussian()}} & Generate a Gaussian-distributed sample.\\
+\hyperlink{func:esl_rnd_Gamma()}{\ccode{esl\_rnd\_Gamma()}} & Returns a random deviate from a Gamma(a, 1) distribution.\\
+\apisubhead{Multinomial sampling from discrete probability n-vectors}\\
+\hyperlink{func:esl_rnd_DChoose()}{\ccode{esl\_rnd\_DChoose()}} & Return random choice from discrete multinomial distribution.
+\\
+\apisubhead{Generating iid sequences, either text or digital mode.}\\
+\hyperlink{func:esl_rnd_IID()}{\ccode{esl\_rnd\_IID()}} & Generate an iid random text sequence.\\
+\hyperlink{func:esl_rnd_xIID()}{\ccode{esl\_rnd\_xIID()}} & Generate an iid random digital sequence.\\
+\apisubhead{Randomizing sequences.}\\
+\hyperlink{func:esl_rnd_CShuffle()}{\ccode{esl\_rnd\_CShuffle()}} & Shuffle a text sequence.\\
+\hyperlink{func:esl_rnd_CShuffleDP()}{\ccode{esl\_rnd\_CShuffleDP()}} & Shuffle a text sequence, preserving diresidue composition.\\
+\hyperlink{func:esl_rnd_CMarkov0()}{\ccode{esl\_rnd\_CMarkov0()}} & Generate new text string of same 0th order Markov properties.\\
+\hyperlink{func:esl_rnd_CMarkov1()}{\ccode{esl\_rnd\_CMarkov1()}} & Generate new text string of same 1st order Markov properties.\\
+\hyperlink{func:esl_rnd_CReverse()}{\ccode{esl\_rnd\_CReverse()}} & Reverse a string.\\
+\hyperlink{func:esl_rnd_CShuffleWindows()}{\ccode{esl\_rnd\_CShuffleWindows()}} & Shuffle local windows of a text string.\\
+\hyperlink{func:esl_rnd_XShuffle()}{\ccode{esl\_rnd\_XShuffle()}} & Shuffle a digital sequence.\\
+\hyperlink{func:esl_rnd_XShuffleDP()}{\ccode{esl\_rnd\_XShuffleDP()}} & Shuffle a digital sequence, preserving diresidue composition.\\
+\hyperlink{func:esl_rnd_XMarkov0()}{\ccode{esl\_rnd\_XMarkov0()}} & Generate new digital sequence of same 0th order Markov properties.\\
+\hyperlink{func:esl_rnd_XMarkov1()}{\ccode{esl\_rnd\_XMarkov1()}} & Generate new digital sequence of same 1st order Markov properties.\\
+\hyperlink{func:esl_rnd_XReverse()}{\ccode{esl\_rnd\_XReverse()}} & Reverse a digital sequence.\\
+\hyperlink{func:esl_rnd_XShuffleWindows()}{\ccode{esl\_rnd\_XShuffleWindows()}} & Shuffle local windows of a digital sequence.\\
+\hline
 \end{tabular}
+}
 \end{center}
 \caption{The \eslmod{random} API.}
 \label{tbl:random_api}
@@ -76,7 +91,7 @@ real that \ccode{esl\_random()} returned, you can access
 \subsection{Example of using the random API}
 
 Figure~\ref{fig:random_example} shows a program that initializes the
-random number generator with a seed of ``42'', then samples 10 random
+random number generator with a seed of 42, then samples 10 random
 numbers using \ccode{esl\_random()}.
 
 \begin{figure}
@@ -99,18 +114,18 @@ numbers, because the generator is always seeded with 42.
 
 Often one wants different runs to generate different random number
 sequences, which creates a chicken and the egg problem: how can we
-select a pseudorandom seed for the pseudorandom number generator? One
-standard method is to use the current time. Easel provides an
+select a pseudorandom seed for the pseudorandom number generator? A
+traditional method is to use the current time. Easel provides an
 alternate creation function
-\ccode{esl\_randomness\_CreateTimeseeded()}. If the precision of our
-clock is sufficiently fine, different runs of the program occur at
-different clock times. Easel relies on the POSIX clock for
-portability, but the POSIX clock has the drawback that it clicks in
-seconds, which is not very good precision. Two different
-\ccode{ESL\_RANDOMNESS} objects created in the same second will
-generate identical random number sequences. Change the
-\ccode{esl\_randomness\_Create(42)} call to
+\ccode{esl\_randomness\_CreateTimeseeded()} which does this. If the
+precision of our clock is sufficiently fine, different runs of the
+program occur at different clock times. Easel relies on the POSIX
+clock for portability, but the POSIX clock has the drawback that it
+clicks in seconds, which is not very good precision. Thus, two
+different \ccode{ESL\_RANDOMNESS} objects created in the same second
+will generate identical random number sequences. Change the
+\ccode{esl\_randomness\_Create(42)} call in the example code to
 \ccode{esl\_randomness\_CreateTimeseeded()} and recompile, and you'll
 get different number sequences with each run - provided you run the
-commands in different seconds, anyway.
+commands in different seconds, anyway. 
 

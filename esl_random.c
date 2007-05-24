@@ -1,5 +1,4 @@
-/* esl_random.c
- * A portable, threadsafe random number generator.
+/* A portable, threadsafe random number generator.
  *
  *  1. The ESL_RANDOMNESS object.
  *  2. The generator, esl_random().
@@ -32,23 +31,22 @@
 
 
 /*****************************************************************
- * 1. The ESL_RANDOMNESS object.
+ *# 1. The <ESL_RANDOMNESS> object.
  *****************************************************************/
 
 /* Function:  esl_randomness_Create()
+ * Synopsis:  Create an RNG with a given seed.
  * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
  *
  * Purpose:   Create a random number generator using
  *            a given random seed. Seed must be $>0$.
- *            Returns an <ESL_RANDOMNESS> object that 
- *            the <esl_random()> generator will use.
  *            
  * Args:      seed $>= 0$.
  *
- * Returns:   initialized <ESL_RANDOMNESS *> on success;
- *            caller free's with <esl_randomness_Destroy()>.
+ * Returns:   an initialized <ESL_RANDOMNESS *> on success.
+ *            Caller free's with <esl_randomness_Destroy()>.
  *              
- * Throws:    NULL on failure.
+ * Throws:    <NULL> on failure.
  * 
  * Xref:      STL8/p57.
  */
@@ -61,7 +59,8 @@ esl_randomness_Create(long seed)
 
   if (seed <= 0) ESL_XEXCEPTION(eslEINVAL, "bad seed");
   ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->seed = seed;
+  r->seed      = seed;
+  r->reseeding = TRUE;
 
   /* we observe that the first random number isn't very random, if
    * closely spaced seeds are used, like what we get with using
@@ -75,16 +74,17 @@ esl_randomness_Create(long seed)
 }
 
 /* Function:  esl_randomness_CreateTimeseeded()
+ * Synopsis:  Create an RNG with a quasirandom seed.
  * Incept:    SRE, Wed Jul 14 11:22:54 2004 [St. Louis]
  *
- * Purpose:   Like <esl_randomness_Create()>, but initializes the
+ * Purpose:   Like <esl_randomness_Create()>, but it initializes the
  *            the random number generator using a POSIX <time()> call 
- *            (\# of sec since the POSIX epoch).
+ *            (number of seconds since the POSIX epoch).
  *
- * Returns:   initialized <ESL_RANDOMNESS *> on success;
- *            caller free's with <esl_randomness_Destroy()>.
+ * Returns:   an initialized <ESL_RANDOMNESS *> on success.
+ *            Caller free's with <esl_randomness_Destroy()>.
  *              
- * Throws:    NULL on failure.
+ * Throws:    <NULL> on failure.
  * 
  * Xref:      STL8/p57.
  */
@@ -96,7 +96,8 @@ esl_randomness_CreateTimeseeded(void)
   int             status;
 
   ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->seed = time ((time_t *) NULL);
+  r->seed      = time ((time_t *) NULL);
+  r->reseeding = TRUE;
   while (burnin--) esl_random(r);
   return r;
 
@@ -105,6 +106,7 @@ esl_randomness_CreateTimeseeded(void)
 }
 
 /* Function:  esl_randomness_Destroy()
+ * Synopsis:  Free an RNG.            
  * Incept:    SRE, Wed Jul 14 13:19:08 2004 [St. Louis]
  *
  * Purpose:   Frees an <ESL_RANDOMNESS> object.
@@ -118,19 +120,22 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
 
 
 /* Function:  esl_randomness_Init()
+ * Synopsis:  Reinitialize an RNG.           
  * Incept:    SRE, Wed Jul 14 13:13:05 2004 [St. Louis]
  *
  * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
- *            object. (Not generally recommended; this does not
- *            make a sequence of numbers more random, and may make
- *            it less so.)
+ *            object. 
+ *            
+ *            (Not generally recommended. This does not make a
+ *            sequence of numbers more random, and may make it less
+ *            so.)
  *
  * Args:      r     - randomness object
  *            seed  - new seed to use; >0.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEINVAL> if seed is $<= 0$
+ * Throws:    <eslEINVAL> if seed is $<= 0$.
  *
  * Xref:      STL8/p57.
  */
@@ -143,31 +148,43 @@ esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
   while (burnin--) esl_random(r);
   return eslOK;
 }
+
+/* Function:  esl_randomness_GetSeed()
+ * Synopsis:  Returns the value of RNG's seed.
+ * Incept:    SRE, Wed May 23 17:02:59 2007 [Janelia]
+ *
+ * Purpose:   Return the value of the seed. 
+ * 
+ *            (You already know what the seed was if you used
+ *            <esl_randomness_Create()>, but not if you used
+ *            <esl_randomness_CreateTimeseeded()>. It is often useful
+ *            to record what the seed was, in order to be able to
+ *            exactly reproduce results.)
+ */
+long
+esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
+{
+  return r->seed;
+}
 /*----------- end of ESL_RANDOMNESS object functions --------------*/
 
 
 
 /*****************************************************************
- * 2. The generator, esl_random() 
+ *# 2. The generator, <esl_random()>
  *****************************************************************/  
 
 /* Function: esl_random()
- * 
- * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$.
- * 
- *           The "randomness object" <r> contains the information
- *           we need for the generator; keeping it in an object
- *           (as opposed to static variables) makes us threadsafe.
- *           This object is created by <esl_randomness_Create()> or
- *           <esl_randomness_CreateTimeseeded()>.
- *
- *           If the internal seed in <r> is $>0$, that's a flag to reset
- *           and reinitialize the generator.
- *           
- * Method:   Implements L'Ecuyer's algorithm for combining output
+ * Synopsis: Generate a uniform random deviate $0.0 <= x < 1.0$.
+ *            
+ * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$, given
+ *           RNG <r>, using L'Ecuyer's algorithm for combining output
  *           of two linear congruential generators, plus a Bays-Durham
- *           shuffle. This is essentially ran2() from Numerical Recipes,
- *           sans their nonhelpful Rand/McNally-esque code obfuscation.
+ *           shuffle \citep{Press93}.
+ *           
+ * Method:   This is essentially ran2() from Numerical Recipes,
+ *           rewritten, sans their nonhelpful Rand/McNally-esque code
+ *           obfuscation.
  *           
  *           Overflow errors are avoided by Schrage's algorithm:
  *               az % m = a(z%q) - r(z/q) (+m if <0)
@@ -200,7 +217,7 @@ esl_random(ESL_RANDOMNESS *r)
   long q2 = 52774;
   long r2 = 3791;
 
-  if (r->seed > 0) 
+  if (r->reseeding) 
     {
       r->rnd1 = r->seed;
       r->rnd2 = r->seed;
@@ -227,7 +244,7 @@ esl_random(ESL_RANDOMNESS *r)
 	  if (r->rnd < 0) r->rnd += m1;
 	}
       }
-      r->seed = 0;		/* drop the flag. */
+      r->reseeding = FALSE;	/* drop the flag. */
     }/* end of initialization*/
 
   x    = a1*(r->rnd1%q1);   /* LCG1 in action... */
@@ -254,10 +271,11 @@ esl_random(ESL_RANDOMNESS *r)
 
 
 /*****************************************************************
- * 3. Other fundamental sampling (including Gaussian, gamma)
+ *# 3. Other fundamental sampling (including Gaussian, gamma)
  *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
+ * Synopsis: Generate a uniform positive random deviate $0 < x < 1$.
  * Incept:   SRE, Wed Jul 14 13:31:23 2004 [St. Louis]
  *
  * Purpose:  Same as <esl_random()>, but assure $0 < x < 1$;
@@ -273,27 +291,25 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
 
 
 /* Function:  esl_rnd_Gaussian()
+ * Synopsis:  Generate a Gaussian-distributed sample.
  * Incept:    SRE, Wed Jul 14 13:50:36 2004 [St. Louis]
  *
  * Purpose:   Pick a Gaussian-distributed random variable
  *            with a given <mean> and standard deviation <stddev>, and
- *            return it.
+ *            return it. 
+ *            
+ *            Implementation is derived from the public domain
+ *            RANLIB.c <gennor()> function, written by Barry W. Brown
+ *            and James Lovato (M.D. Anderson Cancer Center, Texas
+ *            USA) using the method described in
+ *            \citep{AhrensDieter73}.
  * 
- * Method:    Based on RANLIB.c gennor() public domain implementation.
- *            Thanks to the authors, Barry W. Brown and James Lovato,
- *            University of Texas, M.D. Anderson Cancer Center, Houston TX.
- *            Their implementation is from Ahrens and Dieter, "Extensions 
- *            of Forsythe's method for random sampling from the normal
- *            distribution", Math. Comput. 27:927-937 (1973).
- *
- *            Impenetrability of the code is to be blamed on 
+ * Method:    Impenetrability of the code is to be blamed on 
  *            FORTRAN/f2c lineage.
  *
  * Args:      r      - ESL_RANDOMNESS object
  *            mean   - mean of the Gaussian we're sampling from
  *            stddev - standard deviation of the Gaussian     
- *
- * Returns:   a Gaussian-distributed random variable x
  */
 double
 esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
@@ -460,20 +476,18 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
 
 
 /* Function: esl_rnd_Gamma()
- * Date:     SRE, Wed Apr 17 13:10:03 2002 [St. Louis]
+ * Synopsis: Returns a random deviate from a Gamma(a, 1) distribution.
+ * Incept:   SRE, Wed Apr 17 13:10:03 2002 [St. Louis]
  *
- * Purpose:  Return a random deviate distributed as Gamma(a, 1.).
+ * Purpose:  Return a random deviate distributed as Gamma(a, 1.)
+ *           \citep[pp. 133--134]{Knu-81a}.
  *           
- *           Follows Knuth, vol. 2 Seminumerical Algorithms, pp.133-134.
- *           Also relies on examination of the implementation in
- *           the GNU Scientific Library (libgsl). The implementation
- *           relies on three separate gamma function algorithms:
- *           <gamma_ahrens()>, <gamma_integer()>, and <gamma_fraction()>.
+ *           The implementation follows not only Knuth \citep{Knu-81a},
+ *           but also relied on examination of the implementation in
+ *           the GNU Scientific Library (libgsl) \citep{Galassi06}.
  *
  * Args:     r      - random number generation seed
  *           a      - order of the gamma function; a > 0
- *
- * Returns:  the gamma-distributed deviate.
  *
  * Throws:   <eslEINVAL> for $a <= 0$.
  */
@@ -496,23 +510,25 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 
 
 /*****************************************************************
- * 4. Multinomial sampling from discrete probability n-vectors
+ *# 4. Multinomial sampling from discrete probability n-vectors
  *****************************************************************/ 
 
 /* Function:  esl_rnd_DChoose()
+ * Synopsis:  Return random choice from discrete multinomial distribution.          
  *
  * Purpose:   Make a random choice from a normalized discrete
  *            distribution <p> of <N> elements, where <p>
  *            is double-precision. Returns the index of the
- *            selected element.
+ *            selected element, $0..N-1$.
  *            
  *            <p> must be a normalized probability distribution
  *            (i.e. must sum to one). Sampling distribution is
  *            undefined otherwise: that is, a choice will always
  *            be returned, but it might be an arbitrary one.
  *
- *            All p's must be $>>$ <DBL_EPSILON>.
- *            
+ *            All $p_i$ must be $>>$ <DBL_EPSILON> in order to 
+ *            have a non-zero probability of being sampled.
+ *
  *            <esl_rnd_FChoose()> is the same, but for floats in <p>.
  *
  * Note:      Why the while (1) loop? Very rarely, because of machine
@@ -535,13 +551,13 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
  *            either.  That's why there's a check on the sum of
  *            <p>. We return -1 in this case, a non-standard error code
  *            for Easel.
- *            
- * Returns:   the random choice, <0..N-1>.           
  * 
- * Throws:    -1 on failure.
+ * Throws:    -1 on failure. (This is a non-standard error code for Easel,
+ *            but the only way an error can happen is if <p> isn't a 
+ *            normalized probability distribution.)
  */
 int
-esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N)
+esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
 {
   double roll;                  /* random fraction */
   double sum;                   /* integrated prob */
@@ -556,13 +572,13 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, double *p, int N)
 	sum += p[i];
 	if (roll < sum) return i;  /* success! */
       }
-    if (sum < 0.99) return -1;    /* avoid inf loop */
+    if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
   }
   /*UNREACHED*/
-  return -1;
+  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
 }
 int
-esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
+esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 {
   float  roll;                  /* random fraction */
   float  sum;                   /* integrated prob */
@@ -577,26 +593,27 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
 	sum += p[i];
 	if (roll < sum) return i; /* success */
       }
-    if (sum < 0.99) return -1;	  /* bail out, avoid inf loop */
+    if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
   }
   /*UNREACHED*/
-  return -1;
+  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
 }
 
 
 /*****************************************************************
- * 5. Generating iid sequences, either text or digital mode.
+ *# 5. Generating iid sequences, either text or digital mode.
  *****************************************************************/ 
 
 /* Function: esl_rnd_IID()
+ * Synopsis: Generate an iid random text sequence.
  * Incept:   SRE, Thu Aug  5 09:03:03 2004 [St. Louis]
  *
- * Purpose:  Generate a NUL-terminated iid symbol string of length <L>,
- *           0..L-1 and leave it in <s>. The symbol alphabet is given
+ * Purpose:  Generate a <NUL>-terminated i.i.d. symbol string of length <L>,
+ *           $0..L-1$, and leave it in <s>. The symbol alphabet is given
  *           as a string <alphabet> of <K> total symbols, and the iid
  *           probability of each residue is given in <p>. The caller
  *           must provide an <s> that is allocated for at least
- *           <(L+1)*sizeof(char)>, for <L> residues and a NUL terminator.
+ *           <(L+1)*sizeof(char)>, room for <L> residues and the <NUL> terminator.
  *           
  *           <esl_rnd_fIID()> does the same, but for a floating point
  *           probability vector <p>, rather than a double precision
@@ -609,11 +626,11 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, float *p, int N)
  *           L         - length of generated sequence
  *           s         - the generated sequence.
  *                       Caller allocated, >= (L+1) * sizeof(char).
- *
+ *            
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char *s)
+esl_rnd_IID(ESL_RANDOMNESS *r, const char *alphabet, const double *p, int K, int L, char *s)
 {
   int   x;
 
@@ -623,7 +640,7 @@ esl_rnd_IID(ESL_RANDOMNESS *r, char *alphabet, double *p, int K, int L, char *s)
   return eslOK;
 }
 int
-esl_rnd_fIID(ESL_RANDOMNESS *r, char *alphabet, float *p, int K, int L, char *s)
+esl_rnd_fIID(ESL_RANDOMNESS *r, const char *alphabet, const float *p, int K, int L, char *s)
 {
   int   x;
 
@@ -635,17 +652,18 @@ esl_rnd_fIID(ESL_RANDOMNESS *r, char *alphabet, float *p, int K, int L, char *s)
 
 
 /* Function: esl_rnd_xIID()
+ * Synopsis: Generate an iid random digital sequence.
  * Incept:   SRE, Sat Feb 17 16:39:01 2007 [Casa de Gatos]
  *
- * Purpose:  Generate an IID digital sequence of length <L> (1..L) and
- *           leave it in <dsq>. The iid probability of each residue is
+ * Purpose:  Generate an i.i.d. digital sequence of length <L> (1..L) and
+ *           leave it in <dsq>. The i.i.d. probability of each residue is
  *           given in the probability vector <p>, and the number of
  *           possible residues (the alphabet size) is given by <K>.
  *           (Only the alphabet size <K> is needed here, as opposed to
- *           a digital <ESL_ALPHABET>,, though the caller presumably
+ *           a digital <ESL_ALPHABET>, but the caller presumably
  *           has a digital alphabet.) The caller must provide a <dsq>
- *           allocated for at least <L+2> residues of type <ESL_DSQ>;
- *           <L> residues and leading/trailing digital sentinel bytes.
+ *           allocated for at least <L+2> residues of type <ESL_DSQ>,
+ *           room for <L> residues and leading/trailing digital sentinel bytes.
  *           
  *           <esl_rnd_xfIID()> does the same, but for a
  *           single-precision float vector <p> rather than a
@@ -661,7 +679,7 @@ esl_rnd_fIID(ESL_RANDOMNESS *r, char *alphabet, float *p, int K, int L, char *s)
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_xIID(ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq)
+esl_rnd_xIID(ESL_RANDOMNESS *r, const double *p, int K, int L, ESL_DSQ *dsq)
 {
   int   x;
 
@@ -671,7 +689,7 @@ esl_rnd_xIID(ESL_RANDOMNESS *r, double *p, int K, int L, ESL_DSQ *dsq)
   return eslOK;
 }
 int
-esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
+esl_rnd_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
 {
   int   x;
 
@@ -682,10 +700,11 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
 }
 
 /*****************************************************************
- * 6. Randomizing sequences.
+ *# 6. Randomizing sequences.
  *****************************************************************/
 
 /* Function:  esl_rnd_CShuffle()
+ * Synopsis:  Shuffle a text sequence.
  * Incept:    SRE, Fri Feb 23 08:17:50 2007 [Casa de Gatos]
  *
  * Purpose:   Returns a shuffled version of <s> in <shuffled>, given
@@ -700,7 +719,7 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, float *p, int K, int L, ESL_DSQ *dsq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *shuffled)
+esl_rnd_CShuffle(ESL_RANDOMNESS *r, const char  *s, char *shuffled)
 {
   int  L, i;
   char c;
@@ -718,6 +737,7 @@ esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *shuffled)
 }
 
 /* Function:  esl_rnd_CShuffleDP()
+ * Synopsis:  Shuffle a text sequence, preserving diresidue composition.
  * Incept:    SRE, Fri Feb 23 08:56:03 2007 [Casa de Gatos]
  *
  * Purpose:   Given string <s>, and a source of randomness <r>,
@@ -736,13 +756,13 @@ esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *shuffled)
  *            <shuffled> may also point to the same storage as <s>,
  *            in which case <s> is shuffled in place.
  *            
- *            The algorithm requires allocation of a substantial
- *            amount of temporary storage, on the order of 26 *
- *            strlen(s).
+ *            The algorithm does an internal allocation of a
+ *            substantial amount of temporary storage, on the order of
+ *            <26 * strlen(s)>, so an allocation failure is possible
+ *            if <s> is long enough.
  *
  *            The algorithm is a search for a random Eulerian walk on
- *            a directed multigraph; SF Altschul and BW Erickson,
- *            Mol. Biol. Evol. 2:526-538, 1985.
+ *            a directed multigraph \citep{AltschulErickson85}.
  *
  * Returns:   <eslOK> on success.
  *
@@ -750,7 +770,7 @@ esl_rnd_CShuffle(ESL_RANDOMNESS *r, char *s, char *shuffled)
  *            <eslEMEM> on allocation failure.
  */
 int
-esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *shuffled)
+esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
 {
   int    status;          /* Easel return status code */
   int    len;	          /* length of s */
@@ -920,6 +940,7 @@ esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *shuffled)
 
 
 /* Function:  esl_rnd_CMarkov0()
+ * Synopsis:  Generate new text string of same 0th order Markov properties.
  * Incept:    SRE, Sat Feb 24 08:47:43 2007 [Casa de Gatos]
  *
  * Purpose:   Makes a random string <markoved> with the same length and
@@ -943,7 +964,7 @@ esl_rnd_CShuffleDP(ESL_RANDOMNESS *r, char *s, char *shuffled)
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *markoved)
+esl_rnd_CMarkov0(ESL_RANDOMNESS *r, const char *s, char *markoved)
 {
   int    L;
   int    i; 
@@ -973,6 +994,7 @@ esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *markoved)
 }
 
 /* Function:  esl_rnd_CMarkov1()
+ * Synopsis:  Generate new text string of same 1st order Markov properties.
  * Incept:    SRE, Sat Feb 24 09:21:46 2007 [Casa de Gatos]
  *
  * Purpose:   Makes a random string <markoved> with the same length and
@@ -996,7 +1018,7 @@ esl_rnd_CMarkov0(ESL_RANDOMNESS *r, char *s, char *markoved)
  * Throws:    <eslEINVAL> if <s> contains nonalphabetic characters.
  */
 int 
-esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *markoved) 
+esl_rnd_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved) 
 {
   int    L;
   int    i; 
@@ -1051,6 +1073,7 @@ esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *markoved)
 }
 
 /* Function:  esl_rnd_CReverse()
+ * Synopsis:  Reverse a string.
  * Incept:    SRE, Sat Feb 24 10:06:34 2007 [Casa de Gatos]
  *
  * Purpose:   Returns a reversed version of <s> in <rev>. 
@@ -1067,7 +1090,7 @@ esl_rnd_CMarkov1(ESL_RANDOMNESS *r, char *s, char *markoved)
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_CReverse(char *s, char *rev)
+esl_rnd_CReverse(const char *s, char *rev)
 {
   int  L, i;
   char c;
@@ -1085,6 +1108,7 @@ esl_rnd_CReverse(char *s, char *rev)
 }
 
 /* Function: esl_rnd_CShuffleWindows()
+ * Synopsis: Shuffle local windows of a text string.
  * Incept:   SRE, Sat Feb 24 10:17:59 2007 [Casa de Gatos]
  * 
  * Purpose:  Given string <s>, shuffle residues in nonoverlapping
@@ -1103,7 +1127,7 @@ esl_rnd_CReverse(char *s, char *rev)
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *shuffled)
+esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, const char *s, int w, char *shuffled)
 {
   int  L;
   char c;
@@ -1126,6 +1150,7 @@ esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *shuffled)
 
 
 /* Function:  esl_rnd_XShuffle()
+ * Synopsis:  Shuffle a digital sequence.
  * Incept:    SRE, Fri Feb 23 08:24:20 2007 [Casa de Gatos]
  *
  * Purpose:   Given a digital sequence <dsq> of length <L> residues,
@@ -1140,7 +1165,7 @@ esl_rnd_CShuffleWindows(ESL_RANDOMNESS *r, char *s, int w, char *shuffled)
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
+esl_rnd_XShuffle(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
 {
   int     i;
   ESL_DSQ x;
@@ -1157,6 +1182,7 @@ esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
 }
 
 /* Function:  esl_rnd_XShuffleDP()
+ * Synopsis:  Shuffle a digital sequence, preserving diresidue composition.
  * Incept:    SRE, Fri Feb 23 09:23:47 2007 [Casa de Gatos]
  *
  * Purpose:   Same as <esl_rnd_CShuffleDP()>, except for a digital
@@ -1174,7 +1200,7 @@ esl_rnd_XShuffle(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, ESL_DSQ *shuffled)
  *            <eslEMEM> on allocation failure.
  */
 int
-esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled)
+esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled)
 {
   int     status;           /* Easel return status code */
   int     i;	            /* a position in dsq or shuffled */
@@ -1285,6 +1311,7 @@ esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuff
 
 
 /* Function:  esl_rnd_XMarkov0()
+ * Synopsis:  Generate new digital sequence of same 0th order Markov properties.
  * Incept:    SRE, Sat Feb 24 09:12:32 2007 [Casa de Gatos]
  *
  * Purpose:   Same as <esl_rnd_CMarkov0()>, except for a digital
@@ -1306,7 +1333,7 @@ esl_rnd_XShuffleDP(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuff
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved)
+esl_rnd_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved)
 {
   int     status;
   int     i; 
@@ -1342,6 +1369,7 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markove
 
 
 /* Function:  esl_rnd_XMarkov1()
+ * Synopsis:  Generate new digital sequence of same 1st order Markov properties.
  * Incept:    SRE, Sat Feb 24 09:46:09 2007 [Casa de Gatos]
  *
  * Purpose:   Same as <esl_rnd_CMarkov1()>, except for a digital
@@ -1374,7 +1402,7 @@ esl_rnd_XMarkov0(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markove
  *            <eslEMEM> on allocation failure.
  */
 int 
-esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved) 
+esl_rnd_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved) 
 {
   int      status;
   int      i; 
@@ -1435,6 +1463,7 @@ esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markove
 
 
 /* Function:  esl_rnd_XReverse()
+ * Synopsis:  Reverse a digital sequence.
  * Incept:    SRE, Sat Feb 24 10:13:30 2007 [Casa de Gatos]
  *
  * Purpose:   Given a digital sequence <dsq> of length <L>, return
@@ -1449,7 +1478,7 @@ esl_rnd_XMarkov1(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int K, ESL_DSQ *markove
  * Returns:   <eslOK> on success.
  */
 int
-esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *rev)
+esl_rnd_XReverse(const ESL_DSQ *dsq, int L, ESL_DSQ *rev)
 {
   int     i;
   ESL_DSQ x;
@@ -1468,6 +1497,7 @@ esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *rev)
 
 
 /* Function: esl_rnd_XShuffleWindows()
+ * Synopsis: Shuffle local windows of a digital sequence.
  * Incept:   SRE, Sat Feb 24 10:51:31 2007 [Casa de Gatos]
  * 
  * Purpose:  Given a digital sequence <dsq> of length <L>, shuffle
@@ -1475,7 +1505,7 @@ esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *rev)
  *           the result in <shuffled>.  See [Pearson88].
  *
  *           Caller provides storage in <shuffled> for at least
- *           <L+2)*sizeof(ESL_DSQ)>.
+ *           <(L+2)*sizeof(ESL_DSQ)>.
  *           
  *           <dsq> and <shuffled> can be identical to shuffle in place.
  *
@@ -1487,7 +1517,7 @@ esl_rnd_XReverse(ESL_DSQ *dsq, int L, ESL_DSQ *rev)
  * Return:   <eslOK> on success.
  */
 int
-esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, ESL_DSQ *dsq, int L, int w, ESL_DSQ *shuffled)
+esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL_DSQ *shuffled)
 {
   ESL_DSQ x;
   int  i, j, k;
@@ -2226,7 +2256,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE random.c easel.c -lm
+/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
  * run:     ./example
  */
 #include <stdio.h>
@@ -2236,18 +2266,11 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 int 
 main(void)
 {
-  ESL_RANDOMNESS *r;
-  double          x;
-  int             n;
-  
-  r = esl_randomness_Create(42); 
-  n = 10;
+  ESL_RANDOMNESS *r = esl_randomness_Create(42); 
+  int             n = 10;
 
   printf("A sequence of %d pseudorandom numbers:\n", n);
-  while (n--) {
-    x = esl_random(r);
-    printf("%f\n", x);
-  }
+  while (n--)  printf("%f\n", esl_random(r));
 
   esl_randomness_Destroy(r);
   return 0;

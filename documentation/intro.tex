@@ -5,8 +5,9 @@ sequences using probabilistic models.  Easel is used by \prog{HMMER}
 \citep{hmmer,Eddy98}, the profile hidden Markov model software that
 underlies the \prog{Pfam} protein family database
 \citep{Finn06,Sonnhammer97} and several other protein family
-databases, and also by \prog{Infernal} \citep{infernal,NawrockiEddy07}
-that underlies the \prog{Rfam} RNA family database
+databases. Easel is also used by \prog{Infernal}
+\citep{infernal,NawrockiEddy07}, the covariance model software that
+underlies the \prog{Rfam} RNA family database
 \citep{Griffiths-Jones05}. Like any code library, Easel aims to make
 applications more robust and easier to develop, by providing a set of
 reusable, documented, and well-tested functions.
@@ -19,23 +20,23 @@ basic utilities.
 Easel's documentation includes tutorial examples to make it easy to
 get started with any given Easel module. Easel is modular, to help you
 extract individual files or functions for use in your own code,
-without having to disentangle the entire library. Easel is freely
-distributed as open source so that you can use and modify it for
-anything, including commercial purposes.
+without having to disentangle the entire library. Easel is open
+source. You may freely modify and redistribute it (or any part of it)
+for any purpose.
 
 \section{Quick start}
 
 Let's assume you just want to take a quick tour. Maybe you're deciding
 whether Easel is useful or not. You can compile Easel and try it out
-without installing it.
+without permanently installing it.
 
 After you obtain an Easel source tarball (from
 \url{http://selab.janelia.org/easel}, for example), it should compile
-out of the box on any UNIX, Linux, or Mac OS/X operating
-system\footnote{You need a C compilation environment, which you might
-not have. If not, install a C compiler first, such as the free GNU gcc
-compiler, or see your local system guru.} with this incantation
-(where \ccode{xxx} is a version number):
+cleanly on any UNIX, Linux, or Mac OS/X operating system\footnote{You
+need a C compilation environment, which you might not have. If not,
+install a C compiler first, such as the free GNU gcc compiler, or see
+your local system guru.} with this incantation (where \ccode{xxx} is a
+version number):
 
 \begin{cchunk}
 % tar zxf easel-xxx.tar.gz

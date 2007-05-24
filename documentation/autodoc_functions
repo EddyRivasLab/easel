@@ -50,23 +50,31 @@
 # SRE, Tue Nov 30 19:43:47 2004
 
 require  "getopts.pl";
-&Getopts('t');
+&Getopts('n:t');
 if ($opt_t) { $show_api_table = 1; }
+if ($opt_n) { $modulename     = $opt_n; } else { $modulename = "foo"; }
 
 $cfile = shift;
 
-$text  = `cat $cfile`;
-$n = &parse_function_documentation($text);
+$text      = `cat $cfile`;
+$nfuncs    = &parse_function_documentation($text);
+$nsections = &parse_api_subheads($text);
 
 if ($show_api_table) 
 {
+    $j = -1;
     printf("\\begin{table}[hbp]\n");
     printf("\\begin{center}\n");
     printf("{\\small\n");
     printf("\\begin{tabular}{|ll|}\\hline\n");
-    printf("\\apisubhead{subheading example}\\\\\n");
-    for ($i = 0; $i < $n; $i++) 
+    for ($i = 0; $i < $nfuncs; $i++) 
     {
+	if ($insection{$function[$i]} != $j)
+	{
+	    $j = $insection{$function[$i]};
+	    printf("\\apisubhead{%s}\\\\\n", $apisubheads[$j]);
+	}
+
 	if ($synopsis[$i] ne "") {
 	    printf("\\hyperlink{func:%s()}{\\ccode{%s()}} & %s\\\\\n",
 		   $function[$i], $pfunction[$i], $synopsis[$i]);
@@ -75,19 +83,18 @@ if ($show_api_table)
 		   $function[$i], $pfunction[$i]);
 	}
     }
-    printf("\\apisubhead{subheading (with \\eslmod{foo} augmentation)}\\\\\n");
     printf("\\hline\n");
     printf("\\end{tabular}\n");
     printf("}\n");
     printf("\\end{center}\n");
-    printf("\\caption{The \\eslmod{foo} API.}\n");
-    printf("\\label{tbl:foo_api}\n");
+    printf("\\caption{The \\eslmod{%s} API.}\n", $modulename);
+    printf("\\label{tbl:%s_api}\n", $modulename);
     printf("\\end{table}\n");
 }
 else
 {
     print "\\begin{sreapi}\n";
-    for ($i = 0; $i < $n; $i++) 
+    for ($i = 0; $i < $nfuncs; $i++) 
     {
 	printf("\\hypertarget{func:%s()}\n{", $function[$i]);
 	printf "\\item[%s %s(%s)]",
@@ -242,4 +249,54 @@ latex_safe
 
     $string =~ s/_/\\_/g;
     $string;
+}
+
+
+# Function: parse_api_subheads
+#
+# Purpose:  Given <text> from a .c file, parse it
+#           for structured API subheading documentation:
+#
+#           /********************************************
+#            *# 1. The ESL_RANDOMNESS object.
+#            ********************************************/
+#          
+#           Keys off of the /***** line, followed by a line
+#           starting with " *#" followed by a number and a period;
+#           the rest of the line is taken to be the title.
+#
+#           The title is processed, so <> and math mode are allowed.
+#
+#           Returns n, the number of subheadings found;
+#           and it populates two global arrays:
+#              apisubheads<0..n-1>  : one-line section subheadings
+#              insection{$funcname} : which api subhead $funcname is under
+# 
+sub
+parse_api_subheads
+{
+    my ($text) = @_;
+    my (@lines) = split(/^/, $text);
+
+    $n     = 0;
+    $armed = 0;
+    foreach $line (@lines) 
+    {
+	if ($armed && $line =~ /^ \*\#\s*\d+\.\s*(.+)$/) 
+	{
+	    $apisubheads[$n] = &process_comment_text($1);
+	    $n++;
+	    $armed = 0;
+
+	}
+
+	if ($line =~ /^\/\* Function:\s*(.+)\(\)/) 
+	{
+	    $insection{$1} = $n-1;
+	}
+
+	if ($line =~ /^\/\*{12}/) { $armed = 1; } # can expect a subhead line next,
+	else                      { $armed = 0; } # or not.
+    }
+    $n;
 }
