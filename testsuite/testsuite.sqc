@@ -89,7 +89,9 @@
 1 prep     stack-compile      gcc -o stack_utest -I.. -L.. -g -Wall -DeslSTACK_TESTDRIVE ../esl_stack.c -leasel -lm
 1 exercise stack-utest        @stack_utest@
 
-# Missing: stats
+1 prep     stats-compile      gcc -o stats_utest -I.. -L.. -g -Wall -DeslSTATS_TESTDRIVE ../esl_stats.c -leasel -lm
+1 exercise stats-utest        @stats_utest@
+
 # Missing: stopwatch
 
 1 prep     sxp-compile        gcc -o sxp_utest -I.. -L.. -g -Wall -DeslSXP_TESTDRIVE ../esl_stretchexp.c -leasel -lm

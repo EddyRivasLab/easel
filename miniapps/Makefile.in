@@ -19,7 +19,8 @@ ESLINCDIR = -I..
 
 ## list of the miniapps to compile.
 #
-PROGS = esl-alistat\
+PROGS = esl-afetch\
+	esl-alistat\
 	esl-compstruct\
 	esl-histplot\
 	esl-reformat
@@ -41,6 +42,10 @@ distclean:
 	make clean
 	-rm -f ${PROGS}
 	-rm Makefile
+
+TAGS:
+	etags *.[ch] Makefile.in
+
 
 ################################################################
 # @LICENSE@

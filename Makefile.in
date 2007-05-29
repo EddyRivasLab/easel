@@ -132,8 +132,8 @@ distclean:
 	-rm -rf autom4te.cache
 	-rm Makefile
 
-tags:
-	etags *.[ch] Makefile
+TAGS:
+	etags *.[ch] Makefile.in
 
 
 # magic SVN for setting keyword ID replacement on a new module foo:

@@ -76,13 +76,11 @@ main(int argc, char **argv)
       exit(1);
     }
 
-  alifile = esl_opt_GetArg(go, eslARG_INFILE, NULL);
+  alifile = esl_opt_GetArg(go, 1);
 
   fmt             = eslMSAFILE_STOCKHOLM;
   max_comparisons = 1000;
 
-  esl_banner(stdout, argv[0], banner);
-  
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
    ***********************************************/
@@ -112,6 +110,12 @@ main(int argc, char **argv)
   /***********************************************
    * Read MSAs one at a time.
    ***********************************************/
+
+  if (esl_opt_GetBoolean(go, "-1")) {
+    puts("#");
+    printf("# %-4s %-20s %10s %7s %7s %12s %6s %6s %10s %3s\n", "idx", "name", "format", "nseq", "alen", "nres", "small", "large", "avlen", "%id");
+    printf("# %-4s %-20s %10s %7s %7s %12s %6s %6s %10s %3s\n", "----", "--------------------", "----------", "-------", "-------", "------------", "------", "------", "----------", "---");
+  }
 
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)

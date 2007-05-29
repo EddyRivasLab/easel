@@ -1,11 +1,11 @@
-/* esl_ssi.c
- * simple sequence indices: fast lookup in large sequence files by keyword.
+/* simple sequence indices: fast lookup in large sequence files by keyword.
  *
- *  1. Using an existing SSI index
- *  2. Creating new SSI files
- *  3. Functions for platform-independent binary i/o
- *  4. Example code
- *  5. Test driver
+ *  1. Using (reading) an SSI index.
+ *  2. Creating (writing) new SSI files.
+ *  3. Portable binary i/o.
+ *  4. Test driver.
+ *  5. Example code.
+ *  6. License and copyright information.
  * 
  * SVN $Id$
  * adapted from squid's ssi.c
@@ -26,13 +26,14 @@ static uint32_t v20swap  = 0xb1e9f3f3; /* byteswapped */
 
 
 /*****************************************************************
- * 1. Using an existing SSI index
+ *# 1. Using (reading) an SSI index.
  *****************************************************************/ 
 
-static int  binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base, 
+static int  binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base, 
 			  uint32_t recsize, uint32_t maxidx);
 
 /* Function:  esl_ssi_Open()
+ * Synopsis:  Open an SSI index as an <ESL_SSI>.
  * Incept:    SRE, Mon Mar  6 10:52:42 2006 [St. Louis]
  *
  * Purpose:   Open the SSI index file <filename>, and returns a pointer
@@ -53,7 +54,7 @@ static int  binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_ssi_Open(char *filename, ESL_SSI **ret_ssi)
+esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
 {
   ESL_SSI *ssi = NULL;
   int      status;
@@ -156,35 +157,10 @@ esl_ssi_Open(char *filename, ESL_SSI **ret_ssi)
   return status;
 }
 
-/* Function:  esl_ssi_Close()
- * Incept:    SRE, Mon Mar  6 13:40:17 2006 [St. Louis]
- *
- * Purpose:   Close an open SSI index <ssi>.
- * 
- * Args:      <ssi>   - an open SSI index file.
- */
-void
-esl_ssi_Close(ESL_SSI *ssi)
-{
-  int i;
-
-  if (ssi == NULL) return;
-
-  if (ssi->fp != NULL) fclose(ssi->fp);
-  if (ssi->filename != NULL) {
-    for (i = 0; i < ssi->nfiles; i++) 
-      if (ssi->filename[i] != NULL) free(ssi->filename[i]);
-    free(ssi->filename);
-  }
-  if (ssi->fileformat != NULL) free(ssi->fileformat);
-  if (ssi->fileflags  != NULL) free(ssi->fileflags);
-  if (ssi->bpl        != NULL) free(ssi->bpl);
-  if (ssi->rpl        != NULL) free(ssi->rpl);
-  free(ssi);
-}  
 
 
 /* Function: esl_ssi_FindName()
+ * Synopsis: Look up a primary or secondary key.
  * Date:     SRE, Sun Dec 31 13:55:31 2000 [St. Louis]
  *
  * Purpose:  Looks up the string <key> in index <ssi>.
@@ -209,7 +185,7 @@ esl_ssi_Close(ESL_SSI *ssi)
  * Throws:   <eslEMEM>      on allocation error.
  */
 int
-esl_ssi_FindName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_offset)
+esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_offset)
 {
   int       status;
   char     *pkey   = NULL;
@@ -263,6 +239,7 @@ esl_ssi_FindName(ESL_SSI *ssi, char *key, uint16_t *ret_fh, off_t *ret_offset)
 
 
 /* Function:  esl_ssi_FindNumber()
+ * Synopsis:  Look up the n'th primary key.
  * Incept:    SRE, Mon Jan  1 19:42:42 2001 [St. Louis]
  *
  * Purpose:   Looks up primary key number <nkey> in the open index
@@ -317,6 +294,7 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
 
 
 /* Function: esl_ssi_FindSubseq()
+ * Synopsis: Look up a specific subsequence's start.
  * Date:     SRE, Mon Jan  1 19:49:31 2001 [St. Louis]
  *
  * Purpose:  Fast subsequence retrieval:
@@ -351,7 +329,7 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
  *                        <1..len> for the target sequence.
  */
 int
-esl_ssi_FindSubseq(ESL_SSI *ssi, char *key, long requested_start,
+esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, long requested_start,
 		   uint16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
 		   long *ret_actual_start)
 {
@@ -424,6 +402,7 @@ esl_ssi_FindSubseq(ESL_SSI *ssi, char *key, long requested_start,
 
 
 /* Function: esl_ssi_FileInfo()
+ * Synopsis: Retrieve a file name and format code.
  * Date:     SRE, Tue Jan  2 10:31:01 2001 [St. Louis]
  *
  * Purpose:  Given a file number <fh> in an open index file
@@ -460,6 +439,35 @@ esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int *ret_format
 }
 
 
+/* Function:  esl_ssi_Close()
+ * Synopsis:  Close an SSI index.
+ * Incept:    SRE, Mon Mar  6 13:40:17 2006 [St. Louis]
+ *
+ * Purpose:   Close an open SSI index <ssi>.
+ * 
+ * Args:      <ssi>   - an open SSI index file.
+ */
+void
+esl_ssi_Close(ESL_SSI *ssi)
+{
+  int i;
+
+  if (ssi == NULL) return;
+
+  if (ssi->fp != NULL) fclose(ssi->fp);
+  if (ssi->filename != NULL) {
+    for (i = 0; i < ssi->nfiles; i++) 
+      if (ssi->filename[i] != NULL) free(ssi->filename[i]);
+    free(ssi->filename);
+  }
+  if (ssi->fileformat != NULL) free(ssi->fileformat);
+  if (ssi->fileflags  != NULL) free(ssi->fileflags);
+  if (ssi->bpl        != NULL) free(ssi->bpl);
+  if (ssi->rpl        != NULL) free(ssi->rpl);
+  free(ssi);
+}  
+
+
 /* binary_search()
  * Date:     SRE, Sun Dec 31 16:05:03 2000 [St. Louis]
  *
@@ -488,7 +496,7 @@ esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int *ret_format
  *           
  */
 static int
-binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base, 
+binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base, 
 	      uint32_t recsize, uint32_t maxidx)
 {
   char        *name;
@@ -530,9 +538,9 @@ binary_search(ESL_SSI *ssi, char *key, uint32_t klen, off_t base,
 
 
 /*****************************************************************
- * 2. Creating new SSI files
+ *# 2. Creating (writing) new SSI files.
  *****************************************************************/ 
-static int current_newssi_size(ESL_NEWSSI *ns);
+static int current_newssi_size(const ESL_NEWSSI *ns);
 static int activate_external_sort(ESL_NEWSSI *ns);
 static int parse_pkey(char *buf, ESL_PKEY *pkey);
 static int parse_skey(char *buf, ESL_SKEY *skey);
@@ -540,6 +548,7 @@ static int pkeysort(const void *k1, const void *k2);
 static int skeysort(const void *k1, const void *k2);
 
 /* Function:  esl_newssi_Create()
+ * Synopsis:  Create a new <ESL_NEWSSI>.
  * Incept:    SRE, Tue Jan  2 11:23:25 2001 [St. Louis]
  *
  * Purpose:   Creates and returns a <ESL_NEWSSI>, in order to create a 
@@ -591,6 +600,7 @@ esl_newssi_Create(void)
 
 
 /* Function:  esl_newssi_AddFile()
+ * Synopsis:  Add a filename to a growing index.
  * Incept:    SRE, Tue Mar  7 08:57:39 2006 [St. Louis]
  *
  * Purpose:   Registers the file <filename> into the new index <ns>,
@@ -613,7 +623,7 @@ esl_newssi_Create(void)
  * Throws:    <eslEMEM> on allocation or reallocation error.
  */
 int
-esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
+esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_fh)
 {
   int      status;
   uint16_t fh;
@@ -651,6 +661,7 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename, int fmt, uint16_t *ret_fh)
 
 
 /* Function:  esl_newssi_SetSubseq()
+ * Synopsis:  Declare that file is suitable for fast subseq lookup.
  * Incept:    SRE, Tue Mar  7 09:03:59 2006 [St. Louis]
  *
  * Purpose:   Declare that the file associated with handle <fh> is
@@ -688,6 +699,7 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
 
 
 /* Function: esl_newssi_AddKey()
+ * Synopsis: Add a primary key to a growing index.
  * Date:     SRE, Tue Jan  2 11:50:54 2001 [St. Louis]
  *
  * Purpose:  Register primary key <key> in new index <ns>, while telling
@@ -730,7 +742,7 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
  *           <eslEMEM>   on allocation failure.       
  */
 int
-esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
+esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh, 
 		  off_t r_off, off_t d_off, uint32_t L)
 {
   int status;
@@ -797,6 +809,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
 }
 
 /* Function:  esl_newssi_AddAlias()
+ * Synopsis:  Add a secondary key (alias) to a growing index.
  * Incept:    SRE, Tue Mar  7 15:49:43 2006 [St. Louis]
  *
  * Purpose:   Registers secondary key <alias> in index <ns>, and 
@@ -819,7 +832,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh,
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key)
+esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
 {
   int status;
   int n;			/* a string length */
@@ -865,6 +878,7 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key)
 
 
 /* Function:  esl_newssi_Write()
+ * Synopsis:  Save a new index to an SSI file.
  * Incept:    SRE, Tue Mar  7 16:06:09 2006 [St. Louis]
  *
  * Purpose:   Writes the complete index <ns> in SSI format to a binary
@@ -1107,6 +1121,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 }
 
 /* Function:  esl_newssi_Destroy()
+ * Synopsis:  Free an <ESL_NEWSSI>.
  * Incept:    SRE, Tue Mar  7 08:13:27 2006 [St. Louis]
  *
  * Purpose:   Frees a <ESL_NEWSSI>.
@@ -1169,7 +1184,7 @@ esl_newssi_Destroy(ESL_NEWSSI *ns)
  * each sec key costs us  plen+slen chars.
  */
 static int
-current_newssi_size(ESL_NEWSSI *ns) 
+current_newssi_size(const ESL_NEWSSI *ns) 
 {
   uint64_t frecsize, precsize, srecsize;
   uint64_t total;
@@ -1339,7 +1354,7 @@ skeysort(const void *k1, const void *k2)
 
 
 /*****************************************************************
- * 3. Functions for platform-independent binary i/o
+ *# 3. Portable binary i/o
  *****************************************************************/ 
 
 /* Function:  esl_byteswap()
@@ -1589,104 +1604,9 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 
 
 
-/*****************************************************************
- * 4. Example code.
- ****************************************************************/
-#ifdef eslSSI_EXAMPLE
-/*::cexcerpt::ssi_example::begin::*/
-#include <stdio.h>
-#include <easel.h>
-#include <esl_ssi.h>
-
-int main(int argc, char **argv)
-{
-  ESL_NEWSSI *ns;
-  char    *fafile;              /* name of FASTA file                   */
-  FILE    *fp;                  /* opened FASTA file for reading        */
-  char    *ssifile;             /* name of SSI file                     */
-  FILE    *sfp;                 /* opened SSI file for writing          */
-  uint16_t fh;                  /* file handle SSI associates w/ fafile */
-  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
-  int      n   = 0;             /* length of buf                        */
-  char    *s, *seqname;		
-  off_t    seq_offset;
-
-  /* Collect the sequence names from a FASTA file into an index */
-  fafile = argv[1];
-  ns = esl_newssi_Create();
-  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open %s", fafile);
-  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add %s to index", fafile);
-
-  seq_offset = ftello(fp);
-  while (esl_fgets(&buf, &n, fp) == eslOK)
-    {
-      if (*buf == '>') {
-	s = buf+1;                              /* skip past >                */
-	esl_strtok(s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
-	esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0);
-      }
-      seq_offset = ftello(fp);				 
-    }
-  free(buf);
-  fclose(fp);
-
-  /* Save the index to disk */
-  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name ssi file for %s", fafile);
-  if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
-  if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
-  fclose(sfp);
-  free(ssifile);
-  esl_newssi_Destroy(ns);  
-
-  return 0;
-}
-/*::cexcerpt::ssi_example::end::*/
-#endif /*eslSSI_EXAMPLE*/
-
-
-#ifdef eslSSI_EXAMPLE2
-/*::cexcerpt::ssi_example2::begin::*/
-#include <stdio.h>
-#include <easel.h>
-#include <esl_ssi.h>
-
-int main(int argc, char **argv)
-{
-  ESL_SSI *ssi;
-  char    *seqname;             /* name of sequence to retrieve         */
-  char    *ssifile;             /* name of SSI file                     */
-  uint16_t fh;                  /* file handle SSI associates w/ fafile */
-  char    *fafile;              /* name of FASTA file                   */
-  int      fmt;                 /* format code (1, in this example)     */
-  off_t    offset;              /* disk offset of seqname in fafile     */
-  FILE    *fp;                  /* opened FASTA file for reading        */
-  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
-  int      n = 0;               /* size of buffer                       */
-
-  seqname = argv[1];
-  ssifile = argv[2];
-
-  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open %s", ssifile);
-  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s", seqname);
-  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to get filename %d\n", fh);
-  esl_ssi_Close(ssi);  
-
-  if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
-  if (fseeko(fp, offset, SEEK_SET)                 != 0)      esl_fatal("failed to position file %s", fafile);
-  if (esl_fgets(&buf, &n, fp)                      != eslOK)  esl_fatal("failed to get name/desc line");
-  do {
-    puts(buf); 
-  } while (esl_fgets(&buf, &n, fp) != eslOK && *buf != '>');
-  
-  fclose(fp);  
-  free(buf);
-  return 0;
-}
-/*::cexcerpt::ssi_example2::end::*/
-#endif /*eslSSI_EXAMPLE2*/
 
 /*****************************************************************
- * 5. Test driver
+ * 4. Test driver
  *****************************************************************/ 
 
 /* gcc -g -Wall -o testdrive -L. -I. -DeslSSI_TESTDRIVE esl_ssi.c -leasel -lm */
@@ -1845,6 +1765,103 @@ int main(int argc, char **argv)
 }
 #endif /*eslSSI_TESTDRIVE*/
 
+
+
+/*****************************************************************
+ * 5. Example code.
+ ****************************************************************/
+#ifdef eslSSI_EXAMPLE
+/*::cexcerpt::ssi_example::begin::*/
+#include <stdio.h>
+#include <easel.h>
+#include <esl_ssi.h>
+
+int main(int argc, char **argv)
+{
+  ESL_NEWSSI *ns;
+  char    *fafile;              /* name of FASTA file                   */
+  FILE    *fp;                  /* opened FASTA file for reading        */
+  char    *ssifile;             /* name of SSI file                     */
+  FILE    *sfp;                 /* opened SSI file for writing          */
+  uint16_t fh;                  /* file handle SSI associates w/ fafile */
+  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
+  int      n   = 0;             /* length of buf                        */
+  char    *s, *seqname;		
+  off_t    seq_offset;
+
+  /* Collect the sequence names from a FASTA file into an index */
+  fafile = argv[1];
+  ns = esl_newssi_Create();
+  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open %s", fafile);
+  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add %s to index", fafile);
+
+  seq_offset = ftello(fp);
+  while (esl_fgets(&buf, &n, fp) == eslOK)
+    {
+      if (*buf == '>') {
+	s = buf+1;                              /* skip past >                */
+	esl_strtok(s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
+	esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0);
+      }
+      seq_offset = ftello(fp);				 
+    }
+  free(buf);
+  fclose(fp);
+
+  /* Save the index to disk */
+  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name ssi file for %s", fafile);
+  if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
+  if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
+  fclose(sfp);
+  free(ssifile);
+  esl_newssi_Destroy(ns);  
+
+  return 0;
+}
+/*::cexcerpt::ssi_example::end::*/
+#endif /*eslSSI_EXAMPLE*/
+
+
+#ifdef eslSSI_EXAMPLE2
+/*::cexcerpt::ssi_example2::begin::*/
+#include <stdio.h>
+#include <easel.h>
+#include <esl_ssi.h>
+
+int main(int argc, char **argv)
+{
+  ESL_SSI *ssi;
+  char    *seqname;             /* name of sequence to retrieve         */
+  char    *ssifile;             /* name of SSI file                     */
+  uint16_t fh;                  /* file handle SSI associates w/ fafile */
+  char    *fafile;              /* name of FASTA file                   */
+  int      fmt;                 /* format code (1, in this example)     */
+  off_t    offset;              /* disk offset of seqname in fafile     */
+  FILE    *fp;                  /* opened FASTA file for reading        */
+  char    *buf = NULL;          /* growable buffer for esl_fgets()      */
+  int      n = 0;               /* size of buffer                       */
+
+  seqname = argv[1];
+  ssifile = argv[2];
+
+  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open %s", ssifile);
+  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s", seqname);
+  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to get filename %d\n", fh);
+  esl_ssi_Close(ssi);  
+
+  if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
+  if (fseeko(fp, offset, SEEK_SET)                 != 0)      esl_fatal("failed to position file %s", fafile);
+  if (esl_fgets(&buf, &n, fp)                      != eslOK)  esl_fatal("failed to get name/desc line");
+  do {
+    puts(buf); 
+  } while (esl_fgets(&buf, &n, fp) != eslOK && *buf != '>');
+  
+  fclose(fp);  
+  free(buf);
+  return 0;
+}
+/*::cexcerpt::ssi_example2::end::*/
+#endif /*eslSSI_EXAMPLE2*/
 
 
 /*****************************************************************

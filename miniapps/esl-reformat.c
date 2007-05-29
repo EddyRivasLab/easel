@@ -120,8 +120,8 @@ main(int argc, char **argv)
       exit(1);
     }
 
-  outformat = esl_opt_GetArg(go, eslARG_STRING, NULL);
-  infile    = esl_opt_GetArg(go, eslARG_STRING, NULL);
+  outformat = esl_opt_GetArg(go, 1);
+  infile    = esl_opt_GetArg(go, 2);
 
   infmt = eslSQFILE_UNKNOWN;
   if (informat != NULL)

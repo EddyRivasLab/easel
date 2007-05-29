@@ -691,7 +691,7 @@ main(int argc, char **argv)
     puts(usage);
     return 1;
   }
-  msafile = esl_opt_GetArg(go, eslARG_STRING, NULL);
+  msafile = esl_opt_GetArg(go, 1);
   esl_getopts_Destroy(go);
 
   /* Weight one or more alignments from input file
@@ -827,7 +827,7 @@ main(int argc, char **argv)
     puts(usage);
     return 1;
   }
-  if ((msafile = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("failed to parse cmd line: %s", go->errbuf);
+  if ((msafile = esl_opt_GetArg(go, 1)) == NULL) esl_fatal("failed to parse cmd line: %s", go->errbuf);
   esl_getopts_Destroy(go);
 
   w = esl_stopwatch_Create();
@@ -931,7 +931,7 @@ main(int argc, char **argv)
     puts(usage);
     return 1;
   }
-  if ((msafile = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("%s", go->errbuf);
+  if ((msafile = esl_opt_GetArg(go, 1)) == NULL) esl_fatal("%s", go->errbuf);
   esl_getopts_Destroy(go);
 
   /* Weight one or more alignments from input file

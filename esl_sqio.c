@@ -810,7 +810,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  * Xref:      STL11/124
  */
 ESL_SQ *
-esl_sq_CreateDigital(ESL_ALPHABET *abc)
+esl_sq_CreateDigital(const ESL_ALPHABET *abc)
 {
   ESL_SQ *s;
   if ((s = sq_create(TRUE)) != NULL)
@@ -848,7 +848,7 @@ esl_sq_CreateDigital(ESL_ALPHABET *abc)
  *            wedged, and it should only be destroyed, not used.
  */
 int
-esl_sq_Digitize(ESL_ALPHABET *abc, ESL_SQ *sq)
+esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq)
 {
   int status;
 

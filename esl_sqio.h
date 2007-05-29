@@ -145,7 +145,7 @@ typedef struct {
   /*::cexcerpt::sqio_sq::end::*/
 
 #ifdef eslAUGMENT_ALPHABET
-  ESL_ALPHABET *abc;	   /* reference to the alphabet for <dsq> */
+  const ESL_ALPHABET *abc;  /* reference to the alphabet for <dsq> */
 #endif
 
   char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
@@ -175,9 +175,9 @@ extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 /* Digitized sequences (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
-extern ESL_SQ *esl_sq_CreateDigital(ESL_ALPHABET *abc);
+extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
-extern int     esl_sq_Digitize(ESL_ALPHABET *abc, ESL_SQ *sq);
+extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
 extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
 #endif

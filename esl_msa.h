@@ -122,7 +122,13 @@ typedef struct {
   ESL_KEYHASH  *gc_idx;         /* hash of #=GC tag types   */
   ESL_KEYHASH  *gr_idx;         /* hash of #=GR tag types   */
 #endif /*eslAUGMENT_KEYHASH*/
+
+#ifdef eslAUGMENT_SSI
+  off_t         offset;		/* disk offset to start of 1st line of this MSA's record */
+#endif
 } ESL_MSA;
+
+
 
 /* Flags for msa->flags
  */
@@ -183,6 +189,9 @@ extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int  esl_msafile_Open(const char *filename, int format, const char *env, 
 			     ESL_MSAFILE **ret_msafp);
 extern void esl_msafile_Close(ESL_MSAFILE *afp);
+#ifdef eslAUGMENT_SSI
+extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
+#endif
 
 /* 3. Digitized MSA's (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET

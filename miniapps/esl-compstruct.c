@@ -94,8 +94,8 @@ main(int argc, char **argv)
       exit(1);
     }
 
-  kfile = esl_opt_GetArg(go, eslARG_STRING, NULL);
-  tfile = esl_opt_GetArg(go, eslARG_STRING, NULL);
+  kfile = esl_opt_GetArg(go, 1);
+  tfile = esl_opt_GetArg(go, 2);
   
   if (! esl_opt_GetBoolean(go, "--quiet")) 
     esl_banner(stdout, argv[0], banner);

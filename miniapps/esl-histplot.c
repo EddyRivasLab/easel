@@ -108,7 +108,7 @@ main(int argc, char **argv)
       exit(1);
     }
 
-  datafile = esl_opt_GetArg(go, eslARG_INFILE, NULL);
+  datafile = esl_opt_GetArg(go, 1);
 
   /*****************************************************************
    * Open the input and output datafiles, and init the histogram.

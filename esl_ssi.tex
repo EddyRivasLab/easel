@@ -49,47 +49,40 @@ A \eslmod{ESL\_SSI} object is used for reading an index, and a
 \eslmod{ESL\_NEWSSI} object is used for creating one. There is also a
 set of functions for portable binary file i/o.
 
-\begin{table}
+\begin{table}[hbp]
 \begin{center}
-\begin{tabular}{ll}\hline
-       \multicolumn{2}{c}{\textbf{Reading SSI indices}}\\
-\ccode{esl\_ssi\_Open()}         & Open an SSI index as an \ccode{ESL\_SSI}.\\
-\ccode{esl\_ssi\_Close()}        & Close an SSI index.\\
-\ccode{esl\_ssi\_FindName()}     & Look up a primary or secondary key.\\
-\ccode{esl\_ssi\_FindNumber()}   & Look up the n'th primary key.\\
-\ccode{esl\_ssi\_FindSubseq()}   & Look up a specific subsequence start.\\
-\ccode{esl\_ssi\_FileInfo()}     & Retrieve a file name and format code.\\
-       \multicolumn{2}{c}{\textbf{Creating SSI indices}}\\
-\ccode{esl\_newssi\_Create()}    & Create a new \ccode{ESL\_NEWSSI}.\\
-\ccode{esl\_newssi\_AddFile()}   & Add a filename to an index.\\
-\ccode{esl\_newssi\_SetSubseq()} & Declare that file is suitable for fast subseq lookup.\\
-\ccode{esl\_newssi\_AddKey()}    & Add a primary key to index.\\
-\ccode{esl\_newssi\_AddAlias()}  & Add a secondary key (alias) to index.\\
-\ccode{esl\_newssi\_Write()}     & Save an index to an SSI file.\\
-\ccode{esl\_newssi\_Destroy()}   & Free an \ccode{ESL\_NEWSSI}.\\
-       \multicolumn{2}{c}{\textbf{Portable binary i/o}}\\
-\ccode{esl\_byteswap()}         & Swap between big-endian and little-endian.\\
-\ccode{esl\_ntoh16()}           & Convert 16bit int from portable order to host order.\\
-\ccode{esl\_ntoh32()}           & Convert 32bit int from portable order to host order.\\
-\ccode{esl\_ntoh64()}           & Convert 64bit int from portable order to host order.\\
-\ccode{esl\_hton16()}           & Convert 16bit int from host order to portable order.\\
-\ccode{esl\_hton32()}           & Convert 32bit int from host order to portable order.\\
-\ccode{esl\_hton64()}           & Convert 64bit int from host order to portable order.\\
-\ccode{esl\_fread\_i16()}        & Read 16bit int portably.\\
-\ccode{esl\_fread\_i32()}        & Read 32bit int portably.\\
-\ccode{esl\_fread\_i64()}        & Read 64bit int portably.\\
-\ccode{esl\_fwrite\_i16()}       & Write 16bit int portably.\\
-\ccode{esl\_fwrite\_i32()}       & Write 32bit int portably.\\
-\ccode{esl\_fwrite\_i64()}       & Write 64bit int portably.\\
-\ccode{esl\_fread\_offset()}     & Read a disk offset (\ccode{off\_t}) portably.\\
-\ccode{esl\_fwrite\_offset()}    & Write a disk offset (\ccode{off\_t}) portably.\\
+{\small
+\begin{tabular}{|ll|}\hline
+\apisubhead{Using (reading) an SSI index.}\\
+\hyperlink{func:esl_ssi_Open()}{\ccode{esl\_ssi\_Open()}} & Open an SSI index as an \ccode{ESL\_SSI}.\\
+\hyperlink{func:esl_ssi_FindName()}{\ccode{esl\_ssi\_FindName()}} & Look up a primary or secondary key.\\
+\hyperlink{func:esl_ssi_FindNumber()}{\ccode{esl\_ssi\_FindNumber()}} & Look up the n'th primary key.\\
+\hyperlink{func:esl_ssi_FindSubseq()}{\ccode{esl\_ssi\_FindSubseq()}} & Look up a specific subsequence's start.\\
+\hyperlink{func:esl_ssi_FileInfo()}{\ccode{esl\_ssi\_FileInfo()}} & Retrieve a file name and format code.\\
+\hyperlink{func:esl_ssi_Close()}{\ccode{esl\_ssi\_Close()}} & Close an SSI index.\\
+\apisubhead{Creating (writing) new SSI files.}\\
+\hyperlink{func:esl_newssi_Create()}{\ccode{esl\_newssi\_Create()}} & Create a new \ccode{ESL\_NEWSSI}.\\
+\hyperlink{func:esl_newssi_AddFile()}{\ccode{esl\_newssi\_AddFile()}} & Add a filename to a growing index.\\
+\hyperlink{func:esl_newssi_SetSubseq()}{\ccode{esl\_newssi\_SetSubseq()}} & Declare that file is suitable for fast subseq lookup.\\
+\hyperlink{func:esl_newssi_AddKey()}{\ccode{esl\_newssi\_AddKey()}} & Add a primary key to a growing index.\\
+\hyperlink{func:esl_newssi_AddAlias()}{\ccode{esl\_newssi\_AddAlias()}} & Add a secondary key (alias) to a growing index.\\
+\hyperlink{func:esl_newssi_Write()}{\ccode{esl\_newssi\_Write()}} & Save a new index to an SSI file.\\
+\hyperlink{func:esl_newssi_Destroy()}{\ccode{esl\_newssi\_Destroy()}} & Free an \ccode{ESL\_NEWSSI}.\\
+\apisubhead{Portable binary i/o}\\
+\hyperlink{func:esl_byteswap()}{\ccode{esl\_byteswap()}} & Description.\\
+\hyperlink{func:esl_ntoh16()}{\ccode{esl\_ntoh16()}} & Description.\\
+\hyperlink{func:esl_hton16()}{\ccode{esl\_hton16()}} & Description.\\
+\hyperlink{func:esl_fread_i16()}{\ccode{esl\_fread\_i16()}} & Description.\\
+\hyperlink{func:esl_fwrite_i16()}{\ccode{esl\_fwrite\_i16()}} & Description.\\
+\hyperlink{func:esl_fread_offset()}{\ccode{esl\_fread\_offset()}} & Description.\\
+\hyperlink{func:esl_fwrite_offset()}{\ccode{esl\_fwrite\_offset()}} & Description.\\
 \hline
 \end{tabular}
+}
 \end{center}
 \caption{The \eslmod{ssi} API.}
 \label{tbl:ssi_api}
 \end{table}
-
 
 \subsection{Example: creating an SSI index}
 

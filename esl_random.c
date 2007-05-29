@@ -2159,8 +2159,8 @@ static int save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n);
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go;
-  ESL_RANDOMNESS *r;
+  ESL_GETOPTS    *go = NULL;
+  ESL_RANDOMNESS *r  = NULL;
   int             n, nbins, seed, be_verbose;
   char           *bitfile;
   int             L;

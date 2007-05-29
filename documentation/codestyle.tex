@@ -911,7 +911,31 @@ coverage. This is measured by code coverage tests using GCOV.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+\subsection{Using statistical sampling tests}
+% First instituted in stats: SRE, Sun May 27 09:31:12 2007
 
+Some routines are tested on statistical samples. For example, we test
+a maximum likelihood parameter fitting routine by fitting to samples
+generated with known parameters, and testing that the estimated
+parameters are close enough to the true parameters.  The trouble is
+defining ``close enough''. There is always a finite probability that
+such a test will fail. We don't want tests to fail due to expected
+statistical deviations, but neither do we want to set p-values so
+loose that a flaw escapes notice.
+
+Easel tests drivers that use statistical sampling assign a
+\emph{fixed} random number seed by default, to make the statistical
+sample invariant across runs. This makes statistical tests more like
+regression tests. Manually, we use the test driver to determine that
+the test passes; in subsequent automatic use, we just check that we
+get the same answer.
+
+To facilitate the manual testing phase, these test drivers often take
+optional arguments. A \ccode{-v} option toggles verbose mode, so unit
+tests display internal information. A \ccode{-r} option toggles
+``random'' mode, seeding the random number generator with the current
+time. A \ccode{-s <n>} option sets the random number seed to
+\ccode{<n>}.
 
 
 \subsection{Using temporary files in test drivers}

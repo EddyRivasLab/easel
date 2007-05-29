@@ -3,42 +3,42 @@ The \eslmod{getopts} module interprets UNIX command line syntax. It
 allows both standard POSIX one-character options and GNU-style long
 options, in addition to command line arguments. The implementation
 shares similarities with POSIX \ccode{getopt()} and GNU's
-\ccode{getopt\_long()}, but has somewhat more power, at the cost of
-enforcing a fairly specific style.
+\ccode{getopt\_long()}. It has additional abilities, at the cost of
+enforcing a specific style.
 
 Options can be set from the command line, environment variables, and
 one or more configuration files.
 
-Option and commandline arguments can be automatically checked for
-valid type (integers, real numbers, characters, or strings), and
-numeric arguments can be checked for valid range (for instance,
-ensuring that a probability is in the range $0 \leq x \leq 1$).
+Option arguments can be automatically checked for valid type
+(integers, real numbers, characters, or strings). Numeric arguments
+can also be checked for valid range (for instance, ensuring that a
+probability is in the range $0 \leq x \leq 1$).
 
 Options can be linked into ``toggle groups'', such that setting one
 option automatically unsets others. 
 
-You can specify that an option makes no sense unless other required
+You can specify that an option isn't legal unless other required
 options are also set, or conversely that an option is incompatible
-with one or more other options being set. 
+with one or more other options.
 
-A standardized usage display for command line options can be printed
-directly from the internal information, including default values and
-range restrictions when line length allows. 
+A standardized usage/help display for command line options can be
+printed directly from the internal information, including default
+values and range restrictions when line length allows.
 
-You configure all this by defining an array of \ccode{ESL\_OPTIONS}
+This is all configured by defining an array of \ccode{ESL\_OPTIONS}
 structures that provide the necessary information. This array is
-passed into a \ccode{ESL\_GETOPTS} object, which is used to determine
+turned into a \ccode{ESL\_GETOPTS} object, which is used to determine
 and store the configuration state of your application according to the
 command line, environment variables, and configuration files.
 
-The \ccode{ESL\_GETOPTS} object can then be queried directly when your
+The \ccode{ESL\_GETOPTS} object can be queried directly when your
 program executes configuration-dependent steps. There is often no need
-to store configuration information in any other variables in your
-program. This simplifies code structure, and it allows you to pass the
+to store configuration information in other variables in your
+program. This simplifies code structure, by allowing you to pass the
 complete configuration state of your application in one capsule to
 functions other than \ccode{main()}. This is especially useful in
-applications where \ccode{main()} is a dispatch wrapper; masters and
-workers in a parallelized MPI program, for example.
+applications where \ccode{main()} is a dispatch wrapper, such as the
+masters and workers in a parallelized MPI program, for example.
 
 Table~\ref{tbl:getopts_api} lists the functions in the
 \eslmod{getopts} API. The module implements a \ccode{ESL\_GETOPTS}
@@ -60,6 +60,7 @@ configurable option. An application defines an array of
 \hyperlink{func:esl_opt_ProcessEnvironment()}{\ccode{esl\_opt\_ProcessEnvironment()}} & Parses options in the environment.\\
 \hyperlink{func:esl_opt_ProcessCmdline()}{\ccode{esl\_opt\_ProcessCmdline()}} & Parses options from the command line.\\
 \hyperlink{func:esl_opt_VerifyConfig()}{\ccode{esl\_opt\_VerifyConfig()}} & Validates configuration after options are set.\\
+\hyperlink{func:esl_opt_ArgNumber()}{\ccode{esl\_opt\_ArgNumber()}} & Returns number of command line arguments.\\
 \apisubhead{retrieving option settings and arguments}\\
 \hyperlink{func:esl_opt_IsDefault()}{\ccode{esl\_opt\_IsDefault()}} & Returnes \ccode{TRUE} if option remained at default setting.\\
 \hyperlink{func:esl_opt_GetBoolean()}{\ccode{esl\_opt\_GetBoolean()}} & Retrieve \ccode{TRUE}/\ccode{FALSE} for a boolean option.\\
@@ -67,7 +68,7 @@ configurable option. An application defines an array of
 \hyperlink{func:esl_opt_GetReal()}{\ccode{esl\_opt\_GetReal()}} & Retrieve value of a real-valued option.\\
 \hyperlink{func:esl_opt_GetChar()}{\ccode{esl\_opt\_GetChar()}} & Retrieve value of a character option.\\
 \hyperlink{func:esl_opt_GetString()}{\ccode{esl\_opt\_GetString()}} & Retrieve value of a string option.\\
-\hyperlink{func:esl_opt_GetArg()}{\ccode{esl\_opt\_GetArg()}} & Retrieve next command line argument.\\
+\hyperlink{func:esl_opt_GetArg()}{\ccode{esl\_opt\_GetArg()}} & Retrieve numbered command line argument.\\
 \apisubhead{formatting option documentation}\\
 \hyperlink{func:esl_opt_DisplayHelp()}{\ccode{esl\_opt\_DisplayHelp()}} & Formats one-line help for each option.\\
 \hline
@@ -485,11 +486,9 @@ configuration.
 
 Internally, the object keeps track of where the options end and
 command line arguments begin. The macro \ccode{esl\_opt\_ArgNumber()}
-returns the number of arguments remaining, which an application can
-use to verify that the command line contains the expected number of
-non-option arguments.  Subsequent calls to
-\ccode{esl\_opt\_GetCmdlineArg()} recover the arguments in order, and
-these arguments may optionally be type and range checked.
+returns the number of arguments remaining after the options.  Calls to
+\ccode{esl\_opt\_GetArg()} recover the command line arguments by
+number.
 
 The getopts module can configure options not only via the command
 line, but via environment and/or config files.  Connections to the

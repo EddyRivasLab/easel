@@ -1,6 +1,4 @@
-/* esl_ssi.h [created from esl_ssi.h.in by ./configure]
- * 
- * "simple sequence indices": 
+/* "simple sequence indices": 
  * fast sequence record lookup in large files by keywords, such
  * as names or accessions.
  * 
@@ -123,15 +121,14 @@ typedef struct {
 
 
 
-/* 1. Using SSI indices
- */
-extern int  esl_ssi_Open(char *filename, ESL_SSI **ret_ssi);
+/* 1. Using (reading) SSI indices */
+extern int  esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi);
 extern void esl_ssi_Close(ESL_SSI *ssi);
-extern int  esl_ssi_FindName(ESL_SSI *ssi, char *key,
+extern int  esl_ssi_FindName(ESL_SSI *ssi, const char *key,
 			     uint16_t *ret_fh, off_t *ret_offset);
 extern int  esl_ssi_FindNumber(ESL_SSI *ssi, int nkey,
 			       uint16_t *ret_fh, off_t *ret_offset);
-extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, char *key, long requested_start,
+extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, long requested_start,
 			       uint16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
 			       long *ret_actual_start);
 extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
@@ -139,22 +136,20 @@ extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh,
 
 
 
-/* 2. Creating SSI indices
- */
+/* 2. Creating (writing) SSI indices. */
 extern ESL_NEWSSI *esl_newssi_Create(void);
-extern int  esl_newssi_AddFile(ESL_NEWSSI *ns, char *filename,
+extern int  esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename,
 			       int fmt, uint16_t *ret_fh);
 extern int  esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh,
 				 int bpl, int rpl);
-extern int  esl_newssi_AddKey(ESL_NEWSSI *ns, char *key, uint16_t fh, 
+extern int  esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh, 
 			      off_t r_off, off_t d_off, uint32_t L);
-extern int  esl_newssi_AddAlias(ESL_NEWSSI *ns, char *alias, char *key);
+extern int  esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key);
 extern int  esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns);
 extern void esl_newssi_Destroy(ESL_NEWSSI *ns);
 
 
-/* 3. Binary file portability
- */
+/* 3. Portable binary i/o. */
 extern void     esl_byteswap(char *swap, int nbytes);
 extern uint16_t esl_ntoh16(uint16_t netshort);
 extern uint32_t esl_ntoh32(uint32_t netlong);

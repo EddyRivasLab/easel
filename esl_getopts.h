@@ -56,8 +56,7 @@ typedef struct {
 
   int    argc;		  /* argc from command line                    */
   char **argv;		  /* argv from command line                    */
-  int    optind;	  /* where we are in argc                      */
-  int    argi;		  /* what command line arg we're on            */
+  int    optind;	  /* position in argc; eventually 1st arg idx  */
   int    nfiles;	  /* # of cfgfiles that have been processed    */
 
   char **val;		  /* config'ed val for each option (as string) */
@@ -91,15 +90,15 @@ extern int esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp);
 extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
 extern int esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv);
 extern int esl_opt_VerifyConfig(ESL_GETOPTS *g);
+extern int esl_opt_ArgNumber(const ESL_GETOPTS *g);
 
-extern int    esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname);
+extern int    esl_opt_IsDefault (const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_GetInteger(const ESL_GETOPTS *g, char *optname);
-extern double esl_opt_GetReal(const ESL_GETOPTS *g, char *optname);
-extern char   esl_opt_GetChar(const ESL_GETOPTS *g, char *optname);
-extern char  *esl_opt_GetString(const ESL_GETOPTS *g, char *optname);
-extern char  *esl_opt_GetArg(ESL_GETOPTS *g, int type, char *range);
-#define esl_opt_ArgNumber(g)  ((g)->argc - (g)->optind)
+extern double esl_opt_GetReal   (const ESL_GETOPTS *g, char *optname);
+extern char   esl_opt_GetChar   (const ESL_GETOPTS *g, char *optname);
+extern char  *esl_opt_GetString (const ESL_GETOPTS *g, char *optname);
+extern char  *esl_opt_GetArg    (const ESL_GETOPTS *g, int which);
 
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 

@@ -225,6 +225,10 @@ create_mostly(int nseq, int alen)
   msa->gr_idx    = NULL;
 #endif /*eslAUGMENT_KEYHASH*/
 
+#ifdef eslAUGMENT_SSI
+  msa->offset    = 0;
+#endif
+
   /* Allocation, round 2.
    */
   ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
@@ -1282,6 +1286,62 @@ esl_msafile_Close(ESL_MSAFILE *afp)
   free(afp);
 }
 
+
+#ifdef eslAUGMENT_SSI
+/* Function:  esl_msafile_PositionByKey()
+ * Synopsis:  Use SSI to reposition file to start of named MSA.
+ * Incept:    SRE, Mon May 28 11:04:59 2007 [Janelia]
+ *
+ * Purpose:   Reposition <afp> so that the next MSA we read
+ *            will be the one named (or accessioned) <key>.
+ *
+ * Returns:   <eslOK> on success, and the file <afp> is repositioned
+ *            such that the next <esl_msafile_Read()> call will read the
+ *            alignment named <key>.
+ *            
+ *            Returns <eslENOTFOUND> if <key> isn't found in the index
+ *            for <afp>. 
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, indicating some sort of file format
+ *            problem in the SSI file.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            Throws <eslESYS> if an <fseek()> fails. In either case,
+ *            the state of the <afp> is uncertain and may be corrupt;
+ *            the application should not continue to use it.
+ */
+int
+esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
+{
+  uint16_t fh;
+  off_t    offset;
+  int      status;
+
+  if (afp->ssi == NULL) ESL_EXCEPTION(eslEINVAL, "Need an open SSI index to call esl_msafile_PositionByKey()");
+  if ((status = esl_ssi_FindName(afp->ssi, key, &fh, &offset)) != eslOK) return status;
+  if (fseeko(afp->f, offset, SEEK_SET) != 0)    ESL_EXCEPTION(eslESYS, "fseek failed");
+  
+  /* If the <afp> had an MSA cached, we will probably have to discard
+   * it, unless by chance it's exactly the MSA we're looking for.
+   */
+  if (afp->msa_cache != NULL)
+    {
+      if (afp->msa_cache->name == NULL || strcmp(afp->msa_cache->name, key) != 0)
+	{
+	  esl_msa_Destroy(afp->msa_cache);
+	  afp->msa_cache = NULL;
+	}
+    }
+
+  /* The linenumber gets messed up after a file positioning. Best we can do
+   * is to reset it to zero.
+   */
+  afp->linenumber = 0; 
+  return eslOK;
+}
+#endif /*eslAUGMENT_SSI*/
+
 /* msafile_getline():
  * load the next line of <afp> into <afp->buf>. 
  * Returns eslOK on success, eslEOF on normal eof.
@@ -1915,6 +1975,9 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   char      *s;
   int        status;
   int        status2;
+#ifdef eslAUGMENT_SSI
+  off_t      offset;
+#endif
 
   if (feof(afp->f))  { status = eslEOF; goto ERROR; }
   afp->errbuf[0] = '\0';
@@ -1941,6 +2004,9 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    * reading in multi-record mode.
    */
   do {
+#ifdef eslAUGMENT_SSI
+    offset = ftello(afp->f);
+#endif
     if ((status = msafile_getline(afp)) != eslOK) goto ERROR;
   } while (is_blankline(afp->buf));
 
@@ -1950,6 +2016,10 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
       status = eslEFORMAT; 
       goto ERROR;
     } 
+
+#ifdef eslAUGMENT_SSI
+  msa->offset = offset;
+#endif
 
   /* Read the alignment file one line at a time.
    */
@@ -3065,7 +3135,7 @@ main(int argc, char **argv)
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
   if (esl_opt_VerifyConfig(go)               != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
   if (esl_opt_ArgNumber(go)                  != 1)      esl_fatal("Incorrect number of command line arguments.\n");
-  filename = esl_opt_GetArg(go, eslARG_INFILE, NULL);
+  filename = esl_opt_GetArg(go, 1);
   fmt      = eslMSAFILE_UNKNOWN;
 
   /* Open the alignment file in text mode

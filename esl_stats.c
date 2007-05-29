@@ -1,5 +1,11 @@
-/* esl_stats.c
- * Foundation for the statistics modules.
+/* Foundation for the statistics modules.
+ * 
+ * Contents:
+ *   1. The stats API.
+ *   2. Unit tests.
+ *   3. Test driver.
+ *   4. Example.
+ *   5. License and copyright information.
  * 
  * SRE, Tue Jul 19 10:57:44 2005
  * SVN $Id$
@@ -13,9 +19,10 @@
 
 
 /* Function:  esl_stats_Mean()
+ * Synopsis:  Calculates mean and $\sigma^2$ for samples $x_i$.
  * Incept:    SRE, Tue Jul 19 11:04:00 2005 [St. Louis]
  *
- * Purpose:   Calculates the sample mean and s^2, the unbiased
+ * Purpose:   Calculates the sample mean and $s^2$, the unbiased
  *            estimator of the population variance, for a
  *            sample of <n> numbers <x[0]..x[n-1]>, and optionally
  *            returns either or both through <ret_mean> and
@@ -23,13 +30,13 @@
  *
  * Args:      x        - samples x[0]..x[n-1]
  *            n        - number of samples
- *            ret_mean - optRETURN: mean
- *            ret_var  - optRETURN: estimate of population variance       
+ *            opt_mean - optRETURN: mean
+ *            opt_var  - optRETURN: estimate of population variance       
  *
  * Returns:   <eslOK> on success.
  */
 int
-esl_stats_Mean(double *x, int n, double *ret_mean, double *ret_var)
+esl_stats_Mean(const double *x, int n, double *opt_mean, double *opt_var)
 {
   double sum   = 0.;
   double sqsum = 0.;
@@ -40,15 +47,16 @@ esl_stats_Mean(double *x, int n, double *ret_mean, double *ret_var)
       sum   += x[i];
       sqsum += x[i]*x[i];
     }
-  if (ret_mean != NULL)  *ret_mean = sum / (double) n;
-  if (ret_var  != NULL)  *ret_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  if (opt_mean != NULL)  *opt_mean = sum / (double) n;
+  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
   return eslOK;
 }
 
 /* Function:  esl_stats_LogGamma()
+ * Synopsis:  Calculates $\log \Gamma(x)$.
  * Incept:    SRE, Tue Nov  2 13:47:01 2004 [St. Louis]
  *
- * Purpose:   Returns natural log of Gamma(x), for x > 0.0.
+ * Purpose:   Returns natural log of $\Gamma(x)$, for $x > 0$.
  * 
  * Credit:    Adapted from a public domain implementation in the
  *            NCBI core math library. Thanks to John Spouge and
@@ -103,6 +111,7 @@ esl_stats_LogGamma(double x, double *ret_answer)
 
 
 /* Function:  esl_stats_Psi()
+ * Synopsis:  Calculates $\Psi(x)$ (the digamma function).
  * Incept:    SRE, Tue Nov 15 13:57:59 2005 [St. Louis]
  *
  * Purpose:   Computes $\Psi(x)$ (the "digamma" function), which is
@@ -152,12 +161,16 @@ esl_stats_Psi(double x, double *ret_answer)
 
 
 /* Function: esl_stats_IncompleteGamma()
+ * Synopsis: Calculates the incomplete Gamma function.
  * 
- * Purpose:  Returns $P(a,x)$ and $Q(a,x) where:
- *           $P(a,x) = \frac{1}{\Gamma(a)} \int_{0}^{x} t^{a-1} e^{-t} dt$
- *                  $= \frac{\gamma(a,x)}{\Gamma(a)}$
- *           $Q(a,x) = \frac{1}{\Gamma(a)} \int_{x}^{\infty} t^{a-1} e^{-t} dt$
- *                  $= 1 - P(a,x)$
+ * Purpose:  Returns $P(a,x)$ and $Q(a,x)$ where:
+ *
+ *           \begin{eqnarray*}
+ *             P(a,x) & = & \frac{1}{\Gamma(a)} \int_{0}^{x} t^{a-1} e^{-t} dt \\
+ *                    & = & \frac{\gamma(a,x)}{\Gamma(a)} \\
+ *             Q(a,x) & = & \frac{1}{\Gamma(a)} \int_{x}^{\infty} t^{a-1} e^{-t} dt\\
+ *                    & = & 1 - P(a,x) \\
+ *           \end{eqnarray*}
  *
  *           $P(a,x)$ is the CDF of a gamma density with $\lambda = 1$,
  *           and $Q(a,x)$ is the survival function.
@@ -179,7 +192,7 @@ esl_stats_Psi(double x, double *ret_answer)
  *
  * Return:   <eslOK> on success.
  *
- * Throws:   <eslERANGE> if a or x is out of accepted range.
+ * Throws:   <eslERANGE> if <a> or <x> is out of accepted range.
  *           <eslENOHALT> if approximation fails to converge.
  */          
 int
@@ -286,6 +299,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 
 
 /* Function:  esl_stats_ChiSquaredTest()
+ * Synopsis:  Calculates a $\chi^2$ P-value.
  * Incept:    SRE, Tue Jul 19 11:39:32 2005 [St. Louis]
  *
  * Purpose:   Calculate the probability that a chi-squared statistic
@@ -309,6 +323,399 @@ esl_stats_ChiSquaredTest(int v, double x, double *ret_answer)
 {
   return esl_stats_IncompleteGamma((double)v/2, x/2, NULL, ret_answer);
 }
+
+
+/* Function:  esl_stats_LinearRegression()
+ * Synopsis:  Fit data to a straight line.
+ * Incept:    SRE, Sat May 26 11:33:46 2007 [Janelia]
+ *
+ * Purpose:   Fit <n> points <x[i]>, <y[i]> to a straight line
+ *            $y = a + bx$ by linear regression. 
+ *            
+ *            The $x_i$ are taken to be known, and the $y_i$ are taken
+ *            to be observed quantities associated with a sampling
+ *            error $\sigma_i$. If known, the standard deviations
+ *            $\sigma_i$ for $y_i$ are provided in the <sigma> array.
+ *            If they are unknown, pass <sigma = NULL>, and the
+ *            routine will proceed with the assumption that $\sigma_i
+ *            = 1$ for all $i$.
+ *            
+ *            The maximum likelihood estimates for $a$ and $b$ are
+ *            optionally returned in <opt_a> and <opt_b>.
+ *            
+ *            The estimated standard deviations of $a$ and $b$ and
+ *            their estimated covariance are optionally returned in
+ *            <opt_sigma_a>, <opt_sigma_b>, and <opt_cov_ab>.
+ *            
+ *            The Pearson correlation coefficient is optionally
+ *            returned in <opt_cc>. 
+ *            
+ *            The $\chi^2$ P-value for the regression fit is
+ *            optionally returned in <opt_Q>. This P-value may only be
+ *            obtained when the $\sigma_i$ are known. If <sigma> is
+ *            passed as <NULL> and <opt_Q> is requested, <*opt_Q> is
+ *            set to 1.0.
+ *            
+ *            This routine follows the description and algorithm in
+ *            \citep[pp.661-666]{Press93}.
+ *
+ *            <n> must be greater than 2; at least two x[i] must
+ *            differ; and if <sigma> is provided, all <sigma[i]> must
+ *            be $>0$. If any of these conditions isn't met, the
+ *            routine throws <eslEINVAL>.
+ *
+ * Args:      x            - x[0..n-1]
+ *            y            - y[0..n-1]
+ *            sigma        - sample error in observed y_i
+ *            n            - number of data points
+ *            opt_a        - optRETURN: intercept estimate		
+ *            opt_b        - optRETURN: slope estimate
+ *            opt_sigma_a  - optRETURN: error in estimate of a
+ *            opt_sigma_b  - optRETURN: error in estimate of b
+ *            opt_cov_ab   - optRETURN: covariance of a,b estimates
+ *            opt_cc       - optRETURN: Pearson correlation coefficient for x,y
+ *            opt_Q        - optRETURN: X^2 P-value for linear fit
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslEINVAL> if a contract condition isn't met;
+ *            <eslENORESULT> if the chi-squared test fails.
+ *            In these cases, all optional return values are set to 0.
+ */
+int
+esl_stats_LinearRegression(const double *x, const double *y, const double *sigma, int n,
+			   double *opt_a,       double *opt_b,
+			   double *opt_sigma_a, double *opt_sigma_b, double *opt_cov_ab,
+			   double *opt_cc,      double *opt_Q)
+{
+  int     status;
+  double *t      = NULL;
+  double  S, Sx, Sy, Stt;
+  double  Sxy, Sxx, Syy;
+  double  a, b, sigma_a, sigma_b, cov_ab, cc, X2, Q;
+  double  xdev, ydev;
+  double  tmp;
+  int     i;
+
+  /* Contract checks. */
+  if (n <= 2) ESL_XEXCEPTION(eslEINVAL, "n must be > 2 for linear regression fitting");
+  if (sigma != NULL) 
+    for (i = 0; i < n; i++) if (sigma[i] <= 0.) ESL_XEXCEPTION(eslEINVAL, "sigma[%d] <= 0", i);
+  status = eslEINVAL;
+  for (i = 0; i < n; i++) if (x[i] != 0.) { status = eslOK; break; }
+  if (status != eslOK) ESL_XEXCEPTION(eslEINVAL, "all x[i] are 0.");
+
+  /* Allocations */
+  ESL_ALLOC(t, sizeof(double) * n);
+
+  /* S = \sum_{i=1}{n} \frac{1}{\sigma_i^2}.  (S > 0.) */
+  if (sigma != NULL) { for (S = 0., i = 0; i < n; i++) S += 1./ (sigma[i] * sigma[i]);  }
+  else S = (double) n;
+
+  /* S_x = \sum_{i=1}{n} \frac{x[i]}{ \sigma_i^2}  (Sx real.) */
+  for (Sx = 0., i = 0; i < n; i++) { 
+    if (sigma == NULL) Sx += x[i];
+    else               Sx += x[i] / (sigma[i] * sigma[i]);
+  }
+
+  /* S_y = \sum_{i=1}{n} \frac{y[i]}{\sigma_i^2}  (Sy real.) */
+  for (Sy = 0., i = 0; i < n; i++) { 
+    if (sigma == NULL) Sy += y[i];
+    else               Sy += y[i] / (sigma[i] * sigma[i]);
+  }
+
+  /* t_i = \frac{1}{\sigma_i} \left( x_i - \frac{S_x}{S} \right)   (t_i real) */
+  for (i = 0; i < n; i++) {
+    t[i] = x[i] - Sx/S;
+    if (sigma != NULL) t[i] /= sigma[i];
+  }
+
+  /* S_{tt} = \sum_{i=1}^n t_i^2  (if at least one x is != 0, Stt > 0) */
+  for (Stt = 0., i = 0; i < n; i++) { Stt += t[i] * t[i]; }
+
+  /* b = \frac{1}{S_{tt}} \sum_{i=1}^{N} \frac{t_i y_i}{\sigma_i}  */
+  for (b = 0., i = 0; i < n; i++) {
+    if (sigma != NULL) { b += t[i]*y[i] / sigma[i]; }
+    else               { b += t[i]*y[i]; }
+  }
+  b /= Stt;
+
+  /* a = \frac{ S_y - S_x b } {S}   */
+  a = (Sy - Sx * b) / S;
+  
+  /* \sigma_a^2 = \frac{1}{S} \left( 1 + \frac{ S_x^2 }{S S_{tt}} \right) */
+  sigma_a = sqrt ((1. + (Sx*Sx) / (S*Stt)) / S);
+
+  /* \sigma_b = \frac{1}{S_{tt}} */
+  sigma_b = sqrt (1. / Stt);
+
+  /* Cov(a,b) = - \frac{S_x}{S S_{tt}}    */
+  cov_ab = -Sx / (S * Stt);
+  
+  /* Pearson correlation coefficient */
+  Sxy = Sxx = Syy = 0.;
+  for (i = 0; i < n; i++) {
+    if (sigma != NULL) { 
+      xdev = (x[i] / (sigma[i] * sigma[i])) - (Sx / n);
+      ydev = (y[i] / (sigma[i] * sigma[i])) - (Sy / n);
+    } else {
+      xdev = x[i] - (Sx / n);
+      ydev = y[i] - (Sy / n);
+    }
+    Sxy += xdev * ydev;
+    Sxx += xdev * xdev;
+    Syy += ydev * ydev;
+  }
+  cc = Sxy / (sqrt(Sxx) * sqrt(Syy));
+
+  /* \chi^2 */
+  for (X2 = 0., i = 0; i < n; i++) {
+    tmp =  y[i] - a - b*x[i];
+    if (sigma != NULL) tmp /= sigma[i];
+    X2 += tmp*tmp;
+  }
+  
+  /* We can calculate a goodness of fit if we know the \sigma_i */
+  if (sigma != NULL) {
+    if (esl_stats_ChiSquaredTest(n-2, X2, &Q) != eslOK) { status = eslENORESULT; goto ERROR; }
+  } else Q = 1.0;
+
+  /* If we didn't use \sigma_i, adjust the sigmas for a,b */
+  if (sigma == NULL) {
+    tmp = sqrt(X2 / (double)(n-2));
+    sigma_a *= tmp;
+    sigma_b *= tmp;
+  }
+    
+  /* Done. Set up for normal return.
+   */
+  free(t);
+  if (opt_a       != NULL) *opt_a       = a;
+  if (opt_b       != NULL) *opt_b       = b;
+  if (opt_sigma_a != NULL) *opt_sigma_a = sigma_a;
+  if (opt_sigma_b != NULL) *opt_sigma_b = sigma_b;
+  if (opt_cov_ab  != NULL) *opt_cov_ab  = cov_ab;
+  if (opt_cc      != NULL) *opt_cc      = cc;
+  if (opt_Q       != NULL) *opt_Q       = Q;
+  return eslOK;
+  
+ ERROR:
+  if (t != NULL) free(t);
+  if (opt_a       != NULL) *opt_a       = 0.;
+  if (opt_b       != NULL) *opt_b       = 0.;
+  if (opt_sigma_a != NULL) *opt_sigma_a = 0.;
+  if (opt_sigma_b != NULL) *opt_sigma_b = 0.;
+  if (opt_cov_ab  != NULL) *opt_cov_ab  = 0.;
+  if (opt_cc      != NULL) *opt_cc      = 0.;
+  if (opt_Q       != NULL) *opt_Q       = 0.;
+  return status;
+}
+/*---------------- end of API implementation --------------------*/
+
+
+
+
+/*****************************************************************
+ * 2. Unit tests.
+ *****************************************************************/
+#ifdef eslSTATS_TESTDRIVE
+#include <esl_random.h>
+
+/* The test of esl_stats_LinearRegression() is a statistical test,
+ * so we can't be too aggressive about testing results. 
+ * 
+ * Args:
+ *    r          - a source of randomness
+ *    use_sigma  - TRUE to pass sigma to the regression fit.
+ *    be_verbose - TRUE to print results (manual, not automated test mode)
+ */
+static void
+utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
+{
+  char msg[] = "linear regression unit test failed";
+  double a     = -3.;
+  double b     = 1.;
+  int    n     = 100;
+  double xori  = -20.;
+  double xstep = 1.0;
+  double setsigma = 1.0;		/* sigma on all points */
+  int    i;
+  double *x     = NULL;
+  double *y     = NULL;
+  double *sigma = NULL;
+  double  ae, be, siga, sigb, cov_ab, cc, Q;
+  
+  if ((x     = malloc(sizeof(double) * n)) == NULL) esl_fatal(msg);
+  if ((y     = malloc(sizeof(double) * n)) == NULL) esl_fatal(msg);
+  if ((sigma = malloc(sizeof(double) * n)) == NULL) esl_fatal(msg);
+  
+  /* Simulate some linear data */
+  for (i = 0; i < n; i++)
+    {
+      sigma[i] = setsigma;
+      x[i]     = xori + i*xstep;
+      y[i]     = esl_rnd_Gaussian(r, a + b*x[i], sigma[i]);
+    }
+  
+  if (use_sigma) {
+    if (esl_stats_LinearRegression(x, y, sigma, n, &ae, &be, &siga, &sigb, &cov_ab, &cc, &Q) != eslOK) esl_fatal(msg);
+  } else {
+    if (esl_stats_LinearRegression(x, y,  NULL, n, &ae, &be, &siga, &sigb, &cov_ab, &cc, &Q) != eslOK) esl_fatal(msg);
+  }
+
+  if (be_verbose) {
+    printf("Linear regression test:\n");
+    printf("estimated intercept a = %8.4f   [true = %8.4f]\n", ae, a);
+    printf("estimated slope b     = %8.4f   [true = %8.4f]\n", be, b);
+    printf("estimated sigma on a  = %8.4f\n",                  siga);
+    printf("estimated sigma on b  = %8.4f\n",                  sigb);
+    printf("estimated cov(a,b)    = %8.4f\n",                  cov_ab);
+    printf("correlation coeff     = %8.4f\n",                  cc);
+    printf("P-value               = %8.4f\n",                  Q);
+  }
+
+  /* The following tests are statistical.
+   */
+  if ( fabs(ae-a) > 2*siga ) esl_fatal(msg);
+  if ( fabs(be-b) > 2*sigb ) esl_fatal(msg);
+  if ( cc < 0.95)            esl_fatal(msg);
+  if (use_sigma) {
+    if (Q < 0.001)           esl_fatal(msg);
+  } else {
+    if (Q != 1.0)            esl_fatal(msg);
+  }
+
+  free(x);
+  free(y);
+  free(sigma);
+}
+#endif /*eslSTATS_TESTDRIVE*/
+/*-------------------- end of unit tests ------------------------*/
+
+
+
+
+/*****************************************************************
+ * 3. Test driver.
+ *****************************************************************/
+#ifdef eslSTATS_TESTDRIVE
+/* gcc -g -Wall -o testdrive -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lm
+ */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_getopts.h>
+#include <esl_random.h>
+#include <esl_stats.h>
+
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                   0},
+  {"-r",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, "-s", "random:  use current time as RNG seed", 0},
+  {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, "-r", "set random number seed to <n>",         0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "verbose: show verbose output",          0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[] = "[-options]";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go  = NULL;
+  ESL_RANDOMNESS *r   = NULL;
+  int             be_verbose;
+
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("%s", go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
+    esl_usage(stdout, argv[0], usage);
+    puts("\n  where options are:");
+    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
+    exit(0);
+  }
+  if (esl_opt_ArgNumber(go) != 0) {
+    printf("Incorrect number of command line arguments.\n");
+    esl_usage(stdout, argv[0], usage);
+    exit(1);
+  }
+  be_verbose = esl_opt_GetBoolean(go, "-v");
+
+  if (esl_opt_GetBoolean(go, "-r")) {
+    r = esl_randomness_CreateTimeseeded();
+    if (be_verbose) printf("seed = %ld\n", esl_randomness_GetSeed(r));
+  } else r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  utest_LinearRegression(r, TRUE,  be_verbose);
+  utest_LinearRegression(r, FALSE, be_verbose);
+  
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(r);
+  exit(0);
+}
+#endif /*eslSTATS_TESTDRIVE*/
+/*------------------- end of test driver ------------------------*/
+
+
+
+
+/*****************************************************************
+ * 4. Example.
+ *****************************************************************/
+
+/* Compile:  gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  
+ * or        gcc -g -Wall -o example -I. -L. -DeslSTATS_EXAMPLE esl_stats.c -leasel -lm  
+ */
+#ifdef eslSTATS_EXAMPLE
+/*::cexcerpt::stats_example::begin::*/
+/* gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  */
+#include <stdio.h>
+#include <easel.h>
+#include <esl_random.h>
+#include <esl_stats.h>
+
+int main(void)
+{
+  ESL_RANDOMNESS *r   = esl_randomness_CreateTimeseeded();
+  double a            = -3.;
+  double b            = 1.;
+  double xori         = -20.;
+  double xstep        = 1.0;
+  double setsigma     = 1.0;		/* sigma on all points */
+  int    n            = 100;
+  double *x           = malloc(sizeof(double) * n);
+  double *y           = malloc(sizeof(double) * n);
+  double *sigma       = malloc(sizeof(double) * n);
+  int    i;
+  double  ae, be, siga, sigb, cov_ab, cc, Q;
+  
+  /* Simulate some linear data, with Gaussian noise added to y_i */
+  for (i = 0; i < n; i++) {
+    sigma[i] = setsigma;
+    x[i]     = xori + i*xstep;
+    y[i]     = esl_rnd_Gaussian(r, a + b*x[i], sigma[i]);
+  }
+  
+  if (esl_stats_LinearRegression(x, y, sigma, n, &ae, &be, &siga, &sigb, &cov_ab, &cc, &Q) != eslOK)
+    esl_fatal("linear regression failed");
+
+  printf("estimated intercept a = %8.4f   [true = %8.4f]\n", ae, a);
+  printf("estimated slope b     = %8.4f   [true = %8.4f]\n", be, b);
+  printf("estimated sigma on a  = %8.4f\n",                  siga);
+  printf("estimated sigma on b  = %8.4f\n",                  sigb);
+  printf("estimated cov(a,b)    = %8.4f\n",                  cov_ab);
+  printf("correlation coeff     = %8.4f\n",                  cc);
+  printf("P-value               = %8.4f\n",                  Q);
+
+  free(x);  free(y);  free(sigma); 
+  esl_randomness_Destroy(r);
+  exit(0);
+}
+/*::cexcerpt::stats_example::end::*/
+#endif
+
+/*--------------------- end of example --------------------------*/
+
 
 
 

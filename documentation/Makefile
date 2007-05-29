@@ -45,6 +45,7 @@ MODULES = easel\
 	  esl_sqio\
 	  esl_ssi\
 	  esl_stack\
+	  esl_stats\
 	  esl_stopwatch\
 	  esl_stretchexp\
 	  esl_swat\

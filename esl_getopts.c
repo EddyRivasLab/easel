@@ -77,7 +77,6 @@ esl_getopts_Create(ESL_OPTIONS *opt)
   g->argc      = 0;
   g->argv      = NULL;
   g->optind    = 1;
-  g->argi      = 1;		/* number cmdline arguments 1..n */
   g->nfiles    = 0;
   g->val       = NULL;
   g->setby     = NULL;
@@ -342,12 +341,12 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
  *            
  *            On successful return, <g> contains settings of all
  *            command line options and their option arguments, for
- *            subsequent retrieval by <esl_opt_Get*Option()>
+ *            subsequent retrieval by <esl_opt_Get*()>
  *            functions.  <g> also contains an <optind> state variable
  *            pointing to the next <argv[]> element that is not an
- *            option; <esl_opt_GetArgument()> uses this to retrieves
- *            command line arguments in order of appearance.
- *            
+ *            option. <esl_opt_GetArg()> needs this to know
+ *            where the options end and command line arguments begin
+ *            in <argv[0]>.
  *            
  *            The parser starts with <argv[1]> and reads <argv[]> elements
  *            in order until it reaches an element that is not an option; 
@@ -473,6 +472,22 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
   return eslOK;
 }
 
+/* Function:  esl_opt_ArgNumber()
+ * Synopsis:  Returns number of command line arguments.
+ * Incept:    SRE, Mon May 28 09:18:52 2007 [Janelia]
+ *
+ * Purpose:   Returns the number of command line arguments.
+ *            
+ *            Caller must have already called
+ *            <esl_opt_ProcessCmdline()>, in order for all the options
+ *            to be parsed first.  Everything left on the command line
+ *            is taken to be an argument.
+ */
+int
+esl_opt_ArgNumber(const ESL_GETOPTS *g)
+{
+  return ((g)->argc - (g)->optind);
+}
 
 
 /*****************************************************************
@@ -607,92 +622,32 @@ esl_opt_GetString(const ESL_GETOPTS *g, char *optname)
 
 
 /* Function:  esl_opt_GetArg()
- * Synopsis:  Retrieve next command line argument.
+ * Synopsis:  Retrieve numbered command line argument.
  * Incept:    SRE, Thu Jan 13 09:21:34 2005 [St. Louis]
  *
- * Purpose:   Returns ptr to the next <argv[]> element in <g> that 
- *            is a command-line argument (as opposed to an
- *            option or an option's argument). Type check it
- *            with <type> (pass <eslARG_NONE> or <eslARG_STRING> to
- *            skip type checking), and range check it with
- *            <range> (pass NULL to skip range checking).
+ * Purpose:   Returns a pointer to command line argument number
+ *            <which>, where <which> ranges from <1..n> for <n>
+ *            total arguments.
  *
- * Returns:   a pointer to next argument on success.
- *            Returns <NULL> if there are no more arguments, or
- *            if the argument fails a type/range check; in these cases,
- *            <g->errbuf> is set to contain a useful error message
- *            for the user.
+ *            If the caller has already verified that <n> arguments
+ *            exist by testing <esl_opt_ArgNumber(g) == n>,
+ *            <esl_opt_GetArg()> is guaranteed to return non-<NULL>
+ *            arguments for <which = 1..n>.
+ *            
+ *            Caller is responsible for verifying that the argument
+ *            makes sense for what it's supposed to be.
+ *
+ * Returns:   A pointer to command line argument <which> on success, or 
+ *            <NULL> if there is no such argument.
  */
 char *
-esl_opt_GetArg(ESL_GETOPTS *g, int type, char *range)
+esl_opt_GetArg(const ESL_GETOPTS *g, int which)
 {
-  char *arg;
-  int   status = eslOK;
-  
-  if (g->optind >= g->argc) ESL_FAIL(NULL, g->errbuf, "No more command line arguments.");
-
-  arg = g->argv[g->optind];
-
-  /* Type and range checking.
-   * Catch eslEINVAL errors from range checkers here. Let others pass through.
-   */
-  switch (type) 
-    {
-    case eslARG_NONE:	/* wouldn't make sense here, but treat as unchecked. */
-    case eslARG_STRING:	/* unchecked. */
-    case eslARG_INFILE:
-    case eslARG_OUTFILE:  break;
-
-    case eslARG_INT: 
-      if (! is_integer(arg))
-	ESL_FAIL(NULL, g->errbuf,
-		 "Command line arg %d should be an integer; got %.24s",
-		 g->argi, arg);
-
-      if ((status = verify_integer_range(arg, range)) != eslOK)
-	ESL_FAIL(NULL, g->errbuf, 
-		 "Command line arg %d should be integer in range %.24s; got %.24s", 
-		 g->argi, range, arg);
-      break;
-
-    case eslARG_REAL:
-      if (! is_real(arg))
-	ESL_FAIL(NULL, g->errbuf, 
-		 "Command line arg %d should be a real-valued number; got %.24s",
-		 g->argi, arg);
-
-      if ((status = verify_real_range(arg, range)) != eslOK)
-	ESL_FAIL(NULL, g->errbuf,
-		 "Command line arg %d takes real number in range %.24s; got %.24s", 
-		 g->argi, range, arg);
-      break;
-
-    case eslARG_CHAR:
-      if (strlen(arg) > 1)
-	ESL_FAIL(NULL, g->errbuf,
-		 "Command line arg %d should be a single char; got %.24s",
-		 g->argi, arg);
-
-      if ((status = verify_char_range(arg, range)) != eslOK)
-	ESL_FAIL(NULL, g->errbuf,
-		 "Command line arg %d takes char in range %.24s; got %.24s", 
-		 g->argi, range, arg);
-      break;
-
-    default: esl_fatal("no such arg type");
-    }
-
-  /* Now, catch coding errors from range checking:
-   */
-  if (status == eslESYNTAX)   esl_fatal("range string %s for arg %d is corrupt", range, g->argi); 
-  else if (status != eslOK)   esl_fatal("unexpected error code");
-
-  /* Normal return. Bump the argi and optind counters.
-   */
-  g->optind++;
-  g->argi++;
-  return arg;
+  if (which <= 0)                    return NULL;
+  if (g->optind+which-1 >= g->argc)  return NULL;
+  return g->argv[g->optind+which-1];
 }
+
 
 /*****************************************************************
  * 4. Formatting option help
@@ -1743,8 +1698,8 @@ main(void)
    */
   if (esl_opt_ArgNumber(go) != 2) esl_fatal("getopts failed with wrong arg number");
 
-  if (strcmp("arg1", esl_opt_GetArg(go, eslARG_STRING, NULL)) != 0)         esl_fatal("getopts failed on argument 1");
-  if (strcmp("2005", esl_opt_GetArg(go, eslARG_INT, "2005<=n<=2005")) != 0) esl_fatal("getopts failed on argument 2");
+  if (strcmp("arg1", esl_opt_GetArg(go, 1)) != 0) esl_fatal("getopts failed on argument 1");
+  if (strcmp("2005", esl_opt_GetArg(go, 2)) != 0) esl_fatal("getopts failed on argument 2");
 
   esl_getopts_Destroy(go);
   remove(file1);
@@ -1800,7 +1755,8 @@ main(int argc, char **argv)
     return 0;
   }
   if (esl_opt_ArgNumber(go) != 1) esl_fatal("Incorrect number of command line arguments.\n%s\n", usage);
-  if ((arg = esl_opt_GetArg(go, eslARG_STRING, NULL)) == NULL) esl_fatal("bad argument: %s", go->errbuf);
+  
+  arg = esl_opt_GetArg(go, 1);
 
   printf("Option -a:      %s\n", esl_opt_GetBoolean(go, "-a") ? "on" : "off");
   printf("Option -b:      %s\n", esl_opt_GetBoolean(go, "-b") ? "on" : "off");
