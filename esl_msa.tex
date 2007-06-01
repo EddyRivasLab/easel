@@ -22,58 +22,49 @@ Augmentation with the \eslmod{keyhash} module allows much better
 performance on parsing large Stockholm alignment files, by
 accelerating indexing of some internal data structures.
 
+If Easel is compiled with optional MPI library support enabled,
+routines for communicating \ccode{ESL\_MSA} objects via MPI messages
+are available.
+
 \begin{table}[hbp]
 \begin{center}
 {\small
 \begin{tabular}{|ll|}\hline
-%
-\apisubhead{the \ccode{ESL\_MSA} object}\\
-\hyperlink{func:esl_msa_Create()}{\ccode{esl\_msa\_Create()}} & 
-   Creates a \ccode{ESL\_MSA}.\\
-\hyperlink{func:esl_msa_Destroy()}{\ccode{esl\_msa\_Destroy()}} & 
-   Frees a \ccode{ESL\_MSA}.\\
-\hyperlink{func:esl_msa_Expand()}{\ccode{esl\_msa\_Expand()}} & 
-   Reallocates a \ccode{ESL\_MSA} for more sequences.\\
-%
-\apisubhead{the \ccode{ESL\_MSAFILE} object}\\
-\hyperlink{func:esl_msafile_Open()}{\ccode{esl\_msafile\_Open()}} & 
-   Opens an MSA file for input.\\
-\hyperlink{func:esl_msafile_Close()}{\ccode{esl\_msafile\_Close()}} & 
-   Closes an open MSA file.\\
-%
-\apisubhead{i/o of multiple alignment data}\\
-\hyperlink{func:esl_msa_Read()}{\ccode{esl\_msa\_Read()}} &
-   Read next MSA from file.\\
-\hyperlink{func:esl_msa_Write()}{\ccode{esl\_msa\_Write()}} & 
-   Write an MSA to file.\\
-\hyperlink{func:esl_msa_GuessFileFormat()}{\ccode{esl\_msa\_GuessFileFormat()}}&
-   Try to determine file format of MSA file.\\
-\apisubhead{manipulating MSAs}\\
-\hyperlink{func:esl_msa_SequenceSubset()}{\ccode{esl\_msa\_SequenceSubset()}}& 
-   Select subset of sequences into a smaller MSA.\\
-\hyperlink{func:esl_msa_MinimGaps()}{\ccode{esl\_msa\_MinimGaps()}} &
-   Remove columns containing all gap symbols.\\
-\hyperlink{func:esl_msa_NoGaps()}{\ccode{esl\_msa\_NoGaps()}} &
-   Remove columns containing any gap symbol.\\
-\hyperlink{func:esl_msa_SymConvert()}{\ccode{esl\_msa\_SymConvert()}}& 
-   Global search/replace of symbols in an MSA.\\
-%
-\apisubhead{digital mode (with \eslmod{alphabet} augmentation)}\\
-\hyperlink{func:esl_msa_CreateDigital()}{\ccode{esl\_msa\_CreateDigital()}}&
-   Create MSA object for digitized storage.\\
-\hyperlink{func:esl_msafile_OpenDigital()}{\ccode{esl\_msafile\_OpenDigital()}}&
-   Open MSA file for digital input.\\
-\hyperlink{func:esl_msa_Digitize()}{\ccode{esl\_msa\_Digitize()}} & 
-   Convert existing MSA to digital.\\
-\hyperlink{func:esl_msa_Textize()}{\ccode{esl\_msa\_Textize()}} & 
-   Convert digital MSA to normal text MSA.\\
+\apisubhead{The ESL_MSA object                                           }\\
+\hyperlink{func:esl_msa_Create()}{\ccode{esl\_msa\_Create()}} & Creates an \ccode{ESL\_MSA} object.\\
+\hyperlink{func:esl_msa_CreateFromString()}{\ccode{esl\_msa\_CreateFromString()}} & Creates a small \ccode{ESL\_MSA} from a test case string.\\
+\hyperlink{func:esl_msa_Destroy()}{\ccode{esl\_msa\_Destroy()}} & Frees an \ccode{ESL\_MSA}.\\
+\hyperlink{func:esl_msa_Expand()}{\ccode{esl\_msa\_Expand()}} & Reallocate for more sequences.\\
+\apisubhead{The ESL_MSAFILE object                                       }\\
+\hyperlink{func:esl_msafile_Open()}{\ccode{esl\_msafile\_Open()}} & Open an MSA file for input.\\
+\hyperlink{func:esl_msafile_Close()}{\ccode{esl\_msafile\_Close()}} & Closes an open MSA file.\\
+\hyperlink{func:esl_msafile_PositionByKey()}{\ccode{esl\_msafile\_PositionByKey()}} & Use SSI to reposition file to start of named MSA.\\
+\apisubhead{Digitized MSA's (alphabet augmentation required)}\\
+\hyperlink{func:esl_msa_GuessAlphabet()}{\ccode{esl\_msa\_GuessAlphabet()}} & Guess alphabet of MSA.\\
+\hyperlink{func:esl_msa_CreateDigital()}{\ccode{esl\_msa\_CreateDigital()}} & Create a digital \ccode{ESL\_MSA}.\\
+\hyperlink{func:esl_msa_Digitize()}{\ccode{esl\_msa\_Digitize()}} & Digitizes an msa, converting it from text mode.\\
+\hyperlink{func:esl_msa_Textize()}{\ccode{esl\_msa\_Textize()}} & Convert a digital msa to text mode.\\
+\hyperlink{func:esl_msafile_GuessAlphabet()}{\ccode{esl\_msafile\_GuessAlphabet()}} & Guess what kind of sequences the alignment file contains.\\
+\hyperlink{func:esl_msafile_OpenDigital()}{\ccode{esl\_msafile\_OpenDigital()}} & Open an msa file for digital input.\\
+\hyperlink{func:esl_msafile_SetDigital()}{\ccode{esl\_msafile\_SetDigital()}} & Set an open \ccode{ESL\_MSAFILE} to read in digital mode.\\
+\apisubhead{MPI communication. (alphabet augmentation and MPI required)}\\
+\hyperlink{func:esl_msa_MPISend()}{\ccode{esl\_msa\_MPISend()}} & Send essential msa info to MPI destination.\\
+\hyperlink{func:esl_msa_MPIRecv()}{\ccode{esl\_msa\_MPIRecv()}} & Receive essential MSA info from an MPI sender.\\
+\apisubhead{General i/o API, all alignment formats                                 }\\
+\hyperlink{func:esl_msa_Read()}{\ccode{esl\_msa\_Read()}} & Read next MSA from a file.\\
+\hyperlink{func:esl_msa_Write()}{\ccode{esl\_msa\_Write()}} & Write an MSA to a file.\\
+\hyperlink{func:esl_msa_DescribeFormat()}{\ccode{esl\_msa\_DescribeFormat()}} & Convert internal file format code to text string.\\
+\hyperlink{func:esl_msa_GuessFileFormat()}{\ccode{esl\_msa\_GuessFileFormat()}} & Determine the format of an open MSA file.\\
+\apisubhead{Miscellaneous functions for manipulating MSAs}\\
+\hyperlink{func:esl_msa_SequenceSubset()}{\ccode{esl\_msa\_SequenceSubset()}} & Select subset of sequences into a smaller MSA.\\
+\hyperlink{func:esl_msa_MinimGaps()}{\ccode{esl\_msa\_MinimGaps()}} & Remove columns containing all gym symbols.\\
+\hyperlink{func:esl_msa_NoGaps()}{\ccode{esl\_msa\_NoGaps()}} & Remove columns containing any gap symbol.\\
+\hyperlink{func:esl_msa_SymConvert()}{\ccode{esl\_msa\_SymConvert()}} & Global search/replace of symbols in an MSA.\\
 \hline
 \end{tabular}
 }
 \end{center}
-\caption{The \eslmod{msa} API. Requires: \eslmod{easel}.
-Optional augmentation: \eslmod{alphabet},
-\eslmod{keyhash}, \eslmod{ssi}.}
+\caption{The \eslmod{msa} API.}
 \label{tbl:msa_api}
 \end{table}
 

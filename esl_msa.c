@@ -5,13 +5,15 @@
  *    1. The ESL_MSA object.
  *    2. The ESL_MSAFILE object.
  *    3. Digitized MSA's. (Alphabet augmentation required.)
- *    4. General i/o API, for all alignment formats.
- *    5. Miscellaneous functions for manipulating MSAs.
- *    6. Benchmark driver.
- *    7. Unit tests.
- *    8. Test driver.
- *    9. Example driver.
- *   10 . Copyright and license information.
+ *    4. MPI communication. (Alphabet augmentation and MPI required.)
+ *    5. General i/o API, for all alignment formats.
+ *      5a. private functions for i/o of Stockholm format
+ *    6. Miscellaneous functions for manipulating MSAs.
+ *    7. Benchmark driver.
+ *    8. Unit tests.
+ *    9. Test driver.
+ *   10. Example driver.
+ *   11 . Copyright and license information.
  * 
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
  * SVN $Id$
@@ -40,7 +42,7 @@
 /*::cexcerpt::include_example::end::*/
 
 /******************************************************************************
- * 1. The ESL_MSA object                                           
+ *# 1. The ESL_MSA object                                           
  *****************************************************************************/
 /* Forward declarations of private MSA functions
  */
@@ -56,6 +58,7 @@ static int append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value);
 static int verify_parse(ESL_MSA *msa, char *errbuf);
 
 /* Function:  esl_msa_Create()
+ * Synopsis:  Creates an <ESL_MSA> object.
  * Incept:    SRE, Sun Jan 23 08:25:26 2005 [St. Louis]
  *
  * Purpose:   Creates and initializes an <ESL_MSA> object, and returns a
@@ -253,6 +256,7 @@ create_mostly(int nseq, int alen)
 
 
 /* Function:  esl_msa_CreateFromString()
+ * Synopsis:  Creates a small <ESL_MSA> from a test case string.
  * Incept:    SRE, Sat Nov 11 12:09:04 2006 [Janelia]
  *
  * Purpose:   A convenience for making small test cases in the test
@@ -293,6 +297,7 @@ esl_msa_CreateFromString(const char *s, int fmt)
 }
 
 /* Function:  esl_msa_Destroy()
+ * Synopsis:  Frees an <ESL_MSA>.
  * Incept:    SRE, Sun Jan 23 08:26:02 2005 [St. Louis]
  *
  * Purpose:   Destroys <msa>.
@@ -354,6 +359,7 @@ esl_msa_Destroy(ESL_MSA *msa)
 
 
 /* Function:  esl_msa_Expand()
+ * Synopsis:  Reallocate for more sequences.
  * Incept:    SRE, Sun Jan 23 08:26:30 2005 [St. Louis]
  *
  * Purpose:   Double the current sequence allocation in <msa>.
@@ -1084,11 +1090,12 @@ verify_parse(ESL_MSA *msa, char *errbuf)
 
 
 /******************************************************************************
- * 2. The ESL_MSAFILE object                                       
+ *# 2. The ESL_MSAFILE object                                       
  *****************************************************************************/
 static int msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **ret_msafp);
 
 /* Function: esl_msafile_Open()
+ * Synopsis: Open an MSA file for input.
  * Date:     SRE, Sun Jan 23 08:30:33 2005 [St. Louis]
  *
  * Purpose:  Open an alignment database file <filename> and prepare for
@@ -1262,6 +1269,7 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
 
 
 /* Function:  esl_msafile_Close()
+ * Synopsis:  Closes an open MSA file.
  * Incept:    SRE, Sun Jan 23 08:18:39 2005 [St. Louis]
  *
  * Purpose:   Close an open <ESL_MSAFILE>.
@@ -1359,7 +1367,7 @@ msafile_getline(ESL_MSAFILE *afp)
 
 
 /******************************************************************************
- * 3. Digitized MSA's (ALPHABET augmentation required)
+ *# 3. Digitized MSA's (alphabet augmentation required)
  *****************************************************************************/
 #ifdef eslAUGMENT_ALPHABET
 /* Function:  esl_msa_GuessAlphabet()
@@ -1466,6 +1474,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
 
 
 /* Function:  esl_msa_CreateDigital()
+ * Synopsis:  Create a digital <ESL_MSA>.
  * Incept:    SRE, Sun Aug 27 16:49:58 2006 [Leesburg]
  *
  * Purpose:   Same as <esl_msa_Create()>, except the returned MSA is configured
@@ -1517,6 +1526,7 @@ esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen)
 }
 
 /* Function:  esl_msa_Digitize()
+ * Synopsis:  Digitizes an msa, converting it from text mode.
  * Incept:    SRE, Sat Aug 26 17:33:08 2006 [AA 5302 to Dulles]
  *
  * Purpose:   Given an alignment <msa> in text mode, convert it to
@@ -1584,6 +1594,7 @@ esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa)
 }
 
 /* Function:  esl_msa_Textize()
+ * Synopsis:  Convert a digital msa to text mode.
  * Incept:    SRE, Sat Aug 26 18:14:30 2006 [AA 5302 to Dulles]
  *
  * Purpose:   Given an alignment <msa> in digital mode, convert it
@@ -1705,6 +1716,7 @@ esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type)
 
 
 /* Function:  esl_msafile_OpenDigital()
+ * Synopsis:  Open an msa file for digital input.
  * Incept:    SRE, Sun Aug 27 17:40:33 2006 [Leesburg]
  *
  * Purpose:   Same as <esl_msafile_Open()>, except the alignment file
@@ -1779,9 +1791,228 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
 /*---------------------- end of digital MSA functions -----------------------*/
 
 
+/*****************************************************************
+ *# 4. MPI communication. (alphabet augmentation and MPI required)
+ *****************************************************************/
+
+#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
+
+/* Function:  esl_msa_MPISend()
+ * Synopsis:  Send essential msa info to MPI destination.
+ * Incept:    SRE, Fri Jun  1 10:28:57 2007 [Janelia]
+ *
+ * Purpose:   Sends the essential elements of a multiple alignment <msa> 
+ *            to MPI process <dest> (<dest> ranges from <0..nproc-1>),
+ *            tagging the message with MPI tag <tag>. The receiver uses
+ *            <esl_msa_MPIRecv()> to receive the MSA.
+ *            
+ *            Only digital mode alignments can be transmitted. (If
+ *            you're using MPI, you may as well be using the more
+ *            sophisticated internal format for MSAs.)
+
+ *            Only an essential subset of the elements in <msa> are
+ *            transmitted, sufficient to do computationally intensive
+ *            work on the <msa>. Most msa annotation is not
+ *            transmitted, for example. Specifically, <name>, <nseq>,
+ *            <alen>, <wgt>, <ax>, <ss_cons>, and <rf> are transmitted. 
+ *            
+ *            In order to minimize alloc/free cycles, caller passes a
+ *            pointer to a working buffer <*buf> of size <*nalloc>
+ *            characters. If necessary (i.e. if <msa> is too big to
+ *            fit), <*buf> will be reallocated and <*nalloc> increased
+ *            to the new size. As a special case, if <*buf> is <NULL>
+ *            and <*nalloc> is 0, the buffer will be allocated
+ *            appropriately, but the caller is still responsible for
+ *            free'ing it.
+ *            
+ *            If <msa> is <NULL>, an end-of-data signal is sent, which
+ *            <esl_msa__MPIRecv()> knows how to interpret.
+ * 
+ * Args:      msa    - msa to send
+ *            dest   - MPI destination (0..nproc-1)
+ *            tag    - MPI tag
+ *            buf    - pointer to a working buffer 
+ *            nalloc - current allocated size of <*buf>, in characters
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      J1/72.
+ */
+int
+esl_msa_MPISend(ESL_MSA *msa, int dest, int tag, char **buf, int *nalloc)
+{
+  int   status;
+  int   sz, n, position, i;
+
+  /* First, figure out the size of the MSA */
+  if (gm == NULL) { 
+    MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &n); 
+  } else {
+    n = 0;
+    MPI_Pack_size(1,                     MPI_INT,           MPI_COMM_WORLD, &sz);   n += 5*sz; /* nseq, alen;  name, ss_cons, rf lengths */
+    MPI_Pack_size(strlen(msa->name)+1,   MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* name      */
+    MPI_Pack_size(msa->nseq,             MPI_DOUBLE,        MPI_COMM_WORLD, &sz);   n +=   sz;             /* wgt       */
+    MPI_Pack_size(msa->alen+1,           MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* ss_cons   */
+    MPI_Pack_size(msa->alen+1,           MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* rf        */
+    MPI_Pack_size(msa->alen+2,           MPI_UNSIGNED_CHAR, MPI_COMM_WORLD, &sz);   n +=   sz * msa->nseq; /* ax        */
+  }
+
+  /* Make sure the buffer is allocated appropriately */
+  if (*buf == NULL || n > *nalloc) {
+    void *tmp;
+    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
+    *nalloc = n; 
+  }
+
+  /* Pack the MSA into the buffer */
+  position = 0;
+  if (msa == NULL) 
+    {
+      int   eod_code = -1;
+      MPI_Pack(&eod_code,              1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+    } 
+  else 
+    {    
+      MPI_Pack(&(msa->nseq),           1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+      MPI_Pack(&(msa->alen),           1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+      MPI_Pack(msa->wgt,       msa->nseq, MPI_DOUBLE,        *buf, n, &position,  MPI_COMM_WORLD);
+      if (msa->name == NULL) {
+	sz = 0;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+      } else {
+	sz = strlen(msa->name)+1;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+	MPI_Pack(msa->name,           sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
+      }
+      if (msa->ss_cons == NULL) {
+	sz = 0;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+      } else {
+	sz = msa->alen+1;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+	MPI_Pack(msa->ss_cons,        sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
+      }
+      if (msa->rf == NULL) {
+	sz = 0;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+      } else {
+	sz = msa->alen+1;
+	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
+	MPI_Pack(msa->rf,             sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
+      }
+      for (i = 0; i < msa->nseq; i++)
+	MPI_Pack(msa->ax[i], msa->alen+2, MPI_UNSIGNED_CHAR, *buf, n, &position,  MPI_COMM_WORLD);
+    }
+
+  /* Send the packed profile to destination  */
+  MPI_Send(*buf, n, MPI_PACKED, dest, tag, MPI_COMM_WORLD);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_msa_MPIRecv()
+ * Synopsis:  Receive essential MSA info from an MPI sender.
+ * Incept:    SRE, Fri Jun  1 11:01:04 2007 [Janelia]
+ *
+ * Purpose:   Receives an MSA message from <source> (<0..nproc-1>, or
+ *            <MPI_ANY_SOURCE>) tagged as <tag>; return it in <*ret_msa>,
+ *            which is allocated here and must be free'd by the caller.
+ *            
+ *            MSAs are transmitted in digital mode. Caller must also
+ *            provide the alphabet <abc> for this MSA. (Thus the
+ *            caller already know it before the MSA arrives, by an
+ *            appropriate initialization.)
+ *            
+ *            To minimize alloc/free cycles in this routine, caller
+ *            passes a pointer to a buffer <*buf> of size <*nalloc>
+ *            characters. These are passed by reference, because when
+ *            necessary, <*buf> will be reallocated and <*nalloc>
+ *            increased to the new size. As a special case, if <*buf>
+ *            is <NULL> and <*nalloc> is 0, the buffer will be
+ *            allocated appropriately, but the caller is still
+ *            responsible for free'ing it.
+ *
+ *            If the packed profile is an end-of-data signal, return
+ *            <eslEOD>, and <*ret_msa> is <NULL>.
+ *            
+ * Returns:   <eslOK> on success. <*ret_msa> contains the new profile; it
+ *            is allocated here, and the caller is responsible for
+ *            free'ing it.  <*buf> may have been reallocated to a
+ *            larger size, and <*nalloc> may have been increased.
+ *
+ * Xref:      J1/72.
+ */
+int
+esl_msa_MPIRecv(int source, int tag, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa)
+{
+  int         status;
+  ESL_MSA    *msa     = NULL;
+  int         nseq, alen;
+  int         n, sz;
+  int         i;
+  int         pos;
+  MPI_Status  mpistatus;
+
+  /* Probe first, because we need to know if our buffer is big enough. */
+  MPI_Probe(source, tag, MPI_COMM_WORLD, &mpistatus);
+  MPI_Get_count(&mpistatus, MPI_PACKED, &n);
+
+  /* Make sure the buffer is allocated appropriately */
+  if (*buf == NULL || n > *nalloc) {
+    void *tmp;
+    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
+    *nalloc = n; 
+  }
+
+  /* Receive the packed MSA */
+  MPI_Recv(*buf, n, MPI_PACKED, source, tag, MPI_COMM_WORLD, &mpistatus);
+
+  /* Unpack it - watching out for the EOD signal of M = -1. */
+  pos = 0;
+  MPI_Unpack(*buf, n, &pos, &nseq,              1, MPI_INT,           MPI_COMM_WORLD);
+  if (nseq == -1) { *ret_gm = NULL; return eslEOD; }
+  MPI_Unpack(*buf, n, &pos, &alen,              1, MPI_INT,           MPI_COMM_WORLD);
+  
+  if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }
+  
+  MPI_Unpack(*buf, n, &pos, &(msa->wgt),     nseq, MPI_DOUBLE,        MPI_COMM_WORLD);
+  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
+  if (sz > 0) {
+    ESL_ALLOC(msa->name, sizeof(char) * sz);
+    MPI_Unpack(*buf, n, &pos, &(msa->name),    sz, MPI_CHAR,          MPI_COMM_WORLD);
+  }
+  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
+  if (sz > 0) {
+    ESL_ALLOC(msa->ss_cons, sizeof(char) * sz);
+    MPI_Unpack(*buf, n, &pos, &(msa->ss_cons), sz, MPI_CHAR,          MPI_COMM_WORLD);
+  }
+  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
+  if (sz > 0) {
+    ESL_ALLOC(msa->rf, sizeof(char) * sz);
+    MPI_Unpack(*buf, n, &pos, &(msa->rf),      sz, MPI_CHAR,          MPI_COMM_WORLD);
+  }
+  for (i = 0; i < msa->nseq; i++)
+    MPI_Unpack(*buf, n, &pos, &(msa->ax[i]),   sz, MPI_UNSIGNED_CHAR, MPI_COMM_WORLD);
+
+  *ret_msa = msa;
+  return eslOK;
+
+ ERROR:
+  if (msa != NULL) esl_msa_Destroy(msa);
+  *ret_msa = NULL;
+  return status;
+}
+#endif /* HAVE_MPI && eslAUGMENT_ALPHABET */
+
+
+
 
 /******************************************************************************
- * 4. General i/o API, all alignment formats                                 
+ *# 5. General i/o API, all alignment formats                                 
  *****************************************************************************/
 static int write_stockholm(FILE *fp, const ESL_MSA *msa);
 static int write_pfam(FILE *fp, const ESL_MSA *msa);
@@ -1790,6 +2021,7 @@ static int actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl);
 
 
 /* Function:  esl_msa_Read()
+ * Synopsis:  Read next MSA from a file.
  * Incept:    SRE, Fri Jan 28 08:10:49 2005 [St. Louis]
  *
  * Purpose:   Reads the next MSA from an open MSA file <afp>,
@@ -1853,6 +2085,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 }
 
 /* Function:  esl_msa_Write()
+ * Synopsis:  Write an MSA to a file.
  * Incept:    SRE, Fri Jan 28 09:29:28 2005 [St. Louis]
  *
  * Purpose:   Writes an alignment <msa> to an open stream <fp>,
@@ -1906,6 +2139,7 @@ esl_msa_DescribeFormat(int fmt)
 
 
 /* Function:  esl_msa_GuessFileFormat()
+ * Synopsis:  Determine the format of an open MSA file.
  * Incept:    SRE, Fri Jan 28 07:29:00 2005 [St. Louis]
  *
  * Purpose:   Attempts to determine the format of an open alignment file
@@ -1933,7 +2167,7 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
 
 
 /******************************************************************************
- * Functions for i/o of Stockholm format                                      *
+ * 5a. private functions for i/o of Stockholm format                                      *
  *****************************************************************************/
 
 /* Forward declarations of private Stockholm i/o functions
@@ -2690,10 +2924,11 @@ maxwidth(char **s, int n)
 
 
 /*****************************************************************
- * 5. Miscellaneous functions for manipulating MSAs
+ *# 6. Miscellaneous functions for manipulating MSAs
  *****************************************************************/
 
 /* Function:  esl_msa_SequenceSubset()
+ * Synopsis:  Select subset of sequences into a smaller MSA.
  * Incept:    SRE, Wed Apr 13 10:05:44 2005 [St. Louis]
  *
  * Purpose:   Given an array <useme> (0..nseq-1) of TRUE/FALSE flags for each
@@ -2900,6 +3135,7 @@ msa_column_subset(ESL_MSA *msa, int *useme)
 }
 
 /* Function:  esl_msa_MinimGaps()
+ * Synopsis:  Remove columns containing all gym symbols.
  * Incept:    SRE, Sun Feb 27 11:03:42 2005 [St. Louis]
  *
  * Purpose:   Remove all columns in the multiple alignment <msa>
@@ -2966,6 +3202,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 }
 
 /* Function:  esl_msa_NoGaps()
+ * Synopsis:  Remove columns containing any gap symbol.
  * Incept:    SRE, Sun Feb 27 10:17:58 2005 [St. Louis]
  *
  * Purpose:   Remove all columns in the multiple alignment <msa> that
@@ -3039,6 +3276,7 @@ esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 
 
 /* Function:  esl_msa_SymConvert()
+ * Synopsis:  Global search/replace of symbols in an MSA.
  * Incept:    SRE, Sun Feb 27 11:20:41 2005 [St. Louis]
  *
  * Purpose:   In the aligned sequences in a text-mode <msa>, convert any
@@ -3099,7 +3337,7 @@ esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
 
 
 /******************************************************************************
- * 6. Benchmark driver.
+ * 7. Benchmark driver.
  *****************************************************************************/
 #ifdef eslMSA_BENCHMARK
 
@@ -3172,7 +3410,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 7. Unit tests
+ * 8. Unit tests
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 
@@ -3684,7 +3922,7 @@ utest_SymConvert(char *tmpfile)
 
 
 /*****************************************************************************
- * 8. Test driver
+ * 9. Test driver
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 
@@ -3786,7 +4024,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 9. Example.
+ * 11. Example.
  *****************************************************************************/
 #ifdef eslMSA_EXAMPLE
 /*::cexcerpt::msa_example::begin::*/

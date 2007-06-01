@@ -51,6 +51,10 @@
  */
 #undef HAVE_LIBGSL
 
+/* Optional parallel implementation support
+ */
+#undef HAVE_MPI
+
 /* Functions
  */
 #undef HAVE_MKSTEMP

@@ -194,6 +194,30 @@ AC_ARG_WITH([gsl],
             ],
 	    [with_gsl=no])
 
+# --enable-mpi       Enable MPI parallelization
+# 
+# Sets MPILIBS output variable
+# Sets CC to appropriate compiler wrapper for MPI (mpicc, usually)
+# Defines HAVE_MPI preprocessor variable.
+#
+AC_ARG_ENABLE(mpi, 
+[AS_HELP_STRING([--enable-mpi], [enable MPI parallelization])],
+[case $enable_mpi in
+   yes) ACX_MPI([
+           AC_MSG_NOTICE([enabled optional MPI parallelization])
+	   AC_DEFINE(HAVE_MPI)
+	   CC=$MPICC
+          ], [
+           AC_MSG_ERROR([MPI library not found])
+          ])
+	 ;;
+   no)   AC_MSG_NOTICE([MPI parallelization disabled])
+         ;;
+   *)    echo "Ignoring unknown argument to --enable-mpi: $enable_mpi"
+	 ;;
+esac])
+
+
 ################################################################
 # 4. Checks for programs
 ################################################################
