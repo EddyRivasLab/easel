@@ -1,4 +1,6 @@
-CEXCERPT = ../../ssdk/cexcerpt
+AUTODOC  = ../devkit/autodoc
+CEXCERPT = ../devkit/cexcerpt
+
 
 # Each module in this list obeys three documentation conventions:
 #
@@ -67,7 +69,7 @@ pdf:
 autodoc:
 	mkdir -p autotext
 	for module in ${MODULES}; do\
-	   ./autodoc_functions ../$$module.c >  autotext/$${module}_functions.tex;\
+	   ${AUTODOC} ../$$module.c >  autotext/$${module}_functions.tex;\
 	done
 
 cexcerpt:

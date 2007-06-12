@@ -15,21 +15,21 @@
  * SVN $Id$
  * SRE, Mon Apr 17 20:05:43 2006 [St. Louis]
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
 
-#include <easel.h>
+#include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
+#include "esl_alphabet.h"
 #endif
 #ifdef eslAUGMENT_DMATRIX
-#include <esl_dmatrix.h>
+#include "esl_dmatrix.h"
 #endif
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>   
+#include "esl_random.h"
 #endif
 
 
@@ -339,7 +339,7 @@ esl_dst_XJukesCantor(const ESL_ALPHABET *abc, const ESL_DSQ *ax, const ESL_DSQ *
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CPairIdMx(const char **as, int N, ESL_DMATRIX **ret_S)
+esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
 {
   ESL_DMATRIX *S = NULL;
   int status;
@@ -389,7 +389,7 @@ esl_dst_CPairIdMx(const char **as, int N, ESL_DMATRIX **ret_S)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CDiffMx(const char **as, int N, ESL_DMATRIX **ret_D)
+esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
 {
   ESL_DMATRIX *D = NULL;
   int status;
@@ -452,7 +452,7 @@ esl_dst_CDiffMx(const char **as, int N, ESL_DMATRIX **ret_D)
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_CJukesCantorMx(int K, const char **aseq, int nseq, 
+esl_dst_CJukesCantorMx(int K, char **aseq, int nseq, 
 		       ESL_DMATRIX **opt_D, ESL_DMATRIX **opt_V)
 {
   int          status;
@@ -525,7 +525,7 @@ esl_dst_CJukesCantorMx(int K, const char **aseq, int nseq,
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XPairIdMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
+esl_dst_XPairIdMx(const ESL_ALPHABET *abc,  ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
 {
   int status;
   ESL_DMATRIX *S = NULL;
@@ -576,7 +576,7 @@ esl_dst_XPairIdMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRI
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XDiffMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
+esl_dst_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
 {
   int status;
   ESL_DMATRIX *D = NULL;
@@ -636,7 +636,7 @@ esl_dst_XDiffMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, ESL_DMATRIX 
  *            and state of inputs is unchanged.
  */
 int
-esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int nseq, 
+esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq, 
 		       ESL_DMATRIX **opt_D, ESL_DMATRIX **opt_V)
 {
   ESL_DMATRIX *D = NULL;
@@ -710,7 +710,7 @@ esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int nseq,
  *            In either case, <*ret_id> is set to 0.
  */
 int
-esl_dst_CAverageId(const char **as, int N, int max_comparisons, double *ret_id)
+esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
 {
   int    status;
   double id;
@@ -780,7 +780,7 @@ esl_dst_CAverageId(const char **as, int N, int max_comparisons, double *ret_id)
  *            In either case, <*ret_id> is set to 0.
  */
 int
-esl_dst_XAverageId(const ESL_ALPHABET *abc, const ESL_DSQ **ax, int N, int max_comparisons, double *ret_id)
+esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_id)
 {
   int    status;
   double id;

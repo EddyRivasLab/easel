@@ -80,7 +80,9 @@
  * available. So, if you steal files from an installed library, just
  * set these all back to #undef (depending on which files you have).
  *****************************************************************/
+#undef eslLIBRARY
 
+#ifndef eslLIBRARY
 #undef eslAUGMENT_ALPHABET
 #undef eslAUGMENT_DMATRIX
 #undef eslAUGMENT_FILEPARSER
@@ -93,7 +95,23 @@
 #undef eslAUGMENT_RANDOM
 #undef eslAUGMENT_SSI
 #undef eslAUGMENT_STATS
-#undef eslLIBRARY
+#endif
+
+#ifdef eslLIBRARY
+#define eslAUGMENT_ALPHABET
+#define eslAUGMENT_DMATRIX
+#define eslAUGMENT_FILEPARSER
+#define eslAUGMENT_GEV
+#define eslAUGMENT_GUMBEL
+#define eslAUGMENT_HISTOGRAM
+#define eslAUGMENT_KEYHASH 
+#define eslAUGMENT_MINIMIZER
+#define eslAUGMENT_MSA		
+#define eslAUGMENT_RANDOM
+#define eslAUGMENT_SSI
+#define eslAUGMENT_STATS
+#endif
+
 
 #endif /*ESL_CONFIG_INCLUDED*/
 /*****************************************************************

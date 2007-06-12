@@ -122,11 +122,14 @@ esl_msaweight_GSC(ESL_MSA *msa)
   /* GSC weights use a rooted tree with "branch lengths" calculated by
    * UPGMA on a fractional difference matrix - pretty crude.
    */
-  if (msa->flags & eslMSA_DIGITAL) {
-    if ((status = esl_dst_XDiffMx(msa->abc, (const ESL_DSQ **) msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
-  } else {
-    if ((status = esl_dst_CDiffMx((const char **) msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
+  if (! (msa->flags & eslMSA_DIGITAL)) {
+    if ((status = esl_dst_CDiffMx(msa->aseq, msa->nseq, &D))         != eslOK) goto ERROR;
+  } 
+#ifdef eslAUGMENT_ALPHABET
+  else {
+    if ((status = esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D)) != eslOK) goto ERROR;
   }
+#endif
 
   /* oi, look out here.  UPGMA is correct, but old squid library uses
    * single linkage, so for regression tests ONLY, we use single link. 
@@ -271,45 +274,17 @@ esl_msaweight_PB(ESL_MSA *msa)
 
   /* Initialize
    */
-  if (msa->flags & eslMSA_DIGITAL) 
-    { ESL_ALLOC(nres, sizeof(int) * msa->abc->K); K = msa->abc->K; }
-  else 
+  if (! (msa->flags & eslMSA_DIGITAL)) 
     { ESL_ALLOC(nres, sizeof(int) * 26);          K = 26;          }
+#ifdef eslAUGMENT_ALPHABET
+  else 
+    { ESL_ALLOC(nres, sizeof(int) * msa->abc->K); K = msa->abc->K; }
+#endif
+
   esl_vec_DSet(msa->wgt, msa->nseq, 0.);
 
-  /* This section handles digital alignments. */
-  if (msa->flags & eslMSA_DIGITAL) 
-    {
-      for (pos = 1; pos <= msa->alen; pos++)
-	{
-	  /* Collect # of residues 0..K-1 in this column, and total # */
-	  esl_vec_ISet(nres, K, 0.);
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos]))
-	      nres[(int) msa->ax[idx][pos]] ++;
-	  for (ntotal = 0, i = 0; i < K; i++) if (nres[i] > 0) ntotal++;
-
-	  /* Bump weight on each sequence by PB rule */
-	  if (ntotal > 0) {
-	    for (idx = 0; idx < msa->nseq; idx++) {
-	      if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos]))
-		msa->wgt[idx] += 1. / (double) (ntotal * nres[msa->ax[idx][pos]]);
-	    }
-	  }
-	}
-
-      /* first normalization by # of residues counted in each seq */
-      for (idx = 0; idx < msa->nseq; idx++)
-	{
-	  for (rlen = 0, pos = 1; pos <= msa->alen; pos++) 
-	    if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos])) rlen++;
-	  if (rlen > 0) msa->wgt[idx] /= (double) rlen;
-	  /* if rlen == 0 for this seq, its weight is still 0.0, as initialized. */
-	}
-    }
-
   /* This section handles text alignments */
-  else 
+  if (! (msa->flags & eslMSA_DIGITAL)) 
     {
       for (pos = 0; pos < msa->alen; pos++)
 	{
@@ -338,6 +313,39 @@ esl_msaweight_PB(ESL_MSA *msa)
 	/* if rlen == 0 for this seq, its weight is still 0.0, as initialized. */
       }
     }
+
+  /* This section handles digital alignments. */
+#ifdef eslAUGMENT_ALPHABET
+  else
+    {
+      for (pos = 1; pos <= msa->alen; pos++)
+	{
+	  /* Collect # of residues 0..K-1 in this column, and total # */
+	  esl_vec_ISet(nres, K, 0.);
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos]))
+	      nres[(int) msa->ax[idx][pos]] ++;
+	  for (ntotal = 0, i = 0; i < K; i++) if (nres[i] > 0) ntotal++;
+
+	  /* Bump weight on each sequence by PB rule */
+	  if (ntotal > 0) {
+	    for (idx = 0; idx < msa->nseq; idx++) {
+	      if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos]))
+		msa->wgt[idx] += 1. / (double) (ntotal * nres[msa->ax[idx][pos]]);
+	    }
+	  }
+	}
+
+      /* first normalization by # of residues counted in each seq */
+      for (idx = 0; idx < msa->nseq; idx++)
+	{
+	  for (rlen = 0, pos = 1; pos <= msa->alen; pos++) 
+	    if (esl_abc_XIsCanonical(msa->abc, msa->ax[idx][pos])) rlen++;
+	  if (rlen > 0) msa->wgt[idx] /= (double) rlen;
+	  /* if rlen == 0 for this seq, its weight is still 0.0, as initialized. */
+	}
+    }
+#endif
 
   /* Make weights normalize up to nseq, and return.  In pathological
    * case where all wgts were 0 (no seqs contain any unambiguous

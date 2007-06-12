@@ -1,5 +1,4 @@
-/* esl_msa.h
- * Multiple sequence alignment file i/o.
+/* Multiple sequence alignment file i/o.
  * 
  * SVN $Id$
  * SRE, Wed Jan 19 19:16:28 2005
@@ -16,6 +15,9 @@
 #endif
 #ifdef eslAUGMENT_SSI
 #include <esl_ssi.h>
+#endif
+#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
+#include "mpi.h"
 #endif
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate
@@ -193,7 +195,7 @@ extern void esl_msafile_Close(ESL_MSAFILE *afp);
 extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
 #endif
 
-/* 3. Digitized MSA's (ALPHABET augmentation required) */
+/* 3. Digitized MSA's (alphabet augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
 extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
 extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen);
@@ -203,18 +205,25 @@ extern int      esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type);
 extern int      esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 
 					int format, const char *env, ESL_MSAFILE **ret_msafp);
 extern int      esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc);
-
-
 #endif
 
-/* 4. General i/o API, all alignment formats */
+/* 4. MPI communication. (alphabet, mpi augmentation required) */
+#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
+extern int esl_msa_MPISend(const ESL_MSA *msa, int dest, int tag, MPI_Comm comm, char **buf, int *nalloc);
+extern int esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n);
+extern int esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm comm);
+extern int esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm comm, ESL_MSA **ret_msa);
+extern int esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa);
+#endif
+
+/* 5. General i/o API, all alignment formats */
 extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int   esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt);
 extern char *esl_msa_DescribeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 
-/* 5. Miscellaneous functions for manipulating MSAs */
+/* 6. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps);
 extern int esl_msa_NoGaps(ESL_MSA *msa, const char *gaps);

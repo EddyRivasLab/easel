@@ -14,8 +14,8 @@ require  "getopts.pl";
 &Getopts('c');
 if ($opt_c) { $do_recompile = 1; }
 
-$CC     = "gcc";
-$CFLAGS = "-g -Wall";
+if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};     } else { $CC       = "gcc"; } 
+if ($ENV{'CFLAGS'} ne "") { $CFLAGS = $ENV{'CFLAGS'}; } else { $CFLAGS   = "-g -Wall"; }
 
 printf("Memory leak testing for Easel, using valgrind:\n\n");
 

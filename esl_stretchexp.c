@@ -502,10 +502,10 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 /****************************************************************************
  * Example main()
  ****************************************************************************/ 
-#ifdef eslSXP_EXAMPLE
+#ifdef eslSTRETCHEXP_EXAMPLE
 /*::cexcerpt::sxp_example::begin::*/
 /* compile:
-   gcc -g -Wall -I. -o example -DeslSXP_EXAMPLE\
+   gcc -g -Wall -I. -o example -DeslSTRETCHEXP_EXAMPLE\
      -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
       esl_stretchexp.c esl_histogram.c esl_random.c esl_minimizer.c esl_stats.c esl_vectorops.c easel.c -lm
  */
@@ -557,16 +557,16 @@ main(int argc, char **argv)
   return 0;
 }
 /*::cexcerpt::sxp_example::end::*/
-#endif /*eslSXP_EXAMPLE*/
+#endif /*eslSTRETCHEXP_EXAMPLE*/
 
 
 
 /****************************************************************************
  * Test driver
  ****************************************************************************/ 
-#ifdef eslSXP_TESTDRIVE
+#ifdef eslSTRETCHEXP_TESTDRIVE
 /* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslSXP_TESTDRIVE\
+   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslSTRETCHEXP_TESTDRIVE\
     esl_stretchexp.c -leasel -lm
 */
 #include <stdio.h>
@@ -686,7 +686,7 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-#endif /*eslSXP_TESTDRIVE*/
+#endif /*eslSTRETCHEXP_TESTDRIVE*/
 
 
 /*****************************************************************

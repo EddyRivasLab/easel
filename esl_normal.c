@@ -146,7 +146,7 @@ utest_cdf(void)
   double mu    = 0.;
   double sigma = 1.;
   double x;
-  double old, new;
+  double new;
 
   for (x = 0.; x > -100.; x -= 1.0)
     {
@@ -163,7 +163,7 @@ utest_surv(void)
   double mu    = 0.;
   double sigma = 1.;
   double x;
-  double old, new;
+  double new;
 
   for (x = 0.; x < 100.; x += 1.0)
     {

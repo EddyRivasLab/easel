@@ -28,6 +28,7 @@ HEADERS = \
 	esl_keyhash.h\
 	esl_minimizer.h\
 	esl_mixgev.h\
+	esl_mpi.h\
 	esl_msa.h\
 	esl_msacluster.h\
 	esl_msaweight.h\
@@ -67,6 +68,7 @@ OBJS    = \
 	esl_keyhash.o\
 	esl_minimizer.o\
 	esl_mixgev.o\
+	esl_mpi.o\
 	esl_msa.o\
 	esl_msacluster.o\
 	esl_msaweight.o\

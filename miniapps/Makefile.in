@@ -37,6 +37,7 @@ ${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 
 clean:
 	-rm *.o *~
+	-rm TAGS
 
 distclean:
 	make clean

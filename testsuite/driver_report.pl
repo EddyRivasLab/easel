@@ -23,12 +23,14 @@ require  "getopts.pl";
 &Getopts('c');
 if ($opt_c) { $do_recompile = 1; }
 
-$CC       = "gcc";
-$CFLAGS   = "-g -Wall";
+if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};     } else { $CC       = "gcc"; } 
+if ($ENV{'CFLAGS'} ne "") { $CFLAGS = $ENV{'CFLAGS'}; } else { $CFLAGS   = "-g -Wall"; }
 $progname = "drivertest";
 
 
-printf("Driver code compilation test for Easel:\n\n");
+print("Driver code compilation test for Easel:\n");
+print("(Compiling with $CC $CFLAGS)\n\n");
+
 
 if ($do_recompile) {
     print("Recompiling...      ");

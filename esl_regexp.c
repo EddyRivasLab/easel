@@ -1847,7 +1847,7 @@ main(void)
   /* test all the metacharacters in one pattern;
    * and token 2 extraction grabs "oobaz" 13..17
    */
-  pattern = "^aaaa*(foo|bar|baz)+([aboz]+).o\.[^a-z]aaa?$";
+  pattern = "^aaaa*(foo|bar|baz)+([aboz]+).o\\.[^a-z]aaa?$";
   if (esl_regexp_Match(m, pattern, string) != eslOK) abort();
   esl_regexp_SubmatchCoords(m, string, 2, &i, &j);
   if (i != 12 || j != 16) abort();

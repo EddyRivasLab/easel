@@ -97,6 +97,19 @@ AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
 AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 
 ################################################################
+# Choose the compiler (this might change later, depending on command line
+################################################################
+
+# We can probably get fancier & more comprehensive about setting
+# optimization flags here. The IBM xlc settings are at request of IBM.
+# 
+AC_PROG_CC
+if test "$CC" = xlc; then
+   CFLAGS=$CFLAGS" -O3 -qarch=auto -qtune=auto"
+fi
+
+
+################################################################
 # 3b. ./configure command line options, for optional config
 #     of the package
 ################################################################
@@ -201,21 +214,16 @@ AC_ARG_WITH([gsl],
 # Defines HAVE_MPI preprocessor variable.
 #
 AC_ARG_ENABLE(mpi, 
-[AS_HELP_STRING([--enable-mpi], [enable MPI parallelization])],
-[case $enable_mpi in
-   yes) ACX_MPI([
-           AC_MSG_NOTICE([enabled optional MPI parallelization])
-	   AC_DEFINE(HAVE_MPI)
-	   CC=$MPICC
-          ], [
-           AC_MSG_ERROR([MPI library not found])
-          ])
-	 ;;
-   no)   AC_MSG_NOTICE([MPI parallelization disabled])
-         ;;
-   *)    echo "Ignoring unknown argument to --enable-mpi: $enable_mpi"
-	 ;;
-esac])
+   [AS_HELP_STRING([--enable-mpi], [enable MPI parallelization])],
+   [
+     ACX_MPI([
+        AC_MSG_NOTICE([enabled optional MPI parallelization])
+        AC_DEFINE(HAVE_MPI)
+        CC=$MPICC
+       ],[
+        AC_MSG_ERROR([MPI library not found])
+       ])
+   ])
 
 
 ################################################################
@@ -260,7 +268,6 @@ AC_DEFUN(CHECK_GNU_MAKE,[
 CHECK_GNU_MAKE
 
 
-
 # 5. Checks for libraries.
 
 LIBGSL=
@@ -299,20 +306,9 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_OFF_T
 
+
 # 8. Checks for structures - none
 
-
-################################################################
-# 9. Checks for compiler characteristics
-################################################################
-
-# We can probably get fancier & more comprehensive about setting
-# optimization flags here. The IBM xlc settings are at request of IBM.
-# 
-AC_PROG_CC
-if test "$CC" = xlc; then
-   CFLAGS=$CFLAGS" -O3 -qarch=auto -qtune=auto"
-fi
 
 
 
@@ -337,6 +333,7 @@ AC_SYS_LARGEFILE
 # 12. Write out esl_config.h header and the Makefiles
 AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
+AC_CONFIG_FILES([testsuite/Makefile])
 AC_CONFIG_FILES([Makefile])
 
 

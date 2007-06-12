@@ -112,6 +112,7 @@
 #define eslENORESULT      19    /* no result was obtained       */
 #define eslENODATA        20	/* no data provided, file empty */
 #define eslETYPE          21	/* invalid type of argument     */
+
 /*::cexcerpt::statuscodes::end::*/
 
 /* File parsers all contain a fixed length "errbuf" for failure

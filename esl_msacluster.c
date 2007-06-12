@@ -148,10 +148,14 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, int **ret_c, int 
 	      else
 		pid = 1. - squid_distance(msa->aseq[v], msa->aseq[a[i]]);
 #else
-	      if (msa->flags & eslMSA_DIGITAL)
-		status = esl_dst_XPairId(msa->abc, msa->ax[v], msa->ax[a[i]], &pid, NULL, NULL);
-	      else
+	      
+	      if (! (msa->flags & eslMSA_DIGITAL))
 		status = esl_dst_CPairId(msa->aseq[v], msa->aseq[a[i]], &pid, NULL, NULL);
+#ifdef eslAUGMENT_ALPHABET
+	      else
+		status = esl_dst_XPairId(msa->abc, msa->ax[v], msa->ax[a[i]], &pid, NULL, NULL);
+#endif
+
 	      if (status != eslOK) goto ERROR;
 #endif
 	      if (pid >= maxid) /* linked? */

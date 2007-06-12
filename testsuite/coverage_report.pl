@@ -22,7 +22,7 @@ $have_sloccount = 1;
 if ($opt_c) { $do_recompile     = 1; }
 if ($opt_s) { $have_sloccount   = 0; }
 
-$CC     = "gcc";
+if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};  } else { $CC       = "gcc"; } 
 $CFLAGS = "-g -Wall -fprofile-arcs -ftest-coverage";
 
 printf("Code coverage test for Easel, using gcov:\n\n");

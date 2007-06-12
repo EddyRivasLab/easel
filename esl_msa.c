@@ -38,6 +38,11 @@
 #ifdef eslAUGMENT_SSI
 #include <esl_ssi.h>
 #endif
+#ifdef HAVE_MPI
+#include <mpi.h>
+#include <esl_mpi.h>
+#endif
+
 #include <esl_msa.h>
 /*::cexcerpt::include_example::end::*/
 
@@ -1760,7 +1765,7 @@ esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename,
   *ret_msafp = msafp;
   return eslOK;
 }
-#endif /* eslAUGMENT_ALPHABET */
+
 
 
 /* Function:  esl_msafile_SetDigital()
@@ -1788,6 +1793,7 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
   msafp->do_digital = TRUE;
   return eslOK;
 }
+#endif /* eslAUGMENT_ALPHABET */
 /*---------------------- end of digital MSA functions -----------------------*/
 
 
@@ -1797,24 +1803,33 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
 
 #if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
 
+
 /* Function:  esl_msa_MPISend()
- * Synopsis:  Send essential msa info to MPI destination.
+ * Synopsis:  Send essential msa info as an MPI work unit.
  * Incept:    SRE, Fri Jun  1 10:28:57 2007 [Janelia]
  *
  * Purpose:   Sends the essential elements of a multiple alignment <msa> 
- *            to MPI process <dest> (<dest> ranges from <0..nproc-1>),
- *            tagging the message with MPI tag <tag>. The receiver uses
- *            <esl_msa_MPIRecv()> to receive the MSA.
+ *            as a work unit to MPI process <dest> (<dest> ranges from <0..nproc-1>),
+ *            tagging the message with MPI tag <tag> for MPI communicator
+ *            <comm>. The receiver uses <esl_msa_MPIRecv()> to receive the MSA.
  *            
+ *            Work units are prefixed by a status code. If <msa> is
+ *            <non-NULL>, the work unit is an <eslOK> code followed by
+ *            the packed MSA. If <msa> is NULL, the work unit is an
+ *            <eslEOD> code, which <esl_msa_hmm_MPIRecv()> knows how
+ *            to interpret; this is typically used for an end-of-data
+ *            signal to cleanly shut down worker processes.
+ *
  *            Only digital mode alignments can be transmitted. (If
  *            you're using MPI, you may as well be using the more
  *            sophisticated internal format for MSAs.)
-
+ *
  *            Only an essential subset of the elements in <msa> are
  *            transmitted, sufficient to do computationally intensive
  *            work on the <msa>. Most msa annotation is not
  *            transmitted, for example. Specifically, <name>, <nseq>,
- *            <alen>, <wgt>, <ax>, <ss_cons>, and <rf> are transmitted. 
+ *            <alen>, <flags>, <wgt>, <ax>, <desc>, <acc>, <au>,
+ *            <ss_cons>, <sa_cons>, and <rf> are transmitted.
  *            
  *            In order to minimize alloc/free cycles, caller passes a
  *            pointer to a working buffer <*buf> of size <*nalloc>
@@ -1825,38 +1840,33 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
  *            appropriately, but the caller is still responsible for
  *            free'ing it.
  *            
- *            If <msa> is <NULL>, an end-of-data signal is sent, which
- *            <esl_msa__MPIRecv()> knows how to interpret.
- * 
  * Args:      msa    - msa to send
  *            dest   - MPI destination (0..nproc-1)
  *            tag    - MPI tag
  *            buf    - pointer to a working buffer 
  *            nalloc - current allocated size of <*buf>, in characters
  *
- * Returns:   <eslOK> on success.
+ * Returns:   <eslOK> on success; <*buf> may have been reallocated and
+ *            <*nalloc> may have been increased.
  *
- * Throws:    (no abnormal error conditions)
+ * Throws:    <eslESYS> if an MPI call fails; <eslEMEM> if a malloc/realloc
+ *            fails. In either case, <*buf> and <*nalloc> remain valid and useful
+ *            memory (though the contents of <*buf> are undefined). 
  *
  * Xref:      J1/72.
  */
 int
-esl_msa_MPISend(ESL_MSA *msa, int dest, int tag, char **buf, int *nalloc)
+esl_msa_MPISend(const ESL_MSA *msa, int dest, int tag, MPI_Comm comm, char **buf, int *nalloc)
 {
   int   status;
-  int   sz, n, position, i;
+  int   code;
+  int   sz, n, position;
 
   /* First, figure out the size of the MSA */
-  if (gm == NULL) { 
-    MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &n); 
-  } else {
-    n = 0;
-    MPI_Pack_size(1,                     MPI_INT,           MPI_COMM_WORLD, &sz);   n += 5*sz; /* nseq, alen;  name, ss_cons, rf lengths */
-    MPI_Pack_size(strlen(msa->name)+1,   MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* name      */
-    MPI_Pack_size(msa->nseq,             MPI_DOUBLE,        MPI_COMM_WORLD, &sz);   n +=   sz;             /* wgt       */
-    MPI_Pack_size(msa->alen+1,           MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* ss_cons   */
-    MPI_Pack_size(msa->alen+1,           MPI_CHAR,          MPI_COMM_WORLD, &sz);   n +=   sz;             /* rf        */
-    MPI_Pack_size(msa->alen+2,           MPI_UNSIGNED_CHAR, MPI_COMM_WORLD, &sz);   n +=   sz * msa->nseq; /* ax        */
+  if (MPI_Pack_size(1, MPI_INT, comm, &n) != 0) ESL_EXCEPTION(eslESYS, "mpi pack size failed"); 
+  if (msa != NULL) { 
+    if ((status = esl_msa_MPIPackSize(msa,  comm, &sz)) != eslOK) return status;
+    n += sz;
   }
 
   /* Make sure the buffer is allocated appropriately */
@@ -1866,66 +1876,192 @@ esl_msa_MPISend(ESL_MSA *msa, int dest, int tag, char **buf, int *nalloc)
     *nalloc = n; 
   }
 
-  /* Pack the MSA into the buffer */
+  /* Pack the status code and MSA into the buffer */
   position = 0;
-  if (msa == NULL) 
-    {
-      int   eod_code = -1;
-      MPI_Pack(&eod_code,              1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-    } 
-  else 
-    {    
-      MPI_Pack(&(msa->nseq),           1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-      MPI_Pack(&(msa->alen),           1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-      MPI_Pack(msa->wgt,       msa->nseq, MPI_DOUBLE,        *buf, n, &position,  MPI_COMM_WORLD);
-      if (msa->name == NULL) {
-	sz = 0;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-      } else {
-	sz = strlen(msa->name)+1;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-	MPI_Pack(msa->name,           sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
-      }
-      if (msa->ss_cons == NULL) {
-	sz = 0;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-      } else {
-	sz = msa->alen+1;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-	MPI_Pack(msa->ss_cons,        sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
-      }
-      if (msa->rf == NULL) {
-	sz = 0;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-      } else {
-	sz = msa->alen+1;
-	MPI_Pack(&sz,                  1, MPI_INT,           *buf, n, &position,  MPI_COMM_WORLD);
-	MPI_Pack(msa->rf,             sz, MPI_CHAR,          *buf, n, &position,  MPI_COMM_WORLD);
-      }
-      for (i = 0; i < msa->nseq; i++)
-	MPI_Pack(msa->ax[i], msa->alen+2, MPI_UNSIGNED_CHAR, *buf, n, &position,  MPI_COMM_WORLD);
-    }
+  code     = (msa == NULL) ? eslEOD : eslOK;
+  if (MPI_Pack(&code, 1, MPI_INT, *buf, n, &position, comm) != 0) ESL_EXCEPTION(eslESYS, "mpi pack failed"); 
+  if (msa != NULL) {
+    if ((status = esl_msa_MPIPack(msa,  *buf, n, &position, comm)) != eslOK) return status;
+  }
 
   /* Send the packed profile to destination  */
-  MPI_Send(*buf, n, MPI_PACKED, dest, tag, MPI_COMM_WORLD);
+  if (MPI_Send(*buf, n, MPI_PACKED, dest, tag, comm) != 0) ESL_EXCEPTION(eslESYS, "mpi send failed");
   return eslOK;
 
  ERROR:
   return status;
 }
 
-/* Function:  esl_msa_MPIRecv()
- * Synopsis:  Receive essential MSA info from an MPI sender.
- * Incept:    SRE, Fri Jun  1 11:01:04 2007 [Janelia]
+
+
+/* Function:  esl_msa_MPIPackSize()
+ * Synopsis:  Calculates number of bytes needed to pack an MSA.
+ * Incept:    SRE, Wed Jun  6 11:36:22 2007 [Janelia]
  *
- * Purpose:   Receives an MSA message from <source> (<0..nproc-1>, or
- *            <MPI_ANY_SOURCE>) tagged as <tag>; return it in <*ret_msa>,
- *            which is allocated here and must be free'd by the caller.
+ * Purpose:   Calculate an upper bound on the number of bytes
+ *            that <esl_msa_MPIPack()> will need to pack an 
+ *            essential subset of the data in MSA <msa>
+ *            in a packed MPI message in communicator <comm>;
+ *            return that number of bytes in <*ret_n>. 
  *            
- *            MSAs are transmitted in digital mode. Caller must also
+ *            Caller will generally use this result to determine how
+ *            to allocate a buffer before starting to pack into it.
+ *
+ * Returns:   <eslOK> on success, and <*ret_n> contains the answer.
+ *
+ * Throws:    <eslESYS> if an MPI call fails, and <*ret_n> is set to 0. 
+ *
+ * Xref:      J1/78-79.
+ * 
+ * Note:      The sizing calls here need to stay matched up with
+ *            the calls in <esl_msa_MPIPack()>.
+ */
+int
+esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
+{
+  int status;
+  int sz;
+  int n = 0;
+
+  status = MPI_Pack_size      (                        1, MPI_INT,           comm, &sz); n += 3*sz;          if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size      (                msa->nseq, MPI_DOUBLE,        comm, &sz); n += sz;            if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = esl_mpi_PackOptSize(msa->name,             -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->desc,             -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->acc,              -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->au,               -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->ss_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->sa_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->rf,      msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = MPI_Pack_size      (              msa->alen+2, MPI_UNSIGNED_CHAR, comm, &sz); n += sz*msa->nseq;  if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+
+  *ret_n = n;
+  return eslOK;
+
+ ERROR:
+  *ret_n = 0;
+  return status;
+}
+
+/* Function:  esl_msa_MPIPack()
+ * Synopsis:  Packs an MSA into MPI buffer.
+ * Incept:    SRE, Wed Jun  6 13:17:45 2007 [Janelia]
+ *
+ * Purpose:   Packs essential subset of data in MSA <msa> into an MPI packed message buffer
+ *            <buf> of length <n> bytes, starting at byte position
+ *            <*position>, for MPI communicator <comm>.
+ *
+ * Returns:   <eslOK> on success; <buf> now contains the
+ *            packed <msa>, and <*position> is set to the byte
+ *            immediately following the last byte of the MSA
+ *            in <buf>. 
+ *
+ * Throws:    <eslESYS> if an MPI call fails; or <eslEMEM> if the
+ *            buffer's length <n> is overflowed by trying to pack
+ *            <msa> into <buf>. In either case, the state of
+ *            <buf> and <*position> is undefined, and both should
+ *            be considered to be corrupted.
+ *
+ * Xref:     J1/78-79. 
+ */
+int
+esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm comm)
+{
+  int status;
+  int i;
+
+  status = MPI_Pack       ((int *) &(msa->nseq),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack       ((int *) &(msa->alen),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack       ((int *) &(msa->flags),  1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack       (msa->wgt,       msa->nseq, MPI_DOUBLE,        buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = esl_mpi_PackOpt(msa->name,             -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->desc,             -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->acc,              -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->au,               -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->ss_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->sa_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->rf,      msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  for (i = 0; i < msa->nseq; i++) {
+    status = MPI_Pack     (msa->ax[i],   msa->alen+2, MPI_UNSIGNED_CHAR, buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  }
+  if (*position > n) ESL_EXCEPTION(eslEMEM, "buffer overflow");
+  return eslOK;
+}
+
+/* Function:  esl_msa_MPIUnpack()
+ * Synopsis:  Unpacks an MSA from an MPI buffer.
+ * Incept:    SRE, Wed Jun  6 15:49:11 2007 [Janelia]
+ *
+ * Purpose:   Unpack a newly allocated MSA from MPI packed buffer
+ *            <buf>, starting from position <*pos>, where the total length
+ *            of the buffer in bytes is <n>. 
+ *
+ *            MSAs are transmitted in digital mode. Caller must 
  *            provide the alphabet <abc> for this MSA. (Thus the
  *            caller already know it before the MSA arrives, by an
  *            appropriate initialization.)
+ *
+ * Returns:   <eslOK> on success. <*pos> is updated to the position of
+ *            the next element in <buf> to unpack (if any). <*ret_msa>
+ *            contains a newly allocated MSA, which the caller is 
+ *            responsible for free'ing.
+ *            
+ * Throws:    <eslESYS> on an MPI call failure. <eslEMEM> on allocation failure.
+ *            In either case, <*ret_msa> is <NULL>, and the state of <buf>
+ *            and <*pos> is undefined and should be considered to be corrupted.
+ *
+ * Xref:      J1/78-79
+ */
+int
+esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm comm, ESL_MSA **ret_msa)
+{
+  int         status;
+  ESL_MSA    *msa     = NULL;
+  int         nseq, alen;
+  int         i;
+
+  status = MPI_Unpack       (buf, n, pos, &nseq,                   1, MPI_INT,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack       (buf, n, pos, &alen,                   1, MPI_INT,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+
+  if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }    
+
+  status = MPI_Unpack       (buf, n, pos, &(msa->flags),                1,  MPI_INT,     comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack       (buf, n, pos, msa->wgt,                  nseq,  MPI_DOUBLE,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->name),    NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->desc),    NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->acc),     NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->au),      NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->ss_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->sa_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->rf)     , NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  for (i = 0; i < msa->nseq; i++) {
+    status = MPI_Unpack     (buf, n, pos, &(msa->ax[i]), msa->alen+2, MPI_UNSIGNED_CHAR, comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  }
+  *ret_msa = msa;
+  return eslOK;
+
+ ERROR:
+  if (msa != NULL) esl_msa_Destroy(msa);
+  *ret_msa = NULL;
+  return status;
+}
+
+
+
+/* Function:  esl_msa_MPIRecv()
+ * Synopsis:  Receive essential MSA info as a work unit from MPI sender.
+ * Incept:    SRE, Fri Jun  1 11:01:04 2007 [Janelia]
+ *
+ * Purpose:   Receives a work unit that consists of a single MSA from <source> (<0..nproc-1>, or
+ *            <MPI_ANY_SOURCE>) tagged as <tag> from communicator <comm>.
+ *            
+ *            Work units are prefixed by a status code. If the unit's
+ *            code is <eslOK> and no errors are encountered, this
+ *            routine will return <eslOK> and a non-<NULL> <*ret_msa>.
+ *            If the unit's code is <eslEOD> (a shutdown signal), 
+ *            this routine returns <eslEOD> and <*ret_msa> is <NULL>.
+ *            
+ *            MSAs are transmitted in digital mode. Caller must know and
+ *            provide the alphabet <abc> for this MSA.
  *            
  *            To minimize alloc/free cycles in this routine, caller
  *            passes a pointer to a buffer <*buf> of size <*nalloc>
@@ -1936,30 +2072,32 @@ esl_msa_MPISend(ESL_MSA *msa, int dest, int tag, char **buf, int *nalloc)
  *            allocated appropriately, but the caller is still
  *            responsible for free'ing it.
  *
- *            If the packed profile is an end-of-data signal, return
+ *            If the packed MSA is an end-of-data signal, return
  *            <eslEOD>, and <*ret_msa> is <NULL>.
  *            
- * Returns:   <eslOK> on success. <*ret_msa> contains the new profile; it
+ * Returns:   <eslOK> on success. <*ret_msa> contains the new MSA; it
  *            is allocated here, and the caller is responsible for
  *            free'ing it.  <*buf> may have been reallocated to a
  *            larger size, and <*nalloc> may have been increased.
  *
+ *
+ * Throws:    <eslESYS> if an MPI call fails; <eslEMEM> if an allocation fails.
+ *            In either case, <*ret_msa> is NULL, and the <buf> and its size
+ *            <*nalloc> remain valid.
  * Xref:      J1/72.
  */
 int
-esl_msa_MPIRecv(int source, int tag, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa)
+esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa)
 {
-  int         status;
+  int         status, code;
   ESL_MSA    *msa     = NULL;
-  int         nseq, alen;
-  int         n, sz;
-  int         i;
+  int         n;
   int         pos;
   MPI_Status  mpistatus;
 
   /* Probe first, because we need to know if our buffer is big enough. */
-  MPI_Probe(source, tag, MPI_COMM_WORLD, &mpistatus);
-  MPI_Get_count(&mpistatus, MPI_PACKED, &n);
+  if (MPI_Probe(source, tag, comm, &mpistatus)  != 0) ESL_XEXCEPTION(eslESYS, "mpi probe failed");
+  if (MPI_Get_count(&mpistatus, MPI_PACKED, &n) != 0) ESL_XEXCEPTION(eslESYS, "mpi get count failed");
 
   /* Make sure the buffer is allocated appropriately */
   if (*buf == NULL || n > *nalloc) {
@@ -1968,38 +2106,15 @@ esl_msa_MPIRecv(int source, int tag, const ESL_ALPHABET *abc, char **buf, int *n
     *nalloc = n; 
   }
 
-  /* Receive the packed MSA */
-  MPI_Recv(*buf, n, MPI_PACKED, source, tag, MPI_COMM_WORLD, &mpistatus);
+  /* Receive the packed work unit */
+  if (MPI_Recv(*buf, n, MPI_PACKED, source, tag, comm, &mpistatus) != 0) ESL_XEXCEPTION(eslESYS, "mpi recv failed");
 
-  /* Unpack it - watching out for the EOD signal of M = -1. */
+  /* Unpack it - where the first integer is a status code, OK or EOD */
   pos = 0;
-  MPI_Unpack(*buf, n, &pos, &nseq,              1, MPI_INT,           MPI_COMM_WORLD);
-  if (nseq == -1) { *ret_gm = NULL; return eslEOD; }
-  MPI_Unpack(*buf, n, &pos, &alen,              1, MPI_INT,           MPI_COMM_WORLD);
-  
-  if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }
-  
-  MPI_Unpack(*buf, n, &pos, &(msa->wgt),     nseq, MPI_DOUBLE,        MPI_COMM_WORLD);
-  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
-  if (sz > 0) {
-    ESL_ALLOC(msa->name, sizeof(char) * sz);
-    MPI_Unpack(*buf, n, &pos, &(msa->name),    sz, MPI_CHAR,          MPI_COMM_WORLD);
-  }
-  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
-  if (sz > 0) {
-    ESL_ALLOC(msa->ss_cons, sizeof(char) * sz);
-    MPI_Unpack(*buf, n, &pos, &(msa->ss_cons), sz, MPI_CHAR,          MPI_COMM_WORLD);
-  }
-  MPI_Unpack(*buf, n, &pos, &sz,                1, MPI_INT,           MPI_COMM_WORLD);
-  if (sz > 0) {
-    ESL_ALLOC(msa->rf, sizeof(char) * sz);
-    MPI_Unpack(*buf, n, &pos, &(msa->rf),      sz, MPI_CHAR,          MPI_COMM_WORLD);
-  }
-  for (i = 0; i < msa->nseq; i++)
-    MPI_Unpack(*buf, n, &pos, &(msa->ax[i]),   sz, MPI_UNSIGNED_CHAR, MPI_COMM_WORLD);
+  if (MPI_Unpack       (*buf, n, &pos, &code,                   1, MPI_INT,           comm) != 0)  ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  if (code == eslEOD) { status = eslEOD; goto ERROR; }
 
-  *ret_msa = msa;
-  return eslOK;
+  return esl_msa_MPIUnpack(abc, *buf, *nalloc, &pos, comm, ret_msa);
 
  ERROR:
   if (msa != NULL) esl_msa_Destroy(msa);
@@ -2060,11 +2175,13 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    */
   if (afp->msa_cache != NULL) 
     {
+#ifdef eslAUGMENT_ALPHABET
       if      (afp->do_digital   && !(afp->msa_cache->flags & eslMSA_DIGITAL))
 	status = esl_msa_Digitize(afp->abc, afp->msa_cache);
       else if (! afp->do_digital && (afp->msa_cache->flags & eslMSA_DIGITAL))
 	status = esl_msa_Textize(afp->msa_cache);
       if (status != eslOK) return status;
+#endif
 
       *ret_msa         = afp->msa_cache;
       afp->msa_cache = NULL;
