@@ -32,6 +32,7 @@ MODULES = easel\
 	  esl_keyhash\
 	  esl_minimizer\
 	  esl_mixgev\
+	  esl_mpi\
 	  esl_msa\
 	  esl_msacluster\
 	  esl_msaweight\
@@ -61,6 +62,7 @@ pdf:
 	bibtex   main
 	pdflatex main
 	pdflatex main
+	mv main.pdf current.pdf
 
 autodoc:
 	mkdir -p autotext

@@ -240,7 +240,7 @@ process_comment_text
 # 
 # Purpose:  Given a <string>, substitute any unacceptable characters
 #           for LaTeX, as follows:
-#               _     - becomes \_
+#               _    becomes \_
 #      
 sub
 latex_safe
