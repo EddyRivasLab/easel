@@ -120,6 +120,94 @@ esl_getopts_Create(ESL_OPTIONS *opt)
   return NULL;
 }
 
+/* Function:  esl_getopts_CreateDefaultApp()
+ * Synopsis:  Initialize a "standard" Easel application.
+ * Incept:    SRE, Wed Jun 13 16:21:22 2007 [Janelia]
+ *
+ * Purpose:   Carry out the usual sequence of events in initializing a
+ *            small Easel-based application: parses the command line,
+ *            process the <-h> option to produce a (single-sectioned)
+ *            help page, and check that the number of command line
+ *            options is right.
+ *            
+ *            <options> is an array of <ESL_OPTIONS> structures describing
+ *            the options, terminated by an all-<NULL> structure.
+ *            <nargs> is the number of command-line arguments
+ *            expected. <argc> and <argv> are the command line
+ *            arguments (number and pointer array) from <main()>.
+ *            
+ *            <banner> is an optional one-line description of the
+ *            program's function, such as <"compare RNA structures">.
+ *            When the <-h> help option is selected, this description
+ *            will be combined with the program's name (the tail of
+ *            <argv[0]>) and Easel's copyright and license information
+ *            to give a header like:
+ *            
+ *            \begin{cchunk}
+ *            # esl-compstruct :: compare RNA structures
+ *            # Easel 0.1 (February 2005)
+ *            # Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus
+ *            # Freely licensed under the Janelia Software License.
+ *            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *            \end{cchunk}
+ *            
+ *            <usage> is an optional one-line description of command
+ *            line usage (without the command name), such as
+ *            <"[options] <trusted file> <test file>">. On errors, or
+ *            on the help page, this usage string is combined with 
+ *            the program's name to give a usage line like:
+ *            
+ *            \begin{cchunk}
+ *            Usage: esl-compstruct [options] <trusted file> <test file>
+ *            \end{cchunk}  
+ *            
+ *            <banner> and <usage> are optional, meaning that either
+ *            can be provided as <NULL> and they won't be shown.
+ *
+ * Returns:   a pointer to a new <ESL_GETOPTS> object, which contains
+ *            all the option settings and command line arguments.
+ *            
+ *            On command line errors, this routine exits with abnormal
+ *            (1) status.
+ *            
+ *            If the <-h> help option is seen, this routine exits with
+ *            normal (0) status after printing a help page.
+ *
+ */
+ESL_GETOPTS *
+esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage)
+{
+  ESL_GETOPTS *go = NULL;
+
+  go = esl_getopts_Create(options);
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
+      esl_opt_VerifyConfig(go)               != eslOK) 
+    {
+      printf("Failed to parse command line: %s\n", go->errbuf);
+      if (usage != NULL) esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+  if (esl_opt_GetBoolean(go, "-h") == TRUE) 
+    {
+      if (banner != NULL) esl_banner(stdout, argv[0], banner);
+      if (usage  != NULL) esl_usage (stdout, argv[0], usage);
+      puts("\n  where options are:");
+      esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
+      exit(0);
+    }
+  if (esl_opt_ArgNumber(go) != nargs) 
+    {
+      puts("Incorrect number of command line arguments.");
+      esl_usage(stdout, argv[0], usage);
+      printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
+      exit(1);
+    }
+  return go;
+}
+
+
+
 /* Function:  esl_getopts_Destroy()
  * Synopsis:  Destroys an <ESL_GETOPTS> object.
  * Incept:    SRE, Thu Jan 13 08:55:10 2005 [St. Louis]

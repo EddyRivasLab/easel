@@ -83,6 +83,7 @@ typedef struct {
 /* The visible API.
  */
 extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt);
+extern ESL_GETOPTS *esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage);
 extern void         esl_getopts_Destroy(ESL_GETOPTS *g);
 extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);
 

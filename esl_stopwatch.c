@@ -183,7 +183,7 @@ esl_stopwatch_Display(FILE *fp, ESL_STOPWATCH *w, char *prefix)
   else 
     fputs(prefix, fp);
 
-  format_time_string(buf, w->user+w->sys, 1);
+  format_time_string(buf, w->user+w->sys, TRUE);
 #ifdef HAVE_TIMES
   fprintf(fp, "%.2fu %.2fs %s ", w->user, w->sys, buf);
 #else

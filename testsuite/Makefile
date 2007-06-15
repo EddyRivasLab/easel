@@ -7,7 +7,7 @@
 # SVN $Id$
 
 CC       = mpicc
-CFLAGS   = -g -O2
+CFLAGS   = -g -O2 
 CPPFLAGS = 
 LDFLAGS  = 
 DEFS     = -DHAVE_CONFIG_H
@@ -106,6 +106,9 @@ check:  ${UNIT_TESTS}
 
 dcheck: ${UNIT_TESTS}
 	@echo    Running developer testsuite...
+	@echo -n Running unit tests...
+	@../devkit/sqc 2 testsuite.sqc .  >  utest.report
+	@echo    done. [See utest.report]
 	@echo -n Testing that all drivers compile...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./driver_report.pl       >  driver.report
 	@echo    done. [See driver.report]
@@ -115,9 +118,6 @@ dcheck: ${UNIT_TESTS}
 	@echo -n Looking for memory leaks...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./valgrind_report.pl     >  valgrind.report
 	@echo    done. [See valgrind.report]
-	@echo -n Running unit tests...
-	@../devkit/sqc 2 testsuite.sqc .  >  utest.report
-	@echo    done. [See utest.report]
 	@cat driver.report coverage.report valgrind.report utest.report > dcheck.report
 	@echo
 	@echo    Finished developer testsuite.

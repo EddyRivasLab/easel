@@ -465,7 +465,7 @@ esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
 }
 
 
-#if eslDEBUGLEVEL >=2
+#if eslDEBUGLEVEL >=3
 /* direct_mv_fit()
  * SRE, Wed Jun 29 08:23:47 2005
  * 

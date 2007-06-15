@@ -5,15 +5,15 @@
  *    1. The ESL_MSA object.
  *    2. The ESL_MSAFILE object.
  *    3. Digitized MSA's. (Alphabet augmentation required.)
- *    4. MPI communication. (Alphabet augmentation and MPI required.)
- *    5. General i/o API, for all alignment formats.
- *      5a. private functions for i/o of Stockholm format
- *    6. Miscellaneous functions for manipulating MSAs.
- *    7. Benchmark driver.
- *    8. Unit tests.
- *    9. Test driver.
- *   10. Example driver.
- *   11 . Copyright and license information.
+ *    4. General i/o API, for all alignment formats.
+ *    5. Miscellaneous functions for manipulating MSAs.
+ *    6. Debugging/development routines.
+ *    7. Private functions for Stockholm format i/o.
+ *    8. Benchmark driver.
+ *    9. Unit tests.
+ *   10. Test driver.
+ *   11. Example driver.
+ *   12. Copyright and license information.
  * 
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
  * SVN $Id$
@@ -21,29 +21,24 @@
 /*::cexcerpt::header_example::end::*/
 
 /*::cexcerpt::include_example::begin::*/
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
+#include "easel.h"
 #ifdef eslAUGMENT_KEYHASH
-#include <esl_keyhash.h>
+#include "esl_keyhash.h"
 #endif
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
+#include "esl_alphabet.h"
 #endif
 #ifdef eslAUGMENT_SSI
-#include <esl_ssi.h>
+#include "esl_ssi.h"
 #endif
-#ifdef HAVE_MPI
-#include <mpi.h>
-#include <esl_mpi.h>
-#endif
-
-#include <esl_msa.h>
+#include "esl_msa.h"
 /*::cexcerpt::include_example::end::*/
 
 /******************************************************************************
@@ -1517,7 +1512,7 @@ esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen)
   if (alen != 0)
     {
       for (i = 0; i < nseq; i++)
-	ESL_ALLOC(msa->ax[i], sizeof(ESL_DSQ) * (alen+1));
+	ESL_ALLOC(msa->ax[i], sizeof(ESL_DSQ) * (alen+2));
       msa->nseq = nseq;
     }
 
@@ -1797,337 +1792,10 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
 /*---------------------- end of digital MSA functions -----------------------*/
 
 
-/*****************************************************************
- *# 4. MPI communication. (alphabet augmentation and MPI required)
- *****************************************************************/
-
-#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
-
-
-/* Function:  esl_msa_MPISend()
- * Synopsis:  Send essential msa info as an MPI work unit.
- * Incept:    SRE, Fri Jun  1 10:28:57 2007 [Janelia]
- *
- * Purpose:   Sends the essential elements of a multiple alignment <msa> 
- *            as a work unit to MPI process <dest> (<dest> ranges from <0..nproc-1>),
- *            tagging the message with MPI tag <tag> for MPI communicator
- *            <comm>. The receiver uses <esl_msa_MPIRecv()> to receive the MSA.
- *            
- *            Work units are prefixed by a status code. If <msa> is
- *            <non-NULL>, the work unit is an <eslOK> code followed by
- *            the packed MSA. If <msa> is NULL, the work unit is an
- *            <eslEOD> code, which <esl_msa_hmm_MPIRecv()> knows how
- *            to interpret; this is typically used for an end-of-data
- *            signal to cleanly shut down worker processes.
- *
- *            Only digital mode alignments can be transmitted. (If
- *            you're using MPI, you may as well be using the more
- *            sophisticated internal format for MSAs.)
- *
- *            Only an essential subset of the elements in <msa> are
- *            transmitted, sufficient to do computationally intensive
- *            work on the <msa>. Most msa annotation is not
- *            transmitted, for example. Specifically, <name>, <nseq>,
- *            <alen>, <flags>, <wgt>, <ax>, <desc>, <acc>, <au>,
- *            <ss_cons>, <sa_cons>, and <rf> are transmitted.
- *            
- *            In order to minimize alloc/free cycles, caller passes a
- *            pointer to a working buffer <*buf> of size <*nalloc>
- *            characters. If necessary (i.e. if <msa> is too big to
- *            fit), <*buf> will be reallocated and <*nalloc> increased
- *            to the new size. As a special case, if <*buf> is <NULL>
- *            and <*nalloc> is 0, the buffer will be allocated
- *            appropriately, but the caller is still responsible for
- *            free'ing it.
- *            
- * Args:      msa    - msa to send
- *            dest   - MPI destination (0..nproc-1)
- *            tag    - MPI tag
- *            buf    - pointer to a working buffer 
- *            nalloc - current allocated size of <*buf>, in characters
- *
- * Returns:   <eslOK> on success; <*buf> may have been reallocated and
- *            <*nalloc> may have been increased.
- *
- * Throws:    <eslESYS> if an MPI call fails; <eslEMEM> if a malloc/realloc
- *            fails. In either case, <*buf> and <*nalloc> remain valid and useful
- *            memory (though the contents of <*buf> are undefined). 
- *
- * Xref:      J1/72.
- */
-int
-esl_msa_MPISend(const ESL_MSA *msa, int dest, int tag, MPI_Comm comm, char **buf, int *nalloc)
-{
-  int   status;
-  int   code;
-  int   sz, n, position;
-
-  /* First, figure out the size of the MSA */
-  if (MPI_Pack_size(1, MPI_INT, comm, &n) != 0) ESL_EXCEPTION(eslESYS, "mpi pack size failed"); 
-  if (msa != NULL) { 
-    if ((status = esl_msa_MPIPackSize(msa,  comm, &sz)) != eslOK) return status;
-    n += sz;
-  }
-
-  /* Make sure the buffer is allocated appropriately */
-  if (*buf == NULL || n > *nalloc) {
-    void *tmp;
-    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
-    *nalloc = n; 
-  }
-
-  /* Pack the status code and MSA into the buffer */
-  position = 0;
-  code     = (msa == NULL) ? eslEOD : eslOK;
-  if (MPI_Pack(&code, 1, MPI_INT, *buf, n, &position, comm) != 0) ESL_EXCEPTION(eslESYS, "mpi pack failed"); 
-  if (msa != NULL) {
-    if ((status = esl_msa_MPIPack(msa,  *buf, n, &position, comm)) != eslOK) return status;
-  }
-
-  /* Send the packed profile to destination  */
-  if (MPI_Send(*buf, n, MPI_PACKED, dest, tag, comm) != 0) ESL_EXCEPTION(eslESYS, "mpi send failed");
-  return eslOK;
-
- ERROR:
-  return status;
-}
-
-
-
-/* Function:  esl_msa_MPIPackSize()
- * Synopsis:  Calculates number of bytes needed to pack an MSA.
- * Incept:    SRE, Wed Jun  6 11:36:22 2007 [Janelia]
- *
- * Purpose:   Calculate an upper bound on the number of bytes
- *            that <esl_msa_MPIPack()> will need to pack an 
- *            essential subset of the data in MSA <msa>
- *            in a packed MPI message in communicator <comm>;
- *            return that number of bytes in <*ret_n>. 
- *            
- *            Caller will generally use this result to determine how
- *            to allocate a buffer before starting to pack into it.
- *
- * Returns:   <eslOK> on success, and <*ret_n> contains the answer.
- *
- * Throws:    <eslESYS> if an MPI call fails, and <*ret_n> is set to 0. 
- *
- * Xref:      J1/78-79.
- * 
- * Note:      The sizing calls here need to stay matched up with
- *            the calls in <esl_msa_MPIPack()>.
- */
-int
-esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
-{
-  int status;
-  int sz;
-  int n = 0;
-
-  status = MPI_Pack_size      (                        1, MPI_INT,           comm, &sz); n += 3*sz;          if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size      (                msa->nseq, MPI_DOUBLE,        comm, &sz); n += sz;            if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = esl_mpi_PackOptSize(msa->name,             -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->desc,             -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->acc,              -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->au,               -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->ss_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->sa_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = esl_mpi_PackOptSize(msa->rf,      msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
-  status = MPI_Pack_size      (              msa->alen+2, MPI_UNSIGNED_CHAR, comm, &sz); n += sz*msa->nseq;  if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-
-  *ret_n = n;
-  return eslOK;
-
- ERROR:
-  *ret_n = 0;
-  return status;
-}
-
-/* Function:  esl_msa_MPIPack()
- * Synopsis:  Packs an MSA into MPI buffer.
- * Incept:    SRE, Wed Jun  6 13:17:45 2007 [Janelia]
- *
- * Purpose:   Packs essential subset of data in MSA <msa> into an MPI packed message buffer
- *            <buf> of length <n> bytes, starting at byte position
- *            <*position>, for MPI communicator <comm>.
- *
- * Returns:   <eslOK> on success; <buf> now contains the
- *            packed <msa>, and <*position> is set to the byte
- *            immediately following the last byte of the MSA
- *            in <buf>. 
- *
- * Throws:    <eslESYS> if an MPI call fails; or <eslEMEM> if the
- *            buffer's length <n> is overflowed by trying to pack
- *            <msa> into <buf>. In either case, the state of
- *            <buf> and <*position> is undefined, and both should
- *            be considered to be corrupted.
- *
- * Xref:     J1/78-79. 
- */
-int
-esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm comm)
-{
-  int status;
-  int i;
-
-  status = MPI_Pack       ((int *) &(msa->nseq),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
-  status = MPI_Pack       ((int *) &(msa->alen),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
-  status = MPI_Pack       ((int *) &(msa->flags),  1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
-  status = MPI_Pack       (msa->wgt,       msa->nseq, MPI_DOUBLE,        buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
-  status = esl_mpi_PackOpt(msa->name,             -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->desc,             -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->acc,              -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->au,               -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->ss_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->sa_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  status = esl_mpi_PackOpt(msa->rf,      msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
-  for (i = 0; i < msa->nseq; i++) {
-    status = MPI_Pack     (msa->ax[i],   msa->alen+2, MPI_UNSIGNED_CHAR, buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
-  }
-  if (*position > n) ESL_EXCEPTION(eslEMEM, "buffer overflow");
-  return eslOK;
-}
-
-/* Function:  esl_msa_MPIUnpack()
- * Synopsis:  Unpacks an MSA from an MPI buffer.
- * Incept:    SRE, Wed Jun  6 15:49:11 2007 [Janelia]
- *
- * Purpose:   Unpack a newly allocated MSA from MPI packed buffer
- *            <buf>, starting from position <*pos>, where the total length
- *            of the buffer in bytes is <n>. 
- *
- *            MSAs are transmitted in digital mode. Caller must 
- *            provide the alphabet <abc> for this MSA. (Thus the
- *            caller already know it before the MSA arrives, by an
- *            appropriate initialization.)
- *
- * Returns:   <eslOK> on success. <*pos> is updated to the position of
- *            the next element in <buf> to unpack (if any). <*ret_msa>
- *            contains a newly allocated MSA, which the caller is 
- *            responsible for free'ing.
- *            
- * Throws:    <eslESYS> on an MPI call failure. <eslEMEM> on allocation failure.
- *            In either case, <*ret_msa> is <NULL>, and the state of <buf>
- *            and <*pos> is undefined and should be considered to be corrupted.
- *
- * Xref:      J1/78-79
- */
-int
-esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm comm, ESL_MSA **ret_msa)
-{
-  int         status;
-  ESL_MSA    *msa     = NULL;
-  int         nseq, alen;
-  int         i;
-
-  status = MPI_Unpack       (buf, n, pos, &nseq,                   1, MPI_INT,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-  status = MPI_Unpack       (buf, n, pos, &alen,                   1, MPI_INT,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-
-  if ((msa = esl_msa_CreateDigital(abc, nseq, alen)) == NULL) { status = eslEMEM; goto ERROR; }    
-
-  status = MPI_Unpack       (buf, n, pos, &(msa->flags),                1,  MPI_INT,     comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-  status = MPI_Unpack       (buf, n, pos, msa->wgt,                  nseq,  MPI_DOUBLE,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->name),    NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->desc),    NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->acc),     NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->au),      NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->ss_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->sa_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->rf)     , NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
-  for (i = 0; i < msa->nseq; i++) {
-    status = MPI_Unpack     (buf, n, pos, &(msa->ax[i]), msa->alen+2, MPI_UNSIGNED_CHAR, comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-  }
-  *ret_msa = msa;
-  return eslOK;
-
- ERROR:
-  if (msa != NULL) esl_msa_Destroy(msa);
-  *ret_msa = NULL;
-  return status;
-}
-
-
-
-/* Function:  esl_msa_MPIRecv()
- * Synopsis:  Receive essential MSA info as a work unit from MPI sender.
- * Incept:    SRE, Fri Jun  1 11:01:04 2007 [Janelia]
- *
- * Purpose:   Receives a work unit that consists of a single MSA from <source> (<0..nproc-1>, or
- *            <MPI_ANY_SOURCE>) tagged as <tag> from communicator <comm>.
- *            
- *            Work units are prefixed by a status code. If the unit's
- *            code is <eslOK> and no errors are encountered, this
- *            routine will return <eslOK> and a non-<NULL> <*ret_msa>.
- *            If the unit's code is <eslEOD> (a shutdown signal), 
- *            this routine returns <eslEOD> and <*ret_msa> is <NULL>.
- *            
- *            MSAs are transmitted in digital mode. Caller must know and
- *            provide the alphabet <abc> for this MSA.
- *            
- *            To minimize alloc/free cycles in this routine, caller
- *            passes a pointer to a buffer <*buf> of size <*nalloc>
- *            characters. These are passed by reference, because when
- *            necessary, <*buf> will be reallocated and <*nalloc>
- *            increased to the new size. As a special case, if <*buf>
- *            is <NULL> and <*nalloc> is 0, the buffer will be
- *            allocated appropriately, but the caller is still
- *            responsible for free'ing it.
- *
- *            If the packed MSA is an end-of-data signal, return
- *            <eslEOD>, and <*ret_msa> is <NULL>.
- *            
- * Returns:   <eslOK> on success. <*ret_msa> contains the new MSA; it
- *            is allocated here, and the caller is responsible for
- *            free'ing it.  <*buf> may have been reallocated to a
- *            larger size, and <*nalloc> may have been increased.
- *
- *
- * Throws:    <eslESYS> if an MPI call fails; <eslEMEM> if an allocation fails.
- *            In either case, <*ret_msa> is NULL, and the <buf> and its size
- *            <*nalloc> remain valid.
- * Xref:      J1/72.
- */
-int
-esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa)
-{
-  int         status, code;
-  ESL_MSA    *msa     = NULL;
-  int         n;
-  int         pos;
-  MPI_Status  mpistatus;
-
-  /* Probe first, because we need to know if our buffer is big enough. */
-  if (MPI_Probe(source, tag, comm, &mpistatus)  != 0) ESL_XEXCEPTION(eslESYS, "mpi probe failed");
-  if (MPI_Get_count(&mpistatus, MPI_PACKED, &n) != 0) ESL_XEXCEPTION(eslESYS, "mpi get count failed");
-
-  /* Make sure the buffer is allocated appropriately */
-  if (*buf == NULL || n > *nalloc) {
-    void *tmp;
-    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
-    *nalloc = n; 
-  }
-
-  /* Receive the packed work unit */
-  if (MPI_Recv(*buf, n, MPI_PACKED, source, tag, comm, &mpistatus) != 0) ESL_XEXCEPTION(eslESYS, "mpi recv failed");
-
-  /* Unpack it - where the first integer is a status code, OK or EOD */
-  pos = 0;
-  if (MPI_Unpack       (*buf, n, &pos, &code,                   1, MPI_INT,           comm) != 0)  ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
-  if (code == eslEOD) { status = eslEOD; goto ERROR; }
-
-  return esl_msa_MPIUnpack(abc, *buf, *nalloc, &pos, comm, ret_msa);
-
- ERROR:
-  if (msa != NULL) esl_msa_Destroy(msa);
-  *ret_msa = NULL;
-  return status;
-}
-#endif /* HAVE_MPI && eslAUGMENT_ALPHABET */
-
-
 
 
 /******************************************************************************
- *# 5. General i/o API, all alignment formats                                 
+ *# 4. General i/o API, all alignment formats                                 
  *****************************************************************************/
 static int write_stockholm(FILE *fp, const ESL_MSA *msa);
 static int write_pfam(FILE *fp, const ESL_MSA *msa);
@@ -2176,11 +1844,12 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   if (afp->msa_cache != NULL) 
     {
 #ifdef eslAUGMENT_ALPHABET
-      if      (afp->do_digital   && !(afp->msa_cache->flags & eslMSA_DIGITAL))
-	status = esl_msa_Digitize(afp->abc, afp->msa_cache);
-      else if (! afp->do_digital && (afp->msa_cache->flags & eslMSA_DIGITAL))
-	status = esl_msa_Textize(afp->msa_cache);
-      if (status != eslOK) return status;
+      if      (afp->do_digital   && !(afp->msa_cache->flags & eslMSA_DIGITAL)) {
+	if ((status = esl_msa_Digitize(afp->abc, afp->msa_cache)) != eslOK) return status; 
+      }
+      else if (! afp->do_digital && (afp->msa_cache->flags & eslMSA_DIGITAL)) {
+	if ((status = esl_msa_Textize(afp->msa_cache)) != eslOK) return status;
+      }
 #endif
 
       *ret_msa         = afp->msa_cache;
@@ -2283,8 +1952,535 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
 
 
 
+
+
+/*****************************************************************
+ *# 5. Miscellaneous functions for manipulating MSAs
+ *****************************************************************/
+
+/* Function:  esl_msa_SequenceSubset()
+ * Synopsis:  Select subset of sequences into a smaller MSA.
+ * Incept:    SRE, Wed Apr 13 10:05:44 2005 [St. Louis]
+ *
+ * Purpose:   Given an array <useme> (0..nseq-1) of TRUE/FALSE flags for each
+ *            sequence in an alignment <msa>; create a new alignment containing
+ *            only those seqs which are flagged <useme=TRUE>. Return a pointer
+ *            to this newly allocated alignment through <ret_new>. Caller is
+ *            responsible for freeing it.
+ *            
+ *            The smaller alignment might now contain columns
+ *            consisting entirely of gaps or missing data, depending
+ *            on what sequence subset was extracted. The caller may
+ *            want to immediately call <esl_msa_MinimGaps()> on the
+ *            new alignment to clean this up.
+ *
+ *            Unparsed Stockholm annotation is not transferred to the
+ *            new alignment.
+ *            
+ *            Weights are transferred exactly. If they need to be
+ *            renormalized to some new total weight (such as the new,
+ *            smaller total sequence number), the caller must do that.
+ *            
+ *            <msa> may be in text mode or digital mode. The new MSA
+ *            in <ret_new> will have the same mode.
+ *
+ * Returns:   <eslOK> on success, and <ret_new> is set to point at a new
+ *            (smaller) alignment.
+ *
+ * Throws:    <eslEINVAL> if the subset has no sequences in it;
+ *            <eslEMEM> on allocation error.
+ *
+ * Xref:      squid's MSASmallerAlignment(), 1999.
+ */
+int
+esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
+{
+  ESL_MSA *new = NULL;
+  int  nnew;			/* number of seqs in the new MSA */
+  int  oidx, nidx;		/* old, new indices */
+  int  i;
+  int  status;
+  
+  *ret_new = NULL;
+
+  nnew = 0; 
+  for (oidx = 0; oidx < msa->nseq; oidx++)
+    if (useme[oidx]) nnew++;
+  if (nnew == 0) ESL_EXCEPTION(eslEINVAL, "No sequences selected");
+
+  /* Note that the Create() calls allocate exact space for the sequences,
+   * so we will strcpy()/memcpy() into them below.
+   */
+#ifdef eslAUGMENT_ALPHABET
+  if ((msa->flags & eslMSA_DIGITAL) &&
+      (new = esl_msa_CreateDigital(msa->abc, nnew, msa->alen)) == NULL)
+    {status = eslEMEM; goto ERROR; }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL) &&
+      (new = esl_msa_Create(nnew, msa->alen)) == NULL) 
+    {status = eslEMEM; goto ERROR; }
+  if (new == NULL) 
+    {status = eslEMEM; goto ERROR; }
+  
+  for (nidx = 0, oidx = 0; oidx < msa->nseq; oidx++)
+    if (useme[oidx])
+      {
+#ifdef eslAUGMENT_ALPHABET
+	if (msa->flags & eslMSA_DIGITAL)
+	  memcpy(new->ax[nidx], msa->ax[oidx], sizeof(ESL_DSQ) * (msa->alen+2));
+#endif
+	if (! (msa->flags & eslMSA_DIGITAL))
+	  strcpy(new->aseq[nidx], msa->aseq[oidx]);
+	if ((status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx])))    != eslOK) goto ERROR;
+
+	new->wgt[nidx] = msa->wgt[oidx];
+      
+	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
+	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
+	}
+
+	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
+	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
+	}
+
+	if (msa->ss != NULL && msa->ss[oidx] != NULL)
+	  {
+	    if (new->ss == NULL) ESL_ALLOC(new->ss, sizeof(char *) * nnew);
+	    if ((status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]))) != eslOK) goto ERROR;
+	  }
+      
+	if (msa->sa != NULL && msa->sa[oidx] != NULL)
+	  {
+	    if (new->sa == NULL) ESL_ALLOC(new->sa, sizeof(char *) * nnew);
+	    if ((status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]))) != eslOK) goto ERROR;
+	  }
+	nidx++;
+      }
+
+  new->flags = msa->flags;
+
+  if ((status = esl_strdup(msa->name, -1, &(new->name))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->desc, -1, &(new->desc))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->acc,  -1, &(new->acc)))  != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->au,   -1, &(new->au)))   != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto ERROR;
+  
+  for (i = 0; i < eslMSA_NCUTS; i++) {
+    new->cutoff[i] = msa->cutoff[i];
+    new->cutset[i] = msa->cutset[i];
+  }
+  
+  new->nseq  = nnew;
+  new->sqalloc = nnew;
+
+  /* Since we have a fully constructed MSA, we don't need the
+   * aux info used by parsers.
+   */
+  if (new->sqlen != NULL) { free(new->sqlen);  new->sqlen = NULL; }
+  if (new->sslen != NULL) { free(new->sslen);  new->sslen = NULL; }
+  if (new->salen != NULL) { free(new->salen);  new->salen = NULL; }
+  new->lastidx = -1;
+#ifdef eslAUGMENT_KEYHASH
+  esl_keyhash_Destroy(new->index);
+  new->index  = NULL;
+  new->gs_idx = NULL;
+  new->gc_idx = NULL;
+  new->gr_idx = NULL;
+#endif
+
+  *ret_new = new;
+  return eslOK;
+
+ ERROR:
+  if (new != NULL) esl_msa_Destroy(new);
+  *ret_new = NULL;
+  return status;
+}
+
+
+/* msa_column_subset()
+ * SRE, Sun Feb 27 10:05:07 2005
+ * From squid's MSAShorterAlignment(), 1999
+ * 
+ * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, where TRUE
+ * means "keep this column in the new alignment"; remove all columns
+ * annotated as FALSE in the <useme> array. This is done in-place on
+ * the MSA, so the MSA is modified: <msa->alen> is reduced,
+ * <msa->aseq> is shrunk (or <msa->ax, in the case of a digital mode
+ * alignment), and all associated per-residue or per-column annotation
+ * is shrunk.
+ * 
+ * Returns eslOK on success.
+ */
+static int
+msa_column_subset(ESL_MSA *msa, int *useme)
+{
+  int opos;			/* position in original alignment */
+  int npos;			/* position in new alignment      */
+  int idx;			/* sequence index */
+  int i;			/* markup index */
+
+  /* Since we're minimizing, we can overwrite in place, within the msa
+   * we've already got. 
+   * opos runs all the way to msa->alen to include (and move) the \0
+   * string terminators (or sentinel bytes, in the case of digital mode)
+   */
+  for (opos = 0, npos = 0; opos <= msa->alen; opos++)
+    {
+      if (opos < msa->alen && useme[opos] == FALSE) continue;
+
+      if (npos != opos)	/* small optimization */
+	{
+	  /* The alignment, and per-residue annotations */
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    {
+#ifdef eslAUGMENT_ALPHABET
+	      if (msa->flags & eslMSA_DIGITAL) /* watch off-by-one in dsq indexing */
+		msa->ax[idx][npos+1] = msa->ax[idx][opos+1];
+	      else
+		msa->aseq[idx][npos] = msa->aseq[idx][opos];
+#else
+	      msa->aseq[idx][npos] = msa->aseq[idx][opos];
+#endif /*eslAUGMENT_ALPHABET*/
+	      if (msa->ss != NULL && msa->ss[idx] != NULL)
+		msa->ss[idx][npos] = msa->ss[idx][opos];
+	      if (msa->sa != NULL && msa->sa[idx] != NULL)
+		msa->sa[idx][npos] = msa->sa[idx][opos];
+	      for (i = 0; i < msa->ngr; i++)
+		if (msa->gr[i][idx] != NULL)
+		  msa->gr[i][idx][npos] = msa->gr[i][idx][opos];
+	    }	  
+	  /* The per-column annotations */
+	  if (msa->ss_cons != NULL) msa->ss_cons[npos] = msa->ss_cons[opos];
+	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
+	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
+	  for (i = 0; i < msa->ngc; i++)
+	    msa->gc[i][npos] = msa->gc[i][opos];
+	}
+      npos++;
+    }
+  msa->alen = npos-1;	/* -1 because npos includes NUL terminators */
+  return eslOK;
+}
+
+/* Function:  esl_msa_MinimGaps()
+ * Synopsis:  Remove columns containing all gym symbols.
+ * Incept:    SRE, Sun Feb 27 11:03:42 2005 [St. Louis]
+ *
+ * Purpose:   Remove all columns in the multiple alignment <msa>
+ *            that consist entirely of gaps or missing data.
+ *            
+ *            For a text mode alignment, <gaps> is a string defining
+ *            the gap characters, such as <"-_.">. For a digital mode
+ *            alignment, <gaps> may be passed as <NULL>, because the
+ *            internal alphabet already knows what the gap and missing
+ *            data characters are.
+ *            
+ *            <msa> is changed in-place to a narrower alignment
+ *            containing fewer columns. All per-residue and per-column
+ *            annotation is altered appropriately for the columns that
+ *            remain in the new alignment.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      squid's MSAMingap().
+ */
+int
+esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
+{
+  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int apos;		/* column index   */
+  int idx;		/* sequence index */
+  int status;
+
+  ESL_ALLOC(useme, sizeof(int) * msa->alen); 
+
+#ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
+  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
+    {
+      for (apos = 1; apos <= msa->alen; apos++)
+	{
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
+		! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
+	      break;
+	  if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
+	}
+    }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
+    {
+      for (apos = 0; apos < msa->alen; apos++)
+	{
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
+	      break;
+	  if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
+	}
+    }
+
+  msa_column_subset(msa, useme);
+  free(useme);
+  return eslOK;
+
+ ERROR:
+  if (useme != NULL) free(useme);
+  return status;
+}
+
+/* Function:  esl_msa_NoGaps()
+ * Synopsis:  Remove columns containing any gap symbol.
+ * Incept:    SRE, Sun Feb 27 10:17:58 2005 [St. Louis]
+ *
+ * Purpose:   Remove all columns in the multiple alignment <msa> that
+ *            contain any gaps or missing data, such that the modified
+ *            MSA consists only of ungapped columns (a solid block of
+ *            residues). 
+ *            
+ *            This is useful for filtering alignments prior to
+ *            phylogenetic analysis using programs that can't deal
+ *            with gaps.
+ *            
+ *            For a text mode alignment, <gaps> is a string defining
+ *            the gap characters, such as <"-_.">. For a digital mode
+ *            alignment, <gaps> may be passed as <NULL>, because the
+ *            internal alphabet already knows what the gap and
+ *            missing data characters are.
+ *    
+ *            <msa> is changed in-place to a narrower alignment
+ *            containing fewer columns. All per-residue and per-column
+ *            annotation is altered appropriately for the columns that
+ *            remain in the new alignment.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      squid's MSANogap().
+ */
+int
+esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
+{
+  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int apos;		/* column index */
+  int idx;		/* sequence index */
+  int status;
+
+  ESL_ALLOC(useme, sizeof(int) * msa->alen);
+
+#ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
+  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
+    {
+      for (apos = 1; apos <= msa->alen; apos++)
+	{
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) ||
+		esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
+	      break;
+	  if (idx == msa->nseq) useme[apos-1] = TRUE; else useme[apos-1] = FALSE;
+	}
+    }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
+    {
+      for (apos = 0; apos < msa->alen; apos++)
+	{
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
+	      break;
+	  if (idx == msa->nseq) useme[apos] = TRUE; else useme[apos] = FALSE;
+	}
+    }
+
+  msa_column_subset(msa, useme);
+  free(useme);
+  return eslOK;
+
+ ERROR:
+  if (useme != NULL) free(useme);
+  return status;
+}
+
+
+/* Function:  esl_msa_SymConvert()
+ * Synopsis:  Global search/replace of symbols in an MSA.
+ * Incept:    SRE, Sun Feb 27 11:20:41 2005 [St. Louis]
+ *
+ * Purpose:   In the aligned sequences in a text-mode <msa>, convert any
+ *            residue in the string <oldsyms> to its counterpart (at the same
+ *            position) in string <newsyms>.
+ * 
+ *            To convert DNA to RNA, <oldsyms> could be "Tt" and
+ *            <newsyms> could be "Uu". To convert IUPAC symbols to
+ *            N's, <oldsyms> could be "RYMKSWHBVDrymkswhbvd" and
+ *            <newsyms> could be "NNNNNNNNNNnnnnnnnnnn". 
+ *            
+ *            As a special case, if <newsyms> consists of a single
+ *            character, then any character in the <oldsyms> is 
+ *            converted to this character. 
+ *            
+ *            Thus, <newsyms> must either be of the same length as
+ *            <oldsyms>, or of length 1. Anything else will cause
+ *            undefined behavior (and probably segfault). 
+ *            
+ *            The conversion is done in-place, so the <msa> is
+ *            modified.
+ *            
+ *            This is a poor man's hack for processing text mode MSAs
+ *            into a more consistent text alphabet. It is unnecessary
+ *            for digital mode MSAs, which are already in a standard
+ *            internal alphabet. Calling <esl_msa_SymConvert()> on a
+ *            digital mode alignment throws an <eslEINVAL> error.
+ *            
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEINVAL> if <msa> is in digital mode, or if the <oldsyms>
+ *            and <newsyms> strings aren't valid together.
+ */
+int
+esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
+{
+  int   apos;			/* column index */
+  int   idx;			/* sequence index */
+  char *sptr;
+  int   special;
+
+  if (msa->flags & eslMSA_DIGITAL)
+    ESL_EXCEPTION(eslEINVAL, "can't SymConvert on digital mode alignment");
+  if ((strlen(oldsyms) != strlen(newsyms)) && strlen(newsyms) != 1)
+    ESL_EXCEPTION(eslEINVAL, "invalid newsyms/oldsyms pair");
+
+  special = (strlen(newsyms) == 1 ? TRUE : FALSE);
+
+  for (apos = 0; apos < msa->alen; apos++)
+    for (idx = 0; idx < msa->nseq; idx++)
+      if ((sptr = strchr(oldsyms, msa->aseq[idx][apos])) != NULL)
+	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
+  return eslOK;
+}
+/*-------------------- end of misc MSA functions ----------------------*/
+
+
+
+
+
 /******************************************************************************
- * 5a. private functions for i/o of Stockholm format                                      *
+ *# 6. Debugging/development routines.
+ *****************************************************************************/
+
+/* Function:  esl_msa_Compare()
+ * Synopsis:  Compare two MSAs for equality.
+ * Incept:    SRE, Wed Jun 13 10:40:05 2007 [Janelia]
+ *
+ * Purpose:   Returns <eslOK> if the mandatory and optional contents
+ *            of MSAs <a1> and <a2> are identical; otherwise return
+ *            <eslFAIL>.
+ *            
+ *            Only mandatory and parsed optional information is
+ *            compared. Unparsed Stockholm markup is not compared.
+ */
+int
+esl_msa_Compare(ESL_MSA *a1, ESL_MSA *a2)
+{
+  if (esl_msa_CompareMandatory(a1, a2) != eslOK) return eslFAIL;
+  if (esl_msa_CompareOptional(a1, a2)  != eslOK) return eslFAIL;
+  return eslOK;
+}
+
+/* Function:  esl_msa_CompareMandatory()
+ * Synopsis:  Compare mandatory subset of MSA contents.
+ * Incept:    SRE, Wed Jun 13 09:42:56 2007 [Janelia]
+ *
+ * Purpose:   Compare mandatory contents of two MSAs, <a1> and <a2>.
+ *            This comprises <aseq> (or <ax>, for a digital alignment);
+ *            <sqname>, <wgt>, <alen>, <nseq>, and <flags>.
+ *
+ * Returns:   <eslOK> if the MSAs are identical; 
+ *            <eslFAIL> if they are not.
+ */
+int
+esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2)
+{
+  int i;
+
+  if (a1->nseq  != a2->nseq)  return eslFAIL;
+  if (a1->alen  != a2->alen)  return eslFAIL;
+  if (a1->flags != a2->flags) return eslFAIL;
+
+  for (i = 0; i < a1->nseq; i++)
+    {
+      if (strcmp(a1->sqname[i], a2->sqname[i])        != 0)     return eslFAIL;
+      if (esl_DCompare(a1->wgt[i], a2->wgt[i], 0.001) != eslOK) return eslFAIL;
+#ifdef eslAUGMENT_ALPHABET
+      if ((a1->flags & eslMSA_DIGITAL) &&
+	  memcmp(a1->ax[i], a2->ax[i], sizeof(ESL_DSQ) * (a1->alen+2)) != 0) 
+	return eslFAIL;
+#endif
+      if (! (a1->flags & eslMSA_DIGITAL) && strcmp(a1->aseq[i], a2->aseq[i]) != 0) return eslFAIL;
+    }
+  return eslOK;
+}
+
+/* Function:  esl_msa_CompareOptional()
+ * Synopsis:  Compare optional subset of MSA contents.
+ * Incept:    SRE, Wed Jun 13 09:52:48 2007 [Janelia]
+ *
+ * Purpose:   Compare optional contents of two MSAs, <a1> and <a2>.
+ *
+ * Returns:   <eslOK> if the MSAs are identical; 
+ *            <eslFAIL> if they are not.
+ */
+int
+esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
+{
+  int i;
+
+  if (esl_CCompare(a1->name,    a2->name)    != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->desc,    a2->desc)    != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->acc,     a2->acc)     != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->au,      a2->au)      != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->ss_cons, a2->ss_cons) != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->sa_cons, a2->sa_cons) != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->rf,      a2->rf)      != eslOK) return eslFAIL;
+  
+  if (a1->sqacc != NULL && a2->sqacc != NULL) {
+    for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->sqacc[i], a2->sqacc[i]) != eslOK) return eslFAIL;
+  } else if (a1->sqacc != NULL || a2->sqacc != NULL) return eslFAIL;
+
+  if (a1->sqdesc != NULL && a2->sqdesc != NULL) {
+    for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->sqdesc[i], a2->sqdesc[i]) != eslOK) return eslFAIL;
+  } else if (a1->sqdesc != NULL || a2->sqdesc != NULL) return eslFAIL;
+
+  if (a1->ss != NULL && a2->ss != NULL) {
+    for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->ss[i], a2->ss[i]) != eslOK) return eslFAIL;
+  } else if (a1->ss != NULL || a2->ss != NULL) return eslFAIL;
+
+  if (a1->sa != NULL && a2->sa != NULL) {
+    for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->sa[i], a2->sa[i]) != eslOK) return eslFAIL;
+  } else if (a1->sa != NULL || a2->sa != NULL) return eslFAIL;
+  
+  for (i = 0; i < eslMSA_NCUTS; i++)
+    {
+      if (a1->cutset[i] && a2->cutset[i]) {
+	if (esl_FCompare(a1->cutoff[i], a2->cutoff[i], 0.01) != eslOK) return eslFAIL;
+      } else if (a1->cutset[i] || a2->cutset[i]) return eslFAIL;
+    }
+  return eslOK;
+}
+
+
+/*---------------- end of debugging/development routines  -------------------*/
+
+
+
+
+
+/******************************************************************************
+ * 7. Private functions for Stockholm format i/o   
  *****************************************************************************/
 
 /* Forward declarations of private Stockholm i/o functions
@@ -3040,421 +3236,8 @@ maxwidth(char **s, int n)
 
 
 
-/*****************************************************************
- *# 6. Miscellaneous functions for manipulating MSAs
- *****************************************************************/
-
-/* Function:  esl_msa_SequenceSubset()
- * Synopsis:  Select subset of sequences into a smaller MSA.
- * Incept:    SRE, Wed Apr 13 10:05:44 2005 [St. Louis]
- *
- * Purpose:   Given an array <useme> (0..nseq-1) of TRUE/FALSE flags for each
- *            sequence in an alignment <msa>; create a new alignment containing
- *            only those seqs which are flagged <useme=TRUE>. Return a pointer
- *            to this newly allocated alignment through <ret_new>. Caller is
- *            responsible for freeing it.
- *            
- *            The smaller alignment might now contain columns
- *            consisting entirely of gaps or missing data, depending
- *            on what sequence subset was extracted. The caller may
- *            want to immediately call <esl_msa_MinimGaps()> on the
- *            new alignment to clean this up.
- *
- *            Unparsed Stockholm annotation is not transferred to the
- *            new alignment.
- *            
- *            Weights are transferred exactly. If they need to be
- *            renormalized to some new total weight (such as the new,
- *            smaller total sequence number), the caller must do that.
- *            
- *            <msa> may be in text mode or digital mode. The new MSA
- *            in <ret_new> will have the same mode.
- *
- * Returns:   <eslOK> on success, and <ret_new> is set to point at a new
- *            (smaller) alignment.
- *
- * Throws:    <eslEINVAL> if the subset has no sequences in it;
- *            <eslEMEM> on allocation error.
- *
- * Xref:      squid's MSASmallerAlignment(), 1999.
- */
-int
-esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
-{
-  ESL_MSA *new = NULL;
-  int  nnew;			/* number of seqs in the new MSA */
-  int  oidx, nidx;		/* old, new indices */
-  int  i;
-  int  status;
-  
-  *ret_new = NULL;
-
-  nnew = 0; 
-  for (oidx = 0; oidx < msa->nseq; oidx++)
-    if (useme[oidx]) nnew++;
-  if (nnew == 0) ESL_EXCEPTION(eslEINVAL, "No sequences selected");
-
-  /* Note that the Create() calls allocate exact space for the sequences,
-   * so we will strcpy()/memcpy() into them below.
-   */
-#ifdef eslAUGMENT_ALPHABET
-  if ((msa->flags & eslMSA_DIGITAL) &&
-      (new = esl_msa_CreateDigital(msa->abc, nnew, msa->alen)) == NULL)
-    {status = eslEMEM; goto ERROR; }
-#endif
-  if (! (msa->flags & eslMSA_DIGITAL) &&
-      (new = esl_msa_Create(nnew, msa->alen)) == NULL) 
-    {status = eslEMEM; goto ERROR; }
-  if (new == NULL) 
-    {status = eslEMEM; goto ERROR; }
-  
-  for (nidx = 0, oidx = 0; oidx < msa->nseq; oidx++)
-    if (useme[oidx])
-      {
-#ifdef eslAUGMENT_ALPHABET
-	if (msa->flags & eslMSA_DIGITAL)
-	  memcpy(new->ax[nidx], msa->ax[oidx], sizeof(ESL_DSQ) * (msa->alen+2));
-#endif
-	if (! (msa->flags & eslMSA_DIGITAL))
-	  strcpy(new->aseq[nidx], msa->aseq[oidx]);
-	if ((status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx])))    != eslOK) goto ERROR;
-
-	new->wgt[nidx] = msa->wgt[oidx];
-      
-	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
-	}
-
-	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
-	}
-
-	if (msa->ss != NULL && msa->ss[oidx] != NULL)
-	  {
-	    if (new->ss == NULL) ESL_ALLOC(new->ss, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]))) != eslOK) goto ERROR;
-	  }
-      
-	if (msa->sa != NULL && msa->sa[oidx] != NULL)
-	  {
-	    if (new->sa == NULL) ESL_ALLOC(new->sa, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]))) != eslOK) goto ERROR;
-	  }
-	nidx++;
-      }
-
-  new->flags = msa->flags;
-
-  if ((status = esl_strdup(msa->name, -1, &(new->name))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->desc, -1, &(new->desc))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->acc,  -1, &(new->acc)))  != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->au,   -1, &(new->au)))   != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto ERROR;
-  
-  for (i = 0; i < eslMSA_NCUTS; i++) {
-    new->cutoff[i] = msa->cutoff[i];
-    new->cutset[i] = msa->cutset[i];
-  }
-  
-  new->nseq  = nnew;
-  new->sqalloc = nnew;
-
-  /* Since we have a fully constructed MSA, we don't need the
-   * aux info used by parsers.
-   */
-  if (new->sqlen != NULL) { free(new->sqlen);  new->sqlen = NULL; }
-  if (new->sslen != NULL) { free(new->sslen);  new->sslen = NULL; }
-  if (new->salen != NULL) { free(new->salen);  new->salen = NULL; }
-  new->lastidx = -1;
-#ifdef eslAUGMENT_KEYHASH
-  esl_keyhash_Destroy(new->index);
-  new->index  = NULL;
-  new->gs_idx = NULL;
-  new->gc_idx = NULL;
-  new->gr_idx = NULL;
-#endif
-
-  *ret_new = new;
-  return eslOK;
-
- ERROR:
-  if (new != NULL) esl_msa_Destroy(new);
-  *ret_new = NULL;
-  return status;
-}
-
-
-/* msa_column_subset()
- * SRE, Sun Feb 27 10:05:07 2005
- * From squid's MSAShorterAlignment(), 1999
- * 
- * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, where TRUE
- * means "keep this column in the new alignment"; remove all columns
- * annotated as FALSE in the <useme> array. This is done in-place on
- * the MSA, so the MSA is modified: <msa->alen> is reduced,
- * <msa->aseq> is shrunk (or <msa->ax, in the case of a digital mode
- * alignment), and all associated per-residue or per-column annotation
- * is shrunk.
- * 
- * Returns eslOK on success.
- */
-static int
-msa_column_subset(ESL_MSA *msa, int *useme)
-{
-  int opos;			/* position in original alignment */
-  int npos;			/* position in new alignment      */
-  int idx;			/* sequence index */
-  int i;			/* markup index */
-
-  /* Since we're minimizing, we can overwrite in place, within the msa
-   * we've already got. 
-   * opos runs all the way to msa->alen to include (and move) the \0
-   * string terminators (or sentinel bytes, in the case of digital mode)
-   */
-  for (opos = 0, npos = 0; opos <= msa->alen; opos++)
-    {
-      if (opos < msa->alen && useme[opos] == FALSE) continue;
-
-      if (npos != opos)	/* small optimization */
-	{
-	  /* The alignment, and per-residue annotations */
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    {
-#ifdef eslAUGMENT_ALPHABET
-	      if (msa->flags & eslMSA_DIGITAL) /* watch off-by-one in dsq indexing */
-		msa->ax[idx][npos+1] = msa->ax[idx][opos+1];
-	      else
-		msa->aseq[idx][npos] = msa->aseq[idx][opos];
-#else
-	      msa->aseq[idx][npos] = msa->aseq[idx][opos];
-#endif /*eslAUGMENT_ALPHABET*/
-	      if (msa->ss != NULL && msa->ss[idx] != NULL)
-		msa->ss[idx][npos] = msa->ss[idx][opos];
-	      if (msa->sa != NULL && msa->sa[idx] != NULL)
-		msa->sa[idx][npos] = msa->sa[idx][opos];
-	      for (i = 0; i < msa->ngr; i++)
-		if (msa->gr[i][idx] != NULL)
-		  msa->gr[i][idx][npos] = msa->gr[i][idx][opos];
-	    }	  
-	  /* The per-column annotations */
-	  if (msa->ss_cons != NULL) msa->ss_cons[npos] = msa->ss_cons[opos];
-	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
-	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
-	  for (i = 0; i < msa->ngc; i++)
-	    msa->gc[i][npos] = msa->gc[i][opos];
-	}
-      npos++;
-    }
-  msa->alen = npos-1;	/* -1 because npos includes NUL terminators */
-  return eslOK;
-}
-
-/* Function:  esl_msa_MinimGaps()
- * Synopsis:  Remove columns containing all gym symbols.
- * Incept:    SRE, Sun Feb 27 11:03:42 2005 [St. Louis]
- *
- * Purpose:   Remove all columns in the multiple alignment <msa>
- *            that consist entirely of gaps or missing data.
- *            
- *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.">. For a digital mode
- *            alignment, <gaps> may be passed as <NULL>, because the
- *            internal alphabet already knows what the gap and missing
- *            data characters are.
- *            
- *            <msa> is changed in-place to a narrower alignment
- *            containing fewer columns. All per-residue and per-column
- *            annotation is altered appropriately for the columns that
- *            remain in the new alignment.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation failure.
- *
- * Xref:      squid's MSAMingap().
- */
-int
-esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
-{
-  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int apos;		/* column index   */
-  int idx;		/* sequence index */
-  int status;
-
-  ESL_ALLOC(useme, sizeof(int) * msa->alen); 
-
-#ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
-  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
-    {
-      for (apos = 1; apos <= msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
-		! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
-	      break;
-	  if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
-	}
-    }
-#endif
-  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
-    {
-      for (apos = 0; apos < msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
-	      break;
-	  if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
-	}
-    }
-
-  msa_column_subset(msa, useme);
-  free(useme);
-  return eslOK;
-
- ERROR:
-  if (useme != NULL) free(useme);
-  return status;
-}
-
-/* Function:  esl_msa_NoGaps()
- * Synopsis:  Remove columns containing any gap symbol.
- * Incept:    SRE, Sun Feb 27 10:17:58 2005 [St. Louis]
- *
- * Purpose:   Remove all columns in the multiple alignment <msa> that
- *            contain any gaps or missing data, such that the modified
- *            MSA consists only of ungapped columns (a solid block of
- *            residues). 
- *            
- *            This is useful for filtering alignments prior to
- *            phylogenetic analysis using programs that can't deal
- *            with gaps.
- *            
- *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.">. For a digital mode
- *            alignment, <gaps> may be passed as <NULL>, because the
- *            internal alphabet already knows what the gap and
- *            missing data characters are.
- *    
- *            <msa> is changed in-place to a narrower alignment
- *            containing fewer columns. All per-residue and per-column
- *            annotation is altered appropriately for the columns that
- *            remain in the new alignment.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation failure.
- *
- * Xref:      squid's MSANogap().
- */
-int
-esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
-{
-  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int apos;		/* column index */
-  int idx;		/* sequence index */
-  int status;
-
-  ESL_ALLOC(useme, sizeof(int) * msa->alen);
-
-#ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
-  if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
-    {
-      for (apos = 1; apos <= msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) ||
-		esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
-	      break;
-	  if (idx == msa->nseq) useme[apos-1] = TRUE; else useme[apos-1] = FALSE;
-	}
-    }
-#endif
-  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
-    {
-      for (apos = 0; apos < msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
-	      break;
-	  if (idx == msa->nseq) useme[apos] = TRUE; else useme[apos] = FALSE;
-	}
-    }
-
-  msa_column_subset(msa, useme);
-  free(useme);
-  return eslOK;
-
- ERROR:
-  if (useme != NULL) free(useme);
-  return status;
-}
-
-
-/* Function:  esl_msa_SymConvert()
- * Synopsis:  Global search/replace of symbols in an MSA.
- * Incept:    SRE, Sun Feb 27 11:20:41 2005 [St. Louis]
- *
- * Purpose:   In the aligned sequences in a text-mode <msa>, convert any
- *            residue in the string <oldsyms> to its counterpart (at the same
- *            position) in string <newsyms>.
- * 
- *            To convert DNA to RNA, <oldsyms> could be "Tt" and
- *            <newsyms> could be "Uu". To convert IUPAC symbols to
- *            N's, <oldsyms> could be "RYMKSWHBVDrymkswhbvd" and
- *            <newsyms> could be "NNNNNNNNNNnnnnnnnnnn". 
- *            
- *            As a special case, if <newsyms> consists of a single
- *            character, then any character in the <oldsyms> is 
- *            converted to this character. 
- *            
- *            Thus, <newsyms> must either be of the same length as
- *            <oldsyms>, or of length 1. Anything else will cause
- *            undefined behavior (and probably segfault). 
- *            
- *            The conversion is done in-place, so the <msa> is
- *            modified.
- *            
- *            This is a poor man's hack for processing text mode MSAs
- *            into a more consistent text alphabet. It is unnecessary
- *            for digital mode MSAs, which are already in a standard
- *            internal alphabet. Calling <esl_msa_SymConvert()> on a
- *            digital mode alignment throws an <eslEINVAL> error.
- *            
- * Returns:   <eslOK> on success.
- * 
- * Throws:    <eslEINVAL> if <msa> is in digital mode, or if the <oldsyms>
- *            and <newsyms> strings aren't valid together.
- */
-int
-esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
-{
-  int   apos;			/* column index */
-  int   idx;			/* sequence index */
-  char *sptr;
-  int   special;
-
-  if (msa->flags & eslMSA_DIGITAL)
-    ESL_EXCEPTION(eslEINVAL, "can't SymConvert on digital mode alignment");
-  if ((strlen(oldsyms) != strlen(newsyms)) && strlen(newsyms) != 1)
-    ESL_EXCEPTION(eslEINVAL, "invalid newsyms/oldsyms pair");
-
-  special = (strlen(newsyms) == 1 ? TRUE : FALSE);
-
-  for (apos = 0; apos < msa->alen; apos++)
-    for (idx = 0; idx < msa->nseq; idx++)
-      if ((sptr = strchr(oldsyms, msa->aseq[idx][apos])) != NULL)
-	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
-  return eslOK;
-}
-/*-------------------- end of misc MSA functions ----------------------*/
-
-
-
-
 /******************************************************************************
- * 7. Benchmark driver.
+ * 8. Benchmark driver.
  *****************************************************************************/
 #ifdef eslMSA_BENCHMARK
 
@@ -3527,7 +3310,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 8. Unit tests
+ * 9. Unit tests
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 
@@ -4039,7 +3822,7 @@ utest_SymConvert(char *tmpfile)
 
 
 /*****************************************************************************
- * 9. Test driver
+ * 10. Test driver
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 

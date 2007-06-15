@@ -1,4 +1,4 @@
-/* easel.h
+/* Easel's foundation.
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
@@ -9,7 +9,7 @@
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */
@@ -23,6 +23,7 @@
 /*****************************************************************
  * Macros implementing Easel's error handling conventions
  *****************************************************************/
+
 /* ESL_FAIL()       - return an error message, without cleanup.
  * ESL_XFAIL()      - return an error message, with cleanup.
  * ESL_EXCEPTION()  - throwing an exception, without cleanup.
@@ -61,6 +62,44 @@
 /*::cexcerpt::error_macros::end::*/
 
 
+/* Return codes for error handler
+ */
+/*::cexcerpt::statuscodes::begin::*/
+#define eslOK              0    /* no error/success             */
+#define eslFAIL            1    /* failure                      */
+#define eslEOL             2    /* end-of-line (often normal)   */
+#define eslEOF             3    /* end-of-file (often normal)   */
+#define eslEOD             4    /* end-of-data (often normal)   */
+#define eslEMEM            5    /* malloc or realloc failed     */
+#define eslENOTFOUND       6    /* file or key not found        */
+#define eslEFORMAT         7    /* file format not correct      */
+#define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */
+#define eslEDIVZERO        9    /* attempted div by zero        */
+#define eslEINCOMPAT      10    /* incompatible parameters      */
+#define eslEINVAL         11    /* invalid argument/parameter   */
+#define eslESYS           12    /* generic system call failure  */
+#define eslECORRUPT       13    /* unexpected data corruption   */
+#define eslEINCONCEIVABLE 14    /* "can't happen" error         */
+#define eslESYNTAX        15    /* invalid user input syntax    */
+#define eslERANGE         16    /* value out of allowed range   */
+#define eslEDUP           17    /* saw a duplicate of something */
+#define eslENOHALT        18    /* a failure to converge        */      
+#define eslENORESULT      19    /* no result was obtained       */
+#define eslENODATA        20	/* no data provided, file empty */
+#define eslETYPE          21	/* invalid type of argument     */
+/*::cexcerpt::statuscodes::end::*/
+
+
+/* Many objects contain a fixed length "errbuf" for failure
+ * diagnostics: ESL_FAIL() and ESL_XFAIL() fill this buffer.
+ */
+#define eslERRBUFSIZE 128
+
+
+
+/*****************************************************************
+ * Macros implementing Easel's memory allocation conventions
+ *****************************************************************/
 /* ESL_ALLOC(), ESL_RALLOC():
  * 
  * Allocation and reallocation wrappers.
@@ -87,40 +126,11 @@
 /*::cexcerpt::alloc_macros::end::*/
 
      
-/* Return codes for error handler
- */
-/*::cexcerpt::statuscodes::begin::*/
-#define eslOK              0    /* no error/success             */
-#define eslFAIL            1    /* failure                      */
-#define eslEOL             2    /* end-of-line (often normal)   */
-#define eslEOF             3    /* end-of-file (often normal)   */
-#define eslEOD             4    /* end-of-data (often normal)   */
-#define eslEMEM            5    /* malloc or realloc failed     */
-#define eslENOTFOUND       6    /* file or key not found        */
-#define eslEFORMAT         7    /* file format not correct      */
-#define eslEAMBIGUOUS      8    /* an ambiguity of some sort    */
-#define eslEDIVZERO        9    /* attempted div by zero        */
-#define eslEINCOMPAT      10    /* incompatible parameters      */
-#define eslEINVAL         11    /* invalid argument/parameter   */
-#define eslESYS           12    /* generic system call failure  */
-#define eslECORRUPT       13    /* unexpected data corruption   */
-#define eslEINCONCEIVABLE 14    /* "can't happen" error         */
-#define eslESYNTAX        15    /* invalid user input syntax    */
-#define eslERANGE         16    /* value out of allowed range   */
-#define eslEDUP           17    /* saw a duplicate of something */
-#define eslENOHALT        18    /* a failure to converge        */      
-#define eslENORESULT      19    /* no result was obtained       */
-#define eslENODATA        20	/* no data provided, file empty */
-#define eslETYPE          21	/* invalid type of argument     */
-
-/*::cexcerpt::statuscodes::end::*/
-
-/* File parsers all contain a fixed length "errbuf" for failure
- * diagnostics. 
- */
-#define eslERRBUFSIZE 128
 
 
+/*****************************************************************
+ * Macros implementing Easel's debugging output conventions
+ *****************************************************************/
 /* Debugging hooks, w/ three levels (1-3).
  */
 #if eslDEBUGLEVEL >= 1		/* for ESL_DASSERT() macros */
@@ -149,6 +159,12 @@
 #define ESL_DASSERT3(x)
 #endif
 
+
+
+
+/*****************************************************************
+ * Defined constants
+ *****************************************************************/
 /* Making sure TRUE/FALSE are defined, for convenience */
 #ifndef TRUE
 #define TRUE 1
@@ -157,23 +173,23 @@
 #define FALSE 0
 #endif
 
-/* Some basic constants. 
+/* Some basic mathematical constants. 
  * Assuming IEEE754 math with 64-bit doubles (53-bit mantissas), we 
  * want 17 significant decimal digits in our constants. More is
- * a waste (but we do it anyway).
+ * a waste (but we do it for some anyway).
  */
 #define eslCONST_E     2.71828182845904523536028747135
 #define eslCONST_PI    3.14159265358979323846264338328
 #define eslCONST_EULER 0.57721566490153286060651209008
-#define eslCONST_GOLD  1.618033988749894
+#define eslCONST_GOLD  1.61803398874989484820458683437
 #define eslCONST_LOG2  0.69314718055994529
 
-/* Define <eslINFINITY> portably. Harder than it looks. 
+/* Define <eslINFINITY>, <eslNaN> portably. Harder than it looks. 
  * We assume we're in an IEEE 754 environment.
  * We assume that HUGE_VAL in a IEEE754 environment is infinity.
  * If we don't have HUGE_VAL set, we assume we can get infinity
  * by division by zero. (But if we don't have HUGE_VAL, we probably
- * have other problems; HUGE_VAL is required by ANSI spec).
+ * have other problems; HUGE_VAL is required by ANSI C spec.)
  * We can't portably get infinity by overflow (e.g. 1e9999);
  * some compilers (Microsoft) will complain.
  */
@@ -184,8 +200,7 @@
 #endif
 #define eslNaN         (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
 
-
-/* Define some crossovers for numerical approximations.
+/* Define crossovers for numerical approximations.
  */
 /* log(1+x) ~ x and  1-e^x = -x approximation.
  * Same threshold appears to be optimal for float or double x. xref STL9/138.
@@ -194,26 +209,12 @@
 
 
 
-/* A placeholder for helping w/ portability of filenames/paths.
- * I think, but have not tested, that:
- *   VMS:    #define DIRSLASH ']'
- *   MacOS:  #define DIRSLASH ':'
- *   DOS:    #define DIRSLASH '\\'
- * Setting DIRSLASH correctly is probably not the only thing
- * that would need to be done to port to other OS's, but it's
- * probably a start.
- *
- * The code assumes that '.' is used for file name extensions,
- * such as "foo.bar".
- *
- * This gets used in easel.c's *_File*() functions.
- */
-#define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
 
-
-/* Digitized sequences.
- * Most of this support is in the alphabet module, but we externalize it
- * into the easel foundation because ESL_INMAP is used in unaugmented
+/*****************************************************************
+ * Basic support for Easel's digitized biosequences.
+ *****************************************************************/
+/* Most of this support is in the alphabet module, but we externalize 
+ * some into the easel foundation because ESL_INMAP is used in unaugmented
  * sqio, msa modules.
  * 
  * A digital sequence residue (ESL_DSQ) is an unsigned 8-bit type
@@ -240,12 +241,37 @@ typedef uint8_t ESL_DSQ;
  */
 #define esl_inmap_IsValid(inmap, sym)  (isascii(sym) && (inmap)[(int)sym] <= 127)
 
+
+/*****************************************************************
+ * Miscellaneous.
+ *****************************************************************/
+/* A placeholder for helping w/ portability of filenames/paths.
+ * I think, but have not tested, that:
+ *   VMS:    #define DIRSLASH ']'
+ *   MacOS:  #define DIRSLASH ':'
+ *   DOS:    #define DIRSLASH '\\'
+ * Setting DIRSLASH correctly is probably not the only thing
+ * that would need to be done to port to other OS's, but it's
+ * probably a start.
+ *
+ * The code assumes that '.' is used for file name extensions,
+ * such as "foo.bar".
+ *
+ * This gets used in easel.c's *_File*() functions.
+ */
+#define eslDIRSLASH '/'           /* UNIX directory paths have /foo/bar */
+
 /* Some generic macros for swapping, min, and max.
  */
 #define ESL_SWAP(x, y, type)  do { type tmpxyz = (x); (x) = (y); (y) = tmpxyz; } while (0)
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
+
+
+/*****************************************************************
+ * The API declarations for easel.c
+ *****************************************************************/
 
 /* 1. Error handling. */
 typedef void (*esl_exception_handler_f)(int code, char *file, int line,
@@ -264,7 +290,7 @@ extern void esl_Free3D(void ***p, int dim1, int dim2);
 extern void esl_banner(FILE *fp, char *progname, char *banner);
 extern void esl_usage (FILE *fp, char *progname, char *usage);
 
-/* 4. Replacements for C library functions */
+/* 4. Replacements, additions to C library functions */
 extern int  esl_strdup(const char *s, int n, char **ret_dup);
 extern int  esl_strcat(char **dest, int ldest, const char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
@@ -289,9 +315,10 @@ extern int  esl_FileEnvOpen(const char *fname, const char *env,
 extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
 extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 
-/* 6. Some scalar math convenience functions. */
+/* 6. Typed comparison routines. */
 extern int  esl_DCompare(double a, double b, double tol);
 extern int  esl_FCompare(float  a, float  b, float  tol);
+extern int  esl_CCompare(char *s1, char *s2);
 
 /* 7. Commonly used background composition (iid) frequencies. */
 extern int  esl_composition_BL62(double *f);

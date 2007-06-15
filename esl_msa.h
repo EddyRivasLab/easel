@@ -16,9 +16,6 @@
 #ifdef eslAUGMENT_SSI
 #include <esl_ssi.h>
 #endif
-#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
-#include "mpi.h"
-#endif
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
@@ -207,27 +204,24 @@ extern int      esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *fil
 extern int      esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc);
 #endif
 
-/* 4. MPI communication. (alphabet, mpi augmentation required) */
-#if defined (HAVE_MPI) && defined(eslAUGMENT_ALPHABET)
-extern int esl_msa_MPISend(const ESL_MSA *msa, int dest, int tag, MPI_Comm comm, char **buf, int *nalloc);
-extern int esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n);
-extern int esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm comm);
-extern int esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm comm, ESL_MSA **ret_msa);
-extern int esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_MSA **ret_msa);
-#endif
-
-/* 5. General i/o API, all alignment formats */
+/* 4. General i/o API, all alignment formats */
 extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int   esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt);
 extern char *esl_msa_DescribeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 
-/* 6. Miscellaneous functions for manipulating MSAs */
+/* 5. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps);
 extern int esl_msa_NoGaps(ESL_MSA *msa, const char *gaps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
+
+/* 6. Debugging/development routines */
+extern int esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
+extern int esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
+extern int esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
+
 
 #endif /*eslMSA_INCLUDED*/
 

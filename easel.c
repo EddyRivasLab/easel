@@ -6,7 +6,7 @@
  *    3. Standard banner for Easel miniapplications.
  *    4. Replacements for some C library functions.
  *    5. File path/name manipulation, including tmpfiles.
- *    6. Some scalar math convenience functions.
+ *    6. Typed comparison functions.
  *    7. Commonly used background composition (iid) frequencies.
  *    8. Unit tests [need to be written]
  *    9. Test driver [needs to be written]
@@ -16,7 +16,7 @@
  * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +28,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <easel.h>
+#include "easel.h"
 
 
 /*****************************************************************
@@ -153,6 +153,7 @@ esl_Free3D(void ***p, int dim1, int dim2)
   }
 }
 /*------------- end, memory allocation conventions --------------*/
+
 
 
 /*****************************************************************
@@ -1093,7 +1094,7 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 
 
 /*****************************************************************
- * 6. Some scalar math convenience functions.
+ * 6. Typed comparison routines.
  *****************************************************************/
 
 /* Function:  esl_DCompare()
@@ -1130,7 +1131,32 @@ esl_FCompare(float a, float b, float tol)
   if (2.*fabs(a-b) / (a+b) <= tol)          return eslOK;
   return eslFAIL;
 }
-/*-------------- end, scalar math convenience --------------------*/
+
+/* Function:  esl_CCompare()
+ * Synopsis:  Compare two optional strings for equality.
+ * Incept:    SRE, Wed Jun 13 10:25:06 2007 [Janelia]
+ *
+ * Purpose:   Compare two optional strings <s1> and <s2>
+ *            for equality. 
+ *            
+ *            If they're non-<NULL> and identical up to their
+ *            <NUL>-terminator, return <eslOK>.
+ *            
+ *            If they're both <NULL> (unset), return <eslOK>.
+ *            
+ *            Otherwise, they're not identical; return <eslFAIL>.
+ */
+int
+esl_CCompare(char *s1, char *s2)
+{
+  if (s1 == NULL && s2 == NULL) return eslOK;
+  if (s1 == NULL || s2 == NULL) return eslFAIL;
+  if (strcmp(s1, s2) != 0)      return eslFAIL;
+  return eslOK;
+}
+
+
+/*-------------- end, typed comparison routines --------------------*/
 
 
 
