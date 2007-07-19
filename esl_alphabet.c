@@ -1217,9 +1217,8 @@ esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc)
  * Purpose:   Given an alphabet <a>, a score vector <sc> of length
  *            <a->Kp> that contains integer scores for the base
  *            alphabet (<0..a->K-1>), and residue occurrence probabilities
- *            <p[0..a->K-1]>; fill out the rest of the score 
- *            vector, calculating expected scores for 
- *            degenerate residues using <esl_abc_IExpectScore()>.
+ *            <p[0..a->K-1]>; fill in the scores for the
+ *            degenerate residues <K+1..Kp-2> using <esl_abc_IExpectScore()>.
  *            
  *            The score, if any, for a gap character <K> and the missing
  *            data character <Kp-1> are untouched by this function. Only
@@ -1237,7 +1236,7 @@ int
 esl_abc_IExpectScVec(const ESL_ALPHABET *a, int *sc, const float *p)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp-2; x++)
     sc[x] = esl_abc_IExpectScore(a, x, sc, p);
   return eslOK;
 }
@@ -1245,7 +1244,7 @@ int
 esl_abc_FExpectScVec(const ESL_ALPHABET *a, float *sc, const float *p)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp-2; x++)
     sc[x] = esl_abc_FExpectScore(a, x, sc, p);
   return eslOK;
 }
@@ -1253,7 +1252,7 @@ int
 esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp-2; x++)
     sc[x] = esl_abc_DExpectScore(a, x, sc, p);
   return eslOK;
 }

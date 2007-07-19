@@ -92,6 +92,7 @@ OBJS    = \
 	esl_wuss.o
 
 all: libeasel.a
+	(cd miniapps; make)
 
 .c.o: 
 	${CC} -I. ${CFLAGS} ${DEFS} -c $<		

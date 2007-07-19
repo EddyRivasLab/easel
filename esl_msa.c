@@ -263,6 +263,10 @@ create_mostly(int nseq, int alen)
  *            suites: given the contents of a complete multiple
  *            sequence alignment file as a single string <s> in
  *            alignment format <fmt>, convert it to an <ESL_MSA>.
+ *            
+ *            For example, 
+ *            <esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\n//\n", eslMSAFILE_STOCKHOLM)>
+ *            creates an ungapped alignment of two AAAAA sequences.
  *
  * Returns:   a pointer to the new <ESL_MSA> on success.
  *
@@ -1149,10 +1153,12 @@ esl_msafile_Open(const char *filename, int format, const char *env, ESL_MSAFILE 
 static int
 msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **ret_msafp)
 {
-  ESL_MSAFILE *afp = NULL;
-  char *ssifile;
-  int  n;
-  int  status;
+  ESL_MSAFILE *afp     = NULL;
+  char        *ssifile = NULL;
+  char        *envfile = NULL;
+  char        *cmd     = NULL;
+  int          n       = strlen(filename);
+  int          status;
   
   ESL_ALLOC(afp, sizeof(ESL_MSAFILE));
   afp->f          = NULL;
@@ -1173,9 +1179,6 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
 #endif  
   afp->msa_cache  = NULL;
 
-  n        = strlen(filename);
-  ssifile  = NULL;
-
   if (strcmp(filename, "-") == 0)
     {
       afp->f         = stdin;
@@ -1192,8 +1195,6 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
    */
   else if (n > 3 && strcmp(filename+n-3, ".gz") == 0)
     {
-      char *cmd;
-
       /* Note that popen() will return "successfully"
        * if file doesn't exist, because gzip works fine
        * and prints an error! So we have to check for
@@ -1207,10 +1208,8 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
       afp->do_gzip  = TRUE;
     }
 #endif /*HAVE_POPEN*/
-  else
+  else	/* Normal file open or env file open: set ssifile */
     {
-      char *envfile;
-
       /* When we open a file, it may be either in the current
        * directory, or in the directory indicated by the env
        * argument - and we construct an SSI filename accordingly.
@@ -1218,19 +1217,16 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
        */
       if ((afp->f = fopen(filename, "r")) != NULL)
 	{
-	  esl_FileNewSuffix(filename, "ssi", &ssifile);	/* FIXME: check return status */
+	  if ((status = esl_FileNewSuffix(filename, "ssi", &ssifile)) != eslOK) goto ERROR;
+	  if ((status = esl_strdup(filename, n, &(afp->fname)))       != eslOK) goto ERROR;
 	}
       else if (esl_FileEnvOpen(filename, env, &(afp->f), &envfile) == eslOK)
 	{
-	  esl_FileNewSuffix(envfile, "ssi", &ssifile);
-	  free(envfile);
+	  if ((status = esl_FileNewSuffix(envfile, "ssi", &ssifile)) != eslOK) goto ERROR;
+	  if ((status = esl_strdup(envfile, n, &(afp->fname)))       != eslOK) goto ERROR;
 	}
       else 
 	{ status = eslENOTFOUND; goto ERROR;}
-
-      afp->do_stdin = FALSE;
-      afp->do_gzip  = FALSE;
-      if ((status = esl_strdup(filename, n, &(afp->fname))) != eslOK) goto ERROR;
     }
 
 #ifdef eslAUGMENT_SSI
@@ -1242,7 +1238,6 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
    */
   status = esl_ssi_Open(ssifile, &(afp->ssi)); 
 #endif
-  if (ssifile != NULL) free (ssifile);
 
   /* Invoke autodetection if we haven't already been told what
    * to expect.
@@ -1257,12 +1252,18 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
   else 
     afp->format     = format;
 
-  if (ret_msafp != NULL) *ret_msafp = afp; else esl_msafile_Close(afp);
+  if (envfile != NULL) free(envfile);
+  if (ssifile != NULL) free(ssifile);
+  if (cmd     != NULL) free(cmd);
+  *ret_msafp = afp;
   return eslOK;
 
  ERROR:
-  esl_msafile_Close(afp); 
-  if (ret_msafp != NULL) *ret_msafp = NULL;
+  if (envfile != NULL) free(envfile);
+  if (ssifile != NULL) free(ssifile);
+  if (cmd     != NULL) free(cmd);
+  if (afp     != NULL) esl_msafile_Close(afp); 
+  *ret_msafp = NULL;
   return status;
 }
 
@@ -1335,7 +1336,8 @@ esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
    */
   if (afp->msa_cache != NULL)
     {
-      if (afp->msa_cache->name == NULL || strcmp(afp->msa_cache->name, key) != 0)
+      if ( (afp->msa_cache->name == NULL || strcmp(afp->msa_cache->name, key) != 0) &&
+	   (afp->msa_cache->acc  == NULL || strcmp(afp->msa_cache->acc,  key) != 0))
 	{
 	  esl_msa_Destroy(afp->msa_cache);
 	  afp->msa_cache = NULL;

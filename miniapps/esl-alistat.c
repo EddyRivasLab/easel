@@ -132,7 +132,7 @@ main(int argc, char **argv)
 	  if (large == -1 || rlen > large) large = rlen;
 	}
 
-      esl_dst_XAverageId(abc, (const ESL_DSQ **) msa->ax, msa->nseq, max_comparisons, &avgid);
+      esl_dst_XAverageId(abc, msa->ax, msa->nseq, max_comparisons, &avgid);
       
       if (esl_opt_GetBoolean(go, "-1")) 
 	{

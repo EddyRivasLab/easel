@@ -30,6 +30,9 @@ static int nextline(ESL_FILEPARSER *efp);
  * Incept:    SRE, Tue Apr  3 08:09:56 2007 [Janelia]
  *
  * Purpose:   Opens <filename> for reading. 
+ * 
+ *            As a special case, if <filename> is "-", set up the
+ *            fileparser to read and parse <stdin>.
  *
  * Returns:   <eslOK> on success, and <ret_fp> points
  *            to a new <ESL_FILEPARSER> object.
@@ -43,11 +46,16 @@ static int nextline(ESL_FILEPARSER *efp);
 int
 esl_fileparser_Open(char *filename, ESL_FILEPARSER **ret_efp)
 {
-  int status;
+  int             status;
   ESL_FILEPARSER *efp = NULL;
 
   if ((efp = esl_fileparser_Create(NULL)) == NULL) { status = eslEMEM;      goto ERROR; }
-  if ((efp->fp = fopen(filename, "r")) == NULL)    { status = eslENOTFOUND; goto ERROR; }
+
+  if (strcmp(filename, "-") == 0)
+    efp->fp = stdin;
+  else {
+    if ((efp->fp = fopen(filename, "r")) == NULL)    { status = eslENOTFOUND; goto ERROR; }
+  }
   *ret_efp = efp;
   return eslOK;
 
@@ -325,7 +333,9 @@ esl_fileparser_Destroy(ESL_FILEPARSER *efp)
 void
 esl_fileparser_Close(ESL_FILEPARSER *efp)
 {
-  if (efp->fp != NULL) fclose(efp->fp);
+  if (efp == NULL) return;
+  
+  if (efp->fp != NULL && efp->fp != stdin) fclose(efp->fp);
   esl_fileparser_Destroy(efp);
 }
 

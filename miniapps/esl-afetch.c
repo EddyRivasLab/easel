@@ -4,24 +4,24 @@
  * SRE, Mon May 28 08:00:47 2007 [Janelia] [Chemical Brothers, Exit Planet Dust]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_fileparser.h>
-#include <esl_keyhash.h>
-#include <esl_ssi.h>
-#include <esl_msa.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_fileparser.h"
+#include "esl_keyhash.h"
+#include "esl_ssi.h"
+#include "esl_msa.h"
 
 
 static char banner[] = "retrieve multiple sequence alignment(s) from a file";
 static char usage1[] = "[options] <msafile> <name>         (retrieves one alignment named <name>)";
 static char usage2[] = "[options] -f <msafile> <namefile>  (retrieves all alignments named in <namefile>)";
-static char usage3[] = "[options] --index <msafile>        (indexes <msafile> for afetch)";
+static char usage3[] = "[options] --index <msafile>        (indexes <msafile>)";
 
 static void
 cmdline_failure(char *argv0, char *format, ...) 
@@ -52,11 +52,11 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,    "help; show brief info on version and usage",              0 },
-  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index","second cmdline arg is a file of names to retrieve",       0 },
-  { "-o",       eslARG_OUTFILE,FALSE,NULL, NULL, NULL, NULL,"-O,--index","output alignments to file <f> instead of stdout",         0 },
-  { "-O",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",                 0 },
-  { "--index",  eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,    "index the <msafile>, creating <msafile>.ssi",             0 },
+  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
+  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
+  { "-o",       eslARG_OUTFILE,FALSE,NULL, NULL, NULL, NULL,"-O,--index",   "output alignments to file <f> instead of stdout",   0 },
+  { "-O",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",              0 },
+  { "--index",  eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "index the <msafile>, creating <msafile>.ssi",       0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -176,7 +176,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
 
       if (msa->acc != NULL) {
 	if (esl_newssi_AddAlias(ns, msa->acc, msa->name) != eslOK)
-	  esl_fatal("Failed to add secondary key %s to SSI index", msa->name);
+	  esl_fatal("Failed to add secondary key %s to SSI index", msa->acc);
       }
       esl_msa_Destroy(msa);
     }
@@ -300,12 +300,14 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
 	  if (strcmp(key, msa->name) == 0 || (msa->acc != NULL && strcmp(key, msa->acc) == 0))
-	    esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
-	  
+	    break;
+
 	  nali++;
 	  esl_msa_Destroy(msa);
 	}
 
+      esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+      esl_msa_Destroy(msa);
     }
 }
 

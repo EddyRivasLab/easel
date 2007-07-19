@@ -530,7 +530,7 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	  while ((status = process_optlist(g, &s, &reqi)) != eslEOD) 
 	    {
 	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
-	      if (g->setby[reqi] == eslARG_SETBY_DEFAULT || g->val[reqi] == NULL)
+	      if (g->val[reqi] == NULL)
 		ESL_FAIL(eslESYNTAX, g->errbuf,
 			 "Option %.24s requires (or has no effect without) option(s) %.24s", 
 			 g->opt[i].name, g->opt[i].required_opts);

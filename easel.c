@@ -844,15 +844,15 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
  *            directories that is configured in an environment variable
  *            <env>. The first occurrence of file <fname> in this directory 
  *            list is opened read-only. The open file ptr is returned
- *            through <ret_fp>, and the full path name to the file
- *            that was opened is returned through <ret_path>. 
- *            Caller can pass NULL in place of <ret_fp> or <ret_path>
+ *            through <opt_fp>, and the full path name to the file
+ *            that was opened is returned through <opt_path>. 
+ *            Caller can pass NULL in place of <opt_fp> or <opt_path>
  *            if it is not interested in one or both of these. 
  *            
  *            Does not look in the current directory unless "." is
  *            explicitly in the directory list provided by <env>.
  *            
- * Note:      One reason to pass <ret_path> back to the caller is that
+ * Note:      One reason to pass <opt_path> back to the caller is that
  *            sometimes we're opening the first in a group of files
  *            (for example, a database and its SSI index), and we want
  *            to make sure that after we find the main file, the
@@ -866,9 +866,9 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
  *            int   status;
  *            status = esl_FileEnvOpen("swiss42", "BLASTDB", &fp, &path);
  * 
- * Returns:   <eslOK> on success, and provides <ret_fp> and <ret_path>;
- *            <ret_fp> is opened here, and must be <fclose()>'d by caller;
- *            <ret_path> is allocated here, and must be <free()>'d by caller.
+ * Returns:   <eslOK> on success, and provides <opt_fp> and <opt_path>;
+ *            <opt_fp> is opened here, and must be <fclose()>'d by caller;
+ *            <opt_path> is allocated here, and must be <free()>'d by caller.
  *
  *            Returns <eslENOTFOUND> if the file not found in any directory,
  *            or if <env> does not contain any directories to look in.
@@ -1119,7 +1119,7 @@ esl_DCompare(double a, double b, double tol)
   if (a == b)                               return eslOK;
   if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
   if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
-  if (2.*fabs(a-b) / (a+b) <= tol)          return eslOK;
+  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
   return eslFAIL;
 }
 int
@@ -1128,7 +1128,7 @@ esl_FCompare(float a, float b, float tol)
   if (a == b)                               return eslOK;
   if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
   if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
-  if (2.*fabs(a-b) / (a+b) <= tol)          return eslOK;
+  if (2.*fabs(a-b) / fabs(a+b) <= tol)      return eslOK;
   return eslFAIL;
 }
 
