@@ -14,6 +14,12 @@
  * 
  * SRE, Thu Jun 23 11:48:39 2005
  * SVN $Id$
+ * 
+ * Note: SRE, Mon Aug  6 13:42:09 2007
+ * ML fitting routines will be prone to over/underfitting 
+ * problems for scores outside a "normal" range, because
+ * of exp(-lambda * x) calls. The Lawless ML estimation
+ * may eventually need to be recast in log space.
  */
 #include <esl_config.h>
 
@@ -367,7 +373,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
    */
-  esl_stats_Mean(x, n, NULL, &variance);
+  esl_stats_DMean(x, n, NULL, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
 
   /* 2. Use Newton/Raphson to solve Lawless 4.1.6 and find ML lambda
@@ -449,6 +455,10 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
  * Returns:  <eslOK> on success.
  *
  * Throws:    (no abnormal error conditions)
+ * 
+ * Note:     Here and in FitComplete(), we have a potential
+ *           under/overflow problem. We ought to be doing the
+ *           esum in log space.
  */
 int
 esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
@@ -478,7 +488,7 @@ direct_mv_fit(double *x, int n, double *ret_mu, double *ret_lambda)
 {
   double mean, variance;
 
-  esl_stats_Mean(x, n, &mean, &variance);
+  esl_stats_DMean(x, n, &mean, &variance);
   *ret_lambda = eslCONST_PI / sqrt(6.*variance);
   *ret_mu     = mean - 0.57722/(*ret_lambda);
   return eslOK;
@@ -583,7 +593,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
    */
-  esl_stats_Mean(x, n, NULL, &variance);
+  esl_stats_DMean(x, n, NULL, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
 
   /* 2. Use Newton/Raphson to solve Lawless 4.2.2 and find ML lambda
@@ -858,7 +868,7 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
    * distributed variates. They'll be off for a truncated sample, but
    * close enough to be a useful starting point.
    */
-  esl_stats_Mean(x, n, &mean, &variance);
+  esl_stats_DMean(x, n, &mean, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
 

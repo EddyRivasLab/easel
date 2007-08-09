@@ -18,7 +18,7 @@
 #include <esl_stats.h>
 
 
-/* Function:  esl_stats_Mean()
+/* Function:  esl_stats_DMean()
  * Synopsis:  Calculates mean and $\sigma^2$ for samples $x_i$.
  * Incept:    SRE, Tue Jul 19 11:04:00 2005 [St. Louis]
  *
@@ -27,6 +27,9 @@
  *            sample of <n> numbers <x[0]..x[n-1]>, and optionally
  *            returns either or both through <ret_mean> and
  *            <ret_var>.
+ *            
+ *            <esl_stats_FMean()> and <esl_stats_IMean()> do the same,
+ *            for float and integer vectors.
  *
  * Args:      x        - samples x[0]..x[n-1]
  *            n        - number of samples
@@ -36,7 +39,7 @@
  * Returns:   <eslOK> on success.
  */
 int
-esl_stats_Mean(const double *x, int n, double *opt_mean, double *opt_var)
+esl_stats_DMean(const double *x, int n, double *opt_mean, double *opt_var)
 {
   double sum   = 0.;
   double sqsum = 0.;
@@ -51,6 +54,39 @@ esl_stats_Mean(const double *x, int n, double *opt_mean, double *opt_var)
   if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
   return eslOK;
 }
+int
+esl_stats_FMean(const float *x, int n, double *opt_mean, double *opt_var)
+{
+  double sum   = 0.;
+  double sqsum = 0.;
+  int i;
+
+  for (i = 0; i < n; i++) 
+    { 
+      sum   += x[i];
+      sqsum += x[i]*x[i];
+    }
+  if (opt_mean != NULL)  *opt_mean = sum / (double) n;
+  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  return eslOK;
+}
+int
+esl_stats_IMean(const int *x, int n, double *opt_mean, double *opt_var)
+{
+  double sum   = 0.;
+  double sqsum = 0.;
+  int i;
+
+  for (i = 0; i < n; i++) 
+    { 
+      sum   += x[i];
+      sqsum += x[i]*x[i];
+    }
+  if (opt_mean != NULL)  *opt_mean = sum / (double) n;
+  if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
+  return eslOK;
+}
+
 
 /* Function:  esl_stats_LogGamma()
  * Synopsis:  Calculates $\log \Gamma(x)$.

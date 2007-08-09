@@ -378,7 +378,7 @@ esl_wei_FitComplete(double *x, int n, double *ret_mu,
    * set an arbitrary tau.
    */
   mu =  esl_vec_DMin(x, n);
-  esl_stats_Mean(x, n, &mean, NULL);
+  esl_stats_DMean(x, n, &mean, NULL);
   lambda = 1 / (mean - mu);
   tau    = 0.9;
 

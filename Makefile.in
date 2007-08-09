@@ -136,7 +136,7 @@ distclean:
 	-rm Makefile
 
 TAGS:
-	etags *.[ch] Makefile.in
+	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
 
 
 # magic SVN for setting keyword ID replacement on a new module foo:

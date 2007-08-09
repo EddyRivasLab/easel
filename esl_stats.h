@@ -7,7 +7,9 @@
 #ifndef ESL_STATS_INCLUDED
 #define ESL_STATS_INCLUDED
 
-extern int esl_stats_Mean(const double *x, int n, double *opt_mean, double *opt_var);
+extern int esl_stats_DMean(const double *x, int n, double *opt_mean, double *opt_var);
+extern int esl_stats_FMean(const float  *x, int n, double *opt_mean, double *opt_var);
+extern int esl_stats_IMean(const int    *x, int n, double *opt_mean, double *opt_var);
 extern int esl_stats_LogGamma(double x, double *ret_answer);
 extern int esl_stats_Psi(double x, double *ret_answer);
 extern int esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax);

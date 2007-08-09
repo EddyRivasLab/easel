@@ -371,7 +371,7 @@ esl_sxp_FitComplete(double *x, int n,
    * and just use arbitrary #'s to init lambda, tau
    */
   mu =  esl_vec_DMin(x, n);
-  esl_stats_Mean(x, n, &mean, NULL);
+  esl_stats_DMean(x, n, &mean, NULL);
   lambda = 1 / (mean - mu);
   tau    = 0.9;
 

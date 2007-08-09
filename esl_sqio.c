@@ -790,15 +790,16 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  * Incept:    SRE, Tue Jan  9 16:42:35 2007 [Janelia]
  *
  * Purpose:   Same as <esl_sq_Create()>, except the returned sq is configured
- *            for a digital alignment using internal alphabet <abc>, instead of 
+ *            for a digital alignment using internal alphabet <abc>, rather than
  *            a text alignment. Creates an empty digital <ESL_SQ> sequence 
  *            object, with internal fields allocated to reasonable initial sizes.
- *            the <eslSQ_DIGITAL> flag is raised. 
+ *            Additionally, the <eslSQ_DIGITAL> flag is raised. 
  * 
- *            Additionally, the first byte of the digital sequence 
+ *            The first byte of the digital sequence 
  *            (<s->dsq>, internally) is initialized to a sentinel,
  *            but the terminal sentinel byte is the caller's
- *            responsibility.
+ *            responsibility. Sequence generation or i/o routines
+ *            will generally handle this.
  *
  * Args:      abc      - pointer to internal alphabet
  * 

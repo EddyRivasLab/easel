@@ -173,6 +173,8 @@ main(int argc, char **argv)
       esl_histogram_GetData(h, &xv, &n);
       esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+      printf("# Gumbel fit: mu = %f  lambda = %f\n", params[0], params[1]);
     }
   else if (esl_opt_GetBoolean(go, "--gumloc"))
     {
@@ -180,12 +182,16 @@ main(int argc, char **argv)
       esl_histogram_GetData(h, &xv, &n);
       esl_gumbel_FitCompleteLoc(xv, n, params[1], &(params[0]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+
+      printf("# Gumbel fit with forced lambda = %f:  mu = %f\n", params[1], params[0]);
     }
   else if (esl_opt_GetBoolean(go, "--exptail"))
     {
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
       esl_exp_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
+
+      printf("# Exponential fit to %.2f%% tail: lambda = %f\n", tailp*100.0, params[1]);
     }
   else if (esl_opt_GetBoolean(go, "--exptailloc"))
     {

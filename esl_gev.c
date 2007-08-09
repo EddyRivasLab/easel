@@ -518,7 +518,7 @@ fitting_engine(struct gev_data *data,
   /* Make an initial guess. 
    * (very good guess for complete data; merely sufficient for censored)
    */
-  esl_stats_Mean(data->x, data->n, &mean, &variance);
+  esl_stats_DMean(data->x, data->n, &mean, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
   alpha  = 0.0001;

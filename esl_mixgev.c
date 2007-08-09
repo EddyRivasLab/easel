@@ -601,7 +601,7 @@ esl_mixgev_FitGuess(ESL_RANDOMNESS *r, double *x, int n, ESL_MIXGEV *mg)
   double mu, lambda;
   int    k;
 
-  esl_stats_Mean(x, n, &mean, &variance);
+  esl_stats_DMean(x, n, &mean, &variance);
   lambda = eslCONST_PI / sqrt(6.*variance);
   mu     = mean - 0.57722/lambda;
 
