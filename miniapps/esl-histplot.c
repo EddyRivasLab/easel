@@ -22,7 +22,7 @@ static char usage[] = "[-options] <datafile>";
 static ESL_OPTIONS options[] = {
   /* name           type         default env rng  togs  reqs inc    help                                          docgrp */
   {"-h",          eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"show help and usage",                               1 },
-  {"-o",          eslARG_OUTFILE, NULL,NULL,NULL, NULL,NULL,NULL,"output file for histogram",                         1 },
+  {"-o",          eslARG_OUTFILE, NULL,NULL,NULL, NULL,NULL,NULL,"output file for plot (default is stdout)",          1 },
 
   {"-b",          eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"input file is binary, array of doubles",            2 },
   {"-f",          eslARG_INT,      "1",NULL,"n>0",NULL,NULL,"-b","which field to read on text line (1..n)",           2 },
@@ -36,8 +36,11 @@ static ESL_OPTIONS options[] = {
   {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",           4 },
   {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
   {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
+  {"--showgum",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known Gumbel for comparison",                4 }, 
+  {"--showexp",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known exponential tail for comparison",      4 } ,
   {"--lambda",    eslARG_REAL,"0.693", NULL,NULL, NULL,NULL,NULL,"set known lambda",                                  4 },    
-  {"-p",          eslARG_REAL, "0.01", NULL,NULL, NULL,NULL,NULL,"set tail mass to fit to",                           4 },    
+  {"--mu",        eslARG_REAL,   NULL, NULL,NULL, NULL,NULL,NULL,"set known mu",                                      4 },    
+  {"-t",          eslARG_REAL, "0.01", NULL,NULL, NULL,NULL,NULL,"set tail mass to fit to",                           4 },    
 
   { 0,0,0,0,0,0,0,0,0,0},
 };
@@ -63,6 +66,7 @@ main(int argc, char **argv)
   int     n;
   double  params[2];
   double  lambda;
+  double  mu;
   double  tailp;
 
   /*****************************************************************
@@ -88,17 +92,18 @@ main(int argc, char **argv)
     esl_opt_DisplayHelp(stdout, go, 2, 2, 80); /* 2= group; 2 = indentation; 80=textwidth*/
     puts("\nOptions that control how to display the output XY file:");
     esl_opt_DisplayHelp(stdout, go, 3, 2, 80); /* 3= group; 2 = indentation; 80=textwidth*/
-    puts("\nOptional ML fitting of the data to distributions:");
+    puts("\nOptional ML fitting or plotting of distributions for comparison:");
     esl_opt_DisplayHelp(stdout, go, 4, 2, 80); /* 4= group; 2 = indentation; 80=textwidth*/
     return eslOK;
   }
   which_field = esl_opt_GetInteger(go, "-f");
   outfile     = esl_opt_GetString (go, "-o");
-  tailp       = esl_opt_GetReal   (go, "-p");
+  tailp       = esl_opt_GetReal   (go, "-t");
   hbinsize    = esl_opt_GetReal   (go, "-w");
   hmin        = esl_opt_GetReal   (go, "--min");
   hmax        = esl_opt_GetReal   (go, "--max");
   lambda      = esl_opt_GetReal   (go, "--lambda");
+  mu          = esl_opt_GetReal   (go, "--mu");
 
   if (esl_opt_ArgNumber(go) != 1) 
     {
@@ -200,11 +205,23 @@ main(int argc, char **argv)
       params[0] = xv[0];	/* might be able to do better than minimum score, but this'll do */
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
     }
+  else if (esl_opt_GetBoolean(go, "--showgum"))
+    {
+      params[0] = mu;
+      params[1] = lambda;
+      esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
+    }
+  else if (esl_opt_GetBoolean(go, "--showexp"))
+    {
+      params[0] = mu;
+      params[1] = lambda;
+      esl_histogram_SetExpectedTail(h, mu, tailp, &esl_exp_generic_cdf, &params);
+    }
       
+
   /*****************************************************************
    * Output
    *****************************************************************/
-
   if   (esl_opt_GetBoolean(go, "--surv")) esl_histogram_PlotSurvival(ofp, h);
   else                                    esl_histogram_Plot(ofp, h);
 
