@@ -36,10 +36,10 @@ static ESL_OPTIONS options[] = {
   {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",           4 },
   {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
   {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
-  {"--showgum",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known Gumbel for comparison",                4 }, 
-  {"--showexp",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known exponential tail for comparison",      4 } ,
+  {"--showgum",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known Gumbel for comparison",              4 }, 
+  {"--showexp",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known exponential tail for comparison",    4 },
   {"--lambda",    eslARG_REAL,"0.693", NULL,NULL, NULL,NULL,NULL,"set known lambda",                                  4 },    
-  {"--mu",        eslARG_REAL,   NULL, NULL,NULL, NULL,NULL,NULL,"set known mu",                                      4 },    
+  {"--mu",        eslARG_REAL,  "0.0", NULL,NULL, NULL,NULL,NULL,"set known mu",                                      4 },    
   {"-t",          eslARG_REAL, "0.01", NULL,NULL, NULL,NULL,NULL,"set tail mass to fit to",                           4 },    
 
   { 0,0,0,0,0,0,0,0,0,0},

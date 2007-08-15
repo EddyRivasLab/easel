@@ -497,7 +497,7 @@ esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
     ESL_EXCEPTION(eslEINVAL, "histogram rank must be a value from 1..n");
 
   esl_histogram_sort(h);	/* make sure */
-  *ret_x = h->x[h->n - rank + 1];
+  *ret_x = h->x[h->n - rank];
   return eslOK;
 }
 
@@ -1010,6 +1010,11 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
  *            One point is plotted per bin, so the narrower the
  *            bin width, the more smooth and accurate the resulting
  *            plots will be.
+ *            
+ *            As a special case, always plot the highest score with
+ *            survival probability 1/N, if it occurred in a bin with
+ *            other samples. This is to prevent a survival plot from
+ *            looking like it was artificially truncated.
  *
  * Returns:   <eslOK> on success.
  */
@@ -1017,13 +1022,14 @@ int
 esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 {
   int i;
-  uint64_t c;
+  uint64_t c = 0;
   double   esum;
   double ai;
   
   /* The observed binned counts:
    */
-  c = 0.;
+  if (h->obs[h->imax] > 1) 
+    fprintf(fp, "%f\t%g\n", h->xmax, 1.0 / (double) h->Nc);
   for (i = h->imax; i >= h->imin; i--)
     {
       if (h->obs[i] > 0) {

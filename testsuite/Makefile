@@ -6,13 +6,13 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
-CC       = gcc -std=gnu99
+CC       = mpicc
 CFLAGS   = -g -O2 
 CPPFLAGS = 
 LDFLAGS  = 
 DEFS     = -DHAVE_CONFIG_H
 LIBS     =  -lm
-MPILIBS  = 
+MPILIBS  =  
 
 AR      = /usr/bin/ar rcv
 RANLIB  = ranlib
