@@ -32,6 +32,10 @@
 #endif
 #include "esl_sqio.h"
 
+/* Shared parts of text/digital creation functions */
+static ESL_SQ *sq_create(int do_digital);
+static ESL_SQ *sq_create_from(char *name, char *desc, char *acc, char *ss);
+
 /* Generic functions for line-based parsers.
  */
 static int is_blankline(char *s);
@@ -135,51 +139,25 @@ esl_sq_Create(void)
   return sq_create(FALSE);
 }
 
-/* Function:  esl_sq_CreateFrom()
- * Incept:    SRE, Wed Mar 22 09:17:04 2006 [St. Louis]
- *
- * Purpose:   Create a new <ESL_SQ> object from elemental data;
- *            this provides an interface between non-Easel code
- *            and Easel's object.
- *            
- *            Makes copies of all data. Caller is still
- *            responsible for memory of name, seq, etc.
- *            
- *            <ss> is an optional alphabetic secondary structure 
- *            annotation string. If provided, its length must match
- *            the length of <seq>.
- *            
- *            The object is growable; you can use <esl_sq_Reuse()>
- *            on it.
- *
- * Args:      name    -  name of the sequence
- *            seq     -  the sequence (alphabetic)
- *            desc    -  optional: description line [or NULL]
- *            acc     -  optional: accession [or NULL]
- *            ss      -  optional: secondary structure annotation [or NULL]
- *
- * Returns:   a pointer to the new object. Free with
- *            <esl_sq_Destroy()>.
- *
- * Throws:    NULL on allocation failure.
+/* CreateFrom and CreateDigitalFrom() (see below) are almost identical, so
+ * their shared guts are here:
  */
-ESL_SQ *
-esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
+static ESL_SQ *
+sq_create_from(char *name, char *desc, char *acc, char *ss)
 {
   int status;
   ESL_SQ *sq = NULL;
   int  n;
 
   if (name == NULL) ESL_XEXCEPTION(eslEINVAL, "must provide seq name");
-  if (seq  == NULL) ESL_XEXCEPTION(eslEINVAL, "must provide seq");
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
   sq->name   = NULL;
   sq->acc    = NULL;
   sq->desc   = NULL;
   sq->seq    = NULL;
-  sq->ss     = NULL;
   sq->dsq    = NULL;
+  sq->ss     = NULL;
   sq->optmem = NULL;
   sq->flags  = 0;
   
@@ -188,12 +166,6 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   strcpy(sq->name, name);
   sq->nalloc = n;
   
-  n = strlen(seq)+1;
-  ESL_ALLOC(sq->seq, sizeof(char) * n);
-  strcpy(sq->seq, seq);
-  sq->n      = n-1;
-  sq->salloc = n;
-
   if (desc != NULL) 
     {
       n = strlen(desc)+1;
@@ -239,6 +211,54 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   return NULL;
 }
 
+/* Function:  esl_sq_CreateFrom()
+ * Incept:    SRE, Wed Mar 22 09:17:04 2006 [St. Louis]
+ *
+ * Purpose:   Create a new <ESL_SQ> object from elemental data;
+ *            this provides an interface between non-Easel code
+ *            and Easel's object.
+ *            
+ *            Makes copies of all data. Caller is still
+ *            responsible for memory of name, seq, etc.
+ *            
+ *            <ss> is an optional alphabetic secondary structure 
+ *            annotation string. If provided, its length must match
+ *            the length of <seq>.
+ *            
+ *            The object is growable; you can use <esl_sq_Reuse()>
+ *            on it.
+ *
+ * Args:      name    -  name of the sequence
+ *            seq     -  the sequence (alphabetic)
+ *            desc    -  optional: description line [or NULL]
+ *            acc     -  optional: accession [or NULL]
+ *            ss      -  optional: secondary structure annotation [or NULL]
+ *
+ * Returns:   a pointer to the new object. Free with
+ *            <esl_sq_Destroy()>.
+ *
+ * Throws:    NULL on allocation failure.
+ */
+ESL_SQ *
+esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
+{
+  int status;
+  int n;
+  ESL_SQ *sq = NULL;
+
+  if((sq = sq_create_from(name, desc, acc, ss)) == NULL) return NULL;
+  
+  n = strlen(seq)+1;
+  ESL_ALLOC(sq->seq, sizeof(char) * n);
+  strcpy(sq->seq, seq);
+  sq->n      = n-1;
+  sq->salloc = n;
+  return sq;
+
+ ERROR:
+  esl_sq_Destroy(sq);
+  return NULL;
+}
 
 /* Function:  esl_sq_Reuse()
  * Incept:    SRE, Thu Dec 23 12:23:51 2004 [Zaragoza]
@@ -821,6 +841,63 @@ esl_sq_CreateDigital(const ESL_ALPHABET *abc)
       s->flags |= eslSQ_DIGITAL;
     }
   return s;
+}
+
+/* Function:  esl_sq_CreateDigitalFrom()
+ * Incept:    EPN, Fri Aug 24 13:38:56 2007
+ *
+ * Purpose:   Create a new <ESL_SQ> object from elemental data;
+ *            Same as esl_sq_CreateFrom except takes ESL_DSQ *dsq
+ *            instead of a char *seq as the sequence to copy.
+ *            Originally written to ease reverse complementing
+ *            database sequences for Infernal searches.
+ *            
+ *            Makes copies of all data. Caller is still
+ *            responsible for memory of name, seq, etc.
+ *            
+ *            <ss> is an optional alphabetic secondary structure 
+ *            annotation string. If provided, its length must match
+ *            the length of <seq>.
+ *            
+ *            The object is growable; you can use <esl_sq_Reuse()>
+ *            on it.
+ *
+ * Args:      name    -  name of the sequence
+ *            dsq     -  the sequence (digitized)
+ *            nres    -  residue length of digitized sequence 
+ *                       (not including eslDSQ_SENTINEL's at begin/end)
+ *            desc    -  optional: description line [or NULL]
+ *            acc     -  optional: accession [or NULL]
+ *            ss      -  optional: secondary structure annotation [or NULL]
+ *
+ * Returns:   a pointer to the new object. Free with
+ *            <esl_sq_Destroy()>.
+ *
+ * Throws:    NULL on allocation failure.
+ */
+ESL_SQ *
+esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, char *name, ESL_DSQ *dsq, int nres, char *desc, char *acc, char *ss)
+{
+  int status;
+  int i;
+  ESL_SQ *sq = NULL;
+
+  if((sq = sq_create_from(name, desc, acc, ss)) == NULL) return NULL;
+
+  ESL_ALLOC(sq->dsq, sizeof(char) * nres + 2);
+  sq->dsq[0]      = eslDSQ_SENTINEL;
+  for(i = 1; i <= nres; i++) sq->dsq[i] = dsq[i];
+  sq->dsq[nres+1] = eslDSQ_SENTINEL;
+  sq->n      = nres;
+  sq->salloc = nres;
+  sq->abc   =  abc;
+  sq->flags |= eslSQ_DIGITAL;
+
+  return sq;
+
+ ERROR:
+  esl_sq_Destroy(sq);
+  return NULL;
 }
 
 /* Function:  esl_sq_Digitize()

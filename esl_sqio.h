@@ -176,6 +176,7 @@ extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 /* Digitized sequences (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);
+extern ESL_SQ *esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, char *name, ESL_DSQ *dsq, int nres, char *desc, char *acc, char *ss);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
