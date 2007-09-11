@@ -50,11 +50,6 @@ static ESL_MSA *create_mostly(int nseq, int alen);
 static int get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx);
 static int set_seq_accession(ESL_MSA *msa, int seqidx, char *acc);
 static int set_seq_description(ESL_MSA *msa, int seqidx, char *desc);
-static int add_comment(ESL_MSA *msa, char *s);
-static int add_gf(ESL_MSA *msa, char *tag, char *value);
-static int add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value);
-static int append_gc(ESL_MSA *msa, char *tag, char *value);
-static int append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value);
 static int verify_parse(ESL_MSA *msa, char *errbuf);
 
 /* Function:  esl_msa_Create()
@@ -610,334 +605,6 @@ set_seq_description(ESL_MSA *msa, int seqidx, char *desc)
   }
   if (msa->sqdesc[seqidx] != NULL) free(msa->sqdesc[seqidx]);
   return (esl_strdup(desc, -1, &(msa->sqdesc[seqidx])));
-
- ERROR:
-  return status;
-}
-
-
-/* add_comment()
- * SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
- *
- * Add an (unparsed) comment line to the MSA structure, allocating as
- * necessary.
- *
- * Args:     msa - a multiple alignment
- *           s   - comment line to add
- *
- * Returns:  <eslOK> on success.
- */
-static int
-add_comment(ESL_MSA *msa, char *s)
-{
-  void *p;
-  int   status;
-
-  /* If this is our first recorded comment, we need to allocate;
-   * and if we've filled available space, we need to reallocate.
-   */
-  if (msa->comment == NULL) {
-    ESL_ALLOC(msa->comment, sizeof(char *) * 16);
-    msa->alloc_ncomment = 16;
-  }
-  if (msa->ncomment == msa->alloc_ncomment) {
-    ESL_RALLOC(msa->comment, p, sizeof(char *) * msa->alloc_ncomment * 2);
-    msa->alloc_ncomment *= 2;
-  }
-  if ((status = esl_strdup(s, -1, &(msa->comment[msa->ncomment]))) != eslOK) goto ERROR;
-  msa->ncomment++;
-  return eslOK;
-
- ERROR:
-  return status;
-}
-
-
-/* add_gf()
- * 
- * Add an unparsed #=GF markup line to the MSA, allocating
- * as necessary. <tag> is the GF markup tag; <value> is
- * the text associated w/ that tag.
- * 
- * Returns eslOK on success. 
- * Throws eslEMEM on allocation failure.
- */
-static int
-add_gf(ESL_MSA *msa, char *tag, char *value)
-{  
-  void *p;
-  int   n;
-  int   status;
-
-  /* If this is our first recorded unparsed #=GF line, we need to allocate().
-   */
-  if (msa->gf_tag == NULL) {
-    ESL_ALLOC(msa->gf_tag, sizeof(char *) * 16);
-    ESL_ALLOC(msa->gf,     sizeof(char *) * 16);
-    msa->alloc_ngf = 16;
-  }
-  /* or if we're out of room for new GF's, reallocate by doubling
-   */
-  if (msa->ngf == msa->alloc_ngf) {
-    n = msa->alloc_ngf * 2;
-    ESL_RALLOC(msa->gf_tag, p, sizeof(char *) * n);
-    ESL_RALLOC(msa->gf,     p, sizeof(char *) * n);
-    msa->alloc_ngf = n;
-  }
-
-  if ((status = esl_strdup(tag,  -1,  &(msa->gf_tag[msa->ngf]))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(value, -1, &(msa->gf[msa->ngf])))     != eslOK) goto ERROR;
-  msa->ngf++;
-  return eslOK;
-
- ERROR:
-  return status;
-}
-
-
-/* add_gs()
- *
- * Adds an unparsed #=GS markup line to the MSA structure, allocating
- * as necessary.
- *           
- * It's possible that we could get more than one of the same type of
- * GS tag per sequence; for example, "DR PDB;" structure links in
- * Pfam.  Hack: handle these by appending to the string, in a \n
- * separated fashion.
- *
- * Args:     msa    - multiple alignment structure
- *           tag    - markup tag (e.g. "AC")
- *           sqidx  - index of sequence to assoc markup with (0..nseq-1)
- *           value  - markup (e.g. "P00666")
- *
- * Returns:  <eslOK> on success
- * Throws:   <eslEMEM> on allocation failure
- */
-int
-add_gs(ESL_MSA *msa, char *tag, int sqidx, char *value)
-{
-  void *p;
-  int   tagidx;
-  int   i;
-  int   status;
-
-  /* first GS tag? init&allocate  */
-  if (msa->gs_tag == NULL)	
-    {
-#ifdef eslAUGMENT_KEYHASH
-      msa->gs_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) return status;
-      ESL_DASSERT1((tagidx == 0));
-#else
-      tagidx = 0;
-#endif
-      ESL_ALLOC(msa->gs_tag, sizeof(char *));  /* one at a time. */
-      ESL_ALLOC(msa->gs,     sizeof(char **));
-      ESL_ALLOC(msa->gs[0],  sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->gs[0][i] = NULL;
-    }
-  else 
-    {
-      /* Get a tagidx for this GS tag.
-       * tagidx < ngs; we already saw this tag;
-       * tagidx == ngs; this is a new one.
-       */
-#ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) return status;
-#else
-      for (tagidx = 0; tagidx < msa->ngs; tagidx++)
-	if (strcmp(msa->gs_tag[tagidx], tag) == 0) break;
-#endif
-      /* Reallocation (in blocks of 1) */
-      if (tagidx == msa->ngs ) 
-	{
-	  ESL_RALLOC(msa->gs_tag, p, (msa->ngs+1) * sizeof(char *));
-	  ESL_RALLOC(msa->gs,     p, (msa->ngs+1) * sizeof(char **));
-	  ESL_ALLOC(msa->gs[msa->ngs], sizeof(char *) * msa->sqalloc);
-	  for (i = 0; i < msa->sqalloc; i++) 
-	    msa->gs[msa->ngs][i] = NULL;
-	}
-    }
-
-  /* Store the tag, if it's new.
-   */
-  if (tagidx == msa->ngs) 
-    {
-      if ((status = esl_strdup(tag, -1, &(msa->gs_tag[tagidx]))) != eslOK) goto ERROR;
-      msa->ngs++;
-    }
-  
-  /* Store the annotation on the sequence.
-   * If seq is unannotated, dup the value; if
-   * seq already has a GS annotation, cat a \n, then cat the value.
-   */
-  if (msa->gs[tagidx][sqidx] == NULL)
-    {
-      if ((status = esl_strdup(value, -1, &(msa->gs[tagidx][sqidx]))) != eslOK) goto ERROR;
-    }
-  else 
-    {			
-      int n1,n2;
-      n1 = strlen(msa->gs[tagidx][sqidx]);
-      n2 = strlen(value);
-      ESL_RALLOC(msa->gs[tagidx][sqidx], p, sizeof(char) * (n1+n2+2));
-      msa->gs[tagidx][sqidx][n1] = '\n';
-      strcpy(msa->gs[tagidx][sqidx]+n1+1, value);
-    }
-  return eslOK;
-
- ERROR:
-  return status;
-} 
-
-/* append_gc()
- *
- * Add an unparsed #=GC markup line to the MSA structure, allocating
- * as necessary.
- *           
- * When called multiple times for the same tag, appends value strings
- * together -- used when parsing multiblock alignment files, for
- * example.
- *
- * Args:     msa   - multiple alignment structure
- *           tag   - markup tag (e.g. "CS")
- *           value - markup, one char per aligned column      
- *
- * Returns:  <eslOK> on success
- * 
- * Throws:   <eslEMEM> on allocation failure
- */
-static int
-append_gc(ESL_MSA *msa, char *tag, char *value)
-{
-  int   tagidx;
-  int   status;
-  void *p;
-
-  /* Is this an unparsed tag name that we recognize?
-   * If not, handle adding it to index, and reallocating
-   * as needed.
-   */
-  if (msa->gc_tag == NULL)	/* first tag? init&allocate  */
-    {
-#ifdef eslAUGMENT_KEYHASH
-      msa->gc_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gc_idx, tag, &tagidx);      
-      if (status != eslOK && status != eslEDUP) return status;
-      ESL_DASSERT1((tagidx == 0));
-#else
-      tagidx = 0;
-#endif
-      ESL_ALLOC(msa->gc_tag, sizeof(char **));
-      ESL_ALLOC(msa->gc,     sizeof(char **));
-      msa->gc[0]  = NULL;
-    }
-  else
-    {			/* new tag? */
-      /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
-#ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gc_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) goto ERROR;
-#else
-      for (tagidx = 0; tagidx < msa->ngc; tagidx++)
-	if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
-#endif
-      /* Reallocate, in block of one tag at a time
-       */
-      if (tagidx == msa->ngc)
-	{
-	  ESL_RALLOC(msa->gc_tag, p, (msa->ngc+1) * sizeof(char **));
-	  ESL_RALLOC(msa->gc,     p, (msa->ngc+1) * sizeof(char **));
-	  msa->gc[tagidx] = NULL;
-	}
-    }
-  /* new tag? store it.
-   */
-  if (tagidx == msa->ngc) 
-    {
-      if ((status = esl_strdup(tag, -1, &(msa->gc_tag[tagidx]))) != eslOK) goto ERROR;
-      msa->ngc++;
-    }
-  return (esl_strcat(&(msa->gc[tagidx]), -1, value, -1));
-
- ERROR:
-  return status;
-}
-
-/* append_gr()
- * SRE, Thu Jun  3 06:34:38 1999 [Madison]
- *
- * Add an unparsed #=GR markup line to the MSA structure, allocating
- * as necessary.
- *           
- * When called multiple times for the same tag, appends value strings
- * together -- used when parsing multiblock alignment files, for
- * example.
- *
- * Args:     msa    - multiple alignment structure
- *           tag    - markup tag (e.g. "SS")
- *           sqidx  - index of seq to assoc markup with (0..nseq-1)
- *           value  - markup, one char per aligned column      
- *
- * Returns:  <eslOK> on success.
- * 
- * Throws:   <eslEMEM> on allocation failure.
- */
-static int
-append_gr(ESL_MSA *msa, char *tag, int sqidx, char *value)
-{
-  void *p;
-  int tagidx;
-  int i;
-  int status;
-
-  if (msa->gr_tag == NULL)	/* first tag? init&allocate  */
-    {
-#ifdef eslAUGMENT_KEYHASH
-      msa->gr_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) return status;
-      ESL_DASSERT1((tagidx == 0));
-#else
-      tagidx = 0;
-#endif
-      ESL_ALLOC(msa->gr_tag, sizeof(char *));
-      ESL_ALLOC(msa->gr,     sizeof(char **));
-      ESL_ALLOC(msa->gr[0],  sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++) 
-	msa->gr[0][i] = NULL;
-    }
-  else 
-    {
-      /* get tagidx for this GR tag. existing<ngr; new=ngr.
-       */
-#ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
-      if (status != eslOK && status != eslEDUP) return status;
-#else
-      for (tagidx = 0; tagidx < msa->ngr; tagidx++)
-	if (strcmp(msa->gr_tag[tagidx], tag) == 0) break;
-#endif
-      /* if a new tag, realloc for it */      
-      if (tagidx == msa->ngr)
-	{ 
-	  ESL_RALLOC(msa->gr_tag, p, (msa->ngr+1) * sizeof(char *));
-	  ESL_RALLOC(msa->gr,     p, (msa->ngr+1) * sizeof(char **));
-	  ESL_ALLOC(msa->gr[msa->ngr], sizeof(char *) * msa->sqalloc);
-	  for (i = 0; i < msa->sqalloc; i++) 
-	    msa->gr[msa->ngr][i] = NULL;
-	}
-    }
-
-  if (tagidx == msa->ngr) 
-    {
-      if ((status = esl_strdup(tag, -1, &(msa->gr_tag[tagidx]))) != eslOK) goto ERROR;
-      msa->ngr++;
-    }
-  return (esl_strcat(&(msa->gr[tagidx][sqidx]), -1, value, -1));
 
  ERROR:
   return status;
@@ -2102,22 +1769,25 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 }
 
 
-/* msa_column_subset()
- * SRE, Sun Feb 27 10:05:07 2005
- * From squid's MSAShorterAlignment(), 1999
+/* Function:  esl_msa_ColumnSubset()
+ * Synopsis:  Remove a selected subset of columns from the MSA
+ *
+ * Incept:    SRE, Sun Feb 27 10:05:07 2005
+ *            From squid's MSAShorterAlignment(), 1999
  * 
- * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, where TRUE
- * means "keep this column in the new alignment"; remove all columns
- * annotated as FALSE in the <useme> array. This is done in-place on
- * the MSA, so the MSA is modified: <msa->alen> is reduced,
- * <msa->aseq> is shrunk (or <msa->ax, in the case of a digital mode
- * alignment), and all associated per-residue or per-column annotation
- * is shrunk.
+ * Purpose:   Given an array <useme> (0..alen-1) of TRUE/FALSE flags,
+ *            where TRUE means "keep this column in the new alignment"; 
+ *            remove all columns annotated as FALSE in the <useme> 
+ *            array. This is done in-place on the MSA, so the MSA is 
+ *            modified: <msa->alen> is reduced, <msa->aseq> is shrunk 
+ *            (or <msa->ax, in the case of a digital mode alignment), 
+ *            and all associated per-residue or per-column annotation
+ *            is shrunk.
  * 
- * Returns eslOK on success.
+ * Returns:   <eslOK> on success.
  */
-static int
-msa_column_subset(ESL_MSA *msa, int *useme)
+int
+esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 {
   int opos;			/* position in original alignment */
   int npos;			/* position in new alignment      */
@@ -2225,7 +1895,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 	}
     }
 
-  msa_column_subset(msa, useme);
+  esl_msa_ColumnSubset(msa, useme);
   free(useme);
   return eslOK;
 
@@ -2298,7 +1968,7 @@ esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 	}
     }
 
-  msa_column_subset(msa, useme);
+  esl_msa_ColumnSubset(msa, useme);
   free(useme);
   return eslOK;
 
@@ -2364,6 +2034,343 @@ esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
 	msa->aseq[idx][apos] = (special ? *newsyms : newsyms[sptr-oldsyms]);
   return eslOK;
 }
+
+/* Function:  esl_msa_AddComment()
+ * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
+ *
+ * Purpose:   Add an (unparsed) comment line to the MSA structure, 
+ *            allocating as necessary.
+ *
+ * Args:      msa - a multiple alignment
+ *            s   - comment line to add
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_msa_AddComment(ESL_MSA *msa, char *s)
+{
+  void *p;
+  int   status;
+
+  /* If this is our first recorded comment, we need to allocate;
+   * and if we've filled available space, we need to reallocate.
+   */
+  if (msa->comment == NULL) {
+    ESL_ALLOC(msa->comment, sizeof(char *) * 16);
+    msa->alloc_ncomment = 16;
+  }
+  if (msa->ncomment == msa->alloc_ncomment) {
+    ESL_RALLOC(msa->comment, p, sizeof(char *) * msa->alloc_ncomment * 2);
+    msa->alloc_ncomment *= 2;
+  }
+  if ((status = esl_strdup(s, -1, &(msa->comment[msa->ncomment]))) != eslOK) goto ERROR;
+  msa->ncomment++;
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* Function:  esl_msa_AddGF()
+ * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
+ *
+ * Purpose:   Add an unparsed #=GF markup line to the MSA, 
+ *            allocating as necessary. <tag> is the GF markup 
+ *            tag; <value> is the text associated w/ that tag.
+ *
+ * Args:      msa - a multiple alignment
+ *            tag - markup tag 
+ *            value - markup text
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value)
+{  
+  void *p;
+  int   n;
+  int   status;
+
+  /* If this is our first recorded unparsed #=GF line, we need to allocate().
+   */
+  if (msa->gf_tag == NULL) {
+    ESL_ALLOC(msa->gf_tag, sizeof(char *) * 16);
+    ESL_ALLOC(msa->gf,     sizeof(char *) * 16);
+    msa->alloc_ngf = 16;
+  }
+  /* or if we're out of room for new GF's, reallocate by doubling
+   */
+  if (msa->ngf == msa->alloc_ngf) {
+    n = msa->alloc_ngf * 2;
+    ESL_RALLOC(msa->gf_tag, p, sizeof(char *) * n);
+    ESL_RALLOC(msa->gf,     p, sizeof(char *) * n);
+    msa->alloc_ngf = n;
+  }
+
+  if ((status = esl_strdup(tag,  -1,  &(msa->gf_tag[msa->ngf]))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(value, -1, &(msa->gf[msa->ngf])))     != eslOK) goto ERROR;
+  msa->ngf++;
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* Function:  esl_msa_AddGS()
+ * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
+ *
+ * Purpose:   Add an unparsed #=GS markup line to the MSA, 
+ *            allocating as necessary. It's possible that we 
+ *            could get more than one of the same type of GS 
+ *            tag per sequence; for example, "DR PDB;" structure 
+ *            links in Pfam.  Hack: handle these by appending to 
+ *            the string, in a \n separated fashion.
+ *
+ * Args:      msa    - multiple alignment structure
+ *            tag    - markup tag (e.g. "AC")
+ *            sqidx  - index of sequence to assoc markup with (0..nseq-1)
+ *            value  - markup (e.g. "P00666")
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
+{
+  void *p;
+  int   tagidx;
+  int   i;
+  int   status;
+
+  /* first GS tag? init&allocate  */
+  if (msa->gs_tag == NULL)	
+    {
+#ifdef eslAUGMENT_KEYHASH
+      msa->gs_idx = esl_keyhash_Create();
+      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
+      ESL_DASSERT1((tagidx == 0));
+#else
+      tagidx = 0;
+#endif
+      ESL_ALLOC(msa->gs_tag, sizeof(char *));  /* one at a time. */
+      ESL_ALLOC(msa->gs,     sizeof(char **));
+      ESL_ALLOC(msa->gs[0],  sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++)
+	msa->gs[0][i] = NULL;
+    }
+  else 
+    {
+      /* Get a tagidx for this GS tag.
+       * tagidx < ngs; we already saw this tag;
+       * tagidx == ngs; this is a new one.
+       */
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
+#else
+      for (tagidx = 0; tagidx < msa->ngs; tagidx++)
+	if (strcmp(msa->gs_tag[tagidx], tag) == 0) break;
+#endif
+      /* Reallocation (in blocks of 1) */
+      if (tagidx == msa->ngs ) 
+	{
+	  ESL_RALLOC(msa->gs_tag, p, (msa->ngs+1) * sizeof(char *));
+	  ESL_RALLOC(msa->gs,     p, (msa->ngs+1) * sizeof(char **));
+	  ESL_ALLOC(msa->gs[msa->ngs], sizeof(char *) * msa->sqalloc);
+	  for (i = 0; i < msa->sqalloc; i++) 
+	    msa->gs[msa->ngs][i] = NULL;
+	}
+    }
+
+  /* Store the tag, if it's new.
+   */
+  if (tagidx == msa->ngs) 
+    {
+      if ((status = esl_strdup(tag, -1, &(msa->gs_tag[tagidx]))) != eslOK) goto ERROR;
+      msa->ngs++;
+    }
+  
+  /* Store the annotation on the sequence.
+   * If seq is unannotated, dup the value; if
+   * seq already has a GS annotation, cat a \n, then cat the value.
+   */
+  if (msa->gs[tagidx][sqidx] == NULL)
+    {
+      if ((status = esl_strdup(value, -1, &(msa->gs[tagidx][sqidx]))) != eslOK) goto ERROR;
+    }
+  else 
+    {			
+      int n1,n2;
+      n1 = strlen(msa->gs[tagidx][sqidx]);
+      n2 = strlen(value);
+      ESL_RALLOC(msa->gs[tagidx][sqidx], p, sizeof(char) * (n1+n2+2));
+      msa->gs[tagidx][sqidx][n1] = '\n';
+      strcpy(msa->gs[tagidx][sqidx]+n1+1, value);
+    }
+  return eslOK;
+
+ ERROR:
+  return status;
+} 
+
+/* Function:  esl_msa_AppendGC()
+ * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
+ *
+ * Purpose:   Add an unparsed #=GC markup line to the MSA 
+ *            structure, allocating as necessary. When called 
+ *            multiple times for the same tag, appends value 
+ *            strings together -- used when parsing multiblock 
+ *            alignment files, for example.
+ *
+ * Args:      msa   - multiple alignment structure
+ *            tag   - markup tag (e.g. "CS")
+ *            value - markup, one char per aligned column      
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
+{
+  int   tagidx;
+  int   status;
+  void *p;
+
+  /* Is this an unparsed tag name that we recognize?
+   * If not, handle adding it to index, and reallocating
+   * as needed.
+   */
+  if (msa->gc_tag == NULL)	/* first tag? init&allocate  */
+    {
+#ifdef eslAUGMENT_KEYHASH
+      msa->gc_idx = esl_keyhash_Create();
+      status = esl_key_Store(msa->gc_idx, tag, &tagidx);      
+      if (status != eslOK && status != eslEDUP) return status;
+      ESL_DASSERT1((tagidx == 0));
+#else
+      tagidx = 0;
+#endif
+      ESL_ALLOC(msa->gc_tag, sizeof(char **));
+      ESL_ALLOC(msa->gc,     sizeof(char **));
+      msa->gc[0]  = NULL;
+    }
+  else
+    {			/* new tag? */
+      /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gc_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) goto ERROR;
+#else
+      for (tagidx = 0; tagidx < msa->ngc; tagidx++)
+	if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
+#endif
+      /* Reallocate, in block of one tag at a time
+       */
+      if (tagidx == msa->ngc)
+	{
+	  ESL_RALLOC(msa->gc_tag, p, (msa->ngc+1) * sizeof(char **));
+	  ESL_RALLOC(msa->gc,     p, (msa->ngc+1) * sizeof(char **));
+	  msa->gc[tagidx] = NULL;
+	}
+    }
+  /* new tag? store it.
+   */
+  if (tagidx == msa->ngc) 
+    {
+      if ((status = esl_strdup(tag, -1, &(msa->gc_tag[tagidx]))) != eslOK) goto ERROR;
+      msa->ngc++;
+    }
+  return (esl_strcat(&(msa->gc[tagidx]), -1, value, -1));
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_msa_AppendGR()
+ * Incept:    SRE, Thu Jun  3 06:34:38 1999 [Madison]
+ *
+ * Purpose:   Add an unparsed #=GR markup line to the MSA structure, 
+ *            allocating as necessary.
+ *              
+ *            When called multiple times for the same tag, appends 
+ *            value strings together -- used when parsing multiblock 
+ *            alignment files, for example.
+ *
+ * Args:      msa    - multiple alignment structure
+ *            tag    - markup tag (e.g. "SS")
+ *            sqidx  - index of seq to assoc markup with (0..nseq-1)
+ *            value  - markup, one char per aligned column      
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value)
+{
+  void *p;
+  int tagidx;
+  int i;
+  int status;
+
+  if (msa->gr_tag == NULL)	/* first tag? init&allocate  */
+    {
+#ifdef eslAUGMENT_KEYHASH
+      msa->gr_idx = esl_keyhash_Create();
+      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
+      ESL_DASSERT1((tagidx == 0));
+#else
+      tagidx = 0;
+#endif
+      ESL_ALLOC(msa->gr_tag, sizeof(char *));
+      ESL_ALLOC(msa->gr,     sizeof(char **));
+      ESL_ALLOC(msa->gr[0],  sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++) 
+	msa->gr[0][i] = NULL;
+    }
+  else 
+    {
+      /* get tagidx for this GR tag. existing<ngr; new=ngr.
+       */
+#ifdef eslAUGMENT_KEYHASH
+      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
+      if (status != eslOK && status != eslEDUP) return status;
+#else
+      for (tagidx = 0; tagidx < msa->ngr; tagidx++)
+	if (strcmp(msa->gr_tag[tagidx], tag) == 0) break;
+#endif
+      /* if a new tag, realloc for it */      
+      if (tagidx == msa->ngr)
+	{ 
+	  ESL_RALLOC(msa->gr_tag, p, (msa->ngr+1) * sizeof(char *));
+	  ESL_RALLOC(msa->gr,     p, (msa->ngr+1) * sizeof(char **));
+	  ESL_ALLOC(msa->gr[msa->ngr], sizeof(char *) * msa->sqalloc);
+	  for (i = 0; i < msa->sqalloc; i++) 
+	    msa->gr[msa->ngr][i] = NULL;
+	}
+    }
+
+  if (tagidx == msa->ngr) 
+    {
+      if ((status = esl_strdup(tag, -1, &(msa->gr_tag[tagidx]))) != eslOK) goto ERROR;
+      msa->ngr++;
+    }
+  return (esl_strcat(&(msa->gr[tagidx][sqidx]), -1, value, -1));
+
+ ERROR:
+  return status;
+}
+
 /*-------------------- end of misc MSA functions ----------------------*/
 
 
@@ -2758,7 +2765,7 @@ parse_gf(ESL_MSA *msa, char *buf)
       status = eslOK;
     }
   else 				/* an unparsed #=GF: */
-    status = add_gf(msa, tag, text);
+    status = esl_msa_AddGF(msa, tag, text);
 
   return status;
 }
@@ -2804,7 +2811,7 @@ parse_gs(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "DE") == 0)
     status = set_seq_description(msa, seqidx, text);
   else				
-    status = add_gs(msa, tag, seqidx, text);
+    status = esl_msa_AddGS(msa, tag, seqidx, text);
 
   return status;
 }
@@ -2837,7 +2844,7 @@ parse_gc(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "RF") == 0)
     status = esl_strcat(&(msa->rf), -1, text, len);
   else
-    status = append_gc(msa, tag, text);
+    status = esl_msa_AppendGC(msa, tag, text);
 
   return status;
 }
@@ -2901,7 +2908,7 @@ parse_gr(ESL_MSA *msa, char *buf)
       msa->salen[seqidx] += len;
     }
   else 
-    status = append_gr(msa, tag, seqidx, text);
+    status = esl_msa_AppendGR(msa, tag, seqidx, text);
   return status;
 
  ERROR:
@@ -2921,7 +2928,7 @@ parse_comment(ESL_MSA *msa, char *buf)
   s = buf + 1;			               /* skip leading '#' */
   if (*s == '\n') { *s = '\0'; comment = s; }  /* deal with blank comment */
   else if (esl_strtok(&s, "\n\r", &comment, NULL)!= eslOK) return eslEFORMAT;
-  return (add_comment(msa, comment));
+  return (esl_msa_AddComment(msa, comment));
 }
 
 /* parse_sequence():
