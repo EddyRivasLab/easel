@@ -946,8 +946,11 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            opt_fj     - optRETURN: vector of K $f_j$ background probs, 0..K-1
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
  *
- * Returns:   <eslOK> on success, and <ret_P>, <ret_fi>, <ret_fj>, and <ret_lambda>
+ * Returns:   <eslOK> on success, and <opt_P>, <opt_fi>, <opt_fj>, and <opt_lambda>
  *            point to the results (for any of these that were passed non-<NULL>).
+ *
+ *            <opt_P>, <opt_fi>, and <opt_fj>, if requested, are new
+ *            allocations, and must be freed by the caller.
  *            
  *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
  *

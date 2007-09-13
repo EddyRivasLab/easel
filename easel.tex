@@ -265,10 +265,8 @@ Easel uses the following error-handling macros:
 \begin{tabular}{|ll|}\hline
 \ccode{ESL\_FAIL(code, errbuf, mesg, ...)}   & Format errbuf, return failure code. \\
 \ccode{ESL\_EXCEPTION(code, mesg, ...)}      & Throw an exception, return exception code. \\
-\ccode{ESL\_FWD(code)}                       & Percolate an exception upwards. \\
 \ccode{ESL\_XFAIL(code, errbuf, mesg, ...)}  & A failure message, with cleanup convention.\\
 \ccode{ESL\_XEXCEPTION(code, mesg, ...)}     & An exception, with cleanup convention.\\
-\ccode{ESL\_XFWD(code)}                      & Percolate an exception, with cleanup convention.\\
 \hline
 \end{tabular}
 }

@@ -143,9 +143,8 @@ main(int argc, char **argv)
   int       i;
   int       gop; 
   int       gex;
-  char     *mxfile     = NULL;
+  char     *mxfile     = "PMX";
   int       raw_sc;
-  double    bit_sc;
 
   /* Configuration 
    */
@@ -162,8 +161,8 @@ main(int argc, char **argv)
   /* Input an amino acid score matrix from a file. */
   if (mxfile != NULL) {
     ESL_FILEPARSER  *efp = NULL;
-    if ( esl_fileparser_Open(mxfile, &efp)    != eslOK) esl_fatal("failed to open score file %s", mxfile);
-    if ( esl_scorematrix_Read(efp, abc, &S)   != eslOK) esl_fatal("failed to read matrix from %s", mxfile);
+    if ( esl_fileparser_Open(mxfile, &efp)  != eslOK) esl_fatal("failed to open score file %s", mxfile);
+    if ( esl_sco_Read(efp, abc, &S)         != eslOK) esl_fatal("failed to read matrix from %s", mxfile);
     esl_fileparser_Close(efp);
   } else {			/* default = BLOSUM62 */
     S = esl_scorematrix_Create(abc);
@@ -177,8 +176,7 @@ main(int argc, char **argv)
     {
       esl_rnd_xIID(r, bg, 20, M, y);
       esl_swat_Score(x, L, y, M, S, gop, gex, &raw_sc);
-      bit_sc = (double) raw_sc * 0.693 / lambda;
-      printf("%g\n", bit_sc);
+      printf("%d\n", raw_sc);
     }
   
   free(x);
