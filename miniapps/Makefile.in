@@ -23,7 +23,8 @@ PROGS = esl-afetch\
 	esl-alistat\
 	esl-compstruct\
 	esl-histplot\
-	esl-reformat
+	esl-reformat\
+	esl-alimanip
 
 ## Targets defining how to make miniapp executables.
 #

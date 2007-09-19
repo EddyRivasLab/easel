@@ -550,7 +550,7 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	  while ((status = process_optlist(g, &s, &incompati)) != eslEOD)
 	    {
 	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
-	      if (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL)
+	      if (incompati != i && (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL))
 		ESL_FAIL(eslESYNTAX, g->errbuf,
 			 "Option %.24s is incompatible with option(s) %.24s", 
 			 g->opt[i].name, g->opt[i].incompat_opts);
