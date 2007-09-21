@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #include <easel.h>
 #include <esl_getopts.h>
@@ -33,6 +34,8 @@ static int  pick_gappiest_columns(int *ngaps, int astart, int aend, int nkeep, i
 static int  get_gaps_per_column(ESL_MSA *msa, int **ret_ngaps);
 static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int *ret_clen);
 static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
+static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
+static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
@@ -47,6 +50,7 @@ static ESL_OPTIONS options[] = {
   { "-v",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph or --merge)",                   1 },
   { "--merge",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--morph,-g,-k,-r",          "merge msa in <msafile> with msa in <f>",                         2 },
   { "--morph",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge",                   "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
+  { "--trim",      eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          3 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              3 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              3 },
@@ -77,6 +81,9 @@ main(int argc, char **argv)
   /* --merge and --morph related vars */
   ESL_MSAFILE  *otherafp = NULL;	/* other input alignment file (with --morph) */
   ESL_MSA      *othermsa = NULL;	/* other input alignment      (with --morph) */
+
+  /* --trim related vars */
+  ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
 
   /***********************************************
    * Parse command line
@@ -221,6 +228,22 @@ main(int argc, char **argv)
 	      esl_fatal("No alignments read in %s.", esl_opt_GetString(go, "--morph"));
 	  }
 	}
+
+      /* if nec, handle --trim option */
+      if(esl_opt_GetString(go, "--trim") != NULL) { 
+	/* open seq file for --trim */
+	status = esl_sqfile_Open(esl_opt_GetString(go, "--trim"), eslSQFILE_UNKNOWN, NULL, &(trimfp));
+	if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
+	else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
+	else if (status == eslEINVAL)  ESL_FAIL(status, errbuf, "Can’t autodetect stdin or .gz."); 
+	else if (status != eslOK)      ESL_FAIL(status, errbuf, "Sequence file open failed with error %d\n", status);
+	/* read the sequences */
+	ESL_SQ **sq;
+	read_sqfile(trimfp, msa->abc, msa->nseq, &sq); /* dies on failure */
+	/* trim the msa */
+	if((status = trim_msa(msa, sq, errbuf)) != eslOK) goto ERROR;
+	write_ali = TRUE;
+      }
 
       /* if nec, morph <msafile> into gap structure in <f> (from --morph <f>)*/
       if(esl_opt_GetString(go, "--morph") != NULL)
@@ -443,7 +466,6 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
 
   int *new_c2a_map1 = NULL;   /* merged msa1 map of consensus columns (non-gap RF residues) to alignment columns */
   int *new_c2a_map2 = NULL;   /* merged msa2 map of consensus columns (non-gap RF residues) to alignment columns */
-  int *akeep = NULL;          /* [1..apos..msa1->alen] TRUE to keep column apos in merged msa1, FALSE not to */
   int *aadd1 = NULL;          /* [1..apos..msa1->alen] number of columns to add after column apos to merge msa1 */
   int *aadd2 = NULL;          /* [1..apos..msa2->alen] number of columns to add after column apos to merge msa2 */
   int apos1, apos2;           /* counters over alignment positions of msa1, msa2 */
@@ -451,13 +473,11 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
   int clen, clen2, new_clen1, new_clen2; /* consensus lengths */
   int tmp_ngaps;              /* temp var for number of gaps */
   int cur_apos1, nxt_apos1, cur_apos2, nxt_apos2; /* impt alignment positions */
-  int astart1, astart2;       /* impt alignment positions */
+  int astart2;                /* impt alignment positions */
   int ngaps1, ngaps2;         /* [1..apos..msa->alen] number of gaps in column apos of msa1, msa2 */
-  int *msa1_cols_to_remove = NULL; /* temp array for picking columns to remove from msa1 */
   int *msa2_cols_to_keep   = NULL; /* temp array for picking columns to keep in msa2 */
   int nadd1, nadd2;           /* temp vars, number of columns to keep, add */
   int radd = 0;               /* number of residues in msa2 columns corresponding to all 100% gap columns added to msa1 */
-  int delete = 0;             /* number of residues in msa1 we have to delete during merge */
   int i, ip;                  /* sequence index counters */
   int x;                      /* general counter */
   int orig_msa1_nseq;         /* number of sequences in original msa1 */
@@ -1336,3 +1356,124 @@ static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int *ret_clen)
   if(c2a_map != NULL) free(c2a_map);
   return status;
 }
+
+
+/* read_sqfile
+ *                   
+ * Read all seqs in a sequence file and return them. Originally
+ * written for --trim option.
+ */
+static int read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq)
+{
+  int status;
+  ESL_SQ **sq; 
+  int i;
+  
+  /* get seqs from sqfile */
+  ESL_ALLOC(sq, sizeof(ESL_SQ *) * (nseq + 1)); /* +1 for the last guy we allocate but don't use */
+  i = 0;
+  sq[i] = esl_sq_CreateDigital(abc);
+  while ((status = esl_sqio_Read(sqfp, sq[i])) == eslOK) { 
+    i++;
+    if(i > nseq) esl_fatal("With --trim, sequence file must have same number seqs as in <msafile>\n"); 
+    sq[i] = esl_sq_CreateDigital(abc);
+  }
+  if (i != nseq) esl_fatal("With --trim, sequence file must have same number seqs as in <msafile>\n"); 
+  /* status should be eslEOF on normal end; if it isn't, deal w/ error */
+  esl_sq_Destroy(sq[i]); /* destroy final allocated but unused seq */
+    if (status == eslEFORMAT)
+      esl_fatal("\
+Sequence file parse error, line %d of file %s:\n\
+%s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+    else if (status != eslEOF)
+      esl_fatal("Sequence file %s read failed with error code %d\n",
+		sqfp->filename, status);
+  esl_sqfile_Close(sqfp);
+  *ret_sq = sq;
+
+  return eslOK;
+
+ ERROR:
+  esl_fatal("Memory allocation error.");
+  return status; /* NEVERREACHED */
+}
+
+
+/* trim_msa
+ *                   
+ * Given an MSA and unaligned 'trimmed' versions (subsequences) of all seqs in that MSA, 
+ * replace all chars that have been trimmed away (not in subsequences) with gaps in the MSA.
+ */
+static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
+{
+  int status;
+  int i;
+  int apos, uapos;
+  int astart,  aend;
+  int uastart, uaend;
+  char *offset;
+  char *aseq;
+  char *uaseq;
+  char *uasubseq;
+  int *a2ua_map;
+  int *ua2a_map;
+  int ualen;
+
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), msa must be digitized.");
+
+  ESL_ALLOC(aseq,  sizeof(char) * (msa->alen+1));
+
+  for(i = 0; i < msa->nseq; i++)
+    {
+      if(! (sq[i]->flags & eslSQ_DIGITAL))  ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq's must be digitized.");
+      if(sq[i]->n == 0) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is zero-length\n", i);
+
+      ESL_ALLOC(a2ua_map, sizeof(int) * (msa->alen+1));
+      esl_vec_ISet(a2ua_map, (msa->alen+1), -1);
+      uapos = apos = 1;
+      while(apos <= msa->alen)
+	{
+	  while(apos <= msa->alen && esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) apos++;
+	  if(apos <= msa->alen) a2ua_map[apos] = uapos++;
+	  apos++;
+	}
+      ualen = uapos;
+      ESL_ALLOC(ua2a_map, sizeof(int) * (ualen+1));
+      ua2a_map[0] = -1;
+      for(apos = 1; apos <= msa->alen; apos++)
+	if(a2ua_map[apos] != -1)
+	  ua2a_map[a2ua_map[apos]] = apos;
+
+      ESL_ALLOC(uasubseq, sizeof(char) * (sq[i]->n+1));
+      esl_abc_Textize(msa->abc, sq[i]->dsq, sq[i]->n, uasubseq);
+      esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, aseq);
+
+      esl_strdup(aseq, -1, &(uaseq));
+      esl_sq_Dealign(uaseq, uaseq, "-_.", msa->alen);
+      offset = strstr(uaseq, uasubseq);
+      if(offset == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
+      uastart = offset  - uaseq + 1;
+      uaend   = uastart + strlen(uasubseq) - 1;
+      astart  = ua2a_map[uastart];
+      aend    = ua2a_map[uaend];
+      free(ua2a_map);
+      free(a2ua_map);
+
+      for(apos = 1;        apos <  astart;    apos++) msa->ax[i][apos] = msa->abc->K; /* make it a gap */
+      for(apos = aend + 1; apos <= msa->alen; apos++) msa->ax[i][apos] = msa->abc->K; /* make it a gap */
+      free(uaseq);
+      free(uasubseq);
+    }
+
+  for(i = 0; i < msa->nseq; i++)
+    esl_sq_Destroy(sq[i]);
+  free(sq);
+      
+  free(aseq);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
