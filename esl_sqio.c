@@ -725,6 +725,10 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     sqfp->afp->do_gzip    = sqfp->do_gzip;
     sqfp->afp->do_stdin   = sqfp->do_stdin;
     sqfp->afp->format     = sqfp->format;
+    sqfp->afp->do_digital = FALSE;
+    sqfp->afp->abc        = NULL;
+    sqfp->afp->ssi        = NULL;
+    sqfp->afp->msa_cache  = NULL;
     break;
 #endif /*eslAUGMENT_MSA*/
   }
@@ -1232,10 +1236,14 @@ esl_sqio_WhatFormat(FILE *fp)
 
   /* formats that can be determined from the first line:
    */
-  if      (*buf == '>')                      fmt = eslSQFILE_FASTA;
-  else if (strncmp(buf, "ID   ", 5)    == 0) fmt = eslSQFILE_EMBL;
-  else if (strncmp(buf, "LOCUS   ", 8) == 0) fmt = eslSQFILE_GENBANK;
+  if      (*buf == '>')                                       fmt = eslSQFILE_FASTA;
+  else if (strncmp(buf, "ID   ", 5)    == 0)                  fmt = eslSQFILE_EMBL;
+  else if (strncmp(buf, "LOCUS   ", 8) == 0)                  fmt = eslSQFILE_GENBANK;
   else if (strstr(buf, "Genetic Sequence Data Bank") != NULL) fmt = eslSQFILE_GENBANK;
+#ifdef eslAUGMENT_MSA
+  else if (strncmp(buf, "# STOCKHOLM", 11) == 0)              fmt = eslMSAFILE_STOCKHOLM;
+#endif
+  else                                                        fmt = eslSQFILE_UNKNOWN;
 
   rewind(fp);
   return fmt;
