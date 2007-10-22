@@ -41,7 +41,8 @@ static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf);
-static int  plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf);
+static int  plot_inserts(FILE *fp, ESL_MSA *msa, int do_log, char *errbuf);
+static int  plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max);
@@ -61,8 +62,10 @@ static ESL_OPTIONS options[] = {
   { "--morph",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge",                   "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
   { "--trim",      eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
   { "--iinfo",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "print info on # of insertions b/t all non-gap RF cols to <f>",   2 },
+  { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          2 },
   { "--iplot",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 2 },
-  { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "reorder MSA to tree ordering following single linkage clustering", 2 },
+  { "--gplot",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  2 },
+  { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "reorder MSA to tree ordering following single linkage clustering",2 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          3 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              3 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              3 },
@@ -97,9 +100,10 @@ main(int argc, char **argv)
   /* --trim related vars */
   ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
 
-  /* --iinfo, --iplot related vars */
+  /* --iinfo, --iplot, --gplot related vars */
   FILE *iinfofp = NULL;  /* output file for --iinfo */
   FILE *iplotfp = NULL;  /* output file for --iplot */
+  FILE *gplotfp = NULL;  /* output file for --gplot */
 
   /***********************************************
    * Parse command line
@@ -344,8 +348,16 @@ main(int argc, char **argv)
       if(! esl_opt_IsDefault(go, "--iplot")) {
 	if ((iplotfp = fopen(esl_opt_GetString(go, "--iplot"), "w")) == NULL) 
 	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iplot output file %s\n", esl_opt_GetString(go, "--iplot"));
-	if((status = plot_inserts(iplotfp, msa, errbuf) != eslOK)) goto ERROR;
+	if((status = plot_inserts(iplotfp, msa, esl_opt_GetBoolean(go, "--ilog"), errbuf) != eslOK)) goto ERROR;
 	fclose(iplotfp);
+      }
+
+      /* handle the --gplot option, if enabled, do this after all MSA has been manipulated due to other options */
+      if(! esl_opt_IsDefault(go, "--gplot")) {
+	if ((gplotfp = fopen(esl_opt_GetString(go, "--gplot"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --gplot output file %s\n", esl_opt_GetString(go, "--gplot"));
+	if((status = plot_gaps(gplotfp, msa, errbuf) != eslOK)) goto ERROR;
+	fclose(gplotfp);
       }
 
       /* write out alignment, if nec */
@@ -1591,10 +1603,10 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
 /* plot_inserts
  *                   
  * Given an MSA with RF annotation, print a postscript heatmap of how
- * many insertions are afer each non-gap RF column (consensus column)
+ * many insertions are after each non-gap RF column (consensus column)
  * in each sequence.
  */
-static int plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf)
+static int plot_inserts(FILE *fp, ESL_MSA *msa, int do_log, char *errbuf)
 {
   int status;
   int apos, cpos;
@@ -1606,9 +1618,6 @@ static int plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf)
   if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iplot.");
   if(! (msa->flags & eslMSA_DIGITAL))
     ESL_XFAIL(eslEINVAL, errbuf, "in plot_inserts(), msa must be digitized.");
-
-  if(! (msa->flags & eslMSA_DIGITAL))
-    ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
 
   clen = 0;
   for(apos = 1; apos <= msa->alen; apos++)
@@ -1625,8 +1634,56 @@ static int plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf)
       for(i = 0; i < msa->nseq; i++)
 	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) I->mx[i][cpos] += 1.;
   }
+  if(do_log) {
+    for(i = 0; i < msa->nseq; i++)
+      for(cpos = 0; cpos <= clen; cpos++)
+	I->mx[i][cpos] = log(I->mx[i][cpos]);
+  }
+	     
   dmx_Visualize(fp, I, esl_dmx_Min(I), esl_dmx_Max(I));
   esl_dmatrix_Destroy(I);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* plot_gaps
+ *                   
+ * Given an MSA with RF annotation, print a postscript checkboard grid 
+ * showing which sequences have gaps in each non-gap RF column. 
+ */
+static int plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf)
+{
+  int status;
+  int apos, cpos;
+  int i;
+  int clen;
+  ESL_DMATRIX *G;
+
+  /* contract check */
+  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --gplot.");
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_XFAIL(eslEINVAL, errbuf, "in plot_gaps(), msa must be digitized.");
+
+  clen = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) clen++;
+
+  G = esl_dmatrix_Create(msa->nseq, (clen+1));
+  esl_dmatrix_SetZero(G);
+
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) {
+      cpos++;
+      for(i = 0; i < msa->nseq; i++)
+	if(esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) G->mx[i][cpos] += 1.;
+    }
+  }
+  dmx_Visualize(fp, G, esl_dmx_Min(G), esl_dmx_Max(G));
+  esl_dmatrix_Destroy(G);
   return eslOK;
 
  ERROR:
@@ -1818,10 +1875,11 @@ dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max)
    /* Determine some working parameters 
     */
    w = (max-min) / (double) nshades; /* w = bin size for assigning values->colors*/
-   boxsize = ESL_MIN( (792 - bottommargin) / D->n, 
-		      (612 - leftmargin)   / D->m);
+   boxsize = ESL_MAX(1, (ESL_MIN((792 - bottommargin) / D->n, 
+				 (612 - leftmargin)   / D->m)));
    fboxsize= ESL_MIN( (792. - ((float) bottommargin + topmargin))   / (float) D->n, 
 		      (612. - ((float) leftmargin   + rightmargin)) / (float) D->m);
+
 
    fprintf(fp, "%.4f %.4f scale\n", (fboxsize/(float) boxsize), (fboxsize/(float) boxsize));
    /* printf("n: %d\nm: %d\n", D->n, D->m); */
