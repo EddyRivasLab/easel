@@ -11,11 +11,13 @@
 #include <math.h>
 
 #include <easel.h>
+#include <esl_distance.h>
 #include <esl_getopts.h>
 #include <esl_sqio.h>
 #include <esl_msa.h>
 #include <esl_distance.h>
 #include <esl_vectorops.h>
+#include <esl_tree.h>
 #include <esl_wuss.h>
 
 static char banner[] = "manipulate a multiple sequence alignment file";
@@ -36,6 +38,8 @@ static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int *ret_clen);
 static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
+static int  dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf);
+static int  order_by_tree(ESL_TREE *T, char *errbuf, int **ret_order);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
@@ -51,6 +55,9 @@ static ESL_OPTIONS options[] = {
   { "--merge",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--morph,-g,-k,-r",          "merge msa in <msafile> with msa in <f>",                         2 },
   { "--morph",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge",                   "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
   { "--trim",      eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
+  { "--iinfo",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "print information on # of insertions b/t all non-gap RF cols",   2 },
+  { "--ifile",     eslARG_STRING, NULL, NULL, NULL,      NULL,"--iinfo","--merge,--morph",      "output file for --iinfo",   2 },
+  { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "reorder MSA to tree ordering following single linkage clustering", 2 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          3 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              3 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              3 },
@@ -84,6 +91,9 @@ main(int argc, char **argv)
 
   /* --trim related vars */
   ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
+
+  /* --iinfo related vars */
+  FILE *iinfofp = NULL;  /* output file for --iinfo */
 
   /***********************************************
    * Parse command line
@@ -290,13 +300,52 @@ main(int argc, char **argv)
 	  write_ali = TRUE;
 	}
 
+      /* handle the --iinfo option, if enabled */
+      if(! esl_opt_IsDefault(go, "--iinfo"))
+	{
+	  if(esl_opt_GetString(go, "--ifile") != NULL)
+	    {
+	      if ((iinfofp = fopen(esl_opt_GetString(go, "--ifile"), "w")) == NULL) 
+		ESL_FAIL(eslFAIL, errbuf, "Failed to open --ifile output file %s\n", esl_opt_GetString(go, "--ifile"));
+	      if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
+	    }
+	  else
+	    if((status = dump_insert_info(stdout, msa, errbuf) != eslOK)) goto ERROR;
+	}
+
+      /* handle the --tree option, if enabled */
+      if(! esl_opt_IsDefault(go, "--tree"))
+	{
+	  ESL_TREE    *T = NULL;/* the tree, created by Single-Linkage Clustering */
+	  ESL_DMATRIX *D = NULL;/* the distance matrix */
+	  double *diff = NULL; /* [0..T->N-2], diff[n]= min distance between any leaf in right and
+				* left subtree of node n of tree T */
+	  
+	  /* Create distance matrix and infer tree by single linkage clustering */
+	  esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D);
+	  esl_tree_SingleLinkage(D, &T);
+	  esl_tree_SetTaxaParents(T);
+	  esl_tree_WriteNewick(stdout, T);
+	  esl_tree_Validate(T, NULL);
+
+	  /* Get new order for seqs in the MSA based on the tree */
+	  int *order;
+	  order_by_tree(T, errbuf, &order);
+	  for(i = 0; i < msa->nseq; i++)
+	    {
+	      printf("order[%3d]: %3d\n", i, order[i]);
+	    }
+	  esl_tree_Destroy(T);
+	  esl_dmatrix_Destroy(D);
+	}	  
+
       /* write out alignment, if nec */
       if(write_ali) {
 	status = esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
 	else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
-	esl_msa_Destroy(msa);
       }
+      esl_msa_Destroy(msa);
     }
 
   /* If an msa read failed, we drop out to here with an informative status code. 
@@ -1471,6 +1520,121 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
   free(sq);
       
   free(aseq);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* dump_insert_info
+ *                   
+ * Given an MSA with RF annotation, print out information about how many 'insertions' come
+ * after each non-gap RF column (consensus column). 
+ */
+static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
+{
+  int status;
+  int apos, cpos;
+  int **ict;
+  int i;
+  int clen;
+  int nseq;
+
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
+
+  ESL_ALLOC(ict,  sizeof(int *) * (msa->alen+2));
+  for(i = 0; i <= msa->alen; i++)
+    {
+      ESL_ALLOC(ict[i],  sizeof(int) * (msa->nseq));
+      esl_vec_ISet(ict[i], (msa->nseq), 0);
+    }
+
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) 
+	cpos++;
+      else
+	for(i = 0; i < msa->nseq; i++)
+	  if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) ict[cpos][i]++;
+    }
+  clen = cpos;
+  for(cpos = 0; cpos <= clen; cpos++)
+    {
+      nseq = 0;
+      for(i = 0; i < msa->nseq; i++)
+	if(ict[cpos][i] >= 1) nseq++;
+      if(nseq > 0) 
+	printf("%5d %5d\n", cpos, nseq);
+    }
+
+  for(i = 0; i <= msa->alen; i++)
+    free(ict[i]);
+  free(ict);
+      
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+
+/* order_by_tree
+ *                   
+ * Given a tree, determine the branching order of the sequences
+ * it represents by traversing it preorder.
+ */
+static int order_by_tree(ESL_TREE *T, char *errbuf, int **ret_order)
+{
+  int status;
+  int pos = 0;
+  int *done_taxa;
+  int *done_node;
+  int *order; 
+  int nd;
+  
+  ESL_ALLOC(done_taxa, sizeof(int) * T->N);
+  ESL_ALLOC(done_node, sizeof(int) * (T->N-1));
+  ESL_ALLOC(order, sizeof(int) * T->N);
+
+  esl_vec_ISet(done_taxa, T->N, 0);
+  esl_vec_ISet(done_node, (T->N-1), 0);
+
+  nd = 0;
+  pos = 0;
+
+  /* REDO THIS LIKE EMITMAP.C WITH PUSHDOWN STACK */
+  while(1)
+    {
+      printf("nd: %d pos: %d\n", nd, pos);
+      if(nd < 0 && (! done_taxa[(nd * -1)])) {
+	order[pos++] = (nd * -1);
+	done_taxa[(nd * -1)] = 1;
+	nd = T->taxaparent[(nd * -1)];
+      }
+      else {
+	if(((T->left[nd] <  0)  && (! done_taxa[(T->left[nd] * -1)])) ||
+	   ((T->left[nd] >  0)  && (! done_node[ T->left[nd]])))
+	  nd = T->left[nd];
+	else if(((T->right[nd] <  0)  && (! done_taxa[(T->right[nd] * -1)])) ||
+		((T->right[nd] >  0)  && (! done_node[T->right[nd]])))
+	  nd = T->right[nd];
+	else if(nd == 0) break; /* only way out of the while(1) loop */
+	else { 
+	  done_node[nd] = 1;
+	  nd = T->parent[nd];
+	}
+      }
+    }
+  if(pos != T->N) 
+    ESL_XFAIL(eslEINVAL, errbuf, "in order_by_tree(), finished while loop, pos (%d) != number of taxa (%d)\n", pos, T->N);
+  
+  *ret_order = order;
+  free(done_taxa);
+  free(done_node);
   return eslOK;
 
  ERROR:

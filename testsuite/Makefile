@@ -6,8 +6,8 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
-CC       = gcc
-CFLAGS   = -g -Wall
+CC       = gcc -std=gnu99
+CFLAGS   = -g -O2
 CPPFLAGS = 
 LDFLAGS  = 
 DEFS     = -DHAVE_CONFIG_H
