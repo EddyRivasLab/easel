@@ -69,7 +69,8 @@ esl_dmatrix_Create(int n, int m)
 
   ESL_ALLOC(A->mx[0], sizeof(double) * n * m);
   for (r = 1; r < n; r++)
-    A->mx[r] = A->mx[0] + r*n;
+    /*A->mx[r] = A->mx[0] + r*n;*/
+    A->mx[r] = A->mx[0] + r*m;
 
   A->type   = eslGENERAL;
   A->ncells = n * m; 

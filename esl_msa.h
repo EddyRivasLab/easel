@@ -210,7 +210,6 @@ extern int   esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt);
 extern char *esl_msa_DescribeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
-
 /* 5. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme);

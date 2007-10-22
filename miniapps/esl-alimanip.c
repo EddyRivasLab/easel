@@ -16,7 +16,9 @@
 #include <esl_sqio.h>
 #include <esl_msa.h>
 #include <esl_distance.h>
+#include <esl_dmatrix.h>
 #include <esl_vectorops.h>
+#include <esl_stack.h>
 #include <esl_tree.h>
 #include <esl_wuss.h>
 
@@ -39,7 +41,10 @@ static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf);
-static int  order_by_tree(ESL_TREE *T, char *errbuf, int **ret_order);
+static int  plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf);
+static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
+static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
+static int  dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
@@ -55,8 +60,8 @@ static ESL_OPTIONS options[] = {
   { "--merge",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--morph,-g,-k,-r",          "merge msa in <msafile> with msa in <f>",                         2 },
   { "--morph",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge",                   "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
   { "--trim",      eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
-  { "--iinfo",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "print information on # of insertions b/t all non-gap RF cols",   2 },
-  { "--ifile",     eslARG_STRING, NULL, NULL, NULL,      NULL,"--iinfo","--merge,--morph",      "output file for --iinfo",   2 },
+  { "--iinfo",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "print info on # of insertions b/t all non-gap RF cols to <f>",   2 },
+  { "--iplot",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 2 },
   { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "reorder MSA to tree ordering following single linkage clustering", 2 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          3 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              3 },
@@ -92,8 +97,9 @@ main(int argc, char **argv)
   /* --trim related vars */
   ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
 
-  /* --iinfo related vars */
+  /* --iinfo, --iplot related vars */
   FILE *iinfofp = NULL;  /* output file for --iinfo */
+  FILE *iplotfp = NULL;  /* output file for --iplot */
 
   /***********************************************
    * Parse command line
@@ -300,44 +306,47 @@ main(int argc, char **argv)
 	  write_ali = TRUE;
 	}
 
-      /* handle the --iinfo option, if enabled */
-      if(! esl_opt_IsDefault(go, "--iinfo"))
-	{
-	  if(esl_opt_GetString(go, "--ifile") != NULL)
-	    {
-	      if ((iinfofp = fopen(esl_opt_GetString(go, "--ifile"), "w")) == NULL) 
-		ESL_FAIL(eslFAIL, errbuf, "Failed to open --ifile output file %s\n", esl_opt_GetString(go, "--ifile"));
-	      if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
-	    }
-	  else
-	    if((status = dump_insert_info(stdout, msa, errbuf) != eslOK)) goto ERROR;
-	}
-
       /* handle the --tree option, if enabled */
       if(! esl_opt_IsDefault(go, "--tree"))
 	{
 	  ESL_TREE    *T = NULL;/* the tree, created by Single-Linkage Clustering */
 	  ESL_DMATRIX *D = NULL;/* the distance matrix */
-	  double *diff = NULL; /* [0..T->N-2], diff[n]= min distance between any leaf in right and
-				* left subtree of node n of tree T */
 	  
 	  /* Create distance matrix and infer tree by single linkage clustering */
 	  esl_dst_XDiffMx(msa->abc, msa->ax, msa->nseq, &D);
 	  esl_tree_SingleLinkage(D, &T);
 	  esl_tree_SetTaxaParents(T);
-	  esl_tree_WriteNewick(stdout, T);
+	  /* esl_tree_WriteNewick(stdout, T); */
 	  esl_tree_Validate(T, NULL);
 
 	  /* Get new order for seqs in the MSA based on the tree */
 	  int *order;
-	  order_by_tree(T, errbuf, &order);
-	  for(i = 0; i < msa->nseq; i++)
-	    {
-	      printf("order[%3d]: %3d\n", i, order[i]);
-	    }
+	  if((status = get_tree_order(T, errbuf, &order)) != eslOK) goto ERROR;
+	  /*for(i = 0; i < msa->nseq; i++) {
+	    printf("order[%3d]: %3d\n", i, order[i]);
+	    }*/
 	  esl_tree_Destroy(T);
 	  esl_dmatrix_Destroy(D);
+	  if((status = reorder_msa(msa, order, errbuf)) != eslOK) goto ERROR;
+	  write_ali = TRUE;
+	  free(order);
 	}	  
+
+      /* handle the --iinfo option, if enabled, do this after all MSA has been manipulated due to other options */
+      if(! esl_opt_IsDefault(go, "--iinfo")) {
+	if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
+	if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
+	fclose(iinfofp);
+      }
+
+      /* handle the --iplot option, if enabled, do this after all MSA has been manipulated due to other options */
+      if(! esl_opt_IsDefault(go, "--iplot")) {
+	if ((iplotfp = fopen(esl_opt_GetString(go, "--iplot"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iplot output file %s\n", esl_opt_GetString(go, "--iplot"));
+	if((status = plot_inserts(iplotfp, msa, errbuf) != eslOK)) goto ERROR;
+	fclose(iplotfp);
+      }
 
       /* write out alignment, if nec */
       if(write_ali) {
@@ -428,14 +437,12 @@ static int
 write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
   int  status;
-  int *useme;
   int  apos;
   int  gaps;
   int  i;
   double gapthresh;
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * msa->alen);
-  ESL_ALLOC(useme, sizeof(int) * msa->alen);
   gapthresh = esl_opt_GetReal(go, "--gapthresh");
   for (apos = 1; apos <= msa->alen; apos++)
     {
@@ -1526,7 +1533,6 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
   return status;
 }
 
-
 /* dump_insert_info
  *                   
  * Given an MSA with RF annotation, print out information about how many 'insertions' come
@@ -1541,8 +1547,10 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   int clen;
   int nseq;
 
+  /* contract check */
   if(! (msa->flags & eslMSA_DIGITAL))
     ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iplot.");
 
   ESL_ALLOC(ict,  sizeof(int *) * (msa->alen+2));
   for(i = 0; i <= msa->alen; i++)
@@ -1580,64 +1588,272 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   return status;
 }
 
-
-
-/* order_by_tree
+/* plot_inserts
  *                   
- * Given a tree, determine the branching order of the sequences
- * it represents by traversing it preorder.
+ * Given an MSA with RF annotation, print a postscript heatmap of how
+ * many insertions are afer each non-gap RF column (consensus column)
+ * in each sequence.
  */
-static int order_by_tree(ESL_TREE *T, char *errbuf, int **ret_order)
+static int plot_inserts(FILE *fp, ESL_MSA *msa, char *errbuf)
 {
   int status;
-  int pos = 0;
-  int *done_taxa;
-  int *done_node;
-  int *order; 
-  int nd;
-  
-  ESL_ALLOC(done_taxa, sizeof(int) * T->N);
-  ESL_ALLOC(done_node, sizeof(int) * (T->N-1));
-  ESL_ALLOC(order, sizeof(int) * T->N);
+  int apos, cpos;
+  int i;
+  int clen;
+  ESL_DMATRIX *I;
 
-  esl_vec_ISet(done_taxa, T->N, 0);
-  esl_vec_ISet(done_node, (T->N-1), 0);
+  /* contract check */
+  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iplot.");
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_XFAIL(eslEINVAL, errbuf, "in plot_inserts(), msa must be digitized.");
 
-  nd = 0;
-  pos = 0;
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
 
-  /* REDO THIS LIKE EMITMAP.C WITH PUSHDOWN STACK */
-  while(1)
-    {
-      printf("nd: %d pos: %d\n", nd, pos);
-      if(nd < 0 && (! done_taxa[(nd * -1)])) {
-	order[pos++] = (nd * -1);
-	done_taxa[(nd * -1)] = 1;
-	nd = T->taxaparent[(nd * -1)];
-      }
-      else {
-	if(((T->left[nd] <  0)  && (! done_taxa[(T->left[nd] * -1)])) ||
-	   ((T->left[nd] >  0)  && (! done_node[ T->left[nd]])))
-	  nd = T->left[nd];
-	else if(((T->right[nd] <  0)  && (! done_taxa[(T->right[nd] * -1)])) ||
-		((T->right[nd] >  0)  && (! done_node[T->right[nd]])))
-	  nd = T->right[nd];
-	else if(nd == 0) break; /* only way out of the while(1) loop */
-	else { 
-	  done_node[nd] = 1;
-	  nd = T->parent[nd];
-	}
-      }
-    }
-  if(pos != T->N) 
-    ESL_XFAIL(eslEINVAL, errbuf, "in order_by_tree(), finished while loop, pos (%d) != number of taxa (%d)\n", pos, T->N);
-  
-  *ret_order = order;
-  free(done_taxa);
-  free(done_node);
+  clen = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) clen++;
+
+  I = esl_dmatrix_Create(msa->nseq, (clen+1));
+  esl_dmatrix_SetZero(I);
+
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) 
+      cpos++;
+    else
+      for(i = 0; i < msa->nseq; i++)
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) I->mx[i][cpos] += 1.;
+  }
+  dmx_Visualize(fp, I, esl_dmx_Min(I), esl_dmx_Max(I));
+  esl_dmatrix_Destroy(I);
   return eslOK;
 
  ERROR:
   return status;
+}
+
+/* get_tree_order
+ *                   
+ * Given a tree, determine the branching order of the sequences
+ * it represents by traversing it preorder.
+ */
+static int get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order)
+{
+  int status;
+  int opos = 0;
+  int nd;
+  int *order; 
+  ESL_STACK *pda;
+  ESL_ALLOC(order, sizeof(int) * T->N);
+
+  opos = 0;
+  pda  = esl_stack_ICreate();
+  esl_stack_IPush(pda, T->right[0]);
+  esl_stack_IPush(pda, T->left[0]);
+  while (esl_stack_IPop(pda, &nd) != eslEOD)
+    {
+      if (nd > 0) { /* a node */
+	esl_stack_IPush(pda, T->right[nd]); /* index for right child */
+	esl_stack_IPush(pda, T->left[nd]);  /* index for left child */
+      }
+      else /* nd <= 0, a child */
+	order[opos++] = nd * -1;
+    }
+  *ret_order = order;
+  esl_stack_Destroy(pda);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* reorder_msa
+ *                   
+ * Given an array specifying a new order for the sequences in
+ * the MSA, reorder it by swapping pointers.
+ */
+static int
+reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
+{
+  int status;
+  char **tmp; 
+  ESL_ALLOC(tmp, sizeof(char *) * msa->nseq);
+  int i, a;
+
+  /* contract check */
+  /* 'order' must be have nseq elements, elements must be in range [0..nseq-1], no duplicates  */
+  int *covered;
+  ESL_ALLOC(covered, sizeof(int) * msa->nseq);
+  esl_vec_ISet(covered, msa->nseq, 0);
+  for(i = 0; i < msa->nseq; i++) { 
+    if(covered[order[i]]) ESL_FAIL(eslEINVAL, errbuf, "reorder_msa() order array has duplicate entries for i: %d\n", i);
+    covered[order[i]] = 1;
+  }
+  free(covered);
+
+  /* swap aseq or ax (one or the other must be non-NULL) */
+  if(msa->flags & eslMSA_DIGITAL) { /* digital MSA */
+    ESL_DSQ **tmp_dsq; 
+    ESL_ALLOC(tmp_dsq, sizeof(ESL_DSQ *) * msa->nseq);
+    for(i = 0; i < msa->nseq; i++) tmp_dsq[i] = msa->ax[i];
+    for(i = 0; i < msa->nseq; i++) msa->ax[i] = tmp_dsq[order[i]];
+    free(tmp_dsq);
+  }
+  else { /* text MSA */
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->aseq[i];
+    for(i = 0; i < msa->nseq; i++) msa->aseq[i] = tmp[order[i]];
+  }
+
+  /* swap sqnames (mandatory) */
+  for(i = 0; i < msa->nseq; i++) tmp[i] = msa->sqname[i];
+  for(i = 0; i < msa->nseq; i++) msa->sqname[i] = tmp[order[i]];
+
+  /* swap sqacc, if they exist */
+  if(msa->sqacc != NULL) { 
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->sqacc[i];
+    for(i = 0; i < msa->nseq; i++) msa->sqacc[i] = tmp[order[i]];
+  }
+
+  /* swap sqdesc, if they exist */
+  if(msa->sqdesc != NULL) { 
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->sqdesc[i];
+    for(i = 0; i < msa->nseq; i++) msa->sqdesc[i] = tmp[order[i]];
+  }
+
+  /* swap ss, if they exist */
+  if(msa->ss != NULL) { 
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->ss[i];
+    for(i = 0; i < msa->nseq; i++) msa->sa[i] = tmp[order[i]];
+  }
+
+  /* swap sa, if they exist */
+  if(msa->sa != NULL) { 
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->sa[i];
+    for(i = 0; i < msa->nseq; i++) msa->sa[i] = tmp[order[i]];
+  }
+
+  /* swap gs annotation, if it exists */
+  for(a = 0; a < msa->ngs; a++) {
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->gs[a][i];
+    for(i = 0; i < msa->nseq; i++) msa->gs[a][i] = tmp[order[i]];
+  }
+
+  /* swap gr annotation, if it exists */
+  for(a = 0; a < msa->ngr; a++) {
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->gr[a][i];
+    for(i = 0; i < msa->nseq; i++) msa->gr[a][i] = tmp[order[i]];
+  }
+  free(tmp);
+  return eslOK;
+
+ ERROR: 
+  return status;
+}
+
+/****************************************************************
+ * Stolen from hmmer/h3/heatmap.c SVN revision 2171
+ * as dmx_Visualize. Then modified so that the full 
+ * matrix is printed (not half split diagonally).
+ */
+/* dmx_Visualize()
+ * Incept:    SRE, Wed Jan 24 11:58:21 2007 [Janelia]
+ *
+ * Purpose:   
+ *            
+ *            Color scheme roughly follows Tufte, Envisioning
+ *            Information, p.91, where he shows a beautiful
+ *            bathymetric chart. The CMYK values conjoin two
+ *            recommendations from ColorBrewer (Cindy Brewer
+ *            and Mark Harrower) 
+ *            [http://www.personal.psu.edu/cab38/ColorBrewer/ColorBrewer.html],
+ *            specifically the 9-class sequential2 Blues and
+ *            9-class sequential YlOrBr.
+ * 
+ *            Might eventually become part of Easel, once mature?
+ *           
+ * Note:      Binning rules basically follow same convention as
+ *            esl_histogram. nb = xmax-xmin/w, so w = xmax-xmin/nb; 
+ *            picking bin is (int) ceil((x - xmin)/w) - 1. (xref
+ *            esl_histogram_Score2Bin()). This makes bin b contain
+ *            values bw+min < x <= (b+1)w+min. (Which means that 
+ *            min itself falls in bin -1, whoops - but we catch
+ *            all bin<0 and bin>=nshades and put them in the extremes.
+ *
+ * Args:      
+ *
+ * Returns:   
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      
+ */
+int
+dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max)
+ {
+   int    nshades   = 18;
+   double cyan[]    = { 1.00, 1.00, 0.90, 0.75, 0.57, 0.38, 0.24, 0.13, 0.03,
+			0.00, 0.00, 0.00, 0.00, 0.00, 0.07, 0.20, 0.40, 0.60};
+   double magenta[] = { 0.55, 0.45, 0.34, 0.22, 0.14, 0.08, 0.06, 0.03, 0.01,
+			0.00, 0.03, 0.11, 0.23, 0.40, 0.55, 0.67, 0.75, 0.80};
+   double yellow[]  = { 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+			0.10, 0.25, 0.40, 0.65, 0.80, 0.90, 1.00, 1.00, 1.00};
+   double black[]   = { 0.30, 0.07, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+			0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00};
+   double w;			
+   int    i,j;
+   int    bin;
+   int    boxsize;		/* box size in points */
+   int    xcoord, ycoord;	/* postscript coords in points */
+   int    leftmargin, rightmargin;
+   int    bottommargin, topmargin;
+   float  fboxsize;		/* box size in fractional points */
+
+   /* Set some defaults that might become arguments later.
+    */
+   leftmargin   = rightmargin = 20;
+   bottommargin = topmargin   = 20;
+
+   /* Determine some working parameters 
+    */
+   w = (max-min) / (double) nshades; /* w = bin size for assigning values->colors*/
+   boxsize = ESL_MIN( (792 - bottommargin) / D->n, 
+		      (612 - leftmargin)   / D->m);
+   fboxsize= ESL_MIN( (792. - ((float) bottommargin + topmargin))   / (float) D->n, 
+		      (612. - ((float) leftmargin   + rightmargin)) / (float) D->m);
+
+   fprintf(fp, "%.4f %.4f scale\n", (fboxsize/(float) boxsize), (fboxsize/(float) boxsize));
+   /* printf("n: %d\nm: %d\n", D->n, D->m); */
+   for (i = 0; i < D->n; i++) {
+     /* printf("\n"); */
+     /* for (j = i; j < D->n; j++) */
+     for (j = 0; j < D->m; j++)
+       {
+	 /* printf("i: %4d j: %4d %5.1f\n", i, j, D->mx[i][j]); */
+	 xcoord = j * boxsize + leftmargin;
+	 ycoord = (D->m-(i+1)) * boxsize + bottommargin; /* difference w/heatmap.c: (D->m-i+1) */
+	 
+	 if      (D->mx[i][j] == -eslINFINITY) bin = 0;
+	 else if (D->mx[i][j] ==  eslINFINITY) bin = nshades-1;
+	 else {
+	   bin    = (int) ceil((D->mx[i][j] - min) / w) - 1;
+	   if (bin < 0)        bin = 0;
+	   if (bin >= nshades) bin = nshades-1;
+	 }
+	 
+	fprintf(fp, "newpath\n");
+	fprintf(fp, "  %d %d moveto\n", xcoord, ycoord);
+	fprintf(fp, "  0  %d rlineto\n", boxsize);
+	fprintf(fp, "  %d 0  rlineto\n", boxsize);
+	fprintf(fp, "  0 -%d rlineto\n", boxsize);
+	fprintf(fp, "  closepath\n");
+  	fprintf(fp, " %.2f %.2f %.2f %.2f setcmykcolor\n",
+		cyan[bin], magenta[bin], yellow[bin], black[bin]);
+	fprintf(fp, "  fill\n");
+      }
+   }
+  fprintf(fp, "showpage\n");
+  return eslOK;
 }
 
