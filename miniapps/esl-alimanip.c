@@ -12,6 +12,7 @@
 
 #include <easel.h>
 #include <esl_distance.h>
+#include <esl_fileparser.h>
 #include <esl_getopts.h>
 #include <esl_sqio.h>
 #include <esl_msa.h>
@@ -26,8 +27,12 @@ static char banner[] = "manipulate a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
 The <msafile> must be in Stockholm format.";
 
+#define OTHERMSAOPTS  "--merge,--morph,--map"        /* Exclusive choice for scoring algorithms */
+
 static int  keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int keep_flag, int remove_flag);
 static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
+static int  write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
+static int  write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
 static int  morph_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL_MSA **newmsa1);
 static int  merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL_MSA **ret_merged_msa);
 static int  add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
@@ -46,26 +51,32 @@ static int  plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max);
+static int  read_mask_file(char *filename, char *errbuf, char **ret_mask);
+static int  map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_map);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
-  { "-s",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                        "print statistics (esl-alistat behavior)",                 0 },
-  { "-i",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "-g,-k,-r,--morph,--amino", "annotate individual secondary structures by imposing consensus", 1 },
+  { "-s",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "print statistics (esl-alistat behavior)",                        0 },
+  { "-i",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "-g,-k,-r,--morph",         "annotate individual secondary structures by imposing consensus", 1 },
   { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add/rewrite #=GC RF markup marking consensus columns",           1 },
   { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps to allow in a consensus column",       1 },
+  { "--amask2rf",  eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=alen)",   1 },
+  { "--rfmask2rf", eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 1 },
   { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only columns w/(possibly post -g) non-gap #=GC RF markup", 1 },
   { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all columns w/(possibly post -g) non-gap #=GC RF markup", 1 },
-  { "-v",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph or --merge)",                   1 },
-  { "--merge",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--morph,-g,-k,-r",          "merge msa in <msafile> with msa in <f>",                         2 },
-  { "--morph",     eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge",                   "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
-  { "--trim",      eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
-  { "--iinfo",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "print info on # of insertions b/t all non-gap RF cols to <f>",   2 },
+  { "-v",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            1 },
+  { "--merge",     eslARG_INFILE,FALSE, NULL, NULL,      NULL,NULL, "--morph,-g,-k,-r",         "merge msa in <msafile> with msa in <f>",                         2 },
+  { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",           2 },
+  { "--map",       eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f>, output mask (1s and 0s)",    2 },
+  { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,"--map",NULL,                     "with --map, output map as 1/0 mask to <f>",                      2 },
+  { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
+  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of insertions b/t all non-gap RF cols to <f>",   2 },
   { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          2 },
-  { "--iplot",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 2 },
-  { "--gplot",     eslARG_STRING, NULL, NULL, NULL,      NULL,NULL,"--merge,--morph",           "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  2 },
-  { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--merge,--morph",           "reorder MSA to tree ordering following single linkage clustering",2 },
+  { "--iplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 2 },
+  { "--gplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  2 },
+  { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "reorder MSA to tree order following single linkage clustering",  2 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          3 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              3 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              3 },
@@ -92,18 +103,22 @@ main(int argc, char **argv)
   FILE         *ofp;		/* output file (default is stdout) */
   char          errbuf[eslERRBUFSIZE];
   int           write_ali = FALSE; /* set to TRUE if we should print a new MSA */
-
-  /* --merge and --morph related vars */
+  /* --merge, --morph, --map related vars */
   ESL_MSAFILE  *otherafp = NULL;	/* other input alignment file (with --morph) */
   ESL_MSA      *othermsa = NULL;	/* other input alignment      (with --morph) */
-
   /* --trim related vars */
   ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
-
   /* --iinfo, --iplot, --gplot related vars */
   FILE *iinfofp = NULL;  /* output file for --iinfo */
   FILE *iplotfp = NULL;  /* output file for --iplot */
   FILE *gplotfp = NULL;  /* output file for --gplot */
+  /* --amask2rf */
+  char *amask = NULL;
+  /* --rfmask2rf */
+  char *rfmask = NULL;
+  /* --map, --omap */
+  FILE *omapfp;            /* output file for --omap */
+  char *msa1_to_msa2_mask; /* the map from <msafile> to <f> from --map, a 1/0 mask */
 
   /***********************************************
    * Parse command line
@@ -179,8 +194,9 @@ main(int argc, char **argv)
   if((esl_opt_GetBoolean(go, "-i")) && (abc->type != eslRNA && abc->type != eslDNA))
     esl_fatal("-i option pertains to base pairs and only makes sense with DNA or RNA alphabets.");
 
-  /* optionally, open --morph or --merge msa file for reading, --merge and --morph are incompatible,
-   * so we'll never try to do both. */
+  /* optionally, open --morph, --merge or --map msa file for reading, --merge, --morph and --map are all incompatible
+   * with each other, so we'll never try to do open othermsafile more than once.
+   */
   if(esl_opt_GetString(go, "--morph") != NULL)
     {
       status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--morph"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
@@ -199,6 +215,27 @@ main(int argc, char **argv)
 					      esl_opt_GetString(go, "--merge"));
       else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
     }
+  if(esl_opt_GetString(go, "--map") != NULL)
+    {
+      status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--map"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
+      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--map alignment file %s doesn't exist or is not readable\n", 
+					      esl_opt_GetString(go, "--map"));
+      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --map alignment %s\n", 
+					      esl_opt_GetString(go, "--map"));
+      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+    }
+
+  /* read --amask2rf file, if nec */
+  if(esl_opt_GetString(go, "--amask2rf") != NULL) {
+    if((status = read_mask_file(esl_opt_GetString(go, "--amask2rf"), errbuf, &amask)) != eslOK)
+      ESL_FAIL(status, errbuf, "--amask2rf input file: %s open failed.\n", esl_opt_GetString(go, "--amask2rf"));
+  }
+
+  /* read --rfmask2rf file, if nec */
+  if(esl_opt_GetString(go, "--rfmask2rf") != NULL) {
+    if((status = read_mask_file(esl_opt_GetString(go, "--rfmask2rf"), errbuf, &rfmask)) != eslOK)
+      ESL_FAIL(status, errbuf, "--rfmask2rf input file: %s open failed.\n", esl_opt_GetString(go, "--rfmask2rf"));
+  }
 
   /***********************************************
    * Read MSAs one at a time.
@@ -237,8 +274,9 @@ main(int argc, char **argv)
 	}
 
 
-      /* read other msa if --morph or --merge enabled */
-      if((esl_opt_GetString(go, "--morph") != NULL) || (esl_opt_GetString(go, "--merge") != NULL))
+      /* read other msa if --morph, --merge, or --map (which are incompatible with each other) is enabled */
+      if(((esl_opt_GetString(go, "--morph") != NULL) || (esl_opt_GetString(go, "--merge") != NULL))
+	 || (esl_opt_GetString(go, "--map") != NULL))
 	{
 	  if ((status = esl_msa_Read(otherafp, &othermsa)) != eslOK) {
 	    if(status == eslEFORMAT) 
@@ -288,11 +326,18 @@ main(int argc, char **argv)
 	}
 
       /* rewrite RF annotation, if nec */
-      if(esl_opt_GetBoolean(go, "-g"))
-	{
-	  if((status = write_rf_gapthresh(go, errbuf, msa)) != eslOK) goto ERROR;
-	  write_ali = TRUE;
-	}
+      if(esl_opt_GetBoolean(go, "-g")) {
+	if((status = write_rf_gapthresh(go, errbuf, msa)) != eslOK) goto ERROR;
+	write_ali = TRUE;
+      }
+      if(amask != NULL) { /* --amask2rf enabled */
+	if((status = write_rf_given_alen(go, errbuf, msa, amask)) != eslOK) goto ERROR;
+	write_ali = TRUE;
+      }
+      if(rfmask != NULL) { /* --rfmask2rf enabled */
+	if((status = write_rf_given_rflen(go, errbuf, msa, rfmask)) != eslOK) goto ERROR;
+	write_ali = TRUE;
+      }
 
       /* keep or remove columns based on RF annotation, if nec */
       if(esl_opt_GetBoolean(go, "-k") || esl_opt_GetBoolean(go, "-r"))
@@ -301,6 +346,22 @@ main(int argc, char **argv)
 					      esl_opt_GetBoolean(go, "-k"),
 					      esl_opt_GetBoolean(go, "-r"))) != eslOK) goto ERROR;
 	  write_ali = TRUE;
+	}
+
+      /* if nec, map <msafile> to <f> (from --map <f>)
+       * this is purposefully done after RF annotation is potentially rewritten and
+       * some columns are potentially removed. 
+       */
+      if(esl_opt_GetString(go, "--map") != NULL)
+	{
+	  if((status = map_msas(go, errbuf, msa, othermsa, &msa1_to_msa2_mask)) != eslOK) goto ERROR;
+	  if(esl_opt_GetString(go, "--omap") != NULL) { 
+	    if ((omapfp = fopen(esl_opt_GetString(go, "--omap"), "w")) == NULL) 
+	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
+	    fprintf(omapfp, "%s\n", msa1_to_msa2_mask);
+	    fclose(omapfp);
+	  }
+	  else printf("%s\n", msa1_to_msa2_mask);
 	}
 
       /* impose consensus structure to get individual secondary structures, if nec */
@@ -454,7 +515,7 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int  i;
   double gapthresh;
 
-  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * msa->alen);
+  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
   gapthresh = esl_opt_GetReal(go, "--gapthresh");
   for (apos = 1; apos <= msa->alen; apos++)
     {
@@ -462,9 +523,71 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) gaps++;
       msa->rf[(apos-1)] = ((double) gaps / (double) msa->nseq > gapthresh) ? '.' : 'x';
     }
+  msa->rf[msa->alen] = '\0';
   return eslOK;
  ERROR:
   return status;
+}
+
+/* write_rf_given_alen
+ *                   
+ * Given an MSA and a char string of 1s and 0s (a lanemask) of length
+ * msa->alen, write/rewrite RF based as 'x' (non-gap) for 1, '.' (gap) for 0.
+ */
+static int
+write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *amask)
+{
+  int  status;
+  int  apos;
+  int  mask_len;
+  /* contract check, rfgiven_mask must be exact length of msa */
+  if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  mask_len = strlen(amask);
+  if(mask_len != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask length: %d is not equal to the MSA length (%d)\n", mask_len, msa->alen); 
+
+  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+
+  for (apos = 1; apos <= msa->alen; apos++) {
+      if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
+      else if(amask[(apos-1)] == '1') msa->rf[(apos-1)] = 'x';
+      else    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask char number %d is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
+  }
+  msa->rf[msa->alen] = '\0';
+  return eslOK;
+ ERROR:
+  return status;
+}
+
+/* write_rf_given_rflen
+ *
+ * Given an MSA and a char string of 1s and 0s (a lanemask) that is
+ * the same length as the non-gap RF annotation in msa, rewrite msa
+ * RF based as 'x' (non-gap) for 1, '.' (gap) for 0. 1s indicate which
+ * non-gap RF columns to keep as 'x', and 0s indicate which non-gap
+ * RF columns to make gaps '.'.
+ */
+static int
+write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask)
+{
+  int  apos, cpos;
+  int  mask_len;
+
+  /* contract check, mask must be exact length of msa */
+  if(rfmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--rfmask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--rfmask2rf mask requires RF annotation in MSA (try -g)\n");
+  mask_len = strlen(rfmask);
+
+  cpos = 0;
+  for (apos = 1; apos <= msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) {
+      cpos++;
+      if     (rfmask[(cpos-1)] == '0') msa->rf[(apos-1)] = '.';
+      else if(rfmask[(cpos-1)] == '1') msa->rf[(apos-1)] = 'x';
+    }
+    else msa->rf[(apos-1)] = '.'; 
+  }
+  msa->rf[msa->alen] = '\0';
+  return eslOK;
 }
 
 /* individualize_consensus
@@ -484,8 +607,8 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int *ct;		/* 0..alen-1 base pair partners array for current sequence */
   char *ss;             /* individual secondary structure we've built              */
 
-  if(msa->ss_cons == NULL)                                ESL_FAIL(status, errbuf, "-i requires MSA to have consensus structure annotation.\n");
-  if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(status, errbuf, "individualize_consensus() MSA is not digitized.\n");
+  if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "-i requires MSA to have consensus structure annotation.\n");
+  if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
     
   ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
@@ -1914,4 +2037,274 @@ dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max)
   fprintf(fp, "showpage\n");
   return eslOK;
 }
+
+
+/* read_mask_file
+ *
+ * Given an open file pointer, read the first token of the
+ * file and return it as *ret_mask.
+ *
+ * Returns:  eslOK on success.
+ */
+int
+read_mask_file(char *filename, char *errbuf, char **ret_mask)
+{
+  int             status;
+  ESL_FILEPARSER *efp;
+  char           *tok;
+  char           *mask;
+  int             toklen;
+  int             n;
+
+  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
+  esl_fileparser_SetCommentChar(efp, '#');
+  
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
+
+  ESL_ALLOC(mask, sizeof(char) * (toklen+1));
+  for(n = 0; n < toklen; n++) mask[n] = tok[n];
+  mask[n] = '\0';
+  *ret_mask = mask;
+
+  esl_fileparser_Close(efp);
+  return eslOK;
+  
+ ERROR:
+  return eslEMEM;
+}
+
+
+/* map_msas
+ *                   
+ * For each non-gap RF column in msa1, determine the corresponding column
+ * in msa2. This implementation requires:
+ *  - msa1 and msa2 contain exactly the same sequences in the same order
+ *  - msa non-gap RF len is < msa2->alen.
+ * Uses a DP algorithm similar to Needleman-Wunsch, but simpler because
+ * we require that all non-gap RF columns from msa1 must map to exactly 1
+ * column in msa2, i.e. from a Needleman-Wunsch perspective, we can't have
+ * gaps in one of our 'sequences'.
+ */
+static int
+map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_map)
+{
+  int status;
+  int *c2a_map1 = NULL;       /* msa1 map of consensus columns (non-gap RF residues) to alignment columns */
+  int clen1;                  /* consensus (non-gap RF) length of msa1 */
+  int **one2two;              /* [0..c..clen1][0..a..msa2->alen] number of residues from non-gap RF column c of msa1
+			       * aligned in column a of msa 2 */
+  int apos1, apos2;           /* counters over alignment position in msa1, msa2 respectively */
+  int cpos1;                  /* counter over non-gap RF (consensus) position in msa1 */
+  int diagonal;               /* score for diagonal move in dp recursion */
+  int vertical;               /* score for vertical move in dp recursion */
+  int **mx;                   /* [0..c..clen1][0..a..msa2->alen] dp matrix, score of max scoring aln 
+			       * from 1..c in msa1 and 1..a in msa 2 */
+  int **tb;                   /* [0..c..clen1][0..a..msa2->alen] traceback ptrs, 0 for diagonal, 1 for vertical */
+  char *seq1, *seq2;          /* temporary strings for ensuring dealigned sequences in msa1 and msa2 are identical */
+  int len1, len2;             /* length of seq1, seq2 */
+  int isgap1, isgap2;         /* is this residue a gap in msa1, msa2? */
+  int i;                      /* counter over sequences */
+  int *res1_per_cpos;         /* [0..c..clen1] number of residues in non-gap RF column c of msa1 */
+  int max_sc;                 /* max score of full path (alignment) through dp mx */
+  int max_apos2;              /* temp val for finding endpoint of alignment */
+  int tb_sc;                  /* score of traceback, should equal max_sc */
+  int *one_rf2two_map;        /* [0..c..clen1] the alignment, msa2 column that non-gap RF column c in msa1 maps to */
+  int total_cres1 = 0;        /* total number of residues in msa1 that are in non-gap RF columns */
+  float coverage;             /* fraction of total_cres1 that are within mapped msa2 columns from one_rf2two_map, 
+			       * this is tb_sc / total_cres1 */
+  char *msa1_to_msa2_map;     /* map from msa1 to msa2, this is the optimal alignment found by dp */
+  int be_verbose = esl_opt_GetBoolean(go, "-v");
+  
+  /* contract check */
+  if(msa1->rf == NULL)                 ESL_FAIL(eslEINVAL, errbuf, "with --map %s must have RF annotation.", esl_opt_GetString(go, "--map"));
+  if(! (msa1->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa1 (%s) not digitized.\n", esl_opt_GetArg(go, 1));
+  if(! (msa2->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa2 (%s) not digitized.\n", esl_opt_GetString(go, "--map"));
+  
+  /* Map msa1 non-gap RF (consensus) columns to alignment positions */
+  if((status = map_cpos_to_apos(msa1, &c2a_map1, &clen1))   != eslOK) goto ERROR;
+  if(clen1 > msa2->alen) ESL_XFAIL(eslEINVAL, errbuf, "non-gap RF length of msa in <msafile> %s (%d) is greater than --map alignment length of %s (%d).", esl_opt_GetArg(go, 1), clen1, esl_opt_GetString(go, "--map"), msa2->alen);
+  if(be_verbose) { 
+    printf("%25s non-gap RF (consensus) length: %d\n", esl_opt_GetArg(go, 1), clen1);
+    printf("%25s alignment length:              %d\n", esl_opt_GetString(go, "--map"), msa2->alen);
+  }
+  /* collect counts in one2two[i][j]: number of sequences for which residue aligned in msa1 non-gap column i
+   * is aligned in msa2 alignment column j.
+   */
+  ESL_ALLOC(seq1, sizeof(char) * (msa1->alen+1));
+  ESL_ALLOC(seq2, sizeof(char) * (msa2->alen+1));
+  ESL_ALLOC(one2two, sizeof(int *) * (msa1->alen+1));
+  for(apos1 = 0; apos1 <= msa1->alen+1; apos1++) { 
+    ESL_ALLOC(one2two[apos1], sizeof(int) * (msa2->alen+1));
+    esl_vec_ISet(one2two[apos1], (msa2->alen+1), 0);
+  }
+
+  for(i = 0; i < msa1->nseq; i++) { 
+    /* ensure raw (unaligned) seq i in the 2 msas is the same */
+    esl_abc_Textize(msa1->abc, msa1->ax[i], msa1->alen, seq1); 
+    esl_abc_Textize(msa1->abc, msa2->ax[i], msa2->alen, seq2); /* note: msa*1*->abc used on purpose, allows DNA/RNA to peacefully coexist in this func */
+    len1 = esl_sq_Dealign(seq1, seq1, "-_.", msa1->alen);
+    len2 = esl_sq_Dealign(seq2, seq2, "-_.", msa2->alen);
+    if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%d) and %s (%d), those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
+    if(strncmp(seq1, seq2, len1) != 0)  ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs between %s and %s, those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
+    
+    
+    apos1 = apos2 = 1;
+    while((apos1 <= msa1->alen) || (apos2 <= msa2->alen)) {
+      isgap1 = esl_abc_XIsGap(msa1->abc, msa1->ax[i][apos1]);
+      isgap2 = esl_abc_XIsGap(msa2->abc, msa2->ax[i][apos2]);
+      if      ( isgap1 &&  isgap2) { apos1++; apos2++; }
+      else if ( isgap1 && !isgap2) { apos1++;          }
+      else if (!isgap1 &&  isgap2) {          apos2++; }
+      else if ( msa1->ax[i][apos1] == msa2->ax[i][apos2]) { 
+	one2two[apos1++][apos2++]++;
+	/* two2one[apos2][apos1]++; */
+      }
+    }
+  }
+
+  /******************************************************************
+   * DP alignment of msa1 to msa2
+   * dp matrix: mx[cpos1][apos2] cpos1=1..clen1, apos2=1..msa2->alen (cpos1=0 || apos2=0 is invalid)
+   * mx[cpos1][apos2] = score of maximal alignment for cpos1'=1..cpos1, apos2'=1..apos2 INCLUDING
+   *                    cpos1 and apos2. Score is number of residues from msa1 consensus columns
+   *                    1..cpos1 that exist in their respective aligned columns in msa2 (the growing
+   *                    maximally scoring alignment).
+   */
+
+  /******************************************************************
+   * initialization 
+   */
+  ESL_ALLOC(mx, sizeof(int *) * (clen1+1));
+  ESL_ALLOC(tb, sizeof(int *) * (clen1+1));
+  ESL_ALLOC(res1_per_cpos, sizeof(int) * (clen1+1));
+  for(cpos1 = 0; cpos1 <= clen1; cpos1++) { 
+    ESL_ALLOC(mx[cpos1], sizeof(int) * (msa2->alen+1));
+    ESL_ALLOC(tb[cpos1], sizeof(int) * (msa2->alen+1));
+    esl_vec_ISet(mx[cpos1], (msa2->alen+1), 0);
+    esl_vec_ISet(tb[cpos1], (msa2->alen+1), -2); /* -2 is a bogus value, if we see it during traceback, there's a problem */
+  }
+  ESL_ALLOC(res1_per_cpos, sizeof(int) * (clen1+1));
+  esl_vec_ISet(res1_per_cpos, (clen1+1), 0);
+
+  mx[1][1] = one2two[c2a_map1[1]][1];
+  tb[1][1] = -1; /* last cell, special value */
+
+  /* initialize on cpos = 1, no choice, must come from vertical move */
+  cpos1 = 1;
+  apos1 = c2a_map1[cpos1];
+  res1_per_cpos[cpos1] = one2two[apos1][1];
+  for(apos2 = 2; apos2 <= msa2->alen; apos2++) {
+    mx[cpos1][apos2] = mx[cpos1][(apos2-1)] - one2two[apos1][(apos2-1)] + one2two[apos1][apos2];
+    tb[cpos1][apos2] = 1; /* vertical move */
+    res1_per_cpos[cpos1] += one2two[apos1][apos2];
+  }
+  /*****************************************************************
+   * recursion
+   */
+  for(cpos1 = 2; cpos1 <= clen1; cpos1++) {
+    apos1 = c2a_map1[cpos1];
+    res1_per_cpos[cpos1] = one2two[apos1][1];
+    for(apos2 = 2; apos2 <= msa2->alen; apos2++) {
+      /* only one GG column can align to each CM cc, if we take the vertical step,
+       * we're saying it wasn't g-1, it's g that maps to cpos1, so we have to
+       * subtract out the score that g-1 mapped to cpos that was added into
+       * mx[cpos1][g-1] on previous recursion step. 
+       */
+      vertical = mx[ cpos1   ][(apos2-1)] - one2two[apos1][(apos2-1)]; 
+      diagonal = mx[(cpos1-1)][(apos2-1)];
+      if(diagonal >= vertical) {
+	mx[cpos1][apos2] = diagonal;
+	tb[cpos1][apos2] = 0; /* diagonal move */
+      } 
+      else {
+	mx[cpos1][apos2] = vertical;
+	tb[cpos1][apos2] = 1; /* vertical move */
+      }
+      mx[cpos1][apos2]     += one2two[apos1][apos2];
+      res1_per_cpos[cpos1] += one2two[apos1][apos2];
+    }
+  }
+
+  /*****************************************************************
+   * traceback 
+   */
+  
+  /* need to find end point, cpos1=clen1, apos2=argmax_apos2 dp[cpos1][apos2] + one2two[c2a_map1[cpos1]][apos2] */ 
+  max_sc    = mx[clen1][1];
+  max_apos2 = 1;
+  apos1 = c2a_map1[clen1];
+  for(apos2 = 2; apos2 <= msa2->alen; apos2++) {
+    if((mx[clen1][apos2]) > max_sc) { 
+      max_sc    = mx[clen1][apos2];
+      max_apos2 = apos2;
+    }
+  }
+  if(be_verbose) printf("max score %d\nmax apos2 %d\n", max_sc, max_apos2);
+  ESL_ALLOC(one_rf2two_map, sizeof(int) * (clen1+1));
+
+  /* traceback, and build one_rf2two_map[] */
+  apos2 = max_apos2;
+  cpos1 = clen1;
+  one_rf2two_map[cpos1] = apos2;
+  tb_sc += one2two[apos1][apos2];
+  if     (be_verbose && res1_per_cpos[cpos1] == 0) printf("1 cc %4d --> 2 %4d %5d / %5d (%.4f)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1], (float) 0.);
+  else if(be_verbose)                              printf("1 cc %4d --> 2 %4d %5d / %5d (%.4f)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1], ((float) one2two[apos1][apos2] / (float) res1_per_cpos[cpos1])); 
+
+  total_cres1 = 0;
+  apos1 = c2a_map1[cpos1];
+  while(tb[cpos1][apos2] != -1) {
+    if(tb[cpos1][apos2] == 0) { /* diagonal move */
+      if(tb[cpos1][apos2] != -1) { 
+	cpos1--; apos2--;
+	apos1 = c2a_map1[cpos1];
+	one_rf2two_map[cpos1] = apos2;
+	if(be_verbose && res1_per_cpos[cpos1] == 0) printf ("1 cc %4d --> 2 %4d %5d / %5d (0.0000)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1]);
+	else {
+	  if(be_verbose) printf("1 cc %4d --> 2 %4d %5d / %5d (%.4f)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1], ((float) one2two[apos1][apos2] / (float) res1_per_cpos[cpos1])); 
+	  total_cres1 += res1_per_cpos[cpos1];
+	}
+	tb_sc += one2two[apos1][apos2];
+      }
+    }
+    else if(tb[cpos1][apos2] == 1)  apos2--; /* vertical move */
+    else if(tb[cpos1][apos2] != -1) /* shouldn't happen */
+      ESL_FAIL(eslEINVAL, errbuf, "--map error: in dp traceback, tb[cpos1: %d][apos2: %d] %d\n", cpos1, apos2, tb[cpos1][apos2]);
+  }
+  /* done DP code 
+   **********************************/
+
+  if(be_verbose) printf("Total trace back sc: %d\n", tb_sc);
+  if(tb_sc != max_sc) ESL_FAIL(eslEINVAL, errbuf, "--map error: in dp traceback, tb_sc (%d) != max_sc (%d)\n", tb_sc, max_sc);
+  coverage = (float) tb_sc / (float) total_cres1;
+  printf("Coverage: %6d / %6d (%.4f)\nCoverage is fraction of consensus residues from %s in optimally mapped columns in %s\n", tb_sc, total_cres1, coverage, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
+
+  /* create 1/0 mask */
+  ESL_ALLOC(msa1_to_msa2_map, sizeof(char) * (msa2->alen+1));
+  apos2 = 1;
+  for(cpos1 = 1; cpos1 <= clen1; cpos1++) {
+    while(apos2 < one_rf2two_map[cpos1]) { msa1_to_msa2_map[(apos2-1)] = '0'; apos2++; }
+    msa1_to_msa2_map[(apos2-1)] = '1'; 
+    apos2++; 
+  }
+  while(apos2 <= msa2->alen) { msa1_to_msa2_map[(apos2-1)] = '0'; apos2++; }
+
+  msa1_to_msa2_map[msa2->alen] = '\0';
+  *ret_msa1_to_msa2_map = msa1_to_msa2_map;
+
+  for(cpos1 = 0; cpos1 <= clen1; cpos1++) { 
+    free(mx[cpos1]);
+    free(tb[cpos1]);
+  }
+  free(mx);
+  free(tb);
+  free(seq1);
+  free(seq2);
+  return eslOK;
+  
+ ERROR: 
+  return status;
+}
+      
+
+
 
