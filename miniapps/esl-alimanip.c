@@ -1760,10 +1760,20 @@ static int plot_inserts(FILE *fp, ESL_MSA *msa, int do_log, char *errbuf)
   if(do_log) {
     for(i = 0; i < msa->nseq; i++)
       for(cpos = 0; cpos <= clen; cpos++)
-	I->mx[i][cpos] = log(I->mx[i][cpos]);
+	if(I->mx[i][cpos] > 0) 
+	  I->mx[i][cpos] = log(I->mx[i][cpos]);
+	else 
+	  I->mx[i][cpos] = -1; /* don't want 0s to change to -inf, for coloring scheme */
   }
-	     
-  dmx_Visualize(fp, I, esl_dmx_Min(I), esl_dmx_Max(I));
+  else { 
+    for(i = 0; i < msa->nseq; i++)
+      for(cpos = 0; cpos <= clen; cpos++)
+	if(I->mx[i][cpos] == 0) I->mx[i][cpos] = (-1 * esl_dmx_Max(I)) / 2; /* for better resolution on heatmap */
+  }
+
+  /* dmx_Visualize(fp, I, esl_dmx_Min(I), esl_dmx_Max(I)); */
+  dmx_Visualize(fp, I, (-1 * esl_dmx_Max(I)), esl_dmx_Max(I));
+  /* esl_dmatrix_Dump(stdout, I, NULL, NULL); */
   esl_dmatrix_Destroy(I);
   return eslOK;
 
@@ -1805,7 +1815,8 @@ static int plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf)
 	if(esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) G->mx[i][cpos] += 1.;
     }
   }
-  dmx_Visualize(fp, G, esl_dmx_Min(G), esl_dmx_Max(G));
+  /* dmx_Visualize(fp, G, esl_dmx_Min(G), esl_dmx_Max(G)); */
+  dmx_Visualize(fp, G, -1, 1);
   esl_dmatrix_Destroy(G);
   return eslOK;
 
