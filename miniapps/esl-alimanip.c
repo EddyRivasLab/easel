@@ -28,7 +28,6 @@ static char usage[]  = "[options] <msafile>\n\
 The <msafile> must be in Stockholm format.";
 
 #define OTHERMSAOPTS  "--merge,--morph,--map"           /* Exclusive choice for scoring algorithms */
-#define POSTOPTS      "--pmin,--pavg,--prfmin,--prfavg" /* Exclusive choice for scoring algorithms */
 
 static int  keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int keep_flag, int remove_flag);
 static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
@@ -67,10 +66,9 @@ static ESL_OPTIONS options[] = {
   { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps to allow in a non-gap RF column",      2 },
   { "--amask2rf",  eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=alen)",   2 },
   { "--rfmask2rf", eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 2 },
-  { "--pmin",      eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, POSTOPTS,                   "add/rewrite #=GC RF as columns with min #=GR POST >= <x>",       2 },
-  { "--pavg",      eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, POSTOPTS,                   "add/rewrite #=GC RF as columns with avg #=GR POST >= <x>",       2 },
-  { "--prfmin",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, POSTOPTS,                   "rewrite #=GC RF as non-gap RF columns w/min #=GR POST >= <x>",   2 },
-  { "--prfavg",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, POSTOPTS,                   "rewrite #=GC RF as non-gap RF columns w/avg #=GR POST >= <x>",   2 },
+  { "--pfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "set #=GC RF as cols w/<x> fraction of seqs w/POST >= --pthresh", 2 },
+  { "--pthresh",   eslARG_REAL,  "0.9", NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "set #=GR POST threshold for --pfract as <x>",                    2 },
+  { "--prf",       eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
   { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
   { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
   { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "reorder MSA to tree order following single linkage clustering",  4 },
@@ -166,8 +164,10 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       puts("\noptions for comparison/modification based on another MSA file:");
       esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
-      puts("\noptions for specifying input alphabet:");
+      puts("\noptions for outputting a lanemask file:");
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
+      puts("\noptions for specifying input alphabet:");
+      esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
       exit(0);
     }
 
@@ -364,10 +364,10 @@ main(int argc, char **argv)
       }
 
       /* handle posterior (--p*) options, if nec */
-      if(! ((esl_opt_IsDefault(go, "--pmin")) && (esl_opt_IsDefault(go, "--pavg")) && (esl_opt_IsDefault(go, "--prfmin")) 
-	    && (esl_opt_IsDefault(go, "--prfavg")) && (esl_opt_IsDefault(go, "--pinfo")))) { 
+      if(! ((esl_opt_IsDefault(go, "--pfract")) && (esl_opt_IsDefault(go, "--pinfo")))) { 
 	if((status = handle_post_opts(go, errbuf, msa) != eslOK)) goto ERROR;
-	write_ali = TRUE;
+	if(! (esl_opt_IsDefault(go, "--pfract")))
+	  write_ali = TRUE;
       }
 
       /* keep or remove columns based on RF annotation, if nec */
@@ -2392,16 +2392,19 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int  **post_sc;             /* [0..s..msa->nseq-1][0..c..msa->alen-1] posterior value 0-10 (-1 for gap) */
   int  **post_cs;             /* [0..c..msa->alen-1][0..s..msa->nseq-1] posterior value 0-10 (-1 for gap) */
   int   *nongap_c, *nongap_s; /* number of non-gap posterior values for each column/sequence respectively */
-  int   *sum_c, *sum_s;       /* sum of non-gap posterior values for each column/sequence respectively */
+  float *sum_c, *sum_s;       /* sum of non-gap posterior values for each column/sequence respectively */
   float *min_c, *min_s;       /* min of non-gap posterior values for each column/sequence respectively */
   float *avg_c, *avg_s;       /* average non-gap posterior values for each column/sequence respectively */
+  int   *athresh_c;           /* [0..c..msa->alen-1] number of sequences with residue in this column with post value >= pthresh */
+  float *athresh_fract_c;     /* [0..c..msa->alen-1] fraction of non-gap sequences with residue in this column with post value >= pthresh */
   int    ridx;
-  int    r, p;
-  int    do_pmin   = (! esl_opt_IsDefault(go, "--pmin"));
-  int    do_pavg   = (! esl_opt_IsDefault(go, "--pavg"));
-  int    do_prfmin = (! esl_opt_IsDefault(go, "--prfmin"));
-  int    do_prfavg = (! esl_opt_IsDefault(go, "--prfavg"));
+  int    r;
+  float  p;
+  int    do_pfract = (! esl_opt_IsDefault(go, "--pfract"));
+  int    do_prf    = (! esl_opt_IsDefault(go, "--prf"));
   int    do_pinfo  = (! esl_opt_IsDefault(go, "--pinfo"));
+  float  pfract    =    esl_opt_GetReal(go, "--pfract");  
+  float  pthresh   =    esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
   int  *useme; 
   float  thresh;
   int *c2a_map;
@@ -2409,9 +2412,9 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int cpos;
   int nkept;
 
-  if(do_pmin + do_pavg + do_prfmin + do_prfavg + do_pinfo == 0) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): no --p* options selected, shouldn't be in this function.");
+  if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
-  /* Find out which #=GR line is the POST line */
+  /* Find out which #=GR line is the POST, Post, or post line (if more than one exist, last one is chosen) */
   ridx = -1;
   for (r = 0; r < msa->ngr; r++) { 
     if (strcmp(msa->gr_tag[r], "POST") == 0) ridx = r; 
@@ -2419,15 +2422,11 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     if (strcmp(msa->gr_tag[r], "post") == 0) ridx = r; 
   }
   if(ridx == -1) { 
-    if(do_pmin)   ESL_FAIL(eslEINVAL, errbuf, "--pmin requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_pavg)   ESL_FAIL(eslEINVAL, errbuf, "--pavg requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_prfmin) ESL_FAIL(eslEINVAL, errbuf, "--prfmin requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_prfavg) ESL_FAIL(eslEINVAL, errbuf, "--prfavg requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
     if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   if(msa->rf == NULL) { 
-    if(do_prfmin) ESL_FAIL(eslEINVAL, errbuf, "--prfmin requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_prfavg) ESL_FAIL(eslEINVAL, errbuf, "--prfavg requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_prf)    ESL_FAIL(eslEINVAL, errbuf, "--prf requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   /*ESL_ALLOC(post_sc, sizeof(int *) * msa->nseq);
     for(i = 0; i < msa->nseq; i++) 
@@ -2438,36 +2437,39 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   */
 
   ESL_ALLOC(nongap_c, sizeof(int) * msa->alen);
-  ESL_ALLOC(sum_c, sizeof(int) * msa->alen);
-  ESL_ALLOC(min_c, sizeof(float) * msa->alen);
-  ESL_ALLOC(avg_c, sizeof(float) * msa->alen);
+  ESL_ALLOC(sum_c,    sizeof(float) * msa->alen);
+  ESL_ALLOC(min_c,    sizeof(float) * msa->alen);
+  ESL_ALLOC(avg_c,    sizeof(float) * msa->alen);
+  ESL_ALLOC(athresh_c,sizeof(int)   * msa->alen);
+  ESL_ALLOC(athresh_fract_c,sizeof(float) * msa->alen);
   esl_vec_ISet(nongap_c, msa->alen, 0);
-  esl_vec_ISet(sum_c,    msa->alen, 0);
+  esl_vec_FSet(sum_c,    msa->alen, 0.);
   esl_vec_FSet(min_c,    msa->alen, 10.);
+  esl_vec_ISet(athresh_c,msa->alen, 0);
 
   ESL_ALLOC(nongap_s, sizeof(int) * msa->nseq);
-  ESL_ALLOC(sum_s, sizeof(int) * msa->nseq);
+  ESL_ALLOC(sum_s, sizeof(float) * msa->nseq);
   ESL_ALLOC(min_s, sizeof(float) * msa->nseq);
   ESL_ALLOC(avg_s, sizeof(float) * msa->nseq);
   esl_vec_ISet(nongap_s, msa->nseq, 0);
-  esl_vec_ISet(sum_s,    msa->nseq, 0);
+  esl_vec_FSet(sum_s,    msa->nseq, 0.);
   esl_vec_FSet(min_s,    msa->nseq, 10.);
 
   for(s = 0; s < msa->nseq; s++) { 
     for(c = 0; c < msa->alen; c++) { 
       if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx][s][c])) {
 	switch(msa->gr[ridx][s][c]) { 
-	case '*': p = 10; break;
-	case '9': p =  9; break;
-	case '8': p =  8; break;
-	case '7': p =  7; break;
-	case '6': p =  6; break;
-	case '5': p =  5; break;
-	case '4': p =  4; break;
-	case '3': p =  3; break;
-	case '2': p =  2; break;
-	case '1': p =  1; break;
-	case '0': p =  0; break;
+	case '*': p = 1.0; break;
+	case '9': p = 0.9; break;
+	case '8': p = 0.8; break;
+	case '7': p = 0.7; break;
+	case '6': p = 0.6; break;
+	case '5': p = 0.5; break;
+	case '4': p = 0.4; break;
+	case '3': p = 0.3; break;
+	case '2': p = 0.2; break;
+	case '1': p = 0.1; break;
+	case '0': p = 0.0; break;
 	default: 
 	  ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->gr[ridx][s][c]);
 	}
@@ -2477,6 +2479,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	nongap_s[s]++;
 	min_c[c] = ESL_MIN(min_c[c], p);
 	min_s[s] = ESL_MIN(min_s[s], p);
+      	if(p >= pthresh) athresh_c[c]++;
       }
       else p = -1; /* gap */
 	
@@ -2484,36 +2487,59 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	post_cs[c][s] = p;*/
     }
   }
-  /* get averages, and divide by 10 to get values b/t 0 and 1 */
-  for(s = 0; s < msa->nseq; s++) { 
-    avg_s[s]  =  ((float) sum_s[s] / 10.) / (float) nongap_s[s];
-    min_s[s] /= 10.;
-  }
-  for(c = 0; c < msa->alen; c++) { 
-    avg_c[c]  = ((float) sum_c[c] / 10.) / (float) nongap_c[c];
-    min_c[c] /= 10.;
-  }
-  
-  /* if nec, print posterior info */
   if(msa->rf != NULL) map_cpos_to_apos(msa, &c2a_map, &clen);
   else c2a_map = NULL;
 
+  /* get averages */
+  int nongap_total = 0;
+  int nongap_total_rf = 0;
+  int sum_total = 0;
+  int sum_total_rf = 0;
+  for(s = 0; s < msa->nseq; s++) { 
+    avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
+  }
+  cpos = 1;
+  for(c = 0; c < msa->alen && cpos < clen; c++) { 
+    avg_c[c]  = (float) sum_c[c] / (float) nongap_c[c];
+    sum_total += sum_c[c];
+    nongap_total += nongap_c[c];
+    if(c2a_map != NULL) {
+      if(c2a_map[cpos] == c) { 
+	cpos++; 
+	sum_total_rf += sum_c[c];
+	nongap_total_rf += nongap_c[c];
+      }
+    }
+  }
+  /* determine the fraction of sequences in each column with POSTs that exceed pthresh */
+  for(c = 0; c < msa->alen; c++) 
+    athresh_fract_c[c] = (nongap_c[c] > 0) ? ((float) athresh_c[c] / (float) nongap_c[c]) : 0;
+
+
+  printf("\nAverage posterior value:                            %.5f (%d non-gap residues)\n", (float) sum_total / (float) nongap_total, nongap_total);
+  if(c2a_map != NULL) 
+    printf("Average posterior value in non-gap #=GC RF columns: %.5f (%d non-gap RF residues)\n", (float) sum_total_rf / (float) nongap_total_rf, nongap_total_rf);
+  printf("\n");
+
+
+  /* if nec, print posterior info */
+  cpos = 1;
   if(do_pinfo) { 
     printf("Posterior stats per column:\n");
     if(msa->rf != NULL) { 
-      printf("%3s %5s %6s %6s %6s\n", "rf?", "col", "nongap", "avg", "min");
-      printf("%3s %5s %6s %6s %6s\n", "---", "-----", "------", "------", "------");
-      for(c = 0; c < msa->alen; c++) { 
+      printf("%3s %5s %6s %6s %6s > %5.3f\n", "rf?", "col", "nongap", "avg", "min", pthresh);
+      printf("%3s %5s %6s %6s %6s %7s\n", "---", "-----", "------", "------", "------", "-------");
+      for(c = 0; c < msa->alen && cpos < clen; c++) { 
 	if(c2a_map[cpos] == c) { cpos++; printf("*   "); } 
 	else                             printf("    ");
-	printf("%5d %6.3f %6.3f %6.1f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c]); 
+	printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
       }
     }
     else { /* msa->rf is NULL, we can't indicate the non-gap RF columns */
-      printf("%5s %6s %6s %6s\n", "col", "nongap", "avg", "min");
-      printf("%5s %6s %6s %6s\n", "-----", "------", "------", "------");
+      printf("%5s %6s %6s %6s > %5.3f\n", "col", "nongap", "avg", "min", pthresh);
+      printf("%5s %6s %6s %6s %7s\n", "-----", "------", "------", "------", "-------");
       for(c = 0; c < msa->alen; c++) 
-	printf("%5d %6.3f %6.3f %6.1f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c]); 
+	printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
     }
     printf("\n\n");
 
@@ -2526,74 +2552,51 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     printf("\n\n");
   }
 
-  /* optionally, add/rewrite msa->rf, do_pmin, do_pavg, do_prfmin, do_prfavg are exclusive of each other */
-  if(do_pmin || do_pavg || do_prfmin || do_prfavg) ESL_ALLOC(useme, sizeof(int) * (msa->alen+1));
-
-  if(do_pmin) { 
-    thresh = esl_opt_GetReal(go, "--pmin");
-    for(c = 0; c < msa->alen; c++) {  
-      if(min_c[c] >= thresh) useme[c] = 1; 
-      else                   useme[c] = 0; 
+  /* optionally, add/rewrite msa->rf if --pfract enabled */
+  if(do_pfract) { 
+    ESL_ALLOC(useme, sizeof(int) * (msa->alen+1));
+    if(do_prf) { /* only look at consensus columns */
+      cpos = 1;
+      for(c = 0; c < msa->alen && cpos < clen; c++) { 
+	if(c2a_map[cpos] == c) { 
+	  cpos++;
+	  if(athresh_fract_c[c] >= pfract) useme[c] = 1; 
+	  else                             useme[c] = 0; 
+	}
+	else useme[c] = 0; 
+      }    
+    }
+    else { /* look at all columns */
+      for(c = 0; c < msa->alen; c++) {  
+	if(athresh_fract_c[c] >= pfract) useme[c] = 1; 
+	else                             useme[c] = 0; 
+      }
     }
     useme[msa->alen] = '\0';
-  }
-  if(do_pavg) { 
-    thresh = esl_opt_GetReal(go, "--pavg") ;
-    for(c = 0; c < msa->alen; c++) {  
-      if(avg_c[c] >= thresh) useme[c] = 1; 
-      else                   useme[c] = 0; 
-    }
-    useme[msa->alen] = '\0';
-  }
-  if(do_prfmin) { 
-    cpos = 1;
-    thresh = esl_opt_GetReal(go, "--prfmin");
-    for(c = 0; c < msa->alen; c++) { 
-      if(c2a_map[cpos] == c) { 
-	cpos++;
-	if(min_c[c] >= thresh) useme[c] = 1; 
-	else                   useme[c] = 0;
-      }
-      else useme[c] = 0; 
-    }
-    useme[clen] = '\0';
-  }
-  if(do_prfavg) { 
-    cpos = 1;
-    thresh = esl_opt_GetReal(go, "--prfavg");
-    for(c = 0; c < msa->alen; c++) { 
-      if(c2a_map[cpos] == c) { 
-	cpos++;
-	if(avg_c[c] >= thresh) useme[c] = 1; 
-	else                   useme[c] = 0;
-      }
-      else useme[c] = 0; 
-    }
-    useme[clen] = '\0';
-  }
 
-  if(do_pmin || do_pavg || do_prfmin || do_prfavg) { 
     nkept = 0;
     write_rf_given_useme(go, errbuf, msa, useme);
     for(c = 0; c < msa->alen; c++) nkept += useme[c];
     free(useme);
-    if(do_pmin || do_pavg) printf("\n%d of %d columns (%.3f) pass threshold\n\n", nkept, msa->alen, (float) nkept / (float) msa->alen);
-    else                   printf("\n%d of %d RF columns (%.3f) pass threshold\n\n", nkept, clen, (float) nkept / (float) clen);
-
+    if(do_prf)  printf("\n%d of %d RF columns (%.3f) pass threshold\n\n", nkept, clen, (float) nkept / (float) clen);
+    else        printf("\n%d of %d columns (%.3f) pass threshold\n\n", nkept, msa->alen, (float) nkept / (float) msa->alen);
   }
 
-  /*  for(s = 0; s < msa->nseq; s++) free(post_sc[s]);
-  free(post_sc);
-  for(c = 0; c < msa->alen; c++) free(post_cs[c]);
-  free(post_cs);
-  */
-
+  /*for(s = 0; s < msa->nseq; s++) free(post_sc[s]);
+    free(post_sc);
+    for(c = 0; c < msa->alen; c++) free(post_cs[c]);
+    free(post_cs);*/
+  
+  free(athresh_fract_c);
+  free(athresh_c);
   free(nongap_s);
   free(nongap_c);
   free(min_c);
   free(min_s);
   free(avg_c);
   free(avg_s);
+  free(sum_s);
+  free(sum_c);
   if(c2a_map != NULL) free(c2a_map);
 
   return eslOK;
