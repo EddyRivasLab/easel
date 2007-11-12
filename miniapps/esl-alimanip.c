@@ -68,7 +68,7 @@ static ESL_OPTIONS options[] = {
   { "--rfmask2rf", eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 2 },
   { "--pfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "set #=GC RF as cols w/<x> fraction of seqs w/POST >= --pthresh", 2 },
   { "--pthresh",   eslARG_REAL,  "0.9", NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "set #=GR POST threshold for --pfract as <x>",                    2 },
-  { "--prf",       eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
+  { "--prf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
   { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
   { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
   { "--tree",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "reorder MSA to tree order following single linkage clustering",  4 },
@@ -2403,7 +2403,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int    do_pfract = (! esl_opt_IsDefault(go, "--pfract"));
   int    do_prf    = (! esl_opt_IsDefault(go, "--prf"));
   int    do_pinfo  = (! esl_opt_IsDefault(go, "--pinfo"));
-  float  pfract    =    esl_opt_GetReal(go, "--pfract");  
+  float  pfract;
   float  pthresh   =    esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
   int  *useme; 
   float  thresh;
@@ -2499,12 +2499,12 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
   }
   cpos = 1;
-  for(c = 0; c < msa->alen && cpos < clen; c++) { 
+  for(c = 0; c < msa->alen; c++) { 
     avg_c[c]  = (float) sum_c[c] / (float) nongap_c[c];
     sum_total += sum_c[c];
     nongap_total += nongap_c[c];
     if(c2a_map != NULL) {
-      if(c2a_map[cpos] == c) { 
+      if(c2a_map[cpos] == (c+1)) {  /* off-by-one, c2a_map is 1..clen, c is 0..alen */
 	cpos++; 
 	sum_total_rf += sum_c[c];
 	nongap_total_rf += nongap_c[c];
@@ -2529,9 +2529,12 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     if(msa->rf != NULL) { 
       printf("%3s %5s %6s %6s %6s > %5.3f\n", "rf?", "col", "nongap", "avg", "min", pthresh);
       printf("%3s %5s %6s %6s %6s %7s\n", "---", "-----", "------", "------", "------", "-------");
-      for(c = 0; c < msa->alen && cpos < clen; c++) { 
-	if(c2a_map[cpos] == c) { cpos++; printf("*   "); } 
-	else                             printf("    ");
+      for(c = 0; c < msa->alen; c++) { 
+	if(c2a_map[cpos] == (c+1)) { /* off-by-one, c2a_map is 1..clen, c is 0..alen */
+	  cpos++; 
+	  printf("*   "); 
+	}  
+	else                                            printf("    ");
 	printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
       }
     }
@@ -2554,11 +2557,12 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 
   /* optionally, add/rewrite msa->rf if --pfract enabled */
   if(do_pfract) { 
+    pfract = esl_opt_GetReal(go, "--pfract");  
     ESL_ALLOC(useme, sizeof(int) * (msa->alen+1));
     if(do_prf) { /* only look at consensus columns */
       cpos = 1;
-      for(c = 0; c < msa->alen && cpos < clen; c++) { 
-	if(c2a_map[cpos] == c) { 
+      for(c = 0; c < msa->alen; c++) { 
+	if(c2a_map[cpos] == (c+1)) { /* off-by-one, c2a_map is 1..clen, c is 0..alen */
 	  cpos++;
 	  if(athresh_fract_c[c] >= pfract) useme[c] = 1; 
 	  else                             useme[c] = 0; 
