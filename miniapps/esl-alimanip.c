@@ -393,6 +393,7 @@ main(int argc, char **argv)
 	    fclose(omapfp);
 	  }
 	  else printf("%s\n", msa1_to_msa2_mask);
+	  free(msa1_to_msa2_mask);
 	}
 
       /* impose consensus structure to get individual secondary structures, if nec */
@@ -467,6 +468,7 @@ main(int argc, char **argv)
 	  if((status = output_rf_as_mask(omaskfp, errbuf, msa)) != eslOK) goto ERROR;
 	}
       esl_msa_Destroy(msa);
+      if(othermsa != NULL) esl_msa_Destroy(othermsa);
     }
 
   /* If an msa read failed, we drop out to here with an informative status code. 
@@ -2153,6 +2155,8 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask)
  * in msa2. This implementation requires:
  *  - msa1 and msa2 contain exactly the same sequences in the same order
  *  - msa non-gap RF len is < msa2->alen.
+ * Note: the seqs in msa1 and msa2 do not have to have the same names.
+ *
  * Uses a DP algorithm similar to Needleman-Wunsch, but simpler because
  * we require that all non-gap RF columns from msa1 must map to exactly 1
  * column in msa2, i.e. from a Needleman-Wunsch perspective, we can't have
@@ -2186,8 +2190,9 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   float coverage;             /* fraction of total_cres1 that are within mapped msa2 columns from one_rf2two_map, 
 			       * this is tb_sc / total_cres1 */
   char *msa1_to_msa2_map;     /* map from msa1 to msa2, this is the optimal alignment found by dp */
+  int total_msa1_res = 0;     /* total number of residues in MSA1, we use -1 * this value to initialize dp matrix */
   int be_verbose = esl_opt_GetBoolean(go, "--verbose");
-  
+
   /* contract check */
   if(msa1->rf == NULL)                 ESL_FAIL(eslEINVAL, errbuf, "with --map %s must have RF annotation.", esl_opt_GetString(go, "--map"));
   if(! (msa1->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa1 (%s) not digitized.\n", esl_opt_GetArg(go, 1));
@@ -2206,11 +2211,12 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   ESL_ALLOC(seq1, sizeof(char) * (msa1->alen+1));
   ESL_ALLOC(seq2, sizeof(char) * (msa2->alen+1));
   ESL_ALLOC(one2two, sizeof(int *) * (msa1->alen+1));
-  for(apos1 = 0; apos1 <= msa1->alen+1; apos1++) { 
+  for(apos1 = 0; apos1 <= msa1->alen; apos1++) { 
     ESL_ALLOC(one2two[apos1], sizeof(int) * (msa2->alen+1));
     esl_vec_ISet(one2two[apos1], (msa2->alen+1), 0);
   }
 
+  total_msa1_res = 0;
   for(i = 0; i < msa1->nseq; i++) { 
     /* ensure raw (unaligned) seq i in the 2 msas is the same */
     esl_abc_Textize(msa1->abc, msa1->ax[i], msa1->alen, seq1); 
@@ -2219,7 +2225,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     len2 = esl_sq_Dealign(seq2, seq2, "-_.", msa2->alen);
     if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%d) and %s (%d), those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
     if(strncmp(seq1, seq2, len1) != 0)  ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs between %s and %s, those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
-    
+    total_msa1_res += len1;
     
     apos1 = apos2 = 1;
     while((apos1 <= msa1->alen) || (apos2 <= msa2->alen)) {
@@ -2249,11 +2255,14 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
    */
   ESL_ALLOC(mx, sizeof(int *) * (clen1+1));
   ESL_ALLOC(tb, sizeof(int *) * (clen1+1));
-  ESL_ALLOC(res1_per_cpos, sizeof(int) * (clen1+1));
   for(cpos1 = 0; cpos1 <= clen1; cpos1++) { 
     ESL_ALLOC(mx[cpos1], sizeof(int) * (msa2->alen+1));
     ESL_ALLOC(tb[cpos1], sizeof(int) * (msa2->alen+1));
-    esl_vec_ISet(mx[cpos1], (msa2->alen+1), 0);
+    esl_vec_ISet(mx[cpos1], (msa2->alen+1), -1 * (total_msa1_res + 1)); /* initialize to worst possible score we could have, - 1,
+									 * this was a bug before, if we init to 0, we can
+									 * get alignments that don't go all the back to cpos1 = 1,
+									 * but stop at say cpos1 = 2 because cpos1[2][1] was set as
+									 * 0, even though it should be impossible. */
     esl_vec_ISet(tb[cpos1], (msa2->alen+1), -2); /* -2 is a bogus value, if we see it during traceback, there's a problem */
   }
   ESL_ALLOC(res1_per_cpos, sizeof(int) * (clen1+1));
@@ -2278,9 +2287,10 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     apos1 = c2a_map1[cpos1];
     res1_per_cpos[cpos1] = one2two[apos1][1];
     for(apos2 = 2; apos2 <= msa2->alen; apos2++) {
-      /* only one GG column can align to each CM cc, if we take the vertical step,
-       * we're saying it wasn't g-1, it's g that maps to cpos1, so we have to
-       * subtract out the score that g-1 mapped to cpos that was added into
+      /* only one msa2 column apos2 can align to each msa1 consensus column, 
+       * if we take the vertical step, we're saying it wasn't apos2-1, it's apos2
+       * that maps to cpos1, so we have to subtract out the score that apos2-1 
+       * mapped to cpos that was added into
        * mx[cpos1][g-1] on previous recursion step. 
        */
       vertical = mx[ cpos1   ][(apos2-1)] - one2two[apos1][(apos2-1)]; 
@@ -2319,7 +2329,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   apos2 = max_apos2;
   cpos1 = clen1;
   one_rf2two_map[cpos1] = apos2;
-  tb_sc += one2two[apos1][apos2];
+  tb_sc = one2two[apos1][apos2];
   if     (be_verbose && res1_per_cpos[cpos1] == 0) printf("1 cc %4d --> 2 %4d %5d / %5d (%.4f)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1], (float) 0.);
   else if(be_verbose)                              printf("1 cc %4d --> 2 %4d %5d / %5d (%.4f)\n", cpos1, apos2, one2two[apos1][apos2], res1_per_cpos[cpos1], ((float) one2two[apos1][apos2] / (float) res1_per_cpos[cpos1])); 
 
@@ -2343,6 +2353,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     else if(tb[cpos1][apos2] != -1) /* shouldn't happen */
       ESL_FAIL(eslEINVAL, errbuf, "--map error: in dp traceback, tb[cpos1: %d][apos2: %d] %d\n", cpos1, apos2, tb[cpos1][apos2]);
   }
+  total_cres1 += res1_per_cpos[cpos1];
   /* done DP code 
    **********************************/
 
@@ -2364,12 +2375,20 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   msa1_to_msa2_map[msa2->alen] = '\0';
   *ret_msa1_to_msa2_map = msa1_to_msa2_map;
 
+  /* clean up and return */
   for(cpos1 = 0; cpos1 <= clen1; cpos1++) { 
     free(mx[cpos1]);
     free(tb[cpos1]);
   }
   free(mx);
   free(tb);
+
+  for(apos1 = 0; apos1 <= msa1->alen; apos1++) free(one2two[apos1]);
+  free(one2two);
+  free(one_rf2two_map);
+  free(res1_per_cpos);
+  free(c2a_map1);
+
   free(seq1);
   free(seq2);
   return eslOK;
