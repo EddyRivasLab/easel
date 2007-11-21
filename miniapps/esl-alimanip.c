@@ -2416,7 +2416,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   float *avg_c, *avg_s;       /* average non-gap posterior values for each column/sequence respectively */
   int   *athresh_c;           /* [0..c..msa->alen-1] number of sequences with residue in this column with post value >= pthresh */
   float *athresh_fract_c;     /* [0..c..msa->alen-1] fraction of non-gap sequences with residue in this column with post value >= pthresh */
-  int    ridx;
+  int    ridx1, ridx2;
   int    r;
   float  p;
   int    do_pfract = (! esl_opt_IsDefault(go, "--pfract"));
@@ -2430,19 +2430,29 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int clen;
   int cpos;
   int nkept;
+  int ndigits;
+  int ir1, ir2;
 
   if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
   /* Find out which #=GR line is the POST, Post, or post line (if more than one exist, last one is chosen) */
-  ridx = -1;
+  ridx1 = -1;
+  ridx2 = -1;
+  ndigits = 0;
   for (r = 0; r < msa->ngr; r++) { 
-    if (strcmp(msa->gr_tag[r], "POST") == 0) ridx = r; 
-    if (strcmp(msa->gr_tag[r], "Post") == 0) ridx = r; 
-    if (strcmp(msa->gr_tag[r], "post") == 0) ridx = r; 
+    if (strcmp(msa->gr_tag[r], "POST")   == 0) { ridx1 = r; ndigits = 1; }
+    if (strcmp(msa->gr_tag[r], "Post")   == 0) { ridx1 = r; ndigits = 1; }
+    if (strcmp(msa->gr_tag[r], "post")   == 0) { ridx1 = r; ndigits = 1; }
+    if (strcmp(msa->gr_tag[r], "POSTX.") == 0) { ridx1 = r; ndigits = 1; }
+    if (strcmp(msa->gr_tag[r], "POST.X") == 0) { ridx2 = r; ndigits = 2; }
   }
-  if(ridx == -1) { 
-    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", or \"#=GR post\" annotation in %s.\n", esl_opt_GetArg(go,1));
+  if(ndigits == 1 && ridx1 == -1) { 
+    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+  }
+  if(ndigits == 2 && (ridx1 == -1 || ridx2 == -1)) { 
+    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   if(msa->rf == NULL) { 
     if(do_prf)    ESL_FAIL(eslEINVAL, errbuf, "--prf requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
@@ -2454,7 +2464,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     for(i = 0; i < msa->alen; i++) 
     ESL_ALLOC(post_cs, sizeof(int) * msa->nseq);
   */
-
+     
   ESL_ALLOC(nongap_c, sizeof(int) * msa->alen);
   ESL_ALLOC(sum_c,    sizeof(float) * msa->alen);
   ESL_ALLOC(min_c,    sizeof(float) * msa->alen);
@@ -2474,38 +2484,71 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   esl_vec_FSet(sum_s,    msa->nseq, 0.);
   esl_vec_FSet(min_s,    msa->nseq, 10.);
 
-  for(s = 0; s < msa->nseq; s++) { 
-    for(c = 0; c < msa->alen; c++) { 
-      if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx][s][c])) {
-	switch(msa->gr[ridx][s][c]) { 
-	case '*': p = 1.0; break;
-	case '9': p = 0.9; break;
-	case '8': p = 0.8; break;
-	case '7': p = 0.7; break;
-	case '6': p = 0.6; break;
-	case '5': p = 0.5; break;
-	case '4': p = 0.4; break;
-	case '3': p = 0.3; break;
-	case '2': p = 0.2; break;
-	case '1': p = 0.1; break;
-	case '0': p = 0.0; break;
-	default: 
-	  ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->gr[ridx][s][c]);
+  if(ndigits == 1) {    
+    for(s = 0; s < msa->nseq; s++) { 
+      for(c = 0; c < msa->alen; c++) { 
+	if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
+	  switch(msa->gr[ridx1][s][c]) { 
+	  case '*': p = 1.0; break;
+	  case '9': p = 0.9; break;
+	  case '8': p = 0.8; break;
+	  case '7': p = 0.7; break;
+	  case '6': p = 0.6; break;
+	  case '5': p = 0.5; break;
+	  case '4': p = 0.4; break;
+	  case '3': p = 0.3; break;
+	  case '2': p = 0.2; break;
+	  case '1': p = 0.1; break;
+	  case '0': p = 0.0; break;
+	  default: 
+	    ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->gr[ridx1][s][c]);
+	  }
+	  sum_c[c] += p;
+	  sum_s[s] += p;
+	  nongap_c[c]++;
+	  nongap_s[s]++;
+	  min_c[c] = ESL_MIN(min_c[c], p);
+	  min_s[s] = ESL_MIN(min_s[s], p);
+	  if(p >= pthresh) athresh_c[c]++;
 	}
-	sum_c[c] += p;
-	sum_s[s] += p;
-	nongap_c[c]++;
-	nongap_s[s]++;
-	min_c[c] = ESL_MIN(min_c[c], p);
-	min_s[s] = ESL_MIN(min_s[s], p);
-      	if(p >= pthresh) athresh_c[c]++;
-      }
-      else p = -1; /* gap */
+	else p = -1; /* gap */
 	
-      /*post_sc[s][c] = p;
-	post_cs[c][s] = p;*/
+	/*post_sc[s][c] = p;
+	  post_cs[c][s] = p;*/
+      }
     }
   }
+  if(ndigits == 2) { 
+    for(s = 0; s < msa->nseq; s++) { 
+      for(c = 0; c < msa->alen; c++) { 
+	if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
+	  if(esl_abc_CIsGap(msa->abc, msa->gr[ridx2][s][c])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value non-gap but post 'ones' value is gap.\n", s, c);
+	  if(msa->gr[ridx1][s][c] == '*') {
+	    if(msa->gr[ridx2][s][c] != '*') ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value '*' but post 'ones' value != '*'.\n", s, c);
+	    p = 1.0;
+	  }
+	  else {
+	    ir1 = (int) (msa->gr[ridx1][s][c] - '0');
+	    ir2 = (int) (msa->gr[ridx2][s][c] - '0');
+	    p = ((float) ir1 * 10. + ir2) * .01;
+	    /* printf("r1: %c %d r2: %c %d p: %.2f\n", msa->gr[ridx1][s][c], ir1, msa->gr[ridx2][s][c], ir2, p);*/
+	  }
+	  sum_c[c] += p;
+	  sum_s[s] += p;
+	  nongap_c[c]++;
+	  nongap_s[s]++;
+	  min_c[c] = ESL_MIN(min_c[c], p);
+	  min_s[s] = ESL_MIN(min_s[s], p);
+	  if(p >= pthresh) athresh_c[c]++;
+	}
+	else p = -1; /* gap */
+	
+	/*post_sc[s][c] = p;
+	  post_cs[c][s] = p;*/
+      }
+    }
+  }
+
   if(msa->rf != NULL) map_cpos_to_apos(msa, &c2a_map, &clen);
   else c2a_map = NULL;
 
