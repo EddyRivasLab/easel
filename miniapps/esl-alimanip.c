@@ -2447,8 +2447,8 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     if (strcmp(msa->gr_tag[r], "POST.X") == 0) { ridx2 = r; ndigits = 2; }
   }
   if(ndigits == 1 && ridx1 == -1) { 
-    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
-    if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   if(ndigits == 2 && (ridx1 == -1 || ridx2 == -1)) { 
     if(do_pfract) ESL_FAIL(eslEINVAL, errbuf, "--pfract requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
