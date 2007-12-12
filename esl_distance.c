@@ -790,8 +790,12 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   if (N <= 1) { *ret_id = 1.; return eslOK; }
   *ret_id = 0.;
 
-  /* Is N small enough that we can average over all pairwise comparisons? */
-  if ((N * (N-1) / 2) <= max_comparisons)
+  /* Is N small enough that we can average over all pairwise comparisons? 
+     watch out for numerical overflow in this: Pfam N's easily overflow when squared
+   */
+  if (N <= max_comparisons &&
+      N <= sqrt(2. * max_comparisons) &&
+      (N * (N-1) / 2) <= max_comparisons)
     {
       for (i = 0; i < N; i++)
 	for (j = i+1; j < N; j++)

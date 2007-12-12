@@ -260,7 +260,9 @@ create_mostly(int nseq, int alen)
  *            alignment format <fmt>, convert it to an <ESL_MSA>.
  *            
  *            For example, 
- *            <esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\n//\n", eslMSAFILE_STOCKHOLM)>
+ *            \begin{verbatim}
+ *            esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nseq1 AAAAA\nseq2 AAAAA\n//\n", eslMSAFILE_STOCKHOLM)
+ *            \end{verbatim}
  *            creates an ungapped alignment of two AAAAA sequences.
  *
  * Returns:   a pointer to the new <ESL_MSA> on success.
@@ -1780,7 +1782,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
  *            remove all columns annotated as FALSE in the <useme> 
  *            array. This is done in-place on the MSA, so the MSA is 
  *            modified: <msa->alen> is reduced, <msa->aseq> is shrunk 
- *            (or <msa->ax, in the case of a digital mode alignment), 
+ *            (or <msa->ax>, in the case of a digital mode alignment), 
  *            and all associated per-residue or per-column annotation
  *            is shrunk.
  * 
@@ -2077,7 +2079,7 @@ esl_msa_AddComment(ESL_MSA *msa, char *s)
 /* Function:  esl_msa_AddGF()
  * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
- * Purpose:   Add an unparsed #=GF markup line to the MSA, 
+ * Purpose:   Add an unparsed \verb+#=GF+ markup line to the MSA, 
  *            allocating as necessary. <tag> is the GF markup 
  *            tag; <value> is the text associated w/ that tag.
  *
@@ -2125,12 +2127,12 @@ esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value)
 /* Function:  esl_msa_AddGS()
  * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
- * Purpose:   Add an unparsed #=GS markup line to the MSA, 
+ * Purpose:   Add an unparsed \verb+#=GS+ markup line to the MSA, 
  *            allocating as necessary. It's possible that we 
  *            could get more than one of the same type of GS 
  *            tag per sequence; for example, "DR PDB;" structure 
  *            links in Pfam.  Hack: handle these by appending to 
- *            the string, in a \n separated fashion.
+ *            the string, in a \verb+\n+ separated fashion.
  *
  * Args:      msa    - multiple alignment structure
  *            tag    - markup tag (e.g. "AC")
@@ -2224,7 +2226,7 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
 /* Function:  esl_msa_AppendGC()
  * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
- * Purpose:   Add an unparsed #=GC markup line to the MSA 
+ * Purpose:   Add an unparsed \verb+#=GC+ markup line to the MSA 
  *            structure, allocating as necessary. When called 
  *            multiple times for the same tag, appends value 
  *            strings together -- used when parsing multiblock 
@@ -2298,7 +2300,7 @@ esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
 /* Function:  esl_msa_AppendGR()
  * Incept:    SRE, Thu Jun  3 06:34:38 1999 [Madison]
  *
- * Purpose:   Add an unparsed #=GR markup line to the MSA structure, 
+ * Purpose:   Add an unparsed \verb+#=GR+ markup line to the MSA structure, 
  *            allocating as necessary.
  *              
  *            When called multiple times for the same tag, appends 

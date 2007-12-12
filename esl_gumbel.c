@@ -43,6 +43,7 @@
  *****************************************************************/ 
 
 /* Function:  esl_gumbel_pdf()
+ * Synopsis:  Returns the probability density at $x$, $P(S=x)$.
  * Incept:    SRE, Sun Jun 26 14:08:19 2005 [St. Louis]
  *
  * Purpose:   Calculates the probability density function for the Gumbel,
@@ -63,6 +64,7 @@ esl_gumbel_pdf(double x, double mu, double lambda)
 
 
 /* Function:  esl_gumbel_logpdf()
+ * Synopsis:  Returns the log of the pdf at $x$, $\log P(S=x)$.
  * Incept:    SRE, Sun Jun 26 14:08:19 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the Gumbel,
@@ -82,6 +84,7 @@ esl_gumbel_logpdf(double x, double mu, double lambda)
 
 
 /* Function:  esl_gumbel_cdf()
+ * Synopsis:  Returns the cumulative distribution at $x$, $P(S \leq x)$.
  * Incept:    SRE, Sun Jun 26 10:18:51 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function
@@ -100,6 +103,7 @@ esl_gumbel_cdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_gumbel_logcdf()
+ * Synopsis:  Returns the log of the cdf at $x$, $\log P(S \leq x)$.
  * Incept:    SRE, Sun Jun 26 10:18:51 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function
@@ -118,6 +122,7 @@ esl_gumbel_logcdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_gumbel_surv()
+ * Synopsis:  Returns right tail mass above $x$, $P(S > x)$.
  * Incept:    SRE, Sun Jun 26 09:54:31 2005 [St. Louis]
  *
  * Purpose:   Calculates the survivor function, $P(X>x)$ for a Gumbel 
@@ -140,6 +145,7 @@ esl_gumbel_surv(double x, double mu, double lambda)
 }
 
 /* Function:  esl_gumbel_logsurv()
+ * Synopsis:  Returns log survival at $x$, $\log P(S > x)$.
  * Incept:    SRE, Sun Jun 26 13:45:52 2005 [St. Louis]
  *
  * Purpose:   Calculates $\log P(X>x)$ for a Gumbel (that is, $\log$(1-cdf)):
@@ -242,6 +248,7 @@ esl_gumbel_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_gumbel_Plot()
+ * Synopsis:  Plot a Gumbel function in XMGRACE XY format.
  * Incept:    SRE, Sun Aug 21 13:21:37 2005 [St. Louis]
  *
  * Purpose:   Plot a Gumbel function <func> (for instance,
@@ -272,6 +279,7 @@ esl_gumbel_Plot(FILE *fp, double mu, double lambda,
 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gumbel_Sample()
+ * Synopsis:  Return a Gumbel-distributed random sample $x$.
  * Incept:    SRE, Thu Jun 23 11:38:39 2005 [St. Louis]
  *
  * Purpose:   Sample a Gumbel-distributed random variate
@@ -340,6 +348,7 @@ lawless416(double *x, int n, double lambda, double *ret_f, double *ret_df)
 }
 
 /* Function: esl_gumbel_FitComplete()
+ * Synopsis: Estimates $\mu$, $\lambda$ from complete data.
  * Date:     SRE, Fri Nov 14 07:56:29 1997 [St. Louis] - HMMER's EVDMaxLikelyFit()
  * 
  * Purpose:  Given an array of Gumbel-distributed samples <x[0]..x[n-1]>,
@@ -438,6 +447,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 }
 
 /* Function:  esl_gumbel_FitCompleteLoc()
+ * Synopsis:  Estimates $\mu$ from complete data, given $\lambda$.
  * Incept:    SRE, Thu Nov 24 09:09:17 2005 [St. Louis]
  *
  * Purpose:   Given an array of Gumbel-distributed samples 
@@ -466,12 +476,20 @@ esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
   double esum;
   int    i;
 
-  /* Just substitute into Lawless 4.1.5 to find mu */
+  /* Substitute into Lawless 4.1.5 to find mu */
   esum = 0.;
   for (i = 0; i < n; i++)
     esum  += exp(-lambda * x[i]);
   *ret_mu = -log(esum / n) / lambda;
   return eslOK;
+
+#if 0
+  /* Replace the code above w/ code below to test the direct method. */
+  double mean, variance;
+  esl_stats_DMean(x, n, &mean, &variance);
+  *ret_mu     = mean - 0.57722/lambda;
+  return eslOK;
+#endif
 }
 
 
@@ -555,6 +573,7 @@ lawless422(double *x, int n, int z, double phi,
 }
 
 /* Function: esl_gumbel_FitCensored()
+ * Synopsis: Estimates $\mu$, $\lambda$ from censored data.
  * Date:     SRE, Mon Nov 17 10:01:05 1997 [St. Louis]
  * 
  * Purpose: Given a left-censored array of Gumbel-distributed samples
@@ -659,6 +678,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 
 
 /* Function:  esl_gumbel_FitCensoredLoc()
+ * Synopsis:  Estimates $\mu$ from censored data, given $\lambda$.
  * Incept:    SRE, Mon Feb  6 11:33:10 2006 [St. Louis]
  *
  * Purpose:   Given a left-censored array of Gumbel distributed samples
@@ -814,6 +834,7 @@ tevd_grad(double *p, int nparam, void *dptr, double *dp)
 }
   
 /* Function:  esl_gumbel_FitTruncated()
+ * Synopsis:  Estimates $\mu$, $\lambda$ from truncated data.
  * Incept:    SRE, Wed Jun 29 14:14:17 2005 [St. Louis]
  *
  * Purpose:   Given a left-truncated array of Gumbel-distributed
@@ -929,7 +950,7 @@ main(int argc, char **argv)
   double  mu, lambda;
   double  est_mu, est_lambda;
   double  val;
-  int     do_complete, do_censored, do_truncated;
+  int     do_complete, do_censored, do_truncated, do_location;
 
   ntrials = 500;
   mu      = -20.0;
@@ -939,6 +960,7 @@ main(int argc, char **argv)
   do_complete  = TRUE;		/* Flip these on/off as desired */
   do_censored  = FALSE;
   do_truncated = FALSE;
+  do_location  = FALSE;
 
   r = esl_randomness_CreateTimeseeded();
   x = malloc(sizeof(double) * totalN[nexps-1]);
@@ -1006,6 +1028,25 @@ main(int argc, char **argv)
       }
   }
 #endif /*eslAUGMENT_MINIMIZER*/
+
+  /* Fitting mu given lambda 
+   */
+  if (do_location) {
+    for (exp = 0; exp < nexps; exp++)
+      {
+	for (trial = 0; trial < ntrials; trial++)
+	  {
+	    for (i = 0; i < totalN[exp]; i++)
+	      x[i] = esl_gumbel_Sample(r, mu, lambda);
+
+	    esl_gumbel_FitCompleteLoc(x, totalN[exp], lambda, &est_mu);
+	  
+	    printf("location %6d %6d %9.5f %9.5f\n",
+		   totalN[exp], totalN[exp], mu, est_mu);
+	  }
+	printf("\n");
+      }
+  }    
 
   esl_randomness_Destroy(r);
   free(x);

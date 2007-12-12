@@ -12,6 +12,10 @@
  * public domain ReadSeq package. Last common ancestor was 1991 or so.
  * Vestiges of that history still remain in the design. Thanks Don!
  * 
+ * BUG:  SRE, Tue Dec 11 14:52:15 2007: 
+ * esl_sqio_Read() in digital mode will *not* throw an illegal character
+ * exception; for example, put an L in a DNA seq and see it return eslOK.
+ * 
  * SRE, Thu Feb 17 17:45:51 2005
  * SVN $Id$
  */
@@ -814,8 +818,8 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
  * Incept:    SRE, Tue Jan  9 16:42:35 2007 [Janelia]
  *
  * Purpose:   Same as <esl_sq_Create()>, except the returned sq is configured
- *            for a digital alignment using internal alphabet <abc>, rather than
- *            a text alignment. Creates an empty digital <ESL_SQ> sequence 
+ *            for a digital sequence using internal alphabet <abc>, rather than
+ *            a text sequence. Creates an empty digital <ESL_SQ> sequence 
  *            object, with internal fields allocated to reasonable initial sizes.
  *            Additionally, the <eslSQ_DIGITAL> flag is raised. 
  * 
@@ -851,8 +855,8 @@ esl_sq_CreateDigital(const ESL_ALPHABET *abc)
  * Incept:    EPN, Fri Aug 24 13:38:56 2007
  *
  * Purpose:   Create a new <ESL_SQ> object from elemental data;
- *            Same as esl_sq_CreateFrom except takes ESL_DSQ *dsq
- *            instead of a char *seq as the sequence to copy.
+ *            Same as <esl_sq_CreateFrom> except takes <ESL_DSQ> <*dsq>
+ *            instead of a <char> <*seq> as the sequence to copy.
  *            Originally written to ease reverse complementing
  *            database sequences for Infernal searches.
  *            
