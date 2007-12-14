@@ -1832,7 +1832,7 @@ main(int argc, char **argv)
   ESL_GETOPTS *go;
   char        *arg;
 
-  go = esl_getopts_Create(options);
+  if ((go = esl_getopts_Create(options))     == NULL)  esl_fatal("Bad options structure\n");  
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
   if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
 

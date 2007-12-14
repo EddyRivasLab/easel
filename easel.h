@@ -183,6 +183,7 @@
 #define eslCONST_EULER 0.57721566490153286060651209008
 #define eslCONST_GOLD  1.61803398874989484820458683437
 #define eslCONST_LOG2  0.69314718055994529
+#define eslCONST_LOG2R 1.44269504088896341
 
 /* Define <eslINFINITY>, <eslNaN> portably. Harder than it looks. 
  * We assume we're in an IEEE 754 environment.
