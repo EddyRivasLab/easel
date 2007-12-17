@@ -29,6 +29,7 @@
 1 exercise rootfinder-utest   @rootfinder_utest@
 1 exercise scorematrix-utest  @scorematrix_utest@
 1 exercise sqio-utest         @sqio_utest@
+1 exercise sse-utest          @sse_utest@
 1 exercise ssi-utest          @ssi_utest@
 1 exercise stack-utest        @stack_utest@
 1 exercise stats-utest        @stats_utest@

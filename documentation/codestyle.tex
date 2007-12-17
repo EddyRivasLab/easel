@@ -60,13 +60,14 @@ name: for example, the \eslmod{alphabet} module implements the
 some modules implement more than one object: \eslmod{getopts} and
 \eslmod{dmatrix}, for example.}
 
-The module should also have a three-letter abbreviation. For instance,
-the \eslmod{alphabet} module is also known by the abbreviation
-\eslmod{abc}. The three-letter code is used to construct shorter
-function and macro names. The module may use a four-letter
-abbreviation\footnote{An example of a four-letter abbreviation is
-\ccode{\_root\_} for functions in the \eslmod{rootfinder} module.}  or
-no abbreviation, in some cases.\footnote{An example is the
+Like \emph{Drosophila} gene names, the module should also have a
+three-letter abbreviation. For instance, the \eslmod{alphabet} module
+is also known by the abbreviation \eslmod{abc}. The three-letter code
+is used to construct shorter function and macro names. The module may
+use a four-letter abbreviation\footnote{An example of a four-letter
+abbreviation is \ccode{\_root\_} for functions in the
+\eslmod{rootfinder} module.}  or no abbreviation, in some
+cases.\footnote{An example of a module with no abbreviation is the
 \eslmod{stack} module.}
 
 \subsection{Driver programs}
@@ -85,14 +86,14 @@ one-off programs that use the library in simple ways, for tasks that
 aren't worth writing a permanent application for.  However, one-off
 programs are easily misplaced, and suffer bit
 rot,\footnote{\emph{``bit rot /n./ Also bit decay. Hypothetical
-disease the existence of which has been deduced from the observation
+disease, the existence of which has been deduced from the observation
 that unused programs or features will often stop working after
 sufficient time has passed, even if `nothing has changed'.''} [The
-Jargon File, \url{http://catb.org/esr/jargon/}]} so it often happens
-that one ends up rewriting essentially the same small program, badly,
-many times.  Instead, Easel accumulates these useful pieces of
-functionality in its permanent drivers, where they can be continually
-reused and retested.
+Jargon File, \url{http://catb.org/esr/jargon/}]} so one finds oneself
+writing the same small program repeatedly and sloppily.  Instead,
+Easel accumulates these useful pieces of functionality in its
+permanent drivers, where they can be continually reused, improved, and
+retested.
 
 There are currently five different types of drivers used in Easel:
 
@@ -375,14 +376,14 @@ source code, like the incept date and the notebook
 crossreferences.\footnote{Eventually, we will probably process the
 \ccode{Args:} part of the header, but for now it is ignored.}
 \esldef{Verbatim} text is picked up by \prog{autodoc} and formatted as
-\ccode{\\ccode\{\}} in the \LaTeX\ documentation. \esldef{Processed}
-text is interpeted as \LaTeX\ code, with a special addition that angle
+\verb+\ccode{}+ in the \LaTeX\ documentation. \esldef{Processed} text
+is interpeted as \LaTeX\ code, with a special addition that angle
 brackets are used to enclose C code words, such as the argument names.
 \prog{autodoc} recognizes the angle brackets and formats the enclosed
-text as \ccode{\\ccode\{\}}.  Unprotected underscore characters are
+text as \verb+\ccode{}+.  Unprotected underscore characters are
 allowed inside these angle brackets; \prog{autodoc} protects them
 appropriately when it generates the \LaTeX. Citations, such as
-\ccode{\\citep\{MolerVanLoan03\}}, are formatted for the \LaTeX\
+\verb+\citep{MolerVanLoan03}+, are formatted for the \LaTeX\
 \verb+natbib+ package.
 
 The various fields are:

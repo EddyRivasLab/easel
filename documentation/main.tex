@@ -77,13 +77,6 @@
 \input{autotext/esl_keyhash_functions}
 
 \newpage
-\section{\eslmod{mpi}: support for MPI parallelization}
-\input{../esl_mpi}
-\subsection{Functions in the mpi module}
-\input{autotext/esl_mpi_functions}
-\vspace*{\fill}
-
-\newpage
 \section{\eslmod{random}: pseudorandom numbers and sampling}
 \input{../esl_random}
 \subsection{Functions in the random (rnd) module}
@@ -341,10 +334,20 @@
 \input{autotext/esl_weibull_functions}
 
 
+
+
+
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Interfaces to third-party libraries}
+\chapter{Optional parallel computing support}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section{\eslmod{sse}: SIMD minivectors on Intel and AMD }
+\input{../esl_sse}
+\subsection{Functions in the sse module}
+\input{autotext/esl_sse_functions}
+
 
 \newpage
 \section{\eslmod{mpi}: MPI parallelization}
@@ -355,7 +358,9 @@
 
 
 \newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{File formats}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Stockholm format for multiple sequence alignments}
 \input{format_stockholm.tex}

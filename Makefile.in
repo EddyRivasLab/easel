@@ -8,6 +8,7 @@ AR       = @AR@ rcv
 LN       = ln
 RANLIB   = @RANLIB@
 LDFLAGS  = @LDFLAGS@
+SIMDFLAGS= @SIMD_FLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
 
@@ -40,6 +41,7 @@ HEADERS = \
 	esl_rootfinder.h\
 	esl_scorematrix.h\
 	esl_sqio.h\
+	esl_sse.h\
 	esl_ssi.h\
 	esl_stack.h\
 	esl_stats.h\
@@ -80,6 +82,7 @@ OBJS    = \
 	esl_rootfinder.o\
 	esl_scorematrix.o\
 	esl_sqio.o\
+	esl_sse.o\
 	esl_ssi.o\
 	esl_stack.o\
 	esl_stats.o\
@@ -95,7 +98,7 @@ all: libeasel.a
 	(cd miniapps; make)
 
 .c.o: 
-	${CC} -I. ${CFLAGS} ${DEFS} -c $<		
+	${CC} -I. ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
 
 libeasel.a: $(OBJS)
 	$(AR) libeasel.a $(OBJS)

@@ -226,6 +226,25 @@ AC_ARG_ENABLE(mpi,
    ])
 
 
+# --enable-sse      Force SSE2 SIMD optimization on
+# --disable-sse     Force SSE2 SIMD optimization off
+#                   Default is to have SSE2 on, if it's detected.
+#
+# This sets @SIMD_FLAGS@ output variable, and defines HAVE_SSE2.
+AC_ARG_ENABLE(sse,
+   [AS_HELP_STRING([--enable-sse],  [ enable SSE SIMD parallelization (default)]) ],
+   [
+     if test "x$withval" != xno ; then
+       AC_DEFINE(HAVE_SSE2, 1)
+       AX_EXT
+     else
+       AC_DEFINE(HAVE_SSE2, 0)
+     fi
+   ],
+   [
+     AX_EXT
+   ])
+
 ################################################################
 # 4. Checks for programs
 ################################################################

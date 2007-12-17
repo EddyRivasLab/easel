@@ -10,6 +10,7 @@ CC       = @CC@
 CFLAGS   = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
+SIMDFLAGS= @SIMD_FLAGS@
 DEFS     = @DEFS@
 LIBS     = @LIBS@ -lm
 MPILIBS  = @MPILIBS@
@@ -44,6 +45,7 @@ UNIT_TESTS = easel_utest\
 	rootfinder_utest\
 	scorematrix_utest\
 	sqio_utest\
+	sse_utest\
 	ssi_utest\
 	stack_utest\
 	stats_utest\
@@ -67,10 +69,10 @@ UNIT_TESTS = easel_utest\
 all:  ${UNIT_TESTS}
 
 .c.o:
-	${CC} -I ${EASELLIB} ${CFLAGS} ${DEFS} -c $<		
+	${CC} -I ${EASELLIB} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
 
 $(PROGS): %: %.o ../libeasel.a
-	${CC} ${CFLAGS} -o $@ -L ${EASELLIB} $@.o -leasel -lm
+	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${EASELLIB} $@.o -leasel -lm
 
 # Unit test compilation:
 # 
@@ -93,7 +95,7 @@ $(UNIT_TESTS): FORCE
         else \
            DFILE=esl_$${BASENAME}.c ;\
         fi;\
-	${CC} ${CFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I${ESLDIR} -L${ESLDIR} -D$${DFLAG} ${ESLDIR}/$${DFILE} ${MPILIBS} -leasel ${LIBS}
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I${ESLDIR} -L${ESLDIR} -D$${DFLAG} ${ESLDIR}/$${DFILE} ${MPILIBS} -leasel ${LIBS}
 
 FORCE:
 

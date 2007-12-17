@@ -46,6 +46,7 @@ MODULES = easel\
 	  esl_rootfinder\
 	  esl_scorematrix\
 	  esl_sqio\
+	  esl_sse\
 	  esl_ssi\
 	  esl_stack\
 	  esl_stats\
