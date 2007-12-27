@@ -250,7 +250,7 @@ create_rna(void)
 static ESL_ALPHABET *
 create_amino(void)
 {
-  ESL_ALPHABET *a;
+  ESL_ALPHABET *a = NULL;
 
   /* Create the internal alphabet
    */
@@ -297,7 +297,7 @@ create_amino(void)
 int
 esl_alphabet_SetEquiv(ESL_ALPHABET *a, char sym, char c)
 {
-  char    *sp;
+  char    *sp = NULL;
   ESL_DSQ  x;
 
   /* Contract checks */

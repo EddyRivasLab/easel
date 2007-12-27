@@ -116,6 +116,7 @@ esl_getopts_Create(ESL_OPTIONS *opt)
   return g;
 
  ERROR:
+  fprintf(stderr, "%s\n", g->errbuf); /* not quite kosher by easel standards... */
   esl_getopts_Destroy(g); 
   return NULL;
 }
