@@ -4,6 +4,10 @@
  * SVN $Id$
  */
 
+/* Wish list
+ *    - segfaults if you feed it nonnumeric data
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
