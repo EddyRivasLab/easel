@@ -7,7 +7,7 @@
 # SVN $Id$
 
 CC       = gcc
-CFLAGS   = -g -O2
+CFLAGS   = -g -Wall
 CPPFLAGS = 
 LDFLAGS  = 
 SIMDFLAGS=  -msse2

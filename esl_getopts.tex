@@ -565,9 +565,23 @@ characters, which would confuse the option argument parsers. Other
 characters may work but are not recommended.
 
 Multi-word arguments may be quoted: for example, \ccode{--hostname "my
-host"} or \ccode{-s "my string"}. However, only the space-separated
-syntaxes work for quoted multi-word arguments. \ccode{--hostname="my
-file"} and \ccode{-s\"my string\"} both fail.
+host"} or \ccode{-s="my string"}.
+
+Nonnumeric arguments may not start with '-' unless you use an
+argument-attached syntax: \ccode{-W-myarg} and \ccode{--foo=-myarg}
+are accepted, but \ccode{-W myarg} or \ccode{--foo -myarg} will result
+in an error message. This is so if you forget a required argument on
+the command line, we don't silently parse the following option as that
+argument. Numeric arguments aren't checked this way, but forgotten
+numeric argument errors would still usually be caught in typechecking
+(if \ccode{-n} takes an integer argument, \ccode{-n -a} would be an
+invalid argument error); stylistically, we want \ccode{-n -1} and
+\ccode{--param -1} to be a valid way of passing negative-valued
+arguments.  However, this does mean that some forgotten numeric
+argument cases will be undetectable by Easel: in the case where
+\ccode{-n} takes an integer argument, \ccode{-1} is a valid option,
+and the user types \ccode{-n -1}, the \ccode{-1} is parsed as
+\ccode{-n}'s option.
 
    \subsubsection{Configuration file format}
 
@@ -577,14 +591,16 @@ following a \ccode{\#} character on a line is a comment and is
 ignored. The syntax of options and arguments is stricter than on
 command lines.  Concatenation of short options is not allowed,
 abbreviation of long options is not allowed, and arguments must always
-be separated from options by whitespace. For example:
+be separated from options by whitespace (not by \ccode{=}). For
+example:
 
 \begin{cchunk}
    # Customized configuration file for my application.
    #
-   -a             # Turn -a on.
-   -b             # Turn -b on.
-   -W arg         # Set -W to "arg"
+   -a                        # Turn -a on.
+   -b                        # Turn -b on.
+   -W      arg               # Set -W to "arg"
+   --multi "one two three"   # Multiword args can be quoted.
 \end{cchunk}
 
 

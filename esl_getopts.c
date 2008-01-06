@@ -84,11 +84,25 @@ esl_getopts_Create(ESL_OPTIONS *opt)
   g->optstring = NULL;
   g->errbuf[0] = '\0';
 
-  /* Figure out the number of options.
+  /* Figure out the number of options.  
+   *
+   * Using the NULL-terminated structure array is a design decision.
+   * Alternatively, the caller could provide us with noptions, and use
+   * a #define noptions (sizeof(options) / sizeof(ESL_GETOPTS)) idiom.
+   * Note that we can't use sizeof() here, because now <opt> is just a
+   * pointer.
+   * 
+   * A drawback of requiring NULL termination is, what happens when
+   * the caller forgets? Thus the check for a leading '-' on all
+   * options; if we start straying into memory, that check should 
+   * catch us.
    */
   g->nopts = 0;
-  while (g->opt[g->nopts].name != NULL)
+  while (g->opt[g->nopts].name != NULL) {
+    if (g->opt[g->nopts].name[0] != '-') 
+      ESL_XEXCEPTION(eslEINVAL, "option %d didn't start with '-';\nyou may have forgotten to NULL-terminate the ESL_OPTIONS array", g->nopts);
     g->nopts++;
+  }
   
   /* Set default values for all options.
    * Note the valloc[] setting: we only need to dup strings
@@ -111,12 +125,11 @@ esl_getopts_Create(ESL_OPTIONS *opt)
    * an application error (not user error) if they're invalid. 
    */
   for (i = 0; i < g->nopts; i++) 
-    if (verify_type_and_range(g, i, g->val[i], eslARG_SETBY_DEFAULT) != eslOK) goto ERROR;
-
+    if (verify_type_and_range(g, i, g->val[i], eslARG_SETBY_DEFAULT) != eslOK) 
+      ESL_XEXCEPTION(eslEINVAL, "%s\n", g->errbuf);
   return g;
 
  ERROR:
-  fprintf(stderr, "%s\n", g->errbuf); /* not quite kosher by easel standards... */
   esl_getopts_Destroy(g); 
   return NULL;
 }
@@ -335,7 +348,8 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
       
       /* Second token, if present, is the arg
        */
-      esl_strtok(&s, " \t\n", &optarg, NULL);
+      if (*s == '"')  esl_strtok(&s, "\"",    &optarg, NULL); /* quote-delimited arg */
+      else            esl_strtok(&s, " \t\n", &optarg, NULL); /* space-delimited arg */
       
       /* Anything else on the line had better be a comment
        */
@@ -1166,8 +1180,16 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 	*ret_optarg = argptr;
       else if (g->optind >= g->argc)
 	ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires an argument.", g->opt[opti].name);
-      else			/* "--foo 666" style, with a space */
+      else {			/* "--foo 666" style, with a space */
 	*ret_optarg = g->argv[g->optind++];	/* assign optind as the arg, advance counter */
+
+	/* Watch out for options masquerading as missing arguments. */
+	if ((g->opt[opti].type == eslARG_STRING || g->opt[opti].type == eslARG_INFILE || g->opt[opti].type == eslARG_OUTFILE)
+	    && **ret_optarg == '-')
+	  ESL_FAIL(eslESYNTAX, g->errbuf,
+		   "Arg looks like option? Use %.24s=%.24s if you really mean it.",  
+		   g->opt[opti].name, *ret_optarg);
+      }
     }
   else  /* if there's not supposed to be an arg, but there is, then die */
     {
@@ -1208,8 +1230,12 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
  * 
  * Returns <eslESYNTAX> and sets <g->errbuf> to a helpful error mesg if:
  *   1. The option doesn't exist.
- *   2. The option takes an option, but none was found.
- * Both are user input errors.
+ *   2. The option takes an argument, but none was found.
+ *   3. The option takes an untypechecked argument (eslARG_STRING, 
+ *      eslARG_INFILE, or eslARG_OUTFILE), the argument is unattached 
+ *      (space-delimited), and it appears to be an option instead of 
+ *      an argument, because it starts with '-'. 
+ * All these are user input errors.
  */
 static int
 process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
@@ -1235,9 +1261,16 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
     {
       if (*(g->optstring+1) != '\0')   /* attached argument case, a la -Warg */
 	*ret_optarg = g->optstring+1;
-      else if (g->optind < g->argc)  /* unattached argument; assign optind, advance counter  */
+      else if (g->optind < g->argc) {  /* unattached argument; assign optind, advance counter  */
 	*ret_optarg = g->argv[g->optind++];
-      else 
+
+	/* Watch out for options masquerading as missing arguments. */
+	if ((g->opt[opti].type == eslARG_STRING || g->opt[opti].type == eslARG_INFILE || g->opt[opti].type == eslARG_OUTFILE)
+	    && **ret_optarg == '-')
+	  ESL_FAIL(eslESYNTAX, g->errbuf,
+		   "Arg looks like option? Use %.24s%.24s if you really mean it.",
+		   g->opt[opti].name, *ret_optarg);
+      } else 
 	ESL_FAIL(eslESYNTAX, "Option %.24s requires an argument", g->opt[opti].name);
 
       g->optstring = NULL;   /* An optchar that takes an arg must terminate an optstring. */
@@ -1573,6 +1606,8 @@ verify_char_range(char *arg, char *range)
   return eslOK;
 }
 
+
+
 /* parse_rangestring():
  * 
  * Given a range definition string in one of the following forms:
@@ -1713,6 +1748,7 @@ static ESL_OPTIONS options[] = {
  { "--lown", eslARG_INT,   "42",  NULL,   "n>0", NULL,"-a,-b", NULL,  "int arg with lower bound",  2 },
  { "--hin",  eslARG_INT,   "-1",  NULL,   "n<0", NULL,  NULL,"--no-b","int arg with upper bound",  2 },
  { "--host", eslARG_STRING, "","HOSTTEST",NULL,  NULL,  NULL,  NULL,  "string arg with env var",   3 },
+ { "--multi",eslARG_STRING,NULL,  NULL,   NULL,  NULL,  NULL,  NULL,  "test quoted configfile arg",3 },
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 /*::cexcerpt::getopts_bigarray::end::*/
@@ -1738,6 +1774,7 @@ main(void)
   fprintf(f1, "-b\n");
   fprintf(f1, "-n 3\n");
   fprintf(f1, "-x 0.5\n");
+  fprintf(f1, "--multi \"one two three\"\n"); 
   fclose(f1);
 
   /* Create config file #2.
@@ -1782,6 +1819,8 @@ main(void)
   if (esl_opt_GetInteger(go, "--hin")  != -33)   esl_fatal("getopts failed on --hin"); /* cfgfile 2; requires --no-b to be off */
   if (strcmp(esl_opt_GetString(go, "--host"), "wasp.cryptogenomicon.org") != 0)
     esl_fatal("getopts failed on --host"); /* cfgfile 2, then overridden by environment */
+  if (strcmp(esl_opt_GetString(go, "--multi"), "one two three") != 0)
+    esl_fatal("config file didn't handle quoted argument");
 
   /* Now the two remaining argv[] elements are the command line args
    */
@@ -1820,10 +1859,11 @@ static ESL_OPTIONS options[] = {
   { "-a",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "a boolean switch",               0},
   { "-b",     eslARG_NONE,"default",NULL,NULL, NULL, NULL, NULL, "another boolean switch",         0},
   { "-n",     eslARG_INT,     "0", NULL, NULL, NULL, NULL, NULL, "an integer argument",            0},
+  { "-s",     eslARG_STRING,"hi!", NULL, NULL, NULL, NULL, NULL, "a string argument",              0},
   { "-x",     eslARG_REAL,  "1.0", NULL, NULL, NULL, NULL, NULL, "a real-valued argument",         0},
   { "--file", eslARG_STRING, NULL, NULL, NULL, NULL, NULL, NULL, "long option, with filename arg", 0},
   { "--char", eslARG_CHAR,     "", NULL, NULL, NULL, NULL, NULL, "long option, with character arg",0},
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
 };
 static char usage[] = "Usage: ./example [-options] <arg>";
 
@@ -1850,6 +1890,7 @@ main(int argc, char **argv)
   printf("Option -a:      %s\n", esl_opt_GetBoolean(go, "-a") ? "on" : "off");
   printf("Option -b:      %s\n", esl_opt_GetBoolean(go, "-b") ? "on" : "off");
   printf("Option -n:      %d\n", esl_opt_GetInteger(go, "-n"));
+  printf("Option -s:      %s\n", esl_opt_GetString( go, "-s"));
   printf("Option -x:      %f\n", esl_opt_GetReal(   go, "-x"));
   if (esl_opt_IsDefault(go, "--file"))
     printf("Option --file:  (not set)\n");
