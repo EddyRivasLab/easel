@@ -168,12 +168,40 @@ structure is declared in \ccode{getopts.h} as:
 
 \input{cexcerpts/options_object}
 
-Aside from the option name, which is self-explanatory, how to set each of these
-fields in an options array is described in detail below:
+Each of these fields in the options array is described in detail below:
+
+   \subsubsection{Legal option names}
+
+All options must start with '-'. Options that start with one '-' are
+\textbf{short options}. Options that start with \ccode{--} are
+\textbf{long options}.
+
+Short option names must be a single alphanumeric character: \ccode{-n}
+or \ccode{-1}, for example.  Short options can be concatenated on the
+command line: \ccode{-abc} is the same as \ccode{-a -b -c}.
+
+Long option names should contain only alphanumeric characters,
+\ccode{-}, or \ccode{\_}: \ccode{--foo} or \ccode{--foo-tastic}, for
+example. They must not contain space, tab, newline, \ccode{=}, or
+\ccode{,} characters, which will certainly confuse the option argument
+parsers. Other characters may happen to work, but nonetheless should
+not be used. Long options can be abbreviated (unambiguously) on the
+command line: if \ccode{--foobar} is an option, \ccode{--f} works too,
+so long as no other long option starts with the same prefix
+\ccode{--f}.
+
+You should avoid using option names that look like negative numbers if
+any of your other options would accept that value as a valid argument,
+so that Easel can robustly detect when a user forgets an option
+argument on the command line.  For example, if \ccode{-n} takes an
+integer argument and \ccode{-1} is an option, and a user types
+\ccode{-n -1} on a commandline, the \ccode{-1} will be parsed as
+\ccode{-n}'s option, even if the user meant the \ccode{-1} as an
+option and had forgotten to add an argument for \ccode{-n}.
 
    \subsubsection{Type checking}
 
-Five argument types are recognized:
+Seven argument types are recognized:
 
 \begin{center}
 \begin{tabular}{lll}
@@ -558,11 +586,6 @@ for instance, \ccode{--foo} or \ccode{--foob} suffice to active an
 option \ccode{--foobar}. (Like concatenation of short options,
 abbreviation of long options is a shorthand that may only be used on
 the command line.)
-
-Long option names should contain only alphanumeric characters,
-\ccode{-}, or \ccode{\_}. They may not contain \ccode{=} or \ccode{,}
-characters, which would confuse the option argument parsers. Other
-characters may work but are not recommended.
 
 Multi-word arguments may be quoted: for example, \ccode{--hostname "my
 host"} or \ccode{-s="my string"}.
