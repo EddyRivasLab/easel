@@ -2,20 +2,13 @@ The \eslmod{msaweight} module implements different \emph{ad hoc}
 sequence weighting algorithms, for compensating for overrepresentation
 in multiple sequence alignments.
 
-Typically, sequences in a multiple alignment 
-represented, 
-
-A multiple alignment often even includes identical copies of the same
-sequence, if a sequence was deposited in the databases more than once.
-Relying on raw residue frequencies observed in multiple alignments is
-a flawed strategy -- ``as if someone were to buy several copies of the
-morning newspaper to assure himself that what it said was true'', as
-Wittgenstein said.\footnote{Though Wittgenstein was talking about
-memory and private languages, not multiple sequence
-alignments.}\cite{AltschulCarrolLipmanXXX}.
-
+A multiple alignment often includes similar, even identical copies of
+sequences; the same sequence is often deposited in the databases more
+than once, and sequences from several closely related species are
+usually available. Thus relying on raw residue frequencies observed in
+multiple alignments is a flawed strategy, just as Wittgenstein
+wouldn't trust a consensus of two copies of his morning paper.
  
-
 The functions in the \eslmod{msaweight} API are summarized in
 Table~\ref{tbl:msa_api}. 
 

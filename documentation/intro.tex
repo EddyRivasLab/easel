@@ -1,42 +1,60 @@
 
 
-Easel is a C code library for computational analysis of biological
-sequences using probabilistic models.  Easel is used by \prog{HMMER}
+\Easel\ is a C code library for computational analysis of biological
+sequences using probabilistic models. \Easel\ is used by \HMMER\ 
 \citep{hmmer,Eddy98}, the profile hidden Markov model software that
-underlies the \prog{Pfam} protein family database
+underlies the \Pfam\ protein family database
 \citep{Finn06,Sonnhammer97} and several other protein family
-databases. Easel is also used by \prog{Infernal}
+databases. \Easel\ is also used by \Infernal\ 
 \citep{infernal,NawrockiEddy07}, the covariance model software that
-underlies the \prog{Rfam} RNA family database
-\citep{Griffiths-Jones05}. Like any code library, Easel aims to make
+underlies the \Rfam\ RNA family database
+\citep{Griffiths-Jones05}. Like any code library, \Easel\ aims to make
 applications more robust and easier to develop, by providing a set of
 reusable, documented, and well-tested functions.
 
-Easel's functionality includes generative probabilistic models of
+\Easel's functionality includes generative probabilistic models of
 sequences, phylogenetic models of evolution, bioinformatics tools for
 sequence manipulation and annotation, numerical computing, and some
-basic utilities. 
+basic utilities.
 
-Easel's documentation includes tutorial examples to make it easy to
-get started with any given Easel module. Easel is modular, to help you
-extract individual files or functions for use in your own code,
-without having to disentangle the entire library. Easel is open
-source. You may freely modify and redistribute it (or any part of it)
-for any purpose.
+\Easel\ is not meant to be a comprehensive biosequence analysis code
+library. There are other libraries that aspire to comprehensiveness,
+in a variety of languages
+\citep{Vahrson96,Pitt01,Mangalam02,Butt05,Dutheil06,Giancarlo07,Doring08}.
+Indeed, it is remarkable how many independent projects implement
+similar functionality in order to promote code sharing and reuse!
+\Easel\ takes what may be a more pragmatic (if not jaundiced) view of
+code reuse.  Whereas many libraries seem to expect monogamous
+commitment -- thou shalt forsake all others' sequence objects and
+FASTA reading routines -- \Easel\ encourages promiscuity. While
+\Easel\ may certainly be used as a black-box library (as in \HMMER\
+and \Infernal), its source code is consciously designed to be read as
+a reference work, and to be cribbed or lifted in pieces into your own
+code. It is meant as a counterpart to our research papers.
+
+This dictates decisions made in \Easel's design.  \Easel's
+documentation includes tutorial examples to make it easy to understand
+any given \Easel\ module, independent of other parts of \Easel.
+\Easel\ is modular in a manner that helps you extract individual files
+or functions for use in your own code, without having to disentangle
+the entire library. \Easel\ uses some precepts of object-oriented
+design, but its objects are simple C structures with visible,
+well-documented contents. \Easel\ is open source, so you may freely
+modify and redistribute any part of it for any purpose.
 
 \section{Quick start}
 
 Let's assume you just want to take a quick tour. Maybe you're deciding
-whether Easel is useful or not. You can compile Easel and try it out
+whether \Easel\ is useful or not. You can compile \Easel\ and try it out
 without permanently installing it.
 
-After you obtain an Easel source tarball (from
-\url{http://selab.janelia.org/easel}, for example), it should compile
-cleanly on any UNIX, Linux, or Mac OS/X operating system\footnote{You
-need a C compilation environment, which you might not have. If not,
-install a C compiler first, such as the free GNU gcc compiler, or see
-your local system guru.} with this incantation (where \ccode{xxx} is a
-version number):
+After you obtain an \Easel\ source tarball
+\footnote{From \url{http://selab.janelia.org/easel}, for example.}, it
+should compile cleanly on any UNIX, Linux, or Mac OS/X operating
+system\footnote{You need a C compilation environment, which you might
+not have. If not, install a C compiler first, such as the free GNU gcc
+compiler, or see your local system guru.} with this incantation (where
+\ccode{xxx} is a version number):
 
 \begin{cchunk}
 % tar zxf easel-xxx.tar.gz
@@ -50,32 +68,35 @@ The \ccode{make check} command is optional. It runs a battery of
 quality control tests. All of these should pass. You should now see
 \ccode{libeasel.a} in the directory.
 
-If you decide you want to install Easel permanently, see the full
-installation instructions in chapter~\ref{chapter:installation}.
+There are more complicated things you can do to customize the
+\ccode{./configure} step for your needs. If you decide you want to
+install \Easel\ permanently, see the full installation instructions in
+chapter~\ref{chapter:installation}.
 
-Every source code module (that is, each \ccode{.c} file) ends with one
-or more \esldef{driver programs}, including programs for unit tests
-and benchmarks. These are \ccode{main()} functions that can be
-conditionally included when the module is compiled. Among them is
-always at least one \esldef{example driver} that shows you how to use
-the module. You can find the example code in a module \eslmod{foo} by
-searching the \ccode{esl\_foo.c} file for the tag
-\ccode{eslFOO\_EXAMPLE}. To compile the example for module
+Every source code module (that is, each \ccode{.c} file) has a table
+of contents, and it ends with one or more \esldef{driver programs},
+including programs for unit tests and benchmarks. These are
+\ccode{main()} functions that can be conditionally included when the
+module is compiled. Among them is always at least one \esldef{example
+driver} that shows you how to use the module. You can find the example
+code in a module \eslmod{foo} by searching the \ccode{esl\_foo.c} file
+for the tag \ccode{eslFOO\_EXAMPLE}. To compile the example for module
 \eslmod{foo} as a working program, do:
 
 \begin{cchunk}
    % cc -o example -L. -I. -DeslFOO_EXAMPLE esl_foo.c -leasel -lm
 \end{cchunk}
 
-You might need to replace the standard \ccode{cc} with a different
-compiler name, depending on your system. Linking to the standard math
-library (\ccode{-lm}) may not be necessary, depending on what module
-you're compiling, but it won't hurt. Replace \ccode{foo} with the name
-of a module you want to play with, and you can compile any of Easel's
-example drivers this way.
+You may need to replace the standard C compiler \ccode{cc} with a
+different compiler name, depending on your system. Linking to the
+standard math library (\ccode{-lm}) may not be necessary, depending on
+what module you're compiling, but it won't hurt. Replace \ccode{foo}
+with the name of a module you want to play with, and you can compile
+any of Easel's example drivers this way.
 
-To run it, read the source code to see if it needs any command line
-arguments, like the name of a file to open, then:
+To run it, read the source code (or the corresponding section in this
+book) to see if it needs any command line arguments, like the name of
+a file to open, then:
 
 \begin{cchunk}
    % ./example <any args needed>
@@ -83,27 +104,30 @@ arguments, like the name of a file to open, then:
 
 You can edit the example driver to play around with it, if you like,
 but it's better to make a copy of it in your own file (say,
-\ccode{foo\_example.c}) so you're not changing Easel's code. When you
+\ccode{foo\_example.c}) so you're not changing \Easel's code. When you
 extract the code into a file, copy what's between the \ccode{\#ifdef
 eslFOO\_EXAMPLE} and \ccode{\#endif /*eslFOO\_EXAMPLE*/} flags that
 conditionally include the example driver (don't copy the flags
-themselves).  Compile your example code like this:
+themselves). Then compile your example code and link to \Easel\ like
+this:
 
 \begin{cchunk}
-   % cc -o foo_example -L. -I. foo_example.c esl_foo.c -leasel -lm
+   % cc -o foo_example -L. -I. foo_example.c -leasel -lm
 \end{cchunk}
 
 That's it. Now you can compile Easel-based programs that you can
 modify and play around with. If you're the type (like me) that prefers
-to learn by example, you're on your way.  
-
-The next question is, does Easel provide any functionality you're
-interested in?  
+to learn by example, close this book; you're done. The source code
+itself should contain any the documentation you need. Indeed, most of
+this book is in fact directly extracted from the source code.
 
 \section{Overview of Easel's modules}
 
-Each \ccode{.c} file in Easel corresponds to one Easel \esldef{module}.
-A module consists of a group of functions for some
+Still here? All right. Possibly your next question is, does \Easel
+provide any functionality you're interested in?
+
+Each \ccode{.c} file in \Easel\ corresponds to one \Easel
+\esldef{module}.  A module consists of a group of functions for some
 task. Table~\ref{tbl:module_list} shows a list of all the modules. For
 example, the \eslmod{sqio} module can automatically parse many common
 unaligned sequence formats, and the \eslmod{msa} module can parse many
@@ -177,25 +201,25 @@ interface\_lapack & LAPACK linear algebra library   \\
 \label{tbl:module_list}
 \end{table}
 
-Though you would normally use Easel as a C library
-(\ccode{libeasel.a}) that you link with your code, Easel is also
+Though you would normally use \Easel\ as a C library
+(\ccode{libeasel.a}) that you link with your code, \Easel\ is also
 designed to be sufficiently modular that you can grab individual
 source files out of the library and use them directly in your own
 code. For example, to get Easel's sequence file i/o API, for example,
 you can take the sqio module (the C source \ccode{esl\_sqio.c} and the
-header \ccode{esl\_sqio.h}), plus the obligatory Easel core
+header \ccode{esl\_sqio.h}), plus the obligatory \Easel\ core
 (\ccode{easel.c} and \ccode{easel.h}). Many of Easel's modules are
 free-standing, and only depend on the foundation \eslmod{easel}
 module. Some modules require a few other modules, but the total number
-of modules you have to take to get any particular Easel API is always
+of modules you have to take to get any particular \Easel\ API is always
 small. Each module's documentation shows its required dependencies.
 
 To minimize the number of modules you need to take to get some part of
-Easel into your code, Easel uses a concept it calls
+Easel into your code, \Easel\ uses a concept it calls
 \emph{augmentation}. Each module provides a base functionality that is
 as simple as possible, and which depends on as few other modules as
 possible. When more powerful functionality would require additional
-modules, where possible, Easel isolates that functionality and makes
+modules, where possible, \Easel\ isolates that functionality and makes
 it optional. You can \emph{augment} the module and activate these more
 powerful optional abilities by providing the appropriate modules, or
 you can leave the optional modules out.  For example, if you use only
@@ -207,7 +231,7 @@ sequentially. At compile-time, you declare (by means of
 \ccode{\#define} flags in \ccode{easel.h}) what modules you've taken,
 which defines what augmentations are possible. Each module's
 documentation shows what optional augmentations are activated by other
-modules. Of course, when Easel is used as a complete
+modules. Of course, when \Easel\ is used as a complete
 \ccode{libeasel.a} library, all modules are fully augmented.
 
 
@@ -252,11 +276,11 @@ code design, focusing each module around a common datatype.
 A pitfall of putting data into complex, custom datatypes is that this
 can impede code reuse. You don't want to understand what's in someone
 else's object, and you probably have your own favorite ways of
-organizing data.  Easel assumes you are only going to use Easel
-objects to call Easel functions, so you will build simple interfaces
+organizing data.  \Easel\ assumes you are only going to use Easel
+objects to call \Easel\ functions, so you will build simple interfaces
 to exchange data between your code and Easel. Thus, there are always
-obvious ways to create new Easel objects from elemental data types,
-and to extract elemental data types from Easel objects. Easel objects
+obvious ways to create new \Easel\ objects from elemental data types,
+and to extract elemental data types from \Easel\ objects. \Easel\ objects
 are translucent, if not transparent; often, some of their internal
 data fields are stable and documented, and you are encouraged to reach
 into an object and access elemental data directly.

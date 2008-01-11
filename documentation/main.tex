@@ -31,80 +31,24 @@
 
 \newpage
 \chapter{Introduction}
-\input{intro}
-
 \begin{quote}
  \emph{...using another person's software is sometimes treated like 
  using their toothbrush.}\\
 \hspace*{1em}\hfill - Webb Miller \citep{Miller01}
 \end{quote}
-
-\vspace*{\fill}
-\begin{quote}
-\hspace*{1em}\hfill \emph{Lack of skill dictates economy of style.} \hspace{1em} -- Joey Ramone
-\end{quote}     
+\input{intro}
 
 
 \newpage
 \chapter{\eslmod{easel}: the foundation}
+\begin{quote}
+\emph{Lack of skill dictates economy of style.} 
+\hspace*{1em}\hfill -- Joey Ramone
+\end{quote}     
 \input{../easel}
 \section{Functions in the easel module}
 \input{autotext/easel_functions}
 \vspace*{\fill}
-
-
-\newpage
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Utility modules}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\chapter{Core modules}
-
-\newpage
-\section{\eslmod{fileparser}: token-based data file input}
-\input{../esl_fileparser}
-\subsection{Functions in the fileparser module}
-\input{autotext/esl_fileparser_functions}
-
-\newpage
-\section{\eslmod{getopts}: command line parsing}
-\input{../esl_getopts}
-\subsection{Functions in the getopts module}
-\input{autotext/esl_getopts_functions}
-
-\newpage
-\section{\eslmod{keyhash}: keyword hashing, associative array emulation}
-\input{../esl_keyhash}
-\subsection{Functions in the keyhash module}
-\input{autotext/esl_keyhash_functions}
-
-\newpage
-\section{\eslmod{random}: pseudorandom numbers and sampling}
-\input{../esl_random}
-\subsection{Functions in the random (rnd) module}
-\input{autotext/esl_random_functions}
-\vspace*{\fill}
-
-\begin{quote}
-\emph{Nec Babylonios temptaris numeros.} \hspace{3em} -- Horace, Ode
-1.11. \\ 
-\end{quote}     
-
-\newpage
-\section{\eslmod{regexp}: regular expression matching}
-\input{../esl_regexp}
-\subsection{Functions in the regexp module}
-\input{autotext/esl_regexp_functions}
-
-\newpage
-\section{\eslmod{stack}: pushdown stacks for integers, chars, and pointers}
-\input{../esl_stack}
-\subsection{Functions in the stack module}
-\input{autotext/esl_stack_functions}
-
-\newpage
-\section{\eslmod{stopwatch}: timing parts of programs}
-\input{../esl_stopwatch}
-\subsection{Functions in the stopwatch module}
-\input{autotext/esl_stopwatch_functions}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -116,6 +60,12 @@
 \input{../esl_alphabet}
 \subsection{Functions in the alphabet module}
 \input{autotext/esl_alphabet_functions}
+
+\newpage
+\section{\eslmod{msa}: Multiple sequence alignment i/o}
+\input{../esl_msa}
+\subsection{Functions in the msa module}
+\input{autotext/esl_msa_functions}
 
 \newpage
 \section{\eslmod{sqio}: i/o of unaligned sequence files}
@@ -130,16 +80,9 @@
 \input{autotext/esl_ssi_functions}
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Multiple sequence alignment modules}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\newpage
-\section{\eslmod{msa}: Multiple sequence alignment i/o}
-\input{../esl_msa}
-\subsection{Functions in the msa module}
-\input{autotext/esl_msa_functions}
 
 \newpage
 \section{\eslmod{msacluster}: Clustering aligned sequence families}
@@ -149,6 +92,11 @@
 
 \newpage
 \section{\eslmod{msaweight}: Ad hoc sequence weighting}
+\begin{quote}
+ \emph{... as if someone were to buy several copies of the morning
+ newspaper to assure himself that what is said is true.}\\
+\hspace*{1em}\hfill -- Ludwig Wittgenstein \citep[cited in]{Altschul89}
+\end{quote}
 \input{../esl_msaweight}
 \subsection{Functions in the msaweight module}
 \input{autotext/esl_msaweight_functions}
@@ -157,6 +105,16 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Pairwise sequence alignment}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{quote}
+ \emph{And how will it ever end?\\ 
+       unless the day finally arrives\\
+       when we have compared everything in the world\\
+       to everything else in the world,\\
+       and there is nothing left to do\\
+       but quietly close our notebooks\\
+       and sit with our hands folded on our desks.}\\
+\hspace*{1em}\hfill -- Billy Collins, \emph{The Trouble with Poetry}
+\end{quote}
 
 \newpage
 \section{\eslmod{swat}: Smith/Waterman local alignment}
@@ -169,6 +127,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Probabilistic modeling modules}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{quote}
+  \emph{Probability theory is nothing but common sense reduced to
+  calculation.}\\
+\hspace*{1em}\hfill -- Laplace
+\end{quote}
 
 \newpage
 \section{\eslmod{scorematrix}: Pairwise alignment scores}
@@ -333,7 +296,63 @@
 \subsection{Functions in the weibull module}
 \input{autotext/esl_weibull_functions}
 
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Utility modules}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\chapter{Core modules}
 
+\newpage
+\section{\eslmod{cluster}: single linkage clustering}
+\input{../esl_cluster}
+\subsection{Functions in the cluster module}
+\input{autotext/esl_cluster_functions}
+
+\newpage
+\section{\eslmod{fileparser}: token-based data file input}
+\input{../esl_fileparser}
+\subsection{Functions in the fileparser module}
+\input{autotext/esl_fileparser_functions}
+
+\newpage
+\section{\eslmod{getopts}: command line parsing}
+\input{../esl_getopts}
+\subsection{Functions in the getopts module}
+\input{autotext/esl_getopts_functions}
+
+\newpage
+\section{\eslmod{keyhash}: keyword hashing, associative array emulation}
+\input{../esl_keyhash}
+\subsection{Functions in the keyhash module}
+\input{autotext/esl_keyhash_functions}
+
+\newpage
+\section{\eslmod{random}: pseudorandom numbers and sampling}
+\begin{quote}
+\emph{Nec Babylonios temptaris numeros.} \hspace{3em} -- Horace, Ode
+1.11. \\ 
+\end{quote}     
+\input{../esl_random}
+\subsection{Functions in the random (rnd) module}
+\input{autotext/esl_random_functions}
+\vspace*{\fill}
+
+\newpage
+\section{\eslmod{regexp}: regular expression matching}
+\input{../esl_regexp}
+\subsection{Functions in the regexp module}
+\input{autotext/esl_regexp_functions}
+
+\newpage
+\section{\eslmod{stack}: pushdown stacks for integers, chars, and pointers}
+\input{../esl_stack}
+\subsection{Functions in the stack module}
+\input{autotext/esl_stack_functions}
+
+\newpage
+\section{\eslmod{stopwatch}: timing parts of programs}
+\input{../esl_stopwatch}
+\subsection{Functions in the stopwatch module}
+\input{autotext/esl_stopwatch_functions}
 
 
 
@@ -378,9 +397,17 @@
 
 
 \newpage
+\chapter{Credits and acknowledgements}
+\begin{quote}
+\emph{There are every year works published whose contents show them to
+  be by real lunatics.}
+\hspace*{1em}\hfill -- William James, \emph{The Principles of Psychology}
+\end{quote}
+
+\newpage
 \newcommand{\bibfont}{\footnotesize}
 \bibliographystyle{abbrvnat}
-\bibliography{master,lab,books}
+\bibliography{master,lab,books,new}
 
 \end{document}
 

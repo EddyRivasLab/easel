@@ -15,6 +15,7 @@ LIBGSL   = @LIBGSL@
 HEADERS = \
 	easel.h\
 	esl_alphabet.h\
+	esl_cluster.h\
 	esl_dirichlet.h\
 	esl_distance.h\
 	esl_dmatrix.h\
@@ -56,6 +57,7 @@ HEADERS = \
 OBJS    = \
 	easel.o\
 	esl_alphabet.o\
+	esl_cluster.o\
 	esl_dirichlet.o\
 	esl_distance.o\
 	esl_dmatrix.o\

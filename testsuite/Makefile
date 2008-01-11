@@ -7,7 +7,7 @@
 # SVN $Id$
 
 CC       = gcc
-CFLAGS   = -g -Wall
+CFLAGS   = -g -O2
 CPPFLAGS = 
 LDFLAGS  = 
 SIMDFLAGS=  -msse2
@@ -24,8 +24,10 @@ PROGS = parse-t1\
 	dmatrix-t1\
 	dmatrix-t2\
 
-UNIT_TESTS = easel_utest\
+UNIT_TESTS =\
+	easel_utest\
 	alphabet_utest\
+	cluster_utest\
 	dirichlet_utest\
 	distance_utest\
 	dmatrix_utest\
@@ -38,6 +40,7 @@ UNIT_TESTS = easel_utest\
 	hyperexp_utest\
 	keyhash_utest\
 	msa_utest\
+	msacluster_utest\
 	msaweight_utest\
 	random_utest\
 	ratematrix_utest\
@@ -58,7 +61,6 @@ UNIT_TESTS = easel_utest\
 #	minimizer_utest\
 #	mixgev_utest\
 #	mpi_utest\
-#	msacluster_utest\
 #	normal_utest\
 #	paml_utest\
 #	stopwatch_utest\

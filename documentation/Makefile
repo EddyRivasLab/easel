@@ -20,6 +20,7 @@ CEXCERPT = ../devkit/cexcerpt
 #
 MODULES = easel\
 	  esl_alphabet\
+	  esl_cluster\
 	  esl_dirichlet\
 	  esl_distance\
 	  esl_dmatrix\

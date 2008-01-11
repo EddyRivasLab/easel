@@ -2267,10 +2267,14 @@ int
 main(void)
 {
   ESL_RANDOMNESS *r = esl_randomness_Create(42); 
-  int             n = 10;
+  int             n = 1000000;
+  double          x = 0.;
 
+#if 0
   printf("A sequence of %d pseudorandom numbers:\n", n);
   while (n--)  printf("%f\n", esl_random(r));
+#endif
+  while (n--)  x += esl_random(r) - 0.5;
 
   esl_randomness_Destroy(r);
   return 0;
