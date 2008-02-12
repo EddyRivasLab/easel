@@ -116,6 +116,9 @@ dcheck:
 	(cd testsuite; make dcheck)
 
 clean:
+	(cd documentation; make clean)
+	(cd testsuite;     make clean)
+	(cd miniapps;      make clean)
 	-rm -f ${OBJS} libeasel.a
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov

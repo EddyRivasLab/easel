@@ -572,8 +572,10 @@ main(int argc, char **argv)
  * readme, Cephes is "copyrighted by the author" and "may be used
  * freely but it comes with no support or guarantee."  Cephes is
  * available in NETLIB [http://www.netlib.org/cephes/]. NETLIB is
- * widely considered to be a free scientific code repository, hough
+ * widely considered to be a free scientific code repository, though
  * the copyright and license status of many parts, including Cephes,
- * is not well defined in legal terms. We hereby note this, and have
- * attached Moshier's copyright.
+ * is ill-defined. We have attached Moshier's copyright,
+ * to credit his original contribution. Thanks to both Pommier and
+ * Moshier for their clear code.
  */
+

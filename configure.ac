@@ -234,16 +234,26 @@ AC_ARG_ENABLE(mpi,
 AC_ARG_ENABLE(sse,
    [AS_HELP_STRING([--enable-sse],  [ enable SSE SIMD parallelization (default)]) ],
    [
-     if test "x$withval" != xno ; then
-       AC_DEFINE(HAVE_SSE2, 1)
-       AX_EXT
-     else
-       AC_DEFINE(HAVE_SSE2, 0)
-     fi
+     case $enable_sse in 
+     yes) if test "$CC" != icc; then 
+            AX_EXT
+          else 
+            AC_DEFINE(HAVE_SSE2, 1)
+            impl_choice="sse"
+          fi
+          ;;
+
+     no) AC_MSG_NOTICE([SSE vectorization disabled])
+         ;;
+
+     *)  AC_MSG_NOTICE([Ignoring unknown argument to --enable-sse: $enable_sse])
+         ;;
+     esac
    ],
-   [
+   [  
      AX_EXT
    ])
+
 
 ################################################################
 # 4. Checks for programs

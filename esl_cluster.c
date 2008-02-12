@@ -166,7 +166,7 @@ esl_cluster_SingleLinkage(void *base, size_t n, size_t size,
 	 {
 	   v = b[nb-1]; nb--;	/* pop vertex off b        */
 	   c[v] = nc;		/* assign it to cluster nc */
-	   for (i = na-1; i >= 0; i--) /* backwards, becase of deletion/swapping we do*/
+	   for (i = na-1; i >= 0; i--) /* backwards, because of deletion/swapping we do*/
 	     {
 	       if ((status = (*linkfunc)( base + v*size, base + a[i]*size, param, &do_link)) != eslOK) goto ERROR;
 	       if (do_link)
