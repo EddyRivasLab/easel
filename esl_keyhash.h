@@ -1,11 +1,8 @@
-/* keyhash.h
- * Storing keys in hash tables, similar to Perl's associative arrays.
+/* Storing keys in hash tables, similar to Perl's associative arrays.
  * 
+ * SRE, Sun Jan 30 08:55:17 2005;  from squid's gki.h, 1999.
  * SVN $Id$
- * SRE, Sun Jan 30 08:55:17 2005
- * from squid's gki.h, 1999.
  */
-
 #ifndef eslKEYHASH_INCLUDED
 #define eslKEYHASH_INCLUDED
 
@@ -33,15 +30,15 @@ typedef struct {
 } ESL_KEYHASH;
 
 extern ESL_KEYHASH *esl_keyhash_Create(void);
-extern void         esl_keyhash_Destroy(ESL_KEYHASH *h);
-extern void         esl_keyhash_Dump(FILE *fp, ESL_KEYHASH *h);
+extern ESL_KEYHASH *esl_keyhash_Clone(ESL_KEYHASH *kh);
+extern void         esl_keyhash_Destroy(ESL_KEYHASH *kh);
+extern void         esl_keyhash_Dump(FILE *fp, ESL_KEYHASH *kh);
 
-extern int  esl_key_Store(ESL_KEYHASH *h, char *key, int *ret_index);
-extern int  esl_key_Lookup(ESL_KEYHASH *h, char *key);
+extern int  esl_key_Store (ESL_KEYHASH *kh, char *key, int *ret_index);
+extern int  esl_key_Lookup(ESL_KEYHASH *kh, char *key);
 
 
 #endif /* eslKEYHASH_INCLUDED */
-
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/
