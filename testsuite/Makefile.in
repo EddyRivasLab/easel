@@ -10,9 +10,9 @@ CC       = @CC@
 CFLAGS   = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
-SIMDFLAGS= @SIMD_FLAGS@
+SIMDFLAGS= @SIMD_CFLAGS@
 DEFS     = @DEFS@
-LIBS     = @LIBS@ -lm
+LIBS     = @LIBGSL@ @LIBS@ -lm
 MPILIBS  = @MPILIBS@
 
 AR      = @AR@ rcv
@@ -26,6 +26,7 @@ PROGS = parse-t1\
 
 UNIT_TESTS = easel_utest\
 	alphabet_utest\
+	cluster_utest\
 	dirichlet_utest\
 	distance_utest\
 	dmatrix_utest\
@@ -38,6 +39,7 @@ UNIT_TESTS = easel_utest\
 	hyperexp_utest\
 	keyhash_utest\
 	msa_utest\
+	msacluster_utest\
 	msaweight_utest\
 	random_utest\
 	ratematrix_utest\
@@ -58,11 +60,9 @@ UNIT_TESTS = easel_utest\
 #	minimizer_utest\
 #	mixgev_utest\
 #	mpi_utest\
-#	msacluster_utest\
 #	normal_utest\
 #	paml_utest\
 #	stopwatch_utest\
-
 #	swat_utest\
 
 

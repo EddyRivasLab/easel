@@ -75,8 +75,10 @@ esl_sse_logf(__m128 x)
   static float cephes_p[9] = {  7.0376836292E-2f, -1.1514610310E-1f,  1.1676998740E-1f,
 				-1.2420140846E-1f, 1.4249322787E-1f, -1.6668057665E-1f,
 				2.0000714765E-1f, -2.4999993993E-1f,  3.3333331174E-1f };
-  __m128  onev = _mm_set1_ps(1.0f); /* all elem = 1.0 */
-  __m128  v0p5 = _mm_set1_ps(0.5f); /* all elem = 0.5 */
+  __m128  onev = _mm_set1_ps(1.0f);          /* all elem = 1.0 */
+  __m128  v0p5 = _mm_set1_ps(0.5f);          /* all elem = 0.5 */
+  __m128i vneg = _mm_set1_epi32(0x80000000); /* all elem have IEEE sign bit up */
+  __m128i vexp = _mm_set1_epi32(0x7f800000); /* all elem have IEEE exponent bits up */
   __m128i ei;
   __m128  e;
   __m128  invalid_mask, zero_mask, inf_mask;            /* masks used to handle special IEEE754 inputs */
@@ -87,11 +89,11 @@ esl_sse_logf(__m128 x)
   __m128  z;
 
   /* first, split x apart: x = frexpf(x, &e); */
-  ei           = _mm_srli_epi32((__m128i) x, 23);	             /* shift right 23: IEEE754 floats: ei = biased exponents     */
-  invalid_mask = _mm_cmple_ps   (x,  _mm_setzero_ps());              /* mask any elem that's negative; these become NaN           */
-  zero_mask    = (__m128) _mm_cmpeq_epi32(ei, _mm_setzero_si128());  /* mask any elem zero or subnormal; these become -inf        */
-  inf_mask     = (__m128) _mm_cmpeq_epi32(ei, _mm_set1_epi32(255));  /* mask any elem +inf or NaN; these stay +inf or NaN         */
-  origx        = x;			                             /* store original x, used for log(inf) = inf, log(NaN) = NaN */
+  ei           = _mm_srli_epi32((__m128i) x, 23);	                             /* shift right 23: IEEE754 floats: ei = biased exponents     */
+  invalid_mask = (__m128) _mm_cmpeq_epi32( _mm_and_si128((__m128i) x, vneg), vneg);  /* mask any elem that's negative; these become NaN           */
+  zero_mask    = (__m128) _mm_cmpeq_epi32(ei, _mm_setzero_si128());                  /* mask any elem zero or subnormal; these become -inf        */
+  inf_mask     = (__m128) _mm_cmpeq_epi32( _mm_and_si128((__m128i) x, vexp), vexp);  /* mask any elem inf or NaN; log(inf)=inf, log(NaN)=NaN      */
+  origx        = x;			                                             /* store original x, used for log(inf) = inf, log(NaN) = NaN */
 
   x  = _mm_and_ps(x, (__m128) _mm_set1_epi32(~0x7f800000));          /* x now the stored 23 bits of the 24-bit significand        */
   x  = _mm_or_ps (x, v0p5);                                          /* sets hidden bit b[0]                                      */
@@ -129,9 +131,9 @@ esl_sse_logf(__m128 x)
   x = _mm_add_ps(x, tmp);
 
   /* IEEE754 cleanup: */
-  x = _mm_or_ps(x, invalid_mask);                                 /* log(x<0, including -0) = NaN  */
-  x = esl_sse_select_ps(x, _mm_set1_ps(-eslINFINITY), zero_mask); /* x zero or subnormal    = -inf */
-  x = esl_sse_select_ps(x, origx,                     inf_mask);  /* log(inf)=inf; log(NaN) = NaN  */
+  x = esl_sse_select_ps(x, origx,                     inf_mask);  /* log(inf)=inf; log(NaN)      = NaN  */
+  x = _mm_or_ps(x, invalid_mask);                                 /* log(x<0, including -0,-inf) = NaN  */
+  x = esl_sse_select_ps(x, _mm_set1_ps(-eslINFINITY), zero_mask); /* x zero or subnormal         = -inf */
   return x;
 }
 
@@ -333,10 +335,10 @@ utest_logf(ESL_GETOPTS *go)
     esl_sse_dump_ps(stdout, x);    printf(" ==> ");
     esl_sse_dump_ps(stdout, r.v);  printf("\n");
   }
-  if (! isnan(r.x[0]))     esl_fatal("logf(-inf) should be NaN");
-  if (! isnan(r.x[1]))     esl_fatal("logf(-1)   should be NaN");
-  if (! isnan(r.x[2]))     esl_fatal("logf(-0)   should be NaN");
-  if (isinf(r.x[3]) != -1) esl_fatal("logf(0)    should be -inf");
+  if (! isnan(r.x[0]))                 esl_fatal("logf(-inf) should be NaN");
+  if (! isnan(r.x[1]))                 esl_fatal("logf(-1)   should be NaN");
+  if (! isnan(r.x[2]))                 esl_fatal("logf(-0)   should be NaN");
+  if (! (r.x[3] < 0 && isinf(r.x[3]))) esl_fatal("logf(0)    should be -inf");
 
   x   = _mm_set_ps(FLT_MAX, FLT_MIN, eslNaN, eslINFINITY);
   r.v = esl_sse_logf(x);
@@ -345,8 +347,8 @@ utest_logf(ESL_GETOPTS *go)
     esl_sse_dump_ps(stdout, x);    printf(" ==> ");
     esl_sse_dump_ps(stdout, r.v);  printf("\n");
   }
-  if (isinf(r.x[0]) != 1)  esl_fatal("logf(inf)  should be inf");
-  if (! isnan(r.x[1]))     esl_fatal("logf(NaN)  should be NaN");
+  if (! isinf(r.x[0]))  esl_fatal("logf(inf)  should be inf");
+  if (! isnan(r.x[1]))  esl_fatal("logf(NaN)  should be NaN");
 
 }
 
@@ -365,10 +367,10 @@ utest_expf(ESL_GETOPTS *go)
     esl_sse_dump_ps(stdout, x);    printf(" ==> ");
     esl_sse_dump_ps(stdout, r.v);  printf("\n");
   }
-  if (r.x[0] != 0.0f)      esl_fatal("expf(-inf) should be 0");
-  if (r.x[1] != 1.0f)      esl_fatal("logf(-0)   should be 1");
-  if (r.x[2] != 1.0f)      esl_fatal("logf(0)    should be 1");
-  if (isinf(r.x[3]) != 1)  esl_fatal("logf(inf)  should be inf");
+  if (r.x[0] != 0.0f)   esl_fatal("expf(-inf) should be 0");
+  if (r.x[1] != 1.0f)   esl_fatal("logf(-0)   should be 1");
+  if (r.x[2] != 1.0f)   esl_fatal("logf(0)    should be 1");
+  if (! isinf(r.x[3]))  esl_fatal("logf(inf)  should be inf");
 
   /* exp(NaN) = NaN    exp(large)  = inf   exp(-large) = 0  exp(1) = exp(1) */
   x = _mm_set_ps(1.0f, -666.0f, 666.0f, eslNaN); /* set_ps() is in order 3 2 1 0 */
@@ -378,9 +380,9 @@ utest_expf(ESL_GETOPTS *go)
     esl_sse_dump_ps(stdout, x);    printf(" ==> ");
     esl_sse_dump_ps(stdout, r.v);  printf("\n");
   }
-  if (! isnan(r.x[0]))     esl_fatal("expf(NaN)      should be NaN");
-  if (isinf(r.x[1]) != 1)  esl_fatal("expf(large x)  should be inf");
-  if (r.x[2] != 0.0f)      esl_fatal("expf(-large x) should be 0");
+  if (! isnan(r.x[0]))  esl_fatal("expf(NaN)      should be NaN");
+  if (! isinf(r.x[1]))  esl_fatal("expf(large x)  should be inf");
+  if (r.x[2] != 0.0f)   esl_fatal("expf(-large x) should be 0");
 
 }
 
@@ -532,7 +534,20 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::sse_example::end::*/
 #endif /*eslSSE_EXAMPLE*/
-#endif /*HAVE_SSE2*/
+#else /* ! HAVE_SSE2*/
+
+/* The remainder of the file is just bookkeeping, for what to do when
+ * we aren't compiling with SSE instructions.
+ */
+
+/*
+ * Provide a successful unit test on platforms where we don't have SSE instructions.
+ */
+#ifdef eslSSE_TESTDRIVE
+int main(void) { return 0; }
+#endif
+
+#endif /* HAVE_SSE2 or not*/
 
 
 /*****************************************************************

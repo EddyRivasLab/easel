@@ -6,13 +6,13 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
-CC       = gcc
-CFLAGS   = -g -O2
+CC       = icc
+CFLAGS   = -O3 -ansi_alias -xW
 CPPFLAGS = 
 LDFLAGS  = 
-SIMDFLAGS=  -msse2
+SIMDFLAGS= 
 DEFS     = -DHAVE_CONFIG_H
-LIBS     =  -lm
+LIBS     = -lgsl -lgslcblas  -lm
 MPILIBS  = 
 
 AR      = /usr/bin/ar rcv
@@ -24,8 +24,7 @@ PROGS = parse-t1\
 	dmatrix-t1\
 	dmatrix-t2\
 
-UNIT_TESTS =\
-	easel_utest\
+UNIT_TESTS = easel_utest\
 	alphabet_utest\
 	cluster_utest\
 	dirichlet_utest\
@@ -64,7 +63,6 @@ UNIT_TESTS =\
 #	normal_utest\
 #	paml_utest\
 #	stopwatch_utest\
-
 #	swat_utest\
 
 

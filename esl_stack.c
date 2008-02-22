@@ -366,11 +366,23 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
  *    ./testdrive
  * Returns 0 (success) w/ no output, or returns nonzero and says why.
  *****************************************************************/
+
+/* why Pop() into a void *obj_p, instead of directly into int *obj, in
+ * the test of the pointer stack? On PowerPC/Linux, using gcc -O3,
+ * trying to Pop() into *obj causes a "dereferencing type-punned
+ * pointer will break strict-aliasing rules" warning, and the test
+ * driver crashes with a double free/corruption error in glibc.  Lower
+ * optimization levels don't cause the problem; adding
+ * -fno-strict-aliasing to the CFLAGS also avoids the problem. I'm
+ * suspicious that it's a gcc optimizer bug. Pop()'ing into a void *
+ * avoids the issue altogether. (SRE, Feb 22 2008 J2/119)
+ */
 #ifdef eslSTACK_TESTDRIVE
 int 
 main(void)
 {
   ESL_STACK *s = NULL;
+  void      *obj_p;		/* see note above. */
   int       *obj;
   int        x;
   char       c;
@@ -438,8 +450,8 @@ main(void)
     }
 
   n2 = 0;
-  while (esl_stack_PPop(s, (void **) &obj) != eslEOD) {
-    free(obj); 
+  while (esl_stack_PPop(s, &obj_p) != eslEOD) {
+    free(obj_p); 
     n2++; 
   }
   if (n1 != n2)
@@ -451,21 +463,19 @@ main(void)
     {
       ESL_ALLOC(obj, sizeof(int) * 64);
 
-      if (esl_stack_PPush(s, obj) != eslOK) 
+      if (esl_stack_PPush(s, obj) != eslOK)
 	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
     }
   n2 = 0;
   while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_PPop(s, (void **) &obj) == eslEOD) 
+    if (esl_stack_PPop(s, &obj_p) == eslEOD)
       { fprintf(stderr, "pop failed\n"); return 1; }
-    free(obj); 
-    n2++; 
+    free(obj_p);
+    n2++;
   }
   if (n1 != n2)
     { fprintf(stderr, "Put %d objects on; got %d off\n", n1, n2); return 1; }
   esl_stack_Destroy(s);
-
-
 
   /* Exercise of char stack functions/API;
    * same as above, also including esl_stack_ToString().

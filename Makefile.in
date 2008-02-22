@@ -8,7 +8,7 @@ AR       = @AR@ rcv
 LN       = ln
 RANLIB   = @RANLIB@
 LDFLAGS  = @LDFLAGS@
-SIMDFLAGS= @SIMD_FLAGS@
+SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
 
@@ -116,15 +116,15 @@ dcheck:
 	(cd testsuite; make dcheck)
 
 clean:
-	(cd documentation; make clean)
-	(cd testsuite;     make clean)
-	(cd miniapps;      make clean)
 	-rm -f ${OBJS} libeasel.a
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f core.[0-9]*
 	-rm -f config.log config.status
 	-rm -f example test testdrive stats
+	(cd documentation; make clean)
+	(cd testsuite;     make clean)
+	(cd miniapps;      make clean)
 
 # The "implode" target is used when we've got Easel as a subdirectory
 # of a larger project, like Infernal or HMMER, and we're building a
@@ -135,12 +135,12 @@ implode:
 	-echo Nothing needs to implode in Easel yet.
 
 distclean:
+	make clean
+	-rm esl_config.h
+	-rm -rf autom4te.cache
 	(cd documentation; make distclean)
 	(cd testsuite;     make distclean)
 	(cd miniapps;      make distclean)
-	-rm esl_config.h
-	make clean
-	-rm -rf autom4te.cache
 	-rm Makefile
 
 TAGS:

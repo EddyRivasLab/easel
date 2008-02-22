@@ -66,6 +66,11 @@ AC_PREREQ(2.60)
 AC_INIT(Easel, 0.1, eddys@janelia.hhmi.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
+# remember if the user is overriding CFLAGS
+if test x"$CFLAGS" = x; then 
+  sre_cflags_env_set=no
+fi
+
 ################################################################
 # 3. Info on the package
 ################################################################
@@ -96,17 +101,15 @@ AC_DEFINE_UNQUOTED(EASEL_COPYRIGHT, "$EASEL_COPYRIGHT")
 AC_DEFINE_UNQUOTED(EASEL_LICENSE,   "$EASEL_LICENSE")
 AC_DEFINE_UNQUOTED(EASEL_VERSION,   "$EASEL_VERSION")
 
-################################################################
-# Choose the compiler (this might change later, depending on command line
-################################################################
-
-# We can probably get fancier & more comprehensive about setting
-# optimization flags here. The IBM xlc settings are at request of IBM.
-# 
-AC_PROG_CC
-if test "$CC" = xlc; then
-   CFLAGS=$CFLAGS" -O3 -qarch=auto -qtune=auto"
-fi
+# Figure out what host we're compiling on.
+# Three GNU scripts must be included in the distro: 
+#       install.sh, config.guess, config.sub
+# This sets four shell variables:
+#       host            example: i686-pc-linux-gnu      
+#       host_cpu        example: i686
+#       host_vendor     example: pc
+#       host_os         example: linux-gnu
+AC_CANONICAL_HOST
 
 
 ################################################################
@@ -120,8 +123,7 @@ fi
 # With --enable-modular, any desired augmentations must be set
 # at compile-time by the user.
 #
-AC_ARG_ENABLE(modular, 
-  [  --enable-modular        Compile and prepare modules for standalone use], 
+AC_ARG_ENABLE(modular,[AS_HELP_STRING([--enable-modular],[compile and prepare modules for standalone use])], 
   [ 
     AC_MSG_NOTICE([Compiling for standalone (independent) use of modules.])
   ], 
@@ -142,163 +144,123 @@ AC_ARG_ENABLE(modular,
     AC_DEFINE(eslLIBRARY)
   ])
 
-# --enable-debugging=x    - set debugging level to <x> (1-3)
+# --enable-debugging      - enable basic debugging code
+# --enable-debugging=x    - also set verbosity level to <x> (1-3)
 #
 # At all levels, including 0, replaces CFLAGS w/ "-g -Wall" (so it assumes gcc).
 # Sets the eslDEBUGLEVEL preprocessor symbol to <x>
 #
 AC_ARG_ENABLE(debugging,
-[  --enable-debugging      set CFLAGS for debugging
-  --enable-debugging=x    also set diagnostics level to <x> (1-3) (3 = most verbose)],
-[ case $enable_debugging in
-   yes)  AC_MSG_NOTICE([enabled debugging diagnostics level 0 (CFLAGS only, no verbosity)])
-         CFLAGS="-g -Wall"
-         AC_DEFINE(eslDEBUGLEVEL, 0)
-         ;;
-     1)  AC_MSG_NOTICE([enabled debugging diagnostics level 1 (low verbosity)])
-         CFLAGS="-g -Wall"
-         AC_DEFINE(eslDEBUGLEVEL, 1)
-         ;;
-     2)  AC_MSG_NOTICE([enabled debugging diagnostics level 2 (moderate verbosity)])
-         CFLAGS="-g -Wall"
-         AC_DEFINE(eslDEBUGLEVEL, 2)
-         ;;
-     3)  AC_MSG_NOTICE([enabled debugging diagnostics level 3 (high verbosity)])
-         CFLAGS="-g -Wall"
-         AC_DEFINE(eslDEBUGLEVEL, 3)
-         ;;
-    no)  AC_MSG_NOTICE([debugging diagnostics disabled])
-         AC_DEFINE(eslDEBUGLEVEL, 0)
-         ;;
-     *)  echo "Ignoring unknown argument to --enable-debugging: $enable_debugging"
-         ;;
-esac])
+[AS_HELP_STRING([--enable-debugging],[include debugging code])
+AS_HELP_STRING([--enable-debugging=x],[also set diagnostics verbosity level to <x> (1-3)])],
+enable_debugging=$enableval, enable_debugging=no)
 
+case $enable_debugging in
+   yes)  AC_DEFINE(eslDEBUGLEVEL, 0);;
+     1)  AC_DEFINE(eslDEBUGLEVEL, 1);;
+     2)  AC_DEFINE(eslDEBUGLEVEL, 2);;
+     3)  AC_DEFINE(eslDEBUGLEVEL, 3);;
+    no)  AC_DEFINE(eslDEBUGLEVEL, 0);;
+     *)  AC_MSG_ERROR([Unknown argument to --enable-debugging: $enable_debugging]);;
+esac
 
-# --enable-gcov      - compile for code coverage testing
-#
-# Replaces CC with "gcc" and CFLAGS with "-g -Wall -fprofile-arcs -ftest-coverage".
-# Running programs (notably the test suite) will then generate .gcda files,
-# which the gcov tool can read.
-#
-AC_ARG_ENABLE(gcov, 
-  [  --enable-gcov           Compile with instrumentation for code coverage testing], 
-  [ 
-    AC_MSG_NOTICE([Compiling with gcov instrumentation.])
-    CC="gcc"
-    CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
-  ])
+AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval, enable_gcov=no)
+AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
+AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
+AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=check)
+AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],          enable_mpi=$enableval,   enable_mpi=no)
 
-
-# --with-gsl        - enable hooks into the GSL (GNU Scientific Library)
-#
-# The (action-if-given) is blank: using --with-gsl sets $with_gsl to 'yes',
-# and --without-gsl sets $with_gsl to 'no'. If neither is given,
-# $with_gsl is set to 'check', and we'll try to use GSL anyway if we
-# can find it.
-# 
-# We interpret the $with_gsl setting later, in the "checks for libraries" section.
-AC_ARG_WITH([gsl],
-            [AS_HELP_STRING([--with-gsl],
-                           [use the GSL, GNU Scientific Library (default is no)])],
-            [if test "x$withval" != xno ; then 
-               AC_MSG_NOTICE([Enabling hooks into the GNU Scientific Library (GSL)])
-             fi
-            ],
-	    [with_gsl=no])
-
-# --enable-mpi       Enable MPI parallelization
-# 
-# Sets MPILIBS output variable
-# Sets CC to appropriate compiler wrapper for MPI (mpicc, usually)
-# Defines HAVE_MPI preprocessor variable.
-#
-AC_ARG_ENABLE(mpi, 
-   [AS_HELP_STRING([--enable-mpi], [enable MPI parallelization])],
-   [
-     ACX_MPI([
-        AC_MSG_NOTICE([enabled optional MPI parallelization])
-        AC_DEFINE(HAVE_MPI)
-        CC=$MPICC
-       ],[
-        AC_MSG_ERROR([MPI library not found])
-       ])
-   ])
-
-
-# --enable-sse      Force SSE2 SIMD optimization on
-# --disable-sse     Force SSE2 SIMD optimization off
-#                   Default is to have SSE2 on, if it's detected.
-#
-# This sets @SIMD_FLAGS@ output variable, and defines HAVE_SSE2.
-AC_ARG_ENABLE(sse,
-   [AS_HELP_STRING([--enable-sse],  [ enable SSE SIMD parallelization (default)]) ],
-   [
-     case $enable_sse in 
-     yes) if test "$CC" != icc; then 
-            AX_EXT
-          else 
-            AC_DEFINE(HAVE_SSE2, 1)
-            impl_choice="sse"
-          fi
-          ;;
-
-     no) AC_MSG_NOTICE([SSE vectorization disabled])
-         ;;
-
-     *)  AC_MSG_NOTICE([Ignoring unknown argument to --enable-sse: $enable_sse])
-         ;;
-     esac
-   ],
-   [  
-     AX_EXT
-   ])
 
 
 ################################################################
 # 4. Checks for programs
 ################################################################
 
-# Set output variable "RANLIB"
+AC_PROG_CC
+AX_COMPILER_VENDOR
+# AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
+if test "$ax_cv_c_compiler_vendor" != "intel"; then
+  AC_PROG_CC_STDC
+fi
 AC_PROG_RANLIB
-
-# Set output variable "AR"
 AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
-
-# GNU make check; format of makefile dependency lines for executables.
-# original from John Darrington <j.darrington@elvis.murdoch.edu.au> 
-# w/ heavy modifications.
-#
-# We need this because GNU make and SYSV make use different systems
-# specifying variables for dependencies: $$@ in sysv, %: %.o in GNU.
-# Would love to hear a better way of doing this.
-# 
-# I use two different conventions in my Makefiles. Sometimes 
-# executable "foo" has a file "foo.c" - this is the HMMER convention.
-# Sometimes executable "foo" has a file "foo_main.c" - this is
-# the SQUID convention. The configure script sets the
-# EXEC_DEPENDENCY appropriately: here, HMMER style.
-#
-# This creates a function CHECK_GNU_MAKE, which we immediately call.
-# It sets an output variable EXEC_DEPENDENCY. 
-# This is used in the src/Makefile.in.
-#
-AC_DEFUN(CHECK_GNU_MAKE,[ 
-  AC_MSG_CHECKING(whether your make is GNU make)
-  foundGNUmake='nope, assuming sysv make.' ;
-  EXEC_DEPENDENCY=[\$\$\@.o] ;
-  if ( make --version nothing 2> /dev/null | grep GNU > /dev/null ) ;  then
-     foundGNUmake='yes, it is.' ;
-     EXEC_DEPENDENCY='%: %.o' ;
-  fi
-  AC_MSG_RESULT($foundGNUmake)
-  AC_SUBST(EXEC_DEPENDENCY)
-])
 CHECK_GNU_MAKE
+
+# Select our default optimization flags in CFLAGS.
+#
+if test "$sre_cflags_env_set" = "no"; then
+if test "$enable_gcov" = "yes"; then
+   # --enable-gcov overrides CC too.
+   CC="gcc"
+   CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
+elif test "$enable_debugging" != "no"; then
+   if test "$GCC" = "yes"; then
+      CFLAGS="-g -Wall"
+   fi
+else
+   sre_save_ac_test_cflags="$ac_test_CFLAGS"
+   if test "$sre_cflags_env_set" = "no"; then
+     ac_test_CFLAGS=""
+   fi
+   AX_CC_MAXOPT
+   ac_test_CFLAGS="$sre_save_ac_test_cflags"
+   # That was a workaround. AX_CC_MAXOPT apparently thinks that
+   # $ac_test_CFLAGS only gets set if ${CFLAGS} was set by the
+   # user (in the environment), but that's not so; it gets set
+   # by AC_PROG_CC. Instead of rewriting AX_CC_MAXOPT, we fool
+   # it.
+fi
+fi
+
+# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
+if test "$enable_mpi" = "yes"; then
+   ACX_MPI([],AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+fi
+
+# SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
+if test "$enable_sse" = "check"; then
+   case $host in 
+    i?86-*-*)      AX_EXT;;
+    x86*-*-*)      AX_EXT;;
+    *)             ;;
+   esac
+   if test "$ax_have_sse2_ext" = yes; then
+     case $ax_cv_c_compiler_vendor in
+       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
+       *)     ;;
+     esac   
+   fi
+elif test "$enable_sse" = "yes"; then
+   if test "x$SIMD_CFLAGS" = x; then
+     case $ax_cv_c_compiler_vendor in
+       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
+       *)     ;;
+     esac   
+   fi
+   AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
+fi  
+
+# VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
+if test "$enable_vmx" = "yes"; then
+   if test "x$SIMD_CFLAGS" = x; then
+   if test "$GCC" = "yes"; then
+     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],
+       [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
+ 	   [SIMD_CFLAGS="-maltivec -mabi=altivec"],
+           [AX_CHECK_COMPILER_FLAGS(-fvec, [SIMD_CFLAGS="-fvec"],
+		   [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
+   elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
+     AX_CHECK_COMPILER_FLAGS(-qaltivec, [SIMD_CFLAGS="-qaltivec"],[])
+   else
+     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],[])
+   fi
+   AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
+   fi
+fi
+AC_SUBST(SIMD_CFLAGS)
 
 
 # 5. Checks for libraries.
-
 LIBGSL=
 AS_IF([test "x$with_gsl" != xno],
       [AC_CHECK_LIB([gsl], [gsl_expm1], 
@@ -315,10 +277,20 @@ AS_IF([test "x$with_gsl" != xno],
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H
-AC_CHECK_HEADERS([sys/types.h])
-AC_CHECK_HEADERS([unistd.h])
-AC_CHECK_HEADERS([stdint.h])
-AC_CHECK_HEADERS([inttypes.h])
+AC_CHECK_HEADERS([sys/types.h unistd.h stdint.h inttypes.h])
+
+# altivec.h requires the simd cflags
+# For reasons I don't understand, this needs to come after any other CHECK_HEADERS().
+if test "$enable_vmx" = "yes"; then
+   sre_save_CFLAGS="$CFLAGS"
+   sre_save_CPPFLAGS="$CPPFLAGS"
+   CFLAGS="$CFLAGS $SIMD_CFLAGS"
+   CPPFLAGS="$CPPFLAGS $SIMD_CFLAGS"
+   AC_CHECK_HEADERS([altivec.h])
+   CFLAGS="$sre_save_CFLAGS"
+   CPPFLAGS="$sre_save_CPPFLAGS"
+fi
+
 
 
 # 7. Checks for types.
@@ -369,3 +341,11 @@ AC_CONFIG_FILES([Makefile])
 
 # 13. voila!
 AC_OUTPUT
+
+
+echo "
+
+Easel configuration:
+
+     compiler:             ${CC} ${CFLAGS} ${SIMD_CFLAGS}
+"

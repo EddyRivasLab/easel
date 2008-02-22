@@ -6,10 +6,10 @@ SHELL = /bin/sh
 ## your compiler and compiler flags.
 #
 CC       = @CC@
-CFLAGS   = @CFLAGS@
+CFLAGS   = @CFLAGS@ @SIMD_CFLAGS@
 DEFS     = @DEFS@
 LDFLAGS  = @LDFLAGS@
-LIBS     = -leasel @LIBS@ -lm
+LIBS     = -leasel @LIBGSL@ @LIBS@ -lm
 
 ## where is Easel?
 #
