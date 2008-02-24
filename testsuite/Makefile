@@ -6,13 +6,13 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
-CC       = icc
-CFLAGS   = -O3 -ansi_alias -xW
+CC       = gcc -std=gnu99
+CFLAGS   = -O3 -fomit-frame-pointer -fstrict-aliasing -mpentiumpro
 CPPFLAGS = 
 LDFLAGS  = 
-SIMDFLAGS= 
+SIMDFLAGS= -msse2
 DEFS     = -DHAVE_CONFIG_H
-LIBS     = -lgsl -lgslcblas  -lm
+LIBS     =   -lm
 MPILIBS  = 
 
 AR      = /usr/bin/ar rcv
