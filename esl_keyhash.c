@@ -238,17 +238,17 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 int
 esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
 {
+  struct esl_key_elem *new = NULL;
   int val = key_hashvalue(kh, key); /* hash the key */
   int idx = -1;			    /* this'll be the key array index we return */
-  struct esl_key_elem *new = NULL;
   int n;
-  int status;
   void *p;  
   int   h;
+  int status;
 
   /* Was this key already stored?  */
   for (new = kh->table[val]; new != NULL; new = new->nxt)
-    if (strcmp(key, new->key) == 0) { status = eslEDUP; idx = new->idx; goto DONE; }
+    if (strcmp(key, new->key) == 0) { *ret_index = new->idx; return eslEDUP; }
 
   /* Get a pointer to the new element, reallocating element memory if needed */
   if (kh->nkeys == kh->talloc) { 
@@ -293,7 +293,6 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
   if (kh->nkeys > 3*kh->nhash && kh->primelevel < eslKEY_NPRIMES-1)
     if ((status = key_upsize(kh)) != eslOK) goto ERROR;
 
- DONE:
   if (ret_index != NULL) *ret_index = idx;
   return eslOK;
 
