@@ -16,6 +16,11 @@ LIBS     = -leasel @LIBGSL@ @LIBS@ -lm
 ESLLIBDIR = -L..
 ESLINCDIR = -I..
 
+## Installation directory
+#
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
 
 ## list of the miniapps to compile.
 #
@@ -38,7 +43,11 @@ ${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 .c.o:
 	${CC} ${CFLAGS} ${DEFS} ${ESLINCDIR} -c $<
 
+install:
+	cp ${PROGS} ${bindir}/
+
 clean:
+	-rm ${PROGS}
 	-rm *.o *~
 	-rm TAGS
 

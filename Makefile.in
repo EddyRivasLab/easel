@@ -12,6 +12,7 @@ SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
 
+
 HEADERS = \
 	easel.h\
 	esl_alphabet.h\
@@ -52,6 +53,7 @@ HEADERS = \
 	esl_swat.h\
 	esl_tree.h\
 	esl_vectorops.h\
+	esl_vmx.h\
 	esl_weibull.h\
 	esl_wuss.h
 
@@ -95,6 +97,7 @@ OBJS    = \
 	esl_swat.o\
 	esl_tree.o\
 	esl_vectorops.o\
+	esl_vmx.o\
 	esl_weibull.o\
 	esl_wuss.o
 

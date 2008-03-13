@@ -82,6 +82,8 @@ main(int argc, char **argv)
     cmdline_failure(argv[0], "Error in app configuration: %s\n",   go->errbuf);
   if (esl_opt_GetBoolean(go, "-h") )
     cmdline_help(argv[0], go);
+  if (esl_opt_ArgNumber(go) != 1) 
+    cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");
 
   seqfile = esl_opt_GetArg(go, 1);
 

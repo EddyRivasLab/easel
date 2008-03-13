@@ -54,6 +54,7 @@
 /* Optional parallel implementation support
  */
 #undef HAVE_SSE2
+#undef HAVE_VMX
 #undef HAVE_MPI
 
 /* Functions
