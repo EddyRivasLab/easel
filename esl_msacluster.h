@@ -1,10 +1,8 @@
-/* esl_msacluster.h
- * Sequence clustering algorithms
+/* Clustering sequences in an MSA by % identity.
  * 
- * SVN $Id$
  * SRE, Sun Nov  5 10:08:14 2006 [Janelia]
+ * SVN $Id$
  */
-
 #ifndef ESL_MSACLUSTER_INCLUDED
 #define ESL_MSACLUSTER_INCLUDED
 

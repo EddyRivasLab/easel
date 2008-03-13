@@ -264,31 +264,6 @@ esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
   return NULL;
 }
 
-/* Function:  esl_sq_Reuse()
- * Incept:    SRE, Thu Dec 23 12:23:51 2004 [Zaragoza]
- *
- * Purpose:   Given a sequence object <sq> already in use;
- *            reinitialize all its data, so a new seq
- *            may be read into it. This allows sequential sequence
- *            input without a lot of wasted allocation/free cycling.
- *
- * Returns:   <eslOK> on success.
- */
-int
-esl_sq_Reuse(ESL_SQ *sq)
-{
-  sq->name[0] = '\0';
-  sq->acc[0]  = '\0';
-  sq->desc[0] = '\0';
-  if (sq->seq != NULL) sq->seq[0] = '\0';
-  if (sq->dsq != NULL) sq->dsq[0] = '\0';
-  if (sq->ss  != NULL) sq->ss[0]  = '\0';
-  sq->n    = 0;
-  sq->doff = -1;
-  sq->roff = -1;
-  return eslOK;
-}
-
 /* Function:  esl_sq_Grow()
  * Incept:    SRE, Wed Jan 10 08:26:23 2007 [Janelia]
  *
@@ -339,6 +314,134 @@ esl_sq_Grow(ESL_SQ *sq, int *ret_nsafe)
   return status;
 }
 
+
+/* Function:  esl_sq_GrowTo()
+ * Synopsis:  Grows an <ESL_SQ> to hold a seq of at least <n> residues.
+ * Incept:    SRE, Fri Jan 18 11:06:50 2008 [UA5233 Westchester-Dulles]
+ *
+ * Purpose:   Assure that the appropriate (text or digital) sequence
+ *            field in <sq> can hold up to a total of <n> residues,
+ *            reallocating as needed.
+ *            
+ *            If reallocated, the allocation will be $\geq (n+1)$ for
+ *            text mode (the +1 is for the terminal NUL byte), $\geq
+ *            (n+2)$ for digital mode (+2 for sentinel bytes at each
+ *            end). That is, you don't need to take these extra bytes into
+ *            account in your <n>; <n> is the number of residues, not
+ *            bytes.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_sq_GrowTo(ESL_SQ *sq, int n)
+{
+  void *tmp;
+  int   status;
+
+  if (sq->seq != NULL)		/* text mode */
+    {
+      if (n+1 > sq->salloc) {
+	ESL_RALLOC(sq->seq, tmp, (n+1) * sizeof(char));
+	sq->salloc = n+1;
+      }
+    }
+  else				/* digital mode */
+    {
+      if (n+2 > sq->salloc) {
+	ESL_RALLOC(sq->dsq, tmp, (n+2) * sizeof(ESL_DSQ));
+      }
+    }
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_sq_Copy()
+ * Synopsis:  Make a copy of an <ESL_SQ>
+ * Incept:    SRE, Sun Feb 24 17:59:24 2008 [UA5315 to St. Louis]
+ *
+ * Purpose:   Copies a source sequence object <src> into 
+ *            destination sequence object <dst>.
+ *            
+ *            The two objects don't have to be matched as far as
+ *            text/digital mode; if mismatched, appropriate
+ *            text/digital conversion will be done.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
+{
+  int status;
+
+  if ((status = esl_sq_SetName     (dst, src->name)) != eslOK) goto ERROR;
+  if ((status = esl_sq_SetAccession(dst, src->acc))  != eslOK) goto ERROR;
+  if ((status = esl_sq_SetDesc     (dst, src->desc)) != eslOK) goto ERROR;
+
+  if ((status = esl_sq_GrowTo(dst, src->n))          != eslOK) goto ERROR;
+
+  if (! (src->flags & eslSQ_DIGITAL) && ! (dst->flags & eslSQ_DIGITAL))
+    strcpy(dst->seq, src->seq);
+#ifdef eslAUGMENT_ALPHABET
+  else if (! (src->flags & eslSQ_DIGITAL) && (dst->flags & eslSQ_DIGITAL))
+    {
+      if ((status = esl_abc_Digitize(dst->abc, src->seq, dst->dsq)) != eslOK) goto ERROR;
+    }
+  else if ((src->flags & eslSQ_DIGITAL) &&  ! (dst->flags & eslSQ_DIGITAL))
+    {
+      if ((status = esl_abc_Textize(src->abc, src->dsq, src->n, dst->seq)) != eslOK) goto ERROR;
+    }
+  else 
+    {
+      if (src->abc->type != dst->abc->type) 
+	ESL_XEXCEPTION(eslEINCOMPAT, "seq objects involved in Copy differ in digital alphabet");
+      if ((status = esl_abc_dsqcpy(src->dsq, src->n, dst->dsq)) != eslOK) goto ERROR;
+    }
+#endif
+      
+  dst->n     = src->n;
+  dst->roff  = src->roff;
+  dst->doff  = src->doff;
+  /* don't copy flags, because all it holds is digital status, and dst retains preexisting status. */
+  /* don't copy allocations (nalloc, etc); dst knows its own memory */
+  /* and don't copy optmem; dst is assumed to be growable here */
+  return eslOK;
+
+ ERROR:
+  esl_sq_Reuse(dst);
+  return status;
+}
+
+
+/* Function:  esl_sq_Reuse()
+ * Incept:    SRE, Thu Dec 23 12:23:51 2004 [Zaragoza]
+ *
+ * Purpose:   Given a sequence object <sq> already in use;
+ *            reinitialize all its data, so a new seq
+ *            may be read into it. This allows sequential sequence
+ *            input without a lot of wasted allocation/free cycling.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sq_Reuse(ESL_SQ *sq)
+{
+  sq->name[0] = '\0';
+  sq->acc[0]  = '\0';
+  sq->desc[0] = '\0';
+  if (sq->seq != NULL) sq->seq[0] = '\0';
+  if (sq->dsq != NULL) sq->dsq[0] = '\0';
+  if (sq->ss  != NULL) sq->ss[0]  = '\0';
+  sq->n    = 0;
+  sq->doff = -1;
+  sq->roff = -1;
+  return eslOK;
+}
 
 
 /* Function:  esl_sq_Squeeze()
@@ -440,10 +543,15 @@ esl_sq_Destroy(ESL_SQ *sq)
 
 
 /* Function:  esl_sq_SetName()
+ * Synopsis:  Format and set a name of a sequence.
  * Incept:    SRE, Thu Jan 11 08:42:53 2007 [Janelia]
  *
  * Purpose:   Set the name of the sequence <sq> to <name>, reallocating
- *            as needed.
+ *            as needed. <name> can be a <printf()>-style format with
+ *            arguments; for example, <esl_sq_SetName(sq, "random%d", i)>.
+ * 
+ *            A copy of <name> is made, so if caller had <name> allocated, 
+ *            it is still responsible for freeing it.
  *
  * Returns:   <eslOK> on success.
  *
@@ -452,23 +560,106 @@ esl_sq_Destroy(ESL_SQ *sq)
  * Xref:      STL11/125
  */
 int
-esl_sq_SetName(ESL_SQ *sq, char *name)
+esl_sq_SetName(ESL_SQ *sq, char *name, ...)
 {
+  va_list argp;
   int   n;
   void *tmp;
   int   status;
 
-  n = strlen(name);
-  if (n+1 > sq->nalloc) {
-    ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
-    sq->nalloc = n+1;
-  }
-  strcpy(sq->name, name);
+  va_start(argp, name);
+  if ((n = vsnprintf(sq->name, sq->nalloc, name, argp)) > sq->nalloc)
+    {
+      ESL_RALLOC(sq->name, tmp, sizeof(char) * n); 
+      sq->nalloc = n;
+      vsnprintf(sq->name, sq->nalloc, name, argp);
+    }
+  va_end(argp);
   return eslOK;
 
  ERROR:
   return status;
 }
+
+
+/* Function:  esl_sq_SetAccession()
+ * Incept:    SRE, Fri Jan 18 09:48:54 2008 [Westchester airport]
+ *
+ * Purpose:   Set the accession of the sequence <sq> to <acc>, reallocating
+ *            as needed. <acc> can be a <printf()>-style format with
+ *            arguments; for example, <esl_sq_SetAccession(sq, "ACC%06d", i)>.
+ * 
+ *            A copy of <acc> is made, so if caller had <acc> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetAccession(ESL_SQ *sq, char *acc, ...)
+{
+  va_list argp;
+  int     n;
+  void   *tmp;
+  int     status;
+
+  va_start(argp, acc);
+  if ((n = vsnprintf(sq->acc, sq->aalloc, acc, argp)) > sq->aalloc)
+    {
+      ESL_RALLOC(sq->acc, tmp, sizeof(char) * n); 
+      sq->aalloc = n;
+      vsnprintf(sq->acc, sq->aalloc, acc, argp);
+    }
+  va_end(argp);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* Function:  esl_sq_SetDesc()
+ * Incept:    SRE, Fri Jan 18 09:46:14 2008 [Westchester airport]
+ *
+ * Purpose:   Set the description of the sequence <sq> to <desc>, reallocating
+ *            as needed. <desc> can be a <printf()>-style format with
+ *            arguments; for example, <esl_sq_SetDesc(sq, "random sequence %d", i)>.
+ * 
+ *            A copy of <desc> is made, so if caller had <desc> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetDesc(ESL_SQ *sq, char *desc, ...)
+{
+  va_list argp;
+  int     n;
+  void   *tmp;
+  int     status;
+
+  va_start(argp, desc);
+  if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) > sq->dalloc)
+    {
+      ESL_RALLOC(sq->desc, tmp, sizeof(char) * n); 
+      sq->nalloc = n;
+      vsnprintf(sq->desc, sq->dalloc, desc, argp);
+    }
+  va_end(argp);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
 
 /* Function:  esl_sq_CAddResidue()
  * Incept:    SRE, Wed Jan 10 07:58:20 2007 [Janelia]
@@ -608,6 +799,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->bpl        = -1;	/* -1=unset */
   sqfp->lastrpl    = -1;	/* -1=unset */
   sqfp->lastbpl    = 0;		/* -1=unset */
+  sqfp->sq_cache   = NULL;	/* only used if we GuessAlphabet() later */
 #ifdef eslAUGMENT_MSA
   sqfp->afp        = NULL;
   sqfp->msa        = NULL;
@@ -790,6 +982,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
   if (sqfp->filename != NULL) free(sqfp->filename);
   if (sqfp->ssifile  != NULL) free(sqfp->ssifile);
   if (sqfp->buf      != NULL) free(sqfp->buf);
+  if (sqfp->sq_cache != NULL) esl_sq_Destroy(sqfp->sq_cache);
 
 #ifdef eslAUGMENT_MSA
   if (sqfp->afp      != NULL) 
@@ -1089,6 +1282,66 @@ esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)
   return esl_abc_GuessAlphabet(ct, ret_type);
 }
 
+/* Function:  esl_sqfile_GuessAlphabet()
+ * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>
+ * Incept:    SRE, Sun Feb 24 17:14:55 2008 [UA5315 to St. Louis]
+ *
+ * Purpose:   After opening <sqfp>, attempt to guess what alphabet
+ *            its sequences are in, by inspecting the first sequence
+ *            in the file, and return this alphabet type in <*ret_type>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_type> is set to <eslDNA>,
+ *            <eslRNA>, or <eslAMINO>.
+ *            
+ *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to 
+ *            <eslUNKNOWN> if the first sequence (or alignment)
+ *            in the file contains no more than ten residues total,
+ *            or if its alphabet cannot be guessed (i.e. it contains
+ *            IUPAC degeneracy codes, but no amino acid specific
+ *            residues).
+ *            
+ *            Returns <eslEFORMAT> if a parse error is encountered in
+ *            trying to read the sequence file. <sqfp->errbuf> is set
+ *            to a useful error message if this occurs,
+ *            <sqfp->linenumber> is the line on which the error
+ *            occurred, and <*ret_type> is set to <eslUNKNOWN>.
+ *            
+ *            Returns <eslENODATA> and sets <*ret_type> to <eslUNKNOWN>
+ *            if the file appears to be empty.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslEINCONCEIVABLE> on unimaginable internal errors.
+ */
+int
+esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
+{
+  ESL_SQ *sq = NULL;
+  int     status;
+
+  /* Special case: for MSA files, we already have first MSA cached. */
+  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msa_GuessAlphabet(sqfp->msa, ret_type);
+
+  /* Special case: already something cached; GuessAlphabet() was already called? */
+  if (sqfp->sq_cache != NULL) return esl_sq_GuessAlphabet(sqfp->sq_cache, ret_type);
+
+  /* Read and cache the first seq, and guess alphabet based on that.
+   * This is risky - the first seq might be short/atypical, and fool us about
+   * the rest of the file.
+   */
+  if ((sq = esl_sq_Create()) == NULL) { status = eslEMEM; goto ERROR; }
+  status = esl_sqio_Read(sqfp, sq);
+  if      (status == eslEOF) { status = eslENODATA; goto ERROR; }
+  else if (status != eslOK)  goto ERROR; 
+  
+  sqfp->sq_cache = sq;
+  return esl_sq_GuessAlphabet(sqfp->sq_cache, ret_type);
+
+ ERROR:
+  esl_sq_Destroy(sq);
+  sqfp->sq_cache = NULL;
+  *ret_type      = eslUNKNOWN;
+  return status;
+}
 
 /*-------------------- end of digital sequence functions --------------------*/
 
@@ -1121,6 +1374,15 @@ int
 esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 {
   int status;
+
+  /* Special case: we already have a sequence cached. */
+  if (sqfp->sq_cache != NULL) 
+    {
+      status = esl_sq_Copy(sqfp->sq_cache, s);
+      esl_sq_Destroy(sqfp->sq_cache);
+      sqfp->sq_cache = NULL;
+      return status;
+    }
 
   switch (sqfp->format) {
   case eslSQFILE_FASTA:    

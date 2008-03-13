@@ -24,9 +24,9 @@ extern double esl_vec_DSum(double *vec, int n);
 extern float  esl_vec_FSum(float *vec, int n);
 extern int    esl_vec_ISum(int *vec, int n);
 
-extern void   esl_vec_DAdd(double *vec1, double *vec2, int n);
-extern void   esl_vec_FAdd(float *vec1, float *vec2, int n);
-extern void   esl_vec_IAdd(int *vec1, int *vec2, int n);
+extern void   esl_vec_DAdd(double *vec1, const double *vec2, int n);
+extern void   esl_vec_FAdd(float  *vec1, const float  *vec2, int n);
+extern void   esl_vec_IAdd(int    *vec1, const int    *vec2, int n);
 
 extern void   esl_vec_DAddScaled(double *vec1, double *vec2, double a, int n);
 extern void   esl_vec_FAddScaled(float *vec1, float *vec2, float a, int n);

@@ -650,6 +650,199 @@ esl_msa_Expand(ESL_MSA *msa)
   return status;
 }
 
+/* Function:  esl_msa_Copy()
+ * Synopsis:  Copies an MSA.
+ * Incept:    SRE, Tue Jan 22 15:30:32 2008 [Janelia]
+ *
+ * Purpose:   Makes a copy of <msa> in <new>. Caller has
+ *            already allocated <new> to hold an MSA of
+ *            at least <msa->nseq> sequences and <msa->alen>
+ *            columns.
+ *            
+ * Note:      Because MSA's are not reusable, this function does a
+ *            lot of internal allocation for optional fields, without
+ *            checking <new> to see if space was already allocated. To
+ *            reuse an MSA <new> and copy new data into it, we'll
+ *            eventually need a <esl_msa_Reuse()> function, and/or
+ *            recode this to reuse or free any already-allocated
+ *            optional memory it encounters in <new>. Until then, 
+ *            it's unlikely that <esl_msa_Copy()> is useful on its own;
+ *            the caller would be expected to call <esl_msa_Clone()> 
+ *            instead.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure. In this case, <new>
+ *            was only partially constructed, and should be treated
+ *            as corrupt.
+ */
+int
+esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new)
+{
+  int i, x, j;
+  int status;
+
+  /* aseq[0..nseq-1][0..alen-1] strings,
+   * or ax[0..nseq-1][(0) 1..alen (alen+1)] digital seqs 
+   * <new> must have one of them allocated already.
+   */
+  if (! (msa->flags & eslMSA_DIGITAL))
+    for (i = 0; i < msa->nseq; i++)
+      strcpy(new->aseq[i], msa->aseq[i]);
+#ifdef eslAUGMENT_ALPHABET
+  else
+    {
+      for (i = 0; i < msa->nseq; i++)
+	memcpy(new->ax[i], msa->ax[i], (msa->alen+2) * sizeof(ESL_DSQ));
+      new->abc = msa->abc;
+    }
+#endif
+  
+  for (i = 0; i < msa->nseq; i++) {
+    esl_strdup(msa->sqname[i], -1, &(new->sqname[i]));
+    new->wgt[i] = msa->wgt[i];
+  }
+  /* alen, nseq were already set by Create() */
+  new->flags = msa->flags;
+
+  esl_strdup(msa->name, -1, &(new->name));
+  esl_strdup(msa->desc, -1, &(new->desc));
+  esl_strdup(msa->acc,  -1, &(new->acc));
+  esl_strdup(msa->au,    -1, &(new->au));
+  esl_strdup(msa->ss_cons,   -1, &(new->ss_cons));
+  esl_strdup(msa->sa_cons,   -1, &(new->sa_cons));
+  esl_strdup(msa->rf,    -1, &(new->rf));
+
+  if (msa->sqacc != NULL) {
+    ESL_ALLOC(new->sqacc, sizeof(char **) * msa->nseq);
+    for (i = 0; i < msa->nseq; i++)
+      esl_strdup(msa->sqacc[i], -1, &(new->sqacc[i]));
+  }
+  if (msa->sqdesc != NULL) {
+    ESL_ALLOC(new->sqdesc, sizeof(char **) * msa->nseq);
+    for (i = 0; i < msa->nseq; i++)
+      esl_strdup(msa->sqdesc[i], -1, &(new->sqdesc[i]));
+  }
+  if (msa->ss != NULL) {
+    ESL_ALLOC(new->ss, sizeof(char **) * msa->nseq);
+    for (i = 0; i < msa->nseq; i++)
+      esl_strdup(msa->ss[i], -1, &(new->ss[i]));
+  }
+  if (msa->sa != NULL) {
+    ESL_ALLOC(new->sa, sizeof(char **) * msa->nseq);
+    for (i = 0; i < msa->nseq; i++)
+      esl_strdup(msa->sa[i], -1, &(new->sa[i]));
+  }
+  
+  for (x = 0; x < eslMSA_NCUTS; x++) {
+    new->cutoff[x] = msa->cutoff[x];
+    new->cutset[x] = msa->cutset[x];
+  }
+
+  if (msa->ncomment > 0) {
+    ESL_ALLOC(new->comment, sizeof(char **) * msa->ncomment);
+    new->ncomment       = msa->ncomment;
+    new->alloc_ncomment = msa->ncomment;
+    for (i = 0; i < msa->ncomment; i++)
+      esl_strdup(msa->comment[i], -1, &(new->comment[i]));
+  }
+
+  if (msa->ngf > 0) {
+    ESL_ALLOC(new->gf_tag, sizeof(char **) * msa->ngf);
+    ESL_ALLOC(new->gf,     sizeof(char **) * msa->ngf);
+    new->ngf       = msa->ngf;
+    new->alloc_ngf = msa->ngf;
+    for (i = 0; i < msa->ngf; i++) {
+      esl_strdup(msa->gf_tag[i], -1, &(new->gf_tag[i]));
+      esl_strdup(msa->gf[i],     -1, &(new->gf[i]));
+    }
+  }
+
+  if (msa->ngs > 0) {
+    ESL_ALLOC(new->gs_tag, sizeof(char **)  * msa->ngs);
+    ESL_ALLOC(new->gs,     sizeof(char ***) * msa->ngs);
+    new->ngs       = msa->ngs;
+    for (i = 0; i < msa->ngs; i++) {
+      ESL_ALLOC(new->gs[i], sizeof(char **) * msa->nseq);
+      esl_strdup(msa->gs_tag[i], -1, &(new->gs_tag[i]));
+      for (j = 0; j < msa->nseq; j++)
+	esl_strdup(msa->gs[i][j],  -1, &(new->gs[i][j]));
+    }
+  }
+
+  if (msa->ngc > 0) {
+    ESL_ALLOC(new->gc_tag, sizeof(char **) * msa->ngc);
+    ESL_ALLOC(new->gc,     sizeof(char **) * msa->ngc);
+    new->ngc       = msa->ngc;
+    for (i = 0; i < msa->ngc; i++) {
+      esl_strdup(msa->gc_tag[i], -1, &(new->gc_tag[i]));
+      esl_strdup(msa->gc[i],     -1, &(new->gc[i]));
+    }
+  }
+  
+  if (msa->ngr > 0) {
+    ESL_ALLOC(new->gr_tag, sizeof(char **)  * msa->ngr);
+    ESL_ALLOC(new->gr,     sizeof(char ***) * msa->ngr);
+    new->ngr       = msa->ngr;
+    for (i = 0; i < msa->ngr; i++) {
+      ESL_ALLOC(new->gr[i], sizeof(char **) * msa->nseq);
+      esl_strdup(msa->gr_tag[i], -1, &(new->gr_tag[i]));
+      for (j = 0; j < msa->nseq; j++)
+	esl_strdup(msa->gr[i][j],  -1, &(new->gr[i][j]));
+    }
+  }
+
+#ifdef eslAUGMENT_KEYHASH
+  new->index  = esl_keyhash_Clone(msa->index);
+  new->gs_idx = esl_keyhash_Clone(msa->gs_idx);
+  new->gc_idx = esl_keyhash_Clone(msa->gc_idx);
+  new->gr_idx = esl_keyhash_Clone(msa->gr_idx);
+#endif
+
+#ifdef eslAUGMENT_SSI
+  new->offset = msa->offset;
+#endif
+
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_msa_Clone()
+ * Synopsis:  Duplicates an MSA.
+ * Incept:    SRE, Tue Jan 22 15:23:55 2008 [Janelia]
+ *
+ * Purpose:   Make a duplicate of <msa>, in newly 
+ *            allocated space. 
+ *
+ * Returns:   a pointer to the newly allocated clone.
+ *            Caller is responsible for free'ing it.
+ *
+ * Throws:    <NULL> on allocation error.
+ */
+ESL_MSA *
+esl_msa_Clone(ESL_MSA *msa)
+{
+  ESL_MSA *nw = NULL;
+  int      status;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL) {
+      if ((nw = esl_msa_CreateDigital(msa->abc, msa->nseq, msa->alen)) == NULL)  return NULL;
+  } else
+#endif
+  if ((nw     = esl_msa_Create(msa->nseq, msa->alen)) == NULL)  return NULL;  
+
+  if ((status = esl_msa_Copy(msa, nw) )               != eslOK) goto ERROR;
+  return nw;
+
+ ERROR:
+  esl_msa_Destroy(nw);
+  return NULL;
+}
+
+
 /* Function:  esl_msa_Destroy()
  * Synopsis:  Frees an <ESL_MSA>.
  * Incept:    SRE, Sun Jan 23 08:26:02 2005 [St. Louis]
@@ -710,6 +903,145 @@ esl_msa_Destroy(ESL_MSA *msa)
   free(msa);
   return;
 }
+
+
+/* Function:  esl_msa_SetName()
+ * Synopsis:  Format and set a name of an MSA.
+ * Incept:    SRE, Sat Feb 23 18:42:47 2008 [Casa de Gatos]
+ *
+ * Purpose:   Sets the name of the msa <msa> to <name>, 
+ *            (re-)allocating as needed.
+ *
+ *            <name> may be a <printf()>-style format with
+ *            arguments; for example, <esl_msa_SetName(msa, "random%d", i)>.
+ *
+ *            A copy of <name> is made, so if caller 
+ *            allocated <name>, it is still responsible 
+ *            for free'ing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
+{
+  va_list argp;
+  int     n1 = 32;
+  int     n2 = 0;
+  void   *tmp;
+  int     status;
+
+  if (msa->name != NULL) free(msa->name);
+  ESL_ALLOC(msa->name, sizeof(char) * n1);
+
+  va_start(argp, name);
+  if ((n2 = vsnprintf(msa->name, n1, name, argp)) > n1)
+    {
+      ESL_RALLOC(msa->name, tmp, sizeof(char) * n2);
+      vsnprintf(msa->name, n2, name, argp);
+    }
+  va_end(argp);
+  return eslOK;
+
+ ERROR:
+  msa->name = NULL;
+  return status;
+}
+
+
+/* Function:  esl_msa_SetDesc()
+ * Synopsis:  Format and set description line of an MSA.
+ * Incept:    SRE, Sat Feb 23 18:47:06 2008 [Casa de Gatos]
+ *
+ * Purpose:   Sets the description line of the msa <msa> to <desc>, 
+ *            (re-)allocating as needed.
+ *
+ *            <desc> may be a <printf()>-style format with
+ *            arguments; for example, <esl_msa_SetDesc(msa, "sample %d", i)>.
+ *
+ *            A copy of <desc> is made, so if caller 
+ *            allocated <desc>, it is still responsible 
+ *            for free'ing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
+{
+  va_list argp;
+  int     n1 = 64;
+  int     n2 = 0;
+  void   *tmp;
+  int     status;
+
+  if (msa->desc != NULL) free(msa->desc);
+  ESL_ALLOC(msa->desc, sizeof(char) * n1);
+
+  va_start(argp, desc);
+  if ((n2 = vsnprintf(msa->desc, n1, desc, argp)) > n1)
+    {
+      ESL_RALLOC(msa->desc, tmp, sizeof(char) * n2);
+      vsnprintf(msa->desc, n2, desc, argp);
+    }
+  va_end(argp);
+  return eslOK;
+
+ ERROR:
+  msa->desc = NULL;
+  return status;
+}
+
+/* Function:  esl_msa_SetAccession()
+ * Synopsis:  Format and set accession number of an MSA.
+ * Incept:    SRE, Sat Feb 23 18:49:04 2008 [Casa de Gatos]
+ *
+ * Purpose:   Sets accession numbre of the msa <msa> to <acc>, 
+ *            (re-)allocating as needed.
+ *
+ *            <acc> may be a <printf()>-style format with
+ *            arguments; for example, <esl_msa_SetAccession(msa, "PF%06d", i)>.
+ *
+ *            A copy of <acc> is made, so if caller 
+ *            allocated <acc>, it is still responsible 
+ *            for free'ing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
+{
+  va_list argp;
+  int     n1 = 16;
+  int     n2 = 0;
+  void   *tmp;
+  int     status;
+
+  if (msa->acc != NULL) free(msa->acc);
+  ESL_ALLOC(msa->acc, sizeof(char) * n1);
+
+  va_start(argp, acc);
+  if ((n2 = vsnprintf(msa->acc, n1, acc, argp)) > n1)
+    {
+      ESL_RALLOC(msa->acc, tmp, sizeof(char) * n2);
+      vsnprintf(msa->acc, n2, acc, argp);
+    }
+  va_end(argp);
+  return eslOK;
+
+ ERROR:
+  msa->acc = NULL;
+  return status;
+}
+
+
+
+
+
 /*---------------------- end of ESL_MSA functions ---------------------------*/
 
 
@@ -1252,6 +1584,12 @@ esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type)
    * non-NULL: 
    */
   if (msafp->abc != NULL) { *ret_type = msafp->abc->type; return eslOK; } /* that was easy */
+
+  /* If there's already an MSA cached, we've already called
+   * GuessAlphabet(); don't read another one, or we'll overwrite the
+   * first.
+   */
+  if (msafp->msa_cache != NULL) return esl_msa_GuessAlphabet(msafp->msa_cache, ret_type);
 
   /* Read first alignment, collect its residue composition for
    * passing off to esl_abc_GuessAlphabet()
@@ -3966,7 +4304,6 @@ main(int argc, char **argv)
       esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
       esl_msa_Destroy(msa);
     }
-
   if (status == eslEFORMAT)
     esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n",
 	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);

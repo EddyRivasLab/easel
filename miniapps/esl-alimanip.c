@@ -2408,8 +2408,10 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
   int    status;
   int    s,c;                 /* counters over sequences, columns of MSA */
+#if 0
   int  **post_sc;             /* [0..s..msa->nseq-1][0..c..msa->alen-1] posterior value 0-10 (-1 for gap) */
   int  **post_cs;             /* [0..c..msa->alen-1][0..s..msa->nseq-1] posterior value 0-10 (-1 for gap) */
+#endif
   int   *nongap_c, *nongap_s; /* number of non-gap posterior values for each column/sequence respectively */
   float *sum_c, *sum_s;       /* sum of non-gap posterior values for each column/sequence respectively */
   float *min_c, *min_s;       /* min of non-gap posterior values for each column/sequence respectively */
@@ -2425,7 +2427,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   float  pfract;
   float  pthresh   =    esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
   int  *useme; 
-  float  thresh;
   int *c2a_map;
   int clen;
   int cpos;

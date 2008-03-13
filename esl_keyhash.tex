@@ -5,7 +5,7 @@ index, and storing the association in a hash table for rapid access.
 
 \subsection{The keyhash API}
 
-The module implements one object: the hash table,
+The module implements one object: the hash table, an
 \ccode{ESL\_KEYHASH}.
 
 The API defines five functions: 
@@ -41,8 +41,7 @@ pseudocode:
        }     
  (Reading:)
        (foreach key) {
-          idx = esl_key_Lookup(hash, key);
-          if (idx == -1) {no_such_key; }
+          if (esl_key_Lookup(hash, key, &idx) != eslOK) { no_such_key; }
           (do something with) foo[idx];
           (do something with) bar[idx];
        }   
@@ -109,8 +108,7 @@ main(int argc, char **argv)
       s = buf;
       esl_strtok(&s, " \t\r\n", &tok, NULL);
 
-      idx = esl_key_Lookup(h, tok);
-      if (idx != -1) nshared++;
+      if (esl_key_Lookup(h, tok, &idx) == eslOK) nshared++;
       nsearched++;
     }
   fclose(fp);

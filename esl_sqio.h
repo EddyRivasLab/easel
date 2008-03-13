@@ -60,54 +60,6 @@
 
 
 
-/* ESL_SQFILE:
- * An open sequence file for reading.
- */
-typedef struct {
-  FILE *fp;		      /* Open file ptr                            */
-  char *filename;	      /* Name of file (for diagnostics)           */
-  char *ssifile;	      /* Name of SSI index file (for diagnostics) */
-  int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
-  int   do_stdin;	      /* TRUE if we're reading from stdin         */
-  char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
-
-  /* Our input buffer, whether using character-based parser [fread()]
-   * or line-based parser (esl_fgets()).
-   */
-  char *buf;		      /* buffer for fread() or fgets() input      */
-  off_t boff;		      /* disk offset to start of buffer           */
-  int   balloc;		      /* allocated size of buf                    */
-  int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
-  int   pos;		      /* current parsing position in the buffer   */
-  int   linenumber;	      /* What line of the file this is (1..N)     */
-
-  /* Format-specific information
-   */
-  int   format;		      /* Format code of this file                    */
-  int   is_linebased;	      /* TRUE for fgets() parsers; FALSE for fread() */
-  int   addfirst;             /* TRUE to parse first line of seq record      */
-  int   addend;	              /* TRUE to parse last line of seq record       */
-  int   eof_is_ok;	      /* TRUE if record can end on EOF               */
-  int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
-  ESL_DSQ inmap[128];	      /* an input map, 0..127                        */
-
-  /* SSI subseq indexing: tracking residues per line, bytes per line
-   */
-  int   rpl;		      /* residues per line; -1 if unset, 0 if inval */
-  int   bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
-  int   lastrpl;	      /* tmp var used only when indexing            */
-  int   lastbpl;	      /* ditto                                      */
-
-  /* Optional MSA augmentation: the ability to read multiple alignment
-   * files as sequential seq files.
-   */
-#ifdef eslAUGMENT_MSA
-  ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
-  ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
-  int          idx;	      /* index of next seq to return, 0..nseq-1 */
-#endif /*eslAUGMENT_MSA*/
-} ESL_SQFILE;
-
 
 
 
@@ -159,18 +111,74 @@ typedef struct {
  */
 #define eslSQ_DIGITAL (1 << 0)  /* if dsq[] is used instead of seq[] */
 
+
+/* ESL_SQFILE:
+ * An open sequence file for reading.
+ */
+typedef struct {
+  FILE *fp;		      /* Open file ptr                            */
+  char *filename;	      /* Name of file (for diagnostics)           */
+  char *ssifile;	      /* Name of SSI index file (for diagnostics) */
+  int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
+  int   do_stdin;	      /* TRUE if we're reading from stdin         */
+  char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
+
+  /* Our input buffer, whether using character-based parser [fread()]
+   * or line-based parser (esl_fgets()).
+   */
+  char *buf;		      /* buffer for fread() or fgets() input      */
+  off_t boff;		      /* disk offset to start of buffer           */
+  int   balloc;		      /* allocated size of buf                    */
+  int   nc;		      /* #chars in buf (usually full, less at EOF)*/ 
+  int   pos;		      /* current parsing position in the buffer   */
+  int   linenumber;	      /* What line of the file this is (1..N)     */
+
+  /* Format-specific information
+   */
+  int   format;		      /* Format code of this file                    */
+  int   is_linebased;	      /* TRUE for fgets() parsers; FALSE for fread() */
+  int   addfirst;             /* TRUE to parse first line of seq record      */
+  int   addend;	              /* TRUE to parse last line of seq record       */
+  int   eof_is_ok;	      /* TRUE if record can end on EOF               */
+  int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
+  ESL_DSQ inmap[128];	      /* an input map, 0..127                        */
+
+  /* SSI subseq indexing: tracking residues per line, bytes per line
+   */
+  int   rpl;		      /* residues per line; -1 if unset, 0 if inval */
+  int   bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
+  int   lastrpl;	      /* tmp var used only when indexing            */
+  int   lastbpl;	      /* ditto                                      */
+
+  /* If we have to GuessAlphabet(), we cache the first seq in the file */
+  ESL_SQ *sq_cache;
+
+  /* Optional MSA augmentation: the ability to read multiple alignment
+   * files as sequential seq files.
+   */
+#ifdef eslAUGMENT_MSA
+  ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
+  ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
+  int          idx;	      /* index of next seq to return, 0..nseq-1 */
+#endif /*eslAUGMENT_MSA*/
+} ESL_SQFILE;
+
+
 extern ESL_SQ *esl_sq_Create(void);
 extern ESL_SQ *esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss);
-extern int     esl_sq_Reuse(ESL_SQ *sq);
 extern int     esl_sq_Grow(ESL_SQ *sq, int *ret_nsafe);
+extern int     esl_sq_GrowTo(ESL_SQ *sq, int n);
+extern int     esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst);
+extern int     esl_sq_Reuse(ESL_SQ *sq);
 extern int     esl_sq_Squeeze(ESL_SQ *sq);
 extern void    esl_sq_Destroy(ESL_SQ *sq);
 
-extern int     esl_sq_SetName(ESL_SQ *sq, char *name);
-extern int     esl_sq_CAddResidue(ESL_SQ *sq, char c);
+extern int     esl_sq_SetName     (ESL_SQ *sq, char *name, ...);
+extern int     esl_sq_SetAccession(ESL_SQ *sq, char *acc,  ...);
+extern int     esl_sq_SetDesc     (ESL_SQ *sq, char *desc, ...);
+extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);
 
-extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, 
-			    ESL_SQFILE **ret_sqfp);
+extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 
 /* Digitized sequences (ALPHABET augmentation required) */
@@ -181,6 +189,7 @@ extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
 extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
+extern int     esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
 #endif
 
 extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);

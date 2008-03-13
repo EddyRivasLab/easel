@@ -6,10 +6,9 @@
  *  4. Multinomial sampling from discrete probability n-vectors.
  *  5. Generating iid sequences, either text or digital mode.
  *  6. Randomizing sequences.
- *  7. Randomizing alignments.
- *  8. Unit tests.
- *  9. The test driver.
- * 10. An example of using the random module.
+ *  7. Unit tests.
+ *  8. The test driver.
+ *  9. An example of using the random module.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -1045,17 +1044,18 @@ esl_rnd_CMarkov1(ESL_RANDOMNESS *r, const char *s, char *markoved)
       p[x][y] += 1.0;
       x = y;
     }
+  p[x][i0] += 1.0; 		/* "circularized": avoids a bug; see markov1_bug utest */
+
   for (x = 0; x < 26; x++) 
     {
       p0[x] = 0.;
       for (y = 0; y < 26; y++)
-	p0[x] += p[x][y];	/* now p0[x] = marginal counts of x, exclusive of 1st residue */
+	p0[x] += p[x][y];	/* now p0[x] = marginal counts of x, inclusive of 1st residue */
 
       for (y = 0; y < 26; y++) 
-	p[x][y] /= p0[x];	/* now p[x][y] = P(y | x) */
+	p[x][y] = (p0[x] > 0. ? p[x][y] / p0[x] : 0.); /* now p[x][y] = P(y | x) */
       
-      if (i0 == x) p0[x]+= 1.;
-      p0[x] /= (double) L;	/* now p0[x] = marginal P(x) inclusive of 1st residue */
+      p0[x] /= (double) L;	/* now p0[x] = marginal P(x) */
     }
 
   /* Generate a random string using those p's. */
@@ -1430,16 +1430,17 @@ esl_rnd_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
       p[x][y] += 1.0;
       x = y;
     }
+  p[x][i0] += 1.0;	/* "circularized": avoids a bug; see markov1_bug utest */
+
   for (x = 0; x < K; x++) 
     {
       p0[x] = 0.;
       for (y = 0; y < K; y++)
-	p0[x] += p[x][y];	/* now p0[x] = marginal counts of x, exclusive of 1st residue */
+	p0[x] += p[x][y];	/* now p0[x] = marginal counts of x, inclusive of 1st residue */
 
       for (y = 0; y < K; y++) 
-	p[x][y] /= p0[x];	/* now p[x][y] = P(y | x) */
+	p[x][y] = (p0[x] > 0. ? p[x][y] / p0[x] : 0.);	/* now p[x][y] = P(y | x) */
       
-      if (i0 == x) p0[x]+= 1.;
       p0[x] /= (double) L;	/* now p0[x] = marginal P(x) inclusive of 1st residue */
     }
 
@@ -1535,13 +1536,10 @@ esl_rnd_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int w, ESL
 }
 
 
-/*****************************************************************
- * 7. Randomizing alignments.
- *****************************************************************/
 
 
 /*****************************************************************
- * 8. Unit tests.
+ * 7. Unit tests.
  *****************************************************************/
 
 #ifdef eslRANDOM_TESTDRIVE
@@ -1895,10 +1893,12 @@ utest_CMarkovs(ESL_RANDOMNESS *r, int L, char *alphabet)
   
   /* generate string with all homodiresidues set to 0 */
   if (esl_dirichlet_FSampleUniform(r, K, p)  != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_fIID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);  
-  for (i = 1; i < L; i++)
-    if (s[i] == s[i-1]) /* this incantation will rotate letter forward in alphabet: */
-      s[i] = alphabet[(1+strchr(alphabet,s[i])-alphabet)%K];
+  do {
+    if (esl_rnd_fIID(r, alphabet, p, K, L, s)  != eslOK) esl_fatal(logmsg);  
+    for (i = 1; i < L; i++)
+      if (s[i] == s[i-1]) /* this incantation will rotate letter forward in alphabet: */
+	s[i] = alphabet[(1+strchr(alphabet,s[i])-alphabet)%K];
+  } while (s[0] == s[L-1]);	/* lazy: reject strings where circularization would count a homodimer */
   
   /* esl_rnd_CMarkov1()  */
   memset(s2, 0, (L+1)*sizeof(char));
@@ -2084,10 +2084,12 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   
   /* generate string with all homodiresidues set to 0 */
   if (esl_dirichlet_FSampleUniform(r, K, p)   != eslOK) esl_fatal(logmsg);
-  if (esl_rnd_xfIID(r, p, K, L, dsq)          != eslOK) esl_fatal(logmsg);  
-  for (i = 2; i <= L; i++)
-    if (dsq[i] == dsq[i-1]) /* this incantation will rotate letter forward in alphabet: */
-      dsq[i] = (dsq[i]+1)%K;
+  do {
+    if (esl_rnd_xfIID(r, p, K, L, dsq)          != eslOK) esl_fatal(logmsg);  
+    for (i = 2; i <= L; i++)
+      if (dsq[i] == dsq[i-1]) /* this incantation will rotate letter forward in alphabet: */
+	dsq[i] = (dsq[i]+1)%K;
+  } while (dsq[1] == dsq[L]);	/* lazy. reject strings where circularization would count a homodimer */
     
   /* esl_rnd_XMarkov1()  */
   memset(ds2, eslDSQ_SENTINEL, (L+2)*sizeof(ESL_DSQ));
@@ -2100,7 +2102,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   }
   if (memcmp(ds2, dsq, sizeof(ESL_DSQ)*(L+2)) == 0)     esl_fatal(logmsg);  
 
-  /* esl_rnd_CMarkov1(), in place  */
+  /* esl_rnd_XMarkov1(), in place  */
   if (esl_abc_dsqcpy(ds2, L, dsq)             != eslOK) esl_fatal(logmsg);
   if (esl_rnd_XMarkov1(r, ds2, L, K, ds2)     != eslOK) esl_fatal(logmsg);
   if (xcomposition(ds2, L, K, m2, di2)        != eslOK) esl_fatal(logmsg);  
@@ -2123,11 +2125,56 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   esl_fatal(logmsg);
 }
 
+/* utest_markov1_bug()
+ * 
+ * Given a sequence like AAAAAAAAAT, where a residue only occurs once
+ * and at the end of the sequence, a bug can appear: a Markov chain
+ * can transit to T, but can't leave. Easel handles this by 
+ * counting Markov statistics as if the input sequence were circular.
+ */
+static void
+utest_markov1_bug(ESL_RANDOMNESS *r)
+{
+  char    logmsg[]  = "Failure in markov1_bug test (zero/absorbing transition)";
+  char    testseq[] = "AAAAAAAAAT";
+  char   *seq       = NULL;
+  ESL_DSQ testdsq[] = { eslDSQ_SENTINEL,0,0,0,0,0,0,0,0,0,3,eslDSQ_SENTINEL};
+  ESL_DSQ *dsq      = NULL;
+  int     L         = strlen(testseq);
+  int    *mono      = NULL;
+  int   **di        = NULL;
+  int     N         = 100;         
+  int     i;
+
+  if ((seq = malloc(sizeof(char)    * (L+1))) == NULL)    esl_fatal(logmsg);
+  if ((dsq = malloc(sizeof(ESL_DSQ) * (L+2))) == NULL)    esl_fatal(logmsg);
+
+  if (composition_allocate(4, &mono, &di)       != eslOK) esl_fatal(logmsg);
+  for (i = 0; i < N; i++) {
+    if (esl_rnd_XMarkov1(r, testdsq, L, 4, dsq) != eslOK) esl_fatal(logmsg);
+    if (xcomposition(testdsq, L, 4, mono, di)   != eslOK) esl_fatal(logmsg);
+    if (mono[0] + mono[3] != L)                           esl_fatal(logmsg);
+  }
+  esl_Free2D((void **) di, 4);
+  free(mono);
+
+  if (composition_allocate(26, &mono, &di) != eslOK) esl_fatal(logmsg);
+  for (i = 0; i < N; i++) {
+    if (esl_rnd_CMarkov1(r, testseq, seq)  != eslOK) esl_fatal(logmsg);
+    if (composition(seq, L, mono, di)      != eslOK) esl_fatal(logmsg);
+    if (mono[0] + mono['T'-'A'] != L)                esl_fatal(logmsg);
+  }
+  esl_Free2D((void **) di, 4);
+  free(mono);
+  free(seq);
+  free(dsq);
+}
+
 #endif /*eslRANDOM_TESTDRIVE*/
 
 
 /*****************************************************************
- * 9. The test driver.
+ * 8. The test driver.
  *****************************************************************/
 
 /* gcc -g -Wall -o testdrive -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
@@ -2206,6 +2253,8 @@ main(int argc, char **argv)
   utest_XShufflers(r, L, K);
   utest_XMarkovs  (r, L, K);
 
+  utest_markov1_bug(r);
+
   /* Optional datafiles.
    */
   if (bitfile != NULL) save_bitfile(bitfile, r, n);
@@ -2252,7 +2301,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 
 
 /*****************************************************************
- * 10. An example of using the random module.
+ * 9. An example of using the random module.
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/

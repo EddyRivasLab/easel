@@ -33,6 +33,7 @@ HEADERS = \
 	esl_mpi.h\
 	esl_msa.h\
 	esl_msacluster.h\
+	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_normal.h\
 	esl_paml.h\
@@ -75,6 +76,7 @@ OBJS    = \
 	esl_mpi.o\
 	esl_msa.o\
 	esl_msacluster.o\
+	esl_msashuffle.o\
 	esl_msaweight.o\
 	esl_normal.o\
 	esl_paml.o\

@@ -182,6 +182,12 @@ typedef struct {
 extern ESL_MSA *esl_msa_Create(int nseq, int alen);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
+extern int      esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new);
+extern ESL_MSA *esl_msa_Clone(ESL_MSA *msa);
+extern int      esl_msa_SetName     (ESL_MSA *msa, const char *name, ...);
+extern int      esl_msa_SetDesc     (ESL_MSA *msa, const char *desc, ...);
+extern int      esl_msa_SetAccession(ESL_MSA *msa, const char *acc,  ...);
+
 
 /* 2. The ESL_MSAFILE object */
 extern int  esl_msafile_Open(const char *filename, int format, const char *env, 

@@ -156,19 +156,19 @@ esl_vec_ISum(int *vec, int n)
  *            for float and integer vectors.
  */
 void
-esl_vec_DAdd(double *vec1, double *vec2, int n)
+esl_vec_DAdd(double *vec1, const double *vec2, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec1[x] += vec2[x];
 }
 void
-esl_vec_FAdd(float *vec1, float *vec2, int n)
+esl_vec_FAdd(float *vec1, const float *vec2, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec1[x] += vec2[x];
 }
 void
-esl_vec_IAdd(int *vec1, int *vec2, int n)
+esl_vec_IAdd(int *vec1, const int *vec2, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec1[x] += vec2[x];

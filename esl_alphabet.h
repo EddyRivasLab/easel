@@ -57,22 +57,22 @@ extern int esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
 /* 3. Other routines in the API.
  */
 extern int    esl_abc_GuessAlphabet(const int *ct, int *ret_type);
-extern double esl_abc_Match(const ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p);
-extern int    esl_abc_IAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const int    *sc);
-extern float  esl_abc_FAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const float  *sc);
-extern double esl_abc_DAvgScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc);
+extern double esl_abc_Match       (const ESL_ALPHABET *a, ESL_DSQ x, ESL_DSQ y, double *p);
+extern int    esl_abc_IAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const int    *sc);
+extern float  esl_abc_FAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const float  *sc);
+extern double esl_abc_DAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const double *sc);
 extern int    esl_abc_IExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const int    *sc, const float  *p);
 extern float  esl_abc_FExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const float  *sc, const float  *p);
 extern double esl_abc_DExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc, const double *p);
 
-extern int    esl_abc_IAvgScVec(const ESL_ALPHABET *a, int    *sc);
-extern int    esl_abc_FAvgScVec(const ESL_ALPHABET *a, float  *sc);
-extern int    esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc);
+extern int    esl_abc_IAvgScVec   (const ESL_ALPHABET *a, int    *sc);
+extern int    esl_abc_FAvgScVec   (const ESL_ALPHABET *a, float  *sc);
+extern int    esl_abc_DAvgScVec   (const ESL_ALPHABET *a, double *sc);
 extern int    esl_abc_IExpectScVec(const ESL_ALPHABET *a, int    *sc, const float  *p);
 extern int    esl_abc_FExpectScVec(const ESL_ALPHABET *a, float  *sc, const float  *p);
 extern int    esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p);
-extern int    esl_abc_FCount(const ESL_ALPHABET *abc, float *ct,  ESL_DSQ x, float  wt);
-extern int    esl_abc_DCount(const ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt);
+extern int    esl_abc_FCount      (const ESL_ALPHABET *a, float  *ct, ESL_DSQ x, float  wt);
+extern int    esl_abc_DCount      (const ESL_ALPHABET *a, double *ct, ESL_DSQ x, double wt);
 extern char  *esl_abc_DescribeType(int type);
 extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int L, char *errbuf);
 

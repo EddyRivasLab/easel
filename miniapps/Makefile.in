@@ -20,11 +20,13 @@ ESLINCDIR = -I..
 ## list of the miniapps to compile.
 #
 PROGS = esl-afetch\
+	esl-alimanip\
 	esl-alistat\
 	esl-compstruct\
 	esl-histplot\
 	esl-reformat\
-	esl-alimanip
+	esl-seqstat\
+	esl-shuffle
 
 ## Targets defining how to make miniapp executables.
 #

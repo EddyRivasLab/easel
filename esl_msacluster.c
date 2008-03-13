@@ -1,4 +1,4 @@
-/* Sequence clustering.
+/* Clustering sequences in an MSA by % identity.
  *
  * Table of contents:
  *    1. Single linkage clustering an MSA by %id

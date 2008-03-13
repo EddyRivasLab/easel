@@ -7,11 +7,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_sqio.h>
-#include <esl_msa.h>
-#include <esl_distance.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_sqio.h"
+#include "esl_msa.h"
+#include "esl_distance.h"
 
 static char banner[] = "show summary statistics for a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\

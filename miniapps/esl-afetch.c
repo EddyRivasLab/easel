@@ -250,7 +250,8 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
 	  if (msa->name == NULL) 
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
-	  if (esl_key_Lookup(keys, msa->name) >= 0 || (msa->acc != NULL && esl_key_Lookup(keys, msa->acc) >= 0))
+	  if ( (esl_key_Lookup(keys, msa->name, NULL) == eslOK) ||
+	       (msa->acc != NULL && esl_key_Lookup(keys, msa->acc, NULL) == eslOK))
 	    esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 
 	  esl_msa_Destroy(msa);

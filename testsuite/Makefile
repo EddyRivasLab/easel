@@ -7,12 +7,12 @@
 # SVN $Id$
 
 CC       = gcc -std=gnu99
-CFLAGS   = -O3 -fomit-frame-pointer -fstrict-aliasing -mpentiumpro
+CFLAGS   = -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -march=pentiumpro
 CPPFLAGS = 
 LDFLAGS  = 
 SIMDFLAGS= -msse2
 DEFS     = -DHAVE_CONFIG_H
-LIBS     =   -lm
+LIBS     = -lgsl -lgslcblas  -lm
 MPILIBS  = 
 
 AR      = /usr/bin/ar rcv
