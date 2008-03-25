@@ -168,17 +168,17 @@ clean:
 	-rm -f core.[0-9]*
 	-rm -f config.log config.status
 	-rm -f example test testdrive stats
-	(cd documentation; make clean)
-	(cd testsuite;     make clean)
-	(cd miniapps;      make clean)
+	if test -d documentation; then  (cd documentation; make clean); fi
+	if test -d testsuite;     then  (cd testsuite;     make clean); fi
+	if test -d miniapps;      then  (cd miniapps;      make clean); fi
 
 distclean:
 	make clean
 	-rm esl_config.h
 	-rm -rf autom4te.cache
-	(cd documentation; make distclean)
-	(cd testsuite;     make distclean)
-	(cd miniapps;      make distclean)
+	if test -d documentation; then (cd documentation; make distclean); fi
+	if test -d testsuite;     then (cd testsuite;     make distclean); fi
+	if test -d miniapps;      then (cd miniapps;      make distclean); fi
 	-rm LICENSE.csh
 	-rm Makefile
 
