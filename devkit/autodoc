@@ -234,6 +234,7 @@ process_comment_text
         # No state transition; deal with processing other characters according to state.
         #
         elsif ($state == 2 && $s[$i] eq '_') { push(@s2, '\\'); push(@s2, '_'); }
+        elsif ($state == 2 && $s[$i] eq '%') { push(@s2, '\\'); push(@s2, '%'); }
         else  { push(@s2, $s[$i]); }
     }
     	
@@ -246,6 +247,7 @@ process_comment_text
 # Purpose:  Given a <string>, substitute any unacceptable characters
 #           for LaTeX, as follows:
 #               _    becomes \_
+#               %    becomes \%
 #      
 sub
 latex_safe
@@ -253,6 +255,7 @@ latex_safe
     my ($string) = @_;
 
     $string =~ s/_/\\_/g;
+    $string =~ s/%/\\%/g;
     $string;
 }
 

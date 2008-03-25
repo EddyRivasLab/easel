@@ -195,24 +195,25 @@ dist:
 	  exit 1;\
 	fi
 	# Delete any old versions of the same release
-	@if test -d ${BASENAME}-${RELEASE};        then rm -rf ${BASENAME}-${RELEASE};        fi
-	@if test -e ${BASENAME}-${RELEASE}.tar;    then rm -f  ${BASENAME}-${RELEASE}.tar;    fi
-	@if test -e ${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ${BASENAME}-${RELEASE}.tar.Z;  fi
-	@if test -e ${BASENAME}-${RELEASE}.tar.gz; then rm -f  ${BASENAME}-${RELEASE}.tar.gz; fi
+	@if test -d ../${BASENAME}-${RELEASE};        then rm -rf ../${BASENAME}-${RELEASE};        fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar;    then rm -f  ../${BASENAME}-${RELEASE}.tar;    fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ../${BASENAME}-${RELEASE}.tar.Z;  fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar.gz; then rm -f  ../${BASENAME}-${RELEASE}.tar.gz; fi
 	# Export the release from Subversion control
 	svn export ${REPOSITORY} ../${BASENAME}-${RELEASE}
 	# Make the configure script from configure.ac
 	(cd ../${BASENAME}-${RELEASE};  autoconf)
 	# We'll need some basic Makefiles
 	(cd ../${BASENAME}-${RELEASE}/; ./configure)
+	# Set file permissions.
+	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
+	chmod +x ../${BASENAME}-${RELEASE}/devkit/sqc
+	chmod +x ../${BASENAME}-${RELEASE}/devkit/autodoc
 	# Compile the PDF documentation and move it to top level dir
 	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
 	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
 	# Attach license stamps by replacing LICENSE keyword everywhere
 	find ../${BASENAME}-${RELEASE} -type f -exec devkit/sedition-pp LICENSE LICENSE.tag {} \;
-	# Set file permissions.
-	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
-	chmod +x ../${BASENAME}-${RELEASE}/testsuite/sqc
 	# Packaging
 	(cd ..;	tar cvf ${BASENAME}-${RELEASE}.tar ${BASENAME}-${RELEASE})
 	(cd ..; ${COMPRESS} ${BASENAME}-${RELEASE}.tar)

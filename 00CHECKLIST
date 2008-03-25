@@ -44,7 +44,8 @@ versioned as version "h3.0a1".
    First test the development trunk.
    Compile should be entirely clean when compiled -Wall.
    'make check' should be clean.
-   'make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk dist' should work.
+   '(cd documentation; make)' should work
+   'make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk RELEASE=snapxxx dist' should work.
 
    When trunk is clean, 
    svn commit
@@ -111,7 +112,7 @@ versioned as version "h3.0a1".
      major or minor:
 	 make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/tags/0.1 dist
      snapshot:
-	 make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk dist
+	 make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk RELEASE=snap20080325 dist
 
    Alternatively, make -n dist' and execute commands yourself one at a
    time, under a Bourne shell like 'bash' so the for loops work.
