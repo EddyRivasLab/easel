@@ -1,12 +1,12 @@
 Brief installation instructions
-Easel @RELEASE@
+Easel @EASEL_VERSION@; @EASEL_DATE@
 SRE, Mon Mar 24 09:05:20 2008
 -------------------------------------------------------------
 
-Starting from a source distribution, easel-@RELEASE@.tar.gz:
- Uncompress:                uncompress easel-@RELEASE@.tar.gz  
- Unpack:                    tar xf easel-@RELEASE@.tar
- Move into new directory:   cd easel-@RELEASE@
+Starting from a source distribution, easel-@EASEL_VERSION@.tar.gz:
+ Uncompress:                uncompress easel-@EASEL_VERSION@.tar.gz  
+ Unpack:                    tar xf easel-@EASEL_VERSION@.tar
+ Move into new directory:   cd easel-@EASEL_VERSION@
  Configure:                 ./configure
  Build:                     make
  Automated tests:           make check

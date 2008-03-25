@@ -1,5 +1,6 @@
 Easel - a library of C functions for biological sequence analysis
-Copyright (C) 2008 Howard Hughes Medical Institute. All rights reserved.
+Version @EASEL_VERSION@; @EASEL_DATE@
+@EASEL_COPYRIGHT@
 Other copyrights also apply. See the COPYRIGHT file for a full list.
 
 Easel is distributed under the Janelia Farm Software License, a BSD

@@ -52,7 +52,7 @@ versioned as version "h3.0a1".
    We're (usually) next going to move out of the trunk to the release branch.
 
 
-4. For a major release, create stable release branch from the trunk.
+3. For a major release, create stable release branch from the trunk.
    All subsequent bugfix releases will happen in this branch, while trunk keeps moving.
 
    svn copy https://svn.janelia.org/eddylab/eddys/easel/trunk\
@@ -60,7 +60,7 @@ versioned as version "h3.0a1".
             -m "created 0.1 release branch"          
 
 
-5. Move into working copy of the release.
+4. Move into working copy of the release.
  
    For a dev snapshot, this is the normal working copy.
    For a major or minor release, this is a working copy of the appropriate branch:
@@ -71,10 +71,10 @@ versioned as version "h3.0a1".
    because later "make dist" is going to try to create "easel-xx" as
    the actual release directory.
 
-6. Test.
+5. Test.
 
 
-7. Write the release notes.
+6. Write the release notes.
    For the first time on a new release branch, it's handy to look
    at the svn log. Replace "1534" below with the last release's SVN rev.
 	 svn log -r 1534:HEAD | more
