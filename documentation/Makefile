@@ -85,6 +85,7 @@ clean:
 	-rm *~ TAGS
 	-rm main.log main.out main.pdf main.aux main.toc 
 	-rm main.bbl main.blg main.brf
+	-rm current.pdf
 	-rm typography.log typography.aux typography.out
 	-rm autotext/*.tex
 

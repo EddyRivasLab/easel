@@ -1,7 +1,15 @@
-################################################################
 # Makefile.in for Easel's miniapps
 # SVN $Id$
 SHELL = /bin/sh
+
+## Installation targets
+#
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
+bindir      = @bindir@
+destdir     = @destdir@
+
 
 ## your compiler and compiler flags.
 #
@@ -16,11 +24,6 @@ LIBS     = -leasel @LIBGSL@ @LIBS@ -lm
 ESLLIBDIR = -L..
 ESLINCDIR = -I..
 
-## Installation directory
-#
-prefix      = @prefix@
-exec_prefix = @exec_prefix@
-bindir      = @bindir@
 
 ## list of the miniapps to compile.
 #
@@ -44,7 +47,7 @@ ${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 	${CC} ${CFLAGS} ${DEFS} ${ESLINCDIR} -c $<
 
 install:
-	cp ${PROGS} ${bindir}/
+	cp ${PROGS} ${destdir}/${bindir}/
 
 clean:
 	-rm ${PROGS}

@@ -1,7 +1,21 @@
-################################################################
 # Makefile for Easel
 # SVN $Id$
+SHELL       = /bin/sh
 
+# Installation targets
+#
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
+LIBDIR      = @libdir@
+INCLUDEDIR  = @includedir@
+BINDIR      = @bindir@
+MANDIR      = @mandir@
+PDFDIR      = @pdfdir@
+DESTDIR     = @destdir@
+
+# Compiler configuration
+#
 CC       = @CC@
 CFLAGS   = @CFLAGS@
 AR       = @AR@ rcv
@@ -12,7 +26,20 @@ SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
 
+#######
+## You should not need to modify below this line.
+#######
 
+PACKAGE     = @PACKAGE_NAME@
+BASENAME    = @PACKAGE_TARNAME@
+RELEASE     = @EASEL_VERSION@
+RELEASEDATE = "@EASEL_DATE@"
+COPYRIGHT   = "@EASEL_COPYRIGHT@"
+LICENSELINE = "@EASEL_LICENSE@"
+COMPRESS    = gzip
+
+# Code manifests
+#
 HEADERS = \
 	easel.h\
 	esl_alphabet.h\
@@ -112,13 +139,27 @@ libeasel.a: $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
 
+# install:   installs libeasel.a in LIBDIR/
+#            installs Easel headers in INCLUDEDIR/
+#            installs miniapp binaries in BINDIR/
+#
+# All install paths are prefaced with DESTDIR/ to facilitate
+# building RPMS in Linux distros. Usually DESTDIR is empty.
+#
+install:
+	mkdir -p ${DESTDIR}/${LIBDIR}
+	mkdir -p ${DESTDIR}/${INCLUDEDIR}
+	mkdir -p ${DESTDIR}/${BINDIR}
+	cp libeasel.a ${DESTDIR}/${LIBDIR}/
+	for file in ${HEADERS}; do\
+	   cp $$file ${DESTDIR}/${INCLUDEDIR}/;\
+	done
+	(cd miniapps; make install)
+
 # `make check`: run user testsuite
 check:
 	(cd testsuite; make check)
 
-# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
-dcheck:
-	(cd testsuite; make dcheck)
 
 clean:
 	-rm -f ${OBJS} libeasel.a
@@ -131,14 +172,6 @@ clean:
 	(cd testsuite;     make clean)
 	(cd miniapps;      make clean)
 
-# The "implode" target is used when we've got Easel as a subdirectory
-# of a larger project, like Infernal or HMMER, and we're building a
-# distribution for that larger project. We remove any "personal
-# information" from Easel. Eventually that'd include our bug tracking,
-# for instance, but right now there's nothing to do.
-implode:
-	-echo Nothing needs to implode in Easel yet.
-
 distclean:
 	make clean
 	-rm esl_config.h
@@ -148,9 +181,61 @@ distclean:
 	(cd miniapps;      make distclean)
 	-rm Makefile
 
+#######
+## Targets below this line are meant for developers, not users.
+## Some may only work in context of a developer's Subversion working directory.
+#######
+
+# 'make REPOSITORY=... dist' : create a new distribution tarball
+#
+dist:
+	# Make sure we pointed the make dist to a subversion repository
+	@if test x${REPOSITORY} = 'x'; then\
+	  echo "REPOSITORY isn't set; use make REPOSITORY=... dist";\
+	  exit 1;\
+	fi
+	# Delete any old versions of the same release
+	@if test -d ${BASENAME}-${RELEASE};        then rm -rf ${BASENAME}-${RELEASE};        fi
+	@if test -e ${BASENAME}-${RELEASE}.tar;    then rm -f  ${BASENAME}-${RELEASE}.tar;    fi
+	@if test -e ${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ${BASENAME}-${RELEASE}.tar.Z;  fi
+	@if test -e ${BASENAME}-${RELEASE}.tar.gz; then rm -f  ${BASENAME}-${RELEASE}.tar.gz; fi
+	# Export the release from Subversion control
+	svn export ${REPOSITORY} ../${BASENAME}-${RELEASE}
+	# Make the configure script from configure.ac
+	(cd ../${BASENAME}-${RELEASE};  autoconf)
+	# We'll need some basic Makefiles
+	(cd ../${BASENAME}-${RELEASE}/; ./configure)
+	# Compile the PDF documentation and move it to top level dir
+	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
+	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
+	# Attach license stamps by replacing LICENSE keyword everywhere
+	find ../${BASENAME}-${RELEASE} -type f -exec devkit/sedition-pp LICENSE LICENSE.tag {} \;
+	# Set file permissions.
+	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
+	chmod +x ../${BASENAME}-${RELEASE}/testsuite/sqc
+	# Packaging
+	(cd ..;	tar cvf ${BASENAME}-${RELEASE}.tar ${BASENAME}-${RELEASE})
+	(cd ..; ${COMPRESS} ${BASENAME}-${RELEASE}.tar)
+
+
+
+# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
+dcheck:
+	(cd testsuite; make dcheck)
+
+
+
+# The "implode" target is used when we've got Easel as a subdirectory
+# of a larger project, like Infernal or HMMER, and we're building a
+# distribution for that larger project. We remove any "personal
+# information" from Easel. Eventually that'd include our bug tracking,
+# for instance, but right now there's nothing to do.
+implode:
+	-echo Nothing needs to implode in Easel yet.
+
+
 TAGS:
 	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
-
 
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]

@@ -39,14 +39,13 @@
 #
 # The four AC_INIT args set the following output variables and preprocessor 
 # symbols:
-#     PACKAGE_NAME      <package>     e.g. "Easel"
+#     PACKAGE_NAME      <package>     e.g. "Easel"                      
 #     PACKAGE_VERSION   <version>     e.g. "0.1"
-#     PACKAGE_BUGREPORT <bug-report>  e.g. "eddy@genetics.wustl.edu"
+#     PACKAGE_BUGREPORT <bug-report>  e.g. "eddys@janelia.hhmi.org"
 #     PACKAGE_TARNAME   <tarname>     e.g. "easel"
 # From them, AC_INIT automatically derives one more:
 #     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.1"
 # Then we define some of our own:
-#     EASEL_RELCODE     unique package/version SVN tag w/o .'s: e.g. "easel0_1"
 #     EASEL_DATE        release date: e.g. "February 2005"
 #     EASEL_COPYRIGHT   one-line copyright string
 #     EASEL_LICENSE     one-line license string
@@ -63,7 +62,7 @@
 #     EASEL_VERSION    e.g. "1.9a"
 #
 AC_PREREQ(2.60)
-AC_INIT(Easel, 0.1, eddys@janelia.hhmi.org, easel)
+AC_INIT(Easel, 0.1dev, eddys@janelia.hhmi.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -75,21 +74,17 @@ fi
 # 3. Info on the package
 ################################################################
 
-EASEL_RELCODE="easel0_1"
-EASEL_DATE="March 2007"
-EASEL_COPYRIGHT="Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus"
-EASEL_LICENSE="Freely distributed under the Janelia Software License."
-EASEL_LICENSETAG=jsl
+EASEL_DATE="March 2008"
+EASEL_COPYRIGHT="Copyright (C) 2008 Howard Hughes Medical Institute"
+EASEL_LICENSE="Freely distributed under the Janelia Farm Software License."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://easel.janelia.org/"
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
-AC_SUBST(EASEL_RELCODE)
 AC_SUBST(EASEL_DATE)
 AC_SUBST(EASEL_COPYRIGHT)
 AC_SUBST(EASEL_LICENSE)
-AC_SUBST(EASEL_LICENSETAG)
 AC_SUBST(EASEL_VERSION)
 AC_SUBST(EASEL_URL)
 
