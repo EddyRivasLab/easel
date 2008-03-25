@@ -179,6 +179,7 @@ distclean:
 	(cd documentation; make distclean)
 	(cd testsuite;     make distclean)
 	(cd miniapps;      make distclean)
+	-rm LICENSE.csh
 	-rm Makefile
 
 #######
