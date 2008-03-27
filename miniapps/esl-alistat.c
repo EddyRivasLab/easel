@@ -87,12 +87,9 @@ main(int argc, char **argv)
    ***********************************************/
 
   status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file open failed with error %d\n", status);
+  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
+  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
+  else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
 
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
