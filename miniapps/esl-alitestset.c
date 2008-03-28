@@ -13,9 +13,10 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
-#include "esl_sqio.h"
 #include "esl_msa.h"
-#include "esl_distance.h"
+#include "esl_msacluster.h"
+#include "esl_vectorops.h"
+
 
 static char banner[] = "show summary statistics for a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
@@ -101,6 +102,7 @@ main(int argc, char **argv)
 
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
+      /*remove_fragments(msa, fragfrac, &msa)*/
 
 
       esl_msa_Destroy(msa);
@@ -117,3 +119,52 @@ main(int argc, char **argv)
 }
       
   
+/* Step 1. Remove all sequence fragments < fragfrac of average raw length */
+static int
+remove_fragments(ESL_MSA *orig, double fragfrac, ESL_MSA **ret_msa)
+{
+  int     *useme  = NULL;
+  double   len    = 0.0;
+  int      status;
+
+  for (i = 0; i < orig->nseq; i++) 
+    len += esl_abc_dsqrlen(orig->abc, orig->ax[i]);
+  len *= fragfrac / orig->nseq;
+
+  ESL_ALLOC(useme, sizeof(int) * orig->nseq);
+  for (i = 0; i < msa->nseq; i++) 
+    useme[i] = (esl_abc_dsqrlen(orig->abc, orig->ax[i]) < len) ? 0 : 1;
+
+  return esl_msa_SequenceSubset(orig, useme, ret_msa);
+}
+
+/* Step 2. Extract the training set.
+ *         largest cluster after single linkage clustering at 
+ *         chosen id threshold 
+ */
+static int
+extract_training_set(ESL_MSA *msa, double idthresh, ESL_MSA *ret_tmsa)
+{      
+  int *assignment = NULL;
+  int *nin        = NULL;
+  int *useme      = NULL;
+  int  nc         = 0;
+  int  ctrain;			/* index of the cluster that becomes the training alignment */
+  int  ntrain;			/* number of seqs in the training alignment */
+  int  i;
+  int  status;
+
+  if ((status = esl_msacluster_SingleLinkage(msa, idthresh, &assignment, &nin, &nc)) != eslOK) goto ERROR;
+  ctrain = esl_vec_IArgMax(nin, nc);
+  ntrain = esl_vec_IMax(nin, nc);
+
+  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  for (i = 0; i < msa->nseq; i++)
+    useme[i] = (assigment[i] == ctrain) ? 1 : 0;
+
+  status = esl_msa_SequenceSubset(msa, useme, ret_tmsa);
+
+  *** STOPPED HERE ***
+ ERROR:
+  return status;
+}

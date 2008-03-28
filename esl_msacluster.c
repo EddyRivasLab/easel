@@ -76,12 +76,13 @@ struct msa_param_s {
  *            percent identity $\geq$ <maxid> are linked (using
  *            the definition from the \eslmod{distance} module).
  *            
- *            The resulting clustering is optionally returned in the
- *            <opt_c> array, and the total number of clusters is
- *            optionally returned in <opt_nc>.  The <c[0..nseq-1]>
- *            array assigns a cluster index <(0..nc-1)> to each
- *            sequence. For example, <c[4] = 1> means that sequence 4
- *            is assigned to cluster 1. 
+ *            The resulting clustering is optionally returned in one
+ *            or more of <opt_c>, <opt_nin>, and <opt_nc>.  The
+ *            <opt_c[0..nseq-1]> array assigns a cluster index
+ *            <(0..nc-1)> to each sequence. For example, <c[4] = 1>
+ *            means that sequence 4 is assigned to cluster 1.  The
+ *            <opt_nin[0..nc-1]> array is the number of sequences
+ *            in each cluster. <opt_nc> is the number of clusters.
  *
  *            Importantly, this algorithm runs in $O(N)$ memory, and
  *            produces one discrete clustering. Compare to
@@ -98,13 +99,17 @@ struct msa_param_s {
  *            
  * Args:      msa     - multiple alignment to cluster
  *            maxid   - pairwise identity threshold: cluster if $\geq$ <maxid>
- *            opt_c   - optRETURN: cluster assignments for each sequence
+ *            opt_c   - optRETURN: cluster assignments for each sequence, [0..nseq-1]
+ *            opt_nin - optRETURN: number of seqs in each cluster, [0..nc-1] 
  *            opt_nc  - optRETURN: number of clusters        
  *
- * Returns:   <eslOK> on success; the <opt_c[0..nseq-1]> array contains cluster
- *            indices <0..nc-1> assigned to each sequence, and <opt_nc> contains
- *            the number of clusters. The <opt_c> array is allocated here, and
- *            must be free'd by the caller. The input <msa> is unmodified.
+ * Returns:   <eslOK> on success; the <opt_c[0..nseq-1]> array contains
+ *            cluster indices <0..nc-1> assigned to each sequence; the
+ *            <opt_nin[0..nc-1]> array contains the number of seqs in
+ *            each cluster; and <opt_nc> contains the number of
+ *            clusters. The <opt_c> array and <opt_nin> arrays will be
+ *            allocated here, if non-<NULL>, and must be free'd by the
+ *            caller. The input <msa> is unmodified.
  *            
  *            The caller may pass <NULL> for either <opt_c> or
  *            <opt_nc> if it is only interested in one of the two
@@ -112,16 +117,20 @@ struct msa_param_s {
  *
  * Throws:    <eslEMEM> on allocation failure, and <eslEINVAL> if a pairwise
  *            comparison is invalid (which means the MSA is corrupted, so it
- *            shouldn't happen). In either case, <opt_c> is set to <NULL>
+ *            shouldn't happen). In either case, <opt_c> and <opt_nin> are set to <NULL>
  *            and <opt_nc> is set to 0, and the <msa> is unmodified.
  */
 int
-esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, int **opt_c, int *opt_nc)
+esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, 
+			     int **opt_c, int **opt_nin, int *opt_nc)
+
 {
   int   status;
   int  *workspace  = NULL;
   int  *assignment = NULL;
+  int  *nin        = NULL;
   int   nc;
+  int   i;
 #ifdef eslAUGMENT_ALPHABET
   struct msa_param_s param;
 #endif
@@ -144,6 +153,16 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, int **opt_c, int 
 				       workspace, assignment, &nc);
   }
 #endif
+
+  if (opt_nin != NULL) 
+    {
+      ESL_ALLOC(nin, sizeof(int) * nc);
+      for (i = 0; i < nc; i++) nin[i] = 0;
+      for (i = 0; i < msa->nseq; i++)
+	nin[assignment[i]]++;
+      *opt_nin = nin;
+    }
+
   /* cleanup and return */
   free(workspace);
   if (opt_c  != NULL) *opt_c  = assignment; else free(assignment);
@@ -153,6 +172,7 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid, int **opt_c, int 
  ERROR:
   if (workspace  != NULL) free(workspace);
   if (assignment != NULL) free(assignment);
+  if (nin        != NULL) free(nin);
   if (opt_c  != NULL) *opt_c  = NULL;
   if (opt_nc != NULL) *opt_nc = 0;
   return status;
@@ -264,12 +284,14 @@ utest_SingleLinkage(ESL_GETOPTS *go, const ESL_MSA *msa, double maxid, int expec
 {
   char *msg        = "utest_SingleLinkage() failed";
   int  *assignment = NULL;
+  int  *nin        = NULL;
   int   nc;
 
-  if (esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nc) != eslOK) esl_fatal(msg);
+  if (esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nin, &nc) != eslOK) esl_fatal(msg);
   if (nc != expected_nc)                                                   esl_fatal(msg);
   if (assignment[msa->nseq-1] != last_assignment)                          esl_fatal(msg);
   free(assignment);
+  free(nin);
 }
 #endif /*eslMSACLUSTER_TESTDRIVE*/
 
@@ -366,8 +388,9 @@ main(int argc, char **argv)
   ESL_MSA     *msa        = NULL;
   double       maxid      = 0.62; /* cluster at 62% identity: the BLOSUM62 rule */
   int         *assignment = NULL;
+  int         *nin        = NULL;
   int          nclusters;
-  int          c, i, n;		  
+  int          c, i;		  
   int          status;
 
   status = esl_msafile_OpenDigital(filename, fmt, NULL, &afp);
@@ -383,22 +406,19 @@ main(int argc, char **argv)
     esl_fatal("Alignment file read failed with error code %d\n", status);
 
 
-  esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nclusters);
+  esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nin, &nclusters);
 
   printf("%d clusters at threshold of %f fractional identity\n", nclusters, maxid);
   for (c = 0; c < nclusters; c++) {
     printf("cluster %d:\n", c);
-    for (n = 0, i = 0; i < msa->nseq; i++)
-      if (assignment[i] == c) {	/* is sequence i in cluster c? */
-	printf("  %s\n", msa->sqname[i]);
-	n++;
-      }
-    printf("(%d sequences)\n\n", n);
+    for (i = 0; i < msa->nseq; i++) if (assignment[i] == c) printf("  %s\n", msa->sqname[i]);
+    printf("(%d sequences)\n\n", nin[c]);
   }
 
   esl_msa_Destroy(msa);
   esl_msafile_Close(afp);
   free(assignment);
+  free(nin);
   return 0;
 }
 /*::cexcerpt::msacluster_example::end::*/

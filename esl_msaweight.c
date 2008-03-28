@@ -413,7 +413,7 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
   ESL_DASSERT1( (msa->alen >= 1) );
   if (msa->nseq == 1) { msa->wgt[0] = 1.0; return eslOK; }
 
-  if ((status = esl_msacluster_SingleLinkage(msa, maxid, &c, &nc)) != eslOK) goto ERROR;
+  if ((status = esl_msacluster_SingleLinkage(msa, maxid, &c, NULL, &nc)) != eslOK) goto ERROR;
   ESL_ALLOC(nmem, sizeof(int) * nc);
   esl_vec_ISet(nmem, nc, 0);
   for (i = 0; i < msa->nseq; i++) nmem[c[i]]++;

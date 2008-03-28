@@ -39,12 +39,12 @@ typedef struct {
    * (The important stuff.)
    */
   /*::cexcerpt::msa_mandatory::begin::*/
-  char  **aseq;                /* alignment itself, [0..nseq-1][0..alen-1] */
-  char  **sqname;              /* sequence names, [0..nseq-1][]            */
-  double *wgt;                 /* sequence weights [0..nseq-1]             */
-  int     alen;                /* length of alignment (columns)            */
-  int     nseq;                /* number of seqs in alignment              */
-  int     flags;               /* flags for what info has been set         */
+  char  **aseq;       /* alignment itself, [0..nseq-1][0..alen-1]                */
+  char  **sqname;     /* sequence names, [0..nseq-1][]                           */
+  double *wgt;        /* sequence weights [0..nseq-1]                            */
+  int     alen;       /* length of alignment (columns); or (if growable) -1      */
+  int     nseq;       /* number of seqs in alignment; or (if growable) blocksize */
+  int     flags;      /* flags for what info has been set                        */
   /*::cexcerpt::msa_mandatory::end::*/
 
 #ifdef eslAUGMENT_ALPHABET
@@ -77,7 +77,7 @@ typedef struct {
   /* Info needed for maintenance of the data structure 
    * (internal stuff.)
    */
-  int    sqalloc;		/* # seqs currently allocated for   */
+  int    sqalloc;		/* # seqs currently allocated for           */
   int   *sqlen;                 /* individual seq lengths during parsing    */
   int   *sslen;                 /* individual ss lengths during parsing     */
   int   *salen;                 /* individual sa lengths during parsing     */
@@ -182,8 +182,8 @@ typedef struct {
 extern ESL_MSA *esl_msa_Create(int nseq, int alen);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
-extern int      esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new);
-extern ESL_MSA *esl_msa_Clone(ESL_MSA *msa);
+extern int      esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new);
+extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 extern int      esl_msa_SetName     (ESL_MSA *msa, const char *name, ...);
 extern int      esl_msa_SetDesc     (ESL_MSA *msa, const char *desc, ...);
 extern int      esl_msa_SetAccession(ESL_MSA *msa, const char *acc,  ...);

@@ -64,20 +64,20 @@
  *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
  * 
  * <alen> may be the exact length of an alignment, in columns; or it
- * may be 0, which states that your parser will take responsibility
+ * may be -1, which states that your parser will take responsibility
  * for expanding as needed as new input is read into a growing new
  * alignment.
  *
- * A created <msa> can only be <_Expand()>'ed if <alen> is 0.
+ * A created <msa> can only be <_Expand()>'ed if <alen> is -1.
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
- *           <alen> - length of alignment in columns, or 0      
+ *           <alen> - length of alignment in columns, or -1     
  *
  * Returns:   pointer to new MSA object, w/ all values initialized.
- *            Note that msa->nseq is initialized to 0, even though space
+ *            Note that msa->nseq is initialized to 0 here, even though space
  *            is allocated.
  *           
- * Throws:    NULL on allocation failure.          
+ * Throws:    <NULL> on allocation failure.          
  */
 ESL_MSA *
 create_mostly(int nseq, int alen)
@@ -90,7 +90,7 @@ create_mostly(int nseq, int alen)
   msa->aseq    = NULL;
   msa->sqname  = NULL;
   msa->wgt     = NULL;
-  msa->alen    = alen;		/* if 0, then we're growable. */
+  msa->alen    = alen;		/* if -1, then we're growable. */
   msa->nseq    = 0;		/* our caller (text or digital allocation) sets this.  */
   msa->flags   = 0;
 
@@ -473,28 +473,27 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  *            If caller doesn't know the dimensions of the alignment
  *            (for example, when parsing an alignment file), then
  *            <nseq> is taken to be an initial allocation size, and
- *            <alen> must be 0. <alen=0> is used as a flag for a
+ *            <alen> must be -1. <alen=-1> is used as a flag for a
  *            "growable" MSA. For example, the call <msa =
- *            esl_msa_Create(16, 0)>.  allocates internally for an
+ *            esl_msa_Create(16, -1)>.  allocates internally for an
  *            initial block of 16 sequences, but without allocating
  *            any space for individual sequences.  This allocation can
  *            be expanded (by doubling) by calling <esl_msa_Expand()>.
  *            A created <msa> can only be <_Expand()>'ed if <alen> is
- *            0.
+ *            -1.
  *            
  *            In a growable alignment, caller becomes responsible for
  *            memory allocation of each individual <aseq[i]>. Caller
- *            is also responsible for setting <nseq> and <alen>. In
+ *            is also responsible for setting <nseq> and <alen> when
+ *            it is done parsing and creating the new MSA. In
  *            particular, the <esl_msa_Destroy()> function relies on
  *            <nseq> to know how many individual sequences are
  *            allocated.
  *
  * Args:      <nseq> - number of sequences, or nseq allocation blocksize
- *            <alen> - length of alignment in columns, or 0      
+ *            <alen> - length of alignment in columns, or -1      
  *
  * Returns:   pointer to new MSA object, w/ all values initialized.
- *            Note that <msa->nseq> is initialized to 0, even though space
- *            is allocated.
  *           
  * Throws:    <NULL> on allocation failure.          
  *
@@ -514,12 +513,14 @@ esl_msa_Create(int nseq, int alen)
   for (i = 0; i < msa->sqalloc; i++)
     msa->aseq[i] = NULL;
 
-  if (alen != 0)
-    {
-      for (i = 0; i < nseq; i++)
+  if (alen != -1) {
+    for (i = 0; i < nseq; i++)
+      {
 	ESL_ALLOC(msa->aseq[i], sizeof(char) * (alen+1));
-      msa->nseq = nseq;
-    }
+	msa->aseq[i][alen] = '\0'; /* caller might forget to null terminate; help the poor */
+      }
+    msa->nseq = nseq;
+  }
   return msa;
 
  ERROR:
@@ -554,7 +555,7 @@ esl_msa_Expand(ESL_MSA *msa)
   void *p;			/* tmp ptr to realloc'ed memory */
   int   i,j;
 
-  if (msa->alen > 0) 
+  if (msa->alen != -1) 
     ESL_EXCEPTION(eslEINVAL, "that MSA is not growable");
 
   old = msa->sqalloc;
@@ -677,7 +678,7 @@ esl_msa_Expand(ESL_MSA *msa)
  *            as corrupt.
  */
 int
-esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new)
+esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
 {
   int i, x, j;
   int status;
@@ -793,10 +794,10 @@ esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new)
   }
 
 #ifdef eslAUGMENT_KEYHASH
-  new->index  = esl_keyhash_Clone(msa->index);
-  new->gs_idx = esl_keyhash_Clone(msa->gs_idx);
-  new->gc_idx = esl_keyhash_Clone(msa->gc_idx);
-  new->gr_idx = esl_keyhash_Clone(msa->gr_idx);
+  if (msa->index  != NULL) new->index  = esl_keyhash_Clone(msa->index);
+  if (msa->gs_idx != NULL) new->gs_idx = esl_keyhash_Clone(msa->gs_idx);
+  if (msa->gc_idx != NULL) new->gc_idx = esl_keyhash_Clone(msa->gc_idx);
+  if (msa->gr_idx != NULL) new->gr_idx = esl_keyhash_Clone(msa->gr_idx);
 #endif
 
 #ifdef eslAUGMENT_SSI
@@ -822,7 +823,7 @@ esl_msa_Copy(ESL_MSA *msa, ESL_MSA *new)
  * Throws:    <NULL> on allocation error.
  */
 ESL_MSA *
-esl_msa_Clone(ESL_MSA *msa)
+esl_msa_Clone(const ESL_MSA *msa)
 {
   ESL_MSA *nw = NULL;
   int      status;
@@ -1375,7 +1376,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
  *            the <aseq> field, and the <eslMSA_DIGITAL> flag is raised.
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
- *           <alen> - length of alignment in columns, or 0      
+ *           <alen> - length of alignment in columns, or -1
  *
  * Returns:   pointer to new MSA object, w/ all values initialized.
  *            Note that <msa->nseq> is initialized to 0, even though space
@@ -1399,10 +1400,12 @@ esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen)
   for (i = 0; i < msa->sqalloc; i++)
     msa->ax[i] = NULL;
 
-  if (alen != 0)
+  if (alen != -1)
     {
-      for (i = 0; i < nseq; i++)
+      for (i = 0; i < nseq; i++) {
 	ESL_ALLOC(msa->ax[i], sizeof(ESL_DSQ) * (alen+2));
+	msa->ax[i][0] = msa->ax[i][alen+1] = eslDSQ_SENTINEL; /* help the poor */
+      }
       msa->nseq = nseq;
     }
 
@@ -2407,12 +2410,12 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
    */
 #ifdef eslAUGMENT_ALPHABET
   if (afp->do_digital == TRUE &&
-      (msa = esl_msa_CreateDigital(afp->abc, 16, 0))  == NULL) 
+      (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
     { status = eslEMEM; goto ERROR; }
 
 #endif
   if (afp->do_digital == FALSE &&
-      (msa = esl_msa_Create(16, 0))  == NULL)
+      (msa = esl_msa_Create(16, -1))  == NULL)
     { status = eslEMEM; goto ERROR; }
   if (msa == NULL)    
     { status = eslEMEM; goto ERROR; }
@@ -2876,7 +2879,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 }
 
 /* Function:  esl_msa_MinimGaps()
- * Synopsis:  Remove columns containing all gym symbols.
+ * Synopsis:  Remove columns containing all gap symbols.
  * Incept:    SRE, Sun Feb 27 11:03:42 2005 [St. Louis]
  *
  * Purpose:   Remove all columns in the multiple alignment <msa>
@@ -2907,7 +2910,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
   int idx;		/* sequence index */
   int status;
 
-  ESL_ALLOC(useme, sizeof(int) * msa->alen); 
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
 
 #ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
   if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
@@ -2980,7 +2983,7 @@ esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
   int idx;		/* sequence index */
   int status;
 
-  ESL_ALLOC(useme, sizeof(int) * msa->alen);
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
 
 #ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
   if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
@@ -3734,7 +3737,7 @@ utest_Create(void)
 {
   ESL_MSA *msa = NULL;
 
-  msa = esl_msa_Create(16, 0);	  /* nseq blocksize 16, growable */
+  msa = esl_msa_Create(16, -1);	  /* nseq blocksize 16, growable */
   esl_msa_Destroy(msa);
   msa = esl_msa_Create(16, 100);  /* nseq=16, alen=100, not growable */
   esl_msa_Destroy(msa);
@@ -3750,7 +3753,7 @@ utest_Destroy(void)
   ESL_ALPHABET *abc;
 #endif
 
-  msa = esl_msa_Create(16, 0);	
+  msa = esl_msa_Create(16, -1);	
   esl_msa_Destroy(msa);	 	  /* normal usage */
 
 #ifdef eslAUGMENT_ALPHABET
@@ -3772,7 +3775,7 @@ utest_Expand(void)
   ESL_ALPHABET *abc;
 #endif
 
-  msa = esl_msa_Create(16, 0);                	    /* growable */
+  msa = esl_msa_Create(16, -1);                	    /* growable */
   if (esl_msa_Expand(msa) != eslOK) esl_fatal("Expand failed"); /* expand by 2x in nseq */
   esl_msa_Destroy(msa);
 
@@ -3784,7 +3787,7 @@ utest_Expand(void)
   
 #ifdef eslAUGMENT_ALPHABET
   abc = esl_alphabet_Create(eslDNA);
-  msa = esl_msa_CreateDigital(abc, 16, 0);               /* growable */
+  msa = esl_msa_CreateDigital(abc, 16, -1);               /* growable */
   if (esl_msa_Expand(msa) != eslOK) esl_fatal("Expand failed"); /* expand by 2x in nseq */
   esl_msa_Destroy(msa);
 
@@ -3845,7 +3848,7 @@ utest_CreateDigital(ESL_ALPHABET *abc)
   char    *msg = "CreateDigital() unit test failure";
   ESL_MSA *msa = NULL;
 
-  msa = esl_msa_CreateDigital(abc, 16, 0);	  /* nseq blocksize 16, growable */
+  msa = esl_msa_CreateDigital(abc, 16, -1);	  /* nseq blocksize 16, growable */
   if (! (msa->flags & eslMSA_DIGITAL)) esl_fatal(msg);
   if (msa->ax   == NULL)               esl_fatal(msg);
   if (msa->aseq != NULL)               esl_fatal(msg);
@@ -4149,9 +4152,84 @@ utest_SymConvert(char *tmpfile)
   return;
 }
 
+/* Exercise a boundary case: zero length MSA (alen=0) */
+/* Given an input *digital* MSA as a starting point, we clone it, 
+ * column subset it to zero length, then make sure that 
+ * various MSA functions operate correctly on it;
+ * then we textize it and test it in text mode; then we 
+ * digitize it again, and throw it away.
+ * (The input <msa> is unchanged.)
+ */
+static void
+utest_ZeroLengthMSA(const char *tmpfile)
+{
+  char    *msg      = "zero length msa unit test failed";
+  ESL_MSAFILE *mfp  = NULL;
+  ESL_MSA *z1       = NULL;
+  ESL_MSA *z2       = NULL;
+  ESL_MSA *z3       = NULL;
+  int     *useme    = NULL;
+  int      nuseme   = 0;
+  int      i;
+
+  /* Read a text mode alignment from the tmpfile */
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &z1) != eslOK)                                      esl_fatal(msg);
+  esl_msafile_Close(mfp);
+
+  /* make an alen=0 text alignment by column subsetting */
+  nuseme = ESL_MAX(z1->alen, z1->nseq);
+  if ((useme = malloc(sizeof(int) * nuseme)) == NULL)  esl_fatal(msg);
+  for (i = 0; i < z1->alen; i++) useme[i] = 0;
+  if (esl_msa_ColumnSubset(z1, useme)        != eslOK) esl_fatal(msg);
+
+  /* These should all no-op if alen=0*/
+  if (esl_msa_MinimGaps(z1, "-")      != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, "-")         != eslOK) esl_fatal(msg);
+  if (esl_msa_SymConvert(z1,"RY","NN")!= eslOK) esl_fatal(msg);
+  
+  /* test sequence subsetting by removing the first sequence */
+  for (i = 1; i < z1->nseq; i++) useme[i] = 1;  
+  if (esl_msa_SequenceSubset(z1, useme, &z2) != eslOK) esl_fatal(msg);
+  esl_msa_Destroy(z1);
+  /* keep z2; we'll compare it to z3 in the end */
+      
+#ifdef eslAUGMENT_ALPHABET
+  ESL_ALPHABET *abc;
+
+  /* Now read the same alignment, in digital mode */
+  if ((abc = esl_alphabet_Create(eslAMINO)) == NULL) esl_fatal(msg);
+  if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &z1) != eslOK) esl_fatal(msg);
+  esl_msafile_Close(mfp);
+
+  /* Now make an alen=0 alignment in digital mode */
+  for (i = 0; i < z1->alen; i++) useme[i] = 0;
+  if (esl_msa_ColumnSubset(z1, useme) != eslOK) esl_fatal(msg);
+
+  /* again these should all no-op if alen=0*/
+  if (esl_msa_MinimGaps(z1, NULL)     != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, NULL)        != eslOK) esl_fatal(msg);
+  /* SymConvert throws EINVAL on a digital mode alignment */
+
+  /* test sequence subsetting by removing the first sequence */
+  for (i = 1; i < z1->nseq; i++) useme[i] = 1;  
+  if (esl_msa_SequenceSubset(z1, useme, &z3) != eslOK) esl_fatal(msg);
+  esl_msa_Destroy(z1);
+
+  if ((z1 = esl_msa_Clone(z3))  == NULL)  esl_fatal(msg); /* z1 is now alen=0, digital */
+  if (esl_msa_Textize(z3)       != eslOK) esl_fatal(msg); /* convert z3 back to text mode */
+  if (esl_msa_Compare(z2, z3)   != eslOK) esl_fatal(msg); /* compare in text mode */
+  if (esl_msa_Digitize(abc, z2) != eslOK) esl_fatal(msg); /* now z2 is digital */
+  if (esl_msa_Compare(z1, z2)   != eslOK) esl_fatal(msg); /* compare digital mode z1,z2 */
+  esl_msa_Destroy(z3);
+#endif /*eslAUGMENT_ALPHABET*/
+
+  esl_msa_Destroy(z2);
+  free(useme);
+}
 #endif /* eslMSA_TESTDRIVE */
 /*------------------------ end of unit tests --------------------------------*/
-
 
 
 
@@ -4227,7 +4305,7 @@ main(int argc, char **argv)
   utest_MinimGaps(tmpfile);
   utest_NoGaps(tmpfile);
   utest_SymConvert(tmpfile);
-
+  utest_ZeroLengthMSA(tmpfile);	/* this tests in digital mode too if eslAUGMENT_ALPHABET */
   esl_msa_Destroy(msa);
 
 #ifdef eslAUGMENT_ALPHABET
