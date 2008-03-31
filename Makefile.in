@@ -238,8 +238,19 @@ implode:
 	-rm -f 00CHECKLIST
 	-rm -f LICENSE.tag
 
-TAGS:
+tags:
 	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
+
+# "supertags": a tags table for all Easel, HMMER, Infernal source.
+#              This lets me make changes in Easel, then propagate 
+#              necessary modifications throughout code that depends
+#              on Easel. 
+#              The target depends on how I have my source directories
+#              laid out (~src/hmmer, ~src/infernal)
+supertags:
+	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
+	etags -a ~/src/hmmer/h3/*.c ~/src/hmmer/h3/*.h ~/src/hmmer/Makefile.in ~/src/hmmer/h3/Makefile.in 
+	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
 
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]

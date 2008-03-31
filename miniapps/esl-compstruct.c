@@ -166,11 +166,11 @@ main(int argc, char **argv)
 	      continue;
 	    }
 
-	  esl_sq_Dealign(ka->ss[i], ka->aseq[i], "-_.", ka->alen);
-	  klen = esl_sq_Dealign(ka->aseq[i], ka->aseq[i], "-_.", ka->alen);
+	  esl_strdealign(ka->ss[i],   ka->aseq[i], "-_.", NULL);
+	  esl_strdealign(ka->aseq[i], ka->aseq[i], "-_.", &klen);
 
-	  esl_sq_Dealign(ta->ss[i], ta->aseq[i], "-_.", ta->alen);
-	  tlen = esl_sq_Dealign(ta->aseq[i], ta->aseq[i], "-_.", ta->alen);
+	  esl_strdealign(ta->ss[i],   ta->aseq[i], "-_.", NULL);
+	  esl_strdealign(ta->aseq[i], ta->aseq[i], "-_.", &tlen);
 
 	  if (klen != tlen) 
 	    {

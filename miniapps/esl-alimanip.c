@@ -1705,7 +1705,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
       esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, aseq);
 
       esl_strdup(aseq, -1, &(uaseq));
-      esl_sq_Dealign(uaseq, uaseq, "-_.", msa->alen);
+      esl_strdealign(uaseq, uaseq, "-_.", NULL);
       offset = strstr(uaseq, uasubseq);
       if(offset == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
       uastart = offset  - uaseq + 1;
@@ -2221,8 +2221,9 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     /* ensure raw (unaligned) seq i in the 2 msas is the same */
     esl_abc_Textize(msa1->abc, msa1->ax[i], msa1->alen, seq1); 
     esl_abc_Textize(msa1->abc, msa2->ax[i], msa2->alen, seq2); /* note: msa*1*->abc used on purpose, allows DNA/RNA to peacefully coexist in this func */
-    len1 = esl_sq_Dealign(seq1, seq1, "-_.", msa1->alen);
-    len2 = esl_sq_Dealign(seq2, seq2, "-_.", msa2->alen);
+    esl_strdealign(seq1, seq1, "-_.", &len1);
+    esl_strdealign(seq2, seq2, "-_.", &len2);
+
     if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%d) and %s (%d), those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
     if(strncmp(seq1, seq2, len1) != 0)  ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs between %s and %s, those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
     total_msa1_res += len1;

@@ -875,6 +875,74 @@ esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
     if (esl_abc_XIsResidue(abc, dsq[i])) n++;
   return n;
 }
+
+/* Function:  esl_abc_CDealign()
+ * Synopsis:  Dealigns a text string, using a reference digital aseq.
+ * Incept:    SRE, Sun Mar 30 13:14:05 2008 [Casa de Gatos]
+ *
+ * Purpose:   Dealigns <s> in place by removing characters aligned to
+ *            gaps in the reference digital aligned sequence
+ *            <ref_ax>. Gaps in <ref_ax> are defined by its digital
+ *            alphabet <abc>. 
+ *            
+ *            <s> is typically going to be some kind of textual
+ *            annotation string (secondary structure, consensus, or
+ *            surface accessibility).
+ *
+ * Returns:   Returns <eslOK> on success; optionally returns the number
+ *            of characters in the dealigned <s> in <*opt_rlen>.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int *opt_rlen)
+{
+  int apos;
+  int n = 0;
+
+  if (s == NULL) return eslOK;
+  
+  for (n=0, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
+    if (! esl_abc_XIsGap(abc, ref_ax[apos]))
+      s[n++] = x[apos];
+  s[n] = '\0';
+
+  if (opt_rlen != NULL) *opt_rlen = n;
+  return eslOK;
+}
+
+/* Function:  esl_abc_CDealign()
+ * Synopsis:  Dealigns a digital string, using a reference digital aseq.
+ * Incept:    SRE, Sun Mar 30 13:19:16 2008 [Casa de Gatos]
+ *
+ * Purpose:   Dealigns <x> in place by removing characters aligned to
+ *            gaps in the reference digital aligned sequence
+ *            <ref_ax>. Gaps in <ref_ax> are defined by its digital
+ *            alphabet <abc>. 
+ *
+ * Returns:   Returns <eslOK> on success; optionally returns the number
+ *            of characters in the dealigned <x> in <*opt_rlen>.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int *opt_rlen)
+{
+  int apos;
+  int n = 0;
+
+  if (x == NULL) return eslOK;
+  
+  x[0] = eslDSQ_SENTINEL;
+  for (n=1, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
+    if (! esl_abc_XIsGap(abc, ref_ax[apos]))
+      x[n++] = x[apos];
+  x[n] = eslDSQ_SENTINEL;
+  
+  if (opt_rlen != NULL) *opt_rlen = n-1;
+  return eslOK;
+}
+
 /*-------------- end, digital sequences (ESL_DSQ) ---------------*/
 
 

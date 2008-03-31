@@ -297,6 +297,7 @@ extern int  esl_strcat(char **dest, int ldest, const char *src, int lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
 extern int  esl_strchop(char *s, int n);
+extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int *opt_rlen);
 #ifndef HAVE_STRCASECMP
 #ifdef _MSC_VER
 #define strcasecmp stricmp

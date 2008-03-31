@@ -53,6 +53,9 @@ extern int esl_abc_dsqdup(const ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup);
 extern int esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, const char *s, int n);
 extern int esl_abc_dsqlen(const ESL_DSQ *dsq);
 extern int esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
+extern int esl_abc_CDealign(const ESL_ALPHABET *abc, char    *s, const ESL_DSQ *ref_ax, int *opt_rlen);
+extern int esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int *opt_rlen);
+
 
 /* 3. Other routines in the API.
  */

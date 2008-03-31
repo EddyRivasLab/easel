@@ -635,6 +635,55 @@ esl_strchop(char *s, int n)
   s[i+1] = '\0';
   return eslOK;
 }
+
+
+/* Function:  esl_strdealign()
+ * Synopsis:  Dealign a string according to gaps in a reference aseq.
+ * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
+ *
+ * Purpose:   Dealign string <s> in place, by removing any characters 
+ *            aligned to gaps in <aseq>. Gap characters are defined in the 
+ *            string <gapstring>; for example, <-_.>. Optionally return the
+ *            unaligned length of <s> in characters in <*opt_rlen>.
+ *            
+ *            By providing a reference <aseq> to dealign against, this
+ *            function can dealign aligned annotation strings, such as
+ *            secondary structure or surface accessibility strings.
+ *            If <s> is the same as <aseq>, then the aligned sequence
+ *            itself is dealigned in place. 
+ *            
+ *            To dealign both annotations and sequence, do the
+ *            sequence last, since you need it as the reference <aseq>
+ *            when doing the annotations.
+ *           
+ *            It is safe to pass a <NULL> <s> (an unset optional
+ *            annotation), in which case the function no-ops and
+ *            returns <eslOK>.
+ *            
+ * Args:      s        - string to dealign
+ *            aseq     - reference aligned sequence seq
+ *            gapchars - definition of gap characters ("-_." for example)
+ *            opt_rlen - optRETURN: number of residues in <s> after dealign
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_strdealign(char *s, const char *aseq, const char *gapchars, int *opt_rlen)
+{
+  int n = 0;
+  int apos;
+
+  if (s == NULL) return eslOK;
+
+  for (apos = 0; aseq[apos] != '\0'; apos++)
+    if (strchr(gapchars, aseq[apos]) == NULL)
+      s[n++] = s[apos];
+  s[n] = '\0';
+  
+  if (opt_rlen != NULL) *opt_rlen = n;
+  return eslOK;
+}
+
 /*----------------- end, C library replacements  -------------------------*/
 
 

@@ -75,7 +75,6 @@ static int  write_digital_fasta(FILE *fp, ESL_SQ *s);
 
 /* Optional MSA<->sqio interoperability */
 #ifdef eslAUGMENT_MSA
-static int extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s);
 static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 #endif
 
@@ -218,8 +217,8 @@ sq_create_from(char *name, char *desc, char *acc, char *ss)
 /* Function:  esl_sq_CreateFrom()
  * Incept:    SRE, Wed Mar 22 09:17:04 2006 [St. Louis]
  *
- * Purpose:   Create a new <ESL_SQ> object from elemental data;
- *            this provides an interface between non-Easel code
+ * Purpose:   Create a new <ESL_SQ> object from elemental data.
+ *            This provides an interface between non-Easel code
  *            and Easel's object.
  *            
  *            Makes copies of all data. Caller is still
@@ -232,30 +231,27 @@ sq_create_from(char *name, char *desc, char *acc, char *ss)
  *            The object is growable; you can use <esl_sq_Reuse()>
  *            on it.
  *
- * Args:      name    -  name of the sequence
- *            seq     -  the sequence (alphabetic)
- *            desc    -  optional: description line [or NULL]
- *            acc     -  optional: accession [or NULL]
- *            ss      -  optional: secondary structure annotation [or NULL]
+ * Args:      name    -  name of the sequence (NUL-terminated)
+ *            seq     -  the sequence (alphabetic; NUL-terminated)
+ *            desc    -  optional: description line (or NULL)
+ *            acc     -  optional: accession (or NULL)
+ *            ss      -  optional: secondary structure annotation (or NULL)
  *
  * Returns:   a pointer to the new object. Free with
  *            <esl_sq_Destroy()>.
  *
- * Throws:    NULL on allocation failure.
+ * Throws:    <NULL> on allocation failure.
  */
 ESL_SQ *
-esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss)
+esl_sq_CreateFrom(const char *name, const char *seq, const char *desc, const char *acc, const char *ss)
 {
-  int status;
-  int n;
   ESL_SQ *sq = NULL;
+  int     n  = strlen(seq);
+  int     status;
 
-  if((sq = sq_create_from(name, desc, acc, ss)) == NULL) return NULL;
-  
-  n = strlen(seq)+1;
-  ESL_ALLOC(sq->seq, sizeof(char) * n);
-  strcpy(sq->seq, seq);
-  sq->n      = n-1;
+  if ((sq     = sq_create_from(name, desc, acc, ss)) == NULL)  goto ERROR;
+  if ((status = esl_strdup(seq, n, &(sq->seq)))      != eslOK) goto ERROR;
+  sq->n      = n;
   sq->salloc = n;
   return sq;
 
@@ -370,6 +366,13 @@ esl_sq_GrowTo(ESL_SQ *sq, int n)
  *            text/digital mode; if mismatched, appropriate
  *            text/digital conversion will be done.
  *            
+ *            The destination sequence <sq> must be allocated, with
+ *            enough room to hold the <src> sequence (see
+ *            <esl_sq_GrowTo()>). However, <dst> does not need to be
+ *            allocated for other info, such as the name or
+ *            description. These fields will be reallocated if
+ *            necessary.
+ *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
@@ -382,8 +385,7 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
   if ((status = esl_sq_SetName     (dst, src->name)) != eslOK) goto ERROR;
   if ((status = esl_sq_SetAccession(dst, src->acc))  != eslOK) goto ERROR;
   if ((status = esl_sq_SetDesc     (dst, src->desc)) != eslOK) goto ERROR;
-
-  if ((status = esl_sq_GrowTo(dst, src->n))          != eslOK) goto ERROR;
+  if ((status = esl_sq_GrowTo      (dst, src->n))    != eslOK) goto ERROR;
 
   if (! (src->flags & eslSQ_DIGITAL) && ! (dst->flags & eslSQ_DIGITAL))
     strcpy(dst->seq, src->seq);
@@ -511,6 +513,7 @@ esl_sq_Squeeze(ESL_SQ *sq)
  ERROR:
   return status;
 }
+
 
 
 /* Function:  esl_sq_Destroy()
@@ -1048,8 +1051,8 @@ esl_sq_CreateDigital(const ESL_ALPHABET *abc)
  * Incept:    EPN, Fri Aug 24 13:38:56 2007
  *
  * Purpose:   Create a new <ESL_SQ> object from elemental data;
- *            Same as <esl_sq_CreateFrom> except takes <ESL_DSQ> <*dsq>
- *            instead of a <char> <*seq> as the sequence to copy.
+ *            Same as <esl_sq_CreateFrom> except takes a digital <ESL_DSQ *dsq>
+ *            instead of a text <char *seq> as the sequence to copy.
  *            Originally written to ease reverse complementing
  *            database sequences for Infernal searches.
  *            
@@ -1064,36 +1067,30 @@ esl_sq_CreateDigital(const ESL_ALPHABET *abc)
  *            on it.
  *
  * Args:      name    -  name of the sequence
- *            dsq     -  the sequence (digitized)
- *            nres    -  residue length of digitized sequence 
- *                       (not including eslDSQ_SENTINEL's at begin/end)
- *            desc    -  optional: description line [or NULL]
- *            acc     -  optional: accession [or NULL]
- *            ss      -  optional: secondary structure annotation [or NULL]
+ *            dsq     -  digital sequence <1..L>
+ *            L       -  length of digitized sequence in residues (or -1 if unknown)
+ *            desc    -  optional: description line (or NULL)
+ *            acc     -  optional: accession (or NULL)
+ *            ss      -  optional: secondary structure annotation (or NULL)
  *
  * Returns:   a pointer to the new object. Free with
  *            <esl_sq_Destroy()>.
  *
- * Throws:    NULL on allocation failure.
+ * Throws:    <NULL> on allocation failure.
  */
 ESL_SQ *
-esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, char *name, ESL_DSQ *dsq, int nres, char *desc, char *acc, char *ss)
+esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, const char *name, const ESL_DSQ *dsq, int L,
+			 const char *desc, const char *acc, const char *ss)
 {
-  int status;
-  int i;
   ESL_SQ *sq = NULL;
+  int     status;
 
-  if((sq = sq_create_from(name, desc, acc, ss)) == NULL) return NULL;
-
-  ESL_ALLOC(sq->dsq, sizeof(char) * nres + 2);
-  sq->dsq[0]      = eslDSQ_SENTINEL;
-  for(i = 1; i <= nres; i++) sq->dsq[i] = dsq[i];
-  sq->dsq[nres+1] = eslDSQ_SENTINEL;
-  sq->n      = nres;
-  sq->salloc = nres;
+  if((sq = sq_create_from(name, desc, acc, ss)) == NULL) goto ERROR;
+  sq->n = (L == -1) ? esl_abc_dsqlen(dsq) : L;
+  if ((status = esl_abc_dsqdup(dsq, sq->n, &(sq->dsq))) != eslOK) goto ERROR;
+  sq->salloc = sq->n;
   sq->abc   =  abc;
   sq->flags |= eslSQ_DIGITAL;
-
   return sq;
 
  ERROR:
@@ -1412,7 +1409,12 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 	sqfp->idx = 0;
       }
     /* grab next seq from alignment */
-    extract_sq_from_msa(sqfp->msa, sqfp->idx, s);
+    /* this is inefficient; it goes via a temporarily allocated copy of the sequence */
+    status = esl_sq_FetchFromMSA(sqfp->msa, sqfp->idx, &tmpsq);
+    esl_sq_GrowTo(s, tmpsq->n);
+    esl_sq_Copy(tmpsq, s);
+    esl_sq_Destroy(tmpsq);
+
     sqfp->idx++;
     status = eslOK;
     break;
@@ -2682,48 +2684,62 @@ check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos,
  * Functions specific to sqio <-> msa interoperation; 
  * require augmentation w/ msa module.
  *****************************************************************/
+
 #ifdef eslAUGMENT_MSA
-
-
-
-
-/* Function:  esl_sq_Dealign()
- * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
+/* Function:  esl_sq_FetchFromMSA()
+ * Synopsis:  Fetch a single sequence from an MSA.
+ * Incept:    SRE, Sun Mar 30 13:39:06 2008 [Janelia]
  *
- * Purpose:   Dealign string <s> in place,  by removing any characters 
- *            aligned to gaps in <aseq>. Gap characters are defined in the 
- *            string <gapstring>; for example, <-_.>. Return the
- *            unaligned length of <s> in characters. 
- *            
- *            <s> can be the same as <aseq> to dealign an aligned
- *            sequence; or <s> may be an aligned annotation string
- *            (secondary structure, surface accessibility codes).
- *           
- *            It is safe to pass a NULL <s> (an unset annotation), in 
- *            which case the function no-ops and returns 0.
+ * Purpose:   Retrieve sequence number <which> from <msa>, in a newly
+ *            allocated sequence object; return a pointer to this object
+ *            in <ret_sq>.
+ * 
+ *            The retrieved sequence is in the same mode as the source
+ *            <msa>, text versus digital.
+ * 
+ *            The retrieved sequence is dealigned. For a text mode
+ *            sequence, gap characters to be removed are assumed to be
+ *            <-_.>. For a digital mode sequence, gap characters are
+ *            defined by the digital alphabet.
  *
- *            Only available when <sqio> is augmented by <msa> module.
+ * Returns:   <eslOK> on success, and a pointer to the newly fetched
+ *            sequence is in <*ret_sq>, which caller is responsible for freeing.
  *            
- * Note:      To dealign one or more annotation strings as well as the
- *            sequence itself, dealign the sequence last:
- *                n1 = esl_sq_Dealign(ss,   aseq, gapstring, alen);
- *                n2 = esl_sq_Dealign(sa,   aseq, gapstring, alen);
- *                n3 = esl_sq_Dealign(aseq, aseq, gapstring, alen);
- *            Bonus paranoia if you verify that n1 == n2 == n3, but
- *            this has to be true unless <s> is NULL.
+ *            Returns <eslEOD> if there is no sequence number <which>.
+ *
+ * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen)
+esl_sq_FetchFromMSA(ESL_MSA *msa, int which, ESL_SQ *ret_sq)
 {
-  int apos, n;
-  if (s == NULL) return 0;
-  
-  for (apos = 0, n = 0; apos < alen; apos++)
-    if (strchr(gapstring, aseq[apos]) == NULL)
-      s[n++] = s[apos];
-  return n;
-}
+  ESL_SQ *sq       = NULL;
+  char    gapchars = "-_.";	/* hardcoded for now */
 
+  if (which >= msa->nseq || which < 0) return eslEOD;
+
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      if ((sq = esl_sq_CreateFrom(msa->sqname[which], msa->aseq[which],
+				  msa->sqdesc[which], msa->sqacc[which], msa->ss[which])) == NULL) goto ERROR;
+      esl_strdealign(sq->ss,  sq->seq, gapchars, NULL);
+      esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n));
+    }
+#ifdef eslAUGMENT_ALPHABET
+  else
+    {
+      if ((sq = esl_sq_CreateDigitalFrom(msa->abc, msa->sqname[which], msa->ax[which], msa->alen, 
+					 msa->sqdesc[which], msa->sqacc[which], msa->ss[which])) == NULL) goto ERROR;
+      esl_sq_CDealign(sq->abc, sq->ss,  sq->dsq, NULL);
+      esl_sq_XDealign(sq->abc, sq->dsq, sq->dsq, &(sq->n));
+    }
+#endif
+
+  return eslOK;
+
+ ERROR:
+  esl_sq_Destroy(sq);
+  return eslEMEM;
+}
 
 
 /* extract_sq_from_msa():
@@ -2797,8 +2813,8 @@ extract_sq_from_msa(ESL_MSA *msa, int idx, ESL_SQ *s)
   /* Dealign the ss and the seq.
    * ASSUMES that the gap characters are -_.
    */
-  esl_sq_Dealign(s->ss,  s->seq, "-_.", msa->alen);
-  s->n = esl_sq_Dealign(s->seq, s->seq, "-_.", msa->alen);
+  esl_strdealign(s->ss,  s->seq, "-_.", NULL);
+  esl_strdealign(s->seq, s->seq, "-_.", &(sq->n));
 
   return eslOK;
 }

@@ -165,11 +165,12 @@ typedef struct {
 
 
 extern ESL_SQ *esl_sq_Create(void);
-extern ESL_SQ *esl_sq_CreateFrom(char *name, char *seq, char *desc, char *acc, char *ss);
-extern int     esl_sq_Grow(ESL_SQ *sq, int *ret_nsafe);
-extern int     esl_sq_GrowTo(ESL_SQ *sq, int n);
+extern ESL_SQ *esl_sq_CreateFrom(const char *name, const char *seq,
+				 const char *desc, const char *acc, const char *ss);
+extern int     esl_sq_Grow  (ESL_SQ *sq, int *ret_nsafe);
+extern int     esl_sq_GrowTo(ESL_SQ *sq, int  n);
 extern int     esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst);
-extern int     esl_sq_Reuse(ESL_SQ *sq);
+extern int     esl_sq_Reuse  (ESL_SQ *sq);
 extern int     esl_sq_Squeeze(ESL_SQ *sq);
 extern void    esl_sq_Destroy(ESL_SQ *sq);
 
@@ -184,7 +185,8 @@ extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 /* Digitized sequences (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);
-extern ESL_SQ *esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, char *name, ESL_DSQ *dsq, int nres, char *desc, char *acc, char *ss);
+extern ESL_SQ *esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, const char *name, const ESL_DSQ *dsq, 
+					int L, const char *desc, const char *acc,  const char *ss);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
@@ -203,10 +205,8 @@ extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);
 extern int   esl_sqio_Rewind(ESL_SQFILE *sqfp);
 
 #ifdef eslAUGMENT_MSA
-extern int esl_sq_Dealign(char *s, char *aseq, char *gapstring, int alen);
+extern int   esl_sq_FetchFromMSA(ESL_MSA *msa, int which, ESL_SQ *ret_sq);
 #endif
-
-
 
 #endif /*!ESL_SQIO_INCLUDED*/
 /*****************************************************************
