@@ -904,7 +904,7 @@ esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int *o
   
   for (n=0, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
     if (! esl_abc_XIsGap(abc, ref_ax[apos]))
-      s[n++] = x[apos];
+      s[n++] = s[apos];
   s[n] = '\0';
 
   if (opt_rlen != NULL) *opt_rlen = n;
