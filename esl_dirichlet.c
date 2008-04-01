@@ -11,16 +11,16 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <easel.h>
+#include "easel.h"
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_FILEPARSER
-#include <esl_fileparser.h>
+#include "esl_fileparser.h"
 #endif
-#include <esl_vectorops.h>
-#include <esl_stats.h>
-#include <esl_dirichlet.h>
+#include "esl_vectorops.h"
+#include "esl_stats.h"
+#include "esl_dirichlet.h"
 
 
 /* Function:  esl_mixdchlet_Create()
@@ -435,11 +435,11 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
  */
 #include <stdlib.h>
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_fileparser.h>
-#include <esl_vectorops.h>
-#include <esl_dirichlet.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_fileparser.h"
+#include "esl_vectorops.h"
+#include "esl_dirichlet.h"
 
 int
 main(int argc, char **argv)
@@ -521,10 +521,10 @@ main(int argc, char **argv)
 #define NCOUNTS     1000
 #define NTRIALS     100
 
-#include <easel.h>
-#include <esl_fileparser.h>
-#include <esl_random.h>
-#include <esl_dirichlet.h>
+#include "easel.h"
+#include "esl_fileparser.h"
+#include "esl_random.h"
+#include "esl_dirichlet.h"
 
 int
 main(void)

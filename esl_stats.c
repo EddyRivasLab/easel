@@ -10,12 +10,12 @@
  * SRE, Tue Jul 19 10:57:44 2005
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 
-#include <easel.h>
-#include <esl_stats.h>
+#include "easel.h"
+#include "esl_stats.h"
 
 
 /* Function:  esl_stats_DMean()
@@ -639,10 +639,10 @@ utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
 /* gcc -g -Wall -o testdrive -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lm
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_random.h>
-#include <esl_stats.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_stats.h"
 
 static ESL_OPTIONS options[] = {
   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
@@ -706,9 +706,9 @@ main(int argc, char **argv)
 /*::cexcerpt::stats_example::begin::*/
 /* gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_stats.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_stats.h"
 
 int main(void)
 {

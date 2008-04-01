@@ -12,14 +12,14 @@
  * SRE, Thu Mar  2 18:46:02 2006 [St. Louis]
  */
 
-#include <esl_config.h>
+#include "esl_config.h"
 #include <assert.h>
 
 #include <stdio.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_ssi.h>
+#include "easel.h"
+#include "esl_ssi.h"
 
 static uint32_t v20magic = 0xf3f3e9b1; /* SSI 1.0: "ssi1" + 0x80808080 */
 static uint32_t v20swap  = 0xb1e9f3f3; /* byteswapped */
@@ -1613,10 +1613,12 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 #ifdef eslSSI_TESTDRIVE
 #include <stdio.h>
 #include <string.h>
-#include <easel.h>
-#include <esl_sqio.h>
-#include <esl_ssi.h>
-#include <esl_random.h>
+
+#include "easel.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+#include "esl_ssi.h"
+#include "esl_random.h"
 
 int main(int argc, char **argv)
 {
@@ -1773,8 +1775,8 @@ int main(int argc, char **argv)
 #ifdef eslSSI_EXAMPLE
 /*::cexcerpt::ssi_example::begin::*/
 #include <stdio.h>
-#include <easel.h>
-#include <esl_ssi.h>
+#include "easel.h"
+#include "esl_ssi.h"
 
 int main(int argc, char **argv)
 {
@@ -1825,8 +1827,8 @@ int main(int argc, char **argv)
 #ifdef eslSSI_EXAMPLE2
 /*::cexcerpt::ssi_example2::begin::*/
 #include <stdio.h>
-#include <easel.h>
-#include <esl_ssi.h>
+#include "easel.h"
+#include "esl_ssi.h"
 
 int main(int argc, char **argv)
 {

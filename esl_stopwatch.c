@@ -8,10 +8,10 @@
  * SRE, Fri Nov 26 14:54:21 1999 [St. Louis] [HMMER]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
-#include <easel.h>
-#include <esl_stopwatch.h>
+#include "easel.h"
+#include "esl_stopwatch.h"
 
 /*****************************************************************
  * ESL_STOPWATCH object maintenance
@@ -238,8 +238,8 @@ esl_stopwatch_Include(ESL_STOPWATCH *master, ESL_STOPWATCH *w)
 /* compile: gcc -g -Wall -I. -o example -DeslSTOPWATCH_EXAMPLE esl_stopwatch.c easel.c -lm
  * run:     ./example
  */
-#include <easel.h>
-#include <esl_stopwatch.h>
+#include "easel.h"
+#include "esl_stopwatch.h"
 
 int 
 main(void)

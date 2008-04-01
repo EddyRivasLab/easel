@@ -8,7 +8,7 @@
 #define ESL_FILEPARSER_INCLUDED
 
 #include <stdio.h>
-#include <easel.h>
+#include "easel.h"
 
 typedef struct {
   FILE *fp;			/* open file pointer, for reading                  */

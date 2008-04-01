@@ -5,29 +5,29 @@
  * xref STL9/140  
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_vectorops.h>
-#include <esl_exponential.h>
-#include <esl_hyperexp.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_vectorops.h"
+#include "esl_exponential.h"
+#include "esl_hyperexp.h"
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_HISTOGRAM
-#include <esl_histogram.h>
+#include "esl_histogram.h"
 #endif
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
+#include "esl_minimizer.h"
 #endif
 #ifdef eslAUGMENT_FILEPARSER
-#include <esl_fileparser.h>
+#include "esl_fileparser.h"
 #endif
 
 /****************************************************************************
@@ -1177,10 +1177,10 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
  * run:     ./example
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_hyperexp.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_hyperexp.h"
 
 int
 main(int argc, char **argv)
@@ -1249,10 +1249,10 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h> 
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_hyperexp.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_hyperexp.h"
 
 int
 main(int argc, char **argv)

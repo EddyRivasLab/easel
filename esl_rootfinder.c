@@ -11,12 +11,12 @@
  * SRE, Fri Apr  6 09:14:13 2007 [Janelia]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 
-#include <easel.h>
-#include <esl_rootfinder.h>
+#include "easel.h"
+#include "esl_rootfinder.h"
 
 /*****************************************************************
  * 1. The ESL_ROOTFINDER object.
@@ -449,8 +449,8 @@ main(int argc, char **argv)
  */
 #ifdef eslROOTFINDER_EXAMPLE
 /*::cexcerpt::rootfinder_example::begin::*/
-#include <easel.h>
-#include <esl_rootfinder.h>
+#include "easel.h"
+#include "esl_rootfinder.h"
 
 struct polyparams { double a,b,c; };
 
@@ -490,8 +490,8 @@ int main(void)
  */
 #ifdef eslROOTFINDER_EXAMPLE2
 /*::cexcerpt::rootfinder_example2::begin::*/
-#include <easel.h>
-#include <esl_rootfinder.h>
+#include "easel.h"
+#include "esl_rootfinder.h"
 
 struct polyparams { double a,b,c; };
 

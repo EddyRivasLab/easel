@@ -38,14 +38,14 @@
  * upgrade to Easel: SRE, Thu Mar  8 17:59:35 2007 [Janelia]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 
-#include <easel.h>
-#include <esl_dmatrix.h>
-#include <esl_vectorops.h>
-#include <esl_ratematrix.h>
+#include "easel.h"
+#include "esl_dmatrix.h"
+#include "esl_vectorops.h"
+#include "esl_ratematrix.h"
 
 
 /*****************************************************************
@@ -560,10 +560,10 @@ esl_rmx_ExpectedScore(ESL_DMATRIX *P, double *pi)
 #include <gsl/gsl_linalg.h>
 #endif
 
-#include <easel.h>
-#include <esl_stopwatch.h>
-#include <esl_dmatrix.h>
-#include <esl_ratematrix.h>
+#include "easel.h"
+#include "esl_stopwatch.h"
+#include "esl_dmatrix.h"
+#include "esl_ratematrix.h"
 
 int
 main(void)
@@ -628,14 +628,14 @@ main(void)
   gcc -g -Wall -I. -L. -o regression -DeslRATEMATRIX_REGRESSION -DHAVE_LIBGSL esl_dmatrix.c esl_ratematrix.c -leasel -lgsl -lgslcblas -lm
  */
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
 
-#include <easel.h>
-#include <esl_dmatrix.h>
-#include <esl_ratematrix.h>
+#include "easel.h"
+#include "esl_dmatrix.h"
+#include "esl_ratematrix.h"
 
 int
 main(void)
@@ -787,10 +787,10 @@ utest_Diagonalization(void)
  *
  * gcc -g -Wall -o test -I. -L. -DHAVE_LIBLAPACK -DeslRATEMATRIX_TESTDRIVE esl_ratematrix.c esl_dmatrix.c -leasel -llapack -lm
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
-#include <easel.h>
-#include <esl_ratematrix.h>
+#include "easel.h"
+#include "esl_ratematrix.h"
 
 int
 main(void)

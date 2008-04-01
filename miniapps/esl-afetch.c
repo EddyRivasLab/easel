@@ -109,8 +109,7 @@ main(int argc, char **argv)
     }
   else ofp = stdout;
 
-  /* Hand off to create_ssi_index() if we're in SSI indexing mode.
-   */
+  /* Hand off control flow as appropriate */
   if (esl_opt_GetBoolean(go, "--index")) 
     {
       if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        

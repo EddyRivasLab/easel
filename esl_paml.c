@@ -9,18 +9,18 @@
  * upgrade to Easel: SRE, Thu Mar  8 13:29:04 2007 [Janelia]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_vectorops.h>
-#include <esl_dmatrix.h>
-#include <esl_fileparser.h>
-#include <esl_paml.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_vectorops.h"
+#include "esl_dmatrix.h"
+#include "esl_fileparser.h"
+#include "esl_paml.h"
 
 /* Function:  esl_paml_ReadE()
  * Incept:    SRE, Fri Jul  9 09:27:24 2004 [St. Louis]
@@ -135,9 +135,9 @@ esl_paml_ReadE(FILE *fp, ESL_DMATRIX *E, double *pi)
 
 /* gcc -g -Wall -o utility -I. -L. -DeslPAML_UTILITY1 esl_paml.c -leasel -lm
  */
-#include <easel.h>
-#include <esl_dmatrix.h>
-#include <esl_paml.h>
+#include "easel.h"
+#include "esl_dmatrix.h"
+#include "esl_paml.h"
 
 int 
 main(int argc, char **argv)

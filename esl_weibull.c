@@ -4,24 +4,24 @@
  * SRE, Tue Aug  9 10:35:06 2005 [St. Louis]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_vectorops.h>
-#include <esl_weibull.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_vectorops.h"
+#include "esl_weibull.h"
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_HISTOGRAM
-#include <esl_histogram.h>
+#include "esl_histogram.h"
 #endif
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
+#include "esl_minimizer.h"
 #endif
 
 
@@ -557,10 +557,10 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
  * run:     ./example
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_weibull.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_weibull.h"
 
 int
 main(int argc, char **argv)
@@ -622,10 +622,10 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h> 
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_weibull.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_weibull.h"
 
 int
 main(int argc, char **argv)

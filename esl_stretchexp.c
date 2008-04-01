@@ -10,19 +10,19 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_vectorops.h>
-#include <esl_stretchexp.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_vectorops.h"
+#include "esl_stretchexp.h"
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_HISTOGRAM
-#include <esl_histogram.h>
+#include "esl_histogram.h"
 #endif
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
+#include "esl_minimizer.h"
 #endif
 
 /****************************************************************************
@@ -510,10 +510,10 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
       esl_stretchexp.c esl_histogram.c esl_random.c esl_minimizer.c esl_stats.c esl_vectorops.c easel.c -lm
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_stretchexp.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_stretchexp.h"
 
 int
 main(int argc, char **argv)
@@ -573,10 +573,10 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h> 
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_stretchexp.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_stretchexp.h"
 
 int
 main(int argc, char **argv)

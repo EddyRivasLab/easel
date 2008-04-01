@@ -583,9 +583,7 @@ Growable objects waste memory, because they are overallocated in order
 to reduce the number of calls to \ccode{malloc()}.  The wastage is
 bounded (to a maximum of two-fold, for the default doubling
 strategies, once an object has exceeded its initial allocation size)
-but nonetheless may not always be tolerable.  A \ccode{\_Shrink()}
-interface optimizes the memory usage in an object and converts it to a
-nongrowable, fixed-size form. 
+but nonetheless may not always be tolerable. 
 
 In summary: 
 
@@ -603,12 +601,6 @@ specifies an initial allocation size, not the number of elements.
 Check to see if \ccode{obj} can hold another element. If not, increase
 the allocation, according to internally stored rules on reallocation
 strategy (usually, by doubling).
-
-\hypertarget{ifc:Shrink}
-{\item[\_Shrink(obj)]}
-
-Optimize the memory usage in growable object \ccode{obj}, converting
-it to a fixed-size, nongrowable object.
 
 \hypertarget{ifc:CreateCustom}
 {\item[\_CreateCustom(my\_nalloc)]}

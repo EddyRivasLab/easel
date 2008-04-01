@@ -6,25 +6,25 @@
  * xref STL9/139  
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
 
-#include <easel.h>
-#include <esl_vectorops.h>
-#include <esl_stats.h>
-#include <esl_gev.h>
-#include <esl_mixgev.h>
+#include "easel.h"
+#include "esl_vectorops.h"
+#include "esl_stats.h"
+#include "esl_gev.h"
+#include "esl_mixgev.h"
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_dirichlet.h>  /* for uniform sampling of a probability vector */
-#include <esl_random.h>
+#include "esl_dirichlet.h"  /* for uniform sampling of a probability vector */
+#include "esl_random.h"
 #endif 
 
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
+#include "esl_minimizer.h"
 #endif
 
 
@@ -728,9 +728,9 @@ esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg)
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <easel.h>
-#include <esl_mixgev.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_mixgev.h"
+#include "esl_random.h"
 
 int
 main(int argc, char **argv)

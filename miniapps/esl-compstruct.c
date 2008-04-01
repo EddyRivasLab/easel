@@ -9,11 +9,11 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_sqio.h>
-#include <esl_msa.h>
-#include <esl_wuss.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_sq.h"
+#include "esl_msa.h"
+#include "esl_wuss.h"
 
 static char banner[] = "calculate accuracy of RNA secondary structure predictions";
 

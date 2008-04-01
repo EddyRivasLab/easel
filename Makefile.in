@@ -70,6 +70,7 @@ HEADERS = \
 	esl_regexp.h\
 	esl_rootfinder.h\
 	esl_scorematrix.h\
+	esl_sq.h\
 	esl_sqio.h\
 	esl_sse.h\
 	esl_ssi.h\
@@ -114,6 +115,7 @@ OBJS    = \
 	esl_regexp.o\
 	esl_rootfinder.o\
 	esl_scorematrix.o\
+	esl_sq.o\
 	esl_sqio.o\
 	esl_sse.o\
 	esl_ssi.o\
@@ -248,9 +250,12 @@ tags:
 #              The target depends on how I have my source directories
 #              laid out (~src/hmmer, ~src/infernal)
 supertags:
-	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
-	etags -a ~/src/hmmer/h3/*.c ~/src/hmmer/h3/*.h ~/src/hmmer/Makefile.in ~/src/hmmer/h3/Makefile.in 
-	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
+	etags *.c *.h *.tex documentation/*.tex 
+	etags -a miniapps/*.c miniapps/*.man Makefile.in
+	etags -a ~/src/hmmer/src/*.c ~/src/hmmer/src/*.h 
+	etags -a ~/src/hmmer/Makefile.in ~/src/hmmer/src/Makefile.in 
+	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h 
+	etags -a ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
 
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]

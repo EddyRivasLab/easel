@@ -1,57 +1,39 @@
-/* stack.c
+/* Pushdown stacks for integers, pointers, and characters.
+ *
+ * Contents:
+ *   1. The <ESL_STACK> object.
+ *   2. Other functions in the API.
+ *   3. Shuffling stacks.      [eslAUGMENT_RANDOM]
+ *   4. Unit tests.
+ *   5. Test driver.
+ *   6. Example.
+ *   7. Copyright and license.
+ *
+ * Augmentations:
+ *   eslAUGMENT_RANDOM  : adds function for shuffling a stack. 
+ * 
  * SRE 1 March 2000 [Seattle]
  * Incorp into Easel SRE, Sun Dec 26 07:42:12 2004 [Zaragoza]
- *
- * Implementations of pushdown stacks for integers, pointers, and characters.
- *
- * Stacks are kept as growable arrays. A stack's memory is
- * grown when necessary by adding some block size. The 
- * initial allocation and the block size are set to 100
- * by default. The block size can be changed by the caller.
- * 
- *****************************************************************
- *
- * Basic API (using integer stack as an example):
- * 
- *   say I want to push the numbers 42, 7, and 3 onto a stack,
- *   then pop them off and print them: 
- *   
- *   #include <easel.h>
- *   #include <esl_stack.h>
- *
- *   ESL_STACK *ns;
- *   int       x;
- *
- *   ns = esl_stack_ICreate();
- *   esl_stack_IPush(ns, 42);
- *   esl_stack_IPush(ns, 7);
- *   esl_stack_IPush(ns, 3);
- *   while (esl_stack_IPop(ns, &x) != eslEOD) 
- *      printf("%d\n", x);
- *   esl_stack_Destroy(ns);   
- * 
- * Diagnostics:
- *   Create() functions return NULL on an allocation failure.
- *   Push()   functions throw  eslEMEM on an allocation failure.
- *   Pop()    functions return eslEOD when the stack is empty.
- *
- * Other functions:
- *   esl_stack_ObjectCount(ns)    :  returns # of objects in the stack
- *   esl_stack_Convert2String(ns) :  converts a char stack to a string, destroying the stack.
- *
  * SVN $Id$
  */ 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_stack.h>
+#include "easel.h"
+#include "esl_stack.h"
+#ifdef eslAUGMENT_RANDOM
+#include "esl_random.h"
+#endif
 
+/*****************************************************************
+ *# 1. The <ESL_STACK> object.
+ *****************************************************************/
 
 /* Function:  esl_stack_ICreate()
+ * Synopsis:  Create an integer stack.
  * Incept:    SRE, Sun Dec 26 09:11:50 2004 [Zaragoza]
  *
  * Purpose:   Creates an integer stack.
@@ -80,6 +62,7 @@ esl_stack_ICreate(void)
 }
 
 /* Function:  esl_stack_CCreate()
+ * Synopsis:  Create a character stack.
  * Incept:    SRE, Sun Dec 26 09:15:35 2004 [Zaragoza]
  *
  * Purpose:   Creates a character stack.
@@ -108,6 +91,7 @@ esl_stack_CCreate(void)
 }
 
 /* Function:  esl_stack_PCreate()
+ * Synopsis:  Create a pointer stack.
  * Incept:    SRE, Sun Dec 26 09:16:07 2004 [Zaragoza]
  *
  * Purpose:   Creates a pointer stack.
@@ -136,6 +120,7 @@ esl_stack_PCreate(void)
 }
 
 /* Function:  esl_stack_Reuse()
+ * Synopsis:  Reuse a stack.
  * Incept:    SRE, Tue Dec 28 04:21:36 2004 [Zaragoza]
  *
  * Purpose:   Empties stack <s> so it can be reused without
@@ -153,6 +138,7 @@ esl_stack_Reuse(ESL_STACK *s)
 }
 
 /* Function:  esl_stack_Destroy()
+ * Synopsis:  Free a stack.
  * Incept:    SRE, Sun Dec 26 09:16:24 2004 [Zaragoza]
  *
  * Purpose:   Destroys a created stack <s>, of any data type.
@@ -166,7 +152,13 @@ esl_stack_Destroy(ESL_STACK *s)
   free(s);
 }
 
+
+/*****************************************************************
+ *# 2. Other functions in the API.
+ *****************************************************************/
+
 /* Function:  esl_stack_IPush()
+ * Synopsis:  Push an integer onto a stack.
  * Incept:    SRE, Sun Dec 26 09:17:17 2004 [Zaragoza]
  *
  * Purpose:   Push an integer <x> onto an integer stack <ns>.
@@ -194,6 +186,7 @@ esl_stack_IPush(ESL_STACK *ns, int x)
 }
 
 /* Function:  esl_stack_CPush()
+ * Synopsis:  Push a char onto a stack.
  * Incept:    SRE, Sun Dec 26 09:18:24 2004 [Zaragoza]
  *
  * Purpose:   Push a character <c> onto a character stack <cs>.
@@ -221,6 +214,7 @@ esl_stack_CPush(ESL_STACK *cs, char c)
 }
 
 /* Function:  esl_stack_PPush()
+ * Synopsis:  Push a pointer onto a stack.
  * Incept:    SRE, Sun Dec 26 09:18:49 2004 [Zaragoza]
  *
  * Purpose:   Push a pointer <p> onto a pointer stack <ps>.
@@ -248,6 +242,7 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
 }
 
 /* Function:  esl_stack_IPop()
+ * Synopsis:  Pop an integer off a stack.
  * Incept:    SRE, Sun Dec 26 09:19:12 2004 [Zaragoza]
  *
  * Purpose:   Pops an integer off the integer stack <ns>, and returns
@@ -265,6 +260,7 @@ esl_stack_IPop(ESL_STACK *ns, int *ret_x)
 }
 
 /* Function:  esl_stack_CPop()
+ * Synopsis:  Pop a char off a stack.
  * Incept:    SRE, Sun Dec 26 09:21:27 2004 [Zaragoza]
  *
  * Purpose:   Pops a character off the character stack <cs>, and returns
@@ -282,6 +278,7 @@ esl_stack_CPop(ESL_STACK *cs, char *ret_c)
 }
 
 /* Function:  esl_stack_PPop()
+ * Synopsis:  Pop a pointer off a stack.
  * Incept:    SRE, Sun Dec 26 09:21:56 2004 [Zaragoza]
  *
  * Purpose:   Pops a pointer off the pointer stack <ps>, and returns
@@ -299,6 +296,7 @@ esl_stack_PPop(ESL_STACK *ps, void **ret_p)
 }
 
 /* Function:  esl_stack_ObjectCount()
+ * Synopsis:  Return the number of objects in a stack.
  * Incept:    SRE, Sun Dec 26 09:22:41 2004 [Zaragoza]
  *
  * Purpose:   Returns the number of data objects stored in the
@@ -310,8 +308,8 @@ esl_stack_ObjectCount(ESL_STACK *s)
   return s->n;
 }
 
-
 /* Function:  esl_stack_Convert2String()
+ * Synopsis:  Convert a char stack to a string.
  * Incept:    SRE, Sun Dec 26 09:23:36 2004 [Zaragoza]
  *
  * Purpose:   Converts a character stack <cs> to a NUL-terminated
@@ -339,6 +337,7 @@ esl_stack_Convert2String(ESL_STACK *cs)
 }
 
 /* Function:  esl_stack_DiscardTopN()
+ * Synopsis:  Discard the top elements on a stack.
  * Incept:    SRE, Tue Dec 28 04:33:06 2004 [St. Louis]
  *
  * Purpose:   Throw away the top <n> elements on stack <s>.
@@ -357,6 +356,193 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
   return eslOK;
 }
 
+/*****************************************************************
+ *# 3. Shuffling stacks [with <eslAUGMENT_RANDOM>]
+ *****************************************************************/
+#ifdef eslAUGMENT_RANDOM
+
+/* Function:  esl_stack_Shuffle()
+ * Synopsis:  Randomly shuffle the elements in a stack.
+ * Incept:    SRE, Mon Mar 31 11:01:06 2008 [Janelia]
+ *
+ * Purpose:   Randomly shuffle the elements in stack <s>, using
+ *            random numbers from generator <r>.
+ *
+ * Returns:   <eslOK> on success, and the stack is randomly 
+ *            shuffled.
+ */
+int
+esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s)
+{
+  int   n = s->n;
+  int   w;
+
+  while (n > 1) {
+    w = esl_rnd_Choose(r, n);	/* shuffling algorithm: swap last elem with w, decrement n. */
+    if      (s->idata != NULL)  ESL_SWAP(s->idata[w], s->idata[n-1], int);
+    else if (s->cdata != NULL)  ESL_SWAP(s->cdata[w], s->cdata[n-1], char);
+    else if (s->pdata != NULL)  ESL_SWAP(s->pdata[w], s->pdata[n-1], void *);
+    n--;
+  }
+  return eslOK;
+}
+#endif /*eslAUGMENT_RANDOM*/
+
+
+/*****************************************************************
+ * 4. Unit tests
+ *****************************************************************/
+#ifdef eslSTACK_TESTDRIVE
+
+static void
+utest_integer(void)
+{
+  char      *msg = "integer stack basic unit test failed";
+  ESL_STACK *s   = NULL;
+  int        n1  = ESL_STACK_INITALLOC*2+1;		/* force two reallocations */
+  int        n2  = 0;
+  int        i;
+  int        val;
+
+  if ((s = esl_stack_ICreate())                      == NULL)   esl_fatal(msg);
+  for (i = 0; i < n1; i++) if (esl_stack_IPush(s, i) != eslOK)  esl_fatal(msg);
+  while (esl_stack_IPop(s, &val) != eslEOD) n2++;
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Reuse(s);
+
+  /* same again, with ObjectCount instead of EOD for popping */
+  for (i = 0; i < n1; i++) if (esl_stack_IPush(s, i) != eslOK) esl_fatal(msg);
+  n2 = 0;
+  while (esl_stack_ObjectCount(s)) {
+    if (esl_stack_IPop(s, &val) != eslOK) esl_fatal(msg);
+    n2++; 
+  }
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Destroy(s);
+}
+
+static void
+utest_char(void)  
+{
+  char      *msg = "char stack basic unit test failed";
+  ESL_STACK *s   = NULL;
+  int        n1  = ESL_STACK_INITALLOC*2+1;		/* force two reallocations */
+  int        n2  = 0;
+  int        i;
+  char       c;
+
+  if ((s = esl_stack_CCreate())                        == NULL)   esl_fatal(msg);
+  for (i = 0; i < n1; i++) if (esl_stack_CPush(s, 'X') != eslOK)  esl_fatal(msg);
+  while (esl_stack_CPop(s, &c) != eslEOD) {
+    if (c != 'X') esl_fatal(msg);
+    n2++; 
+  }
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Reuse(s);
+
+  /* same again, with ObjectCount instead of EOD for popping */
+  for (i = 0; i < n1; i++) if (esl_stack_CPush(s, 'X') != eslOK) esl_fatal(msg);
+  n2 = 0;
+  while (esl_stack_ObjectCount(s)) {
+    if (esl_stack_CPop(s, &c) != eslOK) esl_fatal(msg);
+    n2++; 
+  }
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Destroy(s);
+}
+  
+static void
+utest_pointer(void)
+{
+  char      *msg = "pointer stack basic unit test failed";
+  ESL_STACK *s   = NULL;
+  int        n1  = ESL_STACK_INITALLOC*2+1;		/* force two reallocations */
+  int        n2  = 0;
+  int        i;
+  void      *p;
+
+  if ((s = esl_stack_PCreate())                        == NULL)   esl_fatal(msg);
+  for (i = 0; i < n1; i++) {
+    p = malloc(sizeof(int) * 64);
+    if (esl_stack_PPush(s, p) != eslOK)  esl_fatal(msg);
+  }
+  while (esl_stack_PPop(s, &p) != eslEOD) { free(p); n2++; }
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Reuse(s);
+
+  /* same again, with ObjectCount instead of EOD for popping */
+  for (i = 0; i < n1; i++) {
+    p = malloc(sizeof(int) * 64);
+    if (esl_stack_PPush(s, p) != eslOK) esl_fatal(msg);
+  }
+  n2 = 0;
+  while (esl_stack_ObjectCount(s)) {
+    if (esl_stack_PPop(s, &p) != eslOK) esl_fatal(msg);
+    free(p);
+    n2++; 
+  }
+  if (n1 != n2) esl_fatal(msg);
+  esl_stack_Destroy(s);
+}  
+
+static void
+utest_convert2string(void)
+{
+  char      *msg = "stack::convert2string unit test failed";
+  char      *str = "ABCDEF";
+  ESL_STACK *s   = NULL;
+  int        n   = strlen(str);
+  int        i;
+  char      *result = NULL;
+
+  if ((s = esl_stack_CCreate())                          == NULL)   esl_fatal(msg);
+  for (i = 0; i < n; i++) if (esl_stack_CPush(s, str[i]) != eslOK)  esl_fatal(msg);
+  result = esl_stack_Convert2String(s);
+  if (strcmp(result, str) != 0) esl_fatal(msg);
+  free(result);	/* after Convert2String, only the string itself remains to be free'd */
+}
+
+
+#ifdef eslAUGMENT_RANDOM
+static void
+utest_shuffle(void)
+{
+  char           *msg  = "stack shuffle unit test failed";
+  ESL_RANDOMNESS *r    = esl_randomness_Create(42);
+  ESL_STACK      *s    = esl_stack_ICreate();
+  int             n    = ESL_STACK_INITALLOC*2+1;      /* exercises reallocation */
+  int            *seen = malloc(sizeof(int) * n);
+  int             i;
+  int             val;
+  int             appears_shuffled = FALSE;
+
+  for (i = 0; i < n; i++) esl_stack_IPush(s, i);
+  esl_stack_Shuffle(r, s);
+  
+  for (i = 0; i < n; i++) seen[i] = 0;
+  i = n-1;
+  while (esl_stack_IPop(s, &val) != eslEOD) {
+    seen[val]++;
+    if (val != i--) appears_shuffled = TRUE;
+  }
+  for (i = 0; i < n; i++) if (seen[i] != 1) esl_fatal(msg);
+  
+  free(seen);
+  esl_stack_Destroy(s);
+  esl_randomness_Destroy(r);
+}
+#endif /*eslAUGMENT_RANDOM*/
+
+
+#endif /*eslSTACK_TESTDRIVE*/
+/*---------------- end of unit tests ----------------------------*/
+
+
+
+
+/*****************************************************************
+ * 5. Test driver.
+ *****************************************************************/
 
 /*****************************************************************
  * Test driver and API example for the pushdown stack module.
@@ -381,150 +567,54 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
 int 
 main(void)
 {
-  ESL_STACK *s = NULL;
-  void      *obj_p;		/* see note above. */
-  int       *obj;
-  int        x;
-  char       c;
-  char      *str;
-  int        n1, n2;
-  int        i;
-  int        status;
+  utest_integer();
+  utest_char();
+  utest_pointer();
+  utest_convert2string();
 
-  /* Exercise of integer stacks.
-   * 
-   * Put 257 integers on the stack and pop them off;
-   * do this twice, once with a "while pop" loop, and once
-   * with a "while stack not empty" loop.
-   *
-   * With the default ALLOCSIZE of 128, putting 257 objects on the
-   * stack forces two reallocations.
-   * 
-   */
-  /* creation: */
-  if ((s = esl_stack_ICreate()) == NULL) 
-    { fprintf(stderr, "memory allocation failed\n"); return 1; }
+#ifdef eslAUGMENT_RANDOM
+  utest_shuffle();
+#endif
 
-  /* pushing data: */
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
-
-  /* popping data: */
-  n2 = 0;
-  while (esl_stack_IPop(s, &x) != eslEOD) n2++; 
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d integers on; got %d off\n", n1, n2); return EXIT_FAILURE;}
-
-  /* same again, but use ObjectCount instead of EOD for popping
-   */
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    if (esl_stack_IPush(s, i) != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
-  n2 = 0;
-  while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_IPop(s, &x) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
-    n2++; 
-  }
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d objects on; got %d off\n", n1, n2); return 1; }
-
-  /* free the stack.
-   */
-  esl_stack_Destroy(s);
-
-
-
-  /* Exercises of the ptr stack functions/API; same as above,
-   * but with pointers.
-   */
-  if ((s = esl_stack_PCreate()) == NULL) 
-    { fprintf(stderr, "memory allocation failed\n"); return 1; }
-
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    {
-      ESL_ALLOC(obj, sizeof(int) * 64);
-      if (esl_stack_PPush(s, obj) != eslOK) 
-	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
-    }
-
-  n2 = 0;
-  while (esl_stack_PPop(s, &obj_p) != eslEOD) {
-    free(obj_p); 
-    n2++; 
-  }
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d objects on; but popped %d off\n", n1, n2); return 1; }
-
-
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    {
-      ESL_ALLOC(obj, sizeof(int) * 64);
-
-      if (esl_stack_PPush(s, obj) != eslOK)
-	{ fprintf(stderr, "esl_stack_PPush failed\n"); return 1; }
-    }
-  n2 = 0;
-  while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_PPop(s, &obj_p) == eslEOD)
-      { fprintf(stderr, "pop failed\n"); return 1; }
-    free(obj_p);
-    n2++;
-  }
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d objects on; got %d off\n", n1, n2); return 1; }
-  esl_stack_Destroy(s);
-
-  /* Exercise of char stack functions/API;
-   * same as above, also including esl_stack_ToString().
-   */
-  if ((s = esl_stack_CCreate()) == NULL) 
-    { fprintf(stderr, "memory allocation failed\n"); return 1; }
-
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
-  n2 = 0;
-  while (esl_stack_CPop(s, &c) != eslEOD) {
-    if (c != 'X') {
-      fprintf(stderr, "Put X's on; got a %c off\n", c); 
-      return 1;
-    }
-    n2++; 
-  }
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d characters on; got %d off\n", n1, n2); return 1; }
-
-  for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
-  n2 = 0;
-  while (esl_stack_ObjectCount(s)) {
-    if (esl_stack_CPop(s, &c) != eslOK) { fprintf(stderr, "pop failed\n"); return 1; }
-    n2++; 
-  }
-  if (n1 != n2)
-    { fprintf(stderr, "Put %d characters on; got %d off\n", n1, n2);  return 1; }
-
-  n1 = 257;
-  for (i = 0; i < n1; i++)
-    if (esl_stack_CPush(s, 'X') != eslOK) ESL_EXCEPTION(eslEMEM, "push failed");
-
-  /* Note: the Convert2String() call destroys the stack!
-   */
-  str = esl_stack_Convert2String(s);
-  if ((n2 = strlen(str)) != n1) {
-    fprintf(stderr, "thought I'd get %d chars in that string, but got %d\n", n1, n2);
-    return 1;
-  }
-  free(str);
-  return EXIT_SUCCESS;
-
- ERROR:
-  return status;
+  return eslOK;
 }
 #endif /*eslSTACK_TESTDRIVE*/
+/*-------------------- end of test driver -----------------------*/
+
+
+
+
+/*****************************************************************
+ * 6. Example.
+ *****************************************************************/
+#ifdef eslSTACK_EXAMPLE
+/*::cexcerpt::stack_example::begin::*/
+/* compile: gcc -g -Wall -I. -o example -DeslSTACK_EXAMPLE esl_stack.c easel.c -lm
+ * run:     ./example
+ */
+#include "easel.h"
+#include "esl_stack.h"
+
+int
+main(void)
+{
+  ESL_STACK *ns;
+  int        x;
+
+  ns = esl_stack_ICreate();
+  esl_stack_IPush(ns, 42);
+  esl_stack_IPush(ns, 7);
+  esl_stack_IPush(ns, 3);
+  while (esl_stack_IPop(ns, &x) != eslEOD) 
+    printf("%d\n", x);
+  esl_stack_Destroy(ns);   
+}
+/*::cexcerpt::stack_example::end::*/
+#endif /*eslSTACK_EXAMPLE*/
+/*------------------------ end of example -----------------------*/
+
+
+
 
 /*****************************************************************  
  * @LICENSE@

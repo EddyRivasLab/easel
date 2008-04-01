@@ -3584,9 +3584,9 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
  */
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_msa.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
 
 static ESL_OPTIONS options[] = {
  { 0,0,0,0,0,0,0,0 },
@@ -4222,6 +4222,9 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_Compare(z2, z3)   != eslOK) esl_fatal(msg); /* compare in text mode */
   if (esl_msa_Digitize(abc, z2) != eslOK) esl_fatal(msg); /* now z2 is digital */
   if (esl_msa_Compare(z1, z2)   != eslOK) esl_fatal(msg); /* compare digital mode z1,z2 */
+
+  esl_alphabet_Destroy(abc);
+  esl_msa_Destroy(z1);
   esl_msa_Destroy(z3);
 #endif /*eslAUGMENT_ALPHABET*/
 
@@ -4248,20 +4251,20 @@ utest_ZeroLengthMSA(const char *tmpfile)
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <easel.h>
+#include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
+#include "esl_alphabet.h"
 #endif
 #ifdef eslAUGMENT_KEYHASH
-#include <esl_keyhash.h>
+#include "esl_keyhash.h"
 #endif
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_SSI
-#include <esl_ssi.h>
+#include "esl_ssi.h"
 #endif
-#include <esl_msa.h>
+#include "esl_msa.h"
 
 
 int

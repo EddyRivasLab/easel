@@ -44,15 +44,15 @@
  *    you can install a custom error handler that can handle
  *    the eslESYNTAX errors as you wish.
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
-#include <esl_regexp.h>
+#include "easel.h"
+#include "esl_regexp.h"
 
 /* Forward declarations of Spencer's API as static, internalized in my module.
  */
@@ -1678,8 +1678,8 @@ regescape(struct comp *cp, char c)
  */
 
 #include <stdio.h> /* for printf() */
-#include <easel.h>
-#include <esl_regexp.h>
+#include "easel.h"
+#include "esl_regexp.h"
 
 int
 main(int argc, char **argv)
@@ -1723,8 +1723,8 @@ main(int argc, char **argv)
  */
 
 #include <stdio.h> /* for printf() */
-#include <easel.h>
-#include <esl_regexp.h>
+#include "easel.h"
+#include "esl_regexp.h"
 
 int
 main(int argc, char **argv)
@@ -1771,8 +1771,8 @@ main(int argc, char **argv)
  */
 #include <stdlib.h> /* for atoi()   */
 #include <stdio.h>  /* for printf() */
-#include <easel.h>
-#include <esl_regexp.h>
+#include "easel.h"
+#include "esl_regexp.h"
 
 int
 main(int argc, char **argv)

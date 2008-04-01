@@ -1,5 +1,4 @@
-/* esl_minimizer.c
- * Multidimensional optimization using conjugate gradient descent.
+/* Multidimensional optimization using conjugate gradient descent.
  * 
  * Can be used even without derivative information; falls back to
  * a numeric gradient if analytic gradient is unavailable.
@@ -7,14 +6,14 @@
  * SRE, Wed Jun 22 11:37:29 2005
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 #include <float.h>
 
-#include <easel.h>
-#include <esl_vectorops.h>
-#include <esl_minimizer.h>
+#include "easel.h"
+#include "esl_vectorops.h"
+#include "esl_minimizer.h"
 
 /* Return the negative gradient at a point, determined 
  * numerically.
@@ -577,9 +576,9 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
  */
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_vectorops.h>
-#include <esl_minimizer.h>
+#include "easel.h"
+#include "esl_vectorops.h"
+#include "esl_minimizer.h"
 
 /* a simple multidimensional quadratic w/ a minimum at 0:
  *    $f(x) = a_1 x_1^2 + ... a_n x_n^2$

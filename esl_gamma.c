@@ -5,17 +5,17 @@
  * xref STL10/65
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_gamma.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_gamma.h"
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 
 static int    tau_by_moments(double *x, int n, double mu, double *ret_tau, 
@@ -475,10 +475,10 @@ tau_function(double tau, double mean, double logsum)
      esl_gamma.c esl_random.c esl_histogram.c esl_stats.c easel.c -lm
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gamma.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gamma.h"
 
 int
 main(int argc, char **argv)
@@ -534,10 +534,10 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h> 
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gamma.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gamma.h"
 
 int
 main(int argc, char **argv)

@@ -14,18 +14,17 @@
  * SRE, Sat Jan  1 08:50:21 2005 [Panticosa, Spain]
  * xref STL8/p152; STL9/p5.
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h> 
 #include <stdio.h> 
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
+#include "easel.h"
+#include "esl_getopts.h"
 
-/* Forward declarations of private functions.
- */
+/* Forward declarations of private functions. */
 static int set_option(ESL_GETOPTS *g, int opti, char *optarg, 
 		      int setby, int do_alloc);
 static int get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti);
@@ -1730,8 +1729,8 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
+#include "easel.h"
+#include "esl_getopts.h"
 
 /*::cexcerpt::getopts_bigarray::begin::*/
 #define BGROUP "-b,--no-b"
@@ -1850,8 +1849,8 @@ main(void)
 #ifdef eslGETOPTS_EXAMPLE
 /*::cexcerpt::getopts_example::begin::*/
 #include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
+#include "easel.h"
+#include "esl_getopts.h"
 
 static ESL_OPTIONS options[] = {
   /* name        type       def   env  range toggles reqs incomp help                       docgroup*/

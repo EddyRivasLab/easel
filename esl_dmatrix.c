@@ -23,16 +23,16 @@
  * SRE, Tue Jul 13 14:42:14 2004 [St. Louis]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_vectorops.h>
-#include <esl_dmatrix.h>
+#include "easel.h"
+#include "esl_vectorops.h"
+#include "esl_dmatrix.h"
 
 
 /*****************************************************************
@@ -1339,9 +1339,9 @@ utest_Invert(ESL_DMATRIX *A)
 /*   gcc -g -Wall -o test -I. -L. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
  */
 #ifdef eslDMATRIX_TESTDRIVE
-#include <easel.h>
-#include <esl_dmatrix.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_dmatrix.h"
+#include "esl_random.h"
 
 int main(void)
 {
@@ -1377,8 +1377,8 @@ int main(void)
  */
 #ifdef eslDMATRIX_EXAMPLE
 /*::cexcerpt::dmatrix_example::begin::*/
-#include <easel.h>
-#include <esl_dmatrix.h>
+#include "easel.h"
+#include "esl_dmatrix.h"
 
 int main(void)
 {

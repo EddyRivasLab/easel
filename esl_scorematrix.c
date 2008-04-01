@@ -15,18 +15,18 @@
  * SVN $Id$
  */
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <string.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_dmatrix.h>
-#include <esl_fileparser.h>
-#include <esl_rootfinder.h>
-#include <esl_ratematrix.h>
-#include <esl_scorematrix.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_dmatrix.h"
+#include "esl_fileparser.h"
+#include "esl_rootfinder.h"
+#include "esl_ratematrix.h"
+#include "esl_scorematrix.h"
 
 /*****************************************************************
  * 1. The ESL_SCOREMATRIX object
@@ -1076,10 +1076,10 @@ esl_sco_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj,
     gcc -g -Wall -o utility -I. -L. -DeslSCOREMATRIX_UTILITY1 esl_scorematrix.c -leasel -lm
     ./utility BLOSUM62
 */
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_scorematrix.h>
-#include <esl_fileparser.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_scorematrix.h"
+#include "esl_fileparser.h"
 
 int
 main(int argc, char **argv)
@@ -1277,8 +1277,8 @@ utest_ProbifyBLOSUM(ESL_SCOREMATRIX *BL62)
     ./test
 */
 #ifdef eslSCOREMATRIX_TESTDRIVE
-#include <easel.h>
-#include <esl_scorematrix.h>
+#include "easel.h"
+#include "esl_scorematrix.h"
 
 int 
 main(int argc, char **argv)
@@ -1343,12 +1343,12 @@ main(int argc, char **argv)
 /*  gcc -g -Wall -I. -L. -o example -DeslSCOREMATRIX_EXAMPLE esl_scorematrix.c -leasel -lm
     ./example <score matrix file>
 */
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_fileparser.h>
-#include <esl_dmatrix.h>
-#include <esl_vectorops.h>
-#include <esl_scorematrix.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_fileparser.h"
+#include "esl_dmatrix.h"
+#include "esl_vectorops.h"
+#include "esl_scorematrix.h"
 
 int main(int argc, char **argv)
 {

@@ -28,8 +28,8 @@
  * them with integer indices in an array:
  * moral equivalent of Perl's $foo{$key} = whatever, $bar{$key} = whatever:
  *
- *       #include <easel.h>
- *       #include <esl_keyhash.h>
+ *       #include "easel.h"
+ *       #include "esl_keyhash.h"
  *     
  *       ESL_KEYHASH  *hash;
  *       int   idx;
@@ -568,8 +568,8 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include <easel.h>
-#include <esl_keyhash.h>
+#include "easel.h"
+#include "esl_keyhash.h"
 
 #define NSTORE  1200
 #define NLOOKUP 1200
@@ -644,8 +644,8 @@ main(int argc, char **argv)
  * time ./example /usr/share/dict/words /usr/share/dict/words
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_keyhash.h>
+#include "easel.h"
+#include "esl_keyhash.h"
 
 int
 main(int argc, char **argv)

@@ -11,15 +11,15 @@
  * SVN $Id$
  * SRE, Tue Dec  7 13:49:43 2004
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_alphabet.h>
+#include "easel.h"
+#include "esl_alphabet.h"
 
 
 /*****************************************************************
@@ -888,6 +888,14 @@ esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
  *            <s> is typically going to be some kind of textual
  *            annotation string (secondary structure, consensus, or
  *            surface accessibility).
+ *            
+ *            Be supercareful of off-by-one errors here! The <ref_ax>
+ *            is a digital sequence that is indexed <1..L>. The
+ *            annotation string <s> is assumed to be <0..L-1> (a
+ *            normal C string), off by one with respect to <ref_ax>.
+ *            In a sequence object, ss annotation is actually stored
+ *            <1..L> -- so if you're going to <esl_abc_CDealign()> a
+ *            <sq->ss>, pass <sq->ss+1> as the argument <s>.
  *
  * Returns:   Returns <eslOK> on success; optionally returns the number
  *            of characters in the dealigned <s> in <*opt_rlen>.
@@ -904,14 +912,14 @@ esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int *o
   
   for (n=0, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
     if (! esl_abc_XIsGap(abc, ref_ax[apos]))
-      s[n++] = s[apos];
+      s[n++] = s[apos-1];	/* apos-1 because we assume s was 0..alen-1, whereas ref_ax was 1..alen */
   s[n] = '\0';
 
   if (opt_rlen != NULL) *opt_rlen = n;
   return eslOK;
 }
 
-/* Function:  esl_abc_CDealign()
+/* Function:  esl_abc_XDealign()
  * Synopsis:  Dealigns a digital string, using a reference digital aseq.
  * Incept:    SRE, Sun Mar 30 13:19:16 2008 [Casa de Gatos]
  *
@@ -2021,8 +2029,8 @@ utest_DCount(void)
 #ifdef eslALPHABET_TESTDRIVE
 static int basic_examples(void);
 
-#include <easel.h>
-#include <esl_alphabet.h>
+#include "easel.h"
+#include "esl_alphabet.h"
 
 int
 main(void)
@@ -2127,8 +2135,8 @@ basic_examples(void)
  */
 #ifdef eslALPHABET_EXAMPLE
 /*::cexcerpt::alphabet_example::begin::*/
-#include <easel.h>
-#include <esl_alphabet.h>
+#include "easel.h"
+#include "esl_alphabet.h"
 int main(void)
 {
   ESL_ALPHABET *a;
@@ -2156,8 +2164,8 @@ int main(void)
  */
 #ifdef eslALPHABET_EXAMPLE2
 /*::cexcerpt::alphabet_example2::begin::*/
-#include <easel.h>
-#include <esl_alphabet.h>
+#include "easel.h"
+#include "esl_alphabet.h"
 int main(void)
 { 
   ESL_ALPHABET *a;

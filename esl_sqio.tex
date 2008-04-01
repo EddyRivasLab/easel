@@ -29,7 +29,6 @@ contains information for a single sequence.
 \ccode{esl\_sq\_Create()}    & Creates empty \ccode{ESL\_SQ} object. \\
 \ccode{esl\_sq\_CreateFrom()}& Creates \ccode{ESL\_SQ} object from elemental string data. \\
 \ccode{esl\_sq\_Reuse()}     & Resets an \ccode{ESL\_SQ} object for reuse. \\
-\ccode{esl\_sq\_Squeeze()}   & Optimizes an \ccode{ESL\_SQ}, destroys i/o buffers. \\
 \ccode{esl\_sq\_Destroy()}   & Destroys a created \ccode{ESL\_SQ}.\\
     \multicolumn{2}{c}{\textbf{\ccode{ESL\_SQFILE} sequence file object}}\\
 \ccode{esl\_sqfile\_Open()}  & Opens a sequence file for reading.\\
@@ -105,13 +104,7 @@ gets filled in when a \ccode{eslEFORMAT} error occurs.
 We can reuse the same \ccode{ESL\_SQ} object for subsequent sequences
 by calling \ccode{esl\_sq\_Reuse()} on it when we're done with the
 previous sequence. If we wanted to load a set of sequences, we'd
-\ccode{\_Create()} an array of \ccode{ESL\_SQ} objects. If a set of
-sequences were going to be loaded into an array like this, and we
-cared about optimizing memory (the mechanics of memory allocation in
-\ccode{esl\_sq\_Read()} cost an overhead of up to 100\% additional
-memory for various input buffers), we could call
-\ccode{esl\_sq\_Squeeze()} on each one of them to destroy their input
-buffers and recover that memory.
+\ccode{\_Create()} an array of \ccode{ESL\_SQ} objects. 
 
 Finally, to clean up properly, a \ccode{ESL\_SQ} that was created is
 destroyed with \ccode{esl\_sq\_Destroy(sq)}, and a \ccode{ESL\_SQFILE}

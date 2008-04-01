@@ -1,12 +1,9 @@
-/* stack.h
- *
- * Pushdown stack implementations, for integers, for objects, and characters.
+/* Pushdown stacks for integers, pointers, and characters.
  *
  * nstack - SRE 1 March 2000. [Seattle]
  * mstack - SRE, Fri Oct 10 10:18:16 2003 [St. Louis]
  * cstack - SRE, Mon Oct 13 12:57:56 2003 [St. Louis]
  * Incorp into easel - SRE, Sun Dec 26 07:39:02 2004 [Zaragoza]
- *
  * SVN $Id$
  */
 #ifndef ESL_STACK_INCLUDED
@@ -43,5 +40,4 @@ extern int esl_stack_ObjectCount(ESL_STACK *s);
 extern char *esl_stack_Convert2String(ESL_STACK *cs);
 extern int   esl_stack_DiscardTopN(ESL_STACK *s, int n);
 
-#endif /*SRE_STACKH_INCLUDED*/
-
+#endif /*ESL_STACK_INCLUDED*/

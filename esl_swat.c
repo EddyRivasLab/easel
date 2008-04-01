@@ -6,9 +6,10 @@
  * SRE, Fri Apr 13 13:03:17 2007
  * SVN $Id$
  */
+#include "esl_config.h"
 
-#include <easel.h>
-#include <esl_scorematrix.h>
+#include "easel.h"
+#include "esl_scorematrix.h"
 
 #define eslSWAT_PROHIBIT -999999999
 
@@ -119,12 +120,12 @@ esl_swat_Score(ESL_DSQ *x, int L, ESL_DSQ *y, int M, ESL_SCOREMATRIX *S, int gop
 */
 #ifdef eslSWAT_STATS
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_fileparser.h>
-#include <esl_scorematrix.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_fileparser.h"
+#include "esl_scorematrix.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
 
 int
 main(int argc, char **argv)

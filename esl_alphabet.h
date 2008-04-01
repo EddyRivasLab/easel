@@ -7,7 +7,7 @@
 #define ESL_ALPHABET_INCLUDED
 
 #include <ctype.h>		/* isascii() */
-#include <easel.h>
+#include "easel.h"
 
 /* Flags for alphabet types.
  */

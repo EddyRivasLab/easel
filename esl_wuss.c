@@ -11,9 +11,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <easel.h>
-#include <esl_stack.h>
-#include <esl_wuss.h>
+#include "easel.h"
+#include "esl_stack.h"
+#include "esl_wuss.h"
 
 /* Function:  esl_wuss2ct()
  * Incept:    SRE, Tue Feb 15 08:44:54 2005 [St. Louis]
@@ -424,9 +424,9 @@ esl_wuss_nopseudo(char *ss1, char *ss2)
  */
 #include <stdlib.h>
 
-#include <easel.h>
-#include <esl_stack.h>
-#include <esl_wuss.h>
+#include "easel.h"
+#include "esl_stack.h"
+#include "esl_wuss.h"
 
 int
 main(int argc, char **argv)

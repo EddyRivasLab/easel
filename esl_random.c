@@ -24,9 +24,9 @@
 #include <math.h>
 #include <time.h>
 
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_random.h"
 
 
 /*****************************************************************
@@ -2164,7 +2164,7 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
     if (composition(seq, L, mono, di)      != eslOK) esl_fatal(logmsg);
     if (mono[0] + mono['T'-'A'] != L)                esl_fatal(logmsg);
   }
-  esl_Free2D((void **) di, 4);
+  esl_Free2D((void **) di, 26);
   free(mono);
   free(seq);
   free(dsq);
@@ -2182,11 +2182,11 @@ utest_markov1_bug(ESL_RANDOMNESS *r)
 #ifdef eslRANDOM_TESTDRIVE
 
 #include <stdio.h>
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_dirichlet.h>
-#include <esl_vectorops.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_dirichlet.h"
+#include "esl_vectorops.h"
+#include "esl_random.h"
 
 static ESL_OPTIONS options[] = {
   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
@@ -2309,21 +2309,17 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
  * run:     ./example
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_random.h"
 
 int 
 main(void)
 {
   ESL_RANDOMNESS *r = esl_randomness_Create(42); 
-  int             n = 1000000;
-  double          x = 0.;
+  int             n = 10;
 
-#if 0
   printf("A sequence of %d pseudorandom numbers:\n", n);
   while (n--)  printf("%f\n", esl_random(r));
-#endif
-  while (n--)  x += esl_random(r) - 0.5;
 
   esl_randomness_Destroy(r);
   return 0;

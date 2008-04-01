@@ -11,14 +11,14 @@
  * SRE, Tue Jul 13 14:41:52 2004 [St. Louis]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_fileparser.h>
+#include "easel.h"
+#include "esl_fileparser.h"
 
 static int nextline(ESL_FILEPARSER *efp);
 
@@ -460,8 +460,8 @@ utest_GetTokenOnLine(char *filename)
 #ifdef eslFILEPARSER_TESTDRIVE
 #include <stdio.h>
 #include <string.h>
-#include <easel.h>
-#include <esl_fileparser.h>
+#include "easel.h"
+#include "esl_fileparser.h"
 
 int 
 main(int argc, char **argv)
@@ -506,8 +506,8 @@ main(int argc, char **argv)
 #ifdef eslFILEPARSER_EXAMPLE
 /*::cexcerpt::fileparser_example::begin::*/
 #include <stdio.h>
-#include <easel.h>
-#include <esl_fileparser.h>
+#include "easel.h"
+#include "esl_fileparser.h"
 
 int 
 main(int argc, char **argv)
@@ -539,8 +539,8 @@ main(int argc, char **argv)
 #ifdef eslFILEPARSER_EXAMPLE2
 /*::cexcerpt::fileparser_example2::begin::*/
 #include <stdio.h>
-#include <easel.h>
-#include <esl_fileparser.h>
+#include "easel.h"
+#include "esl_fileparser.h"
 
 int 
 main(int argc, char **argv)

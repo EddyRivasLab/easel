@@ -10,7 +10,6 @@
 #include "easel.h"
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
-#include "esl_sqio.h"
 #include "esl_msa.h"
 #include "esl_distance.h"
 

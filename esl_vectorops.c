@@ -14,14 +14,13 @@
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
  */                      
-
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 #include <float.h>
 
-#include <easel.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_vectorops.h"
 
 /* Function:  esl_vec_DSet()
  * Synopsis:  Set all items in vector to scalar value.
@@ -1205,8 +1204,8 @@ utest_pvectors(void)
 /*   gcc -g -Wall -o test -I. -L. -DeslVECTOROPS_TESTDRIVE esl_vectorops.c -leasel -lm
  */
 #ifdef eslVECTOROPS_TESTDRIVE
-#include <easel.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_vectorops.h"
 
 int main(void)
 {
@@ -1222,8 +1221,8 @@ int main(void)
 #ifdef eslVECTOROPS_EXAMPLE
 /*::cexcerpt::vectorops_example::begin::*/
 /*   gcc -g -Wall -o example -I. -DeslVECTOROPS_EXAMPLE esl_vectorops.c easel.c -lm   */
-#include <easel.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_vectorops.h"
 
 int main(void)
 {

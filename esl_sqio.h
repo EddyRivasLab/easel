@@ -6,6 +6,7 @@
 #define ESL_SQIO_INCLUDED
 
 #include <stdio.h>
+#include "esl_sq.h"
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -15,101 +16,6 @@
 #ifdef eslAUGMENT_MSA
 #include "esl_msa.h"
 #endif
-
-/* name, accession, description, and sequence itself are of unlimited
- * length, but they are initially allocated to something sensible, as
- * set below, in the hope that any given ESL_SQ object only has to
- * make one malloc() call for them. These lengths are inclusive of the
- * \0 NUL character (so ESL_SQ_NAMELEN of 32 means we expect names <=
- * 31 chars).
- * 
- * The reallocation rule is to double the allocation every time 
- * we need to reallocate. So, with the SEQCHUNK set to 256, for example,
- * sequences may be allocated with length 256, 512, 1024, 2048... etc.
- * This results in >50% utilization of our memory, which means
- * some wastage, but we have to compromise with efficiency in
- * sequence reading speed. The esl_sq_Squeeze() function provides
- * for optimizing memory after seqs have been read, at a cost of
- * a ~20% speed hit (for memcpy()'ing within the seq to perfected space.
- */
-#define eslSQ_NAMECHUNK   32	/* allocation unit for name         */
-#define eslSQ_ACCCHUNK    32	/* allocation unit for accession    */
-#define eslSQ_DESCCHUNK  128	/* allocation unit for description  */
-#define eslSQ_SEQCHUNK   256	/* allocation unit for seqs         */
-
-/* fread() is apparently the fastest portable way to input from disk;
- * the READBUFSIZE is the fixed size of a block to bring in at one time,
- * for character-based parsers (like the FASTA parser).
- */
-#define eslREADBUFSIZE  4096
-
-/* Unaligned file format codes
- * These codes are coordinated with the msa module.
- *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
- *   - <=100 is reserved for sqio, for unaligned formats
- *   - >100  is reserved for msa, for aligned formats
- */
-#define eslSQFILE_UNKNOWN 0
-#define eslSQFILE_FASTA   1
-#define eslSQFILE_EMBL    2	/* EMBL/Swissprot/TrEMBL */
-#define eslSQFILE_GENBANK 3	/* Genbank */
-#define eslSQFILE_DDBJ    4	/* DDBJ (currently passed to Genbank parser */
-#define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
-
-
-
-
-
-
-
-
-/* ESL_SQ:
- * A biosequence.
- * 
- * Can be either in text mode <seq>, or digital mode <dsq>. 
- * One of them has to be NULL, and the other contains the data.
- *
- * Designed to be reused for subsequent sequences, rather than
- * free'd and reallocated - thus, we keep track of the allocated
- * sizes of all the strings.
- * 
- * Notes on when we need to reallocate:
- *    - In a text mode sequence (seq 0..n-1), byte salloc-1 is
- *      reserved for the NUL, so the sequence is full when
- *      n == salloc-1.
- *          
- *    - In a digital mode sequence (dsq 1..n), bytes 0 and salloc-1
- *      are reserved for sentinel bytes, so the reallocation condition
- *      is when n == salloc-2.
- */
-typedef struct {
-  /*::cexcerpt::sqio_sq::begin::*/
-  char    *name;           /* name (mandatory)                                 */
-  char    *acc;            /* optional accession ("\0" if no accession)        */
-  char    *desc;           /* description ("\0" if no description)             */
-  char    *seq;            /* sequence (mandatory) [0..n-1]                    */
-  char    *ss;             /* secondary structure annotation [0..n-1], or NULL */
-  ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL               */
-  int      n;              /* length of seq                                    */
-  off_t    roff;	   /* record offset (start of record)                  */
-  off_t    doff;	   /* data offset (start of sequence data)             */
-  int      flags;          /* flags for what info has been set                 */
-  /*::cexcerpt::sqio_sq::end::*/
-
-#ifdef eslAUGMENT_ALPHABET
-  const ESL_ALPHABET *abc;  /* reference to the alphabet for <dsq> */
-#endif
-
-  char *optmem;         /* optimized mem storage area; see esl_sq_Squeeze() */
-  int   nalloc;         /* allocated length of name */
-  int   aalloc;         /* allocated length of accession */
-  int   dalloc;         /* allocated length of description */
-  int   salloc;         /* current allocation length for seq */
-} ESL_SQ;
-
-/* Flags for sq->flags
- */
-#define eslSQ_DIGITAL (1 << 0)  /* if dsq[] is used instead of seq[] */
 
 
 /* ESL_SQFILE:
@@ -163,35 +69,30 @@ typedef struct {
 #endif /*eslAUGMENT_MSA*/
 } ESL_SQFILE;
 
+/* fread() is apparently the fastest portable way to input from disk;
+ * the READBUFSIZE is the fixed size of a block to bring in at one time,
+ * for character-based parsers (like the FASTA parser).
+ */
+#define eslREADBUFSIZE  4096
 
-extern ESL_SQ *esl_sq_Create(void);
-extern ESL_SQ *esl_sq_CreateFrom(const char *name, const char *seq,
-				 const char *desc, const char *acc, const char *ss);
-extern int     esl_sq_Grow  (ESL_SQ *sq, int *ret_nsafe);
-extern int     esl_sq_GrowTo(ESL_SQ *sq, int  n);
-extern int     esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst);
-extern int     esl_sq_Reuse  (ESL_SQ *sq);
-extern int     esl_sq_Squeeze(ESL_SQ *sq);
-extern void    esl_sq_Destroy(ESL_SQ *sq);
+/* Unaligned file format codes
+ * These codes are coordinated with the msa module.
+ *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
+ *   - <=100 is reserved for sqio, for unaligned formats
+ *   - >100  is reserved for msa, for aligned formats
+ */
+#define eslSQFILE_UNKNOWN 0
+#define eslSQFILE_FASTA   1
+#define eslSQFILE_EMBL    2	/* EMBL/Swissprot/TrEMBL */
+#define eslSQFILE_GENBANK 3	/* Genbank */
+#define eslSQFILE_DDBJ    4	/* DDBJ (currently passed to Genbank parser */
+#define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
 
-extern int     esl_sq_SetName     (ESL_SQ *sq, char *name, ...);
-extern int     esl_sq_SetAccession(ESL_SQ *sq, char *acc,  ...);
-extern int     esl_sq_SetDesc     (ESL_SQ *sq, char *desc, ...);
-extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);
 
 extern int  esl_sqfile_Open(char *seqfile, int fmt, char *env, ESL_SQFILE **ret_sqfp);
 extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
-
-/* Digitized sequences (ALPHABET augmentation required) */
 #ifdef eslAUGMENT_ALPHABET
-extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);
-extern ESL_SQ *esl_sq_CreateDigitalFrom(const ESL_ALPHABET *abc, const char *name, const ESL_DSQ *dsq, 
-					int L, const char *desc, const char *acc,  const char *ss);
-extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
-extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
-extern int     esl_sq_Textize(ESL_SQ *sq);
-extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
-extern int     esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
+extern int  esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
 #endif
 
 extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
@@ -202,11 +103,7 @@ extern char *esl_sqio_DescribeFormat(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
 
 extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);
-extern int   esl_sqio_Rewind(ESL_SQFILE *sqfp);
-
-#ifdef eslAUGMENT_MSA
-extern int   esl_sq_FetchFromMSA(ESL_MSA *msa, int which, ESL_SQ *ret_sq);
-#endif
+extern int   esl_sqio_Rewind  (ESL_SQFILE *sqfp);
 
 #endif /*!ESL_SQIO_INCLUDED*/
 /*****************************************************************

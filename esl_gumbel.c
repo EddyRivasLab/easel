@@ -21,21 +21,21 @@
  * of exp(-lambda * x) calls. The Lawless ML estimation
  * may eventually need to be recast in log space.
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_vectorops.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_vectorops.h"
+#include "esl_gumbel.h"
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_MINIMIZER
-#include <esl_minimizer.h>
+#include "esl_minimizer.h"
 #endif
 
 /*****************************************************************
@@ -930,10 +930,10 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
  */
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_minimizer.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_minimizer.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)
@@ -1068,10 +1068,10 @@ main(int argc, char **argv)
  */
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_minimizer.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_minimizer.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)
@@ -1144,9 +1144,9 @@ main(int argc, char **argv)
  * run:     ./example
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)

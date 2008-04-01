@@ -4,18 +4,18 @@
  * from squid's sreformat (1993).
  * SVN $Id$            
  */
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_sqio.h>
-#include <esl_msa.h>
-#include <esl_wuss.h>
-
-
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_sqio.h"
+#include "esl_sq.h"
+#include "esl_msa.h"
+#include "esl_wuss.h"
 
 static char banner[] = "convert sequence file formats";
 

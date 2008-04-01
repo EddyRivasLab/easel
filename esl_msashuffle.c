@@ -16,7 +16,7 @@
 #include "esl_msa.h"
 #include "esl_msashuffle.h"
 #include "esl_random.h"
-#include "esl_sqio.h"
+
 
 /*****************************************************************
  * 1. Randomizing MSAs

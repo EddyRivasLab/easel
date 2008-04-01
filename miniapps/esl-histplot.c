@@ -7,16 +7,17 @@
 /* Wish list
  *    - segfaults if you feed it nonnumeric data
  */
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_histogram.h>
-#include <esl_exponential.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_histogram.h"
+#include "esl_exponential.h"
+#include "esl_gumbel.h"
 
 
 static char banner[] = "collate a data histogram, output xmgrace datafile";

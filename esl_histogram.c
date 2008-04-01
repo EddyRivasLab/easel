@@ -11,17 +11,17 @@
  * SRE, Fri Jul  1 13:21:45 2005 [St. Louis]
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <float.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_histogram.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_histogram.h"
+#include "esl_vectorops.h"
 
 static int esl_histogram_sort(ESL_HISTOGRAM *h);
 
@@ -1346,12 +1346,12 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_gumbel.h>
-#include <esl_exponential.h>
-#include <esl_random.h>
-#include <esl_getopts.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_gumbel.h"
+#include "esl_exponential.h"
+#include "esl_random.h"
+#include "esl_getopts.h"
 
 
 
@@ -1681,10 +1681,10 @@ main(int argc, char **argv)
  */
 #ifdef eslHISTOGRAM_EXAMPLE1
 /*::cexcerpt::histogram_example1::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)
@@ -1733,10 +1733,10 @@ main(int argc, char **argv)
  */
 #ifdef eslHISTOGRAM_EXAMPLE2
 /*::cexcerpt::histogram_example2::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)
@@ -1784,11 +1784,11 @@ main(int argc, char **argv)
  */
 #ifdef eslHISTOGRAM_EXAMPLE3
 /*::cexcerpt::histogram_example3::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gumbel.h"
+#include "esl_exponential.h"
 
 int
 main(int argc, char **argv)
@@ -1836,10 +1836,10 @@ main(int argc, char **argv)
  */
 #ifdef eslHISTOGRAM_EXAMPLE4
 /*::cexcerpt::histogram_example4::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gumbel.h"
 
 int
 main(int argc, char **argv)
@@ -1890,11 +1890,11 @@ main(int argc, char **argv)
  */
 #ifdef eslHISTOGRAM_EXAMPLE5
 /*::cexcerpt::histogram_example5::begin::*/
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_gumbel.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gumbel.h"
+#include "esl_exponential.h"
 
 int
 main(int argc, char **argv)

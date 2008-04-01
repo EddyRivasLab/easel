@@ -14,44 +14,47 @@ reusable, documented, and well-tested functions.
 
 \Easel's functionality includes generative probabilistic models of
 sequences, phylogenetic models of evolution, bioinformatics tools for
-sequence manipulation and annotation, numerical computing, and some
-basic utilities.
+sequence manipulation and annotation, numerical computing, as well as
+some basic utilities.
 
 \Easel\ is not meant to be a comprehensive biosequence analysis code
 library. There are other libraries that aspire to comprehensiveness,
 in a variety of languages
 \citep{Vahrson96,Pitt01,Mangalam02,Butt05,Dutheil06,Giancarlo07,Doring08}.
-Indeed, it is remarkable how many independent projects implement
-similar functionality in order to promote code sharing and reuse!
-\Easel\ takes what may be a more pragmatic (if not jaundiced) view of
-code reuse.  Whereas many libraries seem to expect monogamous
-commitment -- thou shalt forsake all others' sequence objects and
-FASTA reading routines -- \Easel\ encourages promiscuity. While
-\Easel\ may certainly be used as a black-box library (as in \HMMER\
-and \Infernal), its source code is consciously designed to be read as
-a reference work, and to be cribbed or lifted in pieces into your own
-code. It is meant as a counterpart to our research papers.
+Indeed, it is remarkable how many independent projects have
+implemented similar functionality in order to promote code sharing and
+reuse!  \Easel\ takes what may be a more pragmatic, if not jaundiced
+view of code reuse.  Whereas many libraries seem to expect monogamous
+commitment -- thou shalt forsake all others' biosequence objects -- 
+\Easel\ intends to encourage promiscuity. While \Easel\ may certainly
+be used as a black-box library (as in \HMMER\ and \Infernal), its
+source code is consciously designed to be read as a reference work,
+and to be cribbed or lifted \emph{piecewise} into your own code. It is
+meant as a counterpart to our research papers.
 
-This dictates decisions made in \Easel's design.  \Easel's
+This dictates many of the decisions made in \Easel's design.  \Easel's
 documentation includes tutorial examples to make it easy to understand
 any given \Easel\ module, independent of other parts of \Easel.
 \Easel\ is modular in a manner that helps you extract individual files
 or functions for use in your own code, without having to disentangle
 the entire library. \Easel\ uses some precepts of object-oriented
 design, but its objects are simple C structures with visible,
-well-documented contents. \Easel\ is open source, so you may freely
-modify and redistribute any part of it for any purpose.
+well-documented contents. The \Easel\ open source license allows you
+to freely modify and redistribute any part of it for any purpose,
+including commercial use.
 
 \section{Quick start}
 
-Let's assume you just want to take a quick tour. Maybe you're deciding
-whether \Easel\ is useful or not. You can compile \Easel\ and try it out
-without permanently installing it.
+Let's start with a quick tour. If you're like me, you're deciding
+whether \Easel\ is going to be useful to you or not. You can compile
+\Easel\ and try it out without permanently installing it.
+
+\subsection{Compiling Easel}
 
 After you obtain an \Easel\ source tarball
 \footnote{From \url{http://selab.janelia.org/easel}, for example.}, it
 should compile cleanly on any UNIX, Linux, or Mac OS/X operating
-system\footnote{You need a C compilation environment, which you might
+system\footnote{You need an ANSI C99 compilation environment, which you might
 not have. If not, install a C compiler first, such as the free GNU gcc
 compiler, or see your local system guru.} with this incantation (where
 \ccode{xxx} is a version number):
@@ -73,15 +76,17 @@ There are more complicated things you can do to customize the
 install \Easel\ permanently, see the full installation instructions in
 chapter~\ref{chapter:installation}.
 
-Every source code module (that is, each \ccode{.c} file) has a table
-of contents, and it ends with one or more \esldef{driver programs},
-including programs for unit tests and benchmarks. These are
-\ccode{main()} functions that can be conditionally included when the
-module is compiled. Among them is always at least one \esldef{example
-driver} that shows you how to use the module. You can find the example
-code in a module \eslmod{foo} by searching the \ccode{esl\_foo.c} file
-for the tag \ccode{eslFOO\_EXAMPLE}. To compile the example for module
-\eslmod{foo} as a working program, do:
+\subsection{Cribbing from code examples}
+
+Every source code module (that is, each \ccode{.c} file) ends with one
+or more \esldef{driver programs}, including programs for unit tests
+and benchmarks. These are \ccode{main()} functions that can be
+conditionally included when the module is compiled. The very end of
+each module is always at least one \esldef{example driver} that shows
+you how to use the module. You can find the example code in a module
+\eslmod{foo} by searching the \ccode{esl\_foo.c} file for the tag
+\ccode{eslFOO\_EXAMPLE}, or just navigating to the end of the file. To
+compile the example for module \eslmod{foo} as a working program, do:
 
 \begin{cchunk}
    % cc -o example -L. -I. -DeslFOO_EXAMPLE esl_foo.c -leasel -lm
@@ -115,174 +120,272 @@ this:
    % cc -o foo_example -L. -I. foo_example.c -leasel -lm
 \end{cchunk}
 
-That's it. Now you can compile Easel-based programs that you can
-modify and play around with. If you're the type (like me) that prefers
-to learn by example, close this book; you're done. The source code
-itself should contain any the documentation you need. Indeed, most of
-this book is in fact directly extracted from the source code.
+\subsection{Cribbing from Easel miniapplications}
+
+The \ccode{miniapps} directory contains \Easel's
+\esldef{miniapplications}: several utility programs that \Easel\
+installs, in addition to the library \ccode{libeasel.a} and its header
+files.
+
+The miniapplications are described in more detail later, but for the
+purpose of getting used to how \Easel\ is used, they provide you some
+more useful examples of small \Easel-based applications that are a
+little more complicated than individual module example drivers.
+
+You can probably get a long way into \Easel\ just by browsing the
+source code of the modules' examples and the miniapplications. If
+you're the type (like me) that prefers to learn by example, you're
+done, you can close this book now. 
+
+
 
 \section{Overview of Easel's modules}
 
-Still here? All right. Possibly your next question is, does \Easel\ 
-provide any functionality you're interested in?
+Possibly your next question is, does \Easel\ provide any functionality
+you're interested in?
 
-Each \ccode{.c} file in \Easel\ corresponds to one \Easel\ 
+Each \ccode{.c} file in \Easel\ corresponds to one \Easel\
 \esldef{module}.  A module consists of a group of functions for some
-task. Table~\ref{tbl:module_list} shows a list of all the modules. For
-example, the \eslmod{sqio} module can automatically parse many common
-unaligned sequence formats, and the \eslmod{msa} module can parse many
-common multiple alignment formats.
+task. For example, the \eslmod{sqio} module can automatically parse
+many common unaligned sequence formats, and the \eslmod{msa} module
+can parse many common multiple alignment formats.
 
-% documentation/esl-depends.pl
-% can autoextract the module dependencies, including augmentations,
-% but this table seems to work best as a simple list of modules.
-%
-\begin{table}
+There are modules concerned with manipulating biological sequences and
+sequence files (including a full-fledged parser for Stockholm multiple
+alignment format and all its complex and powerful annotation markup):
+
 \begin{center}
-\begin{tabular}{lll}\hline
-\textbf{Module} & \textbf{Description} \\
-  \multicolumn{2}{c}{\textbf{Foundation:}}\\
-%
-\eslmod{easel}           & Framework for using Easel & \\
-%
-  \multicolumn{2}{c}{\textbf{Core modules:}}\\
-%
-\eslmod{alphabet}        & Digitized biosequence alphabets        \\
-\eslmod{dmatrix}         & Matrix algebra                         \\
-\eslmod{fileparser}      & Input of simple token-based data files \\
-\eslmod{getopts}         & Command line parsing                   \\
-\eslmod{keyhash}         & Keyword hashing                        \\
-\eslmod{msa}             & Multiple sequence alignment i/o        \\
-\eslmod{random}          & Random number generator                \\
-\eslmod{regexp}          & Regular expression matching            \\
-\eslmod{sqio}            & Sequence file i/o                      \\
-\eslmod{ssi}             & Indices for large sequence files       \\
-\eslmod{stack}           & Pushdown stacks                        \\
-\eslmod{stats}           & Foundation for statistics group        \\
-\eslmod{stopwatch}       & Timing parts of programs               \\
-\eslmod{vectorops}       & Vector operations                      \\
-%
-  \multicolumn{2}{c}{\textbf{Numerical computing group:}}\\
-%
-\eslmod{minimizer}       & Multidimensional optimization          \\
-%
-  \multicolumn{2}{c}{\textbf{Phylogeny group:}}\\
-%
-\eslmod{tree}         & Phylogenetic trees                   \\
-\eslmod{distance}     & Phylogenetic distance calculations   \\
-%
-  \multicolumn{2}{c}{\textbf{Statistics group:}}             \\
-%
-\eslmod{histogram}    & Collecting/fitting data histograms   \\
-\eslmod{dirichlet}    & Dirichlet densities.                 \\
-\eslmod{exponential}  & Exponential densities.               \\
-\eslmod{gamma}        & Gamma densities.                     \\
-\eslmod{gev}          & Generalized extreme value (GEV) densities \\
-\eslmod{gumbel}       & Gumbel densities.                    \\
-\eslmod{hyperexp}     & Hyperexponential densities.          \\
-\eslmod{mixdchlet}    & Mixture Dirichlet densities.         \\
-\eslmod{mixgev}       & Mixture GEV densities.              \\
-\eslmod{stretchexp}   & Stretched exponential densities.    \\
-\eslmod{weibull}      & Weibull densities.                  \\
-%
-  \multicolumn{2}{c}{\textbf{Miscellaneous:}}\\
-\eslmod{bioparse\_paml}  & PAML rate matrix datafiles        \\
-\eslmod{ratematrix}      & Evolutionary rate matrices        \\
-\eslmod{wuss}            & RNA structure annotation          \\
-%
-  \multicolumn{2}{c}{\textbf{Optional library interfaces:}}\\
-%
-interface\_gsl    & GNU Scientific Library          \\
-interface\_lapack & LAPACK linear algebra library   \\
-\hline
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{alphabet} & Digitized biosequence alphabets        \\
+\eslmod{sqio}     & Sequence file i/o                      \\
+\eslmod{msa}      & Multiple sequence alignment i/o       \\
+\eslmod{ssi}      & Indexing large sequence files for rapid random access \\
 \end{tabular}
 \end{center}
-\caption{Overview of Easel's modules.}
-\label{tbl:module_list}
-\end{table}
 
-Though you would normally use \Easel\ as a C library
-(\ccode{libeasel.a}) that you link with your code, \Easel\ is also
-designed to be sufficiently modular that you can grab individual
+There are modules implementing common operations on multiple sequence
+alignments (including many published sequence weighting algorithms,
+and a memory-efficient single linkage sequence clustering algorithm):
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{msacluster} & Efficient single linkage clustering of aligned sequences by \% identity\\
+\eslmod{msaweight}  & Sequence weighting algorithms \\
+\end{tabular}
+\end{center}
+
+There are modules for probabilistic modeling of sequence residue
+alignment scores (including routines for solving for the implicit
+probabilistic basis of arbitrary score matrices):
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{scorematrix} & Pairwise residue alignment scoring systems\\
+\eslmod{ratematrix}  & Standard continuous-time Markov models of residue evolution\\
+\eslmod{paml}        & Reading PAML data files (including rate matrices)\\
+\end{tabular}
+\end{center}
+
+There is a module for sequence annotation:
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{wuss} & ASCII RNA secondary structure annotation strings\\
+\end{tabular}
+\end{center}
+
+There are modules implementing some standard scientific numerical
+computing concepts (including a free, fast implementation of conjugate
+gradient optimization):
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{vectorops} & Vector operations\\
+\eslmod{dmatrix}   & 2D matrix operations\\
+\eslmod{minimizer} & Numerical optimization by conjugate gradient descent\\
+\eslmod{rootfinder}& One-dimensional root finding (Newton/Raphson)\\
+\end{tabular}
+\end{center}
+
+There are modules implementing phylogenetic trees and evolutionary
+distance calculations:
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{tree}     & Manipulating phylogenetic trees\\
+\eslmod{distance} & Pairwise evolutionary sequence distance calculations\\
+\end{tabular}
+\end{center}
+
+There are a number of modules that implement routines for many common
+probability distributions (including maximum likelihood fitting
+routines):
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{stats}       & Basic routines and special statistics functions\\
+\eslmod{histogram}   & Collecting and displaying histograms\\
+\eslmod{dirichlet}   & Beta, Gamma, and Dirichlet distributions\\
+\eslmod{exponential} & Exponential distributions\\
+\eslmod{gamma}       & Gamma distributions\\
+\eslmod{gev}         & Generalized extreme value distributions\\
+\eslmod{gumbel}      & Gumbel (Type I extreme value) distributions\\
+\eslmod{hyperexp}    & Hyperexponential distributions\\
+\eslmod{mixdchlet}   & Mixture Dirichlet distributions and priors\\
+\eslmod{mixgev}      & Mixture generalized extreme value distributions\\
+\eslmod{normal}      & Normal (Gaussian) distributions\\
+\eslmod{stretchexp}  & Stretched exponential distributions\\
+\eslmod{weibull}     & Weibull distributions\\
+\end{tabular}
+\end{center}
+
+There are several modules implementing some common utilities
+(including a good portable random number generator and a powerful
+command line parser):
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{cluster}    & Efficient single linkage clustering\\
+\eslmod{fileparser} & Parsing simple token-based (tab/space-delimited) files\\
+\eslmod{getopts}    & Parsing command line arguments and options.\\
+\eslmod{keyhash}    & Hash tables for emulating Perl associative arrays\\
+\eslmod{random}     & Pseudorandom number generation and sampling\\
+\eslmod{regexp}     & Regular expression matching\\
+\eslmod{stack}      & Pushdown stacks for integers, chars, pointers\\
+\eslmod{stopwatch}  & Timing parts of programs\\
+\end{tabular}
+\end{center}
+
+There are some specialized modules in support of accelerated and/or parallel computing:
+
+\begin{center}
+\begin{tabular}{p{1in}p{3.7in}}
+\eslmod{sse}     & Routines for SSE (Streaming SIMD Intrinsics) vector computation support on Intel/AMD platforms\\
+\eslmod{vmx}     & Routines for Altivec/VMX vector computation support on PowerPC platforms\\
+\eslmod{mpi}     & Routines for MPI (message passing interface) support\\
+\end{tabular}
+\end{center}
+
+\section{Navigating documentation and source code}
+
+The quickest way to learn about what each module provides is to go to
+the corresponding chapter in this document. Each chapter starts with a
+brief introduction of what the module does, and highlights anything
+that \Easel's implementation does that we think is particularly
+useful, unique, or powerful. That's followed by a table describing
+each function provided by the module, and at least one example code
+listing of how the module can be used. The chapter might then go into
+more detail about the module's functionality, though many chapters do
+not, because the functionality is straightforward or self-explanatory.
+Finally, each chapter ends with detailed documentation on each
+function.
+
+\Easel's source code is designed to be read. Indeed, most of this
+documentation is generated automatically from the source code itself
+-- in particular, the table listing the available functions, the
+example code snippets, and the documentation of the individual
+functions.
+
+Each module \ccode{.c} file starts with a table of contents to help
+you navigate.\footnote{\Easel\ source files are designed as complete
+free-standing documents, so they tend to be larger than most people's
+\ccode{.c} files; the more usual practice in C programming is to have
+a smaller number of functions per file.} The first section will often
+define how to create one or more \esldef{objects} (C structures) that
+the module uses. The next section will typically define the rest of
+the module's exposed API. Following that are any private (internal)
+functions used in the module. Last are the drivers, including
+benchmarks, unit tests, and one or more examples.
+
+Each function has a structured comment header that describes how it is
+called and used, including what arguments it takes, what it returns,
+and what error conditions it may raise. These structured comments are
+extracted for inclusion in this document, so what you read here for
+each function's documentation is identical to what is in the source
+code.
+
+\section{Modularity, reuse, and ``augmentation''}
+
+The usual use of libraries as monolithic black boxes means that users
+have to install one or more third party libraries before installing
+\HMMER\ and \Infernal, or that we would incorporate third party
+libraries into our source trees. Though this isn't too impossible --
+modern software installation tools automate the process of installing
+dependencies, and modern code repository tools like Subversion
+simplify the process of tracking third party code -- it often seems
+awfully burdensome, because in many cases all I want from a third
+party library is a function or two. Biosequence code libraries
+invariably provide a bunch of routines that you could care less about
+(nobody needs another Smith/Waterman algorithm implementation, but
+every library is going to provide one -- \Easel\ is no exception), and
+they invariably use bewilderingly complicated structures or objects
+that you'd rather not have to learn about just to call one little
+calculation that really could have operated on a simple C datatype
+instead (everyone has their own sequence object, full of rich and
+complicated information -- \Easel\ is no exception).
+
+You would normally use \Easel\ as a monolithic C library
+(\ccode{libeasel.a}) that you just link with your code, but \Easel\ is
+also designed to be sufficiently modular that you can grab individual
 source files out of the library and use them directly in your own
 code. For example, to get Easel's sequence file i/o API, for example,
 you can take the sqio module (the C source \ccode{esl\_sqio.c} and the
-header \ccode{esl\_sqio.h}), plus the obligatory \Easel\ core
-(\ccode{easel.c} and \ccode{easel.h}). Many of Easel's modules are
-free-standing, and only depend on the foundation \eslmod{easel}
-module. Some modules require a few other modules, but the total number
-of modules you have to take to get any particular \Easel\ API is always
-small. Each module's documentation shows its required dependencies.
+header \ccode{esl\_sqio.h}), plus the always-obligatory \Easel\
+foundation (\ccode{easel.c} and \ccode{easel.h}). Many of Easel's
+modules are free-standing, and only depend on the foundation
+\eslmod{easel} module. More complex modules will depend on a few other
+modules, but the total number of modules you have to take to get any
+particular \Easel\ API is always small, because \Easel's dependencies
+are constrained in a hierarchy. Each module's documentation shows its
+required dependencies.
+
+There is necessarily a tradeoff between modularity and power. A fully
+modular design would mean that no Easel module would be able to take
+advantage of functionality in any other module. 
 
 To minimize the number of modules you need to take to get some part of
-Easel into your code, \Easel\ uses a concept it calls
-\emph{augmentation}. Each module provides a base functionality that is
-as simple as possible, and which depends on as few other modules as
+Easel into your code, \Easel\ uses something it calls
+\esldef{augmentation}. Each module provides a base functionality that
+is as simple as possible, and which depends on as few other modules as
 possible. When more powerful functionality would require additional
-modules, where possible, \Easel\ isolates that functionality and makes
-it optional. You can \emph{augment} the module and activate these more
-powerful optional abilities by providing the appropriate modules, or
-you can leave the optional modules out.  For example, if you use only
-the \eslmod{sqio} module, you get the ability to read unaligned
-sequence files like FASTA or Genbank; but if you augment \eslmod{sqio}
-with the \eslmod{msa} multiple alignment module, you gain the ability
-to read individual sequences from multiple alignment files
-sequentially. At compile-time, you declare (by means of
-\ccode{\#define} flags in \ccode{easel.h}) what modules you've taken,
-which defines what augmentations are possible. Each module's
-documentation shows what optional augmentations are activated by other
-modules. Of course, when \Easel\ is used as a complete
-\ccode{libeasel.a} library, all modules are fully augmented.
+modules, where possible, \Easel\ tries to isolate that functionality
+and make it optional. You need to \emph{augment} the module to
+activate these more powerful optional abilities by providing the
+appropriate modules; or you can just leave the optional modules out
+and use the core functionality.  For example, if you use only the
+\eslmod{sqio} module, you get the ability to read unaligned sequence
+files like FASTA or Genbank; but if you augment \eslmod{sqio} with the
+\eslmod{msa} multiple alignment module, you gain the ability to read
+individual sequences from multiple alignment files sequentially. At
+compile-time, you declare (by means of \ccode{\#define} flags in
+\ccode{easel.h}) what modules you've got, and this list is what
+defines what augmentations are possible. Each module's documentation
+shows what optional augmentations are activated by other modules. Of
+course, when \Easel\ is used as a complete \ccode{libeasel.a} library,
+all modules are fully augmented by default.
 
+There are also tradeoffs inherent in using objects. So long as you
+know how to create and use an object, it becomes a powerful
+organizational tool. But objects necessarily add a layer of complexity
+that impedes code reuse; for example, instead of just calling a
+sequence alignment routine on two C text strings, you'll have to know
+how to create sequence objects first, and you have to carry along
+whatever extra code is involved in dealing with the
+object. Additionally, nobody likes each others' objects.
 
-
-
-Many modules are organized around one or a few ``objects'' (usually a
-C structure). Table~\ref{tbl:object_list} shows an overview of the
-objects you might use (there are a few more objects that are used
-internally). This quasi-object-orientation is used to simplify the
-code design, focusing each module around a common datatype. 
-
-\begin{table}
-\begin{tabular}{lll}\hline
-\textbf{Object}          & \textbf{Implemented in} & \textbf{Description}\\\hline
-\ccode{ESL\_ALPHABET}    & \eslmod{alphabet}        & Digitized sequence alphabet\\
-\ccode{ESL\_DMATRIX}     & \eslmod{dmatrix}         & 2D double-precision matrix for linear algebra \\
-\ccode{ESL\_FILEPARSER}  & \eslmod{fileparser}      & Token-based input file parser\\
-\ccode{ESL\_GETOPTS}     & \eslmod{getopts}         & Application configuration state\\
-\ccode{ESL\_HISTOGRAM}   & \eslmod{histogram}       & Collecting/fitting data histograms\\
-\ccode{ESL\_HYPEREXP}    & \eslmod{hyperexp}        & Hyperexponential distribution\\
-\ccode{ESL\_KEYHASH}     & \eslmod{keyhash}         & Keyword hash table\\
-\ccode{ESL\_MIXDCHLET}   & \eslmod{dirichlet}       & Mixture Dirichlet prior\\
-\ccode{ESL\_MIXGEV}      & \eslmod{mixgev}          & Mixture generalized EVD\\
-\ccode{ESL\_MSA}         & \eslmod{msa}             & Multiple sequence alignment\\
-\ccode{ESL\_MSAFILE}     & \eslmod{msa}             & Multiple sequence alignment file parser\\
-\ccode{ESL\_NEWSSI}      & \eslmod{ssi}             & New SSI index being created\\
-\ccode{ESL\_OPTIONS}     & \eslmod{getopts}         & Configuration of a command-line option\\
-\ccode{ESL\_PERMUTATION} & \eslmod{dmatrix}         & Permutation matrix used in linear algebra\\
-\ccode{ESL\_RANDOMNESS}  & \eslmod{random}          & Random number generator\\
-\ccode{ESL\_REGEXP}      & \eslmod{regexp}          & Regular expression pattern-matching machine\\
-\ccode{ESL\_SQ}          & \eslmod{sqio}            & DNA/RNA/protein sequence data\\
-\ccode{ESL\_SQFILE}      & \eslmod{sqio}            & Biosequence file parser (unaligned)\\
-\ccode{ESL\_SSI}         & \eslmod{ssi}             & An SSI index being used\\
-\ccode{ESL\_STACK}       & \eslmod{stack}           & Pushdown stack\\
-\ccode{ESL\_STOPWATCH}   & \eslmod{stopwatch}       & Timer for parts of a program\\
-\hline
-\end{tabular}
-\caption{Overview of Easel's objects.}
-\label{tbl:object_list}
-\end{table}
-
-A pitfall of putting data into complex, custom datatypes is that this
-can impede code reuse. You don't want to understand what's in someone
-else's object, and you probably have your own favorite ways of
-organizing data.  \Easel\ assumes you are only going to use Easel
-objects to call \Easel\ functions, so you will build simple interfaces
-to exchange data between your code and Easel. Thus, there are always
-obvious ways to create new \Easel\ objects from elemental data types,
-and to extract elemental data types from \Easel\ objects. \Easel\ objects
-are translucent, if not transparent; often, some of their internal
-data fields are stable and documented, and you are encouraged to reach
-into an object and access elemental data directly.
+\Easel\ assumes you don't like my objects any more than I like yours,
+and that you are going to prefer to use \Easel\ objects only when
+calling \Easel\ functions, not your own, so you will probably build
+simple interfaces to exchange data between your code and \Easel. Thus,
+\Easel\ is designed to provide obvious ways to create new \Easel\
+objects from elemental C data types, and to extract elemental C data
+types from \Easel\ objects. Especially for purposes of extracting
+data, \Easel\ objects are \esldef{translucent}; often, some of their
+internal data fields are stable and documented, and (contrary to some
+key principles of object-oriented design) in these cases, you are
+encouraged to reach into an object and access elemental data
+directly. \Easel\ functions also try to minimize dependencies on
+\Easel\ objects as much as possible, preferring to pass elemental C
+data types as arguments where feasible.
 
 

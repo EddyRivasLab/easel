@@ -14,21 +14,19 @@
  * SVN $Id$
  * SRE, Tue May  2 14:08:42 2006 [St. Louis]
  */
-
-
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
 
-#include <easel.h>
-#include <esl_tree.h>
-#include <esl_dmatrix.h>
-#include <esl_stack.h>
-#include <esl_vectorops.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_tree.h"
+#include "esl_dmatrix.h"
+#include "esl_stack.h"
+#include "esl_vectorops.h"
+#include "esl_random.h"
 
 /*****************************************************************
  * 1. The ESL_TREE object.
@@ -2079,9 +2077,9 @@ utest_UPGMA(ESL_RANDOMNESS *r, int ntaxa)
  * gcc -g -Wall -o test -L. -I. -DeslTEST_THROWING -DeslTREE_TESTDRIVE esl_msa.c -leasel -lm
  * ./test
  */
-#include <easel.h>
-#include <esl_tree.h>
-#include <esl_random.h>
+#include "easel.h"
+#include "esl_tree.h"
+#include "esl_random.h"
 
 int
 main(int argc, char **argv)
@@ -2119,10 +2117,10 @@ main(int argc, char **argv)
  *         or: gcc -g -Wall -o example -I. -L. -DeslTREE_EXAMPLE esl_tree.c -leasel -lm
  *     To run: ./example <MSA file>
  */
-#include <easel.h>
-#include <esl_msa.h>
-#include <esl_distance.h>
-#include <esl_tree.h>
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_distance.h"
+#include "esl_tree.h"
 
 int main(int argc, char **argv)
 {
@@ -2155,10 +2153,10 @@ int main(int argc, char **argv)
  *         or: gcc -g -Wall -o example -I. -L. -DeslTREE_EXAMPLE2 esl_tree.c -leasel -lm
  *     To run: ./example <Newick file>
  */
-#include <easel.h>
-#include <esl_msa.h>
-#include <esl_distance.h>
-#include <esl_tree.h>
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_distance.h"
+#include "esl_tree.h"
 
 int main(int argc, char **argv)
 {

@@ -20,23 +20,23 @@
  * SRE, Fri Nov  3 12:55:45 2006 [Janelia]
  */
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
 
 /* Dependencies on Easel core: */
-#include <easel.h>
-#include <esl_alphabet.h>
-#include <esl_msa.h>
-#include <esl_dmatrix.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_msa.h"
+#include "esl_dmatrix.h"
+#include "esl_vectorops.h"
 
 /* Dependencies on phylogeny modules: */
-#include <esl_distance.h>
-#include <esl_tree.h>
-#include <esl_msacluster.h>
+#include "esl_distance.h"
+#include "esl_tree.h"
+#include "esl_msacluster.h"
 
 
 
@@ -627,11 +627,11 @@ main(int argc, char **argv)
  *     ./regression --blosum -q  /misc/data0/databases/Pfam/Pfam-A.full
  *     ./regression --pb -q  /misc/data0/databases/Pfam/Pfam-A.full
  */
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_msa.h>
-#include <esl_msaweight.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msaweight.h"
+#include "esl_vectorops.h"
 
 #include "squidconf.h"
 #include "squid.h"
@@ -777,12 +777,12 @@ main(int argc, char **argv)
  *     ./benchmark --blosum          /misc/data0/databases/Pfam/Pfam-A.full
  *     ./benchmark --pb              /misc/data0/databases/Pfam/Pfam-A.full
  */
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_msa.h>
-#include <esl_msaweight.h>
-#include <esl_vectorops.h>
-#include <esl_stopwatch.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msaweight.h"
+#include "esl_vectorops.h"
+#include "esl_stopwatch.h"
 
 #define WGROUP "--blosum,--gsc,--pb"
 
@@ -881,11 +881,11 @@ main(int argc, char **argv)
  *     ./stats --blosum          /misc/data0/databases/Pfam/Pfam-A.full
  *     ./stats --pb              /misc/data0/databases/Pfam/Pfam-A.full
  */
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_msa.h>
-#include <esl_msaweight.h>
-#include <esl_vectorops.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msaweight.h"
+#include "esl_vectorops.h"
 
 #define WGROUP "--blosum,--gsc,--pb"
 
@@ -989,9 +989,9 @@ main(int argc, char **argv)
 /* To compile: gcc -g -Wall -o example -I. -L. -DeslMSAWEIGHT_EXAMPLE esl_msaweight.c -leasel -lm
  *     To run: ./example <MSA file>
  */
-#include <easel.h>
-#include <esl_msa.h>
-#include <esl_msaweight.h>
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msaweight.h"
 
 int main(int argc, char **argv)
 {

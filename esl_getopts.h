@@ -8,7 +8,7 @@
 #ifndef ESL_GETOPTS_INCLUDED
 #define ESL_GETOPTS_INCLUDED
 
-#include <easel.h>
+#include "easel.h"
 
 /* Object: ESL_OPTIONS
  * 

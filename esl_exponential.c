@@ -16,20 +16,20 @@
  * xref STL9/138  
  * SVN $Id$
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_stats.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_stats.h"
+#include "esl_exponential.h"
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 #ifdef eslAUGMENT_HISTOGRAM
-#include <esl_histogram.h>
+#include "esl_histogram.h"
 #endif
 
 /****************************************************************************
@@ -452,10 +452,10 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
  */
 #include <stdio.h>
 
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_random.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_exponential.h"
 
 int
 main(int argc, char **argv)
@@ -513,10 +513,10 @@ main(int argc, char **argv)
 #include <stdlib.h>
 #include <string.h>
 
-#include <easel.h> 
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_exponential.h"
 
 int
 main(int argc, char **argv)
@@ -633,10 +633,10 @@ main(int argc, char **argv)
      esl_exponential.c esl_histogram.c esl_random.c esl_stats.c easel.c -lm
  */
 #include <stdio.h>
-#include <easel.h>
-#include <esl_random.h>
-#include <esl_histogram.h>
-#include <esl_exponential.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_exponential.h"
 
 int
 main(int argc, char **argv)

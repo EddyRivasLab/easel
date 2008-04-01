@@ -1187,15 +1187,15 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
    gcc -g -Wall -o testdriver -I. -L. -DeslDISTANCE_TESTDRIVE esl_distance.c -leasel -lm
  */
 #ifdef eslDISTANCE_TESTDRIVE
-#include <easel.h>
-#include <esl_getopts.h>
-#include <esl_random.h>
-#include <esl_distance.h>
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_distance.h"
 #ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
+#include "esl_alphabet.h"
 #endif
 #ifdef eslAUGMENT_DMATRIX
-#include <esl_dmatrix.h>
+#include "esl_dmatrix.h"
 #endif
 
 static ESL_OPTIONS options[] = {
@@ -1320,10 +1320,10 @@ main(int argc, char **argv)
        esl_dmatrix.c esl_msa.c easel.c -lm
    ./example <msa file>
  */
-#include <easel.h>
-#include <esl_distance.h>
-#include <esl_dmatrix.h>
-#include <esl_msa.h>
+#include "easel.h"
+#include "esl_distance.h"
+#include "esl_dmatrix.h"
+#include "esl_msa.h"
 
 int main(int argc, char **argv)
 {

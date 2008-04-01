@@ -10,18 +10,19 @@
 #include <assert.h>
 #include <math.h>
 
-#include <easel.h>
-#include <esl_distance.h>
-#include <esl_fileparser.h>
-#include <esl_getopts.h>
-#include <esl_sqio.h>
-#include <esl_msa.h>
-#include <esl_distance.h>
-#include <esl_dmatrix.h>
-#include <esl_vectorops.h>
-#include <esl_stack.h>
-#include <esl_tree.h>
-#include <esl_wuss.h>
+#include "easel.h"
+#include "esl_distance.h"
+#include "esl_fileparser.h"
+#include "esl_getopts.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+#include "esl_msa.h"
+#include "esl_distance.h"
+#include "esl_dmatrix.h"
+#include "esl_vectorops.h"
+#include "esl_stack.h"
+#include "esl_tree.h"
+#include "esl_wuss.h"
 
 static char banner[] = "manipulate a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
@@ -1681,8 +1682,8 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
 
   for(i = 0; i < msa->nseq; i++)
     {
-      if(! (sq[i]->flags & eslSQ_DIGITAL))  ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq's must be digitized.");
-      if(sq[i]->n == 0) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is zero-length\n", i);
+      if (sq[i]->dsq == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq's must be digitized.");
+      if (sq[i]->n   == 0)    ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is zero-length\n", i);
 
       ESL_ALLOC(a2ua_map, sizeof(int) * (msa->alen+1));
       esl_vec_ISet(a2ua_map, (msa->alen+1), -1);
