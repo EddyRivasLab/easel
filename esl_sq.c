@@ -1008,6 +1008,7 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   sq->desc   = NULL;
   sq->seq    = NULL;
   sq->dsq    = NULL;
+  sq->ss     = NULL;
   
   if (name != NULL)
     {
