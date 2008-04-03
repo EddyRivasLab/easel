@@ -428,7 +428,7 @@ main(int argc, char **argv)
 	  FILE *fp;
 	  fp = fopen("my_tree.newick", "w");
 	  esl_tree_WriteNewick(fp, T); 
-	  close(fp);
+	  fclose(fp);
 
 	  esl_tree_Validate(T, NULL);
 
@@ -1794,8 +1794,8 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
       esl_vec_ISet(ict[i], (msa->nseq), 0);
     }
 
-  fprintf(fp, "#  %8s  %8s  %8s  %8s\n", "cons col", "num ins",  "freq ins");
-  fprintf(fp, "#  %8s  %8s  %8s  %8s\n", "--------", "--------", "--------");
+  fprintf(fp, "#  %8s  %8s  %8s\n", "cons col", "num ins",  "freq ins");
+  fprintf(fp, "#  %8s  %8s  %8s\n", "--------", "--------", "--------");
 
   cpos = 0;
   for(apos = 1; apos <= msa->alen; apos++)
@@ -1838,7 +1838,6 @@ static int dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   int apos, cpos;
   int rct;
   int i;
-  int nseq;
 
   /* contract check */
   if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_residue_info(), msa must be digitized.");
@@ -2807,7 +2806,7 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
     else if(xmask[mpos] == '0') ; /* do nothing */
     else    ESL_FAIL(eslEINVAL, errbuf, "--xmask mask char number %d is not a 1 nor a 0, but a %c\n", mpos+1, xmask[mpos]);
   }
-  if(nones != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), number of 1s in --xmask file: %d != msa->alen: %d, they must be equal.");
+  if(nones != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), number of 1s in --xmask file: %d != msa->alen: %d, they must be equal.", nones, msa->alen);
 
   /* determine number of 0s after each consensus column */
   nones = 0;
@@ -2827,7 +2826,7 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
   /* add the 100% gap columns */
   if((status = add_gap_columns_to_msa(errbuf, msa, nzeroesA, newmsa, TRUE)) != eslOK) return status ;
   /* new alen should equal masklen */
-  if((*newmsa)->alen != masklen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), new msa->alen: %d != length of mask, this shouldn't happen.", (*newmsa)->alen, masklen);
+  if((*newmsa)->alen != masklen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), new msa->alen: (%d) != length of mask (%d), this shouldn't happen.", (*newmsa)->alen, masklen);
   free(nzeroesA);
 
   return eslOK;
