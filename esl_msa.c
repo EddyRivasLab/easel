@@ -1716,10 +1716,12 @@ esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc)
  *            read the index, indicating some sort of file format
  *            problem in the SSI file.
  *
- * Throws:    <eslEMEM> on allocation failure.
- *            Throws <eslESYS> if an <fseek()> fails. In either case,
- *            the state of the <afp> is uncertain and may be corrupt;
- *            the application should not continue to use it.
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINVAL> if there's no open SSI index;
+ *            <eslESYS> if an <fseek()> fails.
+ *            In all these cases, the state of the <afp> is uncertain
+ *            and may be corrupt; the application should not continue
+ *            to use it.
  */
 int
 esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)

@@ -24,7 +24,6 @@
 typedef struct {
   FILE *fp;		      /* Open file ptr                            */
   char *filename;	      /* Name of file (for diagnostics)           */
-  char *ssifile;	      /* Name of SSI index file (for diagnostics) */
   int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
   char  errbuf[eslERRBUFSIZE];/* parse error mesg. Size must match msa.h  */
@@ -49,24 +48,31 @@ typedef struct {
   int  (*endTest)(char *);    /* ptr to function that tests if buffer is end */
   ESL_DSQ inmap[128];	      /* an input map, 0..127                        */
 
-  /* SSI subseq indexing: tracking residues per line, bytes per line
-   */
-  int   rpl;		      /* residues per line; -1 if unset, 0 if inval */
-  int   bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
-  int   lastrpl;	      /* tmp var used only when indexing            */
-  int   lastbpl;	      /* ditto                                      */
-
   /* If we have to GuessAlphabet(), we cache the first seq in the file */
   ESL_SQ *sq_cache;
 
-  /* Optional MSA augmentation: the ability to read multiple alignment
-   * files as sequential seq files.
-   */
-#ifdef eslAUGMENT_MSA
+  /* MSA augmentation confers reading MSA files as sequential seq files. */
+#if defined(eslAUGMENT_MSA)
   ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
   ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
   int          idx;	      /* index of next seq to return, 0..nseq-1 */
+#else
+  void        *afp; 	      /* NULL */
+  void        *msa;           /* NULL */
+  int          idx;           /* 0    */
 #endif /*eslAUGMENT_MSA*/
+
+  /* SSI augmentation confers random access of records in a seq file */
+  char    *ssifile;	      /* path to expected SSI index file, even if nonexistent */
+  int      rpl;		      /* residues per line; -1 if unset, 0 if inval */
+  int      bpl;		      /* bytes per line; -1 if unset, 0 if inval    */
+  int      lastrpl;	      /* tmp var used only when indexing            */
+  int      lastbpl;	      /* ditto                                      */
+#if defined(eslAUGMENT_SSI)
+  ESL_SSI *ssi;		/* open ESL_SSI index, or NULL if none     */
+#else
+  void    *ssi;		/* NULL */
+#endif /*eslAUGMENT_SSI*/
 } ESL_SQFILE;
 
 /* fread() is apparently the fastest portable way to input from disk;
@@ -97,14 +103,19 @@ extern int  esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
 
 extern int   esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s);
 extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format);
+extern int   esl_sqio_Echo (FILE *ofp, ESL_SQFILE *sqfp);
 extern int   esl_sqio_WhatFormat(FILE *fp);
 extern int   esl_sqio_FormatCode(char *fmtstring);
 extern char *esl_sqio_DescribeFormat(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
-
 extern int   esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off);
 extern int   esl_sqio_Rewind  (ESL_SQFILE *sqfp);
 
+#ifdef eslAUGMENT_SSI
+extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
+extern int   esl_sqfile_PositionByKey   (ESL_SQFILE *sqfp, const char *key);
+extern int   esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which);
+#endif /*eslAUGMENT_SSI*/
 #endif /*!ESL_SQIO_INCLUDED*/
 /*****************************************************************
  * @LICENSE@

@@ -63,15 +63,13 @@ static ESL_OPTIONS options[] = {
 static void create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp);
 static void multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
 static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp);
-static void regurgitate_one_uniprot_entry(FILE *ofp, ESL_SQFILE *sqfp);
-
 
 int
 main(int argc, char **argv)
 {
   ESL_GETOPTS  *go      = NULL;	                        /* application configuration       */
   char         *seqfile = NULL;	                        /* sequence file name              */
-  int           format  = eslSQFILE_UNKNOWN;		/* format code for seqfile         */
+  int           infmt   = eslSQFILE_UNKNOWN;		/* format code for seqfile         */
   ESL_SQFILE   *sqfp    = NULL;                         /* open sequence file              */
   FILE         *ofp     = NULL;	                        /* output stream for sequences     */
   int           status;		                        /* easel return code               */
@@ -93,7 +91,7 @@ main(int argc, char **argv)
     infmt = esl_sqio_FormatCode(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
-  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
+  status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file.");
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
   else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
@@ -120,11 +118,13 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "-f"))
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
+      esl_sqfile_OpenSSI(sqfp, NULL);
       multifetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
     }
   else 
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
+      esl_sqfile_OpenSSI(sqfp, NULL);
       onefetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
       if (ofp != stdout) printf("\n\nRetrieved sequence %s.\n",  esl_opt_GetArg(go, 2));
     }
@@ -143,57 +143,171 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
 {
   int         status;
   ESL_NEWSSI *ns      = esl_newssi_Create();
-  ESL_SQ     *sq      = NULL;
-  int         nali    = 0;
+  ESL_SQ     *sq      = esl_sq_Create();
+  int         nseq    = 0;
   char       *ssifile = NULL;
   FILE       *sfp     = NULL;
   uint16_t    fh;
 
-  if (afp->ssi != NULL) 
-    esl_fatal("Alignment file %s already has an SSI index. Delete or move it first.\n", afp->fname);
-  if (esl_FileNewSuffix(afp->fname, "ssi", &ssifile) != eslOK)
-    esl_fatal("Failed to name SSI file for %s\n", afp->fname);
-  if ((sfp = fopen(ssifile, "wb")) == NULL)
-    esl_fatal("Failed to open SSI file %s\n", ssifile);
-  if (esl_newssi_AddFile(ns, afp->fname, afp->format, &fh) != eslOK)
-    esl_fatal("Failed to add MSA file %s to new SSI index\n", afp->fname);
+  if (esl_FileNewSuffix(sqfp->filename, "ssi", &ssifile) != eslOK)  esl_fatal("Failed to name SSI file for %s\n", sqfp->filename);
+  if (esl_FileExists(ssifile)                            == TRUE)   esl_fatal("SSI file %s already exists; delete or rename", ssifile);
+  if ((sfp = fopen(ssifile, "wb"))                       == NULL)   esl_fatal("Failed to open SSI file %s for writing\n",     ssifile);
+
+  if (esl_newssi_AddFile(ns, sqfp->filename, sqfp->format, &fh) != eslOK)
+    esl_fatal("Failed to add sequence file %s to new SSI index\n", sqfp->filename);
 
   printf("Working...    "); 
   fflush(stdout);
   
-  while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
     {
-      if (status == eslEFORMAT)
-	esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-      else if (status != eslOK)
-	esl_fatal("Alignment file read failed with error code %d\n", status);
-      nali++;
+      nseq++;
+      if (sq->name == NULL) esl_fatal("Every sequence must have a name to be indexed. Failed to find name of seq #%d\n", nseq);
 
-      if (msa->name == NULL) 
-	esl_fatal("Every alignment in file must have a name to be indexed. Failed to find name of alignment #%d\n", nali);
+      if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->n) != eslOK)
+	esl_fatal("Failed to add key %s to SSI index", sq->name);
 
-      if (esl_newssi_AddKey(ns, msa->name, fh, msa->offset, 0, 0) != eslOK)
-	esl_fatal("Failed to add key %s to SSI index", msa->name);
-
-      if (msa->acc != NULL) {
-	if (esl_newssi_AddAlias(ns, msa->acc, msa->name) != eslOK)
-	  esl_fatal("Failed to add secondary key %s to SSI index", msa->acc);
+      if (sq->acc[0] != '\0') {
+	if (esl_newssi_AddAlias(ns, sq->acc, sq->name) != eslOK)
+	  esl_fatal("Failed to add secondary key %s to SSI index", sq->acc);
       }
-      esl_msa_Destroy(msa);
+      esl_sq_Reuse(sq);
     }
+  if (status != eslEOF) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
   
-  if (esl_newssi_Write(sfp, ns) != eslOK) 
-    esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+  /* Determine if the file was suitable for fast subseq lookup. */
+  if (sqfp->bpl > 0 && sqfp->rpl > 0) {
+    if ((status = esl_newssi_SetSubseq(ns, fh, sqfp->bpl, sqfp->rpl)) != eslOK) 
+      esl_fatal("Failed to set %s for fast subseq lookup.");
+  }
 
+  /* Save the SSI file to disk */
+  if (esl_newssi_Write(sfp, ns) != eslOK)  esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+
+  /* Done - output and exit. */
   printf("done.\n");
   if (ns->nsecondary > 0) 
-    printf("Indexed %d alignments (%ld names and %ld accessions).\n", nali, (long) ns->nprimary, (long) ns->nsecondary);
+    printf("Indexed %d sequences (%ld names and %ld accessions).\n", nseq, (long) ns->nprimary, (long) ns->nsecondary);
   else 
-    printf("Indexed %d alignments (%ld names).\n", nali, (long) ns->nprimary);
+    printf("Indexed %d sequences (%ld names).\n", nseq, (long) ns->nprimary);
   printf("SSI index written to file %s\n", ssifile);
 
   fclose(sfp);
   free(ssifile);
+  esl_sq_Destroy(sq);
   esl_newssi_Destroy(ns);
   return;
-}  
+}
+
+/* multifetch:
+ * given a file containing lines with one name or key per line;
+ * parse the file line-by-line;
+ * if we have an SSI index available, retrieve the seqs by key
+ * as we see each line;
+ * else, without an SSI index, store the keys in a hash, then
+ * read the entire seq file in a single pass, outputting seqs
+ * that are in our keylist. 
+ * 
+ * Note that with an SSI index, you get the seqs in the order they
+ * appear in the <keyfile>, but without an SSI index, you get seqs in
+ * the order they occur in the seq file.
+ */
+static void
+multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
+{
+  ESL_KEYHASH    *keys   = esl_keyhash_Create();
+  ESL_FILEPARSER *efp    = NULL;
+  int             nseq   = 0;
+  int             nkeys  = 0;
+  char           *key;
+  int             keylen;
+  int             keyidx;
+  int             status;
+
+  
+  if (esl_fileparser_Open(keyfile, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", keyfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      if (esl_fileparser_GetTokenOnLine(efp, &key, &keylen) != eslOK)
+	esl_fatal("Failed to read seq name on line %d of file %s\n", efp->linenumber, keyfile);
+      
+      status = esl_key_Store(keys, key, &keyidx);
+      if (status == eslEDUP) esl_fatal("seq key %s occurs more than once in file %s\n", key, keyfile);
+	
+      /* if we have an SSI index, just fetch them as we go. */
+      if (sqfp->ssi != NULL) { onefetch(go, ofp, key, sqfp);  nseq++; }
+      nkeys++;
+    }
+
+  /* If we don't have an SSI index, we haven't fetched anything yet; do it now. */
+  if (sqfp->ssi == NULL) 
+    {
+      ESL_SQ *sq     = esl_sq_Create();
+
+      while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+	{
+	  if ( (sq->name[0] != '\0' && esl_key_Lookup(keys, sq->name, NULL) == eslOK) ||
+	       (sq->acc[0]  != '\0' && esl_key_Lookup(keys, sq->acc,  NULL) == eslOK))
+	    {
+	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+	      nseq++;
+	    }
+	  esl_sq_Reuse(sq);
+	}
+      if (status != eslEOF) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+      esl_sq_Destroy(sq);
+    }
+  
+  if (nkeys != nseq) esl_fatal("Tried to retrieve %d keys, but only retrieved %d sequences\n", nkeys, nseq);
+
+  if (ofp != stdout) printf("\nRetrieved %d sequences.\n", nseq);
+
+  esl_keyhash_Destroy(keys);
+  esl_fileparser_Close(efp);
+  return;
+}
+  
+
+
+/* onefetch():
+ * Given one <key> (a seq name or accession), retrieve the corresponding sequence.
+ * In SSI mode, we can do this quickly by positioning the file, then regurgitating
+ * every line until the end-of-record marker; we don't even have to parse.
+ * Without an SSI index, we have to parse the file sequentially 'til we find
+ * the one we're after.
+ */
+static void
+onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
+{
+  int status;
+
+  if (sqfp->ssi != NULL)	/* the fast way */
+    {
+      status = esl_sqfile_PositionByKey(sqfp, key);
+      if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", key, sqfp->filename);
+      else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", sqfp->filename);
+      else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
+      
+      if ((status = esl_sqio_Echo(ofp, sqfp)) != eslOK) esl_fatal("Echo failed: %s\n", sqfp->errbuf);
+    }
+  else				/* the slow way */
+    {
+      ESL_SQ  *sq   = esl_sq_Create();
+
+      while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF)
+	{
+	  if (status != eslOK) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+
+	  if (strcmp(key, sq->name) == 0 || strcmp(key, sq->acc) == 0) 
+	    {
+	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+	      break;
+	    }
+	  esl_sq_Reuse(sq);
+	}
+      esl_sq_Destroy(sq);
+    }
+}
+

@@ -251,7 +251,7 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_off
  *            <ret_offset> is filled in with the offset in that file.
  *           
  * Args:      <ssi>        - open index file
- *            <n>          - primary key number to retrieve.
+ *            <nkey>       - primary key number to retrieve (0..nprimary-1)
  *            <ret_fh>     - RETURN: handle on file that key is in
  *            <ret_offset> - RETURN: offset of the start of that key's record
  *

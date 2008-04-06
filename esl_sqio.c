@@ -3,20 +3,21 @@
  * Contents:
  *    1. The ESL_SQFILE object API.
  *    2. Sequence input/output API.
- *    3. Internal routines for all line-oriented parsers.
- *    4. Internal routines for EMBL format (including Uniprot, TrEMBL)
- *    5. Internal routines for Genbank format
- *    6. Internal routines for FASTA format
- *    7. Internal routines for sq, msa interconversion
- *    8. Benchmark driver.
- *    9. Unit tests.
- *   10. Test driver.
- *   11. Example.
- *   12. Copyright and license.
+ *    3. Random sequence file access [augmentation: ssi]         
+ *    4. Internal routines for all line-oriented parsers.
+ *    5. Internal routines for EMBL format (including Uniprot, TrEMBL)
+ *    6. Internal routines for Genbank format
+ *    7. Internal routines for FASTA format
+ *    8. Internal routines for sq, msa interconversion
+ *    9. Benchmark driver.
+ *   10 . Unit tests.
+ *   11. Test driver.
+ *   12. Example.
+ *   13. Copyright and license.
  * 
- * Shares remote evolutionary homology with Don Gilbert's seminal,
- * public domain ReadSeq package. Last common ancestor was 1991 or so.
- * Vestiges of that history still remain in the design. Thanks Don!
+ * Still shares vestiges of remote evolutionary homology with Don
+ * Gilbert's seminal, public domain ReadSeq package, though the last
+ * common ancestor was 1991 or so.  Thanks Don!
  * 
  * BUG:  SRE, Tue Dec 11 14:52:15 2007: 
  * esl_sqio_Read() in digital mode will *not* throw an illegal character
@@ -92,9 +93,9 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
  * 
  *            The format of the file is asserted to be <format> (for
- *            example, <eslSQFILE_FASTA>).
- *            If <format> is <eslSQFILE_UNKNOWN> then format
- *            autodetection is invoked. 
+ *            example, <eslSQFILE_FASTA>). If <format> is
+ *            <eslSQFILE_UNKNOWN> then format autodetection is
+ *            invoked.
  *            
  *            There are two special cases for <filename>. If
  *            <filename> is "-", the sequence data are read from a
@@ -146,7 +147,6 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   *ret_sqfp        = NULL;
   sqfp->fp         = NULL;
   sqfp->filename   = NULL;
-  sqfp->ssifile    = NULL;
   sqfp->format     = format;
   sqfp->do_gzip    = FALSE;
   sqfp->do_stdin   = FALSE;
@@ -157,25 +157,23 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
   sqfp->nc         = 0;
   sqfp->pos        = 0;
   sqfp->linenumber = 1;
+  sqfp->sq_cache   = NULL;	/* only used if we GuessAlphabet() later */
+  sqfp->afp        = NULL;
+  sqfp->msa        = NULL;
+  sqfp->ssifile    = NULL;
   sqfp->rpl        = -1;	/* -1=unset */
   sqfp->bpl        = -1;	/* -1=unset */
   sqfp->lastrpl    = -1;	/* -1=unset */
   sqfp->lastbpl    = 0;		/* -1=unset */
-  sqfp->sq_cache   = NULL;	/* only used if we GuessAlphabet() later */
-#ifdef eslAUGMENT_MSA
-  sqfp->afp        = NULL;
-  sqfp->msa        = NULL;
-#endif /*eslAUGMENT_MSA*/
+  sqfp->ssi        = NULL;
 
-  /* Open the file. It may either be in the current directory,
-   * or in a directory indicated by the <env> argument. We have
-   * to construct the SSI filename accordingly. For normal operation
-   * (no pipes from stdin, gzip), this section opens the sqfp->fp,
-   * stores the filename in sqfp->filename, and sets sqfp->ssifile to
-   * the name of the SSI file that we should look for for this seq file.
+  /* Open the file. It may either be in the current directory, or in a
+   * directory indicated by the <env> argument.  For normal operation
+   * (no pipes from stdin, gzip), this section opens the sqfp->fp and
+   * stores the filename in sqfp->filename.
    * 
-   * stdin special case is handled here. fp is stdin pipe; filename
-   * is [STDIN]; ssifile left NULL.
+   * stdin special case is handled here. fp is stdin pipe, and filename
+   * is "[STDIN]".
    */
   if (strcmp(filename, "-") == 0) /* stdin */
     {
@@ -185,21 +183,14 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
     }
   else
     {
-      n = strlen(filename);  
-
-      /* Check the current working directory first.
-       */
-      if ((sqfp->fp = fopen(filename, "r")) != NULL)
+      /* Check the current working directory first. */
+      if ((sqfp->fp = fopen(filename, "r")) != NULL) 
 	{
-	  if ((status = esl_FileNewSuffix(filename, "ssi", &(sqfp->ssifile))) != eslOK) goto ERROR;
-	  if ((status = esl_strdup(filename, n, &(sqfp->filename)))           != eslOK) goto ERROR;
+	  if ((status = esl_strdup(filename, -1, &(sqfp->filename)))           != eslOK) goto ERROR;
 	}
-      /* then the env variable.
-       */
-      else if (env != NULL &&
-	       esl_FileEnvOpen(filename, env, &(sqfp->fp), &envfile)== eslOK)
+      /* then the env variable. */
+      else if (env != NULL && esl_FileEnvOpen(filename, env, &(sqfp->fp), &envfile) == eslOK)
 	{
-	  if ((status = esl_FileNewSuffix(envfile, "ssi", &(sqfp->ssifile))) != eslOK) goto ERROR;
 	  if ((status = esl_strdup(envfile, -1, &(sqfp->filename)))          != eslOK) goto ERROR;
 	  free(envfile); envfile = NULL;
 	}
@@ -238,7 +229,6 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
       sqfp->do_gzip  = TRUE;
     }
 #endif /*HAVE_POPEN*/
-
 
   /* Init the input map. 
    */
@@ -502,6 +492,88 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format)
   return status;
 }
 
+/* Function:  esl_sqio_Echo()
+ * Synopsis:  Echo the next sequence record onto output stream
+ * Incept:    SRE, Wed Apr  2 16:32:21 2008 [Janelia]
+ *
+ * Purpose:   Echo the next sequence record in input stream <sqfp> 
+ *            onto the output stream <ofp>. 
+ *
+ *            This largely bypasses parsing. It enables records to be
+ *            fetched exactly, after positioning <sqfp> with SSI. 
+ *
+ *            For example, Easel only parses and stores part of EMBL,
+ *            Uniprot, and Genbank sequence records, so calling
+ *            <esl_sqio_Read()>, <esl_sqio_Write()> will lose a lot of
+ *            annotation. <esl_sqio_Echo()> allows full records record
+ *            to be retrieved. (See <esl-sfetch> in the miniapps as an
+ *            example.)
+ *
+ * Returns:   <eslOK> on success.
+
+ *            Returns <eslEFORMAT> if the start or end of the record
+ *            cannot be identified.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+int
+esl_sqio_Echo(FILE *ofp, ESL_SQFILE *sqfp)
+{
+  int status;
+
+  if (sqfp->is_linebased)
+    {
+      int done;
+      do {
+	fputs(sqfp->buf, ofp);
+	status = loadline(sqfp);
+	if      (status == eslEOF && sqfp->eof_is_ok) done = TRUE;
+	else if (status != eslOK) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "File ended prematurely before end of record was found");
+
+	done |= sqfp->endTest(sqfp->buf);
+      } while (! done);
+    }
+  else if (sqfp->format == eslSQFILE_FASTA)
+    {
+      int   state = 0;
+      char *buf   = sqfp->buf;
+      int   pos   = sqfp->pos;
+      int   nc    = sqfp->nc;
+      
+      while (state != 3) {
+	switch (state) {	/* mini FASTA parsing state machine */
+	case 0:			/* state 0: before we've seen a >  */
+	  if      (isspace(buf[pos])) pos++;
+	  else if (buf[pos] == '>')   { fputc(buf[pos++], ofp); state++; }
+	  else                        ESL_FAIL(eslEFORMAT, sqfp->errbuf, "no > found");
+	  break;
+	  
+	case 1:			/* state 1: we're on the name/desc line 'til we see a \n */
+	  if (buf[pos] == '\n') state++;
+	  fputc(buf[pos++], ofp);
+	  break;
+
+	case 2:			/* state 2: we're in sequence 'til we see the next > */
+	  if (buf[pos] == '>') state++;
+	  else                 fputc(buf[pos++], ofp);
+	  break;
+	}
+	
+	if (pos == nc) {
+	  if ((nc = fread(buf, sizeof(char), eslREADBUFSIZE, sqfp->fp)) == 0) state = 3;
+	  pos = 0;
+	}
+	
+	sqfp->pos = pos;
+	sqfp->nc  = nc;
+      }
+    }
+  else esl_fatal("Oops, you've got an unimplemented format, apparently");
+
+  return eslOK;
+}
+
+
 /* Function:  esl_sqio_WhatFormat()
  * Incept:    SRE, Mon Jun 20 19:07:44 2005 [St. Louis]
  *
@@ -762,9 +834,217 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 
 
+/*****************************************************************
+ *# 3. Fast random access in a seqfile  [with SSI augmentation]
+ *****************************************************************/
+#ifdef eslAUGMENT_SSI
+static int
+reset_repositioned_file(ESL_SQFILE *sqfp)
+{
+  int status;
+
+  /* If the <sqfp> had a sequence cached (because we just did a
+   * GuessAlphabet(), we have to discard it, even if it's exactly the
+   * sequence we're looking for, because we might call an Echo() after
+   * repositioning.
+   */
+  if (sqfp->sq_cache != NULL)
+    {
+      esl_sq_Destroy(sqfp->sq_cache);
+      sqfp->sq_cache = NULL;
+    }
+
+  /* Preload the next line or chunk into our input buffer.
+   * Note that <linenumber> will now become relative to first line of the record,
+   * rather than the first line of the file.
+   */
+  if (! esl_sqio_IsAlignment(sqfp->format))
+    {
+      if (sqfp->is_linebased)
+	{
+	  sqfp->linenumber = 0;		
+	  if ((status = loadline(sqfp)) != eslOK) return status;
+	}
+      else
+	{
+	  sqfp->linenumber = 1;		
+	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+	  if (ferror(sqfp->fp)) return eslEOF;
+	}
+    }
+  return eslOK;
+}
+
+/* Function:  esl_sqfile_OpenSSI()
+ * Synopsis:  Opens an SSI index associated with a seq file.
+ * Incept:    SRE, Wed Apr  2 10:21:04 2008 [Janelia]
+ *
+ * Purpose:   Opens an SSI index file associated with the already open
+ *            sequence file <sqfp>. If successful, the necessary
+ *            information about the open SSI file is stored internally
+ *            in <sqfp>.
+ *            
+ *            The SSI index file name is determined in one of two
+ *            ways, depending on whether a non-<NULL> <ssifile_hint>
+ *            is provided.
+ *            
+ *            If <ssifile_hint> is <NULL>, the default for
+ *            constructing the SSI filename from the sequence
+ *            filename, by using exactly the same path (if any) for
+ *            the sequence filename, while replacing any existing
+ *            terminal dot-suffix with <.ssi>. For example, the SSI
+ *            index for <foo> is <foo.ssi>, for <./foo.fa> is
+ *            <./foo.ssi>, and for </my/path/to/foo.1.fa> is
+ *            </my/path/to/foo.1.ssi>.
+ *            
+ *            If <ssifile_hint> is <non-NULL>, this exact fully
+ *            qualified path is used as the SSI file name.
+ *
+ * Returns:   <eslOK> on success, and <sqfp->ssi> is now internally
+ *            valid.
+ *            
+ *            <eslENOTFOUND> if no SSI index file is found;
+ *            <eslEFORMAT> if it's found, but appears to be in incorrect format;
+ *            <eslERANGE> if the SSI file uses 64-bit offsets but we're on
+ *            a system that doesn't support 64-bit file offsets.
+ *
+ * Throws:    <eslEINVAL> if the open sequence file <sqfp> doesn't
+ *            correspond to a normal sequence flatfile -- we can't
+ *            random access in .gz compressed files, standard input,
+ *            or multiple alignment files that we're reading
+ *            sequentially.
+ *            
+ *            Throws <eslEMEM> on allocation error.
+ */
+int
+esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
+{
+  int status;
+  
+  if (sqfp->do_gzip)     ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for a .gz compressed seq file");
+  if (sqfp->do_stdin)    ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for standard input");
+  if (sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't open an SSI index for sequential input from an MSA");
+
+  /* set <ssifile>, file name */
+  if (ssifile_hint == NULL) {
+    if ((status = esl_FileNewSuffix(sqfp->filename, "ssi", &(sqfp->ssifile))) != eslOK) return status;
+  } else {
+    if ((status = esl_strdup(ssifile_hint, -1, &(sqfp->ssifile)))             != eslOK) return status;
+  }
+
+  /* Open the SSI file */
+  return esl_ssi_Open(sqfp->ssifile, &(sqfp->ssi));
+}
+
+
+
+/* Function:  esl_sqfile_PositionByKey()
+ * Synopsis:  Use SSI to reposition seq file to a particular sequence.
+ * Incept:    SRE, Wed Apr  2 09:51:11 2008 [Janelia]
+ *
+ * Purpose:   Reposition <sqfp> so that the next sequence we read will
+ *            be the one named (or accessioned) <key>.
+ *            
+ *            <sqfp->linenumber> is reset to be relative to the start
+ *            of the record named <key>, rather than the start of the
+ *            file.
+ *
+ * Returns:   <eslOK> on success, and the file <sqfp> is repositioned
+ *            so that the next <esl_sqio_Read()> call will read the
+ *            sequence named <key>.
+ *            
+ *            Returns <eslENOTFOUND> if <key> isn't found in the
+ *            index; in this case, the position of <sqfp> in the file
+ *            is unchanged.
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, almost certainly indicating a format
+ *            problem in the SSI file.
+ *            
+ *            Returns <eslEOF> if, after repositioning, we fail to
+ *            load the next line or buffer from the sequence file;
+ *            this probably also indicates a format problem in the SSI
+ *            file.
+ * 
+ * Throws:    <eslEMEM>   on allocation error;
+ *            <eslEINVAL> if there's no open SSI index in <sqfp>;
+ *            <eslESYS>   if the <fseek()> fails.
+ *            
+ *            In all these cases, the state of <sqfp> becomes
+ *            undefined, and the caller should not use it again.
+ */
+int
+esl_sqfile_PositionByKey(ESL_SQFILE *sqfp, const char *key)
+{
+  uint16_t fh;
+  off_t    offset;
+  int      status;
+
+  if (sqfp->ssi == NULL)                          ESL_EXCEPTION(eslEINVAL,"Need an open SSI index to call esl_sqfile_PositionByKey()");
+  if ((status = esl_ssi_FindName(sqfp->ssi, key, &fh, &offset)) != eslOK) return status;
+  if (fseeko(sqfp->fp, offset, SEEK_SET) != 0)    ESL_EXCEPTION(eslESYS,  "fseek failed");
+  sqfp->boff = offset;
+  return reset_repositioned_file(sqfp);
+}
+
+
+/* Function:  esl_sqfile_PositionByNumber()
+ * Synopsis:  Use SSI to reposition by sequence number
+ * Incept:    SRE, Wed Apr  2 17:24:38 2008 [Janelia]
+ *
+ * Purpose:   Reposition <sqfp> so that the next sequence we 
+ *            read will be the <which>'th sequence, where <which>
+ *            is <0..sqfp->ssi->nprimary-1>. 
+ *            
+ *            <sqfp->linenumber> is reset to be relative to the start
+ *            of the record named <key>, rather than the start of the
+ *            file.
+ *
+ * Returns:   <eslOK> on success, and the file <sqfp> is repositioned.
+ *            
+ *            Returns <eslENOTFOUND> if there is no sequence number
+ *            <which> in the index; in this case, the position of
+ *            <sqfp> in the file is unchanged.
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, almost certainly indicating a format
+ *            problem in the SSI file.
+ *            
+ *            Returns <eslEOF> if, after repositioning, we fail to
+ *            load the next line or buffer from the sequence file;
+ *            this probably also indicates a format problem in the SSI
+ *            file.
+ * 
+ * Throws:    <eslEMEM>   on allocation error;
+ *            <eslEINVAL> if there's no open SSI index in <sqfp>;
+ *            <eslESYS>   if the <fseek()> fails.
+ *            
+ *            In all these cases, the state of <sqfp> becomes
+ *            undefined, and the caller should not use it again.
+ */
+int
+esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
+{
+  uint16_t fh;
+  off_t    offset;
+  int      status;
+
+  if (sqfp->ssi == NULL)                          ESL_EXCEPTION(eslEINVAL,"Need open SSI index to call esl_sqfile_PositionByNumber()");
+  if ((status = esl_ssi_FindNumber(sqfp->ssi, which, &fh, &offset)) != eslOK) return status;
+  if (fseeko(sqfp->fp, offset, SEEK_SET) != 0)    ESL_EXCEPTION(eslESYS,  "fseek failed");
+  sqfp->boff = offset;
+  return reset_repositioned_file(sqfp);
+}
+
+#endif /*eslAUGMENT_SSI*/
+/*------------------ end, SSI augmentation ----------------------*/
+
+
+
+
 
 /*****************************************************************
- * 3. Internal routines for all line-oriented parsers
+ * 4. Internal routines for all line-oriented parsers
  *****************************************************************/ 
 
 static int
@@ -1060,7 +1340,7 @@ append_description(ESL_SQ *sq, char *s, char *delim)
 
 
 /*****************************************************************
- * 4. Internal routines for EMBL format (including Uniprot and TrEMBL)
+ * 5. Internal routines for EMBL format (including Uniprot and TrEMBL)
  *****************************************************************/ 
 /* EMBL and Uniprot protein sequence database format.
  * See: http://us.expasy.org/sprot/userman.html
@@ -1209,7 +1489,7 @@ end_embl(char *buf)
 
 
 /*****************************************************************
- * 5. Internal routines for Genbank format 
+ * 6. Internal routines for Genbank format 
  *****************************************************************/ 
 /* NCBI Genbank sequence database format.
  * See Genbank release notes; for example,
@@ -1315,7 +1595,7 @@ end_genbank(char *buf)
 
 
 /*****************************************************************
- * 6. Internal routines for FASTA format
+ * 7. Internal routines for FASTA format
  *****************************************************************/
 
 static void
@@ -1527,7 +1807,7 @@ read_fasta(ESL_SQFILE *sqfp, ESL_SQ *s)
 	  if (at_linestart) {
 	    if (sqfp->rpl != 0 && sqfp->lastrpl != -1) {
 	      if      (sqfp->rpl     == -1) 	 sqfp->rpl = sqfp->lastrpl; /* init */
-	      else if (sqfp->lastrpl != sqfp->rpl) sqfp->rpl = 0;	            /* inval*/
+	      else if (sqfp->lastrpl != sqfp->rpl) sqfp->rpl = 0;	    /* inval*/
 	    }
 	    if (sqfp->bpl != 0 && sqfp->lastbpl != -1) {
 	      if      (sqfp->bpl     == -1)        sqfp->bpl = sqfp->lastbpl; /* init  */
@@ -1747,7 +2027,7 @@ check_buffers(FILE *fp, off_t *boff, char *buf, int *nc, int *pos,
 
 
 /*****************************************************************
- * 7. Functions specific to sqio <-> msa interoperation; 
+ * 8. Functions specific to sqio <-> msa interoperation; 
  *****************************************************************/
 
 #ifdef eslAUGMENT_MSA
@@ -1813,7 +2093,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 /*****************************************************************
- * 8. Benchmark driver
+ * 9. Benchmark driver
  *****************************************************************/ 
 /* gcc -O2 -I. -L. -o benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel
  * ./benchmark <seqfile>
@@ -1896,7 +2176,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 9. Unit tests
+ * 10. Unit tests
  *****************************************************************/ 
 
 /*------------------ end, unit tests ----------------------------*/
@@ -1904,7 +2184,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 10. Test driver.
+ * 11. Test driver.
  *****************************************************************/
 /* gcc -g -Wall -I. -L. -o testdrive -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
  * ./testdrive
@@ -2010,7 +2290,7 @@ main(void)
 
 
 /*****************************************************************
- * 11. Example
+ * 12. Example
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/

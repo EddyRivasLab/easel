@@ -34,6 +34,7 @@ PROGS = esl-afetch\
 	esl-histplot\
 	esl-reformat\
 	esl-seqstat\
+	esl-sfetch\
 	esl-shuffle
 
 ## Targets defining how to make miniapp executables.
