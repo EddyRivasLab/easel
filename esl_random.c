@@ -2199,7 +2199,7 @@ static ESL_OPTIONS options[] = {
   {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
-static char usage[] = "Usage: ./testdrive [-options]";
+static char usage[]  = "[-options]";
 
 static int save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n);
 
