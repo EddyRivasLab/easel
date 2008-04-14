@@ -278,7 +278,7 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
   if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0)         goto ERROR;
   if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)             != ssi->plen) goto ERROR;
   if (esl_fread_i16(ssi->fp, &fh)                               != eslOK)     goto ERROR;
-  if (esl_fread_offset(ssi->fp, ssi->smode, ret_offset)         != eslOK)     goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->smode, &offset   )         != eslOK)     goto ERROR;
 
   if (pkey != NULL) free(pkey);
   *ret_fh     = fh;
