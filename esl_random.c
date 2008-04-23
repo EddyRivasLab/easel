@@ -716,6 +716,10 @@ esl_rnd_xfIID(ESL_RANDOMNESS *r, const float *p, int K, int L, ESL_DSQ *dsq)
  *            in which case <s> is shuffled in place.
  *            
  * Returns:   <eslOK> on success.
+ * 
+ * Note:      The algorithm is variously known as Fisher/Yates
+ *            or Knuth's "Algorithm P"; see R. Durstenfeld, 
+ *            Comm. ACM 7:420 (1964).
  */
 int
 esl_rnd_CShuffle(ESL_RANDOMNESS *r, const char  *s, char *shuffled)
