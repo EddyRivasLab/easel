@@ -11,6 +11,10 @@
 
 #define ESL_STACK_INITALLOC 128	/* initial allocation; realloc by doubling  */
 
+#ifdef eslAUGMENT_RANDOM
+#include "esl_random.h"
+#endif /*eslAUGMENT_RANDOM*/
+
 typedef struct esl_stack_s {
   int   *idata;			/* integer data stack                       */
   void **pdata;			/* pointer data stack                       */
@@ -39,5 +43,10 @@ extern int esl_stack_ObjectCount(ESL_STACK *s);
 
 extern char *esl_stack_Convert2String(ESL_STACK *cs);
 extern int   esl_stack_DiscardTopN(ESL_STACK *s, int n);
+
+#ifdef eslAUGMENT_RANDOM
+extern int esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s);
+#endif /*eslAUGMENT_RANDOM*/
+
 
 #endif /*ESL_STACK_INCLUDED*/

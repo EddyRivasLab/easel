@@ -1859,7 +1859,7 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
   while (nactive < N)
     {
       d               = (double) nactive * -log(esl_rnd_UniformPositive(r));
-      bidx            = esl_rnd_Choose(r, nactive);
+      bidx            = esl_rnd_Roll(r, nactive);
       T->parent[node] = branchpapa[bidx];
       
       if (branchside[bidx] == 0) {

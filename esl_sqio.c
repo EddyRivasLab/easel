@@ -1,8 +1,8 @@
 /* Unaligned sequence file i/o.
  * 
  * Contents:
- *    1. The ESL_SQFILE object API.
- *    2. Sequence input/output API.
+ *    1. The <ESL_SQFILE> object.
+ *    2. Sequence input/output.
  *    3. Random sequence file access [augmentation: ssi]         
  *    4. Internal routines for all line-oriented parsers.
  *    5. Internal routines for EMBL format (including Uniprot, TrEMBL)
@@ -83,13 +83,14 @@ static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 
 
 /*****************************************************************
- *# 1. The ESL_SQFILE object.
+ *# 1. The <ESL_SQFILE> object.
  *****************************************************************/ 
 
 /* Function:  esl_sqfile_Open()
+ * Synopsis:  Open a sequence file for reading.
  * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
- * Purpose:   Open a sequence file <filename> for sequential reading. 
+ * Purpose:   Open a sequence file <filename> for reading. 
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
  * 
  *            The format of the file is asserted to be <format> (for
@@ -257,31 +258,18 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM:
-    sqfp->linenumber = 0;	/* line-oriented input */
+    sqfp->linenumber   = 0;	/* line-oriented input */
     sqfp->is_linebased = TRUE;
-    sqfp->addfirst = FALSE;	/* no-op for msa's */
-    sqfp->addend   = FALSE;	/* no-op for msa's */
-    sqfp->eof_is_ok= FALSE;	/* no-op for msa's */
-    sqfp->endTest  = NULL;	/* no-op for msa's */
-    ESL_ALLOC(sqfp->afp, sizeof(ESL_MSAFILE));
-    sqfp->afp->f          = sqfp->fp;
-    sqfp->afp->fname      = sqfp->filename;
-    sqfp->afp->linenumber = sqfp->linenumber;
-    sqfp->afp->errbuf[0]  = '\0';
-    sqfp->afp->buf        = NULL;
-    sqfp->afp->buflen     = 0;
-    sqfp->afp->do_gzip    = sqfp->do_gzip;
-    sqfp->afp->do_stdin   = sqfp->do_stdin;
-    sqfp->afp->format     = sqfp->format;
-    sqfp->afp->do_digital = FALSE;
-    sqfp->afp->abc        = NULL;
-    sqfp->afp->ssi        = NULL;
-    sqfp->afp->msa_cache  = NULL;
+    sqfp->addfirst     = FALSE;	/* no-op for msa's */
+    sqfp->addend       = FALSE;	/* no-op for msa's */
+    sqfp->eof_is_ok    = FALSE;	/* no-op for msa's */
+    sqfp->endTest      = NULL;	/* no-op for msa's */
+    if ((status = esl_msafile_Open(filename, sqfp->format, env, &(sqfp->afp))) != eslOK) goto ERROR;
     break;
 #endif /*eslAUGMENT_MSA*/
   }
 
-  /* Preload the first line or chunk of the file into buf.
+  /* Preload the first line, chunk of file, or alignment into buf.
    */
   if (! esl_sqio_IsAlignment(sqfp->format))
     {
@@ -302,7 +290,6 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 	  if (ferror(sqfp->fp)) { status = eslEFORMAT; goto ERROR; }
 	}
     }
-
   if (envfile != NULL) free(envfile);
   *ret_sqfp = sqfp;
   return eslOK;
@@ -316,6 +303,7 @@ esl_sqfile_Open(char *filename, int format, char *env, ESL_SQFILE **ret_sqfp)
 
 
 /* Function:  esl_sqfile_Close()
+ * Synopsis:  Close a sequence file.
  * Incept:    SRE, Thu Dec 23 13:19:43 2004 [St. Louis]
  *
  * Purpose:   Closes an open <sqfp>.
@@ -335,6 +323,9 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
   if (sqfp->ssifile  != NULL) free(sqfp->ssifile);
   if (sqfp->buf      != NULL) free(sqfp->buf);
   if (sqfp->sq_cache != NULL) esl_sq_Destroy(sqfp->sq_cache);
+#ifdef eslAUGMENT_SSI
+  if (sqfp->ssi      != NULL) esl_ssi_Close(sqfp->ssi);
+#endif
 
 #ifdef eslAUGMENT_MSA
   if (sqfp->afp      != NULL) 
@@ -356,10 +347,11 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 
 
 /*****************************************************************
- *# 2. Sequence input/output API
+ *# 2. Sequence input/output
  *****************************************************************/ 
 
 /* Function:  esl_sqio_Read()
+ * Synopsis:  Read the next sequence from a file.
  * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
@@ -382,8 +374,10 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 int
 esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 {
-  ESL_SQ *tmpsq = NULL;
   int     status;
+#ifdef eslAUGMENT_MSA
+  ESL_SQ *tmpsq = NULL;
+#endif
 
   /* Special case: we already have a sequence cached. */
   if (sqfp->sq_cache != NULL) 
@@ -439,6 +433,7 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *s)
 
 
 /* Function:  esl_sqio_Write()
+ * Synopsis:  Write a sequence to a file.
  * Incept:    SRE, Fri Feb 25 16:10:32 2005 [St. Louis]
  *
  * Purpose:   Write sequence <s> to an open FILE <fp> in 
@@ -493,7 +488,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format)
 }
 
 /* Function:  esl_sqio_Echo()
- * Synopsis:  Echo the next sequence record onto output stream
+ * Synopsis:  Echo the next sequence record onto output stream.
  * Incept:    SRE, Wed Apr  2 16:32:21 2008 [Janelia]
  *
  * Purpose:   Echo the next sequence record in input stream <sqfp> 
@@ -575,6 +570,7 @@ esl_sqio_Echo(FILE *ofp, ESL_SQFILE *sqfp)
 
 
 /* Function:  esl_sqio_WhatFormat()
+ * Synopsis:  Guess the format of an open file.
  * Incept:    SRE, Mon Jun 20 19:07:44 2005 [St. Louis]
  *
  * Purpose:   Determine the format of a (rewindable) open file <fp>;
@@ -613,6 +609,7 @@ esl_sqio_WhatFormat(FILE *fp)
 }
 
 /* Function:  esl_sqio_FormatCode()
+ * Synopsis:  Convert a string to an internal format code.
  * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
  *
  * Purpose:   Given <fmtstring>, return format code.  For example, if
@@ -675,6 +672,7 @@ esl_sqio_DescribeFormat(int fmt)
 }
 
 /* Function:  esl_sqio_IsAlignment()
+ * Synopsis:  Return TRUE for alignment file format codes.
  * Incept:    SRE, Sun Feb 27 09:36:23 2005 [St. Louis]
  *
  * Purpose:   Returns TRUE if <fmt> is an alignment file
@@ -696,6 +694,7 @@ esl_sqio_IsAlignment(int fmt)
 
 
 /* Function:  esl_sqio_Position()
+ * Synopsis:  Reposition an open sequence file to an offset.
  * Incept:    SRE, Tue Mar 28 13:21:47 2006 [St. Louis]
  *
  * Purpose:   Reposition an open <sqfp> to offset <r_off>, which
@@ -737,6 +736,7 @@ esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off)
     {
       sqfp->linenumber = 1;
       sqfp->boff = r_off;
+      sqfp->pos  = 0;
       sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
       if (ferror(sqfp->fp)) { return eslESYS; }
     }
@@ -744,6 +744,7 @@ esl_sqio_Position(ESL_SQFILE *sqfp, off_t r_off)
 }
 
 /* Function:  esl_sqio_Rewind()
+ * Synopsis:  Rewind an open sequence file to its beginning.
  * Incept:    SRE, Tue Mar 28 14:10:56 2006 [St. Louis]
  *
  * Purpose:   Rewind an open <sqfp> to its beginning.   
@@ -768,7 +769,7 @@ esl_sqio_Rewind(ESL_SQFILE *sqfp)
 
 #ifdef eslAUGMENT_ALPHABET
 /* Function:  esl_sqfile_GuessAlphabet()
- * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>
+ * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>.
  * Incept:    SRE, Sun Feb 24 17:14:55 2008 [UA5315 to St. Louis]
  *
  * Purpose:   After opening <sqfp>, attempt to guess what alphabet
@@ -803,8 +804,8 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
   ESL_SQ *sq = NULL;
   int     status;
 
-  /* Special case: for MSA files, we already have first MSA cached. */
-  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msa_GuessAlphabet(sqfp->msa, ret_type);
+  /* Special case: for MSA files, hand this off to msafile_GuessAlphabet. */
+  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(sqfp->afp, ret_type);
 
   /* Special case: already something cached; GuessAlphabet() was already called? */
   if (sqfp->sq_cache != NULL) return esl_sq_GuessAlphabet(sqfp->sq_cache, ret_type);
@@ -868,7 +869,8 @@ reset_repositioned_file(ESL_SQFILE *sqfp)
       else
 	{
 	  sqfp->linenumber = 1;		
-	  sqfp->nc   = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+	  sqfp->nc         = fread(sqfp->buf, sizeof(char), eslREADBUFSIZE, sqfp->fp);
+	  sqfp->pos        = 0;
 	  if (ferror(sqfp->fp)) return eslEOF;
 	}
     }
@@ -876,7 +878,7 @@ reset_repositioned_file(ESL_SQFILE *sqfp)
 }
 
 /* Function:  esl_sqfile_OpenSSI()
- * Synopsis:  Opens an SSI index associated with a seq file.
+ * Synopsis:  Opens an SSI index associated with a sequence file.
  * Incept:    SRE, Wed Apr  2 10:21:04 2008 [Janelia]
  *
  * Purpose:   Opens an SSI index file associated with the already open
@@ -927,7 +929,8 @@ esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
 
   /* set <ssifile>, file name */
   if (ssifile_hint == NULL) {
-    if ((status = esl_FileNewSuffix(sqfp->filename, "ssi", &(sqfp->ssifile))) != eslOK) return status;
+    if ((status = esl_strdup(sqfp->filename, -1, &(sqfp->ssifile)))           != eslOK) return status;
+    if ((status = esl_strcat(&(sqfp->ssifile), -1, ".ssi", 4))                != eslOK) return status;
   } else {
     if ((status = esl_strdup(ssifile_hint, -1, &(sqfp->ssifile)))             != eslOK) return status;
   }
@@ -2294,7 +2297,7 @@ main(void)
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c easel.c
+/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c esl_sq.c easel.c
  * run:     ./example <FASTA file>
  */
 #include "easel.h"

@@ -125,6 +125,7 @@ esl_swat_Score(ESL_DSQ *x, int L, ESL_DSQ *y, int M, ESL_SCOREMATRIX *S, int gop
 #include "esl_fileparser.h"
 #include "esl_scorematrix.h"
 #include "esl_random.h"
+#include "esl_randomseq.h"
 #include "esl_histogram.h"
 
 int
@@ -171,11 +172,11 @@ main(int argc, char **argv)
   }
   esl_composition_BL62(bg);
 
-  esl_rnd_xIID(r, bg, 20, L, x);
+  esl_rsq_xIID(r, bg, 20, L, x);
   
   for (i = 0; i < nseq; i++)
     {
-      esl_rnd_xIID(r, bg, 20, M, y);
+      esl_rsq_xIID(r, bg, 20, M, y);
       esl_swat_Score(x, L, y, M, S, gop, gex, &raw_sc);
       printf("%d\n", raw_sc);
     }

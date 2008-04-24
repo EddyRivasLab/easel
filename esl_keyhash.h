@@ -8,31 +8,22 @@
 
 #include <stdio.h>		/* for FILE */
 
-/* esl_key_elem:
- *    key, array index pairs are kept in linked list structures.
- */
-struct esl_key_elem {
-  char *key;		
-  int   idx;
-  struct esl_key_elem *nxt;
-};
-
 /* ESL_KEYHASH:
  *    a dynamically resized hash structure; 
  *    contains a hash table and associated data
  */
 typedef struct {
-  struct esl_key_elem **table;	  /* hash table; heads of linked lists, [0..nhash-1]   */
-  int primelevel;		  /* 0..eslKEY_NPRIMES-1; which hash table size we are */
-  int nhash;			  /* redundant with key_primes[primelevel]             */
-  int nkeys;			  /* number of keys stored in the <table>              */
+  int      *hashtable;          /* hashtable[0..hashsize-1] = index of first elem, or -1 */
+  uint32_t  hashsize;	        /* size of the hash table                                */
 
-  struct esl_key_elem *table_mem; /* Pool of memory for storing key_elem's             */
-  int                  talloc;	  /* current allocated # in <table_mem>                */
+  int      *key_offset;		/* key [idx=0..nkeys-1] starts at smem + key_offset[idx] */
+  int      *nxt;		/* nxt [idx=0..nkeys-1], next "pointers" in hash table   */
+  int       nkeys;		/* number of keys stored                                 */
+  int       kalloc;		/* number of keys allocated for                          */
 
-  char *key_mem;		  /* Pool of memory for storing key strings (w/ \0's)  */
-  int   kalloc;			  /* current allocated size of <key_mem>               */
-  int   kn;			  /* current used size of key strings, inclusive \0's  */
+  char *smem;	 	        /* Array of memory for storing key strings (w/ \0's)     */
+  int   salloc;			/* current allocated size of <key_mem>                   */
+  int   sn; 			/* current used size of key strings, inclusive \0's      */
 } ESL_KEYHASH;
 
 extern ESL_KEYHASH *esl_keyhash_Create(void);

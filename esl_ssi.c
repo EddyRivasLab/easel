@@ -1619,6 +1619,7 @@ esl_fwrite_offset(FILE *fp, off_t offset)
 #include "esl_sqio.h"
 #include "esl_ssi.h"
 #include "esl_random.h"
+#include "esl_randomseq.h"
 
 int main(int argc, char **argv)
 {
@@ -1670,11 +1671,11 @@ int main(int argc, char **argv)
   ESL_ALLOC(seqlen, sizeof(int)    * nseq * nfiles);
   for (i = 0; i < nseq*nfiles; i++)
     {
-      seqlen[i] = 1 + esl_rnd_Choose(r, maxL); /* 1..maxL */
+      seqlen[i] = 1 + esl_rnd_Roll(r, maxL); /* 1..maxL */
       ESL_ALLOC(seq[i], sizeof(char) * (seqlen[i]+1));
       ESL_ALLOC(seqname[i],sizeof(char) * 64);
 
-      esl_rnd_IID(r, "ACGT", p, 4, seqlen[i], seq[i]);
+      esl_rsq_IID(r, "ACGT", p, 4, seqlen[i], seq[i]);
       sprintf(seqname[i], "seq%d-file%d", i, i/nseq);
     }
 
@@ -1727,7 +1728,7 @@ int main(int argc, char **argv)
   while (nq--)
     {
       /* Choose a seq and file */
-      i = esl_rnd_Choose(r, nseq*nfiles);
+      i = esl_rnd_Roll(r, nseq*nfiles);
       j = i/nseq;
       sprintf(query, "seq%d-file%d", i, j);
 
@@ -1811,7 +1812,8 @@ int main(int argc, char **argv)
   fclose(fp);
 
   /* Save the index to disk */
-  if (esl_FileNewSuffix(fafile, "ssi", &ssifile) != eslOK) esl_fatal("failed to name ssi file for %s", fafile);
+  esl_strdup(fafile,   -1, &ssifile);  
+  esl_strcat(&ssifile, -1, ".ssi", 4); 
   if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
   if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
   fclose(sfp);

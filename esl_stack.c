@@ -378,7 +378,7 @@ esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s)
   int   w;
 
   while (n > 1) {
-    w = esl_rnd_Choose(r, n);	/* shuffling algorithm: swap last elem with w, decrement n. */
+    w = esl_rnd_Roll(r, n);	/* shuffling algorithm: swap last elem with w, decrement n. */
     if      (s->idata != NULL)  ESL_SWAP(s->idata[w], s->idata[n-1], int);
     else if (s->cdata != NULL)  ESL_SWAP(s->cdata[w], s->cdata[n-1], char);
     else if (s->pdata != NULL)  ESL_SWAP(s->pdata[w], s->pdata[n-1], void *);

@@ -60,7 +60,7 @@ esl_exception(int code, char *file, int line, char *format, ...)
     va_end(argp);
     return;
   } else {
-    fprintf(stderr, "Fatal error (source file %s, line %d):\n", file, line);
+    fprintf(stderr, "Fatal exception (source file %s, line %d):\n", file, line);
     va_start(argp, format);
     vfprintf(stderr, format, argp);
     va_end(argp);

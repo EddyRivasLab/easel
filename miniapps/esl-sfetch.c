@@ -92,21 +92,21 @@ main(int argc, char **argv)
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
-  if      (status == eslENOTFOUND) esl_fatal("No such file.");
-  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
-  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
-  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+  if      (status == eslENOTFOUND) cmdline_failure(argv[0], "Sequence file %s not found.\n",     seqfile);
+  else if (status == eslEFORMAT)   cmdline_failure(argv[0], "Format of file %s unrecognized.\n", seqfile);
+  else if (status == eslEINVAL)    cmdline_failure(argv[0], "Can't autodetect stdin or .gz.\n");
+  else if (status != eslOK)        cmdline_failure(argv[0], "Open failed, code %d.\n", status);
 
   /* Open the output file, if any */
   if (esl_opt_GetBoolean(go, "-O")) 
     {
       if ((ofp = fopen(esl_opt_GetArg(go, 2), "w")) == NULL)
-	esl_fatal("Failed to open output file %s\n", esl_opt_GetArg(go, 2));
+	cmdline_failure(argv[0], "Failed to open output file %s\n", esl_opt_GetArg(go, 2));
     }
   else if (esl_opt_GetString(go, "-o") != NULL)
     {
       if ((ofp = fopen(esl_opt_GetString(go, "-o"), "w")) == NULL)
-	esl_fatal("Failed to open output file %s\n", esl_opt_GetString(go, "-o"));
+	cmdline_failure(argv[0], "Failed to open output file %s\n", esl_opt_GetString(go, "-o"));
     }
   else ofp = stdout;
 
@@ -149,7 +149,8 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   FILE       *sfp     = NULL;
   uint16_t    fh;
 
-  if (esl_FileNewSuffix(sqfp->filename, "ssi", &ssifile) != eslOK)  esl_fatal("Failed to name SSI file for %s\n", sqfp->filename);
+  esl_strdup(sqfp->filename, -1, &ssifile);
+  esl_strcat(&ssifile, -1, ".ssi", 4);
   if (esl_FileExists(ssifile)                            == TRUE)   esl_fatal("SSI file %s already exists; delete or rename", ssifile);
   if ((sfp = fopen(ssifile, "wb"))                       == NULL)   esl_fatal("Failed to open SSI file %s for writing\n",     ssifile);
 

@@ -5,7 +5,7 @@
  *    1. The <ESL_KEYHASH> object.
  *    2. Storing and retrieving keys.
  *    3. Internal functions.        
- *    4. Benchmark driver.
+ *    4. Benchmark drivers.
  *    5. Unit tests.
  *    6. Test driver.
  *    7. Example.
@@ -14,42 +14,9 @@
  * SRE, Sun Jan 30 09:14:21 2005; from squid's gki.c, 1999.
  * SVN $Id$
  *
- *****************************************************************
- * Limitations:
- *     - hash table can only grow; no provision for deleting keys
- *       or downsizing the hash table.
- *     - Maximum hash table size set at 100003. Performance 
- *       will degrade for key sets much larger than this.
- *     - Assumes that integers are 32 bits (or greater). 
- * 
- *****************************************************************
- * 
- * API for storing/reading keys (strings) and associating
- * them with integer indices in an array:
- * moral equivalent of Perl's $foo{$key} = whatever, $bar{$key} = whatever:
- *
- *       #include "easel.h"
- *       #include "esl_keyhash.h"
- *     
- *       ESL_KEYHASH  *hash;
- *       int   idx;
- *       char *key;
- *       
- *       hash = esl_keyhash_Create();
- * (Storing:) 
- *       (foreach key) {
- *          esl_key_Store(hash, key, &idx);       
- *          (reallocate foo, bar as needed)
- *          foo[idx] = whatever;
- *          bar[idx] = whatever;
- *       }     
- * (Reading:)
- *       (foreach key) {
- *          if (esl_key_Lookup(hash, key, &idx) != eslOK) { no_such_key; }
- *          (do something with) foo[idx];
- *          (do something with) bar[idx];
- *       }   
- *       esl_keyhash_Destroy();
+ * Reimplemented April 2008 (J3/14) with improved hash function
+ * with larger dynamic range, and improved (pointerless) internals
+ * in <ESL_KEYHASH>.
  */
 #include "esl_config.h"
 
@@ -61,27 +28,13 @@
 #include "easel.h"
 #include "esl_keyhash.h"
 
-/* key_primes[] defines the ascending order of hash table sizes
- * that we use in upsizing the hash table dynamically.
- *
- * Best hash table sizes are prime numbers (see Knuth vol 3, Sorting
- * and Searching). Useful site for testing primes:
- *   http://www.idbsu.edu/people/jbrennan/algebra/numbers/sieve.html
- *
- * Because of the way key_hashvalue works, the largest number
- * must be < INT_MAX / 128 / 128 : 131072 on a 32 bit machine.
- */
-static int key_primes[]  = { 101, 1009, 10007, 100003 };
-#define eslKEY_NPRIMES      4
-#define eslKEY_ALPHABETSIZE 128
-
-static ESL_KEYHASH *keyhash_create(int primelevel, int init_table_alloc, int init_key_alloc);
-static int          key_hashvalue(const ESL_KEYHASH *hash, const char *key);
-static int          key_upsize(ESL_KEYHASH *old);
+static ESL_KEYHASH *keyhash_create(uint32_t hashsize, int init_key_alloc, int init_string_alloc);
+static uint32_t     jenkins_hash(const char *key, uint32_t hashsize);
+static int          key_upsize(ESL_KEYHASH *kh);
 
 
 /*****************************************************************
- * 1. The <ESL_KEYHASH> object
+ *# 1. The <ESL_KEYHASH> object
  *****************************************************************/ 
 
 /* Function:  esl_keyhash_Create()
@@ -90,16 +43,14 @@ static int          key_upsize(ESL_KEYHASH *old);
  *
  * Purpose:   Create a new hash table for key indexing, and returns
  *            a pointer to it.
- *           
- * Note:      A wrapper around a level 0 key_alloc().
  *
  * Throws:    <NULL> on allocation failure.
  */
 ESL_KEYHASH *
 esl_keyhash_Create(void)
 {
-  return keyhash_create(0,     /* primelevel 0 (hashtable has 101 entries)          */
-			256,   /* initial alloc for 256 key_elem structures         */
+  return keyhash_create(128,   /* initial hash table size (power of 2)              */
+			128,   /* initial alloc for up to 128 keys                  */
 			2048); /* initial alloc for keys totalling up to 2048 chars */
 }
 
@@ -117,32 +68,21 @@ esl_keyhash_Clone(const ESL_KEYHASH *kh)
 {
   ESL_KEYHASH *nw;		
   int          h;
-  struct esl_key_elem *newprv;
-  struct esl_key_elem *newelem;
-  struct esl_key_elem *oldelem;
-  int          status;
 
-  if ((nw = keyhash_create(kh->primelevel, kh->talloc, kh->kalloc)) == NULL) goto ERROR;
+  if ((nw = keyhash_create(kh->hashsize, kh->kalloc, kh->salloc)) == NULL) goto ERROR;
 
-  nw->nkeys = 0;
-  for (h = 0; h < kh->nhash; h++)
+  for (h = 0; h < kh->hashsize; h++)
+    nw->hashtable[h] = kh->hashtable[h];
+
+  for (h = 0; h < kh->nkeys; h++)  
     {
-      for (newprv = NULL, oldelem = kh->table[h]; oldelem != NULL; oldelem = oldelem->nxt)
-	{
-	  newelem      = &(kh->table_mem[nw->nkeys]);   /* get a new structure from the pool */
-	  newelem->key = nw->key_mem + nw->kn;          /* get memory pointer for key        */
-	  strcpy(newelem->key, oldelem->key);           /* copy old key to new               */
-	  newelem->idx = oldelem->idx;
-	  newelem->nxt = NULL;
-	  nw->nkeys++;
-	  nw->kn      += strlen(newelem->key)+1;	/* bookkeeping in key string pool    */
-
-	  if (newprv == NULL) nw->table[h] = newelem;   /* attach new elem to hash table     */
-	  else                newprv->nxt  = newelem;
-	  newprv = newelem;
-	}
+      nw->nxt[h]        = kh->nxt[h];
+      nw->key_offset[h] = kh->key_offset[h];
     }
-  if (nw->nkeys != kh->nkeys) ESL_XEXCEPTION(eslEINCONCEIVABLE, "oops, that can't happen");
+  nw->nkeys = kh->nkeys;
+
+  memcpy(nw->smem, kh->smem, sizeof(char) * kh->sn);
+  nw->sn = kh->sn;
   return nw;
   
  ERROR:
@@ -163,9 +103,10 @@ void
 esl_keyhash_Destroy(ESL_KEYHASH *kh)
 {
   if (kh == NULL) return;	
-  if (kh->table     != NULL) free(kh->table);
-  if (kh->table_mem != NULL) free(kh->table_mem);
-  if (kh->key_mem   != NULL) free(kh->key_mem);
+  if (kh->hashtable  != NULL) free(kh->hashtable);
+  if (kh->key_offset != NULL) free(kh->key_offset);
+  if (kh->nxt        != NULL) free(kh->nxt);
+  if (kh->smem       != NULL) free(kh->smem);
   free(kh);
 }
 
@@ -173,7 +114,7 @@ esl_keyhash_Destroy(ESL_KEYHASH *kh)
  * Synopsis:  Dumps debugging information about a keyhash.
  * Incept:    SRE, Sun Jan 30 09:42:22 2005 [St. Louis]
  *
- * Purpose:   (Mainly for debugging purposes.) Dump 
+ * Purpose:   Mainly for debugging purposes. Dump 
  *            some information about the hash table <kh>
  *            to the stream <fp>, which might be stderr
  *            or stdout.
@@ -181,18 +122,16 @@ esl_keyhash_Destroy(ESL_KEYHASH *kh)
 void
 esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 {
-  struct esl_key_elem *ptr;
-  int i;
+  int idx;
+  int h;
   int nkeys;
   int nempty  = 0;
   int maxkeys = -1;
   int minkeys = INT_MAX;
 
-  for (i = 0; i < kh->nhash; i++)
+  for (h = 0; h < kh->hashsize; h++)
     {
-      nkeys = 0;
-      for (ptr = kh->table[i]; ptr != NULL; ptr = ptr->nxt)
-	nkeys++;
+      for (nkeys = 0, idx = kh->hashtable[h]; idx != -1; idx = kh->nxt[idx]) nkeys++;
 
       if (nkeys == 0)      nempty++;
       if (nkeys > maxkeys) maxkeys = nkeys;
@@ -200,14 +139,14 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
     }
 
   fprintf(fp, "Total keys:             %d\n", kh->nkeys);
-  fprintf(fp, "Hash table size:        %d\n", kh->nhash);
-  fprintf(fp, "Average occupancy:      %.1f\n", (float) kh->nkeys /(float) kh->nhash);
+  fprintf(fp, "Hash table size:        %d\n", kh->hashsize);
+  fprintf(fp, "Average occupancy:      %.2f\n", (float) kh->nkeys /(float) kh->hashsize);
   fprintf(fp, "Unoccupied slots:       %d\n", nempty);
   fprintf(fp, "Most in one slot:       %d\n", maxkeys);
   fprintf(fp, "Least in one slot:      %d\n", minkeys);
-  fprintf(fp, "Keys allocated for:     %d\n", kh->talloc);
-  fprintf(fp, "Key string space alloc: %d\n", kh->kalloc);
-  fprintf(fp, "Key string space used:  %d\n", kh->kn);
+  fprintf(fp, "Keys allocated for:     %d\n", kh->kalloc);
+  fprintf(fp, "Key string space alloc: %d\n", kh->salloc);
+  fprintf(fp, "Key string space used:  %d\n", kh->sn);
 }
 /*--------------- end, <ESL_KEYHASH> object ---------------------*/
 
@@ -215,21 +154,21 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 
 
 /*****************************************************************
- * 2. Storing and retrieving keys
+ *# 2. Storing and retrieving keys
  *****************************************************************/ 
 
 /* Function: esl_key_Store()
- * Synopsis: Store a key, get a key index for it.
+ * Synopsis: Store a key and get a key index for it.
  * Incept:   SRE, Sun Jan 30 09:21:13 2005 [St. Louis]
  *
  * Purpose:  Store a string <key> in the key index hash table <kh>.
- *           Associate it with a unique "key index", counting from
- *           0. (It's this index that lets us map the hashed keys to
+ *           Associate it with a unique key index, counting from
+ *           0. It's this index that lets us map the hashed keys to
  *           integer-indexed C arrays, clumsily emulating Perl's
- *           hashes.) Returns this index through <ret_index>.
+ *           hashes. Returns the index through <ret_index>.
  *
- * Returns:  <eslOK> on success; stores <key>; <ret_index> is set to
- *           the next higher index value.
+ * Returns:  <eslOK> on success; stores <key> in <kh>; <ret_index> is 
+ *           returned, set to the next higher index value.
  *           Returns <eslEDUP> if <key> was already stored in the table;
  *           <ret_index> is set to the existing index for <key>.
  *
@@ -238,59 +177,45 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 int
 esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
 {
-  struct esl_key_elem *new = NULL;
-  int val = key_hashvalue(kh, key); /* hash the key */
-  int idx = -1;			    /* this'll be the key array index we return */
-  int n;
-  void *p;  
-  int   h;
+  uint32_t val = jenkins_hash(key, kh->hashsize);
+  int n        = strlen(key);
+  int idx;
   int status;
 
   /* Was this key already stored?  */
-  for (new = kh->table[val]; new != NULL; new = new->nxt)
-    if (strcmp(key, new->key) == 0) { *ret_index = new->idx; return eslEDUP; }
+  for (idx = kh->hashtable[val]; idx != -1; idx = kh->nxt[idx])
+    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) { *ret_index = idx; return eslEDUP; }
 
-  /* Get a pointer to the new element, reallocating element memory if needed */
-  if (kh->nkeys == kh->talloc) { 
-    struct esl_key_elem *oldp = kh->table_mem;
-    ESL_RALLOC(kh->table_mem, p, sizeof(struct esl_key_elem)*kh->talloc*2);
-    kh->talloc *=2;
-    /* By reallocating, you've just invalidated all pointers to key_elems. Fix them. */
-    for (h = 0; h < kh->nkeys; h++) 
-      if (kh->table_mem[h].nxt != NULL)
-	kh->table_mem[h].nxt += kh->table_mem - oldp;
-    for (h = 0; h < kh->nhash; h++)
-      if (kh->table[h]         != NULL)
-	kh->table[h]         += kh->table_mem - oldp;
-  }
-  new = &(kh->table_mem[kh->nkeys]);
-
-  /* Get a pointer to space for the new key, reallocating key memory if needed */
-  n = strlen(key);
-  if (kh->kn + n + 1 > kh->kalloc) {
-    do {
-      char *oldp = kh->key_mem;
-      ESL_RALLOC(kh->key_mem, p, sizeof(char) * kh->kalloc * 2);
+  /* Reallocate key ptr/index memory if needed */
+  if (kh->nkeys == kh->kalloc) 
+    { 
+      void *p;
+      ESL_RALLOC(kh->key_offset, p, sizeof(int)*kh->kalloc*2);
+      ESL_RALLOC(kh->nxt,        p, sizeof(int)*kh->kalloc*2);
       kh->kalloc *= 2;
-      /* By reallocating, you've just invalidated all pointers to keys. Fix them. */
-      for (h = 0; h < kh->nkeys; h++) kh->table_mem[h].key += kh->key_mem - oldp;
-    } while (kh->kn + n + 1 > kh->kalloc);
-  }
-  new->key = kh->key_mem + kh->kn;
+    }
 
-  /* Copy the key, assign an index */
-  idx      = kh->nkeys;
-  strcpy(new->key, key);
-  kh->kn  += n+1;
-  new->idx = idx;
+  /* Reallocate key string memory if needed */
+  while (kh->sn + n + 1 > kh->salloc)
+    {
+      void *p;
+      ESL_RALLOC(kh->smem, p, sizeof(char) * kh->salloc * 2);
+      kh->salloc *= 2;
+    }
 
-  /* Insert the new element at head of kh->table[val] */
-  new->nxt       = kh->table[val];
-  kh->table[val] = new;
+  /* Copy the key, assign its index */
+  idx                 = kh->nkeys;
+  kh->key_offset[idx] = kh->sn;
+  strcpy(kh->smem + kh->key_offset[idx], key);
+  kh->sn             += n+1;
   kh->nkeys++;
 
+  /* Insert new element at head of the approp linked list in hashtable */
+  kh->nxt[idx]       = kh->hashtable[val];
+  kh->hashtable[val] = idx;
+
   /* Time to upsize? If we're 3x saturated, expand the hash table */
-  if (kh->nkeys > 3*kh->nhash && kh->primelevel < eslKEY_NPRIMES-1)
+  if (kh->nkeys > 3*kh->hashsize)
     if ((status = key_upsize(kh)) != eslOK) goto ERROR;
 
   if (ret_index != NULL) *ret_index = idx;
@@ -302,7 +227,7 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
 }
 
 /* Function:  esl_key_Lookup()
- * Synopsis:  Lookup a key's array index.
+ * Synopsis:  Look up a key's array index.
  * Incept:    SRE, Sun Jan 30 09:38:53 2005 [St. Louis]
  *
  * Purpose:   Look up a <key> in the hash table <kh>.
@@ -314,13 +239,13 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
 int
 esl_key_Lookup(const ESL_KEYHASH *kh, const char *key, int *opt_index)
 {
-  struct esl_key_elem *ptr;
-  int val  = key_hashvalue(kh, key);
-  
-  for (ptr = kh->table[val]; ptr != NULL; ptr = ptr->nxt)
-    if (strcmp(key, ptr->key) == 0) 
+  uint32_t val  = jenkins_hash(key, kh->hashsize);
+  int      idx;
+
+  for (idx = kh->hashtable[val]; idx != -1; idx = kh->nxt[idx])
+    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) 
       { 
-	if (opt_index != NULL) *opt_index = ptr->idx;
+	if (opt_index != NULL) *opt_index = idx;
 	return eslOK; 
       }
 
@@ -343,42 +268,39 @@ esl_key_Lookup(const ESL_KEYHASH *kh, const char *key, int *opt_index)
  * This is abstracted to a static function because it's used by both
  * Create() and Clone() but slightly differently.
  *
- * Args:     primelevel - level 0..KEY_NPRIMES-1, specifying
- *                        the size of the table; see key_primes[]
- *                        array.
- *           init_table_alloc - initial allocation for key_elem structures.
- *           init_key_alloc   - initial allocation for key strings.
+ * Args:  hashsize          - size of hash table; this must be a power of two.
+ *        init_key_alloc    - initial allocation for # of keys.
+ *        init_string_alloc - initial allocation for total size of key strings.
  *
  * Returns:  An allocated hash table structure; or NULL on failure.
  */
 ESL_KEYHASH *
-keyhash_create(int primelevel, int init_table_alloc, int init_key_alloc)
+keyhash_create(uint32_t hashsize, int init_key_alloc, int init_string_alloc)
 {
   ESL_KEYHASH *kh = NULL;
   int  i;
   int  status;
 
-  if (primelevel < 0 || primelevel >= eslKEY_NPRIMES) 
-    ESL_XEXCEPTION(eslEINCONCEIVABLE, "bad primelevel");
-  
   ESL_ALLOC(kh, sizeof(ESL_KEYHASH));
-  kh->table     = NULL;
-  kh->table_mem = NULL;
-  kh->key_mem   = NULL;
+  kh->hashtable  = NULL;
+  kh->key_offset = NULL;
+  kh->nxt        = NULL;
+  kh->smem       = NULL;
 
-  kh->primelevel = primelevel;
-  kh->nhash      = key_primes[kh->primelevel];
+  kh->hashsize  = hashsize;
+  kh->kalloc    = init_key_alloc;
+  kh->salloc    = init_string_alloc;
 
-  ESL_ALLOC(kh->table, sizeof(struct esl_key_elem *) * kh->nhash);
-  for (i = 0; i < kh->nhash; i++)
-    kh->table[i] = NULL;
+  ESL_ALLOC(kh->hashtable, sizeof(int) * kh->hashsize);
+  for (i = 0; i < kh->hashsize; i++)  kh->hashtable[i] = -1;
+
+  ESL_ALLOC(kh->key_offset, sizeof(int) * kh->kalloc);
+  ESL_ALLOC(kh->nxt,        sizeof(int) * kh->kalloc);
+  for (i = 0; i < kh->kalloc; i++)  kh->nxt[i] = -1;
+
+  ESL_ALLOC(kh->smem,   sizeof(char) * kh->salloc);
   kh->nkeys = 0;
-
-  ESL_ALLOC(kh->table_mem, sizeof(struct esl_key_elem) * init_table_alloc);
-  ESL_ALLOC(kh->key_mem,   sizeof(char)                * init_key_alloc);
-  kh->talloc = init_table_alloc;
-  kh->kalloc = init_key_alloc;
-  kh->kn     = 0;
+  kh->sn    = 0;
   return kh;
 
  ERROR:
@@ -387,38 +309,33 @@ keyhash_create(int primelevel, int init_table_alloc, int init_key_alloc)
 }
 
 
-
-/* key_hashvalue()
- * SRE, Sun Jan 30 09:50:45 2005 [St. Louis]
- *
- * Calculate the hash value for a key. Usually we expect a one-word
- * key, but the function will hash any ASCII string effectively. The
- * hash function is a simple one (see p. 233 of Sedgewick, Algorithms
- * in C).  Slightly optimized: does two characters at a time before
- * doing the modulo; this gives us a significant speedup.
- *
- * Since we expect primarily alphabetic strings, we could probably
- * find a better hashfunction than this. 
+/* jenkins_hash()
+ * SRE, Wed Apr 16 09:31:10 2008
  * 
- * Args:     hash - the key structure (we need to know the hash table size)
- *           key  - a string to calculate the hash value for;
- *                  this must be 7-bit ASCII, we assume all chars are 0..127.
- *
- * Returns:  a hash value, in the range 0..hash->nhash-1.
- *           hash table is unmodified.
+ * The hash function.
+ * This is Bob Jenkins' "one at a time" hash.
+ * <key> is a NUL-terminated string of any length.
+ * <hashsize> must be a power of 2.
+ * 
+ * References:
+ * [1]  http://en.wikipedia.org/wiki/Hash_table
+ * [2]  http://www.burtleburtle.net/bob/hash/doobs.html
  */
-static int
-key_hashvalue(const ESL_KEYHASH *kh, const char *key)
+static uint32_t
+jenkins_hash(const char *key, uint32_t hashsize)
 {
-  int val = 0;
-
+  uint32_t val = 0;
   for (; *key != '\0'; key++)
     {
-      val = eslKEY_ALPHABETSIZE*val + *key; 
-      if (*(++key) == '\0') { val = val % kh->nhash; break; }
-      val = (eslKEY_ALPHABETSIZE*val + *key) % kh->nhash;
+      val += *key;
+      val += (val << 10);
+      val ^= (val >>  6);
     }
-  return val;
+  val += (val <<  3);
+  val ^= (val >> 11);
+  val += (val << 15);
+
+  return (val & (hashsize - 1));
 }
 
 /* key_upsize()
@@ -436,53 +353,35 @@ key_hashvalue(const ESL_KEYHASH *kh, const char *key)
  *           the hash table is left in its initial state.
  */
 static int
-key_upsize(ESL_KEYHASH *old)
+key_upsize(ESL_KEYHASH *kh)
 {
-  struct esl_key_elem **newtbl = NULL;
-  struct esl_key_elem *optr;
-  struct esl_key_elem *nptr;
-  int       old_nhash;
-  int       h;
-  int       val;
+  void     *p;
+  int       i;
+  uint32_t  val;
   int       status;
 
-  if (old->primelevel >= eslKEY_NPRIMES-1) return eslOK; /* quasi-success (can't grow any more) */
+  /* 28 below because we're going to upsize in steps of 8x (2^3); need to be < 2^{31-3} */
+  if (kh->hashsize >= (1<<28)) return eslOK; /* quasi-success (can't grow any more)    */
 
   /* The catch here is that when you upsize the table, all the hash functions
    * change; so you have to go through all the keys, recompute their hash functions,
    * and store them again in the new table.
    */
-
   /* Allocate a new, larger hash table. (Don't change <kh> until this succeeds) */
-  old_nhash     = old->nhash;
-  ESL_ALLOC(newtbl, sizeof(struct esl_key_elem *) * (key_primes[old->primelevel+1]));
-  old->primelevel++;
-  old->nhash    = key_primes[old->primelevel];
+  ESL_RALLOC(kh->hashtable, p, sizeof(int) * (kh->hashsize << 3));
+  kh->hashsize  = kh->hashsize << 3; /* 8x */
+  for (i = 0; i < kh->hashsize; i++) kh->hashtable[i] = -1;
 
-  for (h = 0; h < old->nhash; h++)
-    newtbl[h] = NULL;
-
-  /* Traverse the old, store in the new, while *not changing* any key
-   * indices. Because of the way the lists are treated as LIFO stacks,
-   * all the lists are reversed in the new structure.
-   */
-  for (h = 0; h < old->nkeys; h++)
+  /* Store all the keys again. */
+  for (i = 0; i < kh->nkeys; i++) 
     {
-      optr = &(old->table_mem[h]);
-      val  = key_hashvalue(old, optr->key);
-
-      nptr             = newtbl[val]; /* pick up the right head node in the new table  */
-      newtbl[val]      = optr;        /* attach the key structure as the new head node */
-      newtbl[val]->nxt = nptr;        /* and reattach the rest of the list to it       */
+      val                = jenkins_hash(kh->smem + kh->key_offset[i], kh->hashsize);
+      kh->nxt[i]         = kh->hashtable[val];
+      kh->hashtable[val] = i;
     }
-
-  /* Now swap the tables, free'ing the old. */
-  free(old->table);
-  old->table      = newtbl;
   return eslOK;
 
  ERROR:
-  if (newtbl != NULL) free(newtbl);
   return eslEMEM;
 }
 /*--------------- end, internal functions -----------------*/
@@ -496,25 +395,41 @@ key_upsize(ESL_KEYHASH *old)
    gcc -g -O2 -o keyhash_benchmark -I. -L. -DeslKEYHASH_BENCHMARK esl_keyhash.c -leasel -lm
    time ./keyhash_benchmark /usr/share/dict/words /usr/share/dict/words
  */
+#include "esl_config.h"
+
 #include <stdio.h>
+
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_keyhash.h"
+#include "esl_stopwatch.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <keyfile1> <keyfile2>";
+static char banner[] = "benchmarking speed of keyhash module";
 
 int
 main(int argc, char **argv)
 {
-  FILE        *fp;
-  char         buf[256];
-  char        *s, *tok;
-  ESL_KEYHASH *kh;
-  int          idx;
-  int          nstored, nsearched, nshared;
-
-  kh = esl_keyhash_Create();
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 2, argc, argv, banner, usage);
+  ESL_KEYHASH    *kh      = esl_keyhash_Create();
+  ESL_STOPWATCH  *w       = esl_stopwatch_Create();
+  char           *file1   = esl_opt_GetArg(go, 1);
+  char           *file2   = esl_opt_GetArg(go, 2);
+  FILE           *fp;
+  char            buf[256];
+  char           *s, *tok;
+  int             idx;
+  int             nstored, nsearched, nshared;
 
   /* Read/store keys from file 1.
    */
-  if ((fp = fopen(argv[1], "r")) == NULL)
+  esl_stopwatch_Start(w);
+  if ((fp = fopen(file1, "r")) == NULL)
     { fprintf(stderr, "couldn't open %s\n", argv[1]); exit(1); }
   nstored = 0;
   while (fgets(buf, 256, fp) != NULL)
@@ -529,7 +444,7 @@ main(int argc, char **argv)
 
   /* Look up keys from file 2.
    */
-  if ((fp = fopen(argv[2], "r")) == NULL)
+  if ((fp = fopen(file2, "r")) == NULL)
     { fprintf(stderr, "couldn't open %s\n", argv[2]); exit(1); }
   nsearched = nshared = 0;
   while (fgets(buf, 256, fp) != NULL)
@@ -541,14 +456,153 @@ main(int argc, char **argv)
       nsearched++;
     }
   fclose(fp);
+  esl_stopwatch_Stop(w);
   printf("Looked up %d keys.\n", nsearched);
   printf("In common: %d keys.\n", nshared);
+  esl_stopwatch_Display(stdout, w, "# CPU Time: ");
 
+  esl_stopwatch_Destroy(w);
   esl_keyhash_Destroy(kh);
+  esl_getopts_Destroy(go);
   return 0;
 }
 #endif /*eslKEYHASH_BENCHMARK*/
-/*------------------- end, benchmark driver ---------------------*/
+
+
+
+#ifdef eslKEYHASH_BENCHMARK2
+
+/* Benchmark #2 is a benchmark just of the hash function.
+ * First we read in a bunch of keys from any file, one key per line.
+ * Then we start timing, and compute a hash for each key.
+ */
+
+/* gcc -O2 -o keyhash_benchmark2 -I. -L. -DeslKEYHASH_BENCHMARK2 esl_keyhash.c -leasel -lm
+ * ./keyhash_benchmark2 <keyfile>
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_fileparser.h"
+#include "esl_getopts.h"
+#include "esl_keyhash.h"
+#include "esl_stats.h"
+#include "esl_stopwatch.h"
+#include "esl_vectorops.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-s",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show statistical test for hash uniformity",        0 },
+  { "-v",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be verbose: print hash values for keys",           0 },
+  { "-x",        eslARG_INT,   "32768", NULL, NULL,  NULL,  NULL, NULL, "set hash table size to <n>",                       0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <keyfile>";
+static char banner[] = "benchmarking speed of hash function in keyhash module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_FILEPARSER *efp        = NULL;
+  ESL_STOPWATCH  *w          = esl_stopwatch_Create();
+  ESL_KEYHASH    *kh         = esl_keyhash_Create();
+  char           *keyfile    = esl_opt_GetArg(go, 1);
+  uint32_t        hashsize   = esl_opt_GetInteger(go, "-x");
+  char           *key;
+  int             keylen;
+  char          **karr       = NULL;
+  int             kalloc;
+  int            *ct         = NULL;
+  int             nkeys;
+  int             i;
+  int             status;
+  uint32_t (*hashfunc)(const char*,uint32_t) = jenkins_hash;
+  
+  /* 1. Store the keys from the file, before starting the benchmark timer. */
+  kalloc = 256;
+  ESL_ALLOC(karr, sizeof(char *) * kalloc);
+
+  if (esl_fileparser_Open(keyfile, &efp) != eslOK) esl_fatal("Failed to open key file %s\n", keyfile);
+  
+  nkeys = 0;
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      if (esl_fileparser_GetTokenOnLine(efp, &key, &keylen) != eslOK) esl_fatal("Failure in parsing key file\n");
+
+      if (nkeys == kalloc) {
+	void *tmp;
+	ESL_RALLOC(karr, tmp, sizeof(char *) * kalloc * 2);
+	kalloc *= 2;
+      }
+
+      esl_strdup(key, keylen, &(karr[nkeys]));
+      nkeys++;
+    }
+  esl_fileparser_Close(efp);
+  /* and karr[0..nkeys-1] are now the keys. */
+
+
+  /* 2. benchmark hashing the keys. */
+  esl_stopwatch_Start(w);
+  for (i = 0; i < nkeys; i++) (*hashfunc)(karr[i], hashsize);
+  esl_stopwatch_Stop(w);
+  esl_stopwatch_Display(stdout, w, "# CPU Time: ");
+
+  /* If user wanted to see the hashes, do that 
+   * separately, outside the timing loop.
+   */
+  if (esl_opt_GetBoolean(go, "-v"))
+    {
+      for (i = 0; i < nkeys; i++) 
+	printf("%-20s %9d\n", karr[i], (*hashfunc)(karr[i], hashsize));
+    }
+
+  /* Likewise, if user wanted to see statistical uniformity test...
+   */
+  if (esl_opt_GetBoolean(go, "-s"))
+    {
+      double mean, var, X2, pval;
+
+      ESL_ALLOC(ct, sizeof(int) * hashsize);
+      esl_vec_ISet(ct, hashsize, 0);
+      for (i = 0; i < nkeys; i++) ct[(*hashfunc)(karr[i], hashsize)]++;
+      
+      esl_stats_IMean(ct, hashsize, &mean, &var);
+      for (X2 = 0.0, i = 0; i < hashsize; i++)
+	X2 += (((double) ct[i] - mean) *  ((double) ct[i] - mean)) / mean;
+
+      esl_stats_ChiSquaredTest(hashsize-1, X2, &pval);
+
+      printf("Number of keys:      %d\n",   nkeys);
+      printf("Hash table size:     %d\n",   hashsize);
+      printf("Mean hash occupancy: %.2f\n", mean);
+      printf("Minimum:             %d\n",   esl_vec_IMin(ct, hashsize));
+      printf("Maximum:             %d\n",   esl_vec_IMax(ct, hashsize));
+      printf("Variance:            %.2f\n", var);
+      printf("Chi-squared:         %.2f\n", X2);
+      printf("Chi-squared p-value: %.4f\n", pval);
+    }
+      
+
+  /* 3. cleanup, exit. */
+  for (i = 0; i < nkeys; i++) free(karr[i]);
+  free(karr);
+  esl_stopwatch_Destroy(w);
+  esl_getopts_Destroy(go);
+  return 0;
+
+ ERROR:
+  return status;
+}
+#endif /*eslKEYHASH_BENCHMARK2*/
+
+
+/*------------------- end, benchmark drivers --------------------*/
 
 
 /*****************************************************************
@@ -640,8 +694,9 @@ main(int argc, char **argv)
  * 7. Example
  *****************************************************************/
 #ifdef eslKEYHASH_EXAMPLE
-/* gcc -g -Wall -o example -I. -DeslKEYHASH_EXAMPLE keyhash.c easel.c 
- * time ./example /usr/share/dict/words /usr/share/dict/words
+/*::cexcerpt::keyhash_example::begin::*/
+/* gcc -g -Wall -o keyhash_example -I. -DeslKEYHASH_EXAMPLE esl_keyhash.c easel.c 
+ * ./example /usr/share/dict/words /usr/share/dict/words
  */
 #include <stdio.h>
 #include "easel.h"
@@ -650,19 +705,15 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
+  ESL_KEYHASH *h   = esl_keyhash_Create();
   FILE        *fp;
   char         buf[256];
   char        *s, *tok;
-  ESL_KEYHASH *h;
   int          idx;
   int          nstored, nsearched, nshared;
 
-  h = esl_keyhash_Create();
-
-  /* Read/store keys from file 1.
-   */
-  if ((fp = fopen(argv[1], "r")) == NULL)
-    { fprintf(stderr, "couldn't open %s\n", argv[1]); exit(1); }
+  /* Read/store keys from file 1. */
+  if ((fp = fopen(argv[1], "r")) == NULL) esl_fatal("couldn't open %s\n", argv[1]);
   nstored = 0;
   while (fgets(buf, 256, fp) != NULL)
     {
@@ -674,26 +725,23 @@ main(int argc, char **argv)
   fclose(fp);
   printf("Stored %d keys.\n", nstored);
 
-  /* Look up keys from file 2.
-   */
-  if ((fp = fopen(argv[2], "r")) == NULL)
-    { fprintf(stderr, "couldn't open %s\n", argv[2]); exit(1); }
+  /* Look up keys from file 2. */
+  if ((fp = fopen(argv[2], "r")) == NULL) esl_fatal("couldn't open %s\n", argv[1]);
   nsearched = nshared = 0;
   while (fgets(buf, 256, fp) != NULL)
     {
       s = buf;
       esl_strtok(&s, " \t\r\n", &tok, NULL);
-
       if (esl_key_Lookup(h, tok, &idx) == eslOK) nshared++;
       nsearched++;
     }
   fclose(fp);
   printf("Looked up %d keys.\n", nsearched);
   printf("In common: %d keys.\n", nshared);
-
   esl_keyhash_Destroy(h);
   return 0;
 }
+/*::cexcerpt::keyhash_example::end::*/
 #endif /*eslKEYHASH_EXAMPLE*/
 /*----------------------- end, example --------------------------*/
 

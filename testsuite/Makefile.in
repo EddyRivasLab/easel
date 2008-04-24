@@ -42,6 +42,7 @@ UNIT_TESTS = easel_utest\
 	msacluster_utest\
 	msaweight_utest\
 	random_utest\
+	randomseq_utest\
 	ratematrix_utest\
 	regexp_utest\
 	rootfinder_utest\
@@ -62,6 +63,7 @@ UNIT_TESTS = easel_utest\
 #	mpi_utest\
 #	normal_utest\
 #	paml_utest\
+#	sq_utest\
 #	stopwatch_utest\
 #	swat_utest\
 

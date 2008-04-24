@@ -643,18 +643,21 @@ int
 esl_sq_SetName(ESL_SQ *sq, char *name, ...)
 {
   va_list argp;
+  va_list argp2;
   int   n;
   void *tmp;
   int   status;
 
   va_start(argp, name);
+  va_copy(argp2, argp);
   if ((n = vsnprintf(sq->name, sq->nalloc, name, argp)) > sq->nalloc)
     {
-      ESL_RALLOC(sq->name, tmp, sizeof(char) * n); 
-      sq->nalloc = n;
-      vsnprintf(sq->name, sq->nalloc, name, argp);
+      ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
+      sq->nalloc = n+1;
+      vsnprintf(sq->name, sq->nalloc, name, argp2);
     }
   va_end(argp);
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -681,19 +684,21 @@ esl_sq_SetName(ESL_SQ *sq, char *name, ...)
 int
 esl_sq_SetAccession(ESL_SQ *sq, char *acc, ...)
 {
-  va_list argp;
+  va_list argp, argp2;
   int     n;
   void   *tmp;
   int     status;
 
   va_start(argp, acc);
+  va_copy(argp2, argp);
   if ((n = vsnprintf(sq->acc, sq->aalloc, acc, argp)) > sq->aalloc)
     {
-      ESL_RALLOC(sq->acc, tmp, sizeof(char) * n); 
-      sq->aalloc = n;
-      vsnprintf(sq->acc, sq->aalloc, acc, argp);
+      ESL_RALLOC(sq->acc, tmp, sizeof(char) * (n+1)); 
+      sq->aalloc = n+1;
+      vsnprintf(sq->acc, sq->aalloc, acc, argp2);
     }
   va_end(argp);
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -721,19 +726,21 @@ esl_sq_SetAccession(ESL_SQ *sq, char *acc, ...)
 int
 esl_sq_SetDesc(ESL_SQ *sq, char *desc, ...)
 {
-  va_list argp;
+  va_list argp, argp2;
   int     n;
   void   *tmp;
   int     status;
 
   va_start(argp, desc);
+  va_copy(argp2, argp);
   if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) > sq->dalloc)
     {
-      ESL_RALLOC(sq->desc, tmp, sizeof(char) * n); 
-      sq->nalloc = n;
-      vsnprintf(sq->desc, sq->dalloc, desc, argp);
+      ESL_RALLOC(sq->desc, tmp, sizeof(char) * (n+1)); 
+      sq->dalloc = n+1;
+      vsnprintf(sq->desc, sq->dalloc, desc, argp2);
     }
-  va_end(argp);
+  va_end(argp);  
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -924,14 +931,14 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode MSA to text mode sequence */
     {
       if ((sq = esl_sq_CreateFrom(msa->sqname[which], msa->aseq[which], desc, acc, ss)) == NULL) goto ERROR;
-      esl_strdealign(sq->ss,  sq->seq, gapchars, NULL);
+      if (sq->ss != NULL) esl_strdealign(sq->ss,  sq->seq, gapchars, NULL);
       esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n));
     }
 #ifdef eslAUGMENT_ALPHABET
   else				/* digital mode MSA to digital mode sequence */
     {
       if ((sq = esl_sq_CreateDigitalFrom(msa->abc, msa->sqname[which], msa->ax[which], msa->alen, desc, acc, ss)) == NULL) goto ERROR; 
-      esl_abc_CDealign(sq->abc, sq->ss+1, sq->dsq, NULL);
+      if (sq->ss != NULL) esl_abc_CDealign(sq->abc, sq->ss+1, sq->dsq, NULL);
       esl_abc_XDealign(sq->abc, sq->dsq,  sq->dsq, &(sq->n));
     }
 #endif

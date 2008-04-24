@@ -257,7 +257,7 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
  * Throws:    <eslEMEM> on allocation failure.
  */
 static int
-set_seq_accession(ESL_MSA *msa, int seqidx, char *acc)
+set_seq_accession(ESL_MSA *msa, int seqidx, const char *acc)
 {
   int status;
   int i;
@@ -289,8 +289,8 @@ set_seq_accession(ESL_MSA *msa, int seqidx, char *acc)
  * 
  * Throws:   <eslEMEM> on allocation failure.
  */
-int
-set_seq_description(ESL_MSA *msa, int seqidx, char *desc)
+static int
+set_seq_description(ESL_MSA *msa, int seqidx, const char *desc)
 {
   int status;
   int i;
@@ -307,6 +307,64 @@ set_seq_description(ESL_MSA *msa, int seqidx, char *desc)
  ERROR:
   return status;
 }
+
+
+/* set_seq_ss() 
+ *
+ * Set the secondary structure annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <ss>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
+{
+  int status;
+  int i;
+
+  if (msa->ss == NULL) 
+    {
+      ESL_ALLOC(msa->ss, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++)
+	msa->ss[i] = NULL;
+  }
+  if (msa->ss[seqidx] != NULL) free(msa->ss[seqidx]);
+  return (esl_strdup(ss, -1, &(msa->ss[seqidx])));
+
+ ERROR:
+  return status;
+}
+
+/* set_seq_sa() 
+ *
+ * Set the sruface accessibility annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <sa>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa)
+{
+  int status;
+  int i;
+
+  if (msa->sa == NULL) 
+    {
+      ESL_ALLOC(msa->sa, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++)
+	msa->sa[i] = NULL;
+  }
+  if (msa->sa[seqidx] != NULL) free(msa->sa[seqidx]);
+  return (esl_strdup(sa, -1, &(msa->sa[seqidx])));
+
+ ERROR:
+  return status;
+}
+
 
 /* verify_parse()
  *
@@ -927,7 +985,7 @@ esl_msa_Destroy(ESL_MSA *msa)
 int
 esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
 {
-  va_list argp;
+  va_list argp, argp2;
   int     n1 = 32;
   int     n2 = 0;
   void   *tmp;
@@ -937,12 +995,14 @@ esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
   ESL_ALLOC(msa->name, sizeof(char) * n1);
 
   va_start(argp, name);
+  va_copy(argp2, argp);
   if ((n2 = vsnprintf(msa->name, n1, name, argp)) > n1)
     {
-      ESL_RALLOC(msa->name, tmp, sizeof(char) * n2);
-      vsnprintf(msa->name, n2, name, argp);
+      ESL_RALLOC(msa->name, tmp, sizeof(char) * (n2+1));
+      vsnprintf(msa->name, n2+1, name, argp2);
     }
   va_end(argp);
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -972,7 +1032,7 @@ esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
 int
 esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
 {
-  va_list argp;
+  va_list argp, argp2;
   int     n1 = 64;
   int     n2 = 0;
   void   *tmp;
@@ -982,12 +1042,14 @@ esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
   ESL_ALLOC(msa->desc, sizeof(char) * n1);
 
   va_start(argp, desc);
+  va_copy(argp2, argp);
   if ((n2 = vsnprintf(msa->desc, n1, desc, argp)) > n1)
     {
-      ESL_RALLOC(msa->desc, tmp, sizeof(char) * n2);
-      vsnprintf(msa->desc, n2, desc, argp);
+      ESL_RALLOC(msa->desc, tmp, sizeof(char) * (n2+1));
+      vsnprintf(msa->desc, (n2+1), desc, argp2);
     }
   va_end(argp);
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -1016,7 +1078,7 @@ esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
 int
 esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
 {
-  va_list argp;
+  va_list argp, argp2;
   int     n1 = 16;
   int     n2 = 0;
   void   *tmp;
@@ -1026,12 +1088,14 @@ esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
   ESL_ALLOC(msa->acc, sizeof(char) * n1);
 
   va_start(argp, acc);
+  va_copy(argp2, argp);
   if ((n2 = vsnprintf(msa->acc, n1, acc, argp)) > n1)
     {
-      ESL_RALLOC(msa->acc, tmp, sizeof(char) * n2);
-      vsnprintf(msa->acc, n2, acc, argp);
+      ESL_RALLOC(msa->acc, tmp, sizeof(char) * (n2+1));
+      vsnprintf(msa->acc, (n2+1), acc, argp2);
     }
   va_end(argp);
+  va_end(argp2);
   return eslOK;
 
  ERROR:
@@ -1122,12 +1186,14 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
        */
       if ((afp->f = fopen(filename, "r")) != NULL)
 	{
-	  if ((status = esl_FileNewSuffix(filename, "ssi", &ssifile)) != eslOK) goto ERROR;
+	  if (esl_strdup(filename, n, &ssifile)                      != eslOK) goto ERROR;
+	  if (esl_strcat(&ssifile, n, ".ssi", 4)                     != eslOK) goto ERROR;
 	  if ((status = esl_strdup(filename, n, &(afp->fname)))       != eslOK) goto ERROR;
 	}
       else if (esl_FileEnvOpen(filename, env, &(afp->f), &envfile) == eslOK)
 	{
-	  if ((status = esl_FileNewSuffix(envfile, "ssi", &ssifile)) != eslOK) goto ERROR;
+	  if (esl_strdup(envfile, n, &ssifile)                      != eslOK) goto ERROR;
+	  if (esl_strcat(&ssifile, n, ".ssi", 4)                    != eslOK) goto ERROR;
 	  if ((status = esl_strdup(envfile, n, &(afp->fname)))       != eslOK) goto ERROR;
 	}
       else 
@@ -2734,6 +2800,8 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if (new == NULL) 
     {status = eslEMEM; goto ERROR; }
   
+
+  /* Copy the old to the new */
   for (nidx = 0, oidx = 0; oidx < msa->nseq; oidx++)
     if (useme[oidx])
       {
@@ -2750,22 +2818,16 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
 	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
 	}
-
 	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
 	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
 	}
+	if (msa->ss != NULL && msa->ss[oidx] != NULL) {
+	  if ((status = set_seq_ss(new, nidx, msa->ss[oidx])) != eslOK) goto ERROR;
+	}
+	if (msa->sa != NULL && msa->sa[oidx] != NULL) {
+	  if ((status = set_seq_sa(new, nidx, msa->sa[oidx])) != eslOK) goto ERROR;
+	}
 
-	if (msa->ss != NULL && msa->ss[oidx] != NULL)
-	  {
-	    if (new->ss == NULL) ESL_ALLOC(new->ss, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->ss[oidx], msa->alen, &(new->ss[nidx]))) != eslOK) goto ERROR;
-	  }
-      
-	if (msa->sa != NULL && msa->sa[oidx] != NULL)
-	  {
-	    if (new->sa == NULL) ESL_ALLOC(new->sa, sizeof(char *) * nnew);
-	    if ((status = esl_strdup(msa->sa[oidx], msa->alen, &(new->sa[nidx]))) != eslOK) goto ERROR;
-	  }
 	nidx++;
       }
 
@@ -3581,7 +3643,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
  * 8. Benchmark driver.
  *****************************************************************************/
 #ifdef eslMSA_BENCHMARK
-/* gcc -O2 -o benchmark -I. -L. -DeslMSA_BENCHMARK esl_msa.c -leasel -lm
+/* gcc -O2 -o msa_benchmark -I. -L. -DeslMSA_BENCHMARK esl_msa.c -leasel -lm
  * ./benchmark Pfam
  */
 #include <stdio.h>
@@ -3589,48 +3651,49 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_stopwatch.h"
 
 static ESL_OPTIONS options[] = {
- { 0,0,0,0,0,0,0,0 },
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-v",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be verbose: show info as each msa is read",        0 },
+  { 0,0,0,0,0,0,0,0 },
 };
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "benchmarking speed of MSA reading";
 
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go        = NULL;	/* command line options */
-  char        *filename  = NULL;        /* input MSA file */
-  int          fmt;		        /* format of the file */
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  int          status;
-  int          nali;
-  int          alphatype;
+  ESL_GETOPTS   *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_STOPWATCH *w         = esl_stopwatch_Create();
+  char          *filename  = esl_opt_GetArg(go, 1);
+  int            fmt       = eslMSAFILE_UNKNOWN;
+  ESL_MSAFILE   *afp       = NULL;
+  ESL_MSA       *msa       = NULL;
+  int            status;
+  int            nali;
+  int            alphatype;
 
-  /* Parse the command line
-   */
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK)  esl_fatal("Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_ArgNumber(go)                  != 1)      esl_fatal("Incorrect number of command line arguments.\n");
-  filename = esl_opt_GetArg(go, 1);
-  fmt      = eslMSAFILE_UNKNOWN;
-
-  /* Open the alignment file in text mode
-   */
+  /* Open the alignment file in text mode */
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
   if (status == eslENOTFOUND)     esl_fatal("Alignment file %s doesn't exist or is not readable\n", filename);
   else if (status == eslEFORMAT)  esl_fatal("Couldn't determine format of alignment %s\n", filename);
   else if (status != eslOK)       esl_fatal("Alignment file open failed with error %d\n", status);
 
-  /* Loop over all the alignments.
-   */
+  /* Loop over all the alignments. */
+  esl_stopwatch_Start(w);
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
       nali++;
-      esl_msa_GuessAlphabet(msa, &alphatype);
-      printf("%5d %15s %6d %5d %7s\n", 
-	     nali, msa->name, msa->nseq, msa->alen, esl_abc_DescribeType(alphatype));
+
+      if (esl_opt_GetBoolean(go, "-v")) 
+	{
+	  esl_msa_GuessAlphabet(msa, &alphatype);
+	  printf("%5d %15s %6d %5d %7s\n", 
+		 nali, msa->name, msa->nseq, msa->alen, esl_abc_DescribeType(alphatype));
+	}
+
       esl_msa_Destroy(msa);
     }
   if (status == eslEFORMAT)
@@ -3639,6 +3702,10 @@ main(int argc, char **argv)
   else if (status != eslEOF)
     esl_fatal("Alignment file read failed with error code %d\n", status);
 
+  esl_stopwatch_Stop(w);
+  esl_stopwatch_Display(stdout, w, "CPU Time: ");
+
+  esl_stopwatch_Destroy(w);
   esl_getopts_Destroy(go);
   esl_msafile_Close(afp);
   exit(0);

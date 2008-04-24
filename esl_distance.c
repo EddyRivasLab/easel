@@ -739,7 +739,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
 
       for (n = 0; n < max_comparisons; n++)
 	{
-	  do { i = esl_rnd_Choose(r, N); j = esl_rnd_Choose(r, N); } while (j == i); /* make sure j != i */
+	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
 	  if ((status = esl_dst_CPairId(as[i], as[j], &id, NULL, NULL)) != eslOK) return status;
 	  sum += id;
 	}
@@ -813,7 +813,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
 
       for (n = 0; n < max_comparisons; n++)
 	{
-	  do { i = esl_rnd_Choose(r, N); j = esl_rnd_Choose(r, N); } while (j == i); /* make sure j != i */
+	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
 	  if ((status = esl_dst_XPairId(abc, ax[i], ax[j], &id, NULL, NULL)) != eslOK) return status;
 	  sum += id;
 	}
@@ -1190,6 +1190,7 @@ utest_XJukesCantorMx(ESL_ALPHABET *abc, char **as, ESL_DSQ **ax, int N)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
+#include "esl_randomseq.h"
 #include "esl_distance.h"
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
@@ -1255,14 +1256,14 @@ main(int argc, char **argv)
   ESL_ALLOC(as, sizeof(char *) * N);
   for (i = 0; i < N; i++) 
     ESL_ALLOC(as[i], sizeof(char) * (L+1));
-  esl_rnd_IID(r, "ACGT", p, 4, L, as[0]);
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[0]);
   strcpy(as[1], as[0]);
-  esl_rnd_IID(r, "ACGT", p, 4, L, as[2]);
+  esl_rsq_IID(r, "ACGT", p, 4, L, as[2]);
   for (j = 0; j < L; j++)
     while (as[2][j] == as[0][j])
-      as[2][j] = "ACGT"[esl_rnd_Choose(r, 4)];
+      as[2][j] = "ACGT"[esl_rnd_Roll(r, 4)];
   for (i = 3; i < N; i++)
-    esl_rnd_IID(r, "ACGT", p, 4, L, as[i]);
+    esl_rsq_IID(r, "ACGT", p, 4, L, as[i]);
 
 #ifdef eslAUGMENT_ALPHABET
   abc = esl_alphabet_Create(eslDNA);

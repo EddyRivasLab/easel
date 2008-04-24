@@ -24,6 +24,7 @@ static char usage1[] = "   [options] <seqfile>";
 static ESL_OPTIONS options[] = {
   /* name         type           default   env range togs  reqs  incomp      help                                      docgroup */
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "help; show brief info on version and usage",          1 },
+  { "-a",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "report per-sequence info line, not just a summary",   1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL, NULL,      NULL, "specify that input file is in format <s>",            1 },
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains RNA sequence",        1 },
   { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains DNA sequence",        1 },
@@ -128,6 +129,10 @@ main(int argc, char **argv)
       else {
 	small = ESL_MIN(small, sq->n);
 	large = ESL_MAX(large, sq->n);
+      }
+
+      if (esl_opt_GetBoolean(go, "-a")) {
+	printf("= %-20s %8d %s\n", sq->name, sq->n, (sq->desc != NULL) ? sq->desc : "");
       }
 
       nres += sq->n;

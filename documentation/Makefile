@@ -42,10 +42,12 @@ MODULES = easel\
 	  esl_normal\
 	  esl_paml\
 	  esl_random\
+	  esl_randomseq\
 	  esl_ratematrix\
 	  esl_regexp\
 	  esl_rootfinder\
 	  esl_scorematrix\
+	  esl_sq\
 	  esl_sqio\
 	  esl_sse\
 	  esl_ssi\

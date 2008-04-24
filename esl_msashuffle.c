@@ -12,7 +12,9 @@
 #include <string.h>
 
 #include "easel.h"
+#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
+#endif /*eslAUGMENT_ALPHABET*/
 #include "esl_msa.h"
 #include "esl_msashuffle.h"
 #include "esl_random.h"
@@ -52,7 +54,31 @@ esl_msashuffle_Shuffle(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *shuf)
 {
   int i, pos, alen;
 
-  if (msa->flags & eslMSA_DIGITAL)
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      char c;
+      if (shuf->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslEINVAL, "<shuf> must be in text mode if <msa> is");
+      if (msa != shuf) {
+	for (i = 0; i < msa->nseq; i++)
+	  strcpy(shuf->aseq[i], msa->aseq[i]);
+      }
+
+      for (i = 0; i < msa->nseq; i++)
+	shuf->aseq[i][msa->alen] = '\0';
+
+      for (alen = msa->alen; alen > 1; alen--)
+	{
+	  pos = esl_rnd_Roll(r, alen);
+	  for (i = 0; i < msa->nseq; i++)
+	    {
+	      c                     = msa->aseq[i][pos];
+	      shuf->aseq[i][pos]    = shuf->aseq[i][alen-1];
+	      shuf->aseq[i][alen-1] = c;
+	    }
+	}
+    }
+#ifdef eslAUGMENT_ALPHABET
+  else 
     {
       ESL_DSQ x;
       if (! (shuf->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslEINVAL, "<shuf> must be in digital mode if <msa> is");
@@ -67,7 +93,7 @@ esl_msashuffle_Shuffle(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *shuf)
 
       for (alen = msa->alen; alen > 1; alen--)
 	{
-	  pos = esl_rnd_Choose(r, alen) + 1;
+	  pos = esl_rnd_Roll(r, alen) + 1;
 	  for (i = 0; i < msa->nseq; i++)
 	    {
 	      x                 = msa->ax[i][pos];
@@ -76,29 +102,8 @@ esl_msashuffle_Shuffle(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *shuf)
 	    }
 	}
     }
-  else
-    {
-      char c;
-      if (shuf->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslEINVAL, "<shuf> must be in text mode if <msa> is");
-      if (msa != shuf) {
-	for (i = 0; i < msa->nseq; i++)
-	  strcpy(shuf->aseq[i], msa->aseq[i]);
-      }
+#endif /*eslAUGMENT_ALPHABET*/
 
-      for (i = 0; i < msa->nseq; i++)
-	shuf->aseq[i][msa->alen] = '\0';
-
-      for (alen = msa->alen; alen > 1; alen--)
-	{
-	  pos = esl_rnd_Choose(r, alen);
-	  for (i = 0; i < msa->nseq; i++)
-	    {
-	      c                     = msa->aseq[i][pos];
-	      shuf->aseq[i][pos]    = shuf->aseq[i][alen-1];
-	      shuf->aseq[i][alen-1] = c;
-	    }
-	}
-    }
   return eslOK;
 }
 
@@ -139,26 +144,11 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
   if (! (msa->flags & eslMSA_DIGITAL) &&   (bootsample->flags & eslMSA_DIGITAL))
     ESL_EXCEPTION(eslEINVAL, "<msa> and <bootsample> must both be in digital or text mode");
 
-  if (msa->flags & eslMSA_DIGITAL)
-    {
-      for (i = 0; i < msa->nseq; i++)
-	bootsample->ax[i][0] = eslDSQ_SENTINEL;
-
-      for (pos = 1; pos <= msa->alen; pos++)
-	{
-	  col = esl_rnd_Choose(r, msa->alen) + 1;
-	  for (i = 0; i < msa->nseq; i++)
-	    bootsample->ax[i][pos] = msa->ax[i][col];
-	}
-
-      for (i = 0; i < msa->nseq; i++)
-	bootsample->ax[i][msa->alen+1] = eslDSQ_SENTINEL;
-    }
-  else
+  if (! (msa->flags & eslMSA_DIGITAL))
     {
       for (pos = 0; pos < msa->alen; pos++)
 	{
-	  col = esl_rnd_Choose(r, msa->alen);
+	  col = esl_rnd_Roll(r, msa->alen);
 	  for (i = 0; i < msa->nseq; i++)
 	    bootsample->aseq[i][pos] = msa->aseq[i][col];
 	}
@@ -166,13 +156,31 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
       for (i = 0; i < msa->nseq; i++)
 	bootsample->aseq[i][msa->alen] = '\0';
     }
+#ifdef eslAUGMENT_ALPHABET
+  else
+    {
+      for (i = 0; i < msa->nseq; i++)
+	bootsample->ax[i][0] = eslDSQ_SENTINEL;
+
+      for (pos = 1; pos <= msa->alen; pos++)
+	{
+	  col = esl_rnd_Roll(r, msa->alen) + 1;
+	  for (i = 0; i < msa->nseq; i++)
+	    bootsample->ax[i][pos] = msa->ax[i][col];
+	}
+
+      for (i = 0; i < msa->nseq; i++)
+	bootsample->ax[i][msa->alen+1] = eslDSQ_SENTINEL;
+    }
+#endif /*eslAUGMENT_ALPHABET*/
+
   return eslOK;
 }
 
 /*****************************************************************
  * 2. Shuffling pairwise (QRNA) alignments
  *****************************************************************/ 
-
+#ifdef eslAUGMENT_ALPHABET
 /* Function: esl_msashuffle_XQRNA()
  * Synopsis: Gap-preserving column shuffle of a digital pairwise alignment.
  * Incept:   SRE, Tue Jan 22 09:09:52 2008 [Market Street Cafe, Leesburg]
@@ -238,19 +246,19 @@ esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x, ESL_DSQ *
    * Yow, careful with those indices, and with order of the statements...
    */
   for (; nxy > 1; nxy--) {
-    pos              = esl_rnd_Choose(r, nxy);
+    pos              = esl_rnd_Roll(r, nxy);
     xsym             = xs[xycol[pos]];   ysym             = ys[xycol[pos]];    c            = xycol[pos];   
     xs[xycol[pos]]   = xs[xycol[nxy-1]]; ys[xycol[pos]]   = ys[xycol[nxy-1]];  xycol[pos]   = xycol[nxy-1];
     xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = xycol[nxy-1];
   }
   for (; nx > 1; nx--) {
-    pos            = esl_rnd_Choose(r, nx); 
+    pos            = esl_rnd_Roll(r, nx); 
     xsym           = xs[xcol[pos]];  ysym           = ys[xcol[pos]];  c          = xcol[pos];  
     xs[xcol[pos]]  = xs[xcol[nx-1]]; ys[xcol[pos]]  = ys[xcol[nx-1]]; xcol[pos]  = xcol[nx-1]; 
     xs[xcol[nx-1]] = xsym;           ys[xcol[nx-1]] = ysym;           xcol[nx-1] = c;          
   }
   for (; ny > 1; ny--) {
-    pos            = esl_rnd_Choose(r, ny); 
+    pos            = esl_rnd_Roll(r, ny); 
     xsym           = xs[ycol[pos]];  ysym           = ys[ycol[pos]];  c          = ycol[pos]; 
     xs[ycol[pos]]  = xs[ycol[ny-1]]; ys[ycol[pos]]  = ys[ycol[ny-1]]; ycol[pos]  = ycol[ny-1];
     xs[ycol[ny-1]] = xsym;           ys[ycol[ny-1]] = ysym;           ycol[ny-1] = c;          
@@ -265,7 +273,6 @@ esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x, ESL_DSQ *
   if (ycol  != NULL) free(ycol);
   return status;
 }
-
 
 /* Function: esl_msashuffle_CQRNA()
  * Synopsis: Gap-preserving column shuffle of a pairwise alignment.
@@ -337,19 +344,19 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
    * Yow, careful with those indices, and with order of the statements...
    */
   for (; nxy > 1; nxy--) {
-    pos              = esl_rnd_Choose(r, nxy);
+    pos              = esl_rnd_Roll(r, nxy);
     xsym             = xs[xycol[pos]];   ysym             = ys[xycol[pos]];    c            = xycol[pos];   
     xs[xycol[pos]]   = xs[xycol[nxy-1]]; ys[xycol[pos]]   = ys[xycol[nxy-1]];  xycol[pos]   = xycol[nxy-1];
     xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = xycol[nxy-1];
   }
   for (; nx > 1; nx--) {
-    pos            = esl_rnd_Choose(r, nx); 
+    pos            = esl_rnd_Roll(r, nx); 
     xsym           = xs[xcol[pos]];  ysym           = ys[xcol[pos]];  c          = xcol[pos];  
     xs[xcol[pos]]  = xs[xcol[nx-1]]; ys[xcol[pos]]  = ys[xcol[nx-1]]; xcol[pos]  = xcol[nx-1]; 
     xs[xcol[nx-1]] = xsym;           ys[xcol[nx-1]] = ysym;           xcol[nx-1] = c;          
   }
   for (; ny > 1; ny--) {
-    pos            = esl_rnd_Choose(r, ny); 
+    pos            = esl_rnd_Roll(r, ny); 
     xsym           = xs[ycol[pos]];  ysym           = ys[ycol[pos]];  c          = ycol[pos]; 
     xs[ycol[pos]]  = xs[ycol[ny-1]]; ys[ycol[pos]]  = ys[ycol[ny-1]]; ycol[pos]  = ycol[ny-1];
     xs[ycol[ny-1]] = xsym;           ys[ycol[ny-1]] = ysym;           ycol[ny-1] = c;          
@@ -364,3 +371,4 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
   if (ycol  != NULL) free(ycol);
   return status;
 }
+#endif /*eslAUGMENT_ALPHABET*/

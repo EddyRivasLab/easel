@@ -177,6 +177,11 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
  *
  * Purpose:   Sets a pointer to the next field in the 
  *            file we're parsing.
+ *            
+ *            The <ret_tok> pointer is into an internal line buffer
+ *            that may be invalidated upon the next call to a
+ *            <fileparser> function. If you want to store it, make a
+ *            copy.
  *
  * Args:      efp        - open fileparser
  *            ret_tok    - RETURN: ptr to next field
@@ -253,6 +258,11 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
  *            <eslEOL>. This allows a caller to count the tokens on a
  *            line (whereas <GetToken()> reads through newlines
  *            silently).
+ *            
+ *            The <ret_tok> pointer is into an internal line buffer
+ *            that may be invalidated upon the next call to a
+ *            <fileparser> function. If you want to store it, make a
+ *            copy.
  *            
  *            Normally, a call to <esl_fileparser_GetTokenOnLine()>
  *            would be preceded by <esl_fileparser_NextLine()> to

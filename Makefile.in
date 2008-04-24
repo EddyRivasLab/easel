@@ -12,7 +12,6 @@ INCLUDEDIR  = @includedir@
 BINDIR      = @bindir@
 MANDIR      = @mandir@
 PDFDIR      = @pdfdir@
-DESTDIR     = @destdir@
 
 # Compiler configuration
 #
@@ -21,7 +20,7 @@ CFLAGS   = @CFLAGS@
 AR       = @AR@ rcv
 LN       = ln
 RANLIB   = @RANLIB@
-LDFLAGS  = @LDFLAGS@
+LDFLAGS  = -static @LDFLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
@@ -66,6 +65,7 @@ HEADERS = \
 	esl_normal.h\
 	esl_paml.h\
 	esl_random.h\
+	esl_randomseq.h\
 	esl_ratematrix.h\
 	esl_regexp.h\
 	esl_rootfinder.h\
@@ -111,6 +111,7 @@ OBJS    = \
 	esl_normal.o\
 	esl_paml.o\
 	esl_random.o\
+	esl_randomseq.o\
 	esl_ratematrix.o\
 	esl_regexp.o\
 	esl_rootfinder.o\
@@ -149,12 +150,12 @@ libeasel.a: $(OBJS)
 # building RPMS in Linux distros. Usually DESTDIR is empty.
 #
 install:
-	mkdir -p ${DESTDIR}/${LIBDIR}
-	mkdir -p ${DESTDIR}/${INCLUDEDIR}
-	mkdir -p ${DESTDIR}/${BINDIR}
-	cp libeasel.a ${DESTDIR}/${LIBDIR}/
+	mkdir -p ${DESTDIR}${LIBDIR}
+	mkdir -p ${DESTDIR}${INCLUDEDIR}
+	mkdir -p ${DESTDIR}${BINDIR}
+	cp libeasel.a ${DESTDIR}${LIBDIR}/
 	for file in ${HEADERS}; do\
-	   cp $$file ${DESTDIR}/${INCLUDEDIR}/;\
+	   cp $$file ${DESTDIR}${INCLUDEDIR}/;\
 	done
 	(cd miniapps; make install)
 

@@ -8,7 +8,6 @@ prefix      = @prefix@
 exec_prefix = @exec_prefix@
 datarootdir = @datarootdir@
 bindir      = @bindir@
-destdir     = @destdir@
 
 
 ## your compiler and compiler flags.
@@ -48,7 +47,7 @@ ${PROGS}: @EXEC_DEPENDENCY@  ../libeasel.a
 	${CC} ${CFLAGS} ${DEFS} ${ESLINCDIR} -c $<
 
 install:
-	cp ${PROGS} ${destdir}/${bindir}/
+	cp ${PROGS} ${DESTDIR}${bindir}/
 
 clean:
 	-rm ${PROGS}

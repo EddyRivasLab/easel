@@ -12,11 +12,12 @@
 
 #include "easel.h"
 #include "esl_getopts.h"
-#include "esl_random.h"
-#include "esl_sq.h"
-#include "esl_sqio.h"
 #include "esl_msa.h"
 #include "esl_msashuffle.h"
+#include "esl_random.h"
+#include "esl_randomseq.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
 #include "esl_vectorops.h"
 
 static char banner[] = "shuffling or generating random sequences";
@@ -205,7 +206,7 @@ seq_generation(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   /* generate */
   for (i = 0; i < N; i++)
     {
-      esl_rnd_xIID(r, fq, abc->K, L, sq->dsq);
+      esl_rsq_xIID(r, fq, abc->K, L, sq->dsq);
       if (N > 1) esl_sq_SetName(sq, "random%d", i);
       else       esl_sq_SetName(sq, "random");
       sq->n = L;
@@ -283,19 +284,19 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       for (i = 0; i < N; i++)
 	{
 	  if (L > 0) {		/* fixed-len mode: copy a random subseq */
-	    int pos = esl_rnd_Choose(r, sq->n - L + 1);
+	    int pos = esl_rnd_Roll(r, sq->n - L + 1);
 	    strncpy(targ, sq->seq + pos, L);
 	    targ[L] = '\0';	    
 	  }
 
 	  /* Do the requested kind of shuffling */
-	  if      (esl_opt_GetBoolean(go, "-m"))  esl_rnd_CShuffle  (r, targ, shuff->seq);  /* monoresidue shuffling */
-	  else if (esl_opt_GetBoolean(go, "-d"))  esl_rnd_CShuffleDP(r, targ, shuff->seq);  /* diresidue shuffling */
-	  else if (esl_opt_GetBoolean(go, "-0"))  esl_rnd_CMarkov0  (r, targ, shuff->seq);  /* 0th order Markov */
-	  else if (esl_opt_GetBoolean(go, "-1"))  esl_rnd_CMarkov1  (r, targ, shuff->seq);  /* 1st order Markov */
-	  else if (esl_opt_GetBoolean(go, "-r"))  esl_rnd_CReverse  (   targ, shuff->seq);  /* reverse */
+	  if      (esl_opt_GetBoolean(go, "-m"))  esl_rsq_CShuffle  (r, targ, shuff->seq);  /* monoresidue shuffling */
+	  else if (esl_opt_GetBoolean(go, "-d"))  esl_rsq_CShuffleDP(r, targ, shuff->seq);  /* diresidue shuffling */
+	  else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_CMarkov0  (r, targ, shuff->seq);  /* 0th order Markov */
+	  else if (esl_opt_GetBoolean(go, "-1"))  esl_rsq_CMarkov1  (r, targ, shuff->seq);  /* 1st order Markov */
+	  else if (esl_opt_GetBoolean(go, "-r"))  esl_rsq_CReverse  (   targ, shuff->seq);  /* reverse */
 	  else if (!esl_opt_IsDefault(go, "-w")) { /* regionally shuffle */	
-	    int W= esl_opt_GetInteger(go, "-w"); esl_rnd_CShuffleWindows(r, targ, W, shuff->seq);
+	    int W= esl_opt_GetInteger(go, "-w"); esl_rsq_CShuffleWindows(r, targ, W, shuff->seq);
 	  }
 
 	  /* Set the name of the shuffled sequence */

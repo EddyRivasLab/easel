@@ -149,8 +149,9 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
 
   if (afp->ssi != NULL) 
     esl_fatal("Alignment file %s already has an SSI index. Delete or move it first.\n", afp->fname);
-  if (esl_FileNewSuffix(afp->fname, "ssi", &ssifile) != eslOK)
-    esl_fatal("Failed to name SSI file for %s\n", afp->fname);
+
+  esl_strdup(afp->fname, -1, &ssifile);
+  esl_strcat(&ssifile, -1, ".ssi", 4);
   if ((sfp = fopen(ssifile, "wb")) == NULL)
     esl_fatal("Failed to open SSI file %s\n", ssifile);
   if (esl_newssi_AddFile(ns, afp->fname, afp->format, &fh) != eslOK)
