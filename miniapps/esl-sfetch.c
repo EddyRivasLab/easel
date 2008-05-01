@@ -118,13 +118,13 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "-f"))
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      esl_sqfile_OpenSSI(sqfp, NULL);
+      if (! esl_sqio_IsAlignment(sqfp->format)) esl_sqfile_OpenSSI(sqfp, NULL);
       multifetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
     }
   else 
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      esl_sqfile_OpenSSI(sqfp, NULL);
+      if (! esl_sqio_IsAlignment(sqfp->format)) esl_sqfile_OpenSSI(sqfp, NULL);
       onefetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
       if (ofp != stdout) printf("\n\nRetrieved sequence %s.\n",  esl_opt_GetArg(go, 2));
     }

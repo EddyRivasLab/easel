@@ -996,7 +996,7 @@ esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
 
   va_start(argp, name);
   va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->name, n1, name, argp)) > n1)
+  if ((n2 = vsnprintf(msa->name, n1, name, argp)) >= n1)
     {
       ESL_RALLOC(msa->name, tmp, sizeof(char) * (n2+1));
       vsnprintf(msa->name, n2+1, name, argp2);
@@ -1043,7 +1043,7 @@ esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
 
   va_start(argp, desc);
   va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->desc, n1, desc, argp)) > n1)
+  if ((n2 = vsnprintf(msa->desc, n1, desc, argp)) >= n1)
     {
       ESL_RALLOC(msa->desc, tmp, sizeof(char) * (n2+1));
       vsnprintf(msa->desc, (n2+1), desc, argp2);
@@ -1089,7 +1089,7 @@ esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
 
   va_start(argp, acc);
   va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->acc, n1, acc, argp)) > n1)
+  if ((n2 = vsnprintf(msa->acc, n1, acc, argp)) >= n1)
     {
       ESL_RALLOC(msa->acc, tmp, sizeof(char) * (n2+1));
       vsnprintf(msa->acc, (n2+1), acc, argp2);
@@ -2392,7 +2392,7 @@ parse_comment(ESL_MSA *msa, char *buf)
   char *comment;
 
   s = buf + 1;			               /* skip leading '#' */
-  if (*s == '\n') { *s = '\0'; comment = s; }  /* deal with blank comment */
+  if (*s == '\n' || *s == '\r') { *s = '\0'; comment = s; }  /* deal with blank comment */
   else if (esl_strtok(&s, "\n\r", &comment, NULL)!= eslOK) return eslEFORMAT;
   return (esl_msa_AddComment(msa, comment));
 }
@@ -2548,7 +2548,7 @@ read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	  { sprintf(afp->errbuf, "failed to parse comment line"); goto ERROR; }
       } 
       else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
-      else if (*s == '\n')                   continue;
+      else if (*s == '\n' || *s == '\r')     continue;
       else if ((status = parse_sequence(msa, s)) != eslOK)
 	{ sprintf(afp->errbuf, "failed to parse sequence line"); goto ERROR; }
     }

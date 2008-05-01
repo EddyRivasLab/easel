@@ -1265,7 +1265,7 @@ int
 esl_abc_IAvgScVec(const ESL_ALPHABET *a, int *sc)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp; x++)
     sc[x] = esl_abc_IAvgScore(a, x, sc);
   return eslOK;
 }
@@ -1273,7 +1273,7 @@ int
 esl_abc_FAvgScVec(const ESL_ALPHABET *a, float *sc)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp; x++)
     sc[x] = esl_abc_FAvgScore(a, x, sc);
   return eslOK;
 }
@@ -1281,7 +1281,7 @@ int
 esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc)
 {
   ESL_DSQ x;
-  for (x = a->Kp+1; x <= a->Kp; x++)
+  for (x = a->K+1; x <= a->Kp; x++)
     sc[x] = esl_abc_DAvgScore(a, x, sc);
   return eslOK;
 }

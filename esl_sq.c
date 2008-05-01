@@ -650,7 +650,7 @@ esl_sq_SetName(ESL_SQ *sq, char *name, ...)
 
   va_start(argp, name);
   va_copy(argp2, argp);
-  if ((n = vsnprintf(sq->name, sq->nalloc, name, argp)) > sq->nalloc)
+  if ((n = vsnprintf(sq->name, sq->nalloc, name, argp)) >= sq->nalloc)
     {
       ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
       sq->nalloc = n+1;
@@ -691,7 +691,7 @@ esl_sq_SetAccession(ESL_SQ *sq, char *acc, ...)
 
   va_start(argp, acc);
   va_copy(argp2, argp);
-  if ((n = vsnprintf(sq->acc, sq->aalloc, acc, argp)) > sq->aalloc)
+  if ((n = vsnprintf(sq->acc, sq->aalloc, acc, argp)) >= sq->aalloc)
     {
       ESL_RALLOC(sq->acc, tmp, sizeof(char) * (n+1)); 
       sq->aalloc = n+1;
@@ -733,7 +733,7 @@ esl_sq_SetDesc(ESL_SQ *sq, char *desc, ...)
 
   va_start(argp, desc);
   va_copy(argp2, argp);
-  if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) > sq->dalloc)
+  if ((n = vsnprintf(sq->desc, sq->dalloc, desc, argp)) >= sq->dalloc)
     {
       ESL_RALLOC(sq->desc, tmp, sizeof(char) * (n+1)); 
       sq->dalloc = n+1;
