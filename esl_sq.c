@@ -864,16 +864,20 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   if (! msa->flags & eslMSA_DIGITAL) /* text mode to text mode */
     {
       strcpy(sq->seq, msa->aseq[which]);
-      if (ss != NULL) strcpy(sq->ss, msa->ss[which]);
-      esl_strdealign(sq->ss,  sq->seq, gapchars, NULL);
+      if (ss != NULL) { 
+	strcpy(sq->ss, msa->ss[which]);
+	esl_strdealign(sq->ss,  sq->seq, gapchars, NULL);
+      }
       esl_strdealign(sq->seq, sq->seq, gapchars, &(sq->n));      
     }
 #ifdef eslAUGMENT_ALPHABET
   else
     {
       esl_abc_dsqcpy(msa->ax[which], msa->alen, sq->dsq);
-      if (ss != NULL) { strcpy(sq->ss+1, ss); sq->ss[0] = '\0'; }
-      esl_abc_CDealign(sq->abc, sq->ss+1, sq->dsq, NULL);
+      if (ss != NULL) { 
+	strcpy(sq->ss+1, ss); sq->ss[0] = '\0'; 
+	esl_abc_CDealign(sq->abc, sq->ss+1, sq->dsq, NULL);
+      }
       esl_abc_XDealign(sq->abc, sq->dsq,  sq->dsq, &(sq->n));      
     }
 #endif /*eslAUGMENT_ALPHABET*/
