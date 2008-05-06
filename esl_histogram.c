@@ -725,7 +725,7 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
       bi = esl_histogram_Bin2UBound(h, i);
       h->expect[i] = h->Nc * ( (*cdf)(bi, params) - (*cdf)(ai, params) );
 
-      if (h->emin != -1 && h->expect[i] > 0.) h->emin = i;
+      if (h->emin == -1 && h->expect[i] > 0.) h->emin = i;
     }
 
   h->is_done = TRUE;
