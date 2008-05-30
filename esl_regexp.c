@@ -94,20 +94,6 @@ esl_regexp_Create(void)
   return NULL;
 }
 
-/* Function:  esl_regexp_Inflate()
- * Incept:    SRE, Fri Jan  7 11:15:04 2005 [St. Louis]
- *
- * Purpose:   Initializes a <machine> whose shell has already
- *            been allocated (usually on the stack).
- *
- * Returns:   void.
- */
-void
-esl_regexp_Inflate(ESL_REGEXP *machine)
-{
-  machine->ndfa = NULL; 
-  return;
-}
 
 /* Function:  esl_regexp_Destroy()
  * Incept:    SRE, Fri Jan  7 11:12:20 2005 [St. Louis]
@@ -125,19 +111,7 @@ esl_regexp_Destroy(ESL_REGEXP *machine)
   return;
 }
 
-/* Function:  esl_regexp_Deflate()
- * Incept:    SRE, Fri Jan  7 11:20:36 2005 [St. Louis]
- *
- * Purpose:   Deallocate inside a <machine>, leaving only the shell.
- *
- * Returns:   void.
- */
-void
-esl_regexp_Deflate(ESL_REGEXP *machine)
-{
-  if (machine->ndfa != NULL) free(machine->ndfa); 
-  return;
-}
+
 
 
 /* Function:  esl_regexp_Match()
@@ -156,7 +130,7 @@ esl_regexp_Deflate(ESL_REGEXP *machine)
  *            been generated to indicate that the <pattern> is an invalid syntax.)
  */
 int
-esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s)
+esl_regexp_Match(ESL_REGEXP *machine, const char *pattern, const char *s)
 {
   if (machine->ndfa != NULL) { free(machine->ndfa); machine->ndfa = NULL; }
   if ((machine->ndfa = regcomp(pattern)) == NULL) return eslEINVAL;
@@ -177,7 +151,7 @@ esl_regexp_Match(ESL_REGEXP *machine, char *pattern, char *s)
  * Throws:    <eslEINVAL> if compilation fails.
  */
 int
-esl_regexp_Compile(ESL_REGEXP *machine, char *pattern)
+esl_regexp_Compile(ESL_REGEXP *machine, const char *pattern)
 {
   if (machine->ndfa != NULL) { free(machine->ndfa); machine->ndfa = NULL; }
   if ((machine->ndfa = regcomp(pattern)) == NULL) return eslEINVAL;
@@ -1820,7 +1794,6 @@ int
 main(void)
 {
   ESL_REGEXP *m; 
-  ESL_REGEXP  ms;  
   char       *pattern;
   char       *string;
   char       *s;
@@ -1855,23 +1828,18 @@ main(void)
   if (strcmp(s, "oobaz") != 0) abort();
   free(s);
 
-  esl_regexp_Destroy(m);
-
   /* test multiple matching:
    * this pattern hits five times in the sequence, w/
-   * variatilons on foo.
-   *    
-   * also, test the alloc-on-stack Inflate/Deflate variants.
+   * variations on foo.
    */
-  esl_regexp_Inflate(&ms);
   pattern = "bar|foo*|baz";
-  esl_regexp_Compile(&ms, pattern);
+  esl_regexp_Compile(m, pattern);
   s = string;
   n = 0;
-  while ((status = esl_regexp_MultipleMatches(&ms, &s)) == eslOK)
+  while ((status = esl_regexp_MultipleMatches(m, &s)) == eslOK)
     {
       n++;
-      esl_regexp_SubmatchCopy(&ms, 0, buf, 64);
+      esl_regexp_SubmatchCopy(m, 0, buf, 64);
       if ((n == 1 && strcmp(buf, "foo")   != 0) ||
 	  (n == 2 && strcmp(buf, "bar")   != 0) ||
 	  (n == 3 && strcmp(buf, "foooo") != 0) ||
@@ -1880,8 +1848,7 @@ main(void)
 	abort();
     }
   if (n != 5) abort();
-  esl_regexp_Deflate(&ms);
-
+  esl_regexp_Destroy(m);
   exit(0);
 }
 #endif /* test driver */

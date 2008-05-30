@@ -25,6 +25,7 @@ static ESL_OPTIONS options[] = {
   /* name         type           default   env range togs  reqs  incomp      help                                      docgroup */
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "help; show brief info on version and usage",          1 },
   { "-a",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "report per-sequence info line, not just a summary",   1 },
+  { "-c",         eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "count and report residue composition",                1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL, NULL,      NULL, "specify that input file is in format <s>",            1 },
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains RNA sequence",        1 },
   { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains DNA sequence",        1 },
@@ -66,28 +67,27 @@ main(int argc, char **argv)
   int             alphatype = eslUNKNOWN;
   ESL_ALPHABET   *abc       = NULL;
   ESL_SQ         *sq        = NULL;
-  long long       nseq      = 0;   
-  long long       nres      = 0;
-  long long       small     = 0;
-  long long       large     = 0;
+  int64_t         nseq      = 0;   
+  int64_t         nres      = 0;
+  int64_t         small     = 0;
+  int64_t         large     = 0;
   double         *monoc     = NULL; /* monoresidue composition per sequence  */
   double         *monoc_all = NULL; /* monoresidue composition over all seqs */
+  int             do_comp   = FALSE;
   int             status    = eslOK;
+  int             wstatus;
   int             i;
   int             x;
 
   /* Parse command line */
   go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) 
-    cmdline_failure(argv[0], "Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK)
-    cmdline_failure(argv[0], "Error in app configuration: %s\n",   go->errbuf);
-  if (esl_opt_GetBoolean(go, "-h") )
-    cmdline_help(argv[0], go);
-  if (esl_opt_ArgNumber(go) != 1) 
-    cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) cmdline_failure(argv[0], "Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) cmdline_failure(argv[0], "Error in app configuration: %s\n",   go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help(argv[0], go);
+  if (esl_opt_ArgNumber(go) != 1)                      cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");
 
   seqfile = esl_opt_GetArg(go, 1);
+  do_comp = esl_opt_GetBoolean(go, "-c");
 
   if (esl_opt_GetString(go, "--informat") != NULL) {
     infmt = esl_sqio_FormatCode(esl_opt_GetString(go, "--informat"));
@@ -113,46 +113,62 @@ main(int argc, char **argv)
   }
   abc = esl_alphabet_Create(alphatype);
   sq  = esl_sq_CreateDigital(abc);
+  esl_sqfile_SetDigital(sqfp, abc);
 
-  ESL_ALLOC(monoc,     (abc->Kp) * sizeof(double));  
-  ESL_ALLOC(monoc_all, (abc->Kp) * sizeof(double));  
-  esl_vec_DSet(monoc_all, abc->Kp, 0.0);
+  if (do_comp) {
+    ESL_ALLOC(monoc,     (abc->Kp) * sizeof(double));  
+    ESL_ALLOC(monoc_all, (abc->Kp) * sizeof(double));  
+    esl_vec_DSet(monoc_all, abc->Kp, 0.0);
+    esl_vec_DSet(monoc,     abc->Kp, 0.0);
+  }
 
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((wstatus = esl_sqio_ReadWindow(sqfp, 0, 4096, sq)) != eslEOF)
     {
-      esl_vec_DSet(monoc, abc->Kp, 0.0);
-      for (i = 1; i <= sq->n; i++) 
-	monoc[sq->dsq[i]]++;
-      esl_vec_DAdd(monoc_all, monoc, abc->Kp);
+      if (wstatus == eslOK)
+	{
+	  if (do_comp) 
+	    for (i = 1; i <= sq->n; i++) 
+	      monoc[sq->dsq[i]]++;
+	}
+      else if (wstatus == eslEOD) 
+	{			
+	  if (nseq == 0) { small = large = sq->L; }
+	  else {
+	    small = ESL_MIN(small, sq->L);
+	    large = ESL_MAX(large, sq->L);
+	  }
 
-      if (nseq == 0) { small = large = sq->n; }
-      else {
-	small = ESL_MIN(small, sq->n);
-	large = ESL_MAX(large, sq->n);
-      }
+	  if (esl_opt_GetBoolean(go, "-a")) {
+	    printf("= %-20s %8" PRId64 " %s\n", sq->name, sq->L, (sq->desc != NULL) ? sq->desc : "");
+	  }
 
-      if (esl_opt_GetBoolean(go, "-a")) {
-	printf("= %-20s %8d %s\n", sq->name, sq->n, (sq->desc != NULL) ? sq->desc : "");
-      }
-
-      nres += sq->n;
-      nseq++;
-      esl_sq_Reuse(sq);
+	  nres += sq->L;
+	  nseq++;
+	  esl_sq_Reuse(sq);
+	  if (do_comp) {
+	    esl_vec_DAdd(monoc_all, monoc, abc->Kp);
+	    esl_vec_DSet(monoc, abc->Kp, 0.0);
+	  }
+	}
+      else esl_fatal("Failed in reading sequence:\n%s\n", sqfp->errbuf);
     }
 
   printf("Format:              %s\n",   esl_sqio_DescribeFormat(sqfp->format));
   printf("Alphabet type:       %s\n",   esl_abc_DescribeType(abc->type));
-  printf("Number of sequences: %lld\n", nseq);
-  printf("Total # residues:    %lld\n", nres);
-  printf("Smallest:            %lld\n", small);
-  printf("Largest:             %lld\n", large);
+  printf("Number of sequences: %" PRId64 "\n", nseq);
+  printf("Total # residues:    %" PRId64 "\n", nres);
+  printf("Smallest:            %" PRId64 "\n", small);
+  printf("Largest:             %" PRId64 "\n", large);
   printf("Average length:      %.1f\n", (float) nres / (float) nseq);
 
-
-  printf("\nResidue composition:\n");
-  for (x = 0; x < abc->Kp; x++)
-    if (x < abc->K || monoc_all[x] > 0)
-      printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
+  if (do_comp) {
+    printf("\nResidue composition:\n");
+    for (x = 0; x < abc->Kp; x++)
+      if (x < abc->K || monoc_all[x] > 0)
+	printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
+    free(monoc);
+    free(monoc_all);
+  }
 
   esl_alphabet_Destroy(abc);
   esl_sq_Destroy(sq);

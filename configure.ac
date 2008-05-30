@@ -296,18 +296,17 @@ fi
 #    - Make sure we have off_t.
 #
 AC_C_BIGENDIAN
+AC_TYPE_INT8_T
+AC_TYPE_INT16_T
+AC_TYPE_INT32_T
+AC_TYPE_INT64_T
 AC_TYPE_UINT8_T
 AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_OFF_T
 
-
 # 8. Checks for structures - none
-
-
-
-
 
 ################################################################
 # 10. Checks for library functions: define HAVE_FOO

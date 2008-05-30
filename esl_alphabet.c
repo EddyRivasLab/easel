@@ -158,7 +158,7 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   a->ndegen[Kp-2]  = K;
   for (x = 0; x < a->K; x++) a->degen[Kp-2][x] = 1;
 
-
+  a->complement = NULL;
   return a;
 
  ERROR:
@@ -166,6 +166,38 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   return NULL;
 }
 
+
+/* define_complementarity()
+ * Builds the "complement" lookup table for DNA, RNA alphabets.
+ */
+static int
+define_complementarity(ESL_ALPHABET *a)
+{
+  int  status;
+  
+  ESL_ALLOC(a->complement, sizeof(ESL_DSQ) * a->Kp);
+  a->complement[0] = 3;	   /* A->T */
+  a->complement[1] = 2;    /* C->G */
+  a->complement[2] = 1;    /* G->C */
+  a->complement[3] = 0;    /* T->A */
+  a->complement[4] = 4;    /* -  - */
+  a->complement[5] = 6;	   /* R->Y */
+  a->complement[6] = 5;    /* Y->R */
+  a->complement[7] = 8;    /* M->K */
+  a->complement[8] = 7;    /* K->M */
+  a->complement[9] = 9;    /* S  S */
+  a->complement[10]= 10;   /* W  W */
+  a->complement[11]= 14;   /* H->D */
+  a->complement[12]= 13;   /* B->V */
+  a->complement[13]= 12;   /* V->B */
+  a->complement[14]= 11;   /* D->H */
+  a->complement[15]= 15;   /* N  N */
+  a->complement[16]= 16;   /* ~  ~ */
+  return eslOK;
+
+ ERROR:
+  return status;
+}
 
 
 
@@ -203,6 +235,7 @@ create_dna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGT");  
 
+  if (define_complementarity(a) != eslOK) return NULL;
   return a;
 }
 
@@ -240,6 +273,8 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'B', "CGU");
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
+
+  if (define_complementarity(a) != eslOK) return NULL;
   return a;
 }
 
@@ -457,6 +492,7 @@ esl_alphabet_Destroy(ESL_ALPHABET *a)
       if (a->degen[0] != NULL) free(a->degen[0]);
       free(a->degen);
     }
+  if (a->complement != NULL) free(a->complement);
   free(a);
 }
 /*--------------- end, ESL_ALPHABET object ----------------------*/
@@ -511,7 +547,7 @@ esl_abc_CreateDsq(const ESL_ALPHABET *a, const char *seq, ESL_DSQ **ret_dsq)
 {
   ESL_DSQ *dsq = NULL;
   int      status;
-  int      L;
+  int64_t  L;
 
   L = strlen(seq);
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
@@ -553,8 +589,8 @@ int
 esl_abc_Digitize(const ESL_ALPHABET *a, const char *seq, ESL_DSQ *dsq)
 {
   int     status;
-  int     i;			/* position in seq */
-  int     j;			/* position in dsq */
+  int64_t i;			/* position in seq */
+  int64_t j;			/* position in dsq */
   ESL_DSQ x;
 
   status = eslOK;
@@ -597,9 +633,9 @@ esl_abc_Digitize(const ESL_ALPHABET *a, const char *seq, ESL_DSQ *dsq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_Textize(const ESL_ALPHABET *a, const ESL_DSQ *dsq, int L, char *seq)
+esl_abc_Textize(const ESL_ALPHABET *a, const ESL_DSQ *dsq, int64_t L, char *seq)
 {
-  int i;
+  int64_t i;
   
   for (i = 0; i < L; i++)
     seq[i] = a->sym[dsq[i+1]];
@@ -641,9 +677,9 @@ esl_abc_Textize(const ESL_ALPHABET *a, const ESL_DSQ *dsq, int L, char *seq)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_TextizeN(const ESL_ALPHABET *a, const ESL_DSQ *dptr, int L, char *buf)
+esl_abc_TextizeN(const ESL_ALPHABET *a, const ESL_DSQ *dptr, int64_t L, char *buf)
 {
-  int i;
+  int64_t i;
 
   for (i = 0; i < L; i++)
     {
@@ -669,7 +705,7 @@ esl_abc_TextizeN(const ESL_ALPHABET *a, const ESL_DSQ *dptr, int L, char *buf)
  * Returns:   <eslOK> on success.
  */
 int
-esl_abc_dsqcpy(const ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
+esl_abc_dsqcpy(const ESL_DSQ *dsq, int64_t L, ESL_DSQ *dcopy)
 {
   memcpy(dcopy, dsq, sizeof(ESL_DSQ) * (L+2));
   return eslOK;
@@ -701,7 +737,7 @@ esl_abc_dsqcpy(const ESL_DSQ *dsq, int L, ESL_DSQ *dcopy)
  * Xref:      STL11/48
  */
 int 
-esl_abc_dsqdup(const ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
+esl_abc_dsqdup(const ESL_DSQ *dsq, int64_t L, ESL_DSQ **ret_dup)
 {
   int      status;
   ESL_DSQ *new = NULL;
@@ -789,12 +825,12 @@ esl_abc_dsqdup(const ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup)
  * Xref:      STL11/48.
  */
 int
-esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, const char *s, int n)
+esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int64_t *L, const char *s, int64_t n)
 {
   int     status;
   void   *p;
-  int     newL;
-  int     xpos, cpos;
+  int64_t newL;
+  int64_t xpos, cpos;
   ESL_DSQ x;
 
   if (*L < 0) newL = ((*dsq == NULL) ? 0 : esl_abc_dsqlen(*dsq));
@@ -849,10 +885,10 @@ esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, const char *s, int 
  *            properly terminated by a sentinel byte
  *            (<eslDSQ_SENTINEL>).  
  */
-int 
+int64_t 
 esl_abc_dsqlen(const ESL_DSQ *dsq)
 {
-  int n = 0;
+  int64_t n = 0;
   while (dsq[n+1] != eslDSQ_SENTINEL) n++;
   return n;
 }
@@ -865,11 +901,11 @@ esl_abc_dsqlen(const ESL_DSQ *dsq)
  *            <dsq>, in residues, not counting any gaps or
  *            missing data symbols. 
  */
-int
+int64_t
 esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
 {
-  int n = 0;
-  int i;
+  int64_t n = 0;
+  int64_t i;
 
   for (i = 1; dsq[i] != eslDSQ_SENTINEL; i++)
     if (esl_abc_XIsResidue(abc, dsq[i])) n++;
@@ -903,10 +939,10 @@ esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int *opt_rlen)
+esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int64_t *opt_rlen)
 {
-  int apos;
-  int n = 0;
+  int64_t apos;
+  int64_t n = 0;
 
   if (s == NULL) return eslOK;
   
@@ -934,10 +970,10 @@ esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int *o
  * Throws:    (no abnormal error conditions)
  */
 int
-esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int *opt_rlen)
+esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int64_t *opt_rlen)
 {
-  int apos;
-  int n = 0;
+  int64_t apos;
+  int64_t n = 0;
 
   if (x == NULL) return eslOK;
   
@@ -984,15 +1020,15 @@ esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int
  *            <eslUNKNOWN>.
  */
 int
-esl_abc_GuessAlphabet(const int *ct, int *ret_type)
+esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
 {
-  int  type = eslUNKNOWN;
-  char aaonly[]    = "EFIJLOPQZ";
-  char allcanon[]  = "ACG";
-  char aacanon[]   = "DHKMRSVWY";
-  int  n1, n2, n3, nn, nt, nu, nx, n; /* n's are counts */
-  int  x1, x2, x3, xn, xt, xu;	      /* x's are how many different residues are represented */
-  int  i, x;
+  int      type = eslUNKNOWN;
+  char     aaonly[]    = "EFIJLOPQZ";
+  char     allcanon[]  = "ACG";
+  char     aacanon[]   = "DHKMRSVWY";
+  int64_t  n1, n2, n3, nn, nt, nu, nx, n; /* n's are counts */
+  int      x1, x2, x3, xn, xt, xu;	      /* x's are how many different residues are represented */
+  int      i, x;
 
   x1 = x2 = x3 = xn = xt = xu = 0;
   n1 = n2 = n3 = n = 0;
@@ -1433,12 +1469,12 @@ esl_abc_DescribeType(int type)
  * Throws:    (no abnormal error conditions).
  */
 int
-esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int L, char *errbuf)
+esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf)
 {
-  int status;
-  int i;
-  int firstpos = -1;
-  int nbad     = 0;
+  int     status;
+  int64_t i;
+  int64_t firstpos = -1;
+  int64_t nbad     = 0;
 
   if (errbuf) *errbuf = 0;
   for (i = 0; i < L; i++) {
@@ -1447,7 +1483,7 @@ esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int L, char *errbuf)
       nbad++;
     }
   }
-  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%d bad chars (including bad %c at pos %d)", 
+  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%" PRId64 " bad chars (including bad %c at pos %" PRId64 " )", 
 			  nbad, seq[firstpos], firstpos);
   return eslOK;
 
@@ -1468,10 +1504,10 @@ static int
 utest_Create(void) 
 {
   char msg[]  = "esl_alphabet_Create() unit test failed";
-  int types[] = { eslDNA, eslRNA, eslAMINO };
-  int Karr[]  = {      4,      4,       20 };
-  int Kparr[] = {     17,     17,       28 };
-  int           i;
+  int  types[] = { eslDNA, eslRNA, eslAMINO };
+  int  Karr[]  = {      4,      4,       20 };
+  int  Kparr[] = {     17,     17,       28 };
+  int  i;
   ESL_ALPHABET *a;
   ESL_DSQ       x;
 
@@ -1810,7 +1846,7 @@ utest_dsqcat(void)
   char          addseq[]  = "RYMK";
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, 5, 6, 7, 8, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
-  int           L1, L2;
+  int64_t       L1, L2;
 
   L1 = strlen(goodseq);
   L2 = strlen(addseq);

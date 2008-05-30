@@ -299,7 +299,7 @@ utest_SingleLinkage(ESL_GETOPTS *go, const ESL_MSA *msa, double maxid, int expec
  * 5. Test driver
  *****************************************************************/
 #ifdef eslMSACLUSTER_TESTDRIVE
-/* gcc -g -Wall -o test -I. -L. -DeslMSACLUSTER_TESTDRIVE esl_msacluster.c -leasel -lm
+/* gcc -g -Wall -o msacluster_utest -I. -L. -DeslMSACLUSTER_TESTDRIVE esl_msacluster.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -357,7 +357,7 @@ seq11 MMMMMMMMMM\n\
   esl_getopts_Destroy(go);
   return 0;
 }
-#endif /* eslSSE_TESTDRIVE*/
+#endif /* eslMSACLUSTER_TESTDRIVE*/
 
 
 

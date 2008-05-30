@@ -39,11 +39,11 @@ main(int argc, char **argv)
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
   int           i;		/* counter over seqs               */
-  int           rlen;		/* a raw (unaligned) seq length    */
-  int           small, large;	/* smallest, largest sequence      */
-  uint64_t      nres;		/* total # of residues in msa      */
+  int64_t       rlen;		/* a raw (unaligned) seq length    */
+  int64_t       small, large;	/* smallest, largest sequence      */
+  int64_t       nres;		/* total # of residues in msa      */
   double        avgid;		/* average fractional pair id      */
-  int    max_comparisons;       /* maximum # comparisons for avg id */
+  int           max_comparisons;/* maximum # comparisons for avg id */
   
   /***********************************************
    * Parse command line
@@ -133,13 +133,13 @@ main(int argc, char **argv)
       
       if (esl_opt_GetBoolean(go, "-1")) 
 	{
-	  printf("%-6d %-20s %10s %7d %7d %12llu %6d %6d %10.1f %3.0f\n",
+	  printf("%-6d %-20s %10s %7d %7" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %10.1f %3.0f\n",
 		 nali, 
 		 msa->name,
 		 esl_msa_DescribeFormat(afp->format),
 		 msa->nseq,
 		 msa->alen,
-		 (unsigned long long) nres,
+		 nres,
 		 small,
 		 large,
 		 (double) nres / (double) msa->nseq,
@@ -149,15 +149,15 @@ main(int argc, char **argv)
 	{
 	  printf("Alignment number:    %d\n",     nali);
 	  if (msa->name != NULL)
-	    printf("Alignment name:      %s\n",   msa->name); 
-	  printf("Format:              %s\n",     esl_msa_DescribeFormat(afp->format));
-	  printf("Number of sequences: %d\n",     msa->nseq);
-	  printf("Alignment length:    %d\n",     msa->alen);
-	  printf("Total # residues:    %llu\n",   (unsigned long long) nres);
-	  printf("Smallest:            %d\n",     small);
-	  printf("Largest:             %d\n",     large);
-	  printf("Average length:      %.1f\n",   (double) nres / (double) msa->nseq);
-	  printf("Average identity:    %.0f%%\n", 100.*avgid); 
+	    printf("Alignment name:      %s\n",        msa->name); 
+	  printf("Format:              %s\n",          esl_msa_DescribeFormat(afp->format));
+	  printf("Number of sequences: %d\n",          msa->nseq);
+	  printf("Alignment length:    %" PRId64 "\n", msa->alen);
+	  printf("Total # residues:    %" PRId64 "\n", nres);
+	  printf("Smallest:            %" PRId64 "\n", small);
+	  printf("Largest:             %" PRId64 "\n", large);
+	  printf("Average length:      %.1f\n",        (double) nres / (double) msa->nseq);
+	  printf("Average identity:    %.0f%%\n",      100.*avgid); 
 	  printf("//\n");
 	}
 

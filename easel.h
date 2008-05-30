@@ -16,13 +16,18 @@
 #include <stdarg.h>		/* for va_list */
 #ifdef HAVE_STDINT_H
 #include <stdint.h>		/* for uint32_t and the like (C99) */
-#elif  HAVE_INTTYPES_H
+#endif
+#ifdef HAVE_INTTYPES_H
 #include <inttypes.h>		/* some systems allegedly put uints here */
 #endif
 
 /*****************************************************************
  * Macros implementing Easel's error handling conventions
  *****************************************************************/
+/* Many objects contain a fixed length "errbuf" for failure
+ * diagnostics: ESL_FAIL() and ESL_XFAIL() fill this buffer.
+ */
+#define eslERRBUFSIZE 128
 
 /* ESL_FAIL()       - return an error message, without cleanup.
  * ESL_XFAIL()      - return an error message, with cleanup.
@@ -39,13 +44,13 @@
  */
 /*::cexcerpt::error_macros::begin::*/
 #define ESL_FAIL(code, errbuf, ...) do {\
-     if (errbuf != NULL) sprintf(errbuf, __VA_ARGS__);\
+     if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);\
      return code; }\
      while (0)
 
 #define ESL_XFAIL(code, errbuf, ...) do {\
      status = code;\
-     if (errbuf != NULL) sprintf(errbuf, __VA_ARGS__);\
+     if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);\
      goto ERROR; }\
      while (0)
 
@@ -90,10 +95,7 @@
 /*::cexcerpt::statuscodes::end::*/
 
 
-/* Many objects contain a fixed length "errbuf" for failure
- * diagnostics: ESL_FAIL() and ESL_XFAIL() fill this buffer.
- */
-#define eslERRBUFSIZE 128
+
 
 
 
@@ -214,6 +216,7 @@
 /*****************************************************************
  * Basic support for Easel's digitized biosequences.
  *****************************************************************/
+
 /* Most of this support is in the alphabet module, but we externalize 
  * some into the easel foundation because ESL_INMAP is used in unaugmented
  * sqio, msa modules.
@@ -234,6 +237,8 @@ typedef uint8_t ESL_DSQ;
 #define eslDSQ_SENTINEL 255	/* sentinel bytes 0,L+1 in a dsq */
 #define eslDSQ_ILLEGAL  254	/* input symbol is unmapped and unexpected */
 #define eslDSQ_IGNORED  253     /* input symbol is unmapped and ignored */
+#define eslDSQ_EOL      252	/* input symbol marks end of a line */
+#define eslDSQ_EOD      251     /* input symbol marks end of a seq record */
 
 /* If you try to test sym > 0 && sym <= 127 below, instead of isascii(sym),
  * you'll get a compiler warning for an always-successful test regardless
@@ -292,12 +297,12 @@ extern void esl_banner(FILE *fp, char *progname, char *banner);
 extern void esl_usage (FILE *fp, char *progname, char *usage);
 
 /* 4. Replacements, additions to C library functions */
-extern int  esl_strdup(const char *s, int n, char **ret_dup);
-extern int  esl_strcat(char **dest, int ldest, const char *src, int lsrc);
+extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
+extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
-extern int  esl_strchop(char *s, int n);
-extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int *opt_rlen);
+extern int  esl_strchop(char *s, int64_t n);
+extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
 #ifndef HAVE_STRCASECMP
 #ifdef _MSC_VER
 #define strcasecmp stricmp

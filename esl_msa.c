@@ -80,7 +80,7 @@
  * Throws:    <NULL> on allocation failure.          
  */
 ESL_MSA *
-create_mostly(int nseq, int alen)
+create_mostly(int nseq, int64_t alen)
 {
   int      status;
   ESL_MSA *msa     = NULL;
@@ -159,7 +159,7 @@ create_mostly(int nseq, int alen)
    */
   ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
   ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
-  ESL_ALLOC(msa->sqlen,  sizeof(int)    * nseq);
+  ESL_ALLOC(msa->sqlen,  sizeof(int64_t)* nseq);
 
   /* Initialize at the second level.
    */
@@ -408,98 +408,50 @@ verify_parse(ESL_MSA *msa, char *errbuf)
    */
   for (idx = 0; idx < msa->nseq; idx++)
     {
-
 #ifdef eslAUGMENT_ALPHABET
-      if ((msa->flags & eslMSA_DIGITAL) &&
-	  (msa->ax  == NULL || msa->ax[idx] == NULL))
-	{
-	  sprintf(errbuf,
-		  "MSA %.128s parse error: no sequence for %.128s",
-		  msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
-	  return eslEFORMAT;
-	}
+      if ((msa->flags & eslMSA_DIGITAL) &&  (msa->ax  == NULL || msa->ax[idx] == NULL))
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: no sequence for %s",
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
 #endif
-      if (! (msa->flags & eslMSA_DIGITAL) &&
-	  (msa->aseq == NULL || msa->aseq[idx] == NULL))
-	{
-	  sprintf(errbuf,
-		  "MSA %.128s parse error: no sequence for %.128s",
-		  msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
-	  return eslEFORMAT;
-	}
+      if (! (msa->flags & eslMSA_DIGITAL) && (msa->aseq == NULL || msa->aseq[idx] == NULL))
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: no sequence for %s",
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx]); 
 
       /* either all weights must be set, or none of them */
       if ((msa->flags & eslMSA_HASWGTS) && msa->wgt[idx] == -1.0)
-	{
-	  sprintf(errbuf,
-		  "MSA %.128s parse error: expected a weight for seq %.128s", 
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: expected a weight for seq %s", 
 		  msa->name != NULL ? msa->name : "", msa->sqname[idx]);
-	  return eslEFORMAT;
-	}
 
       /* all aseq must be same length. */
       if (msa->sqlen[idx] != msa->alen)
-	{
-	  sprintf(errbuf,
-	  "MSA %.128s parse error: sequence %.128s: length %d, expected %d",
-		  msa->name != NULL ? msa->name : "",
-		  msa->sqname[idx], msa->sqlen[idx], msa->alen);
-	  return eslEFORMAT;
-	}
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: sequence %s: length %" PRId64 ", expected %" PRId64,
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx], msa->sqlen[idx], msa->alen);
 
       /* if individual SS is present, it must have length right too */
-      if (msa->ss != NULL &&
-	  msa->ss[idx] != NULL && 
-	  msa->sslen[idx] != msa->alen) 
-	{
-	  sprintf(errbuf,
-	  "MSA %.128s parse error: GR SS for %.128s: length %d, expected %d",
-		  msa->name != NULL ? msa->name : "",
-		  msa->sqname[idx], msa->sslen[idx], msa->alen);
-	  return eslEFORMAT;
-	}
+      if (msa->ss != NULL &&  msa->ss[idx] != NULL &&  msa->sslen[idx] != msa->alen) 
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GR SS for %s: length %" PRId64 ", expected %" PRId64,
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx], msa->sslen[idx], msa->alen);
+
 				/* if SA is present, must have length right */
-      if (msa->sa != NULL && 
-	  msa->sa[idx] != NULL && 
-	  msa->salen[idx] != msa->alen) 
-	{
-	  sprintf(errbuf,
-	  "MSA %.128s parse error: GR SA for %.128s: length %d, expected %d",
-		  msa->name != NULL ? msa->name : "",
-		  msa->sqname[idx], msa->salen[idx], msa->alen);
-	  return eslEFORMAT;
-	}
+      if (msa->sa != NULL && msa->sa[idx] != NULL && msa->salen[idx] != msa->alen) 
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GR SA for %s: length %" PRId64 ", expected %" PRId64,
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx], msa->salen[idx], msa->alen);
     }
 
   /* if cons SS is present, must have length right */
   if (msa->ss_cons != NULL && strlen(msa->ss_cons) != msa->alen) 
-    {
-      sprintf(errbuf,
-	      "MSA %.128s parse error: GC SS_cons markup: len %d, expected %d",
-	      msa->name != NULL ? msa->name : "",
-	      (int) strlen(msa->ss_cons), msa->alen);
-      return eslEFORMAT;
-    }
+    ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GC SS_cons markup: len %zd, expected %" PRId64,
+	     msa->name != NULL ? msa->name : "",  strlen(msa->ss_cons), msa->alen);
 
   /* if cons SA is present, must have length right */
   if (msa->sa_cons != NULL && strlen(msa->sa_cons) != msa->alen) 
-    {
-      sprintf(errbuf,
-	      "MSA %.128s parse error: GC SA_cons markup: len %d, expected %d",
-	      msa->name != NULL ? msa->name : "",
-	      (int) strlen(msa->sa_cons), msa->alen);
-      return eslEFORMAT;
-    }
+    ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GC SA_cons markup: len %zd, expected %" PRId64,
+	     msa->name != NULL ? msa->name : "",  strlen(msa->sa_cons), msa->alen);
 
   /* if RF is present, must have length right */
   if (msa->rf != NULL && strlen(msa->rf) != msa->alen) 
-    {
-      sprintf(errbuf,
-	      "MSA %.128s parse error: GC RF markup: len %d, expected %d",
-	      msa->name != NULL ? msa->name : "",
-	      (int) strlen(msa->rf), msa->alen);
-      return eslEFORMAT;
-    }
+    ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GC RF markup: len %zd, expected %" PRId64,
+	     msa->name != NULL ? msa->name : "", strlen(msa->rf), msa->alen);
 
   /* If no weights were set, set 'em all to 1.0 */
   if (!(msa->flags & eslMSA_HASWGTS))
@@ -558,7 +510,7 @@ verify_parse(ESL_MSA *msa, char *errbuf)
  * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
-esl_msa_Create(int nseq, int alen)
+esl_msa_Create(int nseq, int64_t alen)
 {
   int      status;
   ESL_MSA *msa;
@@ -609,7 +561,7 @@ int
 esl_msa_Expand(ESL_MSA *msa)
 {
   int   status;
-  int   old, new;		/* old & new allocation sizes */
+  int   old, new;		/* old & new allocation sizes (max # seqs) */
   void *p;			/* tmp ptr to realloc'ed memory */
   int   i,j;
 
@@ -629,18 +581,18 @@ esl_msa_Expand(ESL_MSA *msa)
 
   ESL_RALLOC(msa->sqname, p, sizeof(char *) * new);
   ESL_RALLOC(msa->wgt,    p, sizeof(double) * new);
-  ESL_RALLOC(msa->sqlen,  p, sizeof(int)    * new);
+  ESL_RALLOC(msa->sqlen,  p, sizeof(int64_t)* new);
 
   if (msa->ss != NULL) 
     {
-      ESL_RALLOC(msa->ss,    p, sizeof(char *) * new);
-      ESL_RALLOC(msa->sslen, p, sizeof(int) * new);
+      ESL_RALLOC(msa->ss,    p, sizeof(char *)  * new);
+      ESL_RALLOC(msa->sslen, p, sizeof(int64_t) * new);
     }
   
   if (msa->sa != NULL) 
     {
-      ESL_RALLOC(msa->sa,    p, sizeof(char *) * new);
-      ESL_RALLOC(msa->salen, p, sizeof(int) * new);
+      ESL_RALLOC(msa->sa,    p, sizeof(char *)  * new);
+      ESL_RALLOC(msa->salen, p, sizeof(int64_t) * new);
     }
 
   if (msa->sqacc != NULL)
@@ -1361,13 +1313,14 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 int
 esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
 {
-  int namino   = 0,
-      ndna     = 0,
-      nrna     = 0,
-      nunknown = 0;
-  int type;
-  int i,j,x,n;
-  int ct[26];
+  int64_t namino   = 0,
+          ndna     = 0,
+          nrna     = 0,
+          nunknown = 0;
+  int     type;
+  int     i,x;
+  int64_t j,n;
+  int64_t ct[26];
 
   if (msa->flags & eslMSA_DIGITAL) { *ret_type = msa->abc->type; return eslOK; }
 
@@ -1453,7 +1406,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
  * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
-esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen)
+esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen)
 {
   int      status;
   ESL_MSA *msa;
@@ -1738,7 +1691,7 @@ esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename,
  *            <abc>.
  *            
  *            <esl_msafile_Open(); esl_msafile_SetDigital()> is
- *            equivalent to <esl_msfile_OpenDigital()>. The two-step
+ *            equivalent to <esl_msafile_OpenDigital()>. The two-step
  *            version is useful if you don't already know the alphabet
  *            type for your msa file, and you need to call
  *            <esl_msafile_GuessAlphabet()> after opening the file but
@@ -1797,7 +1750,7 @@ esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
   int      status;
 
   if (afp->ssi == NULL) ESL_EXCEPTION(eslEINVAL, "Need an open SSI index to call esl_msafile_PositionByKey()");
-  if ((status = esl_ssi_FindName(afp->ssi, key, &fh, &offset)) != eslOK) return status;
+  if ((status = esl_ssi_FindName(afp->ssi, key, &fh, &offset, NULL, NULL)) != eslOK) return status;
   if (fseeko(afp->f, offset, SEEK_SET) != 0)    ESL_EXCEPTION(eslESYS, "fseek failed");
   
   /* If the <afp> had an MSA cached, we will probably have to discard
@@ -1847,10 +1800,11 @@ msafile_getline(ESL_MSAFILE *afp)
  * Return the length of the longest string in 
  * an array of strings.
  */
-static int
+static int64_t
 maxwidth(char **s, int n)
 {
-  int max, i, len;
+  int64_t max,len;
+  int     i; 
   
   max = 0;
   for (i = 0; i < n; i++)
@@ -2348,7 +2302,7 @@ parse_gr(ESL_MSA *msa, char *buf)
       if (msa->ss == NULL)
 	{
 	  ESL_ALLOC(msa->ss,    sizeof(char *) * msa->sqalloc);
-	  ESL_ALLOC(msa->sslen, sizeof(int)    * msa->sqalloc);
+	  ESL_ALLOC(msa->sslen, sizeof(int64_t)* msa->sqalloc);
 	  for (j = 0; j < msa->sqalloc; j++)
 	    {
 	      msa->ss[j]    = NULL;
@@ -2363,7 +2317,7 @@ parse_gr(ESL_MSA *msa, char *buf)
       if (msa->sa == NULL)
 	{
 	  ESL_ALLOC(msa->sa,    sizeof(char *) * msa->sqalloc);
-	  ESL_ALLOC(msa->salen, sizeof(int)    * msa->sqalloc);
+	  ESL_ALLOC(msa->salen, sizeof(int64_t)* msa->sqalloc);
 	  for (j = 0; j < msa->sqalloc; j++) 
 	    {
 	      msa->sa[j]    = NULL;
@@ -2894,10 +2848,10 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 int
 esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 {
-  int opos;			/* position in original alignment */
-  int npos;			/* position in new alignment      */
-  int idx;			/* sequence index */
-  int i;			/* markup index */
+  int64_t opos;			/* position in original alignment */
+  int64_t npos;			/* position in new alignment      */
+  int     idx;			/* sequence index */
+  int     i;			/* markup index */
 
   /* Since we're minimizing, we can overwrite in place, within the msa
    * we've already got. 
@@ -2969,10 +2923,10 @@ esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 int
 esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 {
-  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int apos;		/* column index   */
-  int idx;		/* sequence index */
-  int status;
+  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int64_t apos;		/* column index   */
+  int     idx;		/* sequence index */
+  int     status;
 
   ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
 
@@ -3042,10 +2996,10 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 int
 esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 {
-  int *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
-  int apos;		/* column index */
-  int idx;		/* sequence index */
-  int status;
+  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int64_t apos;		/* column index */
+  int     idx;		/* sequence index */
+  int     status;
 
   ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
 
@@ -3121,10 +3075,10 @@ esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 int
 esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
 {
-  int   apos;			/* column index */
-  int   idx;			/* sequence index */
-  char *sptr;
-  int   special;
+  int64_t apos;			/* column index */
+  int     idx;			/* sequence index */
+  char   *sptr;
+  int     special;
 
   if (msa->flags & eslMSA_DIGITAL)
     ESL_EXCEPTION(eslEINVAL, "can't SymConvert on digital mode alignment");
@@ -4310,12 +4264,12 @@ utest_ZeroLengthMSA(const char *tmpfile)
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
- * gcc -g -Wall -o test -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
- * gcc -g -Wall -o test -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * gcc -g -Wall -o test -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * ./test
+ * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
+ * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
+ * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
+ * gcc -g -Wall -o msa_utest -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * gcc -g -Wall -o msa_utest -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * ./msa_utest
  */
 #include <stdlib.h>
 #include <stdio.h>

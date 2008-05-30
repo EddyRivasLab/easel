@@ -44,7 +44,7 @@ static int nextline(ESL_FILEPARSER *efp);
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_fileparser_Open(char *filename, ESL_FILEPARSER **ret_efp)
+esl_fileparser_Open(const char *filename, ESL_FILEPARSER **ret_efp)
 {
   int             status;
   ESL_FILEPARSER *efp = NULL;
@@ -178,14 +178,14 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
  * Purpose:   Sets a pointer to the next field in the 
  *            file we're parsing.
  *            
- *            The <ret_tok> pointer is into an internal line buffer
+ *            The <opt_tok> pointer is into an internal line buffer
  *            that may be invalidated upon the next call to a
  *            <fileparser> function. If you want to store it, make a
  *            copy.
  *
  * Args:      efp        - open fileparser
- *            ret_tok    - RETURN: ptr to next field
- *            ret_toklen - RETURN: length of tok.       
+ *            opt_tok    - optRETURN: ptr to next field
+ *            opt_toklen - optRETURN: length of tok.       
  *
  * Returns:   <eslOK> if <tok>, <toklen> contain valid data.
  *            <eslEOF> on normal end-of-file.
@@ -195,7 +195,7 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
  * Xref:      STL8 p.56.
  */
 int
-esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
+esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen)
 {
   char *tok    = NULL;
   int   toklen = 0;
@@ -203,13 +203,13 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
   int   fcode;
   int   goodtok;
 
-  if (ret_tok != NULL)    *ret_tok    = NULL;
-  if (ret_toklen != NULL) *ret_toklen = 0;
+  if (opt_tok != NULL)    *opt_tok    = NULL;
+  if (opt_toklen != NULL) *opt_toklen = 0;
 
   /* Do we already have a token from a NextLine() call? */
   if (efp->tok != NULL) {
-    if (ret_tok    != NULL) *ret_tok    = efp->tok;
-    if (ret_toklen != NULL) *ret_toklen = efp->toklen;
+    if (opt_tok    != NULL) *opt_tok    = efp->tok;
+    if (opt_toklen != NULL) *opt_toklen = efp->toklen;
     efp->tok    = NULL;
     efp->toklen = 0;
     return eslOK;
@@ -244,8 +244,8 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
       { sprintf(efp->errbuf, "esl_strtok() failed"); return tokcode;}
   } while (! goodtok);
 
-  if (ret_tok != NULL)    *ret_tok    = tok;
-  if (ret_toklen != NULL) *ret_toklen = toklen;
+  if (opt_tok != NULL)    *opt_tok    = tok;
+  if (opt_toklen != NULL) *opt_toklen = toklen;
   return eslOK;
 }
 
@@ -259,7 +259,7 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
  *            line (whereas <GetToken()> reads through newlines
  *            silently).
  *            
- *            The <ret_tok> pointer is into an internal line buffer
+ *            The <opt_tok> pointer is into an internal line buffer
  *            that may be invalidated upon the next call to a
  *            <fileparser> function. If you want to store it, make a
  *            copy.
@@ -276,14 +276,14 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
  *            (In this case, it would return <eslEOL>.)
  *
  * Returns:   <eslOK> on success, and the token and its length are
- *            in <ret_tok> and <ret_toklen>.
+ *            in <opt_tok> and <opt_toklen>.
  *            
  *            Returns <eslEOL> if no more tokens exist on the line;
- *            in this case <ret_tok> is set to <NULL> and <ret_toklen>
+ *            in this case <opt_tok> is set to <NULL> and <opt_toklen>
  *            to 0.
  */
 int
-esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **ret_tok, int *ret_toklen)
+esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen)
 {
   int status;
   char *tok    = NULL;
@@ -291,8 +291,8 @@ esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **ret_tok, int *ret_tokl
 
   /* Do we already have a token from a NextLine() call? */
   if (efp->tok != NULL) {
-    if (ret_tok    != NULL) *ret_tok    = efp->tok;
-    if (ret_toklen != NULL) *ret_toklen = efp->toklen;
+    if (opt_tok    != NULL) *opt_tok    = efp->tok;
+    if (opt_toklen != NULL) *opt_toklen = efp->toklen;
     efp->tok    = NULL;
     efp->toklen = 0;
     return eslOK;
@@ -307,13 +307,13 @@ esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **ret_tok, int *ret_tokl
   if (status != eslOK)  goto ERROR;
   if (status == eslOK && *tok == efp->commentchar) { status = eslEOL; goto ERROR; }
 
-  if (ret_tok    != NULL) *ret_tok    = tok;
-  if (ret_toklen != NULL) *ret_toklen = toklen;
+  if (opt_tok    != NULL) *opt_tok    = tok;
+  if (opt_toklen != NULL) *opt_toklen = toklen;
   return eslOK;
 
  ERROR:
-  if (ret_tok    != NULL) *ret_tok    = NULL;
-  if (ret_toklen != NULL) *ret_toklen = 0;
+  if (opt_tok    != NULL) *opt_tok    = NULL;
+  if (opt_toklen != NULL) *opt_toklen = 0;
   return status;
 }
 

@@ -42,7 +42,7 @@ typedef struct {
   char  **aseq;       /* alignment itself, [0..nseq-1][0..alen-1]                */
   char  **sqname;     /* sequence names, [0..nseq-1][]                           */
   double *wgt;        /* sequence weights [0..nseq-1]                            */
-  int     alen;       /* length of alignment (columns); or (if growable) -1      */
+  int64_t alen;       /* length of alignment (columns); or (if growable) -1      */
   int     nseq;       /* number of seqs in alignment; or (if growable) blocksize */
   int     flags;      /* flags for what info has been set                        */
   /*::cexcerpt::msa_mandatory::end::*/
@@ -77,11 +77,11 @@ typedef struct {
   /* Info needed for maintenance of the data structure 
    * (internal stuff.)
    */
-  int    sqalloc;		/* # seqs currently allocated for           */
-  int   *sqlen;                 /* individual seq lengths during parsing    */
-  int   *sslen;                 /* individual ss lengths during parsing     */
-  int   *salen;                 /* individual sa lengths during parsing     */
-  int    lastidx;		/* last index we saw; use for guessing next */
+  int      sqalloc;		/* # seqs currently allocated for           */
+  int64_t *sqlen;               /* individual seq lengths during parsing    */
+  int64_t *sslen;               /* individual ss lengths during parsing     */
+  int64_t *salen;               /* individual sa lengths during parsing     */
+  int      lastidx;		/* last index we saw; use for guessing next */
 
   /* Optional information, especially Stockholm markup.
    * (The stuff we don't understand, but we can regurgitate.)
@@ -153,11 +153,16 @@ typedef struct {
   int   format;			/* format of alignment file we're reading    */
 
   int   do_digital;		/* TRUE to digitize seqs directly into ax    */
-#ifdef eslAUGMENT_ALPHABET
+#if defined(eslAUGMENT_ALPHABET)
   const ESL_ALPHABET *abc;	/* AUGMENTATION (alphabet): digitized input  */
+#else
+  void               *abc;
 #endif
-#ifdef eslAUGMENT_SSI		/* AUGMENTATION: SSI indexing of an MSA db   */
+
+#if defined(eslAUGMENT_SSI)		/* AUGMENTATION: SSI indexing of an MSA db   */
   ESL_SSI *ssi;		        /* open SSI index file; or NULL, if none.    */
+#else
+  void    *ssi;
 #endif
 
   ESL_MSA *msa_cache;		/* occasional lookahead at next MSA; GuessAlphabet() */
@@ -179,7 +184,7 @@ typedef struct {
 /* Declarations of the API
  */
 /* 1. The ESL_MSA object */
-extern ESL_MSA *esl_msa_Create(int nseq, int alen);
+extern ESL_MSA *esl_msa_Create(int nseq, int64_t alen);
 extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int      esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new);
@@ -197,7 +202,7 @@ extern void esl_msafile_Close(ESL_MSAFILE *afp);
 /* 3. Digital mode MSA's (augmentation: alphabet) */
 #ifdef eslAUGMENT_ALPHABET
 extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
-extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int alen);
+extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen);
 extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa);
 extern int      esl_msa_Textize(ESL_MSA *msa);
 extern int      esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type);

@@ -108,11 +108,11 @@ main(int argc, char **argv)
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
   int           i;		/* counter over seqs               */
-  int           rlen;		/* a raw (unaligned) seq length    */
-  int           small, large;	/* smallest, largest sequence      */
-  uint64_t      nres;		/* total # of residues in msa      */
+  int64_t       rlen;		/* a raw (unaligned) seq length    */
+  int64_t       small, large;	/* smallest, largest sequence      */
+  int64_t       nres;		/* total # of residues in msa      */
   double        avgid;		/* average fractional pair id      */
-  int    max_comparisons;       /* maximum # comparisons for avg id */
+  int           max_comparisons;/* maximum # comparisons for avg id */
   FILE         *ofp;		/* output file (default is stdout) */
   char          errbuf[eslERRBUFSIZE];
   int           write_ali = FALSE; /* set to TRUE if we should print a new MSA */
@@ -296,13 +296,13 @@ main(int argc, char **argv)
 	  esl_dst_XAverageId(abc, msa->ax, msa->nseq, max_comparisons, &avgid);
 	  printf("Alignment number:    %d\n",     nali);
 	  if (msa->name != NULL)
-	    printf("Alignment name:      %s\n",   msa->name); 
-	  printf("Format:              %s\n",     esl_msa_DescribeFormat(afp->format));
-	  printf("Number of sequences: %d\n",     msa->nseq);
-	  printf("Alignment length:    %d\n",     msa->alen);
-	  printf("Total # residues:    %llu\n",   (unsigned long long) nres);
-	  printf("Smallest:            %d\n",     small);
-	  printf("Largest:             %d\n",     large);
+	    printf("Alignment name:      %s\n",        msa->name); 
+	  printf("Format:              %s\n",          esl_msa_DescribeFormat(afp->format));
+	  printf("Number of sequences: %d\n",          msa->nseq);
+	  printf("Alignment length:    %" PRId64 "\n", msa->alen);
+	  printf("Total # residues:    %" PRId64 "\n", nres);
+	  printf("Smallest:            %" PRId64 "\n", small);
+	  printf("Largest:             %" PRId64 "\n", large);
 	  printf("Average length:      %.1f\n",   (double) nres / (double) msa->nseq);
 	  /*printf("Average identity:    %.0f\n",   100.*avgid); */
 	  printf("//\n");
@@ -547,9 +547,9 @@ main(int argc, char **argv)
 static int
 keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int keep_flag, int remove_flag)
 {
-  int status;
-  int          *useme;
-  int           apos;
+  int     status;
+  int    *useme;
+  int64_t apos;
 
   /* contract check */
   if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment.");
@@ -586,11 +586,11 @@ keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int ke
 static int
 write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
-  int  status;
-  int  apos;
-  int  gaps;
-  int  i;
-  double gapthresh;
+  int      status;
+  int64_t  apos;
+  int64_t  gaps;
+  int      i;
+  double   gapthresh;
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
   gapthresh = esl_opt_GetReal(go, "--gapthresh");
@@ -614,20 +614,23 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 static int
 write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *amask)
 {
-  int  status;
-  int  apos;
-  int  mask_len;
+  int      status;
+  int64_t  apos;
+  int64_t  mask_len;
+
   /* contract check, rfgiven_mask must be exact length of msa */
   if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
   mask_len = strlen(amask);
-  if(mask_len != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask length: %d is not equal to the MSA length (%d)\n", mask_len, msa->alen); 
+  if(mask_len != msa->alen) 
+    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask length: %" PRId64 " is not equal to the MSA length (%" PRId64 ")\n", 
+	     mask_len, msa->alen); 
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
 
   for (apos = 1; apos <= msa->alen; apos++) {
       if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
       else if(amask[(apos-1)] == '1') msa->rf[(apos-1)] = 'x';
-      else    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask char number %d is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
+      else    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
   }
   msa->rf[msa->alen] = '\0';
   return eslOK;
@@ -646,8 +649,8 @@ write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *ama
 static int
 write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask)
 {
-  int  apos, cpos;
-  int  mask_len;
+  int64_t  apos, cpos;
+  int64_t  mask_len;
 
   /* contract check, mask must be exact length of msa */
   if(rfmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--rfmask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
@@ -677,8 +680,8 @@ write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rf
 static int
 write_rf_given_useme(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int *useme)
 {
-  int status;
-  int  apos;
+  int     status;
+  int64_t apos;
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
   for (apos = 0; apos < msa->alen; apos++) msa->rf[apos] = useme[apos] ? 'x' : '.';
@@ -698,8 +701,8 @@ write_rf_given_useme(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int *use
 static int
 individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
-  int  status;
-  int  apos;
+  int     status;
+  int64_t apos;
   int  i;
   int *cct;		/* 0..alen-1 base pair partners array for consensus        */
   int *ct;		/* 0..alen-1 base pair partners array for current sequence */
@@ -2253,7 +2256,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
 			       * from 1..c in msa1 and 1..a in msa 2 */
   int **tb;                   /* [0..c..clen1][0..a..msa2->alen] traceback ptrs, 0 for diagonal, 1 for vertical */
   char *seq1, *seq2;          /* temporary strings for ensuring dealigned sequences in msa1 and msa2 are identical */
-  int len1, len2;             /* length of seq1, seq2 */
+  int64_t len1, len2;         /* length of seq1, seq2 */
   int isgap1, isgap2;         /* is this residue a gap in msa1, msa2? */
   int i;                      /* counter over sequences */
   int *res1_per_cpos;         /* [0..c..clen1] number of residues in non-gap RF column c of msa1 */
@@ -2275,10 +2278,10 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   
   /* Map msa1 non-gap RF (consensus) columns to alignment positions */
   if((status = map_cpos_to_apos(msa1, &c2a_map1, &clen1))   != eslOK) goto ERROR;
-  if(clen1 > msa2->alen) ESL_XFAIL(eslEINVAL, errbuf, "non-gap RF length of msa in <msafile> %s (%d) is greater than --map alignment length of %s (%d).", esl_opt_GetArg(go, 1), clen1, esl_opt_GetString(go, "--map"), msa2->alen);
+  if(clen1 > msa2->alen) ESL_XFAIL(eslEINVAL, errbuf, "non-gap RF length of msa in <msafile> %s (%d) is greater than --map alignment length of %s (%" PRId64 ").", esl_opt_GetArg(go, 1), clen1, esl_opt_GetString(go, "--map"), msa2->alen);
   if(be_verbose) { 
-    printf("%25s non-gap RF (consensus) length: %d\n", esl_opt_GetArg(go, 1), clen1);
-    printf("%25s alignment length:              %d\n", esl_opt_GetString(go, "--map"), msa2->alen);
+    printf("%25s non-gap RF (consensus) length: %d\n",          esl_opt_GetArg(go, 1), clen1);
+    printf("%25s alignment length:              %" PRId64 "\n", esl_opt_GetString(go, "--map"), msa2->alen);
   }
   /* collect counts in one2two[i][j]: number of sequences for which residue aligned in msa1 non-gap column i
    * is aligned in msa2 alignment column j.
@@ -2299,7 +2302,8 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     esl_strdealign(seq1, seq1, "-_.", &len1);
     esl_strdealign(seq2, seq2, "-_.", &len2);
 
-    if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%d) and %s (%d), those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
+    if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%" PRId64 ") and %s (%" PRId64 "), those files must contain identical raw seqs\n",
+						 i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
     if(strncmp(seq1, seq2, len1) != 0)  ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs between %s and %s, those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
     total_msa1_res += len1;
     
@@ -2723,7 +2727,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     for(c = 0; c < msa->alen; c++) nkept += useme[c];
     free(useme);
     if(do_prf)  printf("\n%d of %d RF columns (%.3f) pass threshold\n\n", nkept, clen, (float) nkept / (float) clen);
-    else        printf("\n%d of %d columns (%.3f) pass threshold\n\n", nkept, msa->alen, (float) nkept / (float) msa->alen);
+    else        printf("\n%d of %" PRId64 " columns (%.3f) pass threshold\n\n", nkept, msa->alen, (float) nkept / (float) msa->alen);
   }
 
   /*for(s = 0; s < msa->nseq; s++) free(post_sc[s]);
@@ -2806,7 +2810,7 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
     else if(xmask[mpos] == '0') ; /* do nothing */
     else    ESL_FAIL(eslEINVAL, errbuf, "--xmask mask char number %d is not a 1 nor a 0, but a %c\n", mpos+1, xmask[mpos]);
   }
-  if(nones != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), number of 1s in --xmask file: %d != msa->alen: %d, they must be equal.", nones, msa->alen);
+  if(nones != msa->alen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), number of 1s in --xmask file: %d != msa->alen: %" PRId64 ", they must be equal.", nones, msa->alen);
 
   /* determine number of 0s after each consensus column */
   nones = 0;
@@ -2826,7 +2830,7 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
   /* add the 100% gap columns */
   if((status = add_gap_columns_to_msa(errbuf, msa, nzeroesA, newmsa, TRUE)) != eslOK) return status ;
   /* new alen should equal masklen */
-  if((*newmsa)->alen != masklen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), new msa->alen: (%d) != length of mask (%d), this shouldn't happen.", (*newmsa)->alen, masklen);
+  if((*newmsa)->alen != masklen) ESL_FAIL(eslEINVAL, errbuf, "expand_msa2mask(), new msa->alen: (%" PRId64 ") != length of mask (%d), this shouldn't happen.", (*newmsa)->alen, masklen);
   free(nzeroesA);
 
   return eslOK;

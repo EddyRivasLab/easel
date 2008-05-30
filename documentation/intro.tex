@@ -8,40 +8,71 @@ underlies the \Pfam\ protein family database
 databases. \Easel\ is also used by \Infernal\ 
 \citep{infernal,NawrockiEddy07}, the covariance model software that
 underlies the \Rfam\ RNA family database
-\citep{Griffiths-Jones05}. Like any code library, \Easel\ aims to make
-applications more robust and easier to develop, by providing a set of
-reusable, documented, and well-tested functions.
+\citep{Griffiths-Jones05}. 
 
-\Easel's functionality includes generative probabilistic models of
-sequences, phylogenetic models of evolution, bioinformatics tools for
-sequence manipulation and annotation, numerical computing, as well as
-some basic utilities.
+Like any code library, \Easel\ aims to make applications more robust
+and easier to develop, by providing a set of reusable, documented, and
+well-tested functions.
 
 \Easel\ is not meant to be a comprehensive biosequence analysis code
-library. There are other libraries that aspire to comprehensiveness,
-in a variety of languages
+library, at least not for the moment. There are other libraries that
+aspire to comprehensiveness, in a variety of languages
 \citep{Vahrson96,Pitt01,Mangalam02,Butt05,Dutheil06,Giancarlo07,Doring08}.
-Indeed, it is remarkable how many independent projects have
-implemented similar functionality in order to promote code sharing and
-reuse!  \Easel\ takes what may be a more pragmatic, if not jaundiced
-view of code reuse.  Whereas many libraries seem to expect monogamous
-commitment -- thou shalt forsake all others' biosequence objects -- 
-\Easel\ intends to encourage promiscuity. While \Easel\ may certainly
-be used as a black-box library (as in \HMMER\ and \Infernal), its
-source code is consciously designed to be read as a reference work,
-and to be cribbed or lifted \emph{piecewise} into your own code. It is
-meant as a counterpart to our research papers.
+\Easel's functionality is for supporting what's needed in
+probabilistic modeling of biological sequences, in applications like
+\HMMER\ and \Infernal. It includes code for generative probabilistic
+models of sequences, phylogenetic models of evolution, bioinformatics
+tools for sequence manipulation and annotation, numerical computing,
+as well as some basic utilities.
 
-This dictates many of the decisions made in \Easel's design.  \Easel's
-documentation includes tutorial examples to make it easy to understand
-any given \Easel\ module, independent of other parts of \Easel.
-\Easel\ is modular in a manner that helps you extract individual files
-or functions for use in your own code, without having to disentangle
-the entire library. \Easel\ uses some precepts of object-oriented
-design, but its objects are simple C structures with visible,
-well-documented contents. The \Easel\ open source license allows you
-to freely modify and redistribute any part of it for any purpose,
-including commercial use.
+\Easel\ is written in ANSI/ISO C because its primary goal is high
+performance. That said, \Easel\ aims to provide an ease of use
+reasonably close to what you'd do in Perl or Python code. This is a
+somewhat different emphasis from biosequence libraries written in Perl
+or Python where ease-of-use is the primary goal, and where the library
+aims to provide performance reasonably close to C.
+
+\Easel\ reflects some personal views about code reuse in research
+software development. It is not intended to be a black box library
+that you just link to (though you may certainly use it that way;
+\HMMER\ and \Infernal\ do). I tend to only use black box libraries for
+routine functions, tangential to my research questions. Whenever
+something directly touches on my research, I want to see and
+completely control the relevant source code. (And no, in the wet lab I
+don't like to use molecular biology kits either.)  Idealistic
+engineering views of code reuse and modularity clash with the
+necessity for rigorous, paranoid control of confounding variables in
+research. No matter how much software engineers may hate it, I don't
+think it's unnatural at all to treat other people's code like using
+their toothbrush; god only knows what they've done to it. I treat
+other people's experimental protocols with the same wary eye.  It's
+entirely natural in a research environment that people act like
+magpies, studying, borrowing, and stealing shiny bits of other
+people's source code to weave them into our own personal nest. \Easel\
+is therefore written to be studied and borrowed from, piecewise.
+
+\Easel\ also reflects some personal views about publishing research
+results based on software engineering. The \Easel\ source code itself
+is intended to be supplementary material for our research papers,
+aiming to make our work reproducible and extensible by others.
+\Easel\ is therefore written and documented as well as any other
+supplementary research data we distribute.
+
+These considerations dictate many of the decisions made in \Easel's
+design.  \Easel's documentation includes tutorial examples to make it
+easy to understand any given \Easel\ module, independent of other
+parts of \Easel.  \Easel\ is modular, in a way that helps you extract
+individual files or functions for use in your own code, without having
+to use (or disentangle) the entire library. \Easel\ uses some precepts
+of object-oriented design, but its objects are simple C structures
+with visible, documented contents. The \Easel\ open source license
+allows you to freely modify and redistribute any part of it for any
+purpose, including commercial use. Finally, \Easel's source code is
+consciously designed to be read, as a reference work. It reflects, in
+a modest way, my agreement with some of the principles of ``literate
+programming'' espoused by Donald Knuth. \Easel\ code and documentation
+are intimately interwoven; most of this book, in fact, has been
+autogenerated from \Easel's source code.
 
 \section{Quick start}
 

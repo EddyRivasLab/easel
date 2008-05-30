@@ -280,7 +280,7 @@ esl_usage(FILE *fp, char *progname, char *usage)
  * Date:     SRE, Thu May 13 10:56:28 1999 [St. Louis]
  *
  * Purpose:  Dynamic allocation version of fgets(),
- *           capable of reading unlimited line lengths.
+ *           capable of reading almost unlimited line lengths.
  *
  * Args:     buf - ptr to a string (may be reallocated)
  *           n   - ptr to current allocated length of buf,
@@ -395,7 +395,7 @@ esl_fgets(char **buf, int *n, FILE *fp)
  * Throws:   <eslEMEM> on allocation failure.
  */
 int
-esl_strdup(const char *s, int n, char **ret_dup)
+esl_strdup(const char *s, int64_t n, char **ret_dup)
 {
   int   status;
   char *new = NULL;
@@ -453,11 +453,11 @@ esl_strdup(const char *s, int n, char **ret_dup)
  *           is unaffected.
  */
 int
-esl_strcat(char **dest, int ldest, const char *src, int lsrc)
+esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
 {
-  void *p;
-  int   status;
-  int   len1, len2;
+  void     *p;
+  int       status;
+  int64_t   len1, len2;
 
   if (ldest < 0) len1 = ((*dest == NULL) ? 0 : strlen(*dest));
   else           len1 = ldest;
@@ -626,7 +626,7 @@ esl_strcasecmp(const char *s1, const char *s2)
  * Xref:      from squid's StringChop().
  */
 int
-esl_strchop(char *s, int n)
+esl_strchop(char *s, int64_t n)
 {
   int i;
   if (s == NULL) return eslOK;
@@ -668,10 +668,10 @@ esl_strchop(char *s, int n)
  * Returns:   <eslOK> on success.
  */
 int
-esl_strdealign(char *s, const char *aseq, const char *gapchars, int *opt_rlen)
+esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen)
 {
-  int n = 0;
-  int apos;
+  int64_t n = 0;
+  int64_t apos;
 
   if (s == NULL) return eslOK;
 
@@ -683,6 +683,10 @@ esl_strdealign(char *s, const char *aseq, const char *gapchars, int *opt_rlen)
   if (opt_rlen != NULL) *opt_rlen = n;
   return eslOK;
 }
+
+
+
+
 
 /*----------------- end, C library replacements  -------------------------*/
 
@@ -1069,7 +1073,7 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
 /* Function:  esl_tmpfile_named()
  * Incept:    SRE, Sat Nov 11 09:13:25 2006 [Janelia]
  *
- * Purpose:   Open a persistant temporary file relative to the current
+ * Purpose:   Open a persistent temporary file relative to the current
  *            working directory. The file name is constructed from the
  *            <basename6X> argument, which must be a modifiable string
  *            ending in the six characters "XXXXXX".  These are

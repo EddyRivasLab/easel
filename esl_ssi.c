@@ -1,4 +1,4 @@
-/* simple sequence indices: fast lookup in large sequence files by keyword.
+/* sequence/subsequence indices: fast lookup in large sequence files by keyword.
  *
  *  1. Using (reading) an SSI index.
  *  2. Creating (writing) new SSI files.
@@ -13,7 +13,6 @@
  */
 
 #include "esl_config.h"
-#include <assert.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -21,8 +20,8 @@
 #include "easel.h"
 #include "esl_ssi.h"
 
-static uint32_t v20magic = 0xf3f3e9b1; /* SSI 1.0: "ssi1" + 0x80808080 */
-static uint32_t v20swap  = 0xb1e9f3f3; /* byteswapped */
+static uint32_t v30magic = 0xd3d3c9b3; /* SSI 3.0: "ssi3" + 0x80808080 */
+static uint32_t v30swap  = 0xb3c9d3d3; /* byteswapped */
 
 
 /*****************************************************************
@@ -30,7 +29,7 @@ static uint32_t v20swap  = 0xb1e9f3f3; /* byteswapped */
  *****************************************************************/ 
 
 static int  binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base, 
-			  uint32_t recsize, uint32_t maxidx);
+			  uint32_t recsize, uint64_t maxidx);
 
 /* Function:  esl_ssi_Open()
  * Synopsis:  Open an SSI index as an <ESL_SSI>.
@@ -81,26 +80,20 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
    * whether it's byteswapped.
    */
   status = eslEFORMAT;
-  if (esl_fread_i32(ssi->fp, &magic) != eslOK) goto ERROR;
-  if (magic != v20magic && magic != v20swap)   goto ERROR;
-
-  /* Determine what kind of offsets (32 vs. 64 bit) are stored in the file.
-   * If we can't deal with 64-bit file offsets, get out now. 
-   */
-  status = eslEFORMAT;
+  if (esl_fread_i32(ssi->fp, &magic)        != eslOK) goto ERROR;
+  if (magic != v30magic && magic != v30swap)          goto ERROR;
   if (esl_fread_i32(ssi->fp, &(ssi->flags)) != eslOK) goto ERROR;
-  ssi->imode = (ssi->flags & eslSSI_USE64_INDEX) ? 64 : 32;
-  ssi->smode = (ssi->flags & eslSSI_USE64) ?       64 : 32;
+  if (esl_fread_i32(ssi->fp, &(ssi->offsz)) != eslOK) goto ERROR;
 
   status = eslERANGE;
-  if (sizeof(off_t) != 8 && (ssi->imode == 64 || ssi->smode == 64)) goto ERROR;
+  if (ssi->offsz != 4 && ssi->offsz != 8) goto ERROR;
+  if (ssi->offsz > sizeof(off_t))         goto ERROR;
 
-  /* The header data.
-   */
+  /* The header data. */
   status = eslEFORMAT;
   if (esl_fread_i16(ssi->fp, &(ssi->nfiles))     != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->nprimary))   != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->nsecondary)) != eslOK) goto ERROR;
+  if (esl_fread_i64(ssi->fp, &(ssi->nprimary))   != eslOK) goto ERROR;
+  if (esl_fread_i64(ssi->fp, &(ssi->nsecondary)) != eslOK) goto ERROR;
   if (esl_fread_i32(ssi->fp, &(ssi->flen))       != eslOK) goto ERROR;
   if (esl_fread_i32(ssi->fp, &(ssi->plen))       != eslOK) goto ERROR;
   if (esl_fread_i32(ssi->fp, &(ssi->slen))       != eslOK) goto ERROR;
@@ -108,12 +101,11 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
   if (esl_fread_i32(ssi->fp, &(ssi->precsize))   != eslOK) goto ERROR;
   if (esl_fread_i32(ssi->fp, &(ssi->srecsize))   != eslOK) goto ERROR;
   
-  if (esl_fread_offset(ssi->fp, ssi->imode, &(ssi->foffset)) != eslOK) goto ERROR;
-  if (esl_fread_offset(ssi->fp, ssi->imode, &(ssi->poffset)) != eslOK) goto ERROR;
-  if (esl_fread_offset(ssi->fp, ssi->imode, &(ssi->soffset)) != eslOK) goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, &(ssi->foffset)) != eslOK) goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, &(ssi->poffset)) != eslOK) goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, &(ssi->soffset)) != eslOK) goto ERROR;
 
   /* The file information.
-   *
    * We expect the number of files to be small, so reading it once
    * should be advantageous overall. If SSI ever had to deal with
    * large numbers of files, you'd probably want to read file
@@ -129,13 +121,11 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
   ESL_ALLOC(ssi->bpl,        sizeof(uint32_t) * ssi->nfiles);
   ESL_ALLOC(ssi->rpl,        sizeof(uint32_t) * ssi->nfiles);
 
-  /* (most) allocations done, now we read.
-   */
+  /* (most) allocations done, now we read. */
   for (i = 0; i < ssi->nfiles; i++) 
     {
       ESL_ALLOC(ssi->filename[i], sizeof(char)* ssi->flen);
-
-      /* We have to explicitly position, because header and file 
+      /* We do have to explicitly position, because header and file 
        * records may expand in the future; frecsize and foffset 
        * give us forwards compatibility. 
        */ 
@@ -147,7 +137,6 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
       if (esl_fread_i32(ssi->fp, &(ssi->bpl[i])))                             goto ERROR;
       if (esl_fread_i32(ssi->fp, &(ssi->rpl[i])))                             goto ERROR;
     }
-  
   *ret_ssi = ssi;
   return eslOK;
   
@@ -156,7 +145,6 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
   *ret_ssi = NULL;
   return status;
 }
-
 
 
 /* Function: esl_ssi_FindName()
@@ -174,7 +162,9 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
  * Args:     <ssi>         - open index file
  *           <key>         - name to search for
  *           <ret_fh>      - RETURN: handle on file that key is in
- *           <ret_offset>  - RETURN: offset of the start of that key's record
+ *           <ret_roff>    - RETURN: offset of the start of that key's record
+ *           <opt_doff>    - optRETURN: data offset (may be 0 if unset)
+ *           <opt_L>       - optRETURN: length of data record (may be 0 if unset)                
  *
  * Returns:  <eslOK>        on success;
  *           <eslENOTFOUND> if no such key is in the index;
@@ -185,12 +175,12 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
  * Throws:   <eslEMEM>      on allocation error.
  */
 int
-esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_offset)
+esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_roff, off_t *opt_doff, int64_t *opt_L)
 {
   int       status;
+  off_t     doff;
+  int64_t   L;
   char     *pkey   = NULL;
-  uint16_t  fh     = 0;
-  off_t     offset = 0;
 
   /* Look in the primary keys.
    */
@@ -198,41 +188,37 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_off
 			 ssi->nprimary);
 
   if (status == eslOK) 
-    {		
-      /* We found it as a primary key; get our data & return.
-       */
+    { /* We found it as a primary key; get our data & return. */
       status = eslEFORMAT;
-      if (esl_fread_i16(ssi->fp, &fh) != eslOK)                    goto ERROR;
-      if (esl_fread_offset(ssi->fp, ssi->smode, &offset) != eslOK) goto ERROR;
+      if (esl_fread_i16(ssi->fp, ret_fh)                  != eslOK) goto ERROR;
+      if (esl_fread_offset(ssi->fp, ssi->offsz, ret_roff) != eslOK) goto ERROR;
+      if (esl_fread_offset(ssi->fp, ssi->offsz, &doff)    != eslOK) goto ERROR;
+      if (esl_fread_i64   (ssi->fp, &L)                   != eslOK) goto ERROR;
     } 
   else if (status == eslENOTFOUND) 
-    {
-      /* Not in the primary keys? OK, try the secondary keys.
-       */
+    { /* Not in the primary keys? OK, try the secondary keys. */
       if (ssi->nsecondary > 0) {
-	status = binary_search(ssi, key, ssi->slen, ssi->soffset, ssi->srecsize,
-			       ssi->nsecondary);
-	if (status != eslOK) goto ERROR;
+	if ((status = binary_search(ssi, key, ssi->slen, ssi->soffset, ssi->srecsize, ssi->nsecondary)) != eslOK) goto ERROR;
 
-      /* We have the secondary key; flip to its primary key, then look that up.
-       */
+	/* We have the secondary key; flip to its primary key, then look that up. */
 	ESL_ALLOC(pkey, sizeof(char) * ssi->plen);
 	status = eslEFORMAT;
 	if (fread(pkey, sizeof(char), ssi->plen, ssi->fp) != ssi->plen) goto ERROR;
-	status = esl_ssi_FindName(ssi, pkey, &fh, &offset);
-	if (status != eslOK) goto ERROR;
-      }
+	if ((status = esl_ssi_FindName(ssi, pkey, ret_fh, ret_roff, &doff, &L)) != eslOK) goto ERROR;
+      } else goto ERROR;	/* no secondary keys? pass along the ENOTFOUND error. */
     } else goto ERROR;	/* status from binary search was an error code. */
 
   if (pkey != NULL) free(pkey);
-  *ret_fh     = fh;
-  *ret_offset = offset;
+  if (opt_doff != NULL) *opt_doff = doff;
+  if (opt_L    != NULL) *opt_L    = L;
   return eslOK;
 
  ERROR:
   if (pkey != NULL) free(pkey);
-  *ret_fh     = 0;
-  *ret_offset = 0;
+  *ret_fh   = 0;
+  *ret_roff = 0;
+  if (opt_doff != NULL) *opt_doff = 0;
+  if (opt_L    != NULL) *opt_L    = 0;
   return status;
 }
 
@@ -253,7 +239,9 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_off
  * Args:      <ssi>        - open index file
  *            <nkey>       - primary key number to retrieve (0..nprimary-1)
  *            <ret_fh>     - RETURN: handle on file that key is in
- *            <ret_offset> - RETURN: offset of the start of that key's record
+ *            <ret_roff>   - RETURN: offset of the start of that key's record
+ *            <opt_doff>   - optRETURN: data offset (may be 0 if unset)
+ *            <opt_L>      - optRETURN: length of data record (may be 0 if unset)                
  *
  * Returns:   <eslOK>        on success;
  *            <eslENOTFOUND> if there is no sequence record <nkey>;
@@ -263,32 +251,35 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_off
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
+esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey, uint16_t *ret_fh, off_t *ret_roff, off_t *opt_doff, int64_t *opt_L)
 {
   int      status;
-  uint16_t fh;
-  off_t    offset;
+  off_t    doff;
+  uint64_t L;
   char    *pkey = NULL;
-
 
   if (nkey >= ssi->nprimary) { status = eslENOTFOUND; goto ERROR; }
   ESL_ALLOC(pkey, sizeof(char) * ssi->plen);
 
   status = eslEFORMAT;
-  if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0)         goto ERROR;
-  if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)             != ssi->plen) goto ERROR;
-  if (esl_fread_i16(ssi->fp, &fh)                               != eslOK)     goto ERROR;
-  if (esl_fread_offset(ssi->fp, ssi->smode, &offset   )         != eslOK)     goto ERROR;
+  if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0) goto ERROR;
+  if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)   != ssi->plen)   goto ERROR;
+  if (esl_fread_i16(ssi->fp, ret_fh)                  != eslOK)       goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, ret_roff) != eslOK)       goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, &doff)    != eslOK)       goto ERROR;
+  if (esl_fread_i64   (ssi->fp, &L)                   != eslOK)       goto ERROR;
 
   if (pkey != NULL) free(pkey);
-  *ret_fh     = fh;
-  *ret_offset = offset;
+  if (opt_doff != NULL) *opt_doff = doff;
+  if (opt_L    != NULL) *opt_L    = L;
   return eslOK;
 
  ERROR:
   if (pkey != NULL) free(pkey);
   *ret_fh     = 0;
-  *ret_offset = 0;
+  *ret_roff   = 0;
+  if (opt_doff != NULL) *opt_doff = 0;
+  if (opt_L    != NULL) *opt_L    = 0;
   return status;
 }
 
@@ -297,84 +288,154 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int nkey, uint16_t *ret_fh, off_t *ret_offset)
  * Synopsis: Look up a specific subsequence's start.
  * Date:     SRE, Mon Jan  1 19:49:31 2001 [St. Louis]
  *
- * Purpose:  Fast subsequence retrieval:
- *           look up a primary or secondary <key> in the open
- *           index <ssi>. Ask for the nearest data offset to a
- *           subsequence starting at residue <requested_start>
- *           in the sequence (numbering the sequence <1..L>). 
- *           If <key> is found, on return, <ret_fh>
- *           contains a unique handle on the file that contains 
- *           <key>; <record_offset> contains the
- *           disk offset to the start of the sequence record; <data_offset>
- *           contains the disk offset either exactly at the requested
- *           residue, or at the start of the line containing the
- *           requested residue; <ret_actual_start> contains the 
- *           coordinate (1..L) of the first valid residue at or
- *           after <data_offset>. <ret_actual_start> is $\leq$ 
- *           <requested_start>. 
+ * Purpose:  Fast subsequence retrieval: look up a primary or secondary
+ *           <key> in the open index <ssi>, and ask for the nearest data
+ *           offset to a subsequence starting at residue
+ *           <requested_start> in the sequence (numbering the sequence
+ *           <1..L>).  If <key> is found, on return, <ret_fh> contains
+ *           a unique handle on the file that contains <key>;
+ *           <ret_roff> contains the disk offset to the start of the
+ *           sequence record; <ret_doff> contains the disk offset
+ *           (see below); and <ret_actual_start) contains the coordinate
+ *           (1..L) of the first valid residue at or after
+ *           <data_offset>. <ret_actual_start> is $\leq$
+ *           <requested_start>.
+ *           
+ *           Depending on the file's characteristics, there are four
+ *           possible outcomes.
+ *           
+ *           If the file has the <eslSSI_FASTSUBSEQ> flag set, a data
+ *           offset was indexed for this key, and the data can be
+ *           indexed at single residue resolution (because the file's
+ *           lines contain only residues, no spaces), then <ret_doff>
+ *           is exactly the position of residue <requested_start> on
+ *           disk, and <ret_actual_start> is <requested_start>.
+ *           
+ *           If the file has the <eslSSI_FASTSUBSEQ> flag set, a data
+ *           offset was indexed for this key, but the data can only be
+ *           indexed at line resolution (because at least some of the
+ *           file's lines contain spaces), then <ret_doff> is the
+ *           position of the start of the line that <requested_start>
+ *           is on, and <ret_actual_start> is the coord <1..L> of the
+ *           first residue on that line.
+ *           
+ *           If the file does not have the <eslSSI_FASTSUBSEQ> flag
+ *           set (because lines contain a variable number of residues
+ *           and/or bytes), but a data offset was indexed for this
+ *           key, then we can still at least return that data offset,
+ *           but the caller is going to have to start from the
+ *           beginning of the data and read residues until it reaches
+ *           the desired <requested_start>. Now <ret_doff> is the
+ *           offset to the start of the first line of the sequence
+ *           data, and <ret_actual_start> is 1.
+ *           
+ *           If the key does not have a data offset indexed at all,
+ *           then regardless of the file's <eslSSI_FASTSUBSEQ>
+ *           setting, we can't calculate even the position of the
+ *           first line. In this case, <ret_doff> is 0 (for
+ *           unset/unknown), and <ret_actual_start> is <1>.
+ *           
+ *           A caller that's going to position the disk and read a
+ *           subseq must check for all four possible outcomes (pardon
+ *           redundancy with the above, but just to be clear, from the
+ *           caller's perspective now):
+ *           
+ *           If <ret_doff> is 0, no data offset information can be
+ *           calculated; the caller can still use <ret_roff> to
+ *           position the disk to the start of <key>'s record, but it
+ *           will need to parse the header to find the start of the
+ *           sequence data; then it will need to parse the sequence
+ *           data, skipping to residue <requested start>.
+ *           
+ *           If <ret_doff> is valid ($>0$), and <ret_actual_start> is
+ *           1, then caller may use <ret_doff> to position the disk to
+ *           the start of the first sequence data line, but will still
+ *           need to parse all the sequence data, counting and
+ *           skipping to residue <requested start>. This is equivalent
+ *           to (and in practice, not much more efficient than)
+ *           positioning to the record start and parsing the header to
+ *           locate the sequence data start. 
+ *           
+ *           If <ret_doff> is valid ($>0$), and <ret_actual_start> is
+ *           $>1$ but $<$ <requested_start>, then <ret_doff> is the
+ *           offset to the first byte of a line on which the
+ *           subsequence begins. The caller can position the disk
+ *           there, then start parsing, skipping <requested_start -
+ *           *ret_actual_start> residues to reach the
+ *           <requested_start>. (In the case where the subsequence
+ *           begins on the first line, then <ret_actual_start> will be
+ *           1, and the caller will have to handle this as the case
+ *           above.)
+ *           
+ *           If <<ret_doff> is valid ($>0$), and <ret_actual_start> is
+ *           $=$ <requested_start>, then <ret_doff> is the offset to a
+ *           byte in the file, such that the requested subsequence
+ *           starts at the next valid residue at or after that
+ *           position.  (The <ret_doff> would usually be exactly the
+ *           first residue of the subsequence, because we used single
+ *           residue resolution arithmetic to find it, but there's a
+ *           case where <requested_start> happens to be the first
+ *           residue of a line and we calculated <ret_doff> using
+ *           line-resolution arithmetic; in this latter case,
+ *           <ret_doff> could be pointing at a space before the first
+ *           subseq residue.) The caller may position the disk there
+ *           and start parsing immediately; the first valid residue
+ *           will be the start of the subsequence.
  *
  * Args:     <ssi>             - open index file
  *           <key>             - primary or secondary key to find
  *           <requested_start> - residue we'd like to start at (1..L)
  *           <ret_fh>          - RETURN: handle for file the key is in
- *           <record_offset>   - RETURN: offset to start of sequence record
- *           <data_offset>     - RETURN: offset to start of subseq (see above)
- *           <ret_actual_start>- RETURN: coord (1..L) of residue at data_offset
+ *           <ret_roff>        - RETURN: offset to start of sequence record
+ *           <ret_doff>        - RETURN: offset to closest start of subseq data, or 0. 
+ *           <ret_L>           - RETURN: length of <key> in residues (may be 0 if unset)
+ *           <ret_actual_start>- RETURN: coord (1..L) of residue at <ret_doff>
  *
- * Returns:  <eslOK>      on success;
- *           <eslEINVAL>  if we can't do fast subsequence lookup on the file;
+ * Returns:  <eslOK>         on any of the four successful outcomes.
+ *           <eslENOTFOUND>  if no such key is found in the index;
  *           <eslEFORMAT> on a read or seek failure, presumably meaning that
  *                        the file is misformatted somehow;
  *           <eslERANGE>  if <requested_start> isn't somewhere in the range
  *                        <1..len> for the target sequence.
+ *                        
+ * Throws:   <eslEMEM> on allocation error.                       
  */
 int
-esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, long requested_start,
-		   uint16_t *ret_fh, off_t *record_offset, off_t *data_offset, 
-		   long *ret_actual_start)
+esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, int64_t requested_start,
+		   uint16_t *ret_fh, off_t *ret_roff, off_t *ret_doff, int64_t *ret_L, int64_t *ret_actual_start)
 {
   int      status;
-  uint16_t fh;
-  off_t    r_off, d_off;
-  long     actual_start;
-  uint32_t len;
-  int      r, b, i, l;	/* tmp variables for "clarity", to match docs */
+  uint64_t r, b, i, l;	/* tmp variables for "clarity", to match docs */
   
-  /* Look up the key. Rely on the fact that esl_ssi_FindName()
-   * leaves the index file positioned at the rest of the data for this key.
+  /* Look up the key by name.
    */
-  status = esl_ssi_FindName(ssi, key, &fh, &r_off);
-  if (status != eslOK) goto ERROR;
+  if ((status = esl_ssi_FindName(ssi, key, ret_fh, ret_roff, ret_doff, ret_L)) != eslOK) goto ERROR;
 
-  /* Check that we're allowed to do subseq lookup on that file.
-   */
-  if (! (ssi->fileflags[fh] & eslSSI_FASTSUBSEQ))
-    { status = eslEINVAL; goto ERROR; }
-
-  /* Read the rest of the index record for this primary key:
-   * the data offset, and seq length.
-   */
-  status = eslEFORMAT;
-  if (esl_fread_offset(ssi->fp, ssi->smode, &d_off) != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &len)                  != eslOK) goto ERROR;
+  /* Do we have a data offset for this key? If not, we're case 4.    */
+  /* Can we do fast subseq lookup on this file? If no, we're case 3. */
+  if (*ret_doff == 0 || ! (ssi->fileflags[*ret_fh] & eslSSI_FASTSUBSEQ))
+    {
+      *ret_actual_start = 1;
+      return eslOK;
+    }
 
   /* Set up tmp variables for clarity of equations below,
    * and to make them match tex documentation 
    */
-  r = ssi->rpl[fh];         /* residues per line */
-  b = ssi->bpl[fh];         /* bytes per line    */
+  r = ssi->rpl[*ret_fh];         /* residues per line */
+  b = ssi->bpl[*ret_fh];         /* bytes per line    */
   i = requested_start;	    /* start position 1..L */
   l = (i-1)/r;		    /* data line # (0..) that the residue is on */
-  if (r == 0 || b == 0) { status = eslEINVAL; goto ERROR; }
-  if (i < 0 || i > len) { status = eslERANGE; goto ERROR; }
+  if (r == 0 || b == 0)    { status = eslEINVAL; goto ERROR; }
+  if (i < 0 || i > *ret_L) { status = eslERANGE; goto ERROR; }
   
   /* When b = r+1, there's nothing but sequence on each data line (and the \0).
-   * In this case, we know we can find each residue precisely.
+   * In this case, we know we can find each residue precisely: outcome #1.
    */
   if (b == r+1) 
     {
-      d_off       += l*b + (i-1)%r;
-      actual_start = requested_start;
+      *ret_doff        += l*b + (i-1)%r;
+      *ret_actual_start = requested_start;
     } 
   /* else, there's other stuff on seq lines - probably spaces - so the best
    * we can do (without figuring out the spacing pattern and checking that
@@ -382,20 +443,16 @@ esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, long requested_start,
    */
   else
     { 
-      d_off       += l*b;
-      actual_start = 1 + l*r;
+      *ret_doff         += l*b;
+      *ret_actual_start = 1 + l*r;
     }
-
-  *ret_fh           = fh;
-  *record_offset    = r_off;
-  *data_offset      = d_off;
-  *ret_actual_start = actual_start;
   return eslOK;
 
  ERROR:
   *ret_fh           = 0;
-  *record_offset    = 0;
-  *data_offset      = 0;
+  *ret_roff         = 0;
+  *ret_doff         = 0;
+  *ret_L            = 0;
   *ret_actual_start = 0;
   return status;
 }
@@ -497,10 +554,10 @@ esl_ssi_Close(ESL_SSI *ssi)
  */
 static int
 binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base, 
-	      uint32_t recsize, uint32_t maxidx)
+	      uint32_t recsize, uint64_t maxidx)
 {
   char        *name;
-  uint32_t     left, right, mid;
+  uint64_t     left, right, mid;
   int          cmp;
   int          status;
   
@@ -520,10 +577,10 @@ binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t base,
     status = eslENOTFOUND;
     cmp = strcmp(name, key);
     if      (cmp == 0) break;	             /* found it!               */
-    else if (left >= right) goto ERROR;    /* no such key             */
+    else if (left >= right) goto ERROR;      /* no such key             */
     else if (cmp < 0)       left  = mid+1;   /* it's still right of mid */
     else if (cmp > 0) {
-      if (mid == 0) goto ERROR;            /* beware left edge case   */
+      if (mid == 0) goto ERROR;              /* beware left edge case   */
       else right = mid-1;                    /* it's left of mid        */
     }
   }
@@ -683,7 +740,7 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
  * Throws:    <eslEINVAL> on invalid argument(s).
  */
 int
-esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
+esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl)
 {
   int status;
 
@@ -705,23 +762,29 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
  * Purpose:  Register primary key <key> in new index <ns>, while telling
  *           the index that this primary key is in the file associated
  *           with filehandle <fh> (the handle returned by a previous call
- *           to <esl_newssi_AddFile()>), and that its record starts at 
- *           offset <r_off> in the file.
+ *           to <esl_newssi_AddFile()>); that its record starts at 
+ *           offset <r_off> in the file; that its data (usually
+ *           sequence data) starts at offset <d_off> in the file (i.e.
+ *           after any record header); and that the record's data is
+ *           of length <L> (usually, the record is a sequence, and <L> 
+ *           is its length in residues).
  *           
- *           <d_off> and <L> are optional; they may be left unset by
- *           passing <NULL> and <0>, respectively. (If one is
- *           provided, both must be provided.) If they are provided,
- *           <d_off> gives the position of the first line of sequence
- *           data in the record, and <L> gives the length of the
- *           sequence in residues. These are necessary when
- *           <eslSSI_FASTSUBSEQ> is set for this file, for fast
- *           subsequence lookup. If <eslSSI_FASTSUBSEQ> is not set for
- *           the file, <d_off> and <L> will be ignored by the index
- *           reading API, so it doesn't hurt to provide them;
- *           typically an indexing program won't know whether it's safe to set
- *           <eslSSI_FASTSUBSEQ> for the whole file until the whole file
- *           has been read and every key has already been added to the
- *           index.
+ *           The data length <L> is technically optional as far as SSI
+ *           is concerned; <L> may be passed as 0 to leave it
+ *           unset. However, functions in the <sqio> module that use
+ *           SSI indices will assume that <L> is available.
+ *           
+ *           <d_off> is also optional; it may be passed as <0> to
+ *           leave it unset. If provided, <d_off> gives an offset to
+ *           the data portion of the record. The interpretation of
+ *           this data offset may be implementation-defined and may
+ *           depend on the format of the datafile; for example, in how
+ *           <sqio> uses SSI indices, <d_off> is the offset to the
+ *           start of the first sequence line.
+ *           
+ *           Both <d_off> and <L> must be provided, and additionally
+ *           <eslSSI_FASTSUBSEQ> must be set for this file, for fast
+ *           subsequence lookup to work.
  *           
  * Args:     <ns>     - active index
  *           <key>    - primary key to add
@@ -743,7 +806,7 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, int bpl, int rpl)
  */
 int
 esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh, 
-		  off_t r_off, off_t d_off, uint32_t L)
+		  off_t r_off, off_t d_off, int64_t L)
 {
   int status;
   int n;			/* a string length */
@@ -767,19 +830,11 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
   if (ns->external) 
     {
       if (sizeof(off_t) == 4) {
-	fprintf(ns->ptmp, "%s\t%d\t%lu\t%lu\t%lu\n", 
-		key, 
-		fh,
-		(unsigned long) r_off, 
-		(unsigned long) d_off,
-		(unsigned long) L);
+	fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIu64 "\n", 
+		key, fh, (uint32_t) r_off, (uint32_t) d_off, L);
       } else {
-	fprintf(ns->ptmp, "%s\t%d\t%llu\t%llu\t%lu\n", 
-		key, 
-		fh, 
-		(unsigned long long) r_off,
-		(unsigned long long) d_off,
-		(unsigned long) L);
+	fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIu64 "\n", 
+		key, fh, (uint64_t) r_off, (uint64_t) d_off, L);
       }
       ns->nprimary++;
     }
@@ -795,8 +850,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
       ns->pkeys[ns->nprimary].len   = L;
       ns->nprimary++;
 
-      /* Reallocate as needed.
-       */
+      /* Reallocate as needed. */
       if (ns->nprimary % eslSSI_KCHUNK == 0) {
 	void *tmp;
 	ESL_RALLOC(ns->pkeys, tmp, sizeof(ESL_PKEY) * (ns->nprimary+eslSSI_KCHUNK));
@@ -845,22 +899,18 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
   if (!ns->external && current_newssi_size(ns) >= ns->max_ram) 
     if ((status = activate_external_sort(ns)) != eslOK) goto ERROR;
 
-  /* Update maximum secondary key length, if necessary.
-   */
+  /* Update maximum secondary key length, if necessary. */
   n = strlen(alias)+1;
   if (n > ns->slen) ns->slen = n;
 
-  /* if external mode: write info to disk.
-   */
+  /* if external mode: write info to disk. */
   if (ns->external) 
     {
       fprintf(ns->stmp, "%s\t%s\n", alias, key);
       ns->nsecondary++;
     }
   else
-    {
-      /* else, internal mode... store info in memory.
-       */
+    { /* else, internal mode... store info in memory. */
       if ((status = esl_strdup(alias, n, &(ns->skeys[ns->nsecondary].key))) != eslOK) goto ERROR;
       if ((status = esl_strdup(key, -1, &(ns->skeys[ns->nsecondary].pkey))) != eslOK) goto ERROR;
       ns->nsecondary++;
@@ -944,21 +994,16 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
   /* Magic-looking numbers come from adding up sizes 
    * of things in bytes: they match current_newssi_size().
    */
-  frecsize = 16 + ns->flen;
-  precsize = 2*sizeof(off_t) + 6 + ns->plen;
+  frecsize = 4*sizeof(uint32_t) + ns->flen;
+  precsize = 2*sizeof(off_t) + sizeof(uint16_t) + sizeof(uint64_t) + ns->plen;
   srecsize = ns->slen + ns->plen;
 
   header_flags = 0;
-  if (sizeof(off_t) == 8) 
-    {
-      header_flags |= eslSSI_USE64;
-      header_flags |= eslSSI_USE64_INDEX;
-    }
 
   /* Magic-looking numbers again come from adding up sizes 
    * of things in bytes: matches current_newssi_size()
    */
-  foffset = 3*sizeof(off_t) + 42; /* the answer: of course */
+  foffset = 9*sizeof(uint32_t)+2*sizeof(uint64_t)+sizeof(uint16_t)+3*sizeof(off_t);
   poffset = foffset + frecsize*ns->nfiles;
   soffset = poffset + precsize*ns->nprimary;
   
@@ -1007,11 +1052,12 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
   /* Write the header
    */
   status = eslFAIL;		/* any write error is a FAIL */
-  if (esl_fwrite_i32(fp, v20magic)      != eslOK) goto ERROR;
+  if (esl_fwrite_i32(fp, v30magic)      != eslOK) goto ERROR;
   if (esl_fwrite_i32(fp, header_flags)  != eslOK) goto ERROR;
+  if (esl_fwrite_i32(fp, sizeof(off_t)) != eslOK) goto ERROR;
   if (esl_fwrite_i16(fp, ns->nfiles)    != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, ns->nprimary)  != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, ns->nsecondary)!= eslOK) goto ERROR;
+  if (esl_fwrite_i64(fp, ns->nprimary)  != eslOK) goto ERROR;
+  if (esl_fwrite_i64(fp, ns->nsecondary)!= eslOK) goto ERROR;
   if (esl_fwrite_i32(fp, ns->flen)      != eslOK) goto ERROR;
   if (esl_fwrite_i32(fp, ns->plen)      != eslOK) goto ERROR;
   if (esl_fwrite_i32(fp, ns->slen)      != eslOK) goto ERROR;
@@ -1054,7 +1100,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  if (esl_fwrite_i16(   fp, pkey.fnum)    != eslOK)    goto ERROR;   
 	  if (esl_fwrite_offset(fp, pkey.r_off)   != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, pkey.d_off)   != eslOK)    goto ERROR;
-	  if (esl_fwrite_i32(   fp, pkey.len)     != eslOK)    goto ERROR;
+	  if (esl_fwrite_i64(   fp, pkey.len)     != eslOK)    goto ERROR;
 	}
     } 
   else 
@@ -1067,7 +1113,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  if (esl_fwrite_i16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto ERROR;
-	  if (esl_fwrite_i32(   fp, ns->pkeys[i].len)   != eslOK)    goto ERROR;
+	  if (esl_fwrite_i64(   fp, ns->pkeys[i].len)   != eslOK)    goto ERROR;
 	}
     }
 
@@ -1192,11 +1238,10 @@ current_newssi_size(const ESL_NEWSSI *ns)
   /* Magic-looking numbers come from adding up sizes 
    * of things in bytes
    */
-  frecsize = 16 + ns->flen;
-  precsize = 2*sizeof(off_t) + 6 + ns->plen;
-  srecsize = ns->plen + ns->slen;
-  total = (42 +		               /* header size, if 64bit index offsets */
-	   3 * sizeof(off_t) + 
+  frecsize = 4*sizeof(uint32_t) + ns->flen;
+  precsize = 2*sizeof(off_t) + sizeof(uint16_t) + sizeof(uint64_t) + ns->plen;
+  srecsize = ns->slen + ns->plen;
+  total = (9*sizeof(uint32_t)+2*sizeof(uint64_t)+sizeof(uint16_t)+3*sizeof(off_t)+
 	   frecsize * ns->nfiles +      /* file section size                   */
 	   precsize * ns->nprimary +    /* primary key section size            */
 	   srecsize * ns->nsecondary) / /* secondary key section size          */
@@ -1310,7 +1355,7 @@ parse_pkey(char *buf, ESL_PKEY *pkey)
   else                         ESL_XEXCEPTION(eslEINCONCEIVABLE, "whoa - weird off_t");
 
   if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
-  pkey->len = (uint32_t) strtoul(tok, NULL, 10);
+  pkey->len = (uint64_t) strtoull(tok, NULL, 10);
   return eslOK;
 
  ERROR:
@@ -1358,6 +1403,7 @@ skeysort(const void *k1, const void *k2)
  *****************************************************************/ 
 
 /* Function:  esl_byteswap()
+ * Synopsis:  Swap between big-endian and little-endian, in place.
  *
  * Purpose:   Swap between big-endian and little-endian, in place.
  */
@@ -1376,6 +1422,7 @@ esl_byteswap(char *swap, int nbytes)
 }
 
 /* Function:  esl_ntoh16()
+ * Synopsis:  Convert 2-byte integer from network-order to host-order.
  *
  * Purpose:   Convert a 2-byte integer from network-order to host-order,
  *            and return it.
@@ -1415,6 +1462,7 @@ esl_ntoh64(uint64_t net_int64)
 }
 
 /* Function:  esl_hton16()
+ * Synopsis:  Convert 2-byte integer from host-order to network-order.
  *
  * Purpose:   Convert a 2-byte integer from host-order to network-order, and
  *            return it.
@@ -1455,6 +1503,7 @@ esl_hton64(uint64_t host_int64)
 
 
 /* Function:  esl_fread_i16()
+ * Synopsis:  Read network-order integer from a stream.
  *
  * Purpose:   Read a 2-byte network-order integer from <fp>, convert to
  *            host order, leave it in <ret_result>.
@@ -1491,6 +1540,7 @@ esl_fread_i64(FILE *fp, uint64_t *ret_result)
 
 
 /* Function:  esl_fwrite_i16()
+ * Synopsis:  Write an integer to a stream in network-order.
  *
  * Purpose:   Write a 2-byte host-order integer <n> to stream <fp>
  *            in network order.
@@ -1523,6 +1573,7 @@ esl_fwrite_i64(FILE *fp, uint64_t n)
 }
 
 /* Function:  esl_fread_offset()
+ * Synopsis:  Read an offset portably.
  * Incept:    SRE, Fri Mar  3 13:19:41 2006 [St. Louis]
  *
  * Purpose:   Read a file offset from the stream <fp> (which would usually
@@ -1536,43 +1587,47 @@ esl_fwrite_i64(FILE *fp, uint64_t n)
  *            network byte order, and converting them to host byte order
  *            when they are read (if necessary). 
  *            
- *            Width is dealt with by the <mode> argument, which must
- *            be either 32 or 64, specifying that the saved offset is a
- *            32-bit versus 64-bit <off_t>. If the reading host <off_t> width 
- *            matches the <mode> of the writer, no problem. If <mode> is
- *            32 but the reading host has 64-bit <off_t>, this is also
- *            no problem; the conversion is handled. If <mode> is 64
- *            but the reading host has only 32-bit <off_t>, we cannot
- *            guarantee that we have sufficient dynamic range to represent
- *            the offset, so we throw a fatal error.
+ *            Width is dealt with by the <sz> argument, which must be
+ *            either 4 or 8, specifying that the saved offset is a
+ *            32-bit versus 64-bit <off_t>. If the reading host
+ *            <off_t> width matches the <sz> of the writer, no
+ *            problem. If <sz> is 4 but the reading host has 64-bit
+ *            <off_t>'s, this is also no problem; the conversion
+ *            always works. If <sz> is 64 but the reading host has
+ *            only 32-bit <off_t>, we cannot guarantee that we have
+ *            sufficient dynamic range to represent the offset; if
+ *            the stored offset is too large to represent in a 32-bit
+ *            offset, we throw a fatal <eslEINCOMPAT> error.
  *
  * Returns:   <eslOK> on success; <eslFAIL> on a read failure.
  *
- * Throws:    <eslEINVAL> if mode is something other than 32 or 64;
- *            <eslEINCOMPAT> if mode is 64 but host <off_t> is only 32.
+ * Throws:    <eslEINVAL> if <sz> is something other than 4 or 8;
+ *            <eslEINCOMPAT> if the stored offset is too large for
+ *            the reader to represent (the machine that wrote the
+ *            SSI file used 64 bit offsets, the reader uses 32
+ *            bit offsets, and this offset is too large to represent
+ *            in a 32 bit offset).
  */
 int			
-esl_fread_offset(FILE *fp, int mode, off_t *ret_offset)
+esl_fread_offset(FILE *fp, int sz, off_t *ret_offset)
 {
   int       status;
   uint32_t  x32;
   uint64_t  x64;
 
-  if      (mode == 64 && sizeof(off_t) == 8) 
+  if      (sz == 8)
     {
       if (esl_fread_i64(fp, &x64) != eslOK) { status = eslFAIL; goto ERROR; }
-      *ret_offset = (off_t) x64;
+      if (sizeof(off_t) == 4 && x64 > INT32_MAX) 
+	ESL_XEXCEPTION(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
+      *ret_offset = (off_t) x64; 
     }
-  else if (mode == 32)
+  else if (sz == 4)
     {
       if (esl_fread_i32(fp, &x32) != eslOK) { status = eslFAIL; goto ERROR; }
       *ret_offset = (off_t) x32;
     }
-  else if (mode != 32 && mode != 64) 
-    ESL_XEXCEPTION(eslEINVAL, "mode must be 32 or 64");
-  else 
-    ESL_XEXCEPTION(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
-
+  else ESL_XEXCEPTION(eslEINVAL, "offsets must be 32 or 64 bits");
   return eslOK;
 
  ERROR:
@@ -1581,6 +1636,7 @@ esl_fread_offset(FILE *fp, int mode, off_t *ret_offset)
 }
 
 /* Function:  esl_fwrite_offset()
+ * Synopsis:  Write an offset portably.
  * Incept:    SRE, Fri Mar  3 13:35:04 2006 [St. Louis]
  *
  * Purpose:   Portably write (save) <offset> to the stream <fp>, in network
@@ -1609,7 +1665,7 @@ esl_fwrite_offset(FILE *fp, off_t offset)
  * 4. Test driver
  *****************************************************************/ 
 
-/* gcc -g -Wall -o testdrive -L. -I. -DeslSSI_TESTDRIVE esl_ssi.c -leasel -lm */
+/* gcc -g -Wall -o ssi_utest -L. -I. -DeslSSI_TESTDRIVE esl_ssi.c -leasel -lm */
 #ifdef eslSSI_TESTDRIVE
 #include <stdio.h>
 #include <string.h>
@@ -1704,8 +1760,8 @@ int main(int argc, char **argv)
       esl_newssi_AddFile(ns, sqfile[j], sqfp->format, &fh);
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
-	  if (be_verbose) printf("%16s  %ld  %ld  %d\n", sq->name, (long) sq->roff, (long) sq->doff, sq->n);
-	  esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->n);
+	  if (be_verbose) printf("%16s  %ld  %ld  %" PRIi64 "\n", sq->name, (long) sq->roff, (long) sq->doff, sq->L);
+	  esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L);
 	  esl_sq_Reuse(sq);
 	}
       if (status != eslEOF) esl_fatal("sequence read failure");
@@ -1733,12 +1789,12 @@ int main(int argc, char **argv)
       sprintf(query, "seq%d-file%d", i, j);
 
       /* Retrieve it */
-      status = esl_ssi_FindName(ssi, query, &fh, &roff);
+      status = esl_ssi_FindName(ssi, query, &fh, &roff, NULL, NULL);
       if (status != eslOK) esl_fatal("didn't find %s in index", query);
       esl_ssi_FileInfo(ssi, fh, &qfile, &qfmt);      
       if (esl_sqfile_Open(qfile, qfmt, NULL, &sqfp) != eslOK)
 	esl_fatal("failed to open fasta file %s", qfile);
-      esl_sqio_Position(sqfp, roff);
+      esl_sqfile_Position(sqfp, roff);
       if (esl_sqio_Read(sqfp, sq) != eslOK) esl_fatal("failed to read seq %s", query);
 
       /* Check that it's the right one */
@@ -1774,6 +1830,10 @@ int main(int argc, char **argv)
  * 5. Example code.
  ****************************************************************/
 #ifdef eslSSI_EXAMPLE
+/* gcc -o example -g -Wall -DeslSSI_EXAMPLE esl_ssi.c easel.c
+ * esl-shuffle -o foo.fa -N 1000 -G --amino -L 400 
+ * ./example foo.fa
+ */
 /*::cexcerpt::ssi_example::begin::*/
 #include <stdio.h>
 #include "easel.h"
@@ -1795,15 +1855,15 @@ int main(int argc, char **argv)
   /* Collect the sequence names from a FASTA file into an index */
   fafile = argv[1];
   ns = esl_newssi_Create();
-  if ((fp = fopen(fafile, "r"))                  == NULL)  esl_fatal("failed to open %s", fafile);
-  if (esl_newssi_AddFile(ns, fafile, 1, &fh)     != eslOK) esl_fatal("failed to add %s to index", fafile);
+  if ((fp = fopen(fafile, "r"))              == NULL)  esl_fatal("failed to open %s", fafile);
+  if (esl_newssi_AddFile(ns, fafile, 1, &fh) != eslOK) esl_fatal("failed to add %s to index", fafile);
 
   seq_offset = ftello(fp);
   while (esl_fgets(&buf, &n, fp) == eslOK)
     {
       if (*buf == '>') {
-	s = buf+1;                              /* skip past >                */
-	esl_strtok(s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
+	s = buf+1;                               /* skip past >                */
+	esl_strtok(&s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
 	esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0);
       }
       seq_offset = ftello(fp);				 
@@ -1814,8 +1874,8 @@ int main(int argc, char **argv)
   /* Save the index to disk */
   esl_strdup(fafile,   -1, &ssifile);  
   esl_strcat(&ssifile, -1, ".ssi", 4); 
-  if ((sfp = fopen(ssifile, "wb"))               == NULL)  esl_fatal("failed to open SSI file %s", ssifile);
-  if (esl_newssi_Write(sfp, ns)                  != eslOK) esl_fatal("failed to write ssi file");
+  if ((sfp = fopen(ssifile, "wb"))  == NULL) esl_fatal("failed to open SSI file %s", ssifile);
+  if (esl_newssi_Write(sfp, ns)    != eslOK) esl_fatal("failed to write ssi file");
   fclose(sfp);
   free(ssifile);
   esl_newssi_Destroy(ns);  
@@ -1827,6 +1887,9 @@ int main(int argc, char **argv)
 
 
 #ifdef eslSSI_EXAMPLE2
+/* gcc -o example2 -g -Wall -DeslSSI_EXAMPLE2 esl_ssi.c easel.c
+ * ./example2 random77 foo.fa.ssi 
+ */
 /*::cexcerpt::ssi_example2::begin::*/
 #include <stdio.h>
 #include "easel.h"
@@ -1848,18 +1911,19 @@ int main(int argc, char **argv)
   seqname = argv[1];
   ssifile = argv[2];
 
-  if (esl_ssi_Open(ssifile, &ssi)                  != eslOK)  esl_fatal("failed to open %s", ssifile);
-  if (esl_ssi_FindName(ssi, seqname, &fh, &offset) != eslOK)  esl_fatal("failed to find key %s", seqname);
-  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)     != eslOK)  esl_fatal("failed to get filename %d\n", fh);
-  esl_ssi_Close(ssi);  
+  if (esl_ssi_Open(ssifile, &ssi)                              != eslOK) esl_fatal("open failed");
+  if (esl_ssi_FindName(ssi, seqname, &fh, &offset, NULL, NULL) != eslOK) esl_fatal("find failed");
+  if (esl_ssi_FileInfo(ssi, fh, &fafile, &fmt)                 != eslOK) esl_fatal("info failed");
+  /* you can't close the ssi file yet - fafile is pointing into it! */
 
-  if ((fp = fopen(fafile, "r"))                    == NULL)   esl_fatal("failed to open file %s", fafile);
-  if (fseeko(fp, offset, SEEK_SET)                 != 0)      esl_fatal("failed to position file %s", fafile);
-  if (esl_fgets(&buf, &n, fp)                      != eslOK)  esl_fatal("failed to get name/desc line");
+  if ((fp = fopen(fafile, "r"))     == NULL)  esl_fatal("failed to open %s", fafile);
+  if (fseeko(fp, offset, SEEK_SET)  != 0)     esl_fatal("failed to position %s", fafile);
+  if (esl_fgets(&buf, &n, fp)       != eslOK) esl_fatal("failed to get name/desc line");
   do {
-    puts(buf); 
-  } while (esl_fgets(&buf, &n, fp) != eslOK && *buf != '>');
+    printf("%s", buf); 
+  } while (esl_fgets(&buf, &n, fp) == eslOK && *buf != '>');
   
+  esl_ssi_Close(ssi);  
   fclose(fp);  
   free(buf);
   return 0;

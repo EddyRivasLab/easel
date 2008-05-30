@@ -14,14 +14,15 @@
 #include "esl_getopts.h"
 #include "esl_fileparser.h"
 #include "esl_keyhash.h"
+#include "esl_regexp.h"
 #include "esl_ssi.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
 
 static char banner[] = "retrieve sequence(s) from a file";
-static char usage1[] = "[options] <sqfile> <name>          (retrieves one sequence named <name>)";
-static char usage2[] = "[options] -f <sqfile> <namefile>   (retrieves all sequences named in <namefile>)";
-static char usage3[] = "[options] --index <sqfile>         (index <sqfile>)";
+static char usage1[] = "[options] <sqfile> <name>        (one seq named <name>)";
+static char usage2[] = "[options] -f <sqfile> <namefile> (all seqs in <namefile>)";
+static char usage3[] = "[options] --index <sqfile>       (index <sqfile>)";
 
 static void
 cmdline_failure(char *argv0, char *format, ...) 
@@ -44,25 +45,51 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
   esl_usage (stdout, argv0, usage1);
   esl_usage (stdout, argv0, usage2);
   esl_usage (stdout, argv0, usage3);
-  puts("\n where options are:");
-  esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
+  puts("\n where general options are:");
+  esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
+  puts("\n Options for retrieving subsequences:");
+  esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
+  puts("\n  On command line, subseq coords are separated by any nonnumeric, nonspace character(s).");
+  puts("  for example, -c 23..100 or -c 23/100 or -c 23-100 all work.\n");
+  puts("  Additionally, to retrieve a suffix to the end, omit the end coord; -c 23: will work.");
+  puts("  By default, the subseq will be named <source name>/<from>-<to>. To assign a name of");
+  puts("  your choice, use -n <newname>.\n");
+  puts("  In retrieving subsequences listed in a file (-C -f, or just -Cf), each line of the file");
+  puts("  is in GDF format: <newname> <from> <to> <source seqname>, space/tab delimited.\n");
+  puts("  When <start> coordinate is greater than <end>, for DNA or RNA, the reverse complement is");
+  puts("  retrieved; in protein sequence, this is an error. The -r option is another way to revcomp.");
+  puts("\n other options:");
+  esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
   exit(0);
 }
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
-  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
-  { "-o",       eslARG_OUTFILE,FALSE,NULL, NULL, NULL, NULL,"-O,--index",   "output sequences to file <f> instead of stdout",    0 },
-  { "-O",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output sequence to file named <key>",               0 },
-  { "--index",  eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "index <sqfile>, creating <sqfile>.ssi",             0 },
-  { "--informat",eslARG_STRING,FALSE,NULL, NULL, NULL, NULL,  NULL,         "specify that input file is in format <s>",          0 },
+  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        1 },
+  { "-o",       eslARG_OUTFILE,FALSE,NULL, NULL, NULL, NULL,"-O,--index",   "output sequences to file <f> instead of stdout",    1 },
+  { "-O",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output sequence to file named <key>",               1 },
+  { "-n",       eslARG_STRING,FALSE, NULL, NULL, NULL, NULL,"-f,--index",   "rename the sequence <s>",                           1 },
+  { "-r",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "reverse complement the seq(s)",                     1 },
+
+  { "-c",       eslARG_STRING,FALSE, NULL, NULL, NULL, NULL,"-f,--index",   "retrieve subsequence coords <from>..<to>",          2 },
+  { "-C",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-f","--index",      "<namefile> in <f> contains subseq coords too",      2 },
+
+  { "--informat",eslARG_STRING,FALSE,NULL, NULL, NULL, NULL,  NULL,         "specify that input file is in format <s>",          3 },
+
+  /* undocumented as options, because they're documented as alternative invocations: */
+  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 99 },
+  { "--index",  eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "index <sqfile>, creating <sqfile>.ssi",             99 },
+
  { 0,0,0,0,0,0,0,0,0,0 },
 };
 
 static void create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp);
 static void multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
 static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp);
+static void multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
+static void onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, 
+			    char *key, uint32_t given_start, uint32_t given_end);
+static int  parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
 
 int
 main(int argc, char **argv)
@@ -83,7 +110,6 @@ main(int argc, char **argv)
   if (esl_opt_VerifyConfig(go)                           != eslOK) cmdline_failure(argv[0], "Error in configuration: %s\n",       go->errbuf);
   if (esl_opt_GetBoolean(go, "-h") )                               cmdline_help   (argv[0], go);
   if (esl_opt_ArgNumber(go) < 1)                                   cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-
 
   /* Open the sequence file */
   seqfile = esl_opt_GetArg(go, 1);
@@ -110,23 +136,62 @@ main(int argc, char **argv)
     }
   else ofp = stdout;
 
+  /* Indexing  mode */
   if (esl_opt_GetBoolean(go, "--index")) 
     {
       if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
       create_ssi_index(go, sqfp);
     }
+
+  /* List retrieval mode */
   else if (esl_opt_GetBoolean(go, "-f"))
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      if (! esl_sqio_IsAlignment(sqfp->format)) esl_sqfile_OpenSSI(sqfp, NULL);
-      multifetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+
+      /* Open the SSI index for retrieval */
+      if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
+	{
+	  status = esl_sqfile_OpenSSI(sqfp, NULL);
+	  if      (status == eslEFORMAT)   cmdline_failure(argv[0], "SSI index is in incorrect format\n");
+	  else if (status == eslERANGE)    cmdline_failure(argv[0], "SSI index is in 64-bit format and we can't read it\n");
+	  else if (status != eslOK)        cmdline_failure(argv[0], "Failed to open SSI index\n");
+	}
+
+      if (esl_opt_GetBoolean(go, "-C")) multifetch_subseq(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+      else                        	multifetch       (go, ofp, esl_opt_GetArg(go, 2), sqfp);
     }
+
+  /* Single sequence retrieval mode */
   else 
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      if (! esl_sqio_IsAlignment(sqfp->format)) esl_sqfile_OpenSSI(sqfp, NULL);
-      onefetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
-      if (ofp != stdout) printf("\n\nRetrieved sequence %s.\n",  esl_opt_GetArg(go, 2));
+      char *key     = esl_opt_GetArg(go, 2);
+      char *cstring = esl_opt_GetString(go, "-c");
+      char *newname = esl_opt_GetString(go, "-n");
+
+      /* Open the SSI index for retrieval */
+      if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
+	{
+	  status = esl_sqfile_OpenSSI(sqfp, NULL);
+	  if      (status == eslEFORMAT)   cmdline_failure(argv[0], "SSI index is in incorrect format\n");
+	  else if (status == eslERANGE)    cmdline_failure(argv[0], "SSI index is in 64-bit format and we can't read it\n");
+	  else if (status != eslOK)        cmdline_failure(argv[0], "Failed to open SSI index\n");
+	}
+
+      /* -c: subsequence retrieval; else full sequence retrieval */
+      if (cstring != NULL)
+	{
+	  uint32_t start, end;
+
+	  parse_coord_string(cstring, &start, &end);
+	  onefetch_subseq(go, ofp, sqfp, newname, key, start, end);
+	  if (ofp != stdout) printf("\n\nRetrieved subsequence %s/%d-%d.\n",  key, start, end);
+	}
+      else 
+	{
+	  onefetch(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+	  if (ofp != stdout) printf("\n\nRetrieved sequence %s.\n",  esl_opt_GetArg(go, 2));
+	}
     }
 
   esl_sqfile_Close(sqfp);
@@ -160,12 +225,12 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   printf("Working...    "); 
   fflush(stdout);
   
-  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
     {
       nseq++;
       if (sq->name == NULL) esl_fatal("Every sequence must have a name to be indexed. Failed to find name of seq #%d\n", nseq);
 
-      if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->n) != eslOK)
+      if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L) != eslOK)
 	esl_fatal("Failed to add key %s to SSI index", sq->name);
 
       if (sq->acc[0] != '\0') {
@@ -252,6 +317,9 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
 	  if ( (sq->name[0] != '\0' && esl_key_Lookup(keys, sq->name, NULL) == eslOK) ||
 	       (sq->acc[0]  != '\0' && esl_key_Lookup(keys, sq->acc,  NULL) == eslOK))
 	    {
+	      if (esl_opt_GetBoolean(go, "-r") )
+		if (esl_sq_ReverseComplement(sq) != eslOK) 
+		  esl_fatal("Failed to reverse complement %s\n", sq->name);
 	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
 	      nseq++;
 	    }
@@ -282,33 +350,127 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
 static void
 onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
 {
-  int status;
+  ESL_SQ  *sq            = esl_sq_Create();
+  int      do_revcomp    = esl_opt_GetBoolean(go, "-r");
+  char    *newname       = esl_opt_GetString(go, "-n");
+  int      status;
 
-  if (sqfp->ssi != NULL)	/* the fast way */
+  /* Try to position the file at the desired sequence with SSI. */
+  if (sqfp->ssi != NULL)	
     {
       status = esl_sqfile_PositionByKey(sqfp, key);
       if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", key, sqfp->filename);
       else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", sqfp->filename);
       else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
-      
-      if ((status = esl_sqio_Echo(ofp, sqfp)) != eslOK) esl_fatal("Echo failed: %s\n", sqfp->errbuf);
-    }
-  else				/* the slow way */
-    {
-      ESL_SQ  *sq   = esl_sq_Create();
 
-      while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF)
-	{
-	  if (status != eslOK) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+      if (esl_sqio_Read(sqfp, sq) != eslOK) 
+	esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+      if (strcmp(key, sq->name) != 0 && strcmp(key, sq->acc) != 0) 
+	esl_fatal("whoa, internal error; found the wrong sequence %s, not %s", sq->name, key);
+    }  
+  else 
+    { /* Else, we have to read the whole damn file sequentially until we find the seq */
+      while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF) {
+	if (status != eslOK) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+	if (strcmp(key, sq->name) == 0 || strcmp(key, sq->acc) == 0) break;
+	esl_sq_Reuse(sq);
+      }
+      if (status == eslEOF) esl_fatal("Failed to find sequence %s in file %s\n", key, sqfp->filename);
 
-	  if (strcmp(key, sq->name) == 0 || strcmp(key, sq->acc) == 0) 
-	    {
-	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
-	      break;
-	    }
-	  esl_sq_Reuse(sq);
-	}
-      esl_sq_Destroy(sq);
     }
+
+  if (do_revcomp == FALSE && newname == NULL) 
+    { /* If we're not manipulating the sequence in any way, we can Echo() it. */
+      if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", sqfp->errbuf);
+    }
+  else
+    { /* Otherwise we Write() the parsed version. */
+      if (do_revcomp && esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+      if (newname != NULL) esl_sq_SetName(sq, newname);
+      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+    }
+
+  esl_sq_Destroy(sq);
 }
 
+static void
+multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
+{
+  ESL_FILEPARSER *efp    = NULL;
+  char           *newname;
+  char           *s;
+  int             n1, n2;
+  int             start, end;
+  char           *source;
+ 
+  if (esl_fileparser_Open(gdffile, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", gdffile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      if (esl_fileparser_GetTokenOnLine(efp, &newname, &n1) != eslOK)
+	esl_fatal("Failed to read subseq name on line %d of file %s\n", efp->linenumber, gdffile);
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read start coord on line %d of file %s\n", efp->linenumber, gdffile);
+      start = atoi(s);
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read end coord on line %d of file %s\n", efp->linenumber, gdffile);
+      end   = atoi(s);
+      if (esl_fileparser_GetTokenOnLine(efp, &source, &n2) != eslOK)
+	esl_fatal("Failed to read source seq name on line %d of file %s\n", efp->linenumber, gdffile);
+
+      onefetch_subseq(go, ofp, sqfp, newname, source, start, end);
+    }
+  esl_fileparser_Close(efp);
+}
+
+static void
+onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, char *key, uint32_t given_start, uint32_t given_end)
+{
+  int    start, end;
+  int    do_revcomp;
+  ESL_SQ *sq = esl_sq_Create();
+
+  if (sqfp->ssi == NULL) esl_fatal("no ssi index");
+
+  /* reverse complement indicated by coords. */
+  /* -c 52: would be 52,0, so watch out for given_end = 0 case */
+  if (given_end != 0 && given_start > given_end)
+    { start = given_end;   end = given_start; do_revcomp = TRUE;  }
+  else
+    { start = given_start; end = given_end;   do_revcomp = FALSE; }
+
+  if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(sqfp->errbuf);
+
+  if      (newname != NULL) esl_sq_SetName(sq, newname);
+  else                      esl_sq_SetName(sq, "%s/%d-%d", key, given_start, (given_end == 0) ? sq->L : given_end);
+
+  /* Two ways we might have been asked to revcomp: by coord, or by -r option */
+  /* (If both happen, they'll cancel each other out) */
+  if (do_revcomp) 
+    if (esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+  if (esl_opt_GetBoolean(go, "-r"))
+    if (esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
+
+  esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+  esl_sq_Destroy(sq);
+}
+
+
+static int
+parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
+{
+  ESL_REGEXP *re = esl_regexp_Create();
+  char        tok1[32];
+  char        tok2[32];
+
+  if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) esl_fatal("-c takes arg of subseq coords <from>..<to>; %s not recognized", cstring);
+  if (esl_regexp_SubmatchCopy(re, 1, tok1, 32)            != eslOK) esl_fatal("Failed to find <from> coord in %s", cstring);
+  if (esl_regexp_SubmatchCopy(re, 2, tok2, 32)            != eslOK) esl_fatal("Failed to find <to> coord in %s",   cstring);
+  
+  *ret_start = atol(tok1);
+  *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
+  
+  esl_regexp_Destroy(re);
+  return eslOK;
+}

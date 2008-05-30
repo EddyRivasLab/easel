@@ -20,13 +20,14 @@
 /* Structure: ESL_ALPHABET
  */
 typedef struct {
-  int     type;		     /* eslDNA, eslRNA, eslAMINO, or eslNONSTANDARD     */
-  int     K;		     /* uniq alphabet size: 4 or 20                     */
-  int     Kp;		     /* total size: alphabet + degen + gap + missing    */
-  char   *sym;               /* "ACGT-RYMKSWHBVDN~", for instance    [0..Kp-1]  */
-  ESL_DSQ inmap[128];        /* inmap['A'] = 0, etc: dsq[] index for a symbol   */
-  char  **degen;             /* 1/0, which syms inc which res [0..Kp-1][0..K-1] */
-  int    *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]    */
+  int      type;	     /* eslDNA, eslRNA, eslAMINO, or eslNONSTANDARD     */
+  int      K;		     /* uniq alphabet size: 4 or 20                     */
+  int      Kp;		     /* total size: alphabet + degen + gap + missing    */
+  char    *sym;              /* "ACGT-RYMKSWHBVDN~", for instance    [0..Kp-1]  */
+  ESL_DSQ  inmap[128];       /* inmap['A'] = 0, etc: dsq[] index for a symbol   */
+  char   **degen;            /* 1/0, which syms inc which res [0..Kp-1][0..K-1] */
+  int     *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]    */
+  ESL_DSQ *complement;       /* map a digital symbol to its complement [0..Kp-1]*/
 } ESL_ALPHABET;
 
 
@@ -44,22 +45,22 @@ extern void          esl_alphabet_Destroy(ESL_ALPHABET *a);
 
 /* 2. Digitized sequences.
  */
-extern int esl_abc_CreateDsq(const ESL_ALPHABET *a, const char    *seq,        ESL_DSQ **ret_dsq);
-extern int esl_abc_Digitize (const ESL_ALPHABET *a, const char    *seq,        ESL_DSQ *dsq);
-extern int esl_abc_Textize  (const ESL_ALPHABET *a, const ESL_DSQ *dsq,  int L, char   *seq);
-extern int esl_abc_TextizeN (const ESL_ALPHABET *a, const ESL_DSQ *dptr, int L, char   *buf);
-extern int esl_abc_dsqcpy(const ESL_DSQ *dsq, int L, ESL_DSQ *dcopy);
-extern int esl_abc_dsqdup(const ESL_DSQ *dsq, int L, ESL_DSQ **ret_dup);
-extern int esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int *L, const char *s, int n);
-extern int esl_abc_dsqlen(const ESL_DSQ *dsq);
-extern int esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
-extern int esl_abc_CDealign(const ESL_ALPHABET *abc, char    *s, const ESL_DSQ *ref_ax, int *opt_rlen);
-extern int esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int *opt_rlen);
+extern int     esl_abc_CreateDsq(const ESL_ALPHABET *a, const char    *seq,        ESL_DSQ **ret_dsq);
+extern int     esl_abc_Digitize (const ESL_ALPHABET *a, const char    *seq,        ESL_DSQ *dsq);
+extern int     esl_abc_Textize  (const ESL_ALPHABET *a, const ESL_DSQ *dsq,  int64_t L, char   *seq);
+extern int     esl_abc_TextizeN (const ESL_ALPHABET *a, const ESL_DSQ *dptr, int64_t L, char   *buf);
+extern int     esl_abc_dsqcpy(const ESL_DSQ *dsq, int64_t L, ESL_DSQ *dcopy);
+extern int     esl_abc_dsqdup(const ESL_DSQ *dsq, int64_t L, ESL_DSQ **ret_dup);
+extern int     esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int64_t *L, const char *s, int64_t n);
+extern int64_t esl_abc_dsqlen(const ESL_DSQ *dsq);
+extern int64_t esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
+extern int     esl_abc_CDealign(const ESL_ALPHABET *abc, char    *s, const ESL_DSQ *ref_ax, int64_t *opt_rlen);
+extern int     esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int64_t *opt_rlen);
 
 
 /* 3. Other routines in the API.
  */
-extern int    esl_abc_GuessAlphabet(const int *ct, int *ret_type);
+extern int    esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type);
 extern double esl_abc_Match       (const ESL_ALPHABET *a, ESL_DSQ x, ESL_DSQ y, double *p);
 extern int    esl_abc_IAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const int    *sc);
 extern float  esl_abc_FAvgScore   (const ESL_ALPHABET *a, ESL_DSQ x, const float  *sc);
@@ -77,7 +78,7 @@ extern int    esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const doub
 extern int    esl_abc_FCount      (const ESL_ALPHABET *a, float  *ct, ESL_DSQ x, float  wt);
 extern int    esl_abc_DCount      (const ESL_ALPHABET *a, double *ct, ESL_DSQ x, double wt);
 extern char  *esl_abc_DescribeType(int type);
-extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int L, char *errbuf);
+extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
 
 /* In the tests below, remember the rules of order in internal alphabets:
  *   Canonical alphabet   Gap   Degeneracies  (X/N)  Missing data

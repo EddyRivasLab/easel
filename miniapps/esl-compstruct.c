@@ -42,7 +42,7 @@ main(int argc, char **argv)
   char        *kfile, *tfile;   /* known, test structure file      */
   ESL_MSAFILE *kfp, *tfp;       /* open kfile, tfile               */
   ESL_MSA     *ka,  *ta; 	/* known, trusted alignment        */
-  int          klen, tlen;	/* lengths of dealigned seqs       */
+  int64_t      klen, tlen;	/* lengths of dealigned seqs       */
   int         *kct, *tct;       /* known, test CT rep of structure */
   int          i;		/* counter over sequences          */
   int          pos;		/* counter over residues           */

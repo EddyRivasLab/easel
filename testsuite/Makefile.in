@@ -47,6 +47,7 @@ UNIT_TESTS = easel_utest\
 	regexp_utest\
 	rootfinder_utest\
 	scorematrix_utest\
+	sq_utest\
 	sqio_utest\
 	sse_utest\
 	ssi_utest\
@@ -63,7 +64,6 @@ UNIT_TESTS = easel_utest\
 #	mpi_utest\
 #	normal_utest\
 #	paml_utest\
-#	sq_utest\
 #	stopwatch_utest\
 #	swat_utest\
 
