@@ -379,8 +379,8 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
 
     }
 
-  if (do_revcomp == FALSE && newname == NULL) 
-    { /* If we're not manipulating the sequence in any way, we can Echo() it. */
+  if (do_revcomp == FALSE && newname == NULL && ! esl_sqio_IsAlignment(sqfp->format)) 
+    { /* If we're not manipulating the sequence in any way, and it's not from an alignment file, we can Echo() it. */
       if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", sqfp->errbuf);
     }
   else
