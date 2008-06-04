@@ -329,15 +329,7 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
 #endif
 
 #ifdef eslAUGMENT_MSA
-  if (sqfp->afp      != NULL) 
-    { /* Because we copied info from the seqfile object to
-       * create the msafile object, we can't just close the 
-       * msafile, or we'd end up w/ double fclose()/free()'s.
-       */
-      if (sqfp->afp->buf   != NULL) free(sqfp->afp->buf);
-      if (sqfp->afp->fname != NULL) free(sqfp->afp->fname);
-      free(sqfp->afp);
-    }
+  if (sqfp->afp      != NULL) esl_msafile_Close(sqfp->afp);
   if (sqfp->msa      != NULL) esl_msa_Destroy(sqfp->msa);
 #endif /*eslAUGMENT_MSA*/
   free(sqfp);
@@ -1087,11 +1079,12 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 	  else                 sq->seq[0] = '\0';
 
 	  sqfp->idx++;
+	  esl_sq_Destroy(tmpsq);
 	  return eslEOD;
 	}
 
-      /* Copy the sequence frag */
-      if (tmpsq->ss != NULL && sq->ss == NULL) ESL_ALLOC(sq->ss, sizeof(char) * (sq->n + 2));
+      /* Copy the sequence frag.  */
+      if (tmpsq->ss != NULL && sq->ss == NULL) ESL_ALLOC(sq->ss, sizeof(char) * (sq->salloc)); /* this *must* be for salloc  */
       esl_sq_GrowTo(sq, sq->n);
       if (tmpsq->seq != NULL) 
 	{	/* text mode */
@@ -1104,7 +1097,7 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 	}
       else
 	{
-	  memcpy(sq->dsq + 1, tmpsq->dsq + sq->start, sizeof(char) * sq->n);
+	  memcpy(sq->dsq + 1, tmpsq->dsq + sq->start, sizeof(ESL_DSQ) * sq->n);
 	  sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
 	  if (tmpsq->ss != NULL) {
 	    memcpy(sq->ss + 1, tmpsq->ss + sq->start, sizeof(char) * sq->n);
