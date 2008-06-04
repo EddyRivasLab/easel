@@ -334,7 +334,8 @@ esl_sqfile_Close(ESL_SQFILE *sqfp)
        * create the msafile object, we can't just close the 
        * msafile, or we'd end up w/ double fclose()/free()'s.
        */
-      if (sqfp->afp->buf != NULL) free(sqfp->afp->buf);
+      if (sqfp->afp->buf   != NULL) free(sqfp->afp->buf);
+      if (sqfp->afp->fname != NULL) free(sqfp->afp->fname);
       free(sqfp->afp);
     }
   if (sqfp->msa      != NULL) esl_msa_Destroy(sqfp->msa);
@@ -1433,7 +1434,7 @@ esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
   int      status;
 
   if (sqfp->ssi == NULL)                          ESL_EXCEPTION(eslEINVAL,"Need open SSI index to call esl_sqfile_PositionByNumber()");
-  if ((status = esl_ssi_FindNumber(sqfp->ssi, which, &fh, &offset, NULL, NULL)) != eslOK) return status;
+  if ((status = esl_ssi_FindNumber(sqfp->ssi, which, &fh, &offset, NULL, NULL, NULL)) != eslOK) return status;
   return esl_sqfile_Position(sqfp, offset);
 }
 
@@ -1930,7 +1931,7 @@ addbuf(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nres)
   if (sq->dsq != NULL) 
     {
       while (nres) {
-	x  = sqfp->inmap[(int) sqfp->buf[sqfp->bpos++]];
+	x  = sq->abc->inmap[(int) sqfp->buf[sqfp->bpos++]];
 	if (x <= 127) { nres--; sq->dsq[++sq->n] = x; }	
       } /* we skipped IGNORED, EOL. EOD, ILLEGAL don't occur; seebuf() already checked  */
     } 
@@ -2114,7 +2115,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
    * "The two-character line-type code that begins each line is always
    *  followed by three blanks..."
    */
-  if (feof(sqfp->fp))  return eslEOF;
+  if (sqfp->nc == 0) return eslEOF;
   while (is_blankline(sqfp->buf)) {
     if ((status = loadbuf(sqfp)) == eslEOF) return eslEOF; /* normal */
     else if (status != eslOK) return status; /* abnormal */
@@ -2260,7 +2261,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   int   status;
 
   /* Find LOCUS line, allowing for ignoration of a file header.  */
-  if (feof(sqfp->fp))  return eslEOF;
+  if (sqfp->nc == 0) return eslEOF;
   while (strncmp(sqfp->buf, "LOCUS   ", 8) != 0) {
     if ((status = loadbuf(sqfp)) == eslEOF) return eslEOF; /* normal   */
     else if (status != eslOK) return status;                /* abnormal */
@@ -2790,6 +2791,7 @@ write_spaced_fasta(FILE *fp, ESL_SQ *sq)
   fputc('\n', fp);
 
   sq->doff = ftello(fp);
+  buf[10]  = '\0';
   for (pos = 1; pos <= sq->n; pos += 10)
     {
       esl_abc_TextizeN(sq->abc, sq->dsq+pos, 10, buf);
@@ -2990,8 +2992,6 @@ utest_read_window(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, int f
   esl_sq_Destroy(sq);
 }
 
-
-
 static void
 utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, char *seqfile, char *ssifile, int format)
 {
@@ -3025,9 +3025,42 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);
 }
+
+
+/* Write the sequences out to a tmpfile in chosen <format>;
+ * read them back and make sure they're the same.
+ *
+ * The sequences in <sqarr> are in digital mode.
+ */
+static void
+utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
+{
+  char       *msg         = "sqio write unit test failure";
+  char        tmpfile[32] = "esltmpXXXXXX";
+  ESL_SQFILE *sqfp        = NULL;
+  ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
+  FILE       *fp          = NULL;
+  int         i;
+
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  for (i = 0; i < N; i++)
+    esl_sqio_Write(fp, sqarr[i], format);
+  fclose(fp);
+
+  if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
+  for (i = 0; i < N; i++)
+    {
+      if (esl_sqio_Read(sqfp, sq) != eslOK) esl_fatal(msg);
+      if (strcmp(sqarr[i]->name,   sq->name)   != 0) esl_fatal(msg);
+      if (sqarr[i]->L !=  sq->L)                     esl_fatal(msg);
+      if (memcmp(sqarr[i]->dsq, sq->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0) esl_fatal(msg);
+      esl_sq_Reuse(sq);
+    }
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  remove(tmpfile);
+}
 #endif /*eslSQIO_TESTDRIVE*/
-
-
 /*------------------ end, unit tests ----------------------------*/
 
 
@@ -3115,6 +3148,8 @@ main(int argc, char **argv)
       remove(tmpfile);
       remove(ssifile);
     }  
+
+  utest_write(abc, sqarr, N, eslMSAFILE_STOCKHOLM);
 
   for (i = 0; i < N; i++) esl_sq_Destroy(sqarr[i]);
   free(sqarr);

@@ -111,7 +111,7 @@ extern void esl_ssi_Close(ESL_SSI *ssi);
 extern int  esl_ssi_FindName(ESL_SSI *ssi, const char *key,
 			     uint16_t *ret_fh, off_t *ret_roff, off_t *opt_doff, int64_t *opt_L);
 extern int  esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey,
-			       uint16_t *ret_fh, off_t *ret_roff, off_t *opt_doff, int64_t *opt_L);
+			       uint16_t *opt_fh, off_t *opt_roff, off_t *opt_doff, int64_t *opt_L, char **opt_pkey);
 extern int  esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, int64_t requested_start,
 			       uint16_t *ret_fh, off_t *ret_roff, off_t *ret_doff, int64_t *ret_L, int64_t *ret_actual_start);
 extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int *ret_format);

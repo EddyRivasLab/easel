@@ -230,18 +230,24 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_rof
  *
  * Purpose:   Looks up primary key number <nkey> in the open index
  *            <ssi>.  <nkey> ranges from <0..ssi->nprimary-1>. When
- *            key <nkey> is found, <ret_fh> contains a unique handle
- *            on the file that contains that key (suitable for an
- *            <esl_ssi_FileInfo()> call, or for comparison to the handle of
- *            the last file that was opened for retrieval), and
- *            <ret_offset> is filled in with the offset in that file.
+ *            key <nkey> is found, any/all of several optional
+ *            arguments point to results. <*opt_fh> contains a unique
+ *            handle on the file that contains that key (suitable for
+ *            an <esl_ssi_FileInfo()> call, or for comparison to the
+ *            handle of the last file that was opened for retrieval).
+ *            <*opt_roff> contains the record offset; <*opt_doff>
+ *            contains the data offset; <*opt_L> contains the record
+ *            length; and <*opt_pkey> points to the primary key name
+ *            (a string, allocated here, that the caller becomes
+ *            responsible for free'ing).
  *           
  * Args:      <ssi>        - open index file
  *            <nkey>       - primary key number to retrieve (0..nprimary-1)
- *            <ret_fh>     - RETURN: handle on file that key is in
- *            <ret_roff>   - RETURN: offset of the start of that key's record
+ *            <opt_fh>     - optRETURN: handle on file that key is in
+ *            <opt_roff>   - optRETURN: offset of the start of that key's record
  *            <opt_doff>   - optRETURN: data offset (may be 0 if unset)
  *            <opt_L>      - optRETURN: length of data record (may be 0 if unset)                
+ *            <opt_pkey>   - optRETURN: primary key name (allocated here; caller must free)
  *
  * Returns:   <eslOK>        on success;
  *            <eslENOTFOUND> if there is no sequence record <nkey>;
@@ -251,10 +257,11 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_rof
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey, uint16_t *ret_fh, off_t *ret_roff, off_t *opt_doff, int64_t *opt_L)
+esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey, uint16_t *opt_fh, off_t *opt_roff, off_t *opt_doff, int64_t *opt_L, char **opt_pkey)
 {
   int      status;
-  off_t    doff;
+  uint16_t fh;
+  off_t    doff, roff;
   uint64_t L;
   char    *pkey = NULL;
 
@@ -264,22 +271,25 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey, uint16_t *ret_fh, off_t *ret_roff
   status = eslEFORMAT;
   if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0) goto ERROR;
   if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)   != ssi->plen)   goto ERROR;
-  if (esl_fread_i16(ssi->fp, ret_fh)                  != eslOK)       goto ERROR;
-  if (esl_fread_offset(ssi->fp, ssi->offsz, ret_roff) != eslOK)       goto ERROR;
+  if (esl_fread_i16(ssi->fp, &fh)                     != eslOK)       goto ERROR;
+  if (esl_fread_offset(ssi->fp, ssi->offsz, &roff)    != eslOK)       goto ERROR;
   if (esl_fread_offset(ssi->fp, ssi->offsz, &doff)    != eslOK)       goto ERROR;
   if (esl_fread_i64   (ssi->fp, &L)                   != eslOK)       goto ERROR;
 
-  if (pkey != NULL) free(pkey);
+  if (opt_fh   != NULL) *opt_fh   = fh;
+  if (opt_roff != NULL) *opt_roff = roff;
   if (opt_doff != NULL) *opt_doff = doff;
   if (opt_L    != NULL) *opt_L    = L;
+  if (opt_pkey != NULL) *opt_pkey = pkey; else free(pkey);
   return eslOK;
 
  ERROR:
-  if (pkey != NULL) free(pkey);
-  *ret_fh     = 0;
-  *ret_roff   = 0;
+  if (pkey     != NULL) free(pkey);
+  if (opt_fh   != NULL) *opt_fh   = 0;
+  if (opt_roff != NULL) *opt_roff = 0;
   if (opt_doff != NULL) *opt_doff = 0;
   if (opt_L    != NULL) *opt_L    = 0;
+  if (opt_pkey != NULL) *opt_pkey = NULL;
   return status;
 }
 
