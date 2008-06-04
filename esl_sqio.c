@@ -558,6 +558,10 @@ esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
   case eslSQFILE_FASTA:      inmap_fasta(sqfp,   abc->inmap); break;
     /* stockholm: do nothing (no inmap used for MSAs */
   }
+
+  if (esl_sqio_IsAlignment(sqfp->format))
+    esl_msafile_SetDigital(sqfp->afp, abc);
+
   sqfp->do_digital = TRUE;
   sqfp->abc        = abc;
   return eslOK;
@@ -1026,9 +1030,105 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
   int64_t line;
   off_t   offset;
   int     status;
+  ESL_SQ *tmpsq = NULL;
 
+#ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
-    ESL_EXCEPTION(eslEINVAL, "Can't currently read windows from an MSA");
+    {
+      /* special: if we're initializing a revcomp window read, back sqfp->idx up one */
+      if (W < 0 && sq->start == 0) sqfp->idx--;
+
+      if (sqfp->msa == NULL || sqfp->idx >= sqfp->msa->nseq)
+	{ /* need new alignment? */
+	  esl_msa_Destroy(sqfp->msa);
+	  status = esl_msa_Read(sqfp->afp, &(sqfp->msa));
+	  if (status == eslEFORMAT)
+	    { /* oops, a parse error; upload the error info from afp to sqfp */
+	      sqfp->linenumber = sqfp->afp->linenumber;
+	      strcpy(sqfp->errbuf, sqfp->afp->errbuf); /* errbufs same size! */ 
+	      return eslEFORMAT;
+	    }
+	  else if (status != eslOK) goto ERROR;
+	  sqfp->idx = 0;
+	}
+      
+      /* grab appropriate seq from alignment into tmpsq */
+      if ((status = esl_sq_FetchFromMSA(sqfp->msa, sqfp->idx, &tmpsq)) != eslOK) goto ERROR;
+
+      /* Figure out tmpsq coords we'll put in sq */
+      if (W > 0)
+	{			/* forward strand */
+	  sq->C     = ESL_MIN(sq->n, C);
+	  sq->start = sq->end - sq->C + 1;
+	  sq->end   = ESL_MIN(tmpsq->L, sq->end + W);
+	  sq->n     = sq->end - sq->start + 1;
+	  sq->W     = sq->n - sq->C;
+	}
+      else 
+	{			/* reverse strand */
+	  if (sq->L == -1) ESL_XEXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
+
+	  sq->C     = ESL_MIN(sq->n, sq->end + C - 1);
+	  sq->end   = (sq->start == 0 ? sq->L : sq->end + sq->C - 1);
+	  sq->start = ESL_MAX(1, sq->end + W - sq->C - 1);
+	  sq->n     = sq->end - sq->start + 1;
+	  sq->W     = sq->n - sq->C;
+	}
+
+      if (sq->W == 0)		/* no new sequence? that's the EOD case */
+	{
+	  sq->start      = 0;
+	  sq->end        = 0;
+	  sq->C          = 0;
+	  sq->W          = 0;
+	  sq->n          = 0;
+	  sq->L          = tmpsq->L;
+	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
+	  else                 sq->seq[0] = '\0';
+
+	  sqfp->idx++;
+	  return eslEOD;
+	}
+
+      /* Copy the sequence frag */
+      if (tmpsq->ss != NULL && sq->ss == NULL) ESL_ALLOC(sq->ss, sizeof(char) * (sq->n + 2));
+      esl_sq_GrowTo(sq, sq->n);
+      if (tmpsq->seq != NULL) 
+	{	/* text mode */
+	  memcpy(sq->seq, tmpsq->seq + sq->start - 1, sizeof(char) * sq->n);
+	  sq->seq[sq->n] = '\0';
+	  if (tmpsq->ss != NULL) {
+	    memcpy(sq->ss, tmpsq->ss + sq->start - 1, sizeof(char) * sq->n);
+	    sq->ss[sq->n] = '\0';
+	  }
+	}
+      else
+	{
+	  memcpy(sq->dsq + 1, tmpsq->dsq + sq->start, sizeof(char) * sq->n);
+	  sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
+	  if (tmpsq->ss != NULL) {
+	    memcpy(sq->ss + 1, tmpsq->ss + sq->start, sizeof(char) * sq->n);
+	    sq->ss[sq->n+1] = '\0';
+	  }
+	}
+      if (W < 0 && (status = esl_sq_ReverseComplement(sq)) != eslOK) 
+	ESL_XFAIL(eslEINVAL, sqfp->errbuf, "Can't reverse complement that sequence window");
+	  
+      /* Copy annotation */
+      if ((status = esl_sq_SetName     (sq, tmpsq->name))   != eslOK) goto ERROR;
+      if ((status = esl_sq_SetSource   (sq, tmpsq->name))   != eslOK) goto ERROR;
+      if ((status = esl_sq_SetAccession(sq, tmpsq->acc))    != eslOK) goto ERROR;
+      if ((status = esl_sq_SetDesc     (sq, tmpsq->desc))   != eslOK) goto ERROR;
+      sq->roff = -1;
+      sq->doff = -1;
+      sq->eoff = -1;
+
+      esl_sq_Destroy(tmpsq);
+      return eslOK;
+    }
+#endif /* we've completely handled the alignment file case above. */
+
+  /* Now for the normal case: we're reading a normal unaligned seq file, not an alignment. */
 
   /* Negative W indicates reverse complement direction */
   if (W < 0)	
@@ -1191,6 +1291,10 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
     }
   /*NOTREACHED*/
   return eslOK;
+
+ ERROR:
+  if (tmpsq != NULL) esl_sq_Destroy(tmpsq);
+  return status;
 }
 
 /* Function:  esl_sqio_Echo()

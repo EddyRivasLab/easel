@@ -250,7 +250,7 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
   int status;
 
   /* If <src> has structure annotation and <dst> does not, initialize an allocation in <dst> */
-  if (src->ss != NULL) ESL_ALLOC(dst->ss, sizeof(char) * dst->salloc);
+  if (src->ss != NULL && dst->ss == NULL) ESL_ALLOC(dst->ss, sizeof(char) * dst->salloc);
 
   if ((status = esl_sq_SetName     (dst, src->name))   != eslOK) goto ERROR;
   if ((status = esl_sq_SetSource   (dst, src->source)) != eslOK) goto ERROR;
@@ -1254,8 +1254,6 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 }
 
 
-
-
 /* Function:  esl_sq_FetchFromMSA()
  * Synopsis:  Fetch a single sequence from an MSA.
  * Incept:    SRE, Sun Mar 30 13:39:06 2008 [Janelia]
@@ -1313,6 +1311,11 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
 
   if ((status = esl_sq_SetSource(sq, msa->name)) != eslOK) goto ERROR;
 
+  sq->start = 1;
+  sq->end   = sq->n;
+  sq->L     = sq->n;
+  sq->C     = 0;
+  sq->W     = sq->n;
   *ret_sq = sq;
   return eslOK;
 
