@@ -1,6 +1,6 @@
 /* Manipulate a multiple sequence alignment in some useful ways.
  *
- * From easel's esl-alistat which was from squid's alistat (1995)
+ * Derived from easel's esl-alistat which was from squid's alistat (1995)
  * EPN, Fri Aug 10 08:52:30 2007
  * SVN $Id$
  */
@@ -49,6 +49,7 @@ static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf);
+static int  dump_delete_info(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  plot_inserts(FILE *fp, ESL_MSA *msa, int do_log, char *errbuf);
 static int  dump_infocontent(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf);
@@ -68,46 +69,59 @@ static int  number_columns(ESL_MSA *msa, int do_all, char *errbuf);
 static char digit_to_char(int digit);
 static int  int_ndigits(int i);
 static char get_char_digit_x_from_int(int i, int place);
+static int  keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
+static int  read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n);
+static int  msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, ESL_MSA **ret_new_msa);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
-  { "-s",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "print statistics (esl-alistat behavior)",                        1 },
+  { "-1",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "output alignment in Pfam (non-interleaved, 1 line/seq) format",  1 },
+  { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add/rewrite #=GC RF markup based on gap frequency in each col",  2 },
-  { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps to allow in a non-gap RF column",      2 },
-  { "--amask2rf",  eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=alen)",   2 },
-  { "--rfmask2rf", eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 2 },
+  { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps allowed in non-gap RF columns [0.5]",  2 },
+  { "--mask-all",  eslARG_INFILE,FALSE,NULL, NULL,      NULL,NULL, NULL,                        "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=alen)",   2 },
+  { "--mask-rf",   eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 2 },
   { "--pfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "set #=GC RF as cols w/<x> fraction of seqs w/POST >= --pthresh", 2 },
-  { "--pthresh",   eslARG_REAL,  "0.9", NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "set #=GR POST threshold for --pfract as <x>",                    2 },
-  { "--prf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
+  { "--pthresh",   eslARG_REAL,  "0.9", NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "set #=GR POST threshold for --pfract as <x> [default=0.9]",      2 },
+  { "--p-rf",      eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
   { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
   { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
+  { "--start-all", eslARG_INT,   NULL,  NULL, NULL,      NULL,"--end-all",  "--start-rf",       "keep columns starting at column <n>", 3 },
+  { "--end-all",   eslARG_INT,   NULL,  NULL, NULL,      NULL,"--start-all","--start-rf",       "keep columns ending   at column <n>", 3 },
+  { "--start-rf",  eslARG_INT,   NULL,  NULL, NULL,      NULL,"--end-rf",   "--start-all",      "keep columns starting at non-gap RF column <n>", 3 },
+  { "--end-rf",    eslARG_INT,   NULL,  NULL, NULL,      NULL,"--start-rf", "--start-all",      "keep columns ending   at non-gap RF column <n>", 3 },
   { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "reorder MSA to tree order following SLC, save Newick tree to <f>", 4 },
   { "--lfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "remove sequences w/length < <x> fraction of median length",      4 },
   { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, NULL,                       "remove sequences w/length < <n> residues",                       4 },
   { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, NULL,                       "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",4 },
-  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "print info on # of insertions b/t all non-gap RF cols to <f>",   5 },
-  { "--iplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 5 },
-  { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          5 },
-  { "--gplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  5 },
-  { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "plot heatmap of information content of each column",             5 },
+  { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, "--seq-k",                  "remove sequences with names listed in file <f>",                 4 },
+  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, "--seq-r",                  "remove all sequences *except* those listed in file <f>",         4 },
+  { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "trim aligned seqs in <msafile> to subseqs in <f>",               4 },
+  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,                "print info on # of insertions b/t all non-gap RF cols to <f>",   5 },
+  { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on information content of each non-gap RF column",    5 },
   { "--rinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of residues in each col of alignment to <f>",    5 },
-  { "--pinfo",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "print info on posterior probabilities annotated in <msafile>",   6 },
+  { "--dinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of deletes in non-gap RF cols of aln to <f>",    5 },
+  { "--pinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on posterior probabilities in <msafile> to <f>",      5 },
   { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "-g,-k,-r,--morph",         "annotate individual secondary structures by imposing consensus", 7 },
-  { "--merge",     eslARG_INFILE,FALSE, NULL, NULL,      NULL,NULL, "--morph,-g,-k,-r",         "merge msa in <msafile> with msa in <f>",                         8 },
-  { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",           8 },
   { "--map",       eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f>, output mask (1s and 0s)",    8 },
   { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,"--map",NULL,                     "with --map, output file for 1/0 mask map is <f>",                8 },
-  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add 100% gap columns to <msafile>",    8 },
+  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",   8 },
   { "--verbose",   eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            8 },
-  { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "trim aligned seqs in <msafile> to subseqs in <f>",               8 },
-  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, "--num-all",                "add annotation numbering the non-gap RF columns",               11 },
-  { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, "--num-rf",                 "add annotation numbering all columns",                          11 },
+  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the non-gap RF columns",               11 },
+  { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                          11 },
   { "--omask",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output RF annotation as 1/0 mask to file <f>",                   9 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                         10 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                             10 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                             10 },
+
+  /* All options below are developer options, only shown if --devhelp invoked */
+  { "--iplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 101 },
+  { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          101 },
+  { "--gplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  101 },
+  { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",          101 },
+  { "--merge",     eslARG_INFILE,FALSE, NULL, NULL,      NULL,NULL, "--morph,-g,-k,-r",         "merge msa in <msafile> with msa in <f>",                         101 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -122,12 +136,6 @@ main(int argc, char **argv)
   ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
-  int           i;		/* counter over seqs               */
-  int64_t       rlen;		/* a raw (unaligned) seq length    */
-  int64_t       small, large;	/* smallest, largest sequence      */
-  int64_t       nres;		/* total # of residues in msa      */
-  double        avgid;		/* average fractional pair id      */
-  int           max_comparisons;/* maximum # comparisons for avg id */
   FILE         *ofp;		/* output file (default is stdout) */
   char          errbuf[eslERRBUFSIZE];
   int           write_ali = FALSE; /* set to TRUE if we should print a new MSA */
@@ -136,16 +144,17 @@ main(int argc, char **argv)
   ESL_MSA      *othermsa = NULL;	/* other input alignment      (with --morph) */
   /* --trim related vars */
   ESL_SQFILE   *trimfp = NULL;  /* sequence file with subsequences for --trim */
-  /* --iinfo, --iplot, --gplot --rinfo related vars */
+  /* --iinfo, --iplot, --gplot --rinfo, --dinfo related vars */
   FILE *treefp  = NULL;  /* output file for --tree */
   FILE *iinfofp = NULL;  /* output file for --iinfo */
   FILE *iplotfp = NULL;  /* output file for --iplot */
   FILE *gplotfp = NULL;  /* output file for --gplot */
   FILE *rinfofp = NULL;  /* output file for --rinfo */
+  FILE *dinfofp = NULL;  /* output file for --dinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
-  /* --amask2rf */
+  /* --mask-all */
   char *amask = NULL;
-  /* --rfmask2rf */
+  /* --mask-all */
   char *rfmask = NULL;
   /* --xmask */
   char *xmask = NULL;
@@ -169,6 +178,34 @@ main(int argc, char **argv)
       exit(1);
     }
 
+  if (esl_opt_GetBoolean(go, "--devhelp") )
+    {
+      esl_banner(stdout, argv[0], banner);
+      esl_usage (stdout, argv[0], usage);
+      puts("\nwhere basic options are:");
+      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
+      puts("\noptions for adding/rewriting #=GC RF annotation:");
+      esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
+      puts("\noptions for removing columns:");
+      esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
+      puts("\noptions for numbering columns:");
+      esl_opt_DisplayHelp(stdout, go, 11, 2, 80); 
+      puts("\noptions for reordering/removing/trimming sequences:");
+      esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
+      puts("\noptions for displaying info on inserts/gaps/posterior probabilities:");
+      esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
+      puts("\noptions for manipulating secondary structure annotation:");
+      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
+      puts("\noptions for comparison/modification based on another MSA file:");
+      esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
+      puts("\noptions for outputting a lanemask file:");
+      esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
+      puts("\noptions for specifying input alphabet:");
+      esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
+      puts("\nundocumented, experimental developer options:");
+      esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
+      exit(0);
+    }
   if (esl_opt_GetBoolean(go, "-h") )
     {
       esl_banner(stdout, argv[0], banner);
@@ -179,12 +216,12 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
       puts("\noptions for removing columns:");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
-      puts("\noptions for reordering/removing sequences:");
+      puts("\noptions for numbering columns:");
+      esl_opt_DisplayHelp(stdout, go, 11, 2, 80); 
+      puts("\noptions for reordering/removing/trimming sequences:");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
-      puts("\noptions for displaying info on inserts/gaps:");
+      puts("\noptions for displaying info on inserts/gaps/posterior probabilities:");
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
-      puts("\noptions for displaying info on posterior probabilities:");
-      esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
       puts("\noptions for manipulating secondary structure annotation:");
       esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       puts("\noptions for comparison/modification based on another MSA file:");
@@ -207,7 +244,6 @@ main(int argc, char **argv)
   alifile = esl_opt_GetArg(go, 1);
 
   fmt             = eslMSAFILE_STOCKHOLM;
-  max_comparisons = 1000;
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
@@ -274,15 +310,15 @@ main(int argc, char **argv)
       else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
     }
 
-  /* read --amask2rf file, if nec */
-  if(esl_opt_GetString(go, "--amask2rf") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--amask2rf"), errbuf, &amask)) != eslOK)
-      ESL_FAIL(status, errbuf, "--amask2rf input file: %s open failed.\n", esl_opt_GetString(go, "--amask2rf"));
+  /* read --mask-all file, if nec */
+  if(esl_opt_GetString(go, "--mask-all") != NULL) {
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask-all"), errbuf, &amask)) != eslOK)
+      ESL_FAIL(status, errbuf, "--mask-all input file: %s open failed.\n", esl_opt_GetString(go, "--mask-all"));
   }
-  /* read --rfmask2rf file, if nec */
-  if(esl_opt_GetString(go, "--rfmask2rf") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--rfmask2rf"), errbuf, &rfmask)) != eslOK)
-      ESL_FAIL(status, errbuf, "--rfmask2rf input file: %s open failed.\n", esl_opt_GetString(go, "--rfmask2rf"));
+  /* read --mask-rf file, if nec */
+  if(esl_opt_GetString(go, "--mask-rf") != NULL) {
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask-rf"), errbuf, &rfmask)) != eslOK)
+      ESL_FAIL(status, errbuf, "--mask-rf input file: %s open failed.\n", esl_opt_GetString(go, "--mask-rf"));
   }
   /* read --xmask file, if nec */
   if(esl_opt_GetString(go, "--xmask") != NULL) {
@@ -332,32 +368,28 @@ main(int argc, char **argv)
 	write_ali = TRUE;
       }
 
-      if(esl_opt_GetBoolean(go, "-s")) /* print stats */
-	{
-	  nres = 0;
-	  small = large = -1;
-	  for (i = 0; i < msa->nseq; i++)
-	    {
-	      rlen  = esl_abc_dsqrlen(msa->abc, msa->ax[i]);
-	      nres += rlen;
-	      if (small == -1 || rlen < small) small = rlen;
-	      if (large == -1 || rlen > large) large = rlen;
-	    }
-	  
-	  esl_dst_XAverageId(abc, msa->ax, msa->nseq, max_comparisons, &avgid);
-	  printf("Alignment number:    %d\n",     nali);
-	  if (msa->name != NULL)
-	    printf("Alignment name:      %s\n",        msa->name); 
-	  printf("Format:              %s\n",          esl_msa_DescribeFormat(afp->format));
-	  printf("Number of sequences: %d\n",          msa->nseq);
-	  printf("Alignment length:    %" PRId64 "\n", msa->alen);
-	  printf("Total # residues:    %" PRId64 "\n", nres);
-	  printf("Smallest:            %" PRId64 "\n", small);
-	  printf("Largest:             %" PRId64 "\n", large);
-	  printf("Average length:      %.1f\n",   (double) nres / (double) msa->nseq);
-	  /*printf("Average identity:    %.0f\n",   100.*avgid); */
-	  printf("//\n");
+      /* handle the --seq-k and --seq-r options if enabled, all subsequent manipulations will omit any seqs removed here */
+      if((! esl_opt_IsDefault(go, "--seq-k")) || (! esl_opt_IsDefault(go, "--seq-r"))) {
+	ESL_MSA *new_msa;
+	char   **seqlist;
+	FILE    *ofp;
+	int      seqlist_n, n;
+	if(! esl_opt_IsDefault(go, "--seq-k")) { 
+	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-k"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
+	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	  /* new_msa is msa but only with seqs listed in --seq-k <f> file */
 	}
+	else { /* --seq-r enabled */
+	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-r"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
+	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, FALSE, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	  /* new_msa is msa but without seqs listed in --seq-r <f> file */
+	}
+	esl_msa_Destroy(msa);
+	msa = new_msa;
+	for(n = 0; n < seqlist_n; n++) free(seqlist[n]); 
+	free(seqlist);
+	write_ali = TRUE;
+      }
 
       /* read other msa if --morph, --merge, or --map (which are incompatible with each other) is enabled */
       if(((esl_opt_GetString(go, "--morph") != NULL) || (esl_opt_GetString(go, "--merge") != NULL))
@@ -415,11 +447,11 @@ main(int argc, char **argv)
 	if((status = write_rf_gapthresh(go, errbuf, msa)) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
-      if(amask != NULL) { /* --amask2rf enabled */
+      if(amask != NULL) { /* --mask-all enabled */
 	if((status = write_rf_given_alen(go, errbuf, msa, amask)) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
-      if(rfmask != NULL) { /* --rfmask2rf enabled */
+      if(rfmask != NULL) { /* --mask-rf enabled */
 	if((status = write_rf_given_rflen(go, errbuf, msa, rfmask)) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
@@ -430,6 +462,13 @@ main(int argc, char **argv)
 	if(! (esl_opt_IsDefault(go, "--pfract")))
 	  write_ali = TRUE;
       }
+
+      /* Remove columns based on --start-all --end-all, --start-rf --end-rf, if nec */
+      if((! esl_opt_IsDefault(go, "--start-all")) || (! esl_opt_IsDefault(go, "--start-rf")))
+	{
+	  if((status = keep_contiguous_column_block(go, errbuf, msa) != eslOK)) goto ERROR;
+	  write_ali = TRUE;
+	}
 
       /* keep or remove columns based on RF annotation, if nec */
       if(esl_opt_GetBoolean(go, "-k") || esl_opt_GetBoolean(go, "-r"))
@@ -452,6 +491,7 @@ main(int argc, char **argv)
 	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
 	    fprintf(omapfp, "%s\n", msa1_to_msa2_mask);
 	    fclose(omapfp);
+	    /*printf("# Mask of 1/0s with 1 indicating aln column in %s maps to non-gap RF column in %s saved to file %s.\n", alifile, esl_opt_GetString(go, "--map"), esl_opt_GetString(go, "--omap")); */
 	  }
 	  else printf("%s\n", msa1_to_msa2_mask);
 	  free(msa1_to_msa2_mask);
@@ -481,6 +521,7 @@ main(int argc, char **argv)
 
 	  esl_tree_WriteNewick(treefp, T); 
 	  fclose(treefp);
+	  /*printf("# Tree saved in Newick format to file %s.\n", esl_opt_GetString(go, "--tree")); */
 
 	  esl_tree_Validate(T, NULL);
 
@@ -512,6 +553,7 @@ main(int argc, char **argv)
 	if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
 	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
 	if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
+	/*printf("# Insert information saved to file %s.\n", esl_opt_GetString(go, "--iinfo")); */
 	fclose(iinfofp);
       }
 
@@ -547,23 +589,26 @@ main(int argc, char **argv)
 	fclose(rinfofp);
       }
 
+      /* handle the --dinfo option, if enabled, do this after all MSA has been manipulated due to other options */
+      if(! esl_opt_IsDefault(go, "--dinfo")) {
+	if ((dinfofp = fopen(esl_opt_GetString(go, "--dinfo"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --dinfo output file %s\n", esl_opt_GetString(go, "--dinfo"));
+	if((status = dump_delete_info(dinfofp, msa, errbuf) != eslOK)) goto ERROR;
+	fclose(dinfofp);
+      }
+
       /* handle the --num-rf and --num-all options, if enabled, do this after all MSA has been manipulated due to other options */
-      if((! esl_opt_IsDefault(go, "--num-rf")) || (! esl_opt_IsDefault(go, "--num-all"))) { 
-	if((status = number_columns(msa, esl_opt_GetBoolean(go, "--num-all"), errbuf) != eslOK)) goto ERROR;
+      if(! esl_opt_IsDefault(go, "--num-rf")) { 
+	if((status = number_columns(msa, FALSE, errbuf) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
-
-      /* handle the --rinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--rinfo")) {
-	if ((rinfofp = fopen(esl_opt_GetString(go, "--rinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --rinfo output file %s\n", esl_opt_GetString(go, "--rinfo"));
-	if((status = dump_residue_info(rinfofp, msa, errbuf) != eslOK)) goto ERROR;
-	fclose(rinfofp);
+      if(! esl_opt_IsDefault(go, "--num-all")) { 
+	if((status = number_columns(msa, TRUE, errbuf) != eslOK)) goto ERROR;
+	write_ali = TRUE;
       }
-
       /* write out alignment, if nec */
-      if(write_ali) {
-	status = esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+      if(write_ali || esl_opt_GetBoolean(go, "-1")) {
+	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
 	if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
 	else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
       }
@@ -651,6 +696,58 @@ keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int ke
   return eslEMEM;
 }
 
+/* keep_contiguous_column_block
+ *                   
+ * Keep only columns in range --start-all..--end-all, or --start-rf..--end-rf 
+ */
+static int
+keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
+{
+  int     status;
+  int    *useme;
+  int64_t apos;
+  int     rf_mode;
+  int     all_mode;
+  int    *c2a_map = NULL;       /* msa map of consensus columns (non-gap RF residues) to alignment columns */
+  int    clen;
+  int    astart, aend;
+
+  rf_mode  = ((!esl_opt_IsDefault(go, "--start-rf"))  && (!esl_opt_IsDefault(go, "--end-rf"))) ? TRUE : FALSE;
+  all_mode = ((!esl_opt_IsDefault(go, "--start-all")) && (!esl_opt_IsDefault(go, "--end-all"))) ? TRUE : FALSE;
+  if((!rf_mode) && (!all_mode)) ESL_XFAIL(eslEINVAL, errbuf, "Entered keep_contiguous_column_block, but neither (--start-rf & --end-rf) nor (--start-all & --end-all) combination invoked.");
+  
+  /* contract check */
+  if(rf_mode && msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "--start-rf and --end-rf required #=GC RF markup in alignment, but none exists.");
+
+  if(rf_mode) { 
+    if((status = map_cpos_to_apos(msa, &c2a_map, &clen))   != eslOK) goto ERROR;
+    if(esl_opt_GetInteger(go, "--start-rf") < 1)    ESL_XFAIL(eslEINVAL, errbuf, "<n> from --start-rf must be > 1.");
+    if(esl_opt_GetInteger(go, "--end-rf")   > clen) ESL_XFAIL(eslEINVAL, errbuf, "<n> from --end-rf must be <= %d (which is the number of non-gap RF columns in the MSA).", clen);
+    astart = c2a_map[esl_opt_GetInteger(go, "--start-rf")];
+    aend   = c2a_map[esl_opt_GetInteger(go, "--end-rf")];
+    if(astart > aend) ESL_XFAIL(eslEINVAL, errbuf, "<n> from --start-rf <n> must be lower than <n> from --end-rf.");
+  }
+  else { 
+    if(esl_opt_GetInteger(go, "--start-all") < 1)         ESL_XFAIL(eslEINVAL, errbuf, "<n> from --start-all must be > 1.");
+    if(esl_opt_GetInteger(go, "--end-all")   > msa->alen) ESL_XFAIL(eslEINVAL, errbuf, "<n> from --end-all must be <= %" PRId64 " (which is the number of columns in the MSA).", msa->alen);
+    astart = esl_opt_GetInteger(go, "--start-all");
+    aend   = esl_opt_GetInteger(go, "--end-all");
+    if(astart > aend) ESL_XFAIL(eslEINVAL, errbuf, "<n> from --start-all <n> must be lower than <n> from --end-all.");
+  }
+
+  ESL_ALLOC(useme, sizeof(int) * msa->alen);
+  esl_vec_ISet(useme, msa->alen, FALSE);
+  for(apos = astart-1; apos < aend; apos++) useme[apos] = TRUE;
+  esl_msa_ColumnSubset(msa, useme);
+  free(useme);
+  if(c2a_map != NULL) free(c2a_map);
+  return eslOK;
+
+ ERROR:
+  if(useme != NULL) free(useme);
+  return eslEMEM;
+}
+
 /* write_rf_gapthresh
  *                   
  * Given an MSA write/rewrite RF based on fraction
@@ -693,10 +790,10 @@ write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *ama
   int64_t  mask_len;
 
   /* contract check, rfgiven_mask must be exact length of msa */
-  if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask is NULL in write_rf_given, this shouldn't happen.\n");
   mask_len = strlen(amask);
   if(mask_len != msa->alen) 
-    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask length: %" PRId64 " is not equal to the MSA length (%" PRId64 ")\n", 
+    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask length: %" PRId64 " is not equal to the MSA length (%" PRId64 ")\n", 
 	     mask_len, msa->alen); 
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
@@ -704,7 +801,7 @@ write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *ama
   for (apos = 1; apos <= msa->alen; apos++) {
       if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
       else if(amask[(apos-1)] == '1') msa->rf[(apos-1)] = 'x';
-      else    ESL_FAIL(eslEINVAL, errbuf, "--amask2rf mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
+      else    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
   }
   msa->rf[msa->alen] = '\0';
   return eslOK;
@@ -727,8 +824,8 @@ write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rf
   int64_t  mask_len;
 
   /* contract check, mask must be exact length of msa */
-  if(rfmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--rfmask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
-  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--rfmask2rf mask requires RF annotation in MSA (try -g)\n");
+  if(rfmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask requires RF annotation in MSA (try -g)\n");
   mask_len = strlen(rfmask);
 
   cpos = 0;
@@ -1877,8 +1974,8 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
       esl_vec_ISet(ict[i], (msa->nseq), 0);
     }
 
-  fprintf(fp, "# %8s  %8s  %8s  %8s  %8s\n", "cons col", "num ins",  "freq ins", "avg len",  "med len");
-  fprintf(fp, "# %8s  %8s  %8s  %8s  %8s\n", "--------", "--------", "--------", "--------", "--------");
+  fprintf(fp, "# %8s  %10s  %8s  %8s  %8s\n", "cons col", "nseq w/ins",  "freq ins", "avg len",  "med len");
+  fprintf(fp, "# %8s  %10s  %8s  %8s  %8s\n", "--------", "----------", "--------", "--------", "--------");
 
   cpos = 0;
   for(apos = 1; apos <= msa->alen; apos++)
@@ -1918,7 +2015,7 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
       nseq = 0;
       for(i = 0; i < msa->nseq; i++) if(ict[cpos][i] >= 1) nseq++;
       if(nseq > 0) 
-	fprintf(fp, "  %8d  %8d  %8.6f  %8.3f  %8d\n", cpos, nseq, (float) nseq / (float) msa->nseq, ((float) total_ict[cpos] / (float) nseq), med_ict[cpos]);
+	fprintf(fp, "  %8d  %10d  %8.6f  %8.3f  %8d\n", cpos, nseq, (float) nseq / (float) msa->nseq, ((float) total_ict[cpos] / (float) nseq), med_ict[cpos]);
     }
 
   for(i = 0; i <= msa->alen; i++)
@@ -1945,24 +2042,72 @@ static int dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   int apos, cpos;
   int rct;
   int i;
+  int has_rf;
 
   /* contract check */
   if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_residue_info(), msa must be digitized.");
+  has_rf = (msa->rf == NULL) ? FALSE : TRUE;
 
-  fprintf(fp, "# %8s  %7s  %8s  %8s\n", "cons col", "aln col", "num res",  "freq res");
-  fprintf(fp, "# %8s  %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
-  
+  if(has_rf) { 
+    fprintf(fp, "# %8s  %7s  %8s  %8s\n", "cons col", "aln col", "num res",  "freq res");
+    fprintf(fp, "# %8s  %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
+  }  
+  else { 
+    fprintf(fp, "# %7s  %8s  %8s\n", "cons col", "aln col", "num res",  "freq res");
+    fprintf(fp, "# %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
+  }
   cpos = 0;
   for(apos = 1; apos <= msa->alen; apos++) {
     rct = 0;
-    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) cpos++;
+    if(has_rf && (! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)]))) cpos++;
     for(i = 0; i < msa->nseq; i++) { 
       if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) rct++; 
     }
 
-    fprintf(fp, "  %8d  %7d  %8d  %8.6f\n", cpos, apos, rct, (float) rct / (float) msa->nseq);
+    if(has_rf) fprintf(fp, "  %8d  %7d  %8d  %8.6f\n", cpos, apos, rct, (float) rct / (float) msa->nseq);
+    else       fprintf(fp, "  %7d  %8d  %8.6f\n", apos, rct, (float) rct / (float) msa->nseq);
   }
 
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* dump_delete_info
+ *                   
+ * Given an MSA, print out the number of sequences with
+ * gaps residue in each consensus column of the alignment.
+ */
+static int dump_delete_info(FILE *fp, ESL_MSA *msa, char *errbuf)
+{
+  int status;
+  int apos, cpos;
+  int dct;
+  int i;
+
+  /* contract check */
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_residue_info(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --dinfo.");
+
+  fprintf(fp, "# Number of sequences in file: %d\n", msa->nseq);
+  fprintf(fp, "# Only non-gap RF columns with > 0 deletes are listed.\n");
+  fprintf(fp, "#\n");
+  fprintf(fp, "# %8s  %7s  %8s  %8s\n", "cons col", "aln col", "num del",  "freq del");
+  fprintf(fp, "# %8s  %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
+  
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++) {
+    dct = 0;
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) { 
+      cpos++;
+      for(i = 0; i < msa->nseq; i++) { 
+	if(esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) dct++; 
+      }
+      if(dct > 0) fprintf(fp, "  %8d  %7d  %8d  %8.6f\n", cpos, apos, dct, (float) dct / (float) msa->nseq);
+    }
+  }
   return eslOK;
 
  ERROR:
@@ -2376,7 +2521,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   int be_verbose = esl_opt_GetBoolean(go, "--verbose");
 
   /* contract check */
-  if(msa1->rf == NULL)                 ESL_FAIL(eslEINVAL, errbuf, "with --map %s must have RF annotation.", esl_opt_GetString(go, "--map"));
+  if(msa1->rf == NULL)                 ESL_FAIL(eslEINVAL, errbuf, "with --map %s must have RF annotation.", esl_opt_GetArg(go, 1));
   if(! (msa1->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa1 (%s) not digitized.\n", esl_opt_GetArg(go, 1));
   if(! (msa2->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa2 (%s) not digitized.\n", esl_opt_GetString(go, "--map"));
   
@@ -2592,10 +2737,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
   int    status;
   int    s,c;                 /* counters over sequences, columns of MSA */
-#if 0
-  int  **post_sc;             /* [0..s..msa->nseq-1][0..c..msa->alen-1] posterior value 0-10 (-1 for gap) */
-  int  **post_cs;             /* [0..c..msa->alen-1][0..s..msa->nseq-1] posterior value 0-10 (-1 for gap) */
-#endif
   int   *nongap_c, *nongap_s; /* number of non-gap posterior values for each column/sequence respectively */
   float *sum_c, *sum_s;       /* sum of non-gap posterior values for each column/sequence respectively */
   float *min_c, *min_s;       /* min of non-gap posterior values for each column/sequence respectively */
@@ -2606,7 +2747,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int    r;
   float  p;
   int    do_pfract = (! esl_opt_IsDefault(go, "--pfract"));
-  int    do_prf    = (! esl_opt_IsDefault(go, "--prf"));
+  int    do_prf    = (! esl_opt_IsDefault(go, "--p-rf"));
   int    do_pinfo  = (! esl_opt_IsDefault(go, "--pinfo"));
   float  pfract;
   float  pthresh   =    esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
@@ -2640,7 +2781,7 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     if(do_pinfo)  ESL_FAIL(eslEINVAL, errbuf, "--pinfo  requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   if(msa->rf == NULL) { 
-    if(do_prf)    ESL_FAIL(eslEINVAL, errbuf, "--prf requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
+    if(do_prf)    ESL_FAIL(eslEINVAL, errbuf, "--p-rf requires \"#=GC RF\" annotation in %s.\n", esl_opt_GetArg(go,1));
   }
   /*ESL_ALLOC(post_sc, sizeof(int *) * msa->nseq);
     for(i = 0; i < msa->nseq; i++) 
@@ -2771,36 +2912,38 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 
   /* if nec, print posterior info */
   cpos = 1;
+  FILE *pinfofp = NULL;  /* output file for --pinfo */
   if(do_pinfo) { 
-    printf("Posterior stats per column:\n");
+    if ((pinfofp = fopen(esl_opt_GetString(go, "--pinfo"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --pinfo output file %s\n", esl_opt_GetString(go, "--pinfo"));
+    fprintf(pinfofp, "# Posterior stats per column:\n");
     if(msa->rf != NULL) { 
-      printf("%3s %5s %6s %6s %6s > %5.3f\n", "rf?", "col", "nongap", "avg", "min", pthresh);
-      printf("%3s %5s %6s %6s %6s %7s\n", "---", "-----", "------", "------", "------", "-------");
+      fprintf(pinfofp, "# %3s %5s %6s %6s %6s > %5.3f\n", "rf?", "col", "nongap", "avg", "min", pthresh);
+      fprintf(pinfofp, "# %3s %5s %6s %6s %6s %7s\n", "---", "-----", "------", "------", "------", "-------");
       for(c = 0; c < msa->alen; c++) { 
 	if(c2a_map[cpos] == (c+1)) { /* off-by-one, c2a_map is 1..clen, c is 0..alen */
 	  cpos++; 
-	  printf("*   "); 
+	  fprintf(pinfofp, "  *   "); 
 	}  
-	else printf("    ");
-	if(nongap_c[c] == 0) printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)),      0.0,      0.0, athresh_fract_c[c]);
-	else                 printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
+	else fprintf(pinfofp, "      ");
+	if(nongap_c[c] == 0) fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)),      0.0,      0.0, athresh_fract_c[c]);
+	else                 fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
       }
     }
     else { /* msa->rf is NULL, we can't indicate the non-gap RF columns */
-      printf("%5s %6s %6s %6s > %5.3f\n", "col", "nongap", "avg", "min", pthresh);
-      printf("%5s %6s %6s %6s %7s\n", "-----", "------", "------", "------", "-------");
+      fprintf(pinfofp, "%5s %6s %6s %6s > %5.3f\n", "col", "nongap", "avg", "min", pthresh);
+      fprintf(pinfofp, "%5s %6s %6s %6s %7s\n", "-----", "------", "------", "------", "-------");
       for(c = 0; c < msa->alen; c++) 
-	printf("%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
+	fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
     }
-    printf("\n\n");
+    fprintf(pinfofp, "\n\n");
 
-    printf("Posterior stats per sequence:\n");
-    printf("%5s %-60s %6s %6s %6s\n", "idx",   "seq name", "nongap", "avg", "min");
-    printf("%5s %-60s %6s %6s %6s\n", "-----", "------------------------------------------------------------", "------", "------", "------");
+    fprintf(pinfofp, "# Posterior stats per sequence:\n");
+    fprintf(pinfofp, "# %5s %-60s %6s %6s %6s\n", "idx",   "seq name", "nongap", "avg", "min");
+    fprintf(pinfofp, "# %5s %-60s %6s %6s %6s\n", "-----", "------------------------------------------------------------", "------", "------", "------");
     for(s = 0; s < msa->nseq; s++) { 
-      printf("%5d %-60s %6.3f %6.3f %6.2f\n", s+1, msa->sqname[s], ((float) (nongap_s[s]) / ((float) msa->alen)), avg_s[s], min_s[s]); 
+      fprintf(pinfofp, "  %5d %-60s %6.3f %6.3f %6.2f\n", s+1, msa->sqname[s], ((float) (nongap_s[s]) / ((float) msa->alen)), avg_s[s], min_s[s]); 
     }
-    printf("\n\n");
+    fclose(pinfofp);
   }
 
   /* optionally, add/rewrite msa->rf if --pfract enabled */
@@ -3256,9 +3399,94 @@ get_char_digit_x_from_int(int i, int place)
   return digit_to_char (i / divisor);
 }
 
+/* Function: read_seq_name_file
+ * Date:     EPN, Thu Jun  5 13:21:36 2008
+ * 
+ * Read a file listing sequence names to remove or keep.
+ * Store sequences in *ret_seqlist and return it.
+ * Each white-space delimited token is considered a 
+ * different sequence name. No checking is done in this 
+ * function, but rather in subsequent functions. Each sequence name is 
+ * 
+ * Returns eslOK on success.
+ */
+int
+read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n)
+{
+  int             status;
+  ESL_FILEPARSER *efp;
+  char           *tok;
+  int             toklen;
+  int nalloc     = 10;
+  int chunksize  = 10;
+  char **seqlist = NULL;
+  int n = 0;
+  int i;
+  void *tmp;
+
+  ESL_ALLOC(seqlist, sizeof(char *) * nalloc);
+  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "failed to open %s in read_seq_name_file\n", filename);
+  
+  while((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslEOF) {
+    if(n == nalloc) { nalloc += chunksize; ESL_RALLOC(seqlist, tmp, sizeof(char *) * nalloc); }
+    if((status = esl_strdup(tok, -1, &(seqlist[n++]))) != eslOK) ESL_FAIL(status, errbuf, "error in esl_strdup.");
+  }
+  esl_fileparser_Close(efp);
+  *ret_seqlist = seqlist;
+  *ret_seqlist_n = n;
+  return eslOK;
+
+ ERROR:
+  if(seqlist != NULL) {
+    for(i = 0; i < n; i++) free(seqlist[i]); 
+    free(seqlist);
+  }
+  return status;
+}
 
 
+/* Function: msa_keep_or_remove_seqs()
+ * 
+ * Purpose:  Given a list of <seqlist_n> sequences in <seqlist>, either remove those
+ *           sequences from msa, or remove all other sequences besides those from msa.
+ *           Create and return the new msa with only the specified seqs in <ret_new_msa>.
+ * 
+ * Note:     Terribly inefficient, does a linear search for each seq, no sorting or anything.
+ *
+ * Returns: eslOK on success, eslEINVAL if a sequence name in seqlist does not exist in the msa.
+ * 
+ */
+static int
+msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, ESL_MSA **ret_new_msa)
+{
+  int  status;
+  int *useme;
+  int  i, n;
 
+  ESL_MSA *new_msa;
+  ESL_SQ *sq;
+  sq = esl_sq_CreateDigital(msa->abc);
 
+  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  if(do_keep) esl_vec_ISet(useme, msa->nseq, FALSE);
+  else        esl_vec_ISet(useme, msa->nseq, TRUE); 
+  for(n = 0; n < seqlist_n; n++) { 
+    for (i = 0; i < msa->nseq; i++) {
+      if(strcmp(seqlist[n], msa->sqname[i]) == 0) { 
+	useme[i] = do_keep ? TRUE : FALSE;
+	break;
+      }
+      if(i == (msa->nseq-1)) ESL_FAIL(eslEINVAL, errbuf, "ERROR sequence %s does not exist in the MSA!", seqlist[n]);
+    }
+  }      
 
+  if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
+  free(useme);
+  *ret_new_msa = new_msa;
+  return eslOK;
+
+ ERROR:
+  esl_fatal("msa_keep_or_remove_seqs() memory allocation error.");
+  return eslOK; /* NEVERREACHED */
+}
 
