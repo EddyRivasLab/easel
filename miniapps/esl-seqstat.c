@@ -97,7 +97,6 @@ main(int argc, char **argv)
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file %s", seqfile);
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
-  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
   if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
@@ -150,7 +149,13 @@ main(int argc, char **argv)
 	    esl_vec_DSet(monoc, abc->Kp, 0.0);
 	  }
 	}
-      else esl_fatal("Failed in reading sequence:\n%s\n", sqfp->errbuf);
+      else if (wstatus == eslEFORMAT)
+	{
+	  esl_fatal("Failed to parse sequence at line %ld, file %s:\n%s", 
+		    (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+	}
+      else 
+	esl_fatal("Failed in reading sequence:\n%s\n", sqfp->errbuf);
     }
 
   printf("Format:              %s\n",   esl_sqio_DescribeFormat(sqfp->format));

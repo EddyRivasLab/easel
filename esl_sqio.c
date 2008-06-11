@@ -787,12 +787,11 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if ((status = sqfp->parse_header(sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
 
   do {
-    status = seebuf(sqfp, -1, &n, &epos);
+    if ((status = seebuf(sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
     if (esl_sq_GrowTo(sq, sq->n + n) != eslOK) return eslEMEM;
     addbuf(sqfp, sq, n);
     sqfp->L   += n;
     sq->eoff   = sqfp->boff + epos - 1;
-    if (status == eslEFORMAT) return status;
     if (status == eslEOD)     break;
   } while ((status = loadbuf(sqfp)) == eslOK);
     
@@ -1982,7 +1981,7 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
 	  lasteol       = bpos;
 	  if (sqfp->linenumber != -1) sqfp->linenumber++; 
 	}
-      else if (x == eslDSQ_ILLEGAL) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Illegal %c in sequence", sym); 
+      else if (x == eslDSQ_ILLEGAL) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Illegal character %c", sym); 
       else if (x == eslDSQ_EOD)     { status = eslEOD; break; }
       else if (x != eslDSQ_IGNORED) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "inmap corruption?");
     }
@@ -3261,11 +3260,11 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 16. Example
+ * 16. Examples
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslSQIO_EXAMPLE esl_sqio.c esl_sq.c easel.c
+/* compile: gcc -g -Wall -I. -o sqio_example -DeslSQIO_EXAMPLE esl_sqio.c esl_sq.c easel.c
  * run:     ./example <FASTA file>
  */
 #include "easel.h"
@@ -3284,7 +3283,6 @@ main(int argc, char **argv)
   status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file.");
   else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
-  else if (status == eslEINVAL)    esl_fatal("Can't autodetect stdin or .gz.");
   else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
 
   while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
@@ -3302,6 +3300,82 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::sqio_example::end::*/
 #endif /*eslSQIO_EXAMPLE*/
+
+/* Example 2 shows how to open a file digitally, while guessing its
+ * file format and its alphabet. (This is a standard idiom.)
+ */
+#ifdef eslSQIO_EXAMPLE2
+/*::cexcerpt::sqio_example2::begin::*/
+/* compile: gcc -g -Wall -I. -L. -o sqio_example2 -DeslSQIO_EXAMPLE2 esl_sqio.c -leasel -lm
+ * run:     ./example <sequence file>
+ */
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "--dna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                        0 },
+  { "--rna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                        0 },
+  { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <seqfile>";
+static char banner[] = "example for the sqio module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_ALPHABET *abc       = NULL;
+  ESL_SQ       *sq        = NULL;
+  ESL_SQFILE   *sqfp      = NULL;
+  int           format    = eslSQFILE_UNKNOWN;
+  int           alphatype = eslUNKNOWN;
+  char         *seqfile   = esl_opt_GetArg(go, 1);
+  int           status;
+
+  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
+  else if (esl_opt_GetBoolean(go, "--dna"))   alphatype = eslDNA;
+  else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
+  else {
+    status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
+    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
+    else if (status == eslEFORMAT)    esl_fatal("Sequence file parse error, line %ld of file %s:\n%s\n",
+						(long) sqfp->linenumber, seqfile, sqfp->errbuf);
+    else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);
+    else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
+  }
+  abc = esl_alphabet_Create(alphatype);
+  sq  = esl_sq_CreateDigital(abc);
+  esl_sqfile_SetDigital(sqfp, abc);
+
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  {     /* use each sequence for whatever you want */
+    printf("Read %s: length %ld\n", sq->name, (long) sq->L);
+    esl_sq_Reuse(sq);
+  }
+  if (status != eslEOF) 
+    esl_fatal("Parse failed, line %ld, file %s:\n%s", 
+	      (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+/*::cexcerpt::sqio_example2::end::*/
+#endif /*eslSQIO_EXAMPLE2*/
+
 
 
 /*****************************************************************
