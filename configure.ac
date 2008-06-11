@@ -62,7 +62,7 @@
 #     EASEL_VERSION    e.g. "1.9a"
 #
 AC_PREREQ(2.60)
-AC_INIT(Easel, 0.1dev, eddys@janelia.hhmi.org, easel)
+AC_INIT(Easel, 0.1.snap20080611, eddys@janelia.hhmi.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
@@ -74,7 +74,7 @@ fi
 # 3. Info on the package
 ################################################################
 
-EASEL_DATE="March 2008"
+EASEL_DATE="June 2008"
 EASEL_COPYRIGHT="Copyright (C) 2008 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the Janelia Farm Software License."
 EASEL_VERSION=$PACKAGE_VERSION
