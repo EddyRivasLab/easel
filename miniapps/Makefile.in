@@ -32,6 +32,7 @@ PROGS = esl-afetch\
 	esl-compstruct\
 	esl-histplot\
 	esl-reformat\
+	esl-selectn\
 	esl-seqstat\
 	esl-sfetch\
 	esl-shuffle
