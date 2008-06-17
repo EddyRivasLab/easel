@@ -372,7 +372,6 @@ main(int argc, char **argv)
       if((! esl_opt_IsDefault(go, "--seq-k")) || (! esl_opt_IsDefault(go, "--seq-r"))) {
 	ESL_MSA *new_msa;
 	char   **seqlist;
-	FILE    *ofp;
 	int      seqlist_n, n;
 	if(! esl_opt_IsDefault(go, "--seq-k")) { 
 	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-k"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
@@ -2053,8 +2052,8 @@ static int dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf)
     fprintf(fp, "# %8s  %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
   }  
   else { 
-    fprintf(fp, "# %7s  %8s  %8s\n", "cons col", "aln col", "num res",  "freq res");
-    fprintf(fp, "# %7s  %8s  %8s\n", "--------", "-------", "--------", "--------");
+    fprintf(fp, "# %7s  %8s  %8s\n", "aln col", "num res",  "freq res");
+    fprintf(fp, "# %7s  %8s  %8s\n", "-------", "--------", "--------");
   }
   cpos = 0;
   for(apos = 1; apos <= msa->alen; apos++) {
