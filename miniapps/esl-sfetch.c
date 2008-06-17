@@ -73,6 +73,8 @@ static ESL_OPTIONS options[] = {
 
   { "-c",       eslARG_STRING,FALSE, NULL, NULL, NULL, NULL,"-f,--index",   "retrieve subsequence coords <from>..<to>",          2 },
   { "-C",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-f","--index",      "<namefile> in <f> contains subseq coords too",      2 },
+  { "-i",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f","--index",   "<namefile> in <f> is Infernal cmsearch tab file",   2 },
+  { "-p",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f,-i","--index","with -i, do not add bit score, E value, GC to name", 2 },
 
   { "--informat",eslARG_STRING,FALSE,NULL, NULL, NULL, NULL,  NULL,         "specify that input file is in format <s>",          3 },
 
@@ -87,9 +89,11 @@ static void create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp);
 static void multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
 static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp);
 static void multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
+static void multifetch_subseq_infernal(ESL_GETOPTS *go, FILE *ofp, char *tabfile, ESL_SQFILE *sqfp);
 static void onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, 
 			    char *key, uint32_t given_start, uint32_t given_end);
 static int  parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
+static void infernal_name_subseq(char **ret_name, const char *name, ...);
 
 int
 main(int argc, char **argv)
@@ -157,7 +161,10 @@ main(int argc, char **argv)
 	  else if (status != eslOK)        cmdline_failure(argv[0], "Failed to open SSI index\n");
 	}
 
-      if (esl_opt_GetBoolean(go, "-C")) multifetch_subseq(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+      if (esl_opt_GetBoolean(go, "-C")) { 
+	if(esl_opt_GetBoolean(go, "-i")) multifetch_subseq_infernal(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+	else                        	 multifetch_subseq         (go, ofp, esl_opt_GetArg(go, 2), sqfp);
+      }
       else                        	multifetch       (go, ofp, esl_opt_GetArg(go, 2), sqfp);
     }
 
@@ -473,4 +480,92 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
   
   esl_regexp_Destroy(re);
   return eslOK;
+}
+
+static void
+multifetch_subseq_infernal(ESL_GETOPTS *go, FILE *ofp, char *tabfile, ESL_SQFILE *sqfp)
+{
+  ESL_FILEPARSER *efp    = NULL;
+  char           *source;
+  char           *s;
+  int             n1;
+  int             start, end, qstart, qend;
+  char           *newname = NULL;
+  double          bit, E;
+  int             gc;
+  int             has_E = FALSE;
+  if (esl_fileparser_Open(tabfile, &efp) != eslOK)  esl_fatal("Failed to open Infernal tab file %s\n", tabfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      /* example line:
+       *se-1-2                1          24      1     24     18.93      0.234   54
+       *<target (t) name>     <t start>  <t end> <q s> <q e>  <bit sc>   <E-val> <GC content>
+       */
+      if (esl_fileparser_GetTokenOnLine(efp, &source, &n1) != eslOK)
+	esl_fatal("Failed to read source seq name on line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read target start coord on line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      start = atoi(s);
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read target end coord on line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      end   = atoi(s);
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read query start coord on line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      qstart = atoi(s); /* not used */
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read query end coord on line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      qend   = atoi(s); /* not used */
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read bit score line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      bit = atof(s); /* not used */
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read E-value line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      if(strcmp(s, "-") != 0) { has_E = TRUE; E = atof(s); } 
+      else                    { has_E = FALSE; }
+      if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read bit score line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
+      gc = atoi(s);
+
+      if(! esl_opt_GetBoolean(go, "-p")) {
+	if(has_E) infernal_name_subseq(&newname, "%s/%d-%d/B%.2f/E%.2g/GC%d", source, start, end, bit, E, gc);
+	else      infernal_name_subseq(&newname, "%s/%d-%d/B%.2f/GC%d", source, start, end, bit, gc);
+      }
+      onefetch_subseq(go, ofp, sqfp, newname, source, start, end);
+      if(newname != NULL) free(newname);
+    }
+  esl_fileparser_Close(efp);
+}
+
+
+static void
+infernal_name_subseq(char **ret_name, const char *name, ...)
+{
+  va_list argp;
+  va_list argp2;
+  int   n;
+  void *tmp;
+  int   status;
+  char *newname;
+  int nalloc = 1;
+  ESL_ALLOC(newname, sizeof(char) * nalloc);
+  if (name == NULL) { newname[0] = '\0'; *ret_name = newname; return; }
+
+  va_start(argp, name);
+  va_copy(argp2, argp);
+  if ((n = vsnprintf(newname, nalloc, name, argp)) >= nalloc)
+    {
+      ESL_RALLOC(newname, tmp, sizeof(char) * (n+1)); 
+      nalloc = n+1;
+      vsnprintf(newname, nalloc, name, argp2);
+    }
+  va_end(argp);
+  va_end(argp2);
+  *ret_name = newname;
+  return;
+
+ ERROR:
+  esl_fatal("Memory allocation error in infernal_name_subseq().\n");
+  return;
 }
