@@ -55,7 +55,7 @@ static ESL_OPTIONS options[] = {
   { "--amino",    eslARG_NONE,    FALSE, NULL, NULL, ALPH_OPTS, "-G", NULL, "generate protein sequence",                           4 },
 
   /* Other "expert" options */
-  { "--seed",     eslARG_INT,     FALSE, NULL, NULL,      NULL, NULL, NULL, "set random number generator's seed to <n>",           5 },
+  { "--seed",     eslARG_INT,     FALSE, NULL,"n>0",      NULL, NULL, NULL, "set random number generator's seed to <n>",           5 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL,      NULL, NULL, NULL, "specify that input file is in format <s>",            5 },
 
   /* "undocumented" options (these are documented w/ command line usage, and implemented as options) */

@@ -200,6 +200,7 @@ esl_msaweight_GSC(ESL_MSA *msa)
    */
   esl_vec_DNorm(msa->wgt, msa->nseq);
   esl_vec_DScale(msa->wgt, msa->nseq, (double) msa->nseq);
+  msa->flags |= eslMSA_HASWGTS;
 
   free(x);
   esl_tree_Destroy(T);
@@ -353,6 +354,7 @@ esl_msaweight_PB(ESL_MSA *msa)
    */
   esl_vec_DNorm(msa->wgt, msa->nseq);
   esl_vec_DScale(msa->wgt, msa->nseq, (double) msa->nseq);	
+  msa->flags |= eslMSA_HASWGTS;
 
   free(nres);
   return eslOK;
@@ -423,6 +425,7 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
    */
   esl_vec_DNorm(msa->wgt, msa->nseq);
   esl_vec_DScale(msa->wgt, msa->nseq, (double) msa->nseq);	
+  msa->flags |= eslMSA_HASWGTS;
 
   free(nmem);
   free(c);

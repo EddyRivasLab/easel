@@ -144,6 +144,9 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--index")) 
     {
       if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
+      if (sqfp->do_gzip)  cmdline_failure(argv[0], "Can't index a .gz compressed file");
+      if (sqfp->do_stdin) cmdline_failure(argv[0], "Can't index a standard input pipe");
+
       create_ssi_index(go, sqfp);
     }
 

@@ -6,20 +6,21 @@ esl-afetch - retrieve alignments from a multi-MSA database
 
 .SH SYNOPSIS
 
+.TP
 Single MSA retrieval:
 .B esl-afetch
 .I [options]
 .I msafile
 .I key
 
-.PP
+.TP
 Multiple MSA retrieval:
 .B esl-afetch -f
 .I [options]
 .I msafile
 .I keyfile
 
-.PP
+.TP
 Indexing an MSA file for retrieval:
 .B esl-afetch --index
 .I msafile
@@ -36,7 +37,8 @@ The
 .I msafile
 is a "multiple multiple alignment" file in Stockholm (e.g. native
 Pfam or Rfam) format.
-The .I key
+The 
+.I key
 is either the name (ID) of the alignment, or its accession
 number (AC).
 
@@ -44,7 +46,9 @@ number (AC).
 Alternatively, 
 .B esl-afetch -f
 provides the ability to fetch many alignments at once.
-It interprets the second argument as a <keyfile>, a
+The 
+.I -f 
+option has it interpret the second argument as a <keyfile>, a
 file consisting of one name or accession per line.
 
 .PP
@@ -53,7 +57,7 @@ The
 should first be SSI indexed with
 .B esl-afetch --index
 for efficient retrieval. An SSI index is
-not required. However, alignment retrieval without one may
+not required, but without one alignment retrieval may
 be painfully slow.
 
 .SH OPTIONS
@@ -113,3 +117,12 @@ the
 Indexing should be done once on the
 .I msafile
 to prepare it for all future fetches.
+
+
+
+.SH AUTHOR
+
+Easel and its documentation are @EASEL_COPYRIGHT@.
+@EASEL_LICENSE@.
+See COPYING in the source code distribution for more details.
+The Easel home page is: @EASEL_URL@

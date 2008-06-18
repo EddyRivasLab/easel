@@ -35,7 +35,8 @@ PROGS = esl-afetch\
 	esl-selectn\
 	esl-seqstat\
 	esl-sfetch\
-	esl-shuffle
+	esl-shuffle\
+	esl-weight
 
 ## Targets defining how to make miniapp executables.
 #

@@ -14,14 +14,19 @@ models.
 
 % ``essentially'' qualifier below, because our RNG is limited to 2^31 states,
 % and that limits the number of distinct permutations we can sample.
-Sequence shuffling is done correctly (i.e., permutations are
-essentially uniformly distributed) using the so-called Fisher/Yates
+
+When shuffling sequences, it is desirable to sample uniformly among
+possible permutations. Many shuffling algorithms (even some published
+ones \citep{Fitch83}) are not correct in this sense. Easel's
+monoresidue sequence shuffling implements the so-called Fisher/Yates
 algorithm (Knuth's ``Algorithm P'') \citep{Durstenfeld64,Knu-81a}.  A
 nontrivial additional power of the module is the ability to shuffle
 sequences while preserving exact diresidue composition; the
 \ccode{esl\_rsq\_CShuffleDP()} and \ccode{esl\_rsq\_XShuffleDP()}
-routines implement the little-known Altschul/Erickson method
-\citep{AltschulErickson86}.
+routines implement the Altschul/Erickson method
+\citep{AltschulErickson86}. \footnote{A more efficient method than
+Altschul/Erickson is known \citep{KandelWinkler96,Coward99} but it has
+not yet been implemented for Easel.}
 
 The routines in the module are listed in
 Table~\ref{tbl:randomseq_api}.
