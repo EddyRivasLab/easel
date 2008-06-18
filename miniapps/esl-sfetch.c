@@ -60,6 +60,8 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
   puts("  retrieved; in protein sequence, this is an error. The -r option is another way to revcomp.");
   puts("\n other options:");
   esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
+  puts("\n options for retreiving subsequences from cmsearch tab file (require -C and -f):");
+  esl_opt_DisplayHelp(stdout, go, 4, 2, 80);
   exit(0);
 }
 
@@ -73,10 +75,10 @@ static ESL_OPTIONS options[] = {
 
   { "-c",       eslARG_STRING,FALSE, NULL, NULL, NULL, NULL,"-f,--index",   "retrieve subsequence coords <from>..<to>",          2 },
   { "-C",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-f","--index",      "<namefile> in <f> contains subseq coords too",      2 },
-  { "-i",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f","--index",   "<namefile> in <f> is Infernal cmsearch tab file",   2 },
-  { "-p",       eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f,-i","--index","with -i, do not add bit score, E value, GC to name", 2 },
 
   { "--informat",eslARG_STRING,FALSE,NULL, NULL, NULL, NULL,  NULL,         "specify that input file is in format <s>",          3 },
+  { "--tabfile",eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f","--index",   "<namefile> in <f> is Infernal cmsearch tab file",   4 },
+  { "--shortname",eslARG_NONE,  FALSE, NULL, NULL, NULL, "-C,-f,--tabfile","--index","w/--tabfile, do not add bit score, E value, GC to name", 4 },
 
   /* undocumented as options, because they're documented as alternative invocations: */
   { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 99 },
@@ -165,10 +167,10 @@ main(int argc, char **argv)
 	}
 
       if (esl_opt_GetBoolean(go, "-C")) { 
-	if(esl_opt_GetBoolean(go, "-i")) multifetch_subseq_infernal(go, ofp, esl_opt_GetArg(go, 2), sqfp);
-	else                        	 multifetch_subseq         (go, ofp, esl_opt_GetArg(go, 2), sqfp);
+	if(esl_opt_GetBoolean(go, "--tabfile")) multifetch_subseq_infernal(go, ofp, esl_opt_GetArg(go, 2), sqfp);
+	else                            	multifetch_subseq         (go, ofp, esl_opt_GetArg(go, 2), sqfp);
       }
-      else                        	multifetch       (go, ofp, esl_opt_GetArg(go, 2), sqfp);
+      else                        	        multifetch       (go, ofp, esl_opt_GetArg(go, 2), sqfp);
     }
 
   /* Single sequence retrieval mode */
@@ -531,7 +533,7 @@ multifetch_subseq_infernal(ESL_GETOPTS *go, FILE *ofp, char *tabfile, ESL_SQFILE
 	esl_fatal("Failed to read bit score line %d of Infernal tab file %s\n", efp->linenumber, tabfile);
       gc = atoi(s);
 
-      if(! esl_opt_GetBoolean(go, "-p")) {
+      if(! esl_opt_GetBoolean(go, "--shortname")) {
 	if(has_E) infernal_name_subseq(&newname, "%s/%d-%d/B%.2f/E%.2g/GC%d", source, start, end, bit, E, gc);
 	else      infernal_name_subseq(&newname, "%s/%d-%d/B%.2f/GC%d", source, start, end, bit, gc);
       }
