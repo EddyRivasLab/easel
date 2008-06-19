@@ -105,12 +105,8 @@ static ESL_OPTIONS options[] = {
   { "--dinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of deletes in non-gap RF cols of aln to <f>",    5 },
   { "--pinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on posterior probabilities in <msafile> to <f>",      5 },
   { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "-g,-k,-r,--morph",         "annotate individual secondary structures by imposing consensus", 7 },
-  { "--map",       eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f>, output mask (1s and 0s)",    8 },
-  { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,"--map",NULL,                     "with --map, output file for 1/0 mask map is <f>",                8 },
-  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",   8 },
-  { "--verbose",   eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            8 },
-  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the non-gap RF columns",               11 },
   { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                          11 },
+  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the non-gap RF columns",               11 },
   { "--omask",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output RF annotation as 1/0 mask to file <f>",                   9 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                         10 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                             10 },
@@ -122,6 +118,11 @@ static ESL_OPTIONS options[] = {
   { "--gplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  101 },
   { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",          101 },
   { "--merge",     eslARG_INFILE,FALSE, NULL, NULL,      NULL,NULL, "--morph,-g,-k,-r",         "merge msa in <msafile> with msa in <f>",                         101 },
+
+  { "--map",       eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f>, output mask (1s and 0s)",    102 },
+  { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,"--map",NULL,                     "with --map, output file for 1/0 mask map is <f>",                102 },
+  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",   102 },
+  { "--verbose",   eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            102 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -196,14 +197,14 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
       puts("\noptions for manipulating secondary structure annotation:");
       esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
-      puts("\noptions for comparison/modification based on another MSA file:");
-      esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
       puts("\noptions for outputting a lanemask file:");
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
       esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
       puts("\nundocumented, experimental developer options:");
       esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
+      puts("\noptions for comparison/modification based on another MSA file:");
+      esl_opt_DisplayHelp(stdout, go, 102, 2, 80); 
       exit(0);
     }
   if (esl_opt_GetBoolean(go, "-h") )
@@ -224,8 +225,6 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
       puts("\noptions for manipulating secondary structure annotation:");
       esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
-      puts("\noptions for comparison/modification based on another MSA file:");
-      esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
       puts("\noptions for outputting a lanemask file:");
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
