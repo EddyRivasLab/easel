@@ -68,7 +68,7 @@ typedef struct {		/* Primary key data: */
   uint16_t   fnum;		/* file number       */
   off_t      r_off;		/* record offset     */
   off_t      d_off;		/* data offset       */
-  uint64_t   len;		/* sequence length   */
+  int64_t    len;		/* sequence length   */
 } ESL_PKEY;
 
 typedef struct {		/* Secondary key data: */
@@ -137,12 +137,18 @@ extern uint64_t esl_ntoh64(uint64_t net_int64);
 extern uint16_t esl_hton16(uint16_t hostshort);
 extern uint32_t esl_hton32(uint32_t hostlong);
 extern uint64_t esl_hton64(uint64_t host_int64);
-extern int      esl_fread_i16(FILE *fp, uint16_t *ret_result);
-extern int      esl_fread_i32(FILE *fp, uint32_t *ret_result);
-extern int      esl_fread_i64(FILE *fp, uint64_t *ret_result);
-extern int      esl_fwrite_i16(FILE *fp, uint16_t n);
-extern int      esl_fwrite_i32(FILE *fp, uint32_t n);
-extern int      esl_fwrite_i64(FILE *fp, uint64_t n);
+extern int      esl_fread_u16(FILE *fp, uint16_t *ret_result);
+extern int      esl_fread_u32(FILE *fp, uint32_t *ret_result);
+extern int      esl_fread_u64(FILE *fp, uint64_t *ret_result);
+extern int      esl_fread_i16(FILE *fp, int16_t  *ret_result);
+extern int      esl_fread_i32(FILE *fp, int32_t  *ret_result);
+extern int      esl_fread_i64(FILE *fp, int64_t  *ret_result);
+extern int      esl_fwrite_u16(FILE *fp, uint16_t n);
+extern int      esl_fwrite_u32(FILE *fp, uint32_t n);
+extern int      esl_fwrite_u64(FILE *fp, uint64_t n);
+extern int      esl_fwrite_i16(FILE *fp, int16_t  n);
+extern int      esl_fwrite_i32(FILE *fp, int32_t  n);
+extern int      esl_fwrite_i64(FILE *fp, int64_t  n);
 extern int	esl_fread_offset(FILE *fp, int mode, off_t *ret_offset);
 extern int      esl_fwrite_offset(FILE *fp, off_t offset);
 

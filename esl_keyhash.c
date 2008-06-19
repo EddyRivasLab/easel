@@ -165,17 +165,17 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
  *           Associate it with a unique key index, counting from
  *           0. It's this index that lets us map the hashed keys to
  *           integer-indexed C arrays, clumsily emulating Perl's
- *           hashes. Returns the index through <ret_index>.
+ *           hashes. Optionally returns the index through <opt_index>.
  *
- * Returns:  <eslOK> on success; stores <key> in <kh>; <ret_index> is 
+ * Returns:  <eslOK> on success; stores <key> in <kh>; <opt_index> is 
  *           returned, set to the next higher index value.
  *           Returns <eslEDUP> if <key> was already stored in the table;
- *           <ret_index> is set to the existing index for <key>.
+ *           <opt_index> is set to the existing index for <key>.
  *
- * Throws:   <eslEMEM> on allocation failure, and sets <ret_index> to -1.
+ * Throws:   <eslEMEM> on allocation failure, and sets <opt_index> to -1.
  */
 int
-esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
+esl_key_Store(ESL_KEYHASH *kh, const char *key, int *opt_index)
 {
   uint32_t val = jenkins_hash(key, kh->hashsize);
   int n        = strlen(key);
@@ -184,7 +184,7 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
 
   /* Was this key already stored?  */
   for (idx = kh->hashtable[val]; idx != -1; idx = kh->nxt[idx])
-    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) { *ret_index = idx; return eslEDUP; }
+    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) { *opt_index = idx; return eslEDUP; }
 
   /* Reallocate key ptr/index memory if needed */
   if (kh->nkeys == kh->kalloc) 
@@ -218,11 +218,11 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *ret_index)
   if (kh->nkeys > 3*kh->hashsize)
     if ((status = key_upsize(kh)) != eslOK) goto ERROR;
 
-  if (ret_index != NULL) *ret_index = idx;
+  if (opt_index != NULL) *opt_index = idx;
   return eslOK;
 
  ERROR:
-  if (ret_index != NULL) *ret_index = -1;
+  if (opt_index != NULL) *opt_index = -1;
   return status;
 }
 

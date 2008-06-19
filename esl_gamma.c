@@ -172,11 +172,10 @@ double
 esl_gam_invcdf(double p, double mu, double lambda, double tau)
 {
   double x1, x2, xm;		/* low, high guesses at x */
-  double f1, f2, fm;
+  double f2, fm;
   double tol = 1e-6;
   
   x1 = 0.;
-  f1 = 0.;
   x2 = tau / lambda;
   do {				/* bracket */
     x2 = x2*2.;

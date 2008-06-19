@@ -775,7 +775,7 @@ newick_write_nodelabel(FILE *fp, ESL_TREE *T, int v)
  *    You can't pass the root node 0 to this. 0 always means taxon 0.
  *    There is no branch to the root node.
  */
-int
+static int
 newick_write_branchlength(FILE *fp, ESL_TREE *T, int v)
 {
   double branchlength;

@@ -31,7 +31,7 @@
 #ifdef eslAUGMENT_RANDOM
 #include "esl_random.h"
 #endif
-
+#include "esl_distance.h"
 
 /* Forward declaration of our static functions.
  */

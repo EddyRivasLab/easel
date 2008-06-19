@@ -33,7 +33,7 @@ static char usage[]  = "[-options] <msa file>";
 static char banner[] = "calculate sequence weights for an alignment";
 
 static void
-cmdline_failure(char *argv0, char *format, ...)
+cmdline_failure(char *argv0, ESL_GETOPTS *go, char *format, ...)
 {
   va_list argp;
 
@@ -70,10 +70,10 @@ main(int argc, char **argv)
 
   /* Parse command line */
   go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) cmdline_failure(argv[0], "Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)               != eslOK) cmdline_failure(argv[0], "Error in app configuration: %s\n",   go->errbuf);
-  if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help(argv[0], go);
-  if (esl_opt_ArgNumber(go) != 1)                      cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) cmdline_failure(argv[0], go, "Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) cmdline_failure(argv[0], go, "Error in app configuration: %s\n",   go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help   (argv[0], go);
+  if (esl_opt_ArgNumber(go) != 1)                      cmdline_failure(argv[0], go, "Incorrect number of command line arguments.\n");
   msafile = esl_opt_GetArg(go, 1);
 
   status = esl_msafile_Open(msafile, fmt, NULL, &afp);

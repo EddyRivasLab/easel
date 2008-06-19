@@ -245,7 +245,7 @@ void
 esl_sse_dump_ps(FILE *fp, __m128 v)
 {
   float *p = (float *)&v;
-  printf("[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
+  fprintf(fp, "[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
 }
 
 

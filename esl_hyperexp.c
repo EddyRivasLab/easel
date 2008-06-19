@@ -391,11 +391,10 @@ double
 esl_hxp_invcdf(double p, ESL_HYPEREXP *h)
 {
   double x1, x2, xm;		/* low, high guesses at x */
-  double f1, f2, fm;
+  double f2, fm;
   double tol = 1e-6;
 
   x1 = h->mu;
-  f1 = 0.;
   x2 = h->mu + 1.;
   do {				/* bracket */
     x2 = x2 + 2.*(x2-x1);

@@ -79,7 +79,7 @@
  *           
  * Throws:    <NULL> on allocation failure.          
  */
-ESL_MSA *
+static ESL_MSA *
 create_mostly(int nseq, int64_t alen)
 {
   int      status;
@@ -1787,7 +1787,7 @@ esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *key)
  * Returns eslOK on success, eslEOF on normal eof.
  * Throws eslEMEM on alloc failure.
  */
-int
+static int
 msafile_getline(ESL_MSAFILE *afp)
 {
   int status;

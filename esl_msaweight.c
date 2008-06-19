@@ -37,7 +37,7 @@
 #include "esl_distance.h"
 #include "esl_tree.h"
 #include "esl_msacluster.h"
-
+#include "esl_msaweight.h"
 
 
 /*****************************************************************
@@ -105,7 +105,6 @@ esl_msaweight_GSC(ESL_MSA *msa)
   ESL_DMATRIX *D = NULL;     /* distance matrix */
   ESL_TREE    *T = NULL;     /* UPGMA tree */
   double      *x = NULL;     /* storage per node, 0..N-2 */
-  double       totlen;	     /* remembered total tree length */
   double       lw, rw;       /* total branchlen on left, right subtrees */
   double       lx, rx;	     /* distribution of weight to left, right side */
   int i;		     /* counter over nodes */
@@ -153,7 +152,6 @@ esl_msaweight_GSC(ESL_MSA *msa)
       if (T->left[i]  > 0) x[i] += x[T->left[i]];
       if (T->right[i] > 0) x[i] += x[T->right[i]];
     }
-  totlen = x[0];
   
   /* Preorder traverse (root to leaves) to calculate the weights.  Now
    * we use x[] to mean, the total weight *above* this node that we will

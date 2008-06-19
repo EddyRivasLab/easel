@@ -80,10 +80,10 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
    * whether it's byteswapped.
    */
   status = eslEFORMAT;
-  if (esl_fread_i32(ssi->fp, &magic)        != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &magic)        != eslOK) goto ERROR;
   if (magic != v30magic && magic != v30swap)          goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->flags)) != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->offsz)) != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->flags)) != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->offsz)) != eslOK) goto ERROR;
 
   status = eslERANGE;
   if (ssi->offsz != 4 && ssi->offsz != 8) goto ERROR;
@@ -91,15 +91,15 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
 
   /* The header data. */
   status = eslEFORMAT;
-  if (esl_fread_i16(ssi->fp, &(ssi->nfiles))     != eslOK) goto ERROR;
-  if (esl_fread_i64(ssi->fp, &(ssi->nprimary))   != eslOK) goto ERROR;
-  if (esl_fread_i64(ssi->fp, &(ssi->nsecondary)) != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->flen))       != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->plen))       != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->slen))       != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->frecsize))   != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->precsize))   != eslOK) goto ERROR;
-  if (esl_fread_i32(ssi->fp, &(ssi->srecsize))   != eslOK) goto ERROR;
+  if (esl_fread_u16(ssi->fp, &(ssi->nfiles))     != eslOK) goto ERROR;
+  if (esl_fread_u64(ssi->fp, &(ssi->nprimary))   != eslOK) goto ERROR;
+  if (esl_fread_u64(ssi->fp, &(ssi->nsecondary)) != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->flen))       != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->plen))       != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->slen))       != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->frecsize))   != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->precsize))   != eslOK) goto ERROR;
+  if (esl_fread_u32(ssi->fp, &(ssi->srecsize))   != eslOK) goto ERROR;
   
   if (esl_fread_offset(ssi->fp, ssi->offsz, &(ssi->foffset)) != eslOK) goto ERROR;
   if (esl_fread_offset(ssi->fp, ssi->offsz, &(ssi->poffset)) != eslOK) goto ERROR;
@@ -132,10 +132,10 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
       status = eslEFORMAT;
       if (fseeko(ssi->fp, ssi->foffset + (i * ssi->frecsize), SEEK_SET) != 0) goto ERROR;
       if (fread(ssi->filename[i],sizeof(char),ssi->flen, ssi->fp)!=ssi->flen) goto ERROR;
-      if (esl_fread_i32(ssi->fp, &(ssi->fileformat[i])))                      goto ERROR;
-      if (esl_fread_i32(ssi->fp, &(ssi->fileflags[i])))                       goto ERROR;
-      if (esl_fread_i32(ssi->fp, &(ssi->bpl[i])))                             goto ERROR;
-      if (esl_fread_i32(ssi->fp, &(ssi->rpl[i])))                             goto ERROR;
+      if (esl_fread_u32(ssi->fp, &(ssi->fileformat[i])))                      goto ERROR;
+      if (esl_fread_u32(ssi->fp, &(ssi->fileflags[i])))                       goto ERROR;
+      if (esl_fread_u32(ssi->fp, &(ssi->bpl[i])))                             goto ERROR;
+      if (esl_fread_u32(ssi->fp, &(ssi->rpl[i])))                             goto ERROR;
     }
   *ret_ssi = ssi;
   return eslOK;
@@ -190,7 +190,7 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_rof
   if (status == eslOK) 
     { /* We found it as a primary key; get our data & return. */
       status = eslEFORMAT;
-      if (esl_fread_i16(ssi->fp, ret_fh)                  != eslOK) goto ERROR;
+      if (esl_fread_u16(ssi->fp, ret_fh)                  != eslOK) goto ERROR;
       if (esl_fread_offset(ssi->fp, ssi->offsz, ret_roff) != eslOK) goto ERROR;
       if (esl_fread_offset(ssi->fp, ssi->offsz, &doff)    != eslOK) goto ERROR;
       if (esl_fread_i64   (ssi->fp, &L)                   != eslOK) goto ERROR;
@@ -271,10 +271,10 @@ esl_ssi_FindNumber(ESL_SSI *ssi, int64_t nkey, uint16_t *opt_fh, off_t *opt_roff
   status = eslEFORMAT;
   if (fseeko(ssi->fp, ssi->poffset+ssi->precsize*nkey, SEEK_SET)!= 0) goto ERROR;
   if (fread(pkey, sizeof(char), ssi->plen, ssi->fp)   != ssi->plen)   goto ERROR;
-  if (esl_fread_i16(ssi->fp, &fh)                     != eslOK)       goto ERROR;
+  if (esl_fread_u16(ssi->fp, &fh)                     != eslOK)       goto ERROR;
   if (esl_fread_offset(ssi->fp, ssi->offsz, &roff)    != eslOK)       goto ERROR;
   if (esl_fread_offset(ssi->fp, ssi->offsz, &doff)    != eslOK)       goto ERROR;
-  if (esl_fread_i64   (ssi->fp, &L)                   != eslOK)       goto ERROR;
+  if (esl_fread_u64   (ssi->fp, &L)                   != eslOK)       goto ERROR;
 
   if (opt_fh   != NULL) *opt_fh   = fh;
   if (opt_roff != NULL) *opt_roff = roff;
@@ -420,6 +420,7 @@ esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, int64_t requested_start,
   /* Look up the key by name.
    */
   if ((status = esl_ssi_FindName(ssi, key, ret_fh, ret_roff, ret_doff, ret_L)) != eslOK) goto ERROR;
+  if (requested_start < 0 || requested_start > *ret_L) { status = eslERANGE; goto ERROR; }
 
   /* Do we have a data offset for this key? If not, we're case 4.    */
   /* Can we do fast subseq lookup on this file? If no, we're case 3. */
@@ -434,10 +435,9 @@ esl_ssi_FindSubseq(ESL_SSI *ssi, const char *key, int64_t requested_start,
    */
   r = ssi->rpl[*ret_fh];         /* residues per line */
   b = ssi->bpl[*ret_fh];         /* bytes per line    */
-  i = requested_start;	    /* start position 1..L */
-  l = (i-1)/r;		    /* data line # (0..) that the residue is on */
-  if (r == 0 || b == 0)    { status = eslEINVAL; goto ERROR; }
-  if (i < 0 || i > *ret_L) { status = eslERANGE; goto ERROR; }
+  i = requested_start;	         /* start position 1..L */
+  l = (i-1)/r;		         /* data line # (0..) that the residue is on */
+  if (r == 0 || b == 0) { status = eslEINVAL; goto ERROR; }
   
   /* When b = r+1, there's nothing but sequence on each data line (and the \0).
    * In this case, we know we can find each residue precisely: outcome #1.
@@ -840,10 +840,10 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
   if (ns->external) 
     {
       if (sizeof(off_t) == 4) {
-	fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIu64 "\n", 
+	fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIi64 "\n", 
 		key, fh, (uint32_t) r_off, (uint32_t) d_off, L);
       } else {
-	fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIu64 "\n", 
+	fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIi64 "\n", 
 		key, fh, (uint64_t) r_off, (uint64_t) d_off, L);
       }
       ns->nprimary++;
@@ -1062,18 +1062,18 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
   /* Write the header
    */
   status = eslFAIL;		/* any write error is a FAIL */
-  if (esl_fwrite_i32(fp, v30magic)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, header_flags)  != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, sizeof(off_t)) != eslOK) goto ERROR;
-  if (esl_fwrite_i16(fp, ns->nfiles)    != eslOK) goto ERROR;
-  if (esl_fwrite_i64(fp, ns->nprimary)  != eslOK) goto ERROR;
-  if (esl_fwrite_i64(fp, ns->nsecondary)!= eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, ns->flen)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, ns->plen)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, ns->slen)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, frecsize)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, precsize)      != eslOK) goto ERROR;
-  if (esl_fwrite_i32(fp, srecsize)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, v30magic)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, header_flags)  != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, sizeof(off_t)) != eslOK) goto ERROR;
+  if (esl_fwrite_u16(fp, ns->nfiles)    != eslOK) goto ERROR;
+  if (esl_fwrite_u64(fp, ns->nprimary)  != eslOK) goto ERROR;
+  if (esl_fwrite_u64(fp, ns->nsecondary)!= eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, ns->flen)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, ns->plen)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, ns->slen)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, frecsize)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, precsize)      != eslOK) goto ERROR;
+  if (esl_fwrite_u32(fp, srecsize)      != eslOK) goto ERROR;
   if (esl_fwrite_offset(fp, foffset)    != eslOK) goto ERROR;
   if (esl_fwrite_offset(fp, poffset)    != eslOK) goto ERROR;
   if (esl_fwrite_offset(fp, soffset)    != eslOK) goto ERROR;
@@ -1088,10 +1088,10 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 
       status     = eslFAIL;
       if (fwrite(fk, sizeof(char), ns->flen, fp) != ns->flen) goto ERROR;
-      if (esl_fwrite_i32(fp, ns->fileformat[i])  != eslOK)    goto ERROR;              
-      if (esl_fwrite_i32(fp, file_flags)         != eslOK)    goto ERROR;             
-      if (esl_fwrite_i32(fp, ns->bpl[i])         != eslOK)    goto ERROR;
-      if (esl_fwrite_i32(fp, ns->rpl[i])         != eslOK)    goto ERROR;
+      if (esl_fwrite_u32(fp, ns->fileformat[i])  != eslOK)    goto ERROR;              
+      if (esl_fwrite_u32(fp, file_flags)         != eslOK)    goto ERROR;             
+      if (esl_fwrite_u32(fp, ns->bpl[i])         != eslOK)    goto ERROR;
+      if (esl_fwrite_u32(fp, ns->rpl[i])         != eslOK)    goto ERROR;
     }
 
   /* Write the primary key section
@@ -1107,7 +1107,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 
 	  status = eslFAIL;		/* any write error is an EFAIL */
 	  if (fwrite(pk,sizeof(char),ns->plen,fp) != ns->plen) goto ERROR;
-	  if (esl_fwrite_i16(   fp, pkey.fnum)    != eslOK)    goto ERROR;   
+	  if (esl_fwrite_u16(   fp, pkey.fnum)    != eslOK)    goto ERROR;   
 	  if (esl_fwrite_offset(fp, pkey.r_off)   != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, pkey.d_off)   != eslOK)    goto ERROR;
 	  if (esl_fwrite_i64(   fp, pkey.len)     != eslOK)    goto ERROR;
@@ -1120,7 +1120,7 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  strncpy(pk, ns->pkeys[i].key, ns->plen);
 	  status = eslFAIL;
 	  if (fwrite(pk,sizeof(char),ns->plen,fp)      != ns->plen) goto ERROR;
-	  if (esl_fwrite_i16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto ERROR;
+	  if (esl_fwrite_u16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto ERROR;
 	  if (esl_fwrite_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto ERROR;
 	  if (esl_fwrite_i64(   fp, ns->pkeys[i].len)   != eslOK)    goto ERROR;
@@ -1293,17 +1293,17 @@ activate_external_sort(ESL_NEWSSI *ns)
     if (sizeof(off_t) == 4) {
       fprintf(ns->ptmp, "%s\t%u\t%lu\t%lu\t%lu\n", 
 	      ns->pkeys[i].key, 
-	      ns->pkeys[i].fnum,
+	      (unsigned int)  ns->pkeys[i].fnum,
 	      (unsigned long) ns->pkeys[i].r_off, 
 	      (unsigned long) ns->pkeys[i].d_off, 
 	      (unsigned long) ns->pkeys[i].len);
     } else {
       fprintf(ns->ptmp, "%s\t%u\t%llu\t%llu\t%lu\n", 
 	      ns->pkeys[i].key, 
-	      ns->pkeys[i].fnum,
+	      (unsigned int)       ns->pkeys[i].fnum,
 	      (unsigned long long) ns->pkeys[i].r_off, 
 	      (unsigned long long) ns->pkeys[i].d_off, 
-	      (unsigned long) ns->pkeys[i].len);
+	      (unsigned long)      ns->pkeys[i].len);
     }
   }
   for (i = 0; i < ns->nsecondary; i++)
@@ -1512,19 +1512,19 @@ esl_hton64(uint64_t host_int64)
 }
 
 
-/* Function:  esl_fread_i16()
+/* Function:  esl_fread_u16()
  * Synopsis:  Read network-order integer from a stream.
  *
  * Purpose:   Read a 2-byte network-order integer from <fp>, convert to
  *            host order, leave it in <ret_result>.
  *            
- *            <esl_fread_i32()> and <esl_fread_i64()> do the same, but
+ *            <esl_fread_u32()> and <esl_fread_u64()> do the same, but
  *            for 4-byte and 8-byte integers, respectively.
  *
  * Returns:   <eslOK> on success, and <eslFAIL> on <fread()> failure.
  */
 int
-esl_fread_i16(FILE *fp, uint16_t *ret_result)
+esl_fread_u16(FILE *fp, uint16_t *ret_result)
 {
   uint16_t result;
   if (fread(&result, sizeof(uint16_t), 1, fp) != 1) return eslFAIL;
@@ -1532,7 +1532,7 @@ esl_fread_i16(FILE *fp, uint16_t *ret_result)
   return eslOK;
 }
 int
-esl_fread_i32(FILE *fp, uint32_t *ret_result)
+esl_fread_u32(FILE *fp, uint32_t *ret_result)
 {
   uint32_t result;
   if (fread(&result, sizeof(uint32_t), 1, fp) != 1) return eslFAIL;
@@ -1540,47 +1540,93 @@ esl_fread_i32(FILE *fp, uint32_t *ret_result)
   return eslOK;
 }
 int
-esl_fread_i64(FILE *fp, uint64_t *ret_result)
+esl_fread_u64(FILE *fp, uint64_t *ret_result)
 {
   uint64_t result;
   if (fread(&result, sizeof(uint64_t), 1, fp) != 1) return eslFAIL;
   *ret_result = esl_ntoh64(result);
   return eslOK;
 }
+int
+esl_fread_i16(FILE *fp, int16_t *ret_result)
+{
+  int16_t result;
+  if (fread(&result, sizeof(int16_t), 1, fp) != 1) return eslFAIL;
+  *ret_result = (int16_t) esl_ntoh16((uint16_t) result);
+  return eslOK;
+}
+int
+esl_fread_i32(FILE *fp, int32_t *ret_result)
+{
+  int32_t result;
+  if (fread(&result, sizeof(int32_t), 1, fp) != 1) return eslFAIL;
+  *ret_result = (int32_t) esl_ntoh32((uint32_t) result);
+  return eslOK;
+}
+int
+esl_fread_i64(FILE *fp, int64_t *ret_result)
+{
+  int64_t result;
+  if (fread(&result, sizeof(int64_t), 1, fp) != 1) return eslFAIL;
+  *ret_result = (int64_t) esl_ntoh64((uint64_t) result);
+  return eslOK;
+}
 
 
-/* Function:  esl_fwrite_i16()
+/* Function:  esl_fwrite_u16()
  * Synopsis:  Write an integer to a stream in network-order.
  *
  * Purpose:   Write a 2-byte host-order integer <n> to stream <fp>
  *            in network order.
  *            
- *            <esl_fwrite_i32()> and <esl_fwrite_i64()> do the same, but
+ *            <esl_fwrite_u32()> and <esl_fwrite_u64()> do the same, but
  *            for 4-byte and 8-byte integers, respectively.
  *
  * Returns:   <eslOK> on success, and <eslFAIL> on <fwrite()> failure.
  */
 int
-esl_fwrite_i16(FILE *fp, uint16_t n)
+esl_fwrite_u16(FILE *fp, uint16_t n)
 {
   n = esl_hton16(n);
   if (fwrite(&n, sizeof(uint16_t), 1, fp) != 1) return eslFAIL;
   return eslOK;
 }
 int
-esl_fwrite_i32(FILE *fp, uint32_t n)
+esl_fwrite_u32(FILE *fp, uint32_t n)
 {
   n = esl_hton32(n);
   if (fwrite(&n, sizeof(uint32_t), 1, fp) != 1) return eslFAIL;
   return eslOK;
 }
 int
-esl_fwrite_i64(FILE *fp, uint64_t n)
+esl_fwrite_u64(FILE *fp, uint64_t n)
 {
   n = esl_hton64(n);
   if (fwrite(&n, sizeof(uint64_t), 1, fp) != 1) return eslFAIL;
   return eslOK;
 }
+int
+esl_fwrite_i16(FILE *fp, int16_t n)
+{
+  n = (int16_t) esl_hton16((uint16_t) n);
+  if (fwrite(&n, sizeof(int16_t), 1, fp) != 1) return eslFAIL;
+  return eslOK;
+}
+int
+esl_fwrite_i32(FILE *fp, int32_t n)
+{
+  n = (int32_t) esl_hton32((uint32_t) n);
+  if (fwrite(&n, sizeof(int32_t), 1, fp) != 1) return eslFAIL;
+  return eslOK;
+}
+int
+esl_fwrite_i64(FILE *fp, int64_t n)
+{
+  n = (int64_t) esl_hton64((uint64_t) n);
+  if (fwrite(&n, sizeof(int64_t), 1, fp) != 1) return eslFAIL;
+  return eslOK;
+}
+
 
 /* Function:  esl_fread_offset()
  * Synopsis:  Read an offset portably.
@@ -1627,14 +1673,14 @@ esl_fread_offset(FILE *fp, int sz, off_t *ret_offset)
 
   if      (sz == 8)
     {
-      if (esl_fread_i64(fp, &x64) != eslOK) { status = eslFAIL; goto ERROR; }
+      if (esl_fread_u64(fp, &x64) != eslOK) { status = eslFAIL; goto ERROR; }
       if (sizeof(off_t) == 4 && x64 > INT32_MAX) 
 	ESL_XEXCEPTION(eslEINCOMPAT, "can't read 64-bit off_t on this 32-bit host");
       *ret_offset = (off_t) x64; 
     }
   else if (sz == 4)
     {
-      if (esl_fread_i32(fp, &x32) != eslOK) { status = eslFAIL; goto ERROR; }
+      if (esl_fread_u32(fp, &x32) != eslOK) { status = eslFAIL; goto ERROR; }
       *ret_offset = (off_t) x32;
     }
   else ESL_XEXCEPTION(eslEINVAL, "offsets must be 32 or 64 bits");
@@ -1661,8 +1707,8 @@ esl_fread_offset(FILE *fp, int sz, off_t *ret_offset)
 int
 esl_fwrite_offset(FILE *fp, off_t offset)
 {
-  if      (sizeof(off_t) == 4) return esl_fwrite_i32(fp, offset);
-  else if (sizeof(off_t) == 8) return esl_fwrite_i64(fp, offset);
+  if      (sizeof(off_t) == 4) return esl_fwrite_u32(fp, offset);
+  else if (sizeof(off_t) == 8) return esl_fwrite_u64(fp, offset);
   else ESL_EXCEPTION(eslEINVAL, "off_t is neither 32-bit nor 64-bit");
   /*UNREACHED*/
   return eslEINCONCEIVABLE;

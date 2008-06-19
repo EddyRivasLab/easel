@@ -1328,7 +1328,6 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
   int     save_prvrpl;
   int     save_prvbpl;
   int64_t save_L;
-  off_t   save_offset;
   int     n;
   int     nwritten;
 
@@ -1338,7 +1337,6 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
   if (sq->roff == -1 || sq->eoff == -1)   ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence without disk offset info");
 
   save_linenumber = sqfp->linenumber;
-  save_offset     = sqfp->boff;
   save_currpl     = sqfp->currpl;
   save_curbpl     = sqfp->curbpl;
   save_prvrpl     = sqfp->prvrpl;
@@ -1349,7 +1347,7 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
   if      (status == eslEOF) ESL_EXCEPTION(eslECORRUPT, "repositioning failed; bad offset?");
   else if (status != eslOK)  return status;
 
-  while (sqfp->boff + sqfp->nc < sq->eoff)
+  while (sqfp->boff + sqfp->nc <= sq->eoff)
     {
       if (fwrite(sqfp->buf, sizeof(char), sqfp->nc, ofp) != sqfp->nc) ESL_EXCEPTION(eslESYS, "fwrite() failed");
       if (loadbuf(sqfp) != eslOK)  ESL_EXCEPTION(eslECORRUPT, "repositioning failed; bad offset?");
@@ -2559,7 +2557,7 @@ end_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   if (sqfp->bpos < sqfp->nc) {
     if (sqfp->buf[sqfp->bpos] != '>') ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Whoops, FASTA reader is corrupted");
-    sq->eoff = sqfp->boff + sqfp->bpos - 1;
+    sq->eoff = sqfp->boff + sqfp->bpos - 1; /* this puts eoff at the last \n */
   } /* else, EOF, and we don't have to do anything. */
   return eslOK;
 }

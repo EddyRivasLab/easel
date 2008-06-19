@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce the Easel configuration script.
-#
+# 
 # reminders to save re-reading autoconf manual for the n'th time:
 #   - output variables:
 #        are defined here as normal shell variables, e.g. FOO="my string"
@@ -178,7 +178,7 @@ if test "$ax_cv_c_compiler_vendor" != "intel"; then
   AC_PROG_CC_STDC
 fi
 AC_PROG_RANLIB
-AC_PATH_PROG([AR], [ar], [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
+AC_PATH_PROG([AR],       [ar],       [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 CHECK_GNU_MAKE
 
 # Select our default optimization flags in CFLAGS.

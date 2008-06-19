@@ -31,7 +31,7 @@
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
 #endif
-
+#include "esl_msacluster.h"
 
 /* These functions are going to get defined in an internal regression 
  * testing section further below:
