@@ -1,0 +1,267 @@
+# Makefile for Easel
+# SVN $Id$
+SHELL       = /bin/sh
+
+# Installation targets
+#
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
+LIBDIR      = @libdir@
+INCLUDEDIR  = @includedir@
+BINDIR      = @bindir@
+MANDIR      = @mandir@
+PDFDIR      = @pdfdir@
+
+# Compiler configuration
+#
+CC       = @CC@
+CFLAGS   = @CFLAGS@
+AR       = @AR@ rcv
+LN       = ln
+RANLIB   = @RANLIB@
+LDFLAGS  = -static @LDFLAGS@
+SIMDFLAGS= @SIMD_CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LIBGSL   = @LIBGSL@
+
+#######
+## You should not need to modify below this line.
+#######
+
+PACKAGE     = @PACKAGE_NAME@
+BASENAME    = @PACKAGE_TARNAME@
+RELEASE     = @EASEL_VERSION@
+RELEASEDATE = "@EASEL_DATE@"
+COPYRIGHT   = "@EASEL_COPYRIGHT@"
+LICENSELINE = "@EASEL_LICENSE@"
+COMPRESS    = gzip
+
+# Code manifests
+#
+HEADERS = \
+	easel.h\
+	esl_alphabet.h\
+	esl_cluster.h\
+	esl_dirichlet.h\
+	esl_distance.h\
+	esl_dmatrix.h\
+	esl_exponential.h\
+	esl_fileparser.h\
+	esl_gamma.h\
+	esl_getopts.h\
+	esl_gev.h\
+	esl_gumbel.h\
+	esl_histogram.h\
+	esl_hyperexp.h\
+	esl_keyhash.h\
+	esl_minimizer.h\
+	esl_mixgev.h\
+	esl_mpi.h\
+	esl_msa.h\
+	esl_msacluster.h\
+	esl_msashuffle.h\
+	esl_msaweight.h\
+	esl_normal.h\
+	esl_paml.h\
+	esl_random.h\
+	esl_randomseq.h\
+	esl_ratematrix.h\
+	esl_regexp.h\
+	esl_rootfinder.h\
+	esl_scorematrix.h\
+	esl_sq.h\
+	esl_sqio.h\
+	esl_sse.h\
+	esl_ssi.h\
+	esl_stack.h\
+	esl_stats.h\
+	esl_stopwatch.h\
+	esl_stretchexp.h\
+	esl_swat.h\
+	esl_tree.h\
+	esl_vectorops.h\
+	esl_vmx.h\
+	esl_weibull.h\
+	esl_wuss.h
+
+OBJS    = \
+	easel.o\
+	esl_alphabet.o\
+	esl_cluster.o\
+	esl_dirichlet.o\
+	esl_distance.o\
+	esl_dmatrix.o\
+	esl_exponential.o\
+	esl_fileparser.o\
+	esl_gamma.o\
+	esl_getopts.o\
+	esl_gev.o\
+	esl_gumbel.o\
+	esl_histogram.o\
+	esl_hyperexp.o\
+	esl_keyhash.o\
+	esl_minimizer.o\
+	esl_mixgev.o\
+	esl_mpi.o\
+	esl_msa.o\
+	esl_msacluster.o\
+	esl_msashuffle.o\
+	esl_msaweight.o\
+	esl_normal.o\
+	esl_paml.o\
+	esl_random.o\
+	esl_randomseq.o\
+	esl_ratematrix.o\
+	esl_regexp.o\
+	esl_rootfinder.o\
+	esl_scorematrix.o\
+	esl_sq.o\
+	esl_sqio.o\
+	esl_sse.o\
+	esl_ssi.o\
+	esl_stack.o\
+	esl_stats.o\
+	esl_stopwatch.o\
+	esl_stretchexp.o\
+	esl_swat.o\
+	esl_tree.o\
+	esl_vectorops.o\
+	esl_vmx.o\
+	esl_weibull.o\
+	esl_wuss.o
+
+all: libeasel.a
+	(cd miniapps; make)
+
+.c.o: 
+	${CC} -I. ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
+
+libeasel.a: $(OBJS)
+	$(AR) libeasel.a $(OBJS)
+	$(RANLIB) libeasel.a
+	chmod 644 libeasel.a
+
+# install:   installs libeasel.a in LIBDIR/
+#            installs Easel headers in INCLUDEDIR/
+#            installs miniapp binaries in BINDIR/
+#
+# All install paths are prefaced with DESTDIR/ to facilitate
+# building RPMS in Linux distros. Usually DESTDIR is empty.
+#
+install:
+	mkdir -p ${DESTDIR}${LIBDIR}
+	mkdir -p ${DESTDIR}${INCLUDEDIR}
+	mkdir -p ${DESTDIR}${BINDIR}
+	cp libeasel.a ${DESTDIR}${LIBDIR}/
+	for file in ${HEADERS}; do\
+	   cp $$file ${DESTDIR}${INCLUDEDIR}/;\
+	done
+	(cd miniapps; make install)
+
+# `make check`: run user testsuite
+check:
+	(cd testsuite; make check)
+
+
+clean:
+	-rm -f ${OBJS} libeasel.a
+	-rm -f *~ TAGS
+	-rm -f *.gcno *.gcda *.gcov
+	-rm -f core.[0-9]*
+	-rm -f config.log config.status
+	-rm -f example test testdrive stats
+	if test -d documentation; then  (cd documentation; make clean); fi
+	if test -d testsuite;     then  (cd testsuite;     make clean); fi
+	if test -d miniapps;      then  (cd miniapps;      make clean); fi
+
+distclean:
+	make clean
+	-rm esl_config.h
+	-rm -rf autom4te.cache
+	if test -d documentation; then (cd documentation; make distclean); fi
+	if test -d testsuite;     then (cd testsuite;     make distclean); fi
+	if test -d miniapps;      then (cd miniapps;      make distclean); fi
+	-rm LICENSE.csh
+	-rm Makefile
+
+#######
+## Targets below this line are meant for developers, not users.
+## Some may only work in context of a developer's Subversion working directory.
+#######
+
+# 'make REPOSITORY=... dist' : create a new distribution tarball
+#
+dist:
+	# Make sure we pointed the make dist to a subversion repository
+	@if test x${REPOSITORY} = 'x'; then\
+	  echo "REPOSITORY isn't set; use make REPOSITORY=... dist";\
+	  exit 1;\
+	fi
+	# Delete any old versions of the same release
+	@if test -d ../${BASENAME}-${RELEASE};        then rm -rf ../${BASENAME}-${RELEASE};        fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar;    then rm -f  ../${BASENAME}-${RELEASE}.tar;    fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ../${BASENAME}-${RELEASE}.tar.Z;  fi
+	@if test -e ../${BASENAME}-${RELEASE}.tar.gz; then rm -f  ../${BASENAME}-${RELEASE}.tar.gz; fi
+	# Export the release from Subversion control
+	svn export ${REPOSITORY} ../${BASENAME}-${RELEASE}
+	# Make the configure script from configure.ac
+	(cd ../${BASENAME}-${RELEASE};  autoconf)
+	# We'll need some basic Makefiles
+	(cd ../${BASENAME}-${RELEASE}/; ./configure)
+	# Set file permissions.
+	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
+	chmod +x ../${BASENAME}-${RELEASE}/devkit/sqc
+	chmod +x ../${BASENAME}-${RELEASE}/devkit/autodoc
+	# Compile the PDF documentation and move it to top level dir
+	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
+	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
+	# Attach license stamps by replacing LICENSE keyword everywhere
+	find ../${BASENAME}-${RELEASE} -type f -exec devkit/sedition-pp LICENSE LICENSE.tag {} \;
+	# Other keyword replacements
+	devkit/sedition RELEASE ${RELEASE} RELEASEDATE ${RELEASEDATE} COPYRIGHT ${COPYRIGHT} ../${BASENAME}-${RELEASE}/00README
+	devkit/sedition RELEASE ${RELEASE}                                                   ../${BASENAME}-${RELEASE}/INSTALL
+	# Cleanup
+	(cd ../${BASENAME}-${RELEASE}/; make implode)
+	(cd ../${BASENAME}-${RELEASE}/; make distclean)
+	# Packaging
+	(cd ..;	tar cvf ${BASENAME}-${RELEASE}.tar ${BASENAME}-${RELEASE})
+	(cd ..; ${COMPRESS} ${BASENAME}-${RELEASE}.tar)
+
+# `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
+dcheck:
+	(cd testsuite; make dcheck)
+
+# The "implode" target is used when we've got Easel as a subdirectory
+# of a larger project, like Infernal or HMMER, and we're building a
+# distribution for that larger project. We remove any "personal
+# information" from Easel. Eventually that'd include our bug tracking,
+# for instance, but right now there's nothing to do.
+implode:
+	-rm -f 00CHECKLIST
+	-rm -f LICENSE.tag
+
+tags:
+	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
+
+# "supertags": a tags table for all Easel, HMMER, Infernal source.
+#              This lets me make changes in Easel, then propagate 
+#              necessary modifications throughout code that depends
+#              on Easel. 
+#              The target depends on how I have my source directories
+#              laid out (~src/hmmer, ~src/infernal)
+supertags:
+	etags *.c *.h *.tex documentation/*.tex 
+	etags -a miniapps/*.c miniapps/*.man Makefile.in
+	etags -a ~/src/hmmer/src/*.c ~/src/hmmer/src/*.h 
+	etags -a ~/src/hmmer/Makefile.in ~/src/hmmer/src/Makefile.in 
+	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h 
+	etags -a ~/src/infernal/testsuite/*.c 
+	etags -a ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
+
+# magic SVN for setting keyword ID replacement on a new module foo:
+# svn propset svn:keywords "Id" foo.[ch]
+
+################################################################
+# @LICENSE@
+################################################################
