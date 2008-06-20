@@ -172,6 +172,7 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 ################################################################
 
 AC_PROG_CC
+AC_PROG_CPP
 AX_COMPILER_VENDOR
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
 if test "$ax_cv_c_compiler_vendor" != "intel"; then
@@ -209,23 +210,15 @@ fi
 
 # MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
 if test "$enable_mpi" = "yes"; then
-   ACX_MPI([],AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+   ACX_MPI([CC="$MPICC"],AC_MSG_ERROR([MPI library not found for --enable-mpi]))
 fi
 
+
 # SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
-if test "$enable_sse" = "check"; then
-   case $host in 
-    i?86-*-*)      AX_EXT;;
-    x86*-*-*)      AX_EXT;;
-    *)             ;;
-   esac
-   if test "$ax_have_sse2_ext" = yes; then
-     case $ax_cv_c_compiler_vendor in
-       gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
-       *)     ;;
-     esac   
-   fi
-elif test "$enable_sse" = "yes"; then
+if test "$enable_sse" = "check" && test "$enable_vmx" != "yes"; then
+   AC_CHECK_HEADER([emmintrin.h],[enable_sse=yes])
+fi
+if test "$enable_sse" = "yes"; then
    if test "x$SIMD_CFLAGS" = x; then
      case $ax_cv_c_compiler_vendor in
        gnu)   AX_CHECK_COMPILER_FLAGS(-msse2,[SIMD_CFLAGS="-msse2"],[]);;
@@ -233,7 +226,9 @@ elif test "$enable_sse" = "yes"; then
      esac   
    fi
    AC_DEFINE(HAVE_SSE2,1,[Support SSE2 (Streaming SIMD Extensions 2) instructions])
-fi  
+fi
+
+
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
 if test "$enable_vmx" = "yes"; then

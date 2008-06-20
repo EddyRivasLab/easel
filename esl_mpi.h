@@ -7,6 +7,7 @@
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
 #ifndef eslMPI_INCLUDED
 #define eslMPI_INCLUDED
+#include "mpi.h"
 
 #include "esl_alphabet.h"
 #include "esl_msa.h"
