@@ -1,9 +1,6 @@
 # aclocal.m4 contains custom macros used for creating HMMER's
 # configuration script.
 #
-#   1. ACX_MPI     Configure MPI 
-#
-#
 # SRE, Sun Apr 22 09:26:38 2007 [Janelia]
 # SVN $Id$
 
