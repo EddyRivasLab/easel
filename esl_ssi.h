@@ -77,6 +77,8 @@ typedef struct {		/* Secondary key data: */
 } ESL_SKEY;
 
 typedef struct {
+  char       *ssifile;		/* name of the SSI file we're creating    */
+  FILE       *ssifp;		/* open SSI file being created            */
   int         external;	        /* TRUE if pkeys and skeys are on disk    */
   int         max_ram;	        /* threshold in MB to trigger extern sort */
 
@@ -98,6 +100,8 @@ typedef struct {
   uint64_t    nsecondary;
   char       *stmpfile;		/* secondary key tmpfile name, for extern sort */
   FILE       *stmp;	        /* handle on open ptmpfile */
+
+  char        errbuf[eslERRBUFSIZE];
 } ESL_NEWSSI;
 
 
@@ -119,14 +123,13 @@ extern int  esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int
 
 
 /* 2. Creating (writing) SSI indices. */
-extern ESL_NEWSSI *esl_newssi_Create(void);
-extern int  esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_fh);
+extern int  esl_newssi_Open(const char *ssifile, int allow_overwrite, ESL_NEWSSI **ret_newssi);
+extern int  esl_newssi_AddFile  (ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_fh);
 extern int  esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl);
-extern int  esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh, 
-			      off_t r_off, off_t d_off, int64_t L);
-extern int  esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key);
-extern int  esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns);
-extern void esl_newssi_Destroy(ESL_NEWSSI *ns);
+extern int  esl_newssi_AddKey   (ESL_NEWSSI *ns, const char *key, uint16_t fh, off_t r_off, off_t d_off, int64_t L);
+extern int  esl_newssi_AddAlias (ESL_NEWSSI *ns, const char *alias, const char *key);
+extern int  esl_newssi_Write    (ESL_NEWSSI *ns);
+extern void esl_newssi_Close    (ESL_NEWSSI *ns);
 
 
 /* 3. Portable binary i/o. */

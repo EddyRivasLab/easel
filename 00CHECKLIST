@@ -85,16 +85,16 @@ versioned as version "h3.0a1".
    we're in a branch.
 
 
-8. Update the copyright, year stamps
+7. Update the copyright, year stamps
 	- configure.ac (release, relcode, date)
 	- COPYRIGHT (year only)
 
 
-9. Commit to SVN; include release number in the log message
+8. Commit to SVN; include release number in the log message
 	 svn commit
 
 
-10. Tag.
+9. Tag.
    We don't bother to tag snapshots.
    For a new major release, or a bugfix minor release,
    this tag is from the relevant branch:
@@ -103,7 +103,7 @@ versioned as version "h3.0a1".
               -m "tagged Easel 0.1 release, from 0.1 stable branch"          
 
 
-11. Make the distribution tarball.
+10. Make the distribution tarball.
   (Remaking configure scripts w/ autoconf is needed)
 	 make distclean
          autoconf
@@ -126,7 +126,7 @@ versioned as version "h3.0a1".
 
 
 
-12. Build and test the release copy (on login-eddy)
+11. Build and test the release copy (on login-eddy)
          ssh login-eddy
 	 cd releases/easel-xx
 	 env CFLAGS="-O3" ./configure 
@@ -134,7 +134,7 @@ versioned as version "h3.0a1".
 	 make check
 
 
-13. Put on the FTP site. (on selab)
+12. Put on the FTP site. (on selab)
           scp 00README                selab:/opt/www/ftp/pub/software/easel/
           scp COPYRIGHT               selab:/opt/www/ftp/pub/software/easel/
           scp Userguide.pdf           selab:/opt/www/ftp/pub/software/easel/
@@ -142,7 +142,7 @@ versioned as version "h3.0a1".
           ssh selab  rm -f /opt/www/ftp/pub/software/easel/easel.tar.gz
           ssh selab  "(cd /opt/www/ftp/pub/software/easel; ln -s easel-0.1.tar.gz easel.tar.gz)"
 
-14. Update the web site
+13. Update the web site
 	 cd ~/web/easel/
          emacs index.html 
          make
@@ -150,7 +150,7 @@ versioned as version "h3.0a1".
          svn commit
 
 
-15. Clean up. 
+14. Clean up. 
     Don't remove the old directory though, 
     we will (should) use it for regression testing at the next release.
 	cd ~/releases

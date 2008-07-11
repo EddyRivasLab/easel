@@ -614,25 +614,33 @@ static int parse_skey(char *buf, ESL_SKEY *skey);
 static int pkeysort(const void *k1, const void *k2);
 static int skeysort(const void *k1, const void *k2);
 
-/* Function:  esl_newssi_Create()
+/* Function:  esl_newssi_Open()
  * Synopsis:  Create a new <ESL_NEWSSI>.
  * Incept:    SRE, Tue Jan  2 11:23:25 2001 [St. Louis]
  *
  * Purpose:   Creates and returns a <ESL_NEWSSI>, in order to create a 
  *            new SSI index file.
  *
- * Returns:   a pointer to the <ESL_NEWSSI> structure.
+ * Returns:   <eslOK> on success, and <*ret_newssi> is a pointer to a
+ *            new <ESL_NEWSSI> structure.
  *            
- * Throws:    <NULL> on allocation error.
+ *            Returns <eslENOTFOUND> if <ssifile> can't be opened.
+ *
+ *            Returns <eslEOVERWRITE> if <allow_overwrite> is <FALSE>
+ *            and <ssifile> (or any necessary tmp files) already
+ *            exist, to block overwriting of an existing SSI file.
+ *            
+ * Throws:    <eslEMEM> on allocation error.
  */
-ESL_NEWSSI *
-esl_newssi_Create(void)
+int
+esl_newssi_Open(const char *ssifile, int allow_overwrite, ESL_NEWSSI **ret_newssi)
 {
-  int status;
   ESL_NEWSSI *ns = NULL;
+  int status;
 
   ESL_ALLOC(ns, sizeof(ESL_NEWSSI));
-
+  ns->ssifile    = NULL;
+  ns->ssifp      = NULL;
   ns->external   = FALSE;	    /* we'll switch to external sort if...       */
   ns->max_ram    = eslSSI_MAXRAM;   /* ... if we exceed this memory limit in MB. */
   ns->filenames  = NULL;
@@ -644,13 +652,30 @@ esl_newssi_Create(void)
   ns->pkeys      = NULL;
   ns->plen       = 0;
   ns->nprimary   = 0;
-  ns->ptmpfile   = ".ssi.tmp.1"; /* hardcoded, for now */
+  ns->ptmpfile   = NULL;
   ns->ptmp       = NULL;
   ns->skeys      = NULL;
   ns->slen       = 0;
   ns->nsecondary = 0;
-  ns->stmpfile   = ".ssi.tmp.2"; /* hardcoded, for now */
+  ns->stmpfile   = NULL;
   ns->stmp       = NULL;
+  ns->errbuf[0]  = '\0';    
+
+  if ((status = esl_strdup(ssifile, -1, &(ns->ssifile)))    != eslOK) goto ERROR;
+  if ((status = esl_strdup(ssifile, -1, &(ns->ptmpfile)))   != eslOK) goto ERROR;
+  if ((status = esl_strdup(ssifile, -1, &(ns->stmpfile)))   != eslOK) goto ERROR;
+  if ((status = esl_strcat(&ns->ptmpfile, -1, ".1", 2))     != eslOK) goto ERROR;
+  if ((status = esl_strcat(&ns->stmpfile, -1, ".2", 2))     != eslOK) goto ERROR;
+
+  if (! allow_overwrite)
+    {
+      if (esl_FileExists(ssifile)      ||
+	  esl_FileExists(ns->ptmpfile) ||
+	  esl_FileExists(ns->stmpfile)) 
+	{ status = eslEOVERWRITE; goto ERROR; }
+    }
+
+  if ((ns->ssifp = fopen(ssifile, "w")) == NULL)  { status = eslENOTFOUND; goto ERROR; }
 
   ESL_ALLOC(ns->filenames,  sizeof(char *)   * eslSSI_FCHUNK);
   ESL_ALLOC(ns->fileformat, sizeof(uint32_t) * eslSSI_FCHUNK);
@@ -658,11 +683,12 @@ esl_newssi_Create(void)
   ESL_ALLOC(ns->rpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
   ESL_ALLOC(ns->pkeys,      sizeof(ESL_PKEY) * eslSSI_KCHUNK);
   ESL_ALLOC(ns->skeys,      sizeof(ESL_SKEY) * eslSSI_KCHUNK);
-  return ns;
+  *ret_newssi = ns;
+  return eslOK;
 
  ERROR:
-  esl_newssi_Destroy(ns);	/* free the damaged structure */
-  return NULL;
+  esl_newssi_Close(ns);	/* free the damaged structure */
+  return status;
 }
 
 
@@ -685,7 +711,7 @@ esl_newssi_Create(void)
  *
  * Returns:   <eslOK> on success;
  *            <eslERANGE> if registering this file would exceed the
- *            maximum number of indexed files.
+ *                        maximum number of indexed files.
  *
  * Throws:    <eslEMEM> on allocation or reallocation error.
  */
@@ -696,13 +722,12 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
   uint16_t fh;
   int      n;
 
-  if (ns->nfiles >= eslSSI_MAXFILES) { status = eslERANGE; goto ERROR; }
+  if (ns->nfiles >= eslSSI_MAXFILES) ESL_XFAIL(eslERANGE, ns->errbuf, "exceeded the maximum number of files an SSI index can store");
 
   n = strlen(filename);
   if ((n+1) > ns->flen) ns->flen = n+1;
 
-  status = esl_FileTail(filename, FALSE, &(ns->filenames[ns->nfiles]));
-  if (status != eslOK) goto ERROR;
+  if ((status = esl_FileTail(filename, FALSE, &(ns->filenames[ns->nfiles]))) != eslOK) goto ERROR;
   
   ns->fileformat[ns->nfiles] = fmt;
   ns->bpl[ns->nfiles]        = 0;
@@ -806,10 +831,10 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl)
  * Returns:  <eslOK>        on success;
  *           <eslERANGE>    if registering this key would exceed the maximum
  *                          number of primary keys;
- *           <eslEDUP>      if we needed to open external tmp files for a 
- *                          large index, but they already existed;
  *           <eslENOTFOUND> if we needed to open external tmp files, but
  *                          the attempt to open them failed.
+ *           <eslENOSPACE>  if writing to tmp file fails, probably because 
+ *                          no space is left on the filesystem.
  *           
  * Throws:   <eslEINVAL> on an invalid argument;
  *           <eslEMEM>   on allocation failure.       
@@ -822,7 +847,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
   int n;			/* a string length */
   
   if (fh >= eslSSI_MAXFILES)           ESL_XEXCEPTION(eslEINVAL, "invalid fh");
-  if (ns->nprimary >= eslSSI_MAXKEYS)  return eslERANGE;
+  if (ns->nprimary >= eslSSI_MAXKEYS)  ESL_XFAIL(eslERANGE, ns->errbuf, "exceeded maximum number of primary keys allowed");
 
   /* Before adding the key: check how big our index is.
    * If it's getting too large, switch to external mode.
@@ -840,11 +865,13 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
   if (ns->external) 
     {
       if (sizeof(off_t) == 4) {
-	fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIi64 "\n", 
-		key, fh, (uint32_t) r_off, (uint32_t) d_off, L);
+	if (fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIi64 "\n", 
+		    key, fh, (uint32_t) r_off, (uint32_t) d_off, L) <= 0) 
+	  ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
       } else {
-	fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIi64 "\n", 
-		key, fh, (uint64_t) r_off, (uint64_t) d_off, L);
+	if (fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIi64 "\n", 
+		    key, fh, (uint64_t) r_off, (uint64_t) d_off, L) <= 0)
+	  ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
       }
       ns->nprimary++;
     }
@@ -852,8 +879,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
     {
       /* Else: internal mode, keep keys in memory...
        */
-      if (esl_strdup(key, n, &(ns->pkeys[ns->nprimary].key)) != eslOK)
-	ESL_XEXCEPTION(eslEMEM, "esl_strdup failed");
+      if ((status = esl_strdup(key, n, &(ns->pkeys[ns->nprimary].key))) != eslOK) goto ERROR;
       ns->pkeys[ns->nprimary].fnum  = fh;
       ns->pkeys[ns->nprimary].r_off = r_off;
       ns->pkeys[ns->nprimary].d_off = d_off;
@@ -888,10 +914,10 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
  * Returns:   <eslOK>        on success;
  *            <eslERANGE>    if registering this key would exceed the maximum
  *                           number of secondary keys that can be stored;
- *            <eslEDUP>      if we needed to open external tmp files for a 
- *                           large index, but they already existed;
  *            <eslENOTFOUND> if we needed to open external tmp files, but
  *                           the attempt to open them failed.
+ *            <eslENOSPACE>  if writing to a tmp file fails, probably because
+ *                           we're out of space on the device.
  *
  * Throws:    (no abnormal error conditions)
  */
@@ -901,7 +927,7 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
   int status;
   int n;			/* a string length */
   
-  if (ns->nsecondary >= eslSSI_MAXKEYS) return eslERANGE;
+  if (ns->nsecondary >= eslSSI_MAXKEYS) ESL_XFAIL(eslERANGE, ns->errbuf, "exceeded maximum number of secondary keys allowed");
 
   /* Before adding the key: check how big our index is.
    * If it's getting too large, switch to external mode.
@@ -916,7 +942,7 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
   /* if external mode: write info to disk. */
   if (ns->external) 
     {
-      fprintf(ns->stmp, "%s\t%s\n", alias, key);
+      if (fprintf(ns->stmp, "%s\t%s\n", alias, key) <= 0) ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
       ns->nsecondary++;
     }
   else
@@ -941,26 +967,24 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
  * Synopsis:  Save a new index to an SSI file.
  * Incept:    SRE, Tue Mar  7 16:06:09 2006 [St. Louis]
  *
- * Purpose:   Writes the complete index <ns> in SSI format to a binary
- *            stream <fp>, which the caller has already opened.
+ * Purpose:   Writes the complete index <ns> in SSI format to its file.
  *            
  *            Handles all necessary overhead of sorting the primary and
  *            secondary keys, including any externally sorted tmpfiles that
  *            may have been needed for large indices.
  *            
- * Args:      <fp>  - open file stream to write the index to
- *            <ns>  - new SSI index to write                   
+ * Args:      <ns>  - new SSI index to write                   
  *            
- * Returns:   <eslOK>    on success;
- *            <eslEFAIL> if any write fails, or if index 
- *                       size exceeds system's maximum file size;
- *            <eslESYS>  if any of the steps of an external sort fail.
+ * Returns:   <eslOK>       on success;
+ *            <eslERANGE>   if index size exceeds system's maximum file size;
+ *            <eslENOSPACE> if a write fails, presumably because the filesystem is full;
+ *            <eslESYS>     if any of the steps of an external sort fail.
  *
  * Throws:    <eslEINVAL> on invalid argument, including too-long tmpfile names;
  *            <eslEMEM>   on buffer allocation failure.
  */
 int
-esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
+esl_newssi_Write(ESL_NEWSSI *ns)
 {
   int      status, 		/* convention                               */
            i;			/* counter over files, keys                 */
@@ -999,15 +1023,14 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
    * millions of keys for nothing. Ah well.
    */
   if (current_newssi_size(ns) >= 2047 && sizeof(off_t) != 8)
-    { status = eslFAIL; goto ERROR; }
+    ESL_XFAIL(eslERANGE, ns->errbuf, "SSI index file file would be > 2G; your filesystem isn't capable of handling it");
 
   /* Magic-looking numbers come from adding up sizes 
    * of things in bytes: they match current_newssi_size().
    */
-  frecsize = 4*sizeof(uint32_t) + ns->flen;
-  precsize = 2*sizeof(off_t) + sizeof(uint16_t) + sizeof(uint64_t) + ns->plen;
-  srecsize = ns->slen + ns->plen;
-
+  frecsize     = 4*sizeof(uint32_t) + ns->flen;
+  precsize     = 2*sizeof(off_t) + sizeof(uint16_t) + sizeof(uint64_t) + ns->plen;
+  srecsize     = ns->slen + ns->plen;
   header_flags = 0;
 
   /* Magic-looking numbers again come from adding up sizes 
@@ -1040,18 +1063,17 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
       if (strlen(ns->ptmpfile) > 256 || strlen(ns->ptmpfile) > 256) 
 	ESL_XEXCEPTION(eslEINVAL, "tmpfile name too long"); 
 
-      status = eslESYS;	/* any premature return now is ESYS error */
       fclose(ns->ptmp);
       ns->ptmp = NULL;	
       sprintf(cmd, "env LC_ALL=POSIX sort -o %s %s\n", ns->ptmpfile, ns->ptmpfile);
-      if (system(cmd) != 0)                              goto ERROR;
-      if ((ns->ptmp = fopen(ns->ptmpfile, "r")) == NULL) goto ERROR;
+      if (system(cmd) != 0)                              ESL_XFAIL(eslESYS, ns->errbuf, "external sort of primary keys failed");
+      if ((ns->ptmp = fopen(ns->ptmpfile, "r")) == NULL) ESL_XFAIL(eslESYS, ns->errbuf, "failed to reopen primary key tmp file after sort");
 
       fclose(ns->stmp);
       ns->stmp = NULL;
       sprintf(cmd, "env LC_ALL=POSIX sort -o %s %s\n", ns->stmpfile, ns->stmpfile);
-      if (system(cmd) != 0)                              goto ERROR;
-      if ((ns->stmp = fopen(ns->stmpfile, "r")) == NULL) goto ERROR;
+      if (system(cmd) != 0)                              ESL_XFAIL(eslESYS, ns->errbuf, "external sort of secondary keys failed");
+      if ((ns->stmp = fopen(ns->stmpfile, "r")) == NULL) ESL_XFAIL(eslESYS, ns->errbuf, "failed to reopen secondary key tmp file after sort");
     }
   else 
     {
@@ -1061,22 +1083,22 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 
   /* Write the header
    */
-  status = eslFAIL;		/* any write error is a FAIL */
-  if (esl_fwrite_u32(fp, v30magic)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, header_flags)  != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, sizeof(off_t)) != eslOK) goto ERROR;
-  if (esl_fwrite_u16(fp, ns->nfiles)    != eslOK) goto ERROR;
-  if (esl_fwrite_u64(fp, ns->nprimary)  != eslOK) goto ERROR;
-  if (esl_fwrite_u64(fp, ns->nsecondary)!= eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, ns->flen)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, ns->plen)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, ns->slen)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, frecsize)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, precsize)      != eslOK) goto ERROR;
-  if (esl_fwrite_u32(fp, srecsize)      != eslOK) goto ERROR;
-  if (esl_fwrite_offset(fp, foffset)    != eslOK) goto ERROR;
-  if (esl_fwrite_offset(fp, poffset)    != eslOK) goto ERROR;
-  if (esl_fwrite_offset(fp, soffset)    != eslOK) goto ERROR;
+  if (esl_fwrite_u32(ns->ssifp, v30magic)      != eslOK || 
+      esl_fwrite_u32(ns->ssifp, header_flags)  != eslOK || 
+      esl_fwrite_u32(ns->ssifp, sizeof(off_t)) != eslOK ||
+      esl_fwrite_u16(ns->ssifp, ns->nfiles)    != eslOK ||
+      esl_fwrite_u64(ns->ssifp, ns->nprimary)  != eslOK ||
+      esl_fwrite_u64(ns->ssifp, ns->nsecondary)!= eslOK ||
+      esl_fwrite_u32(ns->ssifp, ns->flen)      != eslOK ||
+      esl_fwrite_u32(ns->ssifp, ns->plen)      != eslOK ||
+      esl_fwrite_u32(ns->ssifp, ns->slen)      != eslOK ||
+      esl_fwrite_u32(ns->ssifp, frecsize)      != eslOK ||
+      esl_fwrite_u32(ns->ssifp, precsize)      != eslOK ||
+      esl_fwrite_u32(ns->ssifp, srecsize)      != eslOK ||
+      esl_fwrite_offset(ns->ssifp, foffset)    != eslOK ||
+      esl_fwrite_offset(ns->ssifp, poffset)    != eslOK ||
+      esl_fwrite_offset(ns->ssifp, soffset)    != eslOK) 
+    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI header -- out of space on device?");
 
   /* Write the file section
    */
@@ -1087,11 +1109,12 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
       strncpy(fk, ns->filenames[i], ns->flen);
 
       status     = eslFAIL;
-      if (fwrite(fk, sizeof(char), ns->flen, fp) != ns->flen) goto ERROR;
-      if (esl_fwrite_u32(fp, ns->fileformat[i])  != eslOK)    goto ERROR;              
-      if (esl_fwrite_u32(fp, file_flags)         != eslOK)    goto ERROR;             
-      if (esl_fwrite_u32(fp, ns->bpl[i])         != eslOK)    goto ERROR;
-      if (esl_fwrite_u32(fp, ns->rpl[i])         != eslOK)    goto ERROR;
+      if (fwrite(fk, sizeof(char), ns->flen, ns->ssifp) != ns->flen ||
+	  esl_fwrite_u32(ns->ssifp, ns->fileformat[i])  != eslOK    ||
+	  esl_fwrite_u32(ns->ssifp, file_flags)         != eslOK    ||
+	  esl_fwrite_u32(ns->ssifp, ns->bpl[i])         != eslOK    ||
+	  esl_fwrite_u32(ns->ssifp, ns->rpl[i])         != eslOK)
+	ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI file section -- out of space on device?");
     }
 
   /* Write the primary key section
@@ -1100,17 +1123,16 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
     {
       for (i = 0; i < ns->nprimary; i++) 
 	{
-	  status = eslESYS;		/* any external read error is an ESYS */
-	  if (esl_fgets(&buf, &n, ns->ptmp)  != eslOK)    goto ERROR;
-	  if (parse_pkey(buf, &pkey)         != eslOK)    goto ERROR;
+	  if (esl_fgets(&buf, &n, ns->ptmp)  != eslOK)    ESL_XFAIL(eslESYS, ns->errbuf, "read from sorted primary key tmpfile failed");
+	  if (parse_pkey(buf, &pkey)         != eslOK)    ESL_XFAIL(eslESYS, ns->errbuf, "parse failed for a line of sorted primary key tmpfile failed");
 	  strncpy(pk, pkey.key, ns->plen); /* note: strncpy pads w/ nulls */
 
-	  status = eslFAIL;		/* any write error is an EFAIL */
-	  if (fwrite(pk,sizeof(char),ns->plen,fp) != ns->plen) goto ERROR;
-	  if (esl_fwrite_u16(   fp, pkey.fnum)    != eslOK)    goto ERROR;   
-	  if (esl_fwrite_offset(fp, pkey.r_off)   != eslOK)    goto ERROR;
-	  if (esl_fwrite_offset(fp, pkey.d_off)   != eslOK)    goto ERROR;
-	  if (esl_fwrite_i64(   fp, pkey.len)     != eslOK)    goto ERROR;
+	  if (fwrite(pk,sizeof(char),ns->plen,ns->ssifp) != ns->plen ||
+	      esl_fwrite_u16(   ns->ssifp, pkey.fnum)    != eslOK    ||
+	      esl_fwrite_offset(ns->ssifp, pkey.r_off)   != eslOK    ||
+	      esl_fwrite_offset(ns->ssifp, pkey.d_off)   != eslOK    ||
+	      esl_fwrite_i64(   ns->ssifp, pkey.len)     != eslOK)
+	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI primary key section -- out of space on device?");
 	}
     } 
   else 
@@ -1118,12 +1140,13 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
       for (i = 0; i < ns->nprimary; i++)
 	{
 	  strncpy(pk, ns->pkeys[i].key, ns->plen);
-	  status = eslFAIL;
-	  if (fwrite(pk,sizeof(char),ns->plen,fp)      != ns->plen) goto ERROR;
-	  if (esl_fwrite_u16(   fp, ns->pkeys[i].fnum)  != eslOK)    goto ERROR;
-	  if (esl_fwrite_offset(fp, ns->pkeys[i].r_off) != eslOK)    goto ERROR;
-	  if (esl_fwrite_offset(fp, ns->pkeys[i].d_off) != eslOK)    goto ERROR;
-	  if (esl_fwrite_i64(   fp, ns->pkeys[i].len)   != eslOK)    goto ERROR;
+
+	  if (fwrite(pk,sizeof(char),ns->plen,ns->ssifp)       != ns->plen ||
+	      esl_fwrite_u16(   ns->ssifp, ns->pkeys[i].fnum)  != eslOK    ||
+	      esl_fwrite_offset(ns->ssifp, ns->pkeys[i].r_off) != eslOK    ||
+	      esl_fwrite_offset(ns->ssifp, ns->pkeys[i].d_off) != eslOK    ||
+	      esl_fwrite_i64(   ns->ssifp, ns->pkeys[i].len)   != eslOK)
+	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI primary key section -- out of space on device?");
 	}
     }
 
@@ -1134,15 +1157,14 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
     {
       for (i = 0; i < ns->nsecondary; i++)
 	{
-	  status = eslESYS;
-	  if (esl_fgets(&buf, &n, ns->stmp) != eslOK) goto ERROR;
-	  if (parse_skey(buf, &skey)        != eslOK) goto ERROR;
+	  if (esl_fgets(&buf, &n, ns->stmp) != eslOK) ESL_XFAIL(eslESYS, ns->errbuf, "read from sorted secondary key tmpfile failed");
+	  if (parse_skey(buf, &skey)        != eslOK) ESL_XFAIL(eslESYS, ns->errbuf, "parse failed for a line of sorted secondary key tmpfile failed");
 	  strncpy(sk, skey.key,  ns->slen);
 	  strncpy(pk, skey.pkey, ns->plen);
 
-	  status = eslFAIL;
-	  if (fwrite(sk, sizeof(char), ns->slen, fp) != ns->slen) goto ERROR;
-	  if (fwrite(pk, sizeof(char), ns->plen, fp) != ns->plen) goto ERROR;
+	  if (fwrite(sk, sizeof(char), ns->slen, ns->ssifp) != ns->slen ||
+	      fwrite(pk, sizeof(char), ns->plen, ns->ssifp) != ns->plen) 
+	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI secondary key section -- out of space on device?");
 	}
     } 
   else 
@@ -1152,9 +1174,9 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
 	  strncpy(sk, ns->skeys[i].key,  ns->slen);
 	  strncpy(pk, ns->skeys[i].pkey, ns->plen);
 
-	  status = eslFAIL;
-	  if (fwrite(sk, sizeof(char), ns->slen, fp) != ns->slen) goto ERROR;
-	  if (fwrite(pk, sizeof(char), ns->plen, fp) != ns->plen) goto ERROR;
+	  if (fwrite(sk, sizeof(char), ns->slen, ns->ssifp) != ns->slen ||
+	      fwrite(pk, sizeof(char), ns->plen, ns->ssifp) != ns->plen)
+	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI secondary key section -- out of space on device?");
 	} 
     }
 
@@ -1176,14 +1198,14 @@ esl_newssi_Write(FILE *fp, ESL_NEWSSI *ns)
   return status;
 }
 
-/* Function:  esl_newssi_Destroy()
+/* Function:  esl_newssi_Close()
  * Synopsis:  Free an <ESL_NEWSSI>.
  * Incept:    SRE, Tue Mar  7 08:13:27 2006 [St. Louis]
  *
  * Purpose:   Frees a <ESL_NEWSSI>.
  */
 void
-esl_newssi_Destroy(ESL_NEWSSI *ns)
+esl_newssi_Close(ESL_NEWSSI *ns)
 {
   int i;
   if (ns == NULL) return;
@@ -1208,8 +1230,8 @@ esl_newssi_Destroy(ESL_NEWSSI *ns)
     }
   else 
     {
-      if (ns->ptmp != NULL) fclose(ns->ptmp);
-      if (ns->stmp != NULL) fclose(ns->stmp);       
+      remove(ns->ptmpfile);
+      remove(ns->stmpfile);
     }
 
   if (ns->filenames   != NULL)  
@@ -1218,9 +1240,16 @@ esl_newssi_Destroy(ESL_NEWSSI *ns)
 	if (ns->filenames[i] != NULL) free(ns->filenames[i]);
       free(ns->filenames);
     }
+
+  if (ns->stmp        != NULL)     fclose(ns->stmp);
+  if (ns->stmpfile    != NULL)     free(ns->stmpfile);
+  if (ns->ptmp        != NULL)     fclose(ns->ptmp);
+  if (ns->ptmpfile    != NULL)     free(ns->ptmpfile);
   if (ns->fileformat  != NULL)     free(ns->fileformat);
   if (ns->bpl         != NULL)     free(ns->bpl);       
   if (ns->rpl         != NULL)     free(ns->rpl);       
+  if (ns->ssifile     != NULL)     free(ns->ssifile);
+  if (ns->ssifp       != NULL)     fclose(ns->ssifp);
   free(ns);
 }
 
@@ -1267,8 +1296,8 @@ current_newssi_size(const ESL_NEWSSI *ns)
  * Free current memory, turn over control to the tmpfiles.
  *           
  * Return <eslOK>        on success; 
- *        <eslEDUP>      if one of the external tmpfiles already exists;
- *        <eslENOTFOUND> if we can't open a tmpfile for writing.
+ *        <eslENOTFOUND> if we can't open a tmpfile for writing;
+ *        <eslENOSPACE>  if a write fails.
  */
 static int
 activate_external_sort(ESL_NEWSSI *ns)
@@ -1277,37 +1306,35 @@ activate_external_sort(ESL_NEWSSI *ns)
   int i;
 
   if (ns->external)                   return eslOK; /* we already are external, fool */
-
-  status = eslEDUP;
-  if (esl_FileExists(ns->ptmpfile)) goto ERROR;
-  if (esl_FileExists(ns->stmpfile)) goto ERROR;
   
-  status = eslENOTFOUND;
-  if ((ns->ptmp = fopen(ns->ptmpfile, "w")) == NULL) goto ERROR;
-  if ((ns->stmp = fopen(ns->stmpfile, "w")) == NULL) goto ERROR;
+  if ((ns->ptmp = fopen(ns->ptmpfile, "w")) == NULL) ESL_XFAIL(eslENOTFOUND, ns->errbuf, "Failed to open primary key tmpfile for external sort");
+  if ((ns->stmp = fopen(ns->stmpfile, "w")) == NULL) ESL_XFAIL(eslENOTFOUND, ns->errbuf, "Failed to open secondary key tmpfile for external sort");
 
   /* Flush the current indices.
    */
   ESL_DPRINTF1(("Switching to external sort - flushing new ssi to disk...\n"));
   for (i = 0; i < ns->nprimary; i++) {
     if (sizeof(off_t) == 4) {
-      fprintf(ns->ptmp, "%s\t%u\t%lu\t%lu\t%lu\n", 
-	      ns->pkeys[i].key, 
-	      (unsigned int)  ns->pkeys[i].fnum,
-	      (unsigned long) ns->pkeys[i].r_off, 
-	      (unsigned long) ns->pkeys[i].d_off, 
-	      (unsigned long) ns->pkeys[i].len);
+      if (fprintf(ns->ptmp, "%s\t%u\t%lu\t%lu\t%lu\n", 
+		  ns->pkeys[i].key, 
+		  (unsigned int)  ns->pkeys[i].fnum,
+		  (unsigned long) ns->pkeys[i].r_off, 
+		  (unsigned long) ns->pkeys[i].d_off, 
+		  (unsigned long) ns->pkeys[i].len) <= 0)
+	ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
     } else {
-      fprintf(ns->ptmp, "%s\t%u\t%llu\t%llu\t%lu\n", 
-	      ns->pkeys[i].key, 
-	      (unsigned int)       ns->pkeys[i].fnum,
-	      (unsigned long long) ns->pkeys[i].r_off, 
-	      (unsigned long long) ns->pkeys[i].d_off, 
-	      (unsigned long)      ns->pkeys[i].len);
+      if (fprintf(ns->ptmp, "%s\t%u\t%llu\t%llu\t%lu\n", 
+		  ns->pkeys[i].key, 
+		  (unsigned int)       ns->pkeys[i].fnum,
+		  (unsigned long long) ns->pkeys[i].r_off, 
+		  (unsigned long long) ns->pkeys[i].d_off, 
+		  (unsigned long)      ns->pkeys[i].len) <= 0)
+	ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
     }
   }
   for (i = 0; i < ns->nsecondary; i++)
-    fprintf(ns->stmp, "%s\t%s\n", ns->skeys[i].key, ns->skeys[i].pkey);
+    if (fprintf(ns->stmp, "%s\t%s\n", ns->skeys[i].key, ns->skeys[i].pkey) <= 0)
+      ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
   
   /* Free the memory now that we've flushed our lists to disk
    */
@@ -1721,51 +1748,72 @@ esl_fwrite_offset(FILE *fp, off_t offset)
  * 4. Test driver
  *****************************************************************/ 
 
-/* gcc -g -Wall -o ssi_utest -L. -I. -DeslSSI_TESTDRIVE esl_ssi.c -leasel -lm */
+/* gcc -g -Wall -o ssi_utest -L. -I. -DeslSSI_TESTDRIVE esl_ssi.c -leasel -lm 
+ * ./ssi_utest
+ */
 #ifdef eslSSI_TESTDRIVE
+#include "esl_config.h"
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_ssi.h"
 #include "esl_random.h"
 #include "esl_randomseq.h"
 
-int main(int argc, char **argv)
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-F",        eslARG_INT,      "3",  NULL, NULL,  NULL,  NULL, NULL, "number of test files",                             0 },
+  { "-L",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
+  { "-N",        eslARG_INT,     "10",  NULL, NULL,  NULL,  NULL, NULL, "number of test sequences per file",                0 },
+  { "-Q",        eslARG_INT,     "10",  NULL, NULL,  NULL,  NULL, NULL, "number of random queries to retrieve",             0 },
+  { "-r",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "use arbitrary random number seed",                 0 },
+  { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
+  { "-v",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "be verbose",                                       0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for ssi module";
+
+int 
+main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r    = NULL;
-  ESL_NEWSSI     *ns   = NULL;
-  ESL_SSI        *ssi  = NULL;
-  ESL_SQ         *sq   = NULL;
-  ESL_SQFILE     *sqfp = NULL;
-  FILE  *fp;
-  FILE  *ssifp;
+  ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *r          = NULL;
+  ESL_NEWSSI     *ns         = NULL;
+  ESL_SSI        *ssi        = NULL;
+  ESL_SQ         *sq         = NULL;
+  ESL_SQFILE     *sqfp       = NULL;
+  char           *ssifile    = NULL;
+  FILE           *fp         = NULL;
+  int             nfiles     = esl_opt_GetInteger(go, "-F");
+  int             maxL       = esl_opt_GetInteger(go, "-L");
+  int             nseq       = esl_opt_GetInteger(go, "-N");
+  int             nq         = esl_opt_GetInteger(go, "-Q");
+  int             be_verbose = esl_opt_GetBoolean(go, "-v");
   uint16_t fh;
-  int    nseq, nfiles, i, j, maxL;
+  int    i,j;
   char **sqfile;
   char **seqname;
   char **seq;
   int   *seqlen;
-  int    nq;
   char   query[32];
   char  *qfile;
   int    qfmt;
   off_t  roff;
   double p[4] = { 0.25, 0.25, 0.25, 0.25 };
-  char   ssifile[32] = "esltmpXXXXXX";
   int    status;
-  int    be_verbose;
-
-  nfiles = 3;
-  nseq   = 10;
-  maxL   = 1000;
-  nq     = 10;
-  be_verbose = FALSE;
   
-  /* Create <nfiles> sequence file names.
-   */
+  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
+  else                              r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  /* Create <nfiles> sequence file names. */
   ESL_ALLOC(sqfile, sizeof(char *) * nfiles);
   for (j = 0; j < nfiles; j++)
     {
@@ -1776,8 +1824,6 @@ int main(int argc, char **argv)
   /* Create <nfiles*nseq> sequences with random 
    * lengths up to 1000.
    */
-  /* r = esl_randomness_CreateTimeseeded(); */
-  r = esl_randomness_Create(39); 
   ESL_ALLOC(seq,    sizeof(char *) * nseq * nfiles);
   ESL_ALLOC(seqname,sizeof(char *) * nseq * nfiles);
   ESL_ALLOC(seqlen, sizeof(int)    * nseq * nfiles);
@@ -1805,19 +1851,20 @@ int main(int argc, char **argv)
       fclose(fp);
     }
 
-  /* Create an ssi index of all the FASTA files.
-   */
-  ns = esl_newssi_Create();
-  sq = esl_sq_Create();
+  /* Create an ssi index of all the FASTA files. */
+  if (esl_strdup(sqfile[0], -1, &ssifile)   != eslOK) esl_fatal("esl_strdup() failed");
+  if (esl_strcat(&ssifile,  -1, ".ssi", 4)  != eslOK) esl_fatal("esl_strcat() failed");
+  if (esl_newssi_Open(ssifile, TRUE, &ns)   != eslOK) esl_fatal("new SSI index open failed");
+  if ((sq = esl_sq_Create())                == NULL)  esl_fatal("esl_sq_Create() failed");
+
   for (j = 0; j < nfiles; j++)
     {
-      if (esl_sqfile_Open(sqfile[j], eslSQFILE_UNKNOWN, NULL, &sqfp) != eslOK)
-	esl_fatal("failed to open fasta file %s", sqfile[j]);
-      esl_newssi_AddFile(ns, sqfile[j], sqfp->format, &fh);
+      if (esl_sqfile_Open(sqfile[j], eslSQFILE_UNKNOWN, NULL, &sqfp) != eslOK) esl_fatal("failed to open fasta file %s", sqfile[j]);
+      if (esl_newssi_AddFile(ns, sqfile[j], sqfp->format, &fh)       != eslOK) esl_fatal("esl_newssi_AddFile() failed");
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
 	  if (be_verbose) printf("%16s  %ld  %ld  %" PRIi64 "\n", sq->name, (long) sq->roff, (long) sq->doff, sq->L);
-	  esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L);
+	  if (esl_newssi_AddKey(ns, sq->name, fh, sq->roff, sq->doff, sq->L) != eslOK) esl_fatal("esl_newssi_AddKey() failed");
 	  esl_sq_Reuse(sq);
 	}
       if (status != eslEOF) esl_fatal("sequence read failure");
@@ -1827,10 +1874,8 @@ int main(int argc, char **argv)
 
   /* Save the SSI index to a file.
    */
-  if (esl_tmpfile_named(ssifile, &ssifp) != eslOK)  esl_fatal("failed to open ssi file");
-  esl_newssi_Write(ssifp, ns);
-  esl_newssi_Destroy(ns);
-  fclose(ssifp);
+  esl_newssi_Write(ns);
+  esl_newssi_Close(ns);
   
   /* Open the SSI index - now we'll use it to retrieve
    * <nq> random sequences.
@@ -1869,6 +1914,7 @@ int main(int argc, char **argv)
 
   /* flowthrough is safe: garbage collection only below. */
  ERROR:
+  free(ssifile);
   esl_sq_Destroy(sq);
   esl_ssi_Close(ssi);
   esl_randomness_Destroy(r);
@@ -1876,6 +1922,7 @@ int main(int argc, char **argv)
   esl_Free2D((void **) seqname, nseq*nfiles);
   esl_Free2D((void **) seq,     nseq*nfiles);
   esl_Free2D((void **) sqfile, nfiles);
+  esl_getopts_Destroy(go);
   return status;
 }
 #endif /*eslSSI_TESTDRIVE*/
@@ -1901,26 +1948,33 @@ int main(int argc, char **argv)
   char    *fafile;              /* name of FASTA file                   */
   FILE    *fp;                  /* opened FASTA file for reading        */
   char    *ssifile;             /* name of SSI file                     */
-  FILE    *sfp;                 /* opened SSI file for writing          */
   uint16_t fh;                  /* file handle SSI associates w/ fafile */
   char    *buf = NULL;          /* growable buffer for esl_fgets()      */
   int      n   = 0;             /* length of buf                        */
   char    *s, *seqname;		
   off_t    seq_offset;
+  int      status;
+
+  /* Open a new SSI index named <fafile>.ssi */
+  fafile = argv[1];
+  esl_strdup(fafile,   -1, &ssifile);  
+  esl_strcat(&ssifile, -1, ".ssi", 4); 
+  status = esl_newssi_Open(ssifile, FALSE, &ns);
+  if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
+  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile);
+  else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
 
   /* Collect the sequence names from a FASTA file into an index */
-  fafile = argv[1];
-  ns = esl_newssi_Create();
   if ((fp = fopen(fafile, "r"))              == NULL)  esl_fatal("failed to open %s", fafile);
-  if (esl_newssi_AddFile(ns, fafile, 1, &fh) != eslOK) esl_fatal("failed to add %s to index", fafile);
-
+  if (esl_newssi_AddFile(ns, fafile, 1, &fh) != eslOK) esl_fatal("failed to add %s to index: %s", fafile, ns->errbuf);
   seq_offset = ftello(fp);
   while (esl_fgets(&buf, &n, fp) == eslOK)
     {
       if (*buf == '>') {
 	s = buf+1;                               /* skip past >                */
 	esl_strtok(&s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
-	esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0);
+	if (esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0) != eslOK)
+	  esl_fatal("failed to add key %s to index: %s", seqname, ns->errbuf);
       }
       seq_offset = ftello(fp);				 
     }
@@ -1928,14 +1982,13 @@ int main(int argc, char **argv)
   fclose(fp);
 
   /* Save the index to disk */
-  esl_strdup(fafile,   -1, &ssifile);  
-  esl_strcat(&ssifile, -1, ".ssi", 4); 
-  if ((sfp = fopen(ssifile, "wb"))  == NULL) esl_fatal("failed to open SSI file %s", ssifile);
-  if (esl_newssi_Write(sfp, ns)    != eslOK) esl_fatal("failed to write ssi file");
-  fclose(sfp);
+  status = esl_newssi_Write(ns);
+  if      (status == eslERANGE)   esl_fatal("SSI index file size exceeds maximum allowed by your filesystem");
+  else if (status == eslENOSPACE) esl_fatal("SSI index write failed: %s", ns->errbuf);
+  else if (status == eslESYS)     esl_fatal("SSI index sort failed: %s", ns->errbuf);
+  else if (status != eslOK)       esl_fatal("SSI index save failed: %s", ns->errbuf);
+  esl_newssi_Close(ns);  
   free(ssifile);
-  esl_newssi_Destroy(ns);  
-
   return 0;
 }
 /*::cexcerpt::ssi_example::end::*/

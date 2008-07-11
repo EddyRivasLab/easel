@@ -218,18 +218,19 @@ main(int argc, char **argv)
 static void
 create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
 {
-  int         status;
-  ESL_NEWSSI *ns      = esl_newssi_Create();
+  ESL_NEWSSI *ns      = NULL;
   ESL_SQ     *sq      = esl_sq_Create();
   int         nseq    = 0;
   char       *ssifile = NULL;
-  FILE       *sfp     = NULL;
   uint16_t    fh;
+  int         status;
 
   esl_strdup(sqfp->filename, -1, &ssifile);
   esl_strcat(&ssifile, -1, ".ssi", 4);
-  if (esl_FileExists(ssifile)                            == TRUE)   esl_fatal("SSI file %s already exists; delete or rename", ssifile);
-  if ((sfp = fopen(ssifile, "wb"))                       == NULL)   esl_fatal("Failed to open SSI file %s for writing\n",     ssifile);
+  status = esl_newssi_Open(ssifile, FALSE, &ns);
+  if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
+  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile);
+  else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
 
   if (esl_newssi_AddFile(ns, sqfp->filename, sqfp->format, &fh) != eslOK)
     esl_fatal("Failed to add sequence file %s to new SSI index\n", sqfp->filename);
@@ -260,7 +261,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   }
 
   /* Save the SSI file to disk */
-  if (esl_newssi_Write(sfp, ns) != eslOK)  esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
+  if (esl_newssi_Write(ns) != eslOK)  esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
 
   /* Done - output and exit. */
   printf("done.\n");
@@ -270,10 +271,9 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
     printf("Indexed %d sequences (%ld names).\n", nseq, (long) ns->nprimary);
   printf("SSI index written to file %s\n", ssifile);
 
-  fclose(sfp);
   free(ssifile);
   esl_sq_Destroy(sq);
-  esl_newssi_Destroy(ns);
+  esl_newssi_Close(ns);
   return;
 }
 

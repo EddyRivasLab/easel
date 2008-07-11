@@ -2901,14 +2901,15 @@ static void
 make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile, int mode)
 { 
   char       *msg  = "sqio unit testing: failed to make SSI index";
-  ESL_NEWSSI *ns   = esl_newssi_Create();
+  ESL_NEWSSI *ns   = NULL;
   ESL_SQFILE *sqfp = NULL;
   ESL_SQ     *sq   = esl_sq_CreateDigital(abc);
-  FILE       *fp   = NULL;
   uint16_t    fh   = 0;
   int         nseq = 0;
   int         status;
  
+  sprintf(ssifile, "%s.ssi", tmpfile);
+  if (esl_newssi_Open(ssifile, TRUE, &ns)                       != eslOK) esl_fatal(msg);
   if (esl_newssi_AddFile(ns, tmpfile, format, &fh)              != eslOK) esl_fatal(msg);
   if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
   while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
@@ -2923,9 +2924,7 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   if (sqfp->bpl > 0 && sqfp->rpl > 0) 
     if ((status = esl_newssi_SetSubseq(ns, fh, sqfp->bpl, sqfp->rpl)) != eslOK) esl_fatal(msg);
   
-  sprintf(ssifile, "%s.ssi", tmpfile);
-  if ((fp = fopen(ssifile, "wb")) == NULL)  esl_fatal(msg);
-  if (esl_newssi_Write(fp, ns)   != eslOK)  esl_fatal(msg);
+  if (esl_newssi_Write(ns)        != eslOK)  esl_fatal(msg);
 
   switch (mode) {
   case 0:  if (sqfp->bpl != 0)                     esl_fatal(msg); break; /* uglified: bpl should be invalid (rpl might not be) */
@@ -2933,9 +2932,8 @@ make_ssi_index(ESL_ALPHABET *abc, const char *tmpfile, int format, char *ssifile
   case 2:  if (sqfp->rpl != 60 || sqfp->bpl != 61) esl_fatal(msg); break; /* normal: bpl, rpl should be valid, w/ bpl=rpl+1 */
   }
 
-  fclose(fp);
   esl_sqfile_Close(sqfp);
-  esl_newssi_Destroy(ns);
+  esl_newssi_Close(ns);
   esl_sq_Destroy(sq);
 }
 

@@ -40,8 +40,8 @@ The lengths of primary keys, secondary keys, or filenames are
 effectively unlimited, and individual sequence records may be many
 trillions of residues long, orders of magnitude larger than the
 largest complete chromosomes. SSI indexing is effectively limited only
-by the size of the SSI index file itself (up to 9.2 million terabytes,
-on 64-bit filesystems).
+by the size of the SSI index file itself (up to 8 exabytes, on 64-bit
+filesystems).
 
 Binary SSI indices are portable between different
 machines.\footnote{The sole exception is that SSI indices built for
@@ -67,13 +67,13 @@ set of functions for portable binary file i/o.
 \hyperlink{func:esl_ssi_FileInfo()}{\ccode{esl\_ssi\_FileInfo()}} & Retrieve a file name and format code.\\
 \hyperlink{func:esl_ssi_Close()}{\ccode{esl\_ssi\_Close()}} & Close an SSI index.\\
 \apisubhead{Creating (writing) new SSI files.}\\
-\hyperlink{func:esl_newssi_Create()}{\ccode{esl\_newssi\_Create()}} & Create a new \ccode{ESL\_NEWSSI}.\\
+\hyperlink{func:esl_newssi_Open()}{\ccode{esl\_newssi\_Open()}} & Open a new \ccode{ESL\_NEWSSI}.\\
 \hyperlink{func:esl_newssi_AddFile()}{\ccode{esl\_newssi\_AddFile()}} & Add a filename to a growing index.\\
 \hyperlink{func:esl_newssi_SetSubseq()}{\ccode{esl\_newssi\_SetSubseq()}} & Declare that file is suitable for fast subseq lookup.\\
 \hyperlink{func:esl_newssi_AddKey()}{\ccode{esl\_newssi\_AddKey()}} & Add a primary key to a growing index.\\
 \hyperlink{func:esl_newssi_AddAlias()}{\ccode{esl\_newssi\_AddAlias()}} & Add a secondary key (alias) to a growing index.\\
 \hyperlink{func:esl_newssi_Write()}{\ccode{esl\_newssi\_Write()}} & Save a new index to an SSI file.\\
-\hyperlink{func:esl_newssi_Destroy()}{\ccode{esl\_newssi\_Destroy()}} & Free an \ccode{ESL\_NEWSSI}.\\
+\hyperlink{func:esl_newssi_Close()}{\ccode{esl\_newssi\_Destroy()}} & Close an \ccode{ESL\_NEWSSI}.\\
 \apisubhead{Portable binary i/o}\\
 \hyperlink{func:esl_byteswap()}{\ccode{esl\_byteswap()}} & Description.\\
 \hyperlink{func:esl_ntoh16()}{\ccode{esl\_ntoh16()}} & Description.\\
@@ -106,7 +106,11 @@ like:
 \end{figure}
 
 \begin{itemize}
-\item A new index is created (\ccode{esl\_newssi\_Create()}).
+\item A new index is created (\ccode{esl\_newssi\_Open()}).  You can
+      name an SSI index anything you want, but for an index of a
+      single file, \Easel\ generally defaults to assuming an
+      \ccode{.ssi} suffix is appended to the filename. That's what
+      the example does here.
 
 \item Each file to be indexed is added to the index by a call to
       \ccode{esl\_newssi\_AddFile()}. This returns a \emph{file handle}
@@ -127,15 +131,10 @@ like:
       no matter how long each line might be: \ccode{esl\_fgets()}
       reallocates its buffer as needed.
 
-\item You can name an SSI index anything you want. For an index of a
-      single file, \Easel\ defaults to assuming an \ccode{.ssi} suffix
-      is appended to the filename, and that's what the example does
-      here.
-
 \item \ccode{esl\_newssi\_Write()} saves the index to an open file.
 
 \item Finally, the index structure is freed by
-      \ccode{esl\_newssi\_Destroy()}.
+      \ccode{esl\_newssi\_Close()}.
 \end{itemize}
 
 To compile and run the program, given a FASTA file \ccode{foo.fa} that

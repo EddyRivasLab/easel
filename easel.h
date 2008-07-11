@@ -90,8 +90,10 @@
 #define eslEDUP           17    /* saw a duplicate of something */
 #define eslENOHALT        18    /* a failure to converge        */      
 #define eslENORESULT      19    /* no result was obtained       */
-#define eslENODATA        20	/* no data provided, file empty */
-#define eslETYPE          21	/* invalid type of argument     */
+#define eslENODATA        20    /* no data provided, file empty */
+#define eslETYPE          21    /* invalid type of argument     */
+#define eslEOVERWRITE     22    /* attempted to overwrite data  */
+#define eslENOSPACE       23    /* ran out of some resource     */
 /*::cexcerpt::statuscodes::end::*/
 
 

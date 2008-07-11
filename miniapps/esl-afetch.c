@@ -139,21 +139,23 @@ main(int argc, char **argv)
 static void
 create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
 {
-  int         status;
-  ESL_NEWSSI *ns      = esl_newssi_Create();
+  ESL_NEWSSI *ns      = NULL;
   ESL_MSA    *msa     = NULL;
   int         nali    = 0;
   char       *ssifile = NULL;
-  FILE       *sfp     = NULL;
   uint16_t    fh;
+  int         status;
 
   if (afp->ssi != NULL) 
     esl_fatal("Alignment file %s already has an SSI index. Delete or move it first.\n", afp->fname);
 
   esl_strdup(afp->fname, -1, &ssifile);
   esl_strcat(&ssifile, -1, ".ssi", 4);
-  if ((sfp = fopen(ssifile, "wb")) == NULL)
-    esl_fatal("Failed to open SSI file %s\n", ssifile);
+  status = esl_newssi_Open(ssifile, FALSE, &ns);
+  if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
+  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile);
+  else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
+
   if (esl_newssi_AddFile(ns, afp->fname, afp->format, &fh) != eslOK)
     esl_fatal("Failed to add MSA file %s to new SSI index\n", afp->fname);
 
@@ -181,7 +183,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
       esl_msa_Destroy(msa);
     }
   
-  if (esl_newssi_Write(sfp, ns) != eslOK) 
+  if (esl_newssi_Write(ns) != eslOK) 
     esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
 
   printf("done.\n");
@@ -191,9 +193,8 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
     printf("Indexed %d alignments (%ld names).\n", nali, (long) ns->nprimary);
   printf("SSI index written to file %s\n", ssifile);
 
-  fclose(sfp);
   free(ssifile);
-  esl_newssi_Destroy(ns);
+  esl_newssi_Close(ns);
   return;
 }  
 
