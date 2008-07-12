@@ -36,7 +36,7 @@
  *
  * Throws:    (no abnormal error conditions)
  */
-static int
+int
 esl_swat_Score(ESL_DSQ *x, int L, ESL_DSQ *y, int M, ESL_SCOREMATRIX *S, int gop, int gex, int *ret_sc)
 {
   int    status;
