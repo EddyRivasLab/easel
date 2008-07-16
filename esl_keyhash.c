@@ -91,6 +91,37 @@ esl_keyhash_Clone(const ESL_KEYHASH *kh)
 }
 
 
+/* Function:  esl_keyhash_Get()
+ * Synopsis:  Returns a key name, given its index.
+ * Incept:    SRE, Tue Jul 15 09:40:56 2008 [Janelia]
+ *
+ * Purpose:   Returns a pointer to the key name associated
+ *            with index <idx>. The key name is a <NUL>-terminated 
+ *            string whose memory is managed internally in
+ *            the keyhash <kh>.
+ */
+char *
+esl_keyhash_Get(const ESL_KEYHASH *kh, int idx)
+{
+  return kh->smem + kh->key_offset[idx];
+}
+
+/* Function:  esl_keyhash_GetNumber()
+ * Synopsis:  Returns the total number of keys stored.
+ * Incept:    SRE, Tue Jul 15 09:42:46 2008 [Janelia]
+ *
+ * Purpose:   Returns the total number of keys currently stored in the
+ *            keyhash <kh>.
+ */
+int 
+esl_keyhash_GetNumber(const ESL_KEYHASH *kh)
+{
+  return kh->nkeys;
+}
+
+
+
+
 /* Function:  esl_keyhash_Destroy()
  * Synopsis:  Frees a keyhash.
  * Incept:    SRE, Sun Jan 30 09:19:19 2005 [St. Louis]
@@ -154,7 +185,7 @@ esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh)
 
 
 /*****************************************************************
- *# 2. Storing and retrieving keys
+ *# 2. Storing and retrieving keys 
  *****************************************************************/ 
 
 /* Function: esl_key_Store()
@@ -252,6 +283,8 @@ esl_key_Lookup(const ESL_KEYHASH *kh, const char *key, int *opt_index)
   if (opt_index != NULL) *opt_index = -1;
   return eslENOTFOUND;
 }
+
+
 /*---------- end, API for storing/retrieving keys ---------------*/
 
 
