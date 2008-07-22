@@ -1,5 +1,4 @@
-/* esl_dirichlet.h
- * Functions relevant to Beta, gamma, and Dirichlet densities,
+/* Functions relevant to Beta, gamma, and Dirichlet densities,
  * and simple and mixture Dirichlet priors.
  * 
  * SRE, Tue Nov  2 14:35:06 2004 [St. Louis]
@@ -55,4 +54,7 @@ extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
 #endif /*eslAUGMENT_FILEPARSER*/
 
 
-#endif /*ESL_DIRICHLET_INCLUDED*/
+#endif /*!ESL_DIRICHLET_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

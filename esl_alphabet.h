@@ -11,11 +11,13 @@
 
 /* Flags for alphabet types.
  */
-#define eslUNKNOWN     0 /* 0=unknown is easel-wide convention; don't change */
+#define eslUNKNOWN     0        /* 0=unknown is easel-wide convention; don't change */
 #define eslRNA         1
 #define eslDNA         2		
 #define eslAMINO       3		
-#define eslNONSTANDARD 4
+#define eslCOINS       4	/* for toy examples      */
+#define eslDICE        5	/* also for toy examples */
+#define eslNONSTANDARD 6
 
 /* Structure: ESL_ALPHABET
  */

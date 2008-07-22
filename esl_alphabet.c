@@ -26,10 +26,11 @@
  * 1. The ESL_ALPHABET object
  *****************************************************************/ 
 
-static ESL_ALPHABET *create_dna(void);
 static ESL_ALPHABET *create_rna(void);
+static ESL_ALPHABET *create_dna(void);
 static ESL_ALPHABET *create_amino(void);
-
+static ESL_ALPHABET *create_coins(void);
+static ESL_ALPHABET *create_dice(void);
 
 /* Function:  esl_alphabet_Create()
  * Synopsis:  Create alphabet of a standard type.
@@ -52,11 +53,13 @@ esl_alphabet_Create(int type)
   ESL_ALPHABET *a;
 
   switch(type) { 
-  case eslAMINO:  a = create_amino(); break;
-  case eslDNA:    a = create_dna();   break;
   case eslRNA:    a = create_rna();   break;
+  case eslDNA:    a = create_dna();   break;
+  case eslAMINO:  a = create_amino(); break;
+  case eslCOINS:  a = create_coins(); break;
+  case eslDICE:   a = create_dice(); break;
   default:    
-    ESL_XEXCEPTION(eslEINVAL, "Standard alphabets include only DNA, RNA, protein.");
+    ESL_XEXCEPTION(eslEINVAL, "bad alphabet type: unrecognized");
   }
   return a;
 
@@ -199,6 +202,43 @@ define_complementarity(ESL_ALPHABET *a)
   return status;
 }
 
+/* create_rna(): 
+ * Creates a standard RNA alphabet.
+ */
+static ESL_ALPHABET *
+create_rna(void)
+{
+  ESL_ALPHABET *a;
+
+  /* Create the fundamental alphabet
+   */
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
+  a->type = eslRNA;
+  
+  /* Add desired synonyms in the input map.
+   */
+  esl_alphabet_SetEquiv(a, 'T', 'U');	    /* read T as a U */
+  esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
+  esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
+  esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
+  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
+
+  /* Define degenerate symbols.
+   */
+  esl_alphabet_SetDegeneracy(a, 'R', "AG");
+  esl_alphabet_SetDegeneracy(a, 'Y', "CU");
+  esl_alphabet_SetDegeneracy(a, 'M', "AC");
+  esl_alphabet_SetDegeneracy(a, 'K', "GU");
+  esl_alphabet_SetDegeneracy(a, 'S', "CG");
+  esl_alphabet_SetDegeneracy(a, 'W', "AU");
+  esl_alphabet_SetDegeneracy(a, 'H', "ACU");
+  esl_alphabet_SetDegeneracy(a, 'B', "CGU");
+  esl_alphabet_SetDegeneracy(a, 'V', "ACG");
+  esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
+
+  if (define_complementarity(a) != eslOK) return NULL;
+  return a;
+}
 
 
 /* create_dna(): 
@@ -240,45 +280,6 @@ create_dna(void)
 }
 
 
-/* create_rna(): 
- * Creates a standard RNA alphabet.
- */
-static ESL_ALPHABET *
-create_rna(void)
-{
-  ESL_ALPHABET *a;
-
-  /* Create the fundamental alphabet
-   */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
-  a->type = eslRNA;
-  
-  /* Add desired synonyms in the input map.
-   */
-  esl_alphabet_SetEquiv(a, 'T', 'U');	    /* read T as a U */
-  esl_alphabet_SetEquiv(a, 'X', 'N');	    /* read X as an N (many seq maskers use X) */
-  esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
-  esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
-  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
-
-  /* Define degenerate symbols.
-   */
-  esl_alphabet_SetDegeneracy(a, 'R', "AG");
-  esl_alphabet_SetDegeneracy(a, 'Y', "CU");
-  esl_alphabet_SetDegeneracy(a, 'M', "AC");
-  esl_alphabet_SetDegeneracy(a, 'K', "GU");
-  esl_alphabet_SetDegeneracy(a, 'S', "CG");
-  esl_alphabet_SetDegeneracy(a, 'W', "AU");
-  esl_alphabet_SetDegeneracy(a, 'H', "ACU");
-  esl_alphabet_SetDegeneracy(a, 'B', "CGU");
-  esl_alphabet_SetDegeneracy(a, 'V', "ACG");
-  esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
-
-  if (define_complementarity(a) != eslOK) return NULL;
-  return a;
-}
-
-
 /* create_amino():
  * Creates a new standard amino acid alphabet.
  */
@@ -311,6 +312,56 @@ create_amino(void)
 
   return a;
 }
+
+
+/* create_coins():
+ * Creates a toy alphabet for coin examples
+ */
+static ESL_ALPHABET *
+create_coins(void)
+{
+  ESL_ALPHABET *a = NULL;
+
+  /* Create the internal alphabet
+   */
+  if ((a = esl_alphabet_CreateCustom("HT-X~", 2, 5)) == NULL) return NULL;
+  a->type = eslCOINS;
+
+  /* Add desired synonyms in the input map.
+   */
+  esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
+  esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
+  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
+
+  /* There are no degeneracies in the coin alphabet. */
+  
+  return a;
+}
+
+/* create_dice():
+ * Creates a toy alphabet for dice examples
+ */
+static ESL_ALPHABET *
+create_dice(void)
+{
+  ESL_ALPHABET *a = NULL;
+
+  /* Create the internal alphabet
+   */
+  if ((a = esl_alphabet_CreateCustom("123456-X~", 6, 9)) == NULL) return NULL;
+  a->type = eslCOINS;
+
+  /* Add desired synonyms in the input map.
+   */
+  esl_alphabet_SetEquiv(a, '_', '-');       /* allow _ as a gap too */
+  esl_alphabet_SetEquiv(a, '.', '-');       /* allow . as a gap too */
+  esl_alphabet_SetCaseInsensitive(a);       /* allow lower case input */
+
+  /* There are no degeneracies in the dice alphabet. */
+  
+  return a;
+}
+  
 
 
 /* Function:  esl_alphabet_SetEquiv()
@@ -1438,6 +1489,8 @@ esl_abc_DescribeType(int type)
   case eslRNA:         return "RNA";
   case eslDNA:         return "DNA";
   case eslAMINO:       return "amino";
+  case eslCOINS:       return "coins";
+  case eslDICE:        return "dice";
   case eslNONSTANDARD: return "custom";
   default:             return "BOGUS";
   }
