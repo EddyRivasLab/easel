@@ -2,7 +2,8 @@
  * 
  * Table of contents           
  *     1. SIMD logf(), expf()
- *     2. Miscellaneous convenience functions.
+ *     2. Utilities for ps vectors (4 floats in a __m128)
+ *     3. Utilities for epu8 vectors (16 uchars in a __m128i)
  *     3. Benchmark
  *     4. Unit tests
  *     5. Test driver
@@ -210,7 +211,7 @@ esl_sse_expf(__m128 x)
 
 
 /*****************************************************************
- * 2. Miscellaneous convenience functions
+ * 2. Utilities for ps vectors (4 floats in a __m128)
  *****************************************************************/ 
 
 /* Function:  esl_sse_select_ps()
@@ -240,6 +241,57 @@ esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
   return _mm_or_ps(a,b);
 }
 
+/* Function:  esl_sse_any_gt_ps()
+ * Synopsis:  Returns TRUE if any a[z] > b[z]
+ * Incept:    SRE, Wed Jul 30 11:44:59 2008 [Janelia]
+ *
+ * Purpose:   Returns TRUE if any a[z] > b[z] in two
+ *            <ps> vectors of floats.
+ *
+ * Xref:      From Apple Altivec/SSE migration guide.
+ */
+int 
+esl_sse_any_gt_ps(__m128 a, __m128 b)
+{
+  __m128 mask    = _mm_cmpgt_ps(a,b);
+  int   maskbits = _mm_movemask_ps( mask );
+  return maskbits != 0;
+}
+
+
+/* Function:  esl_sse_rightshift_ps()
+ * Synopsis:  Shift vector elements to the right.
+ * Incept:    SRE, Thu Jul 31 17:13:59 2008 [Janelia]
+ *
+ * Purpose:   Returns a vector containing
+ *            <{ b[0] a[0] a[1] a[2] }>:
+ *            i.e. shift the values in <a> to the
+ *            right, and load the first value of 
+ *            <b> into the first slot.
+ */
+__m128 
+esl_sse_rightshift_ps(__m128 a, __m128 b)
+{
+  return _mm_move_ss(_mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 1, 0, 0)), b);
+}
+
+/* Function:  esl_sse_leftshift_ps()
+ * Synopsis:  Shift vector elements to the left.
+ * Incept:    SRE, Thu Jul 31 17:22:02 2008 [Janelia]
+ *
+ * Purpose:   Returns a vector containing
+ *            <{ a[1] a[2] a[3] b[0]}>:
+ *            i.e. shift the values in <a> to the
+ *            left and load the first value of 
+ *            <b> into the first slot.
+ */
+__m128
+esl_sse_leftshift_ps(__m128 a, __m128 b)
+{
+  register __m128 v = _mm_move_ss(a, b);                 /* now b[0] a[1] a[2] a[3] */
+  return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 3, 2, 1));  /* now a[1] a[2] a[3] b[0] */
+}
+
 
 void
 esl_sse_dump_ps(FILE *fp, __m128 v)
@@ -247,6 +299,55 @@ esl_sse_dump_ps(FILE *fp, __m128 v)
   float *p = (float *)&v;
   fprintf(fp, "[%13.8g, %13.8g, %13.8g, %13.8g]", p[0], p[1], p[2], p[3]);
 }
+
+
+
+/*****************************************************************
+ * 3. Utilities for epu8 vectors (16 uchars in a __m128i)
+ *****************************************************************/ 
+
+/* Function:  esl_sse_any_gt_epu8()
+ * Synopsis:  Returns TRUE if any a[z] > b[z].
+ * Incept:    SRE, Wed Jul 30 11:27:09 2008 [Janelia]
+ *
+ * Purpose:   Return TRUE if any <a[z] > b[z]> for <z=0..15>
+ *            in two <epu8> vectors of unsigned chars.
+ *            
+ *            We need this incantation because SSE provides
+ *            no <cmpgt_epu8> instruction.
+ *            
+ *            For equality tests, note that <cmpeq_epi8> works fine
+ *            for unsigned ints though there is no <cmpeq_epu8>
+ *            instruction either).
+ */
+int 
+esl_sse_any_gt_epu8(__m128i a, __m128i b)
+{
+  __m128i mask    = _mm_cmpeq_epi8(_mm_max_epu8(a,b), b); /* anywhere a>b, mask[z] = 0x0; elsewhere 0xff */
+  int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask)));
+  return maskbits != 0;
+}
+
+
+/* Function:  esl_sse_hmax_epu8()
+ * Synopsis:  Return the max of the 16 elements in epu8 vector.
+ * Incept:    SRE, Wed Jul 30 11:31:33 2008 [Janelia]
+ *
+ * Purpose:   Returns the maximum value of the 16 elements in
+ *            an <epu8> vector.
+ */
+uint8_t
+esl_sse_hmax_epu8(__m128i a)
+{
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 8));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 4));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 2));
+  a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
+  return (uint8_t) _mm_extract_epi16(a, 0);
+}
+
+
+
 
 
 /*****************************************************************
