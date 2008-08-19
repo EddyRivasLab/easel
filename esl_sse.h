@@ -20,7 +20,7 @@ extern void    esl_sse_dump_ps(FILE *fp, __m128 v);
 
 /*****************************************************************
  * Inline utility functions for ps vectors (4 floats in a __m128)
- ****************************************************************
+ *****************************************************************/
 
 /* Function:  esl_sse_select_ps()
  * Synopsis:  SSE equivalent of <vec_sel()>
@@ -83,6 +83,22 @@ esl_sse_hmax_ps(__m128 a, float *ret_max)
   a = _mm_max_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
   _mm_store_ss(ret_max, a);
 }
+
+/* Function:  esl_sse_hsum_ps()
+ * Synopsis:  Takes the horizontal sum of elements in a vector.
+ * Incept:    SRE, Sat Aug 16 15:50:33 2008 [Janelia]
+ *
+ * Purpose:   Add the four float elements in vector <a>; return
+ *            that sum in <*ret_sum>.
+ */
+static inline void
+esl_sse_hsum_ps(__m128 a, float *ret_sum)
+{
+  a = _mm_add_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 3, 2, 1)));
+  a = _mm_add_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
+  _mm_store_ss(ret_sum, a);
+}
+
 
 /* Function:  esl_sse_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
@@ -160,12 +176,5 @@ esl_sse_hmax_epu8(__m128i a)
   a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
   return (uint8_t) _mm_extract_epi16(a, 0);
 }
-
-
-
-
-extern int     esl_sse_any_gt_epu8(__m128i a, __m128i b);
-extern uint8_t esl_sse_hmax_epu8(__m128i a);
-
 #endif /*ESL_SSE_INCLUDED*/
 #endif /*HAVE_SSE2*/

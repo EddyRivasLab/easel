@@ -805,7 +805,7 @@ esl_vec_FLog(float *vec, int n)
 {
   int x;
   for (x = 0; x < n; x++) 
-    if (vec[x] > 0.) vec[x] = log(vec[x]);
+    if (vec[x] > 0.) vec[x] = logf(vec[x]);
     else vec[x] = -FLT_MAX;
 }
 
@@ -842,7 +842,7 @@ esl_vec_FEntropy(const float *p, int n)
 
   entropy = 0.;
   for(i = 0; i < n; i++)
-    if (p[i] > 0.) entropy += p[i] * log(p[i]);
+    if (p[i] > 0.) entropy += p[i] * logf(p[i]);
   return(-1.44269504 * entropy); /* converts to bits */
 }
 
@@ -900,6 +900,11 @@ esl_vec_FRelEntropy(const float *p, const float *q, int n)
  * Purpose:   Converts a log probability vector <vec> back to a 
  *            probability vector: exponentiates each of the <n> 
  *            values in the vector.
+ *            
+ *            This routine only calls <exp()> on the elements of 
+ *            vector, which are presumed to be log probabilities;
+ *            whether the resulting vector is a properly normalized
+ *            probability vector is the caller's problem.
  *
  *            <esl_vec_FExp()> does the same, for a log probability vector
  *            of floats.
@@ -909,14 +914,12 @@ esl_vec_DExp(double *vec, int n)
 {
   int x;
   for (x = 0; x < n; x++) vec[x] = exp(vec[x]);
-  esl_vec_DNorm(vec, n);
 }
 void
 esl_vec_FExp(float *vec, int n)
 {
   int x;
-  for (x = 0; x < n; x++) vec[x] = exp(vec[x]);
-  esl_vec_FNorm(vec, n);
+  for (x = 0; x < n; x++) vec[x] = expf(vec[x]);
 }
 
 /* Function:  esl_vec_DLogSum()
@@ -960,8 +963,8 @@ esl_vec_FLogSum(float *vec, int n)
   sum = 0.0;
   for (x = 0; x < n; x++)
     if (vec[x] > max - 50.)
-      sum += exp(vec[x] - max);
-  sum = log(sum) + max;
+      sum += expf(vec[x] - max);
+  sum = logf(sum) + max;
   return sum;
 }
 
@@ -986,7 +989,8 @@ esl_vec_DLogNorm(double *vec, int n)
   
   denom = esl_vec_DLogSum(vec, n);
   esl_vec_DIncrement(vec, n, -1.*denom);
-  esl_vec_DExp(vec, n);
+  esl_vec_DExp (vec, n);
+  esl_vec_DNorm(vec, n);
 }
 void
 esl_vec_FLogNorm(float *vec, int n)
@@ -995,7 +999,8 @@ esl_vec_FLogNorm(float *vec, int n)
   
   denom = esl_vec_FLogSum(vec, n);
   esl_vec_FIncrement(vec, n, -1.*denom);
-  esl_vec_FExp(vec, n);
+  esl_vec_FExp (vec, n);
+  esl_vec_FNorm(vec, n);
 }
 
 /* Function:  esl_vec_DValidate()
