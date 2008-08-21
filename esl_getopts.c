@@ -1270,7 +1270,7 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 		   "Arg looks like option? Use %.24s%.24s if you really mean it.",
 		   g->opt[opti].name, *ret_optarg);
       } else 
-	ESL_FAIL(eslESYNTAX, "Option %.24s requires an argument", g->opt[opti].name);
+	ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires an argument", g->opt[opti].name);
 
       g->optstring = NULL;   /* An optchar that takes an arg must terminate an optstring. */
     }

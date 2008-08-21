@@ -449,10 +449,15 @@ esl_vec_IMin(int *vec, int n)
  * Synopsis:  Return index of maximum element in a vector.           
  *
  * Purpose:   Returns the index of the maximum value in the <n> values
- *            in <vec>.
+ *            in <vec>. In case of ties, the element with the smallest index
+ *            is returned. 
  *            
  *            <esl_vec_FArgMax()> and <esl_vec_IArgMax()> do the same,
  *            for float and integer vectors.
+ *            
+ * Note:      Do not change the behavior that the smallest index is
+ *            returned in case of ties. Some functions rely on this
+ *            behavior: optimal accuracy tracebacks in HMMER for example.           
  */
 int
 esl_vec_DArgMax(double *vec, int n)
