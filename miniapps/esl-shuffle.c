@@ -305,6 +305,8 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 
 	  /* Output the resulting sequence */
 	  esl_sqio_Write(ofp, shuff, outfmt);
+
+	  esl_sq_Reuse(sq);
 	}
     }
   if      (status == eslEFORMAT)
