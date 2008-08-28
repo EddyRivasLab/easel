@@ -1330,6 +1330,41 @@ esl_composition_SW34(double *f)
   f[19] = 0.031985;                     /* Y */
   return eslOK;
 }
+
+
+/* Function:  esl_composition_SW50()
+ * Incept:    SRE, Tue Aug 26 08:42:04 2008 [Janelia]
+ *
+ * Purpose:   Sets <f> to the background frequencies observed in
+ *            Swissprot release 50.8 (86.0M residues; Oct 2006).
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_composition_SW50(double *f)
+{
+  f[0] = 0.0787945;		/* A */
+  f[1] = 0.0151600;		/* C */
+  f[2] = 0.0535222;		/* D */
+  f[3] = 0.0668298;		/* E */
+  f[4] = 0.0397062;		/* F */
+  f[5] = 0.0695071;		/* G */
+  f[6] = 0.0229198;		/* H */
+  f[7] = 0.0590092;		/* I */
+  f[8] = 0.0594422;		/* K */
+  f[9] = 0.0963728;		/* L */
+  f[10]= 0.0237718;		/* M */
+  f[11]= 0.0414386;		/* N */
+  f[12]= 0.0482904;		/* P */
+  f[13]= 0.0395639;		/* Q */
+  f[14]= 0.0540978;		/* R */
+  f[15]= 0.0683364;		/* S */
+  f[16]= 0.0540687;		/* T */
+  f[17]= 0.0673417;		/* V */
+  f[18]= 0.0114135;		/* W */
+  f[19]= 0.0304133;		/* Y */
+  return eslOK;
+}
 /*-------------- end, background compositions -------------------*/
 
 

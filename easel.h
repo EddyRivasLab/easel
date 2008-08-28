@@ -331,8 +331,9 @@ extern int  esl_CCompare(char *s1, char *s2);
 
 /* 7. Commonly used background composition (iid) frequencies. */
 extern int  esl_composition_BL62(double *f);
-extern int  esl_composition_WAG(double *f);
+extern int  esl_composition_WAG (double *f);
 extern int  esl_composition_SW34(double *f);
+extern int  esl_composition_SW50(double *f);
 
 
 #endif /*eslEASEL_INCLUDED*/

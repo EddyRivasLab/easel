@@ -1,4 +1,4 @@
-/* General hidden Markov models (discrete, of alphabetic strings
+/* General hidden Markov models (discrete, of alphabetic strings)
  * 
  * SRE, Fri Jul 18 09:00:14 2008 [Janelia]
  * SVN $Id$
@@ -27,30 +27,35 @@
  * Throws:    <NULL> on allocation failure.
  */
 ESL_HMM *
-esl_hmm_Create(ESL_ALPHABET *abc, int M)
+esl_hmm_Create(const ESL_ALPHABET *abc, int M)
 {
   ESL_HMM *hmm = NULL;
-  int      k;
+  int      k,x;
   int      status;
 
   ESL_ALLOC(hmm, sizeof(ESL_HMM));
   hmm->t = NULL;
   hmm->e = NULL;
 
-  ESL_ALLOC(hmm->t, sizeof(float *) * M);
-  ESL_ALLOC(hmm->e, sizeof(float *) * M);
-  hmm->t[0] = NULL;
-  hmm->e[0] = NULL;
+  ESL_ALLOC(hmm->t,  sizeof(float *) * M);
+  ESL_ALLOC(hmm->e,  sizeof(float *) * M);
+  ESL_ALLOC(hmm->eo, sizeof(float *) * abc->Kp);
+  hmm->t[0]  = NULL;
+  hmm->e[0]  = NULL;
+  hmm->eo[0] = NULL;
 
-  ESL_ALLOC(hmm->t[0], sizeof(float) * M * (M+1));  /* state M is the implicit end state */
-  ESL_ALLOC(hmm->e[0], sizeof(float) * M * abc->K);
-  ESL_ALLOC(hmm->pi,   sizeof(float) * (M+1));      /* initial transition to state M means a L=0 sequence */
+  ESL_ALLOC(hmm->t[0],  sizeof(float) * M * (M+1));  /* state M is the implicit end state */
+  ESL_ALLOC(hmm->e[0],  sizeof(float) * M * abc->K);
+  ESL_ALLOC(hmm->eo[0], sizeof(float) * M * abc->Kp);
+  ESL_ALLOC(hmm->pi,    sizeof(float) * (M+1));      /* initial transition to state M means a L=0 sequence */
   
   for (k = 1; k < M; k++)
     {
       hmm->t[k] = hmm->t[0] + k*(M+1);
-      hmm->e[k] = hmm->e[0] + k*(abc->K);
+      hmm->e[k] = hmm->e[0] + k*abc->K;
     }
+  for (x = 1; x < abc->Kp; x++)
+    hmm->eo[x] = hmm->eo[0] + x*M;
   
   hmm->M   = M;
   hmm->K   = abc->K;
@@ -62,24 +67,38 @@ esl_hmm_Create(ESL_ALPHABET *abc, int M)
   return NULL;
 }
 
+/* set eo[] odds ratios, which include the degenerate residue scores */
 int
-esl_hmm_SetDegeneracies(ESL_HMM *hmm)
+esl_hmm_Configure(ESL_HMM *hmm, float *fq)
 {
   int Kp = hmm->abc->Kp;
   int K  = hmm->abc->K;
   int k, x,y;
+  float denom;
 
+  for (x = 0; x < K; x++)
+    for (k = 0; k < hmm->M; k++)
+      hmm->eo[x][k] = hmm->e[k][x] / fq[x];
+  
   for (k = 0; k < hmm->M; k++)
     {
-      hmm->e[k][K]    = 0.0;	/* gap char                      */
-      hmm->e[k][Kp-1] = 1.0;	/* missing data (treated as N/X) */
-      for (x = K+1; x <= Kp-2; x++) /* other degeneracies are summed over their residues */
-	{
-	  hmm->e[k][x] = 0.0;
-	  for (y = 0; y < K; y++)
-	    if (hmm->abc->degen[x][y]) hmm->e[k][x] += hmm->e[k][y];
-	}
+      hmm->eo[K][k]    = 1.0;	/* gap char */
+      hmm->eo[Kp-1][k] = 1.0;	/* missing data char */
     }
+  
+  for (x = K+1; x <= Kp-2; x++)
+    for (k = 0; k < hmm->M; k++)
+      {
+	hmm->eo[x][k] = 0.0f;
+	denom         = 0.0f;
+	for (y = 0; y < K; y++) 
+	  if (hmm->abc->degen[x][y]) 
+	    {
+	      hmm->eo[x][k] += hmm->e[k][y];  
+	      denom         += fq[y];
+	    }
+	hmm->eo[x][k] = ((denom > 0.0f) ? hmm->eo[x][k] / denom : 0.0f);
+      }
   return eslOK;
 }
 
@@ -102,6 +121,10 @@ esl_hmm_Destroy(ESL_HMM *hmm)
   if (hmm->e != NULL) {
     if (hmm->e[0] != NULL) free(hmm->e[0]);
     free(hmm->e);
+  }
+  if (hmm->eo != NULL) {
+    if (hmm->eo[0] != NULL) free(hmm->eo[0]);
+    free(hmm->eo);
   }
   if (hmm->pi != NULL) free(hmm->pi);
   free(hmm);
@@ -126,11 +149,11 @@ esl_hmx_Create(int allocL, int allocM)
   
   ESL_ALLOC(mx->dp, sizeof (float *) * (allocL+1));
   ESL_ALLOC(mx->sc, sizeof (float)   * (allocL+2));
-  mx->allocL = allocL;
+  mx->allocR = allocL+1;
 
   for (i = 0; i <= allocL; i++)
     mx->dp[i] = mx->dp_mem + i*allocM;
-  mx->validL = allocL;
+  mx->validR = allocL+1;
   mx->allocM = allocM;
 
   mx->L = 0;
@@ -140,6 +163,64 @@ esl_hmx_Create(int allocL, int allocM)
  ERROR:
   esl_hmx_Destroy(mx);
   return NULL;
+}
+
+int
+esl_hmx_GrowTo(ESL_HMX *mx, int L, int M)
+{
+  uint64_t ncells;
+  void    *p;
+  int      do_reset = FALSE;
+  int      i;
+  int      status;
+
+  if (L < mx->allocR && M <= mx->allocM) return eslOK;
+
+  /* Do we have to reallocate the 2D matrix, or can we get away with
+   * rejiggering the row pointers into the existing memory? 
+   */
+  ncells = (L+1) * M;
+  if (ncells > mx->ncells) 
+    {
+      ESL_RALLOC(mx->dp_mem, p, sizeof(float) * ncells);
+      mx->ncells = ncells;
+      do_reset   = TRUE;
+    }
+
+  /* must we reallocate row pointers? */
+  if (L >= mx->allocR)
+    {
+      ESL_RALLOC(mx->dp, p, sizeof(float *) * (L+1));
+      ESL_RALLOC(mx->sc, p, sizeof(float)   * (L+2));
+      mx->allocR = L+1;
+      mx->allocM = M;
+      do_reset   = TRUE;
+    }
+
+  /* must we widen the rows? */
+  if (M > mx->allocM)
+    {
+      mx->allocM = M;
+      do_reset = TRUE;
+    }
+
+  /* must we set some more valid row pointers? */
+  if (L >= mx->validR)
+    do_reset = TRUE;
+
+  /* did we trigger a relayout of row pointers? */
+  if (do_reset)
+    {
+      mx->validR = ESL_MIN(mx->ncells / mx->allocM, mx->allocR);
+      for (i = 0; i < mx->validR; i++)
+	mx->dp[i] = mx->dp_mem + i*mx->allocM;
+    }
+  mx->M = 0;
+  mx->L = 0;
+  return eslOK;
+
+ ERROR:
+  return status;
 }
 
 void
@@ -236,7 +317,7 @@ esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, flo
 
   max = 0.0;
   for (k = 0; k < M; k++) {
-    fwd->dp[1][k] = hmm->e[k][dsq[1]] * hmm->pi[k];
+    fwd->dp[1][k] = hmm->eo[dsq[1]][k] * hmm->pi[k];
     max = ESL_MAX(fwd->dp[1][k], max);
   }
   for (k = 0; k < M; k++) {
@@ -253,7 +334,7 @@ esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, flo
 	  for (m = 0; m < M; m++)
 	    fwd->dp[i][k] += fwd->dp[i-1][m] * hmm->t[m][k];
 
-	  fwd->dp[i][k] *= hmm->e[k][dsq[i]];
+	  fwd->dp[i][k] *= hmm->eo[dsq[i]][k];
 	  
 	  max = ESL_MAX(fwd->dp[i][k], max);
 	}
@@ -273,6 +354,8 @@ esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, flo
   for (i = 1; i <= L+1; i++)
     logsc += fwd->sc[i];
 
+  fwd->M = hmm->M;
+  fwd->L = L;
   if (opt_sc != NULL) *opt_sc = logsc;
   return eslOK;
 }
@@ -311,7 +394,7 @@ esl_hmm_Backward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *bck, fl
 	{
 	  bck->dp[i][k] = 0.0;
 	  for (m = 0; m < M; m++)
-	    bck->dp[i][k] += bck->dp[i+1][m] * hmm->e[m][dsq[i+1]] * hmm->t[k][m];
+	    bck->dp[i][k] += bck->dp[i+1][m] * hmm->eo[dsq[i+1]][m] * hmm->t[k][m];
 	  
 	  max = ESL_MAX(bck->dp[i][k], max);
 	}
@@ -323,13 +406,15 @@ esl_hmm_Backward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *bck, fl
 
   bck->sc[0] = 0.0;
   for (m = 0; m < M; m++)
-    bck->sc[0] += bck->dp[1][m] * hmm->e[m][dsq[1]] * hmm->pi[m];
+    bck->sc[0] += bck->dp[1][m] * hmm->eo[dsq[1]][m] * hmm->pi[m];
   bck->sc[0] = log(bck->sc[0]);
 
   logsc = 0.0;
   for (i = 0; i <= L; i++) 
     logsc += bck->sc[i];
 
+  bck->M = hmm->M;
+  bck->L = L;
   if (opt_sc != NULL) *opt_sc = logsc;
   return eslOK;
 }  
@@ -350,26 +435,6 @@ esl_hmm_PosteriorDecoding(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX
 }
 
 
-int
-esl_hmm_Expectation(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *fwd, ESL_HMX *bck, ESL_HMM *counts)
-{
-  int i, k;
-
-  /* Expected emission counts */
-  for (i = 1; i <= L; i++)
-    {
-      for (k = 0; k < hmm->M; k++)
-	pp->dp[i][k] = fwd->dp[i][k] * bck->dp[i][k];
-      esl_vec_FNorm(pp->dp[i], hmm->M);
-      
-      for (k = 0; k < hmm->M; k++)
-      
-
-    }
-
-
-
-}
 
 
 /*****************************************************************
@@ -502,6 +567,192 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslHMM_TESTDRIVE*/
+
+
+
+/*****************************************************************
+ * x. Example
+ *****************************************************************/
+#ifdef eslHMM_EXAMPLE
+/*::cexcerpt::hmm_example::begin::*/
+/* compile: gcc -g -Wall -I. -L. -o hmm_example -DeslHMM_EXAMPLE esl_hmm.c -leasel -lm
+ * run:     ./hmm_example <sequence file>
+ */
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_hmm.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <seqfile>";
+static char banner[] = "example of the HMM module";
+
+ESL_HMM *
+create_test_hmm(ESL_ALPHABET *abc)
+{
+  ESL_HMM *hmm;
+  int      L   = 400;
+  int      M   = 200;
+
+  hmm = esl_hmm_Create(abc, 2);
+
+  /* state 0 = normal iid model. state 1 = biased state */
+
+  hmm->t[0][0] = (float) L / (float) (L+1);
+  hmm->t[0][1] = 1.0f / (float) (L+1);
+  hmm->t[0][2] = 1.0;		            /* external length distribution */
+  
+  hmm->t[1][0] = (float) 2.0f / (float) (M+2);
+  hmm->t[1][1] = (float) M / (float) (M+2);
+  hmm->t[1][2] = 1.0;
+
+  /* SW50 iid frequencies: H3 default background */
+  hmm->e[0][0]  =  0.0787945;		/* A */
+  hmm->e[0][1]  =  0.0151600;		/* C */
+  hmm->e[0][2]  =  0.0535222;		/* D */
+  hmm->e[0][3]  =  0.0668298;		/* E */
+  hmm->e[0][4]  =  0.0397062;		/* F */
+  hmm->e[0][5]  =  0.0695071;		/* G */
+  hmm->e[0][6]  =  0.0229198;		/* H */
+  hmm->e[0][7]  =  0.0590092;		/* I */
+  hmm->e[0][8]  =  0.0594422;		/* K */
+  hmm->e[0][9]  =  0.0963728;		/* L */
+  hmm->e[0][10] =  0.0237718;		/* M */
+  hmm->e[0][11] =  0.0414386;		/* N */
+  hmm->e[0][12] =  0.0482904;		/* P */
+  hmm->e[0][13] =  0.0395639;		/* Q */
+  hmm->e[0][14] =  0.0540978;		/* R */
+  hmm->e[0][15] =  0.0683364;		/* S */
+  hmm->e[0][16] =  0.0540687;		/* T */
+  hmm->e[0][17] =  0.0673417;		/* V */
+  hmm->e[0][18] =  0.0114135;		/* W */
+  hmm->e[0][19] =  0.0304133;		/* Y */
+
+  /* average of MFS_1 core emissions */
+  hmm->e[1][0]  =  0.1068;              /* A */
+  hmm->e[1][1]  =  0.0110; 		/* C */
+  hmm->e[1][2]  =  0.0242; 		/* D */
+  hmm->e[1][3]  =  0.0293; 		/* E */
+  hmm->e[1][4]  =  0.0621; 		/* F */
+  hmm->e[1][5]  =  0.0899; 		/* G */
+  hmm->e[1][6]  =  0.0139; 		/* H */
+  hmm->e[1][7]  =  0.0762; 		/* I */
+  hmm->e[1][8]  =  0.0319; 		/* K */
+  hmm->e[1][9]  =  0.1274; 		/* L */
+  hmm->e[1][10] =  0.0338; 		/* M */
+  hmm->e[1][11] =  0.0285; 		/* N */
+  hmm->e[1][12] =  0.0414; 		/* P */
+  hmm->e[1][13] =  0.0266; 		/* Q */
+  hmm->e[1][14] =  0.0375; 		/* R */
+  hmm->e[1][15] =  0.0747; 		/* S */
+  hmm->e[1][16] =  0.0568; 		/* T */
+  hmm->e[1][17] =  0.0815; 		/* V */
+  hmm->e[1][18] =  0.0161; 		/* W */
+  hmm->e[1][19] =  0.0303; 		/* Y */
+
+  hmm->pi[0]    = 0.99;
+  hmm->pi[1]    = 0.01;
+
+  esl_hmm_SetDegeneracies(hmm);
+
+  return hmm;
+}
+
+
+ESL_HMM *
+create_null_hmm(ESL_ALPHABET *abc)
+{
+  ESL_HMM *hmm;
+  hmm = esl_hmm_Create(abc, 1);
+
+  /* state 0 = normal iid model.*/
+  hmm->t[0][0] = 1.0f;
+  hmm->t[0][1] = 1.0f;		            /* external length distribution */
+
+  /* SW50 iid frequencies: H3 default background */
+  hmm->e[0][0]  =  0.0787945;		/* A */
+  hmm->e[0][1]  =  0.0151600;		/* C */
+  hmm->e[0][2]  =  0.0535222;		/* D */
+  hmm->e[0][3]  =  0.0668298;		/* E */
+  hmm->e[0][4]  =  0.0397062;		/* F */
+  hmm->e[0][5]  =  0.0695071;		/* G */
+  hmm->e[0][6]  =  0.0229198;		/* H */
+  hmm->e[0][7]  =  0.0590092;		/* I */
+  hmm->e[0][8]  =  0.0594422;		/* K */
+  hmm->e[0][9]  =  0.0963728;		/* L */
+  hmm->e[0][10] =  0.0237718;		/* M */
+  hmm->e[0][11] =  0.0414386;		/* N */
+  hmm->e[0][12] =  0.0482904;		/* P */
+  hmm->e[0][13] =  0.0395639;		/* Q */
+  hmm->e[0][14] =  0.0540978;		/* R */
+  hmm->e[0][15] =  0.0683364;		/* S */
+  hmm->e[0][16] =  0.0540687;		/* T */
+  hmm->e[0][17] =  0.0673417;		/* V */
+  hmm->e[0][18] =  0.0114135;		/* W */
+  hmm->e[0][19] =  0.0304133;		/* Y */
+
+  hmm->pi[0]    = 1.0;
+  esl_hmm_SetDegeneracies(hmm);
+  return hmm;
+}
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_ALPHABET *abc       = esl_alphabet_Create(eslAMINO);
+  ESL_SQ       *sq        = esl_sq_CreateDigital(abc);
+  ESL_SQFILE   *sqfp      = NULL;
+  ESL_HMM      *hmm       = create_test_hmm(abc);
+  ESL_HMM      *bg        = create_null_hmm(abc);
+  ESL_HMX      *hmx       = esl_hmx_Create(400, hmm->M);
+  int           format    = eslSQFILE_UNKNOWN;
+  char         *seqfile   = esl_opt_GetArg(go, 1);
+  float         fwdsc, nullsc;
+  int           status;
+
+  status = esl_sqfile_OpenDigital(abc, seqfile, format, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+    {   
+      esl_hmx_GrowTo(hmx, sq->n, hmm->M);
+
+      esl_hmm_Forward(sq->dsq, sq->n, hmm,  hmx, &fwdsc);
+      esl_hmm_Forward(sq->dsq, sq->n, bg, hmx, &nullsc);
+
+      printf("%-16s %5d  %11.4f %8.4f    %11.4f %8.4f    %11.4f %8.4f\n", sq->name, (int) sq->n,
+	     fwdsc  * eslCONST_LOG2R, (fwdsc  * eslCONST_LOG2R) / sq->n,
+	     nullsc * eslCONST_LOG2R, (nullsc * eslCONST_LOG2R) / sq->n,
+	     (fwdsc - nullsc) * eslCONST_LOG2R, (fwdsc-nullsc) * eslCONST_LOG2R / sq->n);
+
+      esl_sq_Reuse(sq);
+    }
+  if (status != eslEOF) 
+    esl_fatal("Parse failed, line %ld, file %s:\n%s", 
+	      (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  
+  esl_sqfile_Close(sqfp);
+  esl_sq_Destroy(sq);
+  esl_hmm_Destroy(hmm);
+  esl_hmm_Destroy(bg);
+  esl_hmx_Destroy(hmx);
+  esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+/*::cexcerpt::hmm_example::end::*/
+#endif /*eslHMM_EXAMPLE*/
+
+
 
 /*****************************************************************
  * @LICENSE@

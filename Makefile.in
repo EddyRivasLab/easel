@@ -53,6 +53,7 @@ HEADERS = \
 	esl_gev.h\
 	esl_gumbel.h\
 	esl_histogram.h\
+	esl_hmm.h\
 	esl_hyperexp.h\
 	esl_keyhash.h\
 	esl_minimizer.h\
@@ -99,6 +100,7 @@ OBJS    = \
 	esl_gev.o\
 	esl_gumbel.o\
 	esl_histogram.o\
+	esl_hmm.o\
 	esl_hyperexp.o\
 	esl_keyhash.o\
 	esl_minimizer.o\

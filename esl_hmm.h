@@ -9,13 +9,15 @@
 #include "esl_alphabet.h"
 #include "esl_random.h"
 
+
 typedef struct {
   int     M;                    /* number of states in the model          */
   int     K;                    /* size of alphabet (redundant w/ abc->K) */
+  float  *pi;                   /* initial (begin) distribution (0..M)    */
   float **t;                    /* Mx(M+1) state transition probabilities */
   float **e;                    /* MxK emission probabilities             */
-  float  *pi;                   /* initial (begin) distribution (0..M)    */
 
+  float **eo;			/* K'xM emission odds ratios              */
   const ESL_ALPHABET *abc;      /* ptr to alphabet                        */
 } ESL_HMM;
 
@@ -24,21 +26,23 @@ typedef struct {
   float  *sc;			/* [0..L+1] scale factors (log probs)                    */
   int     M;			/* actual model dimension (0..M-1)                       */
   int     L;			/* actual sequence dimension (1..L)                      */
-  int     allocL;		/* current allocated # of rows: L+1 <= validL <= allocL  */
-  int     validL; 		/* # of dp rows actually pointing at DP memory           */
-  int     allocM;		/* current set row width; M <= allocM                    */
 
   float    *dp_mem;		/* memory allocated for the resizable DP matrix          */
-  uint64_t  ncells;		/* total allocation of dp_mem; ncells > (validR)(allocM) */
+  int       allocR;		/* current allocated # of rows: L+1 <= validR <= allocR  */
+  int       validR; 		/* # of dp rows actually pointing at DP memory           */
+  int       allocM;		/* current set row width; M <= allocM                    */
+  uint64_t  ncells;		/* total allocation of dp_mem; ncells >= (validR)(allocM)*/
 } ESL_HMX;
 
 
 
-extern ESL_HMM *esl_hmm_Create(ESL_ALPHABET *abc, int M);
+extern ESL_HMM *esl_hmm_Create(const ESL_ALPHABET *abc, int M);
+extern int      esl_hmm_Configure(ESL_HMM *hmm, float *fq);
 extern int      esl_hmm_SetDegeneracies(ESL_HMM *hmm);
 extern void     esl_hmm_Destroy(ESL_HMM *hmm);
 
 extern ESL_HMX *esl_hmx_Create(int allocL, int allocM);
+extern int      esl_hmx_GrowTo (ESL_HMX *mx, int L, int M);
 extern void     esl_hmx_Destroy(ESL_HMX *mx);
 
 extern int      esl_hmm_Emit(ESL_RANDOMNESS *r, const ESL_HMM *hmm, ESL_DSQ **opt_dsq, int **opt_path, int *opt_L);

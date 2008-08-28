@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "easel.h"
 #include "esl_getopts.h"
@@ -18,6 +19,8 @@
 
 static char banner[] = "show simple statistics on a sequence file";
 static char usage1[] = "   [options] <seqfile>";
+
+static void show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64_t nres);
 
 #define ALPH_OPTS "--rna,--dna,--amino" /* toggle group, alphabet type options          */
 
@@ -167,10 +170,7 @@ main(int argc, char **argv)
   printf("Average length:      %.1f\n", (float) nres / (float) nseq);
 
   if (do_comp) {
-    printf("\nResidue composition:\n");
-    for (x = 0; x < abc->Kp; x++)
-      if (x < abc->K || monoc_all[x] > 0)
-	printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
+    show_overall_composition(abc, monoc_all, nres);
     free(monoc);
     free(monoc_all);
   }
@@ -183,4 +183,38 @@ main(int argc, char **argv)
 
  ERROR:
   return status;
+}
+
+
+static void
+show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64_t nres)
+{
+  int x;
+
+  printf("\nResidue composition:\n");
+
+  if (abc->type == eslAMINO)
+    {
+      double *iid_bg;
+      
+      if ((iid_bg = malloc(sizeof(double) * abc->K)) == NULL) esl_fatal("malloc failed");
+      esl_composition_SW50(iid_bg);
+
+     
+      for (x = 0; x < abc->Kp; x++)
+	if (x < abc->K || monoc_all[x] > 0)
+	  printf("residue: %c   %10.0f  %6.4f  %8.4f\n",
+		 abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres,
+		 log((monoc_all[x] / (double) nres) / iid_bg[x]) * eslCONST_LOG2R);
+
+      free(iid_bg);
+    }
+  else
+    {
+      for (x = 0; x < abc->Kp; x++)
+	if (x < abc->K || monoc_all[x] > 0)
+	  printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
+    }
+    
+
 }
