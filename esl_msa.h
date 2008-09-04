@@ -179,7 +179,8 @@ typedef struct {
 #define eslMSAFILE_UNKNOWN   0	  /* unknown format                              */
 #define eslMSAFILE_STOCKHOLM 101  /* Stockholm format, interleaved               */
 #define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
-
+#define eslMSAFILE_A2M       103  /* UCSC SAM's fasta-like a2m format            */
+#define eslMSAFILE_PSIBLAST  104  /* NCBI PSI-BLAST alignment format             */
 
 /* Declarations of the API
  */
@@ -218,11 +219,13 @@ extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
 
 /* 5. General i/o API, all alignment formats */
 extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
-extern int   esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt);
+extern int   esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
 extern char *esl_msa_DescribeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 /* 6. Miscellaneous functions for manipulating MSAs */
+extern int esl_msa_ReasonableRF (ESL_MSA *msa, double symfrac, char *rfline);
+extern int esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh);
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps);

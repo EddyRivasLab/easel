@@ -247,6 +247,29 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
   return status;
 }
 
+
+/* msa_get_rlen()
+ *
+ * Returns the raw (unaligned) length of sequence number <seqidx>
+ * in <msa>. 
+ */
+static int64_t
+msa_get_rlen(const ESL_MSA *msa, int seqidx)
+{
+  int64_t rlen = 0;
+  int     pos;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL) rlen = esl_abc_dsqrlen(msa->abc, msa->ax[seqidx]);
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      for (pos = 0; pos < msa->alen; pos++)
+	if (isalnum(msa->aseq[seqidx][pos])) rlen++;
+    }
+  return rlen;
+}
+
 /* set_seq_accession()
  *
  * Sets the sequence accession field for sequence
@@ -2104,6 +2127,293 @@ write_pfam(FILE *fp, const ESL_MSA *msa)
   return (actually_write_stockholm(fp, msa, msa->alen)); /* one big block */
 }
 
+/* write_a2m()
+ * SRE, Wed Sep  3 09:44:36 2008 [Janelia]
+ *
+ * Purpose:   Write alignment <msa> in dotless UCSC A2M format to a
+ *            stream <fp>.
+ *            
+ *            The <msa> should have a valid reference line <msa->rf>,
+ *            with alphanumeric characters marking consensus (match)
+ *            columns, and non-alphanumeric characters marking
+ *            nonconsensus (insert) columns. 
+ *            
+ *            As a fallback, if the <msa> does not have a reference
+ *            line, a default one is created. In this case,
+ *            <esl_msa_Fragmentize()> will be called with
+ *            <fragthresh=0.5> to heuristically define sequence
+ *            fragments in the alignment, and <esl_msa_ReasonableRF()>
+ *            will be called with <symfrac=0.5> to mark consensus
+ *            columns.  This will modify the alignment data
+ *            (converting leading/trailing gap symbols on "fragments"
+ *            to '~' missing data symbols) in addition to adding
+ *            <#=RF> annotation to it. If caller doesn't want the
+ *            alignment data to be modified, it must provide its own
+ *            <msa->rf> line, or it must avoid writing alignments in
+ *            A2M format.
+ *            
+ *            In "dotless" A2M format, gap characters in insert
+ *            columns are omitted; therefore sequences can be of
+ *            different lengths, but each sequence has the same number
+ *            of consensus columns (residue or -).
+ *            
+ *            A2M format cannot represent missing data symbols
+ *            (Easel's ~). Any missing data symbols are converted to
+ *            gaps.
+ *            
+ *            A2M format cannot represent pyrrolysine residues in
+ *            amino acid sequences, because it treats 'O' symbols
+ *            specially, as indicating a position at which a
+ *            free-insertion module (FIM) should be created. Any 'O'
+ *            in the <msa> is converted to 'X' (the unknown residue
+ *            symbol for amino acid sequences).
+ *            
+ *            Because of the 'O' issue, A2M format should not be used
+ *            for nonstandard/custom Easel alphabets that include 'O'
+ *            as a symbol. For <msa>'s in digital mode, where digital
+ *            alphabet information is available, <eslEINVAL> is
+ *            returned if the <msa>'s has a nonstandard digital
+ *            alphabet that uses 'O' as a symbol. For <msa>'s in text
+ *            mode, because text-mode sequences are treated literally,
+ *            'O' is always converted to 'X', which may not be what
+ *            the caller intends.
+ *
+ * Args:      fp  - open output stream
+ *            msa - MSA to write       
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslEINVAL> if the <msa> is in digital mode and uses a nonstandard
+ *            alphabet that expects 'O' to be a legal symbol.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      http://www.soe.ucsc.edu/compbio/a2m-desc.html
+ */
+static int
+write_a2m(FILE *fp, ESL_MSA *msa)
+{
+  int     i;
+  int64_t pos;
+  int     bpos;
+  char    buf[61];
+  int     is_consensus;
+  int     is_residue;
+  int     sym;
+  int     do_dotless = TRUE;
+  int     status;
+  
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL)
+    if (strchr(msa->abc->sym, 'O') != NULL) return eslEINVAL;
+#endif
+
+  /* if <msa> lacks an RF line, make a default one */
+  if (msa->rf == NULL) 
+    {
+      ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+      if ((status = esl_msa_MarkFragments(msa, 0.5))          !=  eslOK) return status;
+      if ((status = esl_msa_ReasonableRF (msa, 0.5, msa->rf)) !=  eslOK) return status;
+    }
+
+
+  for (i = 0; i < msa->nseq; i++)
+    {
+      /* Construct the description line */
+      fprintf(fp, ">%s", msa->sqname[i]);
+      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) fprintf(fp, " %s", msa->sqacc[i]);
+      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) fprintf(fp, " %s", msa->sqdesc[i]);
+      fputc('\n', fp);
+
+#ifdef eslAUGMENT_ALPHABET
+      if (msa->flags & eslMSA_DIGITAL)
+	{
+	  pos = 0;
+	  while (pos < msa->alen)
+	    {
+	      for (bpos = 0; pos < msa->alen && bpos < 60; pos++)
+		{
+		  sym          = msa->abc->sym[msa->ax[i][pos+1]]; /* note off-by-one in digitized aseq: 1..alen */
+		  is_consensus = (isalnum(msa->rf[pos]) ? TRUE : FALSE);
+		  is_residue   = esl_abc_XIsResidue(msa->abc, msa->ax[i][pos+1]);
+
+		  if (msa->abc->type == eslAMINO && sym == 'O') 
+		    sym = esl_abc_XGetUnknown(msa->abc); /* watch out: O means "insert a FIM" in a2m format, not pyrrolysine */
+
+		  if (is_consensus) 
+		    {
+		      if (is_residue) buf[bpos++] = toupper(sym);
+		      else            buf[bpos++] = '-';          /* includes conversion of missing data to - */
+		    }
+		  else
+		    {
+		      if      (is_residue)   buf[bpos++] = tolower(sym);
+		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
+		    }
+		}
+	      buf[bpos] = '\0';
+	      fprintf(fp, "%s\n", buf);	      
+	    }
+	}
+#endif
+      if (! (msa->flags & eslMSA_DIGITAL))
+	{
+	  pos = 0;
+	  while (pos < msa->alen)
+	    {
+	      for (bpos = 0; pos < msa->alen && bpos < 60; pos++)
+		{
+		  sym          = msa->aseq[i][pos];
+		  is_consensus = (isalnum(msa->rf[pos])) ? TRUE : FALSE;
+		  is_residue   = isalpha(msa->aseq[i][pos]);
+
+		  if (sym == 'O') sym = 'X';
+
+		  if (is_consensus) 
+		    {
+		      if (is_residue) buf[bpos++] = toupper(sym);
+		      else            buf[bpos++] = '-';          /* includes conversion of missing data to - */
+		    }
+		  else
+		    {
+		      if      (is_residue)   buf[bpos++] = tolower(sym);
+		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
+		    }
+		}
+	      buf[bpos] = '\0';
+	      fprintf(fp, "%s\n", buf);	      
+	    } 
+	}
+    } /* end, loop over sequences in the MSA */
+
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* write_psiblast()
+ * SRE, Wed Sep  3 13:05:10 2008 [Janelia]
+ *
+ * Purpose:   Write alignment <msa> in NCBI PSI-BLAST format to 
+ *            stream <fp>.
+ *            
+ *            The <msa> should have a valid reference line <msa->rf>,
+ *            with alphanumeric characters marking consensus (match)
+ *            columns, and non-alphanumeric characters marking
+ *            nonconsensus (insert) columns. 
+ *            
+ *            As a fallback, if the <msa> does not have a reference
+ *            line, a default one is created. In this case,
+ *            <esl_msa_Fragmentize()> will be called with
+ *            <fragthresh=0.5> to heuristically define sequence
+ *            fragments in the alignment, and <esl_msa_ReasonableRF()>
+ *            will be called with <symfrac=0.5> to mark consensus
+ *            columns.  This will modify the alignment data
+ *            (converting leading/trailing gap symbols on "fragments"
+ *            to '~' missing data symbols) in addition to adding
+ *            <#=RF> annotation to it. If caller doesn't want the
+ *            alignment data to be modified, it must provide its own
+ *            <msa->rf> line, or it must avoid writing alignments in
+ *            PSI-BLAST format.
+ *            
+ *            PSI-BLAST format allows only one symbol ('-') for gaps,
+ *            and cannot represent missing data symbols (Easel's
+ *            '~'). Any missing data symbols are converted to gaps.
+ *
+ * Args:      fp  - open output stream
+ *            msa - MSA to write       
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+static int
+write_psiblast(FILE *fp, ESL_MSA *msa)
+{
+  int     cpl = 60;
+  char    buf[61];
+  int     i;
+  int     sym;
+  int     pos;
+  int     bpos;
+  int     acpl;
+  int     maxnamewidth;
+  int     is_consensus;
+  int     is_residue;
+  int     status;
+
+  maxnamewidth = (int) maxwidth(msa->sqname, msa->nseq);
+
+  /* if <msa> lacks an RF line, make a default one */
+  if (msa->rf == NULL) 
+    {
+      ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+      if ((status = esl_msa_MarkFragments(msa, 0.5))          !=  eslOK) return status;
+      if ((status = esl_msa_ReasonableRF (msa, 0.5, msa->rf)) !=  eslOK) return status;
+    }
+
+  for (pos = 0; pos < msa->alen; pos += cpl)
+    {
+      for (i = 0; i < msa->nseq; i++)
+	{
+	  acpl =  (msa->alen - pos > cpl)? cpl : msa->alen - pos;
+
+#ifdef eslAUGMENT_ALPHABET
+	  if (msa->flags & eslMSA_DIGITAL)
+	    {
+	      for (bpos = 0; bpos < acpl; bpos++)
+		{
+		  sym          = msa->abc->sym[msa->ax[i][pos + bpos + 1]];
+		  is_consensus = (isalnum(msa->rf[pos + bpos + 1]) ? TRUE : FALSE);
+		  is_residue   = esl_abc_XIsResidue(msa->abc, msa->ax[i][pos+bpos+1]);
+				      
+		  if (is_consensus) 
+		    {
+		      if (is_residue) buf[bpos] = toupper(sym);
+		      else            buf[bpos] = '-';          /* includes conversion of missing data to - */
+		    }
+		  else
+		    {
+		      if (is_residue) buf[bpos] = tolower(sym);
+		      else            buf[bpos] = '-';     /* includes conversion of missing data to - */
+		    }
+		}
+	    }
+#endif
+	  if (! (msa->flags & eslMSA_DIGITAL))
+	    {
+	      for (bpos = 0; bpos < acpl; bpos++)
+		{
+		  sym          = msa->aseq[i][pos + bpos];
+		  is_consensus = (isalnum(msa->rf[pos + bpos]) ? TRUE : FALSE);
+		  is_residue   = isalnum(sym);
+
+		  if (is_consensus) 
+		    {
+		      if (is_residue) buf[bpos] = toupper(sym);
+		      else            buf[bpos] = '-';          /* includes conversion of missing data to - */
+		    }
+		  else
+		    {
+		      if (is_residue) buf[bpos] = tolower(sym);
+		      else            buf[bpos] = '-';     /* includes conversion of missing data to - */
+		    }
+		}
+	    }
+	  buf[acpl] = '\0';	      
+	  fprintf(fp, "%-*s  %s\n", maxnamewidth, msa->sqname[i], buf);
+	}  /* end loop over sequences */
+
+      if (pos + cpl < msa->alen) fputc('\n', fp);
+    } /* end loop over alignment blocks */
+  return eslOK;
+  
+ ERROR:
+  return status;
+}
+
+
 
 static int
 is_blankline(char *s)
@@ -2132,17 +2442,17 @@ parse_gf(ESL_MSA *msa, char *buf)
   s = buf;
   if (esl_strtok(&s, " \t\n\r", &gf,   NULL) != eslOK) return eslEFORMAT;
   if (esl_strtok(&s, " \t\n\r", &tag,  NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, "\n\r",    &text, &n)   != eslOK) return eslEFORMAT;
-  while (*text && (*text == ' ' || *text == '\t')) text++;
 
-  if      (strcmp(tag, "ID") == 0)
-    status = esl_strdup(text, n, &(msa->name));
-  else if (strcmp(tag, "AC") == 0) 
-    status = esl_strdup(text, n, &(msa->acc));
-  else if (strcmp(tag, "DE") == 0) 
-    status = esl_strdup(text, n, &(msa->desc));
-  else if (strcmp(tag, "AU") == 0) 
-    status = esl_strdup(text, n, &(msa->au));
+  /* text might be empty; watch out for this. (for example, a blank #=GF CC line) */
+  status = esl_strtok(&s, "\n\r",    &text, &n);
+  if      (status == eslOK) { while (*text && (*text == ' ' || *text == '\t')) text++; }
+  else if (status == eslEOL){ text = NULL; n = 0; } 
+  else return eslEFORMAT;
+
+  if      (strcmp(tag, "ID") == 0) status = esl_strdup(text, n, &(msa->name));
+  else if (strcmp(tag, "AC") == 0) status = esl_strdup(text, n, &(msa->acc));
+  else if (strcmp(tag, "DE") == 0) status = esl_strdup(text, n, &(msa->desc));
+  else if (strcmp(tag, "AU") == 0) status = esl_strdup(text, n, &(msa->au));
   else if (strcmp(tag, "GA") == 0) 
     {				/* Pfam has GA1, GA2. Rfam just has GA1. */
       s = text;
@@ -2608,6 +2918,14 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *
  * Purpose:   Writes an alignment <msa> to an open stream <fp>,
  *            in format specified by <fmt>.
+ *            
+ *            In general, the <msa> is unchanged; however, in certain
+ *            formats and under certain conditions, modifications may
+ *            be made. For example, writing an alignment in A2M format
+ *            will alter the alignment data (marking missing data
+ *            symbols on heuristically defined sequence fragments) and
+ *            create an <#=RF> annotation line, if an <msa->rf>
+ *            annotation line isn't already present in the <msa>.
  *
  * Returns:   <eslOK> on success.
  *
@@ -2615,12 +2933,14 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_msa_Write(FILE *fp, const ESL_MSA *msa, int fmt)
+esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
 {
   int status;
   switch (fmt) {
   case eslMSAFILE_STOCKHOLM: status = write_stockholm(fp, msa); break;
   case eslMSAFILE_PFAM:      status = write_pfam(fp, msa);      break;
+  case eslMSAFILE_A2M:       status = write_a2m(fp, msa);       break;
+  case eslMSAFILE_PSIBLAST:  status = write_psiblast(fp, msa);  break;
   default: 
     ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
@@ -2686,9 +3006,189 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
 
 
 
+
+
 /*****************************************************************
  *# 6. Miscellaneous functions for manipulating MSAs
  *****************************************************************/
+
+/* Function:  esl_msa_ReasonableRF()
+ * Synopsis:  Determine a reasonable #=RF line marking "consensus" columns.
+ * Incept:    SRE, Wed Sep  3 10:42:05 2008 [Janelia]
+ *
+ * Purpose:   Define an <rfline> for the multiple alignment <msa> that
+ *            marks consensus columns with an 'x', and non-consensus 
+ *            columns with a '.'.
+ *            
+ *            Consensus columns are defined as columns with fractional
+ *            occupancy of $\geq$ <symfrac> in residues. For example,
+ *            if <symfrac> is 0.7, columns containing $\geq$ 70\%
+ *            residues are assigned as 'x' in the <rfline>, roughly
+ *            speaking. "Roughly speaking", because the fractional
+ *            occupancy is in fact calculated as a weighted frequency
+ *            using sequence weights in <msa->wgt>, and because
+ *            missing data symbols are ignored in order to be able to
+ *            deal with sequence fragments. 
+ *            
+ *            The greater <symfrac> is, the more stringent the
+ *            definition, and the fewer columns will be defined as
+ *            consensus. <symfrac=0> will define all columns as
+ *            consensus. <symfrac=1> will only define a column as
+ *            consensus if it contains no gap characters at all.
+ *            
+ *            If the caller wants to designate any sequences as
+ *            fragments, it must convert all leading and trailing gaps
+ *            to the missing data symbol '~'.
+ *
+ *            For text mode alignments, any alphanumeric character is
+ *            considered to be a residue, and any non-alphanumeric
+ *            character is considered to be a gap.
+ *            
+ *            The <rfline> is a NUL-terminated string, indexed
+ *            <0..alen-1>.
+ *
+ *            The <rfline> result can be <msa->rf>, if the caller
+ *            wants to set the <msa's> own RF line; or it can be any
+ *            alternative storage provided by the caller. In either
+ *            case, the caller must provide allocated space for at
+ *            least <msa->alen+1> chars.
+ *            
+ * Args:      msa      - MSA to define a consensus RF line for
+ *            symfrac  - threshold for defining consensus columns
+ *            rfline   - RESULT: string containing x for consensus, . for not
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Xref:      HMMER p7_Fastmodelmaker() uses an essentially identical
+ *            calculation to define model architecture, and could be
+ *            rewritten now to use this function. 
+ *            
+ *            A2M format alignment output uses this to define
+ *            consensus columns when #=RF annotation isn't available.
+ */
+int
+esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
+{
+  int    apos;
+  int    idx;
+  double r;
+  double totwgt;
+  
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL)
+    {
+      for (apos = 1; apos <= msa->alen; apos++) 
+	{  
+	  r = totwgt = 0.;
+	  for (idx = 0; idx < msa->nseq; idx++) 
+	    {
+	      if       (esl_abc_XIsResidue(msa->abc, msa->ax[idx][apos])) { r += msa->wgt[idx]; totwgt += msa->wgt[idx]; }
+	      else if  (esl_abc_XIsGap(msa->abc,     msa->ax[idx][apos])) {                     totwgt += msa->wgt[idx]; }
+	      else if  (esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos])) continue;
+	    }
+	  if (r > 0. && r / totwgt >= symfrac) msa->rf[apos-1] = 'x';
+	  else                                 msa->rf[apos-1] = '.';
+	}
+    }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      for (apos = 0; apos < msa->alen; apos++) 
+	{  
+	  r = totwgt = 0.;
+	  for (idx = 0; idx < msa->nseq; idx++) 
+	    {
+	      if    (isalpha(msa->aseq[idx][apos])) { r += msa->wgt[idx]; totwgt += msa->wgt[idx]; }
+	      else                                                        totwgt += msa->wgt[idx];
+	    }
+	  if (r > 0. && r / totwgt >= symfrac) msa->rf[apos] = 'x';
+	  else                                 msa->rf[apos] = '.';
+	}
+    }
+
+  msa->rf[msa->alen] = '\0';
+  return eslOK;
+}
+
+
+/* Function:  esl_msa_MarkFragments()
+ * Synopsis:  Heuristically define seq fragments in an alignment.
+ * Incept:    SRE, Wed Sep  3 11:49:25 2008 [Janelia]
+ *
+ * Purpose:   Use a heuristic to define sequence fragments (as opposed
+ *            to "full length" sequences in alignment <msa>.
+ *            
+ *            The rule is that if the sequence has a raw (unaligned)
+ *            length of less than <fragthresh> times the weighted mean
+ *            raw length of all sequences in <msa>, then that sequence
+ *            is defined as a fragment.
+ *            
+ *            For each fragment, all leading and trailing gap symbols
+ *            (all gaps before the first residue and after the last
+ *            residue) are converted to missing data symbols
+ *            (typically '~', but nonstandard digital alphabets may
+ *            have defined another character).
+ *            
+ *            As a special case, if <fragthresh> is negative, then all
+ *            sequences are defined as fragments.
+ *
+ * Args:      msa        - alignment in which to define and mark seq fragments 
+ *            fragthresh - define frags if rlen < fragthresh * weighted mean rlen;
+ *                         or if fragthresh < 0, all seqs are marked as frags.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
+{
+  double mean;
+  double totwgt;
+  int    i;
+  int    pos;
+
+  /* Calculate weighted mean unaligned sequence length */
+  mean   = 0.0;
+  totwgt = 0.0;
+  for (i = 0; i < msa->nseq; i++)
+    {
+      mean   += msa->wgt[i] * msa_get_rlen(msa, i);
+      totwgt += msa->wgt[i];
+    }
+  mean /= totwgt;
+
+  /* any seq < fragthresh * mean is identified as a fragment */
+  for (i = 0; i < msa->nseq; i++)
+    if (fragthresh < 0.0 || msa_get_rlen(msa, i) < fragthresh * mean)
+      {  
+#ifdef eslAUGMENT_ALPHABET
+	if (msa->flags & eslMSA_DIGITAL) {
+	  for (pos = 1; pos <= msa->alen; pos++) {
+	    if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
+	    msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
+	  }
+	  for (pos = msa->alen; pos >= 1; pos--) {	  
+	    if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
+	    msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
+	  }
+	}
+#endif
+	if (! (msa->flags & eslMSA_DIGITAL)) 
+	  {
+	    for (pos = 0; pos < msa->alen; pos++) {
+	      if (isalnum(msa->aseq[i][pos])) break;
+	      msa->aseq[i][pos] = '~';
+	    }
+	    for (pos = msa->alen-1; pos >= 0; pos--) {	  
+	      if (isalnum(msa->aseq[i][pos])) break;
+	      msa->aseq[i][pos] = '~';
+	    }
+	  }
+      }
+  return eslOK;
+}
+
 
 /* Function:  esl_msa_SequenceSubset()
  * Synopsis:  Select subset of sequences into a smaller MSA.
@@ -4378,6 +4878,7 @@ main(int argc, char **argv)
 /* An example of reading an MSA in text mode, and handling any returned errors.
    gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE esl_msa.c easel.c 
    gcc -g -Wall -o example -I. -DeslMSA_EXAMPLE -DeslAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c
+   gcc -g -Wall -o example -I. -L. -DeslMSA_EXAMPLE esl_msa.c -leasel -lm
    ./example <MSA file>
  */
 #include <stdio.h>
@@ -4404,8 +4905,8 @@ main(int argc, char **argv)
     {
       nali++;
       printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	     nali, msa->name, msa->nseq, msa->alen);
-      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	     nali, msa->name, msa->nseq, (int) msa->alen);
+      esl_msa_Write(stdout, msa, eslMSAFILE_PSIBLAST);
       esl_msa_Destroy(msa);
     }
   if (status == eslEFORMAT)

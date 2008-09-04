@@ -214,6 +214,7 @@ esl_sqfile_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   else if (strncmp(sfx, ".gb",  3) == 0)  { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
   else if (strncmp(sfx, ".sto", 4) == 0)  { *ret_fmt = eslMSAFILE_STOCKHOLM; return eslOK; }
   else if (strncmp(sfx, ".stk", 4) == 0)  { *ret_fmt = eslMSAFILE_STOCKHOLM; return eslOK; }
+  else if (strncmp(sfx, ".a2m", 4) == 0)  { *ret_fmt = eslMSAFILE_A2M;       return eslOK; }
     
   /* If that didn't work, we'll have a peek at the stream; 
    * turn recording on, and set for line based input.
@@ -659,6 +660,8 @@ esl_sqio_FormatCode(char *fmtstring)
 #ifdef eslAUGMENT_MSA
   if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
   if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
+  if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
+  if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
 #endif
   return eslSQFILE_UNKNOWN;
 }
@@ -687,6 +690,8 @@ esl_sqio_DescribeFormat(int fmt)
 #ifdef eslAUGMENT_MSA
   case eslMSAFILE_STOCKHOLM: return "Stockholm";
   case eslMSAFILE_PFAM:      return "Pfam";
+  case eslMSAFILE_A2M:       return "UCSC A2M";
+  case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
 #endif
   default: esl_fatal("no such format code");
   }
@@ -2620,7 +2625,14 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
   if (sq->ss != NULL)
     {
       ESL_ALLOC(msa->ss, sizeof(char *) * 1);
-      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto ERROR;
+
+#ifdef eslAUGMENT_ALPHABET
+      if (sq->dsq != NULL) {	/* sq->ss is 1..L in digital mode; but msa->ss is always 0..L-1 */
+	if ((status = esl_strdup(sq->ss+1, -1, &(msa->ss[0]))) != eslOK) goto ERROR;
+      } else
+#endif
+      if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto ERROR;     	
+
     }
   msa->alen = sq->n;
   msa->nseq = 1;
