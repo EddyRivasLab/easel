@@ -1618,7 +1618,7 @@ esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
  *            <sq->desc> are set to the accession and description of
  *            the source sequence.
  *            
- * Returns:   <eslOK> on soccess.
+ * Returns:   <eslOK> on success.
  *            <eslEINVAL> if no SSI index is present, or if <sqfp> can't
  *            be repositioned.
  *            <eslENOTFOUND> if <source> isn't found in the file.

@@ -235,7 +235,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
   if (esl_newssi_AddFile(ns, sqfp->filename, sqfp->format, &fh) != eslOK)
     esl_fatal("Failed to add sequence file %s to new SSI index\n", sqfp->filename);
 
-  printf("Working...    "); 
+  printf("Creating SSI index for %s...    ", sqfp->filename); 
   fflush(stdout);
   
   while ((status = esl_sqio_ReadInfo(sqfp, sq)) == eslOK)
