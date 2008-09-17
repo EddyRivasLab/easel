@@ -236,6 +236,7 @@ extern int esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value);
 extern int esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value);
 extern int esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value);
 extern int esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value);
+extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
 /* 7. Debugging/development routines */
 extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);

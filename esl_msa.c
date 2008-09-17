@@ -3930,6 +3930,63 @@ esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value)
   return status;
 }
 
+
+/* Function:  esl_msa_Checksum()
+ * Synopsis:  Calculate a checksum for an MSA.
+ * Incept:    SRE, Tue Sep 16 13:23:34 2008 [Janelia]
+ *
+ * Purpose:   Calculates a 32-bit checksum for <msa>.
+ * 
+ *            Only the alignment data are considered, not the sequence
+ *            names or other annotation. For text mode alignments, the
+ *            checksum is case sensitive.
+ *            
+ *            This is used as a quick way to try to verify that a
+ *            given alignment is identical to an expected one; for
+ *            example, when HMMER is mapping new sequence alignments
+ *            onto exactly the same seed alignment an HMM was built
+ *            from.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Xref:      The checksum is a modified version of Jenkin's hash;
+ *            see <esl_keyhash> for the original and citations.
+ */
+int
+esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum)
+{
+  uint32_t val = 0;
+  int      i,pos;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL)
+    {
+      for (i = 0; i < msa->nseq; i++)
+	for (pos = 0; pos <= msa->alen; pos++)
+	  {
+	    val += msa->ax[i][pos];
+	    val += (val << 10);
+	    val ^= (val >>  6);
+	  }
+    }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL))
+    {
+      for (i = 0; i < msa->nseq; i++)
+	for (pos = 0; pos <= msa->alen; pos++)
+	  {
+	    val += msa->ax[i][pos];
+	    val += (val << 10);
+	    val ^= (val >>  6);
+	  }
+    }
+  val += (val <<  3);
+  val ^= (val >> 11);
+  val += (val << 15);
+
+  *ret_checksum = val;
+  return eslOK;
+}
 /*-------------------- end of misc MSA functions ----------------------*/
 
 
