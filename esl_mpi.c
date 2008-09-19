@@ -5,12 +5,13 @@
  * 
  * Contents:
  *    1. Communicating optional arrays.
- *    2. Communicating ESL_MSA (multiple sequence alignments).
- *    3. Communicating ESL_STOPWATCH (process timing).
- *    4. Unit tests.
- *    5. Test driver.
- *    6. Example.
- *    7. Copyright and license information.
+ *    2. Communicating ESL_SQ (single biosequences)
+ *    3. Communicating ESL_MSA (multiple sequence alignments).
+ *    4. Communicating ESL_STOPWATCH (process timing).
+ *    5. Unit tests.
+ *    6. Test driver.
+ *    7. Example.
+ *    8. Copyright and license information.
  * 
  * SRE, Sat Jun  2 08:16:14 2007 [Janelia] [Tertiary Phase]
  * SVN $Id$
@@ -23,6 +24,7 @@
 
 #include "easel.h"
 #include "esl_msa.h"
+#include "esl_sq.h"
 #include "esl_stopwatch.h"
 #include "esl_mpi.h"
 
@@ -195,7 +197,382 @@ esl_mpi_UnpackOpt(void *pack_buf, int pack_buf_size, int *pos, void **outbuf, in
 
 
 /*****************************************************************
- *# 2. Communicating ESL_MSA (multiple sequence alignments).
+ *# 2. Communicating ESL_SQ (single biosequences)
+ *****************************************************************/
+
+/* Function:  esl_sq_MPISend()
+ * Synopsis:  Send an ESL_SQ as an MPI work unit.
+ * Incept:    ER, Thu Jun 19 10:39:49 EDT 2008 [Janelia]
+ *
+ * Purpose:   Sends an ESL_SQ <esl_sq> as a work unit to MPI process
+ *            <dest> (where <dest> ranges from 0..<nproc-1>), tagged
+ *            with MPI tag <tag>, for MPI communicator <comm>, as 
+ *            the sole workunit or result. 
+ *            
+ *            Work units are prefixed by a status code. If <esl_sq> is
+ *            <non-NULL>, the work unit is an <eslOK> code followed by
+ *            the packed ESL_SQ. If <esl_sq> is NULL, the work unit is an
+ *            <eslEOD> code, which <esl_sq_MPIRecv()> knows how to
+ *            interpret; this is typically used for an end-of-data
+ *            signal to cleanly shut down worker processes.
+ *            
+ *            In order to minimize alloc/free cycles in this routine,
+ *            caller passes a pointer to a working buffer <*buf> of
+ *            size <*nalloc> characters. If necessary (i.e. if <esl_sq> is
+ *            too big to fit), <*buf> will be reallocated and <*nalloc>
+ *            increased to the new size. As a special case, if <*buf>
+ *            is <NULL> and <*nalloc> is 0, the buffer will be
+ *            allocated appropriately, but the caller is still
+ *            responsible for free'ing it.
+ *            
+ * Returns:   <eslOK> on success; <*buf> may have been reallocated and
+ *            <*nalloc> may have been increased.
+ * 
+ * Throws:    <eslESYS> if an MPI call fails; <eslEMEM> if a malloc/realloc
+ *            fails. In either case, <*buf> and <*nalloc> remain valid and useful
+ *            memory (though the contents of <*buf> are undefined). 
+ * 
+ */
+int
+esl_sq_MPISend(ESL_SQ *sq, int dest, int tag, MPI_Comm comm, char **buf, int *nalloc)
+{
+  int   status;
+  int   code;
+  int   sz, n, pos;
+
+  /* Figure out size */
+  if (MPI_Pack_size(1, MPI_INT, comm, &n) != 0) ESL_XEXCEPTION(eslESYS, "mpi pack size failed");
+  if (sq != NULL) {
+    if ((status = esl_sq_MPIPackSize(sq, comm, &sz)) != eslOK) return status;
+    n += sz;
+  }
+  ESL_DPRINTF2(("esl_sq_MPISend(): sq has size %d\n", n));
+
+  /* Make sure the buffer is allocated appropriately */
+  if (*buf == NULL || n > *nalloc) {
+    void *tmp;
+    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
+    *nalloc = n; 
+  }
+  ESL_DPRINTF2(("esl_sq_MPISend(): buffer is ready\n"));
+
+  /* Pack the status code and ESL_SQ into the buffer */
+  pos  = 0;
+  code = (sq == NULL) ? eslEOD : eslOK;
+  if (MPI_Pack(&code, 1, MPI_INT, *buf, n, &pos, comm) != 0) ESL_EXCEPTION(eslESYS, "mpi pack failed");
+  if (sq != NULL) {
+    if ((status = esl_sq_MPIPack(sq, *buf, n, &pos, comm)) != eslOK) return status;
+  }
+  ESL_DPRINTF2(("esl_sq_MPISend(): sq is packed into %d bytes\n", pos));
+
+  /* Send the packed ESL_SQ to the destination. */
+  if (MPI_Send(*buf, n, MPI_PACKED, dest, tag, comm) != 0)  ESL_EXCEPTION(eslESYS, "mpi send failed");
+  ESL_DPRINTF2(("esl_sq_MPISend(): sq is sent.\n"));
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_sq_MPIPackSize()
+ * Synopsis:  Calculates size needed to pack an ESL_SQ.
+ * Incept:    ER, Thu Jun 19 10:48:25 EDT 2008 [Janelia]
+ *
+ * Purpose:   Calculate an upper bound on the number of bytes
+ *            that <esl_sq_MPIPack()> will need to pack an ESL_SQ
+ *            <sq> in a packed MPI message for MPI communicator
+ *            <comm>; return that number of bytes in <*ret_n>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_n> contains the answer.
+ *
+ * Throws:    <eslESYS> if an MPI call fails, and <*ret_n> is 0.
+ */
+int
+esl_sq_MPIPackSize(ESL_SQ *sq, MPI_Comm comm, int *ret_n)
+{
+  int   status;
+  int   n = 0;
+  int   sz;
+
+  status = MPI_Pack_size        (                     1, MPI_INT,           comm, &sz); n += 4*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                     1, MPI_UNSIGNED_LONG, comm, &sz); n += 7*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (            sq->nalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (            sq->aalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (            sq->dalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (          sq->srcalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+
+  /* sequence, digital or text; the ss is optional */
+  if (sq->dsq != NULL) {
+    status = MPI_Pack_size      (               sq->n+2, MPI_UNSIGNED_CHAR, comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+    status = esl_mpi_PackOptSize(sq->ss,        sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+  }
+  else { 
+    status = MPI_Pack_size      (               sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+    status = esl_mpi_PackOptSize(sq->ss,        sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+  }
+  
+  *ret_n = n;
+  return eslOK;
+
+ ERROR:
+  *ret_n = 0;
+  return status;
+}
+
+/* Function:  esl_sq_MPIPack()
+ * Synopsis:  Packs an ESL_SQ into MPI buffer.
+ * Incept:    ER, Thu Jun 19 10:49:10 EDT 2008 [Janelia]
+ *
+ * Purpose:   Packs ESL_SQ <esl_sq> into an MPI packed message buffer <buf>
+ *            of length <n> bytes, starting at byte position <*position>,
+ *            for MPI communicator <comm>.
+ *            
+ *            The caller must know that <buf>'s allocation of <n>
+ *            bytes is large enough to append the packed ESL_SQ at
+ *            position <*pos>. This typically requires a call to
+ *            <esl_sq_MPIPackSize()> first, and reallocation if
+ *            needed.
+ *            
+ * Returns:   <eslOK> on success; <buf> now contains the
+ *            packed <esl_sq>, and <*position> is set to the byte
+ *            immediately following the last byte of the ESL_SQ
+ *            in <buf>. 
+ *
+ * Throws:    <eslESYS> if an MPI call fails; or <eslEMEM> if the
+ *            buffer's length <n> was overflowed in trying to pack
+ *            <sq> into <buf>. In either case, the state of
+ *            <buf> and <*position> is undefined, and both should
+ *            be considered to be corrupted.
+ */
+int
+esl_sq_MPIPack(ESL_SQ *sq, char *buf, int n, int *pos, MPI_Comm comm)
+{
+  unsigned long int  sq_n;
+  unsigned long int  start;
+  unsigned long int  end;
+  unsigned long int  C;
+  unsigned long int  W;
+  unsigned long int  L;
+  unsigned long int  salloc;
+  int                status;
+ 
+  sq_n   = (unsigned long int)sq->n;
+  start  = (unsigned long int)sq->start;
+  end    = (unsigned long int)sq->end;
+  C      = (unsigned long int)sq->C;
+  W      = (unsigned long int)sq->W;
+  L      = (unsigned long int)sq->L;
+  salloc = (unsigned long int)sq->salloc;
+
+  /* pack allocation values */
+  status = MPI_Pack         ((              int *) &(sq->nalloc),              1, MPI_INT,           buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((              int *) &(sq->aalloc),              1, MPI_INT,           buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((              int *) &(sq->dalloc),              1, MPI_INT,           buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((              int *) &(sq->srcalloc),            1, MPI_INT,           buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(    salloc),              1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+
+  /* pack coordenate info */
+  status = MPI_Pack         ((unsigned long int *) &(sq_n),                    1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(start),                   1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(end),                     1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(C),                       1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(W),                       1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         ((unsigned long int *) &(L),                       1, MPI_UNSIGNED_LONG, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+
+  /* pack strings */
+  status = MPI_Pack         (sq->name,                                sq->nalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         (sq->acc,                                 sq->aalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         (sq->desc,                                sq->dalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+  status = MPI_Pack         (sq->source,                            sq->srcalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+
+  /* sequences, digital or text; the ss is optional*/
+  if (sq->dsq != NULL) {   
+    status = MPI_Pack       (sq->dsq,                                    sq->n+2, MPI_UNSIGNED_CHAR, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+    status = esl_mpi_PackOpt(sq->ss,                                     sq->n+2, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
+  }
+  else {
+    status = MPI_Pack       (sq->seq,                                    sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
+    status = esl_mpi_PackOpt(sq->ss,                                     sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
+  }
+  
+  if (*pos > n) ESL_EXCEPTION(eslEMEM, "buffer overflow");
+  return eslOK;
+}
+
+/* Function:  esl_sq_MPIUnpack()
+ * Synopsis:  Unpacks an ESL_SQ from an MPI buffer.
+ * Incept:    SRE, Thu Jun  7 11:04:46 2007 [Janelia]
+ *
+ * Purpose:   Unpack a newly allocated ESL_SQ from MPI packed buffer
+ *            <buf>, starting from position <*pos>, where the total length
+ *            of the buffer in bytes is <n>. 
+ *            
+ *            Caller may or may not already know what alphabet the ESL_SQ
+ *            is expected to be in.  
+ *
+ * Returns:   <eslOK> on success. <*pos> is updated to the position of
+ *            the next element in <buf> to unpack (if any). <*ret_hmm>
+ *            contains a newly allocated ESL_SQ, which the caller is
+ *            responsible for free'ing. 
+ *
+ *            
+ * Throws:    <eslESYS> on an MPI call failure. <eslEMEM> on allocation failure.
+ *            In either case, <*ret_esl_sq> is <NULL>, and the state of <buf>
+ *            and <*pos> is undefined and should be considered to be corrupted.
+ */
+int
+esl_sq_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm comm, ESL_SQ **ret_sq)
+{
+  ESL_SQ            *sq  = NULL;
+  unsigned long int  sq_n;
+  unsigned long int  start;
+  unsigned long int  end;
+  unsigned long int  C;
+  unsigned long int  W;
+  unsigned long int  L;
+  unsigned long int  salloc;
+  int                do_digital = FALSE;
+  int                status;
+
+  if (abc != NULL) do_digital = TRUE;
+  
+  /* allocate sq */
+  ESL_ALLOC(sq, sizeof(ESL_SQ));
+
+  /* unpack allocation values */
+  status = MPI_Unpack(buf, n, pos, &(sq->nalloc),   1, MPI_INT,            comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(sq->aalloc),   1, MPI_INT,            comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(sq->dalloc),   1, MPI_INT,            comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(sq->srcalloc), 1, MPI_INT,            comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(salloc),       1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+
+  /* unpack coordenate info */
+  status = MPI_Unpack(buf, n, pos, &(sq_n),         1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(start),        1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(end),          1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(C),            1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(W),            1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack(buf, n, pos, &(L),            1, MPI_UNSIGNED_LONG,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+
+  sq->salloc = (int64_t) salloc;
+  sq->n      = (int64_t) sq_n;
+  sq->start  = (int64_t) start;
+  sq->end    = (int64_t) end;
+  sq->C      = (int64_t) C;
+  sq->W      = (int64_t) W;
+  sq->L      = (int64_t) L;
+  
+  /* allocate strings */
+  sq->name   = NULL; ESL_ALLOC(sq->name,   sizeof(char) * sq->nalloc);
+  sq->acc    = NULL; ESL_ALLOC(sq->acc,    sizeof(char) * sq->aalloc);
+  sq->desc   = NULL; ESL_ALLOC(sq->desc,   sizeof(char) * sq->dalloc);
+  sq->source = NULL; ESL_ALLOC(sq->source, sizeof(char) * sq->srcalloc);
+  sq->seq    = NULL; if (!do_digital) ESL_ALLOC(sq->seq, sizeof(char)    * sq->salloc);
+  sq->dsq    = NULL; if ( do_digital) ESL_ALLOC(sq->dsq, sizeof(ESL_DSQ) * sq->salloc); 	
+  sq->ss     = NULL;		/* ss is optional - it will only be allocated if needed */
+
+  /* unpack strings */
+  status = MPI_Unpack       (buf, n, pos, sq->name,                   sq->nalloc, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack       (buf, n, pos, sq->acc,                    sq->aalloc, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack       (buf, n, pos, sq->desc,                   sq->dalloc, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  status = MPI_Unpack       (buf, n, pos, sq->source,               sq->srcalloc, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+ 
+ if (do_digital) {
+    status = MPI_Unpack     (buf, n, pos, sq->dsq,                       sq->n+2, MPI_UNSIGNED_CHAR,  comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+   }
+  else {
+    status = MPI_Unpack     (buf, n, pos, sq->seq,                       sq->n+1, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  }
+   
+  /* unpack the optional ss */
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(sq->ss),              NULL, MPI_CHAR,           comm); if (status != eslOK) goto ERROR;
+ 
+  /* set disk offset bookkeeping */
+  sq->doff  = -1;
+  sq->roff  = -1;
+  sq->eoff  = -1;
+  
+  /* pointer to alphabet */
+  if (do_digital) sq->abc = abc;
+  
+  *ret_sq = sq;
+  return eslOK;
+  
+ ERROR:
+  if (sq  != NULL) esl_sq_Destroy(sq);
+  *ret_sq = NULL;
+  return status;
+}
+
+
+/* Function:  esl_sq_MPIRecv()
+ * Synopsis:  Receives an ESL_SQ as a work unit from an MPI sender.
+ * Incept:    ER, Thu Jun 19 10:53:40 EDT 2008 [Janelia]
+ *
+ * Purpose:   Receive a work unit that consists of a single ESL_SQ
+ *            sent by MPI <source> (<0..nproc-1>, or
+ *            <MPI_ANY_SOURCE>) tagged as <tag> for MPI communicator <comm>.
+ *            
+ *            Work units are prefixed by a status code. If the unit's
+ *            code is <eslOK> and no errors are encountered, this
+ *            routine will return <eslOK> and a non-<NULL> <*ret_esl_sq>.
+ *            If the unit's code is <eslEOD> (a shutdown signal), 
+ *            this routine returns <eslEOD> and <*ret_esl_sq> is <NULL>.
+ *   
+ *            Caller provides a working buffer <*buf> of size
+ *            <*nalloc> characters. These are passed by reference, so
+ *            that <*buf> can be reallocated and <*nalloc> increased
+ *            if necessary. As a special case, if <*buf> is <NULL> and
+ *            <*nalloc> is 0, the buffer will be allocated
+ *            appropriately, but the caller is still responsible for
+ *            free'ing it.
+ *
+ * Returns:   <eslOK> on success. <*ret_esl_sq> contains the received ESL_SQ;
+ *            it is allocated here, and the caller is responsible for
+ *            free'ing it.  <*buf> may have been reallocated to a
+ *            larger size, and <*nalloc> may have been increased. 
+ *            
+ * Throws:    <eslEMEM> on allocation error, in which case <*ret_esl_sq> is 
+ *            <NULL>.           
+ */
+int
+esl_sq_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char **buf, int *nalloc, ESL_SQ **ret_sq)
+{
+  int         status;
+  int         code;
+  int         n;
+  int         pos;
+  MPI_Status  mpistatus;
+
+  /* Probe first, because we need to know if our buffer is big enough. */
+  MPI_Probe(source, tag, comm, &mpistatus);
+  MPI_Get_count(&mpistatus, MPI_PACKED, &n);
+
+  /* Make sure the buffer is allocated appropriately */
+  if (*buf == NULL || n > *nalloc) {
+    void *tmp;
+    ESL_RALLOC(*buf, tmp, sizeof(char) * n);
+    *nalloc = n; 
+  }
+
+  /* Receive the packed work unit */
+  MPI_Recv(*buf, n, MPI_PACKED, source, tag, comm, &mpistatus);
+
+  /* Unpack it, looking at the status code prefix for EOD/EOK  */
+  pos = 0;
+  if (MPI_Unpack(*buf, n, &pos, &code, 1, MPI_INT, comm) != 0) ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
+  if (code == eslEOD)  { *ret_sq = NULL;  return eslEOD; }
+
+  return esl_sq_MPIUnpack(abc, *buf, *nalloc, &pos, comm, ret_sq);
+
+ ERROR:
+   return status;
+}
+/*----------------- end, ESL_SQ communication -------------------*/
+
+
+/*****************************************************************
+ *# 3. Communicating ESL_MSA (multiple sequence alignments).
  *****************************************************************/
 
 /* Function:  esl_msa_MPISend()
@@ -555,7 +932,7 @@ esl_msa_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, cha
 
 
 /*****************************************************************
- *# 3. Communicating ESL_STOPWATCH (process timing)
+ *# 4. Communicating ESL_STOPWATCH (process timing)
  *****************************************************************/
 
 /* Function:  esl_stopwatch_MPIReduce()
@@ -593,7 +970,7 @@ esl_stopwatch_MPIReduce(ESL_STOPWATCH *w, int root, MPI_Comm comm)
 
 
 /*****************************************************************
- * 4. Unit tests.
+ * 5. Unit tests.
  *****************************************************************/
 #ifdef eslMPI_TESTDRIVE
 
@@ -689,7 +1066,7 @@ utest_MSAPackUnpack(ESL_ALPHABET *abc, ESL_MSA *msa, int my_rank, int nproc)
 
 
 /*****************************************************************
- * 5. Test driver.
+ * 6. Test driver.
  *****************************************************************/
 #ifdef eslMPI_TESTDRIVE
 /* mpicc -o mpi_utest -g -Wall -I. -L. -DeslMPI_TESTDRIVE esl_mpi.c -leasel -lm
@@ -764,7 +1141,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 6. Example.
+ * 7. Example.
  *****************************************************************/
 
 

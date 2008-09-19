@@ -441,6 +441,7 @@ esl_hmm_PosteriorDecoding(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX
  * x. Functions used in unit testing
  *****************************************************************/
 
+#if 0
 static int
 make_occasionally_dishonest_casino(ESL_HMM **ret_hmm, ESL_ALPHABET **ret_abc)
 {
@@ -472,7 +473,7 @@ make_occasionally_dishonest_casino(ESL_HMM **ret_hmm, ESL_ALPHABET **ret_abc)
   *ret_abc = abc;
   return eslOK;
 }
-
+#endif
 
   
 /*****************************************************************
