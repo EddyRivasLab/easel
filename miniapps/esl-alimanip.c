@@ -9,6 +9,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <limits.h>
 
 #include "easel.h"
 #include "esl_distance.h"
@@ -28,10 +29,12 @@ static char banner[] = "manipulate a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
 The <msafile> must be in Stockholm format.";
 
-#define OTHERMSAOPTS  "--merge,--morph,--map"           /* Exclusive choice for scoring algorithms */
+#define OTHERMSAOPTS  "--merge,--morph,--map,--submap"          /* Exclusive choice for options involving an additional msa */
+#define CLUSTOPTS     "--cn-id,--cs-id,--cx-id,--cn-ins,--cs-ins,--cx-ins" /* Exclusive choice for clustering */
+#define CHOOSESEQOPTS "--seq-k,--seq-r,--seq-ins,--seq-del" /* Exclusive choice for choosing which seqs to keep/remove */
 
 static int  keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int keep_flag, int remove_flag);
-static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
+static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
 static int  write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
 static int  write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
 static int  write_rf_given_useme(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int *useme);
@@ -49,6 +52,7 @@ static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf);
+static int  dump_cres_info(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  dump_delete_info(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  plot_inserts(FILE *fp, ESL_MSA *msa, int do_log, char *errbuf);
 static int  dump_infocontent(FILE *fp, ESL_MSA *msa, char *errbuf);
@@ -58,6 +62,7 @@ static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask);
 static int  map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_map);
+static int  map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_mask);
 static int  handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  output_rf_as_mask(FILE *fp, char *errbuf, ESL_MSA *msa);
 static int  expand_msa2mask(char *errbuf, ESL_MSA *msa1, char *xmask, ESL_MSA **newmsa1);
@@ -72,15 +77,27 @@ static char get_char_digit_x_from_int(int i, int place);
 static int  keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n);
 static int  msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, ESL_MSA **ret_new_msa);
+static int  insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int do_length_weight, int do_only_internal_inserts, ESL_DMATRIX **ret_D);
+static int  insert_x_pair_shared(ESL_MSA *msa, int i, int j, int cfirst, int clast, double *opt_pshared, int *opt_nshared, int *opt_nins);
+static int  insert_x_pair_shared_length(ESL_MSA *msa, int i, int j, int cfirst, int clast, double *opt_pshared, double *opt_nshared, int *opt_nins);
+static int  MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize, float mindiff, int target_nc, int target_nsize, int *ret_num_msa, ESL_MSA ***ret_cmsa, int *ret_xsize, char *errbuf);
+static int  select_node(ESL_TREE *T, double *diff, double mindiff, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, char *errbuf);
+static float find_mindiff(ESL_TREE *T, double *diff, int do_nsize, int target, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, float *ret_mindiff, char *errbuf);
+static int  determine_first_last_consensus_columns(ESL_MSA *msa, char *errbuf, int **ret_fA, int **ret_lA, int *ret_clen);
+static int  dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, double *opt_distance, int *opt_nid, int *opt_n);
+static int  dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D);
+static int find_seqs_with_given_insert(ESL_MSA *msa, char *errbuf, int target, int min, int max, int **ret_useme);
+static int minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
   { "-1",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "output alignment in Pfam (non-interleaved, 1 line/seq) format",  1 },
+  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output list of sequence names in alignment to file <f>",         1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add/rewrite #=GC RF markup based on gap frequency in each col",  2 },
-  { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps allowed in non-gap RF columns [0.5]",  2 },
+  { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,NULL, NULL,                       "with -g, fraction of gaps allowed in non-gap RF columns [0.5]",  2 },
   { "--mask-all",  eslARG_INFILE,FALSE,NULL, NULL,      NULL,NULL, NULL,                        "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=alen)",   2 },
   { "--mask-rf",   eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f> (len=rf len)", 2 },
   { "--pfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "set #=GC RF as cols w/<x> fraction of seqs w/POST >= --pthresh", 2 },
@@ -96,12 +113,17 @@ static ESL_OPTIONS options[] = {
   { "--lfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "remove sequences w/length < <x> fraction of median length",      4 },
   { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, NULL,                       "remove sequences w/length < <n> residues",                       4 },
   { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, NULL,                       "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",4 },
-  { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, "--seq-k",                  "remove sequences with names listed in file <f>",                 4 },
-  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, "--seq-r",                  "remove all sequences *except* those listed in file <f>",         4 },
+  { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                 4 },
+  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listedin <f>, reorder seqs also", 4 },
+  { "--seq-ins",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/an insert after non-gap RF col <n>",            4 },
+  { "--seq-del",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/a  delete in non-gap RF col <n>",               4 },
+  { "--seq-ni",    eslARG_INT,    "1",  NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at least <n> residue insertions",            4 },
+  { "--seq-xi",    eslARG_INT,"1000000",NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at most  <n> residue insertions",            4 },
   { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "trim aligned seqs in <msafile> to subseqs in <f>",               4 },
-  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,                "print info on # of insertions b/t all non-gap RF cols to <f>",   5 },
+  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,                "print info on # of insertions b/t all non-gap RF cols to <f>",  5 },
   { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on information content of each non-gap RF column",    5 },
   { "--rinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of residues in each col of alignment to <f>",    5 },
+  { "--cresinfo",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of columns with 1 residue due to each seq",      5 },
   { "--dinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on # of deletes in non-gap RF cols of aln to <f>",    5 },
   { "--pinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "print info on posterior probabilities in <msafile> to <f>",      5 },
   { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, "-g,-k,-r,--morph",         "annotate individual secondary structures by imposing consensus", 7 },
@@ -112,15 +134,27 @@ static ESL_OPTIONS options[] = {
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                             10 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                             10 },
 
+  { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity", 12 },
+  { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs", 12 },
+  { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id", 12},
+  { "--cn-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on insert similarity", 12 },
+  { "--cs-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on inserts s.t. max cluster has <n> seqs", 12 },
+  { "--cx-ins",     eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> ins id",12},
+  { "--c-nmin",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, NULL,                      "only keep the cluster(s) with number of seqs > <n>",12},
+  { "--c-mx",       eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                      "output identity matrix to file <f>",                   12 },
+  { "-M",           eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--seq-r,--seq-k",         "use #=GS tag <s> to define minor alignments, and output them",  12 },
+  { "--M-rf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"-M", NULL,                      "w/-M, impose major #=GC RF onto all minor alns", 12 },
+
   /* All options below are developer options, only shown if --devhelp invoked */
   { "--iplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 101 },
   { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          101 },
   { "--gplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "plot checkerboard grid of # of gaps in non-gap RF cols to <f>",  101 },
-  { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",          101 },
+  { "--morph",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "morph msa in <msafile> to msa in <f>'s gap structure",           101 },
   { "--merge",     eslARG_INFILE,FALSE, NULL, NULL,      NULL,NULL, "--morph,-g,-k,-r",         "merge msa in <msafile> with msa in <f>",                         101 },
 
   { "--map",       eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f>, output mask (1s and 0s)",    102 },
-  { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,"--map",NULL,                     "with --map, output file for 1/0 mask map is <f>",                102 },
+  { "--submap",    eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, OTHERMSAOPTS,               "map msa in <msafile> to msa in <f> (<f> is subaln of <msafile>", 102 },
+  { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "with --map/--submap, output file for 1/0 mask map is <f>",       102 },
   { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",   102 },
   { "--verbose",   eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            102 },
   { 0,0,0,0,0,0,0,0,0,0 },
@@ -138,9 +172,9 @@ main(int argc, char **argv)
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
   FILE         *ofp;		/* output file (default is stdout) */
-  char          errbuf[eslERRBUFSIZE];
+  char          errbuf[eslERRBUFSIZE*4];
   int           write_ali = FALSE; /* set to TRUE if we should print a new MSA */
-  /* --merge, --morph, --map related vars */
+  /* --merge, --morph, --map, --submap related vars */
   ESL_MSAFILE  *otherafp = NULL;	/* other input alignment file (with --morph) */
   ESL_MSA      *othermsa = NULL;	/* other input alignment      (with --morph) */
   /* --trim related vars */
@@ -151,8 +185,10 @@ main(int argc, char **argv)
   FILE *iplotfp = NULL;  /* output file for --iplot */
   FILE *gplotfp = NULL;  /* output file for --gplot */
   FILE *rinfofp = NULL;  /* output file for --rinfo */
+  FILE *cresinfofp = NULL; /* output file for --cresinfo */
   FILE *dinfofp = NULL;  /* output file for --dinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
+  FILE *listfp = NULL;   /* output file for --list */
   /* --mask-all */
   char *amask = NULL;
   /* --mask-all */
@@ -201,6 +237,8 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
       esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
+      puts("\noptions for partitioning MSA into clusters:");
+      esl_opt_DisplayHelp(stdout, go, 12, 2, 80);
       puts("\nundocumented, experimental developer options:");
       esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
       puts("\noptions for comparison/modification based on another MSA file:");
@@ -229,6 +267,8 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
       esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
+      puts("\noptions for partitioning MSA into clusters:");
+      esl_opt_DisplayHelp(stdout, go, 12, 2, 80);
       exit(0);
     }
 
@@ -276,7 +316,7 @@ main(int argc, char **argv)
   }
   esl_msafile_SetDigital(afp, abc);
   if((esl_opt_GetBoolean(go, "--sindi")) && (abc->type != eslRNA && abc->type != eslDNA))
-    esl_fatal("-i option pertains to base pairs and only makes sense with DNA or RNA alphabets.");
+    esl_fatal("--sindi option pertains to base pairs and only makes sense with DNA or RNA alphabets.");
 
   /* optionally, open --morph, --merge or --map msa file for reading, --merge, --morph and --map are all incompatible
    * with each other, so we'll never try to do open othermsafile more than once.
@@ -306,6 +346,15 @@ main(int argc, char **argv)
 					      esl_opt_GetString(go, "--map"));
       else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --map alignment %s\n", 
 					      esl_opt_GetString(go, "--map"));
+      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+    }
+  if(esl_opt_GetString(go, "--submap") != NULL)
+    {
+      status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--submap"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
+      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--submap alignment file %s doesn't exist or is not readable\n", 
+					      esl_opt_GetString(go, "--submap"));
+      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --submap alignment %s\n", 
+					      esl_opt_GetString(go, "--submap"));
       else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
     }
 
@@ -344,7 +393,6 @@ main(int argc, char **argv)
 	msa = new_msa;
 	write_ali = TRUE;
       }
-
 
       /* handle the --lmin option if enabled, all subsequent manipulations will omit any short seqs removed here */
       if(! esl_opt_IsDefault(go, "--lmin")) {
@@ -388,10 +436,24 @@ main(int argc, char **argv)
 	free(seqlist);
 	write_ali = TRUE;
       }
+      
+      /* handle the --seq-ins, --seq-del options if enabled, all subsequent manipulations will omit any seqs removed here */
+      if((! esl_opt_IsDefault(go, "--seq-ins")) || (! esl_opt_IsDefault(go, "--seq-del"))) {
+	ESL_MSA *new_msa;
+	int     *useme;
+	if(! esl_opt_IsDefault(go, "--seq-ins")) { 
+	  if((status = find_seqs_with_given_insert(msa, errbuf, esl_opt_GetInteger(go, "--seq-ins"), esl_opt_GetInteger(go, "--seq-ni"), esl_opt_GetInteger(go, "--seq-xi"), &useme)) != eslOK) esl_fatal(errbuf);	  
+	  if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK)  esl_fatal(errbuf);	  
+	  /* new_msa is msa but without seqs that do not have an insert of length <a>..<b> (from --seq-ni <a> and --seq-xi <b>) after consensus column <n> from --seq-ins <n> file */
+	}
+	esl_msa_Destroy(msa);
+	msa = new_msa;
+	write_ali = TRUE;
+      }      
 
       /* read other msa if --morph, --merge, or --map (which are incompatible with each other) is enabled */
       if(((esl_opt_GetString(go, "--morph") != NULL) || (esl_opt_GetString(go, "--merge") != NULL))
-	 || (esl_opt_GetString(go, "--map") != NULL))
+	 || ((esl_opt_GetString(go, "--map") != NULL) || (esl_opt_GetString(go, "--submap") != NULL)))
 	{
 	  if ((status = esl_msa_Read(otherafp, &othermsa)) != eslOK) {
 	    if(status == eslEFORMAT) 
@@ -442,7 +504,7 @@ main(int argc, char **argv)
 
       /* rewrite RF annotation, if nec */
       if(esl_opt_GetBoolean(go, "-g")) {
-	if((status = write_rf_gapthresh(go, errbuf, msa)) != eslOK) goto ERROR;
+	if((status = write_rf_gapthresh(go, errbuf, msa, esl_opt_GetReal(go, "--gapthresh"))) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
       if(amask != NULL) { /* --mask-all enabled */
@@ -484,6 +546,21 @@ main(int argc, char **argv)
       if(esl_opt_GetString(go, "--map") != NULL)
 	{
 	  if((status = map_msas(go, errbuf, msa, othermsa, &msa1_to_msa2_mask)) != eslOK) goto ERROR;
+	  if(esl_opt_GetString(go, "--omap") != NULL) { 
+	    if ((omapfp = fopen(esl_opt_GetString(go, "--omap"), "w")) == NULL) 
+	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
+	    fprintf(omapfp, "%s\n", msa1_to_msa2_mask);
+	    fclose(omapfp);
+	    /*printf("# Mask of 1/0s with 1 indicating aln column in %s maps to non-gap RF column in %s saved to file %s.\n", alifile, esl_opt_GetString(go, "--map"), esl_opt_GetString(go, "--omap")); */
+	  }
+	  else printf("%s\n", msa1_to_msa2_mask);
+	  free(msa1_to_msa2_mask);
+	}
+
+      /* --submap: if nec, map <msafile> to a subset of it's own columns in <f> (from --map <f>) */
+      if(esl_opt_GetString(go, "--submap") != NULL)
+	{
+	  if((status = map_sub_msas(go, errbuf, msa, othermsa, &msa1_to_msa2_mask)) != eslOK) goto ERROR;
 	  if(esl_opt_GetString(go, "--omap") != NULL) { 
 	    if ((omapfp = fopen(esl_opt_GetString(go, "--omap"), "w")) == NULL) 
 	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
@@ -587,6 +664,14 @@ main(int argc, char **argv)
 	fclose(rinfofp);
       }
 
+      /* handle the --cresinfo option, if enabled, do this after all MSA has been manipulated due to other options */
+      if(! esl_opt_IsDefault(go, "--cresinfo")) {
+	if ((cresinfofp = fopen(esl_opt_GetString(go, "--cresinfo"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --cresinfo output file %s\n", esl_opt_GetString(go, "--cresinfo"));
+	if((status = dump_cres_info(cresinfofp, msa, errbuf) != eslOK)) goto ERROR;
+	fclose(cresinfofp);
+      }
+
       /* handle the --dinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--dinfo")) {
 	if ((dinfofp = fopen(esl_opt_GetString(go, "--dinfo"), "w")) == NULL) 
@@ -604,8 +689,88 @@ main(int argc, char **argv)
 	if((status = number_columns(msa, TRUE, errbuf) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
+
+      /* handle the -M option, if enabled */
+      if(! esl_opt_IsDefault(go, "-M")) { 
+	if((status = minorize_msa(go, msa, errbuf, ofp, esl_opt_GetString(go, "-M")) != eslOK)) goto ERROR;
+	esl_msa_Destroy(msa);
+	goto END;
+      }
+
+      /* handle the --c* options, if enabled */
+      int do_id_cluster     = ((esl_opt_IsDefault(go, "--cn-id"))     && (esl_opt_IsDefault(go, "--cs-id")) && (esl_opt_IsDefault(go, "--cx-id")))         ? FALSE : TRUE;
+      int do_insert_cluster = ((esl_opt_IsDefault(go, "--cn-ins")) && (esl_opt_IsDefault(go, "--cs-ins")) && (esl_opt_IsDefault(go, "--cx-ins"))) ? FALSE : TRUE;
+      int do_ctarget_nc, do_ctarget_nsize, do_cmindiff, nmsa, m, nc, nsize, xsize, nmin;
+      float mindiff;
+      if(do_id_cluster || do_insert_cluster) { 
+	if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--c* options require GC #=RF annotation marking consensus columns.");
+	ESL_DMATRIX *D = NULL;/* the distance matrix */
+	ESL_MSA     **cmsa;
+	if(do_id_cluster) { 
+	  /* create distance matrix and infer tree by single linkage clustering */
+	  /* first, remove all non-consensus columns */
+	  ESL_MSA *rfmsa;
+	  rfmsa = esl_msa_Clone(msa);
+	  if((status = keep_or_remove_rf_gaps(go, errbuf, rfmsa, TRUE, FALSE)) != eslOK) goto ERROR;
+	  dst_nongap_XDiffMx(rfmsa->abc, rfmsa->ax, rfmsa->nseq, &D);
+	  esl_msa_Destroy(rfmsa);
+	  rfmsa = NULL;
+	  do_ctarget_nc    = esl_opt_IsDefault(go, "--cn-id") ? FALSE : TRUE;
+	  do_ctarget_nsize = esl_opt_IsDefault(go, "--cs-id") ? FALSE : TRUE;
+	  do_cmindiff      = esl_opt_IsDefault(go, "--cx-id") ? FALSE : TRUE;
+	  nc               = esl_opt_IsDefault(go, "--cn-id") ? 0  : esl_opt_GetInteger(go, "--cn-id");
+	  nsize            = esl_opt_IsDefault(go, "--cs-id") ? 0  : esl_opt_GetInteger(go, "--cs-id");
+	  mindiff          = esl_opt_IsDefault(go, "--cx-id") ? 0. : 1. - esl_opt_GetReal(go, "--cx-id");
+	}
+	else { /* do_insert_cluster, create insert distance matrix and infer tree by SLC */ 
+	  if((status = insert_x_diffmx(go, errbuf, msa, TRUE, TRUE, &D)) != eslOK) goto ERROR;
+	  do_ctarget_nc    = esl_opt_IsDefault(go, "--cn-ins") ? FALSE : TRUE;
+	  do_ctarget_nsize = esl_opt_IsDefault(go, "--cs-ins") ? FALSE : TRUE;
+	  do_cmindiff      = esl_opt_IsDefault(go, "--cx-ins") ? FALSE : TRUE;
+	  nc               = esl_opt_IsDefault(go, "--cn-ins") ? 0  : esl_opt_GetInteger(go, "--cn-ins");
+	  nsize            = esl_opt_IsDefault(go, "--cs-ins") ? 0  : esl_opt_GetInteger(go, "--cs-ins");
+	  mindiff          = esl_opt_IsDefault(go, "--cx-ins") ? 0. : 1. - esl_opt_GetReal(go, "--cx-ins");
+	}
+	/* print out the id matrix if nec */
+	if(! esl_opt_IsDefault(go, "--c-mx")) { 
+	  FILE *mxfp;
+	  int i, j;
+	  if ((mxfp = fopen(esl_opt_GetString(go, "--c-mx"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --c-mx output file %s\n", esl_opt_GetString(go, "--c-mx"));
+	  for(i = 0; i < msa->nseq; i++) { 
+	    for(j = 0; j < msa->nseq; j++) { 
+	      fprintf(mxfp, "%5d  %5d  %-30s  %-30s  %.5f\n", i, j, msa->sqname[i], msa->sqname[j], 1. - D->mx[i][j]);
+	    }
+	  }	  
+	  fclose(mxfp);
+	}
+	  
+	if((status = MSADivide(msa, D, do_cmindiff, do_ctarget_nc, do_ctarget_nsize, mindiff, nc, nsize, &nmsa, &cmsa, &xsize, errbuf)) != eslOK) goto ERROR;
+	esl_msa_Destroy(msa); 
+	msa = NULL;
+	nmin = esl_opt_IsDefault(go, "--c-nmin") ? 1 : esl_opt_GetInteger(go, "--c-nmin");
+	for(m = 0; m < nmsa; m++) { 
+	  if(cmsa[m]->nseq >= nmin) { 
+	    status = esl_msa_Write(ofp, cmsa[m], (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
+	    if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
+	    else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
+	  }
+	  esl_msa_Destroy(cmsa[m]);
+	}
+	write_ali = FALSE;
+	free(cmsa);
+      }
+
+      /* write out list of sequences, if nec */
+      if(! esl_opt_IsDefault(go, "--list")) {
+	if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
+	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
+	int i;
+	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
+	fclose(listfp);
+      }
+
       /* write out alignment, if nec */
-      if(write_ali || esl_opt_GetBoolean(go, "-1")) {
+      if((write_ali || esl_opt_GetBoolean(go, "-1")) && msa != NULL) {
 	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
 	if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
 	else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
@@ -618,7 +783,7 @@ main(int argc, char **argv)
 	    ESL_FAIL(eslFAIL, errbuf, "Failed to open --omask output file %s\n", esl_opt_GetString(go, "--omask"));
 	  if((status = output_rf_as_mask(omaskfp, errbuf, msa)) != eslOK) goto ERROR;
 	}
-      esl_msa_Destroy(msa);
+      if(msa != NULL)      esl_msa_Destroy(msa);
       if(othermsa != NULL) esl_msa_Destroy(othermsa);
     }
 
@@ -636,6 +801,7 @@ main(int argc, char **argv)
   
   /* Cleanup, normal return
    */
+ END:
   if(otherafp != NULL) esl_msafile_Close(otherafp);
   if((esl_opt_GetString(go, "--morph") != NULL) && othermsa != NULL) esl_msa_Destroy(othermsa);
 
@@ -753,16 +919,14 @@ keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
  * otherwise it's a '.' (gap).
  */
 static int
-write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
+write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh)
 {
   int      status;
   int64_t  apos;
   int64_t  gaps;
   int      i;
-  double   gapthresh;
 
   if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
-  gapthresh = esl_opt_GetReal(go, "--gapthresh");
   for (apos = 1; apos <= msa->alen; apos++)
     {
       for (gaps = 0, i = 0; i < msa->nseq; i++)
@@ -876,16 +1040,19 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int *cct;		/* 0..alen-1 base pair partners array for consensus        */
   int *ct;		/* 0..alen-1 base pair partners array for current sequence */
   char *ss;             /* individual secondary structure we've built              */
+  char *ss_cons_nopseudo; /* no-pseudoknot version of consensus structure */
 
-  if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "-i requires MSA to have consensus structure annotation.\n");
+  if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
   if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
     
   ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
+  ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
-  if (esl_wuss2ct(msa->ss_cons, msa->alen, cct) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
-  
+  if (esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo) != eslOK) ESL_FAIL(status, errbuf, "Trying to remove pseudoknots, but consensus structure string is inconsistent.");
+  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK)     ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+
   /* go through each position of each sequence, 
      if it's a gap and it is part of a base pair, remove that base pair */
   for (i = 0; i < msa->nseq; i++)
@@ -898,12 +1065,13 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	    ct[apos] = 0;
 	  }
       /* convert to WUSS SS string and append to MSA */
-      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string had pseudoknots, we can't handle this yet.");
+      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(status, errbuf, "Unexpected error converting de-knotted bp ct array to wuss notation.");
       esl_msa_AppendGR(msa, "SS", i, ss);
     }
   free(cct);
   free(ct);
   free(ss);
+  free(ss_cons_nopseudo);
   return eslOK;
  ERROR:
   return status;
@@ -2016,6 +2184,45 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
 	fprintf(fp, "  %8d  %10d  %8.6f  %8.3f  %8d\n", cpos, nseq, (float) nseq / (float) msa->nseq, ((float) total_ict[cpos] / (float) nseq), med_ict[cpos]);
     }
 
+  /* Possibly temporary: print plot of distribution of insert sizes, x value is insert size, 1..max ins length,
+   * y is fraction of inserts accounted for by sizes <= x.
+   */
+  int *isize;
+  float *ifract;
+  int imax = 0;
+  int ntotal = 0;
+  int nins = 0;
+  ESL_ALLOC(isize, sizeof(int) * (msa->alen+1));
+  ESL_ALLOC(ifract, sizeof(float) * (msa->alen+1));
+  esl_vec_ISet(isize, msa->alen+1, 0);
+  for(cpos = 0; cpos <= clen; cpos++) {
+    for(i = 0; i < msa->nseq; i++) { 
+      if(ict[cpos][i] > 0) { 
+	isize[ict[cpos][i]]++;
+	imax = ESL_MAX(imax, ict[cpos][i]);
+	nins++;
+      }
+    }
+  }
+  ntotal = esl_vec_ISum(total_ict, (msa->alen+2));
+
+  for(i = 0; i <= msa->alen; i++) {
+    ifract[i] = ((float) isize[i] * (float) i) / (float) ntotal;
+  }
+
+  float cumulative = 0.;
+  printf("\n\n");
+  printf("%d total inserted residues\n", ntotal);
+  printf("%d total inserts (avg: %.3f)\n", (nins), (float) ntotal / (float) nins);
+  for(i = 1; i <= imax; i++) {
+    if(isize[i] != 0) { 
+      cumulative += ifract[i];
+      printf("%5d %5d %.5f %.8f %.8f\n", i, isize[i], (float) isize[i] / (float) nins, ifract[i], cumulative);
+    }  
+  }
+  free(isize);
+  free(ifract);
+
   for(i = 0; i <= msa->alen; i++)
     free(ict[i]);
   free(ict);
@@ -2065,6 +2272,57 @@ static int dump_residue_info(FILE *fp, ESL_MSA *msa, char *errbuf)
     if(has_rf) fprintf(fp, "  %8d  %7d  %8d  %8.6f\n", cpos, apos, rct, (float) rct / (float) msa->nseq);
     else       fprintf(fp, "  %7d  %8d  %8.6f\n", apos, rct, (float) rct / (float) msa->nseq);
   }
+
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* dump_cres_info
+ *                   
+ * Given an MSA, for each sequence <x>, print out the number of 
+ * columns for which sequence <x> is the ONLY sequence with 
+ * a residue in the column.
+ * Originally written to pick out which sequences are solely responsible
+ * for the most columns. 
+ */
+static int dump_cres_info(FILE *fp, ESL_MSA *msa, char *errbuf)
+{
+  int status;
+  int apos;
+  int rct;
+  int i;
+  int lasti = -1;
+  int *cres;
+
+  /* contract check */
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_cres_info(), msa must be digitized.");
+
+  fprintf(fp, "# %-30s  %7s\n", "seq name", "ncols");
+  fprintf(fp, "# %-30s  %7s\n", "------------------------------", "-------");
+
+  ESL_ALLOC(cres, sizeof(int) * msa->nseq);
+  esl_vec_ISet(cres, msa->nseq, 0);
+  for(apos = 1; apos <= msa->alen; apos++) {
+    rct = 0;
+    for(i = 0; i < msa->nseq; i++) { 
+      if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) { 
+	rct++; 
+	lasti = i;
+      }
+    }
+    if(rct == 1) { /* special case, lasti will be the only i of the only seq with a residue in apos */
+      cres[lasti]++;
+    }
+  }
+  for(i = 0; i < msa->nseq; i++) { 
+    if(cres[i] > 0) { 
+      fprintf(fp, "  %-30s  %7d\n", msa->sqname[i], cres[i]);
+    }
+  }
+  free(cres);
 
   return eslOK;
 
@@ -2247,7 +2505,6 @@ static int get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order)
  ERROR:
   return status;
 }
-
 
 /* reorder_msa
  *                   
@@ -2549,8 +2806,10 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
     esl_strdealign(seq1, seq1, "-_.", &len1);
     esl_strdealign(seq2, seq2, "-_.", &len2);
 
-    if(len1 != len2)                    ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs in length %s (%" PRId64 ") and %s (%" PRId64 "), those files must contain identical raw seqs\n",
-						 i, esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
+    if(len1 != len2) { 
+      ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d (msa1: %s, msa2: %s) differs in length %s (%" PRId64 ") and %s (%" PRId64 "), those files must contain identical raw seqs\n",
+	       i, msa1->sqname[i], msa2->sqname[i], esl_opt_GetArg(go, 1), len1, esl_opt_GetString(go, "--map"), len2);
+    }
     if(strncmp(seq1, seq2, len1) != 0)  ESL_FAIL(eslEINVAL, errbuf, "--map error: unaligned seq number %d differs between %s and %s, those files must contain identical raw seqs\n", i, esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--map"));
     total_msa1_res += len1;
     
@@ -2724,6 +2983,66 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char
   return status;
 }
 
+
+/* map_sub_msas
+ *                   
+ * msa1 and msa2 contain the same named sequences, msa1 contains a superset 
+ * of the columns in msa2. Determine which of the msa1 columns the msa2
+ * columns correspond to.
+ */
+static int
+map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_mask)
+{
+  int status;
+  int  apos1, apos2;          /* counters over alignment position in msa1, msa2 respectively */
+  int i;
+  int *msa1_to_msa2_map;    /* [0..apos1..msa1->alen] msa2 alignment position that apos1 corresponds to */
+  char *mask;
+
+  /* contract check */
+  if(! (msa1->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas() msa1 (%s) not digitized.\n", esl_opt_GetArg(go, 1));
+  if(! (msa2->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas() msa2 (%s) not digitized.\n", esl_opt_GetString(go, "--submap"));
+  if(msa1->alen <= msa2->alen) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas() alignment length for msa1 (%" PRId64 "d) <= length for msa2 (%" PRId64 ")\n", msa1->alen, msa2->alen);
+  
+  ESL_ALLOC(mask, sizeof(char) * (msa1->alen+1));
+  for(apos1 = 0; apos1 < msa1->alen; apos1++) mask[apos1] = '0';
+  mask[msa1->alen] = '\0';
+
+  ESL_ALLOC(msa1_to_msa2_map, sizeof(int) * msa1->alen+1);
+  esl_vec_ISet(msa1_to_msa2_map, (msa1->alen+1), -1);
+
+  /* both alignments must have same 'named' sequences in same order */
+  if(msa1->nseq != msa2->nseq) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas() msa1 has %d sequences, msa2 has %d sequences\n", msa1->nseq, msa2->nseq);
+  for(i = 0; i < msa1->nseq; i++) { 
+    if(strcmp(msa1->sqname[i], msa2->sqname[i]) != 0) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas() msa1 seq %d is named %s, msa2 seq %d is named %s\n", i, msa1->sqname[i], i, msa2->sqname[i]);
+  }
+
+  apos1 = 1;
+  apos2 = 1;
+  while((apos2 <= msa2->alen) || (apos1 <= msa1->alen)) { /* determine which apos1 (alignment column in msa1), apos2 (alignment column in msa2) corresponds to */
+    for(i = 0; i < msa1->nseq; i++) { 
+      if(msa1->ax[i][apos1] != msa2->ax[i][apos2]) { 
+	apos1++; 
+	break; /* try next apos1 */ 
+      }
+    }	
+    if(i == msa1->nseq) { /* found a match */
+      msa1_to_msa2_map[apos1] = apos2;
+      mask[(apos1-1)] = '1';
+      apos1++;
+      apos2++;
+    }
+  }
+  if((apos1 != (msa1->alen+1)) || (apos2 != (msa2->alen+1))) ESL_FAIL(eslEINVAL, errbuf, "in map_sub_msas(), failure mapping alignments, end of loop apos1-1 = %d (msa1->alen: %" PRId64 ") and apos2-1 = %d (msa2->alen: %" PRId64 ")\n", apos1-1, msa1->alen, apos2-1, msa2->alen);
+
+  free(msa1_to_msa2_map);
+  *ret_msa1_to_msa2_mask = mask;
+  return eslOK;
+  
+ ERROR: 
+  return status;
+}
+
 /* handle_post_opts
  *                   
  * Read "#=GR POST" annotation into a 2D matrix, each sequence
@@ -2754,8 +3073,8 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int clen;
   int cpos;
   int nkept;
-  int ndigits;
   int ir1, ir2;
+  int ndigits;
 
   if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
@@ -2915,14 +3234,14 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
     if ((pinfofp = fopen(esl_opt_GetString(go, "--pinfo"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --pinfo output file %s\n", esl_opt_GetString(go, "--pinfo"));
     fprintf(pinfofp, "# Posterior stats per column:\n");
     if(msa->rf != NULL) { 
-      fprintf(pinfofp, "# %3s %5s %6s %6s %6s > %5.3f\n", "rf?", "col", "nongap", "avg", "min", pthresh);
-      fprintf(pinfofp, "# %3s %5s %6s %6s %6s %7s\n", "---", "-----", "------", "------", "------", "-------");
+      fprintf(pinfofp, "# %5s %5s %6s %6s %6s > %5.3f\n", "rfcol", "col", "nongap", "avg", "min", pthresh);
+      fprintf(pinfofp, "# %5s %5s %6s %6s %6s %7s\n", "-----", "-----", "------", "------", "------", "-------");
       for(c = 0; c < msa->alen; c++) { 
-	if(c2a_map[cpos] == (c+1)) { /* off-by-one, c2a_map is 1..clen, c is 0..alen */
-	  cpos++; 
-	  fprintf(pinfofp, "  *   "); 
-	}  
-	else fprintf(pinfofp, "      ");
+	if(c2a_map[cpos] == (c+1)) { 
+	  fprintf(pinfofp, "  %5d ", cpos);
+	  cpos++; /* off-by-one, c2a_map is 1..clen, c is 0..alen */
+	}
+	else fprintf(pinfofp, "  %5s ", "");
 	if(nongap_c[c] == 0) fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)),      0.0,      0.0, athresh_fract_c[c]);
 	else                 fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
       }
@@ -3459,19 +3778,24 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
 {
   int  status;
   int *useme;
-  int  i, n;
+  int  i, ip, n;
+  int *order_all, *order_new;
 
   ESL_MSA *new_msa;
   ESL_SQ *sq;
   sq = esl_sq_CreateDigital(msa->abc);
 
-  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  ESL_ALLOC(useme,     sizeof(int) * msa->nseq);
+  ESL_ALLOC(order_all, sizeof(int) * msa->nseq);
+  ESL_ALLOC(order_new, sizeof(int) * seqlist_n);
+  esl_vec_ISet(order_all, msa->nseq, -1);
   if(do_keep) esl_vec_ISet(useme, msa->nseq, FALSE);
   else        esl_vec_ISet(useme, msa->nseq, TRUE); 
   for(n = 0; n < seqlist_n; n++) { 
     for (i = 0; i < msa->nseq; i++) {
       if(strcmp(seqlist[n], msa->sqname[i]) == 0) { 
 	useme[i] = do_keep ? TRUE : FALSE;
+	order_all[i] = n;
 	break;
       }
       if(i == (msa->nseq-1)) ESL_FAIL(eslEINVAL, errbuf, "ERROR sequence %s does not exist in the MSA!", seqlist[n]);
@@ -3479,7 +3803,18 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
   }      
 
   if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
+  /* if do_keep, reorder to order of names in the list file */
+  if(do_keep) { 
+    ip = 0;
+    for(i = 0; i < msa->nseq; i++) { 
+      if(order_all[i] != -1) order_new[order_all[i]] = ip++;
+    }
+    if((status = reorder_msa(new_msa, order_new, errbuf)) != eslOK) return status;
+  }
+
   free(useme);
+  free(order_all);
+  free(order_new);
   *ret_new_msa = new_msa;
   return eslOK;
 
@@ -3488,3 +3823,983 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
   return eslOK; /* NEVERREACHED */
 }
 
+
+/* Function:  insert_x_pair_shared()
+ * Synopsis:  Calculate the fraction of inserts shared between of two aligned digital seqs.
+ * Incept:    EPN, Wed Jun 25 10:33:23 2008
+ *
+ * Purpose:   Returns the fraction of the total
+ *            number of inserts in both sequences that are shared.
+ *            An 'insert' is present in sequence s for consensus column 
+ *            (non-gap RF column) c if at least 1 residue exists between 
+ *            consensus column c and c+1. If sequence t also has an insert
+ *            between c and c+1, they share that insert. If that were the
+ *            only insert in either of the two sequences, then they would
+ *            share 1.0 fraction of inserts.
+ *            
+ * Args:      msa          - MSA, digitized, with RF annotation
+ *            i            - index of seq 1
+ *            j            - indes of seq 2
+ *            cfirst       - first consensus position to consider
+ *            clast        - last consensus position to consider
+ *            opt_pshared  - optRETURN: pairwise insert identity, 0<=x<=1
+ *            opt_nshared  - optRETURN: # of inserts shared
+ *            opt_nins     - optRETURN: nins
+ *
+ * Returns:   <eslOK> on success. <opt_distance>, <opt_nid>, <opt_n>
+ *            contain the answers, for any of these that were passed
+ *            non-<NULL> pointers.
+ *
+ * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
+ */
+int
+insert_x_pair_shared(ESL_MSA *msa, int i, int j, int cfirst, int clast, double *opt_pshared, int *opt_nshared, int *opt_nins)
+{
+  int     shared;               /* total shared inserts */
+  int     nins;                 /* number of inserts in either sequence */
+  int     apos;                 /* position in aligned seqs   */
+  int     cpos;
+  int     insi, insj;
+  int     seen_insert = FALSE;
+  shared = nins = 0;
+  
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) { 
+	cpos++;
+	seen_insert = FALSE;
+      }
+      else { /* not a consensus column, an insert column */
+	insi = (! esl_abc_XIsGap(msa->abc, msa->ax[i][apos]));
+	insj = (! esl_abc_XIsGap(msa->abc, msa->ax[j][apos]));
+	if(cpos >= cfirst && cpos <= clast) { 
+	  if(insi && insj   && !seen_insert)   shared++;
+	  if((insi || insj) && !seen_insert) { nins++; seen_insert = TRUE; }
+	}
+      }
+    }
+  /*if (opt_pshared  != NULL)  *opt_pshared  = ( nins==0 ? 0. : (double) shared / (double) nins );*/
+  if (opt_pshared  != NULL)  *opt_pshared  = ( nins==0 ? 1. : (double) shared / (double) nins );
+  if (opt_nshared  != NULL)  *opt_nshared  = shared;
+  if (opt_nins     != NULL)  *opt_nins     = nins;
+  return eslOK;
+}
+
+
+/* Function:  insert_x_pair_shared_length()
+ * Synopsis:  Calculate the fraction of inserts shared between of two aligned digital seqs,
+ *            weighted by the length of the inserts.
+ * Incept:    EPN, Wed Jun 25 10:33:23 2008
+ *
+ * Purpose:   Returns the weighted fraction of the total
+ *            number of inserts in both sequences that are shared.
+ *            
+ * Args:      msa          - MSA, digitized, with RF annotation
+ *            i            - index of seq 1
+ *            j            - indes of seq 2
+ *            cfirst       - first consensus position to consider
+ *            clast        - last consensus position to consider
+ *            opt_pshared  - optRETURN: pairwise insert identity, 0<=x<=1
+ *            opt_nshared  - optRETURN: weighted # inserts shared
+ *            opt_nins     - optRETURN: nins, number of columns with an insert
+ *
+ * Returns:   <eslOK> on success. <opt_distance>, <opt_nid>, <opt_n>
+ *            contain the answers, for any of these that were passed
+ *            non-<NULL> pointers.
+ *
+ * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
+ */
+int
+insert_x_pair_shared_length(ESL_MSA *msa, int i, int j, int cfirst, int clast, double *opt_pshared, double *opt_nshared, int *opt_nins)
+{
+  double  shared;               /* weighted shared inserts */
+  int     nins;                 /* number of inserts in either sequence */
+  int     apos;                 /* position in aligned seqs   */
+  int     cpos;
+  int     leni, lenj;
+  shared = nins = leni = lenj = 0;
+  
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) { 
+	cpos++;
+	if(cpos >= cfirst && cpos <= clast) { 
+	  if((leni + lenj) > 0) { 
+	    nins++;
+	    if(leni >= lenj) shared += (double) lenj / (double) leni;
+	    else             shared += (double) leni / (double) lenj;
+	  }
+	  leni = lenj = 0;
+	}
+      }
+      else { /* not a consensus column, an insert column */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) leni++;
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[j][apos])) lenj++;
+      }
+    }
+  /*if (opt_pshared  != NULL)  *opt_pshared  = ( nins==0 ? 0. : (double) shared / (double) nins );*/
+  if (opt_pshared  != NULL)  *opt_pshared  = ( nins==0 ? 1. : (double) shared / (double) nins );
+  if (opt_nshared  != NULL)  *opt_nshared  = shared;
+  if (opt_nins     != NULL)  *opt_nins     = nins;
+  return eslOK;
+}
+
+/* Function:  insert_x_diffmx()
+ * Synopsis:  NxN insert difference matrix for N aligned digital seqs.         
+ * Incept:    EPN, Wed Jun 25 10:25:01 2008
+ *
+ * Purpose:   For each pair of sequences calculates the fraction of number
+ *            of inserts that are different between the two sequences.
+ *            An 'insert' is present in sequence s for consensus column 
+ *            (non-gap RF column) c if at least 1 residue exists between 
+ *            consensus column c and c+1. If sequence t also has an insert
+ *            between c and c+1, they share that insert. If that were the
+ *            only insert in either of the two sequences, then they would
+ *            share 1.0 fractional insert id, and 1.0 - 1.0 = 0.0 fractional 
+ *            insert difference, thus the insert diff mx entry between 
+ *            seq s and t would be 0.0.
+ *
+ * Args:      go - command-line options
+ *            errbuf - for printing error messages
+ *            msa   - aligned dsq's, [0..N-1][1..alen]                  
+ *            do_length_weight - weight insert similarity by length of inserts
+ *            do_only_internal_inserts - TRUE to only count inserts that are at positions
+ *                                       internal to both seq i, j (don't count those truncated off in either seq)
+ *            ret_D - RETURN: NxN matrix of fractional differences
+ *            
+ * Returns:   <eslOK> on success, and <ret_D> contains the difference
+ *            matrix; caller is obligated to free <D> with 
+ *            <esl_dmatrix_Destroy()>. 
+ *
+ * Throws:    <eslEINVAL> if a seq has a different
+ *            length than others. On failure, <ret_D> is returned <NULL>
+ *            and state of inputs is unchanged.
+ */
+int
+insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int do_length_weight, int do_only_internal_inserts, ESL_DMATRIX **ret_D)
+{
+  int status;
+  ESL_DMATRIX *D = NULL;
+  int i,j;
+  int N = msa->nseq;
+  int nshared;
+  double nshared_len;
+  int nins;
+  int *firstA, *lastA; /* [0..i..nseq-1] first and last consensus column occupied by seq i, only used if do_only_internal_inserts == TRUE */
+  int  clen;
+  int ifirst, ilast, jfirst, jlast;
+
+  if(msa->rf == NULL)                  ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment.");
+  if(! (msa->flags & eslMSA_DIGITAL))  ESL_FAIL(eslEINVAL, errbuf, "insert_x_diffmx() MSA is not digitized.\n");
+
+  if (( D = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
+  if ((status = determine_first_last_consensus_columns(msa, errbuf, &firstA, &lastA, &clen)) != eslOK) return status;
+
+  /* TEMP  for (i = 0; i < N; i++) printf("i: %4d %4d %4d\n", i, firstA[i], lastA[i]); */
+
+  for (i = 0; i < N; i++)
+    {
+      D->mx[i][i] = 0.;
+      ifirst = do_only_internal_inserts ? firstA[i] : 0;
+      ilast  = do_only_internal_inserts ? lastA[i]  : clen;
+      for (j = i+1; j < N; j++)
+	{
+	  jfirst = do_only_internal_inserts ? firstA[j] : 0;
+	  jlast  = do_only_internal_inserts ? lastA[j]  : clen;
+	  if(do_length_weight) { 
+	    status = insert_x_pair_shared_length(msa, i, j, ESL_MAX(ifirst, jfirst), ESL_MIN(ilast, jlast), &(D->mx[i][j]), &nshared_len, &nins);
+	    if(esl_opt_GetBoolean(go, "--verbose")) printf("D %4d %4d %.3f %8.3f of %4d\n", i, j, 1. - D->mx[i][j], nshared_len, nins);
+	  }
+	  else { 
+	    status = insert_x_pair_shared(msa, i, j, ESL_MAX(ifirst, jfirst), ESL_MIN(ilast, jlast), &(D->mx[i][j]), &nshared, &nins);
+	    if(esl_opt_GetBoolean(go, "--verbose")) printf("D %4d %4d %.3f %4d of %4d\n", i, j, 1. - D->mx[i][j], nshared, nins);
+	  }
+	  D->mx[i][j] = 1. - D->mx[i][j]; /* convert from id to distance */
+	  if (status != eslOK) ESL_XEXCEPTION(status, "Pairwise insert identity calculation failed at seqs %d,%d\n", i,j);
+	  D->mx[j][i] =  D->mx[i][j];
+	}
+      if(esl_opt_GetBoolean(go, "--verbose")) printf("\n");
+    }
+  if (ret_D != NULL) *ret_D = D; else esl_dmatrix_Destroy(D);
+  return eslOK;
+
+ ERROR:
+  if (D     != NULL)  esl_dmatrix_Destroy(D);
+  if (ret_D != NULL) *ret_D = NULL;
+  return status;
+}
+
+/* Function: MSADivide()
+ * From Infernal's cmbuild.c
+ * EPN, Wed Mar 21 17:26:39 2007
+ * 
+ * Purpose:  Given an MSA and a distance matrix, divide the MSA it into 
+ *           multiple MSAs, each with a different cluster of the original 
+ *           sequences. Where clusters are defined by single linkage
+ *           clustering based on the distance matrix.
+ *
+ *           Different modes:
+ *           
+ *        1. if(do_mindiff): define clusters
+ *           such that we maximize the number of clusters while
+ *           satisfying: minimum fractional difference b/t any 
+ *           2 seqs in different clusters >= 'mindiff'. 
+ *           The contract states that mindiff > 0. in this case.
+ *           
+ *        2. if(do_nc): define clusters 
+ *           such that we have exactly 'target_nc' clusters by
+ *           searching for the 'mindiff' that gives exactly
+ *           'target_nc' clusters. (We guarantee we can do this
+ *           by rounding 'diff' fractional difference values b/t
+ *           seqs to nearest 0.001). 
+ *
+ *        3. if(do_nsize): define clusters 
+ *           such that we have 1 cluster that has at least nsize
+ *           sequences in it by searching for the 'mindiff' that 
+ *           achieves that.
+ *
+ * Args:    
+ * ESL_MSA *mmsa        - the master MSA, we cluster the seqs in this guy
+ *                        and build a new MSA from each cluster
+ * ESL_DMATRIX *D;      - the distance matrix
+ * int     do_mindiff   - TRUE (mode 1): satisfy clusters are at least mindiff different
+ * int     do_nc        - TRUE (mode 2): set mindiff such that we get exactly target_nc clusters
+ * int     do_nsize     - TRUE (mode 3): set mindiff such that we get 1 cluster with nsize seqs
+ * float   mindiff      - the minimum fractional difference allowed between 2 seqs of different clusters
+ *                        (0. indicates mode 2 or 3) 
+ * int     target_nc    - if(do_nc) number of clusters to define, else irrelevant
+ * int     target_nsize - if(do_nsize) min size of largets cluster, else irrelevant
+ * int     *ret_num_msa - number of MSAs in ret_MSA
+ * ESL_MSA  ***ret_cmsa - new MSAs, one for each cluster
+ * ESL_MSA  *ret_xsize  - max size of a cluster
+ * char     *errbuf     - buffer for error messages
+ *           
+ * Return: ret_cmsa (alloc'ed here) and ret_num_msa
+ */
+int 
+MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize, float mindiff, int target_nc,
+	  int target_nsize, int *ret_num_msa, ESL_MSA ***ret_cmsa, int *ret_xsize, char *errbuf)
+{
+  int   status;        /* Easel status code */
+  ESL_MSA **cmsa = NULL;/* the new MSAs we're creating from clusters of seqs in mmsa */
+  int   i;             /* counter over sequences */
+  int   m;             /* counter over new MSAs */
+  int   n;             /* counter over tree nodes */
+  ESL_TREE    *T = NULL;/* the tree, created by Single-Linkage Clustering */
+  double *diff = NULL; /* [0..T->N-2], diff[n]= min distance between any leaf in right and
+		        * left subtree of node n of tree T */
+  double *minld = NULL;/* [0..T->N-2], min dist from node to any taxa in left  subtree */
+  double *minrd = NULL;/* [0..T->N-2], min dist from node to any taxa in right subtree */
+  int     nc;          /* number of clusters/MSAs  */
+  int    *clust = NULL;/* [0..T->N-1], cluster number (0..nc-1) this seq is in */
+  int    *csize = NULL;/* [0..nc-1], size of each cluster */
+  int   **useme = NULL;/* [0.m.nc-1][0.i.N] TRUE to use seq i in new MSA m, FALSE not to */
+  int     best;        /* 'best' node, returned by select_node() */
+  int     xsize;       /* size of cluster under 'best' node (largest cluster) */
+
+  /* Contract check */
+  if((do_nc + do_mindiff + do_nsize) != 1) ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() exactly 1 of do_nc, do_mindiff, do_nsize must be TRUE.");
+  if( do_nc && target_nc == 0)             ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() target_nc is 0 but do_nc is TRUE!");
+  if( do_nsize && target_nsize == 0)       ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() target_nsize is 0 but do_nsize is TRUE!");
+  if( do_mindiff && mindiff <= 0.)         ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() mindiff is <= 0. but do_mindiff is TRUE!");
+  if( do_mindiff && target_nc != 0)        ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() do_mindiff is TRUE, but target_nc != 0");
+  if( do_mindiff && target_nsize != 0)     ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() do_mindiff is TRUE, but target_nsize != 0");
+  /* mmsa must be digital */
+  if(!(mmsa->flags & eslMSA_DIGITAL))                 ESL_FAIL(eslEINCOMPAT, errbuf, "MSADivide() MSA is not digital.");
+
+  if(do_nc || do_nsize) mindiff = 0.;
+
+  /* Infer tree by single linkage clustering given the distance matrix */
+  if((status = esl_tree_SingleLinkage(D, &T)) != eslOK)                        ESL_FAIL(status, errbuf, "esl_tree_SingleLinkage() error, status: %d", status);
+  if((status = esl_tree_SetTaxaParents(T)) != eslOK)                           ESL_FAIL(status, errbuf, "esl_tree_SetTaxaParentse() error, status: %d", status);
+  /*esl_tree_WriteNewick(stdout, T);*/
+  if((status = esl_tree_Validate(T, errbuf) != eslOK)) return status;
+  
+  /* determine the diff values: 
+   * (use: n_child > n, unless n's children are taxa)
+   * diff[n] is minimum distance between any taxa (leaf) in left subtree of 
+   * n to any taxa in right subtree of n. 
+   */
+  ESL_ALLOC(diff,  (sizeof(double) * (T->N - 1)));  /* one for each node */
+  ESL_ALLOC(minld, (sizeof(double) * (T->N - 1))); 
+  ESL_ALLOC(minrd, (sizeof(double) * (T->N - 1))); 
+  for (n = (T->N-2); n >= 0; n--) {
+    minld[n] = T->ld[n] + ((T->left[n]  > 0) ? (minld[T->left[n]])  : 0);
+    minrd[n] = T->rd[n] + ((T->right[n] > 0) ? (minrd[T->right[n]]) : 0);
+    diff[n]  = minld[n] + minrd[n];
+    diff[n] *= 1000.; 
+    diff[n]  = (float) ((int) diff[n]);
+    diff[n] /= 1000.; 
+    /*printf("diff[n:%d]: %f\n", n, diff[n]);*/
+  }
+  free(minld); minld = NULL;
+  free(minrd); minrd = NULL;
+  /*for (n = 0; n < (T->N-1); n++)
+    printf("diff[n:%d]: %f\n", n, diff[n]);
+    for (n = 0; n < (T->N-1); n++)
+    printf("left[n:%d]: %d right[n:%d]: %d\n", n, T->left[n], n, T->right[n]);*/
+  
+  if(do_mindiff) { /* Mode 1 */
+    /* Define clusters that are at least mindiff different
+     * from each other. */
+    if((status = select_node(T, diff, mindiff, &clust, &nc, &xsize, &best, errbuf)) != eslOK) return status;
+    printf("# Alignment split into %d clusters\n", nc);
+    printf("# Maximum identity b/t any 2 seqs in different clusters: %.2f\n", (1.-mindiff));
+    printf("# Largest cluster contains %d sequences.\n", xsize);
+    printf("#\n");
+  }
+  else if (do_nc) { /* Mode 2, do_nc == TRUE, mindiff was set to 0.0 above */
+    /* Find the minimum fractional difference (mindiff) that 
+     * gives exactly target_nc clusters, also define clusters
+     * based on that mindiff, this is all done with find_mindiff(),
+     * which does a binary search for mindiff, we're guaranteed to 
+     * find exactly target_nc clusters b/c diff values are rounded
+     * to nearest 0.001. */
+    if(target_nc > (T->N)) target_nc = T->N; /* max num clusters is num seqs */
+    if((status = find_mindiff(T, diff, FALSE, target_nc, &clust, &nc, &xsize, &best, &mindiff, errbuf)) != eslOK) return status;
+    printf("# Alignment split into %d clusters.\n", nc);
+    printf("# Maximum identity b/t any 2 seqs in different clusters: %.2f\n", (1.-mindiff));
+    printf("# Largest cluster contains %d sequences.\n", xsize);
+    printf("#\n");
+  }
+  else { /* Mode 3, do_nsize == TRUE, mindiff was set to 0.0 above */
+    /* Find the minimum fractional difference (mindiff) that 
+     * gives 1 cluster with size of at least <target_nsize> sequences
+     * based on that mindiff, this is all done with find_mindiff(),
+     * which does a binary search for mindiff.
+     */
+    if(target_nsize > (T->N)) target_nsize = T->N; /* max num clusters is num seqs */
+    if((status = find_mindiff(T, diff, TRUE, target_nsize, &clust, &nc, &xsize, &best, &mindiff, errbuf)) != eslOK) return status;
+    printf("# Alignment split into %d clusters.\n", nc);
+    printf("# Largets cluster contains %d sequences.\n", xsize);
+    printf("# Maximum identity b/t any 2 seqs in different clusters: %.2f\n", (1.-mindiff));
+    printf("#\n");
+  }
+  /* Determine the size of each cluster */
+  ESL_ALLOC(csize, (sizeof(int) * (nc)));
+  esl_vec_ISet(csize, nc, 0);
+  for(i = 0; i < mmsa->nseq; i++)
+    csize[clust[i]]++;
+  
+  /* Create one new MSA for each cluster,
+   * if(do_orig): keep the original MSA as cmsa[nc] */
+  ESL_ALLOC(cmsa, (sizeof(ESL_MSA *) * (nc)));
+  for(m = 0; m < nc; m++) cmsa[m] = NULL;
+
+  ESL_ALLOC(useme, (sizeof(int *) * (nc+1)));
+  for(m = 0; m <= nc; m++) {
+    ESL_ALLOC(useme[m], (sizeof(int)) * mmsa->nseq);
+    if(m < nc) esl_vec_ISet(useme[m], mmsa->nseq, FALSE);
+    else       esl_vec_ISet(useme[m], mmsa->nseq, TRUE); /* keep all seqs in cmsa[nc]*/
+  }
+  
+  for(i = 0; i < mmsa->nseq; i++)
+    if(clust[i] != -1) 
+      useme[clust[i]][i] = TRUE;
+  printf("#   idx    nseq\n");
+  printf("#  ----  ------\n");
+  for(m = 0; m < nc; m++) {
+    if((status = esl_msa_SequenceSubset(mmsa, useme[m], &(cmsa[m]))) != eslOK) ESL_FAIL(status, errbuf, "MSADivide(), esl_msa_SequenceSubset error, status: %d.", status);
+    printf("   %4d  %6d\n", m+1, cmsa[m]->nseq);
+    free(useme[m]);
+  }
+  printf("\n");
+
+  free(useme[nc]);
+  free(useme);
+  
+  *ret_num_msa = nc;
+  *ret_cmsa = cmsa;
+  *ret_xsize = xsize;
+  
+  esl_tree_Destroy(T);
+  free(diff);
+  diff = NULL;
+
+  if(clust != NULL)  free(clust);
+  if(csize != NULL)  free(csize);
+  return eslOK;
+  
+ ERROR: 
+  if(diff  != NULL) free(diff);
+  if(minld != NULL) free(minld);
+  if(minrd != NULL) free(minrd);
+  if(clust != NULL) free(clust);
+  if(csize != NULL) free(csize);
+  if(cmsa  != NULL) {
+    for(m = 0; m < nc; m++)
+      if(cmsa[m] != NULL) esl_msa_Destroy(cmsa[m]);
+    free(cmsa);
+  }
+  return status;
+}
+
+/* Function: select_node()
+ * EPN, Fri Mar 23 08:48:37 2007 
+ * Adapted from SRE's select_node() in maketestset.c originally written
+ * for the PROFMARK HMMER benchmark.
+ * 
+ * 
+ * Purpose:  Define clusters of the taxa (seqs) in the tree such
+ *           that minimum disparity b/t any 2 seqs in different 
+ *           clusters is greater than <mindiff> and the number of
+ *           clusters is maximized. <ret_best> is the index of the node
+ *           of the tree under which the largest cluster belongs.
+ *           <ret_nc> is the number of clusters after clustering, 
+ *           <ret_clust> is an array [0..T->N-1] specifying which
+ *           cluster each taxa belongs to.
+ *           
+ *           For high disparities, this cluster may contain all
+ *           the sequences, and we'll return the root node (0).
+ *
+ * Args:    
+ * ESL_TREE *T        - the tree
+ * double   *diff     - [0..T->N-2]: for each node of the tree, the minimum
+ *                      distance (sum of branch lengths) from any taxa (leaf)
+ *                      in left subtree to any taxa in right subtree.
+ * double    mindiff  - (see description above)
+ * int     **ret_clust- [0..T->N-1] cluster number this seq is in, alloc'ed, filled here
+ * int      *ret_nc   - number of clusters
+ * int      *ret_xsize- size of largest cluster
+ * int      *ret_best - RETURN: index of node of tree under which largest cluster belongs (see Purpose).
+ * char     *errbuf   - buffer for error messages
+ *
+ * Returns: node index (as explained in Purpose)
+ */
+static int
+select_node(ESL_TREE *T, double *diff, double mindiff, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, char *errbuf)
+{
+  int status;     /* Easel status code */
+  ESL_STACK *ns1; /* stack for traversing tree */
+  ESL_STACK *ns2; /* another stack for traversing tree */
+  int c;	  /* counter for clusters */
+  int best;       /* index of current best node */
+  int maxsize;    /* size of cluster for best node */
+  int n, np;      /* counters over tree nodes */
+  int *clust;     /* [1..T->N-1] cluster number this seq is in */
+
+  /*printf("in selec_node mindiff: %f T->N: %d\n", mindiff, T->N);*/
+  /* set tree cladesizes if not already set */
+  if(T->cladesize == NULL) 
+    if((status = esl_tree_SetCladesizes(T)) != eslOK) ESL_FAIL(status, errbuf, "select_node(), esl_tree_SetCladeSizes error, status: %d.", status);
+
+  ESL_ALLOC(clust, (sizeof(int) * T->N));
+  esl_vec_ISet(clust, T->N, 0);
+
+  if((ns1 = esl_stack_ICreate()) == NULL) ESL_FAIL(status, errbuf, "select_node(), failed to create a stack, probably out of memory, status: %d.", status);
+  if((ns2 = esl_stack_ICreate()) == NULL) ESL_FAIL(status, errbuf, "select_node(), failed to create a stack, probably out of memory, status: %d.", status);
+
+  /* push root on stack to start */
+  if((status = esl_stack_IPush(ns1, 0)) != eslOK) ESL_FAIL(status, errbuf, "select_node(), failed to push onto a stack, probably out of memory, status: %d.", status);	
+  maxsize  = 0;
+  best     = 0;
+  c        = 0;
+  while (esl_stack_IPop(ns1, &n) != eslEOD) {
+    if ((n == 0 || diff[T->parent[n]] > mindiff) &&
+	diff[n] <= mindiff) { /* we're at a cluster */
+      if (T->cladesize[n] > maxsize) {
+	maxsize = T->cladesize[n];
+	best = n;
+      }
+      /* determine all taxa in the clade rooted at n*/
+      esl_stack_IPush(ns2, n);	
+      while (esl_stack_IPop(ns2, &np) != eslEOD) {
+	/*printf("np: %d T->left[np]: %d\n", np, T->left[np]);*/
+	if(T->left[np]  <= 0) clust[(-1*T->left[np])]  = c;
+	else { if((status = esl_stack_IPush(ns2, T->left[np])) != eslOK) ESL_FAIL(status, errbuf, "select_node(), failed to push onto a stack, probably out of memory, status: %d.", status); }
+	if(T->right[np] <= 0) clust[(-1*T->right[np])]  = c;
+	else { if((status = esl_stack_IPush(ns2, T->right[np])) != eslOK) ESL_FAIL(status, errbuf, "select_node(), failed to push onto a stack, probably out of memory, status: %d.", status); }
+      }
+      c++;
+    }
+    else {		/* we're not a cluster, keep traversing */
+      /*printf("n: %d T->left[n]: %d\n", n, T->left[n]);*/
+      if(T->left[n]  <= 0) clust[(-1*T->left[n])]  = c++; /* single seq with its own cluster */
+      else { if((status = esl_stack_IPush(ns1, T->left[n])) != eslOK) ESL_FAIL(status, errbuf, "select_node(), failed to push onto a stack, probably out of memory, status: %d.", status); }
+      if(T->right[n] <= 0) clust[(-1*T->right[n])] = c++; /* single seq with its own cluster */
+      else { if((status = esl_stack_IPush(ns1, T->right[n])) != eslOK) ESL_FAIL(status, errbuf, "select_node(), failed to push onto a stack, probably out of memory, status: %d.", status); }
+    }
+  }
+  esl_stack_Destroy(ns1);
+  esl_stack_Destroy(ns2);
+  *ret_nc = c;
+  *ret_clust = clust;
+  *ret_xsize = maxsize;
+  *ret_best  = best;
+  /*printf("nc: %d(%d) best: %d maxsize: %d nc: %d mindiff: %.3f\n\n", *ret_nc, c, best, maxsize, c, mindiff);
+    for(n = 0; n < T->N; n++) printf("clust[%d]: %d\n", n, clust[n]);*/
+  return eslOK;
+
+ ERROR: 
+  if(clust != NULL) free(clust);
+  ESL_FAIL(status, errbuf, "select_node(), memory allocation error, status: %d.", status); 
+}
+
+
+/* Function: find_mindiff()
+ * EPN, Fri Mar 23 18:59:42 2007
+ * 
+ * Purpose:  Given a tree resulting from single linkage clustering,
+ *           find the min fractional difference (mindiff) that when used to
+ *           define clusters (such that no seq in cluster A is less
+ *           than mindiff different than any seq in cluster B), 
+ *           gives either (A) (if(do_nc)) number of clusters >= target or
+ *           (B) (if(do_nsize)) >= 1 cluster with >= target sequences
+ *
+ * Args:    
+ * ESL_TREE *T        - the tree
+ * double   *diff     - [0..T->N-2]: for each node of the tree, the minimum
+ *                      distance (sum of branch lengths) from any taxa (leaf)
+ *                      in left subtree to any taxa in right subtree.
+ * int      do_nsize  - TRUE  to find mindiff that gives >= 1 cluster with <target> seqs
+ *                      FALSE to find mindiff that gives <target> clusters
+ * int      target    - number of clusters (! if(do_nsize)) we want, or min size of
+ *                      biggest cluster (if(do_nsize))
+ * int     **ret_clust- [0..T->N-1] cluster number this seq is in, alloc'ed, filled here
+ * int      *ret_nc   - number of clusters
+ * int      *ret_xsize- size of largest cluster
+ * int      *ret_best - cluster idx of largest cluster
+ * int      *ret_mindiff - mindiff that achieves target
+ * char     *errbuf   - buffer for error messages
+ *
+ * Returns: fractional difference (as explained in Purpose)
+ */
+static float
+find_mindiff(ESL_TREE *T, double *diff, int do_nsize, int target, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, float *ret_mindiff, char *errbuf)
+{
+  int   status;
+  float high_diff  = 1.0;
+  float low_diff   = 0.0;
+  int   high       = 0;
+  int   low        = 0;
+  float mindiff    = 0.5;
+  int   curr_nc    = -1;
+  int   curr_xsize = -1;
+  int   curr       = -1;
+  int   curr_best  = -1;
+  int   keep_going = TRUE;
+  float thresh     = 0.001;
+  int  *clust      = NULL;
+
+  /* Contract check */
+  if(target > T->N) ESL_FAIL(eslEINCOMPAT, errbuf, "find_mindiff(), desired target is greater than number of seqs in the tree");
+
+  while(keep_going) {
+    if(clust != NULL) free(clust);
+    if((status = select_node(T, diff, mindiff, &clust, &curr_nc, &curr_xsize, &curr_best, errbuf)) != eslOK) return status;
+    curr = do_nsize ? curr_xsize : curr_nc;
+    if(((!do_nsize) && (curr < target)) || ((do_nsize) && (curr >= target))) {
+      high_diff  = mindiff;
+      high       = curr;
+      /*printf("LOWER   curr: %d mindiff: %f low: %f (%d) high: %f (%d)\n", curr, mindiff, low_diff, low, high_diff, high);*/
+      mindiff   -= (mindiff - low_diff) / 2.;
+      if((fabs(high_diff-0.) < thresh) && (fabs(low-0.) < thresh))  keep_going = FALSE; 
+      /* stop, high and low have converged at 0. */
+    }
+    else {/* if(do_nsize) curr_nc > target_nc, else if(!do_nsize) curr_nc >= target_nc */
+      low_diff   = mindiff;
+      low        = curr;
+      /*printf("GREATER curr: %d mindiff: %f low: %f (%d) high: %f (%d)\n", curr, mindiff, low_diff, low, high_diff, high);*/
+      mindiff   += (high_diff - mindiff) / 2.;
+      if(fabs(high_diff-low_diff) < thresh)  keep_going = FALSE; /* stop, high and low have converged */
+    }
+  }
+  if(do_nsize) { 
+    if(curr < target) { /* we couldn't reach our target in search due to precision */
+      if(high >= target) { /* we could reach it at high */
+	mindiff = high_diff;
+	if((status = select_node(T, diff, mindiff, &clust, &curr_nc, &curr_xsize, &curr_best, errbuf)) != eslOK) return status;
+      }
+      else { /* we couldn't reach our threshold, this shouldn't happen */
+	ESL_FAIL(eslEINVAL, errbuf,"Error in find_mindiff(), even with mindiff of %.5f can't produce cluster of size: %d\n", mindiff, target);
+      }
+    }
+  }
+  else { /* ! do_nsize, trying to achieve <target> clusters */
+    /* it's possible we can't reach our target, if so, set mindiff as minimum value that gives 
+     * less than target clusters. */
+    if(curr != target) {
+      /*printf("targ: %d curr: %d low: %d (%f) high: %d (%f)\n", target, curr, low, low_diff, high, high_diff);*/
+      if(high < target) {
+	mindiff = high;
+	if((status = select_node(T, diff, mindiff, &clust, &curr_nc, &curr_xsize, &curr_best, errbuf)) != eslOK) return status;
+      }
+      else
+	while(high > target) {
+	  high += thresh;
+	  if(high > 1.0)  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "find_mindiff(), mindiff has risen above 1.0");
+	  mindiff = high;
+	  if((status = select_node(T, diff, mindiff, &clust, &curr_nc, &curr_xsize, &curr_best, errbuf)) != eslOK) return status;
+	  high = curr_nc;
+	}
+    }
+  }
+  /*printf("FINAL mindiff: %f\n", mindiff);  */
+  *ret_nc      = curr_nc;
+  *ret_clust   = clust;
+  *ret_xsize   = curr_xsize;
+  *ret_best    = curr_best;
+  *ret_mindiff = mindiff;
+
+  return eslOK;
+}
+
+
+/* determine_first_last_consensus_columns
+ *                   
+ * Given an MSA, determine the first and last consensus columns
+ * occupied by each sequence
+ */
+static int determine_first_last_consensus_columns(ESL_MSA *msa, char *errbuf, int **ret_fA, int **ret_lA, int *ret_clen)
+{
+  int status;
+  int clen = 0;
+  int *fA = NULL;
+  int *lA = NULL;
+  int cpos = 0;
+  int apos = 0;
+  int i;
+
+  /* contract check */
+  if(msa->rf == NULL) { status = eslEINVAL; goto ERROR; }
+
+  /* determine the first and last occupied consensus position in each sequence */
+  ESL_ALLOC(fA, sizeof(int) * msa->nseq);
+  ESL_ALLOC(lA, sizeof(int) * msa->nseq);
+
+  /* count consensus columns */
+  for(apos = 1; apos <= msa->alen; apos++) if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) clen++;
+
+  esl_vec_ISet(lA, msa->nseq, 0);
+  esl_vec_ISet(fA, msa->nseq, clen);
+  /* this could be more efficient */
+  for(i = 0; i < msa->nseq; i++) { 
+    cpos = 0;
+    for(apos = 0; apos < msa->alen; apos++) {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* apos is a consensus position */
+	cpos++;
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][(apos+1)])) { /* cpos for seq i is not a gap */
+	  fA[i] = ESL_MIN(fA[i], cpos);
+	  lA[i] = ESL_MAX(lA[i], cpos);
+	}
+      }
+    }
+  }
+  *ret_fA   = fA;
+  *ret_lA   = lA;
+  *ret_clen = clen;
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "determine_first_last_consensus_columns(): memory allocation error.");
+  return status; /* NEVERREACHED */
+}
+
+
+/* Function:  dst_nongap_XPairId()
+ * Synopsis:  Pairwise identity of two aligned digital seqs.
+ *            Differs from esl_dst_XPairId() in that denominator is 
+ *            seq identity is number of columns that are non-gap in both 
+ *            sequences (instead of length of the shorter of the two seqs).
+ *            
+ * Incept:    EPN, Fri Jun 27 15:07:44 2008
+ *
+ * Args:      abc          - digital alphabet in use
+ *            ax1          - aligned digital seq 1
+ *            ax2          - aligned digital seq 2
+ *            opt_pid      - optRETURN: pairwise identity, 0<=x<=1
+ *            opt_nid      - optRETURN: # of identities
+ *            opt_n        - optRETURN: denominator MIN(len1,len2)
+ *
+ * Returns:   <eslOK> on success. <opt_distance>, <opt_nid>, <opt_n>
+ *            contain the answers, for any of these that were passed
+ *            non-<NULL> pointers.
+ *
+ * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
+ */
+int
+dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, 
+		   double *opt_distance, int *opt_nid, int *opt_n)
+{
+  int     status;
+  int     idents;               /* total identical positions  */
+  int     len;                  /* number of nongap colns in both seqs */
+  int     i;                    /* position in aligned seqs   */
+
+  idents = len = 0;
+  for (i = 1; ax1[i] != eslDSQ_SENTINEL && ax2[i] != eslDSQ_SENTINEL; i++) 
+    {
+      if (esl_abc_XIsCanonical(abc, ax1[i]) && esl_abc_XIsCanonical(abc, ax2[i])) { 
+	len++;
+	if(ax1[i] == ax2[i]) idents++;
+      }
+    }
+
+  if (ax1[i] != eslDSQ_SENTINEL || ax2[i] != eslDSQ_SENTINEL) 
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
+
+  if (opt_distance != NULL)  *opt_distance = ( len==0 ? 0. : (double) idents / (double) len );
+  if (opt_nid      != NULL)  *opt_nid      = idents;
+  if (opt_n        != NULL)  *opt_n        = len;
+  return eslOK;
+
+ ERROR:
+  if (opt_distance != NULL)  *opt_distance = 0.;
+  if (opt_nid      != NULL)  *opt_nid      = 0;
+  if (opt_n        != NULL)  *opt_n        = 0;
+  return status;
+}
+
+
+/* Function:  dst_nongap_XDiffMx()
+ * Synopsis:  NxN difference matrix for N aligned digital seqs.         
+ *            Differs from esl_dst_XDiffMx() in that denominator for
+ *            seq identity is number of columns that are non-gap in both 
+ *            sequences (instead of length of the shorter of the two seqs).
+ *            
+ * Incept:    EPN, Fri Jun 27 15:10:53 2008
+ *
+ * Args:      abc   - digital alphabet in use
+ *            ax    - aligned dsq's, [0..N-1][1..alen]                  
+ *            N     - number of aligned sequences
+ *            ret_D - RETURN: NxN matrix of fractional differences
+ *            
+ * Returns:   <eslOK> on success, and <ret_D> contains the difference
+ *            matrix; caller is obligated to free <D> with 
+ *            <esl_dmatrix_Destroy()>. 
+ *
+ * Throws:    <eslEINVAL> if a seq has a different
+ *            length than others. On failure, <ret_D> is returned <NULL>
+ *            and state of inputs is unchanged.
+ */
+int
+dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
+{
+  int status;
+  ESL_DMATRIX *D = NULL;
+  int i,j;
+
+  if (( D = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
+  
+  for (i = 0; i < N; i++)
+    {
+      D->mx[i][i] = 0.;
+      for (j = i+1; j < N; j++)
+	{
+	  status = dst_nongap_XPairId(abc, ax[i], ax[j], &(D->mx[i][j]), NULL, NULL);
+	  if (status != eslOK) ESL_XEXCEPTION(status, "Pairwise identity calculation failed at seqs %d,%d\n", i,j);
+	  D->mx[i][j] =  1.0 - D->mx[i][j];
+	  D->mx[j][i] =  D->mx[i][j];
+	}
+    }
+  if (ret_D != NULL) *ret_D = D; else esl_dmatrix_Destroy(D);
+  return eslOK;
+
+ ERROR:
+  if (D     != NULL)  esl_dmatrix_Destroy(D);
+  if (ret_D != NULL) *ret_D = NULL;
+  return status;
+}
+
+
+
+/* find_seqs_with_given_insert
+ *                   
+ * Given an MSA with RF annotation, determine which sequences have inserts after column <target>
+ * of at least size <min> and at most size <max>. Fill an array <useme> of size msa->nseq with 
+ * TRUE seq i has the insert, FALSE if it doesn't.
+ */
+static int find_seqs_with_given_insert(ESL_MSA *msa, char *errbuf, int target, int min, int max, int **ret_useme)
+{
+  int status;
+  int apos, cpos, clen;
+  int **ict;
+  int *useme;
+  int i;
+
+  /* contract check */
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in find_seqs_with_given_insert(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --seq-ins.");
+
+  ESL_ALLOC(useme,sizeof(int) * (msa->nseq));
+  ESL_ALLOC(ict,  sizeof(int *) * (msa->alen+2));
+  for(i = 0; i <= msa->alen; i++)
+    {
+      ESL_ALLOC(ict[i],  sizeof(int) * (msa->nseq));
+      esl_vec_ISet(ict[i], (msa->nseq), 0);
+    }
+
+  cpos = 0;
+  for(apos = 1; apos <= msa->alen; apos++)
+    {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) 
+	cpos++;
+      else 
+	for(i = 0; i < msa->nseq; i++)
+	  if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) { 
+	    ict[cpos][i]++;
+	  }	  
+    }
+  clen = cpos;
+  if(target > clen) ESL_XFAIL(eslEINVAL, errbuf, "--seq-ins <n> enabled with <n> = %d, but non-gap RF length of alignment is only %d columns.", target, clen);
+
+  for(i = 0; i < msa->nseq; i++) { 
+    useme[i] = ((ict[target][i] >= min) && (ict[target][i] <= max)) ?  TRUE : FALSE;
+  }
+
+  *ret_useme = useme;
+  for(i = 0; i <= msa->alen; i++)
+    free(ict[i]);
+  free(ict);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* minorize_msa()
+ *                   
+ * Given an MSA with #=GS <seq name> <<tag>> <minor set name>, make a new msa that
+ * includes all seqs that have the same <minor set name> #=GS annotation for the
+ * same <<tag>> (string value of <tag> is set at command line and passed into 
+ * this function)
+ * Also set the #=GC RF markup for each minor subset as either: 
+ * (A) the #=GF <x> <y> with <x> equal to <minor set name> and <y>
+ *     as the RF line.
+ *
+ * or, if no such #=GF markup exists define the consensus with the 
+ * gap fraction rule, any column with <= <x> (from --gapthresh <x>)
+ * gaps becomes an 'x' in the RF seq, all other columns are '.'.
+ */
+static int
+minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag)
+{
+  int    status;
+  int   *useme = NULL;
+  int    nalloc = 1;
+  int    nmin = 0;
+  int   *which_minor = NULL; /* [0..i..msa->nseq-1] which minor subset each sequence belongs to, -1 if none */
+  char **minorA = NULL;      /* [0..m..nmin-1]      ptr to minor subset name in #=GS markup, only a ptr, don't free the char strings */
+  int    f, g, i, m, mt;
+  int    gt = -1;
+  void  *tmp;
+  char  *rf;
+  int    apos;
+  int    ip;
+  int   *order;
+
+  /* contract check */
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "-M requires #=GC RF markup in alignment.");
+  if(msa->gs == NULL) ESL_FAIL(eslEINVAL, errbuf, "-M requires #=GS markup in alignment denoting minor subsets.");
+
+  /* determine which tag matches <tag> */
+  for(g = 0; g < msa->ngs; g++) { 
+    if(strcmp(msa->gs_tag[g], tag) == 0) { 
+      gt = g;
+      break;
+    }
+  }
+  if(gt == -1) ESL_FAIL(eslEINVAL, errbuf, "No #=GS markup has tag: %s\n", tag);
+
+  /* determine which minor set each seq belongs to, reallocate minorA as we go and see new minor subsets */
+  ESL_ALLOC(which_minor, sizeof(int) * msa->nseq);
+  ESL_ALLOC(minorA, sizeof(char *) * nalloc);
+  esl_vec_ISet(which_minor, msa->nseq, -1);
+
+  for(i = 0; i < msa->nseq; i++) { 
+    if(msa->gs[gt][i] != NULL) { 
+      mt = -1;
+      for(m = 0; m < nmin; m++) { 
+	if(strcmp(minorA[m], msa->gs[gt][i]) == 0) { 
+	  mt = m;
+	  break;
+	}
+      }
+      if(mt == -1) { 
+	if((nmin+1) == nalloc) { 
+	  nalloc++;
+	  ESL_RALLOC(minorA, tmp, sizeof(char *) * nalloc);
+	}
+	minorA[nmin] = msa->gs[gt][i]; 
+	mt = nmin++;
+      }
+      which_minor[i] = mt;
+    }
+  }
+  for(i = 0; i < msa->nseq; i++) if(which_minor[i] == -1) ESL_FAIL(eslEINVAL, errbuf, "-M requires ALL sequences have #=GS markup with user supplied tag %s. Seq %d (%s) has none.\n", esl_opt_GetString(go, "-M"), i, msa->sqname[i]);
+
+  /* Now make the minor alignments by keeping only the relevant subset of seqs.
+   * We do not call esl_msa_MinimGaps() b/c we want the alignment length to be 
+   * identical b/t all minor msas, and the RF also so cmalign knows how to 
+   * map the minor alignments to the major alignment */
+  ESL_MSA **minor_msaA;
+  ESL_ALLOC(minor_msaA, sizeof(ESL_MSA *) * nmin);
+  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  for(m = 0; m < nmin; m++) { 
+    for(i = 0; i < msa->nseq; i++) useme[i] = (which_minor[i] == m)  ? TRUE : FALSE;
+    if((status = esl_msa_SequenceSubset(msa, useme, &(minor_msaA[m]))) != eslOK) ESL_FAIL(status, errbuf, "Error taking subset for minor subset %d with name: %s\n", m, minorA[m]);
+
+    /* set name */
+    esl_msa_SetName(minor_msaA[m], minorA[m]);
+
+    /* unless --M-rf free RF annotation and set new annotation (--M-rf tells us to keep the initial RF annotation for all minor alignments */
+    if(! esl_opt_GetBoolean(go, "--M-rf")) { 
+      if(minor_msaA[m]->rf == NULL) ESL_FAIL(eslEINCOMPAT, errbuf, "Error creating minor alignment %d, RF is NULL.", m);
+      free(minor_msaA[m]->rf);
+      minor_msaA[m]->rf = NULL;
+      /* Check if we have #=GF markup denoting the RF line for each minor subset */
+      rf = NULL;
+      for(f = 0; f < msa->ngf; f++)  
+	if(strcmp(minorA[m], msa->gf_tag[f]) == 0) { rf = msa->gf[f]; break; }
+      if(rf != NULL) { /* ensure the RF annotation is the length of the alignment */
+	if(strlen(rf) != msa->alen) ESL_FAIL(eslEINCOMPAT, errbuf, "'#=GF %s <RF sequence>' markup is of length %d but it must be equal to aln length (%" PRId64 ").", msa->gf_tag[f], strlen(rf), msa->alen);
+	if((status = esl_strdup(rf, msa->alen, &(minor_msaA[m]->rf))) != eslOK) ESL_FAIL(status, errbuf, "Error duplicating RF for minor alignment %d\n", m);
+	/* make sure minor_msaA[m]->rf does not have any non-gap columns where msa->rf has a gap (cmalign -M demands all minor consensus columns are also major consensus columns) */
+	for (apos = 0; apos < minor_msaA[m]->alen; apos++) { 
+	  if (! (esl_abc_CIsGap(minor_msaA[m]->abc, minor_msaA[m]->rf[apos]))) { 
+	    if (esl_abc_CIsGap(msa->abc, msa->rf[apos])) ESL_FAIL(eslEINCOMPAT, errbuf, "'#=GF %s <RF sequence>' markup has a non-gap (%c char) at aln position %d, but the major alignment has a gap there! cmalign will choke on this.\n", msa->gf_tag[f], minor_msaA[m]->rf[(apos-1)], apos);
+	  }
+	}
+      }
+      else { /* no #=GF markup denoting RF line for alignment m existed in the input file, define it based on gaps */
+	if((status = write_rf_gapthresh(go, errbuf, minor_msaA[m], esl_opt_GetReal(go, "--gapthresh"))) != eslOK) return status;
+	/* careful, remember with cmalign -M, the minor alignments can only have training alignment column c defined as a consensus column 
+	 * if it is also consensus in the major alignment, so we have to remove any minor_msaA[m]->rf 'x' columns that are gaps in <msa>
+	 */
+	for (apos = 0; apos < minor_msaA[m]->alen; apos++)
+	  if (esl_abc_CIsGap(msa->abc, msa->rf[apos])) minor_msaA[m]->rf[apos] = '.';
+      }
+    }
+  }
+
+  /* Print out the alignments, first major, then minors */
+  /* first, reorder major alignment so that it contains the minor alignment seqs in order */
+  ip = 0;
+  ESL_ALLOC(order, sizeof(int) * msa->nseq);
+  for(m = 0; m < nmin; m++) { 
+    for(i = 0; i < msa->nseq; i++) {
+      if(which_minor[i] == m) order[i] = ip++;
+    }
+  }
+  if((status = reorder_msa(msa, order, errbuf)) != eslOK) return status;
+
+  esl_msa_Write(fp, msa, (esl_opt_GetBoolean(go, "-1")) ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM);
+  for(m = 0; m < nmin; m++) { 
+    esl_msa_Write(fp, minor_msaA[m], (esl_opt_GetBoolean(go, "-1")) ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM);
+    esl_msa_Destroy(minor_msaA[m]);
+  }
+  free(minor_msaA);
+  
+  free(order);
+  free(useme);
+  free(which_minor);
+  free(minorA);
+  return eslOK;
+
+ ERROR:
+  if(which_minor != NULL) free(which_minor);
+  if(minorA != NULL)      free(minorA);
+  if(useme != NULL)       free(useme);
+  return eslEMEM;
+}
