@@ -156,7 +156,6 @@ main(int argc, char **argv)
       char           *s;		/* ptr to line, for esl_strtok()              */
       char           *tok;		/* ptr to a data field on the line            */
       int             i;		/* counter over fields                        */
-      int             toklen;	/* string length of a field                   */
 
       buf  = NULL;
       nbuf = 0;
@@ -165,7 +164,7 @@ main(int argc, char **argv)
 	  s = buf;
 	  for (i = 0; i < which_field; i++)
 	    {
-	      esl_strtok(&s, " \t\n", &tok, &toklen);
+	      esl_strtok(&s, " \t\n", &tok);
 	      if (tok == NULL) continue;
 	    }
 	  x = atof(tok);

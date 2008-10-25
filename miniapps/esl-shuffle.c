@@ -255,7 +255,7 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   int         status;
   
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_FormatCode(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 

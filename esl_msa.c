@@ -105,11 +105,13 @@ create_mostly(int nseq, int64_t alen)
   msa->au      = NULL;
   msa->ss_cons = NULL;
   msa->sa_cons = NULL;
+  msa->pp_cons = NULL;
   msa->rf      = NULL;
   msa->sqacc   = NULL;
   msa->sqdesc  = NULL;
   msa->ss      = NULL;
   msa->sa      = NULL;
+  msa->pp      = NULL;
   for (i = 0; i < eslMSA_NCUTS; i++) {
     msa->cutoff[i] = 0.;
     msa->cutset[i] = FALSE;
@@ -118,6 +120,7 @@ create_mostly(int nseq, int64_t alen)
   msa->sqlen   = NULL;
   msa->sslen   = NULL;
   msa->salen   = NULL;
+  msa->pplen   = NULL;
   msa->lastidx = 0;
 
   /* Unparsed markup, including comments and Stockholm tags.
@@ -350,9 +353,8 @@ set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
   if (msa->ss == NULL) 
     {
       ESL_ALLOC(msa->ss, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->ss[i] = NULL;
-  }
+      for (i = 0; i < msa->sqalloc; i++) msa->ss[i] = NULL;
+    }
   if (msa->ss[seqidx] != NULL) free(msa->ss[seqidx]);
   return (esl_strdup(ss, -1, &(msa->ss[seqidx])));
 
@@ -362,7 +364,7 @@ set_seq_ss(ESL_MSA *msa, int seqidx, const char *ss)
 
 /* set_seq_sa() 
  *
- * Set the sruface accessibility annotation for sequence number
+ * Set the surface accessibility annotation for sequence number
  * <seqidx> in an alignment <msa> by copying the string <sa>.
  *
  * Returns:  <eslOK> on success.
@@ -378,15 +380,43 @@ set_seq_sa(ESL_MSA *msa, int seqidx, const char *sa)
   if (msa->sa == NULL) 
     {
       ESL_ALLOC(msa->sa, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->sa[i] = NULL;
-  }
+      for (i = 0; i < msa->sqalloc; i++) msa->sa[i] = NULL;
+    }
   if (msa->sa[seqidx] != NULL) free(msa->sa[seqidx]);
   return (esl_strdup(sa, -1, &(msa->sa[seqidx])));
 
  ERROR:
   return status;
 }
+
+/* set_seq_pp() 
+ *
+ * Set the posterior probability annotation for sequence number
+ * <seqidx> in an alignment <msa> by copying the string <pp>.
+ *
+ * Returns:  <eslOK> on success.
+ * 
+ * Throws:   <eslEMEM> on allocation failure.
+ */
+static int
+set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
+{
+  int status;
+  int i;
+
+  if (msa->pp == NULL) 
+    {
+      ESL_ALLOC(msa->pp, sizeof(char *) * msa->sqalloc);
+      for (i = 0; i < msa->sqalloc; i++) msa->pp[i] = NULL;
+    }
+  if (msa->pp[seqidx] != NULL) free(msa->pp[seqidx]);
+  return (esl_strdup(pp, -1, &(msa->pp[seqidx])));
+
+ ERROR:
+  return status;
+}
+
+
 
 
 /* verify_parse()
@@ -459,6 +489,11 @@ verify_parse(ESL_MSA *msa, char *errbuf)
       if (msa->sa != NULL && msa->sa[idx] != NULL && msa->salen[idx] != msa->alen) 
 	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GR SA for %s: length %" PRId64 ", expected %" PRId64,
 		 msa->name != NULL ? msa->name : "", msa->sqname[idx], msa->salen[idx], msa->alen);
+
+				/* if PP is present, must have length right */
+      if (msa->pp != NULL && msa->pp[idx] != NULL && msa->pplen[idx] != msa->alen) 
+	ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GR PP for %s: length %" PRId64 ", expected %" PRId64,
+		 msa->name != NULL ? msa->name : "", msa->sqname[idx], msa->pplen[idx], msa->alen);
     }
 
   /* if cons SS is present, must have length right */
@@ -470,6 +505,11 @@ verify_parse(ESL_MSA *msa, char *errbuf)
   if (msa->sa_cons != NULL && strlen(msa->sa_cons) != msa->alen) 
     ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GC SA_cons markup: len %zd, expected %" PRId64,
 	     msa->name != NULL ? msa->name : "",  strlen(msa->sa_cons), msa->alen);
+
+  /* if cons PP is present, must have length right */
+  if (msa->pp_cons != NULL && strlen(msa->pp_cons) != msa->alen) 
+    ESL_FAIL(eslEFORMAT, errbuf, "MSA %s parse error: GC PP_cons markup: len %zd, expected %" PRId64,
+	     msa->name != NULL ? msa->name : "",  strlen(msa->pp_cons), msa->alen);
 
   /* if RF is present, must have length right */
   if (msa->rf != NULL && strlen(msa->rf) != msa->alen) 
@@ -485,6 +525,7 @@ verify_parse(ESL_MSA *msa, char *errbuf)
   if (msa->sqlen != NULL) { free(msa->sqlen); msa->sqlen = NULL; }
   if (msa->sslen != NULL) { free(msa->sslen); msa->sslen = NULL; }
   if (msa->salen != NULL) { free(msa->salen); msa->salen = NULL; }
+  if (msa->pplen != NULL) { free(msa->pplen); msa->pplen = NULL; }
   return eslOK;
 }
 
@@ -618,6 +659,12 @@ esl_msa_Expand(ESL_MSA *msa)
       ESL_RALLOC(msa->salen, p, sizeof(int64_t) * new);
     }
 
+  if (msa->pp != NULL) 
+    {
+      ESL_RALLOC(msa->pp,    p, sizeof(char *)  * new);
+      ESL_RALLOC(msa->pplen, p, sizeof(int64_t) * new);
+    }
+
   if (msa->sqacc != NULL)
     ESL_RALLOC(msa->sqacc,  p, sizeof(char *) * new);
 
@@ -634,16 +681,10 @@ esl_msa_Expand(ESL_MSA *msa)
       msa->wgt[i]    = -1.0;	/* -1.0 means "unset so far" */
       msa->sqlen[i]  = 0;
 
-      if (msa->ss != NULL) 
-	{
-	  msa->ss[i] = NULL;
-	  msa->sslen[i] = 0;
-	}
-      if (msa->sa != NULL) 
-	{ 
-	  msa->sa[i] = NULL;
-	  msa->salen[i] = 0;
-	}
+      if (msa->ss != NULL) { msa->ss[i] = NULL; msa->sslen[i] = 0; }
+      if (msa->sa != NULL) { msa->sa[i] = NULL; msa->salen[i] = 0; }
+      if (msa->pp != NULL) { msa->pp[i] = NULL; msa->pplen[i] = 0; }
+
       if (msa->sqacc  != NULL) msa->sqacc[i]  = NULL;
       if (msa->sqdesc != NULL) msa->sqdesc[i] = NULL;
     }
@@ -745,6 +786,7 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   esl_strdup(msa->au,    -1, &(new->au));
   esl_strdup(msa->ss_cons,   -1, &(new->ss_cons));
   esl_strdup(msa->sa_cons,   -1, &(new->sa_cons));
+  esl_strdup(msa->pp_cons,   -1, &(new->pp_cons));
   esl_strdup(msa->rf,    -1, &(new->rf));
 
   if (msa->sqacc != NULL) {
@@ -766,6 +808,11 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
     ESL_ALLOC(new->sa, sizeof(char **) * msa->nseq);
     for (i = 0; i < msa->nseq; i++)
       esl_strdup(msa->sa[i], -1, &(new->sa[i]));
+  }
+  if (msa->pp != NULL) {
+    ESL_ALLOC(new->pp, sizeof(char **) * msa->nseq);
+    for (i = 0; i < msa->nseq; i++)
+      esl_strdup(msa->pp[i], -1, &(new->pp[i]));
   }
   
   for (x = 0; x < eslMSA_NCUTS; x++) {
@@ -902,6 +949,7 @@ esl_msa_Destroy(ESL_MSA *msa)
   esl_Free2D((void **) msa->sqdesc, msa->nseq);
   esl_Free2D((void **) msa->ss,     msa->nseq);
   esl_Free2D((void **) msa->sa,     msa->nseq);
+  esl_Free2D((void **) msa->pp,     msa->nseq);
 
   if (msa->sqlen   != NULL) free(msa->sqlen);
   if (msa->wgt     != NULL) free(msa->wgt);
@@ -912,10 +960,12 @@ esl_msa_Destroy(ESL_MSA *msa)
   if (msa->au      != NULL) free(msa->au);
   if (msa->ss_cons != NULL) free(msa->ss_cons);
   if (msa->sa_cons != NULL) free(msa->sa_cons);
+  if (msa->pp_cons != NULL) free(msa->pp_cons);
   if (msa->rf      != NULL) free(msa->rf);
   if (msa->sslen   != NULL) free(msa->sslen);
   if (msa->salen   != NULL) free(msa->salen);
-  
+  if (msa->pplen   != NULL) free(msa->pplen);  
+
   esl_Free2D((void **) msa->comment, msa->ncomment);
   esl_Free2D((void **) msa->gf_tag,  msa->ngf);
   esl_Free2D((void **) msa->gf,      msa->ngf);
@@ -1082,6 +1132,8 @@ esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
 
 
 
+
+
 /*---------------------- end of ESL_MSA functions ---------------------------*/
 
 
@@ -1163,13 +1215,13 @@ msafile_open(const char *filename, int format, const char *env, ESL_MSAFILE **re
 	{
 	  if (esl_strdup(filename, n, &ssifile)                      != eslOK) goto ERROR;
 	  if (esl_strcat(&ssifile, n, ".ssi", 4)                     != eslOK) goto ERROR;
-	  if ((status = esl_strdup(filename, n, &(afp->fname)))       != eslOK) goto ERROR;
+	  if ((status = esl_strdup(filename, n, &(afp->fname)))      != eslOK) goto ERROR;
 	}
       else if (esl_FileEnvOpen(filename, env, &(afp->f), &envfile) == eslOK)
 	{
 	  if (esl_strdup(envfile, n, &ssifile)                      != eslOK) goto ERROR;
 	  if (esl_strcat(&ssifile, n, ".ssi", 4)                    != eslOK) goto ERROR;
-	  if ((status = esl_strdup(envfile, n, &(afp->fname)))       != eslOK) goto ERROR;
+	  if ((status = esl_strdup(envfile, n, &(afp->fname)))      != eslOK) goto ERROR;
 	}
       else 
 	{ status = eslENOTFOUND; goto ERROR;}
@@ -1899,10 +1951,12 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
   if (msa->rf      !=NULL && maxgc < 2) maxgc = 2;
   if (msa->ss_cons !=NULL && maxgc < 7) maxgc = 7;
   if (msa->sa_cons !=NULL && maxgc < 7) maxgc = 7;
+  if (msa->pp_cons !=NULL && maxgc < 7) maxgc = 7;
 
   maxgr   = maxwidth(msa->gr_tag, msa->ngr);
   if (msa->ss != NULL && maxgr < 2) maxgr = 2;
   if (msa->sa != NULL && maxgr < 2) maxgr = 2;
+  if (msa->pp != NULL && maxgr < 2) maxgr = 2;
 
   margin = maxname + 1;
   if (maxgc > 0 && maxgc+6 > margin) margin = maxgc+6;
@@ -1999,7 +2053,7 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
 	if (msa->gs[i][j] != NULL)
 	  {
 	    s = msa->gs[i][j];
-	    while (esl_strtok(&s, "\n", &tok, NULL) == eslOK)
+	    while (esl_strtok(&s, "\n", &tok) == eslOK)
 	      fprintf(fp, "#=GS %-*s %-*s %s\n", 
 		      maxname, msa->sqname[j],
 		      gslen,   msa->gs_tag[i], 
@@ -2047,6 +2101,14 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
 		    margin-maxname-7, "SA",
 		    buf);
 	  }
+	  if (msa->pp != NULL && msa->pp[i] != NULL) {
+	    strncpy(buf, msa->pp[i] + currpos, acpl);
+	    buf[acpl] = '\0';
+	    fprintf(fp, "#=GR %-*s %-*s %s\n",
+		    maxname,          msa->sqname[i],
+		    margin-maxname-7, "PP",
+		    buf);
+	  }
 	  for (j = 0; j < msa->ngr; j++)
 	    if (msa->gr[j][i] != NULL) {
 	      strncpy(buf, msa->gr[j][i] + currpos, acpl);
@@ -2057,16 +2119,21 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
 		      buf);
 	    }
 	}
+
       if (msa->ss_cons != NULL) {
 	strncpy(buf, msa->ss_cons + currpos, acpl);
 	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", buf);
       }
-
       if (msa->sa_cons != NULL) {
 	strncpy(buf, msa->sa_cons + currpos, acpl);
 	buf[acpl] = '\0';
 	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", buf);
+      }
+      if (msa->pp_cons != NULL) {
+	strncpy(buf, msa->pp_cons + currpos, acpl);
+	buf[acpl] = '\0';
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf);
       }
 
       if (msa->rf != NULL) {
@@ -2440,11 +2507,11 @@ parse_gf(ESL_MSA *msa, char *buf)
   int   status;
 
   s = buf;
-  if (esl_strtok(&s, " \t\n\r", &gf,   NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &tag,  NULL) != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, " \t\n\r", &gf)  != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, " \t\n\r", &tag) != eslOK) return eslEFORMAT;
 
   /* text might be empty; watch out for this. (for example, a blank #=GF CC line) */
-  status = esl_strtok(&s, "\n\r",    &text, &n);
+  status = esl_strtok_adv(&s, "\n\r",    &text, &n, NULL);
   if      (status == eslOK) { while (*text && (*text == ' ' || *text == '\t')) text++; }
   else if (status == eslEOL){ text = NULL; n = 0; } 
   else return eslEFORMAT;
@@ -2456,11 +2523,11 @@ parse_gf(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "GA") == 0) 
     {				/* Pfam has GA1, GA2. Rfam just has GA1. */
       s = text;
-      if ((esl_strtok(&s, " \t\n\r", &tok, NULL)) != eslOK) 
+      if ((esl_strtok(&s, " \t\n\r", &tok)) != eslOK) 
 	return eslEFORMAT;
       msa->cutoff[eslMSA_GA1] = atof(tok);
       msa->cutset[eslMSA_GA1] = TRUE;
-      if ((esl_strtok(&s, " \t\n\r", &tok, NULL)) == eslOK) 
+      if ((esl_strtok(&s, " \t\n\r", &tok)) == eslOK) 
 	{
 	  msa->cutoff[eslMSA_GA2] = atof(tok);
 	  msa->cutset[eslMSA_GA2] = TRUE;
@@ -2470,11 +2537,11 @@ parse_gf(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "NC") == 0) 
     {
       s = text;
-      if ((esl_strtok(&s, " \t\n\r", &tok, NULL)) != eslOK) 
+      if ((esl_strtok(&s, " \t\n\r", &tok)) != eslOK) 
 	return eslEFORMAT;
       msa->cutoff[eslMSA_NC1] = atof(tok);
       msa->cutset[eslMSA_NC1] = TRUE;
-      if ((esl_strtok(&s, " \t\n\r", &tok, NULL)) == eslOK) 
+      if ((esl_strtok(&s, " \t\n\r", &tok)) == eslOK) 
 	{
 	  msa->cutoff[eslMSA_NC2] = atof(tok);
 	  msa->cutset[eslMSA_NC2] = TRUE;
@@ -2484,11 +2551,11 @@ parse_gf(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "TC") == 0) 
     {
       s = text;
-      if ((esl_strtok(&s, " \t\n\r", &tok, NULL)) != eslOK) 
+      if ((esl_strtok(&s, " \t\n\r", &tok)) != eslOK) 
 	return eslEFORMAT;
       msa->cutoff[eslMSA_TC1] = atof(tok);
       msa->cutset[eslMSA_TC1] = TRUE;
-      if ((esl_strtok(&s, "\t\n\r", &tok, NULL)) == eslOK) 
+      if ((esl_strtok(&s, "\t\n\r", &tok)) == eslOK) 
 	{
 	  msa->cutoff[eslMSA_TC2] = atof(tok);
 	  msa->cutset[eslMSA_TC2] = TRUE;
@@ -2520,10 +2587,10 @@ parse_gs(ESL_MSA *msa, char *buf)
   int   status;
 
   s = buf;
-  if (esl_strtok(&s, " \t\n\r", &gs,      NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &seqname, NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &tag,     NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, "\n\r",    &text,    NULL) != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, " \t\n\r", &gs)      != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, " \t\n\r", &seqname) != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, " \t\n\r", &tag)     != eslOK) return eslEFORMAT;
+  if (esl_strtok(&s, "\n\r",    &text)    != eslOK) return eslEFORMAT;
   while (*text && (*text == ' ' || *text == '\t')) text++;
   
   /* GS usually follows another GS; guess lastidx+1 */
@@ -2563,18 +2630,15 @@ parse_gc(ESL_MSA *msa, char *buf)
   int   status;
 
   s = buf;
-  if (esl_strtok(&s, " \t\n\r", &gc,   NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &tag,  NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &text, &len) != eslOK) return eslEFORMAT;
+  if (esl_strtok    (&s, " \t\n\r", &gc)               != eslOK) return eslEFORMAT;
+  if (esl_strtok    (&s, " \t\n\r", &tag)              != eslOK) return eslEFORMAT;
+  if (esl_strtok_adv(&s, " \t\n\r", &text, &len, NULL) != eslOK) return eslEFORMAT;
   
-  if (strcmp(tag, "SS_cons") == 0)
-    status = esl_strcat(&(msa->ss_cons), -1, text, len);
-  else if (strcmp(tag, "SA_cons") == 0)
-    status = esl_strcat(&(msa->sa_cons), -1, text, len);
-  else if (strcmp(tag, "RF") == 0)
-    status = esl_strcat(&(msa->rf), -1, text, len);
-  else
-    status = esl_msa_AppendGC(msa, tag, text);
+  if      (strcmp(tag, "SS_cons") == 0)  status = esl_strcat(&(msa->ss_cons), -1, text, len);
+  else if (strcmp(tag, "SA_cons") == 0)  status = esl_strcat(&(msa->sa_cons), -1, text, len);
+  else if (strcmp(tag, "PP_cons") == 0)  status = esl_strcat(&(msa->pp_cons), -1, text, len);
+  else if (strcmp(tag, "RF")      == 0)  status = esl_strcat(&(msa->rf),      -1, text, len);
+  else                                   status = esl_msa_AppendGC(msa, tag, text);
 
   return status;
 }
@@ -2597,10 +2661,10 @@ parse_gr(ESL_MSA *msa, char *buf)
   int   status;
 
   s = buf;
-  if (esl_strtok(&s, " \t\n\r", &gr,      NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &seqname, NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &tag,     NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &text,    &len) != eslOK) return eslEFORMAT;
+  if (esl_strtok    (&s, " \t\n\r", &gr)               != eslOK) return eslEFORMAT;
+  if (esl_strtok    (&s, " \t\n\r", &seqname)          != eslOK) return eslEFORMAT;
+  if (esl_strtok    (&s, " \t\n\r", &tag)              != eslOK) return eslEFORMAT;
+  if (esl_strtok_adv(&s, " \t\n\r", &text, &len, NULL) != eslOK) return eslEFORMAT;
 
   /* GR usually follows sequence it refers to; guess msa->lastidx */
   status = get_seqidx(msa, seqname, msa->lastidx, &seqidx);
@@ -2637,6 +2701,21 @@ parse_gr(ESL_MSA *msa, char *buf)
       status = esl_strcat(&(msa->sa[seqidx]), msa->salen[seqidx], text, len);
       msa->salen[seqidx] += len;
     }
+  else if (strcmp(tag, "PP") == 0)
+    {
+      if (msa->pp == NULL)
+	{
+	  ESL_ALLOC(msa->pp,    sizeof(char *) * msa->sqalloc);
+	  ESL_ALLOC(msa->pplen, sizeof(int64_t)* msa->sqalloc);
+	  for (j = 0; j < msa->sqalloc; j++) 
+	    {
+	      msa->pp[j]    = NULL;
+	      msa->pplen[j] = 0;
+	    }
+	}
+      status = esl_strcat(&(msa->pp[seqidx]), msa->pplen[seqidx], text, len);
+      msa->pplen[seqidx] += len;
+    }
   else 
     status = esl_msa_AppendGR(msa, tag, seqidx, text);
   return status;
@@ -2657,7 +2736,7 @@ parse_comment(ESL_MSA *msa, char *buf)
 
   s = buf + 1;			               /* skip leading '#' */
   if (*s == '\n' || *s == '\r') { *s = '\0'; comment = s; }  /* deal with blank comment */
-  else if (esl_strtok(&s, "\n\r", &comment, NULL)!= eslOK) return eslEFORMAT;
+  else if (esl_strtok(&s, "\n\r", &comment)!= eslOK) return eslEFORMAT;
   return (esl_msa_AddComment(msa, comment));
 }
 
@@ -2678,8 +2757,8 @@ parse_sequence(ESL_MSA *msa, char *buf)
   int   status;
 
   s = buf;
-  if (esl_strtok(&s, " \t\n\r", &seqname, NULL) != eslOK) return eslEFORMAT;
-  if (esl_strtok(&s, " \t\n\r", &text,    &len) != eslOK) return eslEFORMAT; 
+  if (esl_strtok    (&s, " \t\n\r", &seqname)          != eslOK) return eslEFORMAT;
+  if (esl_strtok_adv(&s, " \t\n\r", &text, &len, NULL) != eslOK) return eslEFORMAT; 
   
   /* seq usually follows another seq; guess msa->lastidx +1 */
   status = get_seqidx(msa, seqname, msa->lastidx+1, &seqidx);
@@ -2924,7 +3003,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *            be made. For example, writing an alignment in A2M format
  *            will alter the alignment data (marking missing data
  *            symbols on heuristically defined sequence fragments) and
- *            create an <#=RF> annotation line, if an <msa->rf>
+ *            create an <\#=RF> annotation line, if an <msa->rf>
  *            annotation line isn't already present in the <msa>.
  *
  * Returns:   <eslOK> on success.
@@ -2941,14 +3020,41 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   case eslMSAFILE_PFAM:      status = write_pfam(fp, msa);      break;
   case eslMSAFILE_A2M:       status = write_a2m(fp, msa);       break;
   case eslMSAFILE_PSIBLAST:  status = write_psiblast(fp, msa);  break;
-  default: 
-    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
+  default: ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
   return status;
 }
 
 
-/* Function:  esl_msa_DescribeFormat()
+/* Function:  esl_msa_EncodeFormat()
+ * Synopsis:  Convert text string to an MSA file format code.
+ * Incept:    SRE, Fri Oct 24 13:21:08 2008 [Janelia]
+ *
+ * Purpose:   Given a text string, match it case-insensitively
+ *            against a list of possible formats, and return the
+ *            appropriate MSA file format code. For example,
+ *            <esl_msa_EncodeFormat("Stockholm")> returns
+ *            <eslMSAFILE_STOCKHOLM>.
+ *            
+ *            If the format is unrecognized, return
+ *            <eslMSAFILE_UNKNOWN>.
+ *            
+ * Note:      Keep in sync with <esl_sqio_EncodeFormat()>, 
+ *            which decodes all possible sequence file formats,
+ *            both unaligned and aligned.           
+ */
+int
+esl_msa_EncodeFormat(char *fmtstring)
+{
+  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
+  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
+  if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
+  if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
+  return eslMSAFILE_UNKNOWN;
+}
+
+
+/* Function:  esl_msa_DecodeFormat()
  * Synopsis:  Convert internal file format code to text string.
  * Incept:    SRE, Fri May 18 11:59:58 2007 [Janelia]
  *
@@ -2957,21 +3063,25 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
  *            a string suitable for printing ("Stockholm",
  *            for example).
  *            
- * Note:      Keep in sync with <esl_sqio_DescribeFormat()>.
- *            The reason we don't just use <esl_sqio_DescribeFormat()>
- *            is so the msa module can be used without the sqio
- *            module.
+ * Returns:   a pointer to a static description string.
+ * 
+ * Throws:    If code isn't valid, throws an <eslEINVAL> exception 
+ *            internally, and returns <NULL>.
+ *            
+ * Note:      Keep in sync with <esl_sqio_DecodeFormat()>.
  */
 char *
-esl_msa_DescribeFormat(int fmt)
+esl_msa_DecodeFormat(int fmt)
 {
   switch (fmt) {
   case eslMSAFILE_UNKNOWN:   return "unknown";
   case eslMSAFILE_STOCKHOLM: return "Stockholm";
   case eslMSAFILE_PFAM:      return "Pfam";
-  default:                   esl_fatal("no such format code");
+  case eslMSAFILE_A2M:       return "UCSC A2M";
+  case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
+  default:                   break;
   }
-  /*NOTREACHED*/
+  esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
   return NULL;
 }
 
@@ -3281,19 +3391,23 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	if (msa->sa != NULL && msa->sa[oidx] != NULL) {
 	  if ((status = set_seq_sa(new, nidx, msa->sa[oidx])) != eslOK) goto ERROR;
 	}
+	if (msa->pp != NULL && msa->pp[oidx] != NULL) {
+	  if ((status = set_seq_pp(new, nidx, msa->pp[oidx])) != eslOK) goto ERROR;
+	}
 
 	nidx++;
       }
 
   new->flags = msa->flags;
 
-  if ((status = esl_strdup(msa->name, -1, &(new->name))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->desc, -1, &(new->desc))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->acc,  -1, &(new->acc)))  != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->au,   -1, &(new->au)))   != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->name,           -1, &(new->name)))    != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->desc,           -1, &(new->desc)))    != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->acc,            -1, &(new->acc)))     != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->au,             -1, &(new->au)))      != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->pp_cons, msa->alen, &(new->pp_cons))) != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->rf,      msa->alen, &(new->rf)))      != eslOK) goto ERROR;
   
   for (i = 0; i < eslMSA_NCUTS; i++) {
     new->cutoff[i] = msa->cutoff[i];
@@ -3309,6 +3423,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if (new->sqlen != NULL) { free(new->sqlen);  new->sqlen = NULL; }
   if (new->sslen != NULL) { free(new->sslen);  new->sslen = NULL; }
   if (new->salen != NULL) { free(new->salen);  new->salen = NULL; }
+  if (new->pplen != NULL) { free(new->pplen);  new->pplen = NULL; }
   new->lastidx = -1;
 #ifdef eslAUGMENT_KEYHASH
   esl_keyhash_Destroy(new->index);
@@ -3375,10 +3490,9 @@ esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 #else
 	      msa->aseq[idx][npos] = msa->aseq[idx][opos];
 #endif /*eslAUGMENT_ALPHABET*/
-	      if (msa->ss != NULL && msa->ss[idx] != NULL)
-		msa->ss[idx][npos] = msa->ss[idx][opos];
-	      if (msa->sa != NULL && msa->sa[idx] != NULL)
-		msa->sa[idx][npos] = msa->sa[idx][opos];
+	      if (msa->ss != NULL && msa->ss[idx] != NULL) msa->ss[idx][npos] = msa->ss[idx][opos];
+	      if (msa->sa != NULL && msa->sa[idx] != NULL) msa->sa[idx][npos] = msa->sa[idx][opos];
+	      if (msa->pp != NULL && msa->pp[idx] != NULL) msa->pp[idx][npos] = msa->pp[idx][opos];
 	      for (i = 0; i < msa->ngr; i++)
 		if (msa->gr[i][idx] != NULL)
 		  msa->gr[i][idx][npos] = msa->gr[i][idx][opos];
@@ -3386,6 +3500,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
 	  /* The per-column annotations */
 	  if (msa->ss_cons != NULL) msa->ss_cons[npos] = msa->ss_cons[opos];
 	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
+	  if (msa->pp_cons != NULL) msa->pp_cons[npos] = msa->pp_cons[opos];
 	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
 	  for (i = 0; i < msa->ngc; i++)
 	    msa->gc[i][npos] = msa->gc[i][opos];
@@ -4118,6 +4233,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
   if (esl_CCompare(a1->au,      a2->au)      != eslOK) return eslFAIL;
   if (esl_CCompare(a1->ss_cons, a2->ss_cons) != eslOK) return eslFAIL;
   if (esl_CCompare(a1->sa_cons, a2->sa_cons) != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->pp_cons, a2->pp_cons) != eslOK) return eslFAIL;
   if (esl_CCompare(a1->rf,      a2->rf)      != eslOK) return eslFAIL;
   
   if (a1->sqacc != NULL && a2->sqacc != NULL) {
@@ -4135,6 +4251,10 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
   if (a1->sa != NULL && a2->sa != NULL) {
     for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->sa[i], a2->sa[i]) != eslOK) return eslFAIL;
   } else if (a1->sa != NULL || a2->sa != NULL) return eslFAIL;
+
+  if (a1->pp != NULL && a2->pp != NULL) {
+    for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->pp[i], a2->pp[i]) != eslOK) return eslFAIL;
+  } else if (a1->pp != NULL || a2->pp != NULL) return eslFAIL;
   
   for (i = 0; i < eslMSA_NCUTS; i++)
     {
@@ -4202,7 +4322,7 @@ main(int argc, char **argv)
 	{
 	  esl_msa_GuessAlphabet(msa, &alphatype);
 	  printf("%5d %15s %6d %5d %7s\n", 
-		 nali, msa->name, msa->nseq, msa->alen, esl_abc_DescribeType(alphatype));
+		 nali, msa->name, msa->nseq, msa->alen, esl_abc_DecodeType(alphatype));
 	}
 
       esl_msa_Destroy(msa);

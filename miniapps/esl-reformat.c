@@ -45,6 +45,8 @@ static ESL_OPTIONS options[] = {
   { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss,--fullwuss", "convert old RNA structure markup lines to WUSS",     0 },
   { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--fullwuss","convert WUSS RNA structure markup to old format",    0 },
   { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
+  { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "ignore input seq characters listed in string <s>",   0 },
+  { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "accept input seq chars in string <s> as X",          0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -128,12 +130,12 @@ main(int argc, char **argv)
   infmt = eslSQFILE_UNKNOWN;
   if (informat != NULL)
     {
-      infmt = esl_sqio_FormatCode(informat);
+      infmt = esl_sqio_EncodeFormat(informat);
       if (infmt == eslSQFILE_UNKNOWN)
 	esl_fatal("%s is not a recognized input seqfile format\n");
     }
     
-  outfmt = esl_sqio_FormatCode(outformat);
+  outfmt = esl_sqio_EncodeFormat(outformat);
   if (outfmt == eslSQFILE_UNKNOWN)
     esl_fatal("%s is not a recognized output seqfile format\n");
 
@@ -167,6 +169,9 @@ main(int argc, char **argv)
 	esl_fatal("Can't autodetect format of stdin or .gz; use --informat\n");
       else if (status != eslOK) 
 	esl_fatal("Alignment file open failed with error %d\n", status);
+
+      if (! esl_opt_IsDefault(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
+      if (! esl_opt_IsDefault(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
 
       while ((status = esl_msa_Read(afp, &msa)) == eslOK)
 	{
@@ -263,6 +268,9 @@ Offending line is:\n\
       else if (status != eslOK)
 	esl_fatal("Open of seqfile %s failed, code %d\n", infile, status);
       
+      if (! esl_opt_IsDefault(go, "--ignore"))  esl_sqio_Ignore(sqfp, esl_opt_GetString(go, "--ignore"));
+      if (! esl_opt_IsDefault(go, "--acceptx")) esl_sqio_AcceptAs(sqfp, esl_opt_GetString(go, "--acceptx"), 'X');
+
       sq = esl_sq_Create();
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{

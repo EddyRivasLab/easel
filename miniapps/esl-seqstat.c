@@ -80,7 +80,6 @@ main(int argc, char **argv)
   int             status    = eslOK;
   int             wstatus;
   int             i;
-  int             x;
 
   /* Parse command line */
   go = esl_getopts_Create(options);
@@ -93,7 +92,7 @@ main(int argc, char **argv)
   do_comp = esl_opt_GetBoolean(go, "-c");
 
   if (esl_opt_GetString(go, "--informat") != NULL) {
-    infmt = esl_sqio_FormatCode(esl_opt_GetString(go, "--informat"));
+    infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
@@ -161,8 +160,8 @@ main(int argc, char **argv)
 	esl_fatal("Failed in reading sequence:\n%s\n", sqfp->errbuf);
     }
 
-  printf("Format:              %s\n",   esl_sqio_DescribeFormat(sqfp->format));
-  printf("Alphabet type:       %s\n",   esl_abc_DescribeType(abc->type));
+  printf("Format:              %s\n",   esl_sqio_DecodeFormat(sqfp->format));
+  printf("Alphabet type:       %s\n",   esl_abc_DecodeType(abc->type));
   printf("Number of sequences: %" PRId64 "\n", nseq);
   printf("Total # residues:    %" PRId64 "\n", nres);
   printf("Smallest:            %" PRId64 "\n", small);

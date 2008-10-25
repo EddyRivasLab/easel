@@ -1337,6 +1337,10 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
      (new_msa1->sa_cons != NULL && new_msa2->sa_cons == NULL) ||
      ((new_msa1->sa_cons != NULL && new_msa2->sa_cons != NULL) && 
       (strcmp(new_msa1->sa_cons, new_msa2->sa_cons)   != 0))) esl_fatal("Alignments to merge do not have same consensus structure.\n");
+  if((new_msa1->pp_cons == NULL && new_msa2->pp_cons != NULL) ||
+     (new_msa1->pp_cons != NULL && new_msa2->pp_cons == NULL) ||
+     ((new_msa1->pp_cons != NULL && new_msa2->pp_cons != NULL) && 
+      (strcmp(new_msa1->pp_cons, new_msa2->pp_cons)   != 0))) esl_fatal("Alignments to merge do not have same consensus posteriors.\n");
   if((new_msa1->aseq == NULL && new_msa2->aseq != NULL) ||
      (new_msa1->aseq != NULL && new_msa2->aseq == NULL))  esl_fatal("Alignments to merge aseqs null/non-null mismatch.\n");
 #ifdef eslAUGMENT_ALPHABET
@@ -1351,6 +1355,8 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
      (new_msa1->ss != NULL && new_msa2->ss == NULL))  esl_fatal("Alignments to merge ss null/non-null mismatch.\n");
   if((new_msa1->sa == NULL && new_msa2->sa != NULL) ||
      (new_msa1->sa != NULL && new_msa2->sa == NULL))  esl_fatal("Alignments to merge sa null/non-null mismatch.\n");
+  if((new_msa1->pp == NULL && new_msa2->pp != NULL) ||
+     (new_msa1->pp != NULL && new_msa2->pp == NULL))  esl_fatal("Alignments to merge pp null/non-null mismatch.\n");
 
      /* rf lines were already indirectly checked, they must be equal */
 
@@ -1369,6 +1375,7 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
       if(new_msa1->sqdesc != NULL) new_msa1->sqdesc[i] = new_msa2->sqdesc[ip];
       if(new_msa1->ss     != NULL) new_msa1->ss[i]     = new_msa2->ss[ip];
       if(new_msa1->sa     != NULL) new_msa1->sa[i]     = new_msa2->sa[ip];
+      if(new_msa1->pp     != NULL) new_msa1->pp[i]     = new_msa2->pp[ip];
 
       /* new_msa1->name,desc,acc,au untouched (is this unwise?) */
 
@@ -1376,6 +1383,7 @@ merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL
 
       if(new_msa1->sslen != NULL) new_msa1->sslen[i]  = new_msa2->sslen[ip];
       if(new_msa1->salen != NULL) new_msa1->salen[i]  = new_msa2->salen[ip];
+      if(new_msa1->pplen != NULL) new_msa1->pplen[i]  = new_msa2->pplen[ip];
       /* lastidx not touched, should be unimportant */
     }
   /* copy and free comments (no need to swap pointers thanks to convenient esl_msa_AddComment() function */
@@ -1704,6 +1712,11 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
       ESL_ALLOC(newmsa->sa_cons, sizeof(char) * (msa->alen+nnew+1));
       if((status = cp_and_add_gaps_to_aseq(newmsa->sa_cons, msa->sa_cons, msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
     }
+  if(msa->pp_cons != NULL) 
+    {
+      ESL_ALLOC(newmsa->pp_cons, sizeof(char) * (msa->alen+nnew+1));
+      if((status = cp_and_add_gaps_to_aseq(newmsa->pp_cons, msa->pp_cons, msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
+    }
   if(msa->rf != NULL)
     {
       ESL_ALLOC(newmsa->rf, sizeof(char) * (msa->alen+nnew+1));
@@ -1735,6 +1748,18 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
 	  {
 	    ESL_ALLOC(newmsa->sa[i], sizeof(char) * (msa->alen+nnew+1));
 	    if((status = cp_and_add_gaps_to_aseq(newmsa->sa[i], msa->sa[i], msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
+	  }
+      }
+    }  
+
+  if(msa->pp != NULL)
+    {
+      for(i = 0; i < msa->nseq; i++)
+      {
+	if(msa->pp[i] != NULL)
+	  {
+	    ESL_ALLOC(newmsa->pp[i], sizeof(char) * (msa->alen+nnew+1));
+	    if((status = cp_and_add_gaps_to_aseq(newmsa->pp[i], msa->pp[i], msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
 	  }
       }
     }  
@@ -2569,6 +2594,12 @@ reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
   if(msa->sa != NULL) { 
     for(i = 0; i < msa->nseq; i++) tmp[i] = msa->sa[i];
     for(i = 0; i < msa->nseq; i++) msa->sa[i] = tmp[order[i]];
+  }
+
+  /* swap pp, if they exist */
+  if(msa->pp != NULL) { 
+    for(i = 0; i < msa->nseq; i++) tmp[i] = msa->pp[i];
+    for(i = 0; i < msa->nseq; i++) msa->pp[i] = tmp[order[i]];
   }
 
   /* swap gs annotation, if it exists */

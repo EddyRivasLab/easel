@@ -3,7 +3,7 @@
  * Contents:
  *    1. An <ESL_SQFILE> object, in text mode.
  *    2. An <ESL_SQFILE> object, in digital mode. [with <alphabet>]
- *    3. Using sequence file format codes
+ *    3. Miscellaneous routines.
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Writing sequences.
@@ -631,10 +631,73 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 
 /*****************************************************************
- *# 3. Using sequence file format codes
+ *# 3. Miscellaneous routines 
  *****************************************************************/ 
 
-/* Function:  esl_sqio_FormatCode()
+/* Function:  esl_sqio_Ignore()
+ * Synopsis:  Sets the input map to ignore one or more input characters.
+ * Incept:    SRE, Tue Sep 23 08:17:51 2008 [Janelia]
+ *
+ * Purpose:   Set the input map of the open <sqfp> to allow
+ *            the characters in the string <ignoredchars> to appear
+ *            in input sequences. These characters will be ignored.
+ *
+ *            For example, an application might want to ignore '*'
+ *            characters in its sequence input, because some translated
+ *            peptide files use '*' to indicate stop codons.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
+{
+  int i;
+  for (i = 0; ignoredchars[i] != '\0'; i++)
+    sqfp->inmap[(int) ignoredchars[i]] = eslDSQ_IGNORED;
+  return eslOK;
+}
+
+/* Function:  esl_sqio_AcceptAs()
+ * Synopsis:  Map a list of additional characters.
+ * Incept:    SRE, Tue Sep 23 08:18:29 2008 [Janelia]
+ *
+ * Purpose:   Set the input map of the open <sqfp> to allow the 
+ *            characters in the string <xchars> to appear in 
+ *            input sequences. These characters will all be 
+ *            mapped to the character <readas> (or, for digital
+ *            sequence input, to the digitized representation 
+ *            of the text character <readas> in the <sqfp>'s
+ *            digital alphabet).
+ *            
+ *            For example, an application might want to read
+ *            '*' as 'X' when reading translated peptide files
+ *            that use '*' to indicate a stop codon.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
+{
+  int i;
+  
+#ifdef eslAUGMENT_ALPHABET
+  if (sqfp->do_digital)
+    {
+      for (i = 0; xchars[i] != '\0'; i++)
+	sqfp->inmap[(int) xchars[i]] = esl_abc_DigitizeSymbol(sqfp->abc, readas);
+    }
+#endif
+  if (! sqfp->do_digital)
+    {
+      for (i = 0; xchars[i] != '\0'; i++)
+	sqfp->inmap[(int) xchars[i]] = readas;
+    }
+  return eslOK;
+
+}
+
+
+/* Function:  esl_sqio_EncodeFormat()
  * Synopsis:  Convert a string to an internal format code.
  * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
  *
@@ -650,7 +713,7 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
  *            are recognized in addition to unaligned file formats.
  */
 int
-esl_sqio_FormatCode(char *fmtstring)
+esl_sqio_EncodeFormat(char *fmtstring)
 {
   if (strcasecmp(fmtstring, "fasta")     == 0) return eslSQFILE_FASTA;
   if (strcasecmp(fmtstring, "embl")      == 0) return eslSQFILE_EMBL;
@@ -666,7 +729,7 @@ esl_sqio_FormatCode(char *fmtstring)
   return eslSQFILE_UNKNOWN;
 }
 
-/* Function:  esl_sqio_DescribeFormat()
+/* Function:  esl_sqio_DecodeFormat()
  * Synopsis:  Returns descriptive string for file format code.
  * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
  *
@@ -678,7 +741,7 @@ esl_sqio_FormatCode(char *fmtstring)
  *            are recognized in addition to unaligned file format codes.
  */
 char *
-esl_sqio_DescribeFormat(int fmt)
+esl_sqio_DecodeFormat(int fmt)
 {
   switch (fmt) {
   case eslSQFILE_UNKNOWN:    return "unknown";
@@ -693,9 +756,9 @@ esl_sqio_DescribeFormat(int fmt)
   case eslMSAFILE_A2M:       return "UCSC A2M";
   case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
 #endif
-  default: esl_fatal("no such format code");
+  default:                   break;
   }
-  /*NOTREACHED*/
+  esl_exception(eslEINVAL, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
   return NULL;
 }
 
@@ -2206,7 +2269,6 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   char *s;
   char *tok;
-  int   toklen;
   int   status;
 
   /* Find first line:
@@ -2227,7 +2289,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if (strncmp(sqfp->buf, "ID   ", 5) != 0) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to find ID line");
   
   s = sqfp->buf+5;
-  if ((status = esl_strtok(&s, " ", &tok, &toklen)) != eslOK)
+  if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
     ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to parse name on ID line");
   if ((status = esl_sq_SetName(sq, tok)) != eslOK) return status;
   sq->roff = sqfp->boff;	/* record the offset of the ID line */
@@ -2247,7 +2309,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(sqfp->buf, "AC   ", 5) == 0)
       {
 	s = sqfp->buf+5;
-	if ((status = esl_strtok(&s, ";", &tok, &toklen)) != eslOK)
+	if ((status = esl_strtok(&s, ";", &tok)) != eslOK)
 	  ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to parse accession on AC line");
 	if ((status = esl_sq_SetAccession(sq, tok)) != eslOK) return status;
       }
@@ -2261,7 +2323,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(sqfp->buf, "DE   ", 5) == 0)
       {
 	s = sqfp->buf+5; 
-	esl_strchop(s, sqfp->nc);
+	esl_strchop(s, sqfp->nc-5);
 	if ((status = esl_sq_AppendDesc(sq, s)) != eslOK) 
 	  ESL_FAIL(status, sqfp->errbuf, "Failed to parse description on DE line");
       }
@@ -2356,7 +2418,6 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   char *s;
   char *tok;
-  int   toklen;
   int   status;
 
   /* Find LOCUS line, allowing for ignoration of a file header.  */
@@ -2367,7 +2428,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } 
   
   s = sqfp->buf+12;
-  if ((status = esl_strtok(&s, " ", &tok, &toklen)) != eslOK)
+  if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
     ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to parse name on LOCUS line");
   if ((status = esl_sq_SetName(sq, tok)) != eslOK) return status;
   sq->roff = sqfp->boff;	/* record the disk offset to the LOCUS line */
@@ -2380,7 +2441,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(sqfp->buf, "VERSION   ", 10) == 0)
       {
 	s = sqfp->buf+12; 
-	if ((status = esl_strtok(&s, " ", &tok, &toklen)) != eslOK)
+	if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
 	  ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to parse VERSION line");
 	if ((status = esl_sq_SetAccession(sq, tok)) != eslOK) return status;
       }
@@ -2709,7 +2770,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS   *go       = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
   ESL_STOPWATCH *w        = esl_stopwatch_Create();
-  ESL_ALPHABET   *abc     = NULL;
+  ESL_ALPHABET  *abc      = NULL;
   ESL_SQ        *sq       = NULL;
   ESL_SQFILE    *sqfp     = NULL;
   char          *filename = esl_opt_GetArg(go, 1);

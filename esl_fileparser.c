@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "easel.h"
 #include "esl_fileparser.h"
@@ -96,9 +97,9 @@ esl_fileparser_Create(FILE *fp)
   efp->commentchar = '\0';
   efp->tok         = NULL;
   efp->toklen      = 0;
+  efp->tokchar     = '\0';
   efp->linenumber  = 0;
   efp->errbuf[0]   = '\0';
-
   return efp;
   
  ERROR:
@@ -128,48 +129,6 @@ esl_fileparser_SetCommentChar(ESL_FILEPARSER *efp, char c)
   return eslOK;
 }
 
-
-/* Function:  esl_fileparser_NextLine()
- * Incept:    SRE, Tue Apr  3 08:27:22 2007 [Janelia]
- *
- * Purpose:   Advance the parser to the next non-blank, non-comment
- *            data line that contains at least one token. 
- *
- * Returns:   <eslOK> on success.
- *            <eslEOF> if no more tokens remain in the file.  
- *
- * Throws:    <eslEMEM> on allocation error.
- */
-int
-esl_fileparser_NextLine(ESL_FILEPARSER *efp)
-{
-  int   status;
-  char *tok    = NULL;
-  int   toklen = 0;
-  int   tokcode;
-
-  while ((status = nextline(efp)) == eslOK) 
-    {
-      tokcode = esl_strtok(&(efp->s), " \t\r\n", &tok, &toklen);
-      if (tokcode == eslEOL || (tokcode == eslOK && *tok == efp->commentchar)) continue; /* no tokens on line */
-      if (tokcode != eslOK) ESL_XFAIL(tokcode, efp->errbuf, "esl_strtok() failed");
-      break;
-    } 
-  if (status == eslEOF) return eslEOF;
-  if (status != eslOK)  ESL_XFAIL(status, efp->errbuf, "nextline() failed");
-  
-  /* Remember this token. The next GetToken call will regurgitate it instead
-   * of finding its own. efp->s now points to the character after tok ends. 
-   */
-  efp->tok    = tok;
-  efp->toklen = toklen;
-  return eslOK;
-
- ERROR:
-  efp->tok    = NULL;
-  efp->toklen = 0;
-  return status;
-}  
 
 
 /* Function:  esl_fileparser_GetToken()
@@ -210,13 +169,12 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen)
   if (efp->tok != NULL) {
     if (opt_tok    != NULL) *opt_tok    = efp->tok;
     if (opt_toklen != NULL) *opt_toklen = efp->toklen;
-    efp->tok    = NULL;
-    efp->toklen = 0;
+    efp->tok     = NULL;
+    efp->toklen  = 0;
+    efp->tokchar = '\0';
     return eslOK;
   }
-
-  /* If not, then find next token.
-   */
+  /* If not, then find next token. */
 
   /* First, make sure we have a line loaded. 
    * On the first call to GetToken, we won't.
@@ -232,9 +190,8 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen)
    */
   do {
     goodtok = FALSE;
-    tokcode = esl_strtok(&(efp->s), " \t\r\n", &tok, &toklen);
-    if (tokcode == eslEOL ||
-	(tokcode == eslOK && *tok == efp->commentchar)) 
+    tokcode = esl_strtok_adv(&(efp->s), " \t\r\n", &tok, &toklen, NULL);
+    if (tokcode == eslEOL || (tokcode == eslOK && *tok == efp->commentchar)) 
       {
 	fcode = nextline(efp);
 	if (fcode != eslOK) return fcode;
@@ -244,10 +201,140 @@ esl_fileparser_GetToken(ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen)
       { sprintf(efp->errbuf, "esl_strtok() failed"); return tokcode;}
   } while (! goodtok);
 
-  if (opt_tok != NULL)    *opt_tok    = tok;
+  if (opt_tok    != NULL) *opt_tok    = tok;
   if (opt_toklen != NULL) *opt_toklen = toklen;
   return eslOK;
 }
+
+
+/* Function:  esl_fileparser_NextLine()
+ * Incept:    SRE, Tue Apr  3 08:27:22 2007 [Janelia]
+ *
+ * Purpose:   Advance the parser to the next non-blank, non-comment
+ *            data line that contains at least one token. 
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslEOF> if no more tokens remain in the file.  
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_fileparser_NextLine(ESL_FILEPARSER *efp)
+{
+  int   status;
+  char *tok     = NULL;
+  int   toklen  = 0;
+  char  tokchar = '\0';
+  int   tokcode;
+
+  while ((status = nextline(efp)) == eslOK) 
+    {
+      tokcode = esl_strtok_adv(&(efp->s), " \t\r\n", &tok, &toklen, &tokchar);
+      if (tokcode == eslEOL || (tokcode == eslOK && *tok == efp->commentchar)) continue; /* no tokens on line */
+      if (tokcode != eslOK) ESL_XFAIL(tokcode, efp->errbuf, "esl_strtok() failed");
+      break;
+    } 
+  if (status == eslEOF) { status = eslEOF; goto ERROR; }
+  if (status != eslOK)  ESL_XFAIL(status, efp->errbuf, "nextline() failed");
+  
+  /* Remember this token. The next GetToken call will regurgitate it instead
+   * of finding its own. efp->s now points to the character after tok ends. 
+   */
+  efp->tok     = tok;
+  efp->toklen  = toklen;
+  efp->tokchar = tokchar;
+  return eslOK;
+
+ ERROR:
+  efp->tok     = NULL;
+  efp->toklen  = 0;
+  efp->tokchar = '\0';
+  return status;
+}  
+
+
+/* Function:  esl_fileparser_NextLinePeeked()
+ * Synopsis:  Read the next line, prepending a peek.
+ * Incept:    SRE, Wed Oct 15 10:08:37 2008 [Janelia]
+ *
+ * Purpose:   Sometimes we need to peek at the start of an input stream
+ *            to see whether it is in a binary format, before we start
+ *            parsing it as ASCII lines. When this happens, the caller
+ *            will typically have used <fread()> to read a fixed
+ *            number of bytes from the input stream, checked to see if
+ *            they are a magic number representing a binary format,
+ *            and found that they are not. The caller then wants to
+ *            switch to reading in ASCII format with the <fileparser>
+ *            API, but with those bytes included on the first
+ *            line. Because the file might start with comments or
+ *            blank lines that need to be skipped, we want to deal
+ *            with the peeked data in the context of the
+ *            <ESL_FILEPARSER>. The caller cannot simply close and
+ *            reopen the stream, because the stream may be a pipe
+ *            (<stdin> or <gunzip -dc> for example).
+ *            
+ *            The caller passes the bytes it peeked at with <fread()>
+ *            in <prefix>, and the number of bytes it peeked at in
+ *            <plen>.
+ *            
+ *            The parser is advanced to the next non-blank,
+ *            non-comment data line that contains at least one token,
+ *            taking the prepended <prefix> into account.
+ *
+ * Args:      efp      - open fileparser
+ *            prefix   - bytes that caller obtained by peeking with fread()
+ *            plen     - number of bytes in prefix
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslEOF> if no more tokens remain in the file.  
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      For an example, see HMMER's HMM save file input.
+ */
+int
+esl_fileparser_NextLinePeeked(ESL_FILEPARSER *efp, char *prefix, int plen)
+{
+  int   blen;
+  void *tmp;
+  char *tok     = NULL;
+  int   toklen  = 0;
+  char  tokchar = '\0';
+  int   status;
+  
+  if ((status = nextline(efp)) != eslOK)  goto ERROR; /* EOF, EMEM */
+  blen = strlen(efp->buf);
+  
+  if (blen + plen + 1 > efp->buflen) {
+    ESL_RALLOC(efp->buf, tmp, sizeof(char) * (blen + plen + 1));
+    efp->buflen = blen + plen + 1;
+  }
+  memmove(efp->buf+plen, efp->buf, blen+1);
+  memcpy(efp->buf, prefix, plen);
+  efp->s = efp->buf;
+
+  status = esl_strtok_adv(&(efp->s), " \t\r\n", &tok, &toklen, &tokchar);
+  
+  if (status == eslOK && *tok != efp->commentchar) 
+    {
+      efp->tok     = tok;
+      efp->toklen  = toklen;
+      efp->tokchar = tokchar;
+      status       = eslOK;
+    }
+  else status = esl_fileparser_NextLine(efp);
+
+  return status;
+
+ ERROR:
+  efp->tok     = NULL;
+  efp->toklen  = 0;
+  efp->tokchar = '\0';
+  return status;
+}  
+
+
+
 
 /* Function:  esl_fileparser_GetTokenOnLine()
  * Incept:    SRE, Tue Apr  3 08:46:59 2007 [Janelia]
@@ -293,8 +380,9 @@ esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **opt_tok, int *opt_tokl
   if (efp->tok != NULL) {
     if (opt_tok    != NULL) *opt_tok    = efp->tok;
     if (opt_toklen != NULL) *opt_toklen = efp->toklen;
-    efp->tok    = NULL;
-    efp->toklen = 0;
+    efp->tok     = NULL;
+    efp->toklen  = 0;
+    efp->tokchar = '\0';
     return eslOK;
   }
 
@@ -302,7 +390,7 @@ esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **opt_tok, int *opt_tokl
   if (efp->buf == NULL) { status = eslEOL;  goto ERROR; }
 
   /* Find next token in the line loaded in the parser. */
-  status = esl_strtok(&(efp->s), " \t\r\n", &tok, &toklen);
+  status = esl_strtok_adv(&(efp->s), " \t\r\n", &tok, &toklen, NULL);
   if (status == eslEOL) goto ERROR;
   if (status != eslOK)  goto ERROR;
   if (status == eslOK && *tok == efp->commentchar) { status = eslEOL; goto ERROR; }
@@ -315,6 +403,54 @@ esl_fileparser_GetTokenOnLine(ESL_FILEPARSER *efp, char **opt_tok, int *opt_tokl
   if (opt_tok    != NULL) *opt_tok    = NULL;
   if (opt_toklen != NULL) *opt_toklen = 0;
   return status;
+}
+
+
+/* Function:  esl_fileparser_GetRemainingLine()
+ * Synopsis:  Returns pointer to the rest of the current line.
+ * Incept:    SRE, Mon Oct 13 08:59:26 2008 [Janelia]
+ *
+ * Purpose:   Set a pointer <*ret_s> to the rest of the current line
+ *            held by the fileparser <efp>. 
+ *            
+ *            Because <ret_s> points to internal storage in the
+ *            fileparser, the caller should be finished with it before
+ *            making its next call to any fileparser function.
+ *            
+ *            Any comment characters on the rest of the line are
+ *            ignored: this is designed for a case where the rest of
+ *            the line is to be read as free text.
+ *            
+ * Args:      efp    - fileparser 
+ *            ret_s  - RETURN: pointer to the remainder of the line
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslEOL> if nothing remains on the line, and <*ret_s>
+ *            is <NULL>.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_fileparser_GetRemainingLine(ESL_FILEPARSER *efp, char **ret_s)
+{
+  /* No line loaded? Then we can't find anything on it. */
+  if (efp->buf == NULL) { *ret_s = NULL; return eslEOL; }
+
+  /* If we prestored the next token, we must revert that move. */
+  if (efp->tok != NULL)
+    {
+      *(efp->s-1) = efp->tokchar;
+      efp->s      = efp->tok;
+      efp->tok    = NULL;
+      efp->toklen  = 0;
+      efp->tokchar = '\0';
+    }
+
+  /* skip leading whitespace */
+  while (isspace(*(efp->s))) efp->s++;  
+
+  /* Return everything to end of line as a "token", stripping newline  */
+  return esl_strtok(&(efp->s), "\r\n", ret_s);
 }
 
 

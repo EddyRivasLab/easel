@@ -270,10 +270,11 @@ esl_usage(FILE *fp, char *progname, char *usage)
 
 /******************************************************************************
  * 4. Replacements for C library functions
- *  fgets()  ->  esl_fgets()     fgets() with dynamic allocation
- *  strdup() ->  esl_strdup()    strdup() is not ANSI
- *  strcat() ->  esl_strcat()    strcat() with dynamic allocation
- *  strtok() ->  esl_strtok()    threadsafe strtok()
+ *  fgets()   ->  esl_fgets()     fgets() with dynamic allocation
+ *  strdup()  ->  esl_strdup()    strdup() is not ANSI
+ *  strcat()  ->  esl_strcat()    strcat() with dynamic allocation
+ *  strtok()  ->  esl_strtok()    threadsafe strtok()
+ *  sprintf() ->  esl_sprintf()   sprintf() with dynamic allocation
  *****************************************************************************/
 
 /* Function: esl_fgets()
@@ -424,7 +425,7 @@ esl_strdup(const char *s, int64_t n, char **ret_dup)
  *           Appends <src> to the string that <dest> points to,
  *           extending allocation for dest if necessary. Caller
  *           can optionally provide the length of <*dest> in
- *           <ldest>, and the length of <src> in <lsrc); if 
+ *           <ldest>, and the length of <src> in <lsrc>; if 
  *           either of these is -1, <esl_strcat()> calls <strlen()>
  *           to determine the length. Providing length information,
  *           if known, accelerates the routine.
@@ -436,9 +437,9 @@ esl_strdup(const char *s, int64_t n, char **ret_dup)
  *           <src> may be <NULL>, in which case <dest> is unmodified.
  *           
  * Note:     One timing experiment (100 successive appends of 
- *           1-255 char) shows sre_strcat() has about a 20%
+ *           1-255 char) shows esl_strcat() has about a 20%
  *           overhead relative to strcat(). If optional
- *           length info is passed, sre_strcat() is about 30%
+ *           length info is passed, esl_strcat() is about 30%
  *           faster than strcat().
  *           
  * Args:     dest  - ptr to string (char **), '\0' terminated
@@ -477,85 +478,213 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
   return status;
 }
 
+
 /* Function: esl_strtok()
+ * Synopsis: Threadsafe version of C's <strtok()>
  * Date:     SRE, Wed May 19 16:30:20 1999 [St. Louis]
  *
- * Purpose: Thread-safe version of strtok() for parsing next token in
- *           a string. Increments <*s> while <**s> is a character in
- *           <delim>, then stops; the first non-<delim> character
- *           defines the beginning of a token. Increments <*s> until it
- *           reaches the next delim character (or <NUL>); this defines
- *           the end of the token, and this character is replaced with
- *           <NUL>. <*s> is then reset to point to the next character
- *           after the <NUL> that was written, so successive calls can
+ * Purpose:  Thread-safe version of <strtok()> for parsing next token in
+ *           a string.
+ *          
+ *           Increments <*s> while <**s> is a character in <delim>,
+ *           then stops; the first non-<delim> character defines the
+ *           beginning of a token. Increments <*s> until it reaches
+ *           the next delim character (or \verb+\0+); this defines the end
+ *           of the token, and this character is replaced with
+ *           \verb+\0+. <*s> is then reset to point to the next character
+ *           after the \verb+\0+ that was written, so successive calls can
  *           extract tokens in succession. Sets <*ret_tok> to point at
- *           the beginning of the token, and <*ret_token> to the
- *           number of characters in the token (exclusive of the
- *           <NUL>), and returns <eslOK>.
- *            
+ *           the beginning of the token, and returns <eslOK>.
+ *
  *           If a token is not found -- if <*s> already points to
- *           <NUL>, or is a string composed entirely of characters in
- *           <delim> -- then returns <eslEOL>; <*ret_tok> is set to
- *           NULL, and <*ret_toklen> is set to 0.
+ *           \verb+\0+, or to a string composed entirely of characters in
+ *           <delim> -- then returns <eslEOL>, with <*ret_tok> set to
+ *           <NULL>.
  *           
- *           Note that <*s> can't be a constant string, since we write
- *           <NUL>'s to it; caller must be willing to have this string
- *           modified. And since we walk <*s> through the string
- *           as we parse, the caller wants to use a tmp pointer <*s>,
- *           not the string itself.
+ *           <*s> cannot be a constant string, since we write \verb+\0+'s
+ *           to it; caller must be willing to have this string
+ *           modified. And since we walk <*s> through the string as we
+ *           parse, the caller wants to use a tmp pointer <*s>, not
+ *           the original string itself.
  *                      
  * Example:  
  *           char *tok;
- *           int   len;
  *           char *s;             
  *           char  buf[50] = "This is  a sentence.";
  *           
  *           s = buf;  
+ *           esl_strtok(&s, " ", &tok);
+ *                tok is "This"; s is "is  a sentence."
+ *           esl_strtok(&s, " ", &tok);
+ *                tok is "is"; s is " a sentence.".
+ *           esl_strtok(&s, " ", &tok);
+ *                tok is "a"; s is "sentence.".
  *           esl_strtok(&s, " ", &tok, &len);
- *                tok is "This"; s is "is  a sentence."; len is 4.
+ *                tok is "sentence."; s is "\0".
  *           esl_strtok(&s, " ", &tok, &len);
- *                tok is "is"; s is " a sentence."; len is 2.
- *           esl_strtok(&s, " ", &tok, &len);
- *                tok is "a"; s is "sentence."; len is 1.
- *           esl_strtok(&s, " ", &tok, &len);
- *                tok is "sentence."; s is "\0"; len is 9.
- *           esl_strtok(&s, " ", &tok, &len);
- *                this returned eslEOL;
- *                tok is NULL; s is "\0", len is 0.
+ *                returned eslEOL; tok is NULL; s is "\0".
  *       
- * Args:     s     - a tmp, modifiable ptr to string
- *           delim - characters that delimits tokens
- *           tok   - RETURN: ptr to \0-terminated token string
- *           len   - optRETURN: length of token; pass NULL if not wanted
+ * Args:     s        - a tmp, modifiable ptr to a string
+ *           delim    - characters that delimits tokens
+ *           ret_tok  - RETURN: ptr to \0-terminated token 
  *
- * Returns:  <eslOK> on success: token points to next token, toklen is its len.
- *           <eslEOL> on end of line.
+ * Returns:  <eslOK> on success, <*ret_tok> points to next token, and
+ *           <*s> points to next character following the token. 
+ *
+ *           Returns <eslEOL> on end of line; in which case <*s>
+ *           points to the terminal \verb+\0+ on the line, and <*ret_tok>
+ *           is <NULL>.
  */
 int
-esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen)
+esl_strtok(char **s, char *delim, char **ret_tok)
 {
-  char *begin, *end;
-  int   n;
-
-  if (ret_tok    != NULL) *ret_tok    = NULL;
-  if (ret_toklen != NULL) *ret_toklen = 0;
-
-  begin = *s;
-  begin += strspn(begin, delim);
-  if (! *begin) return eslEOL;
-
-  n = strcspn(begin, delim);
-  end  = begin + n;
-  if (*end == '\0') { *s = end;}
-  else {
-    *end = '\0';
-    *s   = end+1;
-  }
-
-  if (ret_tok    != NULL) *ret_tok    = begin;
-  if (ret_toklen != NULL) *ret_toklen = n;
-  return eslOK;
+  return esl_strtok_adv(s, delim, ret_tok, NULL, NULL);
 }
+
+
+/* Function: esl_strtok_adv()
+ * Synopsis: More advanced interface to <esl_strtok()>
+ * Date:     SRE, Mon Oct 13 10:16:26 2008
+ *
+ * Purpose:  Same as <esl_strtok()>, except the caller may also 
+ *           optionally retrieve the length of the token in <*opt_toklen>,
+ *           and the token-ending character that was replaced by \verb+\0+ 
+ *           in <*opt_endchar>. 
+ *           
+ * Args:     s           - a tmp, modifiable ptr to string
+ *           delim       - characters that delimits tokens
+ *           ret_tok     - RETURN: ptr to \0-terminated token string
+ *           opt_toklen  - optRETURN: length of token; pass NULL if not wanted
+ *           opt_endchar - optRETURN: character that was replaced by <\0>.
+ *
+ * Returns:  <eslOK> on success, <*ret_tok> points to next token, <*s>
+ *           points to next character following the token,
+ *           <*opt_toklen> is the <strlen()> length of the token in
+ *           characters (excluding its terminal \verb+\0+), and <*opt_endchar>
+ *           is the character that got replaced by \verb+\0+ to form the token.
+ *           
+ *           Returns <eslEOL> if no token is found (end of line); in
+ *           which case <*s> points to the terminal \verb+\0+ on the line,
+ *           <*ret_tok> is <NULL>, <*opt_toklen> is 0 and
+ *           <*opt_endchar> is \verb+\0+.
+ */
+int
+esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar)
+{
+  char *end;
+  char *tok    = *s;
+  char  c      = '\0';
+  int   n      = 0;
+  int   status = eslEOL;  /* unless proven otherwise */
+
+  tok += strspn(tok, delim);
+  if (! *tok) tok = NULL;         /* if *tok = 0, EOL, no token left */
+  else
+    {
+      n    = strcspn(tok, delim);
+      end  = tok + n;
+      if (*end == '\0') *s = end; /* a final token that extends to end of string */
+      else 
+	{
+	  c     = *end;		 /* internal token: terminate with \0 */
+	  *end  = '\0';
+	  *s    = end+1;
+	}
+      status = eslOK;
+    }
+
+  *ret_tok = tok;
+  if (opt_toklen  != NULL) *opt_toklen  = n;
+  if (opt_endchar != NULL) *opt_endchar = c;
+  return status;
+}
+
+
+/* Function:  esl_sprintf()
+ * Synopsis:  Dynamic allocation version of sprintf().
+ * Incept:    SRE, Mon Oct 20 09:35:57 2008 [Janelia]
+ *
+ * Purpose:   Like ANSI C's <sprintf()>, except the string
+ *            result is dynamically allocated, and returned
+ *            through <*ret_s>. 
+ *
+ *            Caller is responsible for free'ing <*ret_s>.
+ *            
+ *            As a special case to facilitate some optional string
+ *            initializations, if <format> is <NULL>, <*ret_s> is set
+ *            to <NULL>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_s> is the resulting
+ *            string.
+ *
+ * Throws:    <eslEMEM> on allocation failure. 
+ *            <eslESYS> if a <*printf()> library call fails.
+ */
+int
+esl_sprintf(char **ret_s, const char *format, ...)
+{
+  va_list ap;
+  int     status;
+
+  va_start(ap, format);
+  status = esl_vsprintf(ret_s, format, &ap);
+  va_end(ap);
+  return status;
+}
+
+/* Function:  esl_vsprintf()
+ * Synopsis:  Dynamic allocation version of vsprintf()
+ * Incept:    SRE, Wed Oct 22 14:48:44 2008 [Janelia]
+ *
+ * Purpose:   Like ANSI C's <vsprintf>, except the string
+ *            result is dynamically allocated, and returned
+ *            through <*ret_s>.
+ *
+ *            Caller is responsible for free'ing <*ret_s>.
+ *            
+ *            As a special case to facilitate some optional string
+ *            initializations, if <format> is <NULL>, <*ret_s> is set
+ *            to <NULL>.
+ *            
+ * Returns:   <eslOK> on success, and <*ret_s> is the resulting
+ *            string.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslESYS> if a <*printf()> library call fails.
+ */
+int
+esl_vsprintf(char **ret_s, const char *format, va_list *ap)
+{
+  char   *s = NULL;
+  char   *p = NULL;
+  va_list ap2;
+  int     n1, n2;
+  int     status;
+
+  if (format == NULL) { *ret_s = NULL; return eslOK; }
+
+  va_copy(ap2, *ap);
+  n1 = strlen(format) * 2;	/* initial guess at string size needed */
+  ESL_ALLOC(s, sizeof(char) * (n1+1));
+  if ((n2 = vsnprintf(s, n1+1, format, *ap)) >= n1) 
+    {
+      ESL_RALLOC(s, p, sizeof(char) * (n2+1));
+      if (vsnprintf(s, n2+1, format, ap2) == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
+    }
+  else if (n2 == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
+
+  va_end(ap2);
+  *ret_s = s;
+  return eslOK;
+
+ ERROR:
+  if (s != NULL) free(s);
+  va_end(ap2);
+  *ret_s = NULL;
+  return status;
+}
+   
+
 
 
 /*****************************************************************
@@ -1375,6 +1504,54 @@ esl_composition_SW50(double *f)
 #ifdef eslEASEL_TESTDRIVE
 
 static void
+utest_strtok(void)
+{
+  char *msg         = "esl_strtok() unit test failed";
+  char *teststring;
+  char *s;
+  char *tok;
+  int   toklen;
+  char  endc;
+
+  if (esl_strdup("This is\t a sentence.", -1, &teststring) != eslOK) esl_fatal(msg);
+
+  s = teststring;
+  if (esl_strtok(&s, " ", &tok) != eslOK)                            esl_fatal(msg);
+  if (strcmp(tok, "This")       != 0)                                esl_fatal(msg);
+  if (*s != 'i')                                                     esl_fatal(msg);
+  
+  if (esl_strtok_adv(&s, " \t", &tok, &toklen, &endc) != eslOK)      esl_fatal(msg);
+  if (strcmp(tok, "is") != 0)                                        esl_fatal(msg);
+  if (*s != ' ')                                                     esl_fatal(msg);
+  if (toklen != 2)                                                   esl_fatal(msg);
+  if (endc != '\t')                                                  esl_fatal(msg);
+  
+  if (esl_strtok_adv(&s, "\n", &tok, NULL, NULL) != eslOK)           esl_fatal(msg);
+  if (strcmp(tok, " a sentence.") != 0)                              esl_fatal(msg);
+  if (*s != '\0')                                                    esl_fatal(msg);
+
+  free(teststring);
+  return;
+}
+  
+static void
+utest_sprintf(void)
+{
+  char *msg  = "unit tests for esl_[v]sprintf() failed";
+  int   num  = 99;
+  char *what = "beer";
+  char *s    = NULL;
+
+  if (esl_sprintf(&s, "%d bottles of %s", num, what) != eslOK) esl_fatal(msg);
+  if (strcmp(s, "99 bottles of beer")                != 0)     esl_fatal(msg);
+  free(s); 
+
+  if (esl_sprintf(&s, NULL)                          != eslOK) esl_fatal(msg);
+  if (s                                              != NULL)  esl_fatal(msg);
+}
+
+
+static void
 utest_tmpfile_named(void)
 {
   char *msg          = "tmpfile_named unit test failed";
@@ -1413,6 +1590,8 @@ int main(void)
   esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
 
+  utest_strtok();
+  utest_sprintf();
   utest_tmpfile_named();
   return eslOK;
 }

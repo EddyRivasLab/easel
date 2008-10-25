@@ -65,11 +65,13 @@ typedef struct {
   char  *au;                    /* "author" information, or NULL            */
   char  *ss_cons;               /* consensus secondary structure, or NULL   */
   char  *sa_cons;               /* consensus surface accessibility, or NULL */
+  char  *pp_cons;		/* consensus posterior probability, or NULL */
   char  *rf;                    /* reference coordinate system, or NULL     */
   char **sqacc;                 /* accession numbers for sequences i        */
   char **sqdesc;                /* description lines for sequences i        */
   char **ss;                    /* per-seq secondary structures, or NULL    */
   char **sa;                    /* per-seq surface accessibilities, or NULL */
+  char **pp;                    /* posterior prob per residue, or NULL      */
   float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam */
   int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE      */
   /*::cexcerpt::msa_optional::end::*/
@@ -81,6 +83,7 @@ typedef struct {
   int64_t *sqlen;               /* individual seq lengths during parsing    */
   int64_t *sslen;               /* individual ss lengths during parsing     */
   int64_t *salen;               /* individual sa lengths during parsing     */
+  int64_t *pplen;               /* individual pp lengths during parsing     */
   int      lastidx;		/* last index we saw; use for guessing next */
 
   /* Optional information, especially Stockholm markup.
@@ -220,7 +223,8 @@ extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
 /* 5. General i/o API, all alignment formats */
 extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int   esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
-extern char *esl_msa_DescribeFormat(int fmt);
+extern int   esl_msa_EncodeFormat(char *fmtstring);
+extern char *esl_msa_DecodeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 /* 6. Miscellaneous functions for manipulating MSAs */

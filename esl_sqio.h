@@ -123,8 +123,10 @@ extern int  esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc);
 extern int  esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
 #endif
 
-extern int   esl_sqio_FormatCode(char *fmtstring);
-extern char *esl_sqio_DescribeFormat(int fmt);
+extern int   esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars);
+extern int   esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas);
+extern int   esl_sqio_EncodeFormat(char *fmtstring);
+extern char *esl_sqio_DecodeFormat(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
 
 extern int   esl_sqio_Read      (ESL_SQFILE *sqfp, ESL_SQ *sq);

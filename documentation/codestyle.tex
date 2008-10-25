@@ -700,7 +700,7 @@ For example:
 
 \begin{sreapi}
 \hypertarget{ifc:Copy}
-{\item[\ccode{\_Copy(src, dest)}]}
+{\item[\_Copy(src, dest)]}
 
 Copies \ccode{src} object into \ccode{dest}, where the caller has
 already created an appropriately allocated and empty \ccode{dest}
@@ -713,7 +713,7 @@ $\rightarrow$ \ccode{dest} (unlike the C library's \ccode{strcpy()}
 convention, which is the opposite order).
 
 \hypertarget{ifc:Clone}
-{\item[\ccode{\_Clone(obj)}] }
+{\item[\_Clone(obj)]}
 
 Creates and returns a pointer to a duplicate of \ccode{obj}.
 Equivalent to (and is a shortcut for) \ccode{dest = \_Create();
@@ -722,7 +722,7 @@ object, just as if it had been \ccode{\_Create}'d. Throws NULL if
 allocation fails.
 
 \hypertarget{ifc:Set}
-{\item[\ccode{\_Set*(obj, value...)}]}
+{\item[\_Set*(obj, value...)]}
 
 Initializes some value(s) in \ccode{obj} to
 \ccode{value}. \ccode{\_Set} functions have some appropriate longer
@@ -731,7 +731,7 @@ zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set a dmatrix to an
 identity matrix).
 
 \hypertarget{ifc:Get}
-{\item[\ccode{value = \_Get*(obj, ...)}]}
+{\item[value = \_Get*(obj, ...)]}
 
 Retrieves some specified data from \ccode{obj} and returns it
 directly. Because no error code can be returned, a \ccode{\_Get()}
@@ -741,13 +741,13 @@ succeed. \ccode{\_Get()} methods may often be implemented as macros.
 might fail, and require an error code return.)
 
 \hypertarget{ifc:Fetch}
-{\item[\ccode{\_Fetch*(obj, ..., \&ret\_value)}]}
+{\item[\_Fetch*(obj, ..., \&ret\_value)]}
 
 Retrieves some specified data from \ccode{obj} and puts it in
 \ccode{ret\_value}.
 
 \hypertarget{ifc:Compare}
-{\item[\ccode{\_Compare*(obj1, obj2...)}]}
+{\item[\_Compare*(obj1, obj2...)]}
 
 Compares \ccode{obj1} to \ccode{obj2}. Returns \ccode{eslOK} if the
 contents are judged to be identical, and \ccode{eslFAIL} if they
@@ -765,14 +765,14 @@ passed.
 
 \begin{sreapi}
 \hypertarget{ifc:Dump}
-{\item[\ccode{\_Dump*(FILE *fp, obj...)}]}
+{\item[\_Dump*(FILE *fp, obj...)]}
 
 Prints the internals of an object in human-readable, easily parsable
 tabular ASCII form. Useful during debugging and development to view
 the entire object at a glance. Returns \ccode{eslOK} on success.
 
 \hypertarget{ifc:Validate}
-{\item[\ccode{\_Validate*(obj, errbuf...)}]}
+{\item[\_Validate*(obj, errbuf...)]}
 
 Checks that the internals of \ccode{obj} are all right. Returns
 \ccode{eslOK} if they are, and returns \ccode{eslFAIL} if they
@@ -800,12 +800,26 @@ crashing out of production code.)
 \subsubsection{Other interfaces}
 
 \begin{sreapi}
-\hypertarget{ifc:Describe}
-{\item[\ccode{\_DescribeXXX()}]}
+\hypertarget{ifc:Encode}
+{\item[code = \_Encode*(char *s)]}
+
+Given a string \ccode{<s>}, match it case-insensitively against a list
+of possible string values and convert it to an internal
+\ccode{\#define} or \ccode{enum} code. For example,
+\ccode{esl\_sqio\_EncodeFormat("fasta")} returns
+\ccode{eslSQFILE\_FASTA}. If the string is not recognized, returns a
+code signifying ``unknown''. This needs to be a normal return (not a
+thrown error) because we will often use an \ccode{Encode} function to
+convert user input to internal codes.
+
+\hypertarget{ifc:Decode}
+{\item[char *s = \_Decode*(int code)]}
 
 Given an internal code (an \ccode{enum} or \ccode{\#define} constant),
-return a pointer to an informative string, for diagnostics and other
-output. The string is static.
+return a pointer to an informative string value, for diagnostics and
+other output. The string is static. If the code is not recognized,
+throws an \ccode{eslEINVAL} exception and returns \ccode{NULL}.
+
 \end{sreapi}
 
 

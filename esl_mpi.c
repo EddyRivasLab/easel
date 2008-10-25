@@ -204,14 +204,14 @@ esl_mpi_UnpackOpt(void *pack_buf, int pack_buf_size, int *pos, void **outbuf, in
  * Synopsis:  Send an ESL_SQ as an MPI work unit.
  * Incept:    ER, Thu Jun 19 10:39:49 EDT 2008 [Janelia]
  *
- * Purpose:   Sends an ESL_SQ <esl_sq> as a work unit to MPI process
+ * Purpose:   Sends an <ESL_SQ> <esl_sq> as a work unit to MPI process
  *            <dest> (where <dest> ranges from 0..<nproc-1>), tagged
  *            with MPI tag <tag>, for MPI communicator <comm>, as 
  *            the sole workunit or result. 
  *            
  *            Work units are prefixed by a status code. If <esl_sq> is
  *            <non-NULL>, the work unit is an <eslOK> code followed by
- *            the packed ESL_SQ. If <esl_sq> is NULL, the work unit is an
+ *            the packed <ESL_SQ>. If <esl_sq> is NULL, the work unit is an
  *            <eslEOD> code, which <esl_sq_MPIRecv()> knows how to
  *            interpret; this is typically used for an end-of-data
  *            signal to cleanly shut down worker processes.
@@ -279,7 +279,7 @@ esl_sq_MPISend(ESL_SQ *sq, int dest, int tag, MPI_Comm comm, char **buf, int *na
  * Incept:    ER, Thu Jun 19 10:48:25 EDT 2008 [Janelia]
  *
  * Purpose:   Calculate an upper bound on the number of bytes
- *            that <esl_sq_MPIPack()> will need to pack an ESL_SQ
+ *            that <esl_sq_MPIPack()> will need to pack an <ESL_SQ>
  *            <sq> in a packed MPI message for MPI communicator
  *            <comm>; return that number of bytes in <*ret_n>.
  *
@@ -320,22 +320,22 @@ esl_sq_MPIPackSize(ESL_SQ *sq, MPI_Comm comm, int *ret_n)
 }
 
 /* Function:  esl_sq_MPIPack()
- * Synopsis:  Packs an ESL_SQ into MPI buffer.
+ * Synopsis:  Packs an <ESL_SQ> into MPI buffer.
  * Incept:    ER, Thu Jun 19 10:49:10 EDT 2008 [Janelia]
  *
- * Purpose:   Packs ESL_SQ <esl_sq> into an MPI packed message buffer <buf>
+ * Purpose:   Packs <ESL_SQ> <esl_sq> into an MPI packed message buffer <buf>
  *            of length <n> bytes, starting at byte position <*position>,
  *            for MPI communicator <comm>.
  *            
  *            The caller must know that <buf>'s allocation of <n>
- *            bytes is large enough to append the packed ESL_SQ at
+ *            bytes is large enough to append the packed <ESL_SQ> at
  *            position <*pos>. This typically requires a call to
  *            <esl_sq_MPIPackSize()> first, and reallocation if
  *            needed.
  *            
  * Returns:   <eslOK> on success; <buf> now contains the
  *            packed <esl_sq>, and <*position> is set to the byte
- *            immediately following the last byte of the ESL_SQ
+ *            immediately following the last byte of the <ESL_SQ>
  *            in <buf>. 
  *
  * Throws:    <eslESYS> if an MPI call fails; or <eslEMEM> if the
@@ -400,19 +400,19 @@ esl_sq_MPIPack(ESL_SQ *sq, char *buf, int n, int *pos, MPI_Comm comm)
 }
 
 /* Function:  esl_sq_MPIUnpack()
- * Synopsis:  Unpacks an ESL_SQ from an MPI buffer.
+ * Synopsis:  Unpacks an <ESL_SQ> from an MPI buffer.
  * Incept:    SRE, Thu Jun  7 11:04:46 2007 [Janelia]
  *
- * Purpose:   Unpack a newly allocated ESL_SQ from MPI packed buffer
+ * Purpose:   Unpack a newly allocated <ESL_SQ> from MPI packed buffer
  *            <buf>, starting from position <*pos>, where the total length
  *            of the buffer in bytes is <n>. 
  *            
- *            Caller may or may not already know what alphabet the ESL_SQ
+ *            Caller may or may not already know what alphabet the <ESL_SQ>
  *            is expected to be in.  
  *
  * Returns:   <eslOK> on success. <*pos> is updated to the position of
  *            the next element in <buf> to unpack (if any). <*ret_hmm>
- *            contains a newly allocated ESL_SQ, which the caller is
+ *            contains a newly allocated <ESL_SQ>, which the caller is
  *            responsible for free'ing. 
  *
  *            
@@ -506,10 +506,10 @@ esl_sq_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm c
 
 
 /* Function:  esl_sq_MPIRecv()
- * Synopsis:  Receives an ESL_SQ as a work unit from an MPI sender.
+ * Synopsis:  Receives an <ESL_SQ> as a work unit from an MPI sender.
  * Incept:    ER, Thu Jun 19 10:53:40 EDT 2008 [Janelia]
  *
- * Purpose:   Receive a work unit that consists of a single ESL_SQ
+ * Purpose:   Receive a work unit that consists of a single <ESL_SQ>
  *            sent by MPI <source> (<0..nproc-1>, or
  *            <MPI_ANY_SOURCE>) tagged as <tag> for MPI communicator <comm>.
  *            
@@ -527,7 +527,7 @@ esl_sq_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm c
  *            appropriately, but the caller is still responsible for
  *            free'ing it.
  *
- * Returns:   <eslOK> on success. <*ret_esl_sq> contains the received ESL_SQ;
+ * Returns:   <eslOK> on success. <*ret_esl_sq> contains the received <ESL_SQ>;
  *            it is allocated here, and the caller is responsible for
  *            free'ing it.  <*buf> may have been reallocated to a
  *            larger size, and <*nalloc> may have been increased. 
@@ -703,6 +703,7 @@ esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
   status = esl_mpi_PackOptSize(msa->au,               -1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
   status = esl_mpi_PackOptSize(msa->ss_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
   status = esl_mpi_PackOptSize(msa->sa_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->pp_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
   status = esl_mpi_PackOptSize(msa->rf,      msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;            if (status != eslOK) goto ERROR;
 
   /* alignment, digital or text: */
@@ -767,6 +768,7 @@ esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm co
   status = esl_mpi_PackOpt(msa->au,               -1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = esl_mpi_PackOpt(msa->ss_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = esl_mpi_PackOpt(msa->sa_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->pp_cons, msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = esl_mpi_PackOpt(msa->rf,      msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   for (i = 0; i < msa->nseq; i++) {
     status = esl_mpi_PackOpt(msa->sqname[i],      -1, MPI_CHAR,          buf, n, position, comm);  if (status != eslOK) return status;
@@ -834,6 +836,7 @@ esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm 
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->au),      NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->ss_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->sa_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->pp_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->rf)     , NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   for (i = 0; i < msa->nseq; i++) {
     status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->sqname[i]), NULL, MPI_CHAR,          comm); if (status != eslOK) goto ERROR;
@@ -1007,6 +1010,7 @@ utest_MSASendRecv(ESL_ALPHABET *abc, ESL_MSA *msa, int my_rank, int nproc)
 	      (esl_CCompare(msa->au,      xmsa->au)      != eslOK) ||
 	      (esl_CCompare(msa->ss_cons, xmsa->ss_cons) != eslOK) ||
 	      (esl_CCompare(msa->sa_cons, xmsa->sa_cons) != eslOK) ||
+	      (esl_CCompare(msa->pp_cons, xmsa->pp_cons) != eslOK) ||
 	      (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK))
 	    esl_fatal("Received MSA is not identical to what was sent.");
 
@@ -1051,6 +1055,7 @@ utest_MSAPackUnpack(ESL_ALPHABET *abc, ESL_MSA *msa, int my_rank, int nproc)
       (esl_CCompare(msa->au,      xmsa->au)      != eslOK) ||
       (esl_CCompare(msa->ss_cons, xmsa->ss_cons) != eslOK) ||
       (esl_CCompare(msa->sa_cons, xmsa->sa_cons) != eslOK) ||
+      (esl_CCompare(msa->pp_cons, xmsa->pp_cons) != eslOK) ||
       (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK))
     esl_fatal("Unpacked MSA is not identical to what was packed.");
   

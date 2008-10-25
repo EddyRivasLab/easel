@@ -337,7 +337,7 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
       /* First token is the option, e.g. "--foo"
        */
       s = buf;
-      esl_strtok(&s, " \t\n", &optname, NULL);
+      esl_strtok(&s, " \t\n", &optname);
       if (optname   == NULL) continue; /* blank line */
       if (*optname  == '#')  continue; /* comment line */
       if (*optname  != '-') 
@@ -347,12 +347,12 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
       
       /* Second token, if present, is the arg
        */
-      if (*s == '"')  esl_strtok(&s, "\"",    &optarg, NULL); /* quote-delimited arg */
-      else            esl_strtok(&s, " \t\n", &optarg, NULL); /* space-delimited arg */
+      if (*s == '"')  esl_strtok(&s, "\"",    &optarg); /* quote-delimited arg */
+      else            esl_strtok(&s, " \t\n", &optarg); /* space-delimited arg */
       
       /* Anything else on the line had better be a comment
        */
-      esl_strtok(&s, " \t\n", &comment, NULL);
+      esl_strtok(&s, " \t\n", &comment);
       if (comment != NULL && *comment != '#') 
 	ESL_FAIL(eslESYNTAX, g->errbuf,
 		 "Parse failed at line %d of cfg file %.24s (saw %.24s, not a comment)\n",

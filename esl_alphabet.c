@@ -1473,7 +1473,30 @@ esl_abc_DCount(const ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
   return eslOK;
 }
 
-/* Function:  esl_abc_DescribeType()
+/* Function:  esl_abc_EncodeType()
+ * Synopsis:  Convert descriptive string to alphabet type code.
+ * Incept:    SRE, Mon Oct 13 14:52:18 2008 [Janelia]
+ *
+ * Purpose:   Convert a string like "amino" or "DNA" to the
+ *            corresponding Easel internal alphabet type code
+ *            such as <eslAMINO> or <eslDNA>; return the code.
+ *
+ * Returns:   the code, such as <eslAMINO>; if <type> isn't
+ *            recognized, returns <eslUNKNOWN>.
+ */
+int
+esl_abc_EncodeType(char *type)
+{
+  if      (strcasecmp(type, "amino") == 0) return eslAMINO;
+  else if (strcasecmp(type, "rna")   == 0) return eslRNA;
+  else if (strcasecmp(type, "dna")   == 0) return eslDNA;
+  else if (strcasecmp(type, "coins") == 0) return eslCOINS;
+  else if (strcasecmp(type, "dice")  == 0) return eslDICE;
+  else if (strcasecmp(type, "custom")== 0) return eslNONSTANDARD;
+  else                                     return eslUNKNOWN;
+}
+
+/* Function:  esl_abc_DecodeType()
  * Synopsis:  Returns descriptive string for alphabet type code.
  * Incept:    SRE, Wed Apr 12 12:23:24 2006 [St. Louis]
  *
@@ -1482,7 +1505,7 @@ esl_abc_DCount(const ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
  *            pointer to an internal string ("RNA", for example). 
  */
 char *
-esl_abc_DescribeType(int type)
+esl_abc_DecodeType(int type)
 {
   switch (type) {
   case eslUNKNOWN:     return "unknown";
@@ -1492,8 +1515,10 @@ esl_abc_DescribeType(int type)
   case eslCOINS:       return "coins";
   case eslDICE:        return "dice";
   case eslNONSTANDARD: return "custom";
-  default:             return "BOGUS";
+  default:             break;
   }
+  esl_exception(eslEINVAL, __FILE__, __LINE__, "no such alphabet type code %d\n", type);
+  return NULL;
 }
 
 

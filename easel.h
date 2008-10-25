@@ -302,7 +302,10 @@ extern void esl_usage (FILE *fp, char *progname, char *usage);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
-extern int  esl_strtok(char **s, char *delim, char **ret_tok, int *ret_toklen);
+extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
+extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
+extern int  esl_sprintf (char **ret_s, const char *format, ...);
+extern int  esl_vsprintf(char **ret_s, const char *format, va_list *ap);
 extern int  esl_strchop(char *s, int64_t n);
 extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
 #ifndef HAVE_STRCASECMP

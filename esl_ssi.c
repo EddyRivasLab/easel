@@ -1376,22 +1376,18 @@ parse_pkey(char *buf, ESL_PKEY *pkey)
 {
   int   status;
   char *s, *tok;
-  int   n;
   
   s = buf;
-  if (esl_strtok(&s, "\t\n", &(pkey->key), &n) != eslOK)
-    ESL_XEXCEPTION(eslEFORMAT, "parse failed");
-  if (esl_strtok(&s, "\t\n", &tok,         &n) != eslOK) 
-    ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(pkey->key)) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok)         != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
 
   pkey->fnum = (uint16_t) atoi(tok);
-
-  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok)         != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
   if      (sizeof(off_t) == 4) pkey->r_off  = (off_t) strtoul (tok, NULL, 10);
   else if (sizeof(off_t) == 8) pkey->r_off  = (off_t) strtoull(tok, NULL, 10);
   else                         ESL_XEXCEPTION(eslEINCONCEIVABLE, "whoa - weird off_t");
 
-  if (esl_strtok(&s, "\t\n", &tok, &n) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &tok)         != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
   pkey->len = (uint64_t) strtoull(tok, NULL, 10);
   return eslOK;
 
@@ -1403,11 +1399,10 @@ parse_skey(char *buf, ESL_SKEY *skey)
 {
   int   status;
   char *s;
-  int   n;
   
   s = buf;
-  if (esl_strtok(&s, "\t\n", &(skey->key),  &n) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
-  if (esl_strtok(&s, "\t\n", &(skey->pkey), &n) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(skey->key))  != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if (esl_strtok(&s, "\t\n", &(skey->pkey)) != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
   return eslOK;
 
  ERROR:
@@ -1971,8 +1966,8 @@ int main(int argc, char **argv)
   while (esl_fgets(&buf, &n, fp) == eslOK)
     {
       if (*buf == '>') {
-	s = buf+1;                               /* skip past >                */
-	esl_strtok(&s, " \t\n", &seqname, NULL); /* name = 1st token on > line */
+	s = buf+1;                           /* skip past >                */
+	esl_strtok(&s, " \t\n", &seqname);   /* name = 1st token on > line */
 	if (esl_newssi_AddKey(ns, seqname, fh, seq_offset, 0, 0) != eslOK)
 	  esl_fatal("failed to add key %s to index: %s", seqname, ns->errbuf);
       }

@@ -136,7 +136,7 @@ main(int argc, char **argv)
 	  printf("%-6d %-20s %10s %7d %7" PRId64 " %12" PRId64 " %6" PRId64 " %6" PRId64 " %10.1f %3.0f\n",
 		 nali, 
 		 msa->name,
-		 esl_msa_DescribeFormat(afp->format),
+		 esl_msa_DecodeFormat(afp->format),
 		 msa->nseq,
 		 msa->alen,
 		 nres,
@@ -150,7 +150,7 @@ main(int argc, char **argv)
 	  printf("Alignment number:    %d\n",     nali);
 	  if (msa->name != NULL)
 	    printf("Alignment name:      %s\n",        msa->name); 
-	  printf("Format:              %s\n",          esl_msa_DescribeFormat(afp->format));
+	  printf("Format:              %s\n",          esl_msa_DecodeFormat(afp->format));
 	  printf("Number of sequences: %d\n",          msa->nseq);
 	  printf("Alignment length:    %" PRId64 "\n", msa->alen);
 	  printf("Total # residues:    %" PRId64 "\n", nres);

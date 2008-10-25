@@ -468,7 +468,7 @@ main(int argc, char **argv)
   while (fgets(buf, 256, fp) != NULL)
     {
       s = buf;
-      esl_strtok(&s, " \t\r\n", &tok, NULL);
+      esl_strtok(&s, " \t\r\n", &tok);
       esl_key_Store(kh, tok, &idx);
       nstored++;
     }
@@ -483,7 +483,7 @@ main(int argc, char **argv)
   while (fgets(buf, 256, fp) != NULL)
     {
       s = buf;
-      esl_strtok(&s, " \t\r\n", &tok, NULL);
+      esl_strtok(&s, " \t\r\n", &tok);
 
       if (esl_key_Lookup(kh, tok, &idx) == eslOK) nshared++;
       nsearched++;
@@ -751,7 +751,7 @@ main(int argc, char **argv)
   while (fgets(buf, 256, fp) != NULL)
     {
       s = buf;
-      esl_strtok(&s, " \t\r\n", &tok, NULL);
+      esl_strtok(&s, " \t\r\n", &tok);
       esl_key_Store(h, tok, &idx);
       nstored++;
     }
@@ -764,7 +764,7 @@ main(int argc, char **argv)
   while (fgets(buf, 256, fp) != NULL)
     {
       s = buf;
-      esl_strtok(&s, " \t\r\n", &tok, NULL);
+      esl_strtok(&s, " \t\r\n", &tok);
       if (esl_key_Lookup(h, tok, &idx) == eslOK) nshared++;
       nsearched++;
     }
