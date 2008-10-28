@@ -2594,7 +2594,7 @@ reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
   /* swap ss, if they exist */
   if(msa->ss != NULL) { 
     for(i = 0; i < msa->nseq; i++) tmp[i] = msa->ss[i];
-    for(i = 0; i < msa->nseq; i++) msa->sa[i] = tmp[order[i]];
+    for(i = 0; i < msa->nseq; i++) msa->ss[i] = tmp[order[i]];
   }
 
   /* swap sa, if they exist */
