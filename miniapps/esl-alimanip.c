@@ -86,8 +86,9 @@ static float find_mindiff(ESL_TREE *T, double *diff, int do_nsize, int target, i
 static int  determine_first_last_consensus_columns(ESL_MSA *msa, char *errbuf, int **ret_fA, int **ret_lA, int *ret_clen);
 static int  dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, double *opt_distance, int *opt_nid, int *opt_n);
 static int  dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D);
-static int find_seqs_with_given_insert(ESL_MSA *msa, char *errbuf, int target, int min, int max, int **ret_useme);
-static int minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag);
+static int  find_seqs_with_given_insert(ESL_MSA *msa, char *errbuf, int target, int min, int max, int **ret_useme);
+static int  minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag);
+static int  remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
@@ -109,6 +110,7 @@ static ESL_OPTIONS options[] = {
   { "--end-all",   eslARG_INT,   NULL,  NULL, NULL,      NULL,"--start-all","--start-rf",       "keep columns ending   at column <n>", 3 },
   { "--start-rf",  eslARG_INT,   NULL,  NULL, NULL,      NULL,"--end-rf",   "--start-all",      "keep columns starting at non-gap RF column <n>", 3 },
   { "--end-rf",    eslARG_INT,   NULL,  NULL, NULL,      NULL,"--start-rf", "--start-all",      "keep columns ending   at non-gap RF column <n>", 3 },
+  { "--rm-gc",     eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, NULL,                       "remove GC <s> markup, <s> must be RF,SS_cons,SA_cons or PP_cons", 3},
   { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "reorder MSA to tree order following SLC, save Newick tree to <f>", 4 },
   { "--lfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "remove sequences w/length < <x> fraction of median length",      4 },
   { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, NULL,                       "remove sequences w/length < <n> residues",                       4 },
@@ -134,17 +136,6 @@ static ESL_OPTIONS options[] = {
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                             10 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                             10 },
 
-  { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity", 12 },
-  { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs", 12 },
-  { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id", 12},
-  { "--cn-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on insert similarity", 12 },
-  { "--cs-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on inserts s.t. max cluster has <n> seqs", 12 },
-  { "--cx-ins",     eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> ins id",12},
-  { "--c-nmin",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, NULL,                      "only keep the cluster(s) with number of seqs > <n>",12},
-  { "--c-mx",       eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                      "output identity matrix to file <f>",                   12 },
-  { "-M",           eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--seq-r,--seq-k",         "use #=GS tag <s> to define minor alignments, and output them",  12 },
-  { "--M-rf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"-M", NULL,                      "w/-M, impose major #=GC RF onto all minor alns", 12 },
-
   /* All options below are developer options, only shown if --devhelp invoked */
   { "--iplot",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL,OTHERMSAOPTS,                "plot heatmap of # of insertions b/t all non-gap RF cols to <f>", 101 },
   { "--ilog",      eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--iplot", NULL,                  "w/--iplot, use log scale for heatmap of insert counts",          101 },
@@ -157,6 +148,18 @@ static ESL_OPTIONS options[] = {
   { "--omap",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "with --map/--submap, output file for 1/0 mask map is <f>",       102 },
   { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",   102 },
   { "--verbose",   eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be verbose (usually with --morph, --merge or --map)",            102 },
+
+  { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity",          103 },
+  { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs",      103 },
+  { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id", 103},
+  { "--cn-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on insert similarity",          103 },
+  { "--cs-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on inserts s.t. max cluster has <n> seqs",103 },
+  { "--cx-ins",     eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> ins id", 103},
+  { "--c-nmin",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, NULL,                      "only keep the cluster(s) with number of seqs > <n>",              103},
+  { "--c-mx",       eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                      "output identity matrix to file <f>",                              103 },
+  { "-M",           eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--seq-r,--seq-k",         "use #=GS tag <s> to define minor alignments, and output them",    103 },
+  { "--M-rf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"-M", NULL,                      "w/-M, impose major #=GC RF onto all minor alns",                  103 },
+
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -237,12 +240,12 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
       esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
-      puts("\noptions for partitioning MSA into clusters:");
-      esl_opt_DisplayHelp(stdout, go, 12, 2, 80);
       puts("\nundocumented, experimental developer options:");
       esl_opt_DisplayHelp(stdout, go, 101, 2, 80);
       puts("\noptions for comparison/modification based on another MSA file:");
       esl_opt_DisplayHelp(stdout, go, 102, 2, 80); 
+      puts("\noptions for partitioning MSA into clusters:");
+      esl_opt_DisplayHelp(stdout, go, 103, 2, 80);
       exit(0);
     }
   if (esl_opt_GetBoolean(go, "-h") )
@@ -267,8 +270,6 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 9, 2, 80);
       puts("\noptions for specifying input alphabet:");
       esl_opt_DisplayHelp(stdout, go, 10, 2, 80);
-      puts("\noptions for partitioning MSA into clusters:");
-      esl_opt_DisplayHelp(stdout, go, 12, 2, 80);
       exit(0);
     }
 
@@ -758,6 +759,12 @@ main(int argc, char **argv)
 	}
 	write_ali = FALSE;
 	free(cmsa);
+      }
+
+      /* remove GC annotation, if nec */
+      if(! esl_opt_IsDefault(go, "--rm-gc")) {
+	if((status = remove_gc_markup(msa, errbuf, esl_opt_GetString(go, "--rm-gc")) != eslOK)) goto ERROR;
+	write_ali = TRUE;
       }
 
       /* write out list of sequences, if nec */
@@ -4833,4 +4840,43 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
   if(minorA != NULL)      free(minorA);
   if(useme != NULL)       free(useme);
   return eslEMEM;
+}
+
+
+/* remove_gc_markup()
+ *                   
+ * Given a GC tag <tag>, remove that markup from an MSA.
+ * Return eslEINVAL if <tag> does not exist.
+ */
+static int
+remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag)
+{
+  int    does_not_exist = FALSE;
+
+  /* Currently, we can only handle removal of parsed GC markup, RF, SS_cons, SA_cons, PP_cons 
+   * (the main reason is b/c I didn't know how to deal with possibility of the ESL_KEYHASH in msa->gc_idx).
+   */
+  if (strcmp(tag, "RF") == 0) { 
+    if   (msa->rf == NULL) does_not_exist = TRUE;
+    else { free(msa->rf); msa->rf = NULL; }
+  }
+  else if(strcmp(tag, "SS_cons") == 0) { 
+    if   (msa->ss_cons == NULL) does_not_exist = TRUE; 
+    else { free(msa->ss_cons); msa->ss_cons = NULL; }
+  }
+  else if (strcmp(tag, "SA_cons") == 0) { 
+    if   (msa->sa_cons == NULL) does_not_exist = TRUE;
+    else { free(msa->sa_cons); msa->sa_cons = NULL; }
+  }
+  else if (strcmp(tag, "PP_cons") == 0) { 
+    if   (msa->pp_cons == NULL) does_not_exist = TRUE;
+    else { free(msa->pp_cons); msa->pp_cons = NULL; }
+  }
+  else { 
+    ESL_FAIL(eslEINVAL, errbuf, "--rm-gc <s> only works if <s> is \'RF\', \'SS_cons\', \'SA_cons\', or \'PP_cons\'");
+  }
+  if(does_not_exist) { 
+    ESL_FAIL(eslEINVAL, errbuf, "--rm-gc %s enabled but %s GC markup exists in the MSA.", tag, tag);
+  }
+  return eslOK;
 }
