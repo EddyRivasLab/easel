@@ -858,7 +858,7 @@ keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int ke
       useme[apos] = (esl_abc_CIsGap(msa->abc, msa->rf[apos]) ? TRUE : FALSE);
   }
   else ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "In keep_or_remove_rf_gaps, but neither -r nor -k enabled.");
-  esl_msa_ColumnSubset(msa, useme);
+  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   return eslOK;
 
@@ -909,7 +909,7 @@ keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(useme, sizeof(int) * msa->alen);
   esl_vec_ISet(useme, msa->alen, FALSE);
   for(apos = astart-1; apos < aend; apos++) useme[apos] = TRUE;
-  esl_msa_ColumnSubset(msa, useme);
+  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   if(c2a_map != NULL) free(c2a_map);
   return eslOK;
@@ -1057,7 +1057,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
   ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
-  if (esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo) != eslOK) ESL_FAIL(status, errbuf, "Trying to remove pseudoknots, but consensus structure string is inconsistent.");
+  esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
   if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK)     ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
 
   /* go through each position of each sequence, 

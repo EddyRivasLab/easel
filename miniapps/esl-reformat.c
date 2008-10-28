@@ -77,6 +77,7 @@ main(int argc, char **argv)
   int    wussify;		/* TRUE to convert old KH SS markup to WUSS  */
   int    dewuss;		/* TRUE to convert WUSS back to old KH       */
   int    fullwuss;		/* TRUE to convert simple WUSS to full WUSS  */
+  char   errbuf[eslERRBUFSIZE]; /* for error messages                        */
 
   /*****************************************************************
    * Parse the command line
@@ -175,8 +176,8 @@ main(int argc, char **argv)
 
       while ((status = esl_msa_Read(afp, &msa)) == eslOK)
 	{
-	  if (do_mingap)    esl_msa_MinimGaps(msa, "-_.");
-	  if (do_nogap)     esl_msa_NoGaps(msa, "-_.");
+	  if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
+	  if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
 	  if (gapsym!=NULL) esl_msa_SymConvert(msa, "-_.", gapsym);
 	  if (force_lower)  esl_msa_SymConvert(msa,
 					       "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
