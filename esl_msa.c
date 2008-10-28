@@ -44,6 +44,7 @@
 #include "esl_ssi.h"
 #endif
 #include "esl_msa.h"
+#include "esl_wuss.h"
 /*::cexcerpt::include_example::end::*/
 
 
@@ -3443,6 +3444,68 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 }
 
 
+/* remove_broken_basepairs()
+ * 
+ * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, remove
+ * any basepair from SS_cons and individual SS annotation in alignment
+ * columns (i,j) for which either <useme[i-1]> or <useme[j-1]> is FALSE.
+ * Called automatically from esl_msa_ColumnSubset() with same <useme>. 
+ * 
+ * If the original structure data is inconsistent it's left untouched.
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
+ *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted 
+ *            SS, this should be impossible
+ */
+static int
+remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
+{
+  int status;
+  int64_t apos;         /* alignment position */
+  int  i;
+  int *ct;		/* 0..alen-1 base pair partners array for current sequence */
+  char *ss_nopseudo;    /* no-pseudoknot version of structure */
+  ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
+  ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
+
+  if (msa->ss_cons != NULL) { 
+    esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
+    if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+    for (apos = 1; apos <= msa->alen; apos++) { 
+      if (!(useme[apos-1])) { 
+	if (ct[apos] != 0) ct[ct[apos]] = 0;
+	ct[apos] = 0;
+      }
+      /* convert to WUSS SS string and supplant msa->ss_cons */
+      if ((status = esl_ct2wuss(ct, msa->alen, msa->ss_cons)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
+    }
+  }
+  /* do the same for per-seq SS annotation */
+  for (i = 0; i < msa->nseq; i++) {
+    if (msa->ss[i] != NULL) { 
+      esl_wuss_nopseudo(msa->ss[i], ss_nopseudo);
+      if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Secondary structure string for seq %d is inconsistent.", i);
+      for (apos = 1; apos <= msa->alen; apos++) { 
+	if (!(useme[apos-1])) { 
+	  if (ct[apos] != 0) ct[ct[apos]] = 0;
+	  ct[apos] = 0;
+	}
+	/* convert to WUSS SS string and supplant msa->ss[i] */
+	if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
+      }
+    }
+  }
+  free(ss_nopseudo);
+  free(ct);
+  return eslOK;
+
+ ERROR: 
+  ESL_FAIL(status, errbuf, "Memory allocation error.");
+  return status; /* NEVERREACHED */
+}  
+
 /* Function:  esl_msa_ColumnSubset()
  * Synopsis:  Remove a selected subset of columns from the MSA
  *
@@ -3459,14 +3522,24 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
  *            is shrunk.
  * 
  * Returns:   <eslOK> on success.
+ *            Possibilities from remove_broken_basepairs() call:
+ *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
+ *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  */
 int
-esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
+esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
 {
+  int     status;
   int64_t opos;			/* position in original alignment */
   int64_t npos;			/* position in new alignment      */
   int     idx;			/* sequence index */
   int     i;			/* markup index */
+
+  /* Remove any basepairs from SS_cons and individual sequence SS
+   * for aln columns i,j for which useme[i-1] or useme[j-1] are FALSE 
+   */
+  if((status = remove_broken_basepairs(msa, errbuf, useme)) != eslOK) return status;
 
   /* Since we're minimizing, we can overwrite in place, within the msa
    * we've already got. 
@@ -3530,13 +3603,17 @@ esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme)
  *            remain in the new alignment.
  *
  * Returns:   <eslOK> on success.
- *
+ * 
  * Throws:    <eslEMEM> on allocation failure.
+ *            Possibilities from esl_msa_ColumnSubset() call:
+ *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
+ *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  *
  * Xref:      squid's MSAMingap().
  */
 int
-esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
+esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
 {
   int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
   int64_t apos;		/* column index   */
@@ -3569,7 +3646,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
 	}
     }
 
-  esl_msa_ColumnSubset(msa, useme);
+  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   return eslOK;
 
@@ -3605,11 +3682,15 @@ esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
+ *            Possibilities from esl_msa_ColumnSubset() call:
+ *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
+ *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  *
  * Xref:      squid's MSANogap().
  */
 int
-esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
+esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
 {
   int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
   int64_t apos;		/* column index */
@@ -3642,7 +3723,7 @@ esl_msa_NoGaps(ESL_MSA *msa, const char *gaps)
 	}
     }
 
-  esl_msa_ColumnSubset(msa, useme);
+  esl_msa_ColumnSubset(msa, errbuf, useme);
   free(useme);
   return eslOK;
 
@@ -4871,6 +4952,8 @@ utest_ZeroLengthMSA(const char *tmpfile)
   int     *useme    = NULL;
   int      nuseme   = 0;
   int      i;
+  char     errbuf[eslERRBUFSIZE];
+
 
   /* Read a text mode alignment from the tmpfile */
   if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
@@ -4881,7 +4964,7 @@ utest_ZeroLengthMSA(const char *tmpfile)
   nuseme = ESL_MAX(z1->alen, z1->nseq);
   if ((useme = malloc(sizeof(int) * nuseme)) == NULL)  esl_fatal(msg);
   for (i = 0; i < z1->alen; i++) useme[i] = 0;
-  if (esl_msa_ColumnSubset(z1, useme)        != eslOK) esl_fatal(msg);
+  if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* These should all no-op if alen=0*/
   if (esl_msa_MinimGaps(z1, "-")      != eslOK) esl_fatal(msg);
@@ -4905,7 +4988,7 @@ utest_ZeroLengthMSA(const char *tmpfile)
 
   /* Now make an alen=0 alignment in digital mode */
   for (i = 0; i < z1->alen; i++) useme[i] = 0;
-  if (esl_msa_ColumnSubset(z1, useme) != eslOK) esl_fatal(msg);
+  if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* again these should all no-op if alen=0*/
   if (esl_msa_MinimGaps(z1, NULL)     != eslOK) esl_fatal(msg);
