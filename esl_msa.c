@@ -3483,17 +3483,19 @@ remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
     }
   }
   /* do the same for per-seq SS annotation */
-  for (i = 0; i < msa->nseq; i++) {
-    if (msa->ss[i] != NULL) { 
-      esl_wuss_nopseudo(msa->ss[i], ss_nopseudo);
-      if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Secondary structure string for seq %d is inconsistent.", i);
-      for (apos = 1; apos <= msa->alen; apos++) { 
-	if (!(useme[apos-1])) { 
-	  if (ct[apos] != 0) ct[ct[apos]] = 0;
-	  ct[apos] = 0;
+  if (msa->ss != NULL) { 
+    for (i = 0; i < msa->nseq; i++) {
+      if (msa->ss[i] != NULL) { 
+	esl_wuss_nopseudo(msa->ss[i], ss_nopseudo);
+	if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Secondary structure string for seq %d is inconsistent.", i);
+	for (apos = 1; apos <= msa->alen; apos++) { 
+	  if (!(useme[apos-1])) { 
+	    if (ct[apos] != 0) ct[ct[apos]] = 0;
+	    ct[apos] = 0;
+	  }
+	  /* convert to WUSS SS string and supplant msa->ss[i] */
+	  if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
 	}
-	/* convert to WUSS SS string and supplant msa->ss[i] */
-	if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
       }
     }
   }
