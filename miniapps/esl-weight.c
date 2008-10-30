@@ -15,18 +15,20 @@
 #include "esl_msaweight.h"
 #include "esl_random.h"
 
-#define WGTOPTS "-g,-p,-b"
+#define WGTOPTS "-g,-p,-b,-f"
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env    range toggles reqs  incomp               help                                     docgroup*/
-  { "-h",      eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,  NULL,            "show brief help on version and usage",        1 },
-  { "-g",      eslARG_NONE,"default",NULL,     NULL,WGTOPTS,NULL,  NULL,            "Gerstein/Sonnhammer/Chothia tree weights",    1 },
-  { "-p",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,  NULL,            "Henikoff position-based weights",             1 },
-  { "-b",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,  NULL,            "Henikoff simple filter weights",              1 },
-  { "--id",    eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",  NULL,            "for -b: set identity cutoff",                 1 },
-  { "--amino", eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--dna,--rna",    "<msa file> contains protein alignments",        1 },
-  { "--dna",   eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--rna",  "<msa file> contains DNA alignments",            1 },
-  { "--rna",   eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--dna",  "<msa file> contains RNA alignments",            1 },
+  { "-h",      eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,   NULL,          "show brief help on version and usage",        1 },
+  { "-g",      eslARG_NONE,"default",NULL,     NULL,WGTOPTS,NULL,   NULL,          "Gerstein/Sonnhammer/Chothia tree weights",    1 },
+  { "-p",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff position-based weights",             1 },
+  { "-b",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff simple filter weights",              1 },
+  { "-f",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "filter out seqs by fractional identity",      1 },
+  { "--id",    eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",NULL,             "for -b: set identity cutoff",                 1 },
+  { "--idf",   eslARG_REAL,  "0.80", NULL,"0<=x<=1",   NULL,"-f",NULL,             "for -f: set identity cutoff",                 1 },
+  { "--amino", eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--dna,--rna",    "<msa file> contains protein alignments",      1 },
+  { "--dna",   eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--rna",  "<msa file> contains DNA alignments",          1 },
+  { "--rna",   eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--amino,--dna",  "<msa file> contains RNA alignments",          1 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msa file>";
@@ -98,13 +100,31 @@ main(int argc, char **argv)
 
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
-      if       (esl_opt_GetBoolean(go, "-g")) status = esl_msaweight_GSC(msa);
-      else if  (esl_opt_GetBoolean(go, "-p")) status = esl_msaweight_PB(msa);
-      else if  (esl_opt_GetBoolean(go, "-b")) status = esl_msaweight_BLOSUM(msa, esl_opt_GetReal(go, "--id"));
-      else     esl_fatal("internal error: no weighting algorithm selected");
+      if       (esl_opt_GetBoolean(go, "-f")) 
+	{
+	  ESL_MSA *fmsa;
+	  status = esl_msaweight_IDFilter(msa, esl_opt_GetReal(go, "--idf"), &fmsa);
+	  esl_msa_Write(stdout, fmsa, eslMSAFILE_STOCKHOLM); 
+	  if (fmsa != NULL) esl_msa_Destroy(fmsa);
+	}
+      else if  (esl_opt_GetBoolean(go, "-g"))
+	{ 
+	  status = esl_msaweight_GSC(msa);                                 
+	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	} 
+      else if  (esl_opt_GetBoolean(go, "-p")) 
+	{
+	  status = esl_msaweight_PB(msa);                                  
+	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	} 
+      else if  (esl_opt_GetBoolean(go, "-b"))
+	{ 
+	  status = esl_msaweight_BLOSUM(msa, esl_opt_GetReal(go, "--id")); 
+ 	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	} 
+     else     esl_fatal("internal error: no weighting algorithm selected");
       if (status != eslOK) esl_fatal("Failed to calculate weights for msa %s", msa->name);
-
-      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+      
       esl_msa_Destroy(msa);
     }
   if (status == eslEFORMAT)

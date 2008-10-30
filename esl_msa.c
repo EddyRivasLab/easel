@@ -4831,7 +4831,7 @@ utest_MinimGaps(char *tmpfile)
   if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, "-~") != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(msa, NULL, "-~") != eslOK) esl_fatal(msg);
   if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
   if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
@@ -4842,7 +4842,7 @@ utest_MinimGaps(char *tmpfile)
   if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL) != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(msa, NULL, NULL) != eslOK) esl_fatal(msg);
   if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
   if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
@@ -4866,7 +4866,7 @@ utest_NoGaps(char *tmpfile)
   if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, "-~") != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(msa, NULL, "-~") != eslOK) esl_fatal(msg);
   if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, w/ 7 columns with gaps */
   if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
   if (msa->aseq[0][16] != 'T') esl_fatal(msg); /* T shifted from column 21->17 */
@@ -4878,7 +4878,7 @@ utest_NoGaps(char *tmpfile)
   if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_NoGaps(msa, NULL) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(msa, NULL, NULL) != eslOK) esl_fatal(msg);
   if (msa->alen        != 40)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
   if (msa->aseq[0][9]  != 'L') esl_fatal(msg); /* L shifted from column 13->10  */
@@ -4906,7 +4906,7 @@ utest_SymConvert(char *tmpfile)
 
   /* many->one version */
   if (esl_msa_SymConvert(msa, "VWY", "-")   != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
-  if (esl_msa_MinimGaps(msa, "-~")          != eslOK) esl_fatal(msg); /* now we're 39 columns long */
+  if (esl_msa_MinimGaps(msa, NULL, "-~")    != eslOK) esl_fatal(msg); /* now we're 39 columns long */
   if (msa->alen                             != 39)    esl_fatal(msg);
 
   /* many->many version */
@@ -4969,8 +4969,8 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* These should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, "-")      != eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, "-")         != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(z1, NULL, "-")!= eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, NULL, "-")   != eslOK) esl_fatal(msg);
   if (esl_msa_SymConvert(z1,"RY","NN")!= eslOK) esl_fatal(msg);
   
   /* test sequence subsetting by removing the first sequence */
@@ -4993,8 +4993,8 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* again these should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, NULL)     != eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, NULL)        != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(z1, NULL, NULL) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, NULL, NULL)    != eslOK) esl_fatal(msg);
   /* SymConvert throws EINVAL on a digital mode alignment */
 
   /* test sequence subsetting by removing the first sequence */
