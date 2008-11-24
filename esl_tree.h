@@ -21,9 +21,12 @@
 typedef struct {
   int   N;		/* number of taxa */
 
-  /* (Mandatory) information in the internal nodes of a rooted tree.
+  /* (Mandatory) information for the internal nodes of a rooted tree.
    * There are N-1 nodes, numbered 0..N-2, with the root at 0,
    * so each array below is indexed [0..N-2].
+   * When an internal node has a left or right branch to a taxon,
+   * <left>/<right> are <= 0, negative <taxon #>; if they're to 
+   * be used as array indices, flip their sign.
    * There is no ambiguity between taxon 0/root node 0, because 
    * a taxon can't be a parent, and the root node can't be a child.
    * For an unrooted tree, by convention, taxon 0 is the outgroup: T->left[0] = 0,
@@ -34,25 +37,28 @@ typedef struct {
   int    *right;	/* index of right child: values are -(N-1)..0=taxa; 1..N-2=nodes */
   double *ld;	        /* left branch length under node: values are >= 0 */
   double *rd;	        /* right branch length under node: values are >= 0 */
+                        /* in linkage trees, ld[x]=rd[x]= "height" (linkage value) of node, not branch lengths */
 
   /* Derived (optional) information, that we can reconstruct if
    * we need to from the mandatory info above.
    */
-  int    *taxaparent;   /* for taxa  [0..N-1]: index of its parent node, 0..N-2. */
-  int    *cladesize;	/* for nodes [0..N-2]: how many taxa contained in this clade, 1..N */
+  int    *taxaparent;   /* for taxa  [0..N-1]: index of its parent node, 0..N-2. [esl_tree_SetTaxaParents()] */
+  int    *cladesize;	/* for nodes [0..N-2]: # taxa in this clade, 1..N        [esl_tree_SetCladesizes()]  */
 
-  /* Optional information
-   */
+  /* Optional information */
   char  **taxonlabel;	  /* labels for taxa: [0..N-1] array of char strings */
   char  **nodelabel;	  /* labels for nodes: [0..N-2] array of char strings */
 
-  /* Tree output options.
-   */
-  int   show_unrooted;	        /* TRUE to output 'root' as a trifurcation (a la PHYLIP) */
-  int   show_node_labels;       /* TRUE to output labels for interior nodes */
-  int   show_root_branchlength; /* TRUE to show 0.0 branch length to root node (a la TreeAlign) */
-  int   show_branchlengths;	/* TRUE to output branch lengths */
-  int   show_quoted_labels;	/* TRUE to output ALL labels as quoted labels */
+  /* Tree mode options. */
+  int   is_linkage_tree;	 /* TRUE if this is a linkage tree; if FALSE, it's an additive tree */
+
+
+  /* Tree output options. */
+  int   show_unrooted;	         /* TRUE to output 'root' as a trifurcation (a la PHYLIP) */
+  int   show_node_labels;        /* TRUE to output labels for interior nodes */
+  int   show_root_branchlength;  /* TRUE to show 0.0 branch length to root node (a la TreeAlign) */
+  int   show_branchlengths;	 /* TRUE to output branch lengths */
+  int   show_quoted_labels;	 /* TRUE to output ALL labels as quoted labels */
   int   show_numeric_taxonlabels;/* TRUE to output taxa labels as their 0..N-1 indices if no other taxonlabel is present */
 
   /* Memory allocation information, when growing a tree (on input, for example)

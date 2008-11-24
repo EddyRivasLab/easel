@@ -87,6 +87,9 @@ esl_tree_Create(int ntaxa)
   T->taxonlabel  = NULL;
   T->nodelabel   = NULL;
 
+  /* Additive trees are assumed by default, as opposed to linkage trees  */
+  T->is_linkage_tree = FALSE;
+
   /* Tree output options default to PHYLIP style
    */
   T->show_unrooted            = FALSE;
@@ -1611,12 +1614,23 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
   for (i = 0; i < D->n;   i++) nin[i ]   = 1;  /* each cluster starts as 1  */
   for (i = 0; i < D->n-1; i++) height[i] = 0.; 
 
+  /* If we're doing either single linkage or complete linkage clustering,
+   * we will construct a "linkage tree", where ld[v], rd[v] "branch lengths"
+   * below node v are the linkage value for clustering node v; thus 
+   * ld[v] == rd[v] in a linkage tree.
+   * For UPGMA or WPGMA, we're building an additive tree, where ld[v] and
+   * rd[v] are branch lengths.
+   */
+  if (mode == eslSINGLE_LINKAGE || mode == eslCOMPLETE_LINKAGE)
+    T->is_linkage_tree = TRUE;
 
   for (N = D->n; N >= 2; N--)
     {
-      /* Find minimum in our current N x N matrix
+      /* Find minimum in our current N x N matrix.
+       * (Don't init minD to -infinity; linkage trees use sparse distance matrices 
+       * with -infinity representing unlinked.)
        */
-      minD = HUGE_VAL;
+      minD = D->mx[0][1]; i = 0; j = 1;	/* init with: if nothing else, try to link 0-1 */
       for (row = 0; row < N; row++)
 	for (col = row+1; col < N; col++)
 	  if (D->mx[row][col] < minD)
@@ -1631,19 +1645,22 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
        */
       T->left[N-2]  = idx[i];
       T->right[N-2] = idx[j];
-      height[N-2]   = minD / 2.;
+      if (T->is_linkage_tree)        height[N-2]   = minD;
+      else                           height[N-2]   = minD / 2.;
 
-      /* Set the branch lengths
+      /* Set the branch lengths (additive trees) or heights (linkage trees)
        */
       T->ld[N-2] = T->rd[N-2] = height[N-2];
-      if (idx[i] > 0) T->ld[N-2] -= height[idx[i]];
-      if (idx[j] > 0) T->rd[N-2] -= height[idx[j]];      
+      if (! T->is_linkage_tree) {
+	if (idx[i] > 0) T->ld[N-2] -= height[idx[i]];
+	if (idx[j] > 0) T->rd[N-2] -= height[idx[j]];      
+      }
       
       /* If either node was an internal node, record parent in it.
        */
       if (idx[i] > 0)  T->parent[idx[i]] = N-2;
       if (idx[j] > 0)  T->parent[idx[j]] = N-2;
-      
+
       /* Now, build a new matrix by merging row i+j and col i+j.
        *  1. move j to N-1 (unless it's already there)
        *  2. move i to N-2 (unless it's already there)

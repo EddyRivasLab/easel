@@ -29,6 +29,7 @@ ESLINCDIR = -I..
 PROGS = esl-afetch\
 	esl-alimanip\
 	esl-alistat\
+	esl-cluster\
 	esl-compstruct\
 	esl-histplot\
 	esl-reformat\

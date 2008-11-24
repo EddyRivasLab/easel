@@ -138,7 +138,6 @@ esl_dmatrix_CreateUpper(int n)
 }
 
 
-
 /* Function:  esl_dmatrix_Destroy()
  *            
  * Purpose:   Frees an <ESL_DMATRIX> object <A>.
