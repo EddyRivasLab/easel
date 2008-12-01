@@ -300,7 +300,7 @@ main(int argc, char **argv)
   /* open output file */
   if (esl_opt_GetString(go, "-o") != NULL) {
     if ((ofp = fopen(esl_opt_GetString(go, "-o"), "w")) == NULL) 
-	ESL_FAIL(eslFAIL, errbuf, "Failed to open -o output file %s\n", esl_opt_GetString(go, "-o"));
+	esl_fatal("Failed to open -o output file %s\n", esl_opt_GetString(go, "-o"));
     } else ofp = stdout;
 
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
@@ -325,54 +325,54 @@ main(int argc, char **argv)
   if(esl_opt_GetString(go, "--morph") != NULL)
     {
       status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--morph"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
-      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--morph alignment file %s doesn't exist or is not readable\n", 
+      if (status == eslENOTFOUND)    esl_fatal("--morph alignment file %s doesn't exist or is not readable\n", 
 					      esl_opt_GetString(go, "--morph"));
-      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --morph alignment %s\n", 
+      else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of --morph alignment %s\n", 
 					      esl_opt_GetString(go, "--morph"));
-      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+      else if (status != eslOK)      esl_fatal("Alignment file open failed with error %d\n", status);
     }
   if(esl_opt_GetString(go, "--merge") != NULL)
     {
       status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--merge"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
-      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--merge alignment file %s doesn't exist or is not readable\n", 
+      if (status == eslENOTFOUND)    esl_fatal("--merge alignment file %s doesn't exist or is not readable\n", 
 					      esl_opt_GetString(go, "--merge"));
-      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --merge alignment %s\n", 
+      else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of --merge alignment %s\n", 
 					      esl_opt_GetString(go, "--merge"));
-      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+      else if (status != eslOK)      esl_fatal("Alignment file open failed with error %d\n", status);
     }
   if(esl_opt_GetString(go, "--map") != NULL)
     {
       status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--map"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
-      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--map alignment file %s doesn't exist or is not readable\n", 
+      if (status == eslENOTFOUND)    esl_fatal("--map alignment file %s doesn't exist or is not readable\n", 
 					      esl_opt_GetString(go, "--map"));
-      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --map alignment %s\n", 
+      else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of --map alignment %s\n", 
 					      esl_opt_GetString(go, "--map"));
-      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+      else if (status != eslOK)      esl_fatal("Alignment file open failed with error %d\n", status);
     }
   if(esl_opt_GetString(go, "--submap") != NULL)
     {
       status = esl_msafile_OpenDigital(abc, esl_opt_GetString(go, "--submap"), eslMSAFILE_STOCKHOLM, NULL, &otherafp);
-      if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "--submap alignment file %s doesn't exist or is not readable\n", 
+      if (status == eslENOTFOUND)    esl_fatal("--submap alignment file %s doesn't exist or is not readable\n", 
 					      esl_opt_GetString(go, "--submap"));
-      else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of --submap alignment %s\n", 
+      else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of --submap alignment %s\n", 
 					      esl_opt_GetString(go, "--submap"));
-      else if (status != eslOK)      ESL_FAIL(status, errbuf, "Alignment file open failed with error %d\n", status);
+      else if (status != eslOK)      esl_fatal("Alignment file open failed with error %d\n", status);
     }
 
   /* read --mask-all file, if nec */
   if(esl_opt_GetString(go, "--mask-all") != NULL) {
     if((status = read_mask_file(esl_opt_GetString(go, "--mask-all"), errbuf, &amask)) != eslOK)
-      ESL_FAIL(status, errbuf, "--mask-all input file: %s open failed.\n", esl_opt_GetString(go, "--mask-all"));
+      esl_fatal("--mask-all input file: %s open failed.\n", esl_opt_GetString(go, "--mask-all"));
   }
   /* read --mask-rf file, if nec */
   if(esl_opt_GetString(go, "--mask-rf") != NULL) {
     if((status = read_mask_file(esl_opt_GetString(go, "--mask-rf"), errbuf, &rfmask)) != eslOK)
-      ESL_FAIL(status, errbuf, "--mask-rf input file: %s open failed.\n", esl_opt_GetString(go, "--mask-rf"));
+      esl_fatal("--mask-rf input file: %s open failed.\n", esl_opt_GetString(go, "--mask-rf"));
   }
   /* read --xmask file, if nec */
   if(esl_opt_GetString(go, "--xmask") != NULL) {
     if((status = read_mask_file(esl_opt_GetString(go, "--xmask"), errbuf, &xmask)) != eslOK)
-      ESL_FAIL(status, errbuf, "--xmask input file: %s open failed.\n", esl_opt_GetString(go, "--xmask"));
+      esl_fatal("--xmask input file: %s open failed.\n", esl_opt_GetString(go, "--xmask"));
   }
   /***********************************************
    * Read MSAs one at a time.
@@ -469,10 +469,10 @@ main(int argc, char **argv)
       if(esl_opt_GetString(go, "--trim") != NULL) { 
 	/* open seq file for --trim */
 	status = esl_sqfile_Open(esl_opt_GetString(go, "--trim"), eslSQFILE_UNKNOWN, NULL, &(trimfp));
-	if (status == eslENOTFOUND)    ESL_FAIL(status, errbuf, "File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
-	else if (status == eslEFORMAT) ESL_FAIL(status, errbuf, "Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
-	else if (status == eslEINVAL)  ESL_FAIL(status, errbuf, "Can’t autodetect stdin or .gz."); 
-	else if (status != eslOK)      ESL_FAIL(status, errbuf, "Sequence file open failed with error %d\n", status);
+	if (status == eslENOTFOUND)    esl_fatal("File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
+	else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
+	else if (status == eslEINVAL)  esl_fatal("Can’t autodetect stdin or .gz."); 
+	else if (status != eslOK)      esl_fatal("Sequence file open failed with error %d\n", status);
 	/* read the sequences */
 	ESL_SQ **sq;
 	read_sqfile(trimfp, msa->abc, msa->nseq, &sq); /* dies on failure */
@@ -549,7 +549,7 @@ main(int argc, char **argv)
 	  if((status = map_msas(go, errbuf, msa, othermsa, &msa1_to_msa2_mask)) != eslOK) goto ERROR;
 	  if(esl_opt_GetString(go, "--omap") != NULL) { 
 	    if ((omapfp = fopen(esl_opt_GetString(go, "--omap"), "w")) == NULL) 
-	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
+	      esl_fatal("Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
 	    fprintf(omapfp, "%s\n", msa1_to_msa2_mask);
 	    fclose(omapfp);
 	    /*printf("# Mask of 1/0s with 1 indicating aln column in %s maps to non-gap RF column in %s saved to file %s.\n", alifile, esl_opt_GetString(go, "--map"), esl_opt_GetString(go, "--omap")); */
@@ -564,7 +564,7 @@ main(int argc, char **argv)
 	  if((status = map_sub_msas(go, errbuf, msa, othermsa, &msa1_to_msa2_mask)) != eslOK) goto ERROR;
 	  if(esl_opt_GetString(go, "--omap") != NULL) { 
 	    if ((omapfp = fopen(esl_opt_GetString(go, "--omap"), "w")) == NULL) 
-	      ESL_FAIL(eslFAIL, errbuf, "Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
+	      esl_fatal("Failed to open --omap output file %s\n", esl_opt_GetString(go, "--omap"));
 	    fprintf(omapfp, "%s\n", msa1_to_msa2_mask);
 	    fclose(omapfp);
 	    /*printf("# Mask of 1/0s with 1 indicating aln column in %s maps to non-gap RF column in %s saved to file %s.\n", alifile, esl_opt_GetString(go, "--map"), esl_opt_GetString(go, "--omap")); */
@@ -584,7 +584,7 @@ main(int argc, char **argv)
       if(! esl_opt_IsDefault(go, "--tree"))
 	{
 	  if ((treefp = fopen(esl_opt_GetString(go, "--tree"), "w")) == NULL) 
-	    ESL_FAIL(eslFAIL, errbuf, "Failed to open --tree output file %s\n", esl_opt_GetString(go, "--tree"));
+	    esl_fatal("Failed to open --tree output file %s\n", esl_opt_GetString(go, "--tree"));
 
 	  ESL_TREE    *T = NULL;/* the tree, created by Single-Linkage Clustering */
 	  ESL_DMATRIX *D = NULL;/* the distance matrix */
@@ -627,7 +627,7 @@ main(int argc, char **argv)
       /* handle the --iinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--iinfo")) {
 	if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
+	  esl_fatal("Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
 	if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
 	/*printf("# Insert information saved to file %s.\n", esl_opt_GetString(go, "--iinfo")); */
 	fclose(iinfofp);
@@ -636,7 +636,7 @@ main(int argc, char **argv)
       /* handle the --iplot option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--iplot")) {
 	if ((iplotfp = fopen(esl_opt_GetString(go, "--iplot"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --iplot output file %s\n", esl_opt_GetString(go, "--iplot"));
+	  esl_fatal("Failed to open --iplot output file %s\n", esl_opt_GetString(go, "--iplot"));
 	if((status = plot_inserts(iplotfp, msa, esl_opt_GetBoolean(go, "--ilog"), errbuf) != eslOK)) goto ERROR;
 	fclose(iplotfp);
       }
@@ -644,7 +644,7 @@ main(int argc, char **argv)
       /* handle the --icinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--icinfo")) {
 	if ((icinfofp = fopen(esl_opt_GetString(go, "--icinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --icinfo output file %s\n", esl_opt_GetString(go, "--iplot"));
+	  esl_fatal("Failed to open --icinfo output file %s\n", esl_opt_GetString(go, "--iplot"));
 	if((status = dump_infocontent(icinfofp, msa, errbuf) != eslOK)) goto ERROR;
 	fclose(icinfofp);
       }
@@ -652,7 +652,7 @@ main(int argc, char **argv)
       /* handle the --gplot option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--gplot")) {
 	if ((gplotfp = fopen(esl_opt_GetString(go, "--gplot"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --gplot output file %s\n", esl_opt_GetString(go, "--gplot"));
+	  esl_fatal("Failed to open --gplot output file %s\n", esl_opt_GetString(go, "--gplot"));
 	if((status = plot_gaps(gplotfp, msa, errbuf) != eslOK)) goto ERROR;
 	fclose(gplotfp);
       }
@@ -660,7 +660,7 @@ main(int argc, char **argv)
       /* handle the --rinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--rinfo")) {
 	if ((rinfofp = fopen(esl_opt_GetString(go, "--rinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --rinfo output file %s\n", esl_opt_GetString(go, "--rinfo"));
+	  esl_fatal("Failed to open --rinfo output file %s\n", esl_opt_GetString(go, "--rinfo"));
 	if((status = dump_residue_info(rinfofp, msa, errbuf) != eslOK)) goto ERROR;
 	fclose(rinfofp);
       }
@@ -668,7 +668,7 @@ main(int argc, char **argv)
       /* handle the --cresinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--cresinfo")) {
 	if ((cresinfofp = fopen(esl_opt_GetString(go, "--cresinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --cresinfo output file %s\n", esl_opt_GetString(go, "--cresinfo"));
+	  esl_fatal("Failed to open --cresinfo output file %s\n", esl_opt_GetString(go, "--cresinfo"));
 	if((status = dump_cres_info(cresinfofp, msa, errbuf) != eslOK)) goto ERROR;
 	fclose(cresinfofp);
       }
@@ -676,7 +676,7 @@ main(int argc, char **argv)
       /* handle the --dinfo option, if enabled, do this after all MSA has been manipulated due to other options */
       if(! esl_opt_IsDefault(go, "--dinfo")) {
 	if ((dinfofp = fopen(esl_opt_GetString(go, "--dinfo"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --dinfo output file %s\n", esl_opt_GetString(go, "--dinfo"));
+	  esl_fatal("Failed to open --dinfo output file %s\n", esl_opt_GetString(go, "--dinfo"));
 	if((status = dump_delete_info(dinfofp, msa, errbuf) != eslOK)) goto ERROR;
 	fclose(dinfofp);
       }
@@ -699,12 +699,13 @@ main(int argc, char **argv)
       }
 
       /* handle the --c* options, if enabled */
-      int do_id_cluster     = ((esl_opt_IsDefault(go, "--cn-id"))     && (esl_opt_IsDefault(go, "--cs-id")) && (esl_opt_IsDefault(go, "--cx-id")))         ? FALSE : TRUE;
-      int do_insert_cluster = ((esl_opt_IsDefault(go, "--cn-ins")) && (esl_opt_IsDefault(go, "--cs-ins")) && (esl_opt_IsDefault(go, "--cx-ins"))) ? FALSE : TRUE;
+      int do_id_cluster     = ((esl_opt_IsDefault(go, "--cn-id"))     && (esl_opt_IsDefault(go, "--cs-id")) && (esl_opt_IsDefault(go, "--cx-id"))) ? FALSE : TRUE;
+      int do_insert_cluster = ((esl_opt_IsDefault(go, "--cn-ins")) && (esl_opt_IsDefault(go, "--cs-ins")) && (esl_opt_IsDefault(go, "--cx-ins")))  ? FALSE : TRUE;
       int do_ctarget_nc, do_ctarget_nsize, do_cmindiff, nmsa, m, nc, nsize, xsize, nmin;
       float mindiff;
+
       if(do_id_cluster || do_insert_cluster) { 
-	if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--c* options require GC #=RF annotation marking consensus columns.");
+	if(msa->rf == NULL) esl_fatal("--c* options require GC #=RF annotation marking consensus columns.");
 	ESL_DMATRIX *D = NULL;/* the distance matrix */
 	ESL_MSA     **cmsa;
 	if(do_id_cluster) { 
@@ -736,7 +737,7 @@ main(int argc, char **argv)
 	if(! esl_opt_IsDefault(go, "--c-mx")) { 
 	  FILE *mxfp;
 	  int i, j;
-	  if ((mxfp = fopen(esl_opt_GetString(go, "--c-mx"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --c-mx output file %s\n", esl_opt_GetString(go, "--c-mx"));
+	  if ((mxfp = fopen(esl_opt_GetString(go, "--c-mx"), "w")) == NULL) esl_fatal("Failed to open --c-mx output file %s\n", esl_opt_GetString(go, "--c-mx"));
 	  for(i = 0; i < msa->nseq; i++) { 
 	    for(j = 0; j < msa->nseq; j++) { 
 	      fprintf(mxfp, "%5d  %5d  %-30s  %-30s  %.5f\n", i, j, msa->sqname[i], msa->sqname[j], 1. - D->mx[i][j]);
@@ -752,14 +753,15 @@ main(int argc, char **argv)
 	for(m = 0; m < nmsa; m++) { 
 	  if(cmsa[m]->nseq >= nmin) { 
 	    status = esl_msa_Write(ofp, cmsa[m], (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
-	    if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
-	    else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
+	    if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
+	    else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
 	  }
 	  esl_msa_Destroy(cmsa[m]);
 	}
 	write_ali = FALSE;
 	free(cmsa);
       }
+      else if(!(esl_opt_IsDefault(go, "--c-mx"))) esl_fatal("--c-mx option requires at least one of: --cn-id, --cs-id, --cx-id, --cn-ins, --cs-ins, --cx-ins"); 
 
       /* remove GC annotation, if nec */
       if(! esl_opt_IsDefault(go, "--rm-gc")) {
@@ -770,24 +772,24 @@ main(int argc, char **argv)
       /* write out list of sequences, if nec */
       if(! esl_opt_IsDefault(go, "--list")) {
 	if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
-	  ESL_FAIL(eslFAIL, errbuf, "Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
+	  esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
 	int i;
 	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
 	fclose(listfp);
-      }
+     } 
 
       /* write out alignment, if nec */
       if((write_ali || esl_opt_GetBoolean(go, "-1")) && msa != NULL) {
 	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
-	if      (status == eslEMEM) ESL_FAIL(status, errbuf, "Memory error when outputting alignment\n");
-	else if (status != eslOK)   ESL_FAIL(status, errbuf, "Writing alignment file failed with error %d\n", status);
+	if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
+	else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
       }
 
       /* if nec, print #=GC RF annotation as a 1/0 mask (single line) to a file */
       if(esl_opt_GetString(go, "--omask") != NULL)
 	{
 	  if ((omaskfp = fopen(esl_opt_GetString(go, "--omask"), "w")) == NULL) 
-	    ESL_FAIL(eslFAIL, errbuf, "Failed to open --omask output file %s\n", esl_opt_GetString(go, "--omask"));
+	    esl_fatal("Failed to open --omask output file %s\n", esl_opt_GetString(go, "--omask"));
 	  if((status = output_rf_as_mask(omaskfp, errbuf, msa)) != eslOK) goto ERROR;
 	}
       if(msa != NULL)      esl_msa_Destroy(msa);
@@ -1058,7 +1060,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
   esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
-  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK)     ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
 
   /* go through each position of each sequence, 
      if it's a gap and it is part of a base pair, remove that base pair */
