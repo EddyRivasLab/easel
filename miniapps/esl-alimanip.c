@@ -705,7 +705,7 @@ main(int argc, char **argv)
       float mindiff;
 
       if(do_id_cluster || do_insert_cluster) { 
-	if(msa->rf == NULL) esl_fatal("--c* options require GC #=RF annotation marking consensus columns.");
+	if(msa->rf == NULL) esl_fatal("--c* options require #=GC RF annotation marking consensus columns.");
 	ESL_DMATRIX *D = NULL;/* the distance matrix */
 	ESL_MSA     **cmsa;
 	if(do_id_cluster) { 
