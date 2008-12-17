@@ -81,6 +81,8 @@ esl_getopts_Create(ESL_OPTIONS *opt)
   g->setby     = NULL;
   g->valloc    = NULL;
   g->optstring = NULL;
+  g->spoof     = NULL;
+  g->spoof_argv= NULL;
   g->errbuf[0] = '\0';
 
   /* Figure out the number of options.  
@@ -220,6 +222,49 @@ esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **a
 }
 
 
+/* Function:  esl_getopts_Reuse()
+ * Synopsis:  Reset application state to default.
+ * Incept:    SRE, Thu Dec  4 10:35:36 2008 [Janelia]
+ *
+ * Purpose:   Reset application configuration <g> to initial defaults,
+ *            as if it were newly created (before any 
+ *            processing of environment, config files, or
+ *            command line). 
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      J4/24.
+ */
+int
+esl_getopts_Reuse(ESL_GETOPTS *g)
+{
+  int i;
+
+  /* Restore defaults for all options */
+  for (i = 0; i < g->nopts; i++)
+    {
+      if (g->valloc[i] > 0) { free(g->val[i]); }
+      g->val[i]    = g->opt[i].defval;
+      g->setby[i]  = eslARG_SETBY_DEFAULT;
+      g->valloc[i] = 0;	
+    }
+
+  if (g->spoof      != NULL) free(g->spoof);
+  if (g->spoof_argv != NULL) free(g->spoof_argv);
+
+  g->argc       = 0;
+  g->argv       = NULL;
+  g->optind     = 1;
+  g->nfiles     = 0;
+  g->optstring  = NULL;
+  g->spoof      = NULL;
+  g->spoof_argv = NULL;
+  g->errbuf[0]  = '\0';
+  return eslOK;
+}
+
 
 /* Function:  esl_getopts_Destroy()
  * Synopsis:  Destroys an <ESL_GETOPTS> object.
@@ -245,8 +290,10 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 	      free(g->val[i]);
 	  free(g->val);
 	}
-      if (g->setby  != NULL) free(g->setby);
-      if (g->valloc != NULL) free(g->valloc);
+      if (g->setby      != NULL) free(g->setby);
+      if (g->valloc     != NULL) free(g->valloc);
+      if (g->spoof      != NULL) free(g->spoof);
+      if (g->spoof_argv != NULL) free(g->spoof_argv);
       free(g);
     }
 }
@@ -262,7 +309,15 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 void
 esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
 {
-  int i;
+  int i, j;
+
+  if (g->argv != NULL) 
+    {
+      fprintf(ofp,   "argv[0]:                %s\n", g->argv[0]);
+      for (i = 1, j = g->optind; j < g->argc; j++, i++)
+	fprintf(ofp, "argument %2d (argv[%2d]): %s\n", i, j, g->argv[j]);
+      fputc('\n', ofp); 
+    }
 
   fprintf(ofp, "%12s %12s %9s\n", "Option", "Setting", "Set by");
   fprintf(ofp, "------------ ------------ ---------\n");
@@ -271,8 +326,9 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
     {
       fprintf(ofp, "%-12s ", g->opt[i].name);
 
-      fprintf(ofp, "%-12s ", g->val[i]);
-      
+      if (g->opt[i].type == eslARG_NONE)  fprintf(ofp, "%-12s ", g->val[i] == NULL ? "off" : "on");
+      else                                fprintf(ofp, "%-12s ", g->val[i]);
+
       if      (g->setby[i] == eslARG_SETBY_DEFAULT) fprintf(ofp, "(default) ");
       else if (g->setby[i] == eslARG_SETBY_CMDLINE) fprintf(ofp, "cmdline   ");
       else if (g->setby[i] == eslARG_SETBY_ENV)     fprintf(ofp, "environ   ");
@@ -499,6 +555,58 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 }
 
 
+/* Function:  esl_opt_ProcessSpoof()
+ * Synopsis:  Parses a string as if it were a command line.
+ * Incept:    SRE, Thu Dec  4 10:23:43 2008 [Janelia]
+ *
+ * Purpose:   Process the string <cmdline> as if it were a 
+ *            complete command line. 
+ *            
+ *            Essentially the same as <esl_opt_ProcessCmdline()>
+ *            except that whitespace-delimited tokens first need to be
+ *            identified in the <cmdline> first, then passed as
+ *            <argc>,<argv> to <esl_opt_ProcessCmdline()>.
+ *
+ * Returns:   <eslOK> on success, and <g> is loaded with the
+ *            application configuration.
+ *
+ *            Returns <eslEINVAL> on any parsing problem, and sets
+ *            <g->errbuf> to an informative error message.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      J4/24.
+ */
+int
+esl_opt_ProcessSpoof(ESL_GETOPTS *g, const char *cmdline)
+{
+  int    argc = 0;
+  char  *s    = NULL;
+  void  *p;
+  char  *tok;
+  int    status;
+
+  if (g->spoof != NULL || g->spoof_argv != NULL)
+    ESL_XFAIL(eslEINVAL, g->errbuf, "cannot process more than one spoofed command line");
+
+  if ((status = esl_strdup(cmdline, -1, &(g->spoof))) != eslOK) goto ERROR;
+  s = g->spoof;
+
+  while (esl_strtok(&s, " \t\n", &tok) == eslOK)
+    {
+      argc++;
+      ESL_RALLOC(g->spoof_argv, p, sizeof(char *) * argc);
+      g->spoof_argv[argc-1] = tok;
+    }
+  
+  status = esl_opt_ProcessCmdline(g, argc, g->spoof_argv);
+  return status;
+  
+ ERROR:
+  if (g->spoof      != NULL) { free(g->spoof);      g->spoof      = NULL; }
+  if (g->spoof_argv != NULL) { free(g->spoof_argv); g->spoof_argv = NULL; }
+  return status;
+}
 
 /* Function:  esl_opt_VerifyConfig()
  * Synopsis:  Validates configuration after options are set.
@@ -591,6 +699,72 @@ esl_opt_ArgNumber(const ESL_GETOPTS *g)
   return ((g)->argc - (g)->optind);
 }
 
+
+/* Function:  esl_opt_SpoofCmdline()
+ * Synopsis:  Create "command line" from current option configuration.
+ * Incept:    SRE, Thu Dec  4 09:48:21 2008 [Janelia]
+ *
+ * Purpose:   Given the current configuration state of the application
+ *            <g>, create a command line that would recreate the same
+ *            state by itself (without any environment or config file
+ *            settings), and return it in <*ret_cmdline>.
+ *            
+ * Returns:   <eslOK> on success. The <*ret_cmdline> is allocated here,
+ *            and caller is responsible for freeing it.
+ *
+ * Throws:    <eslEMEM> on allocation error, and <*ret_cmdline> is <NULL>.
+ *
+ * Xref:      J4/24
+ */
+int
+esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
+{
+  char *cmdline = NULL;
+  char *p       = NULL;
+  int   ntot    = 0;
+  int   n;
+  int   i, j;
+  int   status;
+
+  /* Application name/path */
+  ntot = strlen(g->argv[0]) + 1;
+  ESL_ALLOC(cmdline, sizeof(char) * ntot);
+  sprintf(cmdline, "%s ", g->argv[0]);
+  
+  /* Options */
+  for (i = 0; i < g->nopts; i++)
+    if (g->setby[i] != eslARG_SETBY_DEFAULT) 
+      {
+	if (g->opt[i].type == eslARG_NONE) n = strlen(g->opt[i].name) + 1;
+	else                               n = strlen(g->opt[i].name) + strlen(g->val[i]) + 2;
+
+	ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n));
+
+	if (g->opt[i].type == eslARG_NONE) sprintf(cmdline + ntot, "%s ",    g->opt[i].name);
+	else                               sprintf(cmdline + ntot, "%s %s ", g->opt[i].name, g->val[i]);
+
+	ntot += n;
+      }
+
+  /* Arguments */
+  for (j = g->optind; j < g->argc; j++)
+    {
+      n = strlen(g->argv[j]) + 1;
+      ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n));
+      sprintf(cmdline + ntot, "%s ", g->argv[j]);
+      ntot += n;
+    }
+
+  /* Terminate */
+  cmdline[ntot] = '\0';
+  *ret_cmdline = cmdline;
+  return eslOK;
+
+ ERROR:
+  if (cmdline != NULL) free(cmdline);
+  *ret_cmdline = NULL;
+  return status;
+}
 
 /*****************************************************************
  * 3. Retrieving option settings and command line args
@@ -1166,7 +1340,7 @@ process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
   else if (status == eslENOTFOUND)
     ESL_FAIL(eslESYNTAX, g->errbuf, "No such option \"%.24s\".", g->argv[g->optind]);
   else if (status != eslOK)
-    ESL_EXCEPTION(eslEINCONCEIVABLE, g->errbuf, "Something went wrong with option \"%.24s\".", g->argv[g->optind]);
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "Something went wrong with option \"%.24s\".", g->argv[g->optind]);
 
   *ret_opti    = opti;
   g->optind++;	/* optind was on the option --foo; advance the counter to next argv element */
@@ -1871,6 +2045,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS *go;
   char        *arg;
+  char        *cmdline;
 
   if ((go = esl_getopts_Create(options))     == NULL)  esl_fatal("Bad options structure\n");  
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
@@ -1898,7 +2073,15 @@ main(int argc, char **argv)
   printf("Option --char:  %c\n", esl_opt_GetChar(go, "--char"));
   printf("Cmdline arg:    %s\n", arg);
 
+  esl_opt_SpoofCmdline(go, &cmdline);
+  printf("Reconstructed:  %s\n", cmdline);
+
+  esl_getopts_Reuse(go);
+  esl_opt_ProcessSpoof(go, cmdline);
+  esl_getopts_Dump(stdout, go);
+
   esl_getopts_Destroy(go);
+  free(cmdline);
   return 0;
 }
 /*::cexcerpt::getopts_example::end::*/

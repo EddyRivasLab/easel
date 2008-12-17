@@ -560,7 +560,7 @@ main(int argc, char **argv)
   kalloc = 256;
   ESL_ALLOC(karr, sizeof(char *) * kalloc);
 
-  if (esl_fileparser_Open(keyfile, &efp) != eslOK) esl_fatal("Failed to open key file %s\n", keyfile);
+  if (esl_fileparser_Open(keyfile, NULL, &efp) != eslOK) esl_fatal("Failed to open key file %s\n", keyfile);
   
   nkeys = 0;
   while (esl_fileparser_NextLine(efp) == eslOK)

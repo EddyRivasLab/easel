@@ -303,7 +303,7 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
   int             status;
 
   
-  if (esl_fileparser_Open(keyfile, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", keyfile);
+  if (esl_fileparser_Open(keyfile, NULL, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", keyfile);
   esl_fileparser_SetCommentChar(efp, '#');
 
   while (esl_fileparser_NextLine(efp) == eslOK)
@@ -415,7 +415,7 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
   int             start, end;
   char           *source;
  
-  if (esl_fileparser_Open(gdffile, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", gdffile);
+  if (esl_fileparser_Open(gdffile, NULL, &efp) != eslOK)  esl_fatal("Failed to open key file %s\n", gdffile);
   esl_fileparser_SetCommentChar(efp, '#');
 
   while (esl_fileparser_NextLine(efp) == eslOK)
@@ -499,7 +499,7 @@ multifetch_subseq_infernal(ESL_GETOPTS *go, FILE *ofp, char *tabfile, ESL_SQFILE
   double          bit, E;
   int             gc;
   int             has_E = FALSE;
-  if (esl_fileparser_Open(tabfile, &efp) != eslOK)  esl_fatal("Failed to open Infernal tab file %s\n", tabfile);
+  if (esl_fileparser_Open(tabfile, NULL, &efp) != eslOK)  esl_fatal("Failed to open Infernal tab file %s\n", tabfile);
   esl_fileparser_SetCommentChar(efp, '#');
 
   while (esl_fileparser_NextLine(efp) == eslOK)

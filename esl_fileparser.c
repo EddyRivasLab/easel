@@ -34,6 +34,20 @@ static int nextline(ESL_FILEPARSER *efp);
  * 
  *            As a special case, if <filename> is "-", set up the
  *            fileparser to read and parse <stdin>.
+ *            
+ *            <envvar> is optional name of an environment variable,
+ *            such as <BLASTDB>. This environment variable contains a
+ *            colon-delimited list of directories in which the
+ *            <filename> may lie relative to.  We looks first relative
+ *            to the current working directory, then in any
+ *            directories specified by <envvar>. If <envvar> is <NULL>,
+ *            we only look in the current working directory.
+ *            
+ * Args:      filename  - filename, relative path, or fully qualified path
+ *            envvar    - optional environment variable name to find 
+ *                        colon-delimited list of directories <filename>
+ *                        may reside in; or <NULL>
+ *            ret_efp   - RETURN: opened <ESL_FILEPARSER>            
  *
  * Returns:   <eslOK> on success, and <ret_fp> points
  *            to a new <ESL_FILEPARSER> object.
@@ -45,18 +59,21 @@ static int nextline(ESL_FILEPARSER *efp);
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_fileparser_Open(const char *filename, ESL_FILEPARSER **ret_efp)
+esl_fileparser_Open(const char *filename, const char *envvar, ESL_FILEPARSER **ret_efp)
 {
   int             status;
   ESL_FILEPARSER *efp = NULL;
 
   if ((efp = esl_fileparser_Create(NULL)) == NULL) { status = eslEMEM;      goto ERROR; }
 
-  if (strcmp(filename, "-") == 0)
+  if (strcmp(filename, "-") == 0) 
     efp->fp = stdin;
-  else {
-    if ((efp->fp = fopen(filename, "r")) == NULL)    { status = eslENOTFOUND; goto ERROR; }
+  else if ((efp->fp = fopen(filename, "r")) != NULL) { 
+    if ((status  = esl_strdup(filename, -1, &(efp->filename))) != eslOK) goto ERROR;
   }
+  else if ((status = esl_FileEnvOpen(filename, envvar, &(efp->fp), &(efp->filename))) != eslOK) 
+    { status = eslENOTFOUND; goto ERROR; }    
+    
   *ret_efp = efp;
   return eslOK;
 
@@ -98,6 +115,7 @@ esl_fileparser_Create(FILE *fp)
   efp->tok         = NULL;
   efp->toklen      = 0;
   efp->tokchar     = '\0';
+  efp->filename    = NULL;
   efp->linenumber  = 0;
   efp->errbuf[0]   = '\0';
   return efp;
@@ -482,6 +500,7 @@ esl_fileparser_Close(ESL_FILEPARSER *efp)
   if (efp == NULL) return;
   
   if (efp->fp != NULL && efp->fp != stdin) fclose(efp->fp);
+  if (efp->filename != NULL) free(efp->filename);
   esl_fileparser_Destroy(efp);
 }
 
@@ -570,7 +589,7 @@ utest_GetTokenOnLine(char *filename)
   int             nlines = 0;
   char            expect[32];
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("File open failed");
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("File open failed");
   esl_fileparser_SetCommentChar(efp, '#');
 
   while ((status = esl_fileparser_NextLine(efp)) == eslOK)
@@ -664,7 +683,7 @@ main(int argc, char **argv)
   char           *tok;
   int             toklen;
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("File open failed");
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("File open failed");
   esl_fileparser_SetCommentChar(efp, '#');
   
   while (esl_fileparser_GetToken(efp, &tok, &toklen) == eslOK) { 
@@ -698,7 +717,7 @@ main(int argc, char **argv)
   char           *tok;
   int             toklen;
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("File open failed");
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("File open failed");
   esl_fileparser_SetCommentChar(efp, '#');
   
   while (esl_fileparser_NextLine(efp) == eslOK)

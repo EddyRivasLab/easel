@@ -21,11 +21,12 @@ typedef struct {
   int   toklen;			/* ... and its length                              */
   char  tokchar;		/* ... and char that got overwritten by \0, if any */
 
+  char *filename;		/* name of opened file; or NULL (if just a stream) */
   int   linenumber;		/* what line is loaded into buf; 1..nlines         */
   char  errbuf[eslERRBUFSIZE];  /* for holding error diagnostics                   */
 } ESL_FILEPARSER;
 
-extern int  esl_fileparser_Open(const char *filename, ESL_FILEPARSER **ret_efp);
+extern int  esl_fileparser_Open(const char *filename, const char *envvar, ESL_FILEPARSER **ret_efp);
 extern ESL_FILEPARSER *esl_fileparser_Create(FILE *fp);
 extern int  esl_fileparser_SetCommentChar  (ESL_FILEPARSER *efp, char c);
 extern int  esl_fileparser_GetToken        (ESL_FILEPARSER *efp, char **opt_tok, int *opt_toklen);

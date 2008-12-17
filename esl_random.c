@@ -140,7 +140,8 @@ esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
 {
   int burnin = 7;
   if (seed <= 0) ESL_EXCEPTION(eslEINVAL, "bad seed");
-  r->seed = seed;
+  r->seed      = seed;
+  r->reseeding = TRUE;
   while (burnin--) esl_random(r);
   return eslOK;
 }

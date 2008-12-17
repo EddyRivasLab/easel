@@ -223,7 +223,7 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
   int             keyidx;
   int             status;
   
-  if (esl_fileparser_Open(keyfile, &efp) != eslOK) 
+  if (esl_fileparser_Open(keyfile, NULL, &efp) != eslOK) 
     esl_fatal("Failed to open key file %s\n", keyfile);
   esl_fileparser_SetCommentChar(efp, '#');
 

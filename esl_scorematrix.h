@@ -11,7 +11,7 @@
 #include <esl_dmatrix.h>
 #include <esl_random.h>
 
-/* 
+/* ESL_SCOREMATRIX:
  * allocation is in one array in s[0].
  *
  * i,j can range from 0..Kp-1, including all characters valid in the alphabet.
@@ -32,6 +32,9 @@ typedef struct {
   int   has_stop;		/* TRUE if * is a residue */
   int   stopsc;			/* score for alignment to a * */
   int   stopstopsc;		/* score for a *-* alignment  */
+
+  char *name;			/* optional: name of score matrix; or NULL */
+  char *path;			/* optional: full path to file that score matrix was read from; or NULL  */
 } ESL_SCOREMATRIX;
 
 

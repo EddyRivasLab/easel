@@ -63,7 +63,9 @@ typedef struct {
   int   *setby;		  /* array [0..nopts-1] for who set option i   */
   int   *valloc;          /* 0, or length of alloc for val[i]          */
 
-  char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[] */
+  char  *optstring;	  /* internal: ptr into string of 1-char opts in argv[]          */
+  char  *spoof;	    	  /* internal allocation: ProcessSpoof() stores cmdline          */
+  char **spoof_argv;	  /* internal allocation: ProcessSpoof()'s ptrs into its cmdline */
 
   char  errbuf[eslERRBUFSIZE];	/* buffer for reporting user error     */
 } ESL_GETOPTS;
@@ -84,14 +86,17 @@ typedef struct {
  */
 extern ESL_GETOPTS *esl_getopts_Create(ESL_OPTIONS *opt);
 extern ESL_GETOPTS *esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **argv, char *banner, char *usage);
+extern int          esl_getopts_Reuse  (ESL_GETOPTS *g);
 extern void         esl_getopts_Destroy(ESL_GETOPTS *g);
 extern void         esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g);
 
-extern int esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp);
+extern int esl_opt_ProcessConfigfile (ESL_GETOPTS *g, char *filename, FILE *fp);
 extern int esl_opt_ProcessEnvironment(ESL_GETOPTS *g);
-extern int esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv);
-extern int esl_opt_VerifyConfig(ESL_GETOPTS *g);
-extern int esl_opt_ArgNumber(const ESL_GETOPTS *g);
+extern int esl_opt_ProcessCmdline    (ESL_GETOPTS *g, int argc, char **argv);
+extern int esl_opt_ProcessSpoof      (ESL_GETOPTS *g, const char *cmdline);
+extern int esl_opt_VerifyConfig      (ESL_GETOPTS *g);
+extern int esl_opt_ArgNumber   (const ESL_GETOPTS *g);
+extern int esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline);
 
 extern int    esl_opt_IsDefault (const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname);

@@ -27,6 +27,7 @@
 #include "esl_rootfinder.h"
 #include "esl_ratematrix.h"
 #include "esl_scorematrix.h"
+#include "esl_vectorops.h"
 
 /*****************************************************************
  * 1. The ESL_SCOREMATRIX object
@@ -63,6 +64,8 @@ esl_scorematrix_Create(const ESL_ALPHABET *abc)
   S->has_stop   = FALSE;
   S->stopsc     = 0;
   S->stopstopsc = 0;
+  S->name       = NULL;
+  S->path       = NULL;
 
   ESL_ALLOC(S->s, sizeof(int *) * abc->Kp);
   for (i = 0; i < abc->Kp; i++) S->s[i] = NULL;
@@ -124,6 +127,8 @@ esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S)
  *            scores \citep{Henikoff92}.
  *
  * Returns:   <eslOK> on success, and the scores in <S> are set.
+ * 
+ * Throws:    <eslEMEM> on allocation error.
  */
 int
 esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
@@ -183,6 +188,8 @@ esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S)
   S->stopsc     = -4;
   S->stopstopsc = 1;
 
+  if (esl_strdup("BLOSUM62", -1, &(S->name)) != eslOK) return eslEMEM;
+
   return eslOK;
 }
 
@@ -228,6 +235,8 @@ esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, double lambda, double t)
       P->mx[i][j] *= wagpi[i];	/* P_ij = P(j|i) pi_i */
   
   esl_scorematrix_SetFromProbs(S, lambda, P, wagpi, wagpi);
+
+  if ((status = esl_strdup("WAG", -1, &(S->name))) != eslOK) goto ERROR;
 
   esl_dmatrix_Destroy(Q);
   esl_dmatrix_Destroy(P);
@@ -298,11 +307,13 @@ esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, double lambda, const ESL_DMATRI
  *
  * Throws:    <eslEINCOMPAT> if <dest> isn't allocated for
  *            the same alphabet as <src>.
+ *            <eslEMEM> on allocation error.
  */
 int
 esl_scorematrix_Copy(const ESL_SCOREMATRIX *src, ESL_SCOREMATRIX *dest)
 {
   int i,j;
+  int status;
 
   if (src->abc_r->type != dest->abc_r->type || src->K != dest->K || src->Kp != dest->Kp)
     ESL_EXCEPTION(eslEINCOMPAT, "source and dest score matrix types don't match");
@@ -319,6 +330,9 @@ esl_scorematrix_Copy(const ESL_SCOREMATRIX *src, ESL_SCOREMATRIX *dest)
   dest->has_stop   = src->has_stop;
   dest->stopsc     = src->stopsc;
   dest->stopstopsc = src->stopstopsc;
+
+  if ((status = esl_strdup(src->name, -1, &(dest->name))) != eslOK) return status;
+  if ((status = esl_strdup(src->path, -1, &(dest->path))) != eslOK) return status;
   return eslOK;
 }
 
@@ -349,6 +363,10 @@ esl_scorematrix_Clone(const ESL_SCOREMATRIX *S)
  * Purpose:   Compares two score matrices. Returns <eslOK> if they 
  *            are identical, <eslFAIL> if they differ. Every aspect
  *            of the two matrices is compared.
+ *            
+ *            The annotation (name, filename path) are not
+ *            compared; we may want to compare an internally
+ *            generated scorematrix to one read from a file.
  */
 int
 esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2)
@@ -367,6 +385,7 @@ esl_scorematrix_Compare(const ESL_SCOREMATRIX *S1, const ESL_SCOREMATRIX *S2)
   for (a = 0; a < S1->Kp; a++)
     for (b = 0; b < S1->Kp; b++)
       if (S1->s[a][b] != S2->s[a][b]) return eslFAIL;
+
   return eslOK;
 }
 
@@ -467,6 +486,8 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
   }
   if (S->isval    != NULL) free(S->isval);
   if (S->outorder != NULL) free(S->outorder);
+  if (S->name     != NULL) free(S->name);
+  if (S->path     != NULL) free(S->path);
   free(S);
   return;
 }
@@ -507,7 +528,8 @@ esl_scorematrix_Destroy(ESL_SCOREMATRIX *S)
  *            score matrix. 
  *
  *            Returns <eslEFORMAT> on parsing error; in which case, <ret_S> is
- *            returned <NULL>.
+ *            returned <NULL>, and <efp->errbuf> contains an informative
+ *            error message.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
@@ -598,6 +620,10 @@ esl_sco_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *abc, ESL_SCOREMATRIX **ret
   if ((status = esl_fileparser_NextLine(efp)) != eslEOF) ESL_XFAIL(eslEFORMAT, efp->errbuf, "Too many lines in file");
   
 
+  /* Annotate the score matrix */
+  if ((status = esl_strdup  (efp->filename, -1,    &(S->path))) != eslOK) goto ERROR;
+  if ((status = esl_FileTail(efp->filename, FALSE, &(S->name))) != eslOK) goto ERROR;
+
   free(map);
   *ret_S = S;
   return eslOK;
@@ -667,6 +693,9 @@ esl_sco_Write(FILE *fp, const ESL_SCOREMATRIX *S)
 /*****************************************************************
  * 3. Interpreting score matrices probabilistically.
  *****************************************************************/ 
+
+static int set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double *fj);
+
 
 struct lambda_params {
   const double *fi;
@@ -764,10 +793,11 @@ esl_sco_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double 
    */
   if (opt_P != NULL) 
     {
-      if ((P = esl_dmatrix_Create(S->K, S->K)) == NULL) { status = eslEMEM; goto ERROR; }
+      if ((P = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) { status = eslEMEM; goto ERROR; }
       for (i = 0; i < S->K; i++)
 	for (j = 0; j < S->K; j++)
 	  P->mx[i][j] = fi[i] * fj[j] * exp(lambda * (double) S->s[i][j]);
+      set_degenerate_probs(S->abc_r, P, NULL, NULL);
     }
 
   esl_rootfinder_Destroy(R);
@@ -922,6 +952,12 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            $f_i$ and $f_j$ are the appropriate marginals of $p_{ij}$.
  *            Optionally return any or all of these solutions in
  *            <*opt_P>, <*opt_fi>, <*opt_fj>, and <*opt_lambda>.
+ *            
+ *            The calculation is run only on canonical residue scores
+ *            $0..K-1$ in S, to calculate joint probabilities for all
+ *            canonical residues. Joint and background probabilities 
+ *            involving degenerate residues are then calculated by
+ *            appropriate marginalizations.
  *
  *            This implements an algorithm described in
  *            \citep{YuAltschul03}.
@@ -941,9 +977,9 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            error of <eslENORESULT>. 
  *            
  * Args:      S          - score matrix 
- *            opt_P      - optRETURN: KxK matrix of implied target probs $p_{ij}$
- *            opt_fi     - optRETURN: vector of K $f_i$ background probs, 0..K-1
- *            opt_fj     - optRETURN: vector of K $f_j$ background probs, 0..K-1
+ *            opt_P      - optRETURN: Kp X Kp matrix of implied target probs $p_{ij}$
+ *            opt_fi     - optRETURN: vector of Kp $f_i$ background probs, 0..Kp-1
+ *            opt_fj     - optRETURN: vector of Kp $f_j$ background probs, 0..Kp-1
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
  *
  * Returns:   <eslOK> on success, and <opt_P>, <opt_fi>, <opt_fj>, and <opt_lambda>
@@ -969,10 +1005,10 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
   double        lambda;
   int i,j;
 
-  if (( Sd = esl_dmatrix_Create(S->K, S->K))  == NULL) {status = eslEMEM; goto ERROR; }
-  if (( P  = esl_dmatrix_Create(S->K, S->K))  == NULL) {status = eslEMEM; goto ERROR; }
-  ESL_ALLOC(fi, sizeof(double) * S->K);
-  ESL_ALLOC(fj, sizeof(double) * S->K);
+  if (( Sd = esl_dmatrix_Create(S->K,  S->K))  == NULL) {status = eslEMEM; goto ERROR; }
+  if (( P  = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) {status = eslEMEM; goto ERROR; }
+  ESL_ALLOC(fi, sizeof(double) * S->Kp);
+  ESL_ALLOC(fj, sizeof(double) * S->Kp);
 
   /* Construct a double-precision dmatrix from S.
    * I've tried integrating over the rounding uncertainty by
@@ -985,7 +1021,11 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
 
   /* Reverse engineer the doubles */
   if ((status = yualtschul_engine(Sd, P, fi, fj, &lambda)) != eslOK) goto ERROR;
+
+  /* Set the degenerate probabilities by appropriate sums */
+  set_degenerate_probs(S->abc_r, P, fi, fj);
       
+  /* Done. */
   esl_dmatrix_Destroy(Sd);
   if (opt_P      != NULL) *opt_P      = P;       else esl_dmatrix_Destroy(P);
   if (opt_fi     != NULL) *opt_fi     = fi;      else free(fi);
@@ -1060,7 +1100,72 @@ esl_sco_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj,
 }
 
 
+/* Input: P->mx[i][j] are joint probabilities p_ij for the canonical alphabet 0..abc->K-1,
+ *        but P matrix is allocated for Kp X Kp
+ * 
+ * Fill in [i][j'=K..Kp-1], [i'=K..Kp-1][j], and [i'=K..Kp-1][j'=K..Kp-1] for degeneracies i',j'
+ * Any p_ij involving a gap (K) or missing data (Kp-1) character is set to 0.0 by convention.
+ *
+ * Don't assume symmetry. 
+ * 
+ * If <fi> or <fj> background probability vectors are non-<NULL>, set them too.
+ * (Corresponding to the assumption of background = marginal probs, rather than
+ *  background being given.)
+ */
+static int
+set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double *fj)
+{
+  int i,j,ip,jp;
 
+  for (i = 0; i < abc->K; i++)
+    {
+      P->mx[i][abc->K] = 0.0;
+      for (jp = abc->K+1; jp < abc->Kp; jp++)
+	{
+	  P->mx[i][jp] = 0.0;
+	  for (j = 0; j < abc->K; j++)
+	    if (abc->degen[jp][j]) P->mx[i][jp] += P->mx[i][j];
+	}
+      P->mx[i][abc->Kp-1] = 0.0;
+    }
+
+  esl_vec_DSet(P->mx[abc->K],    abc->Kp, 0.0); /* gap row */
+
+  for (ip = abc->K+1; ip < abc->Kp; ip++)
+    {
+      for (j = 0; j < abc->K; j++)      
+	{
+	  P->mx[ip][j] = 0.0;
+	  for (i = 0; i < abc->K; i++)
+	    if (abc->degen[ip][i]) P->mx[ip][j] += P->mx[i][j];
+	}
+      P->mx[ip][abc->K] = 0.0;
+
+      for (jp = abc->K+1; jp < abc->Kp; jp++)      
+	{
+	  P->mx[ip][jp] = 0.0;
+	  for (j = 0; j < abc->K; j++)
+	    if (abc->degen[jp][j]) P->mx[ip][jp] += P->mx[ip][j];
+	}
+      P->mx[ip][abc->Kp-1] = 0.0;      
+    }
+
+  esl_vec_DSet(P->mx[abc->Kp-1], abc->Kp, 0.0); /* missing data ~ row   */
+
+  if (fi != NULL) { /* fi[i'] = p(i',X) */
+    fi[abc->K] = 0.0;
+    for (ip = abc->K+1; ip < abc->Kp; ip++) fi[ip] = P->mx[ip][abc->Kp-2];
+    fi[abc->Kp-1] = 0.0;
+  }
+
+  if (fj != NULL) { /* fj[j'] = p(X,j')*/
+    fj[abc->K] = 0.0;
+    for (jp = abc->K+1; jp < abc->Kp; jp++) fj[jp] = P->mx[abc->Kp-2][jp];
+    fj[abc->Kp-1] = 0.0;
+  }
+
+  return eslOK;
+}
 
 
 /*****************************************************************
@@ -1092,8 +1197,8 @@ main(int argc, char **argv)
 
   abc = esl_alphabet_Create(eslAMINO);
 
-  if (esl_fileparser_Open(infile, &efp)  != eslOK) esl_fatal("Failed to open %s\n", infile);
-  if (esl_scorematrix_Read(efp, abc, &S) != eslOK) esl_fatal("parse failed: %s", efp->errbuf);
+  if (esl_fileparser_Open(infile, NULL, &efp) != eslOK) esl_fatal("Failed to open %s\n", infile);
+  if (esl_scorematrix_Read(efp, abc, &S)      != eslOK) esl_fatal("parse failed: %s", efp->errbuf);
 
   for (x = 0; x < abc->Kp; x++) {
     printf("{ ");
@@ -1109,6 +1214,49 @@ main(int argc, char **argv)
 }
 #endif /*eslSCOREMATRIX_UTILITY1*/
 
+
+
+
+/* Utility 2: joint or conditional probabilities from BLOSUM62 (depending on how compiled)
+ */
+#ifdef eslSCOREMATRIX_UTILITY2
+/* 
+    gcc -g -Wall -o utility2 -I. -L. -DeslSCOREMATRIX_UTILITY2 esl_scorematrix.c -leasel -lm
+    ./utility2
+*/
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_dmatrix.h"
+#include "esl_scorematrix.h"
+
+int
+main(int argc, char **argv)
+{
+  ESL_ALPHABET    *abc      = esl_alphabet_Create(eslAMINO);
+  ESL_SCOREMATRIX *S        = esl_scorematrix_Create(abc);
+  ESL_DMATRIX     *Q        = NULL;
+  double          *fa       = NULL;
+  double          *fb       = NULL;
+  double           slambda;
+  int              a,b;
+
+  esl_scorematrix_SetBLOSUM62(S);
+  
+  esl_sco_Probify(S, &Q, &fa, &fb, &slambda);
+#if 0
+  for (a = 0; a < abc->K; a++)
+    for (b = 0; b < abc->K; b++)
+      Q->mx[a][b] /= fa[a];	/* Q->mx[a][b] is now P(b | a) */
+#endif
+  
+  esl_dmatrix_Dump(stdout, Q, abc->sym, abc->sym);
+  
+  esl_dmatrix_Destroy(Q);
+  esl_scorematrix_Destroy(S);
+  esl_alphabet_Destroy(abc);
+  return eslOK;
+}
+#endif /*eslSCOREMATRIX_UTILITY2*/
 
 
 
@@ -1130,13 +1278,13 @@ utest_ReadWrite(ESL_ALPHABET *abc, ESL_SCOREMATRIX *S)
   ESL_SCOREMATRIX *S2  = NULL;
   ESL_FILEPARSER  *efp = NULL;
   
-  if (esl_tmpfile_named(tmpfile, &fp)       != eslOK) esl_fatal("failed to open tmp file");
-  if (esl_sco_Write(fp, S)                  != eslOK) esl_fatal("failed to write test matrix");
+  if (esl_tmpfile_named(tmpfile, &fp)          != eslOK) esl_fatal("failed to open tmp file");
+  if (esl_sco_Write(fp, S)                     != eslOK) esl_fatal("failed to write test matrix");
   fclose(fp);
 
-  if (esl_fileparser_Open(tmpfile, &efp)    != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
-  if (esl_sco_Read(efp, abc, &S2)           != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
-  if (esl_scorematrix_Compare(S, S2)        != eslOK) esl_fatal("the two test matrices aren't identical");
+  if (esl_fileparser_Open(tmpfile, NULL, &efp) != eslOK) esl_fatal("failed to open tmpfile containing BLOSUM62 matrix");
+  if (esl_sco_Read(efp, abc, &S2)              != eslOK) esl_fatal("failed to read tmpfile containing BLOSUM62 matrix");
+  if (esl_scorematrix_Compare(S, S2)           != eslOK) esl_fatal("the two test matrices aren't identical");
   
   remove(tmpfile); 
   esl_fileparser_Close(efp);
@@ -1362,8 +1510,8 @@ int main(int argc, char **argv)
   double           lambda, D;
   
   /* Input an amino acid score matrix from a file. */
-  if ( esl_fileparser_Open(scorefile, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
-  if ( esl_sco_Read(efp, abc, &S)           != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
+  if ( esl_fileparser_Open(scorefile, NULL, &efp) != eslOK) esl_fatal("failed to open score file %s", scorefile);
+  if ( esl_sco_Read(efp, abc, &S)                 != eslOK) esl_fatal("failed to read matrix from %s", scorefile);
   esl_fileparser_Close(efp);
 
   /* Reverse engineer it to get implicit probabilistic model. */

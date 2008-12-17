@@ -109,7 +109,7 @@ read_keyfile(ESL_GETOPTS *go, char *keyfile, ESL_KEYHASH *kh)
   int             toklen;
   int             status;
 
-  if (esl_fileparser_Open(keyfile, &efp) != eslOK) esl_fatal("File open failed");
+  if (esl_fileparser_Open(keyfile, NULL, &efp) != eslOK) esl_fatal("File open failed");
   esl_fileparser_SetCommentChar(efp, '#');
 
   while (esl_fileparser_NextLine(efp) == eslOK)
@@ -139,7 +139,7 @@ read_tabfile(ESL_GETOPTS *go, char *tabfile, ESL_KEYHASH *kh, ESL_DMATRIX *D)
   double          value;
   int             qidx, tidx;
   
-  if (esl_fileparser_Open(tabfile, &efp) != eslOK) esl_fatal("File open failed");
+  if (esl_fileparser_Open(tabfile, NULL, &efp) != eslOK) esl_fatal("File open failed");
   esl_fileparser_SetCommentChar(efp, '#');
 
   esl_dmatrix_Set(D, eslINFINITY);
