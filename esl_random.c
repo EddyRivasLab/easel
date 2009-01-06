@@ -597,6 +597,61 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 }
 
 
+/*****************************************************************
+ * x. Benchmark driver
+ *****************************************************************/
+#ifdef eslRANDOM_BENCHMARK
+/*
+   gcc -O3 -malign-double -o random_benchmark -I. -L. -DeslRANDOM_BENCHMARK esl_random.c -leasel -lm
+   ./random_benchmark
+   ./random_benchmark -r -N1000000
+                               esl_random()         esl_randomness_Init()
+                           10,000,000 iterations     1,000,000 iterations
+                             cpu time  per call       cpu time  per call  
+                             --------  --------      ---------- ---------
+   27 Dec 08 on wanderoo:      0.78s    78 nsec        2.08s     2.1 usec
+
+ */
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_stopwatch.h"
+
+static ESL_OPTIONS options[] = {
+  /* name     type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-r",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark _Init(), not just random()",             0 },
+  { "-N",  eslARG_INT, "10000000",NULL, NULL,  NULL,  NULL, NULL, "number of trials",                                 0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "benchmarking speed of random number generator";
+
+int 
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *r       = esl_randomness_Create(42);
+  ESL_STOPWATCH  *w       = esl_stopwatch_Create();
+  int             N       = esl_opt_GetInteger(go, "-N");
+
+  esl_stopwatch_Start(w);
+  if (esl_opt_GetBoolean(go, "-r")) {
+    while (N--) esl_randomness_Init(r, 42);
+  } else {
+    while (N--) esl_random(r);
+  }
+  esl_stopwatch_Stop(w);
+  esl_stopwatch_Display(stdout, w, "# CPU Time: ");
+
+  esl_stopwatch_Destroy(w);
+  esl_randomness_Destroy(r);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+#endif /*eslRANDOM_BENCHMARK*/
+/*----------------- end, benchmark driver -----------------------*/
+
 
 
 

@@ -1298,13 +1298,23 @@ utest_ProbifyGivenBG(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double
 {
   char *msg = "ProbifyGivenBG() unit test failed";
   ESL_DMATRIX     *P    = NULL;
+  double           sum  = 0.0;
   double           lambda;
+  int              a,b;
 
   if (esl_sco_ProbifyGivenBG(S0, wagpi, wagpi, &lambda, &P) != eslOK) esl_fatal(msg);
 
   if (esl_DCompare(lambda0, lambda, 1e-3)     != eslOK) esl_fatal("lambda is wrong");
-  if (esl_DCompare(esl_dmx_Sum(P), 1.0, 1e-9) != eslOK) esl_fatal("P doesn't sum to 1");
-  if (esl_dmatrix_Compare(P0, P, 1e-2)        != eslOK) esl_fatal("P is wrong");
+
+  for (a = 0; a < 20; a++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
+    for (b = 0; b < 20; b++)    /* marginalized degeneracies */
+      sum += P->mx[a][b];
+
+  if (esl_DCompare(sum, 1.0, 1e-9)     != eslOK) esl_fatal("P doesn't sum to 1");
+
+  for (a = 0; a < 20; a++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
+    for (b = 0; b < 20; b++)
+      if (esl_DCompare(P0->mx[a][b], P->mx[a][b], 1e-2) != eslOK) esl_fatal("P is wrong");
 
   esl_dmatrix_Destroy(P);
   return;
@@ -1325,6 +1335,7 @@ utest_yualtschul(ESL_DMATRIX *P0, double *wagpi)
   double          *fj  = NULL;	/* backcalculated f'_j target composition */
   double           lambda0;	/* true lambda */
   double           lambda;	/* backcalculated lambda */
+  double           sum = 0.0;
   int              i,j;
 
   /* Allocations */
@@ -1344,8 +1355,15 @@ utest_yualtschul(ESL_DMATRIX *P0, double *wagpi)
 
   /* Validate the solution (expect more accuracy from this than from integer scores) */
   if (esl_DCompare(lambda0, lambda, 1e-4)      != eslOK) esl_fatal("failed to get right lambda");
-  if (esl_DCompare(esl_dmx_Sum(P),  1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");  
-  if (esl_dmatrix_Compare(P, P0, 1e-3)         != eslOK) esl_fatal("failed to recover correct P_ij");
+
+  for (i = 0; i < 20; i++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
+    for (j = 0; j < 20; j++)    /* marginalized degeneracies */
+      sum += P->mx[i][j];
+  if (esl_DCompare(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
+
+  for (i = 0; i < 20; i++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
+    for (j = 0; j < 20; j++)
+      if (esl_DCompare(P0->mx[i][j], P->mx[i][j], 1e-2) != eslOK) esl_fatal("failed to recover correct P_ij");
   for (i = 0; i < 20; i++) 
     {
       if (esl_DCompare(fi[i],    fj[i],  1e-6) != eslOK) esl_fatal("background fi, fj not the same");
@@ -1372,14 +1390,21 @@ utest_Probify(ESL_SCOREMATRIX *S0, ESL_DMATRIX *P0, double *wagpi, double lambda
   double          *fi = NULL;
   double          *fj = NULL;
   double           lambda;	/* reconstructed lambda */
+  double           sum = 0.0;
+  int              i,j;
 
   if (esl_sco_Probify(S0, &P, &fi, &fj, &lambda) != eslOK) esl_fatal("reverse engineering failed");
 
   /* Validate the solution, gingerly (we expect significant error due to integer roundoff) */
   if (esl_DCompare(lambda0, lambda, 0.01)       != eslOK) esl_fatal("failed to get right lambda");
-  if (esl_DCompare(esl_dmx_Sum(P),  1.0, 0.001) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
-  if (esl_dmatrix_Compare(P, P0, 0.1)           != eslOK) esl_fatal("reconstructed P is wrong");
+  for (i = 0; i < 20; i++) 	/* you can't just call esl_dmx_Sum(P), because P includes */
+    for (j = 0; j < 20; j++)    /* marginalized degeneracies */
+      sum += P->mx[i][j];
+  if (esl_DCompare(sum, 1.0, 1e-6) != eslOK) esl_fatal("reconstructed P doesn't sum to 1");
 
+  for (i = 0; i < 20; i++)	/* for the same reason,  you can't dmatrix_Compare P and P0 */
+    for (j = 0; j < 20; j++)
+      if (esl_DCompare(P0->mx[i][j], P->mx[i][j], 0.1) != eslOK) esl_fatal("failed to recover correct P_ij");
   free(fj);
   free(fi);
   esl_dmatrix_Destroy(P);

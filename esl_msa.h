@@ -184,6 +184,7 @@ typedef struct {
 #define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
 #define eslMSAFILE_A2M       103  /* UCSC SAM's fasta-like a2m format            */
 #define eslMSAFILE_PSIBLAST  104  /* NCBI PSI-BLAST alignment format             */
+#define eslMSAFILE_SELEX     105  /* old SELEX format (largely obsolete)         */
 
 /* Declarations of the API
  */
