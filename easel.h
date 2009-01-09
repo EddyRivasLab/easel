@@ -134,8 +134,8 @@
  *****************************************************************/
 
 #define esl_byp_IsInternal(p) ((p) == NULL)
-#define esl_byp_IsReturned(p) ((p) != NULL && (p) == NULL)
-#define esl_byp_IsProvided(p) ((p) != NULL && (p) != NULL)
+#define esl_byp_IsReturned(p) ((p) != NULL && (*p) == NULL)
+#define esl_byp_IsProvided(p) ((p) != NULL && (*p) != NULL)
 
 
 /*****************************************************************

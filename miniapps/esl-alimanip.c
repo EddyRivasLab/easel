@@ -2157,6 +2157,12 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   int clen;
   int nseq;
   int *len;
+  int *isize;
+  float *ifract;
+  int imax = 0;
+  int ntotal = 0;
+  int nins = 0;
+  float cumulative = 0.;
 
   /* contract check */
   if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
@@ -2221,11 +2227,6 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
   /* Possibly temporary: print plot of distribution of insert sizes, x value is insert size, 1..max ins length,
    * y is fraction of inserts accounted for by sizes <= x.
    */
-  int *isize;
-  float *ifract;
-  int imax = 0;
-  int ntotal = 0;
-  int nins = 0;
   ESL_ALLOC(isize, sizeof(int) * (msa->alen+1));
   ESL_ALLOC(ifract, sizeof(float) * (msa->alen+1));
   esl_vec_ISet(isize, msa->alen+1, 0);
@@ -2244,7 +2245,6 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, char *errbuf)
     ifract[i] = ((float) isize[i] * (float) i) / (float) ntotal;
   }
 
-  float cumulative = 0.;
   printf("\n\n");
   printf("%d total inserted residues\n", ntotal);
   printf("%d total inserts (avg: %.3f)\n", (nins), (float) ntotal / (float) nins);
@@ -3115,6 +3115,11 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int nkept;
   int ir1, ir2;
   int ndigits;
+  int nongap_total = 0;
+  int nongap_total_rf = 0;
+  int sum_total = 0;
+  int sum_total_rf = 0;
+  FILE *pinfofp = NULL;  /* output file for --pinfo */
 
   if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
@@ -3236,10 +3241,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   else c2a_map = NULL;
 
   /* get averages */
-  int nongap_total = 0;
-  int nongap_total_rf = 0;
-  int sum_total = 0;
-  int sum_total_rf = 0;
   for(s = 0; s < msa->nseq; s++) { 
     avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
   }
@@ -3269,7 +3270,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 
   /* if nec, print posterior info */
   cpos = 1;
-  FILE *pinfofp = NULL;  /* output file for --pinfo */
   if(do_pinfo) { 
     if ((pinfofp = fopen(esl_opt_GetString(go, "--pinfo"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --pinfo output file %s\n", esl_opt_GetString(go, "--pinfo"));
     fprintf(pinfofp, "# Posterior stats per column:\n");
@@ -4793,7 +4793,7 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
       for(f = 0; f < msa->ngf; f++)  
 	if(strcmp(minorA[m], msa->gf_tag[f]) == 0) { rf = msa->gf[f]; break; }
       if(rf != NULL) { /* ensure the RF annotation is the length of the alignment */
-	if(strlen(rf) != msa->alen) ESL_FAIL(eslEINCOMPAT, errbuf, "'#=GF %s <RF sequence>' markup is of length %d but it must be equal to aln length (%" PRId64 ").", msa->gf_tag[f], strlen(rf), msa->alen);
+	if(strlen(rf) != msa->alen) ESL_FAIL(eslEINCOMPAT, errbuf, "'#=GF %s <RF sequence>' markup is of length %d but it must be equal to aln length (%" PRId64 ").", msa->gf_tag[f], (int) strlen(rf), msa->alen);
 	if((status = esl_strdup(rf, msa->alen, &(minor_msaA[m]->rf))) != eslOK) ESL_FAIL(status, errbuf, "Error duplicating RF for minor alignment %d\n", m);
 	/* make sure minor_msaA[m]->rf does not have any non-gap columns where msa->rf has a gap (cmalign -M demands all minor consensus columns are also major consensus columns) */
 	for (apos = 0; apos < minor_msaA[m]->alen; apos++) { 

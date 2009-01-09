@@ -863,14 +863,16 @@ esl_sq_SetDesc(ESL_SQ *sq, const char *desc, ...)
  * Synopsis:  Append a new line to a growing multiline description.
  * Incept:    SRE, Thu May 22 15:33:43 2008 [Janelia]
  *
- * Purpose:   Append line <desc> to the description annotation
+ * Purpose:   Append line <desc> to the description annotation line
  *            in <sq>. 
  *            
- *            The annotation line <sq->desc> doesn't terminate in
- *            \verb+\n+; therefore, caller should make sure <desc> should
- *            not terminate in \verb+\n+. If <sq->desc> already contains
- *            one or more description lines, append \verb+\n+ before adding
- *            this next line \verb+\n+.
+ *            The annotation line <sq->desc> is a single line; it may
+ *            not contain \verb+\n+ newlines. Caller is responsible
+ *            for making sure <desc> does not terminate in \verb+\n+.
+ *            If <sq->desc> already contains a description
+ *            line (presumably because we're reading from a file format
+ *            that's split the description across multiple lines), 
+ *            append a space before adding this next line <desc>.
  *            
  * Returns:   <eslOK> on success.
  *
@@ -884,13 +886,13 @@ esl_sq_AppendDesc(ESL_SQ *sq, const char *desc)
   int   newlen = (desc     == NULL ? 0 : strlen(desc));
   int   status;
   
-  if (dlen + newlen + 1 >= sq->dalloc) { /* +1 for appended \n */
+  if (dlen + newlen + 1 >= sq->dalloc) { /* +1 for appended space */
     ESL_RALLOC(sq->desc, tmp, sizeof(char) * (newlen+dlen+eslSQ_DESCCHUNK));
     sq->dalloc = newlen+dlen+eslSQ_DESCCHUNK;
   }
 
-  if (dlen > 0) sq->desc[dlen] = '\n';
-  strcpy(sq->desc + dlen + 1, desc);
+  if (dlen > 0) { sq->desc[dlen] = ' '; dlen++; } 
+  strcpy(sq->desc + dlen, desc);
   return eslOK;
   
  ERROR:
