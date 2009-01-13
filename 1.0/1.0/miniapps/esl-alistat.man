@@ -1,0 +1,89 @@
+.TH "esl-alistat" 1  "@RELEASEDATE@" "@PACKAGE@ @RELEASE@" "@PACKAGE@ Manual"
+
+.SH NAME
+.TP
+esl-alistat - summarize a multiple sequence alignment file
+
+.SH SYNOPSIS
+
+.B esl-alistat
+.I [options]
+.I msafile
+
+.SH DESCRIPTION
+
+.pp
+.B esl-alistat 
+summarizes the contents of the multiple sequence alignment(s) in 
+.I msafile, 
+such as the alignment name, format, alignment length (number of
+aligned columns), number of sequences, average pairwise % identity,
+and mean, smallest, and largest raw (unaligned) lengths of the
+sequences.
+
+If 
+.I msafile
+is - (a single dash),
+multiple alignment input is read from
+.I stdin.
+
+The alignments can be of protein or DNA/RNA sequences. All alignments
+in the same 
+.I msafile
+must be either protein or DNA/RNA. The alphabet will be autodetected
+unless one of the options 
+.I --amino,
+.I --dna,
+or 
+.I --rna 
+are given. These options may be useful in automated
+pipelines to make 
+.B esl-alistat 
+more robust; alphabet autodetection is not infallible.
+
+
+
+.SH OPTIONS
+
+.TP
+.B -h 
+Print brief help;  includes version number and summary of
+all options, including expert options.
+
+.TP 
+.B -1
+Use a tabular output format with one line of statistics per alignment
+in 
+.I msafile.
+This is most useful when
+.I msafile
+contains many different alignments (such as a Pfam database in
+Stockholm format).
+
+
+.SH EXPERT OPTIONS
+
+.TP
+.B --amino
+Assert that the 
+.I msafile 
+contains protein sequences. 
+
+.TP 
+.B --dna
+Assert that the 
+.I msafile 
+contains DNA sequences. 
+
+.TP 
+.B --rna
+Assert that the 
+.I msafile 
+contains RNA sequences. 
+
+.SH AUTHOR
+
+Easel and its documentation are @EASEL_COPYRIGHT@.
+@EASEL_LICENSE@.
+See COPYING in the source code distribution for more details.
+The Easel home page is: @EASEL_URL@
