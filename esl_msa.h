@@ -59,21 +59,21 @@ typedef struct {
    * (The occasionally useful stuff.)
    */
   /*::cexcerpt::msa_optional::begin::*/
-  char  *name;                  /* name of alignment, or NULL               */
-  char  *desc;                  /* description of alignment, or NULL        */
-  char  *acc;                   /* accession of alignment, or NULL          */
-  char  *au;                    /* "author" information, or NULL            */
-  char  *ss_cons;               /* consensus secondary structure, or NULL   */
-  char  *sa_cons;               /* consensus surface accessibility, or NULL */
-  char  *pp_cons;		/* consensus posterior probability, or NULL */
-  char  *rf;                    /* reference coordinate system, or NULL     */
-  char **sqacc;                 /* accession numbers for sequences i        */
-  char **sqdesc;                /* description lines for sequences i        */
-  char **ss;                    /* per-seq secondary structures, or NULL    */
-  char **sa;                    /* per-seq surface accessibilities, or NULL */
-  char **pp;                    /* posterior prob per residue, or NULL      */
-  float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam */
-  int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE      */
+  char  *name;      /* name of alignment, or NULL                                           */
+  char  *desc;      /* description of alignment, or NULL                                    */
+  char  *acc;       /* accession of alignment, or NULL                                      */
+  char  *au;        /* "author" information, or NULL                                        */
+  char  *ss_cons;   /* consensus sec structure, or NULL;  [0..alen-1], even in digital mode */
+  char  *sa_cons;   /* consensus surface access, or NULL; [0..alen-1], even in digital mode */
+  char  *pp_cons;   /* consensus posterior prob, or NULL; [0..alen-1], even in digital mode */
+  char  *rf;        /* reference coord system, or NULL;   [0..alen-1], even in digital mode */
+  char **sqacc;     /* accession numbers for sequences i                                    */
+  char **sqdesc;    /* description lines for sequences i                                    */
+  char **ss;        /* per-seq secondary structures, or NULL                                */
+  char **sa;        /* per-seq surface accessibilities, or NULL                             */
+  char **pp;        /* posterior prob per residue, or NULL                                  */
+  float  cutoff[eslMSA_NCUTS];  /* NC/TC/GA cutoffs propagated to Pfam/Rfam                 */
+  int    cutset[eslMSA_NCUTS];  /* TRUE if a cutoff is set; else FALSE                      */
   /*::cexcerpt::msa_optional::end::*/
 
   /* Info needed for maintenance of the data structure 
