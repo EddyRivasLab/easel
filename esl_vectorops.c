@@ -253,21 +253,21 @@ esl_vec_ICopy(const int *src, const int n, int *dest)
  *            for float and integer vectors.
  */
 int
-esl_vec_DCompare(double *vec1, double *vec2, int n, double tol)
+esl_vec_DCompare(const double *vec1, const double *vec2, int n, double tol)
 {
   int i;
   for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
   return eslOK;
 }
 int
-esl_vec_FCompare(float *vec1, float *vec2, int n, float tol)
+esl_vec_FCompare(const float *vec1, const float *vec2, int n, float tol)
 {
   int i;
   for (i = 0; i < n; i++) if (esl_DCompare(vec1[i], vec2[i], tol) == eslFAIL) return eslFAIL;
   return eslOK;
 }
 int
-esl_vec_ICompare(int *vec1, int *vec2, int n)
+esl_vec_ICompare(const int *vec1, const int *vec2, int n)
 {
   int i;
   for (i = 0; i < n; i++) if (vec1[i] != vec2[i]) return eslFAIL;

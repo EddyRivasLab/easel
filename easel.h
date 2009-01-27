@@ -312,6 +312,7 @@ extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
 extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
 extern int  esl_sprintf (char **ret_s, const char *format, ...);
 extern int  esl_vsprintf(char **ret_s, const char *format, va_list *ap);
+extern int  esl_strcmp(const char *s1, const char *s2);
 extern int  esl_strchop(char *s, int64_t n);
 extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
 #ifndef HAVE_STRCASECMP

@@ -11,11 +11,6 @@
 #                     than one bindir may be given.
 #
 # Available options:
-#    -m             - "exercise" tests are examined for memory leaks,
-#                     in addition to testing exit status. Executables
-#                     must be compiled with ccmalloc for leaks to be detected.
-#                     If ccmalloc instrumentation is not present,
-#                     this has no effect.
 #    -p <prepdir>   - optional path to binaries for "prep" commands
 #                     (more than one -p can be used)
 #    -r <olddir>    - path to old binaries for regression tests.
@@ -31,7 +26,7 @@
 # For each (non-prep) test in the command file, a one-line summary
 #   of the result is printed. The format of this line is:
 #     <testtype> <test #> [<test name>]...   <status>
-#   where <testtype> is exercise, regression, benchmark, or fail;
+#   where <testtype> is exercise, valgrind, regression, benchmark, or fail;
 #   <test #> is a counter, separate for each type;
 #   <test name> is the one-word name for this test;
 #   and <status> is the result of the test. The format for <status>
@@ -48,7 +43,7 @@
 #             in one command file.
 #
 #    type:    One of the following keywords: 
-#             prep, exercise, regression, benchmark, fail
+#             prep, exercise, valgrind, regression, benchmark, fail
 #             See below for description of each.
 # 
 #    name:    One word, <=20 characters, naming this test.
@@ -58,11 +53,12 @@
 #
 #    command: Command template to run. (remainder of line, usually
 #             more than one token/word).
+#
 #             A command template is subjected to: filename substitution,
-#             regression filename substitution, path substitution,
-#             and output redirection:
+#             valgrind prefixing, regression filename substitution, 
+#             path substitution, and output redirection:
 #             
-#         filename substitution:
+#         filename substitution:  [all test types]
 #             Any token enclosed in %% in the template is interpreted
 #             as a temporary file that is created by the sqc run,
 #             which sqc is responsible for deleting. sqc substitutes
@@ -78,6 +74,15 @@
 #
 #             In general, a command template should not explicitly name any 
 #             tmp files; if it does, they won't be deleted properly by sqc.
+#
+#         valgrind prefixing:   [test type = "valgrind" only]
+#             Prepend "valgrind --error-exitcode=99" to
+#             the command template. Valgrind will run the command.
+#             Errors detected by Valgrind will return exit status 99.
+#             (Error status reported by the application have their original
+#             nonzero status.) 
+#             Valgrind output goes to stderr, which is captured by
+#             output redirection. This output is parsed for leak reports.
 #
 #         regression filename substitution:
 #             A "regression" command must be able to take a command
@@ -114,7 +119,7 @@
 #         output redirection:
 #             ">/dev/null 2> [tmpfile]" are appended to the command
 #             template, to redirect all output away, and save 
-#             STDERR diagnostics to a tmpfile (for instance, ccmalloc
+#             STDERR diagnostics to a tmpfile (for instance, valgrind
 #             report goes to this file).
 #             If the command template already includes a ">", only
 #             the STDERR redirection is done; it is assumed that the command
@@ -135,14 +140,23 @@
 #             Return status is tested; if nonzero, a failure is
 #             recorded. Crashes versus clean failures are reported 
 #             differently in the output message.
-#             If -m option is selected, ccmalloc instrumentation is
-#             assumed to be present; ccmalloc report is examined for
-#             memory leaks.
 #             The format for the status in the output line is:
 #                ok.
 #                FAILED [nonzero code %d]
-#                FAILED [leak, %d bytes]     (only with sqc -m)
 #                FAILED [crash!] 
+#
+# valgrind:   Check for memory problems and leaks. 
+#             Like exercise, but the command is run with
+#             "valgrind --error-exitcode=99"
+#             prepended. 
+#             Return status is tested; 99 indicates
+#             an error detected by valgrind, other nonzero
+#             codes indicate a failure reported by the application.
+#             The stderr is examined for valgrind leak reports.
+#             The format for the status in the output line is:
+#                 ok.
+#                 FAILED [valgrind reports error(s)]
+#                 FAILED [valgrind reports leak(s)]
 #
 # regression: Runs a command twice: once using a new binary in
 #             <bindir>, then again using old binary in <olddir>,
@@ -201,7 +215,7 @@ $|   = 1;
 print "sqc: running $commandfile.\n" if $verbose;
 
 open(COMMANDS, $commandfile) || die;
-$nmem = $nbench = $ntest = $badtest = 0;
+$nbench = $ntest = $badtest = 0;
 $tot_benchtime_cpu = $tot_benchtime_wall = 0.;
 $linenum = 0;
 while (<COMMANDS>) {
@@ -220,6 +234,7 @@ while (<COMMANDS>) {
     # print the first part of the output line.
     #
     if ($testtype eq "exercise"   || 
+	$testtype eq "valgrind"   ||
 	$testtype eq "regression" ||
 	$testtype eq "fail"       ||
 	$testtype eq "benchmark") 
@@ -235,6 +250,11 @@ while (<COMMANDS>) {
     # Filename substitution.
     $cmd = &filename_substitution($tmp, $cmdtemplate);
     print "sqc: after filename subst, cmd is: $cmd\n" if $verbose;
+
+    # Valgrind prefixing.
+    if ($testtype eq "valgrind") {
+	$cmd = "valgrind --error-exitcode=99 $cmd";
+    }
 
     # Regression substitutions, $cmd splits into $cmd (new) and $cmd2 (old)
     if ($testtype eq "regression") {
@@ -274,7 +294,9 @@ while (<COMMANDS>) {
     $cmd2 = "$cmd2 2> /dev/null"     if ($testtype eq "regression");
     print "sqc: after output subst, cmd is: $cmd\n" if $verbose;
 
-    # Run the commands and collect exit status.
+    # Run the commands;
+    # collect exit status in status1;
+    # additionally, for regression test, old executable's status is in status2
     $startwall = time;
     $startcpu  = (times)[2];
     print "sqc: running cmd: $cmd\n" if $verbose;
@@ -288,59 +310,48 @@ while (<COMMANDS>) {
     $stopcpu  = (times)[2];
 
     # Deal with exit status and output.
-    if ($testtype eq "prep") {
-	if ($status1 != 0) {
-	    die "prep command [$testname] at line $linenum failed with status $status1\n";
+    if ($testtype eq "prep") 
+    {
+	if ($status1 != 0) { die "prep command [$testname] at line $linenum failed with status $status1\n"; }
+    } 
+
+    elsif ($testtype eq "exercise") 
+    {
+	if    (($status1 & 255) != 0) { print "FAILED [crash!]\n";                    $badtest++; }
+	elsif (($status1>>8)    != 0) { print "FAILED [nonzero exit code]\n";         $badtest++; }
+	else                          { print "ok.\n"; }
+    } 
+
+    elsif ($testtype eq "valgrind")
+    {
+	($has_valgrind, $has_leak) = &check_valgrind_status("$tmp.stderr");
+	if    ($has_valgrind == 0)    { print "FAILED [no valgrind output?]\n";       $badtest++; }
+	elsif (($status1 & 255) != 0) { print "FAILED [crash!]\n";                    $badtest++; }
+	elsif (($status1>>8) == 99)   { print "FAILED [valgrind reports error(s)]\n"; $badtest++; }
+	elsif (($status1>>8) != 0)    { print "FAILED [cmd returned nonzero]\n";      $badtest++; }
+	elsif ($has_leak)             { print "FAILED [valgrind reports leak(s)]\n";  $badtest++; }
+	else                          { print "ok.\n"; }
+	# Important to check for leaks last above. On app failure, we're allowed to return a nonzero 
+	# exit code without scrupulously free'ing everything.
+    }
+
+
+    elsif ($testtype eq "regression") 
+    {
+	if    (($status1&255) != 0) { print "FAILED [new crashed!]\n";       $badtest++; }
+	elsif (($status1>>8)  != 0) { print "FAILED [new: nonzero exit]\n";  $badtest++; }
+	elsif (($status2&255) != 0) { print "FAILED [old crashed!]\n";       $badtest++; }
+	elsif (($status2>>8)  != 0) { print "FAILED [old: nonzero exit]\n";  $badtest++; }
+	else 
+	{
+	    system("diff $tmp.REGRESSION.1 $tmp.REGRESSION.2 > /dev/null");
+	    if ($? != 0) { print "FAILED [regressions differ]\n"; $badtest++; }
+	    else         { print "ok.\n"; }
 	}
-    } elsif ($testtype eq "exercise") {
-	if ($do_memtest) {
-	    ($have_ccmalloc, $garbage) = &check_ccmalloc_status("$tmp.stderr");
-	    $nmem++ if ($have_ccmalloc);
-	    if ($garbage != 0) {
-		print "FAILED [leak, $garbage bytes]\n";
-		$badtest++;
-		next;
-	    }
-	} elsif (($status1&255) != 0) {
-	    print "FAILED [crash!]\n";
-	    $badtest++;
-	    next;
-	} elsif (($status1>>8) != 0) {
-	    $code = ($status1 >>8);
-	    print "FAILED [nonzero code $code]\n";
-	    $badtest++;
-	    next;
-	}
-	print "ok.\n";
-    } elsif ($testtype eq "regression") {
-	if (($status1&255) != 0) {
-	    print "FAILED [new crashed!]\n";
-	    $badtest++;
-	    next;
-	} elsif (($status1>>8) != 0) {
-	    $code = ($status1 >>8);
-	    print "FAILED [new code $code]\n";
-	    $badtest++;
-	    next;
-	} elsif (($status2&255) != 0) {
-	    print "FAILED [old crashed!]\n";
-	    $badtest++;
-	    next;
-	} elsif (($status2>>8) != 0) {
-	    $code = ($status2 >>8);
-	    print "FAILED [old code $code]\n";
-	    $badtest++;
-	    next;
-	}
-	
-	system("diff $tmp.REGRESSION.1 $tmp.REGRESSION.2 > /dev/null");
-	if ($? != 0) {
-	    print "FAILED [regressions differ]\n";
-	    $badtest++;
-	    next;
-	}
-	print "ok.\n";
-    } elsif ($testtype eq "benchmark") {
+    }
+
+    elsif ($testtype eq "benchmark") 
+    {
 	if ($status1 != 0) {
 	    die "benchmark at line $linenum failed with status $status1\n";
 	}
@@ -350,33 +361,25 @@ while (<COMMANDS>) {
 	$tot_benchtime_cpu  += $cpu_elapsed;
 	$tot_benchtime_wall += $wall_elapsed;
 	$nbench++;
-    } elsif ($testtype eq "fail") {
-	if (($status1&255) != 0) {
-	    print "FAILED [crash!]\n";
-	    $badtest++;
-	    next;
-	} elsif (($status1>>8) == 0) {
-	    print "FAILED [0 status]\n";
-	    $badtest++;
-	    next;
-	}
-	print "ok.\n";
+    } 
+
+    elsif ($testtype eq "fail") 
+    {
+	if    (($status1&255) != 0) { print "FAILED [crash!]\n";    $badtest++; }
+	elsif (($status1>>8)  == 0) { print "FAILED [0 status]\n";  $badtest++; }
+	else                        { print "ok.\n"; }
     }
 }
 
 # Summarize output.
-if ($badtest > 0) {
-    print "\n$badtest of $ntest exercises at level <= $setlevel FAILED.\n";
-} else {
-    print "\nAll $ntest exercises at level <= $setlevel passed.\n";
-}
+if ($badtest > 0) { print "\n$badtest of $ntest exercises at level <= $setlevel FAILED.\n"; }
+else              { print "\nAll $ntest exercises at level <= $setlevel passed.\n"; }
+
 if ($nbench > 0) {
     printf "\nTotal of %d benchmarks: %.1f cpu  %d wall\n",
             $nbench, $tot_benchtime_cpu, $tot_benchtime_wall;
 }
-if ($do_memtest && $nmem == 0) {
-    print "warning: -m selected, but no ccmalloc reports found\n";
-}
+
 
 # Print info on system, date, etc.
 #
@@ -451,45 +454,33 @@ path_substitution
     return ($foundit, $com);
 }
     
-# Function: check_ccmalloc_status
+# Function: check_valgrind_status
 # 
-# Look at a file containing stderr from an executed command;
-# find ccmalloc report; if present, parse out the number of 
-# bytes leaked (e.g. garbage). 
+# Look at a file containing stderr from an executed command.
+# Find valgrind report, and look for a memory leak report. 
 #
-# Return ($has_ccmalloc, $garbage):
-#    $has_ccmalloc:  1 if report is present; else 0
-#    $garbage:       number of bytes leaked (0 if none)
+# Return ($has_valgrind, $has_leak):
+#    $has_valgrind:  1 if report is present; else 0
+#    $has_leak:      1 if valgrind report shows a memory leak.
 #
-# If $file isn't present, returns (0,0) - e.g. that problem is
-# silently ignored. The caller may realize that something's wrong
-# if it expected $has_ccmalloc to be 1. 
-#
-# We can't check ccmalloc on all sqc exercises, because some
-# of them (particularly bug tests) are scripts that cannot be
-# instrumented by ccmalloc.
+# If $file isn't present at all, returns (0,0).
 sub
-check_ccmalloc_status
+check_valgrind_status
 {
     my ($file) = @_;
-    my ($has_ccmalloc, $has_garbage, $garbage);
+    my ($has_valgrind, $has_leak);
 
-    open(CCMALLOC, "$file") || return (0,0);
-    $has_ccmalloc = $has_garbage = $garbage = 0;
-    while (<CCMALLOC>) {
-	if (/^\|=+ *ccmalloc-/) { $has_ccmalloc = 1; }
-	if (/^\|\s*bytes\s*\|\s*\d+\s*\|\s*\d+\s*\|\s*(\d+)\s*\|/) {
-	    $has_garbage = 1;
-	    $garbage = $1;
-	}
+    open(VALGRIND, "$file") || return (0,0);
+    $has_valgrind = $has_leak = 0;
+    while (<VALGRIND>) {
+	if (/^==\d+== Memcheck/)      { $has_valgrind = 1; }
+	if (/^==\d+== LEAK SUMMARY:/) { $has_leak     = 1; }
     }
-    close CCMALLOC;
+    close VALGRIND;
+    
+    if (! $has_valgrind) { $has_leak = 0; }
 
-    # must have successfully parsed garbage line, in addition to 
-    # ccmalloc header, to count as a present ccmalloc report.
-    #
-    if (! $has_garbage) { $has_ccmalloc = 0; } 
-    return ($has_ccmalloc, $garbage);
+    return ($has_valgrind, $has_leak);
 }
 
 # Function: tempname

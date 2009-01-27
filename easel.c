@@ -275,6 +275,8 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *  strcat()  ->  esl_strcat()    strcat() with dynamic allocation
  *  strtok()  ->  esl_strtok()    threadsafe strtok()
  *  sprintf() ->  esl_sprintf()   sprintf() with dynamic allocation
+ *  strcmp()  ->  esl_strcmp()    strcmp() tolerant of NULL strings
+ *  free()    ->  esl_free()      free() tolerant of NULL pointers
  *****************************************************************************/
 
 /* Function: esl_fgets()
@@ -656,7 +658,7 @@ int
 esl_vsprintf(char **ret_s, const char *format, va_list *ap)
 {
   char   *s = NULL;
-  char   *p = NULL;
+  void   *p = NULL;
   va_list ap2;
   int     n1, n2;
   int     status;
@@ -684,6 +686,34 @@ esl_vsprintf(char **ret_s, const char *format, va_list *ap)
   return status;
 }
    
+
+/* Function:  esl_strcmp()
+ * Synopsis:  a strcmp() that treats NULL as empty string.
+ * Incept:    SRE, Wed Jan 21 14:11:48 2009 [Janelia]
+ *
+ * Purpose:   A version of <strcmp()> that accepts <NULL>
+ *            strings. If both <s1> and <s2> are non-<NULL>
+ *            they are compared by <strcmp()>. If both are
+ *            <NULL>, return 0 (as if they are identical
+ *            strings). If only <s1> (or <s2>) is non-<NULL),
+ *            return 1 (or -1), corresponding to ordering
+ *            any non-NULL string as greater than a NULL 
+ *            string.
+ *
+ *            (Easel routinely uses NULL to mean an unset optional
+ *            string, and often needs to compare two strings for
+ *            equality.)
+ *
+ * Returns:   0 if <s1 == s2>; 1 if <s1 > s2>; -1 if <s1 < s2>.
+ */
+int 
+esl_strcmp(const char *s1, const char *s2)
+{
+  if      (s1 && s2) return strcmp(s1, s2);
+  else if (s1)       return 1;
+  else if (s2)       return -1;
+  else               return 0;
+}
 
 
 
