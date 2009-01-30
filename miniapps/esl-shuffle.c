@@ -309,11 +309,10 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  esl_sq_Reuse(sq);
 	}
     }
-  if      (status == eslEFORMAT)
-    esl_fatal("Sequence file parse error, line %d of file %s:\n%s\n", 
-	      sqfp->linenumber, seqfile, sqfp->errbuf);
-  else if (status != eslEOF) 
-    esl_fatal("Internal error reading sequence file %s\n", seqfile);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					    status, sqfp->filename);
 
   if (L>0) free(targ);
   esl_sq_Destroy(shuff);

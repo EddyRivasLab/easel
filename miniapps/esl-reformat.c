@@ -304,15 +304,11 @@ Offending line is:\n\
 	  esl_sqio_Write(ofp, sq, outfmt);
 	  esl_sq_Reuse(sq);
 	}
-
       /* status should be eslEOF on normal end; if it isn't, deal w/ error */
-      if (status == eslEFORMAT)
-	esl_fatal("\
-Sequence file parse error, line %d of file %s:\n\
-%s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
-      else if (status != eslEOF)
-	esl_fatal("Sequence file %s read failed with error code %d\n",
-		  sqfp->filename, status);
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					       status, sqfp->filename);
       
       esl_sq_Destroy(sq);
       esl_sqfile_Close(sqfp);

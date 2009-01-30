@@ -107,8 +107,8 @@ main(int argc, char **argv)
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
     if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
-    else if (status == eslEFORMAT)    esl_fatal("Sequence file parse error, line %d of file %s:\n%s\n",
-					       sqfp->linenumber, seqfile, sqfp->errbuf);
+    else if (status == eslEFORMAT)    esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+						sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
     else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);
     else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
   }
@@ -151,13 +151,10 @@ main(int argc, char **argv)
 	    esl_vec_DSet(monoc, abc->Kp, 0.0);
 	  }
 	}
-      else if (wstatus == eslEFORMAT)
-	{
-	  esl_fatal("Failed to parse sequence at line %ld, file %s:\n%s", 
-		    (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
-	}
-      else 
-	esl_fatal("Failed in reading sequence:\n%s\n", sqfp->errbuf);
+      else if  (wstatus == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+						 sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      else                             esl_fatal("Unexpected error %d reading sequence file %s",
+					         status, sqfp->filename);
     }
 
   printf("Format:              %s\n",   esl_sqio_DecodeFormat(sqfp->format));

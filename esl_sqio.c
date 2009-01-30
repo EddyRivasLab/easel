@@ -2545,7 +2545,7 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   if (status == eslOK && c == '>') {    /* accept the > */
     sq->roff = sqfp->boff + sqfp->bpos; /* store SSI record offset */
     status = nextchar(sqfp, &c);
-  } else if (c != '>') ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Unexpected char %c seen, expected next FASTA seq", c);
+  } else if (c != '>') ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Unexpected char %c; expected FASTA to start with >", c);
   
   while (status == eslOK && (c == '\t' || c == ' ')) status = nextchar(sqfp, &c); /* skip space */
 
@@ -3359,9 +3359,10 @@ main(int argc, char **argv)
     printf("Read %s: length %ld\n", sq->name, (long) sq->L);
     esl_sq_Reuse(sq);
   }
-  if (status != eslEOF) 
-    esl_fatal("Parse failed, line %ld, file %s:\n%s", 
-	      (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					    status, sqfp->filename);
   
   esl_sq_Destroy(sq);
   esl_sqfile_Close(sqfp);
@@ -3418,8 +3419,8 @@ main(int argc, char **argv)
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
     if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
-    else if (status == eslEFORMAT)    esl_fatal("Sequence file parse error, line %ld of file %s:\n%s\n",
-						(long) sqfp->linenumber, seqfile, sqfp->errbuf);
+    else if (status == eslEFORMAT)    esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+						seqfile, sqfp->linenumber, sqfp->errbuf);     
     else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);
     else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
   }
@@ -3432,9 +3433,10 @@ main(int argc, char **argv)
     printf("Read %s: length %ld\n", sq->name, (long) sq->L);
     esl_sq_Reuse(sq);
   }
-  if (status != eslEOF) 
-    esl_fatal("Parse failed, line %ld, file %s:\n%s", 
-	      (long) sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					    status, sqfp->filename);
   
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);

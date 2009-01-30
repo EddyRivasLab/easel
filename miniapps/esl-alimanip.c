@@ -2046,13 +2046,11 @@ static int read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_
   if (i != nseq) esl_fatal("With --trim, sequence file must have same number seqs as in <msafile>\n"); 
   /* status should be eslEOF on normal end; if it isn't, deal w/ error */
   esl_sq_Destroy(sq[i]); /* destroy final allocated but unused seq */
-    if (status == eslEFORMAT)
-      esl_fatal("\
-Sequence file parse error, line %d of file %s:\n\
-%s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
-    else if (status != eslEOF)
-      esl_fatal("Sequence file %s read failed with error code %d\n",
-		sqfp->filename, status);
+
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					    status, sqfp->filename);
   esl_sqfile_Close(sqfp);
   *ret_sq = sq;
 

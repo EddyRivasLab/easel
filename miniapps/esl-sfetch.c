@@ -252,8 +252,11 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
       }
       esl_sq_Reuse(sq);
     }
-  if (status != eslEOF) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
-  
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					    status, sqfp->filename);
+
   /* Determine if the file was suitable for fast subseq lookup. */
   if (sqfp->bpl > 0 && sqfp->rpl > 0) {
     if ((status = esl_newssi_SetSubseq(ns, fh, sqfp->bpl, sqfp->rpl)) != eslOK) 
@@ -337,7 +340,10 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
 	    }
 	  esl_sq_Reuse(sq);
 	}
-      if (status != eslEOF) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					       status, sqfp->filename);
       esl_sq_Destroy(sq);
     }
   
@@ -375,15 +381,25 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
       else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", sqfp->filename);
       else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
 
-      if (esl_sqio_Read(sqfp, sq) != eslOK) 
-	esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+      status = esl_sqio_Read(sqfp, sq);
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      else if (status == eslEOF)     esl_fatal("Unexpected EOF reading sequence file %s",
+					       status, sqfp->filename);
+      else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s",
+					       status, sqfp->filename);
+
       if (strcmp(key, sq->name) != 0 && strcmp(key, sq->acc) != 0) 
 	esl_fatal("whoa, internal error; found the wrong sequence %s, not %s", sq->name, key);
     }  
   else 
     { /* Else, we have to read the whole damn file sequentially until we find the seq */
       while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF) {
-	if (status != eslOK) esl_fatal("Parse failed, line %d, file %s: %s\n", sqfp->linenumber, sqfp->filename, sqfp->errbuf);
+	if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+						 sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+	else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s",
+						 status, sqfp->filename);
+
 	if (strcmp(key, sq->name) == 0 || strcmp(key, sq->acc) == 0) break;
 	esl_sq_Reuse(sq);
       }
