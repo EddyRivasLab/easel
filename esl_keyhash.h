@@ -11,6 +11,26 @@
 /* ESL_KEYHASH:
  *    a dynamically resized hash structure; 
  *    contains a hash table and associated data
+ *
+ * Each key string is associated with an index i = (0..nkeys-1).
+ * Key strings are stored in one array, in smem.
+ * Each key has an offset in this array, key_offset[i].
+ * Thus key number <i> is at: smem + key_offset[i].
+ * 
+ * The keys are hashed, and stored in linked lists in
+ * a hashtable by their index i = (0..nkeys-1), with -1
+ * as a sentinel for end-of-list.
+ *
+ * hashtable[0..hashsize-1] = head of linked list; 
+ *                            index of first elem in list (0..nkeys-1), 
+ *                            or -1 if empty.
+ * nxt[0..nkeys-1] = next elem in list (0..nkeys-1), or -1 if none.
+ *
+ * Thus a typical loop, looking for a <key>:
+ *    uint32_t val = jenkins_hash(key, kh->hashsize);
+ *    for (i = kh->hashtable[val]; i != -1; i = kh->nxt[i])
+ *      if (strcmp(key, kh->smem + kh->key_offset[i]) == 0) found_it;
+ *
  */
 typedef struct {
   int      *hashtable;          /* hashtable[0..hashsize-1] = index of first elem, or -1 */
