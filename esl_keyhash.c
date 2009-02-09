@@ -120,7 +120,25 @@ esl_keyhash_GetNumber(const ESL_KEYHASH *kh)
 }
 
 
+/* Function:  esl_keyhash_Reuse()
+ * Synopsis:  Reuse a keyhash.
+ * Incept:    SRE, Sun Feb  8 17:24:53 2009 [Casa de Gatos]
+ *
+ * Purpose:   Empties keyhash <kh> so it can be reused without
+ *            creating a new one. 
+ *
+ * Returns:   <eslOK> on success.
+ */
+int 
+esl_keyhash_Reuse(ESL_KEYHASH *kh)
+{
+  int i;
 
+  for (i = 0; i < kh->hashsize; i++) kh->hashtable[i] = -1;
+  kh->nkeys = 0;
+  kh->sn = 0;
+  return eslOK;
+}
 
 
 

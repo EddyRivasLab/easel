@@ -50,6 +50,7 @@ extern ESL_KEYHASH *esl_keyhash_Create(void);
 extern ESL_KEYHASH *esl_keyhash_Clone(const ESL_KEYHASH *kh);
 extern char *       esl_keyhash_Get(const ESL_KEYHASH *kh, int idx);
 extern int          esl_keyhash_GetNumber(const ESL_KEYHASH *kh);
+extern int          esl_keyhash_Reuse(ESL_KEYHASH *kh);
 extern void         esl_keyhash_Destroy(ESL_KEYHASH *kh);
 extern void         esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh);
 

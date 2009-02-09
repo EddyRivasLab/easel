@@ -695,9 +695,9 @@ esl_vsprintf(char **ret_s, const char *format, va_list *ap)
  *            strings. If both <s1> and <s2> are non-<NULL>
  *            they are compared by <strcmp()>. If both are
  *            <NULL>, return 0 (as if they are identical
- *            strings). If only <s1> (or <s2>) is non-<NULL),
+ *            strings). If only <s1> (or <s2>) is non-<NULL>,
  *            return 1 (or -1), corresponding to ordering
- *            any non-NULL string as greater than a NULL 
+ *            any non-<NULL> string as greater than a <NULL>
  *            string.
  *
  *            (Easel routinely uses NULL to mean an unset optional

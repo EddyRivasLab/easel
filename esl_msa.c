@@ -2484,9 +2484,9 @@ remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
  *            is shrunk.
  * 
  * Returns:   <eslOK> on success.
- *            Possibilities from remove_broken_basepairs() call:
- *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
- *            following esl_wuss_nopseudo() is inconsistent.
+ *            Possibilities from <remove_broken_basepairs()> call:
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  */
 int
@@ -2567,9 +2567,9 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
  * Returns:   <eslOK> on success.
  * 
  * Throws:    <eslEMEM> on allocation failure.
- *            Possibilities from esl_msa_ColumnSubset() call:
- *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
- *            following esl_wuss_nopseudo() is inconsistent.
+ *            Possibilities from <esl_msa_ColumnSubset()> call:
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  *
  * Xref:      squid's MSAMingap().
@@ -2644,9 +2644,9 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
- *            Possibilities from esl_msa_ColumnSubset() call:
- *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
- *            following esl_wuss_nopseudo() is inconsistent.
+ *            Possibilities from <esl_msa_ColumnSubset()> call:
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted SS.
  *
  * Xref:      squid's MSANogap().
