@@ -295,7 +295,7 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_CMarkov0  (r, targ, shuff->seq);  /* 0th order Markov */
 	  else if (esl_opt_GetBoolean(go, "-1"))  esl_rsq_CMarkov1  (r, targ, shuff->seq);  /* 1st order Markov */
 	  else if (esl_opt_GetBoolean(go, "-r"))  esl_rsq_CReverse  (   targ, shuff->seq);  /* reverse */
-	  else if (!esl_opt_IsDefault(go, "-w")) { /* regionally shuffle */	
+	  else if (esl_opt_IsOn      (go, "-w")) { /* regionally shuffle */	
 	    int W= esl_opt_GetInteger(go, "-w"); esl_rsq_CShuffleWindows(r, targ, W, shuff->seq);
 	  }
 
@@ -355,8 +355,8 @@ main(int argc, char **argv)
   else ofp = stdout;
 
   /* Initialize */
-  if (esl_opt_IsDefault(go, "--seed")) r = esl_randomness_CreateTimeseeded();
-  else                                 r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
+  if (esl_opt_IsOn(go, "--seed")) r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
+  else                            r = esl_randomness_CreateTimeseeded();
 
   /* Hand off execution to one of the three modes */
   if (esl_opt_GetBoolean(go, "-A"))   /* Alignment shuffling */

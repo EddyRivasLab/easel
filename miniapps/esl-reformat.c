@@ -171,8 +171,8 @@ main(int argc, char **argv)
       else if (status != eslOK) 
 	esl_fatal("Alignment file open failed with error %d\n", status);
 
-      if (! esl_opt_IsDefault(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
-      if (! esl_opt_IsDefault(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
+      if ( esl_opt_IsOn(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
+      if ( esl_opt_IsOn(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
 
       while ((status = esl_msa_Read(afp, &msa)) == eslOK)
 	{
@@ -269,8 +269,8 @@ Offending line is:\n\
       else if (status != eslOK)
 	esl_fatal("Open of seqfile %s failed, code %d\n", infile, status);
       
-      if (! esl_opt_IsDefault(go, "--ignore"))  esl_sqio_Ignore(sqfp, esl_opt_GetString(go, "--ignore"));
-      if (! esl_opt_IsDefault(go, "--acceptx")) esl_sqio_AcceptAs(sqfp, esl_opt_GetString(go, "--acceptx"), 'X');
+      if ( esl_opt_IsOn(go, "--ignore"))  esl_sqio_Ignore  (sqfp, esl_opt_GetString(go, "--ignore"));
+      if ( esl_opt_IsOn(go, "--acceptx")) esl_sqio_AcceptAs(sqfp, esl_opt_GetString(go, "--acceptx"), 'X');
 
       sq = esl_sq_Create();
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)

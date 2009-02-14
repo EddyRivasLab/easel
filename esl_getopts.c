@@ -46,7 +46,7 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
 
 
 /*****************************************************************
- * 1. The ESL_GETOPTS object
+ *# 1. The <ESL_GETOPTS> object
  *****************************************************************/ 
 
 /* Function:  esl_getopts_Create()
@@ -136,7 +136,7 @@ esl_getopts_Create(ESL_OPTIONS *opt)
 }
 
 /* Function:  esl_getopts_CreateDefaultApp()
- * Synopsis:  Initialize a "standard" Easel application.
+ * Synopsis:  Initialize a standard Easel application.
  * Incept:    SRE, Wed Jun 13 16:21:22 2007 [Janelia]
  *
  * Purpose:   Carry out the usual sequence of events in initializing a
@@ -168,7 +168,10 @@ esl_getopts_Create(ESL_OPTIONS *opt)
  *            
  *            <usage> is an optional one-line description of command
  *            line usage (without the command name), such as
- *            <"[options] <trusted file> <test file>">. On errors, or
+ *            \begin{cchunk}
+ *              [options] <trusted file> <test file>
+ *            \end{cchunk}
+ *            On errors, or
  *            on the help page, this usage string is combined with 
  *            the program's name to give a usage line like:
  *            
@@ -341,7 +344,7 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
   
 
 /*****************************************************************
- * 2. Setting and testing a configuration
+ *# 2. Setting and testing a configuration
  *****************************************************************/ 
 
 /* Function:  esl_opt_ProcessConfigfile()
@@ -701,7 +704,7 @@ esl_opt_ArgNumber(const ESL_GETOPTS *g)
 
 
 /* Function:  esl_opt_SpoofCmdline()
- * Synopsis:  Create "command line" from current option configuration.
+ * Synopsis:  Create faux command line from current option configuration.
  * Incept:    SRE, Thu Dec  4 09:48:21 2008 [Janelia]
  *
  * Purpose:   Given the current configuration state of the application
@@ -767,11 +770,11 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
 }
 
 /*****************************************************************
- * 3. Retrieving option settings and command line args
+ *# 3. Retrieving option settings and command line args
  *****************************************************************/ 
 
 /* Function:  esl_opt_IsDefault()
- * Synopsis:  Returnes <TRUE> if option remained at default setting.
+ * Synopsis:  Returns <TRUE> if option remained at default setting.
  * Incept:    SRE, Wed Jan  3 11:19:25 2007 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option <optname> remained at its
@@ -787,8 +790,64 @@ esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
 
   if (get_optidx_exactly(g, optname, &opti) != eslOK)  esl_fatal("no such option %s\n", optname);
   if (g->setby[opti] == eslARG_SETBY_DEFAULT)          return TRUE;
+
+  if (g->val[opti] == NULL && g->opt[opti].defval == NULL) return TRUE;
+  if (esl_strcmp(g->opt[opti].defval, g->val[opti]) == 0)  return TRUE; /* option may have been set but restored to original default value */
   return FALSE;
 }    
+
+/* Function:  esl_opt_IsOn()
+ * Synopsis:  Returns <TRUE> if option is set.
+ * Incept:    SRE, Sat Feb 14 09:29:58 2009 [Janelia]
+ *
+ * Purpose:   Returns <TRUE> if option is on (set to a non-<NULL>
+ *            value. 
+ *            
+ *            This is most useful when using integer-, real-, char-,
+ *            or string-valued options also as boolean switches, where
+ *            they can either be OFF, or they can be turned ON by
+ *            having a value. 
+ *            
+ *            For a boolean option, the result is identical to
+ *            <esl_opt_GetBoolean()>.
+ *
+ * Xref:      J4/83.
+ */
+int 
+esl_opt_IsOn(const ESL_GETOPTS *g, char *optname)
+{
+   int opti;
+
+   if (get_optidx_exactly(g, optname, &opti) != eslOK)  esl_fatal("no such option %s\n", optname);
+   if (g->val[opti] == NULL) return FALSE;
+   else                      return TRUE;
+}
+
+
+/* Function:  esl_opt_IsUsed()
+ * Synopsis:  Returns <TRUE> if option is on, but not default.
+ * Incept:    SRE, Sat Feb 14 08:57:11 2009 [Janelia]
+ *
+ * Purpose:   Returns <TRUE> if option <optname> is in use: it has been
+ *            set to a non-default value, and that value correspond to
+ *            the option being "on" (a non-<NULL> value).
+ *            
+ *            This is used in printing application headers, where
+ *            we want to report all the options that are in effect.
+ *            
+ * Xref:      J4/83
+ */
+int
+esl_opt_IsUsed(const ESL_GETOPTS *g, char *optname)
+{
+  int opti;
+
+  if (get_optidx_exactly(g, optname, &opti) != eslOK)  esl_fatal("no such option %s\n", optname);
+  if (esl_opt_IsDefault(g, optname)) return FALSE;
+  if (g->val[opti] == NULL)          return FALSE;
+  return TRUE;
+}
+
 
 /* Function:  esl_opt_GetBoolean()
  * Synopsis:  Retrieve <TRUE>/<FALSE> for a boolean option.
@@ -1055,13 +1114,8 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
 	fprintf(ofp, "\n");
       }
 
-  /* Fini.
-   */
   return eslOK;
 }
-
-
-
 /*------------------ end of the public API -----------------------*/
 
 
@@ -1123,7 +1177,10 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
    */
   g->setby[opti] = setby;
   if (g->opt[opti].type == eslARG_NONE)	/* booleans: any non-NULL is TRUE... */
-    g->val[opti] = (char *) TRUE;       /* so 0x1 will do fine. */
+    {					                           /* watch out for booleans getting toggled off/on */
+      if (g->opt[opti].defval) g->val[opti] = g->opt[opti].defval; /* use default string if provided: IsDefault() needs this */
+      else                     g->val[opti] = (char *) TRUE;       /* else 0x1 will do fine. */
+    }
   else
     {
       /* If do_alloc is FALSE or the optarg is NULL, then:
@@ -1898,7 +1955,7 @@ process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti)
  *****************************************************************/
 
 #ifdef eslGETOPTS_TESTDRIVE 
-/* gcc -g -Wall -o test -I. -DeslGETOPTS_TESTDRIVE esl_getopts.c easel.c
+/* gcc -g -Wall -o getopts_utest -I. -DeslGETOPTS_TESTDRIVE esl_getopts.c easel.c
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -1914,6 +1971,8 @@ static ESL_OPTIONS options[] = {
  { "-b",     eslARG_NONE, FALSE,  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b on",               1 },
  { "--no-b", eslARG_NONE,"TRUE",  NULL,   NULL, BGROUP, NULL,  NULL,  "toggle b off",              1 },
  { "-c",     eslARG_CHAR,   "x",  NULL,"a<=c<=z",NULL,  NULL,  NULL,  "character arg",             2 },
+ { "--d1",   eslARG_NONE,"TRUE",  NULL,   NULL, "--d2", NULL,  NULL,  "toggle d1 on, d2 off",      2 },
+ { "--d2",   eslARG_NONE, FALSE,  NULL,   NULL, "--d1", NULL,  NULL,  "toggle d2 on, d1 off",      2 },
  { "-n",     eslARG_INT,    "0",  NULL,"0<=n<10",NULL,  NULL,  NULL,  "integer arg",               2 },
  { "-x",     eslARG_REAL, "0.8",  NULL, "0<x<1", NULL,  NULL,  NULL,  "real-value arg",            2 },
  { "--lowx", eslARG_REAL, "1.0",  NULL,   "x>0", NULL,  NULL,  NULL,  "real arg with lower bound", 2 },
@@ -1930,28 +1989,28 @@ int
 main(void)
 {
   ESL_GETOPTS *go;
-  char file1[32] = "esltmpXXXXXX";
-  char file2[32] = "esltmpXXXXXX";
-  FILE *f1, *f2;
+  char         file1[32] = "esltmpXXXXXX";
+  char         file2[32] = "esltmpXXXXXX";
+  char        *errmsg    = "getopts unit test failure";
+  FILE        *f1, *f2;
+  int          i;
 
-  /* Declare a "command line" internally.
-   */
-  int   argc = 9;		/* progname; 5 options; 2 args */
-  char *argv[] = { "progname", "-bc", "y", "-n9", "--hix=0.0", "--lown", "43", "arg1", "2005" };
+  /* Declare a "command line" internally.  */
+  int   argc = 10;		/* progname; 7 options; 2 args */
+  char *argv[] = { "progname", "-bc", "y", "--d1", "-n9", "--hix=0.0", "--lown", "43", "arg1", "2005"};
 
-  /* Create a config file #1.
-   */
+  /* Create a config file #1. */
   if (esl_tmpfile_named(file1, &f1) != eslOK) esl_fatal("failed to create named tmpfile 1");
   fprintf(f1, "# Test config file #1\n");
   fprintf(f1, "#\n");
   fprintf(f1, "-b\n");
+  fprintf(f1, "--d2\n"); 
   fprintf(f1, "-n 3\n");
   fprintf(f1, "-x 0.5\n");
   fprintf(f1, "--multi \"one two three\"\n"); 
   fclose(f1);
 
-  /* Create config file #2.
-   */
+  /* Create config file #2. */
   if (esl_tmpfile_named(file2, &f2) != eslOK) esl_fatal("failed to create named tmpfile 2");
   fprintf(f2, "# Test config file #2\n");
   fprintf(f2, "#\n");
@@ -1981,7 +2040,7 @@ main(void)
   fclose(f2);
 
   if (esl_opt_GetBoolean(go, "-a")     != TRUE)  esl_fatal("getopts failed on -a"); /* -a is ON: by environment */
-  if (esl_opt_GetBoolean(go, "-b")     != TRUE)  esl_fatal("getopts failed on -b"); /* -b is toggled twice, ends up ON */
+  if (esl_opt_GetBoolean(go, "-b")     != TRUE)  esl_fatal("getopts failed on -b"); /* -b is toggled thrice, ends up ON */
   if (esl_opt_GetBoolean(go, "--no-b") != FALSE) esl_fatal("getopts failed on --no-b");	/* so --no-b is OFF */
   if (esl_opt_GetChar   (go, "-c")     != 'y')   esl_fatal("getopts failed on -c"); /* set to y on cmdline in an optstring */
   if (esl_opt_GetInteger(go, "-n")     != 9)     esl_fatal("getopts failed on -n"); /* cfgfile, then on cmdline as linked arg*/
@@ -1994,6 +2053,44 @@ main(void)
     esl_fatal("getopts failed on --host"); /* cfgfile 2, then overridden by environment */
   if (strcmp(esl_opt_GetString(go, "--multi"), "one two three") != 0)
     esl_fatal("config file didn't handle quoted argument");
+
+  /* --d1, --d2 test that we can resolve the difference between IsDefault(), IsOn(), and IsUsed() */
+  /* these options, despite getting toggled twice on/off, remain at default values;
+   * so d1 is default, on, and not used (because it's default); d2 is default, off, and not used.
+   *         IsDefault      IsOn      IsUsed
+   *          -------       -----     -------
+   *            true        true       true      [can't happen: option must be non-default to be considered  "in use"]
+   *            true        true       false     --d1 for example, despite being toggled twice
+   *            true        false      true      [can't happen: option must be non-default to be considered  "in use"]
+   *            true        false      false     --d2 for example, despite being toggled twice
+   *            false       true       true      -a,-b for example
+   *            false       true       false     [can't happen: if option is ON and not in default state, it's "in use"]
+   *            false       false      true      [can't happen: if option is OFF, it's not "in use"]
+   *            false       false      false     --no-b for example
+   */
+  if (! esl_opt_IsDefault(go, "--d1"))   esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go, "--d1"))   esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go, "--d1"))   esl_fatal(errmsg);
+  if (! esl_opt_IsDefault(go, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsOn     (go, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go, "--d2"))   esl_fatal(errmsg);
+  if (  esl_opt_IsDefault(go, "-a"))     esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go, "-a"))     esl_fatal(errmsg);
+  if (! esl_opt_IsUsed   (go, "-a"))     esl_fatal(errmsg);  
+  if (  esl_opt_IsDefault(go, "-b"))     esl_fatal(errmsg);
+  if (! esl_opt_IsOn     (go, "-b"))     esl_fatal(errmsg);
+  if (! esl_opt_IsUsed   (go, "-b"))     esl_fatal(errmsg);  
+  if (  esl_opt_IsDefault(go, "--no-b")) esl_fatal(errmsg);
+  if (  esl_opt_IsOn     (go, "--no-b")) esl_fatal(errmsg);
+  if (  esl_opt_IsUsed   (go, "--no-b")) esl_fatal(errmsg);  
+  
+  for (i = 0; i < go->nopts; i++)
+    {   /* Test that no option is in an impossible default/on/used state according to logic table above */
+      if (  esl_opt_IsDefault(go, go->opt[i].name) &&   esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
+      if (  esl_opt_IsDefault(go, go->opt[i].name) && ! esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
+      if (! esl_opt_IsDefault(go, go->opt[i].name) &&   esl_opt_IsOn(go, go->opt[i].name) && ! esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
+      if (! esl_opt_IsDefault(go, go->opt[i].name) && ! esl_opt_IsOn(go, go->opt[i].name) &&   esl_opt_IsUsed(go, go->opt[i].name)) esl_fatal(errmsg);
+    }
 
   /* Now the two remaining argv[] elements are the command line args
    */
@@ -2018,7 +2115,7 @@ main(void)
 /* The starting example of "standard" getopts behavior, without
  * any of the bells and whistles.
  * Compile:
-     gcc -g -Wall -o example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
+     gcc -g -Wall -o getopts_example -I. -DeslGETOPTS_EXAMPLE esl_getopts.c easel.c
  */
 #ifdef eslGETOPTS_EXAMPLE
 /*::cexcerpt::getopts_example::begin::*/
@@ -2066,19 +2163,10 @@ main(int argc, char **argv)
   printf("Option -n:      %d\n", esl_opt_GetInteger(go, "-n"));
   printf("Option -s:      %s\n", esl_opt_GetString( go, "-s"));
   printf("Option -x:      %f\n", esl_opt_GetReal(   go, "-x"));
-  if (esl_opt_IsDefault(go, "--file"))
-    printf("Option --file:  (not set)\n");
-  else
-    printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
+  if (esl_opt_IsUsed(go, "--file")) printf("Option --file:  %s\n", esl_opt_GetString(go, "--file"));
+  else                              printf("Option --file:  (not set)\n");
   printf("Option --char:  %c\n", esl_opt_GetChar(go, "--char"));
   printf("Cmdline arg:    %s\n", arg);
-
-  esl_opt_SpoofCmdline(go, &cmdline);
-  printf("Reconstructed:  %s\n", cmdline);
-
-  esl_getopts_Reuse(go);
-  esl_opt_ProcessSpoof(go, cmdline);
-  esl_getopts_Dump(stdout, go);
 
   esl_getopts_Destroy(go);
   free(cmdline);

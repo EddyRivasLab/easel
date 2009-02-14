@@ -384,7 +384,7 @@ main(int argc, char **argv)
       nali++;
 
       /* first handle the --lfract option if enabled, all subsequent manipulations will omit any short seqs removed here */
-      if(! esl_opt_IsDefault(go, "--lfract")) {
+      if (esl_opt_IsOn(go, "--lfract")) {
 	int median   = msa_median_length(msa);
 	float minlen = esl_opt_GetReal(go, "--lfract") * (float) median;
 	ESL_MSA *new_msa;
@@ -396,7 +396,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --lmin option if enabled, all subsequent manipulations will omit any short seqs removed here */
-      if(! esl_opt_IsDefault(go, "--lmin")) {
+      if (esl_opt_IsOn(go, "--lmin")) {
 	float minlen = esl_opt_GetInteger(go, "--lmin");
 	ESL_MSA *new_msa;
 	msa_remove_seqs_below_minlen(msa, minlen, &new_msa);
@@ -407,7 +407,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --detrunc option if enabled, all subsequent manipulations will omit any seqs removed here */
-      if(! esl_opt_IsDefault(go, "--detrunc")) {
+      if( esl_opt_IsOn(go, "--detrunc")) {
 	ESL_MSA *new_msa;
 	if((status =msa_remove_truncated_seqs(msa, errbuf, esl_opt_GetInteger(go, "--detrunc"), &new_msa)) != eslOK) esl_fatal(errbuf);
 	/* new_msa is msa without seqs below minlen, swap ptrs */
@@ -417,11 +417,11 @@ main(int argc, char **argv)
       }
 
       /* handle the --seq-k and --seq-r options if enabled, all subsequent manipulations will omit any seqs removed here */
-      if((! esl_opt_IsDefault(go, "--seq-k")) || (! esl_opt_IsDefault(go, "--seq-r"))) {
+      if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r")) {
 	ESL_MSA *new_msa;
 	char   **seqlist;
 	int      seqlist_n, n;
-	if(! esl_opt_IsDefault(go, "--seq-k")) { 
+	if( esl_opt_IsOn(go, "--seq-k")) { 
 	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-k"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
 	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	  /* new_msa is msa but only with seqs listed in --seq-k <f> file */
@@ -439,10 +439,10 @@ main(int argc, char **argv)
       }
       
       /* handle the --seq-ins, --seq-del options if enabled, all subsequent manipulations will omit any seqs removed here */
-      if((! esl_opt_IsDefault(go, "--seq-ins")) || (! esl_opt_IsDefault(go, "--seq-del"))) {
+      if(  esl_opt_IsOn(go, "--seq-ins") || esl_opt_IsOn(go, "--seq-del")) {
 	ESL_MSA *new_msa;
 	int     *useme;
-	if(! esl_opt_IsDefault(go, "--seq-ins")) { 
+	if( esl_opt_IsOn(go, "--seq-ins")) { 
 	  if((status = find_seqs_with_given_insert(msa, errbuf, esl_opt_GetInteger(go, "--seq-ins"), esl_opt_GetInteger(go, "--seq-ni"), esl_opt_GetInteger(go, "--seq-xi"), &useme)) != eslOK) esl_fatal(errbuf);	  
 	  if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK)  esl_fatal(errbuf);	  
 	  /* new_msa is msa but without seqs that do not have an insert of length <a>..<b> (from --seq-ni <a> and --seq-xi <b>) after consensus column <n> from --seq-ins <n> file */
@@ -518,14 +518,13 @@ main(int argc, char **argv)
       }
 
       /* handle posterior (--p*) options, if nec */
-      if(! ((esl_opt_IsDefault(go, "--pfract")) && (esl_opt_IsDefault(go, "--pinfo")))) { 
+      if( esl_opt_IsOn(go, "--pfract") && ! esl_opt_IsOn(go, "--pinfo")) {
 	if((status = handle_post_opts(go, errbuf, msa) != eslOK)) goto ERROR;
-	if(! (esl_opt_IsDefault(go, "--pfract")))
-	  write_ali = TRUE;
+	if( esl_opt_IsOn(go, "--pfract")) write_ali = TRUE;
       }
 
       /* Remove columns based on --start-all --end-all, --start-rf --end-rf, if nec */
-      if((! esl_opt_IsDefault(go, "--start-all")) || (! esl_opt_IsDefault(go, "--start-rf")))
+      if( esl_opt_IsOn(go, "--start-all") || esl_opt_IsOn(go, "--start-rf"))
 	{
 	  if((status = keep_contiguous_column_block(go, errbuf, msa) != eslOK)) goto ERROR;
 	  write_ali = TRUE;
@@ -581,7 +580,7 @@ main(int argc, char **argv)
 	}
 
       /* handle the --tree option, if enabled */
-      if(! esl_opt_IsDefault(go, "--tree"))
+      if( esl_opt_IsOn(go, "--tree"))
 	{
 	  if ((treefp = fopen(esl_opt_GetString(go, "--tree"), "w")) == NULL) 
 	    esl_fatal("Failed to open --tree output file %s\n", esl_opt_GetString(go, "--tree"));
@@ -625,7 +624,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --iinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--iinfo")) {
+      if( esl_opt_IsOn(go, "--iinfo")) {
 	if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
 	  esl_fatal("Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
 	if((status = dump_insert_info(iinfofp, msa, errbuf) != eslOK)) goto ERROR;
@@ -634,7 +633,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --iplot option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--iplot")) {
+      if( esl_opt_IsOn(go, "--iplot")) {
 	if ((iplotfp = fopen(esl_opt_GetString(go, "--iplot"), "w")) == NULL) 
 	  esl_fatal("Failed to open --iplot output file %s\n", esl_opt_GetString(go, "--iplot"));
 	if((status = plot_inserts(iplotfp, msa, esl_opt_GetBoolean(go, "--ilog"), errbuf) != eslOK)) goto ERROR;
@@ -642,7 +641,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --icinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--icinfo")) {
+      if( esl_opt_IsOn(go, "--icinfo")) {
 	if ((icinfofp = fopen(esl_opt_GetString(go, "--icinfo"), "w")) == NULL) 
 	  esl_fatal("Failed to open --icinfo output file %s\n", esl_opt_GetString(go, "--iplot"));
 	if((status = dump_infocontent(icinfofp, msa, errbuf) != eslOK)) goto ERROR;
@@ -650,7 +649,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --gplot option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--gplot")) {
+      if( esl_opt_IsOn(go, "--gplot")) {
 	if ((gplotfp = fopen(esl_opt_GetString(go, "--gplot"), "w")) == NULL) 
 	  esl_fatal("Failed to open --gplot output file %s\n", esl_opt_GetString(go, "--gplot"));
 	if((status = plot_gaps(gplotfp, msa, errbuf) != eslOK)) goto ERROR;
@@ -658,7 +657,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --rinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--rinfo")) {
+      if( esl_opt_IsOn(go, "--rinfo")) {
 	if ((rinfofp = fopen(esl_opt_GetString(go, "--rinfo"), "w")) == NULL) 
 	  esl_fatal("Failed to open --rinfo output file %s\n", esl_opt_GetString(go, "--rinfo"));
 	if((status = dump_residue_info(rinfofp, msa, errbuf) != eslOK)) goto ERROR;
@@ -666,7 +665,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --cresinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--cresinfo")) {
+      if( esl_opt_IsOn(go, "--cresinfo")) {
 	if ((cresinfofp = fopen(esl_opt_GetString(go, "--cresinfo"), "w")) == NULL) 
 	  esl_fatal("Failed to open --cresinfo output file %s\n", esl_opt_GetString(go, "--cresinfo"));
 	if((status = dump_cres_info(cresinfofp, msa, errbuf) != eslOK)) goto ERROR;
@@ -674,7 +673,7 @@ main(int argc, char **argv)
       }
 
       /* handle the --dinfo option, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--dinfo")) {
+      if( esl_opt_IsOn(go, "--dinfo")) {
 	if ((dinfofp = fopen(esl_opt_GetString(go, "--dinfo"), "w")) == NULL) 
 	  esl_fatal("Failed to open --dinfo output file %s\n", esl_opt_GetString(go, "--dinfo"));
 	if((status = dump_delete_info(dinfofp, msa, errbuf) != eslOK)) goto ERROR;
@@ -682,25 +681,25 @@ main(int argc, char **argv)
       }
 
       /* handle the --num-rf and --num-all options, if enabled, do this after all MSA has been manipulated due to other options */
-      if(! esl_opt_IsDefault(go, "--num-rf")) { 
+      if( esl_opt_IsOn(go, "--num-rf")) { 
 	if((status = number_columns(msa, FALSE, errbuf) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
-      if(! esl_opt_IsDefault(go, "--num-all")) { 
+      if( esl_opt_IsOn(go, "--num-all")) { 
 	if((status = number_columns(msa, TRUE, errbuf) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
 
       /* handle the -M option, if enabled */
-      if(! esl_opt_IsDefault(go, "-M")) { 
+      if( esl_opt_IsOn(go, "-M")) { 
 	if((status = minorize_msa(go, msa, errbuf, ofp, esl_opt_GetString(go, "-M")) != eslOK)) goto ERROR;
 	esl_msa_Destroy(msa);
 	goto END;
       }
 
       /* handle the --c* options, if enabled */
-      int do_id_cluster     = ((esl_opt_IsDefault(go, "--cn-id"))     && (esl_opt_IsDefault(go, "--cs-id")) && (esl_opt_IsDefault(go, "--cx-id"))) ? FALSE : TRUE;
-      int do_insert_cluster = ((esl_opt_IsDefault(go, "--cn-ins")) && (esl_opt_IsDefault(go, "--cs-ins")) && (esl_opt_IsDefault(go, "--cx-ins")))  ? FALSE : TRUE;
+      int do_id_cluster     = ((esl_opt_IsOn(go, "--cn-id"))  || (esl_opt_IsOn(go, "--cs-id"))  || (esl_opt_IsOn(go, "--cx-id"))) ? TRUE : FALSE;
+      int do_insert_cluster = ((esl_opt_IsOn(go, "--cn-ins")) || (esl_opt_IsOn(go, "--cs-ins")) || (esl_opt_IsOn(go, "--cx-ins")))? TRUE : FALSE;
       int do_ctarget_nc, do_ctarget_nsize, do_cmindiff, nmsa, m, nc, nsize, xsize, nmin;
       float mindiff;
 
@@ -717,24 +716,24 @@ main(int argc, char **argv)
 	  dst_nongap_XDiffMx(rfmsa->abc, rfmsa->ax, rfmsa->nseq, &D);
 	  esl_msa_Destroy(rfmsa);
 	  rfmsa = NULL;
-	  do_ctarget_nc    = esl_opt_IsDefault(go, "--cn-id") ? FALSE : TRUE;
-	  do_ctarget_nsize = esl_opt_IsDefault(go, "--cs-id") ? FALSE : TRUE;
-	  do_cmindiff      = esl_opt_IsDefault(go, "--cx-id") ? FALSE : TRUE;
-	  nc               = esl_opt_IsDefault(go, "--cn-id") ? 0  : esl_opt_GetInteger(go, "--cn-id");
-	  nsize            = esl_opt_IsDefault(go, "--cs-id") ? 0  : esl_opt_GetInteger(go, "--cs-id");
-	  mindiff          = esl_opt_IsDefault(go, "--cx-id") ? 0. : 1. - esl_opt_GetReal(go, "--cx-id");
+	  do_ctarget_nc    = esl_opt_IsOn(go, "--cn-id");
+	  do_ctarget_nsize = esl_opt_IsOn(go, "--cs-id");
+	  do_cmindiff      = esl_opt_IsOn(go, "--cx-id");
+	  nc               = esl_opt_IsOn(go, "--cn-id") ? esl_opt_GetInteger(go, "--cn-id")   : 0;
+	  nsize            = esl_opt_IsOn(go, "--cs-id") ? esl_opt_GetInteger(go, "--cs-id")   : 0;
+	  mindiff          = esl_opt_IsOn(go, "--cx-id") ? 1. - esl_opt_GetReal(go, "--cx-id") : 0; 
 	}
 	else { /* do_insert_cluster, create insert distance matrix and infer tree by SLC */ 
 	  if((status = insert_x_diffmx(go, errbuf, msa, TRUE, TRUE, &D)) != eslOK) goto ERROR;
-	  do_ctarget_nc    = esl_opt_IsDefault(go, "--cn-ins") ? FALSE : TRUE;
-	  do_ctarget_nsize = esl_opt_IsDefault(go, "--cs-ins") ? FALSE : TRUE;
-	  do_cmindiff      = esl_opt_IsDefault(go, "--cx-ins") ? FALSE : TRUE;
-	  nc               = esl_opt_IsDefault(go, "--cn-ins") ? 0  : esl_opt_GetInteger(go, "--cn-ins");
-	  nsize            = esl_opt_IsDefault(go, "--cs-ins") ? 0  : esl_opt_GetInteger(go, "--cs-ins");
-	  mindiff          = esl_opt_IsDefault(go, "--cx-ins") ? 0. : 1. - esl_opt_GetReal(go, "--cx-ins");
+	  do_ctarget_nc    = esl_opt_IsOn(go, "--cn-ins");
+	  do_ctarget_nsize = esl_opt_IsOn(go, "--cs-ins");
+	  do_cmindiff      = esl_opt_IsOn(go, "--cx-ins");
+	  nc               = esl_opt_IsOn(go, "--cn-ins") ? esl_opt_GetInteger(go, "--cn-ins")   : 0;
+	  nsize            = esl_opt_IsOn(go, "--cs-ins") ? esl_opt_GetInteger(go, "--cs-ins")   : 0;
+	  mindiff          = esl_opt_IsOn(go, "--cx-ins") ? 1. - esl_opt_GetReal(go, "--cx-ins") : 0;
 	}
 	/* print out the id matrix if nec */
-	if(! esl_opt_IsDefault(go, "--c-mx")) { 
+	if( esl_opt_IsOn(go, "--c-mx")) { 
 	  FILE *mxfp;
 	  int i, j;
 	  if ((mxfp = fopen(esl_opt_GetString(go, "--c-mx"), "w")) == NULL) esl_fatal("Failed to open --c-mx output file %s\n", esl_opt_GetString(go, "--c-mx"));
@@ -749,7 +748,7 @@ main(int argc, char **argv)
 	if((status = MSADivide(msa, D, do_cmindiff, do_ctarget_nc, do_ctarget_nsize, mindiff, nc, nsize, &nmsa, &cmsa, &xsize, errbuf)) != eslOK) goto ERROR;
 	esl_msa_Destroy(msa); 
 	msa = NULL;
-	nmin = esl_opt_IsDefault(go, "--c-nmin") ? 1 : esl_opt_GetInteger(go, "--c-nmin");
+	nmin = esl_opt_IsOn(go, "--c-nmin") ? esl_opt_GetInteger(go, "--c-nmin") : 1;
 	for(m = 0; m < nmsa; m++) { 
 	  if(cmsa[m]->nseq >= nmin) { 
 	    status = esl_msa_Write(ofp, cmsa[m], (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
@@ -761,16 +760,16 @@ main(int argc, char **argv)
 	write_ali = FALSE;
 	free(cmsa);
       }
-      else if(!(esl_opt_IsDefault(go, "--c-mx"))) esl_fatal("--c-mx option requires at least one of: --cn-id, --cs-id, --cx-id, --cn-ins, --cs-ins, --cx-ins"); 
+      else if ( esl_opt_IsOn(go, "--c-mx")) esl_fatal("--c-mx option requires at least one of: --cn-id, --cs-id, --cx-id, --cn-ins, --cs-ins, --cx-ins"); 
 
       /* remove GC annotation, if nec */
-      if(! esl_opt_IsDefault(go, "--rm-gc")) {
+      if( esl_opt_IsOn(go, "--rm-gc")) {
 	if((status = remove_gc_markup(msa, errbuf, esl_opt_GetString(go, "--rm-gc")) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
 
       /* write out list of sequences, if nec */
-      if(! esl_opt_IsDefault(go, "--list")) {
+      if( esl_opt_IsOn(go, "--list")) {
 	if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
 	  esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
 	int i;
@@ -885,8 +884,8 @@ keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int    clen;
   int    astart, aend;
 
-  rf_mode  = ((!esl_opt_IsDefault(go, "--start-rf"))  && (!esl_opt_IsDefault(go, "--end-rf"))) ? TRUE : FALSE;
-  all_mode = ((!esl_opt_IsDefault(go, "--start-all")) && (!esl_opt_IsDefault(go, "--end-all"))) ? TRUE : FALSE;
+  rf_mode  = ( esl_opt_IsOn(go, "--start-rf")  && esl_opt_IsOn(go, "--end-rf"))  ? TRUE : FALSE;
+  all_mode = ( esl_opt_IsOn(go, "--start-all") && esl_opt_IsOn(go, "--end-all")) ? TRUE : FALSE;
   if((!rf_mode) && (!all_mode)) ESL_XFAIL(eslEINVAL, errbuf, "Entered keep_contiguous_column_block, but neither (--start-rf & --end-rf) nor (--start-all & --end-all) combination invoked.");
   
   /* contract check */
@@ -3101,11 +3100,11 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int    ridx1, ridx2;
   int    r;
   float  p;
-  int    do_pfract = (! esl_opt_IsDefault(go, "--pfract"));
-  int    do_prf    = (! esl_opt_IsDefault(go, "--p-rf"));
-  int    do_pinfo  = (! esl_opt_IsDefault(go, "--pinfo"));
+  int    do_pfract = esl_opt_IsOn(go, "--pfract");
+  int    do_prf    = esl_opt_IsOn(go, "--p-rf");
+  int    do_pinfo  = esl_opt_IsOn(go, "--pinfo");
   float  pfract;
-  float  pthresh   =    esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
+  float  pthresh   = esl_opt_GetReal(go, "--pthresh"); /* default is 0.95 */
   int  *useme; 
   int *c2a_map;
   int clen;

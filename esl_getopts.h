@@ -99,6 +99,9 @@ extern int esl_opt_ArgNumber   (const ESL_GETOPTS *g);
 extern int esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline);
 
 extern int    esl_opt_IsDefault (const ESL_GETOPTS *g, char *optname);
+extern int    esl_opt_IsOn      (const ESL_GETOPTS *g, char *optname);
+extern int    esl_opt_IsUsed    (const ESL_GETOPTS *g, char *optname);
+
 extern int    esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_GetInteger(const ESL_GETOPTS *g, char *optname);
 extern double esl_opt_GetReal   (const ESL_GETOPTS *g, char *optname);

@@ -70,8 +70,8 @@ main(int argc, char **argv)
   nselect  = atoi(esl_opt_GetArg(go, 1));
   filename = esl_opt_GetArg(go, 2);
 
-  if (esl_opt_IsDefault(go, "--seed")) r = esl_randomness_CreateTimeseeded();
-  else                                 r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
+  if (esl_opt_IsOn(go, "--seed")) r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
+  else                            r = esl_randomness_CreateTimeseeded();
 
   if ((larr = malloc(sizeof(char *) * nselect)) == NULL) esl_fatal("allocation failed");
 
