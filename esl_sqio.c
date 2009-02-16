@@ -266,14 +266,18 @@ esl_sqfile_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
  *            <offset> would usually be the first byte of a
  *            desired sequence record.
  *            
- *            Only normal sequence files can be positioned; not
- *            a standard input stream, gunzip stream, or a multiple
- *            alignment file interface.
+ *            Only normal sequence files can be positioned to a
+ *            nonzero offset. If <sqfp> corresponds to a standard
+ *            input stream or gunzip stream, it may not be
+ *            repositioned. If <sqfp> corresponds to a multiple
+ *            sequence alignment file, the only legal <offset>
+ *            is 0, to rewind the file to the beginning and 
+ *            be able to read the entire thing again.
  *            
- *            After <esl_sqfile_Position()> is called,
- *            <sqfp->linenumber> and other bookkeeping information is
- *            unknown. If caller knows it, it should set it
- *            explicitly.
+ *            After <esl_sqfile_Position()> is called on a nonzero
+ *            <offset>, <sqfp->linenumber> and other bookkeeping
+ *            information is unknown. If caller knows it, it should
+ *            set it explicitly.
  *            
  *            See the SSI module for manipulating offsets and indices.
  *
@@ -283,25 +287,56 @@ esl_sqfile_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
  * Throws:    <eslESYS> if the fseeko() or fread() call fails.
  *            <eslEMEM> on (re-)allocation failure.
  *            <eslEINVAL> if the <sqfp> is not positionable.
+ *            <eslENOTFOUND> if in trying to rewind an alignment file  
+ *              by closing and reopening it, the open fails.
+ *            On errors, the state of <sqfp> is indeterminate, and
+ *            it should not be used again.
  */
 int
 esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
 {
-  if (sqfp->do_stdin)    ESL_EXCEPTION(eslEINVAL, "can't Position() in standard input");
-  if (sqfp->do_gzip)     ESL_EXCEPTION(eslEINVAL, "can't Position() in a gzipped file");
-  if (sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() in an alignment file");
+  int status;
 
-  if (fseeko(sqfp->fp, offset, SEEK_SET) != 0) ESL_EXCEPTION(eslESYS, "fseeko() failed");
+  if (sqfp->do_stdin)                  ESL_EXCEPTION(eslEINVAL, "can't Position() in standard input");
+  if (sqfp->do_gzip)                   ESL_EXCEPTION(eslEINVAL, "can't Position() in a gzipped file");
+  if (offset < 0)                      ESL_EXCEPTION(eslEINVAL, "bad offset");
+  if (offset > 0 && sqfp->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() w/ nonzero offset on MSA file");
 
-  sqfp->currpl     = -1;
-  sqfp->curbpl     = -1;
-  sqfp->prvrpl     = -1;
-  sqfp->prvbpl     = -1;
-  sqfp->linenumber = -1;
-  sqfp->L          = -1;
-  sqfp->mpos       = sqfp->mn;	/* this forces loadbuf to load new data */
-  return loadbuf(sqfp);
+  if (esl_sqio_IsAlignment(sqfp->format)) 
+    {	/* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
+      esl_msafile_Close(sqfp->afp);
+      if (sqfp->msa != NULL) esl_msa_Destroy(sqfp->msa);
+      sqfp->afp = NULL;
+      sqfp->msa = NULL;
+      sqfp->idx = 0;
+      
+      /* we know we successfully opened it the first time, so a
+	 failure to reopen is an exception, not a user-reportable
+	 normal error. ENOTFOUND is the only normal error; 
+         EFORMAT error can't occur because we know the format and
+         don't use autodetection.
+       */
+      status = esl_msafile_Open(sqfp->filename, sqfp->format, NULL, &(sqfp->afp));
+      if      (status == eslENOTFOUND) ESL_EXCEPTION(eslENOTFOUND, "failed to reopen alignment file");
+      else if (status != eslOK)        return status;
+    }
+  else	/* normal case: unaligned sequence file */
+    {
+      if (fseeko(sqfp->fp, offset, SEEK_SET) != 0) ESL_EXCEPTION(eslESYS, "fseeko() failed");
+
+      sqfp->currpl     = -1;
+      sqfp->curbpl     = -1;
+      sqfp->prvrpl     = -1;
+      sqfp->prvbpl     = -1;
+      sqfp->linenumber = (offset == 0) ? 1 : -1; /* -1 is "unknown" */
+      sqfp->L          = -1;
+      sqfp->mpos       = sqfp->mn;	/* this forces loadbuf to load new data */
+      if ((status = loadbuf(sqfp)) != eslOK) return status;
+    }
+  return eslOK;
 }
+
+
 
 /* Function:  esl_sqfile_Close()
  * Synopsis:  Close a sequence file.
