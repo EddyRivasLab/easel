@@ -19,11 +19,13 @@ The <msafile> must be in Stockholm format.";
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              0 },
-  { "-1",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "use tabular output, one line per alignment",              0 },
-  { "--amino",  eslARG_NONE,"default",NULL,NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   0 },
-  { "--dna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "<msafile> contains DNA alignments",                       0 },
-  { "--rna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       0 },
+  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
+  { "-1",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "use tabular output, one line per alignment",              1 },
+  { "--amino",  eslARG_NONE,"default",NULL,NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   1 },
+  { "--dna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "<msafile> contains DNA alignments",                       1 },
+  { "--rna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
+
+  { "--stall",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "arrest after start: for debugging under gdb",            99 },  
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -44,7 +46,9 @@ main(int argc, char **argv)
   int64_t       nres;		/* total # of residues in msa      */
   double        avgid;		/* average fractional pair id      */
   int           max_comparisons;/* maximum # comparisons for avg id */
-  
+  int           do_stall;       /* used to stall when debugging     */
+
+
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -64,7 +68,7 @@ main(int argc, char **argv)
       esl_banner(stdout, argv[0], banner);
       esl_usage (stdout, argv[0], usage);
       puts("\n where options are:");
-      esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
+      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
       exit(0);
     }
 
@@ -80,6 +84,9 @@ main(int argc, char **argv)
 
   fmt             = eslMSAFILE_STOCKHOLM;
   max_comparisons = 1000;
+
+  do_stall = esl_opt_GetBoolean(go, "--stall"); /* a stall point for attaching gdb */
+  while (do_stall); 
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input

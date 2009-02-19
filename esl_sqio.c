@@ -219,7 +219,6 @@ esl_sqfile_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   /* If that didn't work, we'll have a peek at the stream; 
    * turn recording on, and set for line based input.
    */
-
   if (sqfp->is_recording == -1) ESL_EXCEPTION(eslEINVAL, "sq file already too advanced");
   sqfp->is_recording = TRUE;
   sqfp->is_linebased = TRUE;
@@ -668,6 +667,23 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 /*****************************************************************
  *# 3. Miscellaneous routines 
  *****************************************************************/ 
+
+/* Function:  esl_sqfile_IsRewindable()
+ * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
+ * Incept:    SRE, Mon Feb 16 10:32:13 2009 [Janelia]
+ *
+ * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
+ *            to an offset of zero), in order to read it a second
+ *            time.
+ */
+int
+esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
+{
+  if (sqfp->do_gzip  == TRUE) return FALSE;
+  if (sqfp->do_stdin == TRUE) return FALSE;
+  return TRUE;
+}
+
 
 /* Function:  esl_sqio_Ignore()
  * Synopsis:  Sets the input map to ignore one or more input characters.
@@ -3229,6 +3245,7 @@ utest_fetch_subseq(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, 
 
 /* Write the sequences out to a tmpfile in chosen <format>;
  * read them back and make sure they're the same.
+ * reposition to beginning, read and check again.
  *
  * The sequences in <sqarr> are in digital mode.
  */
@@ -3240,6 +3257,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
   ESL_SQFILE *sqfp        = NULL;
   ESL_SQ     *sq          = esl_sq_CreateDigital(abc);
   FILE       *fp          = NULL;
+  int         iterations  = 2;	/* 2: reposition and read again */
   int         i;
 
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
@@ -3247,14 +3265,18 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
     esl_sqio_Write(fp, sqarr[i], format);
   fclose(fp);
 
-  if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp) != eslOK) esl_fatal(msg);
-  for (i = 0; i < N; i++)
+  while (iterations--)
     {
-      if (esl_sqio_Read(sqfp, sq) != eslOK) esl_fatal(msg);
-      if (strcmp(sqarr[i]->name,   sq->name)   != 0) esl_fatal(msg);
-      if (sqarr[i]->L !=  sq->L)                     esl_fatal(msg);
-      if (memcmp(sqarr[i]->dsq, sq->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0) esl_fatal(msg);
-      esl_sq_Reuse(sq);
+      if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp)       != eslOK)  esl_fatal(msg);
+      for (i = 0; i < N; i++)
+	{
+	  if (esl_sqio_Read(sqfp, sq)                                     != eslOK)  esl_fatal(msg);
+	  if (strcmp(sqarr[i]->name,   sq->name)                          != 0)      esl_fatal(msg);
+	  if (sqarr[i]->L                                                 !=  sq->L) esl_fatal(msg);
+	  if (memcmp(sqarr[i]->dsq, sq->dsq, sizeof(ESL_DSQ) * (sq->L+2)) != 0)      esl_fatal(msg);
+	  esl_sq_Reuse(sq);
+	}
+      esl_sqfile_Position(sqfp, 0); /* rewind and make sure we get same reads again */
     }
   esl_sqfile_Close(sqfp);
   esl_sq_Destroy(sq);

@@ -33,6 +33,8 @@ static ESL_OPTIONS options[] = {
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains RNA sequence",        1 },
   { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains DNA sequence",        1 },
   { "--amino",    eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains protein sequence",    1 },
+
+  { "--stall",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,       NULL, "arrest after start: for debugging under gdb",        99 },  
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -80,6 +82,8 @@ main(int argc, char **argv)
   int             status    = eslOK;
   int             wstatus;
   int             i;
+  int             do_stall;       /* used to stall when debugging     */
+
 
   /* Parse command line */
   go = esl_getopts_Create(options);
@@ -96,6 +100,11 @@ main(int argc, char **argv)
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
 
+  do_stall = esl_opt_GetBoolean(go, "--stall"); /* a stall point for attaching gdb */
+  while (do_stall); 
+
+
+  /* open input file */
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file %s", seqfile);
   else if (status == eslEFORMAT)   esl_fatal("Format of seqfile %s unrecognized.", seqfile);
