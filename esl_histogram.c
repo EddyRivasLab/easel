@@ -1689,7 +1689,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r  = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
   int     nsamples    = 10000;
   double  mu          = 10.0;
@@ -1741,7 +1741,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r  = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
   int     nsamples    = 10000;
   double  mu          = 10.0;
@@ -1793,7 +1793,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r  = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
   int     nsamples    = 10000;
   double  mu          = 10.0;
@@ -1844,7 +1844,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r  = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h  = esl_histogram_CreateFull(-100, 100, 0.2);
   int     nsamples    = 10000;
   double  mu          = 10.0;
@@ -1899,7 +1899,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r  = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r  = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h  = esl_histogram_Create(-100, 100, 1.0);
   int     nsamples    = 10000;
   double  mu          = 10.0;

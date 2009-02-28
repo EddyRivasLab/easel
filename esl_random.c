@@ -21,6 +21,9 @@
 #include <ctype.h>
 #include <math.h>
 #include <time.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include "easel.h"
 #include "esl_random.h"
@@ -29,13 +32,32 @@
 /*****************************************************************
  *# 1. The <ESL_RANDOMNESS> object.
  *****************************************************************/
+static long choose_arbitrary_seed();
+
 
 /* Function:  esl_randomness_Create()
- * Synopsis:  Create an RNG with a given seed.
+ * Synopsis:  Create a new random number generator.
  * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
  *
  * Purpose:   Create a random number generator using
- *            a given random seed. Seed must be $>0$.
+ *            a given random seed. The <seed> must be $\geq 0$.
+ *            
+ *            If <seed> is $>0$, the random number generator is
+ *            reproducibly initialized with that seed.  Two RNGs
+ *            created with the same nonzero seed will give exactly the
+ *            same stream of pseudorandom numbers. This allows you to
+ *            make reproducible stochastic simulations, for example.
+ *            
+ *            If <seed> is 0, an arbitrary seed is chosen.
+ *            Internally, the arbitrary seed is produced by a
+ *            combination of the current <time()> and the process id
+ *            (if available; POSIX only). Two RNGs created with <seed>=0 will
+ *            probably (but not assuredly) give different streams of pseudorandom
+ *            numbers. The true seed can be retrieved from the
+ *            <ESL_RANDOMNESS> object using <esl_randomness_GetSeed()>.
+ *            The strategy used for choosing the arbitrary
+ *            seed is not cryptographically secure, because it is
+ *            predictable.
  *            
  * Args:      seed $>= 0$.
  *
@@ -53,7 +75,9 @@ esl_randomness_Create(long seed)
   int             burnin = 7;
   int             status;
 
-  if (seed <= 0) ESL_XEXCEPTION(eslEINVAL, "bad seed");
+  if      (seed == 0) seed = choose_arbitrary_seed();
+  else if (seed <  0) ESL_XEXCEPTION(eslEINVAL, "bad seed");
+
   ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
   r->seed      = seed;
   r->reseeding = TRUE;
@@ -69,6 +93,48 @@ esl_randomness_Create(long seed)
   return NULL;
 }
 
+/* choose_arbitrary_seed()
+ * Return a 'quasirandom' seed > 0.
+ * This could be a *lot* better than it is now; see RFC1750
+ * for a discussion of securely seeding RNGs.
+ */
+static long
+choose_arbitrary_seed()
+{
+  uint32_t a = (uint32_t) time ((time_t *) NULL);
+  uint32_t b = 87654321;	/* anything nonzero */
+  uint32_t c = 12345678;	/* anything nonzero */
+  long     seed;
+#ifdef HAVE_GETPID
+  b  = (uint32_t) getpid();
+#endif
+ 
+  /*------------------------------------
+   * This is Bob Jenkins' mix(a,b,c) function;
+   * I want to mix time() with getpid() somewhat
+   * "randomly", his mix() should suffice, and 
+   * he only has a 3-arg version. Thus <c>,
+   * which is just an arbitrary third number
+   * thrown into the mix().
+   */
+  a -= b; a -= c; a ^= (c>>13);		
+  b -= c; b -= a; b ^= (a<<8); 
+  c -= a; c -= b; c ^= (b>>13);
+  a -= b; a -= c; a ^= (c>>12);
+  b -= c; b -= a; b ^= (a<<16);
+  c -= a; c -= b; c ^= (b>>5); 
+  a -= b; a -= c; a ^= (c>>3); 
+  b -= c; b -= a; b ^= (a<<10);
+  c -= a; c -= b; c ^= (b>>15);
+  /*-------------------------------------*/
+
+  seed = (long) c;
+  if      (seed < 0)  return -seed;
+  else if (seed == 0) return 42;
+  else                return seed;
+}
+
+
 /* Function:  esl_randomness_CreateTimeseeded()
  * Synopsis:  Create an RNG with a quasirandom seed.
  * Incept:    SRE, Wed Jul 14 11:22:54 2004 [St. Louis]
@@ -76,6 +142,9 @@ esl_randomness_Create(long seed)
  * Purpose:   Like <esl_randomness_Create()>, but it initializes the
  *            the random number generator using a POSIX <time()> call 
  *            (number of seconds since the POSIX epoch).
+ *            
+ *            This function is deprecated. Use 
+ *            <esl_randomness_Create(0)> instead.
  *
  * Returns:   an initialized <ESL_RANDOMNESS *> on success.
  *            Caller free's with <esl_randomness_Destroy()>.
@@ -151,12 +220,6 @@ esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
  * Incept:    SRE, Wed May 23 17:02:59 2007 [Janelia]
  *
  * Purpose:   Return the value of the seed. 
- * 
- *            (You already know what the seed was if you used
- *            <esl_randomness_Create()>, but not if you used
- *            <esl_randomness_CreateTimeseeded()>. It is often useful
- *            to record what the seed was, in order to be able to
- *            exactly reproduce results.)
  */
 long
 esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
@@ -685,8 +748,8 @@ utest_random(long seed, int n, int nbins, int be_verbose)
    * reproducible, we know this test succeeds, despite being
    * statistical in nature.
    */
-  if ((r = esl_randomness_CreateTimeseeded()) == NULL)  esl_fatal("randomness create failed");
-  if (esl_randomness_Init(r, seed)            != eslOK) esl_fatal("randomness init failed");
+  if ((r = esl_randomness_Create(0)) == NULL)  esl_fatal("randomness create failed");
+  if (esl_randomness_Init(r, seed)   != eslOK) esl_fatal("randomness init failed");
 
   for (i = 0; i < n; i++)
     counts[esl_rnd_Roll(r, nbins)]++;
@@ -786,7 +849,6 @@ static ESL_OPTIONS options[] = {
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
   {"-b",  eslARG_INT,      "20", NULL, "n>0",NULL, NULL, NULL, "number of test bins",               0},
   {"-n",  eslARG_INT, "1000000", NULL, "n>0",NULL, NULL, NULL, "number of samples",                 0},
-  {"-r",  eslARG_NONE,     NULL, NULL, NULL, NULL, NULL, NULL, "use arbitrary random number seed",  0},
   {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",     0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
   {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
@@ -801,15 +863,12 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r          = NULL;
+  ESL_RANDOMNESS *r          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   char           *bitfile    = esl_opt_GetString (go, "--bitfile");
   int             nbins      = esl_opt_GetInteger(go, "-b");
   int             n          = esl_opt_GetInteger(go, "-n");
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
   int             seed       = esl_opt_GetInteger(go, "-s");
-
-  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
-  else                              r = esl_randomness_Create(seed);
 
   utest_random(seed, n, nbins, be_verbose);
   utest_choose(r,    n, nbins, be_verbose);
@@ -860,19 +919,21 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
-/* compile: gcc -g -Wall -I. -o example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
- * run:     ./example
+/* compile: gcc -g -Wall -I. -o random_example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
+ * run:     ./random_example 42
  */
 #include <stdio.h>
 #include "easel.h"
 #include "esl_random.h"
 
 int 
-main(void)
+main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = esl_randomness_Create(42); 
-  int             n = 10;
+  long            seed = atoi(argv[1]);
+  ESL_RANDOMNESS *r    = esl_randomness_Create(seed); 
+  int             n    = 10;
 
+  printf("RNG seed: %ld\n", esl_randomness_GetSeed(r));
   printf("A sequence of %d pseudorandom numbers:\n", n);
   while (n--)  printf("%f\n", esl_random(r));
 

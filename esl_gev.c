@@ -667,7 +667,7 @@ main(int argc, char **argv)
   double  min       =  9999.;
   double  max       = -9999.;
   double *x         = malloc(sizeof(double) * n);
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);;
 
   for (i = 0; i < n; i++)	/* generate the 10,000 samples */
     { 

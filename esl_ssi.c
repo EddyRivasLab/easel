@@ -1768,7 +1768,6 @@ static ESL_OPTIONS options[] = {
   { "-L",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
   { "-N",        eslARG_INT,     "10",  NULL, NULL,  NULL,  NULL, NULL, "number of test sequences per file",                0 },
   { "-Q",        eslARG_INT,     "10",  NULL, NULL,  NULL,  NULL, NULL, "number of random queries to retrieve",             0 },
-  { "-r",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "use arbitrary random number seed",                 0 },
   { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   { "-v",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "be verbose",                                       0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -1780,7 +1779,7 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r          = NULL;
+  ESL_RANDOMNESS *r          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   ESL_NEWSSI     *ns         = NULL;
   ESL_SSI        *ssi        = NULL;
   ESL_SQ         *sq         = NULL;
@@ -1805,9 +1804,6 @@ main(int argc, char **argv)
   double p[4] = { 0.25, 0.25, 0.25, 0.25 };
   int    status;
   
-  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
-  else                              r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
-
   /* Create <nfiles> sequence file names. */
   ESL_ALLOC(sqfile, sizeof(char *) * nfiles);
   for (j = 0; j < nfiles; j++)

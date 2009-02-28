@@ -522,7 +522,7 @@ main(int argc, char **argv)
   double lambda     = 2.5;
   double tau        = 0.7;
   ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
   int    n          = 10000;
   double *data;
   int     ndata;
@@ -565,85 +565,80 @@ main(int argc, char **argv)
  * Test driver
  ****************************************************************************/ 
 #ifdef eslSTRETCHEXP_TESTDRIVE
-/* Compile:
-   gcc -g -Wall -I. -I ~/src/easel -L ~/src/easel -o test -DeslSTRETCHEXP_TESTDRIVE\
-    esl_stretchexp.c -leasel -lm
-*/
+/* gcc -g -Wall -I. -L . -o stretchexp_utest -DeslSTRETCHEXP_TESTDRIVE esl_stretchexp.c -leasel -lm
+ */
+#include "esl_config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_histogram.h"
 #include "esl_stretchexp.h"
 
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
+  {"-l",  eslARG_REAL,    "1.0", NULL,"x>0", NULL, NULL, NULL, "set lambda param to <x>",           0},
+  {"-m",  eslARG_REAL,   "10.0", NULL, NULL, NULL, NULL, NULL, "set mu param to <x>",               0},
+  {"-n",  eslARG_INT,   "10000", NULL,"n>0", NULL, NULL, NULL, "set number of samples to <n>",      0},
+  {"-o",  eslARG_OUTFILE,  NULL, NULL, NULL, NULL, NULL, NULL, "save plots to file <f>",            0},
+  {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",     0},
+  {"-t",  eslARG_REAL,    "0.7", NULL,"x>0", NULL, NULL, NULL, "set tau param to <x>",              0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
+  {"-w",  eslARG_REAL,    "0.1", NULL,"x>0", NULL, NULL, NULL, "set width of histogram bins to <x>",0},
+  {"--C", eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot CDF",                          0},
+  {"--LC",eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot log CDF",                      0},
+  {"--P", eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot PDF",                          0},
+  {"--LP",eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot log PDF",                      0},
+  {"--S", eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot survival",                     0},
+  {"--LS",eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "plot log survival",                 0},
+  {"--XL",eslARG_NONE,     NULL, NULL, NULL, NULL, NULL, NULL, "set xmin for plot axis",            0},
+  {"--XH",eslARG_NONE,     NULL, NULL, NULL, NULL, NULL, NULL, "set xmax for plot axis",            0},
+  {"--XS",eslARG_NONE,     NULL, NULL, NULL, NULL, NULL, NULL, "set xstep for plot axis",           0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for random module";
+
 int
 main(int argc, char **argv)
 {
-  ESL_HISTOGRAM  *h;
-  ESL_RANDOMNESS *r;
-  double  mu        = 10.0;
-  double  lambda    =  1.0;  
-  double  tau       =  0.7;
-  int     n         = 10000;
-  double  binwidth  = 0.1;
+  ESL_GETOPTS    *go   = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  double  mu           = esl_opt_GetReal(go, "-m");
+  double  lambda       = esl_opt_GetReal(go, "-l");
+  double  tau          = esl_opt_GetReal(go, "-t");
+  ESL_RANDOMNESS *r    = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_HISTOGRAM  *h    = esl_histogram_CreateFull(mu, 100., esl_opt_GetReal(go, "-w"));;
+  int     n            = esl_opt_GetInteger(go, "-n");
+  int     be_verbose   = esl_opt_GetBoolean(go, "-v");
+  char   *plotfile     = esl_opt_GetString(go, "-o");
+  FILE   *pfp          = stdout;
+  int     plot_pdf     = esl_opt_GetBoolean(go, "--P");
+  int     plot_logpdf  = esl_opt_GetBoolean(go, "--LP");
+  int     plot_cdf     = esl_opt_GetBoolean(go, "--C");
+  int     plot_logcdf  = esl_opt_GetBoolean(go, "--LC");
+  int     plot_surv    = esl_opt_GetBoolean(go, "--S");
+  int     plot_logsurv = esl_opt_GetBoolean(go, "--LS");
+  double  xmin         = esl_opt_IsOn(go, "--XL") ?  esl_opt_GetReal(go, "--XL") :  mu;
+  double  xmax         = esl_opt_IsOn(go, "--XH") ?  esl_opt_GetReal(go, "--XH") :  mu+40*(1./lambda);
+  double  xstep        = esl_opt_IsOn(go, "--XS") ?  esl_opt_GetReal(go, "--XS") :  0.1;
   double  emu, elambda, etau;
   int     i;
   double  x;
   double *data;
   int     ndata;
 
-  int     opti;
-  int     be_verbose   = FALSE;
-  char   *plotfile     = NULL;
-  FILE   *pfp          = stdout;
-  int     plot_pdf     = FALSE;
-  int     plot_logpdf  = FALSE;
-  int     plot_cdf     = FALSE;
-  int     plot_logcdf  = FALSE;
-  int     plot_surv    = FALSE;
-  int     plot_logsurv = FALSE;
-  int     xmin_set     = FALSE;
-  double  xmin;
-  int     xmax_set     = FALSE;
-  double  xmax;
-  int     xstep_set    = FALSE;
-  double  xstep;
-
-  for (opti = 1; opti < argc && *(argv[opti]) == '-'; opti++)
-    {
-      if      (strcmp(argv[opti], "-m")  == 0) mu           = atof(argv[++opti]);
-      else if (strcmp(argv[opti], "-l")  == 0) lambda       = atof(argv[++opti]);
-      else if (strcmp(argv[opti], "-n")  == 0) n            = atoi(argv[++opti]);
-      else if (strcmp(argv[opti], "-o")  == 0) plotfile     = argv[++opti];
-      else if (strcmp(argv[opti], "-t")  == 0) tau          = atof(argv[++opti]);
-      else if (strcmp(argv[opti], "-v")  == 0) be_verbose   = TRUE;
-      else if (strcmp(argv[opti], "-w")  == 0) binwidth     = atof(argv[++opti]);
-      else if (strcmp(argv[opti], "-C")  == 0) plot_cdf     = TRUE;
-      else if (strcmp(argv[opti], "-LC") == 0) plot_logcdf  = TRUE;
-      else if (strcmp(argv[opti], "-P")  == 0) plot_pdf     = TRUE;
-      else if (strcmp(argv[opti], "-LP") == 0) plot_logpdf  = TRUE;
-      else if (strcmp(argv[opti], "-S")  == 0) plot_surv    = TRUE;
-      else if (strcmp(argv[opti], "-LS") == 0) plot_logsurv = TRUE;
-      else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
-      else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
-      else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_EXCEPTION(eslEINVAL, "bad option");
-    }
-
   if (be_verbose)
     printf("Parametric:  mu = %f   lambda = %f    tau = %f\n", mu, lambda, tau);
 
-  r = esl_randomness_CreateTimeseeded();
-  h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
       ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
   }
-  if (! xmin_set)  xmin  = mu;
-  if (! xmax_set)  xmax  = mu+40*(1./lambda);
-  if (! xstep_set) xstep = 0.1;
 
   for (i = 0; i < n; i++)
     {
@@ -684,6 +679,7 @@ main(int argc, char **argv)
   if (plotfile != NULL) fclose(pfp);
   esl_histogram_Destroy(h);
   esl_randomness_Destroy(r);
+  esl_getopts_Destroy(go);
   return 0;
 }
 #endif /*eslSTRETCHEXP_TESTDRIVE*/

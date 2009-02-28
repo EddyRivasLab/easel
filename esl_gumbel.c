@@ -962,7 +962,7 @@ main(int argc, char **argv)
   do_truncated = FALSE;
   do_location  = FALSE;
 
-  r = esl_randomness_CreateTimeseeded();
+  r = esl_randomness_Create(0);
   x = malloc(sizeof(double) * totalN[nexps-1]);
   
   /* Fitting to simulated complete datasets
@@ -1151,7 +1151,7 @@ main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();;
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);;
   int     n         = 10000; 	/* simulate 10,000 samples */
   double  mu        = -20.0;       /* with mu = -20 */ 
   double  lambda    = 0.4;         /* and lambda = 0.4 */

@@ -625,7 +625,7 @@ main(void)
  * undocumented implementation of a matrix exponential.
  */
 /* 
-  gcc -g -Wall -I. -L. -o regression -DeslRATEMATRIX_REGRESSION -DHAVE_LIBGSL esl_dmatrix.c esl_ratematrix.c -leasel -lgsl -lgslcblas -lm
+  gcc -g -Wall -I. -L. -o ratematrix_regression -DeslRATEMATRIX_REGRESSION -DHAVE_LIBGSL esl_dmatrix.c esl_ratematrix.c -leasel -lgsl -lgslcblas -lm
  */
 
 #include "esl_config.h"
@@ -675,8 +675,13 @@ main(void)
   gsl_matrix_free(Pg);
   return 0;
 }
-
+#else 
+  /* if we don't have GSL, then compile in a dummy main(), solely 
+   *  to quiet any tests that are verifying that all drivers compile
+   *  and run. */
+int main(void) { return 0; }
 #endif /*HAVE_LIBGSL*/
+
 #endif /*eslRATEMATRIX_REGRESSION*/
 
 

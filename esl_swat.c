@@ -135,7 +135,7 @@ int
 main(int argc, char **argv)
 {
   int status;
-  ESL_RANDOMNESS  *r   = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS  *r   = esl_randomness_Create(0);
   ESL_ALPHABET    *abc = esl_alphabet_Create(eslAMINO);
   ESL_SCOREMATRIX *S   = NULL;
   ESL_DSQ         *x   = NULL;	/* iid query */

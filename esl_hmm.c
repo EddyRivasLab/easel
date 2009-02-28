@@ -15,10 +15,10 @@
 #include "esl_vectorops.h"
 
 /* Function:  esl_hmm_Create()
- * Synopsis:  Creates a new HMM.
+ * Synopsis:  Allocates a new HMM.
  * Incept:    SRE, Fri Jul 18 09:01:54 2008 [Janelia]
  *
- * Purpose:   Creates a new HMM of <M> states for
+ * Purpose:   Allocates a new HMM of <M> states for
  *            generating or modeling strings in the
  *            alphabet <abc>.
  *
@@ -67,26 +67,49 @@ esl_hmm_Create(const ESL_ALPHABET *abc, int M)
   return NULL;
 }
 
-/* set eo[] odds ratios, which include the degenerate residue scores */
+/* Function:  esl_hmm_Configure()
+ * Synopsis:  Set an HMM's emission odds ratios, including degenerate residues.
+ * Incept:    SRE, Thu Feb 26 11:49:54 2009 [Janelia]
+ *
+ * Purpose:   Given a parameterized <hmm>, and some background
+ *            residue frequencies <fq>, set the emission odds ratios
+ *            (<hmm->eo[0..Kp-1][0..M-1]>) in the model.
+ *            
+ *            The frequencies <fq> do not necessarily have to
+ *            correspond to a null model. They are only used for
+ *            rescaling.
+ * 
+ *            If <fq> is <NULL>, uniform background frequencies are
+ *            used ($\frac{1}{K}$, for alphabet size $K$).
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
 int
 esl_hmm_Configure(ESL_HMM *hmm, float *fq)
 {
-  int Kp = hmm->abc->Kp;
-  int K  = hmm->abc->K;
-  int k, x,y;
+  int   Kp = hmm->abc->Kp;
+  int   K  = hmm->abc->K;
+  int   k,x,y;
+  float uniform = 1.0f / (float) K;
+  float use_fq;
   float denom;
 
-  for (x = 0; x < K; x++)
+  for (x = 0; x < K; x++) {
+    use_fq = (fq == NULL) ? uniform : fq[x];
     for (k = 0; k < hmm->M; k++)
-      hmm->eo[x][k] = hmm->e[k][x] / fq[x];
-  
+      hmm->eo[x][k] = hmm->e[k][x] / use_fq;
+  }
+
   for (k = 0; k < hmm->M; k++)
     {
       hmm->eo[K][k]    = 1.0;	/* gap char */
       hmm->eo[Kp-1][k] = 1.0;	/* missing data char */
     }
   
-  for (x = K+1; x <= Kp-2; x++)
+  for (x = K+1; x <= Kp-2; x++) {
+    use_fq = (fq == NULL) ? uniform : fq[x];
     for (k = 0; k < hmm->M; k++)
       {
 	hmm->eo[x][k] = 0.0f;
@@ -95,10 +118,11 @@ esl_hmm_Configure(ESL_HMM *hmm, float *fq)
 	  if (hmm->abc->degen[x][y]) 
 	    {
 	      hmm->eo[x][k] += hmm->e[k][y];  
-	      denom         += fq[y];
+	      denom         += use_fq;
 	    }
 	hmm->eo[x][k] = ((denom > 0.0f) ? hmm->eo[x][k] / denom : 0.0f);
       }
+  }
   return eslOK;
 }
 
@@ -440,8 +464,7 @@ esl_hmm_PosteriorDecoding(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX
 /*****************************************************************
  * x. Functions used in unit testing
  *****************************************************************/
-
-#if 0
+#ifdef eslHMM_TESTDRIVE
 static int
 make_occasionally_dishonest_casino(ESL_HMM **ret_hmm, ESL_ALPHABET **ret_abc)
 {
@@ -469,11 +492,13 @@ make_occasionally_dishonest_casino(ESL_HMM **ret_hmm, ESL_ALPHABET **ret_abc)
   for (x = 0; x < abc->K-1; x++) hmm->e[1][x] = 0.5 / ((float) abc->K-1);
   hmm->e[1][abc->K-1] = 0.5;
 
+  esl_hmm_Configure(hmm, NULL);
+
   *ret_hmm = hmm;
   *ret_abc = abc;
   return eslOK;
 }
-#endif
+#endif /*eslHMM_TESTDRIVE*/
 
   
 /*****************************************************************
@@ -493,7 +518,6 @@ make_occasionally_dishonest_casino(ESL_HMM **ret_hmm, ESL_ALPHABET **ret_abc)
 static ESL_OPTIONS options[] = {
   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",               0},
-  {"-r",  eslARG_NONE,     NULL, NULL, NULL, NULL, NULL, NULL, "use arbitrary random number seed",  0},
   {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",     0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
   { 0,0,0,0,0,0,0,0,0,0},
@@ -505,8 +529,7 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  int             seed       = esl_opt_GetInteger(go, "-s");
-  ESL_RANDOMNESS *r          = NULL;
+  ESL_RANDOMNESS *r          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   ESL_ALPHABET   *abc        = NULL;
   ESL_HMM        *hmm        = NULL;
   ESL_DSQ        *dsq        = NULL;
@@ -514,13 +537,11 @@ main(int argc, char **argv)
   ESL_HMX        *fwd        = NULL;
   ESL_HMX        *bck        = NULL;		
   ESL_HMX        *pp         = NULL;		
+  int             be_verbose = esl_opt_GetBoolean(go, "-v");
   float           fsc, bsc;
   int             L;
   int             i;
   float           fsum, bsum;
-
-  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
-  else                              r = esl_randomness_Create(seed);
 
   make_occasionally_dishonest_casino(&hmm, &abc);
 
@@ -538,23 +559,26 @@ main(int argc, char **argv)
   bsum = bsc;
 
   fsum += fwd->sc[0];
-  printf("%4d %c %s %8.3f %8.3f\n", 0, '-', "--", fwd->sc[0], bck->sc[0]);
+  if (be_verbose) printf("%4d %c %s %8.3f %8.3f\n", 0, '-', "--", fwd->sc[0], bck->sc[0]);
   bsum -= bck->sc[0];
 
   for (i = 1; i <= L; i++)
     {
       fsum += fwd->sc[i];
-      printf("%4d %c %s %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f\n",
-	     i, abc->sym[dsq[i]], path[i] == 0 ? "F " : " L", 
-	     fwd->sc[i], bck->sc[i],
-	     fsum, bsum, fsum+bsum,
-	     pp->dp[i][0], pp->dp[i][1]);
+      if (be_verbose)
+	printf("%4d %c %s %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f\n",
+	       i, abc->sym[dsq[i]], path[i] == 0 ? "F " : " L", 
+	       fwd->sc[i], bck->sc[i],
+	       fsum, bsum, fsum+bsum,
+	       pp->dp[i][0], pp->dp[i][1]);
       bsum -= fwd->sc[i];
     }
 
-  printf("%4d %c %s %8.3f %8.3f\n", 0, '-', "--", fwd->sc[L+1], bck->sc[L+1]);
-  printf("Forward score  = %f\n", fsc);
-  printf("Backward score = %f\n", bsc);
+  if (be_verbose) {
+    printf("%4d %c %s %8.3f %8.3f\n", 0, '-', "--", fwd->sc[L+1], bck->sc[L+1]);
+    printf("Forward score  = %f\n", fsc);
+    printf("Backward score = %f\n", bsc);
+  }
 
   free(path);
   free(dsq);
@@ -660,8 +684,7 @@ create_test_hmm(ESL_ALPHABET *abc)
   hmm->pi[0]    = 0.99;
   hmm->pi[1]    = 0.01;
 
-  esl_hmm_SetDegeneracies(hmm);
-
+  esl_hmm_Configure(hmm, NULL);
   return hmm;
 }
 
@@ -699,7 +722,7 @@ create_null_hmm(ESL_ALPHABET *abc)
   hmm->e[0][19] =  0.0304133;		/* Y */
 
   hmm->pi[0]    = 1.0;
-  esl_hmm_SetDegeneracies(hmm);
+  esl_hmm_Configure(hmm, NULL);
   return hmm;
 }
 

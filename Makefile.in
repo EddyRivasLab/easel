@@ -1,4 +1,5 @@
-# Makefile for Easel
+# Top level Makefile for Easel
+#
 # SVN $Id$
 SHELL       = /bin/sh
 
@@ -17,15 +18,19 @@ PDFDIR      = @pdfdir@
 #
 CC       = @CC@
 CFLAGS   = @CFLAGS@
-AR       = @AR@ rcv
-LN       = ln
-RANLIB   = @RANLIB@
 LDFLAGS  = -static @LDFLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
 
-#######
+# Other tools
+#
+COMPRESS = gzip
+AR       = @AR@ rcv
+LN       = ln
+RANLIB   = @RANLIB@
+
+#######################################################################
 ## You should not need to modify below this line.
 #######
 
@@ -35,11 +40,11 @@ RELEASE     = @EASEL_VERSION@
 RELEASEDATE = "@EASEL_DATE@"
 COPYRIGHT   = "@EASEL_COPYRIGHT@"
 LICENSELINE = "@EASEL_LICENSE@"
-COMPRESS    = gzip
+
 
 # Code manifests
 #
-HEADERS = \
+HDRS = \
 	easel.h\
 	esl_alphabet.h\
 	esl_cluster.h\
@@ -79,7 +84,6 @@ HEADERS = \
 	esl_stats.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
-	esl_swat.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_vmx.h\
@@ -133,16 +137,109 @@ OBJS    = \
 	esl_weibull.o\
 	esl_wuss.o
 
-all: libeasel.a
-	(cd miniapps; make)
+UTESTS =\
+	easel_utest\
+	esl_alphabet_utest\
+	esl_cluster_utest\
+	esl_dirichlet_utest\
+	esl_distance_utest\
+	esl_dmatrix_utest\
+	esl_exponential_utest\
+	esl_fileparser_utest\
+	esl_gamma_utest\
+	esl_getopts_utest\
+	esl_gumbel_utest\
+	esl_histogram_utest\
+	esl_hyperexp_utest\
+	esl_keyhash_utest\
+	esl_msa_utest\
+	esl_msacluster_utest\
+	esl_msaweight_utest\
+	esl_random_utest\
+	esl_randomseq_utest\
+	esl_ratematrix_utest\
+	esl_regexp_utest\
+	esl_rootfinder_utest\
+	esl_scorematrix_utest\
+	esl_sq_utest\
+	esl_sqio_utest\
+	esl_sse_utest\
+	esl_ssi_utest\
+	esl_stack_utest\
+	esl_stats_utest\
+	esl_stretchexp_utest\
+	esl_tree_utest\
+	esl_vectorops_utest\
+	esl_weibull_utest\
+	esl_wuss_utest
+#	gev_utest\
+#	minimizer_utest\
+#	mixgev_utest\
+#	mpi_utest\
+#	normal_utest\
+#	paml_utest\
+#	stopwatch_utest\
+#	swat_utest\
 
-.c.o: 
-	${CC} -I. ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
+
+all:
+	${MAKE} easel_lib
+	${MAKE} easel_progs
+
+check:
+	${MAKE} easel_lib
+	${MAKE} easel_progs
+	${MAKE} easel_utests
+	cd testsuite; ${MAKE} run_sqc
+
+dev:
+	${MAKE} easel_lib
+	${MAKE} easel_progs
+	${MAKE} easel_utests
+
+easel_lib:    libeasel.a
+easel_utests: ${UTESTS}
+
+easel_progs:
+	cd miniapps; ${MAKE} easel_progs
+
+run_sqc:
+	cd testsuite; ${MAKE} run_sqc
 
 libeasel.a: $(OBJS)
 	$(AR) libeasel.a $(OBJS)
 	$(RANLIB) libeasel.a
 	chmod 644 libeasel.a
+
+${OBJS}: ${HDRS}
+
+.c.o: 
+	${CC} -I. ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
+
+
+# Unit test compilation:
+# 
+# To compile unit tests, we need to construct a command line
+# from module basename, module's testdriver flag, and module's
+# C file. This is accomplished via a complex-looking shell scripture;
+# xref J1/81.
+#   $@           =  driver name            esl_msa_utest     easel_utest
+#   $${BASENAME} =  base module name       msa               easel
+#   $${DFLAG}    =  driver flag            eslMSA_TESTDRIVE  eslEASEL_TESTDRIVE
+#   $${DFILE}    =  driver's C file        esl_msa.c         easel.c
+#
+${UTESTS}:  libeasel.a
+	@BASENAME=`echo $@ | sed -e 's/_utest//'| sed -e 's/^esl_//'` ;\
+	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
+	DFLAG=esl$${DFLAG}_TESTDRIVE ;\
+	if test $@ = "easel_utest"; then \
+           DFILE=easel.c ;\
+        else \
+           DFILE=esl_$${BASENAME}.c ;\
+        fi;\
+	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -L. -D$${DFLAG} $${DFILE} -leasel -lm
+
 
 # install:   installs libeasel.a in LIBDIR/
 #            installs Easel headers in INCLUDEDIR/
@@ -156,34 +253,29 @@ install:
 	mkdir -p ${DESTDIR}${INCLUDEDIR}
 	mkdir -p ${DESTDIR}${BINDIR}
 	cp libeasel.a ${DESTDIR}${LIBDIR}/
-	for file in ${HEADERS}; do\
+	for file in ${HDRS}; do\
 	   cp $$file ${DESTDIR}${INCLUDEDIR}/;\
 	done
 	(cd miniapps; make install)
 
-# `make check`: run user testsuite
-check:
-	(cd testsuite; make check)
-
-
 clean:
+	if test -d documentation; then  (cd documentation; ${MAKE} clean); fi
+	if test -d testsuite;     then  (cd testsuite;     ${MAKE} clean); fi
+	if test -d miniapps;      then  (cd miniapps;      ${MAKE} clean); fi
 	-rm -f ${OBJS} libeasel.a
+	-rm -f ${UTESTS}
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f core.[0-9]*
 	-rm -f config.log config.status
-	-rm -f example test testdrive stats
-	if test -d documentation; then  (cd documentation; make clean); fi
-	if test -d testsuite;     then  (cd testsuite;     make clean); fi
-	if test -d miniapps;      then  (cd miniapps;      make clean); fi
 
 distclean:
-	make clean
+	${MAKE} clean
 	-rm esl_config.h
 	-rm -rf autom4te.cache
-	if test -d documentation; then (cd documentation; make distclean); fi
-	if test -d testsuite;     then (cd testsuite;     make distclean); fi
-	if test -d miniapps;      then (cd miniapps;      make distclean); fi
+	if test -d documentation; then (cd documentation; ${MAKE} distclean); fi
+	if test -d testsuite;     then (cd testsuite;     ${MAKE} distclean); fi
+	if test -d miniapps;      then (cd miniapps;      ${MAKE} distclean); fi
 	-rm LICENSE.csh
 	-rm Makefile
 
@@ -243,7 +335,7 @@ implode:
 	-rm -f 00CHECKLIST
 	-rm -f LICENSE.tag
 
-tags:
+TAGS:
 	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
 
 # "supertags": a tags table for all Easel, HMMER, Infernal source.

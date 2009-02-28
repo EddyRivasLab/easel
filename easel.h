@@ -94,6 +94,7 @@
 #define eslETYPE          21    /* invalid type of argument     */
 #define eslEOVERWRITE     22    /* attempted to overwrite data  */
 #define eslENOSPACE       23    /* ran out of some resource     */
+#define eslEUNIMPLEMENTED 24    /* feature is unimplemented     */
 /*::cexcerpt::statuscodes::end::*/
 
 

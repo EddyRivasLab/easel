@@ -52,11 +52,12 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
-  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
-  { "-o",       eslARG_OUTFILE,FALSE,NULL, NULL, NULL, NULL,"-O,--index",   "output alignments to file <f> instead of stdout",   0 },
-  { "-O",       eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",              0 },
-  { "--index",  eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,          "index the <msafile>, creating <msafile>.ssi",       0 },
+  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
+  { "-f",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
+  { "-o",         eslARG_OUTFILE,FALSE, NULL, NULL, NULL, NULL,"-O,--index",   "output alignments to file <f> instead of stdout",   0 },
+  { "-O",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",              0 },
+  { "--informat", eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,          "specify that <msafile> is in format <s>",           0 },
+  { "--index",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,          "index the <msafile>, creating <msafile>.ssi",       0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -68,32 +69,34 @@ static void regurgitate_one_stockholm_entry(FILE *ofp, ESL_MSAFILE *afp);
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS  *go      = NULL;	/* application configuration       */
-  char         *alifile = NULL;	/* alignment file name             */
-  int           fmt;		/* format code for alifile         */
-  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
-  FILE         *ofp     = NULL;	/* output stream for alignments    */
-  int           status;		/* easel return code               */
+  ESL_GETOPTS  *go      = NULL;	               /* application configuration       */
+  char         *alifile = NULL;	               /* alignment file name             */
+  int           fmt     = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
+  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file             */
+  FILE         *ofp     = NULL;	               /* output stream for alignments    */
+  int           status;		               /* easel return code               */
 
   /***********************************************
    * Parse command line
    ***********************************************/
 
   go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv)             != eslOK) cmdline_failure(argv[0], "Failed to parse command line: %s\n", go->errbuf);
-  if (esl_opt_VerifyConfig(go)                           != eslOK) cmdline_failure(argv[0], "Error in configuration: %s\n",       go->errbuf);
-  if (esl_opt_GetBoolean(go, "-h") )                               cmdline_help   (argv[0], go);
-  if (esl_opt_ArgNumber(go) < 1)                                   cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
+  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) cmdline_failure(argv[0], "Failed to parse command line: %s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)               != eslOK) cmdline_failure(argv[0], "Error in configuration: %s\n",       go->errbuf);
+  if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help   (argv[0], go);
+  if (esl_opt_ArgNumber(go) < 1)                       cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
 
-  
-  /* Open the alignment file.
-   */
-  fmt     = eslMSAFILE_UNKNOWN;
+  if (esl_opt_IsOn(go, "--informat")) {
+    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+  }
   alifile = esl_opt_GetArg(go, 1);
+  
+  /* Open the alignment file.  */
   status  = esl_msafile_Open(alifile, fmt, NULL, &afp);
-  if (status == eslENOTFOUND)     esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT)  esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK)       esl_fatal("Alignment file open failed with error %d\n", status);
+  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
+  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
+  else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
   
   /* Open the output file, if any
    */

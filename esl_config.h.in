@@ -67,6 +67,7 @@
 #undef HAVE_POPEN
 #undef HAVE_STRCASECMP
 #undef HAVE_TIMES
+#undef HAVE_GETPID
 #undef HAVE_FSEEKO
 
 /*****************************************************************

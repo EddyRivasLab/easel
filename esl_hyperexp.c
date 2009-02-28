@@ -1199,7 +1199,7 @@ main(int argc, char **argv)
   hxp->q[0]      = 0.6;    hxp->q[1]      = 0.3;   hxp->q[2]      = 0.1; 
   hxp->lambda[0] = 1.0;    hxp->lambda[1] = 0.3;   hxp->lambda[2] = 0.1;
 
-  r   = esl_randomness_CreateTimeseeded();
+  r   = esl_randomness_Create(0);
   h   = esl_histogram_CreateFull(hxp->mu, 100, 1.0);
 
   for (i = 0; i < n; i++)
@@ -1321,7 +1321,7 @@ main(int argc, char **argv)
 
   if (be_verbose) esl_hyperexp_WriteOneLine(stdout, hxp);
 
-  r = esl_randomness_CreateTimeseeded();
+  r = esl_randomness_Create(0);
   h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 

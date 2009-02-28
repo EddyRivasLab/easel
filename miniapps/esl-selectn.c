@@ -16,7 +16,7 @@
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             1 },
-  { "--seed",    eslARG_INT,    FALSE,  NULL, NULL,  NULL,  NULL, NULL, "set random number generator's seed to <n>",        1 },
+  { "--seed",    eslARG_INT,      "0",  NULL, NULL,  NULL,  NULL, NULL, "set random number generator's seed to <n>",        1 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <n> <file>";
@@ -70,8 +70,7 @@ main(int argc, char **argv)
   nselect  = atoi(esl_opt_GetArg(go, 1));
   filename = esl_opt_GetArg(go, 2);
 
-  if (esl_opt_IsOn(go, "--seed")) r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
-  else                            r = esl_randomness_CreateTimeseeded();
+  r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
 
   if ((larr = malloc(sizeof(char *) * nselect)) == NULL) esl_fatal("allocation failed");
 

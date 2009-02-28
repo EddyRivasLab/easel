@@ -194,7 +194,7 @@ msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link
   char  *as2   = *(char **) v2;
   double maxid = *(double *) p;
   double pid;
-  int    status;
+  int    status = eslOK;
 
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
   pid = 1. - squid_distance(as1, as2);
@@ -203,7 +203,7 @@ msacluster_clinkage(const void *v1, const void *v2, const void *p, int *ret_link
 #endif
 
   *ret_link = (pid >= maxid ? TRUE : FALSE); 
-  return eslOK;
+  return status;
 }
   
 /* Definition of % id linkage in digital aligned seqs (>= maxid) */
@@ -215,7 +215,7 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
   ESL_DSQ *ax2              = *(ESL_DSQ **) v2;
   struct msa_param_s *param = (struct msa_param_s *) p;
   double   pid;
-  int      status;
+  int      status = eslOK;
 
 #if defined(eslMSACLUSTER_REGRESSION) || defined(eslMSAWEIGHT_REGRESSION)
   pid = 1. - squid_xdistance(param->abc, ax1, ax2);
@@ -224,7 +224,7 @@ msacluster_xlinkage(const void *v1, const void *v2, const void *p, int *ret_link
 #endif
 
   *ret_link = (pid >= param->maxid ? TRUE : FALSE); 
-  return eslOK;
+  return status;
 }
 #endif
 
@@ -369,11 +369,8 @@ seq11 MMMMMMMMMM\n\
 #ifdef eslMSACLUSTER_EXAMPLE
 /*::cexcerpt::msacluster_example::begin::*/
 /*
-   gcc -g -Wall -o example -I. -DeslMSACLUSTER_EXAMPLE\
-        esl_msacluster.c esl_msa.c esl_cluster.c esl_distance.c easel.c  -lm
-   gcc -g -Wall -o example -DeslAUGMENT_ALPHABET -I. -DeslMSACLUSTER_EXAMPLE\
-        esl_msacluster.c esl_msa.c esl_cluster.c esl_distance.c esl_alphabet.c easel.c  -lm
-  ./example <MSA file>
+   gcc -g -Wall -o msacluster_example -I. -L. -DeslMSACLUSTER_EXAMPLE esl_msacluster.c -leasel -lm
+   ./msacluster_example <MSA file>
  */
 #include <stdio.h>
 #include "easel.h"
@@ -384,6 +381,8 @@ main(int argc, char **argv)
 {
   char        *filename   = argv[1];
   int          fmt        = eslMSAFILE_UNKNOWN; 
+  int          type       = eslUNKNOWN;
+  ESL_ALPHABET *abc       = NULL;
   ESL_MSAFILE *afp        = NULL;
   ESL_MSA     *msa        = NULL;
   double       maxid      = 0.62; /* cluster at 62% identity: the BLOSUM62 rule */
@@ -393,19 +392,28 @@ main(int argc, char **argv)
   int          c, i;		  
   int          status;
 
-  status = esl_msafile_OpenDigital(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable\n", filename);
-  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s\n",  filename);
-  else if (status != eslOK)      esl_fatal("Alignment file open failed (error %d)\n", status);
+  /* Open; guess alphabet; set to digital mode */
+  status = esl_msafile_Open(filename, fmt, NULL, &afp);
+  if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable", filename);
+  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s",  filename);
+  else if (status != eslOK)      esl_fatal("Alignment file open failed (error code %d)", status);
 
+  status = esl_msafile_GuessAlphabet(afp, &type);
+  if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", filename);
+  else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
+					       afp->linenumber, afp->fname, afp->errbuf, afp->buf);
+  else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", filename);
+  else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
+
+  abc = esl_alphabet_Create(type);
+  esl_msafile_SetDigital(afp, abc);
+
+  /* read one alignment */
   status = esl_msa_Read(afp, &msa);
-  if (status == eslEFORMAT)  
-    esl_fatal("parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
-	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-  else if (status != eslOK)
-    esl_fatal("Alignment file read failed with error code %d\n", status);
+  if      (status == eslEFORMAT)  esl_fatal("alignment file %s: %s\n", afp->fname, afp->errbuf);
+  else if (status != eslOK)       esl_fatal("Alignment file read failed with error code %d\n", status);
 
-
+  /* do the clustering */
   esl_msacluster_SingleLinkage(msa, maxid, &assignment, &nin, &nclusters);
 
   printf("%d clusters at threshold of %f fractional identity\n", nclusters, maxid);

@@ -8,40 +8,42 @@
 # Test drivers for each module.
 ################################################################
 
-1 exercise alphabet-utest     @alphabet_utest@
-1 exercise cluster-utest      @cluster_utest@
-1 exercise dirichlet-utest    @dirichlet_utest@
-1 exercise distance-utest     @distance_utest@
-1 exercise dmatrix-utest      @dmatrix_utest@
+1 exercise alphabet-utest     @esl_alphabet_utest@
+1 exercise cluster-utest      @esl_cluster_utest@
+1 exercise dirichlet-utest    @esl_dirichlet_utest@
+1 exercise distance-utest     @esl_distance_utest@
+1 exercise dmatrix-utest      @esl_dmatrix_utest@
 1 exercise easel-utest        @easel_utest@
-1 exercise exponential-utest  @exponential_utest@
-1 exercise fileparser-utest   @fileparser_utest@
-1 exercise gamma-utest        @gamma_utest@
-1 exercise getopts-utest      @getopts_utest@
-1 exercise gumbel-utest       @gumbel_utest@
-1 exercise histogram-utest    @histogram_utest@
-1 exercise hyperexp-utest     @hyperexp_utest@
-1 exercise keyhash-utest      @keyhash_utest@
-1 exercise msa-utest          @msa_utest@
-1 exercise msacluster-utest   @msacluster_utest@
-1 exercise msaweight-utest    @msaweight_utest@
-1 exercise random-utest       @random_utest@
-1 exercise randomseq-utest    @randomseq_utest@
-1 exercise ratematrix-utest   @ratematrix_utest@
-1 exercise regexp-utest       @regexp_utest@
-1 exercise rootfinder-utest   @rootfinder_utest@
-1 exercise scorematrix-utest  @scorematrix_utest@
-1 exercise sq-utest           @sq_utest@
-1 exercise sqio-utest         @sqio_utest@
-1 exercise sse-utest          @sse_utest@
-1 exercise ssi-utest          @ssi_utest@
-1 exercise stack-utest        @stack_utest@
-1 exercise stats-utest        @stats_utest@
-1 exercise stretchexp-utest   @stretchexp_utest@
-1 exercise tree-utest         @tree_utest@
-1 exercise vectorops-utest    @vectorops_utest@
-1 exercise weibull-utest      @weibull_utest@
-1 exercise wuss-utest         @wuss_utest@
+1 exercise exponential-utest  @esl_exponential_utest@
+1 exercise fileparser-utest   @esl_fileparser_utest@
+1 exercise gamma-utest        @esl_gamma_utest@
+1 exercise getopts-utest      @esl_getopts_utest@
+1 exercise gumbel-utest       @esl_gumbel_utest@
+1 exercise histogram-utest    @esl_histogram_utest@
+1 exercise hyperexp-utest     @esl_hyperexp_utest@
+1 exercise keyhash-utest      @esl_keyhash_utest@
+1 exercise msa-utest          @esl_msa_utest@
+1 exercise msacluster-utest   @esl_msacluster_utest@
+1 exercise msaweight-utest    @esl_msaweight_utest@
+1 exercise random-utest       @esl_random_utest@
+1 exercise randomseq-utest    @esl_randomseq_utest@
+1 exercise ratematrix-utest   @esl_ratematrix_utest@
+1 exercise regexp-utest       @esl_regexp_utest@
+1 exercise rootfinder-utest   @esl_rootfinder_utest@
+1 exercise scorematrix-utest  @esl_scorematrix_utest@
+1 exercise sq-utest           @esl_sq_utest@
+1 exercise sqio-utest         @esl_sqio_utest@
+1 exercise sse-utest          @esl_sse_utest@
+1 exercise ssi-utest          @esl_ssi_utest@
+1 exercise stack-utest        @esl_stack_utest@
+1 exercise stats-utest        @esl_stats_utest@
+1 exercise stretchexp-utest   @esl_stretchexp_utest@
+1 exercise tree-utest         @esl_tree_utest@
+1 exercise vectorops-utest    @esl_vectorops_utest@
+1 exercise weibull-utest      @esl_weibull_utest@
+1 exercise wuss-utest         @esl_wuss_utest@
+
+1 exercise e2                 ./e2.sh @esl-seqstat@ ../formats/stockholm.1
 
 
 # Still to do:

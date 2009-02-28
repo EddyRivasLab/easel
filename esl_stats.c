@@ -647,8 +647,7 @@ utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
 static ESL_OPTIONS options[] = {
   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                   0},
-  {"-r",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, "-s", "random:  use current time as RNG seed", 0},
-  {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, "-r", "set random number seed to <n>",         0},
+  {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",         0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "verbose: show verbose output",          0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
@@ -677,10 +676,8 @@ main(int argc, char **argv)
   }
   be_verbose = esl_opt_GetBoolean(go, "-v");
 
-  if (esl_opt_GetBoolean(go, "-r")) {
-    r = esl_randomness_CreateTimeseeded();
-    if (be_verbose) printf("seed = %ld\n", esl_randomness_GetSeed(r));
-  } else r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  if (be_verbose) printf("seed = %ld\n", esl_randomness_GetSeed(r));
 
   utest_LinearRegression(r, TRUE,  be_verbose);
   utest_LinearRegression(r, FALSE, be_verbose);
@@ -712,7 +709,7 @@ main(int argc, char **argv)
 
 int main(void)
 {
-  ESL_RANDOMNESS *r   = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r   = esl_randomness_Create(0);
   double a            = -3.;
   double b            = 1.;
   double xori         = -20.;

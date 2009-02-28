@@ -16,6 +16,12 @@
 # from scratch, do 
 #    ./driver_report.pl -c
 #
+# Some regression tests run against the old squid library.
+# squid must be installed and compiled; all drivers are linked
+# against -lsquid.
+# The path to squid's headers and libraries is assumed to be ~/src/squid.
+# This location can be overridden by setting SQUIDSRC in the environment.
+# 
 # SRE, Fri Mar  2 10:01:44 2007 (Janelia)
 # SVN $Id$
 
@@ -23,13 +29,14 @@ require  "getopts.pl";
 &Getopts('c');
 if ($opt_c) { $do_recompile = 1; }
 
-if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};     } else { $CC       = "gcc"; } 
-if ($ENV{'CFLAGS'} ne "") { $CFLAGS = $ENV{'CFLAGS'}; } else { $CFLAGS   = "-g -Wall"; }
+if ($ENV{'CC'}       ne "") { $CC       = $ENV{'CC'};       } else { $CC        = "gcc"; } 
+if ($ENV{'CFLAGS'}   ne "") { $CFLAGS   = $ENV{'CFLAGS'};   } else { $CFLAGS    = "-g -Wall"; }
+if ($ENV{'SQUIDSRC'} ne "") { $SQUIDSRC = $ENV{'SQUIDSRC'}; } else { $SQUIDSRC  = "~/src/squid"; }
 $progname = "drivertest";
 
 
 print("Driver code compilation test for Easel:\n");
-print("(Compiling with $CC $CFLAGS)\n\n");
+print("(Compiling with $CC $CFLAGS -L $SQUIDSRC -I $SQUIDSRC)\n\n");
 
 
 if ($do_recompile) {
@@ -73,7 +80,7 @@ foreach $module (@modules) {
 	$n++;
 	$ndrivers++;
 
-        `$CC $CFLAGS -I.. -L.. -o drivertest -D$flag $module -leasel -lm  >& /dev/null`;
+        `$CC $CFLAGS -I.. -L.. -L $SQUIDSRC -I $SQUIDSRC -o drivertest -D$flag $module -leasel -lsquid -lm  >& /dev/null`;
  	if ($? != 0) { print("[FAILED]\n"); $nfailures++; }
 	else         { print("ok.\n"); }
 	$saw_flag{$flag} = 1;

@@ -227,7 +227,7 @@ esl_vmx_dump_vecfloat(FILE *fp, vector float v)
  *****************************************************************/
 #ifdef eslVMX_BENCHMARK
 
-/* gcc -msse2 -O3 -o benchmark-sse -I ~/src/hmmer/easel -L ~/src/hmmer/easel -DeslVMX_BENCHMARK -DHAVE_VMX esl_sse.c -leasel -lm
+/* gcc -maltivec -O3 -o vmx_benchmark -I . -L . -DeslVMX_BENCHMARK -DHAVE_VMX esl_vmx.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -422,7 +422,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
  *****************************************************************/
 
 #ifdef eslVMX_TESTDRIVE
-/* gcc -maltivec -g -Wall -o test -I. -L. -DeslVMX_TESTDRIVE -DHAVE_VMX esl_vmx.c -leasel -lm
+/* gcc -g -Wall -o vmx_utest -I. -L. -DeslVMX_TESTDRIVE esl_vmx.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -438,7 +438,6 @@ static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
   { "-N",        eslARG_INT,  "10000",  NULL, NULL,  NULL,  NULL, NULL, "number of random test points",                     0 },
-  { "-r",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "use arbitrary random number seed",                 0 },
   { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   { "-v",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be verbose: show test report",                     0 },
   { "--vv",      eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "be very verbose: show individual test samples",    0 },
@@ -451,11 +450,8 @@ static char banner[] = "test driver for vmx module";
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r;
-
-  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
-  else                              r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_GETOPTS    *go = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *r  = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
 
   utest_logf(go);
   utest_expf(go);
@@ -475,8 +471,8 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslVMX_EXAMPLE
-/*::cexcerpt::sse_example::begin::*/
-/* gcc -msse2 -g -Wall -o example -I. -L. -DeslVMX_EXAMPLE esl_sse.c -leasel -lm
+/*::cexcerpt::vmx_example::begin::*/
+/* gcc -msse2 -g -Wall -o vmx_example -I. -L. -DeslVMX_EXAMPLE esl_vmx.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -503,10 +499,19 @@ main(int argc, char **argv)
 
   return 0;
 }
-/*::cexcerpt::sse_example::end::*/
+/*::cexcerpt::vmx_example::end::*/
 #endif /*eslVMX_EXAMPLE*/
 #endif /*HAVE_VMX*/
 
+/* Solely to silence test drivers that check that all unit tests 
+ * and examples compile and run: provide dummy test/example main()
+ * for non-VMX platforms. 
+ */
+#ifndef HAVE_VMX
+#if defined eslVMX_TESTDRIVE || defined eslVMX_EXAMPLE || eslVMX_BENCHMARK
+int main(void) { return 0; }
+#endif
+#endif
 
 /*****************************************************************
  * @LICENSE@

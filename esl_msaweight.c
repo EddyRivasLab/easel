@@ -700,7 +700,7 @@ main(int argc, char **argv)
 #ifdef eslMSAWEIGHT_REGRESSION
 /* Verify same results as SQUID.
  * To compile:
-       gcc -g -Wall -o regression -I. -L. -L ~/src/squid -I ~/src/squid -DeslMSAWEIGHT_REGRESSION\
+      gcc -g -Wall -o msaweight_regression -I. -L. -L ~/src/squid -I ~/src/squid -DeslMSAWEIGHT_REGRESSION \
           esl_msaweight.c esl_msacluster.c -leasel -lsquid -lm
  * To run: 
  *     ./regression <MSA file>

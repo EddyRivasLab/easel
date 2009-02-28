@@ -460,7 +460,7 @@ esl_exp_FitCompleteBinned(ESL_HISTOGRAM *g, double *ret_mu, double *ret_lambda)
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
   int    ntrials;		/* number of estimates to gather */
   int    N;			/* number of samples collected to make each estimate */
   double mu, lambda;		/* parametric location, scale */
@@ -573,7 +573,7 @@ main(int argc, char **argv)
   if (be_verbose)
     printf("Parametric:  mu = %f   lambda = %f\n", mu, lambda);
 
-  r = esl_randomness_CreateTimeseeded();
+  r = esl_randomness_Create(0);
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
@@ -643,7 +643,7 @@ main(int argc, char **argv)
 {
   double mu         = -50.0;
   double lambda     = 0.5;
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
   ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
   int    n          = 10000;
   double emu, elambda;

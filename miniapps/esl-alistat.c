@@ -19,34 +19,35 @@ The <msafile> must be in Stockholm format.";
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
-  { "-1",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "use tabular output, one line per alignment",              1 },
-  { "--amino",  eslARG_NONE,"default",NULL,NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   1 },
-  { "--dna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "<msafile> contains DNA alignments",                       1 },
-  { "--rna",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
+  { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
+  { "-1",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use tabular output, one line per alignment",              1 },
+  { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that input file is in format <s>",                1 },
+  { "--amino",    eslARG_NONE,"default", NULL, NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   1 },
+  { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "<msafile> contains DNA alignments",                       1 },
+  { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
 
-  { "--stall",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "arrest after start: for debugging under gdb",            99 },  
+  { "--stall",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "arrest after start: for debugging under gdb",            99 },  
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS  *go      = NULL;	/* application configuration       */
-  ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
-  char         *alifile = NULL;	/* alignment file name             */
-  int           fmt;		/* format code for alifile         */
-  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
-  ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
-  int           status;		/* easel return code               */
-  int           nali;		/* number of alignments read       */
-  int           i;		/* counter over seqs               */
-  int64_t       rlen;		/* a raw (unaligned) seq length    */
-  int64_t       small, large;	/* smallest, largest sequence      */
-  int64_t       nres;		/* total # of residues in msa      */
-  double        avgid;		/* average fractional pair id      */
-  int           max_comparisons;/* maximum # comparisons for avg id */
-  int           do_stall;       /* used to stall when debugging     */
+  ESL_GETOPTS  *go      = NULL;	               /* application configuration       */
+  ESL_ALPHABET *abc     = NULL;      	       /* biological alphabet             */
+  char         *alifile = NULL;	               /* alignment file name             */
+  int           fmt     = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
+  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file             */
+  ESL_MSA      *msa     = NULL;	               /* one multiple sequence alignment */
+  int           status;		               /* easel return code               */
+  int           nali;		               /* number of alignments read       */
+  int           i;		               /* counter over seqs               */
+  int64_t       rlen;		               /* a raw (unaligned) seq length    */
+  int64_t       small, large;	               /* smallest, largest sequence      */
+  int64_t       nres;		               /* total # of residues in msa      */
+  double        avgid;		               /* average fractional pair id      */
+  int           max_comparisons;               /* maximum # comparisons for avg id */
+  int           do_stall;                      /* used to stall when debugging     */
 
 
   /***********************************************
@@ -82,7 +83,11 @@ main(int argc, char **argv)
 
   alifile = esl_opt_GetArg(go, 1);
 
-  fmt             = eslMSAFILE_STOCKHOLM;
+  if (esl_opt_IsOn(go, "--informat")) {
+    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+  }
+
   max_comparisons = 1000;
 
   do_stall = esl_opt_GetBoolean(go, "--stall"); /* a stall point for attaching gdb */

@@ -95,6 +95,7 @@ static ESL_OPTIONS options[] = {
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
   { "-1",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "output alignment in Pfam (non-interleaved, 1 line/seq) format",  1 },
+  { "--informat",  eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                       1 },
   { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output list of sequence names in alignment to file <f>",         1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add/rewrite #=GC RF markup based on gap frequency in each col",  2 },
@@ -169,7 +170,7 @@ main(int argc, char **argv)
   ESL_GETOPTS  *go      = NULL;	/* application configuration       */
   ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
   char         *alifile = NULL;	/* alignment file name             */
-  int           fmt;		/* format code for alifile         */
+  int           fmt     = eslMSAFILE_UNKNOWN; /* format code for alifile         */
   ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
   int           status;		/* easel return code               */
@@ -283,7 +284,10 @@ main(int argc, char **argv)
 
   alifile = esl_opt_GetArg(go, 1);
 
-  fmt             = eslMSAFILE_STOCKHOLM;
+  if (esl_opt_IsOn(go, "--informat")) {
+    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+  }
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input

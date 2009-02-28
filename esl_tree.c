@@ -2104,7 +2104,7 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r = NULL;
   int ntaxa;
 
-  r     = esl_randomness_CreateTimeseeded();
+  r     = esl_randomness_Create(0);
   ntaxa = 20;
   
   utest_OptionalInformation(r, ntaxa); /* SetTaxaparents(), SetCladesizes() */

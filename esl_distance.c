@@ -735,7 +735,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+      ESL_RANDOMNESS *r = esl_randomness_Create(0);
 
       for (n = 0; n < max_comparisons; n++)
 	{
@@ -809,7 +809,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   /* If nseq is large, calculate average over a stochastic sample. */
   else				
     {
-      ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+      ESL_RANDOMNESS *r = esl_randomness_Create(0);
 
       for (n = 0; n < max_comparisons; n++)
 	{
@@ -1204,7 +1204,7 @@ static ESL_OPTIONS options[] = {
   { "-h",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",            0},
   { "-N",     eslARG_INT,    "10", NULL,"n>3", NULL, NULL, NULL, "number of iid seqs in alignment",0},
   { "-L",     eslARG_INT,    "50", NULL,"n>0", NULL, NULL, NULL, "length of seqs in alignment",    0},
-  { "--seed", eslARG_INT,    "42", NULL,"n>0", NULL, NULL, NULL, "random # seed",                  0},
+  { "--seed", eslARG_INT,    "42", NULL,"n>=0",NULL, NULL, NULL, "random # seed",                  0},
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[] = "Usage: ./testdrive-distance [-options]";

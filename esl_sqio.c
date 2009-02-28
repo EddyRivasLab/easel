@@ -303,6 +303,7 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
 
   if (esl_sqio_IsAlignment(sqfp->format)) 
     {	/* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
+        /* we have already verified that offset==0 for MSA file */
       esl_msafile_Close(sqfp->afp);
       if (sqfp->msa != NULL) esl_msa_Destroy(sqfp->msa);
       sqfp->afp = NULL;
@@ -475,9 +476,36 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 #endif /*HAVE_POPEN*/
 
   /* If we don't know the format yet, autodetect it now. */
-  if (sqfp->format == eslSQFILE_UNKNOWN &&
-      (status = esl_sqfile_GuessFileFormat(sqfp, &(sqfp->format))) != eslOK)
-    goto ERROR;
+  if (sqfp->format == eslSQFILE_UNKNOWN)
+    {
+      if ((status = esl_sqfile_GuessFileFormat(sqfp, &(sqfp->format))) != eslOK) goto ERROR;
+
+      /* An open issue here: 
+       * 
+       * GuessFileFormat() may need to peek at first lines of stream,
+       * if it couldn't guess format from filename suffix.
+       * 
+       * If we find it's an alignment file, we will try
+       * esl_msafile_Open() on it below; if it's a file, that's fine,
+       * but if we're reading a gzip or stdin stream, we can't back up.
+       * 
+       * For sequence formats, the SQFILE structure includes a recording
+       * mechanism (sqfp->mem), but we don't have any ability to pass this
+       * record over to a newly opened ESL_MSAFILE.
+       * 
+       * One fix would be to abstract a "recorded stream" object in Easel,
+       * which could be used to guess file formats, then passed to a newly
+       * opened msa or seq file object.
+       * 
+       * For now, the patch is to return an error.
+       * 
+       * This exposes another issue with our design: we have no way of
+       * returning a more informative error than the eslEFORMAT code,
+       * meaning "couldn't determine format".
+       */
+      if (esl_sqio_IsAlignment(sqfp->format) && (sqfp->do_gzip || sqfp->do_stdin)) { status = eslEFORMAT; goto ERROR; }
+    }
+
 
   /* Configure the <sqfp>'s parser for this format. */
   switch (sqfp->format) {
@@ -772,10 +800,7 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
 #ifdef eslAUGMENT_MSA
-  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
-  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
-  if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
-  if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
+  return esl_msa_EncodeFormat(fmtstring);
 #endif
   return eslSQFILE_UNKNOWN;
 }
@@ -794,6 +819,10 @@ esl_sqio_EncodeFormat(char *fmtstring)
 char *
 esl_sqio_DecodeFormat(int fmt)
 {
+#ifdef eslAUGMENT_MSA
+  if (esl_sqio_IsAlignment(fmt)) return esl_msa_DecodeFormat(fmt);
+#endif
+
   switch (fmt) {
   case eslSQFILE_UNKNOWN:    return "unknown";
   case eslSQFILE_FASTA:      return "FASTA";
@@ -801,12 +830,6 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_GENBANK:    return "Genbank";
   case eslSQFILE_DDBJ:       return "DDBJ";
   case eslSQFILE_UNIPROT:    return "Uniprot";
-#ifdef eslAUGMENT_MSA
-  case eslMSAFILE_STOCKHOLM: return "Stockholm";
-  case eslMSAFILE_PFAM:      return "Pfam";
-  case eslMSAFILE_A2M:       return "UCSC A2M";
-  case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
-#endif
   default:                   break;
   }
   esl_exception(eslEINVAL, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
@@ -3265,9 +3288,9 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
     esl_sqio_Write(fp, sqarr[i], format);
   fclose(fp);
 
+  if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp)           != eslOK)  esl_fatal(msg);
   while (iterations--)
     {
-      if (esl_sqfile_OpenDigital(abc, tmpfile, format, NULL, &sqfp)       != eslOK)  esl_fatal(msg);
       for (i = 0; i < N; i++)
 	{
 	  if (esl_sqio_Read(sqfp, sq)                                     != eslOK)  esl_fatal(msg);
@@ -3313,7 +3336,6 @@ static ESL_OPTIONS options[] = {
   { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
   { "-L",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "max length of test sequences",                     0 },
   { "-N",        eslARG_INT,    "100",  NULL, NULL,  NULL,  NULL, NULL, "number of test sequences",                         0 },
-  { "-r",        eslARG_NONE,   NULL,   NULL, NULL,  NULL,  NULL, NULL, "use arbitrary random number seed",                 0 },
   { "-s",        eslARG_INT,     "42",  NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
@@ -3325,7 +3347,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS    *go       = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET   *abc      = esl_alphabet_Create(eslDNA); /* DNA because some chars aren't legal in IUPAC DNA */
-  ESL_RANDOMNESS *r        = NULL;
+  ESL_RANDOMNESS *r        = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   ESL_SQ        **sqarr    = NULL;
   int             maxL     = esl_opt_GetInteger(go, "-L");
   int             N        = esl_opt_GetInteger(go, "-N");
@@ -3336,9 +3358,6 @@ main(int argc, char **argv)
   FILE           *fp       = NULL;
   char            c;
 
-  if (esl_opt_GetBoolean(go, "-r")) r = esl_randomness_CreateTimeseeded();
-  else                              r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
-  
   /* Create an array of sequences we'll use for all the tests */
   synthesize_testseqs(r, abc, maxL, N, &sqarr);
 

@@ -486,7 +486,7 @@ main(int argc, char **argv)
   double lambda     = 2.0;
   double tau        = 0.7;
   ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
-  ESL_RANDOMNESS *r = esl_randomness_CreateTimeseeded();
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
   int    n          = 10000;
   double elam, etau;
   int    i;
@@ -595,7 +595,7 @@ main(int argc, char **argv)
   if (be_verbose)
     printf("Parametric:  mu = %f   lambda = %f    tau = %f\n", mu, lambda, tau);
 
-  r = esl_randomness_CreateTimeseeded();
+  r = esl_randomness_Create(0);
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 

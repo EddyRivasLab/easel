@@ -45,8 +45,10 @@
  *    it work with .gz, pipes without rewinding a stream. Might be
  *    a good idea to generalize input buffering - perhaps making
  *    it part of ESL_FILEPARSER. 
- * - PSIBLAST, A2M format only supported on input, not output.
+ * - PSIBLAST, A2M format only supported on output, not input.
  *    Implement input parsers.
+ * - SELEX format only supported on input, not output. 
+ *    Implement output writer.
  * - More formats need to be parsed. Check on formats for current
  *    best MSA programs, such as MUSCLE, MAFFT; implement i/o.
  *    
@@ -1947,9 +1949,10 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   switch (afp->format) {
   case eslMSAFILE_STOCKHOLM: status = read_stockholm(afp, &msa); break;
   case eslMSAFILE_PFAM:      status = read_stockholm(afp, &msa); break;
+  case eslMSAFILE_A2M:       ESL_FAIL(eslEFORMAT, afp->errbuf, "A2M format input parser not implemented yet.");
+  case eslMSAFILE_PSIBLAST:  ESL_FAIL(eslEFORMAT, afp->errbuf, "PSIBLAST format input parser not implemented yet.");
   case eslMSAFILE_SELEX:     status = read_selex    (afp, &msa); break;
-  default:
-    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
+  default:                   ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   }
 
   *ret_msa = msa;
@@ -1985,6 +1988,7 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   case eslMSAFILE_PFAM:      status = write_pfam(fp, msa);      break;
   case eslMSAFILE_A2M:       status = write_a2m(fp, msa);       break;
   case eslMSAFILE_PSIBLAST:  status = write_psiblast(fp, msa);  break;
+  case eslMSAFILE_SELEX:     ESL_EXCEPTION(eslEUNIMPLEMENTED, "selex format writing isn't implemented yet");
   default: ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
   return status;
@@ -2015,6 +2019,7 @@ esl_msa_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
   if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
   if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
+  if (strcasecmp(fmtstring, "selex")     == 0) return eslMSAFILE_SELEX;
   return eslMSAFILE_UNKNOWN;
 }
 
@@ -2044,6 +2049,7 @@ esl_msa_DecodeFormat(int fmt)
   case eslMSAFILE_PFAM:      return "Pfam";
   case eslMSAFILE_A2M:       return "UCSC A2M";
   case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
+  case eslMSAFILE_SELEX:     return "SELEX";
   default:                   break;
   }
   esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);

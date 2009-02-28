@@ -2,10 +2,10 @@
 The stretched exponential distribution may be useful for fitting
 fat-tailed empirical distributions.
 
-The stretched exponential is not the same as the Weibull distribution,
-though they have somewhat similar functional forms, and the Weibull is
-confusingly sometimes referred to as a ``stretched exponential
-distribution'' in the literature. (See the \eslmod{weibull} module.)
+The stretched exponential has a similar functional form as the Weibull
+distribution, and the Weibull is confusingly sometimes referred to as
+a ``stretched exponential distribution'' in the literature, but they
+are not the same. (See the \eslmod{weibull} module.)
 
 \begin{tabular}{lcll}\hline
 Variate    & $x$         & \ccode{double} & $\mu \leq x < \infty$ \\
@@ -13,7 +13,6 @@ Location   & $\mu$       & \ccode{double} & $-\infty < \mu < \infty$\\
 Scale      & $\lambda$   & \ccode{double} & $\lambda > 0$ \\ 
 Shape      & $\tau$      & \ccode{double} & $\tau > 0$ \\ \hline
 \end{tabular}
-
 
 The probability density function (PDF) is:
 
