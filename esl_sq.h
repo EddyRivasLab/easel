@@ -135,9 +135,11 @@ extern ESL_SQ *esl_sq_CreateFrom(const char *name, const char *seq,
 extern int     esl_sq_Grow  (ESL_SQ *sq, int64_t *ret_nsafe);
 extern int     esl_sq_GrowTo(ESL_SQ *sq, int64_t  n);
 extern int     esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst);
-extern int     esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2);
-extern int     esl_sq_Reuse  (ESL_SQ *sq);
-extern void    esl_sq_Destroy(ESL_SQ *sq);
+extern int     esl_sq_Compare  (ESL_SQ *sq1, ESL_SQ *sq2);
+extern int     esl_sq_Reuse    (ESL_SQ *sq);
+extern int     esl_sq_IsDigital(const ESL_SQ *sq);
+extern int     esl_sq_IsText   (const ESL_SQ *sq);
+extern void    esl_sq_Destroy  (ESL_SQ *sq);
 
 extern int     esl_sq_SetName     (ESL_SQ *sq, const char *name,   ...);
 extern int     esl_sq_SetAccession(ESL_SQ *sq, const char *acc,    ...);

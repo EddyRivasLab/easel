@@ -56,10 +56,10 @@ check:
 easel_progs: ${PROGS}
 
 ${PROGS}: @EXEC_DEPENDENCY@  ${ESLDIR}/libeasel.a
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L ${ESLDIR} -o $@ $@.o ${LIBS}
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L${ESLDIR} -o $@ $@.o ${LIBS}
 
 .c.o:
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I ${ESLDIR} -c $<
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I${ESLDIR} -c $<
 
 install:
 	cp ${PROGS} ${DESTDIR}${bindir}/

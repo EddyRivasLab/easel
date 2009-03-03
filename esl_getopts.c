@@ -8,7 +8,7 @@
  *    4. Formatting option help.
  *    5. Private functions.
  *    6. Test driver.
- *    7. Example.
+ *    7. Examples.
  * 
  * SVN $Id$
  * SRE, Sat Jan  1 08:50:21 2005 [Panticosa, Spain]
@@ -2109,7 +2109,7 @@ main(void)
 /*-------------- end of test driver -------------------------*/
 
 /*****************************************************************
- * 7. Example.
+ * 7. Examples.
  *****************************************************************/
 
 /* The starting example of "standard" getopts behavior, without
@@ -2174,7 +2174,48 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::getopts_example::end::*/
 #endif /*eslGETOPTS_EXAMPLE*/
-/*-------------- end of example ----------------------*/
+
+/* Using <esl_getopt_CreateDefaultApp()> implements a standard series
+ * of events, including how the -h (help) option is handled.
+ * Compile:
+     gcc -g -Wall -o getopts_example2 -I. -DeslGETOPTS_EXAMPLE2 esl_getopts.c easel.c
+ */
+#ifdef eslGETOPTS_EXAMPLE2
+/*::cexcerpt::getopts_example2::begin::*/
+#include <stdio.h>
+#include "easel.h"
+#include "esl_getopts.h"
+
+static ESL_OPTIONS options[] = {
+  /* name          type     default  env range toggles reqs incomp     help                   docgroup*/
+  { "-h",     eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL, NULL, "show help and usage",            0},
+  { "-a",     eslARG_NONE,   FALSE, NULL, NULL,  NULL, NULL, NULL, "a boolean switch",               0},
+  { "-n",     eslARG_INT,      "42",NULL, NULL,  NULL, NULL, NULL, "an integer",                     0},
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
+};
+static char banner[] = "example of using simplest getopts creation";
+static char usage[]  = "[-options] <arg1> <arg2>";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS *go   = esl_getopts_CreateDefaultApp(options, 2, argc, argv, banner, usage);
+  char        *arg1 = esl_opt_GetArg(go, 1);
+  char        *arg2 = esl_opt_GetArg(go, 2);
+  int          a    = esl_opt_GetBoolean(go, "-a");
+  int          n    = esl_opt_GetInteger(go, "-n");
+
+  printf("arg 1: %s\n", arg1);
+  printf("arg 2: %s\n", arg2);
+  printf("option a: %s\n", (a ? "true" : "false")); 
+  printf("option n: %d\n", n);
+
+  esl_getopts_Destroy(go);
+  return 0;
+}
+/*::cexcerpt::getopts_example2::end::*/
+#endif /*eslGETOPTS_EXAMPLE2*/
+/*-------------- end of examples ---------------------*/
 
 /*****************************************************************  
  * @LICENSE@

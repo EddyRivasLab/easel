@@ -401,6 +401,34 @@ esl_sq_Reuse(ESL_SQ *sq)
   return eslOK;
 }
 
+/* Function:  esl_sq_IsDigital()
+ * Synopsis:  Return <TRUE> if <sq> is digital.
+ * Incept:    SRE, Mon Mar  2 18:05:34 2009 [Casa de Gatos]
+ *
+ * Purpose:   Return <TRUE> if <sq> is in digital mode,
+ *            and <FALSE> if not.
+ */
+int
+esl_sq_IsDigital(const ESL_SQ *sq)
+{
+  return ((sq->dsq != NULL) ? TRUE : FALSE);
+}
+
+
+/* Function:  esl_sq_IsText()
+ * Synopsis:  Return <TRUE> if <sq> is text mode.
+ * Incept:    SRE, Mon Mar  2 18:06:22 2009 [Casa de Gatos]
+ *
+ * Purpose:   Return <TRUE> if <sq> is in text mode,
+ *            and <FALSE> if not.
+ */
+int
+esl_sq_IsText(const ESL_SQ *sq)
+{
+  return ((sq->sq != NULL) ? TRUE : FALSE);
+}
+
+
 /* Function:  esl_sq_Destroy()
  * Synopsis:  Frees an <ESL_SQ>.
  * Incept:    SRE, Thu Dec 23 12:28:07 2004 [Zaragoza]
