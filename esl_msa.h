@@ -202,7 +202,6 @@ extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *author,  ...
 extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *name, ...);
 extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
 extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
-extern 
 
 /* 2. The ESL_MSAFILE object */
 extern int  esl_msafile_Open(const char *filename, int format, const char *env, 
