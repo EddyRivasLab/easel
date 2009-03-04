@@ -307,67 +307,6 @@ msa_get_rlen(const ESL_MSA *msa, int seqidx)
   return rlen;
 }
 
-/* set_seq_accession()
- *
- * Sets the sequence accession field for sequence
- * number <seqidx> in an alignment <msa>, by
- * duplicating the string <acc>.
- *
- * Returns:   <eslOK> on success.
- * Throws:    <eslEMEM> on allocation failure.
- */
-static int
-set_seq_accession(ESL_MSA *msa, int seqidx, const char *acc)
-{
-  int status;
-  int i;
-
-  /* If this is the first acccession, we have to
-   * initialize the whole optional array.
-   */
-  if (msa->sqacc == NULL) 
-    {
-      ESL_ALLOC(msa->sqacc, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->sqacc[i] = NULL;
-    }
-  /* If we already had an accession, that's weird, but free it. 
-   */
-  if (msa->sqacc[seqidx] != NULL) free(msa->sqacc[seqidx]);
-  return (esl_strdup(acc, -1, &(msa->sqacc[seqidx])));
-
- ERROR:
-  return status;
-}
-
-/* set_seq_description()
- *
- * Set the sequence description field for sequence number
- * <seqidx> in an alignment <msa> by copying the string <desc>.
- *
- * Returns:  <eslOK> on success.
- * 
- * Throws:   <eslEMEM> on allocation failure.
- */
-static int
-set_seq_description(ESL_MSA *msa, int seqidx, const char *desc)
-{
-  int status;
-  int i;
-
-  if (msa->sqdesc == NULL) 
-    {
-      ESL_ALLOC(msa->sqdesc, sizeof(char *) * msa->sqalloc);
-      for (i = 0; i < msa->sqalloc; i++)
-	msa->sqdesc[i] = NULL;
-  }
-  if (msa->sqdesc[seqidx] != NULL) free(msa->sqdesc[seqidx]);
-  return (esl_strdup(desc, -1, &(msa->sqdesc[seqidx])));
-
- ERROR:
-  return status;
-}
-
 
 /* set_seq_ss() 
  *
@@ -1018,45 +957,37 @@ esl_msa_Destroy(ESL_MSA *msa)
 
 
 /* Function:  esl_msa_SetName()
- * Synopsis:  Format and set a name of an MSA.
+ * Synopsis:  Set name of an MSA.
  * Incept:    SRE, Sat Feb 23 18:42:47 2008 [Casa de Gatos]
  *
- * Purpose:   Sets the name of the msa <msa> to <name>, 
- *            (re-)allocating as needed.
+ * Purpose:   Sets the name of the msa <msa> to <name>. 
  *
  *            <name> may be a <printf()>-style format with
  *            arguments; for example, <esl_msa_SetName(msa, "random%d", i)>.
- *
- *            A copy of <name> is made, so if caller 
- *            allocated <name>, it is still responsible 
- *            for free'ing it.
+ *            
+ *            The MSA name is a mandatory field, so passing <NULL> for
+ *            <name> is not valid; doing so will throw an <eslEINVAL>
+ *            error.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEMEM> on allocation error.
+ * Throws:    <eslEINVAL> if <name> is <NULL>;
+ *            <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
  */
 int
 esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
 {
-  va_list argp, argp2;
-  int     n1 = 32;
-  int     n2 = 0;
-  void   *tmp;
+  va_list ap;
   int     status;
 
-  if (msa->name != NULL) free(msa->name);
-  ESL_ALLOC(msa->name, sizeof(char) * n1);
+  if (msa->name != NULL) free(msa->name); 
+  if (name      == NULL) ESL_XEXCEPTION(eslEINVAL, "an MSA name may not be NULL");
 
-  va_start(argp, name);
-  va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->name, n1, name, argp)) >= n1)
-    {
-      ESL_RALLOC(msa->name, tmp, sizeof(char) * (n2+1));
-      vsnprintf(msa->name, n2+1, name, argp2);
-    }
-  va_end(argp);
-  va_end(argp2);
-  return eslOK;
+  va_start(ap, name);
+  status = esl_vsprintf(&(msa->name), name, &ap);
+  va_end(ap);
+  return status;
 
  ERROR:
   msa->name = NULL;
@@ -1065,94 +996,212 @@ esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
 
 
 /* Function:  esl_msa_SetDesc()
- * Synopsis:  Format and set description line of an MSA.
+ * Synopsis:  Set the description line of an MSA.
  * Incept:    SRE, Sat Feb 23 18:47:06 2008 [Casa de Gatos]
  *
- * Purpose:   Sets the description line of the msa <msa> to <desc>, 
- *            (re-)allocating as needed.
+ * Purpose:   Sets the description line of the msa <msa> to <desc>. 
  *
  *            <desc> may be a <printf()>-style format with
  *            arguments; for example, <esl_msa_SetDesc(msa, "sample %d", i)>.
  *
- *            A copy of <desc> is made, so if caller 
- *            allocated <desc>, it is still responsible 
- *            for free'ing it.
+ *            As a special case, <desc> may be <NULL>, to facilitate
+ *            handling of optional annotation.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEMEM> on allocation error.
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
  */
 int
 esl_msa_SetDesc(ESL_MSA *msa, const char *desc, ...)
 {
-  va_list argp, argp2;
-  int     n1 = 64;
-  int     n2 = 0;
-  void   *tmp;
+  va_list ap;
   int     status;
 
   if (msa->desc != NULL) free(msa->desc);
-  ESL_ALLOC(msa->desc, sizeof(char) * n1);
-
-  va_start(argp, desc);
-  va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->desc, n1, desc, argp)) >= n1)
-    {
-      ESL_RALLOC(msa->desc, tmp, sizeof(char) * (n2+1));
-      vsnprintf(msa->desc, (n2+1), desc, argp2);
-    }
-  va_end(argp);
-  va_end(argp2);
-  return eslOK;
-
- ERROR:
-  msa->desc = NULL;
+  va_start(ap, desc);
+  status = esl_vsprintf(&(msa->desc), desc, &ap);
+  va_end(ap);
   return status;
+
 }
 
 /* Function:  esl_msa_SetAccession()
- * Synopsis:  Format and set accession number of an MSA.
+ * Synopsis:  Set the accession number of an MSA.
  * Incept:    SRE, Sat Feb 23 18:49:04 2008 [Casa de Gatos]
  *
- * Purpose:   Sets accession numbre of the msa <msa> to <acc>, 
- *            (re-)allocating as needed.
+ * Purpose:   Sets accession number of the msa <msa> to <acc>. 
  *
- *            <acc> may be a <printf()>-style format with
- *            arguments; for example, <esl_msa_SetAccession(msa, "PF%06d", i)>.
+ *            <acc> may be a <printf()>-style format with arguments;
+ *            for example, <esl_msa_SetAccession(msa, "PF%06d", i)>.
  *
- *            A copy of <acc> is made, so if caller 
- *            allocated <acc>, it is still responsible 
- *            for free'ing it.
+ *            As a special case, <acc> may be <NULL>, to facilitate
+ *            handling of optional annotation.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEMEM> on allocation error.
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
  */
 int
 esl_msa_SetAccession(ESL_MSA *msa, const char *acc, ...)
 {
-  va_list argp, argp2;
-  int     n1 = 16;
-  int     n2 = 0;
-  void   *tmp;
+  va_list ap;
   int     status;
 
   if (msa->acc != NULL) free(msa->acc);
-  ESL_ALLOC(msa->acc, sizeof(char) * n1);
+  va_start(ap, acc);
+  status = esl_vsprintf(&(msa->acc), acc, &ap);
+  va_end(ap);
+  return status;
+}
 
-  va_start(argp, acc);
-  va_copy(argp2, argp);
-  if ((n2 = vsnprintf(msa->acc, n1, acc, argp)) >= n1)
-    {
-      ESL_RALLOC(msa->acc, tmp, sizeof(char) * (n2+1));
-      vsnprintf(msa->acc, (n2+1), acc, argp2);
-    }
-  va_end(argp);
-  va_end(argp2);
-  return eslOK;
+
+/* Function:  esl_msa_SetAuthor()
+ * Synopsis:  Set the author string in an MSA.
+ * Incept:    SRE, Wed Mar  4 10:41:21 2009 [Janelia]
+ *
+ * Purpose:   Sets the author string in <msa>, using an <author> string
+ *            and arguments in same format as <printf()> would take.
+ *            
+ *            As a special case, <author> may be <NULL>, to facilitate
+ *            handling of optional annotation.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
+ */
+int
+esl_msa_SetAuthor(ESL_MSA *msa, const char *author, ...)
+{
+  va_list ap;
+  int     status;
+
+  if (msa->au != NULL) free(msa->au);
+  va_start(ap, author);
+  status = esl_vsprintf(&(msa->au), author, &ap);
+  va_end(ap);
+  return status;
+}
+
+
+/* Function:  esl_msa_SetSeqName()
+ * Synopsis:  Sets an individual sequence name in an MSA.
+ * Incept:    SRE, Wed Mar  4 10:56:28 2009 [Janelia]
+ *
+ * Purpose:   Set the name of sequence number <idx> in <msa>
+ *            to <name>, where <name> may be a <printf()>
+ *            style format and arguments.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if <name> is <NULL>;
+ *            <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
+ *
+ * Note:      msa->sqname[] is not optional, so we may
+ *            rely on it already being allocated for 
+ *            i=0..sqalloc-1.
+ */
+int
+esl_msa_SetSeqName(ESL_MSA *msa, int idx, const char *name, ...)
+{
+  va_list ap;
+  int     status;
+
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+  if (name == NULL)         ESL_EXCEPTION(eslEINVAL, "seq names are mandatory; NULL is not a valid name");
+
+  if (msa->sqname[idx] != NULL) free(msa->sqname[idx]);
+
+  va_start(ap, name);
+  status = esl_vsprintf(&(msa->sqname[idx]), name, &ap);
+  va_end(ap);
+  return status;
+}
+
+/* Function:  esl_msa_SetSeqAccession()
+ * Synopsis:  Sets individual sequence accession in an MSA.
+ * Incept:    SRE, Wed Mar  4 11:03:26 2009 [Janelia]
+ *
+ * Purpose:   Set the accession of sequence number <idx> in <msa> to
+ *            <acc>, where <acc> may be a <printf()> style format and
+ *            arguments.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
+ */
+int 
+esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *acc, ...)
+{
+  va_list ap;
+  int     i;
+  int     status;
+
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+  if (acc == NULL) {
+    if (msa->sqacc != NULL) { free(msa->sqacc[idx]); msa->sqacc[idx] = NULL; }
+    return eslOK;
+  }
+
+  /* Allocate/initialize the optional sqacc array, if it's not already done: */
+  if (msa->sqacc == NULL) {
+    ESL_ALLOC(msa->sqacc, sizeof(char *) * msa->sqalloc);
+    for (i = 0; i < msa->sqalloc; i++) msa->sqacc[i] = NULL;
+  } 
+  if (msa->sqacc[idx] != NULL) free(msa->sqacc[idx]);
+
+  va_start(ap, acc);
+  status = esl_vsprintf(&(msa->sqacc[idx]), acc, &ap);
+  va_end(ap);
+  return status;
 
  ERROR:
-  msa->acc = NULL;
+  return status;
+}
+  
+/* Function:  esl_msa_SetSeqDescription()
+ * Synopsis:  Sets individual sequence description in an MSA.
+ * Incept:    SRE, Wed Mar  4 11:09:37 2009 [Janelia]
+ *
+ * Purpose:   Set the description of sequence number <idx> in <msa> to
+ *            <desc>, where <desc> may be a <printf()> style format and
+ *            arguments.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ *            <eslESYS> if a <*printf()> library call fails.
+ */
+int
+esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...)
+{
+  va_list ap;
+  int     i;
+  int     status;
+
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+  if (desc == NULL) {
+    if (msa->sqdesc != NULL) { free(msa->sqdesc[idx]); msa->sqdesc[idx] = NULL; }
+    return eslOK;
+  }
+
+  /* Allocate/initialize the optional sqdesc array, if it's not already done: */
+  if (msa->sqdesc == NULL) {
+    ESL_ALLOC(msa->sqdesc, sizeof(char *) * msa->sqalloc);
+    for (i = 0; i < msa->sqalloc; i++) msa->sqdesc[i] = NULL;
+  } 
+  if (msa->sqdesc[idx] != NULL) free(msa->sqdesc[idx]);
+
+  va_start(ap, desc);
+  status = esl_vsprintf(&(msa->sqdesc[idx]), desc, &ap);
+  va_end(ap);
+  return status;
+
+ ERROR:
   return status;
 }
 /*---------------------- end of ESL_MSA functions ---------------------------*/
@@ -2347,10 +2396,10 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	new->wgt[nidx] = msa->wgt[oidx];
       
 	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  if ((status = set_seq_accession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
+	  if ((status = esl_msa_SetSeqAccession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
 	}
 	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  if ((status = set_seq_description(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
+	  if ((status = esl_msa_SetSeqDescription(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
 	}
 	if (msa->ss != NULL && msa->ss[oidx] != NULL) {
 	  if ((status = set_seq_ss(new, nidx, msa->ss[oidx])) != eslOK) goto ERROR;
@@ -3313,9 +3362,9 @@ parse_gs(ESL_MSA *msa, char *buf)
       status           = eslOK;
     }
   else if (strcmp(tag, "AC") == 0)
-    status = set_seq_accession(msa, seqidx, text);
+    status = esl_msa_SetSeqAccession(msa, seqidx, text);
   else if (strcmp(tag, "DE") == 0)
-    status = set_seq_description(msa, seqidx, text);
+    status = esl_msa_SetSeqDescription(msa, seqidx, text);
   else				
     status = esl_msa_AddGS(msa, tag, seqidx, text);
 

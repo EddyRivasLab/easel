@@ -677,6 +677,9 @@ esl_msa_MPISend(const ESL_MSA *msa, int dest, int tag, MPI_Comm comm, char **buf
  *            
  *            Caller will generally use this result to determine how
  *            to allocate a buffer before starting to pack into it.
+ *            
+ *            If <msa> is <NULL> (which can happen, if <msa> is
+ *            optional in the caller), size <*ret_n> is set to 0.
  *
  * Returns:   <eslOK> on success, and <*ret_n> contains the answer.
  *
@@ -694,6 +697,8 @@ esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
   int sz;
   int n = 0;
   int i;
+
+  if (msa == NULL) { *ret_n = 0; return eslOK; }
 
   status = MPI_Pack_size      (                        1, MPI_INT,           comm, &sz); n += 3*sz;          if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
   status = MPI_Pack_size      (                msa->nseq, MPI_DOUBLE,        comm, &sz); n += sz;            if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
@@ -733,9 +738,14 @@ esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
  * Synopsis:  Packs an MSA into MPI buffer.
  * Incept:    SRE, Wed Jun  6 13:17:45 2007 [Janelia]
  *
- * Purpose:   Packs essential subset of data in MSA <msa> into an MPI packed message buffer
- *            <buf> of length <n> bytes, starting at byte position
- *            <*position>, for MPI communicator <comm>.
+ * Purpose:   Packs essential subset of data in MSA <msa> into an MPI
+ *            packed message buffer <buf> of length <n> bytes,
+ *            starting at byte position <*position>, for MPI
+ *            communicator <comm>.
+ *            
+ *            If <msa> is <NULL> (which can happen, if <msa> is being
+ *            treated as optional in the caller), does nothing, and
+ *            just return <eslOK>.
  *
  * Returns:   <eslOK> on success; <buf> now contains the
  *            packed <msa>, and <*position> is set to the byte
@@ -757,6 +767,8 @@ esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm co
   int i;
 
   ESL_DPRINTF2(("esl_msa_MPIPack(): ready.\n"));
+
+  if (msa == NULL) return eslOK;
 
   status = MPI_Pack       ((int *) &(msa->nseq),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
   status = MPI_Pack       ((int *) &(msa->alen),   1, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");

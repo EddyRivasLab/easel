@@ -425,7 +425,7 @@ esl_sq_IsDigital(const ESL_SQ *sq)
 int
 esl_sq_IsText(const ESL_SQ *sq)
 {
-  return ((sq->sq != NULL) ? TRUE : FALSE);
+  return ((sq->seq != NULL) ? TRUE : FALSE);
 }
 
 
