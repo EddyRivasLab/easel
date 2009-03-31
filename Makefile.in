@@ -8,11 +8,11 @@ SHELL       = /bin/sh
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
 datarootdir = @datarootdir@
-LIBDIR      = @libdir@
-INCLUDEDIR  = @includedir@
-BINDIR      = @bindir@
-MANDIR      = @mandir@
-PDFDIR      = @pdfdir@
+libdir      = @libdir@
+includedir  = @includedir@
+bindir      = @bindir@
+mandir      = @mandir@
+pdfdir      = @pdfdir@
 
 # Compiler configuration
 #
@@ -241,22 +241,29 @@ ${UTESTS}:  libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 
-# install:   installs libeasel.a in LIBDIR/
-#            installs Easel headers in INCLUDEDIR/
-#            installs miniapp binaries in BINDIR/
+# install:   installs libeasel.a in ${libdir}/
+#            installs Easel headers in ${includedir}/
+#            installs miniapp binaries in ${bindir}/
 #
 # All install paths are prefaced with DESTDIR/ to facilitate
 # building RPMS in Linux distros. Usually DESTDIR is empty.
 #
 install:
-	mkdir -p ${DESTDIR}${LIBDIR}
-	mkdir -p ${DESTDIR}${INCLUDEDIR}
-	mkdir -p ${DESTDIR}${BINDIR}
-	cp libeasel.a ${DESTDIR}${LIBDIR}/
+	mkdir -p ${DESTDIR}${libdir}
+	mkdir -p ${DESTDIR}${includedir}
+	mkdir -p ${DESTDIR}${bindir}
+	cp libeasel.a ${DESTDIR}${libdir}/
 	for file in ${HDRS}; do\
-	   cp $$file ${DESTDIR}${INCLUDEDIR}/;\
+	   cp $$file ${DESTDIR}${includedir}/;\
 	done
 	(cd miniapps; make install)
+
+uninstall:
+	-rm -f ${DESTDIR}${libdir}/libeasel.a
+	for file in ${HDRS}; do\
+	   rm -f ${DESTDIR}${includedir}/$$file;\
+	done
+	(cd miniapps; make uninstall)
 
 clean:
 	if test -d documentation; then  (cd documentation; ${MAKE} clean); fi

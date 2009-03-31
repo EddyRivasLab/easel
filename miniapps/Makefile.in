@@ -64,6 +64,11 @@ ${PROGS}: @EXEC_DEPENDENCY@  ${ESLDIR}/libeasel.a
 install:
 	cp ${PROGS} ${DESTDIR}${bindir}/
 
+uninstall:
+	for file in $(PROGS); do\
+	   rm ${DESTDIR}${bindir}/$$file;\
+	done
+
 clean:
 	-rm -f ${PROGS}
 	-rm -f *.o *~
