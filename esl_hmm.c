@@ -109,7 +109,6 @@ esl_hmm_Configure(ESL_HMM *hmm, float *fq)
     }
   
   for (x = K+1; x <= Kp-2; x++) {
-    use_fq = (fq == NULL) ? uniform : fq[x];
     for (k = 0; k < hmm->M; k++)
       {
 	hmm->eo[x][k] = 0.0f;
@@ -118,7 +117,7 @@ esl_hmm_Configure(ESL_HMM *hmm, float *fq)
 	  if (hmm->abc->degen[x][y]) 
 	    {
 	      hmm->eo[x][k] += hmm->e[k][y];  
-	      denom         += use_fq;
+	      denom         += (fq == NULL) ? uniform : fq[y];
 	    }
 	hmm->eo[x][k] = ((denom > 0.0f) ? hmm->eo[x][k] / denom : 0.0f);
       }
