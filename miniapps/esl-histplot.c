@@ -165,10 +165,12 @@ main(int argc, char **argv)
 	  for (i = 0; i < which_field; i++)
 	    {
 	      esl_strtok(&s, " \t\n", &tok);
-	      if (tok == NULL) continue;
+	      if (tok == NULL) break;
 	    }
-	  x = atof(tok);
-	  esl_histogram_Add(h, x);
+	  if (tok != NULL) {
+	    x = atof(tok);
+	    esl_histogram_Add(h, x);
+	  }
 	}
       free(buf);
     }
