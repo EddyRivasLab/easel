@@ -2175,7 +2175,7 @@ main(int argc, char **argv)
 /*::cexcerpt::getopts_example::end::*/
 #endif /*eslGETOPTS_EXAMPLE*/
 
-/* Using <esl_getopt_CreateDefaultApp()> implements a standard series
+/* Using <esl_getopts_CreateDefaultApp()> implements a standard series
  * of events, including how the -h (help) option is handled.
  * Compile:
      gcc -g -Wall -o getopts_example2 -I. -DeslGETOPTS_EXAMPLE2 esl_getopts.c easel.c

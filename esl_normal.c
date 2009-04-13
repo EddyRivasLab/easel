@@ -32,7 +32,7 @@ esl_normal_pdf(double x, double mu, double sigma)
   double z;
   
   z = (x - mu) / sigma;
-  return  exp(-z*z) / (sigma * sqrt(2. * eslCONST_PI));
+  return  exp(-z*z*2.0) / (sigma * sqrt(2. * eslCONST_PI));
 }
 
 /* Function:  esl_normal_logpdf()
@@ -50,7 +50,7 @@ esl_normal_logpdf(double x, double mu, double sigma)
   double z;
 
   z = (x - mu) / sigma;
-  return  (-z*z) - log(sigma) - log(sqrt(2.*eslCONST_PI));
+  return  (-z*z*2.0) - log(sigma) - log(sqrt(2.*eslCONST_PI));
 }
 
 /* Function:  esl_normal_cdf()
@@ -84,10 +84,9 @@ esl_normal_cdf(double x, double mu, double sigma)
 double
 esl_normal_surv(double x, double mu, double sigma)
 {
-  double z;
+  double z = (x - mu) / (sqrt(2.) * sigma);
 
-  z = (x - mu) / sigma;
-  return erfc(z / sqrt(2.));
+  return 0.5 - 0.5 * erf(z);
 }
 
 
@@ -230,10 +229,58 @@ main(int argc, char **argv)
   printf("%.60f\n", (1. + sqrt(5.)) / 2.);
   return 0;
 }
-
-
-
 #endif /*eslNORMAL_EXAMPLE*/
+
+#ifdef eslNORMAL_EXAMPLE2
+/* Print a Gaussian histogram in xmgrace XY set format 
+   gcc -g -Wall -I. -L. -o example -DeslNORMAL_EXAMPLE2 esl_normal.c -leasel -lm
+ */
+#include <stdio.h>
+#include <math.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_normal.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "-N",        eslARG_REAL,   "1.0",  NULL, NULL,  NULL,  NULL, NULL, "number of samples",                       0 },
+  { "--mean",    eslARG_REAL,   "0.0",  NULL, NULL,  NULL,  NULL, NULL, "mean of normal distribution",             0 },
+  { "--sd",      eslARG_REAL,   "1.0",  NULL, NULL,  NULL,  NULL, NULL, "s.d. of normal distribution",             0 },
+  { "--min",     eslARG_REAL,  "-10.0", NULL, NULL,  NULL,  NULL, NULL, "minimum for xaxis",                       0 },
+  { "--max",     eslARG_REAL,   "10.0", NULL, NULL,  NULL,  NULL, NULL, "maximum for xaxis",                       0 },
+  { "--step",    eslARG_REAL,    "1.0", NULL, NULL,  NULL,  NULL, NULL, "step size for xaxis",                     0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "output a Gaussian histogram";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  double        minx      = esl_opt_GetReal(go, "--min");
+  double        maxx      = esl_opt_GetReal(go, "--max");
+  double        xstep     = esl_opt_GetReal(go, "--step");
+  double        N         = esl_opt_GetReal(go, "-N");
+  double        mean      = esl_opt_GetReal(go, "--mean");
+  double        sd        = esl_opt_GetReal(go, "--sd");
+  double        x;
+  double        val;
+
+  
+  for (x = minx; x < maxx; x += xstep)
+    {
+      val = N * (esl_normal_surv(x, mean, sd) - esl_normal_surv(x+xstep, mean, sd));
+      printf("%f %f\n", x, val);
+    }
+  printf("&\n");
+
+  esl_getopts_Destroy(go);
+  return 0;
+}
+#endif /*eslNORMAL_EXAMPLE2*/  
 
 
 
