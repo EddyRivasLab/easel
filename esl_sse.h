@@ -174,7 +174,7 @@ esl_sse_hmax_epu8(__m128i a)
   a = _mm_max_epu8(a, _mm_srli_si128(a, 4));
   a = _mm_max_epu8(a, _mm_srli_si128(a, 2));
   a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
-  return (uint8_t) _mm_extract_epi16(a, 0);
+  return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
 }
 #endif /*ESL_SSE_INCLUDED*/
 #endif /*HAVE_SSE2*/
