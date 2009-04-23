@@ -84,8 +84,8 @@ extern char  *esl_abc_DecodeType  (int type);
 extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
 
 /* In the tests below, remember the rules of order in internal alphabets:
- *   Canonical alphabet   Gap   Degeneracies  (X/N)  Missing data
- *        0..K-1           K      K+1..Kp-2   (Kp-2)   Kp-1
+ *   Canonical alphabet   Gap   Degeneracies   Any    Missing 
+ *        0..K-1           K      K+1..Kp-3   (Kp-2)  (Kp-1)
  *         ACGT            -     RYMKSWHBVD     N      ~           DNA: K=4  Kp=17
  *  ACDEFGHIKLMNPQRSTVWY   -        BJZOU       X      ~       protein: K=20 Kp=28
  *                           

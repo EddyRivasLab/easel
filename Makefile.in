@@ -18,7 +18,7 @@ pdfdir      = @pdfdir@
 #
 CC       = @CC@
 CFLAGS   = @CFLAGS@
-LDFLAGS  = -static @LDFLAGS@
+LDFLAGS  = @LDFLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@

@@ -150,13 +150,20 @@ esl_sse_leftshift_ps(__m128 a, __m128 b)
  *            For equality tests, note that <cmpeq_epi8> works fine
  *            for unsigned ints though there is no <cmpeq_epu8>
  *            instruction either).
+ * 
+ *            See vec_any_gt
  */
 static inline int 
 esl_sse_any_gt_epu8(__m128i a, __m128i b)
 {
   __m128i mask    = _mm_cmpeq_epi8(_mm_max_epu8(a,b), b); /* anywhere a>b, mask[z] = 0x0; elsewhere 0xff */
-  int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask)));
+  int   maskbits  = _mm_movemask_epi8(_mm_xor_si128(mask,  _mm_cmpeq_epi8(mask, mask))); /* the xor incantation is a bitwise inversion */
   return maskbits != 0;
+}
+static inline int 
+esl_sse_any_gt_epi16(__m128i a, __m128i b)
+{
+  return (_mm_movemask_epi8(_mm_cmpgt_epi16(a,b)) != 0); 
 }
 
 
@@ -176,5 +183,23 @@ esl_sse_hmax_epu8(__m128i a)
   a = _mm_max_epu8(a, _mm_srli_si128(a, 1));
   return (uint8_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
 }
+
+/* Function:  esl_sse_hmax_epi16()
+ * Synopsis:  Return the max of the 8 elements in epi16 vector.
+ * Incept:    SRE, Wed Jul 30 11:31:33 2008 [Janelia]
+ *
+ * Purpose:   Returns the maximum value of the 16 elements in
+ *            an <epu8> vector.
+ */
+static inline int16_t
+esl_sse_hmax_epi16(__m128i a)
+{
+  a = _mm_max_epi16(a, _mm_srli_si128(a, 8));
+  a = _mm_max_epi16(a, _mm_srli_si128(a, 4));
+  a = _mm_max_epi16(a, _mm_srli_si128(a, 2));
+  return (int16_t) _mm_extract_epi16(a, 0);   /* only low-order 8 bits set; so _epi16 or _epi8 equiv; _epi8 is SSE4.1 */
+}
+
+
 #endif /*ESL_SSE_INCLUDED*/
 #endif /*HAVE_SSE2*/
