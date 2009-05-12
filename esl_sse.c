@@ -90,13 +90,13 @@ esl_sse_logf(__m128 x)
   __m128  z;
 
   /* first, split x apart: x = frexpf(x, &e); */
-  ei           = _mm_srli_epi32((__m128i) x, 23);	                             /* shift right 23: IEEE754 floats: ei = biased exponents     */
-  invalid_mask = (__m128) _mm_cmpeq_epi32( _mm_and_si128((__m128i) x, vneg), vneg);  /* mask any elem that's negative; these become NaN           */
-  zero_mask    = (__m128) _mm_cmpeq_epi32(ei, _mm_setzero_si128());                  /* mask any elem zero or subnormal; these become -inf        */
-  inf_mask     = (__m128) _mm_cmpeq_epi32( _mm_and_si128((__m128i) x, vexp), vexp);  /* mask any elem inf or NaN; log(inf)=inf, log(NaN)=NaN      */
-  origx        = x;			                                             /* store original x, used for log(inf) = inf, log(NaN) = NaN */
+  ei           = _mm_srli_epi32( _mm_castps_si128(x), 23);	                                        /* shift right 23: IEEE754 floats: ei = biased exponents     */
+  invalid_mask = _mm_castsi128_ps ( _mm_cmpeq_epi32( _mm_and_si128(_mm_castps_si128(x), vneg), vneg));  /* mask any elem that's negative; these become NaN           */
+  zero_mask    = _mm_castsi128_ps ( _mm_cmpeq_epi32(ei, _mm_setzero_si128()));                          /* mask any elem zero or subnormal; these become -inf        */
+  inf_mask     = _mm_castsi128_ps ( _mm_cmpeq_epi32( _mm_and_si128(_mm_castps_si128(x), vexp), vexp));  /* mask any elem inf or NaN; log(inf)=inf, log(NaN)=NaN      */
+  origx        = x;			                                                                /* store original x, used for log(inf) = inf, log(NaN) = NaN */
 
-  x  = _mm_and_ps(x, (__m128) _mm_set1_epi32(~0x7f800000));          /* x now the stored 23 bits of the 24-bit significand        */
+  x  = _mm_and_ps(x, _mm_castsi128_ps(_mm_set1_epi32(~0x7f800000))); /* x now the stored 23 bits of the 24-bit significand        */
   x  = _mm_or_ps (x, v0p5);                                          /* sets hidden bit b[0]                                      */
 
   ei = _mm_sub_epi32(ei, _mm_set1_epi32(126));                       /* -127 (ei now signed base-2 exponent); then +1             */
@@ -198,7 +198,7 @@ esl_sse_expf(__m128 x)
   /* build 2^k by hand, by creating a IEEE754 float */
   k  = _mm_add_epi32(k, _mm_set1_epi32(127));
   k  = _mm_slli_epi32(k, 23);
-  fx = (__m128) k;
+  fx = _mm_castsi128_ps(k);
   
   /* put 2^k e^f together (fx = 2^k,  y = e^f) and we're done */
   y = _mm_mul_ps(y, fx);	

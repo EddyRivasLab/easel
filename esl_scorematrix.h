@@ -29,9 +29,6 @@ typedef struct {
   /* bookkeeping that lets us output exactly the residue order we read in a matrix file */
   int   nc;			/* number of residues with scores (inclusive of *, if present) */
   char *outorder;		/* NUL-terminated string 0..nc-1 giving order of residues in col/row labels   */
-  int   has_stop;		/* TRUE if * is a residue */
-  int   stopsc;			/* score for alignment to a * */
-  int   stopstopsc;		/* score for a *-* alignment  */
 
   char *name;			/* optional: name of score matrix; or NULL */
   char *path;			/* optional: full path to file that score matrix was read from; or NULL  */

@@ -2,16 +2,16 @@ The \eslmod{alphabet} module contains routines for digitizing
 alphabetic biosequences.
 
 It is convenient to represent nucleotides and amino acids as array
-indices 0..3 or 0..19, respectively, for efficiency as well as other
-reasons. It is also convenient to index biosequences in 1..L
-coordinates instead of the C language's 0..L-1 array representation,
-in part for human readability, and also because some codes (dynamic
-programming alignment algorithms, for example) have boundary
-conditions where initializing a boundary at coordinate 0 is
+indices 0..3 or 0..19, respectively, for efficiency and other
+reasons. It is also convenient to index the residues in a biosequence
+in 1..L coordinates instead of the C language's 0..L-1 array
+representation, partly for human readability, and also because some
+codes (dynamic programming alignment algorithms, for example) have
+boundary conditions where initializing a boundary at coordinate 0 is
 convenient.
 
 Real biosequences do not consist of just four or twenty different
-canonical symbols, though. The \eslmod{alphabet} module also provides
+canonical symbols, though. The \eslmod{alphabet} module provides
 mechanisms for dealing with several other biosequence coding issues:
 
 \begin{itemize}
@@ -20,6 +20,10 @@ mechanisms for dealing with several other biosequence coding issues:
         and nonstandard extensions such as the use of \ccode{J} to
         mean isoleucine or leucine (\ccode{I|L}) in protein sequences
         determined by mass spec;
+
+  \item Symbols for ``any residue'' (N in DNA/RNA; X in amino acid
+    sequences) and ``not a residue'' (a ``translated'' stop codon '*'
+    in protein sequence;
 
   \item Standard and nonstandard symbols for unusual residues, such as
         selenocysteine (\ccode{U}) and pyrrolysine (\ccode{O}) in
@@ -135,10 +139,11 @@ for.
 \subsection{Concepts and terminology}
 
 A \esldef{symbol} is a 7-bit ASCII input character, representing a
-residue, gap, or degeneracy. A \esldef{code} is the digital internal
-representation of the symbol as an \ccode{unsigned char} in the range
-$0..127$, suitable for use as an array index. The \eslmod{alphabet}
-module translates input symbols into internal digital codes.
+residue, gap, nonresidue, or degeneracy. A \esldef{code} is the
+digital internal representation of the symbol as an \ccode{unsigned
+ char} in the range $0..127$, suitable for use as an array index. The
+\eslmod{alphabet} module translates input symbols into internal
+digital codes.
 
 We distinguish between an input alphabet, an internal alphabet, and a
 canonical alphabet.  The \esldef{input alphabet} consists of all the
@@ -159,9 +164,9 @@ code. Characters in the input alphabet are mapped many-to-one to the
 internal alphabet using an \esldef{input map}. One use of equivalency
 is to map both lower and upper case input to the same internal
 symbol. Another use is to allow several different input characters to
-mean a gap. Another use is to silently accept and ``fix'' nonstandard
-but common input ``errors'', such as tolerating the use of X to mean N
-in nucleic acid sequences.
+mean a gap, 'any' symbol, or 'nonresidue' symbol. Another use is to
+silently accept and ``fix'' nonstandard but common input ``errors'',
+such as tolerating the use of X to mean N in nucleic acid sequences.
 
 Degenerate residues are codes in the internal alphabet that are mapped
 one-to-many onto canonical residue codes, using a \esldef{degeneracy
@@ -182,19 +187,21 @@ Easel's internal alphabet is a string (\ccode{a->sym}) of length
  \item a standard gap symbol;
  \item (optionally) any other degenerate, unusual, or modified residue codes;
  \item a mandatory ``any'' symbol (a completely degenerate residue);
- \item a standard ``missing data'' symbol.
+ \item a mandatory ``not-a-residue'' symbol;
+ \item a mandatory ``missing data'' symbol.
 \end{itemize}
 
 Residues \ccode{0..K-1} must be the canonical alphabet.  Residue
-\ccode{K} must be the gap symbol.  Residues \ccode{K+1..Kp-3} must be
+\ccode{K} must be the gap symbol.  Residues \ccode{K+1..Kp-4} must be
 the degenerate and modified residue symbols (there can be zero of
-these). Residue \ccode{Kp-2} must be the completely degenerate symbol
+these). Residue \ccode{Kp-3} must be the completely degenerate symbol
 (such as \ccode{X} for protein sequence or \ccode{N} for nucleic acid
-sequence); all alphabets must have such a symbol. Residue \ccode{Kp-1}
-must be the missing data symbol.  Because the completely-degenerate
-symbol and the two kinds of gap symbols are mandatory in any alphabet,
-\ccode{Kp} $\geq$ \ccode {K+3}. Aside from these constraints, symbols
-may occur in any order.
+sequence); all alphabets must have such a symbol. Residue \ccode{Kp-2}
+must be the not-a-residue symbol.  Residue \ccode{Kp-1} must be the
+missing data symbol.  Because the 'any' symbol, 'not-a-residue'
+symbol, and the two kinds of gap symbols are mandatory in any
+alphabet, \ccode{Kp} $\geq$ \ccode {K+4}. Aside from these
+constraints, symbols may occur in any order.
 
 The digital code used for each residue is then the index of a residue
 in this string, \ccode{0..Kp-1}. The only other value that can appear
@@ -214,12 +221,16 @@ canonical residues go first.  We expect some applications to treat
 gaps as an extra symbol, and provide \ccode{K+1} position-specific
 scores or a \ccode{K+1} $\times$ \ccode{K+1} score matrix, so the gap
 character is next. We expect a few applications to optimize degeneracy
-scoring by precalculating them in \ccode{Kp-1} vectors or $Kp-1 \times Kp-1$
-matrices, so the degeneracies go next (the gap character at $K$ might
-then go unused in the score vectors and matrices, but that's a minor
-inefficiency).  The missing data symbol is expected to always require
-special handling when it occurs, rather than appearing in a score
-vector or matrix, so it's put last.
+scoring by precalculating them in \ccode{Kp-2} vectors or $Kp-2 \times
+Kp-2$ matrices, so the degeneracies go next (the gap character at $K$
+might then go unused in the score vectors and matrices, but that's a
+minor inefficiency). The 'any' symbol should be at a predictable
+position in the degeneracy list, so it's arbitrarily placed at the
+end, in position \ccode{Kp-3}. The most robust applications will also
+handle the not-a-residue symbol (they may see translated stop codons),
+so it's next.  Finally, the missing data symbol is expected to always
+require special handling when it occurs, rather than appearing in a
+score vector or matrix, so it's put last.
 
 \subsection{The standard alphabets: DNA, RNA, protein}
 
@@ -228,9 +239,9 @@ The three standard internal alphabets are:
 \begin{table}[h]
 \begin{tabular}{llccrr}
 \textbf{Type} & \ccode{sym}  & \textbf{equivs} & \textbf{gaps}   & \ccode{K} & \ccode{Kp} \\
-\ccode{eslRNA}        & \ccode{ACGU-RYMKSWHBVDN\~}            & T=U; X=N & \ccode{-\_.} & 4         &  17         \\
-\ccode{eslDNA}        & \ccode{ACGT-RYMKSWHBVDN\~}            & U=T; X=N & \ccode{-\_.} & 4         &  17         \\
-\ccode{eslAMINO}      & \ccode{ACDEFGHIKLMNPQRSTVWY-BJZOUX\~} &          & \ccode{-\_.} & 20        &  28         \\
+\ccode{eslRNA}        & \ccode{ACGU-RYMKSWHBVDN*\~}            & T=U; X=N & \ccode{-\_.} & 4         &  18         \\
+\ccode{eslDNA}        & \ccode{ACGT-RYMKSWHBVDN*\~}            & U=T; X=N & \ccode{-\_.} & 4         &  18         \\
+\ccode{eslAMINO}      & \ccode{ACDEFGHIKLMNPQRSTVWY-BJZOUX*\~} &          & \ccode{-\_.} & 20        &  29         \\
 \end{tabular}
 \end{table}
 
@@ -261,7 +272,7 @@ following usage in the RESID database
 
 \subsection{Degenerate residues}
 
-The symbols from \ccode{K+1..Kp-3} in the internal alphabet are all
+The symbols from \ccode{K+1..Kp-4} in the internal alphabet are all
 treated as degenerate residues.
 
 When creating a custom alphabet, each degenerate symbol is initialized

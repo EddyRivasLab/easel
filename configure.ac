@@ -327,11 +327,8 @@ AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)
 AC_FUNC_FSEEKO
 
-
-
 # 11. Checks for system services 
 AC_SYS_LARGEFILE
-
 
 
 # 12. Write out esl_config.h header and the Makefiles

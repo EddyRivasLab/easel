@@ -84,35 +84,39 @@ extern char  *esl_abc_DecodeType  (int type);
 extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *errbuf);
 
 /* In the tests below, remember the rules of order in internal alphabets:
- *   Canonical alphabet   Gap   Degeneracies   Any    Missing 
- *        0..K-1           K      K+1..Kp-3   (Kp-2)  (Kp-1)
- *         ACGT            -     RYMKSWHBVD     N      ~           DNA: K=4  Kp=17
- *  ACDEFGHIKLMNPQRSTVWY   -        BJZOU       X      ~       protein: K=20 Kp=28
+ *   Canonical alphabet   Gap   Degeneracies   Any    None    Missing 
+ *        0..K-1           K      K+1..Kp-4   (Kp-3)  (Kp-2)   (Kp-1)
+ *         ACGT            -     RYMKSWHBVD     N       *        ~           DNA: K=4  Kp=18
+ *  ACDEFGHIKLMNPQRSTVWY   -        BJZOU       X       *        ~       protein: K=20 Kp=29
  *                           
  * ESL_DSQ is an unsigned 8-bit type, so don't test for >= 0 or compilers will complain.
  */
 #define esl_abc_DigitizeSymbol(a, c) ((a)->inmap[(int)c])
 #define esl_abc_XIsValid(a, x)       ((x) < (a)->Kp)
-#define esl_abc_XIsResidue(a, x)     ((x) < (a)->K || ((x) > (a)->K && (x) < (a)->Kp-1))
+#define esl_abc_XIsResidue(a, x)     ((x) < (a)->K || ((x) > (a)->K && (x) < (a)->Kp-2))
 #define esl_abc_XIsCanonical(a, x)   ((x) < (a)->K)
 #define esl_abc_XIsGap(a, x)         ((x) == (a)->K)
-#define esl_abc_XIsDegenerate(a, x)  ((x) >  (a)->K && (x) < (a)->Kp-1)
-#define esl_abc_XIsUnknown(a, x)     ((x) == (a)->Kp-2)
+#define esl_abc_XIsDegenerate(a, x)  ((x) >  (a)->K && (x) < (a)->Kp-2)
+#define esl_abc_XIsUnknown(a, x)     ((x) == (a)->Kp-3)
+#define esl_abc_XIsNonresidue(a, x)  ((x) == (a)->Kp-2)
 #define esl_abc_XIsMissing(a, x)     ((x) == (a)->Kp-1)
 #define esl_abc_XGetGap(a)           ((a)->K)
-#define esl_abc_XGetUnknown(a)       ((a)->Kp-2)
+#define esl_abc_XGetUnknown(a)       ((a)->Kp-3)
+#define esl_abc_XGetNonresidue(a)    ((a)->Kp-2)
 #define esl_abc_XGetMissing(a)       ((a)->Kp-1)
 
 
 #define esl_abc_CIsValid(a, c)       (isascii(c) && (a)->inmap[(int)c] < (a)->Kp)
-#define esl_abc_CIsResidue(a, c)     ((a)->inmap[(int)c] < (a)->K || ((a)->inmap[(int)c] > (a)->K && (a)->inmap[(int)c] < (a)->Kp-1))
+#define esl_abc_CIsResidue(a, c)     ((a)->inmap[(int)c] < (a)->K || ((a)->inmap[(int)c] > (a)->K && (a)->inmap[(int)c] < (a)->Kp-2))
 #define esl_abc_CIsCanonical(a, c)   ((a)->inmap[(int)c] < (a)->K)
 #define esl_abc_CIsGap(a, c)         ((a)->inmap[(int)c] == (a)->K)
-#define esl_abc_CIsDegenerate(a, c)  ((a)->inmap[(int)c] > (a)->K  && (a)->inmap[(int)c] < (a)->Kp-1)
-#define esl_abc_CIsUnknown(a, c)     ((a)->inmap[(int)c] == (a)->Kp-2)
+#define esl_abc_CIsDegenerate(a, c)  ((a)->inmap[(int)c] > (a)->K  && (a)->inmap[(int)c] < (a)->Kp-2)
+#define esl_abc_CIsUnknown(a, c)     ((a)->inmap[(int)c] == (a)->Kp-3)
+#define esl_abc_CIsNonresidue(a, c)  ((a)->inmap[(int)c] == (a)->Kp-2)
 #define esl_abc_CIsMissing(a, c)     ((a)->inmap[(int)c] == (a)->Kp-1)
 #define esl_abc_CGetGap(a)           ((a)->sym[(int)(a)->K])
-#define esl_abc_CGetUnknown(a)       ((a)->sym[(int)(a)->Kp-2])
+#define esl_abc_CGetUnknown(a)       ((a)->sym[(int)(a)->Kp-3])
+#define esl_abc_CGetNonresidue(a)    ((a)->sym[(int)(a)->Kp-2])
 #define esl_abc_CGetMissing(a)       ((a)->sym[(int)(a)->Kp-1])
 
 

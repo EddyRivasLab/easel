@@ -81,16 +81,18 @@ esl_alphabet_Create(int type)
  *            
  *            In the alphabet string, residues <0..K-1> are the base alphabet; 
  *            residue <K> is the canonical gap (indel) symbol; 
- *            residues <K+1..Kp-3> are additional degeneracy symbols (possibly 0 of them);
- *            residue <Kp-2> is an "any" symbol (such as N or X); 
+ *            residues <K+1..Kp-4> are additional degeneracy symbols (possibly 0 of them);
+ *            residue <Kp-3> is an "any" symbol (such as N or X); 
+ *            residue <Kp-2> is a "nonresidue" symbol (such as *); 
  *            and residue <Kp-1> is a "missing data" gap symbol.
  *            
- *            The two gap symbols and the "any" symbol are mandatory even for
- *            nonstandard alphabets, so <Kp> $\geq$ <K+3>.
+ *            The two gap symbols, the nonresidue, and the "any"
+ *            symbol are mandatory even for nonstandard alphabets, so
+ *            <Kp> $\geq$ <K+4>.
  *            
- * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN~"
+ * Args:      alphabet - internal alphabet; example "ACGT-RYMKSWHBVDN*~"
  *            K        - base size; example 4
- *            Kp       - total size, including gap, degeneracies; example 17
+ *            Kp       - total size, including gap, degeneracies; example 18
  *
  * Returns:   pointer to new <ESL_ALPHABET> structure.
  *
@@ -106,7 +108,7 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   /* Argument checks.
    */
   if (strlen(alphabet) != Kp) ESL_XEXCEPTION(eslEINVAL, "alphabet length != Kp");
-  if (Kp < K+3)               ESL_XEXCEPTION(eslEINVAL, "Kp too small in alphabet"); 
+  if (Kp < K+4)               ESL_XEXCEPTION(eslEINVAL, "Kp too small in alphabet"); 
 
   /* Allocation/init, level 1.
    */
@@ -143,9 +145,9 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
 
   /* Initialize the degeneracy map:
    *  Base alphabet (first K syms) are automatically
-   *  mapped uniquely; last character (Kp-2) is assumed to be
-   *  the "any" character; other degen chars (K+1..Kp-3) are 
-   *  unset; gap, missing character are unmapped (ndegen=0)
+   *  mapped uniquely; (Kp-3) is assumed to be
+   *  the "any" character; other degen chars (K+1..Kp-4) are 
+   *  unset; gap, nonresidue, missing character are unmapped (ndegen=0)
    */
   for (x = 0; x < a->Kp; x++)  	/* clear everything */
     {
@@ -158,8 +160,8 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
       a->degen[x][x] = 1;
     }
                                 /* "any" character */
-  a->ndegen[Kp-2]  = K;
-  for (x = 0; x < a->K; x++) a->degen[Kp-2][x] = 1;
+  a->ndegen[Kp-3]  = K;
+  for (x = 0; x < a->K; x++) a->degen[Kp-3][x] = 1;
 
   a->complement = NULL;
   return a;
@@ -212,7 +214,7 @@ create_rna(void)
 
   /* Create the fundamental alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGU-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
   a->type = eslRNA;
   
   /* Add desired synonyms in the input map.
@@ -251,7 +253,7 @@ create_dna(void)
 
   /* Create the fundamental alphabet.
    */
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN~", 4, 17)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN*~", 4, 18)) == NULL) return NULL;
   a->type = eslDNA;
   
   /* Add desired synonyms in the input map.
@@ -290,7 +292,7 @@ create_amino(void)
 
   /* Create the internal alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX~", 20, 28)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZOUX*~", 20, 29)) == NULL) return NULL;
   a->type = eslAMINO;
   
   /* Add desired synonyms in the input map.
@@ -324,7 +326,7 @@ create_coins(void)
 
   /* Create the internal alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("HT-X~", 2, 5)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("HT-X*~", 2, 6)) == NULL) return NULL;
   a->type = eslCOINS;
 
   /* Add desired synonyms in the input map.
@@ -448,7 +450,7 @@ esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a)
  *            in the canonical alphabet (<0>..<K-1>).
  *            
  *            You may not redefine the mandatory all-degenerate character
- *            (typically <N> or <X>; <Kp-2> in the digital alphabet).
+ *            (typically <N> or <X>; <Kp-3> in the digital alphabet).
  *            It is defined automatically in all alphabets. 
  *
  * Args:      a   - an alphabet under construction.
@@ -469,13 +471,13 @@ esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds)
     ESL_EXCEPTION(eslEINVAL, "no such degenerate character");
   x = sp - a->sym;
 
-  /* A degenerate character must have code K+1..Kp-3.
-   * Kp-2, the all-degenerate character, is automatically
+  /* A degenerate character must have code K+1..Kp-4.
+   * Kp-3, the all-degenerate character, is automatically
    * created, and can't be remapped.
    */
-  if (x == a->Kp-2) 
+  if (x == a->Kp-3) 
     ESL_EXCEPTION(eslEINVAL, "can't redefine all-degenerate char %c", c);
-  if (x < a->K+1 || x >= a->Kp-1) 
+  if (x < a->K+1 || x >= a->Kp-2) 
     ESL_EXCEPTION(eslEINVAL, "char %c isn't in expected position in alphabet", c);
   
   while (*ds != '\0') {
@@ -1338,9 +1340,10 @@ esl_abc_DExpectScore(const ESL_ALPHABET *a, ESL_DSQ x, const double *sc, const d
  *            vector, calculating average scores for 
  *            degenerate residues using <esl_abc_IAvgScore()>.
  *            
- *            The score, if any, for a gap character <K> and the missing
- *            data character <Kp-1> are untouched by this function. Only
- *            the degenerate scores <K+1..Kp-2> are filled in.
+ *            The score, if any, for a gap character <K>, the
+ *            nonresidue <Kp-2>, and the missing data character <Kp-1>
+ *            are untouched by this function. Only the degenerate
+ *            scores <K+1..Kp-3> are filled in.
  *            
  *            <esl_abc_FAvgScVec()> and <esl_abc_DAvgScVec()> do
  *            the same, but for score vectors of floats or doubles,
@@ -1352,7 +1355,7 @@ int
 esl_abc_IAvgScVec(const ESL_ALPHABET *a, int *sc)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_IAvgScore(a, x, sc);
   return eslOK;
 }
@@ -1360,7 +1363,7 @@ int
 esl_abc_FAvgScVec(const ESL_ALPHABET *a, float *sc)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_FAvgScore(a, x, sc);
   return eslOK;
 }
@@ -1368,7 +1371,7 @@ int
 esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_DAvgScore(a, x, sc);
   return eslOK;
 }
@@ -1381,11 +1384,12 @@ esl_abc_DAvgScVec(const ESL_ALPHABET *a, double *sc)
  *            <a->Kp> that contains integer scores for the base
  *            alphabet (<0..a->K-1>), and residue occurrence probabilities
  *            <p[0..a->K-1]>; fill in the scores for the
- *            degenerate residues <K+1..Kp-2> using <esl_abc_IExpectScore()>.
+ *            degenerate residues <K+1..Kp-3> using <esl_abc_IExpectScore()>.
  *            
- *            The score, if any, for a gap character <K> and the missing
- *            data character <Kp-1> are untouched by this function. Only
- *            the degenerate scores <K+1..Kp-2> are filled in.
+ *            The score, if any, for a gap character <K>, the
+ *            nonresidue <Kp-2>, and the missing data character <Kp-1>
+ *            are untouched by this function. Only the degenerate
+ *            scores <K+1..Kp-3> are filled in.
  *            
  *            <esl_abc_FExpectScVec()> and <esl_abc_DExpectScVec()> do
  *            the same, but for score vectors of floats or doubles,
@@ -1399,7 +1403,7 @@ int
 esl_abc_IExpectScVec(const ESL_ALPHABET *a, int *sc, const float *p)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_IExpectScore(a, x, sc, p);
   return eslOK;
 }
@@ -1407,7 +1411,7 @@ int
 esl_abc_FExpectScVec(const ESL_ALPHABET *a, float *sc, const float *p)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_FExpectScore(a, x, sc, p);
   return eslOK;
 }
@@ -1415,7 +1419,7 @@ int
 esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p)
 {
   ESL_DSQ x;
-  for (x = a->K+1; x <= a->Kp-2; x++)
+  for (x = a->K+1; x <= a->Kp-3; x++)
     sc[x] = esl_abc_DExpectScore(a, x, sc, p);
   return eslOK;
 }
@@ -1432,8 +1436,8 @@ esl_abc_DExpectScVec(const ESL_ALPHABET *a, double *sc, const double *p)
  *            across the possible base symbols. 
  *            
  *            <x> can be a gap; if so, <ct> must be allocated 0..K,
- *            not 0..K-1. If <x> is a missing data symbol, nothing
- *            is done.
+ *            not 0..K-1. If <x> is a missing data symbol, or a nonresidue
+ *            data symbol, nothing is done.
  *            
  *            <esl_abc_DCount()> does the same, but for double-precision
  *            count vectors and weights.
@@ -1447,7 +1451,7 @@ esl_abc_FCount(const ESL_ALPHABET *abc, float *ct, ESL_DSQ x, float wt)
 
   if (esl_abc_XIsCanonical(abc, x) || esl_abc_XIsGap(abc, x))
     ct[x] += wt;
-  else if (esl_abc_XIsMissing(abc, x))
+  else if (esl_abc_XIsMissing(abc, x) || esl_abc_XIsNonresidue(abc, x))
     return eslOK;
   else
     for (y = 0; y < abc->K; y++) {
@@ -1463,7 +1467,7 @@ esl_abc_DCount(const ESL_ALPHABET *abc, double *ct, ESL_DSQ x, double wt)
 
   if (esl_abc_XIsCanonical(abc, x) || esl_abc_XIsGap(abc, x))
     ct[x] += wt;
-  else if (esl_abc_XIsMissing(abc, x))
+  else if (esl_abc_XIsMissing(abc, x) || esl_abc_XIsNonresidue(abc, x))
     return eslOK;
   else
     for (y = 0; y < abc->K; y++) {
@@ -1584,7 +1588,7 @@ utest_Create(void)
   char msg[]  = "esl_alphabet_Create() unit test failed";
   int  types[] = { eslDNA, eslRNA, eslAMINO };
   int  Karr[]  = {      4,      4,       20 };
-  int  Kparr[] = {     17,     17,       28 };
+  int  Kparr[] = {     18,     18,       29 };
   int  i;
   ESL_ALPHABET *a;
   ESL_DSQ       x;
@@ -1598,12 +1602,19 @@ utest_Create(void)
       if (strlen(a->sym) != a->Kp)   esl_fatal(msg);
 
       x = esl_abc_XGetGap(a);
+      if (x            != a->K)    esl_fatal(msg);
       if (a->ndegen[x] != 0)       esl_fatal(msg);
 
       x = esl_abc_XGetUnknown(a);
+      if (x            != a->Kp-3) esl_fatal(msg);
       if (a->ndegen[x] != a->K)    esl_fatal(msg);
   
+      x = esl_abc_XGetNonresidue(a);
+      if (x            != a->Kp-2) esl_fatal(msg);
+      if (a->ndegen[x] != 0)       esl_fatal(msg);
+      
       x = esl_abc_XGetMissing(a);
+      if (x            != a->Kp-1) esl_fatal(msg);
       if (a->ndegen[x] != 0)       esl_fatal(msg);
 
       esl_alphabet_Destroy(a);
@@ -1626,10 +1637,10 @@ utest_CreateCustom(void)
   char msg[]  = "esl_alphabet_CreateCustom() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "AaU-~Z";
-  ESL_DSQ      expect[] = { eslDSQ_SENTINEL, 0, 0, 15, 20, 25, 23, eslDSQ_SENTINEL };
+  ESL_DSQ      expect[] = { eslDSQ_SENTINEL, 0, 0, 15, 20, 26, 23, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
   
-  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZX~", 20, 26)) == NULL) esl_fatal(msg);
+  if ((a = esl_alphabet_CreateCustom("ACDEFGHIKLMNPQRSTVWY-BJZX*~", 20, 27)) == NULL) esl_fatal(msg);
   if (esl_alphabet_SetEquiv(a, 'O', 'K')       != eslOK) esl_fatal(msg);  /* read pyrrolysine O as lysine K */
   if (esl_alphabet_SetEquiv(a, 'U', 'S')       != eslOK) esl_fatal(msg);  /* read selenocys U as serine S */
   if (esl_alphabet_SetCaseInsensitive(a)       != eslOK) esl_fatal(msg);  /* allow lower case input */
@@ -1642,7 +1653,7 @@ utest_CreateCustom(void)
   esl_alphabet_Destroy(a);
 
 #ifdef eslTEST_THROWING
-  if (esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN~", 4, 20) != NULL) esl_fatal(msg); /* Kp mismatches string length */
+  if (esl_alphabet_CreateCustom("ACGT-RYMKSWHBVDN*~", 4, 21) != NULL) esl_fatal(msg); /* Kp mismatches string length */
 #endif
 
   return eslOK;
@@ -1654,10 +1665,10 @@ utest_SetEquiv(void)
   char msg[]  = "esl_alphabet_SetEquiv() unit test failed";
   ESL_ALPHABET *a;
   char         *testseq = "a1&";
-  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 4, 6, eslDSQ_SENTINEL };
+  ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 4, 7, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-N~", 4, 7)) == NULL) esl_fatal(msg);
+  if ((a = esl_alphabet_CreateCustom("ACGT-N*~", 4, 8)) == NULL) esl_fatal(msg);
   if (esl_alphabet_SetEquiv(a, 'a', 'A') != eslOK)              esl_fatal(msg);
   if (esl_alphabet_SetEquiv(a, '1', '-') != eslOK)              esl_fatal(msg);
   if (esl_alphabet_SetEquiv(a, '&', '~') != eslOK)              esl_fatal(msg);
@@ -1683,7 +1694,7 @@ utest_SetCaseInsensitive(void)
   ESL_DSQ       expect[] = { eslDSQ_SENTINEL, 0, 1, 2, 3, eslDSQ_SENTINEL };
   ESL_DSQ      *dsq;
 
-  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL) esl_fatal(msg);
+  if ((a = esl_alphabet_CreateCustom("acgt-n*~", 4, 8)) == NULL) esl_fatal(msg);
   if (esl_alphabet_SetCaseInsensitive(a) != eslOK)              esl_fatal(msg);
   if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
@@ -1691,9 +1702,9 @@ utest_SetCaseInsensitive(void)
   esl_alphabet_Destroy(a);
 
 #ifdef TEST_THROWING
-  if ((a = esl_alphabet_CreateCustom("acgt-n~", 4, 7)) == NULL)       esl_fatal(msg);
-  if (esl_alphabet_SetEquiv(a, 'A', 'c')              != eslOK)       esl_fatal(msg); /* now input A maps to internal c */
-  if (esl_alphabet_SetCaseInsensitive(a)              != eslECORRUPT) esl_fatal(msg); /* and this fails, can't remap A  */
+  if ((a = esl_alphabet_CreateCustom("acgt-n*~", 4, 8)) == NULL)       esl_fatal(msg);
+  if (esl_alphabet_SetEquiv(a, 'A', 'c')               != eslOK)       esl_fatal(msg); /* now input A maps to internal c */
+  if (esl_alphabet_SetCaseInsensitive(a)               != eslECORRUPT) esl_fatal(msg); /* and this fails, can't remap A  */
   esl_alphabet_Destroy(a);
 #endif
 
@@ -1710,10 +1721,10 @@ utest_SetDegeneracy(void)
   ESL_DSQ      *dsq;
   ESL_DSQ       x;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
-  if (esl_alphabet_SetDegeneracy(a, 'R', "AG") != eslOK)          esl_fatal(msg);
-  if (esl_alphabet_SetDegeneracy(a, 'Y', "CT") != eslOK)          esl_fatal(msg);
-  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK)          esl_fatal(msg);
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN*~", 4, 10)) == NULL) esl_fatal(msg);
+  if (esl_alphabet_SetDegeneracy(a, 'R', "AG") != eslOK)            esl_fatal(msg);
+  if (esl_alphabet_SetDegeneracy(a, 'Y', "CT") != eslOK)            esl_fatal(msg);
+  if (esl_alphabet_SetCaseInsensitive(a)       != eslOK)            esl_fatal(msg);
 
   if (esl_abc_CreateDsq(a, testseq, &dsq) != eslOK)   esl_fatal(msg);
   if (memcmp(dsq, expect, sizeof(ESL_DSQ) * (strlen(testseq)+2)) != 0) esl_fatal(msg);
@@ -1727,14 +1738,15 @@ utest_SetDegeneracy(void)
   esl_alphabet_Destroy(a);
   
 #ifdef TEST_THROWING
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
-  if (esl_abc_SetDegeneracy(a, 'z', "AC")    != eslEINVAL)        esl_fatal(msg); /* can't map char not in alphabet */
-  if (esl_abc_SetDegeneracy(a, 'N', "ACGT")  != eslEINVAL)        esl_fatal(msg); /* can't remap N */
-  if (esl_abc_SetDegeneracy(a, 'A', "GT")    != eslEINVAL)        esl_fatal(msg); /* can't map a nondegen character */
-  if (esl_abc_SetDegeneracy(a, '-', "GT")    != eslEINVAL)        esl_fatal(msg); /*   ... or a gap... */
-  if (esl_abc_SetDegeneracy(a, '~', "GT")    != eslEINVAL)        esl_fatal(msg); /*   ... or missing data. */
-  if (esl_abc_SetDegeneracy(a, 'R', "XY")    != eslEINVAL)        esl_fatal(msg); /* can't map to unknown chars... */
-  if (esl_abc_SetDegeneracy(a, 'R', "YN")    != eslEINVAL)        esl_fatal(msg); /*   ... nor to noncanonical chars... */
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN*~", 4, 10)) == NULL) esl_fatal(msg);
+  if (esl_abc_SetDegeneracy(a, 'z', "AC")    != eslEINVAL)          esl_fatal(msg); /* can't map char not in alphabet */
+  if (esl_abc_SetDegeneracy(a, 'N', "ACGT")  != eslEINVAL)          esl_fatal(msg); /* can't remap N */
+  if (esl_abc_SetDegeneracy(a, 'A', "GT")    != eslEINVAL)          esl_fatal(msg); /* can't map a nondegen character */
+  if (esl_abc_SetDegeneracy(a, '-', "GT")    != eslEINVAL)          esl_fatal(msg); /*   ... or a gap... */
+  if (esl_abc_SetDegeneracy(a, '*', "GT")    != eslEINVAL)          esl_fatal(msg); /*   ... or nonresidues... */
+  if (esl_abc_SetDegeneracy(a, '~', "GT")    != eslEINVAL)          esl_fatal(msg); /*   ... or missing data. */
+  if (esl_abc_SetDegeneracy(a, 'R', "XY")    != eslEINVAL)          esl_fatal(msg); /* can't map to unknown chars... */
+  if (esl_abc_SetDegeneracy(a, 'R', "YN")    != eslEINVAL)          esl_fatal(msg); /*   ... nor to noncanonical chars... */
   esl_alphabet_Destroy(a);
 #endif
   return eslOK;
@@ -1767,7 +1779,7 @@ utest_Destroy(void)
   char msg[]  = "esl_alphabet_Destroy() unit test failed";
   ESL_ALPHABET *a;
 
-  if ((a = esl_alphabet_CreateCustom("ACGT-RYN~", 4, 9)) == NULL) esl_fatal(msg);
+  if ((a = esl_alphabet_CreateCustom("ACGT-RYN*~", 4, 10)) == NULL) esl_fatal(msg);
   esl_alphabet_Destroy(a);
   esl_alphabet_Destroy(NULL);	/* should be robust against NULL pointers */
   return eslOK;
