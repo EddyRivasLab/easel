@@ -556,7 +556,58 @@ esl_stats_LinearRegression(const double *x, const double *y, const double *sigma
  * 2. Unit tests.
  *****************************************************************/
 #ifdef eslSTATS_TESTDRIVE
-#include <esl_random.h>
+#include "esl_random.h"
+#include "esl_stopwatch.h"
+#ifdef HAVE_LIBGSL 
+#include <gsl/gsl_sf_gamma.h>
+#endif
+
+/* The LogGamma() function is rate-limiting in hmmbuild, because it is
+ * used so heavily in mixture Dirichlet calculations.
+ *    ./configure --with-gsl; [compile test driver]
+ *    ./stats_utest -v
+ * runs a comparison of time/precision against GSL.
+ * SRE, Sat May 23 10:04:41 2009, on home Mac:
+ *     LogGamma       = 1.29u  / N=1e8  =  13 nsec/call
+ *     gsl_sf_lngamma = 1.43u  / N=1e8  =  14 nsec/call
+ */
+static void
+utest_LogGamma(ESL_RANDOMNESS *r, int N, int be_verbose)
+{
+  char          *msg = "esl_stats_LogGamma() unit test failed";
+  ESL_STOPWATCH *w   = esl_stopwatch_Create();
+  double        *x   = malloc(sizeof(double) * N);
+  double        *lg  = malloc(sizeof(double) * N);
+  double        *lg2 = malloc(sizeof(double) * N);
+  int            i;
+
+  for (i = 0; i < N; i++) 
+    x[i] = esl_random(r) * 100.;
+  
+  esl_stopwatch_Start(w);
+  for (i = 0; i < N; i++) 
+    if (esl_stats_LogGamma(x[i], &(lg[i])) != eslOK) esl_fatal(msg);
+  esl_stopwatch_Stop(w);
+
+  if (be_verbose) esl_stopwatch_Display(stdout, w, "esl_stats_LogGamma() timing: ");
+
+#ifdef HAVE_LIBGSL
+  esl_stopwatch_Start(w);
+  for (i = 0; i < N; i++) lg2[i] = gsl_sf_lngamma(x[i]);
+  esl_stopwatch_Stop(w);
+
+  if (be_verbose) esl_stopwatch_Display(stdout, w, "gsl_sf_lngamma() timing:     ");
+  
+  for (i = 0; i < N; i++)
+    if (esl_DCompare(lg[i], lg2[i], 1e-2) != eslOK) esl_fatal(msg);
+#endif
+  
+  free(lg2);
+  free(lg);
+  free(x);
+  esl_stopwatch_Destroy(w);
+}
+
 
 /* The test of esl_stats_LinearRegression() is a statistical test,
  * so we can't be too aggressive about testing results. 
@@ -636,7 +687,8 @@ utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
  * 3. Test driver.
  *****************************************************************/
 #ifdef eslSTATS_TESTDRIVE
-/* gcc -g -Wall -o testdrive -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lm
+/* gcc -g -Wall -o stats_utest  -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lm
+ * gcc -DHAVE_LIBGSL -O2 -o stats_utest -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lgsl -lm
  */
 #include <stdio.h>
 #include "easel.h"
@@ -649,36 +701,23 @@ static ESL_OPTIONS options[] = {
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                   0},
   {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",         0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "verbose: show verbose output",          0},
+  {"-N",  eslARG_INT,"10000000", NULL, NULL, NULL, NULL, NULL, "number of trials in LogGamma test",     0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
-static char usage[] = "[-options]";
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for stats special functions";
 
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go  = NULL;
-  ESL_RANDOMNESS *r   = NULL;
-  int             be_verbose;
+  ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *r          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose = esl_opt_GetBoolean(go, "-v");
+  int             N          = esl_opt_GetInteger(go, "-N");
 
-  go = esl_getopts_Create(options);
-  if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK ||
-      esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("%s", go->errbuf);
-  if (esl_opt_GetBoolean(go, "-h") == TRUE) {
-    esl_usage(stdout, argv[0], usage);
-    puts("\n  where options are:");
-    esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0=all docgroups; 2=indentation; 80=width */
-    exit(0);
-  }
-  if (esl_opt_ArgNumber(go) != 0) {
-    printf("Incorrect number of command line arguments.\n");
-    esl_usage(stdout, argv[0], usage);
-    exit(1);
-  }
-  be_verbose = esl_opt_GetBoolean(go, "-v");
-
-  r = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   if (be_verbose) printf("seed = %ld\n", esl_randomness_GetSeed(r));
 
+  utest_LogGamma(r, N, be_verbose);
   utest_LinearRegression(r, TRUE,  be_verbose);
   utest_LinearRegression(r, FALSE, be_verbose);
   

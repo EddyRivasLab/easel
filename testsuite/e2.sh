@@ -10,7 +10,7 @@
 prog=$1
 alifile=$2
 
-output=`cat $alifile | $prog - 2>&1 | head -1 | grep -c "^Format of seqfile - unrecognized."`
+output=`cat $alifile | $prog - 2>&1 | head -n 1 | grep -c "^Format of seqfile - unrecognized."`
 if test "$output" = 0 
 then 
    echo "FAIL"
