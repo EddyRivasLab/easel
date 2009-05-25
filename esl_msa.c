@@ -965,14 +965,13 @@ esl_msa_Destroy(ESL_MSA *msa)
  *            <name> may be a <printf()>-style format with
  *            arguments; for example, <esl_msa_SetName(msa, "random%d", i)>.
  *            
- *            The MSA name is a mandatory field, so passing <NULL> for
- *            <name> is not valid; doing so will throw an <eslEINVAL>
- *            error.
+ *            <name> can be <NULL>, because the MSA name is an
+ *            optional field; in which case any existing name in
+ *            the <msa> is erased.
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEINVAL> if <name> is <NULL>;
- *            <eslEMEM> on allocation error;
+ * Throws:    <eslEMEM> on allocation error;
  *            <eslESYS> if a <*printf()> library call fails.
  */
 int
@@ -982,15 +981,11 @@ esl_msa_SetName(ESL_MSA *msa, const char *name, ...)
   int     status;
 
   if (msa->name != NULL) free(msa->name); 
-  if (name      == NULL) ESL_XEXCEPTION(eslEINVAL, "an MSA name may not be NULL");
+  if (name      == NULL) { msa->name = NULL; return eslOK; }
 
   va_start(ap, name);
   status = esl_vsprintf(&(msa->name), name, &ap);
   va_end(ap);
-  return status;
-
- ERROR:
-  msa->name = NULL;
   return status;
 }
 

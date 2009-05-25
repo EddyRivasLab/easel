@@ -1328,6 +1328,9 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 int
 esl_DCompare(double a, double b, double tol)
 {
+  if (isinf(a) && isinf(b))                 return eslOK;
+  if (isnan(a) && isnan(b))                 return eslOK;
+  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
   if (a == b)                               return eslOK;
   if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
   if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;
@@ -1337,6 +1340,9 @@ esl_DCompare(double a, double b, double tol)
 int
 esl_FCompare(float a, float b, float tol)
 { 
+  if (isinf(a) && isinf(b))                 return eslOK;
+  if (isnan(a) && isnan(b))                 return eslOK;
+  if (!isfinite(a) || !isfinite(b))         return eslFAIL;
   if (a == b)                               return eslOK;
   if (fabs(a) == 0. && fabs(b) <= tol)      return eslOK;
   if (fabs(b) == 0. && fabs(a) <= tol)      return eslOK;

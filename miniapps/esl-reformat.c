@@ -47,6 +47,7 @@ static ESL_OPTIONS options[] = {
   { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
   { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "ignore input seq characters listed in string <s>",   0 },
   { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "accept input seq chars in string <s> as X",          0 },
+  { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "rename and number each sequence <s>.<n>",            0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -55,7 +56,7 @@ static void symconvert(char *s, char *oldsyms, char *newsyms);
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go;		/* application configuration               */
+  ESL_GETOPTS *go;	        /* application configuration               */
   char        *outformat;	/* output format as a string               */
   char        *infile;          /* name of input sequence file             */
   int          infmt;		/* input format as a code; eslSQFILE_FASTA */
@@ -77,6 +78,8 @@ main(int argc, char **argv)
   int    wussify;		/* TRUE to convert old KH SS markup to WUSS  */
   int    dewuss;		/* TRUE to convert WUSS back to old KH       */
   int    fullwuss;		/* TRUE to convert simple WUSS to full WUSS  */
+  char  *rename; 		/* if non-NULL rename seqs to <s>.<n>        */
+  int    idx;
   char   errbuf[eslERRBUFSIZE]; /* for error messages                        */
 
   /*****************************************************************
@@ -116,6 +119,7 @@ main(int argc, char **argv)
   wussify     = esl_opt_GetBoolean(go, "--wussify");
   dewuss      = esl_opt_GetBoolean(go, "--dewuss");
   fullwuss    = esl_opt_GetBoolean(go, "--fullwuss");
+  rename      = esl_opt_GetString (go, "--rename");
 
   if (esl_opt_ArgNumber(go) != 2) 
     {
@@ -159,7 +163,6 @@ main(int argc, char **argv)
     {
       ESL_MSAFILE *afp;
       ESL_MSA     *msa;
-      int          idx;
 
       status = esl_msafile_Open(infile, infmt, NULL, &afp);
       if (status == eslENOTFOUND)
@@ -192,6 +195,12 @@ main(int argc, char **argv)
 					       "NNNNNNNNNNnnnnnnnnnn");
 	  if (x_is_bad)     esl_msa_SymConvert(msa, "Xx", "Nn");
 	  
+	  if (rename)
+	    {
+	      for (idx = 0; idx < msa->nseq; idx++)
+		esl_msa_SetSeqName(msa, idx, "%s.%d", rename, idx+1);
+	    }
+
 	  if (wussify)
 	    {
 	      if (msa->ss_cons != NULL) 
@@ -272,7 +281,8 @@ Offending line is:\n\
       if ( esl_opt_IsOn(go, "--ignore"))  esl_sqio_Ignore  (sqfp, esl_opt_GetString(go, "--ignore"));
       if ( esl_opt_IsOn(go, "--acceptx")) esl_sqio_AcceptAs(sqfp, esl_opt_GetString(go, "--acceptx"), 'X');
 
-      sq = esl_sq_Create();
+      sq  = esl_sq_Create();
+      idx = 0;
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
 	  if (force_lower) symconvert(sq->seq, 
@@ -301,8 +311,11 @@ Offending line is:\n\
 			  sq->name, status);
 	    }
 
+	  if (rename) esl_sq_SetName(sq, "%s.%d", rename, idx+1);
+
 	  esl_sqio_Write(ofp, sq, outfmt);
 	  esl_sq_Reuse(sq);
+	  idx++;
 	}
       /* status should be eslEOF on normal end; if it isn't, deal w/ error */
       if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
