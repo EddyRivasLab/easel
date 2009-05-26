@@ -797,7 +797,7 @@ esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
 }    
 
 /* Function:  esl_opt_IsOn()
- * Synopsis:  Returns <TRUE> if option is set.
+ * Synopsis:  Returns <TRUE> if option is set to a non-<NULL> value.
  * Incept:    SRE, Sat Feb 14 09:29:58 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option is on (set to a non-<NULL>
@@ -806,7 +806,10 @@ esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
  *            This is most useful when using integer-, real-, char-,
  *            or string-valued options also as boolean switches, where
  *            they can either be OFF, or they can be turned ON by
- *            having a value. 
+ *            having a value. Caller can test <esl_opt_IsOn()> to see
+ *            if the option's active at all, then use
+ *            <esl_opt_GetString()> or whatever to extract the option
+ *            value.
  *            
  *            For a boolean option, the result is identical to
  *            <esl_opt_GetBoolean()>.
@@ -825,7 +828,7 @@ esl_opt_IsOn(const ESL_GETOPTS *g, char *optname)
 
 
 /* Function:  esl_opt_IsUsed()
- * Synopsis:  Returns <TRUE> if option is on, but not default.
+ * Synopsis:  Returns <TRUE> if option is on, and this is not the default.
  * Incept:    SRE, Sat Feb 14 08:57:11 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option <optname> is in use: it has been
@@ -833,7 +836,8 @@ esl_opt_IsOn(const ESL_GETOPTS *g, char *optname)
  *            the option being "on" (a non-<NULL> value).
  *            
  *            This is used in printing application headers, where
- *            we want to report all the options that are in effect.
+ *            we want to report all the options that are in effect that
+ *            weren't already on by default.
  *            
  * Xref:      J4/83
  */
