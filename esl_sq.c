@@ -9,7 +9,7 @@
  *   6. Unit tests.
  *   7. Test driver.
  *   8. Examples.
- *   9. License and copyright.
+ *   9. Copyright and license information.
  * 
  * SRE, Mon Mar 31 17:18:59 2008 [Janelia]
  * SVN $Id$
@@ -1632,8 +1632,8 @@ utest_CreateDigital()
  * 6. Test driver.
  *****************************************************************/
 #ifdef eslSQ_TESTDRIVE
-/* gcc -g -Wall -o sq_utest -I. -L. -DeslSQ_TESTDRIVE esl_sq.c -leasel -lm
- * ./sq_utest
+/* gcc -g -Wall -o esl_sq_utest -I. -L. -DeslSQ_TESTDRIVE esl_sq.c -leasel -lm
+ * ./esl_sq_utest
  */
 #include "esl_config.h"
 

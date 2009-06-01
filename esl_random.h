@@ -6,13 +6,15 @@
 #ifndef ESL_RANDOM_INCLUDED
 #define ESL_RANDOM_INCLUDED
 
+#define eslRND_FAST     0
+#define eslRND_MERSENNE 1
+
 typedef struct {
-  long  seed;           /* reseed with this value, >0    */
-  long  rnd1;           /* random number from LCG1       */
-  long  rnd2;           /* random number from LCG2       */
-  long  rnd;            /* random number we return       */
-  long  tbl[64];        /* table for Bays/Durham shuffle */
-  int   reseeding;	/* TRUE if seed is new           */
+  int      type;		/* eslRND_FAST | eslRND_MERSENNE               */
+  int      mti;			/* current position in mt[] table              */
+  uint32_t mt[624];		/* state of the Mersenne Twister               */
+  uint32_t x;			/* state of the Knuth generator                */
+  uint32_t seed;		/* seed used to init the RNG                   */
 } ESL_RANDOMNESS;
 
 /* esl_rnd_Roll(a) chooses a uniformly distributed integer
@@ -20,14 +22,14 @@ typedef struct {
  */
 #define esl_rnd_Roll(r, a)    ((int) (esl_random(r) * (a)))
 
-
 /* 1. The ESL_RANDOMNESS object.
  */
-extern ESL_RANDOMNESS *esl_randomness_Create(long seed);
+extern ESL_RANDOMNESS *esl_randomness_Create(uint32_t seed);
+extern ESL_RANDOMNESS *esl_randomness_CreateFast(uint32_t seed);
 extern ESL_RANDOMNESS *esl_randomness_CreateTimeseeded(void);
 extern void            esl_randomness_Destroy(ESL_RANDOMNESS *r);
-extern int             esl_randomness_Init(ESL_RANDOMNESS *r, long seed);
-extern long            esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
+extern int             esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed);
+extern uint32_t        esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
 
 /* 2. The generator, esl_random().
  */
@@ -46,7 +48,6 @@ extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, const float  *p, int N);
 
 
 #endif /*ESL_RANDOM_INCLUDED*/
-
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

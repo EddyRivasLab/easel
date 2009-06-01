@@ -205,13 +205,14 @@ show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64
       if ((iid_bg = malloc(sizeof(double) * abc->K)) == NULL) esl_fatal("malloc failed");
       esl_composition_SW50(iid_bg);
 
-     
-      for (x = 0; x < abc->Kp; x++)
-	if (x < abc->K || monoc_all[x] > 0)
-	  printf("residue: %c   %10.0f  %6.4f  %8.4f\n",
-		 abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres,
-		 log((monoc_all[x] / (double) nres) / iid_bg[x]) * eslCONST_LOG2R);
-
+      for (x = 0; x < abc->K; x++)
+	printf("residue: %c   %10.0f  %6.4f  %8.4f\n",
+	       abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres,
+	       log((monoc_all[x] / (double) nres) / iid_bg[x]) * eslCONST_LOG2R);
+      for ( ;     x < abc->Kp; x++)
+	if (monoc_all[x] > 0)
+	  printf("residue: %c   %10.0f  %6.4f\n",
+		 abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
       free(iid_bg);
     }
   else
@@ -221,5 +222,5 @@ show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64
 	  printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
     }
     
-
+  return;
 }

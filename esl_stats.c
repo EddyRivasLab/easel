@@ -714,7 +714,7 @@ main(int argc, char **argv)
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
   int             N          = esl_opt_GetInteger(go, "-N");
 
-  if (be_verbose) printf("seed = %ld\n", esl_randomness_GetSeed(r));
+  if (be_verbose) printf("seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 
   utest_LogGamma(r, N, be_verbose);
   utest_LinearRegression(r, TRUE,  be_verbose);

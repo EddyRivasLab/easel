@@ -2955,9 +2955,11 @@ synthesize_testseqs(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, int maxL, int N, ESL_S
     {
       if ((sqarr[i] = esl_sq_CreateDigital(abc)) == NULL) esl_fatal("failed to allocate seq %d", i);
 
-      n = esl_rnd_Roll(r, maxn) + 1; /* 1..maxn */
-      esl_rsq_fIID(r, ascii, af, 128, n, buf);
-      buf[n] = '\0';
+      do {
+	n = esl_rnd_Roll(r, maxn) + 1; /* 1..maxn */
+	esl_rsq_fIID(r, ascii, af, 128, n, buf);
+	buf[n] = '\0';
+      }	while (ispunct(buf[0])); /* #, // are bad things for names to start with, in Stockholm format */
       esl_sq_SetName(sqarr[i], buf);
 
       if (esl_rnd_Roll(r, 2) == 0) { /* 50% chance of an accession */

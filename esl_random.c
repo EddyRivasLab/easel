@@ -1,4 +1,5 @@
-/* A portable, threadsafe random number generator.
+/* Portable, threadsafe random number generators.
+ * Provides both a fast generator and a strong generator.
  *
  *  1. The ESL_RANDOMNESS object.
  *  2. The generator, esl_random().
@@ -13,6 +14,8 @@
  * 
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
  * SVN $Id$
+ * 
+ * SRE, 30 May 2009: replaced with the Mersenne Twister.
  */
 #include "esl_config.h"
 
@@ -28,15 +31,19 @@
 #include "easel.h"
 #include "esl_random.h"
 
+static uint32_t choose_arbitrary_seed(void);
+static uint32_t jenkins_mix3(uint32_t a, uint32_t b, uint32_t c);
+static uint32_t knuth              (ESL_RANDOMNESS *r);
+static uint32_t mersenne_twister   (ESL_RANDOMNESS *r);
+static void     mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed);
+static void     mersenne_fill_table(ESL_RANDOMNESS *r);
 
 /*****************************************************************
  *# 1. The <ESL_RANDOMNESS> object.
  *****************************************************************/
-static long choose_arbitrary_seed();
-
 
 /* Function:  esl_randomness_Create()
- * Synopsis:  Create a new random number generator.
+ * Synopsis:  Create the default strong random number generator.
  * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
  *
  * Purpose:   Create a random number generator using
@@ -51,13 +58,14 @@ static long choose_arbitrary_seed();
  *            If <seed> is 0, an arbitrary seed is chosen.
  *            Internally, the arbitrary seed is produced by a
  *            combination of the current <time()> and the process id
- *            (if available; POSIX only). Two RNGs created with <seed>=0 will
- *            probably (but not assuredly) give different streams of pseudorandom
- *            numbers. The true seed can be retrieved from the
- *            <ESL_RANDOMNESS> object using <esl_randomness_GetSeed()>.
- *            The strategy used for choosing the arbitrary
- *            seed is not cryptographically secure, because it is
- *            predictable.
+ *            (if available; POSIX only). Two RNGs created with
+ *            <seed>=0 will very probably (but not assuredly) give
+ *            different streams of pseudorandom numbers. The true seed
+ *            can be retrieved from the <ESL_RANDOMNESS> object using
+ *            <esl_randomness_GetSeed()>.  The strategy used for
+ *            choosing the arbitrary seed is predictable, so it is
+ *            not secure in any sense, especially in the cryptographic
+ *            sense.
  *            
  * Args:      seed $>= 0$.
  *
@@ -69,69 +77,56 @@ static long choose_arbitrary_seed();
  * Xref:      STL8/p57.
  */
 ESL_RANDOMNESS *
-esl_randomness_Create(long seed)
+esl_randomness_Create(uint32_t seed)
 {
   ESL_RANDOMNESS *r      = NULL;
-  int             burnin = 7;
   int             status;
 
-  if      (seed == 0) seed = choose_arbitrary_seed();
-  else if (seed <  0) ESL_XEXCEPTION(eslEINVAL, "bad seed");
-
   ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->seed      = seed;
-  r->reseeding = TRUE;
-
-  /* we observe that the first random number isn't very random, if
-   * closely spaced seeds are used, like what we get with using
-   * time().  So, "burn in" the random chain just a little.
-   */
-  while (burnin--) esl_random(r);
+  r->type = eslRND_MERSENNE;
+  r->mti  = 0;
+  r->x    = 0;
+  r->seed = 0;
+  esl_randomness_Init(r, seed);
   return r;
 
  ERROR:
   return NULL;
 }
 
-/* choose_arbitrary_seed()
- * Return a 'quasirandom' seed > 0.
- * This could be a *lot* better than it is now; see RFC1750
- * for a discussion of securely seeding RNGs.
+/* Function:  esl_randomness_CreateFast()
+ * Synopsis:  Create the alternative fast generator.
+ * Incept:    SRE, Sat May 30 06:35:23 2009 [Stockholm]
+ *
+ * Purpose:   Same as <esl_randomness_Create()>, except that a simple
+ *            linear congruential generator will be used.
+ *
+ *            The properties of this generator are not as good as the
+ *            default Mersenne Twister, but it is faster, especially
+ *            if you only need a small number of samples from the
+ *            generator; it is about 20x faster to initialize the
+ *            generator, and about 25\% faster to sample a number, 
+ *            compared to the default.
+ *            
+ *            The algorithm is a linear congruential generator from
+ *            Knuth, using a=69069.
  */
-static long
-choose_arbitrary_seed()
+ESL_RANDOMNESS *
+esl_randomness_CreateFast(uint32_t seed)
 {
-  uint32_t a = (uint32_t) time ((time_t *) NULL);
-  uint32_t b = 87654321;	/* anything nonzero */
-  uint32_t c = 12345678;	/* anything nonzero */
-  long     seed;
-#ifdef HAVE_GETPID
-  b  = (uint32_t) getpid();
-#endif
- 
-  /*------------------------------------
-   * This is Bob Jenkins' mix(a,b,c) function;
-   * I want to mix time() with getpid() somewhat
-   * "randomly", his mix() should suffice, and 
-   * he only has a 3-arg version. Thus <c>,
-   * which is just an arbitrary third number
-   * thrown into the mix().
-   */
-  a -= b; a -= c; a ^= (c>>13);		
-  b -= c; b -= a; b ^= (a<<8); 
-  c -= a; c -= b; c ^= (b>>13);
-  a -= b; a -= c; a ^= (c>>12);
-  b -= c; b -= a; b ^= (a<<16);
-  c -= a; c -= b; c ^= (b>>5); 
-  a -= b; a -= c; a ^= (c>>3); 
-  b -= c; b -= a; b ^= (a<<10);
-  c -= a; c -= b; c ^= (b>>15);
-  /*-------------------------------------*/
+  ESL_RANDOMNESS *r      = NULL;
+  int             status;
 
-  seed = (long) c;
-  if      (seed < 0)  return -seed;
-  else if (seed == 0) return 42;
-  else                return seed;
+  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
+  r->type = eslRND_FAST;
+  r->mti  = 0;
+  r->x    = 0;
+  r->seed = 0;
+  esl_randomness_Init(r, seed);
+  return r;
+
+ ERROR:
+  return NULL;
 }
 
 
@@ -156,19 +151,65 @@ choose_arbitrary_seed()
 ESL_RANDOMNESS *
 esl_randomness_CreateTimeseeded(void)
 {
-  ESL_RANDOMNESS *r      = NULL;
-  int             burnin = 7;
-  int             status;
-
-  ESL_ALLOC(r, sizeof(ESL_RANDOMNESS));
-  r->seed      = time ((time_t *) NULL);
-  r->reseeding = TRUE;
-  while (burnin--) esl_random(r);
-  return r;
-
- ERROR:
-  return NULL;
+  return esl_randomness_Create(0);
 }
+
+
+/* Function:  esl_randomness_Init()
+ * Synopsis:  Reinitialize a RNG.           
+ * Incept:    SRE, Wed Jul 14 13:13:05 2004 [St. Louis]
+ *
+ * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
+ *            object with a new seed. 
+ *            
+ *            Not generally recommended. This does not make a
+ *            sequence of numbers more random, and may make it less
+ *            so. Sometimes, though, it's useful to reseed an RNG
+ *            to guarantee a particular reproducible series of
+ *            pseudorandom numbers at an arbitrary point in a program;
+ *            HMMER does this, for example, to guarantee the same
+ *            results from the same HMM/sequence comparison regardless
+ *            of where in a search the HMM or sequence occurs.
+ *
+ * Args:      r     - randomness object
+ *            seed  - new seed to use; >0.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if seed is $<= 0$.
+ *
+ * Xref:      STL8/p57.
+ */
+int
+esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
+{
+  if (seed == 0) seed = choose_arbitrary_seed();
+  if (r->type == eslRND_MERSENNE)
+    {
+      mersenne_seed_table(r, seed);
+      mersenne_fill_table(r);
+    }
+  else 
+    {
+      r->seed = seed;
+      r->x    = jenkins_mix3(seed, 87654321, 12345678);	/* arbitrary dispersion of the seed */
+      if (r->x == 0) r->x = 42;                         /* make sure we don't have a zero */
+    }
+  return eslOK;
+}
+
+/* Function:  esl_randomness_GetSeed()
+ * Synopsis:  Returns the value of RNG's seed.
+ * Incept:    SRE, Wed May 23 17:02:59 2007 [Janelia]
+ *
+ * Purpose:   Return the value of the seed. 
+ */
+uint32_t
+esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
+{
+  return r->seed;
+}
+
 
 /* Function:  esl_randomness_Destroy()
  * Synopsis:  Free an RNG.            
@@ -183,49 +224,6 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
   return;
 }
 
-
-/* Function:  esl_randomness_Init()
- * Synopsis:  Reinitialize an RNG.           
- * Incept:    SRE, Wed Jul 14 13:13:05 2004 [St. Louis]
- *
- * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
- *            object. 
- *            
- *            (Not generally recommended. This does not make a
- *            sequence of numbers more random, and may make it less
- *            so.)
- *
- * Args:      r     - randomness object
- *            seed  - new seed to use; >0.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEINVAL> if seed is $<= 0$.
- *
- * Xref:      STL8/p57.
- */
-int
-esl_randomness_Init(ESL_RANDOMNESS *r, long seed)
-{
-  int burnin = 7;
-  if (seed <= 0) ESL_EXCEPTION(eslEINVAL, "bad seed");
-  r->seed      = seed;
-  r->reseeding = TRUE;
-  while (burnin--) esl_random(r);
-  return eslOK;
-}
-
-/* Function:  esl_randomness_GetSeed()
- * Synopsis:  Returns the value of RNG's seed.
- * Incept:    SRE, Wed May 23 17:02:59 2007 [Janelia]
- *
- * Purpose:   Return the value of the seed. 
- */
-long
-esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
-{
-  return r->seed;
-}
 /*----------- end of ESL_RANDOMNESS object functions --------------*/
 
 
@@ -234,97 +232,153 @@ esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
  *# 2. The generator, <esl_random()>
  *****************************************************************/  
 
-/* Function: esl_random()
- * Synopsis: Generate a uniform random deviate $0.0 <= x < 1.0$.
- *            
- * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$, given
- *           RNG <r>, using L'Ecuyer's algorithm for combining output
- *           of two linear congruential generators, plus a Bays-Durham
- *           shuffle \citep{Press93}.
- *           
- * Method:   This is essentially ran2() from Numerical Recipes,
- *           rewritten, sans their nonhelpful Rand/McNally-esque code
- *           obfuscation.
- *           
- *           Overflow errors are avoided by Schrage's algorithm:
- *               az % m = a(z%q) - r(z/q) (+m if <0)
- *           where q=m/a, r=m%a
+/* Function: esl_random()  
+ * Synopsis: Generate a uniform random deviate on [0,1)
+ * Incept:   SRE, Sat May 30 05:01:45 2009 [Stockholm]
  *
- *           Requires that long int's have at least 32 bits.
+ * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$, given
+ *           RNG <r>.
  *           
- *           Reliable and portable, but slow. Benchmarks on wrasse,
- *           using Linux gcc and Linux glibc rand() (see randspeed, Testsuite):
- *           sre_random():    0.5 usec/call
- *           rand():          0.2 usec/call
+ *           Uses the original Mersenne Twister algorithm, MT19937
+ *           [Matsumoto98]. This generator has a period of $2^19937 -
+ *           1$. It generates uniformly distributed variates on the
+ *           interval $0..2^32-1$. 
  *           
- * Reference: Press et al. Numerical Recipes in C, 1992. 
+ * Notes:    Easel previously used a reimplementation of ran2() from
+ *           Numerical Recipes in C, which uses L'Ecuyer's algorithm
+ *           for combining output of two linear congruential
+ *           generators, plus a Bays-Durham shuffle \citep{Press93}.
+ *           MT is about 10x faster.
+ *
+ * Returns:  uniformly distribute random deviate on interval
+ *           $0.0 \leq x < 1.0$
+ *
+ * Throws:   (no abnormal error conditions)
  */
 double
 esl_random(ESL_RANDOMNESS *r)
 {
-  long x,y;
-  int i;
-  /* Magic numbers a1,m1, a2,m2 from L'Ecuyer, for 2 LCGs.
-   * q,r derive from them (q=m/a, r=m%a) and are needed for Schrage's algorithm.
-   */
-  long a1 = 40014;		
-  long m1 = 2147483563;		
-  long q1 = 53668;
-  long r1 = 12211;
+  uint32_t x = (r->type == eslRND_MERSENNE) ? mersenne_twister(r) : knuth(r);
+  return ((double) x / 4294967296.0); /* 2^32: normalizes to [0,1) */
+}
 
-  long a2 = 40692;
-  long m2 = 2147483399;
-  long q2 = 52774;
-  long r2 = 3791;
 
-  if (r->reseeding) 
+static uint32_t 
+knuth(ESL_RANDOMNESS *r)
+{
+  r->x *= 69069;
+  return r->x;
+}
+
+/* mersenne_twister() and other mersenne_*() functions below:
+ * A simple serial implementation of the original Mersenne Twister
+ * algorithm [Matsumoto98]. 
+ * 
+ * There are more sophisticated and faster implementations of MT, using
+ * vector instructions and/or directly generating IEEE754 doubles
+ * bitwise rather than doing an expensive normalization. We can
+ * improve the implementation later if necessary, but even the basic
+ * MT offers ~10x speed improvement over Easel's previous RNG.
+ * [SRE, 30 May 09, Stockholm]
+ */
+static uint32_t
+mersenne_twister(ESL_RANDOMNESS *r)
+{
+  uint32_t x;
+  if (r->mti >= 624) mersenne_fill_table(r);
+
+  x = r->mt[r->mti++];
+  x ^= (x>>11);
+  x ^= (x<< 7) & 0x9d2c5680;
+  x ^= (x<<15) & 0xefc60000;
+  x ^= (x>>18);
+  return x;
+}
+
+/* mersenne_seed_table()
+ * Initialize the state of the RNG from a seed.
+ * Uses the knuth linear congruential generator.
+ */
+static void
+mersenne_seed_table(ESL_RANDOMNESS *r, uint32_t seed)
+{
+  int z;
+
+  r->seed  = seed;
+  r->mt[0] = seed;
+  for (z = 1; z < 624; z++)
+    r->mt[z] = 69069 * r->mt[z-1];
+  return;
+}
+
+/* mersenne_fill_table()
+ * Refill the table with 624 new random numbers.
+ * We do this whenever we've reseeded, or when we 
+ * run out of numbers.
+ */
+static void
+mersenne_fill_table(ESL_RANDOMNESS *r)
+{
+  uint32_t y;
+  int      z;
+  static uint32_t mag01[2] = { 0x0, 0x9908b0df };
+
+  for (z = 0; z < 227; z++)	/* 227 = N-M = 624-397 */
     {
-      r->rnd1 = r->seed;
-      r->rnd2 = r->seed;
+      y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
+      r->mt[z] = r->mt[z+397] ^ (y>>1) ^ mag01[y & 0x1];
+    }
+  for (; z < 623; z++)
+    {
+      y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
+      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[y & 0x1];
+    }
+  y = (r->mt[623] & 0x80000000) | (r->mt[0] & 0x7fffffff);
+  r->mt[623] = r->mt[396] ^ (y>>1) ^ mag01[y & 0x1];
+  r->mti = 0;
+  return;
+}
 
-      /* Fill the table for Bays/Durham; first 64 (0..63)
-       * random #'s are for our table, 65th is to init r->rnd.
-       */
-      for (i = 0; i <= 64; i++) {
-	x    = a1*(r->rnd1%q1);   /* LCG1 in action... */
-	y    = r1*(r->rnd1/q1);
-	r->rnd1 = x-y;
-	if (r->rnd1 < 0) r->rnd1 += m1;
 
-	x    = a2*(r->rnd2%q2);   /* LCG2 in action... */
-	y    = r2*(r->rnd2/q2);
-	r->rnd2 = x-y;
-	if (r->rnd2 < 0) r->rnd2 += m2;
+/* choose_arbitrary_seed()
+ * Return a 'quasirandom' seed > 0.
+ * This could be a *lot* better than it is now; see RFC1750
+ * for a discussion of securely seeding RNGs.
+ */
+static uint32_t
+choose_arbitrary_seed(void)
+{
+  uint32_t a = (uint32_t) time ((time_t *) NULL);
+  uint32_t b = 87654321;	/* anything nonzero */
+  uint32_t c = 12345678;	/* anything nonzero. jenkins' mix3 needs 3 numbers; add an arbitrary one */
+  uint32_t seed;
+#ifdef HAVE_GETPID
+  b  = (uint32_t) getpid();	  /* preferable b choice, if we have POSIX getpid(); else both b,c are arbitrary */
+#endif
+  seed = jenkins_mix3(a,b,c);	  /* try to decorrelate closely spaced choices of pid/time */
 
-	if (i < 64) {
-	  r->tbl[i] = r->rnd1 - r->rnd2;
-	  if (r->tbl[i] < 0) r->tbl[i] += m1;
-	} else {
-	  r->rnd = r->rnd1 - r->rnd2;
-	  if (r->rnd < 0) r->rnd += m1;
-	}
-      }
-      r->reseeding = FALSE;	/* drop the flag. */
-    }/* end of initialization*/
+  return (seed == 0) ? 42 : seed; /* 42 is entirely arbitrary, just to avoid seed==0. */
+}
 
-  x    = a1*(r->rnd1%q1);   /* LCG1 in action... */
-  y    = r1*(r->rnd1/q1);
-  r->rnd1 = x-y;
-  if (r->rnd1 < 0) r->rnd1 += m1;
-
-  x    = a2*(r->rnd2%q2);   /* LCG2 in action... */
-  y    = r2*(r->rnd2/q2);
-  r->rnd2 = x-y;
-  if (r->rnd2 < 0) r->rnd2 += m2;
-
-   			/* Choose our random number from the table... */
-  i   = (int) (((double) r->rnd / (double) m1) * 64.);
-  r->rnd = r->tbl[i];
-			/* and replace with a new number by L'Ecuyer. */
-  r->tbl[i] = r->rnd1 - r->rnd2;
-  if (r->tbl[i] < 0) r->tbl[i] += m1;
-
-  return ((double) r->rnd / (double) m1);  
+/* jenkins_mix3()
+ * 
+ * from Bob Jenkins: given a,b,c, generate a number that's distributed
+ * reasonably uniformly on the interval 0..2^32-1 even for closely
+ * spaced choices of a,b,c.
+ */
+static uint32_t 
+jenkins_mix3(uint32_t a, uint32_t b, uint32_t c)
+{
+  a -= b; a -= c; a ^= (c>>13);		
+  b -= c; b -= a; b ^= (a<<8); 
+  c -= a; c -= b; c ^= (b>>13);
+  a -= b; a -= c; a ^= (c>>12);
+  b -= c; b -= a; b ^= (a<<16);
+  c -= a; c -= b; c ^= (b>>5); 
+  a -= b; a -= c; a ^= (c>>3); 
+  b -= c; b -= a; b ^= (a<<10);
+  c -= a; c -= b; c ^= (b>>15);
+  return c;
 }
 /*----------- end of esl_random() --------------*/
 
@@ -335,7 +389,7 @@ esl_random(ESL_RANDOMNESS *r)
  *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
- * Synopsis: Generate a uniform positive random deviate $0 < x < 1$.
+ * Synopsis: Generate a uniform positive random deviate on interval (0,1).
  * Incept:   SRE, Wed Jul 14 13:31:23 2004 [St. Louis]
  *
  * Purpose:  Same as <esl_random()>, but assure $0 < x < 1$;
@@ -666,13 +720,16 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 #ifdef eslRANDOM_BENCHMARK
 /*
    gcc -O3 -malign-double -o random_benchmark -I. -L. -DeslRANDOM_BENCHMARK esl_random.c -leasel -lm
-   ./random_benchmark
+   ./random_benchmark -N 1000000000
+   ./random_benchmark -f -N 1000000000
    ./random_benchmark -r -N1000000
-                               esl_random()         esl_randomness_Init()
-                           10,000,000 iterations     1,000,000 iterations
-                             cpu time  per call       cpu time  per call  
-                             --------  --------      ---------- ---------
-   27 Dec 08 on wanderoo:      0.78s    78 nsec        2.08s     2.1 usec
+   ./random_benchmark -fr -N 1000000000
+                               esl_random()            esl_randomness_Init()
+                           iter  cpu time  per call   iter  cpu time  per call  
+                           ----  --------  --------   ---- ---------- ---------
+   27 Dec 08 on wanderoo:  1e7    0.78s    78 nsec     1e6   2.08s     2.1 usec   ran2() from NR
+   30 May 09 on wanderoo:  1e9    8.39s     8 nsec     1e6   5.98s     6.0 usec   Mersenne Twister
+                           1e9    5.73s     6 nsec     1e8   2.51s     0.03 usec  Knuth
 
  */
 #include "easel.h"
@@ -683,6 +740,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 static ESL_OPTIONS options[] = {
   /* name     type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-f",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "run fast version instead of MT19937",              0 },
   { "-r",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark _Init(), not just random()",             0 },
   { "-N",  eslARG_INT, "10000000",NULL, NULL,  NULL,  NULL, NULL, "number of trials",                                 0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -694,7 +752,7 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go      = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r       = esl_randomness_Create(42);
+  ESL_RANDOMNESS *r       = (esl_opt_GetBoolean(go, "-f") == TRUE ? esl_randomness_CreateFast(42) : esl_randomness_Create(42));
   ESL_STOPWATCH  *w       = esl_stopwatch_Create();
   int             N       = esl_opt_GetInteger(go, "-N");
 
@@ -732,27 +790,24 @@ main(int argc, char **argv)
  * a binned frequency test.
  */
 static void
-utest_random(long seed, int n, int nbins, int be_verbose)
+utest_random(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 {
-  ESL_RANDOMNESS *r      = NULL;
+  char            msg[]  = "esl_random() unit test failed";
   int            *counts = NULL;
   double          X2p    = 0.;
   int             i;
+  int             sample;
   double          X2, exp, diff;
 
-  if ((counts = malloc(sizeof(int) * nbins)) == NULL) esl_fatal("malloc failed");
+  if ((counts = malloc(sizeof(int) * nbins)) == NULL) esl_fatal(msg);
   esl_vec_ISet(counts, nbins, 0);
 
-  /* This contrived call sequence exercises CreateTimeseeded() and
-   * Init(), while leaving us a reproducible chain. Because it's
-   * reproducible, we know this test succeeds, despite being
-   * statistical in nature.
-   */
-  if ((r = esl_randomness_Create(0)) == NULL)  esl_fatal("randomness create failed");
-  if (esl_randomness_Init(r, seed)   != eslOK) esl_fatal("randomness init failed");
-
   for (i = 0; i < n; i++)
-    counts[esl_rnd_Roll(r, nbins)]++;
+    { 
+      sample = esl_rnd_Roll(r, nbins);
+      if (sample < 0 || sample >= nbins) esl_fatal(msg);
+      counts[sample]++;
+    }
 
   /* X^2 value: \sum (o_i - e_i)^2 / e_i */
   for (X2 = 0., i = 0; i < nbins; i++) {
@@ -760,11 +815,10 @@ utest_random(long seed, int n, int nbins, int be_verbose)
     diff = (double) counts[i] - exp;
     X2 +=  diff*diff/exp;
   }
-  if (esl_stats_ChiSquaredTest(nbins, X2, &X2p) != eslOK) esl_fatal("chi squared eval failed");
+  if (esl_stats_ChiSquaredTest(nbins, X2, &X2p) != eslOK) esl_fatal(msg);
   if (be_verbose) printf("random():  \t%g\n", X2p);
-  if (X2p < 0.01) esl_fatal("chi squared test failed");
+  if (X2p < 0.01) esl_fatal(msg);
 
-  esl_randomness_Destroy(r);
   free(counts);
   return;
 }
@@ -831,7 +885,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
  * 6. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
-/* gcc -g -Wall -o random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
+/* gcc -g -Wall -o esl_random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
  */
 #include "esl_config.h"
 
@@ -863,19 +917,22 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *r          = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_RANDOMNESS *r1         = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  ESL_RANDOMNESS *r2         = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
   char           *bitfile    = esl_opt_GetString (go, "--bitfile");
   int             nbins      = esl_opt_GetInteger(go, "-b");
   int             n          = esl_opt_GetInteger(go, "-n");
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
-  int             seed       = esl_opt_GetInteger(go, "-s");
 
-  utest_random(seed, n, nbins, be_verbose);
-  utest_choose(r,    n, nbins, be_verbose);
+  utest_random(r1, n, nbins, be_verbose);
+  utest_choose(r1, n, nbins, be_verbose);
+  utest_random(r2, n, nbins, be_verbose);
+  utest_choose(r2, n, nbins, be_verbose);
 
-  if (bitfile != NULL) save_bitfile(bitfile, r, n);
+  if (bitfile != NULL) save_bitfile(bitfile, r1, n);
 
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(r1);
+  esl_randomness_Destroy(r2);
   esl_getopts_Destroy(go);
   return 0;
 }
@@ -892,14 +949,12 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
   if ((fp = fopen(bitfile, "w")) == NULL) 
     esl_fatal("failed to open %s for writing", bitfile);
 
-  /* Sample <n> random numbers, output 31n random bits to the file.
+  /* Sample <n> random numbers, output 32n random bits to the file.
    */
   for (i = 0; i < n; i++)
     {
-      esl_random(r);
-      x = r->rnd;		/* peek inside, get the 31 bit random long */
-
-      for (b = 0; b < 31; b++)  /* don't print the sign bit. */
+      x = mersenne_twister(r);	/* generate a 32 bit random variate by MT19937 */
+      for (b = 0; b < 32; b++)  /* don't print the sign bit. */
 	{
 	  if (x & 01) fprintf(fp, "1");
 	  else        fprintf(fp, "0");
@@ -930,10 +985,10 @@ int
 main(int argc, char **argv)
 {
   long            seed = atoi(argv[1]);
-  ESL_RANDOMNESS *r    = esl_randomness_Create(seed); 
+  ESL_RANDOMNESS *r    = esl_randomness_CreateFast(seed); 
   int             n    = 10;
 
-  printf("RNG seed: %ld\n", esl_randomness_GetSeed(r));
+  printf("RNG seed: %" PRIu32 "\n", esl_randomness_GetSeed(r));
   printf("A sequence of %d pseudorandom numbers:\n", n);
   while (n--)  printf("%f\n", esl_random(r));
 

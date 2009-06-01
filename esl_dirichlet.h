@@ -24,6 +24,7 @@ typedef struct {
 } ESL_MIXDCHLET;
 
 extern ESL_MIXDCHLET *esl_mixdchlet_Create(int N, int K);
+extern int            esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
 extern int            esl_mixdchlet_MPParameters(double *c, int K,
 						 ESL_MIXDCHLET *pri, double *mix, 
@@ -51,6 +52,7 @@ extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
 #ifdef eslAUGMENT_FILEPARSER
 #include <esl_fileparser.h>
 extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
+extern int esl_mixdchlet_Write(FILE *fp,  ESL_MIXDCHLET *d);
 #endif /*eslAUGMENT_FILEPARSER*/
 
 

@@ -1,4 +1,4 @@
-#! /bin/perl
+#! /usr/bin/perl
 
 # Integration tests of reading all valid protein sequence residue characters.
 # Usage:
