@@ -690,7 +690,7 @@ main(int argc, char **argv)
   ip     = malloc(sizeof(double) * pri->K);
 
   /* Sample a probability vector from it. */
-  r = esl_randomness_Create(0);                /* init the random generator */
+  r = esl_randomness_Create(0);            /* init the random generator */
   qused = esl_rnd_DChoose(r, pri->pq, pri->N); /* sample a component */
   esl_dirichlet_DSample(r, pri->alpha[qused], pri->K, probs);
 

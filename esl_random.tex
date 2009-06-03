@@ -7,33 +7,29 @@ The \ccode{esl\_random()} random number generator is portable,
 reentrant, and threadsafe. It gives reproducible results on all
 platforms.
 
-The default \ccode{esl\_random()} generator uses the Mersenne Twister
-algorithm MT19937 \citep{Matsumoto98}. MT19937 has strong properties,
-including a period of $2^{19937}-1$ and equidistribution over $2^{32}$
-values.
+The default \ccode{esl\_random()} generator implements the Mersenne
+Twister algorithm MT19937 \citep{Matsumoto98}. MT19937 has strong
+properties, including a period of $2^{19937}-1$ and equidistribution
+over $2^{32}$ values. The default Mersenne Twister should be suitable
+for all but a few speed-critical applications.
 
-An alternative, faster generator can also be chosen, which is a
-classic simple linear congruential generator with $a=69069$
-\citep{Knu-81a}. This still has reasonable properties, but is much
-faster to initialize (about 20x) and somewhat faster to generate
-samples (about 25\%). The fast generator is advantageous when speed is
-of essence, especially when a small number of samples will be taken
-from the generator.
+Alternatively, a simple and classic linear congruential generator
+(LCG) can be chosen \citep{Knu-81a}. The LCG is much faster to
+initialize (about 20x) and somewhat faster to generate samples (about
+25\%), while still generating pseudorandom numbers suitable for most
+applications. Because of its initialization speed, the LCG is
+advantageous when a small number of reasonably random samples is
+needed in a speed-critical application.
 
-%% A bit stream generated internally by \ccode{esl\_random()} passes 14
-%% tests in a National Institute of Standards and Technology statistical
-%% benchmark for cryptanalysis \citep{Rukhin01} with performance
-%% comparable to binary sequences from irrational numbers.\footnote{The
-%% NIST tests are necessary but not sufficient to show adequate
-%% ``randomness''. Although the bitstream passes NIST benchmarks, the 31
-%% individual bits in \ccode{esl\_random()}'s internal unnormalized
-%% random integer are not adequately random, because its maximum value is
-%% slightly less than $2^{31}-1$. Only the double value returned by
-%% \ccode{esl\_random()} should be used as a random sample, or the
-%% integer value of \ccode{r->rnd}, but not the 31 individual bits of
-%% \ccode{r->rnd}.  The fact that the bitstream passes the NIST tests
-%% only indicates that there are no glaring problems in
-%% \ccode{esl\_random()}'s generator.}
+Bit streams from \ccode{esl\_random()}'s two generators were tested
+against a National Institute of Standards and Technology statistical
+benchmark for random number generators \citep{NIST08}.  The default
+Mersenne Twister passes the benchmark suite as expected
+\citep{Matsumoto98}. The fast LCG passes most but not all of the NIST
+tests.
+
+\ccode{esl\_random()} returns a double-precision floating point sample
+on the interval $0.0 \leq x < 1$. 
 
 Table~\ref{tbl:random_api} lists the functions in the \eslmod{random}
 API. The module implements one object, \ccode{ESL\_RANDOMNESS}, which
@@ -50,7 +46,7 @@ its contents.
 \begin{tabular}{|ll|}\hline
 \apisubhead{The \ccode{ESL\_RANDOMNESS} object.}\\
 \hyperlink{func:esl_randomness_Create()}{\ccode{esl\_randomness\_Create()}} & Create an RNG with a given seed.\\
-\hyperlink{func:esl_randomness_Create()}{\ccode{esl\_randomness\_Create()}}& Create a fast RNG with a given seed.\\
+\hyperlink{func:esl_randomness_CreateFast()}{\ccode{esl\_randomness\_CreateFast()}}& Create a fast RNG with a given seed.\\
 \hyperlink{func:esl_randomness_Destroy()}{\ccode{esl\_randomness\_Destroy()}} & Free an RNG.            \\
 \hyperlink{func:esl_randomness_Init()}{\ccode{esl\_randomness\_Init()}} & Reinitialize an RNG.           \\
 \hyperlink{func:esl_randomness_GetSeed()}{\ccode{esl\_randomness\_GetSeed()}} & Returns the value of RNG's seed.\\

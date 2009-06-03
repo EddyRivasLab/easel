@@ -2,12 +2,14 @@
  * Provides both a fast generator and a strong generator.
  *
  *  1. The ESL_RANDOMNESS object.
- *  2. The generator, esl_random().
+ *  2. The generators and esl_random().
  *  3. Other fundamental sampling (including Gaussian, gamma).
  *  4. Multinomial sampling from discrete probability n-vectors.
- *  5. Unit tests.
- *  6. Test driver.
- *  7. An example of using the random module.
+ *  5. Benchmark driver
+ *  6. Unit tests.
+ *  7. Test driver.
+ *  8. Example.
+ *  9. Copyright and license information.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -15,7 +17,7 @@
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
  * SVN $Id$
  * 
- * SRE, 30 May 2009: replaced with the Mersenne Twister.
+ * SRE, 30 May 2009: replaced with the Mersenne Twister and Knuth LCG.
  */
 #include "esl_config.h"
 
@@ -229,7 +231,7 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
 
 
 /*****************************************************************
- *# 2. The generator, <esl_random()>
+ *# 2. The generators and <esl_random()>
  *****************************************************************/  
 
 /* Function: esl_random()  
@@ -267,6 +269,7 @@ static uint32_t
 knuth(ESL_RANDOMNESS *r)
 {
   r->x *= 69069;
+  r->x += 1;
   return r->x;
 }
 
@@ -715,15 +718,15 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 
 
 /*****************************************************************
- * x. Benchmark driver
+ * 5. Benchmark driver
  *****************************************************************/
 #ifdef eslRANDOM_BENCHMARK
 /*
-   gcc -O3 -malign-double -o random_benchmark -I. -L. -DeslRANDOM_BENCHMARK esl_random.c -leasel -lm
-   ./random_benchmark -N 1000000000
-   ./random_benchmark -f -N 1000000000
-   ./random_benchmark -r -N1000000
-   ./random_benchmark -fr -N 1000000000
+   gcc -O3 -malign-double -o esl_random_benchmark -I. -L. -DeslRANDOM_BENCHMARK esl_random.c -leasel -lm
+   ./esl_random_benchmark -N 1000000000
+   ./esl_random_benchmark -f -N 1000000000
+   ./esl_random_benchmark -r -N1000000
+   ./esl_random_benchmark -fr -N 1000000000
                                esl_random()            esl_randomness_Init()
                            iter  cpu time  per call   iter  cpu time  per call  
                            ----  --------  --------   ---- ---------- ---------
@@ -777,7 +780,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 5. Unit tests.
+ * 6. Unit tests.
  *****************************************************************/
 
 #ifdef eslRANDOM_TESTDRIVE
@@ -882,7 +885,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 
 
 /*****************************************************************
- * 6. Test driver.
+ * 7. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
 /* gcc -g -Wall -o esl_random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
@@ -905,7 +908,8 @@ static ESL_OPTIONS options[] = {
   {"-n",  eslARG_INT, "1000000", NULL, "n>0",NULL, NULL, NULL, "number of samples",                 0},
   {"-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",     0},
   {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose output",               0},
-  {"--bitfile",eslARG_STRING,NULL,NULL,NULL, NULL, NULL, NULL, "save bit file for NIST benchmark",  0},
+  {"--mtbits",eslARG_STRING,NULL,NULL, NULL, NULL, NULL, NULL, "save MT bit file for NIST benchmark",0},
+  {"--kbits", eslARG_STRING,NULL,NULL, NULL, NULL, NULL, NULL, "save Knuth bit file for NIST benchmark",0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -919,7 +923,8 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *r1         = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
   ESL_RANDOMNESS *r2         = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
-  char           *bitfile    = esl_opt_GetString (go, "--bitfile");
+  char           *mtbitfile  = esl_opt_GetString (go, "--mtbits");
+  char           *kbitfile   = esl_opt_GetString (go, "--kbits");
   int             nbins      = esl_opt_GetInteger(go, "-b");
   int             n          = esl_opt_GetInteger(go, "-n");
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
@@ -929,7 +934,8 @@ main(int argc, char **argv)
   utest_random(r2, n, nbins, be_verbose);
   utest_choose(r2, n, nbins, be_verbose);
 
-  if (bitfile != NULL) save_bitfile(bitfile, r1, n);
+  if (mtbitfile) save_bitfile(mtbitfile, r1, n);
+  if (kbitfile)  save_bitfile(kbitfile,  r2, n);
 
   esl_randomness_Destroy(r1);
   esl_randomness_Destroy(r2);
@@ -953,8 +959,8 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
    */
   for (i = 0; i < n; i++)
     {
-      x = mersenne_twister(r);	/* generate a 32 bit random variate by MT19937 */
-      for (b = 0; b < 32; b++)  /* don't print the sign bit. */
+      x = (r->type == eslRND_FAST ? knuth(r) : mersenne_twister(r)); /* generate a 32 bit random variate by MT19937 */
+      for (b = 0; b < 32; b++) 
 	{
 	  if (x & 01) fprintf(fp, "1");
 	  else        fprintf(fp, "0");
@@ -970,7 +976,7 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 
 
 /*****************************************************************
- * 7. An example of using the random module.
+ * 8. Example.
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
