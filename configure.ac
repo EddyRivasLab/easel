@@ -326,6 +326,7 @@ AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)
 AC_FUNC_FSEEKO
+AC_FUNC_FSEEKO
 
 # 11. Checks for system services 
 AC_SYS_LARGEFILE

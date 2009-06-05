@@ -1321,7 +1321,7 @@ main(int argc, char **argv)
 
   if (be_verbose) esl_hyperexp_WriteOneLine(stdout, hxp);
 
-  r = esl_randomness_Create(0);
+  r = esl_randomness_Create(42);
   h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 

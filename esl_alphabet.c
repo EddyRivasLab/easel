@@ -210,7 +210,7 @@ define_complementarity(ESL_ALPHABET *a)
 static ESL_ALPHABET *
 create_rna(void)
 {
-  ESL_ALPHABET *a;
+  ESL_ALPHABET *a = NULL;
 
   /* Create the fundamental alphabet
    */
@@ -239,6 +239,7 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
 
   if (define_complementarity(a) != eslOK) return NULL;
+
   return a;
 }
 
@@ -249,7 +250,7 @@ create_rna(void)
 static ESL_ALPHABET *
 create_dna(void)
 {
-  ESL_ALPHABET *a;
+  ESL_ALPHABET *a = NULL;
 
   /* Create the fundamental alphabet.
    */
@@ -350,7 +351,7 @@ create_dice(void)
 
   /* Create the internal alphabet
    */
-  if ((a = esl_alphabet_CreateCustom("123456-X~", 6, 9)) == NULL) return NULL;
+  if ((a = esl_alphabet_CreateCustom("123456-X*~", 6, 10)) == NULL) return NULL;
   a->type = eslCOINS;
 
   /* Add desired synonyms in the input map.
@@ -1586,9 +1587,9 @@ static int
 utest_Create(void) 
 {
   char msg[]  = "esl_alphabet_Create() unit test failed";
-  int  types[] = { eslDNA, eslRNA, eslAMINO };
-  int  Karr[]  = {      4,      4,       20 };
-  int  Kparr[] = {     18,     18,       29 };
+  int  types[] = { eslDNA, eslRNA, eslAMINO, eslCOINS, eslDICE };
+  int  Karr[]  = {      4,      4,       20,        2,       6 };
+  int  Kparr[] = {     18,     18,       29,        6,      10 };
   int  i;
   ESL_ALPHABET *a;
   ESL_DSQ       x;
@@ -2147,8 +2148,8 @@ utest_DCount(void)
  * 5. Test driver.
  *****************************************************************/
 
-/* gcc -g -Wall -I. -o test -DeslALPHABET_TESTDRIVE esl_alphabet.c easel.c -lm
- * gcc -g -Wall -I. -L. -o test -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel
+/* gcc -g -Wall -std=gnu99 -I.     -o esl_alphabet_utest -DeslALPHABET_TESTDRIVE esl_alphabet.c esl_vectorops.c easel.c -lm
+ * gcc -g -Wall -std=gnu99 -I. -L. -o esl_alphabet_utest -DeslALPHABET_TESTDRIVE esl_alphabet.c -leasel
  * ./test
  * valgrind ./test
  */
