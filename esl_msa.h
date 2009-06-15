@@ -224,9 +224,9 @@ extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 /* 6. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
-extern int esl_msa_ColumnSubset(ESL_MSA *msa, const int *useme);
-extern int esl_msa_MinimGaps(ESL_MSA *msa, const char *gaps);
-extern int esl_msa_NoGaps(ESL_MSA *msa, const char *gaps);
+extern int esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme);
+extern int esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps);
+extern int esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
 extern int esl_msa_AddComment(ESL_MSA *msa, char *s);
 extern int esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value);

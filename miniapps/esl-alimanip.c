@@ -685,7 +685,7 @@ keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int ke
       useme[apos] = (esl_abc_CIsGap(msa->abc, msa->rf[apos]) ? TRUE : FALSE);
   }
   else ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "In keep_or_remove_rf_gaps, but neither -r nor -k enabled.");
-  esl_msa_ColumnSubset(msa, useme);
+  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   return eslOK;
 
@@ -736,7 +736,7 @@ keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(useme, sizeof(int) * msa->alen);
   esl_vec_ISet(useme, msa->alen, FALSE);
   for(apos = astart-1; apos < aend; apos++) useme[apos] = TRUE;
-  esl_msa_ColumnSubset(msa, useme);
+  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   if(c2a_map != NULL) free(c2a_map);
   return eslOK;
@@ -876,6 +876,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int *cct;		/* 0..alen-1 base pair partners array for consensus        */
   int *ct;		/* 0..alen-1 base pair partners array for current sequence */
   char *ss;             /* individual secondary structure we've built              */
+  char *ss_cons_nopseudo; /* no-pseudoknot version of consensus structure */
 
   if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "-i requires MSA to have consensus structure annotation.\n");
   if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
@@ -883,9 +884,11 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(cct, sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
   ESL_ALLOC(ss,  sizeof(char) * (msa->alen+1));
+  ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
-  if (esl_wuss2ct(msa->ss_cons, msa->alen, cct) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
-  
+  esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
+  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK)     ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+
   /* go through each position of each sequence, 
      if it's a gap and it is part of a base pair, remove that base pair */
   for (i = 0; i < msa->nseq; i++)
@@ -904,6 +907,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   free(cct);
   free(ct);
   free(ss);
+  free(ss_cons_nopseudo);
   return eslOK;
  ERROR:
   return status;
@@ -2305,7 +2309,7 @@ reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
   /* swap ss, if they exist */
   if(msa->ss != NULL) { 
     for(i = 0; i < msa->nseq; i++) tmp[i] = msa->ss[i];
-    for(i = 0; i < msa->nseq; i++) msa->sa[i] = tmp[order[i]];
+    for(i = 0; i < msa->nseq; i++) msa->ss[i] = tmp[order[i]];
   }
 
   /* swap sa, if they exist */
