@@ -434,6 +434,91 @@ esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid)
   if (nmem != NULL) free(nmem);
   return status;
 }
+
+/* Function:  esl_msaweight_IDFilter()
+ * Synopsis:  Filter by %ID.
+ * Incept:    ER, Wed Oct 29 10:06:43 2008 [Janelia]
+ * 
+ * Purpose:   Constructs a new alignment by removing near-identical 
+ *            sequences from a given alignment (where identity is 
+ *            calculated *based on the alignment*).
+ *            Does not affect the given alignment.
+ *            Keeps earlier sequence, discards later one. 
+ *           
+ *            Usually called as an ad hoc sequence "weighting" mechanism.
+ *           
+ * Limitations:
+ *            Unparsed Stockholm markup is not propagated into the
+ *            new alignment.
+ *           
+ * Return:    <eslOK> on success, and the <newmsa>.
+ *
+ * Throws:    <eslEMEM> on allocation error. <eslEINVAL> if a pairwise
+ *            identity calculation fails because of corrupted sequence 
+ *            data. In either case, the <msa> is unmodified.
+ *
+ * Xref:      squid::weight.c::FilterAlignment().
+ */
+int
+esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
+{
+  int     *list   = NULL;               /* array of seqs in new msa */
+  int     *useme  = NULL;               /* TRUE if seq is kept in new msa */
+  int      nnew;			/* number of seqs in new alignment */
+  double   ident;                       /* pairwise percentage id */
+  int      i,j;                         /* seqs counters*/
+  int      remove;                      /* TRUE if sq is to be removed */
+  int      status;
+  
+  /* Contract checks
+   */
+  ESL_DASSERT1( (msa       != NULL) );
+  ESL_DASSERT1( (msa->nseq >= 1)    );
+  ESL_DASSERT1( (msa->alen >= 1)    );
+
+  /* allocate */
+  ESL_ALLOC(list,  sizeof(int) * msa->nseq);
+  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  esl_vec_ISet(useme, msa->nseq, 0); /* initialize array */
+
+  /* find which seqs to keep (list) */
+  nnew = 0;
+  for (i = 0; i < msa->nseq; i++)
+    {
+      remove = FALSE;
+      for (j = 0; j < nnew; j++)
+	{
+	  if (! (msa->flags & eslMSA_DIGITAL)) {
+	    if ((status = esl_dst_CPairId(msa->aseq[i], msa->aseq[list[j]], &ident, NULL, NULL))       != eslOK) goto ERROR;
+	  } 
+#ifdef eslAUGMENT_ALPHABET
+	  else {
+	    if ((status = esl_dst_XPairId(msa->abc, msa->ax[i], msa->ax[list[j]], &ident, NULL, NULL)) != eslOK) goto ERROR;
+	  }
+#endif
+	  
+	  if (ident > maxid)
+	    { 
+	      remove = TRUE; 
+	      break; 
+	    }
+	}
+      if (remove == FALSE) {
+	list[nnew++] = i;
+	useme[i]     = TRUE;
+      }
+    }
+  if ((status = esl_msa_SequenceSubset(msa, useme, ret_newmsa)) != eslOK) goto ERROR;
+ 
+  free(list);
+  free(useme);
+  return eslOK;
+
+ ERROR:
+  if (list  != NULL) free(list);
+  if (useme != NULL) free(useme);
+  return status;
+}
 /*---------------- end, weighting implementations ----------------*/
 
 

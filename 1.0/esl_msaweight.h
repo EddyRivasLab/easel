@@ -12,7 +12,7 @@
 extern int esl_msaweight_GSC(ESL_MSA *msa);
 extern int esl_msaweight_PB(ESL_MSA *msa);
 extern int esl_msaweight_BLOSUM(ESL_MSA *msa, double maxid);
-
+extern int esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa);
 
 
 #endif /*ESL_MSAWEIGHT_INCLUDED*/
