@@ -2240,9 +2240,8 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
  *            to "full length" sequences in alignment <msa>.
  *            
  *            The rule is that if the sequence has a raw (unaligned)
- *            length of less than <fragthresh> times the weighted mean
- *            raw length of all sequences in <msa>, then that sequence
- *            is defined as a fragment.
+ *            length of less than <fragthresh> times the alignment
+ *            length in columns, the sequence is defined as a fragment.
  *            
  *            For each fragment, all leading and trailing gap symbols
  *            (all gaps before the first residue and after the last
@@ -2254,7 +2253,7 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
  *            sequences are defined as fragments.
  *
  * Args:      msa        - alignment in which to define and mark seq fragments 
- *            fragthresh - define frags if rlen < fragthresh * weighted mean rlen;
+ *            fragthresh - define frags if rlen < fragthresh * alen;
  *                         or if fragthresh < 0, all seqs are marked as frags.
  *
  * Returns:   <eslOK> on success.
@@ -2264,24 +2263,11 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
 int
 esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
 {
-  double mean;
-  double totwgt;
   int    i;
   int    pos;
 
-  /* Calculate weighted mean unaligned sequence length */
-  mean   = 0.0;
-  totwgt = 0.0;
   for (i = 0; i < msa->nseq; i++)
-    {
-      mean   += msa->wgt[i] * msa_get_rlen(msa, i);
-      totwgt += msa->wgt[i];
-    }
-  mean /= totwgt;
-
-  /* any seq < fragthresh * mean is identified as a fragment */
-  for (i = 0; i < msa->nseq; i++)
-    if (fragthresh < 0.0 || msa_get_rlen(msa, i) < fragthresh * mean)
+    if (fragthresh < 0.0 || msa_get_rlen(msa, i) < fragthresh * msa->alen)
       {  
 #ifdef eslAUGMENT_ALPHABET
 	if (msa->flags & eslMSA_DIGITAL) {

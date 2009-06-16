@@ -516,6 +516,8 @@ utest_io(ESL_MIXDCHLET *d, double tol)
   fclose(fp);
 
   if (esl_mixdchlet_Compare(d, d2, tol) != eslOK) esl_fatal(msg);
+
+  esl_mixdchlet_Destroy(d2);
   return;
 }
 
@@ -568,6 +570,11 @@ utest_inference(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ncounts, int be_verbose
   maxdeviation = esl_vec_DMax(ip, d->K);
   /* printf("%.3f\n", maxdeviation); */
   if (maxdeviation > 0.05) esl_fatal(msg);
+
+  free(counts);
+  free(probs);
+  free(iq);
+  free(ip);
   return;
 }
 
