@@ -25,6 +25,7 @@ typedef struct {
 
 extern ESL_MIXDCHLET *esl_mixdchlet_Create(int N, int K);
 extern int            esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol);
+extern int            esl_mixdchlet_Copy(ESL_MIXDCHLET *d, ESL_MIXDCHLET *d_dst);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
 extern int            esl_mixdchlet_MPParameters(double *c, int K,
 						 ESL_MIXDCHLET *pri, double *mix, 
@@ -32,8 +33,18 @@ extern int            esl_mixdchlet_MPParameters(double *c, int K,
 
 extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K, 
 				     double *ret_answer);
+extern int esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, 
+					     double *ret_answer);
 extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K, 
 				      double *ret_answer);
+
+/* Optional fitting code, when augmented by minimizing module.
+ */
+#ifdef eslAUGMENT_MINIMIZER
+#include "esl_minimizer.h"
+extern int esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose);
+
+#endif /*eslAUGMENT_MINIMIZER*/
 
 /* Optional sampling code, when augmented by random module.
  */
