@@ -26,6 +26,7 @@ typedef struct {
 extern ESL_MIXDCHLET *esl_mixdchlet_Create(int N, int K);
 extern int            esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol);
 extern int            esl_mixdchlet_Copy(ESL_MIXDCHLET *d, ESL_MIXDCHLET *d_dst);
+extern int            esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
 extern int            esl_mixdchlet_MPParameters(double *c, int K,
 						 ESL_MIXDCHLET *pri, double *mix, 

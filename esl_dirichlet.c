@@ -150,6 +150,28 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri)
 }
 
 
+/* Function:  esl_mixdchlet_Dump()
+ * Incept:    ER, Fri Apr  8 11:00:19 2005 [Janelia]
+ *
+ * Purpose:   Dump the mixture Dirichlet <d>.
+ */
+int
+esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d)
+{
+  int  q;  /* counter over mixture components */
+  int  i;  /* counter over params */
+
+  fprintf(fp, "Mixture Dirichlet: N=%d K=%d\n", d->N, d->K);
+  for (q = 0; q < d->N; q++) {
+    printf("q[%d] %f\n", q, d->pq[q]);
+    for (i = 0; i < d->K; i++)
+      fprintf(fp, "alpha[%d][%d] %f\n", q, i, d->alpha[q][i]);
+  }
+  
+  return eslOK;
+}
+
+
 /* Function:  esl_mixdchlet_MPParameters()
  * Incept:    SRE, Sat Apr  9 14:28:26 2005 [St. Louis]
  *
@@ -367,8 +389,11 @@ struct mixdchlet_data {
  *      (thus, alpha > 0 for all real p)
  *
  *   for a mixture coefficient:
+ *      pq = exp(-exp(p)) / \sum_a exp(-exp(p_a))
+ *      (thus, 0 < pq < 1 and \sum_a pq_a = 1, for all real p)
+ *
+ *   In my hands (ER), this parametrization works better that
  *      pq = exp(p) / \sum_a exp(p_a)
- *      (thus, 0 < pq < 1, \sum_a pq_a = 1, for all real p)
  *
  * Conjugate gradients optimizes the <p> parameter vector,
  * but we can convert that back out into a Dirichlet answer.
@@ -376,29 +401,41 @@ struct mixdchlet_data {
  * The packing order is: the first N terms of a parameter vector are
  * the mixture coefficients pq_i. N different alpha_i vectors follow.
  *
- * [0 ... N-1] [0 ... K-1] [0 ... K-1]  ...
+ * [0 ... N-1] [0 ... K-1] [0 ... K-1]  ... 
  *     q's      alpha_0     alpha_1     ...
  *
  * In both functions below, p, pq, and alpha are all allocated
  * and free'd by the caller.
  *      p : length N + N*K = N*(K+1)  [0.. N*(K+1)-1]
- *     pq : length N, [0..N-1]
- *  alpha : NxK, [0..N-1][0..K-1].
+ *     pq : length N,   [0..N-1]
+ *  alpha : length NxK, [0..N-1][0..K-1].
+ *
+ * The case N=1 is special:
+ * the only variables to optimize are the K alphas
+ *              [0 ... K-1] 
+ *                 alpha    
+ *
+ *      p : length N*K = N*K  [0.. N*K-1]
+ *  alpha : length NxK, [0][0..K-1].
+ *
  */
 static void
 mixdchlet_pack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 {
-  int q;			/* counter over mixture components */
-  int x;                        /* counter in alphabet size */
+  int q;	 /* counter over mixture components */
+  int x;         /* counter in alphabet size */
+  int dimq;      /* dimension of the mixtures to optimize */
+
+  dimq = (d->N > 1)? d->N : 0;
 
   /* the mixture coeficients */
-  for (q = 0; q < d->N; q++)
-    p[q] = log(d->pq[q]);
+  for (q = 0; q < dimq; q++)
+    p[q] = log(-log(d->pq[q]));
 
   /* the dirichlet parameters */
   for (q = 0; q < d->N; q++)
     for (x = 0; x < d->K; x++)
-      p[d->N + q*d->K + x] = log(d->alpha[q][x]);
+      p[dimq + q*d->K + x] = log(d->alpha[q][x]);
  
 }
 
@@ -409,18 +446,24 @@ mixdchlet_pack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 static void
 mixdchlet_unpack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 {
-  int q;			/* counter over mixture components */
-  int x;                        /* counter in alphabet size */
+  int q;	 /* counter over mixture components */
+  int x;         /* counter in alphabet size */
+  int dimq;      /* dimension of the mixtures to optimize */
+
+  dimq = (d->N > 1)? d->N : 0;
 
   /* the mixture coeficients */
-  for (q = 0; q < d->N; q++)
-    d->pq[q] = exp(p[q]);
+  for (q = 0; q < dimq; q++) 
+    d->pq[q] = exp(-exp(p[q]));
   esl_vec_DNorm(d->pq, d->N);
 
   /* the dirichlet parameters */
   for (q = 0; q < d->N; q++)
-    for (x = 0; x < d->K; x++)
-      d->alpha[q][x] = exp(p[d->N + q*d->K + x]);
+    for (x = 0; x < d->K; x++) 
+      d->alpha[q][x] = exp(p[dimq + q*d->K + x]);      
+ 
+  /*esl_mixdchlet_Dump(stdout, d);*/
+
 }
 
 /* The log likelihood function to be optimized by ML fitting:
@@ -440,10 +483,9 @@ mixdchlet_complete_func(double *p, int np, void *dptr)
   for (m = 0; m < data->nc; m++) {
     esl_dirichlet_LogProbData_Mixture(data->c[m], d, &logPsample);
     logP += logPsample;
- }
+  }
 
   if (isnan(logP)) esl_fatal("logP is NaN");
-
   return -logP;
 }
 
@@ -464,7 +506,10 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
   int     m;                     /* counter over count samples */
   int     q;		 	 /* counter over mixture components */
   int     x;                     /* counter in alphabet size */
+  int     dimq;                  /* dimension of the mixtures to optimize */
  
+  dimq = (d->N > 1)? d->N : 0;
+
   mixdchlet_unpack_paramvector(p, np, d);
 
   /* initialize */
@@ -474,7 +519,7 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
     
     sum_alpha = esl_vec_DSum(d->alpha[q], d->K);
     esl_stats_Psi(sum_alpha, &psi1);
-   
+
     for (m = 0; m < data->nc; m++) {
       sum_c = esl_vec_DSum(data->c[m], d->K);
       esl_stats_Psi(sum_alpha+sum_c, &psi2);
@@ -493,18 +538,17 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
 	esl_stats_Psi(d->alpha[q][x]+data->c[m][x], &psi3);
 	esl_stats_Psi(d->alpha[q][x],               &psi4);
 	
-	dp[d->N + q*d->K + x] += ratio2 * (psi1 - psi2 + psi3 - psi4);
+	dp[dimq + q*d->K + x] += ratio2 * (psi1 - psi2 + psi3 - psi4);
      }              
     }
   }
-  
+
   /* check */
   for (q = 0; q < d->N; q++) {
     if (isnan(dp[q])) esl_fatal("dp for pq[%d] is NaN", q);
     for (x = 0; x < d->K; x++) 
-      if(isnan(dp[d->N + q*d->K + x])) esl_fatal("dp for alpha[%d][%d] is NaN", q, x);
+      if(isnan(dp[dimq + q*d->K + x])) esl_fatal("dp for alpha[%d][%d] is NaN", q, x);
   }
-  
 }
 
 /* Function:  esl_mixdchlet_Fit()
@@ -532,6 +576,7 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
   double  tol;
   int     np;
   double  fx;
+  int     dimq;      /* dimension of the mixtures to optimize */
   int     i;
   int     status;
 
@@ -539,7 +584,8 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 
   /* Allocate parameters
    */
-  np = d->N *(d->K+1);
+  dimq = (d->N > 1)? d->N : 0;
+  np   = dimq + d->N*d->K;
   ESL_ALLOC(p,   sizeof(double) * np);
   ESL_ALLOC(u,   sizeof(double) * np);
   ESL_ALLOC(wrk, sizeof(double) * np * 4);
@@ -556,7 +602,7 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 
   /* Define the step size vector u.
    */
-  for (i = 0; i < np; i++) u[i] = 1.0;
+  for (i = 0; i < np; i++) u[i] = 0.1;
 
   /* Feed it all to the mighty optimizer.
    */
@@ -944,18 +990,12 @@ utest_fit(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, double 
 
   /* optimize id */
   esl_mixdchlet_Fit(counts, ntrials, id, be_verbose);
+
+  /* compare */
   printf("\nGiven dirichtlet\n");
-  for (q = 0; q < d->N; q++) {
-    printf("q[%d] %f\n", q, d->pq[q]);
-    for (i = 0; i < d->K; i++)
-      printf("alpha[%d][%d] %f\n", q, i, d->alpha[q][i]);
-  }
+  esl_mixdchlet_Dump(stdout, d);
   printf("\nInfered dirichtlet\n");
-  for (q = 0; q < id->N; q++) {
-    printf("q[%d] %f\n", q, id->pq[q]);
-    for (i = 0; i < id->K; i++)
-      printf("alpha[%d][%d] %f\n", q, i, id->alpha[q][i]);
-  }
+  esl_mixdchlet_Dump(stdout, d);
   if (esl_mixdchlet_Compare(d, id, tol) != eslOK) esl_fatal(msg);
   
   for (m = 0; m < ntrials; m ++)
