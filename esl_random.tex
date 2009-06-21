@@ -19,7 +19,9 @@ initialize (about 20x) and somewhat faster to generate samples (about
 25\%), while still generating pseudorandom numbers suitable for most
 applications. Because of its initialization speed, the LCG is
 advantageous when a small number of reasonably random samples is
-needed in a speed-critical application.
+needed in a speed-critical application. However, it has a relatively
+short period ($2^32$), making it entirely unsuitable for large
+simulations.
 
 Bit streams from \ccode{esl\_random()}'s two generators were tested
 against a National Institute of Standards and Technology statistical

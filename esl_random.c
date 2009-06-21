@@ -51,6 +51,11 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
  * Purpose:   Create a random number generator using
  *            a given random seed. The <seed> must be $\geq 0$.
  *            
+ *            The default random number generator uses the Mersenne
+ *            Twister MT19937 algorithm \citep{Matsumoto98}.  It has a
+ *            period of $2^{19937}-1$, and equidistribution over
+ *            $2^{32}$ values.
+ *
  *            If <seed> is $>0$, the random number generator is
  *            reproducibly initialized with that seed.  Two RNGs
  *            created with the same nonzero seed will give exactly the
@@ -77,6 +82,7 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
  * Throws:    <NULL> on failure.
  * 
  * Xref:      STL8/p57.
+ *            J5/21:    Mersenne Twister.
  */
 ESL_RANDOMNESS *
 esl_randomness_Create(uint32_t seed)
@@ -102,6 +108,11 @@ esl_randomness_Create(uint32_t seed)
  *
  * Purpose:   Same as <esl_randomness_Create()>, except that a simple
  *            linear congruential generator will be used.
+ *            
+ *            This is a $(a=69069, c=1)$ LCG, with a period of
+ *            $2^{32}$. Because of the relatively short period, this
+ *            generator should not be used for serious simulations
+ *            involving large samples.
  *
  *            The properties of this generator are not as good as the
  *            default Mersenne Twister, but it is faster, especially
@@ -109,9 +120,16 @@ esl_randomness_Create(uint32_t seed)
  *            generator; it is about 20x faster to initialize the
  *            generator, and about 25\% faster to sample a number, 
  *            compared to the default.
- *            
- *            The algorithm is a linear congruential generator from
- *            Knuth, using a=69069.
+ *
+ * Args:      seed $>= 0$.
+ *
+ * Returns:   an initialized <ESL_RANDOMNESS *> on success.
+ *            Caller free's with <esl_randomness_Destroy()>.
+ *              
+ * Throws:    <NULL> on failure.
+ *
+ * Xref:      J5/44: for accidental proof that the period is
+ *                   indeed 2^32.
  */
 ESL_RANDOMNESS *
 esl_randomness_CreateFast(uint32_t seed)
