@@ -410,8 +410,12 @@ struct mixdchlet_data {
  *     pq : length N,   [0..N-1]
  *  alpha : length NxK, [0..N-1][0..K-1].
  *
- * The case N=1 is special:
- * the only variables to optimize are the K alphas
+ * Special cases:
+ *
+ * - For (N >= 1 && K == 1) there is nothing to optimize.
+ *  
+ * - For (N == 1 && K >  1) the only variables to optimize are the K alphas
+ *
  *              [0 ... K-1] 
  *                 alpha    
  *
@@ -422,20 +426,20 @@ struct mixdchlet_data {
 static void
 mixdchlet_pack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 {
+  int nq;        /* number the mixture components to optimize */
   int q;	 /* counter over mixture components */
   int x;         /* counter in alphabet size */
-  int dimq;      /* dimension of the mixtures to optimize */
 
-  dimq = (d->N > 1)? d->N : 0;
+  nq = (d->N > 1)? d->N : 0;
 
   /* the mixture coeficients */
-  for (q = 0; q < dimq; q++)
+  for (q = 0; q < nq; q++)
     p[q] = log(-log(d->pq[q]));
 
   /* the dirichlet parameters */
   for (q = 0; q < d->N; q++)
     for (x = 0; x < d->K; x++)
-      p[dimq + q*d->K + x] = log(d->alpha[q][x]);
+      p[nq + q*d->K + x] = log(d->alpha[q][x]);
  
 }
 
@@ -446,21 +450,21 @@ mixdchlet_pack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 static void
 mixdchlet_unpack_paramvector(double *p, int np, ESL_MIXDCHLET *d)
 {
+  int nq;        /* number the mixture components to optimize */
   int q;	 /* counter over mixture components */
   int x;         /* counter in alphabet size */
-  int dimq;      /* dimension of the mixtures to optimize */
 
-  dimq = (d->N > 1)? d->N : 0;
+  nq = (d->N > 1)? d->N : 0;
 
   /* the mixture coeficients */
-  for (q = 0; q < dimq; q++) 
+  for (q = 0; q < nq; q++) 
     d->pq[q] = exp(-exp(p[q]));
   esl_vec_DNorm(d->pq, d->N);
 
   /* the dirichlet parameters */
   for (q = 0; q < d->N; q++)
     for (x = 0; x < d->K; x++) 
-      d->alpha[q][x] = exp(p[dimq + q*d->K + x]);      
+      d->alpha[q][x] = exp(p[nq + q*d->K + x]);      
  
   /*esl_mixdchlet_Dump(stdout, d);*/
 
@@ -503,12 +507,12 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
   double  ratio1;
   double  ratio2;
   double  psi1, psi2, psi3, psi4;
+  int     nq;                    /* number the mixture components to optimize */
   int     m;                     /* counter over count samples */
   int     q;		 	 /* counter over mixture components */
   int     x;                     /* counter in alphabet size */
-  int     dimq;                  /* dimension of the mixtures to optimize */
  
-  dimq = (d->N > 1)? d->N : 0;
+  nq = (d->N > 1)? d->N : 0;
 
   mixdchlet_unpack_paramvector(p, np, d);
 
@@ -538,7 +542,7 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
 	esl_stats_Psi(d->alpha[q][x]+data->c[m][x], &psi3);
 	esl_stats_Psi(d->alpha[q][x],               &psi4);
 	
-	dp[dimq + q*d->K + x] += ratio2 * (psi1 - psi2 + psi3 - psi4);
+	dp[nq + q*d->K + x] += ratio2 * (psi1 - psi2 + psi3 - psi4);
      }              
     }
   }
@@ -547,7 +551,7 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
   for (q = 0; q < d->N; q++) {
     if (isnan(dp[q])) esl_fatal("dp for pq[%d] is NaN", q);
     for (x = 0; x < d->K; x++) 
-      if(isnan(dp[dimq + q*d->K + x])) esl_fatal("dp for alpha[%d][%d] is NaN", q, x);
+      if(isnan(dp[nq + q*d->K + x])) esl_fatal("dp for alpha[%d][%d] is NaN", q, x);
   }
 }
 
@@ -574,18 +578,21 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
   double *u   = NULL;
   double *wrk = NULL;
   double  tol;
-  int     np;
   double  fx;
-  int     dimq;      /* dimension of the mixtures to optimize */
+  int     np;      /* number of parameters to optimize */
+  int     nq;      /* number the mixture components to optimize */
   int     i;
   int     status;
+
+  /* nothing to optimize for a dirichlet of K = 1 */
+  if (d->K == 1) return eslOK;
 
   tol = 1e-6;
 
   /* Allocate parameters
    */
-  dimq = (d->N > 1)? d->N : 0;
-  np   = dimq + d->N*d->K;
+  nq = (d->N > 1)? d->N : 0;
+  np = nq + d->N*d->K;
   ESL_ALLOC(p,   sizeof(double) * np);
   ESL_ALLOC(u,   sizeof(double) * np);
   ESL_ALLOC(wrk, sizeof(double) * np * 4);
