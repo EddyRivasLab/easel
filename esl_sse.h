@@ -19,6 +19,16 @@ extern __m128  esl_sse_expf(__m128 x);
 extern void    esl_sse_dump_ps(FILE *fp, __m128 v);
 
 /*****************************************************************
+ * if the compiler does not support SSE2 cast functions replace 
+ * the calls with C casts.  this is needed for older versions of 
+ * gcc, 3.4.
+ *****************************************************************/
+#ifndef HAVE_SSE2_CAST
+#define _mm_castps_si128(x) (__m128i)(x)
+#define _mm_castsi128_ps(x) (__m128)(x)
+#endif
+
+/*****************************************************************
  * Inline utility functions for ps vectors (4 floats in a __m128)
  *****************************************************************/
 
