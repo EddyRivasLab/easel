@@ -78,6 +78,7 @@ static ESL_OPTIONS options[] = {
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
   { "-1",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "output alignment in Pfam (non-interleaved, 1 line/seq) format",  1 },
+  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output list of sequence names in alignment to file <f>",         1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "add/rewrite #=GC RF markup based on gap frequency in each col",  2 },
   { "--gapthresh", eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-g", NULL,                       "with -g, fraction of gaps allowed in non-gap RF columns [0.5]",  2 },
@@ -153,6 +154,7 @@ main(int argc, char **argv)
   FILE *rinfofp = NULL;  /* output file for --rinfo */
   FILE *dinfofp = NULL;  /* output file for --dinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
+  FILE *listfp = NULL;   /* output file for --list */
   /* --mask-all */
   char *amask = NULL;
   /* --mask-all */
@@ -604,6 +606,16 @@ main(int argc, char **argv)
 	if((status = number_columns(msa, TRUE, errbuf) != eslOK)) goto ERROR;
 	write_ali = TRUE;
       }
+
+      /* write out list of sequences, if nec */
+      if(! esl_opt_IsDefault(go, "--list")) {
+	if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
+	  esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
+	int i;
+	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
+	fclose(listfp);
+     } 
+
       /* write out alignment, if nec */
       if(write_ali || esl_opt_GetBoolean(go, "-1")) {
 	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));

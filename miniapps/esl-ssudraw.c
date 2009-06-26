@@ -144,15 +144,15 @@ static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map,
 static int  read_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
-static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***scheme, int scheme_idx, int ncols);
-static int  delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
-static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
+static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
+static int  delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
+static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  compare_ints(const void *el1, const void *el2);
-static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
+static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
-static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
+static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_bins);
 static int  phylosignal_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2);
@@ -171,14 +171,14 @@ static ESL_OPTIONS options[] = {
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              0 },
   { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "DO NOT create SS info content diagram (on by default)", 0 },
   { "-s",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for each sequence in the alignment",    0 },
-  { "-c",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for RF sequence",    1 },
-  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete SS diagram",    1 },
   { "-i",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
+  { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for RF sequence",    1 },
   { "--struct", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create structural info content SS diagram",    1 },
   { "--p-avg",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create average posterior probability SS diagram",1 },
   { "--p-min",  eslARG_REAL,  "0.90",NULL, "0.09999<x<=1.",NULL,NULL,NULL,       "set minimum posterior probability to color to <x>",1 },
   { "--phy",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram displaying phylogenetic signal per position", 1},
-  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,"-d", NULL,            "with -d, only count internal deletions", 1 },
+  { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/all deletions (incl. terminal deletes)",    1 },
+  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/only internal (non-terminal) deletions", 1 },
   { "--mask-col",eslARG_INFILE,NULL, NULL, NULL, NULL,NULL, MASKOPTS,        "create black/pink colored SS diagram denoting masked columns", 1 },
   { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask-col","--mask-i,--mask-prob,--mask-phy","with --mask-col <f1>, compare mask in <f1> to mask in <f>", 1},
   { "--mask-i", eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, MASKOPTS,        "create info content SS diagram denoting masked columns", 1 },
@@ -290,7 +290,7 @@ main(int argc, char **argv)
 
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  int     *hc_ncols;
+  int     *hc_nbins;
   float ***hc_scheme;
   int z;
   ESL_ALLOC(hc_scheme, sizeof(float **) * 2);
@@ -299,9 +299,9 @@ main(int argc, char **argv)
   ESL_ALLOC(hc_scheme[1], sizeof(float *) * 11); 
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[1][z], sizeof(float) * NCMYK); }
 
-  ESL_ALLOC(hc_ncols, sizeof(int) * 2);
-  hc_ncols[0] = NRAINBOWRHSCHEME;
-  hc_ncols[1] = NRAINBOWRLSCHEME;
+  ESL_ALLOC(hc_nbins, sizeof(int) * 2);
+  hc_nbins[0] = NRAINBOWRHSCHEME;
+  hc_nbins[1] = NRAINBOWRLSCHEME;
 
   /***********************************/
   /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
@@ -350,23 +350,26 @@ main(int argc, char **argv)
       if(clen != ps->clen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d.", nali, clen, ps->clen);
 
       if(! esl_opt_GetBoolean(go, "-q")) { 
-	if((status = infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RAINBOWRLSCHEME, hc_ncols[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RAINBOWRLSCHEME, hc_nbins[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--struct")) { 
-	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, NULL)) != eslOK) esl_fatal(errbuf);
+	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RAINBOWRLSCHEME, hc_nbins[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "-i")) { /* make a new postscript page marking insertions */
-	if((status = insert_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+	if((status = insert_sspostscript(go, errbuf, ps, msa, hc_scheme, RAINBOWRLSCHEME, hc_nbins[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
-      if(esl_opt_GetBoolean(go, "-d")) { /* make a new postscript page marking deletes */
-	if((status = delete_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+      if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
+	if((status = delete_sspostscript(go, errbuf, ps, msa, TRUE, hc_scheme, RAINBOWRHSCHEME, hc_nbins[RAINBOWRHSCHEME])) != eslOK) esl_fatal(errbuf);
       }
-      if(esl_opt_GetBoolean(go, "-c")) { /* make a new postscript page for the RF sequence in the alignment */
+      if(esl_opt_GetBoolean(go, "--dint")) { /* make a new postscript page marking internal deletes */
+	if((status = delete_sspostscript(go, errbuf, ps, msa, FALSE, hc_scheme, RAINBOWRHSCHEME, hc_nbins[RAINBOWRHSCHEME])) != eslOK) esl_fatal(errbuf);
+      }
+      if(esl_opt_GetBoolean(go, "--rf")) { /* make a new postscript page for the RF sequence in the alignment */
 	if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
       }
       int do_post = (esl_opt_GetBoolean(go, "--p-avg")) ? TRUE : FALSE;
       if(do_post) { 
-	if((status = posteriors_sspostscript(go, errbuf, ps, msa, NULL)) != eslOK) esl_fatal(errbuf);
+	if((status = posteriors_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RAINBOWRLSCHEME, hc_nbins[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "-s")) { /* make a new postscript page for each sequence in the alignment */
 	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
@@ -377,7 +380,7 @@ main(int argc, char **argv)
       }
       if(! esl_opt_IsDefault(go, "--mask-prob")) { 
 	if(ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d.", nali, clen, masklen);
-	if((status = posteriors_sspostscript(go, errbuf, ps, msa, mask)) != eslOK) esl_fatal(errbuf);
+	if((status = posteriors_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RAINBOWRLSCHEME, hc_nbins[RAINBOWRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--phy")) { 
 	if((status = phylosignal_sspostscript(go, errbuf, ps, msa, NULL)) != eslOK) esl_fatal(errbuf);
@@ -1180,7 +1183,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * Return:   eslOK on success.
  */
 int
-infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_ncols)
+infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -1227,7 +1230,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
     ent[cpos] = esl_vec_DEntropy(bg, msa->abc->K) - esl_vec_DEntropy(obs[cpos], msa->abc->K);
 
     if(mask == NULL) { 
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_ncols, 0, 200, (int) (100. * (ent[cpos])))) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 200, (int) (100. * (ent[cpos])))) != eslOK) return status;
     }
     else { 
       if(mask[cpos] == '0') { 
@@ -1252,7 +1255,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   ESL_ALLOC(text, sizeof(char) * strlen("information content (bits) (total: 1000000.00 bits)"));
   sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->clen));
   /*ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK, 0., 2., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);*/
-  ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_ncols, 0, 200, 100., LEG_ONED_BOXSIZE, text);
+  ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 200, 100., LEG_ONED_BOXSIZE, text);
   ps->nclA[pp] = 1;
   free(text);
 
@@ -1277,7 +1280,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
  * Return:   eslOK on success.
  */
 int
-delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa)
+delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -1292,7 +1295,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
     ESL_ALLOC(ps->rcolAAA[p], sizeof(int *) * ps->clen);
-    ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(int) * NCMYK); /* CMYK colors */
     }
@@ -1337,62 +1340,31 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   }
 
   pp = orig_npage;
-  if(! esl_opt_GetBoolean(go, "--dint")) { 
+  if(do_all) { 
     /* draw delete page with all deletes */
     for(cpos = 0; cpos < ps->clen; cpos++) { 
-      ps->rcolAAA[pp][cpos][0] = 0.0; /* cyan */
-      ps->rcolAAA[pp][cpos][2] = 0.0; /* yellow */
-      ps->rcolAAA[pp][cpos][3] = 0.0; /* black */
-      if(dct[cpos] == 0) { 
-	ps->rcolAAA[pp][cpos][1] = 0.;
-	ps->rrAA[pp][cpos] = '-'; /* mark empty blocks by a '-' */
-      }
-      else { 
-	ps->rcolAAA[pp][cpos][1] = (float) dct[cpos] / (float) msa->nseq;  /* magenta */
-	ps->rrAA[pp][cpos] = ' ';
-	/*ps->rcolAAA[pp][cpos][1] = dct_internal[cpos] / max_dct_internal; 
-	  ps->rcolAAA[pp][cpos][1] /= (1/(1.0-.1));
-	  ps->rcolAAA[pp][cpos][1] += 0.1;
-	  ps->rcolAAA[pp][cpos][1] = dct[cpos] / max_dct; 
-	  ps->rcolAAA[pp][cpos][1] = dct[cpos]; */
-      }
+      ps->rrAA[pp][cpos] = ' ';
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 100, (int) (100. * (float) (dct[cpos]) / (float) msa->nseq))) != eslOK) return status;
     }
   }
-  else { 
-    /* draw delete page with only internal deletes */
+  else { /* do_all is FALSE, draw delete page with only internal deletes */
     for(cpos = 0; cpos < ps->clen; cpos++) { 
-      ps->rcolAAA[pp][cpos][0] = 0.0; /* cyan */
-      ps->rcolAAA[pp][cpos][2] = 0.0; /* yellow */
-      ps->rcolAAA[pp][cpos][3] = 0.0; /* black */
-      if(dct_internal[cpos] == 0) { 
-	ps->rcolAAA[pp][cpos][1] = 0.;
-	ps->rrAA[pp][cpos] = '-'; /* mark empty blocks by a '-' */
-      }
-      else { 
-	ps->rcolAAA[pp][cpos][1] = (float) dct_internal[cpos] / (float) msa->nseq;  /* magenta */
-	ps->rrAA[pp][cpos] = ' ';
-	/*ps->rcolAAA[pp][cpos][1] = dct_internal[cpos] / max_dct_internal; 
-	  ps->rcolAAA[pp][cpos][1] /= (1/(1.0-.1));
-	  ps->rcolAAA[pp][cpos][1] += 0.1;
-	  ps->rcolAAA[pp][cpos][1] = dct[cpos] / max_dct; 
-	  ps->rcolAAA[pp][cpos][1] = dct[cpos]; */
-      }
+      ps->rrAA[pp][cpos] = ' ';
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 100, (int) (100. * (float) (dct_internal[cpos]) / (float) msa->nseq))) != eslOK) return status;
     }
   }
 
   /* add color legend */
   char *text;
-  if(! esl_opt_GetBoolean(go, "--dint")) { 
+  if(do_all) { 
     ESL_ALLOC(text, sizeof(char) * strlen("fraction seqs w/deletes ('-'=0 deletes; avg/seq: 1000.00)"));
     sprintf(text, "fraction seqs w/deletes ('-'=0 deletes; avg/seq: %.2f)", (float) esl_vec_ISum(dct, ps->clen) / (float) msa->nseq);
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IMAGENTA, 0., 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    ps->nclA[pp] = 1;
+    ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 100, 100., LEG_ONED_BOXSIZE, text);
   }
-  else { /* only internal deletes counted */
+  else { /* !do_all, only internal deletes counted */
     ESL_ALLOC(text, sizeof(char) * strlen("fraction seqs w/internal deletes ('-'=0; avg/seq: 1000.00)"));
     sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->clen) / (float) msa->nseq);
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IMAGENTA, 0., 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    ps->nclA[pp] = 1;
+    ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 100, 100., LEG_ONED_BOXSIZE, text);
   }
   free(text);
   free(dct);
@@ -1418,7 +1390,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * Return:   eslOK on success.
  */
 int
-insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa)
+insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -1435,7 +1407,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -1525,18 +1497,14 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
       col = (float) nseq_ict[cpos] / (float) msa->nseq;
     }
     ps->rrAA[pp][(cpos-1)] = res;
-    ps->rcolAAA[pp][cpos-1][0] = col;
-    ps->rcolAAA[pp][cpos-1][1] = 0.;
-    ps->rcolAAA[pp][cpos-1][2] = 0.;
-    ps->rcolAAA[pp][cpos-1][3] = 0.;
+    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][(cpos-1)], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 100, (int) (100. * col))) != eslOK) return status;
   }
 
   /* add color legend */
   char *text;
   ESL_ALLOC(text, sizeof(char) * strlen("fraction seqs w/inserts; 'N' = median size, if N=*, N > 10; avg/seq: 1000.00"));
   sprintf(text, "fraction seqs w/inserts; 'N' = median size, if N=*, N > 10; avg/seq: %.2f", (float) esl_vec_ISum(total_ict, ps->clen+1) / (float) msa->nseq);
-  ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, ICYAN, 0., 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-  ps->nclA[pp] = 1;
+  ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 100, 100., LEG_ONED_BOXSIZE, text);
   free(text);
   
   for(i = 0; i < ps->clen; i++) free(ict[i]);
@@ -1622,8 +1590,10 @@ compare_ints(const void *el1, const void *el2)
  * Return:   eslOK on success.
  */
 static int
-posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask)
+posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
+  if(mask != NULL) esl_fatal("posteriors with mask not yet upgraded.");
+
   int    status;
   int    s,c;                 /* counters over sequences, columns of MSA */
   int   *nongap_c, *nongap_s; /* number of non-gap posterior values for each column/sequence respectively */
@@ -1656,8 +1626,9 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    if(mask == NULL) ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
-    else             ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 2);
+    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
+    /*if(mask == NULL) ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
+      else             ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 2);*/
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -1837,10 +1808,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     ps->rrAA[pp][cpos] = res;
     
     if(mask == NULL) { /* not applying a lanemask, paint it (some shade of) black */
-      ps->rcolAAA[pp][cpos][0] = 0.;
-      ps->rcolAAA[pp][cpos][1] = 0.;
-      ps->rcolAAA[pp][cpos][2] = 0.;
-      ps->rcolAAA[pp][cpos][3] = col;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 100, (int) (100. * col))) != eslOK) return status;
       sum_in += avg;
       nin++;
     }
@@ -1872,8 +1840,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   if(mask == NULL) { 
     ESL_ALLOC(text, sizeof(char) * strlen("avg posterior probability; (avg: 1.000) 'N'=(int) avg*10, if N=*, avg=1.0;"));
     sprintf(text, "avg posterior probability; (avg: %.3f) 'N'=(int) avg*10, if N=*, avg=1.0;", (sum_in / (float) nin));
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK, pmin, 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    ps->nclA[pp] = 1;
+    ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 100, 100., LEG_ONED_BOXSIZE, text);
     free(text);
   }
   else { 
@@ -2097,7 +2064,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
  * Return:   eslOK on success.
  */
 int
-structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask)
+structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -2117,7 +2084,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -2215,18 +2182,15 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   }
 
   for(cpos = 0; cpos < ps->clen; cpos++) { 
-    if(ent_p[cpos] < (-1. * eslSMALLX1)) { /* single stranded base, paint yellow */
-      ps->rcolAAA[pp][cpos][0] = 0.0;
-      ps->rcolAAA[pp][cpos][1] = 0.0;
-      ps->rcolAAA[pp][cpos][2] = 1.0;
-      ps->rcolAAA[pp][cpos][3] = 0.0;
-      ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
-    }
-    else if(mask == NULL) { 
+    if(ent_p[cpos] < (-1. * eslSMALLX1)) { /* single stranded base, paint grey */
       ps->rcolAAA[pp][cpos][0] = 0.0;
       ps->rcolAAA[pp][cpos][1] = 0.0;
       ps->rcolAAA[pp][cpos][2] = 0.0;
-      ps->rcolAAA[pp][cpos][3] = ent_p[cpos];
+      ps->rcolAAA[pp][cpos][3] = 0.5;
+      ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
+    }
+    else if(mask == NULL) { 
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], hc_nbins, 0, 100, (int) (100. * (ent_p[cpos])))) != eslOK) return status;
     }
     else { 
       if(mask[cpos] == '0') { 
@@ -2243,7 +2207,8 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
       }
       else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
     }
-    ps->rrAA[pp][cpos] = (esl_FCompare(ent_p[cpos], 0., eslSMALLX1) == eslOK) ? '-' : ' '; /* mark blank squares with a '-' */
+    ps->rrAA[pp][cpos] = ' ';
+    /* I DON'T THINK THIS NECESSARY ANY LONGER *//*ps->rrAA[pp][cpos] = (esl_FCompare(ent_p[cpos], 0., eslSMALLX1) == eslOK) ? '-' : ' '; *//* mark blank squares with a '-' */
   }
 
   /* add color legend */
@@ -2251,7 +2216,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   ESL_ALLOC(text, sizeof(char) * strlen("structural info content per bp, ic(basepair) - ic(singlets) (total: 1000.00 bits)"));
   sprintf(text,  "structural info content per bp, ic(basepair) - ic(singlets) (total: %.2f bits)", esl_vec_DSum(ent_p, ps->clen) * 2.);
 
-  ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK, 0., 2.0, LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
+  ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, 0, 100, 100., LEG_ONED_BOXSIZE, text);
   ps->nclA[pp] = 1;
   free(text);
 
