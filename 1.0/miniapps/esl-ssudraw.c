@@ -40,6 +40,12 @@
 #define IMAGENTA 1
 #define IYELLOW 2
 #define IBLACK 3
+
+/* define the color for blank cells where no value is appropriate */
+#define BLANKCYAN    0.0
+#define BLANKMAGENTA 0.0
+#define BLANKYELLOW  0.0
+#define BLANKBLACK   0.5
 /*if I extend to allow RED, BLUE, GREEN with combos of CMYK, but it's a pain right now due to implementation 
   #define IRED 4
   #define IBLUE 5
@@ -132,6 +138,7 @@ typedef struct ss_postscript_s {
   OneCellColorLegend_t ***occlAAA;/* [0..npage-1][0..l..nocclA[p]  ptr to one cell color legend l for page p */
   int     *nocclA;      /* [0..npage-1] number of one cell color legends for each page */
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
+  char   **maskAA;      /* [0..npage-1][0..clen-1] mask, columns which are '0' get drawn differently */
 } SSPostscript_t;
 
 
@@ -141,7 +148,7 @@ static ColorLegend_t *create_one_dim_colorlegend(SSPostscript_t *ps, int color_i
 static OneCellColorLegend_t *create_one_cell_colorlegend(SSPostscript_t *ps, float *cmykA, float boxsize, char *text);
 static SchemeColorLegend_t *create_scheme_colorlegend(SSPostscript_t *ps, int scheme, int ncols, float boxsize, char *text, float *limits);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text);
-static int  print_sspostscript(FILE *fp, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps);
+static int  print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps);
 static int  print_colorlegend(FILE *fp, ColorLegend_t *cl);
 static int  print_onecellcolorlegend(FILE *fp, OneCellColorLegend_t *occl);
 static int  print_scheme_colorlegend(FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme);
@@ -166,12 +173,14 @@ static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscr
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
 static int  get_date(char *errbuf, char **ret_date);
 static int  set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl);
+static int  add_mask_to_ss_postscript(SSPostscript_t *ps, int page, char *mask);
 
 static char banner[] = "draw Gutell based postscript SSU secondary structure diagrams.";
 static char usage[]  = "[options] <msafile> <Gutell SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
-#define MASKOPTS "--mask-i,--mask-prob,--mask-phy,--mask-col" /* exclusive choice for masking */
+#define MASKOPTS "--mask,--mask-col" /* exclusive choice for masking */
+#define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
@@ -179,18 +188,20 @@ static ESL_OPTIONS options[] = {
   { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "DO NOT create SS info content diagram (on by default)", 0 },
   { "-s",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for each sequence in the alignment",    0 },
   { "-i",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
+  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
+  { "-c",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
+  { "-x",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
   { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for RF sequence",    1 },
   { "--struct", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create structural info content SS diagram",    1 },
   { "--p-avg",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create average posterior probability SS diagram",1 },
+  { "--p-indi", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create posterior probability diagram for each sequence",1 },
   { "--p-min",  eslARG_REAL,  "0.90",NULL, "0.09999<x<=1.",NULL,NULL,NULL,       "set minimum posterior probability to color to <x>",1 },
   { "--phy",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram displaying phylogenetic signal per position", 1},
   { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/all deletions (incl. terminal deletes)",    1 },
   { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/only internal (non-terminal) deletions", 1 },
+  { "--mask",    eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,MASKOPTS,        "for all diagrams, mark masked columns from mask in <f>", 1 },
   { "--mask-col",eslARG_INFILE,NULL, NULL, NULL, NULL,NULL, MASKOPTS,        "create black/pink colored SS diagram denoting masked columns", 1 },
-  { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask-col","--mask-i,--mask-prob,--mask-phy","with --mask-col <f1>, compare mask in <f1> to mask in <f>", 1},
-  { "--mask-i", eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, MASKOPTS,        "create info content SS diagram denoting masked columns", 1 },
-  { "--mask-prob",eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,MASKOPTS,       "create posterior prob SS diagram denoting masked columns", 1 },
-  { "--mask-phy", eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,MASKOPTS,       "create phylo signal SS diagram denoting masked columns", 1 },
+  { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask-col","--mask","with --mask-col <f1>, compare mask in <f1> to mask in <f>", 1},
   { "--dfile",  eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "read 'draw' file specifying >=1 SS diagram drawings", 1 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
@@ -278,14 +289,8 @@ main(int argc, char **argv)
   int masklen;
   char *mask2 = NULL;
   int masklen2;
-  if(! esl_opt_IsDefault(go, "--mask-i")) { 
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-i"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
-  }
-  if(! esl_opt_IsDefault(go, "--mask-prob")) { 
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-prob"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
-  }
-  if(! esl_opt_IsDefault(go, "--mask-phy")) { 
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-phy"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
+  if(! esl_opt_IsDefault(go, "--mask")) { 
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
   }
   if(! esl_opt_IsDefault(go, "--mask-col")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask-col"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
@@ -379,9 +384,10 @@ main(int argc, char **argv)
       for(apos = 0; apos < msa->alen; apos++) if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) clen++;
       if(ps->clen == 0)    esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d. Did you add the 'residue_start' line?", nali, clen, ps->clen);
       if(clen != ps->clen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d.", nali, clen, ps->clen);
+      if(mask != NULL && ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", nali, clen, masklen, esl_opt_GetString(go, "--mask"));
 
       if(! esl_opt_GetBoolean(go, "-q")) { 
-	if((status = infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = infocontent_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--struct")) { 
 	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
@@ -405,21 +411,6 @@ main(int argc, char **argv)
       if(esl_opt_GetBoolean(go, "-s")) { /* make a new postscript page for each sequence in the alignment */
 	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
       }
-      if(! esl_opt_IsDefault(go, "--mask-i")) { 
-	if(ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d.", nali, clen, masklen);
-	if((status = infocontent_sspostscript(go, errbuf, ps, msa, mask, NULL, 0, 0)) != eslOK) esl_fatal(errbuf);
-      }
-      if(! esl_opt_IsDefault(go, "--mask-prob")) { 
-	if(ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d.", nali, clen, masklen);
-	if((status = posteriors_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
-      }
-      if(esl_opt_GetBoolean(go, "--phy")) { 
-	if((status = phylosignal_sspostscript(go, errbuf, ps, msa, NULL)) != eslOK) esl_fatal(errbuf);
-      }
-      if(! esl_opt_IsDefault(go, "--mask-phy")) { 
-	if(ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d.", nali, clen, masklen);
-	if((status = phylosignal_sspostscript(go, errbuf, ps, msa, mask)) != eslOK) esl_fatal(errbuf);
-      }
       if(! esl_opt_IsDefault(go, "--dfile")) { 
 	if((status = drawfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
       }
@@ -433,7 +424,7 @@ main(int argc, char **argv)
 	}
       }
 
-      if((status = print_sspostscript(ofp, errbuf, command, date, hc_scheme, ps)) != eslOK) esl_fatal(errbuf);
+      if((status = print_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps)) != eslOK) esl_fatal(errbuf);
       fclose(ofp);
       esl_msa_Destroy(msa);
     }
@@ -486,6 +477,7 @@ create_sspostscript()
   ps->clAAA       = NULL;
   ps->occlAAA     = NULL;
   ps->sclAA       = NULL;
+  ps->maskAA      = NULL;
   ps->legx = ps->legy = ps->cur_legx = ps->cur_legy = 0.;
 
   return ps;
@@ -552,6 +544,16 @@ free_sspostscript(SSPostscript_t *ps)
     }
   }
 
+  if(ps->sclAA != NULL) { 
+    for(p = 0; p < ps->npage; p++) { 
+      if(ps->sclAA[p] != NULL) { 
+	if(ps->sclAA[p]->limits != NULL) free(ps->sclAA[p]->limits);
+	free(ps->sclAA[p]); /* statically allocated memory */
+      }
+    }
+  }
+
+  if(ps->sclAA != NULL) free(ps->sclAA);
   if(ps->nclA != NULL) free(ps->nclA);
   if(ps->nocclA != NULL) free(ps->nocclA);
 
@@ -719,7 +721,19 @@ add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text)
   return eslOK;
 }
 
-
+/* Function: add_mask_to_sspostscript
+ * 
+ * Purpose:  Add a mask to a sspostscript object.
+ */
+int
+add_mask_to_ss_postscript(SSPostscript_t *ps, int page, char *mask)
+{
+  int status;
+  if(ps->maskAA[page] != NULL) { esl_fatal("add_mask_to_ss_postscript(), mask for page: %d is non-null!\n", page); }
+  if(mask == NULL) esl_fatal("add_mask_to_ss_postscript(), passed in mask is NULL!\n"); 
+  if((status = esl_strdup(mask, -1, &(ps->maskAA[page]))) != eslOK) esl_fatal("add_mask_to_ss_postscript(), error copying mask");
+  return eslOK;
+}
 
 /* Function: print_colorlegend()
  * 
@@ -931,10 +945,16 @@ print_scheme_colorlegend(FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme)
  *           eslEINCOMPAT if ps->npage == 0
  */
 int
-print_sspostscript(FILE *fp, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps)
+print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps)
 {
   int p, i, c, l;
   float title_fontsize;
+  int do_square_mask, do_diamond_mask, do_x_mask, do_circle_mask;
+  do_square_mask = do_diamond_mask = do_x_mask = do_circle_mask = FALSE;
+  if(esl_opt_GetBoolean(go, "-d")) { do_diamond_mask = TRUE; }
+  else if(esl_opt_GetBoolean(go, "-x")) { do_x_mask = TRUE; }
+  else if(esl_opt_GetBoolean(go, "-c")) { do_circle_mask = TRUE; }
+  else do_square_mask = TRUE;
 
   title_fontsize = TITLE_FONTSIZE;
 
@@ -991,14 +1011,47 @@ print_sspostscript(FILE *fp, char *errbuf, char *command, char *date, float ***h
     }
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
-      for(c = 0; c < ps->clen; c++) { 
-	fprintf(fp, "%sresidue %d\n", "%", c+1);
-	fprintf(fp, "newpath\n");
-	fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
-	fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
-	/*fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);*/
-	fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
-	fprintf(fp, "  fill\n");
+      if(ps->maskAA[p] != NULL) { 
+	for(c = 0; c < ps->clen; c++) { 
+	  fprintf(fp, "%sresidue %d\n", "%", c+1);
+	  fprintf(fp, "newpath\n");
+	  if(ps->maskAA[p][c] == '0') { 
+	    if(do_square_mask) { 
+	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 2., ps->ryA[c] -1. + 2.);
+	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
+	    }
+	    else if (do_diamond_mask) { 
+	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
+	      fprintf(fp, "  -4 4 rlineto 4 4 rlineto 4 -4 rlineto closepath\n");
+	    }
+	    else if (do_circle_mask) { 
+	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
+	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
+	    }
+	    else if (do_x_mask) { 
+	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
+	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
+	    }
+	  }
+	  else { 
+	    fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
+	    fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
+	  }
+	  /*fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);*/
+	  fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	  fprintf(fp, "  fill\n");
+	}
+      }
+      else { /* no mask, all cells are printed the same */
+	for(c = 0; c < ps->clen; c++) { 
+	  fprintf(fp, "%sresidue %d\n", "%", c+1);
+	  fprintf(fp, "newpath\n");
+	  fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
+	  fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
+	  /*fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);*/
+	  fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	  fprintf(fp, "  fill\n");
+	}
       }
       /* back to black */
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
@@ -1279,25 +1332,10 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
     esl_vec_DNorm(obs[cpos], msa->abc->K);
     ent[cpos] = esl_vec_DEntropy(bg, msa->abc->K) - esl_vec_DEntropy(obs[cpos], msa->abc->K);
 
-    if(mask == NULL) { 
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent[cpos], ps->sclAA[pp])) != eslOK) return status;
-    }
-    else { 
-      if(mask[cpos] == '0') { 
-	ps->rcolAAA[pp][cpos][0] = 0.0;
-	ps->rcolAAA[pp][cpos][1] = ent[cpos]/2.; 
-	ps->rcolAAA[pp][cpos][2] = ent[cpos]/2.; 
-	ps->rcolAAA[pp][cpos][3] = 0.0;
-      }
-      else if(mask[cpos] == '1') { 
-	ps->rcolAAA[pp][cpos][0] = ent[cpos]/2.; 
-	ps->rcolAAA[pp][cpos][1] = ent[cpos]/2.; 
-	ps->rcolAAA[pp][cpos][2] = 0.0; 
-	ps->rcolAAA[pp][cpos][3] = 0.0; 
-      }
-      else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
-    }
-    ps->rrAA[pp][cpos] = (esl_FCompare(ent[cpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';
+    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent[cpos], ps->sclAA[pp])) != eslOK) return status;
+
+    ps->rrAA[pp][cpos] = ' ';
+    //ps->rrAA[pp][cpos] = (esl_FCompare(ent[cpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';
   }
 
   /* add text to legend */
@@ -1306,6 +1344,8 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->clen));
   add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
   free(text);
+
+  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
 
   free(ent);
   for(cpos = 0; cpos < ps->clen; cpos++) free(obs[cpos]);
@@ -1613,7 +1653,8 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     ESL_ALLOC(ps->nclA,    sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->nocclA,  sizeof(int) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->sclAA,    sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->maskAA,  sizeof(char **) * (ps->npage + ntoadd));
   }
   else { 
     assert(ps->rrAA    != NULL);
@@ -1624,7 +1665,8 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     ESL_RALLOC(ps->nclA,    tmp, sizeof(int) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->occlAAA, tmp, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->nocclA,  tmp, sizeof(int) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->sclAA,    tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->sclAA,   tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->maskAA,  tmp, sizeof(char **) * (ps->npage + ntoadd));
   }
   for(p = ps->npage; p < (ps->npage + ntoadd); p++) { 
     ps->rrAA[p]    = NULL;
@@ -1633,7 +1675,8 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     ps->nclA[p]    = 0;
     ps->occlAAA[p] = NULL;
     ps->nocclA[p]  = 0;
-    ps->sclAA[p]    = NULL;
+    ps->sclAA[p]   = NULL;
+    ps->maskAA[p]  = NULL;
   }
   ps->npage += ntoadd;
   ps->cur_legx   = ps->legx;
@@ -1669,31 +1712,40 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   if(mask != NULL) esl_fatal("posteriors with mask not yet upgraded.");
 
   int    status;
-  int    s,c;                 /* counters over sequences, columns of MSA */
-  int   *nongap_c, *nongap_s; /* number of non-gap posterior values for each column/sequence respectively */
-  float *sum_c, *sum_s;       /* sum of non-gap posterior values for each column/sequence respectively */
-  float *min_c, *min_s;       /* min of non-gap posterior values for each column/sequence respectively */
-  float *avg_c, *avg_s;       /* average non-gap posterior values for each column/sequence respectively */
-  int   *athresh_c;           /* [0..c..msa->alen-1] number of sequences with residue in this column with post value >= pthresh */
-  float *athresh_fract_c;     /* [0..c..msa->alen-1] fraction of non-gap sequences with residue in this column with post value >= pthresh */
-  int    ridx1, ridx2;
-  int    r;
+  int    s,c;           /* counters over sequences, columns of MSA */
+  int   *nongap_c;      /* number of non-gap posterior values for each column */
+  int   *nongaprf_c;    /* number of non-gap RF non-gap posterior values for each column */
+  float *sum_c;         /* sum of non-gap posterior values for each column */
+  float *sumrf_c;       /* sum of non-gap RF non-gap posterior values for each column */
+  int    nongap_s;      /* number of non-gap posterior values for current sequence */
+  int    nongaprf_s;    /* number of non-gap RF non-gap posterior values for current sequence */
+  float  sum_s;         /* sum of non-gap posterior values for current sequence */
+  float  sumrf_s;       /* sum of non-gap RF non-gap posterior values for current sequence */
+  float  avgrf_c;       /* avg non-gap RF non-gap posterior value for current column */
+  float  avg_s;         /* avg non-gap posterior values for current sequence */
+  float  avgrf_s;       /* avg non-gap RF non-gap posterior values for current sequence */
   int    p;
   float  prob;
-  float  pmin = esl_opt_GetReal(go, "--p-min");
-  float  pthresh = 0.95; /* UPDATE ME */
   int *c2a_map;
   int *a2c_map;
   int clen;
   int cpos;
-  int ir1, ir2;
-  int ndigits;
   int orig_npage = ps->npage;
-  int new_npage = 1;
+  int new_npage = 0;
+  int ir1, ir2;
   int pp;
+  int do_avg = FALSE;
+  int do_indi = FALSE;
+  int nfirst_indi_page = -1;
+  int navg_page = -1;
+  int ridx1, ridx2, r;
+  float *limits; /* bin limits for the color scheme */
+  char *text;    /* text for color legends */
 
+  if(msa->rf == NULL) esl_fatal("No RF annotation in alignment");
 
-  if(new_npage == 0) ESL_FAIL(eslEINCONCEIVABLE, errbuf, "posteriors_sspostscript(): entered function in error, no --p* options enabled.");
+  if(esl_opt_GetBoolean(go, "--p-avg"))  { do_avg = TRUE;  new_npage += 1; navg_page = orig_npage; }
+  if(esl_opt_GetBoolean(go, "--p-indi")) { do_indi = TRUE; nfirst_indi_page = orig_npage + new_npage; new_npage += msa->nseq; }
 
   if((status = addpages_sspostscript(ps, new_npage)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -1709,143 +1761,28 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   }
 
   /* Find out which #=GR line is the POST, Post, or post line (if more than one exist, last one is chosen) */
-  ridx1 = -1;
-  ridx2 = -1;
-  ndigits = 0;
+  ridx1 = ridx2 = -1;
   for (r = 0; r < msa->ngr; r++) { 
-    if (strcmp(msa->gr_tag[r], "POST")   == 0) { ridx1 = r; ndigits = 1; }
-    if (strcmp(msa->gr_tag[r], "Post")   == 0) { ridx1 = r; ndigits = 1; }
-    if (strcmp(msa->gr_tag[r], "post")   == 0) { ridx1 = r; ndigits = 1; }
-    if (strcmp(msa->gr_tag[r], "POSTX.") == 0) { ridx1 = r; ndigits = 1; }
-    if (strcmp(msa->gr_tag[r], "POST.X") == 0) { ridx2 = r; ndigits = 2; }
+    if (strcmp(msa->gr_tag[r], "POSTX.") == 0) { ridx1 = r; }
+    if (strcmp(msa->gr_tag[r], "POST.X") == 0) { ridx2 = r; }
   }
-  if(ndigits == 1 && ridx1 == -1) { 
-    ESL_FAIL(eslEINVAL, errbuf, "--p-avg and --mask-prob require \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
+  if((ridx1 == -1) || (ridx2 == -1)) { 
+    ESL_FAIL(eslEINVAL, errbuf, "--p-avg and --p-indi require \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s (from infernal v1.x\'s cmalign).\n", esl_opt_GetArg(go,1));
   }
-  if(ndigits == 2 && (ridx1 == -1 || ridx2 == -1)) { 
-    ESL_FAIL(eslEINVAL, errbuf, "--p-avg and --mask-prob require \"#=GR POST\", \"#=GR Post\", \"#=GR post\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", esl_opt_GetArg(go,1));
-  }
+  
+  /* map consensus columns to alignment positions */
+  map_cpos_to_apos(msa, &c2a_map, &a2c_map, &clen);
 
+  /* per column stats */
   ESL_ALLOC(nongap_c, sizeof(int) * msa->alen);
   ESL_ALLOC(sum_c,    sizeof(float) * msa->alen);
-  ESL_ALLOC(min_c,    sizeof(float) * msa->alen);
-  ESL_ALLOC(avg_c,    sizeof(float) * msa->alen);
-  ESL_ALLOC(athresh_c,sizeof(int)   * msa->alen);
-  ESL_ALLOC(athresh_fract_c,sizeof(float) * msa->alen);
+  ESL_ALLOC(nongaprf_c, sizeof(int) * msa->alen);
+  ESL_ALLOC(sumrf_c,    sizeof(float) * msa->alen);
   esl_vec_ISet(nongap_c, msa->alen, 0);
   esl_vec_FSet(sum_c,    msa->alen, 0.);
-  esl_vec_FSet(min_c,    msa->alen, 10.);
-  esl_vec_ISet(athresh_c,msa->alen, 0);
+  esl_vec_ISet(nongaprf_c, msa->alen, 0);
+  esl_vec_FSet(sumrf_c,    msa->alen, 0.);
 
-  ESL_ALLOC(nongap_s, sizeof(int) * msa->nseq);
-  ESL_ALLOC(sum_s, sizeof(float) * msa->nseq);
-  ESL_ALLOC(min_s, sizeof(float) * msa->nseq);
-  ESL_ALLOC(avg_s, sizeof(float) * msa->nseq);
-  esl_vec_ISet(nongap_s, msa->nseq, 0);
-  esl_vec_FSet(sum_s,    msa->nseq, 0.);
-  esl_vec_FSet(min_s,    msa->nseq, 10.);
-
-  if(ndigits == 1) {    
-    for(s = 0; s < msa->nseq; s++) { 
-      for(c = 0; c < msa->alen; c++) { 
-	if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
-	  switch(msa->gr[ridx1][s][c]) { 
-	  case '*': prob = 1.0; break;
-	  case '9': prob = 0.9; break;
-	  case '8': prob = 0.8; break;
-	  case '7': prob = 0.7; break;
-	  case '6': prob = 0.6; break;
-	  case '5': prob = 0.5; break;
-	  case '4': prob = 0.4; break;
-	  case '3': prob = 0.3; break;
-	  case '2': prob = 0.2; break;
-	  case '1': prob = 0.1; break;
-	  case '0': prob = 0.0; break;
-	  default: 
-	    ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->gr[ridx1][s][c]);
-	  }
-	  sum_c[c] += prob;
-	  sum_s[s] += prob;
-	  nongap_c[c]++;
-	  nongap_s[s]++;
-	  min_c[c] = ESL_MIN(min_c[c], prob);
-	  min_s[s] = ESL_MIN(min_s[s], prob);
-	  if(prob >= pthresh) athresh_c[c]++;
-	}
-	else prob = -1; /* gap */
-      }
-    }
-  }
-  if(ndigits == 2) { 
-    for(s = 0; s < msa->nseq; s++) { 
-      for(c = 0; c < msa->alen; c++) { 
-	if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
-	  if(esl_abc_CIsGap(msa->abc, msa->gr[ridx2][s][c])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value non-gap but post 'ones' value is gap.\n", s, c);
-	  if(msa->gr[ridx1][s][c] == '*') {
-	    if(msa->gr[ridx2][s][c] != '*') ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value '*' but post 'ones' value != '*'.\n", s, c);
-	    prob = 1.0;
-	  }
-	  else {
-	    ir1 = (int) (msa->gr[ridx1][s][c] - '0');
-	    ir2 = (int) (msa->gr[ridx2][s][c] - '0');
-	    prob = ((float) ir1 * 10. + ir2) * .01;
-	    /* printf("r1: %c %d r2: %c %d p: %.2f\n", msa->gr[ridx1][s][c], ir1, msa->gr[ridx2][s][c], ir2, prob);*/
-	  }
-	  sum_c[c] += prob;
-	  sum_s[s] += prob;
-	  nongap_c[c]++;
-	  nongap_s[s]++;
-	  min_c[c] = ESL_MIN(min_c[c], prob);
-	  min_s[s] = ESL_MIN(min_s[s], prob);
-	  if(prob >= pthresh) athresh_c[c]++;
-	}
-	else prob = -1; /* gap */
-      }
-    }
-  }
-
-  if(msa->rf != NULL) map_cpos_to_apos(msa, &c2a_map, &a2c_map, &clen);
-  else { 
-    c2a_map = NULL;
-    a2c_map = NULL;
-  }
-
-  /* get averages */
-  int nongap_total = 0;
-  int nongap_total_rf = 0;
-  int sum_total = 0;
-  int sum_total_rf = 0;
-  for(s = 0; s < msa->nseq; s++) { 
-    avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
-  }
-  cpos = 1;
-  for(c = 0; c < msa->alen; c++) { 
-    avg_c[c]  = (float) sum_c[c] / (float) nongap_c[c];
-    sum_total += sum_c[c];
-    nongap_total += nongap_c[c];
-    if(c2a_map != NULL) {
-      if(cpos <= clen && c2a_map[cpos] == (c+1)) {  /* off-by-one, c2a_map is 1..clen, c is 0..alen */
-	cpos++; 
-	sum_total_rf += sum_c[c];
-	nongap_total_rf += nongap_c[c];
-      }
-    }
-  }
-  /* determine the fraction of sequences in each column with POSTs that exceed pthresh */
-  for(c = 0; c < msa->alen; c++) 
-    athresh_fract_c[c] = (nongap_c[c] > 0) ? ((float) athresh_c[c] / (float) nongap_c[c]) : 0;
-
-  /*
-  printf("\nAverage posterior value:                            %.5f (%d non-gap residues)\n", (float) sum_total / (float) nongap_total, nongap_total);
-  if(c2a_map != NULL) 
-    printf("Average posterior value in non-gap #=GC RF columns: %.5f (%d non-gap RF residues)\n", (float) sum_total_rf / (float) nongap_total_rf, nongap_total_rf);
-  printf("\n");
-  */
-
-  pp = orig_npage;
-
-  /* add color legend */
-  float *limits;
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
   limits[0] = 0.0;
   limits[1] = 0.8;
@@ -1854,108 +1791,102 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   limits[4] = 0.95;
   limits[5] = 0.975;
   limits[6] = 1.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, LEG_ONED_BOXSIZE, NULL, limits);
 
-  int nin, nout; 
-  float sum, sum_in, sum_out;
-  nin = nout = 0;
-  sum = sum_in = sum_out = 0.;
-  float avg;
-  int iavg;
-  char res;
-  float col;
-  for(cpos = 0; cpos < ps->clen; cpos++) { 
-    avg = (avg_c[(c2a_map[(cpos+1)]-1)] > 1.) ? 1. : avg_c[(c2a_map[(cpos+1)]-1)];
-    iavg = (int) (avg * 10.);
-    switch (iavg) { 
-    case 0: res = '0';
-      break;
-    case 1: res = '1';
-      break;
-    case 2: res = '2';
-      break;
-    case 3: res = '3';
-      break;
-    case 4: res = '4';
-      break;
-    case 5: res = '5';
-      break;
-    case 6: res = '6';
-      break;
-    case 7: res = '7';
-      break;
-    case 8: res = '8';
-      break;
-    case 9: res = '9';
-      break;
-    default: res = '*';
-      break;
+  /* step through each sequence and each column, collecting stats */
+  pp = nfirst_indi_page;
+  for(s = 0; s < msa->nseq; s++) { 
+    nongap_s = nongaprf_s = 0;
+    sum_s    = sumrf_s = 0.;
+    if(do_indi) { /* add color legend for this sequence */
+      ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, LEG_ONED_BOXSIZE, NULL, limits);
     }
-    col = (avg >= pmin) ? (avg - (pmin - 0.01)) / (1. - (pmin - 0.01)) : 0.0;
-    ps->rrAA[pp][cpos] = res;
-    
-    if(mask == NULL) { /* not applying a lanemask, paint it (some shade of) black */
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], avg, ps->sclAA[pp])) != eslOK) return status;
-      sum_in += avg;
-      nin++;
-    }
-    else { /* we're applying a lanemask, '1' columns to keep are painted black, '0' columns to remove are painted magenta */
-      if(mask[cpos] == '0') { 
-	ps->rcolAAA[pp][cpos][0] = 0.0;
-	  ps->rcolAAA[pp][cpos][1] = col;
-	  ps->rcolAAA[pp][cpos][2] = 0.0;
-	  ps->rcolAAA[pp][cpos][3] = 0.0;
-	  sum_out += avg;
-	  sum     += avg;
-	  nout++;
-      }
-      else if(mask[cpos] == '1') { 
-	ps->rcolAAA[pp][cpos][0] = 0.0;
-	ps->rcolAAA[pp][cpos][1] = 0.0;
-	ps->rcolAAA[pp][cpos][2] = 0.0; 
-	ps->rcolAAA[pp][cpos][3] = col;
-	sum_in     += avg;
-	sum        += avg;
-	nin++;
+    for(c = 0; c < msa->alen; c++) { 
+      if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
+	if(esl_abc_CIsGap(msa->abc, msa->gr[ridx2][s][c])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value non-gap but post 'ones' value is gap.\n", s, c);
+	if(msa->gr[ridx1][s][c] == '*') {
+	  if(msa->gr[ridx2][s][c] != '*') ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value '*' but post 'ones' value != '*'.\n", s, c);
+	  prob = 1.0;
 	}
-      else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
+	else {
+	  ir1 = (int) (msa->gr[ridx1][s][c] - '0');
+	  ir2 = (int) (msa->gr[ridx2][s][c] - '0');
+	  prob = ((float) ir1 * 10. + ir2) * .01;
+	  /*printf("c: %d r1: %c %d r2: %c %d p: %.2f\n", c, msa->gr[ridx1][s][c], ir1, msa->gr[ridx2][s][c], ir2, prob);*/
+	}
+	sum_c[c] += prob;
+	nongap_c[c]++;
+	sum_s += prob;
+	nongap_s++;
+	if(a2c_map[c] != -1) { /* consensus position */
+	  cpos = a2c_map[c];
+	  sumrf_c[c] += prob;
+	  nongaprf_c[c]++;
+	  sumrf_s += prob;
+	  nongaprf_s++;
+	  if(do_indi) { /* compute color for this column */
+	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], prob, ps->sclAA[pp])) != eslOK) return status;
+	    ps->rrAA[pp][cpos] = ' ';
+	  }
+	}
+	//if(prob >= pthresh) athresh_c[c]++;
+      }
+      else if (do_indi) { /* gap, if it's a consensus column, draw blank square */
+	if(a2c_map[c] != -1) { /* consensus position */
+	  cpos = a2c_map[c];
+	  ps->rcolAAA[pp][cpos][0] = BLANKCYAN; 
+	  ps->rcolAAA[pp][cpos][1] = BLANKMAGENTA; 
+	  ps->rcolAAA[pp][cpos][2] = BLANKYELLOW; 
+	  ps->rcolAAA[pp][cpos][3] = BLANKBLACK; 
+	  ps->rrAA[pp][cpos] = ' ';
+	}
+      }
+    } /* done with this sequence */
+    if(do_indi) { 
+      avg_s   =  (float) sum_s / (float) nongap_s;
+      avgrf_s =  (float) sumrf_s / (float) nongaprf_s;
+      ESL_ALLOC(text, sizeof(char) * strlen("avg posterior probability; 1.000 (RF) 1.000 (all)"));
+      sprintf(text, "avg posterior probability; %.3f (RF) %.3f (all)", avgrf_s, avg_s);
+      add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
+      free(text);
+      pp++;
     }
-  }
+  } /* done with all sequences */
 
-  /* add color legend */
-  char *text;
-  if(mask == NULL) { 
-    ESL_ALLOC(text, sizeof(char) * strlen("avg posterior probability; (avg: 1.000) 'N'=(int) avg*10, if N=*, avg=1.0;"));
-    sprintf(text, "avg posterior probability; (avg: %.3f) 'N'=(int) avg*10, if N=*, avg=1.0;", (sum_in / (float) nin));
+  if(do_avg) { /* add average colors */
+    pp = navg_page;
+    ps->sclAA[pp] = create_scheme_colorlegend(ps, hc_scheme_idx, hc_nbins, LEG_ONED_BOXSIZE, NULL, limits);
+    for(c = 0; c < msa->alen; c++) { 
+      if(a2c_map[c] != -1) { /* cons position */
+	cpos = a2c_map[c]; 
+	if(nongap_c[c] > 0) { 
+	  avgrf_c = sum_c[c] /= (float) nongap_c[c];
+	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], avgrf_c, ps->sclAA[pp])) != eslOK) return status;
+	}
+	else { 
+	  ps->rcolAAA[pp][cpos][0] = BLANKCYAN; 
+	  ps->rcolAAA[pp][cpos][1] = BLANKMAGENTA; 
+	  ps->rcolAAA[pp][cpos][2] = BLANKYELLOW; 
+	  ps->rcolAAA[pp][cpos][3] = BLANKBLACK; 
+	}
+	ps->rrAA[pp][cpos] = ' ';
+      }
+    }
+    /* add color legend */
+    ESL_ALLOC(text, sizeof(char) * strlen("avg posterior probability; 1.000 (RF) 1.000 (all)"));
+    sprintf(text, "avg posterior probability; %.3f (RF) %.3f (all)", 
+	    (esl_vec_FSum(sumrf_c, msa->alen) / (float) (esl_vec_ISum(nongaprf_c, msa->alen))),
+	    (esl_vec_FSum(sum_c, msa->alen)   / (float) (esl_vec_ISum(nongap_c, msa->alen))));
     add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
     free(text);
   }
-  else { 
-    ESL_ALLOC(text, sizeof(char) * strlen("within mask  avg posterior probability; (avg: 1.000) 'N'=(int) avg*10, if N=*, avg=1.0;"));
-    sprintf(text, "within mask  avg posterior probability; (avg: %.3f) 'N'=(int) avg*10, if N=*, avg=1.0;", (sum_in / (float) nin));
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK,   pmin, 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);  
-    free(text);
 
-    ESL_ALLOC(text, sizeof(char) * strlen("outside mask avg posterior probability; (avg: 1.000) 'N'=(int) avg*10, if N=*, avg=1.0;"));
-    sprintf(text, "outside mask avg posterior probability; (avg: %.3f) 'N'=(int) avg*10, if N=*, avg=1.0;", (sum_out / (float) nout));
-    ps->clAAA[pp][1] = create_one_dim_colorlegend(ps, IMAGENTA,   pmin, 1., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);  
-    free(text);
-
-    ps->nclA[pp] = 2;
-  }
-
-  free(athresh_fract_c);
-  free(athresh_c);
-  free(nongap_s);
   free(nongap_c);
-  free(min_c);
-  free(min_s);
-  free(avg_c);
-  free(avg_s);
-  free(sum_s);
+  free(nongaprf_c);
   free(sum_c);
-  if(c2a_map != NULL) free(c2a_map);
-  if(a2c_map != NULL) free(a2c_map);
+  free(sumrf_c);
+  free(c2a_map);
+  free(a2c_map);
+  free(limits);
 
   return eslOK;
 
@@ -1967,6 +1898,9 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
  *                   
  * Given an MSA, determine the alignment position each
  * consensus (#=GC RF) position refers to. 
+ * Both maps that are returned are indexed starting from 0.
+ * c2a_map[0..clen-1]
+ * a2c_map[0..alen-1]
  */
 static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen)
 {
@@ -1980,19 +1914,19 @@ static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, 
   if(msa->rf == NULL) { status = eslEINVAL; goto ERROR; }
 
   /* count consensus columns */
-  for(apos = 1; apos <= msa->alen; apos++)
-    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) clen++;
+  for(apos = 0; apos < msa->alen; apos++)
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) clen++;
 
   /* build map */
-  ESL_ALLOC(c2a_map, sizeof(int) * (clen+1));
-  ESL_ALLOC(a2c_map, sizeof(int) * (msa->alen+1));
-  esl_vec_ISet(a2c_map, msa->alen+1, -1);
+  ESL_ALLOC(c2a_map, sizeof(int) * clen);
+  ESL_ALLOC(a2c_map, sizeof(int) * msa->alen);
+  esl_vec_ISet(a2c_map, msa->alen, -1);
 
-  c2a_map[0] = a2c_map[0] = -1;
-  for(apos = 1; apos <= msa->alen; apos++) { 
-    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) { 
-      c2a_map[++cpos] = apos;
-      a2c_map[apos]   = cpos;
+  for(apos = 0; apos < msa->alen; apos++) { 
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
+      a2c_map[apos] = cpos;
+      c2a_map[cpos] = apos;
+      cpos++;
     }
   }
 
@@ -2282,10 +2216,10 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 
   for(cpos = 0; cpos < ps->clen; cpos++) { 
     if(ent_p[cpos] < (-1. * eslSMALLX1)) { /* single stranded base, paint grey */
-      ps->rcolAAA[pp][cpos][0] = 0.0;
-      ps->rcolAAA[pp][cpos][1] = 0.0;
-      ps->rcolAAA[pp][cpos][2] = 0.0;
-      ps->rcolAAA[pp][cpos][3] = 0.5;
+      ps->rcolAAA[pp][cpos][0] = BLANKCYAN; 
+      ps->rcolAAA[pp][cpos][1] = BLANKMAGENTA; 
+      ps->rcolAAA[pp][cpos][2] = BLANKYELLOW; 
+      ps->rcolAAA[pp][cpos][3] = BLANKBLACK; 
       ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
     }
     else if(mask == NULL) { 
