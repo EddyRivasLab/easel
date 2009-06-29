@@ -154,14 +154,14 @@ static int  read_template_file(char *filename, const ESL_GETOPTS *go, char *errb
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
-static int  delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
-static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
+static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_bins);
+static int  delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
+static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  compare_ints(const void *el1, const void *el2);
 static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
-static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_bins);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
@@ -181,10 +181,9 @@ static ESL_OPTIONS options[] = {
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              0 },
   { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "DO NOT create SS info content diagram (on by default)", 0 },
   { "-s",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for each sequence in the alignment",    0 },
-  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as diamonds", 1 },
-  { "-c",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as circles", 1 },
+  { "-u",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as squares", 1 },
   { "-x",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as x's", 1 },
-  { "-b",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, only draw borders of masked columns", 1 },
+  { "-a",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask and -u or -x, draw alternative mask style", 1 },
   { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for RF sequence",    1 },
   { "--struct", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create structural info content SS diagram",    1 },
   { "--p-avg",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create average posterior probability SS diagram",1 },
@@ -384,23 +383,23 @@ main(int argc, char **argv)
 	if((status = infocontent_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--struct")) { 
-	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
-	if((status = insert_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = insert_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
-	if((status = delete_sspostscript(go, errbuf, ps, msa, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = delete_sspostscript(go, errbuf, ps, msa, mask, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--dint")) { /* make a new postscript page marking internal deletes */
-	if((status = delete_sspostscript(go, errbuf, ps, msa, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = delete_sspostscript(go, errbuf, ps, msa, mask, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--rf")) { /* make a new postscript page for the RF sequence in the alignment */
 	if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
       }
       int do_post = (esl_opt_GetBoolean(go, "--p-avg")) ? TRUE : FALSE;
       if(do_post) { 
-	if((status = posteriors_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
+	if((status = posteriors_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "-s")) { /* make a new postscript page for each sequence in the alignment */
 	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
@@ -599,7 +598,7 @@ create_scheme_colorlegend(SSPostscript_t *ps, int scheme, int nbins, float boxsi
   scl->scheme = scheme;
   scl->nbins = nbins;
   ESL_ALLOC(scl->limits, sizeof(float) * (nbins+1));
-  for(i = 0; i <= nbins; i++) { scl->limits[i] = limits[i]; printf("LIMIT[%d]: %.3f\n", i, scl->limits[i]); }
+  for(i = 0; i <= nbins; i++) { scl->limits[i] = limits[i]; }
   scl->boxsize = boxsize;
   if((status = esl_strdup(text, -1, &(scl->text))) != eslOK) esl_fatal("create_scheme_colorlegend(), error copying text");
   /* update postscripts legx, legy */
@@ -758,15 +757,12 @@ print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command,
 {
   int p, i, c, l;
   float title_fontsize;
-  int do_square_mask, do_diamond_mask, do_x_mask, do_circle_mask, do_border;
-  int xb_white = 1;
-  int xb_color = 3;
-  do_border = esl_opt_GetBoolean(go, "-b");
-  do_square_mask = do_diamond_mask = do_x_mask = do_circle_mask = FALSE;
-  if(esl_opt_GetBoolean(go, "-d")) { do_diamond_mask = TRUE; }
+  int do_circle_mask, do_square_mask, do_x_mask, do_border;
+  do_border = (!esl_opt_GetBoolean(go, "-a"));
+  do_circle_mask = do_square_mask = do_x_mask = FALSE;
+  if(esl_opt_GetBoolean(go, "-u")) { do_square_mask = TRUE; }
   else if(esl_opt_GetBoolean(go, "-x")) { do_x_mask = TRUE; }
-  else if(esl_opt_GetBoolean(go, "-c")) { do_circle_mask = TRUE; }
-  else do_square_mask = TRUE;
+  else do_circle_mask = TRUE;
 
   title_fontsize = TITLE_FONTSIZE;
 
@@ -819,75 +815,67 @@ print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command,
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
       if(ps->maskAA[p] != NULL) { 
-	fprintf(fp, "2.50 setlinewidth\n");
+	fprintf(fp, "2.0 setlinewidth\n");
+	if(do_border && do_x_mask)      { fprintf(fp, "1.0 setlinewidth\n"); }
+	if(do_border && do_square_mask) { fprintf(fp, "2.0 setlinewidth\n"); }
+	if(do_border && do_circle_mask) { fprintf(fp, "2.5 setlinewidth\n"); }
 	for(c = 0; c < ps->clen; c++) { 
 	  fprintf(fp, "%sresidue %d\n", "%", c+1);
 	  fprintf(fp, "newpath\n");
 	  if(ps->maskAA[p][c] == '0') { 
-	    if(do_square_mask) { 
+	    if (do_circle_mask) { 
 	      if(do_border) { 
-		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1.+1.25, ps->ryA[c] -1.+1.25);
-		fprintf(fp, "  0 6.75 rlineto 6.75 0 rlineto 0 -6.75 rlineto closepath\n");
+		fprintf(fp, " %.2f %.2f 3 0 360 arc closepath\n", ps->rxA[c] - 1. + 4., ps->ryA[c] -1. + 4.);
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  stroke\n"); 
+	      }
+	      else { 
+		fprintf(fp, " %.2f %.2f 3 0 360 arc closepath\n", ps->rxA[c] - 1. + 4., ps->ryA[c] -1. + 4.);
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  fill\n"); 
+	      }
+	    }
+	    else if(do_square_mask) { 
+	      if(do_border) { 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1.+1., ps->ryA[c] -1.+1.);
+		fprintf(fp, "  0 6 rlineto 6 0 rlineto 0 -6 rlineto closepath\n");
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  stroke\n");
 	      }
 	      else { 
 		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 1.5, ps->ryA[c] -1. + 1.5);
 		fprintf(fp, "  0 5 rlineto 5 0 rlineto 0 -5 rlineto closepath\n");
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  fill\n"); 
 	      }
-	    }
-	    else if (do_diamond_mask) { 
-	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
-	      fprintf(fp, "  -4 4 rlineto 4 4 rlineto 4 -4 rlineto closepath\n");
 	    }
 	    else if (do_x_mask) { 
 	      if(do_border) { 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
+		fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
 		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
-		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1., ps->ryA[c] -1. + xb_white);
-		fprintf(fp, " %d  %d rlineto ", xb_color, xb_color);
-		fprintf(fp, "-%d  %d rlineto closepath ", xb_color, xb_color);
 		fprintf(fp, "  fill\n"); 
-		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + xb_white, ps->ryA[c] -1. + 8.);
-		fprintf(fp, " %d -%d rlineto ", xb_color, xb_color);
-		fprintf(fp, " %d  %d rlineto closepath ", xb_color, xb_color);
-		fprintf(fp, "  fill\n"); 
-		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + 8., ps->ryA[c] -1. + 8-xb_white);
-		fprintf(fp, "-%d -%d rlineto ", xb_color, xb_color);
-		fprintf(fp, " %d -%d rlineto closepath ", xb_color, xb_color);
-		fprintf(fp, "  fill\n"); 
-		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + 8.-xb_white, ps->ryA[c] -1.);
-		fprintf(fp, "-%d  %d rlineto ", xb_color, xb_color);
-		fprintf(fp, "-%d -%d rlineto closepath ", xb_color, xb_color);
-		fprintf(fp, "  fill\n"); 
+
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 0.);
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] - 1.);
+		fprintf(fp, "  8 8 rlineto closepath\n");
+		fprintf(fp, "  stroke\n"); 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] -1. + 8., ps->ryA[c] -1.);
+		fprintf(fp, "  -8 8 rlineto closepath\n");
+		fprintf(fp, "  stroke\n"); 
 	      }
 	      else { 
-		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
-		fprintf(fp, " 0  2 rlineto ");
-		fprintf(fp, " 2  2 rlineto "); 
-		fprintf(fp, "-2  2 rlineto "); 
-		fprintf(fp, " 0  2 rlineto "); 
-		fprintf(fp, " 2  0 rlineto "); 
-		fprintf(fp, " 2 -2 rlineto "); 
-		fprintf(fp, " 2  2 rlineto "); 
-		fprintf(fp, " 2  0 rlineto "); 
-		fprintf(fp, " 0 -2 rlineto "); 
-		fprintf(fp, "-2 -2 rlineto "); 
-		fprintf(fp, " 2 -2 rlineto "); 
-		fprintf(fp, " 0 -2 rlineto "); 
-		fprintf(fp, "-2  0 rlineto "); 
-		fprintf(fp, "-2  2 rlineto "); 
-		fprintf(fp, "-2 -2 rlineto "); 
-		fprintf(fp, "-2  0 closepath\n");
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] - 1.);
+		fprintf(fp, "  8 8 rlineto closepath\n");
+		fprintf(fp, "  stroke\n"); 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] -1. + 8., ps->ryA[c] - 1.);
+		fprintf(fp, "  -8 8 rlineto closepath\n");
+		fprintf(fp, "  stroke\n"); 
 	      }
 	    }
-	    else if (do_circle_mask) { 
-	      fprintf(fp, " %.2f %.2f 4 0 360 arc closepath\n", ps->rxA[c] - 1. + 4., ps->ryA[c] -1. + 4.);
-	    }
-	    if(!(do_x_mask && do_border)) { 
-	      fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
-	      if(do_border) { fprintf(fp, "  stroke\n"); }
-	      else          { fprintf(fp, "  fill\n"); }
-	    }
 	  }
-	  else { 
+	  else { /* cell is within mask, ps->maskAA[p][c] == '1' */
 	    fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
 	    fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
 	    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
@@ -1221,7 +1209,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
  * Return:   eslOK on success.
  */
 int
-delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
+delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -1320,6 +1308,8 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->clen) / (float) msa->nseq);
     add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
   }
+
+
   free(text);
   free(dct);
   free(dct_internal);
@@ -1344,7 +1334,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * Return:   eslOK on success.
  */
 int
-insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
+insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
   int status;
   int p, pp, c, i;
@@ -1473,6 +1463,8 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   sprintf(text, "fraction seqs w/inserts; 'N' = median size, if N=*, N > 10; avg/seq: %.2f", (float) esl_vec_ISum(total_ict, ps->clen+1) / (float) msa->nseq);
   add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
   free(text);
+
+  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
   
   for(i = 0; i < ps->clen; i++) free(ict[i]);
   free(ict);
@@ -1556,8 +1548,6 @@ compare_ints(const void *el1, const void *el2)
 static int
 posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
 {
-  if(mask != NULL) esl_fatal("posteriors with mask not yet upgraded.");
-
   int    status;
   int    s,c;           /* counters over sequences, columns of MSA */
   int   *nongap_c;      /* number of non-gap posterior values for each column */
@@ -1724,6 +1714,8 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
     free(text);
   }
+
+  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
 
   free(nongap_c);
   free(nongaprf_c);
@@ -1943,7 +1935,6 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   ESL_DSQ ldsq;
   ESL_DSQ rdsq;
   
-
   if(msa->ss_cons == NULL) ESL_FAIL(status, errbuf, "--struct requires #=GC SS_cons annotation in the alignment.");
   if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -2067,24 +2058,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
       ps->rcolAAA[pp][cpos][3] = BLANKBLACK; 
       ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
     }
-    else if(mask == NULL) { 
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent_p[cpos], ps->sclAA[pp])) != eslOK) return status;
-    }
-    else { 
-      if(mask[cpos] == '0') { 
-	ps->rcolAAA[pp][cpos][0] = 0.0;
-	ps->rcolAAA[pp][cpos][1] = ent_p[cpos];
-	ps->rcolAAA[pp][cpos][2] = ent_p[cpos];
-	ps->rcolAAA[pp][cpos][3] = 0.0;
-      }
-      else if(mask[cpos] == '1') { 
-	ps->rcolAAA[pp][cpos][0] = ent_p[cpos];
-	ps->rcolAAA[pp][cpos][1] = ent_p[cpos];
-	ps->rcolAAA[pp][cpos][2] = 0.0; 
-	ps->rcolAAA[pp][cpos][3] = 0.0; 
-      }
-      else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
-    }
+    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent_p[cpos], ps->sclAA[pp])) != eslOK) return status;
     ps->rrAA[pp][cpos] = ' ';
   }
 
@@ -2094,6 +2068,8 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   sprintf(text,  "structural info content per basepaired posn (total: %.2f bits)", esl_vec_DSum(ent_p, ps->clen) * 2.);
   add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
   free(text);
+
+  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
 
   free(ent);
   free(ent_p);
@@ -2432,7 +2408,7 @@ set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float 
 
   bi = 0;
   while((val > scl->limits[bi+1]) && (bi <= (scl->nbins-1))) { bi++; }    
-  printf("%.3f %d (%.3f)\n", val, bi, scl->limits[bi+1]);
+  /*printf("%.3f %d (%.3f)\n", val, bi, scl->limits[bi+1]);*/
   for(ci = 0; ci < ncolvals; ci++) { vec[ci] = scheme[bi][ci]; }
   return eslOK;
 }
