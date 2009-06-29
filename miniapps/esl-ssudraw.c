@@ -133,8 +133,6 @@ typedef struct ss_postscript_s {
   float  *ryA;          /* [0..clen-1] y coordinate for each residue in the eventual postscript */
   char  **rrAA;         /* [0..npage-1][0..clen-1] residue character in the eventual postscript */
   float ***rcolAAA;     /* [0..npage-1][0..clen-1][0..3] color for block on page p, position c, CMYK in the eventual postscript */
-  ColorLegend_t ***clAAA;/* [0..npage-1][0..l..nclA[p]  ptr to color legend l for page p */
-  int     *nclA;        /* [0..npage-1] number of color legends for each page */
   OneCellColorLegend_t ***occlAAA;/* [0..npage-1][0..l..nocclA[p]  ptr to one cell color legend l for page p */
   int     *nocclA;      /* [0..npage-1] number of one cell color legends for each page */
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
@@ -143,13 +141,10 @@ typedef struct ss_postscript_s {
 
 
 static SSPostscript_t *create_sspostscript();
-static ColorLegend_t *create_colorlegend(SSPostscript_t *ps, int *for_which_colors, float *min, float *max, float boxsize, int nboxes, char **text);
-static ColorLegend_t *create_one_dim_colorlegend(SSPostscript_t *ps, int color_idx, float min, float max, float boxsize, int nboxes, char *text);
 static OneCellColorLegend_t *create_one_cell_colorlegend(SSPostscript_t *ps, float *cmykA, float boxsize, char *text);
 static SchemeColorLegend_t *create_scheme_colorlegend(SSPostscript_t *ps, int scheme, int ncols, float boxsize, char *text, float *limits);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text);
 static int  print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps);
-static int  print_colorlegend(FILE *fp, ColorLegend_t *cl);
 static int  print_onecellcolorlegend(FILE *fp, OneCellColorLegend_t *occl);
 static int  print_scheme_colorlegend(FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme);
 static void free_sspostscript(SSPostscript_t *ps);
@@ -167,7 +162,6 @@ static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *r
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
 static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_bins);
-static int  phylosignal_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
@@ -187,16 +181,16 @@ static ESL_OPTIONS options[] = {
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              0 },
   { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "DO NOT create SS info content diagram (on by default)", 0 },
   { "-s",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for each sequence in the alignment",    0 },
-  { "-i",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
-  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
-  { "-c",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
-  { "-x",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
+  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as diamonds", 1 },
+  { "-c",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as circles", 1 },
+  { "-x",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as x's", 1 },
+  { "-b",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, only draw borders of masked columns", 1 },
   { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram for RF sequence",    1 },
   { "--struct", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create structural info content SS diagram",    1 },
   { "--p-avg",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create average posterior probability SS diagram",1 },
   { "--p-indi", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create posterior probability diagram for each sequence",1 },
   { "--p-min",  eslARG_REAL,  "0.90",NULL, "0.09999<x<=1.",NULL,NULL,NULL,       "set minimum posterior probability to color to <x>",1 },
-  { "--phy",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create SS diagram displaying phylogenetic signal per position", 1},
+  { "--ins",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create insert SS diagram",    1 },
   { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/all deletions (incl. terminal deletes)",    1 },
   { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "create delete diagram w/only internal (non-terminal) deletions", 1 },
   { "--mask",    eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,MASKOPTS,        "for all diagrams, mark masked columns from mask in <f>", 1 },
@@ -392,7 +386,7 @@ main(int argc, char **argv)
       if(esl_opt_GetBoolean(go, "--struct")) { 
 	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, NULL, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME])) != eslOK) esl_fatal(errbuf);
       }
-      if(esl_opt_GetBoolean(go, "-i")) { /* make a new postscript page marking insertions */
+      if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
 	if((status = insert_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
@@ -474,7 +468,6 @@ create_sspostscript()
   ESL_ALLOC(ps->ryA,  sizeof(float) * ps->clen);
   ps->rrAA        = NULL;
   ps->rcolAAA     = NULL;
-  ps->clAAA       = NULL;
   ps->occlAAA     = NULL;
   ps->sclAA       = NULL;
   ps->maskAA      = NULL;
@@ -524,16 +517,6 @@ free_sspostscript(SSPostscript_t *ps)
     free(ps->rcolAAA); 
   }
 
-  if(ps->clAAA != NULL) { 
-    for(p = 0; p < ps->npage; p++) { 
-      if(ps->clAAA[p] != NULL) { 
-	for(l = 0; l < ps->nclA[p]; l++) { 
-	  free(ps->clAAA[p][l]); /* all statically allocated memory */
-	}
-      }
-    }
-  }
-
   if(ps->occlAAA != NULL) { 
     for(p = 0; p < ps->npage; p++) { 
       if(ps->occlAAA[p] != NULL) { 
@@ -554,88 +537,11 @@ free_sspostscript(SSPostscript_t *ps)
   }
 
   if(ps->sclAA != NULL) free(ps->sclAA);
-  if(ps->nclA != NULL) free(ps->nclA);
   if(ps->nocclA != NULL) free(ps->nocclA);
 
   free(ps);
   return;
 }
-
-/* Function: create_colorlegend()
- * 
- * Purpose:  Create and initialize a color legend data structure.
- * Return:   cl
- */
-ColorLegend_t *
-create_colorlegend(SSPostscript_t *ps, int *which_color, float *min, float *max, float boxsize, int nboxes, char **text)
-{
-  int status;
-  ColorLegend_t *cl;
-  int c;
-
-  ESL_ALLOC(cl, sizeof(ColorLegend_t));
-
-  /* initialize */
-  esl_vec_ISet(cl->which_color, NCMYK, FALSE);
-  esl_vec_FSet(cl->min, NCMYK, 0.);
-  esl_vec_FSet(cl->max, NCMYK, 0.);
-  cl->x = ps->cur_legx;
-  cl->y = ps->cur_legy;
-  for(c = 0; c < NCMYK; c++) cl->text[c] = NULL;
-
-  /* set caller specified values */
-  esl_vec_ICopy(which_color, NCMYK, cl->which_color);
-  esl_vec_FCopy(min, NCMYK, cl->min);
-  esl_vec_FCopy(max, NCMYK, cl->max);
-  cl->boxsize = boxsize;
-  cl->nboxes  = nboxes;
-  for(c = 0; c < NCMYK; c++) cl->text[c] = text[c];
-
-  /* update postscripts legx, legy */
-  ps->cur_legx += 0.;
-  ps->cur_legy -= 3 * boxsize;
-
-  return cl;
-
- ERROR: esl_fatal("create_colorlegend(): memory allocation error.");
-  return NULL; /* NEVERREACHED */
-}
-
-/* Function: create_one_dim_colorlegend()
- * 
- * Purpose:  Create and initialize a color legend data structure.
- * Return:   cl
- */
-ColorLegend_t *
-create_one_dim_colorlegend(SSPostscript_t *ps, int color_idx, float min, float max, float boxsize, int nboxes, char *text)
-{
-  int status;
-  int which_color[NCMYK];
-  float minA[NCMYK];
-  float maxA[NCMYK];
-  char **textAA;
-  int c;
-
-  if(color_idx >= NCMYK) esl_fatal("create_one_dim_colorlegend(), color_idx %d invalid (must be < %d)", color_idx, NCMYK);
-  if(min > max)          esl_fatal("create_one_dim_colorlegend(), min (%f) > max (%f)", min, max);
-
-  esl_vec_ISet(which_color, NCMYK, FALSE);
-  esl_vec_FSet(minA, NCMYK, 0.);
-  esl_vec_FSet(maxA, NCMYK, 0.);
-  ESL_ALLOC(textAA, sizeof(char *) * NCMYK);
-  for(c = 0; c < NCMYK; c++) textAA[c] = NULL;
-
-  which_color[color_idx] = TRUE;
-  minA[color_idx] = min;
-  maxA[color_idx] = max;
-  if((status = esl_strdup(text, -1, &(textAA[color_idx]))) != eslOK) esl_fatal("create_one_dim_colorlegend(), error copying text");
-
-  return create_colorlegend(ps, which_color, minA, maxA, boxsize, nboxes, textAA);
-									      
- ERROR:
-  esl_fatal("create_one_dim_colorlegend(), memory error.");
-  return NULL; /* NEVERREACHED */
-}  
 
 /* Function: create_one_cell_colorlegend()
  * 
@@ -734,103 +640,6 @@ add_mask_to_ss_postscript(SSPostscript_t *ps, int page, char *mask)
   if((status = esl_strdup(mask, -1, &(ps->maskAA[page]))) != eslOK) esl_fatal("add_mask_to_ss_postscript(), error copying mask");
   return eslOK;
 }
-
-/* Function: print_colorlegend()
- * 
- * Purpose:  Print a color legend to an open file.
- * Return:   eslOK
- */
-int 
-print_colorlegend(FILE *fp, ColorLegend_t *cl)
-{
-  int ndims = 0;
-  float cur[NCMYK];     /* CMYK value for current color we're printing */
-  float colstep[NCMYK]; /* step for each color */
-  float x, y;
-  int c, b, cp;
-  int textlen;
-  float textsize;
-
-  /* verify we have a valid color legend object */
-  for(c = 0; c < NCMYK; c++) { 
-    if(cl->which_color[c] == TRUE) { 
-      if(cl->max[c] < cl->min[c]) esl_fatal("print_colorlegend(): colorlegend object is invalid, max[%d]: %f > min[%d]: %f\n", c, cl->max[c], cl->min[c]);
-      ndims++;
-      colstep[c] = (cl->max[c] - cl->min[c]) / (cl->nboxes - 1);
-    }
-    else { 
-      if(esl_FCompare(cl->min[c], 0., eslSMALLX1) != eslOK) esl_fatal("print_colorlegend(): colorlegend object is invalid, which_color[%d] is FALSE, but min[%d] is non-zero (%f).", c, c, cl->min[c]);
-      if(esl_FCompare(cl->max[c], 0., eslSMALLX1) != eslOK) esl_fatal("print_colorlegend(): colorlegend object is invalid, which_color[%d] is FALSE, but max[%d] is non-zero (%f).", c, c, cl->max[c]);
-    }
-  }
-  if(ndims == 0) esl_fatal("print_colorlegend(): colorlegend object is invalid, which_color[] is FALSE for all colors.");
-  if(ndims >  2) esl_fatal("print_colorlegend(): colorlegend object is invalid, want to print %d dimensions, but max allowed is 2.", ndims);
-
-  /* object is valid, print it */
-  fprintf(fp, "%slegstart\n", "%");
-  x = cl->x;
-  y = cl->y;
-  if(ndims == 1) { 
-    /* print text for this legend */
-    for(c = 0; c < NCMYK; c++) { 
-      if(cl->which_color[c] == FALSE) continue;
-      if(cl->text[c] != NULL) { 
-	textlen = strlen(cl->text[c]);
-	textsize = ESL_MIN(2. * (cl->boxsize * cl->nboxes) / (float) textlen, cl->boxsize);
-	textsize = ESL_MAX(textsize, LEG_MINTEXTSIZE);
-	/* back to black */
-	fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-	fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", textsize);
-	fprintf(fp, "(%s) %.4f %.4f lwstring\n", cl->text[c], x, y);
-	/* reset font size to 8 */
-	fprintf(fp, "/Helvetica findfont 8.00 scalefont setfont\n");
-      }
-    }
-
-    /* print heatmap */
-    esl_vec_FSet(cur, NCMYK, 0.);
-    for(c = 0; c < NCMYK; c++) { 
-      if(cl->which_color[c] == FALSE) continue;
-      cur[c] = cl->min[c];
-      x = cl->x;
-      y -= cl->boxsize * 1.5;
-      for(b = 0; b < cl->nboxes; b++) { 
-	fprintf(fp, "newpath\n");
-	fprintf(fp, "  %.2f %.2f moveto", x, y);
-	fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", cl->boxsize, cl->boxsize, (-1 * cl->boxsize));
-	fprintf(fp, "  ");
-	for(cp = 0;   cp < c;     cp++) fprintf(fp, "%.4f ", 0.);
-	fprintf(fp, "%.4f ", (cur[c] - cl->min[c]) / (cl->max[c] - cl->min[c])); 
-	for(cp = c+1; cp < NCMYK; cp++) fprintf(fp, "%.4f ", 0.);
-	fprintf(fp, "setcmykcolor\n");
-	fprintf(fp, "  fill\n");
-	cur[c] += colstep[c];
-	x += cl->boxsize;
-      }
-    }
-    /* reset color to black */ 
-    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
-
-    /* print labels underneath heatmap */
-    for(c = 0; c < NCMYK; c++) { 
-      if(cl->which_color[c] == FALSE) continue;
-      cur[c] = cl->min[c];
-      x = cl->x;
-      y -= cl->boxsize * 0.5;
-      fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", ((float) cl->boxsize)/ 2.5);
-      for(b = 0; b < cl->nboxes; b++) { 
-	fprintf(fp, "(%3.2f) %.4f %.4f lwstring\n", cur[c], x, y);
-	cur[c] += colstep[c];
-	x += cl->boxsize;
-      }
-      /* reset font size to 8 */
-      fprintf(fp, "/Helvetica findfont 8.00 scalefont setfont\n");
-    }
-  }
-  if(ndims == 2) { esl_fatal("print_colorlegend with 2 dimensions is not yet implemented."); }
-  return eslOK;
-}
-
 
 /* Function: print_onecellcolorlegend()
  * 
@@ -949,7 +758,10 @@ print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command,
 {
   int p, i, c, l;
   float title_fontsize;
-  int do_square_mask, do_diamond_mask, do_x_mask, do_circle_mask;
+  int do_square_mask, do_diamond_mask, do_x_mask, do_circle_mask, do_border;
+  int xb_white = 1;
+  int xb_color = 3;
+  do_border = esl_opt_GetBoolean(go, "-b");
   do_square_mask = do_diamond_mask = do_x_mask = do_circle_mask = FALSE;
   if(esl_opt_GetBoolean(go, "-d")) { do_diamond_mask = TRUE; }
   else if(esl_opt_GetBoolean(go, "-x")) { do_x_mask = TRUE; }
@@ -995,11 +807,6 @@ print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command,
 	fprintf(fp, "%s", ps->regurgAA[i]);
     }
     
-    /* print color legend, if any */
-    if(ps->clAAA != NULL && ps->clAAA[p] != NULL) { 
-      for(l = 0; l < ps->nclA[p]; l++) print_colorlegend(fp, ps->clAAA[p][l]);
-    }
-
     /* print one cell color legends, if any */
     if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
       for(l = 0; l < ps->nocclA[p]; l++) print_onecellcolorlegend(fp, ps->occlAAA[p][l]);
@@ -1012,35 +819,82 @@ print_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command,
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
       if(ps->maskAA[p] != NULL) { 
+	fprintf(fp, "2.50 setlinewidth\n");
 	for(c = 0; c < ps->clen; c++) { 
 	  fprintf(fp, "%sresidue %d\n", "%", c+1);
 	  fprintf(fp, "newpath\n");
 	  if(ps->maskAA[p][c] == '0') { 
 	    if(do_square_mask) { 
-	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 2., ps->ryA[c] -1. + 2.);
-	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
+	      if(do_border) { 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1.+1.25, ps->ryA[c] -1.+1.25);
+		fprintf(fp, "  0 6.75 rlineto 6.75 0 rlineto 0 -6.75 rlineto closepath\n");
+	      }
+	      else { 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 1.5, ps->ryA[c] -1. + 1.5);
+		fprintf(fp, "  0 5 rlineto 5 0 rlineto 0 -5 rlineto closepath\n");
+	      }
 	    }
 	    else if (do_diamond_mask) { 
 	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
 	      fprintf(fp, "  -4 4 rlineto 4 4 rlineto 4 -4 rlineto closepath\n");
 	    }
-	    else if (do_circle_mask) { 
-	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
-	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
-	    }
 	    else if (do_x_mask) { 
-	      fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
-	      fprintf(fp, "  0 4 rlineto 4 0 rlineto 0 -4 rlineto closepath\n");
+	      if(do_border) { 
+		fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1., ps->ryA[c] -1. + xb_white);
+		fprintf(fp, " %d  %d rlineto ", xb_color, xb_color);
+		fprintf(fp, "-%d  %d rlineto closepath ", xb_color, xb_color);
+		fprintf(fp, "  fill\n"); 
+		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + xb_white, ps->ryA[c] -1. + 8.);
+		fprintf(fp, " %d -%d rlineto ", xb_color, xb_color);
+		fprintf(fp, " %d  %d rlineto closepath ", xb_color, xb_color);
+		fprintf(fp, "  fill\n"); 
+		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + 8., ps->ryA[c] -1. + 8-xb_white);
+		fprintf(fp, "-%d -%d rlineto ", xb_color, xb_color);
+		fprintf(fp, " %d -%d rlineto closepath ", xb_color, xb_color);
+		fprintf(fp, "  fill\n"); 
+		fprintf(fp, "  %.2f %.2f moveto ", ps->rxA[c] - 1. + 8.-xb_white, ps->ryA[c] -1.);
+		fprintf(fp, "-%d  %d rlineto ", xb_color, xb_color);
+		fprintf(fp, "-%d -%d rlineto closepath ", xb_color, xb_color);
+		fprintf(fp, "  fill\n"); 
+	      }
+	      else { 
+		fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1. + 4., ps->ryA[c] -1.);
+		fprintf(fp, " 0  2 rlineto ");
+		fprintf(fp, " 2  2 rlineto "); 
+		fprintf(fp, "-2  2 rlineto "); 
+		fprintf(fp, " 0  2 rlineto "); 
+		fprintf(fp, " 2  0 rlineto "); 
+		fprintf(fp, " 2 -2 rlineto "); 
+		fprintf(fp, " 2  2 rlineto "); 
+		fprintf(fp, " 2  0 rlineto "); 
+		fprintf(fp, " 0 -2 rlineto "); 
+		fprintf(fp, "-2 -2 rlineto "); 
+		fprintf(fp, " 2 -2 rlineto "); 
+		fprintf(fp, " 0 -2 rlineto "); 
+		fprintf(fp, "-2  0 rlineto "); 
+		fprintf(fp, "-2  2 rlineto "); 
+		fprintf(fp, "-2 -2 rlineto "); 
+		fprintf(fp, "-2  0 closepath\n");
+	      }
+	    }
+	    else if (do_circle_mask) { 
+	      fprintf(fp, " %.2f %.2f 4 0 360 arc closepath\n", ps->rxA[c] - 1. + 4., ps->ryA[c] -1. + 4.);
+	    }
+	    if(!(do_x_mask && do_border)) { 
+	      fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	      if(do_border) { fprintf(fp, "  stroke\n"); }
+	      else          { fprintf(fp, "  fill\n"); }
 	    }
 	  }
 	  else { 
 	    fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
 	    fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
+	    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	    fprintf(fp, "  fill\n"); 
 	  }
-	  /*fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);*/
-	  fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
-	  fprintf(fp, "  fill\n");
 	}
+	fprintf(fp, "1.00 setlinewidth\n");
       }
       else { /* no mask, all cells are printed the same */
 	for(c = 0; c < ps->clen; c++) { 
@@ -1286,7 +1140,6 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    /*ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);*/
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -1649,8 +1502,6 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     assert(ps->rcolAAA == NULL);
     ESL_ALLOC(ps->rrAA,    sizeof(char *)   * (ps->npage + ntoadd));
     ESL_ALLOC(ps->rcolAAA, sizeof(float **) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->clAAA,   sizeof(ColorLegend_t ***) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->nclA,    sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->nocclA,  sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
@@ -1661,8 +1512,6 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     assert(ps->rcolAAA != NULL);
     ESL_RALLOC(ps->rrAA,    tmp, sizeof(char *)   * (ps->npage + ntoadd));
     ESL_RALLOC(ps->rcolAAA, tmp, sizeof(float **) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->clAAA,   tmp, sizeof(ColorLegend_t ***) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->nclA,    tmp, sizeof(int) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->occlAAA, tmp, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->nocclA,  tmp, sizeof(int) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->sclAA,   tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
@@ -1671,8 +1520,6 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
   for(p = ps->npage; p < (ps->npage + ntoadd); p++) { 
     ps->rrAA[p]    = NULL;
     ps->rcolAAA[p] = NULL;
-    ps->clAAA[p]   = NULL;
-    ps->nclA[p]    = 0;
     ps->occlAAA[p] = NULL;
     ps->nocclA[p]  = 0;
     ps->sclAA[p]   = NULL;
@@ -1753,8 +1600,6 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
-    /*if(mask == NULL) ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
-      else             ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 2);*/
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -2314,119 +2159,6 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
   esl_fatal("Memory error");
 }
 
-
-/* Function: phylosignal_sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with 1 new page, greyscale (CMYK K value) squares indicating
- *           the bits of phylogenetic signal/information per column. 
- *         
- *           If mask is non-NULL, columns that are *outside* the mask are colored red instead of 
- *           black.
- *
- * Return:   eslOK on success.
- */
-int
-phylosignal_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask)
-{
-  int status;
-  int p, pp, c, i;
-  int cpos, apos;
-  int orig_npage = ps->npage;
-  double **obs;
-  double ent;
-  double summed_ent;
-  double inmask_summed_ent;
-
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    if(mask == NULL) ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 1);
-    else             ESL_ALLOC(ps->clAAA[p],    sizeof(ColorLegend_t **) * 2);
-    for(c = 0; c < ps->clen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
-    }
-  }
-
-  ESL_ALLOC(obs, sizeof(double *) * ps->clen);
-  
-  for(cpos = 0; cpos < ps->clen; cpos++) { 
-    ESL_ALLOC(obs[cpos], sizeof(double) * msa->abc->K);
-    esl_vec_DSet(obs[cpos], msa->abc->K, 0.);
-  }
-
-  pp = orig_npage;
-  for(i = 0; i < msa->nseq; i++) { 
-    cpos = 0;
-    for(apos = 0; apos < msa->alen; apos++) {
-      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { /* seq i is not a gap at cpos */
-	  esl_abc_DCount(msa->abc, obs[cpos], esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]), 1.);
-	}
-	cpos++;
-      }
-    }
-  }
-  summed_ent = inmask_summed_ent;
-  for(cpos = 0; cpos < ps->clen; cpos++) { 
-    esl_vec_DNorm(obs[cpos], msa->abc->K);
-    ent = esl_vec_DEntropy(obs[cpos], msa->abc->K);
-
-    if(mask == NULL || mask[cpos] == '1') { 
-      ps->rcolAAA[pp][cpos][0] = 0.0;
-      ps->rcolAAA[pp][cpos][1] = 0.0;
-      ps->rcolAAA[pp][cpos][2] = 0.0;
-      ps->rcolAAA[pp][cpos][3] = ent/2.;
-      inmask_summed_ent += ent;
-    }
-    else if (mask[cpos] == '0') { /* mask != NULL && mask[cpos] != '0' */
-      ps->rcolAAA[pp][cpos][0] = 0.0;
-      ps->rcolAAA[pp][cpos][1] = ent/2.; 
-      ps->rcolAAA[pp][cpos][2] = 0.0;
-      ps->rcolAAA[pp][cpos][3] = 0.0; 
-    }
-    else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
-    summed_ent += ent;
-    ps->rrAA[pp][cpos] = (esl_FCompare(ent, 0., eslSMALLX1) == eslOK) ? '-' : ' '; /* mark blank squares with a '-' */
-  }
-  printf("       Consensus columns: %d\n", ps->clen);
-  printf("phylogenetic information: %.2f bits\n", summed_ent);
-
-  if(mask != NULL) { 
-    printf("             within mask: %.2f bits (%.4f)\n", inmask_summed_ent, inmask_summed_ent / summed_ent);
-  }
-
-  /* add color legend */
-  char *text;
-  if(mask == NULL) { 
-    ESL_ALLOC(text, sizeof(char) * strlen("entropy (phylogenetic signal) in bits (total: 10000.00)"));
-    sprintf(text, "entropy (phylogenetic signal) in bits (total: %.2f)", summed_ent);
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK, 0., 2., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    ps->nclA[pp] = 1;
-    free(text);
-  }
-  else { 
-    ESL_ALLOC(text, sizeof(char) * strlen("within mask  entropy (phylogenetic signal) in bits (total: 10000.00 (1000))"));
-    sprintf(text, "within mask  entropy (phylogenetic signal) in bits (total: %.2f (%.2f%s))", inmask_summed_ent, 100 * inmask_summed_ent / summed_ent, "%");
-    ps->clAAA[pp][0] = create_one_dim_colorlegend(ps, IBLACK,   0., 2., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    free(text);
-
-    ESL_ALLOC(text, sizeof(char) * strlen("outside mask entropy (phylogenetic signal) in bits (total: 10000.00 (1000))"));
-    sprintf(text, "outside mask entropy (phylogenetic signal) in bits (total: %.2f (%.2f%s))", summed_ent - inmask_summed_ent, 100. - (100 * inmask_summed_ent / summed_ent), "%");
-    ps->clAAA[pp][1] = create_one_dim_colorlegend(ps, IMAGENTA,   0., 2., LEG_ONED_BOXSIZE, LEG_ONED_NBOXES, text);
-    free(text);
-
-    ps->nclA[pp] = 2;
-  }
-
-  for(cpos = 0; cpos < ps->clen; cpos++) free(obs[cpos]);
-  free(obs);
-  return eslOK;
-  
- ERROR: ESL_FAIL(status, errbuf, "phylosignal_sspostscript(): memory allocation error.");
-  return status; /* NEVERREACHED */
-}
 
 
 /* Function: colormask_sspostscript()
