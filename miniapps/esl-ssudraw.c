@@ -1309,6 +1309,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
   }
 
+  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
 
   free(text);
   free(dct);
@@ -1683,6 +1684,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
       sprintf(text, "avg posterior probability; %.3f (RF) %.3f (all)", avgrf_s, avg_s);
       add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
       free(text);
+      if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
       pp++;
     }
   } /* done with all sequences */
@@ -1713,9 +1715,9 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 	    (esl_vec_FSum(sum_c, msa->alen)   / (float) (esl_vec_ISum(nongap_c, msa->alen))));
     add_text_to_scheme_colorlegend(ps->sclAA[pp], text);
     free(text);
+    if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
   }
 
-  if(mask != NULL) add_mask_to_ss_postscript(ps, pp, mask);
 
   free(nongap_c);
   free(nongaprf_c);
@@ -1997,7 +1999,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 	      rapos = ct[apos+1]-1; 
 	      if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][rapos])) { /* seq i is not a gap at right half */
 		esl_abc_DCount(msa->abc, obs[cpos], esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]), 1.);
-		rcpos = a2c_map[rapos+1]-1;
+		rcpos = a2c_map[rapos];
 		assert(rcpos != -1);
 		ldsq = esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]);
 		rdsq = esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][rapos]);
@@ -2029,12 +2031,12 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   /* determine entropy of each pair */
   tmp_bg_p = esl_vec_DEntropy(bg_p, msa->abc->K * msa->abc->K);
   for(cpos = 0; cpos < ps->clen; cpos++) { 
-    apos  = c2a_map[cpos+1]-1;
+    apos  = c2a_map[cpos];
     if(ct[apos+1] != 0) { 
       esl_vec_DNorm(obs_p[cpos], msa->abc->K * msa->abc->K);
 
       rapos = ct[apos+1]-1; 
-      rcpos = a2c_map[rapos+1]-1;
+      rcpos = a2c_map[rapos];
 
       ent_p[cpos] = tmp_bg_p - esl_vec_DEntropy(obs_p[cpos], msa->abc->K*msa->abc->K);
 
@@ -2058,7 +2060,9 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
       ps->rcolAAA[pp][cpos][3] = BLANKBLACK; 
       ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
     }
-    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent_p[cpos], ps->sclAA[pp])) != eslOK) return status;
+    else { 
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent_p[cpos], ps->sclAA[pp])) != eslOK) return status;
+    }
     ps->rrAA[pp][cpos] = ' ';
   }
 
