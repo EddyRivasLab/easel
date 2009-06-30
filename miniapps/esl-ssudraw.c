@@ -696,7 +696,7 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
     /* back to black */
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", textsize);
-    fprintf(fp, "(%s) %.4f %.4f lwstring\n", occl->text, x, (y + (occl->boxsize * .25)));
+    fprintf(fp, "(%s) %.4f %.4f moveto show\n", occl->text, x, (y + (occl->boxsize * .25)));
     /* reset font size to 8 */
     fprintf(fp, "/Helvetica findfont 8.00 scalefont setfont\n");
   }
@@ -740,7 +740,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     /* back to black */
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", textsize);
-    fprintf(fp, "(%s) %.4f %.4f lwstring\n", scl->text, x, (y + (scl->boxsize * .25)));
+    fprintf(fp, "(%s) %.4f %.4f moveto show\n", scl->text, x, (y + (scl->boxsize * .25)));
   }
   y -= scl->boxsize;
 
@@ -773,8 +773,8 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     x += scl->boxsize * 1.5;
     y += scl->boxsize * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f lwstring\n", scl->limits[c], scl->limits[c+1], x, y);
-    else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f lwstring\n", scl->limits[c], scl->limits[c+1], x, y);
+    if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+    else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
     x -= scl->boxsize * 1.5;
     y -= scl->boxsize * 0.25;
     y -= scl->boxsize;
@@ -795,7 +795,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     /* print label */
     x += scl->boxsize * 1.5;
     y += scl->boxsize * 0.25;
-    fprintf(fp, "(positions excluded by mask (all colors)) %.4f %.4f lwstring\n", x, y);
+    fprintf(fp, "(positions excluded by mask (all colors)) %.4f %.4f moveto show\n", x, y);
     x -= scl->boxsize * 1.5;
     y -= scl->boxsize * 0.25;
    
@@ -812,7 +812,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
 
     x += scl->boxsize * 1.5;
     y += scl->boxsize * 0.25;
-    fprintf(fp, "(positions included by mask (all colors)) %.4f %.4f lwstring\n", x, y);
+    fprintf(fp, "(positions included by mask (all colors)) %.4f %.4f moveto show\n", x, y);
     x -= scl->boxsize * 1.5;
     y -= scl->boxsize * 0.25;
   }
@@ -860,7 +860,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       /* to print with preset coords */
       /* WHAT I SHOULD DO: use Gutells x coord -200.00 units (x coord is first coord), but this
        * will require further parsing of the gutell line. */
-      /*fprintf(fp, "(\"%s\" page %d/%d) -360.00 -200.00 lwstring\n", command, p+1, ps->npage);*/
+      /*fprintf(fp, "(\"%s\" page %d/%d) -360.00 -200.00 moveto show\n", command, p+1, ps->npage);*/
       /* reset font size */
       fprintf(fp, "/Helvetica findfont 12.00 scalefont setfont\n");
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
@@ -926,7 +926,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
     if(ps->rrAA[p] != NULL) { 
       for(c = 0; c < ps->clen; c++) { 
-	fprintf(fp, "(%c) %.2f %.2f lwstring\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
+	fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
       }
     }
     fprintf(fp, "stroke\ngrestore\nm4showpage\n");
@@ -1026,7 +1026,7 @@ read_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostsc
       assert(ps->rrAA == NULL);
     }
     /* example line:
-     *(A) 61.30 -831.00 lwstring
+     *(A) 61.30 -831.00 moveto show
      */
     if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read residue on line %d of postscript template file %s\n", efp->linenumber, filename);
     if(strncmp(tok, "stroke", 5) == 0) { seen_residue_end = TRUE; break; }
@@ -1035,8 +1035,8 @@ read_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostsc
     x = atof(tok);
     if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read y coord on line %d of postscript template file %s\n", efp->linenumber, filename);
     y = atof(tok);
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read 'lwstring' on line %d of postscript template file %s\n", efp->linenumber, filename);
-    
+    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read 'moveto' on line %d of postscript template file %s\n", efp->linenumber, filename);
+    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read 'show' on line %d of postscript template file %s. Did you replace 'lwstring' with 'moveto show'?\n", efp->linenumber, filename);
     if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslEOL) esl_fatal("Failed to read EOL on line %d of postscript template file %s\n", efp->linenumber, filename);
     
     ps->rxA[c] = x;
