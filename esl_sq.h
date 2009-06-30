@@ -120,7 +120,11 @@ typedef struct {
 #endif
 } ESL_SQ;
 
-
+typedef struct {
+  int      count;       /* number of <ESL_SQ> objects in the block */
+  int      listSize;    /* maximum number elements in the list     */
+  ESL_SQ  *list;        /* array of <ESL_SQ> objects               */
+} ESL_SQ_BLOCK;
 
 /* These control default initial allocation sizes in an ESL_SQ.     */
 #define eslSQ_NAMECHUNK   32	/* allocation unit for name, source */
@@ -164,6 +168,12 @@ extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
 extern int     esl_sq_GetFromMSA  (const ESL_MSA *msa, int which, ESL_SQ *sq);
 extern int     esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq);
 #endif
+
+extern ESL_SQ_BLOCK *esl_sq_CreateBlock(int count);
+#ifdef eslAUGMENT_ALPHABET
+extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc);
+#endif
+extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);
 
 #endif /*!ESL_SQ_INCLUDED*/
 /*****************************************************************

@@ -34,6 +34,9 @@
 static ESL_SQ *sq_create(int do_digital);
 static ESL_SQ *sq_create_from(const char *name, const char *desc, const char *acc);
 
+static ESL_SQ_BLOCK *sq_createblock(int count, int do_digital);
+
+static int sq_init(ESL_SQ *sq, int do_digital);
 
 /*****************************************************************
  *# 1. Text version of the <ESL_SQ> object.
@@ -450,6 +453,83 @@ esl_sq_Destroy(ESL_SQ *sq)
   free(sq);
   return;
 }
+
+/* Function:  esl_sq_CreateBlock()
+ * Synopsis:  Create a new block of empty <ESL_SQ>.
+ * Incept:    
+ *
+ * Purpose:   Creates a block of empty <ESL_SQ> sequence objects.
+ *            
+ * Returns:   a pointer to the new <ESL_SQ_BLOCK>. Caller frees this
+ *            with <esl_sq_DestroyBlock()>.
+ *
+ * Throws:    <NULL> if allocation fails.
+ */
+ESL_SQ_BLOCK *
+esl_sq_CreateBlock(int count)
+{
+  return sq_createblock(count, FALSE);
+}
+
+/* Function:  esl_sq_DestroyBlock()
+ * Synopsis:  Frees an <ESL_SQ_BLOCK>.
+ * Incept:    
+ *
+ * Purpose:   Free a Create()'d block of <sq>.
+ */
+void
+esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
+{
+  int i;
+
+  if (block == NULL) return;
+
+  for (i = 0; i < block->listSize; ++i)
+    {
+      esl_sq_Destroy(block->list + i);
+    }
+
+  free(block);
+  return;
+}
+
+#ifdef eslAUGMENT_ALPHABET
+
+/* Function:  esl_sq_CreateDigitalBlock()
+ * Synopsis:  Create a new block of empty <ESL_SQ> in digital mode.
+ * Incept:    
+ *
+ * Purpose:   Same as <esl_sq_CreateBlock()>, except the returned <sq>
+ *            is configured for a digital sequence using internal
+ *            alphabet <abc>, rather than a text sequence. Creates an
+ *            empty digital <ESL_SQ> sequence object, with internal
+ *            fields allocated to reasonable initial sizes.
+ *            
+ * Returns:   a pointer to the new <ESL_SQ_BLOCK>. Caller frees this with
+ *            <esl_sq_DestroyBlock()>.
+ * 
+ * Throws:    <NULL> if an allocation fails.
+ *
+ * Xref:      
+ */
+ESL_SQ_BLOCK *
+esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc)
+{
+  int i;
+  ESL_SQ_BLOCK *block;
+
+  if ((block = sq_createblock(count, TRUE)) == NULL) return NULL;
+  
+  for (i = 0; i < count; ++i)
+    {
+      block->list[i].abc = abc;
+    }
+
+  return block;
+}
+
+#endif /* eslAUGMENT_ALPHABET */
+
 /*--------------- end of ESL_SQ object functions ----------------*/
 
 
@@ -1376,6 +1456,51 @@ sq_create(int do_digital)
 
   ESL_ALLOC(sq, sizeof(ESL_SQ));
 
+  if (sq_init(sq, do_digital) != eslOK) goto ERROR;
+
+  return sq;
+
+ ERROR:
+  esl_sq_Destroy(sq);
+  return NULL;
+}  
+
+/* Create an <ESL_SQ_BLOCK> object and its list of <ESL_SQ> objects */
+static ESL_SQ_BLOCK *
+sq_createblock(int count, int do_digital)
+{
+  int i = 0;
+
+  ESL_SQ_BLOCK *block = NULL;
+  int status = eslOK;
+
+  ESL_ALLOC(block, sizeof(ESL_SQ_BLOCK));
+
+  block->count = 0;
+  block->listSize = 0;
+  block->list  = NULL;
+
+  ESL_ALLOC(block->list, sizeof(ESL_SQ) * count);
+  block->listSize = count;
+
+  for (i = 0; i < count; ++i)
+    {
+      if (sq_init(block->list + i, do_digital) != eslOK) goto ERROR;
+    }
+
+  return block;
+
+ ERROR:
+  esl_sq_DestroyBlock(block);
+  return NULL;
+}  
+
+/* Initialize <ESL_SQ> object */
+static int
+sq_init(ESL_SQ *sq, int do_digital)
+{
+  int status;
+
   sq->name     = NULL;
   sq->acc      = NULL;
   sq->desc     = NULL;
@@ -1398,11 +1523,10 @@ sq_create(int do_digital)
   else            ESL_ALLOC(sq->seq,  sizeof(char)    * sq->salloc);
 
   esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
-  return sq;
+  return eslOK;
 
  ERROR:
-  esl_sq_Destroy(sq);
-  return NULL;
+  return eslEMEM;
 }  
 
 /* CreateFrom and CreateDigitalFrom() are almost identical, so

@@ -135,6 +135,8 @@ extern int   esl_sqio_ReadInfo  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
 extern int   esl_sqio_Echo      (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
+extern int   esl_sqio_ReadBlock (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock);
+
 #ifdef eslAUGMENT_SSI
 extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
 extern int   esl_sqfile_PositionByKey   (ESL_SQFILE *sqfp, const char *key);

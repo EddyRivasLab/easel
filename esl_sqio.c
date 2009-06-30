@@ -81,7 +81,8 @@ static int  write_fasta (FILE *fp, ESL_SQ *sq, int save_offsets);
 static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 #endif
 
-
+/* set the max residue count to 1 meg when reading a block */
+#define MAX_RESIDUE_COUNT (1024 * 1024)
 
 /*****************************************************************
  *# 1. An <ESL_SQFILE> object, in text mode.
@@ -1428,6 +1429,48 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
  ERROR:
   if (tmpsq != NULL) esl_sq_Destroy(tmpsq);
+  return status;
+}
+
+/* Function:  esl_sqio_ReadBlock()
+ * Synopsis:  Read the next block of sequences from a file.
+ * Incept:    
+ *
+ * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
+ *            <sqBlock>.
+ *
+ * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
+ * 
+ *            Returns <eslEOF> when there is no sequence left in the
+ *            file (including first attempt to read an empty file).
+ * 
+ *            Returns <eslEFORMAT> if there's a problem with the format,
+ *            such as an illegal character; the line number that the parse
+ *            error occurs on is in <sqfp->linenumber>, and an informative
+ *            error message is placed in <sqfp->errbuf>. 
+ *
+ * Throws:    <eslEMEM> on allocation failure;
+ *            <eslEINCONCEIVABLE> on internal error.
+ */
+int
+esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
+{
+  int     i;
+  int     size = 0;
+  int     status = eslOK;
+
+  sqBlock->count = 0;
+  for (i = 0; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
+    {
+      status = esl_sqio_Read(sqfp, sqBlock->list + i);
+      if (status != eslOK) break;
+      size += sqBlock->list[i].n;
+      ++sqBlock->count;
+    }
+
+  /* EOF will be returned only in the case were no sequences were read */
+  if (status == eslEOF && i > 0) status = eslOK;
+
   return status;
 }
 
