@@ -777,11 +777,10 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
  * Synopsis:  Returns <TRUE> if option remained at default setting.
  * Incept:    SRE, Wed Jan  3 11:19:25 2007 [Janelia]
  *
- * Purpose:   Returns <TRUE> if option <optname> remained at its
+ * Purpose:   Returns <TRUE> if option <optname> is in its
  *            default state; returns <FALSE> if <optname> was 
- *            set on the command line, in the environment, or in 
- *            a configuration file (even if it was reset to the
- *            default value). 
+ *            changed on the command line, in the environment, or in 
+ *            a configuration file.
  */
 int
 esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
@@ -801,7 +800,7 @@ esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
  * Incept:    SRE, Sat Feb 14 09:29:58 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option is on (set to a non-<NULL>
- *            value. 
+ *            value). 
  *            
  *            This is most useful when using integer-, real-, char-,
  *            or string-valued options also as boolean switches, where
