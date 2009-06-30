@@ -17,11 +17,12 @@ pdfdir      = @pdfdir@
 # Compiler configuration
 #
 CC       = @CC@
-CFLAGS   = @CFLAGS@
+CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@
 LDFLAGS  = @LDFLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LIBGSL   = @LIBGSL@
+LIBS     = @LIBS@ @PTHREAD_LIBS@
 
 # Other tools
 #
@@ -88,6 +89,7 @@ HDRS = \
 	esl_vectorops.h\
 	esl_vmx.h\
 	esl_weibull.h\
+	esl_workqueue.h\
 	esl_wuss.h
 
 OBJS    = \
@@ -135,6 +137,7 @@ OBJS    = \
 	esl_vectorops.o\
 	esl_vmx.o\
 	esl_weibull.o\
+	esl_workqueue.o\
 	esl_wuss.o
 
 UTESTS =\
