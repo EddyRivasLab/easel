@@ -36,7 +36,8 @@ static ESL_SQ *sq_create_from(const char *name, const char *desc, const char *ac
 
 static ESL_SQ_BLOCK *sq_createblock(int count, int do_digital);
 
-static int sq_init(ESL_SQ *sq, int do_digital);
+static int  sq_init(ESL_SQ *sq, int do_digital);
+static void sq_free(ESL_SQ *sq);
 
 /*****************************************************************
  *# 1. Text version of the <ESL_SQ> object.
@@ -486,7 +487,7 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
 
   for (i = 0; i < block->listSize; ++i)
     {
-      esl_sq_Destroy(block->list + i);
+      sq_free(block->list + i);
     }
 
   free(block);
@@ -1607,6 +1608,19 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   esl_sq_Destroy(sq);
   return NULL;
 }
+
+/* Free <ESL_SQ> object */
+static void
+sq_free(ESL_SQ *sq)
+{
+  if (sq->name != NULL)   free(sq->name);
+  if (sq->acc  != NULL)   free(sq->acc);
+  if (sq->desc != NULL)   free(sq->desc);
+  if (sq->seq  != NULL)   free(sq->seq);
+  if (sq->dsq  != NULL)   free(sq->dsq);
+  if (sq->ss   != NULL)   free(sq->ss);
+}  
+
 /*----------------- end, internal functions ---------------------*/
 
 

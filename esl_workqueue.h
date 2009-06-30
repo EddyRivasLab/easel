@@ -15,6 +15,8 @@ int esl_workqueue_Init(ESL_WORK_QUEUE *queue, void *ptr);
 int esl_workqueue_Complete(ESL_WORK_QUEUE *queue);
 int esl_workqueue_Reset(ESL_WORK_QUEUE *queue);
 
+void * esl_workqueue_Remove(ESL_WORK_QUEUE *queue);
+
 int esl_workqueue_ReaderUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
 int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
 

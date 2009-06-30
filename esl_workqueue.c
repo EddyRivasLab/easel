@@ -118,14 +118,14 @@ void esl_workqueue_Destroy(ESL_WORK_QUEUE *queue)
       status = pthread_mutex_destroy (&queue->queueMutex);
       CHECK (status, "Destroy mutex failed");
 
-      status = pthread_cond_destroy (&queue->workerQueueCond);
+      status = pthread_cond_destroy (&queue->readerQueueCond);
       CHECK (status, "Destroy cond var failed");
 
       status = pthread_cond_destroy (&queue->workerQueueCond);
       CHECK (status, "Destroy cond var failed");
 
       if (queue->readerQueue != NULL) free(queue->readerQueue);
-      if (queue->workerQueue != NULL) free(queue->readerQueue);
+      if (queue->workerQueue != NULL) free(queue->workerQueue);
 
       free(queue);
     }
@@ -150,20 +150,19 @@ int esl_workqueue_Init(ESL_WORK_QUEUE *queue, void *ptr)
 
   if (queue == NULL) return eslFAIL;
 
+  if (ptr == NULL) esl_fatal("Placing NULL object in reader queue");
+
   status = pthread_mutex_lock (&queue->queueMutex);
   CHECK(status, "Lock mutex failed");
 
+  queueSize = queue->queueSize;
+
   /* check to make sure we won't overflow */
   cnt = queue->readerQueueCnt;
-  if (cnt >= queue->queueSize) esl_fatal("Reader queue overflow");
+  if (cnt >= queueSize) esl_fatal("Reader queue overflow");
 
-  queueSize = queue->queueSize;
   inx = (queue->readerQueueHead + cnt) % queueSize;
-
-  if (ptr == NULL) esl_fatal("Placing NULL object in reader queue");
-
   queue->readerQueue[inx] = ptr;
-  inx = (inx + 1) % queueSize;
 
   ++queue->readerQueueCnt;
   if (cnt == 0)
@@ -176,6 +175,42 @@ int esl_workqueue_Init(ESL_WORK_QUEUE *queue, void *ptr)
   CHECK(status, "Unlock mutex failed");
 
   return eslOK;
+}
+
+/* Function:  esl_workqueue_Remove()
+ * Synopsis:  Removes a queued object from the producers list.
+ * Incept:    MSF, Thu Jun 18 11:51:39 2009
+ *
+ * Purpose:   Removes a queued object to the producers list.
+ *
+ * Returns:   Pointer to the object removed.  NULL if the producers
+ *            list is empty.
+ */
+void *esl_workqueue_Remove(ESL_WORK_QUEUE *queue)
+{
+  int inx;
+  int status;
+
+  void *ptr = NULL;
+
+  if (queue == NULL) return eslFAIL;
+
+  status = pthread_mutex_lock (&queue->queueMutex);
+  CHECK(status, "Lock mutex failed");
+
+  /* check if there are any items on the readers list */
+  if (queue->readerQueueCnt > 0)
+    {
+      inx = (queue->readerQueueHead + queue->readerQueueCnt) % queue->queueSize;
+      ptr = queue->readerQueue[inx];
+      queue->readerQueue[inx] = NULL;
+      --queue->readerQueueCnt;
+    }
+
+  status = pthread_mutex_unlock (&queue->queueMutex);
+  CHECK(status, "Unlock mutex failed");
+
+  return ptr;
 }
 
 /* Function:  esl_workqueue_Complete()
