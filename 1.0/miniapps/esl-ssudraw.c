@@ -580,7 +580,6 @@ create_sspostscript()
 int
 setup_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
-  int status;
   float pagex;
   float pagey;
 
@@ -943,7 +942,6 @@ int
 draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps)
 {
   int p, i, c, l;
-  float title_fontsize;
   int do_circle_mask, do_square_mask, do_x_mask, do_border;
   do_border = (!esl_opt_GetBoolean(go, "-a"));
   do_circle_mask = do_square_mask = do_x_mask = FALSE;
@@ -1207,7 +1205,6 @@ parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   char *tok;
   int   toklen;
   char *curstr = NULL;
-  char *newstr;
   int   curlen = 0;
 
   /* this section should be exactly 3 lines, one of which we've already read,
@@ -3117,7 +3114,6 @@ draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask,
 static int 
 validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
-  int status;
   if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read modelname from template file.");
   if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");
   if(ps->clen == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text residues' section from template file.");
@@ -3142,7 +3138,7 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
   int *msa_ct;
   int msa_nbp = 0;
   int *tmp_ct;
-  int *c2a_map, *a2c_map, msa_clen;
+  int msa_clen;
   int apos, cpos;
 
   ps->msa_idx = msa_idx;
@@ -3150,13 +3146,19 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
   /* get the CT array for this msa */
   ESL_ALLOC(tmp_ct, sizeof(int) * (msa->alen+1));
   if (esl_wuss2ct(msa->ss_cons, msa->alen, tmp_ct) != eslOK) ESL_FAIL(status, errbuf, "Problem getting ct from SS_cons, does alignment %d of MSA file have SS_cons annotation?", msa_idx);
-  /* map cpos to apos */
-  map_cpos_to_apos(msa, &c2a_map, &a2c_map, &msa_clen);
+  
+  msa_clen = 0;
+  for(apos = 0; apos < msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) msa_clen++;
+  }
   /* convert tmp_ct which is in alignment coords [1..alen] to consensus coords [0..clen-1]*/
+  ESL_ALLOC(msa_ct, sizeof(int) * (msa_clen));
   cpos = 0;
   for(apos = 0; apos < msa->alen; apos++) {
     if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-      if(tmp_ct[(apos+1)] != 0) msa_nbp++;
+      if((tmp_ct[(apos+1)] > (apos+1)) && (! esl_abc_CIsGap(msa->abc, msa->rf[tmp_ct[apos+1]-1]))) { /* a consensus position paired to another consensus posn */
+	msa_nbp++;
+      }
       msa_ct[cpos++] = tmp_ct[(apos+1)];
     }
   }
@@ -3174,4 +3176,4 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
  ERROR:
   ESL_FAIL(status, errbuf, "validate_and_update_sspostscript_given_msa(), error status %d, probably out of memory.\n", status);
   return status; 
-}
+  }
