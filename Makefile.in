@@ -85,6 +85,7 @@ HDRS = \
 	esl_stats.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
+	esl_threads.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_vmx.h\
@@ -133,6 +134,7 @@ OBJS    = \
 	esl_stopwatch.o\
 	esl_stretchexp.o\
 	esl_swat.o\
+	esl_threads.o\
 	esl_tree.o\
 	esl_vectorops.o\
 	esl_vmx.o\

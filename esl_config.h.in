@@ -72,6 +72,7 @@
 #undef HAVE_GETPID
 #undef HAVE_FSEEKO
 
+#undef HAVE_PTHREADS
 
 /*****************************************************************
  * Available augmentations.

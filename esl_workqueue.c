@@ -9,6 +9,8 @@
  */
 #include "esl_config.h"
 
+#ifdef HAVE_PTHREADS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -477,6 +479,8 @@ int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
 
   return eslOK;
 }
+
+#endif /* HAVE_PTHREADS */
 
 /*****************************************************************  
  * @LICENSE@
