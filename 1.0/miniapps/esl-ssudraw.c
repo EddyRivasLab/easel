@@ -66,9 +66,17 @@
 #define LEG_NBOXES  11
 #define LEG_BOXSIZE 24.
 #define LEG_MINTEXTSIZE 10
+#define LEGX_OFFSET 24.
+#define LEGY_OFFSET 24.
+
 /*#define TITLE_FONTSIZE 18*/
 #define TITLE_FONTSIZE 12
 #define SS_BOXSIZE 8.
+
+#define RESIDUES_DEFAULT_FONTSIZE 8.
+#define HUNDREDS_DEFAULT_FONTSIZE 8.
+#define TICKS_DEFAULT_LINEWIDTH 2.
+#define BP_DEFAULT_LINEWIDTH 1.
 
 /* Structure: scheme_color_legend
  * Incept:    EPN, Thu Jun 25 20:20:38 2009
@@ -105,26 +113,40 @@ typedef struct onecell_color_legend_s {
  *
  */
 typedef struct ss_postscript_s {
-  char  **regurgAA;     /* [0..nregurg-1][] lines from the original Gutell file to regurgitate, these are unchanged. */
-  int     nregurg;      /* number of lines (char *'s) in the regurgAA 2D array */
   int     npage;        /* number of pages in eventual postscript */
-  int     clen;         /* the number of residues in the Gutell template file */
-  int     title_begin;  /* line on which the title information that we'll rewrite begins */
-  int     title_nlines; /* number of lines of title information */
+  char  **titleA;       /* text for the title */
+  int     ntitle;       /* number of lines of title information */
   float   titlex;       /* x coordinate (bottom left corner) of title area */
   float   titley;       /* y coordinate (bottom left corner) of title area */
   float   legx;         /* x coordinate (bottom left corner) of legend area */
   float   legy;         /* y coordinate (bottom left corner) of legend area */
+  float   scale;        /* scale parameter, read from template file */
+  char  **regurgA;      /* [0..nregurg-1][] lines from the template file to regurgitate, these are unchanged. */
+  int     nregurg;      /* number of lines (char *'s) in the regurg_textAA 2D array */
+  float  *hundredsxA;   /* [0..nhundreds-1] x value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
+  float  *hundredsyA;   /* [0..nhundreds-1] y value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
+  int     nhundreds;    /* number of elements in hundredsx and hundredsy */
+  float  *ticksx1A;     /* [0..nticks-1] x begin value for ticks */
+  float  *ticksx2A;     /* [0..nticks-1] x end   value for ticks */
+  float  *ticksy1A;     /* [0..nticks-1] y begin value for ticks */
+  float  *ticksy2A;     /* [0..nticks-1] x end   value for ticks */
+  int     nticks;       /* number of ticks */
+  float  *bpx1A;        /* [0..nbp-1] x begin value for bp connect line */
+  float  *bpx2A;        /* [0..nbp-1] x end   value for bp connect line */
+  float  *bpy1A;        /* [0..nbp-1] y begin value for bp connect line */
+  float  *bpy2A;        /* [0..nbp-1] x end   value for bp connect line */
+  int     nbp;          /* number of bp */
   float  *rxA;          /* [0..clen-1] x coordinate for each residue in the eventual postscript */
   float  *ryA;          /* [0..clen-1] y coordinate for each residue in the eventual postscript */
+  int     clen;         /* the number of residues in the template file */
   char  **rrAA;         /* [0..npage-1][0..clen-1] residue character in the eventual postscript */
   float ***rcolAAA;     /* [0..npage-1][0..clen-1][0..3] color for block on page p, position c, CMYK in the eventual postscript */
   OneCellColorLegend_t ***occlAAA;/* [0..npage-1][0..l..nocclA[p]  ptr to one cell color legend l for page p */
   int     *nocclA;      /* [0..npage-1] number of one cell color legends for each page */
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
   char   **maskAA;      /* [0..npage-1][0..clen-1] mask, columns which are '0' get drawn differently */
+  int      nalloc;      /* number of elements to add to arrays when reallocating */
 } SSPostscript_t;
-
 
 static SSPostscript_t *create_sspostscript();
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, float boxsize, char *text);
@@ -136,7 +158,12 @@ static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColor
 static void free_sspostscript(SSPostscript_t *ps);
 static int  addpages_sspostscript(SSPostscript_t *ps, int ntoadd);
 static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen);
-static int  read_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
+static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
+static int  parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
+static int  parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf);
+static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
+static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
+static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
@@ -244,7 +271,7 @@ main(int argc, char **argv)
   if((status = get_date(errbuf, &date))           != eslOK) esl_fatal(errbuf);
 
   SSPostscript_t *ps;
-  if((status = read_template_file(templatefile, go, errbuf, &ps) != eslOK)) esl_fatal(errbuf);
+  if((status = parse_template_file(templatefile, go, errbuf, &ps) != eslOK)) esl_fatal(errbuf);
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
@@ -409,7 +436,7 @@ main(int argc, char **argv)
       if(msa->rf == NULL) esl_fatal("MSA number: %d in %s does not have RF annotation.", nali, alifile);
       clen = 0;
       for(apos = 0; apos < msa->alen; apos++) if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) clen++;
-      if(ps->clen == 0)    esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d. Did you add the 'residue_start' line?", nali, clen, ps->clen);
+      if(ps->clen == 0)    esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d.", nali, clen, ps->clen);
       if(clen != ps->clen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d.", nali, clen, ps->clen);
       if(mask != NULL && ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", nali, clen, masklen, esl_opt_GetString(go, "--mask"));
 
@@ -490,20 +517,30 @@ create_sspostscript()
 
   ESL_ALLOC(ps, sizeof(SSPostscript_t));
 
-  ps->regurgAA = NULL;
-  ps->nregurg  = 0;
   ps->npage    = 0;
-  ps->clen     = 100;
-  ps->title_nlines = 0;
-  ESL_ALLOC(ps->rxA,  sizeof(float) * ps->clen);
-  ESL_ALLOC(ps->ryA,  sizeof(float) * ps->clen);
+  ps->titleA = NULL;
+  ps->ntitle = 0;
+  ps->titlex = 0.;
+  ps->titley = 0.;
+  ps->legx = 0.;
+  ps->legy = 0.;
+  ps->scale = 0.;
+  ps->regurgA  = NULL;
+  ps->nregurg  = 0;
+  ps->hundredsxA = ps->hundredsyA = NULL;
+  ps->nhundreds = 0;
+  ps->ticksx1A = ps->ticksx2A = ps->ticksy1A = ps->ticksy2A = NULL;
+  ps->nticks = 0;
+  ps->bpx1A = ps->bpx2A = ps->bpy1A = ps->bpy2A = NULL;
+  ps->nbp = 0;
+  ps->rxA = ps->ryA = NULL;
+  ps->clen = 0;
   ps->rrAA        = NULL;
   ps->rcolAAA     = NULL;
   ps->occlAAA     = NULL;
   ps->sclAA       = NULL;
   ps->maskAA      = NULL;
-  ps->legx = ps->legy = 0.;
-
+  ps->nalloc      = 50;
   return ps;
 
  ERROR: esl_fatal("create_sspostscript(): memory allocation error.");
@@ -520,15 +557,34 @@ free_sspostscript(SSPostscript_t *ps)
 {
   int i, p, c, l;
 
-  if(ps->regurgAA != NULL) {
-    for(i = 0; i < ps->nregurg; i++) { 
-      if(ps->regurgAA[i] != NULL) {
-	free(ps->regurgAA[i]);
+  if(ps->titleA != NULL) {
+    for(i = 0; i < ps->ntitle; i++) { 
+      if(ps->titleA[i] != NULL) {
+	free(ps->titleA[i]);
       }
     }
-    free(ps->regurgAA);
+    free(ps->titleA);
   }
 
+  if(ps->regurgA != NULL) {
+    for(i = 0; i < ps->nregurg; i++) { 
+      if(ps->regurgA[i] != NULL) {
+	free(ps->regurgA[i]);
+      }
+    }
+    free(ps->regurgA);
+  }
+
+  if(ps->hundredsxA != NULL) free(ps->hundredsxA);
+  if(ps->hundredsyA != NULL) free(ps->hundredsyA);
+  if(ps->ticksx1A != NULL) free(ps->ticksx1A);
+  if(ps->ticksy1A != NULL) free(ps->ticksy1A);
+  if(ps->ticksx2A != NULL) free(ps->ticksx2A);
+  if(ps->ticksy2A != NULL) free(ps->ticksy2A);
+  if(ps->bpx1A != NULL) free(ps->bpx1A);
+  if(ps->bpy1A != NULL) free(ps->bpy1A);
+  if(ps->bpx2A != NULL) free(ps->bpx2A);
+  if(ps->bpy2A != NULL) free(ps->bpy2A);
   if(ps->rxA != NULL) free(ps->rxA);
   if(ps->ryA != NULL) free(ps->ryA);
 
@@ -845,45 +901,80 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
   for(p = 0; p < ps->npage; p++) { 
-    if(ps->regurgAA != NULL) {
-      /* print from beginning up to title section */
-      for(i = 0; i < ps->title_begin; i++)
-	fprintf(fp, "%s", ps->regurgAA[i]);
+    /* scale section */
+    fprintf(fp, "%% begin scale\n");
+    fprintf(fp, "%.2f %.2f scale\n", ps->scale, ps->scale);
+    fprintf(fp, "%% end scale\n\n");
+      
+    /* title section */
+    /* HERE HERE print title section, as 'ignore' */
 
-      /* print title section */
-      i = ps->title_begin;
-      /* back to black */
-      fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-      fprintf(fp, "/Helvetica findfont %.2f scalefont setfont\n", title_fontsize);
-      /* to print with gutell's coords */
-      fprintf(fp, "(\"%s\" page %d/%d) %s\n", command, p+1, ps->npage, ps->regurgAA[i]);
-      /* to print with preset coords */
-      /* WHAT I SHOULD DO: use Gutells x coord -200.00 units (x coord is first coord), but this
-       * will require further parsing of the gutell line. */
-      /*fprintf(fp, "(\"%s\" page %d/%d) -360.00 -200.00 moveto show\n", command, p+1, ps->npage);*/
-      /* reset font size */
-      fprintf(fp, "/Helvetica findfont 12.00 scalefont setfont\n");
-      fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-      i++;
-      /*fprintf(fp, "/Helvetica findfont 24.00 scalefont setfont\n");
-	fprintf(fp, "(%s) %s\n", date, ps->regurgAA[i]);
-	i++;
-      */
-      /*for(i = ps->title_begin; i < ps->title_begin + ps->title_nlines; i++) { 
-	fprintf(fp, "TEST ");
-	fprintf(fp, "%s", ps->regurgAA[i]);
-	}*/
+    /* regurgitated section */
+    if(ps->regurgA != NULL) {
+      fprintf(fp, "%% begin regurgitate\n");
+      for(i = 0; i < ps->nregurg; i++)
+	fprintf(fp, "%s", ps->regurgA[i]);
+      fprintf(fp, "%% end regurgitate\n\n");
+    }
 
-      /* print from title section to residue section */
-      for(i = ps->title_begin + ps->title_nlines; i <ps->nregurg; i++)
-	fprintf(fp, "%s", ps->regurgAA[i]);
+    /* 'text hundreds' section */
+    for(i = 0; i < ps->nhundreds; i++) { 
+      if(i == 0) { 
+	fprintf(fp, "%% begin text hundreds\n");
+	fprintf(fp, "/Helvetica findfont %.2f scalefont setfont\n", HUNDREDS_DEFAULT_FONTSIZE);
+	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+      }
+      fprintf(fp, "(%d) %.2f %.2f moveto show\n", (i+1) * 100, ps->hundredsxA[i], ps->hundredsyA[i]); 
+      if(i == (ps->nhundreds-1)) { 
+	fprintf(fp, "%% end text hundreds\n\n");
+      }
     }
     
-    /* print one cell color legends, if any */
-    if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
-      for(l = 0; l < ps->nocclA[p]; l++) draw_onecell_colorlegend(fp, ps->occlAAA[p][l], ps, l);
+    /* 'lines ticks' section */
+    for(i = 0; i < ps->nticks; i++) { 
+      if(i == 0) { 
+	fprintf(fp, "%% begin lines ticks\n");
+	fprintf(fp, "%.2f setlinewidth\n", TICKS_DEFAULT_LINEWIDTH);
+	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+      }
+      fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->ticksx1A[i], ps->ticksy1A[i], ps->ticksx2A[i], ps->ticksy2A[i]);
+      if(i == (ps->nticks-1)) { 
+	fprintf(fp, "%% end lines ticks\n\n");
+      }
     }
 
+    /* 'lines bpconnects' section */
+    for(i = 0; i < ps->nbp; i++) { 
+      if(i == 0) { 
+	fprintf(fp, "%% begin lines bpconnects\n");
+	fprintf(fp, "%.2f setlinewidth\n", BP_DEFAULT_LINEWIDTH);
+	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+      }
+      fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->bpx1A[i], ps->bpy1A[i], ps->bpx2A[i], ps->bpy2A[i]);
+      if(i == (ps->nbp-1)) { 
+	fprintf(fp, "%% end lines bpconnects\n\n");
+      }
+    }
+
+    /* 'text residues' section */
+    /* NOTE: I only print this out so that this file could possibly be used as a template */
+    fprintf(fp, "%% begin text residues\n");
+    fprintf(fp, "/Helvetica findfont %.2f scalefont setfont\n", RESIDUES_DEFAULT_FONTSIZE);
+    fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+    for(i = 0; i < ps->clen; i++) { 
+      fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
+    }
+    fprintf(fp, "%% end text residues\n");
+
+    /* the rest of the text will be ignored by esl-ssudraw if the output
+     * file we're creating is read in as a template file later on
+     */
+    fprintf(fp, "%% begin ignore\n");
+    /* print one cell color legends, if any */
+    if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
+      for(l = 0; l < ps->nocclA[p]; l++) 
+	draw_onecell_colorlegend(fp, ps->occlAAA[p][l], ps, l);
+    }
     /* print scheme color legends, if any */
     if(ps->sclAA != NULL && ps->sclAA[p] != NULL) { 
       draw_scheme_colorlegend(go, fp, ps->sclAA[p], hc_scheme[ps->sclAA[p]->scheme], ps, p, ((ps->maskAA[p] == NULL) ? FALSE : TRUE));
@@ -924,139 +1015,474 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       /* back to black */
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     }
+
     if(ps->rrAA[p] != NULL) { 
       for(c = 0; c < ps->clen; c++) { 
 	fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
       }
     }
-    fprintf(fp, "stroke\ngrestore\nm4showpage\n");
+    fprintf(fp, "grestore\nshowpage\n");
+    fprintf(fp, "%% end ignore\n\n");
   }
   return eslOK;
 }
 
-/* read_template_file
+/* parse_template_file
  *
- * Read a Gutell postscript template file until we see a line
- * reading "%start". We'll regurgitate the pre-start info
- * from this file in all of the SS figs we draw.
- *
+ * Read a postscript template file derived from the 
+ * Gutell CRW website. The file is read in sections.
+ * Each section begins with a line like this: 
+ * % begin <type1> <type2> 
+ * 
+ * list of valid tokens for <type1>:
+ * scale
+ * regurgitate
+ * ignore 
+ * lines
+ * text
+ * 
+ * if <type1> is lines or text, then <type2> is read, 
+ * valid tokens for <type2> if <type1> is 'text'
+ * hundreds
+ * residues
+ * 
+ * valid tokens for <type2> if <type1> is 'lines'
+ * ticks
+ * bpconnects
+ * 
+ * The 'regurgitate' lines are stored, but never changed.
+ * The 'ignore' lines are not even stored.
+ * All other <type1> lines are stored in data structures that
+ * can be manipulated (though not all are at this point).
+ * 
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
  * Returns:  eslOK on success.
  */
 int
-read_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps)
+parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps)
 {
   int             status;
   ESL_FILEPARSER *efp;
   char           *tok;
   int             toklen;
-  char          **regurgAA;
-  int             nlines = 0;
-  int             nalloc = 50;
-  char           *newstr = NULL;
-  char           *curstr = NULL;
-  int             curlen = 0;
-  void           *tmp;
   SSPostscript_t *ps = NULL;
-  int             seen_residue_start = FALSE;
-  int             seen_residue_end = FALSE;
-  int             c = 0;
-  float           x, y;
-  int             ignore_flag = FALSE;
-  int             in_title = FALSE;
-  int             title_begin = 0; 
-  int             title_end   = 0; 
-  int             title_ntok = 0;
   /* Create the postscript object */
   ps = create_sspostscript();
 
-  ESL_ALLOC(regurgAA, sizeof(char *) * nalloc);
-
-  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_template_file\n", filename);
+  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in parse_template_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
   
-  while (esl_fileparser_NextLine(efp) == eslOK && !seen_residue_start)
-  {
-    curlen = 0;
-    if(in_title) { ignore_flag = TRUE; title_ntok = 0; } 
-    while (esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)  == eslOK) { 
-      if(in_title && tok[(strlen(tok)-1)] == ')') ignore_flag = FALSE;
-      if(strcmp(tok, "%title_start") == 0) { in_title = TRUE;  ignore_flag = TRUE;  title_begin = nlines; }
-      if(strncmp(tok, "(5')", 4) == 0)     { in_title = FALSE; ignore_flag = FALSE; title_end   = nlines; }
-      if(strncmp(tok, "%residue_start", 14) == 0) { seen_residue_start = TRUE; break; }
-      if(!(in_title && ignore_flag)) { /* we're going to regurgitate this */
-	if(in_title && title_ntok == 0) { title_ntok++; } /* skip final token of title lines */
+  while ((status = esl_fileparser_GetToken(efp, &tok, &toklen))  == eslOK) { 
+    if(strcmp(tok, "%") == 0) { 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
+	if(strcmp(tok, "begin") == 0) { 
+	  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
+	    if(strcmp(tok, "scale") == 0) { 
+	      /*printf("parsing scale\n");*/
+	      if((status = parse_scale_section(efp, errbuf, ps)) != eslOK) return status;
+	    }
+	    else if(strcmp(tok, "ignore") == 0) { 
+	      /*printf("parsing ignore\n");*/
+	      if((status = parse_ignore_section(efp, errbuf)) != eslOK) return status;
+	    }	
+	    else if(strcmp(tok, "regurgitate") == 0) { 
+	      /*printf("parsing regurgitate\n");*/
+	      if((status = parse_regurgitate_section(efp, errbuf, ps)) != eslOK) return status;
+	    }	
+	    else if(strcmp(tok, "text") == 0) { 
+	      /*printf("parsing text\n");*/
+	      if((status = parse_text_section(efp, errbuf, ps)) != eslOK) return status;		   
+	    }
+	    else if(strcmp(tok, "lines") == 0) { 
+	      /*printf("parsing lines\n");*/
+	      if((status = parse_lines_section(efp, errbuf, ps)) != eslOK) return status;		   
+	    }	
+	    else { 
+	      ESL_FAIL(eslEINVAL, errbuf, "parse_template_file(), error, unknown section type %s.", tok);
+	    }
+	  }
+	  else { 
+	    ESL_FAIL(eslEINVAL, errbuf, "parse_template_file(), error last read line number %d.", efp->linenumber);
+	  }
+	}
 	else { 
-	  if((status = esl_strcat(&curstr, curlen, tok,  toklen)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (1) reading header template file.");
-	  curlen += toklen;
-	  if((status = esl_strcat(&curstr, curlen, " ",  1))      != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (2) reading header template file.");
-	  curlen += 1;
-	  if(in_title) title_ntok++;
+	  ESL_FAIL(eslEINVAL, errbuf, "parse_template_file(), expected line beginning with %% begin, but read tok: %s instead of begin, last read line number %d.", tok, efp->linenumber);
 	}
       }
-      /*if(in_title) printf("tok: %d line: %d tok: %s\n", title_ntok, (nlines - title_begin), tok);*/
-      if(in_title && title_ntok == 2 && ((nlines - title_begin) == 0)) ps->titlex = atof(tok); /* titlex coord */
-      if(in_title && title_ntok == 3 && ((nlines - title_begin) == 0)) ps->titley = atof(tok); /* titlex coord */
-      if(in_title && title_ntok == 2 && ((nlines - title_begin) == 1)) ps->legx = atof(tok); /* legx coord */
-      if(in_title && title_ntok == 3 && ((nlines - title_begin) == 1)) ps->legy = atof(tok); /* legx coord */
+      else { 
+	ESL_FAIL(eslEINVAL, errbuf, "parse_template_file(), ran out of tokens early, error last read line number %d.", efp->linenumber);
+      }
     }
-    if(seen_residue_start) break; 
-    if(!(in_title && ignore_flag)) { /* we're going to regurgitate this */
-      if((status = esl_strcat(&curstr, curlen, "\n", 1)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (3) reading header template file.");
-      curlen += 1;
-
-      ESL_ALLOC(newstr, sizeof(char) * (curlen+1));
-      strcpy(newstr, curstr);
-      regurgAA[nlines++] = newstr;
-      if(nlines == nalloc) { nalloc += 50; ESL_RALLOC(regurgAA, tmp, sizeof(char *) * nalloc); }
-      free(curstr);
-      curstr = NULL;
+    else { 
+      ESL_FAIL(eslEINVAL, errbuf, "parse_template_file(), expected line beginning with %%, read tok: %s, last read line number %d.", tok, efp->linenumber);
     }
   }
-  ps->regurgAA = regurgAA;
-  ps->nregurg = nlines;
-
-  /* We're done reading the header information that we'll regurgitate, now we need
-   * the sequence residue coordinates */
-  while (esl_fileparser_NextLine(efp) == eslOK && !seen_residue_end)
-  {
-    if(c == ps->clen) { 
-      ps->clen += 100;
-      ESL_RALLOC(ps->rxA, tmp, sizeof(float) * ps->clen);
-      ESL_RALLOC(ps->ryA, tmp, sizeof(float) * ps->clen);
-      assert(ps->rrAA == NULL);
-    }
-    /* example line:
-     *(A) 61.30 -831.00 moveto show
-     */
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read residue on line %d of postscript template file %s\n", efp->linenumber, filename);
-    if(strncmp(tok, "stroke", 5) == 0) { seen_residue_end = TRUE; break; }
-    /* residue is not used b/c we overwrite it (ex. (A)) */
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read x coord on line %d of postscript template file %s\n", efp->linenumber, filename);
-    x = atof(tok);
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read y coord on line %d of postscript template file %s\n", efp->linenumber, filename);
-    y = atof(tok);
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read 'moveto' on line %d of postscript template file %s\n", efp->linenumber, filename);
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Failed to read 'show' on line %d of postscript template file %s. Did you replace 'lwstring' with 'moveto show'?\n", efp->linenumber, filename);
-    if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslEOL) esl_fatal("Failed to read EOL on line %d of postscript template file %s\n", efp->linenumber, filename);
-    
-    ps->rxA[c] = x;
-    ps->ryA[c] = y;
-    c++;
-  }      
-  ps->clen = c;
-  if(title_begin == 0) esl_fatal("Failed to read title section in postscript template file %s. Add \"%stitle_start\" line before \"/Helvetica findfont 24.00 scalefont setfont\" line.", filename, "%");
-  ps->title_begin  = title_begin;
-  ps->title_nlines = title_end - title_begin;
-  /*printf("begin: %d nlines: %d\n", ps->title_begin, ps->title_nlines);
-    printf("titlex: %f titley: %f\n", ps->titlex, ps->titley);
-    printf("legx: %f legy: %f\n", ps->legx, ps->legy);*/
+  if(status != eslEOF) { 
+    ESL_FAIL(status, errbuf, "parse_template_file(), error, ran out of tokens, but not at end of file?, last read line number %d.", efp->linenumber);
+  }
   esl_fileparser_Close(efp);
+  
+  /* set up legx, legy, this is a hack (takes advantage of position of 3' residue in all SSU models) */
+  ps->legx = ps->rxA[ps->clen-1] + LEGX_OFFSET;
+  ps->legy = ps->ryA[ps->clen-1] + LEGY_OFFSET;
 
   *ret_ps = ps;
   return eslOK;
-  
- ERROR:
-  return eslEMEM;
+}
+
+/* parse_scale_section
+ *
+ * Parse the scale section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+
+  /* this section should be exactly 3 lines, one of which we've already read,
+   * here's an example, next token should be the first 0.65
+   * % begin scale
+   * 0.65 0.65 scale
+   * % end scale
+   */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 1 of 3"); 
+  ps->scale = atof(tok);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 2 of 3"); 
+  if(esl_FCompare(ps->scale, atof(tok), eslSMALLX1) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, x and y scales are not equal %.2f != %.2f", ps->scale, atof(tok)); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 3 of 3"); 
+  if (strcmp(tok, "scale") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, token 3 of 3 should be 'scale' but it's %s", tok); 
+
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 1 of 3"); 
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 1 of 3 should be '%%' but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 2 of 3"); 
+  if (strcmp(tok, "end") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 2 of 3 should be 'end' but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 3 of 3"); 
+  if (strcmp(tok, "scale") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 2 of 3 should be 'end' but it's %s", tok); 
+
+  return eslOK;
+}
+
+
+/* parse_ignore_section
+ *
+ * Parse an ignore section of a template postscript file.
+ * We ignore this data. This function's purpose is to read
+ * tokens until we see the "% end ignore" line signalling
+ * the end of the ignore section.
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf)
+{
+  int status;
+  char *tok;
+  int   toklen;
+  int   keep_reading = TRUE;
+  while((keep_reading) && (status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
+    if (strcmp(tok, "%") == 0) { 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if (strcmp(tok, "ignore") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      keep_reading = FALSE;
+      status = eslOK;
+    }
+  }
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing ignore section, finished file looking for '%% end ignore' line");
+  if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing ignore section, last line number read %d", efp->linenumber);
+
+  return eslOK;
+}
+
+
+/* parse_regurgitate_section
+ *
+ * Parse a regurgitate section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+  int   seen_end = FALSE;
+  char *curstr = NULL;
+  char *newstr;
+  int   nalloc = ps->nregurg;
+  int   curlen;
+  void *tmp;
+  while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
+  {
+    curlen = 0;
+    while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen))  == eslOK) { 
+      if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "regurgitate") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	seen_end = TRUE;
+	break;
+      }
+      else { 
+	if((status = esl_strcat(&curstr, curlen, tok,  toklen)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (1) reading header template file.");
+	curlen += toklen;
+	if((status = esl_strcat(&curstr, curlen, " ",  1))      != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (2) reading header template file.");
+	curlen += 1;
+      }
+    }
+    if(seen_end) break;
+    if((status = esl_strcat(&curstr, curlen, "\n", 1)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (3) reading header template file.");
+    curlen += 1;
+    ESL_ALLOC(newstr, sizeof(char) * (curlen+1));
+    strcpy(newstr, curstr);
+    if(ps->nregurg == nalloc) { 
+      nalloc += ps->nalloc; ESL_RALLOC(ps->regurgA, tmp, sizeof(char *) * nalloc); 
+    }
+    ps->regurgA[ps->nregurg++] = newstr;
+    free(curstr);
+    curstr = NULL;
+  }
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, finished file looking for '%% end regurgitate' line");
+  if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, last line number read %d", efp->linenumber);
+
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "Memory error parsing regurgitate section");
+}
+
+
+/* parse_text_section
+ *
+ * Parse a text section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+  int   seen_end = FALSE;
+  int   nalloc;
+  void *tmp;
+  int do_hundreds = FALSE;
+  int do_residues = FALSE;
+
+  /* find out which section we're in, 'hundreds' or 'residues' */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
+  if      (strcmp(tok, "hundreds") == 0) { do_hundreds = TRUE; nalloc = ps->nhundreds; }
+  else if (strcmp(tok, "residues") == 0) { do_residues = TRUE; nalloc = ps->clen; }
+
+  /* read the first two special lines, should be a 5-token line ending with setfont and a 5-token line ending with setcmykcolor,
+   * we don't store these, but we require that they're there. */
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if(strcmp(tok, "setfont") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+
+  while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
+  {
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if (strcmp(tok, "text") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if(do_hundreds) { 
+	if (strcmp(tok, "hundreds") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text hundreds' after it"); 
+      }
+      if(do_residues) {
+	if (strcmp(tok, "residues") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text residues' after it"); 
+      }
+      seen_end = TRUE;
+      break;
+    }
+    /* if we get here, we haven't seen the end, we're reading a normal line, tok is the string, we discard this */
+    if(do_hundreds && ps->nhundreds == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->hundredsxA, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->hundredsyA, tmp, sizeof(float) * nalloc); 
+    }
+    if(do_residues && ps->clen == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->rxA, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->ryA, tmp, sizeof(float) * nalloc); 
+    }
+    /* get x */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if(do_hundreds) ps->hundredsxA[ps->nhundreds] = atof(tok);
+    if(do_residues) ps->rxA[ps->clen] = atof(tok);
+    /* get y */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if(do_hundreds) ps->hundredsyA[ps->nhundreds] = atof(tok);
+    if(do_residues) ps->ryA[ps->clen] = atof(tok);
+    
+    /* verify moveto */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fourth token should be 'moveto', line %d", efp->linenumber);
+    /* verify show */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "show") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fifth token should be 'show', line %d", efp->linenumber);
+    
+    if(do_hundreds) ps->nhundreds++;
+    if(do_residues) ps->clen++;
+  }
+  if(!seen_end) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, didn't see end! line: %d\n", efp->linenumber);
+  if(status == eslEOF && do_hundreds) 
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text hundreds' line");
+  if(status == eslEOF && do_residues) 
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text residues' line");
+  if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing text section, last line number read %d", efp->linenumber);
+
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "Memory error parsing text section");
+}
+
+/* parse_lines_section
+ *
+ * Parse a lines section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+  int   seen_end = FALSE;
+  int   nalloc;
+  void *tmp;
+  int do_ticks = FALSE;
+  int do_bpconnects = FALSE;
+
+  /* find out which section we're in, 'ticks' or 'bpconnects' */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
+  if      (strcmp(tok, "ticks") == 0)      { do_ticks = TRUE; nalloc = ps->nticks; }
+  else if (strcmp(tok, "bpconnects") == 0) { do_bpconnects = TRUE; nalloc = ps->nbp; }
+
+  /* read the first two special lines, should be a 2-token line ending with setlinewidth and a 5-token line ending with setcmykcolor,
+   * we don't store these, but we require that they're there. */
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+  if(strcmp(tok, "setlinewidth") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+
+  while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
+  {
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "lines") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if(do_ticks) { 
+	if (strcmp(tok, "ticks") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines ticks' after it"); 
+      }
+      if(do_bpconnects) {
+	if (strcmp(tok, "bpconnects") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines bpconnects' after it"); 
+      }
+      seen_end = TRUE;
+      break;
+    }
+    /* if we get here, we haven't seen the end, we're reading a normal line, tok is the first x coord, we record this */
+    /* first we expand our arrays if nec */
+    if(do_ticks && ps->nticks == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->ticksx1A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->ticksy1A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->ticksx2A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->ticksy2A, tmp, sizeof(float) * nalloc); 
+    }
+    if(do_bpconnects && ps->nbp == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->bpx1A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->bpy1A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->bpx2A, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->bpy2A, tmp, sizeof(float) * nalloc); 
+    }
+    /* store x1 */
+    if(do_ticks) ps->ticksx1A[ps->nticks] = atof(tok);
+    if(do_bpconnects) ps->bpx1A[ps->nbp] = atof(tok);
+    /* get y1 */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if(do_ticks) ps->ticksy1A[ps->nticks] = atof(tok);
+    if(do_bpconnects) ps->bpy1A[ps->nbp] = atof(tok);
+    /* get x2 */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if(do_ticks) ps->ticksx2A[ps->nticks] = atof(tok);
+    if(do_bpconnects) ps->bpx2A[ps->nbp] = atof(tok);
+    /* get y2 */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if(do_ticks) ps->ticksy2A[ps->nticks] = atof(tok);
+    if(do_bpconnects) ps->bpy2A[ps->nbp] = atof(tok);
+    
+    /* verify newpath */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if (strcmp(tok, "newpath") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, fifth token should be 'newpath', line %d", efp->linenumber);
+    /* verify moveto */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, sixth token should be 'moveto', line %d", efp->linenumber);
+    /* verify lineto */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if (strcmp(tok, "lineto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, seventh token should be 'lineto', line %d", efp->linenumber);
+    /* verify stroke */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 8-tokens ending with 'stroke'");
+    if (strcmp(tok, "stroke") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines main section, eigth token should be 'stroke', line %d", efp->linenumber);
+    
+    if(do_ticks) ps->nticks++;
+    if(do_bpconnects) ps->nbp++;
+  }
+  if(!seen_end) ESL_FAIL(status, errbuf, "Error, parsing lines section, didn't see end! line: %d\n", efp->linenumber);
+  if(status == eslEOF && do_ticks) 
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines ticks' line");
+  if(status == eslEOF && do_bpconnects) 
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines bpconnects' line");
+
+  if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing lines section, last line number read %d", efp->linenumber);
+
+  return eslOK;
+ ERROR: ESL_FAIL(status, errbuf, "Memory error parsing lines section");
 }
 
 /* Function: individual_seqs_sspostscript()
