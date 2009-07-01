@@ -67,16 +67,25 @@
 #define LEG_BOXSIZE 24.
 #define LEG_MINTEXTSIZE 10
 #define LEGX_OFFSET 24.
-#define LEGY_OFFSET 24.
+#define LEGY_OFFSET -24.
+#define LEG_FONT "Courier-Bold"
 
-/*#define TITLE_FONTSIZE 18*/
-#define TITLE_FONTSIZE 12
+#define DEFAULT_FONT "Courier-Bold"
+#define RESIDUE_FONT "Helvetica-Bold"
+
 #define SS_BOXSIZE 8.
 
 #define RESIDUES_DEFAULT_FONTSIZE 8.
 #define HUNDREDS_DEFAULT_FONTSIZE 8.
+#define TITLE_DEFAULT_FONTSIZE 24.
 #define TICKS_DEFAULT_LINEWIDTH 2.
 #define BP_DEFAULT_LINEWIDTH 1.
+
+#define POSTSCRIPT_PAGEWIDTH 612.
+#define POSTSCRIPT_PAGEHEIGHT 792.
+#define PAGE_TOPBUF 18.
+#define PAGE_SIDEBUF 18.
+#define PAGE_BOTBUF 18.
 
 /* Structure: scheme_color_legend
  * Incept:    EPN, Thu Jun 25 20:20:38 2009
@@ -114,7 +123,8 @@ typedef struct onecell_color_legend_s {
  */
 typedef struct ss_postscript_s {
   int     npage;        /* number of pages in eventual postscript */
-  char  **titleA;       /* text for the title */
+  char   *modelname;    /* name of model, read from template file */
+  char  **titleA;       /* text for the generic title that will appear */
   int     ntitle;       /* number of lines of title information */
   float   titlex;       /* x coordinate (bottom left corner) of title area */
   float   titley;       /* y coordinate (bottom left corner) of title area */
@@ -146,9 +156,14 @@ typedef struct ss_postscript_s {
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
   char   **maskAA;      /* [0..npage-1][0..clen-1] mask, columns which are '0' get drawn differently */
   int      nalloc;      /* number of elements to add to arrays when reallocating */
+  int     *msa_ct;      /* [1..ps->clen] CT array for msa this postscript corresponds to, 
+			 * msa_ct[i] is the position that consensus residue i base pairs to, or 0 if i is unpaired. */
+  int      msa_nbp;     /* number of bps read from current MSA (in msa_ct), should equal nbp, but only if bps read from template file */
+  int      msa_idx;     /* msa index we're currently on in MSA file */
 } SSPostscript_t;
 
 static SSPostscript_t *create_sspostscript();
+static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, float boxsize, char *text);
 static SchemeColorLegend_t *create_scheme_colorlegend(int scheme, int ncols, float boxsize, char *text, float *limits);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text);
@@ -159,11 +174,14 @@ static void free_sspostscript(SSPostscript_t *ps);
 static int  addpages_sspostscript(SSPostscript_t *ps, int ntoadd);
 static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen);
 static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
+static int  parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf);
 static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
+static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
+static int  validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, char *errbuf, int msa_idx);
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
@@ -272,7 +290,9 @@ main(int argc, char **argv)
 
   SSPostscript_t *ps;
   if((status = parse_template_file(templatefile, go, errbuf, &ps) != eslOK)) esl_fatal(errbuf);
-
+  /* determine position for title and legend */
+  if((status = setup_sspostscript(ps, errbuf) != eslOK)) esl_fatal(errbuf);
+  
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
    ***********************************************/
@@ -440,6 +460,8 @@ main(int argc, char **argv)
       if(clen != ps->clen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != template file consensus length of %d.", nali, clen, ps->clen);
       if(mask != NULL && ps->clen != masklen) esl_fatal("MSA number: %d has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", nali, clen, masklen, esl_opt_GetString(go, "--mask"));
 
+      if((status = validate_and_update_sspostscript_given_msa(ps, msa, errbuf, nali)) != eslOK) esl_fatal(errbuf);
+
       if(! esl_opt_GetBoolean(go, "-q")) { 
 	if((status = infocontent_sspostscript(go, errbuf, ps, msa, mask, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
@@ -518,6 +540,7 @@ create_sspostscript()
   ESL_ALLOC(ps, sizeof(SSPostscript_t));
 
   ps->npage    = 0;
+  ps->modelname = NULL;
   ps->titleA = NULL;
   ps->ntitle = 0;
   ps->titlex = 0.;
@@ -541,10 +564,39 @@ create_sspostscript()
   ps->sclAA       = NULL;
   ps->maskAA      = NULL;
   ps->nalloc      = 50;
+  ps->msa_ct      = NULL;
+  ps->msa_nbp     = 0;
   return ps;
 
  ERROR: esl_fatal("create_sspostscript(): memory allocation error.");
   return NULL; /* NEVERREACHED */
+}
+
+/* Function: setup_sspostscript()
+ * 
+ * Purpose:  Determine positions for title and legend in a SSPostscript_t()
+ * Return:   eslOK
+ */
+int
+setup_sspostscript(SSPostscript_t *ps, char *errbuf)
+{
+  int status;
+  float pagex;
+  float pagey;
+
+  if(ps->clen == 0) ESL_FAIL(eslEINVAL, errbuf, "Failed to ready any residues in template file.");
+
+  /* set up legx, legy, this is a hack (takes advantage of position of 3' residue in all SSU models) */
+  ps->legx = ps->rxA[ps->clen-1] + LEGX_OFFSET;
+  ps->legy = ps->ryA[ps->clen-1] + LEGY_OFFSET;
+
+  pagex = POSTSCRIPT_PAGEWIDTH / ps->scale;
+  pagey = POSTSCRIPT_PAGEHEIGHT / ps->scale;
+
+  ps->titlex = pagex/2.;
+  ps->titley = pagey - PAGE_TOPBUF - TITLE_DEFAULT_FONTSIZE;
+
+  return eslOK;
 }
 
 /* Function: free_sspostscript()
@@ -556,6 +608,8 @@ void
 free_sspostscript(SSPostscript_t *ps)
 {
   int i, p, c, l;
+
+  if(ps->modelname != NULL) free(ps->modelname);
 
   if(ps->titleA != NULL) {
     for(i = 0; i < ps->ntitle; i++) { 
@@ -625,6 +679,7 @@ free_sspostscript(SSPostscript_t *ps)
 
   if(ps->sclAA != NULL) free(ps->sclAA);
   if(ps->nocclA != NULL) free(ps->nocclA);
+  if(ps->msa_ct != NULL) free(ps->msa_ct);
 
   free(ps);
   return;
@@ -795,12 +850,12 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   if(scl->text != NULL) { 
     /* back to black */
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", textsize);
+    fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, textsize);
     fprintf(fp, "(%s) %.4f %.4f moveto show\n", scl->text, x, (y + (scl->boxsize * .25)));
   }
   y -= scl->boxsize;
 
-  fprintf(fp, "/Helvetica findfont %f scalefont setfont\n", textsize);
+  fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, textsize);
   /* print masked scheme color cells */
   if(do_mask) { 
     fprintf(fp, "%.1f setlinewidth\n", scl->boxsize/4.);
@@ -896,8 +951,6 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
   else if(esl_opt_GetBoolean(go, "-x")) { do_x_mask = TRUE; }
   else do_circle_mask = TRUE;
 
-  title_fontsize = TITLE_FONTSIZE;
-
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
   for(p = 0; p < ps->npage; p++) { 
@@ -907,7 +960,11 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     fprintf(fp, "%% end scale\n\n");
       
     /* title section */
-    /* HERE HERE print title section, as 'ignore' */
+    fprintf(fp, "%% begin ignore\n");
+    fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, TITLE_DEFAULT_FONTSIZE);
+    fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+    fprintf(fp, "(%s: %d residues; %d basepairs) %.2f %.2f moveto show\n", ps->modelname, ps->clen, ps->msa_nbp, ps->titlex, ps->titley);
+    fprintf(fp, "%% end ignore\n");
 
     /* regurgitated section */
     if(ps->regurgA != NULL) {
@@ -1035,6 +1092,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
  * % begin <type1> <type2> 
  * 
  * list of valid tokens for <type1>:
+ * modelname
  * scale
  * regurgitate
  * ignore 
@@ -1079,7 +1137,10 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPosts
       if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
 	if(strcmp(tok, "begin") == 0) { 
 	  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
-	    if(strcmp(tok, "scale") == 0) { 
+	    if(strcmp(tok, "modelname") == 0) { 
+	      if((status = parse_modelname_section(efp, errbuf, ps)) != eslOK) return status;
+	    }
+	    else if(strcmp(tok, "scale") == 0) { 
 	      /*printf("parsing scale\n");*/
 	      if((status = parse_scale_section(efp, errbuf, ps)) != eslOK) return status;
 	    }
@@ -1123,14 +1184,63 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPosts
     ESL_FAIL(status, errbuf, "parse_template_file(), error, ran out of tokens, but not at end of file?, last read line number %d.", efp->linenumber);
   }
   esl_fileparser_Close(efp);
-  
-  /* set up legx, legy, this is a hack (takes advantage of position of 3' residue in all SSU models) */
-  ps->legx = ps->rxA[ps->clen-1] + LEGX_OFFSET;
-  ps->legy = ps->ryA[ps->clen-1] + LEGY_OFFSET;
 
+  /* validate the file we just read */
+  if((status = validate_justread_sspostscript(ps, errbuf)) != eslOK) return status;
+  
   *ret_ps = ps;
   return eslOK;
 }
+
+/* parse_modelname_section
+ *
+ * Parse the modelname section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+  char *curstr = NULL;
+  char *newstr;
+  int   curlen = 0;
+
+  /* this section should be exactly 3 lines, one of which we've already read,
+   * here's an example, next token should be the first 0.65
+   * % begin modelname
+   * % archaea
+   * % end scale
+   */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing modelname section, reading token 1 of 3"); 
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing modelname section, middle line token 1 should be a percent sign but it's %s", tok); 
+  /* read remainder of line, this is the model name */
+  while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen))  == eslOK) { 
+    if((status = esl_strcat(&curstr, curlen, tok,  toklen)) != eslOK) ESL_FAIL(status, errbuf, "parse_modelname_section(), error parsing model name.");
+    curlen += toklen;
+    if((status = esl_strcat(&curstr, curlen, " ",  1))      != eslOK) ESL_FAIL(status, errbuf, "parse_modelname_section(), error parsing model name.");
+    curlen += 1;
+  }
+  ESL_ALLOC(ps->modelname, sizeof(char) * (curlen+1));
+  strcpy(ps->modelname, curstr);
+
+  /* next line should be '% end modelname' */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing modelname section, reading end line token 1 of 3"); 
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing modelname section, end line token 1 of 3 should be a percent sign but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing modelname section, reading end line token 2 of 3"); 
+  if (strcmp(tok, "end") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing modelname section, end line token 2 of 3 should be 'end' but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing modelname section, reading end line token 3 of 3"); 
+  if (strcmp(tok, "modelname") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing modelname section, end line token 3 of 3 should be 'modelname' but it's %s", tok); 
+
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "Error, parsing modelname section, memory error?");
+}
+
 
 /* parse_scale_section
  *
@@ -1161,11 +1271,11 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   if (strcmp(tok, "scale") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, token 3 of 3 should be 'scale' but it's %s", tok); 
 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 1 of 3"); 
-  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 1 of 3 should be '%%' but it's %s", tok); 
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 1 of 3 should be a percent sign but it's %s", tok); 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 2 of 3"); 
   if (strcmp(tok, "end") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 2 of 3 should be 'end' but it's %s", tok); 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading end line token 3 of 3"); 
-  if (strcmp(tok, "scale") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 2 of 3 should be 'end' but it's %s", tok); 
+  if (strcmp(tok, "scale") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, end line token 3 of 3 should be 'scale' but it's %s", tok); 
 
   return eslOK;
 }
@@ -1237,14 +1347,14 @@ parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
 	break;
       }
       else { 
-	if((status = esl_strcat(&curstr, curlen, tok,  toklen)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (1) reading header template file.");
+	if((status = esl_strcat(&curstr, curlen, tok,  toklen)) != eslOK) ESL_FAIL(status, errbuf, "parse_regurgitate_section(), error (1).");
 	curlen += toklen;
-	if((status = esl_strcat(&curstr, curlen, " ",  1))      != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (2) reading header template file.");
+	if((status = esl_strcat(&curstr, curlen, " ",  1))      != eslOK) ESL_FAIL(status, errbuf, "parse_regurgitate_section(), error (2).");
 	curlen += 1;
       }
     }
     if(seen_end) break;
-    if((status = esl_strcat(&curstr, curlen, "\n", 1)) != eslOK) ESL_FAIL(status, errbuf, "read_template_file(), error (3) reading header template file.");
+    if((status = esl_strcat(&curstr, curlen, "\n", 1)) != eslOK) ESL_FAIL(status, errbuf, "parse_regurgitate_section(), error (3).");
     curlen += 1;
     ESL_ALLOC(newstr, sizeof(char) * (curlen+1));
     strcpy(newstr, curstr);
@@ -2996,4 +3106,72 @@ draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask,
     }
   }
   return eslOK;
+}
+
+/* Function: validate_justread_sspostscript()
+ * 
+ * Purpose:  Validate a sspostscript just created by parsing
+ *           a template file. Nothing fancy here, just make
+ *           sure all we've written everything we expect.
+ */ 
+static int 
+validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
+{
+  int status;
+  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read modelname from template file.");
+  if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");
+  if(ps->clen == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text residues' section from template file.");
+
+  /* Stuff we don't currently require, but we may want to eventually */
+  /*if(ps->nhundreds == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text hundreds' section from template file.");*/
+  /*if(ps->nticks == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines ticks' section from template file.");*/
+  /*if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");*/
+
+  return eslOK;
+}
+
+
+/* Function: validate_and_update_sspostscript_given_msa()
+ * 
+ * Purpose:  Validate that a sspostscript works with a MSA.
+ */ 
+static int 
+validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, char *errbuf, int msa_idx)
+{
+  int status;
+  int *msa_ct;
+  int msa_nbp = 0;
+  int *tmp_ct;
+  int *c2a_map, *a2c_map, msa_clen;
+  int apos, cpos;
+
+  ps->msa_idx = msa_idx;
+
+  /* get the CT array for this msa */
+  ESL_ALLOC(tmp_ct, sizeof(int) * (msa->alen+1));
+  if (esl_wuss2ct(msa->ss_cons, msa->alen, tmp_ct) != eslOK) ESL_FAIL(status, errbuf, "Problem getting ct from SS_cons, does alignment %d of MSA file have SS_cons annotation?", msa_idx);
+  /* map cpos to apos */
+  map_cpos_to_apos(msa, &c2a_map, &a2c_map, &msa_clen);
+  /* convert tmp_ct which is in alignment coords [1..alen] to consensus coords [0..clen-1]*/
+  cpos = 0;
+  for(apos = 0; apos < msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
+      if(tmp_ct[(apos+1)] != 0) msa_nbp++;
+      msa_ct[cpos++] = tmp_ct[(apos+1)];
+    }
+  }
+  free(tmp_ct);
+
+  if(ps->msa_ct != NULL) { free(ps->msa_ct); ps->msa_ct = NULL;}
+  ps->msa_ct = msa_ct;
+  ps->msa_nbp = msa_nbp;
+
+  if(ps->clen != msa_clen) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected consensus length of %d in MSA, but read %d\n", ps->clen, msa_clen);
+  if(ps->nbp != 0 && ps->nbp != msa_nbp) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected %d basepairs in MSA's SS_cons, but read %d\n", ps->nbp, msa_nbp);
+
+  return eslOK;
+
+ ERROR:
+  ESL_FAIL(status, errbuf, "validate_and_update_sspostscript_given_msa(), error status %d, probably out of memory.\n", status);
+  return status; 
 }
