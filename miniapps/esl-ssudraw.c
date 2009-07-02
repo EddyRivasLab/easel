@@ -24,6 +24,11 @@
 #include "esl_tree.h"
 #include "esl_wuss.h"
 
+#define ALIMODE 0
+#define INDIMODE 1
+#define SIMPLEMASKMODE 2
+#define DRAWFILEMODE 3
+
 #define RAINBOWRHSCHEME 0
 #define RAINBOWRLSCHEME 1
 #define NRAINBOWRHSCHEME 11
@@ -81,7 +86,9 @@
 #define RESIDUES_FONTSIZE 8.
 #define HUNDREDS_FONTSIZE 8.
 #define LEG_FONTSIZE_UNSCALED 9.6
-#define HEADER_FONTSIZE_UNSCALED 14.4
+/*#define HEADER_FONTSIZE_UNSCALED 14.4*/
+#define HEADER_FONTSIZE_UNSCALED 12
+#define HEADER_MODELNAME_MAXCHARS 20
 #define TICKS_LINEWIDTH 2.
 #define BP_LINEWIDTH 1.
 
@@ -132,9 +139,14 @@ typedef struct onecell_color_legend_s {
 typedef struct ss_postscript_s {
   int     npage;        /* number of pages in eventual postscript */
   char   *modelname;    /* name of model, read from template file */
-  char  **descAA;       /* [0..npage-1] description for each page */
-  float   headerx;       /* x coordinate (bottom left corner) of header area */
-  float   headery;       /* y coordinate (bottom left corner) of header area */
+  int    *modeA;        /* [0..npage-1] page mode, ALIMODE, INDIMODE, or SIMPLEMASKMODE */
+  char  **descA;        /* [0..npage-1] description for each page */
+  int     desc_max_chars; /* max num characters for a page description */
+  float   headerx;      /* x coordinate (bottom left corner) of header area */
+  float   headery;      /* y coordinate (bottom left corner) of header area */
+  float   headerx_charsize;/* size of a character in x-dimension in the header */
+  float   headery_charsize;/* size of a character in y-dimension in the header */
+  float   headerx_desc; /* x coordinate (bottom left corner) of header area */
   float   legx;         /* x coordinate (bottom left corner) of legend area */
   float   legy;         /* y coordinate (bottom left corner) of legend area */
   float   cur_legy;     /* y coordinate of current line in legend */
@@ -176,6 +188,8 @@ typedef struct ss_postscript_s {
   int      msa_nbp;     /* number of bps read from current MSA (in msa_ct), should equal nbp, but only if bps read from template file */
   float    msa_avgid;   /* average id b/t all pairs of seqs in the MSA */
   float    msa_avglen;  /* average length of dealigned seqs in the MSA */
+  int     *uaseqlenA;   /* [0..ps->msa->nseq-1] unaligned sequence length for all sequences in the MSA, only computed if --indi */
+  int     *seqidxA;     /* [0..ps->npage-1] the sequence index in the MSA each page corresponds to, only valid if --indi */
   ESL_MSA *msa;         /* pointer to MSA this object corresponds to */
 } SSPostscript_t;
 
@@ -184,13 +198,15 @@ static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked);
 static SchemeColorLegend_t *create_scheme_colorlegend(int scheme, int ncols, float *limits);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
-static int  add_text_to_onecell_colorlegend(OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
+static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
+static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
+static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf);
 static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps);
 static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf);
 static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx);
 static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int page);
 static void free_sspostscript(SSPostscript_t *ps);
-static int  addpages_sspostscript(SSPostscript_t *ps, int ntoadd);
+static int  add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode);
 static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen);
 static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
 static int  parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
@@ -200,7 +216,7 @@ static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPosts
 static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
-static int  validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, char *errbuf);
+static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, char *errbuf);
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
@@ -220,15 +236,15 @@ static int  set_scheme_values(char *errbuf, float *vec, int ncolvals, float **sc
 static int  set_onecell_values(char *errbuf, float *vec, int ncolvals, float *onecolor);
 static int  add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask);
 static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask, int do_square_mask, int do_x_mask, int do_border, float boxsize);
-static int  draw_aln_header(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
-static int  prepare_aln_header(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
+static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
 
 static char banner[] = "draw Gutell based postscript SSU secondary structure diagrams.";
 static char usage[]  = "[options] <msafile> <Gutell SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
 #define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
-#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--struct,--indi,--all,--list,--dfile" /* exclusive choice for mask types */
+#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--struct,--indi,--all,--dfile" /* exclusive choice for mask types */
+#define INCOMPATWITHDFILEOPTS "-q,--prob,--ins,--dall,--dint,--struct,--indi,--all,--mask-col,--mask-diff" /* exclusive choice for mask types */
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
@@ -244,7 +260,6 @@ static ESL_OPTIONS options[] = {
 
   { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw diagrams for individual sequences instead of the aln", 3 },
   { "--all",    eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi", NULL,        "with --indi, draw individual diagrams of all sequences", 3 },
-  { "--list",   eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi", NULL,        "with --indi, draw diagrams of sequences listed in <f>", 3 },
 
   { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as squares", 4 },
   { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as x's", 4 },
@@ -253,7 +268,7 @@ static ESL_OPTIONS options[] = {
   { "--mask-col",eslARG_NONE, NULL, NULL, NULL, NULL,"--mask",  INCOMPATWITHSINGLEOPTS, "w/--mask draw black/cyan diagram denoting masked columns", 5 },
   { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
-  { "--dfile",  eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "read 'draw' file specifying >=1 diagrams", 6 },
+  { "--dfile",  eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw' file specifying >=1 diagrams", 6 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -486,15 +501,12 @@ main(int argc, char **argv)
   hc_scheme[2][5][0] = 0.00; hc_scheme[2][5][1] = 0.94; hc_scheme[2][5][2] = 1.00; hc_scheme[2][5][3] = 0.00; /*red*/
   hc_scheme[3][0][0] = 0.00; hc_scheme[3][0][1] = 0.94; hc_scheme[3][0][2] = 1.00; hc_scheme[3][0][3] = 0.00; /*red*/
   /***************************************************************/
-  int ali_mode = TRUE;
-  int indi_mode = FALSE;
-  int single_mask_mode = FALSE;
-  if(esl_opt_GetBoolean(go, "--indi")) { 
-    indi_mode = TRUE;
-    ali_mode  = FALSE;
-  }
-  if(esl_opt_GetBoolean(go, "--mask-col"))   single_mask_mode = TRUE; 
-  if(! esl_opt_IsDefault(go, "--mask-diff")) single_mask_mode = TRUE; 
+  int master_mode;
+  master_mode = ALIMODE;
+  if(esl_opt_GetBoolean(go, "--indi"))       master_mode = INDIMODE;
+  if(esl_opt_GetBoolean(go, "--mask-col"))   master_mode = SIMPLEMASKMODE;
+  if(! esl_opt_IsDefault(go, "--mask-diff")) master_mode = SIMPLEMASKMODE;
+  if(! esl_opt_IsDefault(go, "--dfile"))     master_mode = DRAWFILEMODE;
 
   if((status = esl_msa_Read(afp, &msa)) == eslOK) { 
     read_msa = TRUE;
@@ -507,19 +519,14 @@ main(int argc, char **argv)
     if(mask != NULL && ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", clen, masklen, esl_opt_GetString(go, "--mask"));
 
     /* add the mask if there is one */
-    if(mask != NULL && (!single_mask_mode)) add_mask_to_ss_postscript(ps, mask);
+    if(mask != NULL && (master_mode != SIMPLEMASKMODE)) add_mask_to_ss_postscript(ps, mask);
     
-    if((status = validate_and_update_sspostscript_given_msa(ps, msa, errbuf)) != eslOK) esl_fatal(errbuf);
+    if((status = validate_and_update_sspostscript_given_msa(go, ps, msa, errbuf)) != eslOK) esl_fatal(errbuf);
     
-    if(!single_mask_mode && (! esl_opt_GetBoolean(go, "-q"))) { 
-      if(ali_mode) { 
+    if(master_mode == ALIMODE) { 
+      if(! esl_opt_GetBoolean(go, "-q")) { 
 	if((status = infocontent_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
-      if(indi_mode) { 
-	if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
-      }
-    }
-    if(ali_mode) { 
       if(esl_opt_GetBoolean(go, "--struct")) { 
 	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
@@ -532,26 +539,35 @@ main(int argc, char **argv)
       if(esl_opt_GetBoolean(go, "--dint")) { /* make a new postscript page marking internal deletes */
 	if((status = delete_sspostscript(go, errbuf, ps, msa, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
-    }
-    if(indi_mode) { 
-      if(esl_opt_GetBoolean(go, "--all")) { /* make a new postscript page for each sequence in the alignment */
-	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+      if(esl_opt_GetBoolean(go, "--prob")) { 
+	if((status = posteriors_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
     }
-    /* onto drawings that are valid for both indi or ali mode */
-    if(esl_opt_GetBoolean(go, "--prob")) { 
-      if((status = posteriors_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+    else if(master_mode == INDIMODE) { 
+      if(! esl_opt_GetBoolean(go, "-q")) { 
+	if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+      }
+      /* determine which sequences we are going to draw diagrams for */
+      if(esl_opt_GetBoolean(go, "--all")) { 
+	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+	if(esl_opt_GetBoolean(go, "--prob")) { 
+	  if((status = posteriors_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+	}
+      }
     }
-    if(! esl_opt_IsDefault(go, "--dfile")) { 
+    else if(master_mode == SIMPLEMASKMODE) { 
+      if(esl_opt_GetBoolean(go, "--mask-col")) { 
+	if(ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d.", clen, masklen);
+	if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, CYANOC)) != eslOK) esl_fatal(errbuf);
+      }
+      if(! esl_opt_IsDefault(go, "--mask-diff")) { 
+	if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+    }
+    else if(master_mode == DRAWFILEMODE) { 
       if((status = drawfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
     }
-    if(esl_opt_GetBoolean(go, "--mask-col")) { 
-      if(ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d.", clen, masklen);
-      if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, CYANOC)) != eslOK) esl_fatal(errbuf);
-    }
-    if(! esl_opt_IsDefault(go, "--mask-diff")) { 
-      if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
-    }
+
     if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps)) != eslOK) esl_fatal(errbuf);
     fclose(ofp);
     esl_msa_Destroy(msa);
@@ -571,6 +587,7 @@ main(int argc, char **argv)
   /* Cleanup, normal return
    */
   if(mask != NULL) free(mask);
+  if(date != NULL) free(date);
   free_sspostscript(ps);
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
@@ -596,9 +613,13 @@ create_sspostscript()
 
   ps->npage    = 0;
   ps->modelname = NULL;
-  ps->descAA = NULL;
+  ps->descA = NULL;
   ps->headerx = 0.;
   ps->headery = 0.;
+  ps->headerx_desc = 0.;
+  ps->headerx_charsize = 0.;
+  ps->headery_charsize = 0.;
+  ps->desc_max_chars = 0;
   ps->legx = 0.;
   ps->legy = 0.;
   ps->cur_legy = 0.;
@@ -629,6 +650,9 @@ create_sspostscript()
   ps->msa_nbp     = 0;
   ps->msa_avglen  = 0.;
   ps->msa_avgid   = 0.;
+  ps->uaseqlenA   = NULL;
+  ps->seqidxA     = NULL;
+  ps->msa         = NULL;
   return ps;
 
  ERROR: esl_fatal("create_sspostscript(): memory allocation error.");
@@ -666,6 +690,15 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->legy_max_chars = (int) (yroom / ps->legy_charsize);
   ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
 
+  /* determine max size of description that will fit in header */
+  float header_fontwidth, header_max_chars;
+  header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
+  ps->headerx_charsize  = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
+  header_max_chars      = (int) (ps->pagex_max / ps->headerx_charsize) - 2;
+  ps->headery_charsize  = (HEADER_FONTSIZE_UNSCALED) / ps->scale; 
+  ps->desc_max_chars    = header_max_chars - (HEADER_MODELNAME_MAXCHARS + 6 + 6 + 8 +2); /*6,6,8 for #res,#bps,#seq plus 2 spaces each, plus 2 for after name */
+  ps->headerx_desc      = ps->pagex_max - PAGE_SIDEBUF - (ps->desc_max_chars * ps->headerx_charsize);
+
   return eslOK;
 }
 
@@ -681,13 +714,15 @@ free_sspostscript(SSPostscript_t *ps)
 
   if(ps->modelname != NULL) free(ps->modelname);
 
-  if(ps->descAA != NULL) {
+  if(ps->modeA != NULL)  free(ps->modeA);
+
+  if(ps->descA != NULL) {
     for(i = 0; i < ps->npage; i++) { 
-      if(ps->descAA[i] != NULL) {
-	free(ps->descAA[i]);
+      if(ps->descA[i] != NULL) {
+	free(ps->descA[i]);
       }
     }
-    free(ps->descAA);
+    free(ps->descA);
   }
 
   if(ps->regurgA != NULL) {
@@ -734,8 +769,10 @@ free_sspostscript(SSPostscript_t *ps)
 	for(l = 0; l < ps->nocclA[p]; l++) { 
 	  free(ps->occlAAA[p][l]); /* all statically allocated memory */
 	}
+      free(ps->occlAAA[p]);
       }
     }
+    free(ps->occlAAA);
   }
 
   if(ps->sclAA != NULL) { 
@@ -749,11 +786,13 @@ free_sspostscript(SSPostscript_t *ps)
 	free(ps->sclAA[p]); /* statically allocated memory */
       }
     }
+    free(ps->sclAA);
   }
 
-  if(ps->sclAA != NULL) free(ps->sclAA);
   if(ps->nocclA != NULL) free(ps->nocclA);
   if(ps->msa_ct != NULL) free(ps->msa_ct);
+  if(ps->seqidxA != NULL) free(ps->seqidxA);
+  if(ps->uaseqlenA != NULL) free(ps->uaseqlenA);
 
   free(ps);
   return;
@@ -829,7 +868,7 @@ create_scheme_colorlegend(int scheme, int nbins, float *limits)
 /* Function: add_text_to_scheme_colorlegend()
  * 
  * Purpose:  Add text to an existing scheme color legend data structure.
- * Return:   scl
+ * Throws:   Exception if the text is too long.
  */
 int
 add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf)
@@ -843,12 +882,12 @@ add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_ma
   if(text == NULL) esl_fatal("add_text_to_scheme_colorlegend(), passed in text is NULL!\n"); 
 
   max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS -2;
-  if(strlen(text) <= max_chars_per_line) {
+  if(((int) strlen(text)) <= max_chars_per_line) {
     /* case 1, entire text can fit in one line */
     if((status = esl_strdup(text, -1, &(scl->text1))) != eslOK) esl_fatal("add_text_to_scheme_colorlegend(), error copying text");
     return eslOK;
   }
-  else if(strlen(text) > ((2 * max_chars_per_line) - 6)) { 
+  else if(((int) strlen(text)) > ((2 * max_chars_per_line) - 6)) { 
     /* case 2, entire text can't even fit in two lines, 
      * (this is inexact doesn't account for size of words which is an issue b/c we break at newline,
      * this is why I have the extra '- 6');
@@ -866,9 +905,9 @@ add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_ma
     for(i = 0; i < idx; i++) scl->text1[i] = text[i];
     scl->text1[idx] = '\0';
     /* copy remainder into text2 */
-    int len = strlen(text);
+    int len = (int) strlen(text);
     idx++;
-    ESL_ALLOC(scl->text2, sizeof(char) * (len - idx));
+    ESL_ALLOC(scl->text2, sizeof(char) * (len - idx+1));
     for(i = idx; i < len; i++) scl->text2[i-idx] = text[i];
     scl->text2[len-idx] = '\0';
   }
@@ -881,21 +920,170 @@ add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_ma
 /* Function: add_text_to_onecell_colorlegend()
  * 
  * Purpose:  Add text to an existing one cell color legend data structure.
- * Return:   scl
+ * Throws:   Exception if the text is too long.
  */
 int
-add_text_to_onecell_colorlegend(OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf)
+add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf)
 {
   int status;
   int max_chars_per_line;
   if(occl->text != NULL) esl_fatal("add_text_to_onecell_colorlegend(), text already exists!\n"); 
   if(text == NULL) esl_fatal("add_text_to_onecell_colorlegend(), passed in text is NULL!\n"); 
 
-  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS -2;
-  if(strlen(text) > (max_chars_per_line)) ESL_FAIL(eslEINVAL, errbuf, "add_text_to_onecell_colorlegend(), text is %d chars, max allowed is %d (%s)\n", (int) strlen(text), max_chars_per_line, text);
-
+  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) ((LEG_BOXSIZE * 1.5) / ps->legx_charsize));
+  /*printf("max: %d cur: %d text: %s\n", max_chars_per_line, (int) strlen(text), text);*/
+  if(((int) strlen(text)) > (max_chars_per_line)) { 
+    ESL_FAIL(eslEINVAL, errbuf, "add_text_to_onecell_colorlegend(), text is %d chars, max allowed is %d (%s)\n", (int) strlen(text), max_chars_per_line, text);
+  }
   if((status = esl_strdup(text, -1, &(occl->text))) != eslOK) esl_fatal("add_text_to_onecell_colorlegend(), error copying text");
   return eslOK;
+}
+
+/* Function: add_page_desc_to_sspostscript()
+ * 
+ * Purpose:  Add text describing a particular page of a postscript object.
+ * Throws:   Exception if the text is too long.
+ */
+int
+add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf)
+{
+  int status;
+  int i, j;
+  int max_both_lines;
+
+  if(ps->descA[page] != NULL) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), description for page %d already exists!\n", page); 
+  if(text == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), passed in text is NULL!\n"); 
+
+  max_both_lines =(2. * ps->desc_max_chars);
+  if(ps->modeA[page] == INDIMODE || ps->modeA[page] == SIMPLEMASKMODE) 
+    max_both_lines--; /* b/c we have to add a '-' to split up the larger strings onto 2 lines */
+
+  /* check to see if we can fit the text onto two lines of max width ps->desc_max_chars */
+  int textlen = (int) strlen(text);
+  if(textlen <= ps->desc_max_chars) { /* fine, this will fit on one line */
+    if((status = esl_strdup(text, -1, &(ps->descA[page]))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), error copying text");
+  }
+  else if (textlen <= max_both_lines) { 
+    if(ps->modeA[page] == ALIMODE) { 
+      /* maybe fine, make sure there's a break point (space ' ') that will break this string into two strings of length <= ps->desc_max_chars */
+      i = ps->desc_max_chars;
+      while(text[i] != ' ') { 
+	i--; 
+	if(i < 0) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), first word of text (%s) is more than max allowed of %d chars", text, ps->desc_max_chars);
+      }
+      /* found last space before max width, make sure it breaks the line up into two chunks of valid size */
+      if((textlen - (i+1)) <= ps->desc_max_chars) { /* we're good */
+	if((status = esl_strdup(text, -1, &(ps->descA[page]))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), error copying text");
+	ps->descA[page][i] = '\n'; /* so we can remember where the break is */
+      }
+      else ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), couldn't find break point (' ') for partitioning text into two valid size chunks (%s)", text);
+    }
+    else { /* INDIMODE or SIMPLEMASKMODE, sequence/mask name bigger than 1 line, but not 2, we put a '-' in it at the end of line 1 and add a '\n' so we remember where it was */
+      ESL_ALLOC(ps->descA[page], sizeof(char) * (textlen + 3)); /* +3 so we have space for the extra '-' and '\n' */
+      for(i = 0; i < ps->desc_max_chars; i++) ps->descA[page][i] = text[i];
+      i = ps->desc_max_chars;
+      ps->descA[page][i] = '-';
+      i++; 
+      ps->descA[page][i] = '\n';
+      for(i = ps->desc_max_chars; i < textlen; i++) ps->descA[page][i+2] = text[i];
+      ps->descA[page][textlen+2] = '\0';
+    }
+  }
+  else /* the text won't fit on two lines */
+    if(ps->modeA[page] != INDIMODE) { /* not fine, this won't fit on two lines */
+      ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), text is %d chars, max allowed is %d (%s)\n", textlen, 2 * ps->desc_max_chars, text);
+    }
+    else { /* INDIMODE or SIMPLEMASKMODE, sequence/mask name exceeds max, we put a '-' in it at the end of line 1 and truncate it */
+      ESL_ALLOC(ps->descA[page], sizeof(char) * (max_both_lines + 2)); /* +2 so we have space for the extra '\n' (which we won't print), and the '\0' */
+      /* first look to see if there's a space before desc_max_chars, this will never happen for a seq name, but may for a mask description */
+      j = ps->desc_max_chars;
+      while(text[j] != ' ' && j > 0) { 
+	j--; 
+      }
+      if(j == 0) { j = ps->desc_max_chars; } /* no space */
+      for(i = 0; i < j; i++) ps->descA[page][i] = text[i];
+      i = j;
+      if(j == ps->desc_max_chars && text[j] != ' ') { 
+	ps->descA[page][i] = '-';
+      }
+      i++; 
+      ps->descA[page][i] = '\n';
+      for(i = j; i < j + ps->desc_max_chars; i++) ps->descA[page][i+2] = text[i];
+      ps->descA[page][i+2] = '\0';
+  }
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "add_page_desc_to_sspostscript() error, probably out of memory.");
+}
+
+
+/* Function: add_diffmask_page_desc_to_sspostscript()
+ * 
+ * Purpose:  Add text describing a diff mask page of a postscript object.
+ * Throws:   Exception if the text is too long.
+ */
+int
+add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf)
+{
+  int status;
+  int i;
+  char *mask1desc = NULL;
+  char *mask2desc = NULL;
+  int len2copy;
+  int mask1len;
+  int mask2len;
+  void *tmp;
+
+  if(ps->descA[page] != NULL) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), description for page %d already exists!\n", page); 
+  if(mask1 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask1 is NULL!\n"); 
+  if(mask2 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask2 is NULL!\n"); 
+
+  /* check to see if we can fit the text onto two lines of max width ps->desc_max_chars */
+  mask1len = (int) strlen(mask1);
+  mask2len = (int) strlen(mask2);
+  if((status = esl_strcat(&(mask1desc), -1, "mask 1: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((mask1len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask1desc), -1, mask1, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  }
+  else { /* won't fit on one line, include as much as we can */
+    len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
+    ESL_RALLOC(mask1desc, tmp, sizeof(char) * ps->desc_max_chars+1);
+    for(i = 0; i < len2copy; i++) { 
+      mask1desc[8+i] = mask1[i];
+    }
+    mask1desc[8+len2copy]   = '.';
+    mask1desc[8+len2copy+1] = '.';
+    mask1desc[8+len2copy+2] = '.';
+    mask1desc[8+len2copy+3] = '\0'; 
+  }
+
+  /* repeat for mask 2 */
+  if((status = esl_strcat(&(mask2desc), -1, "mask 2: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((mask2len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask2desc), -1, mask2, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  }
+  else { /* won't fit on one line, include as much as we can */
+    len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
+    ESL_RALLOC(mask2desc, tmp, sizeof(char) * ps->desc_max_chars+1);
+    for(i = 0; i < len2copy; i++) { 
+      mask2desc[8+i] = mask2[i];
+    }
+    mask2desc[8+len2copy]   = '.';
+    mask2desc[8+len2copy+1] = '.';
+    mask2desc[8+len2copy+2] = '.';
+    mask2desc[8+len2copy+3] = '\0'; 
+  }
+
+  /* concatenate them in ps->descA[page] */
+  if((status = esl_strcat(&(ps->descA[page]), -1, mask1desc, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((status = esl_strcat(&(ps->descA[page]), -1, "\n", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((status = esl_strcat(&(ps->descA[page]), -1, mask2desc, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+
+  free(mask1desc);
+  free(mask2desc);
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "add_page_desc_to_sspostscript() error, probably out of memory.");
 }
 
 /* Function: add_mask_to_sspostscript
@@ -1011,7 +1199,7 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
       fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", occl->nres, occl->nres_masked, x, y + (LEG_BOXSIZE * 0.25));
     }
     else { 
-      fprintf(fp, "(%4d) %.4f %.4f moveto show\n", occl->nres, x, y + (LEG_BOXSIZE * 0.25));
+      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", occl->nres, x, y + (LEG_BOXSIZE * 0.25));
     }
   }
 
@@ -1161,7 +1349,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
       fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", scl->counts[c], scl->counts_masked[c], x, y);
     }
     else { 
-      fprintf(fp, "(%4d) %.4f %.4f moveto show\n", scl->counts[c], x, y);
+      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", scl->counts[c], x, y);
     }
 
     x = old_x - LEG_BOXSIZE * 1.5;
@@ -1186,8 +1374,11 @@ int
 draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps)
 {
   int status;
-  int p, i, c, l;
+  int p, pi, i, c, l, si;
   int do_circle_mask, do_square_mask, do_x_mask, do_border;
+  int *page_orderA;
+  int rfoffset;
+
   do_border = (!esl_opt_GetBoolean(go, "--mask-a"));
   do_circle_mask = do_square_mask = do_x_mask = FALSE;
   if(esl_opt_GetBoolean(go, "--mask-u")) { do_square_mask = TRUE; }
@@ -1196,10 +1387,35 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
-  /* digitize alignment and collect stats on it */
-  if((status = prepare_aln_header(fp, go, errbuf, ps)) != eslOK) return status;
+  /* determine print order or pages, this is just 0..npage-1 UNLESS:
+   *  --indi and --all and --prob all enabled, in which case, we put the 
+   *    posteriors immediately after the sequences
+   */
+  ESL_ALLOC(page_orderA, sizeof(int) * ps->npage);
+  if(esl_opt_GetBoolean(go, "--indi") && 
+     esl_opt_GetBoolean(go, "--all") && 
+     esl_opt_GetBoolean(go, "--prob")) { 
+    pi = 0;
+    rfoffset = 0;
+    if(! esl_opt_GetBoolean(go, "-q")) { 
+      page_orderA[0] = 0; /* print consensus sequence first */ 
+      pi++;
+      rfoffset = 1;
+    } /* otherwise, we didn't print the consensus sequence */
+    for(si = 0; si < ps->msa->nseq; si++) { 
+      page_orderA[pi] = si + rfoffset; /* the indi sequence page */
+      pi++;
+      page_orderA[pi] = (si+ps->msa->nseq) + rfoffset; /* the posterior page */
+      pi++;
+    }
+  }
+  else { 
+    for(pi = 0; pi < ps->npage; pi++) page_orderA[pi] = pi;
+  }
 
-  for(p = 0; p < ps->npage; p++) { 
+  /* draw the pages */
+  for(pi = 0; pi < ps->npage; pi++) { 
+    p = page_orderA[pi];
     ps->cur_legy = ps->legy;
 
     /* scale section */
@@ -1208,7 +1424,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     fprintf(fp, "%% end scale\n\n");
       
     /* header section */
-    if((status = draw_aln_header(fp, go, errbuf, ps)) != eslOK) return status;
+    if((status = draw_header_and_footer(fp, go, errbuf, ps, p, pi+1)) != eslOK) return status;
 
     /* regurgitated section */
     if(ps->regurgA != NULL) {
@@ -1274,8 +1490,11 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* set to black */
     fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, LEG_FONTSIZE_UNSCALED / ps->scale);
 
-    if((status = draw_legend_column_headers(fp, ps, errbuf)) != eslOK) return status;
-    
+    /* draw legend headers, if we have a legend */
+    if((ps->nocclA[p] > 0) || (ps->sclAA != NULL && ps->sclAA[p] != NULL)) { 
+      if((status = draw_legend_column_headers(fp, ps, errbuf)) != eslOK) return status;
+    }
+
     /* print one cell color legends, if any */
     if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
       for(l = 0; l < ps->nocclA[p]; l++) 
@@ -1323,6 +1542,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
 
     if(ps->rrAA[p] != NULL) { 
+      fprintf(fp, "/%s findfont %f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
       for(c = 0; c < ps->clen; c++) { 
 	fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
       }
@@ -1330,7 +1550,10 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     fprintf(fp, "grestore\nshowpage\n");
     fprintf(fp, "%% end ignore\n\n");
   }
+  free(page_orderA);
   return eslOK;
+
+ ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_sspostscript() error, probably out of memory.");
 }
 
 /* parse_template_file
@@ -1864,7 +2087,7 @@ individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t
   int cpos, apos;
   int orig_npage = ps->npage;
 
-  if((status = addpages_sspostscript(ps, msa->nseq)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, msa->nseq, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
@@ -1882,6 +2105,9 @@ individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t
       }
     }
     ps->rrAA[pp][cpos] = '\0';
+    ps->seqidxA[pp] = i;
+    /* add description to ps */
+    if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
   }
   return eslOK;
 
@@ -1902,7 +2128,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   int cpos, apos;
   int orig_npage = ps->npage;
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -1918,6 +2144,10 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
       cpos++;
     }
   }
+
+  /* add description to ps */
+  if((status = add_page_desc_to_sspostscript(ps, pp, "*CONSENSUS*", errbuf)) != eslOK) return status;
+
   return eslOK;
 
  ERROR: ESL_FAIL(status, errbuf, "rf_seq_sspostscript(): memory allocation error.");
@@ -1942,7 +2172,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   double **obs, *ent, *bg;
   int zero_obs;
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -2014,12 +2244,15 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
 
   /* add one-cell color legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 1;
 
   /* add text to legend */
   /*sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->clen));*/
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "information content (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
+  /* add description to ps */
+  if((status = add_page_desc_to_sspostscript(ps, pp, "information content per position", errbuf)) != eslOK) return status;
 
   free(ent);
   for(cpos = 0; cpos < ps->clen; cpos++) free(obs[cpos]);
@@ -2052,7 +2285,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   int *dct_internal;
   int *fA, *lA;
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -2155,20 +2388,22 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   ps->nocclA[pp] = 1;
 
   if(do_all) { 
-    if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "zero deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
   }
   else {
-    if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "zero internal deletes", ps->legx_max_chars, errbuf)) != eslOK) return status; 
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status; 
   }
 
-  /* add color legend */
+  /* add color legend and description */
   if(do_all) { 
     /*sprintf(text, "fraction seqs w/deletes ('-'=0 deletes; avg/seq: %.2f)", (float) esl_vec_ISum(dct, ps->clen) / (float) msa->nseq);*/
     if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs with deletes", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of deletions at each position", errbuf)) != eslOK) return status;
   }
   else { /* !do_all, only internal deletes counted */
     /*sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->clen) / (float) msa->nseq);*/
-    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/internal deletes", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal (non-terminal) deletions in each position", errbuf)) != eslOK) return status;
   }
 
   free(dct);
@@ -2209,12 +2444,12 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   int nonecell_masked = 0;
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
-    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -2330,10 +2565,11 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   /* add one-cell color legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
   ps->nocclA[pp] = 1;
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add color legend */
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of insertions after each position", errbuf)) != eslOK) return status;
 
   for(i = 0; i < ps->clen; i++) free(ict[i]);
   free(ict);
@@ -2398,7 +2634,12 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   if(esl_opt_GetBoolean(go, "--indi")) { do_indi = TRUE; nfirst_indi_page = orig_npage + new_npage; new_npage += msa->nseq; }
   else                                 { do_avg = TRUE;  new_npage += 1; navg_page = orig_npage; }
 
-  if((status = addpages_sspostscript(ps, new_npage)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if(do_indi) {
+    if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  }
+  else {
+    if((status = add_pages_sspostscript(ps, new_npage, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  }
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
@@ -2499,11 +2740,13 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
       /* add one-cell color legend */
       ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_seq, nonecell_seq_masked);
-      if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
       ps->nocclA[pp] = 1;
 
       /*sprintf(text, "posterior probability; %.3f (RF) %.3f (all)", avgrf_s, avg_s);*/
       if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability (alignment confidence)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->seqidxA[pp] = s;
+      if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[s], errbuf)) != eslOK) return status;
       pp++;
     }
   } /* done with all sequences */
@@ -2530,7 +2773,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
     /* add one-cell color legend */
     ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_avg, nonecell_avg_masked);
-    if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
     ps->nocclA[pp] = 1;
     
     /* add color legend */
@@ -2574,7 +2817,7 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   int ncols_inside_mask = 0;
   int ncols_outside_mask = 0;
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -2601,12 +2844,15 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
 
   /* add color legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incmask_idx], ncols_inside_mask, -1);
-  /* FIX ME should be columns included by mask */
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "columns incl.", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "columns included by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[excmask_idx], ncols_outside_mask, -1);
-  /* FIX ME should be columns excluded by mask */
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][1], "columns excl. by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "columns excluded by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
+  char *mask_desc = NULL;
+  if((status = esl_strcat(&(mask_desc), -1, "mask file: ", -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
+  if((status = esl_strcat(&(mask_desc), -1, esl_opt_GetString(go, "--mask"), -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
+  if((status = add_page_desc_to_sspostscript(ps, pp, mask_desc, errbuf)) != eslOK) return status;
 
   ps->nocclA[pp] = 2;
 
@@ -2639,7 +2885,7 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   int ncols_in_1_out_2 = 0;
   int ncols_out_1_in_2 = 0;
 
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -2675,36 +2921,31 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
 
   /* add color legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incboth_idx], ncols_in_both, -1);
-  /* FIX ME SHOULD BE included by both masks */
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "included by both", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "included by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[inc1_idx], ncols_in_1_out_2, -1);
-  /* FIX ME SHOULD BE included by mask 1 but not mask 2 */
-  //  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][1], "included by mask 1 but not mask 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][1], "yes 1 no 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "incl. mask 1, excl. mask 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][2] = create_onecell_colorlegend(hc_onecell[inc2_idx], ncols_out_1_in_2, -1);
-  /* FIX ME SHOULD BE included by mask 2 but not mask 1 */
-  //  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][2], "included by mask 2 but not mask 1", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][2], "no 1 yes 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][2], "excl. mask 1, incl. mask 1", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  /* FIX ME SHOULD BE excluded by both masks */
   ps->occlAAA[pp][3] = create_onecell_colorlegend(hc_onecell[excboth_idx], ncols_out_both, -1);
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][3], "excluded by both", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][3], "excluded by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 4;
+
+  if((status = add_diffmask_page_desc_to_sspostscript(ps, pp, esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), errbuf)) != eslOK) return status;
 
   return eslOK;
   
  ERROR: ESL_FAIL(status, errbuf, "diffmask_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
-/* Function: addpages_sspostscript()
+/* Function: add_pages_sspostscript()
  * 
  * Purpose:  Add and initialize blank pages to a postscript object.
  */ 
 static int 
-addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
+add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
 {
   int status;
   void *tmp;
@@ -2718,17 +2959,21 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->nocclA,  sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->descAA,  sizeof(char *) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->descA,   sizeof(char *) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->modeA,   sizeof(int) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->seqidxA, sizeof(int) * (ps->npage + ntoadd));
   }
   else { 
     assert(ps->rrAA    != NULL);
     assert(ps->rcolAAA != NULL);
-    ESL_RALLOC(ps->rrAA,    tmp, sizeof(char *)   * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->rcolAAA, tmp, sizeof(float **) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->occlAAA, tmp, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->nocclA,  tmp, sizeof(int) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->sclAA,   tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
-    ESL_RALLOC(ps->descAA,  tmp, sizeof(char *) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->rrAA,   tmp, sizeof(char *)   * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->rcolAAA,tmp, sizeof(float **) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->occlAAA,tmp, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->nocclA, tmp, sizeof(int) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->sclAA,  tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->descA,  tmp, sizeof(char *) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->modeA,  tmp, sizeof(int) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->seqidxA,tmp, sizeof(int) * (ps->npage + ntoadd));
   }
   for(p = ps->npage; p < (ps->npage + ntoadd); p++) { 
     ps->rrAA[p]    = NULL;
@@ -2736,7 +2981,9 @@ addpages_sspostscript(SSPostscript_t *ps, int ntoadd)
     ps->occlAAA[p] = NULL;
     ps->nocclA[p]  = 0;
     ps->sclAA[p]   = NULL;
-    ps->descAA[p]  = NULL;
+    ps->descA[p]   = NULL;
+    ps->modeA[p]   = page_mode;
+    ps->seqidxA[p] = -1;
   }
   ps->npage += ntoadd;
 
@@ -2844,7 +3091,7 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   return eslEMEM;
 }
 
-/* Function: draw_file2sspostscript()
+/* Function: drawfile2sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
  *           in an input 'draw' file, with >= 1 sets of <x> lines of data, each set 
@@ -2883,7 +3130,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
 
       cpos++;
       if(cpos == 1) { /* add a new page */
-	if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 	
 	for(p = (ps->npage-1); p < ps->npage; p++) { 
 	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
@@ -2924,7 +3171,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
 
 	/* optionally read a residue value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
-	  if(strlen(s) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of drawfile %s\n", s, cpos, efp->linenumber, dfile);
+	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of drawfile %s\n", s, cpos, efp->linenumber, dfile);
 	  ps->rrAA[pp][(cpos-1)] = s[0];
 	}
 	else ps->rrAA[pp][(cpos-1)] = ' ';
@@ -2974,7 +3221,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
   if(ps->mask == NULL) nss_masked = nzerores_masked = -1; /* special flag */
 
   if(msa->ss_cons == NULL) ESL_FAIL(status, errbuf, "--struct requires #=GC SS_cons annotation in the alignment.");
-  if((status = addpages_sspostscript(ps, 1)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
@@ -3118,17 +3365,21 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 
   /* add text to the one cell legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[ss_idx], nss, nss_masked);
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][0], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add text to the second one cell legend */
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked);
-  if((status = add_text_to_onecell_colorlegend(ps->occlAAA[pp][1], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
 
   /* add text to the scheme legend */
   /*sprintf(text,  "structural info content per basepaired posn", esl_vec_DSum(ent_p, ps->clen) * 2.);*/
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "extra information from structure", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "extra information from structure (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
+  /* add description to ps */
+  if((status = add_page_desc_to_sspostscript(ps, pp, "extra information from structure per basepaired position", errbuf)) != eslOK) return status;
+
+  free(nres);
   free(ent);
   free(ent_p);
   for(cpos = 0; cpos < ps->clen; cpos++) { free(obs[cpos]); free(obs_p[cpos]); }
@@ -3386,7 +3637,7 @@ validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
  * Purpose:  Validate that a sspostscript works with a MSA.
  */ 
 static int 
-validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, char *errbuf)
+validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, char *errbuf)
 {
   int status;
   int *msa_ct;
@@ -3394,6 +3645,7 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
   int *tmp_ct;
   int msa_clen;
   int apos, cpos;
+  int i;
 
   ps->msa = msa;
 
@@ -3425,6 +3677,18 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
   if(ps->clen != msa_clen) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected consensus length of %d in MSA, but read %d\n", ps->clen, msa_clen);
   if(ps->nbp != 0 && ps->nbp != msa_nbp) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected %d basepairs in MSA's SS_cons, but read %d\n", ps->nbp, msa_nbp);
 
+  /* allocate the uaseqlenA data structure to store unaligned seq lengths, only compute them if --indi though */
+  if(ps->uaseqlenA != NULL) { free(ps->uaseqlenA); ps->uaseqlenA = NULL; }
+  ESL_ALLOC(ps->uaseqlenA, sizeof(int) * msa->nseq);
+  esl_vec_ISet(ps->uaseqlenA, msa->nseq, 0);
+  if(esl_opt_GetBoolean(go, "--indi")) { /* individual mode, get each sequence's length */
+    for(i = 0; i < msa->nseq; i++) { 
+      for(apos = 0; apos < msa->alen; apos++) {
+	if(! esl_abc_CIsGap(ps->msa->abc, ps->msa->aseq[i][apos])) 
+	  ps->uaseqlenA[i]++;
+      }
+    }
+  }
   return eslOK;
 
  ERROR:
@@ -3433,103 +3697,165 @@ validate_and_update_sspostscript_given_msa(SSPostscript_t *ps, ESL_MSA *msa, cha
   }
 
 
-/* Function: draw_aln_header()
+/* Function: draw_header_and_footer()
  * 
- * Purpose:  Draw header for an alignment page
+ * Purpose:  Draw header for a page
  */ 
 static int 
-draw_aln_header(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
+draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print)
 {
   int status;
-  int i;
+  int i, split_idx;
   float x, y;
   float header_fontsize;
-  int cur_width;
-  char *cur_string;
-  //  x2 = x + (((cur_width + 12) * header_fontsize) / COURIER_HEIGHT_WIDTH_RATIO);
+  int model_width, desc_width, desc_column_width;
+  char *model_dashes, *desc_dashes, *desc2print;
+  char *desc_string;
+  float xmodel;
+  char *model2print;
 
-  x = ps->headerx;
-  y = ps->headery;
   header_fontsize = HEADER_FONTSIZE_UNSCALED / ps->scale; 
 
   fprintf(fp, "%% begin ignore\n");
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, header_fontsize);
   fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
 
-  cur_width = ESL_MAX(strlen("model"), strlen(ps->modelname));
-  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", cur_width, "model", "#res", "#bps", x, y);
-  
-  y -= header_fontsize * 0.75;
-  ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
-  for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
-  cur_string[cur_width] = '\0';
-  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", cur_width, cur_string, "----", "----", x, y);
-  free(cur_string);
-  y -= header_fontsize * 0.75;
-
-  fprintf(fp, "(%-*s  %4d  %4d  ", cur_width, ps->modelname, ps->clen, ps->msa_nbp);
-  fprintf(fp, "%4d  %5d  %.2f  %.2f ) %.2f %.2f moveto show\n", ps->msa->nseq, (int) ps->msa->alen, ps->msa_avglen, ps->msa_avgid, x, y);
-  y -= header_fontsize;
-
-  if(ps->mask != NULL) { /* write masked row of  header */
-    fprintf(fp, "(%-*s  %4d  %4d  ", cur_width, ps->modelname, ps->clen, ps->msa_nbp);
-    fprintf(fp, "%4d  %5d  %.2f  %.2f ) %.2f %.2f moveto show\n", ps->msa->nseq, (int) ps->msa->alen, ps->msa_avglen, ps->msa_avgid, x, y);
-    y -= header_fontsize;
+  model_width = ESL_MAX(strlen("model"), (int) strlen(ps->modelname));
+  if(model_width > HEADER_MODELNAME_MAXCHARS) { 
+    ESL_ALLOC(model2print, sizeof(char) * (HEADER_MODELNAME_MAXCHARS+1));
+    for(i = 0; i < (HEADER_MODELNAME_MAXCHARS-3); i++) model2print[i] = ps->modelname[i];
+    model2print[HEADER_MODELNAME_MAXCHARS-3] = '.';
+    model2print[HEADER_MODELNAME_MAXCHARS-2] = '.';
+    model2print[HEADER_MODELNAME_MAXCHARS-1] = '.';
+    model2print[HEADER_MODELNAME_MAXCHARS] = '\0';
+  }
+  else { 
+    if((status = esl_strdup(ps->modelname, -1, &(model2print))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying modelname");
   }
 
+  model_width = ESL_MIN(model_width, HEADER_MODELNAME_MAXCHARS);
+  ESL_ALLOC(model_dashes, sizeof(char) * (model_width+1));
+  for(i = 0; i < model_width; i++) model_dashes[i] = '-'; 
+  model_dashes[model_width] = '\0';
+
+  if(ps->modeA[page] == ALIMODE || ps->modeA[page] == SIMPLEMASKMODE) { 
+    if((status = esl_strdup("description", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
+  }
+  else if(ps->modeA[page] == INDIMODE) { 
+    if((status = esl_strdup("sequence name", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
+  }
+
+  xmodel = ps->headerx_desc - (ps->headerx_charsize * (model_width  + 6 + 6 + 8 + 2)); /*6,6,8 for #res,#bps,#seq|seqlen) plus 2 spaces each, first 2 for 2 spaces before desc*/
+  x = xmodel;
+  y = ps->headery;
+
+  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, "model", "#res", "#bps", x, y);
+  y -= header_fontsize * 0.75;
+  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
+  y -= header_fontsize * 0.75;
+  fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show", model_width, model2print, ps->clen, ps->msa_nbp, x, y);
+  free(model_dashes);
+  x += (model_width + 6 + 6 +2) * ps->headerx_charsize;
+
+  if(ps->modeA[page] == ALIMODE) { 
+    y+= header_fontsize * 1.5;
+    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "#seqs", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->msa->nseq, x, y);
+  }
+  else if(ps->modeA[page] == INDIMODE && (ps->seqidxA[page] != -1)) { /* ps->seqidxA[page] == -1 if we're printing the consensus sequence */
+    y+= header_fontsize * 1.5;
+    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "seqlen", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->uaseqlenA[ps->seqidxA[page]], x, y);
+  }
+
+  if(ps->descA[page] != NULL) { 
+    x =  ps->headerx_desc;
+    y += 2. * header_fontsize * 0.75;
+    desc_width = ESL_MAX((int) strlen(desc_string), (int) strlen(ps->descA[page]));
+    if(desc_width > ps->desc_max_chars) { 
+      /* split into two lines, the add_page_desc_to_sspostscript() function added a '\n' where the split should be */
+      i = 0; 
+      while(ps->descA[page][i] != '\n') { 
+	i++; 
+	if(i >= desc_width) ESL_FAIL(eslEINVAL, errbuf, "drawing header, failed to find split point from add_page_desc_to_() in two-line description (%s)", ps->descA[page]);
+      }
+      split_idx = i;
+      desc_column_width = split_idx;
+    }
+    else desc_column_width = desc_width;
+
+    ESL_ALLOC(desc_dashes, sizeof(char) * (desc_column_width+1));
+    for(i = 0; i < desc_column_width; i++) desc_dashes[i] = '-'; 
+    desc_dashes[desc_column_width] = '\0';
+    
+    fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_string, x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_dashes, x, y);
+    y -= header_fontsize * 0.75;
+    free(desc_dashes);
+    
+    if(desc_width > ps->desc_max_chars) {
+      ESL_ALLOC(desc2print, sizeof(char) * (split_idx+1));
+      for(i = 0; i < split_idx; i++) desc2print[i] = ps->descA[page][i];
+      desc2print[split_idx] = '\0';
+      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
+      free(desc2print);
+      
+      x = ps->headerx_desc;
+      y-= ps->headery_charsize * 1;
+      ESL_ALLOC(desc2print, sizeof(char) * ((desc_width - split_idx) -1+1));
+      for(i = split_idx+1; i < desc_width; i++) desc2print[(i-(split_idx+1))] = ps->descA[page][i];
+      desc2print[(desc_width-(split_idx+1))] = '\0';
+      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
+      free(desc2print);
+    }
+    else { 
+      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_width, ps->descA[page], x, y);
+    }
+  }
+  /* masked row of header goes here if desired */
+
   /* draw footer */
-  float footer_fontsize = header_fontsize * 0.6;
+  float footer_fontsize, footerx_charsize;
+  footer_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
+  footerx_charsize = ps->legx_charsize;
+
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, footer_fontsize);
   /* draw alignment file name in lower left hand corner */
   if(ps->mask != NULL) { 
     if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
-      fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_BOTBUF, PAGE_SIDEBUF + (1.25 * footer_fontsize));
+      fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
     }
     else { 
-      fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_BOTBUF, PAGE_SIDEBUF + (1.25 * footer_fontsize));
+      fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
     }
   }
   else { 
-    fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_BOTBUF, PAGE_SIDEBUF + (1.25 * footer_fontsize));
+    fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
   }
-  fprintf(fp, "(structure diagram derived from CRW database: http://www.rna.ccbb.utexas.edu/) %.2f %.2f moveto show\n", PAGE_BOTBUF , PAGE_SIDEBUF);
+  fprintf(fp, "(structure diagram derived from CRW database: http://www.rna.ccbb.utexas.edu/) %.2f %.2f moveto show\n", PAGE_SIDEBUF , PAGE_BOTBUF);
+
+  /* put page number */
+  /* determine ndigits */
+  int tmp, ndigits;
+  tmp = pageidx2print;
+  ndigits = 1;
+  while(tmp > 10) { tmp /= 10; ndigits++; }
+  x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
+  fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
 
   fprintf(fp, "%% end ignore\n");
+
+  free(model2print);
   return eslOK;
 
- ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header(), memory error.");
+ ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), memory error.");
 }
 
 
-/* Function: prepare_aln_header()
- * 
- * Purpose:  Prepare stats in an alignment header. We digitize
- *           the MSA prior to getting these stats, it's important
- *           we do this after we've completed calculated all the
- *           stats in the ps file (e.g. we should only do this
- *           right before we draw the postscript) b/c some of
- *           the functions that calculate stats for the pages
- *           expect the MSA in text mode.
- *           
- */ 
-static int 
-prepare_aln_header(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
-{
-  int status;
-  int i;
-  int max_comparisons = 10000;
-  int ntotal_res = 0;
-  double avgid;
-
-  if((status = esl_msa_Digitize(ps->msa->abc, ps->msa)) != eslOK) ESL_FAIL(status, errbuf, "prepare_aln_header() problem digitizing the msa."); 
-
-  /* get alignment stats */
-  esl_dst_XAverageId(ps->msa->abc, ps->msa->ax, ps->msa->nseq, max_comparisons, &avgid);
-  for (i = 0; i < ps->msa->nseq; i++) { 
-    ntotal_res += esl_abc_dsqrlen(ps->msa->abc, ps->msa->ax[i]);
-  }
-  ps->msa_avgid = (float) avgid;
-  ps->msa_avglen = (float) ntotal_res / (float) ps->msa->nseq;
-
-  return eslOK;
-}
