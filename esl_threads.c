@@ -68,6 +68,7 @@ ESL_THREADS *esl_threads_Create(ESL_THREAD_FUNCTION fnptr)
   ESL_ALLOC(obj, sizeof(*obj));
 
   obj->threadCount     = 0;
+  obj->startThread     = 0;
   obj->threads         = NULL;
 
   obj->func            = fnptr;
