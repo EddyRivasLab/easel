@@ -159,6 +159,41 @@ case $enable_debugging in
      *)  AC_MSG_ERROR([Unknown argument to --enable-debugging: $enable_debugging]);;
 esac
 
+# --enable-threads      Enable POSIX multithreading
+#
+# Uses ACX_PTHREAD macro from the GNU macro archive.
+# Back to my code to finish enabling pthreads...
+# Define these preprocessor variables:
+#     HMMER_THREADS
+#     HAVE_PTHREAD_SETCONCURRENCY
+#     HAVE_PTHREAD_ATTR_SETSCOPE
+#
+AC_ARG_ENABLE([threads],
+              [AS_HELP_STRING([--enable-threads],
+                 [enable POSIX multithreading support (default is check)])],
+	      [],
+              [enable_threads=check])
+
+case $enable_threads in 
+   yes)   check_threads=yes
+          ;;
+   no)    check_threads=no
+          ;;
+   check) check_threads=yes
+          ;;
+   *)     check_threads=no
+          AC_MSG_NOTICE([Ignoring unknown argument to --enable-threads: $enable_threads])
+          ;;
+esac
+ 
+AS_IF([test "x$check_threads" != xno],
+      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREADS)
+                    AC_SUBST(PTHREAD_LIBS)
+                    AC_SUBST(PTHREAD_CFLAGS)],
+                   [if test "x$enable_threads" != xcheck; then
+                      AC_MSG_FAILURE([POSIX multithreading failed])
+                    fi])])
+
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
 AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
 AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
@@ -350,5 +385,6 @@ echo "
 
 Easel configuration:
 
-     compiler:             ${CC} ${CFLAGS} ${SIMD_CFLAGS}
+     compiler:             ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS}
+     libraries:            ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
 "
