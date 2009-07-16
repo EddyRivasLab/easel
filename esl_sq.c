@@ -490,6 +490,7 @@ esl_sq_DestroyBlock(ESL_SQ_BLOCK *block)
       sq_free(block->list + i);
     }
 
+  free(block->list);
   free(block);
   return;
 }
