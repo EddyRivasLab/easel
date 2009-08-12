@@ -51,6 +51,24 @@ esl_vmx_set_s16(const signed short x)
   return v;
 }
 
+/* Function:  esl_vmx_set_u8()
+ * Synopsis:  Fills byte vector with x.
+ *
+ * Purpose:   Sets all elements in the vector <unsigned char> to x.
+ */
+static inline vector unsigned char
+esl_vmx_set_u8(const unsigned char x)
+{
+  vector signed char v;
+  vector unsigned char p;
+
+  v = vec_lde(0, &x);
+  p = vec_lvsl(0, &x);
+  v = vec_perm(v, v, p);
+  v = vec_splat(v, 0);
+  return v;
+}
+
 /* Function:  esl_vmx_hsum_float()
  * Synopsis:  Returns sum of all floats.
  *
@@ -103,7 +121,7 @@ esl_vmx_hmax_float(vector float v)
   return f;
 }
 
-/* Function:  esl_vmx_hsum_s16()
+/* Function:  esl_vmx_hmax_s16()
  * Synopsis:  Returns max of all shorts.
  *
  * Purpose:   Resturns the maximum element in the vector <signed short>.
@@ -113,6 +131,25 @@ esl_vmx_hmax_s16(vector signed short v)
 {
   signed short s;
 
+  v = vec_max(v, vec_sld(v, v, 2));
+  v = vec_max(v, vec_sld(v, v, 4));
+  v = vec_max(v, vec_sld(v, v, 8));
+  vec_ste(v, 0, &s);
+
+  return s;
+}
+
+/* Function:  esl_vmx_hmax_u8()
+ * Synopsis:  Returns max of all bytes.
+ *
+ * Purpose:   Resturns the maximum element in the vector <unsigned char>.
+ */
+static inline unsigned char
+esl_vmx_hmax_u8(vector unsigned char v)
+{
+  unsigned char s;
+
+  v = vec_max(v, vec_sld(v, v, 1));
   v = vec_max(v, vec_sld(v, v, 2));
   v = vec_max(v, vec_sld(v, v, 4));
   v = vec_max(v, vec_sld(v, v, 8));
