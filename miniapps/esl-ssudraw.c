@@ -269,6 +269,10 @@ static ESL_OPTIONS options[] = {
   { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
   { "--dfile",  eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw' file specifying >=1 diagrams", 6 },
+
+  { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw legend", 7 },
+  { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw header", 7 },
+  { "--no-foot",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw header", 7 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -319,6 +323,8 @@ main(int argc, char **argv)
       puts("\noptions for drawing simple block-only diagrams of masks:");
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
       puts("\noption for reading in a file dictating colors:");
+      esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
+      puts("\noptions for omitting parts of the diagram:");
       esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
       exit(0);
     }
@@ -1492,17 +1498,23 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
     /* draw legend headers, if we have a legend */
     if((ps->nocclA[p] > 0) || (ps->sclAA != NULL && ps->sclAA[p] != NULL)) { 
-      if((status = draw_legend_column_headers(fp, ps, errbuf)) != eslOK) return status;
+      if(! (esl_opt_GetBoolean(go, "--no-leg"))) { 
+	if((status = draw_legend_column_headers(fp, ps, errbuf)) != eslOK) return status;
+      }
     }
 
     /* print one cell color legends, if any */
     if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
       for(l = 0; l < ps->nocclA[p]; l++) 
+      if(! (esl_opt_GetBoolean(go, "--no-leg"))) { 
 	draw_onecell_colorlegend(fp, ps->occlAAA[p][l], ps, l);
+      }
     }
     /* print scheme color legends, if any */
     if(ps->sclAA != NULL && ps->sclAA[p] != NULL) { 
-      draw_scheme_colorlegend(go, fp, ps->sclAA[p], hc_scheme[ps->sclAA[p]->scheme], ps, p);
+      if(! (esl_opt_GetBoolean(go, "--no-leg"))) { 
+	draw_scheme_colorlegend(go, fp, ps->sclAA[p], hc_scheme[ps->sclAA[p]->scheme], ps, p);
+      }
     }
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
@@ -3712,7 +3724,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
   char *model_dashes, *desc_dashes, *desc2print;
   char *desc_string;
   float xmodel;
-  char *model2print;
+  char *model2print = NULL;
 
   header_fontsize = HEADER_FONTSIZE_UNSCALED / ps->scale; 
 
@@ -3720,139 +3732,143 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, header_fontsize);
   fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
 
-  model_width = ESL_MAX(strlen("model"), (int) strlen(ps->modelname));
-  if(model_width > HEADER_MODELNAME_MAXCHARS) { 
-    ESL_ALLOC(model2print, sizeof(char) * (HEADER_MODELNAME_MAXCHARS+1));
-    for(i = 0; i < (HEADER_MODELNAME_MAXCHARS-3); i++) model2print[i] = ps->modelname[i];
-    model2print[HEADER_MODELNAME_MAXCHARS-3] = '.';
-    model2print[HEADER_MODELNAME_MAXCHARS-2] = '.';
-    model2print[HEADER_MODELNAME_MAXCHARS-1] = '.';
-    model2print[HEADER_MODELNAME_MAXCHARS] = '\0';
-  }
-  else { 
-    if((status = esl_strdup(ps->modelname, -1, &(model2print))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying modelname");
-  }
-
-  model_width = ESL_MIN(model_width, HEADER_MODELNAME_MAXCHARS);
-  ESL_ALLOC(model_dashes, sizeof(char) * (model_width+1));
-  for(i = 0; i < model_width; i++) model_dashes[i] = '-'; 
-  model_dashes[model_width] = '\0';
-
-  if(ps->modeA[page] == ALIMODE || ps->modeA[page] == SIMPLEMASKMODE) { 
-    if((status = esl_strdup("description", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
-  }
-  else if(ps->modeA[page] == INDIMODE) { 
-    if((status = esl_strdup("sequence name", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
-  }
-
-  xmodel = ps->headerx_desc - (ps->headerx_charsize * (model_width  + 6 + 6 + 8 + 2)); /*6,6,8 for #res,#bps,#seq|seqlen) plus 2 spaces each, first 2 for 2 spaces before desc*/
-  x = xmodel;
-  y = ps->headery;
-
-  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, "model", "#res", "#bps", x, y);
-  y -= header_fontsize * 0.75;
-  fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
-  y -= header_fontsize * 0.75;
-  fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show", model_width, model2print, ps->clen, ps->msa_nbp, x, y);
-  free(model_dashes);
-  x += (model_width + 6 + 6 +2) * ps->headerx_charsize;
-
-  if(ps->modeA[page] == ALIMODE) { 
-    y+= header_fontsize * 1.5;
-    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "#seqs", x, y);
-    y -= header_fontsize * 0.75;
-    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
-    y -= header_fontsize * 0.75;
-    fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->msa->nseq, x, y);
-  }
-  else if(ps->modeA[page] == INDIMODE && (ps->seqidxA[page] != -1)) { /* ps->seqidxA[page] == -1 if we're printing the consensus sequence */
-    y+= header_fontsize * 1.5;
-    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "seqlen", x, y);
-    y -= header_fontsize * 0.75;
-    fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
-    y -= header_fontsize * 0.75;
-    fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->uaseqlenA[ps->seqidxA[page]], x, y);
-  }
-
-  if(ps->descA[page] != NULL) { 
-    x =  ps->headerx_desc;
-    y += 2. * header_fontsize * 0.75;
-    desc_width = ESL_MAX((int) strlen(desc_string), (int) strlen(ps->descA[page]));
-    if(desc_width > ps->desc_max_chars) { 
-      /* split into two lines, the add_page_desc_to_sspostscript() function added a '\n' where the split should be */
-      i = 0; 
-      while(ps->descA[page][i] != '\n') { 
-	i++; 
-	if(i >= desc_width) ESL_FAIL(eslEINVAL, errbuf, "drawing header, failed to find split point from add_page_desc_to_() in two-line description (%s)", ps->descA[page]);
-      }
-      split_idx = i;
-      desc_column_width = split_idx;
-    }
-    else desc_column_width = desc_width;
-
-    ESL_ALLOC(desc_dashes, sizeof(char) * (desc_column_width+1));
-    for(i = 0; i < desc_column_width; i++) desc_dashes[i] = '-'; 
-    desc_dashes[desc_column_width] = '\0';
-    
-    fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_string, x, y);
-    y -= header_fontsize * 0.75;
-    fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_dashes, x, y);
-    y -= header_fontsize * 0.75;
-    free(desc_dashes);
-    
-    if(desc_width > ps->desc_max_chars) {
-      ESL_ALLOC(desc2print, sizeof(char) * (split_idx+1));
-      for(i = 0; i < split_idx; i++) desc2print[i] = ps->descA[page][i];
-      desc2print[split_idx] = '\0';
-      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
-      free(desc2print);
-      
-      x = ps->headerx_desc;
-      y-= ps->headery_charsize * 1;
-      ESL_ALLOC(desc2print, sizeof(char) * ((desc_width - split_idx) -1+1));
-      for(i = split_idx+1; i < desc_width; i++) desc2print[(i-(split_idx+1))] = ps->descA[page][i];
-      desc2print[(desc_width-(split_idx+1))] = '\0';
-      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
-      free(desc2print);
+  if(! (esl_opt_GetBoolean(go, "--no-head"))) { 
+    model_width = ESL_MAX(strlen("model"), (int) strlen(ps->modelname));
+    if(model_width > HEADER_MODELNAME_MAXCHARS) { 
+      ESL_ALLOC(model2print, sizeof(char) * (HEADER_MODELNAME_MAXCHARS+1));
+      for(i = 0; i < (HEADER_MODELNAME_MAXCHARS-3); i++) model2print[i] = ps->modelname[i];
+      model2print[HEADER_MODELNAME_MAXCHARS-3] = '.';
+      model2print[HEADER_MODELNAME_MAXCHARS-2] = '.';
+      model2print[HEADER_MODELNAME_MAXCHARS-1] = '.';
+      model2print[HEADER_MODELNAME_MAXCHARS] = '\0';
     }
     else { 
-      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_width, ps->descA[page], x, y);
+      if((status = esl_strdup(ps->modelname, -1, &(model2print))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying modelname");
     }
+    
+    model_width = ESL_MIN(model_width, HEADER_MODELNAME_MAXCHARS);
+    ESL_ALLOC(model_dashes, sizeof(char) * (model_width+1));
+    for(i = 0; i < model_width; i++) model_dashes[i] = '-'; 
+    model_dashes[model_width] = '\0';
+    
+    if(ps->modeA[page] == ALIMODE || ps->modeA[page] == SIMPLEMASKMODE) { 
+      if((status = esl_strdup("description", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
+    }
+    else if(ps->modeA[page] == INDIMODE) { 
+      if((status = esl_strdup("sequence name", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
+    }
+    
+    xmodel = ps->headerx_desc - (ps->headerx_charsize * (model_width  + 6 + 6 + 8 + 2)); /*6,6,8 for #res,#bps,#seq|seqlen) plus 2 spaces each, first 2 for 2 spaces before desc*/
+    x = xmodel;
+    y = ps->headery;
+    
+    fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, "model", "#res", "#bps", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
+    y -= header_fontsize * 0.75;
+    fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show", model_width, model2print, ps->clen, ps->msa_nbp, x, y);
+    free(model_dashes);
+    x += (model_width + 6 + 6 +2) * ps->headerx_charsize;
+    
+    if(ps->modeA[page] == ALIMODE) { 
+      y+= header_fontsize * 1.5;
+      fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "#seqs", x, y);
+      y -= header_fontsize * 0.75;
+      fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
+      y -= header_fontsize * 0.75;
+      fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->msa->nseq, x, y);
+    }
+    else if(ps->modeA[page] == INDIMODE && (ps->seqidxA[page] != -1)) { /* ps->seqidxA[page] == -1 if we're printing the consensus sequence */
+      y+= header_fontsize * 1.5;
+      fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "seqlen", x, y);
+      y -= header_fontsize * 0.75;
+      fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
+      y -= header_fontsize * 0.75;
+      fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->uaseqlenA[ps->seqidxA[page]], x, y);
+    }
+    
+    if(ps->descA[page] != NULL) { 
+      x =  ps->headerx_desc;
+      y += 2. * header_fontsize * 0.75;
+      desc_width = ESL_MAX((int) strlen(desc_string), (int) strlen(ps->descA[page]));
+      if(desc_width > ps->desc_max_chars) { 
+	/* split into two lines, the add_page_desc_to_sspostscript() function added a '\n' where the split should be */
+	i = 0; 
+	while(ps->descA[page][i] != '\n') { 
+	  i++; 
+	  if(i >= desc_width) ESL_FAIL(eslEINVAL, errbuf, "drawing header, failed to find split point from add_page_desc_to_() in two-line description (%s)", ps->descA[page]);
+	}
+	split_idx = i;
+	desc_column_width = split_idx;
+      }
+      else desc_column_width = desc_width;
+      
+      ESL_ALLOC(desc_dashes, sizeof(char) * (desc_column_width+1));
+      for(i = 0; i < desc_column_width; i++) desc_dashes[i] = '-'; 
+      desc_dashes[desc_column_width] = '\0';
+      
+      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_string, x, y);
+      y -= header_fontsize * 0.75;
+      fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc_dashes, x, y);
+      y -= header_fontsize * 0.75;
+      free(desc_dashes);
+      
+      if(desc_width > ps->desc_max_chars) {
+	ESL_ALLOC(desc2print, sizeof(char) * (split_idx+1));
+	for(i = 0; i < split_idx; i++) desc2print[i] = ps->descA[page][i];
+	desc2print[split_idx] = '\0';
+	fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
+	free(desc2print);
+	
+	x = ps->headerx_desc;
+	y-= ps->headery_charsize * 1;
+	ESL_ALLOC(desc2print, sizeof(char) * ((desc_width - split_idx) -1+1));
+	for(i = split_idx+1; i < desc_width; i++) desc2print[(i-(split_idx+1))] = ps->descA[page][i];
+	desc2print[(desc_width-(split_idx+1))] = '\0';
+	fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_column_width, desc2print, x, y);
+	free(desc2print);
+      }
+      else { 
+	fprintf(fp, "(%-*s) %.2f %.2f moveto show\n", desc_width, ps->descA[page], x, y);
+      }
+    }
+    /* masked row of header goes here if desired */
   }
-  /* masked row of header goes here if desired */
 
   /* draw footer */
   float footer_fontsize, footerx_charsize;
   footer_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
   footerx_charsize = ps->legx_charsize;
-
+  
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, footer_fontsize);
-  /* draw alignment file name in lower left hand corner */
-  if(ps->mask != NULL) { 
-    if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
-      fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+  if(! (esl_opt_GetBoolean(go, "--no-foot"))) { 
+    /* draw alignment file name in lower left hand corner */
+    if(ps->mask != NULL) { 
+      if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
+	fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+      }
+      else { 
+	fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+      }
     }
     else { 
-      fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+      fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
     }
-  }
-  else { 
-    fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
-  }
+
+    /* put page number */
+    /* determine ndigits */
+    int tmp, ndigits;
+    tmp = pageidx2print;
+    ndigits = 1;
+    while(tmp > 10) { tmp /= 10; ndigits++; }
+    x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
+    fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
+    
+  }    
   fprintf(fp, "(structure diagram derived from CRW database: http://www.rna.ccbb.utexas.edu/) %.2f %.2f moveto show\n", PAGE_SIDEBUF , PAGE_BOTBUF);
-
-  /* put page number */
-  /* determine ndigits */
-  int tmp, ndigits;
-  tmp = pageidx2print;
-  ndigits = 1;
-  while(tmp > 10) { tmp /= 10; ndigits++; }
-  x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
-  fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
-
   fprintf(fp, "%% end ignore\n");
 
-  free(model2print);
+  if(model2print != NULL) free(model2print);
   return eslOK;
 
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), memory error.");
