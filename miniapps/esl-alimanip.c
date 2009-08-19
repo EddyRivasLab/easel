@@ -2895,8 +2895,8 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   /* get averages */
   int nongap_total = 0;
   int nongap_total_rf = 0;
-  int sum_total = 0;
-  int sum_total_rf = 0;
+  float sum_total = 0.;
+  float sum_total_rf = 0.;
   for(s = 0; s < msa->nseq; s++) { 
     avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
   }

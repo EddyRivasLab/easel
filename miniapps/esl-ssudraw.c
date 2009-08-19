@@ -1,5 +1,5 @@
-/* Draw SSU secondary structure diagrams given a Gutell SS template 
- * and an SSU alignment. 
+/* Draw SSU secondary structure diagrams given a postscript SS template 
+ * originally derived from CRW and an SSU alignment. 
  *
  * EPN, Mon Jun 23 14:46:05 2008
  */
@@ -238,8 +238,8 @@ static int  add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask);
 static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask, int do_square_mask, int do_x_mask, int do_border, float boxsize);
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
 
-static char banner[] = "draw Gutell based postscript SSU secondary structure diagrams.";
-static char usage[]  = "[options] <msafile> <Gutell SS postscript template> <output postscript file name>\n\
+static char banner[] = "draw postscript SSU secondary structure diagrams.";
+static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
 #define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
@@ -283,7 +283,7 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
   char         *alifile = NULL;	/* alignment file name             */
   char         *outfile = NULL;	/* output ps file name             */
-  char         *templatefile = NULL; /* Gutell template file       */
+  char         *templatefile = NULL; /* template file       */
   int           fmt;		/* format code for alifile         */
   ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
@@ -325,7 +325,7 @@ main(int argc, char **argv)
       puts("\noption for reading in a file dictating colors:");
       esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
       puts("\noptions for omitting parts of the diagram:");
-      esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
+      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       exit(0);
     }
 
