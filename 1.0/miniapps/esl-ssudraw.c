@@ -2632,7 +2632,6 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   int navg_page = -1;
   int ridx1, ridx2, r;
   float *limits; /* bin limits for the color scheme */
-  char *text;    /* text for color legends */
   int nonecell_avg = 0;
   int nonecell_avg_masked = 0;
   int nonecell_seq = 0;
@@ -2755,8 +2754,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
       if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
       ps->nocclA[pp] = 1;
 
-      /*sprintf(text, "posterior probability; %.3f (RF) %.3f (all)", avgrf_s, avg_s);*/
-      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability (alignment confidence)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability (alnment confidence)", ps->legx_max_chars, errbuf)) != eslOK) return status;
       ps->seqidxA[pp] = s;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[s], errbuf)) != eslOK) return status;
       pp++;
@@ -2789,11 +2787,7 @@ posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     ps->nocclA[pp] = 1;
     
     /* add color legend */
-    /*sprintf(text, "avg posterior probability; %.3f (RF) %.3f (all)", 
-	    (esl_vec_FSum(sumrf_c, msa->alen) / (float) (esl_vec_ISum(nongaprf_c, msa->alen))),
-	    (esl_vec_FSum(sum_c, msa->alen)   / (float) (esl_vec_ISum(nongap_c, msa->alen))));*/
-    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability (alignment confidence)", ps->legx_max_chars,errbuf)) != eslOK) return status;
-    free(text);
+    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability (alnment confidence)", ps->legx_max_chars,errbuf)) != eslOK) return status;
   }
 
 
