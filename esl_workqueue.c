@@ -5,7 +5,7 @@
  *   16. Copyright and license.
  * 
  * MSF, Thu Jun 18 11:51:39 2009
- * SVN $Id: $
+ * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -195,7 +195,7 @@ void *esl_workqueue_Remove(ESL_WORK_QUEUE *queue)
 
   void *ptr = NULL;
 
-  if (queue == NULL) return eslFAIL;
+  if (queue == NULL) return NULL;
 
   status = pthread_mutex_lock (&queue->queueMutex);
   CHECK(status, "Lock mutex failed");

@@ -30,7 +30,9 @@
 #include <math.h>
 #include <float.h>
 
+#ifndef __APPLE_ALTIVEC__
 #include <altivec.h>
+#endif
 
 #include "easel.h"
 #include "esl_vmx.h"

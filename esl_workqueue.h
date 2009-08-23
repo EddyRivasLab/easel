@@ -1,6 +1,6 @@
 /* Threaded work queue.
  * 
- * SVN $Id: $
+ * SVN $Id$
  */
 #ifndef ESL_WORKQUEUE_INCLUDED
 #define ESL_WORKQUEUE_INCLUDED

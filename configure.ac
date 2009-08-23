@@ -315,7 +315,7 @@ AS_IF([test "x$with_gsl" != xno],
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H
-AC_CHECK_HEADERS([sys/types.h unistd.h stdint.h inttypes.h])
+AC_CHECK_HEADERS([sys/types.h sys/sysctl.h unistd.h stdint.h inttypes.h])
 
 # altivec.h requires the simd cflags
 # For reasons I don't understand, this needs to come after any other CHECK_HEADERS().
@@ -360,6 +360,8 @@ AC_CHECK_FUNCS(popen)
 AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)
+AC_CHECK_FUNCS(sysctl)
+AC_CHECK_FUNCS(sysconf)
 AC_FUNC_FSEEKO
 AC_FUNC_FSEEKO
 

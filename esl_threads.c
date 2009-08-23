@@ -1,8 +1,10 @@
-/* Basic threads package
+/* Simple master/worker data parallelization using POSIX threads.
  * 
  * Contents:
- *    1. Work queue routines
- *   16. Copyright and license.
+ *    1. The <ESL_THREADS> object: a gang of workers.
+ *    2. Determining thread number to use.
+ *    3. Examples.
+ *    4. Copyright and license.
  * 
  * MSF, Thu Jun 18 11:51:39 2009
  * SVN $Id$
@@ -16,73 +18,57 @@
 #include <string.h>
 #include <pthread.h>
 
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_SYSCTL_H
+#include <sys/sysctl.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+
 #include "easel.h"
 #include "esl_threads.h"
 
-/* Internal structures */
-
-typedef struct THREAD_INFO_ST THREAD_INFO;
-
-struct THREAD_INFO_ST {
-  pthread_t        threadId;
-  void            *data;
-  ESL_THREADS     *obj;
-  THREAD_INFO     *next;
-};
-
-struct ESL_THREADS_ST {
-  int                    threadCount;
-
-  int                    startThread;
-  pthread_mutex_t        startMutex;
-  pthread_cond_t         startCond;
-
-  THREAD_INFO           *threads;
-
-  ESL_THREAD_FUNCTION    func;
-};
-
-#define CHECK(cond,fmt)		\
-  if (cond) esl_fatal("(%s:%d) - " fmt ": %s (%d)", \
-		      __FUNCTION__, __LINE__, \
-		      strerror (cond), cond)
 
 /*****************************************************************
- *# 1. Thread routines
+ *# 1. The <ESL_THREADS> object: a gang of workers.
  *****************************************************************/ 
 
 /* Function:  esl_threads_Create()
  * Synopsis:  Create a threads object.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Creates an <ESL_THREADS> object.
+ * Purpose:   Creates an <ESL_THREADS> object, for organizing
+ 8            a bunch of worker threads that will all run 
+ *            the worker function <fnptr>. This object is a shell
+ *            for now; the worker threads themselves are 
+ *            created individually with <esl_threads_AddThread()>.
  *
  * Returns:   ptr to the new <ESL_THREADS> object.
+ * 
+ * Throws:    <NULL> on allocation or initialization failure.
  */
-ESL_THREADS *esl_threads_Create(ESL_THREAD_FUNCTION fnptr)
+ESL_THREADS *
+esl_threads_Create(void (*fnptr)(void *))
 {
-  int status;
+  ESL_THREADS *obj = NULL;
+  int          status;
 
-  ESL_THREADS *obj;
-
-  ESL_ALLOC(obj, sizeof(*obj));
+  ESL_ALLOC(obj, sizeof(ESL_THREADS));
 
   obj->threadCount     = 0;
+  obj->threadId        = NULL;
+  obj->data            = NULL;
   obj->startThread     = 0;
-  obj->threads         = NULL;
-
   obj->func            = fnptr;
 
-  status = pthread_mutex_init (&obj->startMutex, NULL);
-  CHECK (status, "Create mutex failed");
-
-  status = pthread_cond_init (&obj->startCond, NULL);
-  CHECK (status, "Create cond var failed");
-
+  if (pthread_mutex_init(&obj->startMutex, NULL) != 0) ESL_XEXCEPTION(eslESYS, "mutex init failed");
+  if (pthread_cond_init (&obj->startCond,  NULL) != 0) ESL_XEXCEPTION(eslESYS, "cond init failed");
   return obj;
 
  ERROR:
-  esl_fatal("Could not allocate threads object");
   return NULL;
 }
 
@@ -92,279 +78,356 @@ ESL_THREADS *esl_threads_Create(ESL_THREAD_FUNCTION fnptr)
  *
  * Purpose:   Frees an <ESL_THREADS> object.  
  *
- *            The calling routine is responsible for freeing the
- *            memory of the thread data.
+ *            The caller routine must first free the
+ *            contents of each <obj->data[]>.
  *
  * Returns:   void
  */
-void esl_threads_Destroy(ESL_THREADS *obj)
+void 
+esl_threads_Destroy(ESL_THREADS *obj)
 {
-  int           status;
-  THREAD_INFO  *thread;
+  if (obj == NULL) return;
 
-  if (obj != NULL)
-    {
-      status = pthread_mutex_destroy (&obj->startMutex);
-      CHECK (status, "Destroy mutex failed");
-
-      status = pthread_cond_destroy (&obj->startCond);
-      CHECK (status, "Destroy cond var failed");
-
-      thread = obj->threads;
-      while (thread != NULL)
-	{
-	  THREAD_INFO  *tmp = thread;
-	  thread = thread->next;
-
-	  free(tmp);
-	}
-
-      free(obj);
-    }
+  if (obj->threadId != NULL) free(obj->threadId);
+  if (obj->data     != NULL) free(obj->data);
+  pthread_mutex_destroy(&obj->startMutex);
+  pthread_cond_destroy (&obj->startCond);
+  free(obj);
+  return;
 }
 
 /* Function:  esl_threads_AddThread()
- * Synopsis:  Adds a thread to the <ESL_THREADS> object.
+ * Synopsis:  Add a worker thread to the <ESL_THREADS> object.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Create a new thread for the <ESL_THREADS> object.
+ * Purpose:   Create a new worker thread for the <ESL_THREADS> object,
+ *            assigning it the work unit pointed to by <data>.
  *
- *            The calling routine is responsible for freeing the
- *            memory of the thread data.
+ *            The caller remains responsible for any memory allocated
+ *            to <data>; the <ESL_THREADS> object will only manage
+ *            a copy of a pointer to <data>.
  *
- * Returns:   void
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEMEM> on allocation failure. 
+ *            <eslESYS> if thread creation fails.
+ *            <eslEINVAL> if something's wrong with the <obj>.
  */
-int esl_threads_AddThread(ESL_THREADS *obj, void *data)
+int 
+esl_threads_AddThread(ESL_THREADS *obj, void *data)
 {
-  int           status;
-  THREAD_INFO  *thread;
+  int    status;
+  void  *p;
 
-  if (obj == NULL) esl_fatal("Invalid thread object");
+  if (obj == NULL) ESL_EXCEPTION(eslEINVAL, "Invalid thread object");
 
-  ESL_ALLOC(thread, sizeof(*thread));
-
-  thread->data   = data;
-  thread->obj    = obj;
-  thread->next   = obj->threads;
-
-  obj->threads   = thread;
-  ++obj->threadCount;
-
-  status = pthread_create(&thread->threadId, NULL, obj->func, obj);
-  CHECK(status, "Create thread failed");
-
+  /* allocate inside the ESL_THREADS object to hold another worker */
+  ESL_RALLOC(obj->threadId, p, sizeof(pthread_t) * (obj->threadCount+1));
+  ESL_RALLOC(obj->data,     p, sizeof(void *)    * (obj->threadCount+1));
+  
+  obj->data[obj->threadCount] = data;
+  if (pthread_create(&(obj->threadId[obj->threadCount]), NULL, (void *) obj->func, obj) != 0) ESL_EXCEPTION(eslESYS, "thread creation failed");
+  obj->threadCount++;
   return eslOK;
 
  ERROR:
-  esl_fatal("Could not allocate thread");
-  return eslFAIL;
+  return status;
 }
 
-/* Function:  esl_threads_WaitForStart()
- * Synopsis:  Blocks until all threads have started.
- * Incept:    MSF, Thu Jun 18 11:51:39 2009
+/* Function:  esl_threads_GetWorkerCount()
+ * Synopsis:  Return the total number of worker threads.
+ * Incept:    SRE, Fri Aug 21 13:22:52 2009 [Janelia]
  *
- * Purpose:   Block until all the threads have started.  When all the threads
- *            have started and are blocking at the start mutex, release
- *            them.
- *
- * Returns:   void
+ * Purpose:   Returns the total number of worker threads.
  */
-int esl_threads_WaitForStart(ESL_THREADS *obj)
+int
+esl_threads_GetWorkerCount(ESL_THREADS *obj)
 {
-  int           status;
-
-  if (obj == NULL) esl_fatal("Invalid thread object");
-
-  status = pthread_mutex_lock (&obj->startMutex);
-  CHECK(status, "Lock mutex failed");
-
-  /* wait for the threads to have started */
-  while (obj->startThread < obj->threadCount) {
-    status = pthread_cond_wait(&obj->startCond, &obj->startMutex);
-    CHECK(status, "Wait cond failed");
-  }
-
-  /* release all the threads */
-  obj->startThread = 0;
-  status = pthread_cond_broadcast (&obj->startCond);
-  CHECK(status, "Cond broadcast failed");
-
-  status = pthread_mutex_unlock (&obj->startMutex);
-  CHECK(status, "Unlock mutex failed");
-
   return obj->threadCount;
 }
 
-/* Function:  esl_threads_WaitForFinish()
- * Synopsis:  Blocks until all threads have complted.
+
+/* Function:  esl_threads_WaitForStart()
+ * Synopsis:  Blocks master until all workers have started.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Block until all the threads have completed.  Remove the
- *            thread object from the list as it completes.
+ * Purpose:   Make the master thread wait until all the worker threads have
+ *            started. When all the worker threads have started and
+ *            are blocking at the start mutex, release them.
  *
- * Returns:   void
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslESYS> if thread synchronization fails somewhere.
+ *            <eslEINVAL> if something is awry with <obj>.
  */
-int esl_threads_WaitForFinish(ESL_THREADS *obj)
+int
+esl_threads_WaitForStart(ESL_THREADS *obj)
 {
-  int           status;
-  THREAD_INFO   *thread;
+  if (obj == NULL) ESL_EXCEPTION(eslEINVAL, "Invalid thread object");
 
-  if (obj == NULL) esl_fatal("Invalid thread object");
+  if (pthread_mutex_lock (&obj->startMutex) != 0) ESL_EXCEPTION(eslESYS, "mutex lock failed");
 
-  /* wait for the threads to complete */
-  thread = obj->threads;
-  while (thread != NULL)
+  /* wait for all worker threads to start */
+  while (obj->startThread < obj->threadCount) {
+    if (pthread_cond_wait(&obj->startCond, &obj->startMutex) != 0) ESL_EXCEPTION(eslESYS, "wait cond failed");
+  }
+
+  /* release all the worker threads */
+  obj->startThread = 0;
+  if (pthread_cond_broadcast(&obj->startCond)  != 0) ESL_EXCEPTION(eslESYS, "cond broadcast failed");
+  if (pthread_mutex_unlock  (&obj->startMutex) != 0) ESL_EXCEPTION(eslESYS, "mutex unlock failed");
+  return eslOK;
+}
+
+/* Function:  esl_threads_WaitForFinish()
+ * Synopsis:  Blocks master until all workers have completed.
+ * Incept:    MSF, Thu Jun 18 11:51:39 2009
+ *
+ * Purpose:   Block the master thread until all the worker threads have
+ *            completed. As each worker completes, remove it from the 
+ *            <obj>. 
+ *            
+ *            Upon exit, the <obj> is returned to the same (empty)
+ *            state it was in after it was created. It may be reused
+ *            for a new problem by adding new workers.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslESYS> if thread synchronization fails somewhere.
+ *            <eslEINVAL> if something is awry with <obj>.
+ */
+int 
+esl_threads_WaitForFinish(ESL_THREADS *obj)
+{
+  int  w;			
+
+  if (obj == NULL) ESL_EXCEPTION(eslEINVAL, "Invalid thread object");
+
+  /* wait for all worker threads to complete */
+  for (w = obj->threadCount-1; w >= 0; w--)
     {
-      THREAD_INFO  *tmp = thread;
-      thread = thread->next;
-
-      status = pthread_join(tmp->threadId, NULL);
-      CHECK(status, "Join thread failed");
-
-      status = pthread_mutex_lock (&obj->startMutex);
-      CHECK(status, "Lock mutex failed");
-
-      obj->threads = thread;
+      if (pthread_join(obj->threadId[w], NULL) != 0) ESL_EXCEPTION(eslESYS, "pthread join failed");
       obj->threadCount--;
-
-      status = pthread_mutex_unlock (&obj->startMutex);
-      CHECK(status, "Unlock mutex failed");
-
-      free(tmp);
     }
 
   return eslOK;
 }
 
 /* Function:  esl_threads_Started()
- * Synopsis:  Blocks until all threads have started.
+ * Synopsis:  Blocks worker until master gives the start signal.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Block until all the threads have started.  When all the threads
- *            have started and are blocking at the start mutex, release
- *            them.
+ * Purpose:   Block a worker thread until master sees that all workers
+ *            have started and gives the start signal. Assign the worker
+ *            a unique number (0..nworkers-1), and return it in
+ *            <*ret_workeridx>. The worker uses this index to 
+ *            retrieve its work units.
  *
- * Returns:   void
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslESYS> if thread synchronization fails somewhere.
+ *            <eslEINVAL> if something is awry with <obj>.
  */
-int esl_threads_Started(ESL_THREADS *obj)
+int
+esl_threads_Started(ESL_THREADS *obj, int *ret_workeridx)
 {
-  int           status;
+  int           w;
   pthread_t     threadId;
+  int           status;
 
-  THREAD_INFO  *thread;
+  if (obj == NULL)                                ESL_XEXCEPTION(eslEINVAL, "Invalid thread object");
+  if (pthread_mutex_lock (&obj->startMutex) != 0) ESL_XEXCEPTION(eslESYS,   "mutex lock failed");
 
-  if (obj == NULL) esl_fatal("Invalid thread object");
+  /* signal that we're started */
+  obj->startThread++;
+  if (pthread_cond_broadcast (&obj->startCond) != 0) ESL_XEXCEPTION(eslESYS, "cond broadcast failed");
 
-  threadId = pthread_self();
-
-  status = pthread_mutex_lock (&obj->startMutex);
-  CHECK(status, "Lock mutex failed");
-
-  /* make sure the thread has registered */
-  thread = obj->threads;
-  while (thread != NULL && thread->threadId != threadId)
-    {
-      thread = thread->next;
-    }
-
-  if (thread == NULL) esl_fatal("Thread has not registed");
-
-  /* signal that we have started */
-  ++obj->startThread;
-  status = pthread_cond_broadcast (&obj->startCond);
-  CHECK(status, "Cond broadcast failed");
-
-  /* wait for the signal to start the calculations */
+  /* wait for the master's signal to start the calculations */
   while (obj->startThread) {
-    status = pthread_cond_wait(&obj->startCond, &obj->startMutex);
-    CHECK(status, "Cond wait failed");
+    if (pthread_cond_wait(&obj->startCond, &obj->startMutex) != 0) ESL_XEXCEPTION(eslESYS, "cond wait failed");
   }
 
-  status = pthread_mutex_unlock (&obj->startMutex);
-  CHECK(status, "Unlock mutex failed");
+  if (pthread_mutex_unlock (&obj->startMutex) != 0)  ESL_XEXCEPTION(eslESYS, "mutex unlock failed");
 
+  /* Figure out the worker's index */
+  threadId = pthread_self();
+  for (w = 0; w < obj->threadCount; w++)
+    if (pthread_equal(threadId, obj->threadId[w])) break;
+  if (w == obj->threadCount) ESL_XEXCEPTION(eslESYS, "thread not registered");
+
+  *ret_workeridx = w;
   return eslOK;
+
+ ERROR:
+  *ret_workeridx = 0;
+  return status;
 }
+
 
 /* Function:  esl_threads_GetData()
  * Synopsis:  Return the data associated with this thread.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Return the data associated with this thread.  The data for
- *            this thread is set in the esl_threads_AddThread() function.
+ * Purpose:   Return the data pointer associated with the worker thread
+ *            <workeridx>. The data pointer was set by the 
+ *            <esl_threads_AddThread()> function.
  *
  * Returns:   void *
  */
-void *esl_threads_GetData(ESL_THREADS *obj)
+void *
+esl_threads_GetData(ESL_THREADS *obj, int workeridx)
 {
-  int           status;
-  pthread_t     threadId;
-
-  THREAD_INFO  *thread;
-
-  if (obj == NULL) esl_fatal("Invalid thread object");
-
-  threadId = pthread_self();
-
-  status = pthread_mutex_lock (&obj->startMutex);
-  CHECK(status, "Lock mutex failed");
-
-  /* make sure the thread has registered */
-  thread = obj->threads;
-  while (thread != NULL && thread->threadId != threadId)
-    {
-      thread = thread->next;
-    }
-
-  status = pthread_mutex_unlock (&obj->startMutex);
-  CHECK(status, "Unlock mutex failed");
-
-  if (thread == NULL) esl_fatal("Thread has not registed");
-
-  return thread->data;
+  return obj->data[workeridx];
 }
 
-/* Function:  esl_threads_Exit()
+
+/* Function:  esl_threads_Finished()
  * Synopsis:  Terminate the thread.
  * Incept:    MSF, Thu Jun 18 11:51:39 2009
  *
- * Purpose:   Terminate the thread.
+ * Purpose:   Terminate a worker thread.
+ *            This is currently a no-op, serving as
+ *            a placeholder in case we eventually need
+ *            any cleanup.
  *
- * Returns:   void
+ * Returns:   <eslOK> on success.
  */
-void esl_threads_Exit(ESL_THREADS *obj)
+int
+esl_threads_Finished(ESL_THREADS *obj, int workeridx)
 {
-  int           status;
-  pthread_t     threadId;
+  return eslOK;
+}
 
-  THREAD_INFO  *thread;
 
-  if (obj == NULL) esl_fatal("Invalid thread object");
+/*****************************************************************
+ * 2. Determining thread number to use
+ *****************************************************************/
 
-  threadId = pthread_self();
+/* Function:  esl_threads_CPUCount()
+ * Synopsis:  Figure out how many cpus the machine has.
+ * Incept:    SRE, Wed Aug 19 11:31:24 2009 [Janelia]
+ *
+ * Purpose:   Determine the number of logical processors on this
+ *            machine; return that number in <*ret_ncpu>.
+ *            
+ *            The number of available processors is found by
+ *            <sysconf(_SC_NPROCESSORS_ONLN)>,
+ *            <sysconf(_SC_NPROC_ONLN)>, or a <sysctl()> call,
+ *            depending on the host system.  This determined number of
+ *            available processors will be the number of logical
+ *            processors, not physical processors. On systems with
+ *            hyperthreading, the number of logical processors is more
+ *            than the number of physical cpus. It may or may not be a
+ *            good thing to spawn more threads than physical
+ *            processors.
+ *            
+ * Args:      ret_ncpu  - RETURN: number of logical CPUs
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      J5/68
+ */
+int
+esl_threads_CPUCount(int *ret_ncpu)
+{
+  int   ncpu = 1;
 
-  status = pthread_mutex_lock (&obj->startMutex);
-  CHECK(status, "Lock mutex failed");
+#if defined     (HAVE_SYSCONF) && defined (_SC_NPROCESSORS_ONLN)     /* Many systems (including Linux) */
+  ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined   (HAVE_SYSCONF) && defined (_SC_NPROC_ONLN)	     /* Silicon Graphics IRIX */
+  ncpu = sysconf(_SC_NPROC_ONLN);
+#elif defined   (HAVE_SYSCTL)	                                     /* BSD systems including OS/X */
+  int    mib[2] = {CTL_HW, HW_NCPU};
+  size_t len    = sizeof(int);
+  int    status;
 
-  /* make sure the thread has registered */
-  thread = obj->threads;
-  while (thread != NULL && thread->threadId != threadId)
-    {
-      thread = thread->next;
-    }
+  status = sysctl(mib, 2, &ncpu, &len, NULL, (size_t) NULL);
+  if (status < 0 || len != sizeof(int)) ncpu = 1;
+#endif
+  
+  if (ncpu < 1) ncpu = 1;
 
-  status = pthread_mutex_unlock (&obj->startMutex);
-  CHECK(status, "Unlock mutex failed");
+  *ret_ncpu = ncpu;
+  return eslOK;
+}
 
-  if (thread == NULL) esl_fatal("Thread has not registed");
 
-  pthread_exit (NULL);
+/*****************************************************************
+ * 3. Example
+ *****************************************************************/
+
+#ifdef eslTHREADS_EXAMPLE
+#include "easel.h"
+#include "esl_threads.h"
+
+/* gcc --std=gnu99 -g -Wall -pthread -o esl_threads_example -I. -DeslTHREADS_EXAMPLE esl_threads.c easel.c */
+static void 		
+worker_thread(void *data)
+{
+  ESL_THREADS *thr = (ESL_THREADS *) data;
+  char        *s   = NULL;
+  int          w;
+
+  esl_threads_Started(thr, &w);
+  
+  s = (char *) esl_threads_GetData(thr, w);
+  printf("worker thread %d receives: %s\n", w, s);
+
+  esl_threads_Finished(thr, w);
   return;
 }
 
-#endif /* HAVE_PTHREADS */
+int
+main(void)
+{
+  ESL_THREADS  *thr  = NULL;
+  int           ncpu = 8;
+  int           i;
+  char        **work = NULL;
+
+  work = malloc(sizeof(char *) * ncpu);
+  for (i = 0; i < ncpu; i++) 
+    esl_sprintf(&(work[i]), "work packet %d", i);
+
+  thr = esl_threads_Create(&worker_thread);
+
+  for (i = 0; i < ncpu; i++)
+    esl_threads_AddThread(thr, (void *) work[i]);
+
+  esl_threads_WaitForStart (thr);
+  /* The worker threads now run their work. */
+  esl_threads_WaitForFinish(thr);
+  esl_threads_Destroy(thr);
+  for (i = 0; i < ncpu; i++) free(work[i]);
+  free(work);
+  return eslOK;
+}
+#endif /*eslTHREADS_EXAMPLE*/
+
+
+#ifdef eslTHREADS_EXAMPLE2
+#include "easel.h"
+#include "esl_threads.h"
+
+/* gcc --std=gnu99 -g -Wall -pthread -o esl_threads_example2 -I. -DeslTHREADS_EXAMPLE2 esl_threads.c easel.c */
+int 
+main(void)
+{
+  int ncpu;
+
+  esl_threads_CPUCount(&ncpu);
+  printf("Processors: %d\n", ncpu);
+
+  return eslOK;
+}
+#endif /*eslTHREADS_EXAMPLE2*/
+
+
+
 
 /*****************************************************************  
  * @LICENSE@
  *****************************************************************/
+#endif /* HAVE_PTHREADS */

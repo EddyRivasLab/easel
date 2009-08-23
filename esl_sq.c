@@ -1614,12 +1614,13 @@ sq_create_from(const char *name, const char *desc, const char *acc)
 static void
 sq_free(ESL_SQ *sq)
 {
-  if (sq->name != NULL)   free(sq->name);
-  if (sq->acc  != NULL)   free(sq->acc);
-  if (sq->desc != NULL)   free(sq->desc);
-  if (sq->seq  != NULL)   free(sq->seq);
-  if (sq->dsq  != NULL)   free(sq->dsq);
-  if (sq->ss   != NULL)   free(sq->ss);
+  if (sq->name   != NULL)   free(sq->name);
+  if (sq->acc    != NULL)   free(sq->acc);
+  if (sq->desc   != NULL)   free(sq->desc);
+  if (sq->source != NULL)   free(sq->source);
+  if (sq->seq    != NULL)   free(sq->seq);
+  if (sq->dsq    != NULL)   free(sq->dsq);
+  if (sq->ss     != NULL)   free(sq->ss);
 }  
 
 /*----------------- end, internal functions ---------------------*/

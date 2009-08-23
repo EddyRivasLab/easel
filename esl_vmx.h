@@ -8,8 +8,9 @@
 #include "easel.h"
 
 #include <stdio.h>
+#ifndef __APPLE_ALTIVEC__
 #include <altivec.h>
-
+#endif
 
 extern vector float esl_vmx_logf(vector float x);
 extern vector float esl_vmx_expf(vector float x);

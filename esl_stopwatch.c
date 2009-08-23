@@ -71,10 +71,10 @@ esl_stopwatch_Destroy(ESL_STOPWATCH *w)
 int 
 esl_stopwatch_Start(ESL_STOPWATCH *w)
 {
-  w->t0 = time(NULL);
 #ifdef HAVE_TIMES /* POSIX */
-  (void) times(&(w->cpu0));
+  w->t0 = times(&(w->cpu0));
 #else             /* fallback to ANSI C */
+  w->t0   = time(NULL);
   w->cpu0 = clock();
 #endif
   w->elapsed = 0.;
@@ -95,32 +95,32 @@ esl_stopwatch_Start(ESL_STOPWATCH *w)
 int
 esl_stopwatch_Stop(ESL_STOPWATCH *w)
 {
-  time_t t1;
 #ifdef HAVE_TIMES
   struct tms cpu1;
-  long       clk_tck;
+  clock_t    t1;
+  double     clk_tck;
 #else
+  time_t  t1;
   clock_t cpu1;
 #endif
 
-  t1 = time(NULL);
-  w->elapsed = difftime(t1, w->t0);
 
 #ifdef HAVE_TIMES /* POSIX */
-  (void) times(&cpu1);
+  t1         = times(&cpu1);
   
-  clk_tck = sysconf(_SC_CLK_TCK);
-  w->user = (double) (cpu1.tms_utime + cpu1.tms_cutime -
-		      w->cpu0.tms_utime - w->cpu0.tms_cutime) /
-            (double) clk_tck;
+  clk_tck    = (double) sysconf(_SC_CLK_TCK);
+  w->elapsed = (double) (t1 - w->t0) / clk_tck;
+  w->user    = (double) (cpu1.tms_utime + cpu1.tms_cutime -
+			 w->cpu0.tms_utime - w->cpu0.tms_cutime) / clk_tck;
 
-  w->sys  = (double) (cpu1.tms_stime + cpu1.tms_cstime -
-		      w->cpu0.tms_stime - w->cpu0.tms_cstime) /
-            (double) clk_tck;
+  w->sys     = (double) (cpu1.tms_stime + cpu1.tms_cstime -
+			 w->cpu0.tms_stime - w->cpu0.tms_cstime) / clk_tck;
 #else /* fallback to ANSI C */
-  cpu1    = clock();
-  w->user = (double) (cpu1- w->cpu0) / (double) CLOCKS_PER_SEC;
-  w->sys  = 0.;		/* no way to portably get system time in ANSI C */
+  t1         = time(NULL);
+  cpu1       = clock();
+  w->elapsed = difftime(t1, w->t0);
+  w->user    = (double) (cpu1- w->cpu0) / (double) CLOCKS_PER_SEC;
+  w->sys     = 0.;		/* no way to portably get system time in ANSI C */
 
 #endif
   return eslOK;
@@ -190,7 +190,7 @@ esl_stopwatch_Display(FILE *fp, ESL_STOPWATCH *w, char *prefix)
   fprintf(fp, "%.2fu %s ", w->user, buf);
 #endif
 
-  format_time_string(buf, w->elapsed, 0);
+  format_time_string(buf, w->elapsed, TRUE);
   fprintf(fp, "Elapsed: %s\n", buf);
   return eslOK;
 }

@@ -37,6 +37,7 @@
 #undef HAVE_STDINT_H
 #undef HAVE_INTTYPES_H
 #undef HAVE_SYS_TYPES_H
+#undef HAVE_SYS_SYSCTL_H
 
 /* Types
  */
@@ -70,6 +71,8 @@
 #undef HAVE_STRCASECMP
 #undef HAVE_TIMES
 #undef HAVE_GETPID
+#undef HAVE_SYSCTL
+#undef HAVE_SYSCONF
 #undef HAVE_FSEEKO
 
 #undef HAVE_PTHREADS
