@@ -311,6 +311,8 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
 	  esl_msa_Destroy(msa);
 	}
 
+      if (msa == NULL) esl_fatal("Failed to find alignment %s\n", key);
+
       esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
       esl_msa_Destroy(msa);
     }
