@@ -19,6 +19,10 @@
 #                     (More than one -r can be used; the list
 #                     should mirror the list of bindirs in the command
 #                     line, for the new version of the binaries.)
+#    -D <datadir>   - optional path to data files.  When processing
+#                     the command line, items delimited by !! will
+#                     be prepended by <datadir>.
+#
 # Example: 
 #    sqc -p ../squid 2 exercises.sqc ../src
 #    sqc -p ../squid -r ../infernal-0.3/src 2 regressions.sqc ../src
@@ -67,7 +71,13 @@
 #             a token may be used in more than one command (for example,
 #             a "prep" command can create a file that subsequent
 #             "exercise" commands need as input).
-#             For example, %FOO% might be substituted by /tmp/sqc-FOO. 
+#             For example, %FOO% might be substituted by /tmp/sqc-FOO.
+#
+#             Tokens enclosed in !! will be prepended with the path
+#             specified in the -D option.  For example if -D is defined
+#             the token !mouse.db! might be substituted by /tmp/data/mouse.db.
+#             If no -D option was specified, the delimiters are removed with
+#             no substitution.  The above example just becomes mouse.db.
 #
 #             No token may contain the string REGRESSION; this is
 #             reserved for regression tests (see below).
@@ -195,10 +205,11 @@ require "importenv.pl";
 
 # Parse our command line
 #
-&Getopts('mp:r:v');
+&Getopts('mp:r:D:v');
 if ($opt_m) { $do_memtest = 1;    }
 if ($opt_p) { push @prepdirs, $opt_p; }
 if ($opt_r) { push @olddirs,  $opt_r; }
+if ($opt_D) { $datadir = $opt_D;      }
 if ($opt_v) { $verbose = 1;           }
 
 if ($#ARGV < 2) {
@@ -280,6 +291,10 @@ while (<COMMANDS>) {
 	}
     }
     print "sqc: after path subst, cmd is: $cmd\n" if $verbose;
+
+    # Data substitutions
+    $cmd = &data_substitution($cmd, $datadir);
+    print "sqc: after data subst, cmd is: $cmd\n" if $verbose;
 
     # Output redirection substitution.
     # stdout is sent to /dev/null unless command already is handling it.
@@ -452,6 +467,25 @@ path_substitution
 	if (! $foundit) { last; }
     }
     return ($foundit, $com);
+}
+    
+sub
+data_substitution
+{
+    my ($com, $dir) = @_;
+    
+    $foundit = 0;
+    while ($com =~ /\!(\S+)\!/) {
+	$token    = $1;
+	if (defined($dir)) {
+	    $newname = "$dir/$token";
+	    $newname =~ s/\/\//\//g;
+	    $com =~ s/\!$token!/$newname/;
+	} else {
+	    $com =~ s/\!$token!/$token/;
+	}
+    }
+    return $com;
 }
     
 # Function: check_valgrind_status

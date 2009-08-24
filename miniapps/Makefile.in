@@ -1,5 +1,10 @@
 # Makefile.in for Easel's miniapps
 # SVN $Id$
+
+srcdir     = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH      = @srcdir@ @top_srcdir@
+
 SHELL       = /bin/sh
 SUFFIXES    = 
 SUFFIXES    = .c .o
@@ -59,7 +64,7 @@ ${PROGS}: @EXEC_DEPENDENCY@  ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L${ESLDIR} -o $@ $@.o ${LIBS}
 
 .c.o:
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I${ESLDIR} -c $<
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I${ESLDIR} -I${srcdir} -I${top_srcdir}/easel -c $<
 
 install:
 	cp ${PROGS} ${DESTDIR}${bindir}/

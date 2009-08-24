@@ -6,6 +6,10 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
+srcdir     = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH      = @srcdir@ @top_srcdir@/src
+
 CC       = @CC@
 CFLAGS   = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
@@ -18,7 +22,7 @@ MPILIBS  = @MPILIBS@
 AR      = @AR@ rcv
 RANLIB  = @RANLIB@
 
-ESLDIR   = ../
+ESLDIR   = ..
 SQCLEVEL = 2
 
 PROGS = parse-t1\
@@ -47,7 +51,7 @@ run_sqc:
 	@echo 
 	@echo Running Easel test suite...
 	@echo
-	@../devkit/sqc 2 testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/
+	@${top_srcdir}/easel/devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}
 
 ${PROGS}: %: %.o ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${ESLDIR} $@.o -leasel -lm

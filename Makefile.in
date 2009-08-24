@@ -1,6 +1,11 @@
 # Top level Makefile for Easel
 #
 # SVN $Id$
+
+srcdir     = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH      = @srcdir@ @top_srcdir@
+
 SHELL       = /bin/sh
 
 # Installation targets
@@ -219,7 +224,7 @@ libeasel.a: $(OBJS)
 ${OBJS}: ${HDRS}
 
 .c.o: 
-	${CC} -I. ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
+	${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
 
 
 # Unit test compilation:
@@ -238,12 +243,12 @@ ${UTESTS}:  libeasel.a
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_TESTDRIVE ;\
 	if test $@ = "easel_utest"; then \
-           DFILE=easel.c ;\
+           DFILE=${srcdir}/easel.c ;\
         else \
-           DFILE=esl_$${BASENAME}.c ;\
+           DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
-	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -L. -D$${DFLAG} $${DFILE} -leasel -lm
+	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 
 # install:   installs libeasel.a in ${libdir}/
