@@ -22,7 +22,7 @@ extern void         esl_vmx_dump_vecfloat(FILE *fp, vector float v);
  * Purpose:   Sets all elements in the vector <float> to x.
  */
 static inline vector float
-esl_vmx_set_float(const float x)
+esl_vmx_set_float(float x)
 {
   vector float v;
   vector unsigned char p;
@@ -40,7 +40,7 @@ esl_vmx_set_float(const float x)
  * Purpose:   Sets all elements in the vector <signed short> to x.
  */
 static inline vector signed short
-esl_vmx_set_s16(const signed short x)
+esl_vmx_set_s16(signed short x)
 {
   vector signed short v;
   vector unsigned char p;
@@ -58,9 +58,9 @@ esl_vmx_set_s16(const signed short x)
  * Purpose:   Sets all elements in the vector <unsigned char> to x.
  */
 static inline vector unsigned char
-esl_vmx_set_u8(const unsigned char x)
+esl_vmx_set_u8(unsigned char x)
 {
-  vector signed char v;
+  vector unsigned char v;
   vector unsigned char p;
 
   v = vec_lde(0, &x);

@@ -73,9 +73,10 @@
 vector float 
 esl_vmx_logf(vector float x) 
 {
-  static vector float cephesv_p[3] = { { 7.0376836292E-2f, -1.1514610310E-1f,  1.1676998740E-1f, -1.2420140846E-1f }, 
-				       { 1.4249322787E-1f, -1.6668057665E-1f,  2.0000714765E-1f, -2.4999993993E-1f },
-				       { 3.3333331174E-1f,  0.0f,              0.0f,              0.0f             } };
+  static vector float cephesv_1 = { 7.0376836292E-2f, -1.1514610310E-1f,  1.1676998740E-1f, -1.2420140846E-1f };
+  static vector float cephesv_2 = { 1.4249322787E-1f, -1.6668057665E-1f,  2.0000714765E-1f, -2.4999993993E-1f };
+  static vector float cephesv_3 = { 3.3333331174E-1f,  0.0f,              0.0f,              0.0f             };
+
   static vector float constv = { 0.707106781186547524f, -2.12194440e-4f, 0.5f, 0.693359375f };
 
   vector float onev = (vector float) {1.0, 1.0, 1.0, 1.0}; /* all elem = 1.0 */
@@ -89,14 +90,14 @@ esl_vmx_logf(vector float x)
   vector float z;
 
   vector float zerov = (vector float) vec_splat_u32(0);
-  
+  vector signed int infExpv = { 255, 255, 255, 255 };  
+
   /* first, split x apart: x = frexpf(x, &e); */
   ei           = vec_sr((vector signed int) x, ((vector unsigned int) {23, 23, 23, 23}));
 							             /* shift right 23: IEEE754 floats: ei = biased exponents     */
   invalid_mask = vec_cmple(x, zerov);                                /* mask any elem that's negative; these become NaN           */
   zero_mask    = vec_cmpeq(ei,(vector signed int) zerov);            /* mask any elem zero or subnormal; these become -inf        */
-  inf_mask     = vec_cmpeq(ei,(vector signed int) {255, 255, 255, 255});
-								     /* mask any elem +inf or NaN; these stay +inf or NaN         */
+  inf_mask     = vec_cmpeq(ei, infExpv);			     /* mask any elem +inf or NaN; these stay +inf or NaN         */
   origx        = x;			                             /* store original x, used for log(inf) = inf, log(NaN) = NaN */
 
   x  = vec_and(x, (vector float) ((vector unsigned int) {~0x7f800000, ~0x7f800000, ~0x7f800000, ~0x7f800000}));
@@ -114,15 +115,15 @@ esl_vmx_logf(vector float x)
   x    = vec_add(x, tmp);
   z    = vec_madd(x, x, zerov);
 
-  y =                vec_splat(cephesv_p[0], 0);
-  y = vec_madd(y, x, vec_splat(cephesv_p[0], 1)); 
-  y = vec_madd(y, x, vec_splat(cephesv_p[0], 2));    
-  y = vec_madd(y, x, vec_splat(cephesv_p[0], 3));   
-  y = vec_madd(y, x, vec_splat(cephesv_p[1], 0));   
-  y = vec_madd(y, x, vec_splat(cephesv_p[1], 1));    
-  y = vec_madd(y, x, vec_splat(cephesv_p[1], 2));   
-  y = vec_madd(y, x, vec_splat(cephesv_p[1], 3)); 
-  y = vec_madd(y, x, vec_splat(cephesv_p[2], 0));  
+  y =                vec_splat(cephesv_1, 0);
+  y = vec_madd(y, x, vec_splat(cephesv_1, 1)); 
+  y = vec_madd(y, x, vec_splat(cephesv_1, 2));    
+  y = vec_madd(y, x, vec_splat(cephesv_1, 3));   
+  y = vec_madd(y, x, vec_splat(cephesv_2, 0));   
+  y = vec_madd(y, x, vec_splat(cephesv_2, 1));    
+  y = vec_madd(y, x, vec_splat(cephesv_2, 2));   
+  y = vec_madd(y, x, vec_splat(cephesv_2, 3)); 
+  y = vec_madd(y, x, vec_splat(cephesv_3, 0));  
   y = vec_madd(y, x, zerov);
   y = vec_madd(y, z, zerov);
 
@@ -159,12 +160,12 @@ esl_vmx_logf(vector float x)
 vector float
 esl_vmx_expf(vector float x) 
 {
-  static vector float cephesv_p[2] = { { 1.9875691500E-4f, 1.3981999507E-3f, 8.3334519073E-3f, 4.1665795894E-2f },
-				       { 1.6666665459E-1f, 5.0000001201E-1f, 0.0f,             0.0f             } };
-  static vector float cephesv_c[2] = { {  0.693359375f,    0.693359375f,    0.693359375f,   0.693359375f    },
-				       { -2.12194440e-4f, -2.12194440e-4f, -2.12194440e-4f, -2.12194440e-4f } };
+  static vector float cephesv_p1 = { 1.9875691500E-4f, 1.3981999507E-3f, 8.3334519073E-3f, 4.1665795894E-2f };
+  static vector float cephesv_p2 = { 1.6666665459E-1f, 5.0000001201E-1f, 0.693359375f,    -2.12194440E-4f   };
+
   static vector float maxlogfv = {   88.72283905206835f,   88.72283905206835f,   88.72283905206835f,   88.72283905206835f };  /* log(2^128)  */
   static vector float minlogfv = { -103.27892990343185f, -103.27892990343185f, -103.27892990343185f, -103.27892990343185f };  /* log(2^-149) */
+
   vector signed int k;
   vector bool int minmask, maxmask;
   vector float tmp, fx, y, z;
@@ -184,18 +185,18 @@ esl_vmx_expf(vector float x)
   k  = vec_cts(fx, 0);
   
   /* polynomial approx for e^f for f in range [-0.5, 0.5] */
-  tmp = vec_madd(fx, cephesv_c[0], zerov);
-  z   = vec_madd(fx, cephesv_c[1], zerov);
+  tmp = vec_madd(fx, vec_splat(cephesv_p2, 2), zerov);
+  z   = vec_madd(fx, vec_splat(cephesv_p2, 3), zerov);
   x   = vec_sub(x, tmp);
   x   = vec_sub(x, z);
   z   = vec_madd(x, x, zerov);
   
-  y  =                vec_splat(cephesv_p[0], 0);
-  y  = vec_madd(y, x, vec_splat(cephesv_p[0], 1));
-  y  = vec_madd(y, x, vec_splat(cephesv_p[0], 2));
-  y  = vec_madd(y, x, vec_splat(cephesv_p[0], 3));
-  y  = vec_madd(y, x, vec_splat(cephesv_p[1], 0));
-  y  = vec_madd(y, x, vec_splat(cephesv_p[1], 1));
+  y  =                vec_splat(cephesv_p1, 0);
+  y  = vec_madd(y, x, vec_splat(cephesv_p1, 1));
+  y  = vec_madd(y, x, vec_splat(cephesv_p1, 2));
+  y  = vec_madd(y, x, vec_splat(cephesv_p1, 3));
+  y  = vec_madd(y, x, vec_splat(cephesv_p2, 0));
+  y  = vec_madd(y, x, vec_splat(cephesv_p2, 1));
   y  = vec_madd(y, z, x);
   y = vec_add(y, ((vector float) {1.0, 1.0, 1.0, 1.0}));
 
