@@ -51,7 +51,7 @@ run_sqc:
 	@echo 
 	@echo Running Easel test suite...
 	@echo
-	@${top_srcdir}/easel/devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}
+	@${srcdir}/../devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}
 
 ${PROGS}: %: %.o ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${ESLDIR} $@.o -leasel -lm
@@ -62,7 +62,7 @@ ${PROGS}: %: %.o ${ESLDIR}/libeasel.a
 dcheck: 
 	@echo    Running developer testsuite...
 	@echo -n Running unit tests...
-	@../devkit/sqc 2 testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ >  utest.report
+	@${srcdir}/../devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}  >  utest.report
 	@echo    done. [See utest.report]
 	@echo -n Testing that all drivers compile...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./driver_report.pl       >  driver.report

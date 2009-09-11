@@ -64,7 +64,7 @@ ${PROGS}: @EXEC_DEPENDENCY@  ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L${ESLDIR} -o $@ $@.o ${LIBS}
 
 .c.o:
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I${ESLDIR} -I${srcdir} -I${top_srcdir}/easel -c $<
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I${ESLDIR} -I${srcdir} -I${srcdir}/.. -c $<
 
 install:
 	cp ${PROGS} ${DESTDIR}${bindir}/
