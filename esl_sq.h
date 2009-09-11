@@ -100,7 +100,7 @@ typedef struct {
   /* In all the above bookkeeping, a -1 means "unknown" */
   char    *source; /* name of the source of a subseq/window; or MSA name; or ""*/
   
-  /* Memory allocation bookkeeping:                                            */
+  /* Memory allocation bookkeeping:  (all inclusive of \0;  >= strlen()+1)     */
   int      nalloc;         /* allocated length of name                         */
   int      aalloc;         /* allocated length of accession                    */
   int      dalloc;         /* allocated length of description                  */
@@ -145,14 +145,19 @@ extern int     esl_sq_IsDigital(const ESL_SQ *sq);
 extern int     esl_sq_IsText   (const ESL_SQ *sq);
 extern void    esl_sq_Destroy  (ESL_SQ *sq);
 
-extern int     esl_sq_SetName     (ESL_SQ *sq, const char *name,   ...);
-extern int     esl_sq_SetAccession(ESL_SQ *sq, const char *acc,    ...);
-extern int     esl_sq_SetDesc     (ESL_SQ *sq, const char *desc,   ...);
-extern int     esl_sq_AppendDesc  (ESL_SQ *sq, const char *desc);
-extern int     esl_sq_SetSource   (ESL_SQ *sq, const char *source, ...);
+extern int     esl_sq_SetName        (ESL_SQ *sq, const char *name);
+extern int     esl_sq_SetAccession   (ESL_SQ *sq, const char *acc);
+extern int     esl_sq_SetDesc        (ESL_SQ *sq, const char *desc);
+extern int     esl_sq_SetSource      (ESL_SQ *sq, const char *source);
+extern int     esl_sq_FormatName     (ESL_SQ *sq, const char *name,   ...);
+extern int     esl_sq_FormatAccession(ESL_SQ *sq, const char *acc,    ...);
+extern int     esl_sq_FormatDesc     (ESL_SQ *sq, const char *desc,   ...);
+extern int     esl_sq_FormatSource   (ESL_SQ *sq, const char *source, ...);
+extern int     esl_sq_AppendDesc     (ESL_SQ *sq, const char *desc);
 extern int     esl_sq_SetCoordComplete(ESL_SQ *sq, int64_t L);
 extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);
 extern int     esl_sq_ReverseComplement(ESL_SQ *sq);
+extern int     esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum);
 
 #ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);

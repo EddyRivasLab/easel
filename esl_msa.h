@@ -195,13 +195,23 @@ extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 
-extern int      esl_msa_SetName          (ESL_MSA *msa, const char *name,    ...);
-extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *desc,    ...);
-extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *acc,     ...);
-extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *author,  ...);
-extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *name, ...);
-extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
-extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
+extern int      esl_msa_SetName          (ESL_MSA *msa, const char *name);
+extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *desc);
+extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *acc);
+extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *author);
+extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *name);
+extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *acc);
+extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc);
+
+extern int      esl_msa_FormatName          (ESL_MSA *msa, const char *name,    ...);
+extern int      esl_msa_FormatDesc          (ESL_MSA *msa, const char *desc,    ...);
+extern int      esl_msa_FormatAccession     (ESL_MSA *msa, const char *acc,     ...);
+extern int      esl_msa_FormatAuthor        (ESL_MSA *msa, const char *author,  ...);
+extern int      esl_msa_FormatSeqName       (ESL_MSA *msa, int idx, const char *name, ...);
+extern int      esl_msa_FormatSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
+extern int      esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
+
+
 
 /* 2. The ESL_MSAFILE object */
 extern int  esl_msafile_Open(const char *filename, int format, const char *env, 

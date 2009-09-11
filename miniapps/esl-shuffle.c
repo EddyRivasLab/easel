@@ -137,19 +137,19 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  /* Set the name of the shuffled alignment */
 	  if (msa->name != NULL) {
 	    if (esl_opt_GetBoolean(go, "--boot")) {
-	      if (N > 1) esl_msa_SetName(shuf, "%s-sample-%d", msa->name, i);
-	      else       esl_msa_SetName(shuf, "%s-sample",    msa->name);
+	      if (N > 1) esl_msa_FormatName(shuf, "%s-sample-%d", msa->name, i);
+	      else       esl_msa_FormatName(shuf, "%s-sample",    msa->name);
 	    } else {
-	      if (N > 1) esl_msa_SetName(shuf, "%s-shuffle-%d", msa->name, i);
-	      else       esl_msa_SetName(shuf, "%s-shuffle",    msa->name);
+	      if (N > 1) esl_msa_FormatName(shuf, "%s-shuffle-%d", msa->name, i);
+	      else       esl_msa_FormatName(shuf, "%s-shuffle",    msa->name);
 	    }
 	  } else {
 	    if (esl_opt_GetBoolean(go, "--boot")) {
-	      if (N > 1) esl_msa_SetName(shuf, "sample-%d", i);
-	      else       esl_msa_SetName(shuf, "sample");
+	      if (N > 1) esl_msa_FormatName(shuf, "sample-%d", i);
+	      else       esl_msa_FormatName(shuf, "sample");
 	    } else {
-	      if (N > 1) esl_msa_SetName(shuf, "shuffle-%d", i);
-	      else       esl_msa_SetName(shuf, "shuffle");
+	      if (N > 1) esl_msa_FormatName(shuf, "shuffle-%d", i);
+	      else       esl_msa_FormatName(shuf, "shuffle");
 	    }
 	  }
 
@@ -207,7 +207,7 @@ seq_generation(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   for (i = 0; i < N; i++)
     {
       esl_rsq_xIID(r, fq, abc->K, L, sq->dsq);
-      if (N > 1) esl_sq_SetName(sq, "random%d", i);
+      if (N > 1) esl_sq_FormatName(sq, "random%d", i);
       else       esl_sq_SetName(sq, "random");
       sq->n = L;
       esl_sqio_Write(ofp, sq, outfmt);
@@ -300,8 +300,8 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  }
 
 	  /* Set the name of the shuffled sequence */
-	  if (N > 1) esl_sq_SetName(shuff, "%s-shuffled-%d", sq->name, i);
-	  else       esl_sq_SetName(shuff, "%s-shuffled", sq->name);
+	  if (N > 1) esl_sq_FormatName(shuff, "%s-shuffled-%d", sq->name, i);
+	  else       esl_sq_FormatName(shuff, "%s-shuffled", sq->name);
 
 	  /* Output the resulting sequence */
 	  esl_sqio_Write(ofp, shuff, outfmt);

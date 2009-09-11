@@ -722,13 +722,26 @@ object, just as if it had been \ccode{\_Create}'d. Throws NULL if
 allocation fails.
 
 \hypertarget{ifc:Set}
-{\item[\_Set*(obj, value...)]}
+{\item[\_Set*(obj, value)]}
 
-Initializes some value(s) in \ccode{obj} to
-\ccode{value}. \ccode{\_Set} functions have some appropriate longer
-name, like \ccode{\_SetZero()} (set something in an object to
-zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set a dmatrix to an
-identity matrix).
+Sets some value(s) in \ccode{obj} to \ccode{value}. If a value was
+already set, it is replaced with the new one. If any memory needs to
+be reallocated or free'd, this is done. \ccode{\_Set} functions have
+some appropriate longer name, like \ccode{\_SetZero()} (set something
+in an object to zero(s)), or \ccode{esl\_dmatrix\_SetIdentity()} (set
+a dmatrix to an identity matrix).
+
+\hypertarget{ifc:Format}
+{\item[\_Format*(obj, fmtstring, ...)]}
+
+Like \ccode{\_Set}, but with \ccode{printf()}-style semantics.  Sets
+some string value in \ccode{obj} according to the
+\ccode{printf()}-style \ccode{fmtstring} and any subsequence
+\ccode{printf()}-style arguments. If a value was already set, it is
+replaced with the new one. If any memory needs to be reallocated or
+free'd, this is done.  \ccode{\_Format} functions have some
+appropriate longer name, like
+\ccode{esl\_msa\_FormatSeqDescription()}.
 
 \hypertarget{ifc:Get}
 {\item[value = \_Get*(obj, ...)]}

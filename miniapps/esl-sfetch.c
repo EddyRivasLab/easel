@@ -471,7 +471,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(sqfp->errbuf);
 
   if      (newname != NULL) esl_sq_SetName(sq, newname);
-  else                      esl_sq_SetName(sq, "%s/%d-%d", key, given_start, (given_end == 0) ? sq->L : given_end);
+  else                      esl_sq_FormatName(sq, "%s/%d-%d", key, given_start, (given_end == 0) ? sq->L : given_end);
 
   /* Two ways we might have been asked to revcomp: by coord, or by -r option */
   /* (If both happen, they'll cancel each other out) */

@@ -699,7 +699,7 @@ esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
  *            deep MSAs.
  *            
  *            Each fractional pairwise identity (range $[0..$ pid $..1]$
- *            is calculated using <esl_dsq_CPairId()>.
+ *            is calculated using <esl_dst_CPairId()>.
  *
  * Returns:   <eslOK> on success, and <*ret_id> contains the average
  *            fractional identity.
@@ -769,7 +769,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
  *            deep MSAs.
  *            
  *            Each fractional pairwise identity (range $[0..$ pid $..1]$
- *            is calculated using <esl_dsq_XPairId()>.
+ *            is calculated using <esl_dst_XPairId()>.
  *
  * Returns:   <eslOK> on success, and <*ret_id> contains the average
  *            fractional identity.

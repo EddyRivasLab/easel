@@ -839,12 +839,11 @@ esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)
  *****************************************************************/
 
 /* Function:  esl_sq_SetName()
- * Synopsis:  Format and set a name of a sequence.
+ * Synopsis:  Set the name of a sequence.
  * Incept:    SRE, Thu Jan 11 08:42:53 2007 [Janelia]
  *
  * Purpose:   Set the name of the sequence <sq> to <name>, reallocating
- *            as needed. <name> can be a <printf()>-style format with
- *            arguments; for example, <esl_sq_SetName(sq, "random%d", i)>.
+ *            as needed. For example, <esl_sq_SetName(sq, "random")>.
  * 
  *            A copy of <name> is made, so if caller had <name> allocated, 
  *            it is still responsible for freeing it.
@@ -856,7 +855,163 @@ esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)
  * Xref:      STL11/125
  */
 int
-esl_sq_SetName(ESL_SQ *sq, const char *name, ...)
+esl_sq_SetName(ESL_SQ *sq, const char *name)
+{
+  int   n;
+  void *tmp;
+  int   status;
+
+  if (name == NULL) { sq->name[0] = '\0'; return eslOK; }
+
+  n = strlen(name);
+  if (n >= sq->nalloc) 
+    {
+      ESL_RALLOC(sq->name, tmp, sizeof(char) * (n+1)); 
+      sq->nalloc = n+1;
+    }
+  strcpy(sq->name, name);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_sq_SetAccession()
+ * Synopsis:  Set the accession field in a sequence.
+ * Incept:    SRE, Fri Jan 18 09:48:54 2008 [Westchester airport]
+ *
+ * Purpose:   Set the accession of the sequence <sq> to <acc>, reallocating
+ *            as needed. For example, <esl_sq_SetAccession(sq, "ACC12356")>.
+ * 
+ *            A copy of <acc> is made, so if caller had <acc> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetAccession(ESL_SQ *sq, const char *acc)
+{
+  int     n;
+  void   *tmp;
+  int     status;
+
+  if (acc == NULL) { sq->acc[0] = '\0'; return eslOK; }
+
+  n = strlen(acc);
+  if (n >= sq->aalloc)
+    {
+      ESL_RALLOC(sq->acc, tmp, sizeof(char) * (n+1)); 
+      sq->aalloc = n+1;
+    }
+  strcpy(sq->acc, acc);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* Function:  esl_sq_SetDesc()
+ * Synopsis:  Set the description field in a sequence.
+ * Incept:    SRE, Fri Jan 18 09:46:14 2008 [Westchester airport]
+ *
+ * Purpose:   Set the description of the sequence <sq> to <desc>, reallocating
+ *            as needed. 
+ *            For example, <esl_sq_SetDesc(sq, "this is a random sequence")>.
+ * 
+ *            A copy of <desc> is made, so if caller had <desc> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetDesc(ESL_SQ *sq, const char *desc)
+{
+  int     n;
+  void   *tmp;
+  int     status;
+
+  if (desc == NULL) { sq->desc[0] = '\0'; return eslOK; }
+
+  n = strlen(desc);
+  if (n >= sq->dalloc)
+    {
+      ESL_RALLOC(sq->desc, tmp, sizeof(char) * (n+1)); 
+      sq->dalloc = n+1;
+    }
+  strcpy(sq->desc, desc);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_sq_SetSource()
+ * Synopsis:  Set the source name field in a sequence.
+ * Incept:    SRE, Wed May  7 16:17:56 2008 [Janelia]
+ *
+ * Purpose:   Set the source of the sequence <sq> to <source>, reallocating
+ *            as needed. For example, <esl_sq_SetSource(sq, "X123456")>.
+ * 
+ *            A copy of <source> is made, so if caller had <source> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ * Xref:      STL11/125
+ */
+int
+esl_sq_SetSource(ESL_SQ *sq, const char *source)
+{
+  int     n;
+  void   *tmp;
+  int     status;
+
+  if (source == NULL) { sq->source[0] = '\0'; return eslOK; }
+
+  n = strlen(source);
+  if (n >= sq->srcalloc)
+    {
+      ESL_RALLOC(sq->source, tmp, sizeof(char) * (n+1)); 
+      sq->srcalloc = n+1;
+    }
+  strcpy(sq->source, source);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+
+/* Function:  esl_sq_FormatName()
+ * Synopsis:  Format a name of a sequence, printf()-style.
+ * Incept:    SRE, Fri Sep 11 10:59:01 2009 [Janelia]
+ *
+ * Purpose:   Format the name of the sequence <sq> using
+ *            <printf()>-style format string <name> and corresponding
+ *            <printf()>-style arguments, reallocating as
+ *            needed.
+ *            For example, <esl_sq_FormatName(sq, "random%d", i)>.
+ * 
+ *            A copy of <name> is made, so if caller had <name> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_sq_FormatName(ESL_SQ *sq, const char *name, ...)
 {
   va_list argp;
   va_list argp2;
@@ -882,13 +1037,14 @@ esl_sq_SetName(ESL_SQ *sq, const char *name, ...)
   return status;
 }
 
-/* Function:  esl_sq_SetAccession()
- * Synopsis:  Format and set the accession field in a sequence.
- * Incept:    SRE, Fri Jan 18 09:48:54 2008 [Westchester airport]
+/* Function:  esl_sq_FormatAccession()
+ * Synopsis:  Format the accession field in a sequence, printf()-style.
+ * Incept:    SRE, Fri Sep 11 11:00:37 2009 [Janelia]
  *
- * Purpose:   Set the accession of the sequence <sq> to <acc>, reallocating
- *            as needed. <acc> can be a <printf()>-style format with
- *            arguments; for example, <esl_sq_SetAccession(sq, "ACC%06d", i)>.
+ * Purpose:   Format the accession of the sequence <sq> using <printf()>-style 
+ *            format string <acc> and corresponding  <printf()>-style arguments,
+ *            reallocating as needed. 
+ *            For example, <esl_sq_FormatAccession(sq, "ACC%06d", i)>.
  * 
  *            A copy of <acc> is made, so if caller had <acc> allocated, 
  *            it is still responsible for freeing it.
@@ -896,11 +1052,9 @@ esl_sq_SetName(ESL_SQ *sq, const char *name, ...)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
- *
- * Xref:      STL11/125
  */
 int
-esl_sq_SetAccession(ESL_SQ *sq, const char *acc, ...)
+esl_sq_FormatAccession(ESL_SQ *sq, const char *acc, ...)
 {
   va_list argp, argp2;
   int     n;
@@ -926,13 +1080,14 @@ esl_sq_SetAccession(ESL_SQ *sq, const char *acc, ...)
 }
 
 
-/* Function:  esl_sq_SetDesc()
- * Synopsis:  Format and set the description field in a sequence.
- * Incept:    SRE, Fri Jan 18 09:46:14 2008 [Westchester airport]
+/* Function:  esl_sq_FormatDesc()
+ * Synopsis:  Format the description field in a sequence, printf()-style.
+ * Incept:    SRE, Fri Sep 11 11:02:11 2009 [Janelia]
  *
- * Purpose:   Set the description of the sequence <sq> to <desc>, reallocating
- *            as needed. <desc> can be a <printf()>-style format with
- *            arguments; for example, <esl_sq_SetDesc(sq, "random sequence %d", i)>.
+ * Purpose:   Format the description of the sequence <sq> using <printf()>-style 
+ *            format string <desc> and corresponding  <printf()>-style arguments,
+ *            reallocating as needed. 
+ *            For example, <esl_sq_FormatDesc(sq, "random sequence %d", i)>.
  * 
  *            A copy of <desc> is made, so if caller had <desc> allocated, 
  *            it is still responsible for freeing it.
@@ -940,11 +1095,9 @@ esl_sq_SetAccession(ESL_SQ *sq, const char *acc, ...)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
- *
- * Xref:      STL11/125
  */
 int
-esl_sq_SetDesc(ESL_SQ *sq, const char *desc, ...)
+esl_sq_FormatDesc(ESL_SQ *sq, const char *desc, ...)
 {
   va_list argp, argp2;
   int     n;
@@ -968,6 +1121,50 @@ esl_sq_SetDesc(ESL_SQ *sq, const char *desc, ...)
  ERROR:
   return status;
 }
+
+
+/* Function:  esl_sq_FormatSource()
+ * Synopsis:  Format the source name field in a sequence, printf()-style.
+ * Incept:    SRE, Fri Sep 11 10:55:10 2009 [Janelia]
+ *
+ * Purpose:   Format the source of the sequence <sq> using <printf()>-style 
+ *            format string <source> and corresponding  <printf()>-style arguments,
+ *            reallocating as needed. 
+ *            For example, <esl_sq_FormatSource(sq, "source %d", i)>.
+ * 
+ *            A copy of <source> is made, so if caller had <source> allocated, 
+ *            it is still responsible for freeing it.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_sq_FormatSource(ESL_SQ *sq, const char *source, ...)
+{
+  va_list argp, argp2;
+  int     n;
+  void   *tmp;
+  int     status;
+
+  if (source == NULL) { sq->source[0] = '\0'; return eslOK; }
+
+  va_start(argp, source);
+  va_copy(argp2, argp);
+  if ((n = vsnprintf(sq->source, sq->srcalloc, source, argp)) >= sq->srcalloc)
+    {
+      ESL_RALLOC(sq->source, tmp, sizeof(char) * (n+1)); 
+      sq->srcalloc = n+1;
+      vsnprintf(sq->source, sq->srcalloc, source, argp2);
+    }
+  va_end(argp);  
+  va_end(argp2);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
 
 /* Function:  esl_sq_AppendDesc()
  * Synopsis:  Append a new line to a growing multiline description.
@@ -1009,49 +1206,6 @@ esl_sq_AppendDesc(ESL_SQ *sq, const char *desc)
   return status;
 }
 
-
-/* Function:  esl_sq_SetSource()
- * Synopsis:  Format and set the source name field in a sequence.
- * Incept:    SRE, Wed May  7 16:17:56 2008 [Janelia]
- *
- * Purpose:   Set the source of the sequence <sq> to <source>, reallocating
- *            as needed. <source> can be a <printf()>-style format with
- *            arguments; for example, <esl_sq_SetSource(sq, "source %d", i)>.
- * 
- *            A copy of <source> is made, so if caller had <source> allocated, 
- *            it is still responsible for freeing it.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslEMEM> on allocation error.
- *
- * Xref:      STL11/125
- */
-int
-esl_sq_SetSource(ESL_SQ *sq, const char *source, ...)
-{
-  va_list argp, argp2;
-  int     n;
-  void   *tmp;
-  int     status;
-
-  if (source == NULL) { sq->source[0] = '\0'; return eslOK; }
-
-  va_start(argp, source);
-  va_copy(argp2, argp);
-  if ((n = vsnprintf(sq->source, sq->srcalloc, source, argp)) >= sq->srcalloc)
-    {
-      ESL_RALLOC(sq->source, tmp, sizeof(char) * (n+1)); 
-      sq->srcalloc = n+1;
-      vsnprintf(sq->source, sq->srcalloc, source, argp2);
-    }
-  va_end(argp);  
-  va_end(argp2);
-  return eslOK;
-
- ERROR:
-  return status;
-}
 
 
 /* Function:  esl_sq_SetCoordComplete()
@@ -1259,6 +1413,56 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
   /* revcomp invalidates any secondary structure annotation */
   if (sq->ss != NULL) { free(sq->ss); sq->ss = NULL; }
   return status;
+}
+
+/* Function:  esl_sq_Checksum()
+ * Synopsis:  Calculate a 32-bit checksum for a sequence.
+ * Incept:    SRE, Tue Aug 25 14:32:17 2009 [Janelia]
+ *
+ * Purpose:   Calculate a 32-bit checksum for <sq>.
+ * 
+ *            Only the sequence data are considered, not name or other
+ *            annotation. For text mode sequences, the checksum is
+ *            case sensitive.  The checksum is also sensitive to
+ *            whether the sequence is text or digital mode; the same
+ *            sequence in will yield different checksums in digital
+ *            vs. text mode.
+ *            
+ * Returns:   <eslOK> on success; the checksum is in <*ret_checksum>.
+ */
+int
+esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
+{
+  uint32_t val = 0;
+  uint64_t pos;
+
+  if (sq->seq != NULL)
+    {
+      for (pos = 0; pos < sq->n; pos++)
+	{
+	  val += sq->seq[pos];
+	  val += (val << 10);
+	  val ^= (val >>  6);
+	}
+    }
+#ifdef eslAUGMENT_ALPHABET
+  else
+    {
+      for (pos = 1; pos <= sq->n; pos++)
+	{
+	  val += sq->dsq[pos];
+	  val += (val << 10);
+	  val ^= (val >>  6);
+	}
+    }
+#endif
+
+  val += (val <<  3);
+  val ^= (val >> 11);
+  val += (val << 15);
+
+  *ret_checksum = val;
+  return eslOK;
 }
 
 /*----------------------  end, other functions -------------------*/
@@ -1647,12 +1851,12 @@ utest_Create()
 
   if (sq1 == NULL || sq2 == NULL) esl_fatal(msg);
 
-  if (esl_sq_GrowTo(sq2, n)                                                 != eslOK) esl_fatal(msg);
-  if (esl_sq_SetName     (sq2, "%s%s", "seq", "name")                       != eslOK) esl_fatal(msg);
-  if (esl_sq_SetAccession(sq2, "%s%05d", "XX", 1)                           != eslOK) esl_fatal(msg);
-  if (esl_sq_SetDesc     (sq2, "%s %s %s", "test","sequence","description") != eslOK) esl_fatal(msg);
-  if (esl_sq_SetSource   (sq2, "%s", "source-unknown")                      != eslOK) esl_fatal(msg);
-  if (esl_strdup(ss, -1, &(sq2->ss))                                        != eslOK) esl_fatal(msg);
+  if (esl_sq_GrowTo(sq2, n)                                                    != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatName     (sq2, "%s%s", "seq", "name")                       != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatAccession(sq2, "%s%05d", "XX", 1)                           != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatDesc     (sq2, "%s %s %s", "test","sequence","description") != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatSource   (sq2, "%s", "source-unknown")                      != eslOK) esl_fatal(msg);
+  if (esl_strdup(ss, -1, &(sq2->ss))                                           != eslOK) esl_fatal(msg);
   strcpy(sq2->seq, seq);
   sq2->n = n;
 
@@ -1667,13 +1871,54 @@ utest_Create()
   esl_sq_Destroy(sq2);
 }
 
-/* This tests the Set() functions - 
- * in particular, the way they use vsnprintf().
- */
+/* This tests the Set() functions. */
 static void
 utest_Set(ESL_RANDOMNESS *r)
 {
   char   *msg     = "sqio Set unit test failure";
+  ESL_SQ *sq      = esl_sq_Create();
+  int     ntrials = 8;
+  int     maxn    = eslSQ_NAMECHUNK*2;
+  int     maxa    = eslSQ_ACCCHUNK*2;
+  int     maxd    = eslSQ_DESCCHUNK*2;
+  int     n       = ESL_MAX( maxn, ESL_MAX(maxa, maxd));
+  char   *buf     = malloc(sizeof(char) * (n+1));
+  int64_t L;
+  int     i;
+
+  for (i = 0; i < ntrials; i++)
+    {
+      L = esl_rnd_Roll(r, maxn) + 1;
+      memset(buf, 'x', L);
+      buf[L] = '\0';
+      if (esl_sq_SetName(sq, buf) != eslOK) esl_fatal(msg);
+    }
+  for (i = 0; i < ntrials; i++)
+    {
+      L = esl_rnd_Roll(r, maxa) + 1;
+      memset(buf, 'x', L);
+      buf[L] = '\0';
+      if (esl_sq_SetAccession(sq, buf) != eslOK) esl_fatal(msg);
+    }      
+  for (i = 0; i < ntrials; i++)
+    {
+      L = esl_rnd_Roll(r, maxd) + 1;
+      memset(buf, 'x', L);
+      buf[L] = '\0';
+      if (esl_sq_SetDesc(sq, buf) != eslOK) esl_fatal(msg);
+    }      
+  free(buf);
+  esl_sq_Destroy(sq);
+} 
+
+
+/* This tests the Format() functions - 
+ * in particular, the way they use vsnprintf().
+ */
+static void
+utest_Format(ESL_RANDOMNESS *r)
+{
+  char   *msg     = "esl_sq_Format*() unit test failure";
   ESL_SQ *sq      = esl_sq_Create();
   int     ntrials = 128;
   int     maxn    = eslSQ_NAMECHUNK*2;
@@ -1689,21 +1934,21 @@ utest_Set(ESL_RANDOMNESS *r)
       L = esl_rnd_Roll(r, maxn) + 1;
       memset(buf, 'x', L);
       buf[L] = '\0';
-      if (esl_sq_SetName(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
+      if (esl_sq_FormatName(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
     }
   for (i = 0; i < ntrials; i++)
     {
       L = esl_rnd_Roll(r, maxa) + 1;
       memset(buf, 'x', L);
       buf[L] = '\0';
-      if (esl_sq_SetAccession(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
+      if (esl_sq_FormatAccession(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
     }      
   for (i = 0; i < ntrials; i++)
     {
       L = esl_rnd_Roll(r, maxd) + 1;
       memset(buf, 'x', L);
       buf[L] = '\0';
-      if (esl_sq_SetDesc(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
+      if (esl_sq_FormatDesc(sq, "%s%d", buf, i) != eslOK) esl_fatal(msg);
     }      
   free(buf);
   esl_sq_Destroy(sq);
@@ -1730,13 +1975,13 @@ utest_CreateDigital()
   if (esl_abc_CreateDsq(abc, seq, &dsq)                                     != eslOK) esl_fatal(msg);
   if ((sq1 = esl_sq_CreateDigitalFrom(abc, name, dsq, n, desc, acc, ss))    == NULL)  esl_fatal(msg);
 
-  if ((sq2 = esl_sq_CreateDigital(abc))                                     == NULL)  esl_fatal(msg);
-  if (esl_sq_GrowTo(sq2, n)                                                 != eslOK) esl_fatal(msg);
-  if (esl_sq_SetName     (sq2, "%s%s", "seq", "name")                       != eslOK) esl_fatal(msg);
-  if (esl_sq_SetAccession(sq2, "%s%05d", "XX", 1)                           != eslOK) esl_fatal(msg);
-  if (esl_sq_SetDesc     (sq2, "%s %s %s", "test","sequence","description") != eslOK) esl_fatal(msg);
-  if (esl_sq_SetSource   (sq2, "%s", "source-unknown")                      != eslOK) esl_fatal(msg);
-  if ((sq2->ss    = malloc(sizeof(char) * (n+2)))                           == NULL)  esl_fatal(msg);
+  if ((sq2 = esl_sq_CreateDigital(abc))                                        == NULL)  esl_fatal(msg);
+  if (esl_sq_GrowTo(sq2, n)                                                    != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatName     (sq2, "%s%s", "seq", "name")                       != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatAccession(sq2, "%s%05d", "XX", 1)                           != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatDesc     (sq2, "%s %s %s", "test","sequence","description") != eslOK) esl_fatal(msg);
+  if (esl_sq_FormatSource   (sq2, "%s", "source-unknown")                      != eslOK) esl_fatal(msg);
+  if ((sq2->ss    = malloc(sizeof(char) * (n+2)))                              == NULL)  esl_fatal(msg);
   strcpy(sq2->ss+1, ss);   sq2->ss[0] = '\0';
   if (esl_abc_Digitize(abc, seq, sq2->dsq)                                  != eslOK) esl_fatal(msg);
   sq2->n = n;
@@ -1804,6 +2049,7 @@ main(int argc, char **argv)
 
   utest_Create();
   utest_Set(r);
+  utest_Format(r);
 
 #ifdef eslAUGMENT_ALPHABET
   utest_CreateDigital();
@@ -1849,10 +2095,10 @@ int main(void)
   
   /* Building up a ESL_SQ yourself: */
   sq2 = esl_sq_Create();
-  esl_sq_SetName     (sq2, "seq%d", 1);
-  esl_sq_SetAccession(sq2, "XX%05d", 1);
-  esl_sq_SetDesc     (sq2, "This %s a test", "is");
-  esl_sq_GrowTo      (sq2, n);
+  esl_sq_FormatName     (sq2, "seq%d", 1);
+  esl_sq_FormatAccession(sq2, "XX%05d", 1);
+  esl_sq_FormatDesc     (sq2, "This %s a test", "is");
+  esl_sq_GrowTo         (sq2, n);
   strcpy(sq2->seq, testseq);
   esl_strdup(ss, -1, &(sq2->ss));  
   sq2->n = n;
@@ -1910,10 +2156,10 @@ int main(void)
   
   /* Building up a digital ESL_SQ yourself: */
   sq2 = esl_sq_CreateDigital(abc);
-  esl_sq_SetName     (sq2, "seq%d", 1);
-  esl_sq_SetAccession(sq2, "XX%05d", 1);
-  esl_sq_SetDesc     (sq2, "This %s a test", "is");
-  esl_sq_GrowTo      (sq2, n);
+  esl_sq_FormatName     (sq2, "seq%d", 1);
+  esl_sq_FormatAccession(sq2, "XX%05d", 1);
+  esl_sq_FormatDesc     (sq2, "This %s a test", "is");
+  esl_sq_GrowTo         (sq2, n);
   esl_abc_Digitize(abc, testseq, sq2->dsq);
   sq2->n = n;
 

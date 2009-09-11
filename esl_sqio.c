@@ -1870,8 +1870,8 @@ esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_
   sq->C     = 0;
   sq->W     = sq->n;
   sq->L     = (L > 0 ? L : -1);
-  esl_sq_SetName  (sq, "%s/%d-%d", source, start, end);
-  esl_sq_SetSource(sq, source);
+  esl_sq_FormatName(sq, "%s/%d-%d", source, start, end);
+  esl_sq_SetSource (sq, source);
   return eslOK;
 }  
 #endif /*eslAUGMENT_SSI*/

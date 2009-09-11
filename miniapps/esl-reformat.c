@@ -198,7 +198,7 @@ main(int argc, char **argv)
 	  if (rename)
 	    {
 	      for (idx = 0; idx < msa->nseq; idx++)
-		esl_msa_SetSeqName(msa, idx, "%s.%d", rename, idx+1);
+		esl_msa_FormatSeqName(msa, idx, "%s.%d", rename, idx+1);
 	    }
 
 	  if (wussify)
@@ -311,7 +311,7 @@ Offending line is:\n\
 			  sq->name, status);
 	    }
 
-	  if (rename) esl_sq_SetName(sq, "%s.%d", rename, idx+1);
+	  if (rename) esl_sq_FormatName(sq, "%s.%d", rename, idx+1);
 
 	  esl_sqio_Write(ofp, sq, outfmt);
 	  esl_sq_Reuse(sq);
