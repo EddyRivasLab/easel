@@ -12,7 +12,7 @@
 # - removes document declarations
 # - removes See Also and Author sections, if present
 # - converts sections to subsections
-# - adds a section declaration for program name
+# - adds a subsection declaration for program name
 # 
 # 
 # SRE, Mon May 25 11:06:58 1998
@@ -43,23 +43,28 @@ while (<>)
     }
 
     if (/^\\section\{Name/) {
-	while ($line = <>) { 
-	    if ($line =~ /\\begin\{itemize\}/) { last; }
+	while (<>) {			# get one-line "foo - a program to do bar"
+	    if    (/^(\S+)\s+-\s+(.+)$/) { print "\\subsection{\\texttt{$1} - $2}\n"; }
+	    elsif (/^\\section/)         { last; }
 	}
-	while ($line = <>) {			# get item
-	    if ($line =~ /^\\item\s*\[(\S+)\s*-\s*(.+)\]/) {
-		print "\\subsection{\\texttt{$1} - $2}\n";
-		last;
-	    } elsif ($line =~ /^\\item\s*\[(\S+)\s*-\s*(.+)/) {
-		print "\\subsection{\\texttt{$1} - $2}\n";
-		last;
-	    }
-	}
-	while (<>) { 
-	    if (/\\end\{itemize\}/) { last; }
-	}
-	next;
     }
+
+# 	while ($line = <>) { 
+# 	    if ($line =~ /\\begin\{itemize\}/) { last; }
+# 	}
+# 	while ($line = <>) {			# get item
+# 	    
+# 		
+# 		last;
+# 	    } elsif ($line =~ /^\\item\s*\[(\S+)\s*-\s*(.+)/) {
+# 		print "\\subsection{\\texttt{$1} - $2}\n";
+# 		last;
+# 	    }
+# 	}
+# 	while (<>) { 
+# 	    if (/\\end\{itemize\}/) { last; }
+# 	}
+# 	next;
 
     if (/^\\section/) {
 	s/section/subsubsection/;

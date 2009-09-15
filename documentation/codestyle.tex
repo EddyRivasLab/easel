@@ -743,6 +743,11 @@ free'd, this is done.  \ccode{\_Format} functions have some
 appropriate longer name, like
 \ccode{esl\_msa\_FormatSeqDescription()}.
 
+Because \ccode{fmtstring} is a \ccode{printf()}-style format string,
+it must not contain '\%' characters. \ccode{\_Format*} functions
+should only be used with format strings set by a program; they should
+not be used to copy user input that might contain '\%' characters.
+
 \hypertarget{ifc:Get}
 {\item[value = \_Get*(obj, ...)]}
 

@@ -209,18 +209,21 @@ option and had forgotten to add an argument for \ccode{-n}.
 
 Seven argument types are recognized:
 
+% Any addition or subtraction to this list also requires updating
+% the c2optlist script in easel/devkit.
 \begin{center}
-\begin{tabular}{lll}
-\textbf{flag}           & \textbf{description}    & \textbf{type checking} \\\hline
-\ccode{eslARG\_NONE}     & Boolean switch (on/off) & n/a                   \\
-\ccode{eslARG\_INT}      & integer                 & convertible by \ccode{atoi()}\\
-\ccode{eslARG\_REAL}     & float or double         & convertible by \ccode{atof()}\\
-\ccode{eslARG\_CHAR}     & one character           & single ASCII char \\
-\ccode{eslARG\_STRING}   & any string              & not checked\\
-\ccode{eslARG\_INFILE}   & an input filename       & not checked\\
-\ccode{eslARG\_OUTFILE}  & an output filename      & not checked\\
+\begin{tabular}{llll}
+\textbf{flag}           & \textbf{description}     & \textbf{abbrev} & \textbf{type checking} \\\hline
+\ccode{eslARG\_NONE}     & Boolean switch (on/off) & n/a             &  n/a                   \\
+\ccode{eslARG\_INT}      & integer                 & \ccode{<n>}     & convertible by \ccode{atoi()}\\
+\ccode{eslARG\_REAL}     & float or double         & \ccode{<x>}     & convertible by \ccode{atof()}\\
+\ccode{eslARG\_CHAR}     & one character           & \ccode{<c>}     & single ASCII char \\
+\ccode{eslARG\_STRING}   & any string              & \ccode{<s>}     & not checked\\
+\ccode{eslARG\_INFILE}   & an input filename       & \ccode{<f>}     & not checked\\
+\ccode{eslARG\_OUTFILE}  & an output filename      & \ccode{<f>}     & not checked\\
 \end{tabular}
 \end{center}
+
 
 All arguments are declared, configured, and stored internally as
 strings in a \ccode{ESL\_GETOPTS} object. For arguments that are
