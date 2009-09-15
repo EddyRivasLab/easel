@@ -1,26 +1,40 @@
-/* Threaded work queue.
+/* Simple threaded work queue using POSIX threads.
  * 
  * SVN $Id$
  */
 #ifndef ESL_WORKQUEUE_INCLUDED
 #define ESL_WORKQUEUE_INCLUDED
 
-/* ESL_WORKQUEUE */
-typedef struct ESL_WORK_QUEUE_ST ESL_WORK_QUEUE;
+typedef struct {
+  pthread_mutex_t  queueMutex;          /* mutex for queue serialization                           */
+  pthread_cond_t   readerQueueCond;     /* condition variable used to wake up the producer         */
+  pthread_cond_t   workerQueueCond;     /* condition variable used to wake up the consumers        */
 
-ESL_WORK_QUEUE *esl_workqueue_Create(int size);
-void esl_workqueue_Destroy(ESL_WORK_QUEUE *queue);
+  void           **readerQueue;         /* list of objects the the workers have completed          */
+  int              readerQueueCnt;      /* number of objects in the queue                          */
+  int              readerQueueHead;     /* first object in the queue                               */
 
-int esl_workqueue_Init(ESL_WORK_QUEUE *queue, void *ptr);
-int esl_workqueue_Complete(ESL_WORK_QUEUE *queue);
-int esl_workqueue_Reset(ESL_WORK_QUEUE *queue);
+  void           **workerQueue;         /* list of objects ready to be processed by worker threads */
+  int              workerQueueCnt;      /* number of objects in the queue                          */
+  int              workerQueueHead;     /* first object in the queue                               */
 
-void * esl_workqueue_Remove(ESL_WORK_QUEUE *queue);
+  int              queueSize;           /* max number of items a queue will hold                   */
+  int              pendingWorkers;      /* number of consumers waiting for work                    */
+} ESL_WORK_QUEUE;
 
-int esl_workqueue_ReaderUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
-int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
+extern ESL_WORK_QUEUE *esl_workqueue_Create(int size);
+extern void            esl_workqueue_Destroy(ESL_WORK_QUEUE *queue);
 
-int esl_workqueue_Dump(ESL_WORK_QUEUE *queue);
+extern int esl_workqueue_Init    (ESL_WORK_QUEUE *queue, void *ptr);
+extern int esl_workqueue_Complete(ESL_WORK_QUEUE *queue);
+extern int esl_workqueue_Reset   (ESL_WORK_QUEUE *queue);
+
+extern int esl_workqueue_Remove(ESL_WORK_QUEUE *queue, void **obj);
+
+extern int esl_workqueue_ReaderUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
+extern int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out);
+
+extern int esl_workqueue_Dump(ESL_WORK_QUEUE *queue);
 
 #endif /*ESL_WORKQUEUE_INCLUDED*/
 
