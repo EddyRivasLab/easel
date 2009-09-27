@@ -1566,7 +1566,7 @@ esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *err
       nbad++;
     }
   }
-  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%" PRId64 " bad chars (including bad %c at pos %" PRId64 " )", 
+  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%" PRId64 " invalid chars (including %c at pos %" PRId64 ")", 
 			  nbad, seq[firstpos], firstpos);
   return eslOK;
 

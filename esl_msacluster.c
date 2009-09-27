@@ -347,7 +347,7 @@ seq11 MMMMMMMMMM\n\
   utest_SingleLinkage(go, msa, 0.0,  1,  0);    /* at 0% id, everything clusters      */
 
   /* Do the same tests, but now with a digital MSA */
-  esl_msa_Digitize(abc, msa);
+  esl_msa_Digitize(abc, msa, NULL);
   utest_SingleLinkage(go, msa, 1.0, 11, 10);    /* at 100% id, only seq0/seq1 cluster */
   utest_SingleLinkage(go, msa, 0.5,  6,  5);    /* at 50% id, seq0-seq6 cluster       */
   utest_SingleLinkage(go, msa, 0.0,  1,  0);    /* at 0% id, everything clusters      */

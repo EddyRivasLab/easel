@@ -125,8 +125,12 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s\n",  msafile);
   else if (status != eslOK)      esl_fatal("Alignment file open failed (error %d)\n", status);
   
-  while ((mstatus = esl_msa_Read(afp, &msa)) == eslOK)
+  while ((mstatus = esl_msa_Read(afp, &msa)) != eslEOF)
     {
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+
       shuf = esl_msa_Clone(msa);
 
       for (i = 0; i < N; i++)
@@ -159,11 +163,6 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa);
     }
-  if (mstatus == eslEFORMAT)
-    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n",
-	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-  else if (mstatus != eslEOF)
-    esl_fatal("Alignment file read failed with error code %d\n", status);
 
   return eslOK;
 }

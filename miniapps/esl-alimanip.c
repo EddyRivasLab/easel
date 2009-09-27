@@ -385,6 +385,9 @@ main(int argc, char **argv)
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);      
       nali++;
 
       /* first handle the --lfract option if enabled, all subsequent manipulations will omit any short seqs removed here */
@@ -461,11 +464,10 @@ main(int argc, char **argv)
 	 || ((esl_opt_GetString(go, "--map") != NULL) || (esl_opt_GetString(go, "--submap") != NULL)))
 	{
 	  if ((status = esl_msa_Read(otherafp, &othermsa)) != eslOK) {
-	    if(status == eslEFORMAT) 
-	      esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
-			otherafp->linenumber, otherafp->fname, otherafp->errbuf, otherafp->buf);	
-	    else if (status == eslEOF)
-	      esl_fatal("No alignments read in %s.", esl_opt_GetString(go, "--morph"));
+	    if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", otherafp->errbuf);
+	    else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", otherafp->errbuf);
+	    else if (status == eslEOF)     esl_fatal("No alignments read in %s.", esl_opt_GetString(go, "--morph"));
+	    else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
 	  }
 	}
 
@@ -1842,7 +1844,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
       msa->aseq[i] = NULL;
     }    
   newmsa->abc = abc;
-  esl_msa_Digitize(newmsa->abc, newmsa);
+  esl_msa_Digitize(newmsa->abc, newmsa, NULL);
   esl_msa_Destroy(msa);
   *ret_msa = newmsa;
       

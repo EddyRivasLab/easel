@@ -177,8 +177,12 @@ main(int argc, char **argv)
       if ( esl_opt_IsOn(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
       if ( esl_opt_IsOn(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
 
-      while ((status = esl_msa_Read(afp, &msa)) == eslOK)
+      while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
 	{
+	  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+
 	  if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
 	  if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
 	  if (gapsym!=NULL) esl_msa_SymConvert(msa, "-_.", gapsym);
@@ -248,19 +252,6 @@ main(int argc, char **argv)
 	  esl_msa_Write(ofp, msa, outfmt);
 	  esl_msa_Destroy(msa);
 	}
-      
-      /* Alignment input should end with normal status eslEOF;
-       * if it didn't, deal with the problem.
-       */
-      if (status == eslEFORMAT)
-	esl_fatal("\
-Alignment file parse error, line %d of file %s:\n\
-%s\n\
-Offending line is:\n\
-%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-      else if (status != eslEOF)
-	esl_fatal("Alignment file read failed with error code %d\n", status);
-
       esl_msafile_Close(afp);
     } /* end of alignment->alignment conversion */
   else

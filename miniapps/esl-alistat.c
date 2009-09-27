@@ -129,6 +129,9 @@ main(int argc, char **argv)
   nali = 0;
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
       nali++;
 
       nres = 0;

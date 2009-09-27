@@ -222,7 +222,7 @@ extern void esl_msafile_Close(ESL_MSAFILE *afp);
 #ifdef eslAUGMENT_ALPHABET
 extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
 extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen);
-extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa);
+extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errmsg);
 extern int      esl_msa_Textize(ESL_MSA *msa);
 extern int      esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type);
 extern int      esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 

@@ -1792,9 +1792,16 @@ esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen)
  *            a copy of the alphabet pointer is kept in the msa's
  *            <abc> reference, and the <eslMSA_DIGITAL> flag is raised
  *            in <flags>.
- *
+ *            
+ *            Because <esl_msa_Digitize()> may be called on
+ *            unvalidated user data, <errbuf> may be passed, for
+ *            capturing an informative error message. For example, in
+ *            reading alignments from files, invalid characters in the
+ *            alignment are caught at the digitization step.
+ *            
  * Args:      abc    - digital alphabet
  *            msa    - multiple alignment to digitize
+ *            errbuf - optional: error message buffer, or <NULL>
  *
  * Returns:   <eslOK> on success;
  *            <eslEINVAL> if one or more sequences contain invalid characters
@@ -1807,13 +1814,13 @@ esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen)
  *            wedged, and it should only be destroyed, not used.
  */
 int
-esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa)
+esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf)
 {
-  int status;
-  int i;
+  char errbuf2[eslERRBUFSIZE];
+  int  i;
+  int  status;
 
-  /* Contract checks
-   */
+  /* Contract checks */
   if (msa->aseq == NULL)           ESL_EXCEPTION(eslEINVAL, "msa has no text alignment");
   if (msa->ax   != NULL)           ESL_EXCEPTION(eslEINVAL, "msa already has digital alignment");
   if (msa->flags & eslMSA_DIGITAL) ESL_EXCEPTION(eslEINVAL, "msa is flagged as digital");
@@ -1822,11 +1829,10 @@ esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa)
    * any of the sequences contain invalid characters.
    */
   for (i = 0; i < msa->nseq; i++)
-    if (esl_abc_ValidateSeq(abc, msa->aseq[i], msa->alen, NULL) != eslOK) 
-      return eslEINVAL;
+    if (esl_abc_ValidateSeq(abc, msa->aseq[i], msa->alen, errbuf2) != eslOK) 
+      ESL_FAIL(eslEINVAL, errbuf, "%s: %s", msa->sqname[i], errbuf2);
 
-  /* Convert, sequence-by-sequence, free'ing aseq as we go.
-   */
+  /* Convert, sequence-by-sequence, free'ing aseq as we go.  */
   ESL_ALLOC(msa->ax, msa->sqalloc * sizeof(ESL_DSQ *));
   for (i = 0; i < msa->nseq; i++)
     {
@@ -2175,7 +2181,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
     {
 #ifdef eslAUGMENT_ALPHABET
       if      (afp->do_digital   && !(afp->msa_cache->flags & eslMSA_DIGITAL)) {
-	if ((status = esl_msa_Digitize(afp->abc, afp->msa_cache)) != eslOK) return status; 
+	if ((status = esl_msa_Digitize(afp->abc, afp->msa_cache, afp->errbuf)) != eslOK) return status; 
       }
       else if (! afp->do_digital && (afp->msa_cache->flags & eslMSA_DIGITAL)) {
 	if ((status = esl_msa_Textize(afp->msa_cache)) != eslOK) return status;
@@ -4547,7 +4553,7 @@ read_selex(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
       if (msa->aseq[i][apos] == ' ') msa->aseq[i][apos] = '.';
 
 #ifdef eslAUGMENT_ALPHABET 
-  if (afp->do_digital) status = esl_msa_Digitize(afp->abc, msa);
+  if (afp->do_digital) status = esl_msa_Digitize(afp->abc, msa, afp->errbuf);
 #endif  
     
   *ret_msa = msa;
@@ -5367,10 +5373,10 @@ utest_Digitize(ESL_ALPHABET *abc, char *filename)
   pos = msa->alen / 2;
   c   = msa->aseq[i][pos];
   msa->aseq[i][pos] = '%';
-  if (esl_msa_Digitize(abc, msa) != eslEINVAL) esl_fatal(msg); /* should detect corruption as normal error */
+  if (esl_msa_Digitize(abc, msa, NULL) != eslEINVAL) esl_fatal(msg); /* should detect corruption as normal error */
   msa->aseq[i][pos] = c;	                               /* restore original         */
   compare_to_known(msa);
-  if (esl_msa_Digitize(abc, msa) != eslOK)     esl_fatal(msg); /* should be fine now       */
+  if (esl_msa_Digitize(abc, msa, NULL) != eslOK)     esl_fatal(msg); /* should be fine now       */
   compare_to_known(msa);
 
   esl_msa_Destroy(msa);
@@ -5702,11 +5708,11 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_SequenceSubset(z1, useme, &z3) != eslOK) esl_fatal(msg);
   esl_msa_Destroy(z1);
 
-  if ((z1 = esl_msa_Clone(z3))  == NULL)  esl_fatal(msg); /* z1 is now alen=0, digital */
-  if (esl_msa_Textize(z3)       != eslOK) esl_fatal(msg); /* convert z3 back to text mode */
-  if (esl_msa_Compare(z2, z3)   != eslOK) esl_fatal(msg); /* compare in text mode */
-  if (esl_msa_Digitize(abc, z2) != eslOK) esl_fatal(msg); /* now z2 is digital */
-  if (esl_msa_Compare(z1, z2)   != eslOK) esl_fatal(msg); /* compare digital mode z1,z2 */
+  if ((z1 = esl_msa_Clone(z3))        == NULL)  esl_fatal(msg); /* z1 is now alen=0, digital */
+  if (esl_msa_Textize(z3)             != eslOK) esl_fatal(msg); /* convert z3 back to text mode */
+  if (esl_msa_Compare(z2, z3)         != eslOK) esl_fatal(msg); /* compare in text mode */
+  if (esl_msa_Digitize(abc, z2, NULL) != eslOK) esl_fatal(msg); /* now z2 is digital */
+  if (esl_msa_Compare(z1, z2)         != eslOK) esl_fatal(msg); /* compare digital mode z1,z2 */
 
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(z1);

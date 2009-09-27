@@ -167,10 +167,9 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
   
   while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
     {
-      if (status == eslEFORMAT)
-	esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-      else if (status != eslOK)
-	esl_fatal("Alignment file read failed with error code %d\n", status);
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
       nali++;
 
       if (msa->name == NULL) 
@@ -247,10 +246,9 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
       while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
 	{
 	  nali++;
-	  if (status == eslEFORMAT)
-	    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-	  else if (status != eslOK)
-	    esl_fatal("Alignment file read failed with error code %d\n", status);
+	  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
 	  if (msa->name == NULL) 
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
@@ -297,10 +295,9 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
       
       while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
 	{
-	  if (status == eslEFORMAT)
-	    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-	  else if (status != eslOK)
-	    esl_fatal("Alignment file read failed with error code %d\n", status);
+	  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+	  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
 	  if (msa->name == NULL) 
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 

@@ -104,8 +104,12 @@ main(int argc, char **argv)
   }
   esl_msafile_SetDigital(afp, abc);
 
-  while ((status = esl_msa_Read(afp, &msa)) == eslOK)
+  while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
     {
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+
       if       (esl_opt_GetBoolean(go, "-f")) 
 	{
 	  ESL_MSA *fmsa;
@@ -133,11 +137,6 @@ main(int argc, char **argv)
       
       esl_msa_Destroy(msa);
     }
-  if (status == eslEFORMAT)
-    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n",
-	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-  else if (status != eslEOF)
-    esl_fatal("Alignment file read failed with error code %d\n", status);
 
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
