@@ -1,5 +1,6 @@
-/* Draw SSU secondary structure diagrams given a postscript SS template 
- * originally derived from CRW and an SSU alignment. 
+/* Draw secondary structure diagrams given a postscript SS template. 
+ * Initial development of this program was for SSU rRNA structures
+ * with templates derived from Gutell's CRW. 
  *
  * EPN, Mon Jun 23 14:46:05 2008
  */
@@ -1489,7 +1490,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
     fprintf(fp, "%% end text residues\n");
 
-    /* the rest of the text will be ignored by esl-ssudraw if the output
+    /* the rest of the text will be ignored by esl-ssdraw if the output
      * file we're creating is read in as a template file later on
      */
     fprintf(fp, "%% begin ignore\n");
@@ -3456,7 +3457,7 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
 /* Function: get_command
  * Date:     EPN, Fri Jan 25 13:56:10 2008
  *
- * Purpose:  Return the command used to call esl-ssudraw
+ * Purpose:  Return the command used to call esl-ssdraw
  *           in <ret_command>.
  *
  * Returns:  eslOK on success; eslEMEM on allocation failure.
