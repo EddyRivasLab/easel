@@ -24,7 +24,7 @@ static ESL_OPTIONS options[] = {
   { "-p",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff position-based weights",             1 },
   { "-b",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff simple filter weights",              1 },
   { "-f",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "filter out seqs by fractional identity",      1 },
-  { "-o",      eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "send output to file <f>, not stdout",                0 },
+  { "-o",      eslARG_OUTFILE, NULL, NULL,     NULL,   NULL,NULL,   NULL,          "send output to file <f>, not stdout",         1 },
   { "--id",    eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",NULL,             "for -b: set identity cutoff",                 1 },
   { "--idf",   eslARG_REAL,  "0.80", NULL,"0<=x<=1",   NULL,"-f",NULL,             "for -f: set identity cutoff",                 1 },
   { "--amino", eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--dna,--rna",    "<msa file> contains protein alignments",      1 },
@@ -143,7 +143,7 @@ main(int argc, char **argv)
 
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
-  esl_getopts_Destroy(go);
   if (! esl_opt_IsDefault(go, "-o")) fclose(ofp); 
+  esl_getopts_Destroy(go);
   exit(0);
 }
