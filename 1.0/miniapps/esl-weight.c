@@ -24,6 +24,7 @@ static ESL_OPTIONS options[] = {
   { "-p",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff position-based weights",             1 },
   { "-b",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff simple filter weights",              1 },
   { "-f",      eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "filter out seqs by fractional identity",      1 },
+  { "-o",      eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "send output to file <f>, not stdout",                0 },
   { "--id",    eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",NULL,             "for -b: set identity cutoff",                 1 },
   { "--idf",   eslARG_REAL,  "0.80", NULL,"0<=x<=1",   NULL,"-f",NULL,             "for -f: set identity cutoff",                 1 },
   { "--amino", eslARG_NONE,   FALSE, NULL,     NULL,   NULL,NULL,"--dna,--rna",    "<msa file> contains protein alignments",      1 },
@@ -69,6 +70,8 @@ main(int argc, char **argv)
   ESL_MSAFILE    *afp      = NULL;
   ESL_MSA        *msa      = NULL;
   int             status;
+  char           *outfile; /* output file, or NULL*/
+  FILE           *ofp;	   /* output stream       */
 
   /* Parse command line */
   go = esl_getopts_Create(options);
@@ -77,6 +80,11 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help   (argv[0], go);
   if (esl_opt_ArgNumber(go) != 1)                      cmdline_failure(argv[0], go, "Incorrect number of command line arguments.\n");
   msafile = esl_opt_GetArg(go, 1);
+
+  outfile = esl_opt_GetString (go, "-o"); /* sets outfile to NULL if -o unset */
+  if (outfile == NULL) ofp = stdout;
+  else if ((ofp = fopen(outfile, "w")) == NULL)
+    esl_fatal("Failed to open output file %s\n", outfile);
 
   status = esl_msafile_Open(msafile, fmt, NULL, &afp);
   if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable", msafile);
@@ -104,23 +112,23 @@ main(int argc, char **argv)
 	{
 	  ESL_MSA *fmsa;
 	  status = esl_msaweight_IDFilter(msa, esl_opt_GetReal(go, "--idf"), &fmsa);
-	  esl_msa_Write(stdout, fmsa, eslMSAFILE_STOCKHOLM); 
+	  esl_msa_Write(ofp, fmsa, eslMSAFILE_STOCKHOLM); 
 	  if (fmsa != NULL) esl_msa_Destroy(fmsa);
 	}
       else if  (esl_opt_GetBoolean(go, "-g"))
 	{ 
 	  status = esl_msaweight_GSC(msa);                                 
-	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-p")) 
 	{
 	  status = esl_msaweight_PB(msa);                                  
-	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-b"))
 	{ 
 	  status = esl_msaweight_BLOSUM(msa, esl_opt_GetReal(go, "--id")); 
- 	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+ 	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
      else     esl_fatal("internal error: no weighting algorithm selected");
       if (status != eslOK) esl_fatal("Failed to calculate weights for msa %s", msa->name);
@@ -136,5 +144,6 @@ main(int argc, char **argv)
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
   esl_getopts_Destroy(go);
+  if (! esl_opt_IsDefault(go, "-o")) fclose(ofp); 
   exit(0);
 }
