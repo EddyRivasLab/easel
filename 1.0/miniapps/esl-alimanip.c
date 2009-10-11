@@ -1684,7 +1684,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
 		{
 		  ESL_ALLOC(newstr, sizeof(char) * (msa->alen+nnew+1));
 		  if((status = cp_and_add_gaps_to_aseq(newstr, msa->gr[j][i], msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
-		  esl_msa_AppendGC(newmsa, msa->gc_tag[i], newstr);
+		  esl_msa_AppendGR(newmsa, msa->gr_tag[j], i, newstr);
 		  free(newstr);
 		}
 	    }
