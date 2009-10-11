@@ -262,6 +262,16 @@ supertags:
 # magic SVN for setting keyword ID replacement on a new module foo:
 # svn propset svn:keywords "Id" foo.[ch]
 
+#################################################################
+## For building as a library with an SSU-ALIGN distribution.
+##
+ssu:
+	cp miniapps/esl-alimanip miniapps/ssu-esl-alimanip
+	cp miniapps/esl-seqstat miniapps/ssu-esl-seqstat
+	cp miniapps/esl-sfetch miniapps/ssu-esl-sfetch
+	cp miniapps/esl-ssdraw miniapps/ssu-esl-ssdraw
+	cp miniapps/esl-weight miniapps/ssu-esl-weight
+
 ################################################################
 # @LICENSE@
 ################################################################

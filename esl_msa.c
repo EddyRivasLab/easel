@@ -2782,6 +2782,15 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	if (msa->sa != NULL && msa->sa[oidx] != NULL) {
 	  if ((status = set_seq_sa(new, nidx, msa->sa[oidx])) != eslOK) goto ERROR;
 	}
+	/* unparsed annotation */
+	for(i = 0; i < msa->ngs; i++) {
+	  if(msa->gs[i] != NULL) 
+	    if ((status = esl_msa_AddGS(new, msa->gs_tag[i], nidx, msa->gs[i][oidx])) != eslOK) goto ERROR;
+	}
+	for(i = 0; i < msa->ngr; i++) {
+	  if(msa->gr[i] != NULL) 
+	    if ((status = esl_msa_AppendGR(new, msa->gr_tag[i], nidx, msa->gr[i][oidx])) != eslOK) goto ERROR;
+	}
 
 	nidx++;
       }
@@ -2795,7 +2804,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if ((status = esl_strdup(msa->ss_cons, msa->alen, &(new->ss_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->rf, msa->alen, &(new->rf))) != eslOK) goto ERROR;
-  
+
   for (i = 0; i < eslMSA_NCUTS; i++) {
     new->cutoff[i] = msa->cutoff[i];
     new->cutset[i] = msa->cutset[i];
@@ -2811,13 +2820,6 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if (new->sslen != NULL) { free(new->sslen);  new->sslen = NULL; }
   if (new->salen != NULL) { free(new->salen);  new->salen = NULL; }
   new->lastidx = -1;
-#ifdef eslAUGMENT_KEYHASH
-  esl_keyhash_Destroy(new->index);
-  new->index  = NULL;
-  new->gs_idx = NULL;
-  new->gc_idx = NULL;
-  new->gr_idx = NULL;
-#endif
 
   *ret_new = new;
   return eslOK;
