@@ -38,6 +38,7 @@ static ESL_OPTIONS options[] = {
   {"--surv",      eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"output survival plot, not histogram",               3 },
    
   {"--gumbel",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution",                 4 }, 
+  {"--trunc",     eslARG_REAL,  NULL,  NULL,NULL, NULL,"--gumbel",NULL,"with --gumbel, specify data is truncated, min value is <x>",                 4 }, 
   {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",           4 },
   {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
   {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
@@ -182,7 +183,10 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--gumbel"))
     {
       esl_histogram_GetData(h, &xv, &n);
-      esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
+      if(! esl_opt_IsDefault(go, "--trunc"))  
+	esl_gumbel_FitTruncated(xv, n, esl_opt_GetReal(go, "--trunc"), &(params[0]), &(params[1]));
+      else 
+	esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
       printf("# Gumbel fit: mu = %f  lambda = %f\n", params[0], params[1]);

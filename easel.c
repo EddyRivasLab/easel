@@ -290,11 +290,11 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *                 (may be changed)
  *           fp  - open file ptr for reading
  *           
- *           Before the first call to esl_parse_fgets(), 
+ *           Before the first call to esl_fgets(), 
  *           initialize buf to NULL and n to 0.
  *           They're a linked pair, so don't muck with the
  *           allocation of buf or the value of n while
- *           you're still doing esl_parse_fgets() calls with them.
+ *           you're still doing esl_fgets() calls with them.
  *
  * Returns:  <eslOK> on success. 
  *           Returns <eslEOF> on normal end-of-file.
