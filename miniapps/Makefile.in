@@ -34,15 +34,19 @@ ESLDIR    = ..
 #
 PROGS = esl-afetch\
 	esl-alimanip\
+	esl-alimap\
 	esl-alistat\
 	esl-cluster\
+	esl-compalign\
 	esl-compstruct\
+	esl-construct\
 	esl-histplot\
 	esl-reformat\
 	esl-selectn\
 	esl-seqstat\
 	esl-sfetch\
 	esl-shuffle\
+	esl-ssdraw\
 	esl-weight
 
 

@@ -35,8 +35,8 @@ The <msafile> must be in Stockholm format.";
 
 static int  keep_or_remove_rf_gaps(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int keep_flag, int remove_flag);
 static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
-static int  write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
-static int  write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask);
+static int  write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *amask, int amask_len);
+static int  write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask, int rfmask_len);
 static int  write_rf_given_useme(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int *useme);
 static int  morph_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL_MSA **newmsa1);
 static int  merge_msa(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, ESL_MSA **ret_merged_msa);
@@ -60,7 +60,7 @@ static int  plot_gaps(FILE *fp, ESL_MSA *msa, char *errbuf);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max);
-static int  read_mask_file(char *filename, char *errbuf, char **ret_mask);
+static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
 static int  map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_map);
 static int  map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_mask);
 static int  handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
@@ -106,8 +106,9 @@ static ESL_OPTIONS options[] = {
   { "--pfract",    eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, NULL,                       "set #=GC RF as cols w/<x> fraction of seqs w/POST >= --pthresh", 2 },
   { "--pthresh",   eslARG_REAL,  "0.9", NULL, "0<=x<=1", NULL,"--pfract", NULL,                 "set #=GR POST threshold for --pfract as <x> [default=0.9]",      2 },
   { "--p-rf",      eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--pfract", NULL,                 "with --pfract options, ignore gap #=GC RF columns",              2 },
-  { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
-  { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all columns w/(possibly post -g) non-gap #=GC RF markup", 3 },
+  { "-k",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "keep  only non-gap RF columns, as RF is defined in input aln", 3 },
+  { "-r",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "remove all non-gap RF columns, as RF is defined in input aln", 3 },
+  { "--kmask",     eslARG_OUTFILE,FALSE,NULL, NULL,      NULL,"-k", NULL,                       "w/-k, output RF as mask to <f> before removing gap columns", 3},
   { "--start-all", eslARG_INT,   NULL,  NULL, NULL,      NULL,"--end-all",  "--start-rf",       "keep columns starting at column <n>", 3 },
   { "--end-all",   eslARG_INT,   NULL,  NULL, NULL,      NULL,"--start-all","--start-rf",       "keep columns ending   at column <n>", 3 },
   { "--start-rf",  eslARG_INT,   NULL,  NULL, NULL,      NULL,"--end-rf",   "--start-all",      "keep columns starting at non-gap RF column <n>", 3 },
@@ -199,15 +200,20 @@ main(int argc, char **argv)
   FILE *listfp = NULL;   /* output file for --list */
   /* --mask-all */
   char *amask = NULL;
+  int   amask_len = -1;
   /* --mask-all */
   char *rfmask = NULL;
+  int   rfmask_len = -1;
   /* --xmask */
   char *xmask = NULL;
+  int   xmask_len = -1;
   /* --map, --omap */
   FILE *omapfp;            /* output file for --omap */
   char *msa1_to_msa2_mask; /* the map from <msafile> to <f> from --map, a 1/0 mask */
   /* --omask */
   FILE *omaskfp;
+  /* --kmask */
+  FILE *kmaskfp;
 
   /***********************************************
    * Parse command line
@@ -369,18 +375,18 @@ main(int argc, char **argv)
 
   /* read --mask-all file, if nec */
   if(esl_opt_GetString(go, "--mask-all") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-all"), errbuf, &amask)) != eslOK)
-      esl_fatal("--mask-all input file: %s open failed.\n", esl_opt_GetString(go, "--mask-all"));
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask-all"), errbuf, &amask, &amask_len)) != eslOK)
+      esl_fatal(errbuf);
   }
   /* read --mask-rf file, if nec */
   if(esl_opt_GetString(go, "--mask-rf") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-rf"), errbuf, &rfmask)) != eslOK)
-      esl_fatal("--mask-rf input file: %s open failed.\n", esl_opt_GetString(go, "--mask-rf"));
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask-rf"), errbuf, &rfmask, &rfmask_len)) != eslOK)
+      esl_fatal(errbuf);
   }
   /* read --xmask file, if nec */
   if(esl_opt_GetString(go, "--xmask") != NULL) {
-    if((status = read_mask_file(esl_opt_GetString(go, "--xmask"), errbuf, &xmask)) != eslOK)
-      esl_fatal("--xmask input file: %s open failed.\n", esl_opt_GetString(go, "--xmask"));
+    if((status = read_mask_file(esl_opt_GetString(go, "--xmask"), errbuf, &xmask, &xmask_len)) != eslOK)
+      esl_fatal(errbuf);
   }
   /***********************************************
    * Read MSAs one at a time.
@@ -540,11 +546,11 @@ main(int argc, char **argv)
 	write_ali = TRUE;
       }
       if(amask != NULL) { /* --mask-all enabled */
-	if((status = write_rf_given_alen(go, errbuf, msa, amask)) != eslOK) goto ERROR;
+	if((status = write_rf_given_alen(go, errbuf, msa, amask, amask_len)) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
       if(rfmask != NULL) { /* --mask-rf enabled */
-	if((status = write_rf_given_rflen(go, errbuf, msa, rfmask)) != eslOK) goto ERROR;
+	if((status = write_rf_given_rflen(go, errbuf, msa, rfmask, rfmask_len)) != eslOK) goto ERROR;
 	write_ali = TRUE;
       }
 
@@ -564,6 +570,12 @@ main(int argc, char **argv)
       /* keep or remove columns based on RF annotation, if nec */
       if(esl_opt_GetBoolean(go, "-k") || esl_opt_GetBoolean(go, "-r"))
 	{
+	  if(esl_opt_GetString(go, "--kmask") != NULL)
+	    {
+	      if ((kmaskfp = fopen(esl_opt_GetString(go, "--kmask"), "w")) == NULL) 
+		ESL_FAIL(eslFAIL, errbuf, "Failed to open --kmask output file %s\n", esl_opt_GetString(go, "--kmask"));
+	      if((status = output_rf_as_mask(kmaskfp, errbuf, msa)) != eslOK) goto ERROR;
+	    }
 	  if((status = keep_or_remove_rf_gaps(go, errbuf, msa, 
 					      esl_opt_GetBoolean(go, "-k"),
 					      esl_opt_GetBoolean(go, "-r"))) != eslOK) goto ERROR;
@@ -837,6 +849,7 @@ main(int argc, char **argv)
     esl_fatal("No alignments found in file %s\n", alifile);
 
   if(esl_opt_GetString(go, "--omask") != NULL) fclose(omaskfp);
+  if(esl_opt_GetString(go, "--kmask") != NULL) fclose(kmaskfp);
   
   /* Cleanup, normal return
    */
@@ -954,7 +967,7 @@ keep_contiguous_column_block(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 /* write_rf_gapthresh
  *                   
  * Given an MSA write/rewrite RF based on fraction
- * of gaps in each column. If fraction > gapthresh RF is an 'x',
+ * of gaps in each column. If fraction < gapthresh RF is an 'x',
  * otherwise it's a '.' (gap).
  */
 static int
@@ -964,15 +977,30 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapt
   int64_t  apos;
   int64_t  gaps;
   int      i;
+  int      nrf = 0;
 
-  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+  if(msa->rf == NULL) { 
+    ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+    for (apos = 1; apos <= msa->alen; apos++) msa->rf[(apos-1)] = '.';
+  }
+
   for (apos = 1; apos <= msa->alen; apos++)
     {
       for (gaps = 0, i = 0; i < msa->nseq; i++)
 	if (esl_abc_XIsGap(msa->abc, msa->ax[i][apos])) gaps++;
-      msa->rf[(apos-1)] = ((double) gaps / (double) msa->nseq > gapthresh) ? '.' : 'x';
+      if((double) gaps / (double) msa->nseq < gapthresh) { /* column passes gap threshold */
+	nrf++;
+	if(esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) msa->rf[(apos-1)] = 'x';
+	/* else, leave it alone! */
+      }
+      else { /* column fails the gap threshold */
+	msa->rf[(apos-1)] = '.';
+      }
     }
   msa->rf[msa->alen] = '\0';
+
+  if(esl_opt_GetBoolean(go, "--verbose")) printf("gapthresh %.3f %d of %d pass", gapthresh, nrf, (int) msa->alen);
+  
   return eslOK;
  ERROR:
   return status;
@@ -981,29 +1009,34 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapt
 /* write_rf_given_alen
  *                   
  * Given an MSA and a char string of 1s and 0s (a lanemask) of length
- * msa->alen, write/rewrite RF based as 'x' (non-gap) for 1, '.' (gap) for 0.
+ * msa->alen, write/rewrite  RF positions as  'x' (non-gap) for 1, '.' (gap) for 0.
+ * If RF already exists, do not modify non-gap RF columns if they are within mask ('1').
  */
 static int
-write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *amask)
+write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *amask, int amask_len)
 {
   int      status;
   int64_t  apos;
-  int64_t  mask_len;
 
   /* contract check, rfgiven_mask must be exact length of msa */
   if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask is NULL in write_rf_given, this shouldn't happen.\n");
-  mask_len = strlen(amask);
-  if(mask_len != msa->alen) 
-    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask length: %" PRId64 " is not equal to the MSA length (%" PRId64 ")\n", 
-	     mask_len, msa->alen); 
-
-  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+  if(amask_len != (int) strlen(amask)) { ESL_FAIL(eslEINVAL, errbuf, "write_rf_given_alen(), passed in mask len (%d) is not equal to actual mask length (%d)\n", amask_len, (int) strlen(amask)); }
+  if(amask_len != msa->alen) 
+    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask length: %d is not equal to the MSA length (%" PRId64 ")\n", 
+	     amask_len, msa->alen); 
+  if(msa->rf == NULL) { 
+    ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+    for (apos = 1; apos <= msa->alen; apos++) msa->rf[(apos-1)] = '.';
+  }
 
   for (apos = 1; apos <= msa->alen; apos++) {
-      if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
-      else if(amask[(apos-1)] == '1') msa->rf[(apos-1)] = 'x';
-      else    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
+    if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
+    else if(amask[(apos-1)] == '1') { 
+      if(esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) msa->rf[(apos-1)] = 'x'; /* else, leave it alone */
+    }
+    else    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
   }
+
   msa->rf[msa->alen] = '\0';
   return eslOK;
  ERROR:
@@ -1017,27 +1050,32 @@ write_rf_given_alen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *ama
  * RF based as 'x' (non-gap) for 1, '.' (gap) for 0. 1s indicate which
  * non-gap RF columns to keep as 'x', and 0s indicate which non-gap
  * RF columns to make gaps '.'.
+ * If RF already exists, do not modify non-gap RF columns if they are 
+ * within mask ('1').
  */
 static int
-write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask)
+write_rf_given_rflen(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, char *rfmask, int rfmask_len)
 {
   int64_t  apos, cpos;
-  int64_t  mask_len;
 
   /* contract check, mask must be exact length of msa */
-  if(rfmask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(rfmask  == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask is NULL in write_rf_given, this shouldn't happen.\n");
   if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask requires RF annotation in MSA (try -g)\n");
-  mask_len = strlen(rfmask);
+  if(rfmask_len != (int) strlen(rfmask)) { ESL_FAIL(eslEINVAL, errbuf, "write_rf_given_rflen(), passed in mask len (%d) is not equal to actual mask length (%d).\n", rfmask_len, (int) strlen(rfmask)); }
 
   cpos = 0;
   for (apos = 1; apos <= msa->alen; apos++) {
     if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) {
       cpos++;
       if     (rfmask[(cpos-1)] == '0') msa->rf[(apos-1)] = '.';
-      else if(rfmask[(cpos-1)] == '1') msa->rf[(apos-1)] = 'x';
+      else if(rfmask[(cpos-1)] == '1') { 
+	if(esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) msa->rf[(apos-1)] = 'x'; /* else, leave it alone */
+      }
     }
     else msa->rf[(apos-1)] = '.'; 
   }
+  if(cpos != rfmask_len) { ESL_FAIL(eslEINVAL, errbuf, "write_rf_given_rflen(), RF non-gap length (consensus length) (%" PRId64 ") is not equal to mask length (%d)\n", cpos, rfmask_len); }
+
   msa->rf[msa->alen] = '\0';
   return eslOK;
 }
@@ -1055,8 +1093,17 @@ write_rf_given_useme(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int *use
   int     status;
   int64_t apos;
 
-  if(msa->rf == NULL) ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
-  for (apos = 0; apos < msa->alen; apos++) msa->rf[apos] = useme[apos] ? 'x' : '.';
+  if(msa->rf == NULL) { 
+    ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
+    for (apos = 1; apos <= msa->alen; apos++) msa->rf[(apos-1)] = '.';
+  }
+
+  for (apos = 0; apos < msa->alen; apos++) { 
+    if(useme[apos]) { 
+      if(esl_abc_CIsGap(msa->abc, msa->rf[apos])) msa->rf[apos] = 'x'; /* else leave it alone */
+    }
+    else msa->rf[apos] = '.';
+  }
   msa->rf[msa->alen] = '\0';
   return eslOK;
  ERROR:
@@ -1853,7 +1900,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
 		{
 		  ESL_ALLOC(newstr, sizeof(char) * (msa->alen+nnew+1));
 		  if((status = cp_and_add_gaps_to_aseq(newstr, msa->gr[j][i], msa->alen, toadd, nnew, '.') != eslOK)) goto ERROR;
-		  esl_msa_AppendGC(newmsa, msa->gc_tag[i], newstr);
+		  esl_msa_AppendGR(newmsa, msa->gr_tag[j], i, newstr);
 		  free(newstr);
 		}
 	    }
@@ -2767,12 +2814,13 @@ dmx_Visualize(FILE *fp, ESL_DMATRIX *D, double min, double max)
 /* read_mask_file
  *
  * Given an open file pointer, read the first token of the
- * file and return it as *ret_mask.
+ * file and return it as *ret_mask. It must contain only
+ * '0' or '1' characters.
  *
  * Returns:  eslOK on success.
  */
 int
-read_mask_file(char *filename, char *errbuf, char **ret_mask)
+read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len)
 {
   int             status;
   ESL_FILEPARSER *efp;
@@ -2787,10 +2835,16 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask)
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
 
   ESL_ALLOC(mask, sizeof(char) * (toklen+1));
-  for(n = 0; n < toklen; n++) mask[n] = tok[n];
+  for(n = 0; n < toklen; n++) { 
+    if((tok[n] == '0') || (tok[n] == '1')) { 
+      mask[n] = tok[n];
+    }
+    else { ESL_FAIL(eslFAIL, errbuf, "read a non-0 and non-1 character (%c) in the mask file %s\n", tok[n], filename); }
+  }
   mask[n] = '\0';
-  *ret_mask = mask;
 
+  *ret_mask = mask;
+  *ret_mask_len = n;
   esl_fileparser_Close(efp);
   return eslOK;
   
@@ -3413,7 +3467,6 @@ output_rf_as_mask(FILE *fp, char *errbuf, ESL_MSA *msa)
  ERROR:
   return status;
 }
-
 
 /* expand_msa2mask
  *

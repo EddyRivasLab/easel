@@ -2518,8 +2518,10 @@ esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
  *            want to immediately call <esl_msa_MinimGaps()> on the
  *            new alignment to clean this up.
  *
- *            Unparsed Stockholm annotation is not transferred to the
- *            new alignment.
+ *            Unparsed GS and GR Stockholm annotation that is presumably still
+ *            valid is transferred to the new alignment. Unparsed GC, GF, and
+ *            comments that are potentially invalidated by taking the subset
+ *            of sequences are not transferred to the new MSA.
  *            
  *            Weights are transferred exactly. If they need to be
  *            renormalized to some new total weight (such as the new,
@@ -2596,6 +2598,15 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	if (msa->pp != NULL && msa->pp[oidx] != NULL) {
 	  if ((status = set_seq_pp(new, nidx, msa->pp[oidx])) != eslOK) goto ERROR;
 	}
+	/* unparsed annotation */
+	for(i = 0; i < msa->ngs; i++) {
+	  if(msa->gs[i] != NULL) 
+	    if ((status = esl_msa_AddGS(new, msa->gs_tag[i], nidx, msa->gs[i][oidx])) != eslOK) goto ERROR;
+	}
+	for(i = 0; i < msa->ngr; i++) {
+	  if(msa->gr[i] != NULL) 
+	    if ((status = esl_msa_AppendGR(new, msa->gr_tag[i], nidx, msa->gr[i][oidx])) != eslOK) goto ERROR;
+	}
 
 	nidx++;
       }
@@ -2610,7 +2621,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->pp_cons, msa->alen, &(new->pp_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->rf,      msa->alen, &(new->rf)))      != eslOK) goto ERROR;
-  
+
   for (i = 0; i < eslMSA_NCUTS; i++) {
     new->cutoff[i] = msa->cutoff[i];
     new->cutset[i] = msa->cutset[i];
@@ -2627,13 +2638,6 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if (new->salen != NULL) { free(new->salen);  new->salen = NULL; }
   if (new->pplen != NULL) { free(new->pplen);  new->pplen = NULL; }
   new->lastidx = -1;
-#ifdef eslAUGMENT_KEYHASH
-  esl_keyhash_Destroy(new->index);
-  new->index  = NULL;
-  new->gs_idx = NULL;
-  new->gc_idx = NULL;
-  new->gr_idx = NULL;
-#endif
 
   *ret_new = new;
   return eslOK;

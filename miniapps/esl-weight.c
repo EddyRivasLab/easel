@@ -24,6 +24,7 @@ static ESL_OPTIONS options[] = {
   { "-p",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff position-based weights",             1 },
   { "-b",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff simple filter weights",              1 },
   { "-f",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "filter out seqs by fractional identity",      1 },
+  { "-o",      eslARG_OUTFILE, NULL, NULL,     NULL,   NULL,NULL,   NULL,          "send output to file <f>, not stdout",         1 },
   { "--id",       eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",   NULL,          "for -b: set identity cutoff",                 1 },
   { "--idf",      eslARG_REAL,  "0.80", NULL,"0<=x<=1",   NULL,"-f",   NULL,          "for -f: set identity cutoff",                 1 },
   { "--informat", eslARG_STRING, FALSE, NULL,     NULL,   NULL,NULL,   NULL,          "specify that input file is in format <s>",    1 },
@@ -70,6 +71,8 @@ main(int argc, char **argv)
   ESL_MSAFILE    *afp      = NULL;
   ESL_MSA        *msa      = NULL;
   int             status;
+  char           *outfile; /* output file, or NULL*/
+  FILE           *ofp;	   /* output stream       */
 
   /* Parse command line */
   go = esl_getopts_Create(options);
@@ -83,6 +86,11 @@ main(int argc, char **argv)
     fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
+
+  outfile = esl_opt_GetString (go, "-o"); /* sets outfile to NULL if -o unset */
+  if (outfile == NULL) ofp = stdout;
+  else if ((ofp = fopen(outfile, "w")) == NULL)
+    esl_fatal("Failed to open output file %s\n", outfile);
 
   status = esl_msafile_Open(msafile, fmt, NULL, &afp);
   if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable", msafile);
@@ -114,23 +122,23 @@ main(int argc, char **argv)
 	{
 	  ESL_MSA *fmsa;
 	  status = esl_msaweight_IDFilter(msa, esl_opt_GetReal(go, "--idf"), &fmsa);
-	  esl_msa_Write(stdout, fmsa, eslMSAFILE_STOCKHOLM); 
+	  esl_msa_Write(ofp, fmsa, eslMSAFILE_STOCKHOLM); 
 	  if (fmsa != NULL) esl_msa_Destroy(fmsa);
 	}
       else if  (esl_opt_GetBoolean(go, "-g"))
 	{ 
 	  status = esl_msaweight_GSC(msa);                                 
-	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-p")) 
 	{
 	  status = esl_msaweight_PB(msa);                                  
-	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
       else if  (esl_opt_GetBoolean(go, "-b"))
 	{ 
 	  status = esl_msaweight_BLOSUM(msa, esl_opt_GetReal(go, "--id")); 
- 	  esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+ 	  esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 	} 
      else     esl_fatal("internal error: no weighting algorithm selected");
       if (status != eslOK) esl_fatal("Failed to calculate weights for msa %s", msa->name);
@@ -140,6 +148,7 @@ main(int argc, char **argv)
 
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
+  if (! esl_opt_IsDefault(go, "-o")) fclose(ofp); 
   esl_getopts_Destroy(go);
   exit(0);
 }
