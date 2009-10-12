@@ -554,7 +554,7 @@ esl_msa_Create(int nseq, int64_t alen)
  *            and the caller may attempt to recover from the error.
  *            
  *            Throws <eslEINVAL> if <msa> is not growable: its <alen>
- *            field must be 0 to be growable.
+ *            field must be -1 to be growable.
  *
  * Xref:      squid's MSAExpand(), 1999.
  */
