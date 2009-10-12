@@ -24,7 +24,7 @@
 #include "esl_tree.h"
 #include "esl_wuss.h"
 
-static char banner[] = "manipulate a multiple sequence alignment file";
+static char banner[] = "map two alignments with identical sequences";
 static char usage[]  = "[options] <msafile1> <msafile2>\n\
 <msafile1> and <msafile2> must be in Stockholm format.";
 
@@ -42,10 +42,10 @@ static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-q",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be quiet, don't print mapping of each column",                   1 },
-  { "--mask-a2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'= msa1 aln        col x maps msa2 aln col",        1 },
-  { "--mask-a2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'= msa1 aln        col x maps msa2 non-gap RF col", 1 },
-  { "--mask-c2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'= msa1 non-gap RF col x maps msa2 aln col",        1 },
-  { "--mask-c2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'= msa1 non-gap RF col x maps msa2 non-gap RF col", 1 },
+  { "--mask-a2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 aln        col x maps msa2 aln col",        1 },
+  { "--mask-a2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 aln        col x maps msa2 non-gap RF col", 1 },
+  { "--mask-c2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 non-gap RF col x maps msa2 aln col",        1 },
+  { "--mask-c2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 non-gap RF col x maps msa2 non-gap RF col", 1 },
   { "--submap",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "<msafile2> is subaln of <msafile1>, output mask to <f>",         1 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile{1,2}> contain protein alignments",                      1 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile{1,2}> contain DNA alignments",                          1 },
