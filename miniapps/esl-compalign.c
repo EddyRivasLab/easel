@@ -615,7 +615,7 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   int             toklen;
   int             n;
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
   
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);

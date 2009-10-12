@@ -1624,7 +1624,7 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
   char           *ssualigndir = NULL;
   int             found_match = FALSE;
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("ERROR, failed to open template file %s in parse_template_file\n", filename);
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("ERROR, failed to open template file %s in parse_template_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
 
   status = eslOK;
@@ -3183,7 +3183,7 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   int             toklen;
   int             n;
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
   
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
@@ -3227,7 +3227,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
   ESL_FILEPARSER *efp;
   char           *s;
   char *dfile = esl_opt_GetString(go, "--dfile");
-  if (esl_fileparser_Open(dfile, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
+  if (esl_fileparser_Open(dfile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
   esl_fileparser_SetCommentChar(efp, '#');
 
   pp = orig_npage - 1;
