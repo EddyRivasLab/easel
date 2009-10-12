@@ -2707,8 +2707,10 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
  *            want to immediately call <esl_msa_MinimGaps()> on the
  *            new alignment to clean this up.
  *
- *            Unparsed Stockholm annotation is not transferred to the
- *            new alignment.
+ *            Unparsed GS and GR Stockholm annotation that is presumably still
+ *            valid is transferred to the new alignment. Unparsed GC, GF, and
+ *            comments that are potentially invalidated by taking the subset
+ *            of sequences are not transferred to the new MSA.
  *            
  *            Weights are transferred exactly. If they need to be
  *            renormalized to some new total weight (such as the new,
