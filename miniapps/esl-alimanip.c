@@ -3396,6 +3396,8 @@ number_columns(ESL_MSA *msa, int do_all, char *errbuf)
   int a,b,apos;
   int bmin;
   int pos2print;
+  int tagidx;
+
   /* contract check */
   if(!do_all && msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment.");
 
@@ -3429,6 +3431,14 @@ number_columns(ESL_MSA *msa, int do_all, char *errbuf)
       else numstring[(apos-1)] = get_char_digit_x_from_int(pos2print++, (alen_ndigits-a));
 	/*printf("called get_char_digit_x_from_int(%d, %d)\n",apos, (alen_ndigits-a));*/
     }
+    /* If the tag already exists, free it's associated markup string. This is an awful hack. */
+    for (tagidx = 0; tagidx < msa->ngc; tagidx++) 
+      if (strcmp(msa->gc_tag[tagidx], tag) == 0) break;
+    if(tagidx != msa->ngc) { /* tag exists */
+      free(msa->gc[tagidx]);
+      msa->gc[tagidx] = NULL;
+    }
+
     esl_msa_AppendGC(msa, tag, numstring);
   }
 
