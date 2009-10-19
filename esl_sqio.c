@@ -2856,13 +2856,18 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
  * ./benchmark -d2w /misc/data0/genomes/c.elegans/genome/allWS120
  * CPU Time: 2.16u 0.31s 00:00:02.47 Elapsed: 00:00:03
  */
-/* gcc -std=gnu99 -O3 -fomit-frame-pointer -fstrict-aliasing -mpentiumpro -msse2 -I. -L. -o benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel
- * ./benchmark <seqfile>
+/* gcc -std=gnu99 -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -msse2 -pthread -I. -L. -o esl_sqio_benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel -lm
+ * icc -O3 -ansi_alias -xW -static -I. -L. -o esl_sqio_benchmark -DeslSQIO_BENCHMARK esl_sqio.c -leasel -lm
+ * ./esl_sqio_benchmark <seqfile>
  */
 #ifdef eslSQIO_BENCHMARK
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #include "easel.h"
 #include "esl_getopts.h"
@@ -2876,6 +2881,7 @@ static ESL_OPTIONS options[] = {
   { "-d",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use digital sequence input mode",                  0 },
   { "-i",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark ReadInfo() input",                       0 },
   { "-w",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark ReadWindow() input",                     0 },
+  { "-B",        eslARG_INT,   "4096",  NULL, NULL,  NULL,  NULL, NULL, "buffer size for read, fread tests",                0 },
   { "-C",        eslARG_INT,    "100",  NULL, NULL,  NULL,  NULL, NULL, "context size for ReadWindow()",                    0 },
   { "-W",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "window size for ReadWindow()",                     0 },
   { "-2",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  "-w", NULL, "with ReadWindow(), do both strands",               0 },
@@ -2884,6 +2890,11 @@ static ESL_OPTIONS options[] = {
 };
 static char usage[]  = "[-options] <DNA FASTA file>";
 static char banner[] = "benchmark driver for sqio module";
+
+static int benchmark_read (char *filename, int bufsize, int64_t *ret_magic);
+static int benchmark_fread(char *filename, int bufsize, int64_t *ret_magic);
+static int benchmark_fgets(char *filename, int bufsize, int64_t *ret_magic);
+/*static int benchmark_mmap (char *filename, int bufsize, int64_t *ret_magic);*/
 
 int
 main(int argc, char **argv)
@@ -2895,11 +2906,13 @@ main(int argc, char **argv)
   ESL_SQFILE    *sqfp     = NULL;
   char          *filename = esl_opt_GetArg(go, 1);
   int            format   = eslSQFILE_FASTA;
+  int            bufsize  = esl_opt_GetInteger(go, "-B");
   int            C        = esl_opt_GetInteger(go, "-C");
   int            W        = esl_opt_GetInteger(go, "-W");
   int            do_crick = esl_opt_GetBoolean(go, "-2");
   int            n        = 0;
-  uint64_t       nr       = 0;
+  int64_t        magic    = 0;
+  int64_t        nr       = 0;
 
   if (esl_opt_GetBoolean(go, "-d"))
     {
@@ -2913,6 +2926,17 @@ main(int argc, char **argv)
       sq = esl_sq_Create();
       if (esl_sqfile_Open(filename, format, NULL, &sqfp) != eslOK) esl_fatal("failed to open %s", filename);
     }
+
+
+  /* It's useful to have some baselines of just reading the file without parsing;
+   * POSIX read(); C fread(); C fgets(); and POSIX mmap(). 
+   * Counting a's (<na>) is just to keep the optimizer from optimizing the 
+   * benchmark away.
+   */
+  esl_stopwatch_Start(w);   benchmark_read (filename, bufsize, &magic);   esl_stopwatch_Stop(w);  printf("magic=%" PRId64 "; ", magic); esl_stopwatch_Display(stdout, w, "read():  "); 
+  esl_stopwatch_Start(w);   benchmark_fread(filename, bufsize, &magic);   esl_stopwatch_Stop(w);  printf("magic=%" PRId64 "; ", magic); esl_stopwatch_Display(stdout, w, "fread(): ");
+  esl_stopwatch_Start(w);   benchmark_fgets(filename, bufsize, &magic);   esl_stopwatch_Stop(w);  printf("magic=%" PRId64 "; ", magic); esl_stopwatch_Display(stdout, w, "fgets(): ");
+  /*  esl_stopwatch_Start(w);   benchmark_mmap (filename, bufsize, &magic);   esl_stopwatch_Stop(w);  printf("magic=%" PRId64 "; ", magic); esl_stopwatch_Display(stdout, w, "mmap():  "); */
 
   esl_stopwatch_Start(w);
   if (esl_opt_GetBoolean(go, "-i"))
@@ -2938,7 +2962,7 @@ main(int argc, char **argv)
       while (esl_sqio_Read(sqfp, sq) == eslOK)  { n++; nr += sq->L; esl_sq_Reuse(sq); }
     }
   esl_stopwatch_Stop(w);
-  esl_stopwatch_Display(stdout, w, NULL);
+  esl_stopwatch_Display(stdout, w, "sqio:  ");
   printf("Read %d sequences; %lld residues.\n", n, (long long int) nr);
 
   esl_sqfile_Close(sqfp);
@@ -2948,6 +2972,94 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
+
+static int
+benchmark_read(char *filename, int bufsize, int64_t *ret_magic)
+{
+  char *buf  = malloc(sizeof(char) * bufsize);
+  int   fd   = open(filename, O_RDONLY);
+  int   n;
+  int64_t magic = 0;
+  int   pos;
+
+  while ( (n = read(fd, buf, bufsize)) > 0)
+    {
+      for (pos = 0; pos < n; pos++) magic += buf[pos];
+    }
+
+  free(buf);
+  close(fd);
+  *ret_magic = magic;
+  return eslOK;
+}
+  
+static int
+benchmark_fread(char *filename, int bufsize, int64_t *ret_magic)
+{
+  FILE *fp   = fopen(filename, "r");
+  char *buf  = malloc(sizeof(char) * bufsize);
+  int64_t magic = 0;
+  int   pos;
+  int   n;
+  char *s;
+  
+  while ( (n = fread(buf, sizeof(char), bufsize, fp)) > 0)
+    {
+      for (pos = 0; pos < n; pos++) magic += buf[pos];
+    } 
+
+  free(buf);
+  fclose(fp);
+  *ret_magic = magic;
+  return eslOK;
+}
+
+
+static int
+benchmark_fgets(char *filename, int bufsize, int64_t *ret_magic)
+{
+  FILE *fp   = fopen(filename, "r");
+  char *buf  = malloc(sizeof(char) * bufsize);
+  int64_t magic = 0;
+  char *s;
+  
+  while ( fgets(buf, bufsize, fp) != NULL)
+    {
+      for (s = buf; *s; s++) magic += *s;
+    } 
+
+  free(buf);
+  fclose(fp);
+  *ret_magic = magic;
+  return eslOK;
+}
+
+
+#if 0
+/* we can't use mmap anyway; we have to be able to read from streams
+ * and pipes.
+ */
+static int
+benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
+{
+  int   fd   = open(filename, O_RDONLY);
+  struct stat statbuf;
+  char *p;
+  uint64_t pos;
+  uint64_t magic = 0;
+ 
+  fstat(fd, &statbuf);
+  p = mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  for (pos = 0; pos < statbuf.st_size; pos++)
+    magic += p[pos];
+
+  close(fd);
+  *ret_magic = magic;
+  return eslOK;
+}
+#endif  
+
+
 #endif /*eslSQIO_BENCHMARK*/
 /*------------------ end of benchmark ---------------------------*/
 

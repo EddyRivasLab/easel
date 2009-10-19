@@ -126,7 +126,7 @@ esl_threads_AddThread(ESL_THREADS *obj, void *data)
   ESL_RALLOC(obj->data,     p, sizeof(void *)    * (obj->threadCount+1));
   
   obj->data[obj->threadCount] = data;
-  if (pthread_create(&(obj->threadId[obj->threadCount]), NULL, (void *) obj->func, obj) != 0) ESL_EXCEPTION(eslESYS, "thread creation failed");
+  if (pthread_create(&(obj->threadId[obj->threadCount]), NULL, (void *(*)(void *)) obj->func, obj) != 0) ESL_EXCEPTION(eslESYS, "thread creation failed");
   obj->threadCount++;
   return eslOK;
 

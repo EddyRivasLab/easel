@@ -386,6 +386,7 @@ esl_sq_Reuse(ESL_SQ *sq)
   sq->name[0]   = '\0';
   sq->acc[0]    = '\0';
   sq->desc[0]   = '\0';
+  sq->tax_id    = -1;
   sq->source[0] = '\0';
   if (sq->seq != NULL) sq->seq[0] = '\0';
   if (sq->dsq != NULL) sq->dsq[0] = sq->dsq[1] = eslDSQ_SENTINEL;
@@ -399,6 +400,7 @@ esl_sq_Reuse(ESL_SQ *sq)
   sq->C     = 0;
   sq->W     = 0;
   sq->L     = -1;
+  sq->idx   = -1;
   sq->doff  = -1;
   sq->roff  = -1;
   sq->eoff  = -1;
@@ -1710,6 +1712,7 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->name     = NULL;
   sq->acc      = NULL;
   sq->desc     = NULL;
+  sq->tax_id   = -1;
   sq->seq      = NULL;
   sq->dsq      = NULL;	
   sq->ss       = NULL;		/* Note that ss is optional - it will only be allocated if needed */

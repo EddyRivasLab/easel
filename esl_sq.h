@@ -83,6 +83,7 @@ typedef struct {
   char    *name;           /* name; one word, no whitespace ("\0" if no name)  */
   char    *acc;            /* optional accession (1 word) ("\0" if none)       */
   char    *desc;           /* description line ("\0" if no description)        */
+  int32_t  tax_id;	   /* NCBI taxonomy id (-1 if none)                    */
   char    *seq;            /* sequence [0..n-1], or NULL if digital            */
   ESL_DSQ *dsq;            /* digitized sequence [1..n], or NULL if text       */
   char    *ss;             /* optional sec structure [0..n-1], [1..n], or NULL */
@@ -108,6 +109,7 @@ typedef struct {
   int      srcalloc;	   /* allocated length for source name                 */
 
   /* Disk offset bookkeeping:                                                  */
+  int64_t  idx;	           /* ctr for which # seq this is; -1 if not counting  */
   off_t    roff;	   /* record offset (start of record); -1 if none      */
   off_t    doff;	   /* data offset (start of sequence data); -1 if none */
   off_t    eoff;	   /* offset to last byte of record; -1 if unknown     */
