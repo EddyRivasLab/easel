@@ -26,7 +26,7 @@ typedef struct {
  */
 extern ESL_RANDOMNESS *esl_randomness_Create(uint32_t seed);
 extern ESL_RANDOMNESS *esl_randomness_CreateFast(uint32_t seed);
-extern ESL_RANDOMNESS *esl_randomness_CreateTimeseeded(void);
+extern ESL_RANDOMNESS *esl_randomness_CreateTimeseeded(void); /* DEPRECATED */
 extern void            esl_randomness_Destroy(ESL_RANDOMNESS *r);
 extern int             esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed);
 extern uint32_t        esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
