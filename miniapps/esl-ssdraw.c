@@ -297,8 +297,21 @@ main(int argc, char **argv)
   int           read_msa = FALSE; /* set to true when we read an alignment */
   int           apos;
   char          errbuf[ERRBUFSIZE];
-  FILE         *ofp;		/* output file for postscript */
-  SSPostscript_t *ps;           /* the postscript data structure we create */
+  FILE           *ofp       = NULL;    /* output file for postscript */
+  SSPostscript_t *ps        = NULL;    /* the postscript data structure we create */
+  int            *hc_nbins  = NULL;
+  float        ***hc_scheme = NULL;
+  float         **hc_onecell = NULL;
+  int           z;
+  char          *command = NULL;
+  char          *date = NULL;
+  int master_mode;
+  char *mask = NULL;
+  int masklen;
+  char *mask2 = NULL;
+  int masklen2;
+
+
   
   /***********************************************
    * Parse command line
@@ -347,8 +360,6 @@ main(int argc, char **argv)
   templatefile = esl_opt_GetArg(go, 2);
   outfile      = esl_opt_GetArg(go, 3);
 
-  char *command;
-  char *date;
   if((status = get_command(go, errbuf, &command)) != eslOK) esl_fatal(errbuf);
   if((status = get_date(errbuf, &date))           != eslOK) esl_fatal(errbuf);
 
@@ -356,9 +367,8 @@ main(int argc, char **argv)
   /* Premlinaries */
   /****************/
   /* allocate and fill predefined one-cell colors, these are hardcoded */
-  float **hc_onecell;
-  int z;
   ESL_ALLOC(hc_onecell, sizeof(float *) * NOC);
+  for(z = 0; z < NOC; z++) hc_onecell[z] = NULL;
   for(z = 0; z < NOC; z++) { ESL_ALLOC(hc_onecell[z], sizeof(float) * NCMYK); }
   
   hc_onecell[CYANOC][0] = 1.0;
@@ -408,16 +418,19 @@ main(int argc, char **argv)
 
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  int     *hc_nbins;
-  float ***hc_scheme;
   ESL_ALLOC(hc_scheme, sizeof(float **) * 4);
+  for (z = 0; z < 4; z++) hc_scheme[z] = NULL;
   ESL_ALLOC(hc_scheme[0], sizeof(float *) * 11); 
+  for(z = 0; z < 11; z++) hc_scheme[0][z] = NULL;
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[0][z], sizeof(float) * NCMYK); }
   ESL_ALLOC(hc_scheme[1], sizeof(float *) * 11); 
+  for(z = 0; z < 11; z++) hc_scheme[1][z] = NULL;
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[1][z], sizeof(float) * NCMYK); }
   ESL_ALLOC(hc_scheme[2], sizeof(float *) * 6); 
+  for(z = 0; z < 6; z++) hc_scheme[2][z] = NULL;
   for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[2][z], sizeof(float) * NCMYK); }
   ESL_ALLOC(hc_scheme[3], sizeof(float *) * 6); 
+  for(z = 0; z < 6; z++) hc_scheme[3][z] = NULL;
   for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[3][z], sizeof(float) * NCMYK); }
 
   ESL_ALLOC(hc_nbins, sizeof(int) * 4);
@@ -480,7 +493,6 @@ main(int argc, char **argv)
   hc_scheme[2][5][0] = 0.00; hc_scheme[2][5][1] = 0.94; hc_scheme[2][5][2] = 1.00; hc_scheme[2][5][3] = 0.00; /*red*/
   hc_scheme[3][0][0] = 0.00; hc_scheme[3][0][1] = 0.94; hc_scheme[3][0][2] = 1.00; hc_scheme[3][0][3] = 0.00; /*red*/
   /***************************************************************/
-  int master_mode;
   master_mode = ALIMODE;
   if(esl_opt_GetBoolean(go, "--indi"))       master_mode = INDIMODE;
   if(esl_opt_GetBoolean(go, "--mask-col"))   master_mode = SIMPLEMASKMODE;
@@ -506,10 +518,6 @@ main(int argc, char **argv)
   afp->abc = abc;
 
   /* Read the mask files, if nec */
-  char *mask = NULL;
-  int masklen;
-  char *mask2 = NULL;
-  int masklen2;
   if(! esl_opt_IsDefault(go, "--mask")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
   }
@@ -2282,16 +2290,30 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   int p, pp, c, i;
   int cpos, apos;
   int orig_npage = ps->npage;
-  double **obs, *ent, *bg;
+  double **obs   = NULL;
+  double  *ent   = NULL;
+  double  *bg    = NULL;
+  float   *limits = NULL;
   int zero_obs;
+  int nonecell = 0;
+  int nonecell_masked = 0;
+  int within_mask;
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
+  for(p = orig_npage; p < ps->npage; p++) { 
+    ps->rrAA[p]    = NULL;
+    ps->rcolAAA[p] = NULL;
+    ps->sclAA[p]   = NULL;
+    ps->occlAAA[p] = NULL;
+  }
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    for(c = 0; c < ps->clen; c++) 
+      ps->rcolAAA[p][c] = NULL;
     for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -2301,6 +2323,9 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   ESL_ALLOC(obs, sizeof(double *) * ps->clen);
   ESL_ALLOC(bg, sizeof(double) * msa->abc->K);
   esl_vec_DSet(bg, msa->abc->K, 1./(msa->abc->K));
+
+  for(cpos = 0; cpos < ps->clen; cpos++) 
+    obs[cpos] = NULL;
   
   for(cpos = 0; cpos < ps->clen; cpos++) { 
     ESL_ALLOC(obs[cpos], sizeof(double) * msa->abc->K);
@@ -2310,7 +2335,6 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   pp = orig_npage;
 
   /* add color legend */
-  float *limits;
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
   limits[0] = 0.0;
   limits[1] = 0.4;
@@ -2321,9 +2345,6 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   limits[6] = 2.00;
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
-  int nonecell = 0;
-  int nonecell_masked = 0;
-  int within_mask;
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
   for(i = 0; i < msa->nseq; i++) { 
     cpos = 0;
@@ -2399,6 +2420,10 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   int *dct;
   int *dct_internal;
   int *fA, *lA;
+  int nonecell = 0;
+  int nonecell_masked = 0;
+  int within_mask;
+  float *limits = NULL;
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -2453,7 +2478,6 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   pp = orig_npage;
 
   /* add color legend */
-  float *limits;
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
   limits[0] = 0.0;
   limits[1] = 0.167;
@@ -2464,9 +2488,6 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   limits[6] = 1.00;
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
-  int nonecell = 0;
-  int nonecell_masked = 0;
-  int within_mask;
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
   if(do_all) { 
     /* draw delete page with all deletes */
@@ -2930,6 +2951,7 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   int orig_npage = ps->npage;
   int ncols_inside_mask = 0;
   int ncols_outside_mask = 0;
+  char *mask_desc = NULL;
 
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -2963,7 +2985,6 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[excmask_idx], ncols_outside_mask, -1);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "columns excluded by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  char *mask_desc = NULL;
   if((status = esl_strcat(&(mask_desc), -1, "mask file: ", -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
   if((status = esl_strcat(&(mask_desc), -1, esl_opt_GetString(go, "--mask"), -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
   if((status = add_page_desc_to_sspostscript(ps, pp, mask_desc, errbuf)) != eslOK) return status;
