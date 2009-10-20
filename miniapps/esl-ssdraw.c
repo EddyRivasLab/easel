@@ -231,7 +231,7 @@ static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  compare_ints(const void *el1, const void *el2);
-static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen);
+static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
@@ -309,9 +309,9 @@ main(int argc, char **argv)
   char *mask = NULL;
   int masklen;
   char *mask2 = NULL;
-  int masklen2;
-
-
+  int mask2len;
+  int mask_has_internal_zeroes = FALSE;
+  int mask2_has_internal_zeroes = FALSE;
   
   /***********************************************
    * Parse command line
@@ -519,11 +519,11 @@ main(int argc, char **argv)
 
   /* Read the mask files, if nec */
   if(! esl_opt_IsDefault(go, "--mask")) { 
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen, &mask_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
   }
   if(! esl_opt_IsDefault(go, "--mask-diff")) { 
-      if((status = read_mask_file(esl_opt_GetString(go, "--mask-diff"), errbuf, &mask2, &masklen2)) != eslOK) esl_fatal(errbuf);
-      if(masklen != masklen2) esl_fatal("Mask in %f length (%d) differs from mask in %f (%d)!", esl_opt_GetString(go, "--mask"), masklen, esl_opt_GetString(go, "--mask-diff"), masklen2);
+    if((status = read_mask_file(esl_opt_GetString(go, "--mask-diff"), errbuf, &mask2, &mask2len, &mask2_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
+    if(masklen != mask2len) esl_fatal("Mask in %f length (%d) differs from mask in %f (%d)!", esl_opt_GetString(go, "--mask"), masklen, esl_opt_GetString(go, "--mask-diff"), mask2len);
   }
 
   /* Read the alignment */
@@ -583,7 +583,9 @@ main(int argc, char **argv)
     else if(master_mode == SIMPLEMASKMODE) { 
       if(esl_opt_GetBoolean(go, "--mask-col")) { 
 	if(ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d.", clen, masklen);
-	if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, CYANOC)) != eslOK) esl_fatal(errbuf);
+	/* Paint positions excluded by the mask magenta, unless the mask has zero internal exclusions.
+	 * Such a mask is a 'truncating' mask, that excludes only a 5' contiguous set of columns, and a 3' contiguous set of columns, in this case paint excluded positions light grey. */
+	if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, (mask_has_internal_zeroes ? MAGENTAOC : LIGHTGREYOC))) != eslOK) esl_fatal(errbuf);
       }
       if(! esl_opt_IsDefault(go, "--mask-diff")) { 
 	if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
@@ -3190,12 +3192,16 @@ static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, 
 /* read_mask_file
  *
  * Given an open file pointer, read the first token of the
- * file and return it as *ret_mask.
+ * file and return it as *ret_mask. Also return length of
+ * mask in *ret_masklen, and a flag indicating whether or
+ * not the mask has any internal zeroes in *ret_mask_has_internal_zeroes.
+ * An internal '0' is one that occurs between at least one
+ * 5' and one 3' '1'
  *
  * Returns:  eslOK on success.
  */
 int
-read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
+read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes)
 {
   int             status;
   ESL_FILEPARSER *efp;
@@ -3203,6 +3209,10 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   char           *mask;
   int             toklen;
   int             n;
+  /* for determining if we have internal zeroes */
+  int             seen_1 = FALSE;                /* becomes TRUE when we see first (5'-most) '1' */
+  int             seen_1_then_0 = FALSE;         /* becomes TRUE when we see first (5'-most) '0' that is 3' of first '1' */
+  int             seen_1_then_0_then_1 = FALSE;  /* becomes TRUE when we see first (5'-most) '1' that is 3' of first '0' that is 3' of first '1' */
 
   if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
@@ -3210,14 +3220,27 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
 
   ESL_ALLOC(mask, sizeof(char) * (toklen+1));
+
   for(n = 0; n < toklen; n++) { 
-    if((tok[n] != '0') && (tok[n] != '1')) ESL_FAIL(eslEINVAL, errbuf, "character %d of mask file is invalid: %c (must be a '1' or a '0')\n", n, tok[n]);
+    mask[n] = tok[n];
+    if(mask[n] == '0') { 
+      if((seen_1) && (!seen_1_then_0)) { seen_1_then_0 = TRUE; }
+    }
+    else if (mask[n] == '1') { 
+      if(!seen_1) { seen_1 = TRUE; }
+      if((seen_1) && (seen_1_then_0) && (!seen_1_then_0_then_1)) { seen_1_then_0_then_1 = TRUE; }
+    }
+    else { ESL_FAIL(eslEINVAL, errbuf, "character %d of mask file is invalid: %c (must be a '1' or a '0')\n", n, mask[n]); }
+
     mask[n] = tok[n];
   }
   mask[n] = '\0';
 
+  printf("HAS INTERNAL ZEROES: %d\n", seen_1_then_0_then_1);
+
   *ret_mask = mask;
   *ret_masklen= toklen;
+  *ret_mask_has_internal_zeroes = seen_1_then_0_then_1;
 
   esl_fileparser_Close(efp);
   return eslOK;
