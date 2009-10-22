@@ -2880,6 +2880,11 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int sum_total = 0;
   int sum_total_rf = 0;
   FILE *pinfofp = NULL;  /* output file for --pinfo */
+  int nongap_total = 0;
+  int nongap_total_rf = 0;
+  float sum_total = 0.;
+  float sum_total_rf = 0.;
+  FILE *pinfofp = NULL;  /* output file for --pinfo */
 
   if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
