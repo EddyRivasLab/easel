@@ -2541,6 +2541,11 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   int nkept;
   int ndigits;
   int ir1, ir2;
+  int nongap_total = 0;
+  int nongap_total_rf = 0;
+  float sum_total = 0.;
+  float sum_total_rf = 0.;
+  FILE *pinfofp = NULL;  /* output file for --pinfo */
 
   if((!do_pfract) && (!do_pinfo)) ESL_FAIL(eslEINVAL, errbuf, "handle_post_opts(): --pinfo nor --pfract options selected, shouldn't be in this function.");
 
@@ -2662,10 +2667,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   else c2a_map = NULL;
 
   /* get averages */
-  int nongap_total = 0;
-  int nongap_total_rf = 0;
-  float sum_total = 0.;
-  float sum_total_rf = 0.;
   for(s = 0; s < msa->nseq; s++) { 
     avg_s[s]  =  (float) sum_s[s] / (float) nongap_s[s];
   }
@@ -2695,7 +2696,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 
   /* if nec, print posterior info */
   cpos = 1;
-  FILE *pinfofp = NULL;  /* output file for --pinfo */
   if(do_pinfo) { 
     if ((pinfofp = fopen(esl_opt_GetString(go, "--pinfo"), "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open --pinfo output file %s\n", esl_opt_GetString(go, "--pinfo"));
     fprintf(pinfofp, "# Posterior stats per column:\n");
