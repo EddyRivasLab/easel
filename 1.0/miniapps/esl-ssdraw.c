@@ -1631,7 +1631,6 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
   int             status;
   ESL_FILEPARSER *efp;
   SSPostscript_t *ps;
-  char           *ssualigndir = NULL;
   int             found_match = FALSE;
 
   if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("ERROR, failed to open template file %s in parse_template_file\n", filename);
