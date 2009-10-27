@@ -90,7 +90,7 @@ ESL_WORK_QUEUE *esl_workqueue_Create(int size)
  */
 void esl_workqueue_Destroy(ESL_WORK_QUEUE *queue)
 {
-  if (queue != NULL) return;
+  if (queue == NULL) return;
 
   pthread_mutex_destroy (&queue->queueMutex);
   pthread_cond_destroy  (&queue->readerQueueCond);
