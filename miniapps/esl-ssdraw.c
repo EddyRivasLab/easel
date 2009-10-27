@@ -1648,12 +1648,7 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
   }
   if(found_match == FALSE) { 
     esl_fileparser_Close(efp);
-    if(esl_opt_IsDefault(go, "--tfile")) { 
-      esl_fatal("ERROR, did not find template structure to match alignment consensus length of %d in:\n%s\nWas the alignment created using a default CM model of ssu-align?\n", msa_clen, filename);
-    }
-    else { 
-      esl_fatal("ERROR, did not find template structure to match alignment consensus length of %d in:\n%s\n", msa_clen, filename);
-    }
+    esl_fatal("ERROR, did not find template structure to match alignment consensus length of %d in:\n%s\n", msa_clen, filename);
   }
 
   /* if we get here, we've found a match */
