@@ -3230,8 +3230,6 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, 
   }
   mask[n] = '\0';
 
-  printf("HAS INTERNAL ZEROES: %d\n", seen_1_then_0_then_1);
-
   *ret_mask = mask;
   *ret_masklen= toklen;
   *ret_mask_has_internal_zeroes = seen_1_then_0_then_1;
