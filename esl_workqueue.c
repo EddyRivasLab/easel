@@ -37,12 +37,12 @@
  * 
  * Throws:    <eslESYS> on allocation or initialization failure.
  */
-ESL_WORK_QUEUE *esl_workqueue_Create(int size)
+ESL_WORK_QUEUE *
+esl_workqueue_Create(int size)
 {
   int             i;
   int             status;
-
-  ESL_WORK_QUEUE *queue;
+  ESL_WORK_QUEUE *queue = NULL;
 
   ESL_ALLOC(queue, sizeof(ESL_WORK_QUEUE));
 
@@ -88,7 +88,8 @@ ESL_WORK_QUEUE *esl_workqueue_Create(int size)
  *
  * Returns:   void
  */
-void esl_workqueue_Destroy(ESL_WORK_QUEUE *queue)
+void 
+esl_workqueue_Destroy(ESL_WORK_QUEUE *queue)
 {
   if (queue == NULL) return;
 
@@ -164,7 +165,8 @@ int esl_workqueue_Init(ESL_WORK_QUEUE *queue, void *ptr)
  * Throws:    <eslESYS> if thread synchronization fails somewhere.
  *            <eslEINVAL> if something's wrong with <queue>.
  */
-int esl_workqueue_Remove(ESL_WORK_QUEUE *queue, void **obj)
+int 
+esl_workqueue_Remove(ESL_WORK_QUEUE *queue, void **obj)
 {
   int inx;
   int status = eslEOD;
@@ -203,7 +205,8 @@ int esl_workqueue_Remove(ESL_WORK_QUEUE *queue, void **obj)
  * Throws:    <eslESYS> if thread synchronization fails somewhere.
  *            <eslEINVAL> if something's wrong with <queue>.
  */
-int esl_workqueue_Complete(ESL_WORK_QUEUE *queue)
+int 
+esl_workqueue_Complete(ESL_WORK_QUEUE *queue)
 {
   if (queue == NULL)                                ESL_EXCEPTION(eslEINVAL, "Invalid queue object");
   if (pthread_mutex_lock (&queue->queueMutex) != 0) ESL_EXCEPTION(eslESYS,   "mutex lock failed");
@@ -230,7 +233,8 @@ int esl_workqueue_Complete(ESL_WORK_QUEUE *queue)
  * Throws:    <eslESYS> if thread synchronization fails somewhere.
  *            <eslEINVAL> if something's wrong with <queue>.
  */
-int esl_workqueue_Reset(ESL_WORK_QUEUE *queue)
+int 
+esl_workqueue_Reset(ESL_WORK_QUEUE *queue)
 {
   int inx;
   int queueSize;

@@ -366,6 +366,7 @@ supertags:
 	etags -a miniapps/*.c miniapps/*.man Makefile.in
 	etags -a ~/src/hmmer/src/*.c ~/src/hmmer/src/*.h 
 	etags -a ~/src/hmmer/src/impl_sse/*.c ~/src/hmmer/src/impl_sse/*.h 
+	etags -a ~/src/hmmer/src/impl_vmx/*.c ~/src/hmmer/src/impl_vmx/*.h 
 	etags -a ~/src/hmmer/Makefile.in ~/src/hmmer/src/Makefile.in 
 	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h 
 	etags -a ~/src/infernal/hmmer/src/*.c ~/src/infernal/hmmer/src/*.h 

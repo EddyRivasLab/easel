@@ -1594,7 +1594,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
     break;
 
   case eslARG_CHAR:
-    if (strlen(g->val[i]) > 1)
+    if (strlen(val) > 1)
       ESL_FAIL(eslESYNTAX, g->errbuf,
 	       "Option %.24s takes char arg; got %.24s %s",
 	       g->opt[i].name, val, where);

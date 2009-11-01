@@ -41,6 +41,7 @@ PROGS = esl-afetch\
 	esl-compstruct\
 	esl-construct\
 	esl-histplot\
+	esl-mask\
 	esl-reformat\
 	esl-selectn\
 	esl-seqstat\
