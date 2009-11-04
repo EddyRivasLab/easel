@@ -179,6 +179,7 @@ typedef struct {
 #define eslMSAFILE_UNKNOWN   0	  /* unknown format                              */
 #define eslMSAFILE_STOCKHOLM 101  /* Stockholm format, interleaved               */
 #define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
+#define eslMSAFILE_AFA       103  /* aligned FASTA format                        */
 
 
 /* Declarations of the API

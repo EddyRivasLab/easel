@@ -659,6 +659,7 @@ esl_sqio_FormatCode(char *fmtstring)
 #ifdef eslAUGMENT_MSA
   if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
   if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
+  if (strcasecmp(fmtstring, "afa")       == 0) return eslMSAFILE_AFA;
 #endif
   return eslSQFILE_UNKNOWN;
 }
