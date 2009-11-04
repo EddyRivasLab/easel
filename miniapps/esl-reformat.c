@@ -26,6 +26,7 @@ static char usage[] = "[-options] <format> <seqfile>\n\
                                         pfam\n\
                                         a2m\n\
                                         psiblast\n\
+                                        afa\n\
 \n";
 
 static ESL_OPTIONS options[] = {

@@ -12,12 +12,13 @@
  *    8. A2M format
  *    9. PSIBLAST format
  *   10. SELEX format
- *   11. Debugging/development routines
- *   12. Benchmark driver
- *   13. Unit tests
- *   14. Test driver
- *   15. Examples
- *   16. Copyright and license information
+ *   11. AFA (aligned FASTA) format
+ *   12. Debugging/development routines
+ *   13. Benchmark driver
+ *   14. Unit tests
+ *   15. Test driver
+ *   16. Examples
+ *   17. Copyright and license information
  *   
  * Augmentations:
  *   alphabet:  adds support for digital MSAs
@@ -2134,9 +2135,11 @@ static int write_stockholm(FILE *fp, const ESL_MSA *msa);
 static int write_pfam     (FILE *fp, const ESL_MSA *msa);
 static int write_a2m      (FILE *fp,       ESL_MSA *msa);
 static int write_psiblast (FILE *fp,       ESL_MSA *msa);
+static int write_afa      (FILE *fp,       ESL_MSA *msa);
 
 static int read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 static int read_selex    (ESL_MSAFILE *afp, ESL_MSA **ret_msa);
+static int read_afa      (ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 
 
 /* Function:  esl_msa_Read()
@@ -2201,6 +2204,7 @@ esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   case eslMSAFILE_A2M:       ESL_FAIL(eslEFORMAT, afp->errbuf, "A2M format input parser not implemented yet.");
   case eslMSAFILE_PSIBLAST:  ESL_FAIL(eslEFORMAT, afp->errbuf, "PSIBLAST format input parser not implemented yet.");
   case eslMSAFILE_SELEX:     status = read_selex    (afp, &msa); break;
+  case eslMSAFILE_AFA:       status = read_afa      (afp, &msa); break;
   default:                   ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   }
 
@@ -2238,6 +2242,7 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   case eslMSAFILE_A2M:       status = write_a2m(fp, msa);       break;
   case eslMSAFILE_PSIBLAST:  status = write_psiblast(fp, msa);  break;
   case eslMSAFILE_SELEX:     ESL_EXCEPTION(eslEUNIMPLEMENTED, "selex format writing isn't implemented yet");
+  case eslMSAFILE_AFA:       status = write_afa(fp, msa);       break;
   default: ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
   return status;
@@ -2269,6 +2274,7 @@ esl_msa_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
   if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
   if (strcasecmp(fmtstring, "selex")     == 0) return eslMSAFILE_SELEX;
+  if (strcasecmp(fmtstring, "afa")       == 0) return eslMSAFILE_AFA;
   return eslMSAFILE_UNKNOWN;
 }
 
@@ -2299,6 +2305,7 @@ esl_msa_DecodeFormat(int fmt)
   case eslMSAFILE_A2M:       return "UCSC A2M";
   case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
   case eslMSAFILE_SELEX:     return "SELEX";
+  case eslMSAFILE_AFA:       return "aligned FASTA";
   default:                   break;
   }
   esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
@@ -4902,9 +4909,232 @@ append_selex_block(ESL_MSA *msa, char **line, int *ltype, int *lpos, int *rpos, 
 
 
 
+/*****************************************************************
+ * 11. AFA (aligned FASTA) format
+ *****************************************************************/
+
+/* write_afa()
+ * EPN, Mon Nov  2 15:55:10 2009
+ *
+ * Purpose:   Write alignment <msa> in aligned FASTA format to a 
+ *            stream <fp>.
+ *            
+ *            If <msa> is in text mode, residues and gaps are written
+ *            as they exist in the data structure. If <msa> is
+ *            digitized, all residues are written in uppercase, all
+ *            gaps as -.
+ *            
+ * Args:      fp     - open output stream
+ *            msa    - MSA to write       
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ */
+static int
+write_afa(FILE *fp, ESL_MSA *msa)
+{
+  int     i;
+  int64_t pos;
+  char    buf[61];
+  int     acpl;       /* actual number of character per line */
+  
+  for (i = 0; i < msa->nseq; i++)
+    {
+      /* Construct the description line */
+      fprintf(fp, ">%s", msa->sqname[i]);
+      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) fprintf(fp, " %s", msa->sqacc[i]);
+      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) fprintf(fp, " %s", msa->sqdesc[i]);
+      fputc('\n', fp);
+
+#ifdef eslAUGMENT_ALPHABET
+	{
+	  pos = 0;
+	  while (pos < msa->alen)
+	    {
+	      acpl = (msa->alen - pos > 60)? 60 : msa->alen - pos;
+	      if (msa->flags & eslMSA_DIGITAL)
+		esl_abc_TextizeN(msa->abc, msa->ax[i] + pos + 1, acpl, buf);
+	      else 
+		strncpy(buf, msa->aseq[i] + pos, acpl);
+#else
+	      strncpy(buf, msa->aseq[i] + pos, acpl);
+#endif
+	      buf[acpl] = '\0';
+	      fprintf(fp, "%s\n", buf);	      
+	      pos += 60;
+	    }
+	}
+    } /* end, loop over sequences in the MSA */
+
+  return eslOK;
+}
+
+
+/* read_afa()
+ * EPN, Mon Nov  2 17:24:40 2009
+ *
+ * Purpose:   Parse the one-and-only alignment from an open AFA (aligned
+ *            fasta) format alignment file <afp>, leaving the
+ *            alignment in <ret_msa>.
+ *
+ *            The current implementation reads the file one line at a
+ *            time. Blank lines are skipped. Lines with '>' as the
+ *            first non-whitespace character begin a new sequence,
+ *            first word is sequence name, remainder of line is
+ *            sequence description. All other lines are sequence lines
+ *            currently processed one whitespace-delimited token at a
+ *            time (to permit whitespace in the file).  A possibly
+ *            more efficient route would be to read each complete
+ *            sequence at a time (since AFA is not interleaved) and
+ *            write it to the msa in a single step.
+ *            
+ *            Starting with the second sequence, all sequence lengths
+ *            are confirmed to be identical to the length of the first
+ *            sequence. If any are not, afp->errbuf is filled, <ret_msa>
+ *            is set to NULL and <eslEINVAL> Is returned.
+ *
+ * Returns:   <eslOK> on success, and the alignment is in <ret_msa>.
+ *            If no sequences exist, return <eslEOF> and <ret_msa>
+ *            is set to NULL.
+ * 
+ *            <eslEFORMAT> if parse fails because of a file format
+ *            problem, in which case afp->errbuf is set to contain a
+ *            formatted message that indicates the cause of the
+ *            problem, and <ret_msa> is set to NULL.
+ *            
+ *            Returns <eslEINVAL> if we're trying to read a digital
+ *            alignment, and an invalid residue is found that can't be
+ *            digitized.
+ * 
+ * Throws:    <eslEMEM> on allocation error.
+ *
+ */
+static int
+read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
+{
+  ESL_MSA   *msa = NULL;
+  char      *s;
+  int        status;
+  int        status2;
+  int        seqidx;
+  char      *seqname;
+  char      *desc;
+  char      *text;
+  int        len, i;
+  char       errbuf2[eslERRBUFSIZE];
+
+  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
+  afp->errbuf[0] = '\0';
+
+  /* Initialize allocation of the MSA:
+   * make it growable, by giving it an initial blocksize of
+   * 16 seqs of 0 length.
+   */
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
+    { status = eslEMEM; goto ERROR; }
+
+#endif
+  if (afp->do_digital == FALSE && (msa = esl_msa_Create(16, -1))  == NULL)
+    { status = eslEMEM; goto ERROR; }
+  if (msa == NULL)    
+    { status = eslEMEM; goto ERROR; }
+
+
+#ifdef eslAUGMENT_SSI
+  /* EPN: not sure if this is appropriate/necessary, we assume only one alignment in AFA files */
+  msa->offset = ftello(afp->f);
+#endif
+
+  /* Read the alignment file one line at a time.
+   */
+  while ((status2 = msafile_getline(afp)) == eslOK) 
+    {
+      s = afp->buf;
+      while (*s == ' ' || *s == '\t') s++; /* skip leading whitespace */
+
+      if (*s == '\n' || *s == '\r') continue; /* skip blank lines */
+      if (*s == '>') { /* header line */
+	/* if nec, make room for the new seq */
+	if (msa->nseq >= msa->sqalloc && (status = esl_msa_Expand(msa)) != eslOK) return status; 
+
+	/* store the name (space delimited) */
+	s++; /* move past the '>' */
+	seqidx = msa->nseq;
+	msa->nseq++;
+	if (esl_strtok(&s, " \t\n\r", &seqname) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, problem reading name of sequence %d at line %d\n", seqidx+1, afp->linenumber);
+	status = esl_strdup(seqname, -1, &(msa->sqname[seqidx]));
+
+	status = esl_strtok(&s, "\n\r", &desc);
+	if     (status == eslOK) status = esl_msa_SetSeqDescription(msa, seqidx, desc);
+	else if(status != eslEOL) ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, problem reading description of sequence %d at line %d\n", seqidx, afp->linenumber);
+	/* else, no description */
+
+	if((seqidx > 1) && (msa->sqlen[(seqidx-1)] != msa->sqlen[0])) { /* make sure the aligned seq we just read is the same length as the first seq we read */
+	  ESL_XFAIL(eslEFORMAT, afp->errbuf, "sequence %d length (%" PRId64 ") is not equal to the expected length (%" PRId64 ") (the length of first seq in file)", seqidx, msa->sqlen[(seqidx-1)], msa->sqlen[0]);
+	}
+      }
+      else {  /* not a '>' */
+	if(msa->nseq == 0) { /* shouldn't happen, we haven't yet seen a '>' */
+	  ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, first non-whitespace character is not a '>' at line %d\n", afp->linenumber);	  
+	}
+	/* A sequence line: it doesn't begin with, but may contain, whitespace (' ' or '\t').
+	 * We add whitespace-delimited tokens one at a time to the aseq (or ax).
+	 * (Note: if we're digitized I think we could use a single call to esl_abc_dsqcat()
+	 *  instead of splitting into tokens, which may be slightly more efficient).
+	 */
+	while(esl_strtok_adv(&s, " \t\n", &text, &len, NULL) == eslOK) 
+	  { 
+#ifdef eslAUGMENT_ALPHABET
+	    if (msa->flags & eslMSA_DIGITAL)
+	      {
+		if((status = esl_abc_dsqcat(msa->abc, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len)) != eslOK) {
+		  /* invalid char(s), get informative error message */
+		  if (esl_abc_ValidateSeq(msa->abc, text, len, afp->errbuf) != eslOK) 
+		    ESL_XFAIL(eslEFORMAT, errbuf2, "%s (line %d): %s", msa->sqname[i], afp->linenumber, afp->errbuf);
+		}
+	      }
+#endif
+	  if (! (msa->flags & eslMSA_DIGITAL))
+	    {
+	      status = esl_strcat(&(msa->aseq[seqidx]), msa->sqlen[seqidx], text, len);
+	      msa->sqlen[seqidx] += len;
+	    } 
+	  }
+      }
+    }
+
+  /* check the length of the final sequence */
+  if((msa->nseq > 1) && (msa->sqlen[seqidx] != msa->sqlen[0])) { /* make sure the aligned seq we just read is the same length as the first seq we read */
+    ESL_XFAIL(eslEINVAL, afp->errbuf, "sequence %d length (%" PRId64 ") is not equal to the expected length (%" PRId64 ") (the length of first seq in file)", seqidx+1, msa->sqlen[seqidx], msa->sqlen[0]);
+  }
+
+  if (status2 == eslEMEM) ESL_XFAIL(status, afp->errbuf, "out of memory");
+  if (status2 != eslEOF)  ESL_XFAIL(status, afp->errbuf, "unexpected error reading AFA alignment");
+
+  /* Verify the msa */
+  if (verify_parse(msa, afp->errbuf) != eslOK) { status = eslEFORMAT; goto ERROR; } 
+
+  /* if alignment is empty set <ret_msa> to NULL and return eslEOF, (verification still works in this case) */
+  if (msa->nseq == 0) { status = eslEOF; goto ERROR; }
+
+  if (ret_msa != NULL) *ret_msa = msa; else esl_msa_Destroy(msa);
+  return eslOK;
+
+ ERROR:
+  if (msa != NULL)      esl_msa_Destroy(msa);
+  if (ret_msa != NULL) *ret_msa = NULL;
+  return status;
+}
+
+/*---------------------- end, AFA format ------------------------*/
+
+
 
 /******************************************************************************
- * 11. Debugging/development routines.
+ * 12. Debugging/development routines.
  *****************************************************************************/
 
 /* Function:  esl_msa_CreateFromString()
@@ -5064,7 +5294,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
 
 
 /******************************************************************************
- * 12. Benchmark driver.
+ * 13. Benchmark driver.
  *****************************************************************************/
 #ifdef eslMSA_BENCHMARK
 /* gcc -O2 -o msa_benchmark -I. -L. -DeslMSA_BENCHMARK esl_msa.c -leasel -lm
@@ -5140,7 +5370,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 13. Unit tests
+ * 14. Unit tests
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 
@@ -5455,7 +5685,7 @@ utest_Write(ESL_MSA *msa1)
   ESL_MSA     *msa2 = NULL;
   FILE        *fp   = NULL;
   int      i;
-  int      formats[] = { eslMSAFILE_STOCKHOLM, eslMSAFILE_PFAM, -1 }; /* -1=sentinel */
+  int      formats[] = { eslMSAFILE_STOCKHOLM, eslMSAFILE_PFAM, eslMSAFILE_AFA, -1 }; /* -1=sentinel */
   char     template[16] = "esltmpXXXXXX";
   char     tmpfile[16];
 
@@ -5732,7 +5962,7 @@ utest_ZeroLengthMSA(const char *tmpfile)
 
 
 /*****************************************************************************
- * 14. Test driver
+ * 15. Test driver
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 
@@ -5834,7 +6064,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 15. Examples.
+ * 16. Examples.
  *****************************************************************************/
 /* The examples are also useful as i/o speed benchmarks. */
 
