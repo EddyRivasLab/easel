@@ -509,10 +509,6 @@ main(int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
   else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
 
-  /* open postscript output file for writing */
-  if ((ofp = fopen(outfile, "w")) == NULL)
-    ESL_FAIL(eslFAIL, errbuf, "Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
-
   /* Assert RNA, it's the ribosome */
   abc = esl_alphabet_Create(eslRNA);
   afp->abc = abc;
@@ -536,6 +532,14 @@ main(int argc, char **argv)
     
     /* We've read the alignment, now read the template postscript file (we do this second b/c the RF len of the alignment tells us which postscript template to use) */
     if((status = parse_template_file(templatefile, go, errbuf, clen, &ps) != eslOK)) esl_fatal(errbuf);
+
+    /* if we get here, the postscript file has been successfully read; now we open the output file */
+    if(ofp == NULL) { 
+      /* open postscript output file for writing */
+      if ((ofp = fopen(outfile, "w")) == NULL)
+	ESL_FAIL(eslFAIL, errbuf, "Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
+    }
+
     /* determine position for header and legend */
     if((status = setup_sspostscript(ps, errbuf) != eslOK)) esl_fatal(errbuf);
 
