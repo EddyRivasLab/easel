@@ -48,6 +48,7 @@
 1 exercise i1                 @i1-degen-residues.pl@ @esl-reformat@ @esl-shuffle@ @esl-sfetch@ @esl-seqstat@ %TESTPFX%
 
 1 exercise esl-mask           @esl-mask.itest.pl@ @esl-mask@ %TESTPFX%
+1 exercise esl-shuffle        @esl-shuffle.itest.pl@ @esl-shuffle@ %TESTPFX%
 
 
 # Still to do:
