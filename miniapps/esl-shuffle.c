@@ -305,8 +305,9 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  /* Output the resulting sequence */
 	  esl_sqio_Write(ofp, shuff, outfmt);
 
-	  esl_sq_Reuse(sq);
+	  /* don't need to reuse the shuffled sequence: we will use exactly the same memory */
 	}
+      esl_sq_Reuse(sq);
     }
   if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
 					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
@@ -380,6 +381,7 @@ main(int argc, char **argv)
     }
 
   if (esl_opt_GetString(go, "-o") != NULL) fclose(ofp);
+  esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
   return 0;
 } 

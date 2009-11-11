@@ -322,8 +322,6 @@ dist:
 	(cd ../${BASENAME}-${RELEASE}/; ./configure)
 	# Set file permissions.
 	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
-	chmod +x ../${BASENAME}-${RELEASE}/devkit/sqc
-	chmod +x ../${BASENAME}-${RELEASE}/devkit/autodoc
 	# Compile the PDF documentation and move it to top level dir
 	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
 	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
