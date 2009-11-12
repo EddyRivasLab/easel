@@ -567,7 +567,7 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 	if (ret_fx != NULL) *ret_fx = fx;
 
     if (i == MAXITERATIONS)
-	  ESL_FAIL(eslENOHALT, NULL, NULL);
+	  ESL_FAIL(eslENOHALT, NULL, " ");
 // 	  ESL_EXCEPTION(eslENOHALT, "Failed to converge in ConjugateGradientDescent()");
 
 
