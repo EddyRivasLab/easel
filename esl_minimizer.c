@@ -185,8 +185,8 @@ bracket(double *ori, double *d, int n, double firststep,
       if (ax != bx && bx != cx && fa == fb && fb == fc) break;
 
       niter++;
-      if (niter > 100) 
-	ESL_EXCEPTION(eslENOHALT, "Failed to bracket a minimum.");
+      if (niter > 100)
+    	  ESL_EXCEPTION(eslENORESULT, "Failed to bracket a minimum.");
     }
 
   /* We're about to return. Assure the caller that the points
@@ -441,7 +441,8 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
    * has screwed something up, or has chosen a bad start point.
    */
   if (oldfx == eslINFINITY || oldfx == -eslINFINITY)
-    ESL_EXCEPTION(eslERANGE, "minimum not finite");
+	  ESL_EXCEPTION(eslERANGE, "minimum not finite");
+
 
   if (dfunc != NULL) 
     {
@@ -451,6 +452,8 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
   else numeric_derivative(x, u, n, func, prm, 1e-4, dx); /* resort to brute force */
 
   esl_vec_DCopy(dx, n, cg);	/* and make that the first conjugate direction, cg  */
+
+
 
   /* (failsafe) convergence test: a zero direction can happen, 
    * and it either means we're stuck or we're finished (most likely stuck)
@@ -463,7 +466,8 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
   }
   
   for (i = 0; i < MAXITERATIONS; i++)
-    {
+  {
+
       /* Figure out the initial step size.
        */
        bx = fabs(u[0] / cg[0]);
@@ -487,19 +491,20 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        * has screwed something up.
        */
       if (fx == eslINFINITY || fx == -eslINFINITY)
-	ESL_EXCEPTION(eslERANGE, "minimum not finite");
+    	  ESL_EXCEPTION(eslERANGE, "minimum not finite");
+
 
       /* Find the negative gradient at that point (temporarily in w1) */
       if (dfunc != NULL) 
-	{
-	  (*dfunc)(x, n, prm, w1);
-	  esl_vec_DScale(w1, n, -1.0);
-	}
+	  {
+	    (*dfunc)(x, n, prm, w1);
+	    esl_vec_DScale(w1, n, -1.0);
+	  }
       else numeric_derivative(x, u, n, func, prm, 1e-4, w1); /* resort to brute force */
 
       /* Calculate the Polak-Ribiere coefficient */
       for (coeff = 0., i1 = 0; i1 < n; i1++)
-	coeff += (w1[i1] - dx[i1]) * w1[i1];
+	      coeff += (w1[i1] - dx[i1]) * w1[i1];
       coeff /= esl_vec_DDot(dx, dx, n);
       
       /* Calculate the next conjugate gradient direction in w2 */
@@ -519,26 +524,29 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
       /* Main convergence test. 1e-9 factor is fudging the case where our
        * minimum is at exactly f()=0.
        */
-      cvg = 2.0 * fabs((oldfx-fx)) / (1e-9 + fabs(oldfx) + fabs(fx));
+      cvg = 2.0 * fabs((oldfx-fx)) / (1e-10 + fabs(oldfx) + fabs(fx));
+
+//      fprintf(stderr, "(%d): Old f() = %.9f    New f() = %.9f    Convergence = %.9f\n", i, oldfx, fx, cvg);
+//      fprintf(stdout, "(%d): Old f() = %.9f    New f() = %.9f    Convergence = %.9f\n", i, oldfx, fx, cvg);
 
 #if eslDEBUGLEVEL >= 2
       printf("\nesl_min_ConjugateGradientDescent():\n");
       printf("new point:     ");
       for (i1 = 0; i1 < n; i1++)
-	printf("%g ", x[i1]);
+	    printf("%g ", x[i1]);
 
       printf("\nnew gradient:    ");
       for (i1 = 0; i1 < n; i1++)
-	printf("%g ", dx[i1]);
+	    printf("%g ", dx[i1]);
 
       numeric_derivative(x, u, n, func, prm, 1e-4, w1);
       printf("\n(numeric grad):  ");
       for (i1 = 0; i1 < n; i1++)
-	printf("%g ", w1[i1]);
+	    printf("%g ", w1[i1]);
 
       printf("\nnew direction: ");
       for (i1 = 0; i1 < n; i1++)
-	printf("%g ", cg[i1]);
+	    printf("%g ", cg[i1]);
 
       printf("\nOld f() = %g    New f() = %g    Convergence = %g\n\n", oldfx, fx, cvg);
 #endif
@@ -549,15 +557,21 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
        * and it either means we're stuck or we're finished (most likely stuck)
        */
       for (i1 = 0; i1 < n; i1++) 
-	if (cg[i1] != 0.) break;
+	     if (cg[i1] != 0.) break;
       if  (i1 == n) break;
 
       oldfx = fx;
     }
-  if (i == MAXITERATIONS) 
-    ESL_EXCEPTION(eslENOHALT, "Failed to converge in ConjugateGradientDescent()");
 
-  if (ret_fx != NULL) *ret_fx = fx;
+
+	if (ret_fx != NULL) *ret_fx = fx;
+
+    if (i == MAXITERATIONS)
+	  ESL_FAIL(eslENOHALT, NULL, NULL);
+// 	  ESL_EXCEPTION(eslENOHALT, "Failed to converge in ConjugateGradientDescent()");
+
+
+
   return eslOK;
 }
 
