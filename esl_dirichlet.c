@@ -117,7 +117,6 @@ esl_mixdchlet_PerfectBipartiteMatchExists (int** A, int N ) {
 	  int i,j;
 	  int unassigned = N;
 	  int do_row = 1; // otherwise, do_column
-	  int row, col;
 	  while (unassigned > 0) {
 		  int changed = 0;
 
