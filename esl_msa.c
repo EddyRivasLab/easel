@@ -6069,7 +6069,6 @@ main(int argc, char **argv)
 /* The examples are also useful as i/o speed benchmarks. */
 
 
-
 /* Example 1: 
  *   time ./example SSU_rRNA_5 > /dev/null
  *     without keyhash: [345.118u 31.564s 10:45.60 58.3%  SRE, Tue Sep  5 11:52:41 2006]
@@ -6139,41 +6138,59 @@ main(int argc, char **argv)
 #include <stdio.h>
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_getopts.h"
 #include "esl_msa.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  { "--dna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                        0 },
+  { "--rna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                        0 },
+  { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of digital MSA reading using the msa module";
 
 int
 main(int argc, char **argv)
 {
-  char         *filename = argv[1];
-  int           fmt      = eslMSAFILE_UNKNOWN;
-  int           type     = eslUNKNOWN;
-  ESL_ALPHABET *abc      = NULL;
-  ESL_MSAFILE  *afp      = NULL;
-  ESL_MSA      *msa      = NULL;
-  int           nali     = 0;
+  ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char         *msafile   = esl_opt_GetArg(go, 1);
+  int           fmt       = eslMSAFILE_UNKNOWN;
+  int           alphatype = eslUNKNOWN;
+  ESL_ALPHABET *abc       = NULL;
+  ESL_MSAFILE  *afp       = NULL;
+  ESL_MSA      *msa       = NULL;
+  int           nali      = 0;
   int           status;
 
   /* First you open the msa file in normal text mode */
-  status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable", filename);
-  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s",  filename);
-  else if (status != eslOK)      esl_fatal("Alignment file open failed (error code %d)", status);
+  status = esl_msafile_Open(msafile, fmt, NULL, &afp);
+  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s isn't readable", msafile);
+  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of %s",  msafile);
+  else if (status != eslOK)        esl_fatal("Alignment file open failed (error code %d)", status);
 
-  /* then you can guess the alphabet type - this looks at the first alignment */
-  status = esl_msafile_GuessAlphabet(afp, &type);
-  if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", filename);
-  else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
-					       afp->linenumber, afp->fname, afp->errbuf, afp->buf);
-  else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", filename);
-  else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
+  /* Now you can set or guess the alphabet type - this looks at the first alignment */
+  if      (esl_opt_GetBoolean(go, "--rna"))   alphatype = eslRNA;
+  else if (esl_opt_GetBoolean(go, "--dna"))   alphatype = eslDNA;
+  else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
+  else {
+    status = esl_msafile_GuessAlphabet(afp, &alphatype);
+    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", msafile);
+    else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
+						afp->linenumber, afp->fname, afp->errbuf, afp->buf);
+    else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", msafile);
+    else if (status != eslOK)         esl_fatal("Failed to guess alphabet (error code %d)\n", status);
+  }
+    
+  /* Now you know how to create the alphabet */
+  abc = esl_alphabet_Create(alphatype);
 
-  /* then you know how to create the alphabet */
-  abc = esl_alphabet_Create(type);
-
-  /* then you set the msafile into digital mode */
+  /* Then you set the msafile into digital mode */
   esl_msafile_SetDigital(afp, abc);
 
-  /* and now MSA's that you read are digital data in msa->ax, not text in msa->aseq */
+  /* Now the MSA's that you read are digital data in msa->ax, not text in msa->aseq */
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
       nali++;
@@ -6188,6 +6205,7 @@ main(int argc, char **argv)
 
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
+  esl_getopts_Destroy(go);
   exit(0);
 }
 #endif /*eslMSA_EXAMPLE2*/
