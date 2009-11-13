@@ -842,6 +842,11 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
 
 #ifdef eslAUGMENT_KEYHASH
+  esl_keyhash_Destroy(new->index);  new->index  = NULL;
+  esl_keyhash_Destroy(new->gs_idx); new->gs_idx = NULL;
+  esl_keyhash_Destroy(new->gc_idx); new->gc_idx = NULL;
+  esl_keyhash_Destroy(new->gr_idx); new->gr_idx = NULL;
+
   if (msa->index  != NULL) new->index  = esl_keyhash_Clone(msa->index);
   if (msa->gs_idx != NULL) new->gs_idx = esl_keyhash_Clone(msa->gs_idx);
   if (msa->gc_idx != NULL) new->gc_idx = esl_keyhash_Clone(msa->gc_idx);

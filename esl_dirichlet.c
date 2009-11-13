@@ -1270,7 +1270,6 @@ utest_fit(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, double 
   int             qused;
   int             m;
   int             c;
-  int             q;			/* counter over mixture components (0..N-1) */
   int             i;			/* counter over params (0..K-1) */
 
   counts = malloc(sizeof(double *) * ntrials);
@@ -1404,7 +1403,6 @@ main(int argc, char **argv)
   int             nfit_reps    = esl_opt_GetInteger(go, "-R");
   double          tol          = esl_opt_GetReal   (go, "-t");
   int             be_verbose   = esl_opt_GetBoolean(go, "-v");
-  int             t;
 
   if (be_verbose) printf("rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 

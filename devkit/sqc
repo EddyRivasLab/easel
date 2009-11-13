@@ -22,6 +22,8 @@
 #    -D <datadir>   - optional path to data files.  When processing
 #                     the command line, items delimited by !! will
 #                     be prepended by <datadir>.
+#    -v             - print verbose output, including each command
+#                     after various substitutions.
 #
 # Example: 
 #    sqc -p ../squid 2 exercises.sqc ../src

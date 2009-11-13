@@ -6,9 +6,9 @@
 # SRE, Mon Jun 11 08:19:32 2007 [Janelia]
 # SVN $Id$
 
-srcdir     = @srcdir@
 top_srcdir = @top_srcdir@
-VPATH      = @srcdir@ @top_srcdir@/src
+srcdir     = @srcdir@
+VPATH      = @srcdir@ @top_srcdir@
 
 CC       = @CC@
 CFLAGS   = @CFLAGS@
@@ -57,7 +57,7 @@ ${PROGS}: %: %.o ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${ESLDIR} $@.o -leasel -lm
 
 .c.o:
-	${CC} -I ${ESLDIR} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -c $<		
+	${CC} -I ${ESLDIR} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<		
 
 dcheck: 
 	@echo    Running developer testsuite...
