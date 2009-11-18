@@ -332,6 +332,74 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
   return status;
 }
 
+
+/* Function:  esl_rsq_CShuffleKmers()
+ * Synopsis:  Shuffle k-mers in a text sequence.
+ * Incept:    SRE, Tue Nov 17 16:55:57 2009 [NHGRI retreat, Gettysburg]
+ *
+ * Purpose:   Consider a text sequence <s> as a string of nonoverlapping
+ *            k-mers of length <K>. Shuffle the k-mers, given a random
+ *            number generator <r>. Put the shuffled sequence in
+ *            <shuffled>.
+ *            
+ *            If the length of <s> is not evenly divisible by <K>, the
+ *            remaining residues are left (unshuffled) as a prefix to
+ *            the shuffled k-mers.
+ *            
+ *            For example, shuffling ABCDEFGHIJK as k=3-mers might
+ *            result in ABFIJKFGHCDE.
+ *            
+ *            Caller provides allocated storage for <shuffled>,
+ *            for at least the same length as <s>. 
+ *            
+ *            <shuffled> may also point to the same storage as <s>,
+ *            in which case <s> is shuffled in place.
+ *            
+ *            There is almost no formally justifiable reason why you'd
+ *            use this shuffle -- it's not like it preserves any
+ *            particularly well-defined statistical properties of the
+ *            sequence -- but it's a quick and dirty way to sort of
+ *            maybe possibly preserve some higher-than-monomer
+ *            statistics.
+ *
+ * Args:      r        - an <ESL_RANDOMNESS> random generator
+ *            s        - sequence to shuffle
+ *            K        - size of k-mers to break <s> into
+ *            shuffled - RESULT: the shuffled sequence
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_rsq_CShuffleKmers(ESL_RANDOMNESS *r, const char *s, int K, char *shuffled)
+{
+  int   L = strlen(s);
+  int   W = L / K;		/* number of kmers "words" excluding leftover prefix */
+  int   P = L % K;		/* leftover residues in prefix */
+  int   i;
+  char *swap = NULL;
+  int   status;
+
+  if (shuffled != s) strcpy(shuffled, s);
+  ESL_ALLOC(swap, sizeof(char) * K);
+  while (W > 1) 
+    {
+      i = esl_rnd_Roll(r, W);	                                  /* pick a word          */
+      strncpy(swap,                   shuffled + P + i*K,     K); /* copy it to tmp space */
+      strncpy(shuffled + P + i*K,     shuffled + P + (W-1)*K, K); /* move word W-1 to i   */
+      strncpy(shuffled + P + (W-1)*K, swap,                   K); /* move word i to W-1   */
+      W--;
+    }
+  free(swap);
+  return eslOK;
+
+ ERROR:
+  free(swap);
+  return status;
+}
+
+
 /* Function:  esl_rsq_CReverse()
  * Synopsis:  Reverse a string.
  * Incept:    SRE, Sat Feb 24 10:06:34 2007 [Casa de Gatos]
@@ -789,6 +857,50 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
   if (nE != NULL) free(nE);
   if (iE != NULL) free(nE);
   if (Z  != NULL) free(Z);
+  return status;
+}
+
+
+/* Function:  esl_rsq_CShuffleKmers()
+ * Synopsis:  Shuffle k-mers in a digital sequence.
+ * Incept:    SRE, Tue Nov 17 18:58:00 2009 [NHGRI retreat, Gettysburg]
+ *
+ * Purpose:   Same as <esl_rsq_CShuffleKmers()>, but shuffle digital 
+ *            sequence <dsq> of length <L> into digital result <shuffled>.
+ *
+ * Args:      r        - an <ESL_RANDOMNESS> random generator
+ *            dsq      - sequence to shuffle
+ *            K        - size of k-mers to break <s> into
+ *            shuffled - RESULT: the shuffled sequence
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_rsq_XShuffleKmers(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *shuffled)
+{
+  int   W = L / K;		/* number of kmers "words" excluding leftover prefix */
+  int   P = L % K;		/* leftover residues in prefix */
+  int   i;
+  char *swap = NULL;
+  int   status;
+
+  if (shuffled != dsq) esl_abc_dsqcpy(dsq, L, shuffled);
+  ESL_ALLOC(swap, sizeof(char) * K);
+  while (W > 1) 
+    {
+      i = esl_rnd_Roll(r, W);	                                 /* pick a word          */
+      memcpy(swap,                   shuffled + P + i*K,     K); /* copy it to tmp space */
+      memcpy(shuffled + P + i*K,     shuffled + P + (W-1)*K, K); /* move word W-1 to i   */
+      memcpy(shuffled + P + (W-1)*K, swap,                   K); /* move word i to W-1   */
+      W--;
+    }
+  free(swap);
+  return eslOK;
+
+ ERROR:
+  free(swap);
   return status;
 }
 
@@ -1298,6 +1410,22 @@ utest_CShufflers(ESL_RANDOMNESS *r, int L, char *alphabet, int K)
   if (composition_compare(m1, di1, m2, di2, 26)   != eslOK) esl_fatal(logmsg);
   if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
   
+  /* esl_rsq_CShuffleKmers: mono composition stays the same */
+  memset(s2, 0, (L+1)*sizeof(char));
+  if (composition(s, L, m1,  di1)                 != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_CShuffleKmers(r, s, 3, s2)          != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
+  
+  /* esl_rsq_CShuffleKmers, in place */
+  strcpy(s, s2);
+  if (composition(s2, L, m1, di1)                 != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_CShuffleKmers(r, s2, 3, s2)         != eslOK) esl_fatal(logmsg);      
+  if (composition(s2, L, m2, di2)                 != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, 26) != eslOK) esl_fatal(logmsg);
+  if (strcmp(s2, s) == 0)                                   esl_fatal(logmsg); 
+
   /* esl_rsq_CShuffleWindows(): mono composition stays the same */
   memset(s2, 0, (L+1)*sizeof(char));
   if (composition(s,   L, m1, di1)                != eslOK) esl_fatal(logmsg);
@@ -1497,6 +1625,20 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
   if (composition_compare(m1, di1, m2, di2, K)   != eslOK) esl_fatal(logmsg);
   
+  /* esl_rsq_XShuffleKmers: mono compositions stay exactly the same */
+  memset(ds2, eslDSQ_SENTINEL, (L+2));
+  if (xcomposition(dsq, L, K, m1,  di1)          != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XShuffleKmers(r, dsq, L, 3, ds2)   != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
+
+  /* esl_rsq_XShuffleKmers, in place */
+  if (esl_abc_dsqcpy(ds2, L, dsq)                != eslOK) esl_fatal(logmsg);
+  if (xcomposition(ds2, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
+  if (esl_rsq_XShuffleKmers(r, ds2, L, 3, ds2)   != eslOK) esl_fatal(logmsg);      
+  if (xcomposition(ds2, L, K, m2, di2)           != eslOK) esl_fatal(logmsg);
+  if (composition_compare(m1, NULL, m2, NULL, K) != eslOK) esl_fatal(logmsg);
+
   /* esl_rsq_XShuffleWindows(): mono composition stays the same */
   memset(ds2, eslDSQ_SENTINEL, (L+2));
   if (xcomposition(dsq, L, K, m1, di1)           != eslOK) esl_fatal(logmsg);
