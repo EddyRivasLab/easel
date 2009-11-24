@@ -35,6 +35,7 @@ ESLDIR    = ..
 PROGS = esl-afetch\
 	esl-alimanip\
 	esl-alimap\
+	esl-alimerge\
 	esl-alistat\
 	esl-cluster\
 	esl-compalign\
