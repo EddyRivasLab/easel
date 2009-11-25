@@ -1039,7 +1039,7 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
   }
   else /* the text won't fit on two lines */
     if(ps->modeA[page] != INDIMODE) { /* not fine, this won't fit on two lines */
-      ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), text is %d chars, max allowed is %d (%s)\n", textlen, 2 * ps->desc_max_chars, text);
+      ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), text is %d chars, max allowed is %d (%s)\n", textlen, max_both_lines, text);
     }
     else { /* INDIMODE or SIMPLEMASKMODE, sequence/mask name exceeds max, we put a '-' in it at the end of line 1 and truncate it */
       ESL_ALLOC(ps->descA[page], sizeof(char) * (max_both_lines + 2)); /* +2 so we have space for the extra '\n' (which we won't print), and the '\0' */
@@ -2952,6 +2952,7 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   int ncols_inside_mask = 0;
   int ncols_outside_mask = 0;
   char *mask_desc = NULL;
+  char *mask_file = NULL;
 
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -2986,7 +2987,16 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "columns excluded by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   if((status = esl_strcat(&(mask_desc), -1, "mask file: ", -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
-  if((status = esl_strcat(&(mask_desc), -1, esl_opt_GetString(go, "--mask"), -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
+  if((status = esl_FileTail(esl_opt_GetString(go, "--mask"), FALSE, &mask_file)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string (probably out of memory)."); 
+  if((strlen(mask_file) + strlen(mask_desc)) > (ps->desc_max_chars*2 - 2)) { /* desc would be too long, shorten mask_file so desc is legal */
+    /* the -5 below is so we can add '...' to end */
+    if((status = esl_strcat(&(mask_desc), -1, mask_file, ((ps->desc_max_chars*2) - strlen(mask_desc) - 5))) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");
+    if((status = esl_strcat(&(mask_desc), -1, "...", 3)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");
+  }
+  else { /* desc will not be too long */
+    if((status = esl_strcat(&(mask_desc), -1, mask_file, -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");
+  }
+  free(mask_file);
   if((status = add_page_desc_to_sspostscript(ps, pp, mask_desc, errbuf)) != eslOK) return status;
 
   ps->nocclA[pp] = 2;
