@@ -511,7 +511,7 @@ main(int argc, char **argv)
 
   /* Assert RNA, it's the ribosome */
   abc = esl_alphabet_Create(eslRNA);
-  afp->abc = abc;
+  esl_msafile_SetDigital(afp, abc);
 
   /* Read the mask files, if nec */
   if(! esl_opt_IsDefault(go, "--mask")) { 
@@ -2220,7 +2220,7 @@ individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t
     cpos = 0;
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-	ps->rrAA[pp][cpos] = (char) msa->aseq[i][apos];
+	ps->rrAA[pp][cpos] = msa->abc->sym[msa->ax[i][apos+1]];
 	/* printf("ps->rrAA[%3d][%4d]: %c\n", pp, cpos, ps->rrAA[pp][cpos]); */
 	cpos++;
       }
@@ -2350,8 +2350,8 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
     cpos = 0;
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { /* seq i is not a gap at cpos */
-	  esl_abc_DCount(msa->abc, obs[cpos], esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]), 1.);
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos-1])) { /* seq i is not a gap at cpos */
+	  esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
 	}
 	cpos++;
       }
@@ -2453,7 +2453,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* apos is a consensus position */
 	cpos++;
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { /* cpos for seq i is not a gap */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* cpos for seq i is not a gap */
 	  fA[i] = ESL_MIN(fA[i], cpos);
 	  lA[i] = ESL_MAX(lA[i], cpos);
 	}
@@ -2467,7 +2467,7 @@ delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
 	cpos++;
-	if(esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
+	if(esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { 
 	  dct[(cpos-1)]++; 
 	  if(cpos >= fA[i] && cpos <= lA[i]) dct_internal[(cpos-1)]++;
 	}
@@ -2611,7 +2611,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) cpos++;
     else { 
       for(i = 0; i < msa->nseq; i++)
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { 
 	  total_ict[cpos]++;
 	  ict[cpos][i]++;
 	}	  
@@ -3441,7 +3441,7 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
     cpos = 0;
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { /* seq i is not a gap at cpos */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* seq i is not a gap at cpos */
 	  nres[cpos]++;
 	  /* only count base paired positions for which both left and right half are not gaps, 
 	   * check if we're base paired */
@@ -3449,13 +3449,13 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 	    if(ct[apos+1] > (apos+1)) { /* cpos is left half of base pair */
 	      /* check if right half is a gap */
 	      rapos = ct[apos+1]-1; 
-	      if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][rapos])) && 
+	      if((! esl_abc_XIsGap(msa->abc, msa->ax[i][rapos+1])) && 
 		  (! esl_abc_CIsGap(msa->abc, msa->rf[rapos]))) { /* seq i is not a gap at right half, and is a cons posn at right half */
-		esl_abc_DCount(msa->abc, obs[cpos], esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]), 1.);
+		esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
 		rcpos = a2c_map[rapos];
 		assert(rcpos != -1);
-		ldsq = esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]);
-		rdsq = esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][rapos]);
+		ldsq = msa->ax[i][apos+1];
+		rdsq = msa->ax[i][rapos+1];
 		PairCount(msa->abc, obs_p[cpos],  ldsq, rdsq, 1.);
 		PairCount(msa->abc, obs_p[rcpos], ldsq, rdsq, 1.);
 	      }
@@ -3463,8 +3463,8 @@ structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 	    else { /* cpos is right half of base pair */
 	      /* check if left half is a gap */
 	      lapos = ct[apos+1]-1; 
-	      if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][lapos])) { /* seq i is not a gap at left half */
-		esl_abc_DCount(msa->abc, obs[cpos], esl_abc_DigitizeSymbol(msa->abc, msa->aseq[i][apos]), 1.);
+	      if(! esl_abc_XIsGap(msa->abc, msa->ax[i][lapos+1])) { /* seq i is not a gap at left half */
+		esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
 	      }
 	    }
 	  }
