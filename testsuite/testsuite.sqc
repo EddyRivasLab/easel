@@ -43,6 +43,9 @@
 1 exercise weibull-utest      @weibull_utest@
 1 exercise wuss-utest         @wuss_utest@
 
+# This won't work; I can't figure out why (changes to sqc since
+# infernal 1.0 branch?
+# 1 exercise esl-alimerge       !../miniapps/esl-alimerge.itest.pl! @esl-alimerge@ %TESTPFX%
 
 # Still to do:
 # gev

@@ -1435,7 +1435,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
-  /* determine print order or pages, this is just 0..npage-1 UNLESS:
+  /* determine print order of pages, this is just 0..npage-1 UNLESS:
    *  --indi and --all and --prob all enabled, in which case, we put the 
    *    posteriors immediately after the sequences
    */

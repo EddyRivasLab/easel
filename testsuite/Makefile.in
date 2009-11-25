@@ -106,12 +106,12 @@ check:  ${UNIT_TESTS}
 	@echo 
 	@echo Running Easel test suite...
 	@echo
-	@../devkit/sqc 2 testsuite.sqc .
+	@../devkit/sqc 2 testsuite.sqc . ../miniapps/
 
 dcheck: ${UNIT_TESTS}
 	@echo    Running developer testsuite...
 	@echo -n Running unit tests...
-	@../devkit/sqc 2 testsuite.sqc .  >  utest.report
+	@../devkit/sqc 2 testsuite.sqc . ../miniapps/ >  utest.report
 	@echo    done. [See utest.report]
 	@echo -n Testing that all drivers compile...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./driver_report.pl       >  driver.report

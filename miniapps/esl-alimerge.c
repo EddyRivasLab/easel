@@ -24,8 +24,6 @@ static char usage2[]  = "[options] --list <file listing n > 1 ali files to merge
   --------------------\n\
   stockholm [default]\n\
   pfam\n\
-  a2m\n\
-  psiblast\n\
   afa";
 
 static void read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile);
@@ -358,6 +356,7 @@ read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile)
 
   ESL_ALLOC(alifile_list, sizeof(char *) * nalloc);
   status = esl_fileparser_Open(listfile, &efp);
+  esl_fileparser_SetCommentChar(efp, '#');
   if     (status == eslENOTFOUND) esl_fatal("List file %s does not exist or is not readable\n", listfile);
   else if(status == eslEMEM)      esl_fatal("Ran out of memory when opening list file %s\n", listfile);
   else if(status != eslOK)        esl_fatal("Error opening list file %s\n", listfile);
@@ -434,12 +433,8 @@ update_maxinsert(ESL_MSA *msa, int clen, int *maxinsert)
  * 
  * Rules for what to include in mmsa:
  *
- * msaA[]->name, msaA[]->desc, msaA[]->acc annotation is not 
- * included in the merged alignment since, presumably, they 
- * should be specific to the individual alignments.
- *
- * We include author annotation in merged alignment if it is 
- * identical in all msaA[] input alignments.
+ * We include name,desc,acc,author annotation in merged alignment 
+ * if it is identical in all msaA[] input alignments.
  *
  * We include comments and per-file (GF) annotation if they 
  * are present and identical in all input msaA[] alignments.
@@ -493,6 +488,51 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
    * to appropriate length when adding it to the merged MSA. */
   if((status = determine_gap_columns_to_add(msaA[0], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
     return status;
+
+  /*********************************************************************/
+  /* Check if name annotation is identical in all alignments */
+  do_add = TRUE; /* until proven otherwise */
+  if(msaA[0]->name != NULL) { 
+    for(ai = 1; ai < nmsa; ai++) { 
+      if((msaA[ai]->name == NULL) || (strcmp(msaA[0]->name, msaA[ai]->name) != 0)) { do_add = FALSE; break; }
+    }
+    if(do_add) { 
+      if(be_verbose) fprintf(stdout, "# Identical name annotation from all alignments transferred to merged alignment.\n"); 
+      if((status = esl_strdup(msaA[0]->name, -1, &(mmsa->name))) != eslOK) goto ERROR;
+    }
+    else if(be_verbose) fprintf(stdout, "# Name annotation is not identical in all alignments; not included in merged alignment.\n"); 
+  }
+  else if(be_verbose) fprintf(stdout, "# Name annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
+
+  /*********************************************************************/
+  /* Check if description annotation is identical in all alignments */
+  do_add = TRUE; /* until proven otherwise */
+  if(msaA[0]->desc != NULL) { 
+    for(ai = 1; ai < nmsa; ai++) { 
+      if((msaA[ai]->desc == NULL) || (strcmp(msaA[0]->desc, msaA[ai]->desc) != 0)) { do_add = FALSE; break; }
+    }
+    if(do_add) { 
+      if(be_verbose) fprintf(stdout, "# Identical description annotation from all alignments transferred to merged alignment.\n"); 
+      if((status = esl_strdup(msaA[0]->desc, -1, &(mmsa->desc))) != eslOK) goto ERROR;
+    }
+    else if(be_verbose) fprintf(stdout, "# Description annotation is not identical in all alignments; not included in merged alignment.\n"); 
+  }
+  else if(be_verbose) fprintf(stdout, "# Description annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
+
+  /*********************************************************************/
+  /* Check if accession annotation is identical in all alignments */
+  do_add = TRUE; /* until proven otherwise */
+  if(msaA[0]->acc != NULL) { 
+    for(ai = 1; ai < nmsa; ai++) { 
+      if((msaA[ai]->acc == NULL) || (strcmp(msaA[0]->acc, msaA[ai]->acc) != 0)) { do_add = FALSE; break; }
+    }
+    if(do_add) { 
+      if(be_verbose) fprintf(stdout, "# Identical accession annotation from all alignments transferred to merged alignment.\n"); 
+      if((status = esl_strdup(msaA[0]->acc, -1, &(mmsa->acc))) != eslOK) goto ERROR;
+    }
+    else if(be_verbose) fprintf(stdout, "# Accession annotation is not identical in all alignments; not included in merged alignment.\n"); 
+  }
+  else if(be_verbose) fprintf(stdout, "# Accession annotation absent from (at least) first alignment; not included in merged alignment.\n"); 
 
   /*********************************************************************/
   /* Check if author annotation is identical in all alignments */
