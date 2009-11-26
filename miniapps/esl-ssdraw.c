@@ -4080,7 +4080,7 @@ read_seq_list_file(char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);
   esl_vec_ISet(useme, msa->nseq, FALSE);
 
-  if (esl_fileparser_Open(filename, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
   
   while((status = esl_fileparser_GetToken(efp, &seqname, NULL)) != eslEOF) {
     found_match = FALSE;
