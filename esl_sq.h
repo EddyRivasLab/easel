@@ -77,6 +77,11 @@
  *    for example, so we don't have to read entire huge seqs into
  *    memory just to calculate their lengths for the index.
  *    
+ * Note/TODO: use of "\0" empty string to indicate lack of optional
+ * acc, desc info is now deprecated. Cannot distinguish empty string
+ * from lack of annotation. Should use NULL ptr instead. Fix this in
+ * future.  (21 Nov 09 xref J5/114)
+ *    
  */
 typedef struct {
   /*::cexcerpt::sq_sq::begin::*/
