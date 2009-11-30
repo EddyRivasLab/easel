@@ -254,7 +254,7 @@ esl_sqfile_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   sqfp->mpos         = 0;
   sqfp->is_recording = FALSE;
   sqfp->is_linebased = FALSE;
-  if (sqfp->buf != NULL) free(sqfp->buf);
+  if (sqfp->buf != NULL) { free(sqfp->buf); sqfp->balloc = 0; }
   return status;
 }
 
