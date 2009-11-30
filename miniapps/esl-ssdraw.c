@@ -2367,7 +2367,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
     cpos = 0;
     for(apos = 0; apos < msa->alen; apos++) {
       if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
-	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos-1])) { /* seq i is not a gap at cpos */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* seq i is not a gap at cpos */
 	  esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
 	}
 	cpos++;
