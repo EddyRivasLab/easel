@@ -39,7 +39,7 @@ print LISTFILE "$tmppfx.2\n";
 close LISTFILE;
 
 $output = `$eslalimerge -h`;
-if ($? != 0)                                     { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($? != 0)                                         { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /Usage: esl-alimerge/)                { die "FAIL: help output not right"; }
 
 $output = `$eslalimerge --rna $tmppfx.1 $tmppfx.2 2>&1`;
@@ -102,6 +102,12 @@ $output = `$eslalimerge --rna --outformat afa $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
+
+$output = `$eslalimerge --rna --rfonly $tmppfx.1 $tmppfx.2 2>&1`;
+if ($? != 0)                              { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($output !~ /sequence 3 is the best/)  { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /AAAAAAAACCCCCCCCGGGGG/)   { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /AAAAAAAAC\-CCCCCcGGGGG/)  { die "FAIL: alignments merged incorrectly"; }
 
 print "ok\n"; 
 unlink "$tmppfx.1";
