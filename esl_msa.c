@@ -3095,9 +3095,9 @@ remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
 	if (ct[apos] != 0) ct[ct[apos]] = 0;
 	ct[apos] = 0;
       }
-      /* convert to WUSS SS string and supplant msa->ss_cons */
-      if ((status = esl_ct2wuss(ct, msa->alen, msa->ss_cons)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
     }
+    /* convert to WUSS SS string and supplant msa->ss_cons */
+    if ((status = esl_ct2wuss(ct, msa->alen, msa->ss_cons)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
   }
   /* do the same for per-seq SS annotation */
   if (msa->ss != NULL) { 
@@ -3110,9 +3110,9 @@ remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
 	    if (ct[apos] != 0) ct[ct[apos]] = 0;
 	    ct[apos] = 0;
 	  }
-	  /* convert to WUSS SS string and supplant msa->ss[i] */
-	  if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
 	}
+	/* convert to WUSS SS string and supplant msa->ss[i] */
+	if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
       }
     }
   }
