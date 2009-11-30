@@ -13,6 +13,7 @@
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_vectorops.h"
+#include "esl_stopwatch.h"
 
 static char banner[] = "merge alignments based on their reference (RF) annotation";
 static char usage1[]  = "[options] <alignment file 1> <alignment file 2>";
@@ -41,6 +42,7 @@ static ESL_OPTIONS options[] = {
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",                     1 },
   { "-o",         eslARG_OUTFILE,  NULL, NULL, NULL, NULL,NULL, NULL,            "output the final alignment to file <f>, not stdout",             1 },
   { "-v",         eslARG_NONE,    FALSE, NULL, NULL, NULL,"-o", NULL,            "print info on merge to stdout; requires -o",                     1 },
+  { "--rfonly",   eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "remove all columns that are gaps in GC RF annotation",           1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "NOT YET DISPLAYED",                                              99 },
   { "--outformat",eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that output aln be format <s> (see choices above)",      1 },
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "alignments to merge are RNA alignments",                         1 },
@@ -85,6 +87,8 @@ main(int argc, char **argv)
   int           alen_mmsa;                     /* number of columns in merged MSA */
   char          errbuf[eslERRBUFSIZE];         /* buffer for error messages */
   char         *tmpstr;                        /* used if -v, for printing file names */
+  int          *useme = NULL;                  /* used only --rfonly enabled, for removing gap RF columns */
+  ESL_STOPWATCH *w  = NULL;                    /* for timing the merge, only used if -o enabled */
 
   /* output formatting, only relevant if -v */
   char      *namedashes = NULL;                /* string of dashes, an underline */
@@ -165,25 +169,31 @@ main(int argc, char **argv)
     if((status = esl_strdup(msafile2, -1, &(alifile_list[1]))) != eslOK) esl_fatal("Error storing alignment file name %s, error status: %d\n", msafile2, status);
   }
 
+  /* create and start stopwatch */
+  if(ofp != stdout) {
+    w = esl_stopwatch_Create();
+    esl_stopwatch_Start(w);
+  }
+
   if(esl_opt_GetBoolean(go, "-v")) { 
-      /* determine the longest file name in alifile_list */
-      namewidth = 9; /* length of 'file name' */
-      for(fi = 0; fi < nalifile; fi++) { 
-	if((status = esl_FileTail(alifile_list[fi], FALSE, &tmpstr)) != eslOK) esl_fatal("Memory allocation error.");
-	namewidth = ESL_MAX(namewidth, strlen(tmpstr));
-	free(tmpstr);
-      }
-
-      ESL_ALLOC(namedashes, sizeof(char) * (namewidth+1));
-      namedashes[namewidth] = '\0';
-      for(ni = 0; ni < namewidth; ni++) namedashes[ni] = '-';
-      fprintf(stdout, "# Reading %d alignment files...\n", nalifile);
-      fprintf(stdout, "#\n");
-      fprintf(stdout, "# %7s  %-*s  %7s  %9s  %9s  %13s  %8s\n", "",        namewidth,"",          "",        "",          "",            "",               "ncols");
-      fprintf(stdout, "# %7s  %-*s  %7s  %9s  %9s  %13s  %8s\n", "file #",  namewidth,"file name", "ali #",   "#seq/ali",  "ncols/ali",   "# seq total",    "required");
-      fprintf(stdout, "# %7s  %*s  %7s  %9s  %9s  %13s  %8s\n", "-------", namewidth, namedashes,  "-------", "---------", "---------",   "-------------", "--------");
+    /* determine the longest file name in alifile_list */
+    namewidth = 9; /* length of 'file name' */
+    for(fi = 0; fi < nalifile; fi++) { 
+      if((status = esl_FileTail(alifile_list[fi], FALSE, &tmpstr)) != eslOK) esl_fatal("Memory allocation error.");
+      namewidth = ESL_MAX(namewidth, strlen(tmpstr));
+      free(tmpstr);
     }
-
+    
+    ESL_ALLOC(namedashes, sizeof(char) * (namewidth+1));
+    namedashes[namewidth] = '\0';
+    for(ni = 0; ni < namewidth; ni++) namedashes[ni] = '-';
+    fprintf(stdout, "# Reading %d alignment files...\n", nalifile);
+    fprintf(stdout, "#\n");
+    fprintf(stdout, "# %7s  %-*s  %7s  %9s  %9s  %13s  %8s\n", "",        namewidth,"",          "",        "",          "",            "",               "ncols");
+    fprintf(stdout, "# %7s  %-*s  %7s  %9s  %9s  %13s  %8s\n", "file #",  namewidth,"file name", "ali #",   "#seq/ali",  "ncols/ali",   "# seq total",    "required");
+    fprintf(stdout, "# %7s  %*s  %7s  %9s  %9s  %13s  %8s\n", "-------", namewidth, namedashes,  "-------", "---------", "---------",   "-------------", "--------");
+  }
+  
   /* Allocate and initialize */
   nalloc = chunksize;
   ESL_ALLOC(msaA, sizeof(ESL_MSA *) * nalloc);
@@ -242,8 +252,18 @@ main(int argc, char **argv)
       else if(cur_clen != clen) { 
 	esl_fatal("Error, all alignments must have identical non-gap #=GC RF lengths; expected (RF length of first ali read): %d,\nalignment %d of file %d length is %d (%s))\n", clen, nali_cur, (fi+1), cur_clen, alifile_list[fi]); 
       }
-      update_maxinsert(msaA[(nali_tot-1)], clen, maxinsert);
-
+      if(esl_opt_GetBoolean(go, "--rfonly")) { /* remove all columns that are gaps in the RF annotation */
+	ESL_ALLOC(useme, sizeof(int) * (msaA[(nali_tot-1)]->alen));
+	for(apos = 0; apos < msaA[(nali_tot-1)]->alen; apos++) { useme[apos] = (esl_abc_CIsGap(abc, msaA[(nali_tot-1)]->rf[apos])) ? FALSE : TRUE; }
+	if((status = esl_msa_ColumnSubset(msaA[(nali_tot-1)], errbuf, useme)) != eslOK) { 
+	  esl_fatal("status code: %d removing gap RF columns for msa %d from file %s:\n%s", status, nali_tot, alifile_list[fi], errbuf);
+	}
+	free(useme);
+	useme = NULL;
+      }
+      else { /* --rfonly not enabled, determine max number inserts between each position */
+      	update_maxinsert(msaA[(nali_tot-1)], clen, maxinsert);
+      }
       if(esl_opt_GetBoolean(go, "-v")) { 
 	if((status = esl_FileTail(alifile_list[fi], FALSE, &tmpstr)) != eslOK) esl_fatal("Memory allocation error.");
 	fprintf(stdout, "  %7d  %-*s  %7d  %9d  %9" PRId64 "  %13d  %8d\n", (fi+1),  namewidth, tmpstr, nali_tot, msaA[(nali_tot-1)]->nseq, msaA[(nali_tot-1)]->alen, nseq_tot, (clen+esl_vec_ISum(maxinsert, (clen+1))));
@@ -297,15 +317,17 @@ main(int argc, char **argv)
 
   if(ofp != stdout) {
     fprintf(stdout, "# Saving alignment to file %s ... ", esl_opt_GetString(go, "-o"));
-    fflush(stdout);
   }
 
   status = esl_msa_Write(ofp, mmsa, outfmt);
   if(status != eslOK) esl_fatal("Error, during alignment output; status code: %d\n", status);
 
   if(ofp != stdout) { 
-    fprintf(stdout, "done.\n");
     fclose(ofp);
+    fprintf(stdout, "done\n#\n");
+    fflush(stdout);
+    esl_stopwatch_Stop(w);
+    esl_stopwatch_Display(stdout, w, "# CPU time: ");
   }
 
   /* clean up and exit */
@@ -316,11 +338,13 @@ main(int argc, char **argv)
     free(alifile_list);
   }
 
+  if(useme != NULL)      free(useme);
   if(namedashes != NULL) free(namedashes);
   if(msaA != NULL)       free(msaA);
   if(maxinsert != NULL)  free(maxinsert);
   if(mmsa != NULL)       esl_msa_Destroy(mmsa);
   if(abc  != NULL)       esl_alphabet_Destroy(abc);
+  if(w    != NULL)       esl_stopwatch_Destroy(w);
     
   esl_getopts_Destroy(go);
   return 0;
@@ -357,11 +381,11 @@ read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile)
 
   ESL_ALLOC(alifile_list, sizeof(char *) * nalloc);
   status = esl_fileparser_Open(listfile, NULL,  &efp);
-  esl_fileparser_SetCommentChar(efp, '#');
   if     (status == eslENOTFOUND) esl_fatal("List file %s does not exist or is not readable\n", listfile);
   else if(status == eslEMEM)      esl_fatal("Ran out of memory when opening list file %s\n", listfile);
   else if(status != eslOK)        esl_fatal("Error opening list file %s\n", listfile);
-  
+
+  esl_fileparser_SetCommentChar(efp, '#');
   while((status = esl_fileparser_GetToken(efp, &tok, NULL)) != eslEOF) {
     if(n == nalloc) { nalloc += chunksize; ESL_RALLOC(alifile_list, tmp, sizeof(char *) * nalloc); }
     if((status = esl_strdup(tok, -1, &(alifile_list[n++]))) != eslOK) {
@@ -1099,6 +1123,7 @@ gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char 
  ERROR: 
   return eslEMEM;
 }
+
 
 /* validate_no_nongaps_in_rf_gaps
  *                   
