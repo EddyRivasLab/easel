@@ -2376,9 +2376,6 @@ infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   }
   for(cpos = 0; cpos < ps->clen; cpos++) { 
     zero_obs = (esl_DCompare(esl_vec_DSum(obs[cpos], msa->abc->K), 0., eslSMALLX1) == eslOK) ? TRUE : FALSE;
-    if(zero_obs) { 
-      printf("cpos: %d nobs: %f\n", cpos, esl_vec_DSum(obs[cpos], msa->abc->K));
-    }
     esl_vec_DNorm(obs[cpos], msa->abc->K);
     ent[cpos] = esl_vec_DEntropy(bg, msa->abc->K) - esl_vec_DEntropy(obs[cpos], msa->abc->K);
 
