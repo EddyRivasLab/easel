@@ -1271,7 +1271,8 @@ get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti)
 static int
 get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti)
 {
-  int nmatch = 0;
+  int nabbrev = 0;
+  int nexact  = 0;
   int i;
 
   if (n == 0) 			/* unless we're told otherwise: */
@@ -1280,12 +1281,12 @@ get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti)
   for (i = 0; i < g->nopts; i++)
     if (strncmp(g->opt[i].name, optname, n) == 0)
       {
-	nmatch++;
+	nabbrev++;
 	*ret_opti = i;
-	if (n == strlen(g->opt[i].name)) break; /* an exact match; can stop now */
+	if (n == strlen(g->opt[i].name)) { nexact++; break; } /* an exact match; can stop now */
       }
-  if (nmatch > 1)  return eslEAMBIGUOUS;
-  if (nmatch == 0) return eslENOTFOUND;
+  if (nexact != 1 && nabbrev > 1)  return eslEAMBIGUOUS;
+  if (nabbrev == 0)                return eslENOTFOUND;
   return eslOK;
 }
 /*----------- end of private functions for retrieving option indices -------------*/
@@ -1984,6 +1985,7 @@ static ESL_OPTIONS options[] = {
  { "--hin",  eslARG_INT,   "-1",  NULL,   "n<0", NULL,  NULL,"--no-b","int arg with upper bound",  2 },
  { "--host", eslARG_STRING, "","HOSTTEST",NULL,  NULL,  NULL,  NULL,  "string arg with env var",   3 },
  { "--multi",eslARG_STRING,NULL,  NULL,   NULL,  NULL,  NULL,  NULL,  "test quoted configfile arg",3 },
+ { "--mul",  eslARG_NONE, FALSE,  NULL,   NULL,  NULL,  NULL,  NULL,  "test long opt abbreviation",3 },
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 /*::cexcerpt::getopts_bigarray::end::*/
@@ -1999,8 +2001,8 @@ main(void)
   int          i;
 
   /* Declare a "command line" internally.  */
-  int   argc = 10;		/* progname; 7 options; 2 args */
-  char *argv[] = { "progname", "-bc", "y", "--d1", "-n9", "--hix=0.0", "--lown", "43", "arg1", "2005"};
+  int   argc = 11;		/* progname; 8 options; 2 args */
+  char *argv[] = { "progname", "-bc", "y", "--d1", "-n9", "--hix=0.0", "--lown", "43", "--mul", "arg1", "2005"};
 
   /* Create a config file #1. */
   if (esl_tmpfile_named(file1, &f1) != eslOK) esl_fatal("failed to create named tmpfile 1");
@@ -2033,11 +2035,11 @@ main(void)
   if ((f2 = fopen(file2, "r")) == NULL) esl_fatal("getopts fopen() 2 failed");
 
   go = esl_getopts_Create(options);
-  if (esl_opt_ProcessConfigfile(go, file1, f1) != eslOK) esl_fatal("getopts failed to process config file 1");
-  if (esl_opt_ProcessConfigfile(go, file2, f2) != eslOK) esl_fatal("getopts failed to process config file 2");
-  if (esl_opt_ProcessEnvironment(go)           != eslOK) esl_fatal("getopts failed to process environment");
-  if (esl_opt_ProcessCmdline(go, argc, argv)   != eslOK) esl_fatal("getopts failed to process command line");
-  if (esl_opt_VerifyConfig(go)                 != eslOK) esl_fatal("getopts config fails validation");
+  if (esl_opt_ProcessConfigfile(go, file1, f1) != eslOK) esl_fatal("getopts failed to process config file 1\n%s\n", go->errbuf);
+  if (esl_opt_ProcessConfigfile(go, file2, f2) != eslOK) esl_fatal("getopts failed to process config file 2\n%s\n", go->errbuf);
+  if (esl_opt_ProcessEnvironment(go)           != eslOK) esl_fatal("getopts failed to process environment:\n%s\n",  go->errbuf);
+  if (esl_opt_ProcessCmdline(go, argc, argv)   != eslOK) esl_fatal("getopts failed to process command line:\n%s\n", go->errbuf);
+  if (esl_opt_VerifyConfig(go)                 != eslOK) esl_fatal("getopts config fails validation:\n%s\n",        go->errbuf);
 
   fclose(f1);
   fclose(f2);
@@ -2052,6 +2054,7 @@ main(void)
   if (esl_opt_GetReal   (go, "--hix")  != 0.0)   esl_fatal("getopts failed on --hix"); /* arg=x format on cmdline */
   if (esl_opt_GetInteger(go, "--lown") != 43)    esl_fatal("getopts failed on --lown"); /* cmdline; requires -a -b */
   if (esl_opt_GetInteger(go, "--hin")  != -33)   esl_fatal("getopts failed on --hin"); /* cfgfile 2; requires --no-b to be off */
+  if (esl_opt_GetBoolean(go, "--mul")  != TRUE)  esl_fatal("getopts failed on --mul"); /* --mul should not be confused with --multi by abbrev parser*/
   if (strcmp(esl_opt_GetString(go, "--host"), "wasp.cryptogenomicon.org") != 0)
     esl_fatal("getopts failed on --host"); /* cfgfile 2, then overridden by environment */
   if (strcmp(esl_opt_GetString(go, "--multi"), "one two three") != 0)
