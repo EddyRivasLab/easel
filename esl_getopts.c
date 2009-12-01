@@ -1283,7 +1283,7 @@ get_optidx_abbrev(ESL_GETOPTS *g, char *optname, int n, int *ret_opti)
       {
 	nabbrev++;
 	*ret_opti = i;
-	if (n == strlen(g->opt[i].name)) { nexact++; break; } /* an exact match; can stop now */
+	if (n == strlen(g->opt[i].name)) { nexact++; break; } /* an exact match; can stop now (xref bug #e4) */
       }
   if (nexact != 1 && nabbrev > 1)  return eslEAMBIGUOUS;
   if (nabbrev == 0)                return eslENOTFOUND;
@@ -1985,7 +1985,7 @@ static ESL_OPTIONS options[] = {
  { "--hin",  eslARG_INT,   "-1",  NULL,   "n<0", NULL,  NULL,"--no-b","int arg with upper bound",  2 },
  { "--host", eslARG_STRING, "","HOSTTEST",NULL,  NULL,  NULL,  NULL,  "string arg with env var",   3 },
  { "--multi",eslARG_STRING,NULL,  NULL,   NULL,  NULL,  NULL,  NULL,  "test quoted configfile arg",3 },
- { "--mul",  eslARG_NONE, FALSE,  NULL,   NULL,  NULL,  NULL,  NULL,  "test long opt abbreviation",3 },
+ { "--mul",  eslARG_NONE, FALSE,  NULL,   NULL,  NULL,  NULL,  NULL,  "test long opt abbreviation",3 }, /* xref bug #e4 */
  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 /*::cexcerpt::getopts_bigarray::end::*/
