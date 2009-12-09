@@ -12,8 +12,9 @@
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
-#include "esl_vectorops.h"
+#include "esl_sqio.h"
 #include "esl_stopwatch.h"
+#include "esl_vectorops.h"
 
 static char banner[] = "merge alignments based on their reference (RF) annotation";
 static char usage1[]  = "[options] <alignment file 1> <alignment file 2>";
@@ -29,12 +30,15 @@ static char usage2[]  = "[options] --list <file listing n > 1 ali files to merge
   afa";
 
 static void read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile);
-static void update_maxinsert(ESL_MSA *msa, int clen, int *maxinsert);
+static void update_maxinsert(ESL_MSA *msa, int clen, int64_t alen, int *maxinsert);
 static int  validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int clen, int nmsa, int alen_merged, int *maxinsert, char *errbuf);
 static int  add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_merged, char *errbuf);
 static int  gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str);
 static int  validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *other_str, int64_t len);
 static int  determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_ngapA, char *errbuf);
+static void write_pfam_msa_top(FILE *fp, ESL_MSA *msa);
+static void write_pfam_msa_gc(FILE *fp, ESL_MSA *msa, int maxwidth);
+static int64_t maxwidth(char **s, int n);
  
 static ESL_OPTIONS options[] = {
   /* name         type          default  env   range togs reqs  incomp           help                                                             docgroup */
@@ -42,6 +46,7 @@ static ESL_OPTIONS options[] = {
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",                     1 },
   { "-o",         eslARG_OUTFILE,  NULL, NULL, NULL, NULL,NULL, NULL,            "output the final alignment to file <f>, not stdout",             1 },
   { "-v",         eslARG_NONE,    FALSE, NULL, NULL, NULL,"-o", NULL,            "print info on merge to stdout; requires -o",                     1 },
+  { "--savemem",  eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln sizes)",   1 },
   { "--rfonly",   eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "remove all columns that are gaps in GC RF annotation",           1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "NOT YET DISPLAYED",                                              99 },
   { "--outformat",eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that output aln be format <s> (see choices above)",      1 },
@@ -68,12 +73,17 @@ main(int argc, char **argv)
   char        **alifile_list = NULL;           /* list of alignment files to merge */
   int           nalifile;                      /* size of alifile_list             */
   int           do_stall;                      /* used to stall when debugging     */
-  int           abctype;
+  int           abctype;                       /* alphabet type */
   int           fi;                            /* counter over alignment files */
-  int           ai;                            /* counter over alignments */
+  int           ai, ai2;                       /* counters over alignments */
   int           nali_cur;                      /* number of sequences in this alignment */
   int           nali_tot;                      /* number of sequences in this alignment */
+  int          *nali_per_file = NULL;          /* [0..nalifile-1] number of alignments per file */
   int           nseq_tot;                      /* number of sequences in all alignments */
+  int           nseq_cur;                      /* number of sequences in current alignment */
+  int64_t       alen_cur;                      /* length of current alignment */
+  int64_t      *alenA = NULL;                  /* [0..nali_tot-1] alignment length of input msas (even after 
+						* potentially removingeinserts (--rfonly)) */
   ESL_MSA     **msaA = NULL;                   /* [0..nali_tot-1] all msas read from all files */
   int          *maxinsert = NULL;              /* [0..cpos..rflen+1] max number of inserts 
 						* before each consensus position in all alignments */
@@ -87,13 +97,24 @@ main(int argc, char **argv)
   int           alen_mmsa;                     /* number of columns in merged MSA */
   char          errbuf[eslERRBUFSIZE];         /* buffer for error messages */
   char         *tmpstr;                        /* used if -v, for printing file names */
-  int          *useme = NULL;                  /* used only --rfonly enabled, for removing gap RF columns */
+  int         **usemeA = NULL;                 /* [0..nali_tot-1][0..alen]  used only if --rfonly enabled, for removing gap RF columns */
   ESL_STOPWATCH *w  = NULL;                    /* for timing the merge, only used if -o enabled */
+  int           do_small;                      /* TRUE if --savemem, operate in special small memory mode, aln seq data is not stored */
+  int           do_rfonly;                     /* TRUE if --rfonly, output only non-gap RF columns (remove all insert columns) */
+  int          *ngapA = NULL;                  /* [0..alen] number of gap columns to add after each alignment column when merging */
 
   /* output formatting, only relevant if -v */
   char      *namedashes = NULL;                /* string of dashes, an underline */
   int        ni;                               /* counter                        */
   int        namewidth;                        /* max width of file name         */
+
+  /* variables only used in small mode (--savemem) */
+  int           ngs_cur;                       /* number of GS lines in current alignment (only used if do_small) */
+  int           gs_exists = FALSE;             /* set to TRUE if do_small and any input aln has >= 1 GS line */
+  int           maxname, maxgf, maxgc, maxgr;  /* max length of seqname, GF tag, GC tag, GR tag in all input alignments */
+  int           maxname_cur, maxgf_cur, maxgc_cur, maxgr_cur; /* max length of seqname, GF tag, GC tag, GR tag in current input alignment */
+  int           margin;                        /* total margin length for output msa */
+
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -137,6 +158,9 @@ main(int argc, char **argv)
     msafile2 = esl_opt_GetArg(go, 2);
   }
 
+  do_small  = (esl_opt_IsOn(go, "--savemem")) ? TRUE : FALSE;
+  do_rfonly = (esl_opt_IsOn(go, "--rfonly"))  ? TRUE : FALSE;
+
   /* open output file */
   if (esl_opt_GetString(go, "-o") != NULL) {
     if ((ofp = fopen(esl_opt_GetString(go, "-o"), "w")) == NULL) 
@@ -146,13 +170,19 @@ main(int argc, char **argv)
   if (esl_opt_IsOn(go, "--informat")) {
     infmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+    if (do_small && infmt != eslMSAFILE_PFAM) esl_fatal("small memory mode requires Pfam formatted alignments"); 
   }
-
   if (esl_opt_IsOn(go, "--outformat")) {
     outfmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--outformat"));
     if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
+    if (do_small && outfmt != eslMSAFILE_PFAM) esl_fatal("we can only output Pfam formatted alignments in small memory mode"); 
   }
   else outfmt = eslMSAFILE_STOCKHOLM;
+
+  if (do_small) { 
+    infmt  = eslMSAFILE_PFAM; /* this must be true, else we can't do small memory mode */
+    outfmt = eslMSAFILE_PFAM;
+  }
 
   do_stall = esl_opt_GetBoolean(go, "--stall"); /* a stall point for attaching gdb */
   while (do_stall); 
@@ -196,25 +226,35 @@ main(int argc, char **argv)
   
   /* Allocate and initialize */
   nalloc = chunksize;
-  ESL_ALLOC(msaA, sizeof(ESL_MSA *) * nalloc);
+  ESL_ALLOC(msaA,   sizeof(ESL_MSA *) * nalloc);
+  ESL_ALLOC(alenA,  sizeof(int64_t) * nalloc);
+  if(do_rfonly) ESL_ALLOC(usemeA, sizeof(int *) * nalloc);
 
   /****************************************************************
    *  Read alignments one at a time, storing them all, separately *
    ****************************************************************/
 
-  nali_tot = 0;
+  ai = 0;
   nseq_tot = 0;
+  maxname = maxgf = maxgc = maxgr = 0;
+  ESL_ALLOC(nali_per_file, sizeof(int) * nalifile);
+  esl_vec_ISet(nali_per_file, nalifile, 0);
+
   for(fi = 0; fi < nalifile; fi++) { 
-    status = esl_msafile_Open(alifile_list[fi], eslMSAFILE_UNKNOWN, NULL, &afp);
+    status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp);
     if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
     else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile_list[fi]);
     else if (status != eslOK)        esl_fatal("Alignment file %s open failed with error %d\n", alifile_list[fi], status);
 
-    if(abc == NULL) { /* this will only be true of first alignment of first file */
+    if(abc == NULL) { /* this will only be true of first alignment in the first file */
       if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
       else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
       else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-      else {
+      else if (do_small) {
+	abc = esl_alphabet_Create(eslRNA);
+	/* alphabet is only used to define gap characters, so (in this miniapp) we're okay specifying RNA for any alignment (even non-RNA ones) */
+      }
+      else { 
 	status = esl_msafile_GuessAlphabet(afp, &abctype);
 	if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile_list[fi]);
 	else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
@@ -223,73 +263,102 @@ main(int argc, char **argv)
 	abc = esl_alphabet_Create(abctype);
       }
     }
-    nali_cur = 0;
+    /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --savemem) */
+    while((status = (do_small) ? 
+	   esl_msa_ReadNonSeqInfoPfam(afp, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur) : 
+	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
 
-    while((status = esl_msa_Read(afp, &(msaA[nali_tot]))) == eslOK) { 
-      nali_cur++;
-      nali_tot++;
-      nseq_tot  += msaA[(nali_tot-1)]->nseq;
+      if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
+      msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --savemem, this is set as RNA regardless of input */
 
-      if(nali_tot == nalloc) { /* we need more msa ptrs, reallocate */
+      if (do_small) { 
+	maxname = ESL_MAX(maxname, maxname_cur); 
+	maxgf   = ESL_MAX(maxgf, maxgf_cur); 
+	maxgc   = ESL_MAX(maxgc, maxgc_cur); 
+	maxgr   = ESL_MAX(maxgr, maxgr_cur); 
+	msaA[ai]->alen = alen_cur;
+	if(ngs_cur > 0) gs_exists = TRUE; 
+      }
+      else { 
+	nseq_cur = msaA[ai]->nseq; 
+      }
+      alenA[ai] = msaA[ai]->alen; /* impt if --savemem and --rfonly, to remember total width of aln to expect in second pass */
+      nali_per_file[fi]++;
+      nseq_tot += nseq_cur;
+      
+      /* reallocate per-alignment data, if nec */
+      if((ai+1) == nalloc) { 
 	nalloc += chunksize; 
-	ESL_RALLOC(msaA, tmp, sizeof(ESL_MSA *) * nalloc+chunksize); 
-	for(ai = nali_tot; ai < nalloc; ai++) msaA[ai] = NULL;
+	ESL_RALLOC(msaA,   tmp, sizeof(ESL_MSA *) * nalloc); 
+	ESL_RALLOC(alenA,  tmp, sizeof(int64_t) * nalloc); 
+	for(ai2 = ai+1; ai2 < nalloc; ai2++) { msaA[ai2] = NULL; } 
+	if(do_rfonly) { 
+	  ESL_RALLOC(usemeA, tmp, sizeof(int *) * nalloc); 
+	  for(ai2 = ai+1; ai2 < nalloc; ai2++) { usemeA[ai2] = NULL; }
+	}
       }
 
-      if(msaA[(nali_tot-1)]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_cur, (fi+1), alifile_list[fi]); 
-      msaA[(nali_tot-1)]->abc = abc;
-
-      /* get current consensus (non-gap RF) length) */
+      /* either store consensus (non-gap RF) length (if first aln), or verify it is what we expect */
       cur_clen = 0;
-      for(apos = 0; apos < (int) msaA[(nali_tot-1)]->alen; apos++) { 
-	if(! esl_abc_CIsGap(msaA[(nali_tot-1)]->abc, msaA[(nali_tot-1)]->rf[apos])) cur_clen++;
+      for(apos = 0; apos < (int) msaA[ai]->alen; apos++) { 
+	if(! esl_abc_CIsGap(msaA[ai]->abc, msaA[ai]->rf[apos])) cur_clen++;
       }
-      if(nali_tot == 1) { /* first alignment, store clen, allocate maxinsert */
+      if(ai == 0) { /* first alignment, store clen, allocate maxinsert */
 	clen = cur_clen;
 	ESL_ALLOC(maxinsert, sizeof(int) * (clen+1)); 
 	esl_vec_ISet(maxinsert, (clen+1), 0);
       }
       else if(cur_clen != clen) { 
-	esl_fatal("Error, all alignments must have identical non-gap #=GC RF lengths; expected (RF length of first ali read): %d,\nalignment %d of file %d length is %d (%s))\n", clen, nali_cur, (fi+1), cur_clen, alifile_list[fi]); 
+	esl_fatal("Error, all alignments must have identical non-gap #=GC RF lengths; expected (RF length of first ali read): %d,\nalignment %d of file %d length is %d (%s))\n", clen, nali_per_file[fi], (fi+1), cur_clen, alifile_list[fi]); 
       }
-      if(esl_opt_GetBoolean(go, "--rfonly")) { /* remove all columns that are gaps in the RF annotation */
-	ESL_ALLOC(useme, sizeof(int) * (msaA[(nali_tot-1)]->alen));
-	for(apos = 0; apos < msaA[(nali_tot-1)]->alen; apos++) { useme[apos] = (esl_abc_CIsGap(abc, msaA[(nali_tot-1)]->rf[apos])) ? FALSE : TRUE; }
-	if((status = esl_msa_ColumnSubset(msaA[(nali_tot-1)], errbuf, useme)) != eslOK) { 
-	  esl_fatal("status code: %d removing gap RF columns for msa %d from file %s:\n%s", status, nali_tot, alifile_list[fi], errbuf);
+
+      if(do_rfonly) { 
+	/* Remove all columns that are gaps in the RF annotation, we keep an array of usemes, 
+	 * one per aln, in case of --savemem, so we know useme upon second pass of alignment files */
+	ESL_ALLOC(usemeA[ai], sizeof(int) * (msaA[ai]->alen));
+	for(apos = 0; apos < msaA[ai]->alen; apos++) { usemeA[ai][apos] = (esl_abc_CIsGap(abc, msaA[ai]->rf[apos])) ? FALSE : TRUE; }
+	if((status = esl_msa_ColumnSubset(msaA[ai], errbuf, usemeA[ai])) != eslOK) { 
+	  esl_fatal("status code: %d removing gap RF columns for msa %d from file %s:\n%s", status, (ai+1), alifile_list[fi], errbuf);
 	}
-	free(useme);
-	useme = NULL;
       }
       else { /* --rfonly not enabled, determine max number inserts between each position */
-      	update_maxinsert(msaA[(nali_tot-1)], clen, maxinsert);
+      	update_maxinsert(msaA[ai], clen, msaA[ai]->alen, maxinsert);
       }
       if(esl_opt_GetBoolean(go, "-v")) { 
 	if((status = esl_FileTail(alifile_list[fi], FALSE, &tmpstr)) != eslOK) esl_fatal("Memory allocation error.");
-	fprintf(stdout, "  %7d  %-*s  %7d  %9d  %9" PRId64 "  %13d  %8d\n", (fi+1),  namewidth, tmpstr, nali_tot, msaA[(nali_tot-1)]->nseq, msaA[(nali_tot-1)]->alen, nseq_tot, (clen+esl_vec_ISum(maxinsert, (clen+1))));
+	fprintf(stdout, "  %7d  %-*s  %7d  %9d  %9" PRId64 "  %13d  %8d\n", (fi+1),  namewidth, tmpstr, (ai+1), nseq_cur, msaA[ai]->alen, nseq_tot, (clen+esl_vec_ISum(maxinsert, (clen+1))));
 	free(tmpstr);
       }
+      ai++;
     } /* end of while esl_msa_Read() loop */
-
     if      (status == eslEFORMAT) esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp->errbuf);
     else if (status == eslEINVAL)  esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp->errbuf);
     else if (status != eslEOF)     esl_fatal("Alignment file %s, read failed with error code %d\n", alifile_list[fi], status);
-    if(nali_cur == 0)              esl_fatal("Failed to read any alignments from file %s\n", alifile_list[fi]);
+    if(nali_per_file[fi] == 0)     esl_fatal("Failed to read any alignments from file %s %s\n", alifile_list[fi], afp->errbuf);
     esl_msafile_Close(afp);
   } /* end of for (fi=0; fi < nalifile; fi++) */
-
+  nali_tot = ai;
+  
   /*********************************************
    *  Merge all alignments into the merged MSA *
    *********************************************/
 
-  /* We allocate space for all sequences, but left sequences as NULL (-1), this saves us from 
-   * needing the full amount of memory now; we'll copy aligned sequences from each alignment,
-   * freeing them in the orignal msaA alignments as we go to reduce amount of memory we require
-   * to do the merge.
+  /* We allocate space for all sequences, but leave sequences as NULL (nseq = -1). 
+   * If (do_small) we didn't store the sequences on the first pass through the
+   * alignment files, and we'll never allocate space for the sequences in mmsa,
+   * we'll just output them as we reread them on another pass through the 
+   * individual alignments. If we read >= 1 GS line in any of the input alignments,
+   * we need to do an additional pass through the files, outputting only GS
+   * data. Then, in a final (3rd) pass we'll output aligned data.
+   *
+   * if (!do_small),  we have the sequences in memory, we'll copy these
+   * to the merged alignment, freeing them in the orignal msaA alignments 
+   * as we go so we never need to allocate the full mmsa while we still have
+   * the individual msas (in msaA[]) in memory. 
    */     
   mmsa = esl_msa_Create(nseq_tot, -1); 
   alen_mmsa = clen + esl_vec_ISum(maxinsert, (clen+1)); 
-
+      
   /* Determine what annotation from the input alignments 
    * we will include in the merged MSA.
    * See comments in header of validate_and_copy_msa_annotation()
@@ -298,31 +367,121 @@ main(int argc, char **argv)
   if((status = validate_and_copy_msa_annotation(go, outfmt, mmsa, msaA, nali_tot, clen, alen_mmsa, maxinsert, errbuf)) != eslOK)
     esl_fatal("Error while checking and copying individual MSA annotation to merged MSA:%s\n", errbuf);
   
-  if(esl_opt_GetBoolean(go, "-v")) { 
-    fprintf(stdout, "#\n");
-    fprintf(stdout, "# Merging alignments ... ");
-    fflush(stdout);
-  }
+  if(do_small) { 
+    /* Small memory mode, do up to 2 more passes through the input alignments:
+     * pass 2 will output only GS data at top of output alignment file (only performed if >= 1 GS line read in input files 
+     * pass 3 will output all aligned data at to output alignment file (always performed) 
+     */
 
-  for(ai = 0; ai < nali_tot; ai++) { 
-    if((status = add_msa(mmsa, msaA[ai], maxinsert, clen, alen_mmsa, errbuf)) != eslOK) esl_fatal("Error, merging alignment %d of %d:\n%s.", (ai+1), nali_tot, errbuf); 
-    esl_msa_Destroy(msaA[ai]); /* note: the aligned sequences will have already been freed in add_msa() */
-    msaA[ai] = NULL;
-  }
-  mmsa->alen = alen_mmsa; /* it was -1, b/c we filled in each seq as we marched through each msaA[] alignment */
-  if(esl_opt_GetBoolean(go, "-v")) { 
-    fprintf(stdout, "done.\n");
-    fprintf(stdout, "#\n");
-  }
+    /* output header, comments, and #=GF data */
+    write_pfam_msa_top(ofp, mmsa);
+    
+    if(ofp != stdout) { 
+      if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "#\n"); }
+      fprintf(stdout, "# Outputting merged alignment to file %s ... ", esl_opt_GetString(go, "-o")); 
+      fflush(stdout); 
+    }
 
-  if(ofp != stdout) {
-    fprintf(stdout, "# Saving alignment to file %s ... ", esl_opt_GetString(go, "-o"));
+    /* if there was any GS annotation in any of the individual alignments,
+     * do second pass through alignment files, outputting GS annotation as we go. */
+    if(gs_exists) { 
+      ai = 0;
+      for(fi = 0; fi < nalifile; fi++) { 
+	status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp); /* this should work b/c it did on the first pass */
+	if      (status == eslENOTFOUND) esl_fatal("Second pass, alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
+	else if (status == eslEFORMAT)   esl_fatal("Second pass, couldn't determine format of alignment %s\n", alifile_list[fi]);
+	else if (status != eslOK)        esl_fatal("Second pass, alignment file %s open failed with error %d\n", alifile_list[fi], status);
+	
+	for(ai2 = 0; ai2 < nali_per_file[fi]; ai2++) { 
+	  status = esl_msa_RegurgitatePfam(afp, ofp, 
+					   maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag (irrelevant here) */
+					   FALSE, /* regurgitate stockholm header ? */
+					   FALSE, /* regurgitate // trailer ? */
+					   FALSE, /* regurgitate blank lines */
+					   FALSE, /* regurgitate comments */
+					   FALSE, /* regurgitate GF ? */
+					   TRUE,  /* regurgitate GS ? */
+					   FALSE, /* regurgitate GC ? */
+					   FALSE,  /* regurgitate GR ? */
+					   FALSE,  /* regurgitate aseq ? */
+					   NULL, 
+					   NULL, 
+					   alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
+					   '.');
+	  if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
+	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
+	  free(ngapA);
+	  ai++;
+	  fflush(ofp);
+	}
+	esl_msafile_Close(afp);
+      }
+      fprintf(ofp, "\n"); /* a single blank line to separate GS annotation from aligned data */
+    }
+
+    /* do another (either second or third) pass through alignment files, outputting aligned sequence data (and GR) as we go */
+    ai = 0;
+    for(fi = 0; fi < nalifile; fi++) { 
+      status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp); /* this should work b/c it did on the first pass */
+      if      (status == eslENOTFOUND) esl_fatal("Second pass, alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
+      else if (status == eslEFORMAT)   esl_fatal("Second pass, couldn't determine format of alignment %s\n", alifile_list[fi]);
+      else if (status != eslOK)        esl_fatal("Second pass, alignment file %s open failed with error %d\n", alifile_list[fi], status);
+
+      for(ai2 = 0; ai2 < nali_per_file[fi]; ai2++) { 
+	/* determine how many all gap columns to insert after each alignment position
+	 * of the child msa when copying it to the merged msa */
+	if(! do_rfonly) { 
+	  if((status = determine_gap_columns_to_add(msaA[ai], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
+	    esl_fatal("error determining number of all gap columns to add to alignment %d of file %s", nali_cur, alifile_list[fi]);
+	}
+	status = esl_msa_RegurgitatePfam(afp, ofp,
+					 maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag */
+					 FALSE, /* regurgitate stockholm header ? */
+					 FALSE, /* regurgitate // trailer ? */
+					 FALSE, /* regurgitate blank lines */
+					 FALSE, /* regurgitate comments */
+					 FALSE, /* regurgitate GF ? */
+					 FALSE, /* regurgitate GS ? */
+					 FALSE, /* regurgitate GC ? */
+					 TRUE,  /* regurgitate GR ? */
+					 TRUE,  /* regurgitate aseq ? */
+					 (do_rfonly) ? usemeA[ai] : NULL, 
+					 (do_rfonly) ? NULL       : ngapA,
+					 alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
+					 '.');
+	if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
+	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
+	free(ngapA);
+	esl_msa_Destroy(msaA[ai]);
+	msaA[ai] = NULL;
+	ai++;
+	fflush(ofp);
+      }
+      esl_msafile_Close(afp);
+    }
+    /* finally, write GC annotation and '//' line */
+    margin = maxname + 1;
+    if (maxgc > 0 && maxgc+6 > margin) margin = maxgc+6;
+    if (maxgr > 0 && maxname+maxgr+7 > margin) margin = maxname+maxgr+7; 
+    write_pfam_msa_gc(ofp, mmsa, margin);
+  } /* end of if(do_small) */
+
+  else { /* ! do_small: for each input alignment in msaA[], add all aligned data to mmsa, then free it  */
+        if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "#\n# Merging alignments ... "); fflush(stdout); }
+    for(ai = 0; ai < nali_tot; ai++) { 
+      if((status = add_msa(mmsa, msaA[ai], maxinsert, clen, alen_mmsa, errbuf)) != eslOK) 
+	esl_fatal("Error, merging alignment %d of %d:\n%s.", (ai+1), nali_tot, errbuf);  
+      esl_msa_Destroy(msaA[ai]); /* note: the aligned sequences will have already been freed in add_msa() */
+      msaA[ai] = NULL;
+    }
+    if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "done.\n#\n"); fflush(stdout); }
+    mmsa->alen = alen_mmsa; /* it was -1, b/c we filled in each seq as we marched through each msaA[] alignment */
+    if(ofp != stdout) { fprintf(stdout, "# Saving alignment to file %s ... ", esl_opt_GetString(go, "-o")); }
+    status = esl_msa_Write(ofp, mmsa, outfmt);
+    if(status != eslOK) esl_fatal("Error, during alignment output; status code: %d\n", status);
   }
-
-  status = esl_msa_Write(ofp, mmsa, outfmt);
-  if(status != eslOK) esl_fatal("Error, during alignment output; status code: %d\n", status);
-
   if(ofp != stdout) { 
+    fflush(stdout);
     fclose(ofp);
     fprintf(stdout, "done\n#\n");
     fflush(stdout);
@@ -337,20 +496,26 @@ main(int argc, char **argv)
     }
     free(alifile_list);
   }
+  if(usemeA != NULL) { 
+    for(ai = 0; ai < nali_tot; ai++) { 
+      free(usemeA[ai]);
+    }
+    free(usemeA);
+  }
 
-  if(useme != NULL)      free(useme);
-  if(namedashes != NULL) free(namedashes);
-  if(msaA != NULL)       free(msaA);
-  if(maxinsert != NULL)  free(maxinsert);
-  if(mmsa != NULL)       esl_msa_Destroy(mmsa);
-  if(abc  != NULL)       esl_alphabet_Destroy(abc);
-  if(w    != NULL)       esl_stopwatch_Destroy(w);
-    
+  if(nali_per_file != NULL) free(nali_per_file);
+  if(alenA != NULL)         free(alenA);
+  if(namedashes != NULL)    free(namedashes);
+  if(msaA != NULL)          free(msaA);
+  if(maxinsert != NULL)     free(maxinsert);
+  if(mmsa != NULL)          esl_msa_Destroy(mmsa);
+  if(abc  != NULL)          esl_alphabet_Destroy(abc);
+  if(w    != NULL)          esl_stopwatch_Destroy(w);
   esl_getopts_Destroy(go);
   return 0;
 
  ERROR: 
-  esl_fatal("Out of memory.");
+  esl_fatal("Out of memory. Reformat to Pfam with esl-reformat and try esl-alimerge --savemem.");
   return eslEMEM; /*NEVERREACHED*/
 }
 
@@ -423,13 +588,13 @@ read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile)
  * Returns: void.
  */
 void
-update_maxinsert(ESL_MSA *msa, int clen, int *maxinsert) 
+update_maxinsert(ESL_MSA *msa, int clen, int64_t alen, int *maxinsert) 
 {
   int apos;
   int cpos = 0;
   int nins = 0;
 
-  for(apos = 0; apos < msa->alen; apos++) { 
+  for(apos = 0; apos < alen; apos++) { 
     if(esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
       nins++;
     }
@@ -1049,7 +1214,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
   }
   /* caller will free the rest of gs via esl_msa_Destroy() */
   
-  /* Unparsed per-residue (GR) annotation */
+  /* unparsed per-residue (GR) annotation */
   if(msa_to_add->gr != NULL) { 
     for(j = 0; j < msa_to_add->ngr; j++) { 
       for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
@@ -1124,7 +1289,6 @@ gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char 
   return eslEMEM;
 }
 
-
 /* validate_no_nongaps_in_rf_gaps
  *                   
  * Given an RF string with gaps defined as by alphabet <abc>
@@ -1145,7 +1309,6 @@ validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *othe
   }
   return TRUE;
 }
-
 
 /* determine_gap_columns_to_add
  *                   
@@ -1192,7 +1355,6 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
     }
     else { 
       if(maxinsert[cpos] < nins) { 
-	if(ngapA != NULL) free(ngapA);
 	ESL_XFAIL(status, errbuf, "%d inserts before cpos %d greater than max expected (%d).\n", nins, cpos, maxinsert[cpos]); 
       }
 
@@ -1226,3 +1388,111 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
   ESL_FAIL(status, errbuf, "Memory allocation error.");
   return status; /*NEVERREACHED*/
 }
+
+
+/* write_pfam_msa_top
+ *                   
+ * Highly specialized function for printing out the 'top' of a
+ * Stockholm alignment file, i.e. the Stockholm header line, comments
+ * and GF annotation to an msa file. This function is necessary when
+ * printing the merged alignment file in small memory mode (when
+ * --savemem enabled). <msa> is an alignment with no sequence
+ * information (no aseq, ax, GS, or GR data).
+ */
+void
+write_pfam_msa_top(FILE *fp, ESL_MSA *msa)
+{
+  int i, maxgf;
+
+  /* rest of code in this function was stolen verbatim from actually_write_stockholm in esl_msa.c */
+
+  /* Magic Stockholm header
+   */
+  fprintf(fp, "# STOCKHOLM 1.0\n");
+
+  /* Free text comments
+   */
+  for (i = 0;  i < msa->ncomment; i++)
+    fprintf(fp, "# %s\n", msa->comment[i]);
+  if (msa->ncomment > 0) fprintf(fp, "\n");
+
+  maxgf = maxwidth(msa->gf_tag, msa->ngf);
+  if (maxgf < 2) maxgf = 2;
+
+  /* GF section: per-file annotation
+   */
+  if (msa->name != NULL) fprintf(fp, "#=GF %-*s %s\n", maxgf, "ID", msa->name);
+  if (msa->acc  != NULL) fprintf(fp, "#=GF %-*s %s\n", maxgf, "AC", msa->acc);
+  if (msa->desc != NULL) fprintf(fp, "#=GF %-*s %s\n", maxgf, "DE", msa->desc);
+  if (msa->au   != NULL) fprintf(fp, "#=GF %-*s %s\n", maxgf, "AU", msa->au);
+  
+  /* Thresholds are hacky. Pfam has two. Rfam has one.
+   */
+  if      (msa->cutset[eslMSA_GA1] && msa->cutset[eslMSA_GA2])
+    fprintf(fp, "#=GF %-*s %.1f %.1f\n", 
+	    maxgf, "GA", msa->cutoff[eslMSA_GA1], msa->cutoff[eslMSA_GA2]);
+  else if (msa->cutset[eslMSA_GA1])
+    fprintf(fp, "#=GF %-*s %.1f\n", 
+	    maxgf, "GA", msa->cutoff[eslMSA_GA1]);
+
+  if      (msa->cutset[eslMSA_NC1] && msa->cutset[eslMSA_NC2])
+    fprintf(fp, "#=GF %-*s %.1f %.1f\n",
+	    maxgf, "NC", msa->cutoff[eslMSA_NC1], msa->cutoff[eslMSA_NC2]);
+  else if (msa->cutset[eslMSA_NC1])
+    fprintf(fp, "#=GF %-*s %.1f\n",
+	    maxgf, "NC", msa->cutoff[eslMSA_NC1]);
+
+  if      (msa->cutset[eslMSA_TC1] && msa->cutset[eslMSA_TC2])
+    fprintf(fp, "#=GF %-*s %.1f %.1f\n",
+	    maxgf, "TC", msa->cutoff[eslMSA_TC1], msa->cutoff[eslMSA_TC2]);
+  else if (msa->cutset[eslMSA_TC1])
+    fprintf(fp, "#=GF %-*s %.1f\n", 
+	    maxgf, "TC", msa->cutoff[eslMSA_TC1]);
+
+  for (i = 0; i < msa->ngf; i++)
+    fprintf(fp, "#=GF %-*s %s\n", maxgf, msa->gf_tag[i], msa->gf[i]); 
+  fprintf(fp, "\n");
+
+  return;
+}
+
+/* write_pfam_msa_gc
+ *                   
+ * Highly specialized function for printing out the GC annotation to a
+ * Pfam Stockholm alignment file (1 line/seq). This function is
+ * necessary when printing the merged alignment file in small memory
+ * mode (when --savemem enabled). <msa> is an alignment with no sequence
+ * information (no aseq, ax, GS, nor GR data).
+ */
+void
+write_pfam_msa_gc(FILE *fp, ESL_MSA *msa, int margin)
+{
+  int i;
+  if (msa->ss_cons != NULL) { fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", msa->ss_cons); }
+  if (msa->sa_cons != NULL) { fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", msa->sa_cons); }
+  if (msa->pp_cons != NULL) { fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", msa->pp_cons); }
+  if (msa->rf != NULL)      { fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", msa->rf); }
+  for (i = 0; i < msa->ngc; i++) { fprintf(fp, "#=GC %-*s %s\n", margin-6, msa->gc_tag[i], msa->gc[i]); }
+  fprintf(fp, "//\n");
+}
+
+/* maxwidth()
+ * Return the length of the longest string in 
+ * an array of strings.
+ */
+static int64_t
+maxwidth(char **s, int n)
+{
+  int64_t max,len;
+  int     i; 
+  
+  max = 0;
+  for (i = 0; i < n; i++)
+    if (s[i] != NULL)
+      {
+	len = strlen(s[i]);
+	if (len > max) max = len;
+      }
+  return max;
+}
+

@@ -48,10 +48,10 @@ insert columns in the other input alignments can be accomodated in the
 merged alignment.
 
 If the output format is Stockholm or Pfam, annotation will be
-transferred from the input alignments to the merged alignment, as
+transferred from the input alignments to the merged alignment as
 follows. All per-sequence ('#=GS') and per-residue ('#=GR') annotation
 is transferred.  Per-file ('#=GF') annotation is transferred if it is
-present and identical in all files.  Per-column ('#=GC') annotation is
+present and identical in all alignments.  Per-column ('#=GC') annotation is
 transferred if it is present and identical in all alignments once all
 insert positions have been removed 
 .B and 
@@ -66,6 +66,29 @@ is a file listing alignment files to merge. In the list file, blank
 lines and lines that start with '#' (comments) are ignored. Each data
 line contains a single word: the name of an alignment file to be
 merged. All alignments in each file will be merged.
+
+With the
+.B --savemem
+option, 
+.B esl-alimerge
+will operate in memory saving mode and the required RAM for the merge
+will be minimal (should be only a few Mb) and independent of the
+alignment sizes. To use 
+.B --savemem,
+all alignments must be in Pfam format (non-interleaved, 1
+line/sequence Stockholm format). You can reformat alignments to Pfam
+using the
+.B esl-reformat
+Easel miniapp. Without 
+.B --savemem
+the required RAM will be equal to roughly the size of the final merged
+alignment file which will necessarily be at least the summed size of
+all of the input alignment files to be merged and sometimes several
+times larger. If you're merging large alignments or you're
+experiencing very slow performance of
+.B esl-alimerge,
+try reformatting to Pfam and using
+.B --savemem.
 
 .SH OPTIONS
 
@@ -90,6 +113,14 @@ This option can only be used in combination with the
 .B -o 
 option (so that the printed info doesn't corrupt the output alignment
 file).
+
+.TP
+.B --savemem
+Operate in memory saving mode. Required RAM will be independent of the
+sizes of the alignments to merge, instead of roughly the size of the
+eventual merged alignment. When enabled, all alignments must be in
+Pfam Stockholm (non-interleaved 1 line/seq) format (see
+esl-reformat) and the output alignment will be in Pfam format.
 
 .TP
 .B --rfonly

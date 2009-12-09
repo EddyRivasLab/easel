@@ -230,7 +230,6 @@ static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscrip
 static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
-static int  compare_ints(const void *el1, const void *el2);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
@@ -570,10 +569,10 @@ main(int argc, char **argv)
       if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
 	if(! esl_opt_IsDefault(go, "--ifile")) { /* read the insert file from cmalign */
 	  if(msa->alen != ps->clen) { esl_fatal("Error, --ifile only works with alignments containing 0 insert columns created by cmalign --matchonly.\nThe input alignment contains %d insert columns.\n", msa->alen - ps->clen); } 
-	  if(status = get_insert_info_from_ifile(esl_opt_GetString(go, "--ifile"), ps->clen, msa->nseq, &(ict_AA)) != eslOK) esl_fatal(errbuf);
+	  if((status = get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->clen, msa->nseq, &(ict_AA))) != eslOK) esl_fatal(errbuf);
 	}
 	else { /* get insert information from the msa */
-	  if(status = get_insert_info_from_msa(msa, ps->clen, &(ict_AA)) != eslOK) esl_fatal(errbuf);
+	  if((status = get_insert_info_from_msa(msa, ps->clen, &(ict_AA))) != eslOK) esl_fatal(errbuf);
 	}
 	if((status = insert_sspostscript(go, errbuf, ps, ict_AA, msa->nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
@@ -2604,16 +2603,12 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
 {
   int status;
   int p, pp, c, i;
-  int cpos, apos;
+  int cpos;
   int orig_npage = ps->npage;
   int *total_ict, *med_ict, *nseq_ict;
-  int imed;
   float col;
-  char res;
   int nonecell = 0;
   int nonecell_masked = 0;
-  int *len;
-  int l;
   float *limits;
   int within_mask;
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
@@ -3108,19 +3103,6 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
 
  ERROR: 
   return status;
-}
-
-/* Function: compare_ints()
- * 
- * Purpose:  Comparison function for qsort(). Used 
- *           by msa_median_length().
- */ 
-static int 
-compare_ints(const void *el1, const void *el2)
-{
-  if      ((* ((int *) el1)) > (* ((int *) el2)))  return 1;
-  else if ((* ((int *) el1)) < (* ((int *) el2)))  return 1;
-  return 0;
 }
 
 /* map_cpos_to_apos
@@ -4084,9 +4066,6 @@ get_insert_info_from_msa(ESL_MSA *msa, int clen, int ***ret_ict_AA)
 {
   int             status;
   int             i;
-  int            *useme = NULL;
-  int             nused = 0;
-  int             found_match = FALSE;
   int           **ict_AA;
   int             cpos, apos;
 
