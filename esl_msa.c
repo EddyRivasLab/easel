@@ -3951,7 +3951,7 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
   /* Free text comments
    */
   for (i = 0;  i < msa->ncomment; i++)
-    fprintf(fp, "# %s\n", msa->comment[i]);
+    fprintf(fp, "#%s\n", msa->comment[i]);
   if (msa->ncomment > 0) fprintf(fp, "\n");
 
   /* GF section: per-file annotation
