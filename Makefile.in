@@ -379,6 +379,9 @@ supertags:
 ##
 ssu:
 	cp miniapps/esl-alimanip miniapps/ssu-esl-alimanip
+	cp miniapps/esl-alimerge miniapps/ssu-esl-alimerge
+	cp miniapps/esl-alistat miniapps/ssu-esl-alistat
+	cp miniapps/esl-reformat miniapps/ssu-esl-reformat
 	cp miniapps/esl-seqstat miniapps/ssu-esl-seqstat
 	cp miniapps/esl-sfetch miniapps/ssu-esl-sfetch
 	cp miniapps/esl-ssdraw miniapps/ssu-esl-ssdraw
