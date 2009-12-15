@@ -2628,7 +2628,7 @@ reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
   esl_vec_ISet(covered, msa->nseq, 0);
   for(i = 0; i < msa->nseq; i++) { 
     printf("order[i:%4d]: %4d\n", i, order[i]);
-    printf("covered[order[i:%4d]]: %4d\n", i, order[i], covered[order[i]]);
+    printf("covered[order[i:%4d]]: %4d\n", i, covered[order[i]]);
     if(covered[order[i]]) ESL_FAIL(eslEINVAL, errbuf, "reorder_msa() order array has duplicate entries for i: %d\n", i);
     covered[order[i]] = 1;
   }

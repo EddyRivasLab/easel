@@ -2162,7 +2162,6 @@ static int basic_examples(void);
 int
 main(void)
 {
-
   utest_Create();
   utest_CreateCustom();
   utest_SetEquiv();
