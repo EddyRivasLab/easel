@@ -76,8 +76,8 @@ main(int argc, char **argv)
   int           abctype;                       /* alphabet type */
   int           fi;                            /* counter over alignment files */
   int           ai, ai2;                       /* counters over alignments */
-  int           nali_cur;                      /* number of sequences in this alignment */
-  int           nali_tot;                      /* number of sequences in this alignment */
+  int           nali_cur;                      /* number of alignments in this file */
+  int           nali_tot;                      /* number of alignments in all files */
   int          *nali_per_file = NULL;          /* [0..nalifile-1] number of alignments per file */
   int           nseq_tot;                      /* number of sequences in all alignments */
   int           nseq_cur;                      /* number of sequences in current alignment */
