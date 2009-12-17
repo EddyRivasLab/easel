@@ -2355,7 +2355,7 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
     for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
   }
-  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */
+  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */ /* IS THIS A BUG? */
   sqfp->inmap[' ']  = eslDSQ_IGNORED;
   sqfp->inmap['\t'] = eslDSQ_IGNORED;
   sqfp->inmap['\n'] = eslDSQ_IGNORED;
