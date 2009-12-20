@@ -2332,7 +2332,11 @@ read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *op
  * 8. Internal routines for EMBL format (including Uniprot, TrEMBL)
  *****************************************************************/ 
 /* EMBL and Uniprot protein sequence database format.
- * See: http://us.expasy.org/sprot/userman.html
+ *   See: http://us.expasy.org/sprot/userman.html
+ *   and: http://www.ebi.ac.uk/embl/Documentation/User_manual/usrman.html#3
+ * We use the same parser for both formats, so we have to be 
+ * careful to only parse the conserved intersection of these two
+ * very similar formats.
  */
 static void
 config_embl(ESL_SQFILE *sqfp)
@@ -2355,7 +2359,9 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
     for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
     for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
   }
-  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */ /* IS THIS A BUG? */
+  for (x = '0'; x <= '9'; x++)
+    sqfp->inmap[x] = eslDSQ_IGNORED;    /* EMBL DNA sequence format puts coordinates after each line */
+  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */ 
   sqfp->inmap[' ']  = eslDSQ_IGNORED;
   sqfp->inmap['\t'] = eslDSQ_IGNORED;
   sqfp->inmap['\n'] = eslDSQ_IGNORED;
@@ -2365,6 +2371,11 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
 
 /* header_embl()
  * 
+ * See: http://us.expasy.org/sprot/userman.html
+ * And: http://www.ebi.ac.uk/embl/Documentation/User_manual/usrman.html#3
+ * Our parser must work on the highest common denominator of EMBL DNA
+ * and Uniprot protein sequence files.
+ *
  * sqfp->buf is the first (ID) line of the entry, or a blank line before
  * it (in which case we'll scan forwards skipping blank lines to find 
  * the ID line).
@@ -2393,6 +2404,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
    * "Each entry must begin with an identification line (ID)..."
    * "The two-character line-type code that begins each line is always
    *  followed by three blanks..."
+   *  
    */
   if (sqfp->nc == 0) return eslEOF;
   while (is_blankline(sqfp->buf)) {
@@ -2403,11 +2415,15 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   /* ID line is defined as:
    *     ID   ENTRY_NAME DATA_CLASS; MOLECULE_TYPE; SEQUENCE_LENGTH.
    * We're only after the ENTRY_NAME.
+   * Examples:
+   *  ID   SNRPA_DROME    STANDARD;      PRT;   216 AA.
+   *  ID   SNRPA_DROME             Reviewed;         216 AA.
+   *  ID   X06347; SV 1; linear; mRNA; STD; HUM; 1209 BP.
    */
   if (strncmp(sqfp->buf, "ID   ", 5) != 0) ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to find ID line");
   
   s = sqfp->buf+5;
-  if ((status = esl_strtok(&s, " ", &tok)) != eslOK)
+  if ((status = esl_strtok(&s, " ;", &tok)) != eslOK)
     ESL_FAIL(eslEFORMAT, sqfp->errbuf, "Failed to parse name on ID line");
   if ((status = esl_sq_SetName(sq, tok)) != eslOK) return status;
   sq->roff = sqfp->boff;	/* record the offset of the ID line */
@@ -2423,8 +2439,16 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
      *  should always cite the first accession number. This is
      *  commonly referred to as the 'primary accession
      *  number'."
+     *  
+     *  Examples:
+     *   AC   P43332; Q9W4D7;
+     *   AC   X06347;
+     *   
+     *  Note that Easel only stores primary accessions.
+     *  Because there can be more than one accession line, we check to 
+     *  see if the accession is already set before storing a line.
      */
-    if (strncmp(sqfp->buf, "AC   ", 5) == 0)
+    if (strncmp(sqfp->buf, "AC   ", 5) == 0 && sq->acc[0] == '\0')
       {
 	s = sqfp->buf+5;
 	if ((status = esl_strtok(&s, ";", &tok)) != eslOK)
@@ -2437,6 +2461,20 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
      * ...In cases where more than one DE line is required, the text is
      * only divided between words and only the last DE line is
      * terminated by a period."
+     * 
+     * Examples:
+     *   DE   U1 small nuclear ribonucleoprotein A (U1 snRNP protein A) (U1-A) (Sex
+     *   DE   determination protein snf).
+     *   
+     *   DE   Human mRNA for U1 small nuclear RNP-specific A protein
+     *
+     *   DE   RecName: Full=U1 small nuclear ribonucleoprotein A;
+     *   DE            Short=U1 snRNP protein A;
+     *   DE            Short=U1-A;
+     *   DE   AltName: Full=Sex determination protein snf;
+     *
+     * We'll make no attempt to parse the structured Uniprot description header,
+     * for the moment.
      */
     if (strncmp(sqfp->buf, "DE   ", 5) == 0)
       {
@@ -2446,8 +2484,15 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 	  ESL_FAIL(status, sqfp->errbuf, "Failed to parse description on DE line");
       }
 
-    /* "The format of the SQ line is:
+    /* Uniprot: "The format of the SQ line is:
      *  SQ   SEQUENCE XXXX AA; XXXXX MW; XXXXXXXXXXXXXXXX CRC64;"
+     * EMBL:    "The SQ (SeQuence header) line marks the beginning of 
+     *           the sequence data and Gives a summary of its content. 
+     *           An example is:
+     *  SQ   Sequence 1859 BP; 609 A; 314 C; 355 G; 581 T; 0 other;"
+     *  
+     * We don't parse this line; we just look for it as the last line
+     * before the sequence starts.
      */
   } while (strncmp(sqfp->buf, "SQ   ", 5) != 0);
 
