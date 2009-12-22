@@ -1511,7 +1511,7 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 int
 esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 {
-  char   *gapchars = "-_.";	/* hardcoded for now */
+  char   *gapchars = "-_.~";	/* hardcoded for now */
   char   *acc      = NULL;
   char   *desc     = NULL;
   char   *ss       = NULL;
@@ -1602,7 +1602,7 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
   char   *acc      = NULL;
   char   *desc     = NULL;
   char   *ss       = NULL;
-  char   *gapchars = "-_.";	/* hardcoded for now; only affects text mode, not digital */
+  char   *gapchars = "-_.~";	/* hardcoded for now; only affects text mode, not digital */
   int     status;
 
   if (which >= msa->nseq || which < 0) return eslEOD;

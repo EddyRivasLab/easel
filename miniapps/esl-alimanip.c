@@ -2130,7 +2130,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
       esl_abc_Textize(msa->abc, msa->ax[i], msa->alen, aseq);
 
       esl_strdup(aseq, -1, &(uaseq));
-      esl_strdealign(uaseq, uaseq, "-_.", NULL);
+      esl_strdealign(uaseq, uaseq, "-_.~", NULL);
       offset = strstr(uaseq, uasubseq);
       if(offset == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
       uastart = offset  - uaseq + 1;

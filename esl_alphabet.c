@@ -971,9 +971,9 @@ esl_abc_dsqrlen(const ESL_ALPHABET *abc, const ESL_DSQ *dsq)
  * Incept:    SRE, Sun Mar 30 13:14:05 2008 [Casa de Gatos]
  *
  * Purpose:   Dealigns <s> in place by removing characters aligned to
- *            gaps in the reference digital aligned sequence
- *            <ref_ax>. Gaps in <ref_ax> are defined by its digital
- *            alphabet <abc>. 
+ *            gaps (or missing data symbols) in the reference digital
+ *            aligned sequence <ref_ax>. Gaps and missing data symbols
+ *            in <ref_ax> are defined by its digital alphabet <abc>.
  *            
  *            <s> is typically going to be some kind of textual
  *            annotation string (secondary structure, consensus, or
@@ -1001,7 +1001,7 @@ esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int64_
   if (s == NULL) return eslOK;
   
   for (n=0, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
-    if (! esl_abc_XIsGap(abc, ref_ax[apos]))
+    if (! esl_abc_XIsGap(abc, ref_ax[apos]) && ! esl_abc_XIsMissing(abc, ref_ax[apos]) )
       s[n++] = s[apos-1];	/* apos-1 because we assume s was 0..alen-1, whereas ref_ax was 1..alen */
   s[n] = '\0';
 
@@ -1014,9 +1014,9 @@ esl_abc_CDealign(const ESL_ALPHABET *abc, char *s, const ESL_DSQ *ref_ax, int64_
  * Incept:    SRE, Sun Mar 30 13:19:16 2008 [Casa de Gatos]
  *
  * Purpose:   Dealigns <x> in place by removing characters aligned to
- *            gaps in the reference digital aligned sequence
- *            <ref_ax>. Gaps in <ref_ax> are defined by its digital
- *            alphabet <abc>. 
+ *            gaps (or missing data) in the reference digital aligned
+ *            sequence <ref_ax>. Gaps and missing data symbols in
+ *            <ref_ax> are defined by its digital alphabet <abc>.
  *
  * Returns:   Returns <eslOK> on success; optionally returns the number
  *            of characters in the dealigned <x> in <*opt_rlen>.
@@ -1033,7 +1033,7 @@ esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int
   
   x[0] = eslDSQ_SENTINEL;
   for (n=1, apos=1; ref_ax[apos] != eslDSQ_SENTINEL; apos++)
-    if (! esl_abc_XIsGap(abc, ref_ax[apos]))
+    if (! esl_abc_XIsGap(abc, ref_ax[apos]) && ! esl_abc_XIsMissing(abc, ref_ax[apos]) )
       x[n++] = x[apos];
   x[n] = eslDSQ_SENTINEL;
   

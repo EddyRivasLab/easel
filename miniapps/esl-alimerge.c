@@ -823,7 +823,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->gc[j], msaA[0]->alen)) { /* returns TRUE if gc[j] has 0 non-gap characters in gap columns of RF annotation */
 	/* dealign gc line */
 	if((status = esl_strdup(msaA[0]->gc[j], msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-	if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[0]", msaA[0]->gc_tag[j]);
+	if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[0]", msaA[0]->gc_tag[j]);
 
 	for(ai = 1; ai < nmsa; ai++) { 
 	  found_tag = FALSE;
@@ -834,7 +834,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	      if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->gc[j2], msaA[ai]->alen)) { /* returns TRUE if gc[j2] has 0 non-gap characters in gap columns of RF annotation */
 		/* dealign */
 		if((status = esl_strdup(msaA[ai]->gc[j2], msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-		if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[%d]", msaA[ai]->gc_tag[j2], ai);
+		if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[%d]", msaA[ai]->gc_tag[j2], ai);
 		/* check identity */
 		if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 		free(dealigned2); 
@@ -870,7 +870,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->ss_cons, msaA[0]->alen)) { /* returns TRUE if ss_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign ss_cons */
       if((status = esl_strdup(msaA[0]->ss_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->ss_cons == NULL) { 
 	  do_add = FALSE; 
@@ -880,7 +880,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->ss_cons, msaA[ai]->alen)) { /* returns TRUE if ss_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->ss_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -914,7 +914,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->sa_cons, msaA[0]->alen)) { /* returns TRUE if sa_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign sa_cons */
       if((status = esl_strdup(msaA[0]->sa_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->sa_cons == NULL) { 
 	  do_add = FALSE; 
@@ -924,7 +924,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->sa_cons, msaA[ai]->alen)) { /* returns TRUE if sa_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->sa_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -958,7 +958,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->pp_cons, msaA[0]->alen)) { /* returns TRUE if pp_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign pp_cons */
       if((status = esl_strdup(msaA[0]->pp_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->pp_cons == NULL) { 
 	  do_add = FALSE; 
@@ -968,7 +968,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->pp_cons, msaA[ai]->alen)) { /* returns TRUE if pp_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->pp_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -999,12 +999,12 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   if(msaA[0]->rf == NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have #= GC RF annotation."); 
   /* dealign rf */
   if((status = esl_strdup(msaA[0]->rf, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-  if((status = esl_strdealign(dealigned, dealigned, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[0]");
+  if((status = esl_strdealign(dealigned, dealigned, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[0]");
   for(ai = 1; ai < nmsa; ai++) { 
     if(msaA[ai]->rf == NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have #= GC RF annotation."); 
     /* dealign */
     if((status = esl_strdup(msaA[ai]->rf, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-    if((status = esl_strdealign(dealigned2, dealigned2, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[%d]", ai);
+    if((status = esl_strdealign(dealigned2, dealigned2, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[%d]", ai);
     /* check identity */
     if(esl_strcmp(dealigned, dealigned2) != 0) { 
       ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have identical #=GC RF annotation, once gaps (\".\",\"-\",\"_\") are removed.\nAlignment %d de-gapped RF annotation differs from that of alignment 1.\n%s\n%s", ai+1, dealigned, dealigned2);
