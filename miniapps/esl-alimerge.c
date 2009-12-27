@@ -265,7 +265,7 @@ main(int argc, char **argv)
     }
     /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --savemem) */
     while((status = (do_small) ? 
-	   esl_msa_ReadNonSeqInfoPfam(afp, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur) : 
+	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL) : 
 	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 

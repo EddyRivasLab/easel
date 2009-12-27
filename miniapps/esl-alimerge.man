@@ -99,7 +99,7 @@ all options, including expert options.
 
 .TP
 .BI -o " <f>"
-Output merged alignment a file 
+Output merged alignment to file 
 .I <f>
 instead of to
 .I stdout.

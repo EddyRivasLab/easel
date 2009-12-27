@@ -2947,7 +2947,6 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   esl_vec_FSet(min_s,    msa->nseq, 10.);
 
   if(have_pp) { 
-    printf("heya!\n");
     for(s = 0; s < msa->nseq; s++) { 
       if(msa->pp[s] == NULL) { 
 	ESL_FAIL(eslEINVAL, errbuf, "some but not all sequences have PP annotation in, seq %d does not in %s.\n", (s+1), esl_opt_GetArg(go,1));
@@ -2955,19 +2954,19 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
       for(c = 0; c < msa->alen; c++) { 
 	if(! esl_abc_CIsGap(msa->abc, msa->pp[s][c])) {
 	    switch(msa->pp[s][c]) { 
-	    case '*': p = 0.975; break;
-	    case '9': p = 0.9; break;
-	    case '8': p = 0.8; break;
-	    case '7': p = 0.7; break;
-	    case '6': p = 0.6; break;
-	    case '5': p = 0.5; break;
-	    case '4': p = 0.4; break;
-	    case '3': p = 0.3; break;
-	    case '2': p = 0.2; break;
-	    case '1': p = 0.1; break;
-	    case '0': p = 0.25; break;
+	    case '*': p = 0.95; break;
+	    case '9': p = 0.85; break;
+	    case '8': p = 0.75; break;
+	    case '7': p = 0.65; break;
+	    case '6': p = 0.55; break;
+	    case '5': p = 0.45; break;
+	    case '4': p = 0.35; break;
+	    case '3': p = 0.25; break;
+	    case '2': p = 0.15; break;
+	    case '1': p = 0.05; break;
+	    case '0': p = 0.00; break;
 	    default: 
-	      ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->gr[ridx1][s][c]);
+	      ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, unrecognized residue: %c\n", s, c, msa->pp[s][c]);
 	    }
 	    sum_c[c] += p;
 	    sum_s[s] += p;
@@ -3094,15 +3093,15 @@ static int handle_post_opts(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	  cpos++; /* off-by-one, c2a_map is 1..clen, c is 0..alen */
 	}
 	else fprintf(pinfofp, "  %5s ", "");
-	if(nongap_c[c] == 0) fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)),      0.0,      0.0, athresh_fract_c[c]);
-	else                 fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
+	if(nongap_c[c] == 0) fprintf(pinfofp, "%5d %6.3f %6.3f %6.2f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)),      0.0,      0.0, athresh_fract_c[c]);
+	else                 fprintf(pinfofp, "%5d %6.3f %6.3f %6.2f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
       }
     }
     else { /* msa->rf is NULL, we can't indicate the non-gap RF columns */
       fprintf(pinfofp, "%5s %6s %6s %6s > %5.3f\n", "col", "nongap", "avg", "min", pthresh);
       fprintf(pinfofp, "%5s %6s %6s %6s %7s\n", "-----", "------", "------", "------", "-------");
       for(c = 0; c < msa->alen; c++) 
-	fprintf(pinfofp, "%5d %6.3f %6.3f %6.1f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
+	fprintf(pinfofp, "%5d %6.3f %6.3f %6.2f %7.3f\n", c+1, ((float) (nongap_c[c]) / ((float) msa->nseq)), avg_c[c], min_c[c], athresh_fract_c[c]);
     }
     fprintf(pinfofp, "\n\n");
 

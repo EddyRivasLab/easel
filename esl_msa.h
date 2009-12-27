@@ -244,8 +244,9 @@ extern char *esl_msa_DecodeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 /* 6. Memory efficient reading/writing in Pfam format */
-extern int   esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_MSA **ret_msa, int *opt_nseq, int64_t *opt_alen, int *opt_ngs, 
-					int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr);
+extern int   esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, ESL_MSA **ret_msa, int *opt_nseq, int64_t *opt_alen, int *opt_ngs, 
+					int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
+					double ***opt_abc_ct, int ***opt_pp_ct, int **opt_spos_ct, int **opt_epos_ct);
 extern int   esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr,
 				     int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
 				     int do_gs, int do_gc, int do_gr, int do_aseq, int *useme, int *add2me, 
