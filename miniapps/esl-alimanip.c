@@ -2064,8 +2064,8 @@ static int read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_
   /* status should be eslEOF on normal end; if it isn't, deal w/ error */
   esl_sq_Destroy(sq[i]); /* destroy final allocated but unused seq */
 
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					   sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					    status, sqfp->filename);
   esl_sqfile_Close(sqfp);

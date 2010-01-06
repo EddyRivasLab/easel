@@ -38,6 +38,7 @@
 #undef HAVE_INTTYPES_H
 #undef HAVE_SYS_TYPES_H
 #undef HAVE_SYS_SYSCTL_H
+#undef HAVE_ENDIAN_H
 
 /* Types
  */
@@ -73,6 +74,7 @@
 #undef HAVE_GETPID
 #undef HAVE_SYSCTL
 #undef HAVE_SYSCONF
+#undef HAVE___BUILTIN_BSWAP32
 #undef HAVE_FSEEKO
 
 #undef HAVE_PTHREADS
@@ -98,6 +100,7 @@
 
 #ifndef eslLIBRARY
 #undef eslAUGMENT_ALPHABET
+#undef eslAUGMENT_NCBI
 #undef eslAUGMENT_DMATRIX
 #undef eslAUGMENT_FILEPARSER
 #undef eslAUGMENT_GEV
@@ -113,6 +116,7 @@
 
 #ifdef eslLIBRARY
 #define eslAUGMENT_ALPHABET
+#define eslAUGMENT_NCBI
 #define eslAUGMENT_DMATRIX
 #define eslAUGMENT_FILEPARSER
 #define eslAUGMENT_GEV

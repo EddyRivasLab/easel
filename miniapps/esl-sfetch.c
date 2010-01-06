@@ -148,8 +148,8 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--index")) 
     {
       if (esl_opt_ArgNumber(go) != 1) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      if (sqfp->do_gzip)  cmdline_failure(argv[0], "Can't index a .gz compressed file");
-      if (sqfp->do_stdin) cmdline_failure(argv[0], "Can't index a standard input pipe");
+      if (sqfp->data.ascii.do_gzip)  cmdline_failure(argv[0], "Can't index a .gz compressed file");
+      if (sqfp->data.ascii.do_stdin) cmdline_failure(argv[0], "Can't index a standard input pipe");
 
       create_ssi_index(go, sqfp);
     }
@@ -160,7 +160,7 @@ main(int argc, char **argv)
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
 
       /* Open the SSI index for retrieval */
-      if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
+      if (! sqfp->data.ascii.do_gzip && ! sqfp->data.ascii.do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
 	{
 	  status = esl_sqfile_OpenSSI(sqfp, NULL);
 	  if      (status == eslEFORMAT)   cmdline_failure(argv[0], "SSI index is in incorrect format\n");
@@ -184,7 +184,7 @@ main(int argc, char **argv)
       char *newname = esl_opt_GetString(go, "-n");
 
       /* Open the SSI index for retrieval */
-      if (! sqfp->do_gzip && ! sqfp->do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
+      if (! sqfp->data.ascii.do_gzip && ! sqfp->data.ascii.do_stdin &&  ! esl_sqio_IsAlignment(sqfp->format)) 
 	{
 	  status = esl_sqfile_OpenSSI(sqfp, NULL);
 	  if      (status == eslEFORMAT)   cmdline_failure(argv[0], "SSI index is in incorrect format\n");
@@ -254,14 +254,14 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
       }
       esl_sq_Reuse(sq);
     }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					   sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					    status, sqfp->filename);
 
   /* Determine if the file was suitable for fast subseq lookup. */
-  if (sqfp->bpl > 0 && sqfp->rpl > 0) {
-    if ((status = esl_newssi_SetSubseq(ns, fh, sqfp->bpl, sqfp->rpl)) != eslOK) 
+  if (sqfp->data.ascii.bpl > 0 && sqfp->data.ascii.rpl > 0) {
+    if ((status = esl_newssi_SetSubseq(ns, fh, sqfp->data.ascii.bpl, sqfp->data.ascii.rpl)) != eslOK) 
       esl_fatal("Failed to set %s for fast subseq lookup.");
   }
 
@@ -320,12 +320,12 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
       if (status == eslEDUP) esl_fatal("seq key %s occurs more than once in file %s\n", key, keyfile);
 	
       /* if we have an SSI index, just fetch them as we go. */
-      if (sqfp->ssi != NULL) { onefetch(go, ofp, key, sqfp);  nseq++; }
+      if (sqfp->data.ascii.ssi != NULL) { onefetch(go, ofp, key, sqfp);  nseq++; }
       nkeys++;
     }
 
   /* If we don't have an SSI index, we haven't fetched anything yet; do it now. */
-  if (sqfp->ssi == NULL) 
+  if (sqfp->data.ascii.ssi == NULL) 
     {
       ESL_SQ *sq     = esl_sq_Create();
 
@@ -337,13 +337,13 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
 	      if (esl_opt_GetBoolean(go, "-r") )
 		if (esl_sq_ReverseComplement(sq) != eslOK) 
 		  esl_fatal("Failed to reverse complement %s\n", sq->name);
-	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+	      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
 	      nseq++;
 	    }
 	  esl_sq_Reuse(sq);
 	}
-      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					       sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					       status, sqfp->filename);
       esl_sq_Destroy(sq);
@@ -376,7 +376,7 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
   int      status;
 
   /* Try to position the file at the desired sequence with SSI. */
-  if (sqfp->ssi != NULL)	
+  if (sqfp->data.ascii.ssi != NULL)	
     {
       status = esl_sqfile_PositionByKey(sqfp, key);
       if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", key, sqfp->filename);
@@ -384,8 +384,8 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
       else if (status != eslOK)        esl_fatal("Failed to look up location of seq %s in SSI index of file %s\n", key, sqfp->filename);
 
       status = esl_sqio_Read(sqfp, sq);
-      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					       sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else if (status == eslEOF)     esl_fatal("Unexpected EOF reading sequence file %s",
 					       status, sqfp->filename);
       else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s",
@@ -397,8 +397,8 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
   else 
     { /* Else, we have to read the whole damn file sequentially until we find the seq */
       while ((status = esl_sqio_Read(sqfp, sq)) != eslEOF) {
-	if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-						 sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+	if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+						 sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
 	else if (status != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s",
 						 status, sqfp->filename);
 
@@ -411,13 +411,13 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp)
 
   if (do_revcomp == FALSE && newname == NULL && ! esl_sqio_IsAlignment(sqfp->format)) 
     { /* If we're not manipulating the sequence in any way, and it's not from an alignment file, we can Echo() it. */
-      if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", sqfp->errbuf);
+      if (esl_sqio_Echo(sqfp, sq, ofp) != eslOK) esl_fatal("Echo failed: %s\n", esl_sqfile_GetErrorBuf(sqfp));
     }
   else
     { /* Otherwise we Write() the parsed version. */
       if (do_revcomp && esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
       if (newname != NULL) esl_sq_SetName(sq, newname);
-      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+      esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
     }
 
   esl_sq_Destroy(sq);
@@ -461,7 +461,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   int    do_revcomp;
   ESL_SQ *sq = esl_sq_Create();
 
-  if (sqfp->ssi == NULL) esl_fatal("no ssi index");
+  if (sqfp->data.ascii.ssi == NULL) esl_fatal("no ssi index");
 
   /* reverse complement indicated by coords. */
   /* -c 52: would be 52,0, so watch out for given_end = 0 case */
@@ -470,7 +470,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   else
     { start = given_start; end = given_end;   do_revcomp = FALSE; }
 
-  if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(sqfp->errbuf);
+  if (esl_sqio_FetchSubseq(sqfp, key, start, end, sq) != eslOK) esl_fatal(esl_sqfile_GetErrorBuf(sqfp));
 
   if      (newname != NULL) esl_sq_SetName(sq, newname);
   else                      esl_sq_FormatName(sq, "%s/%d-%d", key, given_start, (given_end == 0) ? sq->L : given_end);
@@ -482,7 +482,7 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
   if (esl_opt_GetBoolean(go, "-r"))
     if (esl_sq_ReverseComplement(sq) != eslOK) esl_fatal("Failed to reverse complement %s; is it a protein?\n", sq->name);
 
-  esl_sqio_Write(ofp, sq, eslSQFILE_FASTA);
+  esl_sqio_Write(ofp, sq, eslSQFILE_FASTA, FALSE);
   esl_sq_Destroy(sq);
 }
 

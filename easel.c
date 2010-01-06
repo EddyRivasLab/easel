@@ -71,7 +71,7 @@ esl_exception(int code, char *file, int line, char *format, ...)
 }
 
 void
-esl_fatal(char *format, ...)
+esl_fatal(const char *format, ...)
 {
   va_list argp;
 
