@@ -181,7 +181,7 @@ esl_gumbel_logsurv(double x, double mu, double lambda)
 double
 esl_gumbel_invcdf(double p, double mu, double lambda)
 {
-  return mu - log(-1. * log(p)) / lambda;
+  return mu - log(-1. * log(1-p)) / lambda;
 }
 /*------------------ end of densities and distributions --------------------*/
 
