@@ -208,6 +208,11 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 ################################################################
 
 AC_PROG_CC
+# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
+if test "$enable_mpi" = "yes"; then
+   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+   CC=$MPICC
+fi
 AC_PROG_CPP
 AX_COMPILER_VENDOR
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
@@ -243,13 +248,6 @@ else
    # it.
 fi
 fi
-
-# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
-if test "$enable_mpi" = "yes"; then
-   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
-   CC=$MPICC
-fi
-
 
 # SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
 # The AC_RUN_IFELSE() is there because it's possible to have 
