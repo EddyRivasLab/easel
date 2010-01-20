@@ -2032,7 +2032,7 @@ main(int argc, char **argv)
     esl_sq_Reuse(sq);
   }
   if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",
-					   sqfp->filename, sqfp->get_error(sqpf));     
+					   sqfp->filename, sqfp->get_error(sqfp));     
   else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					   status, sqfp->filename);
   

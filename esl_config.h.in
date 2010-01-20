@@ -74,7 +74,6 @@
 #undef HAVE_GETPID
 #undef HAVE_SYSCTL
 #undef HAVE_SYSCONF
-#undef HAVE___BUILTIN_BSWAP32
 #undef HAVE_FSEEKO
 
 #undef HAVE_PTHREADS

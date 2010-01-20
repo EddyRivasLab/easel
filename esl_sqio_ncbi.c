@@ -33,8 +33,8 @@
 #include "esl_sqio.h"
 #include "esl_sq.h"
 
-#ifndef HAVE_ENDIAN_H
-#ifndef WORDS_BIGENDIAN
+#ifndef htobe32
+#ifdef  WORDS_BIGENDIAN
 #define htobe32(x) (x)
 #else
 #define htobe32(x) \
@@ -80,6 +80,9 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 #define INDEX_TABLE_SIZE      1024
 #define INIT_HDR_BUFFER_SIZE  2048
 
+#define NCBI_VERSION_4             4
+#define NCBI_PROTEIN_DB            1
+
 /* set the max residue count to 1 meg when reading a block */
 #define MAX_RESIDUE_COUNT (1024 * 1024)
 
@@ -87,7 +90,7 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
  *# 1. An <ESL_SQFILE> object, in text mode.
  *****************************************************************/ 
 
-/* Function:  esl_sqfile_Open()
+/* Function:  esl_sqncbi_Open()
  * Synopsis:  Open a sequence file for reading.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -168,8 +171,8 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
    */
 
   if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
-  if (info[0] != 0x4000000)                                   status = eslEFORMAT;
-  if (info[1] != 0x1000000)                                   status = eslEUNIMPLEMENTED;
+  if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
+  if (htobe32(info[1]) != NCBI_PROTEIN_DB)                    status = eslEUNIMPLEMENTED;
 
   if (status != eslOK) goto ERROR;
   ncbi->version = htobe32(info[0]);
@@ -765,8 +768,8 @@ static int
 get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
 {
   int        cnt;
-  off_t      offset;
 
+  uint32_t   offset;
   uint32_t   start;
   uint32_t   end;
 
@@ -786,18 +789,18 @@ get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
 
     offset = ncbi->hdr_off + (sizeof(uint32_t) * inx);
     if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking header index %ld\n", offset);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking header index %d\n", offset);
     }
     if (fread(ncbi->hdr_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading header index %ld(%d)\n", offset, cnt);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading header index %d(%d)\n", offset, cnt);
     }
 
     offset = ncbi->seq_off + (sizeof(uint32_t) * inx);
     if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking sequence index %ld\n", offset);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking sequence index %d\n", offset);
     }
     if (fread(ncbi->seq_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading sequence index %ld(%d)\n", offset, cnt);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading sequence index %d(%d)\n", offset, cnt);
     }
 
     ncbi->cur_indexes = inx;
@@ -887,16 +890,16 @@ parse_expect(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %ld : 0x%X(%d)\n",
-	       len, ncbi->hdr_ptr - ncbi->hdr_buf, ncbi->hdr_fpos, ncbi->hdr_size); 
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
   }
 
   /* check the buffer matches the token string */
   c = (unsigned char *) str;
   while (len--) {
     if (*ncbi->hdr_ptr != *c) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting 0x%X found 0x%X at %ld : 0x%X(%d)\n",
-	       *ncbi->hdr_ptr, *c, ncbi->hdr_ptr - ncbi->hdr_buf, ncbi->hdr_fpos, ncbi->hdr_size); 
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting 0x%X found 0x%X at %d : 0x%X(%d)\n",
+	       *ncbi->hdr_ptr, *c, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
     }
     ncbi->hdr_ptr++;
     c++;
@@ -989,8 +992,8 @@ parse_consume(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %ld : 0x%X(%d)\n",
-	       len, ncbi->hdr_ptr - ncbi->hdr_buf, ncbi->hdr_fpos, ncbi->hdr_size); 
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
   }
 
   /* copy the characters in the buffer to <str> */
@@ -1022,8 +1025,8 @@ parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %ld : 0x%X(%d)\n",
-	       len, ncbi->hdr_ptr - ncbi->hdr_buf, ncbi->hdr_fpos, ncbi->hdr_size); 
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
   }
 
   ncbi->hdr_ptr += len;

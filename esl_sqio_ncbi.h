@@ -34,8 +34,8 @@ typedef struct esl_sqncbi_s {
   uint64_t   total_res;            /* total number of residues                 */
   uint32_t   max_seq;              /* longest sequence in the database         */
 
-  off_t      hdr_off;              /* disk offset in .pin to header index      */
-  off_t      seq_off;              /* disk offset to .pin to sequence index    */
+  uint32_t   hdr_off;              /* disk offset in .pin to header index      */
+  uint32_t   seq_off;              /* disk offset to .pin to sequence index    */
   
   int        index;                /* current sequence index in the database   */
 
