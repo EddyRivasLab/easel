@@ -313,10 +313,10 @@ main(int argc, char **argv)
    * Read the first MSA in the file (we only mask first aln) and verify we can mask it.
    ************************************************************************************/
   status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, abc, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
+    esl_msa_ReadNonSeqInfoPfam(afp, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
 			       (do_gapthresh) ? &abc_ct : NULL,
 			       (do_postprob)  ? &pp_ct  : NULL, 
-			       NULL, NULL) : /* don't need spos and epos counts */ 
+			       NULL, NULL, NULL) :               /* we don't want bp_ct, srfpos_ct nor erfpos_ct */
     esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
   if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
   else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
@@ -546,6 +546,7 @@ main(int argc, char **argv)
 				     TRUE,           /* regurgitate GC ? */
 				     TRUE,           /* regurgitate GR ? */
 				     TRUE,           /* regurgitate aseq ? */
+				     NULL,           /* regurgitate all seqs, not a subset */ 
 				     useme_final,    /* which columns to keep */
 				     NULL,           /* we're not adding any columns */
 				     msa->alen,      /* expected length, not strictly necessary */
@@ -991,8 +992,8 @@ static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pt
   int ppcount = 0;
   float ppsum = 0.;
   float pavg;
-  float ppminA[10];
-  float ppavgA[10];
+  float ppminA[11];
+  float ppavgA[11];
 
   ppminA[0]  = 0.00;
   ppminA[1]  = 0.05;
