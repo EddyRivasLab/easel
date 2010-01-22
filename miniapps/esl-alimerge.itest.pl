@@ -110,38 +110,38 @@ if ($output !~ /AAAAAAAACCCCCCCCGGGGG/)   { die "FAIL: alignments merged incorre
 if ($output !~ /AAAAAAAAC\-CCCCCcGGGGG/)  { die "FAIL: alignments merged incorrectly"; }
 
 # repeat all the same tests (except a2m and psiblast output) but now in small memory mode
-$output = `$eslalimerge --savemem --rna $tmppfx.1 $tmppfx.2 2>&1`;
+$output = `$eslalimerge --small --rna $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-$output = `$eslalimerge --savemem --dna $tmppfx.1 $tmppfx.2 2>&1`;
+$output = `$eslalimerge --small --dna $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-$output = `$eslalimerge --savemem --amino $tmppfx.1 $tmppfx.2 2>&1`;
+$output = `$eslalimerge --small --amino $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-$output = `$eslalimerge --savemem --rna --list $tmppfx.list 2>&1`;
+$output = `$eslalimerge --small --rna --list $tmppfx.list 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-system("$eslalimerge --savemem --rna -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
+system("$eslalimerge --small --rna -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 $output = `cat $tmppfx.out`;
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-system("$eslalimerge --savemem --rna -v -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
+system("$eslalimerge --small --rna -v -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 # don't worry about checking verbose output printed to stdout
 $output = `cat $tmppfx.out`;
@@ -150,13 +150,13 @@ if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 $output = `cat $tmppfx.out`;
 
-$output = `$eslalimerge --savemem --rna --outformat pfam $tmppfx.1 $tmppfx.2 2>&1`;
+$output = `$eslalimerge --small --rna --outformat pfam $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
-$output = `$eslalimerge --savemem --rna --rfonly $tmppfx.1 $tmppfx.2 2>&1`;
+$output = `$eslalimerge --small --rna --rfonly $tmppfx.1 $tmppfx.2 2>&1`;
 if ($? != 0)                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 if ($output !~ /sequence 3 is the best/)  { die "FAIL: alignments merged incorrectly"; }
 if ($output !~ /AAAAAAAACCCCCCCCGGGGG/)   { die "FAIL: alignments merged incorrectly"; }

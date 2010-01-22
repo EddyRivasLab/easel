@@ -209,6 +209,11 @@ and
 .BI --pthresh " <y>" 
 options, respectively.
 
+In posterior probability mode, all columns that have 0 residues
+(i.e. that are 100% gaps) will be automatically removed, unless the 
+.B --pallgapok
+option is enabled, in which case such columns will not be removed.
+
 Importantly, during posterior probability masking, unless
 .B --pavg 
 is used, PP annotation
@@ -240,13 +245,13 @@ operation. Any column that is to be removed by either the gap or PP
 mask will be removed by the final mask.
 
 With the
-.B --savemem
+.B --small
 option, 
 .B esl-alimask
 will operate in memory saving mode and the required RAM for the masking
 will be minimal (usually less than a Mb) and independent of the
 alignment size. To use 
-.B --savemem,
+.B --small,
 the alignment alphabet must be specified with either
 .B --amino,
 .B --dna, 
@@ -257,7 +262,7 @@ line/sequence Stockholm format). Pfam format is the default output
 format of INFERNAL's
 .B cmalign 
 program. Without 
-.B --savemem
+.B --small
 the required RAM will be equal to roughly the size of the first input
 alignment (the size of the alignment file itself if it only contains
 one alignment).
@@ -342,7 +347,7 @@ This option can only be used in combination with the
 option.
 
 .TP
-.B --savemem
+.B --small
 Operate in memory saving mode. Required RAM will be independent of the
 size of the input alignment to mask, instead of roughly the size of the
 input alignment. When enabled, the alignment must be in
@@ -360,7 +365,7 @@ case of Stockholm format in which each sequence is placed on a single
 line, instead of being interleaved; 'afa' is aligned FASTA. By default
 alignments are assumed to be in Stockholm format (either interleaved
 or Pfam), unless 
-.B --savemem
+.B --small
 is enabled, in which case alignments are assumed to be in 
 Pfam format.
 
@@ -372,7 +377,7 @@ Choices for
 .I <s> 
 are: 'stockholm', 'pfam', 'a2m', 'psiblast', 'afa'. 
 By default the alignment is output in interleaved Stockholm format unless 
-.B --savemem
+.B --small
 is enabled, in which case the alignment is output in Pfam format.
 
 .TP 
@@ -399,7 +404,7 @@ By default,
 will try to autodetect the alphabet, but if the alignment is
 sufficiently small it may be ambiguous. This option defines the
 alphabet as protein. Importantly, if 
-.B --savemem
+.B --small
 is enabled, the alphabet must be specified with either
 .B --amino,
 .B --dna,
@@ -515,6 +520,12 @@ keep/remove. A column is kept (included by mask) if the PP_cons value
 for that column is 
 .I <x>
 or greater. Otherwise it is removed.
+
+.TP 
+.B --pallgapok
+With -p, do not automatically remove any columns that are 100% gaps
+(i.e. contain 0 aligned residues). By default, such columns will be
+removed.
 
 .TP 
 .BI --pmask-rf " <f>"

@@ -46,7 +46,7 @@ static ESL_OPTIONS options[] = {
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",                     1 },
   { "-o",         eslARG_OUTFILE,  NULL, NULL, NULL, NULL,NULL, NULL,            "output the final alignment to file <f>, not stdout",             1 },
   { "-v",         eslARG_NONE,    FALSE, NULL, NULL, NULL,"-o", NULL,            "print info on merge to stdout; requires -o",                     1 },
-  { "--savemem",  eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln sizes)",   1 },
+  { "--small",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln sizes)",   1 },
   { "--rfonly",   eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "remove all columns that are gaps in GC RF annotation",           1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "NOT YET DISPLAYED",                                              99 },
   { "--outformat",eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that output aln be format <s> (see choices above)",      1 },
@@ -99,7 +99,7 @@ main(int argc, char **argv)
   char         *tmpstr;                        /* used if -v, for printing file names */
   int         **usemeA = NULL;                 /* [0..nali_tot-1][0..alen]  used only if --rfonly enabled, for removing gap RF columns */
   ESL_STOPWATCH *w  = NULL;                    /* for timing the merge, only used if -o enabled */
-  int           do_small;                      /* TRUE if --savemem, operate in special small memory mode, aln seq data is not stored */
+  int           do_small;                      /* TRUE if --small, operate in special small memory mode, aln seq data is not stored */
   int           do_rfonly;                     /* TRUE if --rfonly, output only non-gap RF columns (remove all insert columns) */
   int          *ngapA = NULL;                  /* [0..alen] number of gap columns to add after each alignment column when merging */
 
@@ -108,7 +108,7 @@ main(int argc, char **argv)
   int        ni;                               /* counter                        */
   int        namewidth;                        /* max width of file name         */
 
-  /* variables only used in small mode (--savemem) */
+  /* variables only used in small mode (--small) */
   int           ngs_cur;                       /* number of GS lines in current alignment (only used if do_small) */
   int           gs_exists = FALSE;             /* set to TRUE if do_small and any input aln has >= 1 GS line */
   int           maxname, maxgf, maxgc, maxgr;  /* max length of seqname, GF tag, GC tag, GR tag in all input alignments */
@@ -158,7 +158,7 @@ main(int argc, char **argv)
     msafile2 = esl_opt_GetArg(go, 2);
   }
 
-  do_small  = (esl_opt_IsOn(go, "--savemem")) ? TRUE : FALSE;
+  do_small  = (esl_opt_IsOn(go, "--small")) ? TRUE : FALSE;
   do_rfonly = (esl_opt_IsOn(go, "--rfonly"))  ? TRUE : FALSE;
 
   /* open output file */
@@ -263,13 +263,13 @@ main(int argc, char **argv)
 	abc = esl_alphabet_Create(abctype);
       }
     }
-    /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --savemem) */
+    /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
     while((status = (do_small) ? 
 	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
 	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
-      msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --savemem, this is set as RNA regardless of input */
+      msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --small, this is set as RNA regardless of input */
 
       if (do_small) { 
 	maxname = ESL_MAX(maxname, maxname_cur); 
@@ -282,7 +282,7 @@ main(int argc, char **argv)
       else { 
 	nseq_cur = msaA[ai]->nseq; 
       }
-      alenA[ai] = msaA[ai]->alen; /* impt if --savemem and --rfonly, to remember total width of aln to expect in second pass */
+      alenA[ai] = msaA[ai]->alen; /* impt if --small and --rfonly, to remember total width of aln to expect in second pass */
       nali_per_file[fi]++;
       nseq_tot += nseq_cur;
       
@@ -314,7 +314,7 @@ main(int argc, char **argv)
 
       if(do_rfonly) { 
 	/* Remove all columns that are gaps in the RF annotation, we keep an array of usemes, 
-	 * one per aln, in case of --savemem, so we know useme upon second pass of alignment files */
+	 * one per aln, in case of --small, so we know useme upon second pass of alignment files */
 	ESL_ALLOC(usemeA[ai], sizeof(int) * (msaA[ai]->alen));
 	for(apos = 0; apos < msaA[ai]->alen; apos++) { usemeA[ai][apos] = (esl_abc_CIsGap(abc, msaA[ai]->rf[apos])) ? FALSE : TRUE; }
 	if((status = esl_msa_ColumnSubset(msaA[ai], errbuf, usemeA[ai])) != eslOK) { 
@@ -517,7 +517,7 @@ main(int argc, char **argv)
   return 0;
 
  ERROR: 
-  esl_fatal("Out of memory. Reformat to Pfam with esl-reformat and try esl-alimerge --savemem.");
+  esl_fatal("Out of memory. Reformat to Pfam with esl-reformat and try esl-alimerge --small.");
   return eslEMEM; /*NEVERREACHED*/
 }
 
@@ -1398,7 +1398,7 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
  * Stockholm alignment file, i.e. the Stockholm header line, comments
  * and GF annotation to an msa file. This function is necessary when
  * printing the merged alignment file in small memory mode (when
- * --savemem enabled). <msa> is an alignment with no sequence
+ * --small enabled). <msa> is an alignment with no sequence
  * information (no aseq, ax, GS, or GR data).
  */
 void
@@ -1463,7 +1463,7 @@ write_pfam_msa_top(FILE *fp, ESL_MSA *msa)
  * Highly specialized function for printing out the GC annotation to a
  * Pfam Stockholm alignment file (1 line/seq). This function is
  * necessary when printing the merged alignment file in small memory
- * mode (when --savemem enabled). <msa> is an alignment with no sequence
+ * mode (when --small enabled). <msa> is an alignment with no sequence
  * information (no aseq, ax, GS, nor GR data).
  */
 void

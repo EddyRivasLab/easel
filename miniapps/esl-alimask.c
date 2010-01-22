@@ -29,7 +29,7 @@ static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char
 static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, int ***ret_pp_ct);
 static int mask_based_on_gapfreq(int *gap_ct, int64_t alen, int nseq, float gapthresh, int *i_am_eligible, char *errbuf, int **ret_useme);
 static int get_pp_idx(ESL_ALPHABET *abc, char ppchar);
-static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, char *errbuf, int **ret_useme);
+static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme);
 static int output_mask(char *filename, int *useme, int *i_am_eligible, int64_t alen, char *errbuf);
 static int determine_nkept_rf(int *useme, int *i_am_rf, int64_t len);
 static int parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
@@ -39,7 +39,7 @@ static ESL_OPTIONS options[] = {
   { "-h",          eslARG_NONE,    FALSE,  NULL, NULL,      NULL, NULL, NULL,           "help; show brief info on version and usage",                   1 },
   { "-o",          eslARG_OUTFILE, NULL,   NULL, NULL,      NULL, NULL, NULL,           "output the final alignment to file <f>, not stdout",           1 },
   { "-q",          eslARG_NONE,    FALSE,  NULL, NULL,      NULL, "-o", NULL,           "be quiet; w/-o, don't print mask info to stdout",              1 },
-  { "--savemem",   eslARG_NONE,    FALSE,  NULL, NULL,      NULL, NULL, NULL,           "use minimal RAM (RAM usage will be independent of aln size)",  1 },
+  { "--small",     eslARG_NONE,    FALSE,  NULL, NULL,      NULL, NULL, NULL,           "use minimal RAM (RAM usage will be independent of aln size)",  1 },
   { "--informat",  eslARG_STRING,  FALSE,  NULL, NULL,      NULL, NULL, NULL,           "specify that input file is in format <s>",                     1 },
   { "--outformat", eslARG_STRING,  FALSE,  NULL, NULL,      NULL, NULL, NULL,           "specify that output aln be format <s>",                        1 },
   { "--fmask-rf",  eslARG_OUTFILE, NULL,   NULL, NULL,      NULL, NULL, NULL,           "output final mask of non-gap RF len to file <f>",              1 },
@@ -60,6 +60,7 @@ static ESL_OPTIONS options[] = {
   { "--pthresh",   eslARG_REAL,    "0.95", NULL, "0<=x<=1", NULL, "-p", NULL,           "set post prob threshold for --pfract as <x>",                  5 },
   { "--pavg",      eslARG_REAL,    NULL,   NULL, "0<=x<=1", NULL, "-p", "--pfract,--pthresh",        "keep cols with average post prob >= <x>",         5 },
   { "--ppcons",    eslARG_REAL,    NULL,   NULL, "0<=x<=1", NULL, "-p", "--keepins,--pavg,--pfract,--pthresh", "keep cols with PP_cons value >= <x>",   5 },
+  { "--pallgapok", eslARG_NONE,    NULL,   NULL, FALSE,     NULL, "-p", NULL,           "keep 100% gap columns (by default, they're removed w/-p)",     5 },
   { "--pmask-rf",  eslARG_OUTFILE, NULL,   NULL, NULL,      NULL, "-p", NULL,           "output PP-based 0/1 mask of non-gap RF len to file <f>",       5 },
   { "--pmask-all", eslARG_OUTFILE, NULL,   NULL, NULL,      NULL, "-p", NULL,           "output PP-based 0/1 mask of   full aln len to file <f>",       5 },
 
@@ -133,8 +134,8 @@ main(int argc, char **argv)
   /* variables related to RF mode (--rf-is-mask) */
   int           do_rf_is_mask = FALSE;         /* TRUE if --rf-is-mask, RF annotation is the mask, all gap RF columns removed, others kept */
 
-  /* variables related to small memory mode (--savemem) */
-  int           do_small;                      /* TRUE if --savemem, operate in special small memory mode, aln seq data is not stored */
+  /* variables related to small memory mode (--small) */
+  int           do_small;                      /* TRUE if --small, operate in special small memory mode, aln seq data is not stored */
 
   /***********************************************
    * Parse command line
@@ -175,7 +176,7 @@ main(int argc, char **argv)
       puts("  will be kept and all other columns will be removed.");
       puts("\n other options are:");
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\n options for specifying alphabet in <msafile>, one is required w/--savemem:");
+      puts("\n options for specifying alphabet in <msafile>, one is required w/--small:");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
       puts("\n options related to truncating the alignment (require -t):");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
@@ -252,7 +253,7 @@ main(int argc, char **argv)
   be_verbose = (esl_opt_IsOn(go, "-o") && (! esl_opt_GetBoolean(go, "-q"))) ? TRUE : FALSE;
 
   /* will we operate in small memory mode? */
-  do_small = (esl_opt_GetBoolean(go, "--savemem")) ? TRUE : FALSE;
+  do_small = (esl_opt_GetBoolean(go, "--small")) ? TRUE : FALSE;
   
   /* determine input/output formats */
   if (esl_opt_IsOn(go, "--informat")) {
@@ -294,7 +295,7 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else if (do_small) { /* we need the alphabet specified */
-    esl_fatal("With --savemem, the alphabet must be specified with --amino, --rna, or --dna.");
+    esl_fatal("With --small, the alphabet must be specified with --amino, --rna, or --dna.");
   }
   else {
     int type;
@@ -470,7 +471,7 @@ main(int argc, char **argv)
     pavg_min   = do_pavg ? esl_opt_GetReal(go, "--pavg") : 0.; /* if ! do_pavg, pavg_min is irrelevant */
     do_ppcons  = esl_opt_IsOn(go, "--ppcons");
     ppcons_min = do_ppcons ? esl_opt_GetReal(go, "--ppcons") : 0.; /* if ! do_ppcons, ppcons_min is irrelevant */
-    if((status = mask_based_on_postprobs(pp_ct, msa->alen, (do_small) ? nseq : msa->nseq, esl_opt_GetReal(go, "--pthresh"), esl_opt_GetReal(go, "--pfract"), do_pavg, pavg_min, do_ppcons, ppcons_min, msa->pp_cons, abc, i_am_eligible, errbuf, &useme_pp)) != eslOK) esl_fatal(errbuf);
+    if((status = mask_based_on_postprobs(pp_ct, msa->alen, (do_small) ? nseq : msa->nseq, esl_opt_GetReal(go, "--pthresh"), esl_opt_GetReal(go, "--pfract"), do_pavg, pavg_min, do_ppcons, ppcons_min, msa->pp_cons, abc, i_am_eligible, esl_opt_GetBoolean(go, "--pallgapok"), errbuf, &useme_pp)) != eslOK) esl_fatal(errbuf);
     if(be_verbose) { 
       nkept = esl_vec_ISum(useme_pp, (int) msa->alen);
       if(msa->rf == NULL) fprintf(stdout, "  %-19s  %7" PRId64 "  %7s  %7d  %7d  %7s  %7s  %13s\n", "postprobs", msa->alen, "-",   nkept, (int) msa->alen - nkept, "-", "-", "-");
@@ -511,7 +512,7 @@ main(int argc, char **argv)
   /* else (do_maskfile || do_rf_is_mask || do_truncate) we set useme_final above */
 
   /************************************************
-   * Unless --savemem enabled, mask the alignment *
+   * Unless --small enabled, mask the alignment *
    ************************************************/
   if(! do_small) { 
     if((status = esl_msa_ColumnSubset(msa, errbuf, useme_final)) != eslOK) esl_fatal(errbuf);
@@ -973,13 +974,16 @@ static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme,
  * used, if <i_am_eligible[apos]> useme[apos] is set as FALSE, regardless of pp
  * frequency.
  *
+ * Finally, unless <allgapok==TRUE> remove any column that contains all gaps, 
+ * i.e. that contains 0 aligned residues.
+ * 
  * If we encounter an error, we return non-eslOK status and
  * and fill errbuf with error message.
  * 
  * Returns eslOK upon success, and points <ret_useme> at useme,
  * caller must free it.
  */
-static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, char *errbuf, int **ret_useme)
+static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme)
 {
   int status;
   int *useme = NULL;
@@ -1042,33 +1046,38 @@ static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pt
     ppsum = 0.;
     if(i_am_eligible[apos]) { /* consider this position */
       nnongap = esl_vec_ISum(pp_ct[apos], nppvals) - pp_ct[apos][11]; 
-      if(do_pavg) { 
-	for(ppidx = 0; ppidx < 11; ppidx++) {
-	  ppsum += pp_ct[apos][ppidx] * ppavgA[ppidx]; /* Note: PP value is considered average of range, not minimum ('9' == 0.90 (0.95-0.85/2) */
-	  /* printf("apos: %d pp_idx: %d ct: %d sum: %.3f\n", apos, ppidx, pp_ct[apos][ppidx], ppsum);*/
-	}
-	pavg = (float) ppsum / (float) nnongap;
-	useme[apos] = pavg < pavg_min? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
-	/* printf("pavg: %.3f nnongap: %d useme[apos:%d]: %d pavg_min: %.3f\n", pavg, nnongap, apos, useme[apos], pavg_min);*/
+      if(nnongap == 0) { 
+	useme[apos] = allgapok ? TRUE : FALSE; 
       }
-      else if(do_ppcons) { 
-	ppidx = get_pp_idx(abc, pp_cons[apos]);
-	if(ppidx == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GC PP_cons char: %c at position %d", pp_cons[apos], apos+1);
-	if(ppidx != 11) { 
-	  useme[apos] = ((esl_FCompare(ppcons_min, ppminA[ppidx], eslSMALLX1) == eslOK) || ppminA[ppidx] > ppcons_min) ? TRUE : FALSE;
-	  /* printf("ppcons[%4d]: %c ppidx: %2d  useme %d ppcons_min: %.3f\n", apos, pp_cons[apos], ppidx, useme[apos], ppcons_min); */
+      else { 
+	if(do_pavg) { 
+	  for(ppidx = 0; ppidx < 11; ppidx++) {
+	    ppsum += pp_ct[apos][ppidx] * ppavgA[ppidx]; /* Note: PP value is considered average of range, not minimum ('9' == 0.90 (0.95-0.85/2) */
+	    /* printf("apos: %d pp_idx: %d ct: %d sum: %.3f\n", apos, ppidx, pp_ct[apos][ppidx], ppsum);*/
+	  }
+	  pavg = (float) ppsum / (float) nnongap;
+	  useme[apos] = pavg < pavg_min? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
+	  /* printf("pavg: %.3f nnongap: %d useme[apos:%d]: %d pavg_min: %.3f\n", pavg, nnongap, apos, useme[apos], pavg_min);*/
 	}
-	else useme[apos] = FALSE; /* ppidx == 11, gap */ 
-      }
-      else { /* ! do_pavg and ! do_ppcons */
-	for(ppidx = 10; ppidx >= ppidx_thresh; ppidx--) { 
-	  ppcount += pp_ct[apos][ppidx];
+	else if(do_ppcons) { 
+	  ppidx = get_pp_idx(abc, pp_cons[apos]);
+	  if(ppidx == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GC PP_cons char: %c at position %d", pp_cons[apos], apos+1);
+	  if(ppidx != 11) { 
+	    useme[apos] = ((esl_FCompare(ppcons_min, ppminA[ppidx], eslSMALLX1) == eslOK) || ppminA[ppidx] > ppcons_min) ? TRUE : FALSE;
+	    /* printf("ppcons[%4d]: %c ppidx: %2d  useme %d ppcons_min: %.3f\n", apos, pp_cons[apos], ppidx, useme[apos], ppcons_min); */
+	  }
+	  else useme[apos] = FALSE; /* ppidx == 11, gap */ 
 	}
-	ppfreq = (float) ppcount / (float) nnongap;
-	useme[apos] = (ppfreq < pfract) ? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
-	/* printf("apos: %4d nnongap: %6d  ppfreq: %.3f pfract %.3f useme: %d ppidx_thresh: %d\n", apos, nnongap, ppfreq, pfract, useme[apos], ppidx_thresh); */
+	else { /* ! do_pavg and ! do_ppcons */
+	  for(ppidx = 10; ppidx >= ppidx_thresh; ppidx--) { 
+	    ppcount += pp_ct[apos][ppidx];
+	  }
+	  ppfreq = (float) ppcount / (float) nnongap;
+	  useme[apos] = (ppfreq < pfract) ? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
+	  /* printf("apos: %4d nnongap: %6d  ppfreq: %.3f pfract %.3f useme: %d ppidx_thresh: %d\n", apos, nnongap, ppfreq, pfract, useme[apos], ppidx_thresh); */
+	}
       }
-    }
+    } /* end of if(i_am_eligible[apos]) */
     else useme[apos] = FALSE;
   }
 
