@@ -25,6 +25,7 @@
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
 
+#define SSDRAWINFINITY 987654321
 #define ERRBUFSIZE 1024
 
 #define ALIMODE 0
@@ -42,7 +43,13 @@
 #define NRBSIXRHSCHEME 6
 #define NRBSIXRLSCHEME 6
 
-#define NOC 9
+#define RBFIVERHSCHEME 4
+#define RBFIVERLSCHEME 5
+#define NRBFIVERHSCHEME 5
+#define NRBFIVERLSCHEME 5
+
+
+#define NOC 10
 #define CYANOC 0
 #define MAGENTAOC 1
 #define YELLOWOC 2
@@ -52,6 +59,7 @@
 #define REDOC 6
 #define PURPLEOC 7
 #define ORANGEOC 8
+#define WHITEOC 9
 
 #define LEGTEXTNCHARS 60
 #define NCMYK 4
@@ -116,6 +124,7 @@ typedef struct scheme_color_legend_s {
   float *limits;            /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
   int   *counts;            /* [nbins] number of cells we've painted each color */
   int   *counts_masked;     /* [nbins] number of cells within mask ('1's) that we've painted each color */
+  int    ints_only_flag;    /* TRUE if possible values are only integers, legend values will be drawn differently in this case */
 } SchemeColorLegend_t;
 
 /* Structure: onecell_color_legend
@@ -200,7 +209,7 @@ typedef struct ss_postscript_s {
 static SSPostscript_t *create_sspostscript();
 static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked);
-static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits);
+static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
@@ -221,7 +230,7 @@ static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t
 static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
 static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf);
-static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused);
+static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zeroins_idx, int extdel_idx);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
@@ -455,10 +464,15 @@ main(int argc, char **argv)
   hc_onecell[ORANGEOC][2] = 1.0;
   hc_onecell[ORANGEOC][3] = 0.0;
 
+  hc_onecell[WHITEOC][0] = 0.0;
+  hc_onecell[WHITEOC][1] = 0.0;
+  hc_onecell[WHITEOC][2] = 0.0;
+  hc_onecell[WHITEOC][3] = 0.0;
+
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  ESL_ALLOC(hc_scheme, sizeof(float **) * 4);
-  for (z = 0; z < 4; z++) hc_scheme[z] = NULL;
+  ESL_ALLOC(hc_scheme, sizeof(float **) * 6);
+  for (z = 0; z < 6; z++) hc_scheme[z] = NULL;
   ESL_ALLOC(hc_scheme[0], sizeof(float *) * 11); 
   for(z = 0; z < 11; z++) hc_scheme[0][z] = NULL;
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[0][z], sizeof(float) * NCMYK); }
@@ -471,12 +485,20 @@ main(int argc, char **argv)
   ESL_ALLOC(hc_scheme[3], sizeof(float *) * 6); 
   for(z = 0; z < 6; z++) hc_scheme[3][z] = NULL;
   for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[3][z], sizeof(float) * NCMYK); }
+  ESL_ALLOC(hc_scheme[4], sizeof(float *) * 5); 
+  for(z = 0; z < 5; z++) hc_scheme[4][z] = NULL;
+  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[4][z], sizeof(float) * NCMYK); }
+  ESL_ALLOC(hc_scheme[5], sizeof(float *) * 5); 
+  for(z = 0; z < 5; z++) hc_scheme[5][z] = NULL;
+  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[5][z], sizeof(float) * NCMYK); }
 
-  ESL_ALLOC(hc_nbins, sizeof(int) * 4);
+  ESL_ALLOC(hc_nbins, sizeof(int) * 6);
   hc_nbins[0] = NRAINBOWRHSCHEME;
   hc_nbins[1] = NRAINBOWRLSCHEME;
   hc_nbins[2] = NRBSIXRHSCHEME;
   hc_nbins[3] = NRBSIXRLSCHEME;
+  hc_nbins[4] = NRBFIVERHSCHEME;
+  hc_nbins[5] = NRBFIVERLSCHEME;
 
   /***********************************/
   /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
@@ -531,6 +553,24 @@ main(int argc, char **argv)
 
   hc_scheme[2][5][0] = 0.00; hc_scheme[2][5][1] = 0.94; hc_scheme[2][5][2] = 1.00; hc_scheme[2][5][3] = 0.00; /*red*/
   hc_scheme[3][0][0] = 0.00; hc_scheme[3][0][1] = 0.94; hc_scheme[3][0][2] = 1.00; hc_scheme[3][0][3] = 0.00; /*red*/
+  /***************************************************************/
+  /***********************************/
+  /*Scheme 4 and 5: Rainbow(red high) 5 is 4, Rainbow (red low) 5 is 5 */
+  /*Same as schemes 3 and 4 (rainbow 6s, except no final blue, which makes black text difficult overlaid on it difficult to read */
+  hc_scheme[4][0][0] = 0.50; hc_scheme[4][0][1] = 0.00; hc_scheme[4][0][2] = 0.00; hc_scheme[4][0][3] = 0.50; /*teal*/
+  hc_scheme[5][4][0] = 0.50; hc_scheme[5][4][1] = 0.00; hc_scheme[5][4][2] = 0.00; hc_scheme[5][4][3] = 0.50; /*teal*/
+
+  hc_scheme[4][1][0] = 0.42; hc_scheme[4][1][1] = 0.00; hc_scheme[4][1][2] = 1.00; hc_scheme[4][1][3] = 0.00;
+  hc_scheme[5][3][0] = 0.42; hc_scheme[5][3][1] = 0.00; hc_scheme[5][3][2] = 1.00; hc_scheme[5][3][3] = 0.00;
+
+  hc_scheme[4][2][0] = 0.00; hc_scheme[4][2][1] = 0.21; hc_scheme[4][2][2] = 1.00; hc_scheme[4][2][3] = 0.00;
+  hc_scheme[5][2][0] = 0.00; hc_scheme[5][2][1] = 0.21; hc_scheme[5][2][2] = 1.00; hc_scheme[5][2][3] = 0.00;
+
+  hc_scheme[4][3][0] = 0.00; hc_scheme[4][3][1] = 0.63; hc_scheme[4][3][2] = 1.00; hc_scheme[4][3][3] = 0.00;
+  hc_scheme[5][1][0] = 0.00; hc_scheme[5][1][1] = 0.63; hc_scheme[5][1][2] = 1.00; hc_scheme[5][1][3] = 0.00;
+
+  hc_scheme[4][4][0] = 0.00; hc_scheme[4][4][1] = 0.94; hc_scheme[4][4][2] = 1.00; hc_scheme[4][4][3] = 0.00; /*red*/
+  hc_scheme[5][0][0] = 0.00; hc_scheme[5][0][1] = 0.94; hc_scheme[5][0][2] = 1.00; hc_scheme[5][0][3] = 0.00; /*red*/
   /***************************************************************/
   master_mode = ALIMODE;
   if(esl_opt_GetBoolean (go, "--indi"))      master_mode = INDIMODE;
@@ -753,7 +793,7 @@ main(int argc, char **argv)
 	  nused = indi_msa->nseq;
 	}
       }
-      if((status = individual_seqs_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused)) != eslOK) esl_fatal(errbuf);
+      if((status = individual_seqs_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused, hc_scheme, RBFIVERHSCHEME, hc_nbins[RBFIVERHSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
 
       if(esl_opt_GetBoolean(go, "--prob")) { 
 	if((status = individual_posteriors_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
@@ -806,10 +846,14 @@ main(int argc, char **argv)
   for(z = 0; z < 11; z++) free(hc_scheme[1][z]);
   for(z = 0; z < 6; z++) free(hc_scheme[2][z]);
   for(z = 0; z < 6; z++) free(hc_scheme[3][z]);
+  for(z = 0; z < 5; z++) free(hc_scheme[4][z]);
+  for(z = 0; z < 5; z++) free(hc_scheme[5][z]);
   free(hc_scheme[0]);
   free(hc_scheme[1]);
   free(hc_scheme[2]);
   free(hc_scheme[3]);
+  free(hc_scheme[4]);
+  free(hc_scheme[5]);
   free(hc_scheme);
   if(msa != NULL) esl_msa_Destroy(msa);
   return 0;
@@ -1058,7 +1102,7 @@ create_onecell_colorlegend(float *col, int nres, int nres_masked)
  * Return:   scl
  */
 static SchemeColorLegend_t *
-create_scheme_colorlegend(int scheme, int nbins, float *limits)
+create_scheme_colorlegend(int scheme, int nbins, float *limits, int ints_only_flag)
 {
   int status;
   SchemeColorLegend_t *scl;
@@ -1083,7 +1127,7 @@ create_scheme_colorlegend(int scheme, int nbins, float *limits)
   esl_vec_ISet(counts_masked, nbins, 0);
   scl->counts = counts;
   scl->counts_masked = counts_masked;
-
+  scl->ints_only_flag = ints_only_flag;
   return scl;
 
  ERROR: esl_fatal("create_scheme_colorlegend(): memory allocation error.");
@@ -1468,7 +1512,6 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
   fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
 
-
   float colvec[NCMYK];
   colvec[0] = colvec[1] = colvec[2] = 0.;
   colvec[3] = 1.0;
@@ -1565,9 +1608,26 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     x += LEG_BOXSIZE * 1.5;
     y += LEG_BOXSIZE * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
-    else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
-
+    if(esl_FCompare(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
+      if(c != scl->nbins-1) esl_fatal("ERROR when drawing color legend, limits[%d] is INFINITY, but this is reserved only for the max limit", c+1);
+      if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.4f %.4f moveto show\n",   (int) scl->limits[c], x, y);
+      else                    fprintf(fp, "(>=%3.f) %.4f %.4f moveto show\n", scl->limits[c], x, y);
+    }
+    else if(scl->ints_only_flag) { 
+      if(c == scl->nbins-1) { 
+	fprintf(fp, "(\\[%d-%d\\]) %.4f %.4f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1], x, y);
+      }
+      else if(esl_FCompare(scl->limits[c], scl->limits[c+1]-1, eslSMALLX1) == eslOK) { /* next limit is exactly 1 plus cur limit, don't do range, define single int */
+	fprintf(fp, "(%d) %.4f %.4f moveto show\n", (int) scl->limits[c], x, y);
+      }
+      else { 
+	fprintf(fp, "(\\[%d-%d\\]) %.4f %.4f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1]-1, x, y);
+      }
+    }
+    else { 
+      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+    }
     /* print stats */
     old_x = x;
     x = ps->legx_stats;
@@ -2378,18 +2438,46 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  * Return:   eslOK on success.
  */
 static int
-individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused)
+individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zeroins_idx, int extdel_idx)
 {
   int status;
   int p, i, pp, ai;
   int rfpos, apos;
   int orig_npage = ps->npage;
+  int nzeroins = 0;  /* number of positions with 0 inserts after them */
+  int nextdel = 0;   /* number of external deletes (3' and 5' flush deletes) */
+  float *limits;     /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
+  int nins;          /* number of inserts after the current rfpos for current sequence */
+  int spos, epos;    /* first/final nongap position for cur sequence */
 
   if((status = add_pages_sspostscript(ps, nused, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
+    ps->rrAA[p]    = NULL;
+    ps->rcolAAA[p] = NULL;
+    ps->sclAA[p]   = NULL;
+    ps->occlAAA[p] = NULL;
   }
+
+  for(p = orig_npage; p < ps->npage; p++) { 
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) 
+      ps->rcolAAA[p][rfpos] = NULL;
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+    }
+  }
+
+  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
+  limits[0] = 1;
+  limits[1] = 2;
+  limits[2] = 4;
+  limits[3] = 6;
+  limits[4] = 10;
+  limits[5] = SSDRAWINFINITY;
 
   /* allocate the uaseqlenA data structure to store unaligned seq lengths */
   if(ps->uaseqlenA != NULL) { free(ps->uaseqlenA); ps->uaseqlenA = NULL; }
@@ -2398,26 +2486,72 @@ individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t
 
   /* fill ps->rrAA with residues and gaps */
   ai = 0;
+  nins = 0;
   for(i = 0; i < msa->nseq; i++) {
     if(useme[i]) { 
       pp = orig_npage + ai;
+
+      spos = epos = -1;
+      /* determine first and final non-gap position */
+      for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
+	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+	  spos = apos;
+	  break;
+	}
+      }
+      for(apos = msa->alen-1; apos >= 0; apos--) { 
+	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+	  epos = apos;
+	  break;
+	}
+      }
+      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, TRUE);
+      nextdel = 0;
+      nzeroins = 0;
       ai++;
       for(apos = 0; apos < msa->alen; apos++) {
+	rfpos = ps->msa_a2rf_map[apos];
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
 	  ps->uaseqlenA[i]++;
+	  if(rfpos == -1) nins++;
 	}
-	rfpos = ps->msa_a2rf_map[apos];
 	if(rfpos != -1) { 
 	  ps->rrAA[pp][rfpos] = msa->aseq[i][apos];
 	  /* printf("ps->rrAA[%3d][%4d]: %c\n", pp, rfpos, ps->rrAA[pp][rfpos]);  */
+	  if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
+	     (apos < spos || apos > epos)) { 
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx])) != eslOK) return status;
+	    nextdel++;
+	  }
+	  else if(nins == 0) { 
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zeroins_idx])) != eslOK) return status;
+	    nzeroins++;
+	  }
+	  else { 
+	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], nins, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
+	  }	  
+	  nins = 0;
 	}
+
       }
       ps->rrAA[pp][ps->rflen] = '\0';
       ps->seqidxA[pp] = i;
+
+      /* add one-cell color legend for zero inserts */
+      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zeroins_idx], nzeroins, -1);
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "(blank) zero inserts", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
+      /* add one-cell color legend for external gaps (deletes) */
+      ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[extdel_idx], nextdel, -1);
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->nocclA[pp] = 2;
+
       /* add description to ps */
+      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "# inserted residues after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
     }
   }
+  free(limits);
   return eslOK;
 
  ERROR: ESL_FAIL(status, errbuf, "individual_seqs_sspostscript(): memory allocation error.");
@@ -2674,7 +2808,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   limits[4] = 1.6;
   limits[5] = 1.99;
   limits[6] = 2.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
 
   if(tabfp != NULL) { 
     fprintf(tabfp, "# ------------------------\n");
@@ -2818,7 +2952,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   limits[4] = 0.667;
   limits[5] = 0.833;
   limits[6] = 1.000;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
 
   if(tabfp != NULL) { 
     if(do_all) { 
@@ -3005,7 +3139,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
   limits[4] = 0.667;
   limits[5] = 0.833;
   limits[6] = 1.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
 
   if(tabfp != NULL) { 
     fprintf(tabfp, "# -----------\n");
@@ -3144,7 +3278,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   limits[4] = 0.667;
   limits[5] = 0.833;
   limits[6] = 1.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
 
   if(tabfp != NULL) { 
     fprintf(tabfp, "# ---------\n");
@@ -3200,9 +3334,11 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
       cfract = (float) span_ct[rfpos] / (float) msa_nseq;
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
-    fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos, cfract, bi+1);
-    if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
-    fprintf(tabfp, "\n");
+    if(tabfp != NULL) { 
+      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos, cfract, bi+1); 
+      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
+      fprintf(tabfp, "\n");
+    }
   }
 
   /* add one-cell color legend for zero span positions */
@@ -3336,7 +3472,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
 
   /* step through each sequence and each column, collecting stats */
   pp = orig_npage;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos]; 
     nnongap = esl_vec_ISum(pp_ct[apos], 11);
@@ -3454,7 +3590,7 @@ individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostsc
   pp = orig_npage;
   for(i = 0; i < msa->nseq; i++) { 
     if(useme[i]) { /* add color legend for this sequence */
-      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
       nonecell_seq = 0;
       nonecell_seq_masked = (ps->mask == NULL) ? -1 : 0;
 
@@ -3915,7 +4051,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   limits[4] = 0.667;
   limits[5] = 0.833;
   limits[6] = 1.000;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
 
   if(tabfp != NULL) { 
     fprintf(tabfp, "# -----------------------\n");
