@@ -4538,11 +4538,12 @@ validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t
   for(apos = 0; apos < msa->alen; apos++) {
     if(tmp_ct[apos+1] > (apos+1)) { 
       rfpos_i = a2rf_map[apos];
-      if(a2rf_map[tmp_ct[apos+1]-1] == -1) ESL_FAIL(eslEINVAL, errbuf, "Problem with secondary structure, alignment position %d, a non-gap RF position, pairs to position %d, a gap RF position", apos+1, tmp_ct[apos+1]);
       rfpos_j = a2rf_map[tmp_ct[apos+1]-1];
-      msa_ct[rfpos_i+1] = rfpos_j+1;
-      msa_ct[rfpos_j+1] = rfpos_i+1;
-      msa_nbp++;
+      if(rfpos_i != -1 && rfpos_j != -1) { /* a consensus basepair */
+	msa_ct[rfpos_i+1] = rfpos_j+1;
+	msa_ct[rfpos_j+1] = rfpos_i+1;
+	msa_nbp++;
+      }
     }
   }
   free(tmp_ct);
