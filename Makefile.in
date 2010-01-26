@@ -383,6 +383,7 @@ supertags:
 ##
 ssu:
 	cp miniapps/esl-alimanip miniapps/ssu-esl-alimanip
+	cp miniapps/esl-alimask miniapps/ssu-esl-alimask
 	cp miniapps/esl-alimerge miniapps/ssu-esl-alimerge
 	cp miniapps/esl-alistat miniapps/ssu-esl-alistat
 	cp miniapps/esl-reformat miniapps/ssu-esl-reformat
