@@ -231,7 +231,7 @@ static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_
 static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
 static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes);
-static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
+static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, double wt);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
 static int  get_date(char *errbuf, char **ret_date);
 static int  set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl, int within_mask, int *ret_bi);
@@ -4065,7 +4065,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   int j;
   ESL_DSQ lres;
   ESL_DSQ rres;
-  int nres;
+  double nres;
   int nss = 0;
   int nzerores = 0;
   int nss_masked = 0;
@@ -4164,7 +4164,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
     esl_vec_DSet(obs_right, abc->K, 0.);
     esl_vec_DSet(obs_pair,  abc->K*abc->K, 0.);
     i = rfpos;
-    nres = 0;
+    nres = 0.;
     apos = ps->msa_rf2a_map[rfpos];
     /* check if we're base paired */
     if(ps->msa_ct[rfpos+1] != 0) { 
@@ -4177,12 +4177,11 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	j = ps->msa_ct[i+1] - 1; 
 	for(lres = 0; lres < abc->K; lres++) { 
 	  for(rres = 0; rres < abc->K; rres++) { 
-	    /* printf("apos: %d rfpos: %d lres: %d rres: %d bp_ct[][][]: %.5f\n", apos, rfpos, lres, rres, bp_ct[apos][lres][rres]);  */
+	    /* printf("apos: %d rfpos: %d lres: %d rres: %d bp_ct[][][]: %.5f\n", apos, rfpos, lres, rres, bp_ct[apos][lres][rres]);*/
 	    esl_abc_DCount(abc, obs_left,  lres, bp_ct[apos][lres][rres]);
 	    esl_abc_DCount(abc, obs_right, rres, bp_ct[apos][lres][rres]);
 	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    nres += (int) bp_ct[apos][lres][rres];
+	    nres += bp_ct[apos][lres][rres];
 	  }
 	}
 	for(lres = abc->K+1; lres < abc->Kp-2; lres++) { /* do all degenerates and 'any' (N) */
@@ -4190,40 +4189,41 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	    esl_abc_DCount(abc, obs_left,  lres, bp_ct[apos][lres][rres]);
 	    esl_abc_DCount(abc, obs_right, rres, bp_ct[apos][lres][rres]);
 	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    nres += (int) bp_ct[apos][lres][rres];
+	    nres += bp_ct[apos][lres][rres];
 	  }
 	}
+	/* esl_vec_DDump(stdout, obs_left, abc->K, NULL);
+	   esl_vec_DDump(stdout, obs_right, abc->K, NULL);
+	   esl_vec_DDump(stdout, obs_pair, abc->K*abc->K, NULL);
+	*/
 	esl_vec_DNorm(obs_left,  abc->K);
 	esl_vec_DNorm(obs_right, abc->K);
 	esl_vec_DNorm(obs_pair, abc->K*abc->K);
 	ent_left  = bg_ent - esl_vec_DEntropy(obs_left, abc->K);      
 	ent_right = bg_ent - esl_vec_DEntropy(obs_right, abc->K);      
 	ent_pair =  bg_pair_ent - esl_vec_DEntropy(obs_pair, abc->K*abc->K);      
-	/* printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  nres: %10d  ",  i+1, j+1, ent_pair, ent_left, ent_right, nres);  */
-	/*esl_vec_DDump(stdout, obs_left, abc->K, NULL);
-	  esl_vec_DDump(stdout, obs_right, abc->K, NULL);
-	  esl_vec_DDump(stdout, obs_pair, abc->K*abc->K, NULL);*/
+	/* printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  nres: %.4f  ",  i+1, j+1, ent_pair, ent_left, ent_right, nres); */
 	ent_pair -= ent_left + ent_right;
 	ent_pair /= 2.;
-	/* printf("final: %8.3f\n", ent_pair); */
+	/* printf("Final: %8.3f\n", ent_pair);  */
 	
-	// /* To verify that the ent_pair is mutual information, calculated a different way, uncomment the following block */
-	// double mi = 0;
-	//for(lres = 0; lres < abc->K; lres++) { 
-	//for(rres = 0; rres < abc->K; rres++) { 
-	//if(obs_pair[lres*abc->K+rres] > eslSMALLX1) { 
-	//mi += obs_pair[lres*abc->K+rres] * (1.44269504 * log((obs_pair[lres*abc->K+rres])/(obs_left[lres] * obs_right[rres])));
-	//printf("mi: %.4f obs_left %.4f  obs_right: %.4f obs_pair %.4f \n", mi, obs_left[lres], obs_right[rres], obs_pair[lres*abc->K+rres]);  
-	//}
-	//}
-	//}
-	//printf("MI/2: %.4f  EP: %.4f  %.4f\n", mi/2., ent_pair, (mi/2.) - ent_pair); */ 
+	/* To verify that the ent_pair is mutual information, calculated a different way, uncomment the following block */
+	/* double mi = 0;
+	   for(lres = 0; lres < abc->K; lres++) { 
+	   for(rres = 0; rres < abc->K; rres++) { 
+	   if(obs_pair[lres*abc->K+rres] > eslSMALLX1) { 
+	   mi += obs_pair[lres*abc->K+rres] * (1.44269504 * log((obs_pair[lres*abc->K+rres])/(obs_left[lres] * obs_right[rres])));
+	   printf("mi: %.4f obs_left %.4f  obs_right: %.4f obs_pair %.4f \n", mi, obs_left[lres], obs_right[rres], obs_pair[lres*abc->K+rres]);  
+	   }
+	   }
+	   }
+	   printf("MI/2: %.4f  EP: %.4f  %.4f\n", mi/2., ent_pair, (mi/2.) - ent_pair); 
+	*/
 
 	if(ent_pair < (-1. * eslSMALLX1)) { 
 	  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_pair, i, j);
 	}
-	if(nres == 0) {
+	if(esl_DCompare(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
 	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
 	  nzerores++;
 	  if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerores_masked++; 
@@ -4244,11 +4244,10 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 		    ent_left, 
 		    ent_right, 
 		    ent_pair,
-		    nres, 
+		    (int) nres, 
 		    i_bi+1);
 	    if(ps->mask != NULL) fprintf(tabfp, "  %6d  %6d", ((ps->mask == NULL || ps->mask[i] == '1') ? 1 : 0), ((ps->mask == NULL || ps->mask[j] == '1') ? 1 : 0));
 	    fprintf(tabfp, "\n");
-
 	  }
 	}
       } /* end of if(ps->msa_ct[rfpos+1] > (rfpos+1)) { */
@@ -4264,23 +4263,23 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   /* add text to the one cell legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[ss_idx], nss, nss_masked);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
+  
   /* add text to the second one cell legend */
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
-
+  
   /* add text to the scheme legend */
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "mutual information per position (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
+  
   /* add description to ps */
   if((status = add_page_desc_to_sspostscript(ps, pp, "mutual information per basepaired position", errbuf)) != eslOK) return status;
-
+  
   free(limits);
   free(obs_left);
   free(obs_right);
   free(obs_pair);
-
+  
   if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
   
@@ -4304,7 +4303,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
  * Returns:  void
  */
 static void
-PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt)
+PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, double wt)
 {
   int status;
   if (syml < abc->K && symr < abc->K) {
@@ -4313,19 +4312,19 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
   }
   else {
     int   l,r;
-    float *left = NULL;
-    float *right = NULL;
-    ESL_ALLOC(left,  sizeof(float) * abc->K);
-    ESL_ALLOC(right, sizeof(float) * abc->K);
+    double *left = NULL;
+    double *right = NULL;
+    ESL_ALLOC(left,  sizeof(double) * abc->K);
+    ESL_ALLOC(right, sizeof(double) * abc->K);
     
-    esl_vec_FSet(left,  abc->K, 0.);
-    esl_vec_FSet(right, abc->K, 0.);
-    esl_abc_FCount(abc, left,  syml, wt);
-    esl_abc_FCount(abc, right, symr, wt);
+    esl_vec_DSet(left,  abc->K, 0.);
+    esl_vec_DSet(right, abc->K, 0.);
+    esl_abc_DCount(abc, left,  syml, 1.0);
+    esl_abc_DCount(abc, right, symr, 1.0);
 
     for (l = 0; l < abc->K; l++)
       for (r = 0; r < abc->K; r++)
-	counters[l*abc->K +r] += left[l] * right[r];
+	counters[l*abc->K +r] += left[l] * right[r] * wt;
     free(left);
     free(right);
   }
