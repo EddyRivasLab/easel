@@ -688,7 +688,7 @@ main(int argc, char **argv)
       if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
     if(esl_opt_GetBoolean(go, "--mutinfo")) { 
-      if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+      if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
     if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
       /* first, determine number of sequences with inserts after each position, 3 different ways */
@@ -4224,9 +4224,11 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_pair, i, j);
 	}
 	if(esl_DCompare(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
-	  nzerores++;
-	  if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerores_masked++; 
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][i], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][j], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
+	  nzerores += 2;
+	  if(ps->mask != NULL && ps->mask[i] == '1') nzerores_masked++; 
+	  if(ps->mask != NULL && ps->mask[j] == '1') nzerores_masked++; 
 	  if(tabfp != NULL) { 
 	    fprintf(tabfp, "  mutualinfo  %4d  %5d  %5d  %8.5f  %8.5f  %9.5f  %10d  %3d", idx++, i+1, j+1, 0., 0., 0., 0, 0);
 	    if(ps->mask != NULL) fprintf(tabfp, "  %6d  %6d", ((ps->mask == NULL || ps->mask[i] == '1') ? 1 : 0), ((ps->mask == NULL || ps->mask[j] == '1') ? 1 : 0));
@@ -4266,7 +4268,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   
   /* add text to the second one cell legend */
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "0 complete basepairs", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
   
   /* add text to the scheme legend */
