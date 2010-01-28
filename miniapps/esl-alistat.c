@@ -22,7 +22,7 @@ static ESL_OPTIONS options[] = {
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
   { "-1",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use tabular output, one line per alignment",              1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that input file is in format <s>",                1 },
-  { "--amino",    eslARG_NONE,"default", NULL, NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   1 },
+  { "--amino",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--dna,--rna",    "<msafile> contains protein alignments",                   1 },
   { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--rna",  "<msafile> contains DNA alignments",                       1 },
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
 
