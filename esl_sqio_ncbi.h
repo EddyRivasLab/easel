@@ -36,12 +36,14 @@ typedef struct esl_sqncbi_s {
 
   uint32_t   hdr_off;              /* disk offset in .pin to header index      */
   uint32_t   seq_off;              /* disk offset to .pin to sequence index    */
+  uint32_t   amb_off;              /* disk offset to .pin to ambiguous index   */
   
   int        index;                /* current sequence index in the database   */
 
   uint32_t   cur_indexes;          /* start of indexes currently loaded        */
   uint32_t  *hdr_indexes;          /* block of header indexes from .pin        */
   uint32_t  *seq_indexes;          /* block of header indexes from .pin        */
+  uint32_t  *amb_indexes;          /* block of header indexes from .pin        */
 
   /* information for the current header */
   unsigned char *hdr_buf;          /* buffer for holding unparsed header       */
@@ -51,6 +53,7 @@ typedef struct esl_sqncbi_s {
   uint32_t       hdr_fpos;         /* offset into the .phr file                */
 
   /* alphabet used to convert ncbi to hmmer to ascii */
+  int            alphatype;        /* amino or dna                             */
   char          *alphasym;         /* string of residues                       */
 
 } ESL_SQNCBI_DATA;

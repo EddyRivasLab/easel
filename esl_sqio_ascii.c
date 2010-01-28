@@ -1229,6 +1229,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
       sq->roff = -1;
       sq->doff = -1;
       sq->eoff = -1;
+      sq->hoff = -1;
 
       esl_sq_Destroy(tmpsq);
       return eslOK;
@@ -2459,6 +2460,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } while (strncmp(ascii->buf, "SQ   ", 5) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
+  sq->hoff = ascii->boff - 1;
   sq->doff = ascii->boff;
   return eslOK;
 }
@@ -2511,6 +2513,7 @@ skip_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } while (strncmp(ascii->buf, "SQ   ", 5) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
+  sq->hoff = ascii->boff - 1;
   sq->doff = ascii->boff;
   return eslOK;
 }
@@ -2642,6 +2645,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } while (strncmp(ascii->buf, "ORIGIN", 6) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
+  sq->hoff = ascii->boff - 1;
   sq->doff = ascii->boff;
   return eslOK;
 }
@@ -2687,6 +2691,7 @@ skip_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   } while (strncmp(ascii->buf, "ORIGIN", 6) != 0);
 
   if (loadbuf(sqfp) != eslOK) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Failed to find any sequence");
+  sq->hoff = ascii->boff - 1;
   sq->doff = ascii->boff;
   return eslOK;
 }
@@ -2811,6 +2816,7 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
       status = nextchar(sqfp, &c); 
     }
   sq->desc[pos] = '\0';
+  sq->hoff = ascii->boff + ascii->bpos;
   
   while (status == eslOK && (c == '\n' || c == '\r')) status = nextchar(sqfp, &c); /* skip past eol (DOS \r\n, MAC \r, UNIX \n */
 
@@ -2866,6 +2872,7 @@ skip_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
   
   /* skip to end of line */
   while (status == eslOK && c != '\n' && c != '\r') status = nextchar(sqfp, &c); 
+  sq->doff = ascii->boff + ascii->bpos;
 
   /* skip past end of line */
   while (status == eslOK && (c == '\n' || c == '\r')) status = nextchar(sqfp, &c);
@@ -2914,6 +2921,7 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
   fprintf(fp, ">%s", sq->name);
   if (sq->acc[0]  != 0) fprintf(fp, " %s", sq->acc);
   if (sq->desc[0] != 0) fprintf(fp, " %s", sq->desc);
+  if (save_offsets) sq->hoff = ftello(fp);
   fputc('\n', fp);
 
   buf[60] = '\0';

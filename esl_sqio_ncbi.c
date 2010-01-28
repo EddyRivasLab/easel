@@ -8,8 +8,8 @@
  *    5. Parsing routines
  *    6. Copyright and license.
  * 
- * MSF, Thu Feb 17 17:45:51 2005
- * SVN $Id: esl_sqio.c 463 2009-11-30 19:55:01Z eddys $
+ * MSF, Mon Dec 10, 2009
+ * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -59,8 +59,15 @@ static int   sqncbi_IsRewindable   (const ESL_SQFILE *sqfp);
 static const char *sqncbi_GetError (const ESL_SQFILE *sqfp);
 
 /* common routines for processing ncbi database */
-static int  get_offsets         (ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq);
+static int  get_offsets         (ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq, off_t *amb);
+static int  read_amino          (ESL_SQFILE *sqfp, ESL_SQ *sq);
+static int  read_dna            (ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb);
 static int  inmap_ncbi          (ESL_SQFILE *sqfp);
+static int  inmap_ncbi_amino    (ESL_SQFILE *sqfp);
+static int  inmap_ncbi_dna      (ESL_SQFILE *sqfp);
+
+static int  sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename);
+static int  sqncbi_OpenDna  (ESL_SQNCBI_DATA *ncbi, char *filename);
 
 /* parsing routines */
 static int  parse_header              (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
@@ -81,7 +88,8 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 #define INIT_HDR_BUFFER_SIZE  2048
 
 #define NCBI_VERSION_4             4
-#define NCBI_PROTEIN_DB            1
+#define NCBI_DNA_DB                0
+#define NCBI_AMINO_DB              1
 
 /* set the max residue count to 1 meg when reading a block */
 #define MAX_RESIDUE_COUNT (1024 * 1024)
@@ -117,10 +125,6 @@ int
 esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
 {
   int         status = eslOK;	/* return status from an ESL call */
-  int         len;
-
-  uint32_t    info[4];
-  char       *name = NULL;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
@@ -134,15 +138,65 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->title        = NULL;
   ncbi->timestamp    = NULL;
 
-  ncbi->index        = 0;
+  ncbi->index        = -1;
+
+  ncbi->hdr_off      = -1;
+  ncbi->seq_off      = -1;
+  ncbi->amb_off      = -1;
 
   ncbi->cur_indexes  = -1;
   ncbi->hdr_indexes  = NULL;
   ncbi->seq_indexes  = NULL;
+  ncbi->amb_indexes  = NULL;
 
   ncbi->hdr_buf      = NULL;
 
+  ncbi->alphatype    = eslUNKNOWN;
   ncbi->alphasym     = NULL;
+
+  if ((status = sqncbi_OpenAmino(ncbi, filename)) != eslOK) {
+    sqncbi_Close(sqfp);
+    if ((status = sqncbi_OpenDna(ncbi, filename)) != eslOK) goto ERROR;
+  }
+
+  sqfp->format = eslSQFILE_NCBI;
+  if ((status = inmap_ncbi(sqfp)) != eslOK) goto ERROR;
+
+  /* initialize the function pointers for the ncbi routines */
+  sqfp->position          = &sqncbi_Position;
+  sqfp->close             = &sqncbi_Close;
+
+  sqfp->set_digital       = &sqncbi_SetDigital;
+  sqfp->guess_alphabet    = &sqncbi_GuessAlphabet;
+
+  sqfp->is_rewindable     = &sqncbi_IsRewindable;
+
+  sqfp->read              = &sqncbi_Read;
+  sqfp->read_info         = &sqncbi_ReadInfo;
+  sqfp->read_seq          = &sqncbi_ReadSequence;
+  sqfp->read_window       = &sqncbi_ReadWindow;
+  sqfp->echo              = &sqncbi_Echo;
+
+  sqfp->read_block        = &sqncbi_ReadBlock;
+
+  sqfp->get_error         = &sqncbi_GetError;
+
+  return eslOK;
+
+ ERROR:
+  sqncbi_Close(sqfp); 
+  return status;
+}
+
+
+static int
+sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename)
+{
+  int         status = eslOK;	/* return status from an ESL call */
+  int         len;
+
+  uint32_t    info[4];
+  char       *name = NULL;
 
   len = strlen(filename);
   ESL_ALLOC(name, sizeof(char) * (len+5));
@@ -172,10 +226,12 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
 
   if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
   if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
-  if (htobe32(info[1]) != NCBI_PROTEIN_DB)                    status = eslEUNIMPLEMENTED;
+  if (htobe32(info[1]) != NCBI_AMINO_DB)                      status = eslEUNIMPLEMENTED;
 
   if (status != eslOK) goto ERROR;
   ncbi->version = htobe32(info[0]);
+  ncbi->alphatype = eslAMINO;
+  ncbi->index = 0;
 
   /* read the database title */
   len = htobe32(info[2]);
@@ -210,27 +266,91 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   /* skip the first sentinal byte in the .psq file */
   fgetc(ncbi->fppsq);
 
-  sqfp->format = eslSQFILE_NCBI;
-  if ((status = inmap_ncbi(sqfp)) != eslOK) return status;
+  if (name != NULL) free(name);
 
-  /* initialize the function pointers for the ncbi routines */
-  sqfp->position          = &sqncbi_Position;
-  sqfp->close             = &sqncbi_Close;
+  return eslOK;
 
-  sqfp->set_digital       = &sqncbi_SetDigital;
-  sqfp->guess_alphabet    = &sqncbi_GuessAlphabet;
+ ERROR:
+  if (name != NULL) free(name);
+  return status;
+}
 
-  sqfp->is_rewindable     = &sqncbi_IsRewindable;
 
-  sqfp->read              = &sqncbi_Read;
-  sqfp->read_info         = &sqncbi_ReadInfo;
-  sqfp->read_seq          = &sqncbi_ReadSequence;
-  sqfp->read_window       = &sqncbi_ReadWindow;
-  sqfp->echo              = &sqncbi_Echo;
+static int
+sqncbi_OpenDna(ESL_SQNCBI_DATA *ncbi, char *filename)
+{
+  int         status = eslOK;	/* return status from an ESL call */
+  int         len;
 
-  sqfp->read_block        = &sqncbi_ReadBlock;
+  uint32_t    info[4];
+  char       *name = NULL;
 
-  sqfp->get_error         = &sqncbi_GetError;
+  len = strlen(filename);
+  ESL_ALLOC(name, sizeof(char) * (len+5));
+  strcpy(name, filename);
+
+  /* Check the current working directory first. */
+  strcpy(name+len, ".nin");
+  if ((ncbi->fppin = fopen(name, "r")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".nhr");
+  if ((ncbi->fpphr = fopen(name, "r")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".nsq");
+  if ((ncbi->fppsq = fopen(name, "r")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+
+  /* make sure we are looking at a version 4 dna db. */
+
+  if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
+  if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
+  if (htobe32(info[1]) != NCBI_DNA_DB)                        status = eslEUNIMPLEMENTED;
+
+  if (status != eslOK) goto ERROR;
+  ncbi->version = htobe32(info[0]);
+  ncbi->alphatype = eslDNA;
+  ncbi->index = 0;
+
+  /* read the database title */
+  len = htobe32(info[2]);
+  ESL_ALLOC(ncbi->title, sizeof(char) * (len + 1));
+  if (fread(ncbi->title, sizeof(char), len, ncbi->fppin) != len) { status = eslFAIL; goto ERROR; }
+  ncbi->title[len] = 0;
+
+  /* read the database time stamp */
+  if (fread(&info[0], sizeof(uint32_t), 1, ncbi->fppin) != 1) { status = eslFAIL; goto ERROR; }
+  len = htobe32(info[0]);
+  ESL_ALLOC(ncbi->timestamp, sizeof(char) * (len + 1));
+  if (fread(ncbi->timestamp, sizeof(char), len, ncbi->fppin) != len) { status = eslFAIL; goto ERROR; }
+  ncbi->timestamp[len] = 0;
+
+  /* read in database stats */
+  if (fread(&info[0], sizeof(uint32_t), 4, ncbi->fppin) != 4) { status = eslFAIL; goto ERROR; }
+  ncbi->num_seq   = htobe32(info[0]);
+  ncbi->total_res = *(uint64_t *)(info+1);
+  ncbi->max_seq   = htobe32(info[3]);
+
+  /* save the offsets to the index tables */
+  ncbi->hdr_off = ftell(ncbi->fppin);
+  ncbi->seq_off = ncbi->hdr_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
+  ncbi->amb_off = ncbi->seq_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
+
+  /* allocate buffers used in parsing the database files */
+  ESL_ALLOC(ncbi->hdr_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
+  ESL_ALLOC(ncbi->seq_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
+  ESL_ALLOC(ncbi->amb_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
+
+  ncbi->hdr_alloced = INIT_HDR_BUFFER_SIZE;
+  ESL_ALLOC(ncbi->hdr_buf, sizeof(char) * INIT_HDR_BUFFER_SIZE);
+
+  /* skip the first sentinal byte in the .nsq file */
+  fgetc(ncbi->fppsq);
 
   if (name != NULL) free(name);
 
@@ -238,13 +358,11 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
 
  ERROR:
   if (name != NULL) free(name);
-  sqncbi_Close(sqfp); 
-
   return status;
 }
 
 
-/* Function:  esl_sqfile_Position()
+/* Function:  sqncbi_Position()
  * Synopsis:  Reposition an open sequence file to an offset.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -269,7 +387,7 @@ sqncbi_Position(ESL_SQFILE *sqfp, off_t offset)
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  if ((status = get_offsets(ncbi, offset, &hdr_start, &seq_start)) != eslOK) return status;
+  if ((status = get_offsets(ncbi, offset, &hdr_start, &seq_start, NULL)) != eslOK) return status;
 
   if (fseek(ncbi->fpphr, hdr_start, SEEK_SET) != 0) return eslESYS;
   if (fseek(ncbi->fppsq, seq_start, SEEK_SET) != 0) return eslESYS;
@@ -280,7 +398,7 @@ sqncbi_Position(ESL_SQFILE *sqfp, off_t offset)
 }
 
 
-/* Function:  esl_sqfile_Close()
+/* Function:  sqncbi_Close()
  * Synopsis:  Close a sequence file.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -300,6 +418,7 @@ sqncbi_Close(ESL_SQFILE *sqfp)
 
   if (ncbi->hdr_indexes != NULL) free(ncbi->hdr_indexes);
   if (ncbi->seq_indexes != NULL) free(ncbi->seq_indexes);
+  if (ncbi->amb_indexes != NULL) free(ncbi->amb_indexes);
 
   if (ncbi->alphasym != NULL)    free(ncbi->alphasym);
 
@@ -316,17 +435,23 @@ sqncbi_Close(ESL_SQFILE *sqfp)
 
   ncbi->index        = -1;
 
+  ncbi->hdr_off      = -1;
+  ncbi->seq_off      = -1;
+  ncbi->amb_off      = -1;
+
   ncbi->cur_indexes  = -1;
   ncbi->hdr_indexes  = NULL;
   ncbi->seq_indexes  = NULL;
+  ncbi->amb_indexes  = NULL;
 
   ncbi->hdr_buf      = NULL;
 
+  ncbi->alphatype    = eslUNKNOWN;
   ncbi->alphasym     = NULL;
 
   return;
 }
-/*------------------- ESL_SQFILE open/close -----------------------*/
+/*------------------- SQNCBI open/close -----------------------*/
 
 
 /*****************************************************************
@@ -334,7 +459,7 @@ sqncbi_Close(ESL_SQFILE *sqfp)
  *****************************************************************/
 #ifdef eslAUGMENT_ALPHABET
 
-/* Function:  esl_sqfile_SetDigital()
+/* Function:  sqncbi_SetDigital()
  * Synopsis:  Set an open <ESL_SQFILE> to read in digital mode.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -357,7 +482,7 @@ sqncbi_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
   return eslOK;
 }
 
-/* Function:  esl_sqfile_GuessAlphabet()
+/* Function:  sqncbi_GuessAlphabet()
  * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -368,11 +493,11 @@ sqncbi_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
 static int
 sqncbi_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 {
-  *ret_type = eslAMINO;
+  *ret_type = sqfp->data.ncbi.alphatype;
   return eslOK;
 }
 #endif /*eslAUGMENT_ALPHABET*/
-/*-------------- end, digital mode ESL_SQFILE -------------------*/
+/*-------------- end, digital mode SQNCBI -------------------*/
 
 
 
@@ -381,7 +506,7 @@ sqncbi_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
  *# 3. Miscellaneous routines 
  *****************************************************************/ 
 
-/* Function:  esl_sqfile_IsRewindable()
+/* Function:  sqncbi_IsRewindable()
  * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -414,7 +539,7 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
  *# 4. Sequence reading (sequential)
  *****************************************************************/ 
 
-/* Function:  esl_sqio_Read()
+/* Function:  sqncbi_Read()
  * Synopsis:  Read the next sequence from a file.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -438,7 +563,6 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
 static int
 sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     inx;
   int     status;
 
   void   *tmp;
@@ -448,51 +572,29 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
   off_t   seq_start;
   off_t   seq_end;
 
+  off_t   amb;
+
   int     size;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
   if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end)) != eslOK) return status;
-
-  /* figure out the sequence length */
-  size = seq_end - seq_start;
-  if (esl_sq_GrowTo(sq, size) != eslOK) return eslEMEM;
-
-  /* figure out if the sequence is in digital mode or not */
-  if (sq->dsq != NULL) {
-    ESL_DSQ *ptr = sq->dsq + 1;
-    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
-    for (inx = 0; inx < size - 1; ++inx) {
-      *ptr = sqfp->inmap[(int) *ptr];
-      ++ptr;
-    }
-    *ptr = eslDSQ_SENTINEL;
-  } else {
-    char *ptr = sq->seq;
-    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
-    for (inx = 0; inx < size - 1; ++inx) {
-      *ptr = sqfp->inmap[(int) *ptr];
-      *ptr = ncbi->alphasym[(int) *ptr];
-      ++ptr;
-    }
-    *ptr = '\0';
-  }
-
-  sq->start = 1;
-  sq->end   = size - 1;
-  sq->C     = 0;
-  sq->W     = size - 1;
-  sq->L     = size - 1;
-  sq->n     = size - 1;
+  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
+  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
   sq->roff = hdr_start;
   sq->doff = seq_start;
-  sq->eoff = -1;
+  sq->hoff = hdr_end;
+  sq->eoff = seq_end;
+
+  if (ncbi->alphatype == eslAMINO) 
+    status = read_amino(sqfp, sq);
+  else                             
+    status = read_dna(sqfp, sq, amb);
+  if (status != eslOK) return status;
 
   /* read in the header data */
   size = hdr_end - hdr_start;
@@ -518,7 +620,7 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sqio_ReadInfo()
+/* Function:  sqncbi_ReadInfo()
  * Synopsis:  Read sequence info, but not the sequence itself.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -552,8 +654,8 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end)) != eslOK) return status;
+  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, NULL)) != eslOK) return status;
+  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
 
   /* advance the sequence file pointer to point to the next sequence in case
    * the user calls a Read after a ReadInfo.  this will garuntee that the
@@ -561,14 +663,15 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
    */
   if (fseek(ncbi->fppsq, seq_end, SEEK_SET) != 0) return eslEFORMAT;
 
-  /* figure out the sequence length */
-  sq->L = seq_end - seq_start - 1;
-
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
   sq->roff = hdr_start;
   sq->doff = seq_start;
-  sq->eoff = -1;
+  sq->hoff = hdr_end;
+  sq->eoff = seq_end;
+
+  /* figure out the sequence length */
+  sq->L = -1;
 
   /* read in the header data */
   size = hdr_end - hdr_start;
@@ -594,7 +697,7 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sqio_ReadSequence()
+/* Function:  sqncbi_ReadSequence()
  * Synopsis:  Read the sequence, not the sequence header.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -616,7 +719,6 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     inx;
   int     status;
 
   off_t   hdr_start;
@@ -624,51 +726,27 @@ sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
   off_t   seq_start;
   off_t   seq_end;
 
-  int     size;
+  off_t   amb;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
   if (ncbi->index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end)) != eslOK) return status;
-
-  /* figure out the sequence length */
-  size = seq_end - seq_start;
-  if (esl_sq_GrowTo(sq, size) != eslOK) return eslEMEM;
-
-  /* figure out if the sequence is in digital mode or not */
-  if (sq->dsq != NULL) {
-    ESL_DSQ *ptr = sq->dsq + 1;
-    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
-    for (inx = 0; inx < size - 1; ++inx) {
-      *ptr = sqfp->inmap[(int) *ptr];
-      ++ptr;
-    }
-    *ptr = eslDSQ_SENTINEL;
-  } else {
-    char *ptr = sq->seq;
-    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
-    for (inx = 0; inx < size - 1; ++inx) {
-      *ptr = sqfp->inmap[(int) *ptr];
-      *ptr = ncbi->alphasym[(int) *ptr];
-      ++ptr;
-    }
-    *ptr = '\0';
-  }
-
-  sq->start = 1;
-  sq->end   = size - 1;
-  sq->C     = 0;
-  sq->W     = size - 1;
-  sq->L     = size - 1;
-  sq->n     = size - 1;
+  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
+  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
   sq->roff = hdr_start;
   sq->doff = seq_start;
-  sq->eoff = -1;
+  sq->hoff = hdr_end;
+  sq->eoff = seq_end;
+
+  if (ncbi->alphatype == eslAMINO) 
+    status = read_amino(sqfp, sq);
+  else                             
+    status = read_dna(sqfp, sq, amb);
+  if (status != eslOK) return status;
 
   /* advance the header file pointer to point to the next header in case
    * the user calls a Read after a ReadSequence.  this will garuntee that
@@ -683,7 +761,7 @@ sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 }
 
 
-/* Function:  esl_sqio_ReadWindow()
+/* Function:  sqncbi_ReadWindow()
  * Synopsis:  Read next window of sequence.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -695,7 +773,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
   return eslEUNIMPLEMENTED;
 }
 
-/* Function:  esl_sqio_ReadBlock()
+/* Function:  sqncbi_ReadBlock()
  * Synopsis:  Read the next block of sequences from a file.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -735,7 +813,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
   return status;
 }
 
-/* Function:  esl_sqio_Echo()
+/* Function:  sqncbi_Echo()
  * Synopsis:  Echo a sequence's record onto output stream.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -765,7 +843,7 @@ sqncbi_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
  *            <eslEFORMAT> if there is an error reading the index file.
  */
 static int
-get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
+get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq, off_t *amb)
 {
   int        cnt;
 
@@ -803,6 +881,16 @@ get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading sequence index %d(%d)\n", offset, cnt);
     }
 
+    if (ncbi->alphatype == eslDNA) {
+      offset = ncbi->amb_off + (sizeof(uint32_t) * inx);
+      if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
+	ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking ambiguity index %d\n", offset);
+      }
+      if (fread(ncbi->amb_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
+	ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading ambiguity index %d(%d)\n", offset, cnt);
+      }
+    }
+
     ncbi->cur_indexes = inx;
   }
 
@@ -810,10 +898,223 @@ get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
   if (hdr != NULL) *hdr = htobe32(ncbi->hdr_indexes[inx]);
   if (seq != NULL) *seq = htobe32(ncbi->seq_indexes[inx]);
 
+  if (amb != NULL && ncbi->alphatype == eslDNA) {
+    *amb = htobe32(ncbi->amb_indexes[inx]);
+  }
+
   return eslOK;
 }
 
+/* Function:  read_amino()
+ * Synopsis:  Read in the amino sequence
+ * Incept:    MSF, Wed Jan 27, 2010 [Janelia]
+ *
+ * Purpose:   Read and translate the amino acid sequence.
+ */
+static int
+read_amino(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  int     inx;
+  int     size;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+
+  size = sq->eoff - sq->doff;
+
+  /* figure out the sequence length */
+  if (esl_sq_GrowTo(sq, size) != eslOK) return eslEMEM;
+
+  /* figure out if the sequence is in digital mode or not */
+  if (sq->dsq != NULL) {
+    ESL_DSQ *ptr = sq->dsq + 1;
+    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
+    for (inx = 0; inx < size - 1; ++inx) {
+      *ptr = sqfp->inmap[(int) *ptr];
+      ++ptr;
+    }
+    *ptr = eslDSQ_SENTINEL;
+  } else {
+    char *ptr = sq->seq;
+    if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
+    for (inx = 0; inx < size - 1; ++inx) {
+      *ptr = sqfp->inmap[(int) *ptr];
+      *ptr = ncbi->alphasym[(int) *ptr];
+      ++ptr;
+    }
+    *ptr = '\0';
+  }
+
+  sq->start = 1;
+  sq->end   = size - 1;
+  sq->C     = 0;
+  sq->W     = size - 1;
+  sq->L     = size - 1;
+  sq->n     = size - 1;
+
+  return eslOK;
+}
+
+
+/* Function:  read_dna()
+ * Synopsis:  Read in the dna sequence
+ * Incept:    MSF, Wed Jan 27, 2010 [Janelia]
+ *
+ * Purpose:   Read and translate the dna sequence.
+ */
+static int
+read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb)
+{
+  int     inx;
+  int     cnt;
+  int     off;
+  int     size;
+  int     text;
+  int     status;
+
+  int     remainder;
+  int     length;
+  int     ssize;
+  int     n;
+
+  char   *ptr;
+  void   *t;
+
+  unsigned char c;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+
+  /* calculate the max size of the sequence.  It is most likely
+   * a bit smaller, but we need to read the sequence in first
+   * before the real size can be figured out.
+   */
+  size = sq->eoff - sq->doff;
+  if (ncbi->hdr_alloced < size) {
+    while (ncbi->hdr_alloced < size) ncbi->hdr_alloced += ncbi->hdr_alloced;
+    ESL_RALLOC(ncbi->hdr_buf, t, sizeof(char) * ncbi->hdr_alloced);
+  }
+  if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
+
+  ssize     = amb - sq->doff - 1;
+  remainder = *(ncbi->hdr_buf + ssize) & 0x03;
+  length    = ssize * 4 + remainder;
+
+  /* figure out the sequence length */
+  if (esl_sq_GrowTo(sq, length) != eslOK) return eslEMEM;
+
+  /* figure out if the sequence is in digital mode or not */
+  if (sq->dsq != NULL) {
+    text = FALSE;
+    ptr = (char *)sq->dsq + 1;
+  } else {
+    text = TRUE;
+    ptr = sq->seq;
+  }
+
+  for (inx = 0; inx < ssize; ++inx) {
+    c = ncbi->hdr_buf[inx];
+    n = 1 << ((c >> 6) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 4) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 2) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 0) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  /* handle the remainder */
+  c = ncbi->hdr_buf[inx];
+  for (inx = 0; inx < remainder; ++inx) {
+    n = 1 << ((c >> (6 - inx * 2)) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  *ptr = (text) ? '\0' : eslDSQ_SENTINEL;
+
+  /* skip past the count and start processing the abmiguity table */
+  ssize = amb - sq->doff + 4;
+  ptr = (text) ? sq->seq : (char *)sq->dsq + 1;
+
+  while (ssize < size) {
+    /* get the ambiguity character */
+    n = ((ncbi->hdr_buf[ssize] >> 4) & 0x0f);
+    c = sqfp->inmap[n];
+    if (text) c = ncbi->alphasym[(int) c];
+
+    /* get the repeat count */
+    cnt = (ncbi->hdr_buf[ssize] & 0x0f) + 1;
+
+    /* get the offset */
+    off = ncbi->hdr_buf[ssize+1];
+    off = (off << 8) | ncbi->hdr_buf[ssize+2];
+    off = (off << 8) | ncbi->hdr_buf[ssize+3];
+
+    for (inx = 0; inx < cnt; ++inx) ptr[off+inx] = c;
+
+    ssize += 4;
+  }
+
+  sq->start = 1;
+  sq->end   = length;
+  sq->C     = 0;
+  sq->W     = length;
+  sq->L     = length;
+  sq->n     = length;
+
+  return eslOK;
+
+ ERROR:
+  return eslEMEM;
+}
+
+
 /* Function:  inmap_ncbi()
+ * Synopsis:  Set up a translation map
+ * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
+ *
+ * Purpose:   Initialize the translation map used to translate a ncbi
+ *            sequences to the internal representation used in hmmer.
+ *
+ * Returns:   <eslOK> on success;
+ * 
+ * Throws:    <eslEMEM> on allocation failure;
+ */
+static int
+inmap_ncbi(ESL_SQFILE *sqfp)
+{
+  int status = eslOK;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  switch(ncbi->alphatype) {
+  case eslDNA:
+    status = inmap_ncbi_dna(sqfp);
+    break;
+  case eslAMINO:
+    status = inmap_ncbi_amino(sqfp);
+    break;
+  default:
+    ESL_EXCEPTION(eslEINVAL, "bad alphabet type: unrecognized");
+  }
+
+  return status;
+}
+
+/* Function:  inmap_ncbi_dna()
  * Synopsis:  Set up a translation map
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
@@ -826,7 +1127,55 @@ get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq)
  * Throws:    <eslEMEM> on allocation failure;
  */
 static int
-inmap_ncbi(ESL_SQFILE *sqfp)
+inmap_ncbi_dna(ESL_SQFILE *sqfp)
+{
+  int x, y;
+  const char *ncbisym = "-ACMGRSVTWYHKDBN";
+
+  ESL_ALPHABET    *abc  = NULL;
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if ((abc = esl_alphabet_Create(eslDNA)) == NULL) return eslEMEM;
+
+  for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
+
+  /* for each letter in the ncbi alphabet, find that letter in the
+   * hmmer alphabet and map the translation.
+   */
+  for (x = 0; x < strlen(ncbisym); ++x) {
+    for (y = 0; y < strlen(abc->sym); ++y) {
+      if (ncbisym[x] == abc->sym[y]) {
+	sqfp->inmap[x] = y;
+	break;
+      }
+    }
+
+    /* there is a problem if a translation does not exist */
+    if (y >= strlen(abc->sym)) return eslEFORMAT;
+  }
+
+  if (ncbi->alphasym == NULL) esl_strdup(abc->sym, -1, &ncbi->alphasym);
+
+  esl_alphabet_Destroy(abc);
+
+  return eslOK;
+}
+
+
+/* Function:  inmap_ncbi_amino()
+ * Synopsis:  Set up a translation map
+ * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
+ *
+ * Purpose:   Initialize the translation map used to translate a ncbi
+ *            protein sequence to the internal representation used in
+ *            hmmer.
+ *
+ * Returns:   <eslOK> on success;
+ * 
+ * Throws:    <eslEMEM> on allocation failure;
+ */
+static int
+inmap_ncbi_amino(ESL_SQFILE *sqfp)
 {
   int x, y;
   const char *ncbisym = "-ABCDEFGHIKLMNPQRSTVWXYZU*OJ";
@@ -1269,7 +1618,7 @@ parse_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 static int
 parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 {
-  char *buf;
+  char *buf = NULL;
   int   status;
 
   /* verify we are at the beginning of a structure */
@@ -1280,11 +1629,15 @@ parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
     if ((status = parse_string(ncbi, -1, &buf)) != eslOK)     return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
+
     if (sq != NULL) {
       free(sq->name);
       sq->nalloc = strlen(buf) + 1;
       sq->name   = buf;
+    } else {
+      free(buf);
     }
+    buf = NULL;
   }
 
   /* look for an optional accession */
@@ -1297,7 +1650,10 @@ parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
       free(sq->acc);
       sq->aalloc = strlen(buf) + 1;
       sq->acc    = buf;
+    } else {
+      free(buf);
     }
+    buf = NULL;
   }
 
   /* look for an optional release */
@@ -1456,13 +1812,23 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 static int
 parse_object_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 {
-  int   status;
+  char  *buf = NULL;
+  int    status;
 
   /* look for an optional taxonomy id */
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
     status = parse_integer(ncbi, NULL);
   } else if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
-    status = parse_string(ncbi, 0, NULL);
+    status = parse_string(ncbi, -1, &buf);
+
+    if (sq != NULL) {
+      free(sq->name);
+      sq->nalloc = strlen(buf) + 1;
+      sq->name   = buf;
+    } else {
+      free(buf);
+    }
+    buf = NULL;
   } else {
     status = eslEFORMAT;
   }

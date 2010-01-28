@@ -1333,7 +1333,6 @@ benchmark_fread(char *filename, int bufsize, int64_t *ret_magic)
   int64_t magic = 0;
   int   pos;
   int   n;
-  char *s;
   
   if (fp != NULL)
     {
