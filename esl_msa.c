@@ -5397,7 +5397,8 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int64_t known_al
    * 0 seqs of 0 length.
    */
 #ifdef eslAUGMENT_ALPHABET
-  if (afp->do_digital == TRUE) ESL_EXCEPTION(eslEINCONCEIVABLE, "only text mode (not digitized) alignment files can be read in small memory mode");
+  if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
+    { status = eslEMEM; goto ERROR; }
 #endif
   if (afp->do_digital == FALSE && (msa = esl_msa_Create(0, -1))  == NULL)
     { status = eslEMEM; goto ERROR; }
@@ -5637,7 +5638,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int64_t known_al
   if (pp_ct != NULL)          esl_Free2D((void **) pp_ct, alen);
   if (opt_pp_ct != NULL)     *opt_pp_ct = NULL;
   if (abc_ct != NULL)         esl_Free2D((void **) abc_ct, alen);
-  if (opt_abc_ct != NULL)    *opt_pp_ct = NULL;
+  if (opt_abc_ct != NULL)    *opt_abc_ct = NULL;
   if(bp_ct  != NULL)          esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
   if(opt_bp_ct  != NULL)     *opt_bp_ct = NULL;
   if (srfpos_ct != NULL)      free(srfpos_ct);

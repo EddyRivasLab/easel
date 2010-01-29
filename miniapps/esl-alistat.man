@@ -41,7 +41,31 @@ pipelines to make
 .B esl-alistat 
 more robust; alphabet autodetection is not infallible.
 
-
+The 
+.B --small
+option allows summarizing alignments without storing them in memory
+and can be useful for large alignment files with sizes that approach
+or exceed the amount of available RAM.  When
+.B --small
+is used, 
+.B esl-alistat
+will print fewer statistics on the alignment, omitting data on the
+smallest and largest sequences and the average identity of the
+alignment.
+.B --small
+only works on Pfam formatted alignments (a special type of
+non-interleaved Stockholm alignment in which each sequence occurs on a
+single line) and 
+.BI --informat " pfam"
+must be given with
+.B --small.
+Further, when 
+.B --small
+is used, the alphabet must be specified with
+.I --amino,
+.I --dna,
+or 
+.I --rna.
 
 .SH OPTIONS
 
@@ -80,6 +104,17 @@ contains DNA sequences.
 Assert that the 
 .I msafile 
 contains RNA sequences. 
+
+.TP 
+.B --small
+Operate in small memory mode for Pfam formatted alignments.
+.BI --informat " pfam"
+and one of
+.B --amino,
+.B --dna,
+or
+.B --rna
+must be given as well.
 
 .SH AUTHOR
 
