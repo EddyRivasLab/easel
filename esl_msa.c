@@ -5273,7 +5273,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           opt_srfpos_ct - optRETURN: [0..rfpos..rflen-1] per nongap RF 
  *                           position count of first nongap RF residue in 
  *                           each sequence, ex: opt_spos_ct[100] = x means x
- *                           seqs have their first nongap RF resi at rfpos 100
+ *                           seqs have their first nongap RF residue at rfpos 100
  *           opt_erfpos_ct - optRETURN: [0..rfpos..rflen-1] same as opt_srfpos_ct,
  *                           except for final nongap RF residue instead of first
  * 
@@ -5513,7 +5513,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int64_t known_al
 	    if(nseq == 0) { 
 	      if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; 
 	    }
-	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment may be in interleaved Stockholm format. Reformat to Pfam with esl-reformat.", afp->linenumber, seqname); }
+	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs with same name. Alignment may be in interleaved Stockholm. Reformat to Pfam with esl-reformat.", afp->linenumber); }
 	    if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, srfpos_ct, erfpos_ct */
 	      alen = textlen;
 	      if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
@@ -5791,8 +5791,14 @@ determine_spacelen(char *s)
  *           do_aseq     - TRUE to write aligned sequences to ofp
  *           seqs2regurg - keyhash of names of the sequences to write, all others
  *                         will not be written. Associated annotation (#=GS, #=GR) 
- *                         will be written for these sequences only. If NULL, all
- *                         sequences are written.
+ *                         will be written for these sequences only. Must be NULL
+ *                         if seqs2skip is non-NULL (enforced by contract).
+ *                         If both are NULL all seqs are written.
+ *           seqs2skip   - keyhash of names of the sequences to skip (not write), 
+ *                         all others will be written. Associated annotation (#=GS, #=GR) 
+ *                         will not be written for these sequences. Must be NULL
+ *                         if seqs2regurg is NULL (enforced by contract).
+ *                         If both are NULL all seqs are written.
  *           useme       - [0..apos..exp_alen-1] TRUE to include position apos in output of 
  *                         aligned data (GC,GR,aseq), FALSE to remove it, can be NULL
  *           add2me      - [0..apos..exp_alen-1] number of all gaps to add after each
@@ -5815,7 +5821,7 @@ int
 esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr, 
 			int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
 			int do_gs, int do_gc, int do_gr, int do_aseq, 
-			ESL_KEYHASH *seqs2regurg, int *useme, int *add2me, int exp_alen, char gapchar)
+			ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar)
 {
   char      *s = NULL;
   int        status;
@@ -5845,6 +5851,9 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
   }
   if((add2me != NULL || useme != NULL) && exp_alen == -1) { 
     ESL_EXCEPTION(eslEINCONCEIVABLE, "exp_alen == -1, but add2me or useme non-NULL");
+  }
+  if(seqs2regurg != NULL && seqs2skip != NULL) {
+    ESL_EXCEPTION(eslEINVAL, "seqs2regurg and seqs2skip both non-NULL, only one may be");
   }
 
   gaps2addlen = (add2me == NULL) ? 0 : esl_vec_ISum(add2me, (exp_alen+1));

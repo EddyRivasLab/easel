@@ -345,7 +345,7 @@ main(int argc, char **argv)
   double        **abc_ct = NULL;        /* [0..msa->alen-1][0..abc->K], count of each residue at each position, over all sequences, missing and nonresidues are *not counted* */
   double       ***bp_ct = NULL;         /* [0..msa->alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
                                            base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
-  int           **pp_ct = NULL;         /* [0..msa->alen-1][0..10], count of reach posterior probability (PP) code, over all sequences */
+  int           **pp_ct = NULL;         /* [0..msa->alen-1][0..11], count of reach posterior probability (PP) code, over all sequences, gap is 11 */
   int            *srfpos_ct = NULL;     /* [0..msa->alen-1] per position count of first non-gap position, over all seqs */
   int            *erfpos_ct = NULL;     /* [0..msa->alen-1] per position count of final non-gap position, over all seqs */
   int64_t         msa_alen;             /* msa->alen */
@@ -791,6 +791,7 @@ main(int argc, char **argv)
 					   -1, -1, -1, -1, /* don't care about max width of fields */
 					   TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
 					   useme_keyhash, /* only regurgitate seqs in useme_keyhash */
+					   NULL,          /* no list of seqs to skip */
 					   NULL, NULL, -1, '.'); 
 	  if(status == eslEOF) esl_fatal("Final pass, no alignments in file");
 	  if(status != eslOK)  esl_fatal("Final pass, error reading alignment");
@@ -873,6 +874,7 @@ main(int argc, char **argv)
   }
 
   if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
+  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
   if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, abc->Kp);
   if(srfpos_ct != NULL) free(srfpos_ct);
   if(erfpos_ct != NULL) free(erfpos_ct);
@@ -2649,8 +2651,8 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
 
 /* count_msa()
  *                   
- * Given an msa, count residues, basepairs, and consensus start and end 
- * positions and store them in <ret_abc_ct>, <ret_bp_ct>, 
+ * Given an msa, count residues, post probs, basepairs, and consensus start and end 
+ * positions and store them in <ret_abc_ct>, <ret_pp_ct>, <ret_bp_ct>, 
  * <ret_srfpos_ct>, and <ret_erfpos_ct>.
  * 
  * <ret_abc_ct> [0..apos..alen-1][0..abc->K]:
@@ -2677,8 +2679,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * If we encounter an error, we return non-eslOK status and fill
  * errbuf with error message.
  * 
- * Returns eslOK upon success, and points <ret_useme> at useme, caller
- * must free it.
+ * Returns eslOK upon success.
  */
 int count_msa(ESL_MSA *msa, char *errbuf, int *a2rf_map, int rflen, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_srfpos_ct, int **ret_erfpos_ct)
 {
@@ -2766,7 +2767,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, int *a2rf_map, int rflen, double ***re
     /* get PP counts, if nec  */
     if(ret_pp_ct != NULL) { 
       if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, seq %d does not.", i+1);
-      for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
+      for(apos = 0; apos < msa->alen; apos++) { /* update appropriate pp count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
 	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
 	pp_ct[apos][ppidx]++;
       }
@@ -2786,6 +2787,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, int *a2rf_map, int rflen, double ***re
 
  ERROR:
   if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
+  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
   if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, msa->abc->Kp);
   if(srfpos_ct != NULL) free(srfpos_ct);
   if(erfpos_ct != NULL) free(erfpos_ct);

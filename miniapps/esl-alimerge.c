@@ -405,6 +405,7 @@ main(int argc, char **argv)
 					   FALSE, /* regurgitate GR ? */
 					   FALSE, /* regurgitate aseq ? */
 					   NULL,  /* regurgitate all seqs, not a subset */ 
+					   NULL,  /* regurgitate all seqs, not a subset */ 
 					   NULL,  
 					   NULL, 
 					   alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
@@ -446,6 +447,7 @@ main(int argc, char **argv)
 					 FALSE, /* regurgitate GC ? */
 					 TRUE,  /* regurgitate GR ? */
 					 TRUE,  /* regurgitate aseq ? */
+					 NULL,  /* regurgitate all seqs, not a subset */ 
 					 NULL,  /* regurgitate all seqs, not a subset */ 
 					 (do_rfonly) ? usemeA[ai] : NULL, 
 					 (do_rfonly) ? NULL       : ngapA,

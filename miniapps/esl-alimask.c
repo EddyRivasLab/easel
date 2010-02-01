@@ -548,6 +548,7 @@ main(int argc, char **argv)
 				     TRUE,           /* regurgitate GR ? */
 				     TRUE,           /* regurgitate aseq ? */
 				     NULL,           /* regurgitate all seqs, not a subset */ 
+				     NULL,           /* regurgitate all seqs, not a subset */ 
 				     useme_final,    /* which columns to keep */
 				     NULL,           /* we're not adding any columns */
 				     msa->alen,      /* expected length, not strictly necessary */

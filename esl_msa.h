@@ -250,8 +250,8 @@ extern int   esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int
 #ifdef eslAUGMENT_KEYHASH
 extern int   esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr,
 				     int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
-				     int do_gs, int do_gc, int do_gr, int do_aseq, ESL_KEYHASH *seqs2regurg, int *useme, int *add2me, 
-				     int exp_alen, char gapchar);
+				     int do_gs, int do_gc, int do_gr, int do_aseq, ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, 
+				     int *useme, int *add2me, int exp_alen, char gapchar);
 #endif
 
 /* 7. Miscellaneous functions for manipulating MSAs */
