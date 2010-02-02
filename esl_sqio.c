@@ -225,7 +225,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
     /* check the local directory first */
     status = eslENOTFOUND;
 #ifdef eslAUGMENT_NCBI
-    if (status == eslENOTFOUND)
+    if (format == eslSQFILE_NCBI && status == eslENOTFOUND)
       status = esl_sqncbi_Open(sqfp->filename, sqfp->format, sqfp);
 #endif
     if (status == eslENOTFOUND)
@@ -249,7 +249,7 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 	s1 = s2;
 
 #ifdef eslAUGMENT_NCBI
-	if (status == eslENOTFOUND)
+	if (format == eslSQFILE_NCBI && status == eslENOTFOUND)
 	  status = esl_sqncbi_Open(path, sqfp->format, sqfp);
 #endif
 	if (status == eslENOTFOUND)
@@ -500,6 +500,9 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
   if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
+#ifdef eslAUGMENT_NCBI
+  if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
+#endif
 #ifdef eslAUGMENT_MSA
   return esl_msa_EncodeFormat(fmtstring);
 #endif
@@ -531,6 +534,9 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_GENBANK:    return "Genbank";
   case eslSQFILE_DDBJ:       return "DDBJ";
   case eslSQFILE_UNIPROT:    return "Uniprot";
+#ifdef eslAUGMENT_NCBI
+  case eslSQFILE_NCBI:       return "NCBI";
+#endif
   default:                   break;
   }
   esl_exception(eslEINVAL, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
