@@ -22,7 +22,7 @@ static int  dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, 
 static int  dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
 static int  dump_posterior_column_info(FILE *fp, int **pp_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
 static int  dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *alifile, char *errbuf);
-static int  dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int *i_am_rf, char *alifile, char *errbuf);
+static int  dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_am_rf, char *alifile, char *errbuf);
 static int  map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int64_t alen, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct, int ***ret_pp_ct);
@@ -313,7 +313,7 @@ main(int argc, char **argv)
       }
       if( esl_opt_IsOn(go, "--iinfo")) {
 	if(msa->rf == NULL) esl_fatal("--iinfo requires all alignments have #=GC RF annotation, but alignment %d does not", nali);
-	if((status = dump_insert_info(iinfofp, msa, nali, i_am_rf, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
+	if((status = dump_insert_info(iinfofp, msa, nali, nseq, i_am_rf, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
 
       esl_msa_Destroy(msa);
@@ -720,7 +720,7 @@ static int dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *
  * Given an MSA with RF annotation, print out information about how many 'insertions' come
  * after each non-gap RF column (consensus column). 
  */
-static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int *i_am_rf, char *alifile, char *errbuf)
+static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_am_rf, char *alifile, char *errbuf)
 {
   int status;
   int apos, rfpos;
@@ -728,7 +728,6 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int *i_am_rf, char
   int *total_ict, *med_ict;
   int i, l;
   int rflen;
-  int nseq;
   int *len;
 
   /* contract check */

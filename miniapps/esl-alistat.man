@@ -42,6 +42,17 @@ pipelines to make
 more robust; alphabet autodetection is not infallible.
 
 The 
+.B --list,
+.B --icinfo,
+.B --rinfo,
+.B --pcinfo,
+.B --psinfo,
+and
+.B --iinfo,
+options allow dumping various statistics on the alignment to optional
+output files as described for each of those options below.
+
+The 
 .B --small
 option allows summarizing alignments without storing them in memory
 and can be useful for large alignment files with sizes that approach
@@ -115,6 +126,51 @@ and one of
 or
 .B --rna
 must be given as well.
+
+.TP 
+.BI --list " <f>"
+List the names of all sequences in the alignment to file
+.I <f>.
+Each name is written on its own line. Lines prefixed with "#" are
+comment lines with potentially useful information about the file.
+
+.TP 
+.BI --icinfo " <f>"
+Dump the information content per position in tabular format to file
+.I <f>.
+Lines prefixed with "#" are comment lines, which explain the
+meanings of each of the tab-delimited fields.
+
+.TP 
+.BI --rinfo " <f>"
+Dump information on the frequency of gaps versus nongap residues per position in tabular format to file
+.I <f>.
+Lines prefixed with "#" are comment lines, which explain the
+meanings of each of the tab-delimited fields.
+
+.TP 
+.BI --pcinfo " <f>"
+Dump per column information on posterior probabilities in tabular format to file
+.I <f>.
+Lines prefixed with "#" are comment lines, which explain the
+meanings of each of the tab-delimited fields.
+
+.TP 
+.BI --psinfo " <f>"
+Dump per sequence information on posterior probabilities in tabular format to file
+.I <f>.
+Lines prefixed with "#" are comment lines, which explain the
+meanings of each of the tab-delimited fields.
+
+.TP 
+.BI --iinfo " <f>"
+Dump information on inserted residues in tabular format to file
+.I <f>.
+Insert columns of the alignment are those that are gaps in the
+reference (#=GC RF) annotation. This option only works if the input
+file is in Stockholm format with reference annotation.
+Lines prefixed with "#" are comment lines, which explain the
+meanings of each of the tab-delimited fields. 
 
 .SH AUTHOR
 

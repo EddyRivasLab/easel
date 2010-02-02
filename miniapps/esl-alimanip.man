@@ -2,7 +2,7 @@
 
 .SH NAME
 .TP
-esl-alimanip - manipulate a multiple sequence alignment file
+esl-alimanip - manipulate a multiple sequence alignment
 
 .SH SYNOPSIS
 
@@ -16,10 +16,10 @@ esl-alimanip - manipulate a multiple sequence alignment file
 .B esl-alimanip
 can manipulate the multiple sequence alignment(s) in 
 .I msafile
-in various ways. Options exist to remove specific columns, remove
-specific sequences, reorder sequences, designate reference or
-consensus columns using Stockholm "#=GC RF" markup, apply and create
-so-called 'lane masks', and add annotation that numbers columns. 
+in various ways. Options exist to remove
+specific sequences, reorder sequences, designate reference columns
+using Stockholm "#=GC RF" markup, and add annotation that numbers
+columns. 
 
 The alignments can be of protein or DNA/RNA sequences. All alignments
 in the same 
@@ -47,9 +47,25 @@ Save the resulting, modified alignment in Stockholm format to a file
 The default is to write it to standard output.
 
 .TP 
-.B -1
-Output the alignment in pfam format, a non-interleaved Stockholm
-format, one sequence per line.
+.BI --informat "<s> "
+Specify that the input alignment be format 
+.I <s>.
+Choices for 
+.I <s> 
+are: 'stockholm', 'pfam', 'a2m', 'psiblast', 'afa'. 'pfam' is a special
+case of Stockholm format in which each sequence is placed on a single
+line, instead of being interleaved; 'afa' is aligned FASTA. By default
+alignments are assumed to be in Stockholm format (either interleaved
+or Pfam).
+
+.TP 
+.BI --outformat " <s>"
+Specify that the output alignment be format 
+.I <s>.
+Choices for 
+.I <s> 
+are: 'stockholm', 'pfam', 'a2m', 'psiblast', 'afa'. 
+By default the alignment is output in interleaved Stockholm format.
 
 .TP
 .B --devhelp
@@ -65,179 +81,6 @@ is enabled, and the source code.
 
 .SH EXPERT OPTIONS
 
-.TP 
-.B -g
-Add #=GC RF markup to the alignment with an 'x' for any column of the
-alignment that has gaps in less than or equal to 
-.I <x> 
-fraction of the sequences in the alignment.
-By default, 
-.I <x>
-is 0.5, but this value can be changed with the
-.BI --gapthresh " <x>" 
-option.
-All other columns in the #=GC RF markup (those with gaps in more than
-.I <x> 
-fraction of the sequences) will be '.' characters.
-If the alignment already has #=GC RF markup, it will be overwritten.
-
-.TP 
-.BI --gapthresh <x>
-Set the fractional threshold for 
-.B -g 
-(as described above) to 
-.I <x>.
-By default this value is 0.5.
-
-.TP 
-.BI --mask-all <f>
-Read in the 'lane mask' file 
-.I <f>
-and use it to define new #=GC RF annotation for the 
-alignment.
-.I <f>
-must be a single line, with exactly 
-.I <alen> 
-characters, where 
-.I <alen> 
-is the alignment length. Each character must be either a '1'
-or a '0'. The new #=GC RF markup will contain an 'x' for each column
-that is a '1' in lane mask file, and a '.' for each column that is a '0'. 
-For example, a lane mask file with the line '10110110' would result in
-#=GC RF annotation of 'x.xx.xx.' for an 8 column wide alignment.
-
-.TP 
-.BI --mask-rf <f>
-Read in the 'lane mask' file 
-.I <f>
-and use it to define new #=GC RF annotation for the 
-alignment.
-.I <f>
-must be a single line, with exactly 
-.I <rflen> 
-characters, where 
-.I <rflen> 
-is the number of non-gap (non '.') characters in the 
-#=GC RF markup of the alignment.
-The new #=GC RF markup will contain an 'x' for each non-gap #=GC RF column
-that is a '1' in lane mask file, and a '.' for each non-gap #=GC RF column
-that is a '0'. All pre-existing gap #=GC RF columns will remain as gaps.
-For example, a lane mask file with the line '10110110' used on a 12
-column wide alignment with pre-existing #=GC RF markup of 'xx.x.xx..xxx' would result in
-new #=GC RF annotation of 'x..x.x...xx.' for an 12 column wide
-alignment with 8 pre-existing non-gap #=GC RF columns.
-
-.TP 
-.BI --pfract " <x>"
-Add #=GC RF markup to the alignment based on the posterior probability
-of the residues in each alignment. This option is specifically for use
-with alignments created using
-the 
-.B cmalign 
-program of the 
-.B Infernal
-package, with the 
-.B -p 
-option supplied to
-.B cmalign.
-The #=GC RF markup is set as an 'x' for any column for which at least 
-.I <x>
-fraction of the sequences have a residue with a posterior probability
-of at least 
-.I <y>.
-The default value for 
-.I <y> 
-is 0.9, but this value can be changed with the 
-.BI --pthresh " <y>"
-option.
-Any column that is not set as an 'x' is set as '.' (a gap). 
-If the alignment already has #=GC RF markup, it will be overwritten.
-
-.TP 
-.BI --pthresh " <y>"
-Set the posterior probability threshold for 
-.B --pfract 
-(as described above) to 
-.I <y>.
-By default this value is 0.9.
-
-.TP 
-.BI --p-rf
-With the 
-.B --pfract 
-option, only consider columns that are non-gaps in the pre-existing
-#=GC RF markup of the alignment. All other columns will remain as gaps
-in the new #=GC RF markup.
-
-.TP 
-.B -k
-Remove all columns of the alignment for which the #=GC RF line has a
-gap (keep all non-gap #=GC RF columns). 
-
-.TP 
-.B -r
-Remove all columns of the alignment for which the #=GC RF line is not
-a gap (keep all gap #=GC RF columns).
-
-.TP 
-.BI --start-all " <m>"
-Keep only columns starting at column
-.I <m>.
-Must be used in combination with 
-.BI  --end-all " <n>".
-Columns from 
-.I <m>
-to 
-.I <n>
-inclusive will be kept, all other columns will be removed.
-The 
-.B --num-all
-option can be used to number columns.
-
-.TP 
-.BI --end-all " <n>"
-Used in combination with
-.BI --start-all " <m>"
-(see above).
-
-.TP 
-.BI --start-rf " <m>"
-Keep only columns 
-starting at the 
-.I <m>
-th non-gap #=GC RF column. 
-Must be used in combination with 
-.BI  --end-rf " <n>".
-All columns between the 
-.I <m>
-th 
-and 
-.I <n>
-th non-gap #=GC RF columns, inclusive, will be kept, all outside columns
-will be removed.
-The 
-.B --num-rf
-option can be used to number non-gap #=GC RF columns.
-
-.TP 
-.BI --num-all 
-Add annotation to the alignment numbering all of the columns in the
-alignment. 
-
-.TP 
-.BI --num-rf 
-Add annotation to the alignment numbering the non-gap (non '.') #=GC
-RF columns of the alignment. 
-
-.TP 
-.BI --tree " <f>"
-Reorder sequences by tree order. 
-Perform single linkage clustering on the sequences in the alignment
-based on sequence identity given the alignment to define a 'tree' 
-of the sequences. The sequences in the alignment are reordered
-according to the tree, which groups similar sequences together. The
-tree is output in Newick format to 
-.I <f>.
 
 .TP 
 .BI --lfract " <x>"
@@ -276,6 +119,28 @@ Sequence names listed in
 can be separated by tabs, new lines, or spaces.
 
 .TP 
+.BI --seq-ins " <n>"
+Keep only sequences that have at least 1 inserted residue after 
+nongap RF position 
+.I <n>.
+
+.TP 
+.BI --seq-ni " <n>"
+With 
+.B --seq-ins
+require at least 
+.I <n> 
+inserted residues in a sequence for it to be kept.
+
+.TP 
+.BI --seq-xi " <n>"
+With 
+.B --seq-ins
+allow at most
+.I <n> 
+inserted residues in a sequence for it to be kept.
+
+.TP 
 .BI --trim " <f>"
 File 
 .I <f>
@@ -287,34 +152,52 @@ in
 .I <f>.
 
 .TP 
-.BI --iinfo " <f>"
-Print information on the number of insertions between all non-gap #=GC
-RF columns to file
+.BI --tree " <f>"
+Reorder sequences by tree order. 
+Perform single linkage clustering on the sequences in the alignment
+based on sequence identity given the alignment to define a 'tree' 
+of the sequences. The sequences in the alignment are reordered
+according to the tree, which groups similar sequences together. The
+tree is output in Newick format to 
 .I <f>.
 
 .TP 
-.BI --icinfo " <f>"
-Print information on the information content of each non-gap #=GC
-RF column to file
-.I <f>.
+.BI --mask2rf " <f>"
+Read in the 'mask' file 
+.I <f>
+and use it to define new #=GC RF annotation for the 
+alignment.
+.I <f>
+must be a single line, with exactly 
+.I <alen> 
+or 
+.I <rflen>
+characters, either the full alignment length or the number of nongap #=GC RF characters, respectively.
+Each character must be either a '1'
+or a '0'. The new #=GC RF markup will contain an 'x' for each column
+that is a '1' in lane mask file, and a '.' for each column that is a '0'. 
+If the mask is of length
+.I <rflen>
+then it is interpreted as applying to only nongap RF characters in the
+existing RF annotation, all gap RF characters will remain gaps and
+nongap RF characters will be redefined as above.
 
 .TP 
-.BI --rinfo " <f>"
-Print information on the number of residues present in each column of
-the alignment to file
-.I <f>.
+.BI --keeprf
+With 
+.B --mask2rf,
+do not overwrite existing nongap RF characters that are included by
+the input mask as 'x', leave them as the character they are.
 
 .TP 
-.BI --dinfo " <f>"
-Print information on the number of gaps (deletes) in each non-gap #=GC
-RF column of the alignment to file
-.I <f>.
+.BI --num-all 
+Add annotation to the alignment numbering all of the columns in the
+alignment. 
 
 .TP 
-.BI --pinfo " <f>"
-Print statistics related to the posterior probabilities of the
-residues in each non-gap #=GC RF column to 
-.I <f>.
+.BI --num-rf 
+Add annotation to the alignment numbering the non-gap (non '.') #=GC
+RF columns of the alignment. 
 
 .TP 
 .BI --sindi 
@@ -323,11 +206,20 @@ the consensus secondary structure defined by the #=GC SS_cons
 annotation. 
 
 .TP 
-.BI --omask " <f>"
-Convert the #=GC RF annotation into an lane mask. Each non-gap #=GC RF
-column is converted to a '1', and each gap column is converted to a '0'. 
-Output the lanemask to file
-.I <f>.
+.BI --rm-gc " <s>"
+Remove certain types of #=GC annotation from the alignment. 
+.I "<s>" 
+must be either "RF", "SS_cons", "SA_cons", or "PP_cons",
+at present.
+
+.TP 
+.BI --post2pp 
+Update Infernal's cmalign 0.72-1.0.2 posterior probability "POST"
+annotation to "PP" annotation, which is read by other miniapps,
+including 
+.B esl-alimask
+and 
+.B esl-alistat.
 
 .TP
 .B --amino
