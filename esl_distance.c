@@ -794,7 +794,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
 {
   int    status;
   double id;
-  double sum;
+  double sum = 0.;
   int    i,j,n;
   
   if (N <= 1) { *ret_id = 1.; return eslOK; }

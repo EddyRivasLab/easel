@@ -37,17 +37,11 @@ static int  write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int 
 static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
-static int  dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf);
-static int  dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf);
-static int  dump_posterior_column_info(FILE *fp, int **pp_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf);
-static int  dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *errbuf);
-static int  dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int *i_am_rf, char *errbuf);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
 static int  expand_msa2mask(char *errbuf, ESL_MSA *msa1, char *xmask, ESL_MSA **newmsa1);
 static int  add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
-static int  compare_ints(const void *el1, const void *el2);
 static int  msa_median_length(ESL_MSA *msa);
 static int  msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa);
 static int  msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa);
@@ -73,8 +67,7 @@ static int  remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag);
 static int  cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, int *toadd, int nnew, char gapchar);
 static int  map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int  convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali);
-static int  count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct, int ***ret_pp_ct);
-static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
+static int  compare_ints(const void *el1, const void *el2);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
@@ -82,7 +75,6 @@ static ESL_OPTIONS options[] = {
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
   { "--informat",  eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                       1 },
   { "--outformat", eslARG_STRING,FALSE, NULL, NULL,      NULL, NULL, NULL,                      "specify that output format be <s>",                              1 },
-  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output list of sequence names in alignment to file <f>",         1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   /* options for removing/trimming/reordering sequences */
   { "--lnfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=2", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",      2 },
@@ -109,12 +101,6 @@ static ESL_OPTIONS options[] = {
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          4 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              4 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              4 },
-  /* options for optional output files */
-  { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "print info on information content alignment column",             5 },
-  { "--rinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "print info on # of non-gap residues in each column to <f>",      5 },
-  { "--pcinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "print per-column   posterior probability info to <f>",           5 },
-  { "--psinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "print per-sequence posterior probability info to <f>",           5 },
-  { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "print info on # of insertions b/t all non-gap RF cols to <f>",   5 },
 
   /* All options below are developer options, only shown if --devhelp invoked */
   { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",    101 },
@@ -147,7 +133,7 @@ main(int argc, char **argv)
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
   FILE         *ofp;		/* output file (default is stdout) */
-  char          errbuf[eslERRBUFSIZE*4];
+  char          errbuf[eslERRBUFSIZE];
   int           median;         /* median length seq in msa */
   int           type;           /* alphabet type */
   float         minlen;         /* min length seq we'll keep */
@@ -191,19 +177,13 @@ main(int argc, char **argv)
   float mindiff;
   ESL_MSA     **cmsa; /* the new msa's created by clustering seqs in the main msa */
   ESL_MSA     *rfmsa; /* the new msa, but with gap RF columns removed */
-  FILE *mxfp;
+  FILE *mxfp = NULL;
   int j;
 
   /* --iinfo, --iplot, --gplot --rinfo, --dinfo related vars */
   double        **abc_ct = NULL;        /* [0..msa->alen-1][0..abc->K], count of each residue at each position, over all sequences, missing and nonresidues are *not counted* */
   int           **pp_ct = NULL;         /* [0..msa->alen-1][0..11], count of reach posterior probability (PP) code, over all sequences, gap is 11 */  
   FILE *treefp  = NULL;  /* output file for --tree */
-  FILE *iinfofp = NULL;  /* output file for --iinfo */
-  FILE *pcinfofp = NULL; /* output file for --pcinfo */
-  FILE *psinfofp = NULL; /* output file for --psinfo */
-  FILE *rinfofp = NULL;  /* output file for --rinfo */
-  FILE *icinfofp = NULL; /* output file for --icinfo */
-  FILE *listfp = NULL;   /* output file for --list */
 
   /***********************************************
    * Parse command line
@@ -283,13 +263,15 @@ main(int argc, char **argv)
     esl_fatal("Couldn't determine format of alignment %s\n", alifile);
   else if (status != eslOK) 
     esl_fatal("Alignment file open failed with error %d\n", status);
+  infmt = afp->format;
 
-  /* Check for incompatible options that require Stockholm/Pfam */
-  if((esl_opt_IsOn(go, "--mask2rf")) && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --mask2rf, the alignment file must be in stockholm/pfam format");
-  if((esl_opt_IsOn(go, "--rm-gc"))   && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --rm-gc, the alignment file must be in stockholm/pfam format");
-  if((esl_opt_IsOn(go, "--post2pp")) && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --post2pp, the alignment file must be in stockholm/pfam format");
-  if((esl_opt_IsOn(go, "--num-all")) && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --num-all, the alignment file must be in stockholm/pfam format");
-  if((esl_opt_IsOn(go, "--num-rf"))  && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --num-rf, the alignment file must be in stockholm/pfam format");
+  /* Check for incompatible options that require Stockholm/Pfam as input or output format */
+  if((esl_opt_IsOn(go, "--mask2rf")) && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --mask2rf, the the output format must be stockholm/pfam format");
+  if((esl_opt_IsOn(go, "--rm-gc"))   && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --rm-gc, the the output format must be stockholm/pfam format");
+  if((esl_opt_IsOn(go, "--post2pp")) && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --post2pp, the the output format must be stockholm/pfam format");
+  if((esl_opt_IsOn(go, "--num-all")) && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --num-all, the the output format must be stockholm/pfam format");
+  if((esl_opt_IsOn(go, "--num-rf"))  && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --num-rf, the the output format must be stockholm/pfam format");
+
   if((esl_opt_IsOn(go, "--seq-ins")) && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --seq-ins, the alignment file must be in stockholm/pfam format");
   if((esl_opt_IsOn(go, "--cn-id"))   && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --cn-id, the alignment file must be in stockholm/pfam format");
   if((esl_opt_IsOn(go, "--cs-id"))   && (infmt != eslMSAFILE_STOCKHOLM) && (infmt != eslMSAFILE_PFAM)) esl_fatal("with --cs-id, the alignment file must be in stockholm/pfam format");
@@ -346,29 +328,6 @@ main(int argc, char **argv)
     if ((mxfp = fopen(esl_opt_GetString(go, "--c-mx"), "w")) == NULL) 
       esl_fatal("Failed to open --c-mx output file %s\n", esl_opt_GetString(go, "--c-mx"));
   }
-
-  /* open all nec output files */
-  if( esl_opt_IsOn(go, "--icinfo")) {
-    if ((icinfofp = fopen(esl_opt_GetString(go, "--icinfo"), "w")) == NULL) 
-      esl_fatal("Failed to open --icinfo output file %s\n", esl_opt_GetString(go, "--icinfo"));
-  }
-  if( esl_opt_IsOn(go, "--rinfo")) {
-    if ((rinfofp = fopen(esl_opt_GetString(go, "--rinfo"), "w")) == NULL) 
-      esl_fatal("Failed to open --rinfo output file %s\n", esl_opt_GetString(go, "--rinfo"));
-  }
-  if( esl_opt_IsOn(go, "--pcinfo")) {
-    if ((pcinfofp = fopen(esl_opt_GetString(go, "--pcinfo"), "w")) == NULL) 
-      esl_fatal("Failed to open --pcinfo output file %s\n", esl_opt_GetString(go, "--pcinfo"));
-  }
-  if( esl_opt_IsOn(go, "--psinfo")) {
-    if ((psinfofp = fopen(esl_opt_GetString(go, "--psinfo"), "w")) == NULL) 
-      esl_fatal("Failed to open --psinfo output file %s\n", esl_opt_GetString(go, "--psinfo"));
-  }
-  if( esl_opt_IsOn(go, "--iinfo")) {
-    if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
-      esl_fatal("Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
-  }
-
 
   /*************************************************************
    * Read MSAs one at a time, manipulate them, then output them
@@ -632,41 +591,6 @@ main(int argc, char **argv)
 	if((status = minorize_msa(go, msa, errbuf, ofp, esl_opt_GetString(go, "-M"), outfmt) != eslOK)) esl_fatal(errbuf);
       }
 
-      /******************************/
-      /* TO BE MOVED TO ESL-ALISTAT */
-      /* output to data files as nec */
-      if( esl_opt_IsOn(go, "--icinfo") || 
-	  esl_opt_IsOn(go, "--rinfo")  || 
-	  esl_opt_IsOn(go, "--pcinfo")) {
-	/* collect counts of each residue and PPs (if they exist) from the msa */
-	if((status = count_msa(msa, errbuf, nali, &abc_ct, &pp_ct)) != eslOK) esl_fatal(errbuf);
-      }
-
-      if( esl_opt_IsOn(go, "--icinfo")) {
-	if((status = dump_infocontent_info(icinfofp, abc, abc_ct, nali, msa->alen, msa->nseq, i_am_rf, msa->name, errbuf) != eslOK)) esl_fatal(errbuf);
-      }
-      if( esl_opt_IsOn(go, "--rinfo")) {
-	if((status = dump_residue_info(rinfofp, abc, abc_ct, nali, msa->alen, msa->nseq, i_am_rf, msa->name, errbuf) != eslOK)) esl_fatal(errbuf);
-      }
-      if(esl_opt_IsOn(go, "--pcinfo")) {
-	if((status = dump_posterior_column_info(pcinfofp, pp_ct, nali, msa->alen, msa->nseq, i_am_rf, msa->name, errbuf) != eslOK)) esl_fatal(errbuf);
-      }
-      if(esl_opt_IsOn(go, "--psinfo")) {
-	if((status = dump_posterior_sequence_info(psinfofp, msa, nali, errbuf) != eslOK)) esl_fatal(errbuf);
-      }
-      if( esl_opt_IsOn(go, "--iinfo")) {
-	if((status = dump_insert_info(iinfofp, msa, nali, i_am_rf, errbuf) != eslOK)) esl_fatal(errbuf);
-      }
-      /* write out list of sequences, if nec */
-      if( esl_opt_IsOn(go, "--list")) {
-	if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
-	  esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
-	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
-	fclose(listfp);
-     } 
-      /* END OF TO BE MOVED TO ESL-ALISTAT */
-      /*************************************/
-
       /********************
        * Output alignment *
        ********************/
@@ -708,27 +632,6 @@ main(int argc, char **argv)
   if(mxfp != NULL) { 
     printf("# Distance matri{x,ces} saved to file %s.\n", esl_opt_GetString(go, "--c-mx"));
     fclose(mxfp);
-  }
-
-  if(icinfofp != NULL) { 
-    fclose(icinfofp);
-    printf("# Information content data saved to file %s.\n", esl_opt_GetString(go, "--icinfo")); 
-  }
-  if(rinfofp != NULL) { 
-    fclose(rinfofp);
-    printf("# Residue data data saved to file %s.\n", esl_opt_GetString(go, "--rinfo")); 
-  }
-  if(pcinfofp != NULL) { 
-    fclose(pcinfofp);
-    printf("# Per-column posterior probability data saved to file %s.\n", esl_opt_GetString(go, "--pcinfo")); 
-  }
-  if(psinfofp != NULL) { 
-    fclose(psinfofp);
-    printf("# Per-sequence posterior probability data saved to file %s.\n", esl_opt_GetString(go, "--psinfo")); 
-  }
-  if(iinfofp != NULL) { 
-    printf("# Insert data saved to file %s.\n", esl_opt_GetString(go, "--iinfo")); 
-    fclose(iinfofp);
   }
 
   esl_msafile_Close(afp);
@@ -1264,19 +1167,6 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
   return status;
 }
 
-/* Function: compare_ints()
- * 
- * Purpose:  Comparison function for qsort(). Used 
- *           by msa_median_length().
- */ 
-static int 
-compare_ints(const void *el1, const void *el2)
-{
-  if      ((* ((int *) el1)) > (* ((int *) el2)))  return 1;
-  else if ((* ((int *) el1)) < (* ((int *) el2)))  return 1;
-  return 0;
-}
-
 /* Function: msa_median_length()
  * 
  * Purpose:  Returns the median (unaligned) length of 
@@ -1492,7 +1382,7 @@ number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf)
     for(b = 0; b < alen_ndigits; b++) tag[b+bmin] = (a == b) ? 'X' : '.';
     pos2print = 1;
     for(apos = 1; apos <= msa->alen; apos++) { 
-      if(!do_all && (i_am_rf[(apos-1)])) numstring[(apos-1)] = '.';
+      if(!do_all && (! i_am_rf[(apos-1)])) numstring[(apos-1)] = '.';
       else numstring[(apos-1)] = get_char_digit_x_from_int(pos2print++, (alen_ndigits-a));
 	/*printf("called get_char_digit_x_from_int(%d, %d)\n",apos, (alen_ndigits-a));*/
     }
@@ -2991,115 +2881,6 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
   return eslOK; /* NEVERREACHED */
 }
 
-/* count_msa()
- *                   
- * Given an msa, count residues and posterior probabilities per column
- * and store them in <ret_abc_ct> and <ret_pp_ct>.
- * 
- * <ret_abc_ct> [0..apos..alen-1][0..abc->K]:
- * - per position count of each symbol in alphabet over all seqs.
- * 
- * <ret_pp_ct> [0..apos..alen-1][0..10]
- * - per position count of each posterior probability code over all seqs.
- * 
- * A 'gap' has a looser definition than in esl_abc here, esl_abc's gap, 
- * missing residues and nonresidues are all considered 'gaps' here.
- * 
- * If we encounter an error, we return non-eslOK status and fill
- * errbuf with error message.
- * 
- * Returns eslOK upon success.
- */
-static int count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct, int ***ret_pp_ct)
-{
-  int status;
-  double  **abc_ct = NULL;
-  int       apos, i;
-  int       nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
-  int     **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
-  int       ppidx; 
-
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "count_msa() contract violation, MSA is not digitized");
-
-  /* allocate pp_ct array, if nec */
-  if(ret_pp_ct != NULL) { 
-    ESL_ALLOC(pp_ct, sizeof(int *) * msa->alen);
-    for(apos = 0; apos < msa->alen; apos++) { 
-      ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-      esl_vec_ISet(pp_ct[apos], nppvals, 0);
-    }
-  }
-
-  ESL_ALLOC(abc_ct, sizeof(double *) * msa->alen); 
-  for(apos = 0; apos < msa->alen; apos++) { 
-    ESL_ALLOC(abc_ct[apos], sizeof(double) * (msa->abc->K+1));
-    esl_vec_DSet(abc_ct[apos], (msa->abc->K+1), 0.);
-  }
-
-  for(i = 0; i < msa->nseq; i++) { 
-    for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, ax ranges from 1..msa->alen (but abc_ct is 0..msa->alen-1) */
-      if((status = esl_abc_DCount(msa->abc, abc_ct[apos], msa->ax[i][apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
-    }
-    /* get PP counts, if nec  */
-    if(ret_pp_ct != NULL) { 
-      if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "not all sequences alignment %d have PP, seq %d does not.", nali, i+1);
-      for(apos = 0; apos < msa->alen; apos++) { 
-	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	pp_ct[apos][ppidx]++;
-      }
-    }
-  }
-
-  *ret_abc_ct  = abc_ct;
-  if(ret_pp_ct != NULL) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
-
-  return eslOK;
-
- ERROR:
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  ESL_FAIL(status, errbuf, "Error, out of memory while counting important values in the msa.");
-  return status; /* NEVERREACHED */
-}
-
-
-/* get_pp_idx
- *                   
- * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
- * in a pp_ct[] vector. 
- * '0' return 0;
- * '1' return 1;
- * '2' return 2;
- * '3' return 3;
- * '4' return 4;
- * '5' return 5;
- * '6' return 6;
- * '7' return 7;
- * '8' return 8;
- * '9' return 9;
- * '*' return 10;
- * gap return 11;
- * 
- * Anything else (including missing or nonresidue) return -1;
- */
-static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
-{
-  if(esl_abc_CIsGap(abc, ppchar)) return 11;
-  if(ppchar == '*')               return 10;
-  if(ppchar == '9')               return 9;
-  if(ppchar == '8')               return 8;
-  if(ppchar == '7')               return 7;
-  if(ppchar == '6')               return 6;
-  if(ppchar == '5')               return 5;
-  if(ppchar == '4')               return 4;
-  if(ppchar == '3')               return 3;
-  if(ppchar == '2')               return 2;
-  if(ppchar == '1')               return 1;
-  if(ppchar == '0')               return 0;
-  return -1;
-}
-
-
 /* write_rf_gapthresh
  *                   
  * Given an MSA write/rewrite RF based on fraction
@@ -3140,329 +2921,15 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapt
   return status;
 }
 
-
-/* dump_infocontent_info
- *                   
- * Given an MSA with RF annotation, dump information content per column data to 
- * an open output file.
- */
-static int dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf)
+/* Function: compare_ints()
+ * 
+ * Purpose:  Comparison function for qsort(). Used 
+ *           by msa_median_length().
+ */ 
+static int 
+compare_ints(const void *el1, const void *el2)
 {
-  int status;
-  int apos, rfpos;
-  double bg_ent;
-  double *bg;
-  double nnongap;
-
-  ESL_ALLOC(bg, sizeof(double) * abc->K);
-  esl_vec_DSet(bg, abc->K, 1./(abc->K));
-  bg_ent = esl_vec_DEntropy(bg, abc->K);
-  free(bg);
-
-  fprintf(fp, "# Information content per column (bits):\n");
-  fprintf(fp, "# MSA idx: %d\n", nali);
-  if(msa_name != NULL) { fprintf(fp, "# MSA name: %s\n", msa_name); }
-  fprintf(fp, "# Number of sequences: %d\n", nseq);
-  if(i_am_rf != NULL) { 
-    fprintf(fp, "# %7s  %7s  %10s  %10s\n", "rfpos",    "alnpos",  "freqnongap", "info(bits)");
-    fprintf(fp, "# %7s  %7s  %10s  %10s\n", "-------", "-------",  "----------", "----------");
-  }  
-  else { 
-    fprintf(fp, "# %7s  %10s  %10s\n", "alnpos",  "freqnongap", "info(bits)");
-    fprintf(fp, "# %7s  %10s  %10s\n", "-------", "----------", "----------");
-  }
-
-  rfpos = 0;
-  for(apos = 0; apos < alen; apos++) {
-    if(i_am_rf != NULL) { 
-      if(i_am_rf[apos]) { 
-	fprintf(fp, "  %7d", rfpos+1);
-	rfpos++; 
-      }
-      else { 
-	fprintf(fp, "  %7s", "-");
-      }
-    }
-    nnongap = esl_vec_DSum(abc_ct[apos], abc->K);
-    fprintf(fp, "  %7d  %10.8f  %10.8f\n", apos+1, 
-	    nnongap / (nnongap + abc_ct[apos][abc->K]),
-	    (bg_ent - esl_vec_DEntropy(abc_ct[apos], abc->K)));
-  }
-  fprintf(fp, "//\n");
-
-  return eslOK;
-
- ERROR:
-  ESL_FAIL(eslEINVAL, errbuf, "out of memory");
-  return status; /* NEVERREACHED */
-}
-
-
-/* dump_residue_info
- *                   
- * Given an MSA, print out the number of sequences with
- * a non-gap residue in each column of the alignment.
- */
-static int dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf)
-{
-  int apos, rfpos;
-  double rct, gct;
-
-  fprintf(fp, "# Insert information:\n");
-  fprintf(fp, "# MSA idx: %d\n", nali);
-  if(msa_name != NULL) { fprintf(fp, "# MSA name: %s\n", msa_name); }
-  fprintf(fp, "# Number of sequences: %d\n", nseq);
-  if(i_am_rf != NULL) { 
-    fprintf(fp, "# %7s  %7s  %10s  %8s  %10s  %8s\n", "rfpos",    "alnpos",  "numres",    "freqres",  "numgap",     "freqgap");
-    fprintf(fp, "# %7s  %7s  %10s  %8s  %10s  %8s\n", "-------", "-------", "----------", "--------", "----------", "--------");
-  }  
-  else { 
-    fprintf(fp, "# %7s  %10s  %8s  %10s  %8s\n", "alnpos",  "numres",   "freqres", "numgap",    "freqgap");
-    fprintf(fp, "# %7s  %10s  %8s  %10s  %8s\n", "-------", "----------", "--------", "----------", "--------");
-  }
- 
-  rfpos = 0;
-  for(apos = 0; apos < alen; apos++) {
-    rct = esl_vec_DSum(abc_ct[apos], abc->K);
-    gct = abc_ct[apos][abc->K];
-    if(i_am_rf != NULL) { 
-      if(i_am_rf[apos]) { 
-	fprintf(fp, "  %7d", rfpos+1);
-	rfpos++; 
-      }
-      else { 
-	fprintf(fp, "  %7s", "-");
-      }
-    }
-    fprintf(fp, "  %7d  %10.1f  %8.6f  %10.1f  %8.6f\n", apos+1, rct, rct / (float) nseq, gct, gct / (float) nseq);
-  }
-  fprintf(fp, "//\n");
-
-  return eslOK;
-}
-
-/* dump_posterior_column_info
- *                   
- * Dump per-column posterior probability data to a file.
- *
- */      
-static int dump_posterior_column_info(FILE *fp, int **pp_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *errbuf)
-{
-  int    p,apos;     /* counters over sequences, columns of MSA */
-  int    nppvals = 12;
-  int    rfpos;
-  int    nnongap;
-  double sum;
-  float ppavgA[11];
-  char ppstring[12] = "0123456789*.";
-
-  ppavgA[0]  = 0.025;  
-  ppavgA[1]  = 0.10;
-  ppavgA[2]  = 0.20;
-  ppavgA[3]  = 0.30;
-  ppavgA[4]  = 0.40;
-  ppavgA[5]  = 0.50;
-  ppavgA[6]  = 0.60;
-  ppavgA[7]  = 0.70;
-  ppavgA[8]  = 0.80;
-  ppavgA[9]  = 0.90;
-  ppavgA[10] = 0.975;
-
-  fprintf(fp, "# Posterior probability stats per column:\n");
-  fprintf(fp, "# MSA idx: %d\n", nali);
-  if(msa_name != NULL) { fprintf(fp, "# MSA name: %s\n", msa_name); }
-  fprintf(fp, "# Number of sequences: %d\n", nseq);
-
-  fprintf(fp, "# %6s", "alnpos");
-  if(i_am_rf != NULL) fprintf(fp, "  %6s", "rfpos");
-  fprintf(fp, "  %7s", "nnongap");  
-  for(p = 0; p < nppvals; p++) { 
-    fprintf(fp, "  %7c", ppstring[p]);
-  }
-  fprintf(fp, "  %7s\n", "avgPP");
-
-  fprintf(fp, "# %6s  %6s  %7s", "------", "------", "-------");
-  for(p = 0; p < nppvals; p++) { 
-    fprintf(fp, "  %7s", "-------");
-  }
-  fprintf(fp, "  %7s\n", "-------");
-
-  rfpos = 1;
-  for(apos = 0; apos < alen; apos++) { 
-    sum = 0;
-    fprintf(fp, "  %6d", apos+1);
-    if(i_am_rf != NULL) { 
-      if(i_am_rf[apos]) fprintf(fp, "  %6d", rfpos++);
-      else              fprintf(fp, "  %6s", "-");
-    }
-    nnongap = esl_vec_ISum(pp_ct[apos], 11);
-    fprintf(fp, "  %7d", nnongap);
-    for(p = 0; p < nppvals; p++) { 
-      fprintf(fp, "  %7d", pp_ct[apos][p]);
-      if(p <= 10) sum += (float) pp_ct[apos][p] * ppavgA[p];
-    }
-    fprintf(fp, "  %.5f\n", sum / (float) nnongap);
-  }
-  fprintf(fp, "//\n");
-
-  return eslOK;
-}
-
-
-/* dump_posterior_sequence_info
- *                   
- * Dump per-sequence posterior probability data to a file.
- *
- */      
-static int dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *errbuf)
-{
-  int    i,p,apos;     /* counters over sequences, columns of MSA */
-  int    ppidx;
-  int    nppvals = 12;
-  int    nnongap;
-  double sum;
-  float ppavgA[11];
-  char ppstring[12] = "0123456789*.";
-  int seq_pp_ct[12];
-
-  ppavgA[0]  = 0.025;  
-  ppavgA[1]  = 0.10;
-  ppavgA[2]  = 0.20;
-  ppavgA[3]  = 0.30;
-  ppavgA[4]  = 0.40;
-  ppavgA[5]  = 0.50;
-  ppavgA[6]  = 0.60;
-  ppavgA[7]  = 0.70;
-  ppavgA[8]  = 0.80;
-  ppavgA[9]  = 0.90;
-  ppavgA[10] = 0.975;
-
-  fprintf(fp, "# Posterior probability stats per sequence:\n");
-  fprintf(fp, "# MSA idx: %d\n", nali);
-  if(msa->name != NULL) { fprintf(fp, "# MSA name: %s\n", msa->name); }
-  fprintf(fp, "# Number of sequences: %d\n", msa->nseq);
-  fprintf(fp, "# %7s  %-40s  %7s", "seqidx", "seqname", "nnongap");
-  for(p = 0; p < nppvals-1; p++) {  /* don't include gaps in per-sequence output */
-    fprintf(fp, "  %7c", ppstring[p]);
-  }
-  fprintf(fp, "  %7s\n", "avgPP");
-
-  fprintf(fp, "# %7s  %40s  %7s", "-------", "----------------------------------------", "-------");
-  for(p = 0; p < nppvals-1; p++) { /* don't include gaps in per-sequence output */
-    fprintf(fp, "  %7s", "-------");
-  }
-  fprintf(fp, "  %7s\n", "-------");
-
-  for(i = 0; i < msa->nseq; i++) { 
-    fprintf(fp, "  %7d  %-40s", i+1, msa->sqname[i]);
-    sum = 0.;
-    esl_vec_ISet(seq_pp_ct, nppvals, 0);
-    for(apos = 0; apos < msa->alen; apos++) { 
-      if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-      seq_pp_ct[ppidx]++;
-    }
-    nnongap = esl_vec_ISum(seq_pp_ct, 11);
-    fprintf(fp, "  %7d", nnongap);
-    for(p = 0; p < nppvals-1; p++) { /* don't include gaps in per-sequence output */
-      fprintf(fp, "  %7d", seq_pp_ct[p]);
-      if(p <= 10) sum += (float) seq_pp_ct[p] * ppavgA[p];
-    }
-    fprintf(fp, "  %.5f\n", sum / (float) nnongap);
-  }
-  fprintf(fp, "//\n");
-
-  return eslOK;
-}
-
-
-/* dump_insert_info
- *                   
- * Given an MSA with RF annotation, print out information about how many 'insertions' come
- * after each non-gap RF column (consensus column). 
- */
-static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int *i_am_rf, char *errbuf)
-{
-  int status;
-  int apos, rfpos;
-  int **ict;
-  int *total_ict, *med_ict;
-  int i, l;
-  int rflen;
-  int nseq;
-  int *len;
-
-  /* contract check */
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
-  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iinfo.");
-  if(i_am_rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "internal error, dump_insert_info() i_am_rf is NULL.");
-
-  ESL_ALLOC(total_ict, sizeof(int) * (msa->alen+2));
-  ESL_ALLOC(med_ict,   sizeof(int) * (msa->alen+2));
-  esl_vec_ISet(total_ict, (msa->alen+2), 0);
-  esl_vec_ISet(med_ict,   (msa->alen+2), 0);
-
-  ESL_ALLOC(ict,  sizeof(int *) * (msa->alen+2));
-  for(i = 0; i <= msa->alen; i++)
-    {
-      ESL_ALLOC(ict[i],  sizeof(int) * (msa->nseq));
-      esl_vec_ISet(ict[i], (msa->nseq), 0);
-    }
-
-  fprintf(fp, "# Insert information:\n");
-  fprintf(fp, "# MSA idx: %d\n", nali);
-  if(msa->name != NULL) { fprintf(fp, "# MSA name: %s\n", msa->name); }
-  fprintf(fp, "# Number of sequences: %d\n", nseq);
-  fprintf(fp, "# %8s  %10s  %8s  %8s  %8s\n", "rfpos",    "nseq w/ins",  "freq ins", "avg len",  "med len");
-  fprintf(fp, "# %8s  %10s  %8s  %8s  %8s\n", "--------", "----------", "--------", "--------", "--------");
-
-  rfpos = 0;
-  for(apos = 1; apos <= msa->alen; apos++)
-    {
-      if(i_am_rf[apos-1]) rfpos++;
-      else
-	for(i = 0; i < msa->nseq; i++)
-	  if(esl_abc_XIsResidue(msa->abc, msa->ax[i][apos])) { 
-	    ict[rfpos][i]++;
-	    total_ict[rfpos]++;
-	  }	  
-    }
-  rflen = rfpos;
-
-  /* determine avg and median length for each insertion */
-  for(rfpos = 0; rfpos <= rflen; rfpos++)
-    {
-      if(total_ict[rfpos] > 0) { 
-	nseq = 0;
-	for(i = 0; i < msa->nseq; i++) { 
-	  if(ict[rfpos][i] >= 1) nseq++;
-	}
-	ESL_ALLOC(len, sizeof(int) * nseq);
-	l = 0;
-	for(i = 0; i < msa->nseq; i++) { 
-	  if(ict[rfpos][i] >= 1)
-	    len[l++] = ict[rfpos][i];
-	}
-	qsort(len, nseq, sizeof(int), compare_ints);
-	med_ict[rfpos] = len[nseq / 2];
-	free(len);
-      }      
-    }
-  for(rfpos = 0; rfpos <= rflen; rfpos++)
-    {
-      nseq = 0;
-      for(i = 0; i < msa->nseq; i++) if(ict[rfpos][i] >= 1) nseq++;
-      if(nseq > 0) 
-	fprintf(fp, "  %8d  %10d  %8.6f  %8.3f  %8d\n", rfpos, nseq, (float) nseq / (float) msa->nseq, ((float) total_ict[rfpos] / (float) nseq), med_ict[rfpos]);
-    }
-  fprintf(fp, "//\n");
-
-  for(i = 0; i <= msa->alen; i++) free(ict[i]);
-  free(ict);
-  free(total_ict);
-  free(med_ict);
-
-  return eslOK;
-
- ERROR:
-  return status;
+  if      ((* ((int *) el1)) > (* ((int *) el2)))  return 1;
+  else if ((* ((int *) el1)) < (* ((int *) el2)))  return 1;
+  return 0;
 }
