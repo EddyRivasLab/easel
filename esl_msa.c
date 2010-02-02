@@ -6955,6 +6955,7 @@ utest_RegurgitatePfam(char *filename)
 			      -1, -1, -1, -1, /* maxname, maxgf, maxgc, maxgr unknown: output msa formatting will match input msa formatting */
 			      TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* do_header, do_trailer, do_blanks, do_comments, do_gf, do_gs, do_gc, do_gr, do_aseq: print all components */
 			      NULL, /* seqs2regurg: if non-NULL specifies which sequences to keep in output */
+			      NULL, /* seqs2skip:   if non-NULL specifies which sequences to skip in output */
 			      NULL, /* useme:  if non-NULL specifies which columns to keep in output */
 			      NULL, /* add2me: if non-NULL specifies how many gap columns to add in output */
 			      -1,   /* expected alignment length, unknown (must not be if useme != NULL or add2me != NULL */
