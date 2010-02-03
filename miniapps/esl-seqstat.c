@@ -163,7 +163,7 @@ main(int argc, char **argv)
       else if  (wstatus == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
 						 sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else                             esl_fatal("Unexpected error %d reading sequence file %s",
-					         status, sqfp->filename);
+					         wstatus, sqfp->filename);
     }
 
   printf("Format:              %s\n",   esl_sqio_DecodeFormat(sqfp->format));

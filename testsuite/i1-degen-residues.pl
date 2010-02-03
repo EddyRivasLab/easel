@@ -1,14 +1,27 @@
 #! /usr/bin/perl
 
 # Integration tests of reading all valid protein sequence residue characters.
-# Usage:
-#   ./i1-degen-residues.pl <esl-reformat> <esl-shuffle>  <esl-sfetch>  <esl-seqstat>  <tmpfile prefix>
+#
+# Usage:    ./i1-degen-residues.pl <top_builddir> <top_srcdir> <tmpfile prefix>
+# Example:  ./i1-degen-residues.pl .. .. foo
+#
+# SRE, Tue Feb  2 13:09:58 2010 [Janelia]
+# SVN $Id$
 
-$reformat = shift;
-$shuffle  = shift;
-$sfetch   = shift;
-$seqstat  = shift;
-$tmppfx   = shift;
+$top_builddir = shift;
+$top_srcdir   = shift;
+$tmppfx       = shift;
+
+# Make sure that any files/executables we need to access are present.
+if (! -x "$top_builddir/miniapps/esl-reformat") { die "FAIL: esl-reformat not found in $top_builddir/miniapps\n"; }
+if (! -x "$top_builddir/miniapps/esl-shuffle")  { die "FAIL: esl-shuffle not found in $top_builddir/miniapps\n"; }
+if (! -x "$top_builddir/miniapps/esl-sfetch")   { die "FAIL: esl-sfetch not found in $top_builddir/miniapps\n"; }
+if (! -x "$top_builddir/miniapps/esl-seqstat")  { die "FAIL: esl-seqstat not found in $top_builddir/miniapps\n"; }
+
+$reformat = "$top_builddir/miniapps/esl-reformat";
+$shuffle  = "$top_builddir/miniapps/esl-shuffle";
+$sfetch   = "$top_builddir/miniapps/esl-sfetch";
+$seqstat  = "$top_builddir/miniapps/esl-seqstat";
 
 # Create test amino acid and sequence files.
 if (! open(DNAFP, ">$tmppfx.dna")) { print "FAIL: couldn't open $tmppfx.dna for writing"; exit 1;  }
