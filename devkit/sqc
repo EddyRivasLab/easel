@@ -435,7 +435,7 @@ sub check_status
     if ($status != 0)
     {
 	if ($testtype eq "prep") { die "fatal: prep command [$testname]: $errmsg\n"; }
-	print $errmsg;
+	print $errmsg . "\n";
 	$badtest++;
     }
     ($status);
