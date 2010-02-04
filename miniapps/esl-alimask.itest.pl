@@ -14,41 +14,41 @@ if (! -x "$eslalimask") { die "FAIL: didn't find esl-alimask binary $eslalimask"
 
 open(ALIFILE, ">$tmppfx.stk") || die "FAIL: couldn't open $tmppfx.stk for writing alifile";
 print ALIFILE << "EOF";
-\# STOCKHOLM 1.0
+# STOCKHOLM 1.0
 
 seq1         aaAAAA..AAAA...Cc.cCCCCCC.C..GGGGGgggg
-\#=GR seq1 PP 5789**..**88...*9.9****88.7..776543210
+#=GR seq1 PP 5789**..**88...*9.9****88.7..776543210
 seq2         ..AAAAa.AAAAaacCcccCCCCCCcCccGGGGG....
-\#=GR seq2 PP ..********************************....
+#=GR seq2 PP ..********************************....
 seq3         ..AAAA..AAAA...C...CCCCCC.C..GGGG-....
-\#=GR seq3 PP ..5555..4*44...3...888888.8..8899.....
-\#=GC SS_cons ...............<...<<<<......>>>>>....
-\#=GC PP_cons ..789*..8877...8...****99.8..99998....
-\#=GC RF      ..AAAA..AAAA...C...CCCCCC.c..GGGGG....
-\/\/
+#=GR seq3 PP ..5555..4*44...3...888888.8..8899.....
+#=GC SS_cons ...............<...<<<<......>>>>>....
+#=GC PP_cons ..789*..8877...8...****99.8..99998....
+#=GC RF      ..AAAA..AAAA...C...CCCCCC.c..GGGGG....
+//
 EOF
 close ALIFILE;
 
 open(NORFALIFILE, ">$tmppfx.norf.stk") || die "FAIL: couldn't open $tmppfx.stk for writing no RF alifile";
 print NORFALIFILE << "EOF";
-\# STOCKHOLM 1.0
+# STOCKHOLM 1.0
 
 seq1         aaAAAA..AAAA...Cc.cCCCCCC.C..GGGGGgggg
-\#=GR seq1 PP 5789**..**88...*9.9****88.7..776543210
+#=GR seq1 PP 5789**..**88...*9.9****88.7..776543210
 seq2         ..AAAAa.AAAAaacCcccCCCCCCcCccGGGGG....
-\#=GR seq2 PP ..********************************....
+#=GR seq2 PP ..********************************....
 seq3         ..AAAA..AAAA...C...CCCCCC.C..GGGG-....
-\#=GR seq3 PP ..5555..4*44...3...888888.8..8899.....
-\/\/
+#=GR seq3 PP ..5555..4*44...3...888888.8..8899.....
+//
 EOF
 close NORFALIFILE;
 
 open(FULLMASKFILE, ">$tmppfx.fullmask") || die "FAIL: couldn't open $tmppfx.2 for writing full maskfile";
 print FULLMASKFILE << "EOF";
-\#this is a full aln length mask file
+#this is a full aln length mask file
 1010111011
 1110101101
-\#in the middle
+#in the middle
 1101101111
 01101010
 EOF
@@ -56,11 +56,10 @@ close FULLMASKFILE;
 
 open(RFMASKFILE, ">$tmppfx.rfmask") || die "FAIL: couldn't open $tmppfx.rfmask for writing RF maskfile";
 print RFMASKFILE << "EOF";
-\#this is an RF length mask file
+#this is an RF length mask file
 001110101110110111101
 EOF
 close RFMASKFILE;
-
 
 # Note: Not nearly all possible option combinations are tried, but each option is tested
 # in at least one context, usually what I think to be the most common context.

@@ -50,9 +50,9 @@ The default is to write it to standard output.
 .BI --informat "<s> "
 Specify that the input alignment be format 
 .I <s>.
-Choices for 
+At preset, the only valid choices for 
 .I <s> 
-are: 'stockholm', 'pfam', 'a2m', 'psiblast', 'afa'. 'pfam' is a special
+are: 'stockholm', 'pfam', and 'afa'. 'pfam' is a special
 case of Stockholm format in which each sequence is placed on a single
 line, instead of being interleaved; 'afa' is aligned FASTA. By default
 alignments are assumed to be in Stockholm format (either interleaved
@@ -117,6 +117,18 @@ Keep only sequences with names listed in file
 Sequence names listed in 
 .I <f>
 can be separated by tabs, new lines, or spaces.
+By default, the kept sequences will be reorder to the order in
+.I <f>,
+but the original order can be maintained with the
+.B --k-leave
+option.
+
+.TP 
+.BI --k-leave
+With
+.B --seq-k,
+do not reorder the kept sequences in the output alignment to the order
+from the list file. 
 
 .TP 
 .BI --seq-ins " <n>"
@@ -150,6 +162,19 @@ sequence in the
 Trim the sequences in the alignment to match their truncated versions
 in 
 .I <f>.
+If the alignment output format is Stockholm (the default output
+format), all per-column (GC) and per-residue (GR) annotation will be
+removed from the alignment when
+.B --trim
+is used. However, if 
+.B --t-keeprf 
+is also used, the reference annotation (GC RF) will be kept.
+
+.TP 
+.B --t-keeprf
+Specify that the 'trimmed' alignment maintain the original
+reference (GC RF) annotation. Only works in combination with 
+.B --trim.
 
 .TP 
 .BI --tree " <f>"
@@ -183,7 +208,7 @@ existing RF annotation, all gap RF characters will remain gaps and
 nongap RF characters will be redefined as above.
 
 .TP 
-.BI --keeprf
+.BI --m-keeprf
 With 
 .B --mask2rf,
 do not overwrite existing nongap RF characters that are included by

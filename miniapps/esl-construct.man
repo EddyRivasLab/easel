@@ -2,17 +2,12 @@
 
 .SH NAME
 .TP 
-esl-construct - describe or create consensus secondary structures
-
-
+esl-construct - describe or create a consensus secondary structure
 
 .SH SYNOPSIS
 .B esl-construct
 .I [options]
 .I msafile
-
-
-
 
 .SH DESCRIPTION
 
@@ -25,8 +20,9 @@ structure annotation for individual aligned sequences.
 The alignment file must contain either individual sequence secondary
 structure annotation (Stockholm #=GR SS), consensus secondary
 structure annotation (Stockohlm #=GC SS_cons), or both. All structure
-annotation must be in WUSS notation. At present,
-the alignment file must be in Stockholm format.
+annotation must be in WUSS notation (Vienna dot paranetheses notation will be
+correctly interpreted). At present, the alignment file must be in
+Stockholm format and contain RNA or DNA sequences.
 
 .PP
 By default, 
@@ -74,11 +70,6 @@ all options, including expert options.
 List all alignment positions that are involved in at least one
 conflicting basepair in at least one sequence to the screen, and then
 exit.
-
-.TP
-.B -q
-Be quiet; do not print the default table with basepair summary
-statistics to stdout.
 
 .TP
 .B -v

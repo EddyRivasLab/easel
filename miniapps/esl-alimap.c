@@ -254,8 +254,8 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   if(msa1->rf != NULL) if((status = map_rfpos_to_apos(msa1, &rf2a_map1, &a2rf_map1, &rflen1)) != eslOK) goto ERROR;
   if(msa2->rf != NULL) if((status = map_rfpos_to_apos(msa2, &rf2a_map2, &a2rf_map2, &rflen2)) != eslOK) goto ERROR;
   if(! be_quiet) {
-    printf("%25s alignment length:              %d\n", esl_opt_GetArg(go, 1), alen1);
-    printf("%25s alignment length:              %d\n", esl_opt_GetArg(go, 2), alen2);
+    printf("# %-25s alignment length:              %d\n", esl_opt_GetArg(go, 1), alen1);
+    printf("# %-25s alignment length:              %d\n", esl_opt_GetArg(go, 2), alen2);
   }
   /* collect counts in one2two[i][j]: number of sequences for which residue aligned in msa1 non-gap column i
    * is aligned in msa2 alignment column j.
@@ -355,7 +355,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   
   sc = mx[alen1][alen2];
   if(!be_quiet) {
-    printf("score %d\n", sc);
+    /* printf("score %d\n", sc);*/
     if(a2rf_map1 != NULL && a2rf_map2 != NULL) { 
       printf("# %12s       %12s  %22s\n", "   msa 1   ", "   msa 2   ", "");
       printf("# %12s       %12s  %22s\n", "------------", "------------", "");
@@ -412,7 +412,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
 	}	
 	else if(a2rf_map1 != NULL) { 
 	  if (rfpos1 == -1) { 
-	    printf("  %5s  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", "-",   apos1, rfpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	    printf("  %5s  %5d  -->  %5d  %5d / %5d (%.4f)\n", "-",   apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
 	  }
 	  else { 
 	    printf("  %5d  %5d  -->  %5d  %5d / %5d (%.4f)\n", rfpos1, apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
@@ -420,7 +420,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
 	}
 	else if (a2rf_map2 != NULL) { 
 	  if (rfpos2 == -1) { 
-	    printf("  %5d  %5d  -->  %5s  %5d  %5d / %5d (%.4f)\n", rfpos1, apos1, "-",    apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	    printf("  %5d  -->  %5s  %5d  %5d / %5d (%.4f)\n", apos1, "-",    apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
 	  }
 	  else { 
 	    printf("  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", apos1, rfpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 

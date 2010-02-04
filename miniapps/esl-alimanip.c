@@ -29,14 +29,14 @@ static char banner[] = "manipulate a multiple sequence alignment";
 static char usage[]  = "[options] <msafile>";
 
 #define CLUSTOPTS     "--cn-id,--cs-id,--cx-id,--cn-ins,--cs-ins,--cx-ins" /* Exclusive choice for clustering */
-#define CHOOSESEQOPTS "--seq-k,--seq-r,--seq-ins" /* Exclusive choice for choosing which seqs to keep/remove */
+#define CHOOSESEQOPTS "--seq-k,--seq-r,--seq-ins,--reorder" /* Exclusive choice for choosing which seqs to keep/remove */
 
 static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
 static int  write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *amask, int amask_len);
 static int  write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *mask_for_rf, int mask_for_rf_len);
 static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
-static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf);
+static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
@@ -51,7 +51,7 @@ static char digit_to_char(int digit);
 static int  int_ndigits(int i);
 static char get_char_digit_x_from_int(int i, int place);
 static int  read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n);
-static int  msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, ESL_MSA **ret_new_msa);
+static int  msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, int do_reorder, int nali, ESL_MSA **ret_new_msa);
 static int  insert_x_pair_shared(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, int *opt_nshared, int *opt_nins);
 static int  insert_x_pair_shared_length(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, double *opt_nshared, int *opt_nins);
 static int  insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int rflen, int *i_am_rf, int do_length_weight, int do_only_internal_inserts, ESL_DMATRIX **ret_D);
@@ -84,19 +84,22 @@ static ESL_OPTIONS options[] = {
   { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",2 },
   { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                 2 },
   { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>, reorder seqs also",2 },
+  { "--k-leave",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--seq-k", NULL,                  "with --seq-k, don't reorder sequences to order in the list file",2 },
   { "--seq-ins",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/an insert after non-gap RF col <n>",            2 },
   { "--seq-ni",    eslARG_INT,    "1",  NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at least <n> residue insertions",            2 },
   { "--seq-xi",    eslARG_INT,"1000000",NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at most  <n> residue insertions",            2 },
   { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
+  { "--t-keeprf",  eslARG_NONE,   NULL, NULL, NULL,      NULL,"--trim", NULL,                   "w/--trim keep GC RF annotation in msa, if it exists",            2 },
   { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder MSA to tree order following SLC, save Newick tree to <f>",2 },
+  { "--reorder",   eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder seqs to the order listed in <f>, all seqs must be listed",2 },
   /* options for adding/removing alignment annotation */
   { "--mask2rf",   eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f>",              3 },
-  { "--keeprf",    eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--mask2rf", NULL,                "with --mask2rf, do not overwrite nongap RF characters with 'x'", 3 },
+  { "--m-keeprf",  eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--mask2rf", NULL,                "with --mask2rf, do not overwrite nongap RF characters with 'x'", 3 },
   { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                           3 },
   { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the non-gap RF columns",                3 },
   { "--rm-gc",     eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--mask2rf",                "remove GC <s> markup, <s> must be RF|SS_cons|SA_cons|PP_cons",   3 },
   { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "annotate individual secondary structures by imposing consensus", 3 },
-  { "--post2pp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "convert infernal 0.72-1.0 POST posterior prob annotation to PP", 3 },
+  { "--post2pp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "convert infernal 0.72-1.0.2 POST posterior prob annotation to PP", 3 },
   /* options for specifying the alphabet */
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          4 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              4 },
@@ -140,7 +143,7 @@ main(int argc, char **argv)
   float         maxlen;         /* max length seq we'll keep */
   ESL_MSA      *new_msa;        /* a new MSA object created from the msa we read from a file */
 
-  /* variables related to --seq-k and --seq-r */
+  /* variables related to --seq-k and --seq-r and --reorder */
   char   **seqlist;             /* list of sequences to keep in msa */
   int      seqlist_n;           /* number of sequences in seqlist */
   int      n;                   /* counter  over seqnames */ 
@@ -351,15 +354,21 @@ main(int argc, char **argv)
        * Remove sequences based on an input list file (--seq-k or --seq-r)
        ********************************************************************/
       /* handle the --seq-k and --seq-r options if enabled, all subsequent manipulations will omit any seqs removed here */
-      if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r")) {
+      if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r") || esl_opt_IsOn(go, "--reorder")) {
 	if( esl_opt_IsOn(go, "--seq-k")) { 
 	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-k"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
-	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, (! esl_opt_GetBoolean(go, "--k-leave")), nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	  /* new_msa is msa but only with seqs listed in --seq-k <f> file */
+	}
+	else if( esl_opt_IsOn(go, "--reorder")) { 
+	  if((status = read_seq_name_file(esl_opt_GetString(go, "--reorder"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
+	  if(seqlist_n != msa->nseq) esl_fatal("With --reorder <f>, <f> contains %d names, but alignment %d has %d seqs (all seqs must be listed in <f>)", seqlist_n, nali, msa->nseq);
+	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	  /* new_msa is msa but only with seqs listed in --seq-k <f> file */
 	}
 	else { /* --seq-r enabled */
 	  if((status = read_seq_name_file(esl_opt_GetString(go, "--seq-r"), errbuf, &seqlist, &seqlist_n)) != eslOK) esl_fatal(errbuf);	  
-	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, FALSE, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
+	  if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, FALSE, TRUE, nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	  /* new_msa is msa but without seqs listed in --seq-r <f> file */
 	}
 	esl_msa_Destroy(msa);
@@ -422,6 +431,7 @@ main(int argc, char **argv)
        *********************************************************/
       if( esl_opt_IsOn(go, "--seq-ins")) { 
 	if((status = find_seqs_with_given_insert(msa, i_am_rf, errbuf, esl_opt_GetInteger(go, "--seq-ins"), esl_opt_GetInteger(go, "--seq-ni"), esl_opt_GetInteger(go, "--seq-xi"), &useme)) != eslOK) esl_fatal(errbuf);	  
+	if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences satisfy the --seq-ins option.");
 	if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK)  esl_fatal(errbuf);	  
 	/* new_msa is msa but without seqs that do not have an insert of length <a>..<b> (from --seq-ni <a> and --seq-xi <b>) after consensus column <n> from --seq-ins <n> file */
 	esl_msa_Destroy(msa);
@@ -442,7 +452,7 @@ main(int argc, char **argv)
 	/* read the sequences */
 	read_sqfile(trimfp, msa->abc, msa->nseq, &trim_sq); /* dies on failure */
 	/* trim the msa */
-	if((status = trim_msa(msa, trim_sq, errbuf)) != eslOK) esl_fatal(errbuf);
+	if((status = trim_msa(msa, trim_sq, esl_opt_GetBoolean(go, "--t-keeprf"), errbuf)) != eslOK) esl_fatal(errbuf);
 	for(i = 0; i < msa->nseq; i++) esl_sq_Destroy(trim_sq[i]); 
 	free(trim_sq);
 	trim_sq = NULL;
@@ -485,10 +495,10 @@ main(int argc, char **argv)
       /* Rewrite RF annotation based on a mask, if nec */
       if(mask_for_rf != NULL) { /* --mask2rf enabled */
 	if(msa->rf != NULL && mask_for_rf_len == rflen) { /* mask corresponds to RF len */
-	  if((status = write_rf_given_alen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
+	  if((status = write_rf_given_rflen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
 	}
 	else if(mask_for_rf_len == msa->alen) { 
-	  if((status = write_rf_given_rflen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
+	  if((status = write_rf_given_alen(msa, errbuf, i_am_rf, esl_opt_GetBoolean(go, "--m-keeprf"), mask_for_rf, mask_for_rf_len)) != eslOK) esl_fatal(errbuf);
 	}
 	else { 
 	  if(msa->rf != NULL) esl_fatal("msa %d, alignment length is %d, nongap RF length is %d, --mask2rf mask length is neither (%d)", msa->alen, rflen);
@@ -602,7 +612,6 @@ main(int argc, char **argv)
 
       /* Clean up for this msa */
       if(msa      != NULL) { esl_msa_Destroy(msa);                    msa      = NULL; }
-      if(new_msa  != NULL) { esl_msa_Destroy(new_msa);                new_msa  = NULL; }
       if(abc_ct   != NULL) { esl_Free2D((void **) abc_ct, msa->alen); abc_ct   = NULL; }
       if(pp_ct    != NULL) { esl_Free2D((void **) pp_ct, msa->alen);  pp_ct    = NULL; }
       if(i_am_rf  != NULL) { free(i_am_rf);                           i_am_rf  = NULL; }
@@ -655,10 +664,10 @@ write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_cha
   int64_t  apos;
 
   /* contract check, rfgiven_mask must be exact length of msa */
-  if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(amask == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
   if(amask_len != (int) strlen(amask)) { ESL_FAIL(eslEINVAL, errbuf, "write_rf_given_alen(), passed in mask len (%d) is not equal to actual mask length (%d)\n", amask_len, (int) strlen(amask)); }
   if(amask_len != msa->alen) 
-    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask length: %d is not equal to the MSA length (%" PRId64 ")\n", 
+    ESL_FAIL(eslEINVAL, errbuf, "--mask2rf mask length: %d is not equal to the MSA length (%" PRId64 ")\n", 
 	     amask_len, msa->alen); 
   if(msa->rf == NULL) { 
     ESL_ALLOC(msa->rf, sizeof(char) * (msa->alen+1));
@@ -668,9 +677,9 @@ write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_cha
   for (apos = 1; apos <= msa->alen; apos++) {
     if     (amask[(apos-1)] == '0') msa->rf[(apos-1)] = '.';
     else if(amask[(apos-1)] == '1') { 
-      if(! do_keep_rf_chars || i_am_rf == NULL || i_am_rf[(apos-1)]) msa->rf[(apos-1)] = 'x'; /* else, msa has RF nongap char there already, leave it alone */
+      if((! do_keep_rf_chars) || (i_am_rf == NULL) || (! i_am_rf[(apos-1)])) msa->rf[(apos-1)] = 'x'; /* else, msa has RF nongap char there already, leave it alone */
     }
-    else    ESL_FAIL(eslEINVAL, errbuf, "--mask-all mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
+    else    ESL_FAIL(eslEINVAL, errbuf, "--mask2rf mask char number %" PRId64 " is not a 1 nor a 0, but a %c\n", apos, amask[(apos-1)]);
   }
 
   msa->rf[msa->alen] = '\0';
@@ -695,8 +704,8 @@ write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_c
   int64_t  apos, rfpos;
 
   /* contract check, mask must be exact length of msa */
-  if(mask_for_rf  == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask is NULL in write_rf_given, this shouldn't happen.\n");
-  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask-rf mask requires RF annotation in MSA (try -g)\n");
+  if(mask_for_rf  == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask2rf mask is NULL in write_rf_given, this shouldn't happen.\n");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "--mask2rf mask requires RF annotation in MSA (try -g)\n");
   if(mask_for_rf_len != (int) strlen(mask_for_rf)) { ESL_FAIL(eslEINVAL, errbuf, "write_rf_given_rflen(), passed in mask len (%d) is not equal to actual mask length (%d).\n", mask_for_rf_len, (int) strlen(mask_for_rf)); }
 
   rfpos = 0;
@@ -705,7 +714,7 @@ write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_c
       rfpos++;
       if     (mask_for_rf[(rfpos-1)] == '0') msa->rf[(apos-1)] = '.';
       else if(mask_for_rf[(rfpos-1)] == '1') { 
-	if(! do_keep_rf_chars || i_am_rf == NULL || i_am_rf[(apos-1)]) msa->rf[(apos-1)] = 'x'; /* else, msa has RF nongap char there already, leave it alone */
+	if((! do_keep_rf_chars) || (i_am_rf == NULL) || (! i_am_rf[(apos-1)])) msa->rf[(apos-1)] = 'x'; /* else, msa has RF nongap char there already, leave it alone */
       }
     }
     else msa->rf[(apos-1)] = '.'; 
@@ -870,11 +879,14 @@ static int read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_
  *                   
  * Given an MSA and unaligned 'trimmed' versions (subsequences) of all seqs in that MSA, 
  * replace all chars that have been trimmed away (not in subsequences) with gaps in the MSA.
+ * 
+ * We remove all GR and GC markup from the msa, except for possibly #=GC RF if <do_keeprf> 
+ * is TRUE, else we remove that too.
  */
-static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
+static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
 {
   int status;
-  int i;
+  int i, r;
   int apos, uapos;
   int astart,  aend;
   int uastart, uaend;
@@ -918,7 +930,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
 
       esl_strdup(aseq, -1, &(uaseq));
       esl_strdealign(uaseq, uaseq, "-_.~", NULL);
-      offset = strstr(uaseq, uasubseq);
+      offset = strstr(uaseq, uasubseq); /* we'll replace the first occurence of uasubseq in uaseq */
       if(offset == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
       uastart = offset  - uaseq + 1;
       uaend   = uastart + strlen(uasubseq) - 1;
@@ -933,10 +945,41 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, char *errbuf)
       free(uasubseq);
     }
 
-  for(i = 0; i < msa->nseq; i++)
-    esl_sq_Destroy(sq[i]);
-  free(sq);
-      
+  /* Free all per-column annotation that might now be invalid */
+  if(! do_keeprf && msa->rf != NULL) { free(msa->rf); msa->rf = NULL; }
+  if(msa->ss_cons != NULL) { free(msa->ss_cons); msa->ss_cons = NULL; }
+  if(msa->sa_cons != NULL) { free(msa->sa_cons); msa->sa_cons = NULL; }
+  if(msa->pp_cons != NULL) { free(msa->pp_cons); msa->pp_cons = NULL; }
+
+  /* Free all per-residue annotation (alternatively, we could just add gaps to the gaps we've created by 
+   * trimming, but this would cause problems for SS annotation, for example. */
+  if(msa->ss != NULL) { 
+    for(i = 0; i < msa->nseq; i++) if(msa->ss[i] != NULL) { free(msa->ss[i]); }
+    free(msa->ss); 
+    msa->ss = NULL;
+  }
+  if(msa->sa != NULL) { 
+    for(i = 0; i < msa->nseq; i++) if(msa->sa[i] != NULL) { free(msa->sa[i]); }
+    free(msa->sa); 
+    msa->sa = NULL;
+  }
+  if(msa->pp != NULL) { 
+    for(i = 0; i < msa->nseq; i++) if(msa->pp[i] != NULL) { free(msa->pp[i]); }
+    free(msa->pp); 
+    msa->pp = NULL;
+  }
+  if(msa->ngr > 0) { 
+    for(r = 0; r < msa->ngr; r++) { 
+      for(i = 0; i < msa->nseq; i++) if(msa->gr[r][i] != NULL) { free(msa->gr[r][i]); }
+      free(msa->gr[r]);
+    }
+    if(msa->gr_idx != NULL) esl_keyhash_Destroy(msa->gr_idx);
+    msa->gr_idx = NULL;
+    free(msa->gr);
+    msa->gr = NULL;
+    msa->ngr = 0;
+  }
+
   free(aseq);
   return eslOK;
 
@@ -998,8 +1041,9 @@ reorder_msa(ESL_MSA *msa, int *order, char *errbuf)
   ESL_ALLOC(covered, sizeof(int) * msa->nseq);
   esl_vec_ISet(covered, msa->nseq, 0);
   for(i = 0; i < msa->nseq; i++) { 
-    printf("order[i:%4d]: %4d\n", i, order[i]);
-    printf("covered[order[i:%4d]]: %4d\n", i, covered[order[i]]);
+    /* printf("order[i:%4d]: %4d\n", i, order[i]);
+       printf("covered[order[i:%4d]]: %4d\n", i, covered[order[i]]);
+    */
     if(covered[order[i]]) ESL_FAIL(eslEINVAL, errbuf, "reorder_msa() order array has duplicate entries for i: %d\n", i);
     covered[order[i]] = 1;
   }
@@ -1187,10 +1231,15 @@ msa_median_length(ESL_MSA *msa)
     esl_sq_GetFromMSA(msa, i, sq);
     len[i] = sq->n;
     esl_sq_Reuse(sq);
-    /*printf("i: %d len: %d\n", i, len[i]);*/
+    /* printf("i: %d len: %d\n", i, len[i]);*/
   }
 
   qsort(len, msa->nseq, sizeof(int), compare_ints);
+
+  /* for (i = 0; i < msa->nseq; i++) {
+    printf("i: %d len: %d\n", i, len[i]);
+  }
+  */
 
   median = len[msa->nseq / 2];
   free(len);
@@ -1227,6 +1276,7 @@ msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa)
     esl_sq_Reuse(sq);
   }
 
+  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences exceed minimum allowed length.");
   if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
   free(useme);
   esl_sq_Destroy(sq);
@@ -1262,6 +1312,7 @@ msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa)
     esl_sq_Reuse(sq);
   }
 
+  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences are less than maximum allowed length.");
   if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
   free(useme);
   esl_sq_Destroy(sq);
@@ -1470,7 +1521,7 @@ get_char_digit_x_from_int(int i, int place)
  * Store sequences in *ret_seqlist and return it.
  * Each white-space delimited token is considered a 
  * different sequence name. No checking is done in this 
- * function, but rather in subsequent functions. Each sequence name is 
+ * function, but rather in subsequent functions. 
  * 
  * Returns eslOK on success.
  */
@@ -1515,13 +1566,11 @@ read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_s
  *           sequences from msa, or remove all other sequences besides those from msa.
  *           Create and return the new msa with only the specified seqs in <ret_new_msa>.
  * 
- * Note:     Terribly inefficient, does a linear search for each seq, no sorting or anything.
- *
  * Returns: eslOK on success, eslEINVAL if a sequence name in seqlist does not exist in the msa.
  * 
  */
 static int
-msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, ESL_MSA **ret_new_msa)
+msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, int do_reorder, int nali, ESL_MSA **ret_new_msa)
 {
   int  status;
   int *useme;
@@ -1529,30 +1578,28 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
   int *order_all, *order_new;
 
   ESL_MSA *new_msa;
-  ESL_SQ *sq;
-  sq = esl_sq_CreateDigital(msa->abc);
+  if(msa->index == NULL) ESL_FAIL(eslEINVAL, errbuf, "ERROR, msa->index is NULL!");
 
   ESL_ALLOC(useme,     sizeof(int) * msa->nseq);
   ESL_ALLOC(order_all, sizeof(int) * msa->nseq);
   ESL_ALLOC(order_new, sizeof(int) * seqlist_n);
   esl_vec_ISet(order_all, msa->nseq, -1);
+
   if(do_keep) esl_vec_ISet(useme, msa->nseq, FALSE);
   else        esl_vec_ISet(useme, msa->nseq, TRUE); 
-  for(n = 0; n < seqlist_n; n++) { 
-    for (i = 0; i < msa->nseq; i++) {
-      if(strcmp(seqlist[n], msa->sqname[i]) == 0) { 
-	useme[i] = do_keep ? TRUE : FALSE;
-	if(order_all[i] != -1) ESL_FAIL(eslEINVAL, errbuf, "ERROR trying to keep sequence %s twice, it may appear twice in a input list file.", seqlist[n]);
-	  order_all[i] = n;
-	break;
-      }
-      if(i == (msa->nseq-1)) ESL_FAIL(eslEINVAL, errbuf, "ERROR sequence %s does not exist in the MSA!", seqlist[n]);
-    }
-  }      
 
+  for(n = 0; n < seqlist_n; n++) { 
+    if((status = esl_key_Lookup(msa->index, seqlist[n], &i)) == eslENOTFOUND) 
+      ESL_FAIL(status, errbuf, "Error sequence %s does not exist in alignment %d\n", seqlist[n], nali);
+    useme[i] = do_keep ? TRUE : FALSE;
+    if(order_all[i] != -1) ESL_FAIL(eslEINVAL, errbuf, "ERROR sequence %s listed twice in a input list file.", seqlist[n]);
+    order_all[i] = n;
+  }
+
+  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences remaining in the alignment!.");
   if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
   /* if do_keep, reorder to order of names in the list file */
-  if(do_keep) { 
+  if(do_keep && do_reorder) { 
     ip = 0;
     for(i = 0; i < msa->nseq; i++) { 
       if(order_all[i] != -1) order_new[order_all[i]] = ip++;
@@ -1948,7 +1995,8 @@ MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize
   printf("#   idx    nseq\n");
   printf("#  ----  ------\n");
   for(m = 0; m < nc; m++) {
-    if((status = esl_msa_SequenceSubset(mmsa, useme[m], &(cmsa[m]))) != eslOK) ESL_FAIL(status, errbuf, "MSADivide(), esl_msa_SequenceSubset error, status: %d.", status);
+    if(esl_vec_ISum(useme[m], mmsa->nseq) == 0) esl_fatal("No sequences in cluster %d\n"); 
+   if((status = esl_msa_SequenceSubset(mmsa, useme[m], &(cmsa[m]))) != eslOK) ESL_FAIL(status, errbuf, "MSADivide(), esl_msa_SequenceSubset error, status: %d.", status);
     printf("   %4d  %6d\n", m+1, cmsa[m]->nseq);
     free(useme[m]);
   }
@@ -2386,6 +2434,7 @@ static int find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf,
   if(target > clen) ESL_XFAIL(eslEINVAL, errbuf, "--seq-ins <n> enabled with <n> = %d, but non-gap RF length of alignment is only %d columns.", target, clen);
 
   for(i = 0; i < msa->nseq; i++) { 
+    /* printf("ict[target:%d][i:%d]: %d, min: %d max: %d\n", target, i, ict[target][i], min, max); */
     useme[i] = ((ict[target][i] >= min) && (ict[target][i] <= max)) ?  TRUE : FALSE;
   }
 
@@ -2479,6 +2528,7 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);
   for(m = 0; m < nmin; m++) { 
     for(i = 0; i < msa->nseq; i++) useme[i] = (which_minor[i] == m)  ? TRUE : FALSE;
+    if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences selected for minor MSA!\n");
     if((status = esl_msa_SequenceSubset(msa, useme, &(minor_msaA[m]))) != eslOK) ESL_FAIL(status, errbuf, "Error taking subset for minor subset %d with name: %s\n", m, minorA[m]);
 
     /* set name */
@@ -2841,8 +2891,8 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
   else { /* ndigits == 2 */
     for(i = 0; i < msa->nseq; i++) { 
       for(apos = 0; apos < msa->alen; apos++) { 
-	if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][i][apos])) {
-	  if(esl_abc_CIsGap(msa->abc, msa->gr[ridx2][i][apos])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value non-gap but post 'ones' value is gap.\n", i, apos);
+	if(esl_abc_CIsGap(msa->abc, msa->gr[ridx1][i][apos])) {
+	  if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx2][i][apos])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value gap but post 'ones' value is gap.\n", i, apos);
 	  msa->pp[i][apos] = '.';
 	}
 	else if(msa->gr[ridx1][i][apos] == '*') {
@@ -2869,10 +2919,12 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
    * the msa's GR annotation only consists of the posterior annotation, so 
    * we can safely remove GR altogether (without worrying about reordering other GRs) */
   free(msa->gr);
+  msa->gr = NULL;
   msa->ngr = 0;
   /* gr_idx will no longer be valid so we destroy it, 
    * we could recreate it, but it's only used for parsing anyhow */
   if(msa->gr_idx != NULL) esl_keyhash_Destroy(msa->gr_idx); 
+  msa->gr_idx = NULL;
   
   return eslOK;
 
@@ -2925,11 +2977,15 @@ write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapt
  * 
  * Purpose:  Comparison function for qsort(). Used 
  *           by msa_median_length().
+ *
+ * Return 1 if el1 > el2, -1 if el1 < el2 and 0 if el1 == el2.
+ * This will result in a sorted list with smallest
+ * element as the first element, largest as the last.
  */ 
-static int 
+int 
 compare_ints(const void *el1, const void *el2)
 {
   if      ((* ((int *) el1)) > (* ((int *) el2)))  return 1;
-  else if ((* ((int *) el1)) < (* ((int *) el2)))  return 1;
+  else if ((* ((int *) el1)) < (* ((int *) el2)))  return -1;
   return 0;
 }

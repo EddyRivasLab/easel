@@ -99,6 +99,13 @@ Stockholm format).
 .SH EXPERT OPTIONS
 
 .TP
+.BI --informat " <s>"
+Specify that the input alignment is in 
+.I <s>
+format. At present, valid formats are limited to
+Stockholm, Pfam, and AFA (aligned FASTA).
+
+.TP
 .B --amino
 Assert that the 
 .I msafile 

@@ -14,22 +14,22 @@ if (! -x "$eslalimerge") { die "FAIL: didn't find esl-alimerge binary $eslalimer
 
 open(ALIFILE, ">$tmppfx.1") || die "FAIL: couldn't open $tmppfx.1 for writing alifile";
 print ALIFILE << "EOF";
-\# STOCKHOLM 1.0
+# STOCKHOLM 1.0
 seq1     aaAAAA.AAAA...Cc.cCCCCCC.C..GGGGGgggg
 seq2     ..AAAAaAAAAaacCcccCCCCCCcCccGGGGG....
-\#=GC RF ..AAAA.AAAA...C...CCCCCC.c..GGGGG....
-\/\/
+#=GC RF ..AAAA.AAAA...C...CCCCCC.c..GGGGG....
+//
 EOF
 close ALIFILE;
 
 open(ALIFILE, ">$tmppfx.2") || die "FAIL: couldn't open $tmppfx.2 for writing alifile";
 print ALIFILE << "EOF";
-\# STOCKHOLM 1.0
+# STOCKHOLM 1.0
 #=GS seq3 sequence 3 is the best!
 seq3     AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
 seq4     AAAAAaaAAAaccccC-CccCCCCccccccgGggGGggGGg
-\#=GC RF AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
-\/\/
+#=GC RF AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
+//
 EOF
 close ALIFILE;
 

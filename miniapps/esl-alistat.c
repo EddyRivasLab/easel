@@ -16,7 +16,7 @@
 
 static char banner[] = "show summary statistics for a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
-The <msafile> must be in Stockholm format.";
+The <msafile> must be in Stockholm or AFA (aligned FASTA) format.";
 
 static int  dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
 static int  dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
@@ -38,7 +38,7 @@ static ESL_OPTIONS options[] = {
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
   { "--small",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln size)", 2 },
   /* options for optional output files */
-  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "output list of sequence names in alignment(s) to file <f>",      3 },
+  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, "--small",   "output list of sequence names in alignment(s) to file <f>",      3 },
   { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print info on information content alignment column",             3 },
   { "--rinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print info on # of non-gap residues in each column to <f>",      3 },
   { "--pcinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print per-column   posterior probability info to <f>",           3 },
@@ -228,7 +228,6 @@ main(int argc, char **argv)
 	  }
 
 	esl_dst_XAverageId(abc, msa->ax, msa->nseq, max_comparisons, &avgid);
-	printf("%f\n", avgid);
       }
       else { /* --small invoked */
 	for(i = 0; i < alen; i++) nres += (int) esl_vec_DSum(abc_ct[i], abc->K);
@@ -281,9 +280,10 @@ main(int argc, char **argv)
 	fprintf(listfp, "# List of sequences:\n");
 	fprintf(listfp, "# Alignment file: %s\n", alifile);
 	fprintf(listfp, "# Alignment idx:  %d\n", nali);
+	if(msa->name != NULL) { fprintf(listfp, "# Alignment name: %s\n", msa->name); }
 	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
       } 
-
+      
       if((esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo")) || esl_opt_IsOn(go, "--iinfo")) {
 	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
 	 * and rf2a_map, a map of non-gap RF positions to overall alignment positions */
@@ -335,6 +335,10 @@ main(int argc, char **argv)
 
   /* Cleanup, normal return
    */
+  if(listfp != NULL) { 
+    fclose(listfp);
+    printf("# List of sequences saved to file %s.\n", esl_opt_GetString(go, "--list"));
+  }
   if(icinfofp != NULL) { 
     fclose(icinfofp);
     printf("# Information content data saved to file %s.\n", esl_opt_GetString(go, "--icinfo")); 
@@ -867,11 +871,15 @@ static int map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int6
 /* Function: compare_ints()
  * 
  * Purpose:  Comparison function for qsort(). 
+ *
+ * Return 1 if el1 > el2, -1 if el1 < el2 and 0 if el1 == el2.
+ * This will result in a sorted list with smallest
+ * element as the first element, largest as the last.
  */ 
 static int 
 compare_ints(const void *el1, const void *el2)
 {
   if      ((* ((int *) el1)) > (* ((int *) el2)))  return 1;
-  else if ((* ((int *) el1)) < (* ((int *) el2)))  return 1;
+  else if ((* ((int *) el1)) < (* ((int *) el2)))  return -1;
   return 0;
 }
