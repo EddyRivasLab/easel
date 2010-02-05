@@ -1146,6 +1146,13 @@ esl_FileEnvOpen(const char *fname, const char *env, FILE **opt_fp, char **opt_pa
  *            end in "XXXXXX" (for example, "esltmpXXXXXX"). The
  *            <basename6X> is used to construct a unique tmpfile name.
  *            
+ *            Note that this string must be modifiable; do not declare
+ *            it <char *tmpfile = "esltmpXXXXXX";> nor <char tmpfile[]
+ *            = "esltmpXXXXXX";> because these will not work on some
+ *            compilers. Something like <char tmpfile[16] =
+ *            "esltmpXXXXXX";> that explicitly allocates storage will
+ *            suffice.
+ *            
  *            The file is opened in a standard temporary file
  *            directory. The path is obtained from the environment
  *            variable <TMPDIR>; failing that, from the environment

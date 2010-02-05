@@ -1136,11 +1136,11 @@ esl_mixdchlet_Write(FILE *fp, ESL_MIXDCHLET *d)
 static void
 utest_io(ESL_MIXDCHLET *d, double tol)
 {
-  char           *msg       = "esl_dirichlet: io unit test failed";
-  ESL_MIXDCHLET  *d2        = NULL;
-  ESL_FILEPARSER *efp       = NULL;
-  FILE           *fp        = NULL;
-  char            tmpfile[] = "esltmpXXXXXX";
+  char           *msg         = "esl_dirichlet: io unit test failed";
+  ESL_MIXDCHLET  *d2          = NULL;
+  ESL_FILEPARSER *efp         = NULL;
+  FILE           *fp          = NULL;
+  char            tmpfile[16] = "esltmpXXXXXX";
 
   /* Create a mixture Dirichlet file, as a named tmpfile.  */
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
