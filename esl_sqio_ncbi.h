@@ -52,6 +52,12 @@ typedef struct esl_sqncbi_s {
   int            hdr_size;         /* size of the current header               */
   uint32_t       hdr_fpos;         /* offset into the .phr file                */
 
+  /* information on the current sequence */
+  uint32_t       seq_apos;         /* position of ambiguity table              */
+  uint32_t       seq_alen;         /* size of ambiguity table                  */
+  uint32_t       seq_cpos;         /* current position in ambiguity table      */
+  int32_t        seq_L;            /* true sequence length                     */
+
   /* alphabet used to convert ncbi to hmmer to ascii */
   int            alphatype;        /* amino or dna                             */
   char          *alphasym;         /* string of residues                       */

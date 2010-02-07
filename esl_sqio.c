@@ -7,7 +7,7 @@
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Writing sequences.
- *    7. Benchmark driver.
+ *    7. Functions specific to sqio
  *    8. Benchmark driver.
  *    9. Unit tests.
  *   10. Test driver.
@@ -1211,6 +1211,7 @@ static ESL_OPTIONS options[] = {
   { "-C",        eslARG_INT,    "100",  NULL, NULL,  NULL,  NULL, NULL, "context size for ReadWindow()",                    0 },
   { "-W",        eslARG_INT,   "1000",  NULL, NULL,  NULL,  NULL, NULL, "window size for ReadWindow()",                     0 },
   { "-2",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  "-w", NULL, "with ReadWindow(), do both strands",               0 },
+  { "--format",  eslARG_STRING,  NULL,  NULL, NULL,  NULL,  NULL, NULL, "assert <seqfile> is in format <s>",                0 },
   { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet, not DNA",                    0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
@@ -1239,6 +1240,11 @@ main(int argc, char **argv)
   int            n        = 0;
   int64_t        magic    = 0;
   int64_t        nr       = 0;
+
+  if (esl_opt_IsOn(go, "--format")) {
+    format = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--format"));
+    if (format == eslSQFILE_UNKNOWN) esl_fatal("unrecognized database format %s\n", esl_opt_GetString(go, "--format"));
+  }
 
   if (esl_opt_GetBoolean(go, "-d"))
     {
@@ -1283,7 +1289,6 @@ main(int argc, char **argv)
 	    if (do_crick)           { W = -W; }
 	    continue;
 	  } else if (wstatus != eslOK) esl_fatal("Error: %s", esl_sqfile_GetErrorBuf(sqfp));
-
 	  nr += sq->W;
 	}
     }

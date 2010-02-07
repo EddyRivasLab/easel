@@ -62,6 +62,9 @@ static const char *sqncbi_GetError (const ESL_SQFILE *sqfp);
 static int  get_offsets         (ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq, off_t *amb);
 static int  read_amino          (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  read_dna            (ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb);
+static int  read_nres_amino     (ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres);
+static int  read_nres_dna       (ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres);
+
 static int  inmap_ncbi          (ESL_SQFILE *sqfp);
 static int  inmap_ncbi_amino    (ESL_SQFILE *sqfp);
 static int  inmap_ncbi_dna      (ESL_SQFILE *sqfp);
@@ -150,6 +153,8 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->amb_indexes  = NULL;
 
   ncbi->hdr_buf      = NULL;
+
+  ncbi->amb_off      = 0;
 
   ncbi->alphatype    = eslUNKNOWN;
   ncbi->alphasym     = NULL;
@@ -565,16 +570,12 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   int     status;
 
-  void   *tmp;
-
   off_t   hdr_start;
   off_t   hdr_end;
   off_t   seq_start;
   off_t   seq_end;
 
   off_t   amb;
-
-  int     size;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
@@ -596,27 +597,15 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
     status = read_dna(sqfp, sq, amb);
   if (status != eslOK) return status;
 
-  /* read in the header data */
-  size = hdr_end - hdr_start;
-  if (ncbi->hdr_alloced < size) {
-    while (ncbi->hdr_alloced < size) ncbi->hdr_alloced += ncbi->hdr_alloced;
-    ESL_RALLOC(ncbi->hdr_buf, tmp, sizeof(char) * ncbi->hdr_alloced);
-  }
-  if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fpphr) != size) return eslEFORMAT;
-  ncbi->hdr_ptr  = ncbi->hdr_buf;
+  /* read and parse the ncbi header */
   ncbi->hdr_fpos = hdr_start;
-  ncbi->hdr_size = size;
-
-  /* parse the ncbi header */
+  ncbi->hdr_size = hdr_end - hdr_start;
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
 
   /* update the sequence index */
   ++ncbi->index;
 
   return eslOK;
-
- ERROR:
-  return eslEMEM;
 }
 
 
@@ -641,14 +630,10 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   int     status;
 
-  void   *tmp;
-
   off_t   hdr_start;
   off_t   hdr_end;
   off_t   seq_start;
   off_t   seq_end;
-
-  int     size;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
@@ -673,27 +658,15 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
   /* figure out the sequence length */
   sq->L = -1;
 
-  /* read in the header data */
-  size = hdr_end - hdr_start;
-  if (ncbi->hdr_alloced < size) {
-    while (ncbi->hdr_alloced < size) ncbi->hdr_alloced += ncbi->hdr_alloced;
-    ESL_RALLOC(ncbi->hdr_buf, tmp, sizeof(char) * ncbi->hdr_alloced);
-  }
-  if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fpphr) != size) return eslEFORMAT;
-  ncbi->hdr_ptr  = ncbi->hdr_buf;
+  /* read and parse the ncbi header */
   ncbi->hdr_fpos = hdr_start;
-  ncbi->hdr_size = size;
-
-  /* parse the ncbi header */
+  ncbi->hdr_size = hdr_end - hdr_start;
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
 
   /* update the sequence index */
   ++ncbi->index;
 
   return eslOK;
-
- ERROR:
-  return eslEMEM;
 }
 
 
@@ -765,12 +738,263 @@ sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
  * Synopsis:  Read next window of sequence.
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
- * Returns:   <eslEUNIMPLEMENTED>.
+ * Purpose:   Read a next window of <W> residues from open file <sqfp>,
+ *            keeping <C> residues from the previous window as
+ *            context, and keeping previous annotation in the <sq>
+ *            as before. 
+ *            
+ *            If this is the first window of a new sequence record,
+ *            <C> is ignored (there's no previous context yet), and
+ *            the annotation fields of the <sq> (name, accession, and
+ *            description) are initialized by reading the sequence
+ *            record's header. This is the only time the annotation
+ *            fields are initialized.
+ *            
+ *            On return, <sq->dsq[]> contains the window and its
+ *            context; residues <1..sq->C> are the previous context,
+ *            and residues <sq->C+1..sq->n> are the new window.  The
+ *            start and end coordinates of the whole <dsq[1..n]>
+ *            (including context) in the original source sequence are
+ *            <sq->start..sq->end>. (Or, for text mode sequences,
+ *            <sq->seq[0..sq->C-1,sq->C..sq->n-1]>, while <start> and
+ *            <end> coords are still <1..L>.)
+ *
+ *            When a sequence record is completed and no more data
+ *            remain, <eslEOD> is returned, with an ``info'' <sq>
+ *            structure (containing the annotation and the total
+ *            sequence length <L>, but no sequence). (The total
+ *            sequence length <L> is unknown in <sq> until this
+ *            <eslEOD> return.)
+ *            
+ *            The caller may then do one of two things before calling
+ *            <esl_sq_ReadWindow()> again; it can reset the sequence
+ *            with <esl_sq_Reuse()> to continue reading the next
+ *            sequence in the file, or it can set a negative <W> as a
+ *            signal to read windows from the reverse complement
+ *            (Crick) strand. Reverse complement reading only works
+ *            for nucleic acid sequence. 
+ *            
+ *            If you read the reverse complement strand, you must read
+ *            the whole thing, calling <esl_sqio_ReadWindow()> with
+ *            negative <W> windows until <eslEOD> is returned again
+ *            with an empty (info-only) <sq> structure. When that
+ *            <EOD> is reached, the <sqfp> is repositioned at the
+ *            start of the next sequence record; the caller should now
+ *            <Reuse()> the <sq>, and the next <esl_sqio_ReadWindow()>
+ *            call must have a positive <W>, corresponding to starting
+ *            to read the Watson strand of the next sequence.
+ *
+ *            Note that the <ReadWindow()> interface is designed for
+ *            an idiom of sequential reading of complete sequences in
+ *            overlapping windows, possibly on both strands; if you
+ *            want more freedom to move around in the sequence
+ *            grabbing windows in another order, you can use the
+ *            <FetchSubseq()> interface.
+ *
+ *            Reading the reverse complement strand requires file
+ *            repositioning, so it will not work on non-repositionable
+ *            streams like gzipped files or a stdin pipe. Moreover,
+ *            for reverse complement input to be efficient, the
+ *            sequence file should have consistent line lengths, 
+ *            suitable for SSI's fast subsequence indexing.
+ *            
+ * Returns:   <eslOK> on success; <sq> now contains next window of
+ *            sequence, with at least 1 new residue. The number
+ *            of new residues is <sq->W>; <sq->C> residues are 
+ *            saved from the previous window. Caller may now
+ *            process residues <sq->dsq[sq->C+1]..sq->dsq[sq->n]>.
+ *            
+ *            <eslEOD> if no new residues were read for this sequence
+ *            and strand, and <sq> now contains an empty info-only
+ *            structure (annotation and <L> are valid). Before calling
+ *            <esl_sqio_ReadWindow()> again, caller will either want
+ *            to make <W> negative (to start reading the Crick strand
+ *            of the current sequence), or it will want to reset the
+ *            <sq> (with <esl_sq_Reuse()>) to go on the next sequence.
+ *            
+ *            <eslEOF> if we've already returned <eslEOD> before to
+ *            signal the end of the previous seq record, and moreover,
+ *            there's no more sequence records in the file.
+ *            
+ *            <eslEINVAL> if an invalid residue is found in the
+ *            sequence, or if you attempt to take the reverse
+ *            complement of a sequence that can't be reverse
+ *            complemented.
+ *
+ * Throws:    <eslESYNTAX> if you try to read a reverse window before
+ *            you've read forward strand.
+ *            
+ *            <eslECORRUPT> if something goes awry internally in the
+ *            coordinate system.
+ *            
+ *            <eslEMEM> on allocation error.
  */
 static int
 sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 {
-  return eslEUNIMPLEMENTED;
+  uint64_t  nres;
+  int       status;
+
+  off_t     hdr_start;
+  off_t     hdr_end;
+  off_t     seq_start;
+  off_t     seq_end;
+
+  off_t     amb;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  /* Negative W indicates reverse complement direction */
+  if (W < 0)	
+    {
+      if (sq->L == -1) ESL_EXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
+
+      /* update the sequence index */
+      if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK) 
+	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
+
+      if (sq->end == 1) 
+	{ /* last end == 1 means last window was the final one on reverse strand,
+	   * so we're EOD; jump back to last forward position. 
+	   */
+	  sq->start      = 0;
+	  sq->end        = 0;
+	  sq->C          = 0;
+	  sq->W          = 0;
+	  sq->n          = 0;
+	  /* sq->L stays as it is */
+	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
+	  else                 sq->seq[0] = '\0';
+
+	  /* update the sequence index */
+	  if ((status = sqncbi_Position(sqfp, ncbi->index+1)) != eslOK) 
+	    ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
+
+	  return eslEOD;
+	}
+
+      /* If s == 0, we haven't read any reverse windows yet; 
+       * init reading from sq->L
+       */
+      W = -W;
+      if (sq->start == 0)	
+	{
+	  sq->start        = ESL_MAX(1, (sq->L - W + 1)); 
+	  sq->end          = sq->start;
+	  sq->C            = 0;
+	}
+      else
+	{ /* Else, we're continuing to next window; prv was <end>..<start> */
+	  sq->C     = ESL_MIN(C, sq->L - sq->end + 1);  /* based on prev window's end */
+	  sq->start = ESL_MAX(1, (sq->end - W));
+	  W         = sq->end - sq->start + sq->C;
+	  sq->end   = sq->start;
+	}
+
+      /* grab the subseq and rev comp it */
+      if ((status = esl_sq_GrowTo(sq, W)) != eslOK) return status;
+      sq->n = 0;
+      if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
+      else                             status = read_nres_dna(sqfp, sq, W, &nres);
+      
+      if (status != eslOK || nres != W) {
+	ESL_EXCEPTION(eslECORRUPT, "Failed to extract %d..%d", sq->start, sq->end);
+      } else {
+	sq->end        = sq->start + nres - 1;	  
+	sq->W          = nres - sq->C;	  
+      }
+
+      status = esl_sq_ReverseComplement(sq);
+      if      (status    == eslEINVAL) ESL_FAIL(eslEINVAL, ncbi->errbuf, "can't reverse complement that seq - it's not DNA/RNA");
+      else if (status    != eslOK)     return status;
+
+      return eslOK;
+    } 
+
+  /* Else, we're reading the forward strand */
+  else 
+    { /* sq->start == 0 means we haven't read any windows on this sequence yet...
+       * it's a new record, and we need to initialize with the header and
+       * the first window. This is the only case that we're allowed to return
+       * EOF from.
+       */
+      if (sq->start == 0)
+	{
+	  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+
+	  /* get the sequence and header offsets */
+	  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
+	  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
+
+	  /* Disk offset bookkeeping */
+	  sq->idx  = ncbi->index;
+	  sq->roff = hdr_start;
+	  sq->doff = seq_start;
+	  sq->hoff = hdr_end;
+	  sq->eoff = seq_end;
+
+	  /* sequence bookkeeping */
+	  if (ncbi->alphatype == eslAMINO) {
+	    ncbi->seq_apos = 0;
+	    ncbi->seq_alen = 0;
+	  } else {
+	    ncbi->seq_apos = amb;
+	    ncbi->seq_alen = seq_end - amb;
+	  }
+	  ncbi->seq_cpos = -1;
+	  ncbi->seq_L    = -1;
+
+	  /* read and parse the ncbi header */
+	  ncbi->hdr_fpos = hdr_start;
+	  ncbi->hdr_size = hdr_end - hdr_start;
+	  if ((status = parse_header(ncbi, sq)) != eslOK) return status;
+
+	  sq->start    = 1;
+	  sq->C        = 0;	/* no context in first window                   */
+	  sq->L        = -1;	/* won't be known 'til EOD.                     */
+	  ncbi->seq_L  = -1;	/* init to 0, so we can count residues as we go */
+	  esl_sq_SetSource(sq, sq->name);
+	}
+      else
+	{ /* else we're reading a window other than first; slide context over. */
+	  sq->C = ESL_MIN(C, sq->n);
+	  if (sq->seq != NULL) memmove(sq->seq,   sq->seq + sq->n - sq->C,     sq->C);
+	  else                 memmove(sq->dsq+1, sq->dsq + sq->n - sq->C + 1, sq->C);
+	  sq->start = sq->end - sq->C + 1;
+	  sq->n = C;
+	}      
+
+      if ((status = esl_sq_GrowTo(sq, C+W)) != eslOK)                return status; /* EMEM    */
+      if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
+      else                             status = read_nres_dna(sqfp, sq, W, &nres);
+
+      if (status == eslEOD)	
+	{
+	  sq->start  = 0;
+	  sq->end    = 0;
+	  sq->C      = 0;
+	  sq->W      = 0;
+	  sq->n      = 0;
+
+	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL; /* erase the saved context */
+	  else                 sq->seq[0] = '\0';
+
+	  /* update the sequence index */
+	  if ((status = sqncbi_Position(sqfp, ncbi->index+1)) != eslOK) 
+	    ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
+
+	  return eslEOD;
+	}
+      else if (status == eslOK)
+	{ /* Forward strand is still in progress. <= W residues were read. Return eslOK. */
+	  sq->end        = sq->start + sq->C + nres - 1;	  
+	  sq->W          = nres;	  
+	  return eslOK;
+	}
+      else return status;	/* EFORMAT,EMEM */
+    }
+  /*NOTREACHED*/
+  return eslOK;
 }
 
 /* Function:  sqncbi_ReadBlock()
@@ -822,6 +1046,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
 static int
 sqncbi_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 {
+  ESL_EXCEPTION(eslEINVAL, "can't Echo() a sequence from NCBI database");
   return eslEUNIMPLEMENTED;
 }
 /*------------------ end, sequential sequence input -------------*/
@@ -1074,6 +1299,285 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb)
   sq->W     = length;
   sq->L     = length;
   sq->n     = length;
+
+  return eslOK;
+
+ ERROR:
+  return eslEMEM;
+}
+
+
+/* Function:  read_nres_amino()
+ * Synopsis:  Read in the amino sequence
+ * Incept:    MSF, Wed Jan 27, 2010 [Janelia]
+ *
+ * Purpose:   Read and translate the dna sequence.
+ */
+static int
+read_nres_amino(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
+{
+  int     inx;
+  int     off;
+  int     size;
+
+  char   *ptr;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+
+  /* if we don't know the sequence length, figure it out */
+  if (ncbi->seq_L == -1) ncbi->seq_L = sq->eoff - sq->doff - 1;
+
+  /* check if we are at the end */
+  if (sq->start + sq->n > ncbi->seq_L) {
+    if (nres != NULL) *nres = 0;
+    sq->L = ncbi->seq_L;
+    return eslEOD;
+  }
+
+  /* figure out if the sequence is in digital mode or not */
+  ptr = (sq->dsq != NULL) ? (char *)sq->dsq + 1 : sq->seq;
+  ptr += sq->n;
+
+  /* calculate where to start reading from */
+  off   = sq->doff + sq->start + sq->n - 1;
+
+  /* calculate the size to read */
+  size = ncbi->seq_L - (sq->start + sq->n - 1);
+  size = (size > len) ? len : size;
+
+  /* seek to the windows location and read into the buffer */
+  if (fseek(ncbi->fppsq, off, SEEK_SET) != 0) return eslESYS;
+  if (fread(ptr, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
+
+  /* figure out if the sequence is in digital mode or not */
+  for (inx = 0; inx < size; ++inx) {
+    *ptr = sqfp->inmap[(int) *ptr];
+    if (sq->dsq == NULL) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  *ptr = (sq->dsq == NULL) ? '\0' : eslDSQ_SENTINEL;
+
+  sq->n = sq->n + size;
+
+  if (nres != NULL) *nres = size;
+
+  return eslOK;
+}
+
+/* Function:  correct_ambiguity()
+ * Synopsis:  Read in the dna sequence
+ * Incept:    MSF, Thu Feb 4, 2010 [Janelia]
+ *
+ * Purpose:   Correct any ambiguity characters.
+ */
+static int
+correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
+{
+  int     alen;         /* ambiguity length      */
+  int     soff;         /* starting offset       */
+  int     eoff;         /* ending offset         */
+  int     ainx;         /* ambiguity index       */
+  int     size;         /* size of table read in */
+  int     cnt;          /* repeat count          */
+  int     off;
+  int     n;
+
+  char   *ptr;
+
+  unsigned char c;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if (ncbi->seq_alen == 0) return eslOK;
+
+  if (fseek(ncbi->fppsq, ncbi->amb_off, SEEK_SET) != 0) return eslESYS;
+
+  ptr = (sq->dsq != NULL) ? (char *)sq->dsq + 1 : sq->seq;
+  ptr += sq->n;
+
+  /* calculate the starting and ending offsets */
+  soff = sq->start + sq->n - 1;
+  eoff = soff + len;
+
+  off = 0;
+  ainx = 0;
+  size = 0;
+  alen = ncbi->seq_alen - 4;
+  while (off < eoff) {
+    /* check if we need to read in more of the  abmiguity table */
+    if (ainx == size) {
+      size = alen;
+      size = (size > INIT_HDR_BUFFER_SIZE) ? INIT_HDR_BUFFER_SIZE : size;
+      if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
+      alen -= size;
+      ainx = 0;
+    }
+
+    /* get the ambiguity character */
+    n = ((ncbi->hdr_buf[ainx] >> 4) & 0x0f);
+    c = sqfp->inmap[n];
+    if (sq->dsq == NULL) c = ncbi->alphasym[(int) c];
+
+    /* get the repeat count */
+    cnt = (ncbi->hdr_buf[ainx] & 0x0f) + 1;
+
+    /* get the offset */
+    off = ncbi->hdr_buf[ainx+1];
+    off = (off << 8) | ncbi->hdr_buf[ainx+2];
+    off = (off << 8) | ncbi->hdr_buf[ainx+3];
+
+    if (off + cnt >= soff && off < eoff) {
+      int inx;
+      int start = (off > soff) ? off - soff : 0;
+      int end   = (off + cnt > eoff) ? eoff : off - soff + cnt;
+      for (inx = start; inx < end; ++inx) ptr[inx] = c;
+    }
+
+    off += cnt;
+    ainx += 4;
+  }
+
+  return eslOK;
+}
+
+/* Function:  read_nres_dna()
+ * Synopsis:  Read in the dna sequence
+ * Incept:    MSF, Wed Jan 27, 2010 [Janelia]
+ *
+ * Purpose:   Read and translate the dna sequence.
+ */
+static int
+read_nres_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
+{
+  int     inx;
+  int     off;
+  int     cnt;
+  int     ncnt;
+  int     start;
+  int     skip;
+  int     text;
+  int     status;
+
+  int     remainder;
+  int     length;
+  int     ssize;
+  int     n;
+
+  char   *ptr;
+  void   *t;
+
+  unsigned char c;
+
+  ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
+
+  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+
+  /* if we don't know the sequence length, figure it out */
+  if (ncbi->seq_L == -1) {
+    if (fseek(ncbi->fppsq, ncbi->seq_apos - 1, SEEK_SET) != 0) return eslESYS;
+    if (fread(&c, sizeof(char), 1, ncbi->fppsq) != 1)          return eslEFORMAT;
+
+    ssize       = ncbi->seq_apos - sq->doff - 1;
+    remainder   = c & 0x03;
+    length      = ssize * 4 + remainder;
+
+    ncbi->seq_L = length;
+  }
+
+  /* check if we are at the end */
+  if (sq->start + sq->n > ncbi->seq_L) {
+    if (nres != NULL) *nres = 0;
+    sq->L = ncbi->seq_L;
+    return eslEOD;
+  }
+
+  /* calculate where to start reading from */
+  start = sq->start + sq->n - 1;
+  off   = sq->doff + start / 4;
+
+  /* calculate bits to skip at the beginning and end */
+  cnt   = ncbi->seq_L - (sq->start + sq->n - 1);
+  cnt   = (cnt > len) ? len : cnt;
+
+  skip      = start & 0x03;
+  remainder = skip + cnt;
+  remainder = (remainder & 0x03) ? (remainder & 0x03) : 4;
+
+  /* calculate bytes need to read in the window */
+  ssize = (cnt + skip + 3) / 4;
+
+  /* seek to the windows location and read into the buffer */
+  if (fseek(ncbi->fppsq, off, SEEK_SET) != 0) return eslESYS;
+  if (ncbi->hdr_alloced < ssize) {
+    while (ncbi->hdr_alloced < ssize) ncbi->hdr_alloced += ncbi->hdr_alloced;
+    ESL_RALLOC(ncbi->hdr_buf, t, sizeof(char) * ncbi->hdr_alloced);
+  }
+  if (fread(ncbi->hdr_buf, sizeof(char), ssize, ncbi->fppsq) != ssize) return eslEFORMAT;
+
+  /* figure out if the sequence is in digital mode or not */
+  if (sq->dsq != NULL) {
+    text = FALSE;
+    ptr = (char *)sq->dsq + 1;
+  } else {
+    text = TRUE;
+    ptr = sq->seq;
+  }
+  ptr += sq->n;
+
+  inx = 0;
+  c = ncbi->hdr_buf[inx];
+  for (inx = skip; inx < 4; ++inx) {
+    n = 1 << ((c >> (6 - inx * 2)) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  for (inx = 1; inx < ssize - 1; ++inx) {
+    c = ncbi->hdr_buf[inx];
+    n = 1 << ((c >> 6) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 4) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 2) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+    n = 1 << ((c >> 0) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  /* handle the remainder */
+  c = ncbi->hdr_buf[inx];
+  for (inx = 0; inx < remainder; ++inx) {
+    n = 1 << ((c >> (6 - inx * 2)) & 0x03);
+    *ptr = sqfp->inmap[n];
+    if (text) *ptr = ncbi->alphasym[(int) *ptr];
+    ++ptr;
+  }
+
+  *ptr = (text) ? '\0' : eslDSQ_SENTINEL;
+
+  /* calculate the number of residues processed */
+  ncnt = (ssize - 1) * 4 + remainder - skip;
+
+  /* start processing the abmiguity table if there is one */
+  if (ncbi->seq_alen > 0) {
+    correct_ambiguity(sqfp, sq, ncnt);
+  }
+
+  sq->n = sq->n + ncnt;
+
+  if (nres != NULL) *nres = ncnt;
 
   return eslOK;
 
@@ -1403,9 +1907,18 @@ parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
 static int
 parse_header(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 {
-  int status;
+  int   status;
+  void *tmp;
 
   unsigned char c;
+
+  /* read in the header data */
+  if (ncbi->hdr_alloced < ncbi->hdr_size) {
+    while (ncbi->hdr_alloced < ncbi->hdr_size) ncbi->hdr_alloced += ncbi->hdr_alloced;
+    ESL_RALLOC(ncbi->hdr_buf, tmp, sizeof(char) * ncbi->hdr_alloced);
+  }
+  if (fread(ncbi->hdr_buf, sizeof(char), ncbi->hdr_size, ncbi->fpphr) != ncbi->hdr_size) return eslEFORMAT;
+  ncbi->hdr_ptr = ncbi->hdr_buf;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
@@ -1423,6 +1936,8 @@ parse_header(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
 
   return eslOK;
+ ERROR:
+  return eslEMEM;
 }
 
 /* Function:  parse_def_line()
