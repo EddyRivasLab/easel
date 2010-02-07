@@ -13,12 +13,13 @@
  *    9. PSIBLAST format
  *   10. SELEX format
  *   11. AFA (aligned FASTA) format
- *   12. Debugging/development routines
- *   13. Benchmark driver
- *   14. Unit tests
- *   15. Test driver
- *   16. Examples
- *   17. Copyright and license information
+ *   12. Memory efficient routines for PFAM format
+ *   13. Debugging/development routines
+ *   14. Benchmark driver
+ *   15. Unit tests
+ *   16. Test driver
+ *   17. Examples
+ *   18. Copyright and license information
  *   
  * Augmentations:
  *   alphabet:  adds support for digital MSAs
@@ -78,6 +79,7 @@
 #include "esl_ssi.h"
 #endif
 #include "esl_msa.h"
+#include "esl_vectorops.h"
 #include "esl_wuss.h"
 /*::cexcerpt::include_example::end::*/
 
@@ -2146,7 +2148,6 @@ static int read_stockholm(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 static int read_selex    (ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 static int read_afa      (ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 
-
 /* Function:  esl_msa_Read()
  * Synopsis:  Read next MSA from a file.
  * Incept:    SRE, Fri Jan 28 08:10:49 2005 [St. Louis]
@@ -2660,8 +2661,66 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   return status;
 }
 
+/* remove_broken_basepairs_from_ss_string()
+ * 
+ * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, remove
+ * any basepair from an SS string that is between alignment
+ * columns (i,j) for which either <useme[i-1]> or <useme[j-1]> is FALSE.
+ * Helper function for remove_broken_basepairs_from_msa(). 
+ * 
+ * The input SS string will be overwritten. If it was not in 
+ * full WUSS format when pass in, it will be upon exit. 
+ * Note that that means if there's residues in the input ss
+ * that correspond to gaps in an aligned sequence or RF 
+ * annotation, they will not be treated as gaps in the 
+ * returned SS. For example, a gap may become a '-' character,
+ * a '_' character, or a ':' character. I'm not sure how
+ * to deal with this in a better way. We could demand an
+ * aligned sequence to use to de-gap the SS string, but 
+ * that would require disallowing any gap to be involved
+ * in a basepair, which I'm not sure is something we want
+ * to forbid.
+ * 
+ * If the original SS is inconsistent it's left untouched and
+ * non-eslOK is returned as listed below.
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslESYNTAX> if SS string 
+ *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted 
+ *            SS, this should be impossible.
+ */
+static int
+remove_broken_basepairs_from_ss_string(char *ss, char *errbuf, int len, const int *useme)
+{
+  int status;
+  int64_t apos;         /* alignment position */
+  int *ct;		/* 0..alen-1 base pair partners array for current sequence */
+  char *ss_nopseudo;    /* no-pseudoknot version of structure */
+  ESL_ALLOC(ct,  sizeof(int)  * (len+1));
+  ESL_ALLOC(ss_nopseudo, sizeof(char) * (len+1));
 
-/* remove_broken_basepairs()
+  esl_wuss_nopseudo(ss, ss_nopseudo);
+  if ((status = esl_wuss2ct(ss_nopseudo, len, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+  for (apos = 1; apos <= len; apos++) { 
+    if (!(useme[apos-1])) { 
+      if (ct[apos] != 0) ct[ct[apos]] = 0;
+      ct[apos] = 0;
+    }
+  }
+  /* All broken bps removed from ct, convert to WUSS SS string and overwrite SS */
+  if ((status = esl_ct2wuss(ct, len, ss)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct array to WUSS notation.");
+  
+  free(ss_nopseudo);
+  free(ct);
+  return eslOK;
+
+ ERROR: 
+  ESL_FAIL(status, errbuf, "Memory allocation error.");
+  return status; /* NEVERREACHED */
+}  
+
+/* remove_broken_basepairs_from_msa()
  * 
  * Given an array <useme> (0..alen-1) of TRUE/FALSE flags, remove
  * any basepair from SS_cons and individual SS annotation in alignment
@@ -2677,52 +2736,23 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
  *            SS, this should be impossible
  */
 static int
-remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
+remove_broken_basepairs_from_msa(ESL_MSA *msa, char *errbuf, const int *useme)
 {
   int status;
-  int64_t apos;         /* alignment position */
   int  i;
-  int *ct;		/* 0..alen-1 base pair partners array for current sequence */
-  char *ss_nopseudo;    /* no-pseudoknot version of structure */
-  ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
-  ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
 
   if (msa->ss_cons != NULL) { 
-    esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
-    if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
-    for (apos = 1; apos <= msa->alen; apos++) { 
-      if (!(useme[apos-1])) { 
-	if (ct[apos] != 0) ct[ct[apos]] = 0;
-	ct[apos] = 0;
-      }
-      /* convert to WUSS SS string and supplant msa->ss_cons */
-      if ((status = esl_ct2wuss(ct, msa->alen, msa->ss_cons)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
-    }
+    if((status = remove_broken_basepairs_from_ss_string(msa->ss_cons, errbuf, msa->alen, useme)) != eslOK) return status; 
   }
-  /* do the same for per-seq SS annotation */
+  /* per-seq SS annotation */
   if (msa->ss != NULL) { 
-    for (i = 0; i < msa->nseq; i++) {
+    for(i = 0; i < msa->nseq; i++) { 
       if (msa->ss[i] != NULL) { 
-	esl_wuss_nopseudo(msa->ss[i], ss_nopseudo);
-	if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Secondary structure string for seq %d is inconsistent.", i);
-	for (apos = 1; apos <= msa->alen; apos++) { 
-	  if (!(useme[apos-1])) { 
-	    if (ct[apos] != 0) ct[ct[apos]] = 0;
-	    ct[apos] = 0;
-	  }
-	  /* convert to WUSS SS string and supplant msa->ss[i] */
-	  if ((status = esl_ct2wuss(ct, msa->alen, msa->ss[i])) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct arry to WUSS notation.");
-	}
+	if((status = remove_broken_basepairs_from_ss_string(msa->ss[i], errbuf, msa->alen, useme)) != eslOK) return status; 
       }
     }
   }
-  free(ss_nopseudo);
-  free(ct);
   return eslOK;
-
- ERROR: 
-  ESL_FAIL(status, errbuf, "Memory allocation error.");
-  return status; /* NEVERREACHED */
 }  
 
 /* Function:  esl_msa_ColumnSubset()
@@ -2741,7 +2771,7 @@ remove_broken_basepairs(ESL_MSA *msa, char *errbuf, const int *useme)
  *            is shrunk.
  * 
  * Returns:   <eslOK> on success.
- *            Possibilities from <remove_broken_basepairs()> call:
+ *            Possibilities from <remove_broken_basepairs_from_msa()> call:
  *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
  *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted SS.
@@ -2758,7 +2788,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
   /* Remove any basepairs from SS_cons and individual sequence SS
    * for aln columns i,j for which useme[i-1] or useme[j-1] are FALSE 
    */
-  if((status = remove_broken_basepairs(msa, errbuf, useme)) != eslOK) return status;
+  if((status = remove_broken_basepairs_from_msa(msa, errbuf, useme)) != eslOK) return status;
 
   /* Since we're minimizing, we can overwrite in place, within the msa
    * we've already got. 
@@ -3950,7 +3980,7 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
   /* Free text comments
    */
   for (i = 0;  i < msa->ncomment; i++)
-    fprintf(fp, "# %s\n", msa->comment[i]);
+    fprintf(fp, "#%s\n", msa->comment[i]);
   if (msa->ncomment > 0) fprintf(fp, "\n");
 
   /* GF section: per-file annotation
@@ -5136,10 +5166,903 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
 /*---------------------- end, AFA format ------------------------*/
 
+/******************************************************************************
+ * 12. Memory efficient routines for PFAM format
+ *****************************************************************************/
 
+/* get_pp_idx
+ *                   
+ * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
+ * in a pp_ct[] vector. 
+ * '0' return 0;
+ * '1' return 1;
+ * '2' return 2;
+ * '3' return 3;
+ * '4' return 4;
+ * '5' return 5;
+ * '6' return 6;
+ * '7' return 7;
+ * '8' return 8;
+ * '9' return 9;
+ * '*' return 10;
+ * gap return 11;
+ * 
+ * Anything else (including missing or nonresidue) return -1;
+ *
+ * This mapping of PP chars to return values should probably be 
+ * stored in some internal map structure somewhere, instead of 
+ * only existing in this function as used by esl_msa_ReadNonSeqInfoPfam().
+ */
+int
+get_pp_idx(ESL_ALPHABET *abc, char ppchar)
+{
+  if(esl_abc_CIsGap(abc, ppchar)) return 11;
+  if(ppchar == '*')               return 10;
+  if(ppchar == '9')               return 9;
+  if(ppchar == '8')               return 8;
+  if(ppchar == '7')               return 7;
+  if(ppchar == '6')               return 6;
+  if(ppchar == '5')               return 5;
+  if(ppchar == '4')               return 4;
+  if(ppchar == '3')               return 3;
+  if(ppchar == '2')               return 2;
+  if(ppchar == '1')               return 1;
+  if(ppchar == '0')               return 0;
+  return -1;
+}
+
+/* Function: esl_msa_ReadNonSeqInfoPfam()
+ * Synopsis: Read non-sequence information in next Pfam formatted MSA.
+ * Incept:   EPN, Sat Dec  5 07:56:42 2009
+ *
+ * Purpose:  Read the next alignment from an open Stockholm Pfam
+ *           (non-interleaved, one line per seq) format alignment file
+ *           <afp> and store all non per-sequence information
+ *           (comments, #=GF, #=GC) in a new msa.
+ *
+ *           Note: this function could work on regular interleaved
+ *           (non-Pfam) Stockholm if either (a) we didn't optionally
+ *           return nseq or (b) we stored all seqnames in a keyhash,
+ *           so we knew how many unique sequences there are.
+ *
+ *           We can't be as rigorous about validating the input as the
+ *           other read functions that store the full alignment. Here,
+ *           we only verify that there is only one line for the first
+ *           sequence read and that's it (verifying that all sequences
+ *           are only one line would require storing and looking up
+ *           all sequence names which we could do at a cost).
+ *
+ *           Many optional return values (opt_*) make this function
+ *           flexible and able to accomodate the diverse needs of the
+ *           memory efficient enabled easel miniapps that use it
+ *           (esl-alimerge, esl-alimask, esl-ssdraw). For any that are
+ *           unwanted, pass NULL.
+ *
+ * Args:     afp           - open alignment file pointer
+ *           abc           - alphabet to use, only nec and used if one 
+ *                           of the opt_*_ct arrays is non-NULL
+ *           known_alen    - known length of the alignment, -1 if unknown
+ *                           must not be -1, if known_rf != NULL or
+ *                           known_ss_cons != NULL.
+ *           known_rf      - known RF annot. (msa->rf) for this alignment, 
+ *                           might be known from prev call of this func,
+ *                           for example. NULL if unknown.
+ *           known_ss_cons - the known SS_cons annotation (msa->ss_cons) 
+ *                           for this alignment, NULL if unknown.
+ *           ret_msa       - RETURN: msa with comments, #=GC, #=GF annotation 
+ *                           but no sequence info (nor #=GS,#=GR) 
+ *                           pass NULL if not wanted
+ *           opt_nseq      - optRETURN: number of sequences in msa 
+ *           opt_alen      - optRETURN: length of first aligned sequence 
+ *           opt_ngs       - optRETURN: number of #=GS lines in alignment 
+ *           opt_maxname   - optRETURN: maximum seqname length 
+ *           opt_maxgf     - optRETURN: maximum GF tag length
+ *           opt_maxgc     - optRETURN: maximum GC tag length 
+ *           opt_maxgr     - optRETURN: maximum GR tag length 
+ *           opt_abc_ct    - optRETURN: [0..apos..alen-1][0..abc->K] 
+ *                           per position count of each symbol in abc over all seqs
+ *           opt_pp_ct     - optRETURN: [0..apos..alen-1][0..11], 
+ *                           per position count of PPs over all seqs, 
+ *                           [11] is gaps, [10] is '*', [0-9] are '0'-'9'
+ *           opt_bp_ct     - optRETURN: [0..apos..alen-1][0..abc->K-1][0..abc->K-1]
+ *                           per position count of each possible basepair 
+ *                           in alignment, for pair apos:apos2, where 
+ *                           apos < apos2 and apos:apos2 form a basepair 
+ *                           in <known_ss_cons>. If non-NULL, <known_ss_cons> 
+ *                           must be non-NULL.
+ *           opt_srfpos_ct - optRETURN: [0..rfpos..rflen-1] per nongap RF 
+ *                           position count of first nongap RF residue in 
+ *                           each sequence, ex: opt_spos_ct[100] = x means x
+ *                           seqs have their first nongap RF residue at rfpos 100
+ *           opt_erfpos_ct - optRETURN: [0..rfpos..rflen-1] same as opt_srfpos_ct,
+ *                           except for final nongap RF residue instead of first
+ * 
+ * Returns:  <eslOK> on success.  Returns <eslEOF> if there are no more
+ *           alignments in <afp>, and <ret_msa> is set to NULL and
+ *           <opt_*> are set to 0.
+ *           <eslEFORMAT> if parse fails because of a file format
+ *           problem, in which case afp->errbuf is set to contain a
+ *           formatted message that indicates the cause of the
+ *           problem, <ret_msa> is set to NULL and <opt_*> are set 
+ *           to 0.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ * 
+ * Xref:      ~nawrockie/notebook/9_1206_esl_msa_mem_efficient/
+ */
+int
+esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
+			   int *opt_nseq, int64_t *opt_alen, int *opt_ngs, int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
+			   double ***opt_abc_ct, int ***opt_pp_ct, double ****opt_bp_ct, int **opt_srfpos_ct, int **opt_erfpos_ct)
+{
+  char      *s;                    /* pointer to current character in afp */
+  int        status;               /* easel status code */
+  int        status2;              /* another easel status code */
+  ESL_MSA   *msa = NULL;           /* the msa we're creating */
+  int        nseq = 0;             /* number of sequences read */
+  int64_t    alen = -1;            /* length of the alignment */
+  int        ngs = 0;              /* number of #=GS lines read */
+  int        maxname = 0;          /* max length seq name */
+  int        maxgf = 0;            /* max length GF tag */
+  int        maxgc = 0;            /* max length GC tag */
+  int        maxgr = 0;            /* max length GR tag */
+  char      *seqname;              /* a sequence name */
+  int        namelen;              /* length of a sequence name */
+  char      *first_seqname = NULL; /* name of first sequence read */
+  char      *gc, *gr;              /* for storing "#=GC", "#=GR", temporarily */
+  char      *tag;                  /* a GC or GR tag */
+  int        taglen;               /* length of a tag */
+  char      *text;                 /* text string */
+  int        textlen;              /* length of text string */
+  int        i, x;                 /* counters */
+  int        j;                    /* position for a right half of a bp */
+  int        apos;                 /* counter over alignment positions */
+  int        rfpos;                /* counter over nongap RF positions */
+  double   **abc_ct = NULL;        /* [0..alen-1][0..abc->K] per position count of each residue in abc and gaps over all seqs */
+  double  ***bp_ct = NULL;         /* [0..alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
+                                       base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
+  int        nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
+  int      **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
+  int        ppidx;                /* index for 2nd dim of pp_ct array */
+  int       *srfpos_ct = NULL;     /* [0..rflen-1] number of seqs that start (have first RF residue) at each RF position */
+  int       *erfpos_ct = NULL;     /* [0..rflen-1] number of seqs that end   (have final RF residue) at each RF position */
+  ESL_DSQ   *tmp_dsq = NULL;       /* temporary digitized sequence, only used if opt_abc_ct != NULL */
+  int        rflen = 0;            /* non-gap RF residues, only used if known_rf != NULL */
+  int       *a2rf_map = NULL;      /* [0..apos..known_alen-1] = rfpos, nongap RF position apos maps to, 
+				    * -1 if apos is not a nongap RF position */
+  int       *ct = NULL; 	   /* 0..known_alen-1 base pair partners array for known_ss_cons */
+  char      *ss_nopseudo = NULL;   /* no-pseudoknot version of known_ss_cons */
+
+  if(afp->format   != eslMSAFILE_PFAM) ESL_EXCEPTION(eslEINCONCEIVABLE, "only non-interleaved (1 line /seq, Pfam) Stockholm formatted files can be read in small memory mode");
+  if(opt_abc_ct    != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_abc_ct  != NULL");
+  if(opt_pp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_pp_ct   != NULL");
+  if(opt_bp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_bp_ct != NULL");
+  if(opt_srfpos_ct != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_srfpos_ct != NULL");
+  if(opt_erfpos_ct != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_erfpos_ct != NULL");
+  if(opt_srfpos_ct != NULL && known_rf == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf == NULL, opt_srfpos_ct != NULL");
+  if(opt_erfpos_ct != NULL && known_rf == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf == NULL, opt_erfpos_ct != NULL");
+  if(opt_bp_ct     != NULL && known_ss_cons == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
+  if(known_rf      != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf != NULL, known_alen == -1");
+  if(known_ss_cons != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons != NULL, known_alen == -1");
+
+  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
+  afp->errbuf[0] = '\0';
+
+  /* Preliminaries */
+  /* if opt_srfpos_ct != NULL || opt_erfpos_ct != NULL, allocate them and determine RF positions */
+  /* count non-gap RF columns */
+  if(opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { 
+    ESL_ALLOC(a2rf_map, sizeof(int) * known_alen);
+    esl_vec_ISet(a2rf_map, known_alen, -1);
+    for(apos = 0; apos < known_alen; apos++) { 
+      if((! esl_abc_CIsGap(abc, known_rf[apos])) && 
+	 (! esl_abc_CIsMissing(abc, known_rf[apos])) && 
+	 (! esl_abc_CIsNonresidue(abc, known_rf[apos])))
+	{ 
+	  a2rf_map[apos] = rflen;
+	  rflen++;
+	}
+    }
+    ESL_ALLOC(srfpos_ct, sizeof(int) * rflen); 
+    ESL_ALLOC(erfpos_ct, sizeof(int) * rflen);
+    esl_vec_ISet(srfpos_ct, rflen, 0); 
+    esl_vec_ISet(erfpos_ct, rflen, 0);   
+  }
+  /* if bp_ct != NULL, determine the ct array from the known_ss_cons, and allocate the bp_ct */
+  if(opt_bp_ct != NULL) { /* contract enforces that if this is true, known_ss_cons != NULL and known_alen != -1 */
+    /* get ct array which defines the consensus base pairs */
+    ESL_ALLOC(ct,  sizeof(int)  * (known_alen+1));
+    ESL_ALLOC(ss_nopseudo, sizeof(char) * (known_alen+1));
+    esl_wuss_nopseudo(known_ss_cons, ss_nopseudo);
+    if ((status = esl_wuss2ct(ss_nopseudo, known_alen, ct)) != eslOK) ESL_FAIL(status, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam(), consensus structure string is inconsistent.");
+    ESL_ALLOC(bp_ct,  sizeof(double **) * known_alen); 
+    for(apos = 0; apos < known_alen; apos++) { 
+      /* careful ct is indexed 1..alen, not 0..alen-1 */
+      if(ct[(apos+1)] > (apos+1)) { /* apos+1 is an 'i' in an i:j pair, where i < j */
+	ESL_ALLOC(bp_ct[apos], sizeof(double *) * (abc->Kp));
+	for(x = 0; x < abc->Kp; x++) { 
+	  ESL_ALLOC(bp_ct[apos][x], sizeof(double) * (abc->Kp));
+	  esl_vec_DSet(bp_ct[apos][x], abc->Kp, 0.);
+	}
+      }
+      else { /* apos+1 is not an 'i' in an i:j pair, where i < j, set to NULL */
+	bp_ct[apos] = NULL;
+      }
+    }
+  }
+  /* end of preliminaries */
+
+  /* Initialize allocation of the MSA:
+   * We won't store any sequence information, so initial blocksize is
+   * 0 seqs of 0 length.
+   */
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
+    { status = eslEMEM; goto ERROR; }
+#endif
+  if (afp->do_digital == FALSE && (msa = esl_msa_Create(0, -1))  == NULL)
+    { status = eslEMEM; goto ERROR; }
+  if (msa == NULL)    
+    { status = eslEMEM; goto ERROR; }
+  
+  /* Check the magic Stockholm header line.
+   * We have to skip blank lines here, else we perceive
+   * trailing blank lines in a file as a format error when
+   * reading in multi-record mode.
+   */
+  do {
+    if ((status = msafile_getline(afp)) != eslOK) goto ERROR; /* includes EOF  */
+  } while (is_blankline(afp->buf));
+  
+  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
+    ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
+  
+  /* Read the alignment file one line at a time.
+   */
+  while ((status2 = msafile_getline(afp)) == eslOK) 
+    {
+      s = afp->buf;
+      while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
+      
+      if (*s == '#') {
+	if(strncmp(s, "#=GF", 4) == 0)
+	  {
+	    if (ret_msa != NULL) { 
+	      if ((status = parse_gf(msa, s)) != eslOK)
+		ESL_XFAIL(status, afp->errbuf, "parse failed (line %d): bad #=GF line", afp->linenumber);
+	    }
+	    else if (opt_maxgf != NULL) { /* we need to parse out GF tag len to see if it is > maxgf */
+	      s = afp->buf;
+	      if (esl_strtok    (&s, " \t\n\r", &gc)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &tag,  &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+	      maxgf = ESL_MAX(maxgf, taglen); 
+	    }
+	  }
+
+	else if (strncmp(s, "#=GC", 4) == 0)
+	  {
+	    if  (ret_msa != NULL) { 
+	      if  ((status = parse_gc(msa, s)) != eslOK)
+		ESL_XFAIL(status, afp->errbuf, "parse failed (line %d): bad #=GC line", afp->linenumber);
+	    }
+	    else if (opt_maxgc != NULL) { /* we need to parse out GC tag len to see if it is > maxgc */
+	      s = afp->buf;
+	      if (esl_strtok    (&s, " \t\n\r", &gc)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &tag,  &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+	      maxgc = ESL_MAX(maxgc, taglen); 
+	    }
+	  }
+	else if (strncmp(s, "#=GS", 4) == 0)
+	  {
+	    ngs++; 
+	  }
+	else if (strncmp(s, "#=GR", 4) == 0)
+	  {
+	    if(opt_maxgr != NULL || opt_pp_ct != NULL) { 
+	      s = afp->buf;
+	      if (esl_strtok    (&s, " \t\n\r", &gr)                      != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &tag,      &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      maxgr = ESL_MAX(maxgr, taglen); 
+	      if(opt_pp_ct != NULL) { 
+		if (strncmp(tag, "PP", 2) == 0) { 
+		  if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP line", afp->linenumber);
+		  /* verify, or set alignment length */
+		  if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, srfpos_ct, erfpos_ct */
+		    alen = textlen;
+		    if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
+		    ESL_ALLOC(pp_ct, sizeof(int *) * alen);
+		    for(apos = 0; apos < alen; apos++) { 
+		      ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
+		      esl_vec_ISet(pp_ct[apos], nppvals, 0);
+		    }
+		    if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
+		      ESL_ALLOC(tmp_dsq, (alen+2) * sizeof(ESL_DSQ));
+		    }
+		    if(opt_abc_ct != NULL) { 
+		      ESL_ALLOC(abc_ct, sizeof(double *) * alen); 
+		      for(apos = 0; apos < alen; apos++) { 
+			ESL_ALLOC(abc_ct[apos], sizeof(double) * (abc->K+1));
+			esl_vec_DSet(abc_ct[apos], (abc->K+1), 0.);
+		      }
+		    }
+		  }
+		  else if(alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP line, len %d, expected %" PRId64, afp->linenumber, textlen, alen);
+		  for(apos = 0; apos < alen; apos++) { /* update appropriate PP count */
+		    if((ppidx = get_pp_idx(abc, text[apos])) == -1) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP char: %c", afp->linenumber, text[apos]);
+		    pp_ct[apos][ppidx]++;
+		  }
+		}
+	      }
+	    }
+	  }
+	else if (ret_msa != NULL && ((status = parse_comment(msa, s)) != eslOK)) { 
+	  ESL_XFAIL(status, afp->errbuf, "parse failed (line %d): bad comment line", afp->linenumber);
+	}
+      } /* end of 'if (*s == '#')' */ 
+      else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
+      else if (*s == '\n' || *s == '\r')     continue;
+      else { /* sequence line */
+	if(opt_maxname != NULL || opt_alen != NULL || opt_abc_ct != NULL || opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { /* we need to parse out the seqname */
+	  s = afp->buf;
+	  if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
+	  maxname = ESL_MAX(maxname, namelen);
+	  if (opt_alen != NULL || opt_abc_ct != NULL || opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { /* we need to parse out the seq */
+	    if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
+	    /* if first aligned seq read, store it's name, else see if it is an additional line of first aseq */
+	    if(nseq == 0) { 
+	      if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; 
+	    }
+	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs with same name. Alignment may be in interleaved Stockholm. Reformat to Pfam with esl-reformat.", afp->linenumber); }
+	    if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, srfpos_ct, erfpos_ct */
+	      alen = textlen;
+	      if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
+	      if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
+		ESL_ALLOC(tmp_dsq, (alen+2) * sizeof(ESL_DSQ));
+	      }
+	      if(opt_abc_ct != NULL) { 
+		ESL_ALLOC(abc_ct, sizeof(double *) * alen); 
+		for(apos = 0; apos < alen; apos++) { 
+		  ESL_ALLOC(abc_ct[apos], sizeof(double) * (abc->K+1));
+		  esl_vec_DSet(abc_ct[apos], (abc->K+1), 0.);
+		}
+	      }
+	      if(opt_pp_ct != NULL) { 
+		ESL_ALLOC(pp_ct, sizeof(int *) * alen);
+		for(apos = 0; apos < alen; apos++) { 
+		  ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
+		  esl_vec_ISet(pp_ct[apos], nppvals, 0);
+		}
+	      }
+	    }
+	    else if(alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad aligned seq line, len %d, expected %" PRId64, afp->linenumber, textlen, alen);
+	    if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
+	      /* update appropriate abc and/or bp count. first, digitize the text */
+	      if((status = esl_abc_Digitize(abc, text, tmp_dsq)) != eslOK) ESL_XFAIL(status, afp->errbuf, "small mem parse failed (line %d): problem digitizing sequence", afp->linenumber);
+	    }
+	    if(opt_abc_ct != NULL) { 
+	      for(apos = 0; apos < alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..alen (not 0..alen-1) */
+		if((status = esl_abc_DCount(abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_XFAIL(status, afp->errbuf, "small mem parse failed (line %d): problem counting residue %d", afp->linenumber, apos+1);
+	      }
+	    }	    
+	    if(opt_bp_ct != NULL) { 
+	      for(apos = 0; apos < alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..alen (not 0..alen-1) */
+		if(bp_ct[apos] != NULL) { /* our flag for whether position (apos+1) is an 'i' in an i:j pair where i < j */
+		  j = ct[apos+1] - 1; /* ct is indexed 1..alen */
+		  bp_ct[apos][tmp_dsq[(apos+1)]][tmp_dsq[(j+1)]]++;
+		}
+	      }
+	    }
+	    if(opt_srfpos_ct != NULL) { 
+	      for(apos = 0; apos < alen; apos++) { /* find first non-gap RF position */
+		if((! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) && ((rfpos = a2rf_map[apos]) != -1)) { 
+		  srfpos_ct[rfpos]++; 
+		  break;
+		}
+	      }
+	    }
+	    if(opt_erfpos_ct != NULL) { /* find final non-gap RF position */
+	      for(apos = alen-1; apos >= 0; apos--) { 
+		if((! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) && ((rfpos = a2rf_map[apos]) != -1)) { 
+		  erfpos_ct[rfpos]++;
+		  break;
+		}
+	      }
+	    }
+	  }
+	}
+	nseq++; 
+      }
+    }
+
+  /* If we saw a normal // end, we would've successfully read a line,
+   * so when we get here, status (from the line read) should be eslOK.
+   */ 
+  if (status2 != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): didn't find // at end of alignment", afp->linenumber);
+
+  /* if we're returning maxgc and an msa, determine maxgc, which we didn't do above b/c we parsed GC lines with parse_gc()
+   * If msa != NULL, we already know maxgc */
+  if(ret_msa != NULL && opt_maxgc != NULL) { 
+    for(i = 0; i < msa->ngc; i++) maxgc = ESL_MAX(maxgc, strlen(msa->gc_tag[i])); 
+    if (msa->rf      != NULL)     maxgc = ESL_MAX(maxgc, 2); /* 2 == strlen("RF") */
+    if (msa->ss_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("SS_cons") */
+    if (msa->sa_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("SA_cons") */
+    if (msa->pp_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("PP_cons") */
+  }
+  /* same as for maxgc, but now for maxgf */
+  if(ret_msa != NULL && opt_maxgf != NULL) { 
+    for(i = 0; i < msa->ngf; i++) maxgf = ESL_MAX(maxgf, strlen(msa->gf[i])); 
+    if (msa->name != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("ID") */
+    if (msa->desc != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("DE") */
+    if (msa->acc  != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("AC") */
+    if (msa->au   != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("AU") */
+    if (msa->rf   != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("RF") */
+  }
+
+  /* Note that we don't verify the parse, b/c we didn't read any sequence data, a verify_parse() would fail */
+
+  if (ret_msa != NULL)       *ret_msa = msa; 
+  else if(msa != NULL)        esl_msa_Destroy(msa);
+
+  if (first_seqname != NULL) free(first_seqname);
+  if (tmp_dsq != NULL)       free(tmp_dsq);
+  if (ct != NULL)            free(ct);
+  if (ss_nopseudo != NULL)   free(ss_nopseudo);
+  if (a2rf_map != NULL)      free(a2rf_map);
+  if (opt_nseq != NULL)      *opt_nseq = nseq; 
+  if (opt_alen != NULL)      *opt_alen = alen;
+  if (opt_ngs != NULL)       *opt_ngs = ngs;
+  if (opt_maxname != NULL)   *opt_maxname = maxname;
+  if (opt_maxgf != NULL)     *opt_maxgf = maxgf;
+  if (opt_maxgc != NULL)     *opt_maxgc = maxgc;
+  if (opt_maxgr != NULL)     *opt_maxgr = maxgr;
+  if (opt_abc_ct != NULL)    *opt_abc_ct = abc_ct;
+  if (opt_pp_ct != NULL)     *opt_pp_ct = pp_ct;
+  if (opt_bp_ct != NULL)     *opt_bp_ct = bp_ct;
+  if (opt_srfpos_ct != NULL) *opt_srfpos_ct = srfpos_ct;
+  if (opt_erfpos_ct != NULL) *opt_erfpos_ct = erfpos_ct;
+  return eslOK;
+
+ ERROR:
+  if (first_seqname != NULL)  free(first_seqname);
+  if (tmp_dsq != NULL)        free(tmp_dsq);
+  if (msa != NULL)            esl_msa_Destroy(msa);
+  if (ret_msa != NULL)       *ret_msa = NULL;
+  if (opt_nseq != NULL)      *opt_nseq = 0;
+  if (opt_alen != NULL)      *opt_alen = 0;
+  if (opt_ngs != NULL)       *opt_ngs  = 0;
+  if (opt_maxname != NULL)   *opt_maxname = 0;
+  if (opt_maxgf != NULL)     *opt_maxgf = 0;
+  if (opt_maxgc != NULL)     *opt_maxgc = 0;
+  if (opt_maxgr != NULL)     *opt_maxgr = 0;
+  if (pp_ct != NULL)          esl_Free2D((void **) pp_ct, alen);
+  if (opt_pp_ct != NULL)     *opt_pp_ct = NULL;
+  if (abc_ct != NULL)         esl_Free2D((void **) abc_ct, alen);
+  if (opt_abc_ct != NULL)    *opt_abc_ct = NULL;
+  if(bp_ct  != NULL)          esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
+  if(opt_bp_ct  != NULL)     *opt_bp_ct = NULL;
+  if (srfpos_ct != NULL)      free(srfpos_ct);
+  if (opt_srfpos_ct != NULL) *opt_srfpos_ct = NULL;
+  if (erfpos_ct != NULL)      free(erfpos_ct);
+  if (opt_erfpos_ct != NULL) *opt_erfpos_ct = NULL;
+  return status;
+  }
+
+/* gapize_string
+ *                   
+ * Given a string, create a new one that is a copy of it, 
+ * but with gaps added before each position (apos) as specified 
+ * by ngapA[0..apos..len]. <gapchar> specifies the gap character
+ * to add.
+ * 
+ * ngapA[0]    - number of gaps to add before first posn
+ * ngapA[apos] - number of gaps to add before posn apos
+ * ngapA[len]  - number of gaps to add after  final posn
+ * 
+ * ret_str is allocated here.
+ *
+ * Returns eslOK on success.
+ *         eslEMEM on memory error.
+ */
+int 
+gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str)
+{
+  int status;
+  int src_apos = 0;
+  int dst_apos  = 0;
+  int i;
+  char *dst_str;
+
+  ESL_ALLOC(dst_str, sizeof(char) * (dst_len+1));
+  dst_str[dst_len] = '\0';
+
+  /* add gaps before first position */
+  for(i = 0; i < ngapA[0]; i++) dst_str[dst_apos++] = gapchar;
+
+  /* add gaps after every position */
+  for(src_apos = 0; src_apos < src_len; src_apos++) { 
+    dst_str[dst_apos++] = src_str[src_apos];
+    for(i = 0; i < ngapA[(src_apos+1)]; i++) dst_str[dst_apos++] = gapchar;
+  }
+
+  *ret_dst_str = dst_str;
+  return eslOK;
+
+ ERROR: 
+  return eslEMEM;
+}
+
+/* shrink_string
+ *                   
+ * Remove some characters of a string in place.
+ * If useme[0..pos..len-1] == FALSE, remove position pos.
+ * 
+ */
+void
+shrink_string(char *str, const int *useme, int len)
+{
+  int opos, npos;
+
+  for (opos = 0, npos = 0; opos < len; opos++) { 
+      if (useme[opos] == FALSE) continue;
+      str[npos++] = str[opos];
+  }
+  str[npos] = '\0';
+  return;
+}
+
+
+/* determine_spacelen
+ *                   
+ * Determine number of consecutive ' ' characters 
+ * in the string pointed to by s.
+ */
+int
+determine_spacelen(char *s)
+{
+  int spacelen = 0;
+  while (*s == ' ') { spacelen++; s++; } 
+  return spacelen;
+}
+
+#ifdef eslAUGMENT_KEYHASH
+/* Function: esl_msa_RegurgitatePfam()
+ * Synopsis: Read and write next Pfam formatted MSA without storing it.
+ * Incept:   EPN, Sun Dec  6 11:25:34 2009
+ *
+ * Purpose:  Read and immediately write each line of a MSA after
+ *           optionally modifying aligned data by either adding all
+ *           gap columns or removing some columns. Do this without
+ *           creating an msa object, so memory usage is minimized.
+ *
+ *           The alignment file <afp> must be in Pfam format (1
+ *           line/seq non-interleaved Stockholm). The <do_*> arguments
+ *           specify which parts of the alignment to write.  <useme>
+ *           specifies which positions to keep in aligned strings, if
+ *           NULL then all are kept. <add2me> specifies how many gap
+ *           characters to add after each aligned position, if NULL
+ *           then none are added. Only one of <useme> and <add2me> 
+ *           can be non-NULL. 
+ * 
+ *           If the <keepme> keyhash is non-NULL, it specifies the
+ *           names of sequences (and affiliated annotation) to
+ *           output. All others will be ignored. If <keepme> is NULL,
+ *           all sequences will be regurgitated.
+ *
+ *           <maxname>, <maxgf>, <maxgc> and <maxgr> specify the max
+ *           length sequence name, GF tag, GC tag, and GR tag, and can
+ *           be provided by a caller that knows their values, e.g. as
+ *           revealed by a previous call to esl_msa_ReadNonSeqPfam().
+ *           If any are -1, the caller didn't know the value, and the
+ *           spacing in the alignment file we read in will be
+ *           preserved. An example of useful non -1 values is if we're
+ *           merging multiple alignments into a single alignment, and
+ *           the spacing of any given alignment should change when all
+ *           alignments are considered (like what esl-alimerge does).
+ *
+ *           We can't be as rigorous about validating the input as the
+ *           other read functions that store the full alignment. Here,
+ *           we verify that there is only one line for the first
+ *           sequence read (verifying that all sequences are only one
+ *           line would require storing and looking up all sequence
+ *           names which we could do at a cost), that each aligned
+ *           data line (aseq, GC, GR) are all the same length <alen>
+ *           which should equal <exp_alen> unless <exp_alen> is -1,
+ *           indicating the caller doesn't know what alen should be.
+ *           If useme or add2me is non-NULL, exp_alen must not be -1.
+ *           No validation of aligned sequence characters being part
+ *           of an alphabet is done, though we could, at a cost in
+ *           time.
+ *
+ * Args:     afp         - open alignment file pointer
+ *           ofp         - output file pointer
+ *           maxname     - maximum length of a sequence name (-1 if unknown) 
+ *           maxgf       - maximum length of a GF tag (-1 if unknown) 
+ *           maxgc       - maximum length of a GC tag (-1 if unknown) 
+ *           maxgr       - maximum length of a GR tag (-1 if unknown) 
+ *           do_header   - TRUE to write magic Stockholm header at top to ofp 
+ *           do_trailer  - TRUE to write '//' at end to ofp
+ *           do_blanks   - TRUE to regurgitate blank lines, FALSE not to
+ *           do_comments - TRUE to write comments to ofp
+ *           do_gf       - TRUE to write #=GF annotation to ofp
+ *           do_gs       - TRUE to write #=GS annotation to ofp
+ *           do_gc       - TRUE to write #=GC annotation to ofp
+ *           do_gr       - TRUE to write #=GR annotation to ofp
+ *           do_aseq     - TRUE to write aligned sequences to ofp
+ *           seqs2regurg - keyhash of names of the sequences to write, all others
+ *                         will not be written. Associated annotation (#=GS, #=GR) 
+ *                         will be written for these sequences only. Must be NULL
+ *                         if seqs2skip is non-NULL (enforced by contract).
+ *                         If both are NULL all seqs are written.
+ *           seqs2skip   - keyhash of names of the sequences to skip (not write), 
+ *                         all others will be written. Associated annotation (#=GS, #=GR) 
+ *                         will not be written for these sequences. Must be NULL
+ *                         if seqs2regurg is NULL (enforced by contract).
+ *                         If both are NULL all seqs are written.
+ *           useme       - [0..apos..exp_alen-1] TRUE to include position apos in output of 
+ *                         aligned data (GC,GR,aseq), FALSE to remove it, can be NULL
+ *           add2me      - [0..apos..exp_alen-1] number of all gaps to add after each
+ *                         position of aligned data (GC,GR,aseq), can be NULL
+ *           exp_alen    - expected alignment length, -1 if unknown, which
+ *                         is okay as long as useme == add2me == NULL
+ *           gapchar     - gap character, only relevant if add2me != NULL
+ * 
+ * Returns:   <eslOK> on success. 
+ *            Returns <eslEOF> if there are no more alignments in <afp>.
+ *            <eslEFORMAT> if parse fails because of a file format problem,
+ *            in which case afp->errbuf is set to contain a formatted message 
+ *            that indicates the cause of the problem.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ * 
+ * Xref:      ~nawrockie/notebook/9_1206_esl_msa_mem_efficient/
+ */
+int
+esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr, 
+			int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
+			int do_gs, int do_gc, int do_gr, int do_aseq, 
+			ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar)
+{
+  char      *s = NULL;
+  int        status;
+  int        status2;
+  int        nseq = 0;
+  char      *seqname = NULL;
+  char      *first_seqname = NULL;
+  char      *text = NULL;
+  char      *gapped_text = NULL;
+  char      *tag = NULL;
+  char      *gf = NULL;
+  char      *gc = NULL;
+  char      *gs = NULL;
+  char      *gr = NULL;
+  int       curmargin, curmargin2, namelen, spacelen, spacelen2, textlen, taglen;
+  int       gaps2addlen;
+  int       margin;           /* width of left hand side margin */
+  int       flushpoint = 100; /* number of lines read at which to flush ofp */
+
+  /* contract check */
+  if(ofp == NULL) ESL_EXCEPTION(eslEINCONCEIVABLE, "ofp is NULL");
+  if((afp->format != eslMSAFILE_STOCKHOLM) && (afp->format != eslMSAFILE_PFAM)) {
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "only non-interleaved (1 line /seq, Pfam) Stockholm formatted files can be read in small memory mode");
+  }
+  if(add2me != NULL && useme != NULL) { 
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "add2me and useme both non-NULL");
+  }
+  if((add2me != NULL || useme != NULL) && exp_alen == -1) { 
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "exp_alen == -1, but add2me or useme non-NULL");
+  }
+  if(seqs2regurg != NULL && seqs2skip != NULL) {
+    ESL_EXCEPTION(eslEINVAL, "seqs2regurg and seqs2skip both non-NULL, only one may be");
+  }
+
+  gaps2addlen = (add2me == NULL) ? 0 : esl_vec_ISum(add2me, (exp_alen+1));
+
+  margin = -1;
+  if (maxgf != -1 && maxgf < 2) maxgf = 2;
+  if (maxname != -1)                         margin = maxname+1; 
+  if (maxgc > 0 && maxgc+6 > margin)         margin = maxgc+6;
+  if (maxgr > 0 && maxname+maxgr+7 > margin) margin = maxname+maxgr+7; 
+  /* if margin is still -1, we'll use the same spacing we read in from the file */
+
+  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
+  afp->errbuf[0] = '\0';
+
+  /* Check the magic Stockholm header line.
+   * We have to skip blank lines here, else we perceive
+   * trailing blank lines in a file as a format error when
+   * reading in multi-record mode.
+   */
+  do {
+    if ((status = msafile_getline(afp)) != eslOK) goto ERROR; /* includes EOF  */
+  } while (is_blankline(afp->buf));
+  
+  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
+    ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
+  if(do_header) fprintf(ofp, afp->buf);
+
+  /* Read the alignment file one line at a time.
+   */
+  while ((status2 = msafile_getline(afp)) == eslOK) 
+    {
+      if(afp->linenumber % flushpoint == 0) fflush(ofp);
+      s = afp->buf;
+      while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
+      
+      if (*s == '#') {
+	
+	if      (strncmp(s, "#=GF", 4) == 0)
+	  {
+	    if (do_gf) { 
+	      if(maxgf == -1) { /* just print line as is */
+		fprintf(ofp, afp->buf); 
+	      }
+	      else { /* parse line into temporary strings, then print it out with correct formatting */
+		s = afp->buf;
+		if (esl_strtok(&s, " \t\n\r", &gf)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		if (esl_strtok(&s, " \t\n\r", &tag)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		if (esl_strtok(&s, "\n\r",    &text) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		fprintf(ofp, "#=GF %-*s %s\n", maxgf, tag, text);
+	      }
+	    }
+	  }
+	else if (strncmp(s, "#=GC", 4) == 0)
+	  {
+	    if(do_gc) { 
+	      /* parse line into temporary strings */
+	      s = afp->buf;
+	      if (esl_strtok    (&s, " \t\n\r", &gc)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &tag,  &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+	      spacelen = determine_spacelen(s);
+	      if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+
+	      /* verify alignment length */
+	      if(exp_alen == -1) exp_alen = textlen;
+	      else if(exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
+
+	      /* determine margin length of sequence name field for output formatting */
+	      curmargin = (margin == -1) ? taglen + spacelen : margin - 6; 
+
+	      /* output, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
+	      if(useme  != NULL) { 
+		/* if this is a GC SS_cons line, remove broken basepairs first */
+		if(strncmp(tag, "SS_cons", 7) == 0) {
+		  if((status = remove_broken_basepairs_from_ss_string(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
+		}
+		shrink_string(text, useme, exp_alen); /* this is done in place on text */
+	      }
+	      if(add2me != NULL) { 
+		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		fprintf(ofp, "#=GC %-*s %s\n", curmargin, tag, gapped_text);
+		free(gapped_text);
+	      }
+	      else { 
+		fprintf(ofp, "#=GC %-*s %s\n", curmargin, tag, text);
+	      }
+	    }
+	  }
+	else if (strncmp(s, "#=GS", 4) == 0)
+	  {
+	    /* we don't validate the sequence exists, this would require storing all seqnames */
+	    if (do_gs) { 
+	      if(maxname == -1 && seqs2regurg == NULL) { /* just print line as is */
+		fprintf(ofp, afp->buf); 
+	      }
+	      else { /* parse line into temporary strings, then print it out with correct formatting */
+		if(seqs2regurg == NULL || (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) 
+		  { /* this if() will evaluate as TRUE if seqs2regurg is NULL, or the seqname exists in seqs2regurg, else it will return FALSE */
+		    s = afp->buf;
+		    if (esl_strtok(&s, " \t\n\r", &gs)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		    if (esl_strtok(&s, " \t\n\r", &tag)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		    if (esl_strtok(&s, "\n\r",    &text) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+		    fprintf(ofp, "#=GS %-*s %s\n", maxname, tag, text);
+		  }
+	      }
+	    }
+	  }
+	else if (strncmp(s, "#=GR", 4) == 0)
+	  {
+	    if(do_gr) { 
+	      /* parse line into temporary strings */
+	      s = afp->buf;
+	      if (esl_strtok    (&s, " \t\n\r", &gr)                      != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      spacelen = determine_spacelen(s);
+	      if (esl_strtok_adv(&s, " \t\n\r", &tag,      &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+	      spacelen2 = determine_spacelen(s);
+	      if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line", afp->linenumber);
+
+	      /* verify alignment length */
+	      if(exp_alen == -1) exp_alen = textlen;
+	      else if(exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
+
+	      /* determine length of fields for output formatting */
+	      curmargin  = (maxname == -1) ? namelen + spacelen : maxname; 
+	      curmargin2 = (maxname == -1) ? taglen + spacelen2 : margin - maxname - 7;
+
+	      /* if seqs2regurg != NULL, skip this sequence unless its in the seqs2regurg hash */
+	      if(seqs2regurg == NULL || (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) 
+		{ /* this if() will evaluate as TRUE if seqs2regurg is NULL, or the seqname exists in seqs2regurg, else it will return FALSE */
+		  
+		  /* output, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
+		  if(useme  != NULL) { 
+		    /* if this is a GR SS line, remove broken basepairs first */
+		    if(strncmp(tag, "SS", 2) == 0) {
+		      if((status = remove_broken_basepairs_from_ss_string(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
+		    }
+		    shrink_string(text, useme, exp_alen); /* this is done in place on text */
+		  }
+		  if(add2me != NULL) { 
+		    if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		    fprintf(ofp, "#=GR %-*s %-*s %s\n", curmargin, seqname, curmargin2, tag, gapped_text);
+		    free(gapped_text);
+		  }
+		  else { 
+		    fprintf(ofp, "#=GR %-*s %-*s %s\n", curmargin, seqname, curmargin2, tag, text);
+		  }
+		}
+	    }
+	  }
+	else if (do_comments) fprintf(ofp, afp->buf); /* print comment line, if desired */
+      } /* end of 'if (*s == '#')' */ 
+      else if (strncmp(s, "//",   2) == 0)   { if(do_trailer) fprintf(ofp, afp->buf); break; /* normal way out */ }
+      else if (*s == '\n' || *s == '\r')     { if(do_blanks)  { fprintf(ofp, afp->buf); } continue; } 
+      else { /* sequence line */
+	if(do_aseq) { 
+	  /* parse line into temporary strings */
+	  s = afp->buf;
+	  if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen,  NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
+	  spacelen = determine_spacelen(s);
+	  if (esl_strtok_adv(&s, " \t\n\r", &text,    &textlen, NULL)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
+
+	  /* verify alignment length */
+	  if((exp_alen != -1) && (exp_alen != textlen)) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad seq line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
+
+	  /* determine length of sequence name field for output formatting */
+	  curmargin = (margin == -1) ? namelen + spacelen : margin-1; 
+
+	  /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
+	  if(nseq == 0) { if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; }
+	  else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with esl-reformat.", afp->linenumber, seqname); }
+	  nseq++;
+
+	  /* if seqs2regurg != NULL, skip this sequence unless its in the seqs2regurg hash */
+	  /* seq usually follows another seq; guess msa->lastidx +1 */
+	  if(seqs2regurg == NULL || (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) 
+	    { 
+	      /* this if() will evaluate as TRUE if seqs2regurg is NULL, or the seqname exists in seqs2regurg, else it will return FALSE */
+
+	      /* output, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
+	      if(useme  != NULL) shrink_string(text, useme, exp_alen); /* this is done in place on text */
+	      if(add2me != NULL) { 
+		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		fprintf(ofp, "%-*s %s\n", curmargin, seqname, gapped_text);
+		free(gapped_text);
+	      }
+	      else { 
+		fprintf(ofp, "%-*s %s\n", curmargin, seqname, text);
+	      }
+	    }
+	}
+      }
+    }
+
+  /* If we saw a normal // end, we would've successfully read a line,
+   * so when we get here, status (from the line read) should be eslOK.
+   */ 
+  if (status2 != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): didn't find // at end of alignment", afp->linenumber);
+  if (first_seqname != NULL) free(first_seqname);
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+#endif
+
+/*---------------- end, memory efficient Pfam routines  -------------------*/
 
 /******************************************************************************
- * 12. Debugging/development routines.
+ * 13. Debugging/development routines.
  *****************************************************************************/
 
 /* Function:  esl_msa_CreateFromString()
@@ -5375,7 +6298,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 14. Unit tests
+ * 15. Unit tests
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 
@@ -5397,6 +6320,23 @@ write_known_msa(FILE *ofp)
   return;
 }
   
+/* write_known_pfam_msa()
+ * Write a known MSA to a tmpfile in Pfam Stockholm format.
+ */
+static void
+write_known_pfam_msa(FILE *ofp)
+{
+  fprintf(ofp, "# STOCKHOLM 1.0\n");
+  fprintf(ofp, "#=GF ID pfam-test\n");
+  fprintf(ofp, "#=GS seq2 DE seq2 is interesting\n");
+  fprintf(ofp, "seq1    --ACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWY~~~\n");
+  fprintf(ofp, "seq2    aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy\n");
+  fprintf(ofp, "seq3    aaACDEFGHIK~LMNPQRS-TVWYACDEFGHIKLMNPQRSTVWYyyy\n");
+  fprintf(ofp, "#=GC RF ..xxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\n");
+  fprintf(ofp, "//\n");
+  return;
+}
+
 /* compare_to_known() 
  * SRE, Thu Sep  7 09:52:07 2006 [Janelia]
  * Spotcheck an ESL_MSA to make sure it matches the test known alignment.
@@ -5961,13 +6901,94 @@ utest_ZeroLengthMSA(const char *tmpfile)
   esl_msa_Destroy(z2);
   free(useme);
 }
+
+static void
+utest_ReadNonSeqInfoPfam(char *filename)
+{
+  char        *msg = "ReadNonSeqInfo() unit test failure";
+  ESL_MSAFILE *mfp = NULL;
+  ESL_MSA     *msa = NULL;
+  int          nseq = 0;
+  int64_t      alen = 0;
+  int          ngs = 0;
+  int          maxname = 0;
+  int          maxgf = 0;
+  int          maxgc = 0;
+  int          maxgr = 0;
+
+  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadNonSeqInfo() requires it */
+  if (esl_msa_ReadNonSeqInfoPfam(mfp, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslOK)  esl_fatal(msg);
+
+  if (msa->nseq != 0)  esl_fatal("bad msa->nseq");
+  if (msa->alen != -1) esl_fatal("bad msa->alen");
+  if (nseq      != 3)  esl_fatal("bad nseq");
+  if (alen      != 47) esl_fatal("bad alen");
+  if (ngs       != 1)  esl_fatal("bad ngs");
+  if (maxname   != 4)  esl_fatal("bad maxname");
+  if (maxgf     != 2)  esl_fatal("bad maxgf");
+  if (maxgc     != 2)  esl_fatal("bad maxgc");
+  if (maxgr     != 0)  esl_fatal("bad maxgr");
+  esl_msa_Destroy(msa);
+
+  if (esl_msa_ReadNonSeqInfoPfam(mfp, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslEOF) esl_fatal(msg);
+  if (msa  != NULL) esl_fatal(msg);
+  if (nseq != 0 || alen != 0 || ngs != 0 || maxname != 0 || maxgf != 0 || maxgc != 0 || maxgr != 0) esl_fatal("bad nseq");
+
+  esl_msafile_Close(mfp);
+  return;
+}
+
+static void
+utest_RegurgitatePfam(char *filename)
+{
+  char        *msg = "RegurgitatePfam() unit test failure";
+  ESL_MSAFILE *mfp = NULL;
+  char         tmpfile[16] = "esltmpXXXXXX";
+  FILE        *fp = NULL;
+  ESL_MSA     *msa1 = NULL;
+  ESL_MSA     *msa2 = NULL;
+
+  /* regurgitate msa in filename to tmpfile (an msa structure will not be created) */
+  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadNonSeqInfo() requires it */
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  if (esl_msa_RegurgitatePfam(mfp, fp, 
+			      -1, -1, -1, -1, /* maxname, maxgf, maxgc, maxgr unknown: output msa formatting will match input msa formatting */
+			      TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* do_header, do_trailer, do_blanks, do_comments, do_gf, do_gs, do_gc, do_gr, do_aseq: print all components */
+			      NULL, /* seqs2regurg: if non-NULL specifies which sequences to keep in output */
+			      NULL, /* seqs2skip:   if non-NULL specifies which sequences to skip in output */
+			      NULL, /* useme:  if non-NULL specifies which columns to keep in output */
+			      NULL, /* add2me: if non-NULL specifies how many gap columns to add in output */
+			      -1,   /* expected alignment length, unknown (must not be if useme != NULL or add2me != NULL */
+			      '.')  /* gapchar, irrelevant since add2me is NULL */
+      != eslOK) esl_fatal(msg);
+  fclose(fp);
+  esl_msafile_Close(mfp);
+
+  /* read in msa from filename as msa1 */
+  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg); 
+  if (esl_msa_Read(mfp, &msa1) != eslOK) esl_fatal(msg);
+  esl_msafile_Close(mfp);
+
+  /* read in msa from tmpfile as msa2 */
+  if (esl_msafile_Open(tmpfile, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);
+  if (esl_msa_Read(mfp, &msa2) != eslOK) esl_fatal(msg);
+  esl_msafile_Close(mfp);
+
+  msa_compare(msa1, msa2);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  remove(tmpfile);
+
+  return;
+}
 #endif /* eslMSA_TESTDRIVE */
 /*------------------------ end of unit tests --------------------------------*/
 
 
 
 /*****************************************************************************
- * 15. Test driver
+ * 16. Test driver
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 
@@ -6003,7 +7024,8 @@ main(int argc, char **argv)
   ESL_MSAFILE    *mfp  = NULL;
   ESL_MSA        *msa  = NULL;
   FILE           *fp   = NULL;
-  char            tmpfile[16] = "esltmpXXXXXX"; /* tmpfile template */
+  char            tmpfile[16]  = "esltmpXXXXXX"; /* tmpfile template */
+  char            tmpfile2[16] = "esltmpXXXXXX"; /* tmpfile template */
 #ifdef eslAUGMENT_ALPHABET
   ESL_ALPHABET   *abc  = NULL;
 #endif
@@ -6059,7 +7081,18 @@ main(int argc, char **argv)
   esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
 #endif
+
+  /* Unit tests of memory efficient functions
+   */
+  if (esl_tmpfile_named(tmpfile2, &fp) != eslOK) esl_fatal("failed to create tmpfile2");
+  write_known_pfam_msa(fp);
+  fclose(fp);
+
+  utest_ReadNonSeqInfoPfam(tmpfile2);
+  utest_RegurgitatePfam(tmpfile2);
+
   remove(tmpfile);
+  remove(tmpfile2);
   exit(0);	/* success  */
 }
 #endif /*eslMSA_TESTDRIVE*/
@@ -6069,7 +7102,7 @@ main(int argc, char **argv)
 
 
 /******************************************************************************
- * 16. Examples.
+ * 17. Examples.
  *****************************************************************************/
 /* The examples are also useful as i/o speed benchmarks. */
 

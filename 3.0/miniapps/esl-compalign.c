@@ -1,4 +1,4 @@
-/* esl-compalign-rf - compare two sequence alignments
+/* esl-compalign - compare two multiple sequence alignments
  *
  * EPN, Sun Aug  3 14:57:35 2008
  * From squid's compalign: Sean Eddy, Tue Nov  3 07:46:59 1992
@@ -16,30 +16,29 @@
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
 
-static char banner[] = "compare two multiple alignments";
+static char banner[] = "compare two multiple sequence alignments";
 
 static char usage[]  = "\
 [-options] <trusted file> <test file>\n\
   Both files must be in Stockholm format with #=GC RF markup.\n\
   Sequences must occur in the same order in the two files.\n\
   Number of non-gap characters in #=GC RF markup must be identical.\n\
-  Note: the scoring metric used is different from Squid\'s compalign.\n\
-";
+  Note: accuracy is computed differently than in Squid\'s compalign.\n\
+  See the manual page for details on how accuracy is computed.";
 
-static int integerize_posterior_char(char c);
+static int get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen);
 
 static ESL_OPTIONS options[] = {
-  /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "help; show brief info on version and usage",                     0 },
-  { "-c",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "print per column statistics",                 0 },
-  { "-p",      eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL, "print histogram of accuracy versus posterior probability",       0 },
-  { "--c2dfile", eslARG_OUTFILE,NULL,NULL, NULL, NULL,"-c", NULL, "print per column stats to esl-ssudraw --dfile file <f>",         0 },
-  { "--p2xm",    eslARG_OUTFILE,NULL,NULL, NULL, NULL,"-p", NULL, "print posterior stats to xmgrace file",         0 },
-  { "--mask-p2xm", eslARG_OUTFILE,NULL,NULL, NULL, NULL,"--p2xm", NULL, "with --p2xm, only look at columns within mask in <f>",         0 },
-  { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                         10 },
-  { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                             10 },
-  { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                             10 },
+  /* name        type        default  env   range togs  reqs  incomp           help                                                   docgroup */
+  { "-h",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "help; show brief info on version and usage",                     1 },
+  { "-c",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print per column statistics instead of per sequence stats",      1 },
+  { "-p",        eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, NULL,            "print stats on accuracy versus posterior probability (PP)",      1 },
+  { "--p-mask",  eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-p",  NULL,            "with -p, only consider columns within mask ('1' columns) in <f>",1 },
+  { "--c2dfile", eslARG_OUTFILE,NULL, NULL, NULL, NULL,"-c",  NULL,            "print per column stats to esl-ssdraw --dfile file <f>",          1 },
+  { "--amino",   eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--dna,--rna",   "<msafile> contains protein alignments",                          2 },
+  { "--dna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--rna", "<msafile> contains DNA alignments",                              2 },
+  { "--rna",     eslARG_NONE,  FALSE, NULL, NULL, NULL, NULL, "--amino,--dna", "<msafile> contains RNA alignments",                              2 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -55,9 +54,10 @@ main(int argc, char **argv)
   int64_t      klen, tlen;	/* lengths of dealigned seqs       */
   int          i;		/* counter over sequences          */
   int          apos;		/* counter over alignment columns  */
-  int          cpos;		/* counter over consensus (non-gap RF) columns  */
-  int       is_cpos;            /* TRUE if current apos is a consensus pos, FALSE if not */
+  int          rfpos;		/* counter over consensus (non-gap RF) columns  */
+  int       is_rfpos;            /* TRUE if current apos is a consensus pos, FALSE if not */
   int          uapos;		/* counter over unaligned residue positions */
+  int          nali;            /* number of alignment we're on in each file */
 
   int        **kp;              /* [0..i..nseq-1][1..r..sq->n] = x known non-gap RF position of residue r in sequence i */
   int        **tp;              /* [0..i..nseq-1][1..r..sq->n] = x predicted non-gap RF position of residue r in sequence i */
@@ -82,24 +82,31 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc;           /* alphabet for all alignments */
   int      rflen, t_rflen;     /* non-gap RF length (consensus lengths) */
   int   status;
+  char *namedashes;
+  int ni;
+  int namewidth = 8; /* length of 'seq name' */
+  int cor_tm, cor_ti, km, ki; /* correct predicted match, correct predicted insert, total match, total insert */
+  int type;          /* alphabet type */
+  char *mask = NULL;
+  int masklen;
+  ESL_DSQ *ks;
+  ESL_DSQ *ts;
+  FILE *dfp = NULL; /* for --c2dfile */
 
   /* variables needed for -p and related options */
   int do_post = FALSE; /* TRUE if -p enabled */
-  int do_post_for_this_cpos = FALSE; /* set for each consensus position, always TRUE unless --mask-p2xm */
+  int do_post_for_this_rfpos = FALSE; /* set for each consensus position, always TRUE unless --mask-p2xm */
   int p;               /* counter over integerized posteriors */
-  int ridx1 = -1;      /* #=GR index for posterior value digit 2 */
-  int ridx2 = -1;      /* #=GR index for posterior value digit 2 */
-  int ndigits = 0;     /* number of posterior digits in alignment, 1 or 2 */
-  int *ptm = NULL;     /* [0..p..100] number of total   matches with int posteriors of p */
-  int *pti = NULL;     /* [0..p..100] number of total   inserts with int posteriors of p */
-  int *cor_ptm = NULL; /* [0..p..100] number of correct matches with int posteriors of p */
-  int *cor_pti = NULL; /* [0..p..100] number of correct inserts with int posteriors of p */
-  int npostvals = 101; /* number of posterior int values 0..101 */
-  int r;               /* counter over #=GR annotation */
-  int pint;            /* integerized posterior */
+  int *ptm = NULL;     /* [0..p..10] number of total   matches with posterior value p (10="*")*/
+  int *pti = NULL;     /* [0..p..10] number of total   inserts with posterior value p */
+  int *cor_ptm = NULL; /* [0..p..10] number of correct matches with posterior value p */
+  int *cor_pti = NULL; /* [0..p..10] number of correct inserts with posterior value p */
+  int npostvals = 11;  /* number of posterior values 0-9, * */
+  int ppidx;           /* index of PP */
+  char ppchars[11] = "0123456789*";
   int cm_cor_ptm, cm_cor_pti, cm_ptm, cm_pti, cm_incor_ptm, cm_incor_pti; /* cumulative counts of posteriors */
   int tot_cor_ptm, tot_cor_pti, tot_ptm, tot_pti, tot_incor_ptm, tot_incor_pti; /* total counts of posteriors */
-  char          errbuf[eslERRBUFSIZE];
+  char errbuf[eslERRBUFSIZE];
 
   /***********************************************
    * Parse command line
@@ -120,7 +127,8 @@ main(int argc, char **argv)
       esl_banner(stdout, argv[0], banner);
       esl_usage (stdout, argv[0], usage);
       puts("\n where options are:");
-      esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
+      esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
+      esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
       exit(EXIT_SUCCESS);
     }
 
@@ -150,7 +158,6 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else {
-    int type;
     status = esl_msafile_GuessAlphabet(kfp, &type);
     if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", kfile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", kfp->errbuf);
@@ -164,23 +171,28 @@ main(int argc, char **argv)
 
   do_post = esl_opt_GetBoolean(go, "-p");
 
-  /* read the mask file if --mask-p2xm is enabled */
-  char *mask = NULL;
-  int masklen;
-  if(! esl_opt_IsDefault(go, "--mask-p2xm")) { 
-    if((status = read_mask_file(esl_opt_GetString(go, "--mask-p2xm"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
+  /* read the mask file if --p-mask is enabled */
+  if(! esl_opt_IsDefault(go, "--p-mask")) { 
+    if((status = read_mask_file(esl_opt_GetString(go, "--p-mask"), errbuf, &mask, &masklen)) != eslOK) esl_fatal(errbuf);
+  }
+  /* open the c2dfile for output, if nec */
+  if (esl_opt_IsOn(go, "--c2dfile")) { 
+    if ((dfp = fopen(esl_opt_GetString(go, "--c2dfile"), "w")) == NULL) esl_fatal("Failed to open --c2dfile output file %s\n", esl_opt_GetString(go, "--c2dfile"));
   }
 
   /***********************************************
    * Do alignment comparisons, one seq at a time;
    * this means looping over all seqs in all alignments.
    ***********************************************/
-
+  nali = 0;
   while (1)
     {
       kstatus = esl_msa_Read(kfp, &ka);
       tstatus = esl_msa_Read(tfp, &ta);
       if (kstatus != eslOK || tstatus != eslOK) break; /* normal or errors. */
+
+      nali++;
+      if((nali > 1) && (esl_opt_IsOn(go, "--c2dfile"))) esl_fatal("--c2dfile is only meant for msafiles with single alignments"); 
 
       /* Sanity check on alignment
        */
@@ -192,8 +204,6 @@ main(int argc, char **argv)
 	esl_fatal("test alignment has no reference annotation\n");
 
       /* make sure the sequences are all identical */
-      ESL_DSQ *ks;
-      ESL_DSQ *ts;
       ESL_ALLOC(seqlen, sizeof(int) * ka->nseq);
       for(i = 0; i < ka->nseq; i++) { 
 	if(strcmp(ka->sqname[i], ta->sqname[i]) != 0) esl_fatal("sequence i of trusted alignment %s has different name than seq i of predicted alignment %s\n", ka->sqname[i], ta->sqname[i]); 
@@ -229,22 +239,12 @@ main(int argc, char **argv)
 
       /* if -p, make sure the test alignment has posterior probabilities, and allocate our counters for correct/incorrect per post value */
       if(do_post) { 
-	if(! esl_opt_IsDefault(go, "--mask-p2xm")) {
+	if(! esl_opt_IsDefault(go, "--p-mask")) {
 	  if(masklen != rflen) { 
-	    esl_fatal("Length of mask in %s (%d) not equal to non-gap RF len of alignments (%d)\n", esl_opt_GetString(go, "--mask-p2xm"), masklen, rflen);
+	    esl_fatal("Length of mask in %s (%d) not equal to non-gap RF len of alignments (%d)\n", esl_opt_GetString(go, "--p-mask"), masklen, rflen);
 	  }
 	}
-	for (r = 0; r < ta->ngr; r++) { 
-	  if (strcmp(ta->gr_tag[r], "POST")   == 0) { ridx1 = r; ndigits = 1; }
-	  if (strcmp(ta->gr_tag[r], "Post")   == 0) { ridx1 = r; ndigits = 1; }
-	  if (strcmp(ta->gr_tag[r], "post")   == 0) { ridx1 = r; ndigits = 1; }
-	  if (strcmp(ta->gr_tag[r], "POSTX.") == 0) { ridx1 = r; ndigits = 1; }
-	  if (strcmp(ta->gr_tag[r], "POST.X") == 0) { ridx2 = r; ndigits = 2; }
-	}
-	if(ndigits == 0)                                 esl_fatal("-p requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", tfile);
-	if(ndigits == 1 && ridx1 == -1)                  esl_fatal("-p requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", tfile);
-	if(ndigits == 2 && (ridx1 == -1 || ridx2 == -1)) esl_fatal("-p requires \"#=GR POST\", \"#=GR Post\", \"#=GR post\", \"#=GR POSTX.\", or \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s.\n", tfile);
-	/* always allocate 0..100, if we only have 1 post value, only 0,10,20,30,40,50,60,70,80,90,100 will be filled with counts */
+	if(ta->pp == NULL) esl_fatal("-p requires \"#=GR PP\" annotation in the test alignment, but none exists");
 	ESL_ALLOC(ptm,     sizeof(int) * npostvals);
 	ESL_ALLOC(pti,     sizeof(int) * npostvals);
 	ESL_ALLOC(cor_ptm, sizeof(int) * npostvals);
@@ -293,55 +293,58 @@ main(int argc, char **argv)
 
       /* determine non-gap RF location of each residue in known alignment */
       for(i = 0; i < ka->nseq; i++) { 
-	uapos = cpos = 0;
+	uapos = rfpos = 0;
 	for(apos = 1; apos <= ka->alen; apos++) { 
-	  is_cpos = FALSE;
+	  is_rfpos = FALSE;
 	  if(! (esl_abc_CIsGap(ka->abc, ka->rf[(apos-1)]))) { 
-	    cpos++; is_cpos = TRUE;
+	    rfpos++; is_rfpos = TRUE;
 	  }
 	  if(! esl_abc_XIsGap(ka->abc, ka->ax[i][apos])) { 
 	    uapos++;
-	    kp[i][uapos] = (is_cpos) ? cpos : (-1 * cpos);
-	    if(is_cpos) { km_pos[cpos]++; km_seq[i]++; }
-	    else        { ki_pos[cpos]++; ki_seq[i]++; }
+	    kp[i][uapos] = (is_rfpos) ? rfpos : (-1 * rfpos);
+	    if(is_rfpos) { km_pos[rfpos]++; km_seq[i]++; }
+	    else        { ki_pos[rfpos]++; ki_seq[i]++; }
 	  }
 	}
       }
 
       /* determine non-gap RF location of each residue in predicted alignment */
       for(i = 0; i < ta->nseq; i++) { 
-	uapos = cpos = 0;
+	uapos = rfpos = 0;
 	for(apos = 1; apos <= ta->alen; apos++) { 
-	  is_cpos = FALSE;
-	  if(! (esl_abc_CIsGap(ta->abc, ta->rf[(apos-1)]))) { 
-	    cpos++; is_cpos = TRUE;
+	  is_rfpos = FALSE;
+	  if((! esl_abc_CIsGap(abc, ta->rf[(apos-1)])) && 
+	     (! esl_abc_CIsMissing(abc, ta->rf[(apos-1)])) && 
+	     (! esl_abc_CIsNonresidue(abc, ta->rf[(apos-1)]))) { 
+	    rfpos++; is_rfpos = TRUE;
 	    if(do_post) { 
-	      do_post_for_this_cpos = (mask != NULL && mask[cpos-1] == '0') ? FALSE : TRUE;
+	      do_post_for_this_rfpos = (mask != NULL && mask[rfpos-1] == '0') ? FALSE : TRUE;
 	    }
 	  }
 	  if(! esl_abc_XIsGap(ta->abc, ta->ax[i][apos])) { 
 	    uapos++;
-	    tp[i][uapos] = (is_cpos) ? cpos : (-1 * cpos);
+	    tp[i][uapos] = (is_rfpos) ? rfpos : (-1 * rfpos);
 	    if(do_post) { 
-	      pint = 10 * integerize_posterior_char(ta->gr[ridx1][i][(apos-1)]);
-	      if(ndigits == 2 && pint != 100) pint += integerize_posterior_char(ta->gr[ridx2][i][(apos-1)]);
+	      if(esl_abc_CIsGap(abc, ta->pp[i][(apos-1)])) esl_fatal("gap PP value for nongap residue: ali: %d seq: %d apos: %d\n", nali, i, apos);
+	      ppidx = get_pp_idx(abc, ta->pp[i][(apos-1)]);
+	      if(ppidx == -1) esl_fatal("unrecognized PP value (%c) for nongap residue: ali: %d seq: %d apos: %d\n", ta->pp[i][(apos-1)], nali, i, apos);
 	    }
-	    if(is_cpos) { 
-	      tm_pos[cpos]++; tm_seq[i]++; 
-	      if(do_post_for_this_cpos) ptm[pint]++;
+	    if(is_rfpos) { 
+	      tm_pos[rfpos]++; tm_seq[i]++; 
+	      if(do_post_for_this_rfpos) ptm[ppidx]++;
 	    }
 	    else { 
-	      ti_pos[cpos]++; ti_seq[i]++; 
-	      if(do_post) pti[pint]++;
+	      ti_pos[rfpos]++; ti_seq[i]++; 
+	      if(do_post) pti[ppidx]++;
 	    }
 	    if(kp[i][uapos] == tp[i][uapos]) { /* correctly predicted this residue */
-	      if(is_cpos) { 
-		cor_tm_seq[i]++; cor_tm_pos[cpos]++; 
-		if(do_post_for_this_cpos) cor_ptm[pint]++;
+	      if(is_rfpos) { 
+		cor_tm_seq[i]++; cor_tm_pos[rfpos]++; 
+		if(do_post_for_this_rfpos) cor_ptm[ppidx]++;
 	      } 
 	      else {
-		cor_ti_seq[i]++; cor_ti_pos[cpos]++; 
-		if(do_post) cor_pti[pint]++;
+		cor_ti_seq[i]++; cor_ti_pos[rfpos]++; 
+		if(do_post) cor_pti[ppidx]++;
 	      } 
 	    }
 	  }
@@ -349,31 +352,27 @@ main(int argc, char **argv)
       }
       if((! (esl_opt_GetBoolean(go, "-c"))) && (! esl_opt_GetBoolean(go, "-p"))) { 
 	/* print per sequence statistics */
-	char *namedashes;
-	int ni;
-	int namewidth = 8; /* length of 'seq name' */
 	/* determine the longest name in msa */
 	for(ni = 0; ni < ka->nseq; ni++) namewidth = ESL_MAX(namewidth, strlen(ka->sqname[ni]));
 	ESL_ALLOC(namedashes, sizeof(char) * namewidth+1);
 	namedashes[namewidth] = '\0';
 	for(ni = 0; ni < namewidth; ni++) namedashes[ni] = '-';
 	
-	printf("# %-*s  %5s  %20s  %20s  %20s\n", namewidth, "seq name", "len", "match columns", "insert columns", "all columns");
-	printf("# %-*s  %5s  %20s  %20s  %20s\n", namewidth, namedashes, "-----", "--------------------", "--------------------", "--------------------");
+	printf("# %-*s  %6s  %28s  %28s  %28s\n", namewidth, "seq name", "len",    "match columns", "insert columns", "all columns");
+	printf("# %-*s  %6s  %28s  %28s  %28s\n", namewidth, namedashes, "------", "----------------------------", "----------------------------", "----------------------------");
 	for(i = 0; i < ta->nseq; i++) { 
-	  printf("  %-*s  %5d  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)\n", namewidth, ka->sqname[i], seqlen[i],
+	  printf("  %-*s  %6d  %8d / %8d  (%.3f)  %8d / %8d  (%.3f)  %8d / %8d  (%.3f)\n", namewidth, ka->sqname[i], seqlen[i],
 		 cor_tm_seq[i], km_seq[i], (km_seq[i] == 0) ? 0. : ((float) cor_tm_seq[i] / (float) km_seq[i]), 
 		 cor_ti_seq[i], ki_seq[i], (ki_seq[i] == 0) ? 0. : ((float) cor_ti_seq[i] / (float) ki_seq[i]), 
 		 (cor_tm_seq[i] + cor_ti_seq[i]), (km_seq[i] + ki_seq[i]), ((float) (cor_tm_seq[i] + cor_ti_seq[i]) / ((float) km_seq[i] + ki_seq[i]))); 
 	}
-	int cor_tm, cor_ti, km, ki;
 	cor_tm = esl_vec_ISum(cor_tm_seq, ka->nseq);
 	cor_ti = esl_vec_ISum(cor_ti_seq, ka->nseq);
 	km = esl_vec_ISum(km_seq, ka->nseq);
 	ki = esl_vec_ISum(ki_seq, ka->nseq);
 	
-	printf("# %-*s  %5s  %20s  %20s  %20s\n", namewidth, namedashes, "-----", "--------------------", "--------------------", "--------------------");
-	printf("# %-*s  %5s  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)\n",
+	printf("# %-*s  %6s  %28s  %28s  %28s\n", namewidth, namedashes, "-----", "----------------------------", "----------------------------", "----------------------------");
+	printf("# %-*s  %6s  %8d / %8d  (%.3f)  %8d / %8d  (%.3f)  %8d / %8d  (%.3f)\n",
 	       namewidth, "*all*", "-", 
 	       cor_tm, km, ((float) cor_tm / (float) km), 
 	       cor_ti, ki, ((float) cor_ti / (float) ki), 
@@ -387,29 +386,27 @@ main(int argc, char **argv)
       else if(esl_opt_GetBoolean(go, "-c")) { /* print per column statistics */
 	printf("# %5s  %20s  %20s  %20s\n", "rfpos", "match", "insert", "both");
 	printf("# %5s  %20s  %20s  %20s\n", "-----", "--------------------", "--------------------", "--------------------");
-	for(cpos = 0; cpos <= rflen; cpos++) { 
-	  printf("  %5d  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)\n", cpos, 
+	for(rfpos = 0; rfpos <= rflen; rfpos++) { 
+	  printf("  %5d  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)  %4d / %4d  (%.3f)\n", rfpos, 
 		 
-		 cor_tm_pos[cpos], km_pos[cpos], (km_pos[cpos] == 0) ? 0. : ((float) cor_tm_pos[cpos] / (float) km_pos[cpos]), 
-		 cor_ti_pos[cpos], ki_pos[cpos], (ki_pos[cpos] == 0) ? 0. : ((float) cor_ti_pos[cpos] / (float) ki_pos[cpos]), 
-		 (cor_tm_pos[cpos] + cor_ti_pos[cpos]), (km_pos[cpos] + ki_pos[cpos]), ((float) (cor_tm_pos[cpos] + cor_ti_pos[cpos]) / ((float) km_pos[cpos] + ki_pos[cpos]))); 
+		 cor_tm_pos[rfpos], km_pos[rfpos], (km_pos[rfpos] == 0) ? 0. : ((float) cor_tm_pos[rfpos] / (float) km_pos[rfpos]), 
+		 cor_ti_pos[rfpos], ki_pos[rfpos], (ki_pos[rfpos] == 0) ? 0. : ((float) cor_ti_pos[rfpos] / (float) ki_pos[rfpos]), 
+		 (cor_tm_pos[rfpos] + cor_ti_pos[rfpos]), (km_pos[rfpos] + ki_pos[rfpos]), ((float) (cor_tm_pos[rfpos] + cor_ti_pos[rfpos]) / ((float) km_pos[rfpos] + ki_pos[rfpos]))); 
 	}
       }
       else if(do_post) { /* do posterior output */
-	FILE *pfp = NULL;
-	  /* pfp will be an xmgrace file
-	   * first series:
-	   * x axis = posterior probability 
-	   * y axis = fraction of match residues at >= pp x that are correct 
-	   */
-	if (esl_opt_GetString(go, "--p2xm") != NULL) {
-	  if ((pfp = fopen(esl_opt_GetString(go, "--p2xm"), "w")) == NULL) 
-	    esl_fatal("Failed to open --p2xm output file %s\n", esl_opt_GetString(go, "--p2xm"));
+	if(mask == NULL) { 
+	  printf("# %2s  %29s  %29s\n", "",   "      match columns          ", "      insert columns         ");
+	  printf("# %2s  %29s  %29s\n", "",   "-----------------------------", "-----------------------------") ;
+	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "PP", "ncorrect", "ntotal",   "fractcor",  "ncorrect", "ntotal",   "fractcor");
+	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "--", "--------", "--------", "---------", "--------", "--------", "---------");
 	}
-
-	if(mask == NULL) printf("# %4s  %44s  %44s\n", "prob", "match columns             ", "insert columns             ");
-	else             printf("# %4s  %44s  %44s\n", "prob", "match columns within mask ", "insert columns             ");
-	printf("# %4s  %44s  %44s\n", "----", "--------------------------------------------", "---------------------------------------------");
+	else { 
+	  printf("# %2s  %29s  %29s\n", "",   " match columns within mask   ", "      insert columns         ");
+	  printf("# %2s  %29s  %29s\n", "",   "-----------------------------", "-----------------------------") ;
+	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "PP", "ncorrect", "ntotal",   "fractcor",  "ncorrect", "ntotal",   "fractcor");
+	  printf("# %2s  %8s   %8s %9s  %8s   %8s %9s\n", "--", "--------", "--------", "---------", "--------", "--------", "---------");
+	}
 	cm_ptm = cm_pti = cm_cor_ptm = cm_cor_pti = cm_incor_ptm = cm_incor_pti = 0;
 	tot_ptm = esl_vec_ISum(ptm, npostvals);
 	tot_pti = esl_vec_ISum(pti, npostvals);
@@ -424,82 +421,33 @@ main(int argc, char **argv)
 	  cm_pti     += pti[p];
 	  cm_incor_ptm += ptm[p] - cor_ptm[p];
 	  cm_incor_pti += pti[p] - cor_pti[p];
-	  printf("  %4d %8d / %8d (%.5f) (%.5f) (%.5f)  %8d / %8d (%.5f) (%.5f) (%.5f)\n", 
-		 p, cor_ptm[p], ptm[p], 
+	  printf("  %2c  %8d / %8d (%.5f)  %8d / %8d (%.5f)\n", 
+		 ppchars[p], cor_ptm[p], ptm[p], 
 		 (ptm[p] == 0) ? 0. : (float) cor_ptm[p] / (float) ptm[p], 
-		 (cm_ptm == 0) ? 0. : (float) cm_cor_ptm / (float) cm_ptm, 
-		 (tot_incor_ptm == 0) ? 0. : (float) cm_incor_ptm / (float) tot_incor_ptm, 
 		 cor_pti[p], pti[p], 
-		 (pti[p] == 0) ? 0. : (float) cor_pti[p] / (float) pti[p],
-		 (cm_pti == 0) ? 0. : (float) cm_cor_pti / (float) cm_pti,
-		 (tot_incor_pti == 0) ? 0. : (float) cm_incor_pti / (float) tot_incor_pti);
-	  if(pfp != NULL) fprintf(pfp, "%f %f\n", (float) p / 100., (cm_ptm == 0) ? 0. : (float) cm_cor_ptm / (float) cm_ptm);
-	}
-	if(pfp != NULL) { 
-#if 0
-	  /* x axis = posterior probability 
-	   * y axis = fraction of match residues at (exactly) pp x that are correct 
-	   */
-	  fprintf(pfp, "&\n");
-	  cm_ptm = cm_pti = cm_cor_ptm = cm_cor_pti = cm_incor_ptm = cm_incor_pti = 0;
-	  for(p = (npostvals-1); p >= 0; p--) {
-	    cm_cor_ptm += cor_ptm[p];
-	    cm_cor_pti += cor_pti[p];
-	    cm_ptm     += ptm[p];
-	    cm_pti     += pti[p];
-	    cm_incor_ptm += ptm[p] - cor_ptm[p];
-	    cm_incor_pti += pti[p] - cor_pti[p];
-	    fprintf(pfp, "%f %f\n", (float) p / 100., (ptm[p] == 0) ? 0. : (float) cor_ptm[p] / (float) ptm[p]);
-	  }
-	  fprintf(pfp, "&\n");
-#endif
-#if 0
-	  /* x axis = posterior probability 
-	   * y axis = fraction of all the incorrect residues with pp < x
-	   */
-	  cm_ptm = cm_pti = cm_cor_ptm = cm_cor_pti = cm_incor_ptm = cm_incor_pti = 0;
-	  for(p = (npostvals-1); p >= 0; p--) {
-	    cm_cor_ptm += cor_ptm[p];
-	    cm_cor_pti += cor_pti[p];
-	    cm_ptm     += ptm[p];
-	    cm_pti     += pti[p];
-	    cm_incor_ptm += ptm[p] - cor_ptm[p];
-	    cm_incor_pti += pti[p] - cor_pti[p];
-	    fprintf(pfp, "%f %f\n", (float) p / 100., (tot_incor_ptm == 0) ? 0. : (float) cm_incor_ptm / (float) tot_incor_ptm);
-	  }
-	  fprintf(pfp, "&\n");
-#endif
-#if 0
-	  /* print the identity line for comparison */
-	  for(p = (npostvals-1); p >= 0; p--)
- 	    fprintf(pfp, "%f %f\n", (float) p / 100., (float) p / 100.);
-	  fprintf(pfp, "&\n");
-#endif
-	  fclose(pfp);
+		 (pti[p] == 0) ? 0. : (float) cor_pti[p] / (float) pti[p]);
 	}
       }
+
       /* handle --c2dfile */
-      FILE *dfp;
-      if (esl_opt_GetString(go, "--c2dfile") != NULL) {
-	if ((dfp = fopen(esl_opt_GetString(go, "--c2dfile"), "w")) == NULL) 
-	  esl_fatal("Failed to open --c2dfile output file %s\n", esl_opt_GetString(go, "--c2dfile"));
+      if (dfp != NULL) { 
 	/* match stats, 4 fields, CMYK color values */
-	for(cpos = 1; cpos <= rflen; cpos++) { 
-	  if(km_pos[cpos] == 0) { /* special case, no known alignment residues, a blank position */
+	for(rfpos = 1; rfpos <= rflen; rfpos++) { 
+	  if(km_pos[rfpos] == 0) { /* special case, no known alignment residues, a blank position */
 	    fprintf(dfp, "%.3f %.3f %.3f %.3f\n", 0., 0., 0., 0.);
 	  }
 	  else { 
 	    fprintf(dfp, "%.3f %.3f %.3f %.3f\n", 
 		    0., /* cyan */
-		    1. - ((float) cor_tm_pos[cpos] / (float) km_pos[cpos]), /* magenta, fraction correct */
-		    1. - ((float) km_pos[cpos] / ta->nseq), /* yellow, fraction of seqs with residue in column */
+		    1. - ((float) cor_tm_pos[rfpos] / (float) km_pos[rfpos]), /* magenta, fraction incorrect */
+		    1. - ((float) km_pos[rfpos] / ta->nseq), /* yellow, 1 - fraction of seqs with residue in column */
 		    0.);
 	  }		 
 	}	
 	fprintf(dfp, "//\n");
 	/* insert stats, 4 fields, CMYK color values */
-	cpos = 0; /* special case, combine insert posn 0 and 1 together */
-	if(ki_pos[cpos] == 0) { /* special case, no known alignment residues, a blank position */
+	rfpos = 0; /* special case, combine insert posn 0 and 1 together */
+	if(ki_pos[rfpos] == 0) { /* special case, no known alignment residues, a blank position */
 	  fprintf(dfp, "%.3f %.3f %.3f %.3f\n", 0., 0., 0., 0.);
 	}
 	else { 
@@ -510,20 +458,19 @@ main(int argc, char **argv)
 		  0.);
 	}
 	/* insert stats posn 2..rflen */
-	for(cpos = 2; cpos <= rflen; cpos++) { 
-	  if(ki_pos[cpos] == 0) { /* special case, no known alignment residues, a blank position */
+	for(rfpos = 2; rfpos <= rflen; rfpos++) { 
+	  if(ki_pos[rfpos] == 0) { /* special case, no known alignment residues, a blank position */
 	    fprintf(dfp, "%.3f %.3f %.3f %.3f\n", 0., 0., 0., 0.);
 	  }
 	  else { 
 	    fprintf(dfp, "%.3f %.3f %.3f %.3f\n", 
 		    0., /* cyan */
-		    1. - ((float) cor_ti_pos[cpos] / (float) ki_pos[cpos]), /* magenta, fraction correct */
+		    1. - ((float) cor_ti_pos[rfpos] / (float) ki_pos[rfpos]), /* magenta, fraction correct */
 		    0.,
 		    0.);
 	  }
 	} 
 	fprintf(dfp, "//\n");
-	fclose(dfp);
       }
       
       if(ptm != NULL) free(ptm);
@@ -548,8 +495,8 @@ main(int argc, char **argv)
       esl_msa_Destroy(ka);
       esl_msa_Destroy(ta);
     }
-  
-  /* At this point, we should have EOF status on both
+
+    /* At this point, we should have EOF status on both
    * alignment files; if we don't, there's an error we have to handle.
    */
   if (kstatus != eslEOF || tstatus != eslEOF)
@@ -571,6 +518,11 @@ main(int argc, char **argv)
     }
 
   if(mask != NULL) free(mask);
+  if(dfp != NULL) { 
+    fclose(dfp);
+    printf("# Draw file of per-column stats saved to file: %s\n", esl_opt_GetString(go, "--c2dfile"));
+  }
+	   
   esl_getopts_Destroy(go);
   esl_msafile_Close(tfp);
   esl_msafile_Close(kfp);
@@ -580,33 +532,52 @@ main(int argc, char **argv)
   return status;
 }
 
-/* integerize_posterior_char
+/* get_pp_idx
  *                   
- * Return a integer 0..10 that is the discretized integer form of
- * a posterior probability character 'c'
- * If the posterior annotation is a gap or otherwise bogus we die.
- */      
-int
-integerize_posterior_char(char c)
+ * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
+ * in a pp_ct[] vector. 
+ * '0' return 0;
+ * '1' return 1;
+ * '2' return 2;
+ * '3' return 3;
+ * '4' return 4;
+ * '5' return 5;
+ * '6' return 6;
+ * '7' return 7;
+ * '8' return 8;
+ * '9' return 9;
+ * '*' return 10;
+ * gap return 11;
+ * 
+ * Anything else (including missing or nonresidue) return -1;
+ */
+static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 {
-  if(c == '*') return 10;
-  int i = (int) c;
-  if(i >= 48 && i <= 57) return i-48; /* '0' is 48, '9' is 57 */
-  else esl_fatal("Don't know what to do with posterior value: %c\n", c);
-  return 0; /* NEVERREACHED */
+  if(ppchar == '*')               return 10;
+  if(ppchar == '9')               return 9;
+  if(ppchar == '8')               return 8;
+  if(ppchar == '7')               return 7;
+  if(ppchar == '6')               return 6;
+  if(ppchar == '5')               return 5;
+  if(ppchar == '4')               return 4;
+  if(ppchar == '3')               return 3;
+  if(ppchar == '2')               return 2;
+  if(ppchar == '1')               return 1;
+  if(ppchar == '0')               return 0;
+  return -1;
 }
-
 
 
 /* read_mask_file
  *
  * Given an open file pointer, read the first token of the
- * file and return it as *ret_mask.
+ * file and return it as *ret_mask. It must contain only
+ * '0' or '1' characters.
  *
  * Returns:  eslOK on success.
  */
 int
-read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
+read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len)
 {
   int             status;
   ESL_FILEPARSER *efp;
@@ -621,12 +592,16 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen)
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
 
   ESL_ALLOC(mask, sizeof(char) * (toklen+1));
-  for(n = 0; n < toklen; n++) mask[n] = tok[n];
+  for(n = 0; n < toklen; n++) { 
+    if((tok[n] == '0') || (tok[n] == '1')) { 
+      mask[n] = tok[n];
+    }
+    else { ESL_FAIL(eslFAIL, errbuf, "read a non-0 and non-1 character (%c) in the mask file %s\n", tok[n], filename); }
+  }
   mask[n] = '\0';
 
   *ret_mask = mask;
-  *ret_masklen= toklen;
-
+  *ret_mask_len = n;
   esl_fileparser_Close(efp);
   return eslOK;
   

@@ -71,7 +71,7 @@ esl_exception(int code, char *file, int line, char *format, ...)
 }
 
 void
-esl_fatal(char *format, ...)
+esl_fatal(const char *format, ...)
 {
   va_list argp;
 
@@ -1145,6 +1145,13 @@ esl_FileEnvOpen(const char *fname, const char *env, FILE **opt_fp, char **opt_pa
  *            The <basename6X> argument is a modifiable string that must
  *            end in "XXXXXX" (for example, "esltmpXXXXXX"). The
  *            <basename6X> is used to construct a unique tmpfile name.
+ *            
+ *            Note that this string must be modifiable; do not declare
+ *            it <char *tmpfile = "esltmpXXXXXX";> nor <char tmpfile[]
+ *            = "esltmpXXXXXX";> because these will not work on some
+ *            compilers. Something like <char tmpfile[16] =
+ *            "esltmpXXXXXX";> that explicitly allocates storage will
+ *            suffice.
  *            
  *            The file is opened in a standard temporary file
  *            directory. The path is obtained from the environment

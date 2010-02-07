@@ -24,7 +24,7 @@
 #include "esl_tree.h"
 #include "esl_wuss.h"
 
-static char banner[] = "map two alignments with identical sequences";
+static char banner[] = "map two alignments to each other";
 static char usage[]  = "[options] <msafile1> <msafile2>\n\
 <msafile1> and <msafile2> must be in Stockholm format.";
 
@@ -35,17 +35,17 @@ static char usage[]  = "[options] <msafile1> <msafile2>\n\
 
 static int  map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int **ret_msa1_to_msa2_map);
 static int  map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, char **ret_msa1_to_msa2_mask);
-static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen);
-static int  map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2c_map1, int *a2c_map2, int *c2a_map1, int *c2a_map2, int clen1, int clen2, int *msa1_to_msa2_map);
+static int  map_rfpos_to_apos(ESL_MSA *msa, int **ret_rf2a_map, int **ret_a2rf_map, int *ret_rflen);
+static int  map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2rf_map1, int *a2rf_map2, int *rf2a_map1, int *rf2a_map2, int rflen1, int rflen2, int *msa1_to_msa2_map);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-q",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "be quiet, don't print mapping of each column",                   1 },
-  { "--mask-a2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 aln        col x maps msa2 aln col",        1 },
-  { "--mask-a2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 aln        col x maps msa2 non-gap RF col", 1 },
-  { "--mask-c2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 non-gap RF col x maps msa2 aln col",        1 },
-  { "--mask-c2c",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>: '1'=msa1 non-gap RF col x maps msa2 non-gap RF col", 1 },
+  { "--mask-a2a",  eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>:'1'=msa1 aln       col x maps msa2 aln col",         1 },
+  { "--mask-a2rf", eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>:'1'=msa1 aln       col x maps msa2 nongap RF col",   1 },
+  { "--mask-rf2a", eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>:'1'=msa1 nongap RF col x maps msa2 aln col",         1 },
+  { "--mask-rf2rf",eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "mask to <f>:'1'=msa1 nongap RF col x maps msa2 nongap RF col",   1 },
   { "--submap",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "<msafile2> is subaln of <msafile1>, output mask to <f>",         1 },
   { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile{1,2}> contain protein alignments",                      1 },
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile{1,2}> contain DNA alignments",                          1 },
@@ -157,13 +157,13 @@ main(int argc, char **argv)
   }
 
   /* map the alignments in msa1 and msa2 */
-  if(esl_opt_IsDefault(go, "--submap")) { 
+  if(! esl_opt_IsOn(go, "--submap")) { 
     if((status = map_msas(go, errbuf, msa1, msa2, &msa1_to_msa2_map)) != eslOK) goto ERROR;
     free(msa1_to_msa2_map);
   }
 
   /* --submap: if nec, map <msafile1> to a subset of it's own columns in <msafile2>  */
-  else if(esl_opt_GetString(go, "--submap") != NULL) {
+  else { /* --submap was enabled */
     if ((subfp = fopen(esl_opt_GetString(go, "--submap"), "w")) == NULL) 
       ESL_FAIL(eslFAIL, errbuf, "Failed to open --submap output file %s\n", esl_opt_GetString(go, "--submap"));
     if((status = map_sub_msas(go, errbuf, msa1, msa2, &sub_msa1_to_msa2_mask)) != eslOK) goto ERROR;
@@ -211,19 +211,19 @@ static int
 map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int **ret_msa1_to_msa2_map)
 {
   int status;
-  int **one2two;              /* [0..c..clen1][0..a..alen2] number of residues from non-gap RF column c of msa1
+  int **one2two;              /* [0..c..rflen1][0..a..alen2] number of residues from non-gap RF column c of msa1
 			       * aligned in column a of msa 2 */
-  int *c2a_map1 = NULL;       /* msa1 map of consensus columns (non-gap RF residues) to alignment columns, NULL if msa1->rf == NULL */
-  int *c2a_map2 = NULL;       /* msa2 map of consensus columns (non-gap RF residues) to alignment columns, NULL if msa2->rf == NULL */
-  int *a2c_map1 = NULL;       /* msa1 map of alignment columns to consensus columns, NULL if msa1->rf == NULL */
-  int *a2c_map2 = NULL;       /* msa2 map of alignment columns to consensus columns, NULL if msa2->rf == NULL */
+  int *rf2a_map1 = NULL;       /* msa1 map of reference columns (non-gap RF residues) to alignment columns, NULL if msa1->rf == NULL */
+  int *rf2a_map2 = NULL;       /* msa2 map of reference columns (non-gap RF residues) to alignment columns, NULL if msa2->rf == NULL */
+  int *a2rf_map1 = NULL;       /* msa1 map of alignment columns to reference columns, NULL if msa1->rf == NULL */
+  int *a2rf_map2 = NULL;       /* msa2 map of alignment columns to reference columns, NULL if msa2->rf == NULL */
   int apos1, apos2;           /* counters over alignment position in msa1, msa2 respectively */
   int alen1, alen2;           /* alignment lengths */
-  int cpos1, cpos2;           /* counters over consensus positions */
-  int clen1, clen2;           /* consensus (non-gap RF) lengths */
-  int **mx;                   /* [0..c..clen1][0..a..alen2] dp matrix, score of max scoring aln 
+  int rfpos1, rfpos2;           /* counters over reference positions */
+  int rflen1, rflen2;           /* reference (non-gap RF) lengths */
+  int **mx;                   /* [0..c..rflen1][0..a..alen2] dp matrix, score of max scoring aln 
 			       * from 1..c in msa1 and 1..a in msa 2 */
-  int **tb;                   /* [0..c..clen1][0..a..alen2] traceback ptrs, 0 for diagonal, 1 for vertical */
+  int **tb;                   /* [0..c..rflen1][0..a..alen2] traceback ptrs, 0 for diagonal, 1 for vertical */
   char *seq1, *seq2;          /* temporary strings for ensuring dealigned sequences in msa1 and msa2 are identical */
   int64_t len1, len2;         /* length of seq1, seq2 */
   int isgap1, isgap2;         /* is this residue a gap in msa1, msa2? */
@@ -235,11 +235,13 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   int total_res = 0;          /* total number of residues in msa1 */
   float coverage;             /* fraction of total_res that are within mapped msa2 columns from one2two_map, 
 			       * this is tb_sc / total_res */
-  int  total_cres1=0;         /* total number of residues in consensus positions in msa1 */ 
-  int  covered_cres1 = 0;     /* number of residues in consensus positions in msa1 that also appear in the corresponding
+  int  total_cres1=0;         /* total number of residues in reference positions in msa1 */ 
+  int  covered_cres1 = 0;     /* number of residues in reference positions in msa1 that also appear in the corresponding
 			       * mapped column of msa2 
 			       */
   int be_quiet = esl_opt_GetBoolean(go, "-q");
+  int *choices;
+  int i_choice;
 
   /* contract check */
   if(! (msa1->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in map_msas() msa1 (%s) not digitized.\n", esl_opt_GetArg(go, 1));
@@ -247,13 +249,13 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   alen1 = msa1->alen;
   alen2 = msa2->alen;
   
-  /* Map msa1 (consensus) columns to alignment positions */
-  clen1 = clen2 = 0;
-  if(msa1->rf != NULL) if((status = map_cpos_to_apos(msa1, &c2a_map1, &a2c_map1, &clen1)) != eslOK) goto ERROR;
-  if(msa2->rf != NULL) if((status = map_cpos_to_apos(msa2, &c2a_map2, &a2c_map2, &clen2)) != eslOK) goto ERROR;
-  if(!be_quiet) { 
-    printf("%25s alignment length:              %d\n", esl_opt_GetArg(go, 1), alen1);
-    printf("%25s alignment length:              %d\n", esl_opt_GetArg(go, 2), alen2);
+  /* Map msa1 (reference) columns to alignment positions */
+  rflen1 = rflen2 = 0;
+  if(msa1->rf != NULL) if((status = map_rfpos_to_apos(msa1, &rf2a_map1, &a2rf_map1, &rflen1)) != eslOK) goto ERROR;
+  if(msa2->rf != NULL) if((status = map_rfpos_to_apos(msa2, &rf2a_map2, &a2rf_map2, &rflen2)) != eslOK) goto ERROR;
+  if(! be_quiet) {
+    printf("# %-25s alignment length:              %d\n", esl_opt_GetArg(go, 1), alen1);
+    printf("# %-25s alignment length:              %d\n", esl_opt_GetArg(go, 2), alen2);
   }
   /* collect counts in one2two[i][j]: number of sequences for which residue aligned in msa1 non-gap column i
    * is aligned in msa2 alignment column j.
@@ -271,8 +273,8 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
     /* ensure raw (unaligned) seq i in the 2 msas is the same */
     esl_abc_Textize(msa1->abc, msa1->ax[i], alen1, seq1); 
     esl_abc_Textize(msa1->abc, msa2->ax[i], alen2, seq2); /* note: msa*1*->abc used on purpose, allows DNA/RNA to peacefully coexist in this func */
-    esl_strdealign(seq1, seq1, "-_.", &len1);
-    esl_strdealign(seq2, seq2, "-_.", &len2);
+    esl_strdealign(seq1, seq1, "-_.~", &len1);
+    esl_strdealign(seq2, seq2, "-_.~", &len2);
 
     if(len1 != len2) { 
       ESL_FAIL(eslEINVAL, errbuf, "unaligned seq number %d (msa1: %s, msa2: %s) differs in length %s (%" PRId64 ") and %s (%" PRId64 "), those files must contain identical raw seqs\n",
@@ -327,8 +329,6 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   /*****************************************************************
    * recursion
    */
-  int *choices;
-  int i_choice;
   ESL_ALLOC(choices, sizeof(int) * NCHOICES);
   for(apos1 = 1; apos1 <= alen1; apos1++) {
     for(apos2 = 1; apos2 <= alen2; apos2++) {
@@ -345,8 +345,8 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   free(choices);
 
   total_cres1 = 0;
-  if(c2a_map1 != NULL) { 
-    for(cpos1 = 1; cpos1 <= clen1; cpos1++) total_cres1 += res1_per_apos[c2a_map1[cpos1]];
+  if(rf2a_map1 != NULL) { 
+    for(rfpos1 = 1; rfpos1 <= rflen1; rfpos1++) total_cres1 += res1_per_apos[rf2a_map1[rfpos1]];
   }
 
   /*****************************************************************
@@ -355,23 +355,23 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   
   sc = mx[alen1][alen2];
   if(!be_quiet) {
-    printf("score %d\n", sc);
-    if(a2c_map1 != NULL && a2c_map2 != NULL) { 
+    /* printf("score %d\n", sc);*/
+    if(a2rf_map1 != NULL && a2rf_map2 != NULL) { 
       printf("# %12s       %12s  %22s\n", "   msa 1   ", "   msa 2   ", "");
       printf("# %12s       %12s  %22s\n", "------------", "------------", "");
-      printf("# %5s  %5s       %5s  %5s  %22s\n", "cpos",  "apos",  "cpos",  "apos",  " num common residues");
+      printf("# %5s  %5s       %5s  %5s  %22s\n", "rfpos",  "apos",  "rfpos",  "apos",  " num common residues");
       printf("# %5s  %5s       %5s  %5s  %22s\n", "-----", "-----", "-----", "-----", "---------------------");
     }
-    else if(a2c_map1 != NULL) { 
+    else if(a2rf_map1 != NULL) { 
       printf("# %12s        %5s  %22s\n", "   msa 1   ", "msa 2", "");
       printf("# %12s        %5s  %22s\n", "------------", "-----", "");
-      printf("# %5s  %5s       %5s  %22s\n", "cpos",  "apos",  "apos",  " num common residues");
+      printf("# %5s  %5s       %5s  %22s\n", "rfpos",  "apos",  "apos",  " num common residues");
       printf("# %5s  %5s       %5s  %22s\n", "-----", "-----", "-----", "---------------------");
     }
-    else if (a2c_map2 != NULL) { 
+    else if (a2rf_map2 != NULL) { 
       printf("# %5s        %12s  %22s\n", "msa 1", "   msa 2   ", "");
       printf("# %5s        %12s  %22s\n", "-----", "------------", "");
-      printf("# %5s        %5s  %5s  %22s\n", "apos",  "cpos",  "apos",  " num common residues");
+      printf("# %5s        %5s  %5s  %22s\n", "apos",  "rfpos",  "apos",  " num common residues");
       printf("# %5s        %5s  %5s  %22s\n", "-----", "-----", "-----", "---------------------");
     }
     else {
@@ -393,17 +393,38 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
 
   while(tb[apos1][apos2] != -1) {
     if(tb[apos1][apos2] == DIAG) { /* diagonal move */
-      cpos1 = (a2c_map1 == NULL) ? -1 : a2c_map1[apos1];
-      cpos2 = (a2c_map2 == NULL) ? -1 : a2c_map2[apos2];
+      rfpos1 = (a2rf_map1 == NULL) ? -1 : a2rf_map1[apos1];
+      rfpos2 = (a2rf_map2 == NULL) ? -1 : a2rf_map2[apos2];
       if(!be_quiet) { 
-	if(a2c_map1 != NULL && a2c_map2 != NULL) { 
-	  printf("  %5d  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", cpos1, apos1, cpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	if(a2rf_map1 != NULL && a2rf_map2 != NULL) { 
+	  if(rfpos1 == -1 && rfpos2 == -1) { 
+	    printf("  %5s  %5d  -->  %5s  %5d  %5d / %5d (%.4f)\n", "-",    apos1, "-",    apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
+	  else if (rfpos1 == -1) { 
+	    printf("  %5s  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", "-",    apos1, rfpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
+	  else if (rfpos2 == -1) { 
+	    printf("  %5d  %5d  -->  %5s  %5d  %5d / %5d (%.4f)\n", rfpos1, apos1, "-",    apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
+	  else { 
+	    printf("  %5d  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", rfpos1, apos1, rfpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
 	}	
-	else if(a2c_map1 != NULL) { 
-	  printf("  %5d  %5d  -->  %5d  %5d / %5d (%.4f)\n", cpos1, apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	else if(a2rf_map1 != NULL) { 
+	  if (rfpos1 == -1) { 
+	    printf("  %5s  %5d  -->  %5d  %5d / %5d (%.4f)\n", "-",   apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
+	  else { 
+	    printf("  %5d  %5d  -->  %5d  %5d / %5d (%.4f)\n", rfpos1, apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
 	}
-	else if (a2c_map2 != NULL) { 
-	  printf("  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", apos1, cpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	else if (a2rf_map2 != NULL) { 
+	  if (rfpos2 == -1) { 
+	    printf("  %5d  -->  %5s  %5d  %5d / %5d (%.4f)\n", apos1, "-",    apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
+	  else { 
+	    printf("  %5d  -->  %5d  %5d  %5d / %5d (%.4f)\n", apos1, rfpos2, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
+	  }
 	}
 	else {
 	  printf("  %5d  -->  %5d  %5d / %5d (%.4f)\n", apos1, apos2, one2two[apos1][apos2], res1_per_apos[apos1], (res1_per_apos[apos1] == 0) ? 0.0000 : ((float) one2two[apos1][apos2] / (float) res1_per_apos[apos1])); 
@@ -411,7 +432,7 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
       }
       tb_sc += one2two[apos1][apos2];
       one2two_map[apos1] = apos2;
-      if(cpos1 > 0) covered_cres1 += one2two[apos1][apos2]; /* apos1 is a cpos */
+      if(rfpos1 > 0) covered_cres1 += one2two[apos1][apos2]; /* apos1 is a rfpos */
       apos1--; apos2--;
     }
     else if(tb[apos1][apos2] == VERT) { 
@@ -426,13 +447,13 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   /* done DP code 
    **********************************/
 
-  if(!be_quiet) printf("Total trace back sc: %d\n", tb_sc);
+  if(!be_quiet) printf("# Total trace back sc: %d\n", tb_sc);
   if(tb_sc != sc) ESL_FAIL(eslEINVAL, errbuf, "in dp traceback, tb_sc (%d) != sc (%d)\n", tb_sc, sc);
   coverage = (float) tb_sc / (float) total_res;
-  printf("Coverage: %6d / %6d (%.4f)\nCoverage is fraction of residues from %s in optimally mapped columns in %s\n", tb_sc, total_res, coverage, esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2));
-  if(total_cres1 > 0) printf("Consensus coverage: %6d / %6d (%.4f)\nConsensus coverage is fraction of non-gap RF residues from %s in optimally mapped columns in %s\n", covered_cres1, total_cres1, (float) covered_cres1 / (float) total_cres1, esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2));
+  printf("# Coverage: %6d / %6d (%.4f)\n# Coverage is fraction of residues from %s in optimally mapped columns in %s\n", tb_sc, total_res, coverage, esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2));
+  if(total_cres1 > 0) printf("# RF coverage: %6d / %6d (%.4f)\n# RF coverage is fraction of non-gap RF residues from %s in optimally mapped columns in %s\n", covered_cres1, total_cres1, (float) covered_cres1 / (float) total_cres1, esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2));
   /* print masks if nec */
-  if((status = map2masks(go, errbuf, alen1, alen2, a2c_map1, a2c_map2, c2a_map1, c2a_map2, clen1, clen2, one2two_map)) != eslOK) return status;
+  if((status = map2masks(go, errbuf, alen1, alen2, a2rf_map1, a2rf_map2, rf2a_map1, rf2a_map2, rflen1, rflen2, one2two_map)) != eslOK) return status;
 
   /* clean up and return */
   for(apos1 = 0; apos1 <= alen1; apos1++) { 
@@ -445,10 +466,10 @@ map_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, int 
   for(apos1 = 0; apos1 <= alen1; apos1++) free(one2two[apos1]);
   free(one2two);
   free(res1_per_apos);
-  if(c2a_map1 != NULL) free(c2a_map1);
-  if(c2a_map2 != NULL) free(c2a_map2);
-  if(a2c_map1 != NULL) free(a2c_map1);
-  if(a2c_map2 != NULL) free(a2c_map2);
+  if(rf2a_map1 != NULL) free(rf2a_map1);
+  if(rf2a_map2 != NULL) free(rf2a_map2);
+  if(a2rf_map1 != NULL) free(a2rf_map1);
+  if(a2rf_map2 != NULL) free(a2rf_map2);
 
   free(seq1);
   free(seq2);
@@ -519,51 +540,54 @@ map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, 
   return status;
 }
 
-
-/* map_cpos_to_apos
+/* map_rfpos_to_apos
  *                   
  * Given an MSA, determine the alignment position each
- * consensus position refers to. 
+ * reference position refers to. 
  */
-static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen)
+static int map_rfpos_to_apos(ESL_MSA *msa, int **ret_rf2a_map, int **ret_a2rf_map, int *ret_rflen)
 {
   int status;
-  int clen = 0;
-  int *c2a_map = NULL;
-  int *a2c_map = NULL;
-  int cpos = 0;
+  int rflen = 0;
+  int *rf2a_map = NULL;
+  int *a2rf_map = NULL;
+  int rfpos = 0;
   int apos = 0;
   /* contract check */
   if(msa->rf == NULL) { status = eslEINVAL; goto ERROR; }
 
-  /* count consensus columns */
+  /* count reference columns */
   for(apos = 1; apos <= msa->alen; apos++)
-    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) clen++;
+    if((! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) && 
+       (! esl_abc_CIsMissing(msa->abc, msa->rf[(apos-1)])) && 
+       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[(apos-1)]))) rflen++;
 
   /* build maps */
-  ESL_ALLOC(c2a_map, sizeof(int) * (clen+1));
-  ESL_ALLOC(a2c_map, sizeof(int) * (msa->alen+1));
-  esl_vec_ISet(a2c_map, msa->alen+1, -1);
-  c2a_map[0] = -1;
+  ESL_ALLOC(rf2a_map, sizeof(int) * (rflen+1));
+  ESL_ALLOC(a2rf_map, sizeof(int) * (msa->alen+1));
+  esl_vec_ISet(a2rf_map, msa->alen+1, -1);
+  rf2a_map[0] = -1;
   for(apos = 1; apos <= msa->alen; apos++) { 
-    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) {
-      c2a_map[++cpos] = apos;
-      a2c_map[apos]   = cpos;
+    if((! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) && 
+       (! esl_abc_CIsMissing(msa->abc, msa->rf[(apos-1)])) && 
+       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[(apos-1)]))) { 
+      rf2a_map[++rfpos] = apos;
+      a2rf_map[apos]   = rfpos;
     }
-    /* else a2c_map[apos] remains -1 as it was initialized */
+    /* else a2rf_map[apos] remains -1 as it was initialized */
   }
   
 
-  if(ret_c2a_map != NULL) *ret_c2a_map = c2a_map;
-  else                    free(c2a_map);
-  if(ret_a2c_map != NULL) *ret_a2c_map = a2c_map;
-  else                    free(a2c_map);
-  if(ret_clen != NULL) *ret_clen    = clen;
+  if(ret_rf2a_map != NULL) *ret_rf2a_map = rf2a_map;
+  else                    free(rf2a_map);
+  if(ret_a2rf_map != NULL) *ret_a2rf_map = a2rf_map;
+  else                    free(a2rf_map);
+  if(ret_rflen != NULL) *ret_rflen    = rflen;
   return eslOK;
 
  ERROR:
-  if(c2a_map != NULL) free(c2a_map);
-  if(a2c_map != NULL) free(a2c_map);
+  if(rf2a_map != NULL) free(rf2a_map);
+  if(a2rf_map != NULL) free(a2rf_map);
   return status;
 }
 
@@ -576,11 +600,11 @@ static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, 
  *                                                   'x': msa1 apos maps to posn x in msa2 (x>0)
  */
 static int
-map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2c_map1, int *a2c_map2, int *c2a_map1, int *c2a_map2, int clen1, int clen2, int *msa1_to_msa2_map)
+map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2rf_map1, int *a2rf_map2, int *rf2a_map1, int *rf2a_map2, int rflen1, int rflen2, int *msa1_to_msa2_map)
 {
   int status;
   int apos1, apos2;           /* counters over alignment position in msa1, msa2 respectively */
-  int cpos1, cpos2;           /* counters over consensus positions */
+  int rfpos1, rfpos2;         /* counters over reference positions */
   int num_ones;               /* number of 1s in current mask */
   int num_zeroes;             /* number of 0s in current mask */
   FILE *fp;
@@ -606,12 +630,12 @@ map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2c_ma
     printf("# Mask of 1/0s with 1 indicating aln column in %s maps to aln column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-a2a"), (num_ones+num_zeroes), num_ones, num_zeroes);
   }
 
-  if(esl_opt_GetString(go, "--mask-a2c")) { 
-    if (a2c_map2 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-a2c, <msafile2> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 2));
-    if ((fp = fopen(esl_opt_GetString(go, "--mask-a2c"), "w")) == NULL) 
-      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-a2c mask output file %s\n", esl_opt_GetString(go, "--mask-a2c"));
+  if(esl_opt_GetString(go, "--mask-a2rf")) { 
+    if (a2rf_map2 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-a2rf, <msafile2> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 2));
+    if ((fp = fopen(esl_opt_GetString(go, "--mask-a2rf"), "w")) == NULL) 
+      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-a2rf mask output file %s\n", esl_opt_GetString(go, "--mask-a2rf"));
     /* construct mask as follows:
-     * mask[0..apos1..alen1-1] = '1' if column apos1+1 maps to a consensus column (non-gap in RF) of msa2 
+     * mask[0..apos1..alen1-1] = '1' if column apos1+1 maps to a reference column (non-gap in RF) of msa2 
      *                         = '0' if column apos1+1 maps to a gap (doesn't map to any column in msa2) or an insert (gap in RF) in msa2 
      */
     ESL_ALLOC(mask, sizeof(char) * (alen1+1));
@@ -620,67 +644,67 @@ map2masks(const ESL_GETOPTS *go, char *errbuf, int alen1, int alen2, int *a2c_ma
       apos2 = msa1_to_msa2_map[apos1];
       if(apos2 == 0) { mask[(apos1-1)] = '0'; num_zeroes++; } /* apos1 doesn't map to any column in msa2 */
       else { 
-	cpos2 = a2c_map2[apos2];
-	if(cpos2 <= 0) { mask[(apos1-1)] = '0'; num_zeroes++; } /* apos1 maps to a gap RF (insert) in msa2 */
-	else           { mask[(apos1-1)] = '1'; num_ones++; }   /* apos1 maps to a non-gap RF (consensus) column in msa2 */
+	rfpos2 = a2rf_map2[apos2];
+	if(rfpos2 <= 0) { mask[(apos1-1)] = '0'; num_zeroes++; } /* apos1 maps to a gap RF (insert) in msa2 */
+	else           { mask[(apos1-1)] = '1'; num_ones++; }   /* apos1 maps to a non-gap RF (reference) column in msa2 */
       }
     }
     mask[alen1] = '\0';
     fprintf(fp, "%s\n", mask);
     free(mask);
     fclose(fp);
-    printf("# Mask of 1/0s with 1 indicating aln column in %s maps to consensus (non-gap RF) column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-a2c"), (num_ones+num_zeroes), num_ones, num_zeroes);
+    printf("# Mask of 1/0s with 1 indicating aln column in %s maps to reference (non-gap RF) column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-a2rf"), (num_ones+num_zeroes), num_ones, num_zeroes);
   }
 
-  if(esl_opt_GetString(go, "--mask-c2a")) { 
-    if (a2c_map1 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-c2a, <msafile1> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 1));
-    if ((fp = fopen(esl_opt_GetString(go, "--mask-c2a"), "w")) == NULL) 
-      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-c2a mask output file %s\n", esl_opt_GetString(go, "--mask-c2a"));
+  if(esl_opt_GetString(go, "--mask-rf2a")) { 
+    if (a2rf_map1 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-rf2a, <msafile1> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 1));
+    if ((fp = fopen(esl_opt_GetString(go, "--mask-rf2a"), "w")) == NULL) 
+      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-rf2a mask output file %s\n", esl_opt_GetString(go, "--mask-rf2a"));
     /* construct mask as follows:
-     * mask[0..cpos1..clen-1] = '1' if non-gap RF msa1 column cpos1+1 maps to an alignment column of msa2 
-     *                        = '0' if non-gap RF msa1 column cpos1+1 maps to a gap in msa2 (doesn't map to any column in msa2)
+     * mask[0..rfpos1..rflen-1] = '1' if non-gap RF msa1 column rfpos1+1 maps to an alignment column of msa2 
+     *                        = '0' if non-gap RF msa1 column rfpos1+1 maps to a gap in msa2 (doesn't map to any column in msa2)
      */
-    ESL_ALLOC(mask, sizeof(char) * (clen1+1));
+    ESL_ALLOC(mask, sizeof(char) * (rflen1+1));
     num_ones = num_zeroes = 0;
-    for(cpos1 = 1; cpos1 <= clen1; cpos1++) { 
-      apos1 = c2a_map1[cpos1];
+    for(rfpos1 = 1; rfpos1 <= rflen1; rfpos1++) { 
+      apos1 = rf2a_map1[rfpos1];
       apos2 = msa1_to_msa2_map[apos1];
-      if(apos2 == 0) { mask[(cpos1-1)] = '0'; num_zeroes++; } 
-      else           { mask[(cpos1-1)] = '1'; num_ones++; } 
+      if(apos2 == 0) { mask[(rfpos1-1)] = '0'; num_zeroes++; } 
+      else           { mask[(rfpos1-1)] = '1'; num_ones++; } 
     }
-    mask[clen1] = '\0';
+    mask[rflen1] = '\0';
     fprintf(fp, "%s\n", mask);
     free(mask);
     fclose(fp);
-    printf("# Mask of 1/0s with 1 indicating consensus (non-gap RF) column in %s maps to aln column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-c2a"), (num_ones+num_zeroes), num_ones, num_zeroes);
+    printf("# Mask of 1/0s with 1 indicating reference (non-gap RF) column in %s maps to aln column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-rf2a"), (num_ones+num_zeroes), num_ones, num_zeroes);
   }
 
-  if(esl_opt_GetString(go, "--mask-c2c")) { 
-    if (a2c_map1 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-c2c, <msafile1> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 1));
-    if (a2c_map2 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-c2c, <msafile2> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 2));
-    if ((fp = fopen(esl_opt_GetString(go, "--mask-c2c"), "w")) == NULL) 
-      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-c2c mask output file %s\n", esl_opt_GetString(go, "--mask-c2c"));
+  if(esl_opt_GetString(go, "--mask-rf2rf")) { 
+    if (a2rf_map1 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-rf2rf, <msafile1> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 1));
+    if (a2rf_map2 == NULL) ESL_FAIL(eslFAIL, errbuf, "with --mask-rf2rf, <msafile2> %s must have #=GC RF annotation, but it doesn't.", esl_opt_GetArg(go, 2));
+    if ((fp = fopen(esl_opt_GetString(go, "--mask-rf2rf"), "w")) == NULL) 
+      ESL_FAIL(eslFAIL, errbuf, "Failed to open --mask-rf2rf mask output file %s\n", esl_opt_GetString(go, "--mask-rf2rf"));
     /* construct mask as follows:
-     * mask[0..apos1..alen-1] = '1' if column apos1+1 maps to a consensus column (non-gap in RF) of msa2 
+     * mask[0..apos1..alen-1] = '1' if column apos1+1 maps to a reference column (non-gap in RF) of msa2 
      *                        = '0' if column apos1+1 maps to a gap (doesn't map to any column in msa2) or an insert (gap in RF) in msa2 
      */
     ESL_ALLOC(mask, sizeof(char) * (alen1+1));
     num_ones = num_zeroes = 0;
-    for(cpos1 = 1; cpos1 <= clen1; cpos1++) { 
-      apos1 = c2a_map1[cpos1];
+    for(rfpos1 = 1; rfpos1 <= rflen1; rfpos1++) { 
+      apos1 = rf2a_map1[rfpos1];
       apos2 = msa1_to_msa2_map[apos1];
-      if(apos2 == 0) { mask[(cpos1-1)] = '0'; num_zeroes++; } /* cpos1 doesn't map to any column in msa2 */
+      if(apos2 == 0) { mask[(rfpos1-1)] = '0'; num_zeroes++; } /* rfpos1 doesn't map to any column in msa2 */
       else { 
-	cpos2 = a2c_map2[apos2];
-	if(cpos2 <= 0) { mask[(cpos1-1)] = '0'; num_zeroes++; } /* cpos1 maps to a gap RF (insert) in msa2 */
-	else           { mask[(cpos1-1)] = '1'; num_ones++; }   /* cpos1 maps to a non-gap RF (consensus) column in msa2 */
+	rfpos2 = a2rf_map2[apos2];
+	if(rfpos2 <= 0) { mask[(rfpos1-1)] = '0'; num_zeroes++; } /* rfpos1 maps to a gap RF (insert) in msa2 */
+	else            { mask[(rfpos1-1)] = '1'; num_ones++; }   /* rfpos1 maps to a non-gap RF (reference) column in msa2 */
       }
     }
-    mask[clen1] = '\0';
+    mask[rflen1] = '\0';
     fprintf(fp, "%s\n", mask);
     free(mask);
     fclose(fp);
-    printf("# Mask of 1/0s with 1 indicating consensus (non-gap RF) column in %s maps to consensus (non-gap RF) column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-c2c"), (num_ones+num_zeroes), num_ones, num_zeroes);
+    printf("# Mask of 1/0s with 1 indicating reference (non-gap RF) column in %s maps to reference (non-gap RF) column in %s saved to file %s.\n# (Length: %d; '1's: %d; '0's: %d)\n", esl_opt_GetArg(go, 1), esl_opt_GetArg(go, 2), esl_opt_GetString(go, "--mask-rf2rf"), (num_ones+num_zeroes), num_ones, num_zeroes);
   }
   return eslOK;
 

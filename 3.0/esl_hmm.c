@@ -103,9 +103,9 @@ esl_hmm_Configure(ESL_HMM *hmm, float *fq)
   }
 
   for (k = 0; k < hmm->M; k++)
-    {
-      hmm->eo[K][k]    = 1.0;	/* gap char */
-      hmm->eo[Kp-2][k] = 1.0;	/* nonresidue */
+    {				/* -,*,~: treat as X */
+      hmm->eo[K][k]    = 1.0;	/* gap char          */
+      hmm->eo[Kp-2][k] = 1.0;	/* nonresidue        */
       hmm->eo[Kp-1][k] = 1.0;	/* missing data char */
     }
   

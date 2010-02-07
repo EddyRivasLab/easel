@@ -27,9 +27,9 @@ static char usage3[] = "-Q [options] <qrnafile> (shuffles QRNA pairwise alignmen
 static char usage4[] = "-G [options]            (generates random sequences)";
 
 
-#define MODE_OPTS "-S,-A,-G,-Q"	        /* toggle group, modes (seqfile, msafile, none) */
-#define SHUF_OPTS "-m,-d,-0,-1,-r,-w"   /* toggle group, seq shuffling options          */
-#define ALPH_OPTS "--rna,--dna,--amino" /* toggle group, alphabet type options          */
+#define MODE_OPTS "-S,-A,-G,-Q"	           /* toggle group, modes (seqfile, msafile, none) */
+#define SHUF_OPTS "-m,-d,-k,-0,-1,-r,-w"   /* toggle group, seq shuffling options          */
+#define ALPH_OPTS "--rna,--dna,--amino"    /* toggle group, alphabet type options          */
 
 static ESL_OPTIONS options[] = {
   /* name         type           default   env range      togs  reqs  incomp      help                                      docgroup */
@@ -41,6 +41,7 @@ static ESL_OPTIONS options[] = {
   /* Options for shuffling/generating based on input sequences */
   { "-m",         eslARG_NONE,"default", NULL, NULL, SHUF_OPTS, "-S", NULL, "shuffle preserving monoresidue composition",          2 },
   { "-d",         eslARG_NONE,    FALSE, NULL, NULL, SHUF_OPTS, "-S", NULL, "shuffle preserving mono- and di-residue composition", 2 },
+  { "-k",         eslARG_INT,     FALSE, NULL,"n>0", SHUF_OPTS, "-S", NULL, "shuffle nonoverlapping <n>-mers",                     2 },
   { "-0",         eslARG_NONE,    FALSE, NULL, NULL, SHUF_OPTS, "-S", NULL, "generate with 0th order Markov properties per input", 2 },
   { "-1",         eslARG_NONE,    FALSE, NULL, NULL, SHUF_OPTS, "-S", NULL, "generate with 1st order Markov properties per input", 2 },
   { "-r",         eslARG_NONE,    FALSE, NULL, NULL, SHUF_OPTS, "-S", NULL, "reverse each input",                                  2 },
@@ -209,7 +210,7 @@ seq_generation(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       if (N > 1) esl_sq_FormatName(sq, "random%d", i);
       else       esl_sq_SetName(sq, "random");
       sq->n = L;
-      esl_sqio_Write(ofp, sq, outfmt);
+      esl_sqio_Write(ofp, sq, outfmt, FALSE);
     }
 
   free(fq);
@@ -250,6 +251,7 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   char       *targ    = NULL;
   int         N       = esl_opt_GetInteger(go, "-N");
   int         L       = esl_opt_GetInteger(go, "-L"); /* L>0 means select random fixed-len subseqs */
+  int         kmers   = 0;
   int         i;
   int         status;
   
@@ -257,6 +259,9 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
     infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
   }
+
+  if (esl_opt_IsOn(go, "-k")) kmers = esl_opt_GetInteger(go, "-k");
+
 
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) esl_fatal("No such file %s", seqfile);
@@ -289,11 +294,12 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  }
 
 	  /* Do the requested kind of shuffling */
-	  if      (esl_opt_GetBoolean(go, "-m"))  esl_rsq_CShuffle  (r, targ, shuff->seq);  /* monoresidue shuffling */
-	  else if (esl_opt_GetBoolean(go, "-d"))  esl_rsq_CShuffleDP(r, targ, shuff->seq);  /* diresidue shuffling */
-	  else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_CMarkov0  (r, targ, shuff->seq);  /* 0th order Markov */
-	  else if (esl_opt_GetBoolean(go, "-1"))  esl_rsq_CMarkov1  (r, targ, shuff->seq);  /* 1st order Markov */
-	  else if (esl_opt_GetBoolean(go, "-r"))  esl_rsq_CReverse  (   targ, shuff->seq);  /* reverse */
+	  if      (esl_opt_GetBoolean(go, "-m"))  esl_rsq_CShuffle     (r, targ,        shuff->seq);  /* monoresidue shuffling */
+	  else if (esl_opt_GetBoolean(go, "-d"))  esl_rsq_CShuffleDP   (r, targ,        shuff->seq);  /* diresidue shuffling */
+	  else if (esl_opt_IsOn      (go, "-k"))  esl_rsq_CShuffleKmers(r, targ, kmers, shuff->seq);  /* diresidue shuffling */
+	  else if (esl_opt_GetBoolean(go, "-0"))  esl_rsq_CMarkov0     (r, targ,        shuff->seq);  /* 0th order Markov */
+	  else if (esl_opt_GetBoolean(go, "-1"))  esl_rsq_CMarkov1     (r, targ,        shuff->seq);  /* 1st order Markov */
+	  else if (esl_opt_GetBoolean(go, "-r"))  esl_rsq_CReverse     (   targ,        shuff->seq);  /* reverse */
 	  else if (esl_opt_IsOn      (go, "-w")) { /* regionally shuffle */	
 	    int W= esl_opt_GetInteger(go, "-w"); esl_rsq_CShuffleWindows(r, targ, W, shuff->seq);
 	  }
@@ -303,14 +309,14 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  else       esl_sq_FormatName(shuff, "%s-shuffled", sq->name);
 
 	  /* Output the resulting sequence */
-	  esl_sqio_Write(ofp, shuff, outfmt);
+	  esl_sqio_Write(ofp, shuff, outfmt, FALSE);
 
 	  /* don't need to reuse the shuffled sequence: we will use exactly the same memory */
 	}
       esl_sq_Reuse(sq);
     }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					   sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
   else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					    status, sqfp->filename);
 

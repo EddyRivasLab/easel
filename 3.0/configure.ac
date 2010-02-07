@@ -125,6 +125,7 @@ AC_ARG_ENABLE(modular,[AS_HELP_STRING([--enable-modular],[compile and prepare mo
   [
     AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
+    AC_DEFINE(eslAUGMENT_NCBI)
     AC_DEFINE(eslAUGMENT_DMATRIX)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
     AC_DEFINE(eslAUGMENT_GEV)
@@ -207,6 +208,11 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 ################################################################
 
 AC_PROG_CC
+# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
+if test "$enable_mpi" = "yes"; then
+   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+   CC=$MPICC
+fi
 AC_PROG_CPP
 AX_COMPILER_VENDOR
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
@@ -242,13 +248,6 @@ else
    # it.
 fi
 fi
-
-# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
-if test "$enable_mpi" = "yes"; then
-   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
-   CC=$MPICC
-fi
-
 
 # SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
 # The AC_RUN_IFELSE() is there because it's possible to have 
@@ -315,7 +314,7 @@ AS_IF([test "x$with_gsl" != xno],
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H
-AC_CHECK_HEADERS([sys/types.h sys/sysctl.h unistd.h stdint.h inttypes.h])
+AC_CHECK_HEADERS([sys/types.h sys/sysctl.h unistd.h stdint.h inttypes.h endian.h])
 
 # altivec.h requires the simd cflags
 # For reasons I don't understand, this needs to come after any other CHECK_HEADERS().
@@ -362,7 +361,6 @@ AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)
 AC_CHECK_FUNCS(sysctl)
 AC_CHECK_FUNCS(sysconf)
-AC_FUNC_FSEEKO
 AC_FUNC_FSEEKO
 
 # 11. Checks for system services 

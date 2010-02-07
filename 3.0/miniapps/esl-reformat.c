@@ -305,13 +305,13 @@ main(int argc, char **argv)
 
 	  if (rename) esl_sq_FormatName(sq, "%s.%d", rename, idx+1);
 
-	  esl_sqio_Write(ofp, sq, outfmt);
+	  esl_sqio_Write(ofp, sq, outfmt, FALSE);
 	  esl_sq_Reuse(sq);
 	  idx++;
 	}
       /* status should be eslEOF on normal end; if it isn't, deal w/ error */
-      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
-					       sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
+      if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+					       sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
       else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					       status, sqfp->filename);
       
