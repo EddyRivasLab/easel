@@ -68,7 +68,6 @@ typedef struct {
 
 #define esl_histogram_Bin2LBound(h,b)  ((h)->w*(b) + (h)->bmin)
 #define esl_histogram_Bin2UBound(h,b)  ((h)->w*((b)+1) + (h)->bmin)
-#define esl_histogram_Score2Bin(h,x)   ((int) ceil( ((x - (h)->bmin) / h->w) - 1.))
 
 /* Creating/destroying histograms and collecting data:
  */

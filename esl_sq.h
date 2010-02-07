@@ -77,6 +77,11 @@
  *    for example, so we don't have to read entire huge seqs into
  *    memory just to calculate their lengths for the index.
  *    
+ * Note/TODO: use of "\0" empty string to indicate lack of optional
+ * acc, desc info is now deprecated. Cannot distinguish empty string
+ * from lack of annotation. Should use NULL ptr instead. Fix this in
+ * future.  (21 Nov 09 xref J5/114)
+ *    
  */
 typedef struct {
   /*::cexcerpt::sq_sq::begin::*/
@@ -111,6 +116,7 @@ typedef struct {
   /* Disk offset bookkeeping:                                                  */
   int64_t  idx;	           /* ctr for which # seq this is; -1 if not counting  */
   off_t    roff;	   /* record offset (start of record); -1 if none      */
+  off_t    hoff;	   /* offset to last byte of header; -1 if unknown     */
   off_t    doff;	   /* data offset (start of sequence data); -1 if none */
   off_t    eoff;	   /* offset to last byte of record; -1 if unknown     */
 

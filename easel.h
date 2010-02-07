@@ -294,7 +294,7 @@ typedef void (*esl_exception_handler_f)(int code, char *file, int line,
 extern void esl_exception(int code, char *file, int line, char *format, ...);
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
-extern void esl_fatal(char *format, ...);
+extern void esl_fatal(const char *format, ...);
 extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
 
 /* 2. Memory allocation/deallocation conventions. */

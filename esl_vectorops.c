@@ -822,7 +822,7 @@ esl_vec_FLog(float *vec, int n)
  *            in bits ($\log_2$), defined as \citep{CoverThomas}:
  *            
  *            \[
- *               H = \sum_x p_x \log_2 p_x.
+ *               H = - \sum_x p_x \log_2 p_x.
  *            \]
  *
  *            <esl_vec_FEntropy()> does the same, for a probability vector

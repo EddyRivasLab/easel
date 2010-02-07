@@ -1836,7 +1836,7 @@ main(int argc, char **argv)
       for (i = j*nseq; i < (j+1)*nseq; i++)
 	{
 	  sq = esl_sq_CreateFrom(seqname[i], seq[i], NULL, NULL, NULL);
-	  esl_sqio_Write(fp, sq, eslSQFILE_FASTA);
+	  esl_sqio_Write(fp, sq, eslSQFILE_FASTA, FALSE);
 	  esl_sq_Destroy(sq);
 	}
       fclose(fp);

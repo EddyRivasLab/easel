@@ -51,7 +51,7 @@ run_sqc:
 	@echo 
 	@echo Running Easel test suite...
 	@echo
-	@${srcdir}/../devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}
+	@${srcdir}/../devkit/sqc 2 ${srcdir}/testsuite.sqc .. ${srcdir}/..
 
 ${PROGS}: %: %.o ${ESLDIR}/libeasel.a
 	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${ESLDIR} $@.o -leasel -lm

@@ -84,6 +84,8 @@ HDRS = \
 	esl_scorematrix.h\
 	esl_sq.h\
 	esl_sqio.h\
+	esl_sqio_ascii.h\
+	esl_sqio_ncbi.h\
 	esl_sse.h\
 	esl_ssi.h\
 	esl_stack.h\
@@ -132,6 +134,8 @@ OBJS    = \
 	esl_scorematrix.o\
 	esl_sq.o\
 	esl_sqio.o\
+	esl_sqio_ascii.o\
+	esl_sqio_ncbi.o\
 	esl_sse.o\
 	esl_ssi.o\
 	esl_stack.o\
@@ -379,6 +383,10 @@ supertags:
 ##
 ssu:
 	cp miniapps/esl-alimanip miniapps/ssu-esl-alimanip
+	cp miniapps/esl-alimask miniapps/ssu-esl-alimask
+	cp miniapps/esl-alimerge miniapps/ssu-esl-alimerge
+	cp miniapps/esl-alistat miniapps/ssu-esl-alistat
+	cp miniapps/esl-reformat miniapps/ssu-esl-reformat
 	cp miniapps/esl-seqstat miniapps/ssu-esl-seqstat
 	cp miniapps/esl-sfetch miniapps/ssu-esl-sfetch
 	cp miniapps/esl-ssdraw miniapps/ssu-esl-ssdraw

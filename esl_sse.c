@@ -143,7 +143,7 @@ esl_sse_logf(__m128 x)
  * Incept:    SRE, Fri Dec 14 14:46:27 2007 [Janelia]
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
- *            vector <r> in which each element <r[z] = logf(x[z])>.
+ *            vector <r> in which each element <r[z] = expf(x[z])>.
  *            
  *            Valid for all IEEE754 floats $x_z$.
  *            

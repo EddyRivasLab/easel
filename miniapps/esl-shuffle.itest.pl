@@ -29,6 +29,8 @@ close TESTFILE;
 # regressions need to change.
 #
 @output = `$eslshuffle --seed 42 $tmppfx.fa`;
+print    "$eslshuffle --seed 42 $tmppfx.fa";
+print @output;
 if ($? != 0)                                 { die "FAIL: esl-shuffle failed unexpectedly"; }
 if ($output[0] !~ /^>seq1-shuffled$/)        { die "FAIL: shuffle output is incorrect";     }
 if ($output[1] !~ /^TIGEYHFWCKVSALQNPDRM$/)  { die "FAIL: shuffle output is incorrect";     }
