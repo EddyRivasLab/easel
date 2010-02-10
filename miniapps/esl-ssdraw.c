@@ -73,29 +73,23 @@
 #define BLANKMAGENTA 0.0
 #define BLANKYELLOW  0.0
 #define BLANKBLACK   0.5
-/*if I extend to allow RED, BLUE, GREEN with combos of CMYK, but it's a pain right now due to implementation 
-  #define IRED 4
-  #define IBLUE 5
-  #define IGREEN 6
-  #define NCOLORS 7
-*/
+
 #define LEG_NBOXES  11
-#define LEG_BOXSIZE 24.
+/*#define LEG_BOXSIZE 24.*/
 #define LEG_MINFONTSIZE 10
-#define LEGX_OFFSET 24.
-#define LEGY_OFFSET -24.
 #define SPECIAL_FONT "Courier-BoldOblique"
 #define LEG_FONT "Courier-Bold"
 #define LEG_EXTRA_COLUMNS 12 /* how many extra columns we need for printing stats in the legend */
 
 #define DEFAULT_FONT "Courier-Bold"
+#define FOOTER_FONT "Helvetica"
 #define RESIDUES_FONT "Helvetica-Bold"
-#define HUNDREDS_FONT "Helvetica"
+#define POSNTEXT_FONT "Helvetica"
 
 #define SS_BOXSIZE 8.
 
 #define RESIDUES_FONTSIZE 8.
-#define HUNDREDS_FONTSIZE 8.
+#define POSNTEXT_FONTSIZE 8.
 #define LEG_FONTSIZE_UNSCALED 9.6
 /*#define HEADER_FONTSIZE_UNSCALED 14.4*/
 #define HEADER_FONTSIZE_UNSCALED 12
@@ -159,8 +153,12 @@ typedef struct ss_postscript_s {
   float   headerx_charsize;/* size of a character in x-dimension in the header */
   float   headery_charsize;/* size of a character in y-dimension in the header */
   float   headerx_desc; /* x coordinate (bottom left corner) of header area */
-  float   legx;         /* x coordinate (bottom left corner) of legend area */
-  float   legy;         /* y coordinate (bottom left corner) of legend area */
+  int     leg_posn;     /* consensus position for placing legend, read from template */
+  int     leg_boxsize;  /* size of a cell in the legend, (ex. 24 for SSU models) */
+  float   legx_offset;  /* offset in x coordinate for placing legend, legx will be ps->rxA[leg_posn-1] + legx_offset */
+  float   legy_offset;  /* offset in y coordinate for placing legend, legy will be ps->ryA[leg_posn-1] + legy_offset */
+  float   legx;         /* x coordinate (top left corner) of legend area */
+  float   legy;         /* y coordinate (top left corner) of legend area */
   float   cur_legy;     /* y coordinate of current line in legend */
   float   legx_charsize;/* size of a character in x-dimension in the legend */
   float   legy_charsize;/* size of a character in y-dimension in the legend */
@@ -172,9 +170,10 @@ typedef struct ss_postscript_s {
   float   scale;        /* scale parameter, read from template file */
   char  **regurgA;      /* [0..nregurg-1][] lines from the template file to regurgitate, these are unchanged. */
   int     nregurg;      /* number of lines (char *'s) in the regurg_textAA 2D array */
-  float  *hundredsxA;   /* [0..nhundreds-1] x value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
-  float  *hundredsyA;   /* [0..nhundreds-1] y value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
-  int     nhundreds;    /* number of elements in hundredsx and hundredsy */
+  char  **posntextA;    /* [0..i..nposntext-1] string for element i of position text, read from template */
+  float  *posntextxA;   /* [0..i..nposntext-1] x value for posntextA[i] */
+  float  *posntextyA;   /* [0..i..nposntext-1] y value for posntextA[i] */
+  int     nposntext;    /* number of elements in posntextx and posntexty */
   float  *ticksx1A;     /* [0..nticks-1] x begin value for ticks */
   float  *ticksx2A;     /* [0..nticks-1] x end   value for ticks */
   float  *ticksy1A;     /* [0..nticks-1] y begin value for ticks */
@@ -223,6 +222,7 @@ static int  add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode
 static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_rflen, SSPostscript_t **ret_ps);
 static int  parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
 static int  parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
+static int  parse_legend_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf, int *ret_read_showpage);
 static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
@@ -260,7 +260,7 @@ static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscr
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  get_span_ct(int rflen, int nseq, int *srfpos_ct, int *erfpos_ct, int **ret_span_ct);
 
-static char banner[] = "draw postscript secondary structure diagrams.";
+static char banner[] = "draw postscript secondary structure diagrams";
 static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
@@ -273,31 +273,31 @@ static ESL_OPTIONS options[] = {
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
   { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "do not draw info content diagram (or RF sequence if --indi)", 1 },
   { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
-  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw posterior probability diagram(s)", 1 },
   { "--small",  eslARG_NONE,   NULL, NULL, NULL, NULL,NULL, "--all",         "operate in small memory mode (aln must be 1 line/seq Pfam format)", 1 },
 
+  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw average posterior probability diagram", 2 },
   { "--ins",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw insert diagram", 2 },
   { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
   { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/only internal (non-terminal) deletions", 2 },
   { "--mutinfo",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw base pair mutual information diagram", 2 },
   { "--span",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw diagram showing fraction of seqs that span each posn", 2 },
+  { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL, "--indi",        "output per position data in tabular format to file <f>", 2 },
 
   { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw diagrams for individual sequences instead of the aln", 3 },
   { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi", "--all",     "with --indi, draw individual diagrams for seqs listed in <f>", 3 },
   { "--all",    eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi", "--list,--small","with --indi, draw individual diagrams of all sequences", 3 },
   { "--keep-list",eslARG_OUTFILE,FALSE,NULL,NULL,NULL,"--indi,--list,--small","--all",   "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
+  { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",NULL,         "with --indi, do not draw indi posterior probability diagrams", 3 },
 
-  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as squares", 4 },
-  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as x's", 4 },
-  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask-u or --mask-x, draw alternative mask style", 4 },
+  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask", "--mask-x",  "with --mask, mark masked columns as squares", 4 },
+  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask", "--mask-u",  "with --mask, mark masked columns as x's", 4 },
+  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",NULL,         "with --mask-u or --mask-x, draw alternative mask style", 4 },
 
-  { "--mask-col",eslARG_NONE, NULL, NULL, NULL, NULL,"--mask",  INCOMPATWITHSINGLEOPTS, "w/--mask draw black/cyan diagram denoting masked columns", 5 },
+  { "--mask-col", eslARG_NONE,  NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "w/--mask draw two color diagram denoting masked columns", 5 },
   { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
   { "--dfile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw' file specifying >=1 diagrams", 6 },
   { "--ifile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "read insert information from cmalign insert file <f>", 6 },
-
-  { "--tabfile", eslARG_OUTFILE, NULL, NULL, NULL, NULL, NULL, "--indi",  "output per position data in tabular format to file <f>", 7 },
 
   { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw legend", 8 },
   { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw header", 8 },
@@ -391,8 +391,6 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
       puts("\noptions related to optional input files:");
       esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
-      puts("\noptions related to optional output files:");
-      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       puts("\noptions for omitting parts of the diagram:");
       esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
       exit(0);
@@ -405,6 +403,12 @@ main(int argc, char **argv)
       printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
       exit(1);
     }
+
+  /* Check for incompatible options that aren't simple to check with esl_getopts */
+  /* --mask-a requires either --mask-x or --mask-u */
+  if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
+    esl_fatal("--mask-a requires either --mask-u or mask-x");
+  }
 
   alifile      = esl_opt_GetArg(go, 1);
   templatefile = esl_opt_GetArg(go, 2);
@@ -841,8 +845,10 @@ main(int argc, char **argv)
       }
       if((status = individual_seqs_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), (do_small ? indi_ins_ct : ins_ct), useme, nused, hc_scheme, RBFIVERHSCHEME, hc_nbins[RBFIVERHSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
 
-      if(esl_opt_GetBoolean(go, "--prob")) { 
-	if((status = individual_posteriors_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      if(! esl_opt_GetBoolean(go, "--no-iprob")) { 
+	if((do_small && (indi_msa->pp != NULL)) || (! do_small && (msa->pp != NULL))) { 
+	  if((status = individual_posteriors_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+	}
       }
     }
   }
@@ -935,6 +941,10 @@ create_sspostscript()
   ps->headerx_charsize = 0.;
   ps->headery_charsize = 0.;
   ps->desc_max_chars = 0;
+  ps->leg_posn = -1;
+  ps->leg_boxsize = -1;
+  ps->legx_offset = 0.;
+  ps->legy_offset = 0.;
   ps->legx = 0.;
   ps->legy = 0.;
   ps->cur_legy = 0.;
@@ -944,11 +954,12 @@ create_sspostscript()
   ps->legx_stats = 0.;
   ps->pagex_max = 0.;
   ps->pagey_max = 0.;
-  ps->scale = 0.;
+  ps->scale = -1.; /* we'll check if this is still negative after reading the template file, if so it's an error */
   ps->regurgA  = NULL;
   ps->nregurg  = 0;
-  ps->hundredsxA = ps->hundredsyA = NULL;
-  ps->nhundreds = 0;
+  ps->posntextA = NULL;
+  ps->posntextxA = ps->posntextyA = NULL;
+  ps->nposntext = 0;
   ps->ticksx1A = ps->ticksx2A = ps->ticksy1A = ps->ticksy2A = NULL;
   ps->nticks = 0;
   ps->bpx1A = ps->bpx2A = ps->bpy1A = ps->bpy2A = NULL;
@@ -983,11 +994,14 @@ create_sspostscript()
 static int
 setup_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
+  float xroom, yroom;
+  float header_fontwidth, header_max_chars;
+
   if(ps->rflen == 0) ESL_FAIL(eslEINVAL, errbuf, "Failed to ready any residues in template file.");
 
   /* set up legx, legy, this is a hack (takes advantage of position of 3' residue in all SSU models) */
-  ps->legx = ps->rxA[ps->rflen-1] + LEGX_OFFSET;
-  ps->legy = ps->ryA[ps->rflen-1] + LEGY_OFFSET;
+  ps->legx = ps->rxA[ps->leg_posn-1] + ps->legx_offset;
+  ps->legy = ps->ryA[ps->leg_posn-1] + ps->legy_offset;
   ps->cur_legy = ps->legy;
 
   ps->pagex_max = POSTSCRIPT_PAGEWIDTH / ps->scale;
@@ -997,9 +1011,8 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->headery = ps->pagey_max - PAGE_TOPBUF - ((HEADER_FONTSIZE_UNSCALED) / ps->scale);
 
   /* determine max number of residues we can print before we run off the page in the legend section */
-  float xroom, yroom;
-  xroom  = ps->pagex_max - ps->legx;
-  yroom  = (ps->legy - ps->pagey_max) * -1;
+  xroom  = ps->pagex_max - ps->legx - (ps->leg_boxsize - ps->legx_charsize);
+  yroom  = ps->pagey_max - ps->legy - (ps->leg_boxsize - ps->legy_charsize);
   ps->legx_charsize = (LEG_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   ps->legy_charsize = (LEG_FONTSIZE_UNSCALED) / ps->scale; 
   ps->legx_max_chars = (int) (xroom / ps->legx_charsize);
@@ -1007,10 +1020,9 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
 
   /* determine max size of description that will fit in header */
-  float header_fontwidth, header_max_chars;
   header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   ps->headerx_charsize  = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
-  header_max_chars      = (int) (ps->pagex_max / ps->headerx_charsize) - 2;
+  header_max_chars      = (int) ((ps->pagex_max - 2*PAGE_SIDEBUF) / ps->headerx_charsize);
   ps->headery_charsize  = (HEADER_FONTSIZE_UNSCALED) / ps->scale; 
   ps->desc_max_chars    = header_max_chars - (HEADER_MODELNAME_MAXCHARS + 6 + 6 + 8 +2); /*6,6,8 for #res,#bps,#seq plus 2 spaces each, plus 2 for after name */
   ps->headerx_desc      = ps->pagex_max - PAGE_SIDEBUF - (ps->desc_max_chars * ps->headerx_charsize);
@@ -1050,8 +1062,12 @@ free_sspostscript(SSPostscript_t *ps)
     free(ps->regurgA);
   }
 
-  if(ps->hundredsxA != NULL) free(ps->hundredsxA);
-  if(ps->hundredsyA != NULL) free(ps->hundredsyA);
+  if(ps->posntextA  != NULL) { 
+    for(i = 0; i < ps->nposntext; i++) free(ps->posntextA[i]);
+    free(ps->posntextA);
+  }
+  if(ps->posntextxA != NULL) free(ps->posntextxA);
+  if(ps->posntextyA != NULL) free(ps->posntextyA);
   if(ps->ticksx1A != NULL) free(ps->ticksx1A);
   if(ps->ticksy1A != NULL) free(ps->ticksy1A);
   if(ps->ticksx2A != NULL) free(ps->ticksx2A);
@@ -1250,7 +1266,7 @@ add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, 
   if(occl->text != NULL) esl_fatal("add_text_to_onecell_colorlegend(), text already exists!\n"); 
   if(text == NULL) esl_fatal("add_text_to_onecell_colorlegend(), passed in text is NULL!\n"); 
 
-  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) ((LEG_BOXSIZE * 1.5) / ps->legx_charsize));
+  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) (((float) ps->leg_boxsize * 1.5) / ps->legx_charsize));
   /*printf("max: %d cur: %d text: %s\n", max_chars_per_line, (int) strlen(text), text);*/
   if(((int) strlen(text)) > (max_chars_per_line)) { 
     ESL_FAIL(eslEINVAL, errbuf, "add_text_to_onecell_colorlegend(), text is %d chars, max allowed is %d (%s)\n", (int) strlen(text), max_chars_per_line, text);
@@ -1287,7 +1303,7 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
     if(ps->modeA[page] == ALIMODE) { 
       /* maybe fine, make sure there's a break point (space ' ') that will break this string into two strings of length <= ps->desc_max_chars */
       i = ps->desc_max_chars;
-      while(text[i] != ' ') { 
+      while(text[i] != ' ' && text[i] != '-') { 
 	i--; 
 	if(i < 0) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), first word of text (%s) is more than max allowed of %d chars", text, ps->desc_max_chars);
       }
@@ -1296,7 +1312,7 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
 	if((status = esl_strdup(text, -1, &(ps->descA[page]))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), error copying text");
 	ps->descA[page][i] = '\n'; /* so we can remember where the break is */
       }
-      else ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), couldn't find break point (' ') for partitioning text into two valid size chunks (%s)", text);
+      else ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), couldn't find (' ') for splitting text into two chunks (%s)", text);
     }
     else { /* INDIMODE or SIMPLEMASKMODE, sequence/mask name bigger than 1 line, but not 2, we put a '-' in it at the end of line 1 and add a '\n' so we remember where it was */
       ESL_ALLOC(ps->descA[page], sizeof(char) * (textlen + 3)); /* +3 so we have space for the extra '-' and '\n' */
@@ -1440,36 +1456,38 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
   x = ps->legx;
   y = ps->cur_legy;
   if(ps->mask != NULL) { 
-    y -= 0.625 * LEG_BOXSIZE;
+    y -= 0.625 * (float) ps->leg_boxsize;
   }
   /*fprintf(fp, "/%s findfont %f scalefont setfont\n", SPECIAL_FONT, legend_fontsize);*/
-  fprintf(fp, "(%s) %.4f %.4f moveto show\n", "LEGEND", x, (y + (LEG_BOXSIZE * .25)));
+  fprintf(fp, "%% begin legend column headers\n");
+  fprintf(fp, "(%s) %.2f %.2f moveto show\n", "LEGEND", x, (y + ((float) ps->leg_boxsize * .25)));
   /*fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, legend_fontsize);*/
 
   x = ps->legx_stats;
   y = ps->cur_legy;
-  cur_width = ps->legx_max_chars - LEG_EXTRA_COLUMNS -2;
+  cur_width = ps->legx_max_chars - LEG_EXTRA_COLUMNS - 2;
 
   ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
   for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
   cur_string[cur_width] = '\0';
 
   if(ps->mask != NULL) { 
-    fprintf(fp, "(%4s  %4s) %.4f %.4f moveto show\n", "", " in ", x, (y + (LEG_BOXSIZE * .25)));
-    y -= 0.625 * LEG_BOXSIZE;
-    fprintf(fp, "(%4s  %4s) %.4f %.4f moveto show\n", "all", "mask", x, (y + (LEG_BOXSIZE * .25)));
-    y -= 0.625 * LEG_BOXSIZE;
-    fprintf(fp, "(%s) %.4f %.4f moveto show\n", cur_string, ps->legx, (y + (LEG_BOXSIZE * .25)));
-    fprintf(fp, "(----  ----) %.4f %.4f moveto show\n", x, (y + (LEG_BOXSIZE * .25)));
+    fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "", " in ", x, (y + ((float) ps->leg_boxsize * .25)));
+    y -= 0.625 * (float) ps->leg_boxsize;
+    fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "all", "mask", x, (y + ((float) ps->leg_boxsize * .25)));
+    y -= 0.625 * (float) ps->leg_boxsize;
+    fprintf(fp, "(%s) %.2f %.2f moveto show\n", cur_string, ps->legx, (y + ((float) ps->leg_boxsize * .25)));
+    fprintf(fp, "(----  ----) %.2f %.2f moveto show\n", x, (y + ((float) ps->leg_boxsize * .25)));
   }
   else { 
-    fprintf(fp, "(%5s) %.4f %.4f moveto show\n", "count", x, (y + (LEG_BOXSIZE * .25)));
-    y -= 0.625 * LEG_BOXSIZE;
-    fprintf(fp, "(%s) %.4f %.4f moveto show\n", cur_string, ps->legx, (y + (LEG_BOXSIZE * .25)));
-    fprintf(fp, "(-----) %.4f %.4f moveto show\n", x, (y + (LEG_BOXSIZE * .25)));
+    fprintf(fp, "(%5s) %.2f %.2f moveto show\n", "count", x, (y + ((float) ps->leg_boxsize * .25)));
+    y -= 0.625 * (float) ps->leg_boxsize;
+    fprintf(fp, "(%s) %.2f %.2f moveto show\n", cur_string, ps->legx, (y + ((float) ps->leg_boxsize * .25)));
+    fprintf(fp, "(-----) %.2f %.2f moveto show\n", x, (y + ((float) ps->leg_boxsize * .25)));
   }
-  ps->cur_legy = y - (1.0 * LEG_BOXSIZE);
+  ps->cur_legy = y - (1.0 * (float) ps->leg_boxsize);
   
+  fprintf(fp, "%% end legend column headers\n\n");
   free(cur_string);
 
   return eslOK;
@@ -1496,38 +1514,40 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
   fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
 
   /* print cell */
+  fprintf(fp, "%% begin one cell color legend\n");
   fprintf(fp, "newpath\n");
   fprintf(fp, "  %.2f %.2f moveto", x, y);
-  fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
+  fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
   fprintf(fp, "  ");
-  for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.4f ", occl->col[cp]);
+  for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.2f ", occl->col[cp]);
   fprintf(fp, "setcmykcolor\n");
   fprintf(fp, "  fill\n");
   
-  x += LEG_BOXSIZE * 1.5;
+  x += (float) ps->leg_boxsize * 1.5;
 
   /* print text for this legend */
   if(occl->text != NULL) { 
     /* back to black */
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
-    fprintf(fp, "(%s) %.4f %.4f moveto show\n", occl->text, x, y + (LEG_BOXSIZE * 0.25));
+    fprintf(fp, "(%s) %.2f %.2f moveto show\n", occl->text, x, y + ((float) ps->leg_boxsize * 0.25));
 
     /* print stats */
     x = ps->legx_stats;
     if(ps->mask != NULL) { 
-      fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", occl->nres, occl->nres_masked, x, y + (LEG_BOXSIZE * 0.25));
+      fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", occl->nres, occl->nres_masked, x, y + ((float) ps->leg_boxsize * 0.25));
     }
     else { 
-      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", occl->nres, x, y + (LEG_BOXSIZE * 0.25));
+      fprintf(fp, "(%5d) %.2f %.2f moveto show\n", occl->nres, x, y + ((float) ps->leg_boxsize * 0.25));
     }
   }
 
   /* reset color to black */ 
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
-  y -= LEG_BOXSIZE * 1.5;
+  y -= (float) ps->leg_boxsize * 1.5;
   ps->cur_legy = y;
   
+  fprintf(fp, "%% end one cell color legend\n\n");
   return eslOK;
 }
 
@@ -1557,8 +1577,9 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
 
   x = ps->legx;
   y = ps->cur_legy;
-  //y = ps->legy - (ps->nocclA[page] * (LEG_BOXSIZE * 1.5));
+  //y = ps->legy - (ps->nocclA[page] * ((float) ps->leg_boxsize * 1.5));
   fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
+  fprintf(fp, "%% begin color scheme legend\n");
   fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
   fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
 
@@ -1566,78 +1587,78 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   colvec[0] = colvec[1] = colvec[2] = 0.;
   colvec[3] = 1.0;
   if(do_mask) { /* print cells showing difference between masked and unmasked */
-    /*x -= LEG_BOXSIZE;*/
-    /*y -= LEG_BOXSIZE;*/
-    fprintf(fp, "%.1f setlinewidth\n", LEG_BOXSIZE/4.);
+    /*x -= (float) ps->leg_boxsize;*/
+    /*y -= (float) ps->leg_boxsize;*/
+    fprintf(fp, "%.1f setlinewidth\n", (float) ps->leg_boxsize/4.);
     fprintf(fp, "newpath\n");
     fprintf(fp, "  %.2f %.2f moveto", x, y);
-    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
     fprintf(fp, "  ");
     for(cp = 0; cp < NCMYK; cp++) { 
-      fprintf(fp, "%.4f ", colvec[cp]);
+      fprintf(fp, "%.2f ", colvec[cp]);
     }
     fprintf(fp, "setcmykcolor\n");
     fprintf(fp, "  fill\n");
 
     /* print label */
-    x += LEG_BOXSIZE * 1.5;
-    y += LEG_BOXSIZE * 0.625;
-    fprintf(fp, "(included by mask) %.4f %.4f moveto show\n", x, y);
-    y -= LEG_BOXSIZE * 0.625;
-    fprintf(fp, "((all colors)) %.4f %.4f moveto show\n", x, y);
-    x -= LEG_BOXSIZE * 1.5;
+    x += (float) ps->leg_boxsize * 1.5;
+    y += (float) ps->leg_boxsize * 0.625;
+    fprintf(fp, "(included by mask) %.2f %.2f moveto show\n", x, y);
+    y -= (float) ps->leg_boxsize * 0.625;
+    fprintf(fp, "((all colors)) %.2f %.2f moveto show\n", x, y);
+    x -= (float) ps->leg_boxsize * 1.5;
 
     /* print stats for included by mask */
     old_x = x;
     n1s = 0;
     for(i = 0; i < ps->rflen; i++) if(ps->mask[i] == '1') n1s++; 
     x = ps->legx_stats;
-    y += LEG_BOXSIZE * 0.3125;
-    fprintf(fp, "(%4s  %4d) %.4f %.4f moveto show\n", "-", n1s, x, y);
-    y -= LEG_BOXSIZE * 0.3125;
+    y += (float) ps->leg_boxsize * 0.3125;
+    fprintf(fp, "(%4s  %4d) %.2f %.2f moveto show\n", "-", n1s, x, y);
+    y -= (float) ps->leg_boxsize * 0.3125;
 
     x = old_x;
-    y -= LEG_BOXSIZE * 1.5;
-    draw_masked_block(fp, x, y, colvec, do_circle_mask, do_square_mask, do_x_mask, do_border, LEG_BOXSIZE);
+    y -= (float) ps->leg_boxsize * 1.5;
+    draw_masked_block(fp, x, y, colvec, do_circle_mask, do_square_mask, do_x_mask, do_border, (float) ps->leg_boxsize);
 
-    x += LEG_BOXSIZE * 1.5;
-    y += LEG_BOXSIZE * 0.625;
-    fprintf(fp, "(excluded by mask) %.4f %.4f moveto show\n", x, y);
-    y -= LEG_BOXSIZE * 0.625;
-    fprintf(fp, "((all colors)) %.4f %.4f moveto show\n", x, y);
+    x += (float) ps->leg_boxsize * 1.5;
+    y += (float) ps->leg_boxsize * 0.625;
+    fprintf(fp, "(excluded by mask) %.2f %.2f moveto show\n", x, y);
+    y -= (float) ps->leg_boxsize * 0.625;
+    fprintf(fp, "((all colors)) %.2f %.2f moveto show\n", x, y);
 
     /* print stats for excluded by mask */
     old_x = x;
     x = ps->legx_stats;
-    y += LEG_BOXSIZE * 0.3125;
-    fprintf(fp, "(%4s  %4d) %.4f %.4f moveto show\n", "-", ps->rflen-n1s, x, y);
+    y += (float) ps->leg_boxsize * 0.3125;
+    fprintf(fp, "(%4s  %4d) %.2f %.2f moveto show\n", "-", ps->rflen-n1s, x, y);
 
-    y -= LEG_BOXSIZE * 1.8125;
+    y -= (float) ps->leg_boxsize * 1.8125;
     x = ps->legx;
   }
 
   /* print text for this legend */
   if(scl->text1 != NULL) { 
     if(scl->text2 == NULL) { 
-      fprintf(fp, "(%s:) %.4f %.4f moveto show\n", scl->text1, x, (y + (LEG_BOXSIZE * .25)));
+      fprintf(fp, "(%s:) %.2f %.2f moveto show\n", scl->text1, x, (y + ((float) ps->leg_boxsize * .25)));
     }
     else { 
-      fprintf(fp, "(%s) %.4f %.4f moveto show\n", scl->text1, x, (y + (LEG_BOXSIZE * .25)));
-      y -= LEG_BOXSIZE * 0.625;
-      fprintf(fp, "(%s:) %.4f %.4f moveto show\n", scl->text2, x, (y + (LEG_BOXSIZE * .25)));
+      fprintf(fp, "(%s) %.2f %.2f moveto show\n", scl->text1, x, (y + ((float) ps->leg_boxsize * .25)));
+      y -= (float) ps->leg_boxsize * 0.625;
+      fprintf(fp, "(%s:) %.2f %.2f moveto show\n", scl->text2, x, (y + ((float) ps->leg_boxsize * .25)));
     }
   }
-  y -= LEG_BOXSIZE;
+  y -= (float) ps->leg_boxsize;
   
   /* print masked scheme color cells */
   /*if(do_mask) { 
-    fprintf(fp, "%.1f setlinewidth\n", LEG_BOXSIZE/4.);
+    fprintf(fp, "%.1f setlinewidth\n", (float) ps->leg_boxsize/4.);
     for(c = 0; c < scl->nbins; c++) { 
-    draw_masked_block(fp, x, y, hc_scheme[c], do_circle_mask, do_square_mask, do_x_mask, do_border, LEG_BOXSIZE);
-    y -= LEG_BOXSIZE;
+    draw_masked_block(fp, x, y, hc_scheme[c], do_circle_mask, do_square_mask, do_x_mask, do_border, (float) ps->leg_boxsize);
+    y -= (float) ps->leg_boxsize;
     }
-    y += (LEG_BOXSIZE * scl->nbins);
-    x += 1.5 * LEG_BOXSIZE;
+    y += ((float) ps->leg_boxsize * scl->nbins);
+    x += 1.5 * (float) ps->leg_boxsize;
     fprintf(fp, "1.0 setlinewidth\n");
   }
   */
@@ -1646,55 +1667,56 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   for(c = 0; c < scl->nbins; c++) { 
     fprintf(fp, "newpath\n");
     fprintf(fp, "  %.2f %.2f moveto", x, y);
-    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
     fprintf(fp, "  ");
     for(cp = 0; cp < NCMYK; cp++) { 
-      fprintf(fp, "%.4f ", hc_scheme[c][cp]);
+      fprintf(fp, "%.2f ", hc_scheme[c][cp]);
     }
     fprintf(fp, "setcmykcolor\n");
     fprintf(fp, "  fill\n");
 
     /* print label */
-    x += LEG_BOXSIZE * 1.5;
-    y += LEG_BOXSIZE * 0.25;
+    x += (float) ps->leg_boxsize * 1.5;
+    y += (float) ps->leg_boxsize * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     if(esl_FCompare(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
       if(c != scl->nbins-1) esl_fatal("ERROR when drawing color legend, limits[%d] is INFINITY, but this is reserved only for the max limit", c+1);
-      if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.4f %.4f moveto show\n",   (int) scl->limits[c], x, y);
-      else                    fprintf(fp, "(>=%3.f) %.4f %.4f moveto show\n", scl->limits[c], x, y);
+      if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.2f %.2f moveto show\n",   (int) scl->limits[c], x, y);
+      else                    fprintf(fp, "(>=%3.f) %.2f %.2f moveto show\n", scl->limits[c], x, y);
     }
     else if(scl->ints_only_flag) { 
       if(c == scl->nbins-1) { 
-	fprintf(fp, "(\\[%d-%d\\]) %.4f %.4f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1], x, y);
+	fprintf(fp, "(\\[%d-%d\\]) %.2f %.2f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1], x, y);
       }
       else if(esl_FCompare(scl->limits[c], scl->limits[c+1]-1, eslSMALLX1) == eslOK) { /* next limit is exactly 1 plus cur limit, don't do range, define single int */
-	fprintf(fp, "(%d) %.4f %.4f moveto show\n", (int) scl->limits[c], x, y);
+	fprintf(fp, "(%d) %.2f %.2f moveto show\n", (int) scl->limits[c], x, y);
       }
       else { 
-	fprintf(fp, "(\\[%d-%d\\]) %.4f %.4f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1]-1, x, y);
+	fprintf(fp, "(\\[%d-%d\\]) %.2f %.2f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1]-1, x, y);
       }
     }
     else { 
-      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
-      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
     }
     /* print stats */
     old_x = x;
     x = ps->legx_stats;
     if(ps->mask != NULL) { 
-      fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", scl->counts[c], scl->counts_masked[c], x, y);
+      fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", scl->counts[c], scl->counts_masked[c], x, y);
     }
     else { 
-      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", scl->counts[c], x, y);
+      fprintf(fp, "(%5d) %.2f %.2f moveto show\n", scl->counts[c], x, y);
     }
 
-    x = old_x - LEG_BOXSIZE * 1.5;
-    y -= LEG_BOXSIZE * 0.25;
-    y -= LEG_BOXSIZE;
+    x = old_x - (float) ps->leg_boxsize * 1.5;
+    y -= (float) ps->leg_boxsize * 0.25;
+    y -= (float) ps->leg_boxsize;
   }
 
   /* reset color to black */ 
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
+  fprintf(fp, "%% end color scheme legend\n\n");
   
   ps->cur_legy = y;
   return eslOK;
@@ -1715,6 +1737,8 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
   int *page_orderA;
   int rfoffset;
 
+  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read modelname from template file.");
+
   do_border = (!esl_opt_GetBoolean(go, "--mask-a"));
   do_circle_mask = do_square_mask = do_x_mask = FALSE;
   if(esl_opt_GetBoolean(go, "--mask-u")) { do_square_mask = TRUE; }
@@ -1729,7 +1753,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
    */
   ESL_ALLOC(page_orderA, sizeof(int) * ps->npage);
   if(esl_opt_GetBoolean(go, "--indi") && 
-     esl_opt_GetBoolean(go, "--prob") &&
+     (! esl_opt_GetBoolean(go, "--no-iprob")) &&
      (esl_opt_GetBoolean(go, "--all") || (! esl_opt_IsDefault(go, "--list")))) {
     pi = 0;
     rfoffset = 0;
@@ -1738,6 +1762,8 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       pi++;
       rfoffset = 1;
     } /* otherwise, we didn't print the consensus sequence */
+    fflush(stdout);
+
     for(si = 0; si < nused; si++) { 
       page_orderA[pi] = si + rfoffset; /* the indi sequence page */
       pi++;
@@ -1754,10 +1780,17 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     p = page_orderA[pi];
     ps->cur_legy = ps->legy;
 
+    /* print postscript comment header, only visible if viewed in text mode */
+    fprintf(fp, "%% ------------------------------------------------------------\n");
+    fprintf(fp, "%% Postscript file created by esl-ssdraw (page %d of %d)\n", pi+1, ps->npage);
+    fprintf(fp, "%% ------------------------------------------------------------\n");
+    fprintf(fp, "%% msafile:       %s (%d seqs)\n", esl_opt_GetArg(go, 1), ps->msa_nseq);
+    fprintf(fp, "%% templatefile:  %s\n", esl_opt_GetArg(go, 2));
+    fprintf(fp, "%% modelname:     %s\n", ps->modelname);
+    fprintf(fp, "%% consensus-len: %d\n\n", ps->rflen);
+	    
     /* scale section */
-    fprintf(fp, "%% begin scale\n");
-    fprintf(fp, "%.2f %.2f scale\n", ps->scale, ps->scale);
-    fprintf(fp, "%% end scale\n\n");
+    fprintf(fp, "%.2f %.2f scale\n\n", ps->scale, ps->scale);
       
     /* header section */
     if((status = draw_header_and_footer(fp, go, errbuf, ps, p, pi+1)) != eslOK) return status;
@@ -1769,30 +1802,30 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 	fprintf(fp, "%s", ps->regurgA[i]);
       fprintf(fp, "%% end regurgitate\n\n");
     }
-
-    /* 'text hundreds' section */
-    for(i = 0; i < ps->nhundreds; i++) { 
+    
+    /* 'text posntext' section */
+    for(i = 0; i < ps->nposntext; i++) { 
       if(i == 0) { 
-	fprintf(fp, "%% begin text hundreds\n");
-	fprintf(fp, "/%s findfont %.2f scalefont setfont\n", HUNDREDS_FONT, HUNDREDS_FONTSIZE);
+	fprintf(fp, "%% begin text positiontext\n");
+	fprintf(fp, "/%s findfont %.2f scalefont setfont\n", POSNTEXT_FONT, POSNTEXT_FONTSIZE);
 	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
       }
-      fprintf(fp, "(%d) %.2f %.2f moveto show\n", (i+1) * 100, ps->hundredsxA[i], ps->hundredsyA[i]); 
-      if(i == (ps->nhundreds-1)) { 
-	fprintf(fp, "%% end text hundreds\n\n");
+      fprintf(fp, "%s %.2f %.2f moveto show\n", ps->posntextA[i], ps->posntextxA[i], ps->posntextyA[i]); 
+      if(i == (ps->nposntext-1)) { 
+	fprintf(fp, "%% end text positiontext\n\n");
       }
     }
     
     /* 'lines ticks' section */
     for(i = 0; i < ps->nticks; i++) { 
       if(i == 0) { 
-	fprintf(fp, "%% begin lines ticks\n");
+	fprintf(fp, "%% begin lines positionticks\n");
 	fprintf(fp, "%.2f setlinewidth\n", TICKS_LINEWIDTH);
 	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
       }
       fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->ticksx1A[i], ps->ticksy1A[i], ps->ticksx2A[i], ps->ticksy2A[i]);
       if(i == (ps->nticks-1)) { 
-	fprintf(fp, "%% end lines ticks\n\n");
+	fprintf(fp, "%% end lines positionticks\n\n");
       }
     }
 
@@ -1809,22 +1842,26 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
     }
 
-    /* 'text residues' section */
-    /* NOTE: I only print this out so that this file could possibly be used as a template */
-    fprintf(fp, "%% begin text residues\n");
-    fprintf(fp, "/%s findfont %.2f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
-    fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
-    for(i = 0; i < ps->rflen; i++) { 
-      fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
-    }
-    fprintf(fp, "%% end text residues\n");
-
-    /* the rest of the text will be ignored by ssu-draw if the output
-     * file we're creating is read in as a template file later on
+    /* NOTE: I used to print out the 'text residues' section so the output file could possibly be used as a template, 
+     * but I stopped doing that, if a template is required in the first place, why not make it always required?
+     * This block is left in case I ever want to go back on that decision.
      */
-    fprintf(fp, "%% begin ignore\n");
+    /* 'text residues' section 
+       fprintf(fp, "%% begin text residues\n");
+       fprintf(fp, "/%s findfont %.2f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
+       fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); 
+       for(i = 0; i < ps->rflen; i++) { 
+       if(((rflen+1) % 10) == 0) { 
+       fprintf(fp, "% () %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
+       fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
+       }
+       fprintf(fp, "%% end text residues\n");
+    */ 
+
+    /* print out remainder of the page */
+    /* fprintf(fp, "%% begin ignore\n"); */
     fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* set to black */
-    fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, LEG_FONTSIZE_UNSCALED / ps->scale);
+    fprintf(fp, "/%s findfont %f scalefont setfont\n\n", LEG_FONT, LEG_FONTSIZE_UNSCALED / ps->scale);
 
     /* draw legend headers, if we have a legend */
     if((ps->nocclA[p] > 0) || (ps->sclAA != NULL && ps->sclAA[p] != NULL)) { 
@@ -1848,6 +1885,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
+      fprintf(fp, "%% begin colored positions\n");
       if(ps->mask != NULL) { 
 	fprintf(fp, "2.0 setlinewidth\n");
 	if(do_border && do_x_mask)      { fprintf(fp, "1.0 setlinewidth\n"); }
@@ -1880,16 +1918,20 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
       /* back to black */
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
+      fprintf(fp, "%% end colored positions\n\n");
     }
+
 
     if(ps->rrAA[p] != NULL) { 
       fprintf(fp, "/%s findfont %f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
+      fprintf(fp, "%% begin text residues\n");
       for(c = 0; c < ps->rflen; c++) { 
-	fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
+	if(ps->rrAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
       }
+      fprintf(fp, "%% end text residues\n");
     }
-    fprintf(fp, "grestore\nshowpage\n");
-    fprintf(fp, "%% end ignore\n\n");
+    fprintf(fp, "showpage\n\n");
+    /* fprintf(fp, "%% end ignore\n\n"); */
   }
   free(page_orderA);
   return eslOK;
@@ -1935,7 +1977,7 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
       return status;
     }
     if(ps->rflen == msa_rflen) { found_match = TRUE; }
-    else                     { free_sspostscript(ps); }
+    else                       { free_sspostscript(ps); }
   }
   if(found_match == FALSE) { 
     esl_fileparser_Close(efp);
@@ -1969,6 +2011,7 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
  * 
  * list of valid tokens for <type1>:
  * modelname
+ * legcoords
  * scale
  * regurgitate
  * ignore 
@@ -1977,11 +2020,11 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
  * 
  * if <type1> is lines or text, then <type2> is read, 
  * valid tokens for <type2> if <type1> is 'text'
- * hundreds
+ * positiontext
  * residues
  * 
  * valid tokens for <type2> if <type1> is 'lines'
- * ticks
+ * positionticks
  * bpconnects
  * 
  * The 'regurgitate' lines are stored, but never changed.
@@ -2015,6 +2058,10 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
 	    if(strcmp(tok, "modelname") == 0) { 
 	      if((status = parse_modelname_section(efp, errbuf, ps)) != eslOK) return status;
 	    }
+	    else if(strcmp(tok, "legend") == 0) { 
+	      /*printf("parsing legend\n");*/
+	      if((status = parse_legend_section(efp, errbuf, ps)) != eslOK) return status;
+	    }
 	    else if(strcmp(tok, "scale") == 0) { 
 	      /*printf("parsing scale\n");*/
 	      if((status = parse_scale_section(efp, errbuf, ps)) != eslOK) return status;
@@ -2044,7 +2091,7 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
 	  }
 	}
 	else { 
-	  ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %% begin, but read tok: %s instead of begin, last read line number %d.", tok, efp->linenumber);
+	  ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%%% begin, but read tok: %s instead of begin, last read line number %d.", tok, efp->linenumber);
 	}
       }
       else { 
@@ -2052,7 +2099,7 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
       }
     }
     else { 
-      ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%, read tok: %s, last read line number %d.", tok, efp->linenumber);
+      ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%%%, read tok: %s, last read line number %d.", tok, efp->linenumber);
     }
   }
   if(read_showpage == FALSE && status != eslEOF) { 
@@ -2118,6 +2165,52 @@ parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  ERROR: ESL_FAIL(status, errbuf, "Error, parsing modelname section, memory error?");
 }
 
+/* parse_legend_section
+ *
+ * Parse the legend (legend coordinates) section of a template postscript file.
+ * If anything is invalid, we return a non-eslOK status code
+ * to caller. 
+ * 
+ * Returns:  eslOK on success.
+ */
+int
+parse_legend_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  char *tok;
+  int   toklen;
+
+  /* this section should be exactly 3 lines, one of which we've already read,
+   * three tokens of the middle line are <rfpos> <x_offset> <y_offset> <leg_boxsize>
+   * this tells us to put the top-left corner of the legend at 
+   * ps->legx[rfpos] + x_offset, ps->legy[rfpos] + y_offset
+   * boxsize is the size of the cells in the legend
+   * here's an example, first token we'll read should be '%', followed by '1508'
+   * % begin legend
+   * % 1508 24. -24. 12
+   * % end legend
+   */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 1 of 5"); 
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, middle line token 1 should be a percent sign but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 2 of 5"); 
+  ps->leg_posn = atoi(tok);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 5"); 
+  ps->legx_offset = atof(tok);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 4 of 5"); 
+  ps->legy_offset = atof(tok);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 5 of 5"); 
+  ps->leg_boxsize = atoi(tok);
+
+  /* read '% end legend' line */
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 3");   
+  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 1 of 3 should be a percent sign but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading end line token 2 of 3"); 
+  if (strcmp(tok, "end") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 2 of 3 should be 'end' but it's %s", tok); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading end line token 3 of 3"); 
+  if (strcmp(tok, "legend") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 3 of 3 should be 'legend' but it's %s", tok); 
+
+  return eslOK;
+}
 
 /* parse_scale_section
  *
@@ -2142,6 +2235,7 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
    */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 1 of 3"); 
   ps->scale = atof(tok);
+  if(ps->scale < 0.) ESL_FAIL(status, errbuf, "Error, parsing scale section, scale must be positive real number, read %s\n", tok);
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 2 of 3"); 
   if(esl_FCompare(ps->scale, atof(tok), eslSMALLX1) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, x and y scales are not equal %.2f != %.2f", ps->scale, atof(tok)); 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 3 of 3"); 
@@ -2165,6 +2259,10 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  * tokens until we see the "% end ignore" line signalling
  * the end of the ignore section.
  * 
+ * As a special case, if any line iss a single token, 'showpage', we 
+ * set *ret_read_showpage as TRUE upon return. This signals to caller
+ * that the current page is finished.
+ * 
  * Returns:  eslOK on success.
  */
 int
@@ -2172,23 +2270,24 @@ parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf, int *ret_read_showpage)
 {
   int status;
   char *tok;
-  int   toklen;
   int   keep_reading = TRUE;
   int   read_showpage = FALSE;
-  while((keep_reading) && (status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
-    if (strcmp(tok, "%") == 0) { 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
-      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
-      if (strcmp(tok, "ignore") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
-      keep_reading = FALSE;
-      status = eslOK;
+
+  while((keep_reading) && (status = esl_fileparser_NextLine(efp) == eslOK)) { 
+    /* we're going to keep reading until we've read the line that is '% end ignore', 3 tokens, '%', then 'end', then 'ignore' */
+    if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "%") == 0)) { /* first token is '%' */
+      if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "end") == 0)) { /* second token is 'end' */
+	if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "ignore") == 0)) { /* final token is 'end' */
+	  keep_reading = FALSE;
+	  status = eslOK;
+	}
+      }
     }
-    else if(strcmp(tok, "showpage") == 0) { 
+    else if(strcmp(tok, "showpage") == 0) { /* first token is 'showpage' */
       read_showpage = TRUE;
     }
   }
-  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing ignore section, finished file looking for '%% end ignore' line");
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing ignore section, finished file looking for '%%%% end ignore' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing ignore section, last line number read %d", efp->linenumber);
 
   *ret_read_showpage = read_showpage;
@@ -2223,10 +2322,10 @@ parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
     curlen = ntok = 0;
     while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen))  == eslOK) { 
       if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
-	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
-	if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
-	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
-	if (strcmp(tok, "regurgitate") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "regurgitate") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
 	seen_end = TRUE;
 	break;
       }
@@ -2252,7 +2351,7 @@ parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
     free(curstr);
     curstr = NULL;
   }
-  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, finished file looking for '%% end regurgitate' line");
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, finished file looking for '%%%% end regurgitate' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, last line number read %d", efp->linenumber);
 
   return eslOK;
@@ -2278,85 +2377,79 @@ parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   int   seen_end = FALSE;
   int   nalloc;
   void *tmp;
-  int do_hundreds = FALSE;
+  int do_posntext = FALSE;
   int do_residues = FALSE;
+  int i;
 
-  /* find out which section we're in, 'hundreds' or 'residues' */
+  /* find out which section we're in, 'posntext' or 'residues' */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
-  if      (strcmp(tok, "hundreds") == 0) { do_hundreds = TRUE; nalloc = ps->nhundreds; }
-  else if (strcmp(tok, "residues") == 0) { do_residues = TRUE; nalloc = ps->rflen; }
+  if      (strcmp(tok, "positiontext") == 0) { do_posntext = TRUE; nalloc = ps->nposntext; }
+  else if (strcmp(tok, "residues")     == 0) { do_residues = TRUE; nalloc = ps->rflen; }
 
-  /* read the first two special lines, should be a 5-token line ending with setfont and a 5-token line ending with setcmykcolor,
-   * we don't store these, but we require that they're there. */
-  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-  if(strcmp(tok, "setfont") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
-
-  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
-
+  /* Parse each line. example line: 
+   * (G) 168.00 392.00 moveto show
+   */
   while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
   {
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
-    if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
-      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
-      if (strcmp(tok, "text") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
-      if(do_hundreds) { 
-	if (strcmp(tok, "hundreds") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text hundreds' after it"); 
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5-tokens ending with 'show'");
+    if (tok[0] == '%') { /* comment line, could be the end, check if it's '% end text {positiontext,residues}', if not, ignore it */
+      if(strcmp(tok, "%") == 0) { /* first token is '%', keep checking */
+	if(((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) && (strcmp(tok, "end") == 0)) { /* second token is 'end', keep checking */
+	  if(((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) && (strcmp(tok, "text") == 0)) { /* third token is 'end', keep checking */
+	    if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { /* has a fourth token, keep checking */
+	      if(do_posntext && strcmp(tok, "positiontext") == 0) seen_end = TRUE;
+	      if(do_residues && strcmp(tok, "residues")     == 0) seen_end = TRUE;  
+	    }
+	  }
+	}
       }
-      if(do_residues) {
-	if (strcmp(tok, "residues") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text residues' after it"); 
+    }
+    else { 
+      /* we're reading a non-comment line, tok is the string, if do_posntext, we store it, else we discard it */
+      if(do_posntext) {
+	if(ps->nposntext == nalloc) { 
+	  ESL_RALLOC(ps->posntextA,  tmp, sizeof(char *) * (nalloc + ps->nalloc)); 
+	  ESL_RALLOC(ps->posntextxA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
+	  ESL_RALLOC(ps->posntextyA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
+	  for(i = nalloc; i < nalloc + ps->nalloc; i++) ps->posntextA[i] = NULL;
+	  nalloc += ps->nalloc; 
+	}
+	if((status = esl_strdup(tok, -1, &(ps->posntextA[ps->nposntext]))) != eslOK) goto ERROR;
       }
-      seen_end = TRUE;
-      break;
+      if(do_residues && ps->rflen == nalloc) { 
+	ESL_RALLOC(ps->rxA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
+	ESL_RALLOC(ps->ryA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
+	nalloc += ps->nalloc; 
+      }
+
+      /* get x */
+      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
+      if(do_posntext) ps->posntextxA[ps->nposntext] = atof(tok);
+      if(do_residues) ps->rxA[ps->rflen] = atof(tok);
+      /* get y */
+      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
+      if(do_posntext) ps->posntextyA[ps->nposntext] = atof(tok);
+      if(do_residues) ps->ryA[ps->rflen] = atof(tok);
+      
+      /* verify moveto */
+      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
+      if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fourth token should be 'moveto', line %d", efp->linenumber);
+      /* verify show */
+      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
+      if (strcmp(tok, "show") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fifth token should be 'show', line %d", efp->linenumber);
+      
+      if(do_posntext) ps->nposntext++;
+      if(do_residues) ps->rflen++;
     }
-    /* if we get here, we haven't seen the end, we're reading a normal line, tok is the string, we discard this */
-    if(do_hundreds && ps->nhundreds == nalloc) { 
-      nalloc += ps->nalloc; 
-      ESL_RALLOC(ps->hundredsxA, tmp, sizeof(float) * nalloc); 
-      ESL_RALLOC(ps->hundredsyA, tmp, sizeof(float) * nalloc); 
-    }
-    if(do_residues && ps->rflen == nalloc) { 
-      nalloc += ps->nalloc; 
-      ESL_RALLOC(ps->rxA, tmp, sizeof(float) * nalloc); 
-      ESL_RALLOC(ps->ryA, tmp, sizeof(float) * nalloc); 
-    }
-    /* get x */
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
-    if(do_hundreds) ps->hundredsxA[ps->nhundreds] = atof(tok);
-    if(do_residues) ps->rxA[ps->rflen] = atof(tok);
-    /* get y */
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
-    if(do_hundreds) ps->hundredsyA[ps->nhundreds] = atof(tok);
-    if(do_residues) ps->ryA[ps->rflen] = atof(tok);
-    
-    /* verify moveto */
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
-    if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fourth token should be 'moveto', line %d", efp->linenumber);
-    /* verify show */
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
-    if (strcmp(tok, "show") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fifth token should be 'show', line %d", efp->linenumber);
-    
-    if(do_hundreds) ps->nhundreds++;
-    if(do_residues) ps->rflen++;
   }
-  if(!seen_end) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, didn't see end! line: %d\n", efp->linenumber);
-  if(status == eslEOF && do_hundreds) 
-    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text hundreds' line");
+  if(!seen_end) { 
+    if(do_posntext) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text positiontext section, didn't see '%%%% end text positiontext' line: %d\n", efp->linenumber);
+    if(do_residues) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text positiontext section, didn't see '%%%% end text residues' line: %d\n", efp->linenumber);
+  }
+  if(status == eslEOF && do_posntext) 
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%%%% end text positiontext' line");
   if(status == eslEOF && do_residues) 
-    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text residues' line");
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%%%% end text residues' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing text section, last line number read %d", efp->linenumber);
 
   return eslOK;
@@ -2384,40 +2477,29 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   int do_ticks = FALSE;
   int do_bpconnects = FALSE;
 
-  /* find out which section we're in, 'ticks' or 'bpconnects' */
+  /* find out which section we're in, 'positionticks' or 'bpconnects' */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
-  if      (strcmp(tok, "ticks") == 0)      { do_ticks = TRUE; nalloc = ps->nticks; }
-  else if (strcmp(tok, "bpconnects") == 0) { do_bpconnects = TRUE; nalloc = ps->nbp; }
+  if      (strcmp(tok, "positionticks") == 0) { do_ticks = TRUE;      nalloc = ps->nticks; }
+  else if (strcmp(tok, "bpconnects")    == 0) { do_bpconnects = TRUE; nalloc = ps->nbp;    }
+  else    ESL_FAIL(status, errbuf, "Error, parsing lines section unrecognized type: %s ('bpconnects' or 'positionticks' expected)\n", tok);
 
-  /* read the first two special lines, should be a 2-token line ending with setlinewidth and a 5-token line ending with setcmykcolor,
-   * we don't store these, but we require that they're there. */
-  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
-  if(strcmp(tok, "setlinewidth") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
-
-  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
-
+  /* Parse each line. example line: 
+   * 151.82 331.76 148.86 338.65 newpath moveto lineto stroke
+   */
   while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
   {
     if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 5-tokens ending with 'show'");
     if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
-      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
-      if (strcmp(tok, "lines") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "lines") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
       if(do_ticks) { 
-	if (strcmp(tok, "ticks") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines ticks' after it"); 
+	if (strcmp(tok, "positionticks") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines positionticks' after it"); 
       }
       if(do_bpconnects) {
-	if (strcmp(tok, "bpconnects") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines bpconnects' after it"); 
+	if (strcmp(tok, "bpconnects") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines bpconnects' after it"); 
       }
       seen_end = TRUE;
       break;
@@ -2472,9 +2554,9 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   }
   if(!seen_end) ESL_FAIL(status, errbuf, "Error, parsing lines section, didn't see end! line: %d\n", efp->linenumber);
   if(status == eslEOF && do_ticks) 
-    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines ticks' line");
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%%%% end lines positionticks' line");
   if(status == eslEOF && do_bpconnects) 
-    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines bpconnects' line");
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%%%% end lines bpconnects' line");
 
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing lines section, last line number read %d", efp->linenumber);
 
@@ -2486,7 +2568,6 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  * 
  * Purpose:  Fill a postscript data structure with info for individual seqs in the MSA 
  * Return:   eslOK on success.
- * 
  * 
  * ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
  *          insert after each position per sequence. 
@@ -3071,15 +3152,17 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
     }
   }
 
-  /* determine number of sequences that span each position */
-  if((status = get_span_ct(ps->rflen, msa_nseq, srfpos_ct, erfpos_ct, &span_ct)) != eslOK) ESL_FAIL(eslEMEM, errbuf, "Out of memory, getting span_ct array.");
+  if(! do_all) { 
+    /* determine number of sequences that span each position */
+    if((status = get_span_ct(ps->rflen, msa_nseq, srfpos_ct, erfpos_ct, &span_ct)) != eslOK) ESL_FAIL(eslEMEM, errbuf, "Out of memory, getting span_ct array.");
+  }
 
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
   /* draw delete page */
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     ps->rrAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos];
-    n_ext_del = (float) (msa_nseq - span_ct[rfpos]); /* num external deletes is num seqs minus number of seqs that 'span' apos, see function header comments for explanation */
+    n_ext_del = do_all ? -1. : (float) (msa_nseq - span_ct[rfpos]); /* num external deletes is num seqs minus number of seqs that 'span' apos, see function header comments for explanation */
     if((( do_all) && ( abc_ct[apos][abc->K] < eslSMALLX1)) ||               /* abc_ct[apos][abc->K] == 0 */
        ((!do_all) && ((abc_ct[apos][abc->K] - n_ext_del) < eslSMALLX1))) {  /* abc_ct[apos][abc->K] == n_ext_del (all deletes are external) */
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
@@ -3093,7 +3176,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
       dfreq = do_all ? 
 	( abc_ct[apos][abc->K]              / (float) msa_nseq) : 
 	((abc_ct[apos][abc->K] - n_ext_del) / (float) msa_nseq);
-      /* printf("do_all: %d rfpos: %d dfreq: %.4f\n", do_all, rfpos, dfreq); */
+      /* printf("do_all: %d rfpos: %d dfreq: %.2f\n", do_all, rfpos, dfreq); */
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
@@ -3124,7 +3207,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   else { /* !do_all, only internal deletes counted */
     /*sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->rflen) / (float) msa_nseq);*/
     if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
-    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal \\(non-terminal\\) deletions in each position", errbuf)) != eslOK) return status;
+    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal deletions in each position", errbuf)) != eslOK) return status;
   }
   
   if(span_ct != NULL)   free(span_ct);
@@ -3248,7 +3331,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
     }
     /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
     if(tabfp != NULL) { 
-      fprintf(tabfp, "  insert  %6d  %8.5f  %3d", rfpos, ifreq, bi+1);
+      fprintf(tabfp, "  insert  %6d  %8.5f  %3d", rfpos+1, ifreq, bi+1);
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }
@@ -3347,7 +3430,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# A sequence s spans consensus position x if s has at least one\n");
     fprintf(tabfp, "# non-gap residue aligned to a consensus position a <= x and at least one\n");
-    fprintf(tabfp, "# non-gap residue aligned to a consensus position b >= x..\n");
+    fprintf(tabfp, "# non-gap residue aligned to a consensus position b >= x.\n");
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# Value ranges for bins:\n");
     fprintf(tabfp, "# \tbin  0: special case, 0 sequences span this position\n");
@@ -3385,7 +3468,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
-      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos, cfract, bi+1); 
+      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos+1, cfract, bi+1); 
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }
@@ -3640,6 +3723,7 @@ individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostsc
   pp = orig_npage;
   for(i = 0; i < msa->nseq; i++) { 
     if(useme[i]) { /* add color legend for this sequence */
+      if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "with --indi, either all or none of the selected sequences must have PP annotation, seq %d does not", i);
       ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE);
       nonecell_seq = 0;
       nonecell_seq_masked = (ps->mask == NULL) ? -1 : 0;
@@ -4204,7 +4288,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	ent_left  = bg_ent - esl_vec_DEntropy(obs_left, abc->K);      
 	ent_right = bg_ent - esl_vec_DEntropy(obs_right, abc->K);      
 	ent_pair =  bg_pair_ent - esl_vec_DEntropy(obs_pair, abc->K*abc->K);      
-	/* printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  nres: %.4f  ",  i+1, j+1, ent_pair, ent_left, ent_right, nres); */
+	/* printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  nres: %.2f  ",  i+1, j+1, ent_pair, ent_left, ent_right, nres); */
 	ent_pair -= ent_left + ent_right;
 	ent_pair /= 2.;
 	/* printf("Final: %8.3f\n", ent_pair);  */
@@ -4215,11 +4299,11 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	   for(rres = 0; rres < abc->K; rres++) { 
 	   if(obs_pair[lres*abc->K+rres] > eslSMALLX1) { 
 	   mi += obs_pair[lres*abc->K+rres] * (1.44269504 * log((obs_pair[lres*abc->K+rres])/(obs_left[lres] * obs_right[rres])));
-	   printf("mi: %.4f obs_left %.4f  obs_right: %.4f obs_pair %.4f \n", mi, obs_left[lres], obs_right[rres], obs_pair[lres*abc->K+rres]);  
+	   printf("mi: %.2f obs_left %.2f  obs_right: %.2f obs_pair %.2f \n", mi, obs_left[lres], obs_right[rres], obs_pair[lres*abc->K+rres]);  
 	   }
 	   }
 	   }
-	   printf("MI/2: %.4f  EP: %.4f  %.4f\n", mi/2., ent_pair, (mi/2.) - ent_pair); 
+	   printf("MI/2: %.2f  EP: %.2f  %.2f\n", mi/2., ent_pair, (mi/2.) - ent_pair); 
 	*/
 
 	if(ent_pair < (-1. * eslSMALLX1)) { 
@@ -4516,13 +4600,16 @@ draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask,
 static int 
 validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
-  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read modelname from template file.");
-  if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");
-  if(ps->rflen == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text residues' section from template file.");
+  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read modelname from template file.");
+  if(ps->nbp == 0)          ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'lines bpconnects' section from template file.");
+  if(ps->scale < 0)         ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read scale from template file.");
+  if(ps->rflen == 0)        ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'text residues' section from template file.");
+  if(ps->leg_posn == -1)    ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'legend' section from template file.");
+  if(ps->leg_boxsize == -1) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'legend' section from template file.");
 
   /* Stuff we don't currently require, but we may want to eventually */
-  /*if(ps->nhundreds == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text hundreds' section from template file.");*/
-  /*if(ps->nticks == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines ticks' section from template file.");*/
+  /*if(ps->nposntext == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text positiontext' section from template file.");*/
+  /*if(ps->nticks == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines positionticks' section from template file.");*/
   /*if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");*/
 
   return eslOK;
@@ -4636,10 +4723,11 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
   char *desc_string = NULL;
   float xmodel;
   char *model2print = NULL;
+  float footer_fontsize, footerx_charsize;
 
   header_fontsize = HEADER_FONTSIZE_UNSCALED / ps->scale; 
 
-  fprintf(fp, "%% begin ignore\n");
+  fprintf(fp, "%% begin header section\n");
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, header_fontsize);
   fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
 
@@ -4677,7 +4765,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     y -= header_fontsize * 0.75;
     fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
     y -= header_fontsize * 0.75;
-    fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show", model_width, model2print, ps->rflen, ps->msa_nbp, x, y);
+    fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show\n", model_width, model2print, ps->rflen, ps->msa_nbp, x, y);
     free(model_dashes);
     x += (model_width + 6 + 6 +2) * ps->headerx_charsize;
     
@@ -4746,25 +4834,26 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     }
     /* masked row of header goes here if desired */
   }
+  fprintf(fp, "%% end header section\n\n");
 
   /* draw footer */
-  float footer_fontsize, footerx_charsize;
   footer_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
   footerx_charsize = ps->legx_charsize;
   
-  fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, footer_fontsize);
   if(! (esl_opt_GetBoolean(go, "--no-foot"))) { 
+    fprintf(fp, "%% begin footer section\n");
+    fprintf(fp, "/%s findfont %.2f scalefont setfont\n", FOOTER_FONT, footer_fontsize);
     /* draw alignment file name in lower left hand corner */
     if(ps->mask != NULL) { 
       if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
-	fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+	fprintf(fp, "(alignment file: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
       }
       else { 
-	fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+	fprintf(fp, "(alignment file: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
       }
     }
     else { 
-      fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+      fprintf(fp, "(alignment file: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
     }
 
     /* put page number */
@@ -4776,9 +4865,9 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
     fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
     
-  }    
-  fprintf(fp, "(structure diagram derived from CRW database: http://www.rna.ccbb.utexas.edu/) %.2f %.2f moveto show\n", PAGE_SIDEBUF , PAGE_BOTBUF);
-  fprintf(fp, "%% end ignore\n");
+    fprintf(fp, "(Created by \'esl-ssdraw\'. Copyright (C) 2010 Howard Hughes Medical Institute.) %.2f %.2f moveto show \n", PAGE_SIDEBUF , PAGE_BOTBUF);
+    fprintf(fp, "%% end footer section\n\n");
+  }
 
   if(model2print != NULL) free(model2print);
   return eslOK;

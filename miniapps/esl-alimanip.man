@@ -47,7 +47,7 @@ Save the resulting, modified alignment in Stockholm format to a file
 The default is to write it to standard output.
 
 .TP 
-.BI --informat "<s> "
+.BI --informat " <s>"
 Specify that the input alignment be format 
 .I <s>.
 At preset, the only valid choices for 

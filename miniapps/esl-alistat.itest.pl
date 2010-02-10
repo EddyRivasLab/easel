@@ -8,7 +8,7 @@
 # EPN, Tue Feb  2 13:19:44 2010
 
 $eslalistat= shift;
-$tmppfx      = shift;
+$tmppfx    = shift;
 
 if (! -x "$eslalistat") { die "FAIL: didn't find esl-alistat binary $eslalistat"; }
 
@@ -62,7 +62,7 @@ aaAAAA..AAAA...Cc.cCCCCCC.C..GGGGGgggg
 EOF
 close ALIFILE;
 
-$output = `$eslalistat $smallA[$pass] -h`;
+$output = `$eslalistat -h`;
 if ($? != 0)                                     { die "FAIL: esl-alistat failed unexpectedly"; }
 if ($output !~ /Usage: esl-alistat/)             { die "FAIL: help output not right"; }
 
