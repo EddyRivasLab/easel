@@ -99,9 +99,9 @@
 
 #define POSTSCRIPT_PAGEWIDTH 612.
 #define POSTSCRIPT_PAGEHEIGHT 792.
-#define PAGE_TOPBUF 12.
-#define PAGE_SIDEBUF 12.
-#define PAGE_BOTBUF 12.
+#define PAGE_TOPBUF 30.
+#define PAGE_SIDEBUF 32.
+#define PAGE_BOTBUF 30.
 #define COURIER_HEIGHT_WIDTH_RATIO 1.65
 
 /* Structure: scheme_color_legend
@@ -3645,7 +3645,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   ps->nocclA[pp] = 1;
   
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(alnment confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
 
   /* add description to ps */
   if((status = add_page_desc_to_sspostscript(ps, pp, "average posterior probability \\(confidence\\) per position", errbuf)) != eslOK) return status;
@@ -4846,14 +4846,14 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     /* draw alignment file name in lower left hand corner */
     if(ps->mask != NULL) { 
       if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
-	fprintf(fp, "(alignment file: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+	fprintf(fp, "(alignment file: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF);
       }
       else { 
-	fprintf(fp, "(alignment file: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+	fprintf(fp, "(alignment file: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF);
       }
     }
     else { 
-      fprintf(fp, "(alignment file: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
+      fprintf(fp, "(alignment file: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF);
     }
 
     /* put page number */
@@ -4865,7 +4865,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
     fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
     
-    fprintf(fp, "(Created by \'esl-ssdraw\'. Copyright (C) 2010 Howard Hughes Medical Institute.) %.2f %.2f moveto show \n", PAGE_SIDEBUF , PAGE_BOTBUF);
+    /* fprintf(fp, "(Created by \'esl-ssdraw\'. Copyright (C) 2010 Howard Hughes Medical Institute.) %.2f %.2f moveto show \n", PAGE_SIDEBUF , PAGE_BOTBUF); */
     fprintf(fp, "%% end footer section\n\n");
   }
 
