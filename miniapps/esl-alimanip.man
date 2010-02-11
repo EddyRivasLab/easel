@@ -117,18 +117,45 @@ Keep only sequences with names listed in file
 Sequence names listed in 
 .I <f>
 can be separated by tabs, new lines, or spaces.
-By default, the kept sequences will be reorder to the order in
-.I <f>,
-but the original order can be maintained with the
-.B --k-leave
-option.
+By default, the kept sequences will remain in the original order
+they appeared in 
+.I msafile,
+but the order from 
+.I <f> 
+will be used if the 
+.B --k-reorder
+option is enabled.
 
 .TP 
-.BI --k-leave
+.BI --small
 With
-.B --seq-k,
-do not reorder the kept sequences in the output alignment to the order
-from the list file. 
+.B --seq-k 
+or
+.B --seq-r,
+operate in small memory mode. 
+The alignment(s) will not be stored in memory, thus
+.B --seq-k 
+and
+.B --seq-r
+will be able to work on very large alignments regardless
+of the amount of available RAM.
+The alignment file must be in Pfam
+format and 
+.BI --informat " pfam"
+and one of
+.B --amino,
+.B --dna,
+or
+.B --rna
+must be given as well.
+
+.TP 
+.BI --k-reorder
+With
+.BI --seq-k " <f>",
+reorder the kept sequences in the output alignment to the order
+from the list file
+.I <f>.
 
 .TP 
 .BI --seq-ins " <n>"

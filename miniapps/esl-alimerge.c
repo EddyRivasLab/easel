@@ -265,7 +265,7 @@ main(int argc, char **argv)
     }
     /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
     while((status = (do_small) ? 
-	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
+	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
 	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
@@ -406,10 +406,12 @@ main(int argc, char **argv)
 					   FALSE, /* regurgitate aseq ? */
 					   NULL,  /* regurgitate all seqs, not a subset */ 
 					   NULL,  /* regurgitate all seqs, not a subset */ 
-					   NULL,  
-					   NULL, 
+					   NULL,  /* we're not keeping a subset of columns */
+					   NULL,  /* we're not adding all gap columns */
 					   alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					   '.');
+					   '.',   /* gap char, irrelevant */
+					   NULL,  /* don't return num seqs read */
+					   NULL); /* don't return num seqs regurgitated */
 	  if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
 	  free(ngapA);
@@ -452,7 +454,10 @@ main(int argc, char **argv)
 					 (do_rfonly) ? usemeA[ai] : NULL, 
 					 (do_rfonly) ? NULL       : ngapA,
 					 alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					 '.');
+					 '.',
+					 NULL,  /* don't return num seqs read */
+					 NULL); /* don't return num seqs regurgitated */
+
 	if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
 	free(ngapA);

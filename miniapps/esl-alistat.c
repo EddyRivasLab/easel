@@ -38,7 +38,7 @@ static ESL_OPTIONS options[] = {
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL,"--amino,--dna",  "<msafile> contains RNA alignments",                       1 },
   { "--small",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln size)", 2 },
   /* options for optional output files */
-  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, "--small",   "output list of sequence names in alignment(s) to file <f>",      3 },
+  { "--list",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "output list of sequence names in alignment(s) to file <f>",      3 },
   { "--icinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print info on information content alignment column",             3 },
   { "--rinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print info on # of non-gap residues in each column to <f>",      3 },
   { "--pcinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print per-column   posterior probability info to <f>",           3 },
@@ -69,6 +69,7 @@ main(int argc, char **argv)
   double        avgid;		               /* average fractional pair id      */
   int           max_comparisons;               /* maximum # comparisons for avg id */
   int           do_stall;                      /* used to stall when debugging     */
+  int           type;                          /* alphabet type */
 
   char          errbuf[eslERRBUFSIZE];
   double      **abc_ct = NULL;                 /* [0..msa->alen-1][0..abc->K] number of each residue at each position (abc->K is gap) */
@@ -86,6 +87,9 @@ main(int argc, char **argv)
   FILE *rinfofp  = NULL; /* output file for --rinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
   FILE *listfp   = NULL; /* output file for --list */
+  char *listfile = NULL; /* name for list file */
+  char listfileidxbuf[32]; /* for storing integer suffix for listfile name */
+
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -149,7 +153,6 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else {
     if (esl_opt_GetBoolean(go, "--small")) esl_fatal("--small requires one of --amino, --dna, --rna be specified.");
-    int type;
     status = esl_msafile_GuessAlphabet(afp, &type);
     if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
@@ -162,9 +165,11 @@ main(int argc, char **argv)
   /**************************************
    * Open optional output files, as nec *
    **************************************/
+  /* determine name for first list file, if nec */
   if( esl_opt_IsOn(go, "--list")) {
+    if((status = esl_strdup(esl_opt_GetString(go, "--list"), -1, &(listfile))) != eslOK) esl_fatal("Out of memory.");
     if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
-      esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
+      esl_fatal("Failed to open --list output file %s for first alignment\n", esl_opt_GetString(go, "--list"));
   }
   if( esl_opt_IsOn(go, "--icinfo")) {
     if ((icinfofp = fopen(esl_opt_GetString(go, "--icinfo"), "w")) == NULL) 
@@ -204,11 +209,13 @@ main(int argc, char **argv)
   }
 
   nali = 0;
+
   while ((status = (esl_opt_GetBoolean(go, "--small")) ? 
-	  esl_msa_ReadNonSeqInfoPfam(afp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
+	  esl_msa_ReadNonSeqInfoPfam(afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
 	  esl_msa_Read              (afp, &msa))
 	 == eslOK) 
     { 
+      /* Note, if --list enabled, listfp != NULL and esl_msa_ReadNonSeqInfoPfam() will print out seq names to listfp */
       if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
       else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
       else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
@@ -274,16 +281,23 @@ main(int argc, char **argv)
 	}
 
       /* Dump data to optional output files, if nec */
+      if(esl_opt_IsOn(go, "--list")) {
+	if(! esl_opt_GetBoolean(go, "--small")) { 
+	    /* only print sequence name to list file if ! --small, else we already have in esl_msa_ReadNonSeqInfoPfam() */
+	    for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
+	}
+	printf("# List of sequences in alignment %d saved to file %s\n", nali, listfile);
+	fclose(listfp);
+	free(listfile);
+	/* if --small or not, we need to open a new list file for the next alignment */
+	/* determine name for next alignments listfile, this will be <f>.<nali> from --list <f> */
+	if((status = esl_strdup(esl_opt_GetString(go, "--list"), -1, &(listfile))) != eslOK) esl_fatal("Out of memory.");
+	sprintf(listfileidxbuf, ".%d", nali+1);
+	if((status = esl_strcat(&(listfile), -1, listfileidxbuf, -1)) != eslOK) esl_fatal("Out of memory."); 
+	if ((listfp = fopen(listfile, "w")) == NULL) 
+	  esl_fatal("Failed to open --list output file %s for alignment %d\n", listfile, nali+1);
+      }
 
-      /* Write out list of sequences, if nec */
-      if( esl_opt_IsOn(go, "--list")) {
-	fprintf(listfp, "# List of sequences:\n");
-	fprintf(listfp, "# Alignment file: %s\n", alifile);
-	fprintf(listfp, "# Alignment idx:  %d\n", nali);
-	if(msa->name != NULL) { fprintf(listfp, "# Alignment name: %s\n", msa->name); }
-	for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
-      } 
-      
       if((esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo")) || esl_opt_IsOn(go, "--iinfo")) {
 	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
 	 * and rf2a_map, a map of non-gap RF positions to overall alignment positions */
@@ -336,8 +350,11 @@ main(int argc, char **argv)
   /* Cleanup, normal return
    */
   if(listfp != NULL) { 
+    /* we need to close listfp and unlink listfile, which was opened but never written to 
+     * (b/c we open listfp before 1st msa read, and after each msa read for the msa that's about to be read */
     fclose(listfp);
-    printf("# List of sequences saved to file %s.\n", esl_opt_GetString(go, "--list"));
+    remove(listfile);
+    free(listfile);
   }
   if(icinfofp != NULL) { 
     fclose(icinfofp);

@@ -162,6 +162,15 @@ for($pass = 0; $pass < 2; $pass++) {
     }
     if($output !~ /\# Alignment idx:  2/)                { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 
+    system("$eslalistat --list $tmppfx.list $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
+    if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
+    $output = `cat $tmppfx.list`;
+    if($output !~ /seq2/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
+    if($output !~ /seq3/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
+    $output = `cat $tmppfx.list.2`;
+    if($output !~ /seq2/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
+    if($output =~ /seq3/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
+
     if($pass == 0) { # these are incompatible with --small 
 	system("$eslalistat --psinfo  $tmppfx.ps $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
 	if ($? != 0)                                         { die "FAIL: esl-alistat failed unexpectedly";}
@@ -177,12 +186,6 @@ for($pass = 0; $pass < 2; $pass++) {
 	if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
 	$output = `cat $tmppfx.i`;
         if($output !~ /16           1  0.33\d+     2.0\d+         2/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
-	if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
-
-	system("$eslalistat --list $tmppfx.list $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
-	if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
-	$output = `cat $tmppfx.list`;
-        if($output !~ /seq3/)                                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 	if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
     }
 }

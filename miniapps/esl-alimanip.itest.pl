@@ -189,7 +189,14 @@ if ($output !~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output !~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
 
-$output = `$eslalimanip --rna --k-leave --seq-k $tmppfx.list $tmppfx.stk 2>&1`;
+$output = `$eslalimanip --rna --seq-k $tmppfx.list --informat pfam --small $tmppfx.stk 2>&1`;
+if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
+# should remove seq3
+if ($output !~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --k-reorder --seq-k $tmppfx.list $tmppfx.stk 2>&1`;
 if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
 # should remove seq3
 if ($output !~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
@@ -197,6 +204,13 @@ if ($output !~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --seq-r $tmppfx.list $tmppfx.stk 2>&1`;
+if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
+# should remove seq1 and seq2
+if ($output =~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output =~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --seq-r $tmppfx.list --informat pfam --small $tmppfx.stk 2>&1`;
 if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
 # should remove seq1 and seq2
 if ($output =~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }

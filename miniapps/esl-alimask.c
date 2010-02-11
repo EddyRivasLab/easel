@@ -314,7 +314,7 @@ main(int argc, char **argv)
    * Read the first MSA in the file (we only mask first aln) and verify we can mask it.
    ************************************************************************************/
   status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
+    esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
 			       (do_gapthresh) ? &abc_ct : NULL,
 			       (do_postprob)  ? &pp_ct  : NULL, 
 			       NULL, NULL, NULL) :               /* we don't want bp_ct, srfpos_ct nor erfpos_ct */
@@ -552,7 +552,9 @@ main(int argc, char **argv)
 				     useme_final,    /* which columns to keep */
 				     NULL,           /* we're not adding any columns */
 				     msa->alen,      /* expected length, not strictly necessary */
-				     '.');           /* gapchar, irrelevant in this context */
+				     '.',            /* gapchar, irrelevant in this context */
+				     NULL,           /* don't return num seqs read */
+				     NULL);          /* don't return num seqs regurgitated */
     if(status == eslEOF) esl_fatal("Second pass, unable to reread alignment");
     if(status != eslOK)  esl_fatal("Second pass, error rereading alignment");
   }

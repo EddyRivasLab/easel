@@ -616,7 +616,7 @@ main(int argc, char **argv)
    * Read the alignment *
    **********************/
   status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
+    esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
     esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
   if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
   else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
@@ -644,7 +644,7 @@ main(int argc, char **argv)
     else if (status == eslEFORMAT)   esl_fatal("2nd pass, couldn't determine format of alignment %s\n", alifile);
     else if (status != eslOK)        esl_fatal("2nd pass, alignment file open failed with error %d\n", status);
     
-    status = esl_msa_ReadNonSeqInfoPfam(afp, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &srfpos_ct, &erfpos_ct);
+    status = esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &srfpos_ct, &erfpos_ct);
     if      (status == eslEFORMAT) esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
     else if (status == eslEINVAL)  esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
     else if (status == eslEOF)     esl_fatal("2nd pass, No alignments found in file %s\n", alifile);
@@ -796,11 +796,12 @@ main(int argc, char **argv)
 					   TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
 					   useme_keyhash, /* only regurgitate seqs in useme_keyhash */
 					   NULL,          /* no list of seqs to skip */
-					   NULL, NULL, -1, '.'); 
-	  if(status == eslEOF) esl_fatal("Final pass, no alignments in file");
-	  if(status != eslOK)  esl_fatal("Final pass, error reading alignment");
+					   NULL, NULL, -1, '.',
+					   NULL, NULL); /* don't return number of seqs read/regurgitated */
 	  fclose(indi_fp); 
 	  indi_fp = NULL;
+	  if(status == eslEOF)       esl_fatal("Writing temporary alignment for --small, no alignments in file");
+	  if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
 	  
 	  /* now read in that small alignment */
 	  if(esl_opt_IsOn(go, "--keep-list")) { 
@@ -3648,7 +3649,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
 
   /* add description to ps */
-  if((status = add_page_desc_to_sspostscript(ps, pp, "average posterior probability \\(confidence\\) per position", errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, pp, "average posterior probability per position", errbuf)) != eslOK) return status;
 
   free(limits);
 
