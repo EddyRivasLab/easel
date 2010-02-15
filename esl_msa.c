@@ -1625,7 +1625,6 @@ esl_msafile_Close(ESL_MSAFILE *afp)
 
 
 
-
 /******************************************************************************
  *# 3. Digital mode MSA's (augmentation: alphabet)
  *****************************************************************************/
@@ -2343,8 +2342,6 @@ esl_msa_GuessFileFormat(ESL_MSAFILE *afp)
   return eslOK;
 }
 /*-------------------- end of general i/o functions -------------------------*/
-
-
 
 
 /*****************************************************************
@@ -5812,7 +5809,7 @@ determine_spacelen(char *s)
  *                         position of aligned data (GC,GR,aseq), can be NULL
  *           exp_alen    - expected alignment length, -1 if unknown, which
  *                         is okay as long as useme == add2me == NULL
- *           gapchar     - gap character, only relevant if add2me != NULL
+ *           gapchar2add - gap character, only relevant if add2me != NULL
  *           opt_nseq    - RETURN: optional, number of aligned sequences regurgitated
  *                         will be total number of sequences unless seqs2regurg != NULL
  *                         seqs2skip != NULL.
@@ -5831,7 +5828,7 @@ int
 esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr, 
 			int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
 			int do_gs, int do_gc, int do_gr, int do_aseq, 
-			ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar,
+			ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar2add,
 			int *opt_nseq_read, int *opt_nseq_regurged)
 {
   char      *s = NULL;
@@ -5879,7 +5876,7 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 
   if (feof(afp->f))  { status = eslEOF; goto ERROR; }
   afp->errbuf[0] = '\0';
-
+   
   /* Check the magic Stockholm header line.
    * We have to skip blank lines here, else we perceive
    * trailing blank lines in a file as a format error when
@@ -5939,12 +5936,12 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 	      if(useme  != NULL) { 
 		/* if this is a GC SS_cons line, remove broken basepairs first */
 		if(strncmp(tag, "SS_cons", 7) == 0) {
-		  if((status = remove_broken_basepairs_from_ss_string(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
+		  if((status = remove_broken_basepairs_from_ss_string(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC SS_cons line", afp->linenumber);
 		}
 		shrink_string(text, useme, exp_alen); /* this is done in place on text */
 	      }
 	      if(add2me != NULL) { 
-		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar2add, &gapped_text)) != eslOK) goto ERROR; 
 		fprintf(ofp, "#=GC %-*s %s\n", curmargin, tag, gapped_text);
 		free(gapped_text);
 	      }
@@ -5966,10 +5963,11 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 		   (seqs2skip   != NULL && (status = esl_key_Lookup(seqs2skip,   seqname, NULL)) == eslENOTFOUND))
 		  { /* this if() will evaluate as TRUE if seqs2regurg and seqs2skip are both NULL, or the seqname exists in seqs2regurg or does not exist in seqs2skip, else it will return FALSE */
 		    s = afp->buf;
-		    if (esl_strtok(&s, " \t\n\r", &gs)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
-		    if (esl_strtok(&s, " \t\n\r", &tag)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
-		    if (esl_strtok(&s, "\n\r",    &text) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
-		    fprintf(ofp, "#=GS %-*s %s\n", maxname, tag, text);
+		    if (esl_strtok(&s, " \t\n\r", &gs)      != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GS line", afp->linenumber);
+		    if (esl_strtok(&s, " \t\n\r", &seqname) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GS line", afp->linenumber);
+		    if (esl_strtok(&s, " \t\n\r", &tag)     != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GS line", afp->linenumber);
+		    if (esl_strtok(&s, "\n\r",    &text)    != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GS line", afp->linenumber);
+		    fprintf(ofp, "#=GS %-*s %s %s\n", maxname, seqname, tag, text);
 		  }
 	      }
 	    }
@@ -6008,7 +6006,7 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 		    shrink_string(text, useme, exp_alen); /* this is done in place on text */
 		  }
 		  if(add2me != NULL) { 
-		    if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		    if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar2add, &gapped_text)) != eslOK) goto ERROR; 
 		    fprintf(ofp, "#=GR %-*s %-*s %s\n", curmargin, seqname, curmargin2, tag, gapped_text);
 		    free(gapped_text);
 		  }
@@ -6041,17 +6039,16 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 	  else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with esl-reformat.", afp->linenumber, seqname); }
 	  nseq_read++;
 
-	  /* determine if we should regurgitate GR for this sequence or not */
+	  /* determine if we should regurgitate this sequence or not */
 	  if((seqs2regurg == NULL && seqs2skip == NULL) || 
 	     (seqs2regurg != NULL && (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) || 
 	     (seqs2skip   != NULL && (status = esl_key_Lookup(seqs2skip,   seqname, NULL)) == eslENOTFOUND))
 	    { /* this if() will evaluate as TRUE if seqs2regurg and seqs2skip are both NULL, or the seqname exists in seqs2regurg or does not exist in seqs2skip, else it will return FALSE */
-	      /* output GR, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 	      /* output sequence, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 	      nseq_regurged++;
 	      if(useme  != NULL) shrink_string(text, useme, exp_alen); /* this is done in place on text */
 	      if(add2me != NULL) { 
-		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar, &gapped_text)) != eslOK) goto ERROR; 
+		if((status = gapize_string(text, textlen, textlen + gaps2addlen, add2me, gapchar2add, &gapped_text)) != eslOK) goto ERROR; 
 		fprintf(ofp, "%-*s %s\n", curmargin, seqname, gapped_text);
 		free(gapped_text);
 	      }
@@ -6977,7 +6974,7 @@ utest_RegurgitatePfam(char *filename)
 			      NULL,          /* useme:  if non-NULL specifies which columns to keep in output */
 			      NULL,          /* add2me: if non-NULL specifies how many gap columns to add in output */
 			      -1,            /* expected alignment length, unknown (must not be if useme != NULL or add2me != NULL */
-			      '.',           /* gapchar, irrelevant since add2me is NULL */
+			      '.',           /* gapchar2add, irrelevant since add2me is NULL */
 			      NULL,          /* don't return num seqs read */
 			      NULL)          /* don't return num seqs read */
       != eslOK) esl_fatal(msg);
