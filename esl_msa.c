@@ -99,16 +99,14 @@
  * may be an allocation block size (to be expanded by doubling, in
  * esl_msa_Expand(), as in:
  *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
- * As a special case, <nseq> may be 0, if this msa object is meant not 
- * to store any per-sequence data (such as by esl_msa_ReadNonSeqInfoPfam()).
- * 
+ * <nseq> should not be 0.
+ *
  * <alen> may be the exact length of an alignment, in columns; or it
  * may be -1, which states that your parser will take responsibility
  * for expanding as needed as new input is read into a growing new
  * alignment.
  *
- * A created <msa> can only be <_Expand()>'ed if <alen> is -1 and
- * <sqalloc> is not 0.
+ * A created <msa> can only be <_Expand()>'ed if <alen> is -1.
  *
  * Args:     <nseq> - number of sequences, or nseq allocation blocksize
  *           <alen> - length of alignment in columns, or -1     
@@ -560,7 +558,7 @@ esl_msa_Create(int nseq, int64_t alen)
   ESL_ALLOC(msa->aseq,   sizeof(char *) * msa->sqalloc);
   for (i = 0; i < msa->sqalloc; i++)
     msa->aseq[i] = NULL;
-
+  
   if (alen != -1) {
     for (i = 0; i < nseq; i++)
       {
@@ -591,8 +589,7 @@ esl_msa_Create(int nseq, int64_t alen)
  *            and the caller may attempt to recover from the error.
  *            
  *            Throws <eslEINVAL> if <msa> is not growable: its <alen>
- *            field must be -1 and its <sqalloc> field must not be 0
- *            to be growable.
+ *            field must be -1 to be growable.
  *
  * Xref:      squid's MSAExpand(), 1999.
  */
@@ -605,8 +602,6 @@ esl_msa_Expand(ESL_MSA *msa)
   int   i,j;
 
   if (msa->alen != -1) 
-    ESL_EXCEPTION(eslEINVAL, "that MSA is not growable");
-  if (msa->sqalloc == 0) 
     ESL_EXCEPTION(eslEINVAL, "that MSA is not growable");
 
   old = msa->sqalloc;
@@ -5410,7 +5405,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
     { status = eslEMEM; goto ERROR; }
 #endif
-  if (afp->do_digital == FALSE && (msa = esl_msa_Create(0, -1))  == NULL)
+  if (afp->do_digital == FALSE && (msa = esl_msa_Create(16, -1))  == NULL)
     { status = eslEMEM; goto ERROR; }
   if (msa == NULL)    
     { status = eslEMEM; goto ERROR; }
