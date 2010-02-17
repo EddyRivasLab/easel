@@ -1013,7 +1013,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
    */
   ESL_ALLOC(fk, sizeof(char) * ns->flen);
   ESL_ALLOC(pk, sizeof(char) * ns->plen);
-  ESL_ALLOC(sk, sizeof(char) * ns->slen);
+  if (ns->slen) ESL_ALLOC(sk, sizeof(char) * ns->slen);
 
   /* How big is the index? If it's going to be > 2GB, we better have
    * 64-bit offsets. (2047 (instead of 2048) gives us
