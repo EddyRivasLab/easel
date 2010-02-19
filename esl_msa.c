@@ -99,7 +99,8 @@
  * may be an allocation block size (to be expanded by doubling, in
  * esl_msa_Expand(), as in:
  *     <if (msa->nseq == msa->sqalloc) esl_msa_Expand(msa);>
- * 
+ * <nseq> should not be 0.
+ *
  * <alen> may be the exact length of an alignment, in columns; or it
  * may be -1, which states that your parser will take responsibility
  * for expanding as needed as new input is read into a growing new
@@ -197,10 +198,11 @@ create_mostly(int nseq, int64_t alen)
 
   /* Allocation, round 2.
    */
-  ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
-  ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
-  ESL_ALLOC(msa->sqlen,  sizeof(int64_t)* nseq);
-
+  if(nseq > 0) { 
+    ESL_ALLOC(msa->sqname, sizeof(char *) * nseq);
+    ESL_ALLOC(msa->wgt,    sizeof(double) * nseq);
+    ESL_ALLOC(msa->sqlen,  sizeof(int64_t)* nseq);
+  }    
   /* Initialize at the second level.
    */
   for (i = 0; i < nseq; i++)
@@ -556,7 +558,7 @@ esl_msa_Create(int nseq, int64_t alen)
   ESL_ALLOC(msa->aseq,   sizeof(char *) * msa->sqalloc);
   for (i = 0; i < msa->sqalloc; i++)
     msa->aseq[i] = NULL;
-
+  
   if (alen != -1) {
     for (i = 0; i < nseq; i++)
       {
@@ -5400,7 +5402,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, ESL_ALPHABET *abc, int64_t known_al
   if (afp->do_digital == TRUE && (msa = esl_msa_CreateDigital(afp->abc, 16, -1))  == NULL) 
     { status = eslEMEM; goto ERROR; }
 #endif
-  if (afp->do_digital == FALSE && (msa = esl_msa_Create(0, -1))  == NULL)
+  if (afp->do_digital == FALSE && (msa = esl_msa_Create(16, -1))  == NULL)
     { status = eslEMEM; goto ERROR; }
   if (msa == NULL)    
     { status = eslEMEM; goto ERROR; }
