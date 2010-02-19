@@ -640,6 +640,7 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
     return gamma_fraction(r, a);
   else 
     return gamma_integer(r, aint) + gamma_fraction(r, a-aint);
+  /*NOTREACHED*/
   return eslOK;
 }
 
@@ -709,7 +710,7 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
       }
     if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
   }
-  /*UNREACHED*/
+  /*NOTREACHED*/
   ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
 }
 int
@@ -730,7 +731,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
       }
     if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
   }
-  /*UNREACHED*/
+  /*NOTREACHED*/
   ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
 }
 

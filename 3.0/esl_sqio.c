@@ -506,6 +506,7 @@ esl_sqio_EncodeFormat(char *fmtstring)
 #ifdef eslAUGMENT_MSA
   return esl_msa_EncodeFormat(fmtstring);
 #endif
+  /*NOTREACHED*/
   return eslSQFILE_UNKNOWN;
 }
 
