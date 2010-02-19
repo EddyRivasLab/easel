@@ -3,6 +3,8 @@
  * EPN, Wed Dec 23 11:15:32 2009
  * SVN $Id: esl-alistat.c 393 2009-09-27 12:04:55Z eddys $
  */
+#include "esl_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 

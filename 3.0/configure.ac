@@ -223,6 +223,19 @@ AC_PROG_RANLIB
 AC_PATH_PROG([AR],       [ar],       [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 CHECK_GNU_MAKE
 
+# --enable-xlc-arch  Set the code generation for a particular architecture
+#
+# The xlc compiler on AIX seems to need the -qarch flag to be set for a processor
+# that is VMX enabled.  Otherwise a warning is issued that states the -qenablevmx
+# and -qaltivec flags are ignored.
+AX_COMPILER_VENDOR
+if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
+  AC_ARG_WITH(xlc-arch, 
+              [AC_HELP_STRING([--with-xlc-arch=<arch>], [specify architecture <arch> for xlc -qarch])],
+              XLC_ARCH=$withval, 
+              XLC_ARCH=no)
+fi
+
 # Select our default optimization flags in CFLAGS.
 #
 if test "$sre_cflags_env_set" = "no"; then
@@ -278,22 +291,60 @@ fi
 
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
-if test "$enable_vmx" = "yes"; then
-   if test "x$SIMD_CFLAGS" = x; then
-   if test "$GCC" = "yes"; then
-     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],
-       [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
- 	   [SIMD_CFLAGS="-maltivec -mabi=altivec"],
-           [AX_CHECK_COMPILER_FLAGS(-fvec, [SIMD_CFLAGS="-fvec"],
-		   [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
-   elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-     AX_CHECK_COMPILER_FLAGS(-qaltivec, [SIMD_CFLAGS="-qaltivec"],[])
-   else
-     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],[])
-   fi
-   AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
-   fi
+if test "$enable_sse" != "yes"; then
+  if test "x$SIMD_CFLAGS" = x; then
+    VMX_SIMD_CFLAGS=""
+    if test "$GCC" = "yes"; then
+       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],
+         [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
+ 	     [VMX_SIMD_CFLAGS="-maltivec -mabi=altivec"],
+             [AX_CHECK_COMPILER_FLAGS(-fvec, [VMX_SIMD_CFLAGS="-fvec"],
+		     [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
+    elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
+       AX_CHECK_COMPILER_FLAGS(-qenablevmx, [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qenablevmx"],[])
+       AX_CHECK_COMPILER_FLAGS(-qaltivec,   [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qaltivec"],[])
+    else
+       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],[])
+    fi
+  else
+    VMX_SIMD_CFLAGS="$SIMD_CFLAGS"
+  fi
+  if test "$enable_vmx" = "check"; then
+     sre_save_cflags="$CFLAGS"
+     CFLAGS="$CFLAGS $VMX_SIMD_CFLAGS"
+     AC_MSG_CHECKING([if platform can run Altivec/VMX instructions])
+     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <altivec.h>]],
+   	 			   [[vector unsigned char zerov;
+                                     vector unsigned char onev;
+                                     zerov = vec_splat_u8(0);
+                                     onev = vec_splat_u8(1);
+                                     onev = vec_adds(onev, zerov);
+				   ]])],
+                     [AC_MSG_RESULT([yes])
+                       enable_vmx=yes],
+                     [AC_MSG_RESULT([no])
+                        if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
+                           echo "******************************************************"
+                           echo "*  You seem to have the IBM  C compiler.  If your    *"
+                           echo "*  processor supports vector instructions it is      *"
+                           echo "*  possible specifying an architecture would enable  *"
+                           echo "*  vector support, i.e.                              *"
+                           echo "*                                                    *"
+                           echo "*    --with-xlc-arch=XXX                             *"
+                           echo "*                                                    *"
+                           echo "*  where XXX is pwr6, auto or whatever kind of CPU   *"
+                           echo "*  you have.                                         *"
+                           echo "******************************************************"
+                        fi
+                   ])
+     CFLAGS="$sre_save_cflags"
+  fi
+  if test "$enable_vmx" = "yes"; then
+    SIMD_CFLAGS="$VMX_SIMD_CFLAGS"
+    AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
+  fi
 fi
+
 AC_SUBST(SIMD_CFLAGS)
 
 
