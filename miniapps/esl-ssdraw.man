@@ -161,6 +161,13 @@ modified with the
 and 
 .B --mask-a options. 
 
+Finally, two different types of input files can be used to customize
+output diagrams using the
+.B --dfile
+and
+.B --efile
+options, as described below.
+
 .SH INPUT
 
 The 
@@ -633,10 +640,52 @@ masks.
 
 .TP
 .BI --dfile " <f>"
-Read the 'draw' file 
+Read the 'draw file'
+.I <f>
+which specifies numerical values for each consensus position in one or
+more postscript pages.  For each page, the draw file must include
+<rflen>+3 lines (<rflen> is defined in the DESCRIPTION section). The first three lines are special. The following
+<rflen> 'value lines' each must contain a single number, the numerical
+value for the corresponding position.  The first of the three special
+lines defines the 'description' for the page. This should be text that
+describes what the numerical values refer to for the page. The maximum
+allowable length is roughly 50 characters (the exact maximum
+length depends on the template file and the program will report an
+informative error message upon execution if it is exceeded). The
+second special line defines the 'legend header' line that which will
+appear immediately above the legend. It has a maximum allowable length
+of about 30 characters.  The third special line per page must contain
+exactly 7 numbers, which must be in increasing order, each separated
+by a space. 
+These numbers
+define the numerical ranges for the six different colors used to draw
+the consensus positions on the page. 
+The first number defines the minimum value for the first color
+(blue) and must be less than or equal to the minimum
+value from the value lines. The second number defines the minimum
+value for the second color (turquoise). The third, fourth, fifth and
+sixth numbers define the minimum values for the third, fourth, fifth
+and sixth colors (light green, yellow, orange, red), and the seventh
+final number defines the maximum value for red and must be equal to
+or greater than the maximum value from the value lines. 
+After the <rflen> value lines, there must exist a special line with
+only '//', signifying the end of a page.
+The draw file 
+.I <f>
+must end with this special '//' line, even if it only includes a
+single page. A draw file specifying <n> pages should include exactly
+<n> * (<rflen> + 4) lines.
+
+.TP
+.BI --efile " <f>"
+Read the 'expert draw file'
 .I <f>
 which specifies the colors and residues to draw on each consensus
-position in one or more postscript pages. 
+position in one or more postscript pages. Unlike with the 
+.B --dfile
+option, no legend will be drawn when
+.B --efile 
+is used.
 For each page, the draw file must include <rflen> lines, each with four
 or five tab-delimited tokens. The first four tokens on line <x>
 specify the color to paint position <x> and must be real numbers
@@ -644,12 +693,13 @@ between 0 and 1. The four numbers specify the cyan, magenta, yellow
 and black values, respectively, in the CMYK color scheme for the
 postscript file. The fifth token on line <x> specifies which residue
 to write on position <x> (on top of the colored background). If the
-fifth token does not exist, no residue will be written. Each page of
-the postscript is delimited by a special line with only '//'. The draw
-file 
+fifth token does not exist, no residue will be written. 
+After the <rflen> lines, there must exist a special line with
+only '//', signifying the end of a page.
+The expert draw file 
 .I <f>
 must end with this special '//' line, even if it only includes a
-single page. A draw file specifying <n> pages should include exactly
+single page. A expert draw file specifying <n> pages should include exactly
 <n> * (<rflen> + 1) lines.
 
 .TP

@@ -28,7 +28,7 @@ print MASKFILE << "EOF";
 EOF
 close MASKFILE;
 
-open(MASKFILE, ">$tmppfx.mask2") || die "FAIL: couldn't open $tmppfx.mask1 for writing maskfile";
+open(MASKFILE, ">$tmppfx.mask2") || die "FAIL: couldn't open $tmppfx.mask2 for writing maskfile";
 print MASKFILE << "EOF";
 11011011111110101011111111111010101010100000000001001010011101010101010
 EOF
@@ -46,8 +46,163 @@ tRNA-5  16 17 1  19 21 1
 EOF
 close IFILE;
 
-open(DFILE, ">$tmppfx.dfile") || die "FAIL: couldn't open $tmppfx.dfile for writing draw file";
+open(DFILE, ">$tmppfx.dfile") || die "FAIL: couldn't open $tmppfx.efile for writing draw file";
 print DFILE << "EOF";
+Example of using --dfile to specify colors
+These numbers mean what?
+0.0 0.6 0.7 0.8 0.9 0.95 1.0
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.342
+//
+Another example of using --dfile to specify colors
+Meaning is unknown
+0.0 0.1 0.2 0.3 0.4 0.5 1.0
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.560
+0.730
+0.210
+0.120
+0.910
+1.000
+0.000
+0.302
+0.121
+1.000
+0.998
+0.353
+0.5
+0.342
+0.342
+//
+EOF
+close DFILE;
+
+open(EFILE, ">$tmppfx.efile") || die "FAIL: couldn't open $tmppfx.efile for writing draw file";
+print EFILE << "EOF";
 0.228 0.636 0.044 0.680
 0.470 0.564 0.932 0.933
 0.034 0.171 0.204 0.137
@@ -193,7 +348,7 @@ print DFILE << "EOF";
 0.0 0.0 0.0 0.0 i
 //
 EOF
-close DFILE;
+close EFILE;
 
 $output = `$eslssdraw -h`;
 if ($? != 0)                                    { die "FAIL: esl-ssdraw failed unexpectedly"; }
@@ -230,8 +385,8 @@ for($pass = 0; $pass < 2; $pass++) {
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\) 96.98 418.24 moveto show/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\(\\\[0.500-0.667\\\)\) 152.00 130.50 moveto show/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.4200 0.0000 1.0000 0.0000 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\(\\\[0.500-1.000\\\]\) 152.00 88.50 moveto show/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.0000 0.6300 1.0000 0.0000 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] -q --dall $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -280,7 +435,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /Span data/)                                                                      { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /infocontent       7   1.27\d+           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /mutualinfo    16     30     38   0.47\d*   0.47\d*    0.76\d*           5    5/) { die "FAIL: tab file incorrectly written on pass $pass2write"; }
-    if($output !~ /insert      45   0.60\d*    4/)                                                  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
+    if($output !~ /insert      45   0.60\d*    6/)                                                  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteall      67   0.20\d*    2/)                                               { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteint      67   0.00\d*           4    0/)                                   { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
     if($output !~ /avgpostprob      19   0.88\d*           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
@@ -388,6 +543,15 @@ for($pass = 0; $pass < 2; $pass++) {
     
     system("$eslssdraw $smallA[$pass] --dfile $tmppfx.dfile $alifile $templatefile $tmppfx.ps > /dev/null");
     $output = `cat $tmppfx.ps`;
+    if($output !~ /%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.9200 0.8400 0.0000 0.0800 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --mask $tmppfx.mask1 --dfile $tmppfx.dfile $alifile $templatefile $tmppfx.ps > /dev/null");
+    $output = `cat $tmppfx.ps`;
+    exit 0;
+    if($output !~ /%residue 3\nnewpath\n 171.00 379.00 3.0 0 360 arc closepath\n  0.9200 0.8400 0.0000 0.0800 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; } 
+
+    system("$eslssdraw $smallA[$pass] --efile $tmppfx.efile $alifile $templatefile $tmppfx.ps > /dev/null");
+    $output = `cat $tmppfx.ps`;
     if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.0340 0.1710 0.2040 0.1370 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --ins --ifile $tmppfx.ifile $alifile $templatefile $tmppfx.ps > /dev/null");
@@ -417,5 +581,6 @@ unlink "$tmppfx.tab";
 unlink "$tmppfx.mask1";
 unlink "$tmppfx.mask2";
 unlink "$tmppfx.dfile";
+unlink "$tmppfx.efile";
 unlink "$tmppfx.ifile";
 exit 0;

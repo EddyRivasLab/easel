@@ -1,6 +1,7 @@
 /* Draw secondary structure diagrams given a postscript SS template.
  * Initial development of this program was for SSU rRNA structures
- * with templates derived from Gutell's CRW. 
+ * with templates derived from Gutell's CRW (Comparative RNA Website,
+ * http://www.rna.ccbb.utexas.edu/). 
  *
  * EPN, Mon Jun 23 14:46:05 2008
  */
@@ -31,7 +32,7 @@
 #define ALIMODE 0
 #define INDIMODE 1
 #define SIMPLEMASKMODE 2
-#define DRAWFILEMODE 3
+#define INFILEMODE 3
 
 #define RAINBOWRHSCHEME 0
 #define RAINBOWRLSCHEME 1
@@ -47,7 +48,6 @@
 #define RBFIVERLSCHEME 5
 #define NRBFIVERHSCHEME 5
 #define NRBFIVERLSCHEME 5
-
 
 #define NOC 10
 #define CYANOC 0
@@ -210,7 +210,7 @@ typedef struct ss_postscript_s {
 static SSPostscript_t *create_sspostscript();
 static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked);
-static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int hi_inclusive);
+static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
@@ -251,14 +251,15 @@ static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, c
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
 static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *srfpos_ct, int *erfpos_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
-static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
+static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *srfpos_ct, int *erfpos_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
 static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zeroins_idx, int extdel_idx);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
-static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
+static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
+static int  expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  get_span_ct(int rflen, int nseq, int *srfpos_ct, int *erfpos_ct, int **ret_span_ct);
 
@@ -267,8 +268,9 @@ static char usage[]  = "[options] <msafile> <SS postscript template> <output pos
 The <msafile> must be in Stockholm format.";
 
 #define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
-#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--dfile" /* incompatibile with --mask and --mask-col */
-#define INCOMPATWITHDFILEOPTS "-q,--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--mask-col,--mask-diff" /* incompatible with --dfile */
+#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--efile" /* incompatibile with --mask and --mask-col */
+#define INCOMPATWITHDFILEOPTS "-q,--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--mask-col,--mask-diff,--efile,--tabfile" /* incompatible with --dfile */
+#define INCOMPATWITHFFILEOPTS "-q,--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--mask-col,--mask-diff,--dfile" /* incompatible with --efile */
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
@@ -298,7 +300,8 @@ static ESL_OPTIONS options[] = {
   { "--mask-col", eslARG_NONE,  NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "w/--mask draw two color diagram denoting masked columns", 5 },
   { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
-  { "--dfile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw' file specifying >=1 diagrams", 6 },
+  { "--dfile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw file' specifying >=1 diagrams", 6 },
+  { "--efile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHFFILEOPTS, "read 'expert draw file' specifying >=1 diagrams", 6 },
   { "--ifile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "read insert information from cmalign insert file <f>", 6 },
 
   { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw legend", 8 },
@@ -584,7 +587,8 @@ main(int argc, char **argv)
   if(esl_opt_GetBoolean (go, "--indi"))      master_mode = INDIMODE;
   if(esl_opt_GetBoolean (go, "--mask-col"))  master_mode = SIMPLEMASKMODE;
   if(! esl_opt_IsDefault(go, "--mask-diff")) master_mode = SIMPLEMASKMODE;
-  if(! esl_opt_IsDefault(go, "--dfile"))     master_mode = DRAWFILEMODE;
+  if(! esl_opt_IsDefault(go, "--dfile"))     master_mode = INFILEMODE;
+  if(! esl_opt_IsDefault(go, "--efile"))     master_mode = INFILEMODE;
 
   /*****************************************
    * Open the MSA file; determine alphabet; 
@@ -708,7 +712,7 @@ main(int argc, char **argv)
 	get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
       }
       /* now draw the insert diagram */
-      if((status = insert_sspostscript(go, errbuf, ps, nseq_with_ins_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+      if((status = insert_sspostscript(go, errbuf, ps, nseq_with_ins_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
     if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
       if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, srfpos_ct, erfpos_ct, msa_nseq, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
@@ -866,8 +870,13 @@ main(int argc, char **argv)
       if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
     }
   }
-  else if(master_mode == DRAWFILEMODE) { 
-    if((status = drawfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
+  else if(master_mode == INFILEMODE) { 
+    if(! esl_opt_IsDefault(go, "--dfile")) {
+      if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+    }
+    else if(! esl_opt_IsDefault(go, "--efile")) {
+      if((status = expertfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
+    }
   }
   
   if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
@@ -919,7 +928,7 @@ main(int argc, char **argv)
 
   ERROR: 
   esl_fatal("Memory allocation error in main().");
-  }
+}
 
 /* Function: create_sspostscript()
  * 
@@ -1701,9 +1710,9 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
       }
     }
     else { 
-      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\%c) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], (scl->high_inclusive ? ']' : ')'), x, y);
-      else if(c == 0)       fprintf(fp, "(\\%c%.3f-%.3f\\)) %.4f %.4f moveto show\n", (scl->low_inclusive ? '[' : '('), scl->limits[c], scl->limits[c+1], x, y);
-      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\%c) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], (scl->high_inclusive ? ']' : ')'), x, y);
+      else if(c == 0)       fprintf(fp, "(\\%c%.3f-%.3f\\)) %.2f %.2f moveto show\n", (scl->low_inclusive ? '[' : '('), scl->limits[c], scl->limits[c+1], x, y);
+      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
     }
     /* print stats */
     old_x = x;
@@ -1793,8 +1802,27 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     fprintf(fp, "%% msafile:       %s (%d seqs)\n", esl_opt_GetArg(go, 1), ps->msa_nseq);
     fprintf(fp, "%% templatefile:  %s\n", esl_opt_GetArg(go, 2));
     fprintf(fp, "%% modelname:     %s\n", ps->modelname);
-    fprintf(fp, "%% consensus-len: %d\n\n", ps->rflen);
-	    
+    fprintf(fp, "%% consensus-len: %d\n", ps->rflen);
+    if(esl_opt_IsOn(go, "--mask")) { 
+      fprintf(fp, "%% maskfile:      %s\n", esl_opt_GetString(go, "--mask"));
+    }	    
+    if(esl_opt_IsOn(go, "--mask-diff")) { 
+      fprintf(fp, "%% difffile:    %s\n", esl_opt_GetString(go, "--mask-diff"));
+    }	    
+    if(esl_opt_IsOn(go, "--list")) { 
+      fprintf(fp, "%% listfile:      %s\n", esl_opt_GetString(go, "--list"));
+    }
+    if(esl_opt_IsOn(go, "--dfile")) { 
+      fprintf(fp, "%% dfile:         %s\n", esl_opt_GetString(go, "--dfile"));
+    }
+    if(esl_opt_IsOn(go, "--efile")) { 
+      fprintf(fp, "%% efile:      %s\n", esl_opt_GetString(go, "--efile"));
+    }
+    if(esl_opt_IsOn(go, "--ifile")) { 
+      fprintf(fp, "%% ifile:      %s\n", esl_opt_GetString(go, "--ifile"));
+    }
+    fprintf(fp, "%%\n");
+
     /* scale section */
     fprintf(fp, "%.2f %.2f scale\n\n", ps->scale, ps->scale);
       
@@ -3109,7 +3137,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# A sequence s has a 'delete' at consensus position x if position\n");
       fprintf(tabfp, "# x is a gap for aligned sequence s.\n");
-      fprintf(tabfp, "# Total number of sequences in the file is %d\n", msa_nseq);
+      fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# Value ranges for bins:\n");
       fprintf(tabfp, "# \tbin  0: special case, 0 sequences have a delete at position\n");
@@ -3239,21 +3267,27 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
  * Return:   eslOK on success.
  */
 static int
-insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp)
 {
   int status;
   int p, pp, c, l;
   int rfpos;
   int orig_npage = ps->npage;
   int apos;
-  int nonecell = 0;
-  int nonecell_masked = 0;
+  int nzeroins = 0;
+  int nzeroins_masked = 0;
+  int nfewins = 0;
+  int nfewins_masked = 0;
   float *limits;
   int within_mask;
   float ifreq;
   int bi;
+  float fewins_thresh = 0.001; /* positions with insert freqs < this value will be painted specially (dark grey) */
 
-  if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
+  if(ps->mask == NULL) { 
+    nzeroins_masked = -1; /* special flag */
+    nfewins_masked = -1;  /* special flag */
+  }
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -3261,22 +3295,21 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
     ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
     ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
-
   pp = orig_npage;
 
   /* add color legend */
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = 0.0;
-  limits[1] = 0.167;
-  limits[2] = 0.333;
-  limits[3] = 0.500;
-  limits[4] = 0.667;
-  limits[5] = 0.833;
+  limits[0] = fewins_thresh;
+  limits[1] = 0.01;
+  limits[2] = 0.05;
+  limits[3] = 0.10;
+  limits[4] = 0.20;
+  limits[5] = 0.50;
   limits[6] = 1.00;
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, TRUE);
 
@@ -3295,12 +3328,15 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
       fprintf(tabfp, "# \ttoken 5: '1' if position is included by mask, '0' if not\n");
     }
     fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
+    fprintf(tabfp, "#\n");
     fprintf(tabfp, "# Value ranges for bins:\n");
     fprintf(tabfp, "# \tbin -1: special case, reserved for inserts before position 1,\n");
     fprintf(tabfp, "# \t        these are NOT SHOWN in the postscript diagram (!)\n");
     fprintf(tabfp, "# \tbin  0: special case, 0 sequences have inserts after this position\n");
+    fprintf(tabfp, "# \tbin  1: special case, < %.5f fraction of sequences have inserts after this position\n", fewins_thresh);
     for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences with >= 1 inserts after each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
+      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences with >= 1 inserts after each position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
     }
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# %6s  %6s  %8s  %3s", "type", "cpos", "ifreq", "bin");
@@ -3323,16 +3359,21 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     ps->rrAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos]; 
+    ifreq = (float) nseq_with_ins_ct[rfpos+1] / (float) msa_nseq;
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
-      nonecell++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
-      ifreq = 0.;
-      bi = -1;
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
+      nzeroins++;
+      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
+      bi = -2; /* special case */
+    }
+    else if (ifreq < fewins_thresh) { 
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_fewins_idx])) != eslOK) return status;
+      nfewins++;
+      if(ps->mask != NULL && ps->mask[rfpos] == '1') nfewins_masked++; 
+      bi = -1; /* special case */
     }
     else {
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      ifreq = (float) nseq_with_ins_ct[rfpos+1] / (float) msa_nseq;
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ifreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
@@ -3344,9 +3385,12 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
   }
 
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
-  ps->nocclA[pp] = 1;
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[hc_fewins_idx], nfewins, nfewins_masked);
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "< 0.001 seqs have insert", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  ps->nocclA[pp] = 2;
 
   /* add color legend */
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
@@ -3499,7 +3543,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
   
- ERROR: ESL_FAIL(status, errbuf, "insert_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "span_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
 
@@ -4032,104 +4076,6 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, 
   
  ERROR:
   return eslEMEM;
-}
-
-/* Function: drawfile2sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
- *           in an input 'draw' file, with >= 1 sets of <x> lines of data, each set 
- *           is separated by a line with only "//". <x> must be equal to the consensus
- *           ps->rflen. Each line has at least 4 floats explaining 
- *           the CMYK values for the color to use at each position of the SS diagram,
- *           and optionally contains an extra single character which is the residue
- *           to put at that position.
- *           
- * Return:   eslOK on success.
- */
-static int
-drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
-{
-  int status;
-  int p, pp;
-  int cpos, c;
-  int orig_npage = ps->npage;
-  ESL_FILEPARSER *efp;
-  char           *s;
-  char *dfile = esl_opt_GetString(go, "--dfile");
-
-  if (esl_fileparser_Open(dfile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
-  esl_fileparser_SetCommentChar(efp, '#');
-
-  pp = orig_npage - 1;
-  cpos = 0;
-
-  while (esl_fileparser_NextLine(efp) == eslOK)
-    {
-      /* example line without residue markup:
-       * 0.000 0.000 0.000 0.500
-       *
-       * example line with residue markup:
-       * 0.000 0.000 0.000 0.500 A
-       */
-
-      cpos++;
-      if(cpos == 1) { /* add a new page */
-	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-	
-	for(p = (ps->npage-1); p < ps->npage; p++) { 
-	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-	  ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-	  for(c = 0; c < ps->rflen; c++) { 
-	    ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
-	  }
-	}
-	pp++; /* if first page, pp == orig_npage now */
-      }
-      if(cpos == (ps->rflen+1)) { /* should be a single token, a "\\" on this line */ 
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read a final token at the end of description of draw page %d on line %d of drawfile %s\n", (pp - orig_npage + 1), efp->linenumber, dfile);
-	if (strcmp(s, "//") != 0) 
-	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of drawfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, dfile);
-	cpos = 0;
-      }
-      else { 
-	/* get C value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read C of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
-	ps->rcolAAA[pp][(cpos-1)][0] = atof(s);
-
-	/* get M value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read M of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
-	ps->rcolAAA[pp][(cpos-1)][1] = atof(s);
-
-	/* get Y value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	esl_fatal("Failed to read Y of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
-	ps->rcolAAA[pp][(cpos-1)][2] = atof(s);
-
-	/* get K value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read K of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
-	ps->rcolAAA[pp][(cpos-1)][3] = atof(s);
-
-	/* optionally read a residue value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
-	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of drawfile %s\n", s, cpos, efp->linenumber, dfile);
-	  ps->rrAA[pp][(cpos-1)] = s[0];
-	}
-	else ps->rrAA[pp][(cpos-1)] = ' ';
-      }
-    }
-  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
-    esl_fatal("Failed to read a single page from drawfile %s\n", dfile);
-  }
-
-  esl_fileparser_Close(efp);
-  return eslOK;
-
- ERROR: ESL_FAIL(status, errbuf, "drawfile2sspostscript(): memory allocation error.");
-  return status; /* NEVERREACHED */
 }
 
 
@@ -5365,4 +5311,231 @@ get_span_ct(int rflen, int nseq, int *srfpos_ct, int *erfpos_ct, int **ret_span_
 
  ERROR: 
   return eslEMEM;
+}
+
+
+/* Function: drawfile2sspostscript()
+ * 
+ * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
+ *           in an input 'draw' file, with >= 1 sets of <x> lines of data, each set 
+ *           is separated by a line with only "//". <x> must be equal to the consensus
+ *           ps->rflen. Each line contains a single real number between 0 and 1,
+ *           these are converted into 1 of 6 CMYK colors based on their values, using
+ *           the same color scheme used for frequency of inserts.
+ *
+ * Return:   eslOK on success.
+ */
+static int
+drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
+{
+  int status;
+  int p, pp;
+  int rfpos, c;
+  int orig_npage = ps->npage;
+  ESL_FILEPARSER *efp;
+  char           *s;
+  char *dfile = esl_opt_GetString(go, "--dfile");
+  float *limits;
+  float value;
+  int l;
+  int bi, within_mask;
+  char *desc = NULL;
+  char *legheader = NULL;
+
+  /* allocate for limits, but don't fill it yet */
+  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
+
+  if (esl_fileparser_Open(dfile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  pp = orig_npage - 1;
+
+  /* Format of dfile: 
+   * For each page: 
+   * line 1: description of page (max is ps->desc_max_chars*2 chars)
+   * line 2: header for legend (max is ps->legx_max_chars chars)
+   * line 3: limits for color bins, must be 7 tokens, all numbers, each greater than the last
+   * lines 4-N: single tokens, numerical values for each position, N is CLEN-3.
+   * line N+1: single token, only:"//\n" signifying end of page.
+   * 
+   * '#' prefixed lines are considered comments and skipped.
+   *
+   * Example:
+   */
+
+  rfpos = -1;
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      if(rfpos == -1) { /* new page, first add a new page */
+	/* next 3 lines must be a specific format */
+	/* first line is description */
+	if(desc != NULL) { free(desc); desc = NULL; }
+	while((status = esl_fileparser_GetTokenOnLine(efp, &s, NULL)) == eslOK) { 
+	  if((status = esl_strcat(&desc, -1, s, -1)) != eslOK) esl_fatal("Out of memory");
+	  if((status = esl_strcat(&desc, -1, " ", -1)) != eslOK) esl_fatal("Out of memory");
+	}
+	if(strlen(desc) > (ps->desc_max_chars*2.)) esl_fatal("Error reading --dfile, description length (%d) exceeds max allowed (%d)", strlen(desc), (ps->desc_max_chars*2));
+	if(esl_fileparser_NextLine(efp) != eslOK) esl_fatal("Error reading --dfile, expected legend header line at line %d\n", efp->linenumber);
+
+	/* second line is legend header */
+	if(legheader != NULL) { free(legheader); legheader = NULL; }
+	while((status = esl_fileparser_GetTokenOnLine(efp, &s, NULL)) == eslOK) { 
+	  if((status = esl_strcat(&legheader, -1, s, -1)) != eslOK) esl_fatal("Out of memory");
+	  if((status = esl_strcat(&legheader, -1, " ", -1)) != eslOK) esl_fatal("Out of memory");
+	}
+	if(strlen(legheader) > ps->legx_max_chars) esl_fatal("Error reading --dfile, legend header length (%d) exceeds max allowed (%d)", strlen(legheader), ps->legx_max_chars);
+	if(esl_fileparser_NextLine(efp) != eslOK) esl_fatal("Error reading --dfile, expected limits line at line %d\n", efp->linenumber);
+	
+	/* third line is bin limits for the colors, must be 7 numbers, we read them as floats */
+	for(l = 0; l < hc_nbins+1; l++) { 
+	  if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK) esl_fatal("Error reading --dfile, expected limits line at line %d to have %d limits (numbers) in increasing order, it doesn't", efp->linenumber, hc_nbins+1);
+	  limits[l] = atof(s);
+	  if(l > 0 && limits[l] < limits[l-1]) esl_fatal("Error reading --dfile, expected limits line at line %d with %d limits (numbers) in increasing order", efp->linenumber, hc_nbins+1);
+	}
+	rfpos++; /* rfpos will now be 0 */
+      }
+      else if(rfpos == (ps->rflen)) { /* end of page, should be a single token, a "\\" on this line */ 
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read a final token at the end of description of page %d on line %d of drawfile %s\n", (pp - orig_npage + 1), efp->linenumber, dfile);
+	if (strcmp(s, "//") != 0) 
+	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of drawfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, dfile);
+	rfpos = -1;
+	/* add color legend */
+	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], legheader, ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, desc, errbuf)) != eslOK) return status;
+      }
+      else { /* a normal line, should either contain a single float or the \\ marking end of this page */
+	rfpos++;
+	if(rfpos == 1) { /* add a new page, (we now have limits for legend, from if(rfpos == -1) loop above) */
+	  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+	  for(p = (ps->npage-1); p < ps->npage; p++) { 
+	    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+	    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+	    for(c = 0; c < ps->rflen; c++) { 
+	      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+	    }
+	  }
+	  pp++; /* if first page, pp == orig_npage now */
+	  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
+	}
+	/* now parse the line, it should have a single number, a numerical value for a position */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK) esl_fatal("Failed to read value for position %d for page %d on line %d of dfile\n", rfpos, (pp - orig_npage + 1), efp->linenumber);
+	value = atof(s);
+	if(value < limits[0] || value > limits[hc_nbins]) esl_fatal("--dfile value %.4f out of allowed range [%.3f-%.3f] on line %d\n", value, limits[0], limits[hc_nbins], efp->linenumber, dfile);
+	within_mask = (ps->mask != NULL && ps->mask[rfpos-1] == '1') ? TRUE : FALSE;
+	if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos-1], NCMYK, hc_scheme[hc_scheme_idx], value, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      }
+    }
+  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
+    esl_fatal("Failed to read a single page from drawfile %s\n", dfile);
+  }
+  esl_fileparser_Close(efp);
+
+  free(limits);
+  if(desc != NULL)      { free(desc);      desc = NULL;      }
+  if(legheader != NULL) { free(legheader); legheader = NULL; }
+
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "drawfile2sspostscript(): memory allocation error.");
+  return status; /* NEVERREACHED */
+}
+
+
+/* Function: expertfile2sspostscript()
+ * 
+ * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
+ *           in an input 'expert draw' file, with >= 1 sets of <x> lines of data, each set 
+ *           is separated by a line with only "//". <x> must be equal to the consensus
+ *           ps->rflen. Each line has at least 4 floats explaining 
+ *           the CMYK values for the color to use at each position of the SS diagram,
+ *           and optionally contains an extra single character which is the residue
+ *           to put at that position.
+ *           
+ * Return:   eslOK on success.
+ */
+static int
+expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  int p, pp;
+  int cpos, c;
+  int orig_npage = ps->npage;
+  ESL_FILEPARSER *efp;
+  char           *s;
+  char *efile = esl_opt_GetString(go, "--efile");
+
+  if (esl_fileparser_Open(efile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", efile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  pp = orig_npage - 1;
+  cpos = 0;
+
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      /* example line without residue markup:
+       * 0.000 0.000 0.000 0.500
+       *
+       * example line with residue markup:
+       * 0.000 0.000 0.000 0.500 A
+       */
+
+      cpos++;
+      if(cpos == 1) { /* add a new page */
+	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+	
+	for(p = (ps->npage-1); p < ps->npage; p++) { 
+	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
+	  ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+	  for(c = 0; c < ps->rflen; c++) { 
+	    ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+	  }
+	}
+	pp++; /* if first page, pp == orig_npage now */
+      }
+      if(cpos == (ps->rflen+1)) { /* should be a single token, a "\\" on this line */ 
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read a final token at the end of description of draw page %d on line %d of expertfile %s\n", (pp - orig_npage + 1), efp->linenumber, efile);
+	if (strcmp(s, "//") != 0) 
+	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of expertfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, efile);
+	cpos = 0;
+      }
+      else { 
+	/* get C value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read C of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
+	ps->rcolAAA[pp][(cpos-1)][0] = atof(s);
+
+	/* get M value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read M of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
+	ps->rcolAAA[pp][(cpos-1)][1] = atof(s);
+
+	/* get Y value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read Y of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
+	ps->rcolAAA[pp][(cpos-1)][2] = atof(s);
+
+	/* get K value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read K of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
+	ps->rcolAAA[pp][(cpos-1)][3] = atof(s);
+
+	/* optionally read a residue value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
+	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of expertfile %s\n", s, cpos, efp->linenumber, efile);
+	  ps->rrAA[pp][(cpos-1)] = s[0];
+	}
+	else ps->rrAA[pp][(cpos-1)] = ' ';
+      }
+    }
+  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
+    esl_fatal("Failed to read a single page from expertfile %s\n", efile);
+  }
+
+  esl_fileparser_Close(efp);
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "expertfile2sspostscript(): memory allocation error.");
+  return status; /* NEVERREACHED */
 }
