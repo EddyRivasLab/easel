@@ -21,7 +21,7 @@ reads an existing template consensus secondary structure diagram from
 and creates new postscript diagrams including the template structure
 but with positions colored differently based on alignment statistics
 such as frequency of gaps per position, average posterior probability
-per position or information content per position. Alternatively, all
+per position or information content per position. Additionally, all
 or some of the aligned sequences can be drawn separately, with
 residues or posterior probabilities mapped onto the corresponding
 positions of the consensus structure.
@@ -42,41 +42,27 @@ Postscript diagrams will only be created for the first alignment in
 
 .SH OUTPUT
 
-By default,
+By default (if run with zero command line options),
 .B esl-ssdraw
-runs in 'alignment' mode, in which all the pages of the output
-postscript file 
-.I postscript_output_file
-will display alignment statistics. In 'individual'
-mode (enabled with the 
-.B --indi
-option), the output diagrams will display individual sequence
-data. 
-
-In alignment mode, if no command-line options are supplied,
-.B esl-ssdraw 
-will output a single page postscript file with positions colored
-according to their information content in the alignment. Information
-content is calculated as 2.0 - H, where H = sum_x p_x log_2 p_x for x
-in {A,C,G,U}. The 
-.B -q
-option specifies that no information content diagram be drawn.
-If command-line options are used, the 
-.B postscript_output_file 
-will contain additional pages with positions of the structure colored
-based on average posterior probability (with
-.B --prob),
-frequency of insertions (with
-.B --ins), 
-frequency of deletions (gaps, with
-.B --dall
-or
-.B --dint), 
-mutual information from basepairs, (with
---mutinfo), 
-or fraction of sequences that span each position (with
-.B --span
-). The calculation of the statistics for each of these options is
+will create an eight page 
+.I postscript_output_file, 
+each displaying a different alignment statistic. These pages display
+the reference sequence, information content per position, mutual information
+per position, frequency of inserts per position, frequency of
+deletions (gaps) per position, average posterior probability per
+position (if posterior probabilites exist in the alignment), and 
+fraction of sequences that span each position.
+Alternatively, some or all of these pages can be drawn by using the
+command line options
+.B --info,
+.B --mutinfo,
+.B --ins,
+.B --dall,
+.B --dint,
+.B --prob,
+and
+.B --span.
+The calculation of the statistics for each of these options is
 discussed below in the description for each option.
 Importantly, only so-called 'consensus' positions of the alignment
 will be drawn. A consensus position is one that is a nongap residue in
@@ -86,7 +72,7 @@ from
 
 If the 
 .BI --tabfile " <f>"
-option is used in alignment mode, a tab-delimited text file 
+option is used, a tab-delimited text file 
 .I <f>
 will be created that includes per-position lists of the numerical
 values for each of the calculated statistics that were drawn to 
@@ -101,24 +87,18 @@ If
 .B --indi
 is used,
 .B esl-ssdraw
-runs in individual mode. If
-.B --indi 
-is the only option used, 
-.B postscript_output_file
-will contain a single page, displaying all nongap reference (RF)
-characters at their corresponding positions in the structure. 
-If the 
+will create diagrams showing each sequence in the alignment on a
+separate page, with aligned residues in their corresponding position
+in the structure diagram. By default, with
+.B --indi,
+all sequences are drawn, but with the 
 .BI --list " <f>"
-option is used with
-.B --indi, 
-the 
-.B postscript_output_file 
-will contain additional pages, one for each of the sequences 
-listed in 
-.I <f>.
+option, only those sequences listed in the file
+.I <f> 
+will be drawn.
 With 
-.B --all,
-all sequences will be drawn on a separate page. If the alignment
+.B --indi,
+if the alignment
 contains posterior probability annotation (#=GR PP), the 
 .B postscript_output_file
 will contain an additional page for each sequence drawn with positions
@@ -151,7 +131,7 @@ option is used.
 
 If the 
 .BI --mask " <f>"
-option is used in alignment mode, positions excluded by the mask in 
+option is used, positions excluded by the mask in 
 .I <f>
 will be drawn differently (as open circles by default) than positions
 included by the mask. The style of the masked positions can be
@@ -392,7 +372,7 @@ you add each line.
 
 .SH REQUIRED MEMORY 
 
-In alignment mode, the memory required by 
+The memory required by 
 .B esl-ssdraw
 will be equal to roughly the larger of 2 Mb and 
 the size of the first alignment in
@@ -405,16 +385,20 @@ alignment size. To use
 the alignment must be in Pfam format, a non-interleaved (1 line/seq)
 version of Stockholm format. 
 
-In individual mode, if the 
-.B --all
-option is used, the required memory may exceed the
+If the 
+.B --indi
+option is used without the
+.B --list 
+option, the required memory may exceed the
 size of the alignment by up to ten-fold, and the output
 .B postscript_output_file 
 may be up to 50 times larger than the
 .B msafile.
-If the 
+If 
+.B --indi 
+is used with the 
 .BI --list " <f>"
-option is used with
+option and with
 .B --small, 
 the required memory will be roughly ten-fold the size the alignment
 would be if it only contained the sequences listed in 
@@ -430,16 +414,9 @@ will be roughly five times larger than that.
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
-.TP
-.BI -q
-Do not draw an information content diagram (if in alignment mode), 
-or the reference sequence diagram (if 
-.B --indi
-is used to specify individual mode).
-
 .TP 
 .BI --mask " <f>"
-In alignment mode, read the mask from file
+Read the mask from file
 .I <f>,
 and draw positions differently in 
 .B postscript_output_file
@@ -454,10 +431,14 @@ by the mask, and a '1' indicates that position <x> is included by the mask.
 
 .TP 
 .B --small
-Operate in memory saving mode. In alignment mode, required RAM will be independent of the
+Operate in memory saving mode. Without
+.B --indi,
+required RAM will be independent of the
 size of the alignment in 
 .B msafile.
-In individual mode, with
+With
+.B --indi 
+and 
 .BI --list " <f>",
 the required RAM will be roughly ten times the size of the alignment
 in 
@@ -469,41 +450,23 @@ For
 to work, the alignment must be in
 Pfam Stockholm (non-interleaved 1 line/seq) format.
 
-.SH ALIGNMENT MODE OPTIONS
+.TP 
+.B --rf
+Add a page to 
+.B postscript_output_file 
+showing the reference sequence from the #=GC RF annotation in 
+.B msafile. 
+This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --prob
+.B --info
 Add a page to
 .B postscript_output_file
-with positions colored based on average posterior probability (PP). The alignment
-must contain #=GR PP annotation for all sequences. PP annotation is
-converted to numerical PP values as follows: '*' = 0.975, '9' =
-0.90, '8' = 0.80, '7' = 0.70, '6' = 0.60, '5' = 0.50, '4' = 0.40, '3'
-= 0.30, '2' = 0.20, '1' = 0.10, '0' = 0.025.
-
-.TP 
-.B --ins
-Add a page to
-.B postscript_output_file
-with each consensus (nongap RF) position colored based on the fraction of
-sequences that have at least 1 inserted residue after the position.
-
-.TP 
-.B --dall
-Add a page to
-.B postscript_output_file
-with each consensus (nongap RF) position colored based on the fraction of
-sequences that have a gap (delete) at the position.
-
-.TP 
-.B --dint
-Add a page to
-.B postscript_output_file
-with each consensus (nongap RF) position colored based on the fraction of
-sequences that have an internal gap (delete) at the position. An
-internal gap in a sequence is one that occurs after (5' of) the
-sequence's first aligned residue in a consensus position and before
-(3' of) the sequence's final aligned residue in a consensus position.
+with consensus (nongap RF) positions colored based on their
+information content from the alignment. 
+Information content is calculated as 2.0 - H, where H = sum_x p_x
+log_2 p_x for x in {A,C,G,U}. 
+This page is drawn by default (if zero command-line options are used).
 
 .TP 
 .B --mutinfo
@@ -520,6 +483,45 @@ the basepair. And p_{x,y} is the fraction of aligned sequences that
 have basepair x:y. For all p_x, p_y and p{x,y} only sequences that 
 that have a nongap residue at both the left and right half of the
 basepair are counted. 
+This page is drawn by default (if zero command-line options are used).
+
+.TP 
+.B --ins
+Add a page to
+.B postscript_output_file
+with each consensus (nongap RF) position colored based on the fraction of
+sequences that have at least 1 inserted residue after the position.
+This page is drawn by default (if zero command-line options are used).
+
+.TP 
+.B --dall
+Add a page to
+.B postscript_output_file
+with each consensus (nongap RF) position colored based on the fraction of
+sequences that have a gap (delete) at the position.
+This page is drawn by default (if zero command-line options are used).
+
+.TP 
+.B --dint
+Add a page to
+.B postscript_output_file
+with each consensus (nongap RF) position colored based on the fraction of
+sequences that have an internal gap (delete) at the position. An
+internal gap in a sequence is one that occurs after (5' of) the
+sequence's first aligned residue in a consensus position and before
+(3' of) the sequence's final aligned residue in a consensus position.
+This page is drawn by default (if zero command-line options are used).
+
+.TP 
+.B --prob
+Add a page to
+.B postscript_output_file
+with positions colored based on average posterior probability (PP). The alignment
+must contain #=GR PP annotation for all sequences. PP annotation is
+converted to numerical PP values as follows: '*' = 0.975, '9' =
+0.90, '8' = 0.80, '7' = 0.70, '6' = 0.60, '5' = 0.50, '4' = 0.40, '3'
+= 0.30, '2' = 0.20, '1' = 0.10, '0' = 0.025.
+This page is drawn by default (if zero command-line options are used).
 
 .TP 
 .B --span
@@ -529,52 +531,39 @@ with consensus (nongap RF) positions colored based on the
 fraction of sequences that 'span' the position. 
 A sequence s spans consensus position x if s has at least one
 nongap residue aligned to a consensus position a <= x and at least one
+This page is drawn by default (if zero command-line options are used).
 nongap residue aligned to a consensus position b >= x.
-
-.SH INDIVIDUAL MODE OPTIONS
 
 .TP 
 .B --indi
-Specify that 
-.B esl-ssdraw
-run in 'individual' mode. None of the 'alignment' mode diagrams that
-display alignment statistics will be created. Instead, diagrams
-displaying the consensus positions of individual aligned sequences
-from the alignment will be created. By default, with 
+Add a page displaying the aligned residues in their corresponding
+consensus positions of the structure diagram for each aligned
+sequence in the alignment. If posterior probability information (#=GR
+PP) exists in the alignment, one additional page per sequence will be
+drawn displaying the posterior probabilities.
+
+.TP
+.B -F
+With 
 .B --indi,
-the 
-.B postscript_output_file 
-will contain a single page showing the reference sequence from the
-#=GC RF annotation in 
-.B msafile.
-Additional pages can be added using the options listed below.
+force 
+.B esl-ssdraw
+to create a diagram, even if it is predicted to be large (> 100 Mb).
+By default, if the predicted size exceeds 100 Mb, 
+.B esl-ssdraw
+will fail with a warning. 
 
 .TP
 .BI --list " <f>"
-Add two pages to 
-.B postscript_output_file
-for each sequence listed in 
-.I <f>.
+With 
+.B --indi,
+specify that only the sequences listed in 
+.I <f>
+be drawn. 
 Each line of <f> must contain a sequence name from the alignment.
-One of the two additional pages will show the consensus positions of
-the aligned sequence and the other will show the posterior
-probabilities of each aligned residue if they are available in the
-alignment as #=GR PP annotation. Higher posterior probabilities
-indicate higher confidence that the corresponding residue is correctly
-aligned. If the
-.B --no-iprob
-option is used the posterior probability pages will be omitted, even
-if PP annotation exists in the alignment.
 
 .TP
-.B --all
-Same as
-.BI --list " <f>"
-except that diagrams for all sequences in the alignment will be
-created. 
-
-.TP
-.BI --keep-list " <f>"
+.BI --keep " <f>"
 With
 .BI --list " <f2>",
 save the alignment of only those sequences listed in 
@@ -585,9 +574,7 @@ to file
 .TP
 .B --no-iprob
 When used in combination with 
-.B --list 
-or 
-.B --all,
+.B --indi,
 do not draw posterior probability structure diagrams for each
 sequence, even if the alignment has PP annotation.
 

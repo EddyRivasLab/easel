@@ -28,6 +28,7 @@
 
 #define SSDRAWINFINITY 987654321
 #define ERRBUFSIZE 1024
+#define MAXMBWITHOUTFORCE 100
 
 #define ALIMODE 0
 #define INDIMODE 1
@@ -214,7 +215,7 @@ static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, fl
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
-static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf);
+static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf);
 static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused);
 static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf);
 static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx);
@@ -253,11 +254,10 @@ static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *srfpos_ct, int *erfpos_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zeroins_idx, int extdel_idx);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
-static int  individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
-static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
-static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
+static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
+static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
@@ -267,46 +267,44 @@ static char banner[] = "draw postscript secondary structure diagrams";
 static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
-#define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
-#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--efile" /* incompatibile with --mask and --mask-col */
-#define INCOMPATWITHDFILEOPTS "-q,--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--mask-col,--mask-diff,--efile,--tabfile" /* incompatible with --dfile */
-#define INCOMPATWITHFFILEOPTS "-q,--prob,--ins,--dall,--dint,--mutinfo,--indi,--list,--all,--mask-col,--mask-diff,--dfile" /* incompatible with --efile */
+#define OPTSFORKEEP "--small,--list,--indi" /* options required for --keep to work */
 
 static ESL_OPTIONS options[] = {
-  /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
-  { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "do not draw info content diagram (or RF sequence if --indi)", 1 },
-  { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
-  { "--small",  eslARG_NONE,   NULL, NULL, NULL, NULL,NULL, "--all",         "operate in small memory mode (aln must be 1 line/seq Pfam format)", 1 },
+  /* name       type        default env   range togs  reqs         incomp     help                                                   docgroup */
+  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "help; show brief info on version and usage",              1 },
+  { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,        NULL,      "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
+  { "--small",  eslARG_NONE,   NULL, NULL, NULL, NULL,NULL,        NULL,      "operate in small memory mode (aln must be 1 line/seq Pfam format)", 1 },
 
-  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw average posterior probability diagram", 2 },
-  { "--ins",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw insert diagram", 2 },
-  { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
-  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/only internal (non-terminal) deletions", 2 },
-  { "--mutinfo",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw base pair mutual information diagram", 2 },
-  { "--span",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw diagram showing fraction of seqs that span each posn", 2 },
-  { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL, "--indi",        "output per position data in tabular format to file <f>", 2 },
+  { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing reference (#=GC RF) sequence", 2 },
+  { "--info",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw information content diagram", 2 },
+  { "--mutinfo",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw base pair mutual information diagram", 2 },
+  { "--ins",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw insert diagram", 2 },
+  { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
+  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/only internal (non-terminal) deletions", 2 },
+  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average posterior probability diagram", 2 },
+  { "--span",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing fraction of seqs that span each posn", 2 },
+  { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL,        NULL,      "output per position data in tabular format to file <f>", 2 },
 
-  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw diagrams for individual sequences instead of the aln", 3 },
-  { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi", "--all",     "with --indi, draw individual diagrams for seqs listed in <f>", 3 },
-  { "--all",    eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi", "--list,--small","with --indi, draw individual diagrams of all sequences", 3 },
-  { "--keep-list",eslARG_OUTFILE,FALSE,NULL,NULL,NULL,"--indi,--list,--small","--all",   "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
-  { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",NULL,         "with --indi, do not draw indi posterior probability diagrams", 3 },
+  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagrams for individual sequences in the alignment", 3 },
+  { "-F",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
+  { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, only draw individual diagrams of seqs listed in <f>", 3 },
+  { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
+  { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 3 },
 
-  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask", "--mask-x",  "with --mask, mark masked columns as squares", 4 },
-  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask", "--mask-u",  "with --mask, mark masked columns as x's", 4 },
-  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",NULL,         "with --mask-u or --mask-x, draw alternative mask style", 4 },
+  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-x","with --mask, mark masked columns as squares", 4 },
+  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-u","with --mask, mark masked columns as x's", 4 },
+  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    NULL,      "with --mask-u or --mask-x, draw alternative mask style", 4 },
 
-  { "--mask-col", eslARG_NONE,  NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "w/--mask draw two color diagram denoting masked columns", 5 },
-  { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
+  { "--mask-col", eslARG_NONE,  NULL,NULL, NULL, NULL,"--mask",    NULL,      "w/--mask draw two color diagram denoting masked columns", 5 },
+  { "--mask-diff",eslARG_INFILE,NULL,NULL, NULL, NULL,"--mask",    NULL,      "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
-  { "--dfile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw file' specifying >=1 diagrams", 6 },
-  { "--efile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHFFILEOPTS, "read 'expert draw file' specifying >=1 diagrams", 6 },
-  { "--ifile",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, NULL,            "read insert information from cmalign insert file <f>", 6 },
+  { "--dfile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'draw file' specifying >=1 diagrams", 6 },
+  { "--efile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'expert draw file' specifying >=1 diagrams", 6 },
+  { "--ifile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read insert information from cmalign insert file <f>", 6 },
 
-  { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw legend", 8 },
-  { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw header", 8 },
-  { "--no-foot",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw footer", 8 },
+  { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw legend", 8 },
+  { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw header", 8 },
+  { "--no-foot",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw footer", 8 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
@@ -335,7 +333,6 @@ main(int argc, char **argv)
   int             z;                    /* counter */
   char           *command = NULL;       /* string for printing command to stdout */
   char           *date = NULL;          /* date command was executed */
-  int             master_mode;          /* which mode we're operating in */ 
   char           *mask = NULL;          /* first mask we'll use, string of '0's and '1's */
   int             masklen;              /* length of mask */
   char           *mask2 = NULL;         /* second mask we'll use, string of '0's and '1's */
@@ -365,7 +362,23 @@ main(int argc, char **argv)
   int           **indi_ins_ct = NULL;   /* [0..indi_msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
   ESL_KEYHASH    *useme_keyhash;        /* keyhash of sequence names listed in list file, only used if --list and --indi enabled */
   int             i;                    /* counter of sequences */
-
+  /* variables storing which pages to print */
+  int             default_mode = TRUE;  /* TRUE if no options telling specifying what pages to draw were selected */
+  int             do_rf = FALSE;        
+  int             do_info = FALSE;      
+  int             do_mutinfo = FALSE;   
+  int             do_ins = FALSE;      
+  int             do_dall = FALSE;     
+  int             do_dint = FALSE;     
+  int             do_prob = FALSE;     
+  int             do_span = FALSE;     
+  int             do_indi = FALSE;     
+  int             do_maskcol = FALSE;   
+  int             do_maskdiff = FALSE;
+  int             do_dfile = FALSE;
+  int             do_efile = FALSE;
+  int             tmp_Mb = 0;          
+  int             predicted_Mb = 0;    /* predicted size of the output file, calced if --indi */
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -392,7 +405,7 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
       puts("\noptions controlling style of masked positions:");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
-      puts("\noptions for drawing simple block-only diagrams of masks:");
+      puts("\noptions for drawing simple two color diagrams of masks:");
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
       puts("\noptions related to optional input files:");
       esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
@@ -410,6 +423,10 @@ main(int argc, char **argv)
     }
 
   /* Check for incompatible options that aren't simple to check with esl_getopts */
+  /* --small doesn't work in combination with --indi unless --list */
+  if (esl_opt_GetBoolean(go, "--small") && esl_opt_IsOn(go, "--indi") && (! esl_opt_IsOn(go, "--list"))) { 
+    esl_fatal("--small only works in combination with --indi if --list is also used");
+  }
   /* --mask-a requires either --mask-x or --mask-u */
   if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
     esl_fatal("--mask-a requires either --mask-u or mask-x");
@@ -583,15 +600,9 @@ main(int argc, char **argv)
   hc_scheme[4][4][0] = 0.00; hc_scheme[4][4][1] = 0.94; hc_scheme[4][4][2] = 1.00; hc_scheme[4][4][3] = 0.00; /*red*/
   hc_scheme[5][0][0] = 0.00; hc_scheme[5][0][1] = 0.94; hc_scheme[5][0][2] = 1.00; hc_scheme[5][0][3] = 0.00; /*red*/
   /***************************************************************/
-  master_mode = ALIMODE;
-  if(esl_opt_GetBoolean (go, "--indi"))      master_mode = INDIMODE;
-  if(esl_opt_GetBoolean (go, "--mask-col"))  master_mode = SIMPLEMASKMODE;
-  if(! esl_opt_IsDefault(go, "--mask-diff")) master_mode = SIMPLEMASKMODE;
-  if(! esl_opt_IsDefault(go, "--dfile"))     master_mode = INFILEMODE;
-  if(! esl_opt_IsDefault(go, "--efile"))     master_mode = INFILEMODE;
 
   /*****************************************
-   * Open the MSA file; determine alphabet; 
+   * Open the MSA file; determine alphabet;
    *****************************************/
   
   do_small = esl_opt_GetBoolean(go, "--small") ? TRUE : FALSE;
@@ -601,20 +612,20 @@ main(int argc, char **argv)
   else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
   else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
 
-  /* Assert RNA, it's the ribosome */
+  /* Assert RNA */
   abc = esl_alphabet_Create(eslRNA);
 
   /* Read the mask files, if nec */
-  if(! esl_opt_IsDefault(go, "--mask")) { 
+  if(esl_opt_IsOn(go, "--mask")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen, &mask_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
   }
-  if(! esl_opt_IsDefault(go, "--mask-diff")) { 
+  if(esl_opt_IsOn(go, "--mask-diff")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask-diff"), errbuf, &mask2, &mask2len, &mask2_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
     if(masklen != mask2len) esl_fatal("Mask in %f length (%d) differs from mask in %f (%d)!", esl_opt_GetString(go, "--mask"), masklen, esl_opt_GetString(go, "--mask-diff"), mask2len);
   }
 
   /* Open output files, if necessary */
-  if (esl_opt_IsUsed(go, "--tabfile")) { 
+  if (esl_opt_IsOn(go, "--tabfile")) { 
     if((tabfp = fopen(esl_opt_GetString(go, "--tabfile"), "w")) == NULL) esl_fatal("Failed to open output file %s\n", esl_opt_GetString(go, "--tabfile"));
   }
 
@@ -637,7 +648,70 @@ main(int argc, char **argv)
     msa_alen = msa->alen; 
   }
 
-  if(do_small && (esl_opt_GetBoolean(go, "--dint") || esl_opt_GetBoolean(go, "--span") || esl_opt_GetBoolean(go, "--mutinfo"))) { 
+  msa->abc = abc;
+  if(msa->rf == NULL) esl_fatal("First MSA in %s does not have RF annotation.", alifile);
+  /* determine non-gap RF length (consensus length) */
+  rflen = 0;
+  for(apos = 0; apos < msa->alen; apos++) { 
+    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
+       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
+       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
+      rflen++;
+    }
+  }
+  /* We've read the alignment, now read the template postscript file (we do this second b/c the RF len of the alignment tells us which postscript template to use) */
+  if((status = parse_template_file(templatefile, go, errbuf, rflen, &ps) != eslOK)) esl_fatal(errbuf);
+  
+  
+  /**************************************************************************************************************
+   * Now that we have the msa and know what template we're using, determine what type of pages we'll be drawing *
+   **************************************************************************************************************/
+  /* Careful: this block assumes that all boolean options are OFF (FALSE) by default */
+  default_mode = TRUE;
+  if(esl_opt_GetBoolean(go, "--info"))      { do_info     = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--mutinfo"))   { do_mutinfo  = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--ins"))       { do_ins      = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--dall"))      { do_dall     = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--dint"))      { do_dint     = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--prob"))      { do_prob     = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--span"))      { do_span     = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--mask-col"))  { do_maskcol  = TRUE; default_mode = FALSE; }
+  if(esl_opt_IsOn      (go, "--mask-diff")) { do_maskdiff = TRUE; default_mode = FALSE; }
+  if(esl_opt_IsOn      (go, "--dfile"))     { do_dfile    = TRUE; default_mode = FALSE; }
+  if(esl_opt_IsOn      (go, "--efile"))     { do_efile    = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--rf")) { 
+    if(msa->rf == NULL) esl_fatal("--rf selected by msa does not have #=GC RF annotation");
+    do_rf = TRUE;
+    default_mode = FALSE; 
+  }
+  if(esl_opt_GetBoolean(go, "--indi")) { 
+    do_indi = TRUE; 
+    default_mode = FALSE; 
+    /* Predict size of indi output file, based on two data points:
+     * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
+     * =~ 0.0002 Mb per page per rfpos */
+    predicted_Mb = (int) (ps->rflen * 0.0002 * msa_nseq);
+    if(! esl_opt_GetBoolean(go, "--no-iprob")) predicted_Mb *= 2;
+    /* round to nearest 100 Mb */ 
+    tmp_Mb = 100; while(tmp_Mb < predicted_Mb) tmp_Mb += 100;
+    predicted_Mb = tmp_Mb;
+    if(predicted_Mb > MAXMBWITHOUTFORCE && (! esl_opt_GetBoolean(go, "-F"))) { 
+      esl_fatal("WARNING: --indi selected and msa has %d seqs in it, output postcript file will be large (~%.2f Mb).\nUse -F to override this warning and do it anyway.", msa_nseq, predicted_Mb);
+    }
+  }
+  if(default_mode) { /* set default pages */
+    do_info = do_mutinfo = do_ins = do_dall = do_dint = do_span = TRUE;
+    if(msa->rf != NULL) do_rf   = TRUE;
+    if(msa->pp != NULL) do_prob = TRUE;
+  }
+  /* determine if tabfile was incorrectly used */
+  if(tabfp != NULL && 
+     do_info == FALSE && do_mutinfo == FALSE && do_ins  == FALSE && 
+     do_dall == FALSE && do_dint    == FALSE && do_span == FALSE) { 
+    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ins,--dall,--dint,--span");
+  }
+
+  if(do_small && (do_dint || do_span || do_mutinfo)) { 
     /* If we're in small mem mode, now that we know msa->rf and msa->ss_cons, 
      * we do a second read of the msa to get bpct, srfpos_ct and erfpos_ct, 
      * but only if we need them (if --span, --dint, or --mutinfo). 
@@ -657,20 +731,6 @@ main(int argc, char **argv)
     else if (status != eslOK)      esl_fatal("2nd pass, Alignment file read failed with error code %d\n%s", status, afp);
   }
 
-  msa->abc = abc;
-  if(msa->rf == NULL) esl_fatal("First MSA in %s does not have RF annotation.", alifile);
-  /* determine non-gap RF length (consensus length) */
-  rflen = 0;
-  for(apos = 0; apos < msa->alen; apos++) { 
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      rflen++;
-    }
-  }
-  /* We've read the alignment, now read the template postscript file (we do this second b/c the RF len of the alignment tells us which postscript template to use) */
-  if((status = parse_template_file(templatefile, go, errbuf, rflen, &ps) != eslOK)) esl_fatal(errbuf);
-  
   /* if we get here, the postscript file has been successfully read; now we open the output file */
   if(ofp == NULL) { 
     /* open postscript output file for writing */
@@ -684,86 +744,116 @@ main(int argc, char **argv)
   if(rflen != ps->rflen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != template file consensus length of %d.", rflen, ps->rflen);
   
   /* add the mask if there is one */
-  if(mask != NULL && (master_mode != SIMPLEMASKMODE)) add_mask_to_ss_postscript(ps, mask);
+  if(mask != NULL) add_mask_to_ss_postscript(ps, mask);
   if(mask != NULL && ps->rflen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", rflen, masklen, esl_opt_GetString(go, "--mask"));
   
   if((status = validate_and_update_sspostscript_given_msa(go, ps, msa, msa_nseq, errbuf)) != eslOK) esl_fatal(errbuf);
 
-  /* get the information we need from the alignment and create the SS postscript files as we go */
-  if(master_mode == ALIMODE) { 
-    if(! do_small) { /* derive counts from the msa for postscript diagrams, we do this our functions for drawing diagrams work in small mem or big mem mode */
-      if((status = count_msa(msa, errbuf, ps->msa_a2rf_map, ps->rflen, &(abc_ct), &(bp_ct), (esl_opt_GetBoolean(go, "--prob") ? &(pp_ct) : NULL), &(srfpos_ct), &(erfpos_ct))) != eslOK) esl_fatal(errbuf);
-    }    
-    if(! esl_opt_GetBoolean(go, "-q")) { 
-      if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  /* get the information we need from the alignment */
+  if(! do_small) { /* derive counts from the msa for postscript diagrams, we do this our functions for drawing diagrams work in small mem or big mem mode */
+    if((status = count_msa(msa, errbuf, ps->msa_a2rf_map, ps->rflen, &(abc_ct), &(bp_ct), (do_prob ? &(pp_ct) : NULL), &(srfpos_ct), &(erfpos_ct))) != eslOK) esl_fatal(errbuf);
+  }    
+  
+  /* step through each type of page, creating it if nec */
+  if(do_rf) { 
+    /* this will work in either small memory or normal memory mode */
+    if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_info) { 
+    if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+  
+  if(do_mutinfo) { /* mutual info page */
+    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+  
+  if(do_ins) { /* insert frequency page */
+    /* first, determine number of sequences with inserts after each position, 3 different ways */
+    if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign */
+      get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
     }
-    if(esl_opt_GetBoolean(go, "--mutinfo")) { 
-      if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    else if (do_small) { /* use abc_ct to derive nseq_with_ins_ct */
+      get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct)); /* dies with esl_fatal() upon an error */
     }
-    if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
-      /* first, determine number of sequences with inserts after each position, 3 different ways */
-      if(! esl_opt_IsDefault(go, "--ifile")) { /* read the insert file from cmalign */
-	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
-      }
-      else if (do_small) { /* use abc_ct to derive nseq_with_ins_ct */
-	get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct)); /* dies with esl_fatal() upon an error */
+    else { 
+      get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
+    }
+    /* now draw the insert diagram */
+    if((status = insert_sspostscript(go, errbuf, ps, nseq_with_ins_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    }
+  
+  if(do_dall) { /* make a new postscript page marking all deletes */
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, srfpos_ct, erfpos_ct, msa_nseq, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+  
+  if(do_dint) { /* internal deletes */
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, srfpos_ct, erfpos_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+  
+  if(do_prob) { /* avg post prob */
+    if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+  
+  if(do_span) { /* span */
+    if((status = span_sspostscript(go, errbuf, ps, srfpos_ct, erfpos_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_maskcol) { 
+    /* Paint positions excluded by the mask magenta, unless the mask has zero internal exclusions.
+     * Such a mask is a 'truncating' mask, that excludes only a 5' contiguous set of columns, and a 3' contiguous set of columns, in this case paint excluded positions light grey. */
+    if((status = colormask_sspostscript(go, errbuf, ps, msa, hc_onecell, BLACKOC, (mask_has_internal_zeroes ? MAGENTAOC : LIGHTGREYOC))) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_maskdiff) { 
+    if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_dfile) {
+    if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_efile) { 
+    if((status = expertfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
+  }
+
+  if(do_indi) { /* determine if we're printing all seqs or just those listed in --list */
+    if(! esl_opt_IsOn(go, "--list")) {
+      /* we should have an actual msa b/c we checked above for illegal case where --small and --indi enabled w/o --list,
+       * but we check again to make sure */
+      if(do_small) esl_fatal("--small only works in combination with --indi if --list is also used");
+
+      /* get insert info we'll use in individuals_sspostscript() */
+      if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
+	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, &(ins_ct)); /* dies with esl_fatal() upon an error */
       }
       else { 
-	get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
-      }
-      /* now draw the insert diagram */
-      if((status = insert_sspostscript(go, errbuf, ps, nseq_with_ins_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-    if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
-      if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, srfpos_ct, erfpos_ct, msa_nseq, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-    if(esl_opt_GetBoolean(go, "--dint")) { /* make a new postscript page marking internal deletes */
-      if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, srfpos_ct, erfpos_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-    if(esl_opt_GetBoolean(go, "--prob")) { 
-      if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-    if(esl_opt_GetBoolean(go, "--span")) { 
-      if((status = span_sspostscript(go, errbuf, ps, srfpos_ct, erfpos_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-  }
-  else if(master_mode == INDIMODE) { 
-    if(! esl_opt_GetBoolean(go, "-q")) { 
-      /* this will work in either small memory or normal memory mode */
-      if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
-    }
-    /* if nec, draw individual sequence diagrams */
-    if((esl_opt_GetBoolean(go, "--all")) || (! esl_opt_IsDefault(go, "--list"))) { 
-      if(esl_opt_IsOn(go, "--all")) { 
-	
-	/* get insert info we'll use in individual_seqs_sspostscript() */
 	get_insert_info_from_msa(msa, ps->rflen, NULL, &ins_ct); /* dies with esl_fatal() upon an error */
-
-	if(do_small) esl_fatal("Operating in small memory mode, --all is not allowed.");
-	ESL_ALLOC(useme, sizeof(int) * msa_nseq); 
-	esl_vec_ISet(useme, msa_nseq, TRUE);
-	nused = msa_nseq;
       }
-      else if(esl_opt_IsOn(go, "--list")) {
-	/* first read the list file */
-	if(! do_small) { 
-	  read_seq_list_file_bigmem(esl_opt_GetString(go, "--list"), msa, &useme, &nused);    /* this will die with esl_fatal() upon an error */
-	}
-	else { /* do_small == TRUE */
-	  read_seq_list_file_smallmem(esl_opt_GetString(go, "--list"), &useme_keyhash, &nused); /* this will die with esl_fatal() upon an error */
-	}
-
-	/* At this point, we know which sequences we're going to draw indi diagrams for.
-	 * Next step, get insert info. We need this so we can allow --ifile to work (which reads insert info from a file)
-	 * instead of relying on always reading insert info from the msa itself.
-	 * The way we get insert info varies, depending on if --small and --ifile. 
-	 * If ! --small, we read all insert info, either from the msa (if ! --ifile) or from the ifile (if --ifile). 
-	 * If   --small, we read only the insert info for the seqs we're going to draw diagrams for.
+      /* allocate for and set useme array to all TRUEs, we're printing all seqs */
+      ESL_ALLOC(useme, sizeof(int) * msa_nseq); 
+      esl_vec_ISet(useme, msa_nseq, TRUE);
+      nused = msa_nseq;
+    }
+    else if(esl_opt_IsOn(go, "--list")) {
+      /* first read the list file */
+      if(! do_small) { 
+	read_seq_list_file_bigmem(esl_opt_GetString(go, "--list"), msa, &useme, &nused);    /* this will die with esl_fatal() upon an error */
+      }
+      else { /* do_small == TRUE */
+	read_seq_list_file_smallmem(esl_opt_GetString(go, "--list"), &useme_keyhash, &nused); /* this will die with esl_fatal() upon an error */
+      }
+      /* At this point, we know which sequences we're going to draw indi diagrams for.
+       * Next step, get insert info. We need this so we can allow --ifile to work (which reads insert info from a file)
+       * instead of relying on always reading insert info from the msa itself.
+       * The way we get insert info varies, depending on if --small and --ifile. 
+       * If ! --small, we read all insert info, either from the msa (if ! --ifile) or from the ifile (if --ifile). 
+       * If   --small, we read only the insert info for the seqs we're going to draw diagrams for.
 	 * When --small and ! --ifile, first we have to create the smaller alignment containing only those
 	 * seqs we'll draw diagrams for, then we get the insert info from it.
 	 */
 	if(! do_small) { 
-	  if(! esl_opt_IsDefault(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
+	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
 	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, &(ins_ct)); /* dies with esl_fatal() upon an error */
 	  }
 	  else { /* get insert info from the msa */
@@ -771,7 +861,7 @@ main(int argc, char **argv)
 	  }
 	}
 	else { /* do_small */ 
-	  if(! esl_opt_IsDefault(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
+	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
 	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, &(indi_ins_ct)); /* dies with esl_fatal() upon an error */
 	  }
 	  /* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
@@ -782,14 +872,14 @@ main(int argc, char **argv)
 	  /* We're in small memory mode, which means we never read the full alignment into memory. Instead we will just read
 	   * the sequences that we're going to draw indi diagrams for into memory by creating a new msa: indi_msa.
 	   * The way we do this is convoluted: open the msa file, and regurgitate it to a temp file, but taking care only to 
-	   * regurgitate the seqs we want to draw diagrams for. Finally we read that temp file into memory as indi_msa.
+	   * regurgitate the seqs we want to draw diagrams for. Then we read that temp file into memory as indi_msa.
 	   */
 	  esl_msafile_Close(afp);
 	  status = esl_msafile_Open(alifile, fmt, NULL, &afp);
 
 	  /* small memory mode, write a temporary alignment with only the sequences we want individual diagrams for */
-	  if(esl_opt_IsOn(go, "--keep-list")) { 
-	    if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep-list"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep-list"));
+	  if(esl_opt_IsOn(go, "--keep")) { 
+	    if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep"));
 	  }
 	  else { 
 	    if ((esl_tmpfile_named(tmp_indi_alifile, &indi_fp)) != eslOK) esl_fatal("Failed to open temporary output file %s for --indi and --list");
@@ -810,8 +900,8 @@ main(int argc, char **argv)
 	  if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
 	  
 	  /* now read in that small alignment */
-	  if(esl_opt_IsOn(go, "--keep-list")) { 
-	    status = esl_msafile_Open(esl_opt_GetString(go, "--keep-list"), fmt, NULL, &indi_afp);
+	  if(esl_opt_IsOn(go, "--keep")) { 
+	    status = esl_msafile_Open(esl_opt_GetString(go, "--keep"), fmt, NULL, &indi_afp);
 	  }
 	  else { 
 	    status = esl_msafile_Open(tmp_indi_alifile, fmt, NULL, &indi_afp);
@@ -820,8 +910,8 @@ main(int argc, char **argv)
 	  esl_msafile_Close(indi_afp);
 	  indi_msa->abc = abc;
 
-	  if(esl_opt_IsOn(go, "--keep-list")) { 
-	    printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep-list"));
+	  if(esl_opt_IsOn(go, "--keep")) { 
+	    printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep"));
 	  }
 	  else { 
 	    remove(tmp_indi_alifile);
@@ -838,9 +928,9 @@ main(int argc, char **argv)
 	    esl_fatal("Error, couldn't find all the sequences from the list file %s in the alignment (%d expected, %d found).", esl_opt_GetString(go, "--list"), nused, indi_msa->nseq);
 	  }
 
-	  /* Now, the complement to the if statement above that begins: if( ! esl_opt_IsDefault(go, "--ifile")) *
+	  /* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
 	   * we need to get insert info from indi_msa in the event --ifile was not invoked */
-	  if(esl_opt_IsDefault(go, "--ifile")) { 
+	  if(! esl_opt_IsOn(go, "--ifile")) { 
 	    get_insert_info_from_msa(indi_msa, ps->rflen, NULL, &indi_ins_ct); /* dies with esl_fatal() upon an error */
 	  }
 
@@ -849,36 +939,17 @@ main(int argc, char **argv)
 	  esl_vec_ISet(useme, indi_msa->nseq, TRUE);
 	  nused = indi_msa->nseq;
 	}
-      }
-      if((status = individual_seqs_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), (do_small ? indi_ins_ct : ins_ct), useme, nused, hc_scheme, RBFIVERHSCHEME, hc_nbins[RBFIVERHSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
-
-      if(! esl_opt_GetBoolean(go, "--no-iprob")) { 
-	if((do_small && (indi_msa->pp != NULL)) || (! do_small && (msa->pp != NULL))) { 
-	  if((status = individual_posteriors_sspostscript(go, errbuf, ps, (do_small ? indi_msa : msa), useme, nused, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
-	}
-      }
-    }
+    } /* end of else if (esl_opt_IsOn(go, "--list")) */
+    /* now we have msa and ins_ct for all possible combos of --small and --ifile, 
+     * draw the individual sequence pages */
+    if((status = individuals_sspostscript(go, errbuf, ps, 
+					  (do_small ? indi_msa    : msa), 
+					  (do_small ? indi_ins_ct : ins_ct), 
+					  useme, nused, 
+					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-iprob")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-iprob")) && (msa->pp != NULL))),
+					  hc_scheme, RBFIVERHSCHEME, RBSIXRLSCHEME, hc_nbins[RBFIVERHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC, LIGHTGREYOC)) != eslOK)
+      esl_fatal(errbuf);
   }
-  else if(master_mode == SIMPLEMASKMODE) { 
-    if(esl_opt_GetBoolean(go, "--mask-col")) { 
-      if(ps->rflen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d.", rflen, masklen);
-      /* Paint positions excluded by the mask magenta, unless the mask has zero internal exclusions.
-       * Such a mask is a 'truncating' mask, that excludes only a 5' contiguous set of columns, and a 3' contiguous set of columns, in this case paint excluded positions light grey. */
-      if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, (mask_has_internal_zeroes ? MAGENTAOC : LIGHTGREYOC))) != eslOK) esl_fatal(errbuf);
-    }
-    if(! esl_opt_IsDefault(go, "--mask-diff")) { 
-      if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
-    }
-  }
-  else if(master_mode == INFILEMODE) { 
-    if(! esl_opt_IsDefault(go, "--dfile")) {
-      if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
-    }
-    else if(! esl_opt_IsDefault(go, "--efile")) {
-      if((status = expertfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
-    }
-  }
-  
   if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
   free(command);
   fclose(ofp);
@@ -928,7 +999,7 @@ main(int argc, char **argv)
 
   ERROR: 
   esl_fatal("Memory allocation error in main().");
-}
+  }
 
 /* Function: create_sspostscript()
  * 
@@ -1140,6 +1211,7 @@ free_sspostscript(SSPostscript_t *ps)
   if(ps->msa_a2rf_map != NULL) free(ps->msa_a2rf_map);
   if(ps->mask != NULL) free(ps->mask);
   if(ps->seqidxA != NULL) free(ps->seqidxA);
+  if(ps->uaseqlenA != NULL) free(ps->uaseqlenA);
 
   free(ps);
   return;
@@ -1373,33 +1445,33 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
  * Throws:   Exception if the text is too long.
  */
 int
-add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf)
+add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf)
 {
   int status;
   int i;
   char *mask1desc = NULL;
   char *mask2desc = NULL;
   int len2copy;
-  int mask1len;
-  int mask2len;
+  int mask_file_len;
+  int maskdiff_file_len;
   void *tmp;
 
+  if(ps->mask == NULL)        ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), ps->mask is NULL\n"); 
   if(ps->descA[page] != NULL) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), description for page %d already exists!\n", page); 
-  if(mask1 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask1 is NULL!\n"); 
-  if(mask2 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask2 is NULL!\n"); 
+  if(maskdiff_file == NULL) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in maskdiff_file is NULL!\n"); 
 
   /* check to see if we can fit the text onto two lines of max width ps->desc_max_chars */
-  mask1len = (int) strlen(mask1);
-  mask2len = (int) strlen(mask2);
+  mask_file_len = (int) strlen(ps->mask);
+  maskdiff_file_len = (int) strlen(maskdiff_file);
   if((status = esl_strcat(&(mask1desc), -1, "mask 1: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
-  if((mask1len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
-    if((status = esl_strcat(&(mask1desc), -1, mask1, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((mask_file_len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask1desc), -1, mask_file, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
   }
   else { /* won't fit on one line, include as much as we can */
     len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
     ESL_RALLOC(mask1desc, tmp, sizeof(char) * ps->desc_max_chars+1);
     for(i = 0; i < len2copy; i++) { 
-      mask1desc[8+i] = mask1[i];
+      mask1desc[8+i] = mask_file[i];
     }
     mask1desc[8+len2copy]   = '.';
     mask1desc[8+len2copy+1] = '.';
@@ -1409,14 +1481,14 @@ add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1
 
   /* repeat for mask 2 */
   if((status = esl_strcat(&(mask2desc), -1, "mask 2: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
-  if((mask2len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
-    if((status = esl_strcat(&(mask2desc), -1, mask2, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((maskdiff_file_len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask2desc), -1, maskdiff_file, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
   }
   else { /* won't fit on one line, include as much as we can */
     len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
     ESL_RALLOC(mask2desc, tmp, sizeof(char) * ps->desc_max_chars+1);
     for(i = 0; i < len2copy; i++) { 
-      mask2desc[8+i] = mask2[i];
+      mask2desc[8+i] = maskdiff_file[i];
     }
     mask2desc[8+len2copy]   = '.';
     mask2desc[8+len2copy+1] = '.';
@@ -1747,10 +1819,9 @@ static int
 draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused)
 {
   int status;
-  int p, pi, i, c, l, si;
+  int p, pi, i, c, l;
   int do_circle_mask, do_square_mask, do_x_mask, do_border;
   int *page_orderA;
-  int rfoffset;
 
   if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read modelname from template file.");
 
@@ -1762,33 +1833,9 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
-  /* determine print order or pages, this is just 0..npage-1 UNLESS:
-   *  --indi and --prob and either (--all or --list) enabled, in which case, we put the 
-   *    posteriors immediately after the sequences
-   */
+  /* determine print order of pages, currently this is just 0..npage-1 */
   ESL_ALLOC(page_orderA, sizeof(int) * ps->npage);
-  if(esl_opt_GetBoolean(go, "--indi") && 
-     (! esl_opt_GetBoolean(go, "--no-iprob")) &&
-     (esl_opt_GetBoolean(go, "--all") || (! esl_opt_IsDefault(go, "--list")))) {
-    pi = 0;
-    rfoffset = 0;
-    if(! esl_opt_GetBoolean(go, "-q")) { 
-      page_orderA[0] = 0; /* print consensus sequence first */ 
-      pi++;
-      rfoffset = 1;
-    } /* otherwise, we didn't print the consensus sequence */
-    fflush(stdout);
-
-    for(si = 0; si < nused; si++) { 
-      page_orderA[pi] = si + rfoffset; /* the indi sequence page */
-      pi++;
-      page_orderA[pi] = (si + nused) + rfoffset; /* the posterior page */
-      pi++;
-    }
-  }
-  else { 
-    for(pi = 0; pi < ps->npage; pi++) page_orderA[pi] = pi;
-  }
+  for(pi = 0; pi < ps->npage; pi++) page_orderA[pi] = pi;
 
   /* draw the pages */
   for(pi = 0; pi < ps->npage; pi++) { 
@@ -1920,7 +1967,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
       fprintf(fp, "%% begin colored positions\n");
-      if(ps->mask != NULL) { 
+      if(ps->mask != NULL && ps->modeA[p] != SIMPLEMASKMODE) { 
 	fprintf(fp, "2.0 setlinewidth\n");
 	if(do_border && do_x_mask)      { fprintf(fp, "1.0 setlinewidth\n"); }
 	if(do_border && do_square_mask) { fprintf(fp, "2.0 setlinewidth\n"); }
@@ -1971,7 +2018,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
   return eslOK;
 
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_sspostscript() error, probably out of memory.");
-}
+}  
 
 
 /* parse_template_file
@@ -2598,67 +2645,124 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  ERROR: ESL_FAIL(status, errbuf, "Memory error parsing lines section");
 }
 
-/* Function: individual_seqs_sspostscript()
+/* Function: individuals_sspostscript()
  * 
- * Purpose:  Fill a postscript data structure with info for individual seqs in the MSA 
+ * Purpose:  Fill a postscript data structure with info for individual seqs and 
+ *           possibly their posteriors in the MSA.
  * Return:   eslOK on success.
  * 
  * ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
  *          insert after each position per sequence. 
  */
 static int
-individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zeroins_idx, int extdel_idx)
+individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p)
 {
   int status;
   int p, i, pp, ai;
   int rfpos, apos;
   int orig_npage = ps->npage;
-  int nzeroins = 0;  /* number of positions with 0 inserts after them */
-  int nextdel = 0;   /* number of external deletes (3' and 5' flush deletes) */
-  float *limits;     /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
-  int nins;          /* number of inserts after the current rfpos for current sequence */
-  int spos, epos;    /* first/final nongap position for cur sequence */
+  int new_npage;
 
-  if((status = add_pages_sspostscript(ps, nused, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  /* variables for the sequence pages */
+  int nzeroins_s = 0; /* number of positions with 0 inserts after them */
+  int nextdel_s = 0;  /* number of external deletes (3' and 5' flush deletes) */
+  float *limits_s;    /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
+  int nins_s;         /* number of inserts after the current rfpos for current sequence */
+  int spos, epos;     /* first/final nongap position for cur sequence */
 
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ps->rrAA[p]    = NULL;
-    ps->rcolAAA[p] = NULL;
-    ps->sclAA[p]   = NULL;
-    ps->occlAAA[p] = NULL;
-  }
+  /* variables for the postprob pages */
+  int ngap_p = 0;
+  int ngap_masked_p = 0;
+  float *limits_p;    
+  int within_mask;
+  float ppavgA[11];
+  int ppidx;
 
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(rfpos = 0; rfpos < ps->rflen; rfpos++) 
-      ps->rcolAAA[p][rfpos] = NULL;
-    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+  /* contract check */
+  if(do_prob) { 
+    if(msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, individuals_sspostscript() do_prob == TRUE, msa->pp == FALSE");
+    for(i = 0; i < msa->nseq; i++) { 
+      if(useme[i] && msa->pp[i] == NULL)
+	ESL_FAIL(eslEINVAL, errbuf, "with --indi, either all or none of the selected sequences must have PP annotation, seq %d does not", i);
     }
   }
 
-  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = 1;
-  limits[1] = 2;
-  limits[2] = 4;
-  limits[3] = 6;
-  limits[4] = 10;
-  limits[5] = SSDRAWINFINITY;
+  /* PP values, hard coded */
+  ppavgA[0]  = 0.025;
+  ppavgA[1]  = 0.10;
+  ppavgA[2]  = 0.20;
+  ppavgA[3]  = 0.30;
+  ppavgA[4]  = 0.40;
+  ppavgA[5]  = 0.50;
+  ppavgA[6]  = 0.60;
+  ppavgA[7]  = 0.70;
+  ppavgA[8]  = 0.80;
+  ppavgA[9]  = 0.90;
+  ppavgA[10] = 0.975;
+
+  if(ps->mask == NULL) { ngap_masked_p = -1; } /* special flag */
+
+  /* determine number of pages we'll add */
+  new_npage = do_prob ? nused*2 : nused; 
+  if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+
+  /* add the pages carefully, we allocate posterior pages and seq pages differently */
+  for(p = orig_npage; p < ps->npage; p++) { 
+    /* allocate seq page */
+    ESL_ALLOC(ps->rrAA[p],    sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+    }
+
+    if(do_prob) { 
+      /* allocate postprob page */
+      p++;
+      ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
+      ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+      ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+	ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      }
+    }
+  }
+
+  /* setup seq limits */
+  ESL_ALLOC(limits_s, sizeof(float) * (hc_nbins_s+1)); 
+  limits_s[0] = 1;
+  limits_s[1] = 2;
+  limits_s[2] = 4;
+  limits_s[3] = 6;
+  limits_s[4] = 10;
+  limits_s[5] = SSDRAWINFINITY;
+
+  /* setup pp limits */
+  ESL_ALLOC(limits_p, sizeof(float) * (hc_nbins_p+1)); 
+  limits_p[0] = 0.0;
+  limits_p[1] = 0.35;
+  limits_p[2] = 0.55;
+  limits_p[3] = 0.75;
+  limits_p[4] = 0.85;
+  limits_p[5] = 0.95;
+  limits_p[6] = 1.00;
 
   /* allocate the uaseqlenA data structure to store unaligned seq lengths */
   if(ps->uaseqlenA != NULL) { free(ps->uaseqlenA); ps->uaseqlenA = NULL; }
   ESL_ALLOC(ps->uaseqlenA, sizeof(int) * msa->nseq);
   esl_vec_ISet(ps->uaseqlenA, msa->nseq, 0);
 
-  /* fill ps->rrAA with residues and gaps */
+  /* Step through each seq, first fill seq page, then possibly postprob page */
   ai = 0;
+  pp = orig_npage-1;
   for(i = 0; i < msa->nseq; i++) {
     if(useme[i]) { 
-      pp = orig_npage + ai;
-
+      /**************************
+       * Draw the sequence page *
+       **************************/
+      pp++;
       spos = epos = -1;
       /* determine first and final non-gap position */
       for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
@@ -2673,55 +2777,94 @@ individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t
 	  break;
 	}
       }
-      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, TRUE, TRUE, TRUE);
-      nextdel = 0;
-      nzeroins = 0;
+      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE);
+      nextdel_s = 0;
+      nzeroins_s = 0;
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
-	nins = ins_ct[i][rfpos];
+	nins_s = ins_ct[i][rfpos];
 
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
-	ps->uaseqlenA[i] += nins;
+	ps->uaseqlenA[i] += nins_s;
 	ps->rrAA[pp][rfpos] = msa->aseq[i][apos];
 	/* printf("ps->rrAA[%3d][%4d]: %c\n", pp, rfpos, ps->rrAA[pp][rfpos]);  */
 	if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
 	   (apos < spos || apos > epos)) { 
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx])) != eslOK) return status;
-	  nextdel++;
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
+	  nextdel_s++;
 	}
-	else if(nins == 0) { 
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zeroins_idx])) != eslOK) return status;
-	    nzeroins++;
+	else if(nins_s == 0) { 
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zeroins_idx_s])) != eslOK) return status;
+	    nzeroins_s++;
 	}
 	else { 
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], nins, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
+	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
 	}	  
       }
-
       ps->rrAA[pp][ps->rflen] = '\0';
       ps->seqidxA[pp] = i;
 
       /* add one-cell color legend for zero inserts */
-      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zeroins_idx], nzeroins, -1);
+      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zeroins_idx_s], nzeroins_s, -1);
       if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "(blank) zero inserts", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
       /* add one-cell color legend for external gaps (deletes) */
-      ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[extdel_idx], nextdel, -1);
+      ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, -1);
       if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
       ps->nocclA[pp] = 2;
 
       /* add description to ps */
       if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "# inserted residues after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
+      /* done with seq page */
+
+      /***************************************
+       * Draw the posterior probability page *
+       ***************************************/
+      if(do_prob) { /* contract checked that msa->pp[i] is non-NULL */
+	pp++;
+
+	ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_p, hc_nbins_p, limits_p, FALSE, TRUE, TRUE);
+	ngap_p = 0;
+	ngap_masked_p = (ps->mask == NULL) ? -1 : 0;
+
+	for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+	  apos = ps->msa_rf2a_map[rfpos];
+	  if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
+	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	    if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap residue: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
+	    within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
+	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
+	    ps->rrAA[pp][rfpos] = ' ';
+	  }
+	  else {
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
+	    ngap_p++;
+	    if(ps->mask != NULL && ps->mask[rfpos] == '1') ngap_masked_p++; 
+	    ps->rrAA[pp][rfpos] = ' ';
+	  }
+	}
+	
+	/* add one-cell color legend */
+	ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p);
+	if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	ps->nocclA[pp] = 1;
+	
+	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	ps->seqidxA[pp] = i;
+	if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
+      }
     }
   }
-  free(limits);
+  free(limits_s);
+  free(limits_p);
   return eslOK;
 
- ERROR: ESL_FAIL(status, errbuf, "individual_seqs_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "individuals_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
+
 
 /* Function: rf_seq_sspostscript()
  * 
@@ -2756,7 +2899,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   }
 
   /* add description to ps */
-  if((status = add_page_desc_to_sspostscript(ps, pp, "*CONSENSUS*", errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, pp, "*REFERENCE* (\"#=GC RF\")", errbuf)) != eslOK) return status;
 
   return eslOK;
 
@@ -3710,112 +3853,6 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
 }
 
 
-/* Function: individual_posteriors_sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with posterior probabilities from single sequences in an MSA.
- * Return:   eslOK on success.
- */
-static int
-individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx)
-{
-  int    status;
-  int    i,rfpos, apos;       /* counters over sequences, alignment posns, RF positions of MSA */
-  int    p;
-  int orig_npage = ps->npage;
-  int new_npage = 0;
-  int pp;
-  float *limits; /* bin limits for the color scheme */
-  int nonecell_seq = 0;
-  int nonecell_seq_masked = 0;
-  int within_mask;
-  float ppavgA[11];
-  int ppidx;
-
-  ppavgA[0]  = 0.025;
-  ppavgA[1]  = 0.10;
-  ppavgA[2]  = 0.20;
-  ppavgA[3]  = 0.30;
-  ppavgA[4]  = 0.40;
-  ppavgA[5]  = 0.50;
-  ppavgA[6]  = 0.60;
-  ppavgA[7]  = 0.70;
-  ppavgA[8]  = 0.80;
-  ppavgA[9]  = 0.90;
-  ppavgA[10] = 0.975;
-
-  if(ps->mask == NULL) { nonecell_seq_masked = -1; } /* special flag */
-  if(msa->rf == NULL) esl_fatal("No RF annotation in alignment");
-
-  new_npage = nused; 
-
-  if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
-    }
-  }
-
-  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = 0.0;
-  limits[1] = 0.35;
-  limits[2] = 0.55;
-  limits[3] = 0.75;
-  limits[4] = 0.85;
-  limits[5] = 0.95;
-  limits[6] = 1.00;
-
-  /* step through each sequence and each column, collecting stats */
-  pp = orig_npage;
-  for(i = 0; i < msa->nseq; i++) { 
-    if(useme[i]) { /* add color legend for this sequence */
-      if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "with --indi, either all or none of the selected sequences must have PP annotation, seq %d does not", i);
-      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
-      nonecell_seq = 0;
-      nonecell_seq_masked = (ps->mask == NULL) ? -1 : 0;
-
-      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	apos = ps->msa_rf2a_map[rfpos];
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
-	  if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	  if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap residue: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
-	  within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
-	  ps->rrAA[pp][rfpos] = ' ';
-	}
-	else {
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
-	  nonecell_seq++;
-	  if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_seq_masked++; 
-	  ps->rrAA[pp][rfpos] = ' ';
-	}
-      }
-
-      /* add one-cell color legend */
-      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_seq, nonecell_seq_masked);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      ps->nocclA[pp] = 1;
-
-      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      ps->seqidxA[pp] = i;
-      if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
-      pp++;
-    }
-  } /* done with all sequences */
-
-
-  free(limits);
-
-  return eslOK;
-
- ERROR:
-  return status;
-}
-
 /* Function: colormask_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page based on a lanemask, each column
@@ -3825,7 +3862,7 @@ individual_posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostsc
  * Return:   eslOK on success.
  */
 static int
-colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx)
+colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx)
 {
   int status;
   int p, pp, c;
@@ -3835,7 +3872,8 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   int ncols_outside_mask = 0;
   char *mask_desc = NULL;
   char *mask_file = NULL;
-
+  
+  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskcol page");
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
@@ -3849,15 +3887,15 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   pp = orig_npage;
 
   for(cpos = 0; cpos < ps->rflen; cpos++) { 
-    if(mask[cpos] == '1') { /* included */
+    if(ps->mask[cpos] == '1') { /* included */
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incmask_idx])) != eslOK) return status; 
       ncols_inside_mask++;
     }
-    else if(mask[cpos] == '0') {
+    else if(ps->mask[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excmask_idx])) != eslOK) return status; 
       ncols_outside_mask++;
     }
-    else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
+    else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
     ps->rrAA[pp][cpos] = ' ';
   }
 
@@ -3890,18 +3928,16 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
 }
 
 
-
 /* Function: diffmask_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page based on a comparison between
- *           two masks, each column is either black (if included (a '1') in both masks), red
- *           (if a '1' in mask 1 and a '0' in mask 2), cyan (a '0' in mask 1 and a '1' in mask 2)
- *           or grey (a '0' in both masks).
+ *           two masks one in ps->mask the other in <mask2>, each position becomes
+ *           one of four colors, one for each of the four possible combinations of 0 and 1.
  *
  * Return:   eslOK on success.
  */
 static int
-diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx)
+diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx)
 {
   int status;
   int p, pp, c;
@@ -3912,6 +3948,7 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   int ncols_in_1_out_2 = 0;
   int ncols_out_1_in_2 = 0;
 
+  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskdiff page");
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
@@ -3925,23 +3962,23 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   pp = orig_npage;
 
   for(cpos = 0; cpos < ps->rflen; cpos++) { 
-    if(mask1[cpos] == '1' && mask2[cpos] == '1') { 
+    if(ps->mask[cpos] == '1' && mask2[cpos] == '1') { 
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incboth_idx])) != eslOK) return status; 
       ncols_in_both++;
     }
-    else if(mask1[cpos] == '1' && mask2[cpos] == '0') {
+    else if(ps->mask[cpos] == '1' && mask2[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc1_idx])) != eslOK) return status; 
       ncols_in_1_out_2++;
     }
-    else if(mask1[cpos] == '0' && mask2[cpos] == '1') {
+    else if(ps->mask[cpos] == '0' && mask2[cpos] == '1') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc2_idx])) != eslOK) return status; 
       ncols_out_1_in_2++;
     }
-    else if(mask1[cpos] == '0' && mask2[cpos] == '0') {
+    else if(ps->mask[cpos] == '0' && mask2[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excboth_idx])) != eslOK) return status; 
       ncols_out_both++;
     }
-    else if(mask1[cpos] != '0' && mask1[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-col char number %d is not a 1 nor a 0, but a %c\n", cpos, mask1[cpos]);
+    else if(ps->mask[cpos] != '0' && ps->mask[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-col char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
     else if(mask2[cpos] != '0' && mask2[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-diff char number %d is not a 1 nor a 0, but a %c\n", cpos, mask2[cpos]);
     ps->rrAA[pp][cpos] = ' ';
   }
