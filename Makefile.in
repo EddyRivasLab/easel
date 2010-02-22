@@ -376,7 +376,8 @@ supertags:
 	etags -a ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
 
 # magic SVN for setting keyword ID replacement on a new module foo:
-# svn propset svn:keywords "Id" foo.[ch]
+#   grep 'SVN \$Id\$' *.[ch]
+#   svn propset svn:keywords "Id" foo.[ch]
 
 #################################################################
 ## For building as a library with an SSU-ALIGN distribution.
