@@ -510,9 +510,10 @@ main(int argc, char **argv)
  * we aren't compiling with SSE instructions.
  */
 
-/*
- * Provide a successful unit test on platforms where we don't have SSE instructions.
- */
+/* Throw a bone to compilers that would warn about empty compilation unit: */
+#include "easel.h"
+
+/* Provide a successful unit test on platforms where we don't have SSE instructions: */
 #ifdef eslSSE_TESTDRIVE
 int main(void) { return 0; }
 #endif
