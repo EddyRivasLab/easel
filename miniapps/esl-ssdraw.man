@@ -490,8 +490,13 @@ This page is drawn by default (if zero command-line options are used).
 Add a page to
 .B postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
-sequences that have at least 1 inserted residue after the position.
-This page is drawn by default (if zero command-line options are used).
+sequences that span each position that have at least 1 inserted
+residue after the position. 
+A sequence s spans consensus position x that is actual alignment
+position a if s has at least one nongap residue aligned to a position
+b <= a and at least one nongap residue aligned to a consensus position
+c >= a. This page is drawn by default (if zero command-line options
+are used).
 
 .TP 
 .B --dall
@@ -508,8 +513,8 @@ Add a page to
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that have an internal gap (delete) at the position. An
 internal gap in a sequence is one that occurs after (5' of) the
-sequence's first aligned residue in a consensus position and before
-(3' of) the sequence's final aligned residue in a consensus position.
+sequence's first aligned residue and after
+(3' of) the sequence's final aligned residue.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
@@ -529,10 +534,12 @@ Add a page to
 .B postscript_output_file
 with consensus (nongap RF) positions colored based on the
 fraction of sequences that 'span' the position. 
-A sequence s spans consensus position x if s has at least one
-nongap residue aligned to a consensus position a <= x and at least one
-This page is drawn by default (if zero command-line options are used).
-nongap residue aligned to a consensus position b >= x.
+A sequence s spans consensus position x that is actual alignment
+position a if s has at least one nongap residue aligned to a position
+b <= a and at least one nongap residue aligned to a consensus position
+c >= a. This page is drawn by default (if zero command-line options
+are used).
+
 
 .TP 
 .B --indi

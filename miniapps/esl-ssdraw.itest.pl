@@ -37,11 +37,11 @@ close MASKFILE;
 open(IFILE, ">$tmppfx.ifile") || die "FAIL: couldn't open $tmppfx.ifile for writing insert file";
 print IFILE << "EOF";
 tRNA 71
-tRNA-1  45 45 1
-tRNA-2  44 43 4  45 47 1
-tRNA-3  45 45 1
-tRNA-4  16 17 1
-tRNA-5  16 17 1  19 21 1
+tRNA1 73 1 71  16 17 1  45 47 1
+tRNA2 72 1 71  19 20 1
+tRNA3 72 1 71  19 20 1
+tRNA4 72 1 71  45 46 1
+tRNA5 64 5 71  16 13 1  45 43 1
 //
 EOF
 close IFILE;

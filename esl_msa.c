@@ -5275,15 +5275,15 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *                           apos < apos2 and apos:apos2 form a basepair 
  *                           in <known_ss_cons>. If non-NULL, <known_ss_cons> 
  *                           must be non-NULL.
- *           opt_srfpos_ct - optRETURN: [0..rfpos..rflen-1] per nongap RF 
- *                           position count of first nongap RF residue in 
- *                           each sequence, ex: opt_spos_ct[100] = x means x
- *                           seqs have their first nongap RF residue at rfpos 100
- *           opt_erfpos_ct - optRETURN: [0..rfpos..rflen-1] same as opt_srfpos_ct,
- *                           except for final nongap RF residue instead of first
+ *           opt_spos_ct   - optRETURN: [0..apos..alen-1] per position count 
+ *                           of first nongap residue in each sequence, 
+ *                           ex: opt_spos_ct[100] = x means x seqs have their 
+ *                           first nongap residue at position 100
+ *           opt_epos_ct   - optRETURN: [0..apos..alen-1] same as opt_spos_ct,
+ *                           except for final position instead of first
  * 
  * Returns:  <eslOK> on success.  Returns <eslEOF> if there are no more
- *           alignments in <afp>, and <ret_msa> is set to NULL and
+ *           Alignments in <afp>, and <ret_msa> is set to NULL and
  *           <opt_*> are set to 0.
  *           <eslEFORMAT> if parse fails because of a file format
  *           problem, in which case afp->errbuf is set to contain a
@@ -5298,7 +5298,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 int
 esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
 			   int *opt_nseq, int64_t *opt_alen, int *opt_ngs, int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
-			   double ***opt_abc_ct, int ***opt_pp_ct, double ****opt_bp_ct, int **opt_srfpos_ct, int **opt_erfpos_ct)
+			   double ***opt_abc_ct, int ***opt_pp_ct, double ****opt_bp_ct, int **opt_spos_ct, int **opt_epos_ct)
 {
   char      *s;                    /* pointer to current character in afp */
   int        status;               /* easel status code */
@@ -5322,17 +5322,15 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   int        i, x;                 /* counters */
   int        j;                    /* position for a right half of a bp */
   int        apos;                 /* counter over alignment positions */
-  int        rfpos;                /* counter over nongap RF positions */
   double   **abc_ct = NULL;        /* [0..alen-1][0..abc->K] per position count of each residue in abc and gaps over all seqs */
   double  ***bp_ct = NULL;         /* [0..alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
                                        base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
   int        nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
   int      **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
   int        ppidx;                /* index for 2nd dim of pp_ct array */
-  int       *srfpos_ct = NULL;     /* [0..rflen-1] number of seqs that start (have first RF residue) at each RF position */
-  int       *erfpos_ct = NULL;     /* [0..rflen-1] number of seqs that end   (have final RF residue) at each RF position */
+  int       *spos_ct = NULL;       /* [0..alen-1] number of seqs that start (have first nongap residue) at each position */
+  int       *epos_ct = NULL;       /* [0..alen-1] number of seqs that end   (have final nongap residue) at each position */
   ESL_DSQ   *tmp_dsq = NULL;       /* temporary digitized sequence, only used if opt_abc_ct != NULL */
-  int        rflen = 0;            /* non-gap RF residues, only used if known_rf != NULL */
   int       *a2rf_map = NULL;      /* [0..apos..known_alen-1] = rfpos, nongap RF position apos maps to, 
 				    * -1 if apos is not a nongap RF position */
   int       *ct = NULL; 	   /* 0..known_alen-1 base pair partners array for known_ss_cons */
@@ -5342,10 +5340,10 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if(opt_abc_ct    != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_abc_ct  != NULL");
   if(opt_pp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_pp_ct   != NULL");
   if(opt_bp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_bp_ct != NULL");
-  if(opt_srfpos_ct != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_srfpos_ct != NULL");
-  if(opt_erfpos_ct != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_erfpos_ct != NULL");
-  if(opt_srfpos_ct != NULL && known_rf == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf == NULL, opt_srfpos_ct != NULL");
-  if(opt_erfpos_ct != NULL && known_rf == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf == NULL, opt_erfpos_ct != NULL");
+  if(opt_spos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_spos_ct != NULL");
+  if(opt_epos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_epos_ct != NULL");
+  if(opt_spos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, opt_spos_ct != NULL, known_alen == -1");
+  if(opt_epos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, opt_epos_ct != NULL, known_alen == -1");
   if(opt_bp_ct     != NULL && known_ss_cons == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
   if(known_rf      != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf != NULL, known_alen == -1");
   if(known_ss_cons != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons != NULL, known_alen == -1");
@@ -5354,25 +5352,14 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   afp->errbuf[0] = '\0';
 
   /* Preliminaries */
-  /* if opt_srfpos_ct != NULL || opt_erfpos_ct != NULL, allocate them and determine RF positions */
-  /* count non-gap RF columns */
-  if(opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { 
-    ESL_ALLOC(a2rf_map, sizeof(int) * known_alen);
-    esl_vec_ISet(a2rf_map, known_alen, -1);
-    for(apos = 0; apos < known_alen; apos++) { 
-      if((! esl_abc_CIsGap(abc, known_rf[apos])) && 
-	 (! esl_abc_CIsMissing(abc, known_rf[apos])) && 
-	 (! esl_abc_CIsNonresidue(abc, known_rf[apos])))
-	{ 
-	  a2rf_map[apos] = rflen;
-	  rflen++;
-	}
-    }
-    ESL_ALLOC(srfpos_ct, sizeof(int) * rflen); 
-    ESL_ALLOC(erfpos_ct, sizeof(int) * rflen);
-    esl_vec_ISet(srfpos_ct, rflen, 0); 
-    esl_vec_ISet(erfpos_ct, rflen, 0);   
+  /* allocate and initialize spos_ct and epos_ct, if we'll return them */
+  if(opt_spos_ct != NULL || opt_epos_ct != NULL) { 
+    ESL_ALLOC(spos_ct, sizeof(int) * known_alen); 
+    ESL_ALLOC(epos_ct, sizeof(int) * known_alen);
+    esl_vec_ISet(spos_ct, known_alen, 0); 
+    esl_vec_ISet(epos_ct, known_alen, 0);   
   }
+
   /* if bp_ct != NULL, determine the ct array from the known_ss_cons, and allocate the bp_ct */
   if(opt_bp_ct != NULL) { /* contract enforces that if this is true, known_ss_cons != NULL and known_alen != -1 */
     /* get ct array which defines the consensus base pairs */
@@ -5473,7 +5460,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
 		if (strncmp(tag, "PP", 2) == 0) { 
 		  if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP line", afp->linenumber);
 		  /* verify, or set alignment length */
-		  if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, srfpos_ct, erfpos_ct */
+		  if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, spos_ct, epos_ct */
 		    alen = textlen;
 		    if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
 		    ESL_ALLOC(pp_ct, sizeof(int *) * alen);
@@ -5508,19 +5495,19 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
       else if (strncmp(s, "//",   2) == 0)   break; /* normal way out */
       else if (*s == '\n' || *s == '\r')     continue;
       else { /* sequence line */
-	if(listfp != NULL || opt_maxname != NULL || opt_alen != NULL || opt_abc_ct != NULL || opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { /* we need to parse out the seqname */
+	if(listfp != NULL || opt_maxname != NULL || opt_alen != NULL || opt_abc_ct != NULL || opt_spos_ct != NULL || opt_epos_ct != NULL) { /* we need to parse out the seqname */
 	  s = afp->buf;
 	  if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
 	  if (listfp != NULL) fprintf(listfp, "%s\n", seqname);
 	  maxname = ESL_MAX(maxname, namelen);
-	  if (opt_alen != NULL || opt_abc_ct != NULL || opt_srfpos_ct != NULL || opt_erfpos_ct != NULL) { /* we need to parse out the seq */
+	  if (opt_alen != NULL || opt_abc_ct != NULL || opt_spos_ct != NULL || opt_epos_ct != NULL) { /* we need to parse out the seq */
 	    if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad sequence line", afp->linenumber);
 	    /* if first aligned seq read, store it's name, else see if it is an additional line of first aseq */
 	    if(nseq == 0) { 
 	      if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; 
 	    }
 	    else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs with same name. Alignment may be in interleaved Stockholm. Reformat to Pfam with esl-reformat.", afp->linenumber); }
-	    if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, srfpos_ct, erfpos_ct */
+	    if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, spos_ct, epos_ct */
 	      alen = textlen;
 	      if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
 	      if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
@@ -5559,18 +5546,18 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
 		}
 	      }
 	    }
-	    if(opt_srfpos_ct != NULL) { 
-	      for(apos = 0; apos < alen; apos++) { /* find first non-gap RF position */
-		if((! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) && ((rfpos = a2rf_map[apos]) != -1)) { 
-		  srfpos_ct[rfpos]++; 
+	    if(opt_spos_ct != NULL) { 
+	      for(apos = 0; apos < alen; apos++) { /* find first non-gap position */
+		if(! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) { 
+		  spos_ct[apos]++; 
 		  break;
 		}
 	      }
 	    }
-	    if(opt_erfpos_ct != NULL) { /* find final non-gap RF position */
+	    if(opt_epos_ct != NULL) { /* find final non-gap position */
 	      for(apos = alen-1; apos >= 0; apos--) { 
-		if((! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) && ((rfpos = a2rf_map[apos]) != -1)) { 
-		  erfpos_ct[rfpos]++;
+		if(! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) { 
+		  epos_ct[apos]++;
 		  break;
 		}
 	      }
@@ -5625,8 +5612,8 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if (opt_abc_ct != NULL)    *opt_abc_ct = abc_ct;
   if (opt_pp_ct != NULL)     *opt_pp_ct = pp_ct;
   if (opt_bp_ct != NULL)     *opt_bp_ct = bp_ct;
-  if (opt_srfpos_ct != NULL) *opt_srfpos_ct = srfpos_ct;
-  if (opt_erfpos_ct != NULL) *opt_erfpos_ct = erfpos_ct;
+  if (opt_spos_ct != NULL)   *opt_spos_ct = spos_ct;
+  if (opt_epos_ct != NULL)   *opt_epos_ct = epos_ct;
   return eslOK;
 
  ERROR:
@@ -5647,10 +5634,10 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if (opt_abc_ct != NULL)    *opt_abc_ct = NULL;
   if(bp_ct  != NULL)          esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
   if(opt_bp_ct  != NULL)     *opt_bp_ct = NULL;
-  if (srfpos_ct != NULL)      free(srfpos_ct);
-  if (opt_srfpos_ct != NULL) *opt_srfpos_ct = NULL;
-  if (erfpos_ct != NULL)      free(erfpos_ct);
-  if (opt_erfpos_ct != NULL) *opt_erfpos_ct = NULL;
+  if (spos_ct != NULL)      free(spos_ct);
+  if (opt_spos_ct != NULL) *opt_spos_ct = NULL;
+  if (epos_ct != NULL)      free(epos_ct);
+  if (opt_epos_ct != NULL) *opt_epos_ct = NULL;
   return status;
   }
 
