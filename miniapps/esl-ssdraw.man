@@ -48,7 +48,8 @@ will create an eight page
 .I postscript_output_file, 
 each displaying a different alignment statistic. These pages display
 the reference sequence, information content per position, mutual information
-per position, frequency of inserts per position, frequency of
+per position, frequency of inserts per position, average length of
+inserts per position, frequency of
 deletions (gaps) per position, average posterior probability per
 position (if posterior probabilites exist in the alignment), and 
 fraction of sequences that span each position.
@@ -56,7 +57,8 @@ Alternatively, some or all of these pages can be drawn by using the
 command line options
 .B --info,
 .B --mutinfo,
-.B --ins,
+.B --ifreq,
+.B --iavglen,
 .B --dall,
 .B --dint,
 .B --prob,
@@ -486,7 +488,7 @@ basepair are counted.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
-.B --ins
+.B --ifreq
 Add a page to
 .B postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
@@ -497,6 +499,17 @@ position a if s has at least one nongap residue aligned to a position
 b <= a and at least one nongap residue aligned to a consensus position
 c >= a. This page is drawn by default (if zero command-line options
 are used).
+
+
+.TP 
+.B --iavglen
+Add a page to
+.B postscript_output_file
+with each consensus (nongap RF) position colored based on average
+length of insertions that occur after it. The average is calculated as
+the total number of inserted residues after position x, divided by the
+number of sequences that have at least 1 inserted residue after
+position x (so the minimum possible average insert length is 1.0).
 
 .TP 
 .B --dall

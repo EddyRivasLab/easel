@@ -381,12 +381,20 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\(\\\[0.900-0.950\\\)\) 152.00 118.50 moveto show/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\%residue 18\nnewpath\n  101.00 311.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
-    system("$eslssdraw $smallA[$pass] --ins $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --ifreq $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\) 96.98 418.24 moveto show/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(\\\[0.500-1.000\\\]\) 152.00 88.50 moveto show/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.0000 0.6300 1.0000 0.0000 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+
+    system("$eslssdraw $smallA[$pass] --iavglen $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output !~ /\(tRNA     71    21\) 96.98 418.24 moveto show/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\(>= 10\) 152.00 124.50 moveto show/)                         { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+
+    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.9200 0.8400 0.0000 0.0800 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --dall $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -423,19 +431,19 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\(no sequences span\) 152.00 196.50 moveto show/)             { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\%residue 2\nnewpath\n  167.00 383.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.5000 0.0000 0.0000 0.5000 setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
-    system("$eslssdraw $smallA[$pass] --info --prob --ins --dall --dint --mutinfo --span --tabfile $tmppfx.tab $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --info --prob --ifreq --dall --dint --mutinfo --span --tabfile $tmppfx.tab $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                                     { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.tab`;
     if($output !~ /Information content data/)                                                       { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /Mutual information data/)                                                        { die "FAIL: tab file incorrectly written on pass $pass2write"; }
-    if($output !~ /Insert data/)                                                                    { die "FAIL: tab file incorrectly written on pass $pass2write"; }
+    if($output !~ /Insert frequency data/)                                                          { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /Delete data/)                                                                    { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /Internal delete data/)                                                           { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /Average posterior probability data/)                                             { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /Span data/)                                                                      { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /infocontent       7   1.27\d+           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /mutualinfo    16     30     38   0.47\d*   0.47\d*    0.76\d*           5    5/) { die "FAIL: tab file incorrectly written on pass $pass2write"; }
-    if($output !~ /insert      45   0.60\d*    6/)                                                  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
+    if($output !~ /insertfreq      45   0.60000           5    6/)                                  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteall      67   0.20\d*    2/)                                               { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteint      67   0.00\d*           4    0/)                                   { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
     if($output !~ /avgpostprob      19   0.88\d*           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
@@ -553,7 +561,7 @@ for($pass = 0; $pass < 2; $pass++) {
     $output = `cat $tmppfx.ps`;
     if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.0340 0.1710 0.2040 0.1370 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
-    system("$eslssdraw $smallA[$pass] --ins --ifile $tmppfx.ifile $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --ifreq --ifile $tmppfx.ifile $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\%residue 45\nnewpath\n  199.00 313.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.0000 0.9400 1.0000 0.0000 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }

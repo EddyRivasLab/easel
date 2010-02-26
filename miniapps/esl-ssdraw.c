@@ -243,17 +243,18 @@ static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
 static int  read_seq_list_file_bigmem  (char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused);
 static int  read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused);
-static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int ***ret_ins_ct);
-static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct);
-static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int ***ret_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
+static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
+static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
+static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
 static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
 static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
-static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
+static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
+static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p);
 static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
@@ -277,7 +278,8 @@ static ESL_OPTIONS options[] = {
   { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing reference (#=GC RF) sequence", 2 },
   { "--info",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw information content diagram", 2 },
   { "--mutinfo",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw base pair mutual information diagram", 2 },
-  { "--ins",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw insert diagram", 2 },
+  { "--ifreq",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw insert frequency diagram", 2 },
+  { "--iavglen",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average insert length diagram", 2 },
   { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
   { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/only internal (non-terminal) deletions", 2 },
   { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average posterior probability diagram", 2 },
@@ -341,8 +343,9 @@ main(int argc, char **argv)
   int            *useme = NULL;         /* only relevant if --list, [0..i..msa->nseq] TRUE to include indi diagram for seq i, FALSE not to */
   int             nused = 0;            /* only relevant if --list, number of TRUEs in useme */
  /* counts of relevant values from the msa */
-  int            *nseq_with_ins_ct = NULL; /* [0..ps->rflen] number of sequences with >=1 insert after each consensus position, only used if --ins */
-  int           **ins_ct = NULL;        /* [0..msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
+  int            *nseq_with_ins_ct = NULL; /* [0..ps->rflen] number of sequences with >=1 insert after each consensus position, only used if --ifreq */
+  int            *nins_ct = NULL;          /* [0..ps->rflen] total number of inserted residues (over all seqs) after each consensus position, only used if --ifreq */
+  int           **per_seq_ins_ct = NULL;   /* [0..msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
   double        **abc_ct = NULL;        /* [0..msa->alen-1][0..abc->K], count of each residue at each position, over all sequences, missing and nonresidues are *not counted* */
   double       ***bp_ct = NULL;         /* [0..msa->alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
                                            base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
@@ -361,7 +364,7 @@ main(int argc, char **argv)
   ESL_MSAFILE    *indi_afp = NULL;      /* MSA file pointer for newly created indi alignment in */
   FILE           *indi_fp = NULL;       /* file pointer for outputting indi alignment */
   ESL_MSA        *indi_msa = NULL;      /* new indi msa */
-  int           **indi_ins_ct = NULL;   /* [0..indi_msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
+  int           **indi_per_seq_ins_ct = NULL;   /* [0..indi_msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
   ESL_KEYHASH    *useme_keyhash;        /* keyhash of sequence names listed in list file, only used if --list and --indi enabled */
   int             i;                    /* counter of sequences */
   /* variables storing which pages to print */
@@ -369,7 +372,8 @@ main(int argc, char **argv)
   int             do_rf = FALSE;        
   int             do_info = FALSE;      
   int             do_mutinfo = FALSE;   
-  int             do_ins = FALSE;      
+  int             do_ifreq = FALSE;      
+  int             do_iavglen = FALSE;      
   int             do_dall = FALSE;     
   int             do_dint = FALSE;     
   int             do_prob = FALSE;     
@@ -379,7 +383,7 @@ main(int argc, char **argv)
   int             do_maskdiff = FALSE;
   int             do_dfile = FALSE;
   int             do_efile = FALSE;
-  int             need_span_ct = FALSE; /* TRUE if span_ct must be calculated (if do_dint || do_ins || do_span) */
+  int             need_span_ct = FALSE; /* TRUE if span_ct must be calculated (if do_dint || do_ifreq || do_iavglen || do_span) */
   int             tmp_Mb = 0;          
   int             predicted_Mb = 0;    /* predicted size of the output file, calced if --indi */
   /***********************************************
@@ -673,7 +677,8 @@ main(int argc, char **argv)
   default_mode = TRUE;
   if(esl_opt_GetBoolean(go, "--info"))      { do_info     = TRUE; default_mode = FALSE; }
   if(esl_opt_GetBoolean(go, "--mutinfo"))   { do_mutinfo  = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--ins"))       { do_ins      = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--ifreq"))     { do_ifreq    = TRUE; default_mode = FALSE; }
+  if(esl_opt_GetBoolean(go, "--iavglen"))   { do_iavglen  = TRUE; default_mode = FALSE; }
   if(esl_opt_GetBoolean(go, "--dall"))      { do_dall     = TRUE; default_mode = FALSE; }
   if(esl_opt_GetBoolean(go, "--dint"))      { do_dint     = TRUE; default_mode = FALSE; }
   if(esl_opt_GetBoolean(go, "--prob"))      { do_prob     = TRUE; default_mode = FALSE; }
@@ -703,19 +708,19 @@ main(int argc, char **argv)
     }
   }
   if(default_mode) { /* set default pages */
-    do_info = do_mutinfo = do_ins = do_dall = do_dint = do_span = TRUE;
+    do_info = do_mutinfo = do_ifreq = do_iavglen = do_dall = do_dint = do_span = TRUE;
     if(msa->rf != NULL) do_rf   = TRUE;
     if(msa->pp != NULL) do_prob = TRUE;
   }
   /* determine if tabfile was incorrectly used */
   if(tabfp != NULL && 
-     do_info == FALSE && do_mutinfo == FALSE && do_ins  == FALSE && 
-     do_dall == FALSE && do_dint    == FALSE && do_span == FALSE) { 
-    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ins,--dall,--dint,--span");
+     do_info == FALSE && do_mutinfo == FALSE && do_ifreq  == FALSE && 
+     do_iavglen == FALSE && do_dall == FALSE && do_dint   == FALSE && do_span == FALSE) { 
+    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--dall,--dint,--span");
   }
-  need_span_ct = (do_dint || do_span || do_ins) ? TRUE : FALSE;
+  need_span_ct = (do_dint || do_span || do_ifreq || do_iavglen) ? TRUE : FALSE;
 
-  if(do_small && (do_dint || do_span || do_ins || do_mutinfo)) { 
+  if(do_small && (do_dint || do_span || do_ifreq || do_iavglen || do_mutinfo)) { 
     /* If we're in small mem mode, now that we know msa->rf and msa->ss_cons, 
      * we do a second read of the msa to get bpct, spos_ct and epos_ct, 
      * but only if we need them (if --span, --dint, or --mutinfo). 
@@ -761,7 +766,7 @@ main(int argc, char **argv)
    * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadNonSeqInfo() could be slightly incorrect, we'll use
    * srfoff_ct and erfoff_ct from get_insert_info_from_ifile() to correct them when we derive span_ct from spos_ct and epos_ct together in get_span_ct(). */
   if(esl_opt_IsOn(go, "--ifile")) { 
-    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), NULL, &srfoff_ct, &erfoff_ct); /* dies with esl_fatal() upon an error */
+    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), &(nins_ct), NULL, &srfoff_ct, &erfoff_ct); /* dies with esl_fatal() upon an error */
   }
   /* determine span count */
   if(need_span_ct) { 
@@ -782,20 +787,25 @@ main(int argc, char **argv)
     if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
-  if(do_ins) { /* insert frequency page */
+  if(do_ifreq || do_iavglen) { /* insert frequency page */
     /* first, determine number of sequences with inserts after each position, 3 different ways depending on command line options */
     if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign */
       /* we've already read the ifile above, and filled nseq_with_ins_ct, but we check here */
       if(nseq_with_ins_ct == NULL) esl_fatal("Internal error, --ifile selected, but not read");
     }
     else if (do_small) { /* use abc_ct to derive nseq_with_ins_ct */
-      get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct)); /* dies with esl_fatal() upon an error */
+      get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct), &(nins_ct)); /* dies with esl_fatal() upon an error */
     }
     else { 
-      get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), NULL); /* dies with esl_fatal() upon an error */
+      get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), &(nins_ct), NULL); /* dies with esl_fatal() upon an error */
     }
     /* now draw the insert diagram */
-    if((status = insert_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if(do_ifreq) { 
+      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    }
+    if(do_iavglen) { 
+      if((status = insertavglen_sspostscript(go, errbuf, ps, nseq_with_ins_ct, nins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    }
   }
   
   if(do_dall) { /* make a new postscript page marking all deletes */
@@ -840,10 +850,10 @@ main(int argc, char **argv)
 
       /* get insert info we'll use in individuals_sspostscript() */
       if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, &(ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
       }
       else { 
-	get_insert_info_from_msa(msa, ps->rflen, NULL, &ins_ct); /* dies with esl_fatal() upon an error */
+	get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
       }
       /* allocate for and set useme array to all TRUEs, we're printing all seqs */
       ESL_ALLOC(useme, sizeof(int) * msa_nseq); 
@@ -869,15 +879,15 @@ main(int argc, char **argv)
 	 */
 	if(! do_small) { 
 	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, &(ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
 	  }
 	  else { /* get insert info from the msa */
-	    get_insert_info_from_msa(msa, ps->rflen, NULL, &ins_ct); /* dies with esl_fatal() upon an error */
+	    get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
 	  }
 	}
 	else { /* do_small */ 
 	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, &(indi_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, NULL, &(indi_per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
 	  }
 	  /* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
 	   * below). We put the if() part above so that if there's an error in the ifile we find out before we do the 
@@ -946,7 +956,7 @@ main(int argc, char **argv)
 	  /* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
 	   * we need to get insert info from indi_msa in the event --ifile was not invoked */
 	  if(! esl_opt_IsOn(go, "--ifile")) { 
-	    get_insert_info_from_msa(indi_msa, ps->rflen, NULL, &indi_ins_ct); /* dies with esl_fatal() upon an error */
+	    get_insert_info_from_msa(indi_msa, ps->rflen, NULL, NULL, &indi_per_seq_ins_ct); /* dies with esl_fatal() upon an error */
 	  }
 
 	  /* now indi_msa includes exactly the seqs listed in the list file, rewrite useme and nused */
@@ -955,11 +965,11 @@ main(int argc, char **argv)
 	  nused = indi_msa->nseq;
 	}
     } /* end of else if (esl_opt_IsOn(go, "--list")) */
-    /* now we have msa and ins_ct for all possible combos of --small and --ifile, 
+    /* now we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
      * draw the individual sequence pages */
     if((status = individuals_sspostscript(go, errbuf, ps, 
-					  (do_small ? indi_msa    : msa), 
-					  (do_small ? indi_ins_ct : ins_ct), 
+					  (do_small ? indi_msa            : msa), 
+					  (do_small ? indi_per_seq_ins_ct : per_seq_ins_ct), 
 					  useme, nused, 
 					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-iprob")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-iprob")) && (msa->pp != NULL))),
 					  hc_scheme, RBFIVERHSCHEME, RBSIXRLSCHEME, hc_nbins[RBFIVERHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC, LIGHTGREYOC)) != eslOK)
@@ -986,8 +996,8 @@ main(int argc, char **argv)
   if(erfoff_ct != NULL) free(erfoff_ct);
   if(span_ct != NULL) free(span_ct);
   if(nseq_with_ins_ct != NULL) free(nseq_with_ins_ct);
-  if(ins_ct != NULL) esl_Free2D((void **) ins_ct, msa_nseq);
-  if(indi_ins_ct != NULL) esl_Free2D((void **) indi_ins_ct, indi_msa->nseq);
+  if(per_seq_ins_ct != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
+  if(indi_per_seq_ins_ct != NULL) esl_Free2D((void **) indi_per_seq_ins_ct, indi_msa->nseq);
   if(mask != NULL) free(mask);
   if(date != NULL) free(date);
   if(useme != NULL) free(useme);
@@ -2669,11 +2679,11 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  *           possibly their posteriors in the MSA.
  * Return:   eslOK on success.
  * 
- * ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
- *          insert after each position per sequence. 
+ * per_seq_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
+ *                  insert after each position per sequence. 
  */
 static int
-individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p)
+individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p)
 {
   int status;
   int p, i, pp, ai;
@@ -2801,7 +2811,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
-	nins_s = ins_ct[i][rfpos];
+	nins_s = per_seq_ins_ct[i][rfpos];
 
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
 	ps->uaseqlenA[i] += nins_s;
@@ -3400,20 +3410,16 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   return status; /* NEVERREACHED */
 }
 
-/* Function: insert_sspostscript()
+/* Function: insertfreq_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page, with colors 
  *           indicating the fraction of seqs with inserts after each
- *           position. This function differs from the others in that the number
- *           of inserts per column is passed in. This is because insert information
- *           can either be extracted from the msa (in get_insert_info_from_msa()) or
- *           from an insert information file <f> (in get_insert_info_from_ifile(), 
- *           where <f> was created by cmalign --matchonly --iinfo <f>).
+ *           position. 
  *           
  * Return:   eslOK on success.
  */
 static int
-insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp)
+insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp)
 {
   int status;
   int p, pp, c, l;
@@ -3460,18 +3466,19 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, TRUE);
 
   if(tabfp != NULL) { 
-    fprintf(tabfp, "# -----------\n");
-    fprintf(tabfp, "# Insert data\n");
-    fprintf(tabfp, "# -----------\n");
+    fprintf(tabfp, "# ---------------------\n");
+    fprintf(tabfp, "# Insert frequency data\n");
+    fprintf(tabfp, "# ---------------------\n");
     fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each possible insert position\n", ps->rflen+1);
     fprintf(tabfp, "# after each of the %d consensus positions and one more for inserts prior to the first consensus position.\n", ps->rflen);
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 4 : 5);
-    fprintf(tabfp, "# \ttoken 1: 'insert' (tag defining line type to ease parsing)\n");
+    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
+    fprintf(tabfp, "# \ttoken 1: 'insertfreq' (tag defining line type to ease parsing)\n");
     fprintf(tabfp, "# \ttoken 2: consensus position <cpos> after which inserts occur ('0' == before posn 1)\n");
     fprintf(tabfp, "# \ttoken 3: fraction of sequences that span <cpos> (see defn of span below) with >= 1 inserted residues after position\n");
-    fprintf(tabfp, "# \ttoken 4: bin index this positions falls in (see bin values below)\n");
+    fprintf(tabfp, "# \ttoken 4: number of sequences that span (begin at or prior to and end at or after) position (max is %d)\n", msa_nseq);
+    fprintf(tabfp, "# \ttoken 5: bin index this positions falls in (see bin values below)\n");
     if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 5: '1' if position is included by mask, '0' if not\n");
+      fprintf(tabfp, "# \ttoken 6: '1' if position is included by mask, '0' if not\n");
     }
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
@@ -3489,10 +3496,10 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
       fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences with >= 1 inserts after each position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
     }
     fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %6s  %6s  %8s  %3s", "type", "cpos", "ifreq", "bin");
+    fprintf(tabfp, "# %10s  %6s  %8s  %10s  %3s", "type", "cpos", "ifreq", "nspan", "bin");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
     fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %6s  %6s  %8s  %3s", "------", "------", "--------", "---");
+    fprintf(tabfp, "# %10s  %6s  %8s  %10s  %3s", "----------", "------", "--------", "----------", "---");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
     fprintf(tabfp, "\n");
   }
@@ -3502,7 +3509,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
     apos = ps->msa_rf2a_map[0];
     if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
     ifreq = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
-    fprintf(tabfp, "  insert  %6d  %8.5f  %3d", 0, ifreq, -1);
+    fprintf(tabfp, "  insertfreq  %6d  %8.5f  %10d  %3d", 0, ifreq, span_ct[0], -1);
     if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
     fprintf(tabfp, "\n");
   }
@@ -3530,7 +3537,7 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
     }
     /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
     if(tabfp != NULL) { 
-      fprintf(tabfp, "  insert  %6d  %8.5f  %3d", rfpos+1, ifreq, bi+1);
+      fprintf(tabfp, "  insertfreq  %6d  %8.5f  %10d  %3d", rfpos+1, ifreq, span_ct[rfpos], bi+1);
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }
@@ -3553,7 +3560,149 @@ insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int
   if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
   
- ERROR: ESL_FAIL(status, errbuf, "insert_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "insertfreq_sspostscript(): memory allocation error.");
+  return status; /* NEVERREACHED */
+}
+
+
+/* Function: insertavglen_sspostscript()
+ * 
+ * Purpose:  Fill a postscript data structure with 1 new page, with colors 
+ *           indicating the average length of inserts after each
+ *           position. 
+ *           
+ * Return:   eslOK on success.
+ */
+static int
+insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp)
+{
+  int status;
+  int p, pp, c, l;
+  int rfpos;
+  int orig_npage = ps->npage;
+  int apos;
+  int nzeroins = 0;
+  int nzeroins_masked = 0;
+  float *limits;
+  int within_mask;
+  float ifreq;
+  float iavglen;
+  int bi;
+
+  if(ps->mask == NULL) nzeroins_masked = -1; /* special flag */
+
+  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+
+  for(p = orig_npage; p < ps->npage; p++) { 
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    for(c = 0; c < ps->rflen; c++) { 
+      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+    }
+  }
+  pp = orig_npage;
+
+  /* add color legend */
+  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
+  limits[0] = 1.00;
+  limits[1] = 1.01;
+  limits[2] = 1.50;
+  limits[3] = 3.00;
+  limits[4] = 4.00;
+  limits[5] = 10.00;
+  limits[6] = SSDRAWINFINITY;
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, FALSE);
+
+  if(tabfp != NULL) { 
+    fprintf(tabfp, "# --------------------------\n");
+    fprintf(tabfp, "# Average insert length data\n");
+    fprintf(tabfp, "# --------------------------\n");
+    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each possible insert position\n", ps->rflen+1);
+    fprintf(tabfp, "# after each of the %d consensus positions and one more for inserts prior to the first consensus position.\n", ps->rflen);
+    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
+    fprintf(tabfp, "# \ttoken 1: 'insertlen' (tag defining line type to ease parsing)\n");
+    fprintf(tabfp, "# \ttoken 2: consensus position <cpos> after which inserts occur ('0' == before posn 1)\n");
+    fprintf(tabfp, "# \ttoken 3: average number of inserted residues after each position for those seqs with >=1 inserted residues)\n");
+    fprintf(tabfp, "# \ttoken 4: fraction of sequences that span <cpos> (see defn of span below) with >= 1 inserted residues after position\n");
+    fprintf(tabfp, "# \ttoken 5: number of sequences that span (begin at or prior to and end at or after) position (max is %d)\n", msa_nseq);
+    fprintf(tabfp, "# \ttoken 6: bin index this positions falls in (see bin values below)\n");
+    if(ps->mask != NULL) { 
+      fprintf(tabfp, "# \ttoken 7: '1' if position is included by mask, '0' if not\n");
+    }
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# A sequence s spans consensus position 'x' that is actual alignment position 'a' if s has\n");
+    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'b' <= 'a' and\n");
+    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'c' >= 'a'\n");
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# Value ranges for bins:\n");
+    fprintf(tabfp, "# \tbin -1: special case, reserved for inserts before position 1,\n");
+    fprintf(tabfp, "# \t        these are NOT SHOWN in the postscript diagram (!)\n");
+    fprintf(tabfp, "# \tbin  0: special case, 0 sequences have inserts after this position\n");
+    for(l = 0; l < hc_nbins; l++) { 
+      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s average insert length after each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
+    }
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "type", "cpos", "iavglen", "ifreq", "nspan", "bin");
+    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
+    fprintf(tabfp, "\n");
+    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "---------", "------", "--------", "--------", "----------", "---");
+    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
+    fprintf(tabfp, "\n");
+  }
+
+  /* print info on inserts before rfpos 1 to tabfile, if nec */
+  if(tabfp != NULL) { 
+    apos = ps->msa_rf2a_map[0];
+    if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
+    ifreq   = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
+    iavglen = (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
+    fprintf(tabfp, "  insertlen  %6d  %8.4f  %8.5f  %10d  %3d", 0, iavglen, ifreq, span_ct[0], -1);
+    if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
+    fprintf(tabfp, "\n");
+  }
+
+  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+    ps->rrAA[pp][rfpos] = ' ';
+    apos = ps->msa_rf2a_map[rfpos]; 
+    if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
+    ifreq   = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
+    iavglen = (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1]; 
+    if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
+      nzeroins++;
+      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
+      bi = -1; /* special case */
+    }
+    else {
+      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], iavglen, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+    }
+    /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
+    if(tabfp != NULL) { 
+      fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", rfpos+1, iavglen, ifreq, span_ct[rfpos], bi+1);
+      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
+      fprintf(tabfp, "\n");
+    }
+  }
+
+  /* add one-cell color legend */
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
+  /* add color legend */
+  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average insertion length", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "average insertion length after each position", errbuf)) != eslOK) return status;
+
+  free(limits);
+
+  if(tabfp != NULL) fprintf(tabfp, "//\n");
+  return eslOK;
+  
+ ERROR: ESL_FAIL(status, errbuf, "insertavglen_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
 
@@ -4979,20 +5128,23 @@ read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int
  * 
  * msa         - the alignment
  * rflen       - expected nongap RF length (consensus length)
- * ret_nseq_with_ins_ct - [0..rflen]  number of sequences with >= 1 
+ * ret_nseq_with_ins_ct - [0..rflen] number of sequences with >= 1 
  *               insert after each position. NULL if unwanted.
- * ret_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
- *              insert after each position per sequence. NULL if unwanted.
+ * ret_nins_ct - [0..rflen] total number of inserted residues 
+ *               after each position. NULL if unwanted.
+ * ret_per_seq_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
+ *                      insert after each position per sequence. NULL if unwanted.
  * 
  * Returns void. Dies with an informative error message upon an error.
  */
 void
-get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int ***ret_ins_ct)
+get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct)
 {
   int             status;
   int             i;
   int            *nseq_with_ins_ct = NULL;
-  int           **ins_ct = NULL;
+  int            *nins_ct = NULL;
+  int           **per_seq_ins_ct = NULL;
   int             rfpos, apos;
 
   /* contract check */
@@ -5001,13 +5153,15 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
   /* allocate and initialize */
   ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
   esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
-  ESL_ALLOC(ins_ct, sizeof(int *) * (msa->nseq));
+  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
+  esl_vec_ISet(nins_ct, rflen+1, 0);
+  ESL_ALLOC(per_seq_ins_ct, sizeof(int *) * (msa->nseq));
   for(i = 0; i < msa->nseq; i++) { 
-    ESL_ALLOC(ins_ct[i],  sizeof(int) * (rflen+1));
-    esl_vec_ISet(ins_ct[i], (rflen+1), 0);
+    ESL_ALLOC(per_seq_ins_ct[i],  sizeof(int) * (rflen+1));
+    esl_vec_ISet(per_seq_ins_ct[i], (rflen+1), 0);
   }
 
-  /* fill ins_ct, nseq_with_ins_ct */
+  /* fill per_seq_ins_ct, nseq_with_ins_ct */
   rfpos = 0;
   for(apos = 0; apos < msa->alen; apos++) { 
     if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
@@ -5019,8 +5173,9 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
     else { 
       for(i = 0; i < msa->nseq; i++) { 
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
-	  ins_ct[i][rfpos]++;
-	  if(ins_ct[i][rfpos] == 1) nseq_with_ins_ct[rfpos]++;
+	  per_seq_ins_ct[i][rfpos]++;
+	  nins_ct[rfpos]++;
+	  if(per_seq_ins_ct[i][rfpos] == 1) nseq_with_ins_ct[rfpos]++;
 	}	  
       }
     }
@@ -5028,8 +5183,10 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
 
   if(ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
   else free(nseq_with_ins_ct);
-  if(ret_ins_ct != NULL) *ret_ins_ct = ins_ct;
-  else esl_Free2D((void **) ins_ct, msa->nseq);
+  if(ret_nins_ct != NULL) *ret_nins_ct = nins_ct;
+  else free(nins_ct);
+  if(ret_per_seq_ins_ct != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
+  else esl_Free2D((void **) per_seq_ins_ct, msa->nseq);
 
   return;
 
@@ -5100,9 +5257,11 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
  * ret_nseq_with_ins_ct  - [0..rflen] number of sequences with >= 1 inserts
  *                         after each RF position. 
  *                         Note [0] is before first posn, [1] is after first posn, [rflen] is after last one
- * ret_ins_ct    - [0..i..msa->nseq-1][0..rflen number of inserts
- *                 after each position for each sequence.
- *                 Filled here.
+ * ret_nins_ct           - [0..rflen] total number of inserted residues (over all seqs) after each RF position. 
+ *                         Note [0] is before first posn, [1] is after first posn, [rflen] is after last one
+ * ret_per_seq_ins_ct    - [0..i..msa->nseq-1][0..rflen number of inserts
+ *                         after each position for each sequence.
+ *                         Filled here.
  * 
  * ret_srfoff_ct - [0..rfpos..rflen-1] count adjustment to make to a spos_ct[rfpos] if it 
  *                 were obtained from an alignment with inserts removed, this value is <a>+<b>,
@@ -5127,14 +5286,15 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
  * Returns void. Dies with an informative error message on an error.
  */
 void
-get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int ***ret_ins_ct, int **ret_srfoff_ct, int **ret_erfoff_ct)
+get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_srfoff_ct, int **ret_erfoff_ct)
 {
   int             status;
   ESL_FILEPARSER *efp;
   char           *tok;
   int             nseq_read = 0;
   int             nseq_stored = 0;
-  int           **ins_ct = NULL;
+  int           **per_seq_ins_ct = NULL;
+  int            *nins_ct = NULL;
   int            *nseq_with_ins_ct = NULL;
   int             nins;
   int             i;
@@ -5164,6 +5324,9 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
   esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
 
+  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
+  esl_vec_ISet(nins_ct, rflen+1, 0);
+
   if(ret_srfoff_ct != NULL) { 
     ESL_ALLOC(srfoff_ct, sizeof(int) * rflen);
     esl_vec_ISet(srfoff_ct, rflen, 0);
@@ -5172,11 +5335,11 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
     ESL_ALLOC(erfoff_ct, sizeof(int) * rflen);
     esl_vec_ISet(erfoff_ct, rflen, 0);
   }
-  if(ret_ins_ct != NULL) { 
-    ESL_ALLOC(ins_ct, sizeof(int *) * (nseq2store));
+  if(ret_per_seq_ins_ct != NULL) { 
+    ESL_ALLOC(per_seq_ins_ct, sizeof(int *) * (nseq2store));
     for(i = 0; i < nseq2store; i++) { 
-      ESL_ALLOC(ins_ct[i],  sizeof(int) * (rflen+1));
-      esl_vec_ISet(ins_ct[i], (rflen+1), 0);
+      ESL_ALLOC(per_seq_ins_ct[i],  sizeof(int) * (rflen+1));
+      esl_vec_ISet(per_seq_ins_ct[i], (rflen+1), 0);
     }
   }
 
@@ -5239,8 +5402,8 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
 	  /* nins */
 	  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, NULL)) != eslOK) esl_fatal("Error reading insert file, didn't read number of inserts for position %d on line %d of file %s.\n", rfpos, efp->linenumber, ifile);
 	  nins = atoi(tok);
-
-	  if(ins_ct != NULL) ins_ct[nseq_stored][rfpos] = nins;
+	  nins_ct[rfpos] = nins;
+	  if(per_seq_ins_ct != NULL) per_seq_ins_ct[nseq_stored][rfpos] = nins;
 	  if(nins > 0) nseq_with_ins_ct[rfpos]++; /* nins should always be > 0, but why not check?  */
 	  
 	  /* check for special cases where a spos_ct and epos_ct read from a de-inserted msa would be incorrect */
@@ -5306,15 +5469,16 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   }
   if(nseq_read != msa_nseq)  esl_fatal("Error reading insert file, expected to read info on %d seqs, but only found %d in the insert file %s\n", msa_nseq, nseq_read, ifile);      
 
-  if(ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
-  else free(nseq_with_ins_ct);
-
-  if      (ret_srfoff_ct != NULL) *ret_srfoff_ct = srfoff_ct;
-  else if (srfoff_ct     != NULL) free(srfoff_ct);
-  if      (ret_erfoff_ct != NULL) *ret_erfoff_ct = erfoff_ct;
-  else if (erfoff_ct     != NULL) free(erfoff_ct);
-  if      (ret_ins_ct    != NULL) *ret_ins_ct = ins_ct;
-  else if (ins_ct        != NULL) esl_Free2D((void **) ins_ct, msa_nseq);
+  if      (ret_nins_ct          != NULL) *ret_nins_ct = nins_ct;
+  else                                   free(nins_ct);
+  if      (ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
+  else                                   free(nseq_with_ins_ct);
+  if      (ret_srfoff_ct        != NULL) *ret_srfoff_ct = srfoff_ct;
+  else if (srfoff_ct            != NULL) free(srfoff_ct);
+  if      (ret_erfoff_ct        != NULL) *ret_erfoff_ct = erfoff_ct;
+  else if (erfoff_ct            != NULL) free(erfoff_ct);
+  if      (ret_per_seq_ins_ct   != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
+  else if (per_seq_ins_ct       != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
 
   return;
 
@@ -5351,20 +5515,25 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
  * rflen       - expected nongap RF length (consensus length)
  * ret_nseq_with_ins_ct - [0..rflen]  number of sequences with >= 1 
  *               insert after each position. NULL if unwanted.
+ * ret_nins_ct - [0..rflen] total number of inserted residues (over
+ *               all sequences after each position. NULL if unwanted.
  * 
  * Returns void. Dies with an informative error message upon an error.
  */
 void
-get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct)
+get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct)
 {
   int             status;
+  int            *nins_ct;
   int            *nseq_with_ins_ct;
-  int             nmaxins;
+  int             nins, nmaxins;
   int             rfpos, apos;
 
   /* allocate and initialize */
   ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
   esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
+  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
+  esl_vec_ISet(nins_ct, rflen+1, 0);
 
   nmaxins = 0;
   rfpos = 0;
@@ -5378,12 +5547,16 @@ get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, in
       if(rfpos > rflen) esl_fatal("Error in get_insert_info_from_abc_ct(), expected consensus length (%d) is incorrect."); 
     }
     else { 
-      nmaxins = ESL_MAX(nmaxins, (int) esl_vec_DSum(abc_ct[apos], abc->K)); 
+      nins = (int) esl_vec_DSum(abc_ct[apos], abc->K); 
+      nins_ct[rfpos] += nins;
+      nmaxins = ESL_MAX(nmaxins, nins);
     }
   }
   /* get max_nseq with inserts after the final position */
   nseq_with_ins_ct[rfpos] = nmaxins;
 
+  if(ret_nins_ct          != NULL) *ret_nins_ct          = nins_ct;
+  else free(nins_ct);
   if(ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
   else free(nseq_with_ins_ct);
 
