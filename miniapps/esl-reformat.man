@@ -155,6 +155,16 @@ characters, minimizing the overall length of the alignment.
 sequences from a larger alignment.)
 
 .TP
+.B --keeprf
+When used in combination with
+.B --mingap,
+never remove a column that is not a gap in the reference (#=GC RF) 
+annotation, even if the column contains 100% gap characters in 
+all aligned sequences. By default with
+.B --mingap,
+nongap RF columns that are 100% gaps in all sequences are removed.
+
+.TP
 .B --nogap
 Remove any aligned columns that contain any gap symbols
 at all. Useful as a prelude to phylogenetic analyses, where

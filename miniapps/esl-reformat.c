@@ -32,26 +32,27 @@ static char usage[] = "[-options] <format> <seqfile>\n\
 #define INCOMPATWITHSMALLOPT "--mingap,--nogap,--ignore,--acceptx"
 
 static ESL_OPTIONS options[] = {
-   /* name          type        default env   range togs  reqs  incompat                     help                                      docgroup */
-  { "-d",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-r",                  "convert to DNA alphabet (U->T)",                     0 },
-  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,                  "help; print brief info on version and usage",        0 },
-  { "-l",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-u",                  "convert to lower case",                              0 },
-  { "-n",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-x",                  "remove DNA IUPAC codes; convert ambig chars to N",   0 },
-  { "-o",         eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "send output to file <f>, not stdout",                0 },
-  { "-r",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-d",                  "convert to RNA alphabet (T->U)",                     0 }, 
-  { "-u",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-l",                  "convert to upper case",                              0 },
-  { "-x",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "-n",                  "convert non-IUPAC chars (e.g. X) in DNA to N",       0 },
-  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, "--mingap,--nogap",    "convert all gaps to character <c>",                  0 },
-  { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL, NULL,                  "input sequence file is in format <s>",               0 },
-  { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--nogap",             "remove columns containing all gaps (seqfile=MSA)",   0 },
-  { "--nogap",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--mingap,--gapsym",   "remove columns containing any gaps (seqfile=MSA)",   0 },
-  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--dewuss,--fullwuss", "convert old RNA structure markup lines to WUSS",     0 },
-  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--fullwuss","convert WUSS RNA structure markup to old format",    0 },
-  { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
-  { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "ignore input seq characters listed in string <s>",   0 },
-  { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "accept input seq chars in string <s> as X",          0 },
-  { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,                  "rename and number each sequence <s>.<n>",            0 },
-  { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, ouput must be afa or pfam",0 },
+   /* name          type        default env   range togs  reqs        incompat                     help                                      docgroup */
+  { "-d",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-r",                  "convert to DNA alphabet (U->T)",                     0 },
+  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       NULL,                  "help; print brief info on version and usage",        0 },
+  { "-l",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-u",                  "convert to lower case",                              0 },
+  { "-n",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-x",                  "remove DNA IUPAC codes; convert ambig chars to N",   0 },
+  { "-o",         eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "send output to file <f>, not stdout",                0 },
+  { "-r",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-d",                  "convert to RNA alphabet (T->U)",                     0 }, 
+  { "-u",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-l",                  "convert to upper case",                              0 },
+  { "-x",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "-n",                  "convert non-IUPAC chars (e.g. X) in DNA to N",       0 },
+  { "--gapsym",   eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       "--mingap,--nogap",    "convert all gaps to character <c>",                  0 },
+  { "--informat", eslARG_STRING,  NULL, NULL, NULL, NULL, NULL,       NULL,                  "input sequence file is in format <s>",               0 },
+  { "--mingap",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--nogap",             "remove columns containing all gaps (seqfile=MSA)",   0 },
+  { "--keeprf",   eslARG_NONE,   FALSE, NULL, NULL, NULL, "--mingap", NULL,                  "with --mingap, keep all nongap #=GC RF columns",     0 },
+  { "--nogap",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--mingap,--gapsym",   "remove columns containing any gaps (seqfile=MSA)",   0 },
+  { "--wussify",  eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--dewuss,--fullwuss", "convert old RNA structure markup lines to WUSS",     0 },
+  { "--dewuss",   eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--wussify,--fullwuss","convert WUSS RNA structure markup to old format",    0 },
+  { "--fullwuss", eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       "--wussify,--dewuss",  "convert simple WUSS notation to full (output) WUSS", 0 },
+  { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "ignore input seq characters listed in string <s>",   0 },
+  { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "accept input seq chars in string <s> as X",          0 },
+  { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
+  { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, ouput must be afa or pfam",0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -222,8 +223,8 @@ main(int argc, char **argv)
 	    if (nali > 1 && outfmt == eslMSAFILE_A2M)      esl_fatal("Input file contains >1 alignments, but a2m formatted output file can only contain 1");
 	    if (nali > 1 && outfmt == eslMSAFILE_PSIBLAST) esl_fatal("Inputt file contains >1 alignments, but psiblast formatted output file can only contain 1");
 
-	    if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
-	    if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.")) != eslOK) esl_fatal(errbuf);
+	    if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"))) != eslOK) esl_fatal(errbuf);
+	    if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.~"))                                     != eslOK) esl_fatal(errbuf);
 	    if (gapsym!=NULL) esl_msa_SymConvert(msa, "-_.", gapsym);
 	    if (force_lower)  esl_msa_SymConvert(msa,
 						 "ABCDEFGHIJKLMNOPQRSTUVWXYZ",

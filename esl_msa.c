@@ -2849,6 +2849,13 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
  *            containing fewer columns. All per-residue and per-column
  *            annotation is altered appropriately for the columns that
  *            remain in the new alignment.
+ * 
+ *            If <consider_rf> is TRUE, only columns that are gaps
+ *            in all sequences of <msa> and a gap in the RF annotation 
+ *            of the alignment (>msa->rf>) will be removed. It is 
+ *            okay if <consider_rf> is TRUE and <msa->rf> is NULL
+ *            (no error is thrown), the function will behave as if 
+ *            <consider_rf> is FALSE.
  *
  * Returns:   <eslOK> on success.
  * 
@@ -2861,13 +2868,13 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
  * Xref:      squid's MSAMingap().
  */
 int
-esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
+esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
 {
   int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
   int64_t apos;		/* column index   */
   int     idx;		/* sequence index */
   int     status;
-
+  int     rf_is_nongap; /* TRUE if current position is not a gap in msa->rf OR msa->rf is NULL */
   ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
 
 #ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
@@ -2875,11 +2882,20 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
     {
       for (apos = 1; apos <= msa->alen; apos++)
 	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
-		! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
-	      break;
-	  if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
+	  rf_is_nongap = ((msa->rf != NULL) && 
+			  (! esl_abc_CIsGap    (msa->abc, msa->rf[apos-1])) &&
+			  (! esl_abc_CIsMissing(msa->abc, msa->rf[apos-1]))) ?
+	    TRUE : FALSE;
+	  if(rf_is_nongap && consider_rf) { /* RF is not a gap and consider_rf is TRUE, keep this column */
+	    useme[apos-1] = TRUE;
+	  }
+	  else { /* check all seqs to see if this column is all gaps */
+	    for (idx = 0; idx < msa->nseq; idx++)
+	      if (! esl_abc_XIsGap    (msa->abc, msa->ax[idx][apos]) &&
+		  ! esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))
+		break;
+	    if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
+	  }
 	}
     }
 #endif
@@ -2887,13 +2903,20 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
     {
       for (apos = 0; apos < msa->alen; apos++)
 	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
-	      break;
-	  if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
+	  rf_is_nongap = ((msa->rf != NULL) && 
+			  (strchr(gaps, msa->rf[apos]) == NULL)) ?
+	    TRUE : FALSE;
+	  if(rf_is_nongap && consider_rf) { /* RF is not a gap and consider_rf is TRUE, keep this column */
+	    useme[apos] = TRUE;
+	  }
+	  else { /* check all seqs to see if this column is all gaps */
+	    for (idx = 0; idx < msa->nseq; idx++)
+	      if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
+		break;
+	    if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
+	  }
 	}
     }
-
   if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
   free(useme);
   return eslOK;
@@ -6720,7 +6743,7 @@ utest_MinimGaps(char *tmpfile)
   if (esl_msafile_Open(tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK)                                     esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL, "-~") != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(msa, NULL, "-~", FALSE) != eslOK) esl_fatal(msg);
   if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
   if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
@@ -6731,8 +6754,8 @@ utest_MinimGaps(char *tmpfile)
   if (esl_msafile_OpenDigital(abc, tmpfile, eslMSAFILE_STOCKHOLM, NULL, &mfp) != eslOK) esl_fatal(msg);
   if (esl_msa_Read(mfp, &msa) != eslOK) esl_fatal(msg);
   esl_msafile_Close(mfp);
-  if (esl_msa_MinimGaps(msa, NULL, NULL) != eslOK) esl_fatal(msg);
-  if (msa->alen        != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
+  if (esl_msa_MinimGaps(msa, NULL, NULL, FALSE) != eslOK) esl_fatal(msg);
+  if (msa->alen            != 45)  esl_fatal(msg); /* orig =47, with one all - column and one all ~ column */
   if (esl_msa_Textize(msa) != eslOK) esl_fatal(msg);
   if (msa->aseq[0][11] != 'L') esl_fatal(msg); /* L shifted from column 13->12 */
   if (msa->aseq[0][18] != 'T') esl_fatal(msg); /* T shifted from column 21->19 */
@@ -6794,9 +6817,9 @@ utest_SymConvert(char *tmpfile)
   esl_msafile_Close(mfp);
 
   /* many->one version */
-  if (esl_msa_SymConvert(msa, "VWY", "-")   != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
-  if (esl_msa_MinimGaps(msa, NULL, "-~")    != eslOK) esl_fatal(msg); /* now we're 39 columns long */
-  if (msa->alen                             != 39)    esl_fatal(msg);
+  if (esl_msa_SymConvert(msa, "VWY", "-")          != eslOK) esl_fatal(msg); /* 6 columns convert to all-gap: now 8/47 */
+  if (esl_msa_MinimGaps(msa, NULL, "-~", FALSE)    != eslOK) esl_fatal(msg); /* now we're 39 columns long */
+  if (msa->alen                                    != 39)    esl_fatal(msg);
 
   /* many->many version */
   if (esl_msa_SymConvert(msa, "DEF", "VWY") != eslOK) esl_fatal(msg);
@@ -6858,9 +6881,9 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* These should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, NULL, "-")!= eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, NULL, "-")   != eslOK) esl_fatal(msg);
-  if (esl_msa_SymConvert(z1,"RY","NN")!= eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(z1, NULL, "-", FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, NULL, "-")           != eslOK) esl_fatal(msg);
+  if (esl_msa_SymConvert(z1,"RY","NN")        != eslOK) esl_fatal(msg);
   
   /* test sequence subsetting by removing the first sequence */
   for (i = 1; i < z1->nseq; i++) useme[i] = 1;  
@@ -6882,8 +6905,8 @@ utest_ZeroLengthMSA(const char *tmpfile)
   if (esl_msa_ColumnSubset(z1, errbuf, useme) != eslOK) esl_fatal(msg);
 
   /* again these should all no-op if alen=0*/
-  if (esl_msa_MinimGaps(z1, NULL, NULL) != eslOK) esl_fatal(msg);
-  if (esl_msa_NoGaps(z1, NULL, NULL)    != eslOK) esl_fatal(msg);
+  if (esl_msa_MinimGaps(z1, NULL, NULL, FALSE) != eslOK) esl_fatal(msg);
+  if (esl_msa_NoGaps(z1, NULL, NULL)           != eslOK) esl_fatal(msg);
   /* SymConvert throws EINVAL on a digital mode alignment */
 
   /* test sequence subsetting by removing the first sequence */
