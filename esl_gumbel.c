@@ -213,6 +213,8 @@ esl_gumbel_invsurv(double p, double mu, double lambda)
 		log_part = log(-1. * log(1-p));
 	}
 
+	//test
+
     return mu - ( log_part / lambda);
 }
 /*------------------ end of densities and distributions --------------------*/
