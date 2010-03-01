@@ -195,7 +195,25 @@ esl_gumbel_invcdf(double p, double mu, double lambda)
 double
 esl_gumbel_invsurv(double p, double mu, double lambda)
 {
-    return mu - ( log(-1. * log(1-p)) / lambda);
+	/* The real calculation is mu - ( log(-1. * log(1-p)) / lambda).
+	*  But there's a problem with small p:
+	*     for p<1e-15, 1-p will be viewed as 1, so
+	*     log ( -log(1-p) ) == log (0) -> inf
+	*  Instead, use two approximations;
+	*    (1) log( 1-p) ~= -p   for small p (e.g. p<0.001)
+	*      so log(-1. * log(1-p)) ~= log(p)
+	*    (2) log (p) ~= (p^p - 1) / p
+	*
+	*    See notes Mar 1, 2010.
+	*/
+	double log_part;
+	if (p < eslSMALLX1) {
+		log_part = (pow(p,p) - 1 ) / p;
+	} else {
+		log_part = log(-1. * log(1-p));
+	}
+
+    return mu - ( log_part / lambda);
 }
 /*------------------ end of densities and distributions --------------------*/
 
