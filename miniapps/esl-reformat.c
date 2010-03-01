@@ -802,7 +802,7 @@ regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lo
       }
     } /* end of 'if (*s == '#')' */ 
     else if (strncmp(s, "//",   2) == 0)   { break; /* normal way out */ }
-    else if (*s == '\n' || *s == '\r')     { fprintf(ofp, afp->buf); continue; }
+    else if (*s == '\n' || *s == '\r')     { fprintf(ofp, "%s", afp->buf); continue; }
     else { /* sequence line */
       /* parse line into temporary strings */
       s = afp->buf;

@@ -1141,7 +1141,7 @@ output_mask(char *filename, int *useme, int *i_am_eligible, int64_t alen, char *
   }
   mask[mlen] = '\0';
 
-  if ((ofp = fopen(filename, "w")) == NULL) ESL_FAIL(eslFAIL, "Failed to open output file %s\n", filename);
+  if ((ofp = fopen(filename, "w")) == NULL) ESL_FAIL(eslFAIL, errbuf, "Failed to open output file %s\n", filename);
   fprintf(ofp, "%s\n", mask);
 
   free(mask);
