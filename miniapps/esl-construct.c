@@ -27,17 +27,18 @@
 
 #define CONSOPTS  "-x,--ffreq,--fmin,-r,-c,--indi"  /* exclusive options for defining a new consensus structure */
 
-static char banner[] = "describe or create a consensus secondary structure";
-static char usage[]  = "[options] <msafile>\n\
-<msafile> must contain RNA or DNA sequences and be in Stockholm format.";
+static char banner[] = "describe or create consensus from individual RNA secondary structures";
+static char usage[]  = "[options] <msafile>";
 
 static int  get_gaps_per_column(ESL_MSA *msa, int **ret_ngaps);
 
 static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1},
+  { "-q",          eslARG_NONE,  FALSE, NULL,NULL,       NULL, NULL, NULL,                      "do not print default table summarizing exisiting struct info",   1},
   { "-a",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, NULL, CONSOPTS,                  "print info on all conflicting bps in individual structures",     1},
-  { "-v",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, NULL,NULL,                       "be verbose",                                                     1 },
+  { "-g",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, NULL, NULL,                      "count gaps as non-basepairs for SS_cons definition",             1 },
+  { "-v",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, NULL,NULL,                       "be verbose",                 1 },
   /* options for defining new consensus structures */
   { "-x",          eslARG_NONE,  NULL,  NULL, NULL,      NULL, "-o", CONSOPTS,                  "set SS_cons as max set of non-conflicting bps from indi SSs", 2 },
   { "-r",          eslARG_NONE,  NULL,  NULL, NULL,      NULL, "-o", CONSOPTS,                  "remove SS_cons basepairs that conflicts with > 0 indi SS",     2 },
@@ -47,11 +48,11 @@ static ESL_OPTIONS options[] = {
   { "--rfindi",    eslARG_NONE,   NULL, NULL, NULL,      NULL, "--indi",NULL,                   "with --indi <x>, define RF annotation as <x>",                   2 },
   { "--ffreq",      eslARG_REAL,  NULL,  NULL,"0.<=x<=1", NULL,"-o", CONSOPTS,                  "aln cols i:j become SS_cons bps if paired in > <x> indi SS", 2},
   { "--fmin",      eslARG_NONE,  NULL,  NULL, NULL,      NULL, "-o", CONSOPTS,                  "same as --ffreq but find min <x> that gives consistent SS_cons", 2},
-  { "-o",          eslARG_OUTFILE,NULL,  NULL, NULL,     NULL, NULL, "-a",                      "output a new alignment to file <f>",                             2 },
-  { "--pfam",      eslARG_NONE,  FALSE, NULL, NULL,      NULL, "-o", NULL,                      "output alignment in Pfam (non-interleaved, 1 line/seq) format",  2 },
+  { "-o",          eslARG_OUTFILE,NULL,  NULL, NULL,      NULL, NULL, "-a",                     "output a new alignment to file <f>",                             2 },
+  { "-1",          eslARG_NONE,  FALSE, NULL, NULL,      NULL, "-o", NULL,                      "output alignment in Pfam (non-interleaved, 1 line/seq) format",  2 },
   /* options for listing sequences based on structural properties */
   { "-l",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL, NULL, NULL,                      "list seqs w/> 0 indi bp that conflicts w/a SS_cons bp to file <f>", 3},
-  { "--lmax",      eslARG_INT,   "0",    NULL, "n>=0",    NULL, NULL, NULL,                     "with -l, change maximum allowed conflicts of 0 to <x>", 3},
+  { "--lmax",      eslARG_INT,   "0",    NULL, "n>=0",    NULL, NULL, NULL,                      "with -l, change maximum allowed conflicts of 0 to <x>", 3},
   /* options for specifying alphabet */
   { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--rna",                     "<msafile> contain DNA alignments",                          4 },
   { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna",                     "<msafile> contain RNA alignments",                          4 },
@@ -68,6 +69,7 @@ main(int argc, char **argv)
   ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* multiple sequence alignment     */
   int           status;		/* easel return code               */
+  /*char          errbuf[eslERRBUFSIZE*4];*/
 
   int           do_info = TRUE;                /* TRUE if -i */
   int           do_max = FALSE;                /* TRUE if -x */
@@ -84,7 +86,6 @@ main(int argc, char **argv)
 						*/
   int           do_a = FALSE;                  /* TRUE if -a */
   char         *indi;                          /* for <x> from --indi <x> */
-  int           nindi_read;                    /* number of individual sequence SS lines we've read for current alignment */
 
   int           a;		               /* counter over seqs               */
   int           i, i2;		               /* counter over residues */
@@ -114,24 +115,13 @@ main(int argc, char **argv)
   int           max_noverlaps_aidx;
   int           max_nconsistent_aidx;
   int           max_nbps_aidx;
+
   int          *removebp;                      /* removebp[i] is TRUE remove consensus bp [i]:xcons_ct[i] */
   int          *has_conflict;    
   int          *nmates_l2r;                    /* half matrix, nmate_l2r[i] = <x>, i < nmate_l2r[i], there are <x> different right mates j for i */
   int          *nmates_r2l;                    /* half matrix, nmate_r2l[j] = <x>, j < nmate_r2l[j], there are <x> different left  mates i for j */
 
   int           lmax;                          /* with -l, maximum number of conflicts to allow */
-  int           type;                          /* alphabet type */
-  int           namewidth = 18;                 /* length of 'SS_cons(consensus)' */
-  char         *namedashes = NULL;             /* to store underline for seq name */
-
-  /* --fmin related variables */
-  int nbps = 0;
-  int prev_nbps = -1;
-  float fmin;
-  int inconsistent_flag;
-  int pknot_flag;
-  int k,l;
-
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -152,7 +142,7 @@ main(int argc, char **argv)
       esl_usage (stdout, argv[0], usage);
       puts("\nwhere basic options are:");
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("\noptions for defining a new consensus structure (all of these require -o):");
+      puts("\noptions for defining a new consensus structure:");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
       puts("\noptions for listing sequences based on structure:");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
@@ -169,7 +159,7 @@ main(int argc, char **argv)
 
   alifile  = esl_opt_GetArg(go, 1);
 
-  fmt = eslMSAFILE_STOCKHOLM;
+  fmt             = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
@@ -185,6 +175,7 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--dna"))          abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else {
+    int type;
     status = esl_msafile_GuessAlphabet(afp, &type);
     if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
@@ -207,7 +198,6 @@ main(int argc, char **argv)
 
   /* determine if we're creating a structure */
   do_max = esl_opt_GetBoolean(go, "-x");
-    
   if(!(esl_opt_IsDefault(go, "--ffreq"))) { 
     do_ffreq = TRUE; 
     fthresh = esl_opt_GetReal(go, "--ffreq"); 
@@ -225,9 +215,8 @@ main(int argc, char **argv)
     do_newcons = TRUE;
   }
   do_a = esl_opt_GetBoolean(go, "-a");
-  if(do_a || do_max || do_ffreq || do_fmin || do_remove_bps || do_consistent || do_indi2cons) { 
-    do_info = FALSE;
-  }
+  if(do_a) do_info = FALSE;
+  if(esl_opt_GetBoolean(go, "-q")) do_info = FALSE;
 
   /***********************************************
    * Read MSAs one at a time.
@@ -239,15 +228,6 @@ main(int argc, char **argv)
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
       nali++;
-
-      /* determine max length name */
-      namewidth = 18; /* length of 'SS_cons(consensus)' */
-      for(i = 0; i < msa->nseq; i++) namewidth = ESL_MAX(namewidth, strlen(msa->sqname[i]));
-      if(namedashes != NULL) { free(namedashes); }
-      ESL_ALLOC(namedashes, sizeof(char) * namewidth+1);
-      namedashes[namewidth] = '\0';
-      for(i = 0; i < namewidth; i++) namedashes[i] = '-';
-
       ESL_ALLOC(sscons, sizeof(char) * (msa->alen+1));
       ESL_ALLOC(cur_ct, sizeof(int) * (msa->alen+1));
       ESL_ALLOC(cons_ct, sizeof(int) * (msa->alen+1));
@@ -281,14 +261,6 @@ main(int argc, char **argv)
 	esl_vec_ISet(bp[i], (msa->alen+1), 0);
       }
 
-      /* make sure we have ss_cons and indi ss if we need it */
-      if(msa->ss_cons == NULL && do_remove_bps) esl_fatal("-r requires all alignments have SS_cons annotation, alignment %d does not.", nali);
-      if(msa->ss == NULL && do_max)             esl_fatal("-x requires all alignments have individual SS annotation, alignment %d does not.", nali);
-      if(msa->ss == NULL && do_consistent)      esl_fatal("-c requires all alignments have individual SS annotation, alignment %d does not.", nali);
-      if(msa->ss == NULL && do_indi2cons)       esl_fatal("--indi requires all alignments have individual SS annotation, alignment %d does not.", nali);
-      if(msa->ss == NULL && do_ffreq)           esl_fatal("--ffreq requires all alignments have individual SS annotation, alignment %d does not.", nali);
-      if(msa->ss == NULL && do_fmin)            esl_fatal("--fmin requires all alignments have individual SS annotation, alignment %d does not.", nali);
-
       if(msa->ss_cons != NULL) { 
 	if((status = esl_wuss2ct(msa->ss_cons, msa->alen, xcons_ct)) != eslOK) { 
 	  esl_fatal("Existing SS_cons for alignment %d is invalid.", nali);
@@ -316,37 +288,22 @@ main(int argc, char **argv)
 	  esl_fatal("the first aln does not have SS_cons but aln %d does, if one has it, they all must.", nali); 
       }
 
-      if(do_info) { 
-	printf("# Per-sequence basepair information:\n"); 
-	printf("# Alignment file: %s\n", alifile);
-	printf("# Alignment idx:  %d\n", nali);
-	if(msa->name != NULL) { printf("# Alignment name: %s\n", msa->name); }
+      if(nali == 1 && do_info) { 
 	if(have_cons) { 
-	  printf("#\n");
-	  printf("# indibp: number of basepairs in the individual sequence SS annotation\n");
-	  printf("# ovrlap: number of indibp basepairs that also exist as consensus basepairs\n");
-	  printf("# cnsist: number of indibp basepairs that do not conflict with any consensus basepairs\n");
-	  printf("# cnflct: number of indibp basepairs that conflict with >= 1 consensus basepairs\n");
-	  printf("#\n");
-	  printf("# A conflict exists between two basepairs in different structures, one between columns i and j\n");
-	  printf("# and the other between columns k and l, if (i == k and j != l) or (j == l and i != k).\n");
-	  printf("#\n");
-	  printf("# %-*s  %6s  %6s  %6s  %6s\n", namewidth, "seqname", "indibp", "ovrlap", "cnsist", "cnflct");
-	  printf("# %-*s  %6s  %6s  %6s  %6s\n", namewidth, namedashes, "------", "------", "-----", "------");
+	  printf("%-60s  %6s  %6s  %6s  %6s\n", "# seqname", "indibp", "ovrlap", "cnsist", "cnflct");
+	  printf("%-60s  %6s  %6s  %6s  %6s\n", "# ----------------------------------------------------------", "------", "------", "-----", "------");
 	}
 	else { 
-	  printf("# %-*s  %6s\n", namewidth, "seqname", "nbp");
-	  printf("# %-*s  %6s\n", namewidth, namedashes, "------");
+	  printf("%-60s  %6s\n", "# seqname", "nbp");
+	  printf("%-60s  %6s\n", "# ----------------------------------------------------------", "------");
 	}
       }
 
-      nindi_read = 0;
       for (a = 0; a < msa->nseq; a++) { 
 	if(msa->ss != NULL && msa->ss[a] != NULL) { 
 	  if((status = esl_wuss2ct(msa->ss[a], msa->alen, cur_ct)) != eslOK) { 
 	    esl_fatal("SS annotation for sequence %d, aln %d  is invalid.\n", (a+1), nali);
 	  }
-	  nindi_read++;
 	  for(i = 1; i <= msa->alen; i++) { 
 	    if(i < cur_ct[i]) { 
 	      bp[i][cur_ct[i]]++;
@@ -388,8 +345,8 @@ main(int argc, char **argv)
 	  noverlaps_total += noverlapsA[a];
 	  nbps_total += nbpsA[a];
 
-	  if(do_info && have_cons)  printf("  %-*s  %6d  %6d  %6d  %6d\n", namewidth, msa->sqname[a], nbpsA[a], noverlapsA[a], nconsistentA[a], nconflictsA[a]); 
-	  if(do_info && !have_cons) printf("  %-*s  %6d\n", namewidth, msa->sqname[a], nbpsA[a]);
+	  if(do_info && have_cons)  printf("%-60s  %6d  %6d  %6d  %6d\n", msa->sqname[a], nbpsA[a], noverlapsA[a], nconsistentA[a], nconflictsA[a]); 
+	  if(do_info && !have_cons) printf("%-60s  %6d\n", msa->sqname[a], nbpsA[a]);
 	  if(nbpsA[a] > nbpsA[max_nbps_aidx]) max_nbps_aidx = a;
 	  if((noverlapsA[a] > noverlapsA[max_noverlaps_aidx]) || ((noverlapsA[a] == noverlapsA[max_noverlaps_aidx]) && (nbpsA[a] > nbpsA[max_noverlaps_aidx]))) max_noverlaps_aidx = a;
 	  if((nconsistentA[a] > nconsistentA[max_nconsistent_aidx]) || ((nconsistentA[a] == nconsistentA[max_nconsistent_aidx]) && (nbpsA[a] > nbpsA[max_nconsistent_aidx]))) max_nconsistent_aidx = a;
@@ -398,20 +355,14 @@ main(int argc, char **argv)
       }
 
       if(do_info && have_cons) { 
-	if(nindi_read > 0) printf("\n"); 
-	printf("  %-*s  %6d  %6d  %6d  %6d\n", namewidth, "SS_cons(consensus)", ncons_bps, ncons_bps, ncons_bps, 0); 
-	if(nindi_read > 0) { 
-	  printf("\n# %6d/%6d (%.3f) overlap\n", noverlaps_total, nbps_total, nbps_total > 0 ? (float) noverlaps_total / (float) nbps_total : 0.);
-	  printf("# %6d/%6d (%.3f) consistent\n", nconsistent_total, nbps_total, nbps_total > 0 ? (float) nconsistent_total / (float) nbps_total: 0.);
-	  printf("# %6d/%6d (%.3f) conflict\n", nconflicts_total, nbps_total, nbps_total > 0 ? (float) nconflicts_total / (float) nbps_total: 0.);
-	}
-	else { 
-	  printf("# No sequences in the alignment have GR SS annotation.\n");
-	}
+	printf("\n%-60s  %6d  %6d  %6d  %6d\n", "SS_cons (consensus)", ncons_bps, ncons_bps, ncons_bps, 0); 
+	printf("\n%6d/%6d (%.3f) overlap\n", noverlaps_total, nbps_total, (float) noverlaps_total / (float) nbps_total);
+	printf("%6d/%6d (%.3f) consistent\n", nconsistent_total, nbps_total, (float) nconsistent_total / (float) nbps_total);
+	printf("%6d/%6d (%.3f) conflict\n", nconflicts_total, nbps_total, (float) nconflicts_total / (float) nbps_total);
       }
 
       if(lfp != NULL) { 
-	printf("# %d/%d sequences with %.3f individual bps on avg that conflict with SS_cons written to %s\n", nlist, msa->nseq, (float) nconflicts_list / (float) nlist, esl_opt_GetString(go, "-l")); 
+	printf("%d/%d sequences with %.3f individual bps on avg that conflict with SS_cons written to %s\n", nlist, msa->nseq, (float) nconflicts_list / (float) nlist, esl_opt_GetString(go, "-l")); 
       }
 
       /* determine number of gaps per alignment column */
@@ -425,7 +376,7 @@ main(int argc, char **argv)
 	    has_conflict[i] = TRUE;
 	    for(j = 1; j <= msa->alen; j++) { 
 	      if(bp[i][j] > 0) { 
-		if(do_a) printf("More than 1 right mates for left  mate %4d   %4d:%4d bp exists in %4d/%4d seqs (%.3f)\n", i, i, j, bp[i][j], msa->nseq - ngaps[i], (float) bp[i][j] / (float) (msa->nseq - ngaps[i])); 
+		if(do_a) printf("More than 1 right mates for left  mate %4d   %4d:%4d %4d/%4d (%.3f)\n", i, i, j, bp[i][j], msa->nseq - ngaps[i], (float) bp[i][j] / (float) (msa->nseq - ngaps[i])); 
 		has_conflict[j] = TRUE;
 	      }
 	    }
@@ -436,7 +387,7 @@ main(int argc, char **argv)
 	    has_conflict[i] = TRUE;
 	    for(j = 1; j <= msa->alen; j++) { 
 	      if(bp[j][i] > 0) { 
-		if(do_a) printf("More than 1 left  mates for right mate %4d   %4d:%4d bp exists in %4d/%4d seqs (%.3f)\n", i, j, i, bp[j][i], msa->nseq - ngaps[i], (float) bp[j][i] / (float) (msa->nseq - ngaps[i])); 
+		if(do_a) printf("More than 1 left  mates for right mate %4d   %4d:%4d %4d/%4d (%.3f)\n", i, j, i, bp[j][i], msa->nseq - ngaps[i], (float) bp[j][i] / (float) (msa->nseq - ngaps[i])); 
 		has_conflict[j] = TRUE;
 	      }
 	    }
@@ -478,13 +429,13 @@ main(int argc, char **argv)
 	  }
 	}
       }
-      
+
       /***************************************/
       /*PARANOID, second check for knots 
       for(i = 1; i <= msa->alen; i++) { 
 	j = cons_ct[i]; 
 	if(j != 0 && i < j) { 
-	  printf("BP: %4d:%4d\n", i, j);
+   	  printf("BP: %4d:%4d\n", i, j);
 	  for(i2 = 1; i2 <= msa->alen; i2++) { 
 	    j2 = cons_ct[i2];
 	    if(j2 != 0 && i2 < j2) { 
@@ -522,23 +473,16 @@ main(int argc, char **argv)
 
       /* --fmin */
       if(do_fmin) { 
+	int nbps = 0;
+	int prev_nbps = -1;
+	float fmin;
+	int inconsistent_flag;
+	int pknot_flag;
+	int k,l;
 	/* define ss_cons */
-	nbps = 0;
-	prev_nbps = -1;
 	fthresh = 0.99;
 	inconsistent_flag = pknot_flag = FALSE;
-	printf("# Defining consensus structure:\n");
-	printf("# indi SS basepair aln columns i:j (from at least 1 indi SS) will become consensus basepair\n");
-	printf("# if > <x> individual SS contain i:j as a pair\n");
-	printf("# We'll search for minimal <x> that gives a consistent consensus structure.\n");
-	printf("# A consistent structure has each position involved in 0 or 1 basepairs.\n");
-	printf("#\n");
-	printf("# Alignment file: %s\n", alifile);
-	printf("# Alignment idx:  %d\n", nali);
-	printf("# Number of seqs: %d\n", msa->nseq);
-	printf("#\n");
-	printf("# %5s  %23s  %6s\n", "<x>", "nseq-required-with-bp", "numbps");
-	printf("# %5s  %23s  %6s\n", "-----", "-----------------------", "------");
+	printf("\n");
 	while(fthresh >= 0.00 && (inconsistent_flag == FALSE) && (pknot_flag == FALSE)) { 
 	  nbps = 0;
 	  seqthresh = (int) (fthresh * msa->nseq);
@@ -567,12 +511,12 @@ main(int argc, char **argv)
 	    }
 	  }
 	  if(inconsistent_flag) 
-	    printf("  %.3f  %23d  %s\n", fthresh, seqthresh+1, "inconsistent");
+	    printf("%.3f > %4d/%4d seqs inconsistent\n", fthresh, seqthresh, msa->nseq); 
 	  else if(pknot_flag) 
-	    printf("  %.3f  %23d  %s\n", fthresh, seqthresh+1, "pseudoknotted");
+	    printf("%.3f > %4d/%4d seqs pseudoknotted\n", fthresh, seqthresh, msa->nseq); 
 	  else { 
 	    if(nbps != prev_nbps) { 
-	      printf("  %.3f  %23d  %6d\n", fthresh, seqthresh+1, nbps);
+	      printf("%.3f > %4d/%4d seqs %4d bps\n", fthresh, seqthresh, msa->nseq, nbps); 
 	    }
 	    fmin = fthresh;
 	  }
@@ -585,12 +529,6 @@ main(int argc, char **argv)
 
       /* --ffreq: determine structure by defining consensus bps that occur in <x> fraction of indi structures */
       if(do_ffreq || do_fmin) { 
-	if(do_fmin)  { printf("#\n# <x> determined to be %.3f\n", fthresh); }
-	if(do_ffreq) { 
-	  printf("# Defining consensus structure:\n");
-	  printf("# indi SS basepair aln columns i:j (from at least 1 indi SS) will become consensus basepair\n");
-	  printf("# if > %f individual SS contain i:j as a pair\n", fthresh);
-	}
 	esl_vec_ISet(cons_ct, msa->alen+1, 0);
 	/* define ss_cons */
 	  seqthresh = (int) (fthresh * msa->nseq);
@@ -619,7 +557,7 @@ main(int argc, char **argv)
 	    cons_ct[cons_ct[i]] = i;
 	  }
 	  else {
-	    printf("# Removing consensus bp: %d:%d\n", i, xcons_ct[i]);
+	    printf("Removing consensus bp: %d:%d\n", i, xcons_ct[i]);
 	    cons_ct[xcons_ct[i]] = 0; 
 	    cons_ct[i]           = 0; 
 	  }
@@ -643,11 +581,11 @@ main(int argc, char **argv)
 	if((status = esl_wuss2ct(msa->ss[a], msa->alen, cons_ct)) != eslOK) { 
 	  esl_fatal("Second pass... SS annotation for sequence %d, aln %d  is invalid.\n", (a), nali);
 	}	
-	printf("# Defined new SS_cons as SS annotation for %s (%d basepairs)\n", msa->sqname[a], nbpsA[a]);
+	printf("\nDefined new SS_cons as SS annotation for %s (%d basepairs)\n", msa->sqname[a], nbpsA[a]);
 	if(esl_opt_GetBoolean(go, "--rfc") || esl_opt_GetBoolean(go, "--rfindi")) {
 	  if(msa->rf != NULL) { free(msa->rf); msa->rf = NULL; }
 	  if((status = esl_strcat(&(msa->rf), -1, msa->aseq[a], msa->alen)) != eslOK) goto ERROR;
-	  printf("# Defined new RF as %s sequence\n", msa->sqname[a]);
+	  printf("Defined new RF as %s sequence\n", msa->sqname[a]);
 	}
       }
       
@@ -656,7 +594,7 @@ main(int argc, char **argv)
 	if((status = esl_ct2wuss(cons_ct, msa->alen, sscons)) != eslOK) goto ERROR;
 	if(msa->ss_cons != NULL) { free(msa->ss_cons); msa->ss_cons = NULL; }
 	if((status = esl_strcat(&(msa->ss_cons), -1, sscons, msa->alen)) != eslOK) goto ERROR;
-	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "--pfam") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
+	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "-1") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
 	if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
       }
@@ -684,7 +622,7 @@ main(int argc, char **argv)
    */
   if(lfp != NULL) fclose(lfp);
   if(ofp != NULL) { 
-    printf("# Alignment(s) saved to file %s\n", esl_opt_GetString(go, "-o"));
+    printf("\n# Alignment(s) saved to file %s\n", esl_opt_GetString(go, "-o"));
     fclose(ofp);
   }
   esl_msafile_Close(afp);

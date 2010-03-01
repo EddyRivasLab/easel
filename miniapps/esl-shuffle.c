@@ -210,7 +210,7 @@ seq_generation(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
       if (N > 1) esl_sq_FormatName(sq, "random%d", i);
       else       esl_sq_SetName(sq, "random");
       sq->n = L;
-      esl_sqio_Write(ofp, sq, outfmt, FALSE);
+      esl_sqio_Write(ofp, sq, outfmt);
     }
 
   free(fq);
@@ -309,14 +309,14 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  else       esl_sq_FormatName(shuff, "%s-shuffled", sq->name);
 
 	  /* Output the resulting sequence */
-	  esl_sqio_Write(ofp, shuff, outfmt, FALSE);
+	  esl_sqio_Write(ofp, shuff, outfmt);
 
 	  /* don't need to reuse the shuffled sequence: we will use exactly the same memory */
 	}
       esl_sq_Reuse(sq);
     }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
-					   sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s line %" PRId64 "):\n%s\n",
+					    sqfp->filename, sqfp->linenumber, sqfp->errbuf);     
   else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					    status, sqfp->filename);
 

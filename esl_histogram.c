@@ -17,7 +17,6 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
-#include <limits.h>
 
 #include "easel.h"
 #include "esl_stats.h"
@@ -168,47 +167,6 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
   return;
 }
 
-/* Function:  esl_histogram_Score2Bin()
- * Synopsis:  Given a real-valued <x>; calculate integer bin <b>
- * Incept:    SRE, Sun Dec 13 20:24:42 2009 [Yokohama]
- *
- * Purpose:   For a real-valued <x>, figure out what bin it would
- *            go into in the histogram <h>; return this value in
- *            <*ret_b>.
- *
- * Returns:   <eslOK> on success.
- *
- * Throws:    <eslERANGE> if bin <b> would exceed the range of
- *            an integer; for instance, if <x> isn't finite.
- *
- * Xref:      J5/122. Replaces earlier macro implementation;
- *            we needed to range check <x> better.
- */
-int
-esl_histogram_Score2Bin(ESL_HISTOGRAM *h, double x, int *ret_b)
-{
-  int status;
-
-  if (! isfinite(x)) ESL_XEXCEPTION(eslERANGE, "value added to histogram is not finite");
-
-  x = ceil( ((x - h->bmin) / h->w) - 1.); 
-  
-  /* x is now the bin number as a double, which we will convert to
-   * int. Because x is a double (64-bit), we know all ints are exactly
-   * represented.  Check for under/overflow before conversion.
-   */
-  if (x < (double) INT_MIN || x > (double) INT_MAX) 
-    ESL_XEXCEPTION(eslERANGE, "value %f isn't going to fit in histogram", x);
-
-  *ret_b = (int) x;
-  return eslOK;
-
- ERROR:
-  *ret_b = 0;
-  return status;
-}
-
-
 /* Function:  esl_histogram_Add()
  * Synopsis:  Add a sample to the histogram.
  * Incept:    SRE, Sat Jul  2 19:41:45 2005 [St. Louis]
@@ -222,12 +180,6 @@ esl_histogram_Score2Bin(ESL_HISTOGRAM *h, double x, int *ret_b)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
- *
- *            <eslERANGE> if <x> is beyond the reasonable range for
- *            the histogram to store -- either because it isn't finite,
- *            or because the histogram would need to allocate a number
- *            of bins that exceeds INT_MAX.
- *
  *            Throws <eslEINVAL> for cases where something has been done
  *            to the histogram that requires it to be 'finished', and
  *            adding more data is prohibited; for example, 
@@ -260,7 +212,7 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
 
   /* Which bin will we want to put x into?
    */
-  if ((status = esl_histogram_Score2Bin(h,x, &b)) != eslOK) return status;
+  b = esl_histogram_Score2Bin(h,x);
 
   /* Make sure we have that bin. Realloc as needed.
    * If that reallocation succeeds, we can no longer fail;
@@ -269,8 +221,6 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   if (b < 0)    /* Reallocate below? */
     {				
       nnew = -b*2;	/* overallocate by 2x */
-      if (nnew > INT_MAX - h->nb)
-	ESL_EXCEPTION(eslERANGE, "value %f requires unreasonable histogram bin number", x);
       ESL_RALLOC(h->obs, tmp, sizeof(uint64_t) * (nnew+ h->nb));
       
       memmove(h->obs+nnew, h->obs, sizeof(uint64_t) * h->nb);
@@ -285,8 +235,6 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   else if (b >= h->nb)  /* Reallocate above? */
     {
       nnew = (b-h->nb+1) * 2; /* 2x overalloc */
-      if (nnew > INT_MAX - h->nb) 
-	ESL_EXCEPTION(eslERANGE, "value %f requires unreasonable histogram bin number", x);
       ESL_RALLOC(h->obs, tmp, sizeof(uint64_t) * (nnew+ h->nb));
       for (bi = h->nb; bi < h->nb+nnew; bi++) h->obs[bi] = 0;
       if (h->imin == h->nb) { /* boundary condition of no data yet*/
@@ -434,21 +382,17 @@ esl_histogram_DeclareRounding(ESL_HISTOGRAM *h)
  *            tail.
  *            
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslERANGE> if <phi> is an unreasonable value that
- *            can't be converted to an integer bin value.
  */
 int
 esl_histogram_SetTail(ESL_HISTOGRAM *h, double phi, double *ret_newmass)
 {
   int b;
-  int status;
 
   /* Usually, put true phi at the next bin lower bound, but
    * watch for a special case where phi is already exactly equal to a 
    * bin upper bound.
    */
-  if ((status = esl_histogram_Score2Bin(h,phi, &(h->cmin))) != eslOK) return status;
+  h->cmin = esl_histogram_Score2Bin(h,phi);
   if (phi == esl_histogram_Bin2UBound(h,h->cmin)) h->phi = phi;
   else   h->phi  = esl_histogram_Bin2LBound(h, h->cmin);
 
@@ -817,9 +761,6 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on memory allocation failure.
- *            <eslERANGE> if <base_val> isn't a reasonable value within
- *              the histogram (it converts to a bin value outside
- *              integer range).
  */
 int
 esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
@@ -832,8 +773,7 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
 
   if (h->expect == NULL)  ESL_ALLOC(h->expect, sizeof(double) * h->nb);
 
-  if ((status = esl_histogram_Score2Bin(h, base_val, &(h->emin))) != eslOK) return status;
-  h->emin += 1;
+  h->emin = 1 + esl_histogram_Score2Bin(h, base_val);
   esl_vec_DSet(h->expect, h->emin, 0.);
 
   for (b = h->emin; b < h->nb; b++)
@@ -1434,10 +1374,9 @@ static ESL_OPTIONS options[] = {
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-static void
-binmacro_utest(void)
+static int
+binmacro_test(void)
 {
-  char          *msg = "esl_histogram: binmacro unit test failure";
   ESL_HISTOGRAM *h = esl_histogram_Create(-100, 100, 1.0);
   double trialx[3]  = { -42.42, 0, 42.42 };
   double x, ai, bi;  
@@ -1448,35 +1387,20 @@ binmacro_utest(void)
   for (i = 0; i < 3; i++)
     {
       x  = trialx[i];
-      esl_histogram_Score2Bin(h, x, &b);
+      b  = esl_histogram_Score2Bin(h, x);
       ai = esl_histogram_Bin2LBound(h, b);
       bi = esl_histogram_Bin2UBound(h, b);
-      if (x <= ai || x > bi) esl_fatal(msg);
+      if (x <= ai || x > bi) {
+	fprintf(stderr,
+		"failed: (ai=%.1f) <= (x=%.2f) < (bi=%.1f) in bin %d, bin macro test\n",
+		ai, x, bi, b);
+	esl_histogram_Destroy(h);
+	return 0;
+      }
     }
   esl_histogram_Destroy(h);
-  return;
+  return 1;
 }
-
-static void
-valuerange_utest(void)
-{
-  char          *msg = "esl_histogram: value range unit test failure";
-  ESL_HISTOGRAM *h   = esl_histogram_Create(-100, 100, 1.0);
-  int            b;
-
-  esl_exception_SetHandler(&esl_nonfatal_handler);
-
-  if (esl_histogram_Score2Bin(h,  eslINFINITY, &b) != eslERANGE) esl_fatal(msg);
-  if (esl_histogram_Score2Bin(h, -eslINFINITY, &b) != eslERANGE) esl_fatal(msg);
-  if (esl_histogram_Score2Bin(h,  eslNaN,      &b) != eslERANGE) esl_fatal(msg);
-  if (esl_histogram_Score2Bin(h,  1e20,        &b) != eslERANGE) esl_fatal(msg);
-  if (esl_histogram_Score2Bin(h, -1e20,        &b) != eslERANGE) esl_fatal(msg);
-
-  esl_exception_ResetDefaultHandler();
-  esl_histogram_Destroy(h);
-  return;
-}
-
 int
 main(int argc, char **argv)
 {
@@ -1728,8 +1652,7 @@ main(int argc, char **argv)
 
   /* Smaller final tests
    */
-  binmacro_utest();
-  valuerange_utest();
+  if (! binmacro_test()) exit(1);
   
   esl_randomness_Destroy(r);
   return 0;

@@ -28,10 +28,9 @@ argument must (case-insensitively) match a supported sequence file format:
 currently, limited to
 .I fasta,
 .I stockholm,
-.I pfam,
 or
-.I afa
-(aligned fasta).
+.I pfam.
+
 
 .pp
 Unaligned format files cannot be reformatted to
@@ -39,6 +38,8 @@ aligned formats.
 However, aligned formats can be reformatted
 to unaligned formats - gap characters are 
 simply stripped out.
+
+
 
 .SH OPTIONS
 
@@ -155,37 +156,12 @@ characters, minimizing the overall length of the alignment.
 sequences from a larger alignment.)
 
 .TP
-.B --keeprf
-When used in combination with
-.B --mingap,
-never remove a column that is not a gap in the reference (#=GC RF) 
-annotation, even if the column contains 100% gap characters in 
-all aligned sequences. By default with
-.B --mingap,
-nongap RF columns that are 100% gaps in all sequences are removed.
-
-.TP
 .B --nogap
 Remove any aligned columns that contain any gap symbols
 at all. Useful as a prelude to phylogenetic analyses, where
 you only want to analyze columns containing 100% residues,
 so you want to strip out any columns with gaps in them.
 Only makes sense if the file is an alignment file.
-
-.TP
-.B --small
-Operate in small memory mode for input alignment files in 
-Pfam format. If not used, each alignment is stored in memory so the
-required memory will be roughly the size of the largest alignment
-in the input file. With 
-.B --small, 
-input alignments are not stored in memory. 
-This option only works in combination with 
-.BI --informat " pfam"
-and output format 
-.I pfam
-or
-.I afa. 
 
 .TP
 .B --wussify

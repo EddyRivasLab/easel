@@ -1,42 +1,42 @@
 #! /usr/bin/perl
 
-# sqc ::
+# sqc 
 # quality control script for exercising code, regression testing, 
 # and benchmarking.
 #
-# Usage: sqc [options] <level> <command file> <top_builddir> <top_srcdir> \
-#                  [<old_top_builddir> <old_top_srcdir>]
-#
+# Usage: sqc [options] <level> <command file> <bindir> [<bindir>...]
 #    level          - an integer >= 0. Higher = more testing, more time.
 #    command file   - an sqc command file. See below for format.
-#    top_builddir   - top of the build directory - where executables will
-#                     be searched for. In .sqc command files, any path
-#                     @foo@ is looked for in ${top_builddir}/foo.
-#    top_srcdir     - top of the src directory - where scripts and datafiles
-#                     will be searched for. In .sqc command files, any
-#                     path !foo! is looked for in ${top_srcdir}/foo.
-# [The other two arguments are optional, and are only used if the
-#  command file contains regression tests:]
-#    old_top_builddir - top of the build tree for an old version of
-#                       the same software distribution, for regression tests
-#    old_top_srcdir   - top of the src tree for an old version for regression.
-#
+#    bindir         - path to executables to test. Optionally, more
+#                     than one bindir may be given.
 #
 # Available options:
+#    -p <prepdir>   - optional path to binaries for "prep" commands
+#                     (more than one -p can be used)
+#    -r <olddir>    - path to old binaries for regression tests.
+#                     mandatory if >=1 regression test is in the
+#                     command file; unused for other tests.
+#                     (More than one -r can be used; the list
+#                     should mirror the list of bindirs in the command
+#                     line, for the new version of the binaries.)
+#    -D <datadir>   - optional path to data files.  When processing
+#                     the command line, items delimited by !! will
+#                     be prepended by <datadir>.
 #    -v             - print verbose output, including each command
 #                     after various substitutions.
 #
-# Examples: 
-#    % sqc 2 exercises.sqc .. .. 
-#
+# Example: 
+#    sqc -p ../squid 2 exercises.sqc ../src
+#    sqc -p ../squid -r ../infernal-0.3/src 2 regressions.sqc ../src
 #
 # For each (non-prep) test in the command file, a one-line summary
-# of the result is printed. The format of this line is:
+#   of the result is printed. The format of this line is:
 #     <testtype> <test #> [<test name>]...   <status>
-# where <testtype> is exercise, valgrind, regression, benchmark, or
-# fail; <test #> is a counter, separate for each type; <test name> is
-# the one-word name for this test; and <status> is the result of the
-# test. The format for <status> is described later.
+#   where <testtype> is exercise, valgrind, regression, benchmark, or fail;
+#   <test #> is a counter, separate for each type;
+#   <test name> is the one-word name for this test;
+#   and <status> is the result of the test. The format for <status>
+#   is described later.
 # 
 # Format of sqc file:
 #    Blank lines are ignored. Lines beginning with # are comments and
@@ -60,86 +60,92 @@
 #    command: Command template to run. (remainder of line, usually
 #             more than one token/word).
 #
-#             A command template is subjected to three types of
-#             filename substitution (@@ = executables in the build tree;
-#             !! = scripts and data in the source tree; %% = temp files
-#             managed by sqc).  
+#             A command template is subjected to: filename substitution,
+#             valgrind prefixing, regression filename substitution, 
+#             path substitution, and output redirection:
+#             
+#         filename substitution:  [all test types]
+#             Any token enclosed in %% in the template is interpreted
+#             as a temporary file that is created by the sqc run,
+#             which sqc is responsible for deleting. sqc substitutes
+#             a unique tmp file name for each unique token. A given
+#             token will always map to the same real file name, so
+#             a token may be used in more than one command (for example,
+#             a "prep" command can create a file that subsequent
+#             "exercise" commands need as input).
+#             For example, %FOO% might be substituted by /tmp/sqc-FOO.
+#
+#             Tokens enclosed in !! will be prepended with the path
+#             specified in the -D option.  For example if -D is defined
+#             the token !mouse.db! might be substituted by /tmp/data/mouse.db.
+#             If no -D option was specified, the delimiters are removed with
+#             no substitution.  The above example just becomes mouse.db.
 #
 #             No token may contain the string REGRESSION; this is
 #             reserved for regression tests (see below).
 #
-#             valgrind prefixing, regression filename substitution, 
-#             path substitution, and output redirection:
-#             
-#         @@ path substitution for binaries (in build tree):
-#             Tokens enclosed in @@ in the template are interpreted
-#             as executables to be found in the build tree. The token is
-#             prefixed by ${top_builddir}. 
-#             
-#             With no token at all (@@), the ${top_builddir} is
-#             substituted; this special case is used to pass the
-#             ${top_builddir} as an argument into integrated test
-#             scripts that sqc is running. This leads to an
-#             idiomatic incantation for integrated tests:
-#                  !testsuite/ixx-test.pl! @@ !! %TMPPFX%
-#             by which the builddir, srcdir, and a tempfile prefix are
-#             passed along to a script, which is responsible for
-#             printing "ok" and returning 0 on success, and die()'ing
-#             on any failure.
-# 
-#         !! path substitution for scripts and data (in src tree):
-#             Tokens enclosed in !! in a command template are
-#             interpreted as scripts or datafiles to be found in the
-#             source tree. The token is prefixed by ${top_srcdir}.
+#             In general, a command template should not explicitly name any 
+#             tmp files; if it does, they won't be deleted properly by sqc.
 #
-#             As above, with no token at all (!!), the ${top_srcdir} is
-#             substituted.
-
-#         %% tempfile substitution for output generated during sqc:
-#             Tokens enclosed in %% are interpreted as a tempfile to
-#             be created during the sqc run. sqc is responsible for
-#             deleting the temp file. Each token in an sqc command
-#             file maps uniquely to the same file name throughout an
-#             sqc process, so the same token may be used in more than
-#             one command; for example, a "prep" command can create a
-#             file that subsequent "exercise" commands need as input).
+#         valgrind prefixing:   [test type = "valgrind" only]
+#             Prepend "valgrind --error-exitcode=99" to
+#             the command template. Valgrind will run the command.
+#             Errors detected by Valgrind will return exit status 99.
+#             (Error status reported by the application have their original
+#             nonzero status.) 
+#             Valgrind output goes to stderr, which is captured by
+#             output redirection. This output is parsed for leak reports.
 #
-#             It is a common idiom to pass a tempfile name into a test
-#             script, where the script then uses the name as a unique
-#             prefix to create a number of temp files with different
-#             suffixes, a la %TMPFILE%.1, %TMPFILE%.2, etc. Such a
-#             script cleans up the suffixed temp files it creates; sqc
-#             cleans up the original %TMPFILE%.
+#         regression filename substitution:
+#             A "regression" command must be able to take a command
+#             line argument "--regress <f>", where <f> is the name of
+#             a regression datafile (e.g. a datafile that should be 
+#             absolutely identical between releases of the code).
+#             Filename substitution is performed as if the command
+#             template contained "--regress %REGRESSION%" immediately
+#             after the first token (which is assumed to be the name
+#             of the executable).
+#
+#         path substitution:
+#             Any token enclosed in @@ in the template is subjected
+#             to path substitution.
+#             The <bindir> argument(s) set one or more possible paths
+#             to executables to be tested. Prep commands might also
+#             be found in <prepdir>, or in the $PATH. Regression commands
+#             are found in <bindir> for the new code, and <olddir> for
+#             the old code. 
+#             A @token@ in the command template is assumed to
+#             be the name of an executable. This executable is searched
+#             for in one or more directories, as above, until it is
+#             found, and the @token@ is replaced by the fully qualified path.
+#             Normally the first token in the template is a @@ token:
+#                  @cmbuild@ %TRNA.CM% test.sto
+#             An exception is bug driving scripts, which need to have
+#             full executable paths passed to them:
+#                  ./bug1 @cmbuild@ @cmsearch@
+#             The order of search is:
+#             for prep:           <prepdir>, <bindir>, then $PATH
+#             for regression:     <bindir> for new version; <olddir> for old
+#             for others:         <bindir> only
 #
 #         output redirection:
-#             ">/dev/null 2> <TMPFILE>" is appended to the command
+#             ">/dev/null 2> [tmpfile]" are appended to the command
 #             template, to redirect all output away, and save 
-#             STDERR diagnostics to a <TMPFILE> (for instance, valgrind
+#             STDERR diagnostics to a tmpfile (for instance, valgrind
 #             report goes to this file).
 #             If the command template already includes a ">", only
 #             the STDERR redirection is done; it is assumed that the command
-#             is deliberately keeping its output (probably in its own tmpfile).
+#             is deliberately keeping its output (probably in a tmpfile).
 #             If redirection is done explicitly in the command template,
 #             the template is responsible for stdout. sqc always handles
 #             stderr itself.
-#
-#         regression filename substitution: ["regression" test types only]
-#             In a "regression" test, the same command is run twice;
-#             once under a "new" build and once under an "old" build
-#             of the same software distribution. Any tempfile tokens in 
-#             the command template that start with REGRESSION (such as 
-#             %REGRESSION.OUT1%) are considered to be outputs that 
-#             should be absolutely identical between the old and new
-#             software versions. These are compared by "diff", and
-#             the regression test fails if the diff isn't clean.
-#
 #             
 # Types of tests:
 #
 # prep:       Creates tmp files that other tests will need.
 #             If a prep command fails for any reason with nonzero
 #             exit status, sqc dies at that point. 
-#             prep commands create no output lines in the sqc report.
+#             prep commands create no output lines.
 #
 # exercise:   Run a command that is expected to succeed with zero
 #             exit status.
@@ -151,41 +157,26 @@
 #                FAILED [nonzero code %d]
 #                FAILED [crash!] 
 #
-# fail:       Run a command that is expected to exit cleanly with
-#             *nonzero* exit status (for example, testing that a program
-#             successfully detects bad input, rather than crashing).
-#             Possible results for output line status are:
-#                  ok.
-#                  FAILED to fail
-#                  FAILED [crash!]
-#
 # valgrind:   Check for memory problems and leaks. 
-#             Like exercise, but the command is run with "valgrind
-#             --error-exitcode=99" prepended, so valgrind runs the
-#             command. 
+#             Like exercise, but the command is run with
+#             "valgrind --error-exitcode=99"
+#             prepended. 
+#             Return status is tested; 99 indicates
+#             an error detected by valgrind, other nonzero
+#             codes indicate a failure reported by the application.
+#             The stderr is examined for valgrind leak reports.
+#             The format for the status in the output line is:
+#                 ok.
+#                 FAILED [valgrind reports error(s)]
+#                 FAILED [valgrind reports leak(s)]
 #
-#             Return status is tested; 99 indicates an error detected
-#             by valgrind, other nonzero codes indicate a failure code
-#             reported by the application.  The stderr that sqc
-#             captured is examined for valgrind leak reports.  The
-#             format for the status in the output line is:
-#                ok. 
-#                FAILED [valgrind reports error(s)]
-#                FAILED [valgrind reports leak(s)]
-#
-# regression: The same command template is processed and run twice;
-#             once under a "new" build (<top_builddir> and <top_srcdir>)
-#             and once under an "old" build of the same software 
-#             distribution (<old_top_builddir> and <old_top_srcdir>).
-#
-#             Any tempfile tokens in the command template that start
-#             with REGRESSION (such as %REGRESSION.OUT1%) are
-#             considered to be outputs that should be absolutely
-#             identical between the old and new software
-#             versions. These are compared by "diff", and the
-#             regression test fails if the diff isn't clean.
-#
-#             Possible outputs:
+# regression: Runs a command twice: once using a new binary in
+#             <bindir>, then again using old binary in <olddir>,
+#             saving regression data files from each run. Tests
+#             that the two data files are identical. 
+#             Records a failure if either command fails, or if
+#             the data files are not identical.
+#             Possible results for output line status are:
 #                 ok.
 #                 FAILED [regressions differ]
 #                 FAILED [new code %d]
@@ -193,10 +184,18 @@
 #                 FAILED [new crashed!]
 #                 FAILED [old crashed!]
 #
-# benchmark:  Runs a command and measures how long it takes.
+# benchmark:  Runs a command in <bindir> and measures how long it takes.
 #             The output status field is the user CPU time in seconds.
 #             Like a prep command, if a benchmark command fails, sqc
 #             dies immediately at that point.
+#
+# fail:       Run a command that is expected to exit cleanly with
+#             *nonzero* exit status (for example, testing that a program
+#             successfully detects bad input, rather than crashing).
+#             Possible results for output line status are:
+#                  ok.
+#                  FAILED [0 status]
+#                  FAILED [crash!]
 #
 #
 ################################################################
@@ -208,30 +207,20 @@ require "importenv.pl";
 
 # Parse our command line
 #
-&Getopts('v');
+&Getopts('mp:r:D:v');
+if ($opt_m) { $do_memtest = 1;    }
+if ($opt_p) { push @prepdirs, $opt_p; }
+if ($opt_r) { push @olddirs,  $opt_r; }
+if ($opt_D) { $datadir = $opt_D;      }
 if ($opt_v) { $verbose = 1;           }
 
+if ($#ARGV < 2) {
+   die "Usage: sqc [options] <level> <commandfile> <bindir>...\n";
+}
 
-if ($#ARGV == 3)
-{
-    $setlevel     = shift;
-    $commandfile  = shift;
-    $top_builddir = shift;
-    $top_srcdir   = shift;
-    undef($old_builddir);
-    undef($old_srcdir);
-}
-elsif ($#ARGV == 5) 
-{
-    $setlevel     = shift;
-    $commandfile  = shift;
-    $top_builddir = shift;
-    $top_srcdir   = shift;
-    $old_builddir = shift;
-    $old_srcdir   = shift;
-}
-else   
-{ die "Usage: sqc [options] <level> <commandfile> <top_builddir> <top_srcdir> [<old_top_builddir> <old_top_srcdir>]\n"; }
+$setlevel    = shift;
+$commandfile = shift;
+@bindirs     = @ARGV;
 
 $tmp = &tempname;
 $|   = 1;
@@ -242,17 +231,17 @@ open(COMMANDS, $commandfile) || die;
 $nbench = $ntest = $badtest = 0;
 $tot_benchtime_cpu = $tot_benchtime_wall = 0.;
 $linenum = 0;
-
-COMMAND:
 while (<COMMANDS>) {
     $linenum++;
     if (/^\#/)   { next; }
     if (/^\s*$/) { next; }
 
+
     chomp;
     print "sqc: evaluating line: $_\n" if $verbose;
     ($testlevel, $testtype, $testname, $cmdtemplate) = split(' ', $_, 4);
-    if ($setlevel < $testlevel) { next COMMAND; }
+    if ($setlevel < $testlevel) { next; }
+
 
     # Make sure it's a valid test type;
     # print the first part of the output line.
@@ -272,41 +261,42 @@ while (<COMMANDS>) {
     }
 
     # Filename substitution.
-    $cmd = $cmdtemplate;
-
-    ($status, $cmd) = &build_substitution($tmp, $cmd, $top_builddir); 
-    next COMMAND if &check_status($status, $testname, $testtype, "FAILED [@@ substitution]");
-
-    ($status, $cmd) = &src_substitution($tmp, $cmd, $top_srcdir); 
-    next COMMAND if &check_status($status, $testname, $testtype, "FAILED [!! substitution]");
-
-    $cmd =  &tempfile_substitution($tmp, $cmd);
-    
+    $cmd = &filename_substitution($tmp, $cmdtemplate);
     print "sqc: after filename subst, cmd is: $cmd\n" if $verbose;
 
     # Valgrind prefixing.
-    $cmd = "valgrind --error-exitcode=99 $cmd" if ($testtype eq "valgrind");
+    if ($testtype eq "valgrind") {
+	$cmd = "valgrind --error-exitcode=99 $cmd";
+    }
 
     # Regression substitutions, $cmd splits into $cmd (new) and $cmd2 (old)
     if ($testtype eq "regression") {
-	$cmd2 = $cmdtemplate;
-
-	die ("FAILED;\nno <old_builddir> argument on command line; can't run regression tests\n") if (! defined($old_builddir));
-	die ("FAILED;\nno <old_srcdir> argument on command line; can't run regression tests\n")   if (! defined($old_srcdir));
-
-	($status, $cmd2) = &build_substitution($tmp, $cmd2, $old_builddir); 
-	next COMMAND if &check_status($status, $testname, $testtype, "FAILED [@@ substitution]");
-
-	($status, $cmd2) = &src_substitution($tmp, $cmd2, $old_srcdir); 
-	next COMMAND if &check_status($status, $testname, $testtype, "FAILED [!! substitution]");
-
-	$cmd2 =  &tempfile_substitution($tmp, $cmd2);
-  
-	($nregressions, $cmd, $cmd2) = &regression_substitution($tmp, $cmd, $cmd2);
-    
-	print "sqc: after filename subst, regressed new cmd is: $cmd\n"  if $verbose;
-	print "sqc: after filename subst, regressed old cmd is: $cmd2\n" if $verbose;
+	($cmd, $cmd2) = &regression_substitution($tmp, $cmd);
     }
+
+    # Path substitutions.
+    if ($testtype eq "prep") {
+	($foundit, $cmd) = &path_substitution($cmd, @prepdirs, @bindirs);
+    } elsif ($testtype eq "regression") {
+	($foundit, $cmd) = &path_substitution($cmd, @bindirs);
+	if (! $foundit) {
+	    die("\nDidn't find new executable for cmd at line $linenum\n");
+	}
+	($foundit, $cmd2) = &path_substitution($cmd2, @olddirs);
+	if (! $foundit) {
+	    die("\nDidn't find old executable for cmd at line $linenum\n");
+	}
+    } else {
+	($foundit, $cmd) = &path_substitution($cmd, @bindirs);
+	if (! $foundit) {
+	    die("\nDidn't find executable for cmd at line $linenum\n");
+	}
+    }
+    print "sqc: after path subst, cmd is: $cmd\n" if $verbose;
+
+    # Data substitutions
+    $cmd = &data_substitution($cmd, $datadir);
+    print "sqc: after data subst, cmd is: $cmd\n" if $verbose;
 
     # Output redirection substitution.
     # stdout is sent to /dev/null unless command already is handling it.
@@ -371,14 +361,9 @@ while (<COMMANDS>) {
 	elsif (($status2>>8)  != 0) { print "FAILED [old: nonzero exit]\n";  $badtest++; }
 	else 
 	{
-	    $nregress_failed = 0;
-	    for ($i = 0; $i < $nregressions; $i++) 
-	    {
-		system("diff $tmp.REGRESSION.old.$i $tmp.REGRESSION.new.$i > /dev/null");
-		if ($? != 0) { $nregress_failed++; }
-	    }
-	    if ($nregress_failed > 0) { print "FAILED [regressions differ]\n"; $badtest++; }
-	    else                      { print "ok.\n"; }
+	    system("diff $tmp.REGRESSION.1 $tmp.REGRESSION.2 > /dev/null");
+	    if ($? != 0) { print "FAILED [regressions differ]\n"; $badtest++; }
+	    else         { print "ok.\n"; }
 	}
     }
 
@@ -429,83 +414,19 @@ unlink $tmp if -e $tmp;
 unlink "$tmp.stderr" if -e "$tmp.stderr";
 
 
-sub check_status
-{
-    my ($status, $testname, $testtype, $errmsg) = @_;
-    if ($status != 0)
-    {
-	if ($testtype eq "prep") { die "fatal: prep command [$testname]: $errmsg\n"; }
-	print $errmsg . "\n";
-	$badtest++;
-    }
-    ($status);
-}
 
-
-# build_substitution(tmppfx, cmd, builddir)
-# 
-# Perform @@ substitutions for builddir;
-# check that token exists and is executable.
-#
-# Return (status, cmd).
-# status != 0 means token doesn't exist or isn't executable.
-#
-sub build_substitution
-{
-    my ($tmp, $cmd, $builddir) = @_;
-    my ($status, $token, $newname);
-    
-    $status = 0;
-    $cmd =~ s/\@\@/$builddir/g;	# special case of "@@" replacement
-    while ($cmd =~ /\@(\S+?)\@/) 
-    {
-	$token    = $1;
-	$newname  = "$builddir/$token";
-	if (! -x $newname) { $status = 1; }
-	$cmd =~ s/\@$token\@/$newname/g;
-    }
-    ($status, $cmd);
-}
-
-
-
-# src_substitution(tmppfx, cmd, srcdir)
-# 
-# Perform !! substitutions for srcdir;
-# check that token exists.
-#
-# Return (status, cmd).
-# status != 0 means token didn't exist.
-#
-sub src_substitution
-{
-    my ($tmp, $cmd, $srcdir) = @_;
-    my ($status, $token, $newname);
-    
-    $status = 0;
-    $cmd =~ s/\!\!/$srcdir/g;	# special case of "!!" replacement
-    while ($cmd =~ /\!(\S+?)\!/) 
-    {
-	$token    = $1;
-	$newname  = "$srcdir/$token";
-	if (! -e $newname) { $status = 1; }
-	$cmd =~ s/\!$token\!/$newname/g;
-    }
-    ($status, $cmd);
-}
-
-
-# tempfile_substitution(tmpprefix, command_template)
+# filename_substitution(tmpprefix, command_template)
 # 
 # Uses a global, %used_tmpfile, which is a hash
 # that is TRUE for each tmpfile names that we'll 
 # try to delete upon exit.
-sub tempfile_substitution
+sub
+filename_substitution
 {
     my ($tmp, $com) = @_;
     my ($token, $newname);
     
-    while ($com =~ /%(\S+?)%/ && $1 !~ /^REGRESSION/) {
+    while ($com =~ /%(\S+)%/) {
 	$token    = $1;
 	$newname  = "$tmp.$token";
 	$com =~ s/%$token%/$newname/g;
@@ -514,44 +435,61 @@ sub tempfile_substitution
     return $com;
 }
     
-# regression_substitution(tmpprefix, new_command, old_command)
-#
-# Any tempfile token that starts with REGRESSION is
-# now substituted by <tmpppfx>.REGRESSION.{new,old}.{n},
-# where {n} is an index {0..n-1} for <n> regression
-# tmpfiles in the command template (usually 1).
-#
-# Unlike normal tmpfile substitution, these constructed names 
-# ignore the exact %token% used by the command template;
-# but there is no possibility of name clash, because the
-# entire token namespace prefixed by REGRESSION is reserved.
-#
-# The reason to do it this way is that now the caller can
-# enumerate (and diff) all regression files just by knowing <n>.
-#
-# Returns (<n>, <cmd1>, <cmd2>).
-#
-sub regression_substitution 
+sub
+regression_substitution 
 {
-    my ($tmp, $cmd1, $cmd2) = @_;
-    my ($token, $newname1, $newname2, $n);
+    my ($tmp, $com) = @_;
+    my ($executable, $args, $cmd1, $cmd2);
     
-    $n = 0;
-    while ($cmd1 =~ /%(REGRESSION\S*?)%/) 
-    {
-	$token    = $1;
-	$newname1 = "$tmp.REGRESSION.new.$n";
-	$newname2 = "$tmp.REGRESSION.old.$n";
-	$cmd1 =~ s/%$token%/$newname1/g;
-	$cmd2 =~ s/%$token%/$newname2/g;
-	$used_tmpfile{$newname1} = 1;
-	$used_tmpfile{$newname2} = 1;
-	$n++;
-    }
-    return ($n, $cmd1, $cmd2);
+    ($executable, $args) = split(' ', $com, 2);
+    $cmd1 = "$executable --regress $tmp.REGRESSION.1 $args";
+    $cmd2 = "$executable --regress $tmp.REGRESSION.2 $args";
+    $used_tmpfile{"$tmp.REGRESSION.1"} = 1;
+    $used_tmpfile{"$tmp.REGRESSION.2"} = 1;
+    return ($cmd1, $cmd2);
 }
     
-
+sub
+path_substitution
+{
+    my ($com, @dirs) = @_;
+    
+    $foundit = 0;
+    while ($com =~ /\@(\S+)\@/) {
+	$token    = $1;
+	$foundit  = 0;
+	foreach $dir (@dirs) {
+	    if (-x "$dir/$token") {
+		$newname = "$dir/$token";
+		$com =~ s/\@$token\@/$newname/;
+		$foundit = 1;
+		last;
+	    }
+	}
+	if (! $foundit) { last; }
+    }
+    return ($foundit, $com);
+}
+    
+sub
+data_substitution
+{
+    my ($com, $dir) = @_;
+    
+    $foundit = 0;
+    while ($com =~ /\!(\S+)\!/) {
+	$token    = $1;
+	if (defined($dir)) {
+	    $newname = "$dir/$token";
+	    $newname =~ s/\/\//\//g;
+	    $com =~ s/\!$token!/$newname/;
+	} else {
+	    $com =~ s/\!$token!/$token/;
+	}
+    }
+    return $com;
+}
+    
 # Function: check_valgrind_status
 # 
 # Look at a file containing stderr from an executed command.
@@ -562,8 +500,8 @@ sub regression_substitution
 #    $has_leak:      1 if valgrind report shows a memory leak.
 #
 # If $file isn't present at all, returns (0,0).
-#
-sub check_valgrind_status
+sub
+check_valgrind_status
 {
     my ($file) = @_;
     my ($has_valgrind, $has_leak);

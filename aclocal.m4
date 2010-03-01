@@ -702,7 +702,6 @@ fi
 # SRE: I've made modifications as follows.
 #  - HMMER relies on IEEE754-compliant math. Don't enable
 #    any options that break compliance; for example, gcc -ffast-math
-#  - similarly, for IBM xlc, add -qstrict.
 #
 AC_DEFUN([AX_CC_MAXOPT],
 [
@@ -734,13 +733,10 @@ if test "$ac_test_CFLAGS" != "set"; then
            CFLAGS="$CFLAGS +DAportable"
          fi;;
 
-    ibm) xlc_opt="-qtune=auto -qstrict"
-         if test "x$acx_maxopt_portable" = xno; then
-            if test "x$XLC_ARCH" = xno; then
-               xlc_opt="-qarch=auto $xlc_opt"
-            else
-               xlc_opt="-qarch=$XLC_ARCH $xlc_opt"
-            fi
+    ibm) if test "x$acx_maxopt_portable" = xno; then
+           xlc_opt="-qarch=auto -qtune=auto"
+         else
+           xlc_opt="-qtune=auto"
          fi
          AX_CHECK_COMPILER_FLAGS($xlc_opt,
                 CFLAGS="-O3 -qansialias -w $xlc_opt",

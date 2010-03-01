@@ -1181,12 +1181,9 @@ main(int argc, char **argv)
 
 
 #else /*!(HAVE_MPI && eslLIBRARY)*/
-
 /* If we don't have MPI compiled in, provide a null testdriver to keep
- * automated tests happy, and throw something in to prevent empty
- * compilation unit warnings.
+ * automated tests happy.
  */
-#include "easel.h"
 #ifdef eslMPI_TESTDRIVE
 int main(void) { return 0; }
 #endif

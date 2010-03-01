@@ -119,7 +119,7 @@ main(int argc, char **argv)
   else if (status == eslEINVAL)    cmdline_failure(argv[0], "Can't autodetect stdin or .gz.\n");
   else if (status != eslOK)        cmdline_failure(argv[0], "Open failed, code %d.\n", status);
 
-  if (do_fetching && sqfp->data.ascii.ssi == NULL)
+  if (do_fetching && sqfp->ssi == NULL)
     cmdline_failure(argv[0], "-R option (random access/fetching) requires %s to be SSI indexed\n", seqfile);
 
   /* Open the <maskfile> */
@@ -155,14 +155,14 @@ main(int argc, char **argv)
 	  status = esl_sqio_Fetch(sqfp, source, sq);
 	  if      (status == eslENOTFOUND) esl_fatal("seq %s not found in SSI index for file %s\n", source, sqfp->filename);
 	  else if (status == eslEINVAL)    esl_fatal("No SSI index or can't reposition in file %s\n", sqfp->filename);
-	  else if (status == eslEFORMAT)   esl_fatal("Parse failed:\n%s\n", esl_sqfile_GetErrorBuf(sqfp));     
+	  else if (status == eslEFORMAT)   esl_fatal("Parse failed:\n%s\n", sqfp->errbuf);     
 	  else if (status != eslOK)        esl_fatal("Unexpected failure in fetching %s from file %s\n", source, sqfp->filename);
 	}
       else 
 	{ /* else, assume we're reading sequentially; <sqfile> and <maskfile> have seqs in same order */
 	  status = esl_sqio_Read(sqfp, sq);
 	  if      (status == eslEOF)      esl_fatal("File %s ended prematurely; didn't find %s\n", sqfp->filename, source);
-	  else if (status == eslEFORMAT)  esl_fatal("Parse failed:\n%s\n", esl_sqfile_GetErrorBuf(sqfp));
+	  else if (status == eslEFORMAT)  esl_fatal("Parse failed:\n%s\n", sqfp->errbuf);
 	  else if (status != eslOK)       esl_fatal("Unexpected error reading sequence file %s\n", sqfp->filename);
 	  
 	  if ((strcmp(sq->name, source) != 0) && (strcmp(sq->acc, source) != 0))
@@ -209,7 +209,7 @@ main(int argc, char **argv)
 	      sq->seq[pos] = (do_lowercase ? tolower(sq->seq[pos]) : maskchar);
 	}
 
-      esl_sqio_Write(ofp, sq, outfmt, FALSE);
+      esl_sqio_Write(ofp, sq, outfmt);
       esl_sq_Reuse(sq);
     }
 

@@ -84,11 +84,11 @@ cexcerpt:
 	done
 
 clean:
-	-rm -f *~ TAGS
-	-rm -f main.log main.out main.pdf main.aux main.toc 
-	-rm -f main.bbl main.blg main.brf
-	-rm -f typography.log typography.aux typography.out
-	-rm -f autotext/*.tex
+	-rm *~ TAGS
+	-rm main.log main.out main.pdf main.aux main.toc 
+	-rm main.bbl main.blg main.brf
+	-rm typography.log typography.aux typography.out
+	-rm autotext/*.tex
 
 distclean:
 	-rm -rf cexcerpts

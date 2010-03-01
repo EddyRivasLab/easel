@@ -24,7 +24,7 @@ static ESL_OPTIONS options[] = {
   { "-p",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff position-based weights",             1 },
   { "-b",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "Henikoff simple filter weights",              1 },
   { "-f",         eslARG_NONE,   FALSE, NULL,     NULL,WGTOPTS,NULL,   NULL,          "filter out seqs by fractional identity",      1 },
-  { "-o",         eslARG_OUTFILE, NULL, NULL,     NULL,   NULL,NULL,   NULL,          "send output to file <f>, not stdout",         1 },
+  { "-o",      eslARG_OUTFILE, NULL, NULL,     NULL,   NULL,NULL,   NULL,          "send output to file <f>, not stdout",         1 },
   { "--id",       eslARG_REAL,  "0.62", NULL,"0<=x<=1",   NULL,"-b",   NULL,          "for -b: set identity cutoff",                 1 },
   { "--idf",      eslARG_REAL,  "0.80", NULL,"0<=x<=1",   NULL,"-f",   NULL,          "for -f: set identity cutoff",                 1 },
   { "--informat", eslARG_STRING, FALSE, NULL,     NULL,   NULL,NULL,   NULL,          "specify that input file is in format <s>",    1 },

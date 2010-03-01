@@ -1,7 +1,6 @@
-/* Draw secondary structure diagrams given a postscript SS template.
+/* Draw secondary structure diagrams given a postscript SS template. 
  * Initial development of this program was for SSU rRNA structures
- * with templates derived from Gutell's CRW (Comparative RNA Website,
- * http://www.rna.ccbb.utexas.edu/). 
+ * with templates derived from Gutell's CRW. 
  *
  * EPN, Mon Jun 23 14:46:05 2008
  */
@@ -14,26 +13,24 @@
 
 #include "easel.h"
 #include "esl_distance.h"
-#include "esl_dmatrix.h"
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
-#include "esl_keyhash.h"
-#include "esl_msa.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
+#include "esl_msa.h"
+#include "esl_distance.h"
+#include "esl_dmatrix.h"
+#include "esl_vectorops.h"
 #include "esl_stack.h"
 #include "esl_tree.h"
-#include "esl_vectorops.h"
 #include "esl_wuss.h"
 
-#define SSDRAWINFINITY 987654321
 #define ERRBUFSIZE 1024
-#define MAXMBWITHOUTFORCE 100
 
 #define ALIMODE 0
 #define INDIMODE 1
 #define SIMPLEMASKMODE 2
-#define INFILEMODE 3
+#define DRAWFILEMODE 3
 
 #define RAINBOWRHSCHEME 0
 #define RAINBOWRLSCHEME 1
@@ -45,12 +42,7 @@
 #define NRBSIXRHSCHEME 6
 #define NRBSIXRLSCHEME 6
 
-#define RBFIVERHSCHEME 4
-#define RBFIVERLSCHEME 5
-#define NRBFIVERHSCHEME 5
-#define NRBFIVERLSCHEME 5
-
-#define NOC 10
+#define NOC 9
 #define CYANOC 0
 #define MAGENTAOC 1
 #define YELLOWOC 2
@@ -60,8 +52,8 @@
 #define REDOC 6
 #define PURPLEOC 7
 #define ORANGEOC 8
-#define WHITEOC 9
 
+#define LEGTEXTNCHARS 60
 #define NCMYK 4
 #define ICYAN 0
 #define IMAGENTA 1
@@ -73,23 +65,29 @@
 #define BLANKMAGENTA 0.0
 #define BLANKYELLOW  0.0
 #define BLANKBLACK   0.5
-
+/*if I extend to allow RED, BLUE, GREEN with combos of CMYK, but it's a pain right now due to implementation 
+  #define IRED 4
+  #define IBLUE 5
+  #define IGREEN 6
+  #define NCOLORS 7
+*/
 #define LEG_NBOXES  11
-/*#define LEG_BOXSIZE 24.*/
+#define LEG_BOXSIZE 24.
 #define LEG_MINFONTSIZE 10
+#define LEGX_OFFSET 24.
+#define LEGY_OFFSET -24.
 #define SPECIAL_FONT "Courier-BoldOblique"
 #define LEG_FONT "Courier-Bold"
 #define LEG_EXTRA_COLUMNS 12 /* how many extra columns we need for printing stats in the legend */
 
 #define DEFAULT_FONT "Courier-Bold"
-#define FOOTER_FONT "Helvetica"
 #define RESIDUES_FONT "Helvetica-Bold"
-#define POSNTEXT_FONT "Helvetica"
+#define HUNDREDS_FONT "Helvetica"
 
 #define SS_BOXSIZE 8.
 
 #define RESIDUES_FONTSIZE 8.
-#define POSNTEXT_FONTSIZE 8.
+#define HUNDREDS_FONTSIZE 8.
 #define LEG_FONTSIZE_UNSCALED 9.6
 /*#define HEADER_FONTSIZE_UNSCALED 14.4*/
 #define HEADER_FONTSIZE_UNSCALED 12
@@ -99,9 +97,9 @@
 
 #define POSTSCRIPT_PAGEWIDTH 612.
 #define POSTSCRIPT_PAGEHEIGHT 792.
-#define PAGE_TOPBUF 30.
-#define PAGE_SIDEBUF 32.
-#define PAGE_BOTBUF 30.
+#define PAGE_TOPBUF 12.
+#define PAGE_SIDEBUF 12.
+#define PAGE_BOTBUF 12.
 #define COURIER_HEIGHT_WIDTH_RATIO 1.65
 
 /* Structure: scheme_color_legend
@@ -118,9 +116,6 @@ typedef struct scheme_color_legend_s {
   float *limits;            /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
   int   *counts;            /* [nbins] number of cells we've painted each color */
   int   *counts_masked;     /* [nbins] number of cells within mask ('1's) that we've painted each color */
-  int    ints_only_flag;    /* TRUE if possible values are only integers, legend values will be drawn differently in this case */
-  int    low_inclusive;     /* TRUE if bin 0 is inclusive of limits[0], FALSE if not */
-  int    high_inclusive;    /* TRUE if bin[nbins-1] is inclusive of max value, FALSE if not */
 } SchemeColorLegend_t;
 
 /* Structure: onecell_color_legend
@@ -155,12 +150,8 @@ typedef struct ss_postscript_s {
   float   headerx_charsize;/* size of a character in x-dimension in the header */
   float   headery_charsize;/* size of a character in y-dimension in the header */
   float   headerx_desc; /* x coordinate (bottom left corner) of header area */
-  int     leg_posn;     /* consensus position for placing legend, read from template */
-  int     leg_boxsize;  /* size of a cell in the legend, (ex. 24 for SSU models) */
-  float   legx_offset;  /* offset in x coordinate for placing legend, legx will be ps->rxA[leg_posn-1] + legx_offset */
-  float   legy_offset;  /* offset in y coordinate for placing legend, legy will be ps->ryA[leg_posn-1] + legy_offset */
-  float   legx;         /* x coordinate (top left corner) of legend area */
-  float   legy;         /* y coordinate (top left corner) of legend area */
+  float   legx;         /* x coordinate (bottom left corner) of legend area */
+  float   legy;         /* y coordinate (bottom left corner) of legend area */
   float   cur_legy;     /* y coordinate of current line in legend */
   float   legx_charsize;/* size of a character in x-dimension in the legend */
   float   legy_charsize;/* size of a character in y-dimension in the legend */
@@ -172,10 +163,9 @@ typedef struct ss_postscript_s {
   float   scale;        /* scale parameter, read from template file */
   char  **regurgA;      /* [0..nregurg-1][] lines from the template file to regurgitate, these are unchanged. */
   int     nregurg;      /* number of lines (char *'s) in the regurg_textAA 2D array */
-  char  **posntextA;    /* [0..i..nposntext-1] string for element i of position text, read from template */
-  float  *posntextxA;   /* [0..i..nposntext-1] x value for posntextA[i] */
-  float  *posntextyA;   /* [0..i..nposntext-1] y value for posntextA[i] */
-  int     nposntext;    /* number of elements in posntextx and posntexty */
+  float  *hundredsxA;   /* [0..nhundreds-1] x value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
+  float  *hundredsyA;   /* [0..nhundreds-1] y value for hundreds (el 0 is for '100', 1 is for '200', etc.) */
+  int     nhundreds;    /* number of elements in hundredsx and hundredsy */
   float  *ticksx1A;     /* [0..nticks-1] x begin value for ticks */
   float  *ticksx2A;     /* [0..nticks-1] x end   value for ticks */
   float  *ticksy1A;     /* [0..nticks-1] y begin value for ticks */
@@ -186,22 +176,21 @@ typedef struct ss_postscript_s {
   float  *bpy1A;        /* [0..nbp-1] y begin value for bp connect line */
   float  *bpy2A;        /* [0..nbp-1] x end   value for bp connect line */
   int     nbp;          /* number of bp */
-  float  *rxA;          /* [0..rflen-1] x coordinate for each residue in the eventual postscript */
-  float  *ryA;          /* [0..rflen-1] y coordinate for each residue in the eventual postscript */
-  int     rflen;         /* the number of residues in the template file */
-  char  **rrAA;         /* [0..npage-1][0..rflen-1] residue character in the eventual postscript */
-  float ***rcolAAA;     /* [0..npage-1][0..rflen-1][0..3] color for block on page p, position c, CMYK in the eventual postscript */
+  float  *rxA;          /* [0..clen-1] x coordinate for each residue in the eventual postscript */
+  float  *ryA;          /* [0..clen-1] y coordinate for each residue in the eventual postscript */
+  int     clen;         /* the number of residues in the template file */
+  char  **rrAA;         /* [0..npage-1][0..clen-1] residue character in the eventual postscript */
+  float ***rcolAAA;     /* [0..npage-1][0..clen-1][0..3] color for block on page p, position c, CMYK in the eventual postscript */
   OneCellColorLegend_t ***occlAAA;/* [0..npage-1][0..l..nocclA[p]  ptr to one cell color legend l for page p */
   int     *nocclA;      /* [0..npage-1] number of one cell color legends for each page */
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
   char    *mask;        /* mask for this postscript, columns which are '0' get drawn differently */
   int      nalloc;      /* number of elements to add to arrays when reallocating */
-  int      msa_nseq;    /* number of sequences in the msa, impt b/c msa->nseq will be 0 if --small */
-  int     *msa_ct;      /* [1..ps->rflen] CT array for msa this postscript corresponds to, 
+  int     *msa_ct;      /* [1..ps->clen] CT array for msa this postscript corresponds to, 
 			 * msa_ct[i] is the position that consensus residue i base pairs to, or 0 if i is unpaired. */
   int      msa_nbp;     /* number of bps read from current MSA (in msa_ct), should equal nbp, but only if bps read from template file */
-  int     *msa_rf2a_map;/* [0..ps->rflen-1]     = apos, apos is the alignment position (0..msa->alen-1) that is non-gap RF position rfpos (for rfpos in 0..rflen-1) */
-  int     *msa_a2rf_map;/* [0..ps->msa->alen-1] = rfpos, rfpos is the non-gap RF position (0..ps->rflen) that is alignment position apos (for apos in 0..ps->msa_alen-1) */
+  float    msa_avgid;   /* average id b/t all pairs of seqs in the MSA */
+  float    msa_avglen;  /* average length of dealigned seqs in the MSA */
   int     *uaseqlenA;   /* [0..ps->msa->nseq-1] unaligned sequence length for all sequences in the MSA, only computed if --indi */
   int     *seqidxA;     /* [0..ps->npage-1] the sequence index in the MSA each page corresponds to, only valid if --indi */
   ESL_MSA *msa;         /* pointer to MSA this object corresponds to */
@@ -210,182 +199,127 @@ typedef struct ss_postscript_s {
 static SSPostscript_t *create_sspostscript();
 static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked);
-static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive);
+static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
-static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf);
+static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf);
 static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused);
 static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf);
 static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx);
 static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int page);
 static void free_sspostscript(SSPostscript_t *ps);
 static int  add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode);
-static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_rflen, SSPostscript_t **ret_ps);
+static int  map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen);
+static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_clen, SSPostscript_t **ret_ps);
 static int  parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t **ret_ps);
 static int  parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
-static int  parse_legend_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf, int *ret_read_showpage);
 static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
-static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf);
+static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, char *errbuf);
+static int  individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused);
+static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
+static int  infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
+static int  structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx);
+static int  delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
+static int  insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int **ict_AA, int nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
+static int  posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx);
+static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx);
+static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes);
-static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, double wt);
+static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
+static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
 static int  get_date(char *errbuf, char **ret_date);
-static int  set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl, int within_mask, int *ret_bi);
+static int  set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl, int within_mask);
 static int  set_onecell_values(char *errbuf, float *vec, int ncolvals, float *onecolor);
 static int  add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask);
 static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask, int do_square_mask, int do_x_mask, int do_border, float boxsize);
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
-static int  read_seq_list_file_bigmem  (char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused);
-static int  read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused);
-static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
-static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
-static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
-static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
-static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
-static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
-static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
-static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
-static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
-static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
-static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p);
-static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
-static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
-static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
-static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
-static int  expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
-static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
-static int  get_span_ct(int *msa_rf2a_map, int64_t alen, int rflen, int nseq, int *spos_ct, int *epos_ct, int *srfoff_ct, int *erfoff_ct, int **ret_span_ct);
+static int  read_seq_list_file(char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused);
+static int  get_insert_info_from_msa(ESL_MSA *msa, int clen, int ***ret_ict_AA);
+static int  get_insert_info_from_ifile(char *ifile, int clen, int nseq, int ***ret_ict_AA);
 
-static char banner[] = "draw postscript secondary structure diagrams";
+static char banner[] = "draw postscript secondary structure diagrams.";
 static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
 
-#define OPTSFORKEEP "--small,--list,--indi" /* options required for --keep to work */
+#define MASKTYPEOPTS "-d,-c,-x" /* exclusive choice for mask types */
+#define INCOMPATWITHSINGLEOPTS "--prob,--ins,--dall,--dint,--struct,--indi,--list,--all,--dfile" /* incompatibile with --mask and --mask-col */
+#define INCOMPATWITHDFILEOPTS "-q,--prob,--ins,--dall,--dint,--struct,--indi,--list,--all,--mask-col,--mask-diff" /* incompatible with --dfile */
 
 static ESL_OPTIONS options[] = {
-  /* name       type        default env   range togs  reqs         incomp     help                                                   docgroup */
-  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "help; show brief info on version and usage",              1 },
-  { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,        NULL,      "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
-  { "--small",  eslARG_NONE,   NULL, NULL, NULL, NULL,NULL,        NULL,      "operate in small memory mode (aln must be 1 line/seq Pfam format)", 1 },
+  /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
+  { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",              1 },
+  { "-q",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "do not draw info content diagram (or RF sequence if --indi)", 1 },
+  { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,NULL,             "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
+  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw posterior probability diagram(s)", 1 },
 
-  { "--rf",     eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing reference (#=GC RF) sequence", 2 },
-  { "--info",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw information content diagram", 2 },
-  { "--mutinfo",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw base pair mutual information diagram", 2 },
-  { "--ifreq",  eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw insert frequency diagram", 2 },
-  { "--iavglen",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average insert length diagram", 2 },
-  { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
-  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/only internal (non-terminal) deletions", 2 },
-  { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average posterior probability diagram", 2 },
-  { "--span",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing fraction of seqs that span each posn", 2 },
-  { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL,        NULL,      "output per position data in tabular format to file <f>", 2 },
+  { "--ins",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw insert diagram", 2 },
+  { "--dall",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/all deletions (incl. terminal deletes)", 2 },
+  { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw delete diagram w/only internal (non-terminal) deletions", 2 },
+  { "--struct", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,"--indi",         "draw structural information content diagram", 2 },
 
-  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagrams for individual sequences in the alignment", 3 },
-  { "-F",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
-  { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, only draw individual diagrams of seqs listed in <f>", 3 },
-  { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
-  { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 3 },
+  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "draw diagrams for individual sequences instead of the aln", 3 },
+  { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi", "--all",     "with --indi, draw individual diagrams for seqs listed in <f>", 3 },
+  { "--all",    eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi", "--list",    "with --indi, draw individual diagrams of all sequences", 3 },
 
-  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-x","with --mask, mark masked columns as squares", 4 },
-  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-u","with --mask, mark masked columns as x's", 4 },
-  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    NULL,      "with --mask-u or --mask-x, draw alternative mask style", 4 },
+  { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as squares", 4 },
+  { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask, mark masked columns as x's", 4 },
+  { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "with --mask-u or --mask-x, draw alternative mask style", 4 },
 
-  { "--mask-col", eslARG_NONE,  NULL,NULL, NULL, NULL,"--mask",    NULL,      "w/--mask draw two color diagram denoting masked columns", 5 },
-  { "--mask-diff",eslARG_INFILE,NULL,NULL, NULL, NULL,"--mask",    NULL,      "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
+  { "--mask-col",eslARG_NONE, NULL, NULL, NULL, NULL,"--mask",  INCOMPATWITHSINGLEOPTS, "w/--mask draw black/cyan diagram denoting masked columns", 5 },
+  { "--mask-diff",eslARG_INFILE,NULL, NULL, NULL, NULL,"--mask",INCOMPATWITHSINGLEOPTS, "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
 
-  { "--dfile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'draw file' specifying >=1 diagrams", 6 },
-  { "--efile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'expert draw file' specifying >=1 diagrams", 6 },
-  { "--ifile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read insert information from cmalign insert file <f>", 6 },
+  { "--dfile",  eslARG_INFILE, NULL, NULL, NULL, NULL,NULL, INCOMPATWITHDFILEOPTS, "read 'draw' file specifying >=1 diagrams", 6 },
+  { "--ifile",  eslARG_INFILE, NULL, NULL, NULL, NULL,"--ins","--indi",      "read insert information from cmalign insert file <f>", 6 },
 
-  { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw legend", 8 },
-  { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw header", 8 },
-  { "--no-foot",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not draw footer", 8 },
+  { "--no-leg", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw legend", 7 },
+  { "--no-head",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw header", 7 },
+  { "--no-foot",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,          "do not draw footer", 7 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS    *go      = NULL;	/* application configuration       */
-  ESL_ALPHABET   *abc     = NULL;	/* biological alphabet             */
-  char           *alifile = NULL;	/* alignment file name             */
-  char           *outfile = NULL;	/* output ps file name             */
-  char           *templatefile = NULL;  /* template file, specifying >= 1 SS diagrams 
-		  		         * (each must have a unique consensus length) */
-  int             fmt;		        /* format code for alifile         */
-  ESL_MSAFILE    *afp     = NULL;	/* open alignment file             */
-  ESL_MSA        *msa     = NULL;	/* one multiple sequence alignment */
-  int             status;		/* easel return code               */
-  int             rflen;                 /* non-gap RF (consensus) length of each alignment */
-  int             apos;                 /* counter over alignment positions */
-  char            errbuf[ERRBUFSIZE];   /* for printing error messages */
-  FILE           *ofp       = NULL;     /* output file for postscript */
-  FILE           *tabfp    = NULL;     /* output file for text data, only set to non-null if --tabfile enabled */
-  SSPostscript_t *ps        = NULL;     /* the postscript data structure we create */
-  int            *hc_nbins  = NULL;     /* hard-coded number of bins (colors) for each possible scheme */
-  float        ***hc_scheme = NULL;     /* colors for each pre-defined scheme */
-  float         **hc_onecell = NULL;    /* single colors used for binary color schemes */
-  int             z;                    /* counter */
-  char           *command = NULL;       /* string for printing command to stdout */
-  char           *date = NULL;          /* date command was executed */
-  char           *mask = NULL;          /* first mask we'll use, string of '0's and '1's */
-  int             masklen;              /* length of mask */
-  char           *mask2 = NULL;         /* second mask we'll use, string of '0's and '1's */
-  int             mask2len;             /* length of second mask */
-  int             mask_has_internal_zeroes = FALSE;  /* does mask have any '0's with at least '1' on both sides? */
-  int             mask2_has_internal_zeroes = FALSE; /* does mask have any '0's with at least '1' on both sides? */
-  int            *useme = NULL;         /* only relevant if --list, [0..i..msa->nseq] TRUE to include indi diagram for seq i, FALSE not to */
-  int             nused = 0;            /* only relevant if --list, number of TRUEs in useme */
- /* counts of relevant values from the msa */
-  int            *nseq_with_ins_ct = NULL; /* [0..ps->rflen] number of sequences with >=1 insert after each consensus position, only used if --ifreq */
-  int            *nins_ct = NULL;          /* [0..ps->rflen] total number of inserted residues (over all seqs) after each consensus position, only used if --ifreq */
-  int           **per_seq_ins_ct = NULL;   /* [0..msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
-  double        **abc_ct = NULL;        /* [0..msa->alen-1][0..abc->K], count of each residue at each position, over all sequences, missing and nonresidues are *not counted* */
-  double       ***bp_ct = NULL;         /* [0..msa->alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
-                                           base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
-  int           **pp_ct = NULL;         /* [0..msa->alen-1][0..11], count of reach posterior probability (PP) code, over all sequences, gap is 11 */
-  int            *spos_ct = NULL;       /* [0..msa->alen-1] per position count of first non-gap position, over all seqs */
-  int            *epos_ct = NULL;       /* [0..msa->alen-1] per position count of final non-gap position, over all seqs */
-  int            *srfoff_ct = NULL;     /* [0..rfpos..rflen-1], correction for spos_ct for rfpos, derived from ifile, only used if msa has had all insert columns removed */
-  int            *erfoff_ct = NULL;     /* [0..rfpos..rflen-1], correction for epos_ct for rfpos, derived from ifile, only used if msa has had all insert columns removed */
-  int            *span_ct = NULL;       /* [0..rfpos..rflen-1], number of sequences that 'span' position rfpos */
-  int64_t         msa_alen;             /* msa->alen */
-  int             msa_nseq;             /* msa->nseq */
-  /* variables related to small memory mode */
-  int             do_small = TRUE;      /* TRUE to operate in small memory mode, FALSE not to */
-  /* small memory mode variables used only if --list and --indi */
-  char            tmp_indi_alifile[32] = "esltmpXXXXXX"; /* the name of the indi alignment file */
-  ESL_MSAFILE    *indi_afp = NULL;      /* MSA file pointer for newly created indi alignment in */
-  FILE           *indi_fp = NULL;       /* file pointer for outputting indi alignment */
-  ESL_MSA        *indi_msa = NULL;      /* new indi msa */
-  int           **indi_per_seq_ins_ct = NULL;   /* [0..indi_msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
-  ESL_KEYHASH    *useme_keyhash;        /* keyhash of sequence names listed in list file, only used if --list and --indi enabled */
-  int             i;                    /* counter of sequences */
-  /* variables storing which pages to print */
-  int             default_mode = TRUE;  /* TRUE if no options telling specifying what pages to draw were selected */
-  int             do_rf = FALSE;        
-  int             do_info = FALSE;      
-  int             do_mutinfo = FALSE;   
-  int             do_ifreq = FALSE;      
-  int             do_iavglen = FALSE;      
-  int             do_dall = FALSE;     
-  int             do_dint = FALSE;     
-  int             do_prob = FALSE;     
-  int             do_span = FALSE;     
-  int             do_indi = FALSE;     
-  int             do_maskcol = FALSE;   
-  int             do_maskdiff = FALSE;
-  int             do_dfile = FALSE;
-  int             do_efile = FALSE;
-  int             need_span_ct = FALSE; /* TRUE if span_ct must be calculated (if do_dint || do_ifreq || do_iavglen || do_span) */
-  int             tmp_Mb = 0;          
-  int             predicted_Mb = 0;    /* predicted size of the output file, calced if --indi */
+  ESL_GETOPTS  *go      = NULL;	/* application configuration       */
+  ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
+  char         *alifile = NULL;	/* alignment file name             */
+  char         *outfile = NULL;	/* output ps file name             */
+  char         *templatefile = NULL; /* template file, specifying >= 1 SS diagrams 
+				      * (each must have a unique consensus length) */
+  int           fmt;		/* format code for alifile         */
+  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
+  ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
+  int           status;		/* easel return code               */
+  int           clen;           /* non-gap RF (consensus) length of each alignment */
+  int           read_msa = FALSE; /* set to true when we read an alignment */
+  int           apos;
+  char          errbuf[ERRBUFSIZE];
+  FILE           *ofp       = NULL;    /* output file for postscript */
+  SSPostscript_t *ps        = NULL;    /* the postscript data structure we create */
+  int            *hc_nbins  = NULL;
+  float        ***hc_scheme = NULL;
+  float         **hc_onecell = NULL;
+  int           z;
+  char          *command = NULL;
+  char          *date = NULL;
+  int master_mode;
+  char *mask = NULL;
+  int masklen;
+  char *mask2 = NULL;
+  int mask2len;
+  int mask_has_internal_zeroes = FALSE;
+  int mask2_has_internal_zeroes = FALSE;
+  int *useme = NULL;         /* only relevant if --list, [0..i..msa->nseq] TRUE to include indi diagram for seq i, FALSE not to */
+  int nused = 0;             /* only relevant if --list, number of TRUEs in useme */
+  int **ict_AA = NULL;       /* [0..ps->clen][0..msa->nseq-1], number of inserts per position, only used if --ins */
+
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -412,12 +346,12 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
       puts("\noptions controlling style of masked positions:");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
-      puts("\noptions for drawing simple two color diagrams of masks:");
+      puts("\noptions for drawing simple block-only diagrams of masks:");
       esl_opt_DisplayHelp(stdout, go, 5, 2, 80); 
-      puts("\noptions related to optional input files:");
+      puts("\noption for reading in a file dictating colors:");
       esl_opt_DisplayHelp(stdout, go, 6, 2, 80); 
       puts("\noptions for omitting parts of the diagram:");
-      esl_opt_DisplayHelp(stdout, go, 8, 2, 80); 
+      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       exit(0);
     }
 
@@ -428,16 +362,6 @@ main(int argc, char **argv)
       printf("\nTo see more help on available options, do %s -h\n\n", argv[0]);
       exit(1);
     }
-
-  /* Check for incompatible options that aren't simple to check with esl_getopts */
-  /* --small doesn't work in combination with --indi unless --list */
-  if (esl_opt_GetBoolean(go, "--small") && esl_opt_IsOn(go, "--indi") && (! esl_opt_IsOn(go, "--list"))) { 
-    esl_fatal("--small only works in combination with --indi if --list is also used");
-  }
-  /* --mask-a requires either --mask-x or --mask-u */
-  if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
-    esl_fatal("--mask-a requires either --mask-u or mask-x");
-  }
 
   alifile      = esl_opt_GetArg(go, 1);
   templatefile = esl_opt_GetArg(go, 2);
@@ -499,15 +423,10 @@ main(int argc, char **argv)
   hc_onecell[ORANGEOC][2] = 1.0;
   hc_onecell[ORANGEOC][3] = 0.0;
 
-  hc_onecell[WHITEOC][0] = 0.0;
-  hc_onecell[WHITEOC][1] = 0.0;
-  hc_onecell[WHITEOC][2] = 0.0;
-  hc_onecell[WHITEOC][3] = 0.0;
-
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  ESL_ALLOC(hc_scheme, sizeof(float **) * 6);
-  for (z = 0; z < 6; z++) hc_scheme[z] = NULL;
+  ESL_ALLOC(hc_scheme, sizeof(float **) * 4);
+  for (z = 0; z < 4; z++) hc_scheme[z] = NULL;
   ESL_ALLOC(hc_scheme[0], sizeof(float *) * 11); 
   for(z = 0; z < 11; z++) hc_scheme[0][z] = NULL;
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[0][z], sizeof(float) * NCMYK); }
@@ -520,20 +439,12 @@ main(int argc, char **argv)
   ESL_ALLOC(hc_scheme[3], sizeof(float *) * 6); 
   for(z = 0; z < 6; z++) hc_scheme[3][z] = NULL;
   for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[3][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[4], sizeof(float *) * 5); 
-  for(z = 0; z < 5; z++) hc_scheme[4][z] = NULL;
-  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[4][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[5], sizeof(float *) * 5); 
-  for(z = 0; z < 5; z++) hc_scheme[5][z] = NULL;
-  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[5][z], sizeof(float) * NCMYK); }
 
-  ESL_ALLOC(hc_nbins, sizeof(int) * 6);
+  ESL_ALLOC(hc_nbins, sizeof(int) * 4);
   hc_nbins[0] = NRAINBOWRHSCHEME;
   hc_nbins[1] = NRAINBOWRLSCHEME;
   hc_nbins[2] = NRBSIXRHSCHEME;
   hc_nbins[3] = NRBSIXRLSCHEME;
-  hc_nbins[4] = NRBFIVERHSCHEME;
-  hc_nbins[5] = NRBFIVERLSCHEME;
 
   /***********************************/
   /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
@@ -570,7 +481,7 @@ main(int argc, char **argv)
   hc_scheme[0][10][0] = 0.00; hc_scheme[0][10][1] = 0.94; hc_scheme[0][10][2] = 1.00; hc_scheme[0][10][3] = 0.00; /*red*/
   hc_scheme[1][ 0][0] = 0.00; hc_scheme[1][ 0][1] = 0.94; hc_scheme[1][ 0][2] = 1.00; hc_scheme[1][ 0][3] = 0.00; /*red*/
   /***********************************/
-  /*Scheme 2 and 3: Rainbow(red high) 6 is 2, Rainbow (red low) 6 is 3 */
+  /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
   hc_scheme[2][0][0] = 0.92; hc_scheme[2][0][1] = 0.84; hc_scheme[2][0][2] = 0.00; hc_scheme[2][0][3] = 0.08; /*blue*/
   hc_scheme[3][5][0] = 0.92; hc_scheme[3][5][1] = 0.84; hc_scheme[3][5][2] = 0.00; hc_scheme[3][5][3] = 0.08; /*blue*/
 
@@ -589,415 +500,150 @@ main(int argc, char **argv)
   hc_scheme[2][5][0] = 0.00; hc_scheme[2][5][1] = 0.94; hc_scheme[2][5][2] = 1.00; hc_scheme[2][5][3] = 0.00; /*red*/
   hc_scheme[3][0][0] = 0.00; hc_scheme[3][0][1] = 0.94; hc_scheme[3][0][2] = 1.00; hc_scheme[3][0][3] = 0.00; /*red*/
   /***************************************************************/
-  /***********************************/
-  /*Scheme 4 and 5: Rainbow(red high) 5 is 4, Rainbow (red low) 5 is 5 */
-  /*Same as schemes 3 and 4 (rainbow 6s, except no final blue, which makes black text difficult overlaid on it difficult to read */
-  hc_scheme[4][0][0] = 0.50; hc_scheme[4][0][1] = 0.00; hc_scheme[4][0][2] = 0.00; hc_scheme[4][0][3] = 0.50; /*teal*/
-  hc_scheme[5][4][0] = 0.50; hc_scheme[5][4][1] = 0.00; hc_scheme[5][4][2] = 0.00; hc_scheme[5][4][3] = 0.50; /*teal*/
+  master_mode = ALIMODE;
+  if(esl_opt_GetBoolean(go, "--indi"))       master_mode = INDIMODE;
+  if(esl_opt_GetBoolean(go, "--mask-col"))   master_mode = SIMPLEMASKMODE;
+  if(! esl_opt_IsDefault(go, "--mask-diff")) master_mode = SIMPLEMASKMODE;
+  if(! esl_opt_IsDefault(go, "--dfile"))     master_mode = DRAWFILEMODE;
 
-  hc_scheme[4][1][0] = 0.42; hc_scheme[4][1][1] = 0.00; hc_scheme[4][1][2] = 1.00; hc_scheme[4][1][3] = 0.00;
-  hc_scheme[5][3][0] = 0.42; hc_scheme[5][3][1] = 0.00; hc_scheme[5][3][2] = 1.00; hc_scheme[5][3][3] = 0.00;
-
-  hc_scheme[4][2][0] = 0.00; hc_scheme[4][2][1] = 0.21; hc_scheme[4][2][2] = 1.00; hc_scheme[4][2][3] = 0.00;
-  hc_scheme[5][2][0] = 0.00; hc_scheme[5][2][1] = 0.21; hc_scheme[5][2][2] = 1.00; hc_scheme[5][2][3] = 0.00;
-
-  hc_scheme[4][3][0] = 0.00; hc_scheme[4][3][1] = 0.63; hc_scheme[4][3][2] = 1.00; hc_scheme[4][3][3] = 0.00;
-  hc_scheme[5][1][0] = 0.00; hc_scheme[5][1][1] = 0.63; hc_scheme[5][1][2] = 1.00; hc_scheme[5][1][3] = 0.00;
-
-  hc_scheme[4][4][0] = 0.00; hc_scheme[4][4][1] = 0.94; hc_scheme[4][4][2] = 1.00; hc_scheme[4][4][3] = 0.00; /*red*/
-  hc_scheme[5][0][0] = 0.00; hc_scheme[5][0][1] = 0.94; hc_scheme[5][0][2] = 1.00; hc_scheme[5][0][3] = 0.00; /*red*/
-  /***************************************************************/
-
-  /*****************************************
-   * Open the MSA file; determine alphabet;
-   *****************************************/
+  /***********************************************
+   * Open the MSA file; determine alphabet; set for digital input
+   ***********************************************/
   
-  do_small = esl_opt_GetBoolean(go, "--small") ? TRUE : FALSE;
-  fmt = do_small ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM;
+  fmt = eslMSAFILE_STOCKHOLM;
   status = esl_msafile_Open(alifile, fmt, NULL, &afp);
   if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
   else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
   else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
 
-  /* Assert RNA */
+  /* Assert RNA, it's the ribosome */
   abc = esl_alphabet_Create(eslRNA);
+  esl_msafile_SetDigital(afp, abc);
 
   /* Read the mask files, if nec */
-  if(esl_opt_IsOn(go, "--mask")) { 
+  if(! esl_opt_IsDefault(go, "--mask")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask"), errbuf, &mask, &masklen, &mask_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
   }
-  if(esl_opt_IsOn(go, "--mask-diff")) { 
+  if(! esl_opt_IsDefault(go, "--mask-diff")) { 
     if((status = read_mask_file(esl_opt_GetString(go, "--mask-diff"), errbuf, &mask2, &mask2len, &mask2_has_internal_zeroes)) != eslOK) esl_fatal(errbuf);
     if(masklen != mask2len) esl_fatal("Mask in %f length (%d) differs from mask in %f (%d)!", esl_opt_GetString(go, "--mask"), masklen, esl_opt_GetString(go, "--mask-diff"), mask2len);
   }
 
-  /* Open output files, if necessary */
-  if (esl_opt_IsOn(go, "--tabfile")) { 
-    if((tabfp = fopen(esl_opt_GetString(go, "--tabfile"), "w")) == NULL) esl_fatal("Failed to open output file %s\n", esl_opt_GetString(go, "--tabfile"));
-  }
-
-  /**********************
-   * Read the alignment *
-   **********************/
-  status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
-    esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
-  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status == eslEOF)     esl_fatal("No alignments found in file %s\n", alifile);
-  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n%s", status, afp);
-
-  if(do_small) { 
-    msa->alen = msa_alen; }
-  else         
-    { 
-    msa_nseq = msa->nseq; 
-    msa_alen = msa->alen; 
-  }
-
-  msa->abc = abc;
-  if(msa->rf == NULL) esl_fatal("First MSA in %s does not have RF annotation.", alifile);
-  /* determine non-gap RF length (consensus length) */
-  rflen = 0;
-  for(apos = 0; apos < msa->alen; apos++) { 
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      rflen++;
-    }
-  }
-  /* We've read the alignment, now read the template postscript file (we do this second b/c the RF len of the alignment tells us which postscript template to use) */
-  if((status = parse_template_file(templatefile, go, errbuf, rflen, &ps) != eslOK)) esl_fatal(errbuf);
-  
-  
-  /**************************************************************************************************************
-   * Now that we have the msa and know what template we're using, determine what type of pages we'll be drawing *
-   **************************************************************************************************************/
-  /* Careful: this block assumes that all boolean options are OFF (FALSE) by default */
-  default_mode = TRUE;
-  if(esl_opt_GetBoolean(go, "--info"))      { do_info     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--mutinfo"))   { do_mutinfo  = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--ifreq"))     { do_ifreq    = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--iavglen"))   { do_iavglen  = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--dall"))      { do_dall     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--dint"))      { do_dint     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--prob"))      { do_prob     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--span"))      { do_span     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--mask-col"))  { do_maskcol  = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--mask-diff")) { do_maskdiff = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--dfile"))     { do_dfile    = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--efile"))     { do_efile    = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--rf")) { 
-    if(msa->rf == NULL) esl_fatal("--rf selected by msa does not have #=GC RF annotation");
-    do_rf = TRUE;
-    default_mode = FALSE; 
-  }
-  if(esl_opt_GetBoolean(go, "--indi")) { 
-    do_indi = TRUE; 
-    default_mode = FALSE; 
-    /* Predict size of indi output file, based on two data points:
-     * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
-     * =~ 0.0002 Mb per page per rfpos */
-    predicted_Mb = (int) (ps->rflen * 0.0002 * msa_nseq);
-    if(! esl_opt_GetBoolean(go, "--no-iprob")) predicted_Mb *= 2;
-    /* round to nearest 100 Mb */ 
-    tmp_Mb = 100; while(tmp_Mb < predicted_Mb) tmp_Mb += 100;
-    predicted_Mb = tmp_Mb;
-    if(predicted_Mb > MAXMBWITHOUTFORCE && (! esl_opt_GetBoolean(go, "-F"))) { 
-      esl_fatal("WARNING: --indi selected and msa has %d seqs in it, output postcript file will be large (~%.2f Mb).\nUse -F to override this warning and do it anyway.", msa_nseq, predicted_Mb);
-    }
-  }
-  if(default_mode) { /* set default pages */
-    do_info = do_mutinfo = do_ifreq = do_iavglen = do_dall = do_dint = do_span = TRUE;
-    if(msa->rf != NULL) do_rf   = TRUE;
-    if(msa->pp != NULL) do_prob = TRUE;
-  }
-  /* determine if tabfile was incorrectly used */
-  if(tabfp != NULL && 
-     do_info == FALSE && do_mutinfo == FALSE && do_ifreq  == FALSE && 
-     do_iavglen == FALSE && do_dall == FALSE && do_dint   == FALSE && do_span == FALSE) { 
-    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--dall,--dint,--span");
-  }
-  need_span_ct = (do_dint || do_span || do_ifreq || do_iavglen) ? TRUE : FALSE;
-
-  if(do_small && (do_dint || do_span || do_ifreq || do_iavglen || do_mutinfo)) { 
-    /* If we're in small mem mode, now that we know msa->rf and msa->ss_cons, 
-     * we do a second read of the msa to get bpct, spos_ct and epos_ct, 
-     * but only if we need them (if --span, --dint, or --mutinfo). 
-     * To do this, we close the alifile and reopen it, so we can read the 1st
-     * alignment again.
-     */
-    esl_msafile_Close(afp);
-    status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-    if      (status == eslENOTFOUND) esl_fatal("2nd pass, alignment file %s doesn't exist or is not readable\n", alifile);
-    else if (status == eslEFORMAT)   esl_fatal("2nd pass, couldn't determine format of alignment %s\n", alifile);
-    else if (status != eslOK)        esl_fatal("2nd pass, alignment file open failed with error %d\n", status);
+  /* Read the alignment */
+  if((status = esl_msa_Read(afp, &msa)) == eslOK) { 
+    read_msa = TRUE;
+    msa->abc = abc;
+    if(msa->rf == NULL) esl_fatal("First MSA in %s does not have RF annotation.", alifile);
+    clen = 0;
+    for(apos = 0; apos < msa->alen; apos++) if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) clen++;
     
-    status = esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &spos_ct, &epos_ct);
-    if      (status == eslEFORMAT) esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
-    else if (status == eslEINVAL)  esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
-    else if (status == eslEOF)     esl_fatal("2nd pass, No alignments found in file %s\n", alifile);
-    else if (status != eslOK)      esl_fatal("2nd pass, Alignment file read failed with error code %d\n%s", status, afp);
-  }
+    /* We've read the alignment, now read the template postscript file (we do this second b/c the RF len of the alignment tells us which postscript template to use) */
+    if((status = parse_template_file(templatefile, go, errbuf, clen, &ps) != eslOK)) esl_fatal(errbuf);
 
-  /* if we get here, the postscript file has been successfully read; now we open the output file */
-  if(ofp == NULL) { 
-    /* open postscript output file for writing */
-    if ((ofp = fopen(outfile, "w")) == NULL)
-      ESL_FAIL(eslFAIL, errbuf, "Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
-  }
-  
-  /* determine position for header and legend */
-  if((status = setup_sspostscript(ps, errbuf) != eslOK)) esl_fatal(errbuf);
-  if(ps->rflen == 0)     esl_fatal("MSA has consensus (non-gap RF) length of %d which != template file consensus length of %d.", rflen, ps->rflen);
-  if(rflen != ps->rflen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != template file consensus length of %d.", rflen, ps->rflen);
-  
-  /* add the mask if there is one */
-  if(mask != NULL) add_mask_to_ss_postscript(ps, mask);
-  if(mask != NULL && ps->rflen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", rflen, masklen, esl_opt_GetString(go, "--mask"));
-  
-  if((status = validate_and_update_sspostscript_given_msa(go, ps, msa, msa_nseq, errbuf)) != eslOK) esl_fatal(errbuf);
-
-  /* get the information we need from the alignment */
-  if(! do_small) { /* derive counts from the msa for postscript diagrams, we do this our functions for drawing diagrams work in small mem or big mem mode */
-    if((status = count_msa(msa, errbuf, &(abc_ct), &(bp_ct), (do_prob ? &(pp_ct) : NULL), &(spos_ct), &(epos_ct))) != eslOK) esl_fatal(errbuf);
-  }    
-  /* read the insert file, if nec, we have to do this before we determine the span count in case inserts have been removed from the msa,
-   * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadNonSeqInfo() could be slightly incorrect, we'll use
-   * srfoff_ct and erfoff_ct from get_insert_info_from_ifile() to correct them when we derive span_ct from spos_ct and epos_ct together in get_span_ct(). */
-  if(esl_opt_IsOn(go, "--ifile")) { 
-    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), &(nins_ct), NULL, &srfoff_ct, &erfoff_ct); /* dies with esl_fatal() upon an error */
-  }
-  /* determine span count */
-  if(need_span_ct) { 
-    if((status = get_span_ct(ps->msa_rf2a_map, msa_alen, ps->rflen, msa_nseq, spos_ct, epos_ct, srfoff_ct, erfoff_ct, &span_ct)) != eslOK) ESL_FAIL(eslEMEM, errbuf, "Out of memory, getting span_ct array.");
-  }
-
-  /* step through each type of page, creating it if nec */
-  if(do_rf) { 
-    /* this will work in either small memory or normal memory mode */
-    if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
-  }
-
-  if(do_info) { 
-    if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
-  
-  if(do_mutinfo) { /* mutual info page */
-    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
-  
-  if(do_ifreq || do_iavglen) { /* insert frequency page */
-    /* first, determine number of sequences with inserts after each position, 3 different ways depending on command line options */
-    if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign */
-      /* we've already read the ifile above, and filled nseq_with_ins_ct, but we check here */
-      if(nseq_with_ins_ct == NULL) esl_fatal("Internal error, --ifile selected, but not read");
+    /* if we get here, the postscript file has been successfully read; now we open the output file */
+    if(ofp == NULL) { 
+      /* open postscript output file for writing */
+      if ((ofp = fopen(outfile, "w")) == NULL)
+	ESL_FAIL(eslFAIL, errbuf, "Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
     }
-    else if (do_small) { /* use abc_ct to derive nseq_with_ins_ct */
-      get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct), &(nins_ct)); /* dies with esl_fatal() upon an error */
-    }
-    else { 
-      get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), &(nins_ct), NULL); /* dies with esl_fatal() upon an error */
-    }
-    /* now draw the insert diagram */
-    if(do_ifreq) { 
-      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-    if(do_iavglen) { 
-      if((status = insertavglen_sspostscript(go, errbuf, ps, nseq_with_ins_ct, nins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-    }
-  }
-  
-  if(do_dall) { /* make a new postscript page marking all deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
-  
-  if(do_dint) { /* internal deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
-  
-  if(do_prob) { /* avg post prob */
-    if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
-  
-  if(do_span) { /* span */
-    if((status = span_sspostscript(go, errbuf, ps, span_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
-  }
 
-  if(do_maskcol) { 
-    /* Paint positions excluded by the mask magenta, unless the mask has zero internal exclusions.
-     * Such a mask is a 'truncating' mask, that excludes only a 5' contiguous set of columns, and a 3' contiguous set of columns, in this case paint excluded positions light grey. */
-    if((status = colormask_sspostscript(go, errbuf, ps, msa, hc_onecell, BLACKOC, (mask_has_internal_zeroes ? MAGENTAOC : LIGHTGREYOC))) != eslOK) esl_fatal(errbuf);
-  }
+    /* determine position for header and legend */
+    if((status = setup_sspostscript(ps, errbuf) != eslOK)) esl_fatal(errbuf);
 
-  if(do_maskdiff) { 
-    if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
-  }
+    if(ps->clen == 0)    esl_fatal("MSA has consensus (non-gap RF) length of %d which != template file consensus length of %d.", clen, ps->clen);
+    if(clen != ps->clen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != template file consensus length of %d.", clen, ps->clen);
 
-  if(do_dfile) {
-    if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
-  }
+    /* add the mask if there is one */
+    if(mask != NULL && (master_mode != SIMPLEMASKMODE)) add_mask_to_ss_postscript(ps, mask);
+    if(mask != NULL && ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", clen, masklen, esl_opt_GetString(go, "--mask"));
 
-  if(do_efile) { 
-    if((status = expertfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
-  }
-
-  if(do_indi) { /* determine if we're printing all seqs or just those listed in --list */
-    if(! esl_opt_IsOn(go, "--list")) {
-      /* we should have an actual msa b/c we checked above for illegal case where --small and --indi enabled w/o --list,
-       * but we check again to make sure */
-      if(do_small) esl_fatal("--small only works in combination with --indi if --list is also used");
-
-      /* get insert info we'll use in individuals_sspostscript() */
-      if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+    if((status = validate_and_update_sspostscript_given_msa(go, ps, msa, errbuf)) != eslOK) esl_fatal(errbuf);
+    
+    if(master_mode == ALIMODE) { 
+      if(! esl_opt_GetBoolean(go, "-q")) { 
+	if((status = infocontent_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
-      else { 
-	get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
+      if(esl_opt_GetBoolean(go, "--struct")) { 
+	if((status = structural_infocontent_sspostscript(go, errbuf, ps, msa, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
       }
-      /* allocate for and set useme array to all TRUEs, we're printing all seqs */
-      ESL_ALLOC(useme, sizeof(int) * msa_nseq); 
-      esl_vec_ISet(useme, msa_nseq, TRUE);
-      nused = msa_nseq;
-    }
-    else if(esl_opt_IsOn(go, "--list")) {
-      /* first read the list file */
-      if(! do_small) { 
-	read_seq_list_file_bigmem(esl_opt_GetString(go, "--list"), msa, &useme, &nused);    /* this will die with esl_fatal() upon an error */
-      }
-      else { /* do_small == TRUE */
-	read_seq_list_file_smallmem(esl_opt_GetString(go, "--list"), &useme_keyhash, &nused); /* this will die with esl_fatal() upon an error */
-      }
-      /* At this point, we know which sequences we're going to draw indi diagrams for.
-       * Next step, get insert info. We need this so we can allow --ifile to work (which reads insert info from a file)
-       * instead of relying on always reading insert info from the msa itself.
-       * The way we get insert info varies, depending on if --small and --ifile. 
-       * If ! --small, we read all insert info, either from the msa (if ! --ifile) or from the ifile (if --ifile). 
-       * If   --small, we read only the insert info for the seqs we're going to draw diagrams for.
-	 * When --small and ! --ifile, first we have to create the smaller alignment containing only those
-	 * seqs we'll draw diagrams for, then we get the insert info from it.
-	 */
-	if(! do_small) { 
-	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	  }
-	  else { /* get insert info from the msa */
-	    get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	  }
+      if(esl_opt_GetBoolean(go, "--ins")) { /* make a new postscript page marking insertions */
+	if(! esl_opt_IsDefault(go, "--ifile")) { /* read the insert file from cmalign */
+	  if(msa->alen != ps->clen) { esl_fatal("Error, --ifile only works with alignments containing 0 insert columns created by cmalign --matchonly.\nThe input alignment contains %d insert columns.\n", msa->alen - ps->clen); } 
+	  if((status = get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->clen, msa->nseq, &(ict_AA))) != eslOK) esl_fatal(errbuf);
 	}
-	else { /* do_small */ 
-	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, NULL, &(indi_per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	  }
-	  /* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
-	   * below). We put the if() part above so that if there's an error in the ifile we find out before we do the 
-	   * full msa regurgitation below.
-	   */
-
-	  /* We're in small memory mode, which means we never read the full alignment into memory. Instead we will just read
-	   * the sequences that we're going to draw indi diagrams for into memory by creating a new msa: indi_msa.
-	   * The way we do this is convoluted: open the msa file, and regurgitate it to a temp file, but taking care only to 
-	   * regurgitate the seqs we want to draw diagrams for. Then we read that temp file into memory as indi_msa.
-	   */
-	  esl_msafile_Close(afp);
-	  status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-
-	  /* small memory mode, write a temporary alignment with only the sequences we want individual diagrams for */
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep"));
-	  }
-	  else { 
-	    if ((esl_tmpfile_named(tmp_indi_alifile, &indi_fp)) != eslOK) esl_fatal("Failed to open temporary output file %s for --indi and --list");
-	  }
-	  if      (status == eslENOTFOUND) esl_fatal("Final pass, alignment file %s doesn't exist or is not readable\n", alifile);
-	  else if (status == eslEFORMAT)   esl_fatal("Final pass, couldn't determine format of alignment %s\n", alifile);
-	  else if (status != eslOK)        esl_fatal("Final pass, alignment file open failed with error %d\n", status);
-	  status = esl_msa_RegurgitatePfam(afp, indi_fp, 
-					   -1, -1, -1, -1, /* don't care about max width of fields */
-					   TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
-					   useme_keyhash, /* only regurgitate seqs in useme_keyhash */
-					   NULL,          /* no list of seqs to skip */
-					   NULL, NULL, -1, '.',
-					   NULL, NULL); /* don't return number of seqs read/regurgitated */
-	  fclose(indi_fp); 
-	  indi_fp = NULL;
-	  if(status == eslEOF)       esl_fatal("Writing temporary alignment for --small, no alignments in file");
-	  if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
-	  
-	  /* now read in that small alignment */
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    status = esl_msafile_Open(esl_opt_GetString(go, "--keep"), fmt, NULL, &indi_afp);
-	  }
-	  else { 
-	    status = esl_msafile_Open(tmp_indi_alifile, fmt, NULL, &indi_afp);
-	  }
-	  esl_msa_Read(indi_afp, &indi_msa); /* read the full thing into memory */
-	  esl_msafile_Close(indi_afp);
-	  indi_msa->abc = abc;
-
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep"));
-	  }
-	  else { 
-	    remove(tmp_indi_alifile);
-	  }
-
-	  /* check to make sure all the sequences from the list file were in the alignment */
-	  if(indi_msa->nseq != nused) { 
-	    for(i = 0; i < nused; i++) { 
-	      if((status = esl_key_Lookup(indi_msa->index, (esl_keyhash_Get(useme_keyhash, i)), NULL)) == eslENOTFOUND) { 
-		esl_fatal("Error with list file %s, sequence %s does not exist in the alignment.", esl_opt_GetString(go, "--list"), esl_keyhash_Get(useme_keyhash, i));
-	      }
-	    }
-	    /* we should never get here, but just in case */
-	    esl_fatal("Error, couldn't find all the sequences from the list file %s in the alignment (%d expected, %d found).", esl_opt_GetString(go, "--list"), nused, indi_msa->nseq);
-	  }
-
-	  /* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
-	   * we need to get insert info from indi_msa in the event --ifile was not invoked */
-	  if(! esl_opt_IsOn(go, "--ifile")) { 
-	    get_insert_info_from_msa(indi_msa, ps->rflen, NULL, NULL, &indi_per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	  }
-
-	  /* now indi_msa includes exactly the seqs listed in the list file, rewrite useme and nused */
-	  ESL_ALLOC(useme, sizeof(int) * indi_msa->nseq); 
-	  esl_vec_ISet(useme, indi_msa->nseq, TRUE);
-	  nused = indi_msa->nseq;
+	else { /* get insert information from the msa */
+	  if((status = get_insert_info_from_msa(msa, ps->clen, &(ict_AA))) != eslOK) esl_fatal(errbuf);
 	}
-    } /* end of else if (esl_opt_IsOn(go, "--list")) */
-    /* now we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
-     * draw the individual sequence pages */
-    if((status = individuals_sspostscript(go, errbuf, ps, 
-					  (do_small ? indi_msa            : msa), 
-					  (do_small ? indi_per_seq_ins_ct : per_seq_ins_ct), 
-					  useme, nused, 
-					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-iprob")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-iprob")) && (msa->pp != NULL))),
-					  hc_scheme, RBFIVERHSCHEME, RBSIXRLSCHEME, hc_nbins[RBFIVERHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC, LIGHTGREYOC)) != eslOK)
-      esl_fatal(errbuf);
-  }
-  if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
-  free(command);
-  fclose(ofp);
-  printf("# %d page postscript saved to file %s.\n", ps->npage, outfile);
+	if((status = insert_sspostscript(go, errbuf, ps, ict_AA, msa->nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+      if(esl_opt_GetBoolean(go, "--dall")) { /* make a new postscript page marking all deletes */
+	if((status = delete_sspostscript(go, errbuf, ps, msa, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+      if(esl_opt_GetBoolean(go, "--dint")) { /* make a new postscript page marking internal deletes */
+	if((status = delete_sspostscript(go, errbuf, ps, msa, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+      if(esl_opt_GetBoolean(go, "--prob")) { 
+	if((status = posteriors_sspostscript(go, errbuf, ps, msa, NULL, 0, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+    }
+    else if(master_mode == INDIMODE) { 
+      if(! esl_opt_GetBoolean(go, "-q")) { 
+	if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+      }
+      /* if nec, draw individual sequence diagrams */
+      if((esl_opt_GetBoolean(go, "--all")) || (! esl_opt_IsDefault(go, "--list"))) { 
+	if(! esl_opt_IsDefault(go, "--list")) { 
+	  read_seq_list_file(esl_opt_GetString(go, "--list"), msa, &useme, &nused); /* this will die with esl_fatal() upon an error */
+	}
+	else { /* --list not enabled, so --all must have been */
+	  ESL_ALLOC(useme, sizeof(int) * msa->nseq); 
+	  esl_vec_ISet(useme, msa->nseq, TRUE);
+	  nused = msa->nseq;
+	}
+	if((status = individual_seqs_sspostscript(go, errbuf, ps, msa, useme, nused)) != eslOK) esl_fatal(errbuf);
+	if(esl_opt_GetBoolean(go, "--prob")) { 
+	  if((status = posteriors_sspostscript(go, errbuf, ps, msa, useme, nused, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+	}
+      }
+    }
+    else if(master_mode == SIMPLEMASKMODE) { 
+      if(esl_opt_GetBoolean(go, "--mask-col")) { 
+	if(ps->clen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d.", clen, masklen);
+	/* Paint positions excluded by the mask magenta, unless the mask has zero internal exclusions.
+	 * Such a mask is a 'truncating' mask, that excludes only a 5' contiguous set of columns, and a 3' contiguous set of columns, in this case paint excluded positions light grey. */
+	if((status = colormask_sspostscript(go, errbuf, ps, msa, mask, hc_onecell, BLACKOC, (mask_has_internal_zeroes ? MAGENTAOC : LIGHTGREYOC))) != eslOK) esl_fatal(errbuf);
+      }
+      if(! esl_opt_IsDefault(go, "--mask-diff")) { 
+	if((status = diffmask_sspostscript(go, errbuf, ps, msa, mask, mask2, hc_onecell, BLACKOC, CYANOC, MAGENTAOC, LIGHTGREYOC)) != eslOK) esl_fatal(errbuf);
+      }
+    }
+    else if(master_mode == DRAWFILEMODE) { 
+      if((status = drawfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
+    }
 
+    if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
+    free(command);
+    fclose(ofp);
+    esl_msa_Destroy(msa);
+  }
+  else { 
+    /* If the msa read failed, we drop out to here with an informative status code. 
+     */
+    if (status == eslEFORMAT) 
+      esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
+		afp->linenumber, afp->fname, afp->errbuf, afp->buf);	
+    else if (status != eslEOF)
+      esl_fatal("Alignment file read failed with error code %d\n", status);
+  }
+  if (!read_msa) { 
+    esl_fatal("No alignments found in file %s\n", alifile);
+  }
   /* Cleanup, normal return
    */
-  if(tabfp != NULL) { 
-    fclose(tabfp); 
-    printf("# Per position data saved to tab-delimited text file %s.\n", esl_opt_GetString(go, "--tabfile"));
+  if(ict_AA != NULL) { 
+    for(z = 0; z < ps->clen; z++) free(ict_AA[z]);
+    free(ict_AA);
   }
-
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, abc->Kp);
-  if(spos_ct != NULL) free(spos_ct);
-  if(epos_ct != NULL) free(epos_ct);
-  if(srfoff_ct != NULL) free(srfoff_ct);
-  if(erfoff_ct != NULL) free(erfoff_ct);
-  if(span_ct != NULL) free(span_ct);
-  if(nseq_with_ins_ct != NULL) free(nseq_with_ins_ct);
-  if(per_seq_ins_ct != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
-  if(indi_per_seq_ins_ct != NULL) esl_Free2D((void **) indi_per_seq_ins_ct, indi_msa->nseq);
   if(mask != NULL) free(mask);
   if(date != NULL) free(date);
   if(useme != NULL) free(useme);
@@ -1012,29 +658,23 @@ main(int argc, char **argv)
   for(z = 0; z < 11; z++) free(hc_scheme[1][z]);
   for(z = 0; z < 6; z++) free(hc_scheme[2][z]);
   for(z = 0; z < 6; z++) free(hc_scheme[3][z]);
-  for(z = 0; z < 5; z++) free(hc_scheme[4][z]);
-  for(z = 0; z < 5; z++) free(hc_scheme[5][z]);
   free(hc_scheme[0]);
   free(hc_scheme[1]);
   free(hc_scheme[2]);
   free(hc_scheme[3]);
-  free(hc_scheme[4]);
-  free(hc_scheme[5]);
   free(hc_scheme);
-  if(msa != NULL) esl_msa_Destroy(msa);
-  if(indi_msa != NULL) esl_msa_Destroy(indi_msa);
   return 0;
 
-  ERROR: 
+ ERROR: 
   esl_fatal("Memory allocation error in main().");
-  }
+}
 
 /* Function: create_sspostscript()
  * 
  * Purpose:  Create and initialize a SS postscript data structure.
  * Return:   ps
  */
-static SSPostscript_t *
+SSPostscript_t *
 create_sspostscript()
 {
   int status;
@@ -1052,10 +692,6 @@ create_sspostscript()
   ps->headerx_charsize = 0.;
   ps->headery_charsize = 0.;
   ps->desc_max_chars = 0;
-  ps->leg_posn = -1;
-  ps->leg_boxsize = -1;
-  ps->legx_offset = 0.;
-  ps->legy_offset = 0.;
   ps->legx = 0.;
   ps->legy = 0.;
   ps->cur_legy = 0.;
@@ -1065,18 +701,17 @@ create_sspostscript()
   ps->legx_stats = 0.;
   ps->pagex_max = 0.;
   ps->pagey_max = 0.;
-  ps->scale = -1.; /* we'll check if this is still negative after reading the template file, if so it's an error */
+  ps->scale = 0.;
   ps->regurgA  = NULL;
   ps->nregurg  = 0;
-  ps->posntextA = NULL;
-  ps->posntextxA = ps->posntextyA = NULL;
-  ps->nposntext = 0;
+  ps->hundredsxA = ps->hundredsyA = NULL;
+  ps->nhundreds = 0;
   ps->ticksx1A = ps->ticksx2A = ps->ticksy1A = ps->ticksy2A = NULL;
   ps->nticks = 0;
   ps->bpx1A = ps->bpx2A = ps->bpy1A = ps->bpy2A = NULL;
   ps->nbp = 0;
   ps->rxA = ps->ryA = NULL;
-  ps->rflen = 0;
+  ps->clen = 0;
   ps->rrAA        = NULL;
   ps->rcolAAA     = NULL;
   ps->occlAAA     = NULL;
@@ -1086,8 +721,8 @@ create_sspostscript()
   ps->nalloc      = 50;
   ps->msa_ct      = NULL;
   ps->msa_nbp     = 0;
-  ps->msa_rf2a_map = NULL;
-  ps->msa_a2rf_map = NULL;
+  ps->msa_avglen  = 0.;
+  ps->msa_avgid   = 0.;
   ps->uaseqlenA   = NULL;
   ps->seqidxA     = NULL;
   ps->msa         = NULL;
@@ -1102,17 +737,14 @@ create_sspostscript()
  * Purpose:  Determine positions for header and legend in a SSPostscript_t()
  * Return:   eslOK
  */
-static int
+int
 setup_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
-  float xroom, yroom;
-  float header_fontwidth, header_max_chars;
-
-  if(ps->rflen == 0) ESL_FAIL(eslEINVAL, errbuf, "Failed to ready any residues in template file.");
+  if(ps->clen == 0) ESL_FAIL(eslEINVAL, errbuf, "Failed to ready any residues in template file.");
 
   /* set up legx, legy, this is a hack (takes advantage of position of 3' residue in all SSU models) */
-  ps->legx = ps->rxA[ps->leg_posn-1] + ps->legx_offset;
-  ps->legy = ps->ryA[ps->leg_posn-1] + ps->legy_offset;
+  ps->legx = ps->rxA[ps->clen-1] + LEGX_OFFSET;
+  ps->legy = ps->ryA[ps->clen-1] + LEGY_OFFSET;
   ps->cur_legy = ps->legy;
 
   ps->pagex_max = POSTSCRIPT_PAGEWIDTH / ps->scale;
@@ -1122,8 +754,9 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->headery = ps->pagey_max - PAGE_TOPBUF - ((HEADER_FONTSIZE_UNSCALED) / ps->scale);
 
   /* determine max number of residues we can print before we run off the page in the legend section */
-  xroom  = ps->pagex_max - ps->legx - (ps->leg_boxsize - ps->legx_charsize);
-  yroom  = ps->pagey_max - ps->legy - (ps->leg_boxsize - ps->legy_charsize);
+  float xroom, yroom;
+  xroom  = ps->pagex_max - ps->legx;
+  yroom  = (ps->legy - ps->pagey_max) * -1;
   ps->legx_charsize = (LEG_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   ps->legy_charsize = (LEG_FONTSIZE_UNSCALED) / ps->scale; 
   ps->legx_max_chars = (int) (xroom / ps->legx_charsize);
@@ -1131,9 +764,10 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
 
   /* determine max size of description that will fit in header */
+  float header_fontwidth, header_max_chars;
   header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   ps->headerx_charsize  = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
-  header_max_chars      = (int) ((ps->pagex_max - 2*PAGE_SIDEBUF) / ps->headerx_charsize);
+  header_max_chars      = (int) (ps->pagex_max / ps->headerx_charsize) - 2;
   ps->headery_charsize  = (HEADER_FONTSIZE_UNSCALED) / ps->scale; 
   ps->desc_max_chars    = header_max_chars - (HEADER_MODELNAME_MAXCHARS + 6 + 6 + 8 +2); /*6,6,8 for #res,#bps,#seq plus 2 spaces each, plus 2 for after name */
   ps->headerx_desc      = ps->pagex_max - PAGE_SIDEBUF - (ps->desc_max_chars * ps->headerx_charsize);
@@ -1146,7 +780,7 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
  * Purpose:  Free a SS postscript data structure.
  * Return:   (void)
  */
-static void
+void
 free_sspostscript(SSPostscript_t *ps)
 {
   int i, p, c, l;
@@ -1173,12 +807,8 @@ free_sspostscript(SSPostscript_t *ps)
     free(ps->regurgA);
   }
 
-  if(ps->posntextA  != NULL) { 
-    for(i = 0; i < ps->nposntext; i++) free(ps->posntextA[i]);
-    free(ps->posntextA);
-  }
-  if(ps->posntextxA != NULL) free(ps->posntextxA);
-  if(ps->posntextyA != NULL) free(ps->posntextyA);
+  if(ps->hundredsxA != NULL) free(ps->hundredsxA);
+  if(ps->hundredsyA != NULL) free(ps->hundredsyA);
   if(ps->ticksx1A != NULL) free(ps->ticksx1A);
   if(ps->ticksy1A != NULL) free(ps->ticksy1A);
   if(ps->ticksx2A != NULL) free(ps->ticksx2A);
@@ -1199,7 +829,7 @@ free_sspostscript(SSPostscript_t *ps)
   if(ps->rcolAAA != NULL) { 
     for(p = 0; p < ps->npage; p++) { 
       if(ps->rcolAAA[p] != NULL) { 
-	for(c = 0; c < ps->rflen; c++) free(ps->rcolAAA[p][c]);
+	for(c = 0; c < ps->clen; c++) free(ps->rcolAAA[p][c]);
 	free(ps->rcolAAA[p]); 
       }
     }
@@ -1235,8 +865,6 @@ free_sspostscript(SSPostscript_t *ps)
 
   if(ps->nocclA != NULL) free(ps->nocclA);
   if(ps->msa_ct != NULL) free(ps->msa_ct);
-  if(ps->msa_rf2a_map != NULL) free(ps->msa_rf2a_map);
-  if(ps->msa_a2rf_map != NULL) free(ps->msa_a2rf_map);
   if(ps->mask != NULL) free(ps->mask);
   if(ps->seqidxA != NULL) free(ps->seqidxA);
   if(ps->uaseqlenA != NULL) free(ps->uaseqlenA);
@@ -1250,7 +878,7 @@ free_sspostscript(SSPostscript_t *ps)
  * Purpose:  Create and initialize a one cell color legend data structure.
  * Return:   occl
  */
-static OneCellColorLegend_t *
+OneCellColorLegend_t *
 create_onecell_colorlegend(float *col, int nres, int nres_masked)
 {
   int status;
@@ -1279,8 +907,8 @@ create_onecell_colorlegend(float *col, int nres, int nres_masked)
  * Purpose:  Create and initialize a scheme color legend data structure.
  * Return:   scl
  */
-static SchemeColorLegend_t *
-create_scheme_colorlegend(int scheme, int nbins, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive)
+SchemeColorLegend_t *
+create_scheme_colorlegend(int scheme, int nbins, float *limits)
 {
   int status;
   SchemeColorLegend_t *scl;
@@ -1305,9 +933,7 @@ create_scheme_colorlegend(int scheme, int nbins, float *limits, int ints_only_fl
   esl_vec_ISet(counts_masked, nbins, 0);
   scl->counts = counts;
   scl->counts_masked = counts_masked;
-  scl->ints_only_flag = ints_only_flag;
-  scl->low_inclusive  = low_inclusive;
-  scl->high_inclusive = high_inclusive;
+
   return scl;
 
  ERROR: esl_fatal("create_scheme_colorlegend(): memory allocation error.");
@@ -1380,7 +1006,7 @@ add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, 
   if(occl->text != NULL) esl_fatal("add_text_to_onecell_colorlegend(), text already exists!\n"); 
   if(text == NULL) esl_fatal("add_text_to_onecell_colorlegend(), passed in text is NULL!\n"); 
 
-  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) (((float) ps->leg_boxsize * 1.5) / ps->legx_charsize));
+  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) ((LEG_BOXSIZE * 1.5) / ps->legx_charsize));
   /*printf("max: %d cur: %d text: %s\n", max_chars_per_line, (int) strlen(text), text);*/
   if(((int) strlen(text)) > (max_chars_per_line)) { 
     ESL_FAIL(eslEINVAL, errbuf, "add_text_to_onecell_colorlegend(), text is %d chars, max allowed is %d (%s)\n", (int) strlen(text), max_chars_per_line, text);
@@ -1417,7 +1043,7 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
     if(ps->modeA[page] == ALIMODE) { 
       /* maybe fine, make sure there's a break point (space ' ') that will break this string into two strings of length <= ps->desc_max_chars */
       i = ps->desc_max_chars;
-      while(text[i] != ' ' && text[i] != '-') { 
+      while(text[i] != ' ') { 
 	i--; 
 	if(i < 0) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), first word of text (%s) is more than max allowed of %d chars", text, ps->desc_max_chars);
       }
@@ -1426,7 +1052,7 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
 	if((status = esl_strdup(text, -1, &(ps->descA[page]))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), error copying text");
 	ps->descA[page][i] = '\n'; /* so we can remember where the break is */
       }
-      else ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), couldn't find (' ') for splitting text into two chunks (%s)", text);
+      else ESL_FAIL(eslEINVAL, errbuf, "add_page_desc_to_sspostscript(), couldn't find break point (' ') for partitioning text into two valid size chunks (%s)", text);
     }
     else { /* INDIMODE or SIMPLEMASKMODE, sequence/mask name bigger than 1 line, but not 2, we put a '-' in it at the end of line 1 and add a '\n' so we remember where it was */
       ESL_ALLOC(ps->descA[page], sizeof(char) * (textlen + 3)); /* +3 so we have space for the extra '-' and '\n' */
@@ -1473,33 +1099,33 @@ add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *er
  * Throws:   Exception if the text is too long.
  */
 int
-add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf)
+add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask1, char *mask2, char *errbuf)
 {
   int status;
   int i;
   char *mask1desc = NULL;
   char *mask2desc = NULL;
   int len2copy;
-  int mask_file_len;
-  int maskdiff_file_len;
+  int mask1len;
+  int mask2len;
   void *tmp;
 
-  if(ps->mask == NULL)        ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), ps->mask is NULL\n"); 
   if(ps->descA[page] != NULL) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), description for page %d already exists!\n", page); 
-  if(maskdiff_file == NULL) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in maskdiff_file is NULL!\n"); 
+  if(mask1 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask1 is NULL!\n"); 
+  if(mask2 == NULL)            ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), passed in mask2 is NULL!\n"); 
 
   /* check to see if we can fit the text onto two lines of max width ps->desc_max_chars */
-  mask_file_len = (int) strlen(ps->mask);
-  maskdiff_file_len = (int) strlen(maskdiff_file);
+  mask1len = (int) strlen(mask1);
+  mask2len = (int) strlen(mask2);
   if((status = esl_strcat(&(mask1desc), -1, "mask 1: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
-  if((mask_file_len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
-    if((status = esl_strcat(&(mask1desc), -1, mask_file, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((mask1len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask1desc), -1, mask1, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
   }
   else { /* won't fit on one line, include as much as we can */
     len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
     ESL_RALLOC(mask1desc, tmp, sizeof(char) * ps->desc_max_chars+1);
     for(i = 0; i < len2copy; i++) { 
-      mask1desc[8+i] = mask_file[i];
+      mask1desc[8+i] = mask1[i];
     }
     mask1desc[8+len2copy]   = '.';
     mask1desc[8+len2copy+1] = '.';
@@ -1509,14 +1135,14 @@ add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_
 
   /* repeat for mask 2 */
   if((status = esl_strcat(&(mask2desc), -1, "mask 2: ", -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
-  if((maskdiff_file_len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
-    if((status = esl_strcat(&(mask2desc), -1, maskdiff_file, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
+  if((mask2len + 8) <= ps->desc_max_chars) { /* this will fit on one line */
+    if((status = esl_strcat(&(mask2desc), -1, mask2, -1)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "add_diffmask_page_desc_to_sspostscript(), error copying text");
   }
   else { /* won't fit on one line, include as much as we can */
     len2copy = ps->desc_max_chars - 8 - 3; /* 8 is for "mask 1: " at beginning, 3 is for "..." at end */
     ESL_RALLOC(mask2desc, tmp, sizeof(char) * ps->desc_max_chars+1);
     for(i = 0; i < len2copy; i++) { 
-      mask2desc[8+i] = maskdiff_file[i];
+      mask2desc[8+i] = mask2[i];
     }
     mask2desc[8+len2copy]   = '.';
     mask2desc[8+len2copy+1] = '.';
@@ -1556,7 +1182,7 @@ add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask)
  * Purpose:  Draw the legend column headers.
  * Return:   eslOK
  */
-static int 
+int 
 draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
 {
   int status;
@@ -1570,38 +1196,36 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
   x = ps->legx;
   y = ps->cur_legy;
   if(ps->mask != NULL) { 
-    y -= 0.625 * (float) ps->leg_boxsize;
+    y -= 0.625 * LEG_BOXSIZE;
   }
   /*fprintf(fp, "/%s findfont %f scalefont setfont\n", SPECIAL_FONT, legend_fontsize);*/
-  fprintf(fp, "%% begin legend column headers\n");
-  fprintf(fp, "(%s) %.2f %.2f moveto show\n", "LEGEND", x, (y + ((float) ps->leg_boxsize * .25)));
+  fprintf(fp, "(%s) %.4f %.4f moveto show\n", "LEGEND", x, (y + (LEG_BOXSIZE * .25)));
   /*fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, legend_fontsize);*/
 
   x = ps->legx_stats;
   y = ps->cur_legy;
-  cur_width = ps->legx_max_chars - LEG_EXTRA_COLUMNS - 2;
+  cur_width = ps->legx_max_chars - LEG_EXTRA_COLUMNS -2;
 
   ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
   for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
   cur_string[cur_width] = '\0';
 
   if(ps->mask != NULL) { 
-    fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "", " in ", x, (y + ((float) ps->leg_boxsize * .25)));
-    y -= 0.625 * (float) ps->leg_boxsize;
-    fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "all", "mask", x, (y + ((float) ps->leg_boxsize * .25)));
-    y -= 0.625 * (float) ps->leg_boxsize;
-    fprintf(fp, "(%s) %.2f %.2f moveto show\n", cur_string, ps->legx, (y + ((float) ps->leg_boxsize * .25)));
-    fprintf(fp, "(----  ----) %.2f %.2f moveto show\n", x, (y + ((float) ps->leg_boxsize * .25)));
+    fprintf(fp, "(%4s  %4s) %.4f %.4f moveto show\n", "", " in ", x, (y + (LEG_BOXSIZE * .25)));
+    y -= 0.625 * LEG_BOXSIZE;
+    fprintf(fp, "(%4s  %4s) %.4f %.4f moveto show\n", "all", "mask", x, (y + (LEG_BOXSIZE * .25)));
+    y -= 0.625 * LEG_BOXSIZE;
+    fprintf(fp, "(%s) %.4f %.4f moveto show\n", cur_string, ps->legx, (y + (LEG_BOXSIZE * .25)));
+    fprintf(fp, "(----  ----) %.4f %.4f moveto show\n", x, (y + (LEG_BOXSIZE * .25)));
   }
   else { 
-    fprintf(fp, "(%5s) %.2f %.2f moveto show\n", "count", x, (y + ((float) ps->leg_boxsize * .25)));
-    y -= 0.625 * (float) ps->leg_boxsize;
-    fprintf(fp, "(%s) %.2f %.2f moveto show\n", cur_string, ps->legx, (y + ((float) ps->leg_boxsize * .25)));
-    fprintf(fp, "(-----) %.2f %.2f moveto show\n", x, (y + ((float) ps->leg_boxsize * .25)));
+    fprintf(fp, "(%5s) %.4f %.4f moveto show\n", "count", x, (y + (LEG_BOXSIZE * .25)));
+    y -= 0.625 * LEG_BOXSIZE;
+    fprintf(fp, "(%s) %.4f %.4f moveto show\n", cur_string, ps->legx, (y + (LEG_BOXSIZE * .25)));
+    fprintf(fp, "(-----) %.4f %.4f moveto show\n", x, (y + (LEG_BOXSIZE * .25)));
   }
-  ps->cur_legy = y - (1.0 * (float) ps->leg_boxsize);
+  ps->cur_legy = y - (1.0 * LEG_BOXSIZE);
   
-  fprintf(fp, "%% end legend column headers\n\n");
   free(cur_string);
 
   return eslOK;
@@ -1614,7 +1238,7 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
  * Purpose:  Print a one cell color legend to an open file.
  * Return:   eslOK
  */
-static int 
+int 
 draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx)
 {
   float x, y;
@@ -1628,40 +1252,38 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
   fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
 
   /* print cell */
-  fprintf(fp, "%% begin one cell color legend\n");
   fprintf(fp, "newpath\n");
   fprintf(fp, "  %.2f %.2f moveto", x, y);
-  fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+  fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
   fprintf(fp, "  ");
-  for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.2f ", occl->col[cp]);
+  for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.4f ", occl->col[cp]);
   fprintf(fp, "setcmykcolor\n");
   fprintf(fp, "  fill\n");
   
-  x += (float) ps->leg_boxsize * 1.5;
+  x += LEG_BOXSIZE * 1.5;
 
   /* print text for this legend */
   if(occl->text != NULL) { 
     /* back to black */
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
     fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
-    fprintf(fp, "(%s) %.2f %.2f moveto show\n", occl->text, x, y + ((float) ps->leg_boxsize * 0.25));
+    fprintf(fp, "(%s) %.4f %.4f moveto show\n", occl->text, x, y + (LEG_BOXSIZE * 0.25));
 
     /* print stats */
     x = ps->legx_stats;
     if(ps->mask != NULL) { 
-      fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", occl->nres, occl->nres_masked, x, y + ((float) ps->leg_boxsize * 0.25));
+      fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", occl->nres, occl->nres_masked, x, y + (LEG_BOXSIZE * 0.25));
     }
     else { 
-      fprintf(fp, "(%5d) %.2f %.2f moveto show\n", occl->nres, x, y + ((float) ps->leg_boxsize * 0.25));
+      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", occl->nres, x, y + (LEG_BOXSIZE * 0.25));
     }
   }
 
   /* reset color to black */ 
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
-  y -= (float) ps->leg_boxsize * 1.5;
+  y -= LEG_BOXSIZE * 1.5;
   ps->cur_legy = y;
   
-  fprintf(fp, "%% end one cell color legend\n\n");
   return eslOK;
 }
 
@@ -1671,7 +1293,7 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
  * Purpose:  Print a scheme color legend to an open file.
  * Return:   eslOK
  */
-static int 
+int 
 draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int page)
 {
   float x, y;
@@ -1691,88 +1313,88 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
 
   x = ps->legx;
   y = ps->cur_legy;
-  //y = ps->legy - (ps->nocclA[page] * ((float) ps->leg_boxsize * 1.5));
+  //y = ps->legy - (ps->nocclA[page] * (LEG_BOXSIZE * 1.5));
   fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
-  fprintf(fp, "%% begin color scheme legend\n");
   fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
   fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
+
 
   float colvec[NCMYK];
   colvec[0] = colvec[1] = colvec[2] = 0.;
   colvec[3] = 1.0;
   if(do_mask) { /* print cells showing difference between masked and unmasked */
-    /*x -= (float) ps->leg_boxsize;*/
-    /*y -= (float) ps->leg_boxsize;*/
-    fprintf(fp, "%.1f setlinewidth\n", (float) ps->leg_boxsize/4.);
+    /*x -= LEG_BOXSIZE;*/
+    /*y -= LEG_BOXSIZE;*/
+    fprintf(fp, "%.1f setlinewidth\n", LEG_BOXSIZE/4.);
     fprintf(fp, "newpath\n");
     fprintf(fp, "  %.2f %.2f moveto", x, y);
-    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
     fprintf(fp, "  ");
     for(cp = 0; cp < NCMYK; cp++) { 
-      fprintf(fp, "%.2f ", colvec[cp]);
+      fprintf(fp, "%.4f ", colvec[cp]);
     }
     fprintf(fp, "setcmykcolor\n");
     fprintf(fp, "  fill\n");
 
     /* print label */
-    x += (float) ps->leg_boxsize * 1.5;
-    y += (float) ps->leg_boxsize * 0.625;
-    fprintf(fp, "(included by mask) %.2f %.2f moveto show\n", x, y);
-    y -= (float) ps->leg_boxsize * 0.625;
-    fprintf(fp, "((all colors)) %.2f %.2f moveto show\n", x, y);
-    x -= (float) ps->leg_boxsize * 1.5;
+    x += LEG_BOXSIZE * 1.5;
+    y += LEG_BOXSIZE * 0.625;
+    fprintf(fp, "(included by mask) %.4f %.4f moveto show\n", x, y);
+    y -= LEG_BOXSIZE * 0.625;
+    fprintf(fp, "((all colors)) %.4f %.4f moveto show\n", x, y);
+    x -= LEG_BOXSIZE * 1.5;
 
     /* print stats for included by mask */
     old_x = x;
     n1s = 0;
-    for(i = 0; i < ps->rflen; i++) if(ps->mask[i] == '1') n1s++; 
+    for(i = 0; i < ps->clen; i++) if(ps->mask[i] == '1') n1s++; 
     x = ps->legx_stats;
-    y += (float) ps->leg_boxsize * 0.3125;
-    fprintf(fp, "(%4s  %4d) %.2f %.2f moveto show\n", "-", n1s, x, y);
-    y -= (float) ps->leg_boxsize * 0.3125;
+    y += LEG_BOXSIZE * 0.3125;
+    fprintf(fp, "(%4s  %4d) %.4f %.4f moveto show\n", "-", n1s, x, y);
+    y -= LEG_BOXSIZE * 0.3125;
 
     x = old_x;
-    y -= (float) ps->leg_boxsize * 1.5;
-    draw_masked_block(fp, x, y, colvec, do_circle_mask, do_square_mask, do_x_mask, do_border, (float) ps->leg_boxsize);
+    y -= LEG_BOXSIZE * 1.5;
+    draw_masked_block(fp, x, y, colvec, do_circle_mask, do_square_mask, do_x_mask, do_border, LEG_BOXSIZE);
 
-    x += (float) ps->leg_boxsize * 1.5;
-    y += (float) ps->leg_boxsize * 0.625;
-    fprintf(fp, "(excluded by mask) %.2f %.2f moveto show\n", x, y);
-    y -= (float) ps->leg_boxsize * 0.625;
-    fprintf(fp, "((all colors)) %.2f %.2f moveto show\n", x, y);
+    x += LEG_BOXSIZE * 1.5;
+    y += LEG_BOXSIZE * 0.625;
+    fprintf(fp, "(excluded by mask) %.4f %.4f moveto show\n", x, y);
+    y -= LEG_BOXSIZE * 0.625;
+    fprintf(fp, "((all colors)) %.4f %.4f moveto show\n", x, y);
 
     /* print stats for excluded by mask */
     old_x = x;
     x = ps->legx_stats;
-    y += (float) ps->leg_boxsize * 0.3125;
-    fprintf(fp, "(%4s  %4d) %.2f %.2f moveto show\n", "-", ps->rflen-n1s, x, y);
+    y += LEG_BOXSIZE * 0.3125;
+    fprintf(fp, "(%4s  %4d) %.4f %.4f moveto show\n", "-", ps->clen-n1s, x, y);
 
-    y -= (float) ps->leg_boxsize * 1.8125;
+    y -= LEG_BOXSIZE * 1.8125;
     x = ps->legx;
   }
 
   /* print text for this legend */
   if(scl->text1 != NULL) { 
     if(scl->text2 == NULL) { 
-      fprintf(fp, "(%s:) %.2f %.2f moveto show\n", scl->text1, x, (y + ((float) ps->leg_boxsize * .25)));
+      fprintf(fp, "(%s:) %.4f %.4f moveto show\n", scl->text1, x, (y + (LEG_BOXSIZE * .25)));
     }
     else { 
-      fprintf(fp, "(%s) %.2f %.2f moveto show\n", scl->text1, x, (y + ((float) ps->leg_boxsize * .25)));
-      y -= (float) ps->leg_boxsize * 0.625;
-      fprintf(fp, "(%s:) %.2f %.2f moveto show\n", scl->text2, x, (y + ((float) ps->leg_boxsize * .25)));
+      fprintf(fp, "(%s) %.4f %.4f moveto show\n", scl->text1, x, (y + (LEG_BOXSIZE * .25)));
+      y -= LEG_BOXSIZE * 0.625;
+      fprintf(fp, "(%s:) %.4f %.4f moveto show\n", scl->text2, x, (y + (LEG_BOXSIZE * .25)));
     }
   }
-  y -= (float) ps->leg_boxsize;
+  y -= LEG_BOXSIZE;
   
   /* print masked scheme color cells */
   /*if(do_mask) { 
-    fprintf(fp, "%.1f setlinewidth\n", (float) ps->leg_boxsize/4.);
+    fprintf(fp, "%.1f setlinewidth\n", LEG_BOXSIZE/4.);
     for(c = 0; c < scl->nbins; c++) { 
-    draw_masked_block(fp, x, y, hc_scheme[c], do_circle_mask, do_square_mask, do_x_mask, do_border, (float) ps->leg_boxsize);
-    y -= (float) ps->leg_boxsize;
+    draw_masked_block(fp, x, y, hc_scheme[c], do_circle_mask, do_square_mask, do_x_mask, do_border, LEG_BOXSIZE);
+    y -= LEG_BOXSIZE;
     }
-    y += ((float) ps->leg_boxsize * scl->nbins);
-    x += 1.5 * (float) ps->leg_boxsize;
+    y += (LEG_BOXSIZE * scl->nbins);
+    x += 1.5 * LEG_BOXSIZE;
     fprintf(fp, "1.0 setlinewidth\n");
   }
   */
@@ -1781,57 +1403,38 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   for(c = 0; c < scl->nbins; c++) { 
     fprintf(fp, "newpath\n");
     fprintf(fp, "  %.2f %.2f moveto", x, y);
-    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", LEG_BOXSIZE, LEG_BOXSIZE, (-1 * LEG_BOXSIZE));
     fprintf(fp, "  ");
     for(cp = 0; cp < NCMYK; cp++) { 
-      fprintf(fp, "%.2f ", hc_scheme[c][cp]);
+      fprintf(fp, "%.4f ", hc_scheme[c][cp]);
     }
     fprintf(fp, "setcmykcolor\n");
     fprintf(fp, "  fill\n");
 
     /* print label */
-    x += (float) ps->leg_boxsize * 1.5;
-    y += (float) ps->leg_boxsize * 0.25;
+    x += LEG_BOXSIZE * 1.5;
+    y += LEG_BOXSIZE * 0.25;
     fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-    if(esl_FCompare(scl->limits[c+1], SSDRAWINFINITY, eslSMALLX1) == eslOK) { /* max value is infinity, special case */
-      if(c != scl->nbins-1) esl_fatal("ERROR when drawing color legend, limits[%d] is INFINITY, but this is reserved only for the max limit", c+1);
-      if(scl->ints_only_flag) fprintf(fp, "(>=%d) %.2f %.2f moveto show\n",   (int) scl->limits[c], x, y);
-      else                    fprintf(fp, "(>=%3.f) %.2f %.2f moveto show\n", scl->limits[c], x, y);
-    }
-    else if(scl->ints_only_flag) { 
-      if(c == scl->nbins-1) { 
-	fprintf(fp, "(\\[%d-%d\\]) %.2f %.2f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1], x, y);
-      }
-      else if(esl_FCompare(scl->limits[c], scl->limits[c+1]-1, eslSMALLX1) == eslOK) { /* next limit is exactly 1 plus cur limit, don't do range, define single int */
-	fprintf(fp, "(%d) %.2f %.2f moveto show\n", (int) scl->limits[c], x, y);
-      }
-      else { 
-	fprintf(fp, "(\\[%d-%d\\]) %.2f %.2f moveto show\n", (int) scl->limits[c], (int) scl->limits[c+1]-1, x, y);
-      }
-    }
-    else { 
-      if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\%c) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], (scl->high_inclusive ? ']' : ')'), x, y);
-      else if(c == 0)       fprintf(fp, "(\\%c%.3f-%.3f\\)) %.2f %.2f moveto show\n", (scl->low_inclusive ? '[' : '('), scl->limits[c], scl->limits[c+1], x, y);
-      else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.2f %.2f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
-    }
+    if(c == scl->nbins-1) fprintf(fp, "(\\[%.3f-%.3f\\]) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+    else                  fprintf(fp, "(\\[%.3f-%.3f\\)) %.4f %.4f moveto show\n", scl->limits[c], scl->limits[c+1], x, y);
+
     /* print stats */
     old_x = x;
     x = ps->legx_stats;
     if(ps->mask != NULL) { 
-      fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", scl->counts[c], scl->counts_masked[c], x, y);
+      fprintf(fp, "(%4d  %4d) %.4f %.4f moveto show\n", scl->counts[c], scl->counts_masked[c], x, y);
     }
     else { 
-      fprintf(fp, "(%5d) %.2f %.2f moveto show\n", scl->counts[c], x, y);
+      fprintf(fp, "(%5d) %.4f %.4f moveto show\n", scl->counts[c], x, y);
     }
 
-    x = old_x - (float) ps->leg_boxsize * 1.5;
-    y -= (float) ps->leg_boxsize * 0.25;
-    y -= (float) ps->leg_boxsize;
+    x = old_x - LEG_BOXSIZE * 1.5;
+    y -= LEG_BOXSIZE * 0.25;
+    y -= LEG_BOXSIZE;
   }
 
   /* reset color to black */ 
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
-  fprintf(fp, "%% end color scheme legend\n\n");
   
   ps->cur_legy = y;
   return eslOK;
@@ -1843,15 +1446,14 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
  * Return:   eslOK on success;
  *           eslEINCOMPAT if ps->npage == 0
  */
-static int
+int
 draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused)
 {
   int status;
-  int p, pi, i, c, l;
+  int p, pi, i, c, l, si;
   int do_circle_mask, do_square_mask, do_x_mask, do_border;
   int *page_orderA;
-
-  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read modelname from template file.");
+  int rfoffset;
 
   do_border = (!esl_opt_GetBoolean(go, "--mask-a"));
   do_circle_mask = do_square_mask = do_x_mask = FALSE;
@@ -1861,45 +1463,41 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 
   if(ps->npage == 0) ESL_FAIL(eslEINCOMPAT, errbuf, "draw_sspostscript, ps->npage == 0\n");
 
-  /* determine print order of pages, currently this is just 0..npage-1 */
+  /* determine print order or pages, this is just 0..npage-1 UNLESS:
+   *  --indi and --prob and either (--all or --list) enabled, in which case, we put the 
+   *    posteriors immediately after the sequences
+   */
   ESL_ALLOC(page_orderA, sizeof(int) * ps->npage);
-  for(pi = 0; pi < ps->npage; pi++) page_orderA[pi] = pi;
+  if(esl_opt_GetBoolean(go, "--indi") && 
+     esl_opt_GetBoolean(go, "--prob") &&
+     (esl_opt_GetBoolean(go, "--all") || (! esl_opt_IsDefault(go, "--list")))) {
+    pi = 0;
+    rfoffset = 0;
+    if(! esl_opt_GetBoolean(go, "-q")) { 
+      page_orderA[0] = 0; /* print consensus sequence first */ 
+      pi++;
+      rfoffset = 1;
+    } /* otherwise, we didn't print the consensus sequence */
+    for(si = 0; si < nused; si++) { 
+      page_orderA[pi] = si + rfoffset; /* the indi sequence page */
+      pi++;
+      page_orderA[pi] = (si + nused) + rfoffset; /* the posterior page */
+      pi++;
+    }
+  }
+  else { 
+    for(pi = 0; pi < ps->npage; pi++) page_orderA[pi] = pi;
+  }
 
   /* draw the pages */
   for(pi = 0; pi < ps->npage; pi++) { 
     p = page_orderA[pi];
     ps->cur_legy = ps->legy;
 
-    /* print postscript comment header, only visible if viewed in text mode */
-    fprintf(fp, "%% ------------------------------------------------------------\n");
-    fprintf(fp, "%% Postscript file created by esl-ssdraw (page %d of %d)\n", pi+1, ps->npage);
-    fprintf(fp, "%% ------------------------------------------------------------\n");
-    fprintf(fp, "%% msafile:       %s (%d seqs)\n", esl_opt_GetArg(go, 1), ps->msa_nseq);
-    fprintf(fp, "%% templatefile:  %s\n", esl_opt_GetArg(go, 2));
-    fprintf(fp, "%% modelname:     %s\n", ps->modelname);
-    fprintf(fp, "%% consensus-len: %d\n", ps->rflen);
-    if(esl_opt_IsOn(go, "--mask")) { 
-      fprintf(fp, "%% maskfile:      %s\n", esl_opt_GetString(go, "--mask"));
-    }	    
-    if(esl_opt_IsOn(go, "--mask-diff")) { 
-      fprintf(fp, "%% difffile:    %s\n", esl_opt_GetString(go, "--mask-diff"));
-    }	    
-    if(esl_opt_IsOn(go, "--list")) { 
-      fprintf(fp, "%% listfile:      %s\n", esl_opt_GetString(go, "--list"));
-    }
-    if(esl_opt_IsOn(go, "--dfile")) { 
-      fprintf(fp, "%% dfile:         %s\n", esl_opt_GetString(go, "--dfile"));
-    }
-    if(esl_opt_IsOn(go, "--efile")) { 
-      fprintf(fp, "%% efile:      %s\n", esl_opt_GetString(go, "--efile"));
-    }
-    if(esl_opt_IsOn(go, "--ifile")) { 
-      fprintf(fp, "%% ifile:      %s\n", esl_opt_GetString(go, "--ifile"));
-    }
-    fprintf(fp, "%%\n");
-
     /* scale section */
-    fprintf(fp, "%.2f %.2f scale\n\n", ps->scale, ps->scale);
+    fprintf(fp, "%% begin scale\n");
+    fprintf(fp, "%.2f %.2f scale\n", ps->scale, ps->scale);
+    fprintf(fp, "%% end scale\n\n");
       
     /* header section */
     if((status = draw_header_and_footer(fp, go, errbuf, ps, p, pi+1)) != eslOK) return status;
@@ -1911,30 +1509,30 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 	fprintf(fp, "%s", ps->regurgA[i]);
       fprintf(fp, "%% end regurgitate\n\n");
     }
-    
-    /* 'text posntext' section */
-    for(i = 0; i < ps->nposntext; i++) { 
+
+    /* 'text hundreds' section */
+    for(i = 0; i < ps->nhundreds; i++) { 
       if(i == 0) { 
-	fprintf(fp, "%% begin text positiontext\n");
-	fprintf(fp, "/%s findfont %.2f scalefont setfont\n", POSNTEXT_FONT, POSNTEXT_FONTSIZE);
+	fprintf(fp, "%% begin text hundreds\n");
+	fprintf(fp, "/%s findfont %.2f scalefont setfont\n", HUNDREDS_FONT, HUNDREDS_FONTSIZE);
 	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
       }
-      fprintf(fp, "%s %.2f %.2f moveto show\n", ps->posntextA[i], ps->posntextxA[i], ps->posntextyA[i]); 
-      if(i == (ps->nposntext-1)) { 
-	fprintf(fp, "%% end text positiontext\n\n");
+      fprintf(fp, "(%d) %.2f %.2f moveto show\n", (i+1) * 100, ps->hundredsxA[i], ps->hundredsyA[i]); 
+      if(i == (ps->nhundreds-1)) { 
+	fprintf(fp, "%% end text hundreds\n\n");
       }
     }
     
     /* 'lines ticks' section */
     for(i = 0; i < ps->nticks; i++) { 
       if(i == 0) { 
-	fprintf(fp, "%% begin lines positionticks\n");
+	fprintf(fp, "%% begin lines ticks\n");
 	fprintf(fp, "%.2f setlinewidth\n", TICKS_LINEWIDTH);
 	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
       }
       fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->ticksx1A[i], ps->ticksy1A[i], ps->ticksx2A[i], ps->ticksy2A[i]);
       if(i == (ps->nticks-1)) { 
-	fprintf(fp, "%% end lines positionticks\n\n");
+	fprintf(fp, "%% end lines ticks\n\n");
       }
     }
 
@@ -1951,26 +1549,22 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
     }
 
-    /* NOTE: I used to print out the 'text residues' section so the output file could possibly be used as a template, 
-     * but I stopped doing that, if a template is required in the first place, why not make it always required?
-     * This block is left in case I ever want to go back on that decision.
-     */
-    /* 'text residues' section 
-       fprintf(fp, "%% begin text residues\n");
-       fprintf(fp, "/%s findfont %.2f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
-       fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); 
-       for(i = 0; i < ps->rflen; i++) { 
-       if(((rflen+1) % 10) == 0) { 
-       fprintf(fp, "% () %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
-       fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
-       }
-       fprintf(fp, "%% end text residues\n");
-    */ 
+    /* 'text residues' section */
+    /* NOTE: I only print this out so that this file could possibly be used as a template */
+    fprintf(fp, "%% begin text residues\n");
+    fprintf(fp, "/%s findfont %.2f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
+    fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+    for(i = 0; i < ps->clen; i++) { 
+      fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
+    }
+    fprintf(fp, "%% end text residues\n");
 
-    /* print out remainder of the page */
-    /* fprintf(fp, "%% begin ignore\n"); */
+    /* the rest of the text will be ignored by ssu-draw if the output
+     * file we're creating is read in as a template file later on
+     */
+    fprintf(fp, "%% begin ignore\n");
     fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* set to black */
-    fprintf(fp, "/%s findfont %f scalefont setfont\n\n", LEG_FONT, LEG_FONTSIZE_UNSCALED / ps->scale);
+    fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, LEG_FONTSIZE_UNSCALED / ps->scale);
 
     /* draw legend headers, if we have a legend */
     if((ps->nocclA[p] > 0) || (ps->sclAA != NULL && ps->sclAA[p] != NULL)) { 
@@ -1994,13 +1588,12 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
 
     if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
-      fprintf(fp, "%% begin colored positions\n");
-      if(ps->mask != NULL && ps->modeA[p] != SIMPLEMASKMODE) { 
+      if(ps->mask != NULL) { 
 	fprintf(fp, "2.0 setlinewidth\n");
 	if(do_border && do_x_mask)      { fprintf(fp, "1.0 setlinewidth\n"); }
 	if(do_border && do_square_mask) { fprintf(fp, "2.0 setlinewidth\n"); }
 	if(do_border && do_circle_mask) { fprintf(fp, "2.5 setlinewidth\n"); }
-	for(c = 0; c < ps->rflen; c++) { 
+	for(c = 0; c < ps->clen; c++) { 
 	  fprintf(fp, "%sresidue %d\n", "%", c+1);
 	  if(ps->mask[c] == '0') { 
 	    draw_masked_block(fp, ps->rxA[c]-1., ps->ryA[c]-1., ps->rcolAAA[p][c], do_circle_mask, do_square_mask, do_x_mask, do_border, SS_BOXSIZE);
@@ -2016,37 +1609,34 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 	fprintf(fp, "1.00 setlinewidth\n");
       }
       else { /* no mask, all cells are printed the same */
-	for(c = 0; c < ps->rflen; c++) { 
+	for(c = 0; c < ps->clen; c++) { 
 	  fprintf(fp, "%sresidue %d\n", "%", c+1);
 	  fprintf(fp, "newpath\n");
 	  fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
 	  fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
+	  /*fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);*/
 	  fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
 	  fprintf(fp, "  fill\n");
 	}
       }
       /* back to black */
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n");
-      fprintf(fp, "%% end colored positions\n\n");
     }
-
 
     if(ps->rrAA[p] != NULL) { 
       fprintf(fp, "/%s findfont %f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
-      fprintf(fp, "%% begin text residues\n");
-      for(c = 0; c < ps->rflen; c++) { 
-	if(ps->rrAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
+      for(c = 0; c < ps->clen; c++) { 
+	fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
       }
-      fprintf(fp, "%% end text residues\n");
     }
-    fprintf(fp, "showpage\n\n");
-    /* fprintf(fp, "%% end ignore\n\n"); */
+    fprintf(fp, "grestore\nshowpage\n");
+    fprintf(fp, "%% end ignore\n\n");
   }
   free(page_orderA);
   return eslOK;
 
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_sspostscript() error, probably out of memory.");
-}  
+}
 
 
 /* parse_template_file
@@ -2055,7 +1645,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
  * template file derived from the Gutell CRW website until
  * the one that corresponds to our alignment is found, 
  * (defined as the first template structure that has the
- * same consensus length as the passed in <msa_rflen>)
+ * same consensus length as the passed in <msa_clen>)
  * or we run out structure templates. This function
  * repeatedly calls parse_template() which actually parses
  * the templates.
@@ -2068,7 +1658,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
  * Returns:  eslOK on success.
  */
 int
-parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_rflen, SSPostscript_t **ret_ps)
+parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_clen, SSPostscript_t **ret_ps)
 {
   int             status;
   ESL_FILEPARSER *efp;
@@ -2085,12 +1675,12 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
       esl_fileparser_Close(efp);
       return status;
     }
-    if(ps->rflen == msa_rflen) { found_match = TRUE; }
-    else                       { free_sspostscript(ps); }
+    if(ps->clen == msa_clen) { found_match = TRUE; }
+    else                     { free_sspostscript(ps); }
   }
   if(found_match == FALSE) { 
     esl_fileparser_Close(efp);
-    esl_fatal("ERROR, did not find template structure to match alignment consensus length of %d in:\n%s\n", msa_rflen, filename);
+    esl_fatal("ERROR, did not find template structure to match alignment consensus length of %d in:\n%s\n", msa_clen, filename);
   }
 
   /* if we get here, we've found a match */
@@ -2120,7 +1710,6 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
  * 
  * list of valid tokens for <type1>:
  * modelname
- * legcoords
  * scale
  * regurgitate
  * ignore 
@@ -2129,11 +1718,11 @@ parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa
  * 
  * if <type1> is lines or text, then <type2> is read, 
  * valid tokens for <type2> if <type1> is 'text'
- * positiontext
+ * hundreds
  * residues
  * 
  * valid tokens for <type2> if <type1> is 'lines'
- * positionticks
+ * ticks
  * bpconnects
  * 
  * The 'regurgitate' lines are stored, but never changed.
@@ -2167,10 +1756,6 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
 	    if(strcmp(tok, "modelname") == 0) { 
 	      if((status = parse_modelname_section(efp, errbuf, ps)) != eslOK) return status;
 	    }
-	    else if(strcmp(tok, "legend") == 0) { 
-	      /*printf("parsing legend\n");*/
-	      if((status = parse_legend_section(efp, errbuf, ps)) != eslOK) return status;
-	    }
 	    else if(strcmp(tok, "scale") == 0) { 
 	      /*printf("parsing scale\n");*/
 	      if((status = parse_scale_section(efp, errbuf, ps)) != eslOK) return status;
@@ -2200,7 +1785,7 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
 	  }
 	}
 	else { 
-	  ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%%% begin, but read tok: %s instead of begin, last read line number %d.", tok, efp->linenumber);
+	  ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %% begin, but read tok: %s instead of begin, last read line number %d.", tok, efp->linenumber);
 	}
       }
       else { 
@@ -2208,7 +1793,7 @@ parse_template_page(ESL_FILEPARSER *efp, const ESL_GETOPTS *go, char *errbuf, SS
       }
     }
     else { 
-      ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%%%, read tok: %s, last read line number %d.", tok, efp->linenumber);
+      ESL_FAIL(eslEINVAL, errbuf, "parse_template_page(), expected line beginning with %%, read tok: %s, last read line number %d.", tok, efp->linenumber);
     }
   }
   if(read_showpage == FALSE && status != eslEOF) { 
@@ -2274,52 +1859,6 @@ parse_modelname_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  ERROR: ESL_FAIL(status, errbuf, "Error, parsing modelname section, memory error?");
 }
 
-/* parse_legend_section
- *
- * Parse the legend (legend coordinates) section of a template postscript file.
- * If anything is invalid, we return a non-eslOK status code
- * to caller. 
- * 
- * Returns:  eslOK on success.
- */
-int
-parse_legend_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
-{
-  int status;
-  char *tok;
-  int   toklen;
-
-  /* this section should be exactly 3 lines, one of which we've already read,
-   * three tokens of the middle line are <rfpos> <x_offset> <y_offset> <leg_boxsize>
-   * this tells us to put the top-left corner of the legend at 
-   * ps->legx[rfpos] + x_offset, ps->legy[rfpos] + y_offset
-   * boxsize is the size of the cells in the legend
-   * here's an example, first token we'll read should be '%', followed by '1508'
-   * % begin legend
-   * % 1508 24. -24. 12
-   * % end legend
-   */
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 1 of 5"); 
-  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, middle line token 1 should be a percent sign but it's %s", tok); 
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 2 of 5"); 
-  ps->leg_posn = atoi(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 5"); 
-  ps->legx_offset = atof(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 4 of 5"); 
-  ps->legy_offset = atof(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 5 of 5"); 
-  ps->leg_boxsize = atoi(tok);
-
-  /* read '% end legend' line */
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 3");   
-  if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 1 of 3 should be a percent sign but it's %s", tok); 
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading end line token 2 of 3"); 
-  if (strcmp(tok, "end") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 2 of 3 should be 'end' but it's %s", tok); 
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading end line token 3 of 3"); 
-  if (strcmp(tok, "legend") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, end line token 3 of 3 should be 'legend' but it's %s", tok); 
-
-  return eslOK;
-}
 
 /* parse_scale_section
  *
@@ -2344,7 +1883,6 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
    */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 1 of 3"); 
   ps->scale = atof(tok);
-  if(ps->scale < 0.) ESL_FAIL(status, errbuf, "Error, parsing scale section, scale must be positive real number, read %s\n", tok);
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 2 of 3"); 
   if(esl_FCompare(ps->scale, atof(tok), eslSMALLX1) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing scale section, x and y scales are not equal %.2f != %.2f", ps->scale, atof(tok)); 
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing scale section, reading token 3 of 3"); 
@@ -2368,10 +1906,6 @@ parse_scale_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  * tokens until we see the "% end ignore" line signalling
  * the end of the ignore section.
  * 
- * As a special case, if any line iss a single token, 'showpage', we 
- * set *ret_read_showpage as TRUE upon return. This signals to caller
- * that the current page is finished.
- * 
  * Returns:  eslOK on success.
  */
 int
@@ -2379,24 +1913,23 @@ parse_ignore_section(ESL_FILEPARSER *efp, char *errbuf, int *ret_read_showpage)
 {
   int status;
   char *tok;
+  int   toklen;
   int   keep_reading = TRUE;
   int   read_showpage = FALSE;
-
-  while((keep_reading) && (status = esl_fileparser_NextLine(efp) == eslOK)) { 
-    /* we're going to keep reading until we've read the line that is '% end ignore', 3 tokens, '%', then 'end', then 'ignore' */
-    if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "%") == 0)) { /* first token is '%' */
-      if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "end") == 0)) { /* second token is 'end' */
-	if(((status = esl_fileparser_GetToken(efp, &tok, NULL)) == eslOK) && (strcmp(tok, "ignore") == 0)) { /* final token is 'end' */
-	  keep_reading = FALSE;
-	  status = eslOK;
-	}
-      }
+  while((keep_reading) && (status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { 
+    if (strcmp(tok, "%") == 0) { 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      if (strcmp(tok, "ignore") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing ignore section, read %% prefixed line without ' end ignore' after it"); 
+      keep_reading = FALSE;
+      status = eslOK;
     }
-    else if(strcmp(tok, "showpage") == 0) { /* first token is 'showpage' */
+    else if(strcmp(tok, "showpage") == 0) { 
       read_showpage = TRUE;
     }
   }
-  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing ignore section, finished file looking for '%%%% end ignore' line");
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing ignore section, finished file looking for '%% end ignore' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing ignore section, last line number read %d", efp->linenumber);
 
   *ret_read_showpage = read_showpage;
@@ -2431,10 +1964,10 @@ parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
     curlen = ntok = 0;
     while ((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen))  == eslOK) { 
       if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
-	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
-	if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
-	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
-	if (strcmp(tok, "regurgitate") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %%%% prefixed line without ' end regurgitate' after it"); 
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
+	if (strcmp(tok, "regurgitate") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing regurgitate section, read %% prefixed line without ' end regurgitate' after it"); 
 	seen_end = TRUE;
 	break;
       }
@@ -2460,7 +1993,7 @@ parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
     free(curstr);
     curstr = NULL;
   }
-  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, finished file looking for '%%%% end regurgitate' line");
+  if(status == eslEOF) ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, finished file looking for '%% end regurgitate' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing regurgitate section, last line number read %d", efp->linenumber);
 
   return eslOK;
@@ -2486,79 +2019,85 @@ parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   int   seen_end = FALSE;
   int   nalloc;
   void *tmp;
-  int do_posntext = FALSE;
+  int do_hundreds = FALSE;
   int do_residues = FALSE;
-  int i;
 
-  /* find out which section we're in, 'posntext' or 'residues' */
+  /* find out which section we're in, 'hundreds' or 'residues' */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
-  if      (strcmp(tok, "positiontext") == 0) { do_posntext = TRUE; nalloc = ps->nposntext; }
-  else if (strcmp(tok, "residues")     == 0) { do_residues = TRUE; nalloc = ps->rflen; }
+  if      (strcmp(tok, "hundreds") == 0) { do_hundreds = TRUE; nalloc = ps->nhundreds; }
+  else if (strcmp(tok, "residues") == 0) { do_residues = TRUE; nalloc = ps->clen; }
 
-  /* Parse each line. example line: 
-   * (G) 168.00 392.00 moveto show
-   */
+  /* read the first two special lines, should be a 5-token line ending with setfont and a 5-token line ending with setcmykcolor,
+   * we don't store these, but we require that they're there. */
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+  if(strcmp(tok, "setfont") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section first line should be 5-tokens ending with 'setfont'");
+
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing text section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section second line should be 5-tokens ending with 'setcmykcolor'");
+
   while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
   {
-    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5-tokens ending with 'show'");
-    if (tok[0] == '%') { /* comment line, could be the end, check if it's '% end text {positiontext,residues}', if not, ignore it */
-      if(strcmp(tok, "%") == 0) { /* first token is '%', keep checking */
-	if(((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) && (strcmp(tok, "end") == 0)) { /* second token is 'end', keep checking */
-	  if(((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) && (strcmp(tok, "text") == 0)) { /* third token is 'end', keep checking */
-	    if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK) { /* has a fourth token, keep checking */
-	      if(do_posntext && strcmp(tok, "positiontext") == 0) seen_end = TRUE;
-	      if(do_residues && strcmp(tok, "residues")     == 0) seen_end = TRUE;  
-	    }
-	  }
-	}
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if (strcmp(tok, "text") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, read %% prefixed line without ' end text' after it"); 
+      if(do_hundreds) { 
+	if (strcmp(tok, "hundreds") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text hundreds' after it"); 
       }
+      if(do_residues) {
+	if (strcmp(tok, "residues") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, read %% prefixed line without ' end text residues' after it"); 
+      }
+      seen_end = TRUE;
+      break;
     }
-    else { 
-      /* we're reading a non-comment line, tok is the string, if do_posntext, we store it, else we discard it */
-      if(do_posntext) {
-	if(ps->nposntext == nalloc) { 
-	  ESL_RALLOC(ps->posntextA,  tmp, sizeof(char *) * (nalloc + ps->nalloc)); 
-	  ESL_RALLOC(ps->posntextxA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
-	  ESL_RALLOC(ps->posntextyA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
-	  for(i = nalloc; i < nalloc + ps->nalloc; i++) ps->posntextA[i] = NULL;
-	  nalloc += ps->nalloc; 
-	}
-	if((status = esl_strdup(tok, -1, &(ps->posntextA[ps->nposntext]))) != eslOK) goto ERROR;
-      }
-      if(do_residues && ps->rflen == nalloc) { 
-	ESL_RALLOC(ps->rxA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
-	ESL_RALLOC(ps->ryA, tmp, sizeof(float) * (nalloc + ps->nalloc)); 
-	nalloc += ps->nalloc; 
-      }
-
-      /* get x */
-      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
-      if(do_posntext) ps->posntextxA[ps->nposntext] = atof(tok);
-      if(do_residues) ps->rxA[ps->rflen] = atof(tok);
-      /* get y */
-      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
-      if(do_posntext) ps->posntextyA[ps->nposntext] = atof(tok);
-      if(do_residues) ps->ryA[ps->rflen] = atof(tok);
-      
-      /* verify moveto */
-      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
-      if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fourth token should be 'moveto', line %d", efp->linenumber);
-      /* verify show */
-      if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text section, each non-comment line should be 5 tokens ending with 'show'");
-      if (strcmp(tok, "show") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fifth token should be 'show', line %d", efp->linenumber);
-      
-      if(do_posntext) ps->nposntext++;
-      if(do_residues) ps->rflen++;
+    /* if we get here, we haven't seen the end, we're reading a normal line, tok is the string, we discard this */
+    if(do_hundreds && ps->nhundreds == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->hundredsxA, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->hundredsyA, tmp, sizeof(float) * nalloc); 
     }
+    if(do_residues && ps->clen == nalloc) { 
+      nalloc += ps->nalloc; 
+      ESL_RALLOC(ps->rxA, tmp, sizeof(float) * nalloc); 
+      ESL_RALLOC(ps->ryA, tmp, sizeof(float) * nalloc); 
+    }
+    /* get x */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if(do_hundreds) ps->hundredsxA[ps->nhundreds] = atof(tok);
+    if(do_residues) ps->rxA[ps->clen] = atof(tok);
+    /* get y */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if(do_hundreds) ps->hundredsyA[ps->nhundreds] = atof(tok);
+    if(do_residues) ps->ryA[ps->clen] = atof(tok);
+    
+    /* verify moveto */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "moveto") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fourth token should be 'moveto', line %d", efp->linenumber);
+    /* verify show */
+    if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing text main section should include 5-tokens ending with 'show'");
+    if (strcmp(tok, "show") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text main section, fifth token should be 'show', line %d", efp->linenumber);
+    
+    if(do_hundreds) ps->nhundreds++;
+    if(do_residues) ps->clen++;
   }
-  if(!seen_end) { 
-    if(do_posntext) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text positiontext section, didn't see '%%%% end text positiontext' line: %d\n", efp->linenumber);
-    if(do_residues) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text positiontext section, didn't see '%%%% end text residues' line: %d\n", efp->linenumber);
-  }
-  if(status == eslEOF && do_posntext) 
-    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%%%% end text positiontext' line");
+  if(!seen_end) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing text section, didn't see end! line: %d\n", efp->linenumber);
+  if(status == eslEOF && do_hundreds) 
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text hundreds' line");
   if(status == eslEOF && do_residues) 
-    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%%%% end text residues' line");
+    ESL_FAIL(status, errbuf, "Error, parsing text section, finished file looking for '%% end text residues' line");
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing text section, last line number read %d", efp->linenumber);
 
   return eslOK;
@@ -2586,29 +2125,40 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   int do_ticks = FALSE;
   int do_bpconnects = FALSE;
 
-  /* find out which section we're in, 'positionticks' or 'bpconnects' */
+  /* find out which section we're in, 'ticks' or 'bpconnects' */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
-  if      (strcmp(tok, "positionticks") == 0) { do_ticks = TRUE;      nalloc = ps->nticks; }
-  else if (strcmp(tok, "bpconnects")    == 0) { do_bpconnects = TRUE; nalloc = ps->nbp;    }
-  else    ESL_FAIL(status, errbuf, "Error, parsing lines section unrecognized type: %s ('bpconnects' or 'positionticks' expected)\n", tok);
+  if      (strcmp(tok, "ticks") == 0)      { do_ticks = TRUE; nalloc = ps->nticks; }
+  else if (strcmp(tok, "bpconnects") == 0) { do_bpconnects = TRUE; nalloc = ps->nbp; }
 
-  /* Parse each line. example line: 
-   * 151.82 331.76 148.86 338.65 newpath moveto lineto stroke
-   */
+  /* read the first two special lines, should be a 2-token line ending with setlinewidth and a 5-token line ending with setcmykcolor,
+   * we don't store these, but we require that they're there. */
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+  if(strcmp(tok, "setlinewidth") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section first line should be 2-tokens ending with 'setlinewidth'");
+
+  if((status = esl_fileparser_NextLine(efp) != eslOK)) ESL_FAIL(status, errbuf, "Error, parsing lines section, last line %d\n", efp->linenumber);
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+  if(strcmp(tok, "setcmykcolor") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section second line should be 5-tokens ending with 'setcmykcolor'");
+
   while (((status = esl_fileparser_NextLine(efp)) == eslOK) && (!seen_end))
   {
     if((status = esl_fileparser_GetTokenOnLine(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines main section should include 5-tokens ending with 'show'");
     if (strcmp(tok, "%") == 0) { /* should be the end, make sure it's properly formatted */
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
-      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
-      if (strcmp(tok, "lines") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
-      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "end") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if (strcmp(tok, "lines") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
+      if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines' after it"); 
       if(do_ticks) { 
-	if (strcmp(tok, "positionticks") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines positionticks' after it"); 
+	if (strcmp(tok, "ticks") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines ticks' after it"); 
       }
       if(do_bpconnects) {
-	if (strcmp(tok, "bpconnects") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %%%% prefixed line without ' end lines bpconnects' after it"); 
+	if (strcmp(tok, "bpconnects") != 0) ESL_FAIL(eslEINVAL, errbuf, "Error, parsing lines section, read %% prefixed line without ' end lines bpconnects' after it"); 
       }
       seen_end = TRUE;
       break;
@@ -2663,9 +2213,9 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   }
   if(!seen_end) ESL_FAIL(status, errbuf, "Error, parsing lines section, didn't see end! line: %d\n", efp->linenumber);
   if(status == eslEOF && do_ticks) 
-    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%%%% end lines positionticks' line");
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines ticks' line");
   if(status == eslEOF && do_bpconnects) 
-    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%%%% end lines bpconnects' line");
+    ESL_FAIL(status, errbuf, "Error, parsing lines section, finished file looking for '%% end lines bpconnects' line");
 
   if(status != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing lines section, last line number read %d", efp->linenumber);
 
@@ -2673,233 +2223,57 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  ERROR: ESL_FAIL(status, errbuf, "Memory error parsing lines section");
 }
 
-/* Function: individuals_sspostscript()
+/* Function: individual_seqs_sspostscript()
  * 
- * Purpose:  Fill a postscript data structure with info for individual seqs and 
- *           possibly their posteriors in the MSA.
+ * Purpose:  Fill a postscript data structure with info for individual seqs in the MSA 
  * Return:   eslOK on success.
- * 
- * per_seq_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
- *                  insert after each position per sequence. 
  */
-static int
-individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p)
+int
+individual_seqs_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused)
 {
   int status;
   int p, i, pp, ai;
-  int rfpos, apos;
+  int cpos, apos;
   int orig_npage = ps->npage;
-  int new_npage;
 
-  /* variables for the sequence pages */
-  int nzeroins_s = 0; /* number of positions with 0 inserts after them */
-  int nextdel_s = 0;  /* number of external deletes (3' and 5' flush deletes) */
-  float *limits_s;    /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
-  int nins_s;         /* number of inserts after the current rfpos for current sequence */
-  int spos, epos;     /* first/final nongap position for cur sequence */
+  if((status = add_pages_sspostscript(ps, nused, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
-  /* variables for the postprob pages */
-  int ngap_p = 0;
-  int ngap_masked_p = 0;
-  float *limits_p;    
-  int within_mask;
-  float ppavgA[11];
-  int ppidx;
-
-  /* contract check */
-  if(do_prob) { 
-    if(msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, individuals_sspostscript() do_prob == TRUE, msa->pp == FALSE");
-    for(i = 0; i < msa->nseq; i++) { 
-      if(useme[i] && msa->pp[i] == NULL)
-	ESL_FAIL(eslEINVAL, errbuf, "with --indi, either all or none of the selected sequences must have PP annotation, seq %d does not", i);
-    }
-  }
-
-  /* PP values, hard coded */
-  ppavgA[0]  = 0.025;
-  ppavgA[1]  = 0.10;
-  ppavgA[2]  = 0.20;
-  ppavgA[3]  = 0.30;
-  ppavgA[4]  = 0.40;
-  ppavgA[5]  = 0.50;
-  ppavgA[6]  = 0.60;
-  ppavgA[7]  = 0.70;
-  ppavgA[8]  = 0.80;
-  ppavgA[9]  = 0.90;
-  ppavgA[10] = 0.975;
-
-  if(ps->mask == NULL) { ngap_masked_p = -1; } /* special flag */
-
-  /* determine number of pages we'll add */
-  new_npage = do_prob ? nused*2 : nused; 
-  if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-
-  /* add the pages carefully, we allocate posterior pages and seq pages differently */
   for(p = orig_npage; p < ps->npage; p++) { 
-    /* allocate seq page */
-    ESL_ALLOC(ps->rrAA[p],    sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
-    }
-
-    if(do_prob) { 
-      /* allocate postprob page */
-      p++;
-      ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-      ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
-      }
-    }
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
   }
 
-  /* setup seq limits */
-  ESL_ALLOC(limits_s, sizeof(float) * (hc_nbins_s+1)); 
-  limits_s[0] = 1;
-  limits_s[1] = 2;
-  limits_s[2] = 4;
-  limits_s[3] = 6;
-  limits_s[4] = 10;
-  limits_s[5] = SSDRAWINFINITY;
-
-  /* setup pp limits */
-  ESL_ALLOC(limits_p, sizeof(float) * (hc_nbins_p+1)); 
-  limits_p[0] = 0.0;
-  limits_p[1] = 0.35;
-  limits_p[2] = 0.55;
-  limits_p[3] = 0.75;
-  limits_p[4] = 0.85;
-  limits_p[5] = 0.95;
-  limits_p[6] = 1.00;
-
-  /* allocate the uaseqlenA data structure to store unaligned seq lengths */
-  if(ps->uaseqlenA != NULL) { free(ps->uaseqlenA); ps->uaseqlenA = NULL; }
-  ESL_ALLOC(ps->uaseqlenA, sizeof(int) * msa->nseq);
-  esl_vec_ISet(ps->uaseqlenA, msa->nseq, 0);
-
-  /* Step through each seq, first fill seq page, then possibly postprob page */
+  /* fill ps->rrAA with residues and gaps */
   ai = 0;
-  pp = orig_npage-1;
   for(i = 0; i < msa->nseq; i++) {
     if(useme[i]) { 
-      /**************************
-       * Draw the sequence page *
-       **************************/
-      pp++;
-      spos = epos = -1;
-      /* determine first and final non-gap position */
-      for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
-	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
-	  spos = apos;
-	  break;
-	}
-      }
-      for(apos = msa->alen-1; apos >= 0; apos--) { 
-	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
-	  epos = apos;
-	  break;
-	}
-      }
-      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE);
-      nextdel_s = 0;
-      nzeroins_s = 0;
+      pp = orig_npage + ai;
       ai++;
-      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	apos = ps->msa_rf2a_map[rfpos];
-	nins_s = per_seq_ins_ct[i][rfpos];
-
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
-	ps->uaseqlenA[i] += nins_s;
-	ps->rrAA[pp][rfpos] = msa->aseq[i][apos];
-	/* printf("ps->rrAA[%3d][%4d]: %c\n", pp, rfpos, ps->rrAA[pp][rfpos]);  */
-	if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
-	   (apos < spos || apos > epos)) { 
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
-	  nextdel_s++;
+      cpos = 0;
+      for(apos = 0; apos < msa->alen; apos++) {
+	if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
+	  ps->rrAA[pp][cpos] = msa->abc->sym[msa->ax[i][apos+1]];
+	  /* printf("ps->rrAA[%3d][%4d]: %c\n", pp, cpos, ps->rrAA[pp][cpos]); */
+	  cpos++;
 	}
-	else if(nins_s == 0) { 
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zeroins_idx_s])) != eslOK) return status;
-	    nzeroins_s++;
-	}
-	else { 
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
-	}	  
       }
-      ps->rrAA[pp][ps->rflen] = '\0';
+      ps->rrAA[pp][cpos] = '\0';
       ps->seqidxA[pp] = i;
-
-      /* add one-cell color legend for zero inserts */
-      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zeroins_idx_s], nzeroins_s, -1);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "(blank) zero inserts", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
-      /* add one-cell color legend for external gaps (deletes) */
-      ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, -1);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      ps->nocclA[pp] = 2;
-
       /* add description to ps */
-      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "# inserted residues after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
-      /* done with seq page */
-
-      /***************************************
-       * Draw the posterior probability page *
-       ***************************************/
-      if(do_prob) { /* contract checked that msa->pp[i] is non-NULL */
-	pp++;
-
-	ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_p, hc_nbins_p, limits_p, FALSE, TRUE, TRUE);
-	ngap_p = 0;
-	ngap_masked_p = (ps->mask == NULL) ? -1 : 0;
-
-	for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	  apos = ps->msa_rf2a_map[rfpos];
-	  if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
-	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	    if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap residue: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
-	    within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
-	    ps->rrAA[pp][rfpos] = ' ';
-	  }
-	  else {
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
-	    ngap_p++;
-	    if(ps->mask != NULL && ps->mask[rfpos] == '1') ngap_masked_p++; 
-	    ps->rrAA[pp][rfpos] = ' ';
-	  }
-	}
-	
-	/* add one-cell color legend */
-	ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p);
-	if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	ps->nocclA[pp] = 1;
-	
-	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	ps->seqidxA[pp] = i;
-	if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
-      }
     }
   }
-  free(limits_s);
-  free(limits_p);
   return eslOK;
 
- ERROR: ESL_FAIL(status, errbuf, "individuals_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "individual_seqs_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
-
 
 /* Function: rf_seq_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page, the RF sequence.
  * Return:   eslOK on success.
  */
-static int
+int
 rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa)
 {
   int status;
@@ -2910,24 +2284,22 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
   }
 
   /* fill ps->rrAA with residues and gaps for RF sequence */
   pp = orig_npage;
   cpos = 0;
-  for(apos = 0; apos < msa->alen; apos++) {
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      ps->rrAA[pp][cpos] = msa->rf[apos];
+  for(apos = 1; apos <= msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[(apos-1)])) { /* a consensus position */
+      ps->rrAA[pp][cpos] = msa->rf[(apos-1)];
       /* printf("ps->rrAA[%3d][%4d]: %c\n", pp, cpos, ps->rrAA[pp][cpos]); */
       cpos++;
     }
   }
 
   /* add description to ps */
-  if((status = add_page_desc_to_sspostscript(ps, pp, "*REFERENCE* (\"#=GC RF\")", errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, pp, "*CONSENSUS*", errbuf)) != eslOK) return status;
 
   return eslOK;
 
@@ -2935,148 +2307,6 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   return status; /* NEVERREACHED */
 }
 
-/* count_msa()
- *                   
- * Given an msa, count residues, post probs, basepairs, and consensus start and end 
- * positions and store them in <ret_abc_ct>, <ret_pp_ct>, <ret_bp_ct>, 
- * <ret_spos_ct>, and <ret_epos_ct>.
- * 
- * <ret_abc_ct> [0..apos..alen-1][0..abc->K]:
- * - per position count of each symbol in alphabet over all seqs.
- * 
- * <ret_bp_ct>  [0..apos..alen-1][0..abc->Kp-1][0..abc->Kp-1] 
- * - per (non-pknotted) consensus basepair count of each possible basepair 
- *   over all seqs basepairs are indexed by 'i' the minimum of 'i:j' for a 
- *   pair between i and j, where i < j. Note that non-canonicals and 
- *   gaps and the like are all stored independently.
- *
- * <ret_pp_ct> [0..apos..alen-1][0..10]
- * - per position count of each posterior probability code over all seqs.
- * 
- * <ret_spos_ct> [0..apos..alen-1]
- * - per position count of first nongap position over all seqs.
- *                                
- * <ret_erfpos_ct> [0..apos..alen-1]
- * - per position count of final nongap position over all seqs.
- *
- * A 'gap' has a looser defintion than in esl_abc here, esl_abc's gap, 
- * missing residues and nonresidues are all considered 'gaps' here.
- * 
- * If we encounter an error, we return non-eslOK status and fill
- * errbuf with error message.
- * 
- * Returns eslOK upon success.
- */
-int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct)
-{
-  int status;
-  double  **abc_ct = NULL;
-  double ***bp_ct = NULL;
-  int      *spos_ct = NULL;
-  int      *epos_ct = NULL;
-  int       apos, i, j, x, epos;
-  ESL_DSQ  *tmp_dsq = NULL;
-  int       seen_start = FALSE;
-  /* variables related to getting bp counts */
-  int      *ct = NULL;            /* 0..alen-1 base pair partners array for current sequence */
-  char     *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
-  int       nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
-  int     **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
-  int       ppidx; 
-
-  /* contract check, msa should be in text mode and have ss_cons */
-  if(msa->flags & eslMSA_DIGITAL) ESL_FAIL(eslEINVAL, errbuf, "count_msa() contract violation, MSA is digitized");
-  if(msa->ss_cons == NULL) ESL_FAIL(eslEINVAL, errbuf, "the alignment lacks SS_cons annotation");
-  if(ret_pp_ct != NULL && msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, but none do.");
-
-  /* allocate pp_ct array, if nec */
-  if(ret_pp_ct != NULL) { 
-    ESL_ALLOC(pp_ct, sizeof(int *) * msa->alen);
-    for(apos = 0; apos < msa->alen; apos++) { 
-      ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-      esl_vec_ISet(pp_ct[apos], nppvals, 0);
-    }
-  }
-
-  /* get ct array which defines the consensus base pairs */
-  ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
-  ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
-  esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
-  if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
-
-  ESL_ALLOC(tmp_dsq, (msa->alen+2) * sizeof(ESL_DSQ));
-  ESL_ALLOC(abc_ct, sizeof(double *) * msa->alen); 
-  ESL_ALLOC(bp_ct,  sizeof(double **) * msa->alen); 
-  for(apos = 0; apos < msa->alen; apos++) { 
-    ESL_ALLOC(abc_ct[apos], sizeof(double) * (msa->abc->K+1));
-    esl_vec_DSet(abc_ct[apos], (msa->abc->K+1), 0.);
-    /* careful ct is indexed 1..alen, not 0..alen-1 */
-    if(ct[(apos+1)] > (apos+1)) { /* apos+1 is an 'i' in an i:j pair, where i < j */
-      ESL_ALLOC(bp_ct[apos], sizeof(double *) * (msa->abc->Kp));
-      for(x = 0; x < msa->abc->Kp; x++) { 
-	ESL_ALLOC(bp_ct[apos][x], sizeof(double) * (msa->abc->Kp));
-	esl_vec_DSet(bp_ct[apos][x], msa->abc->Kp, 0.);
-      }
-    }
-    else { /* apos+1 is not an 'i' in an i:j pair, where i < j, set to NULL */
-      bp_ct[apos] = NULL;
-    }
-  }
-  ESL_ALLOC(spos_ct, sizeof(int) * msa->alen);
-  ESL_ALLOC(epos_ct, sizeof(int) * msa->alen);
-  esl_vec_ISet(spos_ct, msa->alen, 0);
-  esl_vec_ISet(epos_ct, msa->alen, 0);
-
-  for(i = 0; i < msa->nseq; i++) { 
-    seen_start = FALSE;
-    if((status = esl_abc_Digitize(msa->abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
-    for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
-      if((status = esl_abc_DCount(msa->abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
-      if(! esl_abc_XIsGap(msa->abc, tmp_dsq[apos+1])) { 
-	if(! seen_start) { 
-	  spos_ct[apos]++; 
-	  seen_start = TRUE;
-	}
-	epos = apos;
-      }
-      /* get bp count, if nec */
-      if(bp_ct[apos] != NULL) { /* our flag for whether position (apos+1) is an 'i' in an i:j pair where i < j */
-	j = ct[apos+1] - 1; /* ct is indexed 1..alen */
-	bp_ct[apos][tmp_dsq[(apos+1)]][tmp_dsq[(j+1)]]++;
-      }
-    }
-    epos_ct[epos]++;
-    /* get PP counts, if nec  */
-    if(ret_pp_ct != NULL) { 
-      if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, seq %d does not.", i+1);
-      for(apos = 0; apos < msa->alen; apos++) { /* update appropriate pp count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
-	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	pp_ct[apos][ppidx]++;
-      }
-    }
-  }
-
-  *ret_abc_ct  = abc_ct;
-  *ret_bp_ct   = bp_ct;
-  *ret_spos_ct = spos_ct;
-  *ret_epos_ct = epos_ct;
-  if(ret_pp_ct != NULL) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
-
-  if(tmp_dsq != NULL) free(tmp_dsq);
-  if(ss_nopseudo != NULL) free(ss_nopseudo);
-  if(ct != NULL) free(ct);
-  return eslOK;
-
- ERROR:
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, msa->abc->Kp);
-  if(spos_ct != NULL) free(spos_ct);
-  if(epos_ct != NULL) free(epos_ct);
-  if(tmp_dsq != NULL) free(tmp_dsq);
-  ESL_FAIL(status, errbuf, "Error, out of memory while counting important values in the msa.");
-  return status; /* NEVERREACHED */
-}
 
 /* Function: infocontent_sspostscript()
  * 
@@ -3085,14 +2315,14 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
  *           
  * Return:   eslOK on success.
  */
-static int
-infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+int
+infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx)
 {
   int status;
-  int p, pp, c;
-  int rfpos, apos;
+  int p, pp, c, i;
+  int cpos, apos;
   int orig_npage = ps->npage;
-  double  *tmp_obs = NULL;
+  double **obs   = NULL;
   double  *ent   = NULL;
   double  *bg    = NULL;
   float   *limits = NULL;
@@ -3100,8 +2330,6 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   int nonecell = 0;
   int nonecell_masked = 0;
   int within_mask;
-  int bi;  /* bin index for current position */
-  int l;
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -3112,22 +2340,29 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     ps->occlAAA[p] = NULL;
   }
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-    for(c = 0; c < ps->rflen; c++) 
+    for(c = 0; c < ps->clen; c++) 
       ps->rcolAAA[p][c] = NULL;
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
 
-  ESL_ALLOC(ent, sizeof(double) * ps->rflen);
-  ESL_ALLOC(bg, sizeof(double) * abc->K);
-  esl_vec_DSet(bg, abc->K, 1./(abc->K));
-  ESL_ALLOC(tmp_obs, sizeof(double) * abc->K);
-  esl_vec_DSet(tmp_obs, abc->K, 0.);
+  ESL_ALLOC(ent, sizeof(double) * ps->clen);
+  ESL_ALLOC(obs, sizeof(double *) * ps->clen);
+  ESL_ALLOC(bg, sizeof(double) * msa->abc->K);
+  esl_vec_DSet(bg, msa->abc->K, 1./(msa->abc->K));
+
+  for(cpos = 0; cpos < ps->clen; cpos++) 
+    obs[cpos] = NULL;
+  
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    ESL_ALLOC(obs[cpos], sizeof(double) * msa->abc->K);
+    esl_vec_DSet(obs[cpos], msa->abc->K, 0.);
+  }
 
   pp = orig_npage;
 
@@ -3140,72 +2375,37 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   limits[4] = 1.6;
   limits[5] = 1.99;
   limits[6] = 2.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# ------------------------\n");
-    fprintf(tabfp, "# Information content data\n");
-    fprintf(tabfp, "# ------------------------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-    fprintf(tabfp, "# in the alignment and corresponding template.\n");
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
-    fprintf(tabfp, "# \ttoken 1: 'infocontent' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken 2: consensus position (starting at 1)\n");
-    fprintf(tabfp, "# \ttoken 3: information content for position (bits)\n");
-    fprintf(tabfp, "# \ttoken 4: number of non-gap residues in position (max possible is %d (num seqs in aln))\n", msa_nseq); 
-    fprintf(tabfp, "# \ttoken 5: bin index this positions falls in (see bin values below)\n");
-    if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 6: '1' if position is included by mask, '0' if not\n");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Information content is calculated as 2.0 - H, where\n");
-    fprintf(tabfp, "# H = - \\sum_x p_x \\log_2 p_x, for x in {A, C, G, U}\n");
-    fprintf(tabfp, "# p_x is the frequency of x for *non-gap* residues at the position.\n");
-    fprintf(tabfp, "# For example, p_A in a column that includes 4 As, 3 Cs, 2 Gs, 1 U and 5 gaps\n");
-    fprintf(tabfp, "# would be 4/10 = 0.4.\n");
-    fprintf(tabfp, "# Maximum possible value for token 3 is %d, the number of sequences in the file.\n", msa_nseq); 
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 non-gap residues in this position\n");
-    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s information per position (bits)\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %11s  %6s  %8s  %10s  %3s", "type", "cpos", "info", "nongap", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %11s  %6s  %8s  %10s  %3s", "-----------", "------", "--------", "----------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-    fprintf(tabfp, "\n");
-  }
-  
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    apos = ps->msa_rf2a_map[rfpos];
-    esl_vec_DCopy(abc_ct[apos], abc->K, tmp_obs); /* only copy first abc->K values, don't copy gaps */
-    zero_obs = (esl_DCompare(esl_vec_DSum(tmp_obs, abc->K), 0., eslSMALLX1) == eslOK) ? TRUE : FALSE;
-    esl_vec_DNorm(tmp_obs, abc->K);
-    ent[rfpos] = esl_vec_DEntropy(bg, abc->K) - esl_vec_DEntropy(tmp_obs, abc->K);
+  for(i = 0; i < msa->nseq; i++) { 
+    cpos = 0;
+    for(apos = 0; apos < msa->alen; apos++) {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* seq i is not a gap at cpos */
+	  esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
+	}
+	cpos++;
+      }
+    }
+  }
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    zero_obs = (esl_DCompare(esl_vec_DSum(obs[cpos], msa->abc->K), 0., eslSMALLX1) == eslOK) ? TRUE : FALSE;
+    esl_vec_DNorm(obs[cpos], msa->abc->K);
+    ent[cpos] = esl_vec_DEntropy(bg, msa->abc->K) - esl_vec_DEntropy(obs[cpos], msa->abc->K);
 
     if(zero_obs) { 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
       nonecell++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
-      bi = -1;
+      if(ps->mask != NULL && ps->mask[cpos] == '1') nonecell_masked++; 
     }
     else { 
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ent[rfpos], ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent[cpos], ps->sclAA[pp], within_mask)) != eslOK) return status;
     }
 
-    ps->rrAA[pp][rfpos] = ' ';
-    /*ps->rrAA[pp][rfpos] = (esl_FCompare(ent[rfpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';*/
-
-    if(tabfp != NULL) { 
-      fprintf(tabfp, "  infocontent  %6d  %8.5f  %10d  %3d", rfpos+1, ent[rfpos], (int) esl_vec_DSum(abc_ct[apos], abc->K), bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d\n", ps->mask[rfpos] == '1' ? 1 : 0);
-      fprintf(tabfp, "\n");
-    }
+    ps->rrAA[pp][cpos] = ' ';
+    /*ps->rrAA[pp][cpos] = (esl_FCompare(ent[cpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';*/
   }
 
   /* add one-cell color legend */
@@ -3214,18 +2414,18 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   ps->nocclA[pp] = 1;
 
   /* add text to legend */
-  /*sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->rflen));*/
+  /*sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->clen));*/
   if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "information content (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add description to ps */
   if((status = add_page_desc_to_sspostscript(ps, pp, "information content per position", errbuf)) != eslOK) return status;
 
   free(ent);
-  free(tmp_obs);
+  for(cpos = 0; cpos < ps->clen; cpos++) free(obs[cpos]);
+  free(obs);
   free(bg);
   free(limits);
 
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
   
  ERROR: ESL_FAIL(status, errbuf, "infocontent_sspostscript(): memory allocation error.");
@@ -3242,30 +2442,68 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
  *           
  * Return:   eslOK on success.
  */
-static int
-delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+int
+delete_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx)
 {
   int status;
-  int p, pp, c, l, bi;
-  int rfpos, apos;
+  int p, pp, c, i;
+  int cpos, apos;
   int orig_npage = ps->npage;
-  double dfreq;
+  int *dct;
+  int *dct_internal;
+  int *fA, *lA;
   int nonecell = 0;
   int nonecell_masked = 0;
   int within_mask;
   float *limits = NULL;
-  
-  float n_ext_del; /* msa_nseq - span_ct[rfpos], number of external deletions */
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(int *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(int *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(int) * NCMYK); /* CMYK colors */
+    }
+  }
+
+  ESL_ALLOC(dct,          sizeof(int) * ps->clen);
+  ESL_ALLOC(dct_internal, sizeof(int) * ps->clen);
+  esl_vec_ISet(dct,          ps->clen, 0);
+  esl_vec_ISet(dct_internal, ps->clen, 0);
+
+  /* determine the first and last occupied consensus position in each sequence */
+  ESL_ALLOC(fA, sizeof(int) * msa->nseq);
+  ESL_ALLOC(lA, sizeof(int) * msa->nseq);
+  esl_vec_ISet(lA, msa->nseq, 0);
+  esl_vec_ISet(fA, msa->nseq, ps->clen-1);
+  /* this could be more efficient */
+  for(i = 0; i < msa->nseq; i++) { 
+    cpos = 0;
+    for(apos = 0; apos < msa->alen; apos++) {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* apos is a consensus position */
+	cpos++;
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* cpos for seq i is not a gap */
+	  fA[i] = ESL_MIN(fA[i], cpos);
+	  lA[i] = ESL_MAX(lA[i], cpos);
+	}
+      }
+    }
+  }
+
+  for(i = 0; i < msa->nseq; i++) { 
+    /*printf("fA[%4d] %4d lA[%4d] %4d\n", i, fA[i], i, lA[i]);*/
+    cpos = 0;
+    for(apos = 0; apos < msa->alen; apos++) {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
+	cpos++;
+	if(esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { 
+	  dct[(cpos-1)]++; 
+	  if(cpos >= fA[i] && cpos <= lA[i]) dct_internal[(cpos-1)]++;
+	}
+      }
     }
   }
 
@@ -3279,105 +2517,40 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   limits[3] = 0.500;
   limits[4] = 0.667;
   limits[5] = 0.833;
-  limits[6] = 1.000;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, TRUE);
-
-  if(tabfp != NULL) { 
-    if(do_all) { 
-      fprintf(tabfp, "# -----------\n");
-      fprintf(tabfp, "# Delete data\n");
-      fprintf(tabfp, "# -----------\n");
-      fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-      fprintf(tabfp, "# in the alignment and corresponding template.\n");
-      fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 4 : 5);
-      fprintf(tabfp, "# \ttoken 1: 'deleteall' (tag defining line type to ease parsing)\n");
-      fprintf(tabfp, "# \ttoken 2: consensus position (starting at 1)\n");
-      fprintf(tabfp, "# \ttoken 3: frequency of deletions (gaps) for position\n");
-      fprintf(tabfp, "# \ttoken 4: bin index this positions falls in (see bin values below)\n");
-      if(ps->mask != NULL) { 
-	fprintf(tabfp, "# \ttoken 5: '1' if position is included by mask, '0' if not\n");
-      }
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# A sequence s has a 'delete' at consensus position x if position\n");
-      fprintf(tabfp, "# x is a gap for aligned sequence s.\n");
-      fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# Value ranges for bins:\n");
-      fprintf(tabfp, "# \tbin  0: special case, 0 sequences have a delete at position\n");
-      for(l = 0; l < hc_nbins; l++) { 
-	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of deletes per position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-      }
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# %9s  %6s  %8s  %3s", "type", "cpos", "dfreq", "bin");
-      if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-      fprintf(tabfp, "\n");
-      fprintf(tabfp, "# %9s  %6s  %8s  %3s", "---------", "------", "--------", "---");
-      if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-      fprintf(tabfp, "\n");
-    }
-    else { /* ! do_all (internal deletes only) */
-      fprintf(tabfp, "# --------------------\n");
-      fprintf(tabfp, "# Internal delete data\n");
-      fprintf(tabfp, "# --------------------\n");
-      fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-      fprintf(tabfp, "# in the alignment and corresponding template.\n");
-      fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
-      fprintf(tabfp, "# \ttoken 1: 'deleteint' (tag defining line type to ease parsing)\n");
-      fprintf(tabfp, "# \ttoken 2: consensus position (starting at 1)\n");
-      fprintf(tabfp, "# \ttoken 3: frequency of internal deletions (gaps) for position\n");
-      fprintf(tabfp, "# \ttoken 4: number of sequences that span (begin at or prior to and end at or after) position (max is %d)\n", msa_nseq);
-      fprintf(tabfp, "# \ttoken 5: bin index this positions falls in (see bin values below)\n");
-      if(ps->mask != NULL) fprintf(tabfp, "# \ttoken 6: '1' if position is included by mask, '0' if not\n");
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# A sequence s has an 'internal delete' at consensus position 'x' that is actual alignment position 'a' if\n");
-      fprintf(tabfp, "# x is a gap for aligned sequence s, and s has at least one non-gap residue aligned to a position 'b' <= 'a'\n");
-      fprintf(tabfp, "# and at least one non-gap residue aligned to a position 'c' >= 'a'\n");
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# Value ranges for bins:\n");
-      fprintf(tabfp, "# \tbin  0: special case, 0 sequences have an internal delete at position\n");
-      for(l = 0; l < hc_nbins; l++) { 
-	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of internal deletes per position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-      }
-      fprintf(tabfp, "#\n");
-      fprintf(tabfp, "# %9s  %6s  %8s  %10s  %3s", "type", "cpos", "dfreq", "nspan", "bin");
-      if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-      fprintf(tabfp, "\n");
-      fprintf(tabfp, "# %9s  %6s  %8s  %10s  %3s", "---------", "------", "--------", "----------", "---");
-      if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-      fprintf(tabfp, "\n");
-    }
-  }
+  limits[6] = 1.00;
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
-  /* draw delete page */
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
-    apos = ps->msa_rf2a_map[rfpos];
-    n_ext_del = do_all ? -1. : (float) (msa_nseq - span_ct[rfpos]); /* num external deletes is num seqs minus number of seqs that 'span' apos, see function header comments for explanation */
-    if((( do_all) && ( abc_ct[apos][abc->K] < eslSMALLX1)) ||               /* abc_ct[apos][abc->K] == 0 */
-       ((!do_all) && ((abc_ct[apos][abc->K] - n_ext_del) < eslSMALLX1))) {  /* abc_ct[apos][abc->K] == n_ext_del (all deletes are external) */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
-      nonecell++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
-      bi = -1;
-      dfreq = 0.;
-    }
-    else {
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      dfreq = do_all ? 
-	( abc_ct[apos][abc->K]              / (float) msa_nseq) : 
-	((abc_ct[apos][abc->K] - n_ext_del) / (float) msa_nseq);
-      /* printf("do_all: %d rfpos: %d dfreq: %.2f\n", do_all, rfpos, dfreq); */
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
-    }
-    if(tabfp != NULL) { 
-      if(do_all) fprintf(tabfp, "  deleteall  %6d  %8.5f  %3d",       rfpos+1, dfreq, bi+1);
-      else       fprintf(tabfp, "  deleteint  %6d  %8.5f  %10d  %3d", rfpos+1, dfreq, span_ct[rfpos], bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0); 
-      fprintf(tabfp, "\n");
+  if(do_all) { 
+    /* draw delete page with all deletes */
+    for(cpos = 0; cpos < ps->clen; cpos++) { 
+      ps->rrAA[pp][cpos] = ' ';
+      if(dct[cpos] == 0) { 
+	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
+	nonecell++;
+	if(ps->mask != NULL && ps->mask[cpos] == '1') nonecell_masked++; 
+      }
+      else {
+	within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+	if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], (float) (dct[cpos]) / (float) (msa->nseq), ps->sclAA[pp], within_mask)) != eslOK) return status;
+      }
     }
   }
-    
+  else { /* do_all is FALSE, draw delete page with only internal deletes */
+    for(cpos = 0; cpos < ps->clen; cpos++) { 
+      ps->rrAA[pp][cpos] = ' ';
+      if(dct_internal[cpos] == 0) { 
+	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
+	nonecell++;
+	if(ps->mask != NULL && ps->mask[cpos] == '1') nonecell_masked++; 
+      }
+      else {
+	within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+	if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], (float) (dct_internal[cpos]) / (float) (msa->nseq), ps->sclAA[pp], within_mask)) != eslOK) return status;
+      }
+    }
+  }
+
   /* add one-cell color legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
   ps->nocclA[pp] = 1;
@@ -3391,359 +2564,80 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
 
   /* add color legend and description */
   if(do_all) { 
-    /*sprintf(text, "fraction seqs w/deletes ('-'=0 deletes; avg/seq: %.2f)", (float) esl_vec_ISum(dct, ps->rflen) / (float) msa_nseq);*/
+    /*sprintf(text, "fraction seqs w/deletes ('-'=0 deletes; avg/seq: %.2f)", (float) esl_vec_ISum(dct, ps->clen) / (float) msa->nseq);*/
     if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs with deletes", ps->legx_max_chars, errbuf)) != eslOK) return status;
     if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of deletions at each position", errbuf)) != eslOK) return status;
   }
   else { /* !do_all, only internal deletes counted */
-    /*sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->rflen) / (float) msa_nseq);*/
+    /*sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->clen) / (float) msa->nseq);*/
     if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
-    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal deletions in each position", errbuf)) != eslOK) return status;
+    if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal \\(non-terminal\\) deletions in each position", errbuf)) != eslOK) return status;
   }
-  
+
+  free(dct);
+  free(dct_internal);
+  free(fA);
+  free(lA);
   free(limits);
-  
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
+
   return eslOK;
   
  ERROR: ESL_FAIL(status, errbuf, "delete_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
 
-/* Function: insertfreq_sspostscript()
+/* Function: insert_sspostscript()
  * 
- * Purpose:  Fill a postscript data structure with 1 new page, with colors 
- *           indicating the fraction of seqs with inserts after each
- *           position. 
+ * Purpose:  Fill a postscript data structure with 1 new page, with colors in log 
+ *           scale indicating the fraction of seqs with inserts after each
+ *           position. This function differs from the others in that the number
+ *           of inserts per column is passed in. This is because insert information
+ *           can either be extracted from the msa (in get_insert_info_from_msa()) or
+ *           from an insert information file <f> (in get_insert_info_from_ifile(), 
+ *           where <f> was created by cmalign --matchonly --iinfo <f>).
  *           
  * Return:   eslOK on success.
  */
-static int
-insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp)
+int
+insert_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int **ict_AA, int nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx)
 {
   int status;
-  int p, pp, c, l;
-  int rfpos;
+  int p, pp, c, i;
+  int cpos;
   int orig_npage = ps->npage;
-  int apos;
-  int nzeroins = 0;
-  int nzeroins_masked = 0;
-  int nfewins = 0;
-  int nfewins_masked = 0;
+  int *total_ict, *med_ict, *nseq_ict;
+  float col;
+  int nonecell = 0;
+  int nonecell_masked = 0;
   float *limits;
   int within_mask;
-  float ifreq;
-  int bi;
-  float fewins_thresh = 0.001; /* positions with insert freqs < this value will be painted specially (dark grey) */
-
-  if(ps->mask == NULL) { 
-    nzeroins_masked = -1; /* special flag */
-    nfewins_masked = -1;  /* special flag */
-  }
+  if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
-    }
-  }
-  pp = orig_npage;
-
-  /* add color legend */
-  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = fewins_thresh;
-  limits[1] = 0.01;
-  limits[2] = 0.05;
-  limits[3] = 0.10;
-  limits[4] = 0.20;
-  limits[5] = 0.50;
-  limits[6] = 1.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, TRUE);
-
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# ---------------------\n");
-    fprintf(tabfp, "# Insert frequency data\n");
-    fprintf(tabfp, "# ---------------------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each possible insert position\n", ps->rflen+1);
-    fprintf(tabfp, "# after each of the %d consensus positions and one more for inserts prior to the first consensus position.\n", ps->rflen);
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
-    fprintf(tabfp, "# \ttoken 1: 'insertfreq' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken 2: consensus position <cpos> after which inserts occur ('0' == before posn 1)\n");
-    fprintf(tabfp, "# \ttoken 3: fraction of sequences that span <cpos> (see defn of span below) with >= 1 inserted residues after position\n");
-    fprintf(tabfp, "# \ttoken 4: number of sequences that span (begin at or prior to and end at or after) position (max is %d)\n", msa_nseq);
-    fprintf(tabfp, "# \ttoken 5: bin index this positions falls in (see bin values below)\n");
-    if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 6: '1' if position is included by mask, '0' if not\n");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# A sequence s spans consensus position 'x' that is actual alignment position 'a' if s has\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'b' <= 'a' and\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'c' >= 'a'\n");
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin -1: special case, reserved for inserts before position 1,\n");
-    fprintf(tabfp, "# \t        these are NOT SHOWN in the postscript diagram (!)\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 sequences have inserts after this position\n");
-    fprintf(tabfp, "# \tbin  1: special case, < %.5f fraction of sequences have inserts after this position\n", fewins_thresh);
-    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences with >= 1 inserts after each position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %10s  %6s  %8s  %10s  %3s", "type", "cpos", "ifreq", "nspan", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %10s  %6s  %8s  %10s  %3s", "----------", "------", "--------", "----------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-    fprintf(tabfp, "\n");
-  }
-
-  /* print info on inserts before rfpos 1 to tabfile, if nec */
-  if(tabfp != NULL) { 
-    apos = ps->msa_rf2a_map[0];
-    if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
-    ifreq = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
-    fprintf(tabfp, "  insertfreq  %6d  %8.5f  %10d  %3d", 0, ifreq, span_ct[0], -1);
-    if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
-    fprintf(tabfp, "\n");
-  }
-
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
-    apos = ps->msa_rf2a_map[rfpos]; 
-    if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
-    ifreq = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
-    if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
-      nzeroins++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
-      bi = -2; /* special case */
-    }
-    else if (ifreq < fewins_thresh) { 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_fewins_idx])) != eslOK) return status;
-      nfewins++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nfewins_masked++; 
-      bi = -1; /* special case */
-    }
-    else {
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ifreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
-    }
-    /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
-    if(tabfp != NULL) { 
-      fprintf(tabfp, "  insertfreq  %6d  %8.5f  %10d  %3d", rfpos+1, ifreq, span_ct[rfpos], bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
-      fprintf(tabfp, "\n");
-    }
-  }
-
-  /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[hc_fewins_idx], nfewins, nfewins_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "< 0.001 seqs have insert", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  ps->nocclA[pp] = 2;
-
-  /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of insertions after each position", errbuf)) != eslOK) return status;
-
-  free(limits);
-
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
-  return eslOK;
-  
- ERROR: ESL_FAIL(status, errbuf, "insertfreq_sspostscript(): memory allocation error.");
-  return status; /* NEVERREACHED */
-}
-
-
-/* Function: insertavglen_sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with 1 new page, with colors 
- *           indicating the average length of inserts after each
- *           position. 
- *           
- * Return:   eslOK on success.
- */
-static int
-insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp)
-{
-  int status;
-  int p, pp, c, l;
-  int rfpos;
-  int orig_npage = ps->npage;
-  int apos;
-  int nzeroins = 0;
-  int nzeroins_masked = 0;
-  float *limits;
-  int within_mask;
-  float ifreq;
-  float iavglen;
-  int bi;
-
-  if(ps->mask == NULL) nzeroins_masked = -1; /* special flag */
-
-  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
-  pp = orig_npage;
 
-  /* add color legend */
-  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = 1.00;
-  limits[1] = 1.01;
-  limits[2] = 1.50;
-  limits[3] = 3.00;
-  limits[4] = 4.00;
-  limits[5] = 10.00;
-  limits[6] = SSDRAWINFINITY;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, FALSE);
+  ESL_ALLOC(total_ict, sizeof(int) * (ps->clen+1));
+  ESL_ALLOC(nseq_ict,  sizeof(int) * (ps->clen+1));
+  ESL_ALLOC(med_ict,   sizeof(int) * (ps->clen+1));
+  esl_vec_ISet(total_ict, (ps->clen+1), 0);
+  esl_vec_ISet(nseq_ict, (ps->clen+1), 0);
+  esl_vec_ISet(med_ict, (ps->clen+1), 0);
 
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# --------------------------\n");
-    fprintf(tabfp, "# Average insert length data\n");
-    fprintf(tabfp, "# --------------------------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each possible insert position\n", ps->rflen+1);
-    fprintf(tabfp, "# after each of the %d consensus positions and one more for inserts prior to the first consensus position.\n", ps->rflen);
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
-    fprintf(tabfp, "# \ttoken 1: 'insertlen' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken 2: consensus position <cpos> after which inserts occur ('0' == before posn 1)\n");
-    fprintf(tabfp, "# \ttoken 3: average number of inserted residues after each position for those seqs with >=1 inserted residues)\n");
-    fprintf(tabfp, "# \ttoken 4: fraction of sequences that span <cpos> (see defn of span below) with >= 1 inserted residues after position\n");
-    fprintf(tabfp, "# \ttoken 5: number of sequences that span (begin at or prior to and end at or after) position (max is %d)\n", msa_nseq);
-    fprintf(tabfp, "# \ttoken 6: bin index this positions falls in (see bin values below)\n");
-    if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 7: '1' if position is included by mask, '0' if not\n");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Total number of sequences in the alignment is %d\n", msa_nseq);
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# A sequence s spans consensus position 'x' that is actual alignment position 'a' if s has\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'b' <= 'a' and\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'c' >= 'a'\n");
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin -1: special case, reserved for inserts before position 1,\n");
-    fprintf(tabfp, "# \t        these are NOT SHOWN in the postscript diagram (!)\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 sequences have inserts after this position\n");
-    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s average insert length after each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "type", "cpos", "iavglen", "ifreq", "nspan", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "---------", "------", "--------", "--------", "----------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-    fprintf(tabfp, "\n");
-  }
-
-  /* print info on inserts before rfpos 1 to tabfile, if nec */
-  if(tabfp != NULL) { 
-    apos = ps->msa_rf2a_map[0];
-    if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
-    ifreq   = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
-    iavglen = (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
-    fprintf(tabfp, "  insertlen  %6d  %8.4f  %8.5f  %10d  %3d", 0, iavglen, ifreq, span_ct[0], -1);
-    if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
-    fprintf(tabfp, "\n");
-  }
-
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
-    apos = ps->msa_rf2a_map[rfpos]; 
-    if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
-    ifreq   = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
-    iavglen = (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1]; 
-    if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
-      nzeroins++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
-      bi = -1; /* special case */
-    }
-    else {
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], iavglen, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
-    }
-    /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
-    if(tabfp != NULL) { 
-      fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", rfpos+1, iavglen, ifreq, span_ct[rfpos], bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
-      fprintf(tabfp, "\n");
-    }
-  }
-
-  /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
-  /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average insertion length", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "average insertion length after each position", errbuf)) != eslOK) return status;
-
-  free(limits);
-
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
-  return eslOK;
-  
- ERROR: ESL_FAIL(status, errbuf, "insertavglen_sspostscript(): memory allocation error.");
-  return status; /* NEVERREACHED */
-}
-
-
-/* Function: span_sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with 1 new page, with colors 
- *           indicating the fraction of seqs that 'span' each consensus 
- *           position. A consensus position cpos is spanned by a sequence x if
- *           if at least 1 residue in x is aligned to a consensus position <= cpos
- *           *and*  at least 1 residue in x is aligned to a consensus position >= cpos.
- *           
- * Return:   eslOK on success.
- */
-static int
-span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zerocov_idx, int maxcov_idx, FILE *tabfp)
-{
-  int status;
-  int p, pp, c, l;
-  int rfpos;
-  int orig_npage = ps->npage;
-  int nzerocov = 0;
-  int nzerocov_masked = 0;
-  int nmaxcov = 0;
-  int nmaxcov_masked = 0;
-  float *limits;
-  int within_mask;
-  float cfract;
-  int bi;
-
-  if(ps->mask == NULL) nzerocov_masked = nmaxcov_masked = -1; /* special flag */
-
-  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-
-  for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+  /* determine total number of sequences per position */
+  cpos = 0;
+  for(cpos = 0; cpos <= ps->clen; cpos++) { 
+    for(i = 0; i < nseq; i++) { 
+      if(ict_AA[cpos][i] >= 1) nseq_ict[cpos]++;
+      total_ict[cpos] += ict_AA[cpos][i];
     }
   }
 
@@ -3758,253 +2652,254 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   limits[4] = 0.667;
   limits[5] = 0.833;
   limits[6] = 1.00;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, FALSE);
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# ---------\n");
-    fprintf(tabfp, "# Span data\n");
-    fprintf(tabfp, "# ---------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-    fprintf(tabfp, "# in the alignment and corresponding template.\n");
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 4 : 5);
-    fprintf(tabfp, "# \ttoken 1: 'span' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken 2: consensus position (starting at 1)\n");
-    fprintf(tabfp, "# \ttoken 3: fraction of sequences that 'span' position\n");
-    fprintf(tabfp, "# \ttoken 4: bin index this positions falls in (see bin values below)\n");
-    if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 5: '1' if position is included by mask, '0' if not\n");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# A sequence s spans consensus position 'x' that is actual alignment position 'a' if s has\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'b' <= 'a' and\n");
-    fprintf(tabfp, "# at least one non-gap residue aligned to a position 'c' >= 'a'\n");
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 sequences span this position\n");
-    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences that span each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %8s  %6s  %8s  %3s", "type", "cpos", "span", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %8s  %6s  %8s  %3s", "------", "------", "--------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-    fprintf(tabfp, "\n");
-  }
-
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
-    if(span_ct[rfpos] == 0) {  
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zerocov_idx])) != eslOK) return status;
-      nzerocov++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerocov_masked++;
-      cfract = 0.;
-      bi = -1;
-    }
-    else if(span_ct[rfpos] == msa_nseq) {  
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[maxcov_idx])) != eslOK) return status;
-      nmaxcov++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nmaxcov_masked++; 
-      cfract = 0.;
-      bi = -1;
+  for(cpos = 1; cpos <= ps->clen; cpos++) { 
+    ps->rrAA[pp][cpos] = ' ';
+    if(nseq_ict[cpos] == 0) { 
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][(cpos-1)], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+      nonecell++;
+      if(ps->mask != NULL && ps->mask[cpos-1] == '1') nonecell_masked++; 
     }
     else {
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      cfract = (float) span_ct[rfpos] / (float) msa_nseq;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
-    }
-    if(tabfp != NULL) { 
-      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos+1, cfract, bi+1); 
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
-      fprintf(tabfp, "\n");
+      col = (float) nseq_ict[cpos] / (float) nseq;
+      within_mask = (ps->mask != NULL && ps->mask[(cpos-1)] == '1') ? TRUE : FALSE;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][(cpos-1)], NCMYK, hc_scheme[hc_scheme_idx], col, ps->sclAA[pp], within_mask)) != eslOK) return status;
     }
   }
 
-  /* add one-cell color legend for zero span positions */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zerocov_idx], nzerocov, nzerocov_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "no sequences span", ps->legx_max_chars, errbuf)) != eslOK) return status;
-
-  /* add one-cell color legend for maximum span positions */
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[maxcov_idx], nmaxcov, nmaxcov_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% of seqs span", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  ps->nocclA[pp] = 2;
+  /* add one-cell color legend */
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
+  ps->nocclA[pp] = 1;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs that span each position", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "fraction of sequences that span each position", errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of insertions after each position", errbuf)) != eslOK) return status;
 
+  free(total_ict);
+  free(nseq_ict);
+  free(med_ict);
   free(limits);
 
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
   
- ERROR: ESL_FAIL(status, errbuf, "span_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "insert_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
 
-
-/* Function: avg_posteriors_sspostscript()
+/* Function: posteriors_sspostscript()
  * 
- * Purpose:  Fill a postscript data structure with info average posterior probabilities in the MSA.
+ * Purpose:  Fill a postscript data structure with info on posterior probabilities in the MSA.
  * Return:   eslOK on success.
  */
 static int
-avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+posteriors_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int *useme, int nused, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx)
 {
-  int status;
-  int p;
-  int rfpos;
-  int pp;
-  float *limits; /* bin limits for the color scheme */
-  int nonecell_allgap = 0;
-  int nonecell_allgap_masked = 0;
-  int within_mask;
+  int    status;
+  int    s,c;           /* counters over sequences, columns of MSA */
+  int   *nongap_c;      /* number of non-gap posterior values for each column */
+  int   *nongaprf_c;    /* number of non-gap RF non-gap posterior values for each column */
+  float *sum_c;         /* sum of non-gap posterior values for each column */
+  float *sumrf_c;       /* sum of non-gap RF non-gap posterior values for each column */
+  int    nongap_s;      /* number of non-gap posterior values for current sequence */
+  int    nongaprf_s;    /* number of non-gap RF non-gap posterior values for current sequence */
+  float  sum_s;         /* sum of non-gap posterior values for current sequence */
+  float  sumrf_s;       /* sum of non-gap RF non-gap posterior values for current sequence */
+  float  avgrf_c;       /* avg non-gap RF non-gap posterior value for current column */
+  float  avg_s;         /* avg non-gap posterior values for current sequence */
+  float  avgrf_s;       /* avg non-gap RF non-gap posterior values for current sequence */
+  int    p;
+  float  prob;
+  int *c2a_map;
+  int *a2c_map;
+  int clen;
+  int cpos;
   int orig_npage = ps->npage;
-  float ppavgA[11];
-  int l;
-  int apos;
-  int nnongap;
-  float ppsum;
-  int ppidx;
-  float ppavg;
-  int bi;
+  int new_npage = 0;
+  int ir1, ir2;
+  int pp;
+  int do_avg = FALSE;
+  int do_indi = FALSE;
+  int nfirst_indi_page = -1;
+  int navg_page = -1;
+  int ridx1, ridx2, r;
+  float *limits; /* bin limits for the color scheme */
+  int nonecell_avg = 0;
+  int nonecell_avg_masked = 0;
+  int nonecell_seq = 0;
+  int nonecell_seq_masked = 0;
+  int within_mask;
 
-  ppavgA[0]  = 0.025;
-  ppavgA[1]  = 0.10;
-  ppavgA[2]  = 0.20;
-  ppavgA[3]  = 0.30;
-  ppavgA[4]  = 0.40;
-  ppavgA[5]  = 0.50;
-  ppavgA[6]  = 0.60;
-  ppavgA[7]  = 0.70;
-  ppavgA[8]  = 0.80;
-  ppavgA[9]  = 0.90;
-  ppavgA[10] = 0.975;
+  if(ps->mask == NULL) { nonecell_avg_masked = nonecell_seq_masked = -1; } /* special flag */
 
-  if(ps->mask == NULL) { nonecell_allgap_masked = -1; } /* special flag */
+  if(msa->rf == NULL) esl_fatal("No RF annotation in alignment");
 
-  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if(esl_opt_GetBoolean(go, "--indi")) { do_indi = TRUE; nfirst_indi_page = orig_npage + new_npage; new_npage += nused; }
+  else                                 { do_avg = TRUE;  new_npage += 1; navg_page = orig_npage; }
+
+  if(do_indi) {
+    if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  }
+  else {
+    if((status = add_pages_sspostscript(ps, new_npage, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  }
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
-    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+    for(c = 0; c < ps->clen; c++) { 
+      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
+
+  /* Find out which #=GR line is the POST, Post, or post line (if more than one exist, last one is chosen) */
+  ridx1 = ridx2 = -1;
+  for (r = 0; r < msa->ngr; r++) { 
+    if (strcmp(msa->gr_tag[r], "POSTX.") == 0) { ridx1 = r; }
+    if (strcmp(msa->gr_tag[r], "POST.X") == 0) { ridx2 = r; }
+  }
+  if((ridx1 == -1) || (ridx2 == -1)) { 
+    ESL_FAIL(eslEINVAL, errbuf, "--prob requires \"#=GR POSTX.\" and \"#=GR POST.X\" annotation in %s (from infernal v1.x\'s cmalign).\n", esl_opt_GetArg(go,1));
+  }
+  
+  /* map consensus columns to alignment positions */
+  map_cpos_to_apos(msa, &c2a_map, &a2c_map, &clen);
+
+  /* per column stats */
+  ESL_ALLOC(nongap_c, sizeof(int) * msa->alen);
+  ESL_ALLOC(sum_c,    sizeof(float) * msa->alen);
+  ESL_ALLOC(nongaprf_c, sizeof(int) * msa->alen);
+  ESL_ALLOC(sumrf_c,    sizeof(float) * msa->alen);
+  esl_vec_ISet(nongap_c, msa->alen, 0);
+  esl_vec_FSet(sum_c,    msa->alen, 0.);
+  esl_vec_ISet(nongaprf_c, msa->alen, 0);
+  esl_vec_FSet(sumrf_c,    msa->alen, 0.);
 
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
   limits[0] = 0.0;
-  limits[1] = 0.70;
-  limits[2] = 0.80;
-  limits[3] = 0.85;
-  limits[4] = 0.90;
-  limits[5] = 0.95;
+  limits[1] = 0.8;
+  limits[2] = 0.9;
+  limits[3] = 0.925;
+  limits[4] = 0.95;
+  limits[5] = 0.975;
   limits[6] = 1.00;
 
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# ----------------------------------\n");
-    fprintf(tabfp, "# Average posterior probability data\n");
-    fprintf(tabfp, "# ----------------------------------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-    fprintf(tabfp, "# in the alignment and corresponding template.\n");
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 5 : 6);
-    fprintf(tabfp, "# \ttoken 1: 'avgpostprob' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken 2: consensus position (starting at 1)\n");
-    fprintf(tabfp, "# \ttoken 3: average posterior probability of non-gap residues for position\n");
-    fprintf(tabfp, "# \ttoken 4: number of non-gap residues in position (max possible is %d (num seqs in aln))\n", msa_nseq); 
-    fprintf(tabfp, "# \ttoken 5: bin index this positions falls in (see bin values below)\n");
-    if(ps->mask != NULL) fprintf(tabfp, "# \ttoken 6: '1' if position is included by mask, '0' if not\n");
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Posterior probability (PP) values in the alignment file can have 12 possible values,\n");
-    fprintf(tabfp, "# the average per position is calculated by defining each as the average of its range given\n");
-    fprintf(tabfp, "# below. (For example, a '8' which indicates PP between 0.75 and 0.85 is treated as 0.8).\n");
-    fprintf(tabfp, "# \t'.': gap, corresponds to a gap in the sequence (not counted)\n");
-    fprintf(tabfp, "# \t'0': posterior probability of between 0.00 and 0.05\n");
-    fprintf(tabfp, "# \t'1': posterior probability of between 0.05 and 0.15\n");
-    fprintf(tabfp, "# \t'2': posterior probability of between 0.15 and 0.25\n");
-    fprintf(tabfp, "# \t'3': posterior probability of between 0.25 and 0.35\n");
-    fprintf(tabfp, "# \t'4': posterior probability of between 0.35 and 0.45\n");
-    fprintf(tabfp, "# \t'5': posterior probability of between 0.45 and 0.55\n");
-    fprintf(tabfp, "# \t'6': posterior probability of between 0.55 and 0.65\n");
-    fprintf(tabfp, "# \t'7': posterior probability of between 0.65 and 0.75\n");
-    fprintf(tabfp, "# \t'8': posterior probability of between 0.75 and 0.85\n");
-    fprintf(tabfp, "# \t'9': posterior probability of between 0.85 and 0.95\n");
-    fprintf(tabfp, "# \t'*': posterior probability of between 0.95 and 1.00\n");
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 sequences have a non-gap residue at position\n");
-    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s average posterior probability per position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %11s  %6s  %8s  %10s  %3s", "type", "cpos", "avgpp", "nongap", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %11s  %6s  %8s  %10s  %3s", "-----------", "------", "--------", "----------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
-    fprintf(tabfp, "\n");
-  }
-
   /* step through each sequence and each column, collecting stats */
-  pp = orig_npage;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    apos = ps->msa_rf2a_map[rfpos]; 
-    nnongap = esl_vec_ISum(pp_ct[apos], 11);
-    if(nnongap == 0) { /* all gaps */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
-      nonecell_allgap++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_allgap_masked++; 
-      bi = -1;
-      ppavg = 0.;
+  pp = nfirst_indi_page;
+  for(s = 0; s < msa->nseq; s++) { 
+    nonecell_seq = 0;
+    nonecell_seq_masked = (ps->mask == NULL) ? -1 : 0;
+    nongap_s = nongaprf_s = 0;
+    sum_s    = sumrf_s = 0.;
+    if(do_indi && useme[s]) { /* add color legend for this sequence */
+      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
     }
-    else { /* at least 1 non-gap residue in this position */
-      if(pp_ct[apos][10] == nnongap) { /* all nongap residues have highest possible posterior probability */
+    for(c = 0; c < msa->alen; c++) { 
+      if(! esl_abc_CIsGap(msa->abc, msa->gr[ridx1][s][c])) {
+	if(esl_abc_CIsGap(msa->abc, msa->gr[ridx2][s][c])) ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value non-gap but post 'ones' value is gap.\n", s, c);
+	if(msa->gr[ridx1][s][c] == '*') {
+	  if(msa->gr[ridx2][s][c] != '*') ESL_FAIL(eslEINVAL, errbuf, "reading post annotation for seq: %d aln column: %d, post 'tens' value '*' but post 'ones' value != '*'.\n", s, c);
+	  prob = 1.0;
+	}
+	else {
+	  ir1 = (int) (msa->gr[ridx1][s][c] - '0');
+	  ir2 = (int) (msa->gr[ridx2][s][c] - '0');
+	  prob = ((float) ir1 * 10. + ir2) * .01;
+	  /*printf("c: %d r1: %c %d r2: %c %d p: %.2f\n", c, msa->gr[ridx1][s][c], ir1, msa->gr[ridx2][s][c], ir2, prob);*/
+	}
+	sum_c[c] += prob;
+	nongap_c[c]++;
+	sum_s += prob;
+	nongap_s++;
+	if(a2c_map[c] != -1) { /* consensus position */
+	  cpos = a2c_map[c];
+	  sumrf_c[c] += prob;
+	  nongaprf_c[c]++;
+	  sumrf_s += prob;
+	  nongaprf_s++;
+	  if(do_indi && useme[s]) { /* compute color for this column */
+	    within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], prob, ps->sclAA[pp], within_mask)) != eslOK) return status;
+	    ps->rrAA[pp][cpos] = ' ';
+	  }
+	}
+	//if(prob >= pthresh) athresh_c[c]++;
       }
-      else { 
+      else if (do_indi && useme[s]) { /* gap, if it's a consensus column, draw blank square */
+	if(a2c_map[c] != -1) { /* consensus position */
+	  cpos = a2c_map[c];
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+	  nonecell_seq++;
+	  if(ps->mask != NULL && ps->mask[cpos] == '1') nonecell_seq_masked++; 
+	  ps->rrAA[pp][cpos] = ' ';
+	}
       }
-      ppsum = 0.;
-      for(ppidx = 0; ppidx < 11; ppidx++) {
-	ppsum += pp_ct[apos][ppidx] * ppavgA[ppidx]; /* Note: PP value is considered average of range, not minimum ('9' == 0.90 (0.95-0.85/2) */
-      }
-      ppavg = (float) ppsum / (float) nnongap;
-      within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ppavg, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+    } /* done with this sequence */
+    if(do_indi && useme[s]) { 
+      avg_s   =  (float) sum_s / (float) nongap_s;
+      avgrf_s =  (float) sumrf_s / (float) nongaprf_s;
+
+      /* add one-cell color legend */
+      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_seq, nonecell_seq_masked);
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->nocclA[pp] = 1;
+
+      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->seqidxA[pp] = s;
+      if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[s], errbuf)) != eslOK) return status;
+      pp++;
     }
-    if(tabfp != NULL) { 
-      fprintf(tabfp, "  avgpostprob  %6d  %8.5f  %10d  %3d", rfpos+1, ppavg, nnongap, bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
-      fprintf(tabfp, "\n");
+  } /* done with all sequences */
+
+  if(do_avg) { /* add average colors */
+    pp = navg_page;
+    ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
+    for(c = 0; c < msa->alen; c++) { 
+      if(a2c_map[c] != -1) { /* cons position */
+	cpos = a2c_map[c]; 
+	if(nongap_c[c] > 0) { 
+	  avgrf_c = sum_c[c] /= (float) nongap_c[c];
+	  within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], avgrf_c, ps->sclAA[pp], within_mask)) != eslOK) return status;
+	}
+	else { 
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+	  nonecell_avg++;
+	  if(ps->mask != NULL && ps->mask[cpos] == '1') nonecell_avg_masked++; 
+	}
+	ps->rrAA[pp][cpos] = ' ';
+      }
     }
 
-    ps->rrAA[pp][rfpos] = ' ';
+    /* add one-cell color legend */
+    ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_avg, nonecell_avg_masked);
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    ps->nocclA[pp] = 1;
+    
+    /* add color legend */
+    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(alnment confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
+
+    /* add description to ps */
+    if((status = add_page_desc_to_sspostscript(ps, pp, "average posterior probability \\(confidence\\) per position", errbuf)) != eslOK) return status;
   }
 
-  /* add one-cell color legend for all gap positions */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_allgap, nonecell_allgap_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->nocclA[pp] = 1;
-  
-  /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
-
-  /* add description to ps */
-  if((status = add_page_desc_to_sspostscript(ps, pp, "average posterior probability per position", errbuf)) != eslOK) return status;
-
+  free(nongap_c);
+  free(nongaprf_c);
+  free(sum_c);
+  free(sumrf_c);
+  free(c2a_map);
+  free(a2c_map);
   free(limits);
 
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
   return eslOK;
 
  ERROR:
   return status;
 }
-
 
 /* Function: colormask_sspostscript()
  * 
@@ -4014,8 +2909,8 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
  *
  * Return:   eslOK on success.
  */
-static int
-colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx)
+int
+colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask, float **hc_onecell, int incmask_idx, int excmask_idx)
 {
   int status;
   int p, pp, c;
@@ -4025,30 +2920,29 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   int ncols_outside_mask = 0;
   char *mask_desc = NULL;
   char *mask_file = NULL;
-  
-  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskcol page");
+
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
 
-  for(cpos = 0; cpos < ps->rflen; cpos++) { 
-    if(ps->mask[cpos] == '1') { /* included */
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    if(mask[cpos] == '1') { /* included */
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incmask_idx])) != eslOK) return status; 
       ncols_inside_mask++;
     }
-    else if(ps->mask[cpos] == '0') {
+    else if(mask[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excmask_idx])) != eslOK) return status; 
       ncols_outside_mask++;
     }
-    else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
+    else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, mask[cpos]);
     ps->rrAA[pp][cpos] = ' ';
   }
 
@@ -4081,16 +2975,18 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
 }
 
 
+
 /* Function: diffmask_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page based on a comparison between
- *           two masks one in ps->mask the other in <mask2>, each position becomes
- *           one of four colors, one for each of the four possible combinations of 0 and 1.
+ *           two masks, each column is either black (if included (a '1') in both masks), red
+ *           (if a '1' in mask 1 and a '0' in mask 2), cyan (a '0' in mask 1 and a '1' in mask 2)
+ *           or grey (a '0' in both masks).
  *
  * Return:   eslOK on success.
  */
-static int
-diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx)
+int
+diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask1, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx)
 {
   int status;
   int p, pp, c;
@@ -4101,37 +2997,36 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   int ncols_in_1_out_2 = 0;
   int ncols_out_1_in_2 = 0;
 
-  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskdiff page");
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t **) * 4);
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
 
-  for(cpos = 0; cpos < ps->rflen; cpos++) { 
-    if(ps->mask[cpos] == '1' && mask2[cpos] == '1') { 
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    if(mask1[cpos] == '1' && mask2[cpos] == '1') { 
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incboth_idx])) != eslOK) return status; 
       ncols_in_both++;
     }
-    else if(ps->mask[cpos] == '1' && mask2[cpos] == '0') {
+    else if(mask1[cpos] == '1' && mask2[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc1_idx])) != eslOK) return status; 
       ncols_in_1_out_2++;
     }
-    else if(ps->mask[cpos] == '0' && mask2[cpos] == '1') {
+    else if(mask1[cpos] == '0' && mask2[cpos] == '1') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc2_idx])) != eslOK) return status; 
       ncols_out_1_in_2++;
     }
-    else if(ps->mask[cpos] == '0' && mask2[cpos] == '0') {
+    else if(mask1[cpos] == '0' && mask2[cpos] == '0') {
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excboth_idx])) != eslOK) return status; 
       ncols_out_both++;
     }
-    else if(ps->mask[cpos] != '0' && ps->mask[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-col char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
+    else if(mask1[cpos] != '0' && mask1[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-col char number %d is not a 1 nor a 0, but a %c\n", cpos, mask1[cpos]);
     else if(mask2[cpos] != '0' && mask2[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-diff char number %d is not a 1 nor a 0, but a %c\n", cpos, mask2[cpos]);
     ps->rrAA[pp][cpos] = ' ';
   }
@@ -4161,7 +3056,7 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
  * 
  * Purpose:  Add and initialize blank pages to a postscript object.
  */ 
-int 
+static int 
 add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
 {
   int status;
@@ -4207,6 +3102,52 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
   return eslOK;
 
  ERROR: 
+  return status;
+}
+
+/* map_cpos_to_apos
+ *                   
+ * Given an MSA, determine the alignment position each
+ * consensus (#=GC RF) position refers to. 
+ * Both maps that are returned are indexed starting from 0.
+ * c2a_map[0..clen-1]
+ * a2c_map[0..alen-1]
+ */
+static int map_cpos_to_apos(ESL_MSA *msa, int **ret_c2a_map, int **ret_a2c_map, int *ret_clen)
+{
+  int status;
+  int clen = 0;
+  int *c2a_map = NULL;
+  int *a2c_map = NULL;
+  int cpos = 0;
+  int apos = 0;
+  /* contract check */
+  if(msa->rf == NULL) { status = eslEINVAL; goto ERROR; }
+
+  /* count consensus columns */
+  for(apos = 0; apos < msa->alen; apos++)
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) clen++;
+
+  /* build map */
+  ESL_ALLOC(c2a_map, sizeof(int) * clen);
+  ESL_ALLOC(a2c_map, sizeof(int) * msa->alen);
+  esl_vec_ISet(a2c_map, msa->alen, -1);
+
+  for(apos = 0; apos < msa->alen; apos++) { 
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
+      a2c_map[apos] = cpos;
+      c2a_map[cpos] = apos;
+      cpos++;
+    }
+  }
+
+  *ret_c2a_map = c2a_map;
+  *ret_a2c_map = a2c_map;
+  *ret_clen    = clen;
+  return eslOK;
+
+ ERROR:
+  if(c2a_map != NULL) free(c2a_map);
   return status;
 }
 
@@ -4268,252 +3209,311 @@ read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, 
   return eslEMEM;
 }
 
+/* Function: drawfile2sspostscript()
+ * 
+ * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
+ *           in an input 'draw' file, with >= 1 sets of <x> lines of data, each set 
+ *           is separated by a line with only "//". <x> must be equal to the consensus
+ *           ps->clen. Each line has at least 4 floats explaining 
+ *           the CMYK values for the color to use at each position of the SS diagram,
+ *           and optionally contains an extra single character which is the residue
+ *           to put at that position.
+ *           
+ * Return:   eslOK on success.
+ */
+int
+drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
+{
+  int status;
+  int p, pp;
+  int cpos, c;
+  int orig_npage = ps->npage;
+  ESL_FILEPARSER *efp;
+  char           *s;
+  char *dfile = esl_opt_GetString(go, "--dfile");
 
-/* Function: mutual_information_sspostscript()
+  if (esl_fileparser_Open(dfile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
+  esl_fileparser_SetCommentChar(efp, '#');
+
+  pp = orig_npage - 1;
+  cpos = 0;
+
+  while (esl_fileparser_NextLine(efp) == eslOK)
+    {
+      /* example line without residue markup:
+       * 0.000 0.000 0.000 0.500
+       *
+       * example line with residue markup:
+       * 0.000 0.000 0.000 0.500 A
+       */
+
+      cpos++;
+      if(cpos == 1) { /* add a new page */
+	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+	
+	for(p = (ps->npage-1); p < ps->npage; p++) { 
+	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->clen+1));
+	  ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
+	  for(c = 0; c < ps->clen; c++) { 
+	    ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+	  }
+	}
+	pp++; /* if first page, pp == orig_npage now */
+      }
+      if(cpos == (ps->clen+1)) { /* should be a single token, a "\\" on this line */ 
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read a final token at the end of description of draw page %d on line %d of drawfile %s\n", (pp - orig_npage + 1), efp->linenumber, dfile);
+	if (strcmp(s, "//") != 0) 
+	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of drawfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, dfile);
+	cpos = 0;
+      }
+      else { 
+	/* get C value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read C of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
+	ps->rcolAAA[pp][(cpos-1)][0] = atof(s);
+
+	/* get M value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read M of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
+	ps->rcolAAA[pp][(cpos-1)][1] = atof(s);
+
+	/* get Y value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	esl_fatal("Failed to read Y of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
+	ps->rcolAAA[pp][(cpos-1)][2] = atof(s);
+
+	/* get K value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
+	  esl_fatal("Failed to read K of CMYK value on line %d of drawfile %s\n", efp->linenumber, dfile);
+	ps->rcolAAA[pp][(cpos-1)][3] = atof(s);
+
+	/* optionally read a residue value */
+	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
+	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of drawfile %s\n", s, cpos, efp->linenumber, dfile);
+	  ps->rrAA[pp][(cpos-1)] = s[0];
+	}
+	else ps->rrAA[pp][(cpos-1)] = ' ';
+      }
+    }
+  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
+    esl_fatal("Failed to read a single page from drawfile %s\n", dfile);
+  }
+
+  esl_fileparser_Close(efp);
+  return eslOK;
+
+ ERROR: ESL_FAIL(status, errbuf, "drawfile2sspostscript(): memory allocation error.");
+  return status; /* NEVERREACHED */
+}
+
+
+/* Function: structural_infocontent_sspostscript()
  * 
  * Purpose:  Fill a postscript data structure with 1 new page, colored squares indicating
- *           the mutual information of each base paired consensus column.
- *           mutual information is the extra information gained from modelling
+ *           the structural information content of each base paired consensus column.
+ *           Structural information content is the extra information gained from modelling
  *           the pair together (info of vector of bps, size 16) versus separately (sum
  *           of info of the two independent vector of singlets, size 4).
  *           
  * Return:   eslOK on success.
  */
-static int
-mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp)
+int
+structural_infocontent_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx)
 {
   int status;
   int p, pp, c, i;
-  int rfpos, apos; 
+  int cpos, apos, rcpos, lapos, rapos;
   int orig_npage = ps->npage;
-  double *bg, *bg_pair;
-  double bg_ent, bg_pair_ent;
-  double *obs_left, *obs_right, *obs_pair;
-  double ent_left, ent_right, ent_pair;
-  int j;
-  ESL_DSQ lres;
-  ESL_DSQ rres;
-  double nres;
+  double **obs,   *ent,   *bg;
+  double **obs_p, *ent_p, *bg_p;
+  double tmp_bg, tmp_bg_p;
+  int *ct;
+  ESL_DSQ ldsq;
+  ESL_DSQ rdsq;
+  int *nres;
   int nss = 0;
   int nzerores = 0;
   int nss_masked = 0;
   int nzerores_masked = 0;
-  int i_within_mask, j_within_mask;
-  int i_bi, j_bi;
-  float *limits;
-  int l;
-  int idx =1;
-
+  int within_mask;
   if(ps->mask == NULL) nss_masked = nzerores_masked = -1; /* special flag */
+
+  if(msa->ss_cons == NULL) ESL_FAIL(status, errbuf, "--struct requires #=GC SS_cons annotation in the alignment.");
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->clen);
+    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->clen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
-    for(c = 0; c < ps->rflen; c++) { 
+    for(c = 0; c < ps->clen; c++) { 
       ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
+  }
+
+  int *c2a_map, *a2c_map, clen;
+  map_cpos_to_apos(msa, &c2a_map, &a2c_map, &clen);
+
+  ESL_ALLOC(ent, sizeof(double) * ps->clen);
+  ESL_ALLOC(obs, sizeof(double *) * ps->clen);
+  ESL_ALLOC(bg,  sizeof(double) * msa->abc->K);
+  esl_vec_DSet(bg, msa->abc->K, 1./(msa->abc->K));
+
+  ESL_ALLOC(ent_p, sizeof(double) * ps->clen);
+  ESL_ALLOC(obs_p, sizeof(double *) * ps->clen);
+  ESL_ALLOC(bg_p,  sizeof(double) * msa->abc->K * msa->abc->K);
+  esl_vec_DSet(bg_p, (msa->abc->K * msa->abc->K), 1./(msa->abc->K * msa->abc->K));
+  
+  ESL_ALLOC(nres, sizeof(int) * ps->clen);
+  esl_vec_ISet(nres, ps->clen, 0);
+
+  ESL_ALLOC(ct, sizeof(int) * (msa->alen+1));
+  if (esl_wuss2ct(msa->ss_cons, msa->alen, ct) != eslOK) ESL_FAIL(status, errbuf, "structural_infocontent_sspostscript problem getting ct from SS_cons.");
+
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    ESL_ALLOC(obs[cpos], sizeof(double) * msa->abc->K);
+    esl_vec_DSet(obs[cpos], msa->abc->K, 0.);
+    ESL_ALLOC(obs_p[cpos], sizeof(double) * (msa->abc->K * msa->abc->K));
+    esl_vec_DSet(obs_p[cpos], (msa->abc->K * msa->abc->K), 0.);
   }
   pp = orig_npage;
 
   /* add color legend */
+  float *limits;
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
   limits[0] = 0.0;
-  limits[1] = 0.167;
-  limits[2] = 0.333;
-  limits[3] = 0.500;
-  limits[4] = 0.667;
-  limits[5] = 0.833;
-  limits[6] = 1.000;
-  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
+  limits[1] = 0.16;
+  limits[2] = 0.33;
+  limits[3] = 0.50;
+  limits[4] = 0.66;
+  limits[5] = 0.83;
+  limits[6] = 1.00;
+  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits);
 
-  if(tabfp != NULL) { 
-    fprintf(tabfp, "# -----------------------\n");
-    fprintf(tabfp, "# Mutual information data\n");
-    fprintf(tabfp, "# -----------------------\n");
-    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each consensus position\n", ps->rflen);
-    fprintf(tabfp, "# in the alignment and corresponding template.\n");
-    fprintf(tabfp, "# Each line includes %d tokens, separated by whitespace:\n", ps->mask == NULL ? 9 : 11);
-    fprintf(tabfp, "# \ttoken  1: 'mutualinfo' (tag defining line type to ease parsing)\n");
-    fprintf(tabfp, "# \ttoken  2: base pair index\n");
-    fprintf(tabfp, "# \ttoken  3: 5' consensus position of base pair (starting at 1)\n");
-    fprintf(tabfp, "# \ttoken  4: 3' consensus position of base pair (starting at 1)\n");
-    fprintf(tabfp, "# \ttoken  5: sequence information content at 5' position (bits)\n");
-    fprintf(tabfp, "# \ttoken  6: sequence information content at 3' position (bits)\n");
-    fprintf(tabfp, "# \ttoken  7: mutual information of the base pair (bits)\n");
-    fprintf(tabfp, "# \ttoken  8: number of sequences with non-gap at 5' and 3' posn (max possible is %d)\n", msa_nseq); 
-    fprintf(tabfp, "# \ttoken  8: number of sequences with non-gap at 5' and 3' position\n");
-    fprintf(tabfp, "# \ttoken  9: bin index this positions falls in (see bin values below).\n");
-    if(ps->mask != NULL) { 
-      fprintf(tabfp, "# \ttoken 10: '1' if 5' position is included by mask, '0' if not\n");
-      fprintf(tabfp, "# \ttoken 11: '1' if 3' position is included by mask, '0' if not\n");
+  /* get observed residues at each cpos */
+  for(i = 0; i < msa->nseq; i++) { 
+    cpos = 0;
+    for(apos = 0; apos < msa->alen; apos++) {
+      if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { /* seq i is not a gap at cpos */
+	  nres[cpos]++;
+	  /* only count base paired positions for which both left and right half are not gaps, 
+	   * check if we're base paired */
+	  if(ct[apos+1] != 0) { 
+	    if(ct[apos+1] > (apos+1)) { /* cpos is left half of base pair */
+	      /* check if right half is a gap */
+	      rapos = ct[apos+1]-1; 
+	      if((! esl_abc_XIsGap(msa->abc, msa->ax[i][rapos+1])) && 
+		  (! esl_abc_CIsGap(msa->abc, msa->rf[rapos]))) { /* seq i is not a gap at right half, and is a cons posn at right half */
+		esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
+		rcpos = a2c_map[rapos];
+		assert(rcpos != -1);
+		ldsq = msa->ax[i][apos+1];
+		rdsq = msa->ax[i][rapos+1];
+		PairCount(msa->abc, obs_p[cpos],  ldsq, rdsq, 1.);
+		PairCount(msa->abc, obs_p[rcpos], ldsq, rdsq, 1.);
+	      }
+	    }
+	    else { /* cpos is right half of base pair */
+	      /* check if left half is a gap */
+	      lapos = ct[apos+1]-1; 
+	      if(! esl_abc_XIsGap(msa->abc, msa->ax[i][lapos+1])) { /* seq i is not a gap at left half */
+		esl_abc_DCount(msa->abc, obs[cpos], msa->ax[i][apos+1], 1.);
+	      }
+	    }
+	  }
+	}
+	cpos++;
+      }
     }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Information content is calculated as 2.0 - H, where\n");
-    fprintf(tabfp, "# H = - \\sum_x p_x \\log_2 p_x, for x in {A, C, G, U}\n");
-    fprintf(tabfp, "# p_x is the frequency of x for *non-gap* residues at the position.\n");
-    fprintf(tabfp, "# Only residues for sequences which have a non-gap residue at both\n"); 
-    fprintf(tabfp, "# the 5' and 3' positions of the pair are counted.\n"); 
-    fprintf(tabfp, "# Mutual information is calculated as\n");
-    fprintf(tabfp, "# \\sum_{x,y} p_{x,y} \\log_2 ((p_x * p_y) / p_{x,y}\n");
-    fprintf(tabfp, "# Value ranges for bins:\n");
-    fprintf(tabfp, "# \tbin  0: special case, 0 sequences have non-gaps at both 5' and 3' position of pair\n");
-	    for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s mutual information per position (bits)\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
-    }
-    fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %10s  %4s  %5s  %5s  %8s  %8s  %9s  %10s  %3s", "type", "idx", "5'pos", "3'pos", "5'info", "3'info", "mutinfo/2", "nongap", "bin");
-    if(ps->mask != NULL) fprintf(tabfp, "  %6s  %6s", "5'mask", "3'mask");
-    fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %10s  %4s  %5s  %5s  %8s  %8s  %9s  %10s  %3s", "----------", "----", "-----", "-----", "--------", "--------", "---------", "----------", "---");
-    if(ps->mask != NULL) fprintf(tabfp, "  %6s  %6s", "------", "------");
-    fprintf(tabfp, "\n");
   }
 
-  /* determine background entropy */
-  ESL_ALLOC(bg,        sizeof(double) * abc->K);
-  ESL_ALLOC(bg_pair,   sizeof(double) * abc->K*abc->K);
-  esl_vec_DSet(bg, abc->K, 1./(abc->K));
-  esl_vec_DSet(bg_pair, abc->K*abc->K, 1./(abc->K*abc->K));
-  bg_pair_ent = esl_vec_DEntropy(bg_pair, abc->K*abc->K);
-  bg_ent      = esl_vec_DEntropy(bg, abc->K);
-  free(bg);
-  free(bg_pair);
+  /* determine entropy of each singlet */
+  tmp_bg = esl_vec_DEntropy(bg, msa->abc->K);
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    esl_vec_DNorm(obs[cpos], msa->abc->K);
+    ent[cpos] = tmp_bg - esl_vec_DEntropy(obs[cpos], msa->abc->K);
+  }
 
-  ESL_ALLOC(obs_left,  sizeof(double) * (abc->K));
-  ESL_ALLOC(obs_right, sizeof(double) * (abc->K));
-  ESL_ALLOC(obs_pair,  sizeof(double) * (abc->K*abc->K));
+  /* determine entropy of each pair */
+  tmp_bg_p = esl_vec_DEntropy(bg_p, msa->abc->K * msa->abc->K);
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    apos  = c2a_map[cpos];
+    if(ct[apos+1] != 0) { 
+      esl_vec_DNorm(obs_p[cpos], msa->abc->K * msa->abc->K);
 
-  /* get observed residues and base pairs at each rfpos */
-  for(rfpos = 0; rfpos < ps->rflen; rfpos++) {
-    esl_vec_DSet(obs_left,  abc->K, 0.);
-    esl_vec_DSet(obs_right, abc->K, 0.);
-    esl_vec_DSet(obs_pair,  abc->K*abc->K, 0.);
-    i = rfpos;
-    nres = 0.;
-    apos = ps->msa_rf2a_map[rfpos];
-    /* check if we're base paired */
-    if(ps->msa_ct[rfpos+1] != 0) { 
-      /* printf("msa_ct rfpos+1: %d %d\n", rfpos+1, ps->msa_ct[rfpos+1]); */
-      if(ps->msa_ct[rfpos+1] > (rfpos+1)) { /* rfpos is left half of base pair */
-	/* add up contributions of all possible base pairs,
-	 * we have to be careful to skip residues that are gaps, missing or nonresidues in 
-	 * EITHER left or right half of the bp.
-	 * We use the raw counts from msa_count() as the wt, (bp_ct[apos][lres][rres]) */
-	j = ps->msa_ct[i+1] - 1; 
-	for(lres = 0; lres < abc->K; lres++) { 
-	  for(rres = 0; rres < abc->K; rres++) { 
-	    /* printf("apos: %d rfpos: %d lres: %d rres: %d bp_ct[][][]: %.5f\n", apos, rfpos, lres, rres, bp_ct[apos][lres][rres]);*/
-	    esl_abc_DCount(abc, obs_left,  lres, bp_ct[apos][lres][rres]);
-	    esl_abc_DCount(abc, obs_right, rres, bp_ct[apos][lres][rres]);
-	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    nres += bp_ct[apos][lres][rres];
-	  }
-	}
-	for(lres = abc->K+1; lres < abc->Kp-2; lres++) { /* do all degenerates and 'any' (N) */
-	  for(rres = abc->K+1; rres < abc->Kp-2; rres++) { /* do all degenerates and 'any' (N) */
-	    esl_abc_DCount(abc, obs_left,  lres, bp_ct[apos][lres][rres]);
-	    esl_abc_DCount(abc, obs_right, rres, bp_ct[apos][lres][rres]);
-	    PairCount(abc, obs_pair, lres, rres, bp_ct[apos][lres][rres]);
-	    nres += bp_ct[apos][lres][rres];
-	  }
-	}
-	/* esl_vec_DDump(stdout, obs_left, abc->K, NULL);
-	   esl_vec_DDump(stdout, obs_right, abc->K, NULL);
-	   esl_vec_DDump(stdout, obs_pair, abc->K*abc->K, NULL);
-	*/
-	esl_vec_DNorm(obs_left,  abc->K);
-	esl_vec_DNorm(obs_right, abc->K);
-	esl_vec_DNorm(obs_pair, abc->K*abc->K);
-	ent_left  = bg_ent - esl_vec_DEntropy(obs_left, abc->K);      
-	ent_right = bg_ent - esl_vec_DEntropy(obs_right, abc->K);      
-	ent_pair =  bg_pair_ent - esl_vec_DEntropy(obs_pair, abc->K*abc->K);      
-	/* printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  nres: %.2f  ",  i+1, j+1, ent_pair, ent_left, ent_right, nres); */
-	ent_pair -= ent_left + ent_right;
-	ent_pair /= 2.;
-	/* printf("Final: %8.3f\n", ent_pair);  */
-	
-	/* To verify that the ent_pair is mutual information, calculated a different way, uncomment the following block */
-	/* double mi = 0;
-	   for(lres = 0; lres < abc->K; lres++) { 
-	   for(rres = 0; rres < abc->K; rres++) { 
-	   if(obs_pair[lres*abc->K+rres] > eslSMALLX1) { 
-	   mi += obs_pair[lres*abc->K+rres] * (1.44269504 * log((obs_pair[lres*abc->K+rres])/(obs_left[lres] * obs_right[rres])));
-	   printf("mi: %.2f obs_left %.2f  obs_right: %.2f obs_pair %.2f \n", mi, obs_left[lres], obs_right[rres], obs_pair[lres*abc->K+rres]);  
-	   }
-	   }
-	   }
-	   printf("MI/2: %.2f  EP: %.2f  %.2f\n", mi/2., ent_pair, (mi/2.) - ent_pair); 
-	*/
+      rapos = ct[apos+1]-1; 
+      rcpos = a2c_map[rapos];
 
-	if(ent_pair < (-1. * eslSMALLX1)) { 
-	  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_pair, i, j);
-	}
-	if(esl_DCompare(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][i], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][j], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
-	  nzerores += 2;
-	  if(ps->mask != NULL && ps->mask[i] == '1') nzerores_masked++; 
-	  if(ps->mask != NULL && ps->mask[j] == '1') nzerores_masked++; 
-	  if(tabfp != NULL) { 
-	    fprintf(tabfp, "  mutualinfo  %4d  %5d  %5d  %8.5f  %8.5f  %9.5f  %10d  %3d", idx++, i+1, j+1, 0., 0., 0., 0, 0);
-	    if(ps->mask != NULL) fprintf(tabfp, "  %6d  %6d", ((ps->mask == NULL || ps->mask[i] == '1') ? 1 : 0), ((ps->mask == NULL || ps->mask[j] == '1') ? 1 : 0));
-	    fprintf(tabfp, "\n");
-	  }
-	}
-	else { 
-	  i_within_mask = (ps->mask != NULL && ps->mask[i] == '1') ? TRUE : FALSE;
-	  j_within_mask = (ps->mask != NULL && ps->mask[j] == '1') ? TRUE : FALSE;
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][i], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], i_within_mask, &i_bi)) != eslOK) return status;
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][j], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], j_within_mask, &j_bi)) != eslOK) return status;
-	  if(tabfp != NULL) { 
-	    fprintf(tabfp, "  mutualinfo  %4d  %5d  %5d  %8.5f  %8.5f  %9.5f  %10d  %3d", 
-		    idx++, i+1, j+1, 
-		    ent_left, 
-		    ent_right, 
-		    ent_pair,
-		    (int) nres, 
-		    i_bi+1);
-	    if(ps->mask != NULL) fprintf(tabfp, "  %6d  %6d", ((ps->mask == NULL || ps->mask[i] == '1') ? 1 : 0), ((ps->mask == NULL || ps->mask[j] == '1') ? 1 : 0));
-	    fprintf(tabfp, "\n");
-	  }
-	}
-      } /* end of if(ps->msa_ct[rfpos+1] > (rfpos+1)) { */
+      ent_p[cpos] = tmp_bg_p - esl_vec_DEntropy(obs_p[cpos], msa->abc->K*msa->abc->K);
+
+      /*printf("lpos: %5d  rpos: %5d  entP: %8.3f  entL: %8.3f  entR: %8.3f  ", 
+	cpos, rcpos, ent_p[cpos], ent[cpos], ent[rcpos]);*/
+      ent_p[cpos] -= (ent[cpos] + ent[rcpos]);
+      ent_p[cpos] /= 2.;
+      /*printf("final: %8.3f\n", ent_p[cpos]);*/
+      if(ent_p[cpos] < (-1. * eslSMALLX1)) { 
+	ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_p[cpos], cpos, rcpos);
+      }
     }
-    else { /* single stranded, paint grey  */
+    else ent_p[cpos] = -1.0;
+  }
+
+  for(cpos = 0; cpos < ps->clen; cpos++) { 
+    if(ent_p[cpos] < (-1. * eslSMALLX1)) { 
       nss++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nss_masked++; 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx])) != eslOK) return status;
+      if(ps->mask != NULL && ps->mask[cpos] == '1') nss_masked++; 
     }
-    ps->rrAA[pp][rfpos] = ' '; /* leave residue blank, no text, just color (rcolAAA) */
+    if(nres[cpos] == 0) { 
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
+      ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
+      nzerores++;
+      if(ps->mask != NULL && ps->mask[cpos] == '1') nzerores_masked++; 
+    }
+    else if(ent_p[cpos] < (-1. * eslSMALLX1)) { /* single stranded base, paint grey */
+      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[ss_idx])) != eslOK) return status;
+      ent_p[cpos] = 0.; /* impt to set to 0., so esl_vec_DSum(ent_p... call below to calc total struct info is accurate */
+    }
+    else { 
+      within_mask = (ps->mask != NULL && ps->mask[cpos] == '1') ? TRUE : FALSE;
+      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_scheme[hc_scheme_idx], ent_p[cpos], ps->sclAA[pp], within_mask)) != eslOK) return status;
+    }
+    ps->rrAA[pp][cpos] = ' ';
   }
 
   /* add text to the one cell legend */
   ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[ss_idx], nss, nss_masked);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  
+
   /* add text to the second one cell legend */
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "0 complete basepairs", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
-  
+
   /* add text to the scheme legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "mutual information per position (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-  
+  /*sprintf(text,  "structural info content per basepaired posn", esl_vec_DSum(ent_p, ps->clen) * 2.);*/
+  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "extra information from structure (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+
   /* add description to ps */
-  if((status = add_page_desc_to_sspostscript(ps, pp, "mutual information per basepaired position", errbuf)) != eslOK) return status;
-  
+  if((status = add_page_desc_to_sspostscript(ps, pp, "extra information from structure per basepaired position", errbuf)) != eslOK) return status;
+
+  free(nres);
+  free(ent);
+  free(ent_p);
+  for(cpos = 0; cpos < ps->clen; cpos++) { free(obs[cpos]); free(obs_p[cpos]); }
+  free(obs);
+  free(obs_p);
+  free(bg);
+  free(bg_p);
+  free(c2a_map);
+  free(a2c_map);
+  free(ct);
   free(limits);
-  free(obs_left);
-  free(obs_right);
-  free(obs_pair);
-  
-  if(tabfp != NULL) fprintf(tabfp, "//\n");
+
   return eslOK;
   
- ERROR: ESL_FAIL(status, errbuf, "mutual_information_sspostscript(): memory allocation error.");
+ ERROR: ESL_FAIL(status, errbuf, "infocontent_sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }
 
@@ -4532,8 +3532,8 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
  *
  * Returns:  void
  */
-static void
-PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, double wt)
+void
+PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, float wt)
 {
   int status;
   if (syml < abc->K && symr < abc->K) {
@@ -4541,20 +3541,21 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
     return;
   }
   else {
+    float *left = NULL;
+    float *right = NULL;
+    ESL_ALLOC(left,  sizeof(float) * abc->K);
+    ESL_ALLOC(right, sizeof(float) * abc->K);
+
     int   l,r;
-    double *left = NULL;
-    double *right = NULL;
-    ESL_ALLOC(left,  sizeof(double) * abc->K);
-    ESL_ALLOC(right, sizeof(double) * abc->K);
     
-    esl_vec_DSet(left,  abc->K, 0.);
-    esl_vec_DSet(right, abc->K, 0.);
-    esl_abc_DCount(abc, left,  syml, 1.0);
-    esl_abc_DCount(abc, right, symr, 1.0);
+    esl_vec_FSet(left,  abc->K, 0.);
+    esl_vec_FSet(right, abc->K, 0.);
+    esl_abc_FCount(abc, left,  syml, wt);
+    esl_abc_FCount(abc, right, symr, wt);
 
     for (l = 0; l < abc->K; l++)
       for (r = 0; r < abc->K; r++)
-	counters[l*abc->K +r] += left[l] * right[r] * wt;
+	counters[l*abc->K +r] += left[l] * right[r];
     free(left);
     free(right);
   }
@@ -4572,7 +3573,7 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
  *
  * Returns:  eslOK on success; eslEMEM on allocation failure.
  */
-static int 
+int 
 get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command)
 {
   int status;
@@ -4599,7 +3600,7 @@ get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command)
  *
  * Returns:  eslOK on success; eslEMEM on allocation failure.
  */
-static int 
+int 
 get_date(char *errbuf, char **ret_date)
 {
   int    status;
@@ -4623,7 +3624,7 @@ get_date(char *errbuf, char **ret_date)
  *           value and number of colors.
  */ 
 static int 
-set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl, int within_mask, int *ret_bi)
+set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float val, SchemeColorLegend_t *scl, int within_mask)
 {
   float min, max;
   int ci, bi;
@@ -4633,19 +3634,13 @@ set_scheme_values(char *errbuf, float *vec, int ncolvals, float **scheme, float 
   if((val-max) > eslSMALLX1) { ESL_FAIL(eslEINVAL, errbuf, "set_scheme_values(), val: %.4f > max: %.4f\n", val, max); }
 
   bi = 0;
-  while((bi < (scl->nbins-1)) &&
-	((val > scl->limits[bi+1]) ||                                    /* val exceeds limits[bi+1] OR */
-	 (esl_FCompare(val, scl->limits[bi+1], eslSMALLX1) == eslOK))) { /* val equals limits[bi+1] */
-    bi++; 
-  }    
-  /* printf("%.3f %d (%.3f)\n", val, bi, scl->limits[bi+1]);  */
+  while((val > scl->limits[bi+1]) && (bi <= (scl->nbins-1))) { bi++; }    
+  /*printf("%.3f %d (%.3f)\n", val, bi, scl->limits[bi+1]);*/
   scl->counts[bi]++;
   if(within_mask) scl->counts_masked[bi]++;
   for(ci = 0; ci < ncolvals; ci++) { 
     vec[ci] = scheme[bi][ci]; 
   }
-
-  if(ret_bi != NULL) *ret_bi = bi;
   return eslOK;
 }
 
@@ -4742,16 +3737,13 @@ draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask,
 static int 
 validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
-  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read modelname from template file.");
-  if(ps->nbp == 0)          ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'lines bpconnects' section from template file.");
-  if(ps->scale < 0)         ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read scale from template file.");
-  if(ps->rflen == 0)        ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'text residues' section from template file.");
-  if(ps->leg_posn == -1)    ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'legend' section from template file.");
-  if(ps->leg_boxsize == -1) ESL_FAIL(eslEINVAL, errbuf, "Error, failed to read 'legend' section from template file.");
+  if(ps->modelname == NULL) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read modelname from template file.");
+  if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");
+  if(ps->clen == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text residues' section from template file.");
 
   /* Stuff we don't currently require, but we may want to eventually */
-  /*if(ps->nposntext == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text positiontext' section from template file.");*/
-  /*if(ps->nticks == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines positionticks' section from template file.");*/
+  /*if(ps->nhundreds == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'text hundreds' section from template file.");*/
+  /*if(ps->nticks == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines ticks' section from template file.");*/
   /*if(ps->nbp == 0) ESL_FAIL(eslEINVAL, errbuf, "validate_justread_sspostscript(), failed to read 'lines bpconnects' section from template file.");*/
 
   return eslOK;
@@ -4763,90 +3755,64 @@ validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
  * Purpose:  Validate that a sspostscript works with a MSA.
  */ 
 static int 
-validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf)
+validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, char *errbuf)
 {
   int status;
   int *msa_ct;
   int msa_nbp = 0;
   int *tmp_ct;
-  int apos, rfpos_i, rfpos_j, rfpos;
-  int *rf2a_map = NULL;
-  int *a2rf_map = NULL;
-  int rflen = 0;
+  int msa_clen;
+  int apos, cpos;
+  int i;
 
   ps->msa = msa;
-
-  /* contract check */
-  if(msa->rf == NULL)      ESL_FAIL(eslEINVAL, errbuf, "Error, msa does not have RF annotation.");
-  if(msa->ss_cons == NULL) ESL_FAIL(eslEINVAL, errbuf, "Error, msa does not have SS_cons annotation.");
-
-  /* count non-gap RF columns */
-  for(apos = 0; apos < msa->alen; apos++) { 
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos])))
-      { 
-	rflen++;
-	/* I don't use esl_abc_CIsResidue() b/c that would return FALSE for 'x' with RNA and DNA */
-      }
-  }
-  if(ps->rflen != rflen) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected consensus length of %d in MSA, but read %d\n", ps->rflen, rflen);
-
-  /* build map of non-gap RF positions to alignment positions and vice versa */
-  ESL_ALLOC(rf2a_map, sizeof(int) * rflen);
-  ESL_ALLOC(a2rf_map, sizeof(int) * msa->alen);
-  esl_vec_ISet(a2rf_map, msa->alen, -1); 
-  rfpos = 0;
-  for(apos = 0; apos < msa->alen; apos++) {
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      rf2a_map[rfpos] = apos;
-      a2rf_map[apos]  = rfpos;
-      rfpos++;
-    }
-  }
 
   /* get the CT array for this msa */
   ESL_ALLOC(tmp_ct, sizeof(int) * (msa->alen+1));
   if (esl_wuss2ct(msa->ss_cons, msa->alen, tmp_ct) != eslOK) ESL_FAIL(status, errbuf, "Problem getting ct from SS_cons, does first alignment of MSA file have SS_cons annotation?");
-
-  ESL_ALLOC(msa_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(msa_ct, rflen+1, 0);
   
-  /* convert tmp_ct which is in alignment coords [1..alen] to non-gap RF coords [1..rflen]*/
+  msa_clen = 0;
   for(apos = 0; apos < msa->alen; apos++) {
-    if(tmp_ct[apos+1] > (apos+1)) { 
-      rfpos_i = a2rf_map[apos];
-      rfpos_j = a2rf_map[tmp_ct[apos+1]-1];
-      if(rfpos_i != -1 && rfpos_j != -1) { /* a consensus basepair */
-	msa_ct[rfpos_i+1] = rfpos_j+1;
-	msa_ct[rfpos_j+1] = rfpos_i+1;
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) msa_clen++;
+  }
+  /* convert tmp_ct which is in alignment coords [1..alen] to consensus coords [0..clen-1]*/
+  ESL_ALLOC(msa_ct, sizeof(int) * (msa_clen));
+  cpos = 0;
+  for(apos = 0; apos < msa->alen; apos++) {
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { /* a consensus position */
+      if((tmp_ct[(apos+1)] > (apos+1)) && (! esl_abc_CIsGap(msa->abc, msa->rf[tmp_ct[apos+1]-1]))) { /* a consensus position paired to another consensus posn */
 	msa_nbp++;
       }
+      msa_ct[cpos++] = tmp_ct[(apos+1)];
     }
   }
   free(tmp_ct);
-  if(ps->nbp != 0 && ps->nbp != msa_nbp) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected %d basepairs in MSA's SS_cons, but read %d\n", ps->nbp, msa_nbp);
-
-  /* for(rfpos = 0; rfpos < rflen; rfpos++) printf("ct %5d %5d\n", rfpos, msa_ct[rfpos+1]-1); */
 
   if(ps->msa_ct != NULL) { free(ps->msa_ct); ps->msa_ct = NULL;}
-  if(ps->msa_rf2a_map != NULL) { free(ps->msa_rf2a_map); ps->msa_rf2a_map = NULL; }
-  if(ps->msa_a2rf_map != NULL) { free(ps->msa_a2rf_map); ps->msa_a2rf_map = NULL; }
   ps->msa_ct = msa_ct;
   ps->msa_nbp = msa_nbp;
-  ps->msa_ct = msa_ct;
-  ps->msa_rf2a_map = rf2a_map;
-  ps->msa_a2rf_map = a2rf_map;
-  ps->msa_nseq = msa_nseq;
 
+  if(ps->clen != msa_clen) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected consensus length of %d in MSA, but read %d\n", ps->clen, msa_clen);
+  if(ps->nbp != 0 && ps->nbp != msa_nbp) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected %d basepairs in MSA's SS_cons, but read %d\n", ps->nbp, msa_nbp);
+
+  /* allocate the uaseqlenA data structure to store unaligned seq lengths, only compute them if --indi though */
+  if(ps->uaseqlenA != NULL) { free(ps->uaseqlenA); ps->uaseqlenA = NULL; }
+  ESL_ALLOC(ps->uaseqlenA, sizeof(int) * msa->nseq);
+  esl_vec_ISet(ps->uaseqlenA, msa->nseq, 0);
+  if(esl_opt_GetBoolean(go, "--indi")) { /* individual mode, get each sequence's length */
+    for(i = 0; i < msa->nseq; i++) { 
+      for(apos = 0; apos < msa->alen; apos++) {
+	if(! esl_abc_XIsGap(ps->msa->abc, ps->msa->ax[i][apos+1])) 
+	  ps->uaseqlenA[i]++;
+      }
+    }
+  }
   return eslOK;
 
  ERROR:
   ESL_FAIL(status, errbuf, "validate_and_update_sspostscript_given_msa(), error status %d, probably out of memory.\n", status);
   return status; 
-}
+  }
 
 
 /* Function: draw_header_and_footer()
@@ -4865,11 +3831,10 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
   char *desc_string = NULL;
   float xmodel;
   char *model2print = NULL;
-  float footer_fontsize, footerx_charsize;
 
   header_fontsize = HEADER_FONTSIZE_UNSCALED / ps->scale; 
 
-  fprintf(fp, "%% begin header section\n");
+  fprintf(fp, "%% begin ignore\n");
   fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, header_fontsize);
   fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
 
@@ -4907,7 +3872,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     y -= header_fontsize * 0.75;
     fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
     y -= header_fontsize * 0.75;
-    fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show\n", model_width, model2print, ps->rflen, ps->msa_nbp, x, y);
+    fprintf(fp, "(%-*s  %4d  %4d) %.2f %.2f moveto show", model_width, model2print, ps->clen, ps->msa_nbp, x, y);
     free(model_dashes);
     x += (model_width + 6 + 6 +2) * ps->headerx_charsize;
     
@@ -4917,7 +3882,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
       y -= header_fontsize * 0.75;
       fprintf(fp, "(%6s) %.2f %.2f moveto show\n", "------", x, y);
       y -= header_fontsize * 0.75;
-      fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->msa_nseq, x, y);
+      fprintf(fp, "(%6d) %.2f %.2f moveto show", ps->msa->nseq, x, y);
     }
     else if(ps->modeA[page] == INDIMODE && (ps->seqidxA[page] != -1)) { /* ps->seqidxA[page] == -1 if we're printing the consensus sequence */
       y+= header_fontsize * 1.5;
@@ -4976,26 +3941,25 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     }
     /* masked row of header goes here if desired */
   }
-  fprintf(fp, "%% end header section\n\n");
 
   /* draw footer */
+  float footer_fontsize, footerx_charsize;
   footer_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
   footerx_charsize = ps->legx_charsize;
   
+  fprintf(fp, "/%s findfont %.2f scalefont setfont\n", DEFAULT_FONT, footer_fontsize);
   if(! (esl_opt_GetBoolean(go, "--no-foot"))) { 
-    fprintf(fp, "%% begin footer section\n");
-    fprintf(fp, "/%s findfont %.2f scalefont setfont\n", FOOTER_FONT, footer_fontsize);
     /* draw alignment file name in lower left hand corner */
     if(ps->mask != NULL) { 
       if(esl_opt_GetString(go, "--mask-diff") != NULL) { 
-	fprintf(fp, "(alignment file: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF);
+	fprintf(fp, "(alifile: %s; mask 1 file: %s; mask 2 file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), esl_opt_GetString(go, "--mask-diff"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
       }
       else { 
-	fprintf(fp, "(alignment file: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF);
+	fprintf(fp, "(alifile: %s; mask file: %s;) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), esl_opt_GetString(go, "--mask"), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
       }
     }
     else { 
-      fprintf(fp, "(alignment file: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF);
+      fprintf(fp, "(alifile: %s) %.2f %.2f moveto show\n", esl_opt_GetArg(go, 1), PAGE_SIDEBUF, PAGE_BOTBUF + (1.25 * footer_fontsize));
     }
 
     /* put page number */
@@ -5007,9 +3971,9 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
     x = ps->pagex_max - (PAGE_SIDEBUF) - (footerx_charsize * (5 + ndigits)); 
     fprintf(fp, "(page %d) %.2f %.2f moveto show\n", pageidx2print, x, PAGE_BOTBUF);
     
-    /* fprintf(fp, "(Created by \'esl-ssdraw\'. Copyright (C) 2010 Howard Hughes Medical Institute.) %.2f %.2f moveto show \n", PAGE_SIDEBUF , PAGE_BOTBUF); */
-    fprintf(fp, "%% end footer section\n\n");
-  }
+  }    
+  fprintf(fp, "(structure diagram derived from CRW database: http://www.rna.ccbb.utexas.edu/) %.2f %.2f moveto show\n", PAGE_SIDEBUF , PAGE_BOTBUF);
+  fprintf(fp, "%% end ignore\n");
 
   if(model2print != NULL) free(model2print);
   return eslOK;
@@ -5017,15 +3981,12 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), memory error.");
 }
 
-
-/* Function: read_seq_list_file_bigmem
+/* Function: read_seq_list_file
  * Date:     EPN, Thu Jun  5 13:21:36 2008
  * 
  * Read a file listing sequence names to draw individual
  * structure diagrams for, and find those names in an 
- * input MSA. This function is only called if --small
- * is not enabled, b/c if it is, then the msa does not
- * have any sequence info in it.
+ * input MSA. 
  *
  * <ret_useme> is an array specifying which sequences
  * were listed in the file. [0..i..msa->nseq-1]. It is
@@ -5043,15 +4004,16 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
  * in the file does not exist in the msa, or
  * some other problem is encountered.
  */
-static int
-read_seq_list_file_bigmem(char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused)
+int
+read_seq_list_file(char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused)
 {
   int             status;
   ESL_FILEPARSER *efp;
   char           *seqname;
+  int             i;
   int            *useme = NULL;
   int             nused = 0;
-  int             seqidx;
+  int             found_match = FALSE;
 
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);
   esl_vec_ISet(useme, msa->nseq, FALSE);
@@ -5059,15 +4021,19 @@ read_seq_list_file_bigmem(char *filename, ESL_MSA *msa, int **ret_useme, int *re
   if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
   
   while((status = esl_fileparser_GetToken(efp, &seqname, NULL)) != eslEOF) {
-    status = esl_key_Lookup(msa->index, seqname, &seqidx);
-    if(status == eslENOTFOUND) esl_fatal("Error while reading list file %s, sequence %s does not exist in the alignment.", filename, seqname);
-    if(useme[seqidx] == FALSE) { 
-      useme[seqidx] = TRUE;
-      nused++;
+    found_match = FALSE;
+    /* find the sequence in the msa */
+    for(i = 0; i < msa->nseq; i++) { 
+      if(strcmp(seqname, msa->sqname[i]) == 0) {
+	if(useme[i]) esl_fatal("Error while reading list file %s, sequence %s is listed twice.", filename, seqname);
+	useme[i] = TRUE;
+	nused++;
+	found_match = TRUE;
+      }
     }
+    if(! found_match) esl_fatal("Error while reading list file %s, sequence %s does not exist in the alignment.", filename, seqname);
   }
   esl_fileparser_Close(efp);
-
   *ret_useme = useme;
   *ret_nused = nused;
   return eslOK;
@@ -5078,47 +4044,6 @@ read_seq_list_file_bigmem(char *filename, ESL_MSA *msa, int **ret_useme, int *re
   return status; /* NEVERREACHED */
 }
 
-/* Function: read_seq_list_file_smallmem
- * Date:     EPN, Tue Jan 19 15:44:08 2010
- * 
- * Read a file listing sequence names to draw individual
- * structure diagrams for, and create a keyhash with
- * only those names in it. This function is only called if 
- * --small is enabled.
- *
- * Returns eslOK on success.
- *
- * Dies with an error message if a sequence listed
- * in the file does not exist in the msa, or
- * some other problem is encountered.
- */
-static int
-read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused)
-{
-  int             status;
-  ESL_FILEPARSER *efp;
-  char           *seqname;
-  int             nused = 0;
-  ESL_KEYHASH    *useme_keyhash;
-
-  useme_keyhash = esl_keyhash_Create();
-  if(useme_keyhash == NULL) esl_fatal("Memory allocation error.");
-  
-  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
-  
-  while((status = esl_fileparser_GetToken(efp, &seqname, NULL)) != eslEOF) {
-    status = esl_key_Store(useme_keyhash, seqname, NULL);
-    if(status == eslOK) nused++;
-    else if(status != eslEDUP) esl_fatal("Error adding sequence %s to keyhash", seqname);
-  }
-  esl_fileparser_Close(efp);
-
-  *ret_useme_keyhash = useme_keyhash;
-  *ret_nused = nused;
-  return eslOK;
-
-}
-
 /* Function: get_insert_info_from_msa
  * Date:     EPN, Fri Dec  4 13:52:53 2009
  * 
@@ -5127,72 +4052,54 @@ read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int
  * occur after each consensus column for each sequence.
  * 
  * msa         - the alignment
- * rflen       - expected nongap RF length (consensus length)
- * ret_nseq_with_ins_ct - [0..rflen] number of sequences with >= 1 
- *               insert after each position. NULL if unwanted.
- * ret_nins_ct - [0..rflen] total number of inserted residues 
- *               after each position. NULL if unwanted.
- * ret_per_seq_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
- *                      insert after each position per sequence. NULL if unwanted.
+ * errbuf      - for error messages
+ * clen        - expected nongap RF length (consensus length)
+ * ret_ict_AA  - [0..clen][0..msa->nseq-1] number of inserts
+ *               after each position for each sequence.
+ *               Filled here.
  * 
- * Returns void. Dies with an informative error message upon an error.
+ * Returns eslOK on success. Dies with an informative error
+ * message upon an error.
  */
-void
-get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct)
+int
+get_insert_info_from_msa(ESL_MSA *msa, int clen, int ***ret_ict_AA)
 {
   int             status;
   int             i;
-  int            *nseq_with_ins_ct = NULL;
-  int            *nins_ct = NULL;
-  int           **per_seq_ins_ct = NULL;
-  int             rfpos, apos;
+  int           **ict_AA;
+  int             cpos, apos;
 
   /* contract check */
   if(msa->rf == NULL) esl_fatal("Error in get_insert_info_from_msa(), msa->rf is NULL.");
 
   /* allocate and initialize */
-  ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
-  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nins_ct, rflen+1, 0);
-  ESL_ALLOC(per_seq_ins_ct, sizeof(int *) * (msa->nseq));
-  for(i = 0; i < msa->nseq; i++) { 
-    ESL_ALLOC(per_seq_ins_ct[i],  sizeof(int) * (rflen+1));
-    esl_vec_ISet(per_seq_ins_ct[i], (rflen+1), 0);
+  ESL_ALLOC(ict_AA, sizeof(int *) * (clen+1));
+  for(cpos = 0; cpos <= clen; cpos++) { 
+    ESL_ALLOC(ict_AA[cpos],  sizeof(int) * (msa->nseq));
+    esl_vec_ISet(ict_AA[cpos], (msa->nseq), 0);
   }
 
-  /* fill per_seq_ins_ct, nseq_with_ins_ct */
-  rfpos = 0;
+  /* fill ict_AA */
+  cpos = 0;
   for(apos = 0; apos < msa->alen; apos++) { 
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      rfpos++;
-      if(rfpos > rflen) esl_fatal("Error in get_insert_info_from_msa(), expected consensus length (%d) is incorrect."); 
+    if(! esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
+      cpos++;
+      if(cpos > clen) esl_fatal("Error in get_insert_info_from_msa(), expected consensus length (%d) is incorrect."); 
     }
     else { 
       for(i = 0; i < msa->nseq; i++) { 
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
-	  per_seq_ins_ct[i][rfpos]++;
-	  nins_ct[rfpos]++;
-	  if(per_seq_ins_ct[i][rfpos] == 1) nseq_with_ins_ct[rfpos]++;
+	if(! esl_abc_XIsGap(msa->abc, msa->ax[i][apos+1])) { 
+	  ict_AA[cpos][i]++;
 	}	  
       }
     }
   }
-
-  if(ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
-  else free(nseq_with_ins_ct);
-  if(ret_nins_ct != NULL) *ret_nins_ct = nins_ct;
-  else free(nins_ct);
-  if(ret_per_seq_ins_ct != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
-  else esl_Free2D((void **) per_seq_ins_ct, msa->nseq);
-
-  return;
+  *ret_ict_AA = ict_AA;
+  return eslOK;
 
  ERROR:
   esl_fatal("Error in get_insert_info_from_msa(), memory allocation error.");
-  return; /* NEVERREACHED */
+  return status; /* NEVERREACHED */
 }
 
 
@@ -5201,723 +4108,111 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
  * 
  * Read a file output from Infernal's cmalign 
  * when run with '--matchonly --ifile <f>' and
- * fill *ret_ict[0..rflen][0..msa->nseq-1] number
+ * fill *ret_ict[0..clen][0..msa->nseq-1] number
  * of inserts after each consensus position for 
- * each sequence. 
- * 
- * We also keep track of cases where a count of
- * the first and final nongap positions of all sequence
- * per column would be incorrect IF the msa were
- * to have all insert columns removed. These corrections
- * are stored and returned in srfoff_ct and erfoff_ct
- * as explained below.
+ * each sequence.
  *
  * Format of an insert file (from the commented header of an ifile):
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * This file includes 2+<nseq> non-'#' pre-fixed lines per model used for alignment,
  * where <nseq> is the number of sequences in the target file.
- * The first non-'#' prefixed line per model includes 2 tokens, separated by a single space (' '):
+ * The first non-'#' prefixed line per model includes 2 tokens, each separated by a single space (' '):
  * The first token is the model name and the second is the consensus length of the model (<clen>).
- * The following <nseq> lines include (4+3*<n>) whitespace delimited tokens per line.
- * The format for these <nseq> lines is:
- *   <seqname> <seqlen> <spos> <epos> <c_1> <u_1> <i_1> <c_2> <u_2> <i_2> .... <c_x> <u_x> <i_x> .... <c_n> <u_n> <i_n>
- *   indicating <seqname> has >= 1 inserted residues after <n> different consensus positions,
- *   <seqname> is the name of the sequence
- *   <seqlen>  is the unaligned length of the sequence
- *   <spos>    is the first (5'-most) consensus position filled by a nongap for this sequence (-1 if 0 nongap consensus posns)
- *   <epos>    is the final (3'-most) consensus position filled by a nongap for this sequence (-1 if 0 nongap consensus posns)
- *   <seqlen>  is the unaligned length of the sequence
- *   <c_x> is a consensus position (between 1 and <clen>; if 0 inserts occur before 1st consensus posn)
- *   <u_x> is the *unaligned* position (b/t 1 and <seqlen>) in <seqname> of the first inserted residue after <c_x>.
- *   <i_x> is the number of inserted residues after position <c_x> for <seqname>.
- * Lines for sequences with 0 inserted residues will include only <seqname> <seqlen>.
+ * The following <nseq> lines include (1+2*<n>) whitespace delimited tokens per line.
+ * The format for theese <nseq> lines is:
+ *   <seqname> <c_1> <i_1> <c_2> <i_2> .... <c_x> <i_x> .... <c_n> <i_n>
+ *   indicating <seqname> has >= 1 %sinserted residues after <n> different consensus positions
+ *   <c_x> is a consensus position and
+ *   <i_x> is the number of %sinserted residues after position <c_x> for <seqname>.
+ * Lines for sequences with 0 %sinserted residues will include only <seqname>.
  * The final non-'#' prefixed line per model includes only '//', indicating the end of info for a model.
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * 
  * Example: 
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~
- * tRNA 71
- * tRNA-1 67 1 71  17 15 1
- * tRNA-2 71 1 71  20 20 1
- * tRNA-3 70 1 71  45 41 3  46 44 1
- * tRNA-4 71 1 71
- * tRNA-5 69 1 71  46 44 1
- * tRNA-6 70 1 71
- * tRNA-7 67 1 71
- * tRNA-8 71 1 71  17 16 1
- * tRNA-9 67 1 71
- * tRNA-10 73 1 71  45 44 4
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * trna 72
+ * trna-1
+ * trna-2 19 1
+ * trna-7 33 1 64 1
  * 
- * ifile         - name of ifile
- * rflen         - expected nongap RF length (consensus length)
- * msa_nseq      - expected number of sequences
- * useme_keyhash - keyhash with names of sequences for which we will store insert info
- *                 if NULL, we store insert info for all seqs.
- * ret_nseq_with_ins_ct  - [0..rflen] number of sequences with >= 1 inserts
- *                         after each RF position. 
- *                         Note [0] is before first posn, [1] is after first posn, [rflen] is after last one
- * ret_nins_ct           - [0..rflen] total number of inserted residues (over all seqs) after each RF position. 
- *                         Note [0] is before first posn, [1] is after first posn, [rflen] is after last one
- * ret_per_seq_ins_ct    - [0..i..msa->nseq-1][0..rflen number of inserts
- *                         after each position for each sequence.
- *                         Filled here.
+ * ifile       - name of ifile
+ * clen        - expected nongap RF length (consensus length)
+ * nseq        - expected number of sequences
+ * ret_ict_AA  - [0..clen][0..msa->nseq-1] number of inserts
+ *               after each position for each sequence.
+ *               Filled here.
  * 
- * ret_srfoff_ct - [0..rfpos..rflen-1] count adjustment to make to a spos_ct[rfpos] if it 
- *                 were obtained from an alignment with inserts removed, this value is <a>+<b>,
- *                 where <a> is : -1 times the number of sequences that have their first nongap 
- *                 RF position as rfpos, but include an insert before an rfpos2 < rfpos. 
- *                 and <b> is : +1 times the number of sequences that have their first nongap
- *                 RF position as rfpos3, but have an insert before rfpos < rfpos3. 
- *                 We can only determine these cases when we read the ifile, since the
- *                 msa has had inserts removed.
- *                 NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen
- * 
- * ret_erfoff_ct - [0..rfpos..rflen-1] count adjustment to make to a epos_ct[rfpos] if it 
- *                 were obtained from an alignment with inserts removed, this value is <a>+<b>,
- *                 where <a> is : -1 times the number of sequences that have their final nongap 
- *                 RF position as rfpos, but include an insert after an rfpos2 > rfpos. 
- *                 and <b> is : +1 times the number of sequences that have their final nongap
- *                 RF position as rfpos3, but have an insert after rfpos > rfpos3. 
- *                 We can only determine these cases when we read the ifile, since the
- *                 msa has had inserts removed.
- *                 NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen
- *
- * Returns void. Dies with an informative error message on an error.
+ * Returns eslOK on success. Dies with an informative error
+ * message on an error.
  */
-void
-get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_srfoff_ct, int **ret_erfoff_ct)
+int
+get_insert_info_from_ifile(char *ifile, int clen, int nseq, int ***ret_ict_AA)
 {
   int             status;
   ESL_FILEPARSER *efp;
   char           *tok;
   int             nseq_read = 0;
-  int             nseq_stored = 0;
-  int           **per_seq_ins_ct = NULL;
-  int            *nins_ct = NULL;
-  int            *nseq_with_ins_ct = NULL;
+  int           **ict_AA = NULL;
   int             nins;
-  int             i;
-  int             rfpos; /* current nongap RF position */
-  int             uapos; /* unaligned position for current sequence */
-  
+  int             cpos;
   int             seen_model_name_line = FALSE;
   int             seen_end_of_model_line = FALSE;
-  int             nseq2store;     /* number of seqs we'll store insert info on */
-  int             seqlen;         /* sequence length for current sequence, read from ifile */
-  int             spos;           /* first (5'-most) nongap consensus position for current sequence, read from ifile */
-  int             epos;           /* final (3'-most) nongap consensus position for current sequence, read from ifile */
-  int            *srfoff_ct;      /* [0..rfpos..rflen-1] correction for spos_ct[rfpos], add this value to spos_ct
-				   * to correct the miscounting that occurs if the msa has had all inserts removed, but
-				   * an insert file with insert info has been supplied and is read in this function */
-  int            *erfoff_ct;      /* [0..rfpos..rflen-1] correction for epos_ct[rfpos] (analagous to srfoff_ct) */
-  int             already_handled_special_spos = FALSE;
-  int             prv_e_increment, prv_e_decrement; 
 
   if (esl_fileparser_Open(ifile, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", ifile);
   esl_fileparser_SetCommentChar(efp, '#');
 
-  /* determine how many sequences we'll be storing info for */
-  nseq2store = (useme_keyhash == NULL) ? msa_nseq : esl_keyhash_GetNumber(useme_keyhash);
-
   /* allocate and initialize */
-  ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
-
-  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nins_ct, rflen+1, 0);
-
-  if(ret_srfoff_ct != NULL) { 
-    ESL_ALLOC(srfoff_ct, sizeof(int) * rflen);
-    esl_vec_ISet(srfoff_ct, rflen, 0);
-  }
-  if(ret_erfoff_ct != NULL) { 
-    ESL_ALLOC(erfoff_ct, sizeof(int) * rflen);
-    esl_vec_ISet(erfoff_ct, rflen, 0);
-  }
-  if(ret_per_seq_ins_ct != NULL) { 
-    ESL_ALLOC(per_seq_ins_ct, sizeof(int *) * (nseq2store));
-    for(i = 0; i < nseq2store; i++) { 
-      ESL_ALLOC(per_seq_ins_ct[i],  sizeof(int) * (rflen+1));
-      esl_vec_ISet(per_seq_ins_ct[i], (rflen+1), 0);
-    }
+  ESL_ALLOC(ict_AA, sizeof(int *) * (clen+1));
+  for(cpos = 0; cpos <= clen; cpos++) { 
+    ESL_ALLOC(ict_AA[cpos],  sizeof(int) * nseq);
+    esl_vec_ISet(ict_AA[cpos], nseq, 0);
   }
 
   /* Read the file, verify that it contains the correct number of sequences and the
-   * consensus length(s) listed in the file agrees with expected rflen. 
+   * consensus length(s) listed in the file agrees with expected clen. 
    * Special care is taken to allow concatenated ifiles, so we may see more than 
    * one // lines, but the total number of seqs should match what we expect. 
    */
-  i = 0;
   while (esl_fileparser_NextLine(efp) == eslOK) { 
     if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) { 
       if(seen_model_name_line) esl_fatal("Error reading insert file, failed to read seq name on line %d of file %s\n", efp->linenumber, ifile);
       else                     esl_fatal("Error reading insert file, failed to read model name on line %d of file %s\n", efp->linenumber, ifile);
     }
-    if(! seen_model_name_line) { /* this should be a special line, 2 tokens: <cmname> <rflen>, verify that <rflen> is what we expect  */
+    if(! seen_model_name_line) { /* this should be a special line, 2 tokens: <cmname> <clen>, verify that <clen> is what we expect  */
       seen_model_name_line   = TRUE;
       seen_end_of_model_line = FALSE;
       if (esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) {
 	esl_fatal("Error reading insert file, failed to read consensus length on line %d of file %s\n", efp->linenumber, ifile); 
       }
-      if(rflen != atoi(tok)) {
-	esl_fatal("Error reading insert file, read consensus length of %d on line %d of file %s, but expected length %d\n", atoi(tok), rflen, efp->linenumber, ifile); 	
+      if(clen != atoi(tok)) {
+	esl_fatal("Error reading insert file, read consensus length of %d on line %d of file %s, but expected length %d\n", atoi(tok), clen, efp->linenumber, ifile); 	
       } 
     }     
     else if (strncmp(tok, "//", 2) == 0) { /* end of data for an ifile, but we may have concatenated them, so we keep going */
       seen_model_name_line   = FALSE;
       seen_end_of_model_line = TRUE;
     }
-    else { /* should be a seq line with 1+3*n tokens, <seqlen> <rfpos_0> <uapos_0> <nins_0> ... <rfpos_n> <uapos_n> <nins_n>, n can be 0 */
-      /* determine if we're using this sequence */
-      i++;
-      if(useme_keyhash == NULL || (esl_key_Lookup(useme_keyhash, tok, NULL) == eslOK)) { 
-	already_handled_special_spos = FALSE;   /* initialize */
-	prv_e_decrement = prv_e_increment = -1; /* initialize */
-
-	if(esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Error reading insert file, failed to read unaligned length for sequence on line %d of file %s.\n", efp->linenumber, ifile); 
-	seqlen = atoi(tok);
-
-	if(esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Error reading insert file, failed to read first nongap consensus position for sequence on line %d of file %s.\n", efp->linenumber, ifile); 
-	spos = atoi(tok);
-	if(spos > rflen) esl_fatal("Error reading insert file, read spos of %d that exceeds expected consensus length %d on line %d of file %s.\n", spos, rflen, efp->linenumber, ifile);
-
-	if(esl_fileparser_GetTokenOnLine(efp, &tok, NULL) != eslOK) esl_fatal("Error reading insert file, failed to read final nongap consensus position for sequence on line %d of file %s.\n", efp->linenumber, ifile); 
-	epos = atoi(tok);
-	if(epos > rflen) esl_fatal("Error reading insert file, read epos of %d that exceeds expected consensus length %d on line %d of file %s.\n", epos, rflen, efp->linenumber, ifile);
-
-	if(spos == -1 && epos != -1) esl_fatal("insert file is corrupt, spos is -1 but epos is not -1, on line %d\n", efp->linenumber);
-	if(spos != -1 && epos == -1) esl_fatal("insert file is corrupt, spos is not -1 but epos is -1, on line %d\n", efp->linenumber);
-
-	while(esl_fileparser_GetTokenOnLine(efp, &tok, NULL) == eslOK) { 
-	  /* rfpos */
-	  rfpos = atoi(tok);
-	  if(rfpos > rflen) esl_fatal("Error reading insert file, read insert info for position %d that exceeds expected consensus length %d on line %d of file %s.\n", rfpos, rflen, efp->linenumber, ifile);
-
-	  /* uapos */
-	  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, NULL)) != eslOK) esl_fatal("Error reading insert file, didn't read unaligned sequence position for rfpos %d on line %d of file %s.\n", rfpos, efp->linenumber, ifile);
-	  uapos = atoi(tok);
-	  if(uapos > seqlen) esl_fatal("Error reading insert file, read insert info for position %d that exceeds expected sequence length %d on line %d of file %s.\n", rfpos, seqlen, efp->linenumber, ifile);
-
-	  /* nins */
-	  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, NULL)) != eslOK) esl_fatal("Error reading insert file, didn't read number of inserts for position %d on line %d of file %s.\n", rfpos, efp->linenumber, ifile);
-	  nins = atoi(tok);
-	  nins_ct[rfpos] = nins;
-	  if(per_seq_ins_ct != NULL) per_seq_ins_ct[nseq_stored][rfpos] = nins;
-	  if(nins > 0) nseq_with_ins_ct[rfpos]++; /* nins should always be > 0, but why not check?  */
-	  
-	  /* check for special cases where a spos_ct and epos_ct read from a de-inserted msa would be incorrect */
-	  if(spos != -1) { 
-	    /* Note, if spos == -1 (then epos also == -1, we checked above), then there are 0 nongap consensus positions for 
-	     * this sequence, and the spos and epos counts were never incremented for this sequence, so they don't need to be corrected. */
-
-	    /* First check if this insert is before spos-1 */
-	    if(srfoff_ct != NULL) {
-	      if((rfpos < (spos-1)) && (! already_handled_special_spos)) { /* we've got an insert *after* a position rfpos < (spos-1) for minimal rfpos */
-		/* Any function that counted the first RF position for this sequence if inserts were
-		 * removed thought it was spos, but an insert exists after rfpos<(spos-1), which means there
-		 * was an insert after rfpos, then a gap in at least 1 consensus position before the
-		 * first nongap consensus residue at cpos. 
-		 * NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen, whereas srfoff_ct is 0..rflen-1 */
-		srfoff_ct[(spos-1)]--;    /* this position was overcounted */
-		srfoff_ct[(rfpos-1)+1]++; /* this position was undercounted, we do +1 because insert occured after rfpos */
-		printf("decremented srfoff_ct[%d] for seq %d\n", spos-1, i);
-		printf("incremented srfoff_ct[%d] for seq %d\n", rfpos-1+1, i);
-		already_handled_special_spos = TRUE; /* if another rfpos is less than (spos-1) we don't care, we already fixed s_rfoff_ct */
-	      }
-	    }
-
-	    /* Now check if this insert is after epos */
-	    if(erfoff_ct != NULL) { 
-	      if(rfpos > epos) { /* we've got an insert *after* a position rfpos > epos */
-		/* Any function that counted the final RF position for this sequence if inserts were
-		 * removed thought it was epos, but an insert exists after rfpos>epos, which means there
-		 * was a gap in at least one consensus position cpos > epos (cpos <= rfpos) and then inserts 
-		 * after rfpos. 
-		 * NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen, whereas srfoff_ct is 0..rflen-1 */
-		erfoff_ct[(epos-1)]--;  /* this position was overcounted */
-		erfoff_ct[(rfpos-1)]++; /* this position was undercounted */
-		
-		/* BUT, be careful, we could have already entered this 'if' for this sequence, if so we need to negate
-		 * the previous time we incremented and decremented. 
-		 * NOTE this case and corresponding code only applies to epos (not spos) b/c with spos
-		 * its the first case only that we want to handle (which is why we use the already_handled_special_spos FLAG) */
-		if(prv_e_decrement != -1 && prv_e_increment != -1) { 
-		  erfoff_ct[prv_e_increment]--;    /* undo increment with a decrement */
-		  erfoff_ct[prv_e_decrement]++;    /* undo decrement with an increment */
-		  prv_e_decrement = (epos-1);
-		  prv_e_increment = (rfpos-1);
-		}
-	      }
-	    }
-	  }
+    else { /* should be a seq line with 2*n tokens, <cpos> <nins> ...., n can be 0 */
+      while(esl_fileparser_GetTokenOnLine(efp, &tok, NULL) == eslOK) { 
+	cpos = atoi(tok);
+	if(cpos > clen) { 
+	  esl_fatal("Error reading insert file, read insert info for position %d that exceeds expected consensus length %don line %d of file %s.\n", cpos, clen, efp->linenumber, ifile);
 	}
-	nseq_stored++;
+	if((status = esl_fileparser_GetTokenOnLine(efp, &tok, NULL)) != eslOK) { 
+	  esl_fatal("Error reading insert file, didn't read number of inserts for position %d on line %d of file %s.\n", cpos, efp->linenumber, ifile);
+	}
+	nins = atoi(tok);
+	ict_AA[cpos][nseq_read] = nins;
       }
       nseq_read++;
-      if(nseq_read > msa_nseq) esl_fatal("Error reading insert file, read info for more sequences than expected (%d) at line %d of file %s.", msa_nseq, efp->linenumber, ifile);
+      if(nseq_read > nseq) esl_fatal("Error reading insert file, read info for more sequences than expected (%d) at line %d of file %s.", nseq, efp->linenumber, ifile);
     }
   }
-  esl_fileparser_Close(efp);
-
   /* end of file, make sure we read a '//' at the end of it */
-  if(! seen_end_of_model_line) esl_fatal("Error reading insert file, didn't read the special '//' line at the end of file %s.\n", rfpos, efp->linenumber, ifile);
+  if(! seen_end_of_model_line) esl_fatal("Error reading insert file, didn't read the special '//' line at the end of file %s.\n", cpos, efp->linenumber, ifile);
 
-  /* if useme_keyhash != NULL, make sure we read all the seqs we wanted to */
-  if((useme_keyhash != NULL) && (nseq_stored != nseq2store)) { 
-    esl_fatal("Error reading insert file, wanted to read insert info on %d seqs, but only found %d of them in the insert file %s\n", nseq2store, nseq_stored, ifile);      
-  }
-  if(nseq_read != msa_nseq)  esl_fatal("Error reading insert file, expected to read info on %d seqs, but only found %d in the insert file %s\n", msa_nseq, nseq_read, ifile);      
-
-  if      (ret_nins_ct          != NULL) *ret_nins_ct = nins_ct;
-  else                                   free(nins_ct);
-  if      (ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
-  else                                   free(nseq_with_ins_ct);
-  if      (ret_srfoff_ct        != NULL) *ret_srfoff_ct = srfoff_ct;
-  else if (srfoff_ct            != NULL) free(srfoff_ct);
-  if      (ret_erfoff_ct        != NULL) *ret_erfoff_ct = erfoff_ct;
-  else if (erfoff_ct            != NULL) free(erfoff_ct);
-  if      (ret_per_seq_ins_ct   != NULL) *ret_per_seq_ins_ct = per_seq_ins_ct;
-  else if (per_seq_ins_ct       != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
-
-  return;
+  esl_fileparser_Close(efp);
+  *ret_ict_AA = ict_AA;
+  return eslOK;
 
  ERROR:
   esl_fatal("Memory allocation error while reading insert file %s.", ifile);
-  return;; /* NEVERREACHED */
-}
-
-/* Function: get_insert_info_from_abc_ct
- * Date:     EPN, Tue Jan 19 09:32:30 2010
- * 
- * Given an abc_ct array:
- * [0..apos..alen-1][0..abc->K]: per position count of 
- * each symbol in alphabet over all seqs. 
- * 
- * Determine the number of sequences with >= 1 inserted
- * residues after each RF position.
- *  
- * IMPORTANT NOTE: This is done based on the assumption that inserts
- * have been systematically placed in the MSA by a program like
- * Infernal or HMMER and that the maximum number of nongap residues in
- * any insert position after rfpos is the number of sequences with >=1
- * insert residues after rfpos. However, if the alignments were not
- * generated from HMMER nor Infernal, or have been modified, the
- * inserts may not follow this rule (the rule, in other words is that
- * there is always 1 insert column after each nongap RF position rfpos
- * that includes a residue from all sequences that have >= 1 inserted
- * residues after rfpos).
- * 
- * abc_ct      - [0..apos..msa_alen-1][0..abc->K] count of each residue in each position 
- * abc         - the alphabet
- * msa_rf      - msa->rf, the reference annotation 
- * msa->alen   - length of alignment
- * rflen       - expected nongap RF length (consensus length)
- * ret_nseq_with_ins_ct - [0..rflen]  number of sequences with >= 1 
- *               insert after each position. NULL if unwanted.
- * ret_nins_ct - [0..rflen] total number of inserted residues (over
- *               all sequences after each position. NULL if unwanted.
- * 
- * Returns void. Dies with an informative error message upon an error.
- */
-void
-get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct)
-{
-  int             status;
-  int            *nins_ct;
-  int            *nseq_with_ins_ct;
-  int             nins, nmaxins;
-  int             rfpos, apos;
-
-  /* allocate and initialize */
-  ESL_ALLOC(nseq_with_ins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nseq_with_ins_ct, rflen+1, 0);
-  ESL_ALLOC(nins_ct, sizeof(int) * (rflen+1));
-  esl_vec_ISet(nins_ct, rflen+1, 0);
-
-  nmaxins = 0;
-  rfpos = 0;
-  for(apos = 0; apos < msa_alen; apos++) { 
-    if((! esl_abc_CIsGap(abc, msa_rf[apos])) && 
-       (! esl_abc_CIsMissing(abc, msa_rf[apos])) && 
-       (! esl_abc_CIsNonresidue(abc, msa_rf[apos]))) { 
-      nseq_with_ins_ct[rfpos] = nmaxins;
-      nmaxins = 0;
-      rfpos++;
-      if(rfpos > rflen) esl_fatal("Error in get_insert_info_from_abc_ct(), expected consensus length (%d) is incorrect."); 
-    }
-    else { 
-      nins = (int) esl_vec_DSum(abc_ct[apos], abc->K); 
-      nins_ct[rfpos] += nins;
-      nmaxins = ESL_MAX(nmaxins, nins);
-    }
-  }
-  /* get max_nseq with inserts after the final position */
-  nseq_with_ins_ct[rfpos] = nmaxins;
-
-  if(ret_nins_ct          != NULL) *ret_nins_ct          = nins_ct;
-  else free(nins_ct);
-  if(ret_nseq_with_ins_ct != NULL) *ret_nseq_with_ins_ct = nseq_with_ins_ct;
-  else free(nseq_with_ins_ct);
-
-  return;
-
- ERROR:
-  esl_fatal("Error in get_insert_info_from_abc_ct(), memory allocation error.");
-  return; /* NEVERREACHED */
-}
-
-/* get_pp_idx
- *                   
- * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
- * in a pp_ct[] vector. 
- * '0' return 0;
- * '1' return 1;
- * '2' return 2;
- * '3' return 3;
- * '4' return 4;
- * '5' return 5;
- * '6' return 6;
- * '7' return 7;
- * '8' return 8;
- * '9' return 9;
- * '*' return 10;
- * gap return 11;
- * 
- * Anything else (including missing or nonresidue) return -1;
- */
-int
-get_pp_idx(ESL_ALPHABET *abc, char ppchar)
-{
-  if(esl_abc_CIsGap(abc, ppchar)) return 11;
-  if(ppchar == '*')               return 10;
-  if(ppchar == '9')               return 9;
-  if(ppchar == '8')               return 8;
-  if(ppchar == '7')               return 7;
-  if(ppchar == '6')               return 6;
-  if(ppchar == '5')               return 5;
-  if(ppchar == '4')               return 4;
-  if(ppchar == '3')               return 3;
-  if(ppchar == '2')               return 2;
-  if(ppchar == '1')               return 1;
-  if(ppchar == '0')               return 0;
-  return -1;
-}
-
-/* spos_and_epos2span_ct
- *                   
- * Given two arrays, spos_ct[0..apos..alen-1] and epos_ct[0..apos..alen-1], 
- * specifying the number of sequences for which the first and last non-gap
- * position is apos, calculate the number of sequences that 'span' each RF
- * position. A sequence spans position rfpos which is actually alignment
- * position apos, it has at least one nongap residue in a position x <= apos, 
- * and at least one residue in a position y, y >= apos.
- * 
- * As a special case, if alen == rflen and srfoff_ct != NULL and erfoff_ct != NULL,
- * then we've read an insert file (with --ifile) which has given us information
- * that we'll use to update spos_ct and epos_ct. In this case, the inserts
- * have been removed from the alignment but it is possible that spos_ct and 
- * epos_ct have miscounted some positions (see get_insert_info_from_ifile()
- * for more info). 
- * 
- * span_ct:   [0..rfpos..ps->msa->rflen-1] number of sequences that 'span' each position rfpos
- *	      have >= 1 residue at a position apos before rf2a_map[rfpos] and >= 1 residue at 
- *            any position apos >= rf2a_map[rfpos],
- */
-int
-get_span_ct(int *msa_rf2a_map, int64_t alen, int rflen, int nseq, int *spos_ct, int *epos_ct, int *srfoff_ct, int *erfoff_ct, int **ret_span_ct)
-{
-  int status;
-  int *nseq_start_after_rfpos = NULL;
-  int *nseq_end_before_rfpos = NULL;
-  int *span_ct = NULL;
-  int rfpos;
-  int do_correction;
-  int apos, nxt_apos, prv_apos;
-
-  ESL_ALLOC(span_ct, sizeof(int) * rflen);
-  ESL_ALLOC(nseq_start_after_rfpos, sizeof(int) * rflen);
-  ESL_ALLOC(nseq_end_before_rfpos, sizeof(int) * rflen);
-
-  esl_vec_ISet(nseq_start_after_rfpos, rflen, 0);
-  esl_vec_ISet(nseq_end_before_rfpos, rflen, 0);
-
-  /* check for special case, when we need to update spos_ct and epos_ct */
-  if(srfoff_ct != NULL && erfoff_ct == NULL) esl_fatal("Internal error, get_span_ct: srfoff_ct != NULL and erfoff_ct == NULL");
-  if(srfoff_ct == NULL && erfoff_ct != NULL) esl_fatal("Internal error, get_span_ct: srfoff_ct == NULL and erfoff_ct != NULL");
-
-  /* determine if we should correct spos_ct and epos_ct using srfoff_ct and erfoff_ct */
-  do_correction = (alen == rflen && srfoff_ct != NULL)  ? TRUE : FALSE;
-
-  /* NOTE: if alen == rflen spos_ct and epos_ct have length rflen, just like srfoff_ct and erfoff_ct */
-
-  /* first count number of seqs that start after each position */
-  nseq_start_after_rfpos[rflen-1] = 0; /* initialize */
-  nxt_apos = (int) alen - 1;
-  for(rfpos = rflen-2; rfpos >= 0; rfpos--) { 
-    for(apos = nxt_apos; apos > msa_rf2a_map[rfpos]; apos--) { 
-      nseq_start_after_rfpos[rfpos] += spos_ct[apos];
-      if(do_correction) nseq_start_after_rfpos[rfpos] += srfoff_ct[apos];
-    }
-    nseq_start_after_rfpos[rfpos] += nseq_start_after_rfpos[rfpos+1];
-    nxt_apos = msa_rf2a_map[rfpos];
-  }
-
-  /* count number of seqs that end before each position */
-  nseq_end_before_rfpos[0] = 0; /* initialize */
-  prv_apos = 0;
-  for(rfpos = 1; rfpos < rflen; rfpos++) { 
-    for(apos = prv_apos; apos < msa_rf2a_map[rfpos]; apos++) { 
-      nseq_end_before_rfpos[rfpos] += epos_ct[apos];
-      if(do_correction) nseq_end_before_rfpos[rfpos] += erfoff_ct[apos];
-    }
-    nseq_end_before_rfpos[rfpos] += nseq_end_before_rfpos[rfpos-1];
-    prv_apos = msa_rf2a_map[rfpos];
-  }
-
-  /* We now know how many seqs start after each rfpos (a = nseq_start_after_rfpos[rfpos]) and
-   *             how many seqs end  before each rfpos (b = nseq_end_before_rfpos[rfpos])
-   * so c = [nseq-(a+b)] seqs span rfpos (b/c they don't start after it AND don't end before it).
-   * 
-   * Note: this is really confusing to me, but I've convinced myself it's true, and I think
-   *       it is only true because we know each sequence's end position must be >= its start position
-   */
-  for(rfpos = 0; rfpos < rflen; rfpos++) { 
-    span_ct[rfpos] = nseq - (nseq_start_after_rfpos[rfpos] + nseq_end_before_rfpos[rfpos]);
-  }
-
-  *ret_span_ct = span_ct;
-  free(nseq_start_after_rfpos);
-  free(nseq_end_before_rfpos);
-  return eslOK;
-
- ERROR: 
-  return eslEMEM;
-}
-
-
-/* Function: drawfile2sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
- *           in an input 'draw' file, with >= 1 sets of <x> lines of data, each set 
- *           is separated by a line with only "//". <x> must be equal to the consensus
- *           ps->rflen. Each line contains a single real number between 0 and 1,
- *           these are converted into 1 of 6 CMYK colors based on their values, using
- *           the same color scheme used for frequency of inserts.
- *
- * Return:   eslOK on success.
- */
-static int
-drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins)
-{
-  int status;
-  int p, pp;
-  int rfpos, c;
-  int orig_npage = ps->npage;
-  ESL_FILEPARSER *efp;
-  char           *s;
-  char *dfile = esl_opt_GetString(go, "--dfile");
-  float *limits;
-  float value;
-  int l;
-  int bi, within_mask;
-  char *desc = NULL;
-  char *legheader = NULL;
-
-  /* allocate for limits, but don't fill it yet */
-  ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-
-  if (esl_fileparser_Open(dfile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", dfile);
-  esl_fileparser_SetCommentChar(efp, '#');
-
-  pp = orig_npage - 1;
-
-  /* Format of dfile: 
-   * For each page: 
-   * line 1: description of page (max is ps->desc_max_chars*2 chars)
-   * line 2: header for legend (max is ps->legx_max_chars chars)
-   * line 3: limits for color bins, must be 7 tokens, all numbers, each greater than the last
-   * lines 4-N: single tokens, numerical values for each position, N is CLEN-3.
-   * line N+1: single token, only:"//\n" signifying end of page.
-   * 
-   * '#' prefixed lines are considered comments and skipped.
-   *
-   * Example:
-   */
-
-  rfpos = -1;
-  while (esl_fileparser_NextLine(efp) == eslOK)
-    {
-      if(rfpos == -1) { /* new page, first add a new page */
-	/* next 3 lines must be a specific format */
-	/* first line is description */
-	if(desc != NULL) { free(desc); desc = NULL; }
-	while((status = esl_fileparser_GetTokenOnLine(efp, &s, NULL)) == eslOK) { 
-	  if((status = esl_strcat(&desc, -1, s, -1)) != eslOK) esl_fatal("Out of memory");
-	  if((status = esl_strcat(&desc, -1, " ", -1)) != eslOK) esl_fatal("Out of memory");
-	}
-	if(strlen(desc) > (ps->desc_max_chars*2.)) esl_fatal("Error reading --dfile, description length (%d) exceeds max allowed (%d)", strlen(desc), (ps->desc_max_chars*2));
-	if(esl_fileparser_NextLine(efp) != eslOK) esl_fatal("Error reading --dfile, expected legend header line at line %d\n", efp->linenumber);
-
-	/* second line is legend header */
-	if(legheader != NULL) { free(legheader); legheader = NULL; }
-	while((status = esl_fileparser_GetTokenOnLine(efp, &s, NULL)) == eslOK) { 
-	  if((status = esl_strcat(&legheader, -1, s, -1)) != eslOK) esl_fatal("Out of memory");
-	  if((status = esl_strcat(&legheader, -1, " ", -1)) != eslOK) esl_fatal("Out of memory");
-	}
-	if(strlen(legheader) > ps->legx_max_chars) esl_fatal("Error reading --dfile, legend header length (%d) exceeds max allowed (%d)", strlen(legheader), ps->legx_max_chars);
-	if(esl_fileparser_NextLine(efp) != eslOK) esl_fatal("Error reading --dfile, expected limits line at line %d\n", efp->linenumber);
-	
-	/* third line is bin limits for the colors, must be 7 numbers, we read them as floats */
-	for(l = 0; l < hc_nbins+1; l++) { 
-	  if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK) esl_fatal("Error reading --dfile, expected limits line at line %d to have %d limits (numbers) in increasing order, it doesn't", efp->linenumber, hc_nbins+1);
-	  limits[l] = atof(s);
-	  if(l > 0 && limits[l] < limits[l-1]) esl_fatal("Error reading --dfile, expected limits line at line %d with %d limits (numbers) in increasing order", efp->linenumber, hc_nbins+1);
-	}
-	rfpos++; /* rfpos will now be 0 */
-      }
-      else if(rfpos == (ps->rflen)) { /* end of page, should be a single token, a "\\" on this line */ 
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read a final token at the end of description of page %d on line %d of drawfile %s\n", (pp - orig_npage + 1), efp->linenumber, dfile);
-	if (strcmp(s, "//") != 0) 
-	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of drawfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, dfile);
-	rfpos = -1;
-	/* add color legend */
-	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], legheader, ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, desc, errbuf)) != eslOK) return status;
-      }
-      else { /* a normal line, should either contain a single float or the \\ marking end of this page */
-	rfpos++;
-	if(rfpos == 1) { /* add a new page, (we now have limits for legend, from if(rfpos == -1) loop above) */
-	  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-	  for(p = (ps->npage-1); p < ps->npage; p++) { 
-	    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-	    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-	    for(c = 0; c < ps->rflen; c++) { 
-	      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
-	    }
-	  }
-	  pp++; /* if first page, pp == orig_npage now */
-	  ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE);
-	}
-	/* now parse the line, it should have a single number, a numerical value for a position */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK) esl_fatal("Failed to read value for position %d for page %d on line %d of dfile\n", rfpos, (pp - orig_npage + 1), efp->linenumber);
-	value = atof(s);
-	if(value < limits[0] || value > limits[hc_nbins]) esl_fatal("--dfile value %.4f out of allowed range [%.3f-%.3f] on line %d\n", value, limits[0], limits[hc_nbins], efp->linenumber, dfile);
-	within_mask = (ps->mask != NULL && ps->mask[rfpos-1] == '1') ? TRUE : FALSE;
-	if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos-1], NCMYK, hc_scheme[hc_scheme_idx], value, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
-      }
-    }
-  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
-    esl_fatal("Failed to read a single page from drawfile %s\n", dfile);
-  }
-  esl_fileparser_Close(efp);
-
-  free(limits);
-  if(desc != NULL)      { free(desc);      desc = NULL;      }
-  if(legheader != NULL) { free(legheader); legheader = NULL; }
-
-  return eslOK;
-
- ERROR: ESL_FAIL(status, errbuf, "drawfile2sspostscript(): memory allocation error.");
-  return status; /* NEVERREACHED */
-}
-
-
-/* Function: expertfile2sspostscript()
- * 
- * Purpose:  Fill a postscript data structure with >= 1 new page(s), with colors described
- *           in an input 'expert draw' file, with >= 1 sets of <x> lines of data, each set 
- *           is separated by a line with only "//". <x> must be equal to the consensus
- *           ps->rflen. Each line has at least 4 floats explaining 
- *           the CMYK values for the color to use at each position of the SS diagram,
- *           and optionally contains an extra single character which is the residue
- *           to put at that position.
- *           
- * Return:   eslOK on success.
- */
-static int
-expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
-{
-  int status;
-  int p, pp;
-  int cpos, c;
-  int orig_npage = ps->npage;
-  ESL_FILEPARSER *efp;
-  char           *s;
-  char *efile = esl_opt_GetString(go, "--efile");
-
-  if (esl_fileparser_Open(efile, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in draw_file2sspostscript\n", efile);
-  esl_fileparser_SetCommentChar(efp, '#');
-
-  pp = orig_npage - 1;
-  cpos = 0;
-
-  while (esl_fileparser_NextLine(efp) == eslOK)
-    {
-      /* example line without residue markup:
-       * 0.000 0.000 0.000 0.500
-       *
-       * example line with residue markup:
-       * 0.000 0.000 0.000 0.500 A
-       */
-
-      cpos++;
-      if(cpos == 1) { /* add a new page */
-	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
-	
-	for(p = (ps->npage-1); p < ps->npage; p++) { 
-	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-	  ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-	  for(c = 0; c < ps->rflen; c++) { 
-	    ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
-	  }
-	}
-	pp++; /* if first page, pp == orig_npage now */
-      }
-      if(cpos == (ps->rflen+1)) { /* should be a single token, a "\\" on this line */ 
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read a final token at the end of description of draw page %d on line %d of expertfile %s\n", (pp - orig_npage + 1), efp->linenumber, efile);
-	if (strcmp(s, "//") != 0) 
-	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of expertfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, efile);
-	cpos = 0;
-      }
-      else { 
-	/* get C value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read C of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][0] = atof(s);
-
-	/* get M value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read M of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][1] = atof(s);
-
-	/* get Y value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	esl_fatal("Failed to read Y of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][2] = atof(s);
-
-	/* get K value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
-	  esl_fatal("Failed to read K of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][3] = atof(s);
-
-	/* optionally read a residue value */
-	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
-	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of expertfile %s\n", s, cpos, efp->linenumber, efile);
-	  ps->rrAA[pp][(cpos-1)] = s[0];
-	}
-	else ps->rrAA[pp][(cpos-1)] = ' ';
-      }
-    }
-  if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
-    esl_fatal("Failed to read a single page from expertfile %s\n", efile);
-  }
-
-  esl_fileparser_Close(efp);
-  return eslOK;
-
- ERROR: ESL_FAIL(status, errbuf, "expertfile2sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
 }

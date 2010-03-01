@@ -61,8 +61,7 @@ static int jukescantor(int n1, int n2, int alphabet_size, double *opt_distance, 
  *            degeneracies in biological alphabets.  For a more
  *            sophisticated and biosequence-aware comparison, use
  *            digitized sequences and the <esl_dst_XPairId()> function
- *            instead. Note that currently <esl_dst_XPairId()> does
- *            not correctly handle degeneracies, but is set up to.
+ *            instead.
  *
  * Args:      asq1         - aligned character string 1
  *            asq2         - aligned character string 2
@@ -194,20 +193,10 @@ esl_dst_CJukesCantor(int K, const char *as1, const char *as2,
  * Synopsis:  Pairwise identity of two aligned digital seqs.
  * Incept:    SRE, Tue Apr 18 09:24:05 2006 [St. Louis]
  *
- * Purpose:   Digital version of <esl_dst_CPairId()>: <adsq1> and
+ * Purpose:   Digital version of <esl_dst_PairId()>: <adsq1> and
  *            <adsq2> are digitized aligned sequences, in alphabet
- *            <abc>. Otherwise, same as <esl_dst_CPairId()> except
- *            that only canonical residues are counted and checked for
- *            identity, while esl_dst_CPairId() (which has no
- *            alphabet) counts and checks identity of all alphanumeric
- *            characters.
+ *            <abc>. Otherwise, same as <esl_dst_PairId()>.
  *            
- *            This function does not use esl_abc_Match() to handle
- *            degeneracies but it is set up to do so. Doing that would
- *            require that <opt_nid> be changed to a float or double,
- *            or its meaning be changed to be the number of canonical
- *            identities.
- *
  * Args:      abc          - digital alphabet in use
  *            ax1          - aligned digital seq 1
  *            ax2          - aligned digital seq 2
@@ -747,6 +736,7 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
   else				
     {
       ESL_RANDOMNESS *r = esl_randomness_Create(0);
+
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
@@ -794,7 +784,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
 {
   int    status;
   double id;
-  double sum = 0.;
+  double sum;
   int    i,j,n;
   
   if (N <= 1) { *ret_id = 1.; return eslOK; }
@@ -820,6 +810,7 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   else				
     {
       ESL_RANDOMNESS *r = esl_randomness_Create(0);
+
       for (n = 0; n < max_comparisons; n++)
 	{
 	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */

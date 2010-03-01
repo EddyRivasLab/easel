@@ -2,8 +2,6 @@
  * 
  * EPN, Fri Nov 20 16:28:59 2009
  */
-#include "esl_config.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,7 +46,7 @@ static ESL_OPTIONS options[] = {
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "help; show brief info on version and usage",                     1 },
   { "-o",         eslARG_OUTFILE,  NULL, NULL, NULL, NULL,NULL, NULL,            "output the final alignment to file <f>, not stdout",             1 },
   { "-v",         eslARG_NONE,    FALSE, NULL, NULL, NULL,"-o", NULL,            "print info on merge to stdout; requires -o",                     1 },
-  { "--small",    eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln sizes)",   1 },
+  { "--savemem",  eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "use minimal RAM (RAM usage will be independent of aln sizes)",   1 },
   { "--rfonly",   eslARG_NONE,    FALSE, NULL, NULL, NULL,NULL, NULL,            "remove all columns that are gaps in GC RF annotation",           1 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "NOT YET DISPLAYED",                                              99 },
   { "--outformat",eslARG_STRING,  FALSE, NULL, NULL, NULL,NULL, NULL,            "specify that output aln be format <s> (see choices above)",      1 },
@@ -78,8 +76,8 @@ main(int argc, char **argv)
   int           abctype;                       /* alphabet type */
   int           fi;                            /* counter over alignment files */
   int           ai, ai2;                       /* counters over alignments */
-  int           nali_cur;                      /* number of alignments in this file */
-  int           nali_tot;                      /* number of alignments in all files */
+  int           nali_cur;                      /* number of sequences in this alignment */
+  int           nali_tot;                      /* number of sequences in this alignment */
   int          *nali_per_file = NULL;          /* [0..nalifile-1] number of alignments per file */
   int           nseq_tot;                      /* number of sequences in all alignments */
   int           nseq_cur;                      /* number of sequences in current alignment */
@@ -101,7 +99,7 @@ main(int argc, char **argv)
   char         *tmpstr;                        /* used if -v, for printing file names */
   int         **usemeA = NULL;                 /* [0..nali_tot-1][0..alen]  used only if --rfonly enabled, for removing gap RF columns */
   ESL_STOPWATCH *w  = NULL;                    /* for timing the merge, only used if -o enabled */
-  int           do_small;                      /* TRUE if --small, operate in special small memory mode, aln seq data is not stored */
+  int           do_small;                      /* TRUE if --savemem, operate in special small memory mode, aln seq data is not stored */
   int           do_rfonly;                     /* TRUE if --rfonly, output only non-gap RF columns (remove all insert columns) */
   int          *ngapA = NULL;                  /* [0..alen] number of gap columns to add after each alignment column when merging */
 
@@ -110,7 +108,7 @@ main(int argc, char **argv)
   int        ni;                               /* counter                        */
   int        namewidth;                        /* max width of file name         */
 
-  /* variables only used in small mode (--small) */
+  /* variables only used in small mode (--savemem) */
   int           ngs_cur;                       /* number of GS lines in current alignment (only used if do_small) */
   int           gs_exists = FALSE;             /* set to TRUE if do_small and any input aln has >= 1 GS line */
   int           maxname, maxgf, maxgc, maxgr;  /* max length of seqname, GF tag, GC tag, GR tag in all input alignments */
@@ -160,7 +158,7 @@ main(int argc, char **argv)
     msafile2 = esl_opt_GetArg(go, 2);
   }
 
-  do_small  = (esl_opt_IsOn(go, "--small")) ? TRUE : FALSE;
+  do_small  = (esl_opt_IsOn(go, "--savemem")) ? TRUE : FALSE;
   do_rfonly = (esl_opt_IsOn(go, "--rfonly"))  ? TRUE : FALSE;
 
   /* open output file */
@@ -265,13 +263,13 @@ main(int argc, char **argv)
 	abc = esl_alphabet_Create(abctype);
       }
     }
-    /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
+    /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --savemem) */
     while((status = (do_small) ? 
-	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
+	   esl_msa_ReadNonSeqInfoPfam(afp, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur) : 
 	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
-      msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --small, this is set as RNA regardless of input */
+      msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --savemem, this is set as RNA regardless of input */
 
       if (do_small) { 
 	maxname = ESL_MAX(maxname, maxname_cur); 
@@ -284,7 +282,7 @@ main(int argc, char **argv)
       else { 
 	nseq_cur = msaA[ai]->nseq; 
       }
-      alenA[ai] = msaA[ai]->alen; /* impt if --small and --rfonly, to remember total width of aln to expect in second pass */
+      alenA[ai] = msaA[ai]->alen; /* impt if --savemem and --rfonly, to remember total width of aln to expect in second pass */
       nali_per_file[fi]++;
       nseq_tot += nseq_cur;
       
@@ -316,7 +314,7 @@ main(int argc, char **argv)
 
       if(do_rfonly) { 
 	/* Remove all columns that are gaps in the RF annotation, we keep an array of usemes, 
-	 * one per aln, in case of --small, so we know useme upon second pass of alignment files */
+	 * one per aln, in case of --savemem, so we know useme upon second pass of alignment files */
 	ESL_ALLOC(usemeA[ai], sizeof(int) * (msaA[ai]->alen));
 	for(apos = 0; apos < msaA[ai]->alen; apos++) { usemeA[ai][apos] = (esl_abc_CIsGap(abc, msaA[ai]->rf[apos])) ? FALSE : TRUE; }
 	if((status = esl_msa_ColumnSubset(msaA[ai], errbuf, usemeA[ai])) != eslOK) { 
@@ -404,16 +402,12 @@ main(int argc, char **argv)
 					   FALSE, /* regurgitate GF ? */
 					   TRUE,  /* regurgitate GS ? */
 					   FALSE, /* regurgitate GC ? */
-					   FALSE, /* regurgitate GR ? */
-					   FALSE, /* regurgitate aseq ? */
-					   NULL,  /* regurgitate all seqs, not a subset */ 
-					   NULL,  /* regurgitate all seqs, not a subset */ 
-					   NULL,  /* we're not keeping a subset of columns */
-					   NULL,  /* we're not adding all gap columns */
+					   FALSE,  /* regurgitate GR ? */
+					   FALSE,  /* regurgitate aseq ? */
+					   NULL, 
+					   NULL, 
 					   alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					   '.',   /* gap char, irrelevant */
-					   NULL,  /* don't return num seqs read */
-					   NULL); /* don't return num seqs regurgitated */
+					   '.');
 	  if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
 	  free(ngapA);
@@ -451,15 +445,10 @@ main(int argc, char **argv)
 					 FALSE, /* regurgitate GC ? */
 					 TRUE,  /* regurgitate GR ? */
 					 TRUE,  /* regurgitate aseq ? */
-					 NULL,  /* regurgitate all seqs, not a subset */ 
-					 NULL,  /* regurgitate all seqs, not a subset */ 
 					 (do_rfonly) ? usemeA[ai] : NULL, 
 					 (do_rfonly) ? NULL       : ngapA,
 					 alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					 '.',
-					 NULL,  /* don't return num seqs read */
-					 NULL); /* don't return num seqs regurgitated */
-
+					 '.');
 	if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
 	free(ngapA);
@@ -526,7 +515,7 @@ main(int argc, char **argv)
   return 0;
 
  ERROR: 
-  esl_fatal("Out of memory. Reformat to Pfam with esl-reformat and try esl-alimerge --small.");
+  esl_fatal("Out of memory. Reformat to Pfam with esl-reformat and try esl-alimerge --savemem.");
   return eslEMEM; /*NEVERREACHED*/
 }
 
@@ -834,7 +823,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->gc[j], msaA[0]->alen)) { /* returns TRUE if gc[j] has 0 non-gap characters in gap columns of RF annotation */
 	/* dealign gc line */
 	if((status = esl_strdup(msaA[0]->gc[j], msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-	if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[0]", msaA[0]->gc_tag[j]);
+	if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[0]", msaA[0]->gc_tag[j]);
 
 	for(ai = 1; ai < nmsa; ai++) { 
 	  found_tag = FALSE;
@@ -845,7 +834,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	      if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->gc[j2], msaA[ai]->alen)) { /* returns TRUE if gc[j2] has 0 non-gap characters in gap columns of RF annotation */
 		/* dealign */
 		if((status = esl_strdup(msaA[ai]->gc[j2], msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-		if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[%d]", msaA[ai]->gc_tag[j2], ai);
+		if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning GC tag %s of msaA[%d]", msaA[ai]->gc_tag[j2], ai);
 		/* check identity */
 		if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 		free(dealigned2); 
@@ -881,7 +870,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->ss_cons, msaA[0]->alen)) { /* returns TRUE if ss_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign ss_cons */
       if((status = esl_strdup(msaA[0]->ss_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->ss_cons == NULL) { 
 	  do_add = FALSE; 
@@ -891,7 +880,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->ss_cons, msaA[ai]->alen)) { /* returns TRUE if ss_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->ss_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning ss_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -925,7 +914,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->sa_cons, msaA[0]->alen)) { /* returns TRUE if sa_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign sa_cons */
       if((status = esl_strdup(msaA[0]->sa_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->sa_cons == NULL) { 
 	  do_add = FALSE; 
@@ -935,7 +924,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->sa_cons, msaA[ai]->alen)) { /* returns TRUE if sa_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->sa_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning sa_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -969,7 +958,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if(validate_no_nongaps_in_rf_gaps(msaA[0]->abc, msaA[0]->rf, msaA[0]->pp_cons, msaA[0]->alen)) { /* returns TRUE if pp_cons has 0 non-gap characters in gap columns of RF annotation */
       /* dealign pp_cons */
       if((status = esl_strdup(msaA[0]->pp_cons, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[0]");
+      if((status = esl_strdealign(dealigned, msaA[0]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[0]");
       for(ai = 1; ai < nmsa; ai++) { 
 	if(msaA[ai]->pp_cons == NULL) { 
 	  do_add = FALSE; 
@@ -979,7 +968,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(validate_no_nongaps_in_rf_gaps(msaA[ai]->abc, msaA[ai]->rf, msaA[ai]->pp_cons, msaA[ai]->alen)) { /* returns TRUE if pp_cons has 0 non-gap characters in gap columns of RF annotation */
 	  /* dealign */
 	  if((status = esl_strdup(msaA[ai]->pp_cons, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[%d]", ai);
+	  if((status = esl_strdealign(dealigned2, msaA[ai]->rf, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning pp_cons of msaA[%d]", ai);
 	  /* check identity */
 	  if(esl_strcmp(dealigned, dealigned2) != 0) { do_add = FALSE; }
 	  free(dealigned2); 
@@ -1010,12 +999,12 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   if(msaA[0]->rf == NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have #= GC RF annotation."); 
   /* dealign rf */
   if((status = esl_strdup(msaA[0]->rf, msaA[0]->alen, &(dealigned))) != eslOK) goto ERROR;
-  if((status = esl_strdealign(dealigned, dealigned, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[0]");
+  if((status = esl_strdealign(dealigned, dealigned, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[0]");
   for(ai = 1; ai < nmsa; ai++) { 
     if(msaA[ai]->rf == NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have #= GC RF annotation."); 
     /* dealign */
     if((status = esl_strdup(msaA[ai]->rf, msaA[ai]->alen, &(dealigned2))) != eslOK) goto ERROR;
-    if((status = esl_strdealign(dealigned2, dealigned2, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[%d]", ai);
+    if((status = esl_strdealign(dealigned2, dealigned2, "-_.", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[%d]", ai);
     /* check identity */
     if(esl_strcmp(dealigned, dealigned2) != 0) { 
       ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have identical #=GC RF annotation, once gaps (\".\",\"-\",\"_\") are removed.\nAlignment %d de-gapped RF annotation differs from that of alignment 1.\n%s\n%s", ai+1, dealigned, dealigned2);
@@ -1407,7 +1396,7 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
  * Stockholm alignment file, i.e. the Stockholm header line, comments
  * and GF annotation to an msa file. This function is necessary when
  * printing the merged alignment file in small memory mode (when
- * --small enabled). <msa> is an alignment with no sequence
+ * --savemem enabled). <msa> is an alignment with no sequence
  * information (no aseq, ax, GS, or GR data).
  */
 void
@@ -1472,7 +1461,7 @@ write_pfam_msa_top(FILE *fp, ESL_MSA *msa)
  * Highly specialized function for printing out the GC annotation to a
  * Pfam Stockholm alignment file (1 line/seq). This function is
  * necessary when printing the merged alignment file in small memory
- * mode (when --small enabled). <msa> is an alignment with no sequence
+ * mode (when --savemem enabled). <msa> is an alignment with no sequence
  * information (no aseq, ax, GS, nor GR data).
  */
 void

@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <stdio.h>		/* for FILE */
 #include <stdarg.h>		/* for va_list */
-#include <math.h>               /* for HUGE_VAL */
 #ifdef HAVE_STDINT_H
 #include <stdint.h>		/* for uint32_t and the like (C99) */
 #endif
@@ -197,24 +196,21 @@
 #define eslCONST_LOG2  0.69314718055994529
 #define eslCONST_LOG2R 1.44269504088896341
 
-/* Define <eslINFINITY>, <eslNaN> portably.  
- * ANSI C99 makes it easy (at last!). The failovers to other pre-C99
- * methods are legacy now that we require a C99 compiler - but no harm
- * leaving them in Just In Case.
+/* Define <eslINFINITY>, <eslNaN> portably. Harder than it looks. 
+ * We assume we're in an IEEE 754 environment.
+ * We assume that HUGE_VAL in a IEEE754 environment is infinity.
+ * If we don't have HUGE_VAL set, we assume we can get infinity
+ * by division by zero. (But if we don't have HUGE_VAL, we probably
+ * have other problems; HUGE_VAL is required by ANSI C spec.)
+ * We can't portably get infinity by overflow (e.g. 1e9999);
+ * some compilers (Microsoft) will complain.
  */
-#if defined (INFINITY)
-#define eslINFINITY    INFINITY  /* C99 */
-#elif defined (HUGE_VAL)
+#ifdef HUGE_VAL
 #define eslINFINITY    HUGE_VAL	 /* assume IEEE754 HUGE_VAL = infinity. ok? */
 #else
 #define eslINFINITY    (1.0/0.0) /* portable? */
 #endif
-
-#if defined (NAN)
-#define eslNaN         NAN	/* C99 */
-#else
 #define eslNaN         (eslINFINITY/eslINFINITY) /* portably make a IEEE754 NaN */
-#endif
 
 /* Define crossovers for numerical approximations.
  */
@@ -298,7 +294,7 @@ typedef void (*esl_exception_handler_f)(int code, char *file, int line,
 extern void esl_exception(int code, char *file, int line, char *format, ...);
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
-extern void esl_fatal(const char *format, ...);
+extern void esl_fatal(char *format, ...);
 extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
 
 /* 2. Memory allocation/deallocation conventions. */

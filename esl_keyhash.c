@@ -235,11 +235,7 @@ esl_key_Store(ESL_KEYHASH *kh, const char *key, int *opt_index)
 
   /* Was this key already stored?  */
   for (idx = kh->hashtable[val]; idx != -1; idx = kh->nxt[idx])
-    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) 
-      { 
-	if (opt_index != NULL) *opt_index = idx; 
-	return eslEDUP; 
-      }
+    if (strcmp(key, kh->smem + kh->key_offset[idx]) == 0) { *opt_index = idx; return eslEDUP; }
 
   /* Reallocate key ptr/index memory if needed */
   if (kh->nkeys == kh->kalloc) 

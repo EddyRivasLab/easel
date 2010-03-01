@@ -1013,7 +1013,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
    */
   ESL_ALLOC(fk, sizeof(char) * ns->flen);
   ESL_ALLOC(pk, sizeof(char) * ns->plen);
-  if (ns->slen) ESL_ALLOC(sk, sizeof(char) * ns->slen);
+  ESL_ALLOC(sk, sizeof(char) * ns->slen);
 
   /* How big is the index? If it's going to be > 2GB, we better have
    * 64-bit offsets. (2047 (instead of 2048) gives us
@@ -1836,7 +1836,7 @@ main(int argc, char **argv)
       for (i = j*nseq; i < (j+1)*nseq; i++)
 	{
 	  sq = esl_sq_CreateFrom(seqname[i], seq[i], NULL, NULL, NULL);
-	  esl_sqio_Write(fp, sq, eslSQFILE_FASTA, FALSE);
+	  esl_sqio_Write(fp, sq, eslSQFILE_FASTA);
 	  esl_sq_Destroy(sq);
 	}
       fclose(fp);

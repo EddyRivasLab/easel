@@ -116,7 +116,6 @@ typedef struct {
   /* Disk offset bookkeeping:                                                  */
   int64_t  idx;	           /* ctr for which # seq this is; -1 if not counting  */
   off_t    roff;	   /* record offset (start of record); -1 if none      */
-  off_t    hoff;	   /* offset to last byte of header; -1 if unknown     */
   off_t    doff;	   /* data offset (start of sequence data); -1 if none */
   off_t    eoff;	   /* offset to last byte of record; -1 if unknown     */
 

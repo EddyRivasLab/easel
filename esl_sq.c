@@ -302,7 +302,6 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
   /* don't copy allocations (nalloc, etc); dst knows its own memory */
   dst->roff  = src->roff;
   dst->doff  = src->doff;
-  dst->hoff  = src->hoff;
   dst->eoff  = src->eoff;
   return eslOK;
 
@@ -359,7 +358,6 @@ esl_sq_Compare(ESL_SQ *sq1, ESL_SQ *sq2)
   /* Disk offset comparison */
   if (sq1->roff != -1 && sq2->roff != -1 && sq1->roff != sq2->roff) return eslFAIL;
   if (sq1->doff != -1 && sq2->doff != -1 && sq1->doff != sq2->doff) return eslFAIL;
-  if (sq1->hoff != -1 && sq2->hoff != -1 && sq1->hoff != sq2->hoff) return eslFAIL;
   if (sq1->eoff != -1 && sq2->eoff != -1 && sq1->eoff != sq2->eoff) return eslFAIL;
   
   /* alphabet comparison */
@@ -404,7 +402,6 @@ esl_sq_Reuse(ESL_SQ *sq)
   sq->L     = -1;
   sq->idx   = -1;
   sq->doff  = -1;
-  sq->hoff  = -1;
   sq->roff  = -1;
   sq->eoff  = -1;
   return eslOK;
@@ -1514,7 +1511,7 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 int
 esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 {
-  char   *gapchars = "-_.~";	/* hardcoded for now */
+  char   *gapchars = "-_.";	/* hardcoded for now */
   char   *acc      = NULL;
   char   *desc     = NULL;
   char   *ss       = NULL;
@@ -1567,7 +1564,6 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 
   sq->roff = -1;
   sq->doff = -1;
-  sq->hoff = -1;
   sq->eoff = -1;
   return eslOK;
 
@@ -1606,7 +1602,7 @@ esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_sq)
   char   *acc      = NULL;
   char   *desc     = NULL;
   char   *ss       = NULL;
-  char   *gapchars = "-_.~";	/* hardcoded for now; only affects text mode, not digital */
+  char   *gapchars = "-_.";	/* hardcoded for now; only affects text mode, not digital */
   int     status;
 
   if (which >= msa->nseq || which < 0) return eslEOD;
@@ -1812,7 +1808,6 @@ sq_create_from(const char *name, const char *desc, const char *acc)
    * know it here.
    */
   sq->doff = -1;
-  sq->hoff = -1;
   sq->roff = -1;
   sq->eoff = -1;
   return sq;

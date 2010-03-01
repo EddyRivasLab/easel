@@ -143,7 +143,7 @@ esl_sse_logf(__m128 x)
  * Incept:    SRE, Fri Dec 14 14:46:27 2007 [Janelia]
  *
  * Purpose:   Given a vector <x> containing four floats, returns a
- *            vector <r> in which each element <r[z] = expf(x[z])>.
+ *            vector <r> in which each element <r[z] = logf(x[z])>.
  *            
  *            Valid for all IEEE754 floats $x_z$.
  *            
@@ -510,10 +510,9 @@ main(int argc, char **argv)
  * we aren't compiling with SSE instructions.
  */
 
-/* Throw a bone to compilers that would warn about empty compilation unit: */
-#include "easel.h"
-
-/* Provide a successful unit test on platforms where we don't have SSE instructions: */
+/*
+ * Provide a successful unit test on platforms where we don't have SSE instructions.
+ */
 #ifdef eslSSE_TESTDRIVE
 int main(void) { return 0; }
 #endif

@@ -125,7 +125,6 @@ AC_ARG_ENABLE(modular,[AS_HELP_STRING([--enable-modular],[compile and prepare mo
   [
     AC_MSG_NOTICE([Compiling the full Easel library, with all augmentations.])
     AC_DEFINE(eslAUGMENT_ALPHABET)
-    AC_DEFINE(eslAUGMENT_NCBI)
     AC_DEFINE(eslAUGMENT_DMATRIX)
     AC_DEFINE(eslAUGMENT_FILEPARSER)
     AC_DEFINE(eslAUGMENT_GEV)
@@ -208,11 +207,6 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 ################################################################
 
 AC_PROG_CC
-# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
-if test "$enable_mpi" = "yes"; then
-   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
-   CC=$MPICC
-fi
 AC_PROG_CPP
 AX_COMPILER_VENDOR
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
@@ -222,19 +216,6 @@ fi
 AC_PROG_RANLIB
 AC_PATH_PROG([AR],       [ar],       [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
 CHECK_GNU_MAKE
-
-# --enable-xlc-arch  Set the code generation for a particular architecture
-#
-# The xlc compiler on AIX seems to need the -qarch flag to be set for a processor
-# that is VMX enabled.  Otherwise a warning is issued that states the -qenablevmx
-# and -qaltivec flags are ignored.
-AX_COMPILER_VENDOR
-if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-  AC_ARG_WITH(xlc-arch, 
-              [AC_HELP_STRING([--with-xlc-arch=<arch>], [specify architecture <arch> for xlc -qarch])],
-              XLC_ARCH=$withval, 
-              XLC_ARCH=no)
-fi
 
 # Select our default optimization flags in CFLAGS.
 #
@@ -261,6 +242,13 @@ else
    # it.
 fi
 fi
+
+# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
+if test "$enable_mpi" = "yes"; then
+   ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
+   CC=$MPICC
+fi
+
 
 # SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
 # The AC_RUN_IFELSE() is there because it's possible to have 
@@ -291,60 +279,22 @@ fi
 
 
 # VMX/Altivec (not autodetected yet; must use --enable-vmx to enable)
-if test "$enable_sse" != "yes"; then
-  if test "x$SIMD_CFLAGS" = x; then
-    VMX_SIMD_CFLAGS=""
-    if test "$GCC" = "yes"; then
-       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],
-         [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
- 	     [VMX_SIMD_CFLAGS="-maltivec -mabi=altivec"],
-             [AX_CHECK_COMPILER_FLAGS(-fvec, [VMX_SIMD_CFLAGS="-fvec"],
-		     [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
-    elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-       AX_CHECK_COMPILER_FLAGS(-qenablevmx, [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qenablevmx"],[])
-       AX_CHECK_COMPILER_FLAGS(-qaltivec,   [VMX_SIMD_CFLAGS="$VMX_SIMD_CFLAGS -qaltivec"],[])
-    else
-       AX_CHECK_COMPILER_FLAGS(-faltivec, [VMX_SIMD_CFLAGS="-faltivec"],[])
-    fi
-  else
-    VMX_SIMD_CFLAGS="$SIMD_CFLAGS"
-  fi
-  if test "$enable_vmx" = "check"; then
-     sre_save_cflags="$CFLAGS"
-     CFLAGS="$CFLAGS $VMX_SIMD_CFLAGS"
-     AC_MSG_CHECKING([if platform can run Altivec/VMX instructions])
-     AC_RUN_IFELSE([AC_LANG_PROGRAM( [[#include <altivec.h>]],
-   	 			   [[vector unsigned char zerov;
-                                     vector unsigned char onev;
-                                     zerov = vec_splat_u8(0);
-                                     onev = vec_splat_u8(1);
-                                     onev = vec_adds(onev, zerov);
-				   ]])],
-                     [AC_MSG_RESULT([yes])
-                       enable_vmx=yes],
-                     [AC_MSG_RESULT([no])
-                        if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
-                           echo "******************************************************"
-                           echo "*  You seem to have the IBM  C compiler.  If your    *"
-                           echo "*  processor supports vector instructions it is      *"
-                           echo "*  possible specifying an architecture would enable  *"
-                           echo "*  vector support, i.e.                              *"
-                           echo "*                                                    *"
-                           echo "*    --with-xlc-arch=XXX                             *"
-                           echo "*                                                    *"
-                           echo "*  where XXX is pwr6, auto or whatever kind of CPU   *"
-                           echo "*  you have.                                         *"
-                           echo "******************************************************"
-                        fi
-                   ])
-     CFLAGS="$sre_save_cflags"
-  fi
-  if test "$enable_vmx" = "yes"; then
-    SIMD_CFLAGS="$VMX_SIMD_CFLAGS"
-    AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
-  fi
+if test "$enable_vmx" = "yes"; then
+   if test "x$SIMD_CFLAGS" = x; then
+   if test "$GCC" = "yes"; then
+     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],
+       [AX_CHECK_COMPILER_FLAGS(-maltivec -mabi=altivec,
+ 	   [SIMD_CFLAGS="-maltivec -mabi=altivec"],
+           [AX_CHECK_COMPILER_FLAGS(-fvec, [SIMD_CFLAGS="-fvec"],
+		   [AC_MSG_ERROR([Need a version of gcc with -maltivec])])])])
+   elif test "${ax_cv_c_compiler_vendor}" = "ibm"; then
+     AX_CHECK_COMPILER_FLAGS(-qaltivec, [SIMD_CFLAGS="-qaltivec"],[])
+   else
+     AX_CHECK_COMPILER_FLAGS(-faltivec, [SIMD_CFLAGS="-faltivec"],[])
+   fi
+   AC_DEFINE(HAVE_VMX,1,[Support Altivec/VMX vector instructions])
+   fi
 fi
-
 AC_SUBST(SIMD_CFLAGS)
 
 
@@ -365,7 +315,7 @@ AS_IF([test "x$with_gsl" != xno],
 
 # 6. Checks for header files.
 #    Defines preprocessor symbols like HAVE_UNISTD_H
-AC_CHECK_HEADERS([sys/types.h sys/sysctl.h unistd.h stdint.h inttypes.h endian.h])
+AC_CHECK_HEADERS([sys/types.h sys/sysctl.h unistd.h stdint.h inttypes.h])
 
 # altivec.h requires the simd cflags
 # For reasons I don't understand, this needs to come after any other CHECK_HEADERS().
@@ -412,6 +362,7 @@ AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)
 AC_CHECK_FUNCS(sysctl)
 AC_CHECK_FUNCS(sysconf)
+AC_FUNC_FSEEKO
 AC_FUNC_FSEEKO
 
 # 11. Checks for system services 
