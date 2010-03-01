@@ -5881,7 +5881,7 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
   
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
     ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
-  if(do_header) fprintf(ofp, afp->buf);
+  if(do_header) fprintf(ofp, "%s", afp->buf);
 
   /* Read the alignment file one line at a time.
    */
@@ -5897,7 +5897,7 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 	  {
 	    if (do_gf) { 
 	      if(maxgf == -1) { /* just print line as is */
-		fprintf(ofp, afp->buf); 
+		fprintf(ofp, "%s", afp->buf); 
 	      }
 	      else { /* parse line into temporary strings, then print it out with correct formatting */
 		s = afp->buf;
@@ -5948,7 +5948,7 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 	    /* we don't validate the sequence exists, this would require storing all seqnames */
 	    if (do_gs) { 
 	      if(maxname == -1 && seqs2regurg == NULL) { /* just print line as is */
-		fprintf(ofp, afp->buf); 
+		fprintf(ofp, "%s", afp->buf); 
 	      }
 	      else { /* parse line into temporary strings, then print it out with correct formatting */
 		if(seqs2regurg == NULL || (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) 
@@ -6005,10 +6005,10 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 		}
 	    }
 	  }
-	else if (do_comments) fprintf(ofp, afp->buf); /* print comment line, if desired */
+	else if (do_comments) fprintf(ofp, "%s", afp->buf); /* print comment line, if desired */
       } /* end of 'if (*s == '#')' */ 
-      else if (strncmp(s, "//",   2) == 0)   { if(do_trailer) fprintf(ofp, afp->buf); break; /* normal way out */ }
-      else if (*s == '\n' || *s == '\r')     { if(do_blanks)  { fprintf(ofp, afp->buf); } continue; } 
+      else if (strncmp(s, "//",   2) == 0)   { if(do_trailer) fprintf(ofp, "%s", afp->buf); break; /* normal way out */ }
+      else if (*s == '\n' || *s == '\r')     { if(do_blanks)  { fprintf(ofp, "%s", afp->buf); } continue; } 
       else { /* sequence line */
 	if(do_aseq) { 
 	  /* parse line into temporary strings */
@@ -6097,7 +6097,7 @@ esl_msa_CreateFromString(const char *s, int fmt)
   ESL_MSA     *msa         = NULL;
 
   if (esl_tmpfile_named(tmpfile, &fp)            != eslOK) goto ERROR;
-  fprintf(fp, s);
+  fprintf(fp, "%s", s);
   fclose(fp); 
   fp = NULL;
   if (esl_msafile_Open(tmpfile, fmt, NULL, &mfp) != eslOK) goto ERROR;
