@@ -147,12 +147,12 @@ main(int argc, char **argv)
     {
       infmt = esl_sqio_EncodeFormat(informat);
       if (infmt == eslSQFILE_UNKNOWN)
-	esl_fatal("%s is not a recognized input seqfile format\n");
+	esl_fatal("%s is not a recognized input seqfile format\n", informat);
     }
 
   outfmt = esl_sqio_EncodeFormat(outformat);
   if (outfmt == eslSQFILE_UNKNOWN)
-    esl_fatal("%s is not a recognized output seqfile format\n");
+    esl_fatal("%s is not a recognized output seqfile format\n", outformat);
 
   /* if --small, make sure infmt == pfam and (outfmt == afa || outfmt == pfam) */
   if(do_small && (infmt != eslMSAFILE_PFAM || (outfmt != eslMSAFILE_AFA && outfmt != eslMSAFILE_PFAM)))  
