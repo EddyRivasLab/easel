@@ -257,32 +257,42 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
     }
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
-  switch (format) {
-  case eslSQFILE_EMBL:     
-  case eslSQFILE_UNIPROT:  
-    config_embl(sqfp);    
-    inmap_embl(sqfp, NULL);
-    break;
-  case eslSQFILE_GENBANK:  
-  case eslSQFILE_DDBJ:     
-    config_genbank(sqfp); 
-    inmap_genbank(sqfp, NULL);
-    break;
-  case eslSQFILE_FASTA:    
-    config_fasta(sqfp);   
-    inmap_fasta(sqfp, NULL);
-    break;
+  if (!esl_sqio_IsAlignment(format)) 
+    {
+      switch (format) {
+      case eslSQFILE_EMBL:     
+      case eslSQFILE_UNIPROT:  
+	config_embl(sqfp);    
+	inmap_embl(sqfp, NULL);
+	break;
+      case eslSQFILE_GENBANK:  
+      case eslSQFILE_DDBJ:     
+	config_genbank(sqfp); 
+	inmap_genbank(sqfp, NULL);
+	break;
+      case eslSQFILE_FASTA:    
+	config_fasta(sqfp);   
+	inmap_fasta(sqfp, NULL);
+	break;
+      default:
+	status = eslEFORMAT; 
+	goto ERROR;
+      }
+    }
+  else
+    {
+      ascii->is_linebased = TRUE;
+      ascii->eof_is_ok    = FALSE;	/* no-op for msa's */
+      ascii->parse_header = NULL;  	/* no-op for msa's */
+      ascii->skip_header  = NULL;  	/* no-op for msa's */
+      ascii->parse_end    = NULL;       /* no-op for msa's */
 #ifdef eslAUGMENT_MSA
-  case eslMSAFILE_STOCKHOLM: 
-    ascii->is_linebased = TRUE;
-    ascii->eof_is_ok    = FALSE;	/* no-op for msa's */
-    ascii->parse_header = NULL;  	/* no-op for msa's */
-    ascii->skip_header  = NULL;  	/* no-op for msa's */
-    ascii->parse_end    = NULL;	        /* no-op for msa's */
-    if ((status = esl_msafile_Open(filename, format, NULL, &(ascii->afp))) != eslOK) goto ERROR;
-    break;
-#endif /*eslAUGMENT_MSA*/
-  }
+      status = esl_msafile_Open(filename, format, NULL, &(ascii->afp));
+#else
+      status = eslEFORMAT;
+#endif
+      if (status != eslOK) goto ERROR;
+    }
 
   /* Preload the first line or chunk of file. */
   if (!esl_sqio_IsAlignment(format))
@@ -599,21 +609,32 @@ sqascii_Close(ESL_SQFILE *sqfp)
 static int
 sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
 {
+  int status = eslOK;
+
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-  switch (sqfp->format) {
-  case eslSQFILE_EMBL:       inmap_embl(sqfp,    abc->inmap); break;
-  case eslSQFILE_UNIPROT:    inmap_embl(sqfp,    abc->inmap); break;
-  case eslSQFILE_GENBANK:    inmap_genbank(sqfp, abc->inmap); break;
-  case eslSQFILE_DDBJ:       inmap_genbank(sqfp, abc->inmap); break;
-  case eslSQFILE_FASTA:      inmap_fasta(sqfp,   abc->inmap); break;
-    /* stockholm: do nothing (no inmap used for MSAs */
-  }
+  if (!esl_sqio_IsAlignment(sqfp->format))
+    {
+      switch (sqfp->format) {
+      case eslSQFILE_EMBL:       inmap_embl(sqfp,    abc->inmap); break;
+      case eslSQFILE_UNIPROT:    inmap_embl(sqfp,    abc->inmap); break;
+      case eslSQFILE_GENBANK:    inmap_genbank(sqfp, abc->inmap); break;
+      case eslSQFILE_DDBJ:       inmap_genbank(sqfp, abc->inmap); break;
+      case eslSQFILE_FASTA:      inmap_fasta(sqfp,   abc->inmap); break;
 
-  if (esl_sqio_IsAlignment(sqfp->format))
-    esl_msafile_SetDigital(ascii->afp, abc);
+      default:                 	 status = eslEFORMAT;             break;
+      }
+    }
+  else
+    {
+#ifdef eslAUGMENT_MSA
+      status = esl_msafile_SetDigital(ascii->afp, abc);
+#else
+      status = eslEFORMAT;
+#endif
+    }
 
-  return eslOK;
+  return status;
 }
 
 /* Function:  sqascii_GuessAlphabet()
