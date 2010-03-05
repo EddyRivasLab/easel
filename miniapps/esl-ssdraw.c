@@ -297,7 +297,7 @@ static ESL_OPTIONS options[] = {
   { "--mask-a", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    NULL,      "with --mask-u or --mask-x, draw alternative mask style", 4 },
 
   { "--mask-col", eslARG_NONE,  NULL,NULL, NULL, NULL,"--mask",    NULL,      "w/--mask draw two color diagram denoting masked columns", 5 },
-  { "--mask-diff",eslARG_INFILE,NULL,NULL, NULL, NULL,"--mask",    NULL,      "with --mask-col <f1>, compare mask in <f1> to mask in <f>", 5 },
+  { "--mask-diff",eslARG_INFILE,NULL,NULL, NULL, NULL,"--mask",    NULL,      "with --mask <f1>, compare mask in <f1> to mask in <f>",   5 },
 
   { "--dfile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'draw file' specifying >=1 diagrams", 6 },
   { "--efile",   eslARG_INFILE, NULL,NULL, NULL, NULL,NULL,        NULL,      "read 'expert draw file' specifying >=1 diagrams", 6 },
@@ -408,7 +408,7 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
       puts("\noptions for alignment summary diagrams (incompatible with --indi):");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
-      puts("\noptions for individual mode (require --indi):");
+      puts("\noptions for drawing individual sequences (require --indi):");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
       puts("\noptions controlling style of masked positions:");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
@@ -710,7 +710,7 @@ main(int argc, char **argv)
   if(default_mode) { /* set default pages */
     do_info = do_mutinfo = do_ifreq = do_iavglen = do_dall = do_dint = do_span = TRUE;
     if(msa->rf != NULL) do_rf   = TRUE;
-    if(msa->pp != NULL) do_prob = TRUE;
+    if((do_small && pp_ct != NULL) || (msa->pp != NULL)) do_prob = TRUE;
   }
   /* determine if tabfile was incorrectly used */
   if(tabfp != NULL && 
@@ -762,6 +762,8 @@ main(int argc, char **argv)
   if(! do_small) { /* derive counts from the msa for postscript diagrams, we do this our functions for drawing diagrams work in small mem or big mem mode */
     if((status = count_msa(msa, errbuf, &(abc_ct), &(bp_ct), (do_prob ? &(pp_ct) : NULL), &(spos_ct), &(epos_ct))) != eslOK) esl_fatal(errbuf);
   }    
+  if (esl_opt_GetBoolean(go, "--prob") && pp_ct == NULL) esl_fatal("--prob requires all sequences have PP annotation");
+
   /* read the insert file, if nec, we have to do this before we determine the span count in case inserts have been removed from the msa,
    * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadNonSeqInfo() could be slightly incorrect, we'll use
    * srfoff_ct and erfoff_ct from get_insert_info_from_ifile() to correct them when we derive span_ct from spos_ct and epos_ct together in get_span_ct(). */
@@ -816,10 +818,10 @@ main(int argc, char **argv)
     if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
-  if(do_prob) { /* avg post prob */
+  if(do_prob && pp_ct != NULL) { /* avg post prob */
     if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
-  
+      
   if(do_span) { /* span */
     if((status = span_sspostscript(go, errbuf, ps, span_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
@@ -2987,10 +2989,9 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
   /* contract check, msa should be in text mode and have ss_cons */
   if(msa->flags & eslMSA_DIGITAL) ESL_FAIL(eslEINVAL, errbuf, "count_msa() contract violation, MSA is digitized");
   if(msa->ss_cons == NULL) ESL_FAIL(eslEINVAL, errbuf, "the alignment lacks SS_cons annotation");
-  if(ret_pp_ct != NULL && msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, but none do.");
 
   /* allocate pp_ct array, if nec */
-  if(ret_pp_ct != NULL) { 
+  if(ret_pp_ct != NULL && msa->pp != NULL) { 
     ESL_ALLOC(pp_ct, sizeof(int *) * msa->alen);
     for(apos = 0; apos < msa->alen; apos++) { 
       ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
@@ -3671,6 +3672,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
     ifreq   = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
     iavglen = (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1]; 
+    /* printf("rfpos: %5d ifreq: %.3f iavglen: %.3f nins: %10d  nseq: %10d\n", rfpos, ifreq, iavglen, nins_ct[rfpos+1], nseq_with_ins_ct[rfpos+1]);  */
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
       nzeroins++;
@@ -3681,7 +3683,6 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], iavglen, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
-    /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
     if(tabfp != NULL) { 
       fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", rfpos+1, iavglen, ifreq, span_ct[rfpos], bi+1);
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
@@ -5402,7 +5403,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
 	  /* nins */
 	  if((status = esl_fileparser_GetTokenOnLine(efp, &tok, NULL)) != eslOK) esl_fatal("Error reading insert file, didn't read number of inserts for position %d on line %d of file %s.\n", rfpos, efp->linenumber, ifile);
 	  nins = atoi(tok);
-	  nins_ct[rfpos] = nins;
+	  nins_ct[rfpos] += nins;
 	  if(per_seq_ins_ct != NULL) per_seq_ins_ct[nseq_stored][rfpos] = nins;
 	  if(nins > 0) nseq_with_ins_ct[rfpos]++; /* nins should always be > 0, but why not check?  */
 	  
@@ -5421,8 +5422,9 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
 		 * NOTE a nasty off-by-one: RF (consensus) positions in the ifile are indexed 1..rflen, whereas srfoff_ct is 0..rflen-1 */
 		srfoff_ct[(spos-1)]--;    /* this position was overcounted */
 		srfoff_ct[(rfpos-1)+1]++; /* this position was undercounted, we do +1 because insert occured after rfpos */
-		printf("decremented srfoff_ct[%d] for seq %d\n", spos-1, i);
-		printf("incremented srfoff_ct[%d] for seq %d\n", rfpos-1+1, i);
+		/* printf("decremented srfoff_ct[%d] for seq %d\n", spos-1, i);
+		   printf("incremented srfoff_ct[%d] for seq %d\n", rfpos-1+1, i);
+		*/
 		already_handled_special_spos = TRUE; /* if another rfpos is less than (spos-1) we don't care, we already fixed s_rfoff_ct */
 	      }
 	    }
