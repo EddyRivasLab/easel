@@ -148,7 +148,7 @@
 #             differently in the output message.
 #             The format for the status in the output line is:
 #                ok.
-#                FAILED [nonzero code %d]
+#                FAILED [command failed]
 #                FAILED [crash!] 
 #
 # fail:       Run a command that is expected to exit cleanly with
@@ -172,6 +172,8 @@
 #                ok. 
 #                FAILED [valgrind reports error(s)]
 #                FAILED [valgrind reports leak(s)]
+#                FAILED [command failed]
+#                FAILED [crash!]
 #
 # regression: The same command template is processed and run twice;
 #             once under a "new" build (<top_builddir> and <top_srcdir>)
@@ -188,8 +190,8 @@
 #             Possible outputs:
 #                 ok.
 #                 FAILED [regressions differ]
-#                 FAILED [new code %d]
-#                 FAILED [old code %d]
+#                 FAILED [new command failed]
+#                 FAILED [old command failed]
 #                 FAILED [new crashed!]
 #                 FAILED [old crashed!]
 #
@@ -323,14 +325,22 @@ while (<COMMANDS>) {
 
     # Run the commands;
     # collect exit status in status1;
-    # additionally, for regression test, old executable's status is in status2
+    # additionally, for regression test, old executable's status is in status2.
+    #
+    # If our command fails "cleanly" it has an exit code of 1 by Easel convention.
+    # Because of the way Perl handles status codes, this becomes 1<<8 = 256.
+    # All other nonzero codes are called "crashes" because they probably are.
+    #
+    # The `(true; $cmd)` stuff is because a segfault gets reported by shell,
+    # not the process itself; we want to redirect that output too.
     $startwall = time;
     $startcpu  = (times)[2];
     print "sqc: running cmd: $cmd\n" if $verbose;
-    system "$cmd";
+    `(true; $cmd) 2> /dev/null > /dev/null`;
     $status1 = $?;
+    print "sqc: return status $status1\n" if $verbose;
     if ($testtype eq "regression") {
-	system "$cmd2";
+	`(true; $cmd2) 2> /dev/null > /dev/null`;
 	$status2 = $?;
     }
     $stopwall = time;
@@ -344,8 +354,8 @@ while (<COMMANDS>) {
 
     elsif ($testtype eq "exercise") 
     {
-	if    (($status1 & 255) != 0) { print "FAILED [crash!]\n";                    $badtest++; }
-	elsif (($status1>>8)    != 0) { print "FAILED [nonzero exit code]\n";         $badtest++; }
+	if    (($status1>>8)    == 1) { print "FAILED [command failed]\n";   $badtest++; }
+	elsif ( $status1        != 0) { print "FAILED [crash!]\n";           $badtest++; }
 	else                          { print "ok.\n"; }
     } 
 
@@ -353,9 +363,9 @@ while (<COMMANDS>) {
     {
 	($has_valgrind, $has_leak) = &check_valgrind_status("$tmp.stderr");
 	if    ($has_valgrind == 0)    { print "FAILED [no valgrind output?]\n";       $badtest++; }
-	elsif (($status1 & 255) != 0) { print "FAILED [crash!]\n";                    $badtest++; }
 	elsif (($status1>>8) == 99)   { print "FAILED [valgrind reports error(s)]\n"; $badtest++; }
-	elsif (($status1>>8) != 0)    { print "FAILED [cmd returned nonzero]\n";      $badtest++; }
+	elsif (($status1>>8) == 1)    { print "FAILED [command failed]\n";            $badtest++; }
+	elsif ( $status1     != 0)    { print "FAILED [crash!]\n";                    $badtest++; }
 	elsif ($has_leak)             { print "FAILED [valgrind reports leak(s)]\n";  $badtest++; }
 	else                          { print "ok.\n"; }
 	# Important to check for leaks last above. On app failure, we're allowed to return a nonzero 
@@ -365,10 +375,10 @@ while (<COMMANDS>) {
 
     elsif ($testtype eq "regression") 
     {
-	if    (($status1&255) != 0) { print "FAILED [new crashed!]\n";       $badtest++; }
-	elsif (($status1>>8)  != 0) { print "FAILED [new: nonzero exit]\n";  $badtest++; }
-	elsif (($status2&255) != 0) { print "FAILED [old crashed!]\n";       $badtest++; }
-	elsif (($status2>>8)  != 0) { print "FAILED [old: nonzero exit]\n";  $badtest++; }
+	if    (($status1>>8)   == 1) { print "FAILED [new command failed]\n";  $badtest++; }
+	elsif (($status2>>8)   == 1) { print "FAILED [old command failed]\n";  $badtest++; }
+	elsif ( $status1       != 0) { print "FAILED [new crashed!]\n";        $badtest++; }
+	elsif ( $status2       != 0) { print "FAILED [old crashed!]\n";        $badtest++; }
 	else 
 	{
 	    $nregress_failed = 0;
@@ -397,8 +407,8 @@ while (<COMMANDS>) {
 
     elsif ($testtype eq "fail") 
     {
-	if    (($status1&255) != 0) { print "FAILED [crash!]\n";    $badtest++; }
-	elsif (($status1>>8)  == 0) { print "FAILED [0 status]\n";  $badtest++; }
+	if    (($status1>>8)  == 0) { print "FAILED [0 status]\n";  $badtest++; }
+	elsif (($status1>>8)  != 1) { print "FAILED [crash!]\n";    $badtest++; }
 	else                        { print "ok.\n"; }
     }
 }
