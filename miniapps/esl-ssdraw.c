@@ -1571,7 +1571,7 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errb
 
   x = ps->legx;
   y = ps->cur_legy;
-  if(ps->mask != NULL) { 
+  if(ps->mask != NULL && ps->modeA[pagenum] == ALIMODE) { 
     y -= 0.625 * (float) ps->leg_boxsize;
   }
   /*fprintf(fp, "/%s findfont %f scalefont setfont\n", SPECIAL_FONT, legend_fontsize);*/
