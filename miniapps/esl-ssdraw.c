@@ -216,9 +216,9 @@ static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLege
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
 static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf);
 static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused);
-static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf);
-static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx);
-static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int page);
+static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errbuf);
+static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx, int pagenum);
+static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int pagenum);
 static void free_sspostscript(SSPostscript_t *ps);
 static int  add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode);
 static int  parse_template_file(char *filename, const ESL_GETOPTS *go, char *errbuf, int msa_rflen, SSPostscript_t **ret_ps);
@@ -1559,7 +1559,7 @@ add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask)
  * Return:   eslOK
  */
 static int 
-draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
+draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errbuf)
 {
   int status;
   int i;
@@ -1587,7 +1587,7 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
   for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
   cur_string[cur_width] = '\0';
 
-  if(ps->mask != NULL) { 
+  if(ps->mask != NULL && ps->modeA[pagenum] == ALIMODE) { 
     fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "", " in ", x, (y + ((float) ps->leg_boxsize * .25)));
     y -= 0.625 * (float) ps->leg_boxsize;
     fprintf(fp, "(%4s  %4s) %.2f %.2f moveto show\n", "all", "mask", x, (y + ((float) ps->leg_boxsize * .25)));
@@ -1617,7 +1617,7 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, char *errbuf)
  * Return:   eslOK
  */
 static int 
-draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx)
+draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx, int pagenum)
 {
   float x, y;
   int cp;
@@ -1650,7 +1650,7 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
 
     /* print stats */
     x = ps->legx_stats;
-    if(ps->mask != NULL) { 
+    if(ps->mask != NULL && ps->modeA[pagenum] == ALIMODE) { 
       fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", occl->nres, occl->nres_masked, x, y + ((float) ps->leg_boxsize * 0.25));
     }
     else { 
@@ -1674,7 +1674,7 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
  * Return:   eslOK
  */
 static int 
-draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int page)
+draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int pagenum)
 {
   float x, y;
   int cp;
@@ -1693,7 +1693,7 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
 
   x = ps->legx;
   y = ps->cur_legy;
-  //y = ps->legy - (ps->nocclA[page] * ((float) ps->leg_boxsize * 1.5));
+  //y = ps->legy - (ps->nocclA[pagenum] * ((float) ps->leg_boxsize * 1.5));
   fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
   fprintf(fp, "%% begin color scheme legend\n");
   fprintf(fp, "/%s findfont %f scalefont setfont\n", LEG_FONT, fontsize);
@@ -1977,7 +1977,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     /* draw legend headers, if we have a legend */
     if((ps->nocclA[p] > 0) || (ps->sclAA != NULL && ps->sclAA[p] != NULL)) { 
       if(! (esl_opt_GetBoolean(go, "--no-leg"))) { 
-	if((status = draw_legend_column_headers(fp, ps, errbuf)) != eslOK) return status;
+	if((status = draw_legend_column_headers(fp, ps, p, errbuf)) != eslOK) return status;
       }
     }
 
@@ -1985,7 +1985,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     if(ps->occlAAA != NULL && ps->occlAAA[p] != NULL) { 
       for(l = 0; l < ps->nocclA[p]; l++) 
       if(! (esl_opt_GetBoolean(go, "--no-leg"))) { 
-	draw_onecell_colorlegend(fp, ps->occlAAA[p][l], ps, l);
+	draw_onecell_colorlegend(fp, ps->occlAAA[p][l], ps, l, p);
       }
     }
     /* print scheme color legends, if any */
@@ -4142,10 +4142,10 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "included by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[inc1_idx], ncols_in_1_out_2, -1);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "incl. mask 1, excl. mask 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "incl mask 1, excl mask 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][2] = create_onecell_colorlegend(hc_onecell[inc2_idx], ncols_out_1_in_2, -1);
-  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][2], "excl. mask 1, incl. mask 1", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][2], "excl mask 1, incl mask 1", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->occlAAA[pp][3] = create_onecell_colorlegend(hc_onecell[excboth_idx], ncols_out_both, -1);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][3], "excluded by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
