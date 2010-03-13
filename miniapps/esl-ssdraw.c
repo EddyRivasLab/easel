@@ -714,9 +714,9 @@ main(int argc, char **argv)
   }
   /* determine if tabfile was incorrectly used */
   if(tabfp != NULL && 
-     do_info == FALSE && do_mutinfo == FALSE && do_ifreq  == FALSE && 
+     do_info == FALSE && do_mutinfo == FALSE && do_ifreq  == FALSE && do_prob == FALSE &&
      do_iavglen == FALSE && do_dall == FALSE && do_dint   == FALSE && do_span == FALSE) { 
-    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--dall,--dint,--span");
+    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--iavglen,--prob,--dall,--dint,--span");
   }
   need_span_ct = (do_dint || do_span || do_ifreq || do_iavglen) ? TRUE : FALSE;
 
@@ -3204,7 +3204,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
     if(tabfp != NULL) { 
       fprintf(tabfp, "  infocontent  %6d  %8.5f  %10d  %3d", rfpos+1, ent[rfpos], (int) esl_vec_DSum(abc_ct[apos], abc->K), bi+1);
-      if(ps->mask != NULL) fprintf(tabfp, "  %4d\n", ps->mask[rfpos] == '1' ? 1 : 0);
+      if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }
   }
@@ -3647,10 +3647,10 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
       fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s average insert length after each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
     }
     fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "type", "cpos", "iavglen", "ifreq", "nspan", "bin");
+    fprintf(tabfp, "# %12s  %6s  %8s  %8s  %10s  %3s", "type", "cpos", "iavglen", "ifreq", "nspan", "bin");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
     fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %9s  %6s  %8s  %8s  %10s  %3s", "---------", "------", "--------", "--------", "----------", "---");
+    fprintf(tabfp, "# %12s  %6s  %8s  %8s  %10s  %3s", "------------", "------", "--------", "--------", "----------", "---");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
     fprintf(tabfp, "\n");
   }
@@ -3661,7 +3661,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
     if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
     ifreq   = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
     iavglen = (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
-    fprintf(tabfp, "  insertlen  %6d  %8.4f  %8.5f  %10d  %3d", 0, iavglen, ifreq, span_ct[0], -1);
+    fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", 0, iavglen, ifreq, span_ct[0], -1);
     if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
     fprintf(tabfp, "\n");
   }
@@ -3786,10 +3786,10 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
       fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences that span each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
     }
     fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# %8s  %6s  %8s  %3s", "type", "cpos", "span", "bin");
+    fprintf(tabfp, "# %4s  %6s  %8s  %3s", "type", "cpos", "span", "bin");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "mask");
     fprintf(tabfp, "\n");
-    fprintf(tabfp, "# %8s  %6s  %8s  %3s", "------", "------", "--------", "---");
+    fprintf(tabfp, "# %4s  %6s  %8s  %3s", "----", "------", "--------", "---");
     if(ps->mask != NULL) fprintf(tabfp, "  %4s", "----");
     fprintf(tabfp, "\n");
   }
