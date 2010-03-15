@@ -693,7 +693,7 @@ main(int argc, char **argv)
     default_mode = FALSE; 
   }
   if(esl_opt_GetBoolean(go, "--indi")) { 
-    do_indi = TRUE; 
+    do_indi     = TRUE; 
     default_mode = FALSE; 
     /* Predict size of indi output file, based on two data points:
      * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
@@ -817,7 +817,7 @@ main(int argc, char **argv)
   if(do_dint) { /* internal deletes */
     if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
-  
+
   if(do_prob && pp_ct != NULL) { /* avg post prob */
     if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
@@ -876,96 +876,96 @@ main(int argc, char **argv)
        * The way we get insert info varies, depending on if --small and --ifile. 
        * If ! --small, we read all insert info, either from the msa (if ! --ifile) or from the ifile (if --ifile). 
        * If   --small, we read only the insert info for the seqs we're going to draw diagrams for.
-	 * When --small and ! --ifile, first we have to create the smaller alignment containing only those
-	 * seqs we'll draw diagrams for, then we get the insert info from it.
+       * When --small and ! --ifile, first we have to create the smaller alignment containing only those
+       * seqs we'll draw diagrams for, then we get the insert info from it.
+       */
+      if(! do_small) { 
+	if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
+	  get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+	}
+	else { /* get insert info from the msa */
+	  get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
+	}
+      }
+      else { /* do_small */ 
+	if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
+	  get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, NULL, &(indi_per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
+	}
+	/* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
+	 * below). We put the if() part above so that if there's an error in the ifile we find out before we do the 
+	 * full msa regurgitation below.
 	 */
-	if(! do_small) { 
-	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	  }
-	  else { /* get insert info from the msa */
-	    get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	  }
+	
+	/* We're in small memory mode, which means we never read the full alignment into memory. Instead we will just read
+	 * the sequences that we're going to draw indi diagrams for into memory by creating a new msa: indi_msa.
+	 * The way we do this is convoluted: open the msa file, and regurgitate it to a temp file, but taking care only to 
+	 * regurgitate the seqs we want to draw diagrams for. Then we read that temp file into memory as indi_msa.
+	 */
+	esl_msafile_Close(afp);
+	status = esl_msafile_Open(alifile, fmt, NULL, &afp);
+	
+	/* small memory mode, write a temporary alignment with only the sequences we want individual diagrams for */
+	if(esl_opt_IsOn(go, "--keep")) { 
+	  if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep"));
 	}
-	else { /* do_small */ 
-	  if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
-	    get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, NULL, &(indi_per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	  }
-	  /* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
-	   * below). We put the if() part above so that if there's an error in the ifile we find out before we do the 
-	   * full msa regurgitation below.
-	   */
-
-	  /* We're in small memory mode, which means we never read the full alignment into memory. Instead we will just read
-	   * the sequences that we're going to draw indi diagrams for into memory by creating a new msa: indi_msa.
-	   * The way we do this is convoluted: open the msa file, and regurgitate it to a temp file, but taking care only to 
-	   * regurgitate the seqs we want to draw diagrams for. Then we read that temp file into memory as indi_msa.
-	   */
-	  esl_msafile_Close(afp);
-	  status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-
-	  /* small memory mode, write a temporary alignment with only the sequences we want individual diagrams for */
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep"));
-	  }
-	  else { 
-	    if ((esl_tmpfile_named(tmp_indi_alifile, &indi_fp)) != eslOK) esl_fatal("Failed to open temporary output file %s for --indi and --list");
-	  }
-	  if      (status == eslENOTFOUND) esl_fatal("Final pass, alignment file %s doesn't exist or is not readable\n", alifile);
-	  else if (status == eslEFORMAT)   esl_fatal("Final pass, couldn't determine format of alignment %s\n", alifile);
-	  else if (status != eslOK)        esl_fatal("Final pass, alignment file open failed with error %d\n", status);
-	  status = esl_msa_RegurgitatePfam(afp, indi_fp, 
-					   -1, -1, -1, -1, /* don't care about max width of fields */
-					   TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
-					   useme_keyhash, /* only regurgitate seqs in useme_keyhash */
-					   NULL,          /* no list of seqs to skip */
-					   NULL, NULL, -1, '.',
-					   NULL, NULL); /* don't return number of seqs read/regurgitated */
-	  fclose(indi_fp); 
-	  indi_fp = NULL;
-	  if(status == eslEOF)       esl_fatal("Writing temporary alignment for --small, no alignments in file");
-	  if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
-	  
-	  /* now read in that small alignment */
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    status = esl_msafile_Open(esl_opt_GetString(go, "--keep"), fmt, NULL, &indi_afp);
-	  }
-	  else { 
-	    status = esl_msafile_Open(tmp_indi_alifile, fmt, NULL, &indi_afp);
-	  }
-	  esl_msa_Read(indi_afp, &indi_msa); /* read the full thing into memory */
-	  esl_msafile_Close(indi_afp);
-	  indi_msa->abc = abc;
-
-	  if(esl_opt_IsOn(go, "--keep")) { 
-	    printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep"));
-	  }
-	  else { 
-	    remove(tmp_indi_alifile);
-	  }
-
-	  /* check to make sure all the sequences from the list file were in the alignment */
-	  if(indi_msa->nseq != nused) { 
-	    for(i = 0; i < nused; i++) { 
-	      if((status = esl_key_Lookup(indi_msa->index, (esl_keyhash_Get(useme_keyhash, i)), NULL)) == eslENOTFOUND) { 
-		esl_fatal("Error with list file %s, sequence %s does not exist in the alignment.", esl_opt_GetString(go, "--list"), esl_keyhash_Get(useme_keyhash, i));
-	      }
+	else { 
+	  if ((esl_tmpfile_named(tmp_indi_alifile, &indi_fp)) != eslOK) esl_fatal("Failed to open temporary output file %s for --indi and --list");
+	}
+	if      (status == eslENOTFOUND) esl_fatal("Final pass, alignment file %s doesn't exist or is not readable\n", alifile);
+	else if (status == eslEFORMAT)   esl_fatal("Final pass, couldn't determine format of alignment %s\n", alifile);
+	else if (status != eslOK)        esl_fatal("Final pass, alignment file open failed with error %d\n", status);
+	status = esl_msa_RegurgitatePfam(afp, indi_fp, 
+					 -1, -1, -1, -1, /* don't care about max width of fields */
+					 TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
+					 useme_keyhash, /* only regurgitate seqs in useme_keyhash */
+					 NULL,          /* no list of seqs to skip */
+					 NULL, NULL, -1, '.',
+					 NULL, NULL); /* don't return number of seqs read/regurgitated */
+	fclose(indi_fp); 
+	indi_fp = NULL;
+	if(status == eslEOF)       esl_fatal("Writing temporary alignment for --small, no alignments in file");
+	if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
+	
+	/* now read in that small alignment */
+	if(esl_opt_IsOn(go, "--keep")) { 
+	  status = esl_msafile_Open(esl_opt_GetString(go, "--keep"), fmt, NULL, &indi_afp);
+	}
+	else { 
+	  status = esl_msafile_Open(tmp_indi_alifile, fmt, NULL, &indi_afp);
+	}
+	esl_msa_Read(indi_afp, &indi_msa); /* read the full thing into memory */
+	esl_msafile_Close(indi_afp);
+	indi_msa->abc = abc;
+	
+	if(esl_opt_IsOn(go, "--keep")) { 
+	  printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep"));
+	}
+	else { 
+	  remove(tmp_indi_alifile);
+	}
+	
+	/* check to make sure all the sequences from the list file were in the alignment */
+	if(indi_msa->nseq != nused) { 
+	  for(i = 0; i < nused; i++) { 
+	    if((status = esl_key_Lookup(indi_msa->index, (esl_keyhash_Get(useme_keyhash, i)), NULL)) == eslENOTFOUND) { 
+	      esl_fatal("Error with list file %s, sequence %s does not exist in the alignment.", esl_opt_GetString(go, "--list"), esl_keyhash_Get(useme_keyhash, i));
 	    }
-	    /* we should never get here, but just in case */
-	    esl_fatal("Error, couldn't find all the sequences from the list file %s in the alignment (%d expected, %d found).", esl_opt_GetString(go, "--list"), nused, indi_msa->nseq);
 	  }
-
-	  /* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
-	   * we need to get insert info from indi_msa in the event --ifile was not invoked */
-	  if(! esl_opt_IsOn(go, "--ifile")) { 
-	    get_insert_info_from_msa(indi_msa, ps->rflen, NULL, NULL, &indi_per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	  }
-
-	  /* now indi_msa includes exactly the seqs listed in the list file, rewrite useme and nused */
-	  ESL_ALLOC(useme, sizeof(int) * indi_msa->nseq); 
-	  esl_vec_ISet(useme, indi_msa->nseq, TRUE);
-	  nused = indi_msa->nseq;
+	  /* we should never get here, but just in case */
+	  esl_fatal("Error, couldn't find all the sequences from the list file %s in the alignment (%d expected, %d found).", esl_opt_GetString(go, "--list"), nused, indi_msa->nseq);
 	}
+	
+	/* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
+	 * we need to get insert info from indi_msa in the event --ifile was not invoked */
+	if(! esl_opt_IsOn(go, "--ifile")) { 
+	  get_insert_info_from_msa(indi_msa, ps->rflen, NULL, NULL, &indi_per_seq_ins_ct); /* dies with esl_fatal() upon an error */
+	}
+	
+	/* now indi_msa includes exactly the seqs listed in the list file, rewrite useme and nused */
+	ESL_ALLOC(useme, sizeof(int) * indi_msa->nseq); 
+	esl_vec_ISet(useme, indi_msa->nseq, TRUE);
+	nused = indi_msa->nseq;
+      }
     } /* end of else if (esl_opt_IsOn(go, "--list")) */
     /* now we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
      * draw the individual sequence pages */
@@ -3659,8 +3659,8 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   if(tabfp != NULL) { 
     apos = ps->msa_rf2a_map[0];
     if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
-    ifreq   = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
-    iavglen = (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
+    ifreq   = (span_ct[0] == 0)          ? 0. : (float) nseq_with_ins_ct[0] / (float) span_ct[0];
+    iavglen = (nseq_with_ins_ct[0] == 0) ? 0. : (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
     fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", 0, iavglen, ifreq, span_ct[0], -1);
     if(ps->mask != NULL) fprintf(tabfp, "  %4d", 0);
     fprintf(tabfp, "\n");
@@ -3670,8 +3670,8 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
     ps->rrAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos]; 
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
-    ifreq   = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
-    iavglen = (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1]; 
+    ifreq   = (span_ct[rfpos] == 0)            ? 0. : (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos];
+    iavglen = (nseq_with_ins_ct[rfpos+1] == 0) ? 0. : (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1];
     /* printf("rfpos: %5d ifreq: %.3f iavglen: %.3f nins: %10d  nseq: %10d\n", rfpos, ifreq, iavglen, nins_ct[rfpos+1], nseq_with_ins_ct[rfpos+1]);  */
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
@@ -3782,8 +3782,9 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# Value ranges for bins:\n");
     fprintf(tabfp, "# \tbin  0: special case, 0 sequences span this position\n");
+    fprintf(tabfp, "# \tbin  1: special case, all %d sequences span this position\n", msa_nseq);
     for(l = 0; l < hc_nbins; l++) { 
-      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences that span each position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
+      fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s fraction of sequences that span each position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
     }
     fprintf(tabfp, "#\n");
     fprintf(tabfp, "# %4s  %6s  %8s  %3s", "type", "cpos", "span", "bin");
@@ -3801,13 +3802,13 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
       nzerocov++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerocov_masked++;
       cfract = 0.;
-      bi = -1;
+      bi = -2;
     }
     else if(span_ct[rfpos] == msa_nseq) {  
       if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[maxcov_idx])) != eslOK) return status;
       nmaxcov++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nmaxcov_masked++; 
-      cfract = 0.;
+      cfract = 1.;
       bi = -1;
     }
     else {
@@ -3816,7 +3817,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
       if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
-      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos+1, cfract, bi+1); 
+      fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos+1, cfract, bi+2); 
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }
@@ -5308,10 +5309,10 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   int             seqlen;         /* sequence length for current sequence, read from ifile */
   int             spos;           /* first (5'-most) nongap consensus position for current sequence, read from ifile */
   int             epos;           /* final (3'-most) nongap consensus position for current sequence, read from ifile */
-  int            *srfoff_ct;      /* [0..rfpos..rflen-1] correction for spos_ct[rfpos], add this value to spos_ct
-				   * to correct the miscounting that occurs if the msa has had all inserts removed, but
-				   * an insert file with insert info has been supplied and is read in this function */
-  int            *erfoff_ct;      /* [0..rfpos..rflen-1] correction for epos_ct[rfpos] (analagous to srfoff_ct) */
+  int            *srfoff_ct = NULL; /* [0..rfpos..rflen-1] correction for spos_ct[rfpos], add this value to spos_ct
+				     * to correct the miscounting that occurs if the msa has had all inserts removed, but
+				     * an insert file with insert info has been supplied and is read in this function */
+  int            *erfoff_ct = NULL; /* [0..rfpos..rflen-1] correction for epos_ct[rfpos] (analagous to srfoff_ct) */
   int             already_handled_special_spos = FALSE;
   int             prv_e_increment, prv_e_decrement; 
 
@@ -5686,6 +5687,7 @@ get_span_ct(int *msa_rf2a_map, int64_t alen, int rflen, int nseq, int *spos_ct, 
    */
   for(rfpos = 0; rfpos < rflen; rfpos++) { 
     span_ct[rfpos] = nseq - (nseq_start_after_rfpos[rfpos] + nseq_end_before_rfpos[rfpos]);
+    /*printf("span_ct[rfpos: %d]: %d after: %d before: %d nseq: %d\n", rfpos, span_ct[rfpos], nseq_start_after_rfpos[rfpos], nseq_end_before_rfpos[rfpos], nseq);*/
   }
 
   *ret_span_ct = span_ct;

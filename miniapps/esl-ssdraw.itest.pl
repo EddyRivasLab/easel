@@ -447,7 +447,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /deleteall      67   0.20\d*    2/)                                               { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteint      67   0.00\d*           4    0/)                                   { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
     if($output !~ /avgpostprob      19   0.88\d*           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
-    if($output !~ /span      67   0.80\d*    5/)                                                    { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
+    if($output !~ /span      67   0.80\d*    6/)                                                    { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
 
     system("$eslssdraw $smallA[$pass] --rf $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                                    { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
