@@ -226,7 +226,7 @@ esl_histogram_Score2Bin(ESL_HISTOGRAM *h, double x, int *ret_b)
  *            <eslERANGE> if <x> is beyond the reasonable range for
  *            the histogram to store -- either because it isn't finite,
  *            or because the histogram would need to allocate a number
- *            of bins that exceeds INT\_MAX.
+ *            of bins that exceeds <INT_MAX>.
  *
  *            Throws <eslEINVAL> for cases where something has been done
  *            to the histogram that requires it to be 'finished', and

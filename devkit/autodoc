@@ -248,6 +248,7 @@ process_comment_text
 #           for LaTeX, as follows:
 #               _    becomes \_
 #               %    becomes \%
+#               #    becomes \#
 #      
 sub
 latex_safe
@@ -256,6 +257,7 @@ latex_safe
 
     $string =~ s/_/\\_/g;
     $string =~ s/%/\\%/g;
+    $string =~ s/#/\\#/g;
     $string;
 }
 

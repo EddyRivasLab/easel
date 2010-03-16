@@ -861,7 +861,7 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
 }
 
 
-/* Function:  esl_rsq_CShuffleKmers()
+/* Function:  esl_rsq_XShuffleKmers()
  * Synopsis:  Shuffle k-mers in a digital sequence.
  * Incept:    SRE, Tue Nov 17 18:58:00 2009 [NHGRI retreat, Gettysburg]
  *

@@ -4351,8 +4351,11 @@ write_a2m(FILE *fp, ESL_MSA *msa)
 		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
 		    }
 		}
-	      buf[bpos] = '\0';
-	      fprintf(fp, "%s\n", buf);	      
+	      if (bpos) 
+		{
+		  buf[bpos] = '\0';
+		  fprintf(fp, "%s\n", buf);	      
+		}
 	    }
 	}
 #endif
@@ -4380,8 +4383,11 @@ write_a2m(FILE *fp, ESL_MSA *msa)
 		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
 		    }
 		}
-	      buf[bpos] = '\0';
-	      fprintf(fp, "%s\n", buf);	      
+	      if (bpos) 
+		{
+		  buf[bpos] = '\0';
+		  fprintf(fp, "%s\n", buf);	      
+		}
 	    } 
 	}
     } /* end, loop over sequences in the MSA */
@@ -5240,7 +5246,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  * Purpose:  Read the next alignment from an open Stockholm Pfam
  *           (non-interleaved, one line per seq) format alignment file
  *           <afp> and store all non per-sequence information
- *           (comments, GF, GC) in a new msa.
+ *           (comments, \verb+#=GF+, \verb+#=GC+) in a new msa.
  *
  *           Note: this function could work on regular interleaved
  *           (non-Pfam) Stockholm if either (a) we didn't optionally
@@ -5262,7 +5268,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           flexible and able to accomodate the diverse needs of the
  *           memory efficient enabled easel miniapps that use it
  *           (esl-alimerge, esl-alimask, esl-ssdraw). For any that are
- *           unwanted, pass NULL.
+ *           unwanted, pass <NULL>.
  *
  * Args:     afp           - open alignment file pointer
  *           listfp        - if non-NULL, dump each sequence name we read 
@@ -5309,9 +5315,9 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           Alignments in <afp>, and <ret_msa> is set to NULL and
  *           <opt_*> are set to 0.
  *           <eslEFORMAT> if parse fails because of a file format
- *           problem, in which case afp->errbuf is set to contain a
+ *           problem, in which case <afp->errbuf> is set to contain a
  *           formatted message that indicates the cause of the
- *           problem, <ret_msa> is set to NULL and <opt_*> are set 
+ *           problem, <ret_msa> is set to <NULL> and <opt_*> are set 
  *           to 0.
  *
  * Throws:    <eslEMEM> on allocation error.

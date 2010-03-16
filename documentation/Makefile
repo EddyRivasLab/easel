@@ -55,11 +55,12 @@ MODULES = easel\
 	  esl_stats\
 	  esl_stopwatch\
 	  esl_stretchexp\
-	  esl_swat\
 	  esl_tree\
 	  esl_vectorops\
 	  esl_weibull\
 	  esl_wuss
+#	  esl_swat
+
 
 pdf:
 	make autodoc
