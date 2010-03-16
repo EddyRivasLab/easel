@@ -5194,7 +5194,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 
 /* get_pp_idx
  *                   
- * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
+ * Given a GR PP or GC PP_cons character, return the appropriate index
  * in a pp_ct[] vector. 
  * '0' return 0;
  * '1' return 1;
@@ -5240,7 +5240,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  * Purpose:  Read the next alignment from an open Stockholm Pfam
  *           (non-interleaved, one line per seq) format alignment file
  *           <afp> and store all non per-sequence information
- *           (comments, #=GF, #=GC) in a new msa.
+ *           (comments, GF, GC) in a new msa.
  *
  *           Note: this function could work on regular interleaved
  *           (non-Pfam) Stockholm if either (a) we didn't optionally
@@ -5258,7 +5258,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           are only one line would require storing and looking up
  *           all sequence names which we could do at a cost).
  *
- *           Many optional return values (opt_*) make this function
+ *           Many optional return values (<opt_*>) make this function
  *           flexible and able to accomodate the diverse needs of the
  *           memory efficient enabled easel miniapps that use it
  *           (esl-alimerge, esl-alimask, esl-ssdraw). For any that are
@@ -5277,12 +5277,12 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *                           for example. NULL if unknown.
  *           known_ss_cons - the known SS_cons annotation (msa->ss_cons) 
  *                           for this alignment, NULL if unknown.
- *           ret_msa       - RETURN: msa with comments, #=GC, #=GF annotation 
- *                           but no sequence info (nor #=GS,#=GR) 
- *                           pass NULL if not wanted
+ *           ret_msa       - RETURN: msa with comments, GC, GF 
+ *                           annotation  but no sequence info (nor GS, GR),
+ *                           pass NULL if not wanted.
  *           opt_nseq      - optRETURN: number of sequences in msa 
  *           opt_alen      - optRETURN: length of first aligned sequence 
- *           opt_ngs       - optRETURN: number of #=GS lines in alignment 
+ *           opt_ngs       - optRETURN: number of GS lines in alignment 
  *           opt_maxname   - optRETURN: maximum seqname length 
  *           opt_maxgf     - optRETURN: maximum GF tag length
  *           opt_maxgc     - optRETURN: maximum GC tag length 
@@ -5329,7 +5329,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   ESL_MSA   *msa = NULL;           /* the msa we're creating */
   int        nseq = 0;             /* number of sequences read */
   int64_t    alen = -1;            /* length of the alignment */
-  int        ngs = 0;              /* number of #=GS lines read */
+  int        ngs = 0;              /* number of GS lines read */
   int        maxname = 0;          /* max length seq name */
   int        maxgf = 0;            /* max length GF tag */
   int        maxgc = 0;            /* max length GC tag */
@@ -5337,7 +5337,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   char      *seqname;              /* a sequence name */
   int        namelen;              /* length of a sequence name */
   char      *first_seqname = NULL; /* name of first sequence read */
-  char      *gc, *gr;              /* for storing "#=GC", "#=GR", temporarily */
+  char      *gc, *gr;              /* for storing GC, GR, temporarily */
   char      *tag;                  /* a GC or GR tag */
   int        taglen;               /* length of a tag */
   char      *text;                 /* text string */
@@ -5760,21 +5760,21 @@ determine_spacelen(char *s)
  *           then none are added. Only one of <useme> and <add2me> 
  *           can be non-NULL. 
  * 
- *           If the <keepme> keyhash is non-NULL, it specifies the
- *           names of sequences (and affiliated annotation) to
- *           output. All others will be ignored. If <keepme> is NULL,
- *           all sequences will be regurgitated.
+ *           If one of the <seqs2regurg> or <seqs2skip> keyhashes are
+ *           non-NULL, they specify names of sequences (and affiliated
+ *           annotation) to output (<seqs2regurg>) or not output
+ *           (<seqs2skip>.  Only one of these may be non-NULL.
  *
  *           <maxname>, <maxgf>, <maxgc> and <maxgr> specify the max
  *           length sequence name, GF tag, GC tag, and GR tag, and can
  *           be provided by a caller that knows their values, e.g. as
- *           revealed by a previous call to esl_msa_ReadNonSeqPfam().
+ *           revealed by a previous call to <esl_msa_ReadNonSeqPfam()>.
  *           If any are -1, the caller didn't know the value, and the
  *           spacing in the alignment file we read in will be
  *           preserved. An example of useful non -1 values is if we're
  *           merging multiple alignments into a single alignment, and
  *           the spacing of any given alignment should change when all
- *           alignments are considered (like what esl-alimerge does).
+ *           alignments are considered (like what <esl-alimerge> does).
  *
  *           We can't be as rigorous about validating the input as the
  *           other read functions that store the full alignment. Here,
@@ -5782,13 +5782,14 @@ determine_spacelen(char *s)
  *           sequence read (verifying that all sequences are only one
  *           line would require storing and looking up all sequence
  *           names which we could do at a cost), that each aligned
- *           data line (aseq, GC, GR) are all the same length <alen>
+ *           data line (<aseq>, GC, GR) are all the same length <alen>.
  *           which should equal <exp_alen> unless <exp_alen> is -1,
  *           indicating the caller doesn't know what alen should be.
- *           If useme or add2me is non-NULL, exp_alen must not be -1.
- *           No validation of aligned sequence characters being part
- *           of an alphabet is done, though we could, at a cost in
- *           time.
+ *           In this case, all aligned data must be same length even
+ *           though it is unknown until the first aligned line is
+ *           read.  If <useme> or <add2me> is non-NULL, <exp_alen> 
+ *           must not be -1. No validation of aligned sequence 
+ *           characters being part of an alphabet is done.
  *
  * Args:     afp         - open alignment file pointer
  *           ofp         - output file pointer
@@ -5800,18 +5801,18 @@ determine_spacelen(char *s)
  *           do_trailer  - TRUE to write '//' at end to ofp
  *           do_blanks   - TRUE to regurgitate blank lines, FALSE not to
  *           do_comments - TRUE to write comments to ofp
- *           do_gf       - TRUE to write #=GF annotation to ofp
- *           do_gs       - TRUE to write #=GS annotation to ofp
- *           do_gc       - TRUE to write #=GC annotation to ofp
- *           do_gr       - TRUE to write #=GR annotation to ofp
+ *           do_gf       - TRUE to write GF annotation to ofp
+ *           do_gs       - TRUE to write GS annotation to ofp
+ *           do_gc       - TRUE to write GC annotation to ofp
+ *           do_gr       - TRUE to write GR annotation to ofp
  *           do_aseq     - TRUE to write aligned sequences to ofp
  *           seqs2regurg - keyhash of names of the sequences to write, all others
- *                         will not be written. Associated annotation (#=GS, #=GR) 
+ *                         will not be written. Associated annotation (GS, GR) 
  *                         will be written for these sequences only. Must be NULL
  *                         if seqs2skip is non-NULL (enforced by contract).
  *                         If both are NULL all seqs are written.
  *           seqs2skip   - keyhash of names of the sequences to skip (not write), 
- *                         all others will be written. Associated annotation (#=GS, #=GR) 
+ *                         all others will be written. Associated annotation (GS, GR) 
  *                         will not be written for these sequences. Must be NULL
  *                         if seqs2regurg is NULL (enforced by contract).
  *                         If both are NULL all seqs are written.
@@ -5821,10 +5822,11 @@ determine_spacelen(char *s)
  *                         position of aligned data (GC,GR,aseq), can be NULL
  *           exp_alen    - expected alignment length, -1 if unknown, which
  *                         is okay as long as useme == add2me == NULL
- *           gapchar2add - gap character, only relevant if add2me != NULL
- *           opt_nseq    - RETURN: optional, number of aligned sequences regurgitated
- *                         will be total number of sequences unless seqs2regurg != NULL
- *                         seqs2skip != NULL.
+ *           gapchar2add   - gap character, only relevant if add2me != NULL
+ *           opt_nseq_read     - RETURN: optional, number of aligned sequences read
+ *           opt_nseq_regurged - RETURN: optional, number of aligned sequences regurgitated,
+ *                               same as opt_nseq_read unless seqs2regurg != NULL or 
+ *                               seqs2skip != NULL.
  * 
  * Returns:   <eslOK> on success. 
  *            Returns <eslEOF> if there are no more alignments in <afp>.
@@ -5839,8 +5841,8 @@ determine_spacelen(char *s)
 int
 esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr, 
 			int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
-			int do_gs, int do_gc, int do_gr, int do_aseq, 
-			ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar2add,
+			int do_gs, int do_gc, int do_gr, int do_aseq, ESL_KEYHASH *seqs2regurg, 
+			ESL_KEYHASH *seqs2skip, int *useme, int *add2me, int exp_alen, char gapchar2add,
 			int *opt_nseq_read, int *opt_nseq_regurged)
 {
   char      *s = NULL;
