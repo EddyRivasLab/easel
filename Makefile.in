@@ -142,7 +142,6 @@ OBJS    = \
 	esl_stats.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
-	esl_swat.o\
 	esl_threads.o\
 	esl_tree.o\
 	esl_vectorops.o\
@@ -150,6 +149,8 @@ OBJS    = \
 	esl_weibull.o\
 	esl_workqueue.o\
 	esl_wuss.o
+#	esl_swat.o
+
 
 UTESTS =\
 	easel_utest\

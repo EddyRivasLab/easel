@@ -198,11 +198,11 @@ esl_dst_CJukesCantor(int K, const char *as1, const char *as2,
  *            <adsq2> are digitized aligned sequences, in alphabet
  *            <abc>. Otherwise, same as <esl_dst_CPairId()> except
  *            that only canonical residues are counted and checked for
- *            identity, while esl_dst_CPairId() (which has no
+ *            identity, while <esl_dst_CPairId()> (which has no
  *            alphabet) counts and checks identity of all alphanumeric
  *            characters.
  *            
- *            This function does not use esl_abc_Match() to handle
+ *            This function does not use <esl_abc_Match()> to handle
  *            degeneracies but it is set up to do so. Doing that would
  *            require that <opt_nid> be changed to a float or double,
  *            or its meaning be changed to be the number of canonical

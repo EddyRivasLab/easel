@@ -87,78 +87,78 @@ esl_mixdchlet_Create(int N, int K)
  *
  * Args:      A      - 2-dimensional square table representing presence of edges between vertices
  *            N      - size of that table
-
+ *
  * Returns:   <eslOK> if a perfect matching exists; <eslFAIL> otherwise.
  */
 int
-esl_mixdchlet_PerfectBipartiteMatchExists (int** A, int N ) {
-	/*
-	Basic idea:
-		-Scan through the rows, and create a matching edge any time a row has only
-		one matching column (i.e. a single column with eslOK value)
-		    * This is conservative: if the row isn't matched with this column, no perfect matching is possible.
-		-Repeat, this time scanning columns.
-	    -Repeat  rows then columns - until no rows or columns are found with a single eslOK value.
+esl_mixdchlet_PerfectBipartiteMatchExists(int **A, int N ) 
+{
+  /*
+    Basic idea:
+    -Scan through the rows, and create a matching edge any time a row has only
+    one matching column (i.e. a single column with eslOK value)
+    * This is conservative: if the row isn't matched with this column, no perfect matching is possible.
+    -Repeat, this time scanning columns.
+    -Repeat  rows then columns - until no rows or columns are found with a single eslOK value.
 
-		-If a row or column is found with no possible matches, then no complete matching is possible.
-		-If a point is reached where all rows and all columns have more than one match, I'm pretty sure a
-		 perfect matching is guaranteed.
-			- This is unproven; the intuition is that for any imperfect matching an augmenting path
-			  should (I think) exist: it will contain an edge from one unmatched element to a matched
-			  element, followed by the existing edge from that element to it's mate, followed by a 2nd
-			  edge from that mate to another, and so on.
+    -If a row or column is found with no possible matches, then no complete matching is possible.
+    -If a point is reached where all rows and all columns have more than one match, I'm pretty sure a
+    perfect matching is guaranteed.
+    - This is unproven; the intuition is that for any imperfect matching an augmenting path
+    should (I think) exist: it will contain an edge from one unmatched element to a matched
+    element, followed by the existing edge from that element to it's mate, followed by a 2nd
+    edge from that mate to another, and so on.
 
-		 It's a O(n^3) algorithm, though it'll typically run fast in practice
-	   */
-	  int matched_row[N], matched_col[N];
-	  esl_vec_ISet(matched_row, N, 0);
-	  esl_vec_ISet(matched_col, N, 0);
+    It's a O(n^3) algorithm, though it'll typically run fast in practice
+  */
+  int matched_row[N], matched_col[N];
+  esl_vec_ISet(matched_row, N, 0);
+  esl_vec_ISet(matched_col, N, 0);
 
-	  int i,j;
-	  int unassigned = N;
-	  int do_row = 1; // otherwise, do_column
-	  while (unassigned > 0) {
-		  int changed = 0;
+  int i,j;
+  int unassigned = N;
+  int do_row = 1; // otherwise, do_column
+  while (unassigned > 0) {
+    int changed = 0;
 
-		  for (i=0; i<N; i++) {
-			  int match_cnt = 0;
-			  int match = -1;
+    for (i=0; i<N; i++) {
+      int match_cnt = 0;
+      int match = -1;
 
-			  if ( 1 == (do_row == 1 ? matched_row[i] : matched_col[i]) ) continue;
+      if ( 1 == (do_row == 1 ? matched_row[i] : matched_col[i]) ) continue;
 
-			  for (j=0; j<N; j++) {
-				  if ( eslOK == (do_row == 1 ? A[i][j] : A[j][i] ) ) {
-					  match_cnt++;
-					  match = j;
-				  }
-			  }
+      for (j=0; j<N; j++) {
+	if ( eslOK == (do_row == 1 ? A[i][j] : A[j][i] ) ) {
+	  match_cnt++;
+	  match = j;
+	}
+      }
 
-			  if (match_cnt == 0) return eslFAIL;  // mixtures can't possibly match
-			  if (match_cnt == 1) { // found a pair s.t. only this col can match this row within tol.
-				  changed++;
-				  if (do_row == 1  ) {
-					  matched_row[i] = matched_col[match] = 1;
-					  for (j=0; j<N; j++)
-						  A[j][match] = eslFAIL; // don't allow the matched col to match other rows, too.
-				  } else {
-					  matched_col[i] = matched_row[match] = 1;
-					  for (j=0; j<N; j++)
-						  A[match][j] = eslFAIL; // don't allow the matched rwo to match other cols, too.
-				  }
-			  }
-			  //if (match_cnt > 1), leave it for a later pass
-		  }
-		  unassigned -= changed;
+      if (match_cnt == 0) return eslFAIL;  // mixtures can't possibly match
+      if (match_cnt == 1) { // found a pair s.t. only this col can match this row within tol.
+	changed++;
+	if (do_row == 1  ) {
+	  matched_row[i] = matched_col[match] = 1;
+	  for (j=0; j<N; j++)
+	    A[j][match] = eslFAIL; // don't allow the matched col to match other rows, too.
+	} else {
+	  matched_col[i] = matched_row[match] = 1;
+	  for (j=0; j<N; j++)
+	    A[match][j] = eslFAIL; // don't allow the matched rwo to match other cols, too.
+	}
+      }
+      //if (match_cnt > 1), leave it for a later pass
+    }
+    unassigned -= changed;
 
+    if (changed == 0) { // All had multiple hits, so (I think) we are guaranteed of being able to pick some mapping that will be legal
+      return eslOK;
+    }
+    do_row = 1 - do_row; // flip value
 
-		  if (changed == 0) { // All had multiple hits, so (I think) we are guaranteed of being able to pick some mapping that will be legal
-			  return eslOK;
-		  }
-		  do_row = 1 - do_row; // flip value
-
-	  }
-	  //got here, all mapping must've been done
-	  return eslOK;
+  }
+  //got here, all mapping must've been done
+  return eslOK;
 }
 
 /* Function:  esl_mixdchlet_Compare()
@@ -439,7 +439,7 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
 }
 
 
-/* Function:  esl_dirichlet_LogProbDataSet_Mixture()
+/* esl_dirichlet_LogProbDataSet_Mixture()
  * Incept:    TW, Wed Nov  4 14:10:22 EST 2009 [janelia]
  *
  * Purpose:   Given an observed set of count vectors $c[0..N-1][0..K-1]$, 
@@ -458,15 +458,18 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
  * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
  *            in <ret_answer>.
  */
-static int esl_dirichlet_LogProbDataSet_Mixture (int ntrials, double** counts, ESL_MIXDCHLET* md, double *ret_answer) {
-        *ret_answer = 0;
-        double val;
-        int i;
-        for (i = 0; i < ntrials; i++) {
-          esl_dirichlet_LogProbData_Mixture(counts[i], md, &val);
-          *ret_answer += val;
-        }
-        return eslOK;
+static int 
+esl_dirichlet_LogProbDataSet_Mixture(int ntrials, double** counts, ESL_MIXDCHLET* md, double *ret_answer) 
+{
+  double val;
+  int i;
+
+  *ret_answer = 0;
+  for (i = 0; i < ntrials; i++) {
+    esl_dirichlet_LogProbData_Mixture(counts[i], md, &val);
+    *ret_answer += val;
+  }
+  return eslOK;
 }
 
 
@@ -820,12 +823,12 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
  *            each guess. The mixdchlet returned is the one
  *            among these multiple local searches with
  *            best likelihood.  This is a convenience
- *            function, which simply wraps esl_mixdchlet_Fit
+ *            function, which simply wraps <esl_mixdchlet_Fit()>
  *            for multiple start points.
  *
  * Args:      r  - pointer to random generator
- * 			  c  - set of count vectors, [0..M-1][0..N-1]
- * 			  nc - number of count samples
+ * 	      c  - set of count vectors, [0..M-1][0..N-1]
+ * 	      nc - number of count samples
  *            reps - number of random starting points
  *            best_md  - an initialized mixdchlet, which will
  *            		contain the correct q and alpha values
