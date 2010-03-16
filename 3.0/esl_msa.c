@@ -4331,8 +4331,11 @@ write_a2m(FILE *fp, ESL_MSA *msa)
 		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
 		    }
 		}
-	      buf[bpos] = '\0';
-	      fprintf(fp, "%s\n", buf);	      
+	      if (bpos) 
+		{
+		  buf[bpos] = '\0';
+		  fprintf(fp, "%s\n", buf);	      
+		}
 	    }
 	}
 #endif
@@ -4360,8 +4363,11 @@ write_a2m(FILE *fp, ESL_MSA *msa)
 		      else if (! do_dotless) buf[bpos++] = '.';          /* includes conversion of missing data to . */
 		    }
 		}
-	      buf[bpos] = '\0';
-	      fprintf(fp, "%s\n", buf);	      
+	      if (bpos) 
+		{
+		  buf[bpos] = '\0';
+		  fprintf(fp, "%s\n", buf);	      
+		}
 	    } 
 	}
     } /* end, loop over sequences in the MSA */
@@ -5220,7 +5226,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  * Purpose:  Read the next alignment from an open Stockholm Pfam
  *           (non-interleaved, one line per seq) format alignment file
  *           <afp> and store all non per-sequence information
- *           (comments, #=GF, #=GC) in a new msa.
+ *           (comments, \verb+#=GF+, \verb+#=GC+) in a new msa.
  *
  *           Note: this function could work on regular interleaved
  *           (non-Pfam) Stockholm if either (a) we didn't optionally
@@ -5234,11 +5240,11 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           are only one line would require storing and looking up
  *           all sequence names which we could do at a cost).
  *
- *           Many optional return values (opt_*) make this function
+ *           Many optional return values (<opt_*>) make this function
  *           flexible and able to accomodate the diverse needs of the
  *           memory efficient enabled easel miniapps that use it
  *           (esl-alimerge, esl-alimask, esl-ssdraw). For any that are
- *           unwanted, pass NULL.
+ *           unwanted, pass <NULL>.
  *
  * Args:     afp           - open alignment file pointer
  *           abc           - alphabet to use, only nec and used if one 
@@ -5283,9 +5289,9 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *           alignments in <afp>, and <ret_msa> is set to NULL and
  *           <opt_*> are set to 0.
  *           <eslEFORMAT> if parse fails because of a file format
- *           problem, in which case afp->errbuf is set to contain a
+ *           problem, in which case <afp->errbuf> is set to contain a
  *           formatted message that indicates the cause of the
- *           problem, <ret_msa> is set to NULL and <opt_*> are set 
+ *           problem, <ret_msa> is set to <NULL> and <opt_*> are set 
  *           to 0.
  *
  * Throws:    <eslEMEM> on allocation error.
@@ -5754,7 +5760,7 @@ determine_spacelen(char *s)
  *           <maxname>, <maxgf>, <maxgc> and <maxgr> specify the max
  *           length sequence name, GF tag, GC tag, and GR tag, and can
  *           be provided by a caller that knows their values, e.g. as
- *           revealed by a previous call to esl_msa_ReadNonSeqPfam().
+ *           revealed by a previous call to <esl_msa_ReadNonSeqPfam()>.
  *           If any are -1, the caller didn't know the value, and the
  *           spacing in the alignment file we read in will be
  *           preserved. An example of useful non -1 values is if we're
@@ -5771,7 +5777,7 @@ determine_spacelen(char *s)
  *           data line (aseq, GC, GR) are all the same length <alen>
  *           which should equal <exp_alen> unless <exp_alen> is -1,
  *           indicating the caller doesn't know what alen should be.
- *           If useme or add2me is non-NULL, exp_alen must not be -1.
+ *           If useme or add2me is non-<NULL>, <exp_alen> must not be -1.
  *           No validation of aligned sequence characters being part
  *           of an alphabet is done, though we could, at a cost in
  *           time.
