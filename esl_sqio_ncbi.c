@@ -958,10 +958,17 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
       else
 	{ /* else we're reading a window other than first; slide context over. */
 	  sq->C = ESL_MIN(C, sq->n);
-	  if (sq->seq != NULL) memmove(sq->seq,   sq->seq + sq->n - sq->C,     sq->C);
-	  else                 memmove(sq->dsq+1, sq->dsq + sq->n - sq->C + 1, sq->C);
-	  sq->start = sq->end - sq->C + 1;
-	  sq->n = C;
+
+	  /* if the case where the window is smaller than the context and the
+	   * context is not full, it is not necessary to move the context part
+	   * of the sequence that has been read in.
+	   */
+	  if (sq->C >= C) {
+	    if (sq->seq != NULL) memmove(sq->seq,   sq->seq + sq->n - sq->C,     sq->C);
+	    else                 memmove(sq->dsq+1, sq->dsq + sq->n - sq->C + 1, sq->C);
+	    sq->start = sq->end - sq->C + 1;
+	    sq->n = C;
+	  }
 	}      
 
       if ((status = esl_sq_GrowTo(sq, C+W)) != eslOK)                return status; /* EMEM    */
