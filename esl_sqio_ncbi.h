@@ -17,6 +17,22 @@
 /* forward declaration */
 struct esl_sqio_s;
 
+#define MAX_DB_VOLUMES   100
+
+/* ESL_SQNCBI_VOLUME:
+ * Information for the volume
+ */
+typedef struct esl_sqncbi_vol_s {
+  char      *name;                 /* name of the volume                       */
+
+  uint32_t   start_seq;            /* starting sequence number                 */
+  uint32_t   end_seq;              /* starting sequence number                 */
+
+  uint32_t   hdr_off;              /* disk offset in .pin to header index      */
+  uint32_t   seq_off;              /* disk offset to .pin to sequence index    */
+  uint32_t   amb_off;              /* disk offset to .pin to ambiguous index   */
+} ESL_SQNCBI_VOLUME;
+
 /* ESL_SQNCBI:
  * An open sequence file for reading.
  */
@@ -39,18 +55,26 @@ typedef struct esl_sqncbi_s {
   uint32_t   amb_off;              /* disk offset to .pin to ambiguous index   */
   
   int        index;                /* current sequence index in the database   */
+  uint32_t   vol_index;            /* current volume index (-1 if no volumes)  */
+  uint32_t   roff;                 /* record offset (start of header)          */
+  uint32_t   hoff;                 /* offset to last byte of header            */
+  uint32_t   doff;                 /* data offset (start of sequence data)     */
+  uint32_t   eoff;                 /* offset to last byte of sequence          */
 
-  uint32_t   cur_indexes;          /* start of indexes currently loaded        */
+  uint32_t   index_start;          /* start of indexes currently loaded        */
+  uint32_t   index_end;            /* end of indexes currently loaded          */
   uint32_t  *hdr_indexes;          /* block of header indexes from .pin        */
   uint32_t  *seq_indexes;          /* block of header indexes from .pin        */
   uint32_t  *amb_indexes;          /* block of header indexes from .pin        */
+
+  /* volume information */
+  uint32_t   volumes;              /* number of volumes                        */
+  ESL_SQNCBI_VOLUME vols[MAX_DB_VOLUMES];
 
   /* information for the current header */
   unsigned char *hdr_buf;          /* buffer for holding unparsed header       */
   unsigned char *hdr_ptr;          /* current parser position                  */
   int            hdr_alloced;      /* size of the allocated buffer             */
-  int            hdr_size;         /* size of the current header               */
-  uint32_t       hdr_fpos;         /* offset into the .phr file                */
 
   /* information on the current sequence */
   uint32_t       seq_apos;         /* position of ambiguity table              */

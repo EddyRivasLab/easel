@@ -59,18 +59,20 @@ static int   sqncbi_IsRewindable   (const ESL_SQFILE *sqfp);
 static const char *sqncbi_GetError (const ESL_SQFILE *sqfp);
 
 /* common routines for processing ncbi database */
-static int  get_offsets         (ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq, off_t *amb);
+static int  sqncbi_Open         (ESL_SQNCBI_DATA *ncbi, char *filename);
+
+static void reset_db            (ESL_SQNCBI_DATA *ncbi);
+static int  pos_sequence        (ESL_SQNCBI_DATA *ncbi, int inx);
+static int  volume_open         (ESL_SQNCBI_DATA *ncbi, int volume);
+
 static int  read_amino          (ESL_SQFILE *sqfp, ESL_SQ *sq);
-static int  read_dna            (ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb);
+static int  read_dna            (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  read_nres_amino     (ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres);
 static int  read_nres_dna       (ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres);
 
 static int  inmap_ncbi          (ESL_SQFILE *sqfp);
 static int  inmap_ncbi_amino    (ESL_SQFILE *sqfp);
 static int  inmap_ncbi_dna      (ESL_SQFILE *sqfp);
-
-static int  sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename);
-static int  sqncbi_OpenDna  (ESL_SQNCBI_DATA *ncbi, char *filename);
 
 /* parsing routines */
 static int  parse_header              (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
@@ -109,7 +111,7 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
  * 
  *            The .pin, .phr and .psq files are required for the
- *            open function to succeed.  Only protien version 4
+ *            open function to succeed.  Only ncbi version 4
  *            databases are currently supported.
  *            
  * Returns:   <eslOK> on success, and <*ret_sqfp> points to a new
@@ -127,7 +129,8 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 int
 esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
 {
-  int         status = eslOK;	/* return status from an ESL call */
+  int  i;
+  int  status = eslOK;	/* return status from an ESL call */
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
@@ -147,7 +150,8 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->seq_off      = -1;
   ncbi->amb_off      = -1;
 
-  ncbi->cur_indexes  = -1;
+  ncbi->index_start  = -1;
+  ncbi->index_end    = -1;
   ncbi->hdr_indexes  = NULL;
   ncbi->seq_indexes  = NULL;
   ncbi->amb_indexes  = NULL;
@@ -159,10 +163,16 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->alphatype    = eslUNKNOWN;
   ncbi->alphasym     = NULL;
 
-  if ((status = sqncbi_OpenAmino(ncbi, filename)) != eslOK) {
-    sqncbi_Close(sqfp);
-    if ((status = sqncbi_OpenDna(ncbi, filename)) != eslOK) goto ERROR;
+  ncbi->vol_index    = -1;
+  ncbi->volumes      = 0;
+
+  for (i = 0; i < MAX_DB_VOLUMES; ++i) {
+    ncbi->vols[i].name      = NULL;
+    ncbi->vols[i].start_seq = -1;
+    ncbi->vols[i].end_seq   = -1;
   }
+
+  if ((status = sqncbi_Open(ncbi, filename)) != eslOK) goto ERROR;
 
   sqfp->format = eslSQFILE_NCBI;
   if ((status = inmap_ncbi(sqfp)) != eslOK) goto ERROR;
@@ -193,50 +203,28 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   return status;
 }
 
-
+/* sqncbi_ParseIndexFile()
+ *
+ * Parse an open index file verifying database type and version
+ * if handled.  Read in the entries, i.e. name, number of sequences,
+ * etc.  Keep track of the offsets where the header and sequence
+ * tables begin.
+ */
 static int
-sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename)
+sqncbi_ParseIndexFile(ESL_SQNCBI_DATA *ncbi, int dbtype)
 {
-  int         status = eslOK;	/* return status from an ESL call */
   int         len;
-
   uint32_t    info[4];
-  char       *name = NULL;
-
-  len = strlen(filename);
-  ESL_ALLOC(name, sizeof(char) * (len+5));
-  strcpy(name, filename);
-
-  /* Check the current working directory first. */
-  strcpy(name+len, ".pin");
-  if ((ncbi->fppin = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-  strcpy(name+len, ".phr");
-  if ((ncbi->fpphr = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-  strcpy(name+len, ".psq");
-  if ((ncbi->fppsq = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-
-  /* make sure we are looking at a version 4 protien db.
-   * the values are stored in big endian, so we will just
-   * against the values in big endian format
-   */
+  int         status = eslOK;	/* return status from an ESL call */
 
   if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
   if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
-  if (htobe32(info[1]) != NCBI_AMINO_DB)                      status = eslEUNIMPLEMENTED;
+  if (htobe32(info[1]) != dbtype)                             status = eslEUNIMPLEMENTED;
 
   if (status != eslOK) goto ERROR;
   ncbi->version = htobe32(info[0]);
-  ncbi->alphatype = eslAMINO;
-  ncbi->index = 0;
+  ncbi->alphatype = (dbtype == NCBI_DNA_DB) ? eslDNA : eslAMINO;
+  ncbi->index = -1;
 
   /* read the database title */
   len = htobe32(info[2]);
@@ -261,9 +249,294 @@ sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename)
   ncbi->hdr_off = ftell(ncbi->fppin);
   ncbi->seq_off = ncbi->hdr_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
 
+  return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* sqncbi_DbOpen()
+ *
+ * Try to open the database files.  On successful opening of
+ * the files, index, header and sequence, the index file is
+ * parsed for validity.
+ */
+static int
+sqncbi_DbOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
+{
+  int         status = eslOK;	/* return status from an ESL call */
+  int         len;
+
+  char       *name = NULL;
+
+  len = strlen(filename);
+  ESL_ALLOC(name, sizeof(char) * (len+5));
+  strcpy(name, filename);
+
+  /* Check for basic database first */
+  strcpy(name+len, ".Xin");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fppin = fopen(name, "rb")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".Xhr");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fpphr = fopen(name, "rb")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".Xsq");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fppsq = fopen(name, "rb")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+
+  /* parse the header make sure we are looking at a version 4 db. */
+  if ((status = sqncbi_ParseIndexFile(ncbi, dbtype)) != eslOK) goto ERROR;
+
+  if (name != NULL) free(name);
+
+  return eslOK;
+
+ ERROR:
+
+  reset_db(ncbi);
+
+  if (name != NULL) free(name);
+  return status;
+}
+
+
+/* sqncbi_AliasOpen()
+ *
+ * Opens an alias file parsing the DBLIST directive building
+ * a list of all the volumes makeing up this database.  As each
+ * volume is successfully parsed, the name of the volume, number
+ * of sequences and offsets are kept for quick reference.
+ */
+static int
+sqncbi_AliasOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
+{
+  int         status    = eslOK;	/* return status from an ESL call */
+  int         newline   = 1;
+  int         seqcnt    = 0;
+  int         rescnt    = 0;
+  int         done      = 0;
+  int         vol;
+  int         len;
+
+  char       *ptr       = NULL;
+  char       *name      = NULL;
+  char        buffer[80];
+
+  char       *dbptr     = NULL;
+  char       *dbname    = NULL;
+  int         dbsize    = 512;
+  int         dblen     = 0;
+
+  FILE       *fp;
+
+  len = strlen(filename);
+  ESL_ALLOC(name, sizeof(char) * (len+5));
+  strcpy(name, filename);
+
+  /* Check for alias file */
+  strcpy(name+len, ".Xal");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((fp = fopen(name, "r")) == NULL) {
+    status = eslENOTFOUND; 
+    goto ERROR;
+  }
+
+  /* copy the filename */
+  dbsize = (dbsize > len) ? dbsize : len * 2;
+  ESL_ALLOC(dbname, sizeof(char) * dbsize);
+  strcpy(dbname, filename);
+
+  /* remove the filename keeping the path */
+  while (len > 0 && dbname[len-1] != eslDIRSLASH) {
+    dbname[len-1] = '\0';
+    --len;
+  }
+
+  /* find the DBLIST directive */
+  while (!done) {
+    ptr = buffer;
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+      status = eslEFORMAT;
+      goto ERROR;
+    }
+
+    if (newline) {
+      if (strncmp(buffer, "DBLIST", 6) == 0 && isspace(buffer[6])) {
+	done = 1;
+	ptr = buffer + 6;
+      }
+    }
+
+    /* skip to the end of the line */
+    if (!done) {
+      newline = 0;
+      while (*ptr != '\0') {
+	if (*ptr == '\n') newline = 1;
+	++ptr;
+      }
+    }
+  }
+
+  /* parse the DBLIST line */
+  done = 0;
+  dblen = len;
+  while (!done) {
+
+    /* check if we hit the end of the buffer */
+    if (*ptr == '\0') {
+      ptr = buffer;
+      if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+	status = eslEFORMAT;
+	goto ERROR;
+      }
+    }
+
+    /* skip spaces */
+    if (isspace(*ptr)) {
+      if (dblen > len) {
+	dbname[dblen++] = '\0';
+
+	/* if the name in the DBLIST directive was ablsolute, do not
+	 * use the working directory as a prefix.
+	 */
+	if (dbname[len] == eslDIRSLASH) {
+	  dbptr = dbname + len;
+	} else {
+	  dbptr = dbname;
+	}
+
+	status = sqncbi_DbOpen(ncbi, dbptr, dbtype);
+	if (status != eslOK) goto ERROR;
+
+	/* close any open files and free up allocations */
+	reset_db(ncbi);
+
+	/* if successful, copy the db information */
+	vol = ncbi->volumes++;
+
+	/* allocate the name of the string big enought so the buffer can
+	 * handle an extension, i.e. ".pin" or ".nsq" tacked on to the end
+	 * of it without reallocating.
+	 */
+	ncbi->vols[vol].name = NULL;
+	ESL_ALLOC(ncbi->vols[vol].name, sizeof(char) * strlen(dbptr) + 5);
+	strcpy(ncbi->vols[vol].name, dbptr);
+
+	ncbi->vols[vol].start_seq = seqcnt;
+	ncbi->vols[vol].end_seq   = seqcnt + ncbi->num_seq - 1;
+
+	ncbi->vols[vol].hdr_off = ncbi->hdr_off;
+	ncbi->vols[vol].seq_off = ncbi->seq_off;
+	ncbi->vols[vol].amb_off = ncbi->amb_off;
+
+	seqcnt += ncbi->num_seq;
+	rescnt += ncbi->total_res;
+
+	dblen = len;
+      }
+
+      done = *ptr == '\n' || *ptr == '\r';
+
+      ptr++;
+    } else {
+      dbname[dblen++] = *ptr++;
+      if (dblen >= dbsize - 1) {
+	char *t;
+	dbsize += dbsize;
+	ESL_RALLOC(dbname, t, dbsize);
+      }
+    }
+  }
+
+  /* reopen the first volume for processing */
+  if ((status = volume_open(ncbi, 0)) != eslOK) goto ERROR;
+  
+  ncbi->num_seq = seqcnt;
+  ncbi->total_res = rescnt;
+
+  if (name   != NULL) free(name);
+  if (dbname != NULL) free(dbname);
+
+  if (fp != NULL) fclose(fp);
+
+  return eslOK;
+
+ ERROR:
+
+  reset_db(ncbi);
+
+  if (fp != NULL) fclose(fp);
+
+  if (dbname != NULL) free(dbname);
+  if (name   != NULL) free(name);
+
+  return status;
+}
+
+
+/* Function:  sqncbi_Open()
+ * Synopsis:  Open an ncbi database.
+ * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
+ *
+ * Purpose:   Open an ncbi database making sure all the necessry
+ *            files are present.  Parse the index file for database 
+ *            information filling in the ncbi data structure.
+ * 
+ * Returns:   <eslOK> on success, and the ncbi data structre is filled
+ *            in with the database information.
+ *            
+ *            Returns <eslENOTFOUND> if <filename> can't be found or
+ *            opened.  Returns <eslEFORMAT> if the index file is an
+ *            upsupported version.
+ *             
+ * Throws:    <eslEMEM> on allocation failure.
+ */
+static int
+sqncbi_Open(ESL_SQNCBI_DATA *ncbi, char *filename)
+{
+  int    status  = eslOK;	/* return status from an ESL call */
+  char  *name    = NULL;
+
+  /* first try to open a single protein database */
+  status = sqncbi_DbOpen(ncbi, filename, NCBI_AMINO_DB);
+
+  /* if the database was not found, look for protein volume */
+  if (status == eslENOTFOUND) {
+    status = sqncbi_AliasOpen(ncbi, filename, NCBI_AMINO_DB);
+  }
+
+  /* if nothing so far, try a dna database */
+  if (status == eslENOTFOUND) {
+    status = sqncbi_DbOpen(ncbi, filename, NCBI_DNA_DB);
+  }
+
+  /* still nothing, look for dna volume */
+  if (status == eslENOTFOUND) {
+    status = sqncbi_AliasOpen(ncbi, filename, NCBI_DNA_DB);
+  }
+
+  if (status != eslOK) goto ERROR;
+
   /* allocate buffers used in parsing the database files */
   ESL_ALLOC(ncbi->hdr_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
   ESL_ALLOC(ncbi->seq_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
+
+  /* if this is a dna database we need to allocate space for the
+   * ambiguity offsets.
+   */
+  if (ncbi->alphatype == eslDNA) {
+    ncbi->amb_off = ncbi->seq_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
+    ESL_ALLOC(ncbi->amb_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
+  }
 
   ncbi->hdr_alloced = INIT_HDR_BUFFER_SIZE;
   ESL_ALLOC(ncbi->hdr_buf, sizeof(char) * INIT_HDR_BUFFER_SIZE);
@@ -272,93 +545,6 @@ sqncbi_OpenAmino(ESL_SQNCBI_DATA *ncbi, char *filename)
   fgetc(ncbi->fppsq);
 
   if (name != NULL) free(name);
-
-  return eslOK;
-
- ERROR:
-  if (name != NULL) free(name);
-  return status;
-}
-
-
-static int
-sqncbi_OpenDna(ESL_SQNCBI_DATA *ncbi, char *filename)
-{
-  int         status = eslOK;	/* return status from an ESL call */
-  int         len;
-
-  uint32_t    info[4];
-  char       *name = NULL;
-
-  len = strlen(filename);
-  ESL_ALLOC(name, sizeof(char) * (len+5));
-  strcpy(name, filename);
-
-  /* Check the current working directory first. */
-  strcpy(name+len, ".nin");
-  if ((ncbi->fppin = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-  strcpy(name+len, ".nhr");
-  if ((ncbi->fpphr = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-  strcpy(name+len, ".nsq");
-  if ((ncbi->fppsq = fopen(name, "r")) == NULL) {
-    status = eslENOTFOUND; 
-    goto ERROR;
-  }
-
-  /* make sure we are looking at a version 4 dna db. */
-
-  if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
-  if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
-  if (htobe32(info[1]) != NCBI_DNA_DB)                        status = eslEUNIMPLEMENTED;
-
-  if (status != eslOK) goto ERROR;
-  ncbi->version = htobe32(info[0]);
-  ncbi->alphatype = eslDNA;
-  ncbi->index = 0;
-
-  /* read the database title */
-  len = htobe32(info[2]);
-  ESL_ALLOC(ncbi->title, sizeof(char) * (len + 1));
-  if (fread(ncbi->title, sizeof(char), len, ncbi->fppin) != len) { status = eslFAIL; goto ERROR; }
-  ncbi->title[len] = 0;
-
-  /* read the database time stamp */
-  if (fread(&info[0], sizeof(uint32_t), 1, ncbi->fppin) != 1) { status = eslFAIL; goto ERROR; }
-  len = htobe32(info[0]);
-  ESL_ALLOC(ncbi->timestamp, sizeof(char) * (len + 1));
-  if (fread(ncbi->timestamp, sizeof(char), len, ncbi->fppin) != len) { status = eslFAIL; goto ERROR; }
-  ncbi->timestamp[len] = 0;
-
-  /* read in database stats */
-  if (fread(&info[0], sizeof(uint32_t), 4, ncbi->fppin) != 4) { status = eslFAIL; goto ERROR; }
-  ncbi->num_seq   = htobe32(info[0]);
-  ncbi->total_res = *(uint64_t *)(info+1);
-  ncbi->max_seq   = htobe32(info[3]);
-
-  /* save the offsets to the index tables */
-  ncbi->hdr_off = ftell(ncbi->fppin);
-  ncbi->seq_off = ncbi->hdr_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
-  ncbi->amb_off = ncbi->seq_off + sizeof(uint32_t) * (ncbi->num_seq + 1);
-
-  /* allocate buffers used in parsing the database files */
-  ESL_ALLOC(ncbi->hdr_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
-  ESL_ALLOC(ncbi->seq_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
-  ESL_ALLOC(ncbi->amb_indexes, sizeof(uint32_t) * INDEX_TABLE_SIZE);
-
-  ncbi->hdr_alloced = INIT_HDR_BUFFER_SIZE;
-  ESL_ALLOC(ncbi->hdr_buf, sizeof(char) * INIT_HDR_BUFFER_SIZE);
-
-  /* skip the first sentinal byte in the .nsq file */
-  fgetc(ncbi->fppsq);
-
-  if (name != NULL) free(name);
-
   return eslOK;
 
  ERROR:
@@ -385,21 +571,12 @@ sqncbi_OpenDna(ESL_SQNCBI_DATA *ncbi, char *filename)
 static int
 sqncbi_Position(ESL_SQFILE *sqfp, off_t offset)
 {
-  off_t    hdr_start;
-  off_t    seq_start;
-
   int      status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  if ((status = get_offsets(ncbi, offset, &hdr_start, &seq_start, NULL)) != eslOK) return status;
-
-  if (fseek(ncbi->fpphr, hdr_start, SEEK_SET) != 0) return eslESYS;
-  if (fseek(ncbi->fppsq, seq_start, SEEK_SET) != 0) return eslESYS;
-
-  ncbi->index = offset;
-
-  return eslOK;
+  status = pos_sequence(ncbi, offset);
+  return status;
 }
 
 
@@ -414,6 +591,8 @@ sqncbi_Position(ESL_SQFILE *sqfp, off_t offset)
 static void
 sqncbi_Close(ESL_SQFILE *sqfp)
 {
+  int i;
+
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
   if (ncbi->title != NULL)       free(ncbi->title);
@@ -431,6 +610,17 @@ sqncbi_Close(ESL_SQFILE *sqfp)
   if (ncbi->fpphr != NULL) fclose(ncbi->fpphr);
   if (ncbi->fppsq != NULL) fclose(ncbi->fppsq);
 
+  ncbi->vol_index    = -1;
+  ncbi->volumes      = 0;
+
+  for (i = 0; i < MAX_DB_VOLUMES; ++i) {
+    if (ncbi->vols[i].name != NULL) free(ncbi->vols[i].name);
+
+    ncbi->vols[i].name      = NULL;
+    ncbi->vols[i].start_seq = -1;
+    ncbi->vols[i].end_seq   = -1;
+  }
+
   ncbi->fppin        = NULL;
   ncbi->fpphr        = NULL;
   ncbi->fppsq        = NULL;
@@ -444,7 +634,8 @@ sqncbi_Close(ESL_SQFILE *sqfp)
   ncbi->seq_off      = -1;
   ncbi->amb_off      = -1;
 
-  ncbi->cur_indexes  = -1;
+  ncbi->index_start  = -1;
+  ncbi->index_end    = -1;
   ncbi->hdr_indexes  = NULL;
   ncbi->seq_indexes  = NULL;
   ncbi->amb_indexes  = NULL;
@@ -568,42 +759,31 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
 static int
 sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     status;
-
-  off_t   hdr_start;
-  off_t   hdr_end;
-  off_t   seq_start;
-  off_t   seq_end;
-
-  off_t   amb;
+  int  index;
+  int  status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+  index = ncbi->index + 1;
+  if (index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
+  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
-  sq->roff = hdr_start;
-  sq->doff = seq_start;
-  sq->hoff = hdr_end;
-  sq->eoff = seq_end;
+  sq->roff = ncbi->roff;
+  sq->doff = ncbi->doff;
+  sq->hoff = ncbi->hoff;
+  sq->eoff = ncbi->eoff;
 
   if (ncbi->alphatype == eslAMINO) 
     status = read_amino(sqfp, sq);
   else                             
-    status = read_dna(sqfp, sq, amb);
+    status = read_dna(sqfp, sq);
   if (status != eslOK) return status;
 
   /* read and parse the ncbi header */
-  ncbi->hdr_fpos = hdr_start;
-  ncbi->hdr_size = hdr_end - hdr_start;
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
-
-  /* update the sequence index */
-  ++ncbi->index;
 
   return eslOK;
 }
@@ -628,43 +808,28 @@ sqncbi_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     status;
-
-  off_t   hdr_start;
-  off_t   hdr_end;
-  off_t   seq_start;
-  off_t   seq_end;
+  int   index;
+  int   status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+  index = ncbi->index + 1;
+  if (index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, NULL)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
-
-  /* advance the sequence file pointer to point to the next sequence in case
-   * the user calls a Read after a ReadInfo.  this will garuntee that the
-   * header and sequence match up for the Read.
-   */
-  if (fseek(ncbi->fppsq, seq_end, SEEK_SET) != 0) return eslEFORMAT;
+  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
-  sq->roff = hdr_start;
-  sq->doff = seq_start;
-  sq->hoff = hdr_end;
-  sq->eoff = seq_end;
+  sq->roff = ncbi->roff;
+  sq->doff = ncbi->doff;
+  sq->hoff = ncbi->hoff;
+  sq->eoff = ncbi->eoff;
 
   /* figure out the sequence length */
   sq->L = -1;
 
   /* read and parse the ncbi header */
-  ncbi->hdr_fpos = hdr_start;
-  ncbi->hdr_size = hdr_end - hdr_start;
   if ((status = parse_header(ncbi, sq)) != eslOK) return status;
-
-  /* update the sequence index */
-  ++ncbi->index;
 
   return eslOK;
 }
@@ -692,43 +857,28 @@ sqncbi_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     status;
-
-  off_t   hdr_start;
-  off_t   hdr_end;
-  off_t   seq_start;
-  off_t   seq_end;
-
-  off_t   amb;
+  int    index;
+  int    status;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
-  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+  index = ncbi->index + 1;
+  if (index >= ncbi->num_seq) return eslEOF;
 
-  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
-  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
+  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
 
   /* Disk offset bookkeeping */
   sq->idx  = ncbi->index;
-  sq->roff = hdr_start;
-  sq->doff = seq_start;
-  sq->hoff = hdr_end;
-  sq->eoff = seq_end;
+  sq->roff = ncbi->roff;
+  sq->doff = ncbi->doff;
+  sq->hoff = ncbi->hoff;
+  sq->eoff = ncbi->eoff;
 
   if (ncbi->alphatype == eslAMINO) 
     status = read_amino(sqfp, sq);
   else                             
-    status = read_dna(sqfp, sq, amb);
+    status = read_dna(sqfp, sq);
   if (status != eslOK) return status;
-
-  /* advance the header file pointer to point to the next header in case
-   * the user calls a Read after a ReadSequence.  this will garuntee that
-   * the header and sequence match up for the Read.
-   */
-  if (fseek(ncbi->fpphr, hdr_end, SEEK_SET) != 0) return eslEFORMAT;
-
-  /* update the sequence index */
-  ++ncbi->index;
 
   return eslOK;
 }
@@ -833,14 +983,9 @@ static int
 sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 {
   uint64_t  nres;
+
+  int       index;
   int       status;
-
-  off_t     hdr_start;
-  off_t     hdr_end;
-  off_t     seq_start;
-  off_t     seq_end;
-
-  off_t     amb;
 
   ESL_SQNCBI_DATA *ncbi = &sqfp->data.ncbi;
 
@@ -851,7 +996,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
       /* update the sequence index */
       if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK) 
-	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
+	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %ld", sq->idx);
 
       if (sq->end == 1) 
 	{ /* last end == 1 means last window was the final one on reverse strand,
@@ -865,10 +1010,6 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 	  /* sq->L stays as it is */
 	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
 	  else                 sq->seq[0] = '\0';
-
-	  /* update the sequence index */
-	  if ((status = sqncbi_Position(sqfp, ncbi->index+1)) != eslOK) 
-	    ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
 
 	  return eslEOD;
 	}
@@ -920,33 +1061,23 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        */
       if (sq->start == 0)
 	{
-	  if (ncbi->index >= ncbi->num_seq) return eslEOF;
+	  index = ncbi->index + 1;
+	  if (index >= ncbi->num_seq) return eslEOF;
 
 	  /* get the sequence and header offsets */
-	  if ((status = get_offsets(ncbi, ncbi->index, &hdr_start, &seq_start, &amb)) != eslOK) return status;
-	  if ((status = get_offsets(ncbi, ncbi->index + 1, &hdr_end, &seq_end, NULL)) != eslOK) return status;
+	  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
 
 	  /* Disk offset bookkeeping */
 	  sq->idx  = ncbi->index;
-	  sq->roff = hdr_start;
-	  sq->doff = seq_start;
-	  sq->hoff = hdr_end;
-	  sq->eoff = seq_end;
+	  sq->roff = ncbi->roff;
+	  sq->doff = ncbi->doff;
+	  sq->hoff = ncbi->hoff;
+	  sq->eoff = ncbi->eoff;
 
-	  /* sequence bookkeeping */
-	  if (ncbi->alphatype == eslAMINO) {
-	    ncbi->seq_apos = 0;
-	    ncbi->seq_alen = 0;
-	  } else {
-	    ncbi->seq_apos = amb;
-	    ncbi->seq_alen = seq_end - amb;
-	  }
 	  ncbi->seq_cpos = -1;
 	  ncbi->seq_L    = -1;
 
 	  /* read and parse the ncbi header */
-	  ncbi->hdr_fpos = hdr_start;
-	  ncbi->hdr_size = hdr_end - hdr_start;
 	  if ((status = parse_header(ncbi, sq)) != eslOK) return status;
 
 	  sq->start    = 1;
@@ -985,10 +1116,6 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
 	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL; /* erase the saved context */
 	  else                 sq->seq[0] = '\0';
-
-	  /* update the sequence index */
-	  if ((status = sqncbi_Position(sqfp, ncbi->index+1)) != eslOK) 
-	    ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %d", ncbi->index+1);
 
 	  return eslEOD;
 	}
@@ -1060,79 +1187,239 @@ sqncbi_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 
 
-/* Function:  get_offsets()
- * Synopsis:  Return the header and sequence offsets
- * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
+/* Function:  reset_db()
+ * Synopsis:  Resets a sequence file.
+ * Incept:    MSF, Wed Mar 17, 2010 [Janelia]
  *
- * Purpose:   For sequence <inx> reads the offsets in the sequence
- *            and header files.  If <hdr> or <seq> are non-null, the
- *            offsets for the .phr and .psq files will be set.
+ * Purpose:   Closes just the currently opened db and frees
+ *            up the memory associated with that db.  This is
+ *            used primarily with multi-volume databases where
+ *            the current db is closed so the next one can be
+ *            opened.
  *
- *            Before reading the offsets from the file, check if the
- *            current offset is cached.
+ * Returns:   void.
+ */
+static void
+reset_db(ESL_SQNCBI_DATA *ncbi)
+{
+  if (ncbi->title     != NULL) free(ncbi->title);
+  if (ncbi->timestamp != NULL) free(ncbi->timestamp);
+
+  if (ncbi->fppin != NULL) fclose(ncbi->fppin);
+  if (ncbi->fpphr != NULL) fclose(ncbi->fpphr);
+  if (ncbi->fppsq != NULL) fclose(ncbi->fppsq);
+
+  ncbi->fppin        = NULL;
+  ncbi->fpphr        = NULL;
+  ncbi->fppsq        = NULL;
+
+  ncbi->title        = NULL;
+  ncbi->timestamp    = NULL;
+
+  return;
+}
+
+
+/* volume_open()
  *
- * Returns:   <eslOK> on success.
- *            <eslEFORMAT> if there is an error reading the index file.
+ * Open up the index, head and sequence files for a particular
+ * volume.  Parse the first three fields in the index file,
+ * one more time, just to make sure nothing funny is going on.
  */
 static int
-get_offsets(ESL_SQNCBI_DATA *ncbi, int inx, off_t *hdr, off_t *seq, off_t *amb)
+volume_open(ESL_SQNCBI_DATA *ncbi, int volume)
+{
+  int       len;
+  uint32_t  info[4];
+  int       dbtype;
+  int       status = eslOK;	/* return status from an ESL call */
+
+  char     *name;
+  
+  if (volume < 0 || volume > ncbi->volumes) return eslEINVAL;
+
+  /* if the db has no volumes return */
+  if (ncbi->volumes == 0) return eslOK;
+
+  if (ncbi->fppin != NULL) fclose(ncbi->fppin);
+  if (ncbi->fpphr != NULL) fclose(ncbi->fpphr);
+  if (ncbi->fppsq != NULL) fclose(ncbi->fppsq);
+
+  name = ncbi->vols[volume].name;
+  len  = strlen(name);
+
+  dbtype = (ncbi->alphatype == eslDNA) ? NCBI_DNA_DB : NCBI_AMINO_DB;
+
+  /* Check for basic database first */
+  strcpy(name+len, ".Xin");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fppin = fopen(name, "rb")) == NULL) {
+    status = eslFAIL; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".Xhr");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fpphr = fopen(name, "rb")) == NULL) {
+    status = eslFAIL; 
+    goto ERROR;
+  }
+  strcpy(name+len, ".Xsq");
+  name[len+1] = (dbtype == NCBI_DNA_DB) ? 'n' : 'p';
+  if ((ncbi->fppsq = fopen(name, "rb")) == NULL) {
+    status = eslFAIL; 
+    goto ERROR;
+  }
+
+  /* quickly parse the header make sure we are sane. */
+  if (fread(&info[0], sizeof(uint32_t), 3, ncbi->fppin) != 3) status = eslFAIL;
+  if (htobe32(info[0]) != NCBI_VERSION_4)                     status = eslEFORMAT;
+  if (htobe32(info[1]) != dbtype)                             status = eslEFORMAT;
+
+  if (status != eslOK) goto ERROR;
+
+  /* save the offsets to the index tables */
+  ncbi->hdr_off = ncbi->vols[volume].hdr_off;
+  ncbi->seq_off = ncbi->vols[volume].seq_off;
+  if (dbtype == NCBI_DNA_DB) {
+    ncbi->amb_off = ncbi->vols[volume].amb_off;
+  }
+
+  ncbi->vol_index   = volume;
+  ncbi->index_start = -1;
+  ncbi->index_end   = -1;
+
+  /* skip the first sentinal byte in the .psq file */
+  fgetc(ncbi->fppsq);
+
+  /* zero terminate the name other functions can just
+   * tack on any extension without a lot of testing.
+   */
+  name[len] = '\0';
+
+  return eslOK;
+
+ ERROR:
+
+  reset_db(ncbi);
+
+  return status;
+}
+
+
+/* pos_sequence_offsets()
+ *
+ * Position the sequence and header files for reading at
+ * the start of the indexed sequence <inx>.  This routine
+ * buffers <INDEX_TABLE_SIZE> offsets from the header and
+ * sequence files.  If the index <inx> is not in the
+ * currently buffered table, read the the indexes.  If the
+ * index is not in the current volume find which volume
+ * the indexed sequence is in and open up that database.
+ */
+static int
+pos_sequence(ESL_SQNCBI_DATA *ncbi, int inx)
 {
   int        cnt;
+  int        status;
 
   uint32_t   offset;
   uint32_t   start;
   uint32_t   end;
 
+  ESL_SQNCBI_VOLUME *volume;
+
   if (inx < 0 || inx > ncbi->num_seq) return eslEINVAL;
 
-  start = ncbi->cur_indexes;
-  end   = start + INDEX_TABLE_SIZE - 1;
+  start = ncbi->index_start;
+  end   = ncbi->index_end;
 
-  if (ncbi->cur_indexes == -1 || inx < start || inx > end) {
+  /* get the offsets for the header, sequence and ambiguity table */
+  if (ncbi->index_start == -1 || inx < start || inx > end) {
+
+    /* if the db is broken up into volumes, lets find the correct one to use */
+    if (ncbi->volumes > 0) {
+      volume = ncbi->vols + ncbi->vol_index;
+      if (inx < volume->start_seq || inx > volume->end_seq) {
+	volume = ncbi->vols;
+	for (cnt = 0; cnt < ncbi->volumes; ++cnt) {
+	  if (inx < volume->end_seq) break;
+	  ++volume;
+	}
+
+	/* check just to make sure we found the volume */
+	if (cnt >= ncbi->volumes) return eslFAIL;
+
+	if ((status = volume_open(ncbi, cnt)) != eslOK) return status;
+      }
+    }
+
+    /* adjust where we start reading from if we are reading forwards or backwards */
+    if (ncbi->index_start == -1 || inx > end) {
+      start = inx;
+    } else {
+      start = inx + 2;
+      start = (start > INDEX_TABLE_SIZE) ? start - INDEX_TABLE_SIZE : 0;
+    }
+    ncbi->index_start = start;
 
     /* when calculating the count be sure to take into account the fact that the
      * index tables contain one index more that the number of sequences and this
      * last index is used to point to the end of the last header and sequences.
      */
-    cnt = ncbi->num_seq - inx + 1;
+    if (ncbi->volumes > 0) {
+      cnt = volume->end_seq - inx + 2;
+      start = start - volume->start_seq;
+    } else {
+      cnt = ncbi->num_seq - inx + 1;
+    }
     cnt = (cnt > INDEX_TABLE_SIZE) ? INDEX_TABLE_SIZE : cnt;
+    ncbi->index_end = ncbi->index_start + cnt - 2;
 
-    offset = ncbi->hdr_off + (sizeof(uint32_t) * inx);
+    offset = ncbi->hdr_off + (sizeof(uint32_t) * start);
     if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking header index %d\n", offset);
     }
     if (fread(ncbi->hdr_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading header index %d(%d)\n", offset, cnt);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading header index %d at %d(%d)\n", start, offset, cnt);
     }
 
-    offset = ncbi->seq_off + (sizeof(uint32_t) * inx);
+    offset = ncbi->seq_off + (sizeof(uint32_t) * start);
     if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking sequence index %d\n", offset);
     }
     if (fread(ncbi->seq_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
-      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading sequence index %d(%d)\n", offset, cnt);
+      ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading sequence index %d at %d(%d)\n", start, offset, cnt);
     }
 
     if (ncbi->alphatype == eslDNA) {
-      offset = ncbi->amb_off + (sizeof(uint32_t) * inx);
+      offset = ncbi->amb_off + (sizeof(uint32_t) * start);
       if (fseek(ncbi->fppin, offset, SEEK_SET) != 0) {
 	ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error seeking ambiguity index %d\n", offset);
       }
       if (fread(ncbi->amb_indexes, sizeof(uint32_t), cnt, ncbi->fppin) != cnt) {
-	ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading ambiguity index %d(%d)\n", offset, cnt);
+	ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Error reading ambiguity index %d at %d(%d)\n", start, offset, cnt);
       }
     }
-
-    ncbi->cur_indexes = inx;
   }
 
-  inx -= ncbi->cur_indexes;
-  if (hdr != NULL) *hdr = htobe32(ncbi->hdr_indexes[inx]);
-  if (seq != NULL) *seq = htobe32(ncbi->seq_indexes[inx]);
+  ncbi->index = inx;
 
-  if (amb != NULL && ncbi->alphatype == eslDNA) {
-    *amb = htobe32(ncbi->amb_indexes[inx]);
+  inx -= ncbi->index_start;
+  ncbi->roff = htobe32(ncbi->hdr_indexes[inx]);
+  ncbi->doff = htobe32(ncbi->seq_indexes[inx]);
+  ncbi->hoff = htobe32(ncbi->hdr_indexes[inx+1]);
+  ncbi->eoff = htobe32(ncbi->seq_indexes[inx+1]);
+
+  if (ncbi->alphatype == eslDNA) {
+    ncbi->seq_apos = htobe32(ncbi->amb_indexes[inx]);
+    ncbi->seq_alen = ncbi->seq_apos + htobe32(ncbi->amb_indexes[inx+1]) + 1;
+  } else {
+    ncbi->seq_apos = 0;
+    ncbi->seq_alen = 0;
   }
+
+  if (fseek(ncbi->fpphr, ncbi->roff, SEEK_SET) != 0) return eslESYS;
+  if (fseek(ncbi->fppsq, ncbi->doff, SEEK_SET) != 0) return eslESYS;
 
   return eslOK;
 }
@@ -1196,7 +1483,7 @@ read_amino(ESL_SQFILE *sqfp, ESL_SQ *sq)
  * Purpose:   Read and translate the dna sequence.
  */
 static int
-read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb)
+read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   int     inx;
   int     cnt;
@@ -1230,7 +1517,7 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb)
   }
   if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fppsq) != size) return eslEFORMAT;
 
-  ssize     = amb - sq->doff - 1;
+  ssize     = ncbi->seq_apos - sq->doff - 1;
   remainder = *(ncbi->hdr_buf + ssize) & 0x03;
   length    = ssize * 4 + remainder;
 
@@ -1278,7 +1565,7 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq, off_t amb)
   *ptr = (text) ? '\0' : eslDSQ_SENTINEL;
 
   /* skip past the count and start processing the abmiguity table */
-  ssize = amb - sq->doff + 4;
+  ssize = ncbi->seq_apos - sq->doff + 4;
   ptr = (text) ? sq->seq : (char *)sq->dsq + 1;
 
   while (ssize < size) {
@@ -1743,15 +2030,17 @@ inmap_ncbi_amino(ESL_SQFILE *sqfp)
 static int
 parse_expect(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 {
+  int size;
   unsigned char *c;
   unsigned char *limit;
 
-  limit = ncbi->hdr_buf + ncbi->hdr_size;
+  size  = ncbi->hoff - ncbi->roff;
+  limit = ncbi->hdr_buf + size;
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
-	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
   }
 
   /* check the buffer matches the token string */
@@ -1759,7 +2048,7 @@ parse_expect(ESL_SQNCBI_DATA *ncbi, void *str, int len)
   while (len--) {
     if (*ncbi->hdr_ptr != *c) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting 0x%X found 0x%X at %d : 0x%X(%d)\n",
-	       *ncbi->hdr_ptr, *c, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
+	       *ncbi->hdr_ptr, *c, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
     }
     ncbi->hdr_ptr++;
     c++;
@@ -1783,10 +2072,12 @@ static int
 parse_accept(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 {
   int i;
+  int size;
   unsigned char *c;
   unsigned char *limit;
 
-  limit = ncbi->hdr_buf + ncbi->hdr_size;
+  size  = ncbi->hoff - ncbi->roff;
+  limit = ncbi->hdr_buf + size;
 
   /* check the buffer matches the token string */
   if (ncbi->hdr_ptr + len > limit)  return eslEFORMAT;
@@ -1817,9 +2108,11 @@ parse_accept(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 static int
 parse_peek(ESL_SQNCBI_DATA *ncbi, unsigned char *c)
 {
+  int size;
   unsigned char *limit;
 
-  limit = ncbi->hdr_buf + ncbi->hdr_size;
+  size  = ncbi->hoff - ncbi->roff;
+  limit = ncbi->hdr_buf + size;
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + 1 > limit)    return eslEFORMAT;
@@ -1845,15 +2138,17 @@ static int
 parse_consume(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 {
   int i;
+  int size;
   unsigned char *c;
   unsigned char *limit;
 
-  limit = ncbi->hdr_buf + ncbi->hdr_size;
+  size  = ncbi->hoff - ncbi->roff;
+  limit = ncbi->hdr_buf + size;
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
-	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
   }
 
   /* copy the characters in the buffer to <str> */
@@ -1879,14 +2174,16 @@ parse_consume(ESL_SQNCBI_DATA *ncbi, void *str, int len)
 static int
 parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
 {
+  int size;
   unsigned char *limit;
 
-  limit = ncbi->hdr_buf + ncbi->hdr_size;
+  size  = ncbi->hoff - ncbi->roff;
+  limit = ncbi->hdr_buf + size;
 
   /* verify the buffer has atleast len bytes remaining */
   if (ncbi->hdr_ptr + len > limit) {
       ESL_FAIL(eslEFORMAT, ncbi->errbuf, "Expecting %d bytes at %d : 0x%X(%d)\n",
-	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->hdr_fpos, ncbi->hdr_size); 
+	       len, (uint32_t) (ncbi->hdr_ptr - ncbi->hdr_buf), ncbi->roff, size); 
   }
 
   ncbi->hdr_ptr += len;
@@ -1914,17 +2211,20 @@ parse_advance(ESL_SQNCBI_DATA *ncbi, int len)
 static int
 parse_header(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 {
+  int   size;
   int   status;
   void *tmp;
 
   unsigned char c;
 
+  size  = ncbi->hoff - ncbi->roff;
+
   /* read in the header data */
-  if (ncbi->hdr_alloced < ncbi->hdr_size) {
-    while (ncbi->hdr_alloced < ncbi->hdr_size) ncbi->hdr_alloced += ncbi->hdr_alloced;
+  if (ncbi->hdr_alloced < size) {
+    while (ncbi->hdr_alloced < size) ncbi->hdr_alloced += ncbi->hdr_alloced;
     ESL_RALLOC(ncbi->hdr_buf, tmp, sizeof(char) * ncbi->hdr_alloced);
   }
-  if (fread(ncbi->hdr_buf, sizeof(char), ncbi->hdr_size, ncbi->fpphr) != ncbi->hdr_size) return eslEFORMAT;
+  if (fread(ncbi->hdr_buf, sizeof(char), size, ncbi->fpphr) != size) return eslEFORMAT;
   ncbi->hdr_ptr = ncbi->hdr_buf;
 
   /* verify we are at the beginning of a structure */
