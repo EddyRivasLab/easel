@@ -84,7 +84,7 @@ static ESL_OPTIONS options[] = {
   { "--lmax",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <n> residues",                       2 },
   { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",2 },
   { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                 2 },
-  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>, reorder seqs also",2 },
+  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>",                   2 },
   { "--small",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, INCOMPATWITHSMALLOPTS,      "w/--seq-r or --seq-k use minimal RAM (no seq reordering)", 2 },
   { "--k-reorder", eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--seq-k", INCOMPATWITHSMALLOPTS, "with --seq-k <f>, reorder sequences to order in <f>",2 },
   { "--seq-ins",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/an insert after non-gap RF col <n>",            2 },
@@ -728,7 +728,8 @@ fclose(ofp);
  *                   
  * Given an MSA and a char string of 1s and 0s (a lanemask) of length
  * msa->alen, write/rewrite  RF positions as  'x' (non-gap) for 1, '.' (gap) for 0.
- * If RF already exists, do not modify non-gap RF columns if they are within mask ('1').
+ * If RF already exists AND do_keep_rf_chars == TRUE, do not modify non-gap RF columns 
+ * if they are within mask ('1').
  */
 static int
 write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *amask, int amask_len)
