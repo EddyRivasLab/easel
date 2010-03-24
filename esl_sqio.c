@@ -826,11 +826,10 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
  *            If <ssifile_hint> is <NULL>, the default for
  *            constructing the SSI filename from the sequence
  *            filename, by using exactly the same path (if any) for
- *            the sequence filename, while replacing any existing
- *            terminal dot-suffix with <.ssi>. For example, the SSI
- *            index for <foo> is <foo.ssi>, for <./foo.fa> is
- *            <./foo.ssi>, and for </my/path/to/foo.1.fa> is
- *            </my/path/to/foo.1.ssi>.
+ *            the sequence filename, and appending the suffix <.ssi>.
+ *            For example, the SSI index for <foo> is <foo.ssi>, for
+ *            <./foo.fa> is <./foo.fa.ssi>, and for
+ *            </my/path/to/foo.1.fa> is </my/path/to/foo.1.fa.ssi>.
  *            
  *            If <ssifile_hint> is <non-NULL>, this exact fully
  *            qualified path is used as the SSI file name.
