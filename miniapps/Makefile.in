@@ -46,6 +46,7 @@ PROGS = esl-afetch\
 	esl-mask\
 	esl-reformat\
 	esl-selectn\
+	esl-seqrange\
 	esl-seqstat\
 	esl-sfetch\
 	esl-shuffle\
