@@ -52,7 +52,6 @@ static ESL_OPTIONS options[] = {
 };
 
 static void range_by_seqnum(ESL_SQFILE *sqfp, int nproc, int64_t **ret_final_sqidx);
-static void range_by_seqlen(ESL_SQFILE *sqfp, int nproc, int64_t **ret_final_sqidx);
 
 int
 main(int argc, char **argv)
@@ -126,7 +125,8 @@ main(int argc, char **argv)
 
 
 /* Determine seq range for <nproc> processors with goal of putting an identical 
- * number of sequences in each chunk, one chunk per processor.
+ * number of sequences (or as close to identical as possible) in each chunk, 
+ * one chunk per processor.
  */
 static void
 range_by_seqnum(ESL_SQFILE *sqfp, int nproc, int64_t **ret_final_sqidx)
