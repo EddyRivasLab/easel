@@ -406,6 +406,11 @@ esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
  * Incept:    MSF, Tue Jan 5, 2010 [Janelia]
  *
  * Purpose:   Returns the pointer to the error buffer.
+ *            Each parser is responsible for formatting
+ *            a zero terminated string describing the
+ *            error condition.
+ *
+ * Returns:   A pointer the error message.
  */
 const char *
 esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp)

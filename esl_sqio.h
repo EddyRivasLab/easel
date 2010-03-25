@@ -20,6 +20,7 @@
 #include "esl_msa.h"
 #endif
 
+/*::cexcerpt::sq_sqio_data::begin::*/
 /* ESL_SQDATA:
  * Data for different sequence formats.
  */
@@ -29,6 +30,7 @@ typedef union {
   ESL_SQNCBI_DATA  ncbi;
 #endif
 } ESL_SQDATA;
+/*::cexcerpt::sq_sqio_data::end::*/
 
 /* ESL_SQFILE:
  * An open sequence file for reading.
@@ -79,6 +81,7 @@ typedef struct esl_sqio_s {
   ESL_SQDATA data;            /* format specific data                     */
 } ESL_SQFILE;
 
+/*::cexcerpt::sq_sqio_format::begin::*/
 /* Unaligned file format codes
  * These codes are coordinated with the msa module.
  *   - 0 is an unknown/unassigned format (eslSQFILE_UNKNOWN, eslMSAFILE_UNKNOWN)
@@ -92,6 +95,7 @@ typedef struct esl_sqio_s {
 #define eslSQFILE_DDBJ    4	/* DDBJ (currently passed to Genbank parser */
 #define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
 #define eslSQFILE_NCBI    6     /* NCBI (blast db) */
+/*::cexcerpt::sq_sqio_format::end::*/
 
 
 /* eslREADBUFSIZE is the fixed size of a block to bring in at one time,
@@ -117,10 +121,11 @@ extern int   esl_sqio_EncodeFormat(char *fmtstring);
 extern char *esl_sqio_DecodeFormat(int fmt);
 extern int   esl_sqio_IsAlignment(int fmt);
 
-extern int   esl_sqio_Read      (ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_ReadInfo  (ESL_SQFILE *sqfp, ESL_SQ *sq);
-extern int   esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-extern int   esl_sqio_Echo      (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
+extern int   esl_sqio_Read        (ESL_SQFILE *sqfp, ESL_SQ *sq);
+extern int   esl_sqio_ReadInfo    (ESL_SQFILE *sqfp, ESL_SQ *sq);
+extern int   esl_sqio_ReadWindow  (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
+extern int   esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq);
+extern int   esl_sqio_Echo        (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 extern int   esl_sqio_ReadBlock (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock);
 

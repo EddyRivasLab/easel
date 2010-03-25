@@ -11,6 +11,8 @@ module is augmented with the \eslmod{msa} module.
 Sequences can be read from normal files, directly from the
 \ccode{stdin} pipe, or from \ccode{gzip}-compressed files.
 
+Sequences can be read from NCBI BLAST database files.
+
 Sequence files can be automatically looked for in a list of one or
 more database directories, specified by an environment variable (such
 as \ccode{BLASTDB}).
@@ -97,9 +99,10 @@ went wrong and where. \ccode{sqfp->filename} is the name of the file
 that we were parsing (not necessarily the same as \ccode{seqfile};
 \ccode{sqfp->filename} can be a full pathname if we used an
 \ccode{env} argument to look for \ccode{seqfile} in installed database
-directories). \ccode{sqfp->linenumber} is the line number that we
-failed at. \ccode{sqfp->errbuf} is a brief explanatory message that
-gets filled in when a \ccode{eslEFORMAT} error occurs.
+directories). The function \ccode{esl\_sqfile\_GetErrorBuf} should be
+called to get a pointer to the generated error message.  The buffer
+ is a brief explanatory message that gets filled in when a 
+\ccode{eslEFORMAT} error occurs.
   \footnote{Unlike in the MSA module, you don't get access to the
   current line text; some of sqio's parsers use fast block-based
   (\ccode{fread()}) input instead of line-based input.}
@@ -124,6 +127,7 @@ codes) are:
 \ccode{eslSQFILE\_FASTA}    & FASTA format \\
 \ccode{eslSQFILE\_GENBANK}  & Genbank flat text DNA database format \\
 \ccode{eslSQFILE\_UNIPROT}  & Uniprot flat text protein database format \\
+\ccode{eslSQFILE\_NCBI}     & NCBI BLAST database format version 4  \\
 \end{tabular}
 
 Additionally, the code \ccode{eslSQFILE\_UNKNOWN} is recognized. It
@@ -175,7 +179,100 @@ The plan is to provide the ability to input sequences directly into
 \ccode{dsq} as pre-digitized sequences.
 
 
+\subsubsection{ncbi: read NCBI BLAST databases}
+
+If sqio is augmented with the ncbi module, then the sqio API gains the
+ability to read NCBI BLAST database formats in addition to ASCII file
+formats. The sqio API remains exactly the same (the caller doesn't
+have to use any msa module functions).
+
+To open a BLAST database, the format must be supplied.  If a format
+of \ccode{eslSQFILE\_UNKNOWN} is specified, only ASCII based format,
+i.e. FASTA, GENBANK, etc. will be opened.
+
+When opening a BLAST database, the file name should not include any
+extensions.  If the \ccode{ESL\_ALPHABET} is not specified, Easel
+will first try to open a protein database, followed by a DNA database
+and finally a multi-volume database.  The handling of a multi-volume
+database is done through the alias file.  The only directive in
+the alias file is the DBLIST line, listing all the database volumes.
 
 
 
 
+\subsection{Adding a sequence parser}
+
+The \eslmod{sqio} module is designed to handle multiple sequence
+formats.  Parsers for different formats can be plugged into the
+\eslmod{sqio} module without any API changes.  This means that
+programs using the Easel library won't need code changes to
+use the new parser.
+
+A new parser will need a format type, a structure for parser
+specific data, API functions and a hook into the 
+\ccode{sqfile\_open} function.
+
+The list of formats are defined in \ccode{esl\_sqio.h}.  A new
+\ccode{\#define} will be added to the existing formats:
+
+\input{cexcerpts/sq_sqio_format}
+
+A data structure for parser specific data will need to be added
+to \ccode{ESL\_SQDATA}.  This structure is a union of the 
+different parser specific data structures.  If possible the
+addition of the parser structure should be augmented so its
+inclusion can be controlled.
+
+\input{cexcerpts/sq_sqio_data}
+
+Finally, the routine specific function pointers neeed to be
+defined.  The functions in \ccode{esl\_sqio.c} in turn call
+these function pointers.  The \ccode{esl\_sqfile\_Open} function
+initializes the function pionters to NULL, so if they are not
+set an exception will occur when the function is called.  At
+a minimum, the function should be defined to return an
+\ccode{eslEUNIMPLEMENTED}.  Below is a map the the function
+pointers to their respective function.
+
+\begin{tabular}{ll} \\
+Function Pointer & ESL\_SQIO Function \\ \hline
+position & esl\_sqfile\_Position \\
+close & esl\_sqfile\_Close \\
+set\_digital & esl\_sqfile\_SetDigital \\
+guess\_alphabet & esl\_sqfile\_GuessAlphabet \\
+read & esl\_sqio\_Read  \\
+read\_info & esl\_sqio\_ReadInfo   \\
+read\_seq & esl\_sqio\_ReadSequence \\
+read\_window & esl\_sqio\_ReadWindow \\
+echo & esl\_sqio\_Echo  \\
+read\_block & esl\_sqio\_ReadBlock  \\
+open\_ssi & esl\_sqfile\_OpenSSI     \\
+pos\_by\_key & esl\_sqfile\_PositionByKey    \\
+pos\_by\_number & esl\_sqfile\_PositionByNumber \\
+fetch & esl\_sqio\_Fetch       \\
+fetch\_info & esl\_sqio\_FetchInfo   \\
+fetch\_subseq & esl\_sqio\_FetchSubseq \\
+is\_rewindable & esl\_sqfile\_IsRewindable  \\
+get\_error & esl\_sqfile\_GetErrorBuf \\
+\end{tabular}
+
+\bigskip
+A hook needs to be added to the function \ccode{sqfile\_open}.
+This hook will try to open the specified file.  If successful,
+the \ccode{ESL\_SQFILE} structure should be filled in with function
+pointers and the parser specific data and the open hook
+return \ccode{eslOK}.  If the sequence files were not found for
+the specific parser, an \ccode{eslENOTFOUND} is returned and
+the next parser tries to open the file.  Below is an example
+of code that tries to open an NCBI BLAST database if not
+successful, then the ASCII sequence parsers try to open the
+file.
+
+\begin{cchunk}
+#ifdef eslAUGMENT\_NCBI
+    if (format == eslSQFILE\_NCBI && status == eslENOTFOUND)
+      status = esl\_sqncbi\_Open(sqfp->filename, sqfp->format, sqfp);
+#endif
+    if (status == eslENOTFOUND)
+      status = esl\_sqascii\_Open(sqfp->filename, sqfp->format, sqfp);
+\end{cchunk}
