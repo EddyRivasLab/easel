@@ -76,6 +76,14 @@ typedef struct esl_sqncbi_s {
   unsigned char *hdr_ptr;          /* current parser position                  */
   int            hdr_alloced;      /* size of the allocated buffer             */
 
+  char          *name_ptr;         /* pointer to name NOT NULL TERMINATED      */
+  int32_t        name_size;        /* length of the name                       */
+  char          *acc_ptr;          /* pointer to accession NOT NULL TERMINATED */
+  int32_t        acc_size;         /* length of the accession                  */
+  int32_t        int_id;           /* integer sequence id                      */
+  char          *str_id_ptr;       /* pointer to id NOT NULL TERMINATED        */
+  int32_t        str_id_size;      /* length of the id                         */
+  
   /* information on the current sequence */
   uint32_t       seq_apos;         /* position of ambiguity table              */
   uint32_t       seq_alen;         /* size of ambiguity table                  */

@@ -64,6 +64,7 @@ static int  sqncbi_Open         (ESL_SQNCBI_DATA *ncbi, char *filename);
 static void reset_db            (ESL_SQNCBI_DATA *ncbi);
 static int  pos_sequence        (ESL_SQNCBI_DATA *ncbi, int inx);
 static int  volume_open         (ESL_SQNCBI_DATA *ncbi, int volume);
+static void reset_header_values (ESL_SQNCBI_DATA *ncbi);
 
 static int  read_amino          (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  read_dna            (ESL_SQFILE *sqfp, ESL_SQ *sq);
@@ -77,15 +78,16 @@ static int  inmap_ncbi_dna      (ESL_SQFILE *sqfp);
 /* parsing routines */
 static int  parse_header              (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
 static int  parse_def_line            (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_seq_id              (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_textseq_id          (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_object_id           (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_dbtag               (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_patent_seq_id       (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_id_pat              (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_pdb_seq_id          (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_date_std            (ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq);
-static int  parse_string              (ESL_SQNCBI_DATA *ncbi, int max, char **str);
+static int  parse_seq_id              (ESL_SQNCBI_DATA *ncbi);
+static int  parse_textseq_id          (ESL_SQNCBI_DATA *ncbi);
+static int  parse_object_id           (ESL_SQNCBI_DATA *ncbi);
+static int  parse_dbtag               (ESL_SQNCBI_DATA *ncbi);
+static int  parse_patent_seq_id       (ESL_SQNCBI_DATA *ncbi);
+static int  parse_giimport_id         (ESL_SQNCBI_DATA *ncbi);
+static int  parse_id_pat              (ESL_SQNCBI_DATA *ncbi);
+static int  parse_pdb_seq_id          (ESL_SQNCBI_DATA *ncbi);
+static int  parse_date_std            (ESL_SQNCBI_DATA *ncbi);
+static int  parse_string              (ESL_SQNCBI_DATA *ncbi, char **str, int *len);
 static int  parse_integer             (ESL_SQNCBI_DATA *ncbi, int *value);
 static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 
@@ -157,6 +159,7 @@ esl_sqncbi_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ncbi->amb_indexes  = NULL;
 
   ncbi->hdr_buf      = NULL;
+  reset_header_values(ncbi);
 
   ncbi->amb_off      = 0;
 
@@ -729,8 +732,6 @@ sqncbi_GetError(const ESL_SQFILE *sqfp)
 }
 
 
-
-
 /*****************************************************************
  *# 4. Sequence reading (sequential)
  *****************************************************************/ 
@@ -873,6 +874,8 @@ sqncbi_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
   sq->doff = ncbi->doff;
   sq->hoff = ncbi->hoff;
   sq->eoff = ncbi->eoff;
+
+  reset_header_values(ncbi);
 
   if (ncbi->alphatype == eslAMINO) 
     status = read_amino(sqfp, sq);
@@ -1219,6 +1222,23 @@ reset_db(ESL_SQNCBI_DATA *ncbi)
   return;
 }
 
+
+/* reset_header_values()
+ *
+ * Clear the header values so it is clear which values
+ * have been set by the current header.
+ */
+static void
+reset_header_values(ESL_SQNCBI_DATA *ncbi)
+{
+  ncbi->name_ptr    = NULL;
+  ncbi->name_size   = 0;
+  ncbi->acc_ptr     = NULL;
+  ncbi->acc_size    = 0;
+  ncbi->int_id      = -1;
+  ncbi->str_id_ptr  = NULL;
+  ncbi->str_id_size = 0;
+}
 
 /* volume_open()
  *
@@ -2217,6 +2237,7 @@ parse_header(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   unsigned char c;
 
+  reset_header_values(ncbi);
   size  = ncbi->hoff - ncbi->roff;
 
   /* read in the header data */
@@ -2265,8 +2286,10 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 {
   int   status;
 
-  char *buf;
-  int   taxid;
+  int   i;
+  int   len     = 0;
+  int   taxid   = -1;
+  char *title   = NULL;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
@@ -2274,17 +2297,13 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   /* look for an optional title */
   sq->desc[0] = 0;
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, -1, &buf)) != eslOK)     return status;
+    if ((status = parse_string(ncbi, &title, &len)) != eslOK) return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
-
-    free(sq->desc);
-    sq->dalloc = strlen(buf) + 1;
-    sq->desc   = buf;
   }
 
   /* look for sequence id structure */
   if (parse_expect(ncbi, "\xa1\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_seq_id(ncbi, sq)) != eslOK)             return status;
+  if ((status = parse_seq_id(ncbi)) != eslOK)                 return status;
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
 
   /* look for an optional taxonomy id */
@@ -2292,8 +2311,6 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   if (parse_accept(ncbi, "\xa2\x80", 2) == eslOK) {
     if ((status = parse_integer(ncbi, &taxid)) != eslOK)      return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
-
-    sq->tax_id = taxid;
   }
 
   /* look for an optional memberships */
@@ -2316,6 +2333,62 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* verify we are at the end of the structure */
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  /* zero terminate any saved string */
+  if (ncbi->name_ptr   != NULL) ncbi->name_ptr[ncbi->name_size]     = '\0';
+  if (ncbi->acc_ptr    != NULL) ncbi->acc_ptr[ncbi->acc_size]       = '\0';
+  if (ncbi->str_id_ptr != NULL) ncbi->str_id_ptr[ncbi->str_id_size] = '\0';
+
+  if (title != NULL) title[len] = '\0';
+
+  if (ncbi->name_ptr != NULL || ncbi->acc_ptr != NULL) {
+    /* if we have both a name and accession, set both fields.
+     * if we have only one, set the name to that one field.
+     */
+    if (ncbi->name_ptr != NULL) {
+      esl_sq_SetName(sq, ncbi->name_ptr);
+      if (ncbi->acc_ptr != NULL) {
+	esl_sq_SetAccession(sq, ncbi->acc_ptr);
+      }
+    } else {
+      esl_sq_SetName(sq, ncbi->acc_ptr);
+    }
+    if (title != NULL) esl_sq_SetDesc(sq, title);
+  } else if (ncbi->str_id_ptr != NULL || ncbi->int_id != -1) {
+    /* since we don't have a name or accession, use the id
+     * as the name.
+     */
+    if (ncbi->str_id_ptr != NULL) {
+      esl_sq_SetName(sq, ncbi->str_id_ptr);
+    } else {
+      char id[32];
+      sprintf(id, "%d", ncbi->int_id);
+      esl_sq_SetName(sq, id);
+    }
+    if (title != NULL) esl_sq_SetDesc(sq, title);
+  } else if (title != NULL) {
+    /* lastly we don't have anything, so lets just use the
+     * title.  take the first word of the title and use that
+     * for the name.  the remaining portion of the title will
+     * be used for the description.
+     */
+    for (i = 0; i < len; ++i) {
+      if (isspace(title[i])) {
+	title[i] = '\0';
+	break;
+      }
+    }
+    esl_sq_SetName(sq, title);
+    ++i;
+
+    /* skip over multiple spaces till the next word */
+    for ( ; i < len; ++i) {
+      if (!isspace(title[i])) break;
+    }
+    if (i < len) esl_sq_SetDesc(sq, title + i);
+  }
+
+  if (taxid != -1) sq->tax_id = taxid;
 
   return eslOK;
 }
@@ -2349,9 +2422,10 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_seq_id(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
+  int  *id_ptr;
 
   unsigned char c;
 
@@ -2365,50 +2439,49 @@ parse_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
     if (parse_expect(ncbi, "\x80", 1) != eslOK)             return eslEFORMAT;
     switch (c) {
     case 0xa0: /* LOCAL */
-      status = parse_object_id(ncbi, sq);
+      status = parse_object_id(ncbi);
       break;
     case 0xa1: /* GIBBSQ */
+      id_ptr = (ncbi->int_id != -1) ? NULL : &ncbi->int_id;
+      status = parse_integer(ncbi, id_ptr);
+      break;
     case 0xa2: /* GIBBMT */
       status = parse_integer(ncbi, NULL);
       break;
     case 0xa3: /* GIIM */
-      return eslEFORMAT;
+      status = parse_giimport_id(ncbi);
       break;
     case 0xa4: /* GENBANK */
     case 0xa5: /* EMBL */
     case 0xa6: /* PIR */
     case 0xa7: /* SWISSPROT */
-      status = parse_textseq_id(ncbi, sq);
-      sq = NULL;
+      status = parse_textseq_id(ncbi);
       break;
     case 0xa8: /* PATENT */
-      status = parse_patent_seq_id(ncbi, sq);
+      status = parse_patent_seq_id(ncbi);
       break;
     case 0xa9: /* OTHER */
-      status = parse_textseq_id(ncbi, sq);
-      sq = NULL;
+      status = parse_textseq_id(ncbi);
       break;
     case 0xaa: /* GENERAL */
-      status = parse_dbtag(ncbi, sq);
+      status = parse_dbtag(ncbi);
       break;
     case 0xab: /* GI */
       status = parse_integer(ncbi, NULL);
       break;
     case 0xac: /* DDBJ */
     case 0xad: /* PRF */
-      status = parse_textseq_id(ncbi, sq);
-      sq = NULL;
+      status = parse_textseq_id(ncbi);
       break;
     case 0xae: /* PDB */
-      status = parse_pdb_seq_id(ncbi, sq);
+      status = parse_pdb_seq_id(ncbi);
       break;
     case 0xaf: /* TPG */
     case 0xb0: /* TPE */
     case 0xb1: /* TPD */
     case 0xb2: /* GPIPE */
     case 0xb3: /* NAMED ANNOT TRACK */
-      status = parse_textseq_id(ncbi, sq);
-      sq = NULL;
+      status = parse_textseq_id(ncbi);
       break;
     default:
       status = eslEFORMAT;
@@ -2438,49 +2511,33 @@ parse_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_textseq_id(ESL_SQNCBI_DATA *ncbi)
 {
-  char *buf = NULL;
+  char *acc  = NULL;
+  int   alen = 0;
+  char *name = NULL;
+  int   nlen = 0;
+
   int   status;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
 
   /* look for an optional name */
-  if (sq != NULL) sq->name[0] = 0;
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, -1, &buf)) != eslOK)     return status;
+    if ((status = parse_string(ncbi, &name, &nlen)) != eslOK) return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
-
-    if (sq != NULL) {
-      free(sq->name);
-      sq->nalloc = strlen(buf) + 1;
-      sq->name   = buf;
-    } else {
-      free(buf);
-    }
-    buf = NULL;
   }
 
   /* look for an optional accession */
-  if (sq != NULL) sq->acc[0] = 0;
   if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, -1, &buf)) != eslOK)     return status;
+    if ((status = parse_string(ncbi, &acc, &alen)) != eslOK)  return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
-
-    if (sq != NULL) {
-      free(sq->acc);
-      sq->aalloc = strlen(buf) + 1;
-      sq->acc    = buf;
-    } else {
-      free(buf);
-    }
-    buf = NULL;
   }
 
   /* look for an optional release */
   if (parse_accept(ncbi, "\xa2\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, 0, NULL)) != eslOK)      return status;
+    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
   }
 
@@ -2492,6 +2549,32 @@ parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* verify we are at the end of the structure */
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  /* if we found both the accession and name and so far
+   * we have only come across incomplete headers, save 
+   * this one off.
+   */
+  if (acc != NULL && name != NULL) {
+    if (ncbi->name_ptr == NULL || ncbi->acc_ptr == NULL) {
+      ncbi->name_ptr  = name;
+      ncbi->name_size = nlen;
+      ncbi->acc_ptr   = acc;
+      ncbi->acc_size  = alen;
+    }
+
+  } else if (ncbi->name_ptr == NULL && ncbi->acc_ptr == NULL) {
+    /* if neither the accession or name have been set, and the
+     * header supplied one, save it off.
+     */
+    if (acc != NULL) {
+      ncbi->acc_ptr   = acc;
+      ncbi->acc_size  = alen;
+    }
+    if (name != NULL) {
+      ncbi->name_ptr  = name;
+      ncbi->name_size = nlen;
+    }
+  }
 
   return eslOK;
 }
@@ -2507,9 +2590,10 @@ parse_textseq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_dbtag(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_dbtag(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
+  int   temp_id;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
@@ -2520,13 +2604,73 @@ parse_dbtag(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
 
+  /* it looks like the dbtag is used when formatdb is run
+   * without parsing sequence ids (ie -o F).  if that is
+   * the case, the id is equal to the sequence number in
+   * the database.  so for dbtag headers, nothing will be
+   * saved.  to do this lets create a bogus id value and
+   * restore it after dbtag is parsed.
+   */
+  temp_id = ncbi->int_id;
+  ncbi->int_id = 1;
+
   /* look for a tag object */
   if (parse_expect(ncbi, "\xa1\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_object_id(ncbi, sq)) != eslOK)          return status;
+  if ((status = parse_object_id(ncbi)) != eslOK)              return status;
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  /* restore the id value */
+  ncbi->int_id = temp_id;
 
   /* verify we are at the end of the structure */
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  return eslOK;
+}
+
+
+/* Function:  parse_giimport_id()
+ * Synopsis:  Parse the a giimport id
+ * Incept:    MSF, Thu Mar 25, 2010 [Janelia]
+ *
+ * Giimport-id ::= SEQUENCE {
+ *     id INTEGER,                      -- the id to use here
+ *     db VisibleString OPTIONAL,       -- dbase used in
+ *     release VisibleString OPTIONAL } -- the release
+ * }
+ */
+static int
+parse_giimport_id(ESL_SQNCBI_DATA *ncbi)
+{
+  int   status;
+  int   id;
+
+  /* verify we are at the beginning of a structure */
+  if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
+
+  /* look for an id */
+  if (parse_expect(ncbi, "\xa0\x80", 2) != eslOK)             return eslEFORMAT;
+  if ((status = parse_integer(ncbi, &id)) != eslOK)           return status;
+
+   /* look for an optional database */
+  if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
+    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return status;
+    if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
+  }
+
+  /* look for an optional release */
+  if (parse_accept(ncbi, "\xa2\x80", 2) == eslOK) {
+    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return status;
+    if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
+  }
+
+  /* verify we are at the end of the structure */
+  if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  /* if there is not already a saved seq id, save it */
+  if (ncbi->int_id == -1 && ncbi->str_id_ptr == NULL) {
+    ncbi->int_id = id;
+  }
 
   return eslOK;
 }
@@ -2542,23 +2686,29 @@ parse_dbtag(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_patent_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_patent_seq_id(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
+  int   id;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
 
   /* look for a seqid */
   if (parse_expect(ncbi, "\xa0\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_integer(ncbi, NULL)) != eslOK)          return status;
+  if ((status = parse_integer(ncbi, &id)) != eslOK)           return status;
 
   /* look for a patent citation object */
   if (parse_expect(ncbi, "\xa1\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_id_pat(ncbi, sq)) != eslOK)             return status;
+  if ((status = parse_id_pat(ncbi)) != eslOK)                 return status;
 
   /* verify we are at the end of the structure */
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
+
+  /* if there is not already a saved seq id, save it */
+  if (ncbi->int_id == -1 && ncbi->str_id_ptr == NULL) {
+    ncbi->int_id = id;
+  }
 
   return eslOK;
 }
@@ -2578,7 +2728,7 @@ parse_patent_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_id_pat(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
 
@@ -2587,7 +2737,7 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* look for a country */
   if (parse_expect(ncbi, "\xa0\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_string(ncbi, 0, NULL)) != eslOK)        return status;
+  if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)     return status;
 
   /* look for an id */
   if (parse_expect(ncbi, "\xa1\x80", 2) != eslOK)             return eslEFORMAT;
@@ -2599,9 +2749,9 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* look for an optional taxonomy id */
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
-    status = parse_string(ncbi, 0, NULL);
+    status = parse_string(ncbi, NULL, NULL);
   } else if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
-    status = parse_string(ncbi, 0, NULL);
+    status = parse_string(ncbi, NULL, NULL);
   } else {
     status = eslEFORMAT;
   }
@@ -2612,7 +2762,7 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* look for a doc type */
   if (parse_accept(ncbi, "\xa3\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, 0, NULL)) != eslOK)      return eslEFORMAT;
+    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return eslEFORMAT;
   }
 
   /* verify we are at the end of the structure */
@@ -2632,25 +2782,19 @@ parse_id_pat(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_object_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_object_id(ESL_SQNCBI_DATA *ncbi)
 {
-  char  *buf = NULL;
   int    status;
+
+  char  *id_str = NULL;
+  int    id_len = 0;
+  int    id     = -1;
 
   /* look for an optional taxonomy id */
   if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
-    status = parse_integer(ncbi, NULL);
+    status = parse_integer(ncbi, &id);
   } else if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
-    status = parse_string(ncbi, -1, &buf);
-
-    if (sq != NULL) {
-      free(sq->name);
-      sq->nalloc = strlen(buf) + 1;
-      sq->name   = buf;
-    } else {
-      free(buf);
-    }
-    buf = NULL;
+    status = parse_string(ncbi, &id_str, &id_len);
   } else {
     status = eslEFORMAT;
   }
@@ -2658,6 +2802,16 @@ parse_object_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   /* verify we are at the end of the structure */
   if (status == eslOK) {
     status = parse_expect(ncbi, "\x00\x00", 2);
+
+    /* if there is not already a saved seq id, save it */
+    if (ncbi->int_id == -1 && ncbi->str_id_ptr == NULL) {
+      if (id_str != NULL) {
+	ncbi->str_id_ptr  = id_str;
+	ncbi->str_id_size = id_len;
+      } else if (id != -1) {
+	ncbi->int_id = id;
+      }
+    }
   }
 
   return status;
@@ -2679,16 +2833,19 @@ parse_object_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_pdb_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_pdb_seq_id(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
+
+  char  *id;
+  int    len;
 
   /* verify we are at the beginning of a structure */
   if (parse_expect(ncbi, "\x30\x80", 2) != eslOK)             return eslEFORMAT;
 
   /* look for an pdb mol id */
   if (parse_expect(ncbi, "\xa0\x80", 2) != eslOK)             return eslEFORMAT;
-  if ((status = parse_string(ncbi, 0, NULL)) != eslOK)        return status;
+  if ((status = parse_string(ncbi, &id, &len)) != eslOK)      return status;
   if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)             return eslEFORMAT;
 
   /* look for chain */
@@ -2700,15 +2857,21 @@ parse_pdb_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
   /* look for an optional date */
   if (parse_accept(ncbi, "\xa2\x80", 2) == eslOK) {
     if (parse_accept(ncbi, "\xa0\x80", 2) == eslOK) {
-      status = parse_string(ncbi, 0, NULL);
+      status = parse_string(ncbi, NULL, NULL);
     } else if (parse_accept(ncbi, "\xa1\x80", 2) == eslOK) {
-      status = parse_date_std(ncbi, sq);
+      status = parse_date_std(ncbi);
     } else {
       status = eslEFORMAT;
     }
     if (status != eslOK)                                      return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
+  }
+
+  /* if there is not already a saved seq id, save it */
+  if (ncbi->int_id == -1 && ncbi->str_id_ptr == NULL) {
+    ncbi->str_id_ptr  = id;
+    ncbi->str_id_size = len;
   }
 
   /* verify we are at the end of the structure */
@@ -2733,7 +2896,7 @@ parse_pdb_seq_id(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * }
  */
 static int
-parse_date_std(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
+parse_date_std(ESL_SQNCBI_DATA *ncbi)
 {
   int   status;
 
@@ -2759,7 +2922,7 @@ parse_date_std(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
 
   /* look for an optional season */
   if (parse_accept(ncbi, "\xa3\x80", 2) == eslOK) {
-    if ((status = parse_string(ncbi, 0, NULL)) != eslOK)      return status;
+    if ((status = parse_string(ncbi, NULL, NULL)) != eslOK)   return status;
     if (parse_expect(ncbi, "\x00\x00", 2) != eslOK)           return eslEFORMAT;
   }
 
@@ -2792,29 +2955,23 @@ parse_date_std(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  * Synopsis:  Parse a visible string
  * Incept:    MSF, Mon Dec 10, 2009 [Janelia]
  *
- * Purpose:   Reads an string from the header stream.  The arguement <max>
- *            specified the maximum number of characters to save.  If <max>
- *            is -1, the entire string will be saved.
+ * Purpose:   Parses a string from the header stream.
  *
- *            The string will always be zero terminated.
- *
- *            If <str> is non null, the parsed integer will be placed
- *            in the pointer.  The calling routine is responsible for
- *            freeing the allocated memory.
+ *            If <str> is non null, the location of the string in 
+ *            the header will be saved.  If <len> is non null, the
+ *            length of the string will be filled in.  If <str> is
+ *            non null, then <len> must be non null since the strings
+ *            are not zero terminated.
  *
  * Returns:   <eslOK> on success.
- *            <eslEMEM> if there's a memory allocation error.
  *            <eslEFORMAT> if there's a problem with the format.
+ *            <eslEINCOMPAT> if <str> is non null and <len> is null.
  *
  */
 static int
-parse_string(ESL_SQNCBI_DATA *ncbi, int max, char **str)
+parse_string(ESL_SQNCBI_DATA *ncbi, char **str, int *len)
 {
   int n;
-  int len;
-  int status;
-
-  char *v  = NULL;
 
   unsigned char  x;
   unsigned char  c;
@@ -2846,25 +3003,12 @@ parse_string(ESL_SQNCBI_DATA *ncbi, int max, char **str)
   ptr = ncbi->hdr_ptr;
   if (parse_advance(ncbi, n) != eslOK)         return eslEFORMAT;
 
-  /* now that we have the length of the string, check how much
-   * of it (if any) we need to save.
-   */
-  if (str != NULL && max != 0) {
-    if (max == -1 || max > n)  len = n;
-    else                       len = max - 1;
-
-    ESL_ALLOC(v, sizeof(char) * (len + 1));
-    memcpy(v, ptr, len);
-    v[len] = 0;
-
-    *str = v;
-  }
+  /* fill in the values */
+  if (str != NULL && len == NULL) return eslEINCOMPAT;
+  if (len != NULL) *len = n;
+  if (str != NULL) *str = (char *)ptr;
 
   return eslOK;
-
- ERROR:
-  if (v != NULL) free(v);
-  return status;
 }
 
 
