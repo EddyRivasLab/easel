@@ -70,7 +70,7 @@ main(int argc, char **argv)
 
   int  *msa1_to_msa2_map;       /* map from <msafile1> to <msafile2> */
   char *sub_msa1_to_msa2_mask;  /* with --sub the map from <msafile1> to <msafile2> in mask form */
-  FILE *subfp;
+  FILE *subfp = NULL;
 
   /***********************************************
    * Parse command line
@@ -169,6 +169,7 @@ main(int argc, char **argv)
     if((status = map_sub_msas(go, errbuf, msa1, msa2, &sub_msa1_to_msa2_mask)) != eslOK) goto ERROR;
     fprintf(subfp, "%s\n", sub_msa1_to_msa2_mask);
     fclose(subfp);
+    subfp = NULL;
     printf("# Mask of 1/0s with 1 indicating aln column in %s maps to a column in %s saved to file %s.\n", alifile1, alifile2, esl_opt_GetString(go, "--submap")); 
     free(sub_msa1_to_msa2_mask);
   }
@@ -181,16 +182,15 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   esl_msa_Destroy(msa1);
   esl_msa_Destroy(msa2);
-  
   return 0;
   
  ERROR:
-  if(afp1 != NULL) esl_msafile_Close(afp1);
-  if(afp2 != NULL) esl_msafile_Close(afp2);
-  if(go  != NULL) esl_getopts_Destroy(go);
-  if(msa1 != NULL) esl_msa_Destroy(msa1);
-  if(msa2 != NULL) esl_msa_Destroy(msa2);
-
+  if (afp1)   esl_msafile_Close(afp1);
+  if (afp2)   esl_msafile_Close(afp2);
+  if (go)     esl_getopts_Destroy(go);
+  if (msa1)   esl_msa_Destroy(msa1);
+  if (msa2)   esl_msa_Destroy(msa2);
+  if (subfp)  fclose(subfp);
   esl_fatal(errbuf);
   return 1; /* never reached */
 }

@@ -1793,10 +1793,10 @@ main(int argc, char **argv)
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
   uint16_t fh;
   int    i,j;
-  char **sqfile;
-  char **seqname;
-  char **seq;
-  int   *seqlen;
+  char **sqfile  = NULL;
+  char **seqname = NULL;
+  char **seq     = NULL;
+  int   *seqlen  = NULL;
   char   query[32];
   char  *qfile;
   int    qfmt;
@@ -1909,7 +1909,7 @@ main(int argc, char **argv)
   esl_sq_Destroy(sq);
   esl_ssi_Close(ssi);
   esl_randomness_Destroy(r);
-  if (seqlen  != NULL) free(seqlen);
+  if (seqlen) free(seqlen);
   esl_Free2D((void **) seqname, nseq*nfiles);
   esl_Free2D((void **) seq,     nseq*nfiles);
   esl_Free2D((void **) sqfile, nfiles);

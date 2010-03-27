@@ -312,7 +312,7 @@ esl_hmm_Emit(ESL_RANDOMNESS *r, const ESL_HMM *hmm, ESL_DSQ **opt_dsq, int **opt
   dsq[L+1]  = eslDSQ_SENTINEL;
   
   if (opt_dsq  != NULL) *opt_dsq  = dsq;   else free(dsq);
-  if (opt_path != NULL) *opt_path = path;  else free(dsq);
+  if (opt_path != NULL) *opt_path = path;  else free(path);
   if (opt_L    != NULL) *opt_L    = L;     
   return eslOK;
 
