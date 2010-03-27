@@ -999,7 +999,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
       /* update the sequence index */
       if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK) 
-	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning datbase to sequence %ld", sq->idx);
+	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning database to sequence %" PRId64, sq->idx);
 
       if (sq->end == 1) 
 	{ /* last end == 1 means last window was the final one on reverse strand,

@@ -115,7 +115,7 @@ main(int argc, char **argv)
   range_by_seqnum(sqfp, nproc, &(final_sqidx));
 
   /* Output range for desired nproc to stdout */
-  printf("%d-%d\n", (procidx == 1) ? 1 : final_sqidx[procidx-2]+1, final_sqidx[procidx-1]); /* careful: final_sqidx runs 0..nproc-1 */
+  printf("%" PRId64 "-%" PRId64 "\n", (procidx == 1) ? 1 : final_sqidx[procidx-2]+1, final_sqidx[procidx-1]); /* careful: final_sqidx runs 0..nproc-1 */
 
   free(final_sqidx);
   esl_sqfile_Close(sqfp);

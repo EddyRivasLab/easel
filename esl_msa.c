@@ -2692,15 +2692,17 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 static int
 remove_broken_basepairs_from_ss_string(char *ss, char *errbuf, int len, const int *useme)
 {
-  int status;
-  int64_t apos;         /* alignment position */
-  int *ct;		/* 0..alen-1 base pair partners array for current sequence */
-  char *ss_nopseudo;    /* no-pseudoknot version of structure */
-  ESL_ALLOC(ct,  sizeof(int)  * (len+1));
+  int64_t  apos;                 /* alignment position */
+  int     *ct = NULL;	         /* 0..alen-1 base pair partners array for current sequence */
+  char    *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
+  int      status;
+
+  ESL_ALLOC(ct,          sizeof(int)  * (len+1));
   ESL_ALLOC(ss_nopseudo, sizeof(char) * (len+1));
 
   esl_wuss_nopseudo(ss, ss_nopseudo);
-  if ((status = esl_wuss2ct(ss_nopseudo, len, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+  if ((status = esl_wuss2ct(ss_nopseudo, len, ct)) != eslOK) 
+    ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
   for (apos = 1; apos <= len; apos++) { 
     if (!(useme[apos-1])) { 
       if (ct[apos] != 0) ct[ct[apos]] = 0;
@@ -2708,15 +2710,17 @@ remove_broken_basepairs_from_ss_string(char *ss, char *errbuf, int len, const in
     }
   }
   /* All broken bps removed from ct, convert to WUSS SS string and overwrite SS */
-  if ((status = esl_ct2wuss(ct, len, ss)) != eslOK) ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct array to WUSS notation.");
+  if ((status = esl_ct2wuss(ct, len, ss)) != eslOK) 
+    ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct array to WUSS notation.");
   
   free(ss_nopseudo);
   free(ct);
   return eslOK;
 
  ERROR: 
-  ESL_FAIL(status, errbuf, "Memory allocation error.");
-  return status; /* NEVERREACHED */
+  if (ct          != NULL) free(ct);
+  if (ss_nopseudo != NULL) free(ss_nopseudo);
+  return status; 
 }  
 
 /* remove_broken_basepairs_from_msa()
@@ -5011,23 +5015,20 @@ write_afa(FILE *fp, ESL_MSA *msa)
       if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) fprintf(fp, " %s", msa->sqdesc[i]);
       fputc('\n', fp);
 
-#ifdef eslAUGMENT_ALPHABET
+      pos = 0;
+      while (pos < msa->alen)
 	{
-	  pos = 0;
-	  while (pos < msa->alen)
-	    {
-	      acpl = (msa->alen - pos > 60)? 60 : msa->alen - pos;
-	      if (msa->flags & eslMSA_DIGITAL)
-		esl_abc_TextizeN(msa->abc, msa->ax[i] + pos + 1, acpl, buf);
-	      else 
-		strncpy(buf, msa->aseq[i] + pos, acpl);
-#else
-	      strncpy(buf, msa->aseq[i] + pos, acpl);
+	  acpl = (msa->alen - pos > 60)? 60 : msa->alen - pos;
+#ifdef eslAUGMENT_ALPHABET
+	  if (msa->flags & eslMSA_DIGITAL)
+	    esl_abc_TextizeN(msa->abc, msa->ax[i] + pos + 1, acpl, buf);
+	  else 
 #endif
-	      buf[acpl] = '\0';
-	      fprintf(fp, "%s\n", buf);	      
-	      pos += 60;
-	    }
+	    strncpy(buf, msa->aseq[i] + pos, acpl);
+
+	  buf[acpl] = '\0';
+	  fprintf(fp, "%s\n", buf);	      
+	  pos += 60;
 	}
     } /* end, loop over sequences in the MSA */
 
@@ -5340,7 +5341,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   int        maxgf = 0;            /* max length GF tag */
   int        maxgc = 0;            /* max length GC tag */
   int        maxgr = 0;            /* max length GR tag */
-  char      *seqname;              /* a sequence name */
+  char      *seqname;              /* ptr to a sequence name */
   int        namelen;              /* length of a sequence name */
   char      *first_seqname = NULL; /* name of first sequence read */
   char      *gc, *gr;              /* for storing GC, GR, temporarily */
@@ -5623,52 +5624,56 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
 
   /* Note that we don't verify the parse, b/c we didn't read any sequence data, a verify_parse() would fail */
 
-  if (ret_msa != NULL)       *ret_msa = msa; 
-  else if(msa != NULL)        esl_msa_Destroy(msa);
+  if (first_seqname) free(first_seqname);
+  if (tmp_dsq)       free(tmp_dsq);
+  if (ct)            free(ct);
+  if (ss_nopseudo)   free(ss_nopseudo);
+  if (a2rf_map)      free(a2rf_map);
 
-  if (first_seqname != NULL) free(first_seqname);
-  if (tmp_dsq != NULL)       free(tmp_dsq);
-  if (ct != NULL)            free(ct);
-  if (ss_nopseudo != NULL)   free(ss_nopseudo);
-  if (a2rf_map != NULL)      free(a2rf_map);
-  if (opt_nseq != NULL)      *opt_nseq = nseq; 
-  if (opt_alen != NULL)      *opt_alen = alen;
-  if (opt_ngs != NULL)       *opt_ngs = ngs;
-  if (opt_maxname != NULL)   *opt_maxname = maxname;
-  if (opt_maxgf != NULL)     *opt_maxgf = maxgf;
-  if (opt_maxgc != NULL)     *opt_maxgc = maxgc;
-  if (opt_maxgr != NULL)     *opt_maxgr = maxgr;
-  if (opt_abc_ct != NULL)    *opt_abc_ct = abc_ct;
-  if (opt_pp_ct != NULL)     *opt_pp_ct = pp_ct;
-  if (opt_bp_ct != NULL)     *opt_bp_ct = bp_ct;
-  if (opt_spos_ct != NULL)   *opt_spos_ct = spos_ct;
-  if (opt_epos_ct != NULL)   *opt_epos_ct = epos_ct;
+  if (ret_msa)       *ret_msa       = msa;       else if (msa)      esl_msa_Destroy(msa);
+  if (opt_nseq)      *opt_nseq      = nseq; 
+  if (opt_alen)      *opt_alen      = alen;
+  if (opt_ngs)       *opt_ngs       = ngs;
+  if (opt_maxname)   *opt_maxname   = maxname;
+  if (opt_maxgf)     *opt_maxgf     = maxgf;
+  if (opt_maxgc)     *opt_maxgc     = maxgc;
+  if (opt_maxgr)     *opt_maxgr     = maxgr;
+  if (opt_abc_ct)    *opt_abc_ct    = abc_ct;    else if (abc_ct)    esl_Free2D((void **) abc_ct, alen);
+  if (opt_pp_ct)     *opt_pp_ct     = pp_ct;     else if (pp_ct)     esl_Free2D((void **) pp_ct, alen);
+  if (opt_bp_ct)     *opt_bp_ct     = bp_ct;     else if (bp_ct)     esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
+  if (opt_spos_ct)   *opt_spos_ct   = spos_ct;   else if (spos_ct)   free(spos_ct);
+  if (opt_epos_ct)   *opt_epos_ct   = epos_ct;   else if (epos_ct)   free(epos_ct);
   return eslOK;
 
  ERROR:
-  if (first_seqname != NULL)  free(first_seqname);
-  if (tmp_dsq != NULL)        free(tmp_dsq);
-  if (msa != NULL)            esl_msa_Destroy(msa);
-  if (ret_msa != NULL)       *ret_msa = NULL;
-  if (opt_nseq != NULL)      *opt_nseq = 0;
-  if (opt_alen != NULL)      *opt_alen = 0;
-  if (opt_ngs != NULL)       *opt_ngs  = 0;
-  if (opt_maxname != NULL)   *opt_maxname = 0;
-  if (opt_maxgf != NULL)     *opt_maxgf = 0;
-  if (opt_maxgc != NULL)     *opt_maxgc = 0;
-  if (opt_maxgr != NULL)     *opt_maxgr = 0;
-  if (pp_ct != NULL)          esl_Free2D((void **) pp_ct, alen);
-  if (opt_pp_ct != NULL)     *opt_pp_ct = NULL;
-  if (abc_ct != NULL)         esl_Free2D((void **) abc_ct, alen);
-  if (opt_abc_ct != NULL)    *opt_abc_ct = NULL;
-  if(bp_ct  != NULL)          esl_Free3D((void ***) bp_ct, known_alen, abc->Kp);
-  if(opt_bp_ct  != NULL)     *opt_bp_ct = NULL;
-  if (spos_ct != NULL)      free(spos_ct);
-  if (opt_spos_ct != NULL) *opt_spos_ct = NULL;
-  if (epos_ct != NULL)      free(epos_ct);
-  if (opt_epos_ct != NULL) *opt_epos_ct = NULL;
+  if (first_seqname)  free(first_seqname);
+  if (tmp_dsq)        free(tmp_dsq);
+  if (ct)             free(ct);
+  if (ss_nopseudo)    free(ss_nopseudo);
+  if (a2rf_map)       free(a2rf_map);
+
+  if (msa)            esl_msa_Destroy(msa);
+  if (pp_ct)          esl_Free2D((void **)  pp_ct,  alen);
+  if (abc_ct)         esl_Free2D((void **)  abc_ct, alen);
+  if (bp_ct)          esl_Free3D((void ***) bp_ct,  known_alen, abc->Kp);
+  if (spos_ct)        free(spos_ct);
+  if (epos_ct)        free(epos_ct);
+
+  if (ret_msa)       *ret_msa       = NULL;
+  if (opt_nseq)      *opt_nseq      = 0;
+  if (opt_alen)      *opt_alen      = 0;
+  if (opt_ngs)       *opt_ngs       = 0;
+  if (opt_maxname)   *opt_maxname   = 0;
+  if (opt_maxgf)     *opt_maxgf     = 0;
+  if (opt_maxgc)     *opt_maxgc     = 0;
+  if (opt_maxgr)     *opt_maxgr     = 0;
+  if (opt_pp_ct)     *opt_pp_ct     = NULL;
+  if (opt_abc_ct)    *opt_abc_ct    = NULL;
+  if (opt_bp_ct)     *opt_bp_ct     = NULL;
+  if (opt_spos_ct)   *opt_spos_ct   = NULL;
+  if (opt_epos_ct)   *opt_epos_ct   = NULL;
   return status;
-  }
+}
 
 /* gapize_string
  *                   
