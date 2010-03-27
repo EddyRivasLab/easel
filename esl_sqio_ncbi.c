@@ -339,7 +339,7 @@ sqncbi_AliasOpen(ESL_SQNCBI_DATA *ncbi, char *filename, int dbtype)
   int         dbsize    = 512;
   int         dblen     = 0;
 
-  FILE       *fp;
+  FILE       *fp        = NULL;
 
   len = strlen(filename);
   ESL_ALLOC(name, sizeof(char) * (len+5));
