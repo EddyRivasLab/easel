@@ -328,7 +328,7 @@ esl_rsq_CShuffleDP(ESL_RANDOMNESS *r, const char *s, char *shuffled)
  ERROR:
   esl_Free2D((void **) E, 26);
   if (nE != NULL) free(nE);
-  if (iE != NULL) free(nE);
+  if (iE != NULL) free(iE);
   return status;
 }
 
@@ -855,7 +855,7 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
  ERROR:
   esl_Free2D((void **) E, K);
   if (nE != NULL) free(nE);
-  if (iE != NULL) free(nE);
+  if (iE != NULL) free(iE);
   if (Z  != NULL) free(Z);
   return status;
 }

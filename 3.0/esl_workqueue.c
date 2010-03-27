@@ -74,6 +74,7 @@ esl_workqueue_Create(int size)
   return queue;
 
  ERROR:
+  esl_workqueue_Destroy(queue);
   return NULL;
 }
 
