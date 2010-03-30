@@ -50,17 +50,22 @@
 #define NRBFIVERHSCHEME 5
 #define NRBFIVERLSCHEME 5
 
-#define NOC 10
+#define RBWSIXRHSCHEME 6
+#define NRBWSIXRHSCHEME 6
+
+#define NOC 12
 #define CYANOC 0
 #define MAGENTAOC 1
 #define YELLOWOC 2
 #define BLACKOC 3
 #define LIGHTGREYOC 4
-#define DARKGREYOC 5
-#define REDOC 6
-#define PURPLEOC 7
-#define ORANGEOC 8
-#define WHITEOC 9
+#define GREYOC 5
+#define DARKGREYOC 6
+#define REDOC 7
+#define PURPLEOC 8
+#define ORANGEOC 9
+#define WHITEOC 10
+#define TEALOC 11
 
 #define NCMYK 4
 #define ICYAN 0
@@ -131,9 +136,11 @@ typedef struct scheme_color_legend_s {
  */
 typedef struct onecell_color_legend_s {
   float  col[NCMYK];        /* [CMYK] color value for the cell */
-  char   *text;             /* text for legend */
+  char  *text;              /* description text for legend */
+  char  *celltext;          /* colored text to use instead of a block, if NULL a colored block will be used */
   int    nres;              /* number of residues colored by the color in col[NCMYK] */
   int    nres_masked;       /* number of residues within a mask colored by the color in col[NCMYK] */
+  int    do_separator;      /* TRUE to draw a separator line below this one cell color legend, FALSE not to */
 } OneCellColorLegend_t;
 
 /* Structure: ss_postscript
@@ -189,8 +196,9 @@ typedef struct ss_postscript_s {
   float  *rxA;          /* [0..rflen-1] x coordinate for each residue in the eventual postscript */
   float  *ryA;          /* [0..rflen-1] y coordinate for each residue in the eventual postscript */
   int     rflen;         /* the number of residues in the template file */
-  char  **rrAA;         /* [0..npage-1][0..rflen-1] residue character in the eventual postscript */
-  float ***rcolAAA;     /* [0..npage-1][0..rflen-1][0..3] color for block on page p, position c, CMYK in the eventual postscript */
+  char   **rAA;         /* [0..npage-1][0..rflen-1] residue character in the eventual postscript */
+  float ***rcolAAA;     /* [0..npage-1][0..rflen-1][0..3] color for residue on page p, position c, CMYK in the eventual postscript */
+  float ***bcolAAA;     /* [0..npage-1][0..rflen-1][0..3] color for block   on page p, position c, CMYK in the eventual postscript */
   OneCellColorLegend_t ***occlAAA;/* [0..npage-1][0..l..nocclA[p]  ptr to one cell color legend l for page p */
   int     *nocclA;      /* [0..npage-1] number of one cell color legends for each page */
   SchemeColorLegend_t  **sclAA;/* [0..npage-1]  ptr to scheme color legend l for page p, NULL if none */
@@ -209,10 +217,11 @@ typedef struct ss_postscript_s {
 
 static SSPostscript_t *create_sspostscript();
 static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
-static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked);
+static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked, int do_separator);
 static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
+static int  add_celltext_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *celltext, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
 static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf);
 static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused);
@@ -254,14 +263,16 @@ static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p);
-static int  rf_seq_sspostscript (const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p);
+static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  get_span_ct(int *msa_rf2a_map, int64_t alen, int rflen, int nseq, int *spos_ct, int *epos_ct, int *srfoff_ct, int *erfoff_ct, int **ret_span_ct);
+static int  is_watson_crick_bp(char i, char j);
+static int  is_gu_or_ug_bp(char i, char j);
 
 static char banner[] = "draw postscript secondary structure diagrams";
 static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
@@ -291,6 +302,7 @@ static ESL_OPTIONS options[] = {
   { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, only draw individual diagrams of seqs listed in <f>", 3 },
   { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
   { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 3 },
+  { "--no-ircol",eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi or --rf, do not color residues based on basepair type", 3 },
 
   { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-x","with --mask, mark masked columns as squares", 4 },
   { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-u","with --mask, mark masked columns as x's", 4 },
@@ -438,6 +450,10 @@ main(int argc, char **argv)
   if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
     esl_fatal("--mask-a requires either --mask-u or mask-x");
   }
+  /* --no-ircol requires either --indi or --rf */
+  if (esl_opt_GetBoolean(go, "--no-ircol") && (! esl_opt_IsOn(go, "--indi")) && (! esl_opt_IsOn(go, "--rf"))) { 
+    esl_fatal("--no-ircol requires either --indi or --rf");
+  }
 
   alifile      = esl_opt_GetArg(go, 1);
   templatefile = esl_opt_GetArg(go, 2);
@@ -479,10 +495,15 @@ main(int argc, char **argv)
   hc_onecell[LIGHTGREYOC][2] = 0.0;
   hc_onecell[LIGHTGREYOC][3] = 0.2;
 
+  hc_onecell[GREYOC][0] = 0.0;
+  hc_onecell[GREYOC][1] = 0.0;
+  hc_onecell[GREYOC][2] = 0.0;
+  hc_onecell[GREYOC][3] = 0.5;
+
   hc_onecell[DARKGREYOC][0] = 0.0;
   hc_onecell[DARKGREYOC][1] = 0.0;
   hc_onecell[DARKGREYOC][2] = 0.0;
-  hc_onecell[DARKGREYOC][3] = 0.5;
+  hc_onecell[DARKGREYOC][3] = 0.75;
 
   hc_onecell[REDOC][0] = 0.0;
   hc_onecell[REDOC][1] = 1.0;
@@ -504,10 +525,15 @@ main(int argc, char **argv)
   hc_onecell[WHITEOC][2] = 0.0;
   hc_onecell[WHITEOC][3] = 0.0;
 
+  hc_onecell[TEALOC][0] = 0.5;
+  hc_onecell[TEALOC][1] = 0.0;
+  hc_onecell[TEALOC][2] = 0.0;
+  hc_onecell[TEALOC][3] = 0.5;
+
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  ESL_ALLOC(hc_scheme, sizeof(float **) * 6);
-  for (z = 0; z < 6; z++) hc_scheme[z] = NULL;
+  ESL_ALLOC(hc_scheme, sizeof(float **) * 7);
+  for (z = 0; z < 7; z++) hc_scheme[z] = NULL;
   ESL_ALLOC(hc_scheme[0], sizeof(float *) * 11); 
   for(z = 0; z < 11; z++) hc_scheme[0][z] = NULL;
   for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[0][z], sizeof(float) * NCMYK); }
@@ -526,14 +552,18 @@ main(int argc, char **argv)
   ESL_ALLOC(hc_scheme[5], sizeof(float *) * 5); 
   for(z = 0; z < 5; z++) hc_scheme[5][z] = NULL;
   for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[5][z], sizeof(float) * NCMYK); }
+  ESL_ALLOC(hc_scheme[6], sizeof(float *) * 6); 
+  for(z = 0; z < 6; z++) hc_scheme[6][z] = NULL;
+  for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[6][z], sizeof(float) * NCMYK); }
 
-  ESL_ALLOC(hc_nbins, sizeof(int) * 6);
+  ESL_ALLOC(hc_nbins, sizeof(int) * 7);
   hc_nbins[0] = NRAINBOWRHSCHEME;
   hc_nbins[1] = NRAINBOWRLSCHEME;
   hc_nbins[2] = NRBSIXRHSCHEME;
   hc_nbins[3] = NRBSIXRLSCHEME;
   hc_nbins[4] = NRBFIVERHSCHEME;
   hc_nbins[5] = NRBFIVERLSCHEME;
+  hc_nbins[6] = NRBWSIXRHSCHEME;
 
   /***********************************/
   /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
@@ -607,6 +637,15 @@ main(int argc, char **argv)
   hc_scheme[4][4][0] = 0.00; hc_scheme[4][4][1] = 0.94; hc_scheme[4][4][2] = 1.00; hc_scheme[4][4][3] = 0.00; /*red*/
   hc_scheme[5][0][0] = 0.00; hc_scheme[5][0][1] = 0.94; hc_scheme[5][0][2] = 1.00; hc_scheme[5][0][3] = 0.00; /*red*/
   /***************************************************************/
+
+  /***********************************/
+  /*Scheme 5: Rainbow(red high) with white as 0 (same as scheme 4 but with white as zero */
+  hc_scheme[6][0][0] = 0.00; hc_scheme[6][0][1] = 0.00; hc_scheme[6][0][2] = 0.00; hc_scheme[6][0][3] = 0.00; /*white*/
+  hc_scheme[6][1][0] = 0.50; hc_scheme[6][1][1] = 0.00; hc_scheme[6][1][2] = 0.00; hc_scheme[6][1][3] = 0.50; /*teal*/
+  hc_scheme[6][2][0] = 0.42; hc_scheme[6][2][1] = 0.00; hc_scheme[6][2][2] = 1.00; hc_scheme[6][2][3] = 0.00;
+  hc_scheme[6][3][0] = 0.00; hc_scheme[6][3][1] = 0.21; hc_scheme[6][3][2] = 1.00; hc_scheme[6][3][3] = 0.00;
+  hc_scheme[6][4][0] = 0.00; hc_scheme[6][4][1] = 0.63; hc_scheme[6][4][2] = 1.00; hc_scheme[6][4][3] = 0.00;
+  hc_scheme[6][5][0] = 0.00; hc_scheme[6][5][1] = 0.94; hc_scheme[6][5][2] = 1.00; hc_scheme[6][5][3] = 0.00; /*red*/
 
   /*****************************************
    * Open the MSA file; determine alphabet;
@@ -778,7 +817,7 @@ main(int argc, char **argv)
   /* step through each type of page, creating it if nec */
   if(do_rf) { 
     /* this will work in either small memory or normal memory mode */
-    if((status = rf_seq_sspostscript(go, errbuf, ps, msa)) != eslOK) esl_fatal(errbuf);
+    if((status = rf_seq_sspostscript(go, errbuf, ps, msa, (! esl_opt_GetBoolean(go, "--no-ircol")), hc_onecell, DARKGREYOC, BLACKOC, TEALOC, REDOC)) != eslOK) esl_fatal(errbuf);
   }
 
   if(do_info) { 
@@ -786,7 +825,7 @@ main(int argc, char **argv)
   }
   
   if(do_mutinfo) { /* mutual info page */
-    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, DARKGREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, GREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
   if(do_ifreq || do_iavglen) { /* insert frequency page */
@@ -803,7 +842,7 @@ main(int argc, char **argv)
     }
     /* now draw the insert diagram */
     if(do_ifreq) { 
-      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, GREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
     if(do_iavglen) { 
       if((status = insertavglen_sspostscript(go, errbuf, ps, nseq_with_ins_ct, nins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
@@ -969,12 +1008,21 @@ main(int argc, char **argv)
     } /* end of else if (esl_opt_IsOn(go, "--list")) */
     /* now we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
      * draw the individual sequence pages */
-    if((status = individuals_sspostscript(go, errbuf, ps, 
+    if((status = individuals_sspostscript(go, abc, errbuf, ps, 
 					  (do_small ? indi_msa            : msa), 
 					  (do_small ? indi_per_seq_ins_ct : per_seq_ins_ct), 
 					  useme, nused, 
 					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-iprob")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-iprob")) && (msa->pp != NULL))),
-					  hc_scheme, RBFIVERHSCHEME, RBSIXRLSCHEME, hc_nbins[RBFIVERHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, WHITEOC, LIGHTGREYOC, LIGHTGREYOC)) != eslOK)
+					  (! esl_opt_GetBoolean(go, "--no-ircol")),  /* do_rescol: paint residues different colors based on basepair type? */
+					  hc_scheme, RBWSIXRHSCHEME, RBSIXRLSCHEME, hc_nbins[RBWSIXRHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, 
+					  LIGHTGREYOC, /* one-cell legend, 5'/3' flush color */
+					  DARKGREYOC,  /* one-cell legend, single-stranded color, only relevant if do_rescol == TRUE */
+					  BLACKOC,     /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
+					  TEALOC,      /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
+					  REDOC,       /* one-cell legend, non-canonical bp color, only relevant if do_rescol == TRUE */
+					  ORANGEOC,    /* one-cell legend, internal double-gap bp color, only relevant if do_rescol == TRUE */
+					  ORANGEOC,    /* one-cell legend, internal half-gap bp color, only relevant if do_rescol == TRUE */
+					  LIGHTGREYOC)) != eslOK) /* one-cell legend, color for gap in post prob pages */
       esl_fatal(errbuf);
   }
   if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
@@ -1016,12 +1064,14 @@ main(int argc, char **argv)
   for(z = 0; z < 6; z++) free(hc_scheme[3][z]);
   for(z = 0; z < 5; z++) free(hc_scheme[4][z]);
   for(z = 0; z < 5; z++) free(hc_scheme[5][z]);
+  for(z = 0; z < 6; z++) free(hc_scheme[6][z]);
   free(hc_scheme[0]);
   free(hc_scheme[1]);
   free(hc_scheme[2]);
   free(hc_scheme[3]);
   free(hc_scheme[4]);
   free(hc_scheme[5]);
+  free(hc_scheme[6]);
   free(hc_scheme);
   if(msa != NULL) esl_msa_Destroy(msa);
   if(indi_msa != NULL) esl_msa_Destroy(indi_msa);
@@ -1079,8 +1129,9 @@ create_sspostscript()
   ps->nbp = 0;
   ps->rxA = ps->ryA = NULL;
   ps->rflen = 0;
-  ps->rrAA        = NULL;
+  ps->rAA         = NULL;
   ps->rcolAAA     = NULL;
+  ps->bcolAAA     = NULL;
   ps->occlAAA     = NULL;
   ps->nocclA      = NULL;
   ps->sclAA       = NULL;
@@ -1124,10 +1175,10 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->headery = ps->pagey_max - PAGE_TOPBUF - ((HEADER_FONTSIZE_UNSCALED) / ps->scale);
 
   /* determine max number of residues we can print before we run off the page in the legend section */
-  xroom  = ps->pagex_max - ps->legx - (ps->leg_boxsize - ps->legx_charsize);
-  yroom  = ps->pagey_max - ps->legy - (ps->leg_boxsize - ps->legy_charsize);
   ps->legx_charsize = (LEG_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   ps->legy_charsize = (LEG_FONTSIZE_UNSCALED) / ps->scale; 
+  xroom  = ps->pagex_max - ps->legx - (ps->leg_boxsize - ps->legx_charsize);
+  yroom  = ps->pagey_max - ps->legy - (ps->leg_boxsize - ps->legy_charsize);
   ps->legx_max_chars = (int) (xroom / ps->legx_charsize);
   ps->legy_max_chars = (int) (yroom / ps->legy_charsize);
   ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
@@ -1137,7 +1188,7 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->headerx_charsize  = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   header_max_chars      = (int) ((ps->pagex_max - 2*PAGE_SIDEBUF) / ps->headerx_charsize);
   ps->headery_charsize  = (HEADER_FONTSIZE_UNSCALED) / ps->scale; 
-  ps->desc_max_chars    = header_max_chars - (HEADER_MODELNAME_MAXCHARS + 6 + 6 + 8 +2); /*6,6,8 for #res,#bps,#seq plus 2 spaces each, plus 2 for after name */
+  ps->desc_max_chars    = header_max_chars - (HEADER_MODELNAME_MAXCHARS + 6 + 6 + 8 +2); /*6,6,8 for #pos,#bps,#seq plus 2 spaces each, plus 2 for after name */
   ps->headerx_desc      = ps->pagex_max - PAGE_SIDEBUF - (ps->desc_max_chars * ps->headerx_charsize);
 
   return eslOK;
@@ -1192,10 +1243,10 @@ free_sspostscript(SSPostscript_t *ps)
   if(ps->rxA != NULL) free(ps->rxA);
   if(ps->ryA != NULL) free(ps->ryA);
 
-  if(ps->rrAA != NULL) { 
+  if(ps->rAA != NULL) { 
     for(p = 0; p < ps->npage; p++) 
-      if(ps->rrAA[p] != NULL) free(ps->rrAA[p]);
-    free(ps->rrAA);
+      if(ps->rAA[p] != NULL) free(ps->rAA[p]);
+    free(ps->rAA);
   }
 
   if(ps->rcolAAA != NULL) { 
@@ -1208,12 +1259,23 @@ free_sspostscript(SSPostscript_t *ps)
     free(ps->rcolAAA); 
   }
 
+  if(ps->bcolAAA != NULL) { 
+    for(p = 0; p < ps->npage; p++) { 
+      if(ps->bcolAAA[p] != NULL) { 
+	for(c = 0; c < ps->rflen; c++) free(ps->bcolAAA[p][c]);
+	free(ps->bcolAAA[p]); 
+      }
+    }
+    free(ps->bcolAAA); 
+  }
+
   if(ps->occlAAA != NULL) { 
     for(p = 0; p < ps->npage; p++) { 
       if(ps->occlAAA[p] != NULL) { 
 	for(l = 0; l < ps->nocclA[p]; l++) { 
-	  if(ps->occlAAA[p][l]->text != NULL) free(ps->occlAAA[p][l]->text);
-	  free(ps->occlAAA[p][l]); /* rest is statically allocated memory */
+	  if(ps->occlAAA[p][l]->text != NULL)     free(ps->occlAAA[p][l]->text);
+	  if(ps->occlAAA[p][l]->celltext != NULL) free(ps->occlAAA[p][l]->celltext);
+	  free(ps->occlAAA[p][l]); /* the rest is statically allocated memory */
 	}
       free(ps->occlAAA[p]);
       }
@@ -1253,7 +1315,7 @@ free_sspostscript(SSPostscript_t *ps)
  * Return:   occl
  */
 static OneCellColorLegend_t *
-create_onecell_colorlegend(float *col, int nres, int nres_masked)
+create_onecell_colorlegend(float *col, int nres, int nres_masked, int do_separator)
 {
   int status;
   OneCellColorLegend_t *occl;
@@ -1262,13 +1324,16 @@ create_onecell_colorlegend(float *col, int nres, int nres_masked)
 
   /* initialize */
   esl_vec_FSet(occl->col, NCMYK, 0.);
-  occl->text = NULL;
+  occl->text  = NULL;
+  occl->celltext = NULL; 
 
   /* set caller specified values */
   esl_vec_FCopy(col, NCMYK, occl->col);
 
-  occl->nres = nres;
-  occl->nres_masked = nres_masked;
+  occl->nres         = nres;
+  occl->nres_masked  = nres_masked;
+  occl->do_separator = do_separator; 
+
   return occl;
 
  ERROR: esl_fatal("create_onecell_colorlegend(): memory allocation error.");
@@ -1379,7 +1444,7 @@ add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, 
 {
   int status;
   int max_chars_per_line;
-  if(occl->text != NULL) esl_fatal("add_text_to_onecell_colorlegend(), text already exists!\n"); 
+  if(occl->text != NULL) esl_fatal("add_text_to_onecell_colorlegend(), text description already exists!\n"); 
   if(text == NULL) esl_fatal("add_text_to_onecell_colorlegend(), passed in text is NULL!\n"); 
 
   max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS - 2 - ((int) (((float) ps->leg_boxsize * 1.5) / ps->legx_charsize));
@@ -1388,6 +1453,21 @@ add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, 
     ESL_FAIL(eslEINVAL, errbuf, "add_text_to_onecell_colorlegend(), text is %d chars, max allowed is %d (%s)\n", (int) strlen(text), max_chars_per_line, text);
   }
   if((status = esl_strdup(text, -1, &(occl->text))) != eslOK) esl_fatal("add_text_to_onecell_colorlegend(), error copying text");
+  return eslOK;
+}
+
+/* Function: add_celltext_to_onecell_colorlegend()
+ * 
+ * Purpose:  Add cell text to an existing one cell color legend data structure.
+ */
+int
+add_celltext_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *celltext, char *errbuf)
+{
+  int status;
+  if(occl->celltext != NULL) esl_fatal("add_celltext_to_onecell_colorlegend(), cell text already exists!\n"); 
+  if(celltext == NULL) esl_fatal("add_celltext_to_onecell_colorlegend(), passed in celltext is NULL!\n"); 
+
+  if((status = esl_strdup(celltext, -1, &(occl->celltext))) != eslOK) esl_fatal("add_celltext_to_onecell_colorlegend(), error copying text");
   return eslOK;
 }
 
@@ -1581,7 +1661,7 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errb
 
   x = ps->legx_stats;
   y = ps->cur_legy;
-  cur_width = ps->legx_max_chars - LEG_EXTRA_COLUMNS - 2;
+  cur_width = ps->legx_max_chars - ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - LEG_EXTRA_COLUMNS - 2;
 
   ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
   for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
@@ -1614,32 +1694,53 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errb
 /* Function: draw_onecell_colorlegend()
  * 
  * Purpose:  Print a one cell color legend to an open file.
- * Return:   eslOK
+ * Return:   eslOK, dies if we run out of memory.
  */
 static int 
 draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx, int pagenum)
 {
+  int status; 
   float x, y;
-  int cp;
+  int cp, i;
   float fontsize;
+  char *cur_string;
+  int cur_width = 0;
 
   /* object is valid, print it */
   x = ps->legx;
   y = ps->cur_legy;
 
-  fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
-
   /* print cell */
   fprintf(fp, "%% begin one cell color legend\n");
-  fprintf(fp, "newpath\n");
-  fprintf(fp, "  %.2f %.2f moveto", x, y);
-  fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
-  fprintf(fp, "  ");
-  for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.2f ", occl->col[cp]);
-  fprintf(fp, "setcmykcolor\n");
-  fprintf(fp, "  fill\n");
-  
+  if(occl->celltext == NULL) { /* print a colored block as the cell */
+    fprintf(fp, "newpath\n");
+    fprintf(fp, "  %.2f %.2f moveto", x, y);
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+    fprintf(fp, "  ");
+    for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.2f ", occl->col[cp]);
+    fprintf(fp, "setcmykcolor\n");
+    fprintf(fp, "  fill\n");
+
+    /* draw a small box outlining the colored block we just drew */
+    fprintf(fp, "%.2f setlinewidth\n", (ps->leg_boxsize / 24.));
+    fprintf(fp, "newpath\n");
+    fprintf(fp, "  %.2f %.2f moveto", x, y);
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+    fprintf(fp, "  ");
+    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.); /* black */
+    fprintf(fp, "  stroke\n");
+  }
+  else { /* print colored text as the cell */
+    /* fontsize = (float) ps->leg_boxsize / strlen(occl->celltext); */
+    fontsize = (float) ps->leg_boxsize / 2;
+    fprintf(fp, "/%s findfont %f scalefont setfont\n", RESIDUES_FONT, fontsize);
+    for(cp = 0; cp < NCMYK; cp++) fprintf(fp, "%.2f ", occl->col[cp]);
+    fprintf(fp, "setcmykcolor\n");
+    fprintf(fp, "(%s) %.2f %.2f moveto show\n", occl->celltext, x, y + ((float) ps->leg_boxsize * 0.25));
+  }
   x += (float) ps->leg_boxsize * 1.5;
+
+  fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
 
   /* print text for this legend */
   if(occl->text != NULL) { 
@@ -1660,11 +1761,28 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
 
   /* reset color to black */ 
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
-  y -= (float) ps->leg_boxsize * 1.5;
+
+  if(occl->do_separator) {
+    cur_width = ps->legx_max_chars - ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - LEG_EXTRA_COLUMNS - 2;
+    ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
+    for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
+    cur_string[cur_width] = '\0';
+    fprintf(fp, "(%s) %.2f %.2f moveto show\n", cur_string, ps->legx,      (y - ((float) ps->leg_boxsize * 0.5)));
+    fprintf(fp, "(-----) %.2f %.2f moveto show\n", (float) ps->legx_stats, (y - ((float) ps->leg_boxsize * 0.5)));
+    y -= (float) ps->leg_boxsize * 0.5;
+    free(cur_string);
+  }
+
+  /* y -= (float) ps->leg_boxsize * 1.5; */
+  y -= (float) ps->leg_boxsize * 1.25; 
   ps->cur_legy = y;
+
   
   fprintf(fp, "%% end one cell color legend\n\n");
   return eslOK;
+
+ ERROR: esl_fatal("ERROR drawing one cell legend, probably out of memory.");
+  return eslEMEM; /* never reached */
 }
 
 
@@ -1766,19 +1884,6 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
   }
   y -= (float) ps->leg_boxsize;
   
-  /* print masked scheme color cells */
-  /*if(do_mask) { 
-    fprintf(fp, "%.1f setlinewidth\n", (float) ps->leg_boxsize/4.);
-    for(c = 0; c < scl->nbins; c++) { 
-    draw_masked_block(fp, x, y, hc_scheme[c], do_circle_mask, do_square_mask, do_x_mask, do_border, (float) ps->leg_boxsize);
-    y -= (float) ps->leg_boxsize;
-    }
-    y += ((float) ps->leg_boxsize * scl->nbins);
-    x += 1.5 * (float) ps->leg_boxsize;
-    fprintf(fp, "1.0 setlinewidth\n");
-  }
-  */
-
   /* print scheme color cells and labels next to them */
   for(c = 0; c < scl->nbins; c++) { 
     fprintf(fp, "newpath\n");
@@ -1790,6 +1895,15 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     }
     fprintf(fp, "setcmykcolor\n");
     fprintf(fp, "  fill\n");
+
+    /* draw a small box outlining the colored block we just drew */
+    fprintf(fp, "%.2f setlinewidth\n", (ps->leg_boxsize / 24.));
+    fprintf(fp, "newpath\n");
+    fprintf(fp, "  %.2f %.2f moveto", x, y);
+    fprintf(fp, "  0 %.3f rlineto %.3f 0 rlineto 0 %.3f rlineto closepath\n", (float) ps->leg_boxsize, (float) ps->leg_boxsize, (-1 * (float) ps->leg_boxsize));
+    fprintf(fp, "  ");
+    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
+    fprintf(fp, "  stroke\n");
 
     /* print label */
     x += (float) ps->leg_boxsize * 1.5;
@@ -1995,7 +2109,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
     }
 
-    if(ps->rcolAAA != NULL && ps->rcolAAA[p] != NULL) { 
+    if(ps->bcolAAA != NULL && ps->bcolAAA[p] != NULL) { 
       fprintf(fp, "%% begin colored positions\n");
       if(ps->mask != NULL && ps->modeA[p] != SIMPLEMASKMODE) { 
 	fprintf(fp, "2.0 setlinewidth\n");
@@ -2005,13 +2119,13 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 	for(c = 0; c < ps->rflen; c++) { 
 	  fprintf(fp, "%sresidue %d\n", "%", c+1);
 	  if(ps->mask[c] == '0') { 
-	    draw_masked_block(fp, ps->rxA[c]-1., ps->ryA[c]-1., ps->rcolAAA[p][c], do_circle_mask, do_square_mask, do_x_mask, do_border, SS_BOXSIZE);
+	    draw_masked_block(fp, ps->rxA[c]-1., ps->ryA[c]-1., ps->bcolAAA[p][c], do_circle_mask, do_square_mask, do_x_mask, do_border, SS_BOXSIZE);
 	  }
 	  else { /* cell is within mask, ps->mask[c] == '1' */
 	    fprintf(fp, "newpath\n");
 	    fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
 	    fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
-	    fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	    fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->bcolAAA[p][c][0], ps->bcolAAA[p][c][1], ps->bcolAAA[p][c][2], ps->bcolAAA[p][c][3]);
 	    fprintf(fp, "  fill\n"); 
 	  }
 	}
@@ -2023,7 +2137,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
 	  fprintf(fp, "newpath\n");
 	  fprintf(fp, "  %.2f %.2f moveto", ps->rxA[c] - 1., ps->ryA[c] -1.);
 	  fprintf(fp, "  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n");
-	  fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	  fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor\n", ps->bcolAAA[p][c][0], ps->bcolAAA[p][c][1], ps->bcolAAA[p][c][2], ps->bcolAAA[p][c][3]);
 	  fprintf(fp, "  fill\n");
 	}
       }
@@ -2033,13 +2147,24 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     }
 
 
-    if(ps->rrAA[p] != NULL) { 
+    if(ps->rAA[p] != NULL) { 
       fprintf(fp, "/%s findfont %f scalefont setfont\n", RESIDUES_FONT, RESIDUES_FONTSIZE);
+      fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n"); /* reset color as black */
       fprintf(fp, "%% begin text residues\n");
-      for(c = 0; c < ps->rflen; c++) { 
-	if(ps->rrAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rrAA[p][c], ps->rxA[c], ps->ryA[c]);
+      if(ps->rcolAAA[p] != NULL) { 
+	for(c = 0; c < ps->rflen; c++) { 
+	  fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor ", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
+	  if(ps->rAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	  fprintf(fp, "\n");
+	}
+      }
+      else { /* ps->rcolAAA[p] is NULL */
+	for(c = 0; c < ps->rflen; c++) { 
+	  if(ps->rAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	}
       }
       fprintf(fp, "%% end text residues\n");
+      fprintf(fp, "  0.000 0.000 0.000 1.000 setcmykcolor\n"); /* reset color as black */
     }
     fprintf(fp, "showpage\n\n");
     /* fprintf(fp, "%% end ignore\n\n"); */
@@ -2685,20 +2810,31 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  *                  insert after each position per sequence. 
  */
 static int
-individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int zeroins_idx_s, int extdel_idx_s, int gap_idx_p)
+individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, 
+			 int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, 
+			 int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, 
+			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p)
 {
   int status;
   int p, i, pp, ai;
-  int rfpos, apos;
+  int rfpos, apos, lpos, rpos;
   int orig_npage = ps->npage;
   int new_npage;
 
   /* variables for the sequence pages */
-  int nzeroins_s = 0; /* number of positions with 0 inserts after them */
   int nextdel_s = 0;  /* number of external deletes (3' and 5' flush deletes) */
+  int nss_s = 0;      /* number of single-stranded residues */
+  int nwc_s = 0;      /* number of Watson/Crick (A:U,U:A,C:G,G:C) basepairs */
+  int ngu_s = 0;      /* number of G:U,U:G basepairs (2 * num G-U,U-G bps) */
+  int nnc_s = 0;      /* number of non-canonical basepairs (A:A,A:C,A:G,C:A,C:C,C:U,G:A,G:G,U:C,U:U) */
+  int ndg_s = 0;      /* number of internal double-gap basepairs */
+  int nhg_s = 0;      /* number of internal half-gap basepairs */
   float *limits_s;    /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
   int nins_s;         /* number of inserts after the current rfpos for current sequence */
   int spos, epos;     /* first/final nongap position for cur sequence */
+  int apos_is_internal; /* is apos within spos..epos?, if not it's an external deletion */
+  int lpos_is_internal; /* is lpos within spos..epos?, if not it's an external deletion */
+  int rpos_is_internal; /* is rpos within spos..epos?, if not it's an external deletion */
 
   /* variables for the postprob pages */
   int ngap_p = 0;
@@ -2739,35 +2875,43 @@ individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
   /* add the pages carefully, we allocate posterior pages and seq pages differently */
   for(p = orig_npage; p < ps->npage; p++) { 
     /* allocate seq page */
-    ESL_ALLOC(ps->rrAA[p],    sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p],    sizeof(char) *  (ps->rflen+1));
+    if(do_rescol) ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    if(do_rescol) { 
+      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 8);
+    }
+    else { 
+      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    }
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      if(do_rescol) ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
     }
 
     if(do_prob) { 
       /* allocate postprob page */
       p++;
-      ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-      ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+      ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+      ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
       ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
       ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+	ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       }
     }
   }
 
   /* setup seq limits */
   ESL_ALLOC(limits_s, sizeof(float) * (hc_nbins_s+1)); 
-  limits_s[0] = 1;
-  limits_s[1] = 2;
-  limits_s[2] = 4;
-  limits_s[3] = 6;
-  limits_s[4] = 10;
-  limits_s[5] = SSDRAWINFINITY;
+  limits_s[0] = 0;
+  limits_s[1] = 1;
+  limits_s[2] = 2;
+  limits_s[3] = 4;
+  limits_s[4] = 6;
+  limits_s[5] = 10;
+  limits_s[6] = SSDRAWINFINITY;
 
   /* setup pp limits */
   ESL_ALLOC(limits_p, sizeof(float) * (hc_nbins_p+1)); 
@@ -2808,46 +2952,126 @@ individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
 	}
       }
       ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE);
-      nextdel_s = 0;
-      nzeroins_s = 0;
+      /* init one cell legend counters */
+      nextdel_s = nwc_s = ngu_s = nnc_s = nss_s = ndg_s = nhg_s = 0;
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
 	nins_s = per_seq_ins_ct[i][rfpos];
+	apos_is_internal = TRUE; /* set to FALSE below if apos < spos || apos > epos */
 
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
 	ps->uaseqlenA[i] += nins_s;
-	ps->rrAA[pp][rfpos] = msa->aseq[i][apos];
-	/* printf("ps->rrAA[%3d][%4d]: %c\n", pp, rfpos, ps->rrAA[pp][rfpos]);  */
+	ps->rAA[pp][rfpos] = msa->aseq[i][apos];
+	/* printf("ps->rAA[%3d][%4d]: %c\n", pp, rfpos, ps->rAA[pp][rfpos]);  */
 	if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
 	   (apos < spos || apos > epos)) { 
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
+	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
 	  nextdel_s++;
-	}
-	else if(nins_s == 0) { 
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zeroins_idx_s])) != eslOK) return status;
-	    nzeroins_s++;
+	  apos_is_internal = FALSE;
 	}
 	else { 
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
+	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
 	}	  
+	if(do_rescol) { 
+	  if(ps->msa_ct[(rfpos+1)] == 0) { 
+	    if(esl_abc_CIsResidue(abc, msa->aseq[i][apos])) { /* single-stranded residue */
+	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx_s])) != eslOK) return status;
+	      nss_s++;
+	    }
+	    else { /* single stranded gap, we'll draw this as black */
+	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
+	    }
+	  }
+	  else { /* consensus basepaired residue */
+	    lpos = apos;
+	    rpos = ps->msa_rf2a_map[ps->msa_ct[rfpos+1]-1];
+	    lpos_is_internal = apos_is_internal;
+	    rpos_is_internal = TRUE; /* we set to FALSE below if nec */
+	    if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
+	       (rpos < spos || rpos > epos)) { 
+	      rpos_is_internal = FALSE;
+	    }
+	    if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
+	      if(is_watson_crick_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* watson-crick */
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+		if(lpos < rpos) nwc_s++;
+	      }
+	      else if(is_gu_or_ug_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* G:U or U:G */
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+		if(lpos < rpos) ngu_s++;
+	      }
+	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal double-gap basepair */
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
+		if(lpos < rpos) ndg_s++;
+	      }
+	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal half-gap basepair */
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
+		if(lpos < rpos) nhg_s++;
+	      }
+	      else { /* non-canonical */
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+		if(lpos < rpos) nnc_s++;
+	      }
+	    } /* end of (if(lpos_is_internal && rpos_is_internal)) */
+	    else { /* we'll draw this residue as black */
+	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
+	    }
+	  }
+	}
       }
-      ps->rrAA[pp][ps->rflen] = '\0';
+      ps->rAA[pp][ps->rflen] = '\0';
       ps->seqidxA[pp] = i;
+      ps->nocclA[pp] = 0;
 
-      /* add one-cell color legend for zero inserts */
-      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zeroins_idx_s], nzeroins_s, -1);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "(blank) zero inserts", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      /* if nec, add one-cell color legends for different bp types */
+      if(do_rescol) { 
+	/* add one-cell color legend for watson-crick basepairs */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[wcbp_idx_s], nwc_s, -1, FALSE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Watson-Crick basepair (bp)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "C-G", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
 
-      /* add one-cell color legend for external gaps (deletes) */
-      ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, -1);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      ps->nocclA[pp] = 2;
+	/* add one-cell color legend for G-U, U-G basepairs */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[gubp_idx_s], ngu_s, -1, FALSE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U or U-G bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
+
+	/* add one-cell color legend for non-canonical basepairs */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, -1, FALSE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
+
+	/* add one-cell color legend for internal half-gap basepairs */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhg_s, -1, FALSE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal half-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A- -", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
+
+	/* add one-cell color legend for internal double-gap basepairs */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndg_s, -1, FALSE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "- - -", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
+
+	/* add one-cell color legend for single stranded residues */
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ss_idx_s], nss_s, -1, TRUE);
+	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "single-stranded (nongap)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], " N", errbuf)) != eslOK) return status;
+	ps->nocclA[pp]++;
+      }
 
       /* add description to ps */
       if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "# inserted residues after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
       /* done with seq page */
+
+      /* add one-cell color legend for external gaps (deletes) */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, -1, FALSE);
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
 
       /***************************************
        * Draw the posterior probability page *
@@ -2865,19 +3089,19 @@ individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
 	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
 	    if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap residue: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
 	    within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-	    if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
-	    ps->rrAA[pp][rfpos] = ' ';
+	    if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
+	    ps->rAA[pp][rfpos] = ' ';
 	  }
 	  else {
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
+	    if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
 	    ngap_p++;
 	    if(ps->mask != NULL && ps->mask[rfpos] == '1') ngap_masked_p++; 
-	    ps->rrAA[pp][rfpos] = ' ';
+	    ps->rAA[pp][rfpos] = ' ';
 	  }
 	}
 	
 	/* add one-cell color legend */
-	ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p);
+	ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p, FALSE);
 	if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	ps->nocclA[pp] = 1;
 	
@@ -2902,30 +3126,87 @@ individuals_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps
  * Return:   eslOK on success.
  */
 static int
-rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa)
+rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol,
+		    float **hc_onecell, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s)
 {
   int status;
   int p, pp;
-  int cpos, apos;
+  int rfpos, apos, lpos, rpos;
   int orig_npage = ps->npage;
+  int seen_canonical = FALSE;
+  int nwc_s; /* number of watson-crick bps */
+  int ngu_s; /* number of GU/UG bps */
+  int nnc_s; /* number of noncanonical bps */
+  int nss_s; /* number of single stranded residues */
+
+  nwc_s = ngu_s = nnc_s = nss_s = 0;
 
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
   }
 
-  /* fill ps->rrAA with residues and gaps for RF sequence */
+  /* fill ps->rAA with residues and gaps for RF sequence */
   pp = orig_npage;
-  cpos = 0;
-  for(apos = 0; apos < msa->alen; apos++) {
-    if((! esl_abc_CIsGap(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsMissing(msa->abc, msa->rf[apos])) && 
-       (! esl_abc_CIsNonresidue(msa->abc, msa->rf[apos]))) { 
-      ps->rrAA[pp][cpos] = msa->rf[apos];
-      /* printf("ps->rrAA[%3d][%4d]: %c\n", pp, cpos, ps->rrAA[pp][cpos]); */
-      cpos++;
+  for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+    apos = ps->msa_rf2a_map[rfpos];
+    if(esl_abc_CIsCanonical(msa->abc, msa->rf[apos])) seen_canonical = TRUE;
+    ps->rAA[pp][rfpos] = msa->rf[apos];
+  }
+  /* if seen_canonical is still FALSE, the reference sequences is probably all 'x's, so we don't color by bp type */
+
+  if(do_rescol && seen_canonical) { /* determine color for the residue, depends if it is single-stranded or basepaired */
+    ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 4);
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+      ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      apos = ps->msa_rf2a_map[rfpos];
+      if(ps->msa_ct[(rfpos+1)] == 0) { /* single stranded */
+	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx_s])) != eslOK) return status;
+	nss_s++;
+      }
+      else { /* basepair, either watson-crick, GU/UG, or non-canonical */
+	lpos = apos;
+	rpos = ps->msa_rf2a_map[ps->msa_ct[rfpos+1]-1];
+	if(is_watson_crick_bp(msa->rf[lpos], msa->rf[rpos])) { /* watson-crick */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) nwc_s++;
+	}
+	else if(is_gu_or_ug_bp(msa->rf[lpos], msa->rf[rpos])) { /* G:U or U:G */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) ngu_s++;
+	}
+	else { /* non-canonical */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) nnc_s++;
+	}
+      }
     }
+
+    /* add one-cell color legend for watson-crick basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[wcbp_idx_s], nwc_s, -1, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Watson-Crick basepair (bp)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "C-G", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for G-U, U-G basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[gubp_idx_s], ngu_s, -1, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U or U-G bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for non-canonical basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, -1, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for single stranded residues */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ss_idx_s], nss_s, -1, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], " N", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
   }
 
   /* add description to ps */
@@ -3107,20 +3388,20 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ps->rrAA[p]    = NULL;
-    ps->rcolAAA[p] = NULL;
+    ps->rAA[p]    = NULL;
+    ps->bcolAAA[p] = NULL;
     ps->sclAA[p]   = NULL;
     ps->occlAAA[p] = NULL;
   }
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
     for(c = 0; c < ps->rflen; c++) 
-      ps->rcolAAA[p][c] = NULL;
+      ps->bcolAAA[p][c] = NULL;
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
 
@@ -3189,18 +3470,18 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     ent[rfpos] = esl_vec_DEntropy(bg, abc->K) - esl_vec_DEntropy(tmp_obs, abc->K);
 
     if(zero_obs) { 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
       nonecell++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
       bi = -1;
     }
     else { 
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ent[rfpos], ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ent[rfpos], ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
 
-    ps->rrAA[pp][rfpos] = ' ';
-    /*ps->rrAA[pp][rfpos] = (esl_FCompare(ent[rfpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';*/
+    ps->rAA[pp][rfpos] = ' ';
+    /*ps->rAA[pp][rfpos] = (esl_FCompare(ent[rfpos], 0., eslSMALLX1) == eslOK) ? '-' : ' ';*/
 
     if(tabfp != NULL) { 
       fprintf(tabfp, "  infocontent  %6d  %8.5f  %10d  %3d", rfpos+1, ent[rfpos], (int) esl_vec_DSum(abc_ct[apos], abc->K), bi+1);
@@ -3210,7 +3491,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   }
 
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 1;
 
@@ -3261,12 +3542,12 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(int *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(int *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(int) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(int) * NCMYK); /* CMYK colors */
     }
   }
 
@@ -3352,12 +3633,12 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
   /* draw delete page */
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
+    ps->rAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos];
     n_ext_del = do_all ? -1. : (float) (msa_nseq - span_ct[rfpos]); /* num external deletes is num seqs minus number of seqs that 'span' apos, see function header comments for explanation */
     if((( do_all) && ( abc_ct[apos][abc->K] < eslSMALLX1)) ||               /* abc_ct[apos][abc->K] == 0 */
        ((!do_all) && ((abc_ct[apos][abc->K] - n_ext_del) < eslSMALLX1))) {  /* abc_ct[apos][abc->K] == n_ext_del (all deletes are external) */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
       nonecell++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
       bi = -1;
@@ -3369,7 +3650,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
 	( abc_ct[apos][abc->K]              / (float) msa_nseq) : 
 	((abc_ct[apos][abc->K] - n_ext_del) / (float) msa_nseq);
       /* printf("do_all: %d rfpos: %d dfreq: %.2f\n", do_all, rfpos, dfreq); */
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
       if(do_all) fprintf(tabfp, "  deleteall  %6d  %8.5f  %3d",       rfpos+1, dfreq, bi+1);
@@ -3380,7 +3661,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   }
     
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked, FALSE);
   ps->nocclA[pp] = 1;
 
   if(do_all) { 
@@ -3445,12 +3726,12 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
@@ -3516,25 +3797,25 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   }
 
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
+    ps->rAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos]; 
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
     ifreq = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
       nzeroins++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
       bi = -2; /* special case */
     }
     else if (ifreq < fewins_thresh) { 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_fewins_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_fewins_idx])) != eslOK) return status;
       nfewins++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nfewins_masked++; 
       bi = -1; /* special case */
     }
     else {
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ifreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ifreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     /* printf("rfpos: %5d ifreq: %.3f\n", rfpos, ifreq); */
     if(tabfp != NULL) { 
@@ -3545,10 +3826,10 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   }
 
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[hc_fewins_idx], nfewins, nfewins_masked);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[hc_fewins_idx], nfewins, nfewins_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "< 0.001 seqs have insert", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
 
@@ -3595,12 +3876,12 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
@@ -3667,21 +3948,21 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   }
 
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
+    ps->rAA[pp][rfpos] = ' ';
     apos = ps->msa_rf2a_map[rfpos]; 
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
     ifreq   = (span_ct[rfpos] == 0)            ? 0. : (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos];
     iavglen = (nseq_with_ins_ct[rfpos+1] == 0) ? 0. : (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1];
     /* printf("rfpos: %5d ifreq: %.3f iavglen: %.3f nins: %10d  nseq: %10d\n", rfpos, ifreq, iavglen, nins_ct[rfpos+1], nseq_with_ins_ct[rfpos+1]);  */
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zeroins_idx])) != eslOK) return status;
       nzeroins++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nzeroins_masked++; 
       bi = -1; /* special case */
     }
     else {
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], iavglen, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], iavglen, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
       fprintf(tabfp, "  insertavglen  %6d  %8.4f  %8.5f  %10d  %3d", rfpos+1, iavglen, ifreq, span_ct[rfpos], bi+1);
@@ -3691,7 +3972,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   }
 
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zeroins_idx], nzeroins, nzeroins_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add color legend */
@@ -3739,12 +4020,12 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
 
@@ -3796,16 +4077,16 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   }
 
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    ps->rrAA[pp][rfpos] = ' ';
+    ps->rAA[pp][rfpos] = ' ';
     if(span_ct[rfpos] == 0) {  
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[zerocov_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[zerocov_idx])) != eslOK) return status;
       nzerocov++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerocov_masked++;
       cfract = 0.;
       bi = -2;
     }
     else if(span_ct[rfpos] == msa_nseq) {  
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[maxcov_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[maxcov_idx])) != eslOK) return status;
       nmaxcov++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nmaxcov_masked++; 
       cfract = 1.;
@@ -3814,7 +4095,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
     else {
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
       cfract = (float) span_ct[rfpos] / (float) msa_nseq;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], cfract, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
       fprintf(tabfp, "  span  %6d  %8.5f  %3d", rfpos+1, cfract, bi+2); 
@@ -3824,11 +4105,11 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   }
 
   /* add one-cell color legend for zero span positions */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zerocov_idx], nzerocov, nzerocov_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[zerocov_idx], nzerocov, nzerocov_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "no sequences span", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add one-cell color legend for maximum span positions */
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[maxcov_idx], nmaxcov, nmaxcov_masked);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[maxcov_idx], nmaxcov, nmaxcov_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "100% of seqs span", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
 
@@ -3889,12 +4170,12 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-      ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
 
@@ -3958,7 +4239,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
     apos = ps->msa_rf2a_map[rfpos]; 
     nnongap = esl_vec_ISum(pp_ct[apos], 11);
     if(nnongap == 0) { /* all gaps */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
       nonecell_allgap++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_allgap_masked++; 
       bi = -1;
@@ -3975,7 +4256,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
       }
       ppavg = (float) ppsum / (float) nnongap;
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-      if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ppavg, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ppavg, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
     if(tabfp != NULL) { 
       fprintf(tabfp, "  avgpostprob  %6d  %8.5f  %10d  %3d", rfpos+1, ppavg, nnongap, bi+1);
@@ -3983,11 +4264,11 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
       fprintf(tabfp, "\n");
     }
 
-    ps->rrAA[pp][rfpos] = ' ';
+    ps->rAA[pp][rfpos] = ' ';
   }
 
   /* add one-cell color legend for all gap positions */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_allgap, nonecell_allgap_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell_allgap, nonecell_allgap_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "100% gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   ps->nocclA[pp] = 1;
@@ -4032,33 +4313,33 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
 
   for(cpos = 0; cpos < ps->rflen; cpos++) { 
     if(ps->mask[cpos] == '1') { /* included */
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incmask_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[incmask_idx])) != eslOK) return status; 
       ncols_inside_mask++;
     }
     else if(ps->mask[cpos] == '0') {
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excmask_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[excmask_idx])) != eslOK) return status; 
       ncols_outside_mask++;
     }
     else ESL_FAIL(eslEINVAL, errbuf, "--mask mask char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
-    ps->rrAA[pp][cpos] = ' ';
+    ps->rAA[pp][cpos] = ' ';
   }
 
   /* add color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incmask_idx], ncols_inside_mask, -1);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incmask_idx], ncols_inside_mask, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "columns included by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[excmask_idx], ncols_outside_mask, -1);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[excmask_idx], ncols_outside_mask, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "columns excluded by mask", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   if((status = esl_strcat(&(mask_desc), -1, "mask file: ", -1)) != eslOK) ESL_FAIL(status, errbuf, "error copying mask file name string");;
@@ -4107,48 +4388,48 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t **) * 4);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
 
   for(cpos = 0; cpos < ps->rflen; cpos++) { 
     if(ps->mask[cpos] == '1' && mask2[cpos] == '1') { 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[incboth_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[incboth_idx])) != eslOK) return status; 
       ncols_in_both++;
     }
     else if(ps->mask[cpos] == '1' && mask2[cpos] == '0') {
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc1_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[inc1_idx])) != eslOK) return status; 
       ncols_in_1_out_2++;
     }
     else if(ps->mask[cpos] == '0' && mask2[cpos] == '1') {
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[inc2_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[inc2_idx])) != eslOK) return status; 
       ncols_out_1_in_2++;
     }
     else if(ps->mask[cpos] == '0' && mask2[cpos] == '0') {
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][cpos], NCMYK, hc_onecell[excboth_idx])) != eslOK) return status; 
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][cpos], NCMYK, hc_onecell[excboth_idx])) != eslOK) return status; 
       ncols_out_both++;
     }
     else if(ps->mask[cpos] != '0' && ps->mask[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-col char number %d is not a 1 nor a 0, but a %c\n", cpos, ps->mask[cpos]);
     else if(mask2[cpos] != '0' && mask2[cpos] != '1') ESL_FAIL(eslEINVAL, errbuf, "--mask-diff char number %d is not a 1 nor a 0, but a %c\n", cpos, mask2[cpos]);
-    ps->rrAA[pp][cpos] = ' ';
+    ps->rAA[pp][cpos] = ' ';
   }
 
   /* add color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incboth_idx], ncols_in_both, -1);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[incboth_idx], ncols_in_both, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "included by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[inc1_idx], ncols_in_1_out_2, -1);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[inc1_idx], ncols_in_1_out_2, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "incl mask 1, excl mask 2", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->occlAAA[pp][2] = create_onecell_colorlegend(hc_onecell[inc2_idx], ncols_out_1_in_2, -1);
+  ps->occlAAA[pp][2] = create_onecell_colorlegend(hc_onecell[inc2_idx], ncols_out_1_in_2, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][2], "excl mask 1, incl mask 1", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
-  ps->occlAAA[pp][3] = create_onecell_colorlegend(hc_onecell[excboth_idx], ncols_out_both, -1);
+  ps->occlAAA[pp][3] = create_onecell_colorlegend(hc_onecell[excboth_idx], ncols_out_both, -1, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][3], "excluded by both masks", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 4;
 
@@ -4171,10 +4452,11 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
   int p;
 
   if(ps->npage == 0) { 
-    assert(ps->rrAA    == NULL);
-    assert(ps->rcolAAA == NULL);
-    ESL_ALLOC(ps->rrAA,    sizeof(char *)   * (ps->npage + ntoadd));
+    assert(ps->rAA    == NULL);
+    assert(ps->bcolAAA == NULL);
+    ESL_ALLOC(ps->rAA,    sizeof(char *)   * (ps->npage + ntoadd));
     ESL_ALLOC(ps->rcolAAA, sizeof(float **) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->bcolAAA, sizeof(float **) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->nocclA,  sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
@@ -4183,10 +4465,12 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
     ESL_ALLOC(ps->seqidxA, sizeof(int) * (ps->npage + ntoadd));
   }
   else { 
-    assert(ps->rrAA    != NULL);
+    assert(ps->rAA    != NULL);
+    assert(ps->bcolAAA != NULL);
     assert(ps->rcolAAA != NULL);
-    ESL_RALLOC(ps->rrAA,   tmp, sizeof(char *)   * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->rAA,   tmp, sizeof(char *)   * (ps->npage + ntoadd));
     ESL_RALLOC(ps->rcolAAA,tmp, sizeof(float **) * (ps->npage + ntoadd));
+    ESL_RALLOC(ps->bcolAAA,tmp, sizeof(float **) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->occlAAA,tmp, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->nocclA, tmp, sizeof(int) * (ps->npage + ntoadd));
     ESL_RALLOC(ps->sclAA,  tmp, sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
@@ -4195,8 +4479,9 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
     ESL_RALLOC(ps->seqidxA,tmp, sizeof(int) * (ps->npage + ntoadd));
   }
   for(p = ps->npage; p < (ps->npage + ntoadd); p++) { 
-    ps->rrAA[p]    = NULL;
+    ps->rAA[p]    = NULL;
     ps->rcolAAA[p] = NULL;
+    ps->bcolAAA[p] = NULL;
     ps->occlAAA[p] = NULL;
     ps->nocclA[p]  = 0;
     ps->sclAA[p]   = NULL;
@@ -4310,12 +4595,12 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rrAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
   }
   pp = orig_npage;
@@ -4454,8 +4739,8 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	  ESL_FAIL(eslEINCONCEIVABLE, errbuf, "pair information < 0.: %f (lpos: %d rpos: %d)\n", ent_pair, i, j);
 	}
 	if(esl_DCompare(nres, 0., eslSMALLX1) == eslOK) { /* nres is 0 */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][i], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][j], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
+	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][i], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
+	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][j], NCMYK, hc_onecell[zerores_idx])) != eslOK) return status;
 	  nzerores += 2;
 	  if(ps->mask != NULL && ps->mask[i] == '1') nzerores_masked++; 
 	  if(ps->mask != NULL && ps->mask[j] == '1') nzerores_masked++; 
@@ -4468,8 +4753,8 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 	else { 
 	  i_within_mask = (ps->mask != NULL && ps->mask[i] == '1') ? TRUE : FALSE;
 	  j_within_mask = (ps->mask != NULL && ps->mask[j] == '1') ? TRUE : FALSE;
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][i], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], i_within_mask, &i_bi)) != eslOK) return status;
-	  if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][j], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], j_within_mask, &j_bi)) != eslOK) return status;
+	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][i], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], i_within_mask, &i_bi)) != eslOK) return status;
+	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][j], NCMYK, hc_scheme[hc_scheme_idx], ent_pair, ps->sclAA[pp], j_within_mask, &j_bi)) != eslOK) return status;
 	  if(tabfp != NULL) { 
 	    fprintf(tabfp, "  mutualinfo  %4d  %5d  %5d  %8.5f  %8.5f  %9.5f  %10d  %3d", 
 		    idx++, i+1, j+1, 
@@ -4487,17 +4772,17 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
     else { /* single stranded, paint grey  */
       nss++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nss_masked++; 
-      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx])) != eslOK) return status;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx])) != eslOK) return status;
     }
-    ps->rrAA[pp][rfpos] = ' '; /* leave residue blank, no text, just color (rcolAAA) */
+    ps->rAA[pp][rfpos] = ' '; /* leave residue blank, no text, just color (bcolAAA) */
   }
 
   /* add text to the one cell legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[ss_idx], nss, nss_masked);
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[ss_idx], nss, nss_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
   
   /* add text to the second one cell legend */
-  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[zerores_idx], nzerores, nzerores_masked, FALSE);
   if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "0 complete basepairs", ps->legx_max_chars, errbuf)) != eslOK) return status;
   ps->nocclA[pp] = 2;
   
@@ -4901,11 +5186,11 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
       if((status = esl_strdup("sequence name", -1, &(desc_string))) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), error copying description");
     }
     
-    xmodel = ps->headerx_desc - (ps->headerx_charsize * (model_width  + 6 + 6 + 8 + 2)); /*6,6,8 for #res,#bps,#seq|seqlen) plus 2 spaces each, first 2 for 2 spaces before desc*/
+    xmodel = ps->headerx_desc - (ps->headerx_charsize * (model_width  + 6 + 6 + 8 + 2)); /*6,6,8 for #pos,#bps,#seq|seqlen) plus 2 spaces each, first 2 for 2 spaces before desc*/
     x = xmodel;
     y = ps->headery;
     
-    fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, "model", "#res", "#bps", x, y);
+    fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, "model", "#pos", "#bps", x, y);
     y -= header_fontsize * 0.75;
     fprintf(fp, "(%-*s  %4s  %4s) %.2f %.2f moveto show\n", model_width, model_dashes, "----", "----", x, y);
     y -= header_fontsize * 0.75;
@@ -5795,10 +6080,10 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, f
 	if(rfpos == 1) { /* add a new page, (we now have limits for legend, from if(rfpos == -1) loop above) */
 	  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 	  for(p = (ps->npage-1); p < ps->npage; p++) { 
-	    ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+	    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
 	    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
 	    for(c = 0; c < ps->rflen; c++) { 
-	      ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+	      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
 	    }
 	  }
 	  pp++; /* if first page, pp == orig_npage now */
@@ -5809,7 +6094,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, f
 	value = atof(s);
 	if(value < limits[0] || value > limits[hc_nbins]) esl_fatal("--dfile value %.4f out of allowed range [%.3f-%.3f] on line %d\n", value, limits[0], limits[hc_nbins], efp->linenumber, dfile);
 	within_mask = (ps->mask != NULL && ps->mask[rfpos-1] == '1') ? TRUE : FALSE;
-	if((status = set_scheme_values(errbuf, ps->rcolAAA[pp][rfpos-1], NCMYK, hc_scheme[hc_scheme_idx], value, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+	if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos-1], NCMYK, hc_scheme[hc_scheme_idx], value, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
       }
     }
   if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
@@ -5871,10 +6156,10 @@ expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
 	if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 	
 	for(p = (ps->npage-1); p < ps->npage; p++) { 
-	  ESL_ALLOC(ps->rrAA[p], sizeof(char) *  (ps->rflen+1));
-	  ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
+	  ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
+	  ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
 	  for(c = 0; c < ps->rflen; c++) { 
-	    ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
+	    ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
 	  }
 	}
 	pp++; /* if first page, pp == orig_npage now */
@@ -5890,29 +6175,29 @@ expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
 	/* get C value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	  esl_fatal("Failed to read C of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][0] = atof(s);
+	ps->bcolAAA[pp][(cpos-1)][0] = atof(s);
 
 	/* get M value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	  esl_fatal("Failed to read M of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][1] = atof(s);
+	ps->bcolAAA[pp][(cpos-1)][1] = atof(s);
 
 	/* get Y value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read Y of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][2] = atof(s);
+	ps->bcolAAA[pp][(cpos-1)][2] = atof(s);
 
 	/* get K value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	  esl_fatal("Failed to read K of CMYK value on line %d of expertfile %s\n", efp->linenumber, efile);
-	ps->rcolAAA[pp][(cpos-1)][3] = atof(s);
+	ps->bcolAAA[pp][(cpos-1)][3] = atof(s);
 
 	/* optionally read a residue value */
 	if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) == eslOK) {
 	  if(((int) strlen(s)) != 1) esl_fatal("Read multi-character string (%s) for consensus residue %d on line %d of expertfile %s\n", s, cpos, efp->linenumber, efile);
-	  ps->rrAA[pp][(cpos-1)] = s[0];
+	  ps->rAA[pp][(cpos-1)] = s[0];
 	}
-	else ps->rrAA[pp][(cpos-1)] = ' ';
+	else ps->rAA[pp][(cpos-1)] = ' ';
       }
     }
   if(pp == (orig_npage - 1)) { /* no new pages were read, this is an error */
@@ -5924,4 +6209,78 @@ expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
 
  ERROR: ESL_FAIL(status, errbuf, "expertfile2sspostscript(): memory allocation error.");
   return status; /* NEVERREACHED */
+}
+
+
+/* is_watson_crick_bp(i,j): return TRUE if i,j form a watson crick bp, FALSE if not
+ * is_gu_or_ug_bp(i,j):     return TRUE if i,j form a G-U or U-G bp, FALSE if not
+ */
+static int
+is_watson_crick_bp(char i, char j)
+{
+  switch (toupper(i)) { 
+  case 'A':
+    switch (toupper(j)) { 
+    case 'U': return TRUE; break;
+    case 'T': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'C':
+    switch (toupper(j)) { 
+    case 'G': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'G':
+    switch (toupper(j)) { 
+    case 'C': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'U':
+    switch (toupper(j)) { 
+    case 'A': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'T':
+    switch (toupper(j)) { 
+    case 'A': return TRUE; break;
+    default: break;
+    }
+    break;
+  default: break;
+  }
+
+  return FALSE;
+}
+
+static int
+is_gu_or_ug_bp(char i, char j)
+{
+  switch (toupper(i)) { 
+  case 'G':
+    switch (toupper(j)) { 
+    case 'U': return TRUE; break;
+    case 'T': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'U':
+    switch (toupper(j)) { 
+    case 'G': return TRUE; break;
+    default: break;
+    }
+    break;
+  case 'T':
+    switch (toupper(j)) { 
+    case 'G': return TRUE; break;
+    default: break;
+    }
+    break;
+  default: break;
+  }
+
+  return FALSE;
 }

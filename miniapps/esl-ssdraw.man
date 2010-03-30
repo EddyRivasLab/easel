@@ -98,6 +98,12 @@ all sequences are drawn, but with the
 option, only those sequences listed in the file
 .I <f> 
 will be drawn.
+By default, basepaired residues will be colored based on their
+basepair type: either Watson-Crick (A:U, U:A, C:G, or G:C), G:U or
+U:G, or non-canonical (the other ten possible basepairs). This coloring
+can be turned off with the
+.B --no-ircol
+option.
 With 
 .B --indi,
 if the alignment
@@ -108,6 +114,7 @@ colored by the posterior probability of each aligned residue.
 No posterior probability pages will be drawn if the 
 .B --no-iprob
 option is used. 
+
 
 .B esl-ssdraw
 can also be used to draw 'mask' diagrams which color positions of the
@@ -458,6 +465,9 @@ Add a page to
 .B postscript_output_file 
 showing the reference sequence from the #=GC RF annotation in 
 .B msafile. 
+By default, basepaired residues will be colored based on what type of
+basepair they are. To turn this off, use
+.B --no-ircol.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
@@ -558,7 +568,11 @@ are used).
 .B --indi
 Add a page displaying the aligned residues in their corresponding
 consensus positions of the structure diagram for each aligned
-sequence in the alignment. If posterior probability information (#=GR
+sequence in the alignment. 
+By default, basepaired residues will be colored based on what type of
+basepair they are. To turn this off, use
+.B --no-ircol.
+If posterior probability information (#=GR
 PP) exists in the alignment, one additional page per sequence will be
 drawn displaying the posterior probabilities.
 
@@ -597,6 +611,14 @@ When used in combination with
 .B --indi,
 do not draw posterior probability structure diagrams for each
 sequence, even if the alignment has PP annotation.
+
+.TP
+.B --no-ircol
+When used in combination with 
+.B --indi
+or
+.B --rf,
+do not color basepaired residues based on their basepair type.
 
 .SH EXPERT OPTIONS
 
