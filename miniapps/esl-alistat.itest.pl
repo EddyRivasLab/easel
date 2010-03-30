@@ -166,11 +166,8 @@ for($pass = 0; $pass < 2; $pass++) {
     system("$eslalistat --list $tmppfx.list $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
     if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
     $output = `cat $tmppfx.list`;
-    if($output !~ /seq2/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
+    if($output !~ /seq2.+seq2/s)                                  { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
     if($output !~ /seq3/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
-    $output = `cat $tmppfx.list.2`;
-    if($output !~ /seq2/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
-    if($output =~ /seq3/)                                         { die "FAIL: alignment lists created incorrectly on pass $pass2write"; }
 
     if($pass == 0) { # these are incompatible with --small 
 	system("$eslalistat --psinfo  $tmppfx.ps $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");

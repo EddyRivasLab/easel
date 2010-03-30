@@ -136,17 +136,11 @@ must be given as well.
 
 .TP 
 .BI --list " <f>"
-List the names of all sequences in the first alignment of
+List the names of all sequences in all alignments in 
 .B msafile
 to file
 .I <f>.
-Each name is written on its own line. If
-.B msafile
-includes more than one alignment, sequence names from alignment number
-.I <n>
-will be saved to a separate file called
-.I <f>.<n>
-
+Each sequence name is written on its own line. 
 
 .TP 
 .BI --icinfo " <f>"

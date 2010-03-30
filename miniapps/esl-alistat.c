@@ -87,8 +87,6 @@ main(int argc, char **argv)
   FILE *rinfofp  = NULL; /* output file for --rinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
   FILE *listfp   = NULL; /* output file for --list */
-  char *listfile = NULL; /* name for list file */
-  char listfileidxbuf[32]; /* for storing integer suffix for listfile name */
 
   /***********************************************
    * Parse command line
@@ -167,9 +165,8 @@ main(int argc, char **argv)
    **************************************/
   /* determine name for first list file, if nec */
   if( esl_opt_IsOn(go, "--list")) {
-    if((status = esl_strdup(esl_opt_GetString(go, "--list"), -1, &(listfile))) != eslOK) esl_fatal("Out of memory.");
     if ((listfp = fopen(esl_opt_GetString(go, "--list"), "w")) == NULL) 
-      esl_fatal("Failed to open --list output file %s for first alignment\n", esl_opt_GetString(go, "--list"));
+      esl_fatal("Failed to open --list output file %s\n", esl_opt_GetString(go, "--list"));
   }
   if( esl_opt_IsOn(go, "--icinfo")) {
     if ((icinfofp = fopen(esl_opt_GetString(go, "--icinfo"), "w")) == NULL) 
@@ -286,16 +283,6 @@ main(int argc, char **argv)
 	    /* only print sequence name to list file if ! --small, else we already have in esl_msa_ReadNonSeqInfoPfam() */
 	    for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
 	}
-	printf("# List of sequences in alignment %d saved to file %s\n", nali, listfile);
-	fclose(listfp);
-	free(listfile);
-	/* if --small or not, we need to open a new list file for the next alignment */
-	/* determine name for next alignments listfile, this will be <f>.<nali> from --list <f> */
-	if((status = esl_strdup(esl_opt_GetString(go, "--list"), -1, &(listfile))) != eslOK) esl_fatal("Out of memory.");
-	sprintf(listfileidxbuf, ".%d", nali+1);
-	if((status = esl_strcat(&(listfile), -1, listfileidxbuf, -1)) != eslOK) esl_fatal("Out of memory."); 
-	if ((listfp = fopen(listfile, "w")) == NULL) 
-	  esl_fatal("Failed to open --list output file %s for alignment %d\n", listfile, nali+1);
       }
 
       if((esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo")) || esl_opt_IsOn(go, "--iinfo")) {
@@ -350,11 +337,8 @@ main(int argc, char **argv)
   /* Cleanup, normal return
    */
   if(listfp != NULL) { 
-    /* we need to close listfp and unlink listfile, which was opened but never written to 
-     * (b/c we open listfp before 1st msa read, and after each msa read for the msa that's about to be read */
     fclose(listfp);
-    remove(listfile);
-    free(listfile);
+    printf("# List of sequences in %d alignment(s) saved to file %s\n", nali, esl_opt_GetString(go, "--list"));
   }
   if(icinfofp != NULL) { 
     fclose(icinfofp);
