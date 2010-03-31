@@ -35,79 +35,264 @@
 #define SIMPLEMASKMODE 2
 #define INFILEMODE 3
 
-#define RAINBOWRHSCHEME 0
-#define RAINBOWRLSCHEME 1
-#define NRAINBOWRHSCHEME 11
-#define NRAINBOWRLSCHEME 11
+/* CMYK colors, a 4 value array defines a color with values 0..1, 
+ * [0] is cyan value, [1] is magenta, [2] is yellow, [3] is black */
+#define NCMYK 4
+#define ICYAN 0
+#define IMGTA 1
+#define IYELW 2
+#define IBLCK 3
 
-#define RBSIXRHSCHEME 2
-#define RBSIXRLSCHEME 3
-#define NRBSIXRHSCHEME 6
-#define NRBSIXRLSCHEME 6
+/* indices and sizes for hard-coded color schemes */
+#define NSCHEMES 7
 
-#define RBFIVERHSCHEME 4
-#define RBFIVERLSCHEME 5
-#define NRBFIVERHSCHEME 5
-#define NRBFIVERLSCHEME 5
+#define RB_11_RH_SCHEME 0 /* RainBow, 11 colors, Red High, blue low  */
+#define RB_11_RL_SCHEME 1 /* RainBow, 11 colors, Red Low,  blue high */
+#define RB_6_RH_SCHEME 2  /* RainBow,  6 colors, Red High, blue low  */
+#define RB_6_RL_SCHEME 3  /* RainBow,  6 colors, Red Low,  blue high */
+#define RB_5_RH_SCHEME 4  /* RainBow,  5 colors, Red High, teal low  */
+#define RB_5_RL_SCHEME 5  /* RainBow,  5 colors, Red low,  teal high */
+#define RB_W5_OH_SCHEME 6 /* RainBow with white, 5 colors, orange high, teal low, white lowest */
 
-#define RBWSIXRHSCHEME 6
-#define NRBWSIXRHSCHEME 6
+#define NRB_11_RH_SCHEME 11
+#define NRB_11_RL_SCHEME 11
+#define NRB_6_RH_SCHEME 6
+#define NRB_6_RL_SCHEME 6
+#define NRB_5_RH_SCHEME 5
+#define NRB_5_RL_SCHEME 5
+#define NRB_W5_OH_SCHEME 5
 
-#define NOC 12
+/* the actual CMYK color values for the scheme colors (_C = cyan, _M = magenta, _Y = yellow, _K = black) */
+
+/* the 11-color rainbow scheme */
+#define RED2BLUE_1_OF_11_C 0.00
+#define RED2BLUE_1_OF_11_M 0.94
+#define RED2BLUE_1_OF_11_Y 1.00
+#define RED2BLUE_1_OF_11_K 0.00
+
+#define RED2BLUE_2_OF_11_C 0.00
+#define RED2BLUE_2_OF_11_M 0.84
+#define RED2BLUE_2_OF_11_Y 1.00
+#define RED2BLUE_2_OF_11_K 0.00
+
+#define RED2BLUE_3_OF_11_C 0.00
+#define RED2BLUE_3_OF_11_M 0.63
+#define RED2BLUE_3_OF_11_Y 1.00
+#define RED2BLUE_3_OF_11_K 0.00
+
+#define RED2BLUE_4_OF_11_C 0.00
+#define RED2BLUE_4_OF_11_M 0.42
+#define RED2BLUE_4_OF_11_Y 1.00
+#define RED2BLUE_4_OF_11_K 0.00
+
+#define RED2BLUE_5_OF_11_C 0.00
+#define RED2BLUE_5_OF_11_M 0.21
+#define RED2BLUE_5_OF_11_Y 1.00
+#define RED2BLUE_5_OF_11_K 0.00
+
+#define RED2BLUE_6_OF_11_C 0.00
+#define RED2BLUE_6_OF_11_M 0.00
+#define RED2BLUE_6_OF_11_Y 1.00
+#define RED2BLUE_6_OF_11_K 0.00
+
+#define RED2BLUE_7_OF_11_C 0.42
+#define RED2BLUE_7_OF_11_M 0.00
+#define RED2BLUE_7_OF_11_Y 1.00
+#define RED2BLUE_7_OF_11_K 0.00
+
+#define RED2BLUE_8_OF_11_C 0.61
+#define RED2BLUE_8_OF_11_M 0.00
+#define RED2BLUE_8_OF_11_Y 0.56
+#define RED2BLUE_8_OF_11_K 0.22
+
+#define RED2BLUE_9_OF_11_C 0.50
+#define RED2BLUE_9_OF_11_M 0.00
+#define RED2BLUE_9_OF_11_Y 0.00
+#define RED2BLUE_9_OF_11_K 0.50
+
+#define RED2BLUE_10_OF_11_C 0.78
+#define RED2BLUE_10_OF_11_M 0.56
+#define RED2BLUE_10_OF_11_Y 0.00
+#define RED2BLUE_10_OF_11_K 0.22
+
+#define RED2BLUE_11_OF_11_C 0.92
+#define RED2BLUE_11_OF_11_M 0.84
+#define RED2BLUE_11_OF_11_Y 0.00
+#define RED2BLUE_11_OF_11_K 0.08
+
+
+/* the 6-color rainbow scheme */
+/* red */
+#define RED2BLUE_1_OF_6_C 0.00
+#define RED2BLUE_1_OF_6_M 0.94
+#define RED2BLUE_1_OF_6_Y 1.00
+#define RED2BLUE_1_OF_6_K 0.00
+
+/* orange-ish */
+#define RED2BLUE_2_OF_6_C 0.00
+#define RED2BLUE_2_OF_6_M 0.63
+#define RED2BLUE_2_OF_6_Y 1.00
+#define RED2BLUE_2_OF_6_K 0.00
+
+/* gold-ish */
+#define RED2BLUE_3_OF_6_C 0.00
+#define RED2BLUE_3_OF_6_M 0.21
+#define RED2BLUE_3_OF_6_Y 1.00
+#define RED2BLUE_3_OF_6_K 0.00
+
+/* light-green-ish */
+#define RED2BLUE_4_OF_6_C 0.42
+#define RED2BLUE_4_OF_6_M 0.00
+#define RED2BLUE_4_OF_6_Y 1.00
+#define RED2BLUE_4_OF_6_K 0.00
+
+/* teal-ish */
+#define RED2BLUE_5_OF_6_C 0.50
+#define RED2BLUE_5_OF_6_M 0.00
+#define RED2BLUE_5_OF_6_Y 0.00
+#define RED2BLUE_5_OF_6_K 0.50
+
+/* blue */
+#define RED2BLUE_6_OF_6_C 0.92
+#define RED2BLUE_6_OF_6_M 0.84
+#define RED2BLUE_6_OF_6_Y 0.00
+#define RED2BLUE_6_OF_6_K 0.08
+
+
+/* single colors for one-cell legends */
+#define NOC 17
 #define CYANOC 0
 #define MAGENTAOC 1
 #define YELLOWOC 2
 #define BLACKOC 3
-#define LIGHTGREYOC 4
-#define GREYOC 5
-#define DARKGREYOC 6
-#define REDOC 7
-#define PURPLEOC 8
+#define WHITEOC 4
+#define LIGHTGREYOC 5
+#define GREYOC 6
+#define DARKGREYOC 7
+#define REDOC 8
 #define ORANGEOC 9
-#define WHITEOC 10
-#define TEALOC 11
+#define TEALOC 10
+#define LIGHTGREENOC 11
+#define GREENOC 12
+#define DARKGREENOC 13
+#define LIGHTPURPLEOC 14
+#define PURPLEOC 15
+#define DARKPURPLEOC 16
+  
+/* the actual CMYK color values for the single colors (_C = cyan, _M = magenta, _Y = yellow, _K = black) */
+#define CYAN_C 1.0;
+#define CYAN_M 0.0;
+#define CYAN_Y 0.0;
+#define CYAN_K  0.0;
 
-#define NCMYK 4
-#define ICYAN 0
-#define IMAGENTA 1
-#define IYELLOW 2
-#define IBLACK 3
+#define MAGENTA_C 0.0;
+#define MAGENTA_M 1.0;
+#define MAGENTA_Y 0.0;
+#define MAGENTA_K  0.0;
 
-/* define the color for blank cells where no value is appropriate */
-#define BLANKCYAN    0.0
-#define BLANKMAGENTA 0.0
-#define BLANKYELLOW  0.0
-#define BLANKBLACK   0.5
+#define YELLOW_C 0.0;
+#define YELLOW_M 0.0;
+#define YELLOW_Y 1.0;
+#define YELLOW_K  0.0;
 
+#define BLACK_C 0.0;
+#define BLACK_M 0.0;
+#define BLACK_Y 0.0;
+#define BLACK_K  1.0;
+
+#define WHITE_C 0.0;
+#define WHITE_M 0.0;
+#define WHITE_Y 0.0;
+#define WHITE_K  0.0;
+
+#define LIGHTGREY_C 0.0;
+#define LIGHTGREY_M 0.0;
+#define LIGHTGREY_Y 0.0;
+#define LIGHTGREY_K  0.2;
+
+#define GREY_C 0.0;
+#define GREY_M 0.0;
+#define GREY_Y 0.0;
+#define GREY_K  0.5;
+
+#define DARKGREY_C 0.0;
+#define DARKGREY_M 0.0;
+#define DARKGREY_Y 0.0;
+#define DARKGREY_K  0.75;
+
+#define RED_C 0.0;
+#define RED_M 1.0;
+#define RED_Y 1.0;
+#define RED_K  0.0;
+
+#define ORANGE_C 0.0;
+#define ORANGE_M 0.5;
+#define ORANGE_Y 1.0;
+#define ORANGE_K  0.0;
+
+#define TEAL_C 0.5;
+#define TEAL_M 0.0;
+#define TEAL_Y 0.0;
+#define TEAL_K  0.5;
+
+#define LIGHTGREEN_C 0.5;
+#define LIGHTGREEN_M 0.0;
+#define LIGHTGREEN_Y 0.5;
+#define LIGHTGREEN_K  0.0;
+
+#define GREEN_C 1.0;
+#define GREEN_M 0.0;
+#define GREEN_Y 1.0;
+#define GREEN_K  0.0;
+
+#define DARKGREEN_C 1.0;
+#define DARKGREEN_M 0.5;
+#define DARKGREEN_Y 1.0;
+#define DARKGREEN_K  0.0;
+
+#define LIGHTPURPLE_C 0.3;
+#define LIGHTPURPLE_M 0.6;
+#define LIGHTPURPLE_Y 0.0;
+#define LIGHTPURPLE_K  0.0;
+
+#define PURPLE_C 0.5;
+#define PURPLE_M 1.0;
+#define PURPLE_Y 0.0;
+#define PURPLE_K  0.0;
+
+#define DARKPURPLE_C 1.0;
+#define DARKPURPLE_M 1.0;
+#define DARKPURPLE_Y 0.0;
+#define DARKPURPLE_K  0.0;
+
+/* hard-coded values for the legends */
 #define LEG_NBOXES  11
-/*#define LEG_BOXSIZE 24.*/
 #define LEG_MINFONTSIZE 10
 #define SPECIAL_FONT "Courier-BoldOblique"
 #define LEG_FONT "Courier-Bold"
 #define LEG_EXTRA_COLUMNS 12 /* how many extra columns we need for printing stats in the legend */
+#define COURIER_HEIGHT_WIDTH_RATIO 1.65
 
+/* fonts and other sizes */
 #define DEFAULT_FONT "Courier-Bold"
 #define FOOTER_FONT "Helvetica"
 #define RESIDUES_FONT "Helvetica-Bold"
 #define POSNTEXT_FONT "Helvetica"
-
-#define SS_BOXSIZE 8.
-
 #define RESIDUES_FONTSIZE 8.
 #define POSNTEXT_FONTSIZE 8.
 #define LEG_FONTSIZE_UNSCALED 9.6
-/*#define HEADER_FONTSIZE_UNSCALED 14.4*/
 #define HEADER_FONTSIZE_UNSCALED 12
 #define HEADER_MODELNAME_MAXCHARS 20
 #define TICKS_LINEWIDTH 2.
 #define BP_LINEWIDTH 1.
+#define SS_BOXSIZE 8. /* default size of a cell, a single position in the structure diagram */
 
+/* postscript info */
 #define POSTSCRIPT_PAGEWIDTH 612.
 #define POSTSCRIPT_PAGEHEIGHT 792.
-#define PAGE_TOPBUF 30.
-#define PAGE_SIDEBUF 32.
-#define PAGE_BOTBUF 30.
-#define COURIER_HEIGHT_WIDTH_RATIO 1.65
+#define PAGE_TOPBUF 30.  /* 30 blank pts required at top */
+#define PAGE_SIDEBUF 32. /* 32 blank pts required at sides */
+#define PAGE_BOTBUF 30.  /* 30 blank pts required at bot */
 
 /* Structure: scheme_color_legend
  * Incept:    EPN, Thu Jun 25 20:20:38 2009
@@ -263,8 +448,8 @@ static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p);
-static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p);
+static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
@@ -470,182 +655,255 @@ main(int argc, char **argv)
   for(z = 0; z < NOC; z++) hc_onecell[z] = NULL;
   for(z = 0; z < NOC; z++) { ESL_ALLOC(hc_onecell[z], sizeof(float) * NCMYK); }
   
-  hc_onecell[CYANOC][0] = 1.0;
-  hc_onecell[CYANOC][1] = 0.0;
-  hc_onecell[CYANOC][2] = 0.0;
-  hc_onecell[CYANOC][3] = 0.0;
+  hc_onecell[CYANOC][ICYAN] = CYAN_C;
+  hc_onecell[CYANOC][IMGTA] = CYAN_M;
+  hc_onecell[CYANOC][IYELW] = CYAN_Y;
+  hc_onecell[CYANOC][IBLCK] = CYAN_K;
 
-  hc_onecell[MAGENTAOC][0] = 0.0;
-  hc_onecell[MAGENTAOC][1] = 1.0;
-  hc_onecell[MAGENTAOC][2] = 0.0;
-  hc_onecell[MAGENTAOC][3] = 0.0;
+  hc_onecell[MAGENTAOC][ICYAN] = MAGENTA_C;
+  hc_onecell[MAGENTAOC][IMGTA] = MAGENTA_M;
+  hc_onecell[MAGENTAOC][IYELW] = MAGENTA_Y;
+  hc_onecell[MAGENTAOC][IBLCK] = MAGENTA_K;
 
-  hc_onecell[YELLOWOC][0] = 0.0;
-  hc_onecell[YELLOWOC][1] = 0.0;
-  hc_onecell[YELLOWOC][2] = 1.0;
-  hc_onecell[YELLOWOC][3] = 0.0;
+  hc_onecell[YELLOWOC][ICYAN] = YELLOW_C;
+  hc_onecell[YELLOWOC][IMGTA] = YELLOW_M;
+  hc_onecell[YELLOWOC][IYELW] = YELLOW_Y;
+  hc_onecell[YELLOWOC][IBLCK] = YELLOW_K;
 
-  hc_onecell[BLACKOC][0] = 0.0;
-  hc_onecell[BLACKOC][1] = 0.0;
-  hc_onecell[BLACKOC][2] = 0.0;
-  hc_onecell[BLACKOC][3] = 1.0;
+  hc_onecell[BLACKOC][ICYAN] = BLACK_C;
+  hc_onecell[BLACKOC][IMGTA] = BLACK_M;
+  hc_onecell[BLACKOC][IYELW] = BLACK_Y;
+  hc_onecell[BLACKOC][IBLCK] = BLACK_K;
 
-  hc_onecell[LIGHTGREYOC][0] = 0.0;
-  hc_onecell[LIGHTGREYOC][1] = 0.0;
-  hc_onecell[LIGHTGREYOC][2] = 0.0;
-  hc_onecell[LIGHTGREYOC][3] = 0.2;
+  hc_onecell[WHITEOC][ICYAN] = WHITE_C;
+  hc_onecell[WHITEOC][IMGTA] = WHITE_M;
+  hc_onecell[WHITEOC][IYELW] = WHITE_Y;
+  hc_onecell[WHITEOC][IBLCK] = WHITE_K;
 
-  hc_onecell[GREYOC][0] = 0.0;
-  hc_onecell[GREYOC][1] = 0.0;
-  hc_onecell[GREYOC][2] = 0.0;
-  hc_onecell[GREYOC][3] = 0.5;
+  hc_onecell[LIGHTGREYOC][ICYAN] = LIGHTGREY_C;
+  hc_onecell[LIGHTGREYOC][IMGTA] = LIGHTGREY_M;
+  hc_onecell[LIGHTGREYOC][IYELW] = LIGHTGREY_Y;
+  hc_onecell[LIGHTGREYOC][IBLCK] = LIGHTGREY_K;
 
-  hc_onecell[DARKGREYOC][0] = 0.0;
-  hc_onecell[DARKGREYOC][1] = 0.0;
-  hc_onecell[DARKGREYOC][2] = 0.0;
-  hc_onecell[DARKGREYOC][3] = 0.75;
+  hc_onecell[GREYOC][ICYAN] = GREY_C;
+  hc_onecell[GREYOC][IMGTA] = GREY_M;
+  hc_onecell[GREYOC][IYELW] = GREY_Y;
+  hc_onecell[GREYOC][IBLCK] = GREY_K;
 
-  hc_onecell[REDOC][0] = 0.0;
-  hc_onecell[REDOC][1] = 1.0;
-  hc_onecell[REDOC][2] = 1.0;
-  hc_onecell[REDOC][3] = 0.0;
+  hc_onecell[DARKGREYOC][ICYAN] = DARKGREY_C;
+  hc_onecell[DARKGREYOC][IMGTA] = DARKGREY_M;
+  hc_onecell[DARKGREYOC][IYELW] = DARKGREY_Y;
+  hc_onecell[DARKGREYOC][IBLCK] = DARKGREY_K;
 
-  hc_onecell[PURPLEOC][0] = 1.0;
-  hc_onecell[PURPLEOC][1] = 1.0;
-  hc_onecell[PURPLEOC][2] = 0.0;
-  hc_onecell[PURPLEOC][3] = 0.0;
+  hc_onecell[REDOC][ICYAN] = RED_C;
+  hc_onecell[REDOC][IMGTA] = RED_M;
+  hc_onecell[REDOC][IYELW] = RED_Y;
+  hc_onecell[REDOC][IBLCK] = RED_K;
 
-  hc_onecell[ORANGEOC][0] = 0.0;
-  hc_onecell[ORANGEOC][1] = 0.5;
-  hc_onecell[ORANGEOC][2] = 1.0;
-  hc_onecell[ORANGEOC][3] = 0.0;
+  hc_onecell[ORANGEOC][ICYAN] = ORANGE_C;
+  hc_onecell[ORANGEOC][IMGTA] = ORANGE_M;
+  hc_onecell[ORANGEOC][IYELW] = ORANGE_Y;
+  hc_onecell[ORANGEOC][IBLCK] = ORANGE_K;
 
-  hc_onecell[WHITEOC][0] = 0.0;
-  hc_onecell[WHITEOC][1] = 0.0;
-  hc_onecell[WHITEOC][2] = 0.0;
-  hc_onecell[WHITEOC][3] = 0.0;
+  hc_onecell[TEALOC][ICYAN] = TEAL_C;
+  hc_onecell[TEALOC][IMGTA] = TEAL_M;
+  hc_onecell[TEALOC][IYELW] = TEAL_Y;
+  hc_onecell[TEALOC][IBLCK] = TEAL_K;
 
-  hc_onecell[TEALOC][0] = 0.5;
-  hc_onecell[TEALOC][1] = 0.0;
-  hc_onecell[TEALOC][2] = 0.0;
-  hc_onecell[TEALOC][3] = 0.5;
+  hc_onecell[LIGHTGREENOC][ICYAN] = LIGHTGREEN_C;
+  hc_onecell[LIGHTGREENOC][IMGTA] = LIGHTGREEN_M;
+  hc_onecell[LIGHTGREENOC][IYELW] = LIGHTGREEN_Y;
+  hc_onecell[LIGHTGREENOC][IBLCK] = LIGHTGREEN_K;
+
+  hc_onecell[GREENOC][ICYAN] = GREEN_C;
+  hc_onecell[GREENOC][IMGTA] = GREEN_M;
+  hc_onecell[GREENOC][IYELW] = GREEN_Y;
+  hc_onecell[GREENOC][IBLCK] = GREEN_K;
+
+  hc_onecell[DARKGREENOC][ICYAN] = DARKGREEN_C;
+  hc_onecell[DARKGREENOC][IMGTA] = DARKGREEN_M;
+  hc_onecell[DARKGREENOC][IYELW] = DARKGREEN_Y;
+  hc_onecell[DARKGREENOC][IBLCK] = DARKGREEN_K;
+
+  hc_onecell[LIGHTPURPLEOC][ICYAN] = LIGHTPURPLE_C;
+  hc_onecell[LIGHTPURPLEOC][IMGTA] = LIGHTPURPLE_M;
+  hc_onecell[LIGHTPURPLEOC][IYELW] = LIGHTPURPLE_Y;
+  hc_onecell[LIGHTPURPLEOC][IBLCK] = LIGHTPURPLE_K;
+
+  hc_onecell[PURPLEOC][ICYAN] = PURPLE_C;
+  hc_onecell[PURPLEOC][IMGTA] = PURPLE_M;
+  hc_onecell[PURPLEOC][IYELW] = PURPLE_Y;
+  hc_onecell[PURPLEOC][IBLCK] = PURPLE_K;
+
+  hc_onecell[DARKPURPLEOC][ICYAN] = DARKPURPLE_C;
+  hc_onecell[DARKPURPLEOC][IMGTA] = DARKPURPLE_M;
+  hc_onecell[DARKPURPLEOC][IYELW] = DARKPURPLE_Y;
+  hc_onecell[DARKPURPLEOC][IBLCK] = DARKPURPLE_K;
 
   /***********************************/
   /* allocate and fill predefined color schemes, these are hardcoded */
-  ESL_ALLOC(hc_scheme, sizeof(float **) * 7);
-  for (z = 0; z < 7; z++) hc_scheme[z] = NULL;
-  ESL_ALLOC(hc_scheme[0], sizeof(float *) * 11); 
-  for(z = 0; z < 11; z++) hc_scheme[0][z] = NULL;
-  for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[0][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[1], sizeof(float *) * 11); 
-  for(z = 0; z < 11; z++) hc_scheme[1][z] = NULL;
-  for(z = 0; z < 11; z++) { ESL_ALLOC(hc_scheme[1][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[2], sizeof(float *) * 6); 
-  for(z = 0; z < 6; z++) hc_scheme[2][z] = NULL;
-  for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[2][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[3], sizeof(float *) * 6); 
-  for(z = 0; z < 6; z++) hc_scheme[3][z] = NULL;
-  for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[3][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[4], sizeof(float *) * 5); 
-  for(z = 0; z < 5; z++) hc_scheme[4][z] = NULL;
-  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[4][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[5], sizeof(float *) * 5); 
-  for(z = 0; z < 5; z++) hc_scheme[5][z] = NULL;
-  for(z = 0; z < 5; z++) { ESL_ALLOC(hc_scheme[5][z], sizeof(float) * NCMYK); }
-  ESL_ALLOC(hc_scheme[6], sizeof(float *) * 6); 
-  for(z = 0; z < 6; z++) hc_scheme[6][z] = NULL;
-  for(z = 0; z < 6; z++) { ESL_ALLOC(hc_scheme[6][z], sizeof(float) * NCMYK); }
+  ESL_ALLOC(hc_scheme, sizeof(float **) * NSCHEMES);
+  for (z = 0; z < NSCHEMES; z++) hc_scheme[z] = NULL;
 
-  ESL_ALLOC(hc_nbins, sizeof(int) * 7);
-  hc_nbins[0] = NRAINBOWRHSCHEME;
-  hc_nbins[1] = NRAINBOWRLSCHEME;
-  hc_nbins[2] = NRBSIXRHSCHEME;
-  hc_nbins[3] = NRBSIXRLSCHEME;
-  hc_nbins[4] = NRBFIVERHSCHEME;
-  hc_nbins[5] = NRBFIVERLSCHEME;
-  hc_nbins[6] = NRBWSIXRHSCHEME;
+  ESL_ALLOC(hc_nbins, sizeof(int) * NSCHEMES);
+  hc_nbins[RB_11_RH_SCHEME] = NRB_11_RH_SCHEME;
+  hc_nbins[RB_11_RL_SCHEME] = NRB_11_RL_SCHEME;
+  hc_nbins[RB_6_RH_SCHEME]  = NRB_6_RH_SCHEME;
+  hc_nbins[RB_6_RL_SCHEME]  = NRB_6_RL_SCHEME;
+  hc_nbins[RB_5_RH_SCHEME]  = NRB_5_RH_SCHEME;
+  hc_nbins[RB_5_RL_SCHEME]  = NRB_5_RL_SCHEME;
+  hc_nbins[RB_W5_OH_SCHEME] = NRB_W5_OH_SCHEME;
 
-  /***********************************/
-  /*Scheme 0 and 1: Rainbow(red high) 11 is 0, Rainbow (red low) 11 is 1 */
-  hc_scheme[0][ 0][0] = 0.92; hc_scheme[0][ 0][1] = 0.84; hc_scheme[0][ 0][2] = 0.00; hc_scheme[0][ 0][3] = 0.08; /*blue*/
-  hc_scheme[1][10][0] = 0.92; hc_scheme[1][10][1] = 0.84; hc_scheme[1][10][2] = 0.00; hc_scheme[1][10][3] = 0.08; /*blue*/
+  /* RB_11_RH_SCHEME RainBow, 11 colors, Red High, blue low  */
+  ESL_ALLOC(hc_scheme[RB_11_RH_SCHEME], sizeof(float *) * NRB_11_RH_SCHEME); 
+  for(z = 0; z < NRB_11_RH_SCHEME; z++) hc_scheme[RB_11_RH_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_11_RH_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_11_RH_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 1][0] = 0.78; hc_scheme[0][ 1][1] = 0.56; hc_scheme[0][ 1][2] = 0.00; hc_scheme[0][ 1][3] = 0.22;
-  hc_scheme[1][ 9][0] = 0.78; hc_scheme[1][ 9][1] = 0.56; hc_scheme[1][ 9][2] = 0.00; hc_scheme[1][ 9][3] = 0.22;
+  /* RB_11_RL_SCHEME RainBow, 11 colors, Red Low,  blue high */
+  ESL_ALLOC(hc_scheme[RB_11_RL_SCHEME], sizeof(float *) * NRB_11_RL_SCHEME); 
+  for(z = 0; z < NRB_11_RL_SCHEME; z++) hc_scheme[RB_11_RL_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_11_RL_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_11_RL_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 2][0] = 0.50; hc_scheme[0][ 2][1] = 0.00; hc_scheme[0][ 2][2] = 0.00; hc_scheme[0][ 2][3] = 0.50;
-  hc_scheme[1][ 8][0] = 0.50; hc_scheme[1][ 8][1] = 0.00; hc_scheme[1][ 8][2] = 0.00; hc_scheme[1][ 8][3] = 0.50;
+  /* RB_6_RH_SCHEME RainBow,  6 colors, Red High, blue low  */
+  ESL_ALLOC(hc_scheme[RB_6_RH_SCHEME], sizeof(float *) * NRB_6_RH_SCHEME); 
+  for(z = 0; z < NRB_6_RH_SCHEME; z++) hc_scheme[RB_6_RH_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_6_RH_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_6_RH_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 3][0] = 0.61; hc_scheme[0][ 3][1] = 0.00; hc_scheme[0][ 3][2] = 0.56; hc_scheme[0][ 3][3] = 0.22;
-  hc_scheme[1][ 7][0] = 0.61; hc_scheme[1][ 7][1] = 0.00; hc_scheme[1][ 7][2] = 0.56; hc_scheme[1][ 7][3] = 0.22;
+  /* RB_6_RL_SCHEME RainBow,  6 colors, Red Low,  blue high */
+  ESL_ALLOC(hc_scheme[RB_6_RL_SCHEME], sizeof(float *) * NRB_6_RL_SCHEME); 
+  for(z = 0; z < NRB_6_RL_SCHEME; z++) hc_scheme[RB_6_RL_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_6_RL_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_6_RL_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 4][0] = 0.42; hc_scheme[0][ 4][1] = 0.00; hc_scheme[0][ 4][2] = 1.00; hc_scheme[0][ 4][3] = 0.00;
-  hc_scheme[1][ 6][0] = 0.42; hc_scheme[1][ 6][1] = 0.00; hc_scheme[1][ 6][2] = 1.00; hc_scheme[1][ 6][3] = 0.00;
+  /* RB_5_RH_SCHEME RainBow,  5 colors, Red High, blue low  */
+  ESL_ALLOC(hc_scheme[RB_5_RH_SCHEME], sizeof(float *) * NRB_5_RH_SCHEME); 
+  for(z = 0; z < NRB_5_RH_SCHEME; z++) hc_scheme[RB_5_RH_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_5_RH_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_5_RH_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 5][0] = 0.00; hc_scheme[0][ 5][1] = 0.00; hc_scheme[0][ 5][2] = 1.00; hc_scheme[0][ 5][3] = 0.00;
-  hc_scheme[1][ 5][0] = 0.00; hc_scheme[1][ 5][1] = 0.00; hc_scheme[1][ 5][2] = 1.00; hc_scheme[1][ 5][3] = 0.00;
+  /* RB_5_RL_SCHEME RainBow,  5 colors, Red Low,  blue high */
+  ESL_ALLOC(hc_scheme[RB_5_RL_SCHEME], sizeof(float *) * NRB_5_RL_SCHEME); 
+  for(z = 0; z < NRB_5_RL_SCHEME; z++) hc_scheme[RB_5_RL_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_5_RL_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_5_RL_SCHEME][z], sizeof(float) * NCMYK); }
 
-  hc_scheme[0][ 6][0] = 0.00; hc_scheme[0][ 6][1] = 0.21; hc_scheme[0][ 6][2] = 1.00; hc_scheme[0][ 6][3] = 0.00;
-  hc_scheme[1][ 4][0] = 0.00; hc_scheme[1][ 4][1] = 0.21; hc_scheme[1][ 4][2] = 1.00; hc_scheme[1][ 4][3] = 0.00;
-
-  hc_scheme[0][ 7][0] = 0.00; hc_scheme[0][ 7][1] = 0.42; hc_scheme[0][ 7][2] = 1.00; hc_scheme[0][ 7][3] = 0.00;
-  hc_scheme[1][ 3][0] = 0.00; hc_scheme[1][ 3][1] = 0.42; hc_scheme[1][ 3][2] = 1.00; hc_scheme[1][ 3][3] = 0.00;
-
-  hc_scheme[0][ 8][0] = 0.00; hc_scheme[0][ 8][1] = 0.63; hc_scheme[0][ 8][2] = 1.00; hc_scheme[0][ 8][3] = 0.00;
-  hc_scheme[1][ 2][0] = 0.00; hc_scheme[1][ 2][1] = 0.63; hc_scheme[1][ 2][2] = 1.00; hc_scheme[1][ 2][3] = 0.00;
-
-  hc_scheme[0][ 9][0] = 0.00; hc_scheme[0][ 9][1] = 0.84; hc_scheme[0][ 9][2] = 1.00; hc_scheme[0][ 9][3] = 0.00;
-  hc_scheme[1][ 1][0] = 0.00; hc_scheme[1][ 1][1] = 0.84; hc_scheme[1][ 1][2] = 1.00; hc_scheme[1][ 1][3] = 0.00;
-
-  hc_scheme[0][10][0] = 0.00; hc_scheme[0][10][1] = 0.94; hc_scheme[0][10][2] = 1.00; hc_scheme[0][10][3] = 0.00; /*red*/
-  hc_scheme[1][ 0][0] = 0.00; hc_scheme[1][ 0][1] = 0.94; hc_scheme[1][ 0][2] = 1.00; hc_scheme[1][ 0][3] = 0.00; /*red*/
-  /***********************************/
-  /*Scheme 2 and 3: Rainbow(red high) 6 is 2, Rainbow (red low) 6 is 3 */
-  hc_scheme[2][0][0] = 0.92; hc_scheme[2][0][1] = 0.84; hc_scheme[2][0][2] = 0.00; hc_scheme[2][0][3] = 0.08; /*blue*/
-  hc_scheme[3][5][0] = 0.92; hc_scheme[3][5][1] = 0.84; hc_scheme[3][5][2] = 0.00; hc_scheme[3][5][3] = 0.08; /*blue*/
-
-  hc_scheme[2][1][0] = 0.50; hc_scheme[2][1][1] = 0.00; hc_scheme[2][1][2] = 0.00; hc_scheme[2][1][3] = 0.50;
-  hc_scheme[3][4][0] = 0.50; hc_scheme[3][4][1] = 0.00; hc_scheme[3][4][2] = 0.00; hc_scheme[3][4][3] = 0.50;
-
-  hc_scheme[2][2][0] = 0.42; hc_scheme[2][2][1] = 0.00; hc_scheme[2][2][2] = 1.00; hc_scheme[2][2][3] = 0.00;
-  hc_scheme[3][3][0] = 0.42; hc_scheme[3][3][1] = 0.00; hc_scheme[3][3][2] = 1.00; hc_scheme[3][3][3] = 0.00;
-
-  hc_scheme[2][3][0] = 0.00; hc_scheme[2][3][1] = 0.21; hc_scheme[2][3][2] = 1.00; hc_scheme[2][3][3] = 0.00;
-  hc_scheme[3][2][0] = 0.00; hc_scheme[3][2][1] = 0.21; hc_scheme[3][2][2] = 1.00; hc_scheme[3][2][3] = 0.00;
-
-  hc_scheme[2][4][0] = 0.00; hc_scheme[2][4][1] = 0.63; hc_scheme[2][4][2] = 1.00; hc_scheme[2][4][3] = 0.00;
-  hc_scheme[3][1][0] = 0.00; hc_scheme[3][1][1] = 0.63; hc_scheme[3][1][2] = 1.00; hc_scheme[3][1][3] = 0.00;
-
-  hc_scheme[2][5][0] = 0.00; hc_scheme[2][5][1] = 0.94; hc_scheme[2][5][2] = 1.00; hc_scheme[2][5][3] = 0.00; /*red*/
-  hc_scheme[3][0][0] = 0.00; hc_scheme[3][0][1] = 0.94; hc_scheme[3][0][2] = 1.00; hc_scheme[3][0][3] = 0.00; /*red*/
-  /***************************************************************/
-  /***********************************/
-  /*Scheme 4 and 5: Rainbow(red high) 5 is 4, Rainbow (red low) 5 is 5 */
-  /*Same as schemes 3 and 4 (rainbow 6s, except no final blue, which makes black text difficult overlaid on it difficult to read */
-  hc_scheme[4][0][0] = 0.50; hc_scheme[4][0][1] = 0.00; hc_scheme[4][0][2] = 0.00; hc_scheme[4][0][3] = 0.50; /*teal*/
-  hc_scheme[5][4][0] = 0.50; hc_scheme[5][4][1] = 0.00; hc_scheme[5][4][2] = 0.00; hc_scheme[5][4][3] = 0.50; /*teal*/
-
-  hc_scheme[4][1][0] = 0.42; hc_scheme[4][1][1] = 0.00; hc_scheme[4][1][2] = 1.00; hc_scheme[4][1][3] = 0.00;
-  hc_scheme[5][3][0] = 0.42; hc_scheme[5][3][1] = 0.00; hc_scheme[5][3][2] = 1.00; hc_scheme[5][3][3] = 0.00;
-
-  hc_scheme[4][2][0] = 0.00; hc_scheme[4][2][1] = 0.21; hc_scheme[4][2][2] = 1.00; hc_scheme[4][2][3] = 0.00;
-  hc_scheme[5][2][0] = 0.00; hc_scheme[5][2][1] = 0.21; hc_scheme[5][2][2] = 1.00; hc_scheme[5][2][3] = 0.00;
-
-  hc_scheme[4][3][0] = 0.00; hc_scheme[4][3][1] = 0.63; hc_scheme[4][3][2] = 1.00; hc_scheme[4][3][3] = 0.00;
-  hc_scheme[5][1][0] = 0.00; hc_scheme[5][1][1] = 0.63; hc_scheme[5][1][2] = 1.00; hc_scheme[5][1][3] = 0.00;
-
-  hc_scheme[4][4][0] = 0.00; hc_scheme[4][4][1] = 0.94; hc_scheme[4][4][2] = 1.00; hc_scheme[4][4][3] = 0.00; /*red*/
-  hc_scheme[5][0][0] = 0.00; hc_scheme[5][0][1] = 0.94; hc_scheme[5][0][2] = 1.00; hc_scheme[5][0][3] = 0.00; /*red*/
-  /***************************************************************/
+  /* RB_W5_OH_SCHEME RainBow with white, 5 colors, Orange High,  teal low, white lowest */
+  ESL_ALLOC(hc_scheme[RB_W5_OH_SCHEME], sizeof(float *) * NRB_W5_OH_SCHEME); 
+  for(z = 0; z < NRB_W5_OH_SCHEME; z++) hc_scheme[RB_W5_OH_SCHEME][z] = NULL;
+  for(z = 0; z < NRB_W5_OH_SCHEME; z++) { ESL_ALLOC(hc_scheme[RB_W5_OH_SCHEME][z], sizeof(float) * NCMYK); }
 
   /***********************************/
-  /*Scheme 5: Rainbow(red high) with white as 0 (same as scheme 4 but with white as zero */
-  hc_scheme[6][0][0] = 0.00; hc_scheme[6][0][1] = 0.00; hc_scheme[6][0][2] = 0.00; hc_scheme[6][0][3] = 0.00; /*white*/
-  hc_scheme[6][1][0] = 0.50; hc_scheme[6][1][1] = 0.00; hc_scheme[6][1][2] = 0.00; hc_scheme[6][1][3] = 0.50; /*teal*/
-  hc_scheme[6][2][0] = 0.42; hc_scheme[6][2][1] = 0.00; hc_scheme[6][2][2] = 1.00; hc_scheme[6][2][3] = 0.00;
-  hc_scheme[6][3][0] = 0.00; hc_scheme[6][3][1] = 0.21; hc_scheme[6][3][2] = 1.00; hc_scheme[6][3][3] = 0.00;
-  hc_scheme[6][4][0] = 0.00; hc_scheme[6][4][1] = 0.63; hc_scheme[6][4][2] = 1.00; hc_scheme[6][4][3] = 0.00;
-  hc_scheme[6][5][0] = 0.00; hc_scheme[6][5][1] = 0.94; hc_scheme[6][5][2] = 1.00; hc_scheme[6][5][3] = 0.00; /*red*/
+  /* fill scheme colors */
+
+  /* the 5 and 6 color rainbow schemes (the 5 color schemes are identical to the 6 color ones, they just omit blue */
+  hc_scheme[RB_6_RL_SCHEME][0][ICYAN] = hc_scheme[RB_6_RH_SCHEME][5][ICYAN] = hc_scheme[RB_5_RL_SCHEME][0][ICYAN] = hc_scheme[RB_5_RL_SCHEME][4][ICYAN] = RED2BLUE_1_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][0][IMGTA] = hc_scheme[RB_6_RH_SCHEME][5][IMGTA] = hc_scheme[RB_5_RL_SCHEME][0][IMGTA] = hc_scheme[RB_5_RL_SCHEME][4][IMGTA] = RED2BLUE_1_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][0][IYELW] = hc_scheme[RB_6_RH_SCHEME][5][IYELW] = hc_scheme[RB_5_RL_SCHEME][0][IYELW] = hc_scheme[RB_5_RL_SCHEME][4][IYELW] = RED2BLUE_1_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][0][IBLCK] = hc_scheme[RB_6_RH_SCHEME][5][IBLCK] = hc_scheme[RB_5_RL_SCHEME][0][IBLCK] = hc_scheme[RB_5_RL_SCHEME][4][IBLCK] = RED2BLUE_1_OF_6_K;
+
+  hc_scheme[RB_6_RL_SCHEME][1][ICYAN] = hc_scheme[RB_6_RH_SCHEME][4][ICYAN] = hc_scheme[RB_5_RL_SCHEME][1][ICYAN] = hc_scheme[RB_5_RL_SCHEME][3][ICYAN] = RED2BLUE_2_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][1][IMGTA] = hc_scheme[RB_6_RH_SCHEME][4][IMGTA] = hc_scheme[RB_5_RL_SCHEME][1][IMGTA] = hc_scheme[RB_5_RL_SCHEME][3][IMGTA] = RED2BLUE_2_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][1][IYELW] = hc_scheme[RB_6_RH_SCHEME][4][IYELW] = hc_scheme[RB_5_RL_SCHEME][1][IYELW] = hc_scheme[RB_5_RL_SCHEME][3][IYELW] = RED2BLUE_2_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][1][IBLCK] = hc_scheme[RB_6_RH_SCHEME][4][IBLCK] = hc_scheme[RB_5_RL_SCHEME][1][IBLCK] = hc_scheme[RB_5_RL_SCHEME][3][IBLCK] = RED2BLUE_2_OF_6_K;
+
+  hc_scheme[RB_6_RL_SCHEME][2][ICYAN] = hc_scheme[RB_6_RH_SCHEME][3][ICYAN] = hc_scheme[RB_5_RL_SCHEME][2][ICYAN] = hc_scheme[RB_5_RL_SCHEME][2][ICYAN] = RED2BLUE_3_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][2][IMGTA] = hc_scheme[RB_6_RH_SCHEME][3][IMGTA] = hc_scheme[RB_5_RL_SCHEME][2][IMGTA] = hc_scheme[RB_5_RL_SCHEME][2][IMGTA] = RED2BLUE_3_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][2][IYELW] = hc_scheme[RB_6_RH_SCHEME][3][IYELW] = hc_scheme[RB_5_RL_SCHEME][2][IYELW] = hc_scheme[RB_5_RL_SCHEME][2][IYELW] = RED2BLUE_3_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][2][IBLCK] = hc_scheme[RB_6_RH_SCHEME][3][IBLCK] = hc_scheme[RB_5_RL_SCHEME][2][IBLCK] = hc_scheme[RB_5_RL_SCHEME][2][IBLCK] = RED2BLUE_3_OF_6_K;
+
+  hc_scheme[RB_6_RL_SCHEME][3][ICYAN] = hc_scheme[RB_6_RH_SCHEME][2][ICYAN] = hc_scheme[RB_5_RL_SCHEME][3][ICYAN] = hc_scheme[RB_5_RL_SCHEME][1][ICYAN] = RED2BLUE_4_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][3][IMGTA] = hc_scheme[RB_6_RH_SCHEME][2][IMGTA] = hc_scheme[RB_5_RL_SCHEME][3][IMGTA] = hc_scheme[RB_5_RL_SCHEME][1][IMGTA] = RED2BLUE_4_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][3][IYELW] = hc_scheme[RB_6_RH_SCHEME][2][IYELW] = hc_scheme[RB_5_RL_SCHEME][3][IYELW] = hc_scheme[RB_5_RL_SCHEME][1][IYELW] = RED2BLUE_4_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][3][IBLCK] = hc_scheme[RB_6_RH_SCHEME][2][IBLCK] = hc_scheme[RB_5_RL_SCHEME][3][IBLCK] = hc_scheme[RB_5_RL_SCHEME][1][IBLCK] = RED2BLUE_4_OF_6_K;
+
+  hc_scheme[RB_6_RL_SCHEME][4][ICYAN] = hc_scheme[RB_6_RH_SCHEME][1][ICYAN] = hc_scheme[RB_5_RL_SCHEME][4][ICYAN] = hc_scheme[RB_5_RL_SCHEME][0][ICYAN] = RED2BLUE_5_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][4][IMGTA] = hc_scheme[RB_6_RH_SCHEME][1][IMGTA] = hc_scheme[RB_5_RL_SCHEME][4][IMGTA] = hc_scheme[RB_5_RL_SCHEME][0][IMGTA] = RED2BLUE_5_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][4][IYELW] = hc_scheme[RB_6_RH_SCHEME][1][IYELW] = hc_scheme[RB_5_RL_SCHEME][4][IYELW] = hc_scheme[RB_5_RL_SCHEME][0][IYELW] = RED2BLUE_5_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][4][IBLCK] = hc_scheme[RB_6_RH_SCHEME][1][IBLCK] = hc_scheme[RB_5_RL_SCHEME][4][IBLCK] = hc_scheme[RB_5_RL_SCHEME][0][IBLCK] = RED2BLUE_5_OF_6_K;
+
+  hc_scheme[RB_6_RL_SCHEME][5][ICYAN] = hc_scheme[RB_6_RH_SCHEME][0][ICYAN] = RED2BLUE_6_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][5][IMGTA] = hc_scheme[RB_6_RH_SCHEME][0][IMGTA] = RED2BLUE_6_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][5][IYELW] = hc_scheme[RB_6_RH_SCHEME][0][IYELW] = RED2BLUE_6_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][5][IBLCK] = hc_scheme[RB_6_RH_SCHEME][0][IBLCK] = RED2BLUE_6_OF_6_K;
+
+  /* the special 4 color, plus white color scheme */
+  hc_scheme[RB_W5_OH_SCHEME][0][ICYAN] = WHITE_C;
+  hc_scheme[RB_W5_OH_SCHEME][0][IMGTA] = WHITE_M;
+  hc_scheme[RB_W5_OH_SCHEME][0][IYELW] = WHITE_Y;
+  hc_scheme[RB_W5_OH_SCHEME][0][IBLCK] = WHITE_K;
+
+  hc_scheme[RB_W5_OH_SCHEME][1][ICYAN] = RED2BLUE_5_OF_6_C;
+  hc_scheme[RB_W5_OH_SCHEME][1][IMGTA] = RED2BLUE_5_OF_6_M;
+  hc_scheme[RB_W5_OH_SCHEME][1][IYELW] = RED2BLUE_5_OF_6_Y;
+  hc_scheme[RB_W5_OH_SCHEME][1][IBLCK] = RED2BLUE_5_OF_6_K;
+
+  hc_scheme[RB_W5_OH_SCHEME][2][ICYAN] = RED2BLUE_4_OF_6_C;
+  hc_scheme[RB_W5_OH_SCHEME][2][IMGTA] = RED2BLUE_4_OF_6_M;
+  hc_scheme[RB_W5_OH_SCHEME][2][IYELW] = RED2BLUE_4_OF_6_Y;
+  hc_scheme[RB_W5_OH_SCHEME][2][IBLCK] = RED2BLUE_4_OF_6_K;
+
+  hc_scheme[RB_W5_OH_SCHEME][3][ICYAN] = RED2BLUE_3_OF_6_C;
+  hc_scheme[RB_W5_OH_SCHEME][3][IMGTA] = RED2BLUE_3_OF_6_M;
+  hc_scheme[RB_W5_OH_SCHEME][3][IYELW] = RED2BLUE_3_OF_6_Y;
+  hc_scheme[RB_W5_OH_SCHEME][3][IBLCK] = RED2BLUE_3_OF_6_K;
+
+  hc_scheme[RB_W5_OH_SCHEME][4][ICYAN] = RED2BLUE_2_OF_6_C;
+  hc_scheme[RB_W5_OH_SCHEME][4][IMGTA] = RED2BLUE_2_OF_6_M;
+  hc_scheme[RB_W5_OH_SCHEME][4][IYELW] = RED2BLUE_2_OF_6_Y;
+  hc_scheme[RB_W5_OH_SCHEME][4][IBLCK] = RED2BLUE_2_OF_6_K;
+
+  /* the 11 color rainbow schemes */
+  hc_scheme[RB_11_RL_SCHEME][0][ICYAN] = hc_scheme[RB_11_RH_SCHEME][10][ICYAN] = RED2BLUE_1_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][0][IMGTA] = hc_scheme[RB_11_RH_SCHEME][10][IMGTA] = RED2BLUE_1_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][0][IYELW] = hc_scheme[RB_11_RH_SCHEME][10][IYELW] = RED2BLUE_1_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][0][IBLCK] = hc_scheme[RB_11_RH_SCHEME][10][IBLCK] = RED2BLUE_1_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][1][ICYAN] = hc_scheme[RB_11_RH_SCHEME][9][ICYAN] = RED2BLUE_2_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][1][IMGTA] = hc_scheme[RB_11_RH_SCHEME][9][IMGTA] = RED2BLUE_2_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][1][IYELW] = hc_scheme[RB_11_RH_SCHEME][9][IYELW] = RED2BLUE_2_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][1][IBLCK] = hc_scheme[RB_11_RH_SCHEME][9][IBLCK] = RED2BLUE_2_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][2][ICYAN] = hc_scheme[RB_11_RH_SCHEME][8][ICYAN] = RED2BLUE_3_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][2][IMGTA] = hc_scheme[RB_11_RH_SCHEME][8][IMGTA] = RED2BLUE_3_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][2][IYELW] = hc_scheme[RB_11_RH_SCHEME][8][IYELW] = RED2BLUE_3_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][2][IBLCK] = hc_scheme[RB_11_RH_SCHEME][8][IBLCK] = RED2BLUE_3_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][3][ICYAN] = hc_scheme[RB_11_RH_SCHEME][7][ICYAN] = RED2BLUE_4_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][3][IMGTA] = hc_scheme[RB_11_RH_SCHEME][7][IMGTA] = RED2BLUE_4_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][3][IYELW] = hc_scheme[RB_11_RH_SCHEME][7][IYELW] = RED2BLUE_4_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][3][IBLCK] = hc_scheme[RB_11_RH_SCHEME][7][IBLCK] = RED2BLUE_4_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][4][ICYAN] = hc_scheme[RB_11_RH_SCHEME][6][ICYAN] = RED2BLUE_5_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][4][IMGTA] = hc_scheme[RB_11_RH_SCHEME][6][IMGTA] = RED2BLUE_5_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][4][IYELW] = hc_scheme[RB_11_RH_SCHEME][6][IYELW] = RED2BLUE_5_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][4][IBLCK] = hc_scheme[RB_11_RH_SCHEME][6][IBLCK] = RED2BLUE_5_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][5][ICYAN] = hc_scheme[RB_11_RH_SCHEME][5][ICYAN] = RED2BLUE_6_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][5][IMGTA] = hc_scheme[RB_11_RH_SCHEME][5][IMGTA] = RED2BLUE_6_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][5][IYELW] = hc_scheme[RB_11_RH_SCHEME][5][IYELW] = RED2BLUE_6_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][5][IBLCK] = hc_scheme[RB_11_RH_SCHEME][5][IBLCK] = RED2BLUE_6_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][6][ICYAN] = hc_scheme[RB_11_RH_SCHEME][4][ICYAN] = RED2BLUE_7_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][6][IMGTA] = hc_scheme[RB_11_RH_SCHEME][4][IMGTA] = RED2BLUE_7_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][6][IYELW] = hc_scheme[RB_11_RH_SCHEME][4][IYELW] = RED2BLUE_7_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][6][IBLCK] = hc_scheme[RB_11_RH_SCHEME][4][IBLCK] = RED2BLUE_7_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][7][ICYAN] = hc_scheme[RB_11_RH_SCHEME][3][ICYAN] = RED2BLUE_8_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][7][IMGTA] = hc_scheme[RB_11_RH_SCHEME][3][IMGTA] = RED2BLUE_8_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][7][IYELW] = hc_scheme[RB_11_RH_SCHEME][3][IYELW] = RED2BLUE_8_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][7][IBLCK] = hc_scheme[RB_11_RH_SCHEME][3][IBLCK] = RED2BLUE_8_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][8][ICYAN] = hc_scheme[RB_11_RH_SCHEME][2][ICYAN] = RED2BLUE_9_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][8][IMGTA] = hc_scheme[RB_11_RH_SCHEME][2][IMGTA] = RED2BLUE_9_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][8][IYELW] = hc_scheme[RB_11_RH_SCHEME][2][IYELW] = RED2BLUE_9_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][8][IBLCK] = hc_scheme[RB_11_RH_SCHEME][2][IBLCK] = RED2BLUE_9_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][9][ICYAN] = hc_scheme[RB_11_RH_SCHEME][1][ICYAN] = RED2BLUE_10_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][9][IMGTA] = hc_scheme[RB_11_RH_SCHEME][1][IMGTA] = RED2BLUE_10_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][9][IYELW] = hc_scheme[RB_11_RH_SCHEME][1][IYELW] = RED2BLUE_10_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][9][IBLCK] = hc_scheme[RB_11_RH_SCHEME][1][IBLCK] = RED2BLUE_10_OF_11_K;
+
+  hc_scheme[RB_11_RL_SCHEME][10][ICYAN] = hc_scheme[RB_11_RH_SCHEME][0][ICYAN] = RED2BLUE_11_OF_11_C;
+  hc_scheme[RB_11_RL_SCHEME][10][IMGTA] = hc_scheme[RB_11_RH_SCHEME][0][IMGTA] = RED2BLUE_11_OF_11_M;
+  hc_scheme[RB_11_RL_SCHEME][10][IYELW] = hc_scheme[RB_11_RH_SCHEME][0][IYELW] = RED2BLUE_11_OF_11_Y;
+  hc_scheme[RB_11_RL_SCHEME][10][IBLCK] = hc_scheme[RB_11_RH_SCHEME][0][IBLCK] = RED2BLUE_11_OF_11_K;
 
   /*****************************************
    * Open the MSA file; determine alphabet;
@@ -817,15 +1075,19 @@ main(int argc, char **argv)
   /* step through each type of page, creating it if nec */
   if(do_rf) { 
     /* this will work in either small memory or normal memory mode */
-    if((status = rf_seq_sspostscript(go, errbuf, ps, msa, (! esl_opt_GetBoolean(go, "--no-ircol")), hc_onecell, DARKGREYOC, BLACKOC, TEALOC, REDOC)) != eslOK) esl_fatal(errbuf);
+    if((status = rf_seq_sspostscript(go, errbuf, ps, msa, (! esl_opt_GetBoolean(go, "--no-ircol")), hc_onecell, 
+				     BLACKOC,       /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
+				     REDOC,         /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
+				     LIGHTPURPLEOC)) != eslOK) /* one-cell legend, color for noncanonical bps */
+      esl_fatal(errbuf);
   }
 
   if(do_info) { 
-    if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = infocontent_sspostscript(go, abc, errbuf, ps, abc_ct, msa_nseq, hc_scheme, RB_6_RL_SCHEME, hc_nbins[RB_6_RL_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
   if(do_mutinfo) { /* mutual info page */
-    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, GREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = mutual_information_sspostscript(go, abc, errbuf, ps, bp_ct, msa_nseq, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, GREYOC, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
   if(do_ifreq || do_iavglen) { /* insert frequency page */
@@ -842,27 +1104,27 @@ main(int argc, char **argv)
     }
     /* now draw the insert diagram */
     if(do_ifreq) { 
-      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, GREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+      if((status = insertfreq_sspostscript(go, errbuf, ps, nseq_with_ins_ct, span_ct, msa_nseq, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, GREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
     if(do_iavglen) { 
-      if((status = insertavglen_sspostscript(go, errbuf, ps, nseq_with_ins_ct, nins_ct, span_ct, msa_nseq, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+      if((status = insertavglen_sspostscript(go, errbuf, ps, nseq_with_ins_ct, nins_ct, span_ct, msa_nseq, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
     }
   }
   
   if(do_dall) { /* make a new postscript page marking all deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, TRUE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, TRUE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
   if(do_dint) { /* internal deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
 
   if(do_prob && pp_ct != NULL) { /* avg post prob */
-    if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = avg_posteriors_sspostscript(go, abc, errbuf, ps, pp_ct, msa_nseq, hc_scheme, RB_6_RL_SCHEME, hc_nbins[RB_6_RL_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
       
   if(do_span) { /* span */
-    if((status = span_sspostscript(go, errbuf, ps, span_ct, msa_nseq, hc_scheme, RBSIXRLSCHEME, hc_nbins[RBSIXRLSCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = span_sspostscript(go, errbuf, ps, span_ct, msa_nseq, hc_scheme, RB_6_RL_SCHEME, hc_nbins[RB_6_RL_SCHEME], hc_onecell, LIGHTGREYOC, BLACKOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
 
   if(do_maskcol) { 
@@ -876,7 +1138,7 @@ main(int argc, char **argv)
   }
 
   if(do_dfile) {
-    if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RBSIXRHSCHEME, hc_nbins[RBSIXRHSCHEME])) != eslOK) esl_fatal(errbuf);
+    if((status = drawfile2sspostscript(go, errbuf, ps, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME])) != eslOK) esl_fatal(errbuf);
   }
 
   if(do_efile) { 
@@ -1014,14 +1276,13 @@ main(int argc, char **argv)
 					  useme, nused, 
 					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-iprob")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-iprob")) && (msa->pp != NULL))),
 					  (! esl_opt_GetBoolean(go, "--no-ircol")),  /* do_rescol: paint residues different colors based on basepair type? */
-					  hc_scheme, RBWSIXRHSCHEME, RBSIXRLSCHEME, hc_nbins[RBWSIXRHSCHEME], hc_nbins[RBSIXRLSCHEME], hc_onecell, 
-					  LIGHTGREYOC, /* one-cell legend, 5'/3' flush color */
-					  DARKGREYOC,  /* one-cell legend, single-stranded color, only relevant if do_rescol == TRUE */
-					  BLACKOC,     /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
-					  TEALOC,      /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
-					  REDOC,       /* one-cell legend, non-canonical bp color, only relevant if do_rescol == TRUE */
-					  ORANGEOC,    /* one-cell legend, internal double-gap bp color, only relevant if do_rescol == TRUE */
-					  ORANGEOC,    /* one-cell legend, internal half-gap bp color, only relevant if do_rescol == TRUE */
+					  hc_scheme, RB_W5_OH_SCHEME, RB_6_RL_SCHEME, hc_nbins[RB_W5_OH_SCHEME], hc_nbins[RB_6_RL_SCHEME], hc_onecell, 
+					  LIGHTGREYOC,   /* one-cell legend, 5'/3' flush color */
+					  BLACKOC,       /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
+					  GREENOC,       /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
+					  REDOC,         /* one-cell legend, non-canonical bp color, only relevant if do_rescol == TRUE */
+					  LIGHTPURPLEOC, /* one-cell legend, internal double-gap bp color, only relevant if do_rescol == TRUE */
+					  LIGHTPURPLEOC, /* one-cell legend, internal half-gap bp color, only relevant if do_rescol == TRUE */
 					  LIGHTGREYOC)) != eslOK) /* one-cell legend, color for gap in post prob pages */
       esl_fatal(errbuf);
   }
@@ -1058,20 +1319,14 @@ main(int argc, char **argv)
   free(hc_nbins);
   for(z = 0; z < NOC; z++) free(hc_onecell[z]);
   free(hc_onecell);
-  for(z = 0; z < 11; z++) free(hc_scheme[0][z]);
-  for(z = 0; z < 11; z++) free(hc_scheme[1][z]);
-  for(z = 0; z < 6; z++) free(hc_scheme[2][z]);
-  for(z = 0; z < 6; z++) free(hc_scheme[3][z]);
-  for(z = 0; z < 5; z++) free(hc_scheme[4][z]);
-  for(z = 0; z < 5; z++) free(hc_scheme[5][z]);
-  for(z = 0; z < 6; z++) free(hc_scheme[6][z]);
-  free(hc_scheme[0]);
-  free(hc_scheme[1]);
-  free(hc_scheme[2]);
-  free(hc_scheme[3]);
-  free(hc_scheme[4]);
-  free(hc_scheme[5]);
-  free(hc_scheme[6]);
+  for(z = 0; z < NRB_11_RH_SCHEME; z++) free(hc_scheme[RB_11_RH_SCHEME][z]);
+  for(z = 0; z < NRB_11_RL_SCHEME; z++) free(hc_scheme[RB_11_RL_SCHEME][z]);
+  for(z = 0; z < NRB_6_RH_SCHEME; z++) free(hc_scheme[RB_6_RH_SCHEME][z]);
+  for(z = 0; z < NRB_6_RL_SCHEME; z++) free(hc_scheme[RB_6_RL_SCHEME][z]);
+  for(z = 0; z < NRB_5_RH_SCHEME; z++) free(hc_scheme[RB_5_RH_SCHEME][z]);
+  for(z = 0; z < NRB_5_RL_SCHEME; z++) free(hc_scheme[RB_5_RL_SCHEME][z]);
+  for(z = 0; z < NRB_W5_OH_SCHEME; z++) free(hc_scheme[RB_W5_OH_SCHEME][z]);
+  for(z = 0; z < NSCHEMES; z++) { free(hc_scheme[z]); }
   free(hc_scheme);
   if(msa != NULL) esl_msa_Destroy(msa);
   if(indi_msa != NULL) esl_msa_Destroy(indi_msa);
@@ -2812,7 +3067,7 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
 static int
 individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, 
 			 int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, 
-			 int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, 
+			 int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, 
 			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p)
 {
   int status;
@@ -2823,7 +3078,6 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
   /* variables for the sequence pages */
   int nextdel_s = 0;  /* number of external deletes (3' and 5' flush deletes) */
-  int nss_s = 0;      /* number of single-stranded residues */
   int nwc_s = 0;      /* number of Watson/Crick (A:U,U:A,C:G,G:C) basepairs */
   int ngu_s = 0;      /* number of G:U,U:G basepairs (2 * num G-U,U-G bps) */
   int nnc_s = 0;      /* number of non-canonical basepairs (A:A,A:C,A:G,C:A,C:C,C:U,G:A,G:G,U:C,U:U) */
@@ -2880,7 +3134,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
     if(do_rescol) { 
-      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 8);
+      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 7);
     }
     else { 
       ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
@@ -2908,10 +3162,9 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   limits_s[0] = 0;
   limits_s[1] = 1;
   limits_s[2] = 2;
-  limits_s[3] = 4;
-  limits_s[4] = 6;
-  limits_s[5] = 10;
-  limits_s[6] = SSDRAWINFINITY;
+  limits_s[3] = 5;
+  limits_s[4] = 10;
+  limits_s[5] = SSDRAWINFINITY;
 
   /* setup pp limits */
   ESL_ALLOC(limits_p, sizeof(float) * (hc_nbins_p+1)); 
@@ -2953,7 +3206,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       }
       ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE);
       /* init one cell legend counters */
-      nextdel_s = nwc_s = ngu_s = nnc_s = nss_s = ndg_s = nhg_s = 0;
+      nextdel_s = nwc_s = ngu_s = nnc_s = ndg_s = nhg_s = 0;
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
@@ -2975,13 +3228,8 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	}	  
 	if(do_rescol) { 
 	  if(ps->msa_ct[(rfpos+1)] == 0) { 
-	    if(esl_abc_CIsResidue(abc, msa->aseq[i][apos])) { /* single-stranded residue */
-	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx_s])) != eslOK) return status;
-	      nss_s++;
-	    }
-	    else { /* single stranded gap, we'll draw this as black */
-	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
-	    }
+	    /* single-stranded residue or gap, draw same color as Watson-Cricks */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
 	  }
 	  else { /* consensus basepaired residue */
 	    lpos = apos;
@@ -3051,15 +3299,9 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	ps->nocclA[pp]++;
 
 	/* add one-cell color legend for internal double-gap basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndg_s, -1, FALSE);
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndg_s, -1, TRUE);
 	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "- - -", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add one-cell color legend for single stranded residues */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ss_idx_s], nss_s, -1, TRUE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "single-stranded (nongap)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], " N", errbuf)) != eslOK) return status;
 	ps->nocclA[pp]++;
       }
 
@@ -3127,7 +3369,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
  */
 static int
 rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol,
-		    float **hc_onecell, int ss_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s)
+		    float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s)
 {
   int status;
   int p, pp;
@@ -3137,9 +3379,8 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   int nwc_s; /* number of watson-crick bps */
   int ngu_s; /* number of GU/UG bps */
   int nnc_s; /* number of noncanonical bps */
-  int nss_s; /* number of single stranded residues */
 
-  nwc_s = ngu_s = nnc_s = nss_s = 0;
+  nwc_s = ngu_s = nnc_s = 0;
 
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -3158,13 +3399,13 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
 
   if(do_rescol && seen_canonical) { /* determine color for the residue, depends if it is single-stranded or basepaired */
     ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
-    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 4);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 3);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       apos = ps->msa_rf2a_map[rfpos];
       if(ps->msa_ct[(rfpos+1)] == 0) { /* single stranded */
-	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ss_idx_s])) != eslOK) return status;
-	nss_s++;
+	/* single-stranded residue or gap, draw same color as Watson-Cricks */
+	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
       }
       else { /* basepair, either watson-crick, GU/UG, or non-canonical */
 	lpos = apos;
@@ -3200,12 +3441,6 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
     ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, -1, FALSE);
     if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
     if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
-    ps->nocclA[pp]++;
-    
-    /* add one-cell color legend for single stranded residues */
-    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ss_idx_s], nss_s, -1, FALSE);
-    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "single-stranded", ps->legx_max_chars, errbuf)) != eslOK) return status;
-    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], " N", errbuf)) != eslOK) return status;
     ps->nocclA[pp]++;
   }
 

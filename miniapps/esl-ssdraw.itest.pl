@@ -508,7 +508,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\%residue 20\nnewpath\n  117.00 309.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output =~ /\%residue 20\nnewpath\n  117.00 309.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\(single\-stranded \(nongap\)\)/)         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --no-ircol --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -522,7 +522,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\%residue 20\nnewpath\n  117.00 309.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\%residue 20\nnewpath\n  117.00 309.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output =~ /\(single-stranded\(nongap\)\)/)          { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
