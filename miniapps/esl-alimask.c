@@ -316,7 +316,7 @@ main(int argc, char **argv)
    * Read the first MSA in the file (we only mask first aln) and verify we can mask it.
    ************************************************************************************/
   status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
+    esl_msa_ReadInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
 			       (do_gapthresh) ? &abc_ct : NULL,
 			       (do_postprob)  ? &pp_ct  : NULL, 
 			       NULL, NULL, NULL) :               /* we don't want bp_ct, srfpos_ct nor erfpos_ct */
@@ -868,7 +868,7 @@ static int mask_based_on_gapfreq(int *gap_ct, int64_t alen, int nseq, float gapt
  *
  * This mapping of PP chars to return values should probably be 
  * stored in some internal map structure somewhere, instead of 
- * only existing in this function as used by esl_msa_ReadNonSeqInfo().
+ * only existing in this function as used by esl_msa_ReadInfoPfam().
  */
 static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 {

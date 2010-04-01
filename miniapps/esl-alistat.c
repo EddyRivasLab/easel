@@ -208,11 +208,11 @@ main(int argc, char **argv)
   nali = 0;
 
   while ((status = (esl_opt_GetBoolean(go, "--small")) ? 
-	  esl_msa_ReadNonSeqInfoPfam(afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
-	  esl_msa_Read              (afp, &msa))
+	  esl_msa_ReadInfoPfam(afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
+	  esl_msa_Read        (afp, &msa))
 	 == eslOK) 
     { 
-      /* Note, if --list enabled, listfp != NULL and esl_msa_ReadNonSeqInfoPfam() will print out seq names to listfp */
+      /* Note, if --list enabled, listfp != NULL and esl_msa_ReadInfoPfam() will print out seq names to listfp */
       if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
       else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
       else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
@@ -280,7 +280,7 @@ main(int argc, char **argv)
       /* Dump data to optional output files, if nec */
       if(esl_opt_IsOn(go, "--list")) {
 	if(! esl_opt_GetBoolean(go, "--small")) { 
-	    /* only print sequence name to list file if ! --small, else we already have in esl_msa_ReadNonSeqInfoPfam() */
+	    /* only print sequence name to list file if ! --small, else we already have in esl_msa_ReadInfoPfam() */
 	    for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
 	}
       }

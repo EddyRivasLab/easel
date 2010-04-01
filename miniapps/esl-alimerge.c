@@ -267,8 +267,8 @@ main(int argc, char **argv)
     }
     /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
     while((status = (do_small) ? 
-	   esl_msa_ReadNonSeqInfoPfam(afp, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
-	   esl_msa_Read              (afp, &(msaA[ai]))) == eslOK) { 
+	   esl_msa_ReadInfoPfam(afp, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
+	   esl_msa_Read        (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
       msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --small, this is set as RNA regardless of input */

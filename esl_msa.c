@@ -2856,7 +2856,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
  * 
  *            If <consider_rf> is TRUE, only columns that are gaps
  *            in all sequences of <msa> and a gap in the RF annotation 
- *            of the alignment (>msa->rf>) will be removed. It is 
+ *            of the alignment (<msa->rf>) will be removed. It is 
  *            okay if <consider_rf> is TRUE and <msa->rf> is NULL
  *            (no error is thrown), the function will behave as if 
  *            <consider_rf> is FALSE.
@@ -5220,7 +5220,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
  *
  * This mapping of PP chars to return values should probably be 
  * stored in some internal map structure somewhere, instead of 
- * only existing in this function as used by esl_msa_ReadNonSeqInfoPfam().
+ * only existing in this function as used by esl_msa_ReadInfoPfam().
  */
 int
 get_pp_idx(ESL_ALPHABET *abc, char ppchar)
@@ -5240,36 +5240,27 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
   return -1;
 }
 
-/* Function: esl_msa_ReadNonSeqInfoPfam()
- * Synopsis: Read non-sequence information in next Pfam formatted MSA.
+/* Function: esl_msa_ReadInfoPfam()
+ * Synopsis: Read Pfam formatted MSA information but not sequence data.
  * Incept:   EPN, Sat Dec  5 07:56:42 2009
  *
  * Purpose:  Read the next alignment from an open Stockholm Pfam
  *           (non-interleaved, one line per seq) format alignment file
- *           <afp> and store all non per-sequence information
- *           (comments, \verb+#=GF+, \verb+#=GC+) in a new msa.
+ *           <afp> and store all non-sequence information (comments,
+ *           GF annotation and GC annotation) in a new msa object.
  *
- *           Note: this function could work on regular interleaved
- *           (non-Pfam) Stockholm if either (a) we didn't optionally
- *           return nseq or (b) we stored all seqnames in a keyhash,
- *           so we knew how many unique sequences there are. If 
- *           it were adapted to work with interleaved Stockholm, care
- *           would need to be taken to make listfp arg work correctly,
- *           which prints the sequence name from each sequence line
- *           it reads. 
+ *           This function is not as rigorous about validating the
+ *           input msa as the other read functions that store the full
+ *           alignment. Here, we only verify that there is only one
+ *           line for the first sequence read. Verifying that all
+ *           sequences are only one line would require storing and
+ *           looking up all sequence names.
  *
- *           We can't be as rigorous about validating the input as the
- *           other read functions that store the full alignment. Here,
- *           we only verify that there is only one line for the first
- *           sequence read and that's it (verifying that all sequences
- *           are only one line would require storing and looking up
- *           all sequence names which we could do at a cost).
- *
- *           Many optional return values (<opt_*>) make this function
- *           flexible and able to accomodate the diverse needs of the
- *           memory efficient enabled easel miniapps that use it
- *           (esl-alimerge, esl-alimask, esl-ssdraw). For any that are
- *           unwanted, pass <NULL>.
+ *           Many optional return values (<opt_*>) allow this function
+ *           to serve the diverse needs of the miniapps that can run
+ *           in a memory-efficient mode (esl-alimerge, esl-alimask,
+ *           esl-alistat, esl-ssdraw). For any that are unwanted, pass
+ *           <NULL>.
  *
  * Args:     afp           - open alignment file pointer
  *           listfp        - if non-NULL, dump each sequence name we read 
@@ -5313,7 +5304,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  *                           except for final position instead of first
  * 
  * Returns:  <eslOK> on success.  Returns <eslEOF> if there are no more
- *           Alignments in <afp>, and <ret_msa> is set to NULL and
+ *           alignments in <afp>, and <ret_msa> is set to NULL and
  *           <opt_*> are set to 0.
  *           <eslEFORMAT> if parse fails because of a file format
  *           problem, in which case <afp->errbuf> is set to contain a
@@ -5326,7 +5317,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  * Xref:      ~nawrockie/notebook/9_1206_esl_msa_mem_efficient/
  */
 int
-esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
+esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
 			   int *opt_nseq, int64_t *opt_alen, int *opt_ngs, int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
 			   double ***opt_abc_ct, int ***opt_pp_ct, double ****opt_bp_ct, int **opt_spos_ct, int **opt_epos_ct)
 {
@@ -5367,16 +5358,16 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
   char      *ss_nopseudo = NULL;   /* no-pseudoknot version of known_ss_cons */
 
   if(afp->format   != eslMSAFILE_PFAM) ESL_EXCEPTION(eslEINCONCEIVABLE, "only non-interleaved (1 line /seq, Pfam) Stockholm formatted files can be read in small memory mode");
-  if(opt_abc_ct    != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_abc_ct  != NULL");
-  if(opt_pp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_pp_ct   != NULL");
-  if(opt_bp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_bp_ct != NULL");
-  if(opt_spos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_spos_ct != NULL");
-  if(opt_epos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, abc == NULL, opt_epos_ct != NULL");
-  if(opt_spos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, opt_spos_ct != NULL, known_alen == -1");
-  if(opt_epos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, opt_epos_ct != NULL, known_alen == -1");
-  if(opt_bp_ct     != NULL && known_ss_cons == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
-  if(known_rf      != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_rf != NULL, known_alen == -1");
-  if(known_ss_cons != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam() contract violation, known_ss_cons != NULL, known_alen == -1");
+  if(opt_abc_ct    != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, abc == NULL, opt_abc_ct  != NULL");
+  if(opt_pp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, abc == NULL, opt_pp_ct   != NULL");
+  if(opt_bp_ct     != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, abc == NULL, opt_bp_ct != NULL");
+  if(opt_spos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, abc == NULL, opt_spos_ct != NULL");
+  if(opt_epos_ct   != NULL && abc == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, abc == NULL, opt_epos_ct != NULL");
+  if(opt_spos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, opt_spos_ct != NULL, known_alen == -1");
+  if(opt_epos_ct   != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, opt_epos_ct != NULL, known_alen == -1");
+  if(opt_bp_ct     != NULL && known_ss_cons == NULL) ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, known_ss_cons == NULL, opt_bp_ct != NULL");
+  if(known_rf      != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, known_rf != NULL, known_alen == -1");
+  if(known_ss_cons != NULL && known_alen == -1)      ESL_FAIL(eslEINVAL, afp->errbuf, "esl_msa_ReadInfoPfam() contract violation, known_ss_cons != NULL, known_alen == -1");
 
   if (feof(afp->f))  { status = eslEOF; goto ERROR; }
   afp->errbuf[0] = '\0';
@@ -5396,7 +5387,7 @@ esl_msa_ReadNonSeqInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, in
     ESL_ALLOC(ct,  sizeof(int)  * (known_alen+1));
     ESL_ALLOC(ss_nopseudo, sizeof(char) * (known_alen+1));
     esl_wuss_nopseudo(known_ss_cons, ss_nopseudo);
-    if ((status = esl_wuss2ct(ss_nopseudo, known_alen, ct)) != eslOK) ESL_FAIL(status, afp->errbuf, "esl_msa_ReadNonSeqInfoPfam(), consensus structure string is inconsistent.");
+    if ((status = esl_wuss2ct(ss_nopseudo, known_alen, ct)) != eslOK) ESL_FAIL(status, afp->errbuf, "esl_msa_ReadInfoPfam(), consensus structure string is inconsistent.");
     ESL_ALLOC(bp_ct,  sizeof(double **) * known_alen); 
     for(apos = 0; apos < known_alen; apos++) { 
       /* careful ct is indexed 1..alen, not 0..alen-1 */
@@ -5774,33 +5765,34 @@ determine_spacelen(char *s)
  *           If one of the <seqs2regurg> or <seqs2skip> keyhashes are
  *           non-NULL, they specify names of sequences (and affiliated
  *           annotation) to output (<seqs2regurg>) or not output
- *           (<seqs2skip>.  Only one of these may be non-NULL.
+ *           (<seqs2skip>).  Only one of these may be non-NULL.
  *
  *           <maxname>, <maxgf>, <maxgc> and <maxgr> specify the max
  *           length sequence name, GF tag, GC tag, and GR tag, and can
  *           be provided by a caller that knows their values, e.g. as
- *           revealed by a previous call to <esl_msa_ReadNonSeqPfam()>.
+ *           revealed by a previous call to <esl_msa_ReadInfoPfam()>.
  *           If any are -1, the caller didn't know the value, and the
  *           spacing in the alignment file we read in will be
  *           preserved. An example of useful non -1 values is if we're
  *           merging multiple alignments into a single alignment, and
  *           the spacing of any given alignment should change when all
- *           alignments are considered (like what <esl-alimerge> does).
+ *           alignments are considered (like what the esl-alimerge
+ *           miniapp does).
  *
- *           We can't be as rigorous about validating the input as the
- *           other read functions that store the full alignment. Here,
- *           we verify that there is only one line for the first
- *           sequence read (verifying that all sequences are only one
- *           line would require storing and looking up all sequence
- *           names which we could do at a cost), that each aligned
- *           data line (<aseq>, GC, GR) are all the same length <alen>.
- *           which should equal <exp_alen> unless <exp_alen> is -1,
- *           indicating the caller doesn't know what alen should be.
- *           In this case, all aligned data must be same length even
- *           though it is unknown until the first aligned line is
- *           read.  If <useme> or <add2me> is non-NULL, <exp_alen> 
- *           must not be -1. No validation of aligned sequence 
- *           characters being part of an alphabet is done.
+ *           This function is not as rigorous about validating the
+ *           input as the other read functions that store the full
+ *           alignment. Here, we verify that there is only one line
+ *           for the first sequence read (verifying that all sequences
+ *           are only one line would require storing and looking up
+ *           all sequence names), that each aligned data line (<aseq>,
+ *           GC, GR) are all the same length. The aligned length must
+ *           equal <exp_alen> if it is not passed in as -1 (indicating
+ *           caller doesn't know alignment length). If <useme> or
+ *           <add2me> is non-NULL, <exp_alen> must not be -1. 
+ * 
+ *           Aligned sequence residues are not checked to make sure
+ *           they are consistent with an alphabet, they are simply
+ *           rewritten as they are read from the input file.
  *
  * Args:     afp         - open alignment file pointer
  *           ofp         - output file pointer
@@ -5842,7 +5834,7 @@ determine_spacelen(char *s)
  * Returns:   <eslOK> on success. 
  *            Returns <eslEOF> if there are no more alignments in <afp>.
  *            <eslEFORMAT> if parse fails because of a file format problem,
- *            in which case afp->errbuf is set to contain a formatted message 
+ *            in which case <afp->errbuf> is set to contain a formatted message 
  *            that indicates the cause of the problem.
  *
  * Throws:    <eslEMEM> on allocation error.
@@ -6943,9 +6935,9 @@ utest_ZeroLengthMSA(const char *tmpfile)
 }
 
 static void
-utest_ReadNonSeqInfoPfam(char *filename)
+utest_ReadInfoPfam(char *filename)
 {
-  char        *msg = "ReadNonSeqInfo() unit test failure";
+  char        *msg = "ReadInfo() unit test failure";
   ESL_MSAFILE *mfp = NULL;
   ESL_MSA     *msa = NULL;
   int          nseq = 0;
@@ -6956,8 +6948,8 @@ utest_ReadNonSeqInfoPfam(char *filename)
   int          maxgc = 0;
   int          maxgr = 0;
 
-  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadNonSeqInfo() requires it */
-  if (esl_msa_ReadNonSeqInfoPfam(mfp, NULL, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslOK)  esl_fatal(msg);
+  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadInfo() requires it */
+  if (esl_msa_ReadInfoPfam(mfp, NULL, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslOK)  esl_fatal(msg);
 
   if (msa->nseq != 0)  esl_fatal("bad msa->nseq");
   if (msa->alen != -1) esl_fatal("bad msa->alen");
@@ -6970,7 +6962,7 @@ utest_ReadNonSeqInfoPfam(char *filename)
   if (maxgr     != 0)  esl_fatal("bad maxgr");
   esl_msa_Destroy(msa);
 
-  if (esl_msa_ReadNonSeqInfoPfam(mfp, NULL, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslEOF) esl_fatal(msg);
+  if (esl_msa_ReadInfoPfam(mfp, NULL, NULL, -1, NULL, NULL, &msa, &nseq, &alen, &ngs, &maxname, &maxgf, &maxgc, &maxgr, NULL, NULL, NULL, NULL, NULL) != eslEOF) esl_fatal(msg);
   if (msa  != NULL) esl_fatal(msg);
   if (nseq != 0 || alen != 0 || ngs != 0 || maxname != 0 || maxgf != 0 || maxgc != 0 || maxgr != 0) esl_fatal("bad nseq");
 
@@ -6989,7 +6981,7 @@ utest_RegurgitatePfam(char *filename)
   ESL_MSA     *msa2 = NULL;
 
   /* regurgitate msa in filename to tmpfile (an msa structure will not be created) */
-  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadNonSeqInfo() requires it */
+  if (esl_msafile_Open(filename, eslMSAFILE_PFAM, NULL, &mfp) != eslOK) esl_fatal(msg);  /* don't autodetect, assert pfam, ReadInfo() requires it */
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
   if (esl_msa_RegurgitatePfam(mfp, fp, 
 			      -1, -1, -1, -1, /* maxname, maxgf, maxgc, maxgr unknown: output msa formatting will match input msa formatting */
@@ -7130,7 +7122,7 @@ main(int argc, char **argv)
   write_known_pfam_msa(fp);
   fclose(fp);
 
-  utest_ReadNonSeqInfoPfam(tmpfile2);
+  utest_ReadInfoPfam(tmpfile2);
   utest_RegurgitatePfam(tmpfile2);
 
   remove(tmpfile);

@@ -937,7 +937,7 @@ main(int argc, char **argv)
    * Read the alignment *
    **********************/
   status = (do_small) ? 
-    esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
+    esl_msa_ReadInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
     esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
   if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
   else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
@@ -1030,7 +1030,7 @@ main(int argc, char **argv)
     else if (status == eslEFORMAT)   esl_fatal("2nd pass, couldn't determine format of alignment %s\n", alifile);
     else if (status != eslOK)        esl_fatal("2nd pass, alignment file open failed with error %d\n", status);
     
-    status = esl_msa_ReadNonSeqInfoPfam(afp, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &spos_ct, &epos_ct);
+    status = esl_msa_ReadInfoPfam(afp, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &spos_ct, &epos_ct);
     if      (status == eslEFORMAT) esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
     else if (status == eslEINVAL)  esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
     else if (status == eslEOF)     esl_fatal("2nd pass, No alignments found in file %s\n", alifile);
@@ -1062,7 +1062,7 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--prob") && pp_ct == NULL) esl_fatal("--prob requires all sequences have PP annotation");
 
   /* read the insert file, if nec, we have to do this before we determine the span count in case inserts have been removed from the msa,
-   * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadNonSeqInfo() could be slightly incorrect, we'll use
+   * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadInfo() could be slightly incorrect, we'll use
    * srfoff_ct and erfoff_ct from get_insert_info_from_ifile() to correct them when we derive span_ct from spos_ct and epos_ct together in get_span_ct(). */
   if(esl_opt_IsOn(go, "--ifile")) { 
     get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), &(nins_ct), NULL, &srfoff_ct, &erfoff_ct); /* dies with esl_fatal() upon an error */
