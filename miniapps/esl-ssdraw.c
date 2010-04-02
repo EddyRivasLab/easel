@@ -3094,10 +3094,10 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   int nwc_s = 0;      /* number of Watson/Crick (A:U,U:A,C:G,G:C) basepairs */
   int ngu_s = 0;      /* number of G:U,U:G basepairs (2 * num G-U,U-G bps) */
   int nnc_s = 0;      /* number of non-canonical basepairs (A:A,A:C,A:G,C:A,C:C,C:U,G:A,G:G,U:C,U:U) */
-  int ndgi_s = 0;      /* number of internal double-gap basepairs */
-  int nhgi_s = 0;      /* number of internal half-gap basepairs */
-  int ndge_s = 0;      /* number of external double-gap basepairs */
-  int nhge_s = 0;      /* number of external half-gap basepairs */
+  int ndgi_s = 0;     /* number of internal double-gap basepairs */
+  int nhgi_s = 0;     /* number of internal half-gap basepairs */
+  int ndge_s = 0;     /* number of external double-gap basepairs */
+  int nhge_s = 0;     /* number of external half-gap basepairs */
   float *limits_s;    /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
   int nins_s;         /* number of inserts after the current rfpos for current sequence */
   int spos, epos;     /* first/final nongap position for cur sequence */
@@ -3227,7 +3227,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     fprintf(tabfp, "# \ttoken 10: number of external half-gap basepairs in the sequence\n");
     fprintf(tabfp, "# \ttoken 11: number of external double-gap basepairs in the sequence\n");
     fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Consensus length for model:    %d (this is max possible value for tokens 3 and 4)\n", ps->rflen);
+    fprintf(tabfp, "# Alignment length:              %d (this is max possible value for tokens 3 and 4)\n", msa->alen);
     fprintf(tabfp, "# Number of consensus basepairs: %d (this is max possible value for tokens 5-11)\n", ps->nbp);
     fprintf(tabfp, "# A basepair between positions i and j for sequence s is a half-gap basepair if s has\n");
     fprintf(tabfp, "# a gap at either position i or j, but not both. It is a double-gap basepair if it has\n");
