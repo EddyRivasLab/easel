@@ -3061,8 +3061,12 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  *           possibly their posteriors in the MSA.
  * Return:   eslOK on success.
  * 
- * per_seq_ins_ct - [0..i..msa->nseq-1][0..rflen] number of inserts 
- *                  insert after each position per sequence. 
+ * per_seq_ins_ct - [0..i..msa->nseq-1][0..rfpos..rflen] number of inserts 
+ *                  insert after each nongap RF position per sequence.
+ *                  If rfpos == 0: # inserts BEFORE first position.
+ *                  If rfpos == n: # inserts after position rfpos n
+ *                  This is off-by-one with respect to msa->rf for example,
+ *                  msa->rf[n] is the 'n-1'th residue of the RF annotation.
  */
 static int
 individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, 
@@ -3210,7 +3214,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
-	nins_s = per_seq_ins_ct[i][rfpos];
+	nins_s = per_seq_ins_ct[i][rfpos+1];
 	apos_is_internal = TRUE; /* set to FALSE below if apos < spos || apos > epos */
 
 	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
@@ -3223,7 +3227,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	  nextdel_s++;
 	  apos_is_internal = FALSE;
 	}
-	else { 
+	else { /* color insert value */
 	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
 	}	  
 	if(do_rescol) { 
