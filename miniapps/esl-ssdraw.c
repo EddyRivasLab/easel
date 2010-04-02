@@ -448,7 +448,7 @@ static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp);
 static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
@@ -523,7 +523,7 @@ main(int argc, char **argv)
   int             apos;                 /* counter over alignment positions */
   char            errbuf[ERRBUFSIZE];   /* for printing error messages */
   FILE           *ofp       = NULL;     /* output file for postscript */
-  FILE           *tabfp    = NULL;     /* output file for text data, only set to non-null if --tabfile enabled */
+  FILE           *tabfp    = NULL;      /* output file for text data, only set to non-null if --tabfile enabled */
   SSPostscript_t *ps        = NULL;     /* the postscript data structure we create */
   int            *hc_nbins  = NULL;     /* hard-coded number of bins (colors) for each possible scheme */
   float        ***hc_scheme = NULL;     /* colors for each pre-defined scheme */
@@ -1012,8 +1012,8 @@ main(int argc, char **argv)
   /* determine if tabfile was incorrectly used */
   if(tabfp != NULL && 
      do_info == FALSE && do_mutinfo == FALSE && do_ifreq  == FALSE && do_prob == FALSE &&
-     do_iavglen == FALSE && do_dall == FALSE && do_dint   == FALSE && do_span == FALSE) { 
-    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--iavglen,--prob,--dall,--dint,--span");
+     do_iavglen == FALSE && do_dall == FALSE && do_dint   == FALSE && do_span == FALSE && do_indi == FALSE) { 
+    esl_fatal("--tabfile only makes sense w/0 other options, or with >= 1 of --info,--mutinfo,--ifreq,--iavglen,--prob,--dall,--dint,--span,--indi");
   }
   need_span_ct = (do_dint || do_span || do_ifreq || do_iavglen) ? TRUE : FALSE;
 
@@ -1283,7 +1283,8 @@ main(int argc, char **argv)
 					  REDOC,         /* one-cell legend, non-canonical bp color, only relevant if do_rescol == TRUE */
 					  LIGHTPURPLEOC, /* one-cell legend, internal double-gap bp color, only relevant if do_rescol == TRUE */
 					  LIGHTPURPLEOC, /* one-cell legend, internal half-gap bp color, only relevant if do_rescol == TRUE */
-					  LIGHTGREYOC)) != eslOK) /* one-cell legend, color for gap in post prob pages */
+					  LIGHTGREYOC,    /* one-cell legend, color for gap in post prob pages */
+					  tabfp)) != eslOK)
       esl_fatal(errbuf);
   }
   if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
@@ -1295,7 +1296,15 @@ main(int argc, char **argv)
    */
   if(tabfp != NULL) { 
     fclose(tabfp); 
-    printf("# Per position data saved to tab-delimited text file %s.\n", esl_opt_GetString(go, "--tabfile"));
+    if(do_indi && (do_info || do_mutinfo || do_ifreq || do_iavglen || do_dall || do_dint || do_prob || do_span)) { 
+      printf("# Per-position and per-sequence data saved to tab-delimited text file %s.\n", esl_opt_GetString(go, "--tabfile"));
+    }
+    else if (do_indi) { 
+      printf("# Per-sequence data saved to tab-delimited text file %s.\n", esl_opt_GetString(go, "--tabfile"));
+    }
+    else { 
+      printf("# Per-position data saved to tab-delimited text file %s.\n", esl_opt_GetString(go, "--tabfile"));
+    }
   }
 
   if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
@@ -3072,7 +3081,7 @@ static int
 individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int **per_seq_ins_ct, 
 			 int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, 
 			 int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, 
-			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p)
+			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp)
 {
   int status;
   int p, i, pp, ai;
@@ -3085,14 +3094,19 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   int nwc_s = 0;      /* number of Watson/Crick (A:U,U:A,C:G,G:C) basepairs */
   int ngu_s = 0;      /* number of G:U,U:G basepairs (2 * num G-U,U-G bps) */
   int nnc_s = 0;      /* number of non-canonical basepairs (A:A,A:C,A:G,C:A,C:C,C:U,G:A,G:G,U:C,U:U) */
-  int ndg_s = 0;      /* number of internal double-gap basepairs */
-  int nhg_s = 0;      /* number of internal half-gap basepairs */
+  int ndgi_s = 0;      /* number of internal double-gap basepairs */
+  int nhgi_s = 0;      /* number of internal half-gap basepairs */
+  int ndge_s = 0;      /* number of external double-gap basepairs */
+  int nhge_s = 0;      /* number of external half-gap basepairs */
   float *limits_s;    /* [nbins+1] limits for each bin, limits[0] is min value we would expect to see, limits[nbins] is max */
   int nins_s;         /* number of inserts after the current rfpos for current sequence */
   int spos, epos;     /* first/final nongap position for cur sequence */
   int apos_is_internal; /* is apos within spos..epos?, if not it's an external deletion */
   int lpos_is_internal; /* is lpos within spos..epos?, if not it's an external deletion */
   int rpos_is_internal; /* is rpos within spos..epos?, if not it's an external deletion */
+  int namewidth;        /* length in chars of longest seq name we'll print */
+  char *namedashes = NULL;
+  int ni;
 
   /* variables for the postprob pages */
   int ngap_p = 0;
@@ -3185,6 +3199,47 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   ESL_ALLOC(ps->uaseqlenA, sizeof(int) * msa->nseq);
   esl_vec_ISet(ps->uaseqlenA, msa->nseq, 0);
 
+
+  if(tabfp != NULL) { 
+    /* determine max length of a name */
+    namewidth = 8; /* length of 'seq name' */
+    for(i = 0; i < msa->nseq; i++) {
+      if(useme[i]) namewidth = ESL_MAX(namewidth, strlen(msa->sqname[i]));
+    }
+    ESL_ALLOC(namedashes, sizeof(char) * namewidth+1);
+    namedashes[namewidth] = '\0';
+    for(ni = 0; ni < namewidth; ni++) namedashes[ni] = '-';
+    fprintf(tabfp, "# ----------------------------\n");
+    fprintf(tabfp, "# Per-sequence basepair counts\n");
+    fprintf(tabfp, "# ----------------------------\n");
+    fprintf(tabfp, "# This section includes %d non #-prefixed lines, one for each sequence\n", ps->rflen);
+    fprintf(tabfp, "# printed to the output postscript file.\n");
+    fprintf(tabfp, "# Each line includes 11 tokens, separated by whitespace:\n");
+    fprintf(tabfp, "# \ttoken  1: 'bpct' (tag defining line type to ease parsing)\n");
+    fprintf(tabfp, "# \ttoken  2: sequence name\n");
+    fprintf(tabfp, "# \ttoken  3: spos: aligned position of first (5'-most) nongap residue in sequence\n");
+    fprintf(tabfp, "# \ttoken  4: epos: aligned position of final (3'-most) nongap residue in sequence\n");
+    fprintf(tabfp, "# \ttoken  5: number of Watson-Crick basepairs (A-U, C-G, G-C, or U-A) in the sequence\n");
+    fprintf(tabfp, "# \ttoken  6: number of G-U or U-G basepairs in the sequence\n");
+    fprintf(tabfp, "# \ttoken  7: number of non-canonical basepairs (A-A, A-C, A-G, C-A, C-C, C-U, G-A, G-G, U-C, U-U) in the sequence\n");
+    fprintf(tabfp, "# \ttoken  8: number of internal half-gap basepairs in the sequence\n");
+    fprintf(tabfp, "# \ttoken  9: number of internal double-gap basepairs in the sequence\n");
+    fprintf(tabfp, "# \ttoken 10: number of external half-gap basepairs in the sequence\n");
+    fprintf(tabfp, "# \ttoken 11: number of external double-gap basepairs in the sequence\n");
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# Consensus length for model:    %d (this is max possible value for tokens 3 and 4)\n", ps->rflen);
+    fprintf(tabfp, "# Number of consensus basepairs: %d (this is max possible value for tokens 5-11)\n", ps->nbp);
+    fprintf(tabfp, "# A basepair between positions i and j for sequence s is a half-gap basepair if s has\n");
+    fprintf(tabfp, "# a gap at either position i or j, but not both. It is a double-gap basepair if it has\n");
+    fprintf(tabfp, "# a gap at both positions i and j.\n");
+    fprintf(tabfp, "# A basepair between i:j is 'internal' for sequence s if if spos <= i and epos >= j.\n");
+    fprintf(tabfp, "# Otherwise, basepair i:j is 'external' for sequence s.\n");
+    fprintf(tabfp, "# All basepairs that are nongaps in both i and j are necessarily internal.\n");
+    fprintf(tabfp, "#\n");
+    fprintf(tabfp, "# %4s  %-*s  %4s  %4s  %4s  %4s  %4s  %4s  %4s  %4s  %4s\n", "type", namewidth, "seq name", "spos", "epos", "nwc",  "ngu",  "nnc",  "nhgi", "ndgi", "nhge", "ndge");
+    fprintf(tabfp, "# %4s  %-*s  %4s  %4s  %4s  %4s  %4s  %4s  %4s  %4s  %4s\n", "----", namewidth, namedashes, "----", "----", "----", "----", "----", "----", "----", "----", "----");
+  }
+  
   /* Step through each seq, first fill seq page, then possibly postprob page */
   ai = 0;
   pp = orig_npage-1;
@@ -3210,7 +3265,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       }
       ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE);
       /* init one cell legend counters */
-      nextdel_s = nwc_s = ngu_s = nnc_s = ndg_s = nhg_s = 0;
+      nextdel_s = nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = ndge_s = nhge_s = 0;
       ai++;
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	apos = ps->msa_rf2a_map[rfpos];
@@ -3230,10 +3285,12 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	else { /* color insert value */
 	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
 	}	  
-	if(do_rescol) { 
+	if(do_rescol || tabfp != NULL) { 
 	  if(ps->msa_ct[(rfpos+1)] == 0) { 
-	    /* single-stranded residue or gap, draw same color as Watson-Cricks */
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	    if(do_rescol) { 
+	      /* single-stranded residue or gap, draw same color as Watson-Cricks */
+	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	    }
 	  }
 	  else { /* consensus basepaired residue */
 	    lpos = apos;
@@ -3246,28 +3303,46 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	    }
 	    if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
 	      if(is_watson_crick_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* watson-crick */
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+		if(do_rescol) { 
+		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+		}
 		if(lpos < rpos) nwc_s++;
 	      }
 	      else if(is_gu_or_ug_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* G:U or U:G */
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+		if(do_rescol) { 
+		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+		}
 		if(lpos < rpos) ngu_s++;
 	      }
 	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal double-gap basepair */
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
-		if(lpos < rpos) ndg_s++;
+		if(do_rescol) { 
+		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
+		}
+		if(lpos < rpos) ndgi_s++;
 	      }
 	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal half-gap basepair */
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
-		if(lpos < rpos) nhg_s++;
+		if(do_rescol) { 
+		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
+		}
+		if(lpos < rpos) nhgi_s++;
 	      }
 	      else { /* non-canonical */
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+		if(do_rescol) { 
+		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+		}
 		if(lpos < rpos) nnc_s++;
 	      }
 	    } /* end of (if(lpos_is_internal && rpos_is_internal)) */
 	    else { /* we'll draw this residue as black */
-	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
+	      if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external double-gap basepair */
+		ndge_s++;
+	      }
+	      if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external half-gap basepair */
+		nhge_s++;
+	      }
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
+	      }
 	    }
 	  }
 	}
@@ -3275,6 +3350,10 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       ps->rAA[pp][ps->rflen] = '\0';
       ps->seqidxA[pp] = i;
       ps->nocclA[pp] = 0;
+
+      if(tabfp != NULL) { 
+	fprintf(tabfp, "  bpct  %-*s  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d\n", namewidth, msa->sqname[i], spos, epos, nwc_s, ngu_s, nnc_s, nhgi_s, ndgi_s, nhge_s, ndge_s);
+      }
 
       /* if nec, add one-cell color legends for different bp types */
       if(do_rescol) { 
@@ -3297,13 +3376,13 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	ps->nocclA[pp]++;
 
 	/* add one-cell color legend for internal half-gap basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhg_s, -1, FALSE);
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhgi_s, -1, FALSE);
 	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal half-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A- -", errbuf)) != eslOK) return status;
 	ps->nocclA[pp]++;
 
 	/* add one-cell color legend for internal double-gap basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndg_s, -1, TRUE);
+	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndgi_s, -1, TRUE);
 	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "- - -", errbuf)) != eslOK) return status;
 	ps->nocclA[pp]++;
