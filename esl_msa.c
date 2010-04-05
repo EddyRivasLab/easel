@@ -5086,7 +5086,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   char      *seqname;
   char      *desc;
   char      *text;
-  int        len, i;
+  int        len;
   char       errbuf2[eslERRBUFSIZE];
 
   if (feof(afp->f))  { status = eslEOF; goto ERROR; }
@@ -5157,7 +5157,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 		if((status = esl_abc_dsqcat(msa->abc, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len)) != eslOK) {
 		  /* invalid char(s), get informative error message */
 		  if (esl_abc_ValidateSeq(msa->abc, text, len, afp->errbuf) != eslOK) 
-		    ESL_XFAIL(eslEFORMAT, errbuf2, "%s (line %d): %s", msa->sqname[i], afp->linenumber, afp->errbuf);
+		    ESL_XFAIL(eslEFORMAT, errbuf2, "%s (line %d): %s", msa->sqname[seqidx], afp->linenumber, afp->errbuf);
 		}
 	      }
 #endif

@@ -809,13 +809,13 @@ write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_c
 static int
 individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 {
-  int     status;
   int64_t apos;
-  int  i;
-  int *cct;		/* 0..alen-1 base pair partners array for consensus        */
-  int *ct;		/* 0..alen-1 base pair partners array for current sequence */
-  char *ss;             /* individual secondary structure we've built              */
-  char *ss_cons_nopseudo; /* no-pseudoknot version of consensus structure */
+  int     i;
+  int    *cct = NULL;		   /* 0..alen-1 base pair partners array for consensus        */
+  int    *ct  = NULL;		   /* 0..alen-1 base pair partners array for current sequence */
+  char   *ss  = NULL;              /* individual secondary structure we've built              */
+  char   *ss_cons_nopseudo = NULL; /* no-pseudoknot version of consensus structure            */
+  int     status;
 
   if(msa->ss_cons == NULL)                                ESL_FAIL(eslEINVAL, errbuf, "--sindi requires MSA to have consensus structure annotation.\n");
   if(! (msa->flags & eslMSA_DIGITAL))                     ESL_FAIL(eslEINVAL, errbuf, "individualize_consensus() MSA is not digitized.\n");
@@ -826,7 +826,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   ESL_ALLOC(ss_cons_nopseudo, sizeof(char) * (msa->alen+1));
 
   esl_wuss_nopseudo(msa->ss_cons, ss_cons_nopseudo);
-  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+  if (esl_wuss2ct(ss_cons_nopseudo, msa->alen, cct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Consensus structure string is inconsistent.");
 
   /* go through each position of each sequence, 
      if it's a gap and it is part of a base pair, remove that base pair */
@@ -840,7 +840,7 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
 	    ct[apos] = 0;
 	  }
       /* convert to WUSS SS string and append to MSA */
-      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(status, errbuf, "Unexpected error converting de-knotted bp ct array to wuss notation.");
+      if (esl_ct2wuss(ct, msa->alen, ss) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Unexpected error converting de-knotted bp ct array to wuss notation.");
       esl_msa_AppendGR(msa, "SS", i, ss);
     }
   free(cct);
@@ -848,7 +848,12 @@ individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa)
   free(ss);
   free(ss_cons_nopseudo);
   return eslOK;
+
  ERROR:
+  if (cct)               free(cct);
+  if (ct)                free(ct);
+  if (ss)                free(ss);
+  if (ss_cons_nopseudo)  free(ss_cons_nopseudo);
   return status;
 }
 

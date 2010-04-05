@@ -715,7 +715,7 @@ static int get_gaps_per_column(ESL_MSA *msa, int **ret_ngaps)
   int i, apos;
   int *ngaps = NULL;
   /* contract check */
-  if(! msa->flags & eslMSA_DIGITAL) { status = eslEINVAL; goto ERROR; }
+  if(! (msa->flags & eslMSA_DIGITAL)) { status = eslEINVAL; goto ERROR; }
 
   ESL_ALLOC(ngaps, sizeof(int) * (msa->alen+1));
   esl_vec_ISet(ngaps, msa->alen+1, 0);

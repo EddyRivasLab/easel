@@ -677,7 +677,6 @@ int
 esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
 {
 /*::cexcerpt::function_comment_example::end::*/
-  int status;
   ESL_DMATRIX *Qz   = NULL;	/* Q/2^z rescaled matrix*/
   ESL_DMATRIX *Qpow = NULL;	/* keeps running product Q^k */
   ESL_DMATRIX *C    = NULL;	/* tmp storage for matrix multiply result */
@@ -686,6 +685,7 @@ esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   int    z;
   double zfac;
   int    k;
+  int    status;
     
   /* Contract checks  */
   if (Q->type != eslGENERAL) ESL_EXCEPTION(eslEINVAL, "Q isn't general");
@@ -695,9 +695,9 @@ esl_dmx_Exp(const ESL_DMATRIX *Q, double t, ESL_DMATRIX *P)
   if (P->n    != Q->n)       ESL_EXCEPTION(eslEINVAL, "P isn't same size as Q");
 
   /* Allocation of working space */
-  if ((Qz   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
-  if ((Qpow = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
-  if ((C    = esl_dmatrix_Create(Q->n, Q->n)) == NULL) goto ERROR;
+  if ((Qz   = esl_dmatrix_Create(Q->n, Q->n)) == NULL) { status = eslEMEM; goto ERROR; }
+  if ((Qpow = esl_dmatrix_Create(Q->n, Q->n)) == NULL) { status = eslEMEM; goto ERROR; }
+  if ((C    = esl_dmatrix_Create(Q->n, Q->n)) == NULL) { status = eslEMEM; goto ERROR; }
   
   /* Figure out how much to scale the matrix down by.  This is not
    * magical; we're just knocking its magnitude down in an ad hoc way.

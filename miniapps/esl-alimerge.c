@@ -78,7 +78,6 @@ main(int argc, char **argv)
   int           abctype;                       /* alphabet type */
   int           fi;                            /* counter over alignment files */
   int           ai, ai2;                       /* counters over alignments */
-  int           nali_cur;                      /* number of alignments in this file */
   int           nali_tot;                      /* number of alignments in all files */
   int          *nali_per_file = NULL;          /* [0..nalifile-1] number of alignments per file */
   int           nseq_tot;                      /* number of sequences in all alignments */
@@ -438,7 +437,7 @@ main(int argc, char **argv)
 	 * of the child msa when copying it to the merged msa */
 	if(! do_rfonly) { 
 	  if((status = determine_gap_columns_to_add(msaA[ai], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
-	    esl_fatal("error determining number of all gap columns to add to alignment %d of file %s", nali_cur, alifile_list[fi]);
+	    esl_fatal("error determining number of all gap columns to add to alignment %d of file %s", ai2, alifile_list[fi]);
 	}
 	status = esl_msa_RegurgitatePfam(afp, ofp,
 					 maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag */
@@ -1341,7 +1340,7 @@ validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *othe
  *                   for apos = 1..msa->alen
  * 
  * Returns eslOK on success.
- *         eslEMEM on memory alloaction error 
+ *         eslEMEM on memory allocation error 
  *         eslERANGE if a value exceeds what we expected (based on earlier
  *                   checks before this function was entered).
  *         if !eslOK, errbuf if filled.
@@ -1349,13 +1348,13 @@ validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *othe
 int
 determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_ngapA, char *errbuf)
 {
-  int status;
   int apos;
   int apos_for_inserts;
   int prv_apos = 0;  /* alignment position corresponding to consensus position cpos-1 */
   int cpos = 0;
   int nins = 0;
   int *ngapA = NULL;
+  int status;
 
   ESL_ALLOC(ngapA, sizeof(int) * (msa->alen+1));
   esl_vec_ISet(ngapA, (msa->alen+1), 0);
@@ -1366,7 +1365,7 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
     }
     else { 
       if(maxinsert[cpos] < nins) { 
-	ESL_XFAIL(status, errbuf, "%d inserts before cpos %d greater than max expected (%d).\n", nins, cpos, maxinsert[cpos]); 
+	ESL_XFAIL(eslERANGE, errbuf, "%d inserts before cpos %d greater than max expected (%d).\n", nins, cpos, maxinsert[cpos]); 
       }
 
       if (cpos == 0)  
@@ -1387,17 +1386,15 @@ determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_n
   /* validate that clen is what it should be */
   if(cpos != clen) { 
     if(ngapA != NULL) free(ngapA);
-    ESL_FAIL(status, errbuf, "consensus length (%d) is not the expected length (%d).", cpos, clen);
+    ESL_XFAIL(eslERANGE, errbuf, "consensus length (%d) is not the expected length (%d).", cpos, clen);
   }
 
   *ret_ngapA = ngapA;
-
   return eslOK;
 
  ERROR: 
-  if(ngapA != NULL) free(ngapA);
-  ESL_FAIL(status, errbuf, "Memory allocation error.");
-  return status; /*NEVERREACHED*/
+  if (ngapA) free(ngapA);
+  return status;
 }
 
 

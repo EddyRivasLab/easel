@@ -1537,7 +1537,7 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   if ((status = esl_sq_SetSource   (sq, msa->name))          != eslOK) goto ERROR;
   if ((status = esl_sq_GrowTo      (sq, msa->alen))          != eslOK) goto ERROR; /* can't be more than alen residues */
 
-  if (! msa->flags & eslMSA_DIGITAL) /* text mode to text mode */
+  if (! (msa->flags & eslMSA_DIGITAL)) /* text mode to text mode */
     {
       strcpy(sq->seq, msa->aseq[which]);
       if (ss != NULL) { 

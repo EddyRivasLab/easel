@@ -3227,7 +3227,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     fprintf(tabfp, "# \ttoken 10: number of external half-gap basepairs in the sequence\n");
     fprintf(tabfp, "# \ttoken 11: number of external double-gap basepairs in the sequence\n");
     fprintf(tabfp, "#\n");
-    fprintf(tabfp, "# Alignment length:              %d (this is max possible value for tokens 3 and 4)\n", msa->alen);
+    fprintf(tabfp, "# Alignment length:              %" PRId64 " (this is max possible value for tokens 3 and 4)\n", msa->alen);
     fprintf(tabfp, "# Number of consensus basepairs: %d (this is max possible value for tokens 5-11)\n", ps->nbp);
     fprintf(tabfp, "# A basepair between positions i and j for sequence s is a half-gap basepair if s has\n");
     fprintf(tabfp, "# a gap at either position i or j, but not both. It is a double-gap basepair if it has\n");
@@ -4628,8 +4628,8 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   char *mask_desc = NULL;
   char *mask_file = NULL;
   
-  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskcol page");
-  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if(ps->mask == NULL) ESL_FAIL(eslEINVAL, errbuf, "ps->mask is null when trying to draw maskcol page");
+  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
@@ -4703,8 +4703,8 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   int ncols_in_1_out_2 = 0;
   int ncols_out_1_in_2 = 0;
 
-  if(ps->mask == NULL) ESL_FAIL(status, errbuf, "ps->mask is null when trying to draw maskdiff page");
-  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
+  if(ps->mask == NULL) ESL_FAIL(eslEINVAL, errbuf, "ps->mask is null when trying to draw maskdiff page");
+  if((status = add_pages_sspostscript(ps, 1, SIMPLEMASKMODE)) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
@@ -5415,7 +5415,7 @@ validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t
 
   /* get the CT array for this msa */
   ESL_ALLOC(tmp_ct, sizeof(int) * (msa->alen+1));
-  if (esl_wuss2ct(msa->ss_cons, msa->alen, tmp_ct) != eslOK) ESL_FAIL(status, errbuf, "Problem getting ct from SS_cons, does first alignment of MSA file have SS_cons annotation?");
+  if (esl_wuss2ct(msa->ss_cons, msa->alen, tmp_ct) != eslOK) ESL_FAIL(eslEINVAL, errbuf, "Problem getting ct from SS_cons, does first alignment of MSA file have SS_cons annotation?");
 
   ESL_ALLOC(msa_ct, sizeof(int) * (rflen+1));
   esl_vec_ISet(msa_ct, rflen+1, 0);
