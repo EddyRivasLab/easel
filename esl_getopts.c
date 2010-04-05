@@ -210,7 +210,7 @@ esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **a
     {
       if (banner != NULL) esl_banner(stdout, argv[0], banner);
       if (usage  != NULL) esl_usage (stdout, argv[0], usage);
-      puts("\n  where options are:");
+      puts("\nOptions:");
       esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
       exit(0);
     }
