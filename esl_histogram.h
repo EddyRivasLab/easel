@@ -73,8 +73,9 @@ typedef struct {
  */
 extern ESL_HISTOGRAM *esl_histogram_Create    (double bmin, double bmax, double w);
 extern ESL_HISTOGRAM *esl_histogram_CreateFull(double bmin, double bmax, double w);
-extern void           esl_histogram_Destroy(ESL_HISTOGRAM *h);
-extern int            esl_histogram_Add(ESL_HISTOGRAM *h, double x);
+extern void           esl_histogram_Destroy  (ESL_HISTOGRAM *h);
+extern int            esl_histogram_Score2Bin(ESL_HISTOGRAM *h, double x, int *ret_b);
+extern int            esl_histogram_Add      (ESL_HISTOGRAM *h, double x);
 
 /* Declarations about the binned data before parameter fitting:
  */
