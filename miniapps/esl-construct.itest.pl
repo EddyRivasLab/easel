@@ -152,10 +152,9 @@ if ($output !~ /simpex-1/)    { die "FAIL: consensus stucture calculated incorre
 if ($output =~ /simpex-2/)    { die "FAIL: consensus stucture calculated incorrectly"; }
 
 print "ok\n"; 
-exit 0;
-
 unlink "$tmppfx.1";
 unlink "$tmppfx.2";
 unlink "$tmppfx.3";
 unlink "$tmppfx.stk";
 unlink "$tmppfx.list";
+exit 0;

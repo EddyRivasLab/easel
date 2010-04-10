@@ -300,6 +300,7 @@ if ($output !~ /#=GR seq3 PP ..5666..4\*55...3...999998.8..899\*...../)         
 
 print "ok\n"; 
 unlink "$tmppfx.stk";
+unlink "$tmppfx.o.stk";
 unlink "$tmppfx.post.stk";
 unlink "$tmppfx.afa";
 unlink "$tmppfx.list";

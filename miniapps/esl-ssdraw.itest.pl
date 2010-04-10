@@ -598,11 +598,16 @@ for($pass = 0; $pass < 2; $pass++) {
 }
 
 print "ok\n"; 
-unlink "$tmppfx.ps";
-unlink "$tmppfx.tab";
+
+unlink "$tmppfx.list";
 unlink "$tmppfx.mask1";
 unlink "$tmppfx.mask2";
+unlink "$tmppfx.ifile";
 unlink "$tmppfx.dfile";
 unlink "$tmppfx.efile";
-unlink "$tmppfx.ifile";
+unlink "$tmppfx.ps";
+unlink "$tmppfx.tab";
+unlink "$tmppfx.stk";
+
+
 exit 0;

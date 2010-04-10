@@ -1160,6 +1160,7 @@ utest_io(ESL_MIXDCHLET *d, double tol)
   if (esl_mixdchlet_Compare(d, d2, tol) != eslOK) esl_fatal(msg);
 
   esl_mixdchlet_Destroy(d2);
+  remove(tmpfile);
   return;
 }
 

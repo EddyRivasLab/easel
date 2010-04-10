@@ -139,4 +139,5 @@ unlink "$tmppfx.a2rf";
 unlink "$tmppfx.rf2a";
 unlink "$tmppfx.rf2rf";
 unlink "$tmppfx.submask";
+unlink "$tmppfx.mask";
 exit 0;
