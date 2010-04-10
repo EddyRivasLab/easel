@@ -844,8 +844,20 @@ esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rle
 }
 
 
-
-
+/* Function:  esl_str_IsBlank()
+ * Synopsis:  Return TRUE if <s> is all whitespace; else FALSE.
+ * Incept:    SRE, Thu Mar 11 13:08:33 2010 [UA916 Seattle to Dulles]
+ *
+ * Purpose:   Given a NUL-terminated string <s>; return <TRUE> if 
+ *            string is entirely whitespace (as defined by <isspace()>),
+ *            and return FALSE if not.
+ */
+int
+esl_str_IsBlank(char *s)
+{
+  for (; *s; s++) if (!isspace(*s)) return FALSE;
+  return TRUE;
+}
 
 /*----------------- end, C library replacements  -------------------------*/
 

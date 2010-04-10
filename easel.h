@@ -266,9 +266,9 @@ typedef uint8_t ESL_DSQ;
  *****************************************************************/
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
- *   VMS:    #define DIRSLASH ']'
- *   MacOS:  #define DIRSLASH ':'
- *   DOS:    #define DIRSLASH '\\'
+ *   VMS:            #define DIRSLASH ']'
+ *   ancient MacOS:  #define DIRSLASH ':'
+ *   DOS:            #define DIRSLASH '\\'
  * Setting DIRSLASH correctly is probably not the only thing
  * that would need to be done to port to other OS's, but it's
  * probably a start.
@@ -320,6 +320,7 @@ extern int  esl_vsprintf(char **ret_s, const char *format, va_list *ap);
 extern int  esl_strcmp(const char *s1, const char *s2);
 extern int  esl_strchop(char *s, int64_t n);
 extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
+extern int  esl_str_IsBlank(char *s);
 #ifndef HAVE_STRCASECMP
 #ifdef _MSC_VER
 #define strcasecmp stricmp

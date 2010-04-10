@@ -7026,11 +7026,11 @@ utest_RegurgitatePfam(char *filename)
  *****************************************************************************/
 #ifdef eslMSA_TESTDRIVE
 /* 
- * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
- * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
- * gcc -g -Wall -o msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
- * gcc -g -Wall -o msa_utest -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
- * gcc -g -Wall -o msa_utest -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_KEYHASH esl_msa.c esl_keyhash.c easel.c -lm
+ * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_ALPHABET esl_msa.c esl_alphabet.c easel.c -lm
+ * gcc -g -Wall -o esl_msa_utest -I. -DeslMSA_TESTDRIVE -DAUGMENT_SSI esl_msa.c esl_ssi.c easel.c -lm
+ * gcc -g -Wall -o esl_msa_utest -L. -I. -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
+ * gcc -g -Wall -o esl_msa_utest -L. -I. -DeslTEST_THROWING -DeslMSA_TESTDRIVE esl_msa.c -leasel -lm
  * ./msa_utest
  */
 #include <stdlib.h>

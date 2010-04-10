@@ -66,7 +66,6 @@ static int   sqascii_FetchSubseq     (ESL_SQFILE *sqfp, const char *source, int6
 #endif /*eslAUGMENT_SSI*/
 
 /* Internal routines shared by parsers. */
-static int  is_blankline(char *s);
 static int  loadmem  (ESL_SQFILE *sqfp);
 static int  loadbuf  (ESL_SQFILE *sqfp);
 static int  nextchar (ESL_SQFILE *sqfp, char *ret_c);
@@ -417,7 +416,7 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   loadbuf(sqfp);		/* now ascii->buf is a line of the file */
 
   /* get first nonblank line */
-  while (is_blankline(ascii->buf)) {
+  while (esl_str_IsBlank(ascii->buf)) {
     status = loadbuf(sqfp);
     if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, ascii->errbuf, "No data found in file");
     else if (status != eslOK)  goto ERROR;
@@ -1897,13 +1896,6 @@ sqascii_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_t
  * 6. Internal routines shared by parsers
  *****************************************************************/
 
-static int
-is_blankline(char *s)
-{
-  for (; *s != '\0'; s++) 
-    if (! isspace((int) *s)) return FALSE;
-  return TRUE;
-}
 
 /* loadmem() 
  *
@@ -2398,7 +2390,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
    *  followed by three blanks..."
    */
   if (ascii->nc == 0) return eslEOF;
-  while (is_blankline(ascii->buf)) {
+  while (esl_str_IsBlank(ascii->buf)) {
     if ((status = loadbuf(sqfp)) == eslEOF) return eslEOF; /* normal */
     else if (status != eslOK) return status; /* abnormal */
   } 
@@ -2520,7 +2512,7 @@ skip_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
    *  followed by three blanks..."
    */
   if (ascii->nc == 0) return eslEOF;
-  while (is_blankline(ascii->buf)) {
+  while (esl_str_IsBlank(ascii->buf)) {
     if ((status = loadbuf(sqfp)) == eslEOF) return eslEOF; /* normal */
     else if (status != eslOK) return status; /* abnormal */
   } 

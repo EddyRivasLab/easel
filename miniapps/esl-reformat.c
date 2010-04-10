@@ -403,13 +403,7 @@ msafile_getline(ESL_MSAFILE *afp)
   afp->linenumber++;
   return status;
 }
-static int
-is_blankline(char *s)
-{
-  for (; *s != '\0'; s++)
-    if (! isspace((int) *s)) return FALSE;
-  return TRUE;
-}
+
 
 /* regurgitate_pfam_as_afa()
  * 
@@ -509,7 +503,7 @@ regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym
     status = msafile_getline(afp);
     if     (status == eslEOF) return;
     else if(status != eslOK)  esl_fatal("--small parse error. problem reading line %d of msafile", afp->linenumber);
-  } while (is_blankline(afp->buf));
+  } while (esl_str_IsBlank(afp->buf));
     
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
   while ((status2 = msafile_getline(afp)) == eslOK) {
@@ -548,7 +542,7 @@ regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym
 	  break;
 	}
 	else if(status != eslOK)  esl_fatal("--small parse error. problem reading line %d of msafile", afp->linenumber);
-      } while (is_blankline(afp->buf));
+      } while (esl_str_IsBlank(afp->buf));
       if(! reached_eof && strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse failed (line %d) unexpected lines after the end of first alignment", afp->linenumber);
       /* else reached_eof == FALSE: more alignments exist, go ahead and regurgitate the first alignment, inform caller we didn't read final alignment by setting <ret_reached_eof> as FALSE */
       break; /* normal way out */
@@ -584,7 +578,7 @@ regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym
     status = msafile_getline(afp);
     if     (status == eslEOF) return;
     else if(status != eslOK)  esl_fatal("--small parse error pass 2. problem reading line %d of msafile", afp->linenumber);
-  } while (is_blankline(afp->buf));
+  } while (esl_str_IsBlank(afp->buf));
   
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse pass 2 failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
   while ((status2 = msafile_getline(afp)) == eslOK) {
@@ -736,7 +730,7 @@ regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lo
    */
   do {
     if ((status = msafile_getline(afp)) != eslOK) goto ERROR; /* includes EOF  */
-  } while (is_blankline(afp->buf));
+  } while (esl_str_IsBlank(afp->buf));
   
   if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
     ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);

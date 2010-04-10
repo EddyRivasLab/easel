@@ -79,6 +79,7 @@ HDRS = \
 	esl_random.h\
 	esl_randomseq.h\
 	esl_ratematrix.h\
+	esl_recorder.h\
 	esl_regexp.h\
 	esl_rootfinder.h\
 	esl_scorematrix.h\
@@ -129,6 +130,7 @@ OBJS    = \
 	esl_random.o\
 	esl_randomseq.o\
 	esl_ratematrix.o\
+	esl_recorder.o\
 	esl_regexp.o\
 	esl_rootfinder.o\
 	esl_scorematrix.o\
@@ -173,6 +175,7 @@ UTESTS =\
 	esl_random_utest\
 	esl_randomseq_utest\
 	esl_ratematrix_utest\
+	esl_recorder_utest\
 	esl_regexp_utest\
 	esl_rootfinder_utest\
 	esl_scorematrix_utest\
