@@ -4195,7 +4195,7 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
  *
  * Purpose:   Write an alignment <msa> in Stockholm format 
  *            to a stream <fp>, in multiblock format, with
- *            50 residues per line.
+ *            200 residues per line.
  *
  * Returns:   <eslOK> on success.
  *
@@ -4206,7 +4206,7 @@ actually_write_stockholm(FILE *fp, const ESL_MSA *msa, int cpl)
 static int
 write_stockholm(FILE *fp, const ESL_MSA *msa)
 {
-  return (actually_write_stockholm(fp, msa, 50)); /* 50 char per block */
+  return (actually_write_stockholm(fp, msa, 200)); 
 }
 
 /* write_pfam():
