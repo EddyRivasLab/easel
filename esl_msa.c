@@ -1919,6 +1919,39 @@ esl_msa_Textize(ESL_MSA *msa)
   return status;
 }
 
+/* Function:  esl_msa_ConvertDegen2X()
+ * Synopsis:  Convert all degenerate residues to X/N
+ * Incept:    SRE, Tue Apr 20 09:03:34 2010 [Janelia]
+ *
+ * Purpose:   Convert all the degenerate residue codes in digital
+ *            MSA <msa> to the code for "unknown residue" (maximum
+ *            degeneracy); for example, X for protein, N for 
+ *            nucleic acid. 
+ *            
+ *            This is handy when you need to be compatible with
+ *            software that can't deal with unusual residue codes.
+ *            For example, WU-BLAST can't deal with O (pyrrolysine)
+ *            codes. 
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if <msa> isn't in digital mode. 
+ *            (We only know how to interpret the alphabet in digital
+ *            mode. In text mode, letters are just letters.)
+ */
+int
+esl_msa_ConvertDegen2X(ESL_MSA *msa)
+{ 
+  int i;
+  int status;
+
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_EXCEPTION(eslEINVAL, "esl_msa_ConvertDegen2X only works on digital sequences");
+  
+  for (i = 0; i < msa->nseq; i++)
+    if ((status = esl_abc_ConvertDegen2X(msa->abc, msa->ax[i])) != eslOK) return status;
+
+  return eslOK;
+}
 
 
 /* Function:  esl_msafile_GuessAlphabet()

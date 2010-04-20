@@ -833,8 +833,38 @@ esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)
   }
   return esl_abc_GuessAlphabet(ct, ret_type);
 }
-#endif /*eslAUGMENT_ALPHABET*/
 
+
+/* Function:  esl_sq_ConvertDegen2X()
+ * Synopsis:  Convert all degenerate residues to X/N
+ * Incept:    SRE, Tue Apr 20 08:52:54 2010 [Janelia]
+ *
+ * Purpose:   Convert all the degenerate residue codes in digital
+ *            sequence <sq> to the code for "unknown residue" (maximum
+ *            degeneracy); for example, X for protein, N for nucleic
+ *            acid. 
+ *            
+ *            This is handy when you need to be compatible with
+ *            software that can't deal with unusual residue codes.
+ *            For example, WU-BLAST can't deal with O (pyrrolysine)
+ *            codes.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if <sq> isn't in digital mode. 
+ *            (We only know how to interpret the alphabet
+ *            in digital mode. In text mode, letters are
+ *            just letters.)
+ */
+int
+esl_sq_ConvertDegen2X(ESL_SQ *sq)
+{
+  if (! esl_sq_IsDigital(sq)) ESL_EXCEPTION(eslEINVAL, "esl_sq_ConvertDegen2X() only works on digital sequences");
+  return esl_abc_ConvertDegen2X(sq->abc, sq->dsq);
+}
+
+
+#endif /*eslAUGMENT_ALPHABET*/
 /*---------- end of digitized ESL_SQ object functions -----------*/
 
 

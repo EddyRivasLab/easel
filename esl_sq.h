@@ -175,6 +175,7 @@ extern int     esl_sq_Digitize(const ESL_ALPHABET *abc, ESL_SQ *sq);
 extern int     esl_sq_Textize(ESL_SQ *sq);
 extern int     esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type);
 extern int     esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x);
+extern int     esl_sq_ConvertDegen2X(ESL_SQ *sq);
 #endif
 
 #ifdef eslAUGMENT_MSA

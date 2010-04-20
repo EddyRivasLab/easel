@@ -69,6 +69,8 @@ sub parse (*) {
     #
     while (<$fh>) {
 	if ($parsing_header) {
+	    if (/^\s*\*+ No hits found \*+\s*$/) { return 1; }
+
 	    if (/^Sequences producing /) { # wu and ncbi share this
 		$parsing_header  = 0;
 		$parsing_hitlist = 1;

@@ -58,7 +58,7 @@ extern int64_t esl_abc_dsqlen(const ESL_DSQ *dsq);
 extern int64_t esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
 extern int     esl_abc_CDealign(const ESL_ALPHABET *abc, char    *s, const ESL_DSQ *ref_ax, int64_t *opt_rlen);
 extern int     esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int64_t *opt_rlen);
-
+extern int     esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq);
 
 /* 3. Other routines in the API.
  */

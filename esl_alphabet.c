@@ -1041,6 +1041,36 @@ esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int
   return eslOK;
 }
 
+/* Function:  esl_abc_ConvertDegen2X()
+ * Synopsis:  Convert all degenerate residues to X or N.
+ * Incept:    SRE, Tue Apr 20 08:42:56 2010 [Janelia]
+ *
+ * Purpose:   Convert all the degenerate residue codes in digital
+ *            sequence <dsq> to the code for the maximally degenerate 
+ *            "unknown residue" code, as specified in digital alphabet
+ *            <abc>. (For example, X for protein, N for nucleic acid.)
+ *            
+ *            This comes in handy when you're dealing with some piece
+ *            of software that can't deal with standard residue codes,
+ *            and you want to massage your sequences into a form that
+ *            can be accepted. For example, WU-BLAST can't deal with O
+ *            (pyrrolysine) residues, but Uniprot has O codes.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
+{
+  int64_t i;
+
+  for (i = 1; dsq[i] != eslDSQ_SENTINEL; i++)  
+    if (esl_abc_XIsDegenerate(abc, dsq[i]))
+      dsq[i] = esl_abc_XGetUnknown(abc);
+  return eslOK;
+}
+
 /*-------------- end, digital sequences (ESL_DSQ) ---------------*/
 
 
