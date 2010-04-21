@@ -477,7 +477,7 @@ main(int argc, char **argv)
   } /* end of if(do_small) */
 
   else { /* ! do_small: for each input alignment in msaA[], add all aligned data to mmsa, then free it  */
-        if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "#\n# Merging alignments ... "); fflush(stdout); }
+    if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "#\n# Merging alignments ... "); fflush(stdout); }
     for(ai = 0; ai < nali_tot; ai++) { 
       if((status = add_msa(mmsa, msaA[ai], maxinsert, clen, alen_mmsa, errbuf)) != eslOK) 
 	esl_fatal("Error, merging alignment %d of %d:\n%s.", (ai+1), nali_tot, errbuf);  
@@ -1125,7 +1125,15 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
 	mmsa->sqacc[mi] = NULL; 
       }
     }
+  } /* end of if(msa_to_add->sqacc != NULL */
+  else if(mmsa->sqacc != NULL) { 
+    /* msa_to_add->sqacc == NULL, but mmsa->sqacc != NULL, reallocate mmsa->sqacc, and set new ones to NULL */
+    ESL_RALLOC(mmsa->sqacc, tmp, sizeof(char *) * (nseq_existing + msa_to_add->nseq));
+    for(mi = nseq_existing; mi < nseq_existing + msa_to_add->nseq; mi++) { 
+      mmsa->sqacc[mi] = NULL;
+    }
   }
+
   /* sqdesc */
   if(msa_to_add->sqdesc != NULL) { 
     if(mmsa->sqdesc == NULL) { /* allocate for all sequences, even ones added in previous calls to add_msa() */
@@ -1146,7 +1154,15 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
 	mmsa->sqdesc[mi] = NULL; 
       }
     }
+  } /* end of if(msa_to_add->sqdesc != NULL */
+  else if(mmsa->sqdesc != NULL) { 
+    /* msa_to_add->sqdesc == NULL, but mmsa->sqdesc != NULL, reallocate mmsa->sqdesc, and set new ones to NULL */
+    ESL_RALLOC(mmsa->sqdesc, tmp, sizeof(char *) * (nseq_existing + msa_to_add->nseq));
+    for(mi = nseq_existing; mi < nseq_existing + msa_to_add->nseq; mi++) { 
+      mmsa->sqdesc[mi] = NULL;
+    }
   }
+
   /* per-seq posterior probabilities */
   if(msa_to_add->pp != NULL) { 
     if(mmsa->pp == NULL) { /* allocate for all sequences, even ones added in previous calls to add_msa() */
@@ -1167,7 +1183,15 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
 	mmsa->pp[mi] = NULL; 
       }
     }
+  } /* end of if(msa_to_add->pp != NULL */
+  else if(mmsa->pp != NULL) { 
+    /* msa_to_add->pp == NULL, but mmsa->pp != NULL, reallocate mmsa->pp, and set new ones to NULL */
+    ESL_RALLOC(mmsa->pp, tmp, sizeof(char *) * (nseq_existing + msa_to_add->nseq));
+    for(mi = nseq_existing; mi < nseq_existing + msa_to_add->nseq; mi++) { 
+      mmsa->pp[mi] = NULL;
+    }
   }
+
   /* per-seq secondary structure */
   if(msa_to_add->ss != NULL) { 
     if(mmsa->ss == NULL) { /* allocate for all sequences, even ones added in previous calls to add_msa() */
@@ -1188,7 +1212,15 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
 	mmsa->ss[mi] = NULL; 
       }
     }
+  } /* end of if(msa_to_add->ss != NULL */
+  else if(mmsa->ss != NULL) { 
+    /* msa_to_add->ss == NULL, but mmsa->ss != NULL, reallocate mmsa->ss, and set new ones to NULL */
+    ESL_RALLOC(mmsa->ss, tmp, sizeof(char *) * (nseq_existing + msa_to_add->nseq));
+    for(mi = nseq_existing; mi < nseq_existing + msa_to_add->nseq; mi++) { 
+      mmsa->ss[mi] = NULL;
+    }
   }
+
   /* per-seq surface accessibility */
   if(msa_to_add->sa != NULL) { 
     if(mmsa->sa == NULL) { /* allocate for all sequences, even ones added in previous calls to add_msa() */
@@ -1209,7 +1241,15 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
 	mmsa->sa[mi] = NULL; 
       }
     }
+  } /* end of if(msa_to_add->sa != NULL */
+  else if(mmsa->sa != NULL) { 
+    /* msa_to_add->sa == NULL, but mmsa->sa != NULL, reallocate mmsa->sa, and set new ones to NULL */
+    ESL_RALLOC(mmsa->sa, tmp, sizeof(char *) * (nseq_existing + msa_to_add->nseq));
+    for(mi = nseq_existing; mi < nseq_existing + msa_to_add->nseq; mi++) { 
+      mmsa->sa[mi] = NULL;
+    }
   }
+
   /* Unparsed per-sequence (GS) annotation */
   if(msa_to_add->ngs > 0) { 
     for(j = 0; j < msa_to_add->ngs; j++) { 
