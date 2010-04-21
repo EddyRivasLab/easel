@@ -72,6 +72,20 @@ the 'reference' annotation of the Stockholm alignment (#=GC RF) read
 from
 .B msafile.
 
+By default, a consensus sequence for the input alignment will be
+calculated and displayed on the alignment statistic diagrams. The
+consensus sequence is defined as the most common residue at each 
+consensus position of the alignment. The consensus sequence will not
+be displayed if the 
+.B --no-cres
+option is used. The 
+.B --cthresh,
+.B --cambig, 
+and 
+.B --athresh
+options affect the definition of the consensus sequence as
+explained below in the descriptions for those options.
+
 If the 
 .BI --tabfile " <f>"
 option is used, a tab-delimited text file 
@@ -114,7 +128,6 @@ colored by the posterior probability of each aligned residue.
 No posterior probability pages will be drawn if the 
 .B --no-iprob
 option is used. 
-
 
 .B esl-ssdraw
 can also be used to draw 'mask' diagrams which color positions of the
@@ -619,6 +632,49 @@ When used in combination with
 or
 .B --rf,
 do not color basepaired residues based on their basepair type.
+
+.TP
+.B --no-cres
+Do not draw consensus residues on alignment statistic diagrams (such as
+information content diagrams). By default, the consensus residue is
+defined as the most frequent residue in the alignment at the
+corresponding position. Consensus residues that occur in at least
+.I <x>
+fraction of the aligned sequences (that do not contain a gap at the
+position) are capitalized. By default 
+.I <x>
+is 0.7, but can be changed with the 
+.BI --cthresh " <x>"
+option. 
+
+.TP
+.BI --cthresh " <x>"
+Specify the threshold for capitalizing consensus residues defined by
+the majority rule (i.e. when 
+.B --cambig
+is not enabled) as 
+.I <x>.
+
+.TP
+.B --cambig
+Change how consensus residues are calculated from majority rule to
+the least ambiguous IUPAC nucleotide that represents at least
+.I <x>
+fraction of the nongap residues at each consensus position. 
+By default 
+.I <x>
+is 0.9, but can be changed with the 
+.BI --athresh " <x>"
+option. 
+
+.TP
+.BI --athresh " <x>"
+With
+.B --cambig,
+specify the threshold for defining consensus residues
+is the least ambiguous IUPAC nucleotide that represents at least
+.I <x>
+fraction of the nongap residues at each position.
 
 .SH EXPERT OPTIONS
 

@@ -406,10 +406,9 @@ typedef struct ss_postscript_s {
   char    *mask;        /* mask for this postscript, columns which are '0' get drawn differently */
   int      nalloc;      /* number of elements to add to arrays when reallocating */
   int      msa_nseq;    /* number of sequences in the msa, impt b/c msa->nseq will be 0 if --small */
-  char    *msa_cseq;    /* [0..rfpos..ps->rflen-1]: msa's consensus sequence, least ambiguous nt per nongap RF
-			 * position that represents >= msa_cthresh fraction of nongap residues at position rfpos */
-  float    msa_cthresh; /* fraction of nongap residues represented by each consensus nt in msa_cseq *
-			 * position that represents >= cthresh fraction of nongap residues at position rfpos */
+  char    *msa_cseq;    /* [0..rfpos..ps->rflen-1]: msa's consensus sequence, determine using either
+			 * majority rule, or if --cambig as least ambiguous nt per nongap RF position that 
+			 * represents >= esl_opt_GetReal(go, --athresh) fraction of nongap residues at position rfpos */
   int     *msa_ct;      /* [1..ps->rflen] CT array for msa this postscript corresponds to, 
 			 * msa_ct[i] is the position that consensus residue i base pairs to, or 0 if i is unpaired. */
   int      msa_nbp;     /* number of bps read from current MSA (in msa_ct), should equal nbp, but only if bps read from template file */
@@ -425,7 +424,7 @@ static int  setup_sspostscript(SSPostscript_t *ps, char *errbuf);
 static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, int nres_masked, int do_separator);
 static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive);
 static TextLegend_t         *create_text_legend(int nlines, char **text_per_line, int do_separator);
-static TextLegend_t         *create_text_legend_for_consensus_sequence(int do_separator, float cthresh);
+static TextLegend_t         *create_text_legend_for_consensus_sequence(const ESL_GETOPTS *go, int do_separator);
 static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_celltext_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *celltext, char *errbuf);
@@ -463,7 +462,7 @@ static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_wit
 static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
 static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
 static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
-static int  get_consensus_seq_from_abc_ct(SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen);
+static int  get_consensus_seq_from_abc_ct(const ESL_GETOPTS *go,SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
 static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
@@ -506,8 +505,6 @@ static ESL_OPTIONS options[] = {
   { "--prob",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw average posterior probability diagram", 2 },
   { "--span",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagram showing fraction of seqs that span each posn", 2 },
   { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL,        NULL,      "output per position data in tabular format to file <f>", 2 },
-  { "--cthresh",eslARG_REAL,  "0.8", NULL,"0<x<=1.0", NULL,NULL,   NULL,      "consensus residue must represent >= <x> fraction of the seqs", 2 },
-  { "--no-cres",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,     NULL,      "for alignment summary diagrams, do not draw consensus residues", 2 },
 
   { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagrams for individual sequences in the alignment", 3 },
   { "-F",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
@@ -515,6 +512,11 @@ static ESL_OPTIONS options[] = {
   { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
   { "--no-iprob",eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 3 },
   { "--no-ircol",eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi or --rf, do not color residues based on basepair type", 3 },
+
+  { "--no-cres",eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,       NULL,       "do not draw consensus residues on alignment summary diagrams", 7 },
+  { "--cthresh",eslARG_REAL,  "0.7", NULL,"0<x<=1.0", NULL,NULL, "--no-cres", "capitalize cons residues occuring in >= <x> fraction of seqs", 7 },
+  { "--cambig", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,      "--no-cres", "allow ambiguous residues in consensus sequence", 7 },
+  { "--athresh",eslARG_REAL,  "0.9", NULL,"0<x<=1.0", NULL,"--cambig",NULL,   "w/--cambig, cons residue must represent >= <x> fraction of seqs", 7 },
 
   { "--mask-u", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-x","with --mask, mark masked columns as squares", 4 },
   { "--mask-x", eslARG_NONE,  FALSE, NULL, NULL, NULL,"--mask",    "--mask-u","with --mask, mark masked columns as x's", 4 },
@@ -635,6 +637,8 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
       puts("\noptions for drawing individual sequences (require --indi):");
       esl_opt_DisplayHelp(stdout, go, 3, 2, 80); 
+      puts("\noptions related to consensus sequence definition:");
+      esl_opt_DisplayHelp(stdout, go, 7, 2, 80); 
       puts("\noptions controlling style of masked positions:");
       esl_opt_DisplayHelp(stdout, go, 4, 2, 80); 
       puts("\noptions for drawing simple two color diagrams of masks:");
@@ -1014,6 +1018,7 @@ main(int argc, char **argv)
   if(esl_opt_GetBoolean(go, "--rf")) { 
     if(msa->rf == NULL) esl_fatal("--rf selected by msa does not have #=GC RF annotation");
     do_rf = TRUE;
+    default_mode = FALSE;
   }
   if(esl_opt_GetBoolean(go, "--indi")) { 
     do_indi     = TRUE; 
@@ -1097,7 +1102,7 @@ main(int argc, char **argv)
     if((status = get_span_ct(ps->msa_rf2a_map, msa_alen, ps->rflen, msa_nseq, spos_ct, epos_ct, srfoff_ct, erfoff_ct, &span_ct)) != eslOK) ESL_FAIL(eslEMEM, errbuf, "Out of memory, getting span_ct array.");
   }
   /* determine consensus sequence */
-  if((status = get_consensus_seq_from_abc_ct(ps, errbuf, abc_ct, abc, msa_alen)) != eslOK) esl_fatal(errbuf);
+  if((status = get_consensus_seq_from_abc_ct(go, ps, errbuf, abc_ct, abc, msa_alen)) != eslOK) esl_fatal(errbuf);
 
   /* step through each type of page, creating it if nec */
   if(do_cons) { 
@@ -1108,9 +1113,9 @@ main(int argc, char **argv)
   if(do_rf) { 
     /* this will work in either small memory or normal memory mode */
     if((status = rf_seq_sspostscript(go, errbuf, ps, msa, (! esl_opt_GetBoolean(go, "--no-ircol")), hc_onecell, 
-				     BLACKOC,       /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
-				     REDOC,         /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
-				     LIGHTPURPLEOC)) != eslOK) /* one-cell legend, color for noncanonical bps */
+				     BLACKOC,          /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
+				     GREENOC,          /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
+				     REDOC)) != eslOK) /* one-cell legend, color for noncanonical bps */
       esl_fatal(errbuf);
   }
 
@@ -1436,7 +1441,6 @@ create_sspostscript(const ESL_GETOPTS *go)
   ps->mask        = NULL;
   ps->nalloc      = 50;
   ps->msa_cseq    = NULL;
-  ps->msa_cthresh = esl_opt_GetReal(go, "--cthresh"); 
   ps->msa_ct      = NULL;
   ps->msa_nbp     = 0;
   ps->msa_rf2a_map = NULL;
@@ -1700,25 +1704,36 @@ create_text_legend(int nlines, char **text_per_line, int do_separator)
  * Return:   tl
  */
 static TextLegend_t *
-create_text_legend_for_consensus_sequence(int do_separator, float cthresh) 
+create_text_legend_for_consensus_sequence(const ESL_GETOPTS *go, int do_separator)
 {
   int status;
   TextLegend_t *tl;
   int i;
-  int nlines = 5;
+  int nlines;
   char **text;
-  ESL_ALLOC(text, sizeof(char *) * nlines);
-  for(i = 0; i < nlines; i++) { 
-    text[i] = NULL; 
-  }
-  
-  if((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, calculated", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
-  ESL_ALLOC(text[1], sizeof(char) * (strlen("as the least ambiguous nt that represents >= 1.00") + 1));
-  sprintf(text[1], "as the least ambiguous nt that represents >= %0.2f", cthresh);
-  if((status = esl_strcat(&(text[2]), -1, "of all non-gap nts at each position.", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
-  if((status = esl_strcat(&(text[3]), -1, "K=G|U, M=A|C, R=A|G, S=C|G, Y=C|U, W=A|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
-  if((status = esl_strcat(&(text[4]), -1, "B=C|G|U, D=A|G|U, H=A|C|U, V=A|C|G, N=A|C|G|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
 
+  if(esl_opt_GetBoolean(go, "--cambig")) { 
+    nlines = 5;
+    ESL_ALLOC(text, sizeof(char *) * nlines);
+    for(i = 0; i < nlines; i++) { text[i] = NULL; }
+    if((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, calculated", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    ESL_ALLOC(text[1], sizeof(char) * (strlen("as the least ambiguous nt that represents >= 1.00") + 1));
+    sprintf(text[1], "as the least ambiguous nt that represents >= %0.2f", esl_opt_GetReal(go, "--athresh"));
+    if((status = esl_strcat(&(text[2]), -1, "of all non-gap nts at each position.", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    if((status = esl_strcat(&(text[3]), -1, "K=G|U, M=A|C, R=A|G, S=C|G, Y=C|U, W=A|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    if((status = esl_strcat(&(text[4]), -1, "B=C|G|U, D=A|G|U, H=A|C|U, V=A|C|G, N=A|C|G|U", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+  }
+  else { /* --cambig not enabled, majority rule was used */
+    nlines = 4;
+    ESL_ALLOC(text, sizeof(char *) * nlines);
+    for(i = 0; i < nlines; i++) { text[i] = NULL; }
+    if((status = esl_strcat(&(text[0]), -1, "Consensus nucleotides (nt) are displayed, defined", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    if((status = esl_strcat(&(text[1]), -1, "as the most frequent nt at each position.",         -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+    ESL_ALLOC(text[2], sizeof(char) * (strlen("Capitalized nts occur in >= 1.00 fraction of sequences") + 1));
+    sprintf(text[2], "Capitalized nts occur in >= %0.2f fraction of sequences", esl_opt_GetReal(go, "--cthresh"));
+    if((status = esl_strcat(&(text[3]), -1, "that do not have a gap at the position.", -1)) != eslOK) esl_fatal("create_text_legend_for_consensus_sequence(), error copying text");
+  }    
+  
   tl = create_text_legend(nlines, text, do_separator);
   for(i = 0; i < nlines; i++) { 
     free(text[i]);
@@ -2603,13 +2618,15 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       if(ps->rcolAAA[p] != NULL) { 
 	for(c = 0; c < ps->rflen; c++) { 
 	  fprintf(fp, "  %.2f %.2f %.2f %.2f setcmykcolor ", ps->rcolAAA[p][c][0], ps->rcolAAA[p][c][1], ps->rcolAAA[p][c][2], ps->rcolAAA[p][c][3]);
-	  if(ps->rAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	  if     (islower(ps->rAA[p][c])) fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c] + (SS_BOXSIZE/8.), ps->ryA[c] + (SS_BOXSIZE/8.)); /* handle lowercase residues special, so they're centered in the box! */
+	  else if(ps->rAA[p][c] != ' ')   fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
 	  fprintf(fp, "\n");
 	}
       }
       else { /* ps->rcolAAA[p] is NULL */
 	for(c = 0; c < ps->rflen; c++) { 
-	  if(ps->rAA[p][c] != ' ') fprintf(fp, "(%c) %.2f %.2f moveto show\n", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	  if     (islower(ps->rAA[p][c])) fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c] + (SS_BOXSIZE/8.), ps->ryA[c] + (SS_BOXSIZE/8.)); /* handle lowercase residues special, so they're centered in the box! */
+	  else if(ps->rAA[p][c] != ' ')   fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
 	}
       }
       fprintf(fp, "%% end text residues\n");
@@ -3660,7 +3677,7 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
   if((status = add_page_desc_to_sspostscript(ps, pp, "alignment consensus sequence", errbuf)) != eslOK) return status;
 
   /* add text legend explaining how consensus residues are determined */
-  ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+  ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
   ps->ntlA[pp] = 1;
 
   return eslOK;
@@ -4052,7 +4069,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -4273,7 +4290,7 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -4452,7 +4469,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -4620,7 +4637,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
 
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -4783,7 +4800,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
 
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -4966,7 +4983,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
 
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -5508,7 +5525,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   
   /* add the consensus residue explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cres")) { 
-    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(FALSE, esl_opt_GetReal(go, "--cthresh"));
+    ps->tlAAA[pp][0] = create_text_legend_for_consensus_sequence(go, FALSE);
     ps->ntlA[pp] = 1;
   }
 
@@ -7009,6 +7026,10 @@ is_gu_or_ug_bp(char i, char j)
  * most informative IUPAC nucleotide (including ambiguous nucleotides)
  * that represents >= <x> fraction of the sequences in the msa
  * that have a nongap at that position.
+ * 
+ * Alternatively, if --majrule is enabled, define consensus residue
+ * as the most common nucleotide at each position. Uppercase
+ * if frequency >= 0.5 of nongap nts, else it is lowercase.
  *  
  * ps       - the postscript object
  * errbuf   - informative error message, returned upon failure
@@ -7087,7 +7108,7 @@ int get_consensus_nucleotide(int *useme, int K)
 }      
 
 int 
-get_consensus_seq_from_abc_ct(SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen)
+get_consensus_seq_from_abc_ct(const ESL_GETOPTS *go, SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen)
 {
   int             status;          /* the Easel return status */
   char           *cseq = NULL;     /* the consensus sequence string, we're building */
@@ -7100,6 +7121,8 @@ get_consensus_seq_from_abc_ct(SSPostscript_t *ps, char *errbuf, double **abc_ct,
   nt2sort_t      *sorted_ntfreq;   /* [0..abc->K-1] sorted array of nt2sort structures */
   int             sorted_idx;      /* index in sorted_ntfreq */
   int             a;               /* counter over nucleotides in abc */
+  float           cthresh = esl_opt_GetReal(go, "--cthresh");
+  float           athresh = esl_opt_GetReal(go, "--athresh");
 
   /* allocate and initialize */
   ESL_ALLOC(cseq, sizeof(char) * (ps->rflen+1));
@@ -7124,23 +7147,33 @@ get_consensus_seq_from_abc_ct(SSPostscript_t *ps, char *errbuf, double **abc_ct,
 	covered = 0.;
 	esl_vec_ISet(nt_is_used, abc->K, FALSE);
 	sorted_idx = 0;
-	while(covered < ps->msa_cthresh) { 
-	  nt_is_used[sorted_ntfreq[sorted_idx].ntidx] = TRUE;
-	  covered += sorted_ntfreq[sorted_idx].ntfreq;
-	  /*printf("RF: %4d  SIDX: %d  AIDX: %d  FREQ: %.3f  COVERED: %.3f\n", 
-		 rfpos, sorted_idx, 
-		 sorted_ntfreq[sorted_idx].ntidx,
-		 sorted_ntfreq[sorted_idx].ntfreq, 
-		 covered);*/
-	  sorted_idx++;
+	if(esl_opt_GetBoolean(go, "--cambig")) { 
+	  while(covered < athresh) { 
+	    nt_is_used[sorted_ntfreq[sorted_idx].ntidx] = TRUE;
+	    covered += sorted_ntfreq[sorted_idx].ntfreq;
+	    /*printf("RF: %4d  SIDX: %d  AIDX: %d  FREQ: %.3f  COVERED: %.3f\n", 
+	      rfpos, sorted_idx, 
+	      sorted_ntfreq[sorted_idx].ntidx,
+	      sorted_ntfreq[sorted_idx].ntfreq, 
+	      covered);*/
+	    sorted_idx++;
+	  }
+	  cseq[rfpos] = get_consensus_nucleotide(nt_is_used, abc->K);
 	}
-	cseq[rfpos] = get_consensus_nucleotide(nt_is_used, abc->K);
-      }
+	else { /* --cambig was not enabled, define consensus by majority rule */
+	  cseq[rfpos] = (sorted_ntfreq[sorted_idx].ntfreq >= cthresh) ? 
+	    toupper(abc->sym[sorted_ntfreq[sorted_idx].ntidx]) : 
+	    tolower(abc->sym[sorted_ntfreq[sorted_idx].ntidx]);
+	}
+      }	  
       rfpos++;
     }
   }
   /* printf("\n"); */
   ps->msa_cseq = cseq;
+
+  free(sorted_ntfreq);
+  free(nt_is_used);
 
   return eslOK;
 
