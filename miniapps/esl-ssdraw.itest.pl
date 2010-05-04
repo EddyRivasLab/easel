@@ -372,21 +372,21 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\(tRNA     71    21\)/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(\\\[0.800-1.200\\\)\)/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(tRNA     71    21\)/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 9\nnewpath\n.+0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 9\nnewpath\n.+0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --prob $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(\\\[0.900-0.950\\\)\)/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 18\nnewpath\n.+0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 18\nnewpath\n.+0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --ifreq $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(\\\[0.500-1.000\\\]\)/)           { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n.+0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n.+0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --iavglen $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -394,42 +394,42 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(>= 10\)/)                         { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
-    if($output !~ /\%residue 19\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --dall $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(zero deletions\)/)                { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --dint $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(zero internal deletions\)/)       { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --mutinfo $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(0 complete basepairs\)/)          { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 61\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.42\d* 0.00\d* 1.00\d* 0.00\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 61\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.42\d* 0.00\d* 1.00\d* 0.00\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --span $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(no sequences span\)/)             { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 2\nnewpath\n.+0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 2\nnewpath\n.+0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --span $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(no sequences span\)/)             { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%residue 2\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 2\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --info --prob --ifreq --dall --dint --mutinfo --span --tabfile $tmppfx.tab $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                                     { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -454,8 +454,8 @@ for($pass = 0; $pass < 2; $pass++) {
     system("$eslssdraw $smallA[$pass] --rf $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                                    { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\(\*REFERENCE\* \(\"#=GC RF\"\)\) 212.49 418.24 moveto show/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\(a\) 111.00 333.00 moveto show/)                                                { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(\*REFERENCE\* \(\"#=GC RF\"\)\) 212.49 418.24 moveto show/)                    { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(a\) 110.00 332.00 moveto show/)                                                { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 
     if($pass == 0) { 
 	system("$eslssdraw $smallA[$pass] --indi $alifile $templatefile $tmppfx.ps > /dev/null");
@@ -467,9 +467,9 @@ for($pass = 0; $pass < 2; $pass++) {
 	if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 	if($output !~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 	if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-	if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+	if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 	if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-	if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+	if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     }
 
     system("$eslssdraw $smallA[$pass] --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
@@ -481,10 +481,10 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output =~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output =~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 
     if($pass == 1) { 
 	system("$eslssdraw $smallA[$pass] --indi --keep $tmppfx.stk --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
@@ -498,7 +498,37 @@ for($pass = 0; $pass < 2; $pass++) {
 	if($output !~ /tRNA5/)                                  { die "FAIL: --list stockholm alignment generated incorrectly written on pass $pass2write"; }
     }
 
-    system("$eslssdraw $smallA[$pass] --no-iprob --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output !~ /\%nucleotide 3\nnewpath\n  166.40 374.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 1.00\d* 0.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --mask-diff $tmppfx.mask2 --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output !~ /\%nucleotide 3\nnewpath\n  166.40 374.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --mask-diff $tmppfx.mask2 --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output !~ /\%nucleotide 3\nnewpath\n  166.40 374.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --no-leg $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output =~ /\(LEGEND\) 134.00 216.00 moveto show/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --no-head $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output =~ /\(tRNA     71    21\) 96.98 418.24 moveto show/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    
+    system("$eslssdraw $smallA[$pass] --no-foot $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output =~ /\(Created by 'esl-ssdraw'. Copyright \(C\) 2010 Howard Hughes Medical Institute.\) 12.00 12.00 moveto show/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+
+    system("$eslssdraw $smallA[$pass] --no-pp --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     # should include tRNA2, tRNA3, and tRNA5 only 
@@ -507,12 +537,13 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output =~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output =~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Positions !=/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 
-    system("$eslssdraw $smallA[$pass] --no-ircol --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --no-bp --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     # should include tRNA2, tRNA3, and tRNA5 only 
@@ -521,12 +552,44 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output =~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    if($output !~ /\%residue 19\nnewpath\n  109.00 307.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     if($output =~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Positions !=/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 
-    system("$eslssdraw $smallA[$pass] --no-cres --info $alifile $templatefile $tmppfx.ps > /dev/null");
+    system("$eslssdraw $smallA[$pass] --no-ol --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    # should include tRNA2, tRNA3, and tRNA5 only 
+    if($output =~ /tRNA1/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA2/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /\(Positions !=/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+
+    # NOTE: for --no-ntpp we don't actually check that residues are not drawn on PP diagrams
+    system("$eslssdraw $smallA[$pass] --no-ntpp --indi --list $tmppfx.list $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    # should include tRNA2, tRNA3, and tRNA5 only 
+    if($output =~ /tRNA1/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA2/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA3/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output =~ /tRNA4/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /tRNA5/)                                  { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(A\) 180.00 392.00 moveto show/)        { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 19\nnewpath\n  108.40 306.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Watson-Crick/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\(Positions !=/)                         { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+
+    system("$eslssdraw $smallA[$pass] --no-cnt --info $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
     if($output =~ /setcmykcolor (g)\s+168\.\d+\s+392\.\d+\s+moveto show/)  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
@@ -549,7 +612,7 @@ for($pass = 0; $pass < 2; $pass++) {
     system("$eslssdraw $smallA[$pass] --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n 171.00 379.00 3.0 0 360 arc closepath\n  0.0\d*0 0.63\d* 1.0\d*0 0.0\d*0 setcmykcolor\n  stroke/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; } 
+    if($output !~ /\%nucleotide 3\nnewpath\n 171.00 379.00 3.0 0 360 arc closepath\n  0.0\d*0 0.63\d* 1.0\d*0 0.0\d*0 setcmykcolor\n  stroke/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; } 
     
     system("$eslssdraw $smallA[$pass] --mask-x --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -559,64 +622,34 @@ for($pass = 0; $pass < 2; $pass++) {
     system("$eslssdraw $smallA[$pass] --mask-u --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  168.00 376.00 moveto  0 6.0 rlineto 6.0 0 rlineto 0 -6.0 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 3\nnewpath\n  168.00 376.00 moveto  0 6.0 rlineto 6.0 0 rlineto 0 -6.0 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --mask-a --mask-x --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /%residue 3\nnewpath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor\n  167.00 375.00 moveto  8.0 8.0 rlineto closepath\n  stroke/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /%nucleotide 3\nnewpath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor\n  167.00 375.00 moveto  8.0 8.0 rlineto closepath\n  stroke/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --mask-a --mask-u --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  168.50 376.50 moveto  0 5.0 rlineto 5.0 0 rlineto 0 -5.0 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 1.00\d* 0.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --mask-diff $tmppfx.mask2 --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --mask-diff $tmppfx.mask2 --mask-col --mask $tmppfx.mask1 $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.00\d* 0.00\d* 0.20\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 3\nnewpath\n  168.50 376.50 moveto  0 5.0 rlineto 5.0 0 rlineto 0 -5.0 rlineto closepath\n  0.00\d* 0.63\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --dfile $tmppfx.dfile $alifile $templatefile $tmppfx.ps > /dev/null");
     $output = `cat $tmppfx.ps`;
-    if($output !~ /%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /%nucleotide 3\nnewpath\n  166.40 374.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.92\d* 0.84\d* 0.00\d* 0.08\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --mask $tmppfx.mask1 --dfile $tmppfx.dfile $alifile $templatefile $tmppfx.ps > /dev/null");
     $output = `cat $tmppfx.ps`;
-    if($output !~ /%residue 3\nnewpath\n 171.00 379.00 3.0 0 360 arc closepath\n  0.9200 0.8400 0.00\d* 0.0800 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; } 
+    if($output !~ /%nucleotide 3\nnewpath\n 171.00 379.00 3.0 0 360 arc closepath\n  0.9200 0.8400 0.00\d* 0.0800 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; } 
 
     system("$eslssdraw $smallA[$pass] --efile $tmppfx.efile $alifile $templatefile $tmppfx.ps > /dev/null");
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 3\nnewpath\n  167.00 375.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.03 0.17 0.20 0.14 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
+    if($output !~ /\%nucleotide 3\nnewpath\n  166.40 374.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.03 0.17 0.20 0.14 setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
     
     system("$eslssdraw $smallA[$pass] --ifreq --ifile $tmppfx.ifile $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
-    if($output !~ /\%residue 45\nnewpath\n  199.00 313.00 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.94\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --no-leg $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output =~ /\(LEGEND\) 134.00 216.00 moveto show/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --no-head $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output =~ /\(tRNA     71    21\) 96.98 418.24 moveto show/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    
-    system("$eslssdraw $smallA[$pass] --no-foot $alifile $templatefile $tmppfx.ps > /dev/null");
-    if ($? != 0)                                            { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
-    $output = `cat $tmppfx.ps`;
-    if($output =~ /\(Created by 'esl-ssdraw'. Copyright \(C\) 2010 Howard Hughes Medical Institute.\) 12.00 12.00 moveto show/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 45\nnewpath\n  198.40 312.40 moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.00\d* 0.94\d* 1.00\d* 0.00\d* setcmykcolor/) { die "FAIL: postscript diagram drawn incorrectly written on pass $pass2write"; }
 }
 
 print "ok\n"; 

@@ -23,14 +23,14 @@ but with positions colored differently based on alignment statistics
 such as frequency of gaps per position, average posterior probability
 per position or information content per position. Additionally, all
 or some of the aligned sequences can be drawn separately, with
-residues or posterior probabilities mapped onto the corresponding
+nucleotides or posterior probabilities mapped onto the corresponding
 positions of the consensus structure.
 
 The alignment must be in Stockholm format with per-column reference
 annotation (#=GC RF). The sequences in the alignment must be RNA or
 DNA sequences. The
 .B postscript_template
-file must contain one page that includes <rflen> consensus residues
+file must contain one page that includes <rflen> consensus nucleotides
 (positions), where <rflen> is the number of nongap characters in the
 reference (RF) annotation of the first alignment in
 .B msafile.
@@ -44,40 +44,38 @@ Postscript diagrams will only be created for the first alignment in
 
 By default (if run with zero command line options),
 .B esl-ssdraw
-will create an eight page 
+will create a six or seven page 
 .I postscript_output_file, 
-each displaying a different alignment statistic. These pages display
-the reference sequence, information content per position, mutual information
+with each page displaying a different alignment statistic. These pages display
+the consensus sequence, information content per position, mutual information
 per position, frequency of inserts per position, average length of
 inserts per position, frequency of
-deletions (gaps) per position, average posterior probability per
-position (if posterior probabilites exist in the alignment), and 
-fraction of sequences that span each position.
+deletions (gaps) per position, and average posterior probability per
+position (if posterior probabilites exist in the alignment)
 Alternatively, some or all of these pages can be drawn by using the
 command line options
+.B --cons,
 .B --info,
 .B --mutinfo,
 .B --ifreq,
 .B --iavglen,
 .B --dall,
-.B --dint,
-.B --prob,
 and
-.B --span.
+.B --prob.
 The calculation of the statistics for each of these options is
 discussed below in the description for each option.
 Importantly, only so-called 'consensus' positions of the alignment
-will be drawn. A consensus position is one that is a nongap residue in
+will be drawn. A consensus position is one that is a nongap nucleotide in
 the 'reference' annotation of the Stockholm alignment (#=GC RF) read
 from
 .B msafile.
 
 By default, a consensus sequence for the input alignment will be
 calculated and displayed on the alignment statistic diagrams. The
-consensus sequence is defined as the most common residue at each 
+consensus sequence is defined as the most common nucleotide at each 
 consensus position of the alignment. The consensus sequence will not
 be displayed if the 
-.B --no-cres
+.B --no-cnt
 option is used. The 
 .B --cthresh,
 .B --cambig, 
@@ -104,7 +102,7 @@ If
 is used,
 .B esl-ssdraw
 will create diagrams showing each sequence in the alignment on a
-separate page, with aligned residues in their corresponding position
+separate page, with aligned nucleotides in their corresponding position
 in the structure diagram. By default, with
 .B --indi,
 all sequences are drawn, but with the 
@@ -112,21 +110,30 @@ all sequences are drawn, but with the
 option, only those sequences listed in the file
 .I <f> 
 will be drawn.
-By default, basepaired residues will be colored based on their
+By default, basepaired nucleotides will be colored based on their
 basepair type: either Watson-Crick (A:U, U:A, C:G, or G:C), G:U or
 U:G, or non-canonical (the other ten possible basepairs). This coloring
 can be turned off with the
-.B --no-ircol
+.B --no-bp
 option.
+Also by default, nucleotides that differ from the most common
+nucleotide at each aligned consensus position will be outlined. If
+the most common nucleotide occurs in more than 75% of sequences that
+do not have a gap at that position, the outline will be
+bold. Outlining can be turned off with the 
+.B --no-ol 
+option.
+
+.PP
 With 
 .B --indi,
 if the alignment
 contains posterior probability annotation (#=GR PP), the 
 .B postscript_output_file
 will contain an additional page for each sequence drawn with positions
-colored by the posterior probability of each aligned residue.
+colored by the posterior probability of each aligned nucleotide.
 No posterior probability pages will be drawn if the 
-.B --no-iprob
+.B --no-pp
 option is used. 
 
 .B esl-ssdraw
@@ -200,7 +207,7 @@ The
 .B postscript_template_file
 is a valid postscript file. It includes postscript commands for
 drawing a secondary structure. The commands specify x and y
-coordinates for placing each residue on the page. The 
+coordinates for placing each nucleotide on the page. The 
 .B postscript_template_file
 might also contain commands for drawing lines connecting basepaired
 positions and tick marks indicating every tenth position, though these
@@ -248,7 +255,7 @@ have n >= 1 lines in between. On the begin and end lines, there must
 be at least one space between the '%' and the 'begin'
 or 'end'. <sectionname> must be one of the
 following: 'modelname', 'legend', 'scale', 'regurgitate', 'ignore', 'text
-positiontext', 'text residues', 'lines positionticks', or 'lines
+positiontext', 'text nucleotides', 'lines positionticks', or 'lines
 bpconnects'. The n >=1 lines in between the begin and end lines of
 each section must be in a specific format that differs for each
 section as described below.
@@ -336,17 +343,17 @@ unwanted in the
 
 Each page of a 
 .B postscript_template_file
-must include a single 'text residues' section. This section must
+must include a single 'text nucleotides' section. This section must
 include exactly <rflen> lines, indicating that the consensus secondary
-structure has exactly <rflen> residue positions. Each line must be of
-the format '(<c>) <x> <y> moveto show' where <c> is a residue (this
+structure has exactly <rflen> nucleotide positions. Each line must be of
+the format '(<c>) <x> <y> moveto show' where <c> is a nucleotide (this
 can be any character actually), and <x> and <y> are the coordinates
-specifying the location of the residue on the page, they should be
+specifying the location of the nucleotide on the page, they should be
 positive real numbers. The best way to determine what these
 coordinates should be is manually by trial and error, by inspecting
-the resulting structure as you add each residue. Note that
+the resulting structure as you add each nucleotide. Note that
 .B esl-ssdraw
-will color an 8 point by 8 point cell for each position, so residues
+will color an 8 point by 8 point cell for each position, so nucleotides
 should be placed about 8 points apart from each other.
 
 Each page of a 
@@ -478,9 +485,9 @@ Add a page to
 .B postscript_output_file 
 showing the reference sequence from the #=GC RF annotation in 
 .B msafile. 
-By default, basepaired residues will be colored based on what type of
+By default, basepaired nucleotides will be colored based on what type of
 basepair they are. To turn this off, use
-.B --no-ircol.
+.B --no-bp.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
@@ -501,12 +508,12 @@ with basepaired consensus (nongap RF) positions colored based on the
 amount of mutual information they have in the alignment. Mutual
 information is sum_{x,y} p_{x,y} log_2 ((p_x * p_y) / p_{x,y}, where x
 and y are the four possible bases A,C,G,U. p_x is the fractions of
-aligned sequences that have residue x of in the left half (5' half) of
+aligned sequences that have nucleotide x of in the left half (5' half) of
 the basepair. p_y is the fraction of aligned sequences that have
-residue y in the position corresponding to the right half (3' half) of
+nucleotide y in the position corresponding to the right half (3' half) of
 the basepair. And p_{x,y} is the fraction of aligned sequences that 
 have basepair x:y. For all p_x, p_y and p{x,y} only sequences that 
-that have a nongap residue at both the left and right half of the
+that have a nongap nucleotide at both the left and right half of the
 basepair are counted. 
 This page is drawn by default (if zero command-line options are used).
 
@@ -516,13 +523,12 @@ Add a page to
 .B postscript_output_file
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that span each position that have at least 1 inserted
-residue after the position. 
+nucleotide after the position. 
 A sequence s spans consensus position x that is actual alignment
-position a if s has at least one nongap residue aligned to a position
-b <= a and at least one nongap residue aligned to a consensus position
+position a if s has at least one nongap nucleotide aligned to a position
+b <= a and at least one nongap nucleotide aligned to a consensus position
 c >= a. This page is drawn by default (if zero command-line options
 are used).
-
 
 .TP 
 .B --iavglen
@@ -530,8 +536,8 @@ Add a page to
 .B postscript_output_file
 with each consensus (nongap RF) position colored based on average
 length of insertions that occur after it. The average is calculated as
-the total number of inserted residues after position x, divided by the
-number of sequences that have at least 1 inserted residue after
+the total number of inserted nucleotides after position x, divided by the
+number of sequences that have at least 1 inserted nucleotide after
 position x (so the minimum possible average insert length is 1.0).
 
 .TP 
@@ -549,8 +555,8 @@ Add a page to
 with each consensus (nongap RF) position colored based on the fraction of
 sequences that have an internal gap (delete) at the position. An
 internal gap in a sequence is one that occurs after (5' of) the
-sequence's first aligned residue and after
-(3' of) the sequence's final aligned residue.
+sequence's first aligned nucleotide and after
+(3' of) the sequence's final aligned nucleotide.
 This page is drawn by default (if zero command-line options are used).
 
 .TP 
@@ -571,20 +577,21 @@ Add a page to
 with consensus (nongap RF) positions colored based on the
 fraction of sequences that 'span' the position. 
 A sequence s spans consensus position x that is actual alignment
-position a if s has at least one nongap residue aligned to a position
-b <= a and at least one nongap residue aligned to a consensus position
+position a if s has at least one nongap nucleotide aligned to a position
+b <= a and at least one nongap nucleotide aligned to a consensus position
 c >= a. This page is drawn by default (if zero command-line options
 are used).
 
+.SH OPTIONS FOR DRAWING INDIVIDUAL ALIGNED SEQUENCES
 
 .TP 
 .B --indi
-Add a page displaying the aligned residues in their corresponding
+Add a page displaying the aligned nucleotides in their corresponding
 consensus positions of the structure diagram for each aligned
 sequence in the alignment. 
-By default, basepaired residues will be colored based on what type of
+By default, basepaired nucleotides will be colored based on what type of
 basepair they are. To turn this off, use
-.B --no-ircol.
+.B --no-bp.
 If posterior probability information (#=GR
 PP) exists in the alignment, one additional page per sequence will be
 drawn displaying the posterior probabilities.
@@ -618,87 +625,24 @@ save the alignment of only those sequences listed in
 to file 
 .I <f>.
 
-.TP
-.B --no-iprob
-When used in combination with 
-.B --indi,
-do not draw posterior probability structure diagrams for each
-sequence, even if the alignment has PP annotation.
+.SH OPTIONS FOR OMITTING PARTS OF THE DIAGRAMS
 
 .TP
-.B --no-ircol
-When used in combination with 
-.B --indi
-or
-.B --rf,
-do not color basepaired residues based on their basepair type.
+.BI --no-leg
+Omit the legend on all pages of 
+.B postscript_output_file.
 
 .TP
-.B --no-cres
-Do not draw consensus residues on alignment statistic diagrams (such as
-information content diagrams). By default, the consensus residue is
-defined as the most frequent residue in the alignment at the
-corresponding position. Consensus residues that occur in at least
-.I <x>
-fraction of the aligned sequences (that do not contain a gap at the
-position) are capitalized. By default 
-.I <x>
-is 0.7, but can be changed with the 
-.BI --cthresh " <x>"
-option. 
+.BI --no-head
+Omit the header on all pages of 
+.B postscript_output_file.
 
 .TP
-.BI --cthresh " <x>"
-Specify the threshold for capitalizing consensus residues defined by
-the majority rule (i.e. when 
-.B --cambig
-is not enabled) as 
-.I <x>.
+.BI --no-foot
+Omit the footer on all pages of 
+.B postscript_output_file.
 
-.TP
-.B --cambig
-Change how consensus residues are calculated from majority rule to
-the least ambiguous IUPAC nucleotide that represents at least
-.I <x>
-fraction of the nongap residues at each consensus position. 
-By default 
-.I <x>
-is 0.9, but can be changed with the 
-.BI --athresh " <x>"
-option. 
-
-.TP
-.BI --athresh " <x>"
-With
-.B --cambig,
-specify the threshold for defining consensus residues
-is the least ambiguous IUPAC nucleotide that represents at least
-.I <x>
-fraction of the nongap residues at each position.
-
-.SH EXPERT OPTIONS
-
-.TP
-.B --mask-u
-With 
-.B --mask, 
-change the style of masked columns to squares.
-
-.TP
-.B --mask-x
-With 
-.B --mask, 
-change the style of masked columns to 'x's
-
-.TP
-.B --mask-a
-With 
-.B --mask
-and
-.B --mask-u
-or
-.B --mask-x
-draw the alternative style of square or 'x' masks
+.SH OPTIONS FOR SIMPLE TWO-COLOR MASK DIAGRAMS
 
 .TP
 .B --mask-col 
@@ -722,6 +666,108 @@ and the mask from
 Positions will be colored based on whether they are included by one
 mask and not the other, excluded by both masks, and included by both
 masks.
+
+.SH EXPERT OPTIONS FOR CONTROLLING INDIVIDUAL SEQUENCE DIAGRAMS
+
+.TP
+.B --no-pp
+When used in combination with 
+.B --indi,
+do not draw posterior probability structure diagrams for each
+sequence, even if the alignment has PP annotation.
+
+.TP
+.B --no-bp
+When used in combination with 
+.B --indi
+or
+.B --rf,
+do not color basepaired nucleotides based on their basepair type.
+
+.TP
+.B --no-ol
+When used in combination with 
+.B --indi,
+do not outline nucleotides that differ from the majority rule
+consensus nucleotide given the alignment.
+
+.TP
+.B --no-ntpp
+When used in combination with 
+.B --indi,
+do not draw nucleotides on the individual sequence posterior
+probability diagrams.
+
+.SH EXPERT OPTIONS RELATED TO CONSENSUS SEQUENCE DEFINITION
+
+.TP
+.B --no-cnt
+Do not draw consensus nucleotides on alignment statistic diagrams (such as
+information content diagrams). By default, the consensus nucleotide is
+defined as the most frequent nucleotide in the alignment at the
+corresponding position. Consensus nucleotides that occur in at least
+.I <x>
+fraction of the aligned sequences (that do not contain a gap at the
+position) are capitalized. By default 
+.I <x>
+is 0.75, but can be changed with the 
+.BI --cthresh " <x>"
+option. 
+
+.TP
+.BI --cthresh " <x>"
+Specify the threshold for capitalizing consensus nucleotides defined by
+the majority rule (i.e. when 
+.B --cambig
+is not enabled) as 
+.I <x>.
+
+.TP
+.B --cambig
+Change how consensus nucleotides are calculated from majority rule to
+the least ambiguous IUPAC nucleotide that represents at least
+.I <x>
+fraction of the nongap nucleotides at each consensus position. 
+By default 
+.I <x>
+is 0.9, but can be changed with the 
+.BI --athresh " <x>"
+option. 
+
+.TP
+.BI --athresh " <x>"
+With
+.B --cambig,
+specify the threshold for defining consensus nucleotides
+is the least ambiguous IUPAC nucleotide that represents at least
+.I <x>
+fraction of the nongap nucleotides at each position.
+
+.SH EXPERT OPTIONS CONTROLLING STYLE OF MASKING POSITIONS
+
+.TP
+.B --mask-u
+With 
+.B --mask, 
+change the style of masked columns to squares.
+
+.TP
+.B --mask-x
+With 
+.B --mask, 
+change the style of masked columns to 'x's
+
+.TP
+.B --mask-a
+With 
+.B --mask
+and
+.B --mask-u
+or
+.B --mask-x
+draw the alternative style of square or 'x' masks
+
+.SH EXPERT OPTIONS RELATED TO INPUT FILES
 
 .TP
 .BI --dfile " <f>"
@@ -765,7 +811,7 @@ single page. A draw file specifying <n> pages should include exactly
 .BI --efile " <f>"
 Read the 'expert draw file'
 .I <f>
-which specifies the colors and residues to draw on each consensus
+which specifies the colors and nucleotides to draw on each consensus
 position in one or more postscript pages. Unlike with the 
 .B --dfile
 option, no legend will be drawn when
@@ -776,9 +822,9 @@ or five tab-delimited tokens. The first four tokens on line <x>
 specify the color to paint position <x> and must be real numbers
 between 0 and 1. The four numbers specify the cyan, magenta, yellow
 and black values, respectively, in the CMYK color scheme for the
-postscript file. The fifth token on line <x> specifies which residue
+postscript file. The fifth token on line <x> specifies which nucleotide
 to write on position <x> (on top of the colored background). If the
-fifth token does not exist, no residue will be written. 
+fifth token does not exist, no nucleotide will be written. 
 After the <rflen> lines, there must exist a special line with
 only '//', signifying the end of a page.
 The expert draw file 
@@ -799,21 +845,6 @@ will be ignored and the information from
 .I <f>
 will supersede it. Inserts are columns that are gaps in the reference
 (#=GC RF) annotation. 
-
-.TP
-.BI --no-leg
-Omit the legend on all pages of 
-.B postscript_output_file.
-
-.TP
-.BI --no-head
-Omit the header on all pages of 
-.B postscript_output_file.
-
-.TP
-.BI --no-foot
-Omit the footer on all pages of 
-.B postscript_output_file.
 
 .SH AUTHOR
 Easel and its documentation are @EASEL_COPYRIGHT@.
