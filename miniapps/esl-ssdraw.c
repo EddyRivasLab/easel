@@ -388,6 +388,7 @@ typedef struct ss_postscript_s {
   float   headerx_desc; /* x coordinate (bottom left corner) of header area */
   int     leg_posn;     /* consensus position for placing legend, read from template */
   int     leg_cellsize;  /* size of a cell in the legend, (ex. 24 for SSU models) */
+  float   leg_rhs_space;/* extra space to leave to the right of the legend */
   float   legx_offset;  /* offset in x coordinate for placing legend, legx will be ps->rxA[leg_posn-1] + legx_offset */
   float   legy_offset;  /* offset in y coordinate for placing legend, legy will be ps->ryA[leg_posn-1] + legy_offset */
   float   legx;         /* x coordinate (top left corner) of legend area */
@@ -453,7 +454,7 @@ static OneCellColorLegend_t *create_onecell_colorlegend(float *cmykA, int nres, 
 static SchemeColorLegend_t  *create_scheme_colorlegend(int scheme, int ncols, float *limits, int ints_only_flag, int low_inclusive, int high_inclusive);
 static TextLegend_t         *create_text_legend(int nlines, char **text_per_line, int do_separator);
 static TextLegend_t         *create_text_legend_for_consensus_sequence(const ESL_GETOPTS *go, int do_separator);
-static int  add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
+static int  add_text_to_scheme_colorlegend(SSPostscript_t *ps, SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf);
 static int  add_text_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *text, int legx_max_chars, char *errbuf);
 static int  add_celltext_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *celltext, char *errbuf);
 static int  add_procedure_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *procname, float *procstack, int nprocstack, char *errbuf);
@@ -1443,6 +1444,7 @@ create_sspostscript(const ESL_GETOPTS *go)
   ps->desc_max_chars = 0;
   ps->leg_posn = -1;
   ps->leg_cellsize = -1;
+  ps->leg_rhs_space = 0.;
   ps->legx_offset = 0.;
   ps->legy_offset = 0.;
   ps->legx = 0.;
@@ -1523,7 +1525,7 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   yroom  = ps->pagey_max - ps->legy - (ps->leg_cellsize - ps->legy_charsize);
   ps->legx_max_chars = (int) (xroom / ps->legx_charsize);
   ps->legy_max_chars = (int) (yroom / ps->legy_charsize);
-  ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
+  ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - ps->leg_rhs_space - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
 
   /* determine max size of description that will fit in header */
   header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
@@ -1848,7 +1850,7 @@ create_scheme_colorlegend(int scheme, int nbins, float *limits, int ints_only_fl
  * Throws:   Exception if the text is too long.
  */
 int
-add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf)
+add_text_to_scheme_colorlegend(SSPostscript_t *ps, SchemeColorLegend_t *scl, char *text, int legx_max_chars, char *errbuf)
 {
   int status;
   int i, idx;
@@ -1858,7 +1860,10 @@ add_text_to_scheme_colorlegend(SchemeColorLegend_t *scl, char *text, int legx_ma
   if(scl->text2 != NULL) esl_fatal("add_text_to_scheme_colorlegend(), text already exists!\n"); 
   if(text == NULL) esl_fatal("add_text_to_scheme_colorlegend(), passed in text is NULL!\n"); 
 
-  max_chars_per_line = legx_max_chars - LEG_EXTRA_COLUMNS -2;
+  max_chars_per_line = ps->legx_max_chars - 
+    ((int) ps->leg_rhs_space / ps->legx_charsize) - 
+    ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - 
+    LEG_EXTRA_COLUMNS - 2;
   if(((int) strlen(text)) <= max_chars_per_line) {
     /* case 1, entire text can fit in one line */
     if((status = esl_strdup(text, -1, &(scl->text1))) != eslOK) esl_fatal("add_text_to_scheme_colorlegend(), error copying text");
@@ -2150,7 +2155,10 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errb
 
   x = ps->legx_stats;
   y = ps->cur_legy;
-  cur_width = ps->legx_max_chars - ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - LEG_EXTRA_COLUMNS - 2;
+  cur_width = ps->legx_max_chars - 
+    ((int) ps->leg_rhs_space / ps->legx_charsize) - 
+    ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - 
+    LEG_EXTRA_COLUMNS - 2;
 
   ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
   for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
@@ -2261,7 +2269,10 @@ draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *p
   fprintf(fp, "  %.4f %.4f %.4f %.4f setcmykcolor\n", 0., 0., 0., 1.);
 
   if(occl->do_separator) {
-    cur_width = ps->legx_max_chars - ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - LEG_EXTRA_COLUMNS - 2;
+  cur_width = ps->legx_max_chars - 
+    ((int) ps->leg_rhs_space / ps->legx_charsize) - 
+    ((int) (PAGE_SIDEBUF / ps->legx_charsize)) - 
+    LEG_EXTRA_COLUMNS - 2;
     ESL_ALLOC(cur_string, sizeof(char) * (cur_width+1));
     for(i = 0; i < cur_width; i++) cur_string[i] = '-'; 
     cur_string[cur_width] = '\0';
@@ -2628,22 +2639,6 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
     }
 
-    /* NOTE: I used to print out the 'text nucleotides' section so the output file could possibly be used as a template, 
-     * but I stopped doing that, if a template is required in the first place, why not make it always required?
-     * This block is left in case I ever want to go back on that decision.
-     */
-    /* 'text nucleotides' section 
-       fprintf(fp, "%% begin text nucleotides\n");
-       fprintf(fp, "/%s findfont %.2f scalefont setfont\n", NUCLEOTIDES_FONT, NUCLEOTIDES_FONTSIZE);
-       fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); 
-       for(i = 0; i < ps->rflen; i++) { 
-       if(((rflen+1) % 10) == 0) { 
-       fprintf(fp, "% () %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
-       fprintf(fp, "() %.2f %.2f moveto show\n", ps->rxA[i], ps->ryA[i]);
-       }
-       fprintf(fp, "%% end text nucleotides\n");
-    */ 
-
     /* print out remainder of the page */
     /* fprintf(fp, "%% begin ignore\n"); */
     fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* set to black */
@@ -2736,8 +2731,14 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
       else { /* ps->rcolAAA[p] is NULL */
 	for(c = 0; c < ps->rflen; c++) { 
-	  if(islower(ps->rAA[p][c])) fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c] + (CELLSIZE/8.), ps->ryA[c] + (CELLSIZE/8.)); /* handle lowercase nucleotides special, so they're centered in the box! */
-	  else if(ps->rAA[p][c] != ' ')   fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	  if(strchr(LOWERCASE_LOW_HANGING_CHARS, ps->rAA[p][c]) != NULL) { 
+	    fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c] + (CELLSIZE * NUCLEOTIDE_YOFFSET_FRACTION_LOWERCASE_LOW_HANGING_CHARS)); 
+	    /* handle lowercase low hanging chars ("gjpqy") nucleotides special, so they're centered in the box! */
+	  }
+	  else if(ps->rAA[p][c] != ' ') {
+	    fprintf(fp, "(%c) %.2f %.2f moveto show", ps->rAA[p][c], ps->rxA[c], ps->ryA[c]);
+	  }
+	  fprintf(fp, "\n");
 	}
       }
       fprintf(fp, "%% end text nucleotides\n");
@@ -3020,25 +3021,28 @@ parse_legend_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
   int   toklen;
 
   /* this section should be exactly 3 lines, one of which we've already read,
-   * three tokens of the middle line are <rfpos> <x_offset> <y_offset> <leg_cellsize>
+   * five tokens of the middle line are <rfpos> <x_offset> <y_offset> <leg_cellsize> <leg_right_buffer>
    * this tells us to put the top-left corner of the legend at 
-   * ps->legx[rfpos] + x_offset, ps->legy[rfpos] + y_offset
+   * ps->legx[rfpos] + x_offset, ps->legy[rfpos] + y_offset,
+   * and have the RHS of the buffer end <space_right_of_leg> points before the RHS of the page
    * cellsize is the size of the cells in the legend
    * here's an example, first token we'll read should be '%', followed by '1508'
    * % begin legend
-   * % 1508 24. -24. 12
+   * % 1508 24. -24. 12 0.
    * % end legend
    */
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 1 of 5"); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 1 of 6"); 
   if (strcmp(tok, "%") != 0)  ESL_FAIL(eslEINVAL, errbuf, "Error, parsing legend section, middle line token 1 should be a percent sign but it's %s", tok); 
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 2 of 5"); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 2 of 6"); 
   ps->leg_posn = atoi(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 5"); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 6"); 
   ps->legx_offset = atof(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 4 of 5"); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 4 of 6"); 
   ps->legy_offset = atof(tok);
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 5 of 5"); 
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 5 of 6"); 
   ps->leg_cellsize = atoi(tok);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 6 of 6"); 
+  ps->leg_rhs_space = atof(tok);
 
   /* read '% end legend' line */
   if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK)  ESL_FAIL(status, errbuf, "Error, parsing legend section, reading token 3 of 3");   
@@ -3853,7 +3857,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       }
 
       /* add description to ps */
-      if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "# inserted nucleotides after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "# inserted nucleotides after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
       if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
       /* done with seq page */
 
@@ -3899,7 +3903,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	ps->nocclA[pp] = 1;
 	
-	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
 	ps->seqidxA[pp] = i;
 	if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
 
@@ -4334,7 +4338,7 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
   /* add text to legend */
   /*sprintf(text, "information content (bits) (total: %.2f bits)", esl_vec_DSum(ent, ps->rflen));*/
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "information content (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "information content (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
 
   /* add the consensus nucleotide explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
@@ -4536,12 +4540,12 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   /* add color legend and description */
   if(do_all) { 
     /*sprintf(text, "fraction seqs w/deletes ('-'=0 deletes; avg/seq: %.2f)", (float) esl_vec_ISum(dct, ps->rflen) / (float) msa_nseq);*/
-    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs with deletes", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "fraction of seqs with deletes", ps->legx_max_chars, errbuf)) != eslOK) return status;
     if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of deletions at each position", errbuf)) != eslOK) return status;
   }
   else { /* !do_all, only internal deletes counted */
     /*sprintf(text, "fraction seqs w/internal deletes ('-'=0; avg/seq: %.2f)", (float) esl_vec_ISum(dct_internal, ps->rflen) / (float) msa_nseq);*/
-    if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "fraction of seqs w/internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
     if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of internal deletions in each position", errbuf)) != eslOK) return status;
   }
   
@@ -4721,7 +4725,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   ps->nocclA[pp] = 2;
 
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "fraction of seqs w/insertions", ps->legx_max_chars, errbuf)) != eslOK) return status;
   if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "frequency of insertions after each position", errbuf)) != eslOK) return status;
 
   /* add the consensus nucleotide explanation text section to the legend */
@@ -4889,7 +4893,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   ps->nocclA[pp] = 1;
 
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average insertion length", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "average insertion length", ps->legx_max_chars, errbuf)) != eslOK) return status;
   if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "average insertion length after each position", errbuf)) != eslOK) return status;
 
   /* add the consensus nucleotide explanation text section to the legend */
@@ -5052,7 +5056,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
   ps->nocclA[pp] = 2;
 
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "fraction of seqs that span each position", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "fraction of seqs that span each position", ps->legx_max_chars, errbuf)) != eslOK) return status;
   if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, "fraction of sequences that span each position", errbuf)) != eslOK) return status;
 
   /* add the consensus nucleotide explanation text section to the legend */
@@ -5236,7 +5240,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   ps->nocclA[pp] = 1;
   
   /* add color legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "average posterior probability \\(confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "average posterior probability \\(confidence\\)", ps->legx_max_chars,errbuf)) != eslOK) return status;
 
   /* add the consensus nucleotide explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
@@ -5781,7 +5785,7 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
   ps->nocclA[pp] = 2;
   
   /* add text to the scheme legend */
-  if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], "mutual information per position (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+  if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "mutual information per position (bits)", ps->legx_max_chars, errbuf)) != eslOK) return status;
   
   /* add the consensus nucleotide explanation text section to the legend */
   if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
@@ -7061,7 +7065,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, f
 	  esl_fatal("Failed to read a final \"//\" token (read %s) at the end of description of draw page %d on line %d of drawfile %s\n", s, (pp - orig_npage + 1), efp->linenumber, dfile);
 	rfpos = -1;
 	/* add color legend */
-	if((status = add_text_to_scheme_colorlegend(ps->sclAA[pp], legheader, ps->legx_max_chars, errbuf)) != eslOK) return status;
+	if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], legheader, ps->legx_max_chars, errbuf)) != eslOK) return status;
 	if((status = add_page_desc_to_sspostscript(ps, ps->npage-1, desc, errbuf)) != eslOK) return status;
       }
       else { /* a normal line, should either contain a single float or the \\ marking end of this page */

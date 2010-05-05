@@ -279,17 +279,21 @@ be truncated in the output.
 
 Each page of a 
 .B postscript_template_file
-must include a single 'legend' section.
-This section must include exactly one line in between its
-begin and end lines. This line must be formatted as '% <d1> <f1> <f2> <d2>', where
-<d1> is an integer specifying the consensus position with relation to
-which the legend will be placed, <f1> and <f2> specify the x and y
-axis offsets for the top left corner of the legend relative to the
-x and y position of consensus position <d1> and <d2> specifies the
-size of a cell in the legend. For example, the line '% 34
--40. -30. 12' specfies that the legend be placed 40 points to the left
-and 30 points below the 34th consensus position and that cells appearing
-in the legend be squares of size 12 points by 12 points. 
+must include a single 'legend' section.  This section must include
+exactly one line in between its begin and end lines. This line must be
+formatted as '% <d1> <f1> <f2> <d2> <f3>', where <d1> is an integer
+specifying the consensus position with relation to which the legend
+will be placed; <f1> and <f2> specify the x and y axis offsets for the
+top left corner of the legend relative to the x and y position of
+consensus position <d1>; <d2> specifies the size of a cell in the
+legend and <f3> specifies how many extra points should be between the
+right hand edge of the legend and the end of the page. the offset of
+the right hand end of the legend . For example, the line '% 34
+-40. -30. 12 0.' specfies that the legend be placed 40 points to the left
+and 30 points below the 34th consensus position, that cells
+appearing in the legend be squares of size 12 points by 12 points, and
+that the right hand side of the legend flush against the right hand
+edge of the printable page. 
 
 Each page of a 
 .B postscript_template_file
