@@ -501,7 +501,7 @@ static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
 static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp);
-static int  cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
+static int  cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s);
 static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
@@ -1154,9 +1154,11 @@ main(int argc, char **argv)
   if(do_cons) { 
     /* this will work in either small memory or normal memory mode */
     if((status = cons_seq_sspostscript(go, errbuf, ps, hc_onecell,
-				     BLACKOC,          /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
-				     GREENOC,          /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
-				     REDOC)) != eslOK) /* one-cell legend, color for noncanonical bps */
+				       BLACKOC,       /* one-cell legend, watson-crick bp color */
+				       GREENOC,       /* one-cell legend, G-U or U-G bp color */
+				       REDOC,         /* one-cell legend, color for noncanonical bps */
+				       LIGHTPURPLEOC, /* one-cell legend, internal double-gap bp color */
+				       LIGHTPURPLEOC)) != eslOK) /* one-cell legend, internal half-gap bp color, only relevant if do_rescol == TRUE */
       esl_fatal(errbuf);
   }  
 
@@ -3939,7 +3941,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
  */
 static int
 cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
-		      float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s)
+		      float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s)
 {
   int status;
   int p, pp;
@@ -3948,7 +3950,15 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   int nwc_s; /* number of watson-crick bps */
   int ngu_s; /* number of GU/UG bps */
   int nnc_s; /* number of noncanonical bps */
-  nwc_s = ngu_s = nnc_s = 0;
+  int ndgi_s = 0;     /* number of internal double-gap basepairs */
+  int nhgi_s = 0;     /* number of internal half-gap basepairs */
+  int spos, epos;     /* first/final nongap position for consensus sequence */
+  int lpos_is_internal; /* is lpos within spos..epos?, if not it's an external deletion */
+  int rpos_is_internal; /* is rpos within spos..epos?, if not it's an external deletion */
+  int lpos_is_gap;      /* is lpos a gap */
+  int rpos_is_gap;      /* is rpos a gap */
+
+  nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = 0;
 
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -3964,8 +3974,23 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   }
 
   if((! esl_opt_GetBoolean(go, "--cambig")) && (! esl_opt_GetBoolean(go, "--no-bp"))) { 
+    spos = epos = -1;
+    /* determine first and final non-gap position */
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { /* find first non-gap RF position */
+      if(! esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rfpos])) { 
+	spos = rfpos;
+	break;
+      }
+    }
+    for(rfpos = ps->rflen-1; rfpos >= 0; rfpos--) { 
+      if(! esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rfpos])) { 
+	epos = rfpos;
+	break;
+      }
+    }
+
     ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
-    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 3);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 5);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       if(ps->msa_ct[(rfpos+1)] == 0) { /* single stranded */
@@ -3975,17 +4000,39 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
       else { /* basepair, either watson-crick, GU/UG, or non-canonical */
 	lpos = rfpos;
 	rpos = ps->msa_ct[rfpos+1]-1;
-	if(is_watson_crick_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* watson-crick */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
-	  if(lpos < rpos) nwc_s++;
-	}
-	else if(is_gu_or_ug_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* G:U or U:G */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
-	  if(lpos < rpos) ngu_s++;
-	}
-	else { /* non-canonical */
-	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
-	  if(lpos < rpos) nnc_s++;
+	lpos_is_internal = ((lpos < spos) || (lpos > epos)) ? FALSE : TRUE;
+	rpos_is_internal = ((rpos < spos) || (rpos > epos)) ? FALSE : TRUE;
+	lpos_is_gap      = esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[lpos]) ? TRUE : FALSE;
+	rpos_is_gap      = esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rpos]) ? TRUE : FALSE;
+	if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
+	  if(is_watson_crick_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* watson-crick */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	    if(lpos < rpos) nwc_s++;
+	  }
+	  else if(is_gu_or_ug_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* G:U or U:G */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+	    if(lpos < rpos) ngu_s++;
+	  }
+	  else if (lpos_is_gap && rpos_is_gap) { /* internal double-gap basepair */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
+	    if(lpos < rpos) ndgi_s++;
+	  }
+	  else if (lpos_is_gap || rpos_is_gap) { /* internal double-gap basepair */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
+	    if(lpos < rpos) nhgi_s++;
+	  }
+	  else { /* non-canonical */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+	    if(lpos < rpos) nnc_s++;
+	  }
+	} /* end of (if(lpos_is_internal && rpos_is_internal)) */
+	else { 
+	  /* either the left half of the bp is before the first nongap nt, 
+	   * or the right half of the bp is after the final nongap nt, 
+	   * for both cases, draw the nt as black, and don't count it as 
+	   * any type of basepair
+	   */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
 	}
       }
     }
@@ -4006,6 +4053,18 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
     if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
     if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+
+    /* add one-cell color legend for internal half-gap basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhgi_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal half-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A--", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for internal double-gap basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndgi_s, OCCL_BLANK_COUNT, TRUE, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "---", errbuf)) != eslOK) return status;
     ps->nocclA[pp]++;
   }
 
