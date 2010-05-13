@@ -488,6 +488,7 @@ static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
 static int  read_seq_list_file_bigmem  (char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused);
 static int  read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused);
+static int  count_seqs_in_list_file(char *filename, int *ret_nseq);
 static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
 static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
 static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
@@ -540,7 +541,7 @@ static ESL_OPTIONS options[] = {
   { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL,        NULL,      "output per position data in tabular format to file <f>", 2 },
 
   { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagrams for individual sequences in the alignment", 3 },
-  { "-F",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
+  { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
   { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, only draw individual diagrams of seqs listed in <f>", 3 },
   { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
 
@@ -619,6 +620,7 @@ main(int argc, char **argv)
   int            *span_ct = NULL;       /* [0..rfpos..rflen-1], number of sequences that 'span' position rfpos */
   int64_t         msa_alen;             /* msa->alen */
   int             msa_nseq;             /* msa->nseq */
+  int             list_nseq;            /* number of sequences read from a list file */
   /* variables related to small memory mode */
   int             do_small = TRUE;      /* TRUE to operate in small memory mode, FALSE not to */
   /* small memory mode variables used only if --list and --indi */
@@ -1070,13 +1072,22 @@ main(int argc, char **argv)
     /* Predict size of indi output file, based on two data points:
      * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
      * =~ 0.0002 Mb per page per rfpos */
-    predicted_Mb = (int) (ps->rflen * 0.0002 * msa_nseq);
+    if(esl_opt_IsOn(go, "--list")) { 
+      count_seqs_in_list_file(esl_opt_GetString(go, "--list"), &list_nseq);
+    }
+    else { list_nseq = msa_nseq; }
+    predicted_Mb = (int) (ps->rflen * 0.0002 * list_nseq);
     if(! esl_opt_GetBoolean(go, "--no-pp")) predicted_Mb *= 2;
-    /* round to nearest 100 Mb */ 
-    tmp_Mb = 100; while(tmp_Mb < predicted_Mb) tmp_Mb += 100;
+    /* round to nearest 10 Mb */ 
+    tmp_Mb = 10; while(tmp_Mb < predicted_Mb) tmp_Mb += 10;
     predicted_Mb = tmp_Mb;
-    if(predicted_Mb > MAXMBWITHOUTFORCE && (! esl_opt_GetBoolean(go, "-F"))) { 
-      esl_fatal("WARNING: --indi selected and msa has %d seqs in it, output postcript file will be large (~%.2f Mb).\nUse -F to override this warning and do it anyway.", msa_nseq, predicted_Mb);
+    if(predicted_Mb > MAXMBWITHOUTFORCE && (! esl_opt_GetBoolean(go, "-f"))) { 
+      if(esl_opt_IsOn(go, "--list")) { 
+	esl_fatal("WARNING: drawing individual seqs and list has %d seqs in it,\noutput postcript file will be large (~%d Mb).\nUse -f to override this warning and do it anyway.", list_nseq, predicted_Mb);
+      }
+      else { 
+	esl_fatal("WARNING: drawing individual seqs and msa has %d seqs in it,\noutput postcript file will be large (~%d Mb).\nUse -f to override this warning and do it anyway.", list_nseq, predicted_Mb);
+      }
     }
   }
   /* if -d: if we've made do_default_set as FALSE, we set it back to TRUE */
@@ -6523,6 +6534,39 @@ read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int
   *ret_nused = nused;
   return eslOK;
 
+}
+
+/* Function: count_seqs_in_list_file
+ * Date:     EPN, Thu May 13 10:31:20 2010
+ * 
+ * Given a file listing sequence names, count the 
+ * number of names. Return the number in <ret_nseq>.
+ * We do not check that the seqs are actually in 
+ * an msa or not, we only care about number of
+ * seqs so we can warn the user if the requested
+ * indi output file will be huge.
+ * 
+ * Returns eslOK on success.
+ *
+ * Dies with an error message if the file doesn't exist.
+ * or some other problem is encountered.
+ */
+static int
+count_seqs_in_list_file(char *filename, int *ret_nseq)
+{
+  int             status;
+  ESL_FILEPARSER *efp;
+  int             nseq = 0;
+
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
+  
+  while((status = esl_fileparser_GetToken(efp, NULL, NULL)) != eslEOF) {
+    nseq++;
+  }
+  esl_fileparser_Close(efp);
+
+  *ret_nseq = nseq;
+  return eslOK;
 }
 
 /* Function: get_insert_info_from_msa

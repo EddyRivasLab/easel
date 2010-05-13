@@ -620,7 +620,7 @@ PP) exists in the alignment, one additional page per sequence will be
 drawn displaying the posterior probabilities.
 
 .TP
-.B -F
+.B -f
 With 
 .B --indi,
 force 
