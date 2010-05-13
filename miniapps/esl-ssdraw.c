@@ -305,8 +305,8 @@
 #define PAGE_BOTBUF 30.  /* 30 blank pts required at bot */
 
 /* cell outline info */
-#define OUTLINE_LINEWIDTH_CELL_FRACTION_MIN 0.05
-#define OUTLINE_LINEWIDTH_CELL_FRACTION_MAX 0.125
+#define OUTLINE_LINEWIDTH_CELL_FRACTION_MIN 0.04
+#define OUTLINE_LINEWIDTH_CELL_FRACTION_MAX 0.16
 #define NOUTLINETYPES 2
 #define OUTLINE_NONE_IDX -1
 #define OUTLINE_MIN_IDX 0
@@ -501,7 +501,7 @@ static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPosts
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
 static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp);
-static int  cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
+static int  cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
@@ -523,6 +523,7 @@ The <msafile> must be in Stockholm format.";
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs         incomp     help                                                   docgroup */
   { "-h",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "help; show brief info on version and usage",              1 },
+  { "-d",       eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw default set of alignment summary diagrams",          1 },
   { "--mask",   eslARG_INFILE, NULL, NULL, NULL, NULL,NULL,        NULL,      "for all diagrams, mark masked ('0') columns from mask in <f>", 1 },
   { "--small",  eslARG_NONE,   NULL, NULL, NULL, NULL,NULL,        NULL,      "operate in small memory mode (aln must be 1 line/seq Pfam format)", 1 },
 
@@ -544,8 +545,8 @@ static ESL_OPTIONS options[] = {
   { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
 
   { "--no-pp",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 9 },
-  { "--no-bp",   eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi or --rf, do not color nts based on basepair type", 9 },
-  { "--no-ol",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",   NULL,       "w/--indi, do not outline nts that are not most common nt", 9 },
+  { "--no-bp",   eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi,--rf or --cons, do not color nts based on basepair type", 9 },
+  { "--no-ol",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, do not outline nts that are not most common nt", 9 },
   { "--no-ntpp", eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi", "--no-pp", "w/--indi, do not draw nts on individual post prob diagrams", 9 },
 
   { "--no-cnt", eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,       NULL,       "do not draw consensus nts on alignment summary diagrams", 7 },
@@ -629,7 +630,7 @@ main(int argc, char **argv)
   ESL_KEYHASH    *useme_keyhash;        /* keyhash of sequence names listed in list file, only used if --list and --indi enabled */
   int             i;                    /* counter of sequences */
   /* variables storing which pages to print */
-  int             default_mode = TRUE;  /* TRUE if no options telling specifying what pages to draw were selected */
+  int             do_default_set = TRUE;  /* TRUE if no options telling specifying what pages to draw were selected */
   int             do_cons = FALSE;        
   int             do_rf = FALSE;        
   int             do_info = FALSE;      
@@ -1037,29 +1038,35 @@ main(int argc, char **argv)
   /**************************************************************************************************************
    * Now that we have the msa and know what template we're using, determine what type of pages we'll be drawing *
    **************************************************************************************************************/
-  /* Careful: this block assumes that all boolean options are OFF (FALSE) by default */
-  default_mode = TRUE;
-  if(esl_opt_GetBoolean(go, "--info"))      { do_info     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--mutinfo"))   { do_mutinfo  = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--ifreq"))     { do_ifreq    = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--iavglen"))   { do_iavglen  = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--dall"))      { do_dall     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--dint"))      { do_dint     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--prob"))      { do_prob     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--span"))      { do_span     = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--mask-col"))  { do_maskcol  = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--mask-diff")) { do_maskdiff = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--dfile"))     { do_dfile    = TRUE; default_mode = FALSE; }
-  if(esl_opt_IsOn      (go, "--efile"))     { do_efile    = TRUE; default_mode = FALSE; }
-  if(esl_opt_GetBoolean(go, "--cons"))      { do_cons     = TRUE; default_mode = FALSE; }
+   /* do_default_set: this is TRUE if either -d is enabled AND/OR zero of: 
+    * {--info, --mutinfo, --ifreq, --iavglen, --dall, --dint, --span, --mask-col, --mask-diff,
+    *  --dfile, --efile, --cons, --prob, --rf, --indi} are enabled.
+    * When do_default_set is TRUE, we draw cons, info, mutinfo, ifreq, iavglen, dall, and prob
+    * (if the alignment has posterior probabilities).
+    * 
+    * Careful: this block assumes that all boolean options are OFF (FALSE) by default */
+  do_default_set = TRUE;
+  if(esl_opt_GetBoolean(go, "--info"))      { do_info     = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--mutinfo"))   { do_mutinfo  = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--ifreq"))     { do_ifreq    = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--iavglen"))   { do_iavglen  = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--dall"))      { do_dall     = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--dint"))      { do_dint     = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--prob"))      { do_prob     = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--span"))      { do_span     = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--mask-col"))  { do_maskcol  = TRUE; do_default_set = FALSE; }
+  if(esl_opt_IsOn      (go, "--mask-diff")) { do_maskdiff = TRUE; do_default_set = FALSE; }
+  if(esl_opt_IsOn      (go, "--dfile"))     { do_dfile    = TRUE; do_default_set = FALSE; }
+  if(esl_opt_IsOn      (go, "--efile"))     { do_efile    = TRUE; do_default_set = FALSE; }
+  if(esl_opt_GetBoolean(go, "--cons"))      { do_cons     = TRUE; do_default_set = FALSE; }
   if(esl_opt_GetBoolean(go, "--rf")) { 
     if(msa->rf == NULL) esl_fatal("--rf selected by msa does not have #=GC RF annotation");
     do_rf = TRUE;
-    default_mode = FALSE;
+    do_default_set = FALSE;
   }
   if(esl_opt_GetBoolean(go, "--indi")) { 
     do_indi     = TRUE; 
-    default_mode = FALSE; 
+    do_default_set = FALSE; 
     /* Predict size of indi output file, based on two data points:
      * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
      * =~ 0.0002 Mb per page per rfpos */
@@ -1072,7 +1079,9 @@ main(int argc, char **argv)
       esl_fatal("WARNING: --indi selected and msa has %d seqs in it, output postcript file will be large (~%.2f Mb).\nUse -F to override this warning and do it anyway.", msa_nseq, predicted_Mb);
     }
   }
-  if(default_mode) { /* set default pages */
+  /* if -d: if we've made do_default_set as FALSE, we set it back to TRUE */
+  if(esl_opt_GetBoolean(go, "-d")) do_default_set = TRUE;
+  if(do_default_set) { /* set default pages */
     do_cons = do_info = do_mutinfo = do_ifreq = do_iavglen = do_dall = TRUE;
     if((do_small && pp_ct != NULL) || (msa->pp != NULL)) do_prob = TRUE;
   }
@@ -1144,7 +1153,11 @@ main(int argc, char **argv)
   /* step through each type of page, creating it if nec */
   if(do_cons) { 
     /* this will work in either small memory or normal memory mode */
-    if((status = cons_seq_sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf); 
+    if((status = cons_seq_sspostscript(go, errbuf, ps, hc_onecell,
+				     BLACKOC,          /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
+				     GREENOC,          /* one-cell legend, G-U or U-G bp color, only relevant if do_rescol == TRUE */
+				     REDOC)) != eslOK) /* one-cell legend, color for noncanonical bps */
+      esl_fatal(errbuf);
   }  
 
   if(do_rf) { 
@@ -2600,7 +2613,7 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       fprintf(fp, "%% end regurgitate\n\n");
     }
     
-    /* 'text posntext' section */
+    /* 'text positiontext' section */
     for(i = 0; i < ps->nposntext; i++) { 
       if(i == 0) { 
 	fprintf(fp, "%% begin text positiontext\n");
@@ -2610,19 +2623,6 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       fprintf(fp, "%s %.2f %.2f moveto show\n", ps->posntextA[i], ps->posntextxA[i], ps->posntextyA[i]); 
       if(i == (ps->nposntext-1)) { 
 	fprintf(fp, "%% end text positiontext\n\n");
-      }
-    }
-    
-    /* 'lines ticks' section */
-    for(i = 0; i < ps->nticks; i++) { 
-      if(i == 0) { 
-	fprintf(fp, "%% begin lines positionticks\n");
-	fprintf(fp, "%.2f setlinewidth\n", TICKS_LINEWIDTH);
-	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
-      }
-      fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->ticksx1A[i], ps->ticksy1A[i], ps->ticksx2A[i], ps->ticksy2A[i]);
-      if(i == (ps->nticks-1)) { 
-	fprintf(fp, "%% end lines positionticks\n\n");
       }
     }
 
@@ -2711,7 +2711,6 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       fprintf(fp, "%% end colored positions\n\n");
     }
 
-
     if(ps->rAA[p] != NULL) { 
       fprintf(fp, "/%s findfont %f scalefont setfont\n", NUCLEOTIDES_FONT, NUCLEOTIDES_FONTSIZE);
       fprintf(fp, "  0.00 0.00 0.00 1.00 setcmykcolor\n"); /* reset color as black */
@@ -2768,6 +2767,19 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
       }
       fprintf(fp, "%% end outlines\n");
       fprintf(fp, "  0.000 0.000 0.000 1.000 setcmykcolor\n"); /* reset color as black */
+    }
+    
+    /* 'lines positionsticks' section, drawn last so they're not buried beneath other objects */
+    for(i = 0; i < ps->nticks; i++) { 
+      if(i == 0) { 
+	fprintf(fp, "%% begin lines positionticks\n");
+	fprintf(fp, "%.2f setlinewidth\n", TICKS_LINEWIDTH);
+	fprintf(fp, "0.00 0.00 0.00 1.00 setcmykcolor\n"); /* black */
+      }
+      fprintf(fp, "%.2f %.2f %.2f %.2f newpath moveto lineto stroke\n", ps->ticksx1A[i], ps->ticksy1A[i], ps->ticksx2A[i], ps->ticksy2A[i]);
+      if(i == (ps->nticks-1)) { 
+	fprintf(fp, "%% end lines positionticks\n\n");
+      }
     }
 
     fprintf(fp, "showpage\n\n");
@@ -3926,12 +3938,17 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
  * Return:   eslOK on success.
  */
 static int
-cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
+cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
+		      float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s)
 {
   int status;
   int p, pp;
-  int rfpos;
+  int rfpos, lpos, rpos;
   int orig_npage = ps->npage;
+  int nwc_s; /* number of watson-crick bps */
+  int ngu_s; /* number of GU/UG bps */
+  int nnc_s; /* number of noncanonical bps */
+  nwc_s = ngu_s = nnc_s = 0;
 
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
@@ -3944,6 +3961,52 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps)
   pp = orig_npage;
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     ps->rAA[pp][rfpos] = esl_opt_GetBoolean(go, "--cambig") ? ps->msa_cseq_amb[rfpos] : ps->msa_cseq_maj[rfpos];
+  }
+
+  if((! esl_opt_GetBoolean(go, "--cambig")) && (! esl_opt_GetBoolean(go, "--no-bp"))) { 
+    ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 3);
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+      ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
+      if(ps->msa_ct[(rfpos+1)] == 0) { /* single stranded */
+	/* single-stranded nucleotide or gap, draw same color as Watson-Cricks */
+	if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+      }
+      else { /* basepair, either watson-crick, GU/UG, or non-canonical */
+	lpos = rfpos;
+	rpos = ps->msa_ct[rfpos+1]-1;
+	if(is_watson_crick_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* watson-crick */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) nwc_s++;
+	}
+	else if(is_gu_or_ug_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* G:U or U:G */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) ngu_s++;
+	}
+	else { /* non-canonical */
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+	  if(lpos < rpos) nnc_s++;
+	}
+      }
+    }
+
+    /* add one-cell color legend for watson-crick basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[wcbp_idx_s], nwc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Watson-Crick basepair (bp)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "C-G", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for G-U, U-G basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[gubp_idx_s], ngu_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U or U-G bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+    
+    /* add one-cell color legend for non-canonical basepairs */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+    if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
   }
 
   /* add description to ps */

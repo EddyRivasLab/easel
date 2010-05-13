@@ -47,13 +47,19 @@ By default (if run with zero command line options),
 will create a six or seven page 
 .I postscript_output_file, 
 with each page displaying a different alignment statistic. These pages display
-the consensus sequence, information content per position, mutual information
-per position, frequency of inserts per position, average length of
-inserts per position, frequency of
+the alignment consensus sequence, information content per position,
+mutual information per position, frequency of inserts per position,
+average length of inserts per position, frequency of
 deletions (gaps) per position, and average posterior probability per
 position (if posterior probabilites exist in the alignment)
-Alternatively, some or all of these pages can be drawn by using the
-command line options
+If 
+.B -d 
+is enabled, all of these pages plus additional ones, such as
+individual sequences (see discussion of 
+.B.--indi 
+below) will be drawn.
+These pages can be selected to be drawn individually by using 
+the command line options
 .B --cons,
 .B --info,
 .B --mutinfo,
@@ -446,6 +452,19 @@ will be roughly five times larger than that.
 .B -h 
 Print brief help;  includes version number and summary of
 all options, including expert options.
+
+.TP
+.B -d 
+Draw the default set of alignment summary diagrams: consensus
+sequence, information content, mutual information, insert frequency,
+average insert length, deletion frequency, and average posterior
+probability (if posterior probability annotation exists in the
+alignment). These diagrams are also drawn by default (if zero command line
+options are used), but using the
+.B -d 
+option allows the user to add additional pages, such as individual
+aligned sequences with
+.B --indi.
 
 .TP 
 .BI --mask " <f>"

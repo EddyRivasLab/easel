@@ -374,6 +374,14 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /\(tRNA     71    21\)/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\%nucleotide 9\nnewpath\n.+0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
+    system("$eslssdraw $smallA[$pass] -d $alifile $templatefile $tmppfx.ps > /dev/null");
+    if ($? != 0)                                                       { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
+    $output = `cat $tmppfx.ps`;
+    if($output !~ /\(tRNA     71    21\)/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\(\\\[0.800-1.200\\\)\)/) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\(tRNA     71    21\)/)    { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 9\nnewpath\n.+0.00\d* 0.21\d* 1.00\d* 0.00\d* setcmykcolor/s) { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+
     system("$eslssdraw $smallA[$pass] --prob $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
     $output = `cat $tmppfx.ps`;
