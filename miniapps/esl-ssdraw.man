@@ -108,18 +108,11 @@ If
 is used,
 .B esl-ssdraw
 will create diagrams showing each sequence in the alignment on a
-separate page, with aligned nucleotides in their corresponding position
-in the structure diagram. By default, with
-.B --indi,
-all sequences are drawn, but with the 
-.BI --list " <f>"
-option, only those sequences listed in the file
-.I <f> 
-will be drawn.
-By default, basepaired nucleotides will be colored based on their
-basepair type: either Watson-Crick (A:U, U:A, C:G, or G:C), G:U or
-U:G, or non-canonical (the other ten possible basepairs). This coloring
-can be turned off with the
+separate page, with aligned nucleotides in their corresponding
+position in the structure diagram.  By default, basepaired nucleotides
+will be colored based on their basepair type: either Watson-Crick
+(A:U, U:A, C:G, or G:C), G:U or U:G, or non-canonical (the other ten
+possible basepairs). This coloring can be turned off with the
 .B --no-bp
 option.
 Also by default, nucleotides that differ from the most common
@@ -426,25 +419,12 @@ version of Stockholm format.
 
 If the 
 .B --indi
-option is used without the
-.B --list 
-option, the required memory may exceed the
+option is used,
+the required memory may exceed the
 size of the alignment by up to ten-fold, and the output
 .B postscript_output_file 
 may be up to 50 times larger than the
 .B msafile.
-If 
-.B --indi 
-is used with the 
-.BI --list " <f>"
-option and with
-.B --small, 
-the required memory will be roughly ten-fold the size the alignment
-would be if it only contained the sequences listed in 
-.B <f>,
-and 
-.B postscript_output_file 
-will be roughly five times larger than that.
 
 .SH OPTIONS
 
@@ -489,14 +469,10 @@ required RAM will be independent of the
 size of the alignment in 
 .B msafile.
 With
-.B --indi 
-and 
-.BI --list " <f>",
+.B --indi, 
 the required RAM will be roughly ten times the size of the alignment
 in 
-.B msafile
-if it were to only contain the sequences listed in 
-.I <f>. 
+.B msafile.
 For 
 .B --small
 to work, the alignment must be in
@@ -629,24 +605,6 @@ to create a diagram, even if it is predicted to be large (> 100 Mb).
 By default, if the predicted size exceeds 100 Mb, 
 .B esl-ssdraw
 will fail with a warning. 
-
-.TP
-.BI --list " <f>"
-With 
-.B --indi,
-specify that only the sequences listed in 
-.I <f>
-be drawn. 
-Each line of <f> must contain a sequence name from the alignment.
-
-.TP
-.BI --keep " <f>"
-With
-.BI --list " <f2>",
-save the alignment of only those sequences listed in 
-.I <f2>
-to file 
-.I <f>.
 
 .SH OPTIONS FOR OMITTING PARTS OF THE DIAGRAMS
 

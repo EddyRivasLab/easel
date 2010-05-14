@@ -461,7 +461,7 @@ static int  add_celltext_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColor
 static int  add_procedure_to_onecell_colorlegend(SSPostscript_t *ps, OneCellColorLegend_t *occl, char *procname, float *procstack, int nprocstack, char *errbuf);
 static int  add_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *text, char *errbuf);
 static int  add_diffmask_page_desc_to_sspostscript(SSPostscript_t *ps, int page, char *mask_file, char *maskdiff_file, char *errbuf);
-static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused);
+static int  draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps);
 static int  draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errbuf);
 static int  draw_onecell_colorlegend(FILE *fp, OneCellColorLegend_t *occl, SSPostscript_t *ps, int occl_idx, int pagenum);
 static int  draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *scl, float **hc_scheme, SSPostscript_t *ps, int pagenum);
@@ -487,9 +487,6 @@ static int  set_onecell_values(char *errbuf, float *vec, int ncolvals, float *on
 static int  add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask);
 static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask, int do_square_mask, int do_x_mask, int do_border, float cellsize);
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
-static int  read_seq_list_file_bigmem  (char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused);
-static int  read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused);
-static int  count_seqs_in_list_file(char *filename, int *ret_nseq);
 static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
 static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
 static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
@@ -502,7 +499,7 @@ static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
-static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, ESL_MSA *msa, int **per_seq_ins_ct, int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp);
+static int  individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, ESL_MSA *msa, int **per_seq_ins_ct, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp);
 static int  cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s);
 static int  rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, int do_rescol, float **hc_onecell, int wcbp_idx_s, int gubp_idx_s, int ncbp_idx_s);
 static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, float **hc_onecell, int incmask_idx, int excmask_idx);
@@ -519,8 +516,6 @@ static void define_outline_procedure(FILE *fp);
 static char banner[] = "draw postscript secondary structure diagrams";
 static char usage[]  = "[options] <msafile> <SS postscript template> <output postscript file name>\n\
 The <msafile> must be in Stockholm format.";
-
-#define OPTSFORKEEP "--small,--list,--indi" /* options required for --keep to work */
 
 static ESL_OPTIONS options[] = {
   /* name       type        default env   range togs  reqs         incomp     help                                                   docgroup */
@@ -541,10 +536,8 @@ static ESL_OPTIONS options[] = {
   { "--dint",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw delete diagram w/only internal (non-terminal) deletions", 2 },
   { "--tabfile",eslARG_OUTFILE,NULL, NULL, NULL, NULL,NULL,        NULL,      "output per position data in tabular format to file <f>", 2 },
 
-  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        NULL,      "draw diagrams for individual sequences in the alignment", 3 },
+  { "--indi",   eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL,        "--small", "draw diagrams for individual sequences in the alignment", 3 },
   { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
-  { "--list",   eslARG_INFILE,FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, only draw individual diagrams of seqs listed in <f>", 3 },
-  { "--keep",   eslARG_OUTFILE,FALSE,NULL, NULL, NULL,OPTSFORKEEP, NULL,      "w/--list,--indi & --small, save aln of seqs in list to <f>", 3 },
 
   { "--no-pp",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 9 },
   { "--no-bp",   eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi,--rf or --cons, do not color nts based on basepair type", 9 },
@@ -604,8 +597,6 @@ main(int argc, char **argv)
   int             mask2len;             /* length of second mask */
   int             mask_has_internal_zeroes = FALSE;  /* does mask have any '0's with at least '1' on both sides? */
   int             mask2_has_internal_zeroes = FALSE; /* does mask have any '0's with at least '1' on both sides? */
-  int            *useme = NULL;         /* only relevant if --list, [0..i..msa->nseq] TRUE to include indi diagram for seq i, FALSE not to */
-  int             nused = 0;            /* only relevant if --list, number of TRUEs in useme */
  /* counts of relevant values from the msa */
   int            *nseq_with_ins_ct = NULL; /* [0..ps->rflen] number of sequences with >=1 insert after each consensus position, only used if --ifreq */
   int            *nins_ct = NULL;          /* [0..ps->rflen] total number of inserted nucleotides (over all seqs) after each consensus position, only used if --ifreq */
@@ -621,17 +612,8 @@ main(int argc, char **argv)
   int            *span_ct = NULL;       /* [0..rfpos..rflen-1], number of sequences that 'span' position rfpos */
   int64_t         msa_alen;             /* msa->alen */
   int             msa_nseq;             /* msa->nseq */
-  int             list_nseq;            /* number of sequences read from a list file */
   /* variables related to small memory mode */
   int             do_small = TRUE;      /* TRUE to operate in small memory mode, FALSE not to */
-  /* small memory mode variables used only if --list and --indi */
-  char            tmp_indi_alifile[32] = "esltmpXXXXXX"; /* the name of the indi alignment file */
-  ESL_MSAFILE    *indi_afp = NULL;      /* MSA file pointer for newly created indi alignment in */
-  FILE           *indi_fp = NULL;       /* file pointer for outputting indi alignment */
-  ESL_MSA        *indi_msa = NULL;      /* new indi msa */
-  int           **indi_per_seq_ins_ct = NULL;   /* [0..indi_msa->nseq-1][0..ps->rflen] for each sequence, the number of inserts after each consensus position */
-  ESL_KEYHASH    *useme_keyhash;        /* keyhash of sequence names listed in list file, only used if --list and --indi enabled */
-  int             i;                    /* counter of sequences */
   /* variables storing which pages to print */
   int             do_default_set = TRUE;  /* TRUE if no options telling specifying what pages to draw were selected */
   int             do_cons = FALSE;        
@@ -700,10 +682,6 @@ main(int argc, char **argv)
     }
 
   /* Check for incompatible options that aren't simple to check with esl_getopts */
-  /* --small doesn't work in combination with --indi unless --list */
-  if (esl_opt_GetBoolean(go, "--small") && esl_opt_IsOn(go, "--indi") && (! esl_opt_IsOn(go, "--list"))) { 
-    esl_fatal("--small only works in combination with --indi if --list is also used");
-  }
   /* --mask-a requires either --mask-x or --mask-u */
   if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
     esl_fatal("--mask-a requires either --mask-u or mask-x");
@@ -1073,22 +1051,13 @@ main(int argc, char **argv)
     /* Predict size of indi output file, based on two data points:
      * 2000 page tRNA rflen=71 is 35 Mb, 2000 page archaeal SSU rflen 1508 is 560 Mb,
      * =~ 0.0002 Mb per page per rfpos */
-    if(esl_opt_IsOn(go, "--list")) { 
-      count_seqs_in_list_file(esl_opt_GetString(go, "--list"), &list_nseq);
-    }
-    else { list_nseq = msa_nseq; }
-    predicted_Mb = (int) (ps->rflen * 0.0002 * list_nseq);
+    predicted_Mb = (int) (ps->rflen * 0.0002 * msa_nseq);
     if(! esl_opt_GetBoolean(go, "--no-pp")) predicted_Mb *= 2;
     /* round to nearest 10 Mb */ 
     tmp_Mb = 10; while(tmp_Mb < predicted_Mb) tmp_Mb += 10;
     predicted_Mb = tmp_Mb;
     if(predicted_Mb > MAXMBWITHOUTFORCE && (! esl_opt_GetBoolean(go, "-f"))) { 
-      if(esl_opt_IsOn(go, "--list")) { 
-	esl_fatal("WARNING: drawing individual seqs and list has %d seqs in it,\noutput postcript file will be large (~%d Mb).\nUse -f to override this warning and do it anyway.", list_nseq, predicted_Mb);
-      }
-      else { 
-	esl_fatal("WARNING: drawing individual seqs and msa has %d seqs in it,\noutput postcript file will be large (~%d Mb).\nUse -f to override this warning and do it anyway.", list_nseq, predicted_Mb);
-      }
+      esl_fatal("WARNING: drawing individual seqs and msa has %d seqs in it,\noutput postcript file will be large (~%d Mb).\nUse -f to override this warning and do it anyway.", msa_nseq, predicted_Mb);
     }
   }
   /* if -d: if we've made do_default_set as FALSE, we set it back to TRUE */
@@ -1246,137 +1215,20 @@ main(int argc, char **argv)
     if((status = expertfile2sspostscript(go, errbuf, ps)) != eslOK) esl_fatal(errbuf);
   }
 
-  if(do_indi) { /* determine if we're printing all seqs or just those listed in --list */
-    if(! esl_opt_IsOn(go, "--list")) {
-      /* we should have an actual msa b/c we checked above for illegal case where --small and --indi enabled w/o --list,
-       * but we check again to make sure */
-      if(do_small) esl_fatal("--small only works in combination with --indi if --list is also used");
-
-      /* get insert info we'll use in individuals_sspostscript() */
-      if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-      }
-      else { 
-	get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-      }
-      /* allocate for and set useme array to all TRUEs, we're printing all seqs */
-      ESL_ALLOC(useme, sizeof(int) * msa_nseq); 
-      esl_vec_ISet(useme, msa_nseq, TRUE);
-      nused = msa_nseq;
+  if(do_indi) { /* we're printing all individual seqs */
+    /* get insert info we'll use in individuals_sspostscript() */
+    if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
+      get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
     }
-    else if(esl_opt_IsOn(go, "--list")) {
-      /* first read the list file */
-      if(! do_small) { 
-	read_seq_list_file_bigmem(esl_opt_GetString(go, "--list"), msa, &useme, &nused);    /* this will die with esl_fatal() upon an error */
-      }
-      else { /* do_small == TRUE */
-	read_seq_list_file_smallmem(esl_opt_GetString(go, "--list"), &useme_keyhash, &nused); /* this will die with esl_fatal() upon an error */
-      }
-      /* At this point, we know which sequences we're going to draw indi diagrams for.
-       * Next step, get insert info. We need this so we can allow --ifile to work (which reads insert info from a file)
-       * instead of relying on always reading insert info from the msa itself.
-       * The way we get insert info varies, depending on if --small and --ifile. 
-       * If ! --small, we read all insert info, either from the msa (if ! --ifile) or from the ifile (if --ifile). 
-       * If   --small, we read only the insert info for the seqs we're going to draw diagrams for.
-       * When --small and ! --ifile, first we have to create the smaller alignment containing only those
-       * seqs we'll draw diagrams for, then we get the insert info from it.
-       */
-      if(! do_small) { 
-	if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file from cmalign, with info from all seqs  */
-	  get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	}
-	else { /* get insert info from the msa */
-	  get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	}
-      }
-      else { /* do_small */ 
-	if(esl_opt_IsOn(go, "--ifile")) { /* read the insert file and get insert info on only those seqs we'll draw diagrams for */
-	  get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, useme_keyhash, NULL, NULL, &(indi_per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
-	}
-	/* the 'else' half of this statement must wait until we've created indi_msa (see notes in comment block immediately
-	 * below). We put the if() part above so that if there's an error in the ifile we find out before we do the 
-	 * full msa regurgitation below.
-	 */
-	
-	/* We're in small memory mode, which means we never read the full alignment into memory. Instead we will just read
-	 * the sequences that we're going to draw indi diagrams for into memory by creating a new msa: indi_msa.
-	 * The way we do this is convoluted: open the msa file, and regurgitate it to a temp file, but taking care only to 
-	 * regurgitate the seqs we want to draw diagrams for. Then we read that temp file into memory as indi_msa.
-	 */
-	esl_msafile_Close(afp);
-	status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-	
-	/* small memory mode, write a temporary alignment with only the sequences we want individual diagrams for */
-	if(esl_opt_IsOn(go, "--keep")) { 
-	  if ((indi_fp  = fopen(esl_opt_GetString(go, "--keep"), "w")) == NULL) esl_fatal("Failed to open temporary output file %s for --indi and --list", esl_opt_GetString(go, "--keep"));
-	}
-	else { 
-	  if ((esl_tmpfile_named(tmp_indi_alifile, &indi_fp)) != eslOK) esl_fatal("Failed to open temporary output file %s for --indi and --list");
-	}
-	if      (status == eslENOTFOUND) esl_fatal("Final pass, alignment file %s doesn't exist or is not readable\n", alifile);
-	else if (status == eslEFORMAT)   esl_fatal("Final pass, couldn't determine format of alignment %s\n", alifile);
-	else if (status != eslOK)        esl_fatal("Final pass, alignment file open failed with error %d\n", status);
-	status = esl_msa_RegurgitatePfam(afp, indi_fp, 
-					 -1, -1, -1, -1, /* don't care about max width of fields */
-					 TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
-					 useme_keyhash, /* only regurgitate seqs in useme_keyhash */
-					 NULL,          /* no list of seqs to skip */
-					 NULL, NULL, -1, '.',
-					 NULL, NULL); /* don't return number of seqs read/regurgitated */
-	fclose(indi_fp); 
-	indi_fp = NULL;
-	if(status == eslEOF)       esl_fatal("Writing temporary alignment for --small, no alignments in file");
-	if(status != eslOK)        esl_fatal("Writing temporary alignment for --small, error reading alignment");
-	
-	/* now read in that small alignment */
-	if(esl_opt_IsOn(go, "--keep")) { 
-	  status = esl_msafile_Open(esl_opt_GetString(go, "--keep"), fmt, NULL, &indi_afp);
-	}
-	else { 
-	  status = esl_msafile_Open(tmp_indi_alifile, fmt, NULL, &indi_afp);
-	}
-	esl_msa_Read(indi_afp, &indi_msa); /* read the full thing into memory */
-	esl_msafile_Close(indi_afp);
-	indi_msa->abc = abc;
-	
-	if(esl_opt_IsOn(go, "--keep")) { 
-	  printf("# Alignment with the %d sequences from %s saved to file %s.\n", nused, esl_opt_GetString(go, "--list"), esl_opt_GetString(go, "--keep"));
-	}
-	else { 
-	  remove(tmp_indi_alifile);
-	}
-	
-	/* check to make sure all the sequences from the list file were in the alignment */
-	if(indi_msa->nseq != nused) { 
-	  for(i = 0; i < nused; i++) { 
-	    if((status = esl_key_Lookup(indi_msa->index, (esl_keyhash_Get(useme_keyhash, i)), NULL)) == eslENOTFOUND) { 
-	      esl_fatal("Error with list file %s, sequence %s does not exist in the alignment.", esl_opt_GetString(go, "--list"), esl_keyhash_Get(useme_keyhash, i));
-	    }
-	  }
-	  /* we should never get here, but just in case */
-	  esl_fatal("Error, couldn't find all the sequences from the list file %s in the alignment (%d expected, %d found).", esl_opt_GetString(go, "--list"), nused, indi_msa->nseq);
-	}
-	
-	/* Now, the complement to the if statement above that begins: if( esl_opt_IsOn(go, "--ifile")) *
-	 * we need to get insert info from indi_msa in the event --ifile was not invoked */
-	if(! esl_opt_IsOn(go, "--ifile")) { 
-	  get_insert_info_from_msa(indi_msa, ps->rflen, NULL, NULL, &indi_per_seq_ins_ct); /* dies with esl_fatal() upon an error */
-	}
-	
-	/* now indi_msa includes exactly the seqs listed in the list file, rewrite useme and nused */
-	ESL_ALLOC(useme, sizeof(int) * indi_msa->nseq); 
-	esl_vec_ISet(useme, indi_msa->nseq, TRUE);
-	nused = indi_msa->nseq;
-      }
-    } /* end of else if (esl_opt_IsOn(go, "--list")) */
-    /* now we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
+    else { 
+      get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
+    }
+    /* we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
      * draw the individual sequence pages */
     if((status = individuals_sspostscript(go, abc, errbuf, ps, abc_ct,
-					  (do_small ? indi_msa            : msa), 
-					  (do_small ? indi_per_seq_ins_ct : per_seq_ins_ct), 
-					  useme, nused, 
-					  (do_small ? ((! esl_opt_GetBoolean(go, "--no-pp")) && (indi_msa->pp != NULL)) : ((! esl_opt_GetBoolean(go, "--no-pp")) && (msa->pp != NULL))),
-					  (! esl_opt_GetBoolean(go, "--no-bp")),  /* do_rescol: paint nucleotides different colors based on basepair type? */
+					  msa, per_seq_ins_ct, 
+					  ((! esl_opt_GetBoolean(go, "--no-pp")) && (msa->pp != NULL)), /* do_prob? draw pp pages? */
+					  (! esl_opt_GetBoolean(go, "--no-bp")), /* do_rescol: paint nucleotides different colors based on basepair type? */
 					  hc_scheme, RB_W5_OH_SCHEME, RB_6_RL_SCHEME, hc_nbins[RB_W5_OH_SCHEME], hc_nbins[RB_6_RL_SCHEME], hc_onecell, 
 					  LIGHTGREYOC,   /* one-cell legend, 5'/3' flush color */
 					  BLACKOC,       /* one-cell legend, watson-crick bp color, only relevant if do_rescol == TRUE */
@@ -1388,7 +1240,7 @@ main(int argc, char **argv)
 					  tabfp)) != eslOK)
       esl_fatal(errbuf);
   }
-  if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps, nused)) != eslOK) esl_fatal(errbuf);
+  if((status = draw_sspostscript(ofp, go, errbuf, command, date, hc_scheme, ps)) != eslOK) esl_fatal(errbuf);
   free(command);
   fclose(ofp);
   printf("# %d page postscript saved to file %s.\n", ps->npage, outfile);
@@ -1418,10 +1270,8 @@ main(int argc, char **argv)
   if(span_ct != NULL) free(span_ct);
   if(nseq_with_ins_ct != NULL) free(nseq_with_ins_ct);
   if(per_seq_ins_ct != NULL) esl_Free2D((void **) per_seq_ins_ct, msa_nseq);
-  if(indi_per_seq_ins_ct != NULL) esl_Free2D((void **) indi_per_seq_ins_ct, indi_msa->nseq);
   if(mask != NULL) free(mask);
   if(date != NULL) free(date);
-  if(useme != NULL) free(useme);
   free_sspostscript(ps);
   esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
@@ -1439,7 +1289,6 @@ main(int argc, char **argv)
   for(z = 0; z < NSCHEMES; z++) { free(hc_scheme[z]); }
   free(hc_scheme);
   if(msa != NULL) esl_msa_Destroy(msa);
-  if(indi_msa != NULL) esl_msa_Destroy(indi_msa);
   return 0;
 
   ERROR: 
@@ -2556,7 +2405,7 @@ draw_text_section_in_legend(FILE *fp, TextLegend_t *tl, SSPostscript_t *ps, int 
  *           eslEINCOMPAT if ps->npage == 0
  */
 static int
-draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps, int nused)
+draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, char *date, float ***hc_scheme, SSPostscript_t *ps)
 {
   int status;
   int p, pi, i, c, l;
@@ -2602,9 +2451,6 @@ draw_sspostscript(FILE *fp, const ESL_GETOPTS *go, char *errbuf, char *command, 
     if(esl_opt_IsOn(go, "--mask-diff")) { 
       fprintf(fp, "%% difffile:    %s\n", esl_opt_GetString(go, "--mask-diff"));
     }	    
-    if(esl_opt_IsOn(go, "--list")) { 
-      fprintf(fp, "%% listfile:      %s\n", esl_opt_GetString(go, "--list"));
-    }
     if(esl_opt_IsOn(go, "--dfile")) { 
       fprintf(fp, "%% dfile:         %s\n", esl_opt_GetString(go, "--dfile"));
     }
@@ -3451,7 +3297,7 @@ parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps)
  */
 static int
 individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, ESL_MSA *msa, int **per_seq_ins_ct, 
-			 int *useme, int nused, int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, 
+			 int do_prob, int do_rescol, float ***hc_scheme, int hc_scheme_idx_s, int hc_scheme_idx_p, 
 			 int hc_nbins_s, int hc_nbins_p, float **hc_onecell, int extdel_idx_s, int wcbp_idx_s, int gubp_idx_s, 
 			 int ncbp_idx_s, int dgbp_idx_s, int hgbp_idx_s, int gap_idx_p, FILE *tabfp)
 {
@@ -3502,7 +3348,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   if(do_prob) { 
     if(msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, individuals_sspostscript() do_prob == TRUE, msa->pp == FALSE");
     for(i = 0; i < msa->nseq; i++) { 
-      if(useme[i] && msa->pp[i] == NULL)
+      if(msa->pp[i] == NULL)
 	ESL_FAIL(eslEINVAL, errbuf, "with --indi, either all or none of the selected sequences must have PP annotation, seq %d does not", i);
     }
     do_prob_res = (! esl_opt_GetBoolean(go, "--no-ntpp"));
@@ -3525,7 +3371,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   if(ps->mask == NULL) { ngap_masked_p = -1; } /* special flag */
 
   /* determine number of pages we'll add */
-  new_npage = do_prob ? nused*2 : nused; 
+  new_npage = do_prob ? msa->nseq*2 : msa->nseq; 
   if((status = add_pages_sspostscript(ps, new_npage, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   /* add the pages carefully, we allocate posterior pages and seq pages differently */
@@ -3591,7 +3437,7 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     /* determine max length of a name */
     namewidth = 8; /* length of 'seq name' */
     for(i = 0; i < msa->nseq; i++) {
-      if(useme[i]) namewidth = ESL_MAX(namewidth, strlen(msa->sqname[i]));
+      namewidth = ESL_MAX(namewidth, strlen(msa->sqname[i]));
     }
     ESL_ALLOC(namedashes, sizeof(char) * namewidth+1);
     namedashes[namewidth] = '\0';
@@ -3642,304 +3488,300 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   ai = 0;
   pp = orig_npage-1;
   for(i = 0; i < msa->nseq; i++) {
-    if(useme[i]) { 
-      /**************************
-       * Draw the sequence page *
-       **************************/
-      pp++;
-      spos = epos = -1;
-      /* determine first and final non-gap position */
-      for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
-	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
-	  spos = apos;
-	  break;
-	}
-      }
-      for(apos = msa->alen-1; apos >= 0; apos--) { 
-	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
-	  epos = apos;
-	  break;
-	}
-      }
-      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE, FALSE);
-      /* init one cell legend counters */
-      nextdel_s = nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = ndge_s = nhge_s = noutline_min = noutline_max = noutline_bp_good = noutline_bp_bad = 0;
-      ai++;
-      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	apos = ps->msa_rf2a_map[rfpos];
-	nins_s = per_seq_ins_ct[i][rfpos+1];
-	apos_is_internal = TRUE; /* set to FALSE below if apos < spos || apos > epos */
-
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
-	ps->uaseqlenA[i] += nins_s;
-	ps->rAA[pp][rfpos] = msa->aseq[i][apos];
-	if(do_outline) {
-	  if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) &&                  /* aseq is not a gap at this posn */
-	     (esl_abc_CIsCanonical(msa->abc, ps->msa_cseq_maj[rfpos])) &&         /* cseq is canonical at this posn */
-	     (toupper(msa->aseq[i][apos]) != toupper(ps->msa_cseq_maj[rfpos]))) { /* aseq != cseq at this posn */
-	    cur_cfreq = abc_ct[apos][esl_abc_DigitizeSymbol(abc, toupper(ps->msa_cseq_maj[rfpos]))] / 
-	      esl_vec_DSum(abc_ct[apos], msa->abc->K);
-	    if(cur_cfreq > 0.75) { ps->otypeAA[pp][rfpos] = OUTLINE_MAX_IDX; noutline_max++; }
-	    else                 { ps->otypeAA[pp][rfpos] = OUTLINE_MIN_IDX; noutline_min++; }
-	  }
-	}	     
-	/* printf("ps->rAA[%3d][%4d]: %c\n", pp, rfpos, ps->rAA[pp][rfpos]);  */
-	if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
-	   (apos < spos || apos > epos)) { 
-	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
-	  nextdel_s++;
-	  apos_is_internal = FALSE;
-	}
-	else { /* color insert value */
-	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
-	}	  
-	if(do_rescol || tabfp != NULL) { 
-	  if(ps->msa_ct[(rfpos+1)] == 0) { 
-	    if(do_rescol) { 
-	      /* single-stranded nucleotide or gap, draw same color as Watson-Cricks */
-	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
-	    }
-	  }
-	  else { /* consensus basepaired nucleotide */
-	    lpos = apos;
-	    rpos = ps->msa_rf2a_map[ps->msa_ct[rfpos+1]-1];
-	    lrfpos = rfpos;
-	    rrfpos = ps->msa_ct[rfpos+1]-1;
-	    maj_bp_is_wc_or_gu = ((is_watson_crick_bp(ps->msa_cseq_maj[lrfpos], ps->msa_cseq_maj[rrfpos])) 
-				  || (is_gu_or_ug_bp(ps->msa_cseq_maj[lrfpos], ps->msa_cseq_maj[rrfpos]))) ? TRUE : FALSE;
-	    lpos_is_internal = apos_is_internal;
-	    rpos_is_internal = TRUE; /* we set to FALSE below if nec */
-	    if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
-	       (rpos < spos || rpos > epos)) { 
-	      rpos_is_internal = FALSE;
-	    }
-	    if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
-	      if(is_watson_crick_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* watson-crick */
-		if(do_rescol) { 
-		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
-		}
-		if(lpos < rpos) nwc_s++;
-		if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
-		  /* check if this seq has a different WC or GU bp than the majority consensus */
-		  if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
-		     (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
-		    noutline_bp_good++; 
-		  }
-		}
-	      }
-	      else if(is_gu_or_ug_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* G:U or U:G */
-		if(do_rescol) { 
-		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
-		}
-		if(lpos < rpos) ngu_s++;
-		if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
-		  if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
-		     (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
-		    noutline_bp_good++; 
-		  }
-		}
-	      }
-	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal double-gap basepair */
-		if(do_rescol) { 
-		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
-		}
-		if(lpos < rpos) ndgi_s++;
-		if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
-		  if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
-		     (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
-		    noutline_bp_bad++; 
-		  }
-		}
-	      }
-	      else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal half-gap basepair */
-		if(do_rescol) { 
-		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
-		}
-		if(lpos < rpos) nhgi_s++;
-		if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
-		  if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
-		     (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
-		    noutline_bp_bad++; 
-		  }
-		}
-	      }
-	      else { /* non-canonical */
-		if(do_rescol) { 
-		  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
-		}
-		if(lpos < rpos) nnc_s++;
-		if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
-		  if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
-		     (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
-		      noutline_bp_bad++; 
-		  }
-		}
-	      }
-	    } /* end of (if(lpos_is_internal && rpos_is_internal)) */
-	    else { /* we'll draw this nucleotide as black */
-	      if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external double-gap basepair */
-		ndge_s++;
-	      }
-	      if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external half-gap basepair */
-		nhge_s++;
-	      }
-	      if(do_rescol) { 
-		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
-	      }
-	    }
-	  }
-	}
-      }
-      ps->rAA[pp][ps->rflen] = '\0';
-      ps->seqidxA[pp] = i;
-      ps->nocclA[pp] = 0;
-
-      if(tabfp != NULL) { 
-	fprintf(tabfp, "  perseq  %-*s  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d", namewidth, msa->sqname[i], spos+1, epos+1, nwc_s, ngu_s, nnc_s, nhgi_s, ndgi_s, nhge_s, ndge_s);
-	if(do_outline) { 
-	  fprintf(tabfp, "  %4d  %4d  %5d  %5d", noutline_min + noutline_max, noutline_max, noutline_bp_good + noutline_bp_bad, noutline_bp_good);
-	}
-	fprintf(tabfp, "\n");
-      }
-
-	
-
-      /* if nec, add one-cell color legends for different bp types */
-      if(do_rescol) { 
-	/* add one-cell color legend for watson-crick basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[wcbp_idx_s], nwc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Watson-Crick basepair (WC bp)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "C-G", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add one-cell color legend for G-U, U-G basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[gubp_idx_s], ngu_s, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U or U-G bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add one-cell color legend for non-canonical basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add one-cell color legend for internal half-gap basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhgi_s, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal half-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A--", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add one-cell color legend for internal double-gap basepairs */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndgi_s, OCCL_BLANK_COUNT, TRUE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "---", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-      }
-
-      /* if nec, add one page cell legend for the two outline types */
-      if(do_outline) { 
-	/* add a psuedo-one-cell color legends, the explanatory text for outlines: */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Positions != to most common nt x:", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* allocate our stack for the procedure */
-	ESL_ALLOC(stack, sizeof(float) * 2);
-	stack[0] = ps->leg_cellsize;
-	stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MIN;
-	/* add one-cell color legend for minimal outline */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_min, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) <  0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MAX;
-	/* add one-cell color legend for maximal outline */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_max, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) >= 0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, TRUE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Number of bps != most common bp a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	/* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "and a:b is Watson-Crick, GU or UG:", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_good, OCCL_BLANK_COUNT, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " Watson-Crick, GU or UG but != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-
-	ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_bad, OCCL_BLANK_COUNT, TRUE, FALSE);
-	if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " non-canonical or w/gap and != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
-	ps->nocclA[pp]++;
-      }
-
-      /* add description to ps */
-      if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "# inserted nucleotides after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
-      /* done with seq page */
-
-      /* add one-cell color legend for external gaps (deletes) */
-      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, OCCL_BLANK_COUNT, FALSE, FALSE);
-      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
-      ps->nocclA[pp]++;
-
-      /***************************************
-       * Draw the posterior probability page *
-       ***************************************/
-      if(do_prob) { /* contract checked that msa->pp[i] is non-NULL */
-	pp++;
-
-	ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_p, hc_nbins_p, limits_p, FALSE, TRUE, TRUE, FALSE);
-	ngap_p = 0;
-	ngap_masked_p = (ps->mask == NULL) ? -1 : 0;
-
-	for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-	  apos = ps->msa_rf2a_map[rfpos];
-	  if(do_prob_res) { 
-	    ps->rAA[pp][rfpos] = msa->aseq[i][apos];
-	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[WHITEOC])) != eslOK) return status;
-	  }
-	  else { 
-	    ps->rAA[pp][rfpos] = ' '; /* no need to add color to a ' ' */
-	  }
-	  if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
-	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	    if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap nucleotide: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
-	    within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
-	    if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
-	  }
-	  else {
-	    if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
-	    ngap_p++;
-	    if(ps->mask != NULL && ps->mask[rfpos] == '1') ngap_masked_p++; 
-	  }
-	}
-	
-	/* add one-cell color legend */
-	ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p, FALSE, FALSE);
-	if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	ps->nocclA[pp] = 1;
-	
-	if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
-	ps->seqidxA[pp] = i;
-	if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
-
-	ps->rAA[pp][ps->rflen] = '\0';
+    /**************************
+     * Draw the sequence page *
+     **************************/
+    pp++;
+    spos = epos = -1;
+    /* determine first and final non-gap position */
+    for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
+      if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+	spos = apos;
+	break;
       }
     }
-  }
+    for(apos = msa->alen-1; apos >= 0; apos--) { 
+      if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+	epos = apos;
+	break;
+      }
+    }
+    ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_s, hc_nbins_s, limits_s, TRUE, TRUE, TRUE, FALSE);
+    /* init one cell legend counters */
+    nextdel_s = nwc_s = ngu_s = nnc_s = ndgi_s = nhgi_s = ndge_s = nhge_s = noutline_min = noutline_max = noutline_bp_good = noutline_bp_bad = 0;
+    ai++;
+    for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+      apos = ps->msa_rf2a_map[rfpos];
+      nins_s = per_seq_ins_ct[i][rfpos+1];
+      apos_is_internal = TRUE; /* set to FALSE below if apos < spos || apos > epos */
+      
+      if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
+      ps->uaseqlenA[i] += nins_s;
+      ps->rAA[pp][rfpos] = msa->aseq[i][apos];
+      if(do_outline) {
+	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) &&                  /* aseq is not a gap at this posn */
+	   (esl_abc_CIsCanonical(msa->abc, ps->msa_cseq_maj[rfpos])) &&         /* cseq is canonical at this posn */
+	   (toupper(msa->aseq[i][apos]) != toupper(ps->msa_cseq_maj[rfpos]))) { /* aseq != cseq at this posn */
+	  cur_cfreq = abc_ct[apos][esl_abc_DigitizeSymbol(abc, toupper(ps->msa_cseq_maj[rfpos]))] / 
+	    esl_vec_DSum(abc_ct[apos], msa->abc->K);
+	  if(cur_cfreq > 0.75) { ps->otypeAA[pp][rfpos] = OUTLINE_MAX_IDX; noutline_max++; }
+	  else                 { ps->otypeAA[pp][rfpos] = OUTLINE_MIN_IDX; noutline_min++; }
+	}
+      }	     
+      /* printf("ps->rAA[%3d][%4d]: %c\n", pp, rfpos, ps->rAA[pp][rfpos]);  */
+      if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
+	 (apos < spos || apos > epos)) { 
+	if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[extdel_idx_s])) != eslOK) return status;
+	nextdel_s++;
+	apos_is_internal = FALSE;
+      }
+      else { /* color insert value */
+	if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_s], nins_s, ps->sclAA[pp], TRUE, NULL)) != eslOK) return status;
+      }	  
+      if(do_rescol || tabfp != NULL) { 
+	if(ps->msa_ct[(rfpos+1)] == 0) { 
+	  if(do_rescol) { 
+	    /* single-stranded nucleotide or gap, draw same color as Watson-Cricks */
+	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	  }
+	}
+	else { /* consensus basepaired nucleotide */
+	  lpos = apos;
+	  rpos = ps->msa_rf2a_map[ps->msa_ct[rfpos+1]-1];
+	  lrfpos = rfpos;
+	  rrfpos = ps->msa_ct[rfpos+1]-1;
+	  maj_bp_is_wc_or_gu = ((is_watson_crick_bp(ps->msa_cseq_maj[lrfpos], ps->msa_cseq_maj[rrfpos])) 
+				|| (is_gu_or_ug_bp(ps->msa_cseq_maj[lrfpos], ps->msa_cseq_maj[rrfpos]))) ? TRUE : FALSE;
+	  lpos_is_internal = apos_is_internal;
+	  rpos_is_internal = TRUE; /* we set to FALSE below if nec */
+	  if((spos != -1 && epos != -1) && /* this should always be true, unless seq has length 0! */
+	     (rpos < spos || rpos > epos)) { 
+	    rpos_is_internal = FALSE;
+	  }
+	  if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
+	    if(is_watson_crick_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* watson-crick */
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
+	      }
+	      if(lpos < rpos) nwc_s++;
+	      if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
+		/* check if this seq has a different WC or GU bp than the majority consensus */
+		if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
+		   (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
+		  noutline_bp_good++; 
+		}
+	      }
+	    }
+	    else if(is_gu_or_ug_bp(msa->aseq[i][lpos], msa->aseq[i][rpos])) { /* G:U or U:G */
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[gubp_idx_s])) != eslOK) return status;
+	      }
+	      if(lpos < rpos) ngu_s++;
+	      if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
+		if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
+		   (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
+		  noutline_bp_good++; 
+		}
+	      }
+	    }
+	    else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal double-gap basepair */
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[dgbp_idx_s])) != eslOK) return status;
+	      }
+	      if(lpos < rpos) ndgi_s++;
+	      if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
+		if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
+		   (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
+		  noutline_bp_bad++; 
+		}
+	      }
+	    }
+	    else if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* internal half-gap basepair */
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[hgbp_idx_s])) != eslOK) return status;
+	      }
+	      if(lpos < rpos) nhgi_s++;
+	      if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
+		if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
+		   (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
+		  noutline_bp_bad++; 
+		}
+	      }
+	    }
+	    else { /* non-canonical */
+	      if(do_rescol) { 
+		if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[ncbp_idx_s])) != eslOK) return status;
+	      }
+	      if(lpos < rpos) nnc_s++;
+	      if(do_outline && (lpos > rpos) && maj_bp_is_wc_or_gu) { 
+		if((ps->otypeAA[pp][lrfpos] != OUTLINE_NONE_IDX) || 
+		   (ps->otypeAA[pp][rrfpos] != OUTLINE_NONE_IDX)) {
+		  noutline_bp_bad++; 
+		}
+	      }
+	    }
+	  } /* end of (if(lpos_is_internal && rpos_is_internal)) */
+	  else { /* we'll draw this nucleotide as black */
+	    if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) && (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external double-gap basepair */
+	      ndge_s++;
+	    }
+	    if ((! esl_abc_CIsResidue(abc, msa->aseq[i][lpos])) || (! esl_abc_CIsResidue(abc, msa->aseq[i][rpos]))) { /* external half-gap basepair */
+	      nhge_s++;
+	    }
+	    if(do_rescol) { 
+	      if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[BLACKOC])) != eslOK) return status;
+	    }
+	  }
+	}
+      }
+    }
+    ps->rAA[pp][ps->rflen] = '\0';
+    ps->seqidxA[pp] = i;
+    ps->nocclA[pp] = 0;
+    
+    if(tabfp != NULL) { 
+      fprintf(tabfp, "  perseq  %-*s  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d  %4d", namewidth, msa->sqname[i], spos+1, epos+1, nwc_s, ngu_s, nnc_s, nhgi_s, ndgi_s, nhge_s, ndge_s);
+      if(do_outline) { 
+	fprintf(tabfp, "  %4d  %4d  %5d  %5d", noutline_min + noutline_max, noutline_max, noutline_bp_good + noutline_bp_bad, noutline_bp_good);
+      }
+      fprintf(tabfp, "\n");
+    }
+    
+    /* if nec, add one-cell color legends for different bp types */
+    if(do_rescol) { 
+      /* add one-cell color legend for watson-crick basepairs */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[wcbp_idx_s], nwc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Watson-Crick basepair (WC bp)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "C-G", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add one-cell color legend for G-U, U-G basepairs */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[gubp_idx_s], ngu_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U or U-G bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "G-U", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add one-cell color legend for non-canonical basepairs */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[ncbp_idx_s], nnc_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "non-canonical bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A-A", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add one-cell color legend for internal half-gap basepairs */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[hgbp_idx_s], nhgi_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal half-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "A--", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add one-cell color legend for internal double-gap basepairs */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[dgbp_idx_s], ndgi_s, OCCL_BLANK_COUNT, TRUE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "internal double-gap bp", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "---", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+    }
+
+    /* if nec, add one page cell legend for the two outline types */
+    if(do_outline) { 
+      /* add a psuedo-one-cell color legends, the explanatory text for outlines: */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Positions != to most common nt x:", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* allocate our stack for the procedure */
+      ESL_ALLOC(stack, sizeof(float) * 2);
+      stack[0] = ps->leg_cellsize;
+      stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MIN;
+      /* add one-cell color legend for minimal outline */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_min, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) <  0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      stack[1] = ps->leg_cellsize * OUTLINE_LINEWIDTH_CELL_FRACTION_MAX;
+      /* add one-cell color legend for maximal outline */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_max, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "!= x and freq(x) >= 0.75", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_procedure_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], OUTLINE_PROCEDURE, stack, 2, errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, TRUE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "Number of bps != most common bp a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      /* add a psuedo-one-cell color legends, the explanatory text for outline basepairs: */
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], OCCL_BLANK_COUNT, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], "and a:b is Watson-Crick, GU or UG:", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_good, OCCL_BLANK_COUNT, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " Watson-Crick, GU or UG but != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+
+      ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[BLACKOC], noutline_bp_bad, OCCL_BLANK_COUNT, TRUE, FALSE);
+      if((status = add_text_to_onecell_colorlegend    (ps, ps->occlAAA[pp][ps->nocclA[pp]], " non-canonical or w/gap and != a:b", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      if((status = add_celltext_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "", errbuf)) != eslOK) return status;
+      ps->nocclA[pp]++;
+    }
+
+    /* add description to ps */
+    if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "# inserted nucleotides after each consensus position", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
+    /* done with seq page */
+
+    /* add one-cell color legend for external gaps (deletes) */
+    ps->occlAAA[pp][ps->nocclA[pp]] = create_onecell_colorlegend(hc_onecell[extdel_idx_s], nextdel_s, OCCL_BLANK_COUNT, FALSE, FALSE);
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][ps->nocclA[pp]], "5'/3'-flush gaps", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    ps->nocclA[pp]++;
+
+    /***************************************
+     * Draw the posterior probability page *
+     ***************************************/
+    if(do_prob) { /* contract checked that msa->pp[i] is non-NULL */
+      pp++;
+
+      ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx_p, hc_nbins_p, limits_p, FALSE, TRUE, TRUE, FALSE);
+      ngap_p = 0;
+      ngap_masked_p = (ps->mask == NULL) ? -1 : 0;
+
+      for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
+	apos = ps->msa_rf2a_map[rfpos];
+	if(do_prob_res) { 
+	  ps->rAA[pp][rfpos] = msa->aseq[i][apos];
+	  if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[WHITEOC])) != eslOK) return status;
+	}
+	else { 
+	  ps->rAA[pp][rfpos] = ' '; /* no need to add color to a ' ' */
+	}
+	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
+	  if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	  if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap nucleotide: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
+	  within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
+	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
+	}
+	else {
+	  if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[gap_idx_p])) != eslOK) return status;
+	  ngap_p++;
+	  if(ps->mask != NULL && ps->mask[rfpos] == '1') ngap_masked_p++; 
+	}
+      }
+	
+      /* add one-cell color legend */
+      ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[gap_idx_p], ngap_p, ngap_masked_p, FALSE, FALSE);
+      if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "gap", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->nocclA[pp] = 1;
+	
+      if((status = add_text_to_scheme_colorlegend(ps, ps->sclAA[pp], "posterior probability \\(alignment confidence\\)", ps->legx_max_chars, errbuf)) != eslOK) return status;
+      ps->seqidxA[pp] = i;
+      if((status = add_page_desc_to_sspostscript(ps, pp, msa->sqname[i], errbuf)) != eslOK) return status;
+
+      ps->rAA[pp][ps->rflen] = '\0';
+    }
+  } /* end of for(i = 0; i < msa->nseq; i++) */
   free(limits_s);
   free(limits_p);
   return eslOK;
@@ -6438,141 +6280,6 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
  ERROR: ESL_FAIL(eslEINVAL, errbuf, "draw_header_and_footer(), memory error.");
 }
 
-
-/* Function: read_seq_list_file_bigmem
- * Date:     EPN, Thu Jun  5 13:21:36 2008
- * 
- * Read a file listing sequence names to draw individual
- * structure diagrams for, and find those names in an 
- * input MSA. This function is only called if --small
- * is not enabled, b/c if it is, then the msa does not
- * have any sequence info in it.
- *
- * <ret_useme> is an array specifying which sequences
- * were listed in the file. [0..i..msa->nseq-1]. It is
- * allocated here.
- * 
- * ret_useme[i] == TRUE if seq i was listed in the file,
- *                 FALSE otherwise.
- * <ret_nused> is filled with number of unique
- *             sequences read in the file that exist
- *             in the msa.
- * 
- * Returns eslOK on success.
- *
- * Dies with an error message if a sequence listed
- * in the file does not exist in the msa, or
- * some other problem is encountered.
- */
-static int
-read_seq_list_file_bigmem(char *filename, ESL_MSA *msa, int **ret_useme, int *ret_nused)
-{
-  int             status;
-  ESL_FILEPARSER *efp;
-  char           *seqname;
-  int            *useme = NULL;
-  int             nused = 0;
-  int             seqidx;
-
-  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
-  esl_vec_ISet(useme, msa->nseq, FALSE);
-
-  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
-  
-  while((status = esl_fileparser_GetToken(efp, &seqname, NULL)) != eslEOF) {
-    status = esl_key_Lookup(msa->index, seqname, &seqidx);
-    if(status == eslENOTFOUND) esl_fatal("Error while reading list file %s, sequence %s does not exist in the alignment.", filename, seqname);
-    if(useme[seqidx] == FALSE) { 
-      useme[seqidx] = TRUE;
-      nused++;
-    }
-  }
-  esl_fileparser_Close(efp);
-
-  *ret_useme = useme;
-  *ret_nused = nused;
-  return eslOK;
-
- ERROR:
-  if(useme != NULL) free(useme);
-  esl_fatal("Memory allocation error while reading list file %s.", filename);
-  return status; /* NEVERREACHED */
-}
-
-/* Function: read_seq_list_file_smallmem
- * Date:     EPN, Tue Jan 19 15:44:08 2010
- * 
- * Read a file listing sequence names to draw individual
- * structure diagrams for, and create a keyhash with
- * only those names in it. This function is only called if 
- * --small is enabled.
- *
- * Returns eslOK on success.
- *
- * Dies with an error message if a sequence listed
- * in the file does not exist in the msa, or
- * some other problem is encountered.
- */
-static int
-read_seq_list_file_smallmem(char *filename, ESL_KEYHASH **ret_useme_keyhash, int *ret_nused)
-{
-  int             status;
-  ESL_FILEPARSER *efp;
-  char           *seqname;
-  int             nused = 0;
-  ESL_KEYHASH    *useme_keyhash;
-
-  useme_keyhash = esl_keyhash_Create();
-  if(useme_keyhash == NULL) esl_fatal("Memory allocation error.");
-  
-  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
-  
-  while((status = esl_fileparser_GetToken(efp, &seqname, NULL)) != eslEOF) {
-    status = esl_key_Store(useme_keyhash, seqname, NULL);
-    if(status == eslOK) nused++;
-    else if(status != eslEDUP) esl_fatal("Error adding sequence %s to keyhash", seqname);
-  }
-  esl_fileparser_Close(efp);
-
-  *ret_useme_keyhash = useme_keyhash;
-  *ret_nused = nused;
-  return eslOK;
-
-}
-
-/* Function: count_seqs_in_list_file
- * Date:     EPN, Thu May 13 10:31:20 2010
- * 
- * Given a file listing sequence names, count the 
- * number of names. Return the number in <ret_nseq>.
- * We do not check that the seqs are actually in 
- * an msa or not, we only care about number of
- * seqs so we can warn the user if the requested
- * indi output file will be huge.
- * 
- * Returns eslOK on success.
- *
- * Dies with an error message if the file doesn't exist.
- * or some other problem is encountered.
- */
-static int
-count_seqs_in_list_file(char *filename, int *ret_nseq)
-{
-  int             status;
-  ESL_FILEPARSER *efp;
-  int             nseq = 0;
-
-  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", filename);
-  
-  while((status = esl_fileparser_GetToken(efp, NULL, NULL)) != eslEOF) {
-    nseq++;
-  }
-  esl_fileparser_Close(efp);
-
-  *ret_nseq = nseq;
-  return eslOK;
-}
-
 /* Function: get_insert_info_from_msa
  * Date:     EPN, Fri Dec  4 13:52:53 2009
  * 
@@ -6766,7 +6473,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
   int             already_handled_special_spos = FALSE;
   int             prv_e_increment, prv_e_decrement; 
 
-  if (esl_fileparser_Open(ifile, NULL, &efp) != eslOK) esl_fatal("Error: failed to open list file %s\n", ifile);
+  if (esl_fileparser_Open(ifile, NULL, &efp) != eslOK) esl_fatal("Error: failed to open insert file %s\n", ifile);
   esl_fileparser_SetCommentChar(efp, '#');
 
   /* determine how many sequences we'll be storing info for */
