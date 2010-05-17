@@ -494,7 +494,7 @@ static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double *
 static int  get_consensus_seqs_from_abc_ct(const ESL_GETOPTS *go,SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
-static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
+static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zerodel_idx, int hc_fewdel_idx, FILE *tabfp);
 static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
@@ -1182,11 +1182,11 @@ main(int argc, char **argv)
   }
   
   if(do_dall) { /* make a new postscript page marking all deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, TRUE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, TRUE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
   
   if(do_dint) { /* internal deletes */
-    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
+    if((status = delete_sspostscript(go, abc, errbuf, ps, abc_ct, span_ct, msa_nseq, FALSE, hc_scheme, RB_6_RH_SCHEME, hc_nbins[RB_6_RH_SCHEME], hc_onecell, LIGHTGREYOC, DARKGREYOC, tabfp)) != eslOK) esl_fatal(errbuf);
   }
 
   if(do_prob && pp_ct != NULL) { /* avg post prob */
@@ -4351,26 +4351,32 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
  * Return:   eslOK on success.
  */
 static int
-delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zerodel_idx, int hc_fewdel_idx, FILE *tabfp)
 {
   int status;
   int p, pp, c, l, bi;
   int rfpos, apos;
   int orig_npage = ps->npage;
   double dfreq;
-  int nonecell = 0;
-  int nonecell_masked = 0;
+  int nzerodel = 0;
+  int nzerodel_masked = 0;
+  int nfewdel = 0;
+  int nfewdel_masked = 0;
   int within_mask;
   float *limits = NULL;
-  
+  float fewdel_thresh;
   float n_ext_del; /* msa_nseq - span_ct[rfpos], number of external deletions */
+  if(ps->mask == NULL) { 
+    nzerodel_masked = -1; /* special flag */
+    nfewdel_masked = -1;  /* special flag */
+  }
 
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(int *) * ps->rflen);
     ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
@@ -4388,13 +4394,14 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
 
   /* add color legend */
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
-  limits[0] = 0.0;
-  limits[1] = 0.167;
-  limits[2] = 0.333;
-  limits[3] = 0.500;
-  limits[4] = 0.667;
-  limits[5] = 0.833;
-  limits[6] = 1.000;
+  fewdel_thresh = 0.001; /* positions with delete freq < this value will be painted specially (dark grey) */
+  limits[0] = fewdel_thresh;
+  limits[1] = 0.05;
+  limits[2] = 0.20;
+  limits[3] = 0.35;
+  limits[4] = 0.50;
+  limits[5] = 0.75;
+  limits[6] = 1.00;
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, FALSE, TRUE, TRUE);
 
   if(tabfp != NULL) { 
@@ -4419,8 +4426,9 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# Value ranges for bins:\n");
       fprintf(tabfp, "# \tbin  0: special case, 0 sequences have a delete at position\n");
+      fprintf(tabfp, "# \tbin  1: special case, < %.5f fraction of sequences have internal deletes at position\n", fewdel_thresh);
       for(l = 0; l < hc_nbins; l++) { 
-	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of deletes per position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
+	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of deletes per position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
       }
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# %9s  %6s  %8s  %3s", "type", "cpos", "dfreq", "bin");
@@ -4450,8 +4458,9 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# Value ranges for bins:\n");
       fprintf(tabfp, "# \tbin  0: special case, 0 sequences have an internal delete at position\n");
+      fprintf(tabfp, "# \tbin  1: special case, < %.5f fraction of sequences have internal deletes at position\n", fewdel_thresh);
       for(l = 0; l < hc_nbins; l++) { 
-	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of internal deletes per position\n", l+1, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
+	fprintf(tabfp, "# \tbin %2d: [%.3f-%.3f%s frequency of internal deletes per position\n", l+2, limits[l], limits[l+1], (l == hc_nbins-1) ? "]" : ")");
       }
       fprintf(tabfp, "#\n");
       fprintf(tabfp, "# %9s  %6s  %8s  %10s  %3s", "type", "cpos", "dfreq", "nspan", "bin");
@@ -4463,17 +4472,16 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
     }
   }
 
-  if(ps->mask == NULL) nonecell_masked = -1; /* special flag */
   /* draw delete page */
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos];
     n_ext_del = do_all ? -1. : (float) (msa_nseq - span_ct[rfpos]); /* num external deletes is num seqs minus number of seqs that 'span' apos, see function header comments for explanation */
     if((( do_all) && ( abc_ct[apos][abc->K] < eslSMALLX1)) ||               /* abc_ct[apos][abc->K] == 0 */
        ((!do_all) && ((abc_ct[apos][abc->K] - n_ext_del) < eslSMALLX1))) {  /* abc_ct[apos][abc->K] == n_ext_del (all deletes are external) */
-      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status; 
-      nonecell++;
-      if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_masked++; 
-      bi = -1;
+      if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_zerodel_idx])) != eslOK) return status; 
+      nzerodel++;
+      if(ps->mask != NULL && ps->mask[rfpos] == '1') nzerodel_masked++; 
+      bi = -2; /* special case */
       dfreq = 0.;
     }
     else {
@@ -4482,9 +4490,16 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
 	( abc_ct[apos][abc->K]              / (float) msa_nseq) : 
 	((abc_ct[apos][abc->K] - n_ext_del) / (float) msa_nseq);
       /* printf("do_all: %d rfpos: %d dfreq: %.2f\n", do_all, rfpos, dfreq); */
-      if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      if (dfreq < fewdel_thresh) { 
+	if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_fewdel_idx])) != eslOK) return status;
+	nfewdel++;
+	if(ps->mask != NULL && ps->mask[rfpos] == '1') nfewdel_masked++; 
+	bi = -1; /* special case */
+      }
+      else { 
+	if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], dfreq, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
+      }
     }
-
     /* fill in info for the consensus nucleotide */
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       if(ps->mask == NULL || ps->mask[rfpos] == '1') { 
@@ -4498,22 +4513,25 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
     }
 
     if(tabfp != NULL) { 
-      if(do_all) fprintf(tabfp, "  deleteall  %6d  %8.5f  %3d",       rfpos+1, dfreq, bi+1);
-      else       fprintf(tabfp, "  deleteint  %6d  %8.5f  %10d  %3d", rfpos+1, dfreq, span_ct[rfpos], bi+1);
+      if(do_all) fprintf(tabfp, "  deleteall  %6d  %8.5f  %3d",       rfpos+1, dfreq, bi+2);
+      else       fprintf(tabfp, "  deleteint  %6d  %8.5f  %10d  %3d", rfpos+1, dfreq, span_ct[rfpos], bi+2);
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0); 
       fprintf(tabfp, "\n");
     }
   }
     
   /* add one-cell color legend */
-  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_onecell_idx], nonecell, nonecell_masked, FALSE, FALSE);
-  ps->nocclA[pp] = 1;
+  ps->occlAAA[pp][0] = create_onecell_colorlegend(hc_onecell[hc_zerodel_idx], nzerodel, nzerodel_masked, FALSE, FALSE);
+  ps->occlAAA[pp][1] = create_onecell_colorlegend(hc_onecell[hc_fewdel_idx],  nfewdel,  nfewdel_masked,  FALSE, FALSE);
+  ps->nocclA[pp] = 2;
 
   if(do_all) { 
     if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero deletions", ps->legx_max_chars, errbuf)) != eslOK) return status;
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "< 0.001 seqs have delete", ps->legx_max_chars, errbuf)) != eslOK) return status;
   }
   else {
     if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][0], "zero internal deletions", ps->legx_max_chars, errbuf)) != eslOK) return status; 
+    if((status = add_text_to_onecell_colorlegend(ps, ps->occlAAA[pp][1], "< 0.001 seqs have delete", ps->legx_max_chars, errbuf)) != eslOK) return status;
   }
 
   /* add color legend and description */
@@ -4567,7 +4585,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   int within_mask;
   float ifreq;
   int bi;
-  float fewins_thresh = 0.001; /* positions with insert freqs < this value will be painted specially (dark grey) */
+  float fewins_thresh;
 
   if(ps->mask == NULL) { 
     nzeroins_masked = -1; /* special flag */
@@ -4596,6 +4614,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
   /* add color legend */
   ESL_ALLOC(limits, sizeof(float) * (hc_nbins+1)); 
+  fewins_thresh = 0.001;
   limits[0] = fewins_thresh;
   limits[1] = 0.01;
   limits[2] = 0.05;
