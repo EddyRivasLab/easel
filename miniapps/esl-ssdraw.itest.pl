@@ -401,7 +401,7 @@ for($pass = 0; $pass < 2; $pass++) {
     $output = `cat $tmppfx.ps`;
     if($output !~ /\(tRNA     71    21\)/)              { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
     if($output !~ /\(zero deletions\)/)                { die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
-    if($output !~ /\%nucleotide 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.50\d* 0.00\d* 0.00\d* 0.50\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
+    if($output !~ /\%nucleotide 1\nnewpath\n.+moveto  0 8 rlineto 8 0 rlineto 0 -8 rlineto closepath\n  0.42\d* 0.00\d* 1.00\d* 0.00\d* setcmykcolor/) {  die "FAIL: postscript diagram drawn incorrectly on pass $pass2write"; }
 
     system("$eslssdraw $smallA[$pass] --dint $alifile $templatefile $tmppfx.ps > /dev/null");
     if ($? != 0)                                                                 { die "FAIL: esl-ssdraw failed unexpectedly on pass $pass2write";}
@@ -446,7 +446,7 @@ for($pass = 0; $pass < 2; $pass++) {
     if($output !~ /infocontent       7   1.27\d+           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /mutualinfo    16     30     38   0.47\d*   0.47\d*    0.76\d*           5    5/) { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /insertfreq      45   0.60000           5    6/)                                  { die "FAIL: tab file incorrectly written on pass $pass2write"; }
-    if($output !~ /deleteall      67   0.20\d*    2/)                                               { die "FAIL: tab file incorrectly written on pass $pass2write"; }
+    if($output !~ /deleteall      67   0.20\d*    4/)                                               { die "FAIL: tab file incorrectly written on pass $pass2write"; }
     if($output !~ /deleteint      67   0.00\d*           4    0/)                                   { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
     if($output !~ /avgpostprob      19   0.88\d*           5    4/)                                 { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
     if($output !~ /span      67   0.80\d*    6/)                                                    { die "FAIL: tab file incorrectly written on pass $pass2write"; } 
