@@ -6539,7 +6539,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
 	esl_fatal("Error reading insert file, failed to read consensus length on line %d of file %s\n", efp->linenumber, ifile); 
       }
       if(rflen != atoi(tok)) {
-	esl_fatal("Error reading insert file, read consensus length of %d on line %d of file %s, but expected length %d\n", atoi(tok), rflen, efp->linenumber, ifile); 	
+	esl_fatal("Error reading insert file, read consensus length of %d on line %d of file %s, but expected length %d\n", atoi(tok), efp->linenumber, ifile, rflen);
       } 
     }     
     else if (strncmp(tok, "//", 2) == 0) { /* end of data for an ifile, but we may have concatenated them, so we keep going */
