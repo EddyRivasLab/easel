@@ -387,26 +387,26 @@ supertags:
 ## For building as a library with an SSU-ALIGN distribution.
 ##
 ssu:
-	mv miniapps/esl-alimanip miniapps/ssu-esl-afetch
-	mv miniapps/esl-alimanip miniapps/ssu-esl-alimanip
-	mv miniapps/esl-alimask miniapps/ssu-esl-alimap
-	mv miniapps/esl-alimask miniapps/ssu-esl-alimask
-	mv miniapps/esl-alimerge miniapps/ssu-esl-alimerge
-	mv miniapps/esl-alistat miniapps/ssu-esl-alistat
-	mv miniapps/esl-cluster miniapps/ssu-esl-cluster
-	mv miniapps/esl-compalign miniapps/ssu-esl-compalign
+	mv miniapps/esl-afetch     miniapps/ssu-esl-afetch
+	mv miniapps/esl-alimanip   miniapps/ssu-esl-alimanip
+	mv miniapps/esl-alimap     miniapps/ssu-esl-alimap
+	mv miniapps/esl-alimask    miniapps/ssu-esl-alimask
+	mv miniapps/esl-alimerge   miniapps/ssu-esl-alimerge
+	mv miniapps/esl-alistat    miniapps/ssu-esl-alistat
+	mv miniapps/esl-cluster    miniapps/ssu-esl-cluster
+	mv miniapps/esl-compalign  miniapps/ssu-esl-compalign
 	mv miniapps/esl-compstruct miniapps/ssu-esl-compstruct
-	mv miniapps/esl-histplot miniapps/ssu-esl-construct
-	mv miniapps/esl-histplot miniapps/ssu-esl-histplot
-	mv miniapps/esl-mask miniapps/ssu-esl-mask
-	mv miniapps/esl-reformat miniapps/ssu-esl-reformat
-	mv miniapps/esl-selectn miniapps/ssu-esl-selectn
-	mv miniapps/esl-seqrange miniapps/ssu-esl-seqrange
-	mv miniapps/esl-seqstat miniapps/ssu-esl-seqstat
-	mv miniapps/esl-sfetch miniapps/ssu-esl-sfetch
-	mv miniapps/esl-shuffle miniapps/ssu-esl-shuffle
-	mv miniapps/esl-ssdraw miniapps/ssu-esl-ssdraw
-	mv miniapps/esl-weight miniapps/ssu-esl-weight
+	mv miniapps/esl-construct  miniapps/ssu-esl-construct
+	mv miniapps/esl-histplot   miniapps/ssu-esl-histplot
+	mv miniapps/esl-mask       miniapps/ssu-esl-mask
+	mv miniapps/esl-reformat   miniapps/ssu-esl-reformat
+	mv miniapps/esl-selectn    miniapps/ssu-esl-selectn
+	mv miniapps/esl-seqrange   miniapps/ssu-esl-seqrange
+	mv miniapps/esl-seqstat    miniapps/ssu-esl-seqstat
+	mv miniapps/esl-sfetch     miniapps/ssu-esl-sfetch
+	mv miniapps/esl-shuffle    miniapps/ssu-esl-shuffle
+	mv miniapps/esl-ssdraw     miniapps/ssu-esl-ssdraw
+	mv miniapps/esl-weight     miniapps/ssu-esl-weight
 
 ################################################################
 # @LICENSE@
