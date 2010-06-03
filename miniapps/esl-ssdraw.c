@@ -1098,7 +1098,7 @@ main(int argc, char **argv)
   if(ofp == NULL) { 
     /* open postscript output file for writing */
     if ((ofp = fopen(outfile, "w")) == NULL)
-      ESL_FAIL(eslFAIL, errbuf, "Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
+      esl_fatal("Failed to open output postscript file %s\n", esl_opt_GetArg(go, 2));
   }
   
   /* determine position for header and legend */
@@ -1126,7 +1126,7 @@ main(int argc, char **argv)
   }
   /* determine span count */
   if(need_span_ct) { 
-    if((status = get_span_ct(ps->msa_rf2a_map, msa_alen, ps->rflen, msa_nseq, spos_ct, epos_ct, srfoff_ct, erfoff_ct, &span_ct)) != eslOK) ESL_FAIL(eslEMEM, errbuf, "Out of memory, getting span_ct array.");
+    if((status = get_span_ct(ps->msa_rf2a_map, msa_alen, ps->rflen, msa_nseq, spos_ct, epos_ct, srfoff_ct, erfoff_ct, &span_ct)) != eslOK) esl_fatal("Out of memory, getting span_ct array.");
   }
   /* determine consensus sequence */
   if((status = get_consensus_seqs_from_abc_ct(go, ps, errbuf, abc_ct, abc, msa_alen)) != eslOK) esl_fatal(errbuf);
