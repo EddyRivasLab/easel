@@ -5856,7 +5856,7 @@ PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr,
 /* Function: get_command
  * Date:     EPN, Fri Jan 25 13:56:10 2008
  *
- * Purpose:  Return the command used to call ssu-draw
+ * Purpose:  Return the command used to call esl-ssdraw
  *           in <ret_command>.
  *
  * Returns:  eslOK on success; eslEMEM on allocation failure.
