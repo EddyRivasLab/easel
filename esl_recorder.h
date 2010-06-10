@@ -8,6 +8,10 @@
 
 #include "esl_config.h"
 
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+
 #include <stdio.h>
 
 /* Object: ESL_RECORDER
