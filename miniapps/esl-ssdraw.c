@@ -308,9 +308,9 @@
 #define OUTLINE_LINEWIDTH_CELL_FRACTION_MIN 0.04
 #define OUTLINE_LINEWIDTH_CELL_FRACTION_MAX 0.16
 #define NOUTLINETYPES 2
-#define OUTLINE_NONE_IDX -1
-#define OUTLINE_MIN_IDX 0
-#define OUTLINE_MAX_IDX 1
+#define OUTLINE_NONE_IDX 0
+#define OUTLINE_MIN_IDX 1
+#define OUTLINE_MAX_IDX 2
 #define OUTLINE_PROCEDURE "box"
 
 /* one cell color legends, special values */
