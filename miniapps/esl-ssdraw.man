@@ -659,11 +659,7 @@ sequence, even if the alignment has PP annotation.
 
 .TP
 .B --no-bp
-When used in combination with 
-.B --indi
-or
-.B --rf,
-do not color basepaired nucleotides based on their basepair type.
+Do not color basepaired nucleotides based on their basepair type.
 
 .TP
 .B --no-ol

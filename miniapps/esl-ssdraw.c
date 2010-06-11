@@ -540,7 +540,7 @@ static ESL_OPTIONS options[] = {
   { "-f",       eslARG_NONE,  FALSE, NULL, NULL, NULL,"--indi",    NULL,      "force; w/--indi draw all seqs, even if predicted output >100 Mb", 3 },
 
   { "--no-pp",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "with --indi, do not draw indi posterior probability diagrams", 9 },
-  { "--no-bp",   eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "w/--indi,--rf or --cons, do not color nts based on basepair type", 9 },
+  { "--no-bp",   eslARG_NONE, FALSE, NULL, NULL, NULL,NULL,        NULL,      "do not color nucleotides based on basepair type", 9 },
   { "--no-ol",   eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi",    NULL,      "w/--indi, do not outline nts that are not most common nt", 9 },
   { "--no-ntpp", eslARG_NONE, FALSE, NULL, NULL, NULL,"--indi", "--no-pp", "w/--indi, do not draw nts on individual post prob diagrams", 9 },
 
@@ -685,10 +685,6 @@ main(int argc, char **argv)
   /* --mask-a requires either --mask-x or --mask-u */
   if (esl_opt_IsOn(go, "--mask-a") && (! esl_opt_IsOn(go, "--mask-u")) && (! esl_opt_IsOn(go, "--mask-x"))) { 
     esl_fatal("--mask-a requires either --mask-u or mask-x");
-  }
-  /* --no-bp requires either --indi or --rf */
-  if (esl_opt_GetBoolean(go, "--no-bp") && (! esl_opt_IsOn(go, "--indi")) && (! esl_opt_IsOn(go, "--rf"))) { 
-    esl_fatal("--no-bp requires either --indi or --rf");
   }
 
   alifile      = esl_opt_GetArg(go, 1);
