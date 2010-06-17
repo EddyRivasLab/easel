@@ -524,7 +524,6 @@ esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc)
 {
   int i;
   ESL_SQ_BLOCK *block;
-
   if ((block = sq_createblock(count, TRUE)) == NULL) return NULL;
   
   for (i = 0; i < count; ++i)
@@ -1719,8 +1718,8 @@ sq_createblock(int count, int do_digital)
   ESL_ALLOC(block, sizeof(ESL_SQ_BLOCK));
 
   block->count = 0;
-  block->listSize = 0;
   block->list  = NULL;
+  block->complete = TRUE;
 
   ESL_ALLOC(block->list, sizeof(ESL_SQ) * count);
   block->listSize = count;

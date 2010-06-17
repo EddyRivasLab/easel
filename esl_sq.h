@@ -13,6 +13,10 @@
 #include "esl_msa.h"
 #endif
 
+
+/* set the max residue count to 1 meg when reading a block */
+#define MAX_RESIDUE_COUNT (1024 * 1024)
+
 /* ESL_SQ - a biosequence
  * 
  * Can be either in text mode <seq>, or digital mode <dsq>. 
@@ -131,6 +135,7 @@ typedef struct {
 typedef struct {
   int      count;       /* number of <ESL_SQ> objects in the block */
   int      listSize;    /* maximum number elements in the list     */
+  int      complete;    /*TRUE if the the final ESL_SQ element on the block is complete, FALSE if it's only a partial winow of the full sequence*/
   ESL_SQ  *list;        /* array of <ESL_SQ> objects               */
 } ESL_SQ_BLOCK;
 
