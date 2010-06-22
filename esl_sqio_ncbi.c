@@ -52,7 +52,7 @@ static int   sqncbi_Read           (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadInfo       (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadSequence   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadWindow     (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock);
+static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues);
 static int   sqncbi_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 static int   sqncbi_IsRewindable   (const ESL_SQFILE *sqfp);
@@ -97,7 +97,6 @@ static int  ignore_sequence_of_integer(ESL_SQNCBI_DATA *ncbi);
 #define NCBI_VERSION_4             4
 #define NCBI_DNA_DB                0
 #define NCBI_AMINO_DB              1
-
 
 /*****************************************************************
  *# 1. An <ESL_SQFILE> object, in text mode.
@@ -1157,12 +1156,13 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 static int
-sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
+sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues)
 {
 	  int     i = 0;
 	  int     size = 0;
 	  int     status = eslOK;
 	  sqBlock->count = 0;
+
 
 	  if (sqfp->abc->type != eslDNA
 	#ifdef eslAUGMENT_MSA
@@ -1182,17 +1182,23 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
 	  }
 	  else
 	  { /* DNA, not an alignment.  Might be really long sequences */
+
+		  /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
+		  if (max_residues < 0)
+			  max_residues = MAX_RESIDUE_COUNT;
+
+
 		  //if complete flag set to FALSE, then the prior block must have ended with a window that was a possibly
 		  //incomplete part of it's full sequence. Read another overlaping window.
 	      if (! sqBlock->complete )
 		  {
 			  //overloading C as indicator of how big C should be for this window reading action
-			  status = sqncbi_ReadWindow(sqfp, sqBlock->list->C, MAX_RESIDUE_COUNT, sqBlock->list);
+			  status = sqncbi_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
 			  if (status == eslOK)
 			  {
 				  sqBlock->count = i = 1;
 				  size = sqBlock->list->n;
-				  if (sqBlock->list->n >= MAX_RESIDUE_COUNT)
+				  if (sqBlock->list->n >= max_residues)
 				  { // Filled the block with a single very long window.
 					  sqBlock->complete = FALSE;  // There's probably more left for the next block.
 					  return status;
@@ -1202,7 +1208,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
 					  // Burn off EOD (see notes for similar entry ~25 lines below), then go fetch the next sequence
 					  sqBlock->list[1].start =  sqBlock->list->start ;
 					  sqBlock->list[1].C = 0;
-					  status = sqncbi_ReadWindow(sqfp, 0, MAX_RESIDUE_COUNT, sqBlock->list + 1);
+					  status = sqncbi_ReadWindow(sqfp, 0, max_residues, sqBlock->list + 1);
 					  esl_sq_Reuse(sqBlock->list + 1);
 					  if (status != eslEOD) return status; //surprising
 				  }
@@ -1218,14 +1224,14 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
 		  } // otherwise, just start at the beginning
 
 
-		  for (  ; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
+		  for (  ; i < sqBlock->listSize && size < max_residues; ++i)
 		  {
-			  status = sqncbi_ReadWindow(sqfp, 0, MAX_RESIDUE_COUNT, sqBlock->list + i);
+			  status = sqncbi_ReadWindow(sqfp, 0, max_residues, sqBlock->list + i);
 			  if (status != eslOK) break; // end of sequences
 
 			  size += sqBlock->list[i].n;
 			  ++sqBlock->count;
-			  if (sqBlock->list[i].n >= MAX_RESIDUE_COUNT)
+			  if (sqBlock->list[i].n >= max_residues)
 			  { // read a full window worth of sequence
 				  sqBlock->complete = FALSE; // there's probably more for the next block
 				  return status;
@@ -1237,7 +1243,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock)
 				  // correct processing.  It's start will be set to 0, so next readWindow will work as expected
 				  sqBlock->list[i+1].start =  sqBlock->list[i].start ;
 				  sqBlock->list[i+1].C = 0;
-				  status = sqncbi_ReadWindow(sqfp, 0, MAX_RESIDUE_COUNT, sqBlock->list + i + 1);
+				  status = sqncbi_ReadWindow(sqfp, 0, max_residues, sqBlock->list + i + 1);
 				  esl_sq_Reuse(sqBlock->list + i + 1);
 				  if (status != eslEOD) return status; //surprising
 				  status = eslOK;

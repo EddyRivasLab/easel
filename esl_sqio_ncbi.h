@@ -17,6 +17,9 @@
 /* forward declaration */
 struct esl_sqio_s;
 
+/* set the max residue count to 1 meg when reading a block */
+#define MAX_RESIDUE_COUNT (1024 * 1024)
+
 #define MAX_DB_VOLUMES   100
 
 /* ESL_SQNCBI_VOLUME:

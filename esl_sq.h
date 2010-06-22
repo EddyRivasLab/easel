@@ -14,9 +14,6 @@
 #endif
 
 
-/* set the max residue count to 1 meg when reading a block */
-#define MAX_RESIDUE_COUNT (1024 * 1024)
-
 /* ESL_SQ - a biosequence
  * 
  * Can be either in text mode <seq>, or digital mode <dsq>. 

@@ -16,6 +16,8 @@
 #include "esl_msa.h"
 #endif
 
+/* set the max residue count to 1 meg when reading a block */
+#define MAX_RESIDUE_COUNT (1024 * 1024)
 
 /* forward declaration */
 struct esl_sqio_s;

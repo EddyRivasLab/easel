@@ -63,7 +63,7 @@ typedef struct esl_sqio_s {
   int   (*read_window)     (struct esl_sqio_s *sqfp, int C, int W, ESL_SQ *sq);
   int   (*echo)            (struct esl_sqio_s *sqfp, const ESL_SQ *sq, FILE *ofp);
 
-  int   (*read_block)      (struct esl_sqio_s *sqfp, ESL_SQ_BLOCK *sqBlock);
+  int   (*read_block)      (struct esl_sqio_s *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues);
 
 #ifdef eslAUGMENT_SSI
   int   (*open_ssi)        (struct esl_sqio_s *sqfp, const char *ssifile_hint);
@@ -126,8 +126,7 @@ extern int   esl_sqio_ReadInfo    (ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_ReadWindow  (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
 extern int   esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq);
 extern int   esl_sqio_Echo        (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
-
-extern int   esl_sqio_ReadBlock (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock);
+extern int   esl_sqio_ReadBlock   (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues);
 
 #ifdef eslAUGMENT_SSI
 extern int   esl_sqfile_OpenSSI         (ESL_SQFILE *sqfp, const char *ssifile_hint);
