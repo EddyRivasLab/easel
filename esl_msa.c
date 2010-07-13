@@ -3144,8 +3144,8 @@ esl_msa_AddComment(ESL_MSA *msa, char *s)
  *            allocating as necessary. <tag> is the GF markup 
  *            tag; <value> is the text associated w/ that tag.
  *
- * Args:      msa - a multiple alignment
- *            tag - markup tag 
+ * Args:      msa   - a multiple alignment
+ *            tag   - markup tag 
  *            value - markup text
  *
  * Returns:   <eslOK> on success.
@@ -3558,11 +3558,11 @@ parse_gf(ESL_MSA *msa, char *buf)
   if (esl_strtok(&s, " \t\n\r", &gf)  != eslOK) return eslEFORMAT;
   if (esl_strtok(&s, " \t\n\r", &tag) != eslOK) return eslEFORMAT;
 
-  /* text might be empty; watch out for this. (for example, a blank #=GF CC line) */
-  status = esl_strtok_adv(&s, "\n\r",    &text, &n, NULL);
-  if      (status == eslOK) { while (*text && (*text == ' ' || *text == '\t')) text++; }
-  else if (status == eslEOL){ text = NULL; n = 0; } 
-  else return eslEFORMAT;
+  /* special case: accept a blank #=GF CC line. Otherwise, <s> is required. */
+  while (isspace(*s)) s++;
+  status = esl_strtok_adv(&s, "\n\r", &text, &n, NULL);
+  if      (status == eslEOL) { if (strcmp(tag, "CC") != 0) return eslEFORMAT; }
+  else if (status != eslOK)  { return eslEFORMAT; }
 
   if      (strcmp(tag, "ID") == 0) status = esl_strdup(text, n, &(msa->name));
   else if (strcmp(tag, "AC") == 0) status = esl_strdup(text, n, &(msa->acc));
@@ -3610,7 +3610,9 @@ parse_gf(ESL_MSA *msa, char *buf)
 	}
       status = eslOK;
     }
-  else 				/* an unparsed #=GF: */
+  else if (strcmp(tag, "CC") == 0 && text == NULL)   
+    status = esl_msa_AddGF (msa, tag, "");
+  else
     status = esl_msa_AddGF(msa, tag, text);
 
   return status;

@@ -63,7 +63,7 @@ sub parse (*) {
     @ali_qali       = (); # Aligned string from query
     @ali_tali       = (); # Aligned string from target (subject)
     
-    if ($save_querycount > 1) { # on subsequent queries, we had to use the >>> start line to detect
+    if (defined($save_querycount) && $save_querycount > 1) { # on subsequent queries, we had to use the >>> start line to detect
 	# the end of the prev query; we socked the necessary info away in tmp vars.
 	$querycount = $save_querycount;
 	$queryname  = $save_queryname;
@@ -79,6 +79,8 @@ sub parse (*) {
 		$parsing_header  = 0;
 		$parsing_hitlist = 1;
 		next;
+	    } elsif (/^!! No sequences/) { # no hit list: no hits; just return
+		return 1;	# return "success"
 	    } elsif (/^\s+(\d+)>>>\s*(\S*)\s*(.*)\s*-\s*(\d+) \S\S$/) { # allows blank query. \S\S is "nt" or "aa"
 		$querycount = $1;
 		$queryname  = $2;

@@ -111,10 +111,11 @@ sub parse (*) {
 		next;
 	    } elsif (/^(\S+)\s+(.+)\s+(\d+)\s+(\S+)/) {
 		$hit_target[$nhits]    = $1;
-		$target_desc{$1}             = $2;
-		$hit_bitscore[$nhits] = $3;
+		$target_desc{$1}       = $2;
+		$hit_bitscore[$nhits]  = $3;
+
 		if ($is_wublast) { $hit_Eval[$nhits] = -1.0 * log(1.0 - $4); } # conversion from P-value
-		else             { $hit_Eval[$nhits] = $4; }
+		else             { $hit_Eval[$nhits] = &repair_evalue($4); }
 
 		$nhits++;
 	    }
@@ -129,19 +130,19 @@ sub parse (*) {
 		    $target_len{$target} = $1;
 		} 
 	    } 
-	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+\d),/) { # WU
+	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+),/) { # WU
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_score[$nali-1]    = $1;
 		$ali_bitscore[$nali-1] = $2;
 		$ali_evalue[$nali-1]   = $3;
 	    } 
-	    elsif (/^ Score =\s+(\S+) bits \((\S+)\), Expect = (\S+\d)/) { # NCBI
+	    elsif (/^ Score =\s+(\S+) bits \((\S+)\), Expect = (\S+),/) { # NCBI
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_bitscore[$nali-1] = $1;
 		$ali_score[$nali-1]    = $2;
-		$ali_evalue[$nali-1]   = $3;
+		$ali_evalue[$nali-1]   = &repair_evalue($3);
 	    }
 	    elsif (/^ Identities = (\d+)\/(\d+) \((\d+)%\).+Positives = (\d+).+\((\d+)%/) { # NCBI or WU
 		$ali_nident[$nali-1]     = $1;
@@ -171,6 +172,17 @@ sub parse (*) {
     } # this closes the loop over lines in the input stream.
 
     if ($parsing_alilist) { return 1; } else { return 0; }
+}
+
+
+# NCBI BLAST now has a nasty habit of abbreviating
+# 1e-100 as e-100, which isn't a number format. 
+
+sub repair_evalue
+{
+    my $value = shift;
+    if ($value =~ /^e-\d+$/) { $value = "1$value"; }
+    $value;
 }
 
 

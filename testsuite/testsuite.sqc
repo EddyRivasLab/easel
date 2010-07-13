@@ -48,6 +48,7 @@
 
 1 exercise degen-residues     !testsuite/i1-degen-residues.pl! @@ !! %TESTPFX%
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
+1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
 
 1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%
 1 exercise esl-alimap         !miniapps/esl-alimap.itest.pl!    @miniapps/esl-alimap@    %TESTPFX%
