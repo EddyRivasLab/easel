@@ -52,7 +52,7 @@ static ESL_OPTIONS options[] = {
   { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "ignore input seq characters listed in string <s>",   0 },
   { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "accept input seq chars in string <s> as X",          0 },
   { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
-  { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, ouput must be afa or pfam",0 },
+  { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, output must be afa or pfam",0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
