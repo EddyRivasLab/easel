@@ -47,6 +47,8 @@ The
 .B --rinfo,
 .B --pcinfo,
 .B --psinfo,
+.B --cinfo,
+.B --bpinfo,
 and
 .B --iinfo,
 options allow dumping various statistics on the alignment to optional
@@ -179,6 +181,33 @@ reference (#=GC RF) annotation. This option only works if the input
 file is in Stockholm format with reference annotation.
 Lines prefixed with "#" are comment lines, which explain the
 meanings of each of the tab-delimited fields. 
+
+.TP 
+.BI --cinfo " <f>"
+Dump per-column residue counts to file
+.I <f>.
+If used in combination with
+.B --noambig
+ambiguous (degenerate) residues will be ignored and not
+counted. Otherwise, they will be marginalized. For example, in an RNA
+sequence file, a 'N' will be counted as 0.25 'A', 0.25 'C', 0.25 'G',
+and 0.25 'U'.
+
+.TP 
+.B --noambig
+With 
+.B --cinfo,
+do not count ambiguous (degenerate) residues. 
+
+.TP 
+.B --bpinfo
+Dump per-column basepair counts to file
+.I <f>.
+Counts appear for each basepair in the consensus secondary structure (annotated as
+"#=GC SS_cons"). Only basepairs from sequences for which both paired positions are
+canonical residues will be counted. That is, any basepair that is a gap
+or an ambiguous (degenerate) residue at either position of the pair is
+ignored and not counted.
 
 .SH AUTHOR
 

@@ -46,6 +46,7 @@ seq1         aaA
 #=GR seq1 PP 578
 seq2         ..A
 #=GR seq2 PP ..*
+#=GC SS_cons ...
 #=GC RF      ..A
 //
 EOF
@@ -185,7 +186,26 @@ for($pass = 0; $pass < 2; $pass++) {
 	$output = `cat $tmppfx.i`;
         if($output !~ /16           1  0.33\d+     2.0\d+         2/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
 	if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+
+	system("$eslalistat --cinfo $tmppfx.c --noambig $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
+	if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
+	$output = `cat $tmppfx.c`;
+	if($output !~ /1\s+3\s+3\.\d+\s+0\.\d+\s+0\.\d+\s+0/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+	if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+
+	system("$eslalistat --bpinfo  $tmppfx.bp $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
+	if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
+	$output = `cat $tmppfx.bp`;
+        if($output !~ /16\s+34\s+0\s+0\s+0\s+0\s+0\s+0\s+2\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+	if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
     }
+
+    system("$eslalistat --cinfo $tmppfx.c $smallA[$pass] --rna $tmppfx.dbl.stk > /dev/null");
+    if ($? != 0)                                                  { die "FAIL: esl-alistat failed unexpectedly";}
+    $output = `cat $tmppfx.c`;
+    if($output !~ /1\s+3\s+3\.\d+\s+0\.\d+\s+0\.\d+\s+0/) { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+    if($output !~ /\# Alignment idx:  2/)                         { die "FAIL: alignment statistics calculated incorrectly on pass $pass2write"; }
+
 }
 
 
@@ -199,4 +219,5 @@ unlink "$tmppfx.list";
 unlink "$tmppfx.pc";
 unlink "$tmppfx.ps";
 unlink "$tmppfx.r";
+unlink "$tmppfx.c";
 exit 0;

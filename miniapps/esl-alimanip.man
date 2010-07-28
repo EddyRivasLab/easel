@@ -103,6 +103,12 @@ non-gap #=GC RF columns or the last
 non-gap #=GC RF columns.
 
 .TP 
+.BI --xambig " <n>"
+Remove any sequences that has more than
+.I <n>
+ambiguous (degenerate) residues.
+
+.TP 
 .BI --seq-r " <f>"
 Remove any sequences with names listed in file 
 .I <f>.

@@ -13,6 +13,7 @@
 #include "esl_msa.h"
 #include "esl_distance.h"
 #include "esl_vectorops.h"
+#include "esl_wuss.h"
 
 static char banner[] = "show summary statistics for a multiple sequence alignment file";
 static char usage[]  = "[options] <msafile>\n\
@@ -23,9 +24,11 @@ static int  dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int 
 static int  dump_posterior_column_info(FILE *fp, int **pp_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
 static int  dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *alifile, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_am_rf, char *alifile, char *errbuf);
+static int  dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int do_ambig, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
+static int  dump_basepair_counts(FILE *fp, ESL_MSA *msa, ESL_ALPHABET *abc, double ***bp_ct, int nali, int nseq, char *msa_name, char *alifile, char *errbuf);
 static int  map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int64_t alen, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
-static int  count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct, int ***ret_pp_ct);
+static int  count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct);
 static int  compare_ints(const void *el1, const void *el2);
 
 static ESL_OPTIONS options[] = {
@@ -44,6 +47,9 @@ static ESL_OPTIONS options[] = {
   { "--pcinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print per-column   posterior probability info to <f>",           3 },
   { "--psinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, "--small",   "print per-sequence posterior probability info to <f>",           3 },
   { "--iinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, "--small",   "print info on # of insertions b/t all non-gap RF cols to <f>",   3 },
+  { "--cinfo",     eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,        "print per-column residue counts to <f>",                         3 },
+  { "--noambig",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, "--small",   "with --cinfo, do not count ambiguous residues",                  3 },
+  { "--bpinfo",    eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, "--small",   "print per-column base-pair counts to <f>",                       3 },
 
   { "--stall",    eslARG_NONE,  FALSE, NULL, NULL, NULL,NULL, NULL,            "arrest after start: for debugging under gdb",            99 },  
   { 0,0,0,0,0,0,0,0,0,0 },
@@ -73,6 +79,9 @@ main(int argc, char **argv)
 
   char          errbuf[eslERRBUFSIZE];
   double      **abc_ct = NULL;                 /* [0..msa->alen-1][0..abc->K] number of each residue at each position (abc->K is gap) */
+  double     ***bp_ct  = NULL;                 /* [0..msa->alen-1][0..abc->Kp-1][0..abc->Kp-1] per (non-pknotted) consensus basepair *
+						* count of each possible basepair over all seqs basepairs are indexed by 'i' the minimum *
+						* of 'i:j' for a pair between i and j, where i < j. */
   int          **pp_ct = NULL;                 /* [0..msa->alen-1][0..11], count of each posterior probability (PP) code, over all sequences, gap is 11 */  
   int  *i_am_rf = NULL;                        /* [0..i..msa->alen-1]: TRUE if pos i is non-gap RF posn, if msa->rf == NULL remains NULL */
   int  *rf2a_map = NULL;                       /* [0..rfpos..rflen-1] = apos,                     
@@ -87,6 +96,8 @@ main(int argc, char **argv)
   FILE *rinfofp  = NULL; /* output file for --rinfo */
   FILE *icinfofp = NULL; /* output file for --icinfo */
   FILE *listfp   = NULL; /* output file for --list */
+  FILE *cinfofp  = NULL; /* output file for --cinfo */
+  FILE *bpinfofp = NULL; /* output file for --bpinfo */
 
   /***********************************************
    * Parse command line
@@ -188,6 +199,14 @@ main(int argc, char **argv)
     if ((iinfofp = fopen(esl_opt_GetString(go, "--iinfo"), "w")) == NULL) 
       esl_fatal("Failed to open --iinfo output file %s\n", esl_opt_GetString(go, "--iinfo"));
   }
+  if( esl_opt_IsOn(go, "--cinfo")) {
+    if ((cinfofp = fopen(esl_opt_GetString(go, "--cinfo"), "w")) == NULL) 
+      esl_fatal("Failed to open --cinfo output file %s\n", esl_opt_GetString(go, "--cinfo"));
+  }
+  if( esl_opt_IsOn(go, "--bpinfo")) {
+    if ((bpinfofp = fopen(esl_opt_GetString(go, "--bpinfo"), "w")) == NULL) 
+      esl_fatal("Failed to open --bpinfo output file %s\n", esl_opt_GetString(go, "--bpinfo"));
+  }
 
   /***********************************************
    * Read MSAs one at a time.
@@ -285,19 +304,21 @@ main(int argc, char **argv)
 	}
       }
 
-      if((esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo")) || esl_opt_IsOn(go, "--iinfo")) {
-	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
-	 * and rf2a_map, a map of non-gap RF positions to overall alignment positions */
-	if(msa->rf != NULL) {
-	  if((status = map_rfpos_to_apos(msa, abc, errbuf, alen, &i_am_rf, &rf2a_map, &rflen)) != eslOK) esl_fatal(errbuf);
-	}
-	else i_am_rf = NULL;
+      /* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
+       * and rf2a_map, a map of non-gap RF positions to overall alignment positions */
+      if(msa->rf != NULL) {
+	if((status = map_rfpos_to_apos(msa, abc, errbuf, alen, &i_am_rf, &rf2a_map, &rflen)) != eslOK) esl_fatal(errbuf);
       }
+      else i_am_rf = NULL;
 
       if( (! esl_opt_GetBoolean(go, "--small")) && 
-	  (esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo"))) {
+	  (esl_opt_IsOn(go, "--icinfo") || esl_opt_IsOn(go, "--rinfo")  || esl_opt_IsOn(go, "--pcinfo") || 
+	   esl_opt_IsOn(go, "--cinfo")  || esl_opt_IsOn(go, "--bpinfo")))  {
 	/* collect counts of each residue and PPs (if they exist) from the msa */
-	if((status = count_msa(msa, errbuf, nali, &abc_ct, msa->pp == NULL ? NULL : &pp_ct)) != eslOK) esl_fatal(errbuf);
+	if((status = count_msa(msa, errbuf, nali, esl_opt_GetBoolean(go, "--noambig"), &abc_ct, 
+			       ((bpinfofp != NULL && msa->ss_cons != NULL) ? &bp_ct : NULL), /* get basepair counts? */
+			       (msa->pp != NULL ? &pp_ct : NULL)))   /* get PP counts? */
+	   != eslOK) esl_fatal(errbuf);
       }
 
       if( esl_opt_IsOn(go, "--icinfo")) {
@@ -316,12 +337,20 @@ main(int argc, char **argv)
 	if(msa->rf == NULL) esl_fatal("--iinfo requires all alignments have #=GC RF annotation, but alignment %d does not", nali);
 	if((status = dump_insert_info(iinfofp, msa, nali, nseq, i_am_rf, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
+      if( esl_opt_IsOn(go, "--cinfo")) {
+	if((status = dump_column_residue_counts(cinfofp, abc, abc_ct, esl_opt_GetBoolean(go, "--noambig"), nali, alen, nseq, i_am_rf, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
+      }
+      if( esl_opt_IsOn(go, "--bpinfo")) {
+	if(msa->ss_cons == NULL) esl_fatal("--bpinfo requires all alignments have #=GC SS_cons annotation, but alignment %d does not", nali);
+	if((status = dump_basepair_counts(bpinfofp, msa, abc, bp_ct, nali, nseq, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
+      }
 
       esl_msa_Destroy(msa);
-      if(abc_ct != NULL)   { esl_Free2D((void **) abc_ct, alen); abc_ct   = NULL; }
-      if(pp_ct != NULL)    { esl_Free2D((void **) pp_ct, alen);  pp_ct    = NULL; }
-      if(i_am_rf != NULL)  { free(i_am_rf);                      i_am_rf  = NULL; }
-      if(rf2a_map != NULL) { free(rf2a_map);                     rf2a_map = NULL; }
+      if(abc_ct != NULL)   { esl_Free2D((void **) abc_ct, alen);          abc_ct   = NULL; }
+      if(bp_ct != NULL)    { esl_Free3D((void ***) bp_ct, alen, abc->Kp); bp_ct    = NULL; }
+      if(pp_ct != NULL)    { esl_Free2D((void **) pp_ct, alen);           pp_ct    = NULL; }
+      if(i_am_rf != NULL)  { free(i_am_rf);                               i_am_rf  = NULL; }
+      if(rf2a_map != NULL) { free(rf2a_map);                              rf2a_map = NULL; }
     }
   
   /* If an msa read failed, we drop out to here with an informative status code. 
@@ -346,7 +375,7 @@ main(int argc, char **argv)
   }
   if(rinfofp != NULL) { 
     fclose(rinfofp);
-    printf("# Residue data data saved to file %s.\n", esl_opt_GetString(go, "--rinfo")); 
+    printf("# Residue data saved to file %s.\n", esl_opt_GetString(go, "--rinfo")); 
   }
   if(pcinfofp != NULL) { 
     fclose(pcinfofp);
@@ -360,6 +389,14 @@ main(int argc, char **argv)
     printf("# Insert data saved to file %s.\n", esl_opt_GetString(go, "--iinfo")); 
     fclose(iinfofp);
   }
+  if(cinfofp != NULL) { 
+    printf("# Per-column counts data saved to file %s.\n", esl_opt_GetString(go, "--cinfo")); 
+    fclose(cinfofp);
+  }
+  if(bpinfofp != NULL) { 
+    printf("# Per-column basepair counts data saved to file %s.\n", esl_opt_GetString(go, "--bpinfo")); 
+    fclose(bpinfofp);
+  }
 
   if(abc != NULL) esl_alphabet_Destroy(abc);
   esl_msafile_Close(afp);
@@ -369,12 +406,19 @@ main(int argc, char **argv)
 
 /* count_msa()
  *                   
- * Given an msa, count residues and posterior probabilities per column
- * and store them in <ret_abc_ct> and <ret_pp_ct>.
+ * Given an msa, count residues, and optionally base pairs and
+ * posterior probabilities per column and store them in <ret_abc_ct>
+ * and <ret_pp_ct>.
  * 
  * <ret_abc_ct> [0..apos..alen-1][0..abc->K]:
  * - per position count of each symbol in alphabet over all seqs.
  * 
+ * <ret_bp_ct>  [0..apos..alen-1][0..abc->Kp-1][0..abc->Kp-1] 
+ * - per (non-pknotted) consensus basepair count of each possible basepair 
+ *   over all seqs basepairs are indexed by 'i' the minimum of 'i:j' for a 
+ *   pair between i and j, where i < j. Note that non-canonicals and 
+ *   gaps and the like are all stored independently.
+ *
  * <ret_pp_ct> [0..apos..alen-1][0..11]
  * - per position count of each posterior probability code over all seqs.
  * 
@@ -386,14 +430,18 @@ main(int argc, char **argv)
  * 
  * Returns eslOK upon success.
  */
-static int count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct, int ***ret_pp_ct)
+static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct)
 {
   int status;
   double  **abc_ct = NULL;
-  int       apos, i;
+  double ***bp_ct = NULL;
+  int       apos, rpos, i, x;
   int       nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
   int     **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
   int       ppidx; 
+  /* variables related to getting bp counts */
+  int      *ct = NULL;            /* 0..alen-1 base pair partners array for current sequence */
+  char     *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
 
   if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "count_msa() contract violation, MSA is not digitized");
 
@@ -407,6 +455,29 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct,
     }
   }
 
+  /* allocate and initialize bp_ct, if nec */
+  if(ret_bp_ct != NULL) { 
+    ESL_ALLOC(bp_ct,  sizeof(double **) * msa->alen); 
+    /* get ct array which defines the consensus base pairs */
+    ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
+    ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
+    esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
+    if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+    for(apos = 0; apos < msa->alen; apos++) { 
+      /* careful ct is indexed 1..alen, not 0..alen-1 */
+      if(ct[(apos+1)] > (apos+1)) { /* apos+1 is an 'i' in an i:j pair, where i < j */
+	ESL_ALLOC(bp_ct[apos], sizeof(double *) * (msa->abc->Kp));
+	for(x = 0; x < msa->abc->Kp; x++) { 
+	  ESL_ALLOC(bp_ct[apos][x], sizeof(double) * (msa->abc->Kp));
+	  esl_vec_DSet(bp_ct[apos][x], msa->abc->Kp, 0.);
+	}
+      }
+      else { /* apos+1 is not an 'i' in an i:j pair, where i < j, set to NULL */
+	bp_ct[apos] = NULL;
+      }
+    }
+  }
+
   ESL_ALLOC(abc_ct, sizeof(double *) * msa->alen); 
   for(apos = 0; apos < msa->alen; apos++) { 
     ESL_ALLOC(abc_ct[apos], sizeof(double) * (msa->abc->K+1));
@@ -415,25 +486,45 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, double ***ret_abc_ct,
 
   for(i = 0; i < msa->nseq; i++) { 
     for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, ax ranges from 1..msa->alen (but abc_ct is 0..msa->alen-1) */
-      if((status = esl_abc_DCount(msa->abc, abc_ct[apos], msa->ax[i][apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
+      if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
+	if((status = esl_abc_DCount(msa->abc, abc_ct[apos], msa->ax[i][apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
+      }
     }
+
+    /* get bp counts, if nec */
+    if(bp_ct != NULL) { 
+      for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, ax ranges from 1..msa->alen (but abc_ct is 0..msa->alen-1) */
+	if(bp_ct[apos] != NULL) { /* our flag for whether position (apos+1) is an 'i' in an i:j pair where i < j */
+	  rpos = ct[apos+1] - 1; /* ct is indexed 1..alen */
+	  bp_ct[apos][msa->ax[i][apos+1]][msa->ax[i][rpos+1]]++;
+	}
+      }
+    }
+
     /* get PP counts, if nec  */
-    if(ret_pp_ct != NULL) { 
+    if(pp_ct != NULL) { 
       if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "not all sequences alignment %d have PP, seq %d does not.", nali, i+1);
       for(apos = 0; apos < msa->alen; apos++) { 
-	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	pp_ct[apos][ppidx]++;
+	if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
+	  if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	  pp_ct[apos][ppidx]++;
+	}
       }
     }
   }
 
   *ret_abc_ct  = abc_ct;
+  if(ret_bp_ct != NULL) *ret_bp_ct = bp_ct; /* we only allocated bp_ct if ret_bp_ct != NULL */
   if(ret_pp_ct != NULL) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
+
+  if(ss_nopseudo != NULL) free(ss_nopseudo);
+  if(ct != NULL) free(ct);
 
   return eslOK;
 
  ERROR:
   if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
+  if(bp_ct != NULL)   esl_Free3D((void ***) bp_ct, msa->alen, msa->abc->Kp);
   if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
   ESL_FAIL(status, errbuf, "Error, out of memory while counting important values in the msa.");
   return status; /* NEVERREACHED */
@@ -487,8 +578,8 @@ static int dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, i
   int status;
   int apos, rfpos;
   double bg_ent;
-  double *bg;
-  double *abc_freq;
+  double *bg = NULL;
+  double *abc_freq = NULL;
   double nnongap;
 
   ESL_ALLOC(bg, sizeof(double) * abc->K);
@@ -531,6 +622,8 @@ static int dump_infocontent_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, i
 	    (bg_ent - esl_vec_DEntropy(abc_freq, abc->K)));
   }
   fprintf(fp, "//\n");
+
+  if(abc_freq != NULL) free(abc_freq);
 
   return eslOK;
 
@@ -812,6 +905,137 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_a
   return status;
 }
 
+/* dump_column_residue_counts
+ *                   
+ * Dump per-column residue counts from abc_ct[][] to 
+ * an open output file.
+ *
+ *  abc_ct: [0..msa->alen-1][0..abc->K] number of each residue at each position (abc->K is gap) 
+ */
+static int dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int no_ambig, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf)
+{
+  int apos, rfpos;
+  int i;
+
+  fprintf(fp, "# Per column residue counts:\n");
+  fprintf(fp, "# Alignment file: %s\n", alifile);
+  fprintf(fp, "# Alignment idx:  %d\n", nali);
+  if(msa_name != NULL) { fprintf(fp, "# Alignment name: %s\n", msa_name); }
+  fprintf(fp, "# Number of sequences: %d\n", nseq);
+  if(no_ambig) { 
+    fprintf(fp, "# Ambiguous residues were not counted.\n");
+  }
+  else { 
+    if(abc->type == eslRNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'U'.)\n");
+    if(abc->type == eslDNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'T'.)\n");
+    if(abc->type == eslAMINO) fprintf(fp, "# Ambiguities were averaged (e.g. 1 'X' = 0.05 each for all 20 AAs.\n");
+  }
+
+  if(i_am_rf != NULL) { fprintf(fp, "# %7s  %7s", "rfpos",    "alnpos"); }
+  else                { fprintf(fp, "# %7s", "alnpos"); }
+  for(i = 0; i < abc->K; i++) fprintf(fp, "     %c   ", abc->sym[i]);
+  fprintf(fp, "\n");
+
+  if(i_am_rf != NULL) { fprintf(fp, "# %7s  %7s", "-------", "-------"); }
+  else                { fprintf(fp, "# %7s", "-------"); }
+  for(i = 0; i < abc->K; i++) fprintf(fp, "  %7s", "-------");
+  fprintf(fp, "\n");
+
+  rfpos = 0;
+  for(apos = 0; apos < alen; apos++) {
+    if(i_am_rf != NULL) { 
+      if(i_am_rf[apos]) { 
+	fprintf(fp, "  %7d", rfpos+1);
+	rfpos++; 
+      }
+      else { 
+	fprintf(fp, "  %7s", "-");
+      }
+    }
+    fprintf(fp, "  %7d", apos+1);
+    for(i = 0; i < abc->K; i++) fprintf(fp, "  %7.1f", abc_ct[apos][i]);
+    fprintf(fp, "\n");
+  }
+  fprintf(fp, "//\n");
+
+  return eslOK;
+
+}
+
+/* dump_basepair_counts
+ *                   
+ * Dump per-basepaired-column basepair counts from bp_ct[][][] to 
+ * an open output file. Only pairs involving canonical residues
+ * are printed. (i.e. for RNA: AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU,
+ * UA,UC,UG,UU).
+ *
+ * <bp_ct>  [0..apos..alen-1][0..abc->Kp-1][0..abc->Kp-1] 
+ * - per (non-pknotted) consensus basepair count of each possible basepair 
+ *   over all seqs basepairs are indexed by 'i' the minimum of 'i:j' for a 
+ *   pair between i and j, where i < j. Note that non-canonicals and 
+ *   gaps and the like are all stored independently.
+ */
+static int dump_basepair_counts(FILE *fp, ESL_MSA *msa, ESL_ALPHABET *abc, double ***bp_ct, int nali, int nseq, char *msa_name, char *alifile, char *errbuf)
+{
+  int status;
+  int apos, rpos;
+  int i, j;
+
+  int      *ct = NULL;            /* 0..msa->alen-1 base pair partners array for current sequence */
+  char     *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
+
+  /* get ct array which defines the consensus base pairs */
+  ESL_ALLOC(ct,  sizeof(int) * (msa->alen+1));
+  ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
+  esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
+  if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+
+  fprintf(fp, "# Per-column basepair counts:\n");
+  fprintf(fp, "# Alignment file: %s\n", alifile);
+  fprintf(fp, "# Alignment idx:  %d\n", nali);
+  if(msa_name != NULL) { fprintf(fp, "# Alignment name: %s\n", msa_name); }
+  fprintf(fp, "# Number of sequences: %d\n", nseq);
+  fprintf(fp, "# Only basepairs involving two canonical (non-degenerate) residues were counted.\n");
+
+  fprintf(fp, "# %7s  %7s", "lpos",    "rpos"); 
+  for(i = 0; i < abc->K; i++) { 
+    for(j = 0; j < abc->K; j++) {  
+      fprintf(fp, "    %c%c  ", abc->sym[i], abc->sym[j]);
+    }
+  }
+  fprintf(fp, "\n");
+
+  fprintf(fp, "# %7s  %7s", "-------",    "-------"); 
+  for(i = 0; i < abc->K; i++) { 
+    for(j = 0; j < abc->K; j++) {  
+      fprintf(fp, "  %6s", "------");
+    }
+  }
+  fprintf(fp, "\n");
+
+  for(apos = 0; apos < msa->alen; apos++) {
+    if(bp_ct[apos] != NULL) { 
+      rpos = ct[(apos+1)];
+      fprintf(fp, "  %7d  %7d", apos+1, rpos);
+      for(i = 0; i < abc->K; i++) { 
+	for(j = 0; j < abc->K; j++) {  
+	  fprintf(fp, "  %6d", (int) bp_ct[apos][i][j]);
+	}
+      }
+      fprintf(fp, "\n");
+    }
+  }
+  fprintf(fp, "//\n");
+
+  if(ss_nopseudo != NULL) free(ss_nopseudo);
+  if(ct != NULL) free(ct);
+  return eslOK;
+
+ ERROR:
+  if(ss_nopseudo != NULL) free(ss_nopseudo);
+  if(ct != NULL) free(ct);
+  ESL_FAIL(status, errbuf, "Error, out of memory while dumping basepair info");
+}
 
 /* map_rfpos_to_apos
  *                   

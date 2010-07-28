@@ -47,6 +47,7 @@ static int  msa_median_length(ESL_MSA *msa);
 static int  msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa);
 static int  msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa);
 static int  msa_remove_truncated_seqs(ESL_MSA *msa, char *errbuf, int ntrunc, int *i_am_rf, ESL_MSA **ret_new_msa);
+static int  msa_remove_seqs_with_ambiguities(ESL_MSA *msa, int max_nambig, ESL_MSA **ret_new_msa);
 static int  number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf);
 static char digit_to_char(int digit);
 static int  int_ndigits(int i);
@@ -83,6 +84,7 @@ static ESL_OPTIONS options[] = {
   { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <n> residues",                       2 },
   { "--lmax",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <n> residues",                       2 },
   { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",2 },
+  { "--xambig",    eslARG_INT,   NULL,  NULL, "n>=0",    NULL,NULL, CHOOSESEQOPTS,              "remove sequences with >= <n> ambiguous residues",                2 },
   { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                 2 },
   { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>",                   2 },
   { "--small",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, INCOMPATWITHSMALLOPTS,      "w/--seq-r or --seq-k use minimal RAM (no seq reordering)", 2 },
@@ -408,12 +410,12 @@ main(int argc, char **argv)
 	  msa = new_msa;
 	}
 	
-	/************************************
-	 * Remove sequences based on length *
-	 ************************************/
-	/* The --lnfract,--lxfract,--lmin,--lmax,--detrunc options.
+	/*************************************************************
+	 * Remove sequences based on length or number of ambiguities *
+	 *************************************************************/
+	/* The --lnfract,--lxfract,--lmin,--lmax,--detrunc,--xambig options.
 	 * we do each separately, removing seqs for each as we go. 
-	 * They can be used in combination 
+	 * They can be used in combination.
 	 */
 	if (esl_opt_IsOn(go, "--lnfract")) {
 	  median = msa_median_length(msa);
@@ -452,6 +454,13 @@ main(int argc, char **argv)
 	if( esl_opt_IsOn(go, "--detrunc")) {
 	  if((status = msa_remove_truncated_seqs(msa, errbuf, esl_opt_GetInteger(go, "--detrunc"), i_am_rf, &new_msa)) != eslOK) esl_fatal(errbuf);
 	  /* new_msa is msa without seqs below minlen, swap ptrs */
+	  esl_msa_Destroy(msa);
+	  msa = new_msa;
+	  new_msa = NULL;
+	}
+	if( esl_opt_IsOn(go, "--xambig")) {
+	  if((status = msa_remove_seqs_with_ambiguities(msa, esl_opt_GetInteger(go, "--xambig"), &new_msa)) != eslOK) esl_fatal(errbuf);
+	  /* new_msa is msa without seqs with > <n> (from --xambig <n>) ambiguities, swap ptrs */
 	  esl_msa_Destroy(msa);
 	  msa = new_msa;
 	  new_msa = NULL;
@@ -1460,6 +1469,45 @@ msa_remove_truncated_seqs(ESL_MSA *msa, char *errbuf, int ntrunc, int *i_am_rf, 
 
  ERROR:
   ESL_FAIL(status, errbuf, "msa_remove_truncated_seqs(): memory allocation error.");
+  return eslOK; /* NEVERREACHED */
+}
+
+
+/* Function: msa_remove_seqs_with_ambiguities()
+ * 
+ * Purpose:  Remove sequences in MSA that have more than <max_nambig> ambiguous residues.
+ */
+static int
+msa_remove_seqs_with_ambiguities(ESL_MSA *msa, int max_nambig, ESL_MSA **ret_new_msa)
+{
+  int  status;
+  int *useme;
+  int  i, j;
+  int  nambig;
+
+  ESL_MSA *new_msa;
+  ESL_SQ *sq;
+  sq = esl_sq_CreateDigital(msa->abc);
+
+  ESL_ALLOC(useme, sizeof(int) * msa->nseq);
+  for (i = 0; i < msa->nseq; i++) {
+    esl_sq_GetFromMSA(msa, i, sq);
+    nambig = 0;
+    for (j = 1; sq->dsq[j] != eslDSQ_SENTINEL; j++) {
+      if (esl_abc_XIsDegenerate(sq->abc, sq->dsq[j])) nambig++;
+    }
+    useme[i] = (nambig > max_nambig) ? FALSE : TRUE;
+    esl_sq_Reuse(sq);
+  }    
+
+  if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
+  free(useme);
+  esl_sq_Destroy(sq);
+  *ret_new_msa = new_msa;
+  return eslOK;
+
+ ERROR:
+  esl_fatal("msa_remove_seqs_above_maxlen() memory allocation error.");
   return eslOK; /* NEVERREACHED */
 }
 
