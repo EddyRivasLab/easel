@@ -24,7 +24,7 @@ static int  dump_residue_info(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int 
 static int  dump_posterior_column_info(FILE *fp, int **pp_ct, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
 static int  dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *alifile, char *errbuf);
 static int  dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_am_rf, char *alifile, char *errbuf);
-static int  dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int do_ambig, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf);
+static int  dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int do_ambig, int nali, int64_t alen, int nseq, char *msa_name, char *alifile, char *errbuf);
 static int  dump_basepair_counts(FILE *fp, ESL_MSA *msa, ESL_ALPHABET *abc, double ***bp_ct, int nali, int nseq, char *msa_name, char *alifile, char *errbuf);
 static int  map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int64_t alen, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
@@ -338,7 +338,7 @@ main(int argc, char **argv)
 	if((status = dump_insert_info(iinfofp, msa, nali, nseq, i_am_rf, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
       if( esl_opt_IsOn(go, "--cinfo")) {
-	if((status = dump_column_residue_counts(cinfofp, abc, abc_ct, esl_opt_GetBoolean(go, "--noambig"), nali, alen, nseq, i_am_rf, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
+	if((status = dump_column_residue_counts(cinfofp, abc, abc_ct, esl_opt_GetBoolean(go, "--noambig"), nali, alen, nseq, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
       if( esl_opt_IsOn(go, "--bpinfo")) {
 	if(msa->ss_cons == NULL) esl_fatal("--bpinfo requires all alignments have #=GC SS_cons annotation, but alignment %d does not", nali);
@@ -912,9 +912,9 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int nali, int nseq, int *i_a
  *
  *  abc_ct: [0..msa->alen-1][0..abc->K] number of each residue at each position (abc->K is gap) 
  */
-static int dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int no_ambig, int nali, int64_t alen, int nseq, int *i_am_rf, char *msa_name, char *alifile, char *errbuf)
+static int dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_ct, int no_ambig, int nali, int64_t alen, int nseq, char *msa_name, char *alifile, char *errbuf)
 {
-  int apos, rfpos;
+  int apos;
   int i;
 
   fprintf(fp, "# Per column residue counts:\n");
@@ -926,32 +926,20 @@ static int dump_column_residue_counts(FILE *fp, ESL_ALPHABET *abc, double **abc_
     fprintf(fp, "# Ambiguous residues were not counted.\n");
   }
   else { 
-    if(abc->type == eslRNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'U'.)\n");
-    if(abc->type == eslDNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'T'.)\n");
-    if(abc->type == eslAMINO) fprintf(fp, "# Ambiguities were averaged (e.g. 1 'X' = 0.05 each for all 20 AAs.\n");
+    if(abc->type == eslRNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'U')\n");
+    if(abc->type == eslDNA)   fprintf(fp, "# Ambiguities were averaged (e.g. 1 'N' = 0.25 'A', 0.25 'C', 0.25 'G' and 0.25 'T')\n");
+    if(abc->type == eslAMINO) fprintf(fp, "# Ambiguities were averaged (e.g. 1 'X' = 0.05 each for all 20 amino acids\n");
   }
 
-  if(i_am_rf != NULL) { fprintf(fp, "# %7s  %7s", "rfpos",    "alnpos"); }
-  else                { fprintf(fp, "# %7s", "alnpos"); }
+  fprintf(fp, "# %7s", "alnpos"); 
   for(i = 0; i < abc->K; i++) fprintf(fp, "     %c   ", abc->sym[i]);
   fprintf(fp, "\n");
 
-  if(i_am_rf != NULL) { fprintf(fp, "# %7s  %7s", "-------", "-------"); }
-  else                { fprintf(fp, "# %7s", "-------"); }
+  fprintf(fp, "# %7s", "-------"); 
   for(i = 0; i < abc->K; i++) fprintf(fp, "  %7s", "-------");
   fprintf(fp, "\n");
 
-  rfpos = 0;
   for(apos = 0; apos < alen; apos++) {
-    if(i_am_rf != NULL) { 
-      if(i_am_rf[apos]) { 
-	fprintf(fp, "  %7d", rfpos+1);
-	rfpos++; 
-      }
-      else { 
-	fprintf(fp, "  %7s", "-");
-      }
-    }
     fprintf(fp, "  %7d", apos+1);
     for(i = 0; i < abc->K; i++) fprintf(fp, "  %7.1f", abc_ct[apos][i]);
     fprintf(fp, "\n");
