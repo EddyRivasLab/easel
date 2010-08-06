@@ -27,11 +27,11 @@ static char usage5[] = "[options] --rf-is-mask <msafile> (use #=GC RF in aln as 
 static int read_mask_file(char *filename, char *errbuf, int **ret_useme, int *ret_mlen);
 static int map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int **i_am_rf, int **ret_rf2a_map, int *ret_rflen);
 static int expand_rf_useme_to_alen(int *useme_rf, int *rf2a_map, int rflen, int alen, char *errbuf, int *useme_a);
-static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, int **ret_gap_ct);
-static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, int ***ret_pp_ct);
-static int mask_based_on_gapfreq(int *gap_ct, int64_t alen, int nseq, float gapthresh, int *i_am_eligible, char *errbuf, int **ret_useme);
+static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, double **ret_gap_ct);
+static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, double ***ret_pp_ct);
+static int mask_based_on_gapfreq(double *gap_ct, int64_t alen, int nseq, float gapthresh, int *i_am_eligible, char *errbuf, int **ret_useme);
 static int get_pp_idx(ESL_ALPHABET *abc, char ppchar);
-static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme);
+static int mask_based_on_postprobs(double **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme);
 static int output_mask(char *filename, int *useme, int *i_am_eligible, int64_t alen, char *errbuf);
 static int determine_nkept_rf(int *useme, int *i_am_rf, int64_t len);
 static int parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
@@ -111,7 +111,7 @@ main(int argc, char **argv)
   char         *maskfile = NULL;	       /* mask file name                  */
   int           do_maskfile;                   /* TRUE if neither -p nor -g are enabled, and we have 2 command-line args */
   int           file_mlen = 0;                 /* if do_maskfile, length of mask from maskfile, msa->alen or rflen */
-  int         **pp_ct  = NULL;                 /* [0..msa->alen-1][0..11] number of each PP value at each aln position */
+  double      **pp_ct  = NULL;                 /* [0..msa->alen-1][0..11] number of each PP value at each aln position */
   int          *useme_mfile = NULL;            /* useme deduced from mask from maskfile, 
 						* [0..i..file_mlen-1] TRUE to keep apos or rfpos i, FALSE not to */
 
@@ -122,7 +122,7 @@ main(int argc, char **argv)
   /* variables related to gap frequency mode (-g) */
   int           do_gapthresh;                  /* TRUE if -g enabled */
   double      **abc_ct = NULL;                 /* [0..msa->alen-1][0..abc->K] number of each resiude at each position (abc->K is gap) */
-  int          *gap_ct = NULL;                 /* [0..msa->alen-1] number of gaps at each position */
+  double       *gap_ct = NULL;                 /* [0..msa->alen-1] number of gaps at each position */
   int          *useme_g = NULL;                /* [0..i..msa->alen-1] TRUE to keep apos i based on gapfreq, FALSE not to */
 
   /* variables related to postprob mode (-p) */
@@ -451,9 +451,8 @@ main(int argc, char **argv)
       if((status = count_gaps_in_msa(msa, abc, i_am_eligible, errbuf, &gap_ct)) != eslOK) esl_fatal(errbuf);
     }
     else { 
-      ESL_ALLOC(gap_ct, sizeof(int) * msa->alen);
-      for(apos = 0; apos < msa->alen; apos++) gap_ct[apos] = (int) abc_ct[apos][abc->K]; /* no decimal portion to gap count should exist */
-      /* for(apos = 0; apos < msa->alen; apos++) printf("apos: %4d  pp[10]: %4d  pp[11]: %4d  pp[7]: %4d\n", apos, pp_ct[apos][10], pp_ct[apos][11], pp_ct[apos][7]); */
+      ESL_ALLOC(gap_ct, sizeof(double) * msa->alen);
+      for(apos = 0; apos < msa->alen; apos++) gap_ct[apos] = abc_ct[apos][abc->K]; 
     }
     if((status = mask_based_on_gapfreq(gap_ct, msa->alen, (do_small) ? nseq : msa->nseq, esl_opt_GetReal(go, "--gapthresh"), i_am_eligible, errbuf, &useme_g)) != eslOK) esl_fatal(errbuf);
     if(be_verbose) { 
@@ -771,22 +770,22 @@ static int expand_rf_useme_to_alen(int *useme_rf, int *rf2a_map, int rflen, int 
  * Returns eslOK upon success, and points <ret_useme> at useme, caller
  * must free it.
  */
-static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, int **ret_gap_ct)
+static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, double **ret_gap_ct)
 {
   int status;
-  int *gap_ct = NULL;
+  double *gap_ct = NULL;
   int apos, i;
 
   /* contract check, msa should be in text mode */
   if(msa->flags & eslMSA_DIGITAL) ESL_FAIL(eslEINVAL, errbuf, "count_gaps_in_msa() contract violation, MSA is digitized");
 
-  ESL_ALLOC(gap_ct, sizeof(int) * msa->alen);
-  esl_vec_ISet(gap_ct, msa->alen, 0);
+  ESL_ALLOC(gap_ct, sizeof(double) * msa->alen);
+  esl_vec_DSet(gap_ct, msa->alen, 0.);
 
   for(apos = 0; apos < (int) msa->alen; apos++) { 
     if(countme[apos]) { 
       for(i = 0; i < msa->nseq; i++) { 
-	if(esl_abc_CIsGap(abc, msa->aseq[i][apos])) gap_ct[apos]++;
+	if(esl_abc_CIsGap(abc, msa->aseq[i][apos])) gap_ct[apos] += 1.0;
       }
     }
   }
@@ -815,7 +814,7 @@ static int count_gaps_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char
  * Returns eslOK upon success, and points <ret_useme> at useme,
  * caller must free it.
  */
-static int mask_based_on_gapfreq(int *gap_ct, int64_t alen, int nseq, float gapthresh, int *i_am_eligible, char *errbuf, int **ret_useme)
+static int mask_based_on_gapfreq(double *gap_ct, int64_t alen, int nseq, float gapthresh, int *i_am_eligible, char *errbuf, int **ret_useme)
 {
   int status;
   int *useme = NULL;
@@ -830,7 +829,7 @@ static int mask_based_on_gapfreq(int *gap_ct, int64_t alen, int nseq, float gapt
 
   for(apos = 0; apos < alen; apos++) {
     if(i_am_eligible[apos]) { 
-      gapfreq = (float) gap_ct[apos] / (float) nseq;
+      gapfreq = gap_ct[apos] / (float) nseq;
       useme[apos] = gapthresh < gapfreq ? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
       /* printf("apos: %d gapfreq: %.3f\n", apos, gapfreq); */
     }
@@ -907,10 +906,10 @@ static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
  * Returns eslOK upon success, and points <ret_useme> at useme, caller
  * must free it.
  */
-static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, int ***ret_pp_ct)
+static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme, char *errbuf, double ***ret_pp_ct)
 {
   int status;
-  int **pp_ct = NULL;
+  double **pp_ct = NULL;
   int apos, i;
   int nppvals = 12; /* '0-9', '*' and gap */
   int ppidx;
@@ -919,10 +918,10 @@ static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme,
   if(msa->flags & eslMSA_DIGITAL) ESL_FAIL(eslEINVAL, errbuf, "count_postprobs_in_msa() contract violation, MSA is digitized");
   if(msa->pp == NULL) ESL_FAIL(eslEINVAL, errbuf, "count_postprobs_in_msa() contract violation, msa->pp is NULL");
   
-  ESL_ALLOC(pp_ct, sizeof(int *) * msa->alen);
+  ESL_ALLOC(pp_ct, sizeof(double *) * msa->alen);
   for(apos = 0; apos < msa->alen; apos++) { 
-    ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-    esl_vec_ISet(pp_ct[apos], nppvals, 0);
+    ESL_ALLOC(pp_ct[apos], sizeof(double) * nppvals);
+    esl_vec_DSet(pp_ct[apos], nppvals, 0.);
   }
     
   for(apos = 0; apos < (int) msa->alen; apos++) { 
@@ -936,7 +935,7 @@ static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme,
 	  /* make sure the corresponding residue is also a gap */
 	  if(! esl_abc_CIsGap(abc, msa->aseq[i][apos])) ESL_FAIL(eslEINVAL, errbuf, "post prob annotation for seq: %d aln column: %d is a gap (%c), but seq res is not: (%c)", i, apos, msa->pp[i][apos], msa->aseq[i][apos]);
 	} 
-	pp_ct[apos][ppidx]++; 
+	pp_ct[apos][ppidx] += 1.; 
       }
     }
   }
@@ -988,21 +987,21 @@ static int count_postprobs_in_msa(ESL_MSA *msa, ESL_ALPHABET *abc, int *countme,
  * Returns eslOK upon success, and points <ret_useme> at useme,
  * caller must free it.
  */
-static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme)
+static int mask_based_on_postprobs(double **pp_ct, int64_t alen, int nseq, float pthresh, float pfract, int do_pavg, float pavg_min, int do_ppcons, float ppcons_min, char *pp_cons, ESL_ALPHABET *abc, int *i_am_eligible, int allgapok, char *errbuf, int **ret_useme)
 {
   int status;
   int *useme = NULL;
   int apos;
   float ppfreq;
-  int nnongap;
+  double nnongap;
   int nppvals = 12; /* '0-9', '*' and gap */
   int ppidx_thresh;
   int ppidx = 0; 
-  int ppcount = 0;
-  float ppsum = 0.;
-  float pavg;
-  float ppminA[11];
-  float ppavgA[11];
+  double ppcount = 0.;
+  double ppsum = 0.;
+  double pavg;
+  double ppminA[11];
+  double ppavgA[11];
 
   ppminA[0]  = 0.00;
   ppminA[1]  = 0.05;
@@ -1047,11 +1046,11 @@ static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pt
   }
 
   for(apos = 0; apos < alen; apos++) {
-    ppcount = 0;
+    ppcount = 0.;
     ppsum = 0.;
     if(i_am_eligible[apos]) { /* consider this position */
-      nnongap = esl_vec_ISum(pp_ct[apos], nppvals) - pp_ct[apos][11]; 
-      if(nnongap == 0) { 
+      nnongap = esl_vec_DSum(pp_ct[apos], nppvals) - pp_ct[apos][11]; 
+      if(esl_FCompare(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0 */
 	useme[apos] = allgapok ? TRUE : FALSE; 
       }
       else { 
@@ -1060,7 +1059,7 @@ static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pt
 	    ppsum += pp_ct[apos][ppidx] * ppavgA[ppidx]; /* Note: PP value is considered average of range, not minimum ('9' == 0.90 (0.95-0.85/2) */
 	    /* printf("apos: %d pp_idx: %d ct: %d sum: %.3f\n", apos, ppidx, pp_ct[apos][ppidx], ppsum);*/
 	  }
-	  pavg = (float) ppsum / (float) nnongap;
+	  pavg = ppsum / nnongap;
 	  useme[apos] = pavg < pavg_min? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
 	  /* printf("pavg: %.3f nnongap: %d useme[apos:%d]: %d pavg_min: %.3f\n", pavg, nnongap, apos, useme[apos], pavg_min);*/
 	}
@@ -1077,7 +1076,7 @@ static int mask_based_on_postprobs(int **pp_ct, int64_t alen, int nseq, float pt
 	  for(ppidx = 10; ppidx >= ppidx_thresh; ppidx--) { 
 	    ppcount += pp_ct[apos][ppidx];
 	  }
-	  ppfreq = (float) ppcount / (float) nnongap;
+	  ppfreq = ppcount / nnongap;
 	  useme[apos] = (ppfreq < pfract) ? FALSE : TRUE; /* should I be worried about imprecision? 0.5 compared to 0.5? */
 	  /* printf("apos: %4d nnongap: %6d  ppfreq: %.3f pfract %.3f useme: %d ppidx_thresh: %d\n", apos, nnongap, ppfreq, pfract, useme[apos], ppidx_thresh); */
 	}

@@ -490,12 +490,12 @@ static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf
 static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
 static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
 static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
-static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
+static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
 static int  get_consensus_seqs_from_abc_ct(const ESL_GETOPTS *go,SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
 static int  delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int *span_ct, int msa_nseq, int do_all, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zerodel_idx, int hc_fewdel_idx, FILE *tabfp);
-static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
+static int  avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, int hc_fewins_idx, FILE *tabfp);
 static int  insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *nseq_with_ins_ct, int *nins_ct, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_zeroins_idx, FILE *tabfp);
 static int  span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *span_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int zercov_idx, int maxcov_idx, FILE *tabfp);
@@ -604,7 +604,7 @@ main(int argc, char **argv)
   double        **abc_ct = NULL;        /* [0..msa->alen-1][0..abc->K], count of each nucleotide at each position, over all sequences, missing and nonnucleotides are *not counted* */
   double       ***bp_ct = NULL;         /* [0..msa->alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonnucleotides are *not counted* 
                                            base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
-  int           **pp_ct = NULL;         /* [0..msa->alen-1][0..11], count of reach posterior probability (PP) code, over all sequences, gap is 11 */
+  double        **pp_ct = NULL;         /* [0..msa->alen-1][0..11], count of reach posterior probability (PP) code, over all sequences, gap is 11 */
   int            *spos_ct = NULL;       /* [0..msa->alen-1] per position count of first non-gap position, over all seqs */
   int            *epos_ct = NULL;       /* [0..msa->alen-1] per position count of final non-gap position, over all seqs */
   int            *srfoff_ct = NULL;     /* [0..rfpos..rflen-1], correction for spos_ct for rfpos, derived from ifile, only used if msa has had all insert columns removed */
@@ -4058,7 +4058,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * 
  * Returns eslOK upon success.
  */
-int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, int ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct)
+int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct)
 {
   int status;
   double  **abc_ct = NULL;
@@ -4072,7 +4072,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
   int      *ct = NULL;            /* 0..alen-1 base pair partners array for current sequence */
   char     *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
   int       nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
-  int     **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
+  double  **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
   int       ppidx; 
 
   /* contract check, msa should be in text mode and have ss_cons */
@@ -4081,10 +4081,10 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
 
   /* allocate pp_ct array, if nec */
   if(ret_pp_ct != NULL && msa->pp != NULL) { 
-    ESL_ALLOC(pp_ct, sizeof(int *) * msa->alen);
+    ESL_ALLOC(pp_ct, sizeof(double *) * msa->alen);
     for(apos = 0; apos < msa->alen; apos++) { 
-      ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-      esl_vec_ISet(pp_ct[apos], nppvals, 0);
+      ESL_ALLOC(pp_ct[apos], sizeof(double) * nppvals);
+      esl_vec_DSet(pp_ct[apos], nppvals, 0.);
     }
   }
 
@@ -4124,7 +4124,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
       if((status = esl_abc_DCount(msa->abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting nucleotide %d of seq %d", apos, i);
       if(! esl_abc_XIsGap(msa->abc, tmp_dsq[apos+1])) { 
 	if(! seen_start) { 
-	  spos_ct[apos]++; 
+	  spos_ct[apos]++;
 	  seen_start = TRUE;
 	}
 	epos = apos;
@@ -4141,7 +4141,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
       if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, seq %d does not.", i+1);
       for(apos = 0; apos < msa->alen; apos++) { /* update appropriate pp count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
 	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	pp_ct[apos][ppidx]++;
+	pp_ct[apos][ppidx] += 1.;
       }
     }
   }
@@ -5075,7 +5075,7 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
  * Return:   eslOK on success.
  */
 static int
-avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, int **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
+avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **pp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp)
 {
   int status;
   int p;
@@ -5089,10 +5089,10 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   float ppavgA[11];
   int l;
   int apos;
-  int nnongap;
-  float ppsum;
+  double nnongap;
+  double ppsum;
   int ppidx;
-  float ppavg;
+  double ppavg;
   int bi;
 
   ppavgA[0]  = 0.025;
@@ -5186,8 +5186,8 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
   ps->sclAA[pp] = create_scheme_colorlegend(hc_scheme_idx, hc_nbins, limits, FALSE, TRUE, TRUE, TRUE);
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos]; 
-    nnongap = esl_vec_ISum(pp_ct[apos], 11);
-    if(nnongap == 0) { /* all gaps */
+    nnongap = esl_vec_DSum(pp_ct[apos], 11);
+    if(esl_FCompare(nnongap, 0., eslSMALLX1) == eslOK) { /* effectively 0.0, all gaps */
       if((status = set_onecell_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_onecell[hc_onecell_idx])) != eslOK) return status;
       nonecell_allgap++;
       if(ps->mask != NULL && ps->mask[rfpos] == '1') nonecell_allgap_masked++; 
@@ -5195,7 +5195,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
       ppavg = 0.;
     }
     else { /* at least 1 non-gap nucleotide in this position */
-      if(pp_ct[apos][10] == nnongap) { /* all nongap nucleotides have highest possible posterior probability */
+      if(esl_FCompare(nnongap, pp_ct[apos][10], eslSMALLX1)) { /* all nongap nucleotides have highest possible posterior probability */
       }
       else { 
       }
@@ -5203,7 +5203,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
       for(ppidx = 0; ppidx < 11; ppidx++) {
 	ppsum += pp_ct[apos][ppidx] * ppavgA[ppidx]; /* Note: PP value is considered average of range, not minimum ('9' == 0.90 (0.95-0.85/2) */
       }
-      ppavg = (float) ppsum / (float) nnongap;
+      ppavg = ppsum / nnongap;
       within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
       if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx], ppavg, ps->sclAA[pp], within_mask, &bi)) != eslOK) return status;
     }
@@ -5221,7 +5221,7 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
     }
 
     if(tabfp != NULL) { 
-      fprintf(tabfp, "  avgpostprob  %6d  %8.5f  %10d  %3d", rfpos+1, ppavg, nnongap, bi+1);
+      fprintf(tabfp, "  avgpostprob  %6d  %8.5f  %10d  %3d", rfpos+1, ppavg, (int) nnongap, bi+1);
       if(ps->mask != NULL) fprintf(tabfp, "  %4d", ps->mask[rfpos] == '1' ? 1 : 0);
       fprintf(tabfp, "\n");
     }

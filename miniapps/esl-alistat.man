@@ -209,6 +209,23 @@ canonical residues will be counted. That is, any basepair that is a gap
 or an ambiguous (degenerate) residue at either position of the pair is
 ignored and not counted.
 
+
+.TP 
+.B --weight
+With 
+.B --icinfo, --rinfo, --pcinfo, --iinfo, --cinfo 
+and
+.B --bpinfo,
+weight counts based on #=GS WT annotation in the input 
+.B msafile.
+A residue or basepair from a sequence with a weight of 
+.I x
+will be considered 
+.I x
+counts. 
+By default, raw, unweighted counts are reported; corresponding to each
+sequence having an equal weight of 1.
+
 .SH AUTHOR
 
 Easel and its documentation are @EASEL_COPYRIGHT@.

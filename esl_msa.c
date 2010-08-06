@@ -5354,7 +5354,7 @@ get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 int
 esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
 			   int *opt_nseq, int64_t *opt_alen, int *opt_ngs, int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
-			   double ***opt_abc_ct, int ***opt_pp_ct, double ****opt_bp_ct, int **opt_spos_ct, int **opt_epos_ct)
+			   double ***opt_abc_ct, double ***opt_pp_ct, double ****opt_bp_ct, int **opt_spos_ct, int **opt_epos_ct)
 {
   char      *s;                    /* pointer to current character in afp */
   int        status;               /* easel status code */
@@ -5382,7 +5382,7 @@ esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t 
   double  ***bp_ct = NULL;         /* [0..alen-1][0..abc->Kp][0..abc->Kp], count of each possible base pair at each position, over all sequences, missing and nonresidues are *not counted* 
                                        base pairs are indexed by 'i' for a base pair between positions i and j, where i < j. */
   int        nppvals = 12;         /* '0'-'9' = 0-9, '*' = 10, gap = '11' */
-  int      **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
+  double   **pp_ct = NULL;         /* [0..alen-1][0..nppvals-1] per position count of each possible PP char over all seqs */
   int        ppidx;                /* index for 2nd dim of pp_ct array */
   int       *spos_ct = NULL;       /* [0..alen-1] number of seqs that start (have first nongap residue) at each position */
   int       *epos_ct = NULL;       /* [0..alen-1] number of seqs that end   (have final nongap residue) at each position */
@@ -5519,10 +5519,10 @@ esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t 
 		  if(alen == -1) { /* first aligned text line, need to allocate pp_ct, and possibly abc_ct, spos_ct, epos_ct */
 		    alen = textlen;
 		    if(known_alen != -1 && known_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): known alen (%" PRId64 " passed in) != actual alen (%d)", afp->linenumber, known_alen, textlen);
-		    ESL_ALLOC(pp_ct, sizeof(int *) * alen);
+		    ESL_ALLOC(pp_ct, sizeof(double *) * alen);
 		    for(apos = 0; apos < alen; apos++) { 
-		      ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-		      esl_vec_ISet(pp_ct[apos], nppvals, 0);
+		      ESL_ALLOC(pp_ct[apos], sizeof(double) * nppvals);
+		      esl_vec_DSet(pp_ct[apos], nppvals, 0.);
 		    }
 		    if(opt_abc_ct != NULL || opt_bp_ct != NULL) { 
 		      ESL_ALLOC(tmp_dsq, (alen+2) * sizeof(ESL_DSQ));
@@ -5538,7 +5538,7 @@ esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t 
 		  else if(alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP line, len %d, expected %" PRId64, afp->linenumber, textlen, alen);
 		  for(apos = 0; apos < alen; apos++) { /* update appropriate PP count */
 		    if((ppidx = get_pp_idx(abc, text[apos])) == -1) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR PP char: %c", afp->linenumber, text[apos]);
-		    pp_ct[apos][ppidx]++;
+		    pp_ct[apos][ppidx] += 1.;
 		  }
 		}
 	      }
@@ -5577,10 +5577,10 @@ esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t 
 		}
 	      }
 	      if(opt_pp_ct != NULL) { 
-		ESL_ALLOC(pp_ct, sizeof(int *) * alen);
+		ESL_ALLOC(pp_ct, sizeof(double *) * alen);
 		for(apos = 0; apos < alen; apos++) { 
-		  ESL_ALLOC(pp_ct[apos], sizeof(int) * nppvals);
-		  esl_vec_ISet(pp_ct[apos], nppvals, 0);
+		  ESL_ALLOC(pp_ct[apos], sizeof(double) * nppvals);
+		  esl_vec_DSet(pp_ct[apos], nppvals, 0.);
 		}
 	      }
 	    }
