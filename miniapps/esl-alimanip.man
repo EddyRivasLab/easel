@@ -210,6 +210,16 @@ reference (GC RF) annotation. Only works in combination with
 .B --trim.
 
 .TP 
+.BI --minpp " <x>"
+Replace all residues in the alignments for which the posterior
+probability annotation (#=GR PP) is less than 
+.I <x>
+with gaps. The PP annotation for these residues is also converted to
+gaps. 
+.I <x>
+must be greater than 0.0 and less than or equal to 0.95.
+
+.TP 
 .BI --tree " <f>"
 Reorder sequences by tree order. 
 Perform single linkage clustering on the sequences in the alignment

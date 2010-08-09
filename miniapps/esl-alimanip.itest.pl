@@ -263,8 +263,13 @@ if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --trim $tmppfx.trim.fa $tmppfx.stk 2>&1`;
 if ($? != 0)                                                    { die "FAIL: esl-alimanip failed unexpectedly";}
-if ($output =~ /seq1    ----------------C-CCCCCCC-C--GGGGGG---/) { die "FAIL: alignment manipulated incorrectly"; }
-if ($output =~ /seq3    ----------AA---C---CCCCCC-C--G--------/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq1\s+----------------C-CCCCCCC-C--GGGGGG---/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq3\s+----------AA---C---CCCCCC-C--G--------/) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --minpp 0.9 $tmppfx.stk 2>&1`;
+if ($? != 0)                                                     { die "FAIL: esl-alimanip failed unexpectedly";}
+if ($output !~ /seq1\s+----AA--AA-----C---CCCC---------------/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq3\s+---------A----------------------------/) { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --reorder $tmppfx.list2 $tmppfx.stk 2>&1`;
 if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}

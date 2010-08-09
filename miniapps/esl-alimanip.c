@@ -30,7 +30,7 @@ static char usage[]  = "[options] <msafile>";
 
 #define CLUSTOPTS             "--cn-id,--cs-id,--cx-id,--cn-ins,--cs-ins,--cx-ins" /* Exclusive choice for clustering */
 #define CHOOSESEQOPTS         "--seq-k,--seq-r,--seq-ins,--reorder" /* Exclusive choice for choosing which seqs to keep/remove */
-#define INCOMPATWITHSMALLOPTS "--lnfract,--lxfract,--lmin,--lmax,--detrunc,--k-reorder,--seq-ins,--seq-ni,--seq-xi,--trim,--t-keeprf,--tree,--reorder,--mask2rf,--m-keeprf,--num-all,--num-rf,--rm-gc,--sindi,--post2pp" /* Options incompatible with --small (all opts except --seq-k,--seq-r,--informat,--outformat,--rna,--dna,--amino */
+#define INCOMPATWITHSMALLOPTS "--lnfract,--lxfract,--lmin,--lmax,--detrunc,--k-reorder,--seq-ins,--seq-ni,--seq-xi,--trim,--minpp,--t-keeprf,--tree,--reorder,--mask2rf,--m-keeprf,--num-all,--num-rf,--rm-gc,--sindi,--post2pp" /* Options incompatible with --small (all opts except --seq-k,--seq-r,--informat,--outformat,--rna,--dna,--amino */
 
 static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
 static int  write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *amask, int amask_len);
@@ -38,6 +38,8 @@ static int  write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int 
 static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
 static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
 static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf);
+static int  prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbuf);
+static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
 static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
 static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
@@ -94,6 +96,7 @@ static ESL_OPTIONS options[] = {
   { "--seq-xi",    eslARG_INT,"1000000",NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at most  <n> residue insertions",            2 },
   { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
   { "--t-keeprf",  eslARG_NONE,   NULL, NULL, NULL,      NULL,"--trim", NULL,                   "w/--trim keep GC RF annotation in msa, if it exists",            2 },
+  { "--minpp",     eslARG_REAL,   NULL, NULL, "0<x<=0.95",NULL,NULL,NULL,                       "replace residues with posterior probabilities < <x> with gaps",  2 },
   { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder MSA to tree order following SLC, save Newick tree to <f>",2 },
   { "--reorder",   eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder seqs to the order listed in <f>, all seqs must be listed",2 },
   /* options for adding/removing alignment annotation */
@@ -496,6 +499,14 @@ main(int argc, char **argv)
 	  for(i = 0; i < msa->nseq; i++) esl_sq_Destroy(trim_sq[i]); 
 	  free(trim_sq);
 	  trim_sq = NULL;
+	}
+
+	/*****************************************************
+	 * Replace residues with PP values less than minimum *
+	 *****************************************************/
+	if(esl_opt_IsOn(go, "--minpp")) { 
+	  if(msa->pp == NULL) esl_fatal("--minpp requires all alignments have posterior probability annotation, %d does not\n", nali);
+	  if((status = prune_msa_based_on_posteriors(msa, esl_opt_GetReal(go, "--minpp"), errbuf)) != eslOK) esl_fatal(errbuf);
 	}
       
 	/**********************************************
@@ -1061,7 +1072,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
       for(i = 0; i < msa->nseq; i++) if(msa->gr[r][i] != NULL) { free(msa->gr[r][i]); }
       free(msa->gr[r]);
     }
-    if(msa->gr_idx != NULL) esl_keyhash_Destroy(msa->gr_idx);
+    if(msa->gr_idx != NULL) { esl_keyhash_Destroy(msa->gr_idx); msa->gr_idx = NULL; }
     msa->gr_idx = NULL;
     free(msa->gr);
     msa->gr = NULL;
@@ -1073,6 +1084,182 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
 
  ERROR:
   return status;
+}
+
+
+/* prune_msa_based_on_posteriors
+ *                   
+ * Given an MSA and a minimum posterior probability (PP) <min_pp>
+ * value to keep, replace all residues that have posterior
+ * probabilities < <min_pp> with gaps. The PP values for these
+ * residues are replaced with gaps as well. 
+ * 
+ * We remove all GF, GS, GR and GC markup from the msa, except for GR
+ * PP annotation and parsed GC annotation, like SS_cons, RF, SA_cons
+ * and PP_cons.
+ */
+static int prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbuf)
+{
+  double ppminA[11]; /* values of the 11 possible nongap PP values, '0'-'9' and '*', hardcoded here */
+  float max_pp;  /* max allowable min_pp value */
+  int i, r;      /* counters */
+  int min_ppidx; /* index in ppminA[] corresponding to minimum allowed PP */
+  int apos;
+  int ppidx;
+
+  ppminA[0]  = 0.00;
+  ppminA[1]  = 0.05;
+  ppminA[2]  = 0.15;
+  ppminA[3]  = 0.25;
+  ppminA[4]  = 0.35;
+  ppminA[5]  = 0.45;
+  ppminA[6]  = 0.55;
+  ppminA[7]  = 0.65;
+  ppminA[8]  = 0.75;
+  ppminA[9]  = 0.85;
+  ppminA[10] = 0.95;
+  max_pp = 0.95;
+
+  if(! (msa->flags & eslMSA_DIGITAL))
+    ESL_FAIL(eslEINVAL, errbuf, "in prune_msa_based_on_posteriors(), msa must be digitized.");
+  if(msa->pp == NULL) 
+    ESL_FAIL(eslEINVAL, errbuf, "in prune_msa_based_on_posteriors(), msa has no PP annotation.");
+
+  /* determine the index in ppminA of the minimum allowed PP */
+  min_ppidx = 0; 
+  /* special case, check to see if max possible min_pp was passed in, this is 0.95 */
+  if(esl_FCompare(min_pp, max_pp, eslSMALLX1) == eslOK) { 
+    min_ppidx = 10;
+  }
+  else if(min_pp > max_pp) { 
+    ESL_FAIL(eslERANGE, errbuf, "in prune_msa_based_on_posteriors(), min_pp (%f) is too large (max allowed is %f)\n", min_pp, max_pp);
+  }
+  else {
+    while((min_ppidx < 10) && (min_pp > ppminA[min_ppidx])) { 
+      min_ppidx++;
+    }
+  }
+
+  /* replace all PP values less than our minimum, and their associated residues, with gaps */
+  for(i = 0; i < msa->nseq; i++) { 
+    /* rename the sequence */
+    if(msa->pp[i] != NULL) {
+      for(apos = 1; apos <= msa->alen; apos++) { 
+	/* be wary off the off-by-one b/t msa->ax and msa->pp */
+	if(! esl_abc_CIsGap(msa->abc, msa->pp[i][apos-1])) { 
+	  ppidx = get_pp_idx(msa->abc, msa->pp[i][apos-1]);
+	  if(ppidx < min_ppidx) { /* not a gap, and less than our minimum */
+	    msa->ax[i][apos]   = msa->abc->K; /* make this residue a gap */
+	    msa->pp[i][apos-1] = '.';         /* make the PP for this residue a gap */
+	  }
+	}
+      }
+    }	
+  }  
+
+  /* Free annotation in MSA because we can't be sure any of it is
+   * valid anymore -- we've removed residues from the sequences (!)
+   */
+
+  /* Free all per-file (GF) annotation */
+  for(r = 0; r < msa->ngf; r++) { 
+    if(msa->gf[r]     != NULL) free(msa->gf[r]); 
+    if(msa->gf_tag[r] != NULL) free(msa->gf_tag[r]);
+  }
+  if(msa->gf != NULL)     { free(msa->gf);     msa->gf     = NULL; }
+  if(msa->gf_tag != NULL) { free(msa->gf_tag); msa->gf_tag = NULL; }
+  msa->ngf = 0;
+
+  /* Free all per-column (GC) annotation that might now be invalid,
+   * we leave the parsed GC annotation, like SS_cons 
+   */
+  for(r = 0; r < msa->ngc; r++) { 
+    if(msa->gc[r]     != NULL) free(msa->gc[r]); 
+    if(msa->gc_tag[r] != NULL) free(msa->gc_tag[r]);
+  }
+  if(msa->gc != NULL)     { free(msa->gc);     msa->gc     = NULL; }
+  if(msa->gc_tag != NULL) { free(msa->gc_tag); msa->gc_tag = NULL; }
+  if(msa->gc_idx != NULL) { esl_keyhash_Destroy(msa->gc_idx); msa->gc_idx = NULL; }
+  msa->ngc = 0;
+
+  /* Free all per-sequence (GS) annotation */
+  for(r = 0; r < msa->ngc; i++) { 
+    if(msa->gs[r]     != NULL) { 
+      for(i = 0; i < msa->nseq; i++) { 
+	free(msa->gs[r][i]); 
+      }
+      free(msa->gs[r]);
+    }
+    if(msa->gc_tag[r] != NULL) free(msa->gc_tag[r]);
+  }
+  if(msa->gs != NULL)     { free(msa->gs);     msa->gs     = NULL; }
+  if(msa->gs_tag != NULL) { free(msa->gs_tag); msa->gs_tag = NULL; }
+  if(msa->gs_idx != NULL) { esl_keyhash_Destroy(msa->gs_idx); msa->gs_idx = NULL; }
+  msa->ngs = 0;
+
+  /* Free all per-residue (GR) annotation (except PP) */
+  if(msa->ss != NULL) { 
+    for(i = 0; i < msa->nseq; i++) if(msa->ss[i] != NULL) { free(msa->ss[i]); }
+    free(msa->ss); 
+    msa->ss = NULL;
+  }
+  if(msa->sa != NULL) { 
+    for(i = 0; i < msa->nseq; i++) if(msa->sa[i] != NULL) { free(msa->sa[i]); }
+    free(msa->sa); 
+    msa->sa = NULL;
+  }
+  if(msa->ngr > 0) { 
+    for(r = 0; r < msa->ngr; r++) { 
+      for(i = 0; i < msa->nseq; i++) if(msa->gr[r][i] != NULL) { free(msa->gr[r][i]); }
+      free(msa->gr[r]);
+    }
+    if(msa->gr_idx != NULL) { esl_keyhash_Destroy(msa->gr_idx); msa->gr_idx = NULL; }
+    msa->gr_idx = NULL;
+    free(msa->gr);
+    msa->gr = NULL;
+    msa->ngr = 0;
+  }
+
+  return eslOK;
+}
+
+/* get_pp_idx
+ *                   
+ * Given a #=GR PP or #=GC PP_cons character, return the appropriate index
+ * in a pp_ct[] vector. 
+ * '0' return 0;
+ * '1' return 1;
+ * '2' return 2;
+ * '3' return 3;
+ * '4' return 4;
+ * '5' return 5;
+ * '6' return 6;
+ * '7' return 7;
+ * '8' return 8;
+ * '9' return 9;
+ * '*' return 10;
+ * gap return 11;
+ * 
+ * Anything else (including missing or nonresidue) return -1;
+ *
+ * This mapping of PP chars to return values should probably be 
+ * stored in some internal map structure somewhere.
+ */
+static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
+{
+  if(esl_abc_CIsGap(abc, ppchar)) return 11;
+  if(ppchar == '*')               return 10;
+  if(ppchar == '9')               return 9;
+  if(ppchar == '8')               return 8;
+  if(ppchar == '7')               return 7;
+  if(ppchar == '6')               return 6;
+  if(ppchar == '5')               return 5;
+  if(ppchar == '4')               return 4;
+  if(ppchar == '3')               return 3;
+  if(ppchar == '2')               return 2;
+  if(ppchar == '1')               return 1;
+  if(ppchar == '0')               return 0;
+  return -1;
 }
 
 /* get_tree_order
@@ -3050,7 +3237,7 @@ convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali)
   msa->ngr = 0;
   /* gr_idx will no longer be valid so we destroy it, 
    * we could recreate it, but it's only used for parsing anyhow */
-  if(msa->gr_idx != NULL) esl_keyhash_Destroy(msa->gr_idx); 
+  if(msa->gr_idx != NULL) { esl_keyhash_Destroy(msa->gr_idx); msa->gr_idx = NULL; }
   msa->gr_idx = NULL;
   
   return eslOK;
