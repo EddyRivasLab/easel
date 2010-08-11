@@ -10,7 +10,8 @@
  *    7. Internal routines for EMBL format (including Uniprot, TrEMBL)
  *    8. Internal routines for Genbank format
  *    9. Internal routines for FASTA format
- *   10. Copyright and license.
+ *   10. Internal routines for DAEMON format
+ *   11. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -94,6 +95,11 @@ static void inmap_fasta (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
 static int  header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  skip_fasta  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  end_fasta   (ESL_SQFILE *sqfp, ESL_SQ *sq);
+
+/* DAEMON format */
+static void config_daemon(ESL_SQFILE *sqfp);
+static void inmap_daemon (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
+static int  end_daemon   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 
 
 /*****************************************************************
@@ -270,6 +276,10 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
       case eslSQFILE_FASTA:    
 	config_fasta(sqfp);   
 	inmap_fasta(sqfp, NULL);
+	break;
+      case eslSQFILE_DAEMON:    
+	config_daemon(sqfp);   
+	inmap_daemon(sqfp, NULL);
 	break;
       default:
 	status = eslEFORMAT; 
@@ -618,6 +628,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
       case eslSQFILE_GENBANK:    inmap_genbank(sqfp, abc->inmap); break;
       case eslSQFILE_DDBJ:       inmap_genbank(sqfp, abc->inmap); break;
       case eslSQFILE_FASTA:      inmap_fasta(sqfp,   abc->inmap); break;
+      case eslSQFILE_DAEMON:     inmap_daemon(sqfp,  abc->inmap); break;
 
       default:                 	 status = eslEFORMAT;             break;
       }
@@ -2030,7 +2041,20 @@ loadmem(ESL_SQFILE *sqfp)
       ascii->is_recording = -1;	/* no more recording is possible now */
       ascii->mpos = 0;
       ascii->moff = ftello(ascii->fp);
-      n          = fread(ascii->mem, sizeof(char), eslREADBUFSIZE, ascii->fp);
+      if (ascii->do_stdin) {
+        /* If we are reading from stdin, buffered read cannot be used
+         * because if will block until EOF or the buffer is full, ie
+         * eslREADBUFSIZE characters have been read.  Usually this would
+         * not be a problem, unless stdin is from a pipe.  In that case
+         * if the sequence is less than eslREADBUFSIZE we would block.
+         *
+         * NOTE:  any changes to the IO stream ascii->fp, such as fseek, 
+         * might not have any affect on the file descriptor for the stream.
+         */
+        n = read(fileno(ascii->fp), ascii->mem, eslREADBUFSIZE);
+      } else {
+        n = fread(ascii->mem, sizeof(char), eslREADBUFSIZE, ascii->fp);
+      }
       ascii->mn   = n;
     }
   return (n == 0 ? eslEOF : eslOK);
@@ -2891,6 +2915,9 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
+  /* make sure there are characters in the buffer */
+  if (ascii->nc == ascii->bpos && (status = loadbuf(sqfp)) != eslOK) return status;
+
   c =  ascii->buf[ascii->bpos];
   while (status == eslOK && isspace(c)) status = nextchar(sqfp, &c); /* skip space (including \n) */
 
@@ -3046,6 +3073,86 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
 }
 
 /*------------------- end of FASTA i/o ---------------------------*/	       
+
+
+/*****************************************************************
+ *#  9. Internal routines for DAEMON format
+ *****************************************************************/
+
+/* Special case FASTA format where each sequence is terminated with "//".
+ * 
+ * The use case is were the sequences are being read from a pipe and a
+ * way is needed to signal the of the sequence so it can be processed.
+ * The next sequence might not be in the pipe, so the usual '>' is not
+ * present to signal the end of the sequence.  Also, an EOF is not
+ * an option, since the daemon might run continiously.
+ */
+
+static void
+config_daemon(ESL_SQFILE *sqfp)
+{
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+
+  ascii->is_linebased = FALSE;
+  ascii->eof_is_ok    = FALSE;	
+  ascii->parse_header = &header_fasta;
+  ascii->skip_header  = &skip_fasta;
+  ascii->parse_end    = &end_daemon;
+}
+
+static void
+inmap_daemon(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
+{
+  int x;
+
+  if (abc_inmap != NULL) {
+    for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+  } else {
+    for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
+    for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
+    for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
+  }
+  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */
+  sqfp->inmap[' ']  = eslDSQ_IGNORED;
+  sqfp->inmap['\t'] = eslDSQ_IGNORED;
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;	/* DOS eol compatibility */
+  sqfp->inmap['\n'] = eslDSQ_EOL;
+  sqfp->inmap['/']  = eslDSQ_EOD;
+  /* \n is special - fasta reader detects it as an eol */
+}
+
+
+/* end_daemon()
+ * 
+ * Special case FASTA format where each sequence is terminated with "//".
+ * 
+ * The use case is were the sequences are being read from a pipe and a
+ * way is needed to signal the of the sequence so it can be processed.
+ */
+static int 
+end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  char  c;
+  int   status = eslOK;
+
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+
+  if (ascii->nc < 3) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Whoops, DAEMON input stream is corrupted");
+
+  c =  ascii->buf[ascii->bpos++];
+  if (c != '/') ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": did not find // terminator at end of seq record", ascii->linenumber);
+
+  c =  ascii->buf[ascii->bpos++];
+  if (c != '/') ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": did not find // terminator at end of seq record", ascii->linenumber);
+
+  /* skip to end of line */
+  while (c != '\n' && c != '\r' && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
+
+  /* skip past end of line */
+  while ((c = '\n' || c != '\r') && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
+
+  return eslOK;
+}
 
 
 

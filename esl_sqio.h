@@ -88,13 +88,14 @@ typedef struct esl_sqio_s {
  *   - <=100 is reserved for sqio, for unaligned formats
  *   - >100  is reserved for msa, for aligned formats
  */
-#define eslSQFILE_UNKNOWN 0
-#define eslSQFILE_FASTA   1
-#define eslSQFILE_EMBL    2	/* EMBL/Swissprot/TrEMBL */
-#define eslSQFILE_GENBANK 3	/* Genbank */
-#define eslSQFILE_DDBJ    4	/* DDBJ (currently passed to Genbank parser */
-#define eslSQFILE_UNIPROT 5     /* Uniprot (passed to EMBL parser) */
-#define eslSQFILE_NCBI    6     /* NCBI (blast db) */
+#define eslSQFILE_UNKNOWN      0
+#define eslSQFILE_FASTA        1
+#define eslSQFILE_EMBL         2     /* EMBL/Swissprot/TrEMBL */
+#define eslSQFILE_GENBANK      3     /* Genbank */
+#define eslSQFILE_DDBJ         4     /* DDBJ (currently passed to Genbank parser */
+#define eslSQFILE_UNIPROT      5     /* Uniprot (passed to EMBL parser) */
+#define eslSQFILE_NCBI         6     /* NCBI (blast db) */
+#define eslSQFILE_DAEMON       7     /* Special FASTA format used by daemons */
 /*::cexcerpt::sq_sqio_format::end::*/
 
 
