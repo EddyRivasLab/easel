@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
@@ -152,6 +153,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ascii->fp           = NULL;
   ascii->do_gzip      = FALSE;
   ascii->do_stdin     = FALSE;
+  ascii->do_buffer    = FALSE;
 
   ascii->mem          = NULL;
   ascii->allocm       = 0;
@@ -2024,7 +2026,12 @@ loadmem(ESL_SQFILE *sqfp)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-  if (ascii->is_recording == TRUE)
+  if (ascii->do_buffer)
+    {
+      ascii->mpos = 0;
+      ascii->mn   = 0;
+    }
+  else if (ascii->is_recording == TRUE)
     {
       if (ascii->mem == NULL) ascii->moff = ftello(ascii->fp);        /* first time init of the offset */
       ESL_RALLOC(ascii->mem, tmp, sizeof(char) * (ascii->allocm + eslREADBUFSIZE));
@@ -3133,7 +3140,6 @@ static int
 end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
   char  c;
-  int   status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -3155,6 +3161,101 @@ end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
 }
 
 
+/* esl_sqascii_Parse()
+ * 
+ * Parse a sequence already read into a buffer.
+ */
+int
+esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
+{
+  int               status;
+  int64_t           epos;
+  int64_t           n;
+
+  ESL_SQFILE        sqfp;
+  ESL_SQASCII_DATA *ascii = &sqfp.data.ascii;
+
+  /* fill in a dummy esl_sqfile structure used to parse buf */
+  ascii->fp           = NULL;
+  ascii->do_gzip      = FALSE;
+  ascii->do_stdin     = FALSE;
+  ascii->do_buffer    = TRUE;
+
+  ascii->mem          = buf;
+  ascii->allocm       = 0;
+  ascii->mn           = size;
+  ascii->mpos         = 0;
+  ascii->moff         = -1;
+  ascii->is_recording = FALSE;
+
+  ascii->buf          = NULL;
+  ascii->boff         = 0;
+  ascii->balloc       = 0;
+  ascii->nc           = 0;
+  ascii->bpos         = 0;
+  ascii->L            = 0;
+  ascii->linenumber   = 1;
+
+  /* Configure the <sqfp>'s parser and inmaps for this format. */
+  switch (format) {
+  case eslSQFILE_EMBL:     
+  case eslSQFILE_UNIPROT:  
+    config_embl(&sqfp);    
+    inmap_embl(&sqfp, NULL);
+    break;
+  case eslSQFILE_GENBANK:  
+  case eslSQFILE_DDBJ:     
+    config_genbank(&sqfp); 
+    inmap_genbank(&sqfp, NULL);
+    break;
+  case eslSQFILE_FASTA:    
+    config_fasta(&sqfp);   
+    inmap_fasta(&sqfp, NULL);
+    break;
+  case eslSQFILE_DAEMON:    
+    config_daemon(&sqfp);   
+    inmap_daemon(&sqfp, NULL);
+    break;
+  default:
+    return eslEFORMAT; 
+  }
+
+  /* Main case: read next seq from sqfp's stream */
+  if ((status = ascii->parse_header(&sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
+
+  do {
+    if ((status = seebuf(&sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
+    if (esl_sq_GrowTo(sq, sq->n + n) != eslOK) return eslEMEM;
+    addbuf(&sqfp, sq, n);
+    ascii->L   += n;
+    sq->eoff   = ascii->boff + epos - 1;
+    if (status == eslEOD)     break;
+  } while ((status = loadbuf(&sqfp)) == eslOK);
+    
+  if      (status == eslEOF)
+    {
+      if (! ascii->eof_is_ok) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Unexpected EOF; file truncated?"); 
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+    }
+  else if (status == eslEOD)
+    {
+      ascii->bpos = epos;
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+    }
+  else if (status != eslOK) return status;
+
+  if (sq->dsq != NULL) sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
+  else                 sq->seq[sq->n] = '\0';
+  sq->start = 1;
+  sq->end   = sq->n;
+  sq->C     = 0;
+  sq->W     = sq->n;
+  sq->L     = sq->n;
+
+  if (ascii->balloc > 0) free(ascii->buf);
+
+  return eslOK;
+}
 
 /*****************************************************************
  * @LICENSE@

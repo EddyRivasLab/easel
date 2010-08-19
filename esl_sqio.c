@@ -7,12 +7,14 @@
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Writing sequences.
- *    7. Functions specific to sqio
- *    8. Benchmark driver.
- *    9. Unit tests.
- *   10. Test driver.
- *   11. Examples.
- *   12. Copyright and license.
+ *    6. Writing sequences.
+ *    7. Parse sequences.
+ *    8. Functions specific to sqio
+ *    9. Benchmark driver.
+ *   10. Unit tests.
+ *   11. Test driver.
+ *   12. Examples.
+ *   13. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -1085,7 +1087,47 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
 
 
 /*****************************************************************
- *  7. Functions specific to sqio <-> msa interoperation [with <msa>] 
+ *# 6. Writing sequences.
+ *****************************************************************/
+
+/* Function:  esl_sqio_Parse()
+ * Synopsis:  Parse a sequence alreay read into a buffer.
+ * Incept:    MSF, Fri Aug 13 2010 [Janelia]
+ *
+ * Purpose:   Parse the buffer <buf> for a sequence <s> of type
+ *            <format>.  The buffer must contain the entire sequence.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM>  on allocation error.
+ * Throws:    <eslEFORMAT>  parsing error.
+ * Throws:    <eslEINCONCEIVABLE>  unsupported format
+ */
+int
+esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
+{
+  int status;
+
+  switch (format) {
+  case eslSQFILE_EMBL:     
+  case eslSQFILE_UNIPROT:  
+  case eslSQFILE_GENBANK:  
+  case eslSQFILE_DDBJ:     
+  case eslSQFILE_FASTA:    
+  case eslSQFILE_DAEMON:   
+    status = esl_sqascii_Parse(buf, size, s, format);
+    break;
+  default: 
+    ESL_EXCEPTION(eslEINCONCEIVABLE, "can't write that format");
+  }
+  return status;
+}
+/*-------------------- writing sequences  -----------------------*/
+
+
+
+/*****************************************************************
+ *  8. Functions specific to sqio <-> msa interoperation [with <msa>] 
  *****************************************************************/
 
 #ifdef eslAUGMENT_MSA
@@ -1164,7 +1206,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 /*****************************************************************
- *#  8. Benchmark driver
+ *#  9. Benchmark driver
  *****************************************************************/ 
 /* Some current results:
  *
@@ -1420,7 +1462,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 
 
 /*****************************************************************
- *#  9. Unit tests
+ *#  10. Unit tests
  *****************************************************************/ 
 #ifdef eslSQIO_TESTDRIVE
 #include "esl_random.h"
@@ -1849,7 +1891,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 
 
 /*****************************************************************
- *# 10. Test driver.
+ *# 11. Test driver.
  *****************************************************************/
 
 /* gcc -g -Wall -I. -L. -o sqio_utest -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
@@ -1943,7 +1985,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- *# 11. Examples
+ *# 12. Examples
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/
@@ -2060,6 +2102,44 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::sqio_example2::end::*/
 #endif /*eslSQIO_EXAMPLE2*/
+
+#ifdef eslSQIO_EXAMPLE3
+/*::cexcerpt::sqio_example3::begin::*/
+/* compile: gcc -g -Wall -I. -L. -o sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
+ * run:     ./example <sequence file>
+ */
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+int
+main(int argc, char **argv)
+{
+  ESL_ALPHABET *abc       = NULL;
+  ESL_SQ       *sq        = NULL;
+  int           format    = eslSQFILE_FASTA;
+  int           alphatype = eslAMINO;
+  int           status;
+
+  char *test = ">12345 TEST Test fasta buffer\n"
+               "ARVAPVALPSACAPAGTQCLISGWGNTLSNGVNNPDLLQCVDAPVLSQADCEAAYPGEIT\n"
+               "SSMICVGFLEGGKDSCQGDSGGPVVCNGQLQGIVSWGYGCALPDNPGVYTKVCNFVGWIQ\n"
+               "DTIAAN";
+
+  abc = esl_alphabet_Create(alphatype);
+  sq  = esl_sq_CreateDigital(abc);
+
+  status = esl_sqio_Parse(test, strlen(test), sq, format);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed\n");     
+  else if (status != eslEOF)     esl_fatal("Unexpected error parsing buffer", status);
+  
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
+  return 0;
+}
+/*::cexcerpt::sqio_example3::end::*/
+#endif /*eslSQIO_EXAMPLE3*/
 
 
 

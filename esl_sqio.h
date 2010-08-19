@@ -140,6 +140,7 @@ extern int   esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t 
 #endif
 
 extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update);
+extern int   esl_sqio_Parse(char *buffer, int size, ESL_SQ *s, int format);
 
 #endif /*!ESL_SQIO_INCLUDED*/
 /*****************************************************************
