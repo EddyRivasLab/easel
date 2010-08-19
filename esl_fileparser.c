@@ -118,11 +118,46 @@ esl_fileparser_Create(FILE *fp)
   efp->filename    = NULL;
   efp->linenumber  = 0;
   efp->errbuf[0]   = '\0';
+  efp->is_buffer   = FALSE;
+  efp->mem_buffer  = NULL;
+  efp->mem_size    = 0;
+  efp->mem_pos     = 0;
   return efp;
   
  ERROR:
   esl_fileparser_Destroy(efp);
   return NULL;
+}
+
+
+/* Function:  esl_fileparser_CreateMapped()
+ * Incept:    MSF, Mon Aug 16 2010 [Janelia]
+ *
+ * Purpose:   Sets up a memory buffer to be parsed with the
+ *            file parser routines.Take an open file <fp>, and transform it to
+ *            a fileparser object -- preparing to parse it
+ *            one whitespace-delimited field at a time.
+ *
+ * Args:      fp  - open FILE to parse
+ *
+ * Returns:   a new <ESL_FILEPARSER> object, which must be 
+ *            free'd by the caller with <esl_fileparser_Destroy()>.
+ *
+ * Throws:    <eslEMEM> if an allocation failed.
+ *            
+ * Xref:      STL8 p.56.
+ */
+ESL_FILEPARSER *
+esl_fileparser_CreateMapped(void *buffer, int size)
+{
+  ESL_FILEPARSER *efp = NULL;
+
+  if ((efp = esl_fileparser_Create(NULL)) == NULL) return NULL;
+  
+  efp->is_buffer   = TRUE;
+  efp->mem_buffer  = buffer;
+  efp->mem_size    = size;
+  return efp;
 }
 
 
@@ -530,11 +565,41 @@ nextline(ESL_FILEPARSER *efp)
 {
   int status;
 
-  if ((status = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != eslOK) 
-    { sprintf(efp->errbuf, "esl_fgets() failed"); return status;}
+  /* check if we are reading from a file or a buffer */
+  if (efp->is_buffer) {
+    int   len;
+    int   end;
+
+    char *ptr;
+    char *tmp;
+
+    if (efp->mem_pos >= efp->mem_size) return eslEOF;
+
+    len = 0;
+    end = efp->mem_size - efp->mem_pos;
+    ptr = efp->mem_buffer + efp->mem_pos;
+    while (len < end && *ptr++ != '\n') ++len;
+    if (len < end) ++len;
+
+    if (len + 1 > efp->buflen) {
+      ESL_RALLOC(efp->buf, tmp, len * 2);
+      efp->buflen = len * 2;
+    }
+    memcpy(efp->buf, efp->mem_buffer + efp->mem_pos, len);
+    efp->buf[len] = 0;
+
+    efp->mem_pos += len;
+
+  } else {
+    if ((status = esl_fgets(&(efp->buf), &(efp->buflen), efp->fp)) != eslOK) 
+      { sprintf(efp->errbuf, "esl_fgets() failed"); return status;}
+  }
   efp->s = efp->buf;
   efp->linenumber++;
   return eslOK;
+
+ ERROR:
+  return eslEMEM;
 }
 
 
@@ -612,6 +677,35 @@ utest_GetTokenOnLine(char *filename)
   esl_fileparser_Close(efp);
   return;
 }
+
+static void
+utest_GetTokenBuffered(char *buffer)
+{
+  int status;
+  ESL_FILEPARSER *efp = NULL;
+  char           *tok = NULL;
+  int             toklen = 0;
+  int             ntok   = 0;
+
+  if ((efp = esl_fileparser_CreateMapped(buffer, strlen(buffer))) == NULL)  
+    esl_fatal("Failed to associate buffer with fileparser");
+
+  esl_fileparser_SetCommentChar(efp, '#');
+  
+  while ((status = esl_fileparser_GetToken(efp, &tok, &toklen)) == eslOK)
+    {
+      if (toklen != 6)                   esl_fatal("bad token %s", tok);
+      if (strncmp(tok, "token", 5) != 0) esl_fatal("bad token %s", tok);
+      ntok++;
+    }
+  if (status != eslEOF)  esl_fatal("Abnormal parse termination");
+  if (ntok != 5)         esl_fatal("bad total token number %d\n", ntok);
+  
+  esl_fileparser_Destroy(efp);
+
+  return;
+}
+
 #endif /*eslFILEPARSER_TESTDRIVE*/
 
 /*****************************************************************
@@ -634,16 +728,18 @@ main(int argc, char **argv)
   char  tmpfile[32] = "esltmpXXXXXX";
   FILE *fp;
 
+  char stream[] = "# Full line comment\n"
+                  "token1  # Trailing comment\n"
+                  "\n"                                   /* blank line */
+                  "   \n"                                /* whitespace line */
+                  "   # sowing comment/whitespace confusion...\n"
+                  "token2\ttoken3  token4\n"
+                  "token5";                              /* file ends w/ no \n */
+
   /* Create a test file to read.
    */
   if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal("File open failed");
-  fprintf(fp, "# Full line comment\n");
-  fprintf(fp, "token1  # Trailing comment\n");
-  fprintf(fp, "\n");		/* blank line */
-  fprintf(fp, "   \n");		/* whitespace line */
-  fprintf(fp, "   # sowing comment/whitespace confusion...\n"); 
-  fprintf(fp, "token2\ttoken3  token4\n");
-  fprintf(fp, "token5");	/* file ends w/ no \n */
+  fprintf(fp, "%s", stream);
   fclose(fp);
 
   /* Run unit tests using that file.
@@ -651,6 +747,7 @@ main(int argc, char **argv)
    */
   utest_GetToken(tmpfile);
   utest_GetTokenOnLine(tmpfile);
+  utest_GetTokenBuffered(stream);
 
   remove(tmpfile);
   return 0;
