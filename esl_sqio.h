@@ -81,6 +81,27 @@ typedef struct esl_sqio_s {
   ESL_SQDATA data;            /* format specific data                     */
 } ESL_SQFILE;
 
+#if defined(eslAUGMENT_ALPHABET)  
+/* ESL_SQCACHE:
+ * A entire database cached into memory.
+ */
+typedef struct esl_sqcache_s {
+  char               *filename;    /* Name of file (for diagnostics)              */
+  int                 format;      /* Format code of this file                    */
+
+  const ESL_ALPHABET *abc;         /* alphabet for database                       */
+
+  uint32_t            seq_count;   /* number of sequences                         */
+  uint64_t            res_count;   /* number of residues                          */
+  uint32_t            max_seq;     /* longest sequence                            */
+
+  ESL_SQ             *sq_list;     /* list of cached sequences [0 .. seq_count-1] */
+
+  void               *residue_mem; /* memory holding the residues                 */
+  void               *header_mem;  /* memory holding the header strings           */
+} ESL_SQCACHE;
+#endif
+
 /*::cexcerpt::sq_sqio_format::begin::*/
 /* Unaligned file format codes
  * These codes are coordinated with the msa module.
@@ -112,6 +133,9 @@ extern void esl_sqfile_Close(ESL_SQFILE *sqfp);
 extern int  esl_sqfile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, int format, const char *env, ESL_SQFILE **ret_sqfp);
 extern int  esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc);
 extern int  esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type);
+
+extern int  esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache);
+extern void esl_sqfile_Free(ESL_SQCACHE *sqcache);
 #endif
 
 const char  *esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp);

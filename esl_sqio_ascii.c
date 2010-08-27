@@ -3196,6 +3196,19 @@ esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
   ascii->L            = 0;
   ascii->linenumber   = 1;
 
+  ascii->afp          = NULL;
+  ascii->msa          = NULL;
+  ascii->idx          = -1;
+
+  ascii->ssifile      = NULL;
+  ascii->rpl          = -1;	/* -1 = not set yet */
+  ascii->bpl          = -1;	/* (ditto) */
+  ascii->prvrpl       = -1;    	/* (ditto) */
+  ascii->prvbpl       = -1;       /* (ditto) */
+  ascii->currpl       = -1;	
+  ascii->curbpl       = -1;	
+  ascii->ssi          = NULL;
+
   /* Configure the <sqfp>'s parser and inmaps for this format. */
   switch (format) {
   case eslSQFILE_EMBL:     
