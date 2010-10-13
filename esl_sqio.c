@@ -480,6 +480,9 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
   cache->res_count   = res_size;
   cache->max_seq     = max;
 
+  cache->res_size    = res_size + 2;
+  cache->hdr_size    = hdr_size;
+
   ESL_ALLOC(cache->filename, strlen(seqfile) + 1);
   strcpy(cache->filename, seqfile);
 

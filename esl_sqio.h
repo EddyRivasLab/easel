@@ -99,6 +99,9 @@ typedef struct esl_sqcache_s {
 
   void               *residue_mem; /* memory holding the residues                 */
   void               *header_mem;  /* memory holding the header strings           */
+
+  uint64_t            res_size;    /* size of residue memory allocation           */
+  uint64_t            hdr_size;    /* size of header memory allocation            */
 } ESL_SQCACHE;
 #endif
 
