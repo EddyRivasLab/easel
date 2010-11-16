@@ -1590,20 +1590,21 @@ read_amino(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     inx;
-  int     cnt;
-  int     off;
-  int     size;
-  int     text;
-  int     status;
+  int64_t  inx;
+  int64_t  cnt;
+  int64_t  off;
+  int      size;
+  int      text;
+  int      status;
+  int      amb32;
 
-  int     remainder;
-  int     length;
-  int     ssize;
-  int     n;
+  int      remainder;
+  int      length;
+  int      ssize;
+  int      n;
 
-  char   *ptr;
-  void   *t;
+  char    *ptr;
+  void    *t;
 
   unsigned char c;
 
@@ -1669,6 +1670,14 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   *ptr = (text) ? '\0' : eslDSQ_SENTINEL;
 
+  /* we need to look that the first by the the ambiguity table
+   * to see if the entries are 32 or 64 bit entries.
+   */
+  amb32 = 0;
+  if (ncbi->seq_apos - sq->doff < size) {
+    amb32 = ((ncbi->hdr_buf[ncbi->seq_apos - sq->doff] & 0x80) == 0);
+  }
+
   /* skip past the count and start processing the abmiguity table */
   ssize = ncbi->seq_apos - sq->doff + 4;
   ptr = (text) ? sq->seq : (char *)sq->dsq + 1;
@@ -1679,17 +1688,37 @@ read_dna(ESL_SQFILE *sqfp, ESL_SQ *sq)
     c = sqfp->inmap[n];
     if (text) c = ncbi->alphasym[(int) c];
 
-    /* get the repeat count */
-    cnt = (ncbi->hdr_buf[ssize] & 0x0f) + 1;
+    if (amb32) {
+      /* get the repeat count 4 bits */
+      cnt = (ncbi->hdr_buf[ssize] & 0x0f);
+      cnt += 1;
 
-    /* get the offset */
-    off = ncbi->hdr_buf[ssize+1];
-    off = (off << 8) | ncbi->hdr_buf[ssize+2];
-    off = (off << 8) | ncbi->hdr_buf[ssize+3];
+      /* get the offset 24 bits */
+      off = ncbi->hdr_buf[ssize+1];
+      off = (off << 8) | ncbi->hdr_buf[ssize+2];
+      off = (off << 8) | ncbi->hdr_buf[ssize+3];
 
-    for (inx = 0; inx < cnt; ++inx) ptr[off+inx] = c;
+      for (inx = 0; inx < cnt; ++inx) ptr[off+inx] = c;
 
-    ssize += 4;
+      ssize += 4;
+    } else {
+      /* get the repeat count 12 bits */
+      cnt = (ncbi->hdr_buf[ssize] & 0x0f);
+      cnt = (cnt << 8) | ncbi->hdr_buf[ssize+1];
+      cnt += 1;
+
+      /* get the offset 48 bits*/
+      off = ncbi->hdr_buf[ssize+2];
+      off = (off << 8) | ncbi->hdr_buf[ssize+3];
+      off = (off << 8) | ncbi->hdr_buf[ssize+4];
+      off = (off << 8) | ncbi->hdr_buf[ssize+5];
+      off = (off << 8) | ncbi->hdr_buf[ssize+6];
+      off = (off << 8) | ncbi->hdr_buf[ssize+7];
+
+      for (inx = 0; inx < cnt; ++inx) ptr[off+inx] = c;
+
+      ssize += 8;
+    }
   }
 
   sq->start = 1;
@@ -1775,16 +1804,17 @@ read_nres_amino(ESL_SQFILE *sqfp, ESL_SQ *sq, int len, uint64_t *nres)
 static int
 correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
 {
-  int     alen;         /* ambiguity length      */
-  int     soff;         /* starting offset       */
-  int     eoff;         /* ending offset         */
-  int     ainx;         /* ambiguity index       */
-  int     size;         /* size of table read in */
-  int     cnt;          /* repeat count          */
-  int     off;
-  int     n;
+  int64_t   alen;         /* ambiguity length       */
+  int64_t   soff;         /* starting offset        */
+  int64_t   eoff;         /* ending offset          */
+  int64_t   ainx;         /* ambiguity index        */
+  int64_t   size;         /* size of table read in  */
+  int64_t   cnt;          /* repeat count           */
+  int64_t   off;
+  int64_t   n;
 
-  char   *ptr;
+  int       amb32;        /* flag for 32 or 64 bits */
+  char     *ptr;
 
   unsigned char c;
 
@@ -1792,7 +1822,12 @@ correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
 
   if (ncbi->seq_alen == 0) return eslOK;
 
-  if (fseek(ncbi->fppsq, ncbi->amb_off, SEEK_SET) != 0) return eslESYS;
+  /* go to the start of the ambiguity table and see if the table
+   * is in 32 or 64 bit entries.
+   */
+  if (fseek(ncbi->fppsq, ncbi->seq_apos, SEEK_SET) != 0) return eslESYS;
+  if (fread(ncbi->hdr_buf, sizeof(char), 4, ncbi->fppsq) != size) return eslEFORMAT;
+  amb32 = ((ncbi->hdr_buf[0] & 0x80) == 0);
 
   ptr = (sq->dsq != NULL) ? (char *)sq->dsq + 1 : sq->seq;
   ptr += sq->n;
@@ -1820,13 +1855,33 @@ correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
     c = sqfp->inmap[n];
     if (sq->dsq == NULL) c = ncbi->alphasym[(int) c];
 
-    /* get the repeat count */
-    cnt = (ncbi->hdr_buf[ainx] & 0x0f) + 1;
+    if (amb32) {
+      /* get the repeat count 4 bits */
+      cnt = (ncbi->hdr_buf[ainx] & 0x0f);
+      cnt += 1;
 
-    /* get the offset */
-    off = ncbi->hdr_buf[ainx+1];
-    off = (off << 8) | ncbi->hdr_buf[ainx+2];
-    off = (off << 8) | ncbi->hdr_buf[ainx+3];
+      /* get the offset 24 bits */
+      off = ncbi->hdr_buf[ainx+1];
+      off = (off << 8) | ncbi->hdr_buf[ainx+2];
+      off = (off << 8) | ncbi->hdr_buf[ainx+3];
+
+      ainx += 4;
+    } else {
+      /* get the repeat count 12 bits */
+      cnt = (ncbi->hdr_buf[ainx] & 0x0f);
+      cnt = (cnt << 8) | ncbi->hdr_buf[ainx+1];
+      cnt += 1;
+
+      /* get the offset 48 bits*/
+      off = ncbi->hdr_buf[ainx+2];
+      off = (off << 8) | ncbi->hdr_buf[ainx+3];
+      off = (off << 8) | ncbi->hdr_buf[ainx+4];
+      off = (off << 8) | ncbi->hdr_buf[ainx+5];
+      off = (off << 8) | ncbi->hdr_buf[ainx+6];
+      off = (off << 8) | ncbi->hdr_buf[ainx+7];
+
+      ainx += 8;
+    }
 
     if (off + cnt >= soff && off < eoff) {
       int inx;
@@ -1836,7 +1891,6 @@ correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
     }
 
     off += cnt;
-    ainx += 4;
   }
 
   return eslOK;
