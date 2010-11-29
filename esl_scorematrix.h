@@ -41,6 +41,7 @@ typedef struct {
 extern ESL_SCOREMATRIX *esl_scorematrix_Create(const ESL_ALPHABET *abc);
 extern int              esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_SetBLOSUM62(ESL_SCOREMATRIX *S);
+extern int              esl_scorematrix_Load(char *name, ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, double lambda, double t);
 extern int              esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, double lambda, const ESL_DMATRIX *P,
 						     const double *fi, const double *fj);
