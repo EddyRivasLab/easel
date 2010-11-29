@@ -305,7 +305,7 @@ esl_scorematrix_SetIdentity(ESL_SCOREMATRIX *S)
  *            list of precompiled score matrix.
  */
 int
-esl_scorematrix_Load(char *name, ESL_SCOREMATRIX *S)
+esl_scorematrix_Load(const char *name, ESL_SCOREMATRIX *S)
 {
   int x, y;
 
