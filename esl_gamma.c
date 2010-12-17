@@ -44,7 +44,7 @@ esl_gam_pdf(double x, double mu, double lambda, double tau)
   if (y < 0.) return 0.;
 
   esl_stats_LogGamma(tau, &gamtau);
-  val = tau*log(lambda) + (tau-1.)*log(x-mu) - gamtau - y;
+  val  = ((tau*log(lambda) + (tau-1.)*log(x-mu)) - gamtau) - y;
   return exp(val);
 }
 
@@ -66,7 +66,7 @@ esl_gam_logpdf(double x, double mu, double lambda, double tau)
   if (x < 0.) return -eslINFINITY;
 
   esl_stats_LogGamma(tau, &gamtau);
-  val = tau*log(lambda) + (tau-1.)*log(x-mu) - gamtau - y;
+  val = ((tau*log(lambda) + (tau-1.)*log(x-mu)) - gamtau) - y;
   return val;
 }
 
@@ -459,7 +459,7 @@ tau_function(double tau, double mean, double logsum)
   double psitau;
   
   esl_stats_Psi(tau, &psitau);
-  return (log(tau) - psitau - log(mean) + logsum);  
+  return ( ((log(tau) - psitau) - log(mean)) + logsum );  
 }
 
 

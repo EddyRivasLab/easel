@@ -293,13 +293,12 @@ typedef uint8_t ESL_DSQ;
  *****************************************************************/
 
 /* 1. Error handling. */
-typedef void (*esl_exception_handler_f)(int code, char *file, int line,
-					char *format, va_list argp);
-extern void esl_exception(int code, char *file, int line, char *format, ...);
+typedef void (*esl_exception_handler_f)(int errcode, char *sourcefile, int sourceline, char *format, va_list argp);
+extern void esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...);
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
+extern void esl_nonfatal_handler(int errcode, char *sourcefile, int sourceline, char *format, va_list argp);
 extern void esl_fatal(const char *format, ...);
-extern void esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp);
 
 /* 2. Memory allocation/deallocation conventions. */
 extern void esl_Free2D(void  **p, int dim1);

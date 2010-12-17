@@ -1,7 +1,7 @@
 /* Easel's foundation.
  * 
  * Contents:
- *    1. Error handling conventions.
+ *    1. Exception and fatal error handling.
  *    2. Memory allocation/deallocation conventions.
  *    3. Standard banner for Easel miniapplications.
  *    4. Replacements for some C library functions.
@@ -13,8 +13,8 @@
  *   10. Examples. [need to be written]
  *   11. Copyright and license. 
  * 
- * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  * SVN $Id$
+ * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
  */
 #include "esl_config.h"
 
@@ -32,44 +32,189 @@
 
 
 /*****************************************************************
- * 1. Error handling.
+ * 1. Exception and fatal error handling.
  *****************************************************************/
 static esl_exception_handler_f esl_exception_handler = NULL;
 
+/* Function:  esl_exception()
+ * Synopsis:  Throw an exception.
+ * Incept:    (SRE, unrecorded) [documented 29 Nov 2010, UA7437 Dulles->StL]
+ *
+ * Purpose:   Throw an exception. An "exception" is defined by Easel
+ *            as an internal error that shouldn't happen and/or is 
+ *            outside the user's control; as opposed to "failures", that       
+ *            are to be expected, and within user control, and
+ *            therefore normal. By default, exceptions are fatal.
+ *            A program that wishes to be more robust can register
+ *            a non-fatal exception handler.
+ *            
+ *            Easel programs normally call one of the exception-handling
+ *            wrappers <ESL_EXCEPTION()> or <ESL_XEXCEPTION()>, rather
+ *            than calling  <esl_exception> directly.
+ *            
+ *            If no custom exception handler has been registered, the
+ *            default behavior is to print a brief message to <stderr>
+ *            then <abort()>, resulting in a nonzero exit code from the
+ *            program.  Depending on what <errcode>, <sourcefile>,
+ *            <sourceline>, and the <sprintf()>-formatted <format>
+ *            are, this output looks like:
+ *            
+ *            Fatal exception (source file foo.c, line 42):
+ *            Something wicked this way came.
+ *            
+ * Args:      errcode     - Easel error code, such as eslEINVAL. See easel.h.
+ *            sourcefile  - Name of offending source file; normally __FILE__.
+ *            sourceline  - Name of offending source line; normally __LINE__.
+ *            format      - <sprintf()> formatted exception message, followed
+ *                          by any additional necessary arguments for that 
+ *                          message.
+ *                          
+ * Returns:   void. 
+ *
+ * Throws:    (no abnormal error conditions)
+ *            (Of course. Who watches the watchers?)
+ */
 void
-esl_exception_SetHandler(void (*handler)(int code, char *file, int line, 
-					 char *format, va_list argp))
-{
-  esl_exception_handler = handler;
-}
-
-void
-esl_exception_ResetDefaultHandler(void)
-{
-  esl_exception_handler = NULL;
-}
-
-void
-esl_exception(int code, char *file, int line, char *format, ...)
+esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
 {
   va_list argp;
 
-  if (esl_exception_handler != NULL) {
-    va_start(argp, format);
-    (*esl_exception_handler)(code, file, line, format, argp);
-    va_end(argp);
-    return;
-  } else {
-    fprintf(stderr, "Fatal exception (source file %s, line %d):\n", file, line);
-    va_start(argp, format);
-    vfprintf(stderr, format, argp);
-    va_end(argp);
-    fprintf(stderr, "\n");
-    fflush(stderr);
-    abort();
-  }
+  if (esl_exception_handler != NULL) 
+    {
+      va_start(argp, format);
+      (*esl_exception_handler)(errcode, sourcefile, sourceline, format, argp);
+      va_end(argp);
+      return;
+    } 
+  else 
+    {
+      fprintf(stderr, "Fatal exception (source file %s, line %d):\n", sourcefile, sourceline);
+      va_start(argp, format);
+      vfprintf(stderr, format, argp);
+      va_end(argp);
+      fprintf(stderr, "\n");
+      fflush(stderr);
+      abort();
+    }
 }
 
+/* Function:  esl_exception_SetHandler()
+ * Synopsis:  Register a different exception handling function.
+ * Incept:    (SRE, unrecorded) [documented 29 Nov 2010, UA7437 Dulles->StL]
+ *
+ * Purpose:   Register a different exception handling function,
+ *            <handler>. When an exception occurs, the handler
+ *            receives at least four arguments: <errcode>, <sourcefile>,
+ *            <sourceline>, and <format>. 
+ * 
+ *            <errcode> is an Easel error code, such as
+ *            <eslEINVAL>. See <easel.h> for a list of all codes.
+ * 
+ *            <sourcefile> is the name of the Easel source code file
+ *            in which the exception occurred, and <sourceline> is 
+ *            the line number.
+ *            
+ *            <format> is a <vprintf()>-formatted string, followed by
+ *            a <va_list> containing any additional arguments that
+ *            formatted message needs.  Your custom exception handler
+ *            will probably use <vfprintf()> or <vsnprintf()> to format
+ *            its error message.
+ *            
+ * Args:      handler -  ptr to your custom exception handler.
+ *
+ * Returns:   void.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+void
+esl_exception_SetHandler(void (*handler)(int errcode, char *sourcefile, int sourceline, char *format, va_list argp))
+{ 
+  esl_exception_handler = handler; 
+}
+
+
+/* Function:  esl_exception_ResetDefaultHandler()
+ * Synopsis:  Restore default exception handling.
+ * Incept:    (SRE, unrecorded) [documented 30 Nov 2010, @ Divergence Inc]
+ *
+ * Purpose:   Restore default exception handling, which is to print
+ *            a simple error message to <stderr> then <abort()> (see
+ *            <esl_exception()>. 
+ *      
+ *            An example where this might be useful is in a program
+ *            that only temporarily wants to catch one or more types
+ *            of normally fatal exceptions.
+ *            
+ *            If the default handler is already in effect, this 
+ *            call has no effect (is a no-op).
+ *
+ * Args:      (void)
+ *
+ * Returns:   (void)
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+void
+esl_exception_ResetDefaultHandler(void)
+{
+  esl_exception_handler = NULL; 
+}
+
+
+/* Function: esl_nonfatal_handler()
+ * Synopsis: A trivial example of a nonfatal exception handler.
+ * Incept:   SRE, Fri Sep  8 10:59:14 2006 [Janelia]
+ * 
+ * Purpose:  This serves two purposes. First, it is the simplest
+ *           example of a nondefault exception handler. Second, this
+ *           is used in test harnesses, when they have
+ *           <eslTEST_THROWING> turned on to test that thrown errors
+ *           are handled properly when a nonfatal error handler is
+ *           registered by the application.
+ *           
+ * Args:      errcode     - Easel error code, such as eslEINVAL. See easel.h.
+ *            sourcefile  - Name of offending source file; normally __FILE__.
+ *            sourceline  - Name of offending source line; normally __LINE__.
+ *            format      - <sprintf()> formatted exception message.
+ *            argp        - <va_list> containing any additional necessary arguments for 
+ *                          the <format> message.
+ *                          
+ * Returns:   void. 
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+void
+esl_nonfatal_handler(int errcode, char *sourcefile, int sourceline, char *format, va_list argp)
+{
+  return; 
+}
+
+
+/* Function:  esl_fatal()
+ * Synopsis:  Kill a program immediately, for a "violation".
+ * Incept:    (SRE, unrecorded) [documented 30 Nov 2010, @ Divergence Inc]
+ *
+ * Purpose:   Kill a program for a "violation". In general this should only be used
+ *            in development or testing code, not in production
+ *            code. The main use of <esl_fatal()> is in unit tests.
+ *            Another use is in assertions used in dev code.
+ *            
+ *            The only other case (and the only case that should be allowed in
+ *            production code) is in a true "function" (a function that returns
+ *            its answer, rather than an Easel error code), where Easel error
+ *            conventions can't be used (because it can't return an error code),
+ *            AND the error is guaranteed to be a coding error. For an example,
+ *            see <esl_opt_IsOn()>, which triggers a violation if the code
+ *            checks for an option that isn't in the code.
+ * 
+ * Args:      format  - <sprintf()> formatted exception message, followed
+ *                      by any additional necessary arguments for that 
+ *                      message.
+ *
+ * Returns:   (void)
+ *
+ * Throws:    (no abnormal error conditions)
+ */
 void
 esl_fatal(const char *format, ...)
 {
@@ -81,20 +226,6 @@ esl_fatal(const char *format, ...)
   fprintf(stderr, "\n");
   fflush(stderr);
   exit(1);
-}
-
-/* esl_nonfatal_handler()
- * SRE, Fri Sep  8 10:59:14 2006 [Janelia]
- * 
- * This stub is here to support the test harnesses, when they 
- * have eslTEST_THROWING turned on to test that thrown errors
- * are handled properly when a nonfatal error handler is
- * registered by the application.
- */
-void
-esl_nonfatal_handler(int code, char *file, int line, char *format, va_list argp)
-{
-  return;
 }
 /*---------------- end, error handling conventions --------------*/
 

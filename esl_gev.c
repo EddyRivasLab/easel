@@ -86,7 +86,7 @@ esl_gev_logpdf(double x, double mu, double lambda, double alpha)
   double lya1;
 
   /* Special case: if alpha is tiny, approx by a Gumbel */
-  if (fabs(y*alpha) < 1e-12) return (log(lambda) -y - exp(-y));
+  if (fabs(y*alpha) < 1e-12) return ((log(lambda) - y) - exp(-y));
 
   /* It's important not to return NaN for this domain error;
    * minimizer relies on being able to compare logL's for any parameter,
@@ -95,7 +95,7 @@ esl_gev_logpdf(double x, double mu, double lambda, double alpha)
   if (ya1 <= 0) return -eslINFINITY;
 
   lya1 = log(ya1);
-  return (log(lambda) - (1.+1./alpha)*lya1 - exp(-lya1/alpha));
+  return ( (log(lambda) - (1.+1./alpha)*lya1) - exp(-lya1/alpha));
 }
 
 

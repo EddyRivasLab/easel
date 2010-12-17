@@ -739,7 +739,7 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
     if (g->setby[i] != eslARG_SETBY_DEFAULT) 
       {
 	if (g->opt[i].type == eslARG_NONE) n = strlen(g->opt[i].name) + 1;
-	else                               n = strlen(g->opt[i].name) + strlen(g->val[i]) + 2;
+	else                               n = (strlen(g->opt[i].name) + strlen(g->val[i])) + 2;
 
 	ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n));
 

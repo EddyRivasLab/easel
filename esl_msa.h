@@ -186,6 +186,8 @@ typedef struct {
 #define eslMSAFILE_PSIBLAST  104  /* NCBI PSI-BLAST alignment format             */
 #define eslMSAFILE_SELEX     105  /* old SELEX format (largely obsolete)         */
 #define eslMSAFILE_AFA       106  /* aligned FASTA format                        */
+#define eslMSAFILE_CLUSTAL   107  /* see esl_msafile_clustal for implementation  */
+#define eslMSAFILE_MUSCLE    108  /* see esl_msafile_clustal for implementation  */
 
 /* Declarations of the API
  */

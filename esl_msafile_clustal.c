@@ -1,4 +1,4 @@
-/* Clustal-like formats for multiple sequence alignment files
+/* i/o of multiple sequence alignment files in Clustal-like formats
  *
  * This module is responsible for i/o of:
  *    eslMSAFILE_CLUSTAL
@@ -363,3 +363,55 @@ make_digital_consensus_line(ESL_MSA *msa, char **ret_consline)
 }
 #endif /*eslAUGMENT_ALPHABET*/
 
+
+/*****************************************************************
+ * Example.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_CLUSTAL_EXAMPLE
+/* An example of reading an MSA in text mode, and handling any returned errors.
+   gcc -g -Wall -o esl_msafile_clustal_example -I. -DeslMSAFILE_CLUSTAL_EXAMPLE esl_msafile_clustal.c esl_msa.c easel.c 
+   ./esl_msafile_clustal_example <msafile>
+ */
+
+/*::cexcerpt::msafile_clustal_example::begin::*/
+#include <stdio.h>
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msafile_clustal.h"
+
+int 
+main(int argc, char **argv)
+{
+  char        *filename = argv[1];
+  int          fmt      = eslMSAFILE_CLUSTAL;
+  ESL_MSAFILE *afp      = NULL;
+  ESL_MSA     *msa      = NULL;
+  int          status;
+
+  status = esl_msafile_Open(filename, fmt, NULL, &afp);
+  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s not found or not readable\n", filename);
+  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of %s\n",  filename);
+  else if (status != eslOK)        esl_fatal("Alignment file open failed (error %d)\n", status);
+
+  status = esl_msafile_clustal_Read(afp, &msa);
+  if      (status == eslEFORMAT) esl_fatal("alignment file %s: %s\n",                    afp->fname, afp->errbuf);
+  else if (status == eslEOF)     esl_fatal("alignment file %s appears empty?\n",         afp->fname);
+  else if (status != eslOK)      esl_fatal("alignment file %s: read failed, error %d\n", afp->fname, status);
+
+  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
+	 nali, msa->name, msa->nseq, (int) msa->alen);
+
+  esl_msafile_clustal_Write(stdout, msa);
+  esl_msa_Destroy(msa);
+
+  esl_msafile_Close(afp);
+  exit(0);
+}
+/*::cexcerpt::msafile_clustal_example::end::*/
+#endif /*eslMSAFILE_CLUSTAL_EXAMPLE*/
+/*--------------------- end of example --------------------------*/
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

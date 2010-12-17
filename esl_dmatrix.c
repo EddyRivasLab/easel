@@ -1353,7 +1353,7 @@ int main(void)
 
   /* Create a square matrix with random values from  -range..range */
   if ((r = esl_randomness_Create(seed)) == NULL) esl_fatal("failed to create random source");
-  if ((A = esl_dmatrix_Create(n, n))        == NULL) esl_fatal("failed to create matrix");
+  if ((A = esl_dmatrix_Create(n, n))    == NULL) esl_fatal("failed to create matrix");
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
       A->mx[i][j] = esl_random(r) * range * 2.0 - range;

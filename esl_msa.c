@@ -7203,11 +7203,10 @@ main(int argc, char **argv)
   int          nali     = 0;
   int          status;
 
-
   status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable\n", filename);
-  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s\n",  filename);
-  else if (status != eslOK)      esl_fatal("Alignment file open failed (error %d)\n", status);
+  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s not found or not readable\n", filename);
+  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of %s\n",  filename);
+  else if (status != eslOK)        esl_fatal("Alignment file open failed (error %d)\n", status);
 
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
@@ -7226,7 +7225,6 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::msa_example::end::*/
 #endif /*eslMSA_EXAMPLE*/
-
 
 
 
