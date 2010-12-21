@@ -812,6 +812,34 @@ yualtschul_func(double lambda, void *params, double *ret_fx)
   return eslOK;
 }
 
+/* castellanoeddy_func()
+ *
+ * This is the objective function we try to find a root of.
+ * Its prototype is dictated by the esl_rootfinder API.
+ */
+static int
+castellanoeddy_func(double lambda, double sopen, double sextend, void *params, double *ret_fx)
+{
+  int status;
+  struct yualtschul_params *p = (struct yualtschul_params *) params; /* CHECK THESE PARAMS!!! */
+  ESL_DMATRIX  *S = p->S;
+  ESL_DMATRIX  *M = p->M;
+  ESL_DMATRIX  *Y = p->Y;
+  int i,j;
+
+  /* the M matrix has entries M_ij = e^{lambda * s_ij} + 2e^{lambda * (d + s_ij)} / 1 - e^{lambda * r}*/
+  for (i = 0; i < S->n; i++)
+    for (j = 0; j < S->n; j++)
+      M->mx[i][j] = exp(lambda * S->mx[i][j]) + (2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend));
+
+  /* the Y matrix is the inverse of M */
+  if ((status = esl_dmx_Invert(M, Y)) != eslOK) return status;
+
+  /* We're trying to find the root of \sum_ij Y_ij - 1 = 0 */
+  *ret_fx = esl_dmx_Sum(Y) - 1.;
+  return eslOK;
+}
+
 /* yualtschul_engine()
  *
  * This function backcalculates the probabilistic basis for a score
@@ -881,6 +909,95 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
 
   /* Find p_ij */
   for (i = 0; i < S->n; i++) 
+    for (j = 0; j < S->n; j++)
+      P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j];
+
+  *ret_lambda = lambda;
+  esl_dmatrix_Destroy(p.M);
+  esl_dmatrix_Destroy(p.Y);
+  esl_rootfinder_Destroy(R);
+  return eslOK;
+
+ ERROR:
+  if (p.M != NULL) esl_dmatrix_Destroy(p.M);
+  if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
+  if (R   != NULL) esl_rootfinder_Destroy(R);
+  return status;
+}
+
+/* castellanoeddy_engine()
+ *
+ * This function backcalculates the probabilistic basis for a score
+ * matrix S, when S is a double-precision matrix. Providing this
+ * as a separate "engine" and writing esl_sco_Probify()
+ * as a wrapper around it allows us to separately test inaccuracy
+ * due to numerical performance of our linear algebra, versus
+ * inaccuracy due to integer roundoff in integer scoring matrices.
+ *
+ * It is not uncommon for this to fail when S is derived from
+ * integer scores. Because the scores may have been provided by the
+ * user, and this may be our first chance to detect the "user error"
+ * of an invalid matrix, this engine returns <eslENORESULT> as a normal error
+ * if it can't reach a valid solution.
+ */
+static int
+castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
+{
+  int status;
+  ESL_ROOTFINDER *R = NULL;    /* NEED TO UNDERSTAND ROOTFINDER!!! */
+  struct yualtschul_params p;
+  double lambda;
+  double xl, xr;
+  double fx;
+  int    i,j;
+
+  /* Set up a bisection method to find lambda */
+  p.S = S;
+  p.M = p.Y = NULL;
+  if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+  if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+  if ((R = esl_rootfinder_Create(castellanoeddy_func, &p)) == NULL) { status = eslEMEM; goto ERROR; } /* Here we provide the function to the rootfinder */
+
+  /* Need a reasonable initial guess for lambda; if we use extreme
+   * lambda guesses, we'll introduce numeric instability in the
+   * objective function, and may even blow up the values of e^{\lambda
+   * s_ij} in the M matrix. Appears to be safe to start with lambda on
+   * the order of 2/max(s_ij).
+   */
+  xr = 1. / esl_dmx_Max(S); /* MAY NEED TO CHANGE THIS FOR THE NEW EQUATION!!! */
+
+  /* Identify suitable brackets on lambda. */
+  for (xl = xr; xl > 1e-10; xl /= 1.6) {
+    if ((status = castellanoeddy_func(xl, sopen, sextend, &p, &fx))  != eslOK) goto ERROR; /* PROBLEMS WITH ROOTFINDER??? */
+    if (fx > 0.) break;
+  }
+  if (fx <= 0.) { status = eslENORESULT; goto ERROR; }
+
+  for (; xr < 100.; xr *= 1.6) {
+    if ((status = castellanoeddy_func(xr, sopen, sextend, &p, &fx))  != eslOK) goto ERROR;
+    if (fx < 0.) break;
+  }
+  if (fx >= 0.) { status = eslENORESULT; goto ERROR; }
+
+  /* Find lambda by bisection */
+  if (esl_root_Bisection(R, xl, xr, &lambda) != eslOK)     goto ERROR;
+
+  /* IS THIS CORRECT FOR R(Yj)??? */
+
+  /* Find fi, fj from Y: fi are column sums, fj are row sums */
+  for (i = 0; i < S->n; i++) {
+    fi[i] = 0.;
+    for (j = 0; j < S->n; j++) fi[i] += p.Y->mx[j][i];
+  }
+  for (j = 0; j < S->n; j++) {
+    fj[j] = 0.;
+    for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i];
+  }
+
+  /* HERE I NEED TO FIND EMISSIONS AND NOT JOINT PROBABILITIES? */
+
+  /* Find p_ij */
+  for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
       P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j];
 
@@ -1001,6 +1118,109 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
   return status;
 }
 
+/* Function:  esl_sco_gap_Probify()
+ * Synopsis:  Calculate the probabilistic basis of Smith-Waterman score system.
+ * Incept:    SC, Mon Dec 13 15:56:15 CET 2010 [MPI]
+ *
+ * Purpose:   Reverse engineering of a score system: given a "valid"
+ *            substitution matrix <S>, obtain implied joint
+ *            probabilities $p_{ij}$, query composition $f_i$, target
+ *            composition $f_j$, and scale $\lambda$, by assuming that
+ *            $f_i$ and $f_j$ are the appropriate marginals of $p_{ij}$.
+ *            Optionally return any or all of these solutions in
+ *            <*opt_P>, <*opt_fi>, <*opt_fj>, and <*opt_lambda>.
+ *
+ *            The calculation is run only on canonical residue scores
+ *            $0..K-1$ in S, to calculate joint probabilities for all
+ *            canonical residues. Joint and background probabilities
+ *            involving degenerate residues are then calculated by
+ *            appropriate marginalizations.
+ *
+ *            This implements an algorithm described in
+ *            \citep{YuAltschul03}.
+ *
+ *            This algorithm works fine in principle, but when it is
+ *            applied to rounded integer scores with small dynamic
+ *            range (the typical situation for score matrices) it may
+ *            fail due to integer roundoff error. It works best for
+ *            score matrices built using small values of $\lambda$. Yu
+ *            and Altschul use $\lambda = 0.00635$ for BLOSUM62, which
+ *            amounts to scaling default BLOSUM62 up 50-fold. It
+ *            happens that default BLOSUM62 (which was created with
+ *            lambda = 0.3466, half-bits) can be successfully reverse
+ *            engineered (albeit with some loss of accuracy;
+ *            calculated lambda is 0.3240) but other common matrices
+ *            may fail. This failure results in a normal returned
+ *            error of <eslENORESULT>.
+ *
+ * Args:      S          - score matrix
+ *            opt_P      - optRETURN: Kp X Kp matrix of implied target probs $p_{ij}$
+ *            opt_fi     - optRETURN: vector of Kp $f_i$ background probs, 0..Kp-1
+ *            opt_fj     - optRETURN: vector of Kp $f_j$ background probs, 0..Kp-1
+ *            opt_lambda - optRETURN: calculated $\lambda$ parameter
+ *
+ * Returns:   <eslOK> on success, and <opt_P>, <opt_fi>, <opt_fj>, and <opt_lambda>
+ *            point to the results (for any of these that were passed non-<NULL>).
+ *
+ *            <opt_P>, <opt_fi>, and <opt_fj>, if requested, are new
+ *            allocations, and must be freed by the caller.
+ *
+ *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      J1/35.
+ */
+int
+esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_DMATRIX **opt_P, double **opt_popen, double **opt_pextend, double **opt_fi, double **opt_fj, double *opt_lambda)
+{
+  int status;
+  ESL_DMATRIX  *Sd  = NULL;
+  ESL_DMATRIX  *P   = NULL;
+  double       *fi  = NULL;
+  double       *fj  = NULL;
+  double        lambda;
+  int i,j;
+
+  if (( Sd = esl_dmatrix_Create(S->K,  S->K))  == NULL) {status = eslEMEM; goto ERROR; }
+  if (( P  = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) {status = eslEMEM; goto ERROR; }
+  ESL_ALLOC(fi, sizeof(double) * S->Kp);
+  ESL_ALLOC(fj, sizeof(double) * S->Kp);
+
+  /* Construct a double-precision dmatrix from S.
+   * I've tried integrating over the rounding uncertainty by
+   * averaging over trials with values jittered by +/- 0.5,
+   * but it doesn't appear to help much, if at all.
+   */
+  for (i = 0; i < S->K; i++)
+    for (j = 0; j < S->K; j++)
+      Sd->mx[i][j] = (double) S->s[i][j];
+
+  /* Reverse engineer the doubles */
+  if ((status = castellanoeddy_engine(Sd, sopen, sextend, P, fi, fj, &lambda)) != eslOK) goto ERROR;
+
+  /* Set the degenerate probabilities by appropriate sums */
+  set_degenerate_probs(S->abc_r, P, fi, fj);
+
+  /* Done. */
+  esl_dmatrix_Destroy(Sd);
+  if (opt_P      != NULL) *opt_P      = P;       else esl_dmatrix_Destroy(P);
+  if (opt_fi     != NULL) *opt_fi     = fi;      else free(fi);
+  if (opt_fj     != NULL) *opt_fj     = fj;      else free(fj);
+  if (opt_lambda != NULL) *opt_lambda = lambda;
+  return eslOK;
+
+ ERROR:
+  if (Sd  != NULL) esl_dmatrix_Destroy(Sd);
+  if (P   != NULL) esl_dmatrix_Destroy(P);
+  if (fi  != NULL) free(fi);
+  if (fj  != NULL) free(fj);
+  if (opt_P      != NULL) *opt_P      = NULL;
+  if (opt_fi     != NULL) *opt_fi     = NULL;
+  if (opt_fj     != NULL) *opt_fj     = NULL;
+  if (opt_lambda != NULL) *opt_lambda = 0.;
+  return status;
+}
 
 
 /* Function:  esl_sco_RelEntropy()
