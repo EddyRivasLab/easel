@@ -781,6 +781,8 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
   if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
+  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+
 #ifdef eslAUGMENT_NCBI
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
 #endif
@@ -816,6 +818,7 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_DDBJ:       return "DDBJ";
   case eslSQFILE_UNIPROT:    return "Uniprot";
   case eslSQFILE_DAEMON:     return "daemon";
+  case eslSQFILE_HMMPGMD:    return "hmmpgmd";
 #ifdef eslAUGMENT_NCBI
   case eslSQFILE_NCBI:       return "NCBI";
 #endif
@@ -1364,7 +1367,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
  *****************************************************************/
 
 /* Function:  esl_sqio_Parse()
- * Synopsis:  Parse a sequence alreay read into a buffer.
+ * Synopsis:  Parse a sequence already read into a buffer.
  * Incept:    MSF, Fri Aug 13 2010 [Janelia]
  *
  * Purpose:   Parse the buffer <buf> for a sequence <s> of type
@@ -1373,8 +1376,8 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM>  on allocation error.
- * Throws:    <eslEFORMAT>  parsing error.
- * Throws:    <eslEINCONCEIVABLE>  unsupported format
+ *            <eslEFORMAT>  on parsing error.
+ *            <eslEINVAL> on unsupported format.
  */
 int
 esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
@@ -1391,7 +1394,7 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
     status = esl_sqascii_Parse(buf, size, s, format);
     break;
   default: 
-    ESL_EXCEPTION(eslEINCONCEIVABLE, "can't write that format");
+    ESL_EXCEPTION(eslEINVAL, "can't write that format");
   }
   return status;
 }
