@@ -10,7 +10,8 @@
  *    7. Internal routines for EMBL format (including Uniprot, TrEMBL)
  *    8. Internal routines for Genbank format
  *    9. Internal routines for FASTA format
- *   10. Copyright and license.
+ *   10. Internal routines for HMMPGMD format
+ *   11. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -95,6 +96,8 @@ static int  header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  skip_fasta  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  end_fasta   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 
+/* HMMPGMD format */
+static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
 
 /*****************************************************************
  *# 1. An <ESL_SQFILE> object, in text mode.
@@ -257,23 +260,13 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   if (!esl_sqio_IsAlignment(format)) 
     {
       switch (format) {
-      case eslSQFILE_EMBL:     
-      case eslSQFILE_UNIPROT:  
-	config_embl(sqfp);    
-	inmap_embl(sqfp, NULL);
-	break;
-      case eslSQFILE_GENBANK:  
-      case eslSQFILE_DDBJ:     
-	config_genbank(sqfp); 
-	inmap_genbank(sqfp, NULL);
-	break;
-      case eslSQFILE_FASTA:    
-	config_fasta(sqfp);   
-	inmap_fasta(sqfp, NULL);
-	break;
-      default:
-	status = eslEFORMAT; 
-	goto ERROR;
+      case eslSQFILE_EMBL:      config_embl(sqfp);    	inmap_embl(sqfp,    NULL);      break;
+      case eslSQFILE_UNIPROT:  	config_embl(sqfp);    	inmap_embl(sqfp,    NULL);	break;
+      case eslSQFILE_GENBANK:   config_genbank(sqfp); 	inmap_genbank(sqfp, NULL);	break;
+      case eslSQFILE_DDBJ:     	config_genbank(sqfp); 	inmap_genbank(sqfp, NULL);	break;
+      case eslSQFILE_FASTA:    	config_fasta(sqfp);   	inmap_fasta(sqfp,   NULL);	break;
+      case eslSQFILE_HMMPGMD:  	config_fasta(sqfp);   	inmap_fasta(sqfp,   NULL);	break;
+      default:	status = eslEFORMAT; goto ERROR;
       }
     }
   else
@@ -297,6 +290,18 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
       status = loadbuf(sqfp);
       if      (status == eslEOF) { status = eslEFORMAT; goto ERROR; }
       else if (status != eslOK)  { goto ERROR; }
+
+      /* hmmpgmd is a special case: we need to skip first line before parsing it.
+       * generalize that a little: this could be a section for parsing a file header,
+       * and leaving the buf positioned at the first char of the first record
+       * (just as expected if there's no file header)
+       */
+      switch (format) {
+      case eslSQFILE_HMMPGMD:   status = fileheader_hmmpgmd(sqfp); break;
+      default:                  status = eslOK;                    break;
+      }
+
+      if (status != eslOK) goto ERROR;
     }
 
   /* initialize the function pointers for the ascii routines */
@@ -3044,9 +3049,36 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
   if (save_offsets) sq->eoff = ftello(fp) - 1;
   return eslOK;
 }
-
 /*------------------- end of FASTA i/o ---------------------------*/	       
 
+/*****************************************************************
+ *# 10. Internal routines for HMMPGMD format
+ *****************************************************************/
+
+static int
+fileheader_hmmpgmd(ESL_SQFILE *sqfp)
+{
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+  char c;
+  int  status = eslOK;
+
+  /* We've just loaded first buffer, after an Open. First char should be the # of the hmmpgmd file,
+   * but let's tolerate leading whitespace anyway
+   */
+  c =  ascii->buf[ascii->bpos];
+  while (status == eslOK && isspace(c)) status = nextchar(sqfp, &c); /* skip space (including \n, \r) */
+  if (status == eslEOF) return eslEOF;
+
+  if (c != '#') ESL_FAIL(eslEFORMAT, ascii->errbuf, "hmmpgmd file expected to start with #");
+
+  /* skip first line; remainder of file is FASTA format */
+  while (status == eslOK && (c != '\n' && c != '\r')) status = nextchar(sqfp, &c); 
+  if (status == eslEOF) return eslEOF;
+
+  /* next character read should be the '>' of the first FASTA record. We're properly positioned at "start of file". */
+  return eslOK;
+}
+/*-------------------- end of HMMPGMD ---------------------------*/	       
 
 
 /*****************************************************************

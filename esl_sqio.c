@@ -505,6 +505,9 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "genbank")   == 0) return eslSQFILE_GENBANK;
   if (strcasecmp(fmtstring, "ddbj")      == 0) return eslSQFILE_DDBJ;
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
+  if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
+  if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+
 #ifdef eslAUGMENT_NCBI
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
 #endif
@@ -539,6 +542,8 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_GENBANK:    return "Genbank";
   case eslSQFILE_DDBJ:       return "DDBJ";
   case eslSQFILE_UNIPROT:    return "Uniprot";
+  case eslSQFILE_DAEMON:     return "daemon";
+  case eslSQFILE_HMMPGMD:    return "hmmpgmd";
 #ifdef eslAUGMENT_NCBI
   case eslSQFILE_NCBI:       return "NCBI";
 #endif

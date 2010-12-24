@@ -291,8 +291,12 @@ clean:
 	-rm -f ${UTESTS}
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
+	-rm -f cscope.out
 	-rm -f core.[0-9]*
 	-rm -f config.log config.status
+	for prog in ${UTESTS}; do\
+	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
+	done
 
 distclean:
 	${MAKE} clean
