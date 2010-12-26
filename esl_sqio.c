@@ -7,12 +7,14 @@
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Writing sequences.
- *    7. Functions specific to sqio
- *    8. Benchmark driver.
- *    9. Unit tests.
- *   10. Test driver.
- *   11. Examples.
- *   12. Copyright and license.
+ *    6. Writing sequences.
+ *    7. Parse sequences.
+ *    8. Functions specific to sqio
+ *    9. Benchmark driver.
+ *   10. Unit tests.
+ *   11. Test driver.
+ *   12. Examples.
+ *   13. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -377,6 +379,279 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 {
   return sqfp->guess_alphabet(sqfp, ret_type);
 }
+
+/* Function:  esl_sqfile_Cache()
+ * Synopsis:  Read a database into memory.
+ * Incept:    MSF, Fri Aug 20 2010 [Janelia]
+ *
+ * Purpose:   Read an entire database into memory building a cached
+ *            structure <ESL_SQCACHE>.  The cache structure has basic
+ *            information about the database, ie number of sequences
+ *            number of residues, etc.
+ *
+ *            All sequences <ESL_SQ> are in a memory array sq_list.
+ *            The number of elements in the list is seq_count.  The
+ *            header pointers, ie name, acc and desc are pointers into
+ *            the header_mem buffer.  All digitized sequences are pointers
+ *            into the residue_mem buffer.
+ *
+ * Returns:   <eslOK> on success.
+ *            
+ *            Returns <eslEFORMAT> if a parse error is encountered in
+ *            trying to read the sequence file.
+ *            
+ *            Returns <eslENODATA> if the file appears to be empty.
+ *
+ * Throws:    <eslEMEM> on allocation error;
+ */
+int  
+esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const char *env, ESL_SQCACHE **ret_sqcache)
+{
+  int          status;
+
+  int          n;
+
+  uint32_t     len;
+  uint32_t     max;
+  uint32_t     count;
+
+  uint64_t     res_size = 1;
+  uint64_t     hdr_size = 1;
+
+  ESL_SQFILE  *sqfp    = NULL;
+
+  ESL_SQ      *c       = NULL;
+  ESL_SQ      *sq      = NULL;
+  ESL_SQCACHE *cache   = NULL;
+
+  ESL_DSQ     *res_ptr = NULL;
+  char        *hdr_ptr = NULL;
+
+  /* open the database */
+  status = esl_sqfile_OpenDigital(abc, seqfile, fmt, env, &sqfp);
+  if (status != eslOK) return status;
+
+  /* if we can't rewind the database, stop now.  */
+  if (!esl_sqfile_IsRewindable(sqfp)) return eslFAIL;
+
+  /* loop through the database reading all the sequnces */
+  max = 0;
+  count = 0;
+  sq  = esl_sq_CreateDigital(abc);
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+    ++count;
+
+    res_size += sq->n + 1;
+    if (sq->n > max) max = sq->n;
+
+    len = strlen(sq->name);
+    if (len > 0) ++len;
+    hdr_size += len;
+
+    len = strlen(sq->acc);
+    if (len > 0) ++len;
+    hdr_size += len;
+
+    len = strlen(sq->desc);
+    if (len > 0) ++len;
+    hdr_size += len;
+
+    esl_sq_Reuse(sq);
+  }
+  if (status != eslEOF) goto ERROR;
+  
+  /* now that the database information is know, allocate the memory to
+   * hold the data.  different memory blocks will be used to hold the
+   * redisues and header info.  the idea is that since the header info,
+   * ie, name, acc, etc is used infrenquently (only when there is a hit)
+   * if some pages need to be swapped out, hopefully it will be the
+   * header pages first leaving the sequences in memory.
+   */
+  ESL_ALLOC(cache, sizeof(ESL_SQCACHE));
+
+  cache->filename    = NULL;
+  cache->sq_list     = NULL;
+  cache->residue_mem = NULL;
+  cache->header_mem  = NULL;
+
+  cache->abc         = abc;
+  cache->format      = fmt;
+  cache->seq_count   = count;
+  cache->res_count   = res_size;
+  cache->max_seq     = max;
+
+  cache->res_size    = res_size + 2;
+  cache->hdr_size    = hdr_size;
+
+  ESL_ALLOC(cache->filename, strlen(seqfile) + 1);
+  strcpy(cache->filename, seqfile);
+
+  ESL_ALLOC(cache->sq_list, sizeof(ESL_SQ) * (count + 1));
+
+  /* different memory blocks will be used to hold the residues and header
+   * info.  the idea is that since the header info, ie, name, acc, etc.
+   * is used infrenquently (only when there is a hit) if some pages need
+   * to be swapped out, hopefully it will be the header pages first
+   * leaving the sequences in memory.
+   */
+  ESL_ALLOC(cache->residue_mem, res_size + 2);
+  ESL_ALLOC(cache->header_mem, hdr_size);
+
+  hdr_ptr  = cache->header_mem;
+  *hdr_ptr = 0;
+
+  res_ptr  = cache->residue_mem;
+  *res_ptr = eslDSQ_SENTINEL;
+
+  /* loop through the database filling in the cache */
+  n = 0;
+  esl_sqfile_Position(sqfp, 0);
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+    c = cache->sq_list + n;
+
+    /* if header fields have been defined, copy them to the cache */
+    c->name = hdr_ptr;
+    if (sq->name[0] != 0) {
+      c->name = hdr_ptr + 1;
+      strcpy(c->name, sq->name);
+      hdr_ptr += strlen(sq->name) + 1;
+    }
+
+    c->acc = hdr_ptr;
+    if (sq->acc[0] != 0) {
+      c->acc = hdr_ptr + 1;
+      strcpy(c->acc, sq->acc);
+      hdr_ptr += strlen(sq->acc) + 1;
+    }
+
+    c->desc = hdr_ptr;
+    if (sq->desc[0] != 0) {
+      c->desc = hdr_ptr + 1;
+      strcpy(c->desc, sq->desc);
+      hdr_ptr += strlen(sq->desc) + 1;
+    }
+
+    c->tax_id = sq->tax_id;
+    c->seq    = NULL;
+    c->ss     = NULL;
+
+    /* copy the digitized sequence */
+    memcpy(res_ptr + 1, sq->dsq + 1, sq->n + 1);
+    c->dsq   = res_ptr;
+    c->n     = sq->n;
+    res_ptr += sq->n + 1;
+
+    /* Coordinate info */
+    c->start = sq->start;
+    c->end = sq->end;
+    c->C = sq->C;
+    c->W = sq->W;
+    c->L = sq->L;
+
+    c->source = NULL;
+
+    /* allocated lengths */
+    c->nalloc   = -1;
+    c->aalloc   = -1;
+    c->dalloc   = -1;
+    c->salloc   = -1;
+    c->srcalloc = -1;
+
+    /* Disk offset bookkeeping */
+    c->idx  = n;
+    c->roff = sq->roff;
+    c->hoff = sq->hoff;
+    c->doff = sq->doff;
+    c->eoff = sq->eoff;
+
+    c->abc = abc;
+
+    esl_sq_Reuse(sq);
+    ++n;
+  }
+  if (status != eslEOF) goto ERROR;
+
+  /* add on last empty sequence */
+  c = cache->sq_list + count;
+  *(res_ptr + 1) = eslDSQ_SENTINEL;
+
+  c->name     = hdr_ptr;
+  c->acc      = hdr_ptr;
+  c->desc     = hdr_ptr;
+
+  c->tax_id   = -1;
+  c->seq      = NULL;
+  c->ss       = NULL;
+
+  c->dsq      = res_ptr;
+  c->n        = 0;
+
+  c->start    = 0;
+  c->end      = 0;
+  c->C        = 0;
+  c->W        = 0;
+  c->L        = -1;
+
+  c->source   = NULL;
+
+  c->nalloc   = -1;
+  c->aalloc   = -1;
+  c->dalloc   = -1;
+  c->salloc   = -1;
+  c->srcalloc = -1;
+
+  c->idx      = count;
+  c->roff     = -1;
+  c->hoff     = -1;
+  c->doff     = -1;
+  c->eoff     = -1;
+
+  c->abc      = NULL;
+ 
+  if (sq != NULL) esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+
+  *ret_sqcache = cache;
+
+  return eslOK;
+
+ERROR:
+  if (sq != NULL) esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+
+  esl_sqfile_Free(cache);
+
+  return status;
+}
+
+/* Function:  esl_sqfile_Free()
+ * Synopsis:  Free a cached database <ESL_SQCACHE>.
+ * Incept:    MSF, Fri Aug 20 2010 [Janelia]
+ *
+ * Purpose:   Frees all the memory used to cache the sequence database.
+ *
+ * Returns:   none.
+ */
+void  
+esl_sqfile_Free(ESL_SQCACHE *sqcache)
+{
+  if (sqcache == NULL) return;
+
+  if (sqcache->filename    != NULL) free(sqcache->filename);
+  if (sqcache->sq_list     != NULL) free(sqcache->sq_list);
+  if (sqcache->residue_mem != NULL) free(sqcache->residue_mem);
+  if (sqcache->header_mem  != NULL) free(sqcache->header_mem);
+
+  sqcache->abc         = NULL;
+  sqcache->filename    = NULL;
+  sqcache->sq_list     = NULL;
+  sqcache->residue_mem = NULL;
+  sqcache->header_mem  = NULL;
+
+  free(sqcache);
+}
+
+
 #endif /*eslAUGMENT_ALPHABET*/
 /*-------------- end, digital mode ESL_SQFILE -------------------*/
 
@@ -1088,7 +1363,47 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
 
 
 /*****************************************************************
- *  7. Functions specific to sqio <-> msa interoperation [with <msa>] 
+ *# 6. Writing sequences.
+ *****************************************************************/
+
+/* Function:  esl_sqio_Parse()
+ * Synopsis:  Parse a sequence already read into a buffer.
+ * Incept:    MSF, Fri Aug 13 2010 [Janelia]
+ *
+ * Purpose:   Parse the buffer <buf> for a sequence <s> of type
+ *            <format>.  The buffer must contain the entire sequence.
+ *            
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM>  on allocation error.
+ *            <eslEFORMAT>  on parsing error.
+ *            <eslEINVAL> on unsupported format.
+ */
+int
+esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
+{
+  int status;
+
+  switch (format) {
+  case eslSQFILE_EMBL:     
+  case eslSQFILE_UNIPROT:  
+  case eslSQFILE_GENBANK:  
+  case eslSQFILE_DDBJ:     
+  case eslSQFILE_FASTA:    
+  case eslSQFILE_DAEMON:   
+    status = esl_sqascii_Parse(buf, size, s, format);
+    break;
+  default: 
+    ESL_EXCEPTION(eslEINVAL, "can't write that format");
+  }
+  return status;
+}
+/*-------------------- writing sequences  -----------------------*/
+
+
+
+/*****************************************************************
+ *  8. Functions specific to sqio <-> msa interoperation [with <msa>] 
  *****************************************************************/
 
 #ifdef eslAUGMENT_MSA
@@ -1167,7 +1482,7 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 
 
 /*****************************************************************
- *#  8. Benchmark driver
+ *#  9. Benchmark driver
  *****************************************************************/ 
 /* Some current results:
  *
@@ -1423,7 +1738,7 @@ benchmark_mmap(char *filename, int bufsize, int64_t *ret_magic)
 
 
 /*****************************************************************
- *#  9. Unit tests
+ *#  10. Unit tests
  *****************************************************************/ 
 #ifdef eslSQIO_TESTDRIVE
 #include "esl_random.h"
@@ -1852,7 +2167,7 @@ utest_write(ESL_ALPHABET *abc, ESL_SQ **sqarr, int N, int format)
 
 
 /*****************************************************************
- *# 10. Test driver.
+ *# 11. Test driver.
  *****************************************************************/
 
 /* gcc -g -Wall -I. -L. -o sqio_utest -DeslSQIO_TESTDRIVE esl_sqio.c -leasel -lm
@@ -1946,7 +2261,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- *# 11. Examples
+ *# 12. Examples
  *****************************************************************/
 #ifdef eslSQIO_EXAMPLE
 /*::cexcerpt::sqio_example::begin::*/
@@ -2063,6 +2378,44 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::sqio_example2::end::*/
 #endif /*eslSQIO_EXAMPLE2*/
+
+#ifdef eslSQIO_EXAMPLE3
+/*::cexcerpt::sqio_example3::begin::*/
+/* compile: gcc -g -Wall -I. -L. -o sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
+ * run:     ./example <sequence file>
+ */
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+int
+main(int argc, char **argv)
+{
+  ESL_ALPHABET *abc       = NULL;
+  ESL_SQ       *sq        = NULL;
+  int           format    = eslSQFILE_FASTA;
+  int           alphatype = eslAMINO;
+  int           status;
+
+  char *test = ">12345 TEST Test fasta buffer\n"
+               "ARVAPVALPSACAPAGTQCLISGWGNTLSNGVNNPDLLQCVDAPVLSQADCEAAYPGEIT\n"
+               "SSMICVGFLEGGKDSCQGDSGGPVVCNGQLQGIVSWGYGCALPDNPGVYTKVCNFVGWIQ\n"
+               "DTIAAN";
+
+  abc = esl_alphabet_Create(alphatype);
+  sq  = esl_sq_CreateDigital(abc);
+
+  status = esl_sqio_Parse(test, strlen(test), sq, format);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed\n");     
+  else if (status != eslEOF)     esl_fatal("Unexpected error parsing buffer", status);
+  
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
+  return 0;
+}
+/*::cexcerpt::sqio_example3::end::*/
+#endif /*eslSQIO_EXAMPLE3*/
 
 
 

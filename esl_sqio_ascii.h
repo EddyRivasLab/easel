@@ -32,6 +32,7 @@ typedef struct esl_sqascii_s {
 
   int   do_gzip;	      /* TRUE if we're reading from gzip -dc pipe */
   int   do_stdin;	      /* TRUE if we're reading from stdin         */
+  int   do_buffer;            /* TRUE if we're reading from a buffer      */
 
   /* all input first gets buffered in memory; this gives us enough
    * recall to use Guess*() functions even in nonrewindable streams
@@ -90,6 +91,7 @@ typedef struct esl_sqascii_s {
 
 extern int  esl_sqascii_Open(char *seqfile, int format, struct esl_sqio_s *sqfp);
 extern int  esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *s, int update);
+extern int  esl_sqascii_Parse(char *buf, int size, ESL_SQ *s, int format);
 
 
 #endif /*!ESL_SQIO_ASCII_INCLUDED*/

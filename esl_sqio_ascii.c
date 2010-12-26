@@ -10,8 +10,9 @@
  *    7. Internal routines for EMBL format (including Uniprot, TrEMBL)
  *    8. Internal routines for Genbank format
  *    9. Internal routines for FASTA format
- *   10. Internal routines for HMMPGMD format
- *   11. Copyright and license.
+ *   10. Internal routines for DAEMON format
+ *   11. Internal routines for HMMPGMD format
+ *   12. Copyright and license.
  * 
  * This module shares remote evolutionary homology with Don Gilbert's
  * seminal, public domain ReadSeq package, though the last common
@@ -27,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
@@ -96,8 +98,14 @@ static int  header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  skip_fasta  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  end_fasta   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 
+/* DAEMON format */
+static void config_daemon(ESL_SQFILE *sqfp);
+static void inmap_daemon (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
+static int  end_daemon   (ESL_SQFILE *sqfp, ESL_SQ *sq);
+
 /* HMMPGMD format */
 static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
+
 
 /*****************************************************************
  *# 1. An <ESL_SQFILE> object, in text mode.
@@ -149,6 +157,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ascii->fp           = NULL;
   ascii->do_gzip      = FALSE;
   ascii->do_stdin     = FALSE;
+  ascii->do_buffer    = FALSE;
 
   ascii->mem          = NULL;
   ascii->allocm       = 0;
@@ -265,6 +274,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
       case eslSQFILE_GENBANK:   config_genbank(sqfp); 	inmap_genbank(sqfp, NULL);	break;
       case eslSQFILE_DDBJ:     	config_genbank(sqfp); 	inmap_genbank(sqfp, NULL);	break;
       case eslSQFILE_FASTA:    	config_fasta(sqfp);   	inmap_fasta(sqfp,   NULL);	break;
+      case eslSQFILE_DAEMON:    config_daemon(sqfp);   	inmap_daemon(sqfp,  NULL);	break;
       case eslSQFILE_HMMPGMD:  	config_fasta(sqfp);   	inmap_fasta(sqfp,   NULL);	break;
       default:	status = eslEFORMAT; goto ERROR;
       }
@@ -623,6 +633,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
       case eslSQFILE_GENBANK:    inmap_genbank(sqfp, abc->inmap); break;
       case eslSQFILE_DDBJ:       inmap_genbank(sqfp, abc->inmap); break;
       case eslSQFILE_FASTA:      inmap_fasta(sqfp,   abc->inmap); break;
+      case eslSQFILE_DAEMON:     inmap_daemon(sqfp,  abc->inmap); break;
 
       default:                 	 status = eslEFORMAT;             break;
       }
@@ -2018,7 +2029,12 @@ loadmem(ESL_SQFILE *sqfp)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
-  if (ascii->is_recording == TRUE)
+  if (ascii->do_buffer)
+    {
+      ascii->mpos = 0;
+      ascii->mn   = 0;
+    }
+  else if (ascii->is_recording == TRUE)
     {
       if (ascii->mem == NULL) ascii->moff = ftello(ascii->fp);        /* first time init of the offset */
       ESL_RALLOC(ascii->mem, tmp, sizeof(char) * (ascii->allocm + eslREADBUFSIZE));
@@ -2035,7 +2051,7 @@ loadmem(ESL_SQFILE *sqfp)
       ascii->is_recording = -1;	/* no more recording is possible now */
       ascii->mpos = 0;
       ascii->moff = ftello(ascii->fp);
-      n          = fread(ascii->mem, sizeof(char), eslREADBUFSIZE, ascii->fp);
+      n = fread(ascii->mem, sizeof(char), eslREADBUFSIZE, ascii->fp); /* see note [1] below */
       ascii->mn   = n;
     }
   return (n == 0 ? eslEOF : eslOK);
@@ -2043,6 +2059,29 @@ loadmem(ESL_SQFILE *sqfp)
  ERROR:
   return status;
 }
+
+/* [1] Be alert for a possible problem above in that fread().
+ *     Farrar had inserted an alternative case as follows:
+ *     "If we are reading from stdin, buffered read cannot be used
+ *      because if will block until EOF or the buffer is full, ie
+ *      eslREADBUFSIZE characters have been read.  Usually this would
+ *      not be a problem, unless stdin is from a pipe.  In that case
+ *      if the sequence is less than eslREADBUFSIZE we would block.
+ *
+ *      NOTE:  any changes to the IO stream ascii->fp, such as fseek, 
+ *      might not have any affect on the file descriptor for the stream.
+ *
+ *   if (ascii->do_stdin) {
+ *     n = read(fileno(ascii->fp), ascii->mem, eslREADBUFSIZE);
+ *   } else {
+ *   ...
+ *  
+ * but that's a bug, because you can't mix read and fread;
+ * the i17-stdin.pl test fails, in particular.
+ */
+
+
+
 
 /* loadbuf()
  * Set sqfp->buf to contain next line of data, or point to next block.
@@ -2896,6 +2935,9 @@ header_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
+  /* make sure there are characters in the buffer */
+  if (ascii->nc == ascii->bpos && (status = loadbuf(sqfp)) != eslOK) return status;
+
   c =  ascii->buf[ascii->bpos];
   while (status == eslOK && isspace(c)) status = nextchar(sqfp, &c); /* skip space (including \n) */
 
@@ -3052,7 +3094,196 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
 /*------------------- end of FASTA i/o ---------------------------*/	       
 
 /*****************************************************************
- *# 10. Internal routines for HMMPGMD format
+ *#  10. Internal routines for DAEMON format
+ *****************************************************************/
+
+/* Special case FASTA format where each sequence is terminated with "//".
+ * 
+ * The use case is where the sequences are being read from a pipe and a
+ * way is needed to signal the end of the sequence so it can be processed.
+ * The next sequence might not be in the pipe, so the usual '>' is not
+ * present to signal the end of the sequence.  Also, an EOF is not
+ * an option, since the daemon might run continuously.
+ */
+
+static void
+config_daemon(ESL_SQFILE *sqfp)
+{
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+
+  ascii->is_linebased = FALSE;
+  ascii->eof_is_ok    = FALSE;	
+  ascii->parse_header = &header_fasta;
+  ascii->skip_header  = &skip_fasta;
+  ascii->parse_end    = &end_daemon;
+}
+
+static void
+inmap_daemon(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
+{
+  int x;
+
+  if (abc_inmap != NULL) {
+    for (x = 0; x < 128; x++) sqfp->inmap[x] = abc_inmap[x];
+  } else {
+    for (x =  0;  x < 128;  x++) sqfp->inmap[x] = eslDSQ_ILLEGAL;
+    for (x = 'A'; x <= 'Z'; x++) sqfp->inmap[x] = x;
+    for (x = 'a'; x <= 'z'; x++) sqfp->inmap[x] = x;
+  }
+  sqfp->inmap['*']  = '*';	        /* accept * as a nonresidue/stop codon character */
+  sqfp->inmap[' ']  = eslDSQ_IGNORED;
+  sqfp->inmap['\t'] = eslDSQ_IGNORED;
+  sqfp->inmap['\r'] = eslDSQ_IGNORED;	/* DOS eol compatibility */
+  sqfp->inmap['\n'] = eslDSQ_EOL;
+  sqfp->inmap['/']  = eslDSQ_EOD;
+  /* \n is special - fasta reader detects it as an eol */
+}
+
+
+/* end_daemon()
+ * 
+ * Special case FASTA format where each sequence is terminated with "//".
+ * 
+ * The use case is were the sequences are being read from a pipe and a
+ * way is needed to signal the end of the sequence so it can be processed.
+ */
+static int 
+end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
+{
+  char  c;
+
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+
+  if (ascii->nc < 3) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Whoops, DAEMON input stream is corrupted");
+
+  c =  ascii->buf[ascii->bpos++];
+  if (c != '/') ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": did not find // terminator at end of seq record", ascii->linenumber);
+
+  c =  ascii->buf[ascii->bpos++];
+  if (c != '/') ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": did not find // terminator at end of seq record", ascii->linenumber);
+
+  /* skip to end of line */
+  while (c != '\n' && c != '\r' && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
+
+  /* skip past end of line */
+  while ((c = '\n' || c != '\r') && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
+
+  return eslOK;
+}
+
+
+/* esl_sqascii_Parse()
+ * 
+ * Parse a sequence already read into a buffer.
+ */
+int
+esl_sqascii_Parse(char *buf, int size, ESL_SQ *sq, int format)
+{
+  int               status;
+  int64_t           epos;
+  int64_t           n;
+
+  ESL_SQFILE        sqfp;
+  ESL_SQASCII_DATA *ascii = &sqfp.data.ascii;
+
+  /* fill in a dummy esl_sqfile structure used to parse buf */
+  ascii->fp           = NULL;
+  ascii->do_gzip      = FALSE;
+  ascii->do_stdin     = FALSE;
+  ascii->do_buffer    = TRUE;
+
+  ascii->mem          = buf;
+  ascii->allocm       = 0;
+  ascii->mn           = size;
+  ascii->mpos         = 0;
+  ascii->moff         = -1;
+  ascii->is_recording = FALSE;
+
+  ascii->buf          = NULL;
+  ascii->boff         = 0;
+  ascii->balloc       = 0;
+  ascii->nc           = 0;
+  ascii->bpos         = 0;
+  ascii->L            = 0;
+  ascii->linenumber   = 1;
+
+  ascii->afp          = NULL;
+  ascii->msa          = NULL;
+  ascii->idx          = -1;
+
+  ascii->ssifile      = NULL;
+  ascii->rpl          = -1;	/* -1 = not set yet */
+  ascii->bpl          = -1;	/* (ditto) */
+  ascii->prvrpl       = -1;    	/* (ditto) */
+  ascii->prvbpl       = -1;       /* (ditto) */
+  ascii->currpl       = -1;	
+  ascii->curbpl       = -1;	
+  ascii->ssi          = NULL;
+
+  /* Configure the <sqfp>'s parser and inmaps for this format. */
+  switch (format) {
+  case eslSQFILE_EMBL:     
+  case eslSQFILE_UNIPROT:  
+    config_embl(&sqfp);    
+    inmap_embl(&sqfp, NULL);
+    break;
+  case eslSQFILE_GENBANK:  
+  case eslSQFILE_DDBJ:     
+    config_genbank(&sqfp); 
+    inmap_genbank(&sqfp, NULL);
+    break;
+  case eslSQFILE_FASTA:    
+    config_fasta(&sqfp);   
+    inmap_fasta(&sqfp, NULL);
+    break;
+  case eslSQFILE_DAEMON:    
+    config_daemon(&sqfp);   
+    inmap_daemon(&sqfp, NULL);
+    break;
+  default:
+    return eslEFORMAT; 
+  }
+
+  /* Main case: read next seq from sqfp's stream */
+  if ((status = ascii->parse_header(&sqfp, sq)) != eslOK) return status; /* EOF, EFORMAT */
+
+  do {
+    if ((status = seebuf(&sqfp, -1, &n, &epos)) == eslEFORMAT) return status;
+    if (esl_sq_GrowTo(sq, sq->n + n) != eslOK) return eslEMEM;
+    addbuf(&sqfp, sq, n);
+    ascii->L   += n;
+    sq->eoff   = ascii->boff + epos - 1;
+    if (status == eslEOD)     break;
+  } while ((status = loadbuf(&sqfp)) == eslOK);
+    
+  if      (status == eslEOF)
+    {
+      if (! ascii->eof_is_ok) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Unexpected EOF; file truncated?"); 
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+    }
+  else if (status == eslEOD)
+    {
+      ascii->bpos = epos;
+      if ((status = ascii->parse_end(&sqfp, sq)) != eslOK) return status;
+    }
+  else if (status != eslOK) return status;
+
+  if (sq->dsq != NULL) sq->dsq[sq->n+1] = eslDSQ_SENTINEL;
+  else                 sq->seq[sq->n] = '\0';
+  sq->start = 1;
+  sq->end   = sq->n;
+  sq->C     = 0;
+  sq->W     = sq->n;
+  sq->L     = sq->n;
+
+  if (ascii->balloc > 0) free(ascii->buf);
+
+  return eslOK;
+}
+/*-------------------- end of DAEMON ----------------------------*/	       
+
+/*****************************************************************
+ *# 11. Internal routines for HMMPGMD format
  *****************************************************************/
 
 static int
@@ -3084,3 +3315,5 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/
+
+
