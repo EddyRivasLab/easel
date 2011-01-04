@@ -167,7 +167,9 @@ fi
 #           Alejandro Forero Cuervo <bachue@bachue.com>
 # Version:  1.9 (2004/02/23)
 # Source:   http://www.gnu.org/software/ac-archive/htmldoc/acx_pthread.html
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
+# 
+# SRE: I have modified this source; search for SRE to see where.
+#      Solaris needs -D_POSIX_PTHREAD_SEMANTICS or ctime_r() calls will choke.
 #
 dnl Available from the GNU Autoconf Macro Archive at:
 dnl http://www.gnu.org/software/ac-archive/htmldoc/acx_pthread.html
@@ -336,9 +338,12 @@ if test "x$acx_pthread_ok" = xyes; then
 
         AC_MSG_CHECKING([if more special flags are required for pthreads])
         flag=no
+# Added _POSIX_PTHREAD_SEMANTICS for solaris. Needed for ctime_r() compliance.
+# SRE, Fri Oct 29 10:03:36 2010 [J7/3]
         case "${host_cpu}-${host_os}" in
                 *-aix* | *-freebsd*)     flag="-D_THREAD_SAFE";;
-                *solaris* | *-osf* | *-hpux*) flag="-D_REENTRANT";;
+                *solaris*)               flag="-D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS";; 
+                *-osf* | *-hpux*)        flag="-D_REENTRANT";;
         esac
         AC_MSG_RESULT(${flag})
         if test "x$flag" != xno; then

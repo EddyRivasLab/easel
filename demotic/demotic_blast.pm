@@ -86,19 +86,16 @@ sub parse (*) {
 		    $_ = <$fh>; # perl quirk: unless part of a while()
 		                # loop, line must be explicitly assigned  
                                 # to $_ or else it will be lost.
-		    if (/^\s+\((\d+) letters/) {
-			$querylen  = $1; 
-			last;
-		    } elsif (/^\s*( .+)\s*$/) { 
-			$querydesc .= $1; chomp $querydesc;
-		    }
+		    if    (/^\s+\((\S+) letters/) { $querylen  = $1; last; } 
+		    elsif (/^Length=(\d+)/)       { $querylen  = $1; last; } 
+		    elsif (/^\s*( .+)\s*$/)       { $querydesc .= $1; chomp $querydesc; }
 		}
 	    } elsif (/^Database:\s*(.+)\s*$/) {
 		$db  = $1;
 		$_ = <$fh>;
-		if (/^\s+(\d+) sequences; (\S+) total letters/) {
-		    $db_nseq     = $1;
-		    $db_nletters = $2;
+		if (/^\s+(\S+) sequences; (\S+) total letters/) {
+		    $db_nseq     = $1; $db_nseq     =~ s/,//g; 
+		    $db_nletters = $2; $db_nletters =~ s/,//g;
 		}
 	    } elsif (/^Copyright.+Washington University/) {
 		$is_wublast = 1;
@@ -109,7 +106,7 @@ sub parse (*) {
 		$parsing_hitlist = 0;
 		$parsing_alilist = 1;
 		next;
-	    } elsif (/^(\S+)\s+(.+)\s+(\d+)\s+(\S+)/) {
+	    } elsif (/^\s*(\S+)\s+(.+)\s+(\d+)\s+(\S+)/) {
 		$hit_target[$nhits]    = $1;
 		$target_desc{$1}       = $2;
 		$hit_bitscore[$nhits]  = $3;
@@ -121,7 +118,7 @@ sub parse (*) {
 	    }
 	}
 	elsif ($parsing_alilist) {
-	    if (/^>(\S+)\s*(.*)$/) {
+	    if (/^>\s*(\S+)\s*(.*)$/) {
 		$target = $1;
 		$target_desc{$target} = $2;
 
@@ -137,7 +134,7 @@ sub parse (*) {
 		$ali_bitscore[$nali-1] = $2;
 		$ali_evalue[$nali-1]   = $3;
 	    } 
-	    elsif (/^ Score =\s+(\S+) bits \((\S+)\), Expect = (\S+),/) { # NCBI
+	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+),/) { # NCBI
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_bitscore[$nali-1] = $1;
@@ -152,21 +149,20 @@ sub parse (*) {
 		$ali_positive[$nali-1]   = $5;
 		$firstchunk = 1;
 	    } 
-	    elsif (/^Query:\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
+	    elsif (/^Query:?\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
 		if ($firstchunk) { $ali_qstart[$nali-1] = $1; }
 		$ali_qali[$nali-1]  .= $2;
 		$ali_qend[$nali-1]   = $3;
 	    } 
-	    elsif (/^Sbjct:\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
+	    elsif (/^Sbjct:?\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
 		if ($firstchunk) { $ali_tstart[$nali-1] = $1; }
 		$ali_tali[$nali-1]  .= $2;
 		$ali_tend[$nali-1]   = $3;
 		$firstchunk = 0;
 	    }
 
-	    elsif (/^BLAST/) {
-		return 1;	# normal return; output from a new query is starting
-	    }
+	    elsif (/^BLAST/) {	return 1; } # normal return; output from a new query is starting
+	    elsif (/^Effective search space used:/) { return 1; } #normal end of query for NCBI BLAST+
 
 	}
     } # this closes the loop over lines in the input stream.

@@ -26,6 +26,10 @@
 #    -v             - print verbose output, including each command
 #                     after various substitutions.
 #
+#    -x <n>         - only run test number <n>, where <n> starts from 1.
+#                     Useful when debugging individual failed tests - saves
+#                     having to rerun the whole testsuite.
+#
 # Examples: 
 #    % sqc 2 exercises.sqc .. .. 
 #
@@ -210,8 +214,9 @@ require "importenv.pl";
 
 # Parse our command line
 #
-&Getopts('v');
-if ($opt_v) { $verbose = 1;           }
+&Getopts('vx:');
+if ($opt_v) { $verbose          = 1;      }
+if ($opt_x) { $only_do_test_num = $opt_x; }
 
 
 if ($#ARGV == 3)
@@ -266,6 +271,7 @@ while (<COMMANDS>) {
 	$testtype eq "benchmark") 
     {
 	$ntest++;
+	if ($only_do_test_num && $only_do_test_num != $ntest) { next COMMAND; }
 	printf("  %10s %4d [%20s] ...     ", $testtype, $ntest, $testname);
     } 
     elsif ($testtype ne "prep") 
@@ -569,7 +575,7 @@ sub regression_substitution
 #
 # Return ($has_valgrind, $has_leak):
 #    $has_valgrind:  1 if report is present; else 0
-#    $has_leak:      1 if valgrind report shows a memory leak.
+#    $has_leak:      1 if valgrind report shows an unsuppressed memory leak.
 #
 # If $file isn't present at all, returns (0,0).
 #
@@ -581,8 +587,11 @@ sub check_valgrind_status
     open(VALGRIND, "$file") || return (0,0);
     $has_valgrind = $has_leak = 0;
     while (<VALGRIND>) {
-	if (/^==\d+== Memcheck/)      { $has_valgrind = 1; }
-	if (/^==\d+== LEAK SUMMARY:/) { $has_leak     = 1; }
+	if (/^==\d+== Memcheck/)                             { $has_valgrind = 1; }
+	if (/^==\d+==    definitely lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
+	if (/^==\d+==    indirectly lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
+	if (/^==\d+==      possibly lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
+	if (/^==\d+==    still reachable: (\d+)/ && $1 != 0) { $has_leak     = 1; }
     }
     close VALGRIND;
     
