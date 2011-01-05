@@ -1825,8 +1825,8 @@ correct_ambiguity(ESL_SQFILE *sqfp, ESL_SQ *sq, int len)
   /* go to the start of the ambiguity table and see if the table
    * is in 32 or 64 bit entries.
    */
-  if (fseek(ncbi->fppsq, ncbi->seq_apos, SEEK_SET) != 0) return eslESYS;
-  if (fread(ncbi->hdr_buf, sizeof(char), 4, ncbi->fppsq) != size) return eslEFORMAT;
+  if (fseek(ncbi->fppsq, ncbi->seq_apos, SEEK_SET)       != 0) return eslESYS;
+  if (fread(ncbi->hdr_buf, sizeof(char), 4, ncbi->fppsq) != 4) return eslEFORMAT;
   amb32 = ((ncbi->hdr_buf[0] & 0x80) == 0);
 
   ptr = (sq->dsq != NULL) ? (char *)sq->dsq + 1 : sq->seq;

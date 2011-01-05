@@ -504,17 +504,19 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::sse_example::end::*/
 #endif /*eslSSE_EXAMPLE*/
+
+
 #else /* ! HAVE_SSE2*/
 
-/* The remainder of the file is just bookkeeping, for what to do when
- * we aren't compiling with SSE instructions.
+/* If we don't have SSE2 compiled in, provide some nothingness to:
+ *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
+ *   b. prevent compiler from bitching about "empty compilation unit"
+ *   c. automatically pass the automated tests.
  */
-
-/* Throw a bone to compilers that would warn about empty compilation unit: */
 #include "easel.h"
 
-/* Provide a successful unit test on platforms where we don't have SSE instructions: */
-#ifdef eslSSE_TESTDRIVE
+void esl_sse_DoAbsolutelyNothing(void) { return; }
+#if defined eslSSE_TESTDRIVE || eslSSE_EXAMPLE || eslSSE_BENCHMARK
 int main(void) { return 0; }
 #endif
 

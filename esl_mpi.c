@@ -1182,12 +1182,15 @@ main(int argc, char **argv)
 
 #else /*!(HAVE_MPI && eslLIBRARY)*/
 
-/* If we don't have MPI compiled in, provide a null testdriver to keep
- * automated tests happy, and throw something in to prevent empty
- * compilation unit warnings.
+/* If we don't have MPI compiled in, provide some nothingness to:
+ *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
+ *   b. prevent compiler from bitching about "empty compilation unit"
+ *   c. automatically pass the automated tests.
  */
 #include "easel.h"
-#ifdef eslMPI_TESTDRIVE
+
+void esl_mpi_DoAbsolutelyNothing(void) { return; }
+#if defined eslMPI_TESTDRIVE || eslMPI_EXAMPLE || eslMPI_BENCHMARK
 int main(void) { return 0; }
 #endif
 

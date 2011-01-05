@@ -508,11 +508,16 @@ main(int argc, char **argv)
 #endif /*eslVMX_EXAMPLE*/
 #endif /*HAVE_VMX*/
 
-/* Solely to silence test drivers that check that all unit tests 
- * and examples compile and run: provide dummy test/example main()
- * for non-VMX platforms. 
- */
 #ifndef HAVE_VMX
+
+/* If we don't have VMX compiled in, provide some nothingness to:
+ *   a. prevent Mac OS/X ranlib from bitching about .o file that "has no symbols" 
+ *   b. prevent compiler from bitching about "empty compilation unit"
+ *   c. automatically pass the automated tests.
+ */
+#include "easel.h"
+
+void esl_vmx_DoAbsolutelyNothing(void) { return; }
 #if defined eslVMX_TESTDRIVE || defined eslVMX_EXAMPLE || eslVMX_BENCHMARK
 int main(void) { return 0; }
 #endif

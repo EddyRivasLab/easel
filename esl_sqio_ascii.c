@@ -3166,7 +3166,7 @@ end_daemon(ESL_SQFILE *sqfp, ESL_SQ *sq)
   while (c != '\n' && c != '\r' && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
 
   /* skip past end of line */
-  while ((c = '\n' || c != '\r') && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
+  while ((c == '\n' || c == '\r') && ascii->bpos < ascii->nc) c =  ascii->buf[ascii->bpos++];
 
   return eslOK;
 }
