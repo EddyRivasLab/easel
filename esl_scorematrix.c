@@ -784,6 +784,14 @@ struct yualtschul_params {
   ESL_DMATRIX *Y;   /* likewise, alloc'ed storage for Y (M^-1) matrix provided to obj function */
 };
 
+struct castellanoeddy_params {
+  ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */
+  ESL_DMATRIX *M;   /* not a param per se: alloc'ed storage for M matrix provided to the objective function. Different from yualtschul */
+  ESL_DMATRIX *Y;   /* likewise, alloc'ed storage for Y (M^-1) matrix provided to obj function */
+  double sopen;     /* gap open score. Needed to compute M */
+  double sextend;   /* gap extension score. Needed to compute M */
+};
+
 /* yualtschul_func()
  *
  * This is the objective function we try to find a root of. 
@@ -818,13 +826,15 @@ yualtschul_func(double lambda, void *params, double *ret_fx)
  * Its prototype is dictated by the esl_rootfinder API.
  */
 static int
-castellanoeddy_func(double lambda, double sopen, double sextend, void *params, double *ret_fx)
+castellanoeddy_func(double lambda, void *params, double *ret_fx)
 {
   int status;
-  struct yualtschul_params *p = (struct yualtschul_params *) params; /* CHECK THESE PARAMS!!! */
+  struct castellanoeddy_params *p = (struct castellanoeddy_params *) params;
   ESL_DMATRIX  *S = p->S;
   ESL_DMATRIX  *M = p->M;
   ESL_DMATRIX  *Y = p->Y;
+  double sopen    = p->sopen;
+  double sextend  = p->sextend;
   int i,j;
 
   /* the M matrix has entries M_ij = e^{lambda * s_ij} + 2e^{lambda * (d + s_ij)} / 1 - e^{lambda * r}*/
@@ -900,11 +910,11 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   /* Find fi, fj from Y: fi are column sums, fj are row sums */
   for (i = 0; i < S->n; i++) {
     fi[i] = 0.;
-    for (j = 0; j < S->n; j++) fi[i] += p.Y->mx[j][i];
+    for (j = 0; j < S->n; j++) fi[i] += p.Y->mx[j][i]; /* column sum */
   }
   for (j = 0; j < S->n; j++) {
     fj[j] = 0.;
-    for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i];
+    for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i]; /* row sum */
   }
 
   /* Find p_ij */
@@ -928,8 +938,9 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
 /* castellanoeddy_engine()
  *
  * This function backcalculates the probabilistic basis for a score
- * matrix S, when S is a double-precision matrix. Providing this
- * as a separate "engine" and writing esl_sco_Probify()
+ * matrix S, when S is a double-precision matrix, and gap open and
+ * extension scores sopen and sextend respectively. Providing this
+ * as a separate "engine" and writing esl_sco_gap_Probify()
  * as a wrapper around it allows us to separately test inaccuracy
  * due to numerical performance of our linear algebra, versus
  * inaccuracy due to integer roundoff in integer scoring matrices.
@@ -944,16 +955,18 @@ static int
 castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
 {
   int status;
-  ESL_ROOTFINDER *R = NULL;    /* NEED TO UNDERSTAND ROOTFINDER!!! */
-  struct yualtschul_params p;
+  ESL_ROOTFINDER *R = NULL;
+  struct castellanoeddy_params p;
   double lambda;
-  double xl, xr;
+  double xl, xr; /* lambda brackets around root */
   double fx;
   int    i,j;
 
   /* Set up a bisection method to find lambda */
   p.S = S;
   p.M = p.Y = NULL;
+  p.sopen = sopen;
+  p.sextend = sextend;
   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
   if ((R = esl_rootfinder_Create(castellanoeddy_func, &p)) == NULL) { status = eslEMEM; goto ERROR; } /* Here we provide the function to the rootfinder */
@@ -968,13 +981,13 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
 
   /* Identify suitable brackets on lambda. */
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
-    if ((status = castellanoeddy_func(xl, sopen, sextend, &p, &fx))  != eslOK) goto ERROR; /* PROBLEMS WITH ROOTFINDER??? */
+    if ((status = castellanoeddy_func(xl, &p, &fx))  != eslOK) goto ERROR;
     if (fx > 0.) break;
   }
   if (fx <= 0.) { status = eslENORESULT; goto ERROR; }
 
   for (; xr < 100.; xr *= 1.6) {
-    if ((status = castellanoeddy_func(xr, sopen, sextend, &p, &fx))  != eslOK) goto ERROR;
+    if ((status = castellanoeddy_func(xr, &p, &fx))  != eslOK) goto ERROR;
     if (fx < 0.) break;
   }
   if (fx >= 0.) { status = eslENORESULT; goto ERROR; }
@@ -982,24 +995,17 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
   /* Find lambda by bisection */
   if (esl_root_Bisection(R, xl, xr, &lambda) != eslOK)     goto ERROR;
 
-  /* IS THIS CORRECT FOR R(Yj)??? */
 
-  /* Find fi, fj from Y: fi are column sums, fj are row sums */
-  for (i = 0; i < S->n; i++) {
-    fi[i] = 0.;
-    for (j = 0; j < S->n; j++) fi[i] += p.Y->mx[j][i];
-  }
+  /* Find R(yj) from Y: row sum */
   for (j = 0; j < S->n; j++) {
     fj[j] = 0.;
     for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i];
   }
 
-  /* HERE I NEED TO FIND EMISSIONS AND NOT JOINT PROBABILITIES? */
-
-  /* Find p_ij */
+  /* Find p(yj|xi) */
   for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
-      P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j];
+      P->mx[i][j] = fj[j] * p.M->mx[i][j]; /* RECHECK THIS CALCULATION COMPUTES THE DESIRED CONDITIONAL PROBABILITY */
 
   *ret_lambda = lambda;
   esl_dmatrix_Destroy(p.M);
@@ -1072,7 +1078,7 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
 {
   int status;
   ESL_DMATRIX  *Sd  = NULL;
-  ESL_DMATRIX  *P   = NULL;
+  ESL_DMATRIX  *P   = NULL;   /* joint probabilities p(i,j) */
   double       *fi  = NULL;
   double       *fj  = NULL;
   double        lambda;
@@ -1123,21 +1129,22 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
  * Incept:    SC, Mon Dec 13 15:56:15 CET 2010 [MPI]
  *
  * Purpose:   Reverse engineering of a score system: given a "valid"
- *            substitution matrix <S>, obtain implied joint
- *            probabilities $p_{ij}$, query composition $f_i$, target
+ *            substitution matrix <S> and gap open <sopen> and
+ *            extension <sextend> scores, obtain the implied
+ *            conditional probabilities $P(j|i)$, target
  *            composition $f_j$, and scale $\lambda$, by assuming that
- *            $f_i$ and $f_j$ are the appropriate marginals of $p_{ij}$.
+ *            $f_j$ are the appropriate marginals of $P(j|i)$.
  *            Optionally return any or all of these solutions in
- *            <*opt_P>, <*opt_fi>, <*opt_fj>, and <*opt_lambda>.
+ *            <*opt_P>, <*opt_fj>, and <*opt_lambda>.
  *
  *            The calculation is run only on canonical residue scores
- *            $0..K-1$ in S, to calculate joint probabilities for all
- *            canonical residues. Joint and background probabilities
+ *            $0..K-1$ in S, to calculate conditional probabilities for all
+ *            canonical residues. Conditional and background probabilities
  *            involving degenerate residues are then calculated by
- *            appropriate marginalizations.
+ *            appropriate marginalizations. NEED TO DO THIS!!!
  *
- *            This implements an algorithm described in
- *            \citep{YuAltschul03}.
+ *            This implements an algorithm based on the algorithm
+ *            described in \citep{YuAltschul03}.
  *
  *            This algorithm works fine in principle, but when it is
  *            applied to rounded integer scores with small dynamic
@@ -1154,15 +1161,14 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
  *            error of <eslENORESULT>.
  *
  * Args:      S          - score matrix
- *            opt_P      - optRETURN: Kp X Kp matrix of implied target probs $p_{ij}$
- *            opt_fi     - optRETURN: vector of Kp $f_i$ background probs, 0..Kp-1
+ *            opt_P      - optRETURN: Kp X Kp matrix of implied target conditional probs $P(j|i)$
  *            opt_fj     - optRETURN: vector of Kp $f_j$ background probs, 0..Kp-1
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
  *
- * Returns:   <eslOK> on success, and <opt_P>, <opt_fi>, <opt_fj>, and <opt_lambda>
+ * Returns:   <eslOK> on success, and <opt_P>, <opt_fj>, and <opt_lambda>
  *            point to the results (for any of these that were passed non-<NULL>).
  *
- *            <opt_P>, <opt_fi>, and <opt_fj>, if requested, are new
+ *            <opt_P>, and <opt_fj>, if requested, are new
  *            allocations, and must be freed by the caller.
  *
  *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
@@ -1176,8 +1182,8 @@ esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_
 {
   int status;
   ESL_DMATRIX  *Sd  = NULL;
-  ESL_DMATRIX  *P   = NULL;
-  double       *fi  = NULL;
+  ESL_DMATRIX  *P   = NULL; /* conditional probabilities P(j|i) */
+  double       *fi  = NULL; // do i need this?
   double       *fj  = NULL;
   double        lambda;
   int i,j;
@@ -1200,7 +1206,7 @@ esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_
   if ((status = castellanoeddy_engine(Sd, sopen, sextend, P, fi, fj, &lambda)) != eslOK) goto ERROR;
 
   /* Set the degenerate probabilities by appropriate sums */
-  set_degenerate_probs(S->abc_r, P, fi, fj);
+  set_degenerate_probs(S->abc_r, P, fi, fj); /* NEED TO CHECK IF THIS WORKS FOR THE CONDITIONAL PROBABILITIES IN P; fi is no longer calculated??? */
 
   /* Done. */
   esl_dmatrix_Destroy(Sd);
