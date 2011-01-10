@@ -698,10 +698,9 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
   double sum;                   /* integrated prob */
   int    i;                     /* counter over the probs */
 
-  roll    = esl_random(r);
-  sum     = 0.0;
-
   while (1) {	/* see note in header about this while() */
+    roll = esl_random(r);
+    sum  = 0.0;
     for (i = 0; i < N; i++)
       {
 	sum += p[i];
@@ -719,10 +718,9 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
   float  sum;                   /* integrated prob */
   int    i;                     /* counter over the probs */
 
-  roll    = esl_random(r);
-  sum     = 0.0;
-
   while (1) {	/* see note in header about this while() */
+    roll = esl_random(r);
+    sum  = 0.0;
     for (i = 0; i < N; i++)
       {
 	sum += p[i];
