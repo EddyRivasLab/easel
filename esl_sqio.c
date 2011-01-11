@@ -814,9 +814,9 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_UNKNOWN:    return "unknown";
   case eslSQFILE_FASTA:      return "FASTA";
   case eslSQFILE_EMBL:       return "EMBL";
-  case eslSQFILE_GENBANK:    return "Genbank";
+  case eslSQFILE_GENBANK:    return "GenBank";
   case eslSQFILE_DDBJ:       return "DDBJ";
-  case eslSQFILE_UNIPROT:    return "Uniprot";
+  case eslSQFILE_UNIPROT:    return "UniProt";
   case eslSQFILE_DAEMON:     return "daemon";
   case eslSQFILE_HMMPGMD:    return "hmmpgmd";
 #ifdef eslAUGMENT_NCBI

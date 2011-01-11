@@ -7,8 +7,8 @@
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Internal routines shared by parsers.
- *    7. Internal routines for EMBL format (including Uniprot, TrEMBL)
- *    8. Internal routines for Genbank format
+ *    7. Internal routines for EMBL format (including UniProt, TrEMBL)
+ *    8. Internal routines for GenBank format
  *    9. Internal routines for FASTA format
  *   10. Internal routines for DAEMON format
  *   11. Internal routines for HMMPGMD format
@@ -77,14 +77,14 @@ static void addbuf   (ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nres);
 static void skipbuf  (ESL_SQFILE *sqfp, int64_t nskip);
 static int  read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *opt_actual_nres);
 
-/* EMBL format; also Uniprot, TrEMBL */
+/* EMBL format; also UniProt, TrEMBL */
 static void config_embl(ESL_SQFILE *sqfp);
 static void inmap_embl (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
 static int  header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  skip_embl  (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int  end_embl   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 
-/* Genbank format; also DDBJ */
+/* GenBank format; also DDBJ */
 static void config_genbank(ESL_SQFILE *sqfp);
 static void inmap_genbank (ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap);
 static int  header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq);
@@ -360,7 +360,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
  *            
  *            First we attempt to guess based on the <filename>'s
  *            suffix. <*.fa> is assumed to be in FASTA format; <*.gb>
- *            is assumed to be in Genbank format; <*.sto> or <*.stk>
+ *            is assumed to be in GenBank format; <*.sto> or <*.stk>
  *            are assumed to be in Stockholm multiple alignment file
  *            format.
  *            
@@ -369,7 +369,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
  *            starts with $>$, we assume FASTA format; if the line
  *            starts with <ID>, we assume EMBL format; if the line
  *            starts with <LOCUS> or it contains the string <Genetic
- *            Sequence Data Bank> we assume Genbank format; if it
+ *            Sequence Data Bank> we assume GenBank format; if it
  *            starts with \verb+# STOCKHOLM+ we assume Stockholm format.
  *            
  *            If that fails too, return an <eslEFORMAT> error, and
@@ -2441,9 +2441,9 @@ read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *op
 
 
 /*****************************************************************
- *#  7. Internal routines for EMBL format (including Uniprot, TrEMBL)
+ *#  7. Internal routines for EMBL format (including UniProt, TrEMBL)
  *****************************************************************/ 
-/* EMBL and Uniprot protein sequence database format.
+/* EMBL and UniProt protein sequence database format.
  *   See: http://us.expasy.org/sprot/userman.html
  *   and: http://www.ebi.ac.uk/embl/Documentation/User_manual/usrman.html#3
  * We use the same parser for both formats, so we have to be 
@@ -2489,7 +2489,7 @@ inmap_embl(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
  * See: http://us.expasy.org/sprot/userman.html
  * And: http://www.ebi.ac.uk/embl/Documentation/User_manual/usrman.html#3
  * Our parser must work on the highest common denominator of EMBL DNA
- * and Uniprot protein sequence files.
+ * and UniProt protein sequence files.
  *
  * sqfp->buf is the first (ID) line of the entry, or a blank line before
  * it (in which case we'll scan forwards skipping blank lines to find 
@@ -2589,7 +2589,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
      *   DE            Short=U1-A;
      *   DE   AltName: Full=Sex determination protein snf;
      *
-     * We'll make no attempt to parse the structured Uniprot description header,
+     * We'll make no attempt to parse the structured UniProt description header,
      * for the moment.
      */
     if (strncmp(ascii->buf, "DE   ", 5) == 0)
@@ -2600,7 +2600,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 	  ESL_FAIL(status, ascii->errbuf, "Line %" PRId64 ": failed to parse description on DE line", ascii->linenumber);
       }
 
-    /* Uniprot: "The format of the SQ line is:
+    /* UniProt: "The format of the SQ line is:
      *  SQ   SEQUENCE XXXX AA; XXXXX MW; XXXXXXXXXXXXXXXX CRC64;"
      * EMBL:    "The SQ (SeQuence header) line marks the beginning of 
      *           the sequence data and Gives a summary of its content. 
@@ -2620,7 +2620,7 @@ header_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* skip_embl()
  * 
- * Skip past the genbank header and position to start of the sequence line.
+ * Skip past the EMBL header and position to start of the sequence line.
  * 
  * On success, returns <eslOK> and:
  *   sq->roff  has been set to the record offset
@@ -2691,10 +2691,10 @@ end_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 
 /*****************************************************************
- *#  8. Internal routines for Genbank format 
+ *#  8. Internal routines for GenBank format 
  *****************************************************************/ 
-/* NCBI Genbank sequence database format.
- * See Genbank release notes; for example,
+/* NCBI GenBank sequence database format.
+ * See GenBank release notes; for example,
  * ftp://ftp.ncbi.nih.gov/genbank/gbrel.txt
  */
 
@@ -2737,7 +2737,7 @@ inmap_genbank(ESL_SQFILE *sqfp, const ESL_DSQ *abc_inmap)
  * sqfp->buf is the first (LOCUS) line of the entry, or a line before
  * it (in which case we'll scan forwards to find the LOCUS line - even
  * skipping non-blank lines, because there are sometimes headers at
- * the start of Genbank files).
+ * the start of GenBank files).
  * 
  * On success, returns <eslOK> and:
  *   sq->name  contains sequence name (and may have been reallocated, changing sq->nalloc)
@@ -2805,7 +2805,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   
 /* skip_genbank()
  * 
- * Skip past the genbank header and position to start of the sequence line.
+ * Skip past the GenBank header and position to start of the sequence line.
  * 
  * On success, returns <eslOK> and:
  *   sq->roff  has been set to the record offset
@@ -2863,7 +2863,7 @@ end_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
   else if (status == eslOK)  return eslOK;
   else                       return status;
 }
-/*----------------- end Genbank format -------------------------------*/
+/*----------------- end GenBank format -------------------------------*/
 
 
 

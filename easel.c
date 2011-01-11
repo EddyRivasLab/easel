@@ -1613,7 +1613,7 @@ esl_composition_WAG(double *f)
  * Incept:    SRE, Fri Apr 13 16:03:46 2007 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies observed in
- *            Swissprot release 34 (21.2M residues).  Caller provides
+ *            Swiss-Prot release 34 (21.2M residues).  Caller provides
  *            space in <f> allocated for at least 20 doubles.  The
  *            entries are in alphabetic order A..Y, same as the
  *            standard Easel amino acid alphabet order.
@@ -1651,7 +1651,7 @@ esl_composition_SW34(double *f)
  * Incept:    SRE, Tue Aug 26 08:42:04 2008 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies observed in
- *            Swissprot release 50.8 (86.0M residues; Oct 2006).
+ *            Swiss-Prot release 50.8 (86.0M residues; Oct 2006).
  *
  * Returns:   <eslOK> on success.
  */

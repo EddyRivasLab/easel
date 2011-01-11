@@ -2553,7 +2553,7 @@ parse_def_line(ESL_SQNCBI_DATA *ncbi, ESL_SQ *sq)
  *     ddbj              Textseq-id ,      -- DDBJ
  *     prf               Textseq-id ,      -- PRF SEQDB
  *     pdb               PDB-seq-id ,      -- PDB sequence
- *     tpg               Textseq-id ,      -- Third Party Annot/Seq Genbank
+ *     tpg               Textseq-id ,      -- Third Party Annot/Seq GenBank
  *     tpe               Textseq-id ,      -- Third Party Annot/Seq EMBL
  *     tpd               Textseq-id ,      -- Third Party Annot/Seq DDBJ
  *     gpipe             Textseq-id ,      -- Internal NCBI genome pipeline processing ID

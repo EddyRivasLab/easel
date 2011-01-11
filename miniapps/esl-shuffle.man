@@ -83,8 +83,8 @@ pairs of sequences must have exactly the same aligned length.
 
 .pp
 An unaligned sequence file to be shuffled may be in any of several
-different common unaligned sequence formats including FASTA, Genbank,
-EMBL, Uniprot, or DDBJ; alignment files are also valid, in which case
+different common unaligned sequence formats including FASTA, GenBank,
+EMBL, UniProt, or DDBJ; alignment files are also valid, in which case
 individual unaligned sequences are sequentially plucked from the
 alignment. By default the file format is autodetected. The
 .I --informat <s> 
@@ -200,7 +200,7 @@ Specify that the sequence file is in format
 .I <s>,
 where 
 .I <s> 
-may be FASTA, Genbank, EMBL, Uniprot, DDBJ, or Stockholm.  This string
+may be FASTA, GenBank, EMBL, UniProt, DDBJ, or Stockholm.  This string
 is case-insensitive ("genbank" or "GenBank" both work, for example).
 
 .TP

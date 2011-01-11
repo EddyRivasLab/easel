@@ -56,7 +56,7 @@ Specify that the sequence file is in format
 .I <s>,
 where 
 .I <s> 
-may be FASTA, Genbank, EMBL, Uniprot, or DDBJ.  This string
+may be FASTA, GenBank, EMBL, UniProt, or DDBJ.  This string
 is case-insensitive ("genbank" or "GenBank" both work, for example).
 
 .SH AUTHOR

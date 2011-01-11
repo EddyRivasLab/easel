@@ -1054,7 +1054,7 @@ esl_abc_XDealign(const ESL_ALPHABET *abc, ESL_DSQ *x, const ESL_DSQ *ref_ax, int
  *            of software that can't deal with standard residue codes,
  *            and you want to massage your sequences into a form that
  *            can be accepted. For example, WU-BLAST can't deal with O
- *            (pyrrolysine) residues, but Uniprot has O codes.
+ *            (pyrrolysine) residues, but UniProt has O codes.
  *            
  * Returns:   <eslOK> on success.
  *
