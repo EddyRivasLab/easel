@@ -423,8 +423,8 @@ AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([testsuite/Makefile])
 AC_CONFIG_FILES([Makefile])
-if test -e "LICENSE.csh.in"; then
-  AC_CONFIG_FILES(LICENSE.csh)
+if test -e "LICENSE.sh.in"; then
+  AC_CONFIG_FILES(LICENSE.sh)
 fi
 
 
@@ -436,6 +436,7 @@ echo "
 
 Easel configuration:
 
-     compiler:             ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS}
-     libraries:            ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
+     compiler:    ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS}
+     host:        $host
+     libraries:   ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
 "

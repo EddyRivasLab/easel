@@ -776,11 +776,9 @@ main(int argc, char **argv)
   int             N       = esl_opt_GetInteger(go, "-N");
 
   esl_stopwatch_Start(w);
-  if (esl_opt_GetBoolean(go, "-r")) {
-    while (N--) esl_randomness_Init(r, 42);
-  } else {
-    while (N--) esl_random(r);
-  }
+  if (esl_opt_GetBoolean(go, "-r")) { while (N--) esl_randomness_Init(r, 42);     }
+  else                              { while (N--) esl_random(r);                  }
+
   esl_stopwatch_Stop(w);
   esl_stopwatch_Display(stdout, w, "# CPU Time: ");
 

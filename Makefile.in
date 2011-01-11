@@ -1,6 +1,7 @@
 # Top level Makefile for Easel
 #
-# SVN $Id$
+# SVN $URL$
+# SVN $Id: Makefile.in 609 2010-06-07 11:49:23Z nawrockie $
 
 top_srcdir = @top_srcdir@
 srcdir     = @srcdir@
@@ -199,6 +200,7 @@ UTESTS =\
 #	stopwatch_utest\
 #	swat_utest\
 
+.PHONY: all check dev TAGS
 
 all:
 	${MAKE} easel_lib
@@ -306,7 +308,7 @@ distclean:
 	if test -d documentation; then (cd documentation; ${MAKE} distclean); fi
 	if test -d testsuite;     then (cd testsuite;     ${MAKE} distclean); fi
 	if test -d miniapps;      then (cd miniapps;      ${MAKE} distclean); fi
-	-rm LICENSE.csh
+	-rm LICENSE.sh
 	-rm Makefile
 
 #######
@@ -364,29 +366,21 @@ implode:
 	-rm -f LICENSE.tag
 
 TAGS:
-	etags *.c *.h *.tex documentation/*.tex miniapps/*.c miniapps/*.man Makefile.in
+	find . -name \*.c     | xargs etags    -
+	find . -name \*.h     | xargs etags -a -
+	find . -name \*.pl    | xargs etags -a -
+	find . -name \*.sh    | xargs etags -a -
+	find . -name \*.tex   | xargs etags -a -
+	find . -name \*.man   | xargs etags -a -
+	find . -name \*.in    | xargs etags -a -
+	find . -name \*.sqc   | xargs etags -a -
+	find . -name 00README | xargs etags -a -
+	etags -a 00CHECKLIST COPYRIGHT configure.ac aclocal.m4
 
-# "supertags": a tags table for all Easel, HMMER, Infernal source.
-#              This lets me make changes in Easel, then propagate 
-#              necessary modifications throughout code that depends
-#              on Easel. 
-#              The target depends on how I have my source directories
-#              laid out (~src/hmmer, ~src/infernal)
-supertags:
-	etags *.c *.h *.tex documentation/*.tex 
-	etags -a miniapps/*.c miniapps/*.man Makefile.in
-	etags -a ~/src/hmmer/src/*.c ~/src/hmmer/src/*.h 
-	etags -a ~/src/hmmer/src/impl_sse/*.c ~/src/hmmer/src/impl_sse/*.h 
-	etags -a ~/src/hmmer/src/impl_vmx/*.c ~/src/hmmer/src/impl_vmx/*.h 
-	etags -a ~/src/hmmer/Makefile.in ~/src/hmmer/src/Makefile.in 
-	etags -a ~/src/infernal/src/*.c ~/src/infernal/src/*.h 
-	etags -a ~/src/infernal/hmmer/src/*.c ~/src/infernal/hmmer/src/*.h 
-	etags -a ~/src/infernal/testsuite/*.c 
-	etags -a ~/src/infernal/Makefile.in ~/src/infernal/src/Makefile.in 
+# magic SVN for setting keyword ID replacements, for example:
+#  	find . -name \*.[ch]  | xargs grep -l 'SVN \$Id\$'  | xargs svn propset svn:keywords "Id"
+#	find . -name \*.[ch]  | xargs grep -l 'SVN \$URL\$' | xargs svn propset svn:keywords "URL"
 
-# magic SVN for setting keyword ID replacement on a new module foo:
-#   grep 'SVN \$Id\$' *.[ch]
-#   svn propset svn:keywords "Id" foo.[ch]
 
 ################################################################
 # @LICENSE@
