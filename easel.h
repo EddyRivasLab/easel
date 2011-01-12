@@ -338,6 +338,7 @@ extern int  esl_FileEnvOpen(const char *fname, const char *env,
 			    FILE **ret_fp, char **ret_path);
 extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
 extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
+extern int  esl_getcwd(char **ret_cwd);
 
 /* 6. Typed comparison routines. */
 extern int  esl_DCompare(double a, double b, double tol);

@@ -731,7 +731,7 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
 
   /* Application name/path */
   ntot = strlen(g->argv[0]) + 1;
-  ESL_ALLOC(cmdline, sizeof(char) * ntot);
+  ESL_ALLOC(cmdline, sizeof(char) * (ntot+1));
   sprintf(cmdline, "%s ", g->argv[0]);
   
   /* Options */
@@ -741,7 +741,7 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
 	if (g->opt[i].type == eslARG_NONE) n = strlen(g->opt[i].name) + 1;
 	else                               n = (strlen(g->opt[i].name) + strlen(g->val[i])) + 2;
 
-	ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n));
+	ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n + 1));
 
 	if (g->opt[i].type == eslARG_NONE) sprintf(cmdline + ntot, "%s ",    g->opt[i].name);
 	else                               sprintf(cmdline + ntot, "%s %s ", g->opt[i].name, g->val[i]);
@@ -753,7 +753,7 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
   for (j = g->optind; j < g->argc; j++)
     {
       n = strlen(g->argv[j]) + 1;
-      ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n));
+      ESL_RALLOC(cmdline, p, sizeof(char) * (ntot + n + 1));
       sprintf(cmdline + ntot, "%s ", g->argv[j]);
       ntot += n;
     }

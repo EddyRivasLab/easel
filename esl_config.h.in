@@ -75,7 +75,7 @@
 #undef HAVE_SYSCTL
 #undef HAVE_SYSCONF
 #undef HAVE_FSEEKO
-
+#undef HAVE_GETCWD
 #undef HAVE_PTHREADS
 
 /*****************************************************************

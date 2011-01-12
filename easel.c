@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <errno.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
@@ -1449,6 +1450,63 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
   return eslOK;
 }
 
+
+/* Function:  esl_getcwd()
+ * Synopsis:  Gets the path for the current working directory.
+ * Incept:    SRE, Tue Jan 11 17:15:17 2011 [Janelia]
+ *
+ * Purpose:   Returns the path for the current working directory
+ *            in <*ret_cwd>, as reported by POSIX <getcwd()>.
+ *            <*ret_cmd> is allocated here and must be freed by 
+ *            the caller.
+ *
+ * Returns:   <eslOK> on success, and <*ret_cwd> points to
+ *            the pathname of the current working directory.
+ *            
+ *            If <getcwd()> is unavailable on this system, 
+ *            returns <eslEUNIMPLEMENTED> and <*ret_cwd> is <NULL>.
+ *            
+ *            If the pathname length exceeds a set limit (16384 char),
+ *            returns <eslERANGE> and <*ret_cwd> is <NULL>.
+ *
+ * Throws:    <eslEMEM> on allocation failure; <*ret_cwd> is <NULL>.
+ *            <eslESYS> on getcwd() failure; <*ret_cwd> is <NULL>.
+ *
+ * Xref:      J7/54.
+ */
+int
+esl_getcwd(char **ret_cwd)
+{
+  char *cwd      = NULL;
+  int   nalloc   = 256;
+  int   status   = eslOK;
+#if defined (HAVE_GETCWD)
+  int   maxalloc = 16384;
+  do {
+    ESL_ALLOC(cwd, sizeof(char) * nalloc);
+    if (getcwd(cwd, nalloc) == NULL)
+      {
+	if (errno != ERANGE)       ESL_XEXCEPTION(eslESYS, "unexpected getcwd() error");
+	if (nalloc * 2 > maxalloc) { status = eslERANGE; goto ERROR; }
+	free(cwd);
+	cwd = NULL;
+	nalloc *= 2;
+      }
+  } while (cwd == NULL);
+  *ret_cwd = cwd;
+  return status;
+
+#else
+  *ret_cwd = NULL;
+  return eslEUNIMPLEMENTED;
+#endif
+  
+ ERROR:
+  if (cwd) free(cwd);
+  *ret_cwd = NULL;
+  return status;
+
+}
 
 /*----------------- end of file path/name functions ------------------------*/
 
