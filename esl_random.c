@@ -733,6 +733,75 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 }
 
 
+/* Function:  esl_rnd_DChooseCDF()
+ * Synopsis:  Return random choice from cumulative multinomial distribution.
+ * Incept:    SRE, Wed Jan 12 11:34:18 2011 [Janelia]
+ *
+ * Purpose:   Given a random number generator <r> and a cumulative
+ *            multinomial distribution <cdf[0..N-1]>, sample an element
+ *            <0..N-1> from that distribution. Return the index <0..N-1>.
+ *
+ *            Caller should be sure that <cdf[0..N-1]> is indeed a
+ *            cumulative multinomial distribution -- in particular, that
+ *            <cdf[N-1]> is tolerably close to 1.0 (within roundoff error).
+ *            
+ *            When sampling many times from the same multinomial
+ *            distribution <p>, it will generally be faster to
+ *            calculate the CDF once using <esl_vec_DCDF(p, N, cdf)>,
+ *            then sampling many times from the CDF with
+ *            <esl_rnd_DChooseCDF(r, cdf, N)>, as opposed to calling
+ *            <esl_rnd_DChoose(r, p, N)> many times, because
+ *            <esl_rnd_DChoose()> has to calculated the CDF before
+ *            sampling. This also gives you a bit more control over
+ *            error detection: you can make sure that the CDF is ok (p
+ *            does sum to ~1.0) before doing a lot of sampling from
+ *            it.
+ *            
+ *            esl_rnd_FChooseCDF() is the same, but for
+ *            a single-precision float <cdf>.
+ *            
+ * Args:      r    - random number generator
+ *            cdf  - cumulative multinomial distribution, cdf[0..N-1]
+ *            N    - number of elements in <cdf>
+ *
+ * Returns:   index 0..N-1 of the randomly sampled choice from <cdf>.
+ */
+int
+esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
+{
+  double roll;
+  int    i;
+
+  /* esl_random() returns x such that 0.0 <= x < 1.0; and in
+   * principle, cdf[N-1] == 1.0; so in principle, the do loop below
+   * succeeds first time.  In reality, roundoff error means cdf[N-1]
+   * is likely not exactly 1.0, yet we still want to sample properly;
+   * so we rejection sample the RNG's x until it falls in the CDF's
+   * interval.
+   */
+  do { roll = esl_random(r); } while (roll >= cdf[N-1]);
+  
+  /* For large N, it might be advantageous to bisection search 
+   * the cdf. For typical N in Easel (up to 20, for amino acid prob vectors,
+   * for example), the naive code below is faster. We could revisit
+   * this if we start sampling larger vectors.
+   */
+  for (i = 0; i < N; i++)
+    if (roll < cdf[i]) return i; 
+  /*UNREACHED*/
+  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+}
+int
+esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
+{
+  float roll;
+  int   i;
+  do { roll = esl_random(r); } while (roll >= cdf[N-1]);
+  for (i = 0; i < N; i++) if (roll < cdf[i]) return i; 
+  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+}
+
+
 /*****************************************************************
  * 5. Benchmark driver
  *****************************************************************/
@@ -755,10 +824,13 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 #include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_stopwatch.h"
+#include "esl_vectorops.h"
 
 static ESL_OPTIONS options[] = {
   /* name     type      default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",             0 },
+  { "-c",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark DChooseCDF()",                           0 },
+  { "-d",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark DChoose()",                              0 },
   { "-f",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "run fast version instead of MT19937",              0 },
   { "-r",  eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "benchmark _Init(), not just random()",             0 },
   { "-N",  eslARG_INT, "10000000",NULL, NULL,  NULL,  NULL, NULL, "number of trials",                                 0 },
@@ -774,10 +846,17 @@ main(int argc, char **argv)
   ESL_RANDOMNESS *r       = (esl_opt_GetBoolean(go, "-f") == TRUE ? esl_randomness_CreateFast(42) : esl_randomness_Create(42));
   ESL_STOPWATCH  *w       = esl_stopwatch_Create();
   int             N       = esl_opt_GetInteger(go, "-N");
+  double          p[20];
+  double          cdf[20];
+  
+  esl_composition_BL62(p);
+  esl_vec_DCDF(p, 20, cdf);
 
   esl_stopwatch_Start(w);
-  if (esl_opt_GetBoolean(go, "-r")) { while (N--) esl_randomness_Init(r, 42);     }
-  else                              { while (N--) esl_random(r);                  }
+  if      (esl_opt_GetBoolean(go, "-c")) { while (N--) esl_rnd_DChoose(r, p, 20);      }
+  else if (esl_opt_GetBoolean(go, "-d")) { while (N--) esl_rnd_DChooseCDF(r, cdf, 20); }
+  else if (esl_opt_GetBoolean(go, "-r")) { while (N--) esl_randomness_Init(r, 42);     }
+  else                                   { while (N--) esl_random(r);                  }
 
   esl_stopwatch_Stop(w);
   esl_stopwatch_Display(stdout, w, "# CPU Time: ");

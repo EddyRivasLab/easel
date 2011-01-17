@@ -3,6 +3,7 @@
  * 
  * SRE, Tue Oct  1 15:23:37 2002 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
 #ifndef ESL_VECTOROPS_INCLUDED
 #define ESL_VECTOROPS_INCLUDED
@@ -102,6 +103,9 @@ extern float  esl_vec_FLogSum(float  *vec, int n);
 extern void   esl_vec_DLogNorm(double *vec, int n);
 extern void   esl_vec_FLogNorm(float  *vec, int n);
 
+extern void   esl_vec_DCDF(double *p, int n, double *cdf);
+extern void   esl_vec_FCDF(float  *p, int n, float  *cdf);
+
 extern int    esl_vec_DValidate(double *vec, int n, double tol, char *errbuf);
 extern int    esl_vec_FValidate(float  *vec, int n, float  tol, char *errbuf);
 
@@ -109,3 +113,7 @@ extern int    esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf)
 extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol, char *errbuf);
 
 #endif /* ESL_VECTOROPS_INCLUDED */
+
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

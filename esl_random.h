@@ -43,8 +43,10 @@ extern double esl_rnd_Gamma(ESL_RANDOMNESS *r, double a);
 
 /* 4. Multinomial sampling from discrete probability n-vectors.
  */
-extern int    esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N);
-extern int    esl_rnd_FChoose(ESL_RANDOMNESS *r, const float  *p, int N);
+extern int    esl_rnd_DChoose   (ESL_RANDOMNESS *r, const double *p,   int N);
+extern int    esl_rnd_FChoose   (ESL_RANDOMNESS *r, const float  *p,   int N);
+extern int    esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N);
+extern int    esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float  *cdf, int N);
 
 
 #endif /*ESL_RANDOM_INCLUDED*/

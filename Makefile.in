@@ -155,6 +155,9 @@ OBJS    = \
 #	esl_swat.o
 
 
+BENCHMARKS =\
+	esl_random_benchmark
+
 UTESTS =\
 	easel_utest\
 	esl_alphabet_utest\
@@ -200,6 +203,7 @@ UTESTS =\
 #	stopwatch_utest\
 #	swat_utest\
 
+
 .PHONY: all check dev TAGS
 
 all:
@@ -216,9 +220,11 @@ dev:
 	${MAKE} easel_lib
 	${MAKE} easel_progs
 	${MAKE} easel_utests
+	${MAKE} easel_benchmarks
 
-easel_lib:    libeasel.a
-easel_utests: ${UTESTS}
+easel_lib:        libeasel.a
+easel_utests:     ${UTESTS}
+easel_benchmarks: ${BENCHMARKS}
 
 easel_progs:
 	cd miniapps; ${MAKE} easel_progs
@@ -260,6 +266,24 @@ ${UTESTS}:  libeasel.a
 	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
+# Benchmark compilation:
+# Name construction much like unit tests.
+#   $@           =  driver name            esl_msa_benchmark easel_benchmark
+#   $${BASENAME} =  base module name       msa               easel
+#   $${DFLAG}    =  driver flag            eslMSA_BENCHMARK  eslEASEL_BENCHMARK
+#   $${DFILE}    =  driver's C file        esl_msa.c         easel.c
+#
+${BENCHMARKS}: libeasel.a
+	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
+	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
+	DFLAG=esl$${DFLAG}_BENCHMARK ;\
+	if test $@ = "easel_benchmark"; then \
+           DFILE=${srcdir}/easel.c ;\
+        else \
+           DFILE=${srcdir}/esl_$${BASENAME}.c ;\
+        fi;\
+	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 # install:   installs libeasel.a in ${libdir}/
 #            installs Easel headers in ${includedir}/

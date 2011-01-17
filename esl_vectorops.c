@@ -13,6 +13,7 @@
  * 
  * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */                      
 #include "esl_config.h"
 
@@ -1007,6 +1008,54 @@ esl_vec_FLogNorm(float *vec, int n)
   esl_vec_FExp (vec, n);
   esl_vec_FNorm(vec, n);
 }
+
+
+/* Function:  esl_vec_DCDF()
+ * Synopsis:  Calculate cumulative distribution for a discrete prob vector
+ * Incept:    SRE, Wed Jan 12 09:09:42 2011 [Janelia]
+ *
+ * Purpose:   Given a probability vector <p> of length <n>, 
+ *            calculates its cumulate distribution function
+ *            and puts in in caller-allocated space <cdf>.
+ *            Caller must have allocated <cdf> for at least
+ *            <n> elements.
+ *            
+ *            By definition, <cdf[0] == p[0]>, and <cdf[n-1]> ought to
+ *            be 1.0; however, numerical roundoff error must be tolerated
+ *            in the sum. If caller isn't sure about <p>'s provenance,
+ *            it may want to check that <cdf[n-1]> is tolerably close 
+ *            to 1.0 (see <esl_DCompare()>).
+ *
+ *            It is ok for <cdf> to be the same space as <p>
+ *            (<esl_vec_DCDF(p, n, p)> is fine); that is, <p> can be
+ *            overwritten by <cdf>.
+ *
+ * Args:      p    - input probability vector p[0..n-1]
+ *            n    - number of elements in p
+ *            cdf  - RETURN: cumulative distribution for p, in caller-allocated space
+ *
+ * Returns:   (void).
+ */
+void
+esl_vec_DCDF(double *p, int n, double *cdf)
+{
+  int i;
+ 
+  cdf[0] = p[0];
+  for (i = 0; i < n; i++) 
+    cdf[i] = p[i] + cdf[i-i];
+}
+void
+esl_vec_FCDF(float *p, int n, float *cdf)
+{
+  int i;
+ 
+  cdf[0] = p[0];
+  for (i = 0; i < n; i++) 
+    cdf[i] = p[i] + cdf[i-i];
+}
+
+
 
 /* Function:  esl_vec_DValidate()
  * Synopsis:  Verifies that vector is p-vector.
