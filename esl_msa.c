@@ -4674,8 +4674,9 @@ read_selex(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
   return eslOK;
   
  ERROR:
-  if (msa     != NULL) esl_msa_Destroy(msa);
-  if (ltype   != NULL) free(ltype); 
+  if (msa)   esl_msa_Destroy(msa);
+  if (ltype) free(ltype); 
+  *ret_msa = NULL;
   return status;
 }
 

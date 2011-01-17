@@ -1478,9 +1478,9 @@ int
 esl_getcwd(char **ret_cwd)
 {
   char *cwd      = NULL;
-  int   nalloc   = 256;
   int   status   = eslOK;
 #if defined (HAVE_GETCWD)
+  int   nalloc   = 256;
   int   maxalloc = 16384;
   do {
     ESL_ALLOC(cwd, sizeof(char) * nalloc);
@@ -1496,16 +1496,15 @@ esl_getcwd(char **ret_cwd)
   *ret_cwd = cwd;
   return status;
 
-#else
-  *ret_cwd = NULL;
-  return eslEUNIMPLEMENTED;
-#endif
-  
  ERROR:
   if (cwd) free(cwd);
   *ret_cwd = NULL;
   return status;
 
+#else
+  *ret_cwd = NULL;
+  return eslEUNIMPLEMENTED;
+#endif
 }
 
 /*----------------- end of file path/name functions ------------------------*/
