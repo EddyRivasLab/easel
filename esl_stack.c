@@ -2,12 +2,13 @@
  *
  * Contents:
  *   1. The <ESL_STACK> object.
- *   2. Other functions in the API.
- *   3. Shuffling stacks.      [eslAUGMENT_RANDOM]
- *   4. Unit tests.
- *   5. Test driver.
- *   6. Example.
- *   7. Copyright and license.
+ *   2. The main API, including pushing/popping.
+ *   3. Shuffling stacks.                  [eslAUGMENT_RANDOM]
+ *   4. Using stacks for thread communication   [HAVE_PTHREAD]
+ *   5. Unit tests.
+ *   6. Test driver.
+ *   7. Example.
+ *   8. Copyright and license.
  *
  * Augmentations:
  *   eslAUGMENT_RANDOM  : adds function for shuffling a stack. 
@@ -15,17 +16,24 @@
  * SRE 1 March 2000 [Seattle]
  * Incorp into Easel SRE, Sun Dec 26 07:42:12 2004 [Zaragoza]
  * SVN $Id$
+ * SVN $URL$
  */ 
 #include "esl_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_PTHREAD
+#include <pthread.h>
+#endif
 
 #include "easel.h"
 #include "esl_stack.h"
 #ifdef eslAUGMENT_RANDOM
 #include "esl_random.h"
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>		/* usleep() in unit tests */
 #endif
 
 /*****************************************************************
@@ -45,8 +53,8 @@
 ESL_STACK *
 esl_stack_ICreate(void)
 {
-  int status;
   ESL_STACK *ns = NULL;
+  int status;
   
   ESL_ALLOC(ns, sizeof(ESL_STACK));
   ns->nalloc   = ESL_STACK_INITALLOC;
@@ -54,6 +62,13 @@ esl_stack_ICreate(void)
   ns->cdata    = NULL;
   ESL_ALLOC(ns->idata, sizeof(int) * ns->nalloc);
   ns->n        = 0;
+
+#ifdef HAVE_PTHREAD
+  ns->do_mutex = FALSE;
+  ns->do_cond  = FALSE;
+  ns->mutex    = NULL;
+  ns->cond     = NULL;
+#endif  
   return ns;
 
  ERROR:
@@ -74,15 +89,22 @@ esl_stack_ICreate(void)
 ESL_STACK *
 esl_stack_CCreate(void)
 {
-  int status;
   ESL_STACK *cs = NULL;
-  
+  int status;
+
   ESL_ALLOC(cs, sizeof(ESL_STACK));
   cs->nalloc   = ESL_STACK_INITALLOC;
   cs->idata    = NULL;
   cs->pdata    = NULL;
   ESL_ALLOC(cs->cdata, sizeof(char) * cs->nalloc);
   cs->n        = 0;
+
+#ifdef HAVE_PTHREAD
+  cs->do_mutex = FALSE;
+  cs->do_cond  = FALSE;
+  cs->mutex    = NULL;
+  cs->cond     = NULL;
+#endif  
   return cs;
 
  ERROR:
@@ -103,8 +125,8 @@ esl_stack_CCreate(void)
 ESL_STACK *
 esl_stack_PCreate(void)
 {
-  int status;
   ESL_STACK *ps = NULL;
+  int        status;
   
   ESL_ALLOC(ps, sizeof(ESL_STACK));
   ps->nalloc   = ESL_STACK_INITALLOC;
@@ -112,6 +134,14 @@ esl_stack_PCreate(void)
   ps->cdata    = NULL;
   ESL_ALLOC(ps->pdata, sizeof(void *) * ps->nalloc);
   ps->n        = 0;
+
+#ifdef HAVE_PTHREAD
+  ps->do_mutex = FALSE;
+  ps->do_cond  = FALSE;
+  ps->mutex    = NULL;
+  ps->cond     = NULL;
+#endif  
+
   return ps;
 
  ERROR:
@@ -146,15 +176,22 @@ esl_stack_Reuse(ESL_STACK *s)
 void
 esl_stack_Destroy(ESL_STACK *s)
 {
-  if (s->idata != NULL) free(s->idata);
-  if (s->cdata != NULL) free(s->cdata);
-  if (s->pdata != NULL) free(s->pdata);
+  if (s->idata) free(s->idata);
+  if (s->cdata) free(s->cdata);
+  if (s->pdata) free(s->pdata);
+
+#ifdef HAVE_PTHREAD
+  if (s->mutex) { pthread_mutex_destroy(s->mutex); free(s->mutex); }
+  if (s->cond)  { pthread_cond_destroy(s->cond);   free(s->cond);  }
+#endif
   free(s);
 }
+/*------------------ end, ESL_STACK object ----------------------*/
+
 
 
 /*****************************************************************
- *# 2. Other functions in the API.
+ *# 2. The main API, including pushing/popping.
  *****************************************************************/
 
 /* Function:  esl_stack_IPush()
@@ -166,12 +203,18 @@ esl_stack_Destroy(ESL_STACK *s)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
+ *            <eslESYS> if a pthread call fails. In this case, the
+ *              state of a pthread mutex and/or cond may be wedged.             
  */
 int
 esl_stack_IPush(ESL_STACK *ns, int x)
 {
+  int *ptr = NULL;
   int  status;
-  int *ptr;
+
+#ifdef HAVE_PTHREAD
+  if (ns->do_mutex) if (pthread_mutex_lock(ns->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
 
   if (ns->n == ns->nalloc) {
     ESL_RALLOC(ns->idata, ptr, sizeof(int) * ns->nalloc * 2);
@@ -179,9 +222,17 @@ esl_stack_IPush(ESL_STACK *ns, int x)
   }
   ns->idata[ns->n] = x;
   ns->n++;
+
+#ifdef HAVE_PTHREAD
+  if (ns->do_cond)  if (pthread_cond_signal(ns->cond)   != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_signal() failure");
+  if (ns->do_mutex) if (pthread_mutex_unlock(ns->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return eslOK;
 
  ERROR:
+#ifdef HAVE_PTHREAD
+  if (ns->do_mutex) if (pthread_mutex_unlock(ns->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return status;
 }
 
@@ -194,12 +245,18 @@ esl_stack_IPush(ESL_STACK *ns, int x)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
+ *            <eslESYS> if a pthread call fails. In this case, the
+ *              state of a pthread mutex and/or cond may be wedged.             
  */
 int
 esl_stack_CPush(ESL_STACK *cs, char c)
 {
+  char *ptr   = NULL;
   int  status;
-  char *ptr;
+
+#ifdef HAVE_PTHREAD
+  if (cs->do_mutex) if (pthread_mutex_lock(cs->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
 
   if (cs->n == cs->nalloc) {
     ESL_RALLOC(cs->cdata, ptr, sizeof(char) * cs->nalloc * 2);
@@ -207,9 +264,17 @@ esl_stack_CPush(ESL_STACK *cs, char c)
   }
   cs->cdata[cs->n] = c;
   cs->n++;
+
+#ifdef HAVE_PTHREAD
+  if (cs->do_cond)  if (pthread_cond_signal(cs->cond)    != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_signal() failure");
+  if (cs->do_mutex) if (pthread_mutex_unlock(cs->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return eslOK;
 
  ERROR:
+#ifdef HAVE_PTHREAD
+  if (cs->do_mutex) if (pthread_mutex_unlock(cs->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return status;
 }
 
@@ -222,12 +287,18 @@ esl_stack_CPush(ESL_STACK *cs, char c)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on reallocation failure.
+ *            <eslESYS> if a pthread call fails. In this case, the
+ *              state of a pthread mutex and/or cond may be wedged.             
  */
 int
 esl_stack_PPush(ESL_STACK *ps, void *p)
 {
+  void *ptr  = NULL;
   int status;
-  void *ptr;
+
+#ifdef HAVE_PTHREAD
+  if (ps->do_mutex) if (pthread_mutex_lock(ps->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
 
   if (ps->n == ps->nalloc) {
     ESL_RALLOC(ps->pdata, ptr, sizeof(void *) * ps->nalloc * 2);
@@ -235,9 +306,17 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
   }
   ps->pdata[ps->n] = p;
   ps->n++;
+
+#ifdef HAVE_PTHREAD
+  if (ps->do_cond)  if (pthread_cond_signal(ps->cond)    != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_signal() failure");
+  if (ps->do_mutex) if (pthread_mutex_unlock(ps->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return eslOK;
 
  ERROR:
+#ifdef HAVE_PTHREAD
+  if (ps->do_mutex) if (pthread_mutex_unlock(ps->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return status;
 }
 
@@ -248,15 +327,36 @@ esl_stack_PPush(ESL_STACK *ps, void *p)
  * Purpose:   Pops an integer off the integer stack <ns>, and returns
  *            it through <ret_x>.
  *
- * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
+ * Returns:   <eslOK> on success.
+ *            <eslEOD> if stack is empty.
+ *            
+ * Throws:    <eslESYS> if a pthread mutex lock/unlock or conditional wait fails.
  */
 int
 esl_stack_IPop(ESL_STACK *ns, int *ret_x)
 {
-  if (ns->n == 0) {*ret_x = 0; return eslEOD;}
-  ns->n--;
-  *ret_x = ns->idata[ns->n];
-  return eslOK;
+  int status;
+#ifdef HAVE_PTHREAD
+  if (ns->do_mutex           && pthread_mutex_lock(ns->mutex)          != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+  if (ns->do_cond && ! ns->n && pthread_cond_wait(ns->cond, ns->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_wait() failure");
+#endif
+
+  if (ns->n == 0) 
+    {
+      *ret_x = 0; 
+      status = eslEOD;
+    } 
+  else
+    {
+      ns->n--;
+      *ret_x = ns->idata[ns->n];
+      status = eslOK;
+    }
+
+#ifdef HAVE_PTHREAD
+  if (ns->do_mutex && pthread_mutex_unlock(ns->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
+  return status;
 }
 
 /* Function:  esl_stack_CPop()
@@ -266,15 +366,36 @@ esl_stack_IPop(ESL_STACK *ns, int *ret_x)
  * Purpose:   Pops a character off the character stack <cs>, and returns
  *            it through <ret_c>.
  *
- * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
+ * Returns:   <eslOK> on success. 
+ *            <eslEOD> if stack is empty.
+ *            
+ * Throws:    <eslESYS> if a pthread mutex lock/unlock or conditional wait fails.
  */
 int
 esl_stack_CPop(ESL_STACK *cs, char *ret_c)
 {
-  if (cs->n == 0) {*ret_c = 0; return eslEOD;}
-  cs->n--;
-  *ret_c = cs->cdata[cs->n];
-  return eslOK;
+  int status;
+#ifdef HAVE_PTHREAD
+  if (cs->do_mutex           && pthread_mutex_lock(cs->mutex)          != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+  if (cs->do_cond && ! cs->n && pthread_cond_wait(cs->cond, cs->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_wait() failure");
+#endif
+
+  if (cs->n == 0) 
+    { 
+      *ret_c = 0; 
+      status = eslEOD;
+    }
+  else
+    {
+      cs->n--;
+      *ret_c = cs->cdata[cs->n];
+      status = eslOK;
+    }
+
+#ifdef HAVE_PTHREAD
+  if (cs->do_mutex && pthread_mutex_unlock(cs->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
+  return status;
 }
 
 /* Function:  esl_stack_PPop()
@@ -284,15 +405,36 @@ esl_stack_CPop(ESL_STACK *cs, char *ret_c)
  * Purpose:   Pops a pointer off the pointer stack <ps>, and returns
  *            it through <ret_p>.
  *
- * Returns:   <eslOK> on success. <eslEOD> if stack is empty.
+ * Returns:   <eslOK> on success. 
+ *            <eslEOD> if stack is empty.
+ * 
+ * Throws:    <eslESYS> if a pthread mutex lock/unlock or conditional wait fails.
  */
 int
 esl_stack_PPop(ESL_STACK *ps, void **ret_p)
 {
-  if (ps->n == 0) {*ret_p = 0; return eslEOD;}
-  ps->n--;
-  *ret_p = ps->pdata[ps->n];
-  return eslOK;
+  int status;
+#ifdef HAVE_PTHREAD
+  if (ps->do_mutex           && pthread_mutex_lock(ps->mutex)          != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+  if (ps->do_cond && ! ps->n && pthread_cond_wait(ps->cond, ps->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_wait() failure");
+#endif
+
+  if (ps->n == 0)
+    {
+      *ret_p = NULL; 
+      status = eslEOD;
+    }
+  else
+    {
+      ps->n--;
+      *ret_p = ps->pdata[ps->n];
+      status = eslOK;
+    }
+
+#ifdef HAVE_PTHREAD
+  if (ps->do_mutex && pthread_mutex_unlock(ps->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
+  return status;
 }
 
 /* Function:  esl_stack_ObjectCount()
@@ -319,6 +461,13 @@ esl_stack_ObjectCount(ESL_STACK *s)
  *            this operation, as if <esl_stack_Destroy()> had been
  *            called on it. The caller becomes responsible for
  *            free'ing the returned string.
+ *            
+ *            Because the stack is destroyed by this call, use care in
+ *            a multithreaded context. You don't want to have another
+ *            thread waiting to do something to this stack as another
+ *            thread is destroying it. Treat this call like
+ *            you'd treat <esl_stack_Destroy()>. Its internals are
+ *            not mutex-protected (unlike push/pop functions).
  *
  * Returns:   Pointer to the string; caller must <free()> this.
  *
@@ -327,13 +476,26 @@ esl_stack_ObjectCount(ESL_STACK *s)
 char *
 esl_stack_Convert2String(ESL_STACK *cs)
 {
-  char *s;
+  char *s    = NULL;
+  void *tmp  = NULL;
+  int   status;
 
-  if (esl_stack_CPush(cs, '\0') != eslOK)
-    { free(cs->cdata); free(cs); return NULL; } /* nul-terminate the data or self-destruct */
-  s = cs->cdata;		           /* data is already just a string - just return ptr to it */
-  free(cs);			           /* free the stack around it. */
+  /* Take stack away; it's already a string, just not nul-terminated */
+  s         = cs->cdata;
+  cs->cdata = NULL;		/* esl_stack_Destroy() will now ignore the NULL cdata field */
+
+  /* NUL-terminate; which might require a +1 realloc if we're unlucky */
+  if (cs->n == cs->nalloc) 
+    ESL_RALLOC(cs->cdata, tmp, sizeof(char) * (cs->nalloc +1));
+  s[cs->n] = '\0';
+
+  /* Destroy the stack; return the string. */
+  esl_stack_Destroy(cs);
   return s;
+
+ ERROR:
+  esl_stack_Destroy(cs);
+  return NULL;
 }
 
 /* Function:  esl_stack_DiscardTopN()
@@ -347,14 +509,91 @@ esl_stack_Convert2String(ESL_STACK *cs)
  *            as if <esl_stack_Reuse()> had been called.
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslESYS> if mutex lock/unlock fails, if pthreaded.
  */
 int
 esl_stack_DiscardTopN(ESL_STACK *s, int n)
 {
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_lock(s->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
+
   if (n <= s->n) s->n -= n;
   else           s->n = 0;
+
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return eslOK;
 }
+
+/* Function:  esl_stack_DiscardSelected()
+ * Synopsis:  Remove arbitrary elements from a stack.
+ * Incept:    SRE, Tue Jan 18 09:57:47 2011 [Janelia]
+ *
+ * Purpose:   For each element in the stack, call <(*discard_func)(&element, param)>.
+ *            If <TRUE>, discard the element. 
+ *            
+ *            Passing a pointer to an arbitrary <(*discard_func)>
+ *            allows arbitrary rules. The <(*discard_func)> gets two
+ *            arguments: a pointer (which is either a pointer to an
+ *            element for int and char stacks, or an actual pointer
+ *            element from a pointer stack), and <param>, a <void *>
+ *            to whatever arguments the caller needs the selection
+ *            function to have.
+ *            
+ *            When discarding elements from a pointer stack, the
+ *            <*discard_func()> will generally assume responsibility
+ *            for the memory allocated to those elements. It may want
+ *            to free() or Destroy() them, for example, if they're
+ *            truly being discarded.
+ *
+ * Args:      s             - stack to discard from
+ *            discard_func  - ptr to function that returns TRUE if elem is to be discarded
+ *            param         - ptr to any parameters that (*discard_func)() needs.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslESYS> if a pthread mutex lock/unlock fails.
+ */
+int
+esl_stack_DiscardSelected(ESL_STACK *s, int (*discard_func)(void *, void *), void *param)
+{
+  int opos, npos;
+
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_lock(s->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
+
+  if (s->idata) 
+    {
+      for (opos = 0, npos = 0 ; opos < s->n; opos++)
+	if (! (*discard_func)(s->idata+opos, param))
+	  s->idata[npos++] = s->idata[opos];
+    }
+  else if (s->pdata)
+    {
+      for (opos = 0, npos = 0 ; opos < s->n; opos++)
+	if (! (*discard_func)(s->pdata[opos], param))
+	  s->pdata[npos++] = s->pdata[opos];
+    }
+  else if (s->cdata)
+    {
+      for (opos = 0, npos = 0 ; opos < s->n; opos++)
+	if (! (*discard_func)(s->cdata+opos, param))
+	  s->cdata[npos++] = s->cdata[opos];
+    }
+  s->n = npos;
+
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
+  return eslOK;
+}
+/*------------- end, main API, pushing/popping ------------------*/
+
+
 
 /*****************************************************************
  *# 3. Shuffling stacks [with <eslAUGMENT_RANDOM>]
@@ -377,6 +616,10 @@ esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s)
   int   n = s->n;
   int   w;
 
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_lock(s->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+#endif
+
   while (n > 1) {
     w = esl_rnd_Roll(r, n);	/* shuffling algorithm: swap last elem with w, decrement n. */
     if      (s->idata != NULL)  ESL_SWAP(s->idata[w], s->idata[n-1], int);
@@ -384,13 +627,138 @@ esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s)
     else if (s->pdata != NULL)  ESL_SWAP(s->pdata[w], s->pdata[n-1], void *);
     n--;
   }
+
+#ifdef HAVE_PTHREAD
+  if (s->do_mutex && pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");
+#endif
   return eslOK;
 }
 #endif /*eslAUGMENT_RANDOM*/
 
 
 /*****************************************************************
- * 4. Unit tests
+ *# 4. Using stacks for thread communication.
+ *****************************************************************/
+
+#if defined HAVE_PTHREAD
+/* Function:  esl_stack_UseMutex()
+ * Synopsis:  Protect this stack in a threaded program.
+ * Incept:    SRE, Mon Jan 17 14:18:43 2011 [Janelia]
+ *
+ * Purpose:   Declare that this stack is going to be operated on by more
+ *            than one thread in a multithreaded program, and that all
+ *            operations that change its internal state (such as
+ *            pushing and popping) need to be protected by a mutex.
+ *
+ * Args:      s  - the stack to protect
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslESYS> if <pthread_mutex_init()> fails.
+ */
+int
+esl_stack_UseMutex(ESL_STACK *s)
+{
+  int pstatus;
+  int status;
+
+  ESL_ALLOC(s->mutex, sizeof(pthread_mutex_t));
+  if ((pstatus = pthread_mutex_init(s->mutex, NULL)) != 0) ESL_XEXCEPTION(eslESYS, "pthread_mutex_init failed with code %d\n", pstatus);
+  s->do_mutex = TRUE;
+  return eslOK;
+
+ ERROR:
+  if (s->mutex) free(s->mutex);
+  s->mutex    = NULL;
+  s->do_mutex = FALSE;
+  return status;
+}
+
+/* Function:  esl_stack_UseCond()
+ * Synopsis:  Declare that this stack is used for interthread communication.
+ * Incept:    SRE, Mon Jan 17 14:22:06 2011 [Janelia]
+ *
+ * Purpose:   Declare that this stack is to be used for communication
+ *            between threads. If a thread tries to pop from the stack
+ *            and the stack is empty, the Pop will do a pthread_cond_wait()
+ *            to wait until another thread has done a Push(). If a thread
+ *            pushes onto the stack, it will do a pthread_cond_signal()
+ *            to wake up a waiting Pop()'er.
+ *            
+ *            The stack must also have an active mutex. The caller
+ *            must call <esl_stack_UseMutex()> before calling
+ *            <esl_stack_UseCond().>
+ *
+ * Args:      s - the stack to use for push/pop interthread communication
+ * 
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if this stack lacks an active mutex.
+ *            <eslESYS> if <pthread_cond_init()> fails.
+ */
+int
+esl_stack_UseCond(ESL_STACK *s)
+{
+  int pstatus;
+  int status;
+
+  if (! s->do_mutex || ! s->mutex) ESL_EXCEPTION(eslEINVAL, "stack has no active mutex; can't call esl_stack_UseCond() on it");
+
+  ESL_ALLOC(s->cond, sizeof(pthread_cond_t));
+  if ((pstatus = pthread_cond_init(s->cond, NULL)) != 0) ESL_XEXCEPTION(eslESYS, "pthread_cond_init failed with code %d\n", pstatus);
+  s->do_cond = TRUE;
+  return eslOK;
+
+ ERROR:
+  if (s->cond) free(s->cond);
+  s->cond    = NULL;
+  s->do_cond = FALSE;
+  return status;
+}
+
+/* Function:  esl_stack_ReleaseCond()
+ * Synopsis:  Declare that anyone waiting on this stack may complete.
+ * Incept:    SRE, Tue Jan 18 15:57:32 2011 [Janelia]
+ *
+ * Purpose:   Release the conditional wait state on stack <s>. In our
+ *            idiom for using a stack to coordinate between one or
+ *            more client thread adding jobs to a stack, and one or
+ *            more worker threads popping them off, we call
+ *            <esl_stack_ReleaseCond()> when we know the client(s) are
+ *            done. Then the worker(s) seeing an empty job stack may
+ *            complete (Pop functions will return eslEOD), rather than
+ *            doing a conditional wait waiting for more work to appear
+ *            on the stack.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslESYS> on pthread call failures.
+ */
+int
+esl_stack_ReleaseCond(ESL_STACK *s)
+{
+  if (! s->do_mutex) ESL_EXCEPTION(eslESYS, "no mutex; esl_stack_ReleaseCond() call invalid");
+  if (! s->do_cond)  ESL_EXCEPTION(eslESYS, "no conditional wait state is set");
+
+  if (pthread_mutex_lock(s->mutex)    != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
+  if (pthread_cond_broadcast(s->cond) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_broadcast() failure");
+
+  pthread_cond_destroy(s->cond);
+  s->do_cond = FALSE;
+  s->cond    = NULL;
+
+  if (pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");  
+  return eslOK;
+}
+#endif /*HAVE_PTHREAD*/
+/*-------- end, using stacks for thread communication -----------*/
+
+
+
+/*****************************************************************
+ * 5. Unit tests
  *****************************************************************/
 #ifdef eslSTACK_TESTDRIVE
 
@@ -533,7 +901,167 @@ utest_shuffle(void)
 }
 #endif /*eslAUGMENT_RANDOM*/
 
+#ifdef HAVE_PTHREAD
+/* Unit test for using a stack as part of an idiom
+ * for a command stack, with one or more threads
+ * adding jobs to the stack, and one or more other threads
+ * pulling jobs off. This idiom is used in the HMMER
+ * hmmpgmd daemon. In this framework, <tt->input>
+ * is a list of jobs to do; <tt->working> is a stack
+ * of jobs waiting to be done; <tt->output> is a 
+ * list of jobs done.
+ *    pusher_thread() simulates a client, taking
+ *     jobs from <tt->input> and adding them to
+ *     the <tt->working> stack.
+ *    popper_thread() simulates a worker, taking
+ *     jobs from <tt->working> and putting them
+ *     on the <tt->output> list.
+ *     
+ * <tt->working>, therefore, is the read/write stack;
+ * <tt->input> is read-only (it only gets written in
+ *   nonthreaded code in main())
+ * <tt->output> is write-only (only gets read in
+ *   nonthreaded code in main()). 
+ */
+struct threadtest_s {
+  ESL_STACK *input;
+  ESL_STACK *working;
+  ESL_STACK *output;
+};
 
+static void *
+pusher_thread(void *arg)
+{
+  ESL_RANDOMNESS      *r  = esl_randomness_CreateFast(0);
+  struct threadtest_s *tt = (struct threadtest_s *) arg;
+  int value;
+
+  while ( esl_stack_IPop(tt->input, &value) == eslOK)
+    {
+      usleep(esl_rnd_Roll(r, 100)+1); /* 1..100 usec delay */
+      esl_stack_IPush(tt->working, value);
+    }
+  esl_randomness_Destroy(r);
+  pthread_exit(NULL);
+}
+
+static void *
+popper_thread(void *arg)
+{
+  ESL_RANDOMNESS      *r  = esl_randomness_CreateFast(0);
+  struct threadtest_s *tt = (struct threadtest_s *) arg;
+  int value;
+
+  while (esl_stack_IPop(tt->working, &value) == eslOK)
+    {
+      usleep(esl_rnd_Roll(r, 100)+1); /* 1..100 usec delay */
+      esl_stack_IPush(tt->output, value);
+    }
+  esl_randomness_Destroy(r);
+  pthread_exit(NULL);
+}
+
+static void
+utest_interthread_comm(void)
+{
+  char  *msg = "stack::interthread_comm unit test failed";
+  struct threadtest_s *tt = NULL;
+  int    njobs            = 1000;
+  int   *ndone            = NULL;
+  pthread_t tid[4];
+  int    i;
+  int    value;
+
+  ndone = malloc(sizeof(int) * njobs);
+  for (i = 0; i < njobs; i++) ndone[i] = 0;
+
+  tt = malloc(sizeof(struct threadtest_s));
+  tt->input   = esl_stack_ICreate();
+  tt->working = esl_stack_ICreate();
+  tt->output  = esl_stack_ICreate();
+
+  esl_stack_UseMutex(tt->input);
+  esl_stack_UseMutex(tt->working);
+  esl_stack_UseMutex(tt->output);
+  esl_stack_UseCond(tt->working);
+
+  for (i = 0; i < njobs; i++)
+    esl_stack_IPush(tt->input, i);
+
+  pthread_create(&(tid[0]), NULL, pusher_thread, tt);
+  pthread_create(&(tid[1]), NULL, pusher_thread, tt);
+  pthread_create(&(tid[2]), NULL, popper_thread, tt);
+  pthread_create(&(tid[3]), NULL, popper_thread, tt);
+
+  pthread_join(tid[0], NULL);
+  pthread_join(tid[1], NULL);
+
+  esl_stack_ReleaseCond(tt->working);
+  pthread_join(tid[2], NULL);
+  pthread_join(tid[3], NULL);
+
+  while (esl_stack_IPop(tt->output, &value) == eslOK)
+    {
+      if (value < 0 || value >= njobs) esl_fatal(msg);
+      ndone[value]++;
+    }
+  for (i = 0; i < njobs; i++)
+    if (ndone[i] != 1) esl_fatal(msg);
+
+  free(ndone);
+  esl_stack_Destroy(tt->output);
+  esl_stack_Destroy(tt->working);
+  esl_stack_Destroy(tt->input);
+  free(tt);
+  return;
+}
+#endif /* HAVE_PTHREAD -- pthread-specific utests */
+
+
+#ifdef HAVE_PTHREAD
+
+/* discard all elems in the stack > thresh */
+static int
+discard_function(void *elemp, void *paramp)
+{
+  int elem   =  * (int *) elemp;
+  int thresh =  * (int *) paramp;
+  return (elem > thresh) ? TRUE : FALSE;
+}
+
+static void
+utest_DiscardSelected(void)
+{
+  char *msg = "stack: DiscardSelected() unit test failed";
+  ESL_STACK      *ns = esl_stack_ICreate();
+  ESL_RANDOMNESS  *r = esl_randomness_CreateFast(0);
+  int              n = 1000;
+  int              thresh = 42;
+  int              npass = 0;
+  int              val;
+  int              i;
+
+  for (i = 0; i < n; i++)
+    {
+      val = esl_rnd_Roll(r, 100) + 1;
+      if (val <= thresh) npass++;
+      esl_stack_IPush(ns, val);
+    }
+  
+  if (esl_stack_DiscardSelected(ns, discard_function, &thresh) != eslOK) esl_fatal(msg);
+
+  if (esl_stack_ObjectCount(ns) != npass) esl_fatal(msg);
+  while (esl_stack_IPop(ns, &val) == eslOK)
+    {
+      if (val > thresh) esl_fatal(msg);
+      npass--;
+    }
+  if (npass != 0) esl_fatal(msg);
+
+  esl_randomness_Destroy(r);
+  esl_stack_Destroy(ns);
+}
+#endif /* HAVE_PTHREAD*/
 #endif /*eslSTACK_TESTDRIVE*/
 /*---------------- end of unit tests ----------------------------*/
 
@@ -541,7 +1069,7 @@ utest_shuffle(void)
 
 
 /*****************************************************************
- * 5. Test driver.
+ * 6. Test driver.
  *****************************************************************/
 
 /*****************************************************************
@@ -576,6 +1104,11 @@ main(void)
   utest_shuffle();
 #endif
 
+#ifdef HAVE_PTHREAD
+  utest_interthread_comm();
+  utest_DiscardSelected();
+#endif
+
   return eslOK;
 }
 #endif /*eslSTACK_TESTDRIVE*/
@@ -585,7 +1118,7 @@ main(void)
 
 
 /*****************************************************************
- * 6. Example.
+ * 7. Example.
  *****************************************************************/
 #ifdef eslSTACK_EXAMPLE
 /*::cexcerpt::stack_example::begin::*/

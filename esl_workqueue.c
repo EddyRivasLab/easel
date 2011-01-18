@@ -10,7 +10,7 @@
  */
 #include "esl_config.h"
 
-#ifdef HAVE_PTHREADS
+#ifdef HAVE_PTHREAD
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -556,4 +556,4 @@ main(void)
 /*****************************************************************  
  * @LICENSE@
  *****************************************************************/
-#endif /* HAVE_PTHREADS */
+#endif /* HAVE_PTHREAD */

@@ -165,7 +165,7 @@ esac
 # Uses ACX_PTHREAD macro from the GNU macro archive.
 # Back to my code to finish enabling pthreads...
 # Define these preprocessor variables:
-#     HMMER_THREADS
+#     HAVE_PTHREAD
 #     HAVE_PTHREAD_SETCONCURRENCY
 #     HAVE_PTHREAD_ATTR_SETSCOPE
 #
@@ -188,7 +188,7 @@ case $enable_threads in
 esac
  
 AS_IF([test "x$check_threads" != xno],
-      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREADS)
+      [ACX_PTHREAD([AC_DEFINE(HAVE_PTHREAD)
                     AC_SUBST(PTHREAD_LIBS)
                     AC_SUBST(PTHREAD_CFLAGS)],
                    [if test "x$enable_threads" != xcheck; then

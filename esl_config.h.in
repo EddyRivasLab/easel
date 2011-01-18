@@ -76,7 +76,7 @@
 #undef HAVE_SYSCONF
 #undef HAVE_FSEEKO
 #undef HAVE_GETCWD
-#undef HAVE_PTHREADS
+#undef HAVE_PTHREAD
 
 /*****************************************************************
  * Available augmentations.
