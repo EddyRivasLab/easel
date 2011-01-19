@@ -11,6 +11,8 @@
 #ifndef ESL_STACK_INCLUDED
 #define ESL_STACK_INCLUDED
 
+#include "esl_config.h"
+
 #define ESL_STACK_INITALLOC 128	/* initial allocation; realloc by doubling  */
 
 #ifdef HAVE_PTHREAD
@@ -63,8 +65,8 @@ extern int esl_stack_Shuffle(ESL_RANDOMNESS *r, ESL_STACK *s);
 #endif /*eslAUGMENT_RANDOM*/
 
 #ifdef HAVE_PTHREAD
-extern int esl_stack_SetMutex   (ESL_STACK *s);
-extern int esl_stack_SetCond    (ESL_STACK *s);
+extern int esl_stack_UseMutex   (ESL_STACK *s);
+extern int esl_stack_UseCond    (ESL_STACK *s);
 extern int esl_stack_ReleaseCond(ESL_STACK *s);
 #endif
 #endif /*ESL_STACK_INCLUDED*/

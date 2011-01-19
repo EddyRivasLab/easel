@@ -747,6 +747,7 @@ esl_stack_ReleaseCond(ESL_STACK *s)
 
   pthread_cond_destroy(s->cond);
   s->do_cond = FALSE;
+  free(s->cond);
   s->cond    = NULL;
 
   if (pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");  
