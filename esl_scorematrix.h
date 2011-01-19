@@ -62,6 +62,8 @@ extern int esl_sco_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, co
 				  double *opt_lambda, ESL_DMATRIX **opt_P);
 extern int esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, 
 			   double **opt_fi, double **opt_fj, double *opt_lambda);
+extern int esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double open, double extend, ESL_DMATRIX **opt_P,
+		double *opt_popen, double *opt_pextend, double **opt_fi, double **opt_fj, double *opt_lambda);
 extern int esl_sco_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
 			      double lambda, double *ret_D);
 

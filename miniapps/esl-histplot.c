@@ -68,7 +68,7 @@ main(int argc, char **argv)
   double          hmax;		/* initial histogram upper bound                */
   double          hbinsize;	/* histogram's bin size                         */
 
-  double *xv;
+  double *xv;               /* pointer to the data samples                  */
   int     n;
   double  params[2];
   double  lambda;

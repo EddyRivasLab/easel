@@ -837,16 +837,18 @@ castellanoeddy_func(double lambda, void *params, double *ret_fx)
   double sextend  = p->sextend;
   int i,j;
 
-  /* the M matrix has entries M_ij = e^{lambda * s_ij} + 2e^{lambda * (d + s_ij)} / 1 - e^{lambda * r}*/
+  /* the M matrix has entries M_ij = e^{lambda * s_ij} */
   for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
-      M->mx[i][j] = exp(lambda * S->mx[i][j]) + (2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend));
+      M->mx[i][j] = exp(lambda * S->mx[i][j]);
 
   /* the Y matrix is the inverse of M */
   if ((status = esl_dmx_Invert(M, Y)) != eslOK) return status;
 
   /* We're trying to find the root of \sum_ij Y_ij - 1 = 0 */
-  *ret_fx = esl_dmx_Sum(Y) - 1.;
+  *ret_fx = (((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) - (2 * exp(lambda * sopen)))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} */
+//  *ret_fx = (((1 - exp(lambda * sextend) - (2 * exp(lambda * sopen))) / (1 - exp(lambda * sextend))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} */
+
   return eslOK;
 }
 
@@ -920,7 +922,7 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   /* Find p_ij */
   for (i = 0; i < S->n; i++) 
     for (j = 0; j < S->n; j++)
-      P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j];
+      P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j]; /* Mij = e^{lambda * Sij}*/
 
   *ret_lambda = lambda;
   esl_dmatrix_Destroy(p.M);
@@ -969,6 +971,7 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
   p.sextend = sextend;
   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+
   if ((R = esl_rootfinder_Create(castellanoeddy_func, &p)) == NULL) { status = eslEMEM; goto ERROR; } /* Here we provide the function to the rootfinder */
 
   /* Need a reasonable initial guess for lambda; if we use extreme
@@ -977,35 +980,40 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
    * s_ij} in the M matrix. Appears to be safe to start with lambda on
    * the order of 2/max(s_ij).
    */
-  xr = 1. / esl_dmx_Max(S); /* MAY NEED TO CHANGE THIS FOR THE NEW EQUATION!!! */
+  xr = 1. / esl_dmx_Max(S);
 
   /* Identify suitable brackets on lambda. */
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
     if ((status = castellanoeddy_func(xl, &p, &fx))  != eslOK) goto ERROR;
-    if (fx > 0.) break;
+    if (fx < 0.) break;
   }
-  if (fx <= 0.) { status = eslENORESULT; goto ERROR; }
+
+  if (fx >= 0.) { status = eslENORESULT; goto ERROR; }
 
   for (; xr < 100.; xr *= 1.6) {
     if ((status = castellanoeddy_func(xr, &p, &fx))  != eslOK) goto ERROR;
-    if (fx < 0.) break;
+    if (fx > 0.) break;
   }
-  if (fx >= 0.) { status = eslENORESULT; goto ERROR; }
+
+  if (fx <= 0.) { status = eslENORESULT; goto ERROR; }
 
   /* Find lambda by bisection */
   if (esl_root_Bisection(R, xl, xr, &lambda) != eslOK)     goto ERROR;
 
+  /* Find fi, fj from Y: fi are column sums, fj are row sums */
+   for (i = 0; i < S->n; i++) {
+     fi[i] = 0.;
+     for (j = 0; j < S->n; j++) fi[i] += p.Y->mx[j][i]; /* column sum */
+   }
+   for (j = 0; j < S->n; j++) {
+     fj[j] = 0.;
+     for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i]; /* row sum */
+   }
 
-  /* Find R(yj) from Y: row sum */
-  for (j = 0; j < S->n; j++) {
-    fj[j] = 0.;
-    for (i = 0; i < S->n; i++) fj[j] += p.Y->mx[j][i];
-  }
-
-  /* Find p(yj|xi) */
-  for (i = 0; i < S->n; i++)
-    for (j = 0; j < S->n; j++)
-      P->mx[i][j] = fj[j] * p.M->mx[i][j]; /* RECHECK THIS CALCULATION COMPUTES THE DESIRED CONDITIONAL PROBABILITY */
+   /* Find p_ij */
+   for (i = 0; i < S->n; i++)
+     for (j = 0; j < S->n; j++)
+       P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j] * (1 + ((2 * exp(lambda * sopen)) / (1 - exp(lambda * sextend)))); /* Mij = e^{lambda s_ij} */
 
   *ret_lambda = lambda;
   esl_dmatrix_Destroy(p.M);
@@ -1178,18 +1186,19 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
  * Xref:      J1/35.
  */
 int
-esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_DMATRIX **opt_P, double **opt_popen, double **opt_pextend, double **opt_fi, double **opt_fj, double *opt_lambda)
+esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_DMATRIX **opt_P, double *opt_popen, double *opt_pextend, double **opt_fi, double **opt_fj, double *opt_lambda)
 {
   int status;
   ESL_DMATRIX  *Sd  = NULL;
-  ESL_DMATRIX  *P   = NULL; /* conditional probabilities P(j|i) */
-  double       *fi  = NULL; // do i need this?
+  ESL_DMATRIX  *P   = NULL; /* joint probabilities P(i,j) */
+  double       *fi  = NULL;
   double       *fj  = NULL;
   double        lambda;
   int i,j;
 
   if (( Sd = esl_dmatrix_Create(S->K,  S->K))  == NULL) {status = eslEMEM; goto ERROR; }
   if (( P  = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) {status = eslEMEM; goto ERROR; }
+
   ESL_ALLOC(fi, sizeof(double) * S->Kp);
   ESL_ALLOC(fj, sizeof(double) * S->Kp);
 
@@ -1206,7 +1215,7 @@ esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_
   if ((status = castellanoeddy_engine(Sd, sopen, sextend, P, fi, fj, &lambda)) != eslOK) goto ERROR;
 
   /* Set the degenerate probabilities by appropriate sums */
-  set_degenerate_probs(S->abc_r, P, fi, fj); /* NEED TO CHECK IF THIS WORKS FOR THE CONDITIONAL PROBABILITIES IN P; fi is no longer calculated??? */
+  set_degenerate_probs(S->abc_r, P, fi, fj);
 
   /* Done. */
   esl_dmatrix_Destroy(Sd);
