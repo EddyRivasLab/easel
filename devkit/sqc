@@ -573,6 +573,11 @@ sub regression_substitution
 # Look at a file containing stderr from an executed command.
 # Find valgrind report, and look for a memory leak report. 
 #
+# You'll see below that code for checking "still reachable" has been
+# commented out. System libraries may do harmless global allocations
+# without deallocating, and these show up as "still reachable", yet
+# are outside our control. This is especially noticeable on Mac OS/X.
+#
 # Return ($has_valgrind, $has_leak):
 #    $has_valgrind:  1 if report is present; else 0
 #    $has_leak:      1 if valgrind report shows an unsuppressed memory leak.
@@ -591,7 +596,7 @@ sub check_valgrind_status
 	if (/^==\d+==    definitely lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
 	if (/^==\d+==    indirectly lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
 	if (/^==\d+==      possibly lost: (\d+)/ && $1 != 0) { $has_leak     = 1; }
-	if (/^==\d+==    still reachable: (\d+)/ && $1 != 0) { $has_leak     = 1; }
+#	if (/^==\d+==    still reachable: (\d+)/ && $1 != 0) { $has_leak     = 1; }
     }
     close VALGRIND;
     
