@@ -841,14 +841,14 @@ castellanoeddy_func(double lambda, void *params, double *ret_fx)
   for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
     	M->mx[i][j] = exp(lambda * S->mx[i][j]) + (2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend));
-    	//     M->mx[i][j] = exp(lambda * S->mx[i][j]);
+ //   	     M->mx[i][j] = exp(lambda * S->mx[i][j]);
 
   /* the Y matrix is the inverse of M */
   if ((status = esl_dmx_Invert(M, Y)) != eslOK) return status;
 
   /* We're trying to find the root of \sum_ij Y_ij - 1 = 0 */
   *ret_fx = esl_dmx_Sum(Y) - 1.;
-//  *ret_fx = (((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) - (2 * exp(lambda * sopen)))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} */
+//  *ret_fx = (((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen)))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} */
 
   return eslOK;
 }
@@ -1057,24 +1057,29 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
    * s_ij} in the M matrix. Appears to be safe to start with lambda on
    * the order of 2/max(s_ij).
    */
-  xr = 1. / esl_dmx_Max(S);
+ // xr = 1. / esl_dmx_Max(S);
+
+  xr = 4;
+
+// xr = (1 + ((2 * exp((1. / esl_dmx_Max(S)) * sopen)) / (1 - exp((1. / esl_dmx_Max(S)) * sextend))));
 
   /* Need constraints here */
 
   /* Identify suitable brackets on lambda. */
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
     if ((status = castellanoeddy_func(xl, &p, &fx))  != eslOK) goto ERROR;
-    if (fx < 0.) break;
-  }
-
-  if (fx >= 0.) { status = eslENORESULT; printf("Cannot bracket root from left\n"); goto ERROR; }
-
-  for (; xr < 100.; xr *= 1.6) {
-    if ((status = castellanoeddy_func(xr, &p, &fx))  != eslOK) goto ERROR;
+    printf("left fx: %f\n", fx);
     if (fx > 0.) break;
   }
 
-  if (fx <= 0.) { status = eslENORESULT; printf("Cannot bracket root from right\n"); goto ERROR; }
+  if (fx <= 0.) { status = eslENORESULT; printf("Cannot bracket root from left\n"); goto ERROR; }
+
+  for (; xr < 100.; xr *= 1.6) {
+    if ((status = castellanoeddy_func(xr, &p, &fx))  != eslOK) goto ERROR;
+    if (fx < 0.) break;
+  }
+
+  if (fx >= 0.) { status = eslENORESULT; printf("Cannot bracket root from right\n"); goto ERROR; }
 
   /* Need constraints here */
 
@@ -1087,7 +1092,7 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
      for (j = 0; j < S->n; j++)
     	 fi[i] += p.Y->mx[j][i]; /* column sum */
 
-//     fi[i] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) - (2 * exp(lambda * sopen))));
+ //    fi[i] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen))));
    }
 
    for (j = 0; j < S->n; j++) {
@@ -1095,7 +1100,7 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
      for (i = 0; i < S->n; i++)
     	 fj[j] += p.Y->mx[j][i]; /* row sum */
 
-//     fj[j] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) - (2 * exp(lambda * sopen))));
+//     fj[j] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen))));
    }
 
    /* Find p_ij */
