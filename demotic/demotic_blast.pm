@@ -127,14 +127,14 @@ sub parse (*) {
 		    $target_len{$target} = $1;
 		} 
 	    } 
-	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+),/) { # WU
+	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+),?/) { # WU
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_score[$nali-1]    = $1;
 		$ali_bitscore[$nali-1] = $2;
 		$ali_evalue[$nali-1]   = $3;
 	    } 
-	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+),/) { # NCBI
+	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+),?/) { # NCBI
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_bitscore[$nali-1] = $1;
@@ -149,6 +149,14 @@ sub parse (*) {
 		$ali_positive[$nali-1]   = $5;
 		$firstchunk = 1;
 	    } 
+	    elsif (/^ Identities = (\d+)\/(\d+) \((\d+)%\).+/) { # NCBI megablast : no Positives
+		$ali_nident[$nali-1]     = $1;
+		$ali_alen[$nali-1]       = $2;
+		$ali_identity[$nali-1]   = $3;
+		$ali_npos[$nali-1]       = $1;
+		$ali_positive[$nali-1]   = $3;
+		$firstchunk = 1;
+	    }		
 	    elsif (/^Query:?\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
 		if ($firstchunk) { $ali_qstart[$nali-1] = $1; }
 		$ali_qali[$nali-1]  .= $2;
