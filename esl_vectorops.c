@@ -1042,8 +1042,8 @@ esl_vec_DCDF(double *p, int n, double *cdf)
   int i;
  
   cdf[0] = p[0];
-  for (i = 0; i < n; i++) 
-    cdf[i] = p[i] + cdf[i-i];
+  for (i = 1; i < n; i++) 
+    cdf[i] = p[i] + cdf[i-1];
 }
 void
 esl_vec_FCDF(float *p, int n, float *cdf)
@@ -1051,8 +1051,8 @@ esl_vec_FCDF(float *p, int n, float *cdf)
   int i;
  
   cdf[0] = p[0];
-  for (i = 0; i < n; i++) 
-    cdf[i] = p[i] + cdf[i-i];
+  for (i = 1; i < n; i++) 
+    cdf[i] = p[i] + cdf[i-1];
 }
 
 

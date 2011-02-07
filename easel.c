@@ -21,13 +21,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+
+#ifdef HAVE_UNISTD_H
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>		
+#endif
 
 #include "easel.h"
 
@@ -991,6 +994,69 @@ esl_str_IsBlank(char *s)
   return TRUE;
 }
 
+/* Function:  esl_memnewline()
+ * Synopsis:  Find next newline in memory.
+ * Incept:    SRE, Tue Feb  1 11:07:30 2011 [Janelia]
+ *
+ * Purpose:   Given a memory buffer <p> of <n> bytes, delimit a
+ *            next line by finding the next newline character(s).
+ *            Store the number of bytes in the line (exclusive of
+ *            the newline character(s)) in <*ret_nline>. Store
+ *            the number of bytes in the newline in <*ret_nterm>.
+ *             
+ *            If no newline is found, <nline=n> and <nterm=0>, and the
+ *            return status is <eslEOD>.
+ *            
+ *            Currently we assume newlines are either UNIX-style "\n"
+ *            or Windows-style "\r\n", in this implementation. 
+ *            
+ *            Caller should not rely on this, though. Caller may only
+ *            assume that a newline is an arbitrary one- or two-byte
+ *            code.
+ *            
+ *            For example, if <*p> = "line one\r\nline two", <nline>
+ *            is 8 and <nterm> is 2.  If <*p> = "try two\ntry three",
+ *            <nline> is 7 and <nterm> is 1. If <*p> = "attempt
+ *            four", <nline> is 12 and <nterm> is 0.
+ *            
+ *            In cases where the caller may have an incompletely read
+ *            buffer, it should be careful of cases where one possible
+ *            newline may be a prefix of another; for example, suppose
+ *            a file has "line one\r\nline two", but we only input the
+ *            buffer "line one\r" at first. The "\r" looks like an old
+ *            MacOS newline. Now we read more input, and we think the
+ *            buffer is "\nline two". Now we think the "\n" is a UNIX
+ *            newline. The result is that we read two newlines where
+ *            there's only one. Instead, caller should check for the
+ *            case of nterm==1 at the end of its buffer, and try to
+ *            extend the buffer. See <esl_buffer_GetLine()> for an
+ *            example.
+ *            
+ * Args:      p         - ptr to memory buffer
+ *            n         - length of p in bytes
+ *           *ret_nline - length of line found starting at p[0], exclusive of newline; up to n
+ *           *ret_nterm - # of bytes in newline code: 1 or 2, or 0 if no newline found
+ *
+ * Returns:   <eslOK> on success. Now <*ret_nline> is the number of
+ *            bytes in the next line (exclusive of newline) and
+ *            <*ret_nterm> is the number of bytes in the newline code
+ *            (1 or 2). Thus the next line is <p[0..nline-1]>, and
+ *            the line after this starts at <p[nline+nterm]>.
+ *            
+ *            <eslEOD> if no newline is found. Now <*ret_nline> is <n>,
+ *            and <*ret_nterm> is 0.
+ *
+ * Xref:      http://en.wikipedia.org/wiki/Newline
+ */
+int
+esl_memnewline(const char *p, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm)
+{
+  char *ptr = memchr(p, '\n', n);
+  if      (ptr == NULL)                 { *ret_nline = n;       *ret_nterm = 0; }
+  else if (ptr > p && *(ptr-1) == '\r') { *ret_nline = ptr-p-1; *ret_nterm = 2; }
+  else                                  { *ret_nline = ptr-p;   *ret_nterm = 1; }
+  return eslOK;
+}
 /*----------------- end, C library replacements  -------------------------*/
 
 
@@ -1006,7 +1072,7 @@ esl_str_IsBlank(char *s)
 /* Function:  esl_FileExists()
  * Incept:    SRE, Sat Jan 22 09:07:24 2005 [St. Louis]
  *
- * Purpose:   Returns TRUE if <filename> exists, else FALSE.
+ * Purpose:   Returns TRUE if <filename> exists and is readable, else FALSE.
  *     
  * Note:      Testing a read-only fopen() is the only portable ANSI C     
  *            I'm aware of. We could also use a POSIX func here, since
@@ -1017,9 +1083,16 @@ esl_str_IsBlank(char *s)
 int
 esl_FileExists(const char *filename)
 {
+#if defined _POSIX_VERSION
+  struct stat fileinfo;
+  if (stat(filename, &fileinfo) != 0) return FALSE;
+  if (! (fileinfo.st_mode & S_IRUSR)) return FALSE;
+  return TRUE;
+#else 
   FILE *fp;
   if ((fp = fopen(filename, "r"))) { fclose(fp); return TRUE; }
   return FALSE;
+#endif
 }
 
 
@@ -1479,7 +1552,7 @@ esl_getcwd(char **ret_cwd)
 {
   char *cwd      = NULL;
   int   status   = eslOK;
-#if defined (HAVE_GETCWD)
+#ifdef _POSIX_VERSION
   int   nalloc   = 256;
   int   maxalloc = 16384;
   do {
@@ -1746,6 +1819,8 @@ esl_composition_SW50(double *f)
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
 
+
+
 static void
 utest_strtok(void)
 {
@@ -1795,6 +1870,37 @@ utest_sprintf(void)
 
 
 static void
+utest_FileExists(void)
+{
+  char *msg        = "FileExists unit test failed";
+  char tmpfile[32] = "esltmpXXXXXX";
+  FILE *fp         = NULL;
+#ifdef _POSIX_VERSION
+  struct stat st;
+  mode_t      mode;
+#endif
+
+  /* create a tmpfile */
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  fprintf(fp, "Unit test.\n");
+  fclose(fp);
+
+  if (! esl_FileExists(tmpfile)) esl_fatal(msg);
+
+#ifdef _POSIX_VERSION
+  /* The FileExists doesn't just test existence; it also checks read permission */
+  if (stat(tmpfile, &st)   != 0) esl_fatal(msg);
+  mode = st.st_mode & ~S_IRUSR;
+  if (chmod(tmpfile, mode) != 0) esl_fatal(msg);
+  if (esl_FileExists(tmpfile))   esl_fatal(msg);
+#endif
+
+  remove(tmpfile);
+  if (esl_FileExists(tmpfile))   esl_fatal(msg);
+  return;
+}
+
+static void
 utest_tmpfile_named(void)
 {
   char *msg          = "tmpfile_named unit test failed";
@@ -1828,13 +1934,13 @@ utest_tmpfile_named(void)
 
 int main(void)
 {
-
 #ifdef eslTEST_THROWING
   esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
 
   utest_strtok();
   utest_sprintf();
+  utest_FileExists();
   utest_tmpfile_named();
   return eslOK;
 }

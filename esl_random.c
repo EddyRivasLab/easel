@@ -661,75 +661,50 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
  *            undefined otherwise: that is, a choice will always
  *            be returned, but it might be an arbitrary one.
  *
- *            All $p_i$ must be $>>$ <DBL_EPSILON> in order to 
+ *            All $p_i$ must be $>$ <DBL_EPSILON> in order to 
  *            have a non-zero probability of being sampled.
  *
- *            <esl_rnd_FChoose()> is the same, but for floats in <p>.
- *
- * Note:      Why the while (1) loop? Very rarely, because of machine
- *            floating point representation, our roll is "impossibly" 
- *            >= total sum, even though any roll of esl_random() is 
- *            < 1.0 and the total sum is supposed to be 1.0 by
- *            definition. This can happen when the total_sum is not
- *            really 1.0, but something just less than that in the 
- *            machine representation, and the roll happens to also be 
- *            very very close to 1. I have not examined this analytically, 
- *            but empirically, it occurs at a frequency of about 1/10^8
- *            as measured for bug #sq5... which suggests it is on the
- *            order of machine epsilon (not surprisingly). The while 
- *            loop makes you go around and try again; it must eventually
- *            succeed.
- *            
- *            The while() loop then makes the function vulnerable to
- *            an infinite loop if <p> sums to <=0 -- which shouldn't
- *            happen, but we shouldn't infinite loop if it does,
- *            either.  That's why there's a check on the sum of
- *            <p>. We return -1 in this case, a non-standard error code
- *            for Easel.
- * 
- * Throws:    -1 on failure. (This is a non-standard error code for Easel,
- *            but the only way an error can happen is if <p> isn't a 
- *            normalized probability distribution.)
+ *            <esl_rnd_FChoose()> is the same, but for floats in <p>,
+ *            and all $p_i$ must be $>$ <FLT_EPSILON>.
  */
 int
 esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
 {
-  double roll;                  /* random fraction */
-  double sum;                   /* integrated prob */
+  double norm = 0.0;		/* ~ 1.0                  */
+  double sum  = 0.0;            /* integrated prob        */
+  double roll = esl_random(r);  /* random fraction        */
   int    i;                     /* counter over the probs */
 
-  while (1) {	/* see note in header about this while() */
-    roll = esl_random(r);
-    sum  = 0.0;
-    for (i = 0; i < N; i++)
-      {
-	sum += p[i];
-	if (roll < sum) return i;  /* success! */
-      }
-    if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
-  }
-  /*UNREACHED*/
-  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+  /* we need to deal with finite roundoff error in p's sum */
+  for (i = 0; i < N; i++) norm += p[i];
+  ESL_DASSERT1(norm > 0.999 && norm < 1.001);
+
+  for (i = 0; i < N; i++)
+    {
+      sum += p[i];
+      if (roll < (sum / norm) ) return i; 
+    }
+  esl_fatal("unreached code was reached. universe collapses.");
+  return 0; /*notreached*/
 }
 int
 esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 {
-  float  roll;                  /* random fraction */
-  float  sum;                   /* integrated prob */
+  float  norm = 0.0;		/* ~ 1.0                  */
+  float  sum  = 0.0;            /* integrated prob        */
+  float  roll = esl_random(r);  /* random fraction        */
   int    i;                     /* counter over the probs */
 
-  while (1) {	/* see note in header about this while() */
-    roll = esl_random(r);
-    sum  = 0.0;
-    for (i = 0; i < N; i++)
-      {
-	sum += p[i];
-	if (roll < sum) return i; /* success */
-      }
-    if (sum < 0.99) ESL_EXCEPTION(-1, "unnormalized distribution");    /* avoid inf loop */
-  }
-  /*UNREACHED*/
-  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+  for (i = 0; i < N; i++) norm += p[i];
+  ESL_DASSERT1(norm > 0.99 && norm < 1.01);
+
+  for (i = 0; i < N; i++)
+    {
+      sum += p[i];
+      if (roll < (sum / norm) ) return i; 
+    }
+  esl_fatal("unreached code was reached. universe collapses.");
+  return 0; /*notreached*/
 }
 
 
@@ -765,40 +740,40 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
  *            N    - number of elements in <cdf>
  *
  * Returns:   index 0..N-1 of the randomly sampled choice from <cdf>.
+ * 
+ * Note:      For large N, it might be advantageous to bisection search the
+ *            cdf. For typical N in Easel (up to 20, for amino acid
+ *            prob vectors, for example), the naive code below is
+ *            faster. We could revisit this if we start sampling
+ *            larger vectors.
  */
 int
 esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
 {
-  double roll;
+  double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0 */
   int    i;
 
-  /* esl_random() returns x such that 0.0 <= x < 1.0; and in
-   * principle, cdf[N-1] == 1.0; so in principle, the do loop below
-   * succeeds first time.  In reality, roundoff error means cdf[N-1]
-   * is likely not exactly 1.0, yet we still want to sample properly;
-   * so we rejection sample the RNG's x until it falls in the CDF's
-   * interval.
-   */
-  do { roll = esl_random(r); } while (roll >= cdf[N-1]);
-  
-  /* For large N, it might be advantageous to bisection search 
-   * the cdf. For typical N in Easel (up to 20, for amino acid prob vectors,
-   * for example), the naive code below is faster. We could revisit
-   * this if we start sampling larger vectors.
-   */
+  ESL_DASSERT1(cdf[0] >= 0.0);
+  ESL_DASSERT1(cdf[N-1] > 0.999 && cdf[N-1] < 1.001);
+
   for (i = 0; i < N; i++)
-    if (roll < cdf[i]) return i; 
-  /*UNREACHED*/
-  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+    if (roll < cdf[i] / cdf[N-1]) return i; 
+  esl_fatal("unreached code is reached. universe goes foom");
+  return 0; /*notreached*/
 }
 int
 esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
 {
-  float roll;
+  float roll = esl_random(r);	/* uniform 0.0 <= x < 1.0 */
   int   i;
-  do { roll = esl_random(r); } while (roll >= cdf[N-1]);
-  for (i = 0; i < N; i++) if (roll < cdf[i]) return i; 
-  ESL_EXCEPTION(-1, "unreached code was reached. universe collapses.");
+
+  ESL_DASSERT1(cdf[0] >= 0.0);
+  ESL_DASSERT1(cdf[N-1] > 0.99 && cdf[N-1] < 1.01);
+
+  for (i = 0; i < N; i++) 
+    if (roll < cdf[i]/cdf[N-1]) return i; 
+  esl_fatal("unreached code is reached. universe goes foom");
+  return 0; /*notreached*/
 }
 
 
@@ -924,26 +899,30 @@ utest_random(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 static void
 utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 {
-  double *pd = NULL;
-  float  *pf = NULL;
-  int    *ct = NULL;
+  double *pd  = NULL;		/* probability vector, double */
+  double *pdc = NULL;		/* CDF, double                */
+  float  *pf  = NULL;		/* probability vector, float  */
+  float  *pfc = NULL;		/* CDF, float                 */
+  int    *ct  = NULL;
   int     i;
   double  X2, diff, exp, X2p;
 
-  if ((pd = malloc(sizeof(double) * nbins)) == NULL) esl_fatal("malloc failed"); 
-  if ((pf = malloc(sizeof(float)  * nbins)) == NULL) esl_fatal("malloc failed");
-  if ((ct = malloc(sizeof(int)    * nbins)) == NULL) esl_fatal("malloc failed");
+  if ((pd  = malloc(sizeof(double) * nbins)) == NULL) esl_fatal("malloc failed"); 
+  if ((pdc = malloc(sizeof(double) * nbins)) == NULL) esl_fatal("malloc failed"); 
+  if ((pf  = malloc(sizeof(float)  * nbins)) == NULL) esl_fatal("malloc failed");
+  if ((pfc = malloc(sizeof(float)  * nbins)) == NULL) esl_fatal("malloc failed");
+  if ((ct  = malloc(sizeof(int)    * nbins)) == NULL) esl_fatal("malloc failed");
 
   /* Sample a random multinomial probability vector.  */
   if (esl_dirichlet_DSampleUniform(r, nbins, pd) != eslOK) esl_fatal("dirichlet sample failed");
   esl_vec_D2F(pd, nbins, pf);
 
-  /* Sample observed counts using DChoose(). */
+  /* Test esl_rnd_DChoose(): 
+   * sample observed counts, chi-squared test against expected
+   */
   esl_vec_ISet(ct, nbins, 0);
-  for (i = 0; i < n; i++)
+  for (i = 0; i < n; i++) 
     ct[esl_rnd_DChoose(r, pd, nbins)]++;
-
-  /* X^2 test on those observed counts. */
   for (X2 = 0., i=0; i < nbins; i++) {
     exp = (double) n * pd[i];
     diff = (double) ct[i] - exp;
@@ -966,8 +945,38 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   if (be_verbose) printf("FChoose():  \t%g\n", X2p);
   if (X2p < 0.01) esl_fatal("chi squared test failed");
   
+  /* esl_rnd_DChooseCDF(). */
+  esl_vec_ISet(ct, nbins, 0);
+  esl_vec_DCDF(pd, nbins, pdc);
+  for (i = 0; i < n; i++) 
+    ct[esl_rnd_DChooseCDF(r, pdc, nbins)]++;
+  for (X2 = 0., i=0; i < nbins; i++) {
+    exp  = (double) n * pd[i];
+    diff = (double) ct[i] - exp;
+    X2 += diff*diff/exp;
+  }
+  if (esl_stats_ChiSquaredTest(nbins, X2, &X2p) != eslOK) esl_fatal("chi square eval failed");
+  if (be_verbose) printf("DChoose():  \t%g\n", X2p);
+  if (X2p < 0.01) esl_fatal("chi squared test failed");
+
+  /* esl_rnd_FChooseCDF() */
+  esl_vec_ISet(ct, nbins, 0);
+  esl_vec_FCDF(pf, nbins, pfc);
+  for (i = 0; i < n; i++) 
+    ct[esl_rnd_FChooseCDF(r, pfc, nbins)]++;
+  for (X2 = 0., i=0; i < nbins; i++) {
+    exp  = (double) n * pf[i];
+    diff = (double) ct[i] - exp;
+    X2 += diff*diff/exp;
+  }
+  if (esl_stats_ChiSquaredTest(nbins, X2, &X2p) != eslOK) esl_fatal("chi square eval failed");
+  if (be_verbose) printf("DChoose():  \t%g\n", X2p);
+  if (X2p < 0.01) esl_fatal("chi squared test failed");
+
   free(pd);
+  free(pdc);
   free(pf);
+  free(pfc);
   free(ct);
   return;
 }

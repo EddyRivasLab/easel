@@ -413,6 +413,9 @@ AC_CHECK_FUNCS(getpid)
 AC_CHECK_FUNCS(sysctl)
 AC_CHECK_FUNCS(sysconf)
 AC_CHECK_FUNCS(getcwd)
+AC_CHECK_FUNCS(chmod)
+AC_CHECK_FUNCS(stat)
+AC_CHECK_FUNCS(fstat)
 AC_FUNC_FSEEKO
 
 # 11. Checks for system services 

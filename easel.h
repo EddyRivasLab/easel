@@ -286,7 +286,21 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
-
+/* Typedef: <esl_pos_t> 
+ * 
+ * <esl_pos_t> is a signed integer type suitable for safe casting
+ * to EITHER an <off_t> or <size_t> on this system (i.e. as a position
+ * in memory or in a file on disk), where we may use a -1 as a flag
+ * (or even other negative numbers).
+ *
+ * <esl_pos_t> is for use for anything having to do with positions in
+ * large buffers, strings, or files, where we want strict control
+ * of integer range limits.
+ *
+ * Note that POSIX requires size_t to be unsigned, and off_t to be
+ * signed.
+ */
+typedef int64_t esl_pos_t;
 
 /*****************************************************************
  * The API declarations for easel.c

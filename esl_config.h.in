@@ -62,21 +62,24 @@
 #undef HAVE_SSE2
 #undef HAVE_VMX
 #undef HAVE_MPI
+#undef HAVE_PTHREAD
 
 #undef HAVE_SSE2_CAST
 
 /* Functions
  */
+#undef HAVE_CHMOD
+#undef HAVE_FSEEKO
+#undef HAVE_FSTAT
+#undef HAVE_GETCWD
+#undef HAVE_GETPID
 #undef HAVE_MKSTEMP
 #undef HAVE_POPEN
+#undef HAVE_STAT
 #undef HAVE_STRCASECMP
-#undef HAVE_TIMES
-#undef HAVE_GETPID
-#undef HAVE_SYSCTL
 #undef HAVE_SYSCONF
-#undef HAVE_FSEEKO
-#undef HAVE_GETCWD
-#undef HAVE_PTHREAD
+#undef HAVE_SYSCTL
+#undef HAVE_TIMES
 
 /*****************************************************************
  * Available augmentations.
