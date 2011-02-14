@@ -1,0 +1,207 @@
+
+An \ccode{ESL\_BUFFER} provides an abstract layer for building input
+parsers. Many different types of input -- including files, standard
+input, piped output from executed commands, C strings, and raw memory
+-- can be handled efficiently in a single API.
+
+\begin{description}
+\item [ \textbf{Random access.} ] In POSIX/C, some types of input
+  streams only allow sequential access, such as standard input or
+  standard output pipes. An \ccode{ESL\_BUFFER} provides random access
+  to any input, as well as useful forms of limited random access such
+  as the ability to make multiple passes over arbitrary amounts of
+  data from the start of the file. 
+
+\item [ \textbf{Modularity.} ] Different types of parsers for parsing
+  different formats can share and exchange a single
+  \ccode{ESL\_BUFFER}. This allows modular and/or nested formats (such
+  as a \HMMER profile HMM file embedded in an \Infernal CM file).
+
+\item [ \textbf{Efficiency.} ] The \ccode{ESL\_BUFFER} works with your
+  system to try to access input data as efficiently as possible. It
+  minimizes input buffering, and works with input as directly as it
+  can.  It will slurp small files entirely into RAM, and it memory
+  maps large files with POSIX \ccode{mmap()}.
+\end{description}
+
+A canonical problem in sequence file parsing is that we need to know
+both the format (e.g.\ FASTA or Genbank) and the alphabet
+(e.g.\ protein or nucleic acid) in order to parse Easel-digitized
+sequence data records. If we want to support ``smart'' parsers that
+automagically determine the file format and alphabet, so programs work
+transparently on lots of different file types without users needing to
+specify, we need three-pass parsing: one pass to read raw data and
+determine the format; a second pass to parse the format for sequence
+data and determine its alphabet; and finally the actual parsing of
+digitized sequences. Multiple pass parsing of a nonrewindable stream,
+such as standard input or the output of a \ccode{gunzip} call, isn't
+possible without extra support. \ccode{ESL\_BUFFER} standardizes that
+support for all Easel input.
+
+
+\subsection{The buffer API}
+
+
+\subsection{Example of using the buffer API}
+
+
+\subsection{Using anchors: caller-defined limits on random access}
+
+The naive way to enable random access on a sequential stream is to
+slurp the whole stream into memory. If the stream is large, this may
+be very memory inefficient. Many parsers do not need full random
+access, but instead need a limited form of it -- for instance, the
+three-pass case of determining format and alphabet from the start of a
+sequence file. \ccode{ESL\_BUFFER} allows the caller to define an
+\emph{anchor} to define a start point in the input that is not allowed
+to go away until the caller says so. 
+
+Setting an anchor declares that \ccode{mem[anchor..n-1]} is not be
+overwritten by new input reads. A new input read may first relocate
+(``reoffset'') \ccode{mem[anchor..n-1]} to \ccode{mem[0..n-anchor-1]}
+in order to use its current allocation efficiently. Setting an anchor
+may therefore cause \ccode{mem} to be reoffset and/or reallocated, and
+\ccode{balloc} may grow, if the buffer is not large enough to hold
+everything starting from the \ccode{anchor} position. When no anchors
+are set, \ccode{mem} will not be reoffset or reallocated.
+
+If we set an anchor at offset 0 in the input, then the entire input
+will be progressively slurped into a larger and larger allocation of
+memory as we read sequentially. We are guaranteed to be able to
+reposition the buffer anywhere from the anchor to n-1, even in a
+normally nonrewindable, nonpositionable stream. If we've read enough
+to determine what we need (format, alphabet...), we can release the
+anchor, and the buffer's memory usage will stop growing.
+
+The functions that get a defined chunk of memory --
+\ccode{esl\_buffer\_GetLine()}, \ccode{esl\_buffer\_GetToken()}, and
+\ccode{esl\_buffer\_CopyBytes()} -- set an anchor at the start of the
+line, token, or chunk of bytes before they go looking for its end.
+This takes advantage of the anchor mechanism to make sure that the
+buffer will contain the entire line, token, or chunk of bytes, not just a
+truncated part.
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+\subsection{Implementation notes (for developers)}
+
+\paragraph{The state guarantee.} An \ccode{ESL_BUFFER} is exchangeable
+and sharable even amongst entirely different types of parsers because
+it is virtually always guaranteed to be in a well-defined
+state. Specifically:
+
+\begin{itemize}
+\item \ccode{bf->mem[bf->pos]} is ALWAYS positioned at the next byte
+      that a parser needs to parse, unless the buffer is at EOF. 
+
+\item There are ALWAYS at least \ccode{pagesize} bytes available to
+      parse, provided the input stream has not reached EOF.
+\end{itemize}
+
+
+\paragraph{State in different input type modes}
+
+There are six types (``modes'') of inputs:
+
+\begin{tabular}{ll}
+    Mode                    &   Description                                   \\ \hline
+\ccode{eslBUFFER\_STDIN}    &  Standard input.                                \\
+\ccode{eslBUFFER\_CMDPIPE}  &  Output piped from a command.                   \\
+\ccode{eslBUFFER\_FILE}     &  A \ccode{FILE} being streamed.                 \\
+\ccode{eslBUFFER\_ALLFILE}  &  A file entirely slurped into RAM.              \\
+\ccode{eslBUFFER\_MMAP}     &  A file that's memory mapped (\ccode{mmap()}).  \\
+\ccode{eslBUFFER\_STRING}   &  A string or memory.                            \\ \hline
+\end{tabular}
+
+The main difference between modes is whether the input is being read
+into the buffer's memory in chunks, or whether the buffer's memory 
+effectively contains the entire input:
+
+\begin{tabular}{lll}
+               &   \ccode{STDIN, CMDPIPE, FILE}                                                   & \ccode{ALLFILE, MMAP, STRING}        \\ 
+\ccode{mem}    &   input chunk: \ccode{mem[0..n-1]} is \ccode{input[baseoffset..baseoffset+n-1]}  & entire input: \ccode{mem[0..n-1]} is \ccode{input[0..n-1]}     \\
+\ccode{n}      &   current chunk size                                                             & entire input size (exclusive of \ccode{\0} on a \ccode{STRING}) \\
+\ccode{balloc} &   $>0$; \ccode{mem} is reallocatable                                             & 0; \ccode{mem} is not reallocated  \\
+\ccode{fp}     &   open; \ccode{feof(fp) = TRUE} near EOF                                         & \ccode{NULL}                        \\
+\ccode{baseoffset} &  offset of byte \ccode{mem[0]} in input                                      & 0                                  \\
+\end{tabular}
+
+
+\paragraph{Behavior at end-of-input (``end-of-file'', EOF).}
+
+The buffer can three kinds of states with respect to how near to EOF
+it is, as follows.
+
+During normal parsing, \ccode{bf->n - bf->pos >= bf->pagesize}:
+
+\begin{cchunk}
+  mem->  {[. . . . . . . . . . . . . . . .] x x x x}
+           ^ baseoffset    ^ pos            ^ n   ^ balloc
+                          [~ ~ ~ ~ ~ ~ ~ ~]
+                          n-pos >= pagesize
+\end{cchunk}
+
+As input is nearing EOF, and we are within last <pagesize> bytes,
+\ccode{bf->n - bf->pos < bf->pagesize}:
+
+\begin{cchunk}
+ mem->  {[. . . . . . . . . . . . . . . .] x x x x}
+          ^ baseoffset              ^ pos  ^ n   ^ balloc
+\end{cchunk}
+
+In modes where we might be reading input in streamed chunks
+(\ccode{eslBUFFER\_STDIN}, \ccode{eslBUFFER\_CMDPIPE}
+\ccode{eslBUFFER\_FILE}), \ccode{feof(bf->fp)} becomes \ccode{TRUE}
+when the buffer nears EOF.
+
+When the input is entirely EOF, then \ccode{bf->pos == bf->n}:
+
+\begin{cchunk}
+  mem->  {[. . . . . . . . . . . . . . . .] x x x x}
+           ^ baseoffset                     ^ n   ^ balloc
+                                            ^ pos
+\end{cchunk}
+
+
+\paragraph{Newline handling.}
+
+All streams are opened as binary data. This is necessary to guarantee
+a one:one correspondence between data offsets in memory and data
+offsets on the filesystem, which we need for file positioning
+purposes. It is also necessary to guarantee that we can read text
+files that have been produced on a system other than the system we're
+reading them on (that we can read Windows text files on a Linux
+system, for example).\footnote{That is, the usual ANSI C convention of
+  reading/writing in ``text mode'' does not suffice, because it
+  assumes the newlines of the system we're on, not necessarily the
+  system that produced the file.}  However, it makes us responsible
+for handling system-specific definition of ``newline'' character(s) in
+ASCII text files.
+
+Easel assumes that newlines are encoded as \ccode{\n} (UNIX, Mac
+OS/X), \ccode{\r} (old Mac/OS) or \ccode{\r\n} (MS Windows).
+
+
+
+\paragraph{ The use of \ccode{esl\_pos\_t}. }
+
+All integer variables for a position or length in memory or in a file
+are of type \ccode{esl\_pos\_t}. In POSIX, memory positions are an
+unsigned integer type \ccode{size\_t}, and file positions are a signed
+integer type \ccode{off\_t}. Easel wants to assure an integer type
+that we can safely cast to either \ccode{size\_t} or \ccode{off\_t},
+and in which we can safely store a negative number as a status flag
+(such as -1 for ``currently unset''). \ccode{esl\_pos\_t} is defined
+as the largest signed integer type that can be safely cast to
+\ccode{size\_t} or \ccode{off\_t}.
