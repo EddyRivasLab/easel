@@ -4,6 +4,8 @@
  * SVN $Id$
  * SVN $URL$
  */
+#ifndef ESL_BUFFER_INCLUDED
+#define ESL_BUFFER_INCLUDED
 
 #include <stdio.h>
 
@@ -35,17 +37,17 @@ typedef struct {
 
   esl_pos_t  pagesize;	          /* size of new <fp> reads. Guarantee: n-pos >= pagesize  */
 
-  char     errmsg[eslERRBUF];	  /* error message storage                                 */
+  char     errmsg[eslERRBUFSIZE]; /* error message storage                                 */
   enum esl_buffer_mode_e mode_is; /* mode (stdin, cmdpipe, file, allfile, mmap, string)    */
 } ESL_BUFFER;
 
 
 /* 1. The ESL_BUFFER object: opening/closing.  */
-extern int esl_buffer_Open      (char *filename, char *envvar, ESL_BUFFER **ret_bf);
-extern int esl_buffer_OpenFile  (char *filename,               ESL_BUFFER **ret_bf);
-extern int esl_buffer_OpenPipe  (char *cmdline,                ESL_BUFFER **ret_bf);
-extern int esl_buffer_OpenMem   (char *p,        esl_pos_t n,  ESL_BUFFER **ret_bf);
-extern int esl_buffer_OpenStream(FILE *fp,                     ESL_BUFFER **ret_bf);
+extern int esl_buffer_Open      (const char *filename, const char *envvar, ESL_BUFFER **ret_bf);
+extern int esl_buffer_OpenFile  (const char *filename,                     ESL_BUFFER **ret_bf);
+extern int esl_buffer_OpenPipe  (const char *filename, const char *cmdfmt, ESL_BUFFER **ret_bf);
+extern int esl_buffer_OpenMem   (char *p,               esl_pos_t  n,      ESL_BUFFER **ret_bf);
+extern int esl_buffer_OpenStream(FILE *fp,                                 ESL_BUFFER **ret_bf);
 extern int esl_buffer_Close(ESL_BUFFER *bf);
 
 /* 2. Manipulating an ESL_BUFFER. */
@@ -65,7 +67,7 @@ extern int esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n);
 extern int esl_buffer_GetToken(ESL_BUFFER *bf, char *delim, char **opt_p, esl_pos_t *opt_n);
 
 /* 6. Binary (fread-like) parsing */
-extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, char *p, esl_pos_t nbytes);
+extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char *p);
 
 
 
@@ -100,3 +102,8 @@ extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, char *p, esl_pos_t nbytes);
  *  esl_recorder_GetBlock()
  *  
  */
+
+#endif	/*ESL_BUFFER_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

@@ -322,18 +322,17 @@ extern void esl_Free3D(void ***p, int dim1, int dim2);
 extern void esl_banner(FILE *fp, char *progname, char *banner);
 extern void esl_usage (FILE *fp, char *progname, char *usage);
 
-/* 4. Replacements, additions to C library functions */
+/* 4. Improved replacements for some C library functions */
+extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
-extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
 extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
 extern int  esl_sprintf (char **ret_s, const char *format, ...);
 extern int  esl_vsprintf(char **ret_s, const char *format, va_list *ap);
 extern int  esl_strcmp(const char *s1, const char *s2);
-extern int  esl_strchop(char *s, int64_t n);
-extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
-extern int  esl_str_IsBlank(char *s);
+
+/* 5.  Portable drop-in replacements for non-standard C functions */
 #ifndef HAVE_STRCASECMP
 #ifdef _MSC_VER
 #define strcasecmp stricmp
@@ -343,7 +342,18 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #endif
 #endif
 
-/* 5. File path/name manipulation functions, including tmpfiles */
+/* 6. Additional string functions, esl_str*() */
+extern int  esl_strchop(char *s, int64_t n);
+extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
+extern int  esl_str_IsBlank(char *s);
+
+/* 7. Additional memory buffer functions, esl_mem*() */
+extern int  esl_mem_IsBlank(char *p, esl_pos_t n);
+extern int  esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val);
+extern int  esl_memnewline(const char *p, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm);
+
+
+/* 8. File path/name manipulation functions, including tmpfiles */
 extern int  esl_FileExists(const char *filename);
 extern int  esl_FileTail(const char *path, int nosuffix, char **ret_file);
 extern int  esl_FileConcat(const char *dir, const char *file, char **ret_path);
@@ -354,12 +364,12 @@ extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
 extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 extern int  esl_getcwd(char **ret_cwd);
 
-/* 6. Typed comparison routines. */
+/* 9. Typed comparison routines. */
 extern int  esl_DCompare(double a, double b, double tol);
 extern int  esl_FCompare(float  a, float  b, float  tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
-/* 7. Commonly used background composition (iid) frequencies. */
+/* 10. Commonly used background composition (iid) frequencies. */
 extern int  esl_composition_BL62(double *f);
 extern int  esl_composition_WAG (double *f);
 extern int  esl_composition_SW34(double *f);
