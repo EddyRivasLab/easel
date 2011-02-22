@@ -1,8 +1,26 @@
 
-An \ccode{ESL\_BUFFER} provides an abstract layer for building input
-parsers. Many different types of input -- including files, standard
+The \eslmod{buffer} module provides an abstract layer for building
+input parsers. Different types of input -- including files, standard
 input, piped output from executed commands, C strings, and raw memory
 -- can be handled efficiently in a single API.
+
+The main rationale for \eslmod{buffer} is to enable multipass parsing
+of any input, even a nonrewindable stream or pipe. A canonical problem
+in sequence file parsing is that we need to know both the format (say
+FASTA or Genbank) and the alphabet (say protein or nucleic acid) in
+order to parse Easel-digitized sequence data records. To write
+``smart'' parsers that automagically determine the file format and
+alphabet, so programs work transparently on lots of different file
+types without users needing to specify them, we need three-pass
+parsing: one pass to read raw data and determine the format, a second
+pass to parse the format for sequence data and determine its alphabet,
+and finally the actual parsing of digitized sequences. Multiple pass
+parsing of a nonrewindable stream, such as standard input or the
+output of a \ccode{gunzip} call, isn't possible without extra
+support. The \eslmod{buffer} module standardizes that support for all Easel
+input.
+
+Another rationale for the \eslmod{buffer} module is to 
 
 \begin{description}
 \item [ \textbf{Random access.} ] In POSIX/C, some types of input
@@ -24,19 +42,7 @@ input, piped output from executed commands, C strings, and raw memory
   maps large files with POSIX \ccode{mmap()}.
 \end{description}
 
-A canonical problem in sequence file parsing is that we need to know
-both the format (e.g.\ FASTA or Genbank) and the alphabet
-(e.g.\ protein or nucleic acid) in order to parse Easel-digitized
-sequence data records. If we want to support ``smart'' parsers that
-automagically determine the file format and alphabet, so programs work
-transparently on lots of different file types without users needing to
-specify, we need three-pass parsing: one pass to read raw data and
-determine the format; a second pass to parse the format for sequence
-data and determine its alphabet; and finally the actual parsing of
-digitized sequences. Multiple pass parsing of a nonrewindable stream,
-such as standard input or the output of a \ccode{gunzip} call, isn't
-possible without extra support. \ccode{ESL\_BUFFER} standardizes that
-support for all Easel input.
+
 
 
 \subsection{The buffer API}

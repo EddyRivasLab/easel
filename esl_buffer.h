@@ -50,7 +50,7 @@ extern int esl_buffer_OpenMem   (char *p,               esl_pos_t  n,      ESL_B
 extern int esl_buffer_OpenStream(FILE *fp,                                 ESL_BUFFER **ret_bf);
 extern int esl_buffer_Close(ESL_BUFFER *bf);
 
-/* 2. Manipulating an ESL_BUFFER. */
+/* 2. Positioning and anchoring an ESL_BUFFER. */
 extern esl_pos_t esl_buffer_GetOffset  (ESL_BUFFER *bf);
 extern int       esl_buffer_SetOffset  (ESL_BUFFER *bf, esl_pos_t offset);
 extern int       esl_buffer_SetAnchor  (ESL_BUFFER *bf, esl_pos_t offset);
@@ -64,7 +64,7 @@ extern int esl_buffer_Set(ESL_BUFFER *bf, char  *p,     esl_pos_t  nused);
 extern int esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n);
 
 /* 5. Token-based parsing */
-extern int esl_buffer_GetToken(ESL_BUFFER *bf, char *delim, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_p, esl_pos_t *opt_n);
 
 /* 6. Binary (fread-like) parsing */
 extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char *p);
