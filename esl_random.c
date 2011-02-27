@@ -264,6 +264,10 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
  *           1$. It generates uniformly distributed variates on the
  *           interval $0..2^32-1$. 
  *           
+ *           If you cast the return value to float, the [0,1) interval
+ *           guarantee is lost because values close to 1 will round to
+ *           1.0.
+ *           
  * Notes:    Easel previously used a reimplementation of ran2() from
  *           Numerical Recipes in C, which uses L'Ecuyer's algorithm
  *           for combining output of two linear congruential
@@ -690,9 +694,12 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
 int
 esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 {
-  float  norm = 0.0;		/* ~ 1.0                  */
-  float  sum  = 0.0;            /* integrated prob        */
-  float  roll = esl_random(r);  /* random fraction        */
+  /* Computing in double precision is important:
+   * casting <roll> to (float) gives a [0,1] number instead of [0,1).
+   */
+  double norm = 0.0;		/* ~ 1.0                  */
+  double sum  = 0.0;            /* integrated prob        */
+  double roll = esl_random(r);  /* random fraction        */
   int    i;                     /* counter over the probs */
 
   for (i = 0; i < N; i++) norm += p[i];
@@ -764,8 +771,8 @@ esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
 int
 esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
 {
-  float roll = esl_random(r);	/* uniform 0.0 <= x < 1.0 */
-  int   i;
+  double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0. must be double, not float, to guarantee x <1 */
+  int    i;
 
   ESL_DASSERT1(cdf[0] >= 0.0);
   ESL_DASSERT1(cdf[N-1] > 0.99 && cdf[N-1] < 1.01);
