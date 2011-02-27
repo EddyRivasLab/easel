@@ -51,10 +51,11 @@ extern int esl_buffer_OpenStream(FILE *fp,                                 ESL_B
 extern int esl_buffer_Close(ESL_BUFFER *bf);
 
 /* 2. Positioning and anchoring an ESL_BUFFER. */
-extern esl_pos_t esl_buffer_GetOffset  (ESL_BUFFER *bf);
-extern int       esl_buffer_SetOffset  (ESL_BUFFER *bf, esl_pos_t offset);
-extern int       esl_buffer_SetAnchor  (ESL_BUFFER *bf, esl_pos_t offset);
-extern int       esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset);
+extern esl_pos_t esl_buffer_GetOffset      (ESL_BUFFER *bf);
+extern int       esl_buffer_SetOffset      (ESL_BUFFER *bf, esl_pos_t offset);
+extern int       esl_buffer_SetAnchor      (ESL_BUFFER *bf, esl_pos_t offset);
+extern int       esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset);
+extern int       esl_buffer_RaiseAnchor    (ESL_BUFFER *bf, esl_pos_t offset);
 
 /* 3. Raw access to the buffer */
 extern int esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n);
