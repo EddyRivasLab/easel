@@ -2092,7 +2092,6 @@ main(int argc, char **argv)
   filesize = fstats.st_size;  
 
   /* roughly in fastest->slowest order */
-#if 0
   esl_stopwatch_Start(w);  benchmark_mmap               (infile, filesize, counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "mmap():                      ");
   esl_stopwatch_Start(w);  benchmark_buffer_stream_raw  (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (stream, raw):    ");
   esl_stopwatch_Start(w);  benchmark_buffer_raw         (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, raw):      ");
@@ -2103,7 +2102,6 @@ main(int argc, char **argv)
   esl_stopwatch_Start(w);  benchmark_buffer_lines       (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (mmap, lines):    ");
   esl_stopwatch_Start(w);  benchmark_buffer_stream_lines(infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (stream, lines):  ");
   esl_stopwatch_Start(w);  benchmark_strtok             (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "strtok():                    ");
-#endif
   esl_stopwatch_Start(w);  benchmark_buffer_tokens      (infile,           counts);  esl_stopwatch_Stop(w);  esl_stopwatch_Display(stdout, w, "ESL_BUFFER (stream, tokens): ");
 
   esl_stopwatch_Destroy(w);
@@ -2132,7 +2130,7 @@ main(int argc, char **argv)
  * We use this to force code coverage of the different
  * buffer_init_file_*() functions.
  */
-int
+static int
 buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFFER **ret_bf)
 {
   char        msg[] = "buffer_OpenFileAs() failed";
@@ -2162,7 +2160,7 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
   default:                                                                     esl_fatal(msg);                
   }
   *ret_bf = bf;
-  return status;
+  return eslOK;
 }
 
 
@@ -2317,7 +2315,7 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   fp = NULL;
 #else
   if ( (fp = fopen(tmpfile, "r"))            == NULL) esl_fatal(msg);
-  if (esl_buffer_OpenStream(fp, NULL, &bf)  != eslOK) esl_fatal(msg);
+  if (esl_buffer_OpenStream(fp, &bf)        != eslOK) esl_fatal(msg);
 #endif
   
   if (esl_buffer_SetOffset(bf, testoffset1) != eslOK) esl_fatal(msg);
