@@ -1,9 +1,10 @@
 /* Unaligned sequence file i/o.
  * 
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SQIO_INCLUDED
-#define ESL_SQIO_INCLUDED
+#ifndef eslSQIO_INCLUDED
+#define eslSQIO_INCLUDED
 
 #include <stdio.h>
 
@@ -173,7 +174,7 @@ extern int   esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t 
 extern int   esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update);
 extern int   esl_sqio_Parse(char *buffer, int size, ESL_SQ *s, int format);
 
-#endif /*!ESL_SQIO_INCLUDED*/
+#endif /*eslSQIO_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

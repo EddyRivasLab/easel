@@ -7,6 +7,7 @@
  * SRE, Thu Aug  3 08:11:52 2000 [St. Louis] [moved to SQUID]
  * SRE, Fri Nov 26 14:54:21 1999 [St. Louis] [HMMER]
  * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

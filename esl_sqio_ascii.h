@@ -1,9 +1,10 @@
 /* Unaligned ascii sequence file i/o.
  * 
- * SVN $Id: esl_sqio_ascii.h 361 2009-06-30 00:40:48Z farrarm $
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SQIO_ASCII_INCLUDED
-#define ESL_SQIO_ASCII_INCLUDED
+#ifndef eslSQIO_ASCII_INCLUDED
+#define eslSQIO_ASCII_INCLUDED
 
 #include <stdio.h>
 #include "esl_sq.h"
@@ -94,7 +95,7 @@ extern int  esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *s, int update);
 extern int  esl_sqascii_Parse(char *buf, int size, ESL_SQ *s, int format);
 
 
-#endif /*!ESL_SQIO_ASCII_INCLUDED*/
+#endif /*eslSQIO_ASCII_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

@@ -23,7 +23,7 @@ pdfdir      = @pdfdir@
 # Compiler configuration
 #
 CC       = @CC@
-CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@
+CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ -fpic
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
@@ -54,6 +54,7 @@ LICENSELINE = "@EASEL_LICENSE@"
 HDRS = \
 	easel.h\
 	esl_alphabet.h\
+	esl_buffer.h\
 	esl_cluster.h\
 	esl_dirichlet.h\
 	esl_distance.h\
@@ -105,6 +106,7 @@ HDRS = \
 OBJS    = \
 	easel.o\
 	esl_alphabet.o\
+	esl_buffer.o\
 	esl_cluster.o\
 	esl_dirichlet.o\
 	esl_distance.o\
@@ -156,11 +158,13 @@ OBJS    = \
 
 
 BENCHMARKS =\
+	esl_buffer_benchmark\
 	esl_random_benchmark
 
 UTESTS =\
 	easel_utest\
 	esl_alphabet_utest\
+	esl_buffer_utest\
 	esl_cluster_utest\
 	esl_dirichlet_utest\
 	esl_distance_utest\
@@ -203,6 +207,13 @@ UTESTS =\
 #	stopwatch_utest\
 #	swat_utest\
 
+EXAMPLES = \
+	esl_buffer_example\
+	esl_buffer_example2\
+	esl_buffer_example3\
+	esl_buffer_example4\
+	esl_buffer_example5\
+	esl_buffer_example6
 
 .PHONY: all check dev TAGS
 
@@ -314,13 +325,14 @@ clean:
 	if test -d testsuite;     then  (cd testsuite;     ${MAKE} clean); fi
 	if test -d miniapps;      then  (cd miniapps;      ${MAKE} clean); fi
 	-rm -f ${OBJS} libeasel.a
-	-rm -f ${UTESTS}
+	-rm -f ${UTESTS} ${BENCHMARKS} ${EXAMPLES}
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f cscope.out
 	-rm -f core.[0-9]*
+	-rm -f esltmp??????
 	-rm -f config.log config.status
-	for prog in ${UTESTS}; do\
+	for prog in ${UTESTS} ${BENCHMARKS} ${EXAMPLES}; do\
 	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
 	done
 

@@ -1,9 +1,10 @@
 /* Simple threaded work queue using POSIX threads.
  * 
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_WORKQUEUE_INCLUDED
-#define ESL_WORKQUEUE_INCLUDED
+#ifndef eslWORKQUEUE_INCLUDED
+#define eslWORKQUEUE_INCLUDED
 
 typedef struct {
   pthread_mutex_t  queueMutex;          /* mutex for queue serialization                           */
@@ -36,7 +37,7 @@ extern int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **ou
 
 extern int esl_workqueue_Dump(ESL_WORK_QUEUE *queue);
 
-#endif /*ESL_WORKQUEUE_INCLUDED*/
+#endif /*eslWORKQUEUE_INCLUDED*/
 
 /*****************************************************************
  * @LICENSE@

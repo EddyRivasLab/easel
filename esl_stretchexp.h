@@ -1,17 +1,15 @@
-/* esl_stretchexp.h
- * Stretched exponential distributions.
+/* Stretched exponential distributions.
  * 
- * SRE, Fri Aug 19 13:51:14 2005 [St. Louis]
- * xref STL9/146
+ * SRE, Fri Aug 19 13:51:14 2005 [St. Louis] [xref STL9/146]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_STRETCHEXP_INCLUDED
-#define ESL_STRETCHEXP_INCLUDED
+#ifndef eslSTRETCHEXP_INCLUDED
+#define eslSTRETCHEXP_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
 #endif
-
 #ifdef eslAUGMENT_HISTOGRAM
 #include <esl_histogram.h>
 #endif
@@ -48,8 +46,7 @@ extern int esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 #endif /*eslAUGMENT_MINIMIZER*/
 
 
-#endif /*ESL_STRETCHEXP_INCLUDED*/
-
+#endif /*eslSTRETCHEXP_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

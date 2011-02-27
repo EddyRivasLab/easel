@@ -21,6 +21,7 @@
  *   
  * SRE, Sun Nov  5 10:06:53 2006 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

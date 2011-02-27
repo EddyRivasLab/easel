@@ -1,11 +1,11 @@
-/* esl_tree.c
- * Phylogenetic trees.
+/* Phylogenetic trees.
  * 
- * SVN $Id$
  * SRE, Tue May  2 13:54:30 2006 [St. Louis]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_TREE_INCLUDED
-#define ESL_TREE_INCLUDED
+#ifndef eslTREE_INCLUDED
+#define eslTREE_INCLUDED
 
 #include <esl_dmatrix.h>
 #include <esl_random.h>
@@ -116,10 +116,7 @@ extern int esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T);
 extern int esl_tree_ToDistanceMatrix(ESL_TREE *T, ESL_DMATRIX **ret_D);
 
 
-#endif /*!ESL_TREE_INCLUDED*/
-
-
-
+#endif /*eslTREE_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

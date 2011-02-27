@@ -7,11 +7,12 @@
  * behaviour of system includes and system libraries. An example
  * is large file support.
  * 
- * SVN $Id$
  * SRE, Fri Mar  3 08:03:32 2006 [St. Louis]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_CONFIG_INCLUDED
-#define ESL_CONFIG_INCLUDED
+#ifndef eslCONFIG_INCLUDED
+#define eslCONFIG_INCLUDED
 
 /* Version info.
  */
@@ -66,8 +67,10 @@
 
 #undef HAVE_SSE2_CAST
 
-/* Functions
- */
+/* Programs */
+#undef HAVE_GZIP
+
+/* Functions */
 #undef HAVE_CHMOD
 #undef HAVE_FSEEKO
 #undef HAVE_FSTAT
@@ -133,7 +136,7 @@
 #endif
 
 
-#endif /*ESL_CONFIG_INCLUDED*/
+#endif /*eslCONFIG_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

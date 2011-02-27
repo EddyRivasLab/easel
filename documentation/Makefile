@@ -1,7 +1,3 @@
-AUTODOC  = ../devkit/autodoc
-CEXCERPT = ../devkit/cexcerpt
-
-
 # Each module in this list obeys three documentation conventions:
 #
 #  1. It has a .tex file documenting its API.
@@ -18,8 +14,12 @@ CEXCERPT = ../devkit/cexcerpt
 #     documentation. These fragments go to the cexcerpts/
 #     subdir.
 #
+AUTODOC  = ../devkit/autodoc
+CEXCERPT = ../devkit/cexcerpt
+
 MODULES = easel\
 	  esl_alphabet\
+	  esl_buffer\
 	  esl_cluster\
 	  esl_dirichlet\
 	  esl_distance\
@@ -70,6 +70,14 @@ pdf:
 	pdflatex main
 	pdflatex main
 	mv main.pdf current.pdf
+
+test:
+	make autodoc
+	make cexcerpt
+	pdflatex test
+	bibtex   test
+	pdflatex test
+	pdflatex test
 
 autodoc:
 	mkdir -p autotext

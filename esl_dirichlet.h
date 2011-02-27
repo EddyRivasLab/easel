@@ -3,10 +3,10 @@
  * 
  * SRE, Tue Nov  2 14:35:06 2004 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_DIRICHLET_INCLUDED
-#define ESL_DIRICHLET_INCLUDED
-
+#ifndef eslDIRICHLET_INCLUDED
+#define eslDIRICHLET_INCLUDED
 
 /* Structure: MIXDCHLET
  * 
@@ -68,7 +68,7 @@ extern int esl_mixdchlet_Write(FILE *fp,  ESL_MIXDCHLET *d);
 #endif /*eslAUGMENT_FILEPARSER*/
 
 
-#endif /*!ESL_DIRICHLET_INCLUDED*/
+#endif /*eslDIRICHLET_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

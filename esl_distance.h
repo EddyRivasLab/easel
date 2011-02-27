@@ -1,12 +1,12 @@
-/* esl_distance.h
- * Distances between aligned sequences, including both
+/* Distances between aligned sequences, including both
  * probabilistic evolutionary models and ad hoc measures.
  * 
- * SVN $Id$
  * SRE, Fri Apr 28 06:41:13 2006 [New York]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_DISTANCE_INCLUDED
-#define ESL_DISTANCE_INCLUDED
+#ifndef eslDISTANCE_INCLUDED
+#define eslDISTANCE_INCLUDED
 
 #include "easel.h"		/* ESL_DSQ declaration      */
 #ifdef eslAUGMENT_ALPHABET
@@ -64,7 +64,7 @@ extern int esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int 
 #endif
 
 
-#endif /*ESL_DISTANCE_INCLUDED*/
+#endif /*eslDISTANCE_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

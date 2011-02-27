@@ -2,6 +2,7 @@
  * 
  * SRE, Sun Jan 30 08:55:17 2005;  from squid's gki.h, 1999.
  * SVN $Id$
+ * SVN $URL$
  */
 #ifndef eslKEYHASH_INCLUDED
 #define eslKEYHASH_INCLUDED

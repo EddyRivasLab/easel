@@ -20,7 +20,8 @@
  * remain. Thanks Don!
  *
  * SRE, Thu Feb 17 17:45:51 2005
- * SVN $Id: esl_sqio.c 463 2009-11-30 19:55:01Z eddys $
+ * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

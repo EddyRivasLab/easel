@@ -1,8 +1,8 @@
-/* regexp.h
- * Regular expression matching on strings.
+/* Regular expression matching on strings.
  * 
  * SRE, Sun Jan  2 10:52:34 2005 [Zaragoza]
  * SVN $Id$
+ * SVN $URL$
  ******************************************************************
  * The regexp module is a wrapper around a modified version of Henry
  * Spencer's regex library. Spencer's copyright notice appears below,
@@ -12,8 +12,8 @@
  * Thanks, Henry!
  *****************************************************************
  */    
-#ifndef ESL_REGEXP_INCLUDED
-#define ESL_REGEXP_INCLUDED
+#ifndef eslREGEXP_INCLUDED
+#define eslREGEXP_INCLUDED
 
 /* ESL_REGEXP_NSUB specifies the maximum number of () expressions
  * in a regexp. The whole regexp counts as one, so 16 allows for 
@@ -65,4 +65,7 @@ extern char *esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem);
 extern int   esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc);
 extern int   esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem, 
 				       int *ret_start, int *ret_end);
-#endif /*ESL_REGEXP_INCLUDED*/
+#endif /*eslREGEXP_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

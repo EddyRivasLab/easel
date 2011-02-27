@@ -7,7 +7,6 @@
  *    4. Sequence reading (sequential).
  *    5. Sequence/subsequence fetching, random access [with <ssi>]
  *    6. Writing sequences.
- *    6. Writing sequences.
  *    7. Parse sequences.
  *    8. Functions specific to sqio
  *    9. Benchmark driver.
@@ -23,6 +22,7 @@
  *
  * SRE, Thu Feb 17 17:45:51 2005
  * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

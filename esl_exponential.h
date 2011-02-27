@@ -1,11 +1,11 @@
-/* esl_exponential.h
- * Exponential distributions.
+/* Exponential distributions.
  * 
  * SRE, Wed Aug 10 08:32:45 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_EXP_INCLUDED
-#define ESL_EXP_INCLUDED
+#ifndef eslEXPONENTIAL_INCLUDED
+#define eslEXPONENTIAL_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -44,7 +44,7 @@ extern int esl_exp_FitCompleteBinned(ESL_HISTOGRAM *h,
 #endif
 
 
-#endif /*ESL_EXP_INCLUDED*/
+#endif /*eslEXPONENTIAL_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

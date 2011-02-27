@@ -1,10 +1,11 @@
-/* 
- * Digital representation of biosequence symbols in Easel.
- * SVN $Id$
+/* Digital representation of biosequence symbols in Easel.
+ *
  * SRE, Tue Nov 23 19:44:01 2004 [St. Louis]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_ALPHABET_INCLUDED
-#define ESL_ALPHABET_INCLUDED
+#ifndef eslALPHABET_INCLUDED
+#define eslALPHABET_INCLUDED
 
 #include <ctype.h>		/* isascii() */
 #include "easel.h"
@@ -120,8 +121,7 @@ extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_
 #define esl_abc_CGetMissing(a)       ((a)->sym[(int)(a)->Kp-1])
 
 
-#endif /*!ESL_ALPHABET_INCLUDED*/
-
+#endif /*eslALPHABET_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

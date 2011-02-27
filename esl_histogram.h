@@ -2,9 +2,10 @@
  * 
  * SRE, Fri Jul  1 13:22:45 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_HISTOGRAM_INCLUDED
-#define ESL_HISTOGRAM_INCLUDED
+#ifndef eslHISTOGRAM_INCLUDED
+#define eslHISTOGRAM_INCLUDED
 
 #include <math.h>   /* floor() is in one of the macros */
 
@@ -123,7 +124,7 @@ extern int esl_histogram_Goodness(ESL_HISTOGRAM *h, int nfitted,
 
 
 
-#endif /*!ESL_HISTOGRAM_INCLUDED*/
+#endif /*eslHISTOGRAM_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

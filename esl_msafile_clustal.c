@@ -4,8 +4,9 @@
  *    eslMSAFILE_CLUSTAL
  *    eslMSAFILE_MUSCLE
  *
- * SVN $Id$
  * SRE, Thu Mar 11 12:37:44 2010 [UA 916 Seattle->Dulles]
+ * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

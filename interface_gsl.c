@@ -1,10 +1,11 @@
-#ifdef ESL_WITH_GSL
 /* interface_gsl.c
  * Easel's interfaces to the GNU Scientific Library
  * 
  * SRE, Tue Jul 13 15:36:48 2004
  * SVN $Id$
+ * SVN $URL$
  */
+#ifdef HAVE_LIBGSL
 #include <esl_config.h>
 
 #include <stdlib.h>
@@ -53,4 +54,4 @@ esl_GSL_MatrixInversion(ESL_DMATRIX *A, ESL_DMATRIX **ret_Ai)
   return eslOK;
 }
 
-#endif /*ESL_WITH_GSL*/
+#endif /*HAVE_LIBGSL*/

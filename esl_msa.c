@@ -1,4 +1,3 @@
-/*::cexcerpt::header_example::begin::*/
 /* Multiple sequence alignment file i/o.
  *    
  * Contents:   
@@ -56,10 +55,9 @@
  *    
  * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-/*::cexcerpt::header_example::end::*/
 
-/*::cexcerpt::include_example::begin::*/
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -81,8 +79,6 @@
 #include "esl_msa.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
-/*::cexcerpt::include_example::end::*/
-
 
 
 /******************************************************************************

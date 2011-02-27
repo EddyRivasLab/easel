@@ -1,11 +1,11 @@
 /* wuss.c
  * RNA secondary structure markup in WUSS notation.
  * 
+ * xref squid wuss.c.
  * SRE, Tue Feb 15 08:43:23 2005
  * SVN $Id$
- * xref squid wuss.c.
+ * SVN $URL$
  */
-
 #include <esl_config.h>
 
 #include <string.h>

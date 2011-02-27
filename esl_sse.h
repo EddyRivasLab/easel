@@ -1,11 +1,12 @@
+#ifdef HAVE_SSE2
 /* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
  * 
  * SRE, Sun Dec 16 10:01:41 2007 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifdef HAVE_SSE2
-#ifndef ESL_SSE_INCLUDED
-#define ESL_SSE_INCLUDED
+#ifndef eslSSE_INCLUDED
+#define eslSSE_INCLUDED
 
 #include "easel.h"
 
@@ -211,5 +212,5 @@ esl_sse_hmax_epi16(__m128i a)
 }
 
 
-#endif /*ESL_SSE_INCLUDED*/
+#endif /*eslSSE_INCLUDED*/
 #endif /*HAVE_SSE2*/

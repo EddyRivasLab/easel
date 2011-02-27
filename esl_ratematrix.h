@@ -2,9 +2,10 @@
  * 
  * SRE, Tue Jul 13 16:09:05 2004 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_RATEMATRIX_INCLUDED
-#define ESL_RATEMATRIX_INCLUDED
+#ifndef eslRATEMATRIX_INCLUDED
+#define eslRATEMATRIX_INCLUDED
 
 /* 1. Setting standard rate matrix models. */
 extern int esl_rmx_SetWAG(ESL_DMATRIX *Q, double *pi); 
@@ -24,4 +25,7 @@ extern double esl_rmx_RelativeEntropy(ESL_DMATRIX *P, double *pi);
 extern double esl_rmx_ExpectedScore  (ESL_DMATRIX *P, double *pi);
 
 
-#endif /*ESL_RATEMATRIX_INCLUDED*/
+#endif /*eslRATEMATRIX_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

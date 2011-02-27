@@ -1,11 +1,11 @@
-/* esl_hyperexp.h
- * Hyperexponential (mixture exponential) distributions.
+/* Hyperexponential (mixture exponential) distributions.
  * 
  * SRE, Mon Aug 15 08:32:33 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_HYPEREXP_INCLUDED
-#define ESL_HYPEREXP_INCLUDED
+#ifndef eslHYPEREXP_INCLUDED
+#define eslHYPEREXP_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -69,8 +69,7 @@ extern int esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h);
 #endif
 #endif
 
-#endif /*ESL_HYPEREXP_INCLUDED*/
-
+#endif /*eslHYPEREXP_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

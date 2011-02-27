@@ -3,9 +3,10 @@
  * 
  * SRE, Tue Jul 12 09:15:56 2005
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_GEV_INCLUDED
-#define ESL_GEV_INCLUDED
+#ifndef eslGEV_INCLUDED
+#define eslGEV_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -43,7 +44,7 @@ extern int esl_gev_FitCensored(double *x, int n, int z, double phi,
 #endif /*eslAUGMENT_MINIMIZER*/
 
 
-#endif /*ESL_GEV_INCLUDED*/
+#endif /*eslGEV_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

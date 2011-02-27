@@ -1,7 +1,8 @@
 /* Multiple sequence alignment file i/o.
  * 
- * SVN $Id$
  * SRE, Wed Jan 19 19:16:28 2005
+ * SVN $Id$
+ * SVN $URL$
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
@@ -280,7 +281,6 @@ extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
 
 
 #endif /*eslMSA_INCLUDED*/
-
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

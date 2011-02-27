@@ -9,6 +9,7 @@
 ################################################################
 
 1 exercise alphabet-utest     @esl_alphabet_utest@
+1 exercise buffer-utest       @esl_buffer_utest@
 1 exercise cluster-utest      @esl_cluster_utest@
 1 exercise dirichlet-utest    @esl_dirichlet_utest@
 1 exercise distance-utest     @esl_distance_utest@

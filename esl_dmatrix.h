@@ -1,10 +1,11 @@
-/* dmatrix.h
+/* Double-precision two-dimensional matrices, and some linear algebra
  * 
  * SRE, Tue Jul 13 14:41:07 2004 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_DMATRIX_INCLUDED
-#define ESL_DMATRIX_INCLUDED
+#ifndef eslDMATRIX_INCLUDED
+#define eslDMATRIX_INCLUDED
 
 #include <stdio.h>
 
@@ -77,8 +78,7 @@ extern int          esl_dmx_UnmorphGSL(const gsl_matrix *G, ESL_DMATRIX **ret_E)
 extern int esl_dmx_Diagonalize(const ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX **ret_UL, ESL_DMATRIX **ret_UR);
 #endif
 
-#endif /*ESL_DMATRIX_INCLUDED*/
-
+#endif /*eslDMATRIX_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

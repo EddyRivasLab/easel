@@ -4,13 +4,13 @@
  * SVN $Id$
  * SVN $URL$
  */
-#ifndef ESL_BUFFER_INCLUDED
-#define ESL_BUFFER_INCLUDED
+#ifndef eslBUFFER_INCLUDED
+#define eslBUFFER_INCLUDED
 
 #include <stdio.h>
 
-#define eslBUFFER_PAGESIZE      4096    /* default for b->pagesize    */
-#define eslBUFFER_SLURPSIZE  4194304
+#define eslBUFFER_PAGESIZE      4096    /* default for b->pagesize                       */
+#define eslBUFFER_SLURPSIZE  4194304	/* switchover from slurping whole file to mmap() */
 
 enum esl_buffer_mode_e {
   eslBUFFER_UNSET   = 0,
@@ -61,13 +61,17 @@ extern int esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n);
 extern int esl_buffer_Set(ESL_BUFFER *bf, char  *p,     esl_pos_t  nused);
 
 /* 4. Line-based parsing */
-extern int esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_GetLine       (ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_FetchLine     (ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n);
 
 /* 5. Token-based parsing */
-extern int esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_GetToken       (ESL_BUFFER *bf, const char *sep, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_FetchToken     (ESL_BUFFER *bf, const char *sep, char **opt_p, esl_pos_t *opt_n);
+extern int esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_p, esl_pos_t *opt_n);
 
 /* 6. Binary (fread-like) parsing */
-extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char *p);
+extern int esl_buffer_Read(ESL_BUFFER *bf, size_t nbytes, void *p);
 
 
 
@@ -103,7 +107,7 @@ extern int esl_buffer_CopyBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char *p);
  *  
  */
 
-#endif	/*ESL_BUFFER_INCLUDED*/
+#endif	/*eslBUFFER_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

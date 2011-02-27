@@ -1,9 +1,10 @@
 /* Unaligned ncbi sequence file i/o.
  * 
- * SVN $Id: esl_sqio_ncbi.h 361 2009-06-30 00:40:48Z farrarm $
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SQIO_NCBI_INCLUDED
-#define ESL_SQIO_NCBI_INCLUDED
+#ifndef eslSQIO_NCBI_INCLUDED
+#define eslSQIO_NCBI_INCLUDED
 
 #include <stdio.h>
 #include "esl_sq.h"
@@ -103,7 +104,7 @@ typedef struct esl_sqncbi_s {
 extern int  esl_sqncbi_Open(char *seqfile, int format, struct esl_sqio_s *sqfp);
 
 
-#endif /*!ESL_SQIO_NCBI_INCLUDED*/
+#endif /*eslSQIO_NCBI_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

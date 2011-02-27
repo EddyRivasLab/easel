@@ -2,9 +2,10 @@
  * 
  * SRE, Mon Apr  2 08:33:23 2007 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SCOREMATRIX_INCLUDED
-#define ESL_SCOREMATRIX_INCLUDED
+#ifndef eslSCOREMATRIX_INCLUDED
+#define eslSCOREMATRIX_INCLUDED
 
 #include <esl_alphabet.h>
 #include <esl_fileparser.h>
@@ -70,8 +71,7 @@ extern int esl_sco_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const 
 
 
 
-#endif /*ESL_SCOREMATRIX_INCLUDED*/
-
+#endif /*eslSCOREMATRIX_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/ 

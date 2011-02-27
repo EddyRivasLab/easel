@@ -37,6 +37,7 @@
  *         original: SRE, Tue Jul 13 15:51:23 2004 [St. Louis]
  * upgrade to Easel: SRE, Thu Mar  8 17:59:35 2007 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

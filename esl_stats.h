@@ -1,11 +1,11 @@
-/* esl_stats.h
- * Foundation for the statistics modules.
+/* Foundation for the statistics modules.
  * 
  * SRE, Tue Jul 19 11:35:28 2005
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_STATS_INCLUDED
-#define ESL_STATS_INCLUDED
+#ifndef eslSTATS_INCLUDED
+#define eslSTATS_INCLUDED
 
 extern int esl_stats_DMean(const double *x, int n, double *opt_mean, double *opt_var);
 extern int esl_stats_FMean(const float  *x, int n, double *opt_mean, double *opt_var);
@@ -18,7 +18,7 @@ extern int esl_stats_LinearRegression(const double *x, const double *y, const do
 				      double *opt_a,       double *opt_b,
 				      double *opt_sigma_a, double *opt_sigma_b, double *opt_cov_ab,
 				      double *opt_cc,      double *opt_Q);
-#endif /*ESL_STATS_INCLUDED*/
+#endif /*eslSTATS_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

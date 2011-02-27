@@ -2,11 +2,12 @@
  * 
  * SRE, Fri Apr  6 10:01:43 2007 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
 #ifndef ESL_ROOTFINDER_INCLUDED
 #define ESL_ROOTFINDER_INCLUDED
 
-#include <esl_config.h>
+#include "esl_config.h"
 
 typedef struct {
   int   (*func)(double, void*, double*);
@@ -47,8 +48,7 @@ extern int esl_root_Bisection(ESL_ROOTFINDER *R, double xl, double xr, double *r
 extern int esl_root_NewtonRaphson(ESL_ROOTFINDER *R, double guess, double *ret_x);
 
 
-#endif /*ESL_ROOTFINDER_INCLUDED*/
-
+#endif /*eslROOTFINDER_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

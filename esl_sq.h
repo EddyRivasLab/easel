@@ -2,9 +2,10 @@
  * 
  * SRE, Mon Mar 31 17:03:51 2008 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SQ_INCLUDED
-#define ESL_SQ_INCLUDED
+#ifndef eslSQ_INCLUDED
+#define eslSQ_INCLUDED
 
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
@@ -191,7 +192,7 @@ extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *ab
 #endif
 extern void          esl_sq_DestroyBlock(ESL_SQ_BLOCK *sqBlock);
 
-#endif /*!ESL_SQ_INCLUDED*/
+#endif /*eslSQ_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

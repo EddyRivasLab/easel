@@ -3,9 +3,10 @@
  * 
  * SRE, Mon Jun 27 08:44:41 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_GUMBEL_INCLUDED
-#define ESL_GUMBEL_INCLUDED
+#ifndef eslGUMBEL_INCLUDED
+#define eslGUMBEL_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -48,9 +49,7 @@ extern int esl_gumbel_FitTruncated(double *x, int n, double phi,
 #endif
 
 
-#endif /*ESL_GUMBEL_INCLUDED*/
-
-
+#endif /*eslGUMBEL_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

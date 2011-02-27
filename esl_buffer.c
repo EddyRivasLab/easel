@@ -1,3 +1,4 @@
+/*::cexcerpt::header_example::begin::*/
 /* An input parsing abstraction.
  *
  * Table of contents:
@@ -7,12 +8,21 @@
  *   4. Line-based parsing.
  *   5. Token-based parsing.
  *   6. Binary (fread-like) parsing.
- *   x. Copyright and license.
+ *   7. Private (static) functions.
+ *   8. Benchmark.
+ *   9. Unit tests.
+ *  10. Test driver.
+ *  11. Examples.
+ *  12. Copyright and license.
  *
  * SRE, Fri Dec 31 23:28:58 2010 [Zaragoza]
  * SVN $Id$
  * SVN $URL$
  */
+/*::cexcerpt::header_example::end::*/
+
+
+/*::cexcerpt::include_example::begin::*/
 #include "esl_config.h"
 
 #include <stdio.h>
@@ -30,7 +40,11 @@
 
 #include "easel.h"
 #include "esl_buffer.h"
+/*::cexcerpt::include_example::end::*/
 
+
+
+/*::cexcerpt::statics_example::begin::*/
 static int buffer_create           (ESL_BUFFER **ret_bf);
 static int buffer_init_file_mmap   (ESL_BUFFER *bf, esl_pos_t filesize);
 static int buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize);
@@ -41,6 +55,9 @@ static int buffer_countline(ESL_BUFFER *bf, esl_pos_t *opt_nc, esl_pos_t *opt_ns
 static int buffer_skipsep  (ESL_BUFFER *bf, const char *sep);
 static int buffer_newline  (ESL_BUFFER *bf);
 static int buffer_counttok (ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc);
+/*::cexcerpt::statics_example::end::*/
+
+
 
 /*****************************************************************
  *# 1. ESL_BUFFER object: opening/closing.
@@ -201,7 +218,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
    * will be the Easel default 4096 (set in buffer_create().)
    */
 #ifdef _POSIX_VERSION
-  status       = fstat(fileno(bf->fp), &fileinfo);
+  if (fstat(fileno(bf->fp), &fileinfo) == -1) ESL_XEXCEPTION(eslESYS, "fstat() failed");
   filesize     = fileinfo.st_size;
   bf->pagesize = fileinfo.st_blksize;
   if (bf->pagesize < 512)     bf->pagesize = 512;      /* I feel paranoid about st_blksize range not being guaranteed to be sensible */
@@ -353,8 +370,10 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
   if (bf->n < bf->pagesize) 
     {
       if (ferror(bf->fp))      ESL_XEXCEPTION(eslESYS, "fread() failed");
-      if (pclose(bf->fp) != 0) ESL_XFAIL(eslFAIL, bf->errmsg, "pipe command '%s' did not succeed", cmd);
-
+      if (pclose(bf->fp) != 0) {
+	bf->fp = NULL;		/* error block is going to try to pclose() too */
+	ESL_XFAIL(eslFAIL, bf->errmsg, "pipe command '%s' did not succeed", cmd);
+      }
       bf->fp      = NULL;
       bf->balloc  = 0;
       bf->mode_is = eslBUFFER_ALLFILE;
@@ -509,151 +528,31 @@ esl_buffer_OpenStream(FILE *fp, ESL_BUFFER **ret_bf)
 int
 esl_buffer_Close(ESL_BUFFER *bf)
 {
-  char msg[64];
-  int  status = eslOK;
-
-  if (bf->mem) 
+  if (bf) 
     {
-      if (bf->mode_is != eslBUFFER_MMAP) free(bf->mem);
-      if (bf->mode_is == eslBUFFER_MMAP && munmap(bf->mem, bf->n) == -1) { status = eslESYS; strcpy(msg, "munmap() failed"); }
-    }	
+      if (bf->mem) 
+	{
+	  switch (bf->mode_is) {
+	  case eslBUFFER_MMAP:   if (munmap(bf->mem, bf->n) == -1) ESL_EXCEPTION(eslESYS, "munmap() failed"); break;
+	  case eslBUFFER_STRING: break; /* caller provided and remains responsible for an input memory buffer */
+	  default:               free(bf->mem);
+	  }
+	}	
 
-  if (bf->fp)
-    {
-      if (bf->mode_is == eslBUFFER_CMDPIPE && pclose(bf->fp) == -1) { status = eslESYS; strcpy(msg, "pclose() failed"); }
-      if (bf->mode_is == eslBUFFER_FILE    && fclose(bf->fp) == -1) { status = eslESYS; strcpy(msg, "fclose() failed"); }
+      if (bf->fp)
+	{
+	  switch (bf->mode_is) {
+	  case eslBUFFER_CMDPIPE: if (pclose(bf->fp) == -1) ESL_EXCEPTION(eslESYS, "pclose() failed"); break;
+	  case eslBUFFER_STREAM:  break; /* caller provided and remains responsible for an open stream */
+	  default:                if (fclose(bf->fp) == -1) ESL_EXCEPTION(eslESYS, "fclose() failed"); break;
+	  }
+	}
+
+      if (bf->filename) free(bf->filename);
+      if (bf->cmdline)  free(bf->cmdline);
+      free(bf);
     }
-
-  if (bf->filename) free(bf->filename);
-  if (bf->cmdline)  free(bf->cmdline);
-  free(bf);
-
-  if (status != eslOK) ESL_EXCEPTION(status, msg);
   return eslOK;
-}
-
-
-/* buffer_create()
- * SRE, Sun Jan 23 19:18:40 2011 [UA975 IAD->SFO]
- * 
- * Allocate a new ESL_BUFFER and return it in <*ret_bf>;
- * with all fields initialized; return <eslOK>.
- * 
- * On allocation failure, returns <eslEMEM> and <*ret_bf>
- * is <NULL>.
- */
-static int
-buffer_create(ESL_BUFFER **ret_bf)
-{
-  ESL_BUFFER *bf  = NULL;
-  int         status;
-
-  ESL_ALLOC(bf, sizeof(ESL_BUFFER));
-  bf->mem        = NULL;
-  bf->n          = 0;
-  bf->balloc     = 0;
-  bf->pos        = 0;
-  bf->baseoffset = 0;
-  bf->anchor     = -1;
-  bf->fp         = NULL;
-  bf->filename   = NULL;
-  bf->cmdline    = NULL;
-  bf->pagesize   = eslBUFFER_PAGESIZE;
-  bf->errmsg[0]  = '\0';
-  bf->mode_is    = eslBUFFER_UNSET;
-
-  *ret_bf = bf;
-  return eslOK;
-
- ERROR:
-  if (bf) free(bf);
-  *ret_bf = NULL;
-  return status;
-}
-	    
-/* buffer_init_file_mmap()
- * SRE, Sun Jan 23 19:02:34 2011 [UA975 IAD->SFO]
- * 
- * On entry, we've already opened the file;
- *   bf->fp       = open stream for reading
- *   bf->filename = name of the file
- *
- * On success, returns eslOK, and *ret_bf has:
- *  bf->mem       mmap'ed file
- *  bf->n         size of the entire file, in bytes
- *  bf->mode_is   eslBUFFER_MMAP
- * 
- * On failure, returns error code, and *ret_bf has:
- *  bf->errmsg    helpful error message
- *  (all other fields at creation defaults)
- *  
- * On exception, returns error code, and *ret_bf
- * is left with all fields at creation defaults. 
- */
-static int
-buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
-{
-  int          status;
-  /*    mmap(addr, len,          prot,      flags,                  fd,             offset */
-  bf->mem = mmap(0,    filesize, PROT_READ, MAP_FILE | MAP_PRIVATE, fileno(bf->fp), 0);
-  if (bf->mem == MAP_FAILED) ESL_XEXCEPTION(eslESYS, "mmap()");
-
-  bf->n       = filesize;
-  bf->mode_is = eslBUFFER_MMAP;
-
-  /* open fp no longer needed - close it. */
-  fclose(bf->fp);
-  bf->fp = NULL;
-  return eslOK;
-
- ERROR:
-  if (bf->mem != MAP_FAILED) { munmap(bf->mem, bf->n); bf->mem      = NULL; }
-  bf->n       = 0;
-  bf->mode_is = eslBUFFER_UNSET;
-  return status;
-}
-
-int
-buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize)
-{
-  int status;
-
-  ESL_ALLOC(bf->mem, sizeof(char) * filesize);
-  bf->balloc = filesize;
-
-  bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
-  if (bf->n < filesize)
-    ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
-
-  bf->mode_is = eslBUFFER_ALLFILE;
-
-  fclose(bf->fp);   /* open fp no longer needed - close it. */
-  bf->fp = NULL;
-  return eslOK;
-
- ERROR:
-  if (bf->mem) { free(bf->mem); bf->mem = NULL; }
-  return status;
-}
-
-int
-buffer_init_file_basic(ESL_BUFFER *bf)
-{
-  int status;
-
-  ESL_ALLOC(bf->mem, sizeof(char) * bf->pagesize);
-  bf->balloc  = bf->pagesize;
-
-  bf->n       = fread(bf->mem, sizeof(char), bf->pagesize, bf->fp);
-  if (bf->n < bf->pagesize && ferror(bf->fp))
-    ESL_XEXCEPTION(eslESYS, "failed to read first chunk of %s", bf->filename);
-
-  bf->mode_is = eslBUFFER_FILE;
-  return eslOK;
-
- ERROR:
-  if (bf->mem)  { free(bf->mem); bf->mem = NULL; }
-  return status;
 }
 /*--------------- end, ESL_BUFFER open/close --------------------*/
 
@@ -840,10 +739,57 @@ esl_buffer_SetAnchor(ESL_BUFFER *bf, esl_pos_t offset)
   if (offset < bf->baseoffset || offset > bf->baseoffset + bf->n)
     ESL_EXCEPTION(eslEINVAL, "can't set an anchor outside current buffer");
 
-  if (bf->anchor == -1) bf->anchor = offset-bf->baseoffset;
-  else                  bf->anchor = ESL_MIN(offset-bf->baseoffset, bf->anchor);
+  if (bf->anchor == -1 || offset-bf->baseoffset < bf->anchor)
+    bf->anchor = offset-bf->baseoffset;
   return eslOK;
 }
+
+/* Function:  esl_buffer_SetStableAnchor()
+ * Synopsis:  Set a stable anchor.
+ * Incept:    SRE, Sun Feb 27 09:15:35 2011 [Janelia]
+ *
+ * Purpose:   Same as <esl_buffer_SetAnchor()>, except the anchor is
+ *            such that all pointers returned by <_Get*()> functions
+ *            will remain valid at least until the anchor is raised.
+ *
+ *            The main use of this is when the caller wants to get
+ *            multiple lines or tokens in the input before parsing 
+ *            them. 
+ *
+ *            A stable anchor prevents buffer refills/reloads from
+ *            moving the internal memory around while the anchor is
+ *            in place.
+ *
+ * Args:      bf     - input buffer
+ *            offset - absolute position in input, <0..inputlen-1>
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if <offset> is not in current buffer window.
+ * 
+ * Notes:     We make a special call for stable anchors, as opposed
+ *            to most anchors, because the <memmove()> call here
+ *            to rebaseline the buffer's <mem> is expensive.
+ */
+int 
+esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset)
+{
+  esl_pos_t ndel;
+  int       status;
+
+  if (! bf->fp) return eslOK;	/* without an open stream, no-op: everything is available */
+
+  if ( (status = esl_buffer_SetAnchor(bf, offset)) != eslOK) return status;
+
+  ndel       = bf->anchor;
+  bf->anchor = 0;
+  bf->n     -= ndel;
+  bf->pos   -= ndel;
+  if (bf->n) memmove(bf->mem, bf->mem+ndel, bf->n);
+  bf->baseoffset += ndel;
+  return eslOK;
+}
+
 
 /* Function:  esl_buffer_RaiseAnchor()
  * Synopsis:  Raise an anchor.
@@ -877,78 +823,6 @@ esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset)
   if (bf->anchor ==  offset - bf->baseoffset) bf->anchor = -1;
   return eslOK;
 }
-
-/* buffer_refill()      
- * For current buffer position bf->pos, try to assure that
- * we have at least <bf->pagesize> bytes loaded in <bf->mem> to parse.
- *
- *  If new read won't fit (space remaining: balloc-n; read size: memreadsize)
- *  then make room for it:
- *       if no anchor:   ndel = pos
- *       else w/ anchor: ndel = anchor; anchor = 0
- *       n      -= ndel               bytes are moved
- *       pos    -= ndel
- *       if (n) move <n> bytes from <ndel> to 0.
- *       base_offset += ndel
- *       if (n + memreadsize > balloc) reallocate mem
- *       fread() a block into position mem+n
- *       n += memreadsize
- *           
- *  For example, suppose we've completely parsed the buffer (pos == n) and we have no
- *  anchor: then:
- *       ndel        = n
- *       n           = 0   (no bytes are moved)
- *       pos         = 0
- *       base_offset += n
- *       fread a new block into mem+0
- *       n += memreadsize
- *
- * Returns: <eslOK> on success.
- *          <eslEOF> if no data remain in buffer nor to be read. Now pos == n.
- *          
- * Throws:  <eslEMEM> if an allocation fails. 
- *          <eslESYS> if fread() fails mysteriously.
- *          <eslEINCONCEIVABLE> if internal state of <bf> is corrupt.
- */
-static int 
-buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
-{
-  esl_pos_t ndel;
-  esl_pos_t nread;
-  int       status;
-
-  if (! bf->fp || feof(bf->fp)) return ( (bf->pos < bf->n) ? eslOK : eslEOF); /* without an active fp, we have whole buffer in memory; either no-op OK, or EOF */
-  if (bf->n - bf->pos >= nmin + bf->pagesize) return eslOK;                   /* if we already have enough data in buffer window, no-op       w  */
-
-  if (bf->pos > bf->n) ESL_EXCEPTION(eslEINCONCEIVABLE, "impossible position for buffer <pos>"); 
-  
-  /* Relocation, shift left to conserve memory */
-  if (bf->balloc - bf->n < bf->pagesize && bf->pos > 0)
-    {
-      if (bf->anchor == -1)   ndel = bf->pos;                   
-      else                  { ndel = bf->anchor; bf->anchor = 0; }
-      bf->n   -= ndel;
-      bf->pos -= ndel;
-      if (bf->n) memmove(bf->mem, bf->mem+ndel, bf->n);
-      bf->baseoffset += ndel;
-    }
-
-  if (bf->n + bf->pagesize > bf->balloc)
-    {
-      void *tmp;
-      ESL_RALLOC(bf->mem, tmp, sizeof(char) * (bf->n + bf->pagesize));
-      bf->balloc = bf->n + bf->pagesize;
-    }
-
-  nread = fread(bf->mem+bf->n, sizeof(char), bf->pagesize, bf->fp);
-  if (nread == 0 && ferror(bf->fp)) ESL_EXCEPTION(eslESYS, "fread() failure");
-
-  bf->n += nread;
-  if (nread == 0 && bf->pos == bf->n) return eslEOF; else return eslOK;
-
- ERROR:
-  return status;
-}
 /*--------------- end, ESL_BUFFER manipulation ------------------*/
 
 
@@ -966,9 +840,9 @@ buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
  *            parsing position in <*ret_p>, and the number of valid
  *            bytes from that position in <*ret_n>.
  *            
- *            If buffer is at EOF, returns <NULL> in <*ret_p> and
- *            0 in <*ret_n>. 
- *
+ *            If buffer is at EOF (no valid bytes remain), returns
+ *            <eslEOF> with <NULL> in <*ret_p> and 0 in <*ret_n>.
+ *            
  *            The buffer's parsing position <bf->pos> is NOT 
  *            changed. Another <Get()> call will return exactly
  *            the same <p> and <n>. Each <Get()> call is generally
@@ -984,26 +858,19 @@ buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
  *            ret_n - RETURN: number of valid bytes at *ret_p, or 0 on EOF
  *
  * Returns:   <eslOK> on success;
- *            <eslEOF> if no valid bytes remain in the input.
+ *            <eslEOF> if no valid bytes remain in the input, or if
+ *               <*ret_n> is less than <nrequest>. 
+ *
+ * Throws:    <eslEMEM> on allocation failure. 
+ *            <eslESYS> if fread() fails mysteriously.
+ *            <eslEINCONCEIVABLE> if internal state of <bf> is corrupt.
  */
 int
 esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n)
 {
-  int status;
-
-  if (bf->pos < bf->n)
-    {
-      *ret_p = bf->mem + bf->pos;
-      *ret_n = bf->n - bf->pos;
-      status = eslOK;
-    }
-  else
-    {
-      *ret_p = NULL;
-      *ret_n = 0;
-      status = eslEOF;
-    }
-  return status;
+  *ret_p = (bf->pos < bf->n ? bf->mem + bf->pos : NULL);
+  *ret_n = (bf->pos < bf->n ? bf->n - bf->pos   : 0);
+  return   (bf->pos < bf->n ? eslOK             : eslEOF);
 }
 
 /* Function:  esl_buffer_Set()
@@ -1057,7 +924,8 @@ esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n)
  *
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslESYS> if fread() fails mysteriously.
+ * Throws:    <eslEMEM> on allocation failure. 
+ *            <eslESYS> if fread() fails mysteriously.
  *            <eslEINCONCEIVABLE> if internal state of <bf> is corrupt.
  */
 int
@@ -1066,7 +934,7 @@ esl_buffer_Set(ESL_BUFFER *bf, char *p, esl_pos_t nused)
   int status;
   if (p) bf->pos = (p - bf->mem) + nused;
   status = buffer_refill(bf, 0);
-  if (status == eslOK && status == eslEOF) return eslOK; 
+  if (status == eslOK || status == eslEOF) return eslOK; 
   else return status;
 }
 /*----------------- end, lowest level access --------------------*/
@@ -1153,7 +1021,7 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *
  * Purpose:   Get the next line from the buffer <bf>, starting from its
  *            current position.  Return an allocated copy of it in
- *            <*ret_p>, and its length in bytes in <*ret_n>.  Advance
+ *            <*opt_p>, and its length in bytes in <*opt_n>.  Advance
  *            the buffer position past (one) newline, putting it on
  *            the next valid byte. The last line in a file does not
  *            need to be terminated by a newline. The returned memory is not
@@ -1280,8 +1148,531 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
   return status;
 
 }
+/*------------------ end, line-based parsing --------------------*/
 
-/* buffer_getline()
+/*****************************************************************
+ *# 5. Token-based parsing
+ *****************************************************************/
+
+/* Function:  esl_buffer_GetToken()
+ * Synopsis:  Get next token.
+ * Incept:    SRE, Sat Jan  1 19:42:44 2011 [Janelia]
+ *
+ * Purpose:   Find the next token in <bf> delimited by the separator
+ *            characters in <sep> or newline. Return a pointer
+ *            to that token in <*opt_tok>, and its length in <*opt_n>.
+ *            A 'token' consists of one or more characters that are
+ *            neither in <sep> nor a newline ('\r' or '\n').
+ *            
+ *            Because the caller only gets a pointer into the buffer's
+ *            current memory, it should not call another
+ *            <esl_buffer_*> function until it's done with the token
+ *            or made a copy of it.
+ *            
+ *            In detail, starting from the buffer <bf>'s current
+ *            point; first skip past any leading characters in <sep>. If EOF
+ *            is reached, return <eslEOF>. If the point is now on a
+ *            newline, skip past it and return <eslEOL>. Set an anchor
+ *            at the current point. Count how many non-separator
+ *            characters <n> occur from the current point <p>
+ *            (expand/refill buffer as needed), and define the token
+ *            as <p[0..n-1]>. Skip any trailing characters in <sep>. 
+ *            Set the point to the start of the next token (a char not
+ *            in <sep>.) Release the anchor and return.
+ *            
+ *            If caller knows how many tokens it expects on each line,
+ *            it should not include <"\r\n"> in its <sep>. This way,
+ *            hitting a newline will cause a <eslEOL> return. The
+ *            caller can check for expected or unexpected <EOL>'s.
+ *            
+ *            If the caller doesn't care how many tokens it allows per
+ *            line, it should include <"\r\n"> in its <sep>. Now
+ *            newlines will be skipped like any other separator
+ *            character, and the only normal returns are <eslEOF> and
+ *            <eslOK>.
+ *            
+ * Args:      bf      - open buffer
+ *            sep     - string defining separator characters; <" \t\r\n"> for example.
+ *            opt_tok - optRETURN: pointer to token in the <bf>
+ *            opt_n   - optRETURN: number of characters in the token
+ *
+ * Returns:   <eslOK> if a token is found; <*ret_p> points to it,
+ *            and <*opt_n> is its length in chars (> 0). The current
+ *            point is at the start of the next token.
+ *            
+ *            <eslEOF> if the input ends before any token is found.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at EOF.
+ *            
+ *            <eslEOL> if a line ends before a token is found.  (This
+ *            case only arises if *sep does not contain newline.)
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at the next character following the newline.
+ *            
+ *            <bf->mem> may be modified and/or reallocated, if new
+ *            input reads are required to find the entire token.
+ *
+ * Throws:    <eslEMEM> if an allocation fails.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The
+ *            current point is undefined.
+ */
+int
+esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *opt_n)
+{
+  esl_pos_t anch;
+  esl_pos_t nc;
+  int       anch_set = FALSE;
+  int       status;
+
+  if ( (status = buffer_skipsep(bf, sep)) != eslOK) goto ERROR; /* includes EOF */
+  /* Now bf->pos is sitting on first char after seps */
+
+  if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
+
+  anch = bf->baseoffset + bf->pos;
+  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  anch_set = TRUE;
+
+  if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
+  bf->pos     += nc;
+
+  if ((status = buffer_skipsep(bf, sep))  != eslOK && status != eslEOF) goto ERROR;
+  if ((status = buffer_refill(bf, 0))     != eslOK && status != eslEOF) goto ERROR;
+
+  if (opt_tok) *opt_tok = bf->mem + (anch - bf->baseoffset);
+  if (opt_n)   *opt_n   = nc;
+  anch_set     = FALSE;
+  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  return eslOK;
+  
+ ERROR:
+  if (anch_set) esl_buffer_RaiseAnchor(bf, anch);
+  if (opt_tok) *opt_tok = NULL;
+  if (opt_n)   *opt_n   = 0;
+  return status;
+}
+
+/* Function:  esl_buffer_FetchToken()
+ * Synopsis:  Fetch copy of next token. 
+ * Incept:    SRE, Thu Feb 24 08:54:54 2011 [Janelia]
+ *
+ * Purpose:   Essentially the same as <esl_buffer_GetToken()>, except a
+ *            copy of the token is made into newly allocated memory,
+ *            and a pointer to this memory is returned in <*opt_tok>.
+ *            The caller is responsible for freeing the memory. 
+ *
+ *            The token is raw memory, not a <NUL>-terminated string. 
+ *            To fetch tokens as <NUL>-terminated strings, see 
+ *            <esl_buffer_GetTokenAsStr()>.
+ *
+ * Args:      bf      - open buffer
+ *            sep     - string defining separator characters; <" \t\r\n"> for example.
+ *            opt_tok - optRETURN: allocated copy of token
+ *            opt_n   - optRETURN: number of characters in the token
+ *
+ * Returns:   <eslOK> if a token is found; <*ret_p> points to it,
+ *            and <*opt_n> is its length in chars (> 0). The current
+ *            point is at the start of the next token.
+ *            
+ *            <eslEOF> if the input ends before any token is found.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at EOF.
+ *            
+ *            <eslEOL> if a line ends before a token is found.  (This
+ *            case only arises if *sep does not contain newline.)
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at the next character following the newline.
+ *            
+ *            <bf->mem> may be modified and/or reallocated, if new
+ *            input reads are required to find the entire token.
+ *
+ * Throws:    <eslEMEM> if an allocation fails.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The
+ *            current point is undefined.
+ */
+int
+esl_buffer_FetchToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *opt_n)
+{
+  char     *tok      = NULL;
+  esl_pos_t anch;
+  esl_pos_t nc;
+  int       anch_set = FALSE;
+  int       status;
+
+  if ( (status = buffer_skipsep(bf, sep)) != eslOK) goto ERROR; /* includes EOF */
+  /* Now bf->pos is sitting on first char after seps */
+
+  if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
+
+  anch = bf->baseoffset + bf->pos;
+  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  anch_set = TRUE;
+
+  if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
+  /* now we know that pos..pos+nc-1 is a token; pos+nc is the next parser position */
+
+  /* copy the token */
+  ESL_ALLOC(tok, sizeof(char) * nc);
+  memcpy(tok, bf->mem+bf->pos, nc);
+  bf->pos     += nc;
+
+  /* in a Fetch, we can raise the anchor before the new refill */
+  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  anch_set     = FALSE;
+
+  if ((status = buffer_skipsep(bf, sep))  != eslOK && status != eslEOF) goto ERROR;
+  if ((status = buffer_refill(bf, 0))     != eslOK && status != eslEOF) goto ERROR; 
+
+  if (opt_tok) *opt_tok = tok; else free(tok);
+  if (opt_n)   *opt_n   = nc;
+  return eslOK;
+  
+ ERROR:
+  if (tok)      free(tok);
+  if (anch_set) esl_buffer_RaiseAnchor(bf, anch);
+  if (opt_tok) *opt_tok = NULL;
+  if (opt_n)   *opt_n   = 0;
+  return status;
+}
+
+
+/* Function:  esl_buffer_FetchTokenAsStr()
+ * Synopsis:  Fetch copy of next token as <\0>-terminated string.
+ * Incept:    SRE, Sat Jan  1 19:31:57 2011 [Zaragoza]
+ *
+ * Purpose:   Essentially the same as <esl_buffer_FetchToken()> 
+ *            except the copied token is <\0>-terminated so it
+ *            can be treated as a string.
+ *
+ * Args:      bf      - open buffer
+ *            sep     - string defining separator characters; <" \t\r\n"> for example.
+ *            opt_tok - optRETURN: allocated copy of token
+ *            opt_n   - optRETURN: number of characters in the token
+ *
+ * Returns:   <eslOK> if a token is found; <*ret_p> points to it,
+ *            and <*opt_n> is its length in chars (> 0). The current
+ *            point is at the start of the next token.
+ *            
+ *            <eslEOF> if the input ends before any token is found.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at EOF.
+ *            
+ *            <eslEOL> if a line ends before a token is found.  (This
+ *            case only arises if *sep does not contain newline.)
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The current
+ *            point is at the next character following the newline.
+ *            
+ *            <bf->mem> may be modified and/or reallocated, if new
+ *            input reads are required to find the entire token.
+ *
+ * Throws:    <eslEMEM> if an allocation fails.
+ *            Now <*ret_p> is <NULL> and <*opt_n> is 0. The
+ *            current point is undefined.
+ */
+int
+esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *opt_n)
+{
+  char     *tok      = NULL;
+  esl_pos_t anch;
+  esl_pos_t nc;
+  int       anch_set = FALSE;
+  int       status;
+
+  if ( (status = buffer_skipsep(bf, sep)) != eslOK) goto ERROR; /* includes EOF */
+  /* Now bf->pos is sitting on first char after seps */
+
+  if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
+
+  anch = bf->baseoffset + bf->pos;
+  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  anch_set = TRUE;
+
+  if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
+  /* now we know that pos..pos+nc-1 is a token; pos+nc is the next parser position */
+
+  /* copy the token */
+  ESL_ALLOC(tok, sizeof(char) * (nc+1));
+  memcpy(tok, bf->mem+bf->pos, nc);
+  tok[nc] = '\0';
+  bf->pos += nc;
+
+  /* in a Fetch, we can raise the anchor before the new refill */
+  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  anch_set     = FALSE;
+
+  
+  if ((status = buffer_skipsep(bf, sep))  != eslOK && status != eslEOF) goto ERROR;
+  if ((status = buffer_refill(bf, 0))     != eslOK && status != eslEOF) goto ERROR; 
+
+  if (opt_tok) *opt_tok = tok; else free(tok);
+  if (opt_n)   *opt_n   = nc;
+  return eslOK;
+  
+ ERROR:
+  if (tok)      free(tok);
+  if (anch_set) esl_buffer_RaiseAnchor(bf, anch);
+  if (opt_tok) *opt_tok = NULL;
+  if (opt_n)   *opt_n   = 0;
+  return status;
+}
+/*----------------- end, token-based parsing --------------------*/
+  
+
+
+/*****************************************************************
+ *# 6. Binary (fread-like) parsing
+ *****************************************************************/
+
+/* Function:  esl_buffer_Read()
+ * Synopsis:  Copy a fixed number of bytes from a buffer. 
+ * Incept:    SRE, Thu Feb 24 09:25:04 2011 [Janelia]
+ *
+ * Purpose:   Given an input buffer <bf>, read exactly <nbytes>
+ *            characters into memory <p> provided by the caller.
+ * 
+ *            Suitable for copying known-width scalars from
+ *            binary files, as in:
+ *                char c;
+ *                int  n;
+ *                esl_buffer_Read(bf, sizeof(char), c);
+ *                esl_buffer_Read(bf, sizeof(int),  n);
+ *
+ * Args:      bf     - open input buffer
+ *            nbytes - number of characters to read
+ *            p      - caller-provided memory for storing the copied bytes
+ *
+ * Returns:   <eslOK> on success; <p> contains exactly <nbytes>
+ *            of data from <bf>, and the point is advanced by <nbytes>.
+ *
+ *            <eslEOF> if less than <nbytes> characters remain 
+ *            in <bf>. Point is unchanged.
+ * 
+ * Throws:    <eslEMEM> if an allocation fails.
+ *            <eslESYS> if an fread() fails mysteriously.
+ *            <eslEINCONCEIVABLE> if internal state of <bf> is corrupted.
+ */
+int 
+esl_buffer_Read(ESL_BUFFER *bf, size_t nbytes, void *p)
+{
+  int status;
+
+  if (bf->n - bf->pos < nbytes)
+    {
+      status = buffer_refill(bf, nbytes + bf->pagesize);
+      if       (status == eslEOF)       return eslEOF;
+      else if  (status != eslOK)        return status; /* EMEM, ESYS, EINCONCEIVABLE */
+      else if  (bf->n-bf->pos < nbytes) return eslEOF;
+    }
+
+  memcpy(p, bf->mem+bf->pos, nbytes);
+  bf->pos += nbytes;
+
+  if ((status = buffer_refill(bf, 0)) != eslOK && status != eslEOF) return status; /* accept EOF, we've already copied what we need */
+  return eslOK;
+}
+/*------------ end, binary (fread-like) parsing -----------------*/
+
+
+/*****************************************************************
+ * 7. Private (static) functions
+ *****************************************************************/
+
+/* buffer_create()
+ * SRE, Sun Jan 23 19:18:40 2011 [UA975 IAD->SFO]
+ * 
+ * Allocate a new ESL_BUFFER and return it in <*ret_bf>;
+ * with all fields initialized; return <eslOK>.
+ * 
+ * On allocation failure, returns <eslEMEM> and <*ret_bf>
+ * is <NULL>.
+ */
+static int
+buffer_create(ESL_BUFFER **ret_bf)
+{
+  ESL_BUFFER *bf  = NULL;
+  int         status;
+
+  ESL_ALLOC(bf, sizeof(ESL_BUFFER));
+  bf->mem        = NULL;
+  bf->n          = 0;
+  bf->balloc     = 0;
+  bf->pos        = 0;
+  bf->baseoffset = 0;
+  bf->anchor     = -1;
+  bf->fp         = NULL;
+  bf->filename   = NULL;
+  bf->cmdline    = NULL;
+  bf->pagesize   = eslBUFFER_PAGESIZE;
+  bf->errmsg[0]  = '\0';
+  bf->mode_is    = eslBUFFER_UNSET;
+
+  *ret_bf = bf;
+  return eslOK;
+
+ ERROR:
+  if (bf) free(bf);
+  *ret_bf = NULL;
+  return status;
+}
+	    
+/* buffer_init_file_mmap()
+ * SRE, Sun Jan 23 19:02:34 2011 [UA975 IAD->SFO]
+ * 
+ * On entry, we've already opened the file;
+ *   bf->fp       = open stream for reading
+ *   bf->filename = name of the file
+ *
+ * On success, returns eslOK, and *ret_bf has:
+ *  bf->mem       mmap'ed file
+ *  bf->n         size of the entire file, in bytes
+ *  bf->mode_is   eslBUFFER_MMAP
+ * 
+ * On failure, returns error code, and *ret_bf has:
+ *  bf->errmsg    helpful error message
+ *  (all other fields at creation defaults)
+ *  
+ * On exception, returns error code, and *ret_bf
+ * is left with all fields at creation defaults. 
+ */
+static int
+buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
+{
+  int          status;
+  /*    mmap(addr, len,          prot,      flags,                  fd,             offset */
+  bf->mem = mmap(0,    filesize, PROT_READ, MAP_FILE | MAP_PRIVATE, fileno(bf->fp), 0);
+  if (bf->mem == MAP_FAILED) ESL_XEXCEPTION(eslESYS, "mmap()");
+
+  bf->n       = filesize;
+  bf->mode_is = eslBUFFER_MMAP;
+
+  /* open fp no longer needed - close it. */
+  fclose(bf->fp);
+  bf->fp = NULL;
+  return eslOK;
+
+ ERROR:
+  if (bf->mem != MAP_FAILED) { munmap(bf->mem, bf->n); bf->mem      = NULL; }
+  bf->n       = 0;
+  bf->mode_is = eslBUFFER_UNSET;
+  return status;
+}
+
+int
+buffer_init_file_slurped(ESL_BUFFER *bf, esl_pos_t filesize)
+{
+  int status;
+
+  ESL_ALLOC(bf->mem, sizeof(char) * filesize);
+  bf->balloc = filesize;
+
+  bf->n = fread(bf->mem, sizeof(char), filesize, bf->fp);
+  if (bf->n < filesize)
+    ESL_XEXCEPTION(eslESYS, "failed to slurp %s\n", bf->filename);
+
+  bf->mode_is = eslBUFFER_ALLFILE;
+
+  fclose(bf->fp);   /* open fp no longer needed - close it. */
+  bf->fp = NULL;
+  return eslOK;
+
+ ERROR:
+  if (bf->mem) { free(bf->mem); bf->mem = NULL; }
+  return status;
+}
+
+int
+buffer_init_file_basic(ESL_BUFFER *bf)
+{
+  int status;
+
+  ESL_ALLOC(bf->mem, sizeof(char) * bf->pagesize);
+  bf->balloc  = bf->pagesize;
+
+  bf->n       = fread(bf->mem, sizeof(char), bf->pagesize, bf->fp);
+  if (bf->n < bf->pagesize && ferror(bf->fp))
+    ESL_XEXCEPTION(eslESYS, "failed to read first chunk of %s", bf->filename);
+
+  bf->mode_is = eslBUFFER_FILE;
+  return eslOK;
+
+ ERROR:
+  if (bf->mem)  { free(bf->mem); bf->mem = NULL; }
+  return status;
+}
+
+/* buffer_refill()      
+ * For current buffer position bf->pos, try to assure that
+ * we have at least <bf->pagesize> bytes loaded in <bf->mem> to parse.
+ *
+ *  If new read won't fit (space remaining: balloc-n; read size: memreadsize)
+ *  then make room for it:
+ *       if no anchor:   ndel = pos
+ *       else w/ anchor: ndel = anchor; anchor = 0
+ *       n      -= ndel               bytes are moved
+ *       pos    -= ndel
+ *       if (n) move <n> bytes from <ndel> to 0.
+ *       base_offset += ndel
+ *       if (n + memreadsize > balloc) reallocate mem
+ *       fread() a block into position mem+n
+ *       n += memreadsize
+ *           
+ *  For example, suppose we've completely parsed the buffer (pos == n) and we have no
+ *  anchor: then:
+ *       ndel        = n
+ *       n           = 0   (no bytes are moved)
+ *       pos         = 0
+ *       base_offset += n
+ *       fread a new block into mem+0
+ *       n += memreadsize
+ *
+ * Returns: <eslOK> on success.
+ *          <eslEOF> if no data remain in buffer nor to be read. Now pos == n.
+ *          
+ * Throws:  <eslEMEM> if an allocation fails. 
+ *          <eslESYS> if fread() fails mysteriously.
+ *          <eslEINCONCEIVABLE> if internal state of <bf> is corrupt.
+ */
+static int 
+buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
+{
+  esl_pos_t ndel;
+  esl_pos_t nread;
+  int       status;
+
+  if (! bf->fp || feof(bf->fp)) return ( (bf->pos < bf->n) ? eslOK : eslEOF); /* without an active fp, we have whole buffer in memory; either no-op OK, or EOF */
+  if (bf->n - bf->pos >= nmin + bf->pagesize) return eslOK;                   /* if we already have enough data in buffer window, no-op       w  */
+
+  if (bf->pos > bf->n) ESL_EXCEPTION(eslEINCONCEIVABLE, "impossible position for buffer <pos>"); 
+  
+  /* Relocation, shift left to conserve memory */
+  if (bf->balloc - bf->n < bf->pagesize && bf->pos > 0)
+    {
+      if (bf->anchor == -1)   ndel = bf->pos;                   
+      else                  { ndel = bf->anchor; bf->anchor = 0; }
+      bf->n   -= ndel;
+      bf->pos -= ndel;
+      if (bf->n) memmove(bf->mem, bf->mem+ndel, bf->n);
+      bf->baseoffset += ndel;
+    }
+
+  if (bf->n + bf->pagesize > bf->balloc)
+    {
+      void *tmp;
+      ESL_RALLOC(bf->mem, tmp, sizeof(char) * (bf->n + bf->pagesize));
+      bf->balloc = bf->n + bf->pagesize;
+    }
+
+  nread = fread(bf->mem+bf->n, sizeof(char), bf->pagesize, bf->fp);
+  if (nread == 0 && ferror(bf->fp)) ESL_EXCEPTION(eslESYS, "fread() failure");
+
+  bf->n += nread;
+  if (nread == 0 && bf->pos == bf->n) return eslEOF; else return eslOK;
+
+ ERROR:
+  return status;
+}
+
+/* buffer_countline()
  * The guts of esl_buffer_GetLine().
  * 
  * Starting from the current buffer position bf->pos, count the number
@@ -1353,162 +1744,6 @@ buffer_countline(ESL_BUFFER *bf, esl_pos_t *opt_nc, esl_pos_t *opt_nskip)
   if (opt_nc)    *opt_nc    = 0;
   if (opt_nskip) *opt_nskip = 0;
   return status;
-}
-/*------------------ end, line-based parsing --------------------*/
-
-/*****************************************************************
- *# 5. Token-based parsing
- *****************************************************************/
-
-
-/* Token-based parsing using an ESL_BUFFER:
- *   int esl_buffer_GetToken (ESL_BUFFER *bf, char *sep, char **opt_tok, esl_pos_t *opt_n)
- *   int esl_buffer_PeekToken(ESL_BUFFER *bf, char *sep, char **opt_tok, esl_pos_t *opt_n)
- *       skip chars in *sep
- *       set anchor
- *          if anchor is on a newline \n or \r, skip \n\r and return EOL
- *       skip chars not in *sep
- *       set *ret_tok, *opt_token
- *       skip chars in *sep
- *       set b->pos to next non-*sep character.
- * (GetLine is the same, with first sep=="" and second sep == "\n\r")
- * 
- * We want to be able to handle newlines in two ways.
- * 
- * 1) We stop at newlines - we know how many tokens we expect on the line.
- * 2) We skip over newlines, looking for next token. The number of
- *    tokens per line isn't important, but the number of tokens per
- *    record or file is.
- *
- * In the first case, we pass a *sep that does not include newline chars.
- * The first *sep skip leaves mem[pos] at the first non-*sep char, 
- * which could be a newline. If we reach EOF, return EOF. If mem[pos]
- * is a newline char, skip forward to start of next line, no token
- * is found, and return EOL. Else set the token. Then the second *sep
- * skips forward. mem[pos] is left at the start of the next non-*sep
- * char, which could be a newline on the current line if no tokens remain.
- * 
- * In the second case, we pass a *sep that includes newline chars: "\n\r".
- * Now, if no token is found on the current line, the first *sep skips
- * newlines looking for the next non-*sep char, starting a token.
- * If it reaches EOF first, return EOF. Else, set the token. Then the
- * second *sep skips forward, including newlines. mem[pos] is set to the start 
- * of the next non-*sep char, which might be on another line. 
- * 
- * To peek at the next token:
- *    esl_buffer_GetToken(bf, sep, &p, &n);
- *    esl_buffer_Set(bf, p, 0);
- */
-
-
-/* Function:  esl_buffer_GetToken()
- * Synopsis:  
- * Incept:    SRE, Sat Jan  1 19:42:44 2011 [Janelia]
- *
- * Purpose:   A 'token' consists of one or more characters that are
- *            neither in <*sep> nor a newline ('\r' or '\n').
- *
- * Args:      
- *
- * Returns:   <eslOK> if a token is found; <*ret_p> points to it,
- *            and <*opt_n> is its length in chars (> 0). 
- *            
- *            <eslEOF> if the input ends before a token is found.
- *            Now <*ret_p> is <NULL> and <*opt_n> is 0.
- *            
- *            <eslEOL> if a line ends before a token is found.  (This
- *            case only arises if *sep does not contain newline.)
- *            Now <*ret_p> is <NULL> and <*opt_n> is 0.
- *            
- *            <bf->mem[bf->pos]> is left at the next
- *            non-sep/non-newline character; or EOF if no such
- *            character remains in the input.
- *            
- *            <bf->mem> may be modified and/or reallocated, if new
- *            input reads are required to find the entire token.
- *
- * Throws:    <eslEMEM> if an allocation fails.
- *            Now <*ret_p> is <NULL> and <*opt_n> is 0.
- */
-int
-esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *opt_n)
-{
-  esl_pos_t anch;
-  esl_pos_t nc;
-  int       anch_set = FALSE;
-  int       status;
-
-  if ( (status = buffer_skipsep(bf, sep)) != eslOK) goto ERROR; /* includes EOF */
-  /* Now bf->pos is sitting on first char after seps */
-
-  if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
-
-  anch = bf->baseoffset + bf->pos;
-  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
-  anch_set = TRUE;
-
-  if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
-  /* now we know that pos..pos+nc-1 is a token; pos+nc is the next parser position */
-
-  /* refill the buffer */
-  status = buffer_refill(bf, nc);
-  if (status != eslEOF && status != eslOK) goto ERROR; /* accept EOF here, we've already got our line */
-
-  if (opt_tok) *opt_tok = bf->mem + bf->pos;
-  if (opt_n)   *opt_n   = nc;
-  bf->pos     += nc;
-  anch_set     = FALSE;
-  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
-  return eslOK;
-  
- ERROR:
-  if (anch_set) esl_buffer_RaiseAnchor(bf, anch);
-  if (opt_tok) *opt_tok = NULL;
-  if (opt_n)   *opt_n   = 0;
-  return status;
-}
-
-int
-esl_buffer_FetchToken(ESL_BUFFER *bf, const char *sep, char **ret_p, esl_pos_t *ret_n)
-{
-  return eslOK;
-}
-
-/* Function:  esl_buffer_FetchTokenAsStr()
- * Synopsis:  
- * Incept:    SRE, Sat Jan  1 19:31:57 2011 [Zaragoza]
- *
- * Purpose:   A 'token' consists of one or more characters that are
- *            neither in <*sep> nor a newline ('\r' or '\n').
- *
- *
- * Args:      
- *
- * Returns:   <eslOK> if a token is found; <*ret_p> points to it,
- *            and <*opt_n> is its length in chars (> 0). 
- *            
- *            <eslEOF> if the input ends before a token is found.
- *            Now <*ret_p> is an empty string "\0" and <*opt_n> is
- *            0.
- *            
- *            <eslEOL> if a line ends before a token is found.  (This
- *            case only arises if *sep does not contain newline.)
- *            Now <*ret_p> is an empty string "\0" and <*opt_n> is 0.
- *            
- *            <bf->mem[bf->pos]> is left at the next
- *            non-sep/non-newline character; or EOF if no such
- *            character remains in the input.
- *            
- *            <bf->mem> may be modified and/or reallocated, if new
- *            input reads are required to find the entire token.
- *
- * Throws:    <eslEMEM> if an allocation fails.
- *            Now <*ret_p> is <NULL> and <*opt_n> is 0.
- */
-int
-esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **ret_p, esl_pos_t *opt_n)
-{
-  return eslOK;
 }
 
 /* First chunk of token parsing, shared amongst GetToken(), FetchToken(), FetchTokenAsStr()
@@ -1594,36 +1829,13 @@ buffer_counttok(ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc)
   *ret_nc = 0;
   return status;
 }
-  
+/*----------------- end, private functions ----------------------*/
 
-
-/*****************************************************************
- *# 6. Binary (fread-like) parsing
- *****************************************************************/
-
-int
-esl_buffer_GetBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char **ret_p)
-{
-  return eslOK;
-}
-
-int 
-esl_buffer_CopyBytes(ESL_BUFFER *bf, esl_pos_t nbytes, char *p)
-{
-  return eslOK;
-}
-
-int
-esl_buffer_CopyPeekedBytes(ESL_BUFFER *bf, char *p, esl_pos_t nbytes)
-{
-  return eslOK;
-}
-/*------------ end, binary (fread-like) parsing -----------------*/
 
 
 
 /*****************************************************************
- * 7. Benchmark
+ * 8. Benchmark
  *****************************************************************/
 #ifdef eslBUFFER_BENCHMARK
 
@@ -1907,12 +2119,54 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * Unit tests
+ * 9. Unit tests
  *****************************************************************/
 #ifdef eslBUFFER_TESTDRIVE
 
 #include "esl_random.h"
 #include <ctype.h>
+
+/* A variant of esl_buffer_OpenFile() that lets us specify
+ * whether we want to slurp, mmap, or basic, using
+ * eslBUFFER_ALLFILE, eslBUFFER_MMAP, eslBUFFER_FILE flags.
+ * We use this to force code coverage of the different
+ * buffer_init_file_*() functions.
+ */
+int
+buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFFER **ret_bf)
+{
+  char        msg[] = "buffer_OpenFileAs() failed";
+  ESL_BUFFER *bf    = NULL;
+#ifdef _POSIX_VERSION
+  struct stat fileinfo;
+#endif
+  esl_pos_t   filesize = -1;
+  int         status;
+
+  if (buffer_create(&bf)                         != eslOK) esl_fatal(msg);
+  if ((bf->fp = fopen(filename, "rb"))           == NULL)  esl_fatal(msg);
+  if (esl_strdup(filename, -1, &(bf->filename))  != eslOK) esl_fatal(msg);
+
+#ifdef _POSIX_VERSION
+  if (fstat(fileno(bf->fp), &fileinfo)           == -1)    esl_fatal(msg);
+  filesize     = fileinfo.st_size;
+  bf->pagesize = fileinfo.st_blksize;
+  if (bf->pagesize < 512)     bf->pagesize = 512;     
+  if (bf->pagesize > 4194304) bf->pagesize = 4194304;
+#endif  
+
+  switch (mode_is) {
+  case eslBUFFER_ALLFILE: if (buffer_init_file_slurped(bf, filesize) != eslOK) esl_fatal(msg); break;
+  case eslBUFFER_MMAP:    if (buffer_init_file_mmap   (bf, filesize) != eslOK) esl_fatal(msg); break;
+  case eslBUFFER_FILE:    if (buffer_init_file_basic  (bf)           != eslOK) esl_fatal(msg); break;
+  default:                                                                     esl_fatal(msg);                
+  }
+  *ret_bf = bf;
+  return status;
+}
+
+
+
 
 /* Test lines:
  *   long:  \s{0,1}[<line#> _{0,5000} <line#>]\s{0,1}\r?\n  (line length > pagesize)
@@ -1920,9 +2174,10 @@ main(int argc, char **argv)
  *   empty: \s{0,1}\r?\n                                    (parser shouldn't lose track of blank lines)
  * Final line in file does not necessarily end in newline.
  */
-static int
+static void
 create_testfile_lines(ESL_RANDOMNESS *r, char *tmpfile, int nlines)
 {
+  char    msg[]          = "create_testfile_lines() failed";
   FILE   *fp             = NULL;
   double fq_leadspace    = 0.2;
   double fq_longline     = 0.1;
@@ -1933,9 +2188,8 @@ create_testfile_lines(ESL_RANDOMNESS *r, char *tmpfile, int nlines)
   int    shortxnum       = 60;
   double roll;
   int    i, n;
-  int    status;
 
-  if ((status = esl_tmpfile_named(tmpfile, &fp)) != eslOK) return status;
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
 
   for (i = 0; i < nlines; i++)
     {
@@ -1958,7 +2212,6 @@ create_testfile_lines(ESL_RANDOMNESS *r, char *tmpfile, int nlines)
       }
     }
   fclose(fp);
-  return eslOK;
 }
 
 static void
@@ -1989,7 +2242,127 @@ utest_compare_line(char *p, esl_pos_t n, int nline_expected)
   if (n != 0) esl_fatal(msg);
 }
 
+static int
+utest_whichline(char *p, esl_pos_t n)
+{
+  char msg[] = "utest_whichline() failed";
+  int  which;
 
+  if (esl_mem_IsBlank(p, n)) return -1;
+  while (n && isspace(*p)) { p++; n--; }
+  if (n && *p == '[')      { p++; n--; }  else esl_fatal(msg);
+  if (esl_mem_strtoi32(p, n, 10, NULL, &which) != eslOK) esl_fatal(msg);
+  return which;
+}
+
+static void
+utest_SetOffset(const char *tmpfile, int nlines_expected)
+{
+  char        msg[]        = "utest_Position() failed";
+  char        gzipfile[32];
+  char        cmd[256];     
+  FILE       *fp;
+  ESL_BUFFER *bf;
+  char       *p;
+  esl_pos_t   n;
+  esl_pos_t   thisoffset, testoffset1, testoffset2;
+  int         testline1 = -1;
+  int         thisline, testline2;
+
+  /* Find offsets of lines ~2000 and ~5000; we'll use these positions as tests. */
+  if (nlines_expected <= 8000) return; /* require at least 8000 lines to do this test */
+  if (esl_buffer_Open(tmpfile, NULL, &bf)  != eslOK) esl_fatal(msg);
+  testline1 = -1;
+  thisoffset = esl_buffer_GetOffset(bf);
+  while (esl_buffer_GetLine(bf, &p, &n) == eslOK)
+    {
+      if ((thisline = utest_whichline(p, n)) == -1) continue;
+      if (testline1 == -1 && thisline >= 2000) {
+	testline1 = thisline; testoffset1 = thisoffset;
+      }
+      if (thisline >= 5000) {
+	testline2 = thisline; testoffset2 = thisoffset;
+	break;
+      }
+      thisoffset = esl_buffer_GetOffset(bf);
+    }
+  esl_buffer_Close(bf);
+
+  /* Now we're going to walk through SetOffset()'s various cases;
+   *  we'll also exercise Open() while we're at it.
+   */
+  /* Test 1. We have the entire file in bf->mem and SetOffset() is trivial.
+   *         Since a file is either slurped or mmap'ed, this is what we expect.
+   */
+  if ( esl_buffer_Open(tmpfile, NULL, &bf)   != eslOK) esl_fatal(msg);
+  if ( esl_buffer_SetOffset(bf, testoffset2) != eslOK) esl_fatal(msg);
+  if ( esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline2);
+  esl_buffer_Close(bf);
+
+  /* All subsequent tests are for streams. */
+  /* Test 2.  Offset *forward* to line ~2000 (testline1), and read it.
+   *          Anchor.
+   *          Offset forward again to line ~5000 (testline2), read it.
+   *          Anchor (should no-op; first anchor is already in effect)
+   *          Offset backward to testline1, read it.
+   *          Try to offset back to 0; this should throw eslEINVAL.
+   *   (also exercise gzip reading, if we can) 
+   */
+#if defined HAVE_GZIP
+  snprintf(gzipfile,   32, "%s.gz", tmpfile);
+  snprintf(cmd,       256, "gzip -c %s 2>/dev/null > %s", tmpfile, gzipfile);
+  if (system(cmd) != 0) esl_fatal(msg);
+  if (esl_buffer_Open(gzipfile, NULL, &bf)  != eslOK) esl_fatal(msg);
+  fp = NULL;
+#else
+  if ( (fp = fopen(tmpfile, "r"))            == NULL) esl_fatal(msg);
+  if (esl_buffer_OpenStream(fp, NULL, &bf)  != eslOK) esl_fatal(msg);
+#endif
+  
+  if (esl_buffer_SetOffset(bf, testoffset1) != eslOK) esl_fatal(msg);
+  if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline1);
+
+  if (esl_buffer_SetAnchor(bf, testoffset1) != eslOK) esl_fatal(msg);
+  if (esl_buffer_SetOffset(bf, testoffset2) != eslOK) esl_fatal(msg);
+  if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline2);
+
+  if (esl_buffer_SetAnchor(bf, testoffset2)   != eslOK) esl_fatal(msg);
+  if (esl_buffer_RaiseAnchor(bf, testoffset2) != eslOK) esl_fatal(msg);
+  if (esl_buffer_SetOffset(bf, testoffset1)   != eslOK) esl_fatal(msg);
+  if (esl_buffer_GetLine(bf, &p, &n)          != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline1);
+
+  esl_exception_SetHandler(&esl_nonfatal_handler);
+  if (esl_buffer_SetOffset(bf, 0)             != eslEINVAL) esl_fatal(msg);
+  esl_exception_ResetDefaultHandler();  
+
+  esl_buffer_Close(bf);
+  if (fp) fclose(fp);
+
+
+  /* test 3. The remaining case is using fseeko(), which
+   *         can only happen on a eslBUFFER_FILE opened in basic mode.
+   */
+#ifdef _POSIX_SOURCE
+  if (buffer_OpenFileAs(tmpfile, eslBUFFER_FILE, &bf) != eslOK) esl_fatal(msg);
+  if (esl_buffer_SetOffset(bf, testoffset2) != eslOK) esl_fatal(msg);
+  if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline2);
+
+  if (esl_buffer_SetOffset(bf, testoffset1) != eslOK) esl_fatal(msg);
+  if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
+  utest_compare_line(p, n, testline1);
+  esl_buffer_Close(bf);
+#endif
+  
+#if defined HAVE_GZIP
+  remove(gzipfile);
+#endif
+
+}
 
 static void
 utest_Get(ESL_BUFFER *bf, int nlines_expected)
@@ -2044,6 +2417,48 @@ utest_GetLine(ESL_BUFFER *bf, int nlines_expected)
   if (nlines != nlines_expected) esl_fatal(msg);
   return;
 }
+
+static void
+utest_FetchLine(ESL_BUFFER *bf, int nlines_expected)
+{
+  const char msg[]  = "utest_FetchLine() failed";
+  char      *p      = NULL;
+  esl_pos_t  n      = 0;
+  int        nlines = 0;
+  int        status;
+  
+  while ( (status = esl_buffer_FetchLine(bf, &p, &n)) == eslOK)
+    {
+      nlines++;
+      utest_compare_line(p, n, nlines);
+      free(p);
+    }
+  if (status != eslEOF)          esl_fatal(msg);
+  if (nlines != nlines_expected) esl_fatal(msg);
+  return;
+}  
+
+static void
+utest_FetchLineAsStr(ESL_BUFFER *bf, int nlines_expected)
+{
+  const char msg[]  = "utest_FetchLineAsStr() failed";
+  char      *p      = NULL;
+  esl_pos_t  n      = 0;
+  int        nlines = 0;
+  int        status;
+  
+  while ( (status = esl_buffer_FetchLineAsStr(bf, &p, &n)) == eslOK)
+    {
+      nlines++;
+      utest_compare_line(p, n, nlines);
+      if (p[n] != '\0') esl_fatal(msg);
+      free(p);
+    }
+  if (status != eslEOF)          esl_fatal(msg);
+  if (nlines != nlines_expected) esl_fatal(msg);
+  return;
+}  
+
 
 static void
 utest_GetToken(ESL_BUFFER *bf, int nlines_expected)
@@ -2120,45 +2535,115 @@ utest_GetTokenWrapped(ESL_BUFFER *bf, int nlines_expected)
 }
 
 static void
-utest_FetchLine(ESL_BUFFER *bf, int nlines_expected)
+utest_FetchToken(ESL_BUFFER *bf, int nlines_expected)
 {
-  const char msg[]  = "utest_FetchLine() failed";
-  char      *p      = NULL;
-  esl_pos_t  n      = 0;
+  char       msg[]  = "utest_FetchToken() failed";
+  const char sep[]  = " \t"; 
   int        nlines = 0;
+  char      *tok;
+  int        which;
+  int        nc;
+  esl_pos_t  n;
   int        status;
   
-  while ( (status = esl_buffer_FetchLine(bf, &p, &n)) == eslOK)
-    {
+  while ((status = esl_buffer_FetchToken(bf, sep, &tok, &n)) == eslOK || status == eslEOL) /* EOL needed for blank lines */
+    { /* each line has two tokens: "[%d" and "%d]" */
       nlines++;
-      utest_compare_line(p, n, nlines);
-      free(p);
+      if (status == eslEOL) { if (tok != NULL) esl_fatal(msg);  else continue; }
+
+      if (*tok != '[')                                            esl_fatal(msg);
+      if (! isdigit(*(tok+1)))                                    esl_fatal(msg);
+      if (esl_mem_strtoi32(tok+1, n-1, 10, &nc, &which) != eslOK) esl_fatal(msg);
+      if (nc    != n-1)                                           esl_fatal(msg);
+      if (which != nlines)                                        esl_fatal(msg);
+      free(tok);
+
+      if (esl_buffer_FetchToken(bf, sep, &tok, &n)   != eslOK) esl_fatal(msg);
+      if (! isdigit(*tok))                                     esl_fatal(msg);
+      if (esl_mem_strtoi32(tok, n, 10, &nc, &which)  != eslOK) esl_fatal(msg);
+      if (nc    != n-1)                                        esl_fatal(msg);
+      if (which != nlines)                                     esl_fatal(msg);
+      if (*(tok+nc) != ']')                                    esl_fatal(msg);
+      free(tok);
+      
+      if ( (status = esl_buffer_FetchToken(bf, sep, &tok, &n)) != eslEOL && status != eslEOF) esl_fatal(msg);
+      if (tok != NULL || n != 0)                               esl_fatal(msg);
     }
   if (status != eslEOF)          esl_fatal(msg);
   if (nlines != nlines_expected) esl_fatal(msg);
   return;
-}  
+}
+
 
 static void
-utest_FetchLineAsStr(ESL_BUFFER *bf, int nlines_expected)
+utest_FetchTokenAsStrWrapped(ESL_BUFFER *bf, int nlines_expected)
 {
-  const char msg[]  = "utest_FetchLineAsStr() failed";
-  char      *p      = NULL;
-  esl_pos_t  n      = 0;
+  char       msg[]  = "utest_FetchTokenAsStrWrapped() failed";
+  const char sep[]  = " \t\r\n"; 
   int        nlines = 0;
+  char      *tok;
+  int        which;
+  int        nc;
+  esl_pos_t  n;
   int        status;
   
-  while ( (status = esl_buffer_FetchLineAsStr(bf, &p, &n)) == eslOK)
-    {
+  while ((status = esl_buffer_FetchTokenAsStr(bf, sep, &tok, &n)) == eslOK)
+    { /* each line has two tokens: "[%d" and "%d]" */
       nlines++;
-      utest_compare_line(p, n, nlines);
-      if (p[n] != '\0') esl_fatal(msg);
-      free(p);
+
+      if (strlen(tok) != n)                                       esl_fatal(msg);
+      if (*tok != '[')                                            esl_fatal(msg);
+      if (! isdigit(*(tok+1)))                                    esl_fatal(msg);
+      if (esl_mem_strtoi32(tok+1, n-1, 10, &nc, &which) != eslOK) esl_fatal(msg);
+      if (nc    != n-1)                                           esl_fatal(msg);
+      if      (which > nlines) nlines = which; /* can skip lines that are all newline */
+      else if (which < nlines)                                    esl_fatal(msg);
+      free(tok);
+
+      if (esl_buffer_FetchTokenAsStr(bf, sep, &tok, &n) != eslOK) esl_fatal(msg);
+      if (strlen(tok) != n)                                       esl_fatal(msg);
+      if (! isdigit(*tok))                                        esl_fatal(msg);
+      if (esl_mem_strtoi32(tok, n, 10, &nc, &which)     != eslOK) esl_fatal(msg);
+      if (nc    != n-1)                                           esl_fatal(msg);
+      if (which != nlines)                                        esl_fatal(msg);
+      if (*(tok+nc) != ']')                                       esl_fatal(msg);
+      free(tok);
     }
   if (status != eslEOF)          esl_fatal(msg);
-  if (nlines != nlines_expected) esl_fatal(msg);
+  if (nlines > nlines_expected)  esl_fatal(msg); /* probably can't happen. can't check for equality though - last line(s) could be blank */
   return;
-}  
+}
+
+static void
+utest_Read(void)
+{
+  char        msg[]       = "utest_Read() failed";
+  char        tmpfile[32] = "esltmpXXXXXX";
+  int32_t     ntotal      = 1000000;
+  int32_t     testi       = 456789; /* arbitrary */
+  esl_pos_t   testoffset  = testi * sizeof(int32_t);
+  int32_t     i, val;
+  FILE       *fp;
+  ESL_BUFFER *bf;
+  
+  if (esl_tmpfile_named(tmpfile, &fp) != eslOK) esl_fatal(msg);
+  for (i = 0; i < 1000000; i++) 
+    fwrite(&i, sizeof(int32_t), 1, fp);
+  fclose(fp);
+
+  if (esl_buffer_OpenFile (tmpfile, &bf)   != eslOK) esl_fatal(msg);
+  if (esl_buffer_SetOffset(bf, testoffset) != eslOK) esl_fatal(msg);
+  for (i = testi; i < ntotal; i++)
+    {
+      if (esl_buffer_Read(bf, sizeof(int32_t), &val) != eslOK) esl_fatal(msg);
+      if (val != i)                                            esl_fatal(msg);
+    }
+  if (esl_buffer_Read(bf, sizeof(int32_t), &val) != eslEOF)    esl_fatal(msg);
+  esl_buffer_Close(bf);
+
+  remove(tmpfile);
+}
+
 
 static void
 utest_OpenFile(const char *tmpfile, int nlines)
@@ -2167,7 +2652,7 @@ utest_OpenFile(const char *tmpfile, int nlines)
   ESL_BUFFER *bf;
 
   /* Normal errors */
-  if (esl_buffer_OpenFile("esltmpXYZXYZXYZ", &bf) != eslENOTFOUND || bf == NULL) esl_fatal(msg);
+  if (esl_buffer_OpenFile("esltmpXYZXYZXYZ", &bf) != eslENOTFOUND || bf == NULL) esl_fatal(msg); else esl_buffer_Close(bf);
 }
 
 static void 
@@ -2178,19 +2663,33 @@ utest_OpenStream(const char *tmpfile, int nlines)
 
   /* Exceptions */
   esl_exception_SetHandler(&esl_nonfatal_handler);
-  if (esl_buffer_OpenStream(NULL, &bf) != eslEINVAL) esl_fatal(msg);
+  if (esl_buffer_OpenStream(NULL, &bf) != eslEINVAL) esl_fatal(msg); else esl_buffer_Close(bf);
   esl_exception_ResetDefaultHandler();
+}
+
+static void
+utest_OpenPipe(const char *tmpfile, int nlines)
+{
+  ESL_BUFFER *bf;
+  char        msg[]      = "utest_OpenPipe failed";
+  char        goodcmd[]  = "cat %s 2>/dev/null";
+  char        badcmd[]   = "./esltmpXYZXYZXYZ %s 2>/dev/null";
+
+  /* Normal errors */
+  if (esl_buffer_OpenPipe("esltmpXYZXYZXYZ", goodcmd, &bf) != eslENOTFOUND || bf == NULL) esl_fatal(msg); else esl_buffer_Close(bf);
+  if (esl_buffer_OpenPipe(tmpfile,           badcmd,  &bf) != eslFAIL      || bf == NULL) esl_fatal(msg); else esl_buffer_Close(bf);
 }
 
 
 #endif /* eslBUFFER_TESTDRIVE */
 
 /*****************************************************************
- * Test driver
+ * 10. Test driver
  *****************************************************************/
 
 #ifdef eslBUFFER_TESTDRIVE
 /* compile: gcc -g -Wall -I. -L. -o esl_buffer_utest -DeslBUFFER_TESTDRIVE esl_buffer.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_buffer_utest -DeslBUFFER_TESTDRIVE esl_buffer.c -leasel -lm
  * run:     ./esl_buffer_utest
  */
 #include "esl_config.h"
@@ -2220,32 +2719,52 @@ main(int argc, char **argv)
   ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_RANDOMNESS *r           = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
   ESL_BUFFER     *bf          = NULL;
+  ESL_BUFFER     *bftmp       = NULL;
   FILE           *fp          = NULL;
   int             be_verbose  = esl_opt_GetBoolean(go, "-v");
   int             nlines      = esl_opt_GetInteger(go, "-n");
   char            tmpfile[32] = "esltmpXXXXXX";
+  char            cmdfmt[]    = "cat %s 2>/dev/null";
   int             bufidx,  nbuftypes;
   int             testidx, ntesttypes;
+  int             status;
 
   create_testfile_lines(r, tmpfile, nlines);    
   if (be_verbose) printf("created file %s; rng seed %" PRIu32 "\n", tmpfile, esl_randomness_GetSeed(r));
 
   utest_OpenFile  (tmpfile, nlines);
   utest_OpenStream(tmpfile, nlines);
+  utest_OpenPipe  (tmpfile, nlines);
 
-  nbuftypes  = 2;
-  ntesttypes = 6;
+  utest_SetOffset (tmpfile, nlines);
+  utest_Read();
+
+  nbuftypes  = 7;
+  ntesttypes = 8;
   for (bufidx = 0; bufidx < nbuftypes; bufidx++)
     for (testidx = 0; testidx < ntesttypes; testidx++)
       {
 	switch (bufidx) {
-	case 0:
-	  if (esl_buffer_OpenFile(tmpfile, &bf) != eslOK) esl_fatal(msg);
-	  break;
-	case 1: 
+	case 0:  if (esl_buffer_OpenFile  (tmpfile,                    &bf) != eslOK) esl_fatal(msg);  break;
+	case 1:  if (    buffer_OpenFileAs(tmpfile, eslBUFFER_ALLFILE, &bf) != eslOK) esl_fatal(msg);  break;
+	case 2:  if (    buffer_OpenFileAs(tmpfile, eslBUFFER_MMAP,    &bf) != eslOK) esl_fatal(msg);  break;
+	case 3:  if (    buffer_OpenFileAs(tmpfile, eslBUFFER_FILE,    &bf) != eslOK) esl_fatal(msg);  break;
+	case 4: 
 	  if ((fp = fopen(tmpfile, "rb"))    == NULL)  esl_fatal(msg);
 	  if (esl_buffer_OpenStream(fp, &bf) != eslOK) esl_fatal(msg);
 	  break;
+	case 5:
+	  if (esl_buffer_OpenPipe(tmpfile, cmdfmt, &bf) != eslOK) esl_fatal(msg);
+	  break;
+	case 6:
+	  if (esl_buffer_OpenFile(tmpfile, &bftmp) != eslOK) esl_fatal(msg);
+	  if (esl_buffer_SetAnchor(bftmp, 0)       != eslOK) esl_fatal(msg);
+	  while ( (status = esl_buffer_GetLine(bftmp, NULL, NULL)) == eslOK); /*empty loop, do nothing*/
+	  if (status != eslEOF) esl_fatal(msg);
+	  /* now bftmp->mem is a slurped file */
+	  if (esl_buffer_OpenMem(bftmp->mem, bftmp->n, &bf) != eslOK) esl_fatal(msg);
+	  break;
+	default: esl_fatal(msg);
 	}
 	
 	switch (testidx) {
@@ -2255,59 +2774,241 @@ main(int argc, char **argv)
 	case 3: utest_FetchLineAsStr (bf, nlines); break;
 	case 4: utest_GetToken       (bf, nlines); break;
 	case 5: utest_GetTokenWrapped(bf, nlines); break;
+	case 6: utest_FetchToken     (bf, nlines); break;
+	case 7: utest_FetchTokenAsStrWrapped(bf, nlines); break;
+	default: esl_fatal(msg);
 	}
 
-	printf("allocation: %" PRId64 "\n", bf->balloc);
+	//printf("allocation: %" PRId64 "\n", bf->balloc);
 
-	esl_buffer_Close(bf);
+	esl_buffer_Close(bf); bf = NULL; 
+	if (bftmp) { esl_buffer_Close(bftmp); bftmp = NULL; }
       }
-
-
 
   esl_randomness_Destroy(r);
   esl_getopts_Destroy(go);
   remove(tmpfile);
   return 0;
 }
-
-
 #endif /* eslBUFFER_TESTDRIVE */
   
 
 /*****************************************************************
- * Examples.
+ * 11. Examples.
  *****************************************************************/
+
+/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example -DeslBUFFER_EXAMPLE esl_buffer.c -leasel -lm
+ * run:     ./esl_buffer_example <file>
+ */
 #ifdef eslBUFFER_EXAMPLE
-#include <ctype.h>
-int
-example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_seq, char *ret_seqlen)
+/*::cexcerpt::buffer_example::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>
+
+int main(int argc, char **argv)
 {
-  char    *seqname = NULL;
-  char    *seqdesc = NULL;
-  char    *seq     = NULL;
+  char       *filename  = argv[1];
+  int         xcount    = 0;
+  int         linecount = 0;
+  ESL_BUFFER *bf;
+  char       *p;
+  esl_pos_t   n, i;
+  int         status;
+
+  status = esl_buffer_Open(filename, "TESTDIR", &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+  
+  while (( status = esl_buffer_GetLine(bf, &p, &n)) == eslOK) 
+    {
+      linecount++;
+      for (i = 0; i < n; i++)
+	if (p[i] == 'x') xcount++;
+    }
+  if (status != eslEOF) esl_fatal("file %s: expected EOF, got code %d", bf->filename, status);
+
+  esl_buffer_Close(bf);
+  printf("Counted %d x's in %d lines.\n", xcount, linecount);
+  return 0;
+}
+/*::cexcerpt::buffer_example::end::*/
+#endif /*eslBUFFER_EXAMPLE*/
+  
+
+
+#ifdef eslBUFFER_EXAMPLE2
+/*::cexcerpt::buffer_example2::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>>
+
+int main(int argc, char **argv)
+{
+  char       *filename = argv[1];
+  int         xcount   = 0;
+  int         tokcount = 0;
+  ESL_BUFFER *bf;
+  char       *tok;
+  esl_pos_t   n, i;
+  int         status;
+
+  status = esl_buffer_Open(filename, "TESTDIR", &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+  
+  while ( (status = esl_buffer_GetToken(bf, " \t\r\n", &tok, &n)) == eslOK)
+    {
+      tokcount++;
+      for (i = 0; i < n; i++)
+	if (tok[i] == 'x') xcount++;
+    }
+  if (status != eslEOF) esl_fatal("did not see expected EOF; code %d instead", status);
+  esl_buffer_Close(bf);
+  printf("Counted %d x's in %d words\n", xcount, tokcount);
+  return 0;
+}
+/*::cexcerpt::buffer_example2::end::*/
+#endif /*eslBUFFER_EXAMPLE2*/
+
+
+
+/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example3 -DeslBUFFER_EXAMPLE3 esl_buffer.c -leasel -lm
+ * run:     ./esl_buffer_example3 <file>
+ */
+#ifdef eslBUFFER_EXAMPLE3
+/*::cexcerpt::buffer_example3::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>>
+
+int main(int argc, char **argv)
+{
+  char       *filename = argv[1];
+  int         xcount    = 0;
+  int         tokcount  = 0;
+  int         linecount = 0;
+  ESL_BUFFER *bf;
+  char       *tok;
+  esl_pos_t   n,i;
+  int         status;
+
+  status = esl_buffer_Open(filename, "TESTDIR", &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+  
+  while (1) 
+    {
+      status = esl_buffer_GetToken(bf, " \t", &tok, &n);
+      if      (status == eslOK)  
+	{
+	  tokcount++;  
+	  for (i = 0; i < n; i++)
+	    if (tok[i] == 'x') xcount++;
+	}
+      else if (status == eslEOL) linecount++;
+      else if (status == eslEOF) break;
+    }
+  esl_buffer_Close(bf);
+  printf("Counted %d x's in %d words on %d lines\n", xcount, tokcount, linecount);
+  return 0;
+}
+/*::cexcerpt::buffer_example3::end::*/
+#endif /*eslBUFFER_EXAMPLE3*/
+
+
+
+
+/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example4 -DeslBUFFER_EXAMPLE4 esl_buffer.c -leasel -lm
+ * run:     ./esl_buffer_example4 <file>
+ */
+#ifdef eslBUFFER_EXAMPLE4
+/*::cexcerpt::buffer_example4::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+  char        tmpfile[32] = "esltmpXXXXXX";
+  char        s1[]        = "hello world!";
+  char        s2[]        = "... and goodbye!";
+  char        buf[256];
+  int         n;
+  FILE       *fp;
+  ESL_BUFFER *bf;
+  int         status;
+
+  esl_tmpfile_named(tmpfile, &fp);
+  n = strlen(s1)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s1, sizeof(char), n, fp);
+  n = strlen(s2)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s2, sizeof(char), n, fp);
+  fclose(fp);
+
+  status = esl_buffer_Open(tmpfile, NULL, &bf);
+  esl_buffer_Read(bf, sizeof(int), &n);
+  esl_buffer_Read(bf, sizeof(char) * n, buf);
+  puts(buf);
+
+  esl_buffer_Read(bf, sizeof(int), &n);
+  esl_buffer_Read(bf, sizeof(char) * n, buf);
+  puts(buf);
+  
+  esl_buffer_Close(bf);
+  return 0;
+}
+/*::cexcerpt::buffer_example4::end::*/
+#endif /*eslBUFFER_EXAMPLE4*/
+
+
+
+
+/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example5 -DeslBUFFER_EXAMPLE5 esl_buffer.c -leasel -lm
+ * run:     ./esl_buffer_example5 <fastafile>
+ */
+#ifdef eslBUFFER_EXAMPLE5
+/*::cexcerpt::buffer_example5a::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>>
+#include <ctype.h>>
+
+int
+example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_seq, int *ret_seqlen)
+{
+  char      *seqname = NULL;
+  char      *seqdesc = NULL;
+  char      *seq     = NULL;
   esl_pos_t  seqlen  = 0;
   esl_pos_t  salloc  = 0;
-  char    *p;
-  void    *tmp;
+  char      *p;
+  void      *tmp;
   esl_pos_t  n, i;
-  int      status;
+  int        status;
 
-  ESL_ALLOC(seq, sizeof(char) * 256); salloc = 256;
+  if ((status = esl_buffer_Get(bf, &p, &n)) != eslOK) goto ERROR; /* includes normal EOF */
+  if (p[0] != '>') ESL_XFAIL(eslEINVAL, bf->errmsg, "Expected FASTA record to start with >");
+  esl_buffer_Set(bf, p, 1);
 
-  status = esl_buffer_GetBytes(bf, sizeof(char), &p);
-  if (status == eslEOF) goto ERROR; /* normal EOF */
-  if (*p != '>')        ESL_XFAIL(eslEINVAL, bf->errmsg, "Expected FASTA record to start with >");
+  status = esl_buffer_FetchTokenAsStr(bf, " \t", &seqname, NULL);
+  if      (status == eslEOF) ESL_XFAIL(eslEINVAL, bf->errmsg, "Premature eof while trying to parse sequence name");
+  else if (status == eslEOL) ESL_XFAIL(eslEINVAL, bf->errmsg, "No sequence name found");
 
-  status = esl_buffer_GetToken(bf, " \t", &p, &n);
-  if (status == eslEOF) ESL_XFAIL(eslEINVAL, bf->errmsg, "Premature eof while trying to parse sequence name");
-  if (n == 0)           ESL_XFAIL(eslEINVAL, bf->errmsg, "Failed to parse a sequence name");
-  //esl_line_CloneAsStr(p, n, &seqname);
-
-  status = esl_buffer_GetLine(bf, &p, &n);
+  status = esl_buffer_FetchLineAsStr(bf, &seqdesc, NULL);
   if (status == eslEOF) goto DONE; /* weird but ok. name, no desc, and a blank sequence. */
-  //esl_line_CloneAsStr(p, n, &seqdesc);
 
-  while ((status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
+  ESL_ALLOC(seq, sizeof(char) * 256);
+  salloc = 256;
+
+  while (esl_buffer_GetLine(bf, &p, &n) == eslOK)
     {
       if (p[0] == '>') { esl_buffer_Set(bf, p, 0); break; }
 
@@ -2336,7 +3037,49 @@ example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_
   *ret_seqlen = 0;
   return status;
 }
+/*::cexcerpt::buffer_example5a::end::*/
 
+/*::cexcerpt::buffer_example5b::begin::*/
+int
+main(int argc, char **argv)
+{
+  char       *filename = argv[1];
+  ESL_BUFFER *bf;
+  char       *seqname, *seqdesc, *seq;
+  int         seqlen;
+  int         status;
+
+  status = esl_buffer_Open(filename, "TESTDIR", &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+
+  while ( (status = example_read_fasta(bf, &seqname, &seqdesc, &seq, &seqlen)) == eslOK)
+    {
+      printf("sequence: %20s  length: %6d   description: %s\n", seqname, seqlen, seqdesc);
+      free(seqname);
+      free(seqdesc);
+      free(seq);
+    }
+  if (status != eslEOF) esl_fatal("bad FASTA format: %s", bf->errmsg);
+  esl_buffer_Close(bf);
+  return 0;
+}
+/*::cexcerpt::buffer_example5b::end::*/
+#endif /*eslBUFFER_EXAMPLE5*/
+
+
+
+/* compile: gcc -g -Wall -I. -L. -o esl_buffer_example6 -DeslBUFFER_EXAMPLE6 esl_buffer.c -leasel -lm
+ * run:     ./esl_buffer_example6 <alifile>
+ */
+#ifdef eslBUFFER_EXAMPLE6
+/*::cexcerpt::buffer_example6a::begin::*/
+#include "easel.h"
+#include "esl_buffer.h"
+
+#include <stdio.h>>
+#include <ctype.h>>
 
 int
 example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, esl_pos_t *ret_nlines)
@@ -2353,12 +3096,12 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   /* skip blank lines */
   do {
     start_offset = esl_buffer_GetOffset(bf);
-    status       = esl_buffer_GetLine(bf, &p, &n);
-    if (status == eslEOF) return eslEOF; /* normal: no data */
+    if ( (status = esl_buffer_GetLine(bf, &p, &n)) != eslOK) goto ERROR; /* includes normal EOF */
   } while (esl_mem_IsBlank(p, n));
-
-  /* anchor at current position */
-  status = esl_buffer_SetAnchor(bf, start_offset);
+  /* now p[0..n-1] is a non-blank line, start_offset is offset of p[0], point's on start of next line after it */
+  
+  /* anchor stably at start of line block */
+  status = esl_buffer_SetStableAnchor(bf, start_offset);
 
   /* set pointers to non-blank lines */
   do {
@@ -2370,12 +3113,11 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
     nlines++;
   } while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK && ! esl_mem_IsBlank(p, n));
   
-  /* restore parser state: clear anchor, and 
-   * put it on first char of blank line (or EOF).
-   * Set() should be called first, as a matter of idiom, to avoid
-   * a reoffset/realloc that doesn't respect the anchor; 
-   * though in this case the Set() call is backwards in the buffer,
-   * so it will not reoffset/realloc.
+  /* now p[0] is on a blank line, and point is on start of next line
+   * after it.  you might be fine with that; or you might want to push
+   * the blank line back onto the parser. If so, you need to push
+   * the line back *before* raising the anchor, because the _Set() function
+   * is allowed to relocate the buffer's internal memory.
    */
   status = esl_buffer_Set(bf, p, 0);
   status = esl_buffer_RaiseAnchor(bf, start_offset);
@@ -2393,47 +3135,46 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   *ret_nlines = 0;
   return status;
 }
-  
+/*::cexcerpt::buffer_example6a::end::*/
 
-#endif /*eslBUFFER_EXAMPLE*/
+/*::cexcerpt::buffer_example6b::end::*/
+int
+main(int argc, char **argv)
+{
+  char       *filename = argv[1];
+  int         blockcount = 0;
+  int         linecount  = 0;
+  int         xcount     = 0;
+  int         i,j;
+  ESL_BUFFER *bf;
+  char      **lines;
+  esl_pos_t  *lens;
+  esl_pos_t   nlines;
+  int         status;
 
+  status = esl_buffer_Open(filename, "TESTDIR", &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+
+  while ( (status = example_read_lineblock(bf, &lines, &lens, &nlines)) == eslOK)
+    {
+      blockcount++;
+      linecount += nlines;
+      for (i = 0; i < nlines; i++)
+	for (j = 0; j < lens[i]; j++) 
+	  if (lines[i][j] == 'x') xcount++;
+
+      free(lines);
+      free(lens);
+    }
+  if (status != eslEOF) esl_fatal("bad MSA format: %s", bf->errmsg);
+  esl_buffer_Close(bf);
+  printf("Counted %d x's in %d blocks of %d total lines\n", xcount, blockcount, linecount);
+  return 0;
+}
+/*::cexcerpt::buffer_example6b::end::*/
+#endif /*eslBUFFER_EXAMPLE6*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/
-
-
-/*****************************************************************
- * Footnotes.
- *****************************************************************/
-/*
- * [Open() returns int]
- *    Previously, Easel *Open() functions returned a pointer to the
- *    open object, or NULL on error; an exception to the normal Easel
- *    pattern of returning a status code. This is fine so long as the
- *    only error encountered is an eslEMEM, but for complicated
- *    Open()'s, this made it difficult to get back a sensible error
- *    status and error message. A better pattern is to return a status
- *    code and the open object, including the object's error message
- *    buffer. The caller can then use the errmsg and Close() the
- *    incomplete object.
- *    
- */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

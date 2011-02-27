@@ -2,9 +2,10 @@
  * 
  * SRE, Tue Jan 22 09:18:09 2008 [Market Street Cafe, Leesburg]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_MSASHUFFLE_INCLUDED
-#define ESL_MSASHUFFLE_INCLUDED
+#ifndef eslMSASHUFFLE_INCLUDED
+#define eslMSASHUFFLE_INCLUDED
 
 #include "esl_random.h"
 #ifdef eslAUGMENT_ALPHABET
@@ -19,4 +20,7 @@ extern int esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char    *x
 extern int esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x, ESL_DSQ *y, ESL_DSQ *xs, ESL_DSQ *ys);
 #endif /*eslAUGMENT_ALPHABET*/
 
-#endif /*ESL_MSASHUFFLE_INCLUDED*/
+#endif /*eslMSASHUFFLE_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/ 

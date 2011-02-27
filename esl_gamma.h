@@ -1,11 +1,11 @@
-/* esl_gamma.h
- * Gamma distributions.
+/* Gamma distributions.
  * 
  * SRE, Wed Nov 16 19:15:33 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_GAMMA_INCLUDED
-#define ESL_GAMMA_INCLUDED
+#ifndef eslGAMMA_INCLUDED
+#define eslGAMMA_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -34,4 +34,7 @@ extern double esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double
 
 extern int esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret_tau);
 
-#endif /*ESL_GAMMA_INCLUDED*/
+#endif /*eslGAMMA_INCLUDED*/
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

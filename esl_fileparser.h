@@ -2,10 +2,10 @@
  * 
  * SRE, Tue Jul 13 14:40:35 2004 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-
-#ifndef ESL_FILEPARSER_INCLUDED
-#define ESL_FILEPARSER_INCLUDED
+#ifndef eslFILEPARSER_INCLUDED
+#define eslFILEPARSER_INCLUDED
 
 #include <stdio.h>
 #include "easel.h"
@@ -43,4 +43,7 @@ extern int  esl_fileparser_GetRemainingLine(ESL_FILEPARSER *efp, char **ret_s);
 extern void esl_fileparser_Destroy         (ESL_FILEPARSER *efp);
 extern void esl_fileparser_Close           (ESL_FILEPARSER *efp);
 
-#endif /*ESL_FILEPARSER_INCLUDED */
+#endif /*eslFILEPARSER_INCLUDED */
+/*****************************************************************
+ * @LICENSE@
+ *****************************************************************/

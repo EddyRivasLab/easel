@@ -1,12 +1,11 @@
-/* esl_vectorops.h
- * Header file for vectorops.c
+/* Header file for vectorops.c
  * 
  * SRE, Tue Oct  1 15:23:37 2002 [St. Louis]
  * SVN $Id$
  * SVN $URL$
  */
-#ifndef ESL_VECTOROPS_INCLUDED
-#define ESL_VECTOROPS_INCLUDED
+#ifndef eslVECTOROPS_INCLUDED
+#define eslVECTOROPS_INCLUDED
 
 
 extern void   esl_vec_DSet(double *vec, int n, double value);
@@ -112,7 +111,7 @@ extern int    esl_vec_FValidate(float  *vec, int n, float  tol, char *errbuf);
 extern int    esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf);
 extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol, char *errbuf);
 
-#endif /* ESL_VECTOROPS_INCLUDED */
+#endif /* eslVECTOROPS_INCLUDED */
 
 /*****************************************************************
  * @LICENSE@

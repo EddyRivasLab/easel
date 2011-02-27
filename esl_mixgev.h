@@ -1,14 +1,14 @@
-/* esl_mixgev.h
- * Mixture generalized extreme value distributions.
+/* Mixture generalized extreme value distributions.
  * 
  * SRE, Mon Aug 15 08:33:57 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_MIXGEV_INCLUDED
-#define ESL_MIXGEV_INCLUDED
+#ifndef eslMIXGEV_INCLUDED
+#define eslMIXGEV_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
+#include "esl_random.h"
 #endif
 
 typedef struct {
@@ -57,7 +57,7 @@ extern int         esl_mixgev_FitComplete(double *x, int n, ESL_MIXGEV *mg);
 #endif /*eslAUGMENT_MINIMIZER*/
 
 
-#endif /*ESL_MIXGEV_INCLUDED*/
+#endif /*eslMIXGEV_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

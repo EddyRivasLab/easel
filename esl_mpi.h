@@ -2,8 +2,8 @@
  * 
  * SRE, Sat Jun  2 09:07:25 2007 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
-
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
 #ifndef eslMPI_INCLUDED
 #define eslMPI_INCLUDED

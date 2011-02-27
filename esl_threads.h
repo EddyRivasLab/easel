@@ -1,10 +1,10 @@
 /* Simple master/worker data parallelization using POSIX threads.
  * 
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_THREADS_INCLUDED
-#define ESL_THREADS_INCLUDED
-
+#ifndef eslTHREADS_INCLUDED
+#define eslTHREADS_INCLUDED
 
 typedef struct {
   int             threadCount;      /* number of active worker threads                           */
@@ -33,8 +33,7 @@ extern int   esl_threads_Finished(ESL_THREADS *obj, int workeridx);
 
 extern int esl_threads_CPUCount(int *ret_ncpu);
 
-#endif /*ESL_THREADS_INCLUDED*/
-
+#endif /*eslTHREADS_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

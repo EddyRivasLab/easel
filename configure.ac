@@ -347,6 +347,13 @@ fi
 
 AC_SUBST(SIMD_CFLAGS)
 
+# Define HAVE_GZIP if gzip is in $PATH (or if HAVE_GZIP is already set)
+AC_PATH_PROG(HAVE_GZIP, "gzip", "no")
+if test "${HAVE_GZIP}" = "no"; then
+  AC_MSG_WARN([gzip not found])
+else
+  AC_DEFINE(HAVE_GZIP)
+fi
 
 # 5. Checks for libraries.
 LIBGSL=

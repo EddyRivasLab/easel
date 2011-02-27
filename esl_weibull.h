@@ -1,11 +1,11 @@
-/* esl_weibull.h
- * Weibull distributions.
+/* Weibull distributions.
  * 
  * SRE, Tue Aug  9 10:48:35 2005 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_WEI_INCLUDED
-#define ESL_WEI_INCLUDED
+#ifndef eslWEIBULL_INCLUDED
+#define eslWEIBULL_INCLUDED
 
 #ifdef eslAUGMENT_RANDOM
 #include <esl_random.h>
@@ -47,7 +47,7 @@ extern int esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 #endif /*eslAUGMENT_MINIMIZER*/
 
 
-#endif /*ESL_WEI_INCLUDED*/
+#endif /*eslWEIBULL_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

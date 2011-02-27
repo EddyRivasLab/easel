@@ -2,9 +2,10 @@
  * 
  * SRE, Wed Jul 14 11:23:57 2004 [St. Louis]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_RANDOM_INCLUDED
-#define ESL_RANDOM_INCLUDED
+#ifndef eslRANDOM_INCLUDED
+#define eslRANDOM_INCLUDED
 
 #define eslRND_FAST     0
 #define eslRND_MERSENNE 1
@@ -49,7 +50,7 @@ extern int    esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N);
 extern int    esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float  *cdf, int N);
 
 
-#endif /*ESL_RANDOM_INCLUDED*/
+#endif /*eslRANDOM_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

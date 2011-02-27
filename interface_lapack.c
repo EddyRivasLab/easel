@@ -1,11 +1,11 @@
-#ifdef ESL_WITH_LAPACK
 /* interface_lapack.c
  * Interface with the LAPACK (Fortran77) numerical library.
  * 
  * SRE, Tue Jul 13 14:58:46 2004
  * SVN $Id$
+ * SVN $URL$
  */
-
+#ifdef HAVE_LIBLAPACK
 #include <esl_config.h>
 
 #include <stdlib.h>
@@ -85,4 +85,4 @@ esl_lapack_dgeev(ESL_DMATRIX *A, double **ret_Er, double **ret_Ei, ESL_DMATRIX *
 }
 
 
-#endif /*ESL_WITH_LAPACK*/
+#endif /*HAVE_LIBLAPACK*/

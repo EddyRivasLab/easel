@@ -13,6 +13,7 @@
  * 
  * SRE, Sun Jan 30 09:14:21 2005; from squid's gki.c, 1999.
  * SVN $Id$
+ * SVN $URL$
  *
  * Reimplemented April 2008 (J3/14) with improved hash function
  * with larger dynamic range, and improved (pointerless) internals

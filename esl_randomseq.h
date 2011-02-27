@@ -2,9 +2,10 @@
  * 
  * SRE, Thu Apr 24 09:38:13 2008 [Janelia]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_RANDOMSEQ_INCLUDED
-#define ESL_RANDOMSEQ_INCLUDED
+#ifndef eslRANDOMSEQ_INCLUDED
+#define eslRANDOMSEQ_INCLUDED
 
 #include "esl_random.h"
 
@@ -38,8 +39,7 @@ extern int esl_rsq_XShuffleWindows(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L,
 extern int esl_rsq_XMarkov0  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
 extern int esl_rsq_XMarkov1  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved);
 
-#endif /*ESL_RANDOMSEQ_INCLUDED*/
-
+#endif /*eslRANDOMSEQ_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

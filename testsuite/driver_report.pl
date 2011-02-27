@@ -31,12 +31,12 @@ if ($opt_c) { $do_recompile = 1; }
 
 if ($ENV{'CC'}       ne "") { $CC       = $ENV{'CC'};       } else { $CC        = "gcc"; } 
 if ($ENV{'CFLAGS'}   ne "") { $CFLAGS   = $ENV{'CFLAGS'};   } else { $CFLAGS    = "-g -Wall"; }
-if ($ENV{'SQUIDSRC'} ne "") { $SQUIDSRC = $ENV{'SQUIDSRC'}; } else { $SQUIDSRC  = "~/src/squid"; }
+if ($ENV{'SQUIDSRC'} ne "") { $SQUIDSRC = $ENV{'SQUIDSRC'}; } else { $SQUIDSRC  = "/groups/eddys/home/eddys/src/squid"; }
 $progname = "drivertest";
 
 
 print("Driver code compilation test for Easel:\n");
-print("(Compiling with $CC $CFLAGS -L $SQUIDSRC -I $SQUIDSRC)\n\n");
+print("(Compiling with $CC $CFLAGS -L$SQUIDSRC -I$SQUIDSRC)\n\n");
 
 
 if ($do_recompile) {
@@ -80,7 +80,7 @@ foreach $module (@modules) {
 	$n++;
 	$ndrivers++;
 
-        `$CC $CFLAGS -I.. -L.. -L $SQUIDSRC -I $SQUIDSRC -o drivertest -D$flag $module -leasel -lsquid -lm  >& /dev/null`;
+        `$CC $CFLAGS -I.. -L.. -L$SQUIDSRC -I$SQUIDSRC -o drivertest -D$flag $module -leasel -lsquid -lm  >& /dev/null`;
  	if ($? != 0) { print("[FAILED]\n"); $nfailures++; }
 	else         { print("ok.\n"); }
 	$saw_flag{$flag} = 1;

@@ -15,9 +15,9 @@
  * generation test suite.
  * 
  * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
- * SVN $Id$
- * 
  * SRE, 30 May 2009: replaced with the Mersenne Twister and Knuth LCG.
+ * SVN $Id$
+ * SVN $URL$
  */
 #include "esl_config.h"
 

@@ -2,11 +2,12 @@
  * configuration of an application. Extends standard
  * UNIX/POSIX/GNU getopt().
  * 
- * SVN $Id$
  * SRE, Thu Jan 13 08:38:28 2005 [St. Louis]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_GETOPTS_INCLUDED
-#define ESL_GETOPTS_INCLUDED
+#ifndef eslGETOPTS_INCLUDED
+#define eslGETOPTS_INCLUDED
 
 #include "easel.h"
 
@@ -111,7 +112,7 @@ extern char  *esl_opt_GetArg    (const ESL_GETOPTS *g, int which);
 
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 
-#endif /* ESL_GETOPTS_INCLUDED */
+#endif /*eslGETOPTS_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

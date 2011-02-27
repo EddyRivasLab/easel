@@ -15,8 +15,8 @@
  * 
  * SRE, Sat Jun  2 08:16:14 2007 [Janelia] [Tertiary Phase]
  * SVN $Id$
+ * SVN $URL$
  */
-
 #include "esl_config.h"		
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
 #include <string.h>

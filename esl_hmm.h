@@ -2,9 +2,10 @@
  * 
  * SRE, Fri Jul 18 08:54:41 2008 [Janelia] 
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_HMM_INCLUDED
-#define ESL_HMM_INCLUDED
+#ifndef eslHMM_INCLUDED
+#define eslHMM_INCLUDED
 
 #include "esl_alphabet.h"
 #include "esl_random.h"
@@ -50,7 +51,7 @@ extern int      esl_hmm_Forward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, E
 extern int      esl_hmm_Backward(const ESL_DSQ *dsq, int L, const ESL_HMM *hmm, ESL_HMX *bck, float *opt_sc);
 
 
-#endif /*!ESL_HMM_INCLUDED*/
+#endif /*eslHMM_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

@@ -2,11 +2,12 @@
  * Fast sequence record lookup in large files by keywords, such
  * as names or accessions.
  * 
- * SVN $Id$
  * SRE, Thu Mar  2 15:54:51 2006 [St. Louis]
+ * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_SSI_INCLUDED
-#define ESL_SSI_INCLUDED
+#ifndef eslSSI_INCLUDED
+#define eslSSI_INCLUDED
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -156,7 +157,7 @@ extern int	esl_fread_offset(FILE *fp, int mode, off_t *ret_offset);
 extern int      esl_fwrite_offset(FILE *fp, off_t offset);
 
 
-#endif /* ESL_SSI_INCLUDED */
+#endif /* eslSSI_INCLUDED */
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/

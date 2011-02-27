@@ -1,13 +1,13 @@
-/* esl_stopwatch.h
- * Tracking cpu/system/elapsed time used by a process.
+/* Tracking cpu/system/elapsed time used by a process.
  * 
  * SRE, Wed Feb 22 19:30:36 2006 [St. Louis] [moved to Easel]
  * SRE, Thu Aug  3 08:00:35 2000 [St. Louis] [moved to SQUID]
  * SRE, Fri Nov 26 14:54:21 1999 [St. Louis] [HMMER]
  * SVN $Id$
+ * SVN $URL$
  */
-#ifndef ESL_STOPWATCH_INCLUDED
-#define ESL_STOPWATCH_INCLUDED
+#ifndef eslSTOPWATCH_INCLUDED
+#define eslSTOPWATCH_INCLUDED
 
 #include <time.h>
 #ifdef HAVE_TIMES
@@ -46,7 +46,7 @@ extern int esl_stopwatch_Display(FILE *fp, ESL_STOPWATCH *w, char *prefix);
 extern int esl_stopwatch_Include(ESL_STOPWATCH *master, ESL_STOPWATCH *w);
 
 
-#endif /*ESL_STOPWATCH_INCLUDED*/ 
+#endif /*eslSTOPWATCH_INCLUDED*/ 
 /*****************************************************************
  * @LICENSE@
  *****************************************************************/
