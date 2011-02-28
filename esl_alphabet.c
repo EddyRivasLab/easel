@@ -18,9 +18,13 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#ifdef HAVE_STRINGS_H
+#include <strings.h>		/* POSIX strcasecmp() */
+#endif
 
 #include "easel.h"
 #include "esl_alphabet.h"
+
 
 
 /*****************************************************************

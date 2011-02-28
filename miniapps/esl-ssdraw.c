@@ -1289,7 +1289,8 @@ main(int argc, char **argv)
 
   ERROR: 
   esl_fatal("Memory allocation error in main().");
-  }
+  return eslFAIL;/* silence compiler warning about void return*/
+}
 
 /* Function: create_sspostscript()
  * 

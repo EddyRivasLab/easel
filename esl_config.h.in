@@ -35,6 +35,7 @@
 /* System headers
  */
 #undef HAVE_UNISTD_H
+#undef HAVE_STRINGS_H
 #undef HAVE_STDINT_H
 #undef HAVE_INTTYPES_H
 #undef HAVE_SYS_TYPES_H

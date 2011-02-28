@@ -662,9 +662,9 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
 	  bf->pos = offset-bf->baseoffset;
 	}
 
-#ifdef _POSIX_SOURCE
-      else if (bf->mode_is == eslBUFFER_FILE && bf->anchor == -1 && offset > bf->baseoffset + bf->n)
-	{
+#ifdef _POSIX_VERSION
+      else if (bf->mode_is == eslBUFFER_FILE && bf->anchor == -1)
+	{			/* a posix-compliant system can always fseeko() on a file */
 	  if (fseeko(bf->fp, offset, SEEK_SET) != 0) ESL_EXCEPTION(eslEINVAL, "fseeko() failed, probably bad offset");
 	  bf->baseoffset = offset;
 	  bf->n          = 0;
@@ -673,7 +673,7 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
 	  if      (status == eslEOF) ESL_EXCEPTION(eslEINVAL, "requested offset is beyond end of file");
 	  else if (status != eslOK)  return status;
 	}
-#endif
+#endif /*_POSIX_VERSION*/
 
       else if (offset < bf->baseoffset)                /* we've already streamed past the requested offset. */
 	ESL_EXCEPTION(eslEINVAL, "can't rewind stream past base offset"); 
@@ -1538,8 +1538,8 @@ static int
 buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
 {
   int          status;
-  /*    mmap(addr, len,          prot,      flags,                  fd,             offset */
-  bf->mem = mmap(0,    filesize, PROT_READ, MAP_FILE | MAP_PRIVATE, fileno(bf->fp), 0);
+  /*    mmap(addr, len,          prot,      flags,       fd,             offset */
+  bf->mem = mmap(0,    filesize, PROT_READ, MAP_PRIVATE, fileno(bf->fp), 0);
   if (bf->mem == MAP_FAILED) ESL_XEXCEPTION(eslESYS, "mmap()");
 
   bf->n       = filesize;
@@ -2129,6 +2129,9 @@ main(int argc, char **argv)
  * eslBUFFER_ALLFILE, eslBUFFER_MMAP, eslBUFFER_FILE flags.
  * We use this to force code coverage of the different
  * buffer_init_file_*() functions.
+ * For example, the default unit test driver generates a 
+ * test file of ~3 MB, which is always slurped and never 
+ * mmap()'ed; if we want to test mmap() we have to force it.
  */
 static int
 buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFFER **ret_bf)
@@ -2139,7 +2142,6 @@ buffer_OpenFileAs(const char *filename, enum esl_buffer_mode_e mode_is, ESL_BUFF
   struct stat fileinfo;
 #endif
   esl_pos_t   filesize = -1;
-  int         status;
 
   if (buffer_create(&bf)                         != eslOK) esl_fatal(msg);
   if ((bf->fp = fopen(filename, "rb"))           == NULL)  esl_fatal(msg);
@@ -2344,7 +2346,7 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   /* test 3. The remaining case is using fseeko(), which
    *         can only happen on a eslBUFFER_FILE opened in basic mode.
    */
-#ifdef _POSIX_SOURCE
+#ifdef _POSIX_VERSION
   if (buffer_OpenFileAs(tmpfile, eslBUFFER_FILE, &bf) != eslOK) esl_fatal(msg);
   if (esl_buffer_SetOffset(bf, testoffset2) != eslOK) esl_fatal(msg);
   if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
@@ -2354,7 +2356,7 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
   utest_compare_line(p, n, testline1);
   esl_buffer_Close(bf);
-#endif
+#endif /*_POSIX_VERSION*/
   
 #if defined HAVE_GZIP
   remove(gzipfile);

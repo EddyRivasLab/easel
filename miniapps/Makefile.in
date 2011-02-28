@@ -86,6 +86,7 @@ uninstall:
 clean:
 	-rm -f ${PROGS}
 	-rm -f *.o *~
+	-rm -f *.gcno *.gcda *.gcov
 	-rm -f TAGS
 
 distclean:

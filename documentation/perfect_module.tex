@@ -1519,3 +1519,42 @@ can be active at a time.
 \section{The .tex file}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Portability notes
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Easel is intended to be widely portable. We adhere to the ANSI C99
+standard. Any dependency on higher-level functionality (including
+POSIX, X/Open, or system-specific stuff) is optional, and Easel is
+capable of working around its absence at compile-time.
+
+Although we do not currently include Windows machines in our
+development environment, we are planning for the day when we do. Easel
+should not include any required UNIX-specific code that wouldn't port
+to Windows.\footnote{Though it probably does, which we'll discover
+  when we first try to compile for Windows.}
+
+
+% xref J7/83.
+\paragraph{Why not define \ccode{\_POSIX\_C\_SOURCE}?} You might think
+it would be a good idea to define \ccode{\_POSIX\_C\_SOURCE} to
+\ccode{200112L} or some such, to try to enforce the portability of our
+POSIX-dependent code. This doesn't work; don't do it.  According to
+the standards, if you define \ccode{\_POSIX\_C\_SOURCE}, the host must
+\emph{disable} anything that's \emph{not} in the POSIX
+standard. However, Easel \emph{is} allowed to optionally use
+system-dependent non-POSIX code. A good example is
+\ccode{esl\_threads.c::esl\_threads\_CPUCount()}. There is no
+POSIX-compliant way to check for the number of available processors on
+a system.\footnote{Apparently the POSIX threads standards committee
+  intends it that way; see
+  \url{http://ansi.c.sources.free.fr/threads/butenhof.txt}.} 
+Easel's implementation tries to find one of several system-specific
+alternatives, including the non-POSIX function \ccode{sysctl{}}. 
+
+
+
+

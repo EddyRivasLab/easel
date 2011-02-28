@@ -65,6 +65,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#ifdef HAVE_STRINGS_H
+#include <strings.h>		/* POSIX strcasecmp() */
+#endif
 
 #include "easel.h"
 #ifdef eslAUGMENT_KEYHASH
@@ -79,6 +82,7 @@
 #include "esl_msa.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
+
 
 
 /******************************************************************************

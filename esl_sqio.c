@@ -30,12 +30,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef HAVE_STRINGS_H
+#include <strings.h>		/* POSIX strcasecmp() */
+#endif
 
 #include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"	/* alphabet aug adds digital sequences */
 #endif 
-
 #include "esl_sqio.h"
 #include "esl_sqio_ascii.h"
 #ifdef eslAUGMENT_NCBI

@@ -79,8 +79,8 @@ dcheck:
 	@echo    For a complete report, see dcheck.report.
 
 clean:
-	-rm -f esl[^_]?????
 	-rm -f *.gcno *.gcda *.gcov
+	-rm -f esltmp??????
 	-rm -f *.o *~ 
 	-rm -f driver.report coverage.report valgrind.report utest.report
 	-rm -f ${PROGS} 
