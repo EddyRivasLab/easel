@@ -3,6 +3,8 @@
  * EPN, Tue Sep 23 13:39:03 2008
  * SVN $Id: esl-alimanip.c 270 2008-06-19 20:45:47Z nawrockie $
  */
+#include "esl_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

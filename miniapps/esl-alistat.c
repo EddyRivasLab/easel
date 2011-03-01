@@ -4,6 +4,8 @@
  * SRE, Wed May 16 08:23:23 2007 [Janelia] [Philip Glass, The Fog of War]
  * SVN $Id$
  */
+#include "esl_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 

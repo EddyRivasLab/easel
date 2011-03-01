@@ -3,6 +3,7 @@
  * EPN, Sun Aug  3 14:57:35 2008
  * From squid's compalign: Sean Eddy, Tue Nov  3 07:46:59 1992
  */
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <string.h>

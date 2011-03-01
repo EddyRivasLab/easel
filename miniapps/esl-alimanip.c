@@ -4,6 +4,8 @@
  * EPN, Fri Aug 10 08:52:30 2007
  * SVN $Id$
  */
+#include "esl_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

@@ -5,6 +5,8 @@
  *
  * EPN, Mon Jun 23 14:46:05 2008
  */
+#include "esl_config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

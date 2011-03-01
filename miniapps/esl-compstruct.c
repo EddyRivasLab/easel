@@ -4,6 +4,7 @@
  * From squid's compstruct: SRE, Tue Aug 30 10:35:31 1994
  * SVN $Id$
  */
+#include "esl_config.h"
 
 #include <stdio.h>
 #include <string.h>
