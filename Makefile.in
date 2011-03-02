@@ -23,7 +23,7 @@ pdfdir      = @pdfdir@
 # Compiler configuration
 #
 CC       = @CC@
-CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ -fpic
+CFLAGS   = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@

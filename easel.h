@@ -114,7 +114,7 @@
  */
 /*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
-     if (((p) = malloc(size)) == NULL) {\
+    if (((p) = malloc(size)) == NULL && (size)) {	\
        status = eslEMEM;\
        esl_exception(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
        goto ERROR;\

@@ -1033,6 +1033,10 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *            need to be terminated by a newline. The returned memory is not
  *            NUL-terminated.
  *            
+ *            If the next line is empty (solely a newline character),
+ *            returns <eslOK>, but with <*opt_p> as <NULL> and
+ *            <*opt_n> as 0.
+ *            
  *            Caller is responsible for free'ing <*opt_p>. 
  *            
  *            Because <*ret_p> is a copy of <bf>'s internal buffer,
@@ -1043,9 +1047,10 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *            *opt_p  - optRETURN: pointer to allocated copy of next line
  *            *opt_n  - optRETURN: length of <*opt_p>
  *
- * Returns:   <eslOK> on success.  <*opt_p> is an allocated copy
- *            of next line and <*opt_n> is >=0. (0 would be an empty line
- *            terminated by newline, such as \verb+\n+.)
+ * Returns:   <eslOK> on success.  Either <*opt_p> is an allocated copy
+ *            of next line and <*opt_n> is $>0$, or <*opt_p> is <NULL>
+ *            and <*opt_n> is 0 (in the case where the line is empty, 
+ 8            immediately terminated by newline, such as \verb+"\n"+.).
  *
  *            <eslEOF> if there's no line (even blank).
  *            On EOF, <*opt_p> is NULL and <*opt_n> is 0.
@@ -1070,8 +1075,10 @@ esl_buffer_FetchLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
 
   if ( (status = buffer_countline(bf, &nc, &nskip)) != eslOK) goto ERROR; /* inc. normal EOF */
   
-  ESL_ALLOC(p, sizeof(char) * nc);
-  memcpy(p, bf->mem+bf->pos, nc);
+  if (nc) { /* nc==0 on an empty line - then <*opt_p> comes back NULL */ 
+    ESL_ALLOC(p, sizeof(char) * nc);
+    memcpy(p, bf->mem+bf->pos, nc);
+  }
   bf->pos += nskip;
 
   anch_set = FALSE;
@@ -2267,8 +2274,6 @@ static void
 utest_SetOffset(const char *tmpfile, int nlines_expected)
 {
   char        msg[]        = "utest_Position() failed";
-  char        gzipfile[32];
-  char        cmd[256];     
   FILE       *fp;
   ESL_BUFFER *bf;
   char       *p;
@@ -2276,6 +2281,10 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   esl_pos_t   thisoffset, testoffset1, testoffset2;
   int         testline1 = -1;
   int         thisline, testline2;
+#ifdef HAVE_GZIP
+  char        gzipfile[32];
+  char        cmd[256];     
+#endif
 
   /* Find offsets of lines ~2000 and ~5000; we'll use these positions as tests. */
   if (nlines_expected <= 8000) return; /* require at least 8000 lines to do this test */

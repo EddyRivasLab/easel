@@ -11,7 +11,7 @@ srcdir     = @srcdir@
 VPATH      = @srcdir@ @top_srcdir@
 
 CC       = @CC@
-CFLAGS   = @CFLAGS@
+CFLAGS   = @CFLAGS@ @PTHREAD_FLAGS@ @PIC_FLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS  = @LDFLAGS@
 SIMDFLAGS= @SIMD_CFLAGS@

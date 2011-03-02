@@ -262,6 +262,11 @@ else
 fi
 fi
 
+# Figure out how to generate PIC code for shared libraries
+# This sets @PIC_FLAGS@ output variable
+ESL_PIC_FLAGS
+
+
 # SSE: figure out our @SIMD_CFLAGS@, define HAVE_SSE2
 # The AC_RUN_IFELSE() is there because it's possible to have 
 # hardware that doesn't support SSE2 instructions, yet the
@@ -447,7 +452,7 @@ echo "
 
 Easel configuration:
 
-     compiler:    ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS}
+     compiler:    ${CC} ${CFLAGS} ${SIMD_CFLAGS} ${PTHREAD_CFLAGS} ${PIC_FLAGS}
      host:        $host
      libraries:   ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
 "
