@@ -1016,7 +1016,7 @@ esl_str_IsBlank(char *s)
  *            else returns FALSE. Whitespace characters are defined by
  *            <isspace()>; they are horizontal tab, line feed,
  *            vertical tab, form feed, carriage return, and space
- *            ('\t', '\n', '\v', '\f', '\r', ' ').
+ *            (\verb+'\t', '\n', '\v', '\f', '\r', ' '+).
  *
  * Args:      p - pointer to start of line
  *            n - number of characters in line (exclusive of any \0)    
@@ -1039,8 +1039,8 @@ esl_mem_IsBlank(char *p, esl_pos_t n)
  * Synopsis:  Convert a chunk of text memory to an int32_t.
  * Incept:    SRE, Tue Feb 15 16:33:45 2011 [Janelia]
  *
- * Purpose:   Convert the text starting at <p> to an int32_t, converting
- *            no more than <n> characters (the valid length of non-NUL
+ * Purpose:   Convert the text starting at <p> to an <int32_t>, converting
+ *            no more than <n> characters (the valid length of non-<NUL>
  *            terminated memory buffer <p>).  Interpret the text as
  *            base <base> (2 or 10, for example). <base> must be 2..36,
  *            or 0. 0 is treated specially as base 8, 10, or 16, autodetected
@@ -1182,25 +1182,25 @@ esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
  *            If no newline is found, <nline=n> and <nterm=0>, and the
  *            return status is <eslEOD>.
  *            
- *            Currently we assume newlines are either UNIX-style "\n"
- *            or Windows-style "\r\n", in this implementation. 
+ *            Currently we assume newlines are either UNIX-style \verb+\n+
+ *            or Windows-style \verb+\r\n+, in this implementation. 
  *            
  *            Caller should not rely on this, though. Caller may only
  *            assume that a newline is an arbitrary one- or two-byte
  *            code.
  *            
- *            For example, if <*m> = "line one\r\nline two", <nline>
- *            is 8 and <nterm> is 2.  If <*m> = "try two\ntry three",
+ *            For example, if <*m> = \verb+"line one\r\nline two"+, <nline>
+ *            is 8 and <nterm> is 2.  If <*m> = \verb+"try two\ntry three"+,
  *            <nline> is 7 and <nterm> is 1. If <*m> = "attempt
  *            four", <nline> is 12 and <nterm> is 0.
  *            
  *            In cases where the caller may have an incompletely read
  *            buffer, it should be careful of cases where one possible
  *            newline may be a prefix of another; for example, suppose
- *            a file has "line one\r\nline two", but we only input the
- *            buffer "line one\r" at first. The "\r" looks like an old
+ *            a file has \verb+"line one\r\nline two"+, but we only input the
+ *            buffer \verb+"line one\r"+ at first. The \verb+"\r"+ looks like an old
  *            MacOS newline. Now we read more input, and we think the
- *            buffer is "\nline two". Now we think the "\n" is a UNIX
+ *            buffer is \verb+"\nline two"+. Now we think the \verb+"\n"+ is a UNIX
  *            newline. The result is that we read two newlines where
  *            there's only one. Instead, caller should check for the
  *            case of nterm==1 at the end of its buffer, and try to

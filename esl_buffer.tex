@@ -31,10 +31,10 @@ line:
 This shows how to open an input, get each line sequentially, do
 something to each line (here, count the number of x's), and close the
 input.  To compile this example, then run it on a file (any file would
-do, but here, \ccode{esl_buffer.c} itself):
+do, but here, \ccode{esl\_buffer.c} itself):
 
-\user{gcc -I. -o esl_buffer_example -DeslBUFFER_EXAMPLE esl_buffer.c easel.c -lm}
-\user{./esl_buffer_example esl_buffer.c}
+\user{gcc -I. -o esl\_buffer\_example -DeslBUFFER\_EXAMPLE esl\_buffer.c easel.c -lm}
+\user{./esl\_buffer\_example esl\_buffer.c}
 \response{Counted 181 x's in 3080 lines.}
 
 The most important thing to notice here is that
@@ -96,12 +96,12 @@ A couple of other things to notice about this example:
   the next line \ccode{p}, and its length in chars \ccode{n}
   (exclusive of any newline character). It does \emph{not} return a
   string - \ccode{p[n]} is \emph{not} a \ccode{NUL} byte
-  \ccode{\0}. Standard C string functions, which expect
+  \verb+\0+. Standard C string functions, which expect
   \ccode{NUL}-terminated strings, can't be used on \ccode{p}. The
   reason is efficiency: the \ccode{ESL\_BUFFER} is potentially looking
   at a read-only exact image of the input, and
   \ccode{esl\_buffer\_GetLine()} is not wasting any time making a copy
-  of it. If you need a string, with an appended \ccode{\0} in the
+  of it. If you need a string, with an appended \verb+\0+ in the
   right place, see \ccode{esl\_buffer\_FetchLineAsStr()}.
 \end{enumerate}
   
@@ -110,10 +110,10 @@ A couple of other things to notice about this example:
 Because \ccode{ESL\_BUFFER} prefers to give you pointers into a
 read-only image of the input, the standard C \ccode{strtok()} function
 can't be used to define tokens (whitespace-delimited fields, for
-example), because \ccode{strtok()} tries to write a \ccode{\0} byte
+example), because \ccode{strtok()} tries to write a \verb+\0+ byte
 after each token it defines. Therefore \ccode{ESL\_BUFFER} provides
 its own token parsing mechanism. Depending on whether or not you
-include newline characters (\ccode{\r\n}) in the list of separator
+include newline characters (\verb+\r\n+) in the list of separator
 (delimiter) characters, it either ignores newlines altogether, or it
 detects newlines separately and expects to find a known number of
 tokens per line.
@@ -123,13 +123,13 @@ every token instead of every line:
 
 \input{cexcerpts/buffer_example2}
 
-\user{gcc -I. -o esl_buffer_example2 -DeslBUFFER_EXAMPLE2 esl_buffer.c easel.c -lm}
-\user{./esl_buffer_example2 esl_buffer.c}
+\user{gcc -I. -o esl\_buffer\_example2 -DeslBUFFER\_EXAMPLE2 esl\_buffer.c easel.c -lm}
+\user{./esl\_buffer\_example2 esl\_buffer.c}
 \response{Counted 181 x's in 14141 words.}
 
-In the \ccode{esl\_buffer\_GetToken()} call, including \ccode{\r\n}
-with \ccode{ \t} in the separators causes newlines to be treated like
-delimiters like any space or tab character. If you omit \ccode{\r\n}
+In the \ccode{esl\_buffer\_GetToken()} call, including \verb+\r\n+
+with \verb+" \t"+ in the separators causes newlines to be treated like
+delimiters like any space or tab character. If you omit \verb+\r\n+
 newline characters from the separators, then the parser detects them
 specially anyway; when it sees a newline instead of a token, it
 returns \ccode{eslEOL} and sets the point to the next character
@@ -138,8 +138,8 @@ tokens:
 
 \input{cexcerpts/buffer_example3}
 
-\user{gcc -I. -o esl_buffer_example3 -DeslBUFFER_EXAMPLE3 esl_buffer.c easel.c -lm}
-\user{./esl_buffer_example3 esl_buffer.c}
+\user{gcc -I. -o esl\_buffer\_example3 -DeslBUFFER\_EXAMPLE3 esl\_buffer.c easel.c -lm}
+\user{./esl\_buffer\_example3 esl\_buffer.c}
 \response{Counted 181 x's in 14141 words on 3080 lines.}
 
 What happens if the last line in a text file is missing its terminal
@@ -163,11 +163,11 @@ it will read. For variable-width binary input, see the
 \ccode{esl\_buffer\_Get()}/\ccode{esl\_buffer\_Set()} calls.
 
 In fact all inputs are treated by \ccode{ESL\_BUFFER} as binary
-input\footnote{That is, platform-dependent newlines are not converted
-  automatically to C \ccode{\n} characters, as would happen when using
-  the C \ccode{stdio.h} library to read an input stream in ``text
-  mode''.} so you can freely mix different types of
-\ccode{esl\_buffer\_*} parsing calls as you see appropriate.
+input. That is, platform-dependent newlines are not converted
+automatically to C \verb+\n+ characters, as would happen when using
+the C \ccode{stdio.h} library to read an input stream in ``text
+mode''. You can freely mix different types of \ccode{esl\_buffer\_*}
+parsing calls as you see appropriate.
 
 
 \subsubsection{A more complicated example, a FASTA parser}
@@ -205,7 +205,7 @@ is a '>' we use \ccode{esl\_buffer\_Set()} to push the line pointer
 You can also see examples here of using
 \ccode{esl\_buffer\_FetchTokenAsStr()}
 \ccode{esl\_buffer\_FetchLineAsStr()} to copy the name and description
-directly to allocated, \ccode{\0}-terminated C strings. Note how they
+directly to allocated, \verb+\0+-terminated C strings. Note how they
 interact: because \ccode{esl\_buffer\_FetchTokenAsStr()} moves the
 point past any trailing separator characters to the start of the next
 token, and because \ccode{esl\_buffer\_FetchLineAsStr()} doesn't need
@@ -291,7 +291,7 @@ to \ccode{esl\_buffer\_GetToken()} per line, to be sure that it sees
 \ccode{eslEOL} rather than an unexpected token.
 
 If the caller doesn't care how many tokens occur on each line, it
-should include newline characters (\ccode{"\r\n"}) in the separator
+should include newline characters (\verb+"\r\n"+) in the separator
 string. Then newlines are treated (and skipped) like any other
 separator.
 
@@ -314,8 +314,8 @@ a token is:
 
 \subsection{Newline handling.}
 
-Easel assumes that newlines are encoded as \ccode{\n} (UNIX, Mac OS/X)
-or \ccode{\r\n} (MS Windows).
+Easel assumes that newlines are encoded as \verb+\n+ (UNIX, Mac OS/X)
+or \verb+\r\n+ (MS Windows).
 
 All streams are opened as binary data. This is necessary to guarantee
 a one:one correspondence between data offsets in memory and data
@@ -362,7 +362,7 @@ ASCII text files.
 
 \subsection{Implementation notes (for developers)}
 
-\paragraph{The state guarantee.} An \ccode{ESL_BUFFER} is exchangeable
+\paragraph{The state guarantee.} An \ccode{ESL\_BUFFER} is exchangeable
 and sharable even amongst entirely different types of parsers because
 it is virtually always guaranteed to be in a well-defined
 state. Specifically:
@@ -397,7 +397,7 @@ effectively contains the entire input:
 \begin{tabular}{lll}
                &   \ccode{STDIN, CMDPIPE, FILE}                                                   & \ccode{ALLFILE, MMAP, STRING}        \\ 
 \ccode{mem}    &   input chunk: \ccode{mem[0..n-1]} is \ccode{input[baseoffset..baseoffset+n-1]}  & entire input: \ccode{mem[0..n-1]} is \ccode{input[0..n-1]}     \\
-\ccode{n}      &   current chunk size                                                             & entire input size (exclusive of \ccode{\0} on a \ccode{STRING}) \\
+\ccode{n}      &   current chunk size                                                             & entire input size (exclusive of \verb+\0+ on a \ccode{STRING}) \\
 \ccode{balloc} &   $>0$; \ccode{mem} is reallocatable                                             & 0; \ccode{mem} is not reallocated  \\
 \ccode{fp}     &   open; \ccode{feof(fp) = TRUE} near EOF                                         & \ccode{NULL}                        \\
 \ccode{baseoffset} &  offset of byte \ccode{mem[0]} in input                                      & 0                                  \\

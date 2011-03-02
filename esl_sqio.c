@@ -391,11 +391,11 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
  *            information about the database, ie number of sequences
  *            number of residues, etc.
  *
- *            All sequences <ESL_SQ> are in a memory array sq_list.
- *            The number of elements in the list is seq_count.  The
+ *            All sequences <ESL_SQ> are in a memory array <sq_list>.
+ *            The number of elements in the list is <seq_count>.  The
  *            header pointers, ie name, acc and desc are pointers into
- *            the header_mem buffer.  All digitized sequences are pointers
- *            into the residue_mem buffer.
+ *            the <header_mem> buffer.  All digitized sequences are pointers
+ *            into the <residue_mem> buffer.
  *
  * Returns:   <eslOK> on success.
  *            

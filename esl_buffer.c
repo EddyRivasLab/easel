@@ -410,10 +410,10 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
  *            
  *            The memory for <p> is still managed by the caller. 
  *            Caller should free it, if necessary, only after the 
- *            ESL_BUFFER has been closed. 
+ *            <ESL_BUFFER> has been closed. 
  *            
  *            As a special case, if <n> is -1, <p> is assumed to be a
- *            <\0>-terminated string and its length is calculated with
+ *            \verb+\0+-terminated string and its length is calculated with
  *            <strlen()>.
  *
  * Args:      p      - ptr to buffer or string
@@ -888,24 +888,28 @@ esl_buffer_Get(ESL_BUFFER *bf, char **ret_p, esl_pos_t *ret_n)
  *            
  *            One use is in raw parsing, where we stop parsing
  *            somewhere in the buffer:
+ *               \begin{cchunk}
  *               esl_buffer_Get(bf, &p, &n);
  *                 (do some stuff on p[0..n-1], using up <nused> bytes)
  *               esl_buffer_Set(bf, p, nused);
+ *               \end{cchunk}
  *            This includes the case of nused=n, where we parse the
  *            whole buffer that Get() gave us, and the Set() call may
  *            be needed to load new input data before the next Get().
  *            
  *            Another use is an idiom for peeking at a token, line, or
  *            a number of bytes without moving the parser position:
+ *              \begin{cchunk}
  *              esl_buffer_GetLine(bf, &p, &n);
  *                (do we like what we see in p[0..n-1]? no? then put it back)
  *              esl_buffer_Set(bf, p, 0);
+ *              \end{cchunk}
  *              
  *            Because it is responsible for loading new input as
  *            needed, Set() may reoffset and reallocate <mem>. If the
  *            caller wants an anchor respected, it must make sure that
  *            anchor is still in effect; i.e., a caller that is
- *            restoring state to an ESL_BUFFER should call Set()
+ *            restoring state to an <ESL_BUFFER> should call Set()
  *            BEFORE calling RaiseAnchor().
  * 
  *            As a special case, if <p> is NULL, then <nused> is
@@ -965,8 +969,10 @@ esl_buffer_Set(ESL_BUFFER *bf, char *p, esl_pos_t nused)
  *            should be called until the caller is done with <p>.
  *            
  *            To peek at next line, use Set to restore <bf>'s state:
+ *            \begin{cchunk}
  *               esl_buffer_GetLine(bf, &p, &n);
  *               esl_buffer_Set(bf, p, 0);           
+ *            \end{cchunk}
  *            
  * Args:      bf    - buffer to get line from
  *           *opt_p - optRETURN: pointer to next line
@@ -1039,7 +1045,7 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *
  * Returns:   <eslOK> on success.  <*opt_p> is an allocated copy
  *            of next line and <*opt_n> is >=0. (0 would be an empty line
- *            terminated by newline, such as "\n".)
+ *            terminated by newline, such as \verb+\n+.)
  *
  *            <eslEOF> if there's no line (even blank).
  *            On EOF, <*opt_p> is NULL and <*opt_n> is 0.
@@ -1091,7 +1097,7 @@ esl_buffer_FetchLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  * Incept:    SRE, Thu Feb 10 09:22:47 2011 [Janelia]
  *
  * Purpose:   Same as <esl_buffer_FetchLine()> except the
- *            returned line is NUL-terminated and can be treated
+ *            returned line is <NUL>-terminated and can be treated
  *            as a string.
  *
  * Args:      bf    - input buffer
@@ -1100,7 +1106,7 @@ esl_buffer_FetchLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *
  * Returns:   <eslOK> on success.  <*opt_p> is an allocated copy
  *            of next line and <*opt_n> is >=0. (0 would be an empty line
- *            terminated by newline, such as "\n".)
+ *            terminated by newline, such as \verb+\n+.)
  *
  *            <eslEOF> if there's no line (even blank).
  *            On EOF, <*opt_p> is NULL and <*opt_n> is 0.
@@ -1162,7 +1168,7 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
  *            characters in <sep> or newline. Return a pointer
  *            to that token in <*opt_tok>, and its length in <*opt_n>.
  *            A 'token' consists of one or more characters that are
- *            neither in <sep> nor a newline ('\r' or '\n').
+ *            neither in <sep> nor a newline (verb+\r+ or \verb+\n+).
  *            
  *            Because the caller only gets a pointer into the buffer's
  *            current memory, it should not call another
@@ -1181,12 +1187,12 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
  *            in <sep>.) Release the anchor and return.
  *            
  *            If caller knows how many tokens it expects on each line,
- *            it should not include <"\r\n"> in its <sep>. This way,
+ *            it should not include \verb+"\r\n"+ in its <sep>. This way,
  *            hitting a newline will cause a <eslEOL> return. The
  *            caller can check for expected or unexpected <EOL>'s.
  *            
  *            If the caller doesn't care how many tokens it allows per
- *            line, it should include <"\r\n"> in its <sep>. Now
+ *            line, it should include \verb+"\r\n"+ in its <sep>. Now
  *            newlines will be skipped like any other separator
  *            character, and the only normal returns are <eslEOF> and
  *            <eslOK>.
@@ -1337,11 +1343,11 @@ esl_buffer_FetchToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t
 
 
 /* Function:  esl_buffer_FetchTokenAsStr()
- * Synopsis:  Fetch copy of next token as <\0>-terminated string.
+ * Synopsis:  Fetch copy of next token as \verb+\0+-terminated string.
  * Incept:    SRE, Sat Jan  1 19:31:57 2011 [Zaragoza]
  *
  * Purpose:   Essentially the same as <esl_buffer_FetchToken()> 
- *            except the copied token is <\0>-terminated so it
+ *            except the copied token is \verb+\0+-terminated so it
  *            can be treated as a string.
  *
  * Args:      bf      - open buffer
@@ -1432,10 +1438,12 @@ esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_
  * 
  *            Suitable for copying known-width scalars from
  *            binary files, as in:
+ *            \begin{cchunk}
  *                char c;
  *                int  n;
  *                esl_buffer_Read(bf, sizeof(char), c);
  *                esl_buffer_Read(bf, sizeof(int),  n);
+ *            \end{cchunk}
  *
  * Args:      bf     - open input buffer
  *            nbytes - number of characters to read
@@ -3137,7 +3145,7 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
 }
 /*::cexcerpt::buffer_example6a::end::*/
 
-/*::cexcerpt::buffer_example6b::end::*/
+/*::cexcerpt::buffer_example6b::begin::*/
 int
 main(int argc, char **argv)
 {

@@ -739,7 +739,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
  *            does sum to ~1.0) before doing a lot of sampling from
  *            it.
  *            
- *            esl_rnd_FChooseCDF() is the same, but for
+ *            <esl_rnd_FChooseCDF()> is the same, but for
  *            a single-precision float <cdf>.
  *            
  * Args:      r    - random number generator

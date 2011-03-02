@@ -532,7 +532,7 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
  * Synopsis:  Remove arbitrary elements from a stack.
  * Incept:    SRE, Tue Jan 18 09:57:47 2011 [Janelia]
  *
- * Purpose:   For each element in the stack, call <(*discard_func)(&element, param)>.
+ * Purpose:   For each element in the stack, call \verb+(*discard_func)(&element, param)+.
  *            If <TRUE>, discard the element. 
  *            
  *            Passing a pointer to an arbitrary <(*discard_func)>
@@ -681,10 +681,10 @@ esl_stack_UseMutex(ESL_STACK *s)
  *
  * Purpose:   Declare that this stack is to be used for communication
  *            between threads. If a thread tries to pop from the stack
- *            and the stack is empty, the Pop will do a pthread_cond_wait()
- *            to wait until another thread has done a Push(). If a thread
- *            pushes onto the stack, it will do a pthread_cond_signal()
- *            to wake up a waiting Pop()'er.
+ *            and the stack is empty, the Pop will do a <pthread_cond_wait()>
+ *            to wait until another thread has done a <Push()>. If a thread
+ *            pushes onto the stack, it will do a <pthread_cond_signal()>
+ *            to wake up a waiting <Pop()>'er.
  *            
  *            The stack must also have an active mutex. The caller
  *            must call <esl_stack_UseMutex()> before calling
