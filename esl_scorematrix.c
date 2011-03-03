@@ -779,7 +779,7 @@ esl_sco_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double 
  * the background probabilities are the marginals of P_ij.
  */
 struct yualtschul_params {
-  ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */		
+  ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */
   ESL_DMATRIX *M;   /* not a param per se: alloc'ed storage for M matrix provided to the objective function */
   ESL_DMATRIX *Y;   /* likewise, alloc'ed storage for Y (M^-1) matrix provided to obj function */
 };
@@ -792,9 +792,19 @@ struct castellanoeddy_params {
   double sextend;   /* gap extension score. Needed to compute M */
 };
 
+struct castellanoeddy_paramsGivenBG {
+  ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */
+  ESL_DMATRIX *M;   /* not a param per se: alloc'ed storage for M matrix provided to the objective function. Different from yualtschul */
+//  ESL_DMATRIX *Y;   /* likewise, alloc'ed storage for Y (M^-1) matrix provided to obj function */
+  double sopen;     /* gap open score. Needed to compute M */
+  double sextend;   /* gap extension score. Needed to compute M */
+  double *fi;       /* query background frequencies. Needed to compute M */
+  double *fj;       /* target background frequencies. Needed to compute M */
+};
+
 /* yualtschul_func()
  *
- * This is the objective function we try to find a root of. 
+ * This is the objective function we try to find a root of.
  * Its prototype is dictated by the esl_rootfinder API.
  */
 static int
@@ -840,17 +850,299 @@ castellanoeddy_func(double lambda, void *params, double *ret_fx)
   /* the M matrix has entries M_ij = e^{lambda * s_ij} */
   for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
-    	M->mx[i][j] = exp(lambda * S->mx[i][j]) + (2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend));
- //   	     M->mx[i][j] = exp(lambda * S->mx[i][j]);
+    	M->mx[i][j] = exp(lambda * S->mx[i][j]) + ((2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend)));
+  //  	     M->mx[i][j] = exp(lambda * S->mx[i][j]); /* We can also keep gap factor outside Mij */
 
   /* the Y matrix is the inverse of M */
   if ((status = esl_dmx_Invert(M, Y)) != eslOK) return status;
 
   /* We're trying to find the root of \sum_ij Y_ij - 1 = 0 */
   *ret_fx = esl_dmx_Sum(Y) - 1.;
-//  *ret_fx = (((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen)))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} */
+//  *ret_fx = (((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen)))) * esl_dmx_Sum(Y)) - 1.; /* Mij = e^{lambda * Sij} so the gap factor is outside */
 
   return eslOK;
+}
+
+/* castellanoeddy_bg_func()
+ *
+ * Solve root with known
+ * background frequencies
+ *
+ * This is the objective function we try to find a root of.
+ * Its prototype is dictated by the esl_rootfinder API.
+ */
+static int
+castellanoeddy_funcGivenBG(double lambda, void *params, double *ret_fx)
+{
+  int status;
+  struct castellanoeddy_bg_params *p = (struct castellanoeddy_bg_params *) params;
+  ESL_DMATRIX  *S = p->S;
+  ESL_DMATRIX  *M = p->M;
+//  ESL_DMATRIX  *Y = p->Y;
+  double sopen    = p->sopen;
+  double sextend  = p->sextend;
+  double *fi      = p->fi;
+  double *fj      = p->fj;
+  int i,j;
+
+  /* the M matrix has entries M_ij = e^{lambda * s_ij} */
+  for (i = 0; i < S->n; i++)
+    for (j = 0; j < S->n; j++)
+    	M->mx[i][j] = fi[i] * fj[j] * (exp(lambda * S->mx[i][j]) + ((2 * exp(lambda * (sopen + S->mx[i][j]))) / (1 - exp(lambda * sextend))));
+
+  /* We're trying to find the root of \sum_ij M_ij - 1 = 0 */
+  *ret_fx = esl_dmx_Sum(M) - 1.;
+
+  return eslOK;
+}
+
+
+/* plot_yualtschul_engine()
+ * Small function to plot
+ * the function of the root
+ * we are interested in
+ */
+static int
+plot_yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj)
+{
+  int status;
+  ESL_ROOTFINDER *R = NULL;
+  struct yualtschul_params p;
+  double x;
+  double fx;
+
+  /* Set up params */
+   p.S = S;
+   p.M = p.Y = NULL;
+   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+
+   /* Initial lambda value */
+   x = 1e-5;
+
+   printf("yu_altschul root:\n");
+
+   for (x; x < 1; x += 0.00001) {
+   if ((status = yualtschul_func(x, &p, &fx))  != eslOK) goto ERROR;
+   printf("lambda: %g f(lambda): %g\n", x, fx);
+   }
+
+   printf("\n");
+
+   esl_dmatrix_Destroy(p.M);
+   esl_dmatrix_Destroy(p.Y);
+   esl_rootfinder_Destroy(R);
+   return eslOK;
+
+  ERROR:
+   if (p.M != NULL) esl_dmatrix_Destroy(p.M);
+   if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
+   if (R   != NULL) esl_rootfinder_Destroy(R);
+   return status;
+}
+
+
+/* plot_castellanoeddy_engine()
+ * Small function to plot
+ * the function of the root
+ * we are interested in
+ */
+static int
+plot_castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX *P, double *fi, double *fj)
+{
+  int status;
+  ESL_ROOTFINDER *R = NULL;
+  struct castellanoeddy_params p;
+  double x;
+  double fx;
+
+  /* Set up params */
+   p.S = S;
+   p.M = p.Y = NULL;
+   p.sopen = sopen;
+   p.sextend = sextend;
+   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+
+   /* Initial lambda value */
+   x = 1e-5;
+
+   printf("castellano_eddy root:\n");
+
+   for (x; x < 1; x += 0.00001) {
+   if ((status = castellanoeddy_func(x, &p, &fx))  != eslOK) goto ERROR;
+   printf("lambda: %g f(lambda): %g\n", x, fx);
+   }
+
+   printf("\n");
+
+   esl_dmatrix_Destroy(p.M);
+   esl_dmatrix_Destroy(p.Y);
+   esl_rootfinder_Destroy(R);
+   return eslOK;
+
+  ERROR:
+   if (p.M != NULL) esl_dmatrix_Destroy(p.M);
+   if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
+   if (R   != NULL) esl_rootfinder_Destroy(R);
+   return status;
+}
+
+/* plot_castellanoeddy_engineGivenBG()
+ * Small function to plot
+ * the function of the root
+ * we are interested in
+ */
+static int
+plot_castellanoeddy_engineGivenBG(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX *P, double *fi, double *fj)
+{
+  int status;
+  ESL_ROOTFINDER *R = NULL;
+  struct castellanoeddy_paramsGivenBG p;
+  double x;
+  double fx;
+
+  /* Set up params */
+   p.S = S;
+ //  p.M = p.Y = NULL;
+   p.M = NULL;
+   p.sopen = sopen;
+   p.sextend = sextend;
+   p.fi = fi;
+   p.fj = fj;
+   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+//   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+
+   /* Initial lambda value */
+   x = 1e-5;
+
+   printf("castellano_eddy root given background:\n");
+
+   for (x; x < 1; x += 0.00001) {
+   if ((status = castellanoeddy_funcGivenBG(x, &p, &fx))  != eslOK) goto ERROR;
+   printf("lambda: %g f(lambda): %g\n", x, fx);
+   }
+
+   printf("\n");
+
+   esl_dmatrix_Destroy(p.M);
+ //  esl_dmatrix_Destroy(p.Y);
+   esl_rootfinder_Destroy(R);
+   return eslOK;
+
+  ERROR:
+   if (p.M != NULL) esl_dmatrix_Destroy(p.M);
+ //  if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
+   if (R   != NULL) esl_rootfinder_Destroy(R);
+   return status;
+}
+
+
+
+/* consistency_test()
+ * Small function to test whether the
+ * probabilistic basis of a score matrix/system
+ * is consistent. Also tests the symmetry of the
+ * target frequency matrix (which is not necessary
+ * to be consistent but has a number of implications).
+ *
+ * The consistency test will usually fail when changing
+ * the target or background frequencies.
+ *
+ */
+
+static int
+consistency_test(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj)
+{
+	  int    i,j;
+	  double sum;
+
+	  /* First show the backcalculated target frequencies */
+	  printf("Target frequencies:\n");
+	  for (i = 0; i < S->n; i++)
+	  {
+		   for (j = 0; j < S->n; j++)
+			   printf("%f\t", P->mx[i][j]);
+
+		 printf("\n");
+	  }
+
+	   sum = 0;
+
+	   for (i = 0; i < S->n; i++)
+	 	  for (j = 0; j < S->n; j++)
+	 		  sum += P->mx[i][j];
+
+	   if (fabs(sum - 1) <= 0.00001)
+		   printf("Sum of Pij is one\n");
+	   else
+		   printf("Sum of Pij different than one!\n");
+
+	  /* Test whether target frequencies are symmetric
+	   * This is not compulsory to have consistency!
+	   */
+	    for (i = 0; i < S->n; i++)
+	 	   for (j = i; j < S->n; j++)
+	 		   if (fabs(P->mx[i][j] - P->mx[j][i]) >= 0.00001)
+	 			   printf("P is not symmetric!\n");
+
+	  /* fi */
+	  printf("\nBackground fi frequencies\n");
+	  for (i = 0; i < S->n; i++)
+	  {
+		  sum = 0.;
+
+	      for (j = 0; j < S->n; j++)
+	    	  sum += P->mx[i][j]; /* row sum */
+
+	      printf("fi: %f marginal: %f ", fi[i], sum);
+
+	      if (fabs(sum - fi[i]) <= 0.00001)
+	    	  printf("are consistent\n");
+	      else
+	    	  printf("are inconsistent!\n");
+	  }
+
+	  sum = 0;
+
+	  for (i = 0; i < S->n; i++)
+		  sum += fi[i];
+
+	  if (fabs(sum - 1) <= 0.00001)
+		  printf("Sum of fi is one\n");
+	  else
+		  printf("Sum of fi different than one!\n");
+
+
+	  /* fj */
+	  printf("\nBackground fj frequencies\n");
+	  for (j = 0; j < S->n; j++)
+	   {
+	      sum = 0.;
+
+	       for (i = 0; i < S->n; i++)
+	     	  sum += P->mx[i][j]; /* column sum */
+
+	       printf("fj: %f marginal: %f ", fj[j], sum);
+
+	       if (fabs(sum - fj[j]) <= 0.00001)
+	    	   printf("are consistent\n");
+
+	       else
+	    	   printf("are inconsistent!\n");
+	   }
+
+	   sum = 0;
+
+	   for (j = 0; j < S->n; j++)
+	  	  sum += fj[j];
+
+	   if (fabs(sum - 1) <= 0.00001)
+			  printf("Sum of fj is one\n");
+	   else
+	        printf("Sum of fj different than one!\n");
+
+	   printf("\n");
 }
 
 /* yualtschul_engine()
@@ -859,16 +1151,16 @@ castellanoeddy_func(double lambda, void *params, double *ret_fx)
  * matrix S, when S is a double-precision matrix. Providing this
  * as a separate "engine" and writing esl_sco_Probify()
  * as a wrapper around it allows us to separately test inaccuracy
- * due to numerical performance of our linear algebra, versus 
+ * due to numerical performance of our linear algebra, versus
  * inaccuracy due to integer roundoff in integer scoring matrices.
- * 
+ *
  * It is not uncommon for this to fail when S is derived from
  * integer scores. Because the scores may have been provided by the
  * user, and this may be our first chance to detect the "user error"
  * of an invalid matrix, this engine returns <eslENORESULT> as a normal error
  * if it can't reach a valid solution.
  */
-static int 
+static int
 yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
 {
   int status;
@@ -878,7 +1170,6 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   double xl, xr;
   double fx;
   int    i,j;
-  double sum;
 
   /* Set up a bisection method to find lambda */
   p.S = S;
@@ -894,7 +1185,7 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
    * the order of 2/max(s_ij).
    */
   xr = 1. / esl_dmx_Max(S);
-  
+
   /* Identify suitable brackets on lambda. */
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
     if ((status = yualtschul_func(xl, &p, &fx))  != eslOK) goto ERROR;
@@ -922,83 +1213,12 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   }
 
   /* Find p_ij */
-  for (i = 0; i < S->n; i++) 
+  for (i = 0; i < S->n; i++)
     for (j = 0; j < S->n; j++)
       P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j]; /* Mij = e^{lambda * Sij}*/
 
-  /* Let me make sure we have a consistent score system */
-  for (i = 0; i < S->n; i++)
-  {
-	  sum = 0.;
-
-      for (j = 0; j < S->n; j++)
-    	  sum += P->mx[i][j]; /* row sum */
-
-      printf("fi: %f Marginal: %f\n", fi[i], sum);
-
-      if (fabs(sum - fi[i]) >= 0.00001)
-      printf("Row marginal: %f fi: %f are inconsistent\n", sum, fi[i]);
-  }
-
-  for (j = 0; j < S->n; j++)
-   {
-      sum = 0.;
-
-       for (i = 0; i < S->n; i++)
-     	  sum += P->mx[i][j]; /* column sum */
-
-       printf("fj: %f Marginal: %f\n", fj[j], sum);
-
-       if (fabs(sum - fj[j]) >= 0.00001)
-       printf("Row marginal: %f fj: %f are inconsistent\n", sum, fj[j]);
-   }
-
-  /* Symmetry */
-
-  for (i = 0; i < S->n; i++)
-  {
-	   for (j = 0; j < S->n; j++)
-		   printf("%f\t", P->mx[i][j]);
-
-	 printf("\n");
-  }
-
-    for (i = 0; i < S->n; i++)
- 	   for (j = i; j < S->n; j++)
- 		   if (fabs(P->mx[i][j] - P->mx[j][i]) >= 0.00001)
- 			   printf("P is not symmetric\n");
-
-  /* Sum to 1? */
-  sum = 0;
-
-   for (i = 0; i < S->n; i++)
- 	  sum += fi[i];
-
-   if (fabs(sum - 1) >= 0.00001)
-       printf("Sum of fi different than one");
-
-   printf("Sum fi: %f\n", sum);
-
-   sum = 0;
-
-   for (j = 0; j < S->n; j++)
-  	  sum += fj[j];
-
-   if (fabs(sum - 1) >= 0.00001)
-        printf("Sum of fj different than one");
-
-   printf("Sum fj: %f\n", sum);
-
-   sum = 0;
-
-   for (i = 0; i < S->n; i++)
- 	  for (j = 0; j < S->n; j++)
- 		  sum += P->mx[i][j];
-
-   if (fabs(sum - 1) >= 0.00001)
-         printf("Sum of Pij different than one");
-
-   printf("Sum Pij: %f\n", sum);
+  /* Test consistency */
+  consistency_test(S, P, fi, fj);
 
   *ret_lambda = lambda;
   esl_dmatrix_Destroy(p.M);
@@ -1039,7 +1259,6 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
   double xl, xr; /* lambda brackets around root */
   double fx;
   int    i,j;
-  double sum;
 
   /* Set up a bisection method to find lambda */
   p.S = S;
@@ -1057,18 +1276,15 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
    * s_ij} in the M matrix. Appears to be safe to start with lambda on
    * the order of 2/max(s_ij).
    */
- // xr = 1. / esl_dmx_Max(S);
+  //xr = 1. / esl_dmx_Max(S);
 
-  xr = 4;
-
-// xr = (1 + ((2 * exp((1. / esl_dmx_Max(S)) * sopen)) / (1 - exp((1. / esl_dmx_Max(S)) * sextend))));
+  xr = 4.;
 
   /* Need constraints here */
 
   /* Identify suitable brackets on lambda. */
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
     if ((status = castellanoeddy_func(xl, &p, &fx))  != eslOK) goto ERROR;
-    printf("left fx: %f\n", fx);
     if (fx > 0.) break;
   }
 
@@ -1107,80 +1323,121 @@ castellanoeddy_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX 
    for (i = 0; i < S->n; i++)
      for (j = 0; j < S->n; j++)
     	 P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j];
-//       P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j] * (1 + ((2 * exp(lambda * sopen)) / (1 - exp(lambda * sextend)))); /* Mij = e^{lambda s_ij} */
+//       P->mx[i][j] = fi[i] * fj[j] * p.M->mx[i][j] * (1 + ((2 * exp(lambda * sopen)) / (1 - exp(lambda * sextend)))); /* Mij = e^{lambda * s_ij} so we need the gap factor outside */
 
-   /* Let me make sure we have a consistent score system */
+   /* Test consistency */
+    consistency_test(S, P, fi, fj);
+
+  *ret_lambda = lambda;
+  esl_dmatrix_Destroy(p.M);
+  esl_dmatrix_Destroy(p.Y);
+  esl_rootfinder_Destroy(R);
+  return eslOK;
+
+ ERROR:
+  if (p.M != NULL) esl_dmatrix_Destroy(p.M);
+  if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
+  if (R   != NULL) esl_rootfinder_Destroy(R);
+  return status;
+}
+
+
+/* castellanoeddy_bg_engine()
+ *
+ * This function backcalculates lambda for a score
+ * matrix S, when S is a double-precision matrix, and gap open and
+ * extension scores sopen and sextend respectively. Providing this
+ * as a separate "engine" and writing esl_sco_gap_Probify()
+ * as a wrapper around it allows us to separately test inaccuracy
+ * due to numerical performance of our linear algebra, versus
+ * inaccuracy due to integer roundoff in integer scoring matrices.
+ *
+ * It is not uncommon for this to fail when S is derived from
+ * integer scores. Because the scores may have been provided by the
+ * user, and this may be our first chance to detect the "user error"
+ * of an invalid matrix, this engine returns <eslENORESULT> as a normal error
+ * if it can't reach a valid solution.
+ */
+static int
+castellanoeddy_bg_engine(ESL_DMATRIX *S, double sopen, double sextend, ESL_DMATRIX *P, double *fi, double *fj, double *ret_lambda)
+{
+  int status;
+  ESL_ROOTFINDER *R = NULL;
+  struct castellanoeddy_paramsGivenBG p;
+  double lambda;
+  double xl, xr; /* lambda brackets around root */
+  double fx;
+  int    i,j;
+
+  /* Set up a bisection method to find lambda */
+  p.S = S;
+  p.M = p.Y = NULL;
+  p.sopen = sopen;
+  p.sextend = sextend;
+  if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+//  if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
+
+
+  /* Compute backgrounds */
+
+  // need to call yualtshcul!!!
+
+
+
+  if ((R = esl_rootfinder_Create(castellanoeddy_funcGivenBG, &p)) == NULL) { status = eslEMEM; goto ERROR; } /* Here we provide the function to the rootfinder */
+
+  /* Need a reasonable initial guess for lambda; if we use extreme
+   * lambda guesses, we'll introduce numeric instability in the
+   * objective function, and may even blow up the values of e^{\lambda
+   * s_ij} in the M matrix. Appears to be safe to start with lambda on
+   * the order of 2/max(s_ij).
+   */
+  //xr = 1. / esl_dmx_Max(S);
+
+  xr = 4.;
+
+  /* Identify suitable brackets on lambda. */
+  for (xl = xr; xl > 1e-10; xl /= 1.6) {
+    if ((status = castellanoeddy_funcGivenBG(xl, &p, &fx))  != eslOK) goto ERROR;
+    if (fx > 0.) break;
+  }
+
+  if (fx <= 0.) { status = eslENORESULT; printf("Cannot bracket root from left\n"); goto ERROR; }
+
+  for (; xr < 100.; xr *= 1.6) {
+    if ((status = castellanoeddy_funcGivenBG(xr, &p, &fx))  != eslOK) goto ERROR;
+    if (fx < 0.) break;
+  }
+
+  if (fx >= 0.) { status = eslENORESULT; printf("Cannot bracket root from right\n"); goto ERROR; }
+
+  /* Find lambda by bisection */
+  if (esl_root_Bisection(R, xl, xr, &lambda) != eslOK)     goto ERROR;
+
+//  /* Find fi, fj from Y: fi are column sums, fj are row sums */
+//   for (i = 0; i < S->n; i++) {
+//	   fi[i] = 0.;
+//     for (j = 0; j < S->n; j++)
+//    	 fi[i] += p.Y->mx[j][i]; /* column sum */
+//
+// //    fi[i] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen))));
+//   }
+//
+//   for (j = 0; j < S->n; j++) {
+//	   fj[j] = 0.;
+//     for (i = 0; i < S->n; i++)
+//    	 fj[j] += p.Y->mx[j][i]; /* row sum */
+//
+////     fj[j] *= ((1 - exp(lambda * sextend)) / (1 - exp(lambda * sextend) + (2 * exp(lambda * sopen))));
+//   }
+
+   /* Find p_ij */
    for (i = 0; i < S->n; i++)
-   {
- 	  sum = 0.;
+     for (j = 0; j < S->n; j++)
+    	 P->mx[i][j] = p.M->mx[i][j];
 
-       for (j = 0; j < S->n; j++)
-     	  sum += P->mx[i][j]; /* row sum */
-
-       printf("fi: %f Marginal: %f\n", fi[i], sum);
-
-       if (fabs(sum - fi[i]) >= 0.00001)
-       printf("Row marginal: %f fi: %f are inconsistent\n", sum, fi[i]);
-   }
-
-   for (j = 0; j < S->n; j++)
-    {
-       sum = 0.;
-
-        for (i = 0; i < S->n; i++)
-      	  sum += P->mx[i][j]; /* column sum */
-
-        printf("fj: %f Marginal: %f\n", fj[j], sum);
-
-        if (fabs(sum - fj[j]) >= 0.00001)
-        printf("Row marginal: %f fj: %f are inconsistent\n", sum, fj[j]);
-    }
-
-  /* Symmetry */
-   for (i = 0; i < S->n; i++)
-    {
-  	   for (j = 0; j < S->n; j++)
-  		   printf("%f\t", P->mx[i][j]);
-
-  	 printf("\n");
-    }
-
-   for (i = 0; i < S->n; i++)
-	   for (j = i; j < S->n; j++)
-		   if (fabs(P->mx[i][j] - P->mx[j][i]) >= 0.00001)
-			   printf("P is not symmetric\n");
-
-   /* Sum to 1? */
-   sum = 0;
-
-    for (i = 0; i < S->n; i++)
-  	  sum += fi[i];
-
-    if (fabs(sum - 1) >= 0.00001)
-        printf("Sum of fi different than one");
-
-    printf("Sum fi: %f\n", sum);
-
-    sum = 0;
-
-    for (j = 0; j < S->n; j++)
-   	  sum += fj[j];
-
-    if (fabs(sum - 1) >= 0.00001)
-         printf("Sum of fj different than one");
-
-    printf("Sum fj: %f\n", sum);
-
-    sum = 0;
-
-    for (i = 0; i < S->n; i++)
-  	  for (j = 0; j < S->n; j++)
-  		  sum += P->mx[i][j];
-
-    if (fabs(sum - 1) >= 0.00001)
-          printf("Sum of Pij different than one");
-
-    printf("Sum Pij: %f\n", sum);
+   /* Test consistency */
+    consistency_test(S, P, fi, fj);
 
   *ret_lambda = lambda;
   esl_dmatrix_Destroy(p.M);
@@ -1273,12 +1530,15 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
     for (j = 0; j < S->K; j++)
       Sd->mx[i][j] = (double) S->s[i][j];
 
+  /* Compute points to plot the function we want the roor of */
+  if ((status = plot_yualtschul_engine(Sd, P, fi, fj)) != eslOK) goto ERROR;
+
   /* Reverse engineer the doubles */
   if ((status = yualtschul_engine(Sd, P, fi, fj, &lambda)) != eslOK) goto ERROR;
 
   /* Set the degenerate probabilities by appropriate sums */
   set_degenerate_probs(S->abc_r, P, fi, fj);
-      
+
   /* Done. */
   esl_dmatrix_Destroy(Sd);
   if (opt_P      != NULL) *opt_P      = P;       else esl_dmatrix_Destroy(P);
@@ -1298,6 +1558,7 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
   if (opt_lambda != NULL) *opt_lambda = 0.;
   return status;
 }
+
 
 /* Function:  esl_sco_gap_Probify()
  * Synopsis:  Calculate the probabilistic basis of Smith-Waterman score system.
@@ -1378,6 +1639,9 @@ esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_
     for (j = 0; j < S->K; j++)
       Sd->mx[i][j] = (double) S->s[i][j];
 
+  /* Compute points to plot the function we want the roor of */
+   if ((status = plot_castellanoeddy_engine(Sd, sopen, sextend, P, fi, fj)) != eslOK) goto ERROR;
+
   /* Reverse engineer the doubles */
   if ((status = castellanoeddy_engine(Sd, sopen, sextend, P, fi, fj, &lambda)) != eslOK) goto ERROR;
 
@@ -1403,6 +1667,124 @@ esl_sco_gap_Probify(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_
   if (opt_lambda != NULL) *opt_lambda = 0.;
   return status;
 }
+
+/* Function:  esl_sco_gap_ProbifyGivenBG()
+ * Synopsis:  Calculate the probabilistic basis of Smith-Waterman score system.
+ * Incept:    SC, Mon Dec 13 15:56:15 CET 2010 [MPI]
+ *
+ * Purpose:   Reverse engineering of a score system: given a "valid"
+ *            substitution matrix <S> and gap open <sopen> and
+ *            extension <sextend> scores, obtain the implied
+ *            conditional probabilities $P(j|i)$, target
+ *            composition $f_j$, and scale $\lambda$, by assuming that
+ *            $f_j$ are the appropriate marginals of $P(j|i)$.
+ *            Optionally return any or all of these solutions in
+ *            <*opt_P>, <*opt_fj>, and <*opt_lambda>.
+ *
+ *            The calculation is run only on canonical residue scores
+ *            $0..K-1$ in S, to calculate conditional probabilities for all
+ *            canonical residues. Conditional and background probabilities
+ *            involving degenerate residues are then calculated by
+ *            appropriate marginalizations. NEED TO DO THIS!!!
+ *
+ *            This implements an algorithm based on the algorithm
+ *            described in \citep{YuAltschul03}.
+ *
+ *            This algorithm works fine in principle, but when it is
+ *            applied to rounded integer scores with small dynamic
+ *            range (the typical situation for score matrices) it may
+ *            fail due to integer roundoff error. It works best for
+ *            score matrices built using small values of $\lambda$. Yu
+ *            and Altschul use $\lambda = 0.00635$ for BLOSUM62, which
+ *            amounts to scaling default BLOSUM62 up 50-fold. It
+ *            happens that default BLOSUM62 (which was created with
+ *            lambda = 0.3466, half-bits) can be successfully reverse
+ *            engineered (albeit with some loss of accuracy;
+ *            calculated lambda is 0.3240) but other common matrices
+ *            may fail. This failure results in a normal returned
+ *            error of <eslENORESULT>.
+ *
+ * Args:      S          - score matrix
+ *            opt_P      - optRETURN: Kp X Kp matrix of implied target conditional probs $P(j|i)$
+ *            opt_fj     - optRETURN: vector of Kp $f_j$ background probs, 0..Kp-1
+ *            opt_lambda - optRETURN: calculated $\lambda$ parameter
+ *
+ * Returns:   <eslOK> on success, and <opt_P>, <opt_fj>, and <opt_lambda>
+ *            point to the results (for any of these that were passed non-<NULL>).
+ *
+ *            <opt_P>, and <opt_fj>, if requested, are new
+ *            allocations, and must be freed by the caller.
+ *
+ *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *
+ * Xref:      J1/35.
+ */
+int
+esl_sco_gap_ProbifyGivenBG(const ESL_SCOREMATRIX *S, double sopen, double sextend, ESL_DMATRIX **opt_P, double *opt_popen, double *opt_pextend, double **opt_fi, double **opt_fj, double *opt_lambda)
+{
+  int status;
+  ESL_DMATRIX  *Sd  = NULL;
+  ESL_DMATRIX  *P   = NULL; /* joint probabilities P(i,j) */
+  double       *fi  = NULL;
+  double       *fj  = NULL;
+  double        lambda;
+  int i,j;
+
+  if (( Sd = esl_dmatrix_Create(S->K,  S->K))  == NULL) {status = eslEMEM; goto ERROR; }
+  if (( P  = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) {status = eslEMEM; goto ERROR; }
+
+  ESL_ALLOC(fi, sizeof(double) * S->Kp);
+  ESL_ALLOC(fj, sizeof(double) * S->Kp);
+
+  /* Construct a double-precision dmatrix from S.
+   * I've tried integrating over the rounding uncertainty by
+   * averaging over trials with values jittered by +/- 0.5,
+   * but it doesn't appear to help much, if at all.
+   */
+  for (i = 0; i < S->K; i++)
+    for (j = 0; j < S->K; j++)
+      Sd->mx[i][j] = (double) S->s[i][j];
+
+  /* Obtain background frequencies from substitution matrix */
+  if ((status = yualtschul_engine(Sd, P, fi, fj, &lambda)) != eslOK) goto ERROR;
+
+  if (opt_fi     != NULL) *opt_fi     = fi;      else free(fi);
+  if (opt_fj     != NULL) *opt_fj     = fj;      else free(fj);
+
+
+
+
+  /* Compute points to plot the function we want the root of */
+   if ((status = plot_castellanoeddy_engineGivenBG(Sd, sopen, sextend, P, fi, fj)) != eslOK) goto ERROR;
+
+  /* Reverse engineer the doubles */
+  if ((status = castellanoeddy_engineGivenBG(Sd, sopen, sextend, P, fi, fj, &lambda)) != eslOK) goto ERROR;
+
+  /* Set the degenerate probabilities by appropriate sums */
+  set_degenerate_probs(S->abc_r, P, fi, fj);
+
+  /* Done. */
+  esl_dmatrix_Destroy(Sd);
+  if (opt_P      != NULL) *opt_P      = P;       else esl_dmatrix_Destroy(P);
+  if (opt_fi     != NULL) *opt_fi     = fi;      else free(fi);
+  if (opt_fj     != NULL) *opt_fj     = fj;      else free(fj);
+  if (opt_lambda != NULL) *opt_lambda = lambda;
+  return eslOK;
+
+ ERROR:
+  if (Sd  != NULL) esl_dmatrix_Destroy(Sd);
+  if (P   != NULL) esl_dmatrix_Destroy(P);
+  if (fi  != NULL) free(fi);
+  if (fj  != NULL) free(fj);
+  if (opt_P      != NULL) *opt_P      = NULL;
+  if (opt_fi     != NULL) *opt_fi     = NULL;
+  if (opt_fj     != NULL) *opt_fj     = NULL;
+  if (opt_lambda != NULL) *opt_lambda = 0.;
+  return status;
+}
+
 
 
 /* Function:  esl_sco_RelEntropy()
