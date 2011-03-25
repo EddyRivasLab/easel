@@ -1,13 +1,18 @@
-# Makefile.in for Easel's miniapps
-# SVN $Id$
-
 top_srcdir = @top_srcdir@
 srcdir     = @srcdir@
-VPATH      = @srcdir@ @top_srcdir@
+VPATH      = @srcdir@ 
+SHELL      = /bin/sh
 
-SHELL       = /bin/sh
-SUFFIXES    = 
-SUFFIXES    = .c .o
+# Package information
+#
+PACKAGE         = @PACKAGE_NAME@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+BASENAME        = @PACKAGE_TARNAME@
+RELEASE         = @EASEL_VERSION@
+RELEASEDATE     = "@EASEL_DATE@"
+COPYRIGHT       = "@EASEL_COPYRIGHT@"
+LICENSELINE     = "@EASEL_LICENSE@"
 
 ## Installation targets
 #
@@ -15,7 +20,16 @@ prefix      = @prefix@
 exec_prefix = @exec_prefix@
 datarootdir = @datarootdir@
 bindir      = @bindir@
+libdir      = @libdir@
+includedir  = @includedir@
+mandir      = @mandir@
+docdir      = @docdir@
+pdfdir      = @pdfdir@
+mandir      = @mandir@
+man1dir     = ${mandir}/man1
+man1ext     = .1
 
+INSTALL     = @INSTALL@
 
 ## your compiler and compiler flags.
 #
@@ -26,10 +40,6 @@ CPPFLAGS  = @CPPFLAGS@
 LDFLAGS   = @LDFLAGS@
 DEFS      = @DEFS@
 LIBS      = -leasel @LIBGSL@ @LIBS@ @PTHREAD_LIBS@ -lm
-
-## where is Easel?
-#
-ESLDIR    = ..
 
 ## list of the miniapps to compile.
 #
@@ -54,33 +64,45 @@ PROGS = esl-afetch\
 	esl-ssdraw\
 	esl-weight
 
+# beautification magic stolen from git 
+#
+QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
+QUIET_SUBDIR1 = 
+ifndef V
+	QUIET_CC      = @echo '    ' CC $@;
+	QUIET_GEN     = @echo '    ' GEN $@;
+	QUIET_AR      = @echo '    ' AR $@;
+	QUIET_SUBDIR0 = +@subdir=
+	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
+		        ${MAKE} -C $$subdir
+endif
 
-all: 	
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	${MAKE} easel_progs
 
-dev:
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	${MAKE} easel_progs
+.PHONY: all dev check easel_progs install uninstall clean distclean TAGS
 
-check:
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	${MAKE} easel_progs
+all: 	easel_progs
+dev:    easel_progs
+check:  easel_progs
 
 easel_progs: ${PROGS}
 
-${PROGS}: @EXEC_DEPENDENCY@  ${ESLDIR}/libeasel.a
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L${ESLDIR} -o $@ $@.o ${LIBS}
+../libeasel.a:
+	${QUIET_SUBDIR0}../easel ${QUIET_SUBDIR1} libeasel.a
+
+${PROGS}: @EXEC_DEPENDENCY@ ../libeasel.a
+	${QUIET_GEN}${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L.. -o $@ $@.o ${LIBS}
 
 .c.o:
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I${ESLDIR} -I${srcdir} -I${srcdir}/.. -o $@ -c $<
+	${QUIET_CC}${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ -c $<
 
 install:
-	cp ${PROGS} ${DESTDIR}${bindir}/
+	for file in ${PROGS}; do \
+	   ${INSTALL} -m 0755 $$file ${DESTDIR}${bindir}/ ;\
+	done
 
 uninstall:
-	for file in $(PROGS); do\
-	   rm ${DESTDIR}${bindir}/$$file;\
+	for file in $(PROGS); do \
+	   rm ${DESTDIR}${bindir}/$$file ;\
 	done
 
 clean:
@@ -89,8 +111,7 @@ clean:
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f TAGS
 
-distclean:
-	${MAKE} clean
+distclean: clean
 	-rm -f ${PROGS}
 	-rm Makefile
 

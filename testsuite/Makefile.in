@@ -1,68 +1,44 @@
-################################################################
-# Makefile for the Easel testsuite
-# Makefile is generated from Makefile.in by autoconf
-# DO NOT EDIT Makefile: only edit Makefile.in
-# 
-# SRE, Mon Jun 11 08:19:32 2007 [Janelia]
-# SVN $Id$
-
 top_srcdir = @top_srcdir@
 srcdir     = @srcdir@
 VPATH      = @srcdir@ @top_srcdir@
+SHELL      = /bin/sh
 
-CC       = @CC@
-CFLAGS   = @CFLAGS@ @PTHREAD_FLAGS@ @PIC_FLAGS@
-CPPFLAGS = @CPPFLAGS@
-LDFLAGS  = @LDFLAGS@
-SIMDFLAGS= @SIMD_CFLAGS@
-DEFS     = @DEFS@
-LIBS     = @LIBGSL@ @LIBS@ -lm
-MPILIBS  = @MPILIBS@
+CC         = @CC@
+CFLAGS     = @CFLAGS@ @PTHREAD_CFLAGS@ @PIC_FLAGS@
+CPPFLAGS   = @CPPFLAGS@
+LDFLAGS    = @LDFLAGS@
+SIMDFLAGS  = @SIMD_CFLAGS@
+DEFS       = @DEFS@
+LIBS       = @LIBGSL@ @LIBS@ -lm
+MPILIBS    = @MPILIBS@
 
-AR      = @AR@ rcv
-RANLIB  = @RANLIB@
-
-ESLDIR   = ..
 SQCLEVEL = 2
 
-PROGS = parse-t1\
-	dmatrix-t1\
-	dmatrix-t2\
+QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
+QUIET_SUBDIR1 = 
+ifndef V
+	QUIET_CC      = @echo '    ' CC $@;
+	QUIET_GEN     = @echo '    ' GEN $@;
+	QUIET_AR      = @echo '    ' AR $@;
+	QUIET_SUBDIR0 = +@subdir=
+	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
+		        ${MAKE} -C $$subdir
+endif
 
-all: 
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	cd ${ESLDIR}; ${MAKE} easel_progs
-	cd ${ESLDIR}; ${MAKE} easel_utests
+.PHONY: all check dcheck clean distclean
 
-check:  
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	cd ${ESLDIR}; ${MAKE} easel_progs
-	cd ${ESLDIR}; ${MAKE} easel_utests
-	${MAKE} run_sqc
+all:  check
 
-dev:
-	cd ${ESLDIR}; ${MAKE} easel_lib
-	cd ${ESLDIR}; ${MAKE} easel_progs
-	cd ${ESLDIR}; ${MAKE} easel_utests
-
-testsuite_progs: 
-
-run_sqc:
+check:
 	@echo 
 	@echo Running Easel test suite...
 	@echo
 	@${srcdir}/../devkit/sqc 2 ${srcdir}/testsuite.sqc .. ${srcdir}/..
 
-${PROGS}: %: %.o ${ESLDIR}/libeasel.a
-	${CC} ${CFLAGS} ${SIMDFLAGS} -o $@ -L ${ESLDIR} $@.o -leasel -lm
-
-.c.o:
-	${CC} -I ${ESLDIR} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<		
-
 dcheck: 
 	@echo    Running developer testsuite...
 	@echo -n Running unit tests...
-	@${srcdir}/../devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . ${ESLDIR} ${ESLDIR}/miniapps/ ${srcdir}  >  utest.report
+	@${top_srcdir}/devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . .. ../miniapps/ ${srcdir}  >  utest.report
 	@echo    done. [See utest.report]
 	@echo -n Testing that all drivers compile...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./driver_report.pl       >  driver.report
@@ -88,3 +64,7 @@ clean:
 distclean:
 	${MAKE} clean
 	rm Makefile
+
+################################################################
+# @LICENSE@
+################################################################

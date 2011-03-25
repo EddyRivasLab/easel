@@ -1,24 +1,49 @@
 # Top level Makefile for Easel
 #
-# SVN $URL$
-# SVN $Id: Makefile.in 609 2010-06-07 11:49:23Z nawrockie $
+# On most systems, to build Easel you should only need:
+#     % ./configure; make
+#
+# Optionally, you can run a test suite:
+#     % make check
+#
+# And optionally, you can install everything more permanently:
+#     % make install
+#
+# For more information, see the Installation chapter of the Easel Guide.
+#
 
+# VPATH and shell configuration
+#
 top_srcdir = @top_srcdir@
 srcdir     = @srcdir@
-VPATH      = @srcdir@ @top_srcdir@
+VPATH      = @srcdir@ 
+SHELL      = /bin/sh
 
-SHELL       = /bin/sh
+# Package information 
+#
+PACKAGE         = @PACKAGE_NAME@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+BASENAME        = @PACKAGE_TARNAME@
+RELEASE         = @EASEL_VERSION@
+RELEASEDATE     = "@EASEL_DATE@"
+COPYRIGHT       = "@EASEL_COPYRIGHT@"
+LICENSELINE     = "@EASEL_LICENSE@"
 
 # Installation targets
 #
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
 datarootdir = @datarootdir@
+bindir      = @bindir@
 libdir      = @libdir@
 includedir  = @includedir@
-bindir      = @bindir@
 mandir      = @mandir@
+docdir      = @docdir@
 pdfdir      = @pdfdir@
+mandir      = @mandir@
+man1dir     = ${mandir}/man1
+man1ext     = .1
 
 # Compiler configuration
 #
@@ -33,26 +58,27 @@ LIBS     = @LIBS@ @PTHREAD_LIBS@
 # Other tools
 #
 COMPRESS = gzip
-AR       = @AR@ rcv
-LN       = ln
+AR       = @AR@ 
 RANLIB   = @RANLIB@
+INSTALL  = @INSTALL@
 
-#######################################################################
-## You should not need to modify below this line.
-#######
-
-PACKAGE     = @PACKAGE_NAME@
-BASENAME    = @PACKAGE_TARNAME@
-RELEASE     = @EASEL_VERSION@
-RELEASEDATE = "@EASEL_DATE@"
-COPYRIGHT   = "@EASEL_COPYRIGHT@"
-LICENSELINE = "@EASEL_LICENSE@"
+# beautification magic stolen from git 
+#
+QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
+QUIET_SUBDIR1 = 
+ifndef V
+	QUIET_CC      = @echo '    ' CC $@;
+	QUIET_GEN     = @echo '    ' GEN $@;
+	QUIET_AR      = @echo '    ' AR $@;
+	QUIET_SUBDIR0 = +@subdir=
+	QUIET_SUBDIR1 = ; echo '    ' SUBDIR  $$subdir; \
+		        ${MAKE} -C $$subdir
+endif
 
 
 # Code manifests
 #
-HDRS = \
-	easel.h\
+HDRS = 	easel.h\
 	esl_alphabet.h\
 	esl_buffer.h\
 	esl_cluster.h\
@@ -103,8 +129,7 @@ HDRS = \
 	esl_workqueue.h\
 	esl_wuss.h
 
-OBJS    = \
-	easel.o\
+OBJS =	easel.o\
 	esl_alphabet.o\
 	esl_buffer.o\
 	esl_cluster.o\
@@ -215,44 +240,31 @@ EXAMPLES = \
 	esl_buffer_example5\
 	esl_buffer_example6
 
-.PHONY: all check dev TAGS
+.PHONY: all dev tests check pdf easel_progs install uninstall clean distclean dist implode TAGS
 
-all:
-	${MAKE} easel_lib
-	${MAKE} easel_progs
+all:    libeasel.a easel_progs
 
-check:
-	${MAKE} easel_lib
-	${MAKE} easel_progs
-	${MAKE} easel_utests
-	cd testsuite; ${MAKE} run_sqc
+dev:    libeasel.a easel_progs ${UTESTS} ${BENCHMARKS}
 
-dev:
-	${MAKE} easel_lib
-	${MAKE} easel_progs
-	${MAKE} easel_utests
-	${MAKE} easel_benchmarks
+tests:  ${UTESTS}
 
-easel_lib:        libeasel.a
-easel_utests:     ${UTESTS}
-easel_benchmarks: ${BENCHMARKS}
+check:  libeasel.a easel_progs ${UTESTS}
+	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
+
+pdf:
+	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} pdf
+
+libeasel.a:  ${OBJS}
+	${QUIET_AR}${AR} -r libeasel.a $(OBJS) > /dev/null 2>&1 
+	@${RANLIB} libeasel.a
 
 easel_progs:
-	cd miniapps; ${MAKE} easel_progs
+	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} easel_progs
 
-run_sqc:
-	cd testsuite; ${MAKE} run_sqc
-
-libeasel.a: $(OBJS)
-	$(AR) libeasel.a $(OBJS)
-	$(RANLIB) libeasel.a
-	chmod 644 libeasel.a
-
-${OBJS}: ${HDRS}
+${OBJS}: ${HDRS} esl_config.h
 
 .c.o: 
-	${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<		
-
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<		
 
 # Unit test compilation:
 # 
@@ -274,7 +286,7 @@ ${UTESTS}:  libeasel.a
         else \
            DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
-	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
+	echo '    ' GEN $@ ;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 # Benchmark compilation:
@@ -293,37 +305,40 @@ ${BENCHMARKS}: libeasel.a
         else \
            DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
-	echo ${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm;\
+	echo '    ' GEN $@ ;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 # install:   installs libeasel.a in ${libdir}/
 #            installs Easel headers in ${includedir}/
 #            installs miniapp binaries in ${bindir}/
 #
-# All install paths are prefaced with DESTDIR/ to facilitate
-# building RPMS in Linux distros. Usually DESTDIR is empty.
-#
 install:
-	mkdir -p ${DESTDIR}${libdir}
-	mkdir -p ${DESTDIR}${includedir}
-	mkdir -p ${DESTDIR}${bindir}
-	cp libeasel.a ${DESTDIR}${libdir}/
+	${INSTALL} -d ${DESTDIR}${bindir}
+	${INSTALL} -d ${DESTDIR}${libdir}
+	${INSTALL} -d ${DESTDIR}${includedir}
+	${INSTALL} -m 0644 libeasel.a ${DESTDIR}${libdir}/
 	for file in ${HDRS}; do\
-	   cp $$file ${DESTDIR}${includedir}/;\
+	   ${INSTALL} -m 0644 ${srcdir}/$$file ${DESTDIR}${includedir}/ ;\
 	done
-	(cd miniapps; make install)
+	${INSTALL} -m 0644 esl_config.h ${DESTDIR}${includedir}/
+	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} install
 
+# "make uninstall" reverses the steps of "make install"
+#
 uninstall:
 	-rm -f ${DESTDIR}${libdir}/libeasel.a
 	for file in ${HDRS}; do\
 	   rm -f ${DESTDIR}${includedir}/$$file;\
 	done
-	(cd miniapps; make uninstall)
+	rm -f ${DESTDIR}${includedir}/esl_config.h
+	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} uninstall
 
+# "make clean" removes almost everything except configuration files
+#
 clean:
-	if test -d documentation; then  (cd documentation; ${MAKE} clean); fi
-	if test -d testsuite;     then  (cd testsuite;     ${MAKE} clean); fi
-	if test -d miniapps;      then  (cd miniapps;      ${MAKE} clean); fi
+	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} clean
+	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
+	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	-rm -f ${OBJS} libeasel.a
 	-rm -f ${UTESTS} ${BENCHMARKS} ${EXAMPLES}
 	-rm -f *~ TAGS
@@ -337,60 +352,56 @@ clean:
 	done
 
 
-distclean:
-	${MAKE} clean
+distclean: clean
+	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
+	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
+	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
 	-rm esl_config.h
 	-rm -rf autom4te.cache
-	if test -d documentation; then (cd documentation; ${MAKE} distclean); fi
-	if test -d testsuite;     then (cd testsuite;     ${MAKE} distclean); fi
-	if test -d miniapps;      then (cd miniapps;      ${MAKE} distclean); fi
 	-rm LICENSE.sh
 	-rm Makefile
-
-#######
-## Targets below this line are meant for developers, not users.
-## Some may only work in context of a developer's Subversion working directory.
-#######
 
 # 'make REPOSITORY=... dist' : create a new distribution tarball
 #
 dist:
-	# Make sure we pointed the make dist to a subversion repository
+# Make sure we pointed the make dist to a subversion repository
 	@if test x${REPOSITORY} = 'x'; then\
 	  echo "REPOSITORY isn't set; use make REPOSITORY=... dist";\
 	  exit 1;\
 	fi
-	# Delete any old versions of the same release
+# Delete any old versions of the same release
 	@if test -d ../${BASENAME}-${RELEASE};        then rm -rf ../${BASENAME}-${RELEASE};        fi
 	@if test -e ../${BASENAME}-${RELEASE}.tar;    then rm -f  ../${BASENAME}-${RELEASE}.tar;    fi
 	@if test -e ../${BASENAME}-${RELEASE}.tar.Z;  then rm -f  ../${BASENAME}-${RELEASE}.tar.Z;  fi
 	@if test -e ../${BASENAME}-${RELEASE}.tar.gz; then rm -f  ../${BASENAME}-${RELEASE}.tar.gz; fi
-	# Export the release from Subversion control
+# Export the release from Subversion control
 	svn export ${REPOSITORY} ../${BASENAME}-${RELEASE}
-	# Make the configure script from configure.ac
+# Make the configure script from configure.ac
 	(cd ../${BASENAME}-${RELEASE};  autoconf)
-	# We'll need some basic Makefiles
+# We'll need some basic Makefiles
 	(cd ../${BASENAME}-${RELEASE}/; ./configure)
-	# Set file permissions.
+# Set file permissions.
 	find ../${BASENAME}-${RELEASE} -type f -exec chmod +r {} \;
-	# Compile the PDF documentation and move it to top level dir
+# Compile the PDF documentation and move it to top level dir
 	(cd ../${BASENAME}-${RELEASE}/documentation/; make pdf)
 	mv ../${BASENAME}-${RELEASE}/documentation/current.pdf  ../${BASENAME}-${RELEASE}/Userguide.pdf
-	# Attach license stamps by replacing LICENSE keyword everywhere
+# Attach license stamps by replacing LICENSE keyword everywhere
 	find ../${BASENAME}-${RELEASE} -type f -exec devkit/sedition-pp LICENSE LICENSE.tag {} \;
-	# Other keyword replacements
+# Other keyword replacements
 	devkit/sedition RELEASE ${RELEASE} RELEASEDATE ${RELEASEDATE} COPYRIGHT ${COPYRIGHT} ../${BASENAME}-${RELEASE}/00README
 	devkit/sedition RELEASE ${RELEASE}                                                   ../${BASENAME}-${RELEASE}/INSTALL
-	# Cleanup
+# Cleanup
 	(cd ../${BASENAME}-${RELEASE}/; make implode)
 	(cd ../${BASENAME}-${RELEASE}/; make distclean)
-	# Packaging
+# Packaging
 	(cd ..;	tar cvf ${BASENAME}-${RELEASE}.tar ${BASENAME}-${RELEASE})
 	(cd ..; ${COMPRESS} ${BASENAME}-${RELEASE}.tar)
 
+
+
 # `make dcheck`: run developer testsuite, save output in testsuite/dcheck.report
 dcheck:
-	(cd testsuite; make dcheck)
+	${QUIET_SUBDIR0}testsuite   ${QUIET_SUBDIR1} dcheck
 
 # The "implode" target is used when we've got Easel as a subdirectory
 # of a larger project, like Infernal or HMMER, and we're building a
@@ -412,11 +423,6 @@ TAGS:
 	find . -name \*.sqc   | xargs etags -a -
 	find . -name 00README | xargs etags -a -
 	etags -a 00CHECKLIST COPYRIGHT configure.ac aclocal.m4
-
-# magic SVN for setting keyword ID replacements, for example:
-#  	find . -name \*.[ch]  | xargs grep -l 'SVN \$Id\$'  | xargs svn propset svn:keywords "Id"
-#	find . -name \*.[ch]  | xargs grep -l 'SVN \$URL\$' | xargs svn propset svn:keywords "URL"
-
 
 ################################################################
 # @LICENSE@

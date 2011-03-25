@@ -438,6 +438,7 @@ AC_SYS_LARGEFILE
 AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([testsuite/Makefile])
+AC_CONFIG_FILES([documentation/Makefile])
 AC_CONFIG_FILES([Makefile])
 if test -e "LICENSE.sh.in"; then
   AC_CONFIG_FILES(LICENSE.sh)
