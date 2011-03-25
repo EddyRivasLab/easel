@@ -87,31 +87,45 @@ sub parse (*) {
 		                # loop, line must be explicitly assigned  
                                 # to $_ or else it will be lost.
 		    if    (/^\s+\((\S+) letters/) { $querylen  = $1; last; } 
-		    elsif (/^Length=(\d+)/)       { $querylen  = $1; last; } 
+		    elsif (/^Length=(\d+)/)       { $querylen  = $1; last; } # NCBI 
 		    elsif (/^\s*( .+)\s*$/)       { $querydesc .= $1; chomp $querydesc; }
 		}
 	    } elsif (/^Database:\s*(.+)\s*$/) {
 		$db  = $1;
 		$_ = <$fh>;
 		if (/^\s+(\S+) sequences; (\S+) total letters/) {
-		    $db_nseq     = $1; $db_nseq     =~ s/,//g; 
-		    $db_nletters = $2; $db_nletters =~ s/,//g;
+		    $db_nseq     = $1; 
+		    $db_nletters = $2; 
+		    $db_nseq     =~ s/,//g; 
+		    $db_nletters =~ s/,//g;
 		}
 	    } elsif (/^Copyright.+Washington University/) {
 		$is_wublast = 1;
 	    }
 	} 
 	elsif ($parsing_hitlist) {
+            # WUBLAST: Sequences producing High-scoring Segment Pairs:              Score  P(N)      N
+            #          2-Hacid_dh/1/17-338/439-757 domains: PTXD_PSEST/5-326 O28...   299  4.7e-27   1
+            # NCBI+:   Sequences producing significant alignments:                          (Bits)  Value
+            #              2-Hacid_dh/4/753-1076/1224-1507 domains: Q20595_CAEEL/181-504 P...  95.1    4e-20
+            # NCBI:    Sequences producing significant alignments:                      (bits) Value
+            #          2-Hacid_dh/4/753-1076/1224-1507 domains: Q20595_CAEEL/181-504 PD...    95   4e-20
+            # In NCBI E-values, beware "e-xxx" without any leading number.
+	    # In NCBI+, beware bit scores can now be real numbers, not just integers.
+            #
 	    if (/^\s*$/) { 
 		$parsing_hitlist = 0;
 		$parsing_alilist = 1;
 		next;
-	    } elsif (/^\s*(\S+)\s+(.+)\s+(\d+)\s+(\S+)/) {
+	    }
+	    elsif ((  $is_wublast && /^\s*(\S+)\s+(.+)\s+(\d+)\s+(\S+)\s+\d+\s*$/) ||
+                   (! $is_wublast && /^\s*(\S+)\s+(.+)\s+(\S+)\s+(\S+)\s*$/))
+	    {
 		$hit_target[$nhits]    = $1;
 		$target_desc{$1}       = $2;
 		$hit_bitscore[$nhits]  = $3;
 
-		if ($is_wublast) { $hit_Eval[$nhits] = -1.0 * log(1.0 - $4); } # conversion from P-value
+		if ($is_wublast) { $hit_Eval[$nhits] = $4; } # actually WU reports P-value
 		else             { $hit_Eval[$nhits] = &repair_evalue($4); }
 
 		$nhits++;
