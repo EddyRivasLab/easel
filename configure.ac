@@ -208,6 +208,7 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 ################################################################
 
 AC_PROG_CC
+AC_PROG_INSTALL
 # MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
 if test "$enable_mpi" = "yes"; then
    ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
