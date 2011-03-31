@@ -64,6 +64,29 @@ PROGS = esl-afetch\
 	esl-ssdraw\
 	esl-weight
 
+PROGOBJS =\
+	esl-afetch.o\
+	esl-alimanip.o\
+	esl-alimap.o\
+	esl-alimask.o\
+	esl-alimerge.o\
+	esl-alistat.o\
+	esl-cluster.o\
+	esl-compalign.o\
+	esl-compstruct.o\
+	esl-construct.o\
+	esl-histplot.o\
+	esl-mask.o\
+	esl-reformat.o\
+	esl-selectn.o\
+	esl-seqrange.o\
+	esl-seqstat.o\
+	esl-sfetch.o\
+	esl-shuffle.o\
+	esl-ssdraw.o\
+	esl-weight.o
+
+
 # beautification magic stolen from git 
 #
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
@@ -78,21 +101,19 @@ ifndef V
 endif
 
 
-.PHONY: all dev check easel_progs install uninstall clean distclean TAGS
+.PHONY: all dev tests check install uninstall clean distclean 
 
-all: 	easel_progs
-dev:    easel_progs
-check:  easel_progs
+all: 	${PROGS}
+dev:    ${PROGS}
+tests:  ${PROGS}
+check:  ${PROGS}
 
-easel_progs: ${PROGS}
-
-../libeasel.a:
-	${QUIET_SUBDIR0}../easel ${QUIET_SUBDIR1} libeasel.a
-
-${PROGS}: @EXEC_DEPENDENCY@ ../libeasel.a
+${PROGS}: @EXEC_DEPENDENCY@ ../libeasel.a 
 	${QUIET_GEN}${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -L.. -o $@ $@.o ${LIBS}
 
-.c.o:
+${PROGOBJS}: ../libeasel.a 
+
+.c.o: ../libeasel.a 
 	${QUIET_CC}${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -I. -I.. -I${srcdir} -I${srcdir}/.. -o $@ -c $<
 
 install:
@@ -114,9 +135,6 @@ clean:
 distclean: clean
 	-rm -f ${PROGS}
 	-rm Makefile
-
-TAGS:
-	etags *.[ch] Makefile.in
 
 
 ################################################################

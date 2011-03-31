@@ -99,9 +99,8 @@ TEXFILES = \
 	typography.tex
 
 
-.PHONY:  all pdf install uninstall clean distclean 
+.PHONY:  pdf install uninstall clean distclean 
 
-all:    current.pdf
 pdf:    current.pdf
 
 current.pdf: symlinks.stamp autodoc.stamp cexcerpt.stamp

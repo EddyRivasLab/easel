@@ -1754,10 +1754,10 @@ main(int argc, char **argv)
  * (These same five cases are tested by ./test -t1 through ./test -t5.)
  *****************************************************************/
 /* Case 1. Complete data fit to complete Gumbel.
- * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE1 esl_histogram.c -leasel -lm
+ * compile: gcc -I. -L. -o example -DeslHISTOGRAM_EXAMPLE esl_histogram.c -leasel -lm
  * run:     ./example 
  */
-#ifdef eslHISTOGRAM_EXAMPLE1
+#ifdef eslHISTOGRAM_EXAMPLE
 /*::cexcerpt::histogram_example1::begin::*/
 #include "easel.h"
 #include "esl_random.h"
@@ -1800,8 +1800,8 @@ main(int argc, char **argv)
   esl_randomness_Destroy(r);
   return 0;
 }
-/*::cexcerpt::histogram_example1::end::*/
-#endif /*eslHISTOGRAM_EXAMPLE1*/
+/*::cexcerpt::histogram_example::end::*/
+#endif /*eslHISTOGRAM_EXAMPLE*/
 
 
 

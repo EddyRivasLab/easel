@@ -25,9 +25,7 @@ ifndef V
 		        ${MAKE} -C $$subdir
 endif
 
-.PHONY: all check dcheck clean distclean
-
-all:  check
+.PHONY: check dcheck clean distclean
 
 check:
 	@echo 
@@ -61,8 +59,7 @@ clean:
 	-rm -f driver.report coverage.report valgrind.report utest.report
 	-rm -f ${PROGS} 
 
-distclean:
-	${MAKE} clean
+distclean: clean
 	rm Makefile
 
 ################################################################

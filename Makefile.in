@@ -233,22 +233,83 @@ UTESTS =\
 #	swat_utest\
 
 EXAMPLES = \
+        easel_example\
+        esl_alphabet_example\
+        esl_alphabet_example2\
 	esl_buffer_example\
 	esl_buffer_example2\
 	esl_buffer_example3\
 	esl_buffer_example4\
 	esl_buffer_example5\
-	esl_buffer_example6
+	esl_buffer_example6\
+        esl_cluster_example\
+        esl_dirichlet_example\
+        esl_dmatrix_example\
+        esl_exponential_example\
+        esl_fileparser_example\
+        esl_fileparser_example2\
+        esl_gamma_example\
+        esl_getopts_example\
+        esl_getopts_example2\
+        esl_gev_example\
+        esl_gumbel_example\
+        esl_histogram_example\
+        esl_histogram_example2\
+        esl_histogram_example3\
+        esl_histogram_example4\
+        esl_histogram_example5\
+        esl_hyperexp_example\
+        esl_keyhash_example\
+        esl_minimizer_example\
+        esl_mixgev_example\
+        esl_msa_example\
+        esl_msacluster_example\
+        esl_msaweight_example\
+        esl_normal_example\
+        esl_normal_example2\
+        esl_random_example\
+        esl_rootfinder_example\
+        esl_rootfinder_example2\
+        esl_scorematrix_example\
+        esl_sq_example\
+        esl_sq_example2\
+        esl_sqio_example\
+        esl_sqio_example2\
+        esl_sqio_example3\
+        esl_sse_example\
+        esl_ssi_example\
+        esl_ssi_example2\
+        esl_stack_example\
+        esl_stats_example\
+        esl_stopwatch_example\
+        esl_stretchexp_example\
+        esl_threads_example\
+        esl_threads_example2\
+        esl_tree_example\
+        esl_tree_example2\
+        esl_vectorops_example\
+        esl_vmx_example\
+        esl_weibull_example\
+        esl_workqueue_example
+#       esl_distance_example\
+#       esl_hmm_example\
+#       esl_msafile_clustal_example\
+#       esl_randomseq_example\
+#       esl_msa_example2\
 
-.PHONY: all dev tests check pdf easel_progs install uninstall clean distclean dist implode TAGS
+.PHONY: all dev tests check pdf install uninstall clean distclean dist implode TAGS
 
-all:    libeasel.a easel_progs
+all:    libeasel.a .FORCE
+	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} all
 
-dev:    libeasel.a easel_progs ${UTESTS} ${BENCHMARKS}
+dev:    libeasel.a ${UTESTS} ${BENCHMARKS} ${EXAMPLES} .FORCE
+	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} dev
 
-tests:  ${UTESTS}
+tests:  ${UTESTS}  
+	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} tests
 
-check:  libeasel.a easel_progs ${UTESTS}
+check:  ${UTESTS} .FORCE
+	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} check
 	${QUIET_SUBDIR0}testsuite ${QUIET_SUBDIR1} check
 
 pdf:
@@ -258,8 +319,7 @@ libeasel.a:  ${OBJS}
 	${QUIET_AR}${AR} -r libeasel.a $(OBJS) > /dev/null 2>&1 
 	@${RANLIB} libeasel.a
 
-easel_progs:
-	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} easel_progs
+.FORCE:
 
 ${OBJS}: ${HDRS} esl_config.h
 
@@ -281,12 +341,14 @@ ${UTESTS}:  libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_utest//'| sed -e 's/^esl_//'` ;\
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_TESTDRIVE ;\
-	if test $@ = "easel_utest"; then \
-           DFILE=${srcdir}/easel.c ;\
-        else \
-           DFILE=${srcdir}/esl_$${BASENAME}.c ;\
+	if test $@ = "easel_utest" ;\
+           then DFILE=${srcdir}/easel.c ;\
+	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
-	echo '    ' GEN $@ ;\
+	if test ${V} ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   else echo '    ' GEN $@ ;\
+	fi ;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 # Benchmark compilation:
@@ -300,12 +362,27 @@ ${BENCHMARKS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_benchmark//'| sed -e 's/^esl_//'` ;\
 	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
 	DFLAG=esl$${DFLAG}_BENCHMARK ;\
-	if test $@ = "easel_benchmark"; then \
-           DFILE=${srcdir}/easel.c ;\
-        else \
-           DFILE=${srcdir}/esl_$${BASENAME}.c ;\
+	if test $@ = "easel_benchmark" ;\
+	   then DFILE=${srcdir}/easel.c ;\
+	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
-	echo '    ' GEN $@ ;\
+	if test ${V} ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   else echo '    ' GEN $@ ;\
+	fi ;\
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+
+${EXAMPLES}: libeasel.a
+	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
+	DFLAG=esl`echo $@ | sed -e 's/^esl_//' | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
+	if test $@ = "easel_example"; \
+	   then DFILE=${srcdir}/easel.c ;\
+           else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
+        fi ;\
+	if test ${V}; \
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   else echo '    ' GEN $@ ;\
+	fi ;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
 # install:   installs libeasel.a in ${libdir}/

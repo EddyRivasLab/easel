@@ -2146,7 +2146,7 @@ int main(void)
  * 13. Examples.
  *****************************************************************/
 
-#ifdef eslEASEL_EXAMPLE2
+#ifdef eslEASEL_EXAMPLE
 /*::cexcerpt::easel_example_tmpfiles::begin::*/
 /* gcc -g -Wall -o example -I. -L. -DeslEASEL_EXAMPLE_TMPFILES easel.c -leasel -lm
  * ./example
@@ -2184,7 +2184,7 @@ int main(void)
   return eslOK;
 }
 /*::cexcerpt::easel_example_tmpfiles::end::*/
-#endif /*eslEASEL_EXAMPLE2*/
+#endif /*eslEASEL_EXAMPLE*/
 
 
 /*****************************************************************
