@@ -1758,7 +1758,7 @@ main(int argc, char **argv)
  * run:     ./example 
  */
 #ifdef eslHISTOGRAM_EXAMPLE
-/*::cexcerpt::histogram_example1::begin::*/
+/*::cexcerpt::histogram_example::begin::*/
 #include "easel.h"
 #include "esl_random.h"
 #include "esl_histogram.h"

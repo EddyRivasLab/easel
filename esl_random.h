@@ -1,8 +1,4 @@
 /* Easel's portable, threadsafe random number generator.
- * 
- * SRE, Wed Jul 14 11:23:57 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslRANDOM_INCLUDED
 #define eslRANDOM_INCLUDED

@@ -147,15 +147,15 @@ uninstall:
 	-rm -f  ${DESTDIR}${pdfdir}/current.pdf
 
 clean:
+	-rm -f symlinks.stamp autodoc.stamp cexcerpt.stamp
+	-rm -rf cexcerpts
+	-rm -rf autotext
 	-rm -f *~ TAGS
 	-rm -f main.log main.out main.pdf main.aux main.toc 
 	-rm -f main.bbl main.blg main.brf
 	-rm -f typography.log typography.aux typography.out
-	-rm -f autotext/*.tex
 
 distclean: clean
-	-rm -rf cexcerpts
-	-rm -rf autotext
 	-rm -f Makefile
 
 ################################################################

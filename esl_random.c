@@ -13,11 +13,6 @@
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
- * 
- * SRE, Wed Jul 14 10:54:46 2004 [St. Louis]
- * SRE, 30 May 2009: replaced with the Mersenne Twister and Knuth LCG.
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -46,7 +41,6 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
 
 /* Function:  esl_randomness_Create()
  * Synopsis:  Create the default strong random number generator.
- * Incept:    SRE, Wed Jul 14 13:02:18 2004 [St. Louis]
  *
  * Purpose:   Create a random number generator using
  *            a given random seed. The <seed> must be $\geq 0$.
@@ -81,8 +75,8 @@ static void     mersenne_fill_table(ESL_RANDOMNESS *r);
  *              
  * Throws:    <NULL> on failure.
  * 
- * Xref:      STL8/p57.
- *            J5/21:    Mersenne Twister.
+ * Xref:      SRE:STL8/p57.
+ *            SRE:J5/21:    Mersenne Twister.
  */
 ESL_RANDOMNESS *
 esl_randomness_Create(uint32_t seed)
@@ -104,7 +98,6 @@ esl_randomness_Create(uint32_t seed)
 
 /* Function:  esl_randomness_CreateFast()
  * Synopsis:  Create the alternative fast generator.
- * Incept:    SRE, Sat May 30 06:35:23 2009 [Stockholm]
  *
  * Purpose:   Same as <esl_randomness_Create()>, except that a simple
  *            linear congruential generator will be used.
@@ -128,8 +121,8 @@ esl_randomness_Create(uint32_t seed)
  *              
  * Throws:    <NULL> on failure.
  *
- * Xref:      J5/44: for accidental proof that the period is
- *                   indeed 2^32.
+ * Xref:      SRE:J5/44: for accidental proof that the period is
+ *                       indeed 2^32.
  */
 ESL_RANDOMNESS *
 esl_randomness_CreateFast(uint32_t seed)
@@ -152,7 +145,6 @@ esl_randomness_CreateFast(uint32_t seed)
 
 /* Function:  esl_randomness_CreateTimeseeded()
  * Synopsis:  Create an RNG with a quasirandom seed.
- * Incept:    SRE, Wed Jul 14 11:22:54 2004 [St. Louis]
  *
  * Purpose:   Like <esl_randomness_Create()>, but it initializes the
  *            the random number generator using a POSIX <time()> call 
@@ -166,7 +158,7 @@ esl_randomness_CreateFast(uint32_t seed)
  *              
  * Throws:    <NULL> on failure.
  * 
- * Xref:      STL8/p57.
+ * Xref:      SRE:STL8/p57.
  */
 ESL_RANDOMNESS *
 esl_randomness_CreateTimeseeded(void)
@@ -177,7 +169,6 @@ esl_randomness_CreateTimeseeded(void)
 
 /* Function:  esl_randomness_Init()
  * Synopsis:  Reinitialize a RNG.           
- * Incept:    SRE, Wed Jul 14 13:13:05 2004 [St. Louis]
  *
  * Purpose:   Reset and reinitialize an existing <ESL_RANDOMNESS>
  *            object with a new seed. 
@@ -198,7 +189,7 @@ esl_randomness_CreateTimeseeded(void)
  *
  * Throws:    <eslEINVAL> if seed is $<= 0$.
  *
- * Xref:      STL8/p57.
+ * Xref:      SRE:STL8/p57.
  */
 int
 esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
@@ -220,7 +211,6 @@ esl_randomness_Init(ESL_RANDOMNESS *r, uint32_t seed)
 
 /* Function:  esl_randomness_GetSeed()
  * Synopsis:  Returns the value of RNG's seed.
- * Incept:    SRE, Wed May 23 17:02:59 2007 [Janelia]
  *
  * Purpose:   Return the value of the seed. 
  */
@@ -233,7 +223,6 @@ esl_randomness_GetSeed(const ESL_RANDOMNESS *r)
 
 /* Function:  esl_randomness_Destroy()
  * Synopsis:  Free an RNG.            
- * Incept:    SRE, Wed Jul 14 13:19:08 2004 [St. Louis]
  *
  * Purpose:   Frees an <ESL_RANDOMNESS> object.
  */
@@ -254,15 +243,14 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
 
 /* Function: esl_random()  
  * Synopsis: Generate a uniform random deviate on [0,1)
- * Incept:   SRE, Sat May 30 05:01:45 2009 [Stockholm]
  *
  * Purpose:  Returns a uniform deviate x, $0.0 <= x < 1.0$, given
  *           RNG <r>.
  *           
  *           Uses the original Mersenne Twister algorithm, MT19937
- *           [Matsumoto98]. This generator has a period of $2^19937 -
+ *           [Matsumoto98]. This generator has a period of $2^{19937} -
  *           1$. It generates uniformly distributed variates on the
- *           interval $0..2^32-1$. 
+ *           interval $0..2^{32}-1$. 
  *           
  *           If you cast the return value to float, the [0,1) interval
  *           guarantee is lost because values close to 1 will round to
@@ -274,10 +262,8 @@ esl_randomness_Destroy(ESL_RANDOMNESS *r)
  *           generators, plus a Bays-Durham shuffle \citep{Press93}.
  *           MT is about 10x faster.
  *
- * Returns:  uniformly distribute random deviate on interval
- *           $0.0 \leq x < 1.0$
- *
- * Throws:   (no abnormal error conditions)
+ * Returns:  a uniformly distribute random deviate on interval
+ *           $0.0 \leq x < 1.0$.
  */
 double
 esl_random(ESL_RANDOMNESS *r)
@@ -415,7 +401,6 @@ jenkins_mix3(uint32_t a, uint32_t b, uint32_t c)
 
 /* Function: esl_rnd_UniformPositive()
  * Synopsis: Generate a uniform positive random deviate on interval (0,1).
- * Incept:   SRE, Wed Jul 14 13:31:23 2004 [St. Louis]
  *
  * Purpose:  Same as <esl_random()>, but assure $0 < x < 1$;
  *           (positive uniform deviate).
@@ -431,7 +416,6 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
 
 /* Function:  esl_rnd_Gaussian()
  * Synopsis:  Generate a Gaussian-distributed sample.
- * Incept:    SRE, Wed Jul 14 13:50:36 2004 [St. Louis]
  *
  * Purpose:   Pick a Gaussian-distributed random variable
  *            with a given <mean> and standard deviation <stddev>, and
@@ -616,7 +600,6 @@ gamma_fraction(ESL_RANDOMNESS *r, double a)	/* for fractional a, 0 < a < 1 */
 
 /* Function: esl_rnd_Gamma()
  * Synopsis: Returns a random deviate from a Gamma(a, 1) distribution.
- * Incept:   SRE, Wed Apr 17 13:10:03 2002 [St. Louis]
  *
  * Purpose:  Return a random deviate distributed as Gamma(a, 1.)
  *           \citep[pp. 133--134]{Knu-81a}.
@@ -717,7 +700,6 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
 
 /* Function:  esl_rnd_DChooseCDF()
  * Synopsis:  Return random choice from cumulative multinomial distribution.
- * Incept:    SRE, Wed Jan 12 11:34:18 2011 [Janelia]
  *
  * Purpose:   Given a random number generator <r> and a cumulative
  *            multinomial distribution <cdf[0..N-1]>, sample an element

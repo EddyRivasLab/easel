@@ -359,9 +359,10 @@ main(int argc, char **argv)
       esl_sqfile_Close(sqfp);
     } /* end of unaligned seq conversion */
 
+  if (ofp != stdout) fclose(ofp);
   esl_getopts_Destroy(go);
   exit(0);
-  }
+}
 
 /* symconvert()
  * 

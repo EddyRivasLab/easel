@@ -229,9 +229,9 @@ create_ssi_index(ESL_GETOPTS *go, ESL_SQFILE *sqfp)
 
   esl_strdup(sqfp->filename, -1, &ssifile);
   esl_strcat(&ssifile, -1, ".ssi", 4);
-  status = esl_newssi_Open(ssifile, FALSE, &ns);
+  status = esl_newssi_Open(ssifile, TRUE, &ns); /* TRUE is for allowing overwrite. */
   if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
-  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile);
+  else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile); /* won't happen, see TRUE above... */
   else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
 
   if (esl_newssi_AddFile(ns, sqfp->filename, sqfp->format, &fh) != eslOK)
