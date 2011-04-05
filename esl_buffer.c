@@ -14,10 +14,6 @@
  *  10. Test driver.
  *  11. Examples.
  *  12. Copyright and license.
- *
- * SRE, Fri Dec 31 23:28:58 2010 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
  */
 /*::cexcerpt::header_example::end::*/
 
