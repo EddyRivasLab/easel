@@ -104,11 +104,12 @@ TEXFILES = \
 pdf:    current.pdf
 
 current.pdf: symlinks.stamp autodoc.stamp cexcerpt.stamp
-	pdflatex main
-	bibtex   main
-	pdflatex main
-	pdflatex main
-	mv main.pdf current.pdf
+	@echo "     LATEX current.pdf  (see latex.log for output)"
+	@pdflatex -interaction=nonstopmode main  > latex.log 2>&1
+	@bibtex   main                          >> latex.log 2>&1
+	@pdflatex main                          >> latex.log 2>&1
+	@pdflatex main                          >> latex.log 2>&1
+	@mv main.pdf current.pdf
 
 # symlinks.stamp: if we're in a build tree, symlink the tex files.
 #                 if we're in a source tree, no-op.
@@ -119,7 +120,15 @@ symlinks.stamp:
 	         ln -s ${srcdir}/$$texfile . ;\
 	      fi ;\
 	   done ;\
+	   if ! (test -e figures); then \
+	      ln -s ${srcdir}/figures . ;\
+	   fi ;\
 	fi
+	@for module in ${MODULES}; do \
+	   if ! (test -e $$module.tex); then \
+	      ln -s ${srcdir}/../$$module.tex . ;\
+	   fi ;\
+	done
 	@echo "symlinks created:\c" > $@
 	@date >> $@
 
@@ -147,9 +156,26 @@ uninstall:
 	-rm -f  ${DESTDIR}${pdfdir}/current.pdf
 
 clean:
+	if test "x${srcdir}" != "x."; then \
+	   for texfile in ${TEXFILES}; do \
+	      if (test -L $$texfile); then \
+	         rm $$texfile ;\
+	      fi ;\
+	   done ;\
+	   if (test -L figures); then \
+	      rm figures ;\
+	   fi ;\
+	fi
+	for module in ${MODULES}; do \
+	   if (test -L $$module.tex); then \
+	     rm $$module.tex ;\
+	   fi ;\
+	done
 	-rm -f symlinks.stamp autodoc.stamp cexcerpt.stamp
 	-rm -rf cexcerpts
 	-rm -rf autotext
+	-rm -f latex.log
+	-rm -f x.log
 	-rm -f *~ TAGS
 	-rm -f main.log main.out main.pdf main.aux main.toc 
 	-rm -f main.bbl main.blg main.brf
@@ -157,6 +183,7 @@ clean:
 
 distclean: clean
 	-rm -f Makefile
+	-rm -f current.pdf
 
 ################################################################
 # @LICENSE@
