@@ -4,16 +4,13 @@
  * Contents:
  *   1. The ESL_SCOREMATRIX object.
  *   2. Reading/writing score matrices.
- *   3. Interpreting score matrices probabilistically.
- *   4. Utility programs.
- *   5. Unit tests.
- *   6. Test driver.
- *   7. Example program.
- *   8. License and copyright.
- * 
- * SRE, Mon Apr  2 08:25:05 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
+ *   3. Implicit probabilistic basis of, I:  given background.
+ *   4. Implicit probabilistic basis of, II: bg unknown. [Yu/Altschul03,05].
+ *   5. Utility programs.
+ *   6. Unit tests.
+ *   7. Test driver.
+ *   8. Example program.
+ *   9. License and copyright.
  */
 
 #include "esl_config.h"
@@ -29,6 +26,7 @@
 #include "esl_ratematrix.h"
 #include "esl_scorematrix.h"
 #include "esl_vectorops.h"
+
 
 #define DIM 29
 
@@ -941,19 +939,112 @@ esl_sco_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double 
 
 }
 
-
-
-/* This section is an implementation of one of the ideas in
- * Yu and Altschul, PNAS 100:15688, 2003 [YuAltschul03]:
+/*****************************************************************
+ * 4. Implicit probabilistic basis of, II: bg unknown (DEPRECATED)
+ *****************************************************************/
+/* This section implements one of the key ideas in Yu and Altschul,
+ * PNAS 100:15688, 2003 [YuAltschul03], and Yu and Altschul,
+ * Bioinformatics 21:902-911, 2005 [YuAltschul05]:
+ * 
  * Given a valid score matrix, calculate its probabilistic
  * basis (P_ij, f_i, f_j, and lambda), on the assumption that
  * the background probabilities are the marginals of P_ij.
+ * 
+ * However, this procedure appears to be unreliable.
+ * There are often numerous invalid solutions with negative
+ * probabilities, and the Yu/Altschul Y function (that we've solving
+ * for its root) is often discontinuous. Although Yu and Altschul say
+ * they can just keep searching for solutions until a valid one is
+ * found, and "this procedure presents no difficulties in practice", I
+ * don't see how.
+ * 
+ * For example, run the procedure on PAM190 and PAM200. For PAM190
+ * you will obtain a valid solution with lambda = 0.2301. For PAM200
+ * you will obtain an *invalid* solution with lambda = 0.2321, and
+ * negative probabilities f_{ENT} (and all p_ij involving ENT and 
+ * the other 17 aa). There is a discontinuity in the function, but 
+ * it's not near these lambdas, it's at about lambda=0.040, so it's 
+ * not that we fell into a discontinuity: the bisection procedure on
+ * lambda is working smoothly. And if you calculate a score matrix again
+ * from the invalid PAM200 solution, you get PAM200 back, so it's not
+ * that there's an obvious bug -- we do obtain a "solution" to PAM200,
+ * just not one with positive probabilities. It's not obvious how
+ * we could find a different solution to PAM200 than the invalid one!
+ *
+ * What we're going to do [xref J7/126, Apr 2011] is to deprecate 
+ * the Yu/Altschul procedure altogether.
  */
 struct yualtschul_params {
   ESL_DMATRIX *S;   /* pointer to the KxK score matrix w/ values cast to doubles */		
   ESL_DMATRIX *M;   /* not a param per se: alloc'ed storage for M matrix provided to the objective function */
   ESL_DMATRIX *Y;   /* likewise, alloc'ed storage for Y (M^-1) matrix provided to obj function */
 };
+
+/* yualtschul_scorematrix_validate
+ * See start of section 3, p. 903, YuAltschul05
+ * (Implementation could be more efficient here; don't really have
+ *  to sweep the entire matrix twice to do this.)
+ */
+static int
+yualtschul_scorematrix_validate(const ESL_SCOREMATRIX *S)
+{
+  int i, j;
+  int has_neg, has_pos;
+
+  /* each row must have at least one positive and one negative score */
+  for (i = 0; i < S->K; i++)
+    {
+      has_neg = has_pos = FALSE;
+      for (j = 0; j < S->K; j++)
+	{
+	  if (S->s[i][j] > 0) has_pos = TRUE;
+	  if (S->s[i][j] < 0) has_neg = TRUE;
+	}
+      if (! has_pos || ! has_neg) return eslFAIL;
+    }
+  
+  /* ditto for columns */
+  for (j = 0; j < S->K; j++)
+    {
+      has_neg = has_pos = FALSE;
+      for (i = 0; i < S->K; i++)
+	{
+	  if (S->s[i][j] > 0) has_pos = TRUE;
+	  if (S->s[i][j] < 0) has_neg = TRUE;
+	}
+      if (! has_pos || ! has_neg) return eslFAIL;
+    }
+      
+  return eslOK;
+}
+
+/* upper bound bracketing lambda solution: eqn (12) in [YuAltschul05] */
+static double
+yualtschul_upper_bound(const ESL_DMATRIX *Sd)
+{
+  int    i;
+  double minimax;
+  double maxlambda;
+  
+  /* minimax = c in YuAltschul05 p.903 = smallest of the max scores in each row/col */
+  minimax = esl_vec_DMax(Sd->mx[0], Sd->n); 
+  for (i = 1; i < Sd->n; i++)
+    minimax = ESL_MIN(minimax, esl_vec_DMax(Sd->mx[i], Sd->n));
+  
+  maxlambda = log((double) Sd->n) / minimax; /* eqn (12), YuAltschul05 */
+  return maxlambda;
+}
+
+static int
+yualtschul_solution_validate(const ESL_DMATRIX *P, const double *fi, const double *fj)
+{
+  
+  if ( esl_dmx_Min(P)         < 0.0)  return eslFAIL;
+  if ( esl_vec_DMin(fi, P->n) < 0.0)  return eslFAIL;
+  if ( esl_vec_DMin(fj, P->n) < 0.0)  return eslFAIL;
+
+  return eslOK;
+}
 
 /* yualtschul_func()
  *
@@ -1015,16 +1106,10 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   if ((p.M = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
   if ((p.Y = esl_dmatrix_Create(S->n, S->n))           == NULL) { status = eslEMEM; goto ERROR; }
   if ((R = esl_rootfinder_Create(yualtschul_func, &p)) == NULL) { status = eslEMEM; goto ERROR; }
-
-  /* Need a reasonable initial guess for lambda; if we use extreme
-   * lambda guesses, we'll introduce numeric instability in the
-   * objective function, and may even blow up the values of e^{\lambda
-   * s_ij} in the M matrix. Appears to be safe to start with lambda on
-   * the order of 2/max(s_ij).
-   */
-  xr = 1. / esl_dmx_Max(S);
   
   /* Identify suitable brackets on lambda. */
+  xr = yualtschul_upper_bound(S);
+
   for (xl = xr; xl > 1e-10; xl /= 1.6) {
     if ((status = yualtschul_func(xl, &p, &fx))  != eslOK) goto ERROR;
     if (fx > 0.) break;
@@ -1087,21 +1172,16 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            appropriate marginalizations.
  *
  *            This implements an algorithm described in
- *            \citep{YuAltschul03}.
- *            
- *            This algorithm works fine in principle, but when it is
- *            applied to rounded integer scores with small dynamic
- *            range (the typical situation for score matrices) it may
- *            fail due to integer roundoff error. It works best for
- *            score matrices built using small values of $\lambda$. Yu
- *            and Altschul use $\lambda = 0.00635$ for BLOSUM62, which
- *            amounts to scaling default BLOSUM62 up 50-fold. It
- *            happens that default BLOSUM62 (which was created with
- *            lambda = 0.3466, half-bits) can be successfully reverse
- *            engineered (albeit with some loss of accuracy;
- *            calculated lambda is 0.3240) but other common matrices
- *            may fail. This failure results in a normal returned
- *            error of <eslENORESULT>. 
+ *            \citep{YuAltschul03} and \citep{YuAltschul05}.
+ *
+ *            Although this procedure may succeed in many cases,
+ *            it is unreliable and should be used with great caution.
+ *            Yu and Altschul note that it can find invalid solutions
+ *            (negative probabilities), and although they say that one
+ *            can keep searching until a valid solution is found, 
+ *            one can produce examples where this does not seem to be
+ *            the case. The caller MUST check return status, and
+ *            MUST expect <eslENORESULT>.
  *            
  * Args:      S          - score matrix 
  *            opt_P      - optRETURN: Kp X Kp matrix of implied target probs $p_{ij}$
@@ -1115,11 +1195,12 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            <opt_P>, <opt_fi>, and <opt_fj>, if requested, are new
  *            allocations, and must be freed by the caller.
  *            
+ *            Returns <eslEINVAL> if input score matrix isn't valid (sensu YuAltschul05).
  *            Returns <eslENORESULT> if the algorithm fails to determine a valid solution.
  *
  * Throws:    <eslEMEM> on allocation failure.
  *
- * Xref:      J1/35.
+ * Xref:      SRE:J1/35; SRE:J7/126.
  */
 int
 esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, double **opt_fj, double *opt_lambda)
@@ -1132,6 +1213,9 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
   double        lambda;
   int i,j;
 
+  /* Check the input matrix for validity */
+  if ( yualtschul_scorematrix_validate(S) != eslOK) { status = eslEINVAL; goto ERROR; }
+
   if (( Sd = esl_dmatrix_Create(S->K,  S->K))  == NULL) {status = eslEMEM; goto ERROR; }
   if (( P  = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) {status = eslEMEM; goto ERROR; }
   ESL_ALLOC(fi, sizeof(double) * S->Kp);
@@ -1140,7 +1224,7 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
   /* Construct a double-precision dmatrix from S.
    * I've tried integrating over the rounding uncertainty by
    * averaging over trials with values jittered by +/- 0.5,
-   * but it doesn't appear to help much, if at all.
+   * but it doesn't appear to help.
    */
   for (i = 0; i < S->K; i++) 
     for (j = 0; j < S->K; j++)
@@ -1148,6 +1232,8 @@ esl_sco_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **opt_fi, 
 
   /* Reverse engineer the doubles */
   if ((status = yualtschul_engine(Sd, P, fi, fj, &lambda)) != eslOK) goto ERROR;
+
+  if ( yualtschul_solution_validate(P, fi, fj) != eslOK) { status = eslENORESULT; goto ERROR; }
 
   /* Set the degenerate probabilities by appropriate sums */
   set_degenerate_probs(S->abc_r, P, fi, fj);
@@ -1301,7 +1387,7 @@ set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double
 
 
 /*****************************************************************
- * 4. Utilities
+ * 5. Utilities
  *****************************************************************/ 
 
 /* Reformat a score matrix file, canonical residues only, into
@@ -1396,7 +1482,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 5. Unit tests.
+ * 6. Unit tests.
  *****************************************************************/
 
 #ifdef eslSCOREMATRIX_TESTDRIVE
@@ -1575,7 +1661,7 @@ utest_ProbifyBLOSUM(ESL_SCOREMATRIX *BL62)
 
 
 /*****************************************************************
- * 6. Test driver.
+ * 7. Test driver.
  *****************************************************************/
 /* 
     gcc -g -Wall -I. -L. -o test -DeslSCOREMATRIX_TESTDRIVE esl_scorematrix.c -leasel -lm
@@ -1641,7 +1727,7 @@ main(int argc, char **argv)
 #endif /*eslSCOREMATRIX_TESTDRIVE*/
 
 /*****************************************************************
- * 7. Example program
+ * 8. Example program
  *****************************************************************/
 #ifdef eslSCOREMATRIX_EXAMPLE
 /*::cexcerpt::scorematrix_example::begin::*/
@@ -1688,6 +1774,14 @@ int main(int argc, char **argv)
   esl_vec_DDump(stdout, fi, S->K, abc->sym);
   printf("fj's are:\n");
   esl_vec_DDump(stdout, fj, S->K, abc->sym);
+
+  /* Recalculate a score matrix from it
+   */
+  printf("Before:\n");
+  esl_sco_Write(stdout, S);
+  printf("After:\n");
+  esl_scorematrix_SetFromProbs(S, lambda, P, fi, fj);
+  esl_sco_Write(stdout, S);
 
   esl_composition_BL62(fi);
   esl_sco_ProbifyGivenBG(S, fi, fi, &lambda, &P);

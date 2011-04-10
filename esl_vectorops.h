@@ -48,21 +48,21 @@ extern double esl_vec_DDot(double *vec1, double *vec2, int n);
 extern float  esl_vec_FDot(float  *vec1, float  *vec2, int n);
 extern int    esl_vec_IDot(int    *vec1, int    *vec2, int n);
 
-extern double esl_vec_DMax(double *vec, int n);
-extern float  esl_vec_FMax(float  *vec, int n);
-extern int    esl_vec_IMax(int    *vec, int n);
+extern double esl_vec_DMax(const double *vec, int n);
+extern float  esl_vec_FMax(const float  *vec, int n);
+extern int    esl_vec_IMax(const int    *vec, int n);
 
-extern double esl_vec_DMin(double *vec, int n);
-extern float  esl_vec_FMin(float  *vec, int n);
-extern int    esl_vec_IMin(int    *vec, int n);
+extern double esl_vec_DMin(const double *vec, int n);
+extern float  esl_vec_FMin(const float  *vec, int n);
+extern int    esl_vec_IMin(const int    *vec, int n);
 
-extern int    esl_vec_DArgMax(double *vec, int n);
-extern int    esl_vec_FArgMax(float  *vec, int n);
-extern int    esl_vec_IArgMax(int    *vec, int n);
+extern int    esl_vec_DArgMax(const double *vec, int n);
+extern int    esl_vec_FArgMax(const float  *vec, int n);
+extern int    esl_vec_IArgMax(const int    *vec, int n);
 
-extern int    esl_vec_DArgMin(double *vec, int n);
-extern int    esl_vec_FArgMin(float  *vec, int n);
-extern int    esl_vec_IArgMin(int    *vec, int n);
+extern int    esl_vec_DArgMin(const double *vec, int n);
+extern int    esl_vec_FArgMin(const float  *vec, int n);
+extern int    esl_vec_IArgMin(const int    *vec, int n);
 
 extern void   esl_vec_DSortIncreasing(double *vec, int n);
 extern void   esl_vec_FSortIncreasing(float  *vec, int n);

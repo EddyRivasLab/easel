@@ -368,7 +368,7 @@ esl_vec_IDot(int *vec1, int *vec2, int n)
  *            for float and integer vectors.
  */
 double
-esl_vec_DMax(double *vec, int n)
+esl_vec_DMax(const double *vec, int n)
 {
   int i;
   double best;
@@ -379,7 +379,7 @@ esl_vec_DMax(double *vec, int n)
   return best;
 }
 float
-esl_vec_FMax(float *vec, int n)
+esl_vec_FMax(const float *vec, int n)
 {
   int   i;
   float best;
@@ -390,7 +390,7 @@ esl_vec_FMax(float *vec, int n)
   return best;
 }
 int
-esl_vec_IMax(int *vec, int n)
+esl_vec_IMax(const int *vec, int n)
 {
   int   i;
   int   best;
@@ -412,7 +412,7 @@ esl_vec_IMax(int *vec, int n)
  *            for float and integer vectors.
  */
 double
-esl_vec_DMin(double *vec, int n)
+esl_vec_DMin(const double *vec, int n)
 {
   int i;
   double best;
@@ -423,7 +423,7 @@ esl_vec_DMin(double *vec, int n)
   return best;
 }
 float
-esl_vec_FMin(float *vec, int n)
+esl_vec_FMin(const float *vec, int n)
 {
   int   i;
   float best;
@@ -434,7 +434,7 @@ esl_vec_FMin(float *vec, int n)
   return best;
 }
 int
-esl_vec_IMin(int *vec, int n)
+esl_vec_IMin(const int *vec, int n)
 {
   int   i;
   int   best;
@@ -461,7 +461,7 @@ esl_vec_IMin(int *vec, int n)
  *            behavior: optimal accuracy tracebacks in HMMER for example.           
  */
 int
-esl_vec_DArgMax(double *vec, int n)
+esl_vec_DArgMax(const double *vec, int n)
 {
   int i;
   int best = 0;
@@ -471,7 +471,7 @@ esl_vec_DArgMax(double *vec, int n)
   return best;
 }
 int
-esl_vec_FArgMax(float *vec, int n)
+esl_vec_FArgMax(const float *vec, int n)
 {
   int i;
   int best = 0;
@@ -481,7 +481,7 @@ esl_vec_FArgMax(float *vec, int n)
   return best;
 }
 int
-esl_vec_IArgMax(int *vec, int n)
+esl_vec_IArgMax(const int *vec, int n)
 {
   int i;
   int best = 0;
@@ -502,7 +502,7 @@ esl_vec_IArgMax(int *vec, int n)
  *            for float and integer vectors.
  */
 int
-esl_vec_DArgMin(double *vec, int n)
+esl_vec_DArgMin(const double *vec, int n)
 {
   int i;
   int best = 0;
@@ -511,7 +511,7 @@ esl_vec_DArgMin(double *vec, int n)
   return best;
 }
 int
-esl_vec_FArgMin(float *vec, int n)
+esl_vec_FArgMin(const float *vec, int n)
 {
   int   i;
   int   best = 0;
@@ -521,7 +521,7 @@ esl_vec_FArgMin(float *vec, int n)
   return best;
 }
 int
-esl_vec_IArgMin(int *vec, int n)
+esl_vec_IArgMin(const int *vec, int n)
 {
   int   i;
   int   best = 0;
