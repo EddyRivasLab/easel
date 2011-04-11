@@ -168,11 +168,11 @@ main(int argc, char **argv)
   if (mxfile != NULL) {
     ESL_FILEPARSER  *efp = NULL;
     if ( esl_fileparser_Open(mxfile, NULL, &efp)  != eslOK) esl_fatal("failed to open score file %s", mxfile);
-    if ( esl_sco_Read(efp, abc, &S)               != eslOK) esl_fatal("failed to read matrix from %s", mxfile);
+    if ( esl_scorematrix_Read(efp, abc, &S)               != eslOK) esl_fatal("failed to read matrix from %s", mxfile);
     esl_fileparser_Close(efp);
   } else {			/* default = BLOSUM62 */
     S = esl_scorematrix_Create(abc);
-    esl_scorematrix_SetBLOSUM62(S);
+    esl_scorematrix_Set("BLOSUM62", S);
   }
   esl_composition_BL62(bg);
 

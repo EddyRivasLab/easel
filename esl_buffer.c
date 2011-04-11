@@ -2857,7 +2857,7 @@ int main(int argc, char **argv)
 #include "easel.h"
 #include "esl_buffer.h"
 
-#include <stdio.h>>
+#include <stdio.h>
 
 int main(int argc, char **argv)
 {
@@ -2898,7 +2898,7 @@ int main(int argc, char **argv)
 #include "easel.h"
 #include "esl_buffer.h"
 
-#include <stdio.h>>
+#include <stdio.h>
 
 int main(int argc, char **argv)
 {
@@ -2991,8 +2991,8 @@ int main(void)
 #include "easel.h"
 #include "esl_buffer.h"
 
-#include <stdio.h>>
-#include <ctype.h>>
+#include <stdio.h>
+#include <ctype.h>
 
 int
 example_read_fasta(ESL_BUFFER *bf, char **ret_name, char **ret_desc, char **ret_seq, int *ret_seqlen)
@@ -3091,8 +3091,8 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_buffer.h"
 
-#include <stdio.h>>
-#include <ctype.h>>
+#include <stdio.h>
+#include <ctype.h>
 
 int
 example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, esl_pos_t *ret_nlines)

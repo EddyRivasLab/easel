@@ -1,8 +1,4 @@
 /* Digital representation of biosequence symbols in Easel.
- *
- * SRE, Tue Nov 23 19:44:01 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslALPHABET_INCLUDED
 #define eslALPHABET_INCLUDED

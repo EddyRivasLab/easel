@@ -186,6 +186,9 @@ BENCHMARKS =\
 	esl_buffer_benchmark\
 	esl_random_benchmark
 
+EXPERIMENTS = \
+	esl_scorematrix_experiment
+
 UTESTS =\
 	easel_utest\
 	esl_alphabet_utest\
@@ -302,7 +305,7 @@ EXAMPLES = \
 all:    libeasel.a .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} all
 
-dev:    libeasel.a ${UTESTS} ${BENCHMARKS} ${EXAMPLES} .FORCE
+dev:    libeasel.a ${UTESTS} ${BENCHMARKS} ${EXPERIMENTS} ${EXAMPLES} .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} dev
 
 tests:  ${UTESTS}  
@@ -372,6 +375,21 @@ ${BENCHMARKS}: libeasel.a
 	fi ;\
 	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
 
+${EXPERIMENTS}: libeasel.a
+	@BASENAME=`echo $@ | sed -e 's/_experiment//'| sed -e 's/^esl_//'` ;\
+	DFLAG=`echo $${BASENAME} | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
+	DFLAG=esl$${DFLAG}_EXPERIMENT ;\
+	if test $@ = "easel_experiment" ;\
+	   then DFILE=${srcdir}/easel.c ;\
+	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
+        fi;\
+	if test ${V} ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   else echo '    ' GEN $@ ;\
+	fi ;\
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+
+
 ${EXAMPLES}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_example[0-9]*//'| sed -e 's/^esl_//'` ;\
 	DFLAG=esl`echo $@ | sed -e 's/^esl_//' | sed -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`;\
@@ -417,14 +435,14 @@ clean:
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	-rm -f ${OBJS} libeasel.a
-	-rm -f ${UTESTS} ${BENCHMARKS} ${EXAMPLES}
+	-rm -f ${UTESTS} ${BENCHMARKS} ${EXAMPLES} ${EXPERIMENTS}
 	-rm -f *~ TAGS
 	-rm -f *.gcno *.gcda *.gcov
 	-rm -f cscope.out
 	-rm -f core.[0-9]*
 	-rm -f esltmp??????
 	-rm -f config.log config.status
-	for prog in ${UTESTS} ${BENCHMARKS} ${EXAMPLES}; do\
+	for prog in ${UTESTS} ${BENCHMARKS} ${EXAMPLES} ${EXPERIMENTS}; do\
 	   if test -d $$prog.dSYM; then rm -rf $$prog.dSYM; fi;\
 	done
 
