@@ -1,8 +1,4 @@
 /* A simple token-based file parsing system.
- * 
- * SRE, Tue Jul 13 14:40:35 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslFILEPARSER_INCLUDED
 #define eslFILEPARSER_INCLUDED

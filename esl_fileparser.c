@@ -7,10 +7,6 @@
  *    4. Test driver.
  *    5. Examples.
  *    6. Copyright/license information.
- * 
- * SRE, Tue Jul 13 14:41:52 2004 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -165,7 +161,6 @@ esl_fileparser_CreateMapped(void *buffer, int size)
 
 
 /* Function:  esl_fileparser_SetCommentChar()
- * Incept:    SRE, Sat Jul 10 10:18:35 2004 [St. Louis]
  *
  * Purpose:   Defines a single character <c> for comments. Anything
  *            on a line following this character is ignored

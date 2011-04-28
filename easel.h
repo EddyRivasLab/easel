@@ -346,6 +346,8 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 extern int  esl_strchop(char *s, int64_t n);
 extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
 extern int  esl_str_IsBlank(char *s);
+extern int  esl_str_IsInteger(char *s);
+extern int  esl_str_IsReal(char *s);
 
 /* 7. Additional memory buffer functions, esl_mem*() */
 extern int  esl_mem_IsBlank(char *p, esl_pos_t n);

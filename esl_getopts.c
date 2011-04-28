@@ -35,8 +35,6 @@ static int esl_getopts(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
 static int process_longopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
 static int process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg);
 static int verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby);
-static int is_integer(char *s);
-static int is_real(char *s);
 static int verify_integer_range(char *arg, char *range);
 static int verify_real_range(char *arg, char *range);
 static int verify_char_range(char *arg, char *range);
@@ -1572,7 +1570,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
     break;
 
   case eslARG_INT:
-    if (! is_integer(val))
+    if (! esl_str_IsInteger(val))
       ESL_FAIL(eslESYNTAX, g->errbuf, 
 	       "Option %.24s takes integer arg; got %.24s %s", 
 	       g->opt[i].name, val, where);
@@ -1584,7 +1582,7 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
     break;
 
   case eslARG_REAL:
-    if (! is_real(val))
+    if (! esl_str_IsReal(val))
       ESL_FAIL(eslESYNTAX, g->errbuf, 
 	       "Option %.24s takes real-valued arg; got %.24s %s",
 	       g->opt[i].name, val, where);
@@ -1619,91 +1617,6 @@ verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
   }
 
   return eslOK;
-}
-
-/* Function: is_integer()
- * 
- * Returns TRUE if <s> points to something that atoi() will parse
- * completely and convert to an integer.
- */
-static int
-is_integer(char *s)
-{
-  int hex = 0;
-
-  if (s == NULL) return 0;
-  while (isspace((int) (*s))) s++;      /* skip whitespace */
-  if (*s == '-' || *s == '+') s++;      /* skip leading sign */
-				        /* skip leading conversion signals */
-  if ((strncmp(s, "0x", 2) == 0 && (int) strlen(s) > 2) ||
-      (strncmp(s, "0X", 2) == 0 && (int) strlen(s) > 2))
-    {
-      s += 2;
-      hex = 1;
-    }
-  else if (*s == '0' && (int) strlen(s) > 1)
-    s++;
-				/* examine remainder for garbage chars */
-  if (!hex)
-    while (*s != '\0')
-      {
-	if (!isdigit((int) (*s))) return 0;
-	s++;
-      }
-  else
-    while (*s != '\0')
-      {
-	if (!isxdigit((int) (*s))) return 0;
-	s++;
-      }
-  return 1;
-}
-
-
-/* is_real()
- * 
- * Returns TRUE if <s> is a string representation
- * of a valid floating point number, convertable
- * by atof().
- */
-static int
-is_real(char *s)
-{
-  int gotdecimal = 0;
-  int gotexp     = 0;
-  int gotreal    = 0;
-
-  if (s == NULL) return 0;
-
-  while (isspace((int) (*s))) s++; /* skip leading whitespace */
-  if (*s == '-' || *s == '+') s++; /* skip leading sign */
-
-  /* Examine remainder for garbage. Allowed one '.' and
-   * one 'e' or 'E'; if both '.' and e/E occur, '.'
-   * must be first.
-   */
-  while (*s != '\0')
-    {
-      if (isdigit((int) (*s))) 	gotreal++;
-      else if (*s == '.')
-	{
-	  if (gotdecimal) return 0; /* can't have two */
-	  if (gotexp) return 0;     /* e/E preceded . */
-	  else gotdecimal++;
-	}
-      else if (*s == 'e' || *s == 'E')
-	{
-	  if (gotexp) return 0;	/* can't have two */
-	  else gotexp++;
-	}
-      else if (isspace((int) (*s)))
-	break;
-      s++;
-    }
-
-  while (isspace((int) (*s))) s++;         /* skip trailing whitespace */
-  if (*s == '\0' && gotreal) return 1;
-  else return 0;
 }
 
 

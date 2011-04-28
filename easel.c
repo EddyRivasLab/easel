@@ -447,13 +447,10 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *
  * Throws:   <eslEMEM> on an allocation failure.
  *
- * Example:  char *buf;
- *           int   n;
- *           FILE *fp;
- *           
- *           fp  = fopen("my_file", "r");
- *           buf = NULL;
- *           n   = 0;
+ * Example:  char *buf = NULL;
+ *           int   n   = 0;
+ *           FILE *fp  = fopen("my_file", "r");
+ *
  *           while (esl_fgets(&buf, &n, fp) == eslOK) 
  *           {
  *             do stuff with buf;
@@ -985,7 +982,6 @@ esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rle
 
 /* Function:  esl_str_IsBlank()
  * Synopsis:  Return TRUE if <s> is all whitespace; else FALSE.
- * Incept:    SRE, Thu Mar 11 13:08:33 2010 [UA916 Seattle to Dulles]
  *
  * Purpose:   Given a NUL-terminated string <s>; return <TRUE> if 
  *            string is entirely whitespace (as defined by <isspace()>),
@@ -996,6 +992,94 @@ esl_str_IsBlank(char *s)
 {
   for (; *s; s++) if (!isspace(*s)) return FALSE;
   return TRUE;
+}
+
+/* Function:  esl_str_IsInteger()
+ * Synopsis:  Return TRUE if <s> is an integer; else FALSE.
+ *
+ * Purpose:   Given a NUL-terminated string <s>, return TRUE
+ *            if the complete string is convertible to an integer 
+ *            by the rules of <atoi()>.
+ *            
+ *            Leading whitespace is skipped. A leading sign character
+ *            + or - is allowed. A prefix of 0x or 0X indicates
+ *            a hexadecimal number follows; a prefix of 0 indicates
+ *            that an octal number follows.
+ *            
+ *            If <s> is <NULL>, FALSE is returned.
+ */
+int
+esl_str_IsInteger(char *s)
+{
+  int hex = FALSE;
+
+  if (s == NULL) return FALSE;
+  while (isspace((int) (*s))) s++;      /* skip whitespace */
+  if (*s == '-' || *s == '+') s++;      /* skip leading sign */
+				        /* skip leading conversion signals */
+  if ((strncmp(s, "0x", 2) == 0 && (int) strlen(s) > 2) ||
+      (strncmp(s, "0X", 2) == 0 && (int) strlen(s) > 2))
+    {
+      s += 2;
+      hex = 1;
+    }
+  else if (*s == '0' && (int) strlen(s) > 1)
+    s++;
+				/* examine remainder for garbage chars */
+  if (!hex)  while (*s != '\0') { if (!isdigit ((int) (*s))) return FALSE; s++; }
+  else       while (*s != '\0') { if (!isxdigit((int) (*s))) return FALSE; s++; }
+  return TRUE;
+}
+
+/* Function:  esl_str_IsReal()
+ * Synopsis:  Return TRUE if <s> is a real number; else FALSE.
+ *
+ * Purpose:   Given a NUL-terminated string <s>, return <TRUE>
+ *            if the string is convertible to a floating-point
+ *            real number by the rules of <atof()>. 
+ *            
+ *            Leading space is skipped. A leading sign of either
+ *            + or - is allowed. Scientific notation is expressed
+ *            with either e or E, as in 1.0e12 or 2.1E42.
+ */
+int
+esl_str_IsReal(char *s)
+{
+  int gotdecimal = 0;
+  int gotexp     = 0;
+  int gotreal    = 0;
+
+  if (s == NULL) return FALSE;
+
+  while (isspace((int) (*s))) s++; /* skip leading whitespace */
+  if (*s == '-' || *s == '+') s++; /* skip leading sign */
+
+  /* Examine remainder for garbage. Allowed one '.' and
+   * one 'e' or 'E'; if both '.' and e/E occur, '.'
+   * must be first.
+   */
+  while (*s != '\0')
+    {
+      if (isdigit((int) (*s))) 	gotreal++;
+      else if (*s == '.')
+	{
+	  if (gotdecimal) return FALSE; /* can't have two */
+	  if (gotexp)     return FALSE; /* e/E preceded . */
+	  else gotdecimal++;
+	}
+      else if (*s == 'e' || *s == 'E')
+	{
+	  if (gotexp) return FALSE;	/* can't have two */
+	  else gotexp++;
+	}
+      else if (isspace((int) (*s)))
+	break;
+      s++;
+    }
+
+  while (isspace((int) (*s))) s++;         /* skip trailing whitespace */
+  if (*s == '\0' && gotreal) return TRUE;
+  else return FALSE;
 }
 /*-------------- end, additional string functions ---------------*/
 

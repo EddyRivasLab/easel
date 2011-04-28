@@ -1600,6 +1600,7 @@ static ESL_OPTIONS options[] = {
   {"-s",  eslARG_REAL,    "1.0", NULL, NULL, NULL, NULL, NULL, "additional scale factor applied to lambda",      0},
   {"-t",  eslARG_REAL,   "1.37", NULL, NULL, NULL, NULL, NULL, "set WAG time (branch length) to <x>",            0},
   {"--yfile", eslARG_OUTFILE, NULL, NULL, NULL, NULL, NULL, NULL, "save xy file of Yu/Altschul root eqn to <f>", 0},
+  {"--mfile", eslARG_OUTFILE, NULL, NULL, NULL, NULL, NULL, NULL, "save WAG score matrix to <f>",                0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -1655,6 +1656,7 @@ main(int argc, char **argv)
   double           t       = esl_opt_GetReal(go, "-t");
   double           scale   = esl_opt_GetReal(go, "-s");
   char            *yfile   = esl_opt_GetString(go, "--yfile");
+  char            *mfile   = esl_opt_GetString(go, "--mfile");
   ESL_DMATRIX     *P       = NULL;                                      /* p_ij's from Yu/Altschul reverse eng of S0 */
   double          *fi      = NULL;
   double          *fj      = NULL;
@@ -1666,6 +1668,16 @@ main(int argc, char **argv)
   esl_scorematrix_SetWAG(S0, lambda0/scale, t);
   esl_composition_WAG(wagpi);
   printf("WAG matrix calculated at t=%.3f, lambda=%.4f (/%.1f)\n", t, lambda0, scale);
+
+  /* Save the matrix, if asked */
+  if (mfile)
+    {
+      FILE *ofp = NULL;
+      if ( (ofp = fopen(mfile, "w")) == NULL) esl_fatal("failed to open %s for writing scorematrix", mfile);
+      strcpy(S0->outorder, "ARNDCQEGHILKMFPSTWYV");
+      esl_scorematrix_Write(ofp, S0);
+      fclose(ofp);
+    }
 
   /* Because of integer roundoff, the actual probability basis is a little different */
   esl_scorematrix_ProbifyGivenBG(S0, wagpi, wagpi, &lambda, NULL);
@@ -1679,7 +1691,7 @@ main(int argc, char **argv)
     {
       FILE *ofp = NULL;
       if ( (ofp = fopen(yfile, "w")) == NULL) esl_fatal("failed to open XY file %s for writing\n", yfile);
-      yualtschul_graph_dump(ofp, S0, scale, 0.01, 1.0, 0.001);
+      yualtschul_graph_dump(ofp, S0, scale, 0.01, 1.0, 0.0001);
       fclose(ofp);
       printf("XY plot of Yu/Altschul rootfinding saved to : %s\n", yfile);
     }
