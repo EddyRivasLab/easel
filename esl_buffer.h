@@ -1,8 +1,4 @@
 /* An input parsing abstraction: an input buffer (file, stream, etc.)
- *
- * SRE, Wed Dec 29 11:50:52 2010 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslBUFFER_INCLUDED
 #define eslBUFFER_INCLUDED

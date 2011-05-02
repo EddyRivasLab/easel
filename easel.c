@@ -7,18 +7,13 @@
  *    4. Improved replacements for some C library functions.
  *    5. Portable drop-in replacements for nonstandard C functions.
  *    6. Additional string functions, esl_str*()
- *    7. Additional memory buffer functions, esl_mem*()
- *    8. File path/name manipulation, including tmpfiles.
- *    9. Typed comparison functions.
- *   10. Commonly used background composition (iid) frequencies.
- *   11. Unit tests.
- *   12. Test driver.
- *   13. Examples. 
- *   14. Copyright and license. 
- * 
- * SRE, Tue Oct 28 08:29:17 2003 [St. Louis]
- * SVN $Id$
- * SVN $URL$
+ *    7. File path/name manipulation, including tmpfiles.
+ *    8. Typed comparison functions.
+ *    9. Commonly used background composition (iid) frequencies.
+ *   10. Unit tests.
+ *   11. Test driver.
+ *   12. Examples. 
+ *   13. Copyright and license. 
  */
 #include "esl_config.h"
 
@@ -610,7 +605,8 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
   if (*dest == NULL) ESL_ALLOC(*dest, sizeof(char) * (len2+1));
   else               ESL_RALLOC(*dest, p, sizeof(char) * (len1+len2+1));
 
-  memcpy((*dest)+len1, src, len2+1);
+  memcpy((*dest)+len1, src, len2);
+  (*dest)[len1+len2] = '\0';
   return eslOK;
 
  ERROR:
@@ -1083,243 +1079,11 @@ esl_str_IsReal(char *s)
 }
 /*-------------- end, additional string functions ---------------*/
 
-/*****************************************************************
- * 7. Additional memory buffer functions, esl_mem*()
- *****************************************************************/
-
-/* Operations on a memory chunk <*m> of length <n>
- * Often used while parsing input, when input lines or tokens aren't
- * NUL-terminated C strings, but are pointers into buffer memory.
- */
-
-/* Function:  esl_mem_IsBlank()
- * Synopsis:  Return TRUE if line <m> is all whitespace.
- * Incept:    SRE, Mon Feb 14 09:39:07 2011 [Janelia]
- *
- * Purpose:   Returns TRUE if  all characters in line are whitespace,
- *            else returns FALSE. Whitespace characters are defined by
- *            <isspace()>; they are horizontal tab, line feed,
- *            vertical tab, form feed, carriage return, and space
- *            (\verb+'\t', '\n', '\v', '\f', '\r', ' '+).
- *
- * Args:      p - pointer to start of line
- *            n - number of characters in line (exclusive of any \0)    
- *
- * Returns:   TRUE or FALSE.
- *
- * Xref:      http://en.wikipedia.org/wiki/ASCII
- *            man isspace
- */
-int
-esl_mem_IsBlank(char *p, esl_pos_t n)
-{
-  esl_pos_t i;
-  for (i = 0; i < n; i++) if (! isspace(p[i])) return FALSE;
-  return TRUE;
-}
 
 
-/* Function:  esl_mem_strtoi32()
- * Synopsis:  Convert a chunk of text memory to an int32_t.
- * Incept:    SRE, Tue Feb 15 16:33:45 2011 [Janelia]
- *
- * Purpose:   Convert the text starting at <p> to an <int32_t>, converting
- *            no more than <n> characters (the valid length of non-<NUL>
- *            terminated memory buffer <p>).  Interpret the text as
- *            base <base> (2 or 10, for example). <base> must be 2..36,
- *            or 0. 0 is treated specially as base 8, 10, or 16, autodetected
- *            according to the leading characters of the number format.
- *            
- *            Any leading whitespace is skipped.  The next letter may
- *            be a '-' for a negative number.  If <base> is 0 or 16,
- *            the next two characters may be "0x", in which case hex base
- *            16 is assumed.  Else if <base> is 0 and the next
- *            character is '0', octal base 8 is assumed.  All subsequent
- *            characters are converted to a number, until an invalid
- *            character is reached. Upper or lower case letters are
- *            accepted, starting at A or a, for bases over 10. For
- *            example, In base 16, characters A-F or a-f are accepted.
- *            The base of the representation is limited to 36 because
- *            'Z' or 'z' represents 35.
- *
- *            The converted value is optionally returned in <*opt_val>.
- *            The number of characters parsed (up to the first invalid
- *            character, or <n>, whichever comes first) is optionally
- *            returned in <*opt_nc>. The caller can reposition a parser
- *            to <p + *opt_nc> to exactly skip past the parsed number.
- * 
- *            If no valid digit is found (including pathological cases
- *            of leader-only, such as "0x" or "-"), then return <eslEINVAL>,
- *            and <*opt_nc> and <*opt_val> are both 0.
- *            
- *            This syntax is essentially identical to <strtol()>,
- *            except that we can operate on a non-NUL-terminated
- *            memory buffer of maximum length <n>, rather than on a
- *            NUL-terminated string.
- *
- * Args:      p        - pointer to text buffer to convert to int32_t
- *            n        - maximum number of chars to parse in <p>: p[0..n-1] are valid.
- *            base     - integer base. Often 10, 2, 8, or 16. Must be
- *                       <2..36>, or 0. 0 means base 8, 10, or 16 depending on
- *                       autodetected format.
- *            *opt_nc  - optRETURN: number of valid chars parsed from p.
- *                       First invalid char is p[*opt_nc].       
- *            *opt_val - optRETURN: parsed value.         
- *
- * Returns:   <eslOK> on success. 
- *
- *            <eslEFORMAT> if no valid integer digits are found. Now
- *            <*opt_val> and <*opt_nc> are 0.
- *            
- *            <eslERANGE> on an overflow error. In this case
- *            <*opt_val> is <INT32_MAX> or <INT32_MIN> for an
- *            overflow or underflow, respectively. <*opt_nc> is
- *            set to the number of characters parsed INCLUDING
- *            the digit that caused the overflow.
- *
- * Throws:    <eslEINVAL> if <base> isn't in range <0..36>. Now
- *            <*opt_nc> and <*opt_val> are 0.
- *
- * Note:      An example of why you need this instead of 
- *            strtol(): suppose you've mmap()'ed a file to memory,
- *            and it ends in ... "12345". You can't strtol the
- *            end of the mmap'ed memory buffer because it is not
- *            a NUL-terminated string. (Same goes anywhere in the file,
- *            though elsewhere in the file you could overwrite
- *            a NUL where you need it. At EOF of an mmap'ed() buffer,
- *            you can't even do that.)
- *            
- *            sscanf() doesn't work either - I don't see a way to 
- *            limit it to a buffer of at most <n> chars.
- *            
- *            I could copy <p> to a temporary allocated string that I
- *            NUL-terminate, then use strtol() or suchlike, but that's
- *            just as awful as what I've done here (rewriting
- *            strtol()). Plus, here I get complete control of the integer
- *            type (<int32_t>) whereas strtol() gives me the less satisfying
- *            <long>.
- */
-int
-esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val)
-{
-  esl_pos_t i           = 0;
-  int32_t   sign        = 1;
-  int32_t   currval     = 0;
-  int32_t   digit       = 0;
-  int       ndigits     = 0;
-
-  if    (base < 0 || base == 1 || base > 36)  ESL_EXCEPTION(eslEINVAL, "base must be 2..36 or 0");
-  while (i < n && isspace(p[i])) i++; /* skip leading whitespace */
-  if    (i < n && p[i] == '-')   { sign = -1; i++; }
-
-  if      ((base == 0 || base == 16) && i < n-1 && p[i] == '0' && p[i+1] == 'x') 
-    { i += 2; base = 16; }
-  else if (base == 0 && i < n && p[i] == '0')                                    
-    { i += 1; base = 8; }
-  else if (base == 0) 
-    { base = 10; }
-
-  for (ndigits = 0; i < n; i++, ndigits++)
-    {
-      if      (isdigit(p[i])) digit = p[i] - '0';
-      else if (isupper(p[i])) digit = 10 + (p[i] - 'A');
-      else if (islower(p[i])) digit = 10 + (p[i] - 'a');
-      else    break;
-      if (digit >= base) break;
-
-      if (sign == 1)
-	{
-	  if (currval > (INT32_MAX - digit) / base) 
-	    { 
-	      if (opt_val) *opt_val = INT32_MAX; 
-	      if (opt_nc)  *opt_nc  = i+1;
-	      return eslERANGE; 
-	    }
-	  currval = currval * base + digit;
-	}
-      else
-	{
-	  if (currval < (INT32_MIN + digit) / base)
-	    { 
-	      if (opt_val) *opt_val = INT32_MIN; 
-	      if (opt_nc)  *opt_nc  = i+1;
-	      return eslERANGE;
-	    }
-	  currval = currval * base - digit;
-	}
-    }
-  if (opt_nc)  { *opt_nc  = (ndigits ? i : 0); }
-  if (opt_val) { *opt_val = currval; }
-  return (ndigits ? eslOK : eslEFORMAT);
-}
-
-/* Function:  esl_memnewline()
- * Synopsis:  Find next newline in memory.
- * Incept:    SRE, Tue Feb  1 11:07:30 2011 [Janelia]
- *
- * Purpose:   Given a memory buffer <*m> of <n> bytes, delimit a
- *            next line by finding the next newline character(s).
- *            Store the number of bytes in the line (exclusive of
- *            the newline character(s)) in <*ret_nline>. Store
- *            the number of bytes in the newline in <*ret_nterm>.
- *             
- *            If no newline is found, <nline=n> and <nterm=0>, and the
- *            return status is <eslEOD>.
- *            
- *            Currently we assume newlines are either UNIX-style \verb+\n+
- *            or Windows-style \verb+\r\n+, in this implementation. 
- *            
- *            Caller should not rely on this, though. Caller may only
- *            assume that a newline is an arbitrary one- or two-byte
- *            code.
- *            
- *            For example, if <*m> = \verb+"line one\r\nline two"+, <nline>
- *            is 8 and <nterm> is 2.  If <*m> = \verb+"try two\ntry three"+,
- *            <nline> is 7 and <nterm> is 1. If <*m> = "attempt
- *            four", <nline> is 12 and <nterm> is 0.
- *            
- *            In cases where the caller may have an incompletely read
- *            buffer, it should be careful of cases where one possible
- *            newline may be a prefix of another; for example, suppose
- *            a file has \verb+"line one\r\nline two"+, but we only input the
- *            buffer \verb+"line one\r"+ at first. The \verb+"\r"+ looks like an old
- *            MacOS newline. Now we read more input, and we think the
- *            buffer is \verb+"\nline two"+. Now we think the \verb+"\n"+ is a UNIX
- *            newline. The result is that we read two newlines where
- *            there's only one. Instead, caller should check for the
- *            case of nterm==1 at the end of its buffer, and try to
- *            extend the buffer. See <esl_buffer_GetLine()> for an
- *            example.
- *            
- * Args:      m         - ptr to memory buffer
- *            n         - length of p in bytes
- *           *ret_nline - length of line found starting at p[0], exclusive of newline; up to n
- *           *ret_nterm - # of bytes in newline code: 1 or 2, or 0 if no newline found
- *
- * Returns:   <eslOK> on success. Now <*ret_nline> is the number of
- *            bytes in the next line (exclusive of newline) and
- *            <*ret_nterm> is the number of bytes in the newline code
- *            (1 or 2). Thus the next line is <m[0..nline-1]>, and
- *            the line after this starts at <m[nline+nterm]>.
- *            
- *            <eslEOD> if no newline is found. Now <*ret_nline> is <n>,
- *            and <*ret_nterm> is 0.
- *
- * Xref:      http://en.wikipedia.org/wiki/Newline
- */
-int
-esl_memnewline(const char *m, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm)
-{
-  char *ptr = memchr(m, '\n', n);
-  if      (ptr == NULL)                 { *ret_nline = n;       *ret_nterm = 0; }
-  else if (ptr > m && *(ptr-1) == '\r') { *ret_nline = ptr-m-1; *ret_nterm = 2; }
-  else                                  { *ret_nline = ptr-m;   *ret_nterm = 1; }
-  return eslOK;
-}
-/*----------------- end, esl_mem*() additions  -------------------------*/
 
 /*****************************************************************
- * 8. File path/name manipulation, including tmpfiles
+ * 7. File path/name manipulation, including tmpfiles
  *****************************************************************/
 
 /* Function:  esl_FileExists()
@@ -1404,6 +1168,42 @@ esl_FileTail(const char *path, int nosuffix, char **ret_file)
   *ret_file = NULL;
   return status;
 }
+
+/* Function:  esl_file_Extension()
+ * Synopsis:  Find suffix of a file name; set a memory line on it.
+ *
+ * Purpose:   Given a path or file name <filename>, and ignoring the
+ *            last <n_ignore> characters, find the rightmost suffix;
+ *            return a pointer to its start in <*ret_sfx> (inclusive
+ *            of the ``.''), and its length in <*ret_n>. If no 
+ *            suffix is found, return <eslFAIL> with <*ret_sfx = NULL>
+ *            and <ret_n = 0>.
+ *            
+ *            The <n_ignore> argument allows iterating through more
+ *            than one suffix. 
+ *            
+ *            For example, if <filename> is ``./foo/bar/baz.xx.yyy''
+ *            and <n_ignore> is 0, <*ret_sfx> points to ``.yyy'' and
+ *            <*ret_n> is 4. If <n_ignore> is 4, then <*ret_sfx>
+ *            points to ``.xx'' and <ret_n> is 3. If <n_ignore> is 7
+ *            then status is <eslFAIL>.
+ */
+int
+esl_file_Extension(char *filename, esl_pos_t n_ignore, char **ret_sfx, esl_pos_t *ret_n)
+{
+  esl_pos_t n1 = strlen(filename) - n_ignore;
+  esl_pos_t n2;
+  
+  for (n2 = n1; n2 > 0 && filename[n2-1] != eslDIRSLASH && filename[n2-1] != '.'; n2--) ;
+  
+  if (n2 <= 0 || filename[n2-1] == eslDIRSLASH)
+    { *ret_sfx = NULL; *ret_n = 0; return eslFAIL; }
+
+  *ret_sfx = filename + n2 - 1; 
+  *ret_n   = n1-n2; 
+  return eslOK; 
+}
+
 
 /* Function:  esl_FileConcat()
  * Incept:    SRE, Sat Jan 22 07:28:46 2005 [St. Louis]
@@ -1839,7 +1639,7 @@ esl_getcwd(char **ret_cwd)
 
 
 /*****************************************************************
- * 9. Typed comparison routines.
+ * 8. Typed comparison routines.
  *****************************************************************/
 
 /* Function:  esl_DCompare()
@@ -1913,7 +1713,7 @@ esl_CCompare(char *s1, char *s2)
 
 
 /*****************************************************************
- * 10. Commonly used background composition (iid) frequencies. 
+ * 9. Commonly used background composition (iid) frequencies. 
  *****************************************************************/
 
 /* Function:  esl_composition_BL62()
@@ -2068,7 +1868,7 @@ esl_composition_SW50(double *f)
 
 
 /*****************************************************************
- * 11. Unit tests.
+ * 10. Unit tests.
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
 static void
@@ -2118,34 +1918,6 @@ utest_sprintf(void)
   if (s                                              != NULL)  esl_fatal(msg);
 }
 
-
-static void
-utest_mem_strtoi32(void)
-{
-  char    msg[] = "esl_mem_strtoi32() unit test failed";
-  int     nc;
-  int32_t val;
-  int     status;
-  
-  if ( (status = esl_mem_strtoi32("-1234",          5, 10, &nc, &val)) != eslOK      || nc !=  5 || val !=     -1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("\t  -1234",      8, 10, &nc, &val)) != eslOK      || nc !=  8 || val !=     -1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("1234",           4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("12345",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=      1234) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0xff",          5,  0, &nc, &val)) != eslOK      || nc !=  5 || val !=       255) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0777",          4,  0, &nc, &val)) != eslOK      || nc !=  4 || val !=        63) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("FFGG",           4, 16, &nc, &val)) != eslOK      || nc !=  2 || val !=       255) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("0xffff",         6,  0, &nc, &val)) != eslOK      || nc !=  6 || val !=     65535) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("0xffffff",       8,  0, &nc, &val)) != eslOK      || nc !=  8 || val !=  16777215) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 2147483647",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-2147483648",   11,  0, &nc, &val)) != eslOK      || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 2147483648",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-2147483649",   11,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 214748364800", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MAX) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("-214748364900", 13,  0, &nc, &val)) != eslERANGE  || nc != 11 || val != INT32_MIN) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32(" 0x1234",        3, 16, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
-  if ( (status = esl_mem_strtoi32("09999999",       7,  0, &nc, &val)) != eslEFORMAT || nc !=  0 || val !=         0) esl_fatal(msg);
-  return;
-}
 
 
 static void
@@ -2202,7 +1974,7 @@ utest_tmpfile_named(void)
 
 
 /*****************************************************************
- * 12. Test driver.
+ * 11. Test driver.
  *****************************************************************/
 
 #ifdef eslEASEL_TESTDRIVE
@@ -2219,7 +1991,6 @@ int main(void)
 
   utest_strtok();
   utest_sprintf();
-  utest_mem_strtoi32();
   utest_FileExists();
   utest_tmpfile_named();
   return eslOK;
@@ -2227,7 +1998,7 @@ int main(void)
 #endif /*eslEASEL_TESTDRIVE*/
 
 /*****************************************************************
- * 13. Examples.
+ * 12. Examples.
  *****************************************************************/
 
 #ifdef eslEASEL_EXAMPLE

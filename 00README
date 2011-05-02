@@ -4,14 +4,14 @@ Version @EASEL_VERSION@; @EASEL_DATE@
 @EASEL_COPYRIGHT@
 ------------------------------------------------------------------
 
-Easel is a C code library for computational analysis of biological
-sequences using probabilistic models. Easel is used by HMMER, the
-profile hidden Markov model software that underlies the Pfam protein
-families database, and by Infernal, the profile stochastic
-context-free grammar software that underlies the Rfam RNA family
-database. Like any code library, Easel aims to make applications more
-robust and easier to develop, by providing a set of reusable,
-documented, and well-tested functions.
+Easel is an ANSI C code library for computational analysis of
+biological sequences using probabilistic models. Easel is used by
+HMMER, the profile hidden Markov model software that underlies the
+Pfam protein families database, and by Infernal, the profile
+stochastic context-free grammar software that underlies the Rfam RNA
+family database. Easel aims to make similar applications more robust
+and easier to develop, by providing a set of reusable, documented, and
+well-tested functions.
 
 Other files to read in the top-level source directory:
 

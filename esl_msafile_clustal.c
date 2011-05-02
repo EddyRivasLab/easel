@@ -4,9 +4,6 @@
  *    eslMSAFILE_CLUSTAL
  *    eslMSAFILE_MUSCLE
  *
- * SRE, Thu Mar 11 12:37:44 2010 [UA 916 Seattle->Dulles]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -16,6 +13,7 @@
 #include <ctype.h>
 
 #include "easel.h"
+#include "esl_mem.h"
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
 #endif
@@ -24,20 +22,23 @@
 #include "esl_msafile_clustal.h"
 #include "esl_recorder.h"
 
-static int make_text_consensus_line(ESL_MSA *msa, char **ret_consline);
+static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #ifdef eslAUGMENT_ALPHABET
-static int make_digital_consensus_line(ESL_MSA *msa, char **ret_consline);
+static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #endif
+
+
 
 /* Function:  esl_msafile_clustal_Read()
  * Synopsis:  Read in a CLUSTAL or CLUSTAL-like alignment.
- * Incept:    SRE, Thu Mar 11 10:36:31 2010 [UA 916 from Seattle]
  *
- * Purpose:   Read an open <ESL_MSAFILE> <afp>, parsing for CLUSTAL-like
- *            formats (<afp->format> is <eslMSAFILE_CLUSTAL> or 
- *            <eslMSAFILE_MUSCLE>), and create a new multiple
- *            alignment; return a ptr to that alignment in <*ret_msa>.
- *            Caller is responsible for free'ing this <ESL_MSA>.
+ * Purpose:   Read an open <ESL_MSAFILE> <afp>, starting from the
+ *            position of its current point, parsing for CLUSTAL-like
+ *            formats. (<afp->format> is expected to be
+ *            <eslMSAFILE_CLUSTAL> or <eslMSAFILE_MUSCLE>.) Create a
+ *            new multiple alignment, and return a ptr to that
+ *            alignment in <*ret_msa>.  Caller is responsible for
+ *            free'ing this <ESL_MSA>.
  *
  * Args:      afp     - open <ESL_MSAFILE>
  *            ret_msa - RETURN: newly parsed <ESL_MSA>
@@ -45,151 +46,138 @@ static int make_digital_consensus_line(ESL_MSA *msa, char **ret_consline);
  * Returns:   <eslOK> on success.
  * 
  *            In the event of a parse error, returns <eslEFORMAT>, and
- *            set <afp->errbuf> to an appropriately informative error
- *            message that can be shown to the user. These messages
- *            look like "parse failed (line %d): blah blah blah" with
- *            no trailing newline. The caller may prefix (with the
- *            filename, perhaps) or suffix this message as it pleases.
+ *            set <afp->errmsg> to an appropriately informative error
+ *            message that can be shown to the user. 
  *
  *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errbuf> is set to a message as above.
+ *            and <afp->errmsg> is set to a message as above.
  *
- * Throws:    (no abnormal error conditions)
+ * Throws:    <eslEMEM> - an allocation failed.
+ *            <eslESYS> - a system call such as fread() failed
+ *            <eslEINVAL> - anchoring call failed in esl_buffer code
+ *            <eslEINCONCEIVABLE> - "impossible" corruption 
  */
 int
-esl_msafile_clustal_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
+esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 {
-  ESL_MSA  *msa   = NULL;
-  char     *buf   = NULL;
-  char    **lines = NULL;
-  int       n;
-  int       nblocks;
-  char     *tok1 = NULL;	/* first token on line  = name     */
-  char     *tok2 = NULL;	/* second token on line = subseq   */
-  char      len1, len2;		/* lengths of the two tokens       */
-  int       li;			/* line counter in block[0..n-1]   */
-  int       startline;		/* line number of start of block   */
-  int       leftpos_each_line;	/* position of first aligned chars */
-  int       nres_each_line;	/* # of residues on each line      */
+  ESL_MSA  *msa     = esl_msa_Create(16, -1); /* a growable MSA. */
+  char     *p       = NULL;
+  esl_pos_t n       = 0;
+  int       nblocks = 0;
+  int       idx     = 0;
+  esl_pos_t alen    = 0;
+  esl_pos_t pos;
+  esl_pos_t name_start, name_len;
+  esl_pos_t seq_start, seq_len;
+  esl_pos_t block_seq_start, block_seq_len;
   int       status;
 
-  afp->errbuf[0] = '\0';
+  afp->errmsg[0] = '\0';
+  if (! msa) { status = eslEMEM; goto ERROR; }
 
-  /* Set <buf> to the first nonblank line. */
-  do { status = esl_recorder_Read(afp->rc, &buf); } while (status == eslOK && esl_str_IsBlank(buf));
-  if (status == eslEOF)  ESL_XFAIL(eslEOF, afp->errbuf, "parse failed (line %d): end of file; no alignment?", 1+esl_recorder_GetCurrent(afp->rc));
-  if (status == eslEMEM) return status;
-
+  /* skip leading blank lines in file */
+  do {
+    if ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) != eslOK) goto ERROR; /* includes EOF */
+    if (afp->linenumber != -1) afp->linenumber++;
+  } while (esl_memspn(p, n, " \t\r\n") == n); /* idiomatic for "blank line" */
+  /* now p[0..n-1] is the first non-blank line; point is at the start of the next line. */
+    
   /* That first line says something like: "CLUSTAL W (1.83) multiple sequence alignment" */
-  if (afp->format == eslMSAFILE_CLUSTAL) 
-    {
-      status = strncmp(buf, "CLUSTAL", 7);
-      if (status) ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing CLUSTAL header", 1+esl_recorder_GetCurrent(afp->rc));
-    }
-  else if (afp->format == eslMSAFILE_MUSCLE) 
-    {
-      status = strncmp(buf, "MUSCLE",  6);
-      if (status)  ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing MUSCLE header", 1+esl_recorder_GetCurrent(afp->rc));
-    }
-  else ESL_XEXCEPTION(eslEINCONCEIVABLE, "format %d is not clustal-like", afp->format);
+  switch (afp->format) {
+  case eslMSAFILE_CLUSTAL: if (! esl_memstrpfx(p, n, "CLUSTAL")) ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); break;
+  case eslMSAFILE_MUSCLE:  if (! esl_memstrpfx(p, n, "MUSCLE"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing MUSCLE header");  break;
+  default:                 ESL_XEXCEPTION(eslEINCONCEIVABLE, "format %s is not clustal-like", esl_msa_DecodeFormat(afp->format));
+  }
 
-  /* Loop over all alignment blocks: one block parsed at a time. */
-  nblocks = 0;
-  status  = eslOK;
-  while (status == eslOK)
-    {
-      /* skip ahead to first line of block */
-      do { status = esl_recorder_Read(afp->rc, &buf); } while (status == eslOK && esl_str_IsBlank(buf));
-      if (status == eslEOF)  ESL_XFAIL(eslEOF, afp->errbuf, "parse failed (line %d): end of file; no alignment?", 1+esl_recorder_GetCurrent(afp->rc));
-      if (status == eslEMEM) return status;
-  
-      /* read block */
-      startline = esl_recorder_GetCurrent(afp->rc);
-      esl_recorder_MarkBlock(rc, startline);
-      do { status = esl_recorder_Read(afp->rc, &buf); } while (status == eslOK && ! esl_str_IsBlank(buf));
-      if (status == eslEMEM) return status; /* both OK and EOF is acceptable here */
-      esl_recorder_GetBlock(rc, &block, NULL, NULL, &n);
-      nblocks++;
-      if (status == eslOK) n--;	/* i.e. status of last _Read(), EOF vs. OK; if OK, last line is blank */
+  /* skip blank lines again */
+  do {
+    status = esl_buffer_GetLine(afp->bf, &p, &n);
+    if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data following header");
+    else if (status != eslOK) goto ERROR;
+    if (afp->linenumber != -1) afp->linenumber++;
+  } while (esl_memspn(p, n, " \t\r\n") == n); /* idiom for "blank line" */
 
-      /* Now we have a block of <n> lines, block[0]..block[n-1]. 
-       * In CLUSTAL format, the last line [n-1] is a consensus line,
-       * so there should be n-1 aligned sequences.
-       */
-      if (nblocks == 1) 
-	{
-	  if ((msa = esl_msa_Create(n-1, -1)) == NULL) { status = eslEMEM; goto ERROR; }
-	  msa->nseq = n-1;
-	  msa->alen = 0;
+  /* Read the file a line at a time. */
+  nblocks  = 0;
+  do {  /* p, n is now the first line of a block. for each line in a block of lines: */
+    idx = 0;
+    do {
+      for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  name_start = pos; 
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  name_len   = pos - name_start;
+      for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  seq_start  = pos;      
+      if (pos >= n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
+      for (pos = n-1; pos > 0; pos--)   if (! isspace(p[pos])) break;  seq_len    = pos - seq_start - 1;
+
+      if (idx == 0) {
+	block_seq_start = seq_start;
+	block_seq_len   = seq_len;
+      } else {
+	if (seq_start != block_seq_start) ESL_XFAIL(eslEFORMAT, afp->errmsg, "sequence start is misaligned");
+	if (seq_len   != block_seq_len)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "sequence end is misaligned");
+      }
+
+      /* Store the sequence name. */
+      if (nblocks == 0)	{
+	/* make sure we have room for another sequence */
+	if (idx >= msa->sqalloc &&  (status = esl_msa_Expand(msa))      != eslOK) goto ERROR;
+	if ( (status = esl_memstrdup(p+name_start, name_len, &(msa->sqname[idx]))) != eslOK) goto ERROR;
+	msa->nseq++;
+      } else {
+	if (! esl_memstrcmp(p+name_start, name_len, msa->sqname[idx]))
+	  ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected sequence %s on this line, but saw %.*s", msa->sqname[idx], (int) name_len, p+name_start);
+      }
+
+      /* Append the sequence. */
+#ifdef eslAUGMENT_ALPHABET
+      if (msa->flags & eslMSA_DIGITAL)
+	{ status = esl_abc_dsqcat(msa->abc, &(msa->ax[idx]), &(msa->sqlen[idx]), p+seq_start, seq_len); }
+#endif
+      if (! (msa->flags & eslMSA_DIGITAL)) 
+	{ 
+	  status = esl_strcat(&(msa->aseq[idx]), msa->sqlen[idx], p+seq_start, seq_len);
+	  msa->sqlen[idx] += seq_len;
 	}
-      else if (n-1 != msa->nseq)
-	ESL_XFAIL(eslEFORMAT, afp->errbuf, 
-		  "parse failed (block %d starting at line %d): expected %d seqs in block, saw %d",
-		  nblocks, startline+1, msa->nseq, n-1);
 
-      for (li = 0; li < msa->nseq; li++)
-	{
-	  s = block[li];
-	  status = esl_strtok_adv(&s, " \t",     &tok1, &len1, NULL);
-	  if (status != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, 
-					 "parse failed (line %d): expected to find a seq name but didn't", startline+li+1);
+      /* get next line. if it's a consensus line, we're done with the block */
+      status = esl_buffer_GetLine(afp->bf, &p, &n);
+      if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "alignment block did not end with consensus line");
+      else if (status != eslOK)  goto ERROR;
+      if (afp->linenumber != -1) afp->linenumber++;
 
-	  status = esl_strtok_adv(&s, " \t\n\r", &tok2, &len2, NULL);
-	  if (status != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, 
-					 "parse failed (line %d): expected to find aligned sequence but didn't", startline+li+1);
-      
-	  for (; *s; s++)
-	    if (! isspace(*s))
-	      ESL_XFAIL(eslEFORMAT, afp->errbuf, 
-			"parse failed (line %d) : expected only name/seq on line", 
-			startline+li+1);
+      idx++;
+    } while (esl_memspn(p, n, " .:*") < n); /* end loop over a block */
+    
+    if (idx != msa->nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "last block didn't contain same # of seqs as earlier blocks");
 
-	  if (li == 0) leftpos_each_line = tok-block[i];
-	  else if (leftpos_each_line != tok-block[i]) 
-	    ESL_XFAIL(eslEFORMAT, afp->errbuf,
-		      "parse failed (line %d; ali block %d) : aligned seqs aren't flush",
-		      startline+li+1, nblocks);
-      
-	  if (li == 0) nres_each_line = len2;
-	  else if (nres_each_line != len2) 
-	    ESL_XFAIL(eslEFORMAT, afp->errbuf, 
-		      "parse failed (line %d, ali block %d) : expected %d residues on line, saw %d", 
-		      startline+li, nblocks, nres_each_line, len2);
-      
-	  if (nblock == 1) if ((status = esl_strdup(tok, ntok, &(msa->sqname[li]))) != eslOK) goto ERROR;
-	  else if (esl_strcmp(tok, msa->sqname[li]) != 0) 
-	    ESL_XFAIL(eslEFORMAT, afp->errbuf,
-		      "parse failed (line %d, ali block %d) : expected seq name %s here, saw %s", 
-		      startline+li+1, nblocks, msa->sqname[li], tok1);
+    /* skip blank lines until we find start of next block, or EOF */
+    do {
+      status = esl_buffer_GetLine(afp->bf, &p, &n);
+      if      (status == eslEOF) break;
+      else if (status != eslOK)  goto ERROR;
+      if (afp->linenumber != -1) afp->linenumber++;
+    } while (esl_memspn(p, n, " \t\r\n") == n); 
+    
+    alen += block_seq_len;
+    nblocks++;
+  } while (status == eslOK);	/* normal end has status == EOF after last block. */
 
-	  ESL_RALLOC(msa->aseq[i], tmpp, sizeof(char) * (msa->alen + len2 + 1)); 	  
-	  memcpy(msa->aseq[i]+msa->alen, tok2, sizeof(char) * len2);
-	  msa->aseq[i][msa->alen+len2] = '\0';
-	} /* end loop over lines in a block */
-      msa->alen += nres_each_line;
-
-      /* if we were superparanoid, we could validate the consensus line block[n-1] here */
-
-    } /* end of a block; ready to look for next block */
-
-#ifdef eslAUGMENT_ALPHABET 
-  if (afp->do_digital && (status = esl_msa_Digitize(afp->abc, msa, afp->errbuf)) != eslOK) goto ERROR;
-#endif  
-
-  afp->linenumber = esl_recorder_GetCurrent(afp->rc);
+  msa->alen = alen;
   *ret_msa = msa;
   return eslOK;
 
  ERROR:
-  afp->linenumber = esl_recorder_GetCurrent(afp->rc);
-  esl_msa_Destroy(msa);
+  if (msa) esl_msa_Destroy(msa);
   *ret_msa = NULL;
   return status;
-}
+}  
+
+
+
+
+
 
 /* Function:  esl_msafile_clustal_Write()
- * Synopsis:  Write a CLUSTAL format file to a stream
- * Incept:    SRE, Thu Mar 11 11:59:02 2010 [UA916 from Seattle]
+ * Synopsis:  Write a CLUSTAL format alignment file to a stream.
  *
  * Purpose:   Write alignment <msa> in CLUSTAL W 1.83 format to
  *            output stream <fp>. 
@@ -212,6 +200,9 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
   char  buf[61];
   int   maxnamelen = 0;
   int   namelen;
+  esl_pos_t apos;
+  int   status;
+
 
   /* Find the maximum name length; determines width of name block  */
   for (i = 0; i < msa->nseq; i++)
@@ -235,7 +226,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
 
 
   /* The alignment */
-  buf[60] = '\0'
+  buf[60] = '\0';
   for (apos = 0; apos < msa->alen; apos += 60)
     {
       fprintf(fp, "\n");
@@ -250,7 +241,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
 	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);
 	}
       strncpy(buf, consline+apos, 60);
-      fprintf(fp, "%-*s %s\n", "", consline);
+      fprintf(fp, "%-*s %s\n", maxnamelen, "", buf);
     }
 
   free(consline);
@@ -279,7 +270,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
  * Throws <eslEMEM> on allocation error.
  */
 static int
-make_text_consensus_line(ESL_MSA *msa, char **ret_consline)
+make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
   char  *consline = NULL;
   int   *ct       = NULL;
@@ -304,8 +295,8 @@ make_text_consensus_line(ESL_MSA *msa, char **ret_consline)
       for (nseen = 0, x = 0; x < 26; x++) /* not including gaps */
 	if (ct[x] > 0) nseen++;
 
-      if (nseen == 1) consline[apos-1] = '*';
-      else            consline[apos-1] = ' ';
+      if (nseen == 1) consline[apos] = '*';
+      else            consline[apos] = ' ';
     }
 
   consline[msa->alen] = '\0';
@@ -327,7 +318,7 @@ make_text_consensus_line(ESL_MSA *msa, char **ret_consline)
  */
 #ifdef eslAUGMENT_ALPHABET
 static int
-make_digital_consensus_line(ESL_MSA *msa, char **ret_consline)
+make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
   char  *consline = NULL;
   float *ct       = NULL;
@@ -377,36 +368,33 @@ make_digital_consensus_line(ESL_MSA *msa, char **ret_consline)
 
 /*::cexcerpt::msafile_clustal_example::begin::*/
 #include <stdio.h>
+
 #include "easel.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msafile_clustal.h"
 
 int 
 main(int argc, char **argv)
 {
   char        *filename = argv[1];
-  int          fmt      = eslMSAFILE_CLUSTAL;
-  ESL_MSAFILE *afp      = NULL;
+  int          fmt      = eslMSAFILE_UNKNOWN;
+  ESLX_MSAFILE *afp      = NULL;
   ESL_MSA     *msa      = NULL;
   int          status;
 
-  status = esl_msafile_Open(filename, fmt, NULL, &afp);
-  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s not found or not readable\n", filename);
-  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of %s\n",  filename);
-  else if (status != eslOK)        esl_fatal("Alignment file open failed (error %d)\n", status);
+  if ( (status = eslx_msafile_Open(filename, fmt, NULL, &afp)) != eslOK) 
+    eslx_msafile_OpenFailure(afp, status);
 
-  status = esl_msafile_clustal_Read(afp, &msa);
-  if      (status == eslEFORMAT) esl_fatal("alignment file %s: %s\n",                    afp->fname, afp->errbuf);
-  else if (status == eslEOF)     esl_fatal("alignment file %s appears empty?\n",         afp->fname);
-  else if (status != eslOK)      esl_fatal("alignment file %s: read failed, error %d\n", afp->fname, status);
+  if ( (status = esl_msafile_clustal_Read(afp, &msa))         != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
 
   printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	 nali, msa->name, msa->nseq, (int) msa->alen);
+	 1, msa->name, msa->nseq, (int) msa->alen);
 
   esl_msafile_clustal_Write(stdout, msa);
   esl_msa_Destroy(msa);
-
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
   exit(0);
 }
 /*::cexcerpt::msafile_clustal_example::end::*/

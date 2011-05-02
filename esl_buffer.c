@@ -35,6 +35,7 @@
 #endif /* _POSIX_VERSION */
 
 #include "easel.h"
+#include "esl_mem.h"
 #include "esl_buffer.h"
 /*::cexcerpt::include_example::end::*/
 
@@ -61,7 +62,6 @@ static int buffer_counttok (ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc);
 
 /* Function:  esl_buffer_Open()
  * Synopsis:  Standard Easel idiom for opening a stream by filename.
- * Incept:    SRE, Tue Jan 25 18:10:21 2011 [Janelia]
  *
  * Purpose:   Open <filename> for parsing. Return an open
  *            <ESL_BUFFER> for it.
@@ -2232,7 +2232,7 @@ utest_compare_line(char *p, esl_pos_t n, int nline_expected)
   int32_t    which = 0;
   int        nc; 
 
-  if (esl_mem_IsBlank(p, n)) return; /* blank test lines */
+  if (esl_memspn(p, n, " \t\r\n") == n) return; /* blank test lines */
 
   if (n && *p == ' ') { p++; n--; }
   if (n && *p == '[') { p++; n--; }                else esl_fatal(msg);
@@ -2259,7 +2259,7 @@ utest_whichline(char *p, esl_pos_t n)
   char msg[] = "utest_whichline() failed";
   int  which;
 
-  if (esl_mem_IsBlank(p, n)) return -1;
+  if (esl_memspn(p, n, " \t\r\n") == n) return -1;
   while (n && isspace(*p)) { p++; n--; }
   if (n && *p == '[')      { p++; n--; }  else esl_fatal(msg);
   if (esl_mem_strtoi32(p, n, 10, NULL, &which) != eslOK) esl_fatal(msg);
@@ -3110,7 +3110,7 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   do {
     start_offset = esl_buffer_GetOffset(bf);
     if ( (status = esl_buffer_GetLine(bf, &p, &n)) != eslOK) goto ERROR; /* includes normal EOF */
-  } while (esl_mem_IsBlank(p, n));
+  } while (esl_memspn(p, n, " \t\r\n") == n);
   /* now p[0..n-1] is a non-blank line, start_offset is offset of p[0], point's on start of next line after it */
   
   /* anchor stably at start of line block */
@@ -3124,7 +3124,7 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
     lines[nlines] = p;
     lens[nlines]  = n;
     nlines++;
-  } while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK && ! esl_mem_IsBlank(p, n));
+  } while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK && esl_memspn(p, n, " \t\r\n") < n);
   
   /* now p[0] is on a blank line, and point is on start of next line
    * after it.  you might be fine with that; or you might want to push

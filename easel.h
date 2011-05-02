@@ -349,15 +349,10 @@ extern int  esl_str_IsBlank(char *s);
 extern int  esl_str_IsInteger(char *s);
 extern int  esl_str_IsReal(char *s);
 
-/* 7. Additional memory buffer functions, esl_mem*() */
-extern int  esl_mem_IsBlank(char *p, esl_pos_t n);
-extern int  esl_mem_strtoi32(char *p, esl_pos_t n, int base, int *opt_nc, int32_t *opt_val);
-extern int  esl_memnewline(const char *p, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm);
-
-
-/* 8. File path/name manipulation functions, including tmpfiles */
+/* 7. File path/name manipulation functions, including tmpfiles */
 extern int  esl_FileExists(const char *filename);
 extern int  esl_FileTail(const char *path, int nosuffix, char **ret_file);
+extern int  esl_file_Extension(char *filename, esl_pos_t n_ignore, char **ret_sfx, esl_pos_t *ret_n);
 extern int  esl_FileConcat(const char *dir, const char *file, char **ret_path);
 extern int  esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath);
 extern int  esl_FileEnvOpen(const char *fname, const char *env,
@@ -366,12 +361,12 @@ extern int  esl_tmpfile(char *basename6X, FILE **ret_fp);
 extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 extern int  esl_getcwd(char **ret_cwd);
 
-/* 9. Typed comparison routines. */
+/* 8. Typed comparison routines. */
 extern int  esl_DCompare(double a, double b, double tol);
 extern int  esl_FCompare(float  a, float  b, float  tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
-/* 10. Commonly used background composition (iid) frequencies. */
+/* 9. Commonly used background composition (iid) frequencies. */
 extern int  esl_composition_BL62(double *f);
 extern int  esl_composition_WAG (double *f);
 extern int  esl_composition_SW34(double *f);

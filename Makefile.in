@@ -95,11 +95,14 @@ HDRS = 	easel.h\
 	esl_hmm.h\
 	esl_hyperexp.h\
 	esl_keyhash.h\
+	esl_mem.h\
 	esl_minimizer.h\
 	esl_mixgev.h\
 	esl_mpi.h\
 	esl_msa.h\
 	esl_msacluster.h\
+	esl_msafile.h\
+	esl_msafile_clustal.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_normal.h\
@@ -146,11 +149,14 @@ OBJS =	easel.o\
 	esl_hmm.o\
 	esl_hyperexp.o\
 	esl_keyhash.o\
+	esl_mem.o\
 	esl_minimizer.o\
 	esl_mixgev.o\
 	esl_mpi.o\
 	esl_msa.o\
 	esl_msacluster.o\
+	esl_msafile.o\
+	esl_msafile_clustal.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
 	esl_normal.o\
@@ -205,6 +211,7 @@ UTESTS =\
 	esl_histogram_utest\
 	esl_hyperexp_utest\
 	esl_keyhash_utest\
+	esl_mem_utest\
 	esl_msa_utest\
 	esl_msacluster_utest\
 	esl_msaweight_utest\
@@ -266,6 +273,7 @@ EXAMPLES = \
         esl_minimizer_example\
         esl_mixgev_example\
         esl_msa_example\
+	esl_msafile_clustal_example\
         esl_msacluster_example\
         esl_msaweight_example\
         esl_normal_example\
