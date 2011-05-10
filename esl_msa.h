@@ -1,8 +1,5 @@
 /* Multiple sequence alignment file i/o.
  * 
- * SRE, Wed Jan 19 19:16:28 2005
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
@@ -11,12 +8,9 @@
 #ifdef eslAUGMENT_KEYHASH
 #include <esl_keyhash.h>
 #endif
-#ifdef eslAUGMENT_ALPHABET
-#include <esl_alphabet.h>
-#endif
-#ifdef eslAUGMENT_SSI
-#include <esl_ssi.h>
-#endif
+#include "esl_alphabet.h"
+#include "esl_ssi.h"
+
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
@@ -188,7 +182,6 @@ typedef struct {
 #define eslMSAFILE_SELEX     105  /* old SELEX format (largely obsolete)         */
 #define eslMSAFILE_AFA       106  /* aligned FASTA format                        */
 #define eslMSAFILE_CLUSTAL   107  /* see esl_msafile_clustal for implementation  */
-#define eslMSAFILE_MUSCLE    108  /* see esl_msafile_clustal for implementation  */
 
 /* Declarations of the API
  */
@@ -199,13 +192,13 @@ extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 
-extern int      esl_msa_SetName          (ESL_MSA *msa, const char *name);
-extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *desc);
-extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *acc);
-extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *author);
-extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *name);
-extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *acc);
-extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc);
+extern int      esl_msa_SetName          (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
 
 extern int      esl_msa_FormatName          (ESL_MSA *msa, const char *name,    ...);
 extern int      esl_msa_FormatDesc          (ESL_MSA *msa, const char *desc,    ...);

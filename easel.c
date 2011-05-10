@@ -43,7 +43,6 @@ static esl_exception_handler_f esl_exception_handler = NULL;
 
 /* Function:  esl_exception()
  * Synopsis:  Throw an exception.
- * Incept:    (SRE, unrecorded) [documented 29 Nov 2010, UA7437 Dulles->StL]
  *
  * Purpose:   Throw an exception. An "exception" is defined by Easel
  *            as an internal error that shouldn't happen and/or is 
@@ -105,7 +104,6 @@ esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
 
 /* Function:  esl_exception_SetHandler()
  * Synopsis:  Register a different exception handling function.
- * Incept:    (SRE, unrecorded) [documented 29 Nov 2010, UA7437 Dulles->StL]
  *
  * Purpose:   Register a different exception handling function,
  *            <handler>. When an exception occurs, the handler
@@ -140,7 +138,6 @@ esl_exception_SetHandler(void (*handler)(int errcode, char *sourcefile, int sour
 
 /* Function:  esl_exception_ResetDefaultHandler()
  * Synopsis:  Restore default exception handling.
- * Incept:    (SRE, unrecorded) [documented 30 Nov 2010, @ Divergence Inc]
  *
  * Purpose:   Restore default exception handling, which is to print
  *            a simple error message to <stderr> then <abort()> (see
@@ -168,7 +165,6 @@ esl_exception_ResetDefaultHandler(void)
 
 /* Function: esl_nonfatal_handler()
  * Synopsis: A trivial example of a nonfatal exception handler.
- * Incept:   SRE, Fri Sep  8 10:59:14 2006 [Janelia]
  * 
  * Purpose:  This serves two purposes. First, it is the simplest
  *           example of a nondefault exception handler. Second, this
@@ -197,7 +193,6 @@ esl_nonfatal_handler(int errcode, char *sourcefile, int sourceline, char *format
 
 /* Function:  esl_fatal()
  * Synopsis:  Kill a program immediately, for a "violation".
- * Incept:    (SRE, unrecorded) [documented 30 Nov 2010, @ Divergence Inc]
  *
  * Purpose:   Kill a program for a "violation". In general this should only be used
  *            in development or testing code, not in production
@@ -242,7 +237,6 @@ esl_fatal(const char *format, ...)
  *****************************************************************/
 
 /* Function:  esl_Free2D()
- * Incept:    squid's Free2DArray(), 1999.
  *
  * Purpose:   Free a 2D pointer array <p>, where first dimension is
  *            <dim1>. (That is, the array is <p[0..dim1-1][]>.)
@@ -264,7 +258,6 @@ esl_Free2D(void **p, int dim1)
 }
 
 /* Function:  esl_Free3D()
- * Incept:    squid's Free3DArray(), 1999.
  *
  * Purpose:   Free a 3D pointer array <p>, where first and second
  *            dimensions are <dim1>,<dim2>. (That is, the array is
@@ -298,7 +291,6 @@ esl_Free3D(void ***p, int dim1, int dim2)
 
 /* Function:  esl_banner()
  * Synopsis:  print standard Easel application output header
- * Incept:    SRE, Mon Feb 14 11:26:56 2005 [St. Louis]
  *
  * Purpose:   Print the standard Easel command line application banner
  *            to <fp>, constructing it from <progname> (the name of the
@@ -355,7 +347,6 @@ esl_banner(FILE *fp, char *progname, char *banner)
 
 /* Function:  esl_usage()
  * Synopsis:  print standard Easel application usage help line
- * Incept:    SRE, Wed May 16 09:04:42 2007 [Janelia]
  *
  * Purpose:   Given a usage string <usage> and the name of the program
  *            <progname>, output a standardized usage/help
@@ -415,7 +406,6 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *****************************************************************************/
 
 /* Function: esl_fgets()
- * Date:     SRE, Thu May 13 10:56:28 1999 [St. Louis]
  *
  * Purpose:  Dynamic allocation version of fgets(),
  *           capable of reading almost unlimited line lengths.
@@ -456,7 +446,6 @@ int
 esl_fgets(char **buf, int *n, FILE *fp)
 {
   int   status;
-  void *p;
   char *s;
   int   len;
   int   pos;
@@ -492,7 +481,7 @@ esl_fgets(char **buf, int *n, FILE *fp)
    */
   pos = (*n)-1;
   while (1) {
-    ESL_RALLOC(*buf, p, sizeof(char) * (*n+128));
+    ESL_REALLOC(*buf, sizeof(char) * (*n+128));
     *n  += 128;
     s = *buf + pos;
     if (fgets(s, 129, fp) == NULL) return eslOK;
@@ -511,7 +500,6 @@ esl_fgets(char **buf, int *n, FILE *fp)
 }
 
 /* Function: esl_strdup()
- * Date:     SRE, Wed May 19 17:57:28 1999 [St. Louis]
  *
  * Purpose: Makes a duplicate of string <s>, puts it in <ret_dup>.
  *          Caller can pass string length <n>, if it's known,
@@ -553,7 +541,6 @@ esl_strdup(const char *s, int64_t n, char **ret_dup)
 
 
 /* Function: esl_strcat()
- * Date:     SRE, Thu May 13 09:36:32 1999 [St. Louis]
  *
  * Purpose:  Dynamic memory version of strcat().
  *           Appends <src> to the string that <dest> points to,
@@ -590,7 +577,6 @@ esl_strdup(const char *s, int64_t n, char **ret_dup)
 int
 esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
 {
-  void     *p;
   int       status;
   int64_t   len1, len2;
 
@@ -602,8 +588,7 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
 
   if (len2 == 0) return eslOK;
 
-  if (*dest == NULL) ESL_ALLOC(*dest, sizeof(char) * (len2+1));
-  else               ESL_RALLOC(*dest, p, sizeof(char) * (len1+len2+1));
+  ESL_REALLOC(*dest, sizeof(char) * (len1+len2+1));
 
   memcpy((*dest)+len1, src, len2);
   (*dest)[len1+len2] = '\0';
@@ -613,10 +598,128 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
   return status;
 }
 
+/* Function:  esl_strmapcat()
+ * Synopsis:  Version of esl_strcat that uses an inmap.
+ *
+ * Purpose:   Append the contents of string or memory line <src>
+ *            of length <lsrc> to a string. The destination 
+ *            string and its length are passed as pointers <*dest>
+ *            and <*ldest>, so the string can be reallocated
+ *            and the length updated. When appending, map each
+ *            character <src[i]> to a new character <inmap[src[i]]>
+ *            in the destination string. The destination string
+ *            <*dest> is NUL-terminated on return (even if it 
+ *            wasn't to begin with).
+ *            
+ *            One reason to use the inmap is to enable parsers to
+ *            ignore some characters in an input string or buffer,
+ *            such as whitespace (mapped to eslDSQ_IGNORED).  Of
+ *            course this means, unlike <esl_strcat()> the new length
+ *            isn't just <ldest+lsrc>, because we don't know how many
+ *            characters get appended until we've processed them
+ *            through the inmap -- that's why this function takes
+ *            <*ldest> by reference, whereas <esl_strcat()> takes it
+ *            by value.
+ *            
+ *            If <*dest> is a NUL-terminated string and the caller
+ *            doesn't know its length, <*ldest> may be passed as -1.
+ *            Providing the length saves a <strlen()> call. If <*dest>
+ *            is a memory line, providing <*ldest> is mandatory.  Same
+ *            goes for <src> and <lsrc>.
+ *            
+ *            <*dest> may be <NULL>, in which case it is allocated
+ *            and considered to be an empty string to append to. 
+ *            When <*dest> is <NULL> the input <*ldest> should be <0>
+ *            or <-1>.
+ *
+ *            The caller must provide a <src> that it already knows
+ *            should be entirely appended to <*dest>, except for
+ *            perhaps some ignored characters. No characters may be
+ *            mapped to <eslDSQ_EOL> or <eslDSQ_EOD>. The reason for
+ *            this is that we're going to allocate <*dest> for
+ *            <*ldest+lsrc> chars. If <src> were a large memory buffer,
+ *            only a fraction of which needed to be appended (up to
+ *            an <eslDSQ_EOL> or <eslDSQ_EOD>), this reallocation would
+ *            be inefficient.
+ *
+ * Args:       inmap  - an Easel input map, inmap[0..127];
+ *                      inmap[0] is special: set to the 'unknown' character to
+ *                      replace invalid input chars.
+ *            *dest   - destination string or memory to append to, passed by reference
+ *            *ldest  - length of <*dest> (or -1), passed by reference
+ *             src    - string or memory to inmap and append to <*dest>
+ *             lsrc   - length of <src> to map and append (or -1).
+ *
+ * Returns:   <eslOK> on success. Upon successful return, <*dest> is
+ *            reallocated and contains the new string (with from 0 to <lsrc>
+ *            appended characters), NUL-terminated.
+ *            
+ *            <eslEINVAL> if one or more characters in the input <src>
+ *            are mapped to <eslDSQ_ILLEGAL>. Appending nonetheless
+ *            proceeds to completion, with any illegal characters
+ *            represented as '?' in <*dest> and counted in <*ldest>.
+ *            This is a normal error, because the string <src> may be
+ *            user input. The caller may want to call some sort of
+ *            validation function on <src> if an <eslEINVAL> error is
+ *            returned, in order to report some helpful diagnostics to
+ *            the user.
+ *
+ * Throws:    <eslEMEM> on allocation or reallocation failure.
+ *            <eslEINCONCEIVABLE> on internal coding error; for example,
+ *            if the inmap tries to map an input character to <eslDSQ_EOD>,
+ *            <eslDSQ_EOL>, or <eslDSQ_SENTINEL>. On exceptions, <*dest>
+ *            and <*ldest> should not be used by the caller except to
+ *            free <*dest>; their state may have been corrupted.
+ *
+ * Note:      This deliberately mirrors <esl_abc_dsqcat()>, so
+ *            that sequence file parsers have comparable behavior whether
+ *            they're working with text-mode or digital-mode input.
+ *            
+ *            Might be useful to create a variant that also handles
+ *            eslDSQ_EOD (and eslDSQ_EOL?) and returns the number of
+ *            residues parsed. This'd allow a FASTA parser, for
+ *            instance, to use this method while reading buffer pages
+ *            rather than lines; it could define '>' as eslDSQ_EOD.
+ */
+int
+esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc)
+{
+  int64_t   xpos;
+  esl_pos_t cpos;
+  ESL_DSQ   x;
+  int       status = eslOK;
+
+  if (*ldest < 0) *ldest = ( (*dest) ? strlen(*dest) : 0);
+  if ( lsrc  < 0)  lsrc  = ( (*src)  ? strlen(src)   : 0);
+
+  if (lsrc == 0) goto ERROR;	/* that'll return eslOK, leaving *dest untouched, and *ldest its length. */
+
+  ESL_REALLOC(*dest, sizeof(char) * (*ldest + lsrc + 1)); /* includes case of a new alloc of *dest */
+  for (xpos = *ldest, cpos = 0; cpos < lsrc; cpos++)
+    {
+      x = inmap[(int) src[cpos]];
+      if       (x <= 127)              (*dest)[xpos++] = x;
+      else switch (x) {
+	case eslDSQ_SENTINEL:  ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_SENTINEL"); break;
+	case eslDSQ_ILLEGAL:   (*dest)[xpos++] = inmap[0]; status = eslEINVAL;  break;
+	case eslDSQ_IGNORED:   break;
+	case eslDSQ_EOL:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOL");      break;
+	case eslDSQ_EOD:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOD");      break;
+	default:               ESL_EXCEPTION(eslEINCONCEIVABLE, "bad inmap, no such ESL_DSQ code");      break;
+	}
+    }
+
+  (*dest)[xpos] = '\0';
+  *ldest = xpos;
+  return status;
+
+ ERROR:
+  return status;
+}
+
 
 /* Function: esl_strtok()
  * Synopsis: Threadsafe version of C's <strtok()>
- * Date:     SRE, Wed May 19 16:30:20 1999 [St. Louis]
  *
  * Purpose:  Thread-safe version of <strtok()> for parsing next token in
  *           a string.
@@ -679,7 +782,6 @@ esl_strtok(char **s, char *delim, char **ret_tok)
 
 /* Function: esl_strtok_adv()
  * Synopsis: More advanced interface to <esl_strtok()>
- * Date:     SRE, Mon Oct 13 10:16:26 2008
  *
  * Purpose:  Same as <esl_strtok()>, except the caller may also 
  *           optionally retrieve the length of the token in <*opt_toklen>,
@@ -737,7 +839,6 @@ esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt
 
 /* Function:  esl_sprintf()
  * Synopsis:  Dynamic allocation version of sprintf().
- * Incept:    SRE, Mon Oct 20 09:35:57 2008 [Janelia]
  *
  * Purpose:   Like ANSI C's <sprintf()>, except the string
  *            result is dynamically allocated, and returned
@@ -769,7 +870,6 @@ esl_sprintf(char **ret_s, const char *format, ...)
 
 /* Function:  esl_vsprintf()
  * Synopsis:  Dynamic allocation version of vsprintf()
- * Incept:    SRE, Wed Oct 22 14:48:44 2008 [Janelia]
  *
  * Purpose:   Like ANSI C's <vsprintf>, except the string
  *            result is dynamically allocated, and returned
@@ -791,7 +891,6 @@ int
 esl_vsprintf(char **ret_s, const char *format, va_list *ap)
 {
   char   *s = NULL;
-  void   *p = NULL;
   va_list ap2;
   int     n1, n2;
   int     status;
@@ -803,7 +902,7 @@ esl_vsprintf(char **ret_s, const char *format, va_list *ap)
   ESL_ALLOC(s, sizeof(char) * (n1+1));
   if ((n2 = vsnprintf(s, n1+1, format, *ap)) >= n1) 
     {
-      ESL_RALLOC(s, p, sizeof(char) * (n2+1));
+      ESL_REALLOC(s, sizeof(char) * (n2+1));
       if (vsnprintf(s, n2+1, format, ap2) == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
     }
   else if (n2 == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
@@ -822,7 +921,6 @@ esl_vsprintf(char **ret_s, const char *format, va_list *ap)
 
 /* Function:  esl_strcmp()
  * Synopsis:  a strcmp() that treats NULL as empty string.
- * Incept:    SRE, Wed Jan 21 14:11:48 2009 [Janelia]
  *
  * Purpose:   A version of <strcmp()> that accepts <NULL>
  *            strings. If both <s1> and <s2> are non-<NULL>
@@ -857,7 +955,6 @@ esl_strcmp(const char *s1, const char *s2)
 
 #ifndef HAVE_STRCASECMP
 /* Function:  esl_strcasecmp()
- * Incept:    SRE, Sat Dec 10 09:44:13 2005 [St. Louis]
  *
  * Purpose:   Compare strings <s1> and <s2>. Return -1 if 
  *            <s1> is alphabetically less than <s2>, 0 if they
@@ -903,7 +1000,6 @@ esl_strcasecmp(const char *s1, const char *s2)
  *****************************************************************/ 
 
 /* Function:  esl_strchop()
- * Incept:    SRE, Mon Apr  3 10:24:14 2006 [St. Louis]
  *
  * Purpose:   Chops trailing whitespace off of a string <s> (or if <s>
  *            is NULL, do nothing).
@@ -930,7 +1026,6 @@ esl_strchop(char *s, int64_t n)
 
 /* Function:  esl_strdealign()
  * Synopsis:  Dealign a string according to gaps in a reference aseq.
- * Incept:    SRE, Thu Feb 17 15:12:26 2005 [St. Louis]
  *
  * Purpose:   Dealign string <s> in place, by removing any characters 
  *            aligned to gaps in <aseq>. Gap characters are defined in the 
@@ -1087,7 +1182,6 @@ esl_str_IsReal(char *s)
  *****************************************************************/
 
 /* Function:  esl_FileExists()
- * Incept:    SRE, Sat Jan 22 09:07:24 2005 [St. Louis]
  *
  * Purpose:   Returns TRUE if <filename> exists and is readable, else FALSE.
  *     
@@ -1114,7 +1208,6 @@ esl_FileExists(const char *filename)
 
 
 /* Function:  esl_FileTail()
- * Incept:    SRE, Tue Mar  7 08:30:00 2006 [St. Louis]
  *
  * Purpose:   Given a full pathname <path>, extract the filename
  *            without the directory path; return it via  
@@ -1206,7 +1299,6 @@ esl_file_Extension(char *filename, esl_pos_t n_ignore, char **ret_sfx, esl_pos_t
 
 
 /* Function:  esl_FileConcat()
- * Incept:    SRE, Sat Jan 22 07:28:46 2005 [St. Louis]
  *
  * Purpose:   Concatenates directory path prefix <dir> and a filename
  *            <file>, and returns the new full pathname through
@@ -1268,7 +1360,6 @@ esl_FileConcat(const char *dir, const char *file, char **ret_path)
 
 
 /* Function:  esl_FileNewSuffix()
- * Incept:    SRE, Sat Jan 22 10:04:08 2005 [St. Louis]
  *
  * Purpose:   Add a file suffix <sfx> to <filename>; or if <filename>
  *            already has a suffix, replace it with <sfx>. A suffix is
@@ -1320,7 +1411,6 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
 
 
 /* Function:  esl_FileEnvOpen()
- * Incept:    SRE, Sat Jan 22 08:41:48 2005 [St. Louis]
  *
  * Purpose:   Looks for a file <fname> in a colon-separated list of
  *            directories that is configured in an environment variable
@@ -1405,7 +1495,6 @@ esl_FileEnvOpen(const char *fname, const char *env, FILE **opt_fp, char **opt_pa
 }
 
 /* Function:  esl_tmpfile()
- * Incept:    SRE, Wed Sep  6 08:15:15 2006 [Janelia]
  *
  * Purpose:   Open a secure temporary <FILE *> handle and return it in
  *            <ret_fp>. The file is opened in read-write mode (<w+b>)
@@ -1507,7 +1596,6 @@ esl_tmpfile(char *basename6X, FILE **ret_fp)
 }
 
 /* Function:  esl_tmpfile_named()
- * Incept:    SRE, Sat Nov 11 09:13:25 2006 [Janelia]
  *
  * Purpose:   Open a persistent temporary file relative to the current
  *            working directory. The file name is constructed from the
@@ -1579,7 +1667,6 @@ esl_tmpfile_named(char *basename6X, FILE **ret_fp)
 
 /* Function:  esl_getcwd()
  * Synopsis:  Gets the path for the current working directory.
- * Incept:    SRE, Tue Jan 11 17:15:17 2011 [Janelia]
  *
  * Purpose:   Returns the path for the current working directory
  *            in <*ret_cwd>, as reported by POSIX <getcwd()>.
@@ -1643,7 +1730,6 @@ esl_getcwd(char **ret_cwd)
  *****************************************************************/
 
 /* Function:  esl_DCompare()
- * Incept:    SRE, Mon Nov  6 10:11:47 2006 [Janelia]
  *
  * Purpose:   Compare two floating point scalars <a> and <b> for approximate equality.
  *            Return <eslOK> if equal, <eslFAIL> if not.
@@ -1685,7 +1771,6 @@ esl_FCompare(float a, float b, float tol)
 
 /* Function:  esl_CCompare()
  * Synopsis:  Compare two optional strings for equality.
- * Incept:    SRE, Wed Jun 13 10:25:06 2007 [Janelia]
  *
  * Purpose:   Compare two optional strings <s1> and <s2>
  *            for equality. 
@@ -1717,7 +1802,6 @@ esl_CCompare(char *s1, char *s2)
  *****************************************************************/
 
 /* Function:  esl_composition_BL62()
- * Incept:    SRE, Fri Apr 13 16:00:34 2007 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies used in
  *            \citep{Henikoff92} to calculate the BLOSUM62
@@ -1755,7 +1839,6 @@ esl_composition_BL62(double *f)
 }
 
 /* Function:  esl_composition_WAG()
- * Incept:    SRE, Fri Apr 13 16:02:48 2007 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies used in
  *            \citep{WhelanGoldman01} to calculate the WAG rate
@@ -1793,7 +1876,6 @@ esl_composition_WAG(double *f)
 }
 
 /* Function:  esl_composition_SW34()
- * Incept:    SRE, Fri Apr 13 16:03:46 2007 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies observed in
  *            Swiss-Prot release 34 (21.2M residues).  Caller provides
@@ -1831,7 +1913,6 @@ esl_composition_SW34(double *f)
 
 
 /* Function:  esl_composition_SW50()
- * Incept:    SRE, Tue Aug 26 08:42:04 2008 [Janelia]
  *
  * Purpose:   Sets <f> to the background frequencies observed in
  *            Swiss-Prot release 50.8 (86.0M residues; Oct 2006).
@@ -1871,6 +1952,57 @@ esl_composition_SW50(double *f)
  * 10. Unit tests.
  *****************************************************************/
 #ifdef eslEASEL_TESTDRIVE
+
+static void
+utest_strmapcat(void)
+{
+  char      *msg  = "esl_strmapcat() unit test failed";
+  ESL_DSQ   inmap[128];
+  char     *pfx     = "testing testing";
+  char     *append  = "one two three";
+  char     *bad     = "1 2 three";
+  char     *dest;
+  int64_t   L1;
+  esl_pos_t L2;
+  int       x;
+  
+  /* a simple input map, for testing */
+  for (x = 0;   x < 128; x++) inmap[x] = eslDSQ_ILLEGAL;
+  for (x = 'a'; x < 'z'; x++) inmap[x] = x;
+  for (x = 'A'; x < 'Z'; x++) inmap[x] = x;
+  inmap[' '] = eslDSQ_IGNORED;
+  inmap[0]   = '?';
+  
+  L1 = strlen(pfx);
+  L2 = strlen(append);
+  if ( ( esl_strdup   (pfx, L1, &dest))                != eslOK)  esl_fatal(msg);
+  if ( ( esl_strmapcat(inmap, &dest, &L1, append, L2)) != eslOK)  esl_fatal(msg);
+  if ( strcmp(dest, "testing testingonetwothree")      != 0)      esl_fatal(msg);
+  free(dest);
+  
+  L1 = -1;
+  L2 = -1;
+  if ( ( esl_strdup   (pfx, L1, &dest))                != eslOK)  esl_fatal(msg);
+  if ( ( esl_strmapcat(inmap, &dest, &L1, append, L2)) != eslOK)  esl_fatal(msg);
+  if ( strcmp(dest, "testing testingonetwothree")      != 0)      esl_fatal(msg);
+  free(dest);
+
+  L1   = 0;
+  dest = NULL;
+  if ( ( esl_strmapcat(inmap, &dest, &L1, pfx,    -1))   != eslOK)  esl_fatal(msg);
+  if ( ( esl_strmapcat(inmap, &dest, &L1, append, -1))   != eslOK)  esl_fatal(msg);
+  if ( strcmp(dest, "testingtestingonetwothree")         != 0)      esl_fatal(msg);
+  free(dest);
+
+
+  if ( ( esl_strdup(pfx, -1, &dest))                 != eslOK)      esl_fatal(msg);
+  L1   = 8;
+  if ( ( esl_strmapcat(inmap, &dest, &L1, bad, -1))  != eslEINVAL)  esl_fatal(msg);
+  if ( strcmp(dest, "testing ??three")               != 0)          esl_fatal(msg);
+  free(dest);
+}
+
+
 static void
 utest_strtok(void)
 {
@@ -1989,6 +2121,7 @@ int main(void)
   esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
 
+  utest_strmapcat();
   utest_strtok();
   utest_sprintf();
   utest_FileExists();

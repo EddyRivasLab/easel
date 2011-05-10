@@ -981,7 +981,6 @@ esl_buffer_Set(ESL_BUFFER *bf, char *p, esl_pos_t nused)
  *            On EOF, <*opt_p> is NULL and <*opt_n> is 0.
  *
  * Throws:    <eslEMEM> if allocation fails.
- *            <eslEINVAL> if an anchoring attempt is invalid
  *            <eslESYS> if a system call such as fread() fails unexpectedly
  *            <eslEINCONCEIVABLE> if <bf> internal state is corrupt.
  */
@@ -995,7 +994,9 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
 
   /* The next line starts at offset <baseoffset + pos> */
   anch = bf->baseoffset + bf->pos;
-  if ((status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } /* we know bf->pos is in current window */
+  else if (status != eslOK)     { goto ERROR; }
   anch_set = TRUE;
 
   if ( (status = buffer_countline(bf, &nc, &nskip)) != eslOK) goto ERROR;  /* includes normal EOF. */
@@ -1004,7 +1005,9 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
   if (status != eslEOF && status != eslOK) goto ERROR; /* accept EOF here, we've already got our line */
   
   anch_set = FALSE;
-  if ( (status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } /* we know bf->pos is in current window */
+  else if (status != eslOK)     { goto ERROR; }
   if (opt_p) *opt_p = bf->mem + bf->pos;
   if (opt_n) *opt_n = nc;
   bf->pos += nskip;
@@ -1052,7 +1055,6 @@ esl_buffer_GetLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
  *            On EOF, <*opt_p> is NULL and <*opt_n> is 0.
  *
  * Throws:    <eslEMEM> if allocation fails.
- *            <eslEINVAL> if an anchoring attempt is invalid
  *            <eslESYS> if a system call such as fread() fails unexpectedly
  *            <eslEINCONCEIVABLE> if <bf> internal state is corrupt.
  */
@@ -1066,7 +1068,9 @@ esl_buffer_FetchLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
   int       status;
 
   anch = bf->baseoffset + bf->pos;
-  if ((status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } /* we know bf->pos is in current window */
+  else if (status != eslOK)     { goto ERROR; }
   anch_set = TRUE;
 
   if ( (status = buffer_countline(bf, &nc, &nskip)) != eslOK) goto ERROR; /* inc. normal EOF */
@@ -1078,7 +1082,9 @@ esl_buffer_FetchLine(ESL_BUFFER *bf, char **opt_p, esl_pos_t *opt_n)
   bf->pos += nskip;
 
   anch_set = FALSE;
-  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } 
+  else if (status != eslOK)     { goto ERROR; }
 
   status = buffer_refill(bf, 0);
   if (status != eslEOF && status != eslOK) goto ERROR; /* accept EOF here, we've already got our line */
@@ -1129,7 +1135,9 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
   int       status;
 	  
   anch = bf->baseoffset + bf->pos;
-  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } /* we know bf->pos is in current window */
+  else if (status != eslOK)     { goto ERROR; }
   anch_set = TRUE;
 
   if ( (status = buffer_countline(bf, &nc, &nskip)) != eslOK) goto ERROR; /* inc normal EOF */
@@ -1140,7 +1148,9 @@ esl_buffer_FetchLineAsStr(ESL_BUFFER *bf, char **opt_s, esl_pos_t *opt_n)
   bf->pos += nskip;
 
   anch_set = FALSE;
-  if ( (status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR; 
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } 
+  else if (status != eslOK)     { goto ERROR; }
 
   status = buffer_refill(bf, 0);
   if (status != eslEOF && status != eslOK) goto ERROR; /* accept EOF here, we've already got our line */
@@ -1239,7 +1249,10 @@ esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *
   if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
 
   anch = bf->baseoffset + bf->pos;
-  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; } /* we know bf->pos is in current window */
+  else if (status != eslOK)     { goto ERROR; }
+
   anch_set = TRUE;
 
   if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
@@ -1251,7 +1264,10 @@ esl_buffer_GetToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t *
   if (opt_tok) *opt_tok = bf->mem + (anch - bf->baseoffset);
   if (opt_n)   *opt_n   = nc;
   anch_set     = FALSE;
-  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }
+  else if (status != eslOK)     { goto ERROR; }
   return eslOK;
   
  ERROR:
@@ -1314,7 +1330,9 @@ esl_buffer_FetchToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t
   if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
 
   anch = bf->baseoffset + bf->pos;
-  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }
+  else if (status != eslOK)     { goto ERROR; }
   anch_set = TRUE;
 
   if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
@@ -1326,7 +1344,9 @@ esl_buffer_FetchToken(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_pos_t
   bf->pos     += nc;
 
   /* in a Fetch, we can raise the anchor before the new refill */
-  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }
+  else if (status != eslOK)     { goto ERROR; }
   anch_set     = FALSE;
 
   if ((status = buffer_skipsep(bf, sep))  != eslOK && status != eslEOF) goto ERROR;
@@ -1393,7 +1413,9 @@ esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_
   if ( ( status = buffer_newline(bf)) != eslOK) goto ERROR; /* includes EOL */
 
   anch = bf->baseoffset + bf->pos;
-  if ( (status = esl_buffer_SetAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_SetAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }
+  else if (status != eslOK)     { goto ERROR; }
   anch_set = TRUE;
 
   if ( (status = buffer_counttok(bf, sep, &nc)) != eslOK) goto ERROR;
@@ -1406,7 +1428,9 @@ esl_buffer_FetchTokenAsStr(ESL_BUFFER *bf, const char *sep, char **opt_tok, esl_
   bf->pos += nc;
 
   /* in a Fetch, we can raise the anchor before the new refill */
-  if  ((status = esl_buffer_RaiseAnchor(bf, anch)) != eslOK) goto ERROR;
+  status = esl_buffer_RaiseAnchor(bf, anch);
+  if      (status == eslEINVAL) { status = eslEINCONCEIVABLE; goto ERROR; }
+  else if (status != eslOK)     { goto ERROR; }
   anch_set     = FALSE;
 
   

@@ -102,6 +102,7 @@ HDRS = 	easel.h\
 	esl_msa.h\
 	esl_msacluster.h\
 	esl_msafile.h\
+	esl_msafile_afa.h\
 	esl_msafile_clustal.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
@@ -156,6 +157,7 @@ OBJS =	easel.o\
 	esl_msa.o\
 	esl_msacluster.o\
 	esl_msafile.o\
+	esl_msafile_afa.o\
 	esl_msafile_clustal.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
@@ -273,6 +275,7 @@ EXAMPLES = \
         esl_minimizer_example\
         esl_mixgev_example\
         esl_msa_example\
+        esl_msafile_example\
 	esl_msafile_clustal_example\
         esl_msacluster_example\
         esl_msaweight_example\

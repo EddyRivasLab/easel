@@ -70,6 +70,7 @@
 #endif
 
 #include "easel.h"
+#include "esl_mem.h"
 #ifdef eslAUGMENT_KEYHASH
 #include "esl_keyhash.h"
 #endif
@@ -966,189 +967,242 @@ esl_msa_Destroy(ESL_MSA *msa)
 }
 
 
+/*****************************************************************
+ *# x. Setting data fields in an ESL_MSA
+ *****************************************************************/
+
+/* These get used by parsers, which might be using an ESL_BUFFER.
+ * They need to handle either NUL-terminated strings or memory lines.
+ */
+
 /* Function:  esl_msa_SetName()
  * Synopsis:  Set name of an MSA.
- * Incept:    SRE, Sat Feb 23 18:42:47 2008 [Casa de Gatos]
  *
- * Purpose:   Sets the name of the msa <msa> to <name>. 
+ * Purpose:   Sets the name of the msa <msa> to string <s>,
+ *            of length <n>. 
+ *            
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
  *
- *            <name> can be <NULL>, because the MSA name is an
- *            optional field; in which case any existing name in
- *            the <msa> is erased.
+ *            <s> can also be <NULL> because the MSA name is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_msa_SetName(ESL_MSA *msa, const char *name)
+esl_msa_SetName(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
-  int     status;
-
-  if (msa->name != NULL) free(msa->name); 
-  status = esl_strdup(name, -1, &(msa->name));
-  return status;
+  if (msa->name) free(msa->name); 
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->name)); 
+  else       return esl_strdup(   s, -1, &(msa->name)); 
 }
 
 
 /* Function:  esl_msa_SetDesc()
  * Synopsis:  Set the description line of an MSA.
- * Incept:    SRE, Sat Feb 23 18:47:06 2008 [Casa de Gatos]
  *
- * Purpose:   Sets the description line of the msa <msa> to <desc>. 
- *
- *            As a special case, <desc> may be <NULL>, to facilitate
- *            handling of optional annotation.
- *
+ * Purpose:   Sets the optional description line of the msa <msa> to
+ *            string <s> of length <n>.
+ *            
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
+ * 
+ *            <s> can also be <NULL> because the MSA description is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
+ *            
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_msa_SetDesc(ESL_MSA *msa, const char *desc)
+esl_msa_SetDesc(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
-  int     status;
-
-  if (msa->desc != NULL) free(msa->desc);
-  status = esl_strdup(desc, -1, &(msa->desc));
-  return status;
-
+  if (msa->desc) free(msa->desc);
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->desc)); 
+  else       return esl_strdup(   s, -1, &(msa->desc)); 
 }
 
 /* Function:  esl_msa_SetAccession()
- * Synopsis:  Set the accession number of an MSA.
- * Incept:    SRE, Sat Feb 23 18:49:04 2008 [Casa de Gatos]
+ * Synopsis:  Set the accession field of an MSA.
  *
- * Purpose:   Sets accession number of the msa <msa> to <acc>. 
+ * Purpose:   Sets accession field of the msa <msa> to string <s> of
+ *            length <n>.
+ *            
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
  *
- *            As a special case, <acc> may be <NULL>, to facilitate
- *            handling of optional annotation.
+ *            <s> can also be <NULL> because the MSA accession is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_msa_SetAccession(ESL_MSA *msa, const char *acc)
+esl_msa_SetAccession(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
-  int     status;
-
-  if (msa->acc != NULL) free(msa->acc);
-  status = esl_strdup(acc, -1, &(msa->acc));
-  return status;
+  if (msa->acc) free(msa->acc);
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->acc)); 
+  else       return esl_strdup(   s, -1, &(msa->acc)); 
 }
 
 
 /* Function:  esl_msa_SetAuthor()
  * Synopsis:  Set the author string in an MSA.
- * Incept:    SRE, Wed Mar  4 10:41:21 2009 [Janelia]
  *
- * Purpose:   Sets the author string in <msa> to <author>.
+ * Purpose:   Sets the author string in <msa> to string <s> of
+ *            length <n>.
  *            
- *            As a special case, <author> may be <NULL>, to facilitate
- *            handling of optional annotation.
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
+ *
+ *            <s> can also be <NULL> because the MSA author is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_msa_SetAuthor(ESL_MSA *msa, const char *author)
+esl_msa_SetAuthor(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
-  int     status;
-
-  if (msa->au != NULL) free(msa->au);
-  status = esl_strdup(author, -1, &(msa->au));
-  return status;
+  if (msa->au) free(msa->au);
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->acc)); 
+  else       return esl_strdup(   s, -1, &(msa->acc)); 
 }
 
 
 /* Function:  esl_msa_SetSeqName()
  * Synopsis:  Set an individual sequence name in an MSA.
- * Incept:    SRE, Wed Mar  4 10:56:28 2009 [Janelia]
  *
  * Purpose:   Set the name of sequence number <idx> in <msa>
- *            to <name>.
+ *            to string <s> of length <n>.
+ *  
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
  *            
  * Returns:   <eslOK> on success.
  *
- * Throws:    <eslEINVAL> if <name> is <NULL>;
- *            <eslEMEM> on allocation error.
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslEINCONCEIVABLE> on coding errors.
  *
  * Note:      msa->sqname[] is not optional, so we may
  *            rely on it already being allocated for 
  *            i=0..sqalloc-1.
  */
 int
-esl_msa_SetSeqName(ESL_MSA *msa, int idx, const char *name)
+esl_msa_SetSeqName(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
 {
-  int     status;
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINCONCEIVABLE, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+  if (s == NULL)            ESL_EXCEPTION(eslEINCONCEIVABLE, "seq names are mandatory; NULL is not a valid name");
 
-  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
-  if (name == NULL)         ESL_EXCEPTION(eslEINVAL, "seq names are mandatory; NULL is not a valid name");
-
-  if (msa->sqname[idx] != NULL) free(msa->sqname[idx]);
-  status = esl_strdup(name, -1, &(msa->sqname[idx]));
-  return status;
+  if (msa->sqname[idx]) free(msa->sqname[idx]);
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->sqname[idx])); 
+  else       return esl_strdup(   s, -1, &(msa->sqname[idx])); 
 }
 
 /* Function:  esl_msa_SetSeqAccession()
  * Synopsis:  Sets individual sequence accession in an MSA.
- * Incept:    SRE, Wed Mar  4 11:03:26 2009 [Janelia]
  *
  * Purpose:   Set the accession of sequence number <idx> in <msa> to
- *            <acc>.
+ *            string <s> of length <n>.
+ *  
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
+ *
+ *            <s> can also be <NULL> because a seq accession is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEINCONCEIVABLE> on coding errors.
  */
 int 
-esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *acc)
+esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
 {
   int     i;
   int     status;
 
-  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
-  if (acc == NULL) {
-    if (msa->sqacc != NULL) { free(msa->sqacc[idx]); msa->sqacc[idx] = NULL; }
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINCONCEIVABLE, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+
+  if (msa->sqacc && msa->sqacc[idx]) { free(msa->sqacc[idx]); msa->sqacc[idx] = NULL; }
+
+  /* erasure case */
+  if (! s) {				
+    for (i = 0; i < msa->sqalloc; i++) if (msa->sqacc[idx]) break;
+    if (i == msa->sqalloc) { free(msa->sqacc); msa->sqacc = NULL; }
     return eslOK;
   }
 
   /* Allocate/initialize the optional sqacc array, if it's not already done: */
-  if (msa->sqacc == NULL) {
+  if (! msa->sqacc) {
     ESL_ALLOC(msa->sqacc, sizeof(char *) * msa->sqalloc);
     for (i = 0; i < msa->sqalloc; i++) msa->sqacc[i] = NULL;
   } 
-  if (msa->sqacc[idx] != NULL) free(msa->sqacc[idx]);
 
-  status = esl_strdup(acc, -1, &(msa->sqacc[idx]));
+  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqacc[idx])); 
+  else       status = esl_strdup(   s, -1, &(msa->sqacc[idx])); 
+
   return status;
-
+  
  ERROR:
   return status;
 }
   
 /* Function:  esl_msa_SetSeqDescription()
  * Synopsis:  Sets individual sequence description in an MSA.
- * Incept:    SRE, Wed Mar  4 11:09:37 2009 [Janelia]
  *
  * Purpose:   Set the description of sequence number <idx> in <msa> to
- *            <desc>.
+ *             string <s> of length <n>.
+ *  
+ *            If <s> is a NUL-terminated string, <n> is optional; if
+ *            the length is unknown, pass <n=-1>. <s> may also be a
+ *            memory line, non-NUL terminated, in which case <n> is
+ *            required.
+ *
+ *            <s> can also be <NULL> because a seq accession is an
+ *            optional field. (In this case, <n> is irrelevant and
+ *            ignored.)
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEINCONCEIVABLE> on coding error
  */
 int
-esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc)
+esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
 {
   int     i;
   int     status;
 
-  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINVAL, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
-  if (desc == NULL) {
-    if (msa->sqdesc != NULL) { free(msa->sqdesc[idx]); msa->sqdesc[idx] = NULL; }
+  if (idx  >= msa->sqalloc) ESL_EXCEPTION(eslEINCONCEIVABLE, "no such sequence %d (only %d allocated)", idx, msa->sqalloc);
+
+  if (msa->sqdesc && msa->sqdesc[idx]) { free(msa->sqdesc[idx]); msa->sqdesc[idx] = NULL; }
+
+  /* erasure case */
+  if (! s) {				
+    for (i = 0; i < msa->sqalloc; i++) if (msa->sqdesc[idx]) break;
+    if (i == msa->sqalloc) { free(msa->sqdesc); msa->sqdesc = NULL; }
     return eslOK;
   }
 
@@ -1157,10 +1211,9 @@ esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *desc)
     ESL_ALLOC(msa->sqdesc, sizeof(char *) * msa->sqalloc);
     for (i = 0; i < msa->sqalloc; i++) msa->sqdesc[i] = NULL;
   } 
-  if (msa->sqdesc[idx] != NULL) free(msa->sqdesc[idx]);
 
-  status = esl_strdup(desc, -1, &(msa->sqdesc[idx]));
-  return status;
+  if (n > 0) status = esl_memstrdup(s,  n, &(msa->sqdesc[idx])); 
+  else       status = esl_strdup(   s, -1, &(msa->sqdesc[idx])); 
 
  ERROR:
   return status;
@@ -2629,10 +2682,10 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	new->wgt[nidx] = msa->wgt[oidx];
       
 	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  if ((status = esl_msa_SetSeqAccession(new, nidx, msa->sqacc[oidx])) != eslOK) goto ERROR;
+	  if ((status = esl_msa_SetSeqAccession(new, nidx, msa->sqacc[oidx], -1)) != eslOK) goto ERROR;
 	}
 	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  if ((status = esl_msa_SetSeqDescription(new, nidx, msa->sqdesc[oidx])) != eslOK) goto ERROR;
+	  if ((status = esl_msa_SetSeqDescription(new, nidx, msa->sqdesc[oidx], -1)) != eslOK) goto ERROR;
 	}
 	if (msa->ss != NULL && msa->ss[oidx] != NULL) {
 	  if ((status = set_seq_ss(new, nidx, msa->ss[oidx])) != eslOK) goto ERROR;
@@ -3655,9 +3708,9 @@ parse_gs(ESL_MSA *msa, char *buf)
       status           = eslOK;
     }
   else if (strcmp(tag, "AC") == 0)
-    status = esl_msa_SetSeqAccession(msa, seqidx, text);
+    status = esl_msa_SetSeqAccession(msa, seqidx, text, -1);
   else if (strcmp(tag, "DE") == 0)
-    status = esl_msa_SetSeqDescription(msa, seqidx, text);
+    status = esl_msa_SetSeqDescription(msa, seqidx, text, -1);
   else				
     status = esl_msa_AddGS(msa, tag, seqidx, text);
 
@@ -3818,7 +3871,7 @@ parse_sequence(ESL_MSA *msa, char *buf)
 #ifdef eslAUGMENT_ALPHABET
   if (msa->flags & eslMSA_DIGITAL)
     {
-      status = esl_abc_dsqcat(msa->abc, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len);
+      status = esl_abc_dsqcat(msa->abc->inmap, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len);
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL))
@@ -5168,7 +5221,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	status = esl_strdup(seqname, -1, &(msa->sqname[seqidx]));
 
 	status = esl_strtok(&s, "\n\r", &desc);
-	if     (status == eslOK) status = esl_msa_SetSeqDescription(msa, seqidx, desc);
+	if     (status == eslOK) status = esl_msa_SetSeqDescription(msa, seqidx, desc, -1);
 	else if(status != eslEOL) ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, problem reading description of sequence %d at line %d\n", seqidx, afp->linenumber);
 	/* else, no description */
 
@@ -5190,7 +5243,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 #ifdef eslAUGMENT_ALPHABET
 	    if (msa->flags & eslMSA_DIGITAL)
 	      {
-		if((status = esl_abc_dsqcat(msa->abc, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len)) != eslOK) {
+		if((status = esl_abc_dsqcat(msa->abc->inmap, &(msa->ax[seqidx]), &(msa->sqlen[seqidx]), text, len)) != eslOK) {
 		  /* invalid char(s), get informative error message */
 		  if (esl_abc_ValidateSeq(msa->abc, text, len, afp->errbuf) != eslOK) 
 		    ESL_XFAIL(eslEFORMAT, errbuf2, "%s (line %d): %s", msa->sqname[seqidx], afp->linenumber, afp->errbuf);

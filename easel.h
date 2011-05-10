@@ -3,8 +3,6 @@
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
  *
- * SRE, Wed Jul  7 09:43:28 2004 [St. Louis]
- * SVN $Id$
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -111,6 +109,10 @@
  * Allocation and reallocation wrappers.
  * Both require <int status> in scope, and <ERROR:> goto target.
  * ESL_RALLOC() also requires <void *> ptr to be provided as <tmp>.
+ *
+ * ESL_REALLOC() is a newer version of ESL_RALLOC() which doesn't
+ * need a tmp ptr. All ESL_RALLOC() calls can be safely converted
+ * to ESL_REALLOC() calls.
  */
 /*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
@@ -124,6 +126,17 @@
      if ((p) == NULL) { (tmp) = malloc(newsize);         }\
      else             { (tmp) = realloc((p), (newsize)); }\
      if ((tmp) != NULL) (p) = (tmp);\
+     else {\
+       status = eslEMEM;\
+       esl_exception(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
+       goto ERROR;\
+     }} while (0)
+
+#define ESL_REALLOC(p, newsize) do {\
+     void *esltmpp;\
+     if ((p) == NULL) { (esltmpp) = malloc(newsize);         }\
+     else             { (esltmpp) = realloc((p), (newsize)); }\
+     if ((esltmpp) != NULL) (p) = (esltmpp);\
      else {\
        status = eslEMEM;\
        esl_exception(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
@@ -326,6 +339,7 @@ extern void esl_usage (FILE *fp, char *progname, char *usage);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
+extern int  esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
 extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
 extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
 extern int  esl_sprintf (char **ret_s, const char *format, ...);

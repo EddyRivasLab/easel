@@ -1,8 +1,7 @@
 /* i/o of multiple sequence alignment files in Clustal-like formats
  *
- * This module is responsible for i/o of:
- *    eslMSAFILE_CLUSTAL
- *    eslMSAFILE_MUSCLE
+ * This module is responsible for i/o of eslMSAFILE_CLUSTAL and
+ * eslMSAFILE_CLUSTALLIKE alignment formats.
  *
  */
 #include "esl_config.h"
@@ -13,14 +12,11 @@
 #include <ctype.h>
 
 #include "easel.h"
-#include "esl_mem.h"
-#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif
+#include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_msafile_clustal.h"
-#include "esl_recorder.h"
 
 static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #ifdef eslAUGMENT_ALPHABET
@@ -29,13 +25,27 @@ static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
 
 
 
-/* Function:  esl_msafile_clustal_Read()
- * Synopsis:  Read in a CLUSTAL or CLUSTAL-like alignment.
+/* Function:  esl_msafile_clustal_SetInmap()
+ * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
  *
- * Purpose:   Read an open <ESL_MSAFILE> <afp>, starting from the
- *            position of its current point, parsing for CLUSTAL-like
- *            formats. (<afp->format> is expected to be
- *            <eslMSAFILE_CLUSTAL> or <eslMSAFILE_MUSCLE>.) Create a
+ * Purpose:   This is a no-op; the default input map is fine for
+ *            clustal, clustallike formats. (We don't allow spaces 
+ 8            interior of input lines, for example.)
+ */
+int
+esl_msafile_clustal_SetInmap(ESLX_MSAFILE *afp)
+{
+  return eslOK;
+}
+
+
+/* Function:  esl_msafile_clustal_Read()
+ * Synopsis:  Read in a CLUSTAL or CLUSTALLIKE alignment.
+ *
+ * Purpose:   Read an MSA from an open <ESLX_MSAFILE> <afp>, parsing
+ *            for Clustal or Clustal-like format, starting from the 
+ *            current point. (<afp->format> is expected to be
+ *            <eslMSAFILE_CLUSTAL> or <eslMSAFILE_CLUSTALLIKE>.) Create a
  *            new multiple alignment, and return a ptr to that
  *            alignment in <*ret_msa>.  Caller is responsible for
  *            free'ing this <ESL_MSA>.
@@ -50,22 +60,25 @@ static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
  *            message that can be shown to the user. 
  *
  *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errmsg> is set to a message as above.
+ *            and <afp->errmsg> is blank.
  *
  * Throws:    <eslEMEM> - an allocation failed.
  *            <eslESYS> - a system call such as fread() failed
- *            <eslEINVAL> - anchoring call failed in esl_buffer code
  *            <eslEINCONCEIVABLE> - "impossible" corruption 
  */
 int
 esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 {
-  ESL_MSA  *msa     = esl_msa_Create(16, -1); /* a growable MSA. */
+  ESL_MSA  *msa     = NULL;
   char     *p       = NULL;
   esl_pos_t n       = 0;
+  char     *tok     = NULL;
+  esl_pos_t ntok    = 0;
   int       nblocks = 0;
   int       idx     = 0;
-  esl_pos_t alen    = 0;
+  int       nseq    = 0;
+  int64_t   alen    = 0;
+  int64_t   cur_alen;
   esl_pos_t pos;
   esl_pos_t name_start, name_len;
   esl_pos_t seq_start, seq_len;
@@ -73,7 +86,12 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   int       status;
 
   afp->errmsg[0] = '\0';
-  if (! msa) { status = eslEMEM; goto ERROR; }
+
+  /* Check the <afp>'s cache first */
+  if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);
+  
+  if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
+  if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* skip leading blank lines in file */
   do {
@@ -83,11 +101,9 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   /* now p[0..n-1] is the first non-blank line; point is at the start of the next line. */
     
   /* That first line says something like: "CLUSTAL W (1.83) multiple sequence alignment" */
-  switch (afp->format) {
-  case eslMSAFILE_CLUSTAL: if (! esl_memstrpfx(p, n, "CLUSTAL")) ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); break;
-  case eslMSAFILE_MUSCLE:  if (! esl_memstrpfx(p, n, "MUSCLE"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing MUSCLE header");  break;
-  default:                 ESL_XEXCEPTION(eslEINCONCEIVABLE, "format %s is not clustal-like", esl_msa_DecodeFormat(afp->format));
-  }
+  if (esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK)                             ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
+  if (afp->format == eslMSAFILE_CLUSTAL && ! esl_memstrpfx(tok, ntok, "CLUSTAL"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); 
+  if (! esl_memstrcontains(p, n, "multiple sequence alignment"))                   ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
 
   /* skip blank lines again */
   do {
@@ -106,7 +122,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  name_len   = pos - name_start;
       for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  seq_start  = pos;      
       if (pos >= n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
-      for (pos = n-1; pos > 0; pos--)   if (! isspace(p[pos])) break;  seq_len    = pos - seq_start - 1;
+      for (pos = n-1; pos > 0; pos--)   if (! isspace(p[pos])) break;  seq_len    = pos - seq_start + 1;
 
       if (idx == 0) {
 	block_seq_start = seq_start;
@@ -119,24 +135,23 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       /* Store the sequence name. */
       if (nblocks == 0)	{
 	/* make sure we have room for another sequence */
-	if (idx >= msa->sqalloc &&  (status = esl_msa_Expand(msa))      != eslOK) goto ERROR;
-	if ( (status = esl_memstrdup(p+name_start, name_len, &(msa->sqname[idx]))) != eslOK) goto ERROR;
-	msa->nseq++;
+	if (idx >= msa->sqalloc &&  (status = esl_msa_Expand(msa))           != eslOK) goto ERROR;
+	if ( (status = esl_msa_SetSeqName(msa, idx, p+name_start, name_len)) != eslOK) goto ERROR;
+	nseq++;
       } else {
 	if (! esl_memstrcmp(p+name_start, name_len, msa->sqname[idx]))
 	  ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected sequence %s on this line, but saw %.*s", msa->sqname[idx], (int) name_len, p+name_start);
       }
 
       /* Append the sequence. */
+      cur_alen = alen;
 #ifdef eslAUGMENT_ALPHABET
-      if (msa->flags & eslMSA_DIGITAL)
-	{ status = esl_abc_dsqcat(msa->abc, &(msa->ax[idx]), &(msa->sqlen[idx]), p+seq_start, seq_len); }
+      if (msa->abc)    { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &(cur_alen), p+seq_start, seq_len); }
 #endif
-      if (! (msa->flags & eslMSA_DIGITAL)) 
-	{ 
-	  status = esl_strcat(&(msa->aseq[idx]), msa->sqlen[idx], p+seq_start, seq_len);
-	  msa->sqlen[idx] += seq_len;
-	}
+      if (! msa->abc)  { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &(cur_alen), p+seq_start, seq_len); }
+      if      (status == eslEINVAL)    ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
+      else if (status != eslOK)        goto ERROR;
+      if (cur_alen - alen != seq_len) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of seq characters");
 
       /* get next line. if it's a consensus line, we're done with the block */
       status = esl_buffer_GetLine(afp->bf, &p, &n);
@@ -147,7 +162,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       idx++;
     } while (esl_memspn(p, n, " .:*") < n); /* end loop over a block */
     
-    if (idx != msa->nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "last block didn't contain same # of seqs as earlier blocks");
+    if (idx != nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "last block didn't contain same # of seqs as earlier blocks");
 
     /* skip blank lines until we find start of next block, or EOF */
     do {
@@ -161,6 +176,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
     nblocks++;
   } while (status == eslOK);	/* normal end has status == EOF after last block. */
 
+  msa->nseq = nseq;
   msa->alen = alen;
   *ret_msa = msa;
   return eslOK;
@@ -179,21 +195,37 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 /* Function:  esl_msafile_clustal_Write()
  * Synopsis:  Write a CLUSTAL format alignment file to a stream.
  *
- * Purpose:   Write alignment <msa> in CLUSTAL W 1.83 format to
- *            output stream <fp>. 
+ * Purpose:   Write alignment <msa> to output stream <fp>, in
+ *            format <fmt>. If <fmt> is <eslMSAFILE_CLUSTAL>,
+ *            write strict CLUSTAL 2.1 format. If <fmt>
+ *            is <eslMSAFILE_CLUSTALLIKE>, put "EASEL (VERSION)"
+ *            in the header.
  *            
  *            The alignment is written in blocks of 60 aligned
  *            residues at a time.
  *            
+ *            Constructing the CLUSTAL consensus line properly
+ *            requires knowing the alphabet. If the <msa> is in text
+ *            mode, we don't know the alphabet, so then we use a
+ *            simplified consensus line, with '*' marking completely
+ *            conserved columns, ' ' on everything else. If the <msa>
+ *            is in digital mode and of type <eslAMINO>, then we also
+ *            use Clustal's "strong" and "weak" residue group
+ *            annotations, ':' and '.'.  Strong groups are STA, NEQK,
+ *            NHQK, NDEQ, QHRK, MILV, MILF, HY, and FYW. Weak groups
+ *            are CSA, ATV, SAG, STNK, STPA, SGND, SNDEQK, NDEQHK,
+ *            NEQHRK, FVLIM, and HFY.
+ *            
  * Args:      fp  - open output stream
  *            msa - alignment to write      
+ *            fmt - eslMSAFILE_CLUSTAL or eslMSAFILE_CLUSTALLIKE      
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
  */
 int
-esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
+esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 {
   int   i;
   char *consline = NULL;
@@ -213,17 +245,13 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
 
   /* Make a CLUSTAL-like consensus line */
 #ifdef eslAUGMENT_ALPHABET 
-  if (msa->flags & eslMSA_DIGITAL) 
-    status = make_digital_consensus_line(msa, &consline);
-  else 
+  if (msa->abc &&  (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
 #endif
-  status = make_text_consensus_line(msa, &consline);
-  if (status != eslOK) goto ERROR;
-
+  if (! msa->abc && (status = make_text_consensus_line(msa, &consline))   != eslOK) goto ERROR;
 
   /* The magic header */
-  fprintf(fp, "CLUSTAL W (1.83) multiple sequence alignment\n");
-
+  if      (fmt == eslMSAFILE_CLUSTAL)     fprintf(fp, "CLUSTAL 2.1 multiple sequence alignment\n");
+  else if (fmt == eslMSAFILE_CLUSTALLIKE) fprintf(fp, "EASEL (%s) multiple sequence alignment\n", EASEL_VERSION);
 
   /* The alignment */
   buf[60] = '\0';
@@ -233,11 +261,9 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa)
       for (i = 0; i < msa->nseq; i++)
 	{
 #ifdef eslAUGMENT_ALPHABET 
-	  if (msa->flags & eslMSA_DIGITAL) 
-	    esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, 60, buf);
-	  else
+	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, 60, buf);
 #endif
-	  strncpy(buf, msa->aseq[i]+apos, 60);
+	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, 60);
 	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);
 	}
       strncpy(buf, consline+apos, 60);
@@ -275,16 +301,15 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
   char  *consline = NULL;
   int   *ct       = NULL;
   int    i, apos, x;
-  int    nseen;
   int    status;
 
   ESL_ALLOC(consline, sizeof(char) * (msa->alen+1));
   ESL_ALLOC(ct,       sizeof(int)  * 27);
 
-  for (x = 0; x <= 26; x++) ct[x] = 0;
-				      
   for (apos = 0; apos < msa->alen; apos++)
     {
+      for (x = 0; x <= 26; x++) ct[x] = 0;
+
       for (i = 0; i < msa->nseq; i++)
 	{
 	  x = toupper(msa->aseq[i][apos]) - 'A';
@@ -292,11 +317,9 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
 	  else                  ct[26]++;
 	}
 	  
-      for (nseen = 0, x = 0; x < 26; x++) /* not including gaps */
-	if (ct[x] > 0) nseen++;
-
-      if (nseen == 1) consline[apos] = '*';
-      else            consline[apos] = ' ';
+      consline[apos] = ' ';
+      for (x = 0; x < 26; x++) /* not including gaps */
+	if (ct[x] == msa->nseq) { consline[apos] = '*'; break; }
     }
 
   consline[msa->alen] = '\0';
@@ -317,30 +340,68 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
  * digital mode <msa>.
  */
 #ifdef eslAUGMENT_ALPHABET
+static char
+matches_group_digital(ESL_ALPHABET *abc, double *ct, double nseq, char *residues)
+{
+  double total = 0.;
+  char *c;
+
+  for (c = residues; *c; c++) 
+    total += ct[ (int) esl_abc_DigitizeSymbol(abc, *c) ];
+  return (total == nseq ? TRUE : FALSE); /* easily changed in the future to be some threshold fraction of nseq */
+}
+
 static int
 make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
-  char  *consline = NULL;
-  float *ct       = NULL;
+  char   *consline = NULL;
+  double *ct       = NULL;
   int    i, apos, x;
-  int    nseen;
   int    status;
 
-  ESL_ALLOC(consline, sizeof(char)  * (msa->alen+1));
-  ESL_ALLOC(ct,       sizeof(float) * (msa->abc->K+1));  
+  ESL_ALLOC(consline, sizeof(char)   * (msa->alen+1));
+  ESL_ALLOC(ct,       sizeof(double) * (msa->abc->K+1));  
 
-  for (x = 0; x <= msa->abc->K+1; x++) ct[x] = 0.;
-				      
   for (apos = 1; apos <= msa->alen; apos++)
     {
+      for (x = 0; x <= msa->abc->K+1; x++) ct[x] = 0.;
+
       for (i = 0; i < msa->nseq; i++)
-	esl_abc_FCount(msa->abc, ct, msa->ax[i][apos], 1.0);
+	esl_abc_DCount(msa->abc, ct, msa->ax[i][apos], 1.0);
 	
-      for (nseen = 0, x = 0; x < msa->abc->K; x++) /* not including gaps */
-	if (ct[x] > 0.) nseen++;
-      
-      if (nseen == 1) consline[apos-1] = '*';
-      else            consline[apos-1] = ' ';
+      consline[apos-1] = ' ';
+      for (x = 0; x < msa->abc->K; x++)
+	if (ct[x] >= (double) msa->nseq) { consline[apos-1] = '*'; break; }
+
+      /* clustalw's "strong groups" */
+      if (msa->abc->type == eslAMINO && consline[apos-1] == ' ') {
+	if (matches_group_digital(msa->abc, ct, (double) msa->nseq, "STA")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NEQK") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NHQK") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NDEQ") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "QHRK") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "MILV") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "MILF") ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "HY")   ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "FYW"))
+	  consline[apos-1] = ':';
+      }
+
+      /* clustalw's "weak groups" */
+      if (msa->abc->type == eslAMINO && consline[apos-1] == ' ') {
+	if (matches_group_digital(msa->abc, ct, (double) msa->nseq, "CSA")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "ATV")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SAG")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "STNK")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "STPA")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SGND")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SNDEQK")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NDEQHK")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NEQHRK")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "FVLIM")  ||
+	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "HFY"))
+	  consline[apos-1] = '.';
+      }
     }
 
   consline[msa->alen] = '\0';
@@ -353,6 +414,8 @@ make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
   *ret_consline = NULL;
   return status;
 }
+
+
 #endif /*eslAUGMENT_ALPHABET*/
 
 
@@ -383,7 +446,7 @@ main(int argc, char **argv)
   ESL_MSA     *msa      = NULL;
   int          status;
 
-  if ( (status = eslx_msafile_Open(filename, fmt, NULL, &afp)) != eslOK) 
+  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
     eslx_msafile_OpenFailure(afp, status);
 
   if ( (status = esl_msafile_clustal_Read(afp, &msa))         != eslOK)
@@ -392,7 +455,7 @@ main(int argc, char **argv)
   printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
 	 1, msa->name, msa->nseq, (int) msa->alen);
 
-  esl_msafile_clustal_Write(stdout, msa);
+  esl_msafile_clustal_Write(stdout, msa, eslMSAFILE_CLUSTAL);
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);

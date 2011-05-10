@@ -2848,7 +2848,7 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
     if((status = esl_msa_SequenceSubset(msa, useme, &(minor_msaA[m]))) != eslOK) ESL_FAIL(status, errbuf, "Error taking subset for minor subset %d with name: %s\n", m, minorA[m]);
 
     /* set name */
-    esl_msa_SetName(minor_msaA[m], minorA[m]);
+    esl_msa_SetName(minor_msaA[m], minorA[m], -1);
 
     /* unless --M-rf free RF annotation and set new annotation (--M-rf tells us to keep the initial RF annotation for all minor alignments */
     if(! esl_opt_GetBoolean(go, "--M-rf")) { 

@@ -3,6 +3,7 @@
 #ifndef eslALPHABET_INCLUDED
 #define eslALPHABET_INCLUDED
 
+#ifdef eslAUGMENT_ALPHABET 
 #include <ctype.h>		/* isascii() */
 #include "easel.h"
 
@@ -50,7 +51,7 @@ extern int     esl_abc_Textize  (const ESL_ALPHABET *a, const ESL_DSQ *dsq,  int
 extern int     esl_abc_TextizeN (const ESL_ALPHABET *a, const ESL_DSQ *dptr, int64_t L, char   *buf);
 extern int     esl_abc_dsqcpy(const ESL_DSQ *dsq, int64_t L, ESL_DSQ *dcopy);
 extern int     esl_abc_dsqdup(const ESL_DSQ *dsq, int64_t L, ESL_DSQ **ret_dup);
-extern int     esl_abc_dsqcat(const ESL_ALPHABET *a, ESL_DSQ **dsq, int64_t *L, const char *s, int64_t n);
+extern int     esl_abc_dsqcat(const ESL_DSQ *inmap, ESL_DSQ **dsq, int64_t *L, const char *s, esl_pos_t n);
 extern int64_t esl_abc_dsqlen(const ESL_DSQ *dsq);
 extern int64_t esl_abc_dsqrlen(const ESL_ALPHABET *a, const ESL_DSQ *dsq);
 extern int     esl_abc_CDealign(const ESL_ALPHABET *abc, char    *s, const ESL_DSQ *ref_ax, int64_t *opt_rlen);
@@ -116,7 +117,10 @@ extern int    esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_
 #define esl_abc_CGetNonresidue(a)    ((a)->sym[(int)(a)->Kp-2])
 #define esl_abc_CGetMissing(a)       ((a)->sym[(int)(a)->Kp-1])
 
-
+#endif /*eslAUGMENT_ALPHABET*/
+#ifndef eslAUGMENT_ALPHABET
+typedef void ESL_ALPHABET;
+#endif
 #endif /*eslALPHABET_INCLUDED*/
 /*****************************************************************
  * @LICENSE@

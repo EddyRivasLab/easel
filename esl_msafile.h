@@ -8,34 +8,27 @@
 #include "esl_buffer.h"
 #include "esl_msa.h"
 
-#ifdef eslAUGMENT_ALPHABET
-#include "esl_alphabet.h"	/* adds ability to use digital alphabet */
-#endif
-#ifdef eslAUGMENT_SSI
-#include "esl_ssi.h"        	/* adds ability to use SSI file indices */
-#endif
+#include "esl_alphabet.h"	/* AUGMENTATION: adds ability to use digital alphabet */
+#include "esl_ssi.h"        	/* AUGMENTATION: adds ability to use SSI file indices */
 
 /* Object: ESLX_MSAFILE
  * 
  * Defines an alignment file that's open for parsing.
  */
 typedef struct {
-  ESL_BUFFER *bf;                     /* input file/data being parsed                          */
-  int64_t     linenumber;             /* input linenumber for diagnostics; -1 if we lose track */
-  int32_t     format;		      /* format of alignment file we're reading                */
-  ESL_DSQ     inmap[128];	      /* input map, 0..127                                     */
+  ESL_BUFFER         *bf;             /* input file/data being parsed                          */
 
-#if defined(eslAUGMENT_ALPHABET)      /* AUGMENTATION (alphabet): digitized input              */
+  char               *line;	      /* line read from <bf> by <esl_msafile_ReadLine()>       */
+  esl_pos_t           nline;	      /* length of line in bytes (line is not NUL-terminated)  */
+  int64_t             linenumber;     /* input linenumber for diagnostics; -1 if we lose track */
+  esl_pos_t           lineoffset;     /* offset of start of <line> in <bf> input               */
+
+  int32_t             format;	      /* format of alignment file we're reading                */
+  ESL_DSQ             inmap[128];     /* input map, 0..127                                     */
   const ESL_ALPHABET *abc;	      /* non-NULL if augmented and in digital mode             */
-#else
-  void               *abc;	      /* NULL if not digital mode, or unaugmented              */
-#endif
-#if defined(eslAUGMENT_SSI)	      /* AUGMENTATION: SSI indexing of an MSA db               */
-  ESL_SSI *ssi;		              /* open SSI index file; or NULL, if none.                */
-#else
-  void    *ssi;
-#endif
-  char    errmsg[eslERRBUFSIZE];
+  ESL_SSI            *ssi;	      /* open SSI index file; or NULL, if none or not augmented*/
+  ESL_MSA            *msa_cache;      /* NULL, or an msa that's been cached by GuessAlphabet() */
+  char     errmsg[eslERRBUFSIZE];     /* user-directed error message, for normal errors        */
 } ESLX_MSAFILE;
 
 
@@ -46,23 +39,46 @@ typedef struct {
  *     - <=100 reserved for unaligned formats
  *     - >100 reserved for aligned formats
  */
-#define eslMSAFILE_UNKNOWN   0	  /* unknown format                              */
-#define eslMSAFILE_STOCKHOLM 101  /* Stockholm format, interleaved               */
-#define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
-#define eslMSAFILE_A2M       103  /* UCSC SAM's fasta-like a2m format            */
-#define eslMSAFILE_PSIBLAST  104  /* NCBI PSI-BLAST alignment format             */
-#define eslMSAFILE_SELEX     105  /* old SELEX format (largely obsolete)         */
-#define eslMSAFILE_AFA       106  /* aligned FASTA format                        */
-#define eslMSAFILE_CLUSTAL   107  /* CLUSTAL format                              */
-#define eslMSAFILE_MUSCLE    108  /* MUSCLE format (essentially CLUSTAL)         */
+#define eslMSAFILE_UNKNOWN     0    /* unknown format                              */
+#define eslMSAFILE_STOCKHOLM   101  /* Stockholm format, interleaved               */
+#define eslMSAFILE_PFAM        102  /* Pfam/Rfam one-line-per-seq Stockholm format */
+#define eslMSAFILE_A2M         103  /* UCSC SAM's fasta-like a2m format            */
+#define eslMSAFILE_PSIBLAST    104  /* NCBI PSI-BLAST alignment format             */
+#define eslMSAFILE_SELEX       105  /* old SELEX format (largely obsolete)         */
+#define eslMSAFILE_AFA         106  /* aligned FASTA format                        */
+#define eslMSAFILE_CLUSTAL     107  /* CLUSTAL format                              */
+#define eslMSAFILE_CLUSTALLIKE 108  /* CLUSTAL-like formats (MUSCLE, PROBCONS)     */
 
-extern int  eslx_msafile_Open(const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp);
-extern void eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
+/* 1. Opening/closing an ESLX_MSAFILE */
+extern int   eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp);
+extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
+extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
+
+/* 2. Utilities for different file formats */
+extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode);
+extern int   eslx_msafile_EncodeFormat(char *fmtstring);
+extern char *eslx_msafile_DecodeFormat(int fmt);
+
+/* 3. Utilities for different alphabets */
+#ifdef eslAUGMENT_ALPHABET
+extern int eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type);
+#endif
+
+/* 4. Reading an MSA from an ESLX_MSAFILE */
+extern int  eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
 extern void eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status);
-extern int  eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode);
-extern void eslx_msafile_Close(ESLX_MSAFILE *afp);
+extern int  eslx_msafile_Decache(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
+
+/* 5. Writing an MSA to a stream */
+extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
+
+/* 6. Utilities for specific parsers */
+extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp);
 
 
+#include "esl_msafile_afa.h"
+#include "esl_msafile_clustal.h"
+#include "esl_msafile_selex.h"
 #endif /*eslMSAFILE_INCLUDED*/
 
 /*****************************************************************

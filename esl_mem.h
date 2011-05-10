@@ -10,8 +10,9 @@ extern int       esl_memnewline(const char *p, esl_pos_t n, esl_pos_t *ret_nline
 extern int       esl_memtok(char **p, esl_pos_t *n, const char *delim, char **ret_tok, esl_pos_t *ret_toklen);
 extern esl_pos_t esl_memspn (char *p, esl_pos_t n, const char *allow);
 extern esl_pos_t esl_memcspn(char *p, esl_pos_t n, const char *disallow);
-extern int       esl_memstrcmp(const char *p, esl_pos_t n, const char *s);
-extern int       esl_memstrpfx(const char *p, esl_pos_t n, const char *s);
+extern int       esl_memstrcmp     (const char *p, esl_pos_t n, const char *s);
+extern int       esl_memstrpfx     (const char *p, esl_pos_t n, const char *s);
+extern int       esl_memstrcontains(const char *p, esl_pos_t n, const char *s);
 extern int       esl_memstrdup(const char *p, esl_pos_t n, char **ret_s);
 
 #endif /*eslMEM_INCLUDED*/

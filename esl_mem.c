@@ -232,7 +232,7 @@ esl_memnewline(const char *m, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm)
  *            Increment <*p> to point to the next character after the
  *            token, and decrement <*n> by the same number of
  *            characters, so that <*p> and <*n> are ready for another
- *            call to <esl_memtok()>.
+ *            call to <esl_memtok()>. 
  * 
  *            Two differences between <esl_strtok()> and <esl_memtok()>:
  *            first, <esl_strtok()> expects a NUL-terminated string,
@@ -347,6 +347,29 @@ esl_memstrpfx(const char *p, esl_pos_t n, const char *s)
   return TRUE;
 }
 
+
+/* Function:  esl_memstrcontains()
+ * Synopsis:  Return TRUE if memory line matches a string.
+ *
+ * Purpose:   Compare line <p> of length <n> to NUL-terminated
+ *            string <s>. Return <TRUE> if <p> contains an exact
+ *            match to <s> at any position.
+ */
+int 
+esl_memstrcontains(const char *p, esl_pos_t n, const char *s)
+{
+  esl_pos_t s0, pos;
+
+  if (! p || ! s) return FALSE;
+  for (s0 = 0; s0 < n; s0++)
+    {
+      for (pos = 0; s0+pos < n && s[pos] != '\0'; pos++)
+	if (p[s0+pos] != s[pos]) break;
+      if (s[pos] == '\0') return TRUE;
+    }
+  return FALSE;
+}
+
 /* Function:  esl_memstrdup()
  * Synopsis:  Duplicate a memory line as a NUL-terminated string.
  *
@@ -363,6 +386,8 @@ esl_memstrdup(const char *p, esl_pos_t n, char **ret_s)
 {
   char *s = NULL;
   int  status;
+
+  if (! p) { *ret_s = NULL; return eslOK; }
 
   ESL_ALLOC(s, sizeof(char) * (n+1));
   memcpy(s, p, n);
@@ -494,8 +519,8 @@ utest_memstrcmp_memstrpfx(void)
 
   p = test;
   n = strlen(p);
-  if (! esl_memstrcmp(p, n, test))      esl_fatal(msg);
-  if (  esl_memstrcmp(p, n, "this"))    esl_fatal(msg);
+  if (! esl_memstrcmp(p, n, test))   esl_fatal(msg);
+  if (  esl_memstrcmp(p, n, "this")) esl_fatal(msg);
   if (! esl_memstrpfx(p, n, "this")) esl_fatal(msg);
   if (  esl_memstrpfx(p, n, "that")) esl_fatal(msg);
 
@@ -516,6 +541,22 @@ utest_memstrcmp_memstrpfx(void)
   if (  esl_memstrpfx(NULL, 0, "this")) esl_fatal(msg);
   if (  esl_memstrpfx(p,    n, NULL))   esl_fatal(msg);
 }
+
+static void
+utest_memstrcontains(void)
+{
+  char      msg[]  = "memstrcontains unit test failed";
+  char      test[] = "CLUSTAL W (1.83) multiple sequence alignment";
+  char     *p;
+  esl_pos_t n;
+  
+  p = test; 
+  n = strlen(p);
+  if (! esl_memstrcontains(p, n, "multiple sequence alignment")) esl_fatal(msg);
+  if (! esl_memstrcontains(p, n, "CLUSTAL"))                     esl_fatal(msg);
+  if (  esl_memstrcontains(p, n, "alignmentx"))                  esl_fatal(msg);
+}
+
 #endif /*eslMEM_TESTDRIVE*/
 /*------------------ end, unit tests ----------------------------*/
 
@@ -551,6 +592,7 @@ main(int argc, char **argv)
   utest_memtok();
   utest_memspn_memcspn();
   utest_memstrcmp_memstrpfx();
+  utest_memstrcontains();
 
   esl_getopts_Destroy(go);
   return 0;
