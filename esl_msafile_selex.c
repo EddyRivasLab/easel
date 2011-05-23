@@ -664,7 +664,7 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 
       if      (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{
-#if eslAUGMENT_ALPHABET
+#ifdef eslAUGMENT_ALPHABET
 	  if (msa->abc)
 	    {			/* digital sequence append - mapped, preallocated */
 	      ESL_REALLOC(msa->ax[seqi],   sizeof(ESL_DSQ) * (msa->alen + nadd + 2)); 
