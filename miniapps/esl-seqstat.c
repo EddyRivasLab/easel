@@ -115,7 +115,7 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
-    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
+    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
     else if (status == eslEFORMAT)    esl_fatal("Parse failed (sequence file %s):\n%s\n",
 						sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));     
     else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);

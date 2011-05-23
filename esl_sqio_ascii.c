@@ -19,9 +19,6 @@
  * ancestor was circa 1991 and no recognizable vestiges are likely to
  * remain. Thanks Don!
  *
- * SRE, Thu Feb 17 17:45:51 2005
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -662,7 +659,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
  * Returns:   <eslOK> on success, and <*ret_type> is set to <eslDNA>,
  *            <eslRNA>, or <eslAMINO>.
  *            
- *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to 
+ *            Returns <eslENOALPHABET> and sets <*ret_type> to 
  *            <eslUNKNOWN> if the first sequence (or alignment)
  *            in the file contains no more than ten residues total,
  *            or if its alphabet cannot be guessed (i.e. it contains
@@ -3315,6 +3312,9 @@ fileheader_hmmpgmd(ESL_SQFILE *sqfp)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 
 

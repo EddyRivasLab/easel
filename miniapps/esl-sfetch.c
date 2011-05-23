@@ -316,7 +316,7 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
       if (esl_fileparser_GetTokenOnLine(efp, &key, &keylen) != eslOK)
 	esl_fatal("Failed to read seq name on line %d of file %s\n", efp->linenumber, keyfile);
       
-      status = esl_key_Store(keys, key, &keyidx);
+      status = esl_keyhash_Store(keys, key, keylen, &keyidx);
       if (status == eslEDUP) esl_fatal("seq key %s occurs more than once in file %s\n", key, keyfile);
 	
       /* if we have an SSI index, just fetch them as we go. */
@@ -331,8 +331,8 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp)
 
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
-	  if ( (sq->name[0] != '\0' && esl_key_Lookup(keys, sq->name, NULL) == eslOK) ||
-	       (sq->acc[0]  != '\0' && esl_key_Lookup(keys, sq->acc,  NULL) == eslOK))
+	  if ( (sq->name[0] != '\0' && esl_keyhash_Lookup(keys, sq->name, -1, NULL) == eslOK) ||
+	       (sq->acc[0]  != '\0' && esl_keyhash_Lookup(keys, sq->acc,  -1, NULL) == eslOK))
 	    {
 	      if (esl_opt_GetBoolean(go, "-r") )
 		if (esl_sq_ReverseComplement(sq) != eslOK) 

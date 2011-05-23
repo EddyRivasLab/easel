@@ -13,10 +13,6 @@
  * Augmentations:
  *   eslAUGMENT_RANDOM  : adds function for shuffling a stack. 
  * 
- * SRE 1 March 2000 [Seattle]
- * Incorp into Easel SRE, Sun Dec 26 07:42:12 2004 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
  */ 
 #include "esl_config.h"
 
@@ -1152,4 +1148,7 @@ main(void)
 
 /*****************************************************************  
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

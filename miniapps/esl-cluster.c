@@ -117,7 +117,7 @@ read_keyfile(ESL_GETOPTS *go, char *keyfile, ESL_KEYHASH *kh)
       nline++;
       if (esl_fileparser_GetTokenOnLine(efp, &tok, &toklen) != eslOK) esl_fatal("No token found on line %d", nline);
 
-      status = esl_key_Store(kh, tok, NULL);
+      status = esl_keyhash_Store(kh, tok, toklen, NULL);
       if      (status == eslEDUP) esl_fatal("Saw key %s twice: keys must be unique", tok);
       else if (status != eslOK)   esl_fatal("unknown error in storing key %s\n", tok);
     }
@@ -154,8 +154,8 @@ read_tabfile(ESL_GETOPTS *go, char *tabfile, ESL_KEYHASH *kh, ESL_DMATRIX *D)
 	{
 	  ntok++;
 	  if (ntok == vfield)  value = atof(tok);
-	  if (ntok == qfield && esl_key_Lookup(kh, tok, &qidx) != eslOK) esl_fatal("failed to find query key %s", tok);
-	  if (ntok == tfield && esl_key_Lookup(kh, tok, &tidx) != eslOK) esl_fatal("failed to find target key %s", tok);
+	  if (ntok == qfield && esl_keyhash_Lookup(kh, tok, toklen, &qidx) != eslOK) esl_fatal("failed to find query key %s", tok);
+	  if (ntok == tfield && esl_keyhash_Lookup(kh, tok, toklen, &tidx) != eslOK) esl_fatal("failed to find target key %s", tok);
 	}
       if (qidx  == -1)  esl_fatal("Failed to find query name on line %d (looking for field %d)\n",  nline, qfield);
       if (tidx  == -1)  esl_fatal("Failed to find target name on line %d (looking for field %d)\n", nline, tfield);

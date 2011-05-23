@@ -20,9 +20,6 @@
  * ancestor was circa 1991 and no recognizable vestiges are likely to
  * remain. Thanks Don!
  *
- * SRE, Thu Feb 17 17:45:51 2005
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -357,7 +354,7 @@ esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
  * Returns:   <eslOK> on success, and <*ret_type> is set to <eslDNA>,
  *            <eslRNA>, or <eslAMINO>.
  *            
- *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to 
+ *            Returns <eslENOALPHABET> and sets <*ret_type> to 
  *            <eslUNKNOWN> if the first sequence (or alignment)
  *            in the file contains no more than ten residues total,
  *            or if its alphabet cannot be guessed (i.e. it contains
@@ -2352,7 +2349,7 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
   else {
     status = esl_sqfile_GuessAlphabet(sqfp, &alphatype);
-    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
+    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first sequence in %s", seqfile);
     else if (status == eslEFORMAT)    esl_fatal("Parse failed (sequence file %s)\n%s\n",
 						seqfile, sqfp->get_error(sqfp));     
     else if (status == eslENODATA)    esl_fatal("Sequence file %s contains no data?", seqfile);
@@ -2423,4 +2420,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

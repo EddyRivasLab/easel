@@ -644,15 +644,12 @@ esl_abc_Digitize(const ESL_ALPHABET *a, const char *seq, ESL_DSQ *dsq)
   for (i = 0, j = 1; seq[i] != '\0'; i++) 
     { 
       x = a->inmap[(int) seq[i]];
-      if (x == eslDSQ_IGNORED) continue; 
-
-      if (esl_abc_XIsValid(a, x))
-	dsq[j] = x;
-      else
-	{
-	  status   = eslEINVAL;
-	  dsq[j] = esl_abc_XGetUnknown(a);
-	}
+      if      (esl_abc_XIsValid(a, x)) dsq[j] = x;
+      else if (x == eslDSQ_IGNORED) continue; 
+      else {
+	status   = eslEINVAL;
+	dsq[j] = esl_abc_XGetUnknown(a);
+      }
       j++;
     }
   dsq[j] = eslDSQ_SENTINEL;
@@ -883,9 +880,6 @@ esl_abc_dsqdup(const ESL_DSQ *dsq, int64_t L, ESL_DSQ **ret_dup)
 int
 esl_abc_dsqcat(const ESL_DSQ *inmap, ESL_DSQ **dsq, int64_t *L, const char *s, esl_pos_t n)
 {
-  int64_t   xpos;
-  esl_pos_t cpos;
-  ESL_DSQ   x;
   int       status = eslOK;
 
   if (*L < 0) *L = ((*dsq) ? esl_abc_dsqlen(*dsq) : 0);
@@ -899,18 +893,47 @@ esl_abc_dsqcat(const ESL_DSQ *inmap, ESL_DSQ **dsq, int64_t *L, const char *s, e
   } else			/* else, existing dsq is just reallocated; leftmost sentinel already in place. */
     ESL_REALLOC(*dsq, sizeof(ESL_DSQ) * (*L+n+2)); /* most we'll need */
 
+  return esl_abc_dsqcat_noalloc(inmap, *dsq, L, s, n);
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_abc_dsqcat_noalloc()
+ * Synopsis:  Version of esl_abc_dsqcat() that does no reallocation.
+ *
+ * Purpose:   Same as <esl_abc_dsqcat()>, but with no reallocation of
+ *            <dsq>. The pointer to the destination string <dsq> is 
+ *            passed by value not by reference, because it will not
+ *            be reallocated or moved. Caller has already allocated 
+ *            at least <*L + n + 2> bytes in <dsq>. <*L> and <n> are
+ *            not optional; caller must know (and provide) the lengths
+ *            of both the old string and the new source.
+ *
+ * Note:      This version was needed in selex format parsing, where
+ *            we need to prepend and append some number of gaps on
+ *            each new line of each block of input; allocating once
+ *            then adding the gaps and the sequence seemed most efficient.
+ */
+int
+esl_abc_dsqcat_noalloc(const ESL_DSQ *inmap, ESL_DSQ *dsq, int64_t *L, const char *s, esl_pos_t n)
+{
+  int64_t   xpos;
+  esl_pos_t cpos;
+  ESL_DSQ   x;
+  int       status = eslOK;
+
   /* Watch these coords. Start in the 0..n-1 text string at 0;
    * start in the 1..L dsq at L+1, overwriting its terminal 
    * sentinel byte.
    */
-  status = eslOK;
   for (xpos = *L+1, cpos = 0; cpos < n; cpos++)
     {
       x = inmap[(int) s[cpos]];
-      if       (x <= 127)              (*dsq)[xpos++] = x;
+      if       (x <= 127)      dsq[xpos++] = x;
       else switch (x) {
 	case eslDSQ_SENTINEL:  ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_SENTINEL"); break;
-	case eslDSQ_ILLEGAL:   (*dsq)[xpos++] = inmap[0]; status = eslEINVAL;                            break;
+	case eslDSQ_ILLEGAL:   dsq[xpos++] = inmap[0]; status = eslEINVAL;                               break;
 	case eslDSQ_IGNORED:   break;
 	case eslDSQ_EOL:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOL");      break;
 	case eslDSQ_EOD:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOD");      break;
@@ -918,11 +941,8 @@ esl_abc_dsqcat(const ESL_DSQ *inmap, ESL_DSQ **dsq, int64_t *L, const char *s, e
 	}
     }
 
-  (*dsq)[xpos] = eslDSQ_SENTINEL;
+  dsq[xpos] = eslDSQ_SENTINEL;
   *L = xpos-1;
-  return status;
-
- ERROR:
   return status;
 }
 
@@ -1089,7 +1109,7 @@ esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
  * Returns:   <eslOK> on success, and <*ret_type> is set to
  *            <eslAMINO>, <eslRNA>, or <eslDNA>.
  *
- *            Returns <eslEAMBIGUOUS> if unable to determine the
+ *            Returns <eslENOALPHABET> if unable to determine the
  *            alphabet type; in this case, <*ret_type> is set to 
  *            <eslUNKNOWN>.
  */
@@ -1122,7 +1142,7 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
   else if (n1+n2+n3+nn+nt+nx == n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; /* all aa canon (or X); more aa canon than ambig; all 20 seen */
   
   *ret_type = type;
-  if (type == eslUNKNOWN) return eslEAMBIGUOUS;
+  if (type == eslUNKNOWN) return eslENOALPHABET;
   else                    return eslOK;
 }
 
@@ -2343,5 +2363,8 @@ int main(void)
 
 /*****************************************************************  
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 

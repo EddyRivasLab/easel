@@ -5,10 +5,6 @@
  *    2. Determining thread number to use.
  *    3. Examples.
  *    4. Copyright and license.
- * 
- * MSF, Thu Jun 18 11:51:39 2009
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -424,11 +420,12 @@ main(void)
   return eslOK;
 }
 #endif /*eslTHREADS_EXAMPLE2*/
-
-
-
+#endif /*HAVE_PTHREAD*/
 
 /*****************************************************************  
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
-#endif /*HAVE_PTHREAD*/
+

@@ -1,5 +1,4 @@
-/* esl_gev.c
- * Statistical routines for generalized extreme value (GEV) distributions.
+/* Statistical routines for generalized extreme value (GEV) distributions.
  *
  * GEV distribution 
  *     G(x) = exp{ -[1 + \alpha \lambda(x - \mu)]^{-1/\alpha} }
@@ -19,10 +18,6 @@
  *            
  * Xref: 
  *   STL9/118, 2005/0712-easel-gev-impl. Verified against evd package in R.
- *
- * SRE, Tue Jul 12 09:02:08 2005
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -993,4 +988,7 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

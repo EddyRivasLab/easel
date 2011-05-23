@@ -12,10 +12,6 @@
  *    6. Test driver.
  *    7. Example.
  *    8. Copyright and license information.
- * 
- * SRE, Sat Jun  2 08:16:14 2007 [Janelia] [Tertiary Phase]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"		
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
@@ -1198,4 +1194,7 @@ int main(void) { return 0; }
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

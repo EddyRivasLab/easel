@@ -10,10 +10,6 @@
  *   7. Test driver.
  *   8. Examples.
  *   9. Copyright notice and license.
- * 
- * SRE, Tue May  2 14:08:42 2006 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -2197,4 +2193,7 @@ int main(int argc, char **argv)
 
 /*****************************************************************  
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

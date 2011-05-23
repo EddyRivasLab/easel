@@ -18,8 +18,8 @@
 typedef struct {
   ESL_BUFFER         *bf;             /* input file/data being parsed                          */
 
-  char               *line;	      /* line read from <bf> by <esl_msafile_ReadLine()>       */
-  esl_pos_t           nline;	      /* length of line in bytes (line is not NUL-terminated)  */
+  char               *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
+  esl_pos_t           n;	      /* length of line in bytes (line is not NUL-terminated)  */
   int64_t             linenumber;     /* input linenumber for diagnostics; -1 if we lose track */
   esl_pos_t           lineoffset;     /* offset of start of <line> in <bf> input               */
 

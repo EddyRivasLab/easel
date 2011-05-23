@@ -2,9 +2,6 @@
  * (This module is currently incomplete and not fully tested,
  *  though it compiles cleanly.)
  * 
- * SRE, Tue Nov 21 14:12:59 2006 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -286,4 +283,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

@@ -9,9 +9,6 @@
  *     6. Example
  *     7. Copyright and license
  *     
- * SRE, Sun Dec 16 09:14:51 2007 [Janelia]    
- * SVN $Id$
- * SVN $URL$
  *****************************************************************
  * Credits:
  *
@@ -526,6 +523,9 @@ int main(void) { return 0; }
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 
 /* Additionally, esl_sse_logf() and esl_sse_expf() are 

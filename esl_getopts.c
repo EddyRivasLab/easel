@@ -10,10 +10,7 @@
  *    6. Test driver.
  *    7. Examples.
  * 
- * SRE, Sat Jan  1 08:50:21 2005 [Panticosa, Spain]
  * xref STL8/p152; STL9/p5.
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -2139,6 +2136,9 @@ main(int argc, char **argv)
 
 /*****************************************************************  
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 
 

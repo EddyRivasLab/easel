@@ -1,9 +1,4 @@
-/* esl_weibull.c
- * Statistical routines for Weibull distributions.
- * 
- * SRE, Tue Aug  9 10:35:06 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
+/* Statistical routines for Weibull distributions.
  */
 #include "esl_config.h"
 
@@ -740,4 +735,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

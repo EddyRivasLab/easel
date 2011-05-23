@@ -1,16 +1,11 @@
-/* interface_gsl.c
- * Easel's interfaces to the GNU Scientific Library
- * 
- * SRE, Tue Jul 13 15:36:48 2004
- * SVN $Id$
- * SVN $URL$
+/* Easel's interfaces to the GNU Scientific Library
  */
 #ifdef HAVE_LIBGSL
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <stdlib.h>
-#include <easel/easel.h>
-#include <easel/dmatrix.h>
+#include "easel/easel.h"
+#include "easel/dmatrix.h"
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_permutation.h>
@@ -55,3 +50,11 @@ esl_GSL_MatrixInversion(ESL_DMATRIX *A, ESL_DMATRIX **ret_Ai)
 }
 
 #endif /*HAVE_LIBGSL*/
+
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/
+

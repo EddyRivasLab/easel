@@ -3,10 +3,6 @@
  * Table of contents:
  *    1. Randomizing MSAs.
  *    2. Shuffling pairwise (QRNA) alignments.
- *    
- * SRE, Tue Jan 22 09:06:27 2008 [Market Street Cafe, Leesburg]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -15,7 +11,7 @@
 #include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
-#endif /*eslAUGMENT_ALPHABET*/
+#endif
 #include "esl_msa.h"
 #include "esl_msashuffle.h"
 #include "esl_random.h"
@@ -373,3 +369,10 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
   return status;
 }
 #endif /*eslAUGMENT_ALPHABET*/
+
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/

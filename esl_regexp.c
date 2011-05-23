@@ -1,10 +1,6 @@
 /* regexp.c
  * Regular expression matching on strings.
  *
- * SRE, Sun Jan  2 10:09:48 2005 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
- *
  *****************************************************************
  * This is a wrapper around a modified version of Henry Spencer's
  * regex library. Spencer's copyright notice appears below, after my
@@ -1862,4 +1858,7 @@ main(void)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

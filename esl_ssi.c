@@ -7,10 +7,6 @@
  *  5. Example code.
  *  6. License and copyright information.
  * 
- * adapted from squid's ssi.c
- * SRE, Thu Mar  2 18:46:02 2006 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -2034,4 +2030,7 @@ int main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

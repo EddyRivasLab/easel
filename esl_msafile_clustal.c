@@ -2,7 +2,6 @@
  *
  * This module is responsible for i/o of eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
- *
  */
 #include "esl_config.h"
 
@@ -12,7 +11,9 @@
 #include <ctype.h>
 
 #include "easel.h"
+#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
+#endif
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -90,17 +91,18 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   /* Check the <afp>'s cache first */
   if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);
   
+#ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
+#endif
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* skip leading blank lines in file */
-  do {
-    if ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) != eslOK) goto ERROR; /* includes EOF */
-    if (afp->linenumber != -1) afp->linenumber++;
-  } while (esl_memspn(p, n, " \t\r\n") == n); /* idiomatic for "blank line" */
-  /* now p[0..n-1] is the first non-blank line; point is at the start of the next line. */
+  do {   
+    if ( ( status = eslx_msafile_GetLine(afp)) != eslOK) goto ERROR;     /* EOF? return a normal EOF     */
+  } while (esl_memspn(afp->line, afp->n, " \t\r\n") == n);               /* idiomatic for "blank line"   */
     
   /* That first line says something like: "CLUSTAL W (1.83) multiple sequence alignment" */
+  p = afp->line; n = afp->n;
   if (esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK)                             ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
   if (afp->format == eslMSAFILE_CLUSTAL && ! esl_memstrpfx(tok, ntok, "CLUSTAL"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); 
   if (! esl_memstrcontains(p, n, "multiple sequence alignment"))                   ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
@@ -188,10 +190,6 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 }  
 
 
-
-
-
-
 /* Function:  esl_msafile_clustal_Write()
  * Synopsis:  Write a CLUSTAL format alignment file to a stream.
  *
@@ -216,7 +214,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  *            are CSA, ATV, SAG, STNK, STPA, SGND, SNDEQK, NDEQHK,
  *            NEQHRK, FVLIM, and HFY.
  *            
- * Args:      fp  - open output stream
+ * Args:      fp  - open output stream, writable
  *            msa - alignment to write      
  *            fmt - eslMSAFILE_CLUSTAL or eslMSAFILE_CLUSTALLIKE      
  *
@@ -227,16 +225,17 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 int
 esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 {
-  int   i;
-  char *consline = NULL;
-  char  buf[61];
-  int   maxnamelen = 0;
-  int   namelen;
-  esl_pos_t apos;
-  int   status;
+  int       cpl        = 60;
+  int       maxnamelen = 0;
+  int       namelen;
+  char     *consline   = NULL;
+  char     *buf        = NULL;
+  int64_t   apos;
+  int       i;
+  int       status;
 
-
-  /* Find the maximum name length; determines width of name block  */
+  ESL_ALLOC(buf, sizeof(char) * (cpl+1));
+  buf[cpl] = '\0';
   for (i = 0; i < msa->nseq; i++)
     {
       namelen = strlen(msa->sqname[i]);
@@ -254,27 +253,28 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   else if (fmt == eslMSAFILE_CLUSTALLIKE) fprintf(fp, "EASEL (%s) multiple sequence alignment\n", EASEL_VERSION);
 
   /* The alignment */
-  buf[60] = '\0';
-  for (apos = 0; apos < msa->alen; apos += 60)
+  for (apos = 0; apos < msa->alen; apos += cpl)
     {
       fprintf(fp, "\n");
       for (i = 0; i < msa->nseq; i++)
 	{
 #ifdef eslAUGMENT_ALPHABET 
-	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, 60, buf);
+	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
 #endif
-	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, 60);
+	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
 	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);
 	}
-      strncpy(buf, consline+apos, 60);
+      strncpy(buf, consline+apos, cpl);
       fprintf(fp, "%-*s %s\n", maxnamelen, "", buf);
     }
 
+  free(buf);
   free(consline);
   return eslOK;
 
  ERROR:
-  if (consline != NULL) free(consline);
+  if (buf)      free(buf);
+  if (consline) free(consline);
   return status;
 }
 
@@ -466,4 +466,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

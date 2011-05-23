@@ -44,17 +44,18 @@ pseudocode:
        ESL_KEYHASH *kh = esl_keyhash_Create();
        int          idx;
        char        *key;
+       esl_pos_t    keylen;
        
        /* To store keys: */
        (foreach key) {
-          esl_key_Store(hash, key, &idx);       
+          esl_keyhash_Store(hash, key, keylen, &idx);       
           (reallocate foo, bar as needed)
           foo[idx] = whatever;
           bar[idx] = whatever;
        }     
        /* To look up keys: */
        (foreach key) {
-          if (esl_key_Lookup(hash, key, &idx) != eslOK) { no_such_key; }
+          if (esl_keyhash_Lookup(hash, key, keylen, &idx) != eslOK) { no_such_key; }
           (do something with) foo[idx];
           (do something with) bar[idx];
        }   

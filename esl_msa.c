@@ -52,10 +52,6 @@
  *    Implement output writer.
  * - More formats need to be parsed. Check on formats for current
  *    best MSA programs, such as MUSCLE, MAFFT; implement i/o.
- *    
- * SRE, Thu Jan 20 08:50:43 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 
 #include "esl_config.h"
@@ -267,7 +263,7 @@ get_seqidx(ESL_MSA *msa, char *name, int guess, int *ret_idx)
    * or, if we're keyhash-augmented, by hashing.
    */
 #ifdef eslAUGMENT_KEYHASH                  
-  status = esl_key_Store(msa->index, name, &seqidx);
+  status = esl_keyhash_Store(msa->index, name, -1, &seqidx);
   if (status == eslEDUP) { *ret_idx = seqidx; return eslOK; }
   if (status != eslOK) return status; /* an error. */
 #else
@@ -1710,7 +1706,7 @@ esl_msafile_Close(ESL_MSAFILE *afp)
  * Returns:   <eslOK> on success, and <*ret_type> is set
  *            to <eslDNA>, <eslRNA>, or <eslAMINO>. 
  *            
- *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to
+ *            Returns <eslENOALPHABET> and sets <*ret_type> to
  *            <eslUNKNOWN> if the alphabet cannot be reliably guessed.
  *
  * Xref:      J1/62
@@ -1783,7 +1779,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
       esl_abc_GuessAlphabet(ct, ret_type);
     }
 
-  if (*ret_type == eslUNKNOWN) return eslEAMBIGUOUS;
+  if (*ret_type == eslUNKNOWN) return eslENOALPHABET;
   else                         return eslOK;
 }
 
@@ -2021,7 +2017,7 @@ esl_msa_ConvertDegen2X(ESL_MSA *msa)
  * Returns:   Returns <eslOK> on success, and <*ret_type> is set
  *            to <eslDNA>, <eslRNA>, or <eslAMINO>. 
  *            
- *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to
+ *            Returns <eslENOALPHABET> and sets <*ret_type> to
  *            <eslUNKNOWN> if the first alignment in the file contains
  *            no more than ten residues total, or if its alphabet
  *            cannot be reliably guessed (it contains IUPAC degeneracy
@@ -3270,7 +3266,7 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
     {
 #ifdef eslAUGMENT_KEYHASH
       msa->gs_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
+      status = esl_keyhash_Store(msa->gs_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -3289,7 +3285,7 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
        * tagidx == ngs; this is a new one.
        */
 #ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gs_idx, tag, &tagidx);
+      status = esl_keyhash_Store(msa->gs_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngs; tagidx++)
@@ -3369,7 +3365,7 @@ esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
     {
 #ifdef eslAUGMENT_KEYHASH
       msa->gc_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gc_idx, tag, &tagidx);      
+      status = esl_keyhash_Store(msa->gc_idx, tag, -1, &tagidx);      
       if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -3383,7 +3379,7 @@ esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
     {			/* new tag? */
       /* get tagidx for this GC tag. existing tag: <ngc; new: == ngc. */
 #ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gc_idx, tag, &tagidx);
+      status = esl_keyhash_Store(msa->gc_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) goto ERROR;
 #else
       for (tagidx = 0; tagidx < msa->ngc; tagidx++)
@@ -3442,7 +3438,7 @@ esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value)
     {
 #ifdef eslAUGMENT_KEYHASH
       msa->gr_idx = esl_keyhash_Create();
-      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
+      status = esl_keyhash_Store(msa->gr_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -3459,7 +3455,7 @@ esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value)
       /* get tagidx for this GR tag. existing<ngr; new=ngr.
        */
 #ifdef eslAUGMENT_KEYHASH
-      status = esl_key_Store(msa->gr_idx, tag, &tagidx);
+      status = esl_keyhash_Store(msa->gr_idx, tag, -1, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngr; tagidx++)
@@ -6065,8 +6061,8 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 	      }
 	      else { /* parse line into temporary strings, then print it out with correct formatting */
 		if((seqs2regurg == NULL && seqs2skip == NULL) || 
-		   (seqs2regurg != NULL && (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) || 
-		   (seqs2skip   != NULL && (status = esl_key_Lookup(seqs2skip,   seqname, NULL)) == eslENOTFOUND))
+		   (seqs2regurg != NULL && (status = esl_keyhash_Lookup(seqs2regurg, seqname, -1, NULL)) == eslOK) || 
+		   (seqs2skip   != NULL && (status = esl_keyhash_Lookup(seqs2skip,   seqname, -1, NULL)) == eslENOTFOUND))
 		  { /* this if() will evaluate as TRUE if seqs2regurg and seqs2skip are both NULL, or the seqname exists in seqs2regurg or does not exist in seqs2skip, else it will return FALSE */
 		    s = afp->buf;
 		    if (esl_strtok(&s, " \t\n\r", &gs)      != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GS line", afp->linenumber);
@@ -6100,8 +6096,8 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 
 	      /* determine if we should regurgitate GR for this sequence or not */
 	      if((seqs2regurg == NULL && seqs2skip == NULL) || 
-		 (seqs2regurg != NULL && (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) || 
-		 (seqs2skip   != NULL && (status = esl_key_Lookup(seqs2skip,   seqname, NULL)) == eslENOTFOUND))
+		 (seqs2regurg != NULL && (status = esl_keyhash_Lookup(seqs2regurg, seqname, -1, NULL)) == eslOK) || 
+		 (seqs2skip   != NULL && (status = esl_keyhash_Lookup(seqs2skip,   seqname, -1, NULL)) == eslENOTFOUND))
 		{ /* this if() will evaluate as TRUE if seqs2regurg and seqs2skip are both NULL, or the seqname exists in seqs2regurg or does not exist in seqs2skip, else it will return FALSE */
 		  /* output GR, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 		  if(useme  != NULL) { 
@@ -6147,8 +6143,8 @@ esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int
 
 	  /* determine if we should regurgitate this sequence or not */
 	  if((seqs2regurg == NULL && seqs2skip == NULL) || 
-	     (seqs2regurg != NULL && (status = esl_key_Lookup(seqs2regurg, seqname, NULL)) == eslOK) || 
-	     (seqs2skip   != NULL && (status = esl_key_Lookup(seqs2skip,   seqname, NULL)) == eslENOTFOUND))
+	     (seqs2regurg != NULL && (status = esl_keyhash_Lookup(seqs2regurg, seqname, -1, NULL)) == eslOK) || 
+	     (seqs2skip   != NULL && (status = esl_keyhash_Lookup(seqs2skip,   seqname, -1, NULL)) == eslENOTFOUND))
 	    { /* this if() will evaluate as TRUE if seqs2regurg and seqs2skip are both NULL, or the seqname exists in seqs2regurg or does not exist in seqs2skip, else it will return FALSE */
 	      /* output sequence, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 	      nseq_regurged++;
@@ -7336,7 +7332,7 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--amino")) alphatype = eslAMINO;
   else {
     status = esl_msafile_GuessAlphabet(afp, &alphatype);
-    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", msafile);
+    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first alignment in %s", msafile);
     else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
 						afp->linenumber, afp->fname, afp->errbuf, afp->buf);
     else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", msafile);
@@ -7377,4 +7373,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *    
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

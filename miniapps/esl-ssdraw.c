@@ -6548,7 +6548,7 @@ get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *us
     else { /* should be a seq line with 1+3*n tokens, <seqlen> <rfpos_0> <uapos_0> <nins_0> ... <rfpos_n> <uapos_n> <nins_n>, n can be 0 */
       /* determine if we're using this sequence */
       i++;
-      if(useme_keyhash == NULL || (esl_key_Lookup(useme_keyhash, tok, NULL) == eslOK)) { 
+      if(useme_keyhash == NULL || (esl_keyhash_Lookup(useme_keyhash, tok, -1, NULL) == eslOK)) { 
 	already_handled_special_spos = FALSE;   /* initialize */
 	prv_e_decrement = prv_e_increment = -1; /* initialize */
 

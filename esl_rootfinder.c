@@ -8,9 +8,6 @@
  *   5. Examples.
  *   6. Copyright and license information.
  * 
- * SRE, Fri Apr  6 09:14:13 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -532,4 +529,7 @@ int main(void)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

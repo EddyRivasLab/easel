@@ -746,6 +746,7 @@ esl_buffer_SetAnchor(ESL_BUFFER *bf, esl_pos_t offset)
  *
  * Purpose:   Same as <esl_buffer_SetAnchor()>, except the anchor is
  *            such that all pointers returned by <_Get*()> functions
+ *            (i.e. as opposed to just the last <_Get*> function)
  *            will remain valid at least until the anchor is raised.
  *
  *            The main use of this is when the caller wants to get
@@ -948,7 +949,6 @@ esl_buffer_Set(ESL_BUFFER *bf, char *p, esl_pos_t nused)
 
 /* Function:  esl_buffer_GetLine()
  * Synopsis:  Get ptr to next line in buffer.
- * Incept:    SRE, Tue Feb  1 15:02:33 2011 [Janelia]
  *
  * Purpose:   Get a pointer <*opt_p> to the next line in buffer <bf>,
  *            and the length of the line in <*opt_n> (in bytes, and
@@ -3214,4 +3214,7 @@ main(int argc, char **argv)
 #endif /*eslBUFFER_EXAMPLE6*/
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

@@ -1,12 +1,6 @@
-/* wuss.c
- * RNA secondary structure markup in WUSS notation.
- * 
- * xref squid wuss.c.
- * SRE, Tue Feb 15 08:43:23 2005
- * SVN $Id$
- * SVN $URL$
+/* RNA secondary structure markup in WUSS notation.
  */
-#include <esl_config.h>
+#include "esl_config.h"
 
 #include <string.h>
 #include <ctype.h>
@@ -511,4 +505,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

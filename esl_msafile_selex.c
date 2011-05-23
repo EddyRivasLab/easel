@@ -30,7 +30,9 @@
 #include <ctype.h>
 
 #include "easel.h"
+#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
+#endif
 #include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -50,12 +52,12 @@ typedef struct {
   int       *ltype;		/* code for line type: eslSELEX_LINE_SQ, etc.                 */
   esl_pos_t *lpos;		/* leftmost position of seq data on line[], 0..llen-1 [or -1] */
   esl_pos_t *rpos;              /* rightmost pos of seq data on line[], 0..llen-1 [or -1]     */
-  int64_t    nlines;		/* number of lines in this block                              */
-  int64_t    nalloc;		/* number of lines allocated for (>=nlines)                   */
+  int        nlines;		/* number of lines in this block                              */
+  int        nalloc;		/* number of lines allocated for (>=nlines)                   */
   esl_pos_t  anchor;		/* input buffer anchor set at the start of the block          */
 } ESL_SELEX_BLOCK;
 
-static ESL_SELEX_BLOCK *selex_block_Create(int64_t nalloc);
+static ESL_SELEX_BLOCK *selex_block_Create(int nalloc);
 static int              selex_block_Grow(ESL_SELEX_BLOCK *b);
 static void             selex_block_Destroy(ESL_SELEX_BLOCK *b);
 
@@ -74,7 +76,14 @@ static int selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *ms
  *
  * Purpose:   SELEX not only tolerates spaces in input, it
  *            allows a space as a gap character. (Which significantly
- *            complicates parsing, actually.)
+ *            complicates parsing.)
+ *            
+ *            The inmap may not contain <eslDSQ_IGNORED> mappings.
+ *            Annotation lines are parsed literally: every character
+ *            is copied. If some characters of the aligned sequence
+ *            were ignored, we'd be misaligned with the annotation.
+ *            In general, because of this, it seems unlikely that any
+ *            alignment format would use <eslDSQ_IGNORED> mappings.
  */
 int
 esl_msafile_selex_SetInmap(ESLX_MSAFILE *afp)
@@ -85,6 +94,98 @@ esl_msafile_selex_SetInmap(ESLX_MSAFILE *afp)
   if (! afp->abc) afp->inmap[' '] = '.';   /* Easel does not allow spaces as gap characters. */
   return eslOK;
 }
+
+/* Function:  esl_msafile_selex_CheckFileFormat()
+ * Synopsis:  Checks whether an input source appears to be in SELEX format.
+ *
+ * Purpose:   Check whether the input source <bf> appears to be a 
+ *            SELEX-format alignment file, starting from the current point,
+ *            to the end of the input. Return <eslOK> if so, <eslFAIL>
+ *            if not.
+ *            
+ *            This is a SELEX-specific plugin for <esl_msafile_GuessFormat()>.
+ */
+int
+esl_msafile_selex_CheckFileFormat(ESL_BUFFER *bf)
+{
+  esl_pos_t start_offset = -1;
+  int       block_nseq   = 0;	 /* Number of seqs in each block is checked     */
+  int       nseq         = 0;
+  esl_pos_t block_nres   = 0;	 /* Number of residues in each line is checked  */
+  char     *firstname    = NULL; /* First seq name of every block is checked    */
+  esl_pos_t namelen      = 0;
+  int       blockidx     = 0;
+  int       in_block     = FALSE;
+  char     *p, *tok;
+  esl_pos_t n,  toklen;
+  int       status;
+
+  /* Anchor at the start of the input, so we can rewind */
+  start_offset = esl_buffer_GetOffset(bf);
+  if ( (status = esl_buffer_SetAnchor(bf, start_offset)) != eslOK) goto ERROR;
+
+  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
+    {
+      /* Some automatic giveaways of SELEX format */
+      if (esl_memstrpfx(p, n, "#=RF")) { status = eslOK; goto DONE; }
+      if (esl_memstrpfx(p, n, "#=CS")) { status = eslOK; goto DONE; }
+      if (esl_memstrpfx(p, n, "#=SS")) { status = eslOK; goto DONE; }
+      if (esl_memstrpfx(p, n, "#=SA")) { status = eslOK; goto DONE; }
+      
+      /* skip comments */
+      if (esl_memstrpfx(p, n, "#"))    continue;
+      
+      /* blank lines: end block, reset block counters */
+      if (esl_memspn(p, n, " \t\r\n") == n)
+	{
+	  if (nseq && block_nseq != nseq) { status = eslFAIL; goto DONE;} /* each block has same # of seqs */
+	  if (in_block) blockidx++;
+	  if (blockidx >= 3) { status = eslOK; goto DONE; } /* stop after three blocks; we're pretty sure by now */
+	  in_block   = FALSE;
+	  block_nres = 0;
+	  block_nseq = nseq;
+	  nseq       = 0;
+	  continue;
+	}
+
+      /* else we're a "sequence" line. test for two and only two non-whitespace
+       * fields; test that second field has same length; test that each block
+       * starts with the same seq name..
+       */
+      in_block = TRUE;
+      if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) goto ERROR; /* there's at least one token - we already checked for blank lines */
+      if (nseq == 0)	/* check first seq name in each block */
+	{
+	  if (blockidx == 0) { firstname = tok; namelen = toklen; } /* First block: set the name we check against. */
+	  else if (toklen != namelen || memcmp(tok, firstname, toklen) != 0) { status = eslFAIL; goto DONE; } /* Subsequent blocks */
+	}
+      if (esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) { status = eslFAIL; goto DONE; }
+      if (block_nres && toklen != block_nres)                { status = eslFAIL; goto DONE; }
+      block_nres = toklen;
+      if (esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK) { status = eslFAIL; goto DONE; }
+      nseq++;
+    }
+  if (status != eslEOF) goto ERROR;  /* EOF is expected and good; anything else is bad */
+
+  if (in_block) blockidx++; 
+  if (! blockidx) status = eslFAIL;
+  
+ DONE:
+  if (start_offset != -1) { 
+    if (esl_buffer_SetOffset(bf, start_offset)   != eslOK) goto ERROR;
+    if (esl_buffer_RaiseAnchor(bf, start_offset) != eslOK) goto ERROR;
+    start_offset = -1;
+  }
+  return status;
+
+ ERROR:
+  if (start_offset != -1) { 
+    esl_buffer_SetOffset(bf, start_offset);
+    esl_buffer_RaiseAnchor(bf, start_offset);
+  }
+  return status;
+}
+
 
 
 /* Function:  esl_msafile_selex_Read()
@@ -124,6 +225,9 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
   afp->errmsg[0] = '\0';
 
+  /* Check the <afp>'s cache first */
+  if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);
+
   while ( (status = selex_read_block(afp, &b)) == eslOK)
     {
       if      (! nblocks &&  (status = selex_first_block(afp, b, &msa)) != eslOK) goto ERROR;
@@ -136,10 +240,10 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
       nblocks++;
     }
+  /* selex_read_block took care of destroying the block */
   if (status != eslEOF || nblocks == 0) goto ERROR;
 
   msa->offset = 0;
-  selex_block_Destroy(b);
   *ret_msa = msa;
   return eslOK;
 
@@ -151,6 +255,65 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   *ret_msa = NULL;
   return status;
 }
+
+/* Function:  esl_msafile_selex_Write()
+ * Synopsis:  Write a SELEX format alignment to a stream
+ *
+ * Purpose:   Write alignment <msa> to output stream <fp>,
+ *            in SELEX format. The alignment is written
+ *            in blocks of 60 aligned residues at a time.
+ *
+ * Args:      fp  - open output stream, writable
+ *            msa - alignment to write
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
+{
+  int     cpl        = 60;
+  int     maxnamelen = 4;		/* init to 4 because minimum name field is #=CS, etc. */
+  int     namelen;
+  char   *buf        = NULL;
+  int     i;
+  int64_t apos;
+  int     status;
+
+  ESL_ALLOC(buf, sizeof(char) * (cpl+1));
+  buf[cpl] = '\0';
+  for (i = 0; i < msa->nseq; i++) {
+    namelen    = strlen(msa->sqname[i]);
+    maxnamelen = ESL_MAX(namelen, maxnamelen);
+  }
+
+  for (apos = 0; apos < msa->alen; apos += cpl)
+    {
+      if (apos)         fprintf(fp, "\n");
+      if (msa->ss_cons) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=CS", cpl, msa->ss_cons+apos);
+      if (msa->rf)      fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=RF", cpl, msa->rf+apos);
+
+      for (i = 0; i < msa->nseq; i++)
+	{
+#ifdef eslAUGMENT_ALPHABET 
+	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
+#endif
+	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
+	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);	  
+
+	  if (msa->ss && msa->ss[i]) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SS", cpl, msa->ss[i]+apos);
+	  if (msa->sa && msa->sa[i]) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SA", cpl, msa->sa[i]+apos);
+	}
+    }
+
+  free(buf);
+  return eslOK;
+  
+ ERROR:
+  if (buf) free(buf);
+  return status;
+}
 /*--------------------- end, SELEX i/o API ----------------------*/
 
 
@@ -160,10 +323,11 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  *****************************************************************/
 
 static ESL_SELEX_BLOCK *
-selex_block_Create(int64_t nalloc)
+selex_block_Create(int nalloc)
 {
   ESL_SELEX_BLOCK *b = NULL;
-  int64_t          idx;
+  int              idx;
+  int              status;
   
   ESL_ALLOC(b,       sizeof(ESL_SELEX_BLOCK));
   b->line    = NULL;
@@ -204,7 +368,8 @@ selex_block_Create(int64_t nalloc)
 static int
 selex_block_Grow(ESL_SELEX_BLOCK *b)
 {
-  int64 idx;
+  int idx;
+  int status;
 
   ESL_REALLOC(b->line,    sizeof(char *)    * b->nalloc * 2);
   ESL_REALLOC(b->llen,    sizeof(esl_pos_t) * b->nalloc * 2);
@@ -225,6 +390,9 @@ selex_block_Grow(ESL_SELEX_BLOCK *b)
     }	
   b->nalloc  *= 2;
   return eslOK;
+
+ ERROR:
+  return status;
 }
   
 static void
@@ -254,10 +422,10 @@ selex_block_Destroy(ESL_SELEX_BLOCK *b)
  * reset the <afp> so its current line is the one at fault.
  */
 static int
-selex_ErrorInBlock(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, int idx)
+selex_ErrorInBlock(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, int which)
 {
   afp->line       = b->line[which];
-  afp->nline      = b->llen[which];
+  afp->n      = b->llen[which];
   afp->lineoffset = b->offsets[which];
   afp->linenumber = b->linenum[which];
   return esl_buffer_SetOffset(afp->bf, b->offsets[which] + b->llen[which]);
@@ -289,7 +457,7 @@ static int
 selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p) 
 {
   ESL_SELEX_BLOCK *b      = *block_p; /* now b==NULL if first block; or on subsequent blocks, reuse prev block storage. */
-  int64_t          idx    = 0;
+  int              idx    = 0;
   int              status;
 
   /* Advance past blank lines until we have the first line of next
@@ -297,9 +465,9 @@ selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
    * EOF, we're done.
    */
   do { 
-    if ( ( status = esl_msafile_GetLine(afp)) != eslOK) goto ERROR; /* EOF here is a normal EOF */
-  } while (esl_memspn(afp->line, afp->nline, " \t\r\n") == n ||                           /* idiomatic for "blank line" */
-	   (esl_memstrpfx(afp->line, afp->nline, "#") && ! esl_memstrpfx(afp->line, afp->nline, "#=")));   /* a SELEX comment line       */
+    if ( ( status = eslx_msafile_GetLine(afp)) != eslOK) goto ERROR;                               /* EOF here is a normal EOF   */
+  } while (esl_memspn(afp->line, afp->n, " \t\r\n") == afp->n ||                                   /* idiomatic for "blank line" */
+	   (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));   /* a SELEX comment line       */
 
   /* if this is first block, allocate block; subsequent blocks reuse it */
   if (!b && (b = selex_block_Create(16)) == NULL) goto ERROR; 
@@ -310,31 +478,31 @@ selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
 
   /* Parse for a block of lines. */
   do {
-    if (nalloc && idx == b->nalloc && (status = selex_block_Grow(b)) != eslOK) goto ERROR;
+    if (b->nalloc && idx == b->nalloc && (status = selex_block_Grow(b)) != eslOK) goto ERROR;
 
     b->line[idx]     = afp->line;
-    b->llen[idx]     = afp->nline;
+    b->llen[idx]     = afp->n;
     b->offsets[idx]  = afp->lineoffset;
     b->linenum[idx]  = afp->linenumber;   /* ltype, lpos, rpos aren't set yet */
     idx++;
     
     /* Get next non-comment line; this can be next line of block, blank (end of block), or EOF. */
     do { 
-      status = esl_msafile_GetLine(afp); 
-    } while ( status == eslOK && (esl_memstrpfx(afp->line, afp->nline, "#") && ! esl_memstrpfx(afp->line, afp->nline, "#=")));
+      status = eslx_msafile_GetLine(afp); 
+    } while ( status == eslOK && (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));
 
-  } while (status == eslOK && esl_memspn(afp->line, afp->nline, " \t\r\n") <= n); /* end of block on EOF or blank line */
+  } while (status == eslOK && esl_memspn(afp->line, afp->n, " \t\r\n") < afp->n); /* end of block on EOF or blank line */
   
   if (*block_p && b->nlines != idx) 
-    ESL_XFAIL(eslEFORMAT, afp->errbuf, "expected %" PRId64 " lines in block, saw %" PRId64, *nlines_p, idx);
+    ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected %d lines in block, saw %d", b->nlines, idx);
 
   b->nlines  = idx;
   *block_p   = b;
   return eslOK;	/* EOF status gets turned into OK: we've read a block successfully and hit EOF. Next call will generate the EOF */
 
  ERROR:
-  if (b->anchor != -1) esl_buffer_RaiseAnchor(afp->bf, b->anchor);
-  selex_block_Destroy(b);
+  if (b && b->anchor != -1) esl_buffer_RaiseAnchor(afp->bf, b->anchor);
+  if (b) selex_block_Destroy(b);
   *block_p = NULL;
   return status;
 }
@@ -353,6 +521,7 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
 {
   ESL_MSA  *msa = NULL;
   int       nrf, ncs, nss, nsa, nseq;
+  int       has_ss, has_sa;
   char     *p, *tok;
   esl_pos_t n,  ntok;
   int       idx, seqi;
@@ -361,13 +530,14 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
   afp->errmsg[0] = '\0';
 
   nrf = ncs = nss = nsa = nseq = 0;
+  has_ss = has_sa = FALSE;
   for (idx = 0; idx < b->nlines; idx++)
     {
-      if      (memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { b->ltype[idx] = eslSELEX_LINE_RF; nrf++; }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { b->ltype[idx] = eslSELEX_LINE_CS; ncs++; }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SS; nss++; }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SA; nsa++; }
-      else                                                    { b->ltype[idx] = eslSELEX_LINE_SQ; nseq++; nss = nsa = 0; }
+      if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { b->ltype[idx] = eslSELEX_LINE_RF; nrf++; }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { b->ltype[idx] = eslSELEX_LINE_CS; ncs++; }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SS; nss++; has_ss = TRUE; }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { b->ltype[idx] = eslSELEX_LINE_SA; nsa++; has_sa = TRUE; }
+      else                                                        { b->ltype[idx] = eslSELEX_LINE_SQ; nseq++; nss = nsa = 0; }
 
       if (nss && !nseq) { selex_ErrorInBlock(afp, b, idx); ESL_XFAIL(eslEFORMAT, afp->errmsg, "#=SS must follow a sequence");   }
       if (nsa && !nseq) { selex_ErrorInBlock(afp, b, idx); ESL_XFAIL(eslEFORMAT, afp->errmsg, "#=SA must follow a sequence");   }
@@ -377,20 +547,32 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
       if (nsa > 1)      { selex_ErrorInBlock(afp, b, idx); ESL_XFAIL(eslEFORMAT, afp->errmsg, "Too many #=SA lines for seq");   }
     }
 
-  if  ( (msa = esl_msa_Create(nseq, -1)) == NULL) { status = eslEMEM; goto ERROR; } /* a growable MSA */
+#ifdef eslAUGMENT_ALPHABET
+  if ( afp->abc && (msa = esl_msa_CreateDigital(afp->abc, nseq, -1)) == NULL) { status = eslEMEM; goto ERROR; } /* a growable MSA */
+#endif
+  if (!afp->abc && (msa = esl_msa_Create(                 nseq, -1)) == NULL) { status = eslEMEM; goto ERROR; } 
+  if (has_ss) {
+    ESL_ALLOC(msa->ss, sizeof(char *) * nseq);
+    for (seqi = 0; seqi < nseq; seqi++) msa->ss[seqi] = NULL;
+  }
+  if (has_sa) {
+    ESL_ALLOC(msa->sa, sizeof(char *) * nseq);
+    for (seqi = 0; seqi < nseq; seqi++) msa->sa[seqi] = NULL;
+  }
+  msa->nseq = nseq;
+  msa->alen = 0;
 
-  for (seqi = 0, idx = 0; idx < b->lines; idx++)
+  for (seqi = 0, idx = 0; idx < b->nlines; idx++)
     {
       p = b->line[idx];
       n = b->llen[idx];
-      if ( esl_memtok(&p, &n, " \t\n\r", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
+      if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
       if (b->ltype[idx] == eslSELEX_LINE_SQ) /* otherwise, first token is #=XX marking annotation of some sort */
 	{
 	  if ( esl_msa_SetSeqName(msa, seqi, tok, ntok)   != eslOK) goto ERROR;
 	  seqi++;
 	}
-      while (n && isspace(*p)) { p++; n--; }     /* advance past whitespace to first residue */
-      b->lpos[idx] = (n ? -1 : p-b->line[idx]);  /* set lpos[] to position of first seq or annotation residue */
+      b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */
     }
 
   *ret_msa = msa;
@@ -418,11 +600,11 @@ selex_other_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
   /* Validate line types */
   for (idx = 0; idx < b->nlines; idx++)
     {
-      if      (memstrpfx(b->line[idx], b->llen[idx], "#=RF") && b->ltype[idx] != eslSELEX_LINE_RF) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=RF line isn't in expected order in block"); }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=CS") && b->ltype[idx] != eslSELEX_LINE_CS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=CS line isn't in expected order in block"); }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=SS") && b->ltype[idx] != eslSELEX_LINE_SS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SS line isn't in expected order in block"); }
-      else if (memstrpfx(b->line[idx], b->llen[idx], "#=SA") && b->ltype[idx] != eslSELEX_LINE_SA) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SA line isn't in expected order in block"); }
-      else if (                                                 b->ltype[idx] != eslSELEX_LINE_SQ) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence line isn't in expected order in block"); }
+      if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { if (b->ltype[idx] != eslSELEX_LINE_RF) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=RF line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { if (b->ltype[idx] != eslSELEX_LINE_CS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=CS line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { if (b->ltype[idx] != eslSELEX_LINE_SS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SS line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { if (b->ltype[idx] != eslSELEX_LINE_SA) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SA line isn't in expected order in block"); } }
+      else                                                        { if (b->ltype[idx] != eslSELEX_LINE_SQ) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence line isn't in expected order in block"); } }
     }
   
   /* Validate seq names, and set lpos */
@@ -430,13 +612,14 @@ selex_other_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
     {
       p = b->line[idx];
       n = b->llen[idx];
-      if ( esl_memtok(&p, &n, " \t\n\r", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */      
+      if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */      
       if (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{
 	  if (! esl_memstrcmp(tok, ntok, msa->sqname[seqi]))  { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "expected sequence %s at this line of block", msa->sqname[seqi]); }
+	  seqi++;
 	}
       while (n && isspace(*p)) { p++; n--; }     /* advance past whitespace to first residue */
-      b->lpos[idx] = (n ? -1 : p-b->line[idx]);  /* set lpos[] to position of first seq or annotation residue */
+      b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */
     }
   return eslOK;
 }
@@ -444,14 +627,14 @@ selex_other_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 static int
 selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 {
-  char     *p, *tok;
-  esl_pos_t n, ntok;
+  char     *p;
   esl_pos_t pos;
   int       idx, seqi;
   esl_pos_t leftmost, rightmost;
   int64_t   nadd;		/* width of this sequence block, in aligned columns added to msa */
   esl_pos_t nleft, ntext, nright;
   int64_t   alen;
+  int       status;
   
   /* Determine rpos for each line.  */
   for (idx = 0; idx < b->nlines; idx++)
@@ -469,43 +652,71 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
     leftmost  = (b->lpos[idx] == -1) ? leftmost  : ESL_MIN(leftmost,  b->lpos[idx]);
     rightmost = (b->rpos[idx] == -1) ? rightmost : ESL_MAX(rightmost, b->rpos[idx]);
   }
-  if (rightmost == -1) return eslOK; /* super special case: no sequence or annotation data in block at all! */
+  if (rightmost == -1) return eslOK; /* super special case: no sequence or annotation data in this block at all! */
   nadd = rightmost - leftmost + 1;
 
   /* Appends */
   for (seqi = 0, idx = 0; idx < b->nlines; idx++)
     {
-      nleft  = ((lpos[idx] != -1) ? lpos[idx] - leftmost     : nadd); /* watch special case of all whitespace on data line, lpos>rpos */
-      ntext  = ((lpos[idx] != -1) ? rpos[idx] - lpos[idx] + 1 : 0);
-      nright = ((lpos[idx] != -1) ? rightmost - rpos[idx]    : 0);
+      nleft  = ((b->lpos[idx] != -1) ? b->lpos[idx] - leftmost         : nadd); /* watch special case of all whitespace on data line, lpos>rpos */
+      ntext  = ((b->lpos[idx] != -1) ? b->rpos[idx] - b->lpos[idx] + 1 : 0);
+      nright = ((b->lpos[idx] != -1) ? rightmost    - b->rpos[idx]     : 0);
 
-      if      (b->ltype[idx] == eslSELEX_LINE_SQ) 
+      if      (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{
-	  if (msa->abc) { ESL_REALLOC(msa->ax[seqi],   sizeof(ESL_DSQ) * (msa->alen + nadd + 2));  p = NULL;         }
-	  else          { ESL_REALLOC(msa->aseq[seqi], sizeof(char)    * (msa->alen + nadd + 1));  p = msa->aseq[i]; }
-	}
-      else if (b->ltype[idx] == eslSELEX_LINE_RF) { ESL_REALLOC(msa->rf,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->rf;        }
-      else if (b->ltype[idx] == eslSELEX_LINE_CS) { ESL_REALLOC(msa->ss_cons,    sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss_cons;   }
-      else if (b->ltype[idx] == eslSELEX_LINE_SS) { ESL_REALLOC(msa->ss[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss[idx-1]; }
-      else if (b->ltype[idx] == eslSELEX_LINE_SA) { ESL_REALLOC(msa->sa[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->sa[idx-1]; }
+#if eslAUGMENT_ALPHABET
+	  if (msa->abc)
+	    {			/* digital sequence append - mapped, preallocated */
+	      ESL_REALLOC(msa->ax[seqi],   sizeof(ESL_DSQ) * (msa->alen + nadd + 2)); 
+	      for (alen = msa->alen; alen < msa->alen+nleft;  alen++) msa->ax[seqi][alen+1] = esl_abc_XGetGap(msa->abc);
 
-      if (!p) {			/* digital append */
-	for (alen = msa->alen; alen < msa->alen+nleft;  alen++) msa->ax[idx][alen+1] = esl_abc_XGetGap(msa->abc);
-	status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]), &alen, b->line[idx] + b->lpos[idx], ntext);
-	if (alen != msa->alen + nleft + ntext) { };
-	for (                ; alen < msa->alen+nadd;   alen++) msa->ax[idx][alen++] = esl_abc_XGetGap(msa->abc);
-      } else {
-	for (alen = msa->alen; alen < msa->alen+nleft; alen++) s[alen] = ' ';
-	status = esl_strmapcat(afp->inmap, &s
-	if (ntext) memcpy(s+alen, b->line[idx]+b->lpos[idx], sizeof(char) * ntext);
-	if (alen != msa->alen + nleft + ntext) { };
-	for                  ; alen < msa->alen+nadd;  alen++) s[alen] = ' ';
-      }
+	      status = esl_abc_dsqcat_noalloc(afp->inmap, msa->ax[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in sequence line"); }
+	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
+	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };
+
+	      for (; alen < msa->alen+nadd;   alen++) msa->ax[seqi][alen+1] = esl_abc_XGetGap(msa->abc);
+	      msa->ax[seqi][alen+1] = eslDSQ_SENTINEL;
+	    }
+#endif
+	  if (! msa->abc)
+	    {			/* text mode sequence append - mapped, preallocated */
+	      ESL_REALLOC(msa->aseq[seqi], sizeof(char)    * (msa->alen + nadd + 1)); 
+	      for (alen = msa->alen; alen < msa->alen+nleft; alen++) msa->aseq[seqi][alen] = '.';
+
+	      status = esl_strmapcat_noalloc(afp->inmap, msa->aseq[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
+	      if      (status == eslEINVAL) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "illegal residue(s) in input line"); }
+	      else if (status != eslOK)     { selex_ErrorInBlock(afp, b, idx); goto ERROR; }
+	      if (alen != msa->alen + nleft + ntext) { selex_ErrorInBlock(afp, b, idx); ESL_EXCEPTION(eslEINCONCEIVABLE, afp->errmsg, "unexpected inconsistency appending a sequence"); };
+
+	      for  (; alen < msa->alen+nadd;  alen++) msa->aseq[seqi][alen] = '.';
+	      msa->aseq[seqi][alen] = '\0';
+	    }
+	  seqi++;
+	}
+      else 
+	{			/* annotation append: not mapped, characters are copied exactly as they are */
+	  if      (b->ltype[idx] == eslSELEX_LINE_RF) { ESL_REALLOC(msa->rf,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->rf;         }
+	  else if (b->ltype[idx] == eslSELEX_LINE_CS) { ESL_REALLOC(msa->ss_cons,    sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss_cons;    }
+	  else if (b->ltype[idx] == eslSELEX_LINE_SS) { ESL_REALLOC(msa->ss[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss[seqi-1]; }
+	  else if (b->ltype[idx] == eslSELEX_LINE_SA) { ESL_REALLOC(msa->sa[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->sa[seqi-1]; }
+
+	  for (alen = msa->alen; alen < msa->alen+nleft; alen++) p[alen] = '.';
+	  if (ntext) memcpy(p+msa->alen+nleft, b->line[idx]+b->lpos[idx], sizeof(char)*ntext);
+	  for (alen = msa->alen+nleft+ntext; alen < msa->alen+nadd; alen++) p[alen] = '.';
+	  p[alen] = '\0';
+	}
     }
   msa->alen += nadd;
   return eslOK;
+
+ ERROR:
+  return status;
 }    
     
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

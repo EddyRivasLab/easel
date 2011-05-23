@@ -613,7 +613,7 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
  *            
  *            One reason to use the inmap is to enable parsers to
  *            ignore some characters in an input string or buffer,
- *            such as whitespace (mapped to eslDSQ_IGNORED).  Of
+ *            such as whitespace (mapped to <eslDSQ_IGNORED>).  Of
  *            course this means, unlike <esl_strcat()> the new length
  *            isn't just <ldest+lsrc>, because we don't know how many
  *            characters get appended until we've processed them
@@ -684,9 +684,6 @@ esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc)
 int
 esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc)
 {
-  int64_t   xpos;
-  esl_pos_t cpos;
-  ESL_DSQ   x;
   int       status = eslOK;
 
   if (*ldest < 0) *ldest = ( (*dest) ? strlen(*dest) : 0);
@@ -695,13 +692,40 @@ esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src
   if (lsrc == 0) goto ERROR;	/* that'll return eslOK, leaving *dest untouched, and *ldest its length. */
 
   ESL_REALLOC(*dest, sizeof(char) * (*ldest + lsrc + 1)); /* includes case of a new alloc of *dest */
+  return esl_strmapcat_noalloc(inmap, *dest, ldest, src, lsrc);
+
+ ERROR:
+  return status;
+}
+
+/* Function:  esl_strmapcat_noalloc()
+ * Synopsis:  Version of esl_strmapcat() that does no reallocation.
+ *
+ * Purpose:   Same as <esl_strmapcat()>, but with no reallocation.  The
+ *            pointer to the destination string <dest> is passed by
+ *            value, not by reference, because it will not be changed.
+ *            Caller has allocated at least <*ldest + lsrc + 1> bytes
+ *            in <dest>. In this version, <*ldest> and <lsrc> are not
+ *            optional; caller must know the lengths of both the old
+ *            string and the new source.
+ * 
+ * Note:      (see note on esl_abc_dsqcat_noalloc() for rationale)
+ */
+int
+esl_strmapcat_noalloc(const ESL_DSQ *inmap, char *dest, int64_t *ldest, const char *src, esl_pos_t lsrc)
+{
+  int64_t   xpos;
+  esl_pos_t cpos;
+  ESL_DSQ   x;
+  int       status = eslOK;
+
   for (xpos = *ldest, cpos = 0; cpos < lsrc; cpos++)
     {
       x = inmap[(int) src[cpos]];
-      if       (x <= 127)              (*dest)[xpos++] = x;
+      if       (x <= 127)      dest[xpos++] = x;
       else switch (x) {
 	case eslDSQ_SENTINEL:  ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_SENTINEL"); break;
-	case eslDSQ_ILLEGAL:   (*dest)[xpos++] = inmap[0]; status = eslEINVAL;  break;
+	case eslDSQ_ILLEGAL:   dest[xpos++] = inmap[0]; status = eslEINVAL;                              break;
 	case eslDSQ_IGNORED:   break;
 	case eslDSQ_EOL:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOL");      break;
 	case eslDSQ_EOD:       ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_EOD");      break;
@@ -709,11 +733,8 @@ esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src
 	}
     }
 
-  (*dest)[xpos] = '\0';
+  dest[xpos] = '\0';
   *ldest = xpos;
-  return status;
-
- ERROR:
   return status;
 }
 
@@ -2177,4 +2198,7 @@ int main(void)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/  

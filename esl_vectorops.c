@@ -11,9 +11,6 @@
  *    4. Examples.
  *    5. Copyright and license information.
  * 
- * SRE, Tue Oct  1 15:23:25 2002 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */                      
 #include "esl_config.h"
 
@@ -1301,4 +1298,7 @@ int main(void)
 
 /*****************************************************************  
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

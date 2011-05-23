@@ -5,10 +5,6 @@
  *   http://abacus.gene.ucl.ac.uk/software/paml.html
  *   [Yang97]
  * 
- *           incept: SRE, Tue Jul 13 13:23:21 2004 [St. Louis]
- * upgrade to Easel: SRE, Thu Mar  8 13:29:04 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -178,3 +174,11 @@ main(int argc, char **argv)
 }
 
 #endif /*eslPAML_UTILITY1*/
+
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/
+

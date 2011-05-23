@@ -10,9 +10,6 @@
  *   7. Examples
  *   8. Copyright and license
  * 
- * SRE, Mon Dec 28 09:57:19 2009 [Zaragoza]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -1138,4 +1135,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

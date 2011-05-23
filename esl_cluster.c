@@ -6,10 +6,6 @@
  *     3. Test driver
  *     4. Example
  *     5. Copyright and license
- *     
- * SRE, Mon Jan  7 09:21:56 2008 [Janelia] [HHGTTG]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -342,5 +338,8 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 

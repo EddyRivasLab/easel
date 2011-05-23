@@ -1,13 +1,6 @@
-/* esl_stopwatch.c
- * Tracking cpu/system/elapsed time used by a process.
+/* Tracking cpu/system/elapsed time used by a process.
  *
  * Thanks to Warren Gish for assistance.
- * 
- * SRE, Wed Feb 22 20:12:55 2006 [St. Louis] [moved to Easel]
- * SRE, Thu Aug  3 08:11:52 2000 [St. Louis] [moved to SQUID]
- * SRE, Fri Nov 26 14:54:21 1999 [St. Louis] [HMMER]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -259,3 +252,11 @@ main(void)
 }
 /*::cexcerpt::stopwatch_example::end::*/
 #endif /*ESL_STOPWATCH_EXAMPLE*/
+
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/
+

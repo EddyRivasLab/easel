@@ -6,6 +6,7 @@
  *    3. Guessing alphabet.
  *    4. Reading an MSA from an ESLX_MSAFILE.
  *    5. Writing an MSA to a stream.
+ *    6. Utilities used by specific format parsers.
  *    x. Copyright and license.
  */
 #include "esl_config.h"
@@ -17,12 +18,20 @@
 #include "easel.h"
 #include "esl_mem.h"
 #include "esl_msafile.h"
+#ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
+#endif
+
+
+
 
 /*****************************************************************
  *# 1. Opening/closing an ESLX_MSAFILE
  *****************************************************************/
-static int msafile_SetInmap(ESLX_MSAFILE *afp); 
+
+static int msafile_Create    (ESLX_MSAFILE **ret_afp);
+static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE *afp);
+static int msafile_SetInmap  (ESLX_MSAFILE *afp); 
 
 /* Function:  eslx_msafile_Open()
  * Synopsis:  Open a multiple sequence alignment file for input.
@@ -83,29 +92,40 @@ static int msafile_SetInmap(ESLX_MSAFILE *afp);
  *            <eslENOTFOUND> if <msafile> doesn't exist or can't be
  *            opened for reading; or (in the case of a <.gz> file) if
  *            a <gzip> executable doesn't exist in user's <PATH> or
- *            can't be executed.
+ *            can't be executed. <afp->errmsg> is something like 
+ *            "couldn't open %s for reading", with <%s> being the 
+ *            name of the msafile.
  *
  *            <eslFAIL> in the case of a <.gz> file and the <gzip -dc> command
  *            fails on it.
  *            
- *            <eslENODATA> if the <msafile> is empty (contains no
- *            alignment), but we tried to read one to guess the
- *            digital alphabet.
- *            
- *            <eslEFORMAT> if we tried to autodetect the file format
+ *            <eslENOFORMAT> if we tried to autodetect the file format
  *            (caller provided <format=eslMSAFILE_UNKNOWN>), and
  *            failed.
  *            
- *            <eslEAMBIGUOUS> if we tried to autodetect the alphabet
+ *            <eslENODATA> if we tried to read the first alignment in
+ *            the file to guess the alphabet, but the <msafile> appears
+ *            empty (contains no alignment).
+ *
+ *            <eslENOALPHABET> if we tried to autodetect the alphabet
  *            (based on the first alignment in the file), but its
  *            alphabet could not be reliably guessed.
+ *            
+ *            <eslEFORMAT> if we tried to read the first alignment in
+ *            the file in order to guess its alphabet, but we got
+ *            a parsing error from <esl_msafile_Read()>.
  *
  *            On any of these normal errors, <*ret_afp> is returned in
  *            an error state, containing a user-directed error message
  *            in <afp->errmsg> and (if relevant) the full path to
  *            <msafile> that we attempted to open in
- *            <afp->bf->filename>.
- *
+ *            <afp->bf->filename>. With an <eslEFORMAT> code, the
+ *            caller may also use <afp->linenumber>, <afp->bf->mode_is>,
+ *            and <afp->line> to construct a detailed diagnostic message.
+ *            See <esl_msafile_OpenFailure()> for a function that
+ *            gives a standard way of reporting these diagnostics
+ *            to <stderr>.
+ *            
  * Throws:    <eslEMEM> on allocation failure.
  *            <eslESYS> on a system call failure, such as <fread()>.
  *            <eslEINVAL> if we tried to use <stdin> but the <stdin> stream was
@@ -115,24 +135,201 @@ static int msafile_SetInmap(ESLX_MSAFILE *afp);
 int
 eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp)
 {
-  ESLX_MSAFILE *afp       = NULL;
+  ESLX_MSAFILE *afp = NULL;
+  int           status;
+
+  if ( (status = msafile_Create(&afp)) != eslOK) goto ERROR;
+
+  if ((status = esl_buffer_Open(msafile, env, &(afp->bf))) != eslOK)
+    ESL_XFAIL(status, afp->errmsg, "%s", afp->bf->errmsg); /* ENOTFOUND; FAIL are normal here */
+
+  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  *ret_afp = afp; 
+  return eslOK;
+
+ ERROR:  /* on normal errors, afp is returned in an error state */
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+    { afp->abc = NULL; *ret_afp = afp;}
+  else 
+    { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
+  return status;
+}
+
+
+/* Function:  eslx_msafile_OpenMem()
+ * Synopsis:  Open a string or buffer for parsing as an MSA.
+ *
+ * Purpose:   Essentially the same as <eslx_msafile_Open()>, except
+ *            we ``open'' the string or buffer <p>, <n> as the 
+ *            input source.
+ *            
+ *            If <p> is a NUL-terminated string, providing its length
+ *            <n> is optional; <n> may be passed as -1. If <p> is an
+ *            unterminated buffer, providing the length <n> is
+ *            mandatory.
+ */
+int
+eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE **ret_afp)
+{
+  ESLX_MSAFILE *afp = NULL;
+  int status;
+
+  if ( (status = msafile_Create(&afp))                 != eslOK) goto ERROR;
+  if ( (status = esl_buffer_OpenMem(p, n, &(afp->bf))) != eslOK) goto ERROR;
+
+  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  *ret_afp = afp; 
+  return eslOK;
+
+ ERROR:
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+    { afp->abc = NULL; *ret_afp = afp;}
+  else 
+    { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
+  *ret_afp = NULL;
+  return status;
+}
+
+
+/* Function:  eslx_msafile_OpenBuffer()
+ * Synopsis:  Open an input buffer for parsing as an MSA.
+ *
+ * Purpose:   Essentially the same as <eslx_msafile_Open()>, except
+ *            we ``open'' an <ESL_BUFFER> <bf> that's already been
+ *            opened by the caller for some input source.
+ */
+int
+eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE **ret_afp)
+{
+  ESLX_MSAFILE *afp = NULL;
+  int status;
+
+  if ( (status = msafile_Create(&afp)) != eslOK) goto ERROR;
+
+  afp->bf = bf;
+  if ((status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  *ret_afp = afp; 
+  return eslOK;
+
+ ERROR:
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+    { afp->abc = NULL; *ret_afp = afp;}
+  else 
+    { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
+  return status;
+}
+
+/* Function:  eslx_msafile_OpenFailure()
+ * Synopsis:  Report diagnostics of normal error in opening MSA file, and exit.
+ *
+ * Purpose:   Report user-directed diagnostics of a normal error in opening
+ *            an MSA input. Print a message to <stderr>, then exit. 
+ */
+void
+eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status)
+{
+  int show_errmsg     = FALSE;
+  int show_source     = FALSE;
+  int show_linenumber = FALSE;
+
+  fprintf(stderr, "Alignment input open failed.\n");
+
+  if      (status == eslENOTFOUND)   { show_errmsg = TRUE; }
+  else if (status == eslFAIL)	     { show_errmsg = TRUE; }
+  else if (status == eslENOFORMAT)   { fprintf(stderr, "   Was attempting to guess input format, but that failed.\n");                  show_source = TRUE; }
+  else if (status == eslENODATA)     { fprintf(stderr, "   Was attempting to guess alphabet, but found no alignment data in input.\n"); show_source = TRUE; }
+  else if (status == eslENOALPHABET) { fprintf(stderr, "   Was attempting to guess alphabet type (amino, nucleic) but that failed.\n"); show_source = TRUE; }
+  else if (status == eslEMEM)        { fprintf(stderr, "   Memory allocation failure\n"); }
+  else if (status == eslEFORMAT)     { 
+    fprintf(stderr, "   Was attempting to guess alphabet, but parsing for %s format failed\n", eslx_msafile_DecodeFormat(afp->format));
+    show_errmsg = show_source = show_linenumber = TRUE; 
+  }
+  else  { fprintf(stderr, "   Unexpected error code %d\n", status); }
+  
+  if (show_errmsg) fprintf(stderr, "   %s\n", afp->errmsg);
+
+  if (show_source) {
+    switch (afp->bf->mode_is) {
+    case eslBUFFER_STREAM:   fprintf(stderr, "   while reading from an input stream (not a file)\n");   break;
+    case eslBUFFER_CMDPIPE:  fprintf(stderr, "   while reading through a pipe (not a file)\n");         break;
+    case eslBUFFER_FILE:     
+    case eslBUFFER_ALLFILE:
+    case eslBUFFER_MMAP:     fprintf(stderr, "   while reading file %s\n", afp->bf->filename);          break;
+    case eslBUFFER_STRING:   fprintf(stderr, "   while reading from a provided string (not a file)\n"); break;
+    default:                 break; 
+    }
+  }
+
+  if (show_linenumber) {
+    if (afp->linenumber > 0) fprintf(stderr, "   at (or near) line %" PRIu64 "\n", afp->linenumber);
+    else                     fprintf(stderr, "   at (or near) byte %" PRIu64 "\n", esl_buffer_GetOffset(afp->bf));
+  }
+  
+  eslx_msafile_Close(afp);
+  exit(status);
+}
+
+/* Function:  esl_msafile_Close()
+ * Synopsis:  Close an open <ESLX_MSAFILE>.
+ */
+void
+eslx_msafile_Close(ESLX_MSAFILE *afp)
+{
+  if (afp) {
+    if (afp->bf)        esl_buffer_Close(afp->bf);
+    if (afp->ssi)       esl_ssi_Close(afp->ssi);
+    if (afp->msa_cache) esl_msa_Destroy(afp->msa_cache);
+    free(afp);
+  }
+}
+
+static int
+msafile_Create(ESLX_MSAFILE **ret_afp)
+{
+  ESLX_MSAFILE *afp = NULL;
+  int           status;
+
+  ESL_ALLOC(afp, sizeof(ESLX_MSAFILE));
+  afp->bf         = NULL;
+  afp->line       = NULL;
+  afp->n          = 0;
+  afp->linenumber = 0;
+  afp->linenumber = 0;
+  afp->format     = eslMSAFILE_UNKNOWN;
+  afp->abc        = NULL;
+  afp->ssi        = NULL;
+  afp->msa_cache  = NULL;
+  afp->errmsg[0]  = '\0';
+
+  *ret_afp = afp;
+  return eslOK;
+
+ ERROR:
+  *ret_afp = NULL;
+  return status;
+}
+
+
+
+/* All input sources funnel through here.
+ * Here, <afp> is already allocated and initialized, and the input
+ * <bf> is opened successfully.
+ */
+static int
+msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE *afp)
+{
   ESL_ALPHABET *abc       = NULL;
   int           alphatype = eslUNKNOWN;
   int           status;
   int           x;
 
-  ESL_ALLOC(afp, sizeof(ESLX_MSAFILE));
-  afp->bf         = NULL;
-  afp->linenumber = 0;
-  afp->abc        = NULL;
-  afp->ssi        = NULL;
-
-  if ((status = esl_buffer_Open(msafile, env, &(afp->bf))) != eslOK)
-    ESL_XFAIL(status, afp->errmsg, "%s", afp->bf->errmsg); /* ENOTFOUND; FAIL are normal here */
-
   /* Determine the format */
-  if (format == eslMSAFILE_UNKNOWN && (status = eslx_msafile_GuessFileFormat(afp->bf, &format)) != eslOK)
-    ESL_XFAIL(status, afp->errmsg, "couldn't determine alignment input format"); /* EFORMAT is normal failure */
+  if (format == eslMSAFILE_UNKNOWN) 
+    {
+      status = eslx_msafile_GuessFileFormat(afp->bf, &format);
+      if      (status == eslENOFORMAT) ESL_XFAIL(status, afp->errmsg, "couldn't determine alignment input format"); /* ENOFORMAT is normal failure */
+      else if (status != eslOK)        goto ERROR;
+    }
   afp->format = format;
 
   /* Set up a text-mode inmap. (We may soon switch to digital mode, but if we're
@@ -143,8 +340,8 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const
       afp->inmap[x] = (isgraph(x) ? x : eslDSQ_ILLEGAL); 
     afp->inmap[0] = '?';
   }
-  msafile_SetInmap(afp); /* this does any remaining format-specific inmap configuration */
-
+  if (msafile_SetInmap(afp) != eslOK) goto ERROR; /* this does any remaining format-specific inmap configuration */
+  
   /* Determine the alphabet; set <abc>. (<abc> == NULL means text mode.)  */
 #ifdef eslAUGMENT_ALPHABET
   if (byp_abc && *byp_abc)	/* Digital mode, and caller provided the alphabet */
@@ -154,7 +351,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const
     } 
   else if (byp_abc)		/* Digital mode, and caller wants us to guess and create an alphabet */
     {
-      if ((status = eslx_msafile_GuessAlphabet(afp, &alphatype)) != eslOK) goto ERROR; /* includes normal EAMBIGUOUS, EFORMAT, ENODATA */
+      if ((status = eslx_msafile_GuessAlphabet(afp, &alphatype)) != eslOK) goto ERROR; /* includes normal ENOALPHABET, EFORMAT, ENODATA */
       if ( (abc = esl_alphabet_Create(alphatype)) == NULL) { status = eslEMEM; goto ERROR; }
     }    
 #endif
@@ -173,49 +370,13 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const
 
   afp->abc = abc;
   if (esl_byp_IsReturned(byp_abc)) *byp_abc = abc;
-  *ret_afp = afp;
   return eslOK;
 
  ERROR:  /* on normal errors, afp is returned in an error state */
   if (abc && ! esl_byp_IsProvided(byp_abc)) { esl_alphabet_Destroy(abc); }
   if (esl_byp_IsReturned(byp_abc)) *byp_abc = NULL;
-  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslEAMBIGUOUS) {
-    afp->abc = NULL;
-    *ret_afp = afp;
-  } else {
-    if (afp) eslx_msafile_Close(afp);
-    *ret_afp = NULL;
-  }
+  afp->abc = NULL;
   return status;
-}
-
-/* Function:  eslx_msafile_OpenFailure()
- * Synopsis:  Report diagnostics of normal error in opening MSA file, and exit.
- *
- * Purpose:   Report user-directed diagnostics of a normal error in opening
- *            an MSA input. Print a message to <stderr>, then exit. 
- */
-void
-eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status)
-{
-  fprintf(stderr, "alignment input open failed:\n   %s\n", afp->errmsg); 
-  
-  eslx_msafile_Close(afp);
-  exit(status);
-}
-
-/* Function:  esl_msafile_Close()
- * Synopsis:  Close an open <ESLX_MSAFILE>.
- */
-void
-eslx_msafile_Close(ESLX_MSAFILE *afp)
-{
-  if (afp) {
-    if (afp->bf)        esl_buffer_Close(afp->bf);
-    if (afp->ssi)       esl_ssi_Close(afp->ssi);
-    if (afp->msa_cache) esl_msa_Destroy(afp->msa_cache);
-    free(afp);
-  }
 }
 
 /* msafile_SetInmap()
@@ -247,11 +408,11 @@ msafile_SetInmap(ESLX_MSAFILE *afp)
   case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(    afp); break;
   case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(afp); break;
   case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(afp); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(  afp); break;
   default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
   return status;
 }
-
 /*---------------- end, open/close, text mode -------------------*/
 
 
@@ -286,7 +447,7 @@ msafile_SetInmap(ESLX_MSAFILE *afp)
  *            ret_fmtcode - RETURN: format code that's determined
  *
  * Returns:   <eslOK> on success, and <*ret_fmtcode> contains the format code.
- *            <eslEFORMAT> if format can't be guessed, and <*ret_fmtcode> contains
+ *            <eslENOFORMAT> if format can't be guessed, and <*ret_fmtcode> contains
  *            <eslMSAFILE_UNKNOWN>.
  *
  * Throws:    (no abnormal error conditions)
@@ -353,13 +514,19 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
   else if (fmt_byfirstline == eslMSAFILE_CLUSTALLIKE)                                    *ret_fmtcode = fmt_byfirstline;   /* MUSCLE files can have any suffix */
   else    *ret_fmtcode = fmt_bysuffix;
 
-  /* As we return, restore parser status:
-   *  put it back where it was when we started;
-   *  clear the anchor that made sure that position stayed in memory.
-   */
+  /* Restoreparser status, rewind to start */
   esl_buffer_SetOffset  (bf, initial_offset);
   esl_buffer_RaiseAnchor(bf, initial_offset);
-  return ((*ret_fmtcode == eslMSAFILE_UNKNOWN) ? eslEFORMAT: eslOK);
+
+  /* Third, if format is still unknown, do more thorough passes over the file. 
+   * Any CheckFileFormat() function must restore <bf> state before it returns. 
+   */
+  if (*ret_fmtcode == eslMSAFILE_UNKNOWN)
+    {
+      if ( esl_msafile_selex_CheckFileFormat(bf) == eslOK) *ret_fmtcode = eslMSAFILE_SELEX;
+    }
+
+  return ((*ret_fmtcode == eslMSAFILE_UNKNOWN) ? eslENOFORMAT: eslOK);
 }
 
 
@@ -451,7 +618,7 @@ eslx_msafile_DecodeFormat(int fmt)
  *            might hold the next MSA in its cache, where the next 
  *            <esl_msafile*Read()> call will retrieve it.
  *            
- *            Returns <eslEAMBIGUOUS> and sets <*ret_type> to
+ *            Returns <eslENOALPHABET> and sets <*ret_type> to
  *            <eslUNKNOWN> if the first alignment in the file contains
  *            no more than ten residues total, or if its alphabet
  *            cannot be reliably guessed (it contains IUPAC degeneracy
@@ -494,7 +661,7 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 
   /* Read and cache the first alignment in input.  */
   status = eslx_msafile_Read(afp, &msa);
-  if      (status == eslEOF)  return eslENODATA;
+  if      (status == eslEOF)  ESL_FAIL(eslENODATA, afp->errmsg, "no alignment found; input source empty?");
   else if (status != eslOK)   return status;
   afp->msa_cache = msa;
 
@@ -547,6 +714,7 @@ eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   case eslMSAFILE_AFA:          status = esl_msafile_afa_Read    (afp, &msa); break;
   case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_Read(afp, &msa); break;
   case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_Read(afp, &msa); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_Read  (afp, &msa); break;
   default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
   
@@ -575,18 +743,18 @@ void
 eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status)
 {
   switch (status) {
-  case eslEFORMAT:  fprintf(stderr, "alignment input parse error: %s\n", afp->errmsg);           break;
-  case eslEOF:      fprintf(stderr, "alignment input appears empty?\n");                         break;
-  default:          fprintf(stderr, "alignment input read error; unexpected code %d\n", status); break;
+  case eslEFORMAT:  fprintf(stderr, "Alignment input parse error: %s\n", afp->errmsg);           break;
+  case eslEOF:      fprintf(stderr, "Alignment input appears empty?\n");                         break;
+  default:          fprintf(stderr, "Alignment input read error; unexpected code %d\n", status); break;
   }
   
   switch (afp->bf->mode_is) {
-  case eslBUFFER_STREAM:   fprintf(stderr, "   while reading from an input stream (not a file)\n");   break;
-  case eslBUFFER_CMDPIPE:  fprintf(stderr, "   while reading through a pipe (not a file)\n");         break;
+  case eslBUFFER_STREAM:   fprintf(stderr, "   while reading %s from an input stream (not a file)\n", eslx_msafile_DecodeFormat(afp->format));   break;
+  case eslBUFFER_CMDPIPE:  fprintf(stderr, "   while reading %s through a pipe (not a file)\n",       eslx_msafile_DecodeFormat(afp->format));   break;
   case eslBUFFER_FILE:     
   case eslBUFFER_ALLFILE:
-  case eslBUFFER_MMAP:     fprintf(stderr, "   while reading file %s\n", afp->bf->filename);          break;
-  case eslBUFFER_STRING:   fprintf(stderr, "   while reading from a provided string (not a file)\n"); break;
+  case eslBUFFER_MMAP:     fprintf(stderr, "   while reading %s file %s\n", eslx_msafile_DecodeFormat(afp->format), afp->bf->filename);          break;
+  case eslBUFFER_STRING:   fprintf(stderr, "   while reading %s from a provided string (not a file)\n", eslx_msafile_DecodeFormat(afp->format)); break;
   default:                 break; 
   }
 
@@ -684,8 +852,10 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
   int status;
 
   switch (fmt) {
+  case eslMSAFILE_AFA:         status = esl_msafile_afa_Write    (fp, msa);                         break;
   case eslMSAFILE_CLUSTAL:     status = esl_msafile_clustal_Write(fp, msa, eslMSAFILE_CLUSTAL);     break;
   case eslMSAFILE_CLUSTALLIKE: status = esl_msafile_clustal_Write(fp, msa, eslMSAFILE_CLUSTALLIKE); break;
+  case eslMSAFILE_SELEX:       status = esl_msafile_selex_Write  (fp, msa);                         break;
   default:                     ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
 
@@ -696,15 +866,15 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
 
 
 /*****************************************************************
- *# 6. Utilities for specific parsers
+ *# 6. Utilities used by specific format parsers.
  *****************************************************************/
 
-/* Function:  eslx_msafile_ReadLine()
+/* Function:  eslx_msafile_GetLine()
  * Synopsis:  Read next line of input alignment file.
  *
  * Purpose:   Read next line of input <afp>, into its internal
  *            data fields: <afp->line> points to the start of the
- *            line in <afp->bf>, <afp->nline> is its length in
+ *            line in <afp->bf>, <afp->n> is its length in
  *            bytes, <afp->lineoffset> is the offset in the input
  *            to the start of the line, and <afp->linenumber> is
  *            the linenumber from <1..N> for <N> total lines in the
@@ -714,7 +884,7 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
  *
  * Returns:   <eslOK> on success.
  *            
- *            <eslEOF> at EOF. Now <afp->line> is <NULL>, <afp->nline>
+ *            <eslEOF> at EOF. Now <afp->line> is <NULL>, <afp->n>
  *            is <0>, and <afp->lineoffset> is <0>. <afp->linenumber>
  *            is the total number of lines in the input.
  *            
@@ -723,17 +893,18 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
  *            <eslEINCONCEIVABLE> on internal code errors.
  */
 int
-eslx_msafile_ReadLine(ESLX_MSAFILE *afp)
+eslx_msafile_GetLine(ESLX_MSAFILE *afp)
 {
   int status;
 
   afp->lineoffset = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_GetLine(afp->bf, &(afp->line), &(afp->nline))) != eslOK) goto ERROR;
+  if ((status = esl_buffer_GetLine(afp->bf, &(afp->line), &(afp->n))) != eslOK) goto ERROR;
   if (afp->linenumber != -1) afp->linenumber++;
+  return eslOK;
 
  ERROR:
   afp->line       = NULL;
-  afp->nline      = 0;
+  afp->n          = 0;
   afp->lineoffset = 0;
   /* leave linenumber alone. on EOF, it is the number of lines in the file, and that might be useful. */
   return status;
@@ -755,12 +926,13 @@ eslx_msafile_ReadLine(ESLX_MSAFILE *afp)
 #include "esl_msafile.h"
 
 static ESL_OPTIONS options[] = {
-  /* name            type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",         eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
-  { "--informat", eslARG_STRING,  NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
-  { "--dna",      eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
-  { "--rna",      eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
-  { "--amino",    eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
+  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
+  { "--outformat", eslARG_STRING, "Clustal",  NULL, NULL,  NULL,  NULL, NULL, "write the output MSA in format <s>",          0 }, 
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
@@ -771,12 +943,18 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
   char         *msafile   = esl_opt_GetArg(go, 1);
-  int           fmt       = eslMSAFILE_UNKNOWN;
+  int           infmt     = eslMSAFILE_UNKNOWN;
+  int           outfmt    = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET *abc       = NULL;
   ESLX_MSAFILE *afp       = NULL;
   ESL_MSA      *msa       = NULL;
   int           nali      = 0;
   int           status;
+
+  /* Choose the output file format */
+  outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+  if (outfmt == eslMSAFILE_UNKNOWN) 
+    esl_fatal("%s is not a valid MSA file format for --outformat", esl_opt_GetString(go, "--outformat"));
 
   /* If you know the alphabet you want, create it */
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
@@ -785,20 +963,19 @@ main(int argc, char **argv)
 
   /* If you know the MSA file format, set it */
   if (esl_opt_IsOn(go, "--informat") &&
-      (fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+      (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
   /* Open in digital mode. If fmt is unknown, guess format; if abc unknown, guess alphabet */
-  if ( (status = eslx_msafile_Open(&abc, msafile, fmt, NULL, &afp)) != eslOK)
+  if ( (status = eslx_msafile_Open(&abc, msafile, infmt, NULL, &afp)) != eslOK)
     eslx_msafile_OpenFailure(afp, status);
   
   /* Now the MSA's that you read are digital data in msa->ax[] */
   while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
     {
       nali++;
-      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	     nali, msa->name, (int) msa->nseq, (int) msa->alen);
-      eslx_msafile_Write(stdout, msa, eslMSAFILE_CLUSTAL);
+      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", nali, msa->name, (int) msa->nseq, (int) msa->alen);
+      //      eslx_msafile_Write(stdout, msa, outfmt);
       esl_msa_Destroy(msa);
     }
   if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status);
@@ -817,5 +994,8 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 

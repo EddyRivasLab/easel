@@ -160,7 +160,7 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else {
     status = esl_msafile_GuessAlphabet(kfp, &type);
-    if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", kfile);
+    if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", kfile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", kfp->errbuf);
     else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", kfile);
     else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", kfile);

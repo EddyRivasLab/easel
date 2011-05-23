@@ -82,13 +82,18 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
     if (n <= 1 || *p != '>' ) ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected aligned FASTA name/desc line starting with >");    
     p++; n--;			/* advance past > */
 
-    if ( (status = esl_memtok(&p, &n, " \t\r\n", &tok, &ntok)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for aligned FASTA record");
+    if ( (status = esl_memtok(&p, &n, " \t", &tok, &ntok)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no name found for aligned FASTA record");
     if (idx >= msa->sqalloc && (status = esl_msa_Expand(msa))    != eslOK) goto ERROR;
-    if (      (status = esl_msa_SetSeqName(msa, idx, tok, ntok)) != eslOK) goto ERROR;
 
-    while (n && isspace(*p)) { p++; n--; }
-    if (n && (status = esl_msa_SetSeqDescription(msa, idx, p, n)) != eslOK) goto ERROR;
+    if (     (status = esl_msa_SetSeqName       (msa, idx, tok, ntok)) != eslOK) goto ERROR;
+    if (n && (status = esl_msa_SetSeqDescription(msa, idx, p,   n))    != eslOK) goto ERROR;
 
+    /* The code below will do a realloc on every line. Possible optimization: once you know
+     * alen (from first sequence), allocate subsequent seqs once, use noalloc versions of
+     * esl_strmapcat/esl_abc_dsqcat(). Requires implementing protection against overrun, if
+     * input is bad and a sequence is too long. Could gain ~25% or so that way (quickie
+     * test on PF00005 Full)
+     */
     this_alen = 0;
     while ((status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
       {
@@ -98,7 +103,7 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 	if (*p == '>') break;
 
 #ifdef eslAUGMENT_ALPHABET
-	if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); }
+	if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); } 
 #endif
 	if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &this_alen, p, n); }
 	if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
@@ -170,4 +175,9 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
   return eslOK;
 }
 
-
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/

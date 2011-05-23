@@ -1,8 +1,4 @@
 /* General hidden Markov models (discrete, of alphabetic strings)
- * 
- * SRE, Fri Jul 18 09:00:14 2008 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -782,4 +778,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

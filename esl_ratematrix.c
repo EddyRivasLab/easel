@@ -34,10 +34,6 @@
  * See also:
  *   paml   - i/o of rate matrices from/to data files in PAML format
  * 
- *         original: SRE, Tue Jul 13 15:51:23 2004 [St. Louis]
- * upgrade to Easel: SRE, Thu Mar  8 17:59:35 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -819,4 +815,7 @@ main(void)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/ 

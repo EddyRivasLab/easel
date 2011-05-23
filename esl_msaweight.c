@@ -15,10 +15,6 @@
  *   6. Stats driver.
  *   7. Examples.
  *   8. Copyright notice and license.
- * 
- * SRE, Fri Nov  3 12:55:45 2006 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -1103,4 +1099,7 @@ int main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

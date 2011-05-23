@@ -127,7 +127,7 @@ main(int argc, char **argv)
   else {
     int type;
     status = esl_msafile_GuessAlphabet(afp1, &type);
-    if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile1);
+    if (status == eslENOALPHABET)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile1);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp1->errbuf);
     else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile1);
     else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile1);

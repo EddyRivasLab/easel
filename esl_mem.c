@@ -225,21 +225,22 @@ esl_memnewline(const char *m, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm)
 /* Function:  esl_memtok()
  * Synopsis:  Get next delimited token from a line.
  *
- * Purpose:   Given pointers to a line and its length, <*p> and <*n>,
+ * Purpose:   Given references to a line and its length, <*p> and <*n>,
  *            find the next token delimited by any of the characters
  *            in the string <delim>. Set <*ret_tok> to point at the
  *            start of the token, and <*ret_toklen> to its length.
- *            Increment <*p> to point to the next character after the
- *            token, and decrement <*n> by the same number of
- *            characters, so that <*p> and <*n> are ready for another
+ *            Increment <*p> to point to the next non-delim character
+ *            that follows, and decrement <*n> by the same,
+ *            so that <*p> and <*n> are ready for another
  *            call to <esl_memtok()>. 
  * 
- *            Two differences between <esl_strtok()> and <esl_memtok()>:
+ *            Three differences between <esl_strtok()> and <esl_memtok()>:
  *            first, <esl_strtok()> expects a NUL-terminated string,
  *            whereas <esl_memtok()>'s line does not need to be
  *            NUL-terminated; second, <esl_memtok()> does not modify
  *            the string, whereas <esl_strtok()> writes NUL bytes
- *            to delimit tokens.
+ *            to delimit tokens; third, <esl_memtok()> skips trailing
+ *            <delim> characters as well as leading ones.
  *
  * Args:      *p          - pointer to line;
  *                          will be incremented to next byte after token.
@@ -256,16 +257,15 @@ esl_memnewline(const char *m, esl_pos_t n, esl_pos_t *ret_nline, int *ret_nterm)
 int
 esl_memtok(char **p, esl_pos_t *n, const char *delim, char **ret_tok, esl_pos_t *ret_toklen)
 {
-  char     *s = *p;
-  esl_pos_t so, eo;
-  esl_pos_t skip = 0;
+  char     *s   = *p;
+  esl_pos_t so, xo, eo;
 
   for (so = 0;  so < *n; so++) if (strchr(delim, s[so]) == NULL)  break;
-  for (eo = so; eo < *n; eo++) if (strchr(delim, s[eo]) != NULL)  break;
-  if  (eo < *n) skip = 1;	/* advance past delimiter? */
+  for (xo = so; xo < *n; xo++) if (strchr(delim, s[xo]) != NULL)  break; 
+  for (eo = xo; eo < *n; eo++) if (strchr(delim, s[eo]) == NULL)  break; 
   
-  if (so == *n) {                               *ret_tok = NULL;   *ret_toklen = 0;       return eslEOL; }
-  else          { *p += eo+skip; *n -= eo+skip; *ret_tok = s + so; *ret_toklen = eo - so; return eslOK;  }
+  if (so == *n) {                     *ret_tok = NULL;   *ret_toklen = 0;       return eslEOL; }
+  else          { *p += eo; *n -= eo; *ret_tok = s + so; *ret_toklen = xo - so; return eslOK;  }
 }
 
 
@@ -400,10 +400,92 @@ esl_memstrdup(const char *p, esl_pos_t n, char **ret_s)
   return status;
 }
 
+/* Function:  esl_memstrcpy()
+ * Synopsis:  Copy a memory line as a string.
+ *
+ * Purpose:   Given memory line <p> of length <n>, copy
+ *            it to <dest> and NUL-terminate it. Caller must
+ *            be sure that <s> is already allocated for
+ *            at least <n+1> bytes.
+ *              
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_memstrcpy(const char *p, esl_pos_t n, char *dest)
+{
+  memcpy(dest, p, n);
+  dest[n] = '\0';
+  return eslOK;
+}
 /*----------------- end, esl_mem*() API  ------------------------*/
 
 
+/*****************************************************************
+ * 2. Benchmark driver.
+ *****************************************************************/
+#ifdef eslMEM_BENCHMARK
+#include "esl_config.h"
 
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_buffer.h"
+#include "esl_getopts.h"
+#include "esl_stopwatch.h"
+
+static ESL_OPTIONS options[] = {
+  /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options] <infile>";
+static char banner[] = "benchmark driver for mem module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_STOPWATCH  *w           = esl_stopwatch_Create();
+  char           *infile      = esl_opt_GetArg(go, 1);
+  ESL_BUFFER     *bf          = NULL;
+  int64_t         nlines      = 0;
+  int64_t         ntokens     = 0;
+  int64_t         nchar       = 0;
+  char           *p, *tok;
+  esl_pos_t       n,  toklen;
+  int             status;
+
+  esl_stopwatch_Start(w);
+
+  if ( esl_buffer_Open(infile, NULL, &bf) != eslOK) esl_fatal("open failed");
+  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
+    {
+      nlines++;
+      while ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) == eslOK)
+	{
+      	  ntokens++;
+      	  nchar += toklen;
+	}
+      if (status != eslEOL) esl_fatal("memtok failure");
+    }
+  if (status != eslEOF) esl_fatal("GetLine failure");
+
+  esl_stopwatch_Stop(w);
+  esl_stopwatch_Display(stdout, w, NULL);
+  printf("lines  = %" PRId64 "\n", nlines);
+  printf("tokens = %" PRId64 "\n", ntokens);
+  printf("chars  = %" PRId64 "\n", nchar);
+
+  esl_buffer_Close(bf);
+  esl_stopwatch_Destroy(w);
+  esl_getopts_Destroy(go);
+  return 0;
+}
+
+
+
+#endif eslMEM_BENCHMARK
+/*---------------- end, benchmark driver ------------------------*/
 
 /*****************************************************************
  * 2. Unit tests
@@ -461,11 +543,11 @@ utest_memtok(void)
   if (esl_memtok(&s, &n, " \t", &tok, &toklen) != eslOK)   esl_fatal(msg);
   if (toklen != 2)                                         esl_fatal(msg);
   if (memcmp(tok, "is", toklen) != 0)                      esl_fatal(msg);
-  if (*s != ' ')                                           esl_fatal(msg);
+  if (*s != 'a')                                           esl_fatal(msg);
 
   if (esl_memtok(&s, &n, "\n", &tok, &toklen)  != eslOK)   esl_fatal(msg);
-  if (toklen != 12)                                        esl_fatal(msg);
-  if (memcmp(tok, " a sentence.", toklen) != 0)            esl_fatal(msg);
+  if (toklen != 11)                                        esl_fatal(msg);
+  if (memcmp(tok, "a sentence.", toklen) != 0)             esl_fatal(msg);
   if (*s != '\0')                                          esl_fatal(msg);
   if (n  != 0)                                             esl_fatal(msg);
 
@@ -604,6 +686,9 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 
 

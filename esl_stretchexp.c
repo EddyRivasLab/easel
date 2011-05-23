@@ -1,10 +1,6 @@
-/* esl_stretchexp.c
- * Statistical routines for stretched exponential distributions.
+/* Statistical routines for stretched exponential distributions.
  * 
- * SRE, Fri Aug 19 11:15:21 2005 [St. Louis] 
  * xref STL9/146
- * SVN $Id$
- * SVN $URL$
  */
 #include <esl_config.h>
 
@@ -688,4 +684,7 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

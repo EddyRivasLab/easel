@@ -11,17 +11,12 @@
  * 
  *  Augmentations:
  *    eslAUGMENT_ALPHABET:  adds support for digital MSAs
- *    
  *  
- * (Why isn't this just part of the cluster or MSA modules?  cluster
- * itself is a core module, dependent only on easel. MSA clustering
- * involves at least the distance, cluster, and msa modules. So we're
- * better off separating its functionality away into a more highly
- * derived module.)
- *   
- * SRE, Sun Nov  5 10:06:53 2006 [Janelia]
- * SVN $Id$
- * SVN $URL$
+ * (Wondering why isn't this just part of the cluster or MSA modules?
+ * esl_cluster itself is a core module, dependent only on easel. MSA
+ * clustering involves at least the distance, cluster, and msa
+ * modules. We're better off separating its functionality away into a
+ * more highly derived module.)
  */
 #include "esl_config.h"
 
@@ -400,7 +395,7 @@ main(int argc, char **argv)
   else if (status != eslOK)      esl_fatal("Alignment file open failed (error code %d)", status);
 
   status = esl_msafile_GuessAlphabet(afp, &type);
-  if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", filename);
+  if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first alignment in %s", filename);
   else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
 					       afp->linenumber, afp->fname, afp->errbuf, afp->buf);
   else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", filename);
@@ -439,5 +434,8 @@ main(int argc, char **argv)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 

@@ -103,7 +103,7 @@ main(int argc, char **argv)
   else {
     int type     = eslUNKNOWN;
     status = esl_msafile_GuessAlphabet(afp, &type);
-    if      (status == eslEAMBIGUOUS) esl_fatal("Couldn't guess alphabet from first alignment in %s", msafile);
+    if      (status == eslENOALPHABET) esl_fatal("Couldn't guess alphabet from first alignment in %s", msafile);
     else if (status == eslEFORMAT)    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nBad line is: %s\n",
 					       afp->linenumber, afp->fname, afp->errbuf, afp->buf);
     else if (status == eslENODATA)    esl_fatal("Alignment file %s contains no data?", msafile);

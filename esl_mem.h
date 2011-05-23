@@ -14,6 +14,7 @@ extern int       esl_memstrcmp     (const char *p, esl_pos_t n, const char *s);
 extern int       esl_memstrpfx     (const char *p, esl_pos_t n, const char *s);
 extern int       esl_memstrcontains(const char *p, esl_pos_t n, const char *s);
 extern int       esl_memstrdup(const char *p, esl_pos_t n, char **ret_s);
+extern int       esl_memstrcpy(const char *p, esl_pos_t n, char *dest);
 
 #endif /*eslMEM_INCLUDED*/
 

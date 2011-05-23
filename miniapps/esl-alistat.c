@@ -167,7 +167,7 @@ main(int argc, char **argv)
   else {
     if (esl_opt_GetBoolean(go, "--small")) esl_fatal("--small requires one of --amino, --dna, --rna be specified.");
     status = esl_msafile_GuessAlphabet(afp, &type);
-    if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
+    if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
     else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile);
     else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile);

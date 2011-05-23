@@ -94,6 +94,8 @@
 #define eslEOVERWRITE     22    /* attempted to overwrite data  */
 #define eslENOSPACE       23    /* ran out of some resource     */
 #define eslEUNIMPLEMENTED 24    /* feature is unimplemented     */
+#define eslENOFORMAT      25	/* couldn't guess file format   */
+#define eslENOALPHABET    26	/* couldn't guess seq alphabet  */
 /*::cexcerpt::statuscodes::end::*/
 
 
@@ -316,6 +318,16 @@ typedef uint8_t ESL_DSQ;
 typedef int64_t esl_pos_t;
 
 /*****************************************************************
+ * Void declarations of missing augmentations
+ *****************************************************************/
+#ifndef eslAUGMENT_ALPHABET
+typedef void ESL_ALPHABET;
+#endif
+#ifndef eslAUGMENT_KEYHASH
+typedef void ESL_KEYHASH;
+#endif
+
+/*****************************************************************
  * The API declarations for easel.c
  *****************************************************************/
 
@@ -339,7 +351,8 @@ extern void esl_usage (FILE *fp, char *progname, char *usage);
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
 extern int  esl_strdup(const char *s, int64_t n, char **ret_dup);
 extern int  esl_strcat(char **dest, int64_t ldest, const char *src, int64_t lsrc);
-extern int  esl_strmapcat(const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
+extern int  esl_strmapcat        (const ESL_DSQ *inmap, char **dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
+extern int  esl_strmapcat_noalloc(const ESL_DSQ *inmap,  char *dest, int64_t *ldest, const char *src, esl_pos_t lsrc);
 extern int  esl_strtok    (char **s, char *delim, char **ret_tok);
 extern int  esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt_endchar);
 extern int  esl_sprintf (char **ret_s, const char *format, ...);

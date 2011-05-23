@@ -805,7 +805,7 @@ esl_sq_Textize(ESL_SQ *sq)
  * Returns:   <eslOK> on success, and <*ret_type> is set to
  *            <eslAMINO>, <eslRNA>, or <eslDNA>.
  *
- *            Returns <eslEAMBIGUOUS> if unable to determine the
+ *            Returns <eslENOALPHABET> if unable to determine the
  *            alphabet type; in this case, <*ret_type> is set to 
  *            <eslUNKNOWN>.
  *
@@ -2225,4 +2225,7 @@ int main(void)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

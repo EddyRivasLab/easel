@@ -234,7 +234,7 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
       if (esl_fileparser_GetTokenOnLine(efp, &key, &keylen) != eslOK)
 	esl_fatal("Failed to read MSA name on line %d of file %s\n", efp->linenumber, keyfile);
       
-      status = esl_key_Store(keys, key, &keyidx);
+      status = esl_keyhash_Store(keys, key, keylen, &keyidx);
       if (status == eslEDUP) esl_fatal("MSA key %s occurs more than once in file %s\n", key, keyfile);
 	
       if (afp->ssi != NULL) { onefetch(go, ofp, key, afp);  nali++; }
@@ -252,8 +252,8 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
 	  if (msa->name == NULL) 
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
-	  if ( (esl_key_Lookup(keys, msa->name, NULL) == eslOK) ||
-	       (msa->acc != NULL && esl_key_Lookup(keys, msa->acc, NULL) == eslOK))
+	  if ( (esl_keyhash_Lookup(keys, msa->name, -1, NULL) == eslOK) ||
+	       (msa->acc != NULL && esl_keyhash_Lookup(keys, msa->acc, -1, NULL) == eslOK))
 	    esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
 
 	  esl_msa_Destroy(msa);

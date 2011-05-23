@@ -318,7 +318,7 @@ main(int argc, char **argv)
   else {
     if (esl_opt_GetBoolean(go, "--small")) esl_fatal("--small requires one of --amino, --dna, --rna be specified.");
     status = esl_msafile_GuessAlphabet(afp, &type);
-    if (status == eslEAMBIGUOUS)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
+    if (status == eslENOALPHABET)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
     else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
     else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile);
     else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile);
@@ -686,7 +686,7 @@ main(int argc, char **argv)
     /* We've already read list file <f>, seqlist holds the seqlist_n sequences read from <f> (<f> from either --seq-k <f> or --seq-r <f>) */
     seqname_keyhash = esl_keyhash_Create();
     for(n = 0; n < seqlist_n; n++) { 
-      status = esl_key_Store(seqname_keyhash, seqlist[n], NULL); 
+      status = esl_keyhash_Store(seqname_keyhash, seqlist[n], -1, NULL); 
       if(status == eslEDUP)     { esl_fatal("Error sequence %s listed twice in a input list file.", seqlist[n]); }
       else if (status != eslOK) { esl_fatal("Error adding sequence %s to keyhash", seqlist[n]); }
     }
@@ -1905,7 +1905,7 @@ msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_
   else        esl_vec_ISet(useme, msa->nseq, TRUE); 
 
   for(n = 0; n < seqlist_n; n++) { 
-    if((status = esl_key_Lookup(msa->index, seqlist[n], &i)) == eslENOTFOUND) 
+    if((status = esl_keyhash_Lookup(msa->index, seqlist[n], -1, &i)) == eslENOTFOUND) 
       ESL_FAIL(status, errbuf, "Error sequence %s does not exist in alignment %d", seqlist[n], nali);
     useme[i] = do_keep ? TRUE : FALSE;
     if(order_all[i] != -1) ESL_FAIL(eslEINVAL, errbuf, "ERROR sequence %s listed twice in a input list file.", seqlist[n]);

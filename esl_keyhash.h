@@ -1,8 +1,5 @@
 /* Storing keys in hash tables, similar to Perl's associative arrays.
  * 
- * SRE, Sun Jan 30 08:55:17 2005;  from squid's gki.h, 1999.
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslKEYHASH_INCLUDED
 #define eslKEYHASH_INCLUDED
@@ -48,15 +45,17 @@ typedef struct {
 } ESL_KEYHASH;
 
 extern ESL_KEYHASH *esl_keyhash_Create(void);
+extern ESL_KEYHASH *esl_keyhash_CreateCustom(uint32_t hashsize, int kalloc, int salloc);
 extern ESL_KEYHASH *esl_keyhash_Clone(const ESL_KEYHASH *kh);
 extern char *       esl_keyhash_Get(const ESL_KEYHASH *kh, int idx);
 extern int          esl_keyhash_GetNumber(const ESL_KEYHASH *kh);
+extern size_t       esl_keyhash_Sizeof(const ESL_KEYHASH *kh);
 extern int          esl_keyhash_Reuse(ESL_KEYHASH *kh);
 extern void         esl_keyhash_Destroy(ESL_KEYHASH *kh);
 extern void         esl_keyhash_Dump(FILE *fp, const ESL_KEYHASH *kh);
 
-extern int  esl_key_Store (      ESL_KEYHASH *kh, const char *key, int *ret_index);
-extern int  esl_key_Lookup(const ESL_KEYHASH *kh, const char *key, int *ret_index);
+extern int  esl_keyhash_Store (      ESL_KEYHASH *kh, const char *key, esl_pos_t n, int *ret_index);
+extern int  esl_keyhash_Lookup(const ESL_KEYHASH *kh, const char *key, esl_pos_t n, int *ret_index);
 
 
 #endif /* eslKEYHASH_INCLUDED */

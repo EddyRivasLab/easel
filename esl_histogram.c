@@ -7,10 +7,6 @@
  *  5. Output and display of binned data.
  *  6. Test driver.
  *  7. Examples.
- *  
- * SRE, Fri Jul  1 13:21:45 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -2014,5 +2010,11 @@ main(int argc, char **argv)
 /*::cexcerpt::histogram_example5::end::*/
 #endif /*eslHISTOGRAM_EXAMPLE5*/
 
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/
 
 

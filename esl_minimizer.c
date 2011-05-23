@@ -2,10 +2,6 @@
  * 
  * Can be used even without derivative information; falls back to
  * a numeric gradient if analytic gradient is unavailable.
- * 
- * SRE, Wed Jun 22 11:37:29 2005
- * SVN $Id$
- * SVN $URL$
  */
 #include "esl_config.h"
 
@@ -654,4 +650,7 @@ main(int argc, char **argv)
 
 /*****************************************************************  
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
