@@ -3055,7 +3055,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
       for(j = 0; j < msa->ncomment; j++)
 	{
 	  if(msa->comment[j] != NULL) 
-	    esl_msa_AddComment(newmsa, msa->comment[j]);
+	    esl_msa_AddComment(newmsa, msa->comment[j], -1);
 	}
     }
 
@@ -3063,7 +3063,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
     {
       for(i = 0; i < msa->ngf; i++)
 	if(msa->gf[i] != NULL) 
-	    esl_msa_AddGF(newmsa, msa->gf_tag[i], msa->gf[i]);
+	  esl_msa_AddGF(newmsa, msa->gf_tag[i], -1, msa->gf[i], -1);
     }
 
   if(msa->ngs > 0)
@@ -3072,7 +3072,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
 	{
 	  for(i = 0; i < msa->nseq; i++)
 	    if(msa->gs[j][i] != NULL) 
-	      esl_msa_AddGS(newmsa, msa->gs_tag[j], i, msa->gs[j][i]);
+	      esl_msa_AddGS(newmsa, msa->gs_tag[j], -1, i, msa->gs[j][i], -1);
 	}
     }
 

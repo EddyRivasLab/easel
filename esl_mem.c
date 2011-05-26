@@ -417,6 +417,140 @@ esl_memstrcpy(const char *p, esl_pos_t n, char *dest)
   dest[n] = '\0';
   return eslOK;
 }
+
+
+
+/* Function:  esl_memtod()
+ * Synopsis:  esl_mem equivalent to strtod().
+ *
+ * Purpose:   Given a buffer <p> of length <n>, convert it to a
+ *            double-precision floating point value, just as
+ *            <strtod()> would do for a NUL-terminated string.
+ *            
+ * Returns:   <eslOK> on success, and <*ret_val> contains the
+ *            converted value.
+ *
+ * Throws:    <eslEMEM> on allocation error, and <*ret_val> is 0.
+ */
+int
+esl_memtod(const char *p, esl_pos_t n, double *ret_val)
+{
+  char  fixedbuf[128];
+  char *bigbuf = NULL;
+  int   status;
+
+  if (n < 128) 
+    { 
+      memcpy(fixedbuf, p, sizeof(char) * n);
+      fixedbuf[n] = '\0';
+      *ret_val = strtod(fixedbuf, NULL);
+      return eslOK;
+    }
+  else 
+    {    
+      ESL_ALLOC(bigbuf, sizeof(char) * (n+1));
+      memcpy(bigbuf, p, sizeof(char) * n);
+      bigbuf[n] = '\0';
+      *ret_val = strtod(fixedbuf, NULL);
+      free(bigbuf);
+      return eslOK;
+    }
+
+ ERROR:
+  *ret_val = 0.;
+  return status;
+}
+
+/* Function:  esl_memtof()
+ * Synopsis:  esl_mem equivalent to strtod(), for a float
+ *
+ * Purpose:   Given a buffer <p> of length <n>, convert it to a
+ *            single-precision floating point value, just as
+ *            <strtod()> would do for a NUL-terminated string.
+ *            
+ * Returns:   <eslOK> on success, and <*ret_val> contains the
+ *            converted value.
+ *
+ * Throws:    <eslEMEM> on allocation error, and <*ret_val> is 0.
+ */
+int
+esl_memtof(const char *p, esl_pos_t n, float *ret_val)
+{
+  char  fixedbuf[128];
+  char *bigbuf = NULL;
+  int   status;
+
+  if (n < 128) 
+    { 
+      memcpy(fixedbuf, p, sizeof(char) * n);
+      fixedbuf[n] = '\0';
+      *ret_val = (float) strtod(fixedbuf, NULL);
+      return eslOK;
+    }
+  else 
+    {    
+      ESL_ALLOC(bigbuf, sizeof(char) * (n+1));
+      memcpy(bigbuf, p, sizeof(char) * n);
+      bigbuf[n] = '\0';
+      *ret_val = (float) strtod(fixedbuf, NULL);
+      free(bigbuf);
+      return eslOK;
+    }
+
+ ERROR:
+  *ret_val = 0.;
+  return status;
+}
+  
+
+/* Function:  esl_mem_IsReal()
+ * Synopsis:  Return TRUE if <p> is a real number; else FALSE.
+ *
+ * Purpose:   If the memory <p> of <n> bytes is convertible 
+ *            to a floating point real number by the rules of
+ *            atof(), return TRUE; else return FALSE.
+ * 
+ * Xref:      easel.c::esl_str_IsReal() for string version.
+ */
+int
+esl_mem_IsReal(const char *p, esl_pos_t n)
+{
+  int gotdecimal = 0;
+  int gotexp     = 0;
+  int gotreal    = 0;
+
+  if (!p || !n) return FALSE;
+
+  while (n && isspace((int) *p))     { p++; n--; } /* skip leading whitespace */
+  if (n && (*p == '-' || *p == '+')) { p++; n--; } /* skip leading sign */
+
+  /* Examine remainder for garbage. Allowed one '.' and
+   * one 'e' or 'E'; if both '.' and e/E occur, '.'
+   * must be first.
+   */
+  while (n)
+    {
+      if (isdigit((int) (*p))) 	gotreal++;
+      else if (*p == '.')
+	{
+	  if (gotdecimal) return FALSE; /* can't have two */
+	  if (gotexp)     return FALSE; /* e/E preceded . */
+	  else gotdecimal++;
+	}
+      else if (*p == 'e' || *p == 'E')
+	{
+	  if (gotexp) return FALSE;	/* can't have two */
+	  else gotexp++;
+	}
+      else if (isspace((int) (*p))) break;
+      p++;
+      n--;
+    }
+  while (n && isspace((int) *p)) { p++; n--; } /* skip trailing whitespace */
+
+  return ( (n == 0 && gotreal) ? TRUE : FALSE);
+}
+
 /*----------------- end, esl_mem*() API  ------------------------*/
 
 

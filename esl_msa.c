@@ -1737,7 +1737,7 @@ esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type)
       for (x = 0; x < 26; x++) ct[x] = 0;
       for (n = 0, j = 0; j < msa->alen; j++) {
 	x = toupper(msa->aseq[i][j]) - 'A';
-	if (x < 0 || x > 26) continue;
+	if (x < 0 || x > 25) continue;
 	ct[x]++;
 	n++;
 	if (n > 10000) break;	/* ought to know by now */
@@ -2695,7 +2695,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 	/* unparsed annotation */
 	for(i = 0; i < msa->ngs; i++) {
 	  if(msa->gs[i] != NULL) 
-	    if ((status = esl_msa_AddGS(new, msa->gs_tag[i], nidx, msa->gs[i][oidx])) != eslOK) goto ERROR;
+	    if ((status = esl_msa_AddGS(new, msa->gs_tag[i], -1, nidx, msa->gs[i][oidx], -1)) != eslOK) goto ERROR;
 	}
 	for(i = 0; i < msa->ngr; i++) {
 	  if(msa->gr[i] != NULL) 
@@ -3148,23 +3148,24 @@ esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms)
 }
 
 /* Function:  esl_msa_AddComment()
- * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
  * Purpose:   Add an (unparsed) comment line to the MSA structure, 
  *            allocating as necessary.
  *
  * Args:      msa - a multiple alignment
- *            s   - comment line to add
+ *            p   - comment line to add
+ *            n   - length of <p>, or -1 if <p> is a NUL-terminated string and length is unknown.
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_msa_AddComment(ESL_MSA *msa, char *s)
+esl_msa_AddComment(ESL_MSA *msa, char *p, esl_pos_t n)
 {
-  void *p;
   int   status;
+
+  if (n == -1) n = strlen(p);
 
   /* If this is our first recorded comment, we need to allocate;
    * and if we've filled available space, we need to reallocate.
@@ -3174,10 +3175,10 @@ esl_msa_AddComment(ESL_MSA *msa, char *s)
     msa->alloc_ncomment = 16;
   }
   if (msa->ncomment == msa->alloc_ncomment) {
-    ESL_RALLOC(msa->comment, p, sizeof(char *) * msa->alloc_ncomment * 2);
+    ESL_REALLOC(msa->comment, sizeof(char *) * msa->alloc_ncomment * 2);
     msa->alloc_ncomment *= 2;
   }
-  if ((status = esl_strdup(s, -1, &(msa->comment[msa->ncomment]))) != eslOK) goto ERROR;
+  if ((status = esl_memstrdup(p, n, &(msa->comment[msa->ncomment]))) != eslOK) goto ERROR;
   msa->ncomment++;
   return eslOK;
 
@@ -3187,45 +3188,40 @@ esl_msa_AddComment(ESL_MSA *msa, char *s)
 
 
 /* Function:  esl_msa_AddGF()
- * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
  * Purpose:   Add an unparsed \verb+#=GF+ markup line to the MSA, 
  *            allocating as necessary. <tag> is the GF markup 
  *            tag; <value> is the text associated w/ that tag.
  *
- * Args:      msa   - a multiple alignment
- *            tag   - markup tag 
- *            value - markup text
+ * Args:      msa    - a multiple alignment
+ *            tag    - markup tag 
+ *            taglen - length of <tag>; or -1 if <tag> is a string of unknown length
+ *            value  - markup text
+ *            vlen   - length of <value>; or -1 if <value> is a string of unknown length
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value)
+esl_msa_AddGF(ESL_MSA *msa, char *tag, esl_pos_t taglen, char *value, esl_pos_t vlen)
 {  
-  void *p;
   int   n;
   int   status;
 
-  /* If this is our first recorded unparsed #=GF line, we need to allocate().
-   */
-  if (msa->gf_tag == NULL) {
-    ESL_ALLOC(msa->gf_tag, sizeof(char *) * 16);
-    ESL_ALLOC(msa->gf,     sizeof(char *) * 16);
-    msa->alloc_ngf = 16;
-  }
-  /* or if we're out of room for new GF's, reallocate by doubling
-   */
+  if (taglen == -1) taglen = strlen(tag);
+  if (vlen   == -1) vlen   = strlen(value);
+
+  /* Initialize or grow the allocation? */
   if (msa->ngf == msa->alloc_ngf) {
-    n = msa->alloc_ngf * 2;
-    ESL_RALLOC(msa->gf_tag, p, sizeof(char *) * n);
-    ESL_RALLOC(msa->gf,     p, sizeof(char *) * n);
+    n = (msa->alloc_ngf == 0 ? 16 : msa->alloc_ngf * 2);
+    ESL_REALLOC(msa->gf_tag, sizeof(char *) * n);
+    ESL_REALLOC(msa->gf,     sizeof(char *) * n);
     msa->alloc_ngf = n;
   }
 
-  if ((status = esl_strdup(tag,  -1,  &(msa->gf_tag[msa->ngf]))) != eslOK) goto ERROR;
-  if ((status = esl_strdup(value, -1, &(msa->gf[msa->ngf])))     != eslOK) goto ERROR;
+  if ((status = esl_memstrdup(tag,   taglen, &(msa->gf_tag[msa->ngf]))) != eslOK) goto ERROR;
+  if ((status = esl_memstrdup(value, vlen,   &(msa->gf[msa->ngf])))     != eslOK) goto ERROR;
   msa->ngf++;
   return eslOK;
 
@@ -3235,7 +3231,6 @@ esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value)
 
 
 /* Function:  esl_msa_AddGS()
- * Incept:    SRE, Tue Jun  1 17:37:21 1999 [St. Louis]
  *
  * Purpose:   Add an unparsed \verb+#=GS+ markup line to the MSA, 
  *            allocating as necessary. It's possible that we 
@@ -3246,27 +3241,31 @@ esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value)
  *
  * Args:      msa    - multiple alignment structure
  *            tag    - markup tag (e.g. "AC")
+ *            taglen - length of <tag>; or -1 if <tag> is a string of unknown length
  *            sqidx  - index of sequence to assoc markup with (0..nseq-1)
  *            value  - markup (e.g. "P00666")
+ *            vlen   - length of <value>; or -1 if <value> is string of unknown length
  *
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
  */
 int
-esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
+esl_msa_AddGS(ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value, esl_pos_t vlen)
 {
-  void *p;
   int   tagidx;
   int   i;
   int   status;
+
+  if (taglen == -1) taglen = strlen(tag);
+  if (vlen   == -1) vlen   = strlen(value);
 
   /* first GS tag? init&allocate  */
   if (msa->gs_tag == NULL)	
     {
 #ifdef eslAUGMENT_KEYHASH
       msa->gs_idx = esl_keyhash_Create();
-      status = esl_keyhash_Store(msa->gs_idx, tag, -1, &tagidx);
+      status = esl_keyhash_Store(msa->gs_idx, tag, taglen, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
       ESL_DASSERT1((tagidx == 0));
 #else
@@ -3285,20 +3284,21 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
        * tagidx == ngs; this is a new one.
        */
 #ifdef eslAUGMENT_KEYHASH
-      status = esl_keyhash_Store(msa->gs_idx, tag, -1, &tagidx);
+      status = esl_keyhash_Store(msa->gs_idx, tag, taglen, &tagidx);
       if (status != eslOK && status != eslEDUP) return status;
 #else
       for (tagidx = 0; tagidx < msa->ngs; tagidx++)
-	if (strcmp(msa->gs_tag[tagidx], tag) == 0) break;
+	if (esl_memstrcmp(tag, taglen, msa->gs_tag[tagidx])) break;
 #endif
       /* Reallocation (in blocks of 1) */
       if (tagidx == msa->ngs ) 
 	{
-	  ESL_RALLOC(msa->gs_tag, p, (msa->ngs+1) * sizeof(char *));
-	  ESL_RALLOC(msa->gs,     p, (msa->ngs+1) * sizeof(char **));
-	  ESL_ALLOC(msa->gs[msa->ngs], sizeof(char *) * msa->sqalloc);
+	  ESL_REALLOC(msa->gs_tag, (msa->ngs+1) * sizeof(char *));
+	  ESL_REALLOC(msa->gs,     (msa->ngs+1) * sizeof(char **));
+	  msa->gs[tagidx] = NULL;
+	  ESL_ALLOC(msa->gs[tagidx], sizeof(char *) * msa->sqalloc);
 	  for (i = 0; i < msa->sqalloc; i++) 
-	    msa->gs[msa->ngs][i] = NULL;
+	    msa->gs[tagidx][i] = NULL;
 	}
     }
 
@@ -3306,7 +3306,7 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
    */
   if (tagidx == msa->ngs) 
     {
-      if ((status = esl_strdup(tag, -1, &(msa->gs_tag[tagidx]))) != eslOK) goto ERROR;
+      if ((status = esl_memstrdup(tag, taglen, &(msa->gs_tag[tagidx]))) != eslOK) goto ERROR;
       msa->ngs++;
     }
   
@@ -3316,16 +3316,17 @@ esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value)
    */
   if (msa->gs[tagidx][sqidx] == NULL)
     {
-      if ((status = esl_strdup(value, -1, &(msa->gs[tagidx][sqidx]))) != eslOK) goto ERROR;
+      if ((status = esl_memstrdup(value, vlen, &(msa->gs[tagidx][sqidx]))) != eslOK) goto ERROR;
     }
   else 
     {			
-      int n1,n2;
+      esl_pos_t n1,n2;
       n1 = strlen(msa->gs[tagidx][sqidx]);
-      n2 = strlen(value);
-      ESL_RALLOC(msa->gs[tagidx][sqidx], p, sizeof(char) * (n1+n2+2));
+      n2 = (vlen == -1 ? strlen(value) : vlen);
+      ESL_REALLOC(msa->gs[tagidx][sqidx], sizeof(char) * (n1+n2+2)); /* +2 for \n, \0 */
       msa->gs[tagidx][sqidx][n1] = '\n';
-      strcpy(msa->gs[tagidx][sqidx]+n1+1, value);
+      memcpy(msa->gs[tagidx][sqidx]+n1+1, value, n2);
+      msa->gs[tagidx][sqidx][n1+n2+1] = '\0';
     }
   return eslOK;
 
@@ -3660,9 +3661,9 @@ parse_gf(ESL_MSA *msa, char *buf)
       status = eslOK;
     }
   else if (strcmp(tag, "CC") == 0 && text == NULL)   
-    status = esl_msa_AddGF (msa, tag, "");
+    status = esl_msa_AddGF (msa, tag, -1, "", -1);
   else
-    status = esl_msa_AddGF(msa, tag, text);
+    status = esl_msa_AddGF(msa, tag, -1, text, -1);
 
   return status;
 }
@@ -3708,7 +3709,7 @@ parse_gs(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "DE") == 0)
     status = esl_msa_SetSeqDescription(msa, seqidx, text, -1);
   else				
-    status = esl_msa_AddGS(msa, tag, seqidx, text);
+    status = esl_msa_AddGS(msa, tag, -1, seqidx, text, -1);
 
   return status;
 }
@@ -3836,7 +3837,7 @@ parse_comment(ESL_MSA *msa, char *buf)
   s = buf + 1;			               /* skip leading '#' */
   if (*s == '\n' || *s == '\r') { *s = '\0'; comment = s; }  /* deal with blank comment */
   else if (esl_strtok(&s, "\n\r", &comment)!= eslOK) return eslEFORMAT;
-  return (esl_msa_AddComment(msa, comment));
+  return (esl_msa_AddComment(msa, comment, -1));
 }
 
 /* parse_sequence():

@@ -772,7 +772,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	}
 	if(found_tag && do_add) { 
 	  if(be_verbose) fprintf(stdout, "# Identical GF tag %s annotation from all alignments transferred to merged alignment.\n", msaA[0]->gf_tag[j]);
-	  if((status = esl_msa_AddGF(mmsa, msaA[0]->gf_tag[j], msaA[0]->gf[j])) != eslOK) goto ERROR;
+	  if((status = esl_msa_AddGF(mmsa, msaA[0]->gf_tag[j], -1,  msaA[0]->gf[j], -1)) != eslOK) goto ERROR;
 	}
 	else { 
 	  if(be_verbose) fprintf(stdout, "# GF tag %s annotation from first alignment absent from >= 1 other alignments; not included in merged alignment.\n", msaA[0]->gf_tag[j]);
@@ -808,7 +808,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     }
     if(do_add) { 
       for(j = 0; j < msaA[0]->ncomment; j++) { 
-	if((status = esl_msa_AddComment(mmsa, msaA[0]->comment[j]))!= eslOK) goto ERROR;
+	if((status = esl_msa_AddComment(mmsa, msaA[0]->comment[j], -1))!= eslOK) goto ERROR;
       }
       if(be_verbose) fprintf(stdout, "# All alignments have identical comments in the same order. These were transferred to merged alignment.\n"); 
     }
@@ -1255,7 +1255,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
     for(j = 0; j < msa_to_add->ngs; j++) { 
       for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) {
 	if(msa_to_add->gs[j][i] != NULL) 
-	  if((status =esl_msa_AddGS(mmsa, msa_to_add->gs_tag[j], mi, msa_to_add->gs[j][i])) != eslOK) 
+	  if((status =esl_msa_AddGS(mmsa, msa_to_add->gs_tag[j], -1, mi, msa_to_add->gs[j][i], -1)) != eslOK) 
 	    ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d GS annotation.\n", i+1);
       }
       free(msa_to_add->gs[j][i]); /* free immediately */

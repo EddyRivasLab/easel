@@ -259,11 +259,11 @@ extern int esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf);
 extern int esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
-extern int esl_msa_AddComment(ESL_MSA *msa, char *s);
-extern int esl_msa_AddGF(ESL_MSA *msa, char *tag, char *value);
-extern int esl_msa_AddGS(ESL_MSA *msa, char *tag, int sqidx, char *value);
-extern int esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value);
-extern int esl_msa_AppendGR(ESL_MSA *msa, char *tag, int sqidx, char *value);
+extern int esl_msa_AddComment(ESL_MSA *msa, char *p,   esl_pos_t n);
+extern int esl_msa_AddGF     (ESL_MSA *msa, char *tag, esl_pos_t taglen,            char *value, esl_pos_t vlen);
+extern int esl_msa_AddGS     (ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value, esl_pos_t vlen);
+extern int esl_msa_AppendGC  (ESL_MSA *msa, char *tag, char *value);
+extern int esl_msa_AppendGR  (ESL_MSA *msa, char *tag, int sqidx, char *value);
 extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
 /* 8. Debugging/development routines */

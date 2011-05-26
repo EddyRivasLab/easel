@@ -105,6 +105,7 @@ HDRS = 	easel.h\
 	esl_msafile_afa.h\
 	esl_msafile_clustal.h\
 	esl_msafile_selex.h\
+	esl_msafile_stockholm.h\
 	esl_msashuffle.h\
 	esl_msaweight.h\
 	esl_normal.h\
@@ -161,6 +162,7 @@ OBJS =	easel.o\
 	esl_msafile_afa.o\
 	esl_msafile_clustal.o\
 	esl_msafile_selex.o\
+	esl_msafile_stockholm.o\
 	esl_msashuffle.o\
 	esl_msaweight.o\
 	esl_normal.o\

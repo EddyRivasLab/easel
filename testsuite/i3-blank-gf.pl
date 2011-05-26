@@ -76,17 +76,17 @@ close MSA4;
 
 
 $output = `$builddir/miniapps/esl-reformat stockholm $tmppfx.sto1 2>&1`;
-if ($? == 0) { die "FAIL: blank AC,DE lines should be invalid Stockholm format (bug #e5)\n"; }
+if ($? == 0) { die "FAIL: blank AC,DE lines should be invalid Stockholm format (bug #e5) (1)\n"; }
 
 $output = `$builddir/miniapps/esl-reformat stockholm $tmppfx.sto2 2>&1`;
-if ($? == 0) { die "FAIL: blank AC,DE lines should be invalid Stockholm format (bug #e5)\n"; }
+if ($? == 0) { die "FAIL: blank AC,DE lines should be invalid Stockholm format (bug #e5) (2)\n"; }
 
 $output = `$builddir/miniapps/esl-reformat stockholm $tmppfx.sto3`;
-if ($? != 0)              { die "FAIL: blank CC line should be valid Stockholm format\n"; }
+if ($? != 0)              { die "FAIL: blank CC line should be valid Stockholm format (1)\n"; }
 if ($output !~ /#=GF CC/) { die "FAIL: blank CC line did not propagate\n"; }
 
 $output = `$builddir/miniapps/esl-reformat stockholm $tmppfx.sto4`;
-if ($? != 0)              { die "FAIL: blank CC line should be valid Stockholm format\n"; }
+if ($? != 0)              { die "FAIL: blank CC line should be valid Stockholm format (2)\n"; }
 if ($output !~ /#=GF CC/) { die "FAIL: blank CC line did not propagate\n"; }
 
 print  "ok\n";

@@ -1121,7 +1121,7 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
   char     allcanon[]  = "ACG";
   char     aacanon[]   = "DHKMRSVWY";
   int64_t  n1, n2, n3, nn, nt, nu, nx, n; /* n's are counts */
-  int      x1, x2, x3, xn, xt, xu;	      /* x's are how many different residues are represented */
+  int      x1, x2, x3, xn, xt, xu;	  /* x's are how many different residues are represented */
   int      i, x;
 
   x1 = x2 = x3 = xn = xt = xu = 0;

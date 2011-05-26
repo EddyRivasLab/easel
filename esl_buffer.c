@@ -562,7 +562,6 @@ esl_buffer_Close(ESL_BUFFER *bf)
 
 /* Function:  esl_buffer_GetOffset()
  * Synopsis:  Get the current position of parser in input buffer.
- * Incept:    SRE, Mon Jan 31 13:11:23 2011 [Janelia]
  *
  * Purpose:   Returns the current offset position of the parser
  *            in the input buffer: <bf->baseoffset + bf->pos>.
@@ -742,7 +741,6 @@ esl_buffer_SetAnchor(ESL_BUFFER *bf, esl_pos_t offset)
 
 /* Function:  esl_buffer_SetStableAnchor()
  * Synopsis:  Set a stable anchor.
- * Incept:    SRE, Sun Feb 27 09:15:35 2011 [Janelia]
  *
  * Purpose:   Same as <esl_buffer_SetAnchor()>, except the anchor is
  *            such that all pointers returned by <_Get*()> functions
