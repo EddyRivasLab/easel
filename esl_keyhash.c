@@ -424,7 +424,7 @@ jenkins_hash(const char *key, esl_pos_t n, uint32_t hashsize)
     } 
   else 
     { /* buffer version */
-      for (pos = 0; pos < n; pos++);
+      for (pos = 0; pos < n; pos++)
       {
 	val += key[pos];
 	val += (val << 10);

@@ -283,6 +283,25 @@ esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   *ret_type = eslUNKNOWN;
   return status;
 }
+
+/* Function:  esl_msafile_stockholm_SetInmap()
+ * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
+ *
+ * Purpose:   This is a no-op; the default input map is fine for
+ *            Stockholm format. (There are no characters to ignore in
+ *            the input. In particular, we cannot skip whitespace in the
+ *            inmap, because we'd misalign relative to the text-mode
+ *            annotation lines (GR, GC), where we don't do mapped input.)
+ */
+int
+esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
+{
+  return eslOK;
+}
+
+
+
+
 /*--------------- end, api for stockholm i/o --------------------*/
 
 
@@ -591,12 +610,11 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   
   if (pd->nblock) 		/* Subsequent blocks */
     {
-      if      (esl_memstrcmp(tag, taglen, "SS_cons") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SSCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SS_cons line; lines in earlier block(s) were in different order?");
-      else if (esl_memstrcmp(tag, taglen, "SA_cons") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SA_cons line; lines in earlier block(s) were in different order?");
-      else if (esl_memstrcmp(tag, taglen, "PP_cons") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC PP_cons line; lines in earlier block(s) were in different order?");
-
-      else if (esl_memstrcmp(tag, taglen, "RF")      && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC RF line; lines in earlier block(s) were in different order?");
-      else if (                                         pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC line; lines in earlier block(s) were in different order?");
+      if      (esl_memstrcmp(tag, taglen, "SS_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SSCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SS_cons line; lines in earlier block(s) were in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "SA_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SA_cons line; lines in earlier block(s) were in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "PP_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC PP_cons line; lines in earlier block(s) were in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "RF"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC RF line; lines in earlier block(s) were in different order?");      }
+      else if (                                             pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC line; lines in earlier block(s) were in different order?");
     }
   else				/* First block */
     {
@@ -691,10 +709,10 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {				/* subsequent block(s) */
       if (pd->bi >= pd->npb) ESL_FAIL(eslEFORMAT, afp->errmsg, "more lines than expected in this alignment block; earlier blocks had fewer");
 
-      if      (esl_memstrcmp(tag, taglen, "SS") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SS)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SS line; lines in earlier block(s) were in different order?");  
-      else if (esl_memstrcmp(tag, taglen, "SA") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SA)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SA line; lines in earlier block(s) were in different order?");  
-      else if (esl_memstrcmp(tag, taglen, "PP") && pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_PP)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> PP line; lines in earlier block(s) were in different order?");  
-      else if (                                    pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_OTHER) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR line; lines in earlier block(s) were in different order?");  
+      if      (esl_memstrcmp(tag, taglen, "SS")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SS)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SS line; lines in earlier block(s) were in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "SA")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SA)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SA line; lines in earlier block(s) were in different order?"); }  
+      else if (esl_memstrcmp(tag, taglen, "PP")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_PP)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> PP line; lines in earlier block(s) were in different order?"); } 
+      else if (                                        pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_OTHER) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR line; lines in earlier block(s) were in different order?");  
 
       seqidx = pd->bidx[pd->bi];
       if (! esl_memstrcmp(name, namelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected sequence name %.*s; expected %s from order of earlier blocks", (int) namelen, name, msa->sqname[seqidx]);
@@ -811,9 +829,9 @@ stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 
   if (pd->bi && textlen != pd->alen_b)         ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned residues parsed on line");
   if (pd->sqlen[seqidx] - pd->alen != textlen) ESL_EXCEPTION(eslEINCONCEIVABLE, "implementation assumes that no symbols are ignored in inmap; else GR, GC text annotations are messed up");
-  pd->alen_b++;
-  pd->nseq_b++;
+  pd->alen_b   = textlen;
   pd->in_block = TRUE;
+  pd->nseq_b++;
   pd->bi++;
   pd->si = seqidx+1;
   return eslOK;
@@ -905,9 +923,9 @@ stockholm_get_gr_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag, es
   int z;
   int status;
 
-
   /* Find the tag, if we have it; else, add it, at tagidx = msa->ngr */
 #ifdef eslAUGMENT_KEYHASH
+  if (!msa->gr_idx && (msa->gr_idx = esl_keyhash_CreateCustom(8,8,128)) == NULL) { status = eslEMEM; goto ERROR; }
   status = esl_keyhash_Store(msa->gr_idx, tag, taglen, &tagidx); 
   if      (status == eslEDUP) { *ret_tagidx = tagidx; return eslOK; }
   else if (status != eslOK)   goto ERROR;
@@ -949,6 +967,7 @@ stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag, es
 
   /* Find the tag, if we have it; else, add it, at tagidx = msa->ngc */
 #ifdef eslAUGMENT_KEYHASH
+  if (!msa->gc_idx && (msa->gc_idx = esl_keyhash_CreateCustom(8,8,128)) == NULL) { status = eslEMEM; goto ERROR; }
   status = esl_keyhash_Store(msa->gc_idx, tag, taglen, &tagidx); 
   if      (status == eslEDUP) { *ret_tagidx = tagidx; return eslOK; }
   else if (status != eslOK)   goto ERROR; /* eslEMEM */
@@ -976,6 +995,54 @@ stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag, es
   return status;
 }
 /*------------ end, looking up seq, tag indices -----------------*/
+
+
+
+/*****************************************************************
+ * Example.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE
+/* An example of reading an MSA in text mode, and handling any returned errors.
+   gcc -g -Wall -o esl_msafile_stockholm_example -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE esl_msafile_stockholm.c -leasel
+   ./esl_msafile_stockholm_example <msafile>
+ */
+
+/*::cexcerpt::msafile_stockholm_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_stockholm.h"
+
+int 
+main(int argc, char **argv)
+{
+  char        *filename = argv[1];
+  int          fmt      = eslMSAFILE_UNKNOWN;
+  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSA     *msa      = NULL;
+  int          status;
+
+  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
+    eslx_msafile_OpenFailure(afp, status);
+
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+
+  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
+	 1, msa->name, msa->nseq, (int) msa->alen);
+
+  esl_msafile_clustal_Write(stdout, msa, eslMSAFILE_CLUSTAL);
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+  exit(0);
+}
+/*::cexcerpt::msafile_stockholm_example::end::*/
+#endif /*eslMSAFILE_STOCKHOLM_EXAMPLE*/
+/*--------------------- end of example --------------------------*/
+
 
 
 

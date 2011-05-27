@@ -405,10 +405,11 @@ msafile_SetInmap(ESLX_MSAFILE *afp)
   int status;
 
   switch (afp->format) {
-  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(    afp); break;
-  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(afp); break;
-  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(afp); break;
-  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(  afp); break;
+  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
+  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
+  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
   default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
   return status;

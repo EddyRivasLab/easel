@@ -79,6 +79,7 @@ extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp);
 #include "esl_msafile_afa.h"
 #include "esl_msafile_clustal.h"
 #include "esl_msafile_selex.h"
+#include "esl_msafile_stockholm.h"
 #endif /*eslMSAFILE_INCLUDED*/
 
 /*****************************************************************
