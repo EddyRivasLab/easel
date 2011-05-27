@@ -113,19 +113,6 @@ every amino acid residue to an N.
 
 .SH EXPERT OPTIONS
 
-.TP
-.B --dewuss
-Convert RNA secondary structure annotation strings from the new
-WUSS notation, <>, back to the old KHS format, ><. If the annotation
-is already in KHS, this option will corrupt it, without warning.
-Only SELEX and Stockholm format files have secondary structure
-markup.
-
-.TP
-.B --fullwuss
-Convert RNA secondary structure annotation strings from simple
-(input) WUSS notation to full (output) WUSS notation.
-
 
 .TP
 .BI --gapsym " <c>"
@@ -149,10 +136,10 @@ the file format.
 .B --mingap
 If 
 .I seqfile
-is an alignment, remove any columns that contain 100% gap
-characters, minimizing the overall length of the alignment.
-(Often useful if you've extracted a subset of aligned
-sequences from a larger alignment.)
+is an alignment, remove any columns that contain 100% gap or missing
+data characters, minimizing the overall length of the alignment.
+(Often useful if you've extracted a subset of aligned sequences from a
+larger alignment.)
 
 .TP
 .B --keeprf
@@ -166,11 +153,51 @@ nongap RF columns that are 100% gaps in all sequences are removed.
 
 .TP
 .B --nogap
-Remove any aligned columns that contain any gap symbols
-at all. Useful as a prelude to phylogenetic analyses, where
-you only want to analyze columns containing 100% residues,
-so you want to strip out any columns with gaps in them.
-Only makes sense if the file is an alignment file.
+Remove any aligned columns that contain any gap or missing data
+symbols at all. Useful as a prelude to phylogenetic analyses, where
+you only want to analyze columns containing 100% residues, so you want
+to strip out any columns with gaps in them.  Only makes sense if the
+file is an alignment file.
+
+.TP
+.B --wussify
+Convert RNA secondary structure annotation strings (both consensus
+and individual) from old "KHS" format, ><, to the new WUSS notation,
+<>. If the notation is already in WUSS format, this option will screw it
+up, without warning. Only SELEX and Stockholm format files have
+secondary structure markup at present.
+
+.TP
+.B --dewuss
+Convert RNA secondary structure annotation strings from the new
+WUSS notation, <>, back to the old KHS format, ><. If the annotation
+is already in KHS, this option will corrupt it, without warning.
+Only SELEX and Stockholm format files have secondary structure
+markup.
+
+.TP
+.B --fullwuss
+Convert RNA secondary structure annotation strings from simple
+(input) WUSS notation to full (output) WUSS notation.
+
+.TP 
+.BI --replace " <s>"
+.I <s>
+must be in the format
+.I <s1>:<s2>
+with equal numbers of characters in 
+.I <s1>
+and 
+.I <s2>
+separated by a ":" symbol. Each character from
+.I <s1>
+in the input file will be replaced by its counterpart (at the same
+position) from
+.I <s2>.
+Note that special characters in 
+.I <s>
+(such as "~") may need to be prefixed by
+a "\\" character. 
 
 .TP
 .B --small
@@ -186,15 +213,6 @@ and output format
 .I pfam
 or
 .I afa. 
-
-.TP
-.B --wussify
-Convert RNA secondary structure annotation strings (both consensus
-and individual) from old "KHS" format, ><, to the new WUSS notation,
-<>. If the notation is already in WUSS format, this option will screw it
-up, without warning. Only SELEX and Stockholm format files have
-secondary structure markup at present.
-
 
 
 

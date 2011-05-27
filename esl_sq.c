@@ -1615,7 +1615,7 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
  * 
  *            The retrieved sequence is dealigned. For a text mode
  *            sequence, gap characters to be removed are assumed to be
- *            <-_.>. For a digital mode sequence, gap characters are
+ *            <-_.~>. For a digital mode sequence, gap characters are
  *            defined by the digital alphabet.
  *
  * Returns:   <eslOK> on success, and a pointer to the newly fetched

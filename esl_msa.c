@@ -2926,7 +2926,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
  *            that consist entirely of gaps or missing data.
  *            
  *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.">. For a digital mode
+ *            the gap characters, such as <"-_.~">. For a digital mode
  *            alignment, <gaps> may be passed as <NULL>, because the
  *            internal alphabet already knows what the gap and missing
  *            data characters are.
@@ -3026,7 +3026,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
  *            with gaps.
  *            
  *            For a text mode alignment, <gaps> is a string defining
- *            the gap characters, such as <"-_.">. For a digital mode
+ *            the gap characters, such as <"-_.~">. For a digital mode
  *            alignment, <gaps> may be passed as <NULL>, because the
  *            internal alphabet already knows what the gap and
  *            missing data characters are.

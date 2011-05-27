@@ -52,13 +52,19 @@ static ESL_OPTIONS options[] = {
   { "--ignore",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "ignore input seq characters listed in string <s>",   0 },
   { "--acceptx",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "accept input seq chars in string <s> as X",          0 },
   { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
+  { "--replace",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "<s> = <s1>:<s2> replace characters in <s1> with those in <s2>", 0},
   { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, output must be afa or pfam",0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
 static void symconvert(char *s, char *oldsyms, char *newsyms);
-static void regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, int *ret_reached_eof);
-static int  regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss);
+static void regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, 
+				    int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, 
+				    char *rto, int *ret_reached_eof);
+static int  regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, 
+				     int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, 
+				     char *rfrom, char *rto);
+static int  parse_replace_string(const char *rstring, char **ret_from, char **ret_to);
   
 int
 main(int argc, char **argv)
@@ -87,6 +93,8 @@ main(int argc, char **argv)
   int    fullwuss;		/* TRUE to convert simple WUSS to full WUSS  */
   char  *rename; 		/* if non-NULL rename seqs to <s>.<n>        */
   int    do_small;		/* TRUE to operate in small memory mode      */
+  char  *rstring;               /* <s> from --replace <s>                    */
+  char  *rfrom, *rto;           /* <s1> and <s2> from --replace <s>=<s1>:<s2>*/
   int    reached_eof;           /* reached EOF? used only in small mem mode  */
   int    idx;                   /* counter over sequences                    */
   int    nali;                  /* number of alignments read                 */
@@ -130,6 +138,7 @@ main(int argc, char **argv)
   fullwuss    = esl_opt_GetBoolean(go, "--fullwuss");
   rename      = esl_opt_GetString (go, "--rename");
   do_small    = esl_opt_GetBoolean(go, "--small");
+  rstring     = esl_opt_GetString( go, "--replace");
 
   if (esl_opt_ArgNumber(go) != 2) 
     {
@@ -165,6 +174,14 @@ main(int argc, char **argv)
   else if ((ofp = fopen(outfile, "w")) == NULL)
     esl_fatal("Failed to open output file %s\n", outfile);
 
+  if (rstring == NULL) { 
+    rfrom = NULL;
+    rto   = NULL; 
+  }
+  else { 
+    if((status = parse_replace_string(rstring, &rfrom, &rto)) != eslOK) esl_fatal("Out of memory");
+  }
+
   /***********************************************
    * Reformat the file, printing to stdout.
    ***********************************************/
@@ -195,12 +212,12 @@ main(int argc, char **argv)
       if (do_small) { 
 	if(infmt == eslMSAFILE_PFAM && outfmt == eslMSAFILE_AFA) {
 	  if(afp->do_stdin) esl_fatal("--small with afa out format and stdin input is unimplemented.");
-	  regurgitate_pfam_as_afa(afp, ofp, infile, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, rename, &reached_eof);
+	  regurgitate_pfam_as_afa(afp, ofp, infile, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, rename, rfrom, rto, &reached_eof);
 	  if(! reached_eof) esl_fatal("Input file contains >1 alignments, but afa formatted output file can only contain 1");
 	}
 	else if (infmt == eslMSAFILE_PFAM && outfmt == eslMSAFILE_PFAM) {
 	  if(rename != NULL) esl_fatal("--rename is unimplemented for combination of --small and output format pfam"); 
-	  while((status = regurgitate_pfam_as_pfam(afp, ofp, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, wussify, dewuss, fullwuss)) != eslEOF) { 
+	  while((status = regurgitate_pfam_as_pfam(afp, ofp, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, wussify, dewuss, fullwuss, rfrom, rto)) != eslEOF) { 
 	    if      (status == eslEFORMAT) esl_fatal("--small alignment file parse error:\n%s\n", afp->errbuf);
 	    else if (status == eslEINVAL)  esl_fatal("--small alignment file parse error:\n%s\n", afp->errbuf);
 	    else if (status != eslOK)      esl_fatal("--small alignment file read failed with error code %d\n", status);
@@ -221,10 +238,11 @@ main(int argc, char **argv)
 
 	    if (nali > 1 && outfmt == eslMSAFILE_AFA)      esl_fatal("Input file contains >1 alignments, but afa formatted output file can only contain 1");
 	    if (nali > 1 && outfmt == eslMSAFILE_A2M)      esl_fatal("Input file contains >1 alignments, but a2m formatted output file can only contain 1");
-	    if (nali > 1 && outfmt == eslMSAFILE_PSIBLAST) esl_fatal("Inputt file contains >1 alignments, but psiblast formatted output file can only contain 1");
+	    if (nali > 1 && outfmt == eslMSAFILE_PSIBLAST) esl_fatal("Input file contains >1 alignments, but psiblast formatted output file can only contain 1");
 
 	    if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"))) != eslOK) esl_fatal(errbuf);
 	    if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.~"))                                     != eslOK) esl_fatal(errbuf);
+	    if (rfrom!=NULL)  esl_msa_SymConvert(msa, rfrom, rto);
 	    if (gapsym!=NULL) esl_msa_SymConvert(msa, "-_.", gapsym);
 	    if (force_lower)  esl_msa_SymConvert(msa,
 						 "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -317,6 +335,7 @@ main(int argc, char **argv)
       idx = 0;
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
 	{
+	  if (rfrom!=NULL) symconvert(sq->seq, rfrom, rto);
 	  if (force_lower) symconvert(sq->seq, 
 				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 				      "abcdefghijklmnopqrstuvwxyz");
@@ -361,6 +380,10 @@ main(int argc, char **argv)
 
   if (ofp != stdout) fclose(ofp);
   esl_getopts_Destroy(go);
+
+  if(rfrom != NULL)   free(rfrom);
+  if(rto != NULL)     free(rto);
+
   exit(0);
 }
 
@@ -455,7 +478,7 @@ msafile_getline(ESL_MSAFILE *afp)
  * Returns void. Dies upon any input error.
  */
 static void
-regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, int *ret_reached_eof)
+regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, char *rto, int *ret_reached_eof)
 {
   char      *s = NULL;
   int        status;
@@ -630,6 +653,7 @@ regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym
       }
 
       /* now print sequence, after converting symbols as nec */
+      if (rfrom != NULL)  symconvert(aseq, rfrom, rto);
       if (gapsym != NULL) symconvert(aseq, "-_.", gapsym);
       if (force_lower)    symconvert(aseq,
 				           "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -699,7 +723,7 @@ determine_spacelen(char *s)
  * message that indicates the cause of the problem.
  */
 static int
-regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss)
+regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, char *rfrom, char *rto)
 {
   char      *s = NULL;
   int        status;
@@ -814,6 +838,7 @@ regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lo
       nseq_read++;
       
       /* make adjustments as necessary */
+      if (rfrom != NULL)  symconvert(text, rfrom, rto);
       if (gapsym != NULL) symconvert(text, "-_.", gapsym);
       else                symconvert(text, "-_.", "-"); /* AFA default is to have gap characters as '-' */
       if (force_lower)    symconvert(text,
@@ -827,7 +852,7 @@ regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lo
       if (iupac_to_n)     symconvert(text, 
 				     "RYMKSWHBVDrymkswhbvd",
 				     "NNNNNNNNNNnnnnnnnnnn");
-      if (x_is_bad)     symconvert(text,   "Xx", "Nn");
+      if (x_is_bad)       symconvert(text,   "Xx", "Nn");
       /* print it out */
       fprintf(ofp, "%-*s %s\n", namelen+spacelen, seqname, text);
     }
@@ -842,6 +867,45 @@ regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lo
  ERROR:
   return status;
 }
+
+static int
+parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
+{
+  int    status;
+  int    rlen, mid, i;
+  int    is_valid = FALSE;
+  char  *from = NULL;
+  char  *to   = NULL;
+
+  /* Note: we could use ESL_REGEXP but then multiple ':'s in rstring could cause problems */
+  rlen = strlen(rstring);
+  /* check validity of rstring: must be "<s1>:<s2>" with len(<s1>)==len(<s2>) */
+  if((rlen % 2) != 0) { /* odd num chars, good */
+    mid = rlen / 2;
+    printf("mid: %d\n", mid);
+    if(rstring[mid] == ':') { /* middle character is ':', good */
+      ESL_ALLOC(from, sizeof(char) * (mid+1));
+      ESL_ALLOC(to,   sizeof(char) * (mid+1));
+      for(i = 0;     i < mid;  i++) from[i]       = rstring[i];
+      for(i = mid+1; i < rlen; i++) to[i-(mid+1)] = rstring[i];
+      from[mid] = '\0';
+      to[mid]   = '\0';
+      is_valid = TRUE;
+    }
+  }
+  printf("mid: %d from: %s to: %s\n", mid, from, to);
+  if(! is_valid) esl_fatal("--replace takes arg of <s1>:<s2> with len(<s1>) == len(<s2>); %s not recognized", rstring);
+  *ret_from = from;
+  *ret_to   = to;
+
+  return eslOK;
+
+ ERROR: 
+  if(from != NULL) free(from);
+  if(to   != NULL) free(to);
+  return status;
+}
+
 
 /*****************************************************************
  * @LICENSE@
