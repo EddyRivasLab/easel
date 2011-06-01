@@ -618,7 +618,6 @@ selex_other_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	  if (! esl_memstrcmp(tok, ntok, msa->sqname[seqi]))  { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "expected sequence %s at this line of block", msa->sqname[seqi]); }
 	  seqi++;
 	}
-      while (n && isspace(*p)) { p++; n--; }     /* advance past whitespace to first residue */
       b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */
     }
   return eslOK;
