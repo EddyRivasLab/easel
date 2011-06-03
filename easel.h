@@ -370,11 +370,12 @@ extern int  esl_strcasecmp(const char *s1, const char *s2);
 #endif
 
 /* 6. Additional string functions, esl_str*() */
-extern int  esl_strchop(char *s, int64_t n);
-extern int  esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
-extern int  esl_str_IsBlank(char *s);
-extern int  esl_str_IsInteger(char *s);
-extern int  esl_str_IsReal(char *s);
+extern int     esl_strchop(char *s, int64_t n);
+extern int     esl_strdealign(char *s, const char *aseq, const char *gapchars, int64_t *opt_rlen);
+extern int     esl_str_IsBlank(char *s);
+extern int     esl_str_IsInteger(char *s);
+extern int     esl_str_IsReal(char *s);
+extern int64_t esl_str_GetMaxWidth(char **s, int n);
 
 /* 7. File path/name manipulation functions, including tmpfiles */
 extern int  esl_FileExists(const char *filename);

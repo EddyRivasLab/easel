@@ -1,13 +1,21 @@
-/* I/O of multiple sequence alignment files in Stockholm format
+/* I/O of multiple sequence alignment files in Stockholm/Pfam format
+ * (Pfam format = always single block; Stockholm = multiblock allowed)
  * 
  * Contents:
- *   1. API for reading/writing Stockholm input.
+ *   1. API for reading/writing Stockholm/Pfam input.
  *   2. Internal: ESL_STOCKHOLM_PARSEDATA auxiliary structure.
  *   3. Internal: parsing Stockholm line types.
  *   4. Internal: looking up seq, tag indices.
- *   x. License and copyright.
+ *   5. Internal: writing Stockholm/Pfam formats
+ *   6. Unit tests.
+ *   7. Test driver.
+ *   8. Example.
+ *   9. License and copyright.
  */
 #include "esl_config.h"
+
+#include <string.h>
+#include <ctype.h>
 
 #include "easel.h"
 #ifdef eslAUGMENT_ALPHABET
@@ -80,12 +88,104 @@ static int stockholm_get_seqidx   (ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, ch
 static int stockholm_get_gr_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag,  esl_pos_t taglen, int *ret_tagidx);
 static int stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag,  esl_pos_t taglen, int *ret_tagidx);
 
-
+static int stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl);
 
 
 /*****************************************************************
  *# 1. API for reading/writing Stockholm input.
  *****************************************************************/
+
+/* Function:  esl_msafile_stockholm_SetInmap()
+ * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
+ *
+ * Purpose:   This is a no-op; the default input map is fine for
+ *            Stockholm format. (There are no characters to ignore in
+ *            the input. In particular, we cannot skip whitespace in the
+ *            inmap, because we'd misalign relative to the text-mode
+ *            annotation lines (GR, GC), where we don't do mapped input.)
+ */
+int
+esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
+{
+  return eslOK;
+}
+
+
+/* Function:  esl_msafile_stockholm_GuessAlphabet()
+ * Synopsis:  Guess the alphabet of an open Stockholm MSA file.
+ *
+ * Purpose:   Guess the alpbabet of the sequences in open
+ *            Stockholm-format MSA file <afp>.
+ *            
+ *            On a normal return, <*ret_type> is set to <eslDNA>,
+ *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
+ *            original position.
+ *
+ * Args:      afp      - open Stockholm-format MSA file
+ *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslENOALPHABET> if alphabet type can't be determined.
+ *            In either case, <afp> is rewound to the position it
+ *            started at.
+ */
+int
+esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+{
+  int       alphatype     = eslUNKNOWN;
+  esl_pos_t anchor        = -1;
+  int       threshold[3]  = { 500, 5000, 50000 }; /* we check after 500, 5000, 50000 residues; else we go to EOF */
+  int       nsteps        = 3;
+  int       step          = 0;
+  int       nres          = 0;
+  int       x;
+  int64_t   ct[26];
+  char     *p, *tok;
+  esl_pos_t n,  toklen, pos;
+  int       status;
+
+  for (x = 0; x < 26; x++) ct[x] = 0;
+
+  anchor = esl_buffer_GetOffset(afp->bf);
+  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+    {
+      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK || *tok == '#') continue; /* blank lines, annotation, comments */
+      /* p now points to the rest of the sequence line */
+      
+      /* count characters into ct[] array */
+      for (pos = 0; pos < n; pos++)
+	if (isalpha(p[pos])) {
+	  x = toupper(p[pos]) - 'A';
+	  ct[x]++; 
+	  nres++; 
+	}
+
+      /* try to stop early, checking after 500, 5000, and 50000 residues: */
+      if (step < nsteps && nres > threshold[step]) {
+	if ((status = esl_abc_GuessAlphabet(ct, &alphatype)) == eslOK) goto DONE; /* (eslENOALPHABET) */
+	step++;
+      }
+    }
+  if (status != eslEOF) goto ERROR; /* [eslEMEM,eslESYS,eslEINCONCEIVABLE] */
+  status = esl_abc_GuessAlphabet(ct, &alphatype); /* (eslENOALPHABET) */
+
+ DONE:
+  esl_buffer_SetOffset(afp->bf, anchor);   /* Rewind to where we were. */
+  esl_buffer_RaiseAnchor(afp->bf, anchor);
+  *ret_type = alphatype;
+  return status;
+
+ ERROR:
+  if (anchor != -1) {
+    esl_buffer_SetOffset(afp->bf, anchor);
+    esl_buffer_RaiseAnchor(afp->bf, anchor);
+  }
+  *ret_type = eslUNKNOWN;
+  return status;
+}
+
 
 /* Function:  esl_msafile_stockholm_Read()
  * Synopsis:  Read an alignment in Stockholm format.
@@ -103,18 +203,20 @@ static int stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, ch
  *            allocated MSA. <afp> is poised at start of next
  *            alignment record, or is at EOF.
  *
- *            <eslEFORMAT> on a parsing error. <*ret_msa> is returned
+ *            <eslEOF> if no (more) alignment data are found in
+ *            <afp>, and <afp> is returned at EOF. 
+ *
+ *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
  *            <NULL>. <afp> contains information sufficient for
- *            constructing diagnostic output: <afp->errmsg> contains a
- *            user-directed error message; <afp->linenumber> contains
- *            the line number; <afp->bf->filename> contains the name
- *            of the file (if it was a file that was being parsed);
- *            <afp->line> is the offending line where the parse error
- *            was detected, and <afp->n> is its length (in general,
- *            <afp->line> is not NUL-terminated). The state of the
- *            <afp>'s buffer is poised at the start of the next line
- *            following the offending one, so that (in principle) the
- *            caller could try to resume parsing.
+ *            constructing useful diagnostic output: 
+ *            | <afp->errmsg>       | user-directed error message     |
+ *            | <afp->linenumber>   | line # where error was detected |
+ *            | <afp->line>         | offending line (not NUL-term)   |
+ *            | <afp->n>            | length of offending line        |
+ *            | <afp->bf->filename> | name of the file                |
+ *            and <afp> is poised at the start of the following line,
+ *            so (in principle) the caller could try to resume
+ *            parsing.
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslESYS> if a system call fails, such as fread().
@@ -140,18 +242,16 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
   /* Skip leading blank lines in file. EOF here is a normal EOF return. */
   do { 
-    if ( ( status = eslx_msafile_GetLine(afp)) != eslOK) goto ERROR;     /* eslEOF is OK here - end of input (eslEOF) [eslEMEM|eslESYS] */
-  } while (esl_memspn(afp->line, afp->n, " \t\r\n") == afp->n ||         /* skip blank lines             */
-	   (esl_memstrpfx(afp->line, afp->n, "#")                        /* and skip comment lines       */
-	    && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));      /* but stop on Stockholm header */
+    if ( ( status = eslx_msafile_GetLine(afp, &p, &n)) != eslOK) goto ERROR;  /* eslEOF is OK here - end of input (eslEOF) [eslEMEM|eslESYS] */
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n ||                  /* skip blank lines             */
+	   (esl_memstrpfx(afp->line, afp->n, "#")                             /* and skip comment lines       */
+	    && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));           /* but stop on Stockholm header */
 
   /* Check for the magic Stockholm header */
   if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1."))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing Stockholm header");
 
-  while ( (status = eslx_msafile_GetLine(afp)) == eslOK) /* (eslEOF) [eslEMEM|eslESYS] */
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) /* (eslEOF) [eslEMEM|eslESYS] */
     {
-      p = afp->line;
-      n = afp->n;
       while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
 
       if (!n || esl_memstrpfx(p, n, "//"))
@@ -203,105 +303,15 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 }
 
 
-/* Function:  esl_msafile_stockholm_GuessAlphabet()
- * Synopsis:  Guess the alphabet of an open Stockholm MSA file.
- *
- * Purpose:   Guess the alpbabet of the sequences in open
- *            Stockholm-format MSA file <afp>.
- *            
- *            On a normal return, <*ret_type> is set to <eslDNA>,
- *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
- *            original position.
- *
- * Args:      afp      - open Stockholm-format MSA file
- *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
- *
- * Returns:   <eslOK> on success.
- *            <eslENOALPHABET> if alphabet type can't be determined.
- *            In either case, <afp> is rewound to the position it
- *            started at.
- *
- * Throws:    (no abnormal error conditions)
- */
 int
-esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+esl_msafile_stockholm_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 {
-  int       alphatype     = eslUNKNOWN;
-  esl_pos_t anchor        = -1;
-  int       threshold[3]  = { 500, 5000, 50000 }; /* we check after 500, 5000, 50000 residues; else we go to EOF */
-  int       nsteps        = 3;
-  int       step          = 0;
-  int       nres          = 0;
-  int       x;
-  int64_t   ct[26];
-  char     *p, *tok;
-  esl_pos_t n,  toklen;
-  int       status;
-
-  for (x = 0; x < 26; x++) ct[x] = 0;
-
-  anchor = esl_buffer_GetOffset(afp->bf);
-  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
-
-  while ( (status = eslx_msafile_GetLine(afp)) == eslOK)
-    {
-      p = afp->line;
-      n = afp->n;
-      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK || *tok == '#') continue; /* blank lines, annotation, comments */
-      /* p now points to the rest of the sequence line */
-      
-      /* count characters into ct[] array */
-      while (n)
-	{
-	  x = toupper(*p) - 'A';
-	  if (x >= 0 && x < 26) { ct[x]++; nres++; }
-	  p++;
-	  n--;
-	}
-
-      /* try to stop early, checking after 500, 5000, and 50000 residues: */
-      if (step < nsteps && nres > threshold[step]) {
-	if ((status = esl_abc_GuessAlphabet(ct, &alphatype)) == eslOK) goto DONE; /* (eslENOALPHABET) */
-	step++;
-      }
-    }
-  if (status != eslEOF) goto ERROR; /* [eslEMEM,eslESYS,eslEINCONCEIVABLE] */
-
-  status = esl_abc_GuessAlphabet(ct, &alphatype); /* (eslENOALPHABET) */
-
- DONE:
-  esl_buffer_SetOffset(afp->bf, anchor);   /* Rewind to where we were. */
-  esl_buffer_RaiseAnchor(afp->bf, anchor);
-  *ret_type = alphatype;
-  return status;
-
- ERROR:
-  if (anchor != -1) {
-    esl_buffer_SetOffset(afp->bf, anchor);
-    esl_buffer_RaiseAnchor(afp->bf, anchor);
+  switch (fmt) {
+  case eslMSAFILE_PFAM:       return stockholm_write(fp, msa, msa->alen);
+  case eslMSAFILE_STOCKHOLM:  return stockholm_write(fp, msa, 200);
   }
-  *ret_type = eslUNKNOWN;
-  return status;
+  return eslEINCONCEIVABLE;
 }
-
-/* Function:  esl_msafile_stockholm_SetInmap()
- * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
- *
- * Purpose:   This is a no-op; the default input map is fine for
- *            Stockholm format. (There are no characters to ignore in
- *            the input. In particular, we cannot skip whitespace in the
- *            inmap, because we'd misalign relative to the text-mode
- *            annotation lines (GR, GC), where we don't do mapped input.)
- */
-int
-esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
-{
-  return eslOK;
-}
-
-
-
-
 /*--------------- end, api for stockholm i/o --------------------*/
 
 
@@ -449,6 +459,9 @@ stockholm_parsedata_Destroy(ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa)
 }
 /*------------------ end, ESL_STOCKHOLM_PARSEDATA auxiliary structure -------------*/
 
+
+
+
 /*****************************************************************
  * 3. Internal: parsing Stockholm line types
  *****************************************************************/ 
@@ -479,7 +492,7 @@ stockholm_parse_gf(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {
       if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "No accession found on #=GF AC line");
       if (n)                                                            ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GF AC line should have only one accession (no whitespace allowed)");
-      if ((status = esl_msa_SetAccession(msa, p, n))          != eslOK) return status; /* [eslEMEM] */
+      if ((status = esl_msa_SetAccession(msa, tok, toklen))   != eslOK) return status; /* [eslEMEM] */
     }
   else if (esl_memstrcmp(tag, taglen, "DE")) 
     {
@@ -598,15 +611,17 @@ stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 static int
 stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
-  char      *gc,    *tag,   *text;
-  esl_pos_t  gclen,  taglen, textlen;
+  char      *gc,    *tag;
+  esl_pos_t  gclen,  taglen;
   int        tagidx;
   int        status;
 
   if (esl_memtok(&p, &n, " \t", &gc,   &gclen)    != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
   if (esl_memtok(&p, &n, " \t", &tag,  &taglen)   != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC line missing <tag>, annotation");
-  if (esl_memtok(&p, &n, " \t", &text, &textlen)  != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC line missing annotation");  
-  if (! esl_memstrcmp(gc, gclen, "#=GC"))                   ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GC line?");
+  while (n && strchr(" \t", p[n-1])) n--; /* skip backwards from eol, to delimit aligned text without going through it */
+
+  if (! esl_memstrcmp(gc, gclen, "#=GC")) ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GC line?");
+  if (! n)                                ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GC line missing annotation?");
   
   if (pd->nblock) 		/* Subsequent blocks */
     {
@@ -631,38 +646,38 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GC_SSCONS)
     {
       if (pd->ssconslen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC SS_cons line in block");
-      if ( (status = esl_strcat(&(msa->ss_cons), pd->ssconslen, text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->ssconslen += textlen;
+      if ( (status = esl_strcat(&(msa->ss_cons), pd->ssconslen, p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->ssconslen += n;
     }
   else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GC_SACONS)
     {
       if (pd->saconslen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC SA_cons line in block");
-      if ((status = esl_strcat(&(msa->sa_cons), pd->saconslen, text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->saconslen += textlen;
+      if ((status = esl_strcat(&(msa->sa_cons), pd->saconslen, p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->saconslen += n;
     }
   else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GC_PPCONS)
     {
       if (pd->ppconslen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC PP_cons line in block");
-      if ((status = esl_strcat(&(msa->pp_cons), pd->ppconslen, text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->ppconslen += textlen;
+      if ((status = esl_strcat(&(msa->pp_cons), pd->ppconslen, p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->ppconslen += n;
     }
   else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GC_RF)
     {
       if (pd->rflen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC RF line in block");
-      if ((status = esl_strcat(&(msa->rf), pd->rflen, text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->rflen += textlen;
+      if ((status = esl_strcat(&(msa->rf), pd->rflen, p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->rflen += n;
     }
   else
     {
       if ((status = stockholm_get_gc_tagidx(msa, pd, tag, taglen, &tagidx)) != eslOK) return status;
       
       if (pd->ogc_len[tagidx] != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC %.*s line in block", (int) taglen, tag);
-      if ((status = esl_strcat(&(msa->gc[tagidx]), pd->ogc_len[tagidx], text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->ogc_len[tagidx] += textlen;
+      if ((status = esl_strcat(&(msa->gc[tagidx]), pd->ogc_len[tagidx], p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->ogc_len[tagidx] += n;
     }
 
-  if (pd->bi && textlen != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GC %.*s line", (int) taglen, tag); 
-  pd->alen_b   = textlen;
+  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GC %.*s line", (int) taglen, tag); 
+  pd->alen_b   = n;
   pd->in_block = TRUE;
   pd->bi++;
   return eslOK;
@@ -676,8 +691,8 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 static int
 stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
-  char      *gr,   *name,    *tag,   *text;
-  esl_pos_t  grlen, namelen,  taglen, textlen;
+  char      *gr,   *name,    *tag;
+  esl_pos_t  grlen, namelen,  taglen;
   int        seqidx, tagidx;
   int        z;
   int        status;
@@ -685,8 +700,10 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   if (esl_memtok(&p, &n, " \t", &gr,   &grlen)    != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
   if (esl_memtok(&p, &n, " \t", &name, &namelen)  != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing <seqname>, <tag>, annotation");
   if (esl_memtok(&p, &n, " \t", &tag,  &taglen)   != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing <tag>, annotation");
-  if (esl_memtok(&p, &n, " \t", &text, &textlen)  != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing annotation");
-  if (! esl_memstrcmp(gr, grlen, "#=GR"))                   ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GR line?");
+  while (n && strchr(" \t", p[n-1])) n--; /* skip backwards from eol, to delimit aligned text without going through it */
+
+  if (! esl_memstrcmp(gr, grlen, "#=GR")) ESL_FAIL(eslEFORMAT, afp->errmsg, "faux #=GR line?");
+  if (! n)                                ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GR line missing annotation?");
 
   /* Which seqidx is this? likely to be either pd->si-1 (#=GR following a seq) or 
    * pd->si (#=GR preceding a seq) 
@@ -727,8 +744,8 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 	for (z = 0; z < msa->sqalloc; z++) { msa->ss[z] = NULL; pd->sslen[z] = 0; }
       }
       if (pd->sslen[seqidx] != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GR %.*s SS line in block", (int) namelen, name);
-      if (( status = esl_strcat(&(msa->ss[seqidx]), pd->sslen[seqidx], text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->sslen[seqidx] += textlen;
+      if (( status = esl_strcat(&(msa->ss[seqidx]), pd->sslen[seqidx], p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->sslen[seqidx] += n;
     }
   else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GR_PP)
     {
@@ -738,8 +755,8 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 	for (z = 0; z < msa->sqalloc; z++) { msa->pp[z] = NULL; pd->pplen[z] = 0; }
       }
       if (pd->pplen[seqidx] != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GR %.*s PP line in block", (int) namelen, name);
-      if ((status = esl_strcat(&(msa->pp[seqidx]), pd->pplen[seqidx], text, textlen)) != eslOK) return status; /* [eslEMEM] */
-      pd->pplen[seqidx] += textlen;
+      if ((status = esl_strcat(&(msa->pp[seqidx]), pd->pplen[seqidx], p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->pplen[seqidx] += n;
     }
   else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GR_SA)
     {
@@ -749,20 +766,20 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 	for (z = 0; z < msa->sqalloc; z++) { msa->sa[z] = NULL; pd->salen[z] = 0; }
       }
       if (pd->salen[seqidx] != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GR %.*s SA line in block", (int) namelen, name);
-      if ((status = esl_strcat(&(msa->sa[seqidx]), pd->salen[seqidx], text, textlen)) != eslOK) return status;
-      pd->salen[seqidx] += textlen;
+      if ((status = esl_strcat(&(msa->sa[seqidx]), pd->salen[seqidx], p, n)) != eslOK) return status;
+      pd->salen[seqidx] += n;
     }
   else
     {
       if ((status = stockholm_get_gr_tagidx(msa, pd, tag, taglen, &tagidx)) != eslOK) return status; /* [eslEMEM] */
 
       if (pd->ogr_len[tagidx][seqidx] != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GR %.*s %.*s line in block", (int) namelen, name, (int) taglen, tag);
-      if ((status = esl_strcat(&(msa->gr[tagidx][seqidx]), pd->ogr_len[tagidx][seqidx], text, textlen)) != eslOK) return status;
-      pd->ogr_len[tagidx][seqidx] += textlen;
+      if ((status = esl_strcat(&(msa->gr[tagidx][seqidx]), pd->ogr_len[tagidx][seqidx], p, n)) != eslOK) return status;
+      pd->ogr_len[tagidx][seqidx] += n;
     }
 
-  if (pd->bi && textlen != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GR %.*s line", (int) taglen, tag); 
-  pd->alen_b   = textlen;
+  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GR %.*s line", (int) taglen, tag); 
+  pd->alen_b   = n;
   pd->in_block = TRUE;
   pd->bi++;
   return eslOK;
@@ -779,13 +796,15 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 static int
 stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa, char *p, esl_pos_t n)
 {
-  char     *seqname, *text;
-  esl_pos_t seqnamelen, textlen;
+  char     *seqname;
+  esl_pos_t seqnamelen;
   int       seqidx = pd->si;
   int       status;
   
   if (esl_memtok(&p, &n, " \t", &seqname, &seqnamelen) != eslOK) ESL_EXCEPTION(eslEINCONCEIVABLE, "EOL can't happen here.");
-  if (esl_memtok(&p, &n, " \t", &text,    &textlen)    != eslOK) ESL_FAIL(eslEFORMAT, afp->errmsg, "line has sequence name, but no sequence");
+  while (n && strchr(" \t", p[n-1])) n--; /* skip backwards from eol, to delimit aligned text without going through it */
+
+  if (! n) ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence line with no sequence?");
 
   /* Which seqidx is this?
    * In first block:
@@ -816,20 +835,20 @@ stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 
 #ifdef eslAUGMENT_ALPHABET 
   if (  afp->abc ) {
-    status = esl_abc_dsqcat(afp->inmap, &(msa->ax[seqidx]),   &(pd->sqlen[seqidx]), text, textlen);
+    status = esl_abc_dsqcat(afp->inmap, &(msa->ax[seqidx]),   &(pd->sqlen[seqidx]), p, n);
     if      (status == eslEINVAL) ESL_FAIL(eslEFORMAT, afp->errmsg, "invalid sequence character(s) on line");
     else if (status != eslOK)     return status;
   }
 #endif
   if (! afp->abc) {
-    status = esl_strmapcat (afp->inmap, &(msa->aseq[seqidx]), &(pd->sqlen[seqidx]), text, textlen);
+    status = esl_strmapcat (afp->inmap, &(msa->aseq[seqidx]), &(pd->sqlen[seqidx]), p, n);
     if      (status == eslEINVAL) ESL_FAIL(eslEFORMAT, afp->errmsg, "invalid sequence character(s) on line");
     else if (status != eslOK)     return status;
   }
 
-  if (pd->bi && textlen != pd->alen_b)         ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned residues parsed on line");
-  if (pd->sqlen[seqidx] - pd->alen != textlen) ESL_EXCEPTION(eslEINCONCEIVABLE, "implementation assumes that no symbols are ignored in inmap; else GR, GC text annotations are messed up");
-  pd->alen_b   = textlen;
+  if (pd->bi && n != pd->alen_b)         ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned residues parsed on line");
+  if (pd->sqlen[seqidx] - pd->alen != n) ESL_EXCEPTION(eslEINCONCEIVABLE, "implementation assumes that no symbols are ignored in inmap; else GR, GC text annotations are messed up");
+  pd->alen_b   = n;
   pd->in_block = TRUE;
   pd->nseq_b++;
   pd->bi++;
@@ -997,9 +1016,347 @@ stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag, es
 /*------------ end, looking up seq, tag indices -----------------*/
 
 
+/*****************************************************************
+ * 5. Internal: writing Stockholm/Pfam format
+ *****************************************************************/
+
+static int
+stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
+{
+  int  i, j;
+  int  maxname;		/* maximum name length     */
+  int  maxgf;		/* max #=GF tag length     */
+  int  maxgc;		/* max #=GC tag length     */
+  int  maxgr; 		/* max #=GR tag length     */
+  int  margin;        	/* total left margin width */
+  int  gslen;		/* length of a #=GS tag    */
+  char *buf = NULL;
+  int  currpos;
+  char *s, *tok;
+  int  acpl;            /* actual number of character per line */
+  int  status;
+  
+  /* Figure out how much space we need for name + markup
+   * to keep the alignment in register. 
+   *
+   * The left margin of an alignment block can be composed of:
+   * 
+   * <seqname>                      max length: maxname + 1
+   * #=GC <gc_tag>                  max length: 4 + 1 + maxgc + 1
+   * #=GR <seqname> <gr_tag>        max length: 4 + 1 + maxname + 1 + maxgr + 1
+   * 
+   * <margin> is the max of these. It is the total length of the
+   * left margin that we need to leave, inclusive of the last space.
+   * 
+   * Then when we output, we do:
+   * name:  <leftmargin-1>
+   * gc:    #=GC <leftmargin-6>
+   * gr:    #=GR <maxname> <leftmargin-maxname-7>
+   *
+   * xref STL9/p17
+   */
+  maxname = esl_str_GetMaxWidth(msa->sqname, msa->nseq);
+  
+  maxgf   = esl_str_GetMaxWidth(msa->gf_tag, msa->ngf);
+  if (maxgf < 2) maxgf = 2;
+
+  maxgc   = esl_str_GetMaxWidth(msa->gc_tag, msa->ngc);
+  if (msa->rf      && maxgc < 2) maxgc = 2;
+  if (msa->ss_cons && maxgc < 7) maxgc = 7;
+  if (msa->sa_cons && maxgc < 7) maxgc = 7;
+  if (msa->pp_cons && maxgc < 7) maxgc = 7;
+
+  maxgr   = esl_str_GetMaxWidth(msa->gr_tag, msa->ngr);
+  if (msa->ss && maxgr < 2) maxgr = 2;
+  if (msa->sa && maxgr < 2) maxgr = 2;
+  if (msa->pp && maxgr < 2) maxgr = 2;
+
+  margin = maxname + 1;
+  if (maxgc > 0 && maxgc+6 > margin) margin = maxgc+6;
+  if (maxgr > 0 && maxname+maxgr+7 > margin) margin = maxname+maxgr+7; 
+  
+  /* Allocate a tmp buffer to hold sequence chunks in  */
+  ESL_ALLOC(buf, sizeof(char) * (cpl+1));
+
+  /* Magic Stockholm header */
+  fprintf(fp, "# STOCKHOLM 1.0\n");
+
+ /* Free text comment section */
+  for (i = 0;  i < msa->ncomment; i++)
+    fprintf(fp, "#%s\n", msa->comment[i]);
+  if (msa->ncomment > 0) fprintf(fp, "\n");
+
+   /* GF section: per-file annotation */
+  if (msa->name) fprintf(fp, "#=GF %-*s %s\n", maxgf, "ID", msa->name);
+  if (msa->acc)  fprintf(fp, "#=GF %-*s %s\n", maxgf, "AC", msa->acc);
+  if (msa->desc) fprintf(fp, "#=GF %-*s %s\n", maxgf, "DE", msa->desc);
+  if (msa->au)   fprintf(fp, "#=GF %-*s %s\n", maxgf, "AU", msa->au);
+  
+  /* Thresholds are hacky. Pfam has two. Rfam has one. */
+  if      (msa->cutset[eslMSA_GA1] && msa->cutset[eslMSA_GA2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "GA", msa->cutoff[eslMSA_GA1], msa->cutoff[eslMSA_GA2]);
+  else if (msa->cutset[eslMSA_GA1])                            fprintf(fp, "#=GF %-*s %.1f\n",      maxgf, "GA", msa->cutoff[eslMSA_GA1]);
+
+  if      (msa->cutset[eslMSA_NC1] && msa->cutset[eslMSA_NC2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "NC", msa->cutoff[eslMSA_NC1], msa->cutoff[eslMSA_NC2]);
+  else if (msa->cutset[eslMSA_NC1])                            fprintf(fp, "#=GF %-*s %.1f\n",	    maxgf, "NC", msa->cutoff[eslMSA_NC1]);
+
+  if      (msa->cutset[eslMSA_TC1] && msa->cutset[eslMSA_TC2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "TC", msa->cutoff[eslMSA_TC1], msa->cutoff[eslMSA_TC2]);
+  else if (msa->cutset[eslMSA_TC1])                            fprintf(fp, "#=GF %-*s %.1f\n", 	    maxgf, "TC", msa->cutoff[eslMSA_TC1]);
+
+  for (i = 0; i < msa->ngf; i++)
+    fprintf(fp, "#=GF %-*s %s\n", maxgf, msa->gf_tag[i], msa->gf[i]); 
+  fprintf(fp, "\n");
+
+  
+  /* GS section: per-sequence annotation */
+  if (msa->flags & eslMSA_HASWGTS) {
+    for (i = 0; i < msa->nseq; i++) 
+      fprintf(fp, "#=GS %-*s WT %.2f\n", maxname, msa->sqname[i], msa->wgt[i]);		
+    fprintf(fp, "\n");
+  }
+
+  if (msa->sqacc) {
+    for (i = 0; i < msa->nseq; i++) 
+      if (msa->sqacc[i]) fprintf(fp, "#=GS %-*s AC %s\n", maxname, msa->sqname[i], msa->sqacc[i]);
+    fprintf(fp, "\n");
+  }
+
+  if (msa->sqdesc) {
+    for (i = 0; i < msa->nseq; i++) 
+      if (msa->sqdesc[i]) fprintf(fp, "#=GS %-*s DE %s\n", maxname, msa->sqname[i], msa->sqdesc[i]);
+    fprintf(fp, "\n");
+  }
+ 
+  /* Multiannotated GS tags are possible; for example, 
+   *     #=GS foo DR PDB; 1xxx;
+   *     #=GS foo DR PDB; 2yyy;
+   * These are stored, for example, as:
+   *     msa->gs[0][0] = "PDB; 1xxx;\nPDB; 2yyy;"
+   * and must be decomposed.
+   */
+  for (i = 0; i < msa->ngs; i++)
+    {
+      gslen = strlen(msa->gs_tag[i]);
+      for (j = 0; j < msa->nseq; j++)
+	if (msa->gs[i][j]) {
+	  s = msa->gs[i][j];
+	  while (esl_strtok(&s, "\n", &tok) == eslOK)
+	    fprintf(fp, "#=GS %-*s %-*s %s\n", 
+		    maxname, msa->sqname[j],
+		    gslen,   msa->gs_tag[i], 
+		    tok);
+	}
+      fprintf(fp, "\n");
+    }
+
+  /* Alignment section:
+   * contains aligned sequence, #=GR annotation, and #=GC annotation
+   */
+  for (currpos = 0; currpos < msa->alen; currpos += cpl)
+    {
+      acpl = (msa->alen - currpos > cpl)? cpl : msa->alen - currpos;
+      buf[acpl] = '\0';  	/* this suffices to terminate for all uses of buf[] in this block */
+      if (currpos > 0) fprintf(fp, "\n");
+
+      for (i = 0; i < msa->nseq; i++)
+	{
+#ifdef eslAUGMENT_ALPHABET
+	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i] + currpos + 1, acpl, buf);
+#else
+	  if (! msa->abc) strncpy(buf, msa->aseq[i] + currpos, acpl);
+#endif
+	  fprintf(fp, "%-*s %s\n", margin-1, msa->sqname[i], buf);
+
+	  if (msa->ss && msa->ss[i]) {
+	    strncpy(buf, msa->ss[i] + currpos, acpl);
+	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "SS", buf);
+	  }
+	  if (msa->sa && msa->sa[i]) {
+	    strncpy(buf, msa->sa[i] + currpos, acpl);
+	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "SA", buf);
+	  }
+	  if (msa->pp && msa->pp[i]) {
+	    strncpy(buf, msa->pp[i] + currpos, acpl);
+	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "PP", buf);
+	  }
+	  for (j = 0; j < msa->ngr; j++)
+	    if (msa->gr[j][i]) {
+	      strncpy(buf, msa->gr[j][i] + currpos, acpl);
+	      fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, msa->gr_tag[j], buf);
+	    }
+	}
+
+      if (msa->ss_cons) {
+	strncpy(buf, msa->ss_cons + currpos, acpl);
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", buf);
+      }
+      if (msa->sa_cons) {
+	strncpy(buf, msa->sa_cons + currpos, acpl);
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", buf);
+      }
+      if (msa->pp_cons) {
+	strncpy(buf, msa->pp_cons + currpos, acpl);
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf);
+      }
+      if (msa->rf) {
+	strncpy(buf, msa->rf + currpos, acpl);
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf);
+      }
+      for (j = 0; j < msa->ngc; j++) {
+	strncpy(buf, msa->gc[j] + currpos, acpl);
+	fprintf(fp, "#=GC %-*s %s\n", margin-6, msa->gc_tag[j], buf);
+      }
+    }
+  fprintf(fp, "//\n");
+  free(buf);
+  return eslOK;
+
+ ERROR:
+  if (buf != NULL) free(buf);
+  return status;
+}
+/*----------------- end, writing Stockholm/Pfam -----------------*/
+
+
 
 /*****************************************************************
- * Example.
+ * 6. Unit tests
+ *****************************************************************/
+#ifdef eslMSAFILE_STOCKHOLM_TESTDRIVE
+
+static void
+utest_good_format(ESL_ALPHABET **byp_abc, int fmt, int expected_nseq, int64_t expected_alen, char *buf)
+{
+  char          msg[] = "good format test failed";
+  ESLX_MSAFILE *afp = NULL;
+  ESL_MSA      *msa = NULL;
+
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                      != eslOK) esl_fatal(msg);
+  if (msa->nseq != expected_nseq)                                          esl_fatal(msg);
+  if (msa->alen != expected_alen)                                          esl_fatal(msg);
+
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+}
+
+static void
+utest_identical_io(ESL_ALPHABET **byp_abc, int fmt, char *buf)
+{
+  char   msg[]        = "identical io test failed";
+  char   tmpfile1[32] = "esltmpXXXXXX";
+  char   tmpfile2[32] = "esltmpXXXXXX";
+  FILE  *fp = NULL;
+  ESLX_MSAFILE *afp = NULL;
+  ESL_MSA *msa1 = NULL;
+  ESL_MSA *msa2 = NULL;
+
+  if (esl_tmpfile_named(tmpfile1, &fp) != eslOK) esl_fatal(msg);
+  fputs(buf, fp);
+  fclose(fp);
+
+  if (eslx_msafile_Open(byp_abc, tmpfile1, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa1)                != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+
+  if (esl_tmpfile_named(tmpfile2, &fp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Write(fp, msa1, eslMSAFILE_STOCKHOLM) != eslOK) esl_fatal(msg);
+  fclose(fp);
+
+  if (eslx_msafile_Open(byp_abc, tmpfile2, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa2)                != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+  
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal(msg);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+}
+
+static void
+utest_bad_open(ESL_ALPHABET **byp_abc, int fmt, int expected_status, char *buf)
+{
+  char          msg[] = "bad open test failed";
+  ESLX_MSAFILE *afp   = NULL;
+
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != expected_status) esl_fatal(msg);
+}
+
+static void
+utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expected_line, char *buf)
+{
+  char          msg[] = "bad format test failed";
+  ESLX_MSAFILE *afp   = NULL;
+  ESL_MSA      *msa   = NULL;
+
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != eslOK)      esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                      != eslEFORMAT) esl_fatal(msg);
+  if (strstr(afp->errmsg, expected_errmsg)                       == NULL)       esl_fatal(msg);
+  if (afp->linenumber != expected_line)                                         esl_fatal(msg);
+
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+}
+#endif /*eslMSAFILE_STOCKHOLM_TESTDRIVE*/
+/*----------------- end, unit tests -----------------------------*/
+
+
+
+/*****************************************************************
+ * 7. Test driver.
+ *****************************************************************/
+#ifdef eslMSAFILE_STOCKHOLM_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_stockholm_utest -DeslMSAFILE_STOCKHOLM_TESTDRIVE esl_msafile_stockholm.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_stockholm_utest -DeslMSAFILE_STOCKHOLM_TESTDRIVE esl_msafile_stockholm.c -leasel -lm
+ * run:     ./esl_msafile_stockholm_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+#include "esl_msafile_stockholm.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for Stockholm/Xfam MSA format module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng         = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose  = esl_opt_GetBoolean(go, "-v");
+  char            tmpfile[32] = "esltmpXXXXXX";
+  int             status;
+
+  utest_bad_open(NULL, eslMSAFILE_UNKNOWN, eslENOFORMAT, ""); 
+
+  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "missing // terminator", 1,  "# STOCKHOLM 1.0\n");     
+  utest_bad_read(NULL, eslMSAFILE_UNKNOWN, "no alignment data",     2,  "# STOCKHOLM 1.0\n//\n");
+  
+  utest_good_format(NULL, eslMSAFILE_UNKNOWN, 2, 10, "\n# STOCKHOLM 1.0\n\nseq1 ACDEFGHIKL\nseq2 ACDEFGHIKL\n\n//\n\n");
+
+  utest_identical_io(NULL, eslMSAFILE_UNKNOWN, "# STOCKHOLM 1.0\n\nseq1 ACDEFGHIKL\nseq2 ACDEFGHIKL\n//\n");
+
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return 0;
+}
+#endif /*eslMSAFILE_STOCKHOLM_TESTDRIVE*/
+/*---------------- end, test driver -----------------------------*/
+
+
+/*****************************************************************
+ * 8. Example.
  *****************************************************************/
 
 #ifdef eslMSAFILE_STOCKHOLM_EXAMPLE
@@ -1021,20 +1378,22 @@ main(int argc, char **argv)
 {
   char        *filename = argv[1];
   int          fmt      = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET *abc     = esl_alphabet_Create(eslAMINO);
   ESLX_MSAFILE *afp     = NULL;
   ESL_MSA     *msa      = NULL;
   int          status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
+  if ( (status = eslx_msafile_Open(&abc, filename, fmt, NULL, &afp)) != eslOK) 
     eslx_msafile_OpenFailure(afp, status);
 
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
+  while  ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
+    {
+      printf("%15s: %6d seqs, %5d columns\n", msa->name, msa->nseq, (int) msa->alen);
+      esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+    }
+  if (status != eslEOF)  eslx_msafile_ReadFailure(afp, status);
 
-  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	 1, msa->name, msa->nseq, (int) msa->alen);
-
-  esl_msafile_clustal_Write(stdout, msa, eslMSAFILE_CLUSTAL);
+  esl_alphabet_Destroy(abc);
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);
@@ -1042,8 +1401,6 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_stockholm_example::end::*/
 #endif /*eslMSAFILE_STOCKHOLM_EXAMPLE*/
 /*--------------------- end of example --------------------------*/
-
-
 
 
 /*****************************************************************

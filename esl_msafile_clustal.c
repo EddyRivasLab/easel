@@ -1,6 +1,11 @@
 /* i/o of multiple sequence alignment files in Clustal-like formats
  *
- * This module is responsible for i/o of eslMSAFILE_CLUSTAL and
+ * Contents:
+ *   1. API for reading/writing Clustal and Clustal-like formats
+ *   2. Example.
+ *   3. Copyright and license information.
+ *   
+ * This module is responsible for i/o of both eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
  */
 #include "esl_config.h"
@@ -19,11 +24,15 @@
 #include "esl_msafile.h"
 #include "esl_msafile_clustal.h"
 
+
+/*****************************************************************
+ *# 1. API for reading/writing Clustal and Clustal-like formats
+ *****************************************************************/
+
 static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #ifdef eslAUGMENT_ALPHABET
 static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #endif
-
 
 
 /* Function:  esl_msafile_clustal_SetInmap()
@@ -31,12 +40,96 @@ static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
  *
  * Purpose:   This is a no-op; the default input map is fine for
  *            clustal, clustallike formats. (We don't allow spaces 
- 8            interior of input lines, for example.)
+ *            interior of input lines, for example.)
  */
 int
 esl_msafile_clustal_SetInmap(ESLX_MSAFILE *afp)
 {
   return eslOK;
+}
+
+
+/* Function:  esl_msafile_clustal_GuessAlphabet()
+ * Synopsis:  Guess the alphabet of an open Clustal MSA input.
+ *
+ * Purpose:   Guess the alpbabet of the sequences in open
+ *            A2M format MSA file <afp>.
+ *            
+ *            On a normal return, <*ret_type> is set to <eslDNA>,
+ *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
+ *            original position.
+ *
+ * Args:      afp      - open A2M format MSA file
+ *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslENOALPHABET> if alphabet type can't be determined.
+ *            In either case, <afp> is rewound to the position it
+ *            started at.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslESYS> on failures of fread() or other system calls
+ */
+int 
+esl_msafile_clustal_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+{
+  int       alphatype     = eslUNKNOWN;
+  esl_pos_t anchor        = -1;
+  int       threshold[3]  = { 500, 5000, 50000 }; /* we check after 500, 5000, 50000 residues; else we go to EOF */
+  int       nsteps        = 3;
+  int       step          = 0;
+  int       nres          = 0;
+  int       x;
+  int64_t   ct[26];
+  char     *p, *tok;
+  esl_pos_t n,  toklen, pos;
+  int       status;
+
+  for (x = 0; x < 26; x++) ct[x] = 0;
+
+  anchor = esl_buffer_GetOffset(afp->bf);
+  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+
+  /* Ignore the first nonblank line, which says "CLUSTAL W (1.83) multiple sequence alignment" or some such */
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  if      (status == eslEOF) ESL_XFAIL(eslENOALPHABET, afp->errmsg, "can't determine alphabet: no alignment data found");
+  else if (status != eslOK)  goto ERROR;
+  
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+    {
+      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* ignore blank lines */
+      /* p now points to the rest of the sequence line, after a name */
+      
+      /* count characters into ct[] array */
+      for (pos = 0; pos < n; pos++)
+	if (isalpha(p[pos])) {
+	  x = toupper(p[pos]) - 'A';
+	  ct[x]++;
+	  nres++; 	  
+	}
+
+      /* try to stop early, checking after 500, 5000, and 50000 residues: */
+      if (step < nsteps && nres > threshold[step]) {
+	if ((status = esl_abc_GuessAlphabet(ct, &alphatype)) == eslOK) goto DONE; /* (eslENOALPHABET) */
+	step++;
+      }
+    }
+  if (status != eslEOF) goto ERROR; /* [eslEMEM,eslESYS,eslEINCONCEIVABLE] */
+  status = esl_abc_GuessAlphabet(ct, &alphatype); /* (eslENOALPHABET) */
+
+ DONE:
+  esl_buffer_SetOffset(afp->bf, anchor);   /* Rewind to where we were. */
+  esl_buffer_RaiseAnchor(afp->bf, anchor);
+  *ret_type = alphatype;
+  return status;
+
+ ERROR:
+  if (anchor != -1) {
+    esl_buffer_SetOffset(afp->bf, anchor);
+    esl_buffer_RaiseAnchor(afp->bf, anchor);
+  }
+  *ret_type = eslUNKNOWN;
+  return status;
 }
 
 
@@ -56,12 +149,20 @@ esl_msafile_clustal_SetInmap(ESLX_MSAFILE *afp)
  *
  * Returns:   <eslOK> on success.
  * 
- *            In the event of a parse error, returns <eslEFORMAT>, and
- *            set <afp->errmsg> to an appropriately informative error
- *            message that can be shown to the user. 
+ *            <eslEOF> if no (more) alignment data are found in
+ *            <afp>, and <afp> is returned at EOF. 
  *
- *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errmsg> is blank.
+ *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
+ *            <NULL>. <afp> contains information sufficient for
+ *            constructing useful diagnostic output: 
+ *            | <afp->errmsg>       | user-directed error message     |
+ *            | <afp->linenumber>   | line # where error was detected |
+ *            | <afp->line>         | offending line (not NUL-term)   |
+ *            | <afp->n>            | length of offending line        |
+ *            | <afp->bf->filename> | name of the file                |
+ *            and <afp> is poised at the start of the following line,
+ *            so (in principle) the caller could try to resume
+ *            parsing.
  *
  * Throws:    <eslEMEM> - an allocation failed.
  *            <eslESYS> - a system call such as fread() failed
@@ -87,9 +188,6 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   int       status;
 
   afp->errmsg[0] = '\0';
-
-  /* Check the <afp>'s cache first */
-  if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);
   
 #ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
@@ -97,27 +195,23 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 
   /* skip leading blank lines in file */
-  do {   
-    if ( ( status = eslx_msafile_GetLine(afp)) != eslOK) goto ERROR;     /* EOF? return a normal EOF     */
-  } while (esl_memspn(afp->line, afp->n, " \t\r\n") == n);               /* idiomatic for "blank line"   */
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  if      (status != eslOK)  goto ERROR; /* includes normal EOF */
     
   /* That first line says something like: "CLUSTAL W (1.83) multiple sequence alignment" */
-  p = afp->line; n = afp->n;
   if (esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK)                             ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
   if (afp->format == eslMSAFILE_CLUSTAL && ! esl_memstrpfx(tok, ntok, "CLUSTAL"))  ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header"); 
   if (! esl_memstrcontains(p, n, "multiple sequence alignment"))                   ESL_XFAIL(eslEFORMAT, afp->errmsg, "missing CLUSTAL header");
 
   /* skip blank lines again */
   do {
-    status = esl_buffer_GetLine(afp->bf, &p, &n);
+    status = eslx_msafile_GetLine(afp, &p, &n);
     if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data following header");
     else if (status != eslOK) goto ERROR;
-    if (afp->linenumber != -1) afp->linenumber++;
-  } while (esl_memspn(p, n, " \t\r\n") == n); /* idiom for "blank line" */
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n); /* idiom for "blank line" */
 
   /* Read the file a line at a time. */
-  nblocks  = 0;
-  do {  /* p, n is now the first line of a block. for each line in a block of lines: */
+  do { 		/* afp->line, afp->n is now the first line of a block... */
     idx = 0;
     do {
       for (pos = 0;     pos < n; pos++) if (! isspace(p[pos])) break;  name_start = pos; 
@@ -156,23 +250,21 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       if (cur_alen - alen != seq_len) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of seq characters");
 
       /* get next line. if it's a consensus line, we're done with the block */
-      status = esl_buffer_GetLine(afp->bf, &p, &n);
+      status = eslx_msafile_GetLine(afp, &p, &n);
       if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "alignment block did not end with consensus line");
       else if (status != eslOK)  goto ERROR;
-      if (afp->linenumber != -1) afp->linenumber++;
 
       idx++;
-    } while (esl_memspn(p, n, " .:*") < n); /* end loop over a block */
+    } while (esl_memspn(afp->line, afp->n, " .:*") < afp->n); /* end loop over a block */
     
     if (idx != nseq) ESL_XFAIL(eslEFORMAT, afp->errmsg, "last block didn't contain same # of seqs as earlier blocks");
 
     /* skip blank lines until we find start of next block, or EOF */
     do {
-      status = esl_buffer_GetLine(afp->bf, &p, &n);
+      status = eslx_msafile_GetLine(afp, &p, &n);
       if      (status == eslEOF) break;
       else if (status != eslOK)  goto ERROR;
-      if (afp->linenumber != -1) afp->linenumber++;
-    } while (esl_memspn(p, n, " \t\r\n") == n); 
+    } while (esl_memspn(p, n, " \t") == n); 
     
     alen += block_seq_len;
     nblocks++;
@@ -364,7 +456,7 @@ make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 
   for (apos = 1; apos <= msa->alen; apos++)
     {
-      for (x = 0; x <= msa->abc->K+1; x++) ct[x] = 0.;
+      for (x = 0; x <= msa->abc->K; x++) ct[x] = 0.;
 
       for (i = 0; i < msa->nseq; i++)
 	esl_abc_DCount(msa->abc, ct, msa->ax[i][apos], 1.0);
@@ -420,7 +512,7 @@ make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 
 
 /*****************************************************************
- * Example.
+ * 2. Example.
  *****************************************************************/
 
 #ifdef eslMSAFILE_CLUSTAL_EXAMPLE

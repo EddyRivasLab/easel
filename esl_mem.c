@@ -615,10 +615,7 @@ main(int argc, char **argv)
   esl_getopts_Destroy(go);
   return 0;
 }
-
-
-
-#endif eslMEM_BENCHMARK
+#endif /*eslMEM_BENCHMARK*/
 /*---------------- end, benchmark driver ------------------------*/
 
 /*****************************************************************

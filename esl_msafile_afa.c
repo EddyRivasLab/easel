@@ -1,4 +1,7 @@
 /* i/o of multiple sequence alignment files in "aligned FASTA" format
+ *
+ * Contents:
+ *   1. API for reading/writing AFA format
  */
 #include "esl_config.h"
 
@@ -8,14 +11,17 @@
 #include <ctype.h>
 
 #include "easel.h"
-#include "esl_mem.h"
 #ifdef eslAUGMENT_ALPHABET
 #include "esl_alphabet.h"
 #endif
+#include "esl_mem.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_msafile_afa.h"
 
+/*****************************************************************
+ *# 1. API for reading/writing AFA format
+ *****************************************************************/
 
 /* Function:  esl_msafile_afa_SetInmap()
  * Synopsis:  Finishes configuring input map for aligned FASTA format.
@@ -30,6 +36,89 @@ esl_msafile_afa_SetInmap(ESLX_MSAFILE *afp)
   return eslOK;
 }
 
+
+/* Function:  esl_msafile_afa_GuessAlphabet()
+ * Synopsis:  Guess the alphabet of an open AFA MSA file.
+ *
+ * Purpose:   Guess the alpbabet of the sequences in open
+ *            AFA format MSA file <afp>.
+ *            
+ *            On a normal return, <*ret_type> is set to <eslDNA>,
+ *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
+ *            original position.
+ *
+ * Args:      afp      - open AFA format MSA file
+ *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslENOALPHABET> if alphabet type can't be determined.
+ *            In either case, <afp> is rewound to the position it
+ *            started at.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslESYS> on failures of fread() or other system calls
+ *            
+ * Note:      Essentially identical to <esl_msafile_a2m_GuessAlphabet()>,
+ *            but we provide both versions because design calls for
+ *            modularity/separability of parsers.
+ */
+int
+esl_msafile_afa_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
+{
+  int       alphatype     = eslUNKNOWN;
+  esl_pos_t anchor        = -1;
+  int       threshold[3]  = { 500, 5000, 50000 }; /* we check after 500, 5000, 50000 residues; else we go to EOF */
+  int       nsteps        = 3;
+  int       step          = 0;
+  int       nres          = 0;
+  int       x;
+  int64_t   ct[26];
+  char     *p;
+  esl_pos_t n, pos;
+  int       status;
+
+  for (x = 0; x < 26; x++) ct[x] = 0;
+
+  anchor = esl_buffer_GetOffset(afp->bf);
+  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
+    {
+      while (n && isspace(*p)) { p++; n--; }
+      if    (!n || *p == '>') continue;
+
+      for (pos = 0; pos < n; pos++)
+	if (isalpha(p[pos])) {
+	  x = toupper(p[pos]) - 'A'; 
+	  ct[x]++;
+	  nres++;
+	}
+
+      /* try to stop early, checking after 500, 5000, and 50000 residues: */
+      if (step < nsteps && nres > threshold[step]) {
+	if ((status = esl_abc_GuessAlphabet(ct, &alphatype)) == eslOK) goto DONE; /* (eslENOALPHABET) */
+	step++;
+      }
+    }
+  if (status != eslEOF) goto ERROR; /* [eslEMEM,eslESYS,eslEINCONCEIVABLE] */
+  status = esl_abc_GuessAlphabet(ct, &alphatype); /* (eslENOALPHABET) */
+
+  /* deliberate flowthrough...*/
+ DONE:
+  esl_buffer_SetOffset(afp->bf, anchor);   /* Rewind to where we were. */
+  esl_buffer_RaiseAnchor(afp->bf, anchor);
+  *ret_type = alphatype;
+  return status;
+
+ ERROR:
+  if (anchor != -1) {
+    esl_buffer_SetOffset(afp->bf, anchor);
+    esl_buffer_RaiseAnchor(afp->bf, anchor);
+  }
+  *ret_type = eslUNKNOWN;
+  return status;
+}
+
 /* Function:  esl_msafile_afa_Read()
  * Synopsis:  Read in an aligned FASTA format alignment.
  *
@@ -42,18 +131,29 @@ esl_msafile_afa_SetInmap(ESLX_MSAFILE *afp)
  * Args:      afp     - open <ESL_MSAFILE>
  *            ret_msa - RETURN: newly parsed <ESL_MSA>
  *
- * Returns:   <eslOK> on success.
- * 
- *            In the event of a parse error, returns <eslEFORMAT>, and
- *            set <afp->errmsg> to an appropriately informative error
- *            message that can be shown to the user. 
+ * Returns:   <eslOK> on success. <*ret_msa> is set to the newly
+ *            allocated MSA, and <afp> is at EOF.
  *
- *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errmsg> is blank.
+ *            <eslEOF> if no (more) alignment data are found in
+ *            <afp>;, and <afp> is returned at EOF. 
  *
+ *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
+ *            <NULL>. <afp> contains information sufficient for
+ *            constructing useful diagnostic output: 
+ *            | <afp->errmsg>       | user-directed error message     |
+ *            | <afp->linenumber>   | line # where error was detected |
+ *            | <afp->line>         | offending line (not NUL-term)   |
+ *            | <afp->n>            | length of offending line        |
+ *            | <afp->bf->filename> | name of the file                |
+ *            and <afp> is poised at the start of the following line,
+ *            so (in principle) the caller could try to resume
+ *            parsing.
+ *            
  * Throws:    <eslEMEM> - an allocation failed.
  *            <eslESYS> - a system call such as fread() failed
  *            <eslEINCONCEIVABLE> - "impossible" corruption 
+ *            On these, <*ret_msa> is returned <NULL>, and the state of
+ *            <afp> is undefined.
  */
 int
 esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
@@ -67,17 +167,20 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   int       status;
 
   afp->errmsg[0] = '\0';	                                  /* Blank the error message. */
-  if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);  /* Check the <afp>'s cache first */
 
+#ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
+#endif
   if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
   
-  do {   /* skip leading blank lines until we see a > name/desc line */ 
-    if ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) != eslOK) goto ERROR; /* includes EOF */
-    if (afp->linenumber != -1) afp->linenumber++;
-  } while (esl_memspn(p, n, " \t\r\n") == n); /* idiomatic for "blank line" */
-  while (n && isspace(*p)) { p++; n--; }     /* tolerate sloppy space at line start*/
+  /* skip leading blank lines in file */
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  if      (status != eslOK)  goto ERROR; /* includes normal EOF */
 
+  /* tolerate sloppy space at start of line */
+  while (n && isspace(*p)) { p++; n--; }    
+  if (*p != '>') ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected aligned FASTA name/desc line starting with >");    
+ 
   do {
     if (n <= 1 || *p != '>' ) ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected aligned FASTA name/desc line starting with >");    
     p++; n--;			/* advance past > */
@@ -95,11 +198,10 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
      * test on PF00005 Full)
      */
     this_alen = 0;
-    while ((status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
+    while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
       {
-	if (afp->linenumber != -1) afp->linenumber++;
-	while (n && isspace(*p)) { p++; n--; } /* skip leading whitespace on line */
-	if (n  == 0)   continue;
+	while (n && isspace(*p)) { p++; n--; } /* tolerate and skip leading whitespace on line */
+	if (n  == 0)   continue;	       /* tolerate and skip blank lines */
 	if (*p == '>') break;
 
 #ifdef eslAUGMENT_ALPHABET

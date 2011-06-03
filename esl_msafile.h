@@ -26,9 +26,8 @@ typedef struct {
   int32_t             format;	      /* format of alignment file we're reading                */
   ESL_DSQ             inmap[128];     /* input map, 0..127                                     */
   const ESL_ALPHABET *abc;	      /* non-NULL if augmented and in digital mode             */
-  ESL_SSI            *ssi;	      /* open SSI index file; or NULL, if none or not augmented*/
-  ESL_MSA            *msa_cache;      /* NULL, or an msa that's been cached by GuessAlphabet() */
-  char     errmsg[eslERRBUFSIZE];     /* user-directed error message, for normal errors        */
+  ESL_SSI            *ssi;	      /* open SSI index; or NULL, if none or not augmented     */
+  char                errmsg[eslERRBUFSIZE];   /* user-directed message for normal errors      */
 } ESLX_MSAFILE;
 
 
@@ -51,6 +50,8 @@ typedef struct {
 
 /* 1. Opening/closing an ESLX_MSAFILE */
 extern int   eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE **ret_afp);
 extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
 extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
 
@@ -67,17 +68,17 @@ extern int eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type);
 /* 4. Reading an MSA from an ESLX_MSAFILE */
 extern int  eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
 extern void eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status);
-extern int  eslx_msafile_Decache(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
 
 /* 5. Writing an MSA to a stream */
 extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
 
 /* 6. Utilities for specific parsers */
-extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp);
+extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
 
-
+#include "esl_msafile_a2m.h"
 #include "esl_msafile_afa.h"
 #include "esl_msafile_clustal.h"
+#include "esl_msafile_psiblast.h"
 #include "esl_msafile_selex.h"
 #include "esl_msafile_stockholm.h"
 #endif /*eslMSAFILE_INCLUDED*/

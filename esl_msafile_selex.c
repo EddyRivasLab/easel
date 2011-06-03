@@ -67,6 +67,7 @@ static int selex_first_block (ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **r
 static int selex_other_block (ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa);
 static int selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa);
 
+
 /*****************************************************************
  * 1. API for reading/writing SELEX input
  *****************************************************************/
@@ -95,97 +96,82 @@ esl_msafile_selex_SetInmap(ESLX_MSAFILE *afp)
   return eslOK;
 }
 
-/* Function:  esl_msafile_selex_CheckFileFormat()
- * Synopsis:  Checks whether an input source appears to be in SELEX format.
+
+/* Function:  esl_msafile_selex_GuessAlphabet()
+ * Synopsis:  Guess the alphabet of an open PSI-BLAST MSA file.
  *
- * Purpose:   Check whether the input source <bf> appears to be a 
- *            SELEX-format alignment file, starting from the current point,
- *            to the end of the input. Return <eslOK> if so, <eslFAIL>
- *            if not.
+ * Purpose:   Guess the alpbabet of the sequences in open
+ *            SELEX format MSA file <afp>.
  *            
- *            This is a SELEX-specific plugin for <esl_msafile_GuessFormat()>.
+ *            On a normal return, <*ret_type> is set to <eslDNA>,
+ *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
+ *            original position.
+ *
+ * Args:      afp      - open SELEX format MSA file
+ *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslENOALPHABET> if alphabet type can't be determined.
+ *            In either case, <afp> is rewound to the position it
+ *            started at.
  */
 int
-esl_msafile_selex_CheckFileFormat(ESL_BUFFER *bf)
+esl_msafile_selex_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 {
-  esl_pos_t start_offset = -1;
-  int       block_nseq   = 0;	 /* Number of seqs in each block is checked     */
-  int       nseq         = 0;
-  esl_pos_t block_nres   = 0;	 /* Number of residues in each line is checked  */
-  char     *firstname    = NULL; /* First seq name of every block is checked    */
-  esl_pos_t namelen      = 0;
-  int       blockidx     = 0;
-  int       in_block     = FALSE;
+  int       alphatype     = eslUNKNOWN;
+  esl_pos_t anchor        = -1;
+  int       threshold[3]  = { 500, 5000, 50000 }; /* we check after 500, 5000, 50000 residues; else we go to EOF */
+  int       nsteps        = 3;
+  int       step          = 0;
+  int       nres          = 0;
+  int       x;
+  int64_t   ct[26];
   char     *p, *tok;
-  esl_pos_t n,  toklen;
+  esl_pos_t n,  toklen, pos;
   int       status;
 
-  /* Anchor at the start of the input, so we can rewind */
-  start_offset = esl_buffer_GetOffset(bf);
-  if ( (status = esl_buffer_SetAnchor(bf, start_offset)) != eslOK) goto ERROR;
+  for (x = 0; x < 26; x++) ct[x] = 0;
 
-  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
+  anchor = esl_buffer_GetOffset(afp->bf);
+  if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
     {
-      /* Some automatic giveaways of SELEX format */
-      if (esl_memstrpfx(p, n, "#=RF")) { status = eslOK; goto DONE; }
-      if (esl_memstrpfx(p, n, "#=CS")) { status = eslOK; goto DONE; }
-      if (esl_memstrpfx(p, n, "#=SS")) { status = eslOK; goto DONE; }
-      if (esl_memstrpfx(p, n, "#=SA")) { status = eslOK; goto DONE; }
+      if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* blank lines */
+      if (*tok == '#') continue; /* comments and annotation */
+      /* p now points to the rest of the sequence line, after a name */
       
-      /* skip comments */
-      if (esl_memstrpfx(p, n, "#"))    continue;
-      
-      /* blank lines: end block, reset block counters */
-      if (esl_memspn(p, n, " \t\r\n") == n)
-	{
-	  if (nseq && block_nseq != nseq) { status = eslFAIL; goto DONE;} /* each block has same # of seqs */
-	  if (in_block) blockidx++;
-	  if (blockidx >= 3) { status = eslOK; goto DONE; } /* stop after three blocks; we're pretty sure by now */
-	  in_block   = FALSE;
-	  block_nres = 0;
-	  block_nseq = nseq;
-	  nseq       = 0;
-	  continue;
+      /* count characters into ct[] array */
+      for (pos = 0; pos < n; pos++)
+	if (isalpha(p[pos])) {
+	  x = toupper(p[pos]) - 'A';
+	  ct[x]++; 
+	  nres++; 
 	}
 
-      /* else we're a "sequence" line. test for two and only two non-whitespace
-       * fields; test that second field has same length; test that each block
-       * starts with the same seq name..
-       */
-      in_block = TRUE;
-      if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) goto ERROR; /* there's at least one token - we already checked for blank lines */
-      if (nseq == 0)	/* check first seq name in each block */
-	{
-	  if (blockidx == 0) { firstname = tok; namelen = toklen; } /* First block: set the name we check against. */
-	  else if (toklen != namelen || memcmp(tok, firstname, toklen) != 0) { status = eslFAIL; goto DONE; } /* Subsequent blocks */
-	}
-      if (esl_memtok(&p, &n, " \t", &tok, &toklen) != eslOK) { status = eslFAIL; goto DONE; }
-      if (block_nres && toklen != block_nres)                { status = eslFAIL; goto DONE; }
-      block_nres = toklen;
-      if (esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK) { status = eslFAIL; goto DONE; }
-      nseq++;
+      /* try to stop early, checking after 500, 5000, and 50000 residues: */
+      if (step < nsteps && nres > threshold[step]) {
+	if ((status = esl_abc_GuessAlphabet(ct, &alphatype)) == eslOK) goto DONE; /* (eslENOALPHABET) */
+	step++;
+      }
     }
-  if (status != eslEOF) goto ERROR;  /* EOF is expected and good; anything else is bad */
+  if (status != eslEOF) goto ERROR; /* [eslEMEM,eslESYS,eslEINCONCEIVABLE] */
+  status = esl_abc_GuessAlphabet(ct, &alphatype); /* (eslENOALPHABET) */
 
-  if (in_block) blockidx++; 
-  if (! blockidx) status = eslFAIL;
-  
  DONE:
-  if (start_offset != -1) { 
-    if (esl_buffer_SetOffset(bf, start_offset)   != eslOK) goto ERROR;
-    if (esl_buffer_RaiseAnchor(bf, start_offset) != eslOK) goto ERROR;
-    start_offset = -1;
-  }
+  esl_buffer_SetOffset(afp->bf, anchor);   /* Rewind to where we were. */
+  esl_buffer_RaiseAnchor(afp->bf, anchor);
+  *ret_type = alphatype;
   return status;
 
  ERROR:
-  if (start_offset != -1) { 
-    esl_buffer_SetOffset(bf, start_offset);
-    esl_buffer_RaiseAnchor(bf, start_offset);
+  if (anchor != -1) {
+    esl_buffer_SetOffset(afp->bf, anchor);
+    esl_buffer_RaiseAnchor(afp->bf, anchor);
   }
+  *ret_type = eslUNKNOWN;
   return status;
 }
-
 
 
 /* Function:  esl_msafile_selex_Read()
@@ -204,12 +190,20 @@ esl_msafile_selex_CheckFileFormat(ESL_BUFFER *bf)
  *
  * Returns:   <eslOK> on success.
  * 
- *            In the event of a parse error, returns <eslEFORMAT>, and
- *            set <afp->errmsg> to an appropriately informative error
- *            message that can be shown to the user. 
+ *            <eslEOF> if no (more) alignment data are found in
+ *            <afp>, and <afp> is returned at EOF. 
  *
- *            If no alignment is found at all, returns <eslEOF>,
- *            and <afp->errmsg> is blank.
+ *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
+ *            <NULL>. <afp> contains information sufficient for
+ *            constructing useful diagnostic output: 
+ *            | <afp->errmsg>       | user-directed error message     |
+ *            | <afp->linenumber>   | line # where error was detected |
+ *            | <afp->line>         | offending line (not NUL-term)   |
+ *            | <afp->n>            | length of offending line        |
+ *            | <afp->bf->filename> | name of the file                |
+ *            and <afp> is poised at the start of the following line,
+ *            so (in principle) the caller could try to resume
+ *            parsing.
  *
  * Throws:    <eslEMEM> - an allocation failed.
  *            <eslESYS> - a system call such as fread() failed
@@ -224,9 +218,6 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   int              status;
 
   afp->errmsg[0] = '\0';
-
-  /* Check the <afp>'s cache first */
-  if (afp->msa_cache) return eslx_msafile_Decache(afp, ret_msa);
 
   while ( (status = selex_read_block(afp, &b)) == eslOK)
     {
@@ -465,8 +456,8 @@ selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
    * EOF, we're done.
    */
   do { 
-    if ( ( status = eslx_msafile_GetLine(afp)) != eslOK) goto ERROR;                               /* EOF here is a normal EOF   */
-  } while (esl_memspn(afp->line, afp->n, " \t\r\n") == afp->n ||                                   /* idiomatic for "blank line" */
+    if ( ( status = eslx_msafile_GetLine(afp, NULL, NULL)) != eslOK) goto ERROR;                   /* EOF here is a normal EOF   */
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n ||                                       /* idiomatic for "blank line" */
 	   (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));   /* a SELEX comment line       */
 
   /* if this is first block, allocate block; subsequent blocks reuse it */
@@ -488,10 +479,10 @@ selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
     
     /* Get next non-comment line; this can be next line of block, blank (end of block), or EOF. */
     do { 
-      status = eslx_msafile_GetLine(afp); 
+      status = eslx_msafile_GetLine(afp, NULL, NULL); 
     } while ( status == eslOK && (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));
 
-  } while (status == eslOK && esl_memspn(afp->line, afp->n, " \t\r\n") < afp->n); /* end of block on EOF or blank line */
+  } while (status == eslOK && esl_memspn(afp->line, afp->n, " \t") < afp->n); /* end of block on EOF or blank line */
   
   if (*block_p && b->nlines != idx) 
     ESL_XFAIL(eslEFORMAT, afp->errmsg, "expected %d lines in block, saw %d", b->nlines, idx);

@@ -1077,8 +1077,8 @@ int
 esl_msa_SetAuthor(ESL_MSA *msa, const char *s, esl_pos_t n)
 {
   if (msa->au) free(msa->au);
-  if (n > 0) return esl_memstrdup(s,  n, &(msa->acc)); 
-  else       return esl_strdup(   s, -1, &(msa->acc)); 
+  if (n > 0) return esl_memstrdup(s,  n, &(msa->au)); 
+  else       return esl_strdup(   s, -1, &(msa->au)); 
 }
 
 

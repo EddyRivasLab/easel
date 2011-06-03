@@ -1193,6 +1193,32 @@ esl_str_IsReal(char *s)
   if (*s == '\0' && gotreal) return TRUE;
   else return FALSE;
 }
+
+
+/* Function:  esl_str_GetMaxWidth()
+ * Synopsis:  Returns maximum strlen() in an array of strings.
+ *
+ * Purpose:   Returns the length of the longest string in 
+ *            an array of <n> strings <s[0..n-1]>. If <n=0>,
+ *            returns 0. Any <s[i]> that's <NULL> is counted
+ *            as zero length.
+ */
+int64_t
+esl_str_GetMaxWidth(char **s, int n)
+{
+  int64_t max = 0;
+  int64_t len;
+  int     i; 
+  
+  for (i = 0; i < n; i++)
+    if (s[i]) {
+      len = strlen(s[i]);
+      if (len > max) max = len;
+    }
+  return max;
+}
+
+
 /*-------------- end, additional string functions ---------------*/
 
 
@@ -1314,7 +1340,7 @@ esl_file_Extension(char *filename, esl_pos_t n_ignore, char **ret_sfx, esl_pos_t
     { *ret_sfx = NULL; *ret_n = 0; return eslFAIL; }
 
   *ret_sfx = filename + n2 - 1; 
-  *ret_n   = n1-n2; 
+  *ret_n   = n1-n2+1; 
   return eslOK; 
 }
 

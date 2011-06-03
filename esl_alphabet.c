@@ -930,6 +930,7 @@ esl_abc_dsqcat_noalloc(const ESL_DSQ *inmap, ESL_DSQ *dsq, int64_t *L, const cha
   for (xpos = *L+1, cpos = 0; cpos < n; cpos++)
     {
       x = inmap[(int) s[cpos]];
+
       if       (x <= 127)      dsq[xpos++] = x;
       else switch (x) {
 	case eslDSQ_SENTINEL:  ESL_EXCEPTION(eslEINCONCEIVABLE, "input char mapped to eslDSQ_SENTINEL"); break;
@@ -940,7 +941,6 @@ esl_abc_dsqcat_noalloc(const ESL_DSQ *inmap, ESL_DSQ *dsq, int64_t *L, const cha
 	default:               ESL_EXCEPTION(eslEINCONCEIVABLE, "bad inmap, no such ESL_DSQ code");      break;
 	}
     }
-
   dsq[xpos] = eslDSQ_SENTINEL;
   *L = xpos-1;
   return status;
