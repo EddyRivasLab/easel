@@ -2,6 +2,10 @@
  *
  * Contents:
  *   1. API for reading/writing AFA format
+ *   2. Unit tests.
+ *   3. Test driver.
+ *   4. Example.
+ *   5. License and copyright.
  */
 #include "esl_config.h"
 
@@ -24,14 +28,36 @@
  *****************************************************************/
 
 /* Function:  esl_msafile_afa_SetInmap()
- * Synopsis:  Finishes configuring input map for aligned FASTA format.
+ * Synopsis:  Set input map for aligned FASTA format.
  *
- * Purpose:   We tolerate spaces in input lines of aligned FASTA format;
+ * Purpose:   Set the <afp->inmap> for aligned FASTA format.
+ *
+ *            Text mode accepts any <isgraph()> character. 
+ *            Digital mode enforces the usual Easel alphabets.
+ * 
+ *            We skip spaces in input lines of aligned FASTA format;
  *            map ' ' to <eslDSQ_IGNORED>.
  */
 int
 esl_msafile_afa_SetInmap(ESLX_MSAFILE *afp)
 {
+  int sym;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->abc)
+    {
+      for (sym = 0; sym < 128; sym++) 
+	afp->inmap[sym] = afp->abc->inmap[sym];
+      afp->inmap[0] = esl_abc_XGetUnknown(afp->abc);
+    }
+#endif
+  if (! afp->abc)
+    {
+      for (sym = 1; sym < 128; sym++) 
+	afp->inmap[sym] = (isgraph(sym) ? sym : eslDSQ_ILLEGAL);
+      afp->inmap[0]   = '?';
+    }
+
   afp->inmap[' '] = eslDSQ_IGNORED;
   return eslOK;
 }
@@ -276,6 +302,242 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
     } 
   return eslOK;
 }
+
+/*****************************************************************
+ * 2. Unit tests.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_AFA_TESTDRIVE
+static void
+write_test_msas(FILE *ofp1, FILE *ofp2)
+{
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, ">seq1    description line for seq1\n");
+  fprintf(ofp1, "..acdefghiklmnpqrstvwy\n");
+  fprintf(ofp1, "ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, ">seq2 description line for seq2\n");
+  fprintf(ofp1, "..acdefghiklmnpqrstv--\n");
+  fprintf(ofp1, "ACDEFGHIKLMNPQRSTVWYyy\n");
+  fprintf(ofp1, "  >seq3\n");
+  fprintf(ofp1, "aaacdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp1, ">seq4\n");
+  fprintf(ofp1, "..acdefghiklm\n");
+  fprintf(ofp1, "npqrstvwyACDE\n");
+  fprintf(ofp1, "FGHIKLMNPQRSTVWY..\n");
+
+  fprintf(ofp2, "# STOCKHOLM 1.0\n");
+  fprintf(ofp2, "\n");
+  fprintf(ofp2, "#=GS seq1 DE description line for seq1\n");
+  fprintf(ofp2, "#=GS seq2 DE description line for seq2\n");
+  fprintf(ofp2, "\n");
+  fprintf(ofp2, "seq1    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq2    ..acdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWYyy\n");
+  fprintf(ofp2, "seq3    aaacdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq4    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "//\n");
+}
+
+static void
+read_test_msas_digital(char *afafile, char *stkfile)
+{
+  char msg[]         = "aligned FASTA msa digital read unit test failed";
+  ESL_ALPHABET *abc  = NULL;
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *afafp, *stkfp;
+  char          afafile2[32] = "esltmpafa2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  if ( eslx_msafile_Open(&abc, afafile, eslMSAFILE_AFA,       NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( !abc || abc->type != eslAMINO)                                                 esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa1)                             != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                             != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                         != eslOK)  esl_fatal(msg);
+
+  if ( esl_msafile_a2m_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                             != eslEOF) esl_fatal(msg);
+
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  /* Now write stk to afa file, and vice versa; then retest */
+  if ( esl_tmpfile_named(afafile2, &afafp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_afa_Write      (afafp, msa2)                             != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)       != eslOK) esl_fatal(msg);
+  fclose(afafp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(&abc, afafile2, eslMSAFILE_AFA,       NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa3)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+
+  remove(afafile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
+read_test_msas_text(char *afafile, char *stkfile)
+{
+  char msg[]         = "aligned FASTA msa text-mode read unit test failed";
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *afafp, *stkfp;
+  char          afafile2[32] = "esltmpafa2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  /*                     vvvv-- everything's the same as the digital utest except these NULLs  */
+  if ( eslx_msafile_Open(NULL, afafile, eslMSAFILE_AFA,       NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa1)                             != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                             != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                         != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                             != eslEOF) esl_fatal(msg);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  if ( esl_tmpfile_named(afafile2, &afafp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_afa_Write      (afafp, msa2)                             != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)       != eslOK) esl_fatal(msg);
+  fclose(afafp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(NULL, afafile2, eslMSAFILE_AFA,       NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa3)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+
+  remove(afafile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+}
+#endif /*eslMSAFILE_AFA_TESTDRIVE*/
+/*---------------------- end, unit tests ------------------------*/
+
+
+/*****************************************************************
+ * 3. Test driver.
+ *****************************************************************/
+#ifdef eslMSAFILE_AFA_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_afa_utest -DeslMSAFILE_AFA_TESTDRIVE esl_msafile_afa.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_afa_utest -DeslMSAFILE_AFA_TESTDRIVE esl_msafile_afa.c -leasel -lm
+ * run:     ./esl_msafile_afa_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+#include "esl_msafile_afa.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for AFA MSA format module";
+
+int
+main(int argc, char **argv)
+{
+  char            msg[]        = "aligned FASTA MSA i/o module test driver failed";
+  ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng          = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose   = esl_opt_GetBoolean(go, "-v");
+  char            afafile[32] = "esltmpafaXXXXXX";
+  char            stkfile[32] = "esltmpstkXXXXXX";
+  FILE           *afafp, *stkfp;
+  int             status;
+
+  if ( esl_tmpfile_named(afafile, &afafp) != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
+  write_test_msas(afafp, stkfp);
+  fclose(afafp);
+  fclose(stkfp);
+
+  read_test_msas_digital(afafile, stkfile);
+  read_test_msas_text   (afafile, stkfile);
+
+  remove(afafile);
+  remove(stkfile);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return 0;
+}
+#endif /*eslMSAFILE_AFA_TESTDRIVE*/
+/*--------------------- end, test driver ------------------------*/
+
+
+
+/*****************************************************************
+ * 4. Example.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_AFA_EXAMPLE
+/*::cexcerpt::msafile_afa_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_afa.h"
+
+int 
+main(int argc, char **argv)
+{
+  char         *filename = argv[1];
+  int           fmt      = eslMSAFILE_AFA;
+  ESLX_MSAFILE *afp      = NULL;
+  ESL_MSA      *msa      = NULL;
+  int           status;
+
+  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
+    eslx_msafile_OpenFailure(afp, status);
+
+  if ( (status = esl_msafile_afa_Read(afp, &msa))         != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+
+  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
+	 1, msa->name, msa->nseq, (int) msa->alen);
+
+  esl_msafile_afa_Write(stdout, msa);
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+  exit(0);
+}
+/*::cexcerpt::msafile_afa_example::end::*/
+#endif /*eslMSAFILE_AFA_EXAMPLE*/
+/*--------------------- end of example --------------------------*/
+
+
+
 
 /*****************************************************************
  * @LICENSE@

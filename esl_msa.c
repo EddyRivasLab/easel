@@ -7299,10 +7299,13 @@ main(int argc, char **argv)
 
 static ESL_OPTIONS options[] = {
   /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
-  { "--dna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                        0 },
-  { "--rna",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                        0 },
-  { "--amino",   eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                    0 },
+  { "-h",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-i",          eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show info, instead of converting format",     0 },
+  { "--informat",  eslARG_STRING,   NULL, NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
+  { "--outformat", eslARG_STRING, "Stockholm",NULL,NULL,NULL, NULL, NULL, "write the output MSA in format <s>",          0 }, 
+  { "--dna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--rna",       eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
@@ -7313,16 +7316,26 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS  *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
   char         *msafile   = esl_opt_GetArg(go, 1);
-  int           fmt       = eslMSAFILE_UNKNOWN;
+  int           infmt     = eslMSAFILE_UNKNOWN;
+  int           outfmt    = eslMSAFILE_UNKNOWN;
   int           alphatype = eslUNKNOWN;
   ESL_ALPHABET *abc       = NULL;
   ESL_MSAFILE  *afp       = NULL;
   ESL_MSA      *msa       = NULL;
   int           nali      = 0;
+  int           showinfo  = esl_opt_GetBoolean(go, "-i");
   int           status;
 
+  if (esl_opt_IsOn(go, "--informat") &&
+      (infmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+    esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
+
+  outfmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+  if (outfmt == eslMSAFILE_UNKNOWN) 
+    esl_fatal("%s is not a valid MSA file format for --outformat", esl_opt_GetString(go, "--outformat"));
+
   /* First you open the msa file in normal text mode */
-  status = esl_msafile_Open(msafile, fmt, NULL, &afp);
+  status = esl_msafile_Open(msafile, infmt, NULL, &afp);
   if      (status == eslENOTFOUND) esl_fatal("Alignment file %s isn't readable", msafile);
   else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of %s",  msafile);
   else if (status != eslOK)        esl_fatal("Alignment file open failed (error code %d)", status);
@@ -7350,9 +7363,10 @@ main(int argc, char **argv)
   while ((status = esl_msa_Read(afp, &msa)) == eslOK)
     {
       nali++;
-      printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	     nali, msa->name, msa->nseq, msa->alen);
-      esl_msa_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+
+      if (showinfo) printf("alignment %5d: %15s: %6d seqs, %5d columns\n", nali, msa->name, msa->nseq, (int) msa->alen);
+      else          esl_msa_Write(stdout, msa, outfmt);
+
       esl_msa_Destroy(msa);
     }
   if      (status == eslEFORMAT) esl_fatal("alignment file %s: %s\n", afp->fname, afp->errbuf);

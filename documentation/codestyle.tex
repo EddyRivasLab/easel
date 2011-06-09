@@ -1464,18 +1464,19 @@ valgrind testing for all Easel modules. To run it:
 We use \emcode{gcov} to measure code coverage of our unit
 testing. \emcode{gcov} works best with unoptimized code.  The code
 must be compiled with \emcode{gcc} and it needs to be compiled with
-\ccode{-fprofile-arcs -ftest-coverage}. An example:
+\ccode{-fprofile-arcs -ftest-coverage}. The configure script knows
+about this: give it the \ccode{--enable-gcov} option. An example:
 
 \begin{cchunk}
   % make distclean
-  % ./configure --enable-debugging
-  % make
-  % gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_buffer_utest -DeslBUFFER_TESTDRIVE esl_buffer.c -leasel -lm
+  % ./configure --enable-gcov
+  % make esl_buffer_utest
   % ./esl_buffer_utest
   % gcov esl_buffer.c
   File 'esl_buffer.c'
   Lines executed:73.85% of 589
   esl_buffer.c:creating 'esl_buffer.c.gcov'
+  % emacs esl_buffer.c.gcov
 \end{cchunk}
 
 The file \ccode{esl\_buffer.c.gcov} contains an annotated source listing

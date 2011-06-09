@@ -4,7 +4,10 @@
  *   1. API for reading/writing SELEX input.
  *   2. Internal functions for a block of input lines.
  *   3. Internal functions for parsing SELEX input.
- *   4. License and copyright.
+ *   4. Unit tests.
+ *   5. Test driver.
+ *   6. Example.
+ *   7. License and copyright.
  *   
  * Notes:
  *   In SELEX, a tricky and unusual issue is that spaces are allowed
@@ -73,13 +76,19 @@ static int selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *ms
  *****************************************************************/
 
 /* Function:  esl_msafile_selex_SetInmap()
- * Synopsis:  Finishes configuring input map for SELEX format
+ * Synopsis:  Set the input map for SELEX format
  *
- * Purpose:   SELEX not only tolerates spaces in input, it
+ * Purpose:   Set <afp->inmap> for selex input.
+ *
+ *            In text mode, accept any <isgraph()> character, plus space.
+ *            In digital mode, accept standard Easel alphabets, plus map
+ *            space to gap.
+ *
+ *            SELEX not only tolerates spaces in input, it
  *            allows a space as a gap character. (Which significantly
  *            complicates parsing.)
  *            
- *            The inmap may not contain <eslDSQ_IGNORED> mappings.
+ *            The inmap may not contain any <eslDSQ_IGNORED> mappings.
  *            Annotation lines are parsed literally: every character
  *            is copied. If some characters of the aligned sequence
  *            were ignored, we'd be misaligned with the annotation.
@@ -89,10 +98,24 @@ static int selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *ms
 int
 esl_msafile_selex_SetInmap(ESLX_MSAFILE *afp)
 {
+  int sym;
+
 #ifdef eslAUGMENT_ALPHABET
-  if (  afp->abc) afp->inmap[' '] = esl_abc_XGetGap(afp->abc);
+  if (afp->abc)
+    {
+      for (sym = 0; sym < 128; sym++) 
+	afp->inmap[sym] = afp->abc->inmap[sym];
+      afp->inmap[0]   = esl_abc_XGetUnknown(afp->abc);
+      afp->inmap[' '] = esl_abc_XGetGap(afp->abc);
+    }
 #endif
-  if (! afp->abc) afp->inmap[' '] = '.';   /* Easel does not allow spaces as gap characters. */
+  if (! afp->abc)
+    {
+      for (sym = 1; sym < 128; sym++) 
+	afp->inmap[sym] = (isgraph(sym) ? sym : eslDSQ_ILLEGAL);
+      afp->inmap[0]   = '?';
+      afp->inmap[' '] = '.'; /* Easel does not allow spaces as gap characters. */
+    }
   return eslOK;
 }
 
@@ -658,6 +681,7 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
 	  if (msa->abc)
 	    {			/* digital sequence append - mapped, preallocated */
 	      ESL_REALLOC(msa->ax[seqi],   sizeof(ESL_DSQ) * (msa->alen + nadd + 2)); 
+	      if (msa->alen == 0) msa->ax[seqi][0] = eslDSQ_SENTINEL;
 	      for (alen = msa->alen; alen < msa->alen+nleft;  alen++) msa->ax[seqi][alen+1] = esl_abc_XGetGap(msa->abc);
 
 	      status = esl_abc_dsqcat_noalloc(afp->inmap, msa->ax[seqi], &alen, b->line[idx] + b->lpos[idx], ntext);
@@ -704,6 +728,248 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
   return status;
 }    
     
+
+/*****************************************************************
+ * 4. Unit tests.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_SELEX_TESTDRIVE
+static void
+write_test_msas(FILE *ofp1, FILE *ofp2)
+{
+  fprintf(ofp1, "# selex comments ignored \n");
+  fprintf(ofp1, "#=RF ..xxxxxxxxxxxxxxxxxxxx\n");
+  fprintf(ofp1, "seq1 ..acdefghiklmnpqrstvwy\n");
+  fprintf(ofp1, "seq2 ..acdefghiklmnpqrstv--\n");
+  fprintf(ofp1, "seq3 aaacdefghiklmnpqrstv--\n");
+  fprintf(ofp1, "# selex comments ignored \n");
+  fprintf(ofp1, "seq4 ..acdefghiklmnpqrstvwy\n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "#=RF xxxxxxxxxxxxxxxxxxxx..\n");
+  fprintf(ofp1, "seq1 ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp1, "seq2 ACDEFGHIKLMNPQRSTVWYYY\n");
+  fprintf(ofp1, "seq3 ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp1, "seq4 ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp1, "\n");
+
+  fprintf(ofp2, "# STOCKHOLM 1.0\n");
+  fprintf(ofp2, "\n");
+  fprintf(ofp2, "#=GC RF ..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..\n");
+  fprintf(ofp2, "seq1    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq2    ..acdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWYYY\n");
+  fprintf(ofp2, "seq3    aaacdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq4    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "//\n");
+}
+
+static void
+read_test_msas_digital(char *slxfile, char *stkfile)
+{
+  char msg[]         = "SELEX msa digital read unit test failed";
+  ESL_ALPHABET *abc  = NULL;
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *slxfp, *stkfp;
+  char          slxfile2[32]  = "esltmpslx2XXXXXX";
+  char          stkfile2[32]  = "esltmpstk2XXXXXX";
+
+  if ( eslx_msafile_Open(&abc, slxfile, eslMSAFILE_SELEX,     NULL, &afp1)   != eslOK)  esl_fatal(msg);
+  if ( !abc || abc->type != eslAMINO)                                                   esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2)   != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_selex_Read    (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  
+  if ( esl_msafile_selex_Read    (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  /* Now write stk to selex file, and vice versa; then retest */
+  if ( esl_tmpfile_named(slxfile2, &slxfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_selex_Write    (slxfp, msa2)                             != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)       != eslOK) esl_fatal(msg);
+  fclose(slxfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(&abc, slxfile2, eslMSAFILE_SELEX,     NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_selex_Read    (afp1, &msa3)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+
+  remove(slxfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
+read_test_msas_text(char *slxfile, char *stkfile)
+{
+  char msg[]         = "SELEX msa text-mode read unit test failed";
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *slxfp, *stkfp;
+  char          slxfile2[32]  = "esltmpslx2XXXXXX";
+  char          stkfile2[32]  = "esltmpstk2XXXXXX";
+
+  /*                     vvvv-- everything's the same as the digital utest except these NULLs  */
+  if ( eslx_msafile_Open(NULL, slxfile, eslMSAFILE_SELEX,     NULL, &afp1)   != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2)   != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_selex_Read    (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_selex_Read    (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  if ( esl_tmpfile_named(slxfile2, &slxfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_msafile_selex_Write    (slxfp, msa2)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)        != eslOK) esl_fatal(msg);
+  fclose(slxfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(NULL, slxfile2, eslMSAFILE_SELEX,     NULL, &afp1)  != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2)  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_selex_Read    (afp1, &msa3)                               != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                               != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                           != eslOK) esl_fatal(msg);
+
+  remove(slxfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+}
+#endif /*eslMSAFILE_SELEX_TESTDRIVE*/
+/*---------------------- end, unit tests ------------------------*/
+
+
+/*****************************************************************
+ * 3. Test driver.
+ *****************************************************************/
+#ifdef eslMSAFILE_SELEX_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_selex_utest -DeslMSAFILE_SELEX_TESTDRIVE esl_msafile_selex.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_selex_utest -DeslMSAFILE_SELEX_TESTDRIVE esl_msafile_selex.c -leasel -lm
+ * run:     ./esl_msafile_selex_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+#include "esl_msafile_selex.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for SELEX MSA format module";
+
+int
+main(int argc, char **argv)
+{
+  char            msg[]        = "PSI-BLAST MSA i/o module test driver failed";
+  ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng          = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose   = esl_opt_GetBoolean(go, "-v");
+  char            slxfile[32]  = "esltmpslxXXXXXX";
+  char            stkfile[32]  = "esltmpstkXXXXXX";
+  FILE           *slxfp, *stkfp;
+  int             status;
+
+  if ( esl_tmpfile_named(slxfile, &slxfp) != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
+  write_test_msas(slxfp, stkfp);
+  fclose(slxfp);
+  fclose(stkfp);
+
+  read_test_msas_digital(slxfile, stkfile);
+  read_test_msas_text   (slxfile, stkfile);
+
+  remove(slxfile);
+  remove(stkfile);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return 0;
+}
+#endif /*eslMSAFILE_SELEX_TESTDRIVE*/
+/*--------------------- end, test driver ------------------------*/
+
+
+
+
+/*****************************************************************
+ * 4. Example.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_SELEX_EXAMPLE
+/* An example of reading an MSA in text mode, and handling any returned errors.
+   gcc -g -Wall -o esl_msafile_selex_example -I. -DeslMSAFILE_SELEX_EXAMPLE esl_msafile_selex.c esl_msa.c easel.c 
+   ./esl_msafile_selex_example <msafile>
+ */
+
+/*::cexcerpt::msafile_selex_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_selex.h"
+
+int 
+main(int argc, char **argv)
+{
+  char         *filename = argv[1];
+  int           fmt      = eslMSAFILE_SELEX;
+  ESLX_MSAFILE *afp      = NULL;
+  ESL_MSA      *msa      = NULL;
+  int           status;
+
+  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
+    eslx_msafile_OpenFailure(afp, status);
+
+  if ( (status = esl_msafile_selex_Read(afp, &msa))         != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+
+  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
+	 1, msa->name, msa->nseq, (int) msa->alen);
+
+  esl_msafile_selex_Write(stdout, msa);
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+  exit(0);
+}
+/*::cexcerpt::msafile_selex_example::end::*/
+#endif /*eslMSAFILE_SELEX_EXAMPLE*/
+/*--------------------- end of example --------------------------*/
+
+
+
+
+
 /*****************************************************************
  * @LICENSE@
  *

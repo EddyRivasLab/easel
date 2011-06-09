@@ -2,8 +2,11 @@
  *
  * Contents:
  *   1. API for reading/writing Clustal and Clustal-like formats
- *   2. Example.
- *   3. Copyright and license information.
+ *   2. Internal routines for Clustal formats.
+ *   3. Unit tests.
+ *   4. Test driver.
+ *   5. Example.
+ *   6. Copyright and license information.
  *   
  * This module is responsible for i/o of both eslMSAFILE_CLUSTAL and
  * eslMSAFILE_CLUSTALLIKE alignment formats.
@@ -24,27 +27,42 @@
 #include "esl_msafile.h"
 #include "esl_msafile_clustal.h"
 
-
-/*****************************************************************
- *# 1. API for reading/writing Clustal and Clustal-like formats
- *****************************************************************/
-
 static int make_text_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #ifdef eslAUGMENT_ALPHABET
 static int make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline);
 #endif
 
+/*****************************************************************
+ *# 1. API for reading/writing Clustal and Clustal-like formats
+ *****************************************************************/
 
 /* Function:  esl_msafile_clustal_SetInmap()
- * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
+ * Synopsis:  Configure input map for CLUSTAL, CLUSTALLIKE formats.
  *
- * Purpose:   This is a no-op; the default input map is fine for
- *            clustal, clustallike formats. (We don't allow spaces 
- *            interior of input lines, for example.)
+ * Purpose:   Set the <afp->inmap> for Clustal-like formats. 
+ *
+ *            Text mode accepts any <isgraph()> character. 
+ *            Digital mode enforces the usual Easel alphabets.
  */
 int
 esl_msafile_clustal_SetInmap(ESLX_MSAFILE *afp)
 {
+  int sym;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->abc)
+    {
+      for (sym = 0; sym < 128; sym++) 
+	afp->inmap[sym] = afp->abc->inmap[sym];
+      afp->inmap[0] = esl_abc_XGetUnknown(afp->abc);
+    }
+#endif
+  if (! afp->abc)
+    {
+      for (sym = 1; sym < 128; sym++) 
+	afp->inmap[sym] = (isgraph(sym) ? sym : eslDSQ_ILLEGAL);
+      afp->inmap[0] = '?';
+    }
   return eslOK;
 }
 
@@ -336,6 +354,7 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 
   /* Make a CLUSTAL-like consensus line */
 #ifdef eslAUGMENT_ALPHABET 
+  //  if (msa->abc &&  (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
   if (msa->abc &&  (status = make_digital_consensus_line(msa, &consline)) != eslOK) goto ERROR;
 #endif
   if (! msa->abc && (status = make_text_consensus_line(msa, &consline))   != eslOK) goto ERROR;
@@ -369,19 +388,67 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   if (consline) free(consline);
   return status;
 }
+/*---------------- end, Clustal API -----------------------------*/
+
+
+
+/*****************************************************************
+ * 2. Internal routines for Clustal formats
+ *****************************************************************/
+
+/* Clustal consensus lines. 
+ *    '*' :  100% conserved positions
+ *    ':' :  all residues in column belong to a "strong group" 
+ *    '.' :  all residues in column belong to a "weak group"
+ *    ' ' :  otherwise
+ *    
+ * Gap characters count, and ambiguity codes are interpreted verbatim,
+ * so even a single gap or ambiguity code makes the column a ' '.
+ *
+ * From examining the source code for ClustalW (as it writes its
+ * "self explanatory format", ahem!):
+ *   strong groups = STA, NEQK, NHQK, NDEQ, QHRK, MILV, MILF,
+ *                   HY,  FYW
+ *   weak groups =   CSA, ATV,  SAG,  STNK, STPA, SGND, SNDEQK,
+ *	             NDEQHK, NEQHRK, FVLIM, HFY
+ *    
+ * These groups only apply to protein data, and therefore only to
+ * digital alignments using an <eslAMINO> alphabet.  
+
+ * Calculating the consensus line can be compute-intensive, for large
+ * alignments. A naive implementation (for each column, collect
+ * residue counts, compare to each conservation group) was judged too
+ * slow: 16.2s to write the Pkinase full alignment, compared to 1.5s
+ * to write Stockholm format [SRE:J8/22]. Here we use a slightly less
+ * naive implementation, which collects a bit vector (one bit per
+ * residue) for each column, and traverses the alignment in stride
+ * (sequences, then columns). Writing Clustal format Pkinase now takes
+ * 2.3s, and most of the difference w.r.t. Stockholm is now assignable
+ * to the smaller width (thus greater number of blocks) written for
+ * Clustal (60 cpl vs 200) rather than to consensus construction.
+ * 
+ * An oversophisticated approach could use a finite
+ * automaton to store all groups in one machine, then to use the FA to
+ * process each residue seen in a column; for most columns, we would
+ * quickly reach a rejection state (most columns don't belong to 
+ * a conservation group, especially in large alignments). For a sketch 
+ * of how to construct and use such an automaton, xref SRE:J8/22.
+ * I decided this was probably overkill, and didn't implement it.
+ */
 
 
 /* make_text_consensus_line()
  * 
  * Given a text mode <msa>, allocate and create a CLUSTAL-style
  * consensus line; return it in <*ret_consline>. Caller is responsible
- * for free'ing this strong.
+ * for free'ing this string.
+ * 
+ * In text mode, we don't know the alphabet; in particular, we can't
+ * know if the data are amino acids, so we don't know if it's
+ * appropriate to use the amino acid group codes. So we don't;
+ * in text mode, only '*' and ' ' appear in consensus lines.
  * 
  * The consensus line is numbered 0..alen-1, and is NUL-terminated.
- * 
- * Currently this only does a subset of what CLUSTAL consensus lines
- * look like; it only uses '*' for completely conserved positions,
- * and elsewise uses ' '.
  * 
  * Returns <eslOK> on success.
  * No normal failure codes.
@@ -390,37 +457,38 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 static int
 make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
-  char  *consline = NULL;
-  int   *ct       = NULL;
-  int    i, apos, x;
-  int    status;
+  char     *consline = NULL;
+  uint32_t *v        = NULL;
+  uint32_t  maxv;
+  int       n;
+  int       idx, apos, x;
+  int       status;
 
-  ESL_ALLOC(consline, sizeof(char) * (msa->alen+1));
-  ESL_ALLOC(ct,       sizeof(int)  * 27);
+  ESL_ALLOC(consline, sizeof(char)     * (msa->alen+1));
+  ESL_ALLOC(v,        sizeof(uint32_t) * (msa->alen));
+  for (apos = 0; apos < msa->alen; apos++)
+    v[apos] = 0;
+
+  for (idx = 0; idx < msa->nseq; idx++)
+    for (apos = 0; apos < msa->alen; apos++)
+      {
+	x = toupper(msa->aseq[idx][apos]) - 'A';
+	if (x >= 0 && x < 26) v[apos] |= (1 <<  x);
+	else                  v[apos] |= (1 << 26);
+      }	
+  maxv = (1 << 26) - 1;
 
   for (apos = 0; apos < msa->alen; apos++)
-    {
-      for (x = 0; x <= 26; x++) ct[x] = 0;
-
-      for (i = 0; i < msa->nseq; i++)
-	{
-	  x = toupper(msa->aseq[i][apos]) - 'A';
-	  if (x >= 0 && x < 26) ct[x]++;
-	  else                  ct[26]++;
-	}
-	  
-      consline[apos] = ' ';
-      for (x = 0; x < 26; x++) /* not including gaps */
-	if (ct[x] == msa->nseq) { consline[apos] = '*'; break; }
-    }
-
+    consline[apos] = ((n == 1 && v[apos] < maxv) ? '*' : ' ');
   consline[msa->alen] = '\0';
+
   *ret_consline = consline;
-  free(ct);
+  free(v);
   return eslOK;
 
  ERROR:
-  if (ct != NULL) free(ct);
+  if (v)        free(v);
+  if (consline) free(consline);
   *ret_consline = NULL;
   return status;
 }
@@ -432,87 +500,292 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
  * digital mode <msa>.
  */
 #ifdef eslAUGMENT_ALPHABET
-static char
-matches_group_digital(ESL_ALPHABET *abc, double *ct, double nseq, char *residues)
+static int
+matches_group_digital(ESL_ALPHABET *abc, uint32_t v, char *group)
 {
-  double total = 0.;
-  char *c;
+  uint32_t gv  = 0;
+  ESL_DSQ  sym;
+  char    *c;
 
-  for (c = residues; *c; c++) 
-    total += ct[ (int) esl_abc_DigitizeSymbol(abc, *c) ];
-  return (total == nseq ? TRUE : FALSE); /* easily changed in the future to be some threshold fraction of nseq */
+  for (c = group; *c; c++) {
+    sym = esl_abc_DigitizeSymbol(abc, *c);
+    gv |= (1 << sym);
+  }
+  return ( ((v & gv) == v) ? TRUE : FALSE);
 }
-
+  
 static int
 make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
-  char   *consline = NULL;
-  double *ct       = NULL;
-  int    i, apos, x;
-  int    status;
+  char     *consline = NULL;
+  uint32_t *v        = NULL;
+  uint32_t  tmpv, maxv;
+  int       n;
+  int       idx, apos;
+  int       status;
 
-  ESL_ALLOC(consline, sizeof(char)   * (msa->alen+1));
-  ESL_ALLOC(ct,       sizeof(double) * (msa->abc->K+1));  
+  /* if this ever becomes a problem, easy enough to make v a uint64_t to get up to Kp<=64 */
+  if (msa->abc->Kp > 32) ESL_EXCEPTION(eslEINVAL, "Clustal format writer cannot handle digital alphabets of Kp>32 residues");
+
+  ESL_ALLOC(v,        sizeof(uint32_t) * (msa->alen+1));
+  ESL_ALLOC(consline, sizeof(char)     * (msa->alen+1));
+  for (apos = 0; apos <= msa->alen; apos++)
+    v[apos] = 0;
+
+  for (idx = 0; idx < msa->nseq; idx++)
+    for (apos = 1; apos <= msa->alen; apos++)
+      v[apos] |= (1 << msa->ax[idx][apos]);
+
+  maxv = (1 << msa->abc->K) - 1; /* maxv: has all canonical residue bits set */
 
   for (apos = 1; apos <= msa->alen; apos++)
     {
-      for (x = 0; x <= msa->abc->K; x++) ct[x] = 0.;
-
-      for (i = 0; i < msa->nseq; i++)
-	esl_abc_DCount(msa->abc, ct, msa->ax[i][apos], 1.0);
-	
       consline[apos-1] = ' ';
-      for (x = 0; x < msa->abc->K; x++)
-	if (ct[x] >= (double) msa->nseq) { consline[apos-1] = '*'; break; }
 
-      /* clustalw's "strong groups" */
-      if (msa->abc->type == eslAMINO && consline[apos-1] == ' ') {
-	if (matches_group_digital(msa->abc, ct, (double) msa->nseq, "STA")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NEQK") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NHQK") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NDEQ") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "QHRK") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "MILV") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "MILF") ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "HY")   ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "FYW"))
-	  consline[apos-1] = ':';
-      }
+      for (n = 0, tmpv = v[apos]; tmpv; n++) tmpv &= tmpv-1; /* Kernighan magic: count # of bits set in tmpv */
 
-      /* clustalw's "weak groups" */
-      if (msa->abc->type == eslAMINO && consline[apos-1] == ' ') {
-	if (matches_group_digital(msa->abc, ct, (double) msa->nseq, "CSA")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "ATV")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SAG")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "STNK")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "STPA")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SGND")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "SNDEQK")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NDEQHK")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "NEQHRK")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "FVLIM")  ||
-	    matches_group_digital(msa->abc, ct, (double) msa->nseq, "HFY"))
-	  consline[apos-1] = '.';
-      }
+      if      (n == 0 || n > 6)  continue;               /* n==0 shouldn't happen; n > 6 means too many different residues seen */
+      else if (v[apos] > maxv)   continue;	         /* gap or ambiguity chars seen; column must be left unannotated */
+      else if (n == 1)           consline[apos-1] = '*'; /* complete conservation of a canonical residue */
+      else if (msa->abc->type == eslAMINO) 
+	{
+	  if      (matches_group_digital(msa->abc, v[apos], "STA"))  consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "NEQK")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "NHQK")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "NDEQ")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "QHRK")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "MILV")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "MILF")) consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "HY"))   consline[apos-1] = ':';
+	  else if (matches_group_digital(msa->abc, v[apos], "FYW"))  consline[apos-1] = ':';
+
+	  else if (matches_group_digital(msa->abc, v[apos], "CSA"))    consline[apos-1] = '.'; 
+	  else if (matches_group_digital(msa->abc, v[apos], "ATV"))    consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "SAG"))    consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "STNK"))   consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "STPA"))   consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "SGND"))   consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "SNDEQK")) consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "NDEQHK")) consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "NEQHRK")) consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "FVLIM"))  consline[apos-1] = '.';
+	  else if (matches_group_digital(msa->abc, v[apos], "HFY"))    consline[apos-1] = '.';
+	}
     }
+  consline[apos-1] = '\0';
 
-  consline[msa->alen] = '\0';
   *ret_consline = consline;
-  free(ct);
+  free(v);
   return eslOK;
 
  ERROR:
-  if (ct != NULL) free(ct);
+  if (v)        free(v);
+  if (consline) free(consline);
   *ret_consline = NULL;
-  return status;
+  return eslOK;
 }
 
 
 #endif /*eslAUGMENT_ALPHABET*/
+/*-------------- end, internal clustal routines -----------------*/
 
 
 /*****************************************************************
- * 2. Example.
+ * 3. Unit tests.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_CLUSTAL_TESTDRIVE
+static void
+write_test_msas(FILE *ofp1, FILE *ofp2)
+{
+  fprintf(ofp1, "EASEL (X.x) multiple sequence alignment\n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "seq1 ..acdefghiklmnpqrstvwy\n");
+  fprintf(ofp1, "seq2 ..acdefghiklmnpqrstv--\n");
+  fprintf(ofp1, "seq3 aaacdefghiklmnpqrstv--\n");
+  fprintf(ofp1, "seq4 ..acdefghiklmnpqrstvwy\n");
+  fprintf(ofp1, "       ******************  \n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "seq1 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(ofp1, "seq2 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(ofp1, "seq3 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(ofp1, "seq4 ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(ofp1, "     ********************\n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "seq1 ..\n");
+  fprintf(ofp1, "seq2 YY\n");
+  fprintf(ofp1, "seq3 ..\n");
+  fprintf(ofp1, "seq4 ..\n");
+  fprintf(ofp1, "\n");
+
+  fprintf(ofp2, "# STOCKHOLM 1.0\n");
+  fprintf(ofp2, "\n");
+  fprintf(ofp2, "seq1    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq2    ..acdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWYYY\n");
+  fprintf(ofp2, "seq3    aaacdefghiklmnpqrstv--ACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "seq4    ..acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY..\n");
+  fprintf(ofp2, "//\n");
+}
+
+static void
+read_test_msas_digital(char *alnfile, char *stkfile)
+{
+  char msg[]         = "CLUSTAL msa digital read unit test failed";
+  ESL_ALPHABET *abc  = NULL;
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *alnfp, *stkfp;
+  char          alnfile2[32] = "esltmpaln2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  if ( eslx_msafile_Open(&abc, alnfile, eslMSAFILE_CLUSTALLIKE, NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( !abc || abc->type != eslAMINO)                                                   esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile, eslMSAFILE_STOCKHOLM,   NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_clustal_Read  (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  
+  if ( esl_msafile_clustal_Read  (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  /* Now write stk to clustal file, and vice versa; then retest */
+  if ( esl_tmpfile_named(alnfile2, &alnfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_clustal_Write  (alnfp, msa2, eslMSAFILE_CLUSTAL)         != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)       != eslOK) esl_fatal(msg);
+  fclose(alnfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(&abc, alnfile2, eslMSAFILE_CLUSTAL,   NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_clustal_Read  (afp1, &msa3)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+
+  remove(alnfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
+read_test_msas_text(char *alnfile, char *stkfile)
+{
+  char msg[]         = "CLUSTAL msa text-mode read unit test failed";
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *alnfp, *stkfp;
+  char          alnfile2[32] = "esltmpaln2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  /*                     vvvv-- everything's the same as the digital utest except these NULLs  */
+  if ( eslx_msafile_Open(NULL, alnfile, eslMSAFILE_CLUSTALLIKE, NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile, eslMSAFILE_STOCKHOLM,   NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_clustal_Read  (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_clustal_Read  (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  if ( esl_tmpfile_named(alnfile2, &alnfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_msafile_clustal_Write  (alnfp, msa2, eslMSAFILE_CLUSTAL)          != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)        != eslOK) esl_fatal(msg);
+  fclose(alnfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(NULL, alnfile2, eslMSAFILE_CLUSTAL,   NULL, &afp1)  != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2)  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_clustal_Read  (afp1, &msa3)                               != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                               != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                           != eslOK) esl_fatal(msg);
+
+  remove(alnfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+}
+#endif /*eslMSAFILE_CLUSTAL_TESTDRIVE*/
+/*---------------------- end, unit tests ------------------------*/
+
+
+/*****************************************************************
+ * 4. Test driver.
+ *****************************************************************/
+#ifdef eslMSAFILE_CLUSTAL_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_clustal_utest -DeslMSAFILE_CLUSTAL_TESTDRIVE esl_msafile_clustal.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_clustal_utest -DeslMSAFILE_CLUSTAL_TESTDRIVE esl_msafile_clustal.c -leasel -lm
+ * run:     ./esl_msafile_clustal_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+#include "esl_msafile_clustal.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for CLUSTAL MSA format module";
+
+int
+main(int argc, char **argv)
+{
+  char            msg[]        = "CLUSTAL MSA i/o module test driver failed";
+  ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng          = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose   = esl_opt_GetBoolean(go, "-v");
+  char            alnfile[32] = "esltmpalnXXXXXX";
+  char            stkfile[32] = "esltmpstkXXXXXX";
+  FILE           *alnfp, *stkfp;
+  int             status;
+
+  if ( esl_tmpfile_named(alnfile, &alnfp) != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
+  write_test_msas(alnfp, stkfp);
+  fclose(alnfp);
+  fclose(stkfp);
+
+  read_test_msas_digital(alnfile, stkfile);
+  read_test_msas_text   (alnfile, stkfile);
+
+  remove(alnfile);
+  remove(stkfile);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return 0;
+}
+#endif /*eslMSAFILE_CLUSTAL_TESTDRIVE*/
+/*--------------------- end, test driver ------------------------*/
+
+
+/*****************************************************************
+ * 5. Example.
  *****************************************************************/
 
 #ifdef eslMSAFILE_CLUSTAL_EXAMPLE
@@ -535,7 +808,7 @@ main(int argc, char **argv)
   char        *filename = argv[1];
   int          fmt      = eslMSAFILE_UNKNOWN;
   ESLX_MSAFILE *afp      = NULL;
-  ESL_MSA     *msa      = NULL;
+  ESL_MSA      *msa      = NULL;
   int          status;
 
   if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 

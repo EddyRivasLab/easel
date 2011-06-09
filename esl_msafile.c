@@ -31,7 +31,6 @@
 
 static int msafile_Create    (ESLX_MSAFILE **ret_afp);
 static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE *afp);
-static int msafile_SetInmap  (ESLX_MSAFILE *afp); 
 
 /* Function:  eslx_msafile_Open()
  * Synopsis:  Open a multiple sequence alignment file for input.
@@ -302,7 +301,6 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
   ESL_ALPHABET *abc       = NULL;
   int           alphatype = eslUNKNOWN;
   int           status;
-  int           x;
 
   /* Determine the format */
   if (format == eslMSAFILE_UNKNOWN) 
@@ -313,17 +311,8 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
     }
   afp->format = format;
 
-  /* Set up a text-mode inmap. (We may soon switch to digital mode, but if we're
-   * guessing the alphabet, we'll read the first MSA in text mode.)
-   */
-  if (! afp->abc) {
-    for (x = 0; x < 128; x++) 
-      afp->inmap[x] = (isalpha(x) ? x : eslDSQ_ILLEGAL); 
-    afp->inmap[0] = '?';
-  }
-  if (msafile_SetInmap(afp) != eslOK) goto ERROR; /* this does any remaining format-specific inmap configuration */
-  
   /* Determine the alphabet; set <abc>. (<abc> == NULL means text mode.)  */
+  /* Note that GuessAlphabet() functions aren't allowed to use the inmap, because it isn't set yet */
 #ifdef eslAUGMENT_ALPHABET
   if (byp_abc && *byp_abc)	/* Digital mode, and caller provided the alphabet */
     { 
@@ -338,18 +327,33 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
 #endif
   if (abc && ! byp_abc) ESL_EXCEPTION(eslEINCONCEIVABLE, "Your version of Easel does not include digital alphabet code."); 
   /* ^^^^^^^^^^^^^^^^^  this test interacts tricksily with the #ifdef above */
+  afp->abc = abc;	/* with afp->abc set, the inmap config functions know whether to do digital/text    */
 
-  /* Set up the inmap for digital mode. */
-#ifdef eslAUGMENT_ALPHABET
-  if (abc) {
-    for (x = 0; x < 128; x++)
-      afp->inmap[x] = abc->inmap[x]; 
-    afp->inmap[0] = esl_abc_XGetUnknown(abc);
-    msafile_SetInmap(afp); 
+  /* Configure the format-specific, digital or text mode character
+   * input map in afp->inmap.
+   * All of these must:
+   *    
+   *    set inmap[0] to an appropriate 'unknown' character, to replace
+   *       invalid input with.
+   *    set ' ' to eslDSQ_IGNORE (if we're supposed to accept and skip
+   *       it), or map it to a gap, or set it as eslDSQ_ILLEGAL.
+   *    in digital mode, copy the abc->inmap
+   *    in text mode, decide if we should accept most any
+   *        non-whitespace character (isgraph()), or if the format is
+   *        inherently restrictive and we should go with isalpha() +
+   *        some other valid characters "_-.~*" instead.
+   */
+  switch (afp->format) {
+  case eslMSAFILE_A2M:          status = esl_msafile_a2m_SetInmap(      afp); break;
+  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
+  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
+  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
+  default: ESL_XEXCEPTION(eslENOFORMAT, "no such alignment file format");
   }
-#endif
 
-  afp->abc = abc;
   if (esl_byp_IsReturned(byp_abc)) *byp_abc = abc;
   return eslOK;
 
@@ -359,45 +363,7 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
   afp->abc = NULL;
   return status;
 }
-
-/* msafile_SetInmap()
- *
- * Finish the configuration of the input map of a newly opened
- * <ESLX_MSAFILE>. The input map is already configured for the
- * appropriate alphabet (including text mode, in which case it's set
- * to map all <isgraph()> characters to themselves), and <inmap[0]> is
- * set to an appropriate "unknown" character to replace any invalid
- * input with.
- *            
- * Now do any remaining format-specific initialization: Any
- * characters that need to be ignored in input are set to
- * <eslDSQ_IGNORE>. Any whitespace characters that need to be
- * recognized (as gap characters, for example) are mapped. Any
- * additional gap characters besides the usual "_-.~" in digital
- * alphabets are mapped.
- *            
- * (In fact this is just a dispatcher to format-specific functions;
- * the above documentation tells you what all of those functions are
- * doing, for their format.)
- */
-static int
-msafile_SetInmap(ESLX_MSAFILE *afp)
-{
-  int status;
-
-  switch (afp->format) {
-  case eslMSAFILE_A2M:          status = esl_msafile_a2m_SetInmap(      afp); break;
-  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
-  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
-  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
-  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;
-  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
-  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
-  default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
-  }
-  return status;
-}
-/*---------------- end, open/close, text mode -------------------*/
+/*------------- end, open/close an ESLX_MSAFILE -----------------*/
 
 
 /*****************************************************************
@@ -1051,11 +1017,13 @@ eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
 static ESL_OPTIONS options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
   { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-i",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show info, instead of converting format",     0 },
   { "--informat",  eslARG_STRING,      NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify the input MSA file is in format <s>", 0 }, 
   { "--outformat", eslARG_STRING, "Clustal",  NULL, NULL,  NULL,  NULL, NULL, "write the output MSA in format <s>",          0 }, 
   { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
   { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
   { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
+  { "--text",      eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
@@ -1071,6 +1039,8 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc       = NULL;
   ESLX_MSAFILE *afp       = NULL;
   ESL_MSA      *msa       = NULL;
+  int           textmode  = esl_opt_GetBoolean(go, "--text");
+  int           showinfo  = esl_opt_GetBoolean(go, "-i");
   int           nali      = 0;
   int           status;
 
@@ -1089,18 +1059,24 @@ main(int argc, char **argv)
       (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
-  /* Open in digital mode. If fmt is unknown, guess format; if abc unknown, guess alphabet */
-  if ( (status = eslx_msafile_Open(&abc, msafile, infmt, NULL, &afp)) != eslOK)
-    eslx_msafile_OpenFailure(afp, status);
+  /* Open in text or digital mode. If fmt is unknown, guess format; if abc unknown, guess alphabet */
+  if (textmode) status = eslx_msafile_Open(NULL, msafile, infmt, NULL, &afp);
+  else          status = eslx_msafile_Open(&abc, msafile, infmt, NULL, &afp);
+  if (status != eslOK)   eslx_msafile_OpenFailure(afp, status);
   
-  //  printf("# Format: %s\n", eslx_msafile_DecodeFormat(afp->format));
+  if (showinfo) {
+    printf("# Format:    %s\n", eslx_msafile_DecodeFormat(afp->format));
+    printf("# Alphabet:  %s\n", (afp->abc ? esl_abc_DecodeType(afp->abc->type) : "text mode"));
+  }
 
   /* Now the MSA's that you read are digital data in msa->ax[] */
   while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
     {
       nali++;
-      //      printf("# alignment %5d: %15s: %6d seqs, %5d columns\n\n", nali, msa->name, (int) msa->nseq, (int) msa->alen);
-      eslx_msafile_Write(stdout, msa, outfmt);
+      
+      if (showinfo) printf("# alignment %5d: %15s: %6d seqs, %5d columns\n\n", nali, msa->name, (int) msa->nseq, (int) msa->alen);
+      else   	    eslx_msafile_Write(stdout, msa, outfmt);
+
       esl_msa_Destroy(msa);
     }
   if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status);

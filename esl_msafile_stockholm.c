@@ -96,17 +96,37 @@ static int stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl);
  *****************************************************************/
 
 /* Function:  esl_msafile_stockholm_SetInmap()
- * Synopsis:  Finishes configuring input map for CLUSTAL, CLUSTALLIKE formats.
+ * Synopsis:  Configure the input map for Stockholm format.
  *
- * Purpose:   This is a no-op; the default input map is fine for
- *            Stockholm format. (There are no characters to ignore in
- *            the input. In particular, we cannot skip whitespace in the
- *            inmap, because we'd misalign relative to the text-mode
- *            annotation lines (GR, GC), where we don't do mapped input.)
+ * Purpose:   Configure <afp->inmap> for Stockholm format.
+ *
+ *            Text mode accepts any <isgraph()> character. 
+ *            Digital mode enforces the usual Easel alphabets.
+ *            
+ *            No characters may be ignored in the input. We cannot
+ *            skip whitespace in the inmap, because we'd misalign
+ *            relative to the text-mode annotation lines (GR, GC),
+ *            where we don't do mapped input.)
  */
 int
 esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
 {
+  int sym;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->abc)
+    {
+      for (sym = 0; sym < 128; sym++) 
+	afp->inmap[sym] = afp->abc->inmap[sym];
+      afp->inmap[0] = esl_abc_XGetUnknown(afp->abc);
+    }
+#endif
+  if (! afp->abc)
+    {
+      for (sym = 1; sym < 128; sym++) 
+	afp->inmap[sym] = (isgraph(sym) ? sym : eslDSQ_ILLEGAL);
+      afp->inmap[0] = '?';
+    }
   return eslOK;
 }
 
@@ -455,6 +475,7 @@ stockholm_parsedata_Destroy(ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa)
       if (pd->ogr_len[i]) free(pd->ogr_len[i]);
     free(pd->ogr_len);
   }
+  free(pd);
   return;
 }
 /*------------------ end, ESL_STOCKHOLM_PARSEDATA auxiliary structure -------------*/
@@ -1161,9 +1182,8 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	{
 #ifdef eslAUGMENT_ALPHABET
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i] + currpos + 1, acpl, buf);
-#else
-	  if (! msa->abc) strncpy(buf, msa->aseq[i] + currpos, acpl);
 #endif
+	  if (! msa->abc) strncpy(buf, msa->aseq[i] + currpos, acpl);
 	  fprintf(fp, "%-*s %s\n", margin-1, msa->sqname[i], buf);
 
 	  if (msa->ss && msa->ss[i]) {

@@ -2,8 +2,10 @@
  * 
  * Contents:
  *   1. API for reading/writing PSI-BLAST format
- *   2. Example.
- *   3. Copyright and license information.
+ *   2. Unit tests.
+ *   3. Test driver.
+ *   4. Example.
+ *   5. Copyright and license information.
  */
 #include "esl_config.h"
 
@@ -26,18 +28,38 @@
 /* Function:  esl_msafile_psiblast_SetInmap()
  * Synopsis:  Set input map specific for PSI-BLAST input.
  *
- * Purpose:   The main msafile interface has set a default inmap
- *            and is asking us to make it specific for PSI-BLAST format.
+ * Purpose:   Set the <afp->inmap> for PSI-BLAST format.
  *            
  *            PSI-BLAST only allows - for a gap. It also disallows O residues.
+ *
+ *            Text mode accepts any <isalpha()> character plus '-' but not 'O' or 'o'.
+ *            Digital mode enforces the usual Easel alphabets, but disallows "._*~".
  */
 int
 esl_msafile_psiblast_SetInmap(ESLX_MSAFILE *afp)
 {
-  afp->inmap['.'] = eslDSQ_ILLEGAL;
-  afp->inmap['_'] = eslDSQ_ILLEGAL;
-  afp->inmap['*'] = eslDSQ_ILLEGAL;
-  afp->inmap['~'] = eslDSQ_ILLEGAL;
+   int sym;
+
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->abc)
+    {
+      for (sym = 0; sym < 128; sym++) 
+	afp->inmap[sym] = afp->abc->inmap[sym];
+      afp->inmap[0]   = esl_abc_XGetUnknown(afp->abc);
+      afp->inmap['.'] = eslDSQ_ILLEGAL;
+      afp->inmap['_'] = eslDSQ_ILLEGAL;
+      afp->inmap['*'] = eslDSQ_ILLEGAL;
+      afp->inmap['~'] = eslDSQ_ILLEGAL;
+    }
+#endif
+  if (! afp->abc)
+    {
+      for (sym = 1; sym < 128; sym++) 
+	afp->inmap[sym] = (isalpha(sym) ? sym : eslDSQ_ILLEGAL);
+      afp->inmap[0]   = '?';
+      afp->inmap['-'] = '-';
+    }
+
   afp->inmap['O'] = eslDSQ_ILLEGAL;
   afp->inmap['o'] = eslDSQ_ILLEGAL;
   return eslOK;
@@ -129,7 +151,7 @@ esl_msafile_psiblast_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *            
  *            The <msa> has a reference line (<msa->rf[]>) that
  *            corresponds to the uppercase/lowercase columns in the
- *            alignment: consensus (uppercase) columns are marked 'X',
+ *            alignment: consensus (uppercase) columns are marked 'x',
  *            and insert (lowercase) columns are marked '.' in this RF
  *            line.
  *            
@@ -208,7 +230,7 @@ esl_msafile_psiblast_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       /* Process the consensus #=RF line. */
       if (idx == 0) {
 	ESL_REALLOC(msa->rf, sizeof(char) * (alen + seq_len + 1));
-	for (pos = 0; pos < seq_len; pos++) msa->rf[alen+pos] = '-'; /* anything neutral other than . or X will do. */
+	for (pos = 0; pos < seq_len; pos++) msa->rf[alen+pos] = '-'; /* anything neutral other than . or x will do. */
 	msa->rf[alen+pos] = '\0';
       }
       for (pos = 0; pos < seq_len; pos++) 
@@ -216,10 +238,10 @@ esl_msafile_psiblast_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 	  if (afp->line[seq_start+pos] == '-') continue;
 	  if (isupper(afp->line[seq_start+pos])) {
 	    if (msa->rf[alen+pos] == '.') ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected upper case residue (#%d on line)", (int) pos+1);
-	    msa->rf[alen+pos] = 'X';
+	    msa->rf[alen+pos] = 'x';
 	  }
 	  if (islower(afp->line[seq_start+pos])) {
-	    if (msa->rf[alen+pos] == 'X') ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected lower case residue (#%d on line)", (int) pos+1);
+	    if (msa->rf[alen+pos] == 'x') ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected lower case residue (#%d on line)", (int) pos+1);
 	    msa->rf[alen+pos] = '.';
 	  }
 	}
@@ -365,7 +387,196 @@ esl_msafile_psiblast_Write(FILE *fp, const ESL_MSA *msa)
 
 
 /*****************************************************************
- * 2. Example.
+ * 2. Unit tests.
+ *****************************************************************/
+
+#ifdef eslMSAFILE_PSIBLAST_TESTDRIVE
+static void
+write_test_msas(FILE *ofp1, FILE *ofp2)
+{
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "seq1  --ACDEFGHIKLMNPQRSTVWY\n");
+  fprintf(ofp1, "seq2  --ACDEFGHIKLMNPQRSTV-- \n");
+  fprintf(ofp1, "seq3  aaACDEFGHIKLMNPQRSTV--  \n");
+  fprintf(ofp1, "seq4  --ACDEFGHIKLMNPQRSTVWY  \n");
+  fprintf(ofp1, "\n");
+  fprintf(ofp1, "seq1  ACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp1, "seq2  ACDEFGHIKLMNPQRSTVWYyy\n");
+  fprintf(ofp1, "seq3  ACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp1, "seq4  ACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp1, "\n");
+
+  fprintf(ofp2, "# STOCKHOLM 1.0\n");
+  fprintf(ofp2, "\n");
+  fprintf(ofp2, "#=GC RF ..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..\n");
+  fprintf(ofp2, "seq1    --ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp2, "seq2    --ACDEFGHIKLMNPQRSTV--ACDEFGHIKLMNPQRSTVWYyy\n");
+  fprintf(ofp2, "seq3    aaACDEFGHIKLMNPQRSTV--ACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp2, "seq4    --ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY--\n");
+  fprintf(ofp2, "//\n");
+}
+
+static void
+read_test_msas_digital(char *pbfile, char *stkfile)
+{
+  char msg[]         = "PSIBLAST msa digital read unit test failed";
+  ESL_ALPHABET *abc  = NULL;
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *pbfp, *stkfp;
+  char          pbfile2[32]  = "esltmppb2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  if ( eslx_msafile_Open(&abc, pbfile, eslMSAFILE_PSIBLAST, NULL, &afp1)     != eslOK)  esl_fatal(msg);
+  if ( !abc || abc->type != eslAMINO)                                                   esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile, eslMSAFILE_STOCKHOLM,   NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_psiblast_Read (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  
+  if ( esl_msafile_psiblast_Read (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  /* Now write stk to psiblast file, and vice versa; then retest */
+  if ( esl_tmpfile_named(pbfile2,  &pbfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_psiblast_Write  (pbfp, msa2)                             != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)       != eslOK) esl_fatal(msg);
+  fclose(pbfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(&abc, pbfile2,  eslMSAFILE_PSIBLAST,  NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_psiblast_Read (afp1, &msa3)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+
+  remove(pbfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
+read_test_msas_text(char *pbfile, char *stkfile)
+{
+  char msg[]         = "PSIBLAST msa text-mode read unit test failed";
+  ESLX_MSAFILE *afp1 = NULL;
+  ESLX_MSAFILE *afp2 = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  FILE         *pbfp, *stkfp;
+  char          pbfile2[32]  = "esltmppb2XXXXXX";
+  char          stkfile2[32] = "esltmpstk2XXXXXX";
+
+  /*                     vvvv-- everything's the same as the digital utest except these NULLs  */
+  if ( eslx_msafile_Open(NULL, pbfile,  eslMSAFILE_PSIBLAST,  NULL, &afp1)   != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2)   != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_psiblast_Read (afp1, &msa1)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                               != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                           != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_psiblast_Read (afp1, &msa3)                               != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                               != eslEOF) esl_fatal(msg);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  if ( esl_tmpfile_named(pbfile2, &pbfp)                                     != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile2, &stkfp)                                   != eslOK) esl_fatal(msg);
+  if ( esl_msafile_psiblast_Write (pbfp,  msa2)                              != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_STOCKHOLM)        != eslOK) esl_fatal(msg);
+  fclose(pbfp);
+  fclose(stkfp);
+  if ( eslx_msafile_Open(NULL, pbfile2,  eslMSAFILE_PSIBLAST,  NULL, &afp1)  != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2)  != eslOK) esl_fatal(msg);
+  if ( esl_msafile_psiblast_Read (afp1, &msa3)                               != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                               != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                           != eslOK) esl_fatal(msg);
+
+  remove(pbfile2);
+  remove(stkfile2);
+  eslx_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+}
+#endif /*eslMSAFILE_PSIBLAST_TESTDRIVE*/
+/*---------------------- end, unit tests ------------------------*/
+
+
+/*****************************************************************
+ * 3. Test driver.
+ *****************************************************************/
+#ifdef eslMSAFILE_PSIBLAST_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_psiblast_utest -DeslMSAFILE_PSIBLAST_TESTDRIVE esl_msafile_psiblast.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_psiblast_utest -DeslMSAFILE_PSIBLAST_TESTDRIVE esl_msafile_psiblast.c -leasel -lm
+ * run:     ./esl_msafile_psiblast_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+#include "esl_msafile_psiblast.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
+  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for PSIBLAST MSA format module";
+
+int
+main(int argc, char **argv)
+{
+  char            msg[]        = "PSI-BLAST MSA i/o module test driver failed";
+  ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng          = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose   = esl_opt_GetBoolean(go, "-v");
+  char            pbfile[32]   = "esltmppbXXXXXX";
+  char            stkfile[32]  = "esltmpstkXXXXXX";
+  FILE           *pbfp, *stkfp;
+  int             status;
+
+  if ( esl_tmpfile_named(pbfile,  &pbfp)  != eslOK) esl_fatal(msg);
+  if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
+  write_test_msas(pbfp, stkfp);
+  fclose(pbfp);
+  fclose(stkfp);
+
+  read_test_msas_digital(pbfile, stkfile);
+  read_test_msas_text   (pbfile, stkfile);
+
+  remove(pbfile);
+  remove(stkfile);
+  esl_getopts_Destroy(go);
+  esl_randomness_Destroy(rng);
+  return 0;
+}
+#endif /*eslMSAFILE_PSIBLAST_TESTDRIVE*/
+/*--------------------- end, test driver ------------------------*/
+
+
+
+
+/*****************************************************************
+ * 4. Example.
  *****************************************************************/
 
 #ifdef eslMSAFILE_PSIBLAST_EXAMPLE
