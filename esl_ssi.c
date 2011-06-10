@@ -1384,6 +1384,11 @@ parse_pkey(char *buf, ESL_PKEY *pkey)
   else                         ESL_XEXCEPTION(eslEINCONCEIVABLE, "whoa - weird off_t");
 
   if (esl_strtok(&s, "\t\n", &tok)         != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
+  if      (sizeof(off_t) == 4) pkey->d_off  = (off_t) strtoul (tok, NULL, 10);
+  else if (sizeof(off_t) == 8) pkey->d_off  = (off_t) strtoull(tok, NULL, 10);
+  else                         ESL_XEXCEPTION(eslEINCONCEIVABLE, "whoa - weird off_t");
+
+  if (esl_strtok(&s, "\t\n", &tok)         != eslOK) ESL_XEXCEPTION(eslEFORMAT, "parse failed");
   pkey->len = (uint64_t) strtoull(tok, NULL, 10);
   return eslOK;
 
