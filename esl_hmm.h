@@ -38,6 +38,7 @@ typedef struct {
 
 
 extern ESL_HMM *esl_hmm_Create(const ESL_ALPHABET *abc, int M);
+extern ESL_HMM *esl_hmm_Clone(const ESL_HMM *hmm);
 extern int      esl_hmm_Configure(ESL_HMM *hmm, float *fq);
 extern int      esl_hmm_SetDegeneracies(ESL_HMM *hmm);
 extern void     esl_hmm_Destroy(ESL_HMM *hmm);

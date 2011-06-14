@@ -694,16 +694,18 @@ static const struct esl_scorematrix_aa_preload_s ESL_SCOREMATRIX_AA_PRELOADS[] =
  *            several matrices built-in to Easel. For example,
  *            <esl_scorematrix_Set("BLOSUM62", S)>.
  *            
+ *            The alphabet for <S> (<S->abc_r>) must be set already.
+ *            
  *            Built-in amino acid score matrices in Easel include
  *            BLOSUM45, BLOSUM50, BLOSUM62, BLOSUM80, BLOSUM90, PAM30,
  *            PAM70, PAM120, and PAM240.
  *
  * Returns:   <eslOK> on success, and the scores in <S> are set.
+ *            
+ *            <eslENOTFOUND> if <name> is not available as a built-in matrix
+ *            for the alphabet that's set in <S>.
  * 
  * Throws:    <eslEMEM> on allocation error.
- *            <eslENOTFOUND> if the matrix <name> is not in the
- *            list of builtin score matrices for the alphabet
- *            that's in <S>.
  */
 int
 esl_scorematrix_Set(const char *name, ESL_SCOREMATRIX *S)
@@ -716,7 +718,7 @@ esl_scorematrix_Set(const char *name, ESL_SCOREMATRIX *S)
       int nmat = sizeof(ESL_SCOREMATRIX_AA_PRELOADS) / sizeof(struct esl_scorematrix_aa_preload_s);
       for (which = 0; which < nmat; which++)
 	if (strcmp(ESL_SCOREMATRIX_AA_PRELOADS[which].name, name) == 0) break;
-      if (which >= nmat) ESL_EXCEPTION(eslENOTFOUND, "no such built-in score matrix %s\n", name);
+      if (which >= nmat) return eslENOTFOUND;
 
       strcpy(S->outorder, "ARNDCQEGHILKMFPSTWYVBZX*"); 
       /* All standard PAM, BLOSUM matrices have same list of valid
@@ -724,10 +726,7 @@ esl_scorematrix_Set(const char *name, ESL_SCOREMATRIX *S)
        * structures above.
        */
     }
-  else
-    ESL_EXCEPTION(eslENOTFOUND, "no DNA matrices built in, including matrix %s\n", name);
-
-    /* eventually, code for some standard DNA matrices would go here. */
+  else return eslENOTFOUND;	/* no DNA matrices are built in yet! */
 
   /* Transfer scores from static built-in storage */
   for (x = 0; x < S->Kp; x++)
