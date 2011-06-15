@@ -2533,13 +2533,12 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
 
 /* Function:  esl_msa_MarkFragments()
  * Synopsis:  Heuristically define seq fragments in an alignment.
- * Incept:    SRE, Wed Sep  3 11:49:25 2008 [Janelia]
  *
  * Purpose:   Use a heuristic to define sequence fragments (as opposed
- *            to "full length" sequences in alignment <msa>.
+ *            to "full length" sequences) in alignment <msa>.
  *            
  *            The rule is that if the sequence has a raw (unaligned)
- *            length of less than <fragthresh> times the alignment
+ *            length not greater than <fragthresh> times the alignment
  *            length in columns, the sequence is defined as a fragment.
  *            
  *            For each fragment, all leading and trailing gap symbols
@@ -2548,16 +2547,16 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
  *            (typically '~', but nonstandard digital alphabets may
  *            have defined another character).
  *            
- *            As a special case, if <fragthresh> is negative, then all
- *            sequences are defined as fragments.
+ *            If <fragthresh> is 0.0, no nonempty sequence is defined
+ *            as a fragment.
+ *            
+ *            If <fragthresh> is 1.0, all sequences are defined as
+ *            fragments.
  *
  * Args:      msa        - alignment in which to define and mark seq fragments 
- *            fragthresh - define frags if rlen < fragthresh * alen;
- *                         or if fragthresh < 0, all seqs are marked as frags.
+ *            fragthresh - define frags if rlen <= fragthresh * alen.
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    (no abnormal error conditions)
  */
 int
 esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
@@ -2566,7 +2565,7 @@ esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
   int    pos;
 
   for (i = 0; i < msa->nseq; i++)
-    if (fragthresh < 0.0 || msa_get_rlen(msa, i) < fragthresh * msa->alen)
+    if (msa_get_rlen(msa, i) <= fragthresh * msa->alen)
       {  
 #ifdef eslAUGMENT_ALPHABET
 	if (msa->flags & eslMSA_DIGITAL) {
