@@ -2059,7 +2059,6 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS *go;
   char        *arg;
-  char        *cmdline;
 
   if ((go = esl_getopts_Create(options))     == NULL)  esl_fatal("Bad options structure\n");  
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("Failed to parse command line: %s\n", go->errbuf);
@@ -2086,7 +2085,6 @@ main(int argc, char **argv)
   printf("Cmdline arg:    %s\n", arg);
 
   esl_getopts_Destroy(go);
-  free(cmdline);
   return 0;
 }
 /*::cexcerpt::getopts_example::end::*/

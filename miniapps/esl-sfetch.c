@@ -123,7 +123,7 @@ main(int argc, char **argv)
   seqfile = esl_opt_GetArg(go, 1);
   if (esl_opt_GetString(go, "--informat") != NULL) {
     infmt = esl_sqio_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat"); 
+    if (infmt == eslSQFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
   status = esl_sqfile_Open(seqfile, infmt, NULL, &sqfp);
   if      (status == eslENOTFOUND) cmdline_failure(argv[0], "Sequence file %s not found.\n",     seqfile);

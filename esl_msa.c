@@ -6231,6 +6231,7 @@ esl_msa_CreateFromString(const char *s, int fmt)
   return NULL;
 }
 
+
 /* Function:  esl_msa_Compare()
  * Synopsis:  Compare two MSAs for equality.
  * Incept:    SRE, Wed Jun 13 10:40:05 2007 [Janelia]

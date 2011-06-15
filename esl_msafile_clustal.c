@@ -71,13 +71,13 @@ esl_msafile_clustal_SetInmap(ESLX_MSAFILE *afp)
  * Synopsis:  Guess the alphabet of an open Clustal MSA input.
  *
  * Purpose:   Guess the alpbabet of the sequences in open
- *            A2M format MSA file <afp>.
+ *            Clustal format MSA file <afp>.
  *            
  *            On a normal return, <*ret_type> is set to <eslDNA>,
  *            <eslRNA>, or <eslAMINO>, and <afp> is reset to its
  *            original position.
  *
- * Args:      afp      - open A2M format MSA file
+ * Args:      afp      - open Clustal format MSA file
  *            ret_type - RETURN: <eslDNA>, <eslRNA>, or <eslAMINO>       
  *
  * Returns:   <eslOK> on success.
@@ -459,7 +459,7 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
 {
   char     *consline = NULL;
   uint32_t *v        = NULL;
-  uint32_t  maxv;
+  uint32_t  tmpv, maxv;
   int       n;
   int       idx, apos, x;
   int       status;
@@ -479,7 +479,10 @@ make_text_consensus_line(const ESL_MSA *msa, char **ret_consline)
   maxv = (1 << 26) - 1;
 
   for (apos = 0; apos < msa->alen; apos++)
-    consline[apos] = ((n == 1 && v[apos] < maxv) ? '*' : ' ');
+    {
+      for (n = 0, tmpv = v[apos]; tmpv; n++) tmpv &= tmpv-1; /* Kernighan magic: count # of bits set in tmpv */
+      consline[apos] = ((n == 1 && v[apos] < maxv) ? '*' : ' ');
+    }
   consline[msa->alen] = '\0';
 
   *ret_consline = consline;
