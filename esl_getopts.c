@@ -652,9 +652,17 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	    {
 	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
 	      if (g->val[reqi] == NULL)
-		ESL_FAIL(eslESYNTAX, g->errbuf,
-			 "Option %.24s requires (or has no effect without) option(s) %.24s", 
-			 g->opt[i].name, g->opt[i].required_opts);
+		{
+		  if (g->setby[i] >= eslARG_SETBY_CFGFILE)
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) requires (or has no effect without) option(s) %.24s", 
+			     g->opt[i].name, g->setby[i]-2, g->opt[i].required_opts);
+		  else if (g->setby[i] == eslARG_SETBY_ENV)
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) requires (or has no effect without) option(s) %.24s", 
+			     g->opt[i].name, g->opt[i].envvar, g->opt[i].required_opts);
+		  else
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s requires (or has no effect without) option(s) %.24s", 
+			     g->opt[i].name, g->opt[i].required_opts);
+		}
 	    }
 	}
     }
@@ -672,9 +680,18 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 	    {
 	      if (status != eslOK) ESL_EXCEPTION(eslEINVAL, "something's wrong with format of optlist: %s\n", s);
 	      if (incompati != i && (g->setby[incompati] != eslARG_SETBY_DEFAULT && g->val[incompati] != NULL))
-		ESL_FAIL(eslESYNTAX, g->errbuf,
-			 "Option %.24s is incompatible with option(s) %.24s", 
-			 g->opt[i].name, g->opt[i].incompat_opts);
+		{
+		  if (g->setby[i] >= eslARG_SETBY_CFGFILE)
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by cfg file %d) is incompatible with option(s) %.24s", 
+			     g->opt[i].name, g->setby[i]-2, g->opt[i].incompat_opts); 
+		  
+		  else if (g->setby[i] == eslARG_SETBY_ENV)
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s (set by env var %s) is incompatible with option(s) %.24s", 
+			     g->opt[i].name, g->opt[i].envvar, g->opt[i].incompat_opts); 
+		  else
+		    ESL_FAIL(eslESYNTAX, g->errbuf, "Option %.24s is incompatible with option(s) %.24s", 
+			     g->opt[i].name, g->opt[i].incompat_opts); 
+		}
 	    }
 	}
     }
@@ -845,6 +862,28 @@ esl_opt_IsUsed(const ESL_GETOPTS *g, char *optname)
   if (esl_opt_IsDefault(g, optname)) return FALSE;
   if (g->val[opti] == NULL)          return FALSE;
   return TRUE;
+}
+
+
+/* Function:  esl_opt_GetSetter()
+ * Synopsis:  Returns code for who set this option.
+ *
+ * Purpose:   For a processed options object <g>, return the code
+ *            for who set option <optname>. This code is <eslARG_SETBY_DEFAULT>,
+ *            <eslARG_SETBY_CMDLINE>, <eslARG_SETBY_ENV>, or it
+ *            is $\geq$ <eslARG_SETBY_CFGFILE>. If the option 
+ *            was configured by a config file, the file number (the order
+ *            of esl_opt_ProcessConfigFile() calls) is encoded in codes
+ *            $\geq <eslARG_SETBY_CFGFILE>$ as
+ *            file number $=$ <code> - <eslARG_SETBY_CFGFILE> + 1.
+ */
+int
+esl_opt_GetSetter(const ESL_GETOPTS *g, char *optname)
+{
+  int opti;
+
+  if (get_optidx_exactly(g, optname, &opti) != eslOK)  esl_fatal("no such option %s\n", optname);
+  return g->setby[opti];
 }
 
 

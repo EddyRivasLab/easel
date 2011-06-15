@@ -2,9 +2,6 @@
  * configuration of an application. Extends standard
  * UNIX/POSIX/GNU getopt().
  * 
- * SRE, Thu Jan 13 08:38:28 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslGETOPTS_INCLUDED
 #define eslGETOPTS_INCLUDED
@@ -99,6 +96,8 @@ extern int esl_opt_VerifyConfig      (ESL_GETOPTS *g);
 extern int esl_opt_ArgNumber   (const ESL_GETOPTS *g);
 extern int esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline);
 
+extern int esl_opt_GetSetter(const ESL_GETOPTS *g, char *optname);
+
 extern int    esl_opt_IsDefault (const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_IsOn      (const ESL_GETOPTS *g, char *optname);
 extern int    esl_opt_IsUsed    (const ESL_GETOPTS *g, char *optname);
@@ -113,6 +112,10 @@ extern char  *esl_opt_GetArg    (const ESL_GETOPTS *g, int which);
 extern int esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent, int textwidth);
 
 #endif /*eslGETOPTS_INCLUDED*/
+
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
