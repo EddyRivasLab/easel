@@ -5216,6 +5216,7 @@ read_afa(ESL_MSAFILE *afp, ESL_MSA **ret_msa)
 	if (esl_strtok(&s, " \t\n\r", &seqname) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, problem reading name of sequence %d at line %d\n", seqidx+1, afp->linenumber);
 	status = esl_strdup(seqname, -1, &(msa->sqname[seqidx]));
 
+	while (*s && isspace(*s)) s++; /* skip whitespace */
 	status = esl_strtok(&s, "\n\r", &desc);
 	if     (status == eslOK) status = esl_msa_SetSeqDescription(msa, seqidx, desc, -1);
 	else if(status != eslEOL) ESL_XFAIL(eslEFORMAT, afp->errbuf, "AFA MSA parse error, problem reading description of sequence %d at line %d\n", seqidx, afp->linenumber);
