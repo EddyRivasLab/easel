@@ -134,6 +134,7 @@ typedef struct {
   int      count;       /* number of <ESL_SQ> objects in the block */
   int      listSize;    /* maximum number elements in the list     */
   int      complete;    /*TRUE if the the final ESL_SQ element on the block is complete, FALSE if it's only a partial winow of the full sequence*/
+  int64_t  first_seqidx;/*unique identifier of the first ESL_SQ object on list;  the seqidx of the i'th entry on list is first_seqidx+i */
   ESL_SQ  *list;        /* array of <ESL_SQ> objects               */
 } ESL_SQ_BLOCK;
 

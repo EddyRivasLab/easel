@@ -1715,6 +1715,7 @@ sq_createblock(int count, int do_digital)
   ESL_ALLOC(block, sizeof(ESL_SQ_BLOCK));
 
   block->count = 0;
+  block->first_seqidx = -1;
   block->list  = NULL;
   block->complete = TRUE;
 
