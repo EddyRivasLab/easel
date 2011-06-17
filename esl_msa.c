@@ -2676,30 +2676,15 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 
 	new->wgt[nidx] = msa->wgt[oidx];
       
-	if (msa->sqacc != NULL && msa->sqacc[oidx] != NULL) {
-	  if ((status = esl_msa_SetSeqAccession(new, nidx, msa->sqacc[oidx], -1)) != eslOK) goto ERROR;
-	}
-	if (msa->sqdesc != NULL && msa->sqdesc[oidx] != NULL) {
-	  if ((status = esl_msa_SetSeqDescription(new, nidx, msa->sqdesc[oidx], -1)) != eslOK) goto ERROR;
-	}
-	if (msa->ss != NULL && msa->ss[oidx] != NULL) {
-	  if ((status = set_seq_ss(new, nidx, msa->ss[oidx])) != eslOK) goto ERROR;
-	}
-	if (msa->sa != NULL && msa->sa[oidx] != NULL) {
-	  if ((status = set_seq_sa(new, nidx, msa->sa[oidx])) != eslOK) goto ERROR;
-	}
-	if (msa->pp != NULL && msa->pp[oidx] != NULL) {
-	  if ((status = set_seq_pp(new, nidx, msa->pp[oidx])) != eslOK) goto ERROR;
-	}
+	if (msa->sqacc  && msa->sqacc[oidx]  && (status = esl_msa_SetSeqAccession  (new, nidx, msa->sqacc[oidx],  -1)) != eslOK) goto ERROR;
+	if (msa->sqdesc && msa->sqdesc[oidx] && (status = esl_msa_SetSeqDescription(new, nidx, msa->sqdesc[oidx], -1)) != eslOK) goto ERROR;
+	if (msa->ss     && msa->ss[oidx]     && (status = set_seq_ss               (new, nidx, msa->ss[oidx]))         != eslOK) goto ERROR;
+	if (msa->sa     && msa->sa[oidx]     && (status = set_seq_sa               (new, nidx, msa->sa[oidx]))         != eslOK) goto ERROR;
+	if (msa->pp     && msa->pp[oidx]     && (status = set_seq_pp               (new, nidx, msa->pp[oidx]))         != eslOK) goto ERROR;
+
 	/* unparsed annotation */
-	for(i = 0; i < msa->ngs; i++) {
-	  if(msa->gs[i] != NULL) 
-	    if ((status = esl_msa_AddGS(new, msa->gs_tag[i], -1, nidx, msa->gs[i][oidx], -1)) != eslOK) goto ERROR;
-	}
-	for(i = 0; i < msa->ngr; i++) {
-	  if(msa->gr[i] != NULL) 
-	    if ((status = esl_msa_AppendGR(new, msa->gr_tag[i], nidx, msa->gr[i][oidx])) != eslOK) goto ERROR;
-	}
+	for(i = 0; i < msa->ngs; i++) { if (msa->gs[i] && msa->gs[i][oidx] && (status = esl_msa_AddGS   (new, msa->gs_tag[i], -1, nidx, msa->gs[i][oidx], -1)) != eslOK) goto ERROR; }
+	for(i = 0; i < msa->ngr; i++) { if (msa->gr[i] && msa->gr[i][oidx] && (status = esl_msa_AppendGR(new, msa->gr_tag[i],     nidx, msa->gr[i][oidx]))     != eslOK) goto ERROR; }
 
 	nidx++;
       }
