@@ -882,7 +882,6 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
   /* check validity of rstring: must be "<s1>:<s2>" with len(<s1>)==len(<s2>) */
   if((rlen % 2) != 0) { /* odd num chars, good */
     mid = rlen / 2;
-    printf("mid: %d\n", mid);
     if(rstring[mid] == ':') { /* middle character is ':', good */
       ESL_ALLOC(from, sizeof(char) * (mid+1));
       ESL_ALLOC(to,   sizeof(char) * (mid+1));
@@ -893,7 +892,6 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
       is_valid = TRUE;
     }
   }
-  printf("mid: %d from: %s to: %s\n", mid, from, to);
   if(! is_valid) esl_fatal("--replace takes arg of <s1>:<s2> with len(<s1>) == len(<s2>); %s not recognized", rstring);
   *ret_from = from;
   *ret_to   = to;
