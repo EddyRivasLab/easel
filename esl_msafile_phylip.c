@@ -1,6 +1,5 @@
 /* i/o of multiple sequence alignment files in PHYLIP format
  * 
- * 
  */
 #include "esl_config.h"
 
@@ -144,6 +143,154 @@ esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   return status;
 }
 
+/* Function:  esl_msafile_phylip_Read()
+ * Synopsis:  Read in a PHYLIP interleaved alignment.
+ *
+ * Purpose:   Read an MSA from an open <ESLX_MSAFILE> <afp>, parsing for
+ *            Phylip interleaved format, starting from the current
+ *            point. Create a new multiple alignment, and return a ptr
+ *            to that alignment in <*ret_msa>.  Caller is responsible
+ *            for free'ing this <ESL_MSA>.
+ *
+ * Args:      afp     - open <ESL_MSAFILE>
+ *            ret_msa - RETURN: newly parsed <ESL_MSA>
+ *
+ * Returns:   <eslOK> on success.
+ * 
+ *            <eslEOF> if no (more) alignment data are found in
+ *            <afp>, and <afp> is returned at EOF. 
+ *
+ *            <eslEFORMAT> on a parse error. <*ret_msa> is set to
+ *            <NULL>. <afp> contains information sufficient for
+ *            constructing useful diagnostic output: 
+ *            | <afp->errmsg>       | user-directed error message     |
+ *            | <afp->linenumber>   | line # where error was detected |
+ *            | <afp->line>         | offending line (not NUL-term)   |
+ *            | <afp->n>            | length of offending line        |
+ *            | <afp->bf->filename> | name of the file                |
+ *            and <afp> is poised at the start of the following line,
+ *            so (in principle) the caller could try to resume
+ *            parsing.
+ *
+ * Throws:    <eslEMEM> - an allocation failed.
+ *            <eslESYS> - a system call such as fread() failed
+ *            <eslEINCONCEIVABLE> - "impossible" corruption 
+ */
+int
+esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
+{
+  int      namewidth = 10;
+  ESL_MSA *msa    = NULL;
+  char    *p      = NULL;
+  char    *tok    = NULL;
+  int      toklen = 0;
+  int      nseq, idx;
+  int64_t  alen;
+  int      status;
+  
+  afp->errmsg[0] = '\0';
+#ifdef eslAUGMENT_ALPHABET
+  if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
+#endif
+  if (! afp->abc &&  (msa = esl_msa_Create(                 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
+
+  /* skip leading blank lines (though there shouldn't be any) */
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  if      (status != eslOK)  goto ERROR; /* includes normal EOF */
+  
+  /* the first line: <nseq> <alen> */
+  esl_memtok(&p, &n, " \t", &tok, &toklen);
+  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &nseq)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "first line of PHYLIP file should be <nseq> <alen>");
+  if (esl_memtok(&p, &n, " \t", &tok, &toklen)       != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "first line of PHYLIP file should be <nseq> <alen>");
+  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &alen)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "first line of PHYLIP file should be <nseq> <alen>");
+
+  /* load next line, skipping any blank ones (though there shouldn't be any) */
+  do {
+    status = eslx_msafile_GetLine(afp, &p, &n);
+    if      (status == eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data following header");
+    else if (status != eslOK) goto ERROR;
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n); /* idiom for "blank line" */
+
+  /* read the alignment data */
+  do {				/* p, n is now the first line of the block */
+    idx = 0;
+    do {
+      
+      /* First block? store the sequence names */
+      if (nblocks == 0)
+	{
+	  if (n < namewidth) ESL_XFAIL(eslEFORMAT, afp->errmsg, "PHYLIP line too short to find sequence name");
+	  if (idx >= msa->sqalloc); /* SRE STOPPED HERE */
+	}
+
+  *ret_msa = msa;
+  return eslOK;
+
+ ERROR:
+  if (msa) esl_msa_Destroy(msa);
+  *ret_msa = NULL;
+  return status;
+}
+
+
+
+int
+esl_msafile_phylip_Write(FILE *fp, const ESL_MSA *msa)
+{
+  int     cpl        = 60;
+  int     maxnamelen = 10;
+  char   *buf        = NULL;
+  int     idx, i;
+  int64_t apos;
+  int     status;
+  
+  ESL_ALLOC(buf, sizeof(char) * (cpl+1));
+  buf[cpl] = '\0';
+
+  fprintf(fp, " %d %d", msa->nseq, msa->alen);
+
+  for (apos = 0; apos < msa->alen; apos += cpl)
+    {
+      fprintf(fp, "\n");
+      for (idx = 0; idx < msa->nseq; idx++)
+	{
+#ifdef eslAUGMENT_ALPHABET 
+	  if (msa->abc) 
+	    {
+	      esl_abc_TextizeN(msa->abc, msa->ax[idx]+apos+1, cpl, buf);
+	      /* Easel's internal alphabet (and output syms) are compatible with PHYLIP
+	       * (upper case, '-' for gaps, '*' for stop codon; except that PHYLIP uses
+	       * '?' for missing data
+	       */
+	      for (i = 0; buf[i]; i++)
+		{
+		  if (buf[i] == '~') buf[i] = '?';
+		}
+	    }
+#endif
+	  if (! msa->abc) 
+	    {
+	      strncpy(buf, msa->aseq[idx]+apos, cpl);
+	      for (i = 0; buf[i]; i++)
+		{
+		  if (islower(buf[i]))               buf[i] = toupper(buf[i]);
+		  if (strchr("._ ", buf[i]) != NULL) buf[i] = '-';
+		  if (buf[i] == '~')                 buf[i] = '?';
+		}
+	    }
+
+	  if (apos == 0) fprintf(fp, "%-*.*s%s\n", maxnamelen, maxnamelen, msa->sqname[idx], buf);
+	  else           fprintf(fp, "%s\n", buf);
+	}
+    }
+
+  free(buf);
+  return eslOK;
+
+ ERROR:
+  if (buf) free(buf);
+  return status;
+}
 
 
 
