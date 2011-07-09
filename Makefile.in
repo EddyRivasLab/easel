@@ -105,6 +105,7 @@ HDRS = 	easel.h\
 	esl_msafile_a2m.h\
 	esl_msafile_afa.h\
 	esl_msafile_clustal.h\
+	esl_msafile_phylip.h\
 	esl_msafile_psiblast.h\
 	esl_msafile_selex.h\
 	esl_msafile_stockholm.h\
@@ -164,6 +165,7 @@ OBJS =	easel.o\
 	esl_msafile_a2m.o\
 	esl_msafile_afa.o\
 	esl_msafile_clustal.o\
+	esl_msafile_phylip.o\
 	esl_msafile_psiblast.o\
 	esl_msafile_selex.o\
 	esl_msafile_stockholm.o\
@@ -228,6 +230,7 @@ UTESTS =\
 	esl_msafile_a2m_utest\
 	esl_msafile_afa_utest\
 	esl_msafile_clustal_utest\
+	esl_msafile_phylip_utest\
 	esl_msafile_psiblast_utest\
 	esl_msafile_selex_utest\
 	esl_msafile_stockholm_utest\
@@ -293,6 +296,7 @@ EXAMPLES = \
         esl_msa_example2\
         esl_msafile_example\
 	esl_msafile_clustal_example\
+	esl_msafile_phylip_example\
 	esl_msafile_psiblast_example\
 	esl_msafile_stockholm_example\
         esl_msacluster_example\

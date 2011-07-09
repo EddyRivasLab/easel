@@ -47,6 +47,8 @@ typedef struct {
 #define eslMSAFILE_AFA         106  /* aligned FASTA format                        */
 #define eslMSAFILE_CLUSTAL     107  /* CLUSTAL format                              */
 #define eslMSAFILE_CLUSTALLIKE 108  /* CLUSTAL-like formats (MUSCLE, PROBCONS)     */
+#define eslMSAFILE_PHYLIP      109  /* interleaved PHYLIP format                   */
+#define eslMSAFILE_PHYLIPS     110  /* sequential PHYLIP format                    */
 
 /* 1. Opening/closing an ESLX_MSAFILE */
 extern int   eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp);
@@ -78,6 +80,7 @@ extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_
 #include "esl_msafile_a2m.h"
 #include "esl_msafile_afa.h"
 #include "esl_msafile_clustal.h"
+#include "esl_msafile_phylip.h"
 #include "esl_msafile_psiblast.h"
 #include "esl_msafile_selex.h"
 #include "esl_msafile_stockholm.h"

@@ -348,6 +348,8 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
   case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
   case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
   case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_SetInmap(   afp); break;
+  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_SetInmap(   afp); break;
   case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;
   case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
   case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
@@ -371,7 +373,9 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
  *****************************************************************/
 
 static int msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format);
+static int msafile_check_phylip (ESL_BUFFER *bf, int *ret_format, int *ret_namewidth);
 static int msafile_check_selex  (ESL_BUFFER *bf);
+
 
 
 /* Function:  eslx_msafile_GuessFileFormat()
@@ -456,6 +460,14 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
   else if (esl_memstrpfx(p, n, ">"))                                fmt_byfirstline = eslMSAFILE_AFA;
   else if (esl_memstrpfx(p, n, "CLUSTAL"))                          fmt_byfirstline = eslMSAFILE_CLUSTAL;
   else if (esl_memstrcontains(p, n, "multiple sequence alignment")) fmt_byfirstline = eslMSAFILE_CLUSTALLIKE;
+  else {
+    char     *tok;
+    esl_pos_t toklen;
+    /* look for <nseq> <alen>, characteristic of PHYLIP files */
+    if (esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen &&
+	esl_memtok(&p, &n, " \t", &tok, &toklen) == eslOK  && esl_memspn(tok, toklen, "0123456789") == toklen)
+      fmt_byfirstline = eslMSAFILE_PHYLIP; /* interleaved for now; we'll look more closely soon */
+  }
 
   /* Restore parser status, rewind to start */
   esl_buffer_SetOffset  (bf, initial_offset);
@@ -484,6 +496,12 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
       if      (fmt_bysuffix == eslMSAFILE_AFA) *ret_fmtcode = eslMSAFILE_AFA;
       else if (fmt_bysuffix == eslMSAFILE_A2M) *ret_fmtcode = eslMSAFILE_A2M;
       else    msafile_guess_afalike  (bf, ret_fmtcode);
+    }
+  else if (fmt_byfirstline == eslMSAFILE_PHYLIP)
+    {
+      int namewidth;
+      status = esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);
+      if (namewidth != 10) { *ret_fmtcode = eslMSAFILE_UNKNOWN; } /* easy to change later, if we start accepting nonstandard PHYLIP namewidths */
     }
   else
     {				/* selex parser can handle psiblast too */
@@ -517,6 +535,8 @@ eslx_msafile_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "stockholm")   == 0) return eslMSAFILE_STOCKHOLM;
   if (strcasecmp(fmtstring, "pfam")        == 0) return eslMSAFILE_PFAM;
   if (strcasecmp(fmtstring, "a2m")         == 0) return eslMSAFILE_A2M;
+  if (strcasecmp(fmtstring, "phylip")      == 0) return eslMSAFILE_PHYLIP;
+  if (strcasecmp(fmtstring, "phylips")     == 0) return eslMSAFILE_PHYLIPS;
   if (strcasecmp(fmtstring, "psiblast")    == 0) return eslMSAFILE_PSIBLAST;
   if (strcasecmp(fmtstring, "selex")       == 0) return eslMSAFILE_SELEX;
   if (strcasecmp(fmtstring, "afa")         == 0) return eslMSAFILE_AFA;
@@ -554,6 +574,8 @@ eslx_msafile_DecodeFormat(int fmt)
   case eslMSAFILE_AFA:         return "aligned FASTA";
   case eslMSAFILE_CLUSTAL:     return "Clustal";
   case eslMSAFILE_CLUSTALLIKE: return "Clustal-like";
+  case eslMSAFILE_PHYLIP:      return "PHYLIP (interleaved)";
+  case eslMSAFILE_PHYLIPS:     return "PHYLIP (sequential)";
   default:                     break;
   }
   esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
@@ -648,6 +670,162 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
     esl_buffer_RaiseAnchor(bf, anchor);
   }
   *ret_format = eslMSAFILE_UNKNOWN;
+  return status;
+}
+
+
+/* msafile_check_phylip()
+ * Checks whether input source appears to be in PHYLIP format,
+ * starting from the current point, to the end of the input.
+ * Returns <eslOK> if so, <eslFAIL> if not.
+ * 
+ * On success, <*ret_format> is set to <eslMSAFILE_PHYLIP> or
+ * <eslMSAFILE_PHYLIPS>, based on an attempt to determine if the file
+ * is in interleaved or sequential format. This cannot be done with
+ * 100% confidence, partly because no space is required between a name
+ * and sequence residues; it's possible to contrive examples where
+ * interleaved and sequential are indistinguishable, when names look
+ * like 10 residues.
+ * 
+ * Also on success, <*ret_namewidth> is set to the width of the name
+ * field. In strict PHYLIP format, this is 10. For now, Easel parsers
+ * require strict PHYLIP format, but we've left <namewidth> as a
+ * variable in various obvious places, to make it easier to change
+ * this strictness when we need to in the future.
+ * 
+ * On failure (<eslFAIL> return), <*ret_format> is eslMSAFILE_UNKNOWN,
+ * and <*ret_namewidth> is 0.
+ * 
+ * On either success or failure, the buffer is restored to the same
+ * position and state it started in.
+ */
+static int
+msafile_check_phylip(ESL_BUFFER *bf, int *ret_format, int *ret_namewidth)
+{
+  esl_pos_t anchor        = -1;
+  char     *p, *tok;
+  esl_pos_t n,  toklen, pos;
+  int32_t   nseq, alen;		/* int32_t is because we're using esl_mem_strtoi32() to parse them out */
+  int      *nci, *nci0;		/* number of chars per sequence if the format is interleaved: nci[0..nseq-1]. nci0 is length of 1st line inc. name */
+  int      *ncs, *ncs0;		/* number of chars per sequence if the format is sequential:  ncs[0..nseq-1]. ncs0 is length of 1st line inc. name */
+  int       nc;
+  int       nblock, nline;
+  int       ncpb;               /* number of chars per interleaved block > 0  */
+  int       idxi;		/* sequence index if the format is interleaved */
+  int       idxs;		/* sequence index if the format is sequential */
+  int       nillegal;
+  int       is_interleaved = TRUE; /* until proven otherwise */
+  int       is_sequential  = TRUE; /* until proven otherwise */
+  int       namewidth;
+  int       status;
+
+  anchor = esl_buffer_GetOffset(bf);
+  if ((status = esl_buffer_SetAnchor(bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
+
+  /* Find the first nonblank line, which says " <nseq> <alen>" and may also have options */
+  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
+  if      (status != eslOK) { status = eslFAIL; goto ERROR; }
+  
+  esl_memtok(&p, &n, " \t", &tok, &toklen);
+  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &nseq)  != eslOK) { status = eslFAIL; goto ERROR; }
+  if (esl_memtok(&p, &n, " \t", &tok, &toklen)       != eslOK) { status = eslFAIL; goto ERROR; }
+  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &alen)  != eslOK) { status = eslFAIL; goto ERROR; }
+
+  ESL_ALLOC(nci,  sizeof(int) * nseq);
+  ESL_ALLOC(nci0, sizeof(int) * nseq);
+  ESL_ALLOC(ncs,  sizeof(int) * nseq);
+  ESL_ALLOC(ncs0, sizeof(int) * nseq);
+  for (idxi = 0; idxi < nseq; idxi++) { nci0[idxi] = nci[idxi] = 0; }
+  for (idxs = 0; idxs < nseq; idxs++) { ncs0[idxs] = ncs[idxs] = 0; }
+
+  idxi = idxs = 0;
+  nblock = nline = 0;
+  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
+    {
+      /* number of characters on this line */
+      for (nillegal = 0, nc = 0, pos = 0; pos < n; pos++) {
+	if (isspace(p[pos]) || isdigit(p[pos])) continue;
+	if (! isalpha(p[pos]) && strchr("-*?.", p[pos]) == NULL) { nillegal++; continue; }
+	nc++;
+      }
+
+      if (!nc) 		/* blank line? */
+	{
+	  if (idxi)   is_interleaved = FALSE; 
+	  if (nline)  is_sequential  = FALSE;
+	  continue;
+	}
+
+      if (nblock == 0) 
+	nci0[idxi++] = nc;
+      else 
+	{
+	  if      (idxi == 0)  ncpb = nc;
+	  else if (nc != ncpb) is_interleaved = FALSE; 
+	  if      (nillegal)   is_interleaved = FALSE; 
+          nci[idxi++] += nc;
+	}
+      if (idxi == nseq) { idxi = 0; nblock++; ncpb = 0; }        /* advance to next putative block in interleaved format */
+
+      if   (nline == 0) 
+	{
+	  ncs0[idxs] = nc;
+	}
+      else 
+	{
+	  if (nillegal) is_sequential = FALSE; 
+	  ncs[idxs] += nc; 
+	}
+      nline++;
+      if (ncs0[idxs] + ncs[idxs] > alen) { idxs++; nline = 0; } /* advance to next sequence in sequential format */
+    }
+
+  namewidth = nci0[0] + nci[0] - alen;
+  for (idxi = 1; idxi < nseq; idxi++) 
+    if (nci0[idxi] + nci[idxi] - namewidth != alen) { is_interleaved = FALSE; break; }
+
+  namewidth = ncs0[0] + ncs[0] - alen;
+  for (idxs = 1; idxs < nseq; idxs++) 
+    if (ncs0[idxi] + ncs[idxi] - namewidth != alen) { is_sequential  = FALSE; break; }
+
+   if (is_interleaved)
+     {
+       *ret_format    = eslMSAFILE_PHYLIP; 
+       *ret_namewidth = namewidth = nci0[0] + nci[0] - alen;
+       status         = eslOK;
+     }
+   else if (is_sequential)
+     {
+       *ret_format    = eslMSAFILE_PHYLIPS; 
+       *ret_namewidth = namewidth = ncs0[0] + ncs[0] - alen;
+       status         = eslOK;
+     }
+   else
+     {
+       *ret_format    = eslMSAFILE_PHYLIPS; 
+       *ret_namewidth = namewidth = ncs0[0] + ncs[0] - alen;
+       status         = eslFAIL;
+     }
+
+   free(nci);
+   free(nci0);
+   free(ncs);
+   free(ncs0);
+   esl_buffer_SetOffset(bf, anchor);
+   esl_buffer_RaiseAnchor(bf, anchor);
+   return status;
+
+ ERROR:
+  if (anchor != -1) { 
+    esl_buffer_SetOffset(bf, anchor);
+    esl_buffer_RaiseAnchor(bf, anchor);
+  }
+  if (nci)  free(nci);
+  if (nci0) free(nci0);
+  if (ncs)  free(ncs);
+  if (ncs0) free(ncs0);
+  *ret_format    = eslMSAFILE_UNKNOWN;
+  *ret_namewidth = 0;
   return status;
 }
 
@@ -788,6 +966,8 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   case eslMSAFILE_AFA:         status = esl_msafile_afa_GuessAlphabet      (afp, ret_type); break;
   case eslMSAFILE_CLUSTAL:     status = esl_msafile_clustal_GuessAlphabet  (afp, ret_type); break;
   case eslMSAFILE_CLUSTALLIKE: status = esl_msafile_clustal_GuessAlphabet  (afp, ret_type); break;
+  case eslMSAFILE_PHYLIP:      status = esl_msafile_phylip_GuessAlphabet   (afp, ret_type); break; 
+  case eslMSAFILE_PHYLIPS:     status = esl_msafile_phylip_GuessAlphabet   (afp, ret_type); break; 
   }
   return status;
 }
