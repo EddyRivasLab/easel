@@ -257,7 +257,6 @@ while (<COMMANDS>) {
     if (/^\s*$/) { next; }
 
     chomp;
-    print "sqc: evaluating line: $_\n" if $verbose;
     ($testlevel, $testtype, $testname, $cmdtemplate) = split(' ', $_, 4);
     if ($setlevel < $testlevel) { next COMMAND; }
 
@@ -278,6 +277,8 @@ while (<COMMANDS>) {
     {
 	die "No such test type $testtype at line $linenum of command file\n";
     }
+
+    print "sqc: evaluating line: $_\n" if $verbose;
 
     # Filename substitution.
     $cmd = $cmdtemplate;
@@ -417,6 +418,9 @@ while (<COMMANDS>) {
 	elsif (($status1>>8)  != 1) { print "FAILED [crash!]\n";    $badtest++; }
 	else                        { print "ok.\n"; }
     }
+
+    last if ($only_do_test_num && $ntest == $only_do_test_num ); 
+
 }
 
 # Summarize output.
