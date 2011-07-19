@@ -2,6 +2,7 @@
  * 
  * Table of contents:
  *    1. Opening/closing an ESLX_MSAFILE.
+ *    x. ESLX_MSAFILE_FMTDATA: optional added constraints on formats.
  *    2. Guessing file formats.
  *    3. Guessing alphabets.
  *    4. Reading an MSA from an ESLX_MSAFILE.
@@ -30,20 +31,45 @@
  *****************************************************************/
 
 static int msafile_Create    (ESLX_MSAFILE **ret_afp);
-static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE *afp);
+static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE *afp);
 
 /* Function:  eslx_msafile_Open()
  * Synopsis:  Open a multiple sequence alignment file for input.
  *
  * Purpose:   Open a multiple sequence alignment file <msafile> for input.
+ *            Return an open <ESLX_MSAFILE> handle in <*ret_afp>.
  *
- *            Caller asserts that <msafile> is in format code
- *            <format>, such as <eslMSAFILE_STOCKHOLM>,
- *            <eslMSAFILE_AFA>, <eslMSAFILE_CLUSTAL>.  If <format> is
- *            <eslMSAFILE_UNKNOWN>, format autodetection is performed.
+ *            <msafile> is usually the name of a file. Alignments may
+ *            also be read from standard input, or from
+ *            gzip-compressed files.  If <msafile> is ``-'', alignment
+ *            input is taken from the standard input stream. If
+ *            <msafile> ends in ``.gz'', alignment input is read
+ *            through a pipe from <gzip -dc>.
  *            
- *            Alignments may be input in either text or digital mode,
- *            depending on the setting of the passed-by-reference
+ *            <byp_abc>, <env>, <format>, and <fmtd> support a variety
+ *            of optional/advanced operations, as described
+ *            below. Minimally, a caller can set <byp_abc> to <NULL>,
+ *            <format> to <eslMSAFILE_UNKNOWN>, and <fmtd> to <NULL>,
+ *            and <msafile> will be opened in text mode; in the
+ *            current working directory; and its format will be
+ *            autodetected.
+ *            
+ *            The <byp_abc> argument controls whether data are to be
+ *            read in text or digital mode. In digital mode, alignment
+ *            data are immediately digitized into an Easel internal
+ *            alphabet (which among other things, allows various
+ *            things to operate on sequence data more efficiently) and
+ *            because an expected alphabet is known, parsers are able
+ *            to detect invalid characters. The caller may either
+ *            provide an alphabet (thus asserting what it's expected
+ *            to be), or have <eslx_msafile_Open()> look at the file
+ *            and guess what alphabet it appears to be (DNA or amino
+ *            acid code, usually).  In text mode, alignment data are
+ *            read verbatim. It might be advantageous for an
+ *            application to read in text mode -- for example, if a
+ *            variant alignment format is using characters in some
+ *            special way, and you need to deal with them specially.
+ *            All this goes through the setting of the passed-by-reference
  *            alphabet pointer <byp_abc>. If caller passes NULL for
  *            the <byp_abc> argument, input is in text mode. If caller
  *            provides a valid non-NULL <byp_abc> pointer but
@@ -56,21 +82,39 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *            provides a digital alphabet (that is, <ESL_ALPHABET *abc
  *            = esl_alphabet_Create...()> and passed <&abc>), that's
  *            the alphabet we use.
- *            
- *            Optionally, caller can provide in <env> the name of an
- *            environment variable ("PFAMDB", perhaps), in which the
- *            routine can find a colon-delimited list of directories.
- *            Then, if <msafile> is not found in the current working
- *            directory, we look for it in these directories, in the
- *            order they're listed. Otherwise caller sets <env> to
- *            <NULL>.
+ * 
+ *            The <env> argument controls where we search for the
+ *            <msafile>.  If <env> is <NULL>, only the current working
+ *            directory is checked.  Optionally, caller can provide in
+ *            <env> the name of an environment variable ("PFAMDB",
+ *            perhaps), in which the routine can find a
+ *            colon-delimited list of directories.  Then, if <msafile>
+ *            is not found in the current working directory, we look
+ *            for it in these directories, in the order they're
+ *            listed.
  *
- *            <msafile> is usually the name of a file. Alignments may
- *            also be read from standard input, or from
- *            gzip-compressed files.  If <msafile> is ``-'', alignment
- *            input is taken from the standard input stream. If
- *            <msafile> ends in ``.gz'', alignment input is read
- *            through a pipe from <gzip -dc>.
+ *            The <format> argument allows the caller to either allow
+ *            <eslx_msafile_Open()> to autodetect the file format of
+ *            <msafile>, or to assert that it knows the file is in a
+ *            particular format. If <format> is <eslMSAFILE_UNKNOWN>,
+ *            format autodetection is performed. Other valid codes include:
+ *             | <eslMSAFILE_STOCKHOLM>   | Stockholm format                    |
+ *             | <eslMSAFILE_AFA>         | Aligned FASTA format                | 
+ *             | <eslMSAFILE_CLUSTAL>     | Clustal format (strict)             |
+ *             | <eslMSAFILE_CLUSTALLIKE> | Clustal-like  (MUSCLE, PROBCONS...) |
+ *             | <eslMSAFILE_PHYLIP>      | PHYLIP interleaved format           |
+ *             | <eslMSAFILE_PHYLIPS>     | PHYLIP sequential format            |
+ *             | <eslMSAFILE_A2M>         | UCSC SAM A2M (dotless or dotful)    |
+ *             | <eslMSAFILE_PSIBLAST>    | NCBI PSI-BLAST                      |
+ *             | <eslMSAFILE_SELEX>       | a general alignment block format    |
+ *
+ *            The <fmtd> argument is an optional pointer to a
+ *            <ESLX_MSAFILE_FMTDATA> structure that the caller may
+ *            initialize and provide, in order to assert any
+ *            additional unusual constraints on the input format --
+ *            for example, to dictate that a PHYLIP format file has
+ *            some nonstandard name field width. Generally, though,
+ *            <fmtd> will be <NULL>.
  *
  * Args:      byp_abc   - digital alphabet to use, or NULL for text mode
  *                        if <*byp_abc> is NULL, guess the digital alphabet,
@@ -79,11 +123,15 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *            msafile   - name of alignment input to open;
  *                        if "-", read standard input;
  *                        if "*.gz", read through a <gzip -dc> pipe.
- *            format    - format code, such as <eslMSAFILE_STOCKHOLM>;
- *                        or <eslMSAFILE_UNKNOWN> to autodetect format.
  *            env       - <NULL>, or the name of an environment variable
  *                        containing colon-delimited list of directories
  *                        in which to search for <msafile> (e.g. "PFAMDB").
+ *            format    - format code, such as <eslMSAFILE_STOCKHOLM>;
+ *                        or <eslMSAFILE_UNKNOWN> to autodetect format.
+ *            fmtd      - <NULL>, or a pointer to an initialized 
+ *                        <ESLX_MSAFILE_FMTDATA> structure, containing
+ *                        any additional unusual constraints to apply
+ *                        to the input format.
  *            *ret_afp  - RETURN: open MSA input stream.
  *
  * Returns:   <eslOK> on success, and <*ret_afp> is the newly opened msa file.
@@ -123,7 +171,7 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *            On thrown exceptions, <*ret_afp> is <NULL>.
  */
 int
-eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp)
+eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp)
 {
   ESLX_MSAFILE *afp = NULL;
   int           status;
@@ -133,7 +181,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const
   if ((status = esl_buffer_Open(msafile, env, &(afp->bf))) != eslOK)
     ESL_XFAIL(status, afp->errmsg, "%s", afp->bf->errmsg); /* ENOTFOUND; FAIL are normal here */
 
-  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, fmtd, afp)) != eslOK) goto ERROR;
   *ret_afp = afp; 
   return eslOK;
 
@@ -159,7 +207,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const
  *            mandatory.
  */
 int
-eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE **ret_afp)
+eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp)
 {
   ESLX_MSAFILE *afp = NULL;
   int status;
@@ -167,7 +215,7 @@ eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, E
   if ( (status = msafile_Create(&afp))                 != eslOK) goto ERROR;
   if ( (status = esl_buffer_OpenMem(p, n, &(afp->bf))) != eslOK) goto ERROR;
 
-  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, fmtd, afp)) != eslOK) goto ERROR;
   *ret_afp = afp; 
   return eslOK;
 
@@ -189,7 +237,7 @@ eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, E
  *            opened by the caller for some input source.
  */
 int
-eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE **ret_afp)
+eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp)
 {
   ESLX_MSAFILE *afp = NULL;
   int status;
@@ -197,7 +245,7 @@ eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX
   if ( (status = msafile_Create(&afp)) != eslOK) goto ERROR;
 
   afp->bf = bf;
-  if ((status = msafile_OpenBuffer(byp_abc, afp->bf, format, afp)) != eslOK) goto ERROR;
+  if ((status = msafile_OpenBuffer(byp_abc, afp->bf, format, fmtd, afp)) != eslOK) goto ERROR;
   *ret_afp = afp; 
   return eslOK;
 
@@ -275,11 +323,13 @@ msafile_Create(ESLX_MSAFILE **ret_afp)
   afp->line       = NULL;
   afp->n          = 0;
   afp->linenumber = 0;
-  afp->linenumber = 0;
+  afp->lineoffset = 0;
   afp->format     = eslMSAFILE_UNKNOWN;
   afp->abc        = NULL;
   afp->ssi        = NULL;
   afp->errmsg[0]  = '\0';
+
+  eslx_msafile_fmtdata_Init(&(afp->fmtd));
 
   *ret_afp = afp;
   return eslOK;
@@ -296,16 +346,19 @@ msafile_Create(ESLX_MSAFILE **ret_afp)
  * <bf> is opened successfully.
  */
 static int
-msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE *afp)
+msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE_FMTDATA *fmtd,  ESLX_MSAFILE *afp)
 {
-  ESL_ALPHABET *abc       = NULL;
-  int           alphatype = eslUNKNOWN;
-  int           status;
+  ESL_ALPHABET        *abc       = NULL;
+  int                  alphatype = eslUNKNOWN;
+  int                  status;
+
+  /* if caller provided <fmtd>, copy it into afp->fmtd */
+  if (fmtd) eslx_msafile_fmtdata_Copy(fmtd, &(afp->fmtd));
 
   /* Determine the format */
   if (format == eslMSAFILE_UNKNOWN) 
     {
-      status = eslx_msafile_GuessFileFormat(afp->bf, &format);
+      status = eslx_msafile_GuessFileFormat(afp->bf, &(afp->fmtd), &format);
       if      (status == eslENOFORMAT) ESL_XFAIL(eslENOFORMAT, afp->errmsg, "couldn't determine alignment input format"); /* ENOFORMAT is normal failure */
       else if (status != eslOK)        goto ERROR;
     }
@@ -368,12 +421,40 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
 /*------------- end, open/close an ESLX_MSAFILE -----------------*/
 
 
+
+/*****************************************************************
+ *# x. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats.
+ *****************************************************************/
+
+/* Function:  eslx_msafile_fmtdata_Init()
+ * Synopsis:  Initialize a <ESLX_MSAFILE_FMTDATA> structure.
+ */
+int
+eslx_msafile_fmtdata_Init(ESLX_MSAFILE_FMTDATA *fmtd)
+{
+  fmtd->namewidth = 0;
+  fmtd->rpl       = 0;
+  return eslOK;
+}
+
+/* Function:  eslx_msafile_fmtdata_Copy()
+ * Synopsis:  Copy one <ESLX_MSAFILE_FMTDATA> structure to another.
+ */
+int
+eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src, ESLX_MSAFILE_FMTDATA *dst)
+{
+  dst->namewidth = src->namewidth;
+  dst->rpl       = src->rpl;
+  return eslOK;
+}
+
+/*--------------- ESLX_MSAFILE_FMTDATA --------------------------*/
+
 /*****************************************************************
  *# 2. Guessing file format.
  *****************************************************************/
 
 static int msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format);
-static int msafile_check_phylip (ESL_BUFFER *bf, int *ret_format, int *ret_namewidth);
 static int msafile_check_selex  (ESL_BUFFER *bf);
 
 
@@ -398,9 +479,23 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  *                 | Pfam          |  .pfam          |
  *                 | A2M           |  .a2m           | 
  *                 | SELEX         |  .slx .selex    |   
+ *                 
+ *            Some formats may have variants that require special
+ *            handling. Caller may pass a pointer <*opt_fmtd> to a
+ *            <ESL_MSAFILE_FMTDATA> structure to capture this
+ *            information from format autodetection, or <NULL>. If the
+ *            structure is provided, it is reinitialized, and any
+ *            fields that can be determined by the appropriate
+ *            format-guessing function are filled in. If <*opt_fmtd>
+ *            is <NULL>, the range of variation that can be captured
+ *            by some formats may be limited. Currently this only
+ *            affects PHYLIP format, where <opt_fmtd->namewidth>
+ *            allows files with nonstandard name field widths to be
+ *            autodetected and parsed.
  *
  * Args:      bf          - the open buffer to read input from
- *            ret_fmtcode - RETURN: format code that's determined
+ *            opt_fmtd    - OPTIONAL: ptr to an <ESL_MSAFILE_FMTDATA> structure, or <NULL>
+ *            ret_fmtcode - RETURN:   format code that's determined
  *
  * Returns:   <eslOK> on success, and <*ret_fmtcode> contains the format code.
  *            <eslENOFORMAT> if format can't be guessed, and <*ret_fmtcode> contains
@@ -409,7 +504,7 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  * Throws:    (no abnormal error conditions)
  */
 int
-eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
+eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, ESLX_MSAFILE_FMTDATA *opt_fmtd, int *ret_fmtcode)
 {
   esl_pos_t  initial_offset;
   char      *p;
@@ -417,6 +512,9 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
   int        fmt_bysuffix    = eslMSAFILE_UNKNOWN;
   int        fmt_byfirstline = eslMSAFILE_UNKNOWN;
   int        status;
+
+  /* Initialize the optional data, if provided (move this initialization to a function someday) */
+  if (opt_fmtd) eslx_msafile_fmtdata_Init(opt_fmtd);
 
   /* As we start, save parser status:
    *   remember the offset where we started (usually 0, but not necessarily)
@@ -501,7 +599,8 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode)
     {
       int namewidth;
       status = esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);
-      if (namewidth != 10) { *ret_fmtcode = eslMSAFILE_UNKNOWN; } /* easy to change later, if we start accepting nonstandard PHYLIP namewidths */
+      if      (opt_fmtd)         opt_fmtd->namewidth = namewidth;
+      else if (namewidth != 10) *ret_fmtcode = eslMSAFILE_UNKNOWN; /* if we can't store the nonstandard width, we can't allow the caller to think it can parse this */
     }
   else
     {				/* selex parser can handle psiblast too */
@@ -674,162 +773,6 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
 }
 
 
-/* msafile_check_phylip()
- * Checks whether input source appears to be in PHYLIP format,
- * starting from the current point, to the end of the input.
- * Returns <eslOK> if so, <eslFAIL> if not.
- * 
- * On success, <*ret_format> is set to <eslMSAFILE_PHYLIP> or
- * <eslMSAFILE_PHYLIPS>, based on an attempt to determine if the file
- * is in interleaved or sequential format. This cannot be done with
- * 100% confidence, partly because no space is required between a name
- * and sequence residues; it's possible to contrive examples where
- * interleaved and sequential are indistinguishable, when names look
- * like 10 residues.
- * 
- * Also on success, <*ret_namewidth> is set to the width of the name
- * field. In strict PHYLIP format, this is 10. For now, Easel parsers
- * require strict PHYLIP format, but we've left <namewidth> as a
- * variable in various obvious places, to make it easier to change
- * this strictness when we need to in the future.
- * 
- * On failure (<eslFAIL> return), <*ret_format> is eslMSAFILE_UNKNOWN,
- * and <*ret_namewidth> is 0.
- * 
- * On either success or failure, the buffer is restored to the same
- * position and state it started in.
- */
-static int
-msafile_check_phylip(ESL_BUFFER *bf, int *ret_format, int *ret_namewidth)
-{
-  esl_pos_t anchor        = -1;
-  char     *p, *tok;
-  esl_pos_t n,  toklen, pos;
-  int32_t   nseq, alen;		/* int32_t is because we're using esl_mem_strtoi32() to parse them out */
-  int      *nci, *nci0;		/* number of chars per sequence if the format is interleaved: nci[0..nseq-1]. nci0 is length of 1st line inc. name */
-  int      *ncs, *ncs0;		/* number of chars per sequence if the format is sequential:  ncs[0..nseq-1]. ncs0 is length of 1st line inc. name */
-  int       nc;
-  int       nblock, nline;
-  int       ncpb;               /* number of chars per interleaved block > 0  */
-  int       idxi;		/* sequence index if the format is interleaved */
-  int       idxs;		/* sequence index if the format is sequential */
-  int       nillegal;
-  int       is_interleaved = TRUE; /* until proven otherwise */
-  int       is_sequential  = TRUE; /* until proven otherwise */
-  int       namewidth;
-  int       status;
-
-  anchor = esl_buffer_GetOffset(bf);
-  if ((status = esl_buffer_SetAnchor(bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
-
-  /* Find the first nonblank line, which says " <nseq> <alen>" and may also have options */
-  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
-  if      (status != eslOK) { status = eslFAIL; goto ERROR; }
-  
-  esl_memtok(&p, &n, " \t", &tok, &toklen);
-  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &nseq)  != eslOK) { status = eslFAIL; goto ERROR; }
-  if (esl_memtok(&p, &n, " \t", &tok, &toklen)       != eslOK) { status = eslFAIL; goto ERROR; }
-  if (esl_mem_strtoi32(tok, toklen, 0, NULL, &alen)  != eslOK) { status = eslFAIL; goto ERROR; }
-
-  ESL_ALLOC(nci,  sizeof(int) * nseq);
-  ESL_ALLOC(nci0, sizeof(int) * nseq);
-  ESL_ALLOC(ncs,  sizeof(int) * nseq);
-  ESL_ALLOC(ncs0, sizeof(int) * nseq);
-  for (idxi = 0; idxi < nseq; idxi++) { nci0[idxi] = nci[idxi] = 0; }
-  for (idxs = 0; idxs < nseq; idxs++) { ncs0[idxs] = ncs[idxs] = 0; }
-
-  idxi = idxs = 0;
-  nblock = nline = 0;
-  while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)
-    {
-      /* number of characters on this line */
-      for (nillegal = 0, nc = 0, pos = 0; pos < n; pos++) {
-	if (isspace(p[pos]) || isdigit(p[pos])) continue;
-	if (! isalpha(p[pos]) && strchr("-*?.", p[pos]) == NULL) { nillegal++; continue; }
-	nc++;
-      }
-
-      if (!nc) 		/* blank line? */
-	{
-	  if (idxi)   is_interleaved = FALSE; 
-	  if (nline)  is_sequential  = FALSE;
-	  continue;
-	}
-
-      if (nblock == 0) 
-	nci0[idxi++] = nc;
-      else 
-	{
-	  if      (idxi == 0)  ncpb = nc;
-	  else if (nc != ncpb) is_interleaved = FALSE; 
-	  if      (nillegal)   is_interleaved = FALSE; 
-          nci[idxi++] += nc;
-	}
-      if (idxi == nseq) { idxi = 0; nblock++; ncpb = 0; }        /* advance to next putative block in interleaved format */
-
-      if   (nline == 0) 
-	{
-	  ncs0[idxs] = nc;
-	}
-      else 
-	{
-	  if (nillegal) is_sequential = FALSE; 
-	  ncs[idxs] += nc; 
-	}
-      nline++;
-      if (ncs0[idxs] + ncs[idxs] > alen) { idxs++; nline = 0; } /* advance to next sequence in sequential format */
-    }
-
-  namewidth = nci0[0] + nci[0] - alen;
-  for (idxi = 1; idxi < nseq; idxi++) 
-    if (nci0[idxi] + nci[idxi] - namewidth != alen) { is_interleaved = FALSE; break; }
-
-  namewidth = ncs0[0] + ncs[0] - alen;
-  for (idxs = 1; idxs < nseq; idxs++) 
-    if (ncs0[idxi] + ncs[idxi] - namewidth != alen) { is_sequential  = FALSE; break; }
-
-   if (is_interleaved)
-     {
-       *ret_format    = eslMSAFILE_PHYLIP; 
-       *ret_namewidth = namewidth = nci0[0] + nci[0] - alen;
-       status         = eslOK;
-     }
-   else if (is_sequential)
-     {
-       *ret_format    = eslMSAFILE_PHYLIPS; 
-       *ret_namewidth = namewidth = ncs0[0] + ncs[0] - alen;
-       status         = eslOK;
-     }
-   else
-     {
-       *ret_format    = eslMSAFILE_PHYLIPS; 
-       *ret_namewidth = namewidth = ncs0[0] + ncs[0] - alen;
-       status         = eslFAIL;
-     }
-
-   free(nci);
-   free(nci0);
-   free(ncs);
-   free(ncs0);
-   esl_buffer_SetOffset(bf, anchor);
-   esl_buffer_RaiseAnchor(bf, anchor);
-   return status;
-
- ERROR:
-  if (anchor != -1) { 
-    esl_buffer_SetOffset(bf, anchor);
-    esl_buffer_RaiseAnchor(bf, anchor);
-  }
-  if (nci)  free(nci);
-  if (nci0) free(nci0);
-  if (ncs)  free(ncs);
-  if (ncs0) free(ncs0);
-  *ret_format    = eslMSAFILE_UNKNOWN;
-  *ret_namewidth = 0;
-  return status;
-}
-
-
 /* msafile_check_selex()
  * Checks whether an input source appears to be in SELEX format.
  *
@@ -973,7 +916,6 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 }
 #endif /*eslAUGMENT_ALPHABET*/
 /*----------- end, utilities for alphabets ----------------------*/
-
 
 
 /*****************************************************************
@@ -1240,8 +1182,8 @@ main(int argc, char **argv)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
   /* Open in text or digital mode. If fmt is unknown, guess format; if abc unknown, guess alphabet */
-  if (textmode) status = eslx_msafile_Open(NULL, msafile, infmt, NULL, &afp);
-  else          status = eslx_msafile_Open(&abc, msafile, infmt, NULL, &afp);
+  if (textmode) status = eslx_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp);
+  else          status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp);
   if (status != eslOK)   eslx_msafile_OpenFailure(afp, status);
   
   if (showinfo) {

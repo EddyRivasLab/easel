@@ -11,6 +11,29 @@
 #include "esl_alphabet.h"	/* AUGMENTATION: adds ability to use digital alphabet */
 #include "esl_ssi.h"        	/* AUGMENTATION: adds ability to use SSI file indices */
 
+/* Object: ESLX_MSAFILE_FMTDATA
+ * 
+ * Additional (often optional) information about variants of some file
+ * formats. Not much in here right now - but figured this might need
+ * to expand in the future, best to have the mechanism in place.    
+ *   Used in three ways:
+ *   1. When opening an MSA file in a known format (as opposed to
+ *      guessing an unknown format), caller may provide an <ESLX_MSAFILE_FMTDATA>
+ *      structure containing any additional constraints on the format.
+ *      The new <afp> will copy this information into <afp->fmtd>.
+ *   2. When opening an MSA file in an unknown format (calling GuessFileFormat()),
+ *      format-specific autodetectors fill in <afp->fmtd> with any additional
+ *      constraints.
+ *   3. When writing an MSA file, caller may provide additional constraints on
+ *      the format; notably <fmtd->rpl>, the number of residues per line, 
+ *      used for many formats.
+ */
+typedef struct {
+  int namewidth;   /* PHYLIP only:     width of the name field (usually 10, but can vary) unset=0 */
+  int rpl;	   /* several formats: residues per line                                  unset=0 */
+} ESLX_MSAFILE_FMTDATA;
+
+
 /* Object: ESLX_MSAFILE
  * 
  * Defines an alignment file that's open for parsing.
@@ -23,12 +46,15 @@ typedef struct {
   int64_t             linenumber;     /* input linenumber for diagnostics; -1 if we lose track */
   esl_pos_t           lineoffset;     /* offset of start of <line> in <bf> input               */
 
-  int32_t             format;	      /* format of alignment file we're reading                */
   ESL_DSQ             inmap[128];     /* input map, 0..127                                     */
   const ESL_ALPHABET *abc;	      /* non-NULL if augmented and in digital mode             */
   ESL_SSI            *ssi;	      /* open SSI index; or NULL, if none or not augmented     */
   char                errmsg[eslERRBUFSIZE];   /* user-directed message for normal errors      */
+
+  int32_t              format;	      /* format of alignment file we're reading                */
+  ESLX_MSAFILE_FMTDATA fmtd;          /* additional (often optional) format-specific details.  */
 } ESLX_MSAFILE;
+
 
 
 /* Alignment file format codes.
@@ -51,14 +77,18 @@ typedef struct {
 #define eslMSAFILE_PHYLIPS     110  /* sequential PHYLIP format                    */
 
 /* 1. Opening/closing an ESLX_MSAFILE */
-extern int   eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, int format, const char *env, ESLX_MSAFILE **ret_afp);
-extern int   eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE **ret_afp);
-extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_Open      (ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_OpenMem   (ESL_ALPHABET **byp_abc, char *p, esl_pos_t n,                 int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf,                       int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
 extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
 extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
 
+/* x. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats */
+extern int   eslx_msafile_fmtdata_Init(ESLX_MSAFILE_FMTDATA *fmtd);
+extern int   eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src,  ESLX_MSAFILE_FMTDATA *dst);
+
 /* 2. Utilities for different file formats */
-extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode);
+extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, ESLX_MSAFILE_FMTDATA *fmtd, int *ret_fmtcode);
 extern int   eslx_msafile_EncodeFormat(char *fmtstring);
 extern char *eslx_msafile_DecodeFormat(int fmt);
 

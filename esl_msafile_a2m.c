@@ -654,15 +654,15 @@ read_test_msas_digital(char *a2mfile, char *stkfile)
   char          a2mfile2[32] = "esltmpa2m2XXXXXX";
   char          stkfile2[32] = "esltmpstk2XXXXXX";
 
-  if ( eslx_msafile_Open(&abc, a2mfile, eslMSAFILE_A2M,       NULL, &afp1) != eslOK)  esl_fatal(msg);
-  if ( !abc || abc->type != eslAMINO)                                                 esl_fatal(msg);
-  if ( eslx_msafile_Open(&abc, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
-  if ( esl_msafile_a2m_Read      (afp1, &msa1)                             != eslOK)  esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa2)                             != eslOK)  esl_fatal(msg);
-  if ( esl_msa_Compare(msa1, msa2)                                         != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, a2mfile, NULL, eslMSAFILE_A2M,       NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( !abc || abc->type != eslAMINO)                                                       esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa1)                                   != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                                   != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                               != eslOK)  esl_fatal(msg);
 
-  if ( esl_msafile_a2m_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa3)                             != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa3)                                   != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                                   != eslEOF) esl_fatal(msg);
 
   eslx_msafile_Close(afp2);
   eslx_msafile_Close(afp1);
@@ -674,11 +674,11 @@ read_test_msas_digital(char *a2mfile, char *stkfile)
   if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_PFAM)            != eslOK) esl_fatal(msg);
   fclose(a2mfp);
   fclose(stkfp);
-  if ( eslx_msafile_Open(&abc, a2mfile2, eslMSAFILE_A2M,       NULL, &afp1) != eslOK) esl_fatal(msg);
-  if ( eslx_msafile_Open(&abc, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
-  if ( esl_msafile_a2m_Read      (afp1, &msa3)                              != eslOK) esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
-  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, a2mfile2, NULL, eslMSAFILE_A2M,       NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(&abc, stkfile2, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa3)                                    != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                                    != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                                != eslOK) esl_fatal(msg);
 
   remove(a2mfile2);
   remove(stkfile2);
@@ -704,13 +704,13 @@ read_test_msas_text(char *a2mfile, char *stkfile)
   char          stkfile2[32] = "esltmpstk2XXXXXX";
 
   /*                     vvvv-- everything's the same as the digital utest except these NULLs  */
-  if ( eslx_msafile_Open(NULL, a2mfile, eslMSAFILE_A2M,       NULL, &afp1) != eslOK)  esl_fatal(msg);
-  if ( eslx_msafile_Open(NULL, stkfile, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
-  if ( esl_msafile_a2m_Read      (afp1, &msa1)                             != eslOK)  esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa2)                             != eslOK)  esl_fatal(msg);
-  if ( esl_msa_Compare(msa1, msa2)                                         != eslOK)  esl_fatal(msg);
-  if ( esl_msafile_a2m_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa3)                             != eslEOF) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, a2mfile, NULL, eslMSAFILE_A2M,       NULL, &afp1) != eslOK)  esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa1)                                   != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa2)                                   != eslOK)  esl_fatal(msg);
+  if ( esl_msa_Compare(msa1, msa2)                                               != eslOK)  esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa3)                                   != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa3)                                   != eslEOF) esl_fatal(msg);
   eslx_msafile_Close(afp2);
   eslx_msafile_Close(afp1);
 
@@ -720,11 +720,11 @@ read_test_msas_text(char *a2mfile, char *stkfile)
   if ( esl_msafile_stockholm_Write(stkfp, msa1, eslMSAFILE_PFAM)            != eslOK) esl_fatal(msg);
   fclose(a2mfp);
   fclose(stkfp);
-  if ( eslx_msafile_Open(NULL, a2mfile2, eslMSAFILE_A2M,       NULL, &afp1) != eslOK) esl_fatal(msg);
-  if ( eslx_msafile_Open(NULL, stkfile2, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
-  if ( esl_msafile_a2m_Read      (afp1, &msa3)                              != eslOK) esl_fatal(msg);
-  if ( esl_msafile_stockholm_Read(afp2, &msa4)                              != eslOK) esl_fatal(msg);
-  if ( esl_msa_Compare(msa3, msa4)                                          != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, a2mfile2, NULL, eslMSAFILE_A2M,       NULL, &afp1) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Open(NULL, stkfile2, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2) != eslOK) esl_fatal(msg);
+  if ( esl_msafile_a2m_Read      (afp1, &msa3)                                    != eslOK) esl_fatal(msg);
+  if ( esl_msafile_stockholm_Read(afp2, &msa4)                                    != eslOK) esl_fatal(msg);
+  if ( esl_msa_Compare(msa3, msa4)                                                != eslOK) esl_fatal(msg);
 
   remove(a2mfile2);
   remove(stkfile2);
@@ -763,8 +763,6 @@ read_test_msas_text(char *a2mfile, char *stkfile)
 static ESL_OPTIONS options[] = {
    /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
-  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
-  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -775,12 +773,9 @@ main(int argc, char **argv)
 {
   char            msg[]        = "a2m MSA i/o module test driver failed";
   ESL_GETOPTS    *go           = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *rng          = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
-  int             be_verbose   = esl_opt_GetBoolean(go, "-v");
   char            a2mfile[32] = "esltmpa2mXXXXXX";
   char            stkfile[32] = "esltmpstkXXXXXX";
   FILE           *a2mfp, *stkfp;
-  int             status;
 
   if ( esl_tmpfile_named(a2mfile, &a2mfp) != eslOK) esl_fatal(msg);
   if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
@@ -794,7 +789,6 @@ main(int argc, char **argv)
   remove(a2mfile);
   remove(stkfile);
   esl_getopts_Destroy(go);
-  esl_randomness_Destroy(rng);
   return 0;
 }
 #endif /*eslMSAFILE_A2M_TESTDRIVE*/
@@ -829,7 +823,7 @@ main(int argc, char **argv)
   ESL_MSA      *msa      = NULL;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, fmt, NULL, &afp)) != eslOK) 
+  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK) 
     eslx_msafile_OpenFailure(afp, status);
 
   if ( (status = esl_msafile_a2m_Read(afp, &msa))         != eslOK)

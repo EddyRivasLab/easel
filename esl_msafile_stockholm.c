@@ -1250,10 +1250,10 @@ utest_good_format(ESL_ALPHABET **byp_abc, int fmt, int expected_nseq, int64_t ex
   ESLX_MSAFILE *afp = NULL;
   ESL_MSA      *msa = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa)                      != eslOK) esl_fatal(msg);
-  if (msa->nseq != expected_nseq)                                          esl_fatal(msg);
-  if (msa->alen != expected_alen)                                          esl_fatal(msg);
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                            != eslOK) esl_fatal(msg);
+  if (msa->nseq != expected_nseq)                                                esl_fatal(msg);
+  if (msa->alen != expected_alen)                                                esl_fatal(msg);
 
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
@@ -1274,16 +1274,16 @@ utest_identical_io(ESL_ALPHABET **byp_abc, int fmt, char *buf)
   fputs(buf, fp);
   fclose(fp);
 
-  if (eslx_msafile_Open(byp_abc, tmpfile1, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa1)                != eslOK) esl_fatal(msg);
+  if (eslx_msafile_Open(byp_abc, tmpfile1, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa1)                      != eslOK) esl_fatal(msg);
   eslx_msafile_Close(afp);
 
   if (esl_tmpfile_named(tmpfile2, &fp) != eslOK) esl_fatal(msg);
   if (esl_msafile_stockholm_Write(fp, msa1, eslMSAFILE_STOCKHOLM) != eslOK) esl_fatal(msg);
   fclose(fp);
 
-  if (eslx_msafile_Open(byp_abc, tmpfile2, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa2)                != eslOK) esl_fatal(msg);
+  if (eslx_msafile_Open(byp_abc, tmpfile2, NULL, fmt, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa2)                      != eslOK) esl_fatal(msg);
   eslx_msafile_Close(afp);
   
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal(msg);
@@ -1298,7 +1298,7 @@ utest_bad_open(ESL_ALPHABET **byp_abc, int fmt, int expected_status, char *buf)
   char          msg[] = "bad open test failed";
   ESLX_MSAFILE *afp   = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != expected_status) esl_fatal(msg);
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != expected_status) esl_fatal(msg);
 }
 
 static void
@@ -1308,10 +1308,10 @@ utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expec
   ESLX_MSAFILE *afp   = NULL;
   ESL_MSA      *msa   = NULL;
 
-  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, &afp) != eslOK)      esl_fatal(msg);
-  if (esl_msafile_stockholm_Read(afp, &msa)                      != eslEFORMAT) esl_fatal(msg);
-  if (strstr(afp->errmsg, expected_errmsg)                       == NULL)       esl_fatal(msg);
-  if (afp->linenumber != expected_line)                                         esl_fatal(msg);
+  if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != eslOK)      esl_fatal(msg);
+  if (esl_msafile_stockholm_Read(afp, &msa)                            != eslEFORMAT) esl_fatal(msg);
+  if (strstr(afp->errmsg, expected_errmsg)                             == NULL)       esl_fatal(msg);
+  if (afp->linenumber != expected_line)                                               esl_fatal(msg);
 
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
@@ -1342,8 +1342,6 @@ utest_bad_read(ESL_ALPHABET **byp_abc, int fmt, char *expected_errmsg, int expec
 static ESL_OPTIONS options[] = {
    /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
   {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
-  {"-s",  eslARG_INT,       "0", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>",                  0},
-  {"-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show verbose commentary/output",                 0},
   { 0,0,0,0,0,0,0,0,0,0},
 };
 static char usage[]  = "[-options]";
@@ -1353,10 +1351,6 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
-  ESL_RANDOMNESS *rng         = esl_randomness_CreateFast(esl_opt_GetInteger(go, "-s"));
-  int             be_verbose  = esl_opt_GetBoolean(go, "-v");
-  char            tmpfile[32] = "esltmpXXXXXX";
-  int             status;
 
   utest_bad_open(NULL, eslMSAFILE_UNKNOWN, eslENOFORMAT, ""); 
 
@@ -1368,7 +1362,6 @@ main(int argc, char **argv)
   utest_identical_io(NULL, eslMSAFILE_UNKNOWN, "# STOCKHOLM 1.0\n\nseq1 ACDEFGHIKL\nseq2 ACDEFGHIKL\n//\n");
 
   esl_getopts_Destroy(go);
-  esl_randomness_Destroy(rng);
   return 0;
 }
 #endif /*eslMSAFILE_STOCKHOLM_TESTDRIVE*/
@@ -1403,7 +1396,7 @@ main(int argc, char **argv)
   ESL_MSA     *msa      = NULL;
   int          status;
 
-  if ( (status = eslx_msafile_Open(&abc, filename, fmt, NULL, &afp)) != eslOK) 
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK) 
     eslx_msafile_OpenFailure(afp, status);
 
   while  ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
