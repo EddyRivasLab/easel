@@ -2,13 +2,14 @@
  * 
  * Table of contents:
  *    1. Opening/closing an ESLX_MSAFILE.
- *    x. ESLX_MSAFILE_FMTDATA: optional added constraints on formats.
- *    2. Guessing file formats.
- *    3. Guessing alphabets.
- *    4. Reading an MSA from an ESLX_MSAFILE.
- *    5. Writing an MSA to a stream.
- *    6. Utilities used by specific format parsers.
- *    x. Copyright and license.
+ *    2. ESLX_MSAFILE_FMTDATA: optional added constraints on formats.
+ *    3. Guessing file formats.
+ *    4. Guessing alphabets.
+ *    5. Reading an MSA from an ESLX_MSAFILE.
+ *    6. Writing an MSA to a stream.
+ *    7. Utilities used by specific format parsers.
+ *    8. Examples.
+ *    9. Copyright and license.
  */
 #include "esl_config.h"
 
@@ -358,7 +359,7 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
   /* Determine the format */
   if (format == eslMSAFILE_UNKNOWN) 
     {
-      status = eslx_msafile_GuessFileFormat(afp->bf, &(afp->fmtd), &format);
+      status = eslx_msafile_GuessFileFormat(afp->bf, &format, &(afp->fmtd));
       if      (status == eslENOFORMAT) ESL_XFAIL(eslENOFORMAT, afp->errmsg, "couldn't determine alignment input format"); /* ENOFORMAT is normal failure */
       else if (status != eslOK)        goto ERROR;
     }
@@ -423,7 +424,7 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
 
 
 /*****************************************************************
- *# x. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats.
+ *# 2. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats.
  *****************************************************************/
 
 /* Function:  eslx_msafile_fmtdata_Init()
@@ -450,14 +451,13 @@ eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src, ESLX_MSAFILE_FMTDATA *dst)
 
 /*--------------- ESLX_MSAFILE_FMTDATA --------------------------*/
 
+
 /*****************************************************************
- *# 2. Guessing file format.
+ *# 3. Guessing file format.
  *****************************************************************/
 
 static int msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format);
 static int msafile_check_selex  (ESL_BUFFER *bf);
-
-
 
 /* Function:  eslx_msafile_GuessFileFormat()
  * Synopsis:  Guess the MSA file format of an open buffer.
@@ -494,8 +494,9 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  *            autodetected and parsed.
  *
  * Args:      bf          - the open buffer to read input from
- *            opt_fmtd    - OPTIONAL: ptr to an <ESL_MSAFILE_FMTDATA> structure, or <NULL>
- *            ret_fmtcode - RETURN:   format code that's determined
+ *            ret_fmtcode - RETURN:    format code that's determined
+ *            opt_fmtd    - optRETURN: ptr to an <ESL_MSAFILE_FMTDATA> structure to
+ *                          be filled in with additional format-specific data, or <NULL>
  *
  * Returns:   <eslOK> on success, and <*ret_fmtcode> contains the format code.
  *            <eslENOFORMAT> if format can't be guessed, and <*ret_fmtcode> contains
@@ -504,7 +505,7 @@ static int msafile_check_selex  (ESL_BUFFER *bf);
  * Throws:    (no abnormal error conditions)
  */
 int
-eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, ESLX_MSAFILE_FMTDATA *opt_fmtd, int *ret_fmtcode)
+eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTDATA *opt_fmtd)
 {
   esl_pos_t  initial_offset;
   char      *p;
@@ -870,7 +871,7 @@ msafile_check_selex(ESL_BUFFER *bf)
 
 
 /*****************************************************************
- *# 3. Guessing alphabet
+ *# 4. Guessing alphabet
  *****************************************************************/
 #ifdef eslAUGMENT_ALPHABET
 
@@ -919,7 +920,7 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 
 
 /*****************************************************************
- *# 4. Reading MSAs from input
+ *# 5. Reading MSAs from input
  *****************************************************************/
 
 
@@ -1018,7 +1019,7 @@ eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status)
 
 
 /*****************************************************************
- * 5. Writing an MSA to a stream.
+ *# 6. Writing an MSA to a stream.
  *****************************************************************/
 
 /* Function:  eslx_msafile_Write()
@@ -1064,7 +1065,7 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
 
 
 /*****************************************************************
- *# 6. Utilities used by specific format parsers.
+ *# 7. Utilities used by specific format parsers.
  *****************************************************************/
 
 /* Function:  eslx_msafile_GetLine()
@@ -1124,7 +1125,7 @@ eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
 
 
 /*****************************************************************
- * x. Examples.
+ * 8. Examples.
  *****************************************************************/
 #ifdef eslAUGMENT_ALPHABET
 #ifdef eslMSAFILE_EXAMPLE

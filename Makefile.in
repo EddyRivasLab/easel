@@ -297,6 +297,7 @@ EXAMPLES = \
         esl_msafile_example\
 	esl_msafile_clustal_example\
 	esl_msafile_phylip_example\
+	esl_msafile_phylip_example2\
 	esl_msafile_psiblast_example\
 	esl_msafile_stockholm_example\
         esl_msacluster_example\

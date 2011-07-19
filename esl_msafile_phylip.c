@@ -686,7 +686,7 @@ phylip_check_interleaved(ESL_BUFFER *bf, int *ret_namewidth)
 	   * alignment length
 	   */
 	  for (nres1 = 0, c = 10; c < ncols0; c++) 
-	    if (colcodes0[c] == 'x') nres1++;
+	    if  (colcodes0[c] != '.') nres1++; /* for this test, consider even invalid symbols to be "residues". */
 	}
       else
 	{
@@ -1170,11 +1170,13 @@ utest_write_good5(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq,
  fputs("VKNQGQCGSCWSFSTTGNVEGQHFISQNKLVSLSEQNLVDCDHECMEYEGEEACDEGCNGGLQPNAYNYIIKNGGIQTESSYPYTAET\n", ofp);
  fputs("GTQCNFNSANIGAKISNFTMIP-KNETVMAGYIVSTGPLAIAADAVE-WQFYIGGVF-DIPCN--PNSLDHGILIVGYSAKNTIFRKN\n", ofp);
  fputs("MPYWIVKNSWGADWGEQGYIYLRRGKNTCGVSNFVSTSII--\n", ofp);
+ fputs("\n", ofp);
  fputs("ALEU_HORVUMAHARVLLLALAVLATAAVAVASSSSFADSNPIRPVTDRAASTLESAVLGALGRTRHALRFARFAVRYGKSYESAAEVR\n", ofp);
  fputs("RRFRIFSESLEEVRSTN----RKGLPYRLGINRFSDMSWEEFQATRL-GAAQTCSATLAGNHLMRDA--AALPETKDWREDG-IVSPVK\n", ofp);
  fputs("NQAHCGSCWTFSTTGALEAAYTQATGKNISLSEQQLVDCAGGFNNF--------GCNGGLPSQAFEYIKYNGGIDTEESYPYKGVNGV-\n", ofp);
  fputs("CHYKAENAAVQVLDSVNITLNAEDELKNAVGLVRPVSVAFQVIDGFRQYKSGVYTSDHCGTTPDDVNHAVLAVGYGVENGV-----PYW\n", ofp);
  fputs("LIKNSWGADWGDNGYFKMEMGKNMCAIATCASYPVVAA\n", ofp);
+ fputs("\n", ofp);
  fputs("CATH_HUMAN------MWATLPLLCAGAWLLGV--------PVCGAAELSVNSLEK------------FHFKSWMSKHRKTY-STEEYH\n", ofp);
  fputs("HRLQTFASNWRKINAHN----NGNHTFKMALNQFSDMSFAEIKHKYLWSEPQNCSAT--KSNYLRGT--GPYPPSVDWRKKGNFVSPVK\n", ofp);
  fputs("NQGACGSCWTFSTTGALESAIAIATGKMLSLAEQQLVDCAQDFNNY--------GCQGGLPSQAFEYILYNKGIMGEDTYPYQGKDGY-\n", ofp);
@@ -1186,6 +1188,55 @@ utest_write_good5(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq,
  *ret_alphatype = eslAMINO;
  *ret_nseq     = 3;
  *ret_alen     = 384;
+}
+
+/* a tricky one, with a nonstandard name width of 12 (all names end in xx) */
+static void
+utest_write_good6(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("  5    42\n", ofp);
+  fputs("Turkey    xxAAGCTNGGGC ATTTCAGGGT\n", ofp);
+  fputs("Salmo gairxxAAGCCTTGGC AGTGCAGGGT\n", ofp);
+  fputs("H. SapiensxxACCGGTTGGC CGTTCAGGGT\n", ofp);
+  fputs("Chimp     xxAAACCCTTGC CGTTACGCTT\n", ofp);
+  fputs("Gorilla   xxAAACCCTTGC CGGTACGCTT\n", ofp);
+  fputs("\n", ofp);
+  fputs("GAGCCCGGGC AATACAGGGT AT\n", ofp);
+  fputs("GAGCCGTGGC CGGGCACGGT AT\n", ofp);
+  fputs("ACAGGTTGGC CGTTCAGGGT AA\n", ofp);
+  fputs("AAACCGAGGC CGGGACACTC AT\n", ofp);
+  fputs("AAACCATTGC CGGTACGCTT AA\n", ofp);
+
+  *ret_format   = eslMSAFILE_PHYLIP;
+  *ret_alphatype = eslDNA;
+  *ret_nseq     = 5;
+  *ret_alen     = 42;
+}
+
+/* nonstandard name field width in a sequential file. */
+static void
+utest_write_good7(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("  5    42\n", ofp);
+  fputs("Turkey    xxAAGCTNGGGC ATTTCAGGGT\n", ofp);
+  fputs("GAGCCCGGGC AATACAGGGT AT\n", ofp);
+  fputs("\n", ofp);
+  fputs("Salmo gairxxAAGCCTTGGC AGTGCAGGGT\n", ofp);
+  fputs("GAGCCGTGGC CGGGCACGGT AT\n", ofp);
+  fputs("\n", ofp);
+  fputs("H. SapiensxxACCGGTTGGC CGTTCAGGGT\n", ofp);
+  fputs("ACAGGTTGGC CGTTCAGGGT AA\n", ofp);
+  fputs("\n", ofp);
+  fputs("Chimp     xxAAACCCTTGC CGTTACGCTT\n", ofp);
+  fputs("AAACCGAGGC CGGGACACTC AT\n", ofp);
+  fputs("\n", ofp);
+  fputs("Gorilla   xxAAACCCTTGC CGGTACGCTT\n", ofp);
+  fputs("AAACCATTGC CGGTACGCTT AA\n", ofp);
+
+  *ret_format   = eslMSAFILE_PHYLIPS;
+  *ret_alphatype = eslDNA;
+  *ret_nseq     = 5;
+  *ret_alen     = 42;
 }
 
 static void
@@ -1340,15 +1391,18 @@ utest_write_bad11(FILE *ofp, int *ret_alphatype, int *ret_errstatus, int *ret_li
 static void
 utest_goodfile(char *filename, int testnumber, int expected_format, int expected_alphatype, int expected_nseq, int expected_alen)
 {
-  ESL_ALPHABET *abc          = NULL;
-  ESLX_MSAFILE *afp          = NULL;
-  ESL_MSA      *msa1         = NULL;
-  ESL_MSA      *msa2         = NULL;
-  char          tmpfile1[32] = "esltmpXXXXXX";
-  char          tmpfile2[32] = "esltmpXXXXXX";
-  FILE         *ofp          = NULL;
-  int           status;
+  ESL_ALPHABET        *abc          = NULL;
+  ESLX_MSAFILE        *afp          = NULL;
+  ESLX_MSAFILE_FMTDATA fmtd;                      /* for writing formats with nonstandard name field widths */
+  ESL_MSA             *msa1         = NULL;
+  ESL_MSA             *msa2         = NULL;
+  char                 tmpfile1[32] = "esltmpXXXXXX";
+  char                 tmpfile2[32] = "esltmpXXXXXX";
+  FILE                *ofp          = NULL;
+  int                  status;
 
+  eslx_msafile_fmtdata_Init(&fmtd);
+  
   /* guessing both the format and the alphabet should work: this is a digital open */
   if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: digital open", testnumber);  
   if (abc->type   != expected_alphatype) esl_fatal("phylip good file unit test %d failed: alphabet autodetection", testnumber);
@@ -1357,33 +1411,37 @@ utest_goodfile(char *filename, int testnumber, int expected_format, int expected
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_phylip_Read(afp, &msa1))   != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, digital", testnumber);  
   if (msa1->nseq != expected_nseq || msa1->alen != expected_alen) esl_fatal("phylip good file unit test %d failed: nseq/alen");
+  fmtd.namewidth = afp->fmtd.namewidth;
   eslx_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
-  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                          != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation");
-  if ( (status = esl_msafile_phylip_Write(ofp, msa1, expected_format, NULL)) != eslOK) esl_fatal("phylip good file unit test %d failed: msa write, digital");
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                           != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation");
+  if ( (status = esl_msafile_phylip_Write(ofp, msa1, expected_format, &fmtd)) != eslOK) esl_fatal("phylip good file unit test %d failed: msa write, digital");
   fclose(ofp);
 
-  /* now open and read it as text mode */
-  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, expected_format, NULL, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: text mode open", testnumber);  
-  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                  != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, text", testnumber);  
-  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                esl_fatal("phylip good file unit test %d failed: nseq/alen");
+  /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
+  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                   != eslOK) esl_fatal("phylip good file unit test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                 esl_fatal("phylip good file unit test %d failed: nseq/alen");
+  fmtd.namewidth = afp->fmtd.namewidth;
   eslx_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
-  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                          != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation");
-  if ( (status = esl_msafile_phylip_Write(ofp, msa2, expected_format, NULL)) != eslOK) esl_fatal("phylip good file unit test %d failed: msa write, text");
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                           != eslOK) esl_fatal("phylip good file unit test %d failed: tmpfile creation");
+  if ( (status = esl_msafile_phylip_Write(ofp, msa2, expected_format, &fmtd)) != eslOK) esl_fatal("phylip good file unit test %d failed: msa write, text");
   fclose(ofp);
   esl_msa_Destroy(msa2);
 
   /* open and read it in digital mode */
-  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, expected_format, NULL, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                  != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital msa read", testnumber);  
+  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, expected_format, &fmtd, &afp)) != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_phylip_Read(afp, &msa2))                                   != eslOK) esl_fatal("phylip good file unit test %d failed: 2nd digital msa read", testnumber);  
   eslx_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */
   if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("phylip good file unit test %d failed: msa compare", testnumber);  
 
+  remove(tmpfile1);
+  remove(tmpfile2);
   esl_msa_Destroy(msa1);
   esl_msa_Destroy(msa2);
   esl_alphabet_Destroy(abc);
@@ -1452,7 +1510,8 @@ main(int argc, char **argv)
   int             expected_alen;
   char            expected_errmsg[eslERRBUFSIZE];
 
-  ngoodtests = 5;
+  /* Test various correct versions of the format */
+  ngoodtests = 7;
   for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
     {
       strcpy(tmpfile, "esltmpXXXXXX"); 
@@ -1463,9 +1522,12 @@ main(int argc, char **argv)
       case  3:  utest_write_good3 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
       case  4:  utest_write_good4 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
       case  5:  utest_write_good5 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      case  6:  utest_write_good6 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      case  7:  utest_write_good7 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
       }
       fclose(ofp);
       utest_goodfile(tmpfile, testnumber, expected_format, expected_alphatype, expected_nseq, expected_alen);
+      remove(tmpfile);
     }
 
   /* Test for all the possible EFORMAT errors */
@@ -1489,7 +1551,9 @@ main(int argc, char **argv)
       case 11:  utest_write_bad11(ofp, &expected_alphatype, &expected_errstatus, &expected_linenumber, expected_errmsg); break;
       }
       fclose(ofp);
+      
       utest_badfile(tmpfile, testnumber, expected_alphatype, expected_errstatus, expected_linenumber, expected_errmsg);
+      remove(tmpfile);
     }
 
   esl_getopts_Destroy(go);
@@ -1541,42 +1605,47 @@ main(int argc, char **argv)
   ESL_GETOPTS        *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
   char               *filename    = esl_opt_GetArg(go, 1);
   int                 infmt       = eslMSAFILE_UNKNOWN;
-  int                 outfmt      = eslMSAFILE_PHYLIP;
   ESL_ALPHABET       *abc         = NULL;
-  ESL_ALPHABET      **byp_abc     = NULL;
-  ESL_BUFFER         *bf          = NULL;
   ESLX_MSAFILE       *afp         = NULL;
   ESL_MSA            *msa         = NULL;
-  ESL_MSAFILE_FMTDATA fmtd;
+  ESLX_MSAFILE_FMTDATA fmtd;
   int                 status;
 
-  if      (esl_opt_GetBoolean(go, "-i"))      infmt = eslMSAFILE_PHYLIP;
-  else if (esl_opt_GetBoolean(go, "-s"))      infmt = eslMSAFILE_PHYLIPS;
+  if      (esl_opt_GetBoolean(go, "-i"))      infmt = eslMSAFILE_PHYLIP;  /* interleaved format */
+  else if (esl_opt_GetBoolean(go, "-s"))      infmt = eslMSAFILE_PHYLIPS; /* sequential format  */
 
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
 
-  if      (esl_opt_GetBoolean(go, "-t"))      byp_abc = NULL;
-  else                                        byp_abc = &abc;
-
-  esl_msafile_fmtdata_Init(&fmtd);
+  /* Variant PHYLIP formats allow nonstandard name field width. 
+   * Usually we can successfully guess this, when guessing format.
+   * But if PHYLIP or PHYLIPS format is set (no guessing), caller may also 
+   * want to allow a nonstandard name field width to be set.
+   */
+  eslx_msafile_fmtdata_Init(&fmtd);
   fmtd.namewidth = esl_opt_GetInteger(go, "-w");
   
-  if ( (status = eslx_msafile_Open(byp_abc, filename, NULL, infmt, &fmtd, &afp)) != eslOK) 
-    eslx_msafile_OpenFailure(afp, status);
+  /* Text mode: pass NULL for alphabet.
+   * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
+   */
+  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, &fmtd, &afp);
+  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, &fmtd, &afp);
+  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
 
-  if ( (status = esl_msafile_phylip_Read(afp, namewidth, &msa)) != eslOK)
+  if ( (status = esl_msafile_phylip_Read(afp, &msa)) != eslOK)
     eslx_msafile_ReadFailure(afp, status);
 
-  printf("format variant: %s\n", esl_msafile_DecodeFormat(afp->format));
-  printf("name width:     %d\n", afp->fmtd.namewidth);
-  printf("alphabet:       %s\n", (abc ? esl_alphabet_DecodeType(abc->type) : "none (text mode)"));
+  printf("format variant: %s\n", eslx_msafile_DecodeFormat(afp->format));
+  printf("name width:     %d\n", afp->fmtd.namewidth); 
+  printf("alphabet:       %s\n", (abc ? esl_abc_DecodeType(abc->type) : "none (text mode)"));
   printf("# of seqs:      %d\n", msa->nseq);
   printf("# of cols:      %d\n", (int) msa->alen);
   printf("\n");
 
-  esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, NULL);
+  if (afp->fmtd.namewidth != 10) fmtd.namewidth = afp->fmtd.namewidth;
+
+  esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, &fmtd);
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);
@@ -1584,35 +1653,18 @@ main(int argc, char **argv)
 /*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
 
-#ifdef eslMSAFILE_PHYLIP_EXAMPLE
-/* An example of reading an MSA in text mode, and handling any returned errors.
-   gcc -g -Wall -o esl_msafile_phylip_example -I. -DeslMSAFILE_PHYLIP_EXAMPLE esl_msafile_phylip.c esl_msa.c easel.c 
-   ./esl_msafile_phylip_example <msafile>
+#ifdef eslMSAFILE_PHYLIP_EXAMPLE2
+/* A minimal example. Reading a strict interleaved PHYLIP MSA in text mode. 
+   gcc -g -Wall -o esl_msafile_phylip_example2 -I. -DeslMSAFILE_PHYLIP_EXAMPLE2 esl_msafile_phylip.c esl_msa.c easel.c 
+   ./esl_msafile_phylip_example2 <msafile>
  */
-/*::cexcerpt::msafile_phylip_example::begin::*/
+/*::cexcerpt::msafile_phylip_example2::begin::*/
 #include <stdio.h>
 
 #include "easel.h"
-#include "esl_alphabet.h"
-#include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
 #include "esl_msafile_phylip.h"
-
-static ESL_OPTIONS options[] = {
-  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
-  { "-i",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-s", "specify that input is interleaved variant",   0 },
-  { "-s",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-i", "specify that input is sequential variant",    0 },
-  { "-w",          eslARG_INT,         NULL,  NULL, NULL,  NULL,  NULL, NULL, "specify that format's name width is <n>",     0 },
-  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "specify that alphabet is DNA",                0 },
-  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "specify that alphabet is RNA",                0 },
-  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "specify that alphabet is protein",            0 },
-  { "--text",      eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
-  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-static char usage[]  = "[-options] <msafile>";
-static char banner[] = "example of guessing, reading, writing PHYLIP formats";
 
 int 
 main(int argc, char **argv)
@@ -1623,22 +1675,15 @@ main(int argc, char **argv)
   ESL_MSA      *msa      = NULL;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK) 
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK) eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_phylip_Read(afp, &msa))                         != eslOK) eslx_msafile_ReadFailure(afp, status);
 
-  if ( (status = esl_msafile_phylip_Read(afp, &msa)) != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
-
-  printf("PHYLIP alignment: %6d seqs, %5d columns\n", msa->nseq, (int) msa->alen);
-
-  printf("format variant: %s\n", esl_msafile_DecodeFormat(afp->format));
-  printf("name width:     %d\n", afp->fmtd.namewidth);
-  printf("alphabet:       %s\n", (abc ? esl_alphabet_DecodeType(abc->type) : "none (text mode)"));
   printf("# of seqs:      %d\n", msa->nseq);
   printf("# of cols:      %d\n", (int) msa->alen);
   printf("\n");
 
   esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, NULL);
+
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);

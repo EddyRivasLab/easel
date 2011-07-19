@@ -1138,6 +1138,7 @@ main(void)
   while (esl_stack_IPop(ns, &x) != eslEOD) 
     printf("%d\n", x);
   esl_stack_Destroy(ns);   
+  return 0;
 }
 /*::cexcerpt::stack_example::end::*/
 #endif /*eslSTACK_EXAMPLE*/

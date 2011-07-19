@@ -16,7 +16,8 @@
  * Additional (often optional) information about variants of some file
  * formats. Not much in here right now - but figured this might need
  * to expand in the future, best to have the mechanism in place.    
- *   Used in three ways:
+ *
+ * Used in three ways:
  *   1. When opening an MSA file in a known format (as opposed to
  *      guessing an unknown format), caller may provide an <ESLX_MSAFILE_FMTDATA>
  *      structure containing any additional constraints on the format.
@@ -27,6 +28,16 @@
  *   3. When writing an MSA file, caller may provide additional constraints on
  *      the format; notably <fmtd->rpl>, the number of residues per line, 
  *      used for many formats.
+ *      
+ * TODO: If this fills up with more information, we should eventually
+ *       consolidate the format code too; create ESL_MSAFORMAT structure
+ *       to hold both integer code and optional information; implement
+ *       it in esl_msaformat.[ch]; put format guessing routines there;
+ *       rename eslMSAFILE_* -> eslMSAFORMAT_*. For now, not worth the
+ *       time, because it's really only a placeholder dealing with a small
+ *       PHYLIP-specific format issue. <format>, <fmtd> are generally
+ *       an ordered pair, to facilitate eventual replacement w/ single 
+ *       <fmt>. [SRE, 19 Jul 11]
  */
 typedef struct {
   int namewidth;   /* PHYLIP only:     width of the name field (usually 10, but can vary) unset=0 */
@@ -34,27 +45,27 @@ typedef struct {
 } ESLX_MSAFILE_FMTDATA;
 
 
+
 /* Object: ESLX_MSAFILE
  * 
- * Defines an alignment file that's open for parsing.
+ * An alignment file open for parsing.
  */
 typedef struct {
-  ESL_BUFFER         *bf;             /* input file/data being parsed                          */
-
-  char               *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
-  esl_pos_t           n;	      /* length of line in bytes (line is not NUL-terminated)  */
-  int64_t             linenumber;     /* input linenumber for diagnostics; -1 if we lose track */
-  esl_pos_t           lineoffset;     /* offset of start of <line> in <bf> input               */
-
-  ESL_DSQ             inmap[128];     /* input map, 0..127                                     */
-  const ESL_ALPHABET *abc;	      /* non-NULL if augmented and in digital mode             */
-  ESL_SSI            *ssi;	      /* open SSI index; or NULL, if none or not augmented     */
-  char                errmsg[eslERRBUFSIZE];   /* user-directed message for normal errors      */
+  ESL_BUFFER          *bf;            /* input file/data being parsed                          */
 
   int32_t              format;	      /* format of alignment file we're reading                */
   ESLX_MSAFILE_FMTDATA fmtd;          /* additional (often optional) format-specific details.  */
-} ESLX_MSAFILE;
 
+  char                *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
+  esl_pos_t            n;	      /* length of line in bytes (line is not NUL-terminated)  */
+  int64_t              linenumber;    /* input linenumber for diagnostics; -1 if we lose track */
+  esl_pos_t            lineoffset;    /* offset of start of <line> in <bf> input               */
+
+  ESL_DSQ              inmap[128];    /* input map, 0..127                                     */
+  const ESL_ALPHABET  *abc;	      /* non-NULL if augmented and in digital mode             */
+  ESL_SSI             *ssi;	      /* open SSI index; or NULL, if none or not augmented     */
+  char                 errmsg[eslERRBUFSIZE];   /* user-directed message for normal errors     */
+} ESLX_MSAFILE;
 
 
 /* Alignment file format codes.
@@ -76,6 +87,7 @@ typedef struct {
 #define eslMSAFILE_PHYLIP      109  /* interleaved PHYLIP format                   */
 #define eslMSAFILE_PHYLIPS     110  /* sequential PHYLIP format                    */
 
+
 /* 1. Opening/closing an ESLX_MSAFILE */
 extern int   eslx_msafile_Open      (ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
 extern int   eslx_msafile_OpenMem   (ESL_ALPHABET **byp_abc, char *p, esl_pos_t n,                 int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
@@ -83,28 +95,28 @@ extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf,    
 extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
 extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
 
-/* x. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats */
+/* 2. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats */
 extern int   eslx_msafile_fmtdata_Init(ESLX_MSAFILE_FMTDATA *fmtd);
 extern int   eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src,  ESLX_MSAFILE_FMTDATA *dst);
 
-/* 2. Utilities for different file formats */
-extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, ESLX_MSAFILE_FMTDATA *fmtd, int *ret_fmtcode);
+/* 3. Utilities for different file formats */
+extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTDATA *fmtd); 
 extern int   eslx_msafile_EncodeFormat(char *fmtstring);
 extern char *eslx_msafile_DecodeFormat(int fmt);
 
-/* 3. Utilities for different alphabets */
+/* 4. Utilities for different alphabets */
 #ifdef eslAUGMENT_ALPHABET
 extern int eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type);
 #endif
 
-/* 4. Reading an MSA from an ESLX_MSAFILE */
+/* 5. Reading an MSA from an ESLX_MSAFILE */
 extern int  eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
 extern void eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status);
 
-/* 5. Writing an MSA to a stream */
+/* 6. Writing an MSA to a stream */
 extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
 
-/* 6. Utilities for specific parsers */
+/* 7. Utilities for specific parsers */
 extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
 
 #include "esl_msafile_a2m.h"
