@@ -295,10 +295,18 @@ EXAMPLES = \
         esl_msa_example\
         esl_msa_example2\
         esl_msafile_example\
+	esl_msafile_a2m_example\
+	esl_msafile_a2m_example2\
+	esl_msafile_afa_example\
+	esl_msafile_afa_example2\
 	esl_msafile_clustal_example\
+	esl_msafile_clustal_example2\
 	esl_msafile_phylip_example\
 	esl_msafile_phylip_example2\
 	esl_msafile_psiblast_example\
+	esl_msafile_psiblast_example2\
+	esl_msafile_selex_example\
+	esl_msafile_selex_example2\
 	esl_msafile_stockholm_example\
 	esl_msafile_stockholm_example2\
         esl_msacluster_example\

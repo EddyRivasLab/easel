@@ -2243,39 +2243,39 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   int                  status;
 
   /* guessing both the format and the alphabet should work: this is a digital open */
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: digital open", testnumber);  
-  if (abc->type   != expected_alphatype)    esl_fatal("stockholm good file unit test %d faisled: alphabet autodetection", testnumber);
-  if (afp->format != eslMSAFILE_STOCKHOLM)  esl_fatal("stockholm good file unit test %d failed: format autodetection",   testnumber);
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: digital open", testnumber);  
+  if (abc->type   != expected_alphatype)                                                            esl_fatal("stockholm good file test %d failed: alphabet autodetection", testnumber);
+  if (afp->format != eslMSAFILE_STOCKHOLM)                                                          esl_fatal("stockholm good file test %d failed: format autodetection",   testnumber);
 
   /* This is a digital read, using <abc>. */
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa1))   != eslOK) esl_fatal("stockholm good file unit test %d failed: msa read, digital", testnumber);  
-  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)    esl_fatal("stockholm good file unit test %d failed: nseq/alen");
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa1))   != eslOK) esl_fatal("stockholm good file test %d failed: msa read, digital", testnumber);  
+  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)    esl_fatal("stockholm good file test %d failed: nseq/alen",         testnumber);
   eslx_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
-  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                            != eslOK) esl_fatal("stockholm good file unit test %d failed: tmpfile creation");
-  if ( (status = esl_msafile_stockholm_Write(ofp, msa1, eslMSAFILE_STOCKHOLM)) != eslOK) esl_fatal("stockholm good file unit test %d failed: msa write, digital");
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                            != eslOK) esl_fatal("stockholm good file test %d failed: tmpfile creation",   testnumber);
+  if ( (status = esl_msafile_stockholm_Write(ofp, msa1, eslMSAFILE_STOCKHOLM)) != eslOK) esl_fatal("stockholm good file test %d failed: msa write, digital", testnumber);
   fclose(ofp);
 
   /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
-  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: text mode open", testnumber);  
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                    != eslOK) esl_fatal("stockholm good file unit test %d failed: msa read, text", testnumber);  
-  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                     esl_fatal("stockholm good file unit test %d failed: nseq/alen");
+  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                    != eslOK) esl_fatal("stockholm good file test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                     esl_fatal("stockholm good file test %d failed: nseq/alen",      testnumber);
   eslx_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
-  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                        != eslOK) esl_fatal("stockholm good file unit test %d failed: tmpfile creation");
-  if ( (status = esl_msafile_stockholm_Write(ofp, msa2, eslMSAFILE_PFAM))  != eslOK) esl_fatal("stockholm good file unit test %d failed: msa write, text");
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                        != eslOK) esl_fatal("stockholm good file test %d failed: tmpfile creation", testnumber);
+  if ( (status = esl_msafile_stockholm_Write(ofp, msa2, eslMSAFILE_PFAM))  != eslOK) esl_fatal("stockholm good file test %d failed: msa write, text",  testnumber);
   fclose(ofp);
   esl_msa_Destroy(msa2);
 
   /* open and read it in digital mode */
-  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file unit test %d failed: 2nd digital msa read", testnumber);  
+  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital msa read", testnumber);  
   eslx_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */
-  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("stockholm good file unit test %d failed: msa compare", testnumber);  
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("stockholm good file test %d failed: msa compare", testnumber);  
 
   remove(tmpfile1);
   remove(tmpfile2);
@@ -2553,12 +2553,13 @@ main(int argc, char **argv)
 
 static ESL_OPTIONS options[] = {
   /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
-  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
-  { "-g",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use autodetection to guess the file format",  0 },
-  { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
-  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                0 },
-  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                0 },
-  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",            0 },
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",            0 },
+  { "-1",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "override autodetection; force Stockholm format",  0 },
+  { "-q",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "quieter: don't write msa back, just summary",     0 },
+  { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",              0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                    0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                    0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",                0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
@@ -2569,13 +2570,13 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS        *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
   char               *filename    = esl_opt_GetArg(go, 1);
-  int                 infmt       = eslMSAFILE_STOCKHOLM;
+  int                 infmt       = eslMSAFILE_UNKNOWN;
   ESL_ALPHABET       *abc         = NULL;
   ESLX_MSAFILE       *afp         = NULL;
   ESL_MSA            *msa         = NULL;
   int                 status;
 
-  if      (esl_opt_GetBoolean(go, "-g"))      infmt = eslMSAFILE_UNKNOWN;  /* use the autodetection guessing system */
+  if      (esl_opt_GetBoolean(go, "-1"))      infmt = eslMSAFILE_STOCKHOLM;  /* override format autodetection */
 
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
@@ -2595,7 +2596,8 @@ main(int argc, char **argv)
       printf("# of cols:      %d\n", (int) msa->alen);
       printf("\n");
 
-      esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+      if (! esl_opt_GetBoolean(go, "-q"))
+	esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
 
       esl_msa_Destroy(msa);
     }

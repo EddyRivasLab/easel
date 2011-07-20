@@ -718,7 +718,7 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
   while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)  {
     while (n && isspace(*p)) { p++; n--; }    
     if    (!n) continue;	
-    if    (*p != '>') { status = eslEFORMAT; goto ERROR; }
+    if    (*p != '>') { status = eslEFORMAT; goto ERROR; } else break;
   }
   if      (status == eslEOF) { status = eslEFORMAT; goto ERROR; }
   else if (status != eslOK) goto ERROR;

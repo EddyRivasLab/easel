@@ -4,7 +4,7 @@
  *   1. API for reading/writing AFA format
  *   2. Unit tests.
  *   3. Test driver.
- *   4. Example.
+ *   4. Examples.
  *   5. License and copyright.
  */
 #include "esl_config.h"
@@ -306,8 +306,118 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
 /*****************************************************************
  * 2. Unit tests.
  *****************************************************************/
-
 #ifdef eslMSAFILE_AFA_TESTDRIVE
+/* a standard globin example, but dusted with evil:
+ *  1. \r\n DOS line terminators;
+ *  2. extra blank lines and whitespace
+ *  3. unusual but legal residues
+ */
+static void
+utest_write_good1(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("   \r\n", ofp);
+  fputs(">   MYG_PHYCA   description   \r\n", ofp);
+  fputs("--------V-LSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKT\r\n", ofp);
+  fputs("EAEMKASEDLKKHGVTVLTALGAILKKKGH---HEABJZOUX*SHATKHKIPIKYLEFIS  \r\n", ofp);
+  fputs("EAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG\r\n", ofp);
+  fputs("   \r\n", ofp);
+  fputs(">GLB5_PETMA\r\n", ofp);
+  fputs("PIVDTGSVAPLSAAEKTKIRSAWAPVYSTYETSGVDILVKFFTSTPAAQEFFPKFKGLTT\r\n", ofp);
+  fputs("ADQLKKSADVRWHAERIINAVNDAVASMDDTEKMSMKLRDLSGKHAKSFQVDPQYFKVLA\r\n", ofp);
+  fputs("AVI---------ADTVAAGDAGFEKLMSMICILLRSAY-------\r\n", ofp);
+  fputs(">HBB_HUMAN\r\n", ofp);
+  fputs("--------VHLTPEEKSAVTALWGKV--NVDEVGGEALGRLLVVYPWTQRFFESFGDLST\r\n", ofp);
+  fputs("PDAVMGNPKVKAHGKKVLGAFSDGLAHLDN---LKGTFATLSELHCDKLHVDPENFRLLG\r\n", ofp);
+  fputs("NVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH------\r\n", ofp);
+  fputs(">HBA_HUMAN\r\n", ofp);
+  fputs("--------V-LSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF-----\r\n", ofp);
+  fputs("-DLSHGSAQVKGHGKKVADALTNAVAHVDD---MPNALSALSDLHAHKLRVDPVNFKLLS\r\n", ofp);
+  fputs("HCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR------\r\n", ofp);
+  fputs("   \r\n", ofp);
+
+  *ret_alphatype = eslAMINO;
+  *ret_nseq      = 4;
+  *ret_alen      = 165;
+}
+
+/* note: alphabet detection for DNA/RNA doesn't work if unusual codes are used */
+static void
+utest_write_good2(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs(">tRNA2\n", ofp);
+  fputs("UCCGAUAUAGUGUAACGGCUAUCACAUCACGCUUUCACCGUGG-AGACCGGGGUUCGACU\n", ofp);
+  fputs("CCCCGUAUCGGAG\n", ofp);
+  fputs(">tRNA3\n", ofp);
+  fputs("UCCGUGAUAGUUUAAUGGUCAGAAUGG-GCGCUUGUCGCGUGCCAGAUCGGGGUUCAAUU\n", ofp);
+  fputs("CCCCGUCGCGGAG\n", ofp);
+  fputs(">tRNA5\n", ofp);
+  fputs("GGGCACAUGGCGCAGUUGGUAGCGCGCUUCCCUUGCAAGGAAGAGGUCAUCGGUUCGAUU\n", ofp);
+  fputs("CCGGUUGCGUCCA\n", ofp);
+  fputs(">tRNA1\n", ofp);
+  fputs("GCGGAUUUAGCUCAGUUGGGAGAGCGCCAGACUGAAGAUCUGGAGGUCCUGUGUUCGAUC\n", ofp);
+  fputs("CACAGAAUUCGCA\n", ofp);
+  fputs(">tRNA4\n", ofp);
+  fputs("GCUCGUAUGGCGCAGUGG-UAGCGCAGCAGAUUGCAAAUCUGUUGGUCCUUAGUUCGAUC\n", ofp);
+  fputs("CUGAGUGCGAGCU\n", ofp);
+
+  *ret_alphatype = eslRNA;
+  *ret_nseq      = 5;
+  *ret_alen      = 73;
+}
+
+static void
+utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expected_nseq, int expected_alen)
+{
+  ESL_ALPHABET        *abc          = NULL;
+  ESLX_MSAFILE        *afp          = NULL;
+  ESL_MSA             *msa1         = NULL;
+  ESL_MSA             *msa2         = NULL;
+  char                 tmpfile1[32] = "esltmpXXXXXX";
+  char                 tmpfile2[32] = "esltmpXXXXXX";
+  FILE                *ofp          = NULL;
+  int                  status;
+
+  /* guessing both the format and the alphabet should work: this is a digital open */
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("afa good file test %d failed: digital open",           testnumber);  
+  if (abc->type   != expected_alphatype)                                                            esl_fatal("afa good file test %d failed: alphabet autodetection", testnumber);
+
+  /* This is a digital read, using <abc>. */
+  if ( (status = esl_msafile_afa_Read(afp, &msa1))   != eslOK)     esl_fatal("afa good file test %d failed: msa read, digital", testnumber);  
+  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)  esl_fatal("afa good file test %d failed: nseq/alen",         testnumber);
+  eslx_msafile_Close(afp);  
+
+  /* write it back out to a new tmpfile (digital write) */
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp)) != eslOK) esl_fatal("afa good file test %d failed: tmpfile creation",   testnumber);
+  if ( (status = esl_msafile_afa_Write(ofp, msa1))  != eslOK) esl_fatal("afa good file test %d failed: msa write, digital", testnumber);
+  fclose(ofp);
+
+  /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
+  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_AFA, NULL, &afp)) != eslOK) esl_fatal("afa good file test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_afa_Read(afp, &msa2))                                    != eslOK) esl_fatal("afa good file test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                               esl_fatal("afa good file test %d failed: nseq/alen",      testnumber);
+  eslx_msafile_Close(afp);
+  
+  /* write it back out to a new tmpfile (text write) */
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp)) != eslOK) esl_fatal("afa good file test %d failed: tmpfile creation", testnumber);
+  if ( (status = esl_msafile_afa_Write(ofp, msa2))  != eslOK) esl_fatal("afa good file test %d failed: msa write, text",  testnumber);
+  fclose(ofp);
+  esl_msa_Destroy(msa2);
+
+  /* open and read it in digital mode */
+  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_AFA, NULL, &afp)) != eslOK) esl_fatal("afa good file test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_afa_Read(afp, &msa2))                                    != eslOK) esl_fatal("afa good file test %d failed: 2nd digital msa read",  testnumber);  
+  eslx_msafile_Close(afp);
+
+  /* this msa <msa2> should be identical to <msa1> */
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("afa good file test %d failed: msa compare", testnumber);  
+
+  remove(tmpfile1);
+  remove(tmpfile2);
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+}
+
 static void
 write_test_msas(FILE *ofp1, FILE *ofp2)
 {
@@ -357,7 +467,7 @@ read_test_msas_digital(char *afafile, char *stkfile)
   if ( esl_msafile_stockholm_Read(afp2, &msa2)                                   != eslOK)  esl_fatal(msg);
   if ( esl_msa_Compare(msa1, msa2)                                               != eslOK)  esl_fatal(msg);
 
-  if ( esl_msafile_a2m_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
+  if ( esl_msafile_afa_Read      (afp1, &msa3)                             != eslEOF) esl_fatal(msg);
   if ( esl_msafile_stockholm_Read(afp2, &msa3)                             != eslEOF) esl_fatal(msg);
 
   eslx_msafile_Close(afp2);
@@ -470,6 +580,14 @@ main(int argc, char **argv)
   char            afafile[32] = "esltmpafaXXXXXX";
   char            stkfile[32] = "esltmpstkXXXXXX";
   FILE           *afafp, *stkfp;
+  int             testnumber;
+  int             ngoodtests = 2;
+  char            tmpfile[32];
+  FILE           *ofp;
+  int             expected_alphatype;
+  int             expected_nseq;
+  int             expected_alen;
+
 
   if ( esl_tmpfile_named(afafile, &afafp) != eslOK) esl_fatal(msg);
   if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
@@ -479,6 +597,20 @@ main(int argc, char **argv)
 
   read_test_msas_digital(afafile, stkfile);
   read_test_msas_text   (afafile, stkfile);
+
+  /* Various "good" files that should be parsed correctly */
+  for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX"); 
+      if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+      switch (testnumber) {
+      case  1:  utest_write_good1 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      case  2:  utest_write_good2 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      }
+      fclose(ofp);
+      utest_goodfile(tmpfile, testnumber, expected_alphatype, expected_nseq, expected_alen);
+      remove(tmpfile);
+    }
 
   remove(afafile);
   remove(stkfile);
@@ -491,11 +623,88 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 4. Example.
+ * 4. Examples.
  *****************************************************************/
 
 #ifdef eslMSAFILE_AFA_EXAMPLE
+/* A full-featured example of reading/writing an MSA in aligned FASTA (AFA) format.
+   gcc -g -Wall -o esl_msafile_afa_example -I. -L. -DeslMSAFILE_afa_EXAMPLE esl_msafile_afa.c -leasel -lm
+   ./esl_msafile_afa_example <msafile>
+ */
 /*::cexcerpt::msafile_afa_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_afa.h"
+
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",            0 },
+  { "-1",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "override autodetection; force AFA format",        0 },
+  { "-q",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "quieter: don't write msa back, just summary",     0 },
+  { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",              0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                    0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                    0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",                0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of guessing, reading, writing AFA format";
+
+int 
+main(int argc, char **argv)
+{
+  ESL_GETOPTS        *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char               *filename    = esl_opt_GetArg(go, 1);
+  int                 infmt       = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET       *abc         = NULL;
+  ESLX_MSAFILE       *afp         = NULL;
+  ESL_MSA            *msa         = NULL;
+  int                 status;
+
+  if      (esl_opt_GetBoolean(go, "-1"))      infmt = eslMSAFILE_AFA;  /* override format autodetection */
+
+  if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
+
+  /* Text mode: pass NULL for alphabet.
+   * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
+   */
+  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp);
+  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, NULL, &afp);
+  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+
+  if ((status = esl_msafile_afa_Read(afp, &msa)) != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+
+  printf("alphabet:       %s\n", (abc ? esl_abc_DecodeType(abc->type) : "none (text mode)"));
+  printf("# of seqs:      %d\n", msa->nseq);
+  printf("# of cols:      %d\n", (int) msa->alen);
+  printf("\n");
+
+  if (! esl_opt_GetBoolean(go, "-q"))
+    esl_msafile_afa_Write(stdout, msa);
+
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+  if (abc) esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  exit(0);
+}
+/*::cexcerpt::msafile_afa_example::end::*/
+#endif /*eslMSAFILE_AFA_EXAMPLE*/
+
+#ifdef eslMSAFILE_AFA_EXAMPLE2
+/* A minimal example. Read AFA format MSA, in text mode.
+   gcc -g -Wall -o esl_msafile_afa_example2 -I. -L. -DeslMSAFILE_AFA_EXAMPLE2 esl_msafile_afa.c -leasel -lm
+   ./esl_msafile_afa_example2 <msafile>
+*/
+/*::cexcerpt::msafile_afa_example2::begin::*/
 #include <stdio.h>
 
 #include "easel.h"
@@ -512,23 +721,19 @@ main(int argc, char **argv)
   ESL_MSA      *msa      = NULL;
   int           status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK) 
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK) eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_afa_Read(afp, &msa))                          != eslOK) eslx_msafile_ReadFailure(afp, status);
 
-  if ( (status = esl_msafile_afa_Read(afp, &msa))         != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
-
-  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	 1, msa->name, msa->nseq, (int) msa->alen);
+  printf("%6d seqs, %5d columns\n", msa->nseq, (int) msa->alen);
 
   esl_msafile_afa_Write(stdout, msa);
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_afa_example::end::*/
-#endif /*eslMSAFILE_AFA_EXAMPLE*/
-/*--------------------- end of example --------------------------*/
+/*::cexcerpt::msafile_afa_example2::end::*/
+#endif /*eslMSAFILE_AFA_EXAMPLE2*/
+/*--------------------- end of examples -------------------------*/
 
 
 

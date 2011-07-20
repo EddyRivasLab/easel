@@ -596,8 +596,118 @@ make_digital_consensus_line(const ESL_MSA *msa, char **ret_consline)
 /*****************************************************************
  * 3. Unit tests.
  *****************************************************************/
-
 #ifdef eslMSAFILE_CLUSTAL_TESTDRIVE
+
+static void
+utest_write_good1(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("MUSCLE (3.7) multiple sequence alignment\n", ofp);
+  fputs("\n", ofp);
+  fputs("\n", ofp);
+  fputs("MYG_PHYCA       --------V-LSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKT\n", ofp);
+  fputs("GLB5_PETMA      PIVDTGSVAPLSAAEKTKIRSAWAPVYSTYETSGVDILVKFFTSTPAAQEFFPKFKGLTT\n", ofp);
+  fputs("HBB_HUMAN       --------VHLTPEEKSAVTALWGKV--NVDEVGGEALGRLLVVYPWTQRFFESFGDLST\n", ofp);
+  fputs("HBA_HUMAN       --------V-LSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF-----\n", ofp);
+  fputs("                        . *:  :.  :   *. *       * : * .::   * :   *  *     \n", ofp);
+  fputs("\n", ofp);
+  fputs("MYG_PHYCA       EAEMKASEDLKKHGVTVLTALGAILKKKGH---HEAELKPLAQSHATKHKIPIKYLEFIS\n", ofp);
+  fputs("GLB5_PETMA      ADQLKKSADVRWHAERIINAVNDAVASMDDTEKMSMKLRDLSGKHAKSFQVDPQYFKVLA\n", ofp);
+  fputs("HBB_HUMAN       PDAVMGNPKVKAHGKKVLGAFSDGLAHLDN---LKGTFATLSELHCDKLHVDPENFRLLG\n", ofp);
+  fputs("HBA_HUMAN       -DLSHGSAQVKGHGKKVADALTNAVAHVDD---MPNALSALSDLHAHKLRVDPVNFKLLS\n", ofp);
+  fputs("                                                                            \n", ofp); /* deliberately made blank */
+  fputs("\n", ofp);
+  fputs("MYG_PHYCA       EAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG\n", ofp);
+  fputs("GLB5_PETMA      AVI---------ADTVAAGDAGFEKLMSMICILLRSAY-------\n", ofp);
+  fputs("HBB_HUMAN       NVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH------\n", ofp);
+  fputs("HBA_HUMAN       HCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR------\n", ofp);
+  fputs("                  :          :  .   .. :* :  .   :   *       \n", ofp);
+  fputs("\n", ofp);
+
+  *ret_format    = eslMSAFILE_CLUSTALLIKE;
+  *ret_alphatype = eslAMINO;
+  *ret_nseq      = 4;
+  *ret_alen      = 165;
+}
+
+static void
+utest_write_good2(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("CLUSTAL W (1.81) multiple sequence alignment\n", ofp);
+  fputs("\n", ofp);
+  fputs("tRNA2           UCCGAUAUAGUGUAACGGCUAUCACAUCACGCUUUCACCGUGG-AGACCGGGGUUCGACU\n", ofp);
+  fputs("tRNA3           UCCGUGAUAGUUUAAUGGUCAGAAUGG-GCGCUUGUCGCGUGCCAGAUCGGGGUUCAAUU\n", ofp);
+  fputs("tRNA5           GGGCACAUGGCGCAGUUGGUAGCGCGCUUCCCUUGCAAGGAAGAGGUCAUCGGUUCGAUU\n", ofp);
+  fputs("tRNA1           GCGGAUUUAGCUCAGUUGGGAGAGCGCCAGACUGAAGAUCUGGAGGUCCUGUGUUCGAUC\n", ofp);
+  fputs("tRNA4           GCUCGUAUGGCGCAGUGG-UAGCGCAGCAGAUUGCAAAUCUGUUGGUCCUUAGUUCGAUC\n", ofp);
+  fputs("                       * *   *   *  *           *            *      **** *  \n", ofp);
+  fputs("\n", ofp);
+  fputs("tRNA2           CCCCGUAUCGGAG\n", ofp);
+  fputs("tRNA3           CCCCGUCGCGGAG\n", ofp);
+  fputs("tRNA5           CCGGUUGCGUCCA\n", ofp);
+  fputs("tRNA1           CACAGAAUUCGCA\n", ofp);
+  fputs("tRNA4           CUGAGUGCGAGCU\n", ofp);
+  fputs("                *            \n", ofp);
+
+  *ret_format    = eslMSAFILE_CLUSTAL;
+  *ret_alphatype = eslRNA;
+  *ret_nseq      = 5;
+  *ret_alen      = 73;
+}
+
+static void
+utest_goodfile(char *filename, int testnumber, int expected_format, int expected_alphatype, int expected_nseq, int expected_alen)
+{
+  ESL_ALPHABET        *abc          = NULL;
+  ESLX_MSAFILE        *afp          = NULL;
+  ESL_MSA             *msa1         = NULL;
+  ESL_MSA             *msa2         = NULL;
+  char                 tmpfile1[32] = "esltmpXXXXXX";
+  char                 tmpfile2[32] = "esltmpXXXXXX";
+  FILE                *ofp          = NULL;
+  int                  status;
+
+  /* guessing both the format and the alphabet should work: this is a digital open */
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("clustal good file test %d failed: digital open",           testnumber);  
+  if (abc->type   != expected_alphatype)                                                            esl_fatal("clustal good file test %d failed: alphabet autodetection", testnumber);
+  if (afp->format != expected_format)                                                               esl_fatal("clustal good file test %d failed: format autodetection",   testnumber);
+
+  /* This is a digital read, using <abc>. */
+  if ( (status = esl_msafile_clustal_Read(afp, &msa1))   != eslOK) esl_fatal("clustal good file test %d failed: msa read, digital", testnumber);  
+  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)  esl_fatal("clustal good file test %d failed: nseq/alen",         testnumber);
+  eslx_msafile_Close(afp);  
+
+  /* write it back out to a new tmpfile (digital write) */
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                     != eslOK) esl_fatal("clustal good file test %d failed: tmpfile creation",   testnumber);
+  if ( (status = esl_msafile_clustal_Write(ofp, msa1, expected_format)) != eslOK) esl_fatal("clustal good file test %d failed: msa write, digital", testnumber);
+  fclose(ofp);
+
+  /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
+  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, expected_format, NULL, &afp)) != eslOK) esl_fatal("clustal good file test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_clustal_Read(afp, &msa2))                                 != eslOK) esl_fatal("clustal good file test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                esl_fatal("clustal good file test %d failed: nseq/alen",      testnumber);
+  eslx_msafile_Close(afp);
+  
+  /* write it back out to a new tmpfile (text write) */
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                     != eslOK) esl_fatal("clustal good file test %d failed: tmpfile creation", testnumber);
+  if ( (status = esl_msafile_clustal_Write(ofp, msa2, expected_format)) != eslOK) esl_fatal("clustal good file test %d failed: msa write, text",  testnumber);
+  fclose(ofp);
+  esl_msa_Destroy(msa2);
+
+  /* open and read it in digital mode */
+  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, expected_format, NULL, &afp)) != eslOK) esl_fatal("clustal good file test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_clustal_Read(afp, &msa2))                                 != eslOK) esl_fatal("clustal good file test %d failed: 2nd digital msa read",  testnumber);  
+  eslx_msafile_Close(afp);
+
+  /* this msa <msa2> should be identical to <msa1> */
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("clustal good file test %d failed: msa compare", testnumber);  
+
+  remove(tmpfile1);
+  remove(tmpfile2);
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+}
+
 static void
 write_test_msas(FILE *ofp1, FILE *ofp2)
 {
@@ -762,6 +872,14 @@ main(int argc, char **argv)
   char            alnfile[32] = "esltmpalnXXXXXX";
   char            stkfile[32] = "esltmpstkXXXXXX";
   FILE           *alnfp, *stkfp;
+  int             testnumber;
+  int             ngoodtests = 2;
+  char            tmpfile[32];
+  FILE           *ofp;
+  int             expected_format;
+  int             expected_alphatype;
+  int             expected_nseq;
+  int             expected_alen;
 
   if ( esl_tmpfile_named(alnfile, &alnfp) != eslOK) esl_fatal(msg);
   if ( esl_tmpfile_named(stkfile, &stkfp) != eslOK) esl_fatal(msg);
@@ -771,6 +889,20 @@ main(int argc, char **argv)
 
   read_test_msas_digital(alnfile, stkfile);
   read_test_msas_text   (alnfile, stkfile);
+
+  /* Various "good" files that should be parsed correctly */
+  for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX"); 
+      if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+      switch (testnumber) {
+      case  1:  utest_write_good1 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      case  2:  utest_write_good2 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      }
+      fclose(ofp);
+      utest_goodfile(tmpfile, testnumber, expected_format, expected_alphatype, expected_nseq, expected_alen);
+      remove(tmpfile);
+    }
 
   remove(alnfile);
   remove(stkfile);
@@ -782,16 +914,93 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 5. Example.
+ * 5. Examples.
  *****************************************************************/
 
+
 #ifdef eslMSAFILE_CLUSTAL_EXAMPLE
-/* An example of reading an MSA in text mode, and handling any returned errors.
-   gcc -g -Wall -o esl_msafile_clustal_example -I. -DeslMSAFILE_CLUSTAL_EXAMPLE esl_msafile_clustal.c esl_msa.c easel.c 
+/* A full-featured example of reading/writing an MSA in Clustal format(s).
+   gcc -g -Wall -o esl_msafile_clustal_example -I. -L. -DeslMSAFILE_CLUSTAL_EXAMPLE esl_msafile_clustal.c -leasel -lm
    ./esl_msafile_clustal_example <msafile>
  */
-
 /*::cexcerpt::msafile_clustal_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_clustal.h"
+
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-1",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "no autodetection; use CLUSTAL format",        0 },
+  { "-2",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "no autodetection; use CLUSTALLIKE format",    0 },
+  { "-q",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "quieter: don't write msa back, just summary", 0 },
+  { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",            0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of guessing, reading, writing Clustal formats";
+
+int 
+main(int argc, char **argv)
+{
+  ESL_GETOPTS        *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char               *filename    = esl_opt_GetArg(go, 1);
+  int                 infmt       = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET       *abc         = NULL;
+  ESLX_MSAFILE       *afp         = NULL;
+  ESL_MSA            *msa         = NULL;
+  int                 status;
+
+  if      (esl_opt_GetBoolean(go, "-1"))      infmt = eslMSAFILE_CLUSTAL;
+  else if (esl_opt_GetBoolean(go, "-2"))      infmt = eslMSAFILE_CLUSTALLIKE;
+
+  if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
+
+  /* Text mode: pass NULL for alphabet.
+   * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
+   */
+  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp);
+  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, NULL, &afp);
+  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+
+  if ( (status = esl_msafile_clustal_Read(afp, &msa)) != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+
+  printf("format variant: %s\n", eslx_msafile_DecodeFormat(afp->format));
+  printf("alphabet:       %s\n", (abc ? esl_abc_DecodeType(abc->type) : "none (text mode)"));
+  printf("# of seqs:      %d\n", msa->nseq);
+  printf("# of cols:      %d\n", (int) msa->alen);
+  printf("\n");
+
+  if (! esl_opt_GetBoolean(go, "-q"))
+    esl_msafile_clustal_Write(stdout, msa, eslMSAFILE_CLUSTAL);
+
+  esl_msa_Destroy(msa);
+  eslx_msafile_Close(afp);
+  if (abc) esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  exit(0);
+}
+/*::cexcerpt::msafile_clustal_example::end::*/
+#endif /*eslMSAFILE_CLUSTAL_EXAMPLE*/
+
+#ifdef eslMSAFILE_CLUSTAL_EXAMPLE2
+/* A minimal example. Read Clustal MSA, in text mode.
+   gcc -g -Wall -o esl_msafile_clustal_example2 -I. -L. -DeslMSAFILE_CLUSTAL_EXAMPLE2 esl_msafile_clustal.c -leasel -lm
+   ./esl_msafile_clustal_example2 <msafile>
+ */
+
+/*::cexcerpt::msafile_clustal_example2::begin::*/
 #include <stdio.h>
 
 #include "easel.h"
@@ -803,27 +1012,24 @@ int
 main(int argc, char **argv)
 {
   char        *filename = argv[1];
-  int          fmt      = eslMSAFILE_UNKNOWN;
-  ESLX_MSAFILE *afp      = NULL;
-  ESL_MSA      *msa      = NULL;
+  int          fmt      = eslMSAFILE_CLUSTAL; /* or eslMSAFILE_CLUSTALLIKE */
+  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSA      *msa     = NULL;
   int          status;
 
-  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK) 
-    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = eslx_msafile_Open(NULL, filename, NULL, fmt, NULL, &afp)) != eslOK)  eslx_msafile_OpenFailure(afp, status);
+  if ( (status = esl_msafile_clustal_Read(afp, &msa))                      != eslOK)  eslx_msafile_ReadFailure(afp, status);
 
-  if ( (status = esl_msafile_clustal_Read(afp, &msa))         != eslOK)
-    eslx_msafile_ReadFailure(afp, status);
-
-  printf("alignment %5d: %15s: %6d seqs, %5d columns\n", 
-	 1, msa->name, msa->nseq, (int) msa->alen);
+  printf("%6d seqs, %5d columns\n", msa->nseq, (int) msa->alen);
 
   esl_msafile_clustal_Write(stdout, msa, eslMSAFILE_CLUSTAL);
+
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_clustal_example::end::*/
-#endif /*eslMSAFILE_CLUSTAL_EXAMPLE*/
+/*::cexcerpt::msafile_clustal_example2::end::*/
+#endif /*eslMSAFILE_CLUSTAL_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
 
 /*****************************************************************
