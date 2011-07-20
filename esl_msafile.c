@@ -225,7 +225,6 @@ eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, E
     { afp->abc = NULL; *ret_afp = afp;}
   else 
     { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
-  *ret_afp = NULL;
   return status;
 }
 
@@ -402,6 +401,7 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
   case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
   case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
   case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_SetInmap(afp); break;
   case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_SetInmap(   afp); break;
   case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_SetInmap(   afp); break;
   case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;

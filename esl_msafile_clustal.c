@@ -109,11 +109,11 @@ esl_msafile_clustal_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   /* Ignore the first nonblank line, which says "CLUSTAL W (1.83) multiple sequence alignment" or some such */
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
   if      (status == eslEOF) ESL_XFAIL(eslENOALPHABET, afp->errmsg, "can't determine alphabet: no alignment data found");
   else if (status != eslOK)  goto ERROR;
   
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
       if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* ignore blank lines */
       /* p now points to the rest of the sequence line, after a name */

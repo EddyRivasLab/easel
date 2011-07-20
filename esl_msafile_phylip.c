@@ -160,7 +160,7 @@ esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
   /* Find the first nonblank line, which says " <nseq> <alen>" and may also have options. we ignore this header */
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK  && esl_memspn(afp->line, afp->n, " \t") == afp->n) ;
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK  && esl_memspn(p, n, " \t") == n) ;
   if      (status == eslEOF) ESL_XFAIL(eslENOALPHABET, afp->errmsg, "can't determine alphabet: no alignment data found");
   else if (status != eslOK)  goto ERROR;
 
@@ -168,10 +168,10 @@ esl_msafile_phylip_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
    * Always skip the name field, even in continuation lines/blocks 
    * This may miss some residues, but it means we work on both sequential and interleaved formats 
    */
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
-      if (esl_memspn(afp->line, afp->n, " \t") == afp->n) continue;
-      if (n < namewidth)                                  continue;
+      if (esl_memspn(p, n, " \t") == n) continue;
+      if (n < namewidth)                continue;
 
       p += namewidth;
       n -= namewidth;
@@ -461,6 +461,7 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
   return eslOK;
 
  ERROR:
+  msa->nseq = nseq;		/* we're allocated and initialized for <nseq>: this makes sure we free everything we need to in <msa> */
   if (namebuf) free(namebuf);
   return status;
 }
@@ -578,6 +579,7 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
   return eslOK;
 
  ERROR:
+  msa->nseq = nseq;		/* we're allocated and initialized for <nseq>: this makes sure we free everything we need to in <msa> */
   if (namebuf) free(namebuf);
   return status;
 }
@@ -1459,6 +1461,9 @@ utest_badfile(char *filename, int testnumber, int expected_alphatype, int expect
   if ( (status = esl_msafile_phylip_Read(afp, &msa)) != expected_status)                            esl_fatal("phylip bad file unit test %d failed: unexpected error code",   testnumber);
   if (strstr(afp->errmsg, expected_errmsg) == NULL)                                                 esl_fatal("phylip bad file unit test %d failed: unexpected errmsg",       testnumber);
   if (afp->linenumber != expected_linenumber)                                                       esl_fatal("phylip bad file unit test %d failed: unexpected linenumber",   testnumber);
+  eslx_msafile_Close(afp);
+  esl_alphabet_Destroy(abc);
+  esl_msa_Destroy(msa);
 }
 
 #endif /*eslMSAFILE_PHYLIP_TESTDRIVE*/
@@ -1569,8 +1574,8 @@ main(int argc, char **argv)
  *****************************************************************/
 
 #ifdef eslMSAFILE_PHYLIP_EXAMPLE
-/* An example of reading an MSA in text mode, and handling any returned errors.
-   gcc -g -Wall -o esl_msafile_phylip_example -I. -DeslMSAFILE_PHYLIP_EXAMPLE esl_msafile_phylip.c esl_msa.c easel.c 
+/* A full-featured example of reading/writing an MSA in Phylip format(s).
+   gcc -g -Wall -o esl_msafile_phylip_example -I. -L. -DeslMSAFILE_PHYLIP_EXAMPLE esl_msafile_phylip.c -leasel -lm
    ./esl_msafile_phylip_example <msafile>
  */
 /*::cexcerpt::msafile_phylip_example::begin::*/
@@ -1593,7 +1598,6 @@ static ESL_OPTIONS options[] = {
   { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                0 },
   { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                0 },
   { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",            0 },
-
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
@@ -1648,14 +1652,18 @@ main(int argc, char **argv)
   esl_msafile_phylip_Write(stdout, msa, eslMSAFILE_PHYLIP, &fmtd);
   esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
+  if (abc) esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
   exit(0);
 }
 /*::cexcerpt::msafile_phylip_example::end::*/
 #endif /*eslMSAFILE_PHYLIP_EXAMPLE*/
 
+
+
 #ifdef eslMSAFILE_PHYLIP_EXAMPLE2
 /* A minimal example. Reading a strict interleaved PHYLIP MSA in text mode. 
-   gcc -g -Wall -o esl_msafile_phylip_example2 -I. -DeslMSAFILE_PHYLIP_EXAMPLE2 esl_msafile_phylip.c esl_msa.c easel.c 
+   gcc -g -Wall -o esl_msafile_phylip_example2 -I. -L. -DeslMSAFILE_PHYLIP_EXAMPLE2 esl_msafile_phylip.c -leasel -lm
    ./esl_msafile_phylip_example2 <msafile>
  */
 /*::cexcerpt::msafile_phylip_example2::begin::*/

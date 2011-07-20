@@ -169,7 +169,7 @@ esl_msafile_stockholm_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   anchor = esl_buffer_GetOffset(afp->bf);
   if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
       if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK || *tok == '#') continue; /* blank lines, annotation, comments */
       /* p now points to the rest of the sequence line */
@@ -646,11 +646,11 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   
   if (pd->nblock) 		/* Subsequent blocks */
     {
-      if      (esl_memstrcmp(tag, taglen, "SS_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SSCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SS_cons line; lines in earlier block(s) were in different order?"); }
-      else if (esl_memstrcmp(tag, taglen, "SA_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC SA_cons line; lines in earlier block(s) were in different order?"); }
-      else if (esl_memstrcmp(tag, taglen, "PP_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC PP_cons line; lines in earlier block(s) were in different order?"); }
-      else if (esl_memstrcmp(tag, taglen, "RF"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC RF line; lines in earlier block(s) were in different order?");      }
-      else if (                                             pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GC line; lines in earlier block(s) were in different order?");
+      if      (esl_memstrcmp(tag, taglen, "SS_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SSCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC SS_cons; earlier block(s) in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "SA_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC SA_cons; earlier block(s) in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "PP_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC PP_cons; earlier block(s) in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "RF"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC RF; earlier block(s) in different order?");      }
+      else if (                                             pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC line; earlier block(s) in different order?");
     }
   else				/* First block */
     {
@@ -697,7 +697,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       pd->ogc_len[tagidx] += n;
     }
 
-  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GC %.*s line", (int) taglen, tag); 
+  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected # of aligned annotation in #=GC %.*s line", (int) taglen, tag); 
   pd->alen_b   = n;
   pd->in_block = TRUE;
   pd->bi++;
@@ -747,13 +747,13 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {				/* subsequent block(s) */
       if (pd->bi >= pd->npb) ESL_FAIL(eslEFORMAT, afp->errmsg, "more lines than expected in this alignment block; earlier blocks had fewer");
 
-      if      (esl_memstrcmp(tag, taglen, "SS")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SS)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SS line; lines in earlier block(s) were in different order?"); }
-      else if (esl_memstrcmp(tag, taglen, "SA")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SA)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> SA line; lines in earlier block(s) were in different order?"); }  
-      else if (esl_memstrcmp(tag, taglen, "PP")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_PP)    ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR <seqname> PP line; lines in earlier block(s) were in different order?"); } 
-      else if (                                        pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_OTHER) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a #=GR line; lines in earlier block(s) were in different order?");  
+      if      (esl_memstrcmp(tag, taglen, "SS")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SS)    ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GR <seqname> SS; earlier block(s) in different order?"); }
+      else if (esl_memstrcmp(tag, taglen, "SA")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_SA)    ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GR <seqname> SA; earlier block(s) in different order?"); }  
+      else if (esl_memstrcmp(tag, taglen, "PP")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_PP)    ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GR <seqname> PP; earlier block(s) in different order?"); } 
+      else if (                                        pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GR_OTHER) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GR line; earlier block(s) in different order?");  
 
       seqidx = pd->bidx[pd->bi];
-      if (! esl_memstrcmp(name, namelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected sequence name %.*s; expected %s from order of earlier blocks", (int) namelen, name, msa->sqname[seqidx]);
+      if (! esl_memstrcmp(name, namelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected seqname %.*s; expected %s from prev blocks", (int) namelen, name, msa->sqname[seqidx]);
     }
 
   /* Append the annotation where it belongs  */
@@ -799,7 +799,7 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       pd->ogr_len[tagidx][seqidx] += n;
     }
 
-  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected number of aligned annotation characters in #=GR %.*s line", (int) taglen, tag); 
+  if (pd->bi && n != pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected # of aligned annotation in #=GR %.*s %.*s line", (int) namelen, name, (int) taglen, tag); 
   pd->alen_b   = n;
   pd->in_block = TRUE;
   pd->bi++;
@@ -847,11 +847,11 @@ stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     }
   else 
     {				/* subsequent block(s) */
-      if (pd->bi >= pd->npb)                               ESL_FAIL(eslEFORMAT, afp->errmsg, "more lines than expected in this alignment block; earlier blocks had fewer");
-      if (  pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_SQ) ESL_FAIL(eslEFORMAT, afp->errmsg, "didn't expect a sequence line; lines in earlier block(s) were in different order?");
+      if (pd->bi >= pd->npb)                               ESL_FAIL(eslEFORMAT, afp->errmsg, "more lines than expected; earlier blocks had fewer");
+      if (  pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_SQ) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected seq line; earlier block(s) in different order?");
       seqidx = pd->bidx[pd->bi];
 
-      if (! esl_memstrcmp(seqname, seqnamelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected sequence name %.*s; expected %s from order of earlier blocks", (int) seqnamelen, seqname, msa->sqname[seqidx]);
+      if (! esl_memstrcmp(seqname, seqnamelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected seq name %.*s; expected %s from prev block order", (int) seqnamelen, seqname, msa->sqname[seqidx]);
     }
 
 #ifdef eslAUGMENT_ALPHABET 
@@ -1244,6 +1244,1066 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 #ifdef eslMSAFILE_STOCKHOLM_TESTDRIVE
 
 static void
+utest_write_good1(FILE *ofp, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#\n", ofp);
+  fputs("# This is an example of a Stockholm multiple sequence alignment\n", ofp);
+  fputs("# file. It is deliberately designed to be weird, to exercise many of the\n", ofp);
+  fputs("# features of Stockholm format, in order to test a parser.\n", ofp);
+  fputs("#\n", ofp);
+  fputs("#=GF ID   14-3-3\n", ofp);
+  fputs("#=GF AC   PF00244\n", ofp);
+  fputs("#=GF DE   14-3-3 proteins\n", ofp);
+  fputs("#=GF AU   Finn RD\n", ofp);
+  fputs("#=GF AL   Clustalw\n", ofp);
+  fputs("#=GF SE   Prosite\n", ofp);
+  fputs("#=GF GA   25 25\n", ofp);
+  fputs("#=GF TC   35.40 35.40\n", ofp);
+  fputs("#=GF NC   8.80 8.80\n", ofp);
+  fputs("#=GF BM   hmmbuild -f HMM SEED\n", ofp);
+  fputs("#=GF BM   hmmcalibrate --seed 0 HMM\n", ofp);
+  fputs("#=GF RN   [1]\n", ofp);
+  fputs("#=GF RM   95327195\n", ofp);
+  fputs("#=GF RT   Structure of a 14-3-3 protein and implications for\n", ofp);
+  fputs("#=GF RT   coordination of multiple signalling pathways. \n", ofp);
+  fputs("#=GF RA   Xiao B, Smerdon SJ, Jones DH, Dodson GG, Soneji Y, Aitken\n", ofp);
+  fputs("#=GF RA   A, Gamblin SJ; \n", ofp);
+  fputs("#=GF RL   Nature 1995;376:188-191.\n", ofp);
+  fputs("#=GF RN   [2]\n", ofp);
+  fputs("#=GF RM   95327196\n", ofp);
+  fputs("#=GF RT   Crystal structure of the zeta isoform of the 14-3-3\n", ofp);
+  fputs("#=GF RT   protein. \n", ofp);
+  fputs("#=GF RA   Liu D, Bienkowska J, Petosa C, Collier RJ, Fu H, Liddington\n", ofp);
+  fputs("#=GF RA   R; \n", ofp);
+  fputs("#=GF RL   Nature 1995;376:191-194.\n", ofp);
+  fputs("#=GF DR   PROSITE; PDOC00633;\n", ofp);
+  fputs("#=GF DR   SMART; 14_3_3;\n", ofp);
+  fputs("#=GF DR   PRINTS; PR00305;\n", ofp);
+  fputs("#=GF SQ   119\n", ofp);
+  fputs("	\n", ofp);
+  fputs("#=GS 1431_ENTHI/4-239 WT  0.42\n", ofp);
+  fputs("#=GS seq1             WT  0.40\n", ofp);
+  fputs("#=GS seq2             WT  0.41\n", ofp);
+  fputs("#=GS seq3             WT  0.43\n", ofp);
+  fputs("#=GS seq4             WT  0.44\n", ofp);
+  fputs("#=GS seq5             WT  0.45\n", ofp);
+  fputs("#=GS seq6             WT  0.46\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GS seq4             AC  PF00001\n", ofp);
+  fputs("#=GS seq4             DE  A description of seq4.\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GS seq1             NEWTAG  foo\n", ofp);
+  fputs("#=GS seq2             NEWTAG  bar\n", ofp);
+  fputs("#=GS seq3             NEWTAG  baz  \n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GS seq3             TAG2    foo2\n", ofp);
+  fputs("#=GS seq4             TAG2    foo3\n", ofp);
+  fputs("#=GS seq5             TAG2    foo4\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC SS_cons                 xxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("#=GC SA_cons                 xxxxxxxxxxxxxxxxxxx  \n", ofp);
+  fputs("#=GC New_long_tag_thingie    xxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("1431_ENTHI/4-239             ACDEFGHKLMNPQRSTVWY             \n", ofp);
+  fputs("#=GR seq1 SS                 ...................  \n", ofp);
+  fputs("#=GR seq1 SA                 0000000000000000000\n", ofp);
+  fputs("seq1                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq2                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq3 PP                 0000000000000000000  \n", ofp);
+  fputs("seq3                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq4                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq5                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq6                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq6 SS                 ...................\n", ofp);
+  fputs("#=GR seq6 SA                 9999999999999999999\n", ofp);
+  fputs("#=GR seq6 Invented_tag       *******************\n", ofp);
+  fputs("#=GR seq6 Another_tag        -------------------\n", ofp);
+  fputs("#=GC PP_cons                 *******************  \n", ofp);
+  fputs("    \n", ofp);
+  fputs("  \n", ofp);
+  fputs("#=GC SS_cons                 xxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("#=GC SA_cons                 xxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("#=GC New_long_tag_thingie    xxxxxxxxxxxxxxxxxxx    \n", ofp);
+  fputs("1431_ENTHI/4-239             ACDEFGHKLMNPQRSTVWY   \n", ofp);
+  fputs("#=GR seq1 SS                 ...................\n", ofp);
+  fputs("#=GR seq1 SA                 0000000000000000000\n", ofp);
+  fputs("seq1                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq2                         ACDEFGHKLMNPQRSTVWY        \n", ofp);
+  fputs("#=GR seq3 PP                 0000000000000000000  \n", ofp);
+  fputs("seq3                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq4                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq5                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("seq6                         ACDEFGHKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq6 SS                 ...................\n", ofp);
+  fputs("#=GR seq6 SA                 9999999999999999999\n", ofp);
+  fputs("#=GR seq6 Invented_tag       ******************* \n", ofp);
+  fputs("#=GR seq6 Another_tag        -------------------\n", ofp);
+  fputs("#=GC PP_cons                 *******************  \n", ofp);
+  fputs("\n", ofp);
+  fputs("#\n", ofp);
+  fputs("# And here's some trailing comments, just to\n", ofp);
+  fputs("# try to confuse a parser.\n", ofp);
+  fputs("#\n", ofp);
+  fputs("\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_alphatype = eslAMINO;
+  *ret_nseq      = 7;
+  *ret_alen      = 38;
+}
+
+static void
+utest_write_badformat1(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("missing Stockholm header\n", ofp);
+
+  *ret_linenumber = 1;
+  strcpy(errmsg, "missing Stockholm header");
+}
+
+static void
+utest_write_badformat2(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "number of seqs in block did not match number in earlier block(s)");
+}
+
+static void
+utest_write_badformat3(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GS seq1 FOO baz\n", ofp);
+  fputs("#=GS seq2 FOO boz\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "number of seqs in block did not match number annotated by #=GS lines");
+}
+
+static void
+utest_write_badformat4(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1    ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2    ACDEFGHIKLMNPQRSTVWY\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "missing // terminator after MSA");
+}
+
+static void
+utest_write_badformat5(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("\n", ofp);
+  fputs("# No data\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "no alignment data followed Stockholm header");
+}
+
+static void
+utest_write_badformat6(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GF \n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "#=GF line is missing <tag>, annotation");
+}
+
+static void
+utest_write_badformat7(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GFX tag\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "faux #=GF line");
+}
+
+static void
+utest_write_badformat8(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF ID\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "No name found on #=GF ID line");
+}
+
+static void
+utest_write_badformat9(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF ID name with cruft\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GF ID line should have only one name (no whitespace allowed)");
+}
+
+static void
+utest_write_badformat10(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF AC      \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "No accession found on #=GF AC line");
+}
+
+static void
+utest_write_badformat11(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF AC accession with cruft     \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GF AC line should have only one accession (no whitespace allowed)");
+}
+
+static void
+utest_write_badformat12(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF GA not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for GA1 value on #=GF GA line");
+}
+
+static void
+utest_write_badformat13(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF GA 10.0  not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for GA2 value on #=GF GA line");
+}
+
+static void
+utest_write_badformat14(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF GA       \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "No GA threshold value found on #=GF GA line");
+}
+
+static void
+utest_write_badformat15(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF NC not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for NC1 value on #=GF NC line");
+}
+
+static void
+utest_write_badformat16(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF NC 10.0  not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for NC2 value on #=GF NC line");
+}
+
+static void
+utest_write_badformat17(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF NC       \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "No NC threshold value found on #=GF NC line");
+}
+
+static void
+utest_write_badformat18(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF TC not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for TC1 value on #=GF TC line");
+}
+
+static void
+utest_write_badformat19(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF TC 10.0  not_a_number \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "Expected a real number for TC2 value on #=GF TC line");
+}
+
+static void
+utest_write_badformat20(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GF TC       \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "No TC threshold value found on #=GF TC line");
+}
+
+static void
+utest_write_badformat21(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS      \n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GS line missing <seqname>, <tag>, annotation");
+}
+
+static void
+utest_write_badformat22(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1    \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GS line missing <tag>, annotation");
+}
+
+static void
+utest_write_badformat23(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GSX seq1 foo   \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "faux #=GS line");
+}
+
+static void
+utest_write_badformat24(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 WT   \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "no weight value found on #=GS <seqname> WT line");
+}
+
+static void
+utest_write_badformat25(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 WT 2.0  \n", ofp);
+  fputs("#=GS seq1 WT 2.0  \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "sequence has more than one #=GS <seqname> WT line");
+}
+
+static void
+utest_write_badformat26(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 WT 2.0 cruft \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GS <seqname> WT line should have only one field, the weight");
+}
+
+static void
+utest_write_badformat27(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 WT cruft \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "value on #=GS <seqname> WT line isn't a real number");
+}
+
+static void
+utest_write_badformat28(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 AC   \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "no accession found on #=GS <seqname> AC line");
+}
+
+static void
+utest_write_badformat29(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 AC xxxxxx  \n", ofp);
+  fputs("#=GS seq1 AC yyyyyy  \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "sequence has more than one #=GS <seqname> AC accession line");
+}
+
+static void
+utest_write_badformat30(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 AC xxxxxx  cruft \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GS <seqname> AC line should have only one field, the accession");
+}
+
+static void
+utest_write_badformat31(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GS seq1 DE a one line description \n", ofp);
+  fputs("#=GS seq1 DE oops, a second line \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "sequence has more than one #=GS <seqname> DE accession line");
+}
+
+static void
+utest_write_badformat32(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GC line missing <tag>, annotation");
+}
+
+static void
+utest_write_badformat33(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GCX FOO xxxxxxxxxxxxxxxxxxxx \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "faux #=GC line");
+}
+
+static void
+utest_write_badformat34(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC FOO  \n", ofp);
+  fputs("seq1      ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "#=GC line missing annotation");
+}
+
+static void
+utest_write_badformat35(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC SS_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC SS_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 6;
+  strcpy(errmsg, "unexpected #=GC SS_cons");
+}
+
+static void
+utest_write_badformat36(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC SA_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC SA_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 6;
+  strcpy(errmsg, "unexpected #=GC SA_cons");
+}
+
+static void
+utest_write_badformat37(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC PP_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC PP_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 6;
+  strcpy(errmsg, "unexpected #=GC PP_cons");
+}
+
+static void
+utest_write_badformat38(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC RF      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC RF      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 6;
+  strcpy(errmsg, "unexpected #=GC RF");
+}
+
+static void
+utest_write_badformat39(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC XX      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("#=GC XX      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 6;
+  strcpy(errmsg, "unexpected #=GC line");
+}
+
+static void
+utest_write_badformat40(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC SS_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC SS_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 5;
+  strcpy(errmsg, "more than one #=GC SS_cons line in block");
+}
+
+static void
+utest_write_badformat41(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC SA_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC SA_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 5;
+  strcpy(errmsg, "more than one #=GC SA_cons line in block");
+}
+
+static void
+utest_write_badformat42(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC PP_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC PP_cons xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 5;
+  strcpy(errmsg, "more than one #=GC PP_cons line in block");
+}
+
+static void
+utest_write_badformat43(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC RF      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC RF      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 5;
+  strcpy(errmsg, "more than one #=GC RF line in block");
+}
+
+static void
+utest_write_badformat44(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GC XX      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC XX      xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 5;
+  strcpy(errmsg, "more than one #=GC XX line in block");
+}
+
+static void
+utest_write_badformat45(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GC XX        xxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "unexpected # of aligned annotation in #=GC XX line");
+}
+
+static void
+utest_write_badformat46(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR \n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "#=GR line missing <seqname>, <tag>, annotation");
+}
+
+static void
+utest_write_badformat47(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1  \n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "#=GR line missing <tag>, annotation");
+}
+
+static void
+utest_write_badformat48(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1          ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GRX seq1 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2          ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "faux #=GR line");
+}
+
+static void
+utest_write_badformat49(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 XX  \n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "#=GR line missing annotation");
+}
+
+static void
+utest_write_badformat50(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 SS xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 SS xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected #=GR <seqname> SS");
+}
+
+static void
+utest_write_badformat51(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 SA xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 SA xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected #=GR <seqname> SA");
+}
+
+static void
+utest_write_badformat52(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 PP xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 PP xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected #=GR <seqname> PP");
+}
+
+static void
+utest_write_badformat53(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected #=GR line");
+}
+
+static void
+utest_write_badformat54(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected seqname seq2; expected seq1 from prev blocks");
+}
+
+static void
+utest_write_badformat55(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GR seq1 SS xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 SS xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "more than one #=GR seq1 SS line in block");
+}
+
+static void
+utest_write_badformat56(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GR seq1 PP xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 PP xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "more than one #=GR seq1 PP line in block");
+}
+
+static void
+utest_write_badformat57(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GR seq1 SA xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 SA xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "more than one #=GR seq1 SA line in block");
+}
+
+static void
+utest_write_badformat58(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("#=GR seq1 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq1 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "more than one #=GR seq1 XX line in block");
+}
+
+static void
+utest_write_badformat59(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 4;
+  strcpy(errmsg, "unexpected # of aligned annotation in #=GR seq2 XX line");
+}
+
+static void
+utest_write_badformat60(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2 \n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "sequence line with no sequence");
+}
+
+static void
+utest_write_badformat61(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2  ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "more lines than expected; earlier blocks had fewer");
+}
+
+static void
+utest_write_badformat62(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("#=GR seq2 XX xxxxxxxxxxxxxxxxxxxx\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected seq line; earlier block(s) in different order");
+}
+
+static void
+utest_write_badformat63(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq3         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq3         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 7;
+  strcpy(errmsg, "unexpected seq name seq3; expected seq2 from prev block order");
+}
+
+static void
+utest_write_badformat64(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKL^NPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 2;
+  strcpy(errmsg, "invalid sequence character(s) on line");
+}
+
+static void
+utest_write_badformat65(FILE *ofp, int *ret_linenumber, char *errmsg)
+{
+  fputs("# STOCKHOLM 1.0\n", ofp);
+  fputs("seq1         ACDEFGHIKLMNPQRSTVWY\n", ofp);
+  fputs("seq2         ACDEFGHIKLMNPQRSTVWYZ\n", ofp);
+  fputs("//\n", ofp);
+
+  *ret_linenumber = 3;
+  strcpy(errmsg, "unexpected number of aligned residues parsed on line");
+}
+
+
+static void
+utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expected_nseq, int expected_alen)
+{
+  ESL_ALPHABET        *abc          = NULL;
+  ESLX_MSAFILE        *afp          = NULL;
+  ESL_MSA             *msa1         = NULL;
+  ESL_MSA             *msa2         = NULL;
+  char                 tmpfile1[32] = "esltmpXXXXXX";
+  char                 tmpfile2[32] = "esltmpXXXXXX";
+  FILE                *ofp          = NULL;
+  int                  status;
+
+  /* guessing both the format and the alphabet should work: this is a digital open */
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: digital open", testnumber);  
+  if (abc->type   != expected_alphatype)    esl_fatal("stockholm good file unit test %d faisled: alphabet autodetection", testnumber);
+  if (afp->format != eslMSAFILE_STOCKHOLM)  esl_fatal("stockholm good file unit test %d failed: format autodetection",   testnumber);
+
+  /* This is a digital read, using <abc>. */
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa1))   != eslOK) esl_fatal("stockholm good file unit test %d failed: msa read, digital", testnumber);  
+  if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)    esl_fatal("stockholm good file unit test %d failed: nseq/alen");
+  eslx_msafile_Close(afp);  
+
+  /* write it back out to a new tmpfile (digital write) */
+  if ( (status = esl_tmpfile_named(tmpfile1, &ofp))                            != eslOK) esl_fatal("stockholm good file unit test %d failed: tmpfile creation");
+  if ( (status = esl_msafile_stockholm_Write(ofp, msa1, eslMSAFILE_STOCKHOLM)) != eslOK) esl_fatal("stockholm good file unit test %d failed: msa write, digital");
+  fclose(ofp);
+
+  /* now open and read it as text mode, in known format. (We have to pass fmtd now, to deal with the possibility of a nonstandard name width) */
+  if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: text mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                    != eslOK) esl_fatal("stockholm good file unit test %d failed: msa read, text", testnumber);  
+  if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                     esl_fatal("stockholm good file unit test %d failed: nseq/alen");
+  eslx_msafile_Close(afp);
+  
+  /* write it back out to a new tmpfile (text write) */
+  if ( (status = esl_tmpfile_named(tmpfile2, &ofp))                        != eslOK) esl_fatal("stockholm good file unit test %d failed: tmpfile creation");
+  if ( (status = esl_msafile_stockholm_Write(ofp, msa2, eslMSAFILE_PFAM))  != eslOK) esl_fatal("stockholm good file unit test %d failed: msa write, text");
+  fclose(ofp);
+  esl_msa_Destroy(msa2);
+
+  /* open and read it in digital mode */
+  if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file unit test %d failed: 2nd digital mode open", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file unit test %d failed: 2nd digital msa read", testnumber);  
+  eslx_msafile_Close(afp);
+
+  /* this msa <msa2> should be identical to <msa1> */
+  if (esl_msa_Compare(msa1, msa2) != eslOK) esl_fatal("stockholm good file unit test %d failed: msa compare", testnumber);  
+
+  remove(tmpfile1);
+  remove(tmpfile2);
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2);
+  esl_alphabet_Destroy(abc);
+}
+
+static void
+utest_bad_format(char *filename, int testnumber, int expected_linenumber, char *expected_errmsg)
+{
+  ESL_ALPHABET *abc = esl_alphabet_Create(eslAMINO);
+  ESLX_MSAFILE *afp = NULL;
+  int           fmt = eslMSAFILE_STOCKHOLM;
+  ESL_MSA      *msa = NULL;
+  int           status;
+  
+  if ( (status = eslx_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK)  esl_fatal("stockholm bad format test %d failed: unexpected open failure", testnumber);
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa)) != eslEFORMAT)                esl_fatal("stockholm bad format test %d failed: unexpected error code",   testnumber);
+  if (strstr(afp->errmsg, expected_errmsg) == NULL)                                   esl_fatal("stockholm bad format test %d failed: unexpected errmsg",       testnumber);
+  if (afp->linenumber != expected_linenumber)                                         esl_fatal("stockholm bad format test %d failed: unexpected linenumber",   testnumber);
+  eslx_msafile_Close(afp);
+  esl_alphabet_Destroy(abc);
+  esl_msa_Destroy(msa);
+}
+
+
+static void
 utest_good_format(ESL_ALPHABET **byp_abc, int fmt, int expected_nseq, int64_t expected_alen, char *buf)
 {
   char          msg[] = "good format test failed";
@@ -1299,6 +2359,7 @@ utest_bad_open(ESL_ALPHABET **byp_abc, int fmt, int expected_status, char *buf)
   ESLX_MSAFILE *afp   = NULL;
 
   if (eslx_msafile_OpenMem(byp_abc, buf, strlen(buf), fmt, NULL, &afp) != expected_status) esl_fatal(msg);
+  eslx_msafile_Close(afp);
 }
 
 static void
@@ -1350,7 +2411,18 @@ static char banner[] = "test driver for Stockholm/Xfam MSA format module";
 int
 main(int argc, char **argv)
 {
+  char            msg[]       = "Stockholm MSA i/o module test driver failed";
   ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  int             ngoodtests  = 1;
+  int             nbadtests   = 65;
+  char            tmpfile[32];
+  FILE           *ofp;
+  int             testnumber;
+  int             expected_alphatype;
+  int             expected_nseq;
+  int             expected_alen;
+  int             expected_linenumber;
+  char            expected_errmsg[eslERRBUFSIZE];
 
   utest_bad_open(NULL, eslMSAFILE_UNKNOWN, eslENOFORMAT, ""); 
 
@@ -1361,6 +2433,98 @@ main(int argc, char **argv)
 
   utest_identical_io(NULL, eslMSAFILE_UNKNOWN, "# STOCKHOLM 1.0\n\nseq1 ACDEFGHIKL\nseq2 ACDEFGHIKL\n//\n");
 
+  /* Various "good" files, that should be parsed correctly. */
+  for (testnumber = 1; testnumber <= ngoodtests; testnumber++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX"); 
+      if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+      switch (testnumber) {
+      case  1:  utest_write_good1 (ofp, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      }
+      fclose(ofp);
+      utest_goodfile(tmpfile, testnumber, expected_alphatype, expected_nseq, expected_alen);
+      remove(tmpfile);
+    }
+
+  /* Tests for all possible EFORMAT errors */
+   for (testnumber = 1; testnumber <= nbadtests; testnumber++)
+    {
+      strcpy(tmpfile, "esltmpXXXXXX"); 
+      if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+    
+      switch (testnumber) {
+      case  1:  utest_write_badformat1 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  2:  utest_write_badformat2 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  3:  utest_write_badformat3 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  4:  utest_write_badformat4 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  5:  utest_write_badformat5 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  6:  utest_write_badformat6 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  7:  utest_write_badformat7 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  8:  utest_write_badformat8 (ofp, &expected_linenumber, expected_errmsg); break;
+      case  9:  utest_write_badformat9 (ofp, &expected_linenumber, expected_errmsg); break;
+      case 10:  utest_write_badformat10(ofp, &expected_linenumber, expected_errmsg); break;
+      case 11:  utest_write_badformat11(ofp, &expected_linenumber, expected_errmsg); break;
+      case 12:  utest_write_badformat12(ofp, &expected_linenumber, expected_errmsg); break;
+      case 13:  utest_write_badformat13(ofp, &expected_linenumber, expected_errmsg); break;
+      case 14:  utest_write_badformat14(ofp, &expected_linenumber, expected_errmsg); break;
+      case 15:  utest_write_badformat15(ofp, &expected_linenumber, expected_errmsg); break;
+      case 16:  utest_write_badformat16(ofp, &expected_linenumber, expected_errmsg); break;
+      case 17:  utest_write_badformat17(ofp, &expected_linenumber, expected_errmsg); break;
+      case 18:  utest_write_badformat18(ofp, &expected_linenumber, expected_errmsg); break;
+      case 19:  utest_write_badformat19(ofp, &expected_linenumber, expected_errmsg); break;
+      case 20:  utest_write_badformat20(ofp, &expected_linenumber, expected_errmsg); break;
+      case 21:  utest_write_badformat21(ofp, &expected_linenumber, expected_errmsg); break;
+      case 22:  utest_write_badformat22(ofp, &expected_linenumber, expected_errmsg); break;
+      case 23:  utest_write_badformat23(ofp, &expected_linenumber, expected_errmsg); break;
+      case 24:  utest_write_badformat24(ofp, &expected_linenumber, expected_errmsg); break;
+      case 25:  utest_write_badformat25(ofp, &expected_linenumber, expected_errmsg); break;
+      case 26:  utest_write_badformat26(ofp, &expected_linenumber, expected_errmsg); break;
+      case 27:  utest_write_badformat27(ofp, &expected_linenumber, expected_errmsg); break;
+      case 28:  utest_write_badformat28(ofp, &expected_linenumber, expected_errmsg); break;
+      case 29:  utest_write_badformat29(ofp, &expected_linenumber, expected_errmsg); break;
+      case 30:  utest_write_badformat30(ofp, &expected_linenumber, expected_errmsg); break;
+      case 31:  utest_write_badformat31(ofp, &expected_linenumber, expected_errmsg); break;
+      case 32:  utest_write_badformat32(ofp, &expected_linenumber, expected_errmsg); break;
+      case 33:  utest_write_badformat33(ofp, &expected_linenumber, expected_errmsg); break;
+      case 34:  utest_write_badformat34(ofp, &expected_linenumber, expected_errmsg); break;
+      case 35:  utest_write_badformat35(ofp, &expected_linenumber, expected_errmsg); break;
+      case 36:  utest_write_badformat36(ofp, &expected_linenumber, expected_errmsg); break;
+      case 37:  utest_write_badformat37(ofp, &expected_linenumber, expected_errmsg); break;
+      case 38:  utest_write_badformat38(ofp, &expected_linenumber, expected_errmsg); break;
+      case 39:  utest_write_badformat39(ofp, &expected_linenumber, expected_errmsg); break;
+      case 40:  utest_write_badformat40(ofp, &expected_linenumber, expected_errmsg); break;
+      case 41:  utest_write_badformat41(ofp, &expected_linenumber, expected_errmsg); break;
+      case 42:  utest_write_badformat42(ofp, &expected_linenumber, expected_errmsg); break;
+      case 43:  utest_write_badformat43(ofp, &expected_linenumber, expected_errmsg); break;
+      case 44:  utest_write_badformat44(ofp, &expected_linenumber, expected_errmsg); break;
+      case 45:  utest_write_badformat45(ofp, &expected_linenumber, expected_errmsg); break;
+      case 46:  utest_write_badformat46(ofp, &expected_linenumber, expected_errmsg); break;
+      case 47:  utest_write_badformat47(ofp, &expected_linenumber, expected_errmsg); break;
+      case 48:  utest_write_badformat48(ofp, &expected_linenumber, expected_errmsg); break;
+      case 49:  utest_write_badformat49(ofp, &expected_linenumber, expected_errmsg); break;
+      case 50:  utest_write_badformat50(ofp, &expected_linenumber, expected_errmsg); break;
+      case 51:  utest_write_badformat51(ofp, &expected_linenumber, expected_errmsg); break;
+      case 52:  utest_write_badformat52(ofp, &expected_linenumber, expected_errmsg); break;
+      case 53:  utest_write_badformat53(ofp, &expected_linenumber, expected_errmsg); break;
+      case 54:  utest_write_badformat54(ofp, &expected_linenumber, expected_errmsg); break;
+      case 55:  utest_write_badformat55(ofp, &expected_linenumber, expected_errmsg); break;
+      case 56:  utest_write_badformat56(ofp, &expected_linenumber, expected_errmsg); break;
+      case 57:  utest_write_badformat57(ofp, &expected_linenumber, expected_errmsg); break;
+      case 58:  utest_write_badformat58(ofp, &expected_linenumber, expected_errmsg); break;
+      case 59:  utest_write_badformat59(ofp, &expected_linenumber, expected_errmsg); break;
+      case 60:  utest_write_badformat60(ofp, &expected_linenumber, expected_errmsg); break;
+      case 61:  utest_write_badformat61(ofp, &expected_linenumber, expected_errmsg); break;
+      case 62:  utest_write_badformat62(ofp, &expected_linenumber, expected_errmsg); break;
+      case 63:  utest_write_badformat63(ofp, &expected_linenumber, expected_errmsg); break;
+      case 64:  utest_write_badformat64(ofp, &expected_linenumber, expected_errmsg); break;
+      case 65:  utest_write_badformat65(ofp, &expected_linenumber, expected_errmsg); break;
+      }
+      fclose(ofp);
+      
+      utest_bad_format(tmpfile, testnumber, expected_linenumber, expected_errmsg);
+      remove(tmpfile);
+    }
+
   esl_getopts_Destroy(go);
   return 0;
 }
@@ -1369,13 +2533,88 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 8. Example.
+ * 8. Examples.
  *****************************************************************/
 
 #ifdef eslMSAFILE_STOCKHOLM_EXAMPLE
-/* An example of reading an MSA in text mode, and handling any returned errors.
-   gcc -g -Wall -o esl_msafile_stockholm_example -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE esl_msafile_stockholm.c -leasel
+/* A full-featured example of reading/writing MSA(s) in Stockholm format.
+   gcc -g -Wall -o esl_msafile_stockholm_example -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE esl_msafile_stockholm.c -leasel -lm
    ./esl_msafile_stockholm_example <msafile>
+ */
+/*::cexcerpt::msafile_stockholm_example::begin::*/
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile_stockholm.h"
+
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "-g",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use autodetection to guess the file format",  0 },
+  { "-t",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is DNA",                0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is RNA",                0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, "-t", "specify that alphabet is protein",            0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of guessing, reading, writing Stockholm format";
+
+int 
+main(int argc, char **argv)
+{
+  ESL_GETOPTS        *go          = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  char               *filename    = esl_opt_GetArg(go, 1);
+  int                 infmt       = eslMSAFILE_STOCKHOLM;
+  ESL_ALPHABET       *abc         = NULL;
+  ESLX_MSAFILE       *afp         = NULL;
+  ESL_MSA            *msa         = NULL;
+  int                 status;
+
+  if      (esl_opt_GetBoolean(go, "-g"))      infmt = eslMSAFILE_UNKNOWN;  /* use the autodetection guessing system */
+
+  if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
+
+  /* Text mode: pass NULL for alphabet.
+   * Digital mode: pass ptr to expected ESL_ALPHABET; and if abc=NULL, alphabet is guessed 
+   */
+  if   (esl_opt_GetBoolean(go, "-t"))  status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp);
+  else                                 status = eslx_msafile_Open(&abc, filename, NULL, infmt, NULL, &afp);
+  if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+
+  while ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
+    {
+      printf("alphabet:       %s\n", (abc ? esl_abc_DecodeType(abc->type) : "none (text mode)"));
+      printf("# of seqs:      %d\n", msa->nseq);
+      printf("# of cols:      %d\n", (int) msa->alen);
+      printf("\n");
+
+      esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+
+      esl_msa_Destroy(msa);
+    }
+  if (status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+
+  eslx_msafile_Close(afp);
+  if (abc) esl_alphabet_Destroy(abc);
+  esl_getopts_Destroy(go);
+  exit(0);
+}
+/*::cexcerpt::msafile_stockholm_example::end::*/
+#endif /*eslMSAFILE_STOCKHOLM_EXAMPLE*/
+
+
+
+#ifdef eslMSAFILE_STOCKHOLM_EXAMPLE2
+/* A minimal example. Read Stockholm MSAs, in text mode.
+   gcc -g -Wall -o esl_msafile_stockholm_example2 -I. -L. -DeslMSAFILE_STOCKHOLM_EXAMPLE2 esl_msafile_stockholm.c -leasel -lm
+   ./esl_msafile_stockholm_example2 <msafile>
  */
 
 /*::cexcerpt::msafile_stockholm_example::begin::*/
@@ -1390,29 +2629,27 @@ int
 main(int argc, char **argv)
 {
   char        *filename = argv[1];
-  int          fmt      = eslMSAFILE_UNKNOWN;
-  ESL_ALPHABET *abc     = esl_alphabet_Create(eslAMINO);
+  int          infmt    = eslMSAFILE_STOCKHOLM;
   ESLX_MSAFILE *afp     = NULL;
-  ESL_MSA     *msa      = NULL;
-  int          status;
+  ESL_MSA      *msa      = NULL;
+  int           status;
 
-  if ( (status = eslx_msafile_Open(&abc, filename, NULL, fmt, NULL, &afp)) != eslOK) 
+  if ( (status = eslx_msafile_Open(NULL, filename, NULL, infmt, NULL, &afp)) != eslOK)
     eslx_msafile_OpenFailure(afp, status);
 
   while  ( (status = esl_msafile_stockholm_Read(afp, &msa)) == eslOK)
     {
-      printf("%15s: %6d seqs, %5d columns\n", msa->name, msa->nseq, (int) msa->alen);
+      printf("%15s: %6d seqs, %5d columns\n\n", msa->name, msa->nseq, (int) msa->alen);
       esl_msafile_stockholm_Write(stdout, msa, eslMSAFILE_STOCKHOLM);
+      esl_msa_Destroy(msa);
     }
   if (status != eslEOF)  eslx_msafile_ReadFailure(afp, status);
 
-  esl_alphabet_Destroy(abc);
-  esl_msa_Destroy(msa);
   eslx_msafile_Close(afp);
   exit(0);
 }
-/*::cexcerpt::msafile_stockholm_example::end::*/
-#endif /*eslMSAFILE_STOCKHOLM_EXAMPLE*/
+/*::cexcerpt::msafile_stockholm_example2::end::*/
+#endif /*eslMSAFILE_STOCKHOLM_EXAMPLE2*/
 /*--------------------- end of example --------------------------*/
 
 

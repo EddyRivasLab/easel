@@ -300,6 +300,7 @@ EXAMPLES = \
 	esl_msafile_phylip_example2\
 	esl_msafile_psiblast_example\
 	esl_msafile_stockholm_example\
+	esl_msafile_stockholm_example2\
         esl_msacluster_example\
         esl_msaweight_example\
         esl_normal_example\

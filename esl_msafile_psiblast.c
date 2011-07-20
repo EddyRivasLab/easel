@@ -103,7 +103,7 @@ esl_msafile_psiblast_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
   anchor = esl_buffer_GetOffset(afp->bf);
   if ((status = esl_buffer_SetAnchor(afp->bf, anchor)) != eslOK) { status = eslEINCONCEIVABLE; goto ERROR; } /* [eslINVAL] can't happen here */
 
-  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+  while ( (status = esl_buffer_GetLine(afp->bf, &p, &n)) == eslOK)
     {
       if ((status = esl_memtok(&p, &n, " \t", &tok, &toklen)) != eslOK) continue; /* blank lines */
       /* p now points to the rest of the sequence line, after a name */
