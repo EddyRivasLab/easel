@@ -873,7 +873,7 @@ esl_opt_IsUsed(const ESL_GETOPTS *g, char *optname)
  *            <eslARG_SETBY_CMDLINE>, <eslARG_SETBY_ENV>, or it
  *            is $\geq$ <eslARG_SETBY_CFGFILE>. If the option 
  *            was configured by a config file, the file number (the order
- *            of esl_opt_ProcessConfigFile() calls) is encoded in codes
+ *            of <esl_opt_ProcessConfigFile()> calls) is encoded in codes
  *            $\geq <eslARG_SETBY_CFGFILE>$ as
  *            file number $=$ <code> - <eslARG_SETBY_CFGFILE> + 1.
  */

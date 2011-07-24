@@ -992,7 +992,7 @@ void
 eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status)
 {
   switch (status) {
-  case eslEFORMAT:  fprintf(stderr, "Alignment input parse error: %s\n", afp->errmsg);           break;
+  case eslEFORMAT:  fprintf(stderr, "Alignment input parse error:\n   %s\n", afp->errmsg);       break;
   case eslEOF:      fprintf(stderr, "Alignment input appears empty?\n");                         break;
   default:          fprintf(stderr, "Alignment input read error; unexpected code %d\n", status); break;
   }
