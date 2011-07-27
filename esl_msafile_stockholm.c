@@ -550,9 +550,12 @@ stockholm_parse_gf(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   else if (esl_memstrcmp(tag, taglen, "NC"))
     {
       if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) == eslOK) {
-	if (! esl_mem_IsReal(tok, toklen)) ESL_FAIL(eslEFORMAT, afp->errmsg, "Expected a real number for NC1 value on #=GF NC line");
-	if (  esl_memtof(tok, toklen, &(msa->cutoff[eslMSA_NC1])) != eslOK) return status; /* [eslEMEM] */
-	msa->cutset[eslMSA_NC1] = TRUE;
+	if ( ! esl_memstrcmp(tok, toklen, "undefined")) /* workaround for a problem in Rfam10. ignore NC's that are set to "undefined". */
+	  {
+	    if (! esl_mem_IsReal(tok, toklen)) ESL_FAIL(eslEFORMAT, afp->errmsg, "Expected a real number for NC1 value on #=GF NC line");
+	    if (  esl_memtof(tok, toklen, &(msa->cutoff[eslMSA_NC1])) != eslOK) return status; /* [eslEMEM] */
+	    msa->cutset[eslMSA_NC1] = TRUE;
+	  }
       } else ESL_FAIL(eslEFORMAT, afp->errmsg, "No NC threshold value found on #=GF NC line");
       if ( (status = esl_memtok(&p, &n, " \t", &tok, &toklen)) == eslOK) {
 	if (! esl_mem_IsReal(tok, toklen)) ESL_FAIL(eslEFORMAT, afp->errmsg, "Expected a real number for NC2 value on #=GF NC line");
