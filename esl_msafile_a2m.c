@@ -232,10 +232,12 @@ esl_msafile_a2m_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   int       cpos, bpos;
   char     *p, *tok;
   esl_pos_t n,  toklen;
-
   int       status;
 
+  ESL_DASSERT1( (afp->format == eslMSAFILE_A2M) );
+
   afp->errmsg[0] = '\0';	
+
 #ifdef eslAUGMENT_ALPHABET
   if (afp->abc   &&  (msa = esl_msa_CreateDigital(afp->abc, 16, -1)) == NULL) { status = eslEMEM; goto ERROR; }
 #endif
@@ -334,6 +336,8 @@ esl_msafile_a2m_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   if (msa->abc)  { if ((status = a2m_padding_digital(msa, csflag, nins, ncons)) != eslOK) goto ERROR; }
 #endif
   if (!msa->abc) { if ((status = a2m_padding_text   (msa, csflag, nins, ncons)) != eslOK) goto ERROR; }
+
+  if (( status = esl_msa_SetDefaultWeights(msa)) != eslOK) goto ERROR;
 
   *ret_msa  = msa;
   free(nins);
@@ -676,11 +680,13 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
 
   /* guessing both the format and the alphabet should work: this is a digital open */
   if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: digital open",           testnumber);  
+  if (afp->format != eslMSAFILE_A2M)                                                                esl_fatal("a2m good file test %d failed: format autodetection",   testnumber);
   if (abc->type   != expected_alphatype)                                                            esl_fatal("a2m good file test %d failed: alphabet autodetection", testnumber);
 
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_a2m_Read(afp, &msa1))   != eslOK)     esl_fatal("a2m good file test %d failed: msa read, digital", testnumber);  
   if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)  esl_fatal("a2m good file test %d failed: nseq/alen",         testnumber);
+  if (esl_msa_Validate(msa1, NULL) != eslOK)                       esl_fatal("a2m good file test %d failed: msa invalid",       testnumber);
   eslx_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
@@ -692,6 +698,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: text mode open", testnumber);  
   if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                    != eslOK) esl_fatal("a2m good file test %d failed: msa read, text", testnumber);  
   if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                               esl_fatal("a2m good file test %d failed: nseq/alen",      testnumber);
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                    esl_fatal("a2m good file test %d failed: msa invalid",       testnumber);
   eslx_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
@@ -703,6 +710,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   /* open and read it in digital mode */
   if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_A2M, NULL, &afp)) != eslOK) esl_fatal("a2m good file test %d failed: 2nd digital mode open", testnumber);  
   if ( (status = esl_msafile_a2m_Read(afp, &msa2))                                    != eslOK) esl_fatal("a2m good file test %d failed: 2nd digital msa read",  testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                    esl_fatal("a2m good file test %d failed: msa invalid",           testnumber);
   eslx_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */

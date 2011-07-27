@@ -266,12 +266,12 @@ main(int argc, char **argv)
 
   /* get informat and outformat */
   if (esl_opt_IsOn(go, "--informat")) {
-    infmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (esl_opt_GetBoolean(go, "--small") && infmt != eslMSAFILE_PFAM) esl_fatal("--small requires --informat pfam\n");     
   }
   if (esl_opt_IsOn(go, "--outformat")) {
-    outfmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+    outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
     if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
     if (esl_opt_GetBoolean(go, "--small") && outfmt != eslMSAFILE_PFAM) esl_fatal("--small and --outformat <f> only works if <f> is 'pfam'\n");     
   }

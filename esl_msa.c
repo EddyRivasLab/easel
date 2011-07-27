@@ -391,9 +391,6 @@ set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
   return status;
 }
 
-
-
-
 /* verify_parse()
  *
  * Last function called after a multiple alignment parser thinks it's
@@ -497,6 +494,9 @@ verify_parse(ESL_MSA *msa, char *errbuf)
   if (msa->pplen != NULL) { free(msa->pplen); msa->pplen = NULL; }
   return eslOK;
 }
+
+
+
 
 
 /* Function:  esl_msa_Create()
@@ -1216,6 +1216,37 @@ esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
 }
 
 
+
+/* Function:  esl_msa_SetDefaultWeights()
+ * Synopsis:  Set all sequence weights to default 1.0.
+ *
+ * Purpose:   Set all the sequence weights in <msa> to default,
+ *            1.0. Drop the <eslMSA_HASWGTS> flag in <msa->flags>.
+ *            
+ *            The <ESL_MSA> data structure has its <wgt> values
+ *            initialized to -1.0, by create and expand functions, as
+ *            a special value for "unset yet". File format parsers use
+ *            this to tell when a weight is mistakenly set twice, or
+ *            not at all. However, when an <msa> is used, you're
+ *            allowed to assume that <wgt> is valid even if the
+ *            <eslMSA_HASWGTS> flag is down. So all creators of new
+ *            MSAs (file format parsers, for example) must assure that
+ *            <msa->wgt> is set correctly, even if the file format
+ *            doesn't include weights. This function gives parsers
+ *            (and other MSA creators) a quick way to do this.
+ */
+int
+esl_msa_SetDefaultWeights(ESL_MSA *msa)
+{
+  int idx;
+
+  for (idx = 0; idx < msa->nseq; idx++) 
+    msa->wgt[idx] = 1.0;
+  msa->flags &= ~eslMSA_HASWGTS;
+  return eslOK;
+}
+
+
 /* Function:  esl_msa_FormatName()
  * Synopsis:  Format name of an MSA, printf()-style.
  * Incept:    SRE, Fri Sep 11 11:33:34 2009 [Janelia]
@@ -1457,16 +1488,82 @@ esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...)
  ERROR:
   return status;
 }
-/*---------------------- end of ESL_MSA functions ---------------------------*/
+/*------------- end of ESL_MSA functions ------------------------*/
 
 
 
+/*****************************************************************
+ *# x. Debugging, testing, development
+ *****************************************************************/
+
+/* Function:  esl_msa_Validate()
+ * Synopsis:  Validate an ESL_MSA structure.
+ *
+ * Purpose:   Validates the fields of the <ESL_MSA> structure
+ *            <msa>. Makes sure required information is present,
+ *            consistent. If so, return <eslOK>.
+ *
+ *            If a problem is detected, return <eslFAIL>. Caller may
+ *            also provide an optional <errmsg> pointer to a buffer of
+ *            at least <eslERRBUFSIZE>; if this message buffer is
+ *            provided, an informative error message is put there.
+ *            
+ * Args:      msa    - MSA structure to validate
+ *            errmsg - OPTIONAL: error message buffer, at least <eslERRBUFSIZE>; or <NULL>
+ *            
+ * Returns:   <eslOK> on success, and <errmsg> (if provided) is set
+ *            to an empty string.
+ *            
+ *            <eslFAIL> on failure and <errmsg> (if provided) contains 
+ *            the reason for the failure.
+ */
+int
+esl_msa_Validate(const ESL_MSA *msa, char *errmsg)
+{
+  int idx;
+
+  if (msa->nseq == 0) ESL_FAIL(eslFAIL, errmsg, "no alignment data found");
+
+  for (idx = 0; idx < msa->nseq; idx++)
+    {
+#ifdef eslAUGMENT_ALPHABET
+      if (msa->flags & eslMSA_DIGITAL)
+	{
+	  if (! msa->ax || ! msa->ax[idx])               ESL_FAIL(eslFAIL, errmsg, "seq %d: no sequence", idx); 
+	  if (esl_abc_dsqlen(msa->ax[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: wrong length", idx);
+	}
+#endif
+      if (! (msa->flags & eslMSA_DIGITAL))
+	{
+	  if (! msa->aseq || ! msa->aseq[idx])     ESL_FAIL(eslFAIL, errmsg, "seq %d: no sequence", idx); 
+	  if (strlen(msa->aseq[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: wrong length", idx);
+	}
+
+      /* either all weights must be set, or none of them */
+      if (   msa->flags & eslMSA_HASWGTS) { if (msa->wgt[idx] == -1.0) ESL_FAIL(eslFAIL, errmsg, "seq %d: no weight set", idx);}
+      else                                { if (msa->wgt[idx] != 1.0)  ESL_FAIL(eslFAIL, errmsg, "seq %d: HASWGTS flag down, wgt must be default", idx); }
+
+      if (msa->ss &&  msa->ss[idx] &&  strlen(msa->ss[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: SS wrong length", idx);
+      if (msa->sa &&  msa->sa[idx] &&  strlen(msa->sa[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: SA wrong length", idx);
+      if (msa->pp &&  msa->pp[idx] &&  strlen(msa->pp[idx]) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "seq %d: PP wrong length", idx);
+    }
+
+  /* if cons SS is present, must have length right */
+  if (msa->ss_cons && strlen(msa->ss_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "SS_cons wrong length");
+  if (msa->sa_cons && strlen(msa->sa_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "SA_cons wrong length");
+  if (msa->pp_cons && strlen(msa->pp_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "PP_cons wrong length");
+  if (msa->rf      && strlen(msa->rf)      != msa->alen) ESL_FAIL(eslFAIL, errmsg, "RF wrong length");
+
+  return eslOK;
+}
 
 
+/*------------- end, debugging/testing functions ----------------*/
 
-/******************************************************************************
+
+/*****************************************************************
  *# 2. The <ESL_MSAFILE> object                                       
- *****************************************************************************/
+ *****************************************************************/
 
 /* msafile_open():
  * this is the routine that actually opens an ESL_MSAFILE;
@@ -2335,70 +2432,6 @@ esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt)
   default: ESL_EXCEPTION(eslEINCONCEIVABLE, "no such format");
   } 
   return status;
-}
-
-
-/* Function:  esl_msa_EncodeFormat()
- * Synopsis:  Convert text string to an MSA file format code.
- * Incept:    SRE, Fri Oct 24 13:21:08 2008 [Janelia]
- *
- * Purpose:   Given a text string, match it case-insensitively
- *            against a list of possible formats, and return the
- *            appropriate MSA file format code. For example,
- *            <esl_msa_EncodeFormat("Stockholm")> returns
- *            <eslMSAFILE_STOCKHOLM>.
- *            
- *            If the format is unrecognized, return
- *            <eslMSAFILE_UNKNOWN>.
- *            
- * Note:      Keep in sync with <esl_sqio_EncodeFormat()>, 
- *            which decodes all possible sequence file formats,
- *            both unaligned and aligned.           
- */
-int
-esl_msa_EncodeFormat(char *fmtstring)
-{
-  if (strcasecmp(fmtstring, "stockholm") == 0) return eslMSAFILE_STOCKHOLM;
-  if (strcasecmp(fmtstring, "pfam")      == 0) return eslMSAFILE_PFAM;
-  if (strcasecmp(fmtstring, "a2m")       == 0) return eslMSAFILE_A2M;
-  if (strcasecmp(fmtstring, "psiblast")  == 0) return eslMSAFILE_PSIBLAST;
-  if (strcasecmp(fmtstring, "selex")     == 0) return eslMSAFILE_SELEX;
-  if (strcasecmp(fmtstring, "afa")       == 0) return eslMSAFILE_AFA;
-  return eslMSAFILE_UNKNOWN;
-}
-
-
-/* Function:  esl_msa_DecodeFormat()
- * Synopsis:  Convert internal file format code to text string.
- * Incept:    SRE, Fri May 18 11:59:58 2007 [Janelia]
- *
- * Purpose:   Given an internal file format code <fmt> 
- *            (<eslMSAFILE_STOCKHOLM>, for example), returns
- *            a string suitable for printing ("Stockholm",
- *            for example).
- *            
- * Returns:   a pointer to a static description string.
- * 
- * Throws:    If code isn't valid, throws an <eslEINVAL> exception 
- *            internally, and returns <NULL>.
- *            
- * Note:      Keep in sync with <esl_sqio_DecodeFormat()>.
- */
-char *
-esl_msa_DecodeFormat(int fmt)
-{
-  switch (fmt) {
-  case eslMSAFILE_UNKNOWN:   return "unknown";
-  case eslMSAFILE_STOCKHOLM: return "Stockholm";
-  case eslMSAFILE_PFAM:      return "Pfam";
-  case eslMSAFILE_A2M:       return "UCSC A2M";
-  case eslMSAFILE_PSIBLAST:  return "PSI-BLAST";
-  case eslMSAFILE_SELEX:     return "SELEX";
-  case eslMSAFILE_AFA:       return "aligned FASTA";
-  default:                   break;
-  }
-  esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
-  return NULL;
 }
 
 
@@ -7313,10 +7346,10 @@ main(int argc, char **argv)
   int           status;
 
   if (esl_opt_IsOn(go, "--informat") &&
-      (infmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
+      (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
-  outfmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+  outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
   if (outfmt == eslMSAFILE_UNKNOWN) 
     esl_fatal("%s is not a valid MSA file format for --outformat", esl_opt_GetString(go, "--outformat"));
 

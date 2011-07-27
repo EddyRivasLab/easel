@@ -786,7 +786,7 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
 #endif
 #ifdef eslAUGMENT_MSA
-  return esl_msa_EncodeFormat(fmtstring);
+  return eslx_msafile_EncodeFormat(fmtstring);
 #endif
   return eslSQFILE_UNKNOWN;
 }
@@ -806,7 +806,7 @@ char *
 esl_sqio_DecodeFormat(int fmt)
 {
 #ifdef eslAUGMENT_MSA
-  if (esl_sqio_IsAlignment(fmt)) return esl_msa_DecodeFormat(fmt);
+  if (esl_sqio_IsAlignment(fmt)) return eslx_msafile_DecodeFormat(fmt);
 #endif
 
   switch (fmt) {

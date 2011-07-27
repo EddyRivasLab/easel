@@ -1,8 +1,4 @@
-/* Convert sequence file formats
- *             
- * SRE, Sun Feb 27 08:24:33 2005
- * from squid's sreformat (1993).
- * SVN $Id$            
+/* Convert between sequence file formats
  */
 #include "esl_config.h"
 
@@ -12,21 +8,28 @@
 
 #include "easel.h"
 #include "esl_getopts.h"
-#include "esl_sqio.h"
-#include "esl_sq.h"
+#include "esl_mem.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
 #include "esl_wuss.h"
 
-static char banner[] = "convert sequence file formats";
+static char banner[] = "convert between sequence file formats";
 
 static char usage[] = "[-options] <format> <seqfile>\n\
-  Output format choices: Unaligned      Aligned\n\
-                         -----------    -------\n\
-                         fasta          stockholm\n\
-                                        pfam\n\
-                                        a2m\n\
-                                        psiblast\n\
-                                        afa\n\
+  Output format choices: Unaligned      Aligned    \n\
+                         -----------    -------    \n\
+                         fasta          a2m        \n\
+                                        afa        \n\
+                                        clustal    \n\
+                                        clustallike\n\
+                                        pfam       \n\
+                                        phylip     \n\
+                                        phylips    \n\
+                                        psiblast   \n\
+                                        selex      \n\
+                                        stockholm  \n\
 \n";
 
 #define INCOMPATWITHSMALLOPT "--mingap,--nogap,--ignore,--acceptx"
@@ -58,10 +61,10 @@ static ESL_OPTIONS options[] = {
 };
 
 static void symconvert(char *s, char *oldsyms, char *newsyms);
-static void regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, 
+static void regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, 
 				    int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, 
 				    char *rto, int *ret_reached_eof);
-static int  regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, 
+static int  regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, 
 				     int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, 
 				     char *rfrom, char *rto);
 static int  parse_replace_string(const char *rstring, char **ret_from, char **ret_to);
@@ -69,15 +72,13 @@ static int  parse_replace_string(const char *rstring, char **ret_from, char **re
 int
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go;	        /* application configuration               */
-  char        *outformat;	/* output format as a string               */
-  char        *infile;          /* name of input sequence file             */
-  int          infmt;		/* input format as a code; eslSQFILE_FASTA */
-  int          outfmt;		/* output format as a code                 */
-  int          status;		/* return code from an Easel call          */
-  FILE        *ofp;		/* output stream                           */
+  ESL_GETOPTS *go;	                                /* application configuration               */
+  char        *infile;                                  /* name of input sequence file             */
+  int          infmt      = eslSQFILE_UNKNOWN;		/* input format as a code; eslSQFILE_FASTA */
+  int          outfmt     = eslSQFILE_UNKNOWN;		/* output format as a code                 */
+  int          status;		                        /* return code from an Easel call          */
+  FILE        *ofp;		                        /* output stream                           */
 
-  char  *informat;		/* input format as string; "fasta"           */
   char  *outfile;		/* output file, or NULL                      */
   int    force_rna;		/* TRUE to force RNA alphabet                */
   int    force_dna;		/* TRUE to force DNA alphabet                */
@@ -99,6 +100,7 @@ main(int argc, char **argv)
   int    idx;                   /* counter over sequences                    */
   int    nali;                  /* number of alignments read                 */
   char   errbuf[eslERRBUFSIZE]; /* for error messages                        */
+
   /*****************************************************************
    * Parse the command line
    *****************************************************************/
@@ -119,26 +121,8 @@ main(int argc, char **argv)
       esl_usage (stdout, argv[0], usage);
       puts("  where options are:\n");
       esl_opt_DisplayHelp(stdout, go, 0, 2, 80); /* 0= group; 2 = indentation; 80=textwidth*/
-      exit(EXIT_SUCCESS);
+      exit(0);
     }
-
-  force_dna   = esl_opt_GetBoolean(go, "-d");
-  force_lower = esl_opt_GetBoolean(go, "-l");
-  iupac_to_n  = esl_opt_GetBoolean(go, "-n");
-  outfile     = esl_opt_GetString (go, "-o");
-  force_rna   = esl_opt_GetBoolean(go, "-r");
-  force_upper = esl_opt_GetBoolean(go, "-u");
-  x_is_bad    = esl_opt_GetBoolean(go, "-x");
-  gapsym      = esl_opt_GetString( go, "--gapsym");
-  informat    = esl_opt_GetString( go, "--informat");
-  do_mingap   = esl_opt_GetBoolean(go, "--mingap");
-  do_nogap    = esl_opt_GetBoolean(go, "--nogap");
-  wussify     = esl_opt_GetBoolean(go, "--wussify");
-  dewuss      = esl_opt_GetBoolean(go, "--dewuss");
-  fullwuss    = esl_opt_GetBoolean(go, "--fullwuss");
-  rename      = esl_opt_GetString (go, "--rename");
-  do_small    = esl_opt_GetBoolean(go, "--small");
-  rstring     = esl_opt_GetString( go, "--replace");
 
   if (esl_opt_ArgNumber(go) != 2) 
     {
@@ -148,20 +132,32 @@ main(int argc, char **argv)
       exit(1);
     }
 
-  outformat = esl_opt_GetArg(go, 1);
-  infile    = esl_opt_GetArg(go, 2);
+  outfmt = esl_sqio_EncodeFormat(esl_opt_GetArg(go, 1));
+  if (outfmt == eslSQFILE_UNKNOWN) 
+    esl_fatal("%s is not a recognized output seqfile format\n", esl_opt_GetArg(go, 1));
 
-  infmt = eslSQFILE_UNKNOWN;
-  if (informat != NULL)
-    {
-      infmt = esl_sqio_EncodeFormat(informat);
-      if (infmt == eslSQFILE_UNKNOWN)
-	esl_fatal("%s is not a recognized input seqfile format\n", informat);
-    }
+  infile = esl_opt_GetArg(go, 2);
 
-  outfmt = esl_sqio_EncodeFormat(outformat);
-  if (outfmt == eslSQFILE_UNKNOWN)
-    esl_fatal("%s is not a recognized output seqfile format\n", outformat);
+  if (esl_opt_IsOn(go, "--informat") && 
+      (infmt = esl_sqio_EncodeFormat(esl_opt_GetString( go, "--informat"))) == eslSQFILE_UNKNOWN)
+    esl_fatal("%s is not a recognized input seqfile format\n", esl_opt_GetString(go, "--informat"));
+
+  force_dna   = esl_opt_GetBoolean(go, "-d");
+  force_lower = esl_opt_GetBoolean(go, "-l");
+  iupac_to_n  = esl_opt_GetBoolean(go, "-n");
+  outfile     = esl_opt_GetString (go, "-o");
+  force_rna   = esl_opt_GetBoolean(go, "-r");
+  force_upper = esl_opt_GetBoolean(go, "-u");
+  x_is_bad    = esl_opt_GetBoolean(go, "-x");
+  gapsym      = esl_opt_GetString( go, "--gapsym");
+  do_mingap   = esl_opt_GetBoolean(go, "--mingap");
+  do_nogap    = esl_opt_GetBoolean(go, "--nogap");
+  wussify     = esl_opt_GetBoolean(go, "--wussify");
+  dewuss      = esl_opt_GetBoolean(go, "--dewuss");
+  fullwuss    = esl_opt_GetBoolean(go, "--fullwuss");
+  rename      = esl_opt_GetString (go, "--rename");
+  do_small    = esl_opt_GetBoolean(go, "--small");
+  rstring     = esl_opt_GetString( go, "--replace");
 
   /* if --small, make sure infmt == pfam and (outfmt == afa || outfmt == pfam) */
   if(do_small && (infmt != eslMSAFILE_PFAM || (outfmt != eslMSAFILE_AFA && outfmt != eslMSAFILE_PFAM)))  
@@ -191,18 +187,12 @@ main(int argc, char **argv)
    */
   if (esl_sqio_IsAlignment(outfmt))
     {
-      ESL_MSAFILE *afp;
+      ESLX_MSAFILE *afp;
       ESL_MSA     *msa;
 
-      status = esl_msafile_Open(infile, infmt, NULL, &afp);
-      if (status == eslENOTFOUND)
-	esl_fatal("Alignment file %s not readable\n", infile);
-      else if (status == eslEFORMAT) 
-	esl_fatal("Couldn't determine format of alignment %s\n", infile);
-      else if (status == eslEINVAL)
-	esl_fatal("Can't autodetect format of stdin or .gz; use --informat\n");
-      else if (status != eslOK) 
-	esl_fatal("Alignment file open failed with error %d\n", status);
+      /* use text mode, deliberately, for maximum generality of conversion */
+      status = eslx_msafile_Open(NULL, infile, NULL, infmt, NULL, &afp);
+      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
 
       if ( esl_opt_IsOn(go, "--ignore"))  esl_fatal("The --ignore option is unimplemented for alignment reformatting.");
       if ( esl_opt_IsOn(go, "--acceptx")) esl_fatal("The --acceptx option is unimplemented for alignment reformatting.");
@@ -211,39 +201,36 @@ main(int argc, char **argv)
 
       if (do_small) { 
 	if(infmt == eslMSAFILE_PFAM && outfmt == eslMSAFILE_AFA) {
-	  if(afp->do_stdin) esl_fatal("--small with afa out format and stdin input is unimplemented.");
+	  if (afp->bf->mode_is == eslBUFFER_STREAM) esl_fatal("--small with afa out format and stdin input is unimplemented.");
 	  regurgitate_pfam_as_afa(afp, ofp, infile, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, rename, rfrom, rto, &reached_eof);
 	  if(! reached_eof) esl_fatal("Input file contains >1 alignments, but afa formatted output file can only contain 1");
 	}
 	else if (infmt == eslMSAFILE_PFAM && outfmt == eslMSAFILE_PFAM) {
 	  if(rename != NULL) esl_fatal("--rename is unimplemented for combination of --small and output format pfam"); 
 	  while((status = regurgitate_pfam_as_pfam(afp, ofp, gapsym, force_lower, force_upper, force_rna, force_dna, iupac_to_n, x_is_bad, wussify, dewuss, fullwuss, rfrom, rto)) != eslEOF) { 
-	    if      (status == eslEFORMAT) esl_fatal("--small alignment file parse error:\n%s\n", afp->errbuf);
-	    else if (status == eslEINVAL)  esl_fatal("--small alignment file parse error:\n%s\n", afp->errbuf);
+	    if      (status == eslEFORMAT) esl_fatal("--small alignment file parse error:\n%s\n", afp->errmsg);
+	    else if (status == eslEINVAL)  esl_fatal("--small alignment file parse error:\n%s\n", afp->errmsg);
 	    else if (status != eslOK)      esl_fatal("--small alignment file read failed with error code %d\n", status);
 	  }
-	  esl_msafile_Close(afp);
+	  eslx_msafile_Close(afp);
 	}
 	else { /* do_small enabled, but neither (infmt==pfam && outfmt=afa) nor (infmt==pfam && outfmt==pfam) */
 	  esl_fatal("--small requires '--informat pfam' and output format of either 'afa' or 'pfam'");
 	}
       }
       else { /* normal mode, --small not enabled */
-	while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
+	while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
 	  {
+	    if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
 	    nali++;
-	    if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	    else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	    else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
 
-	    if (nali > 1 && outfmt == eslMSAFILE_AFA)      esl_fatal("Input file contains >1 alignments, but afa formatted output file can only contain 1");
-	    if (nali > 1 && outfmt == eslMSAFILE_A2M)      esl_fatal("Input file contains >1 alignments, but a2m formatted output file can only contain 1");
-	    if (nali > 1 && outfmt == eslMSAFILE_PSIBLAST) esl_fatal("Input file contains >1 alignments, but psiblast formatted output file can only contain 1");
+	    if (nali > 1 && ! eslx_msafile_IsMultiRecord(outfmt))
+	      esl_fatal("Input file contains >1 alignments, but %s formatted output file can only contain 1", eslx_msafile_DecodeFormat(outfmt));
 
 	    if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"))) != eslOK) esl_fatal(errbuf);
 	    if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.~"))                                     != eslOK) esl_fatal(errbuf);
-	    if (rfrom!=NULL)  esl_msa_SymConvert(msa, rfrom, rto);
-	    if (gapsym!=NULL) esl_msa_SymConvert(msa, "-_.", gapsym);
+	    if (rfrom)        esl_msa_SymConvert(msa, rfrom, rto);
+	    if (gapsym)       esl_msa_SymConvert(msa, "-_.", gapsym);
 	    if (force_lower)  esl_msa_SymConvert(msa,
 						 "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 						 "abcdefghijklmnopqrstuvwxyz");
@@ -265,22 +252,18 @@ main(int argc, char **argv)
 
 	    if (wussify)
 	      {
-		if (msa->ss_cons != NULL) 
-		  esl_kh2wuss(msa->ss_cons, msa->ss_cons);
-		if (msa->ss != NULL)
+		if (msa->ss_cons) esl_kh2wuss(msa->ss_cons, msa->ss_cons);
+		if (msa->ss)
 		  for (idx = 0; idx < msa->nseq; idx++)
-		    if (msa->ss[idx] != NULL)
-		      esl_kh2wuss(msa->ss[idx], msa->ss[idx]);
+		    if (msa->ss[idx]) esl_kh2wuss(msa->ss[idx], msa->ss[idx]);
 	      }
 
 	    if (dewuss)
 	      {
-		if (msa->ss_cons != NULL)
-		  esl_wuss2kh(msa->ss_cons, msa->ss_cons);
-		if (msa->ss != NULL)
+		if (msa->ss_cons) esl_wuss2kh(msa->ss_cons, msa->ss_cons);
+		if (msa->ss)
 		  for (idx = 0; idx < msa->nseq; idx++)
-		    if (msa->ss[idx] != NULL)
-		      esl_wuss2kh(msa->ss[idx], msa->ss[idx]);
+		    if (msa->ss[idx]) esl_wuss2kh(msa->ss[idx], msa->ss[idx]);
 	      }
 
 	    if (fullwuss)
@@ -288,29 +271,23 @@ main(int argc, char **argv)
 		if (msa->ss_cons != NULL)
 		  {
 		    status = esl_wuss_full(msa->ss_cons, msa->ss_cons);
-		    if (status == eslESYNTAX) 
-		      esl_fatal("Bad consensus SS: not in WUSS format\n");
-		    else if (status != eslOK)
-		      esl_fatal("Conversion of SS_cons failed, code %d\n", status);
+		    if (status == eslESYNTAX)  esl_fatal("Bad consensus SS: not in WUSS format\n");
+		    else if (status != eslOK)  esl_fatal("Conversion of SS_cons failed, code %d\n", status);
 		  }
 		if (msa->ss != NULL)
 		  for (idx = 0; idx < msa->nseq; idx++)
 		    if (msa->ss[idx] != NULL)
 		      {
 			status = esl_wuss_full(msa->ss[idx], msa->ss[idx]);
-			if (status == eslESYNTAX) 
-			  esl_fatal("Bad SS for %s: not in WUSS format\n",
-				    msa->sqname[idx]);
-			else if (status != eslOK)
-			  esl_fatal("Conversion of SS for %s failed, code %d\n", 
-				    msa->sqname[idx], status);
+			if (status == eslESYNTAX)  esl_fatal("Bad SS for %s: not in WUSS format\n", msa->sqname[idx]);
+			else if (status != eslOK)  esl_fatal("Conversion of SS for %s failed, code %d\n",  msa->sqname[idx], status);
 		      }
 	      }
 
-	    esl_msa_Write(ofp, msa, outfmt);
+	    eslx_msafile_Write(ofp, msa, outfmt);
 	    esl_msa_Destroy(msa);
 	  }
-	esl_msafile_Close(afp);
+	eslx_msafile_Close(afp);
       } 
     } /* end of alignment->alignment conversion */
   else
@@ -414,20 +391,6 @@ symconvert(char *s, char *oldsyms, char *newsyms)
 }
 
 
-/* msafile_getline():
- * load the next line of <afp> into <afp->buf>. 
- * Returns eslOK on success, eslEOF on normal eof.
- * Throws eslEMEM on alloc failure.
- */
-static int
-msafile_getline(ESL_MSAFILE *afp)
-{
-  int status;
-  status = esl_fgets(&(afp->buf), &(afp->buflen), afp->f);
-  afp->linenumber++;
-  return status;
-}
-
 
 /* regurgitate_pfam_as_afa()
  * 
@@ -478,14 +441,13 @@ msafile_getline(ESL_MSAFILE *afp)
  * Returns void. Dies upon any input error.
  */
 static void
-regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, char *rto, int *ret_reached_eof)
+regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, char *rename, char *rfrom, char *rto, int *ret_reached_eof)
 {
-  char      *s = NULL;
-  int        status;
-  int        status2;
+  char      *p = NULL;
+  esl_pos_t  n = 0;
+  esl_pos_t  gslen, seqnamelen, taglen;
   char      *seqname = NULL;
   char      *first_seqname = NULL;
-  char      *text = NULL;
   char      *tag = NULL;
   char      *gs = NULL;
   int        nseq_read = 0;
@@ -510,205 +472,198 @@ regurgitate_pfam_as_afa(ESL_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsym
   int        have_de = FALSE;
   /* variables related to printing out sequences */
   char      *aseq = NULL;
-  int        aseqlen = 0;
-  int64_t    pos;
+  esl_pos_t  aseqlen = 0;
+  int64_t    apos;
   char       aseqbuf[61];
+  int        cpl = 60;	     /* number of residues per afa seq line */
   int        acpl;       /* actual number of character per line */
+  int        status;
   
-  if (feof(afp->f))  { esl_fatal("--small parse error, no alignments read"); }
-  afp->errbuf[0] = '\0';
+  afp->errmsg[0] = '\0';
    
   /**************************************************************************************************
-   * First pass, go through each line of the Pfam file and output all GS DE annotation to a tmpfile *
+   * First pass, go through each line of the Pfam file and output all GS DE and AC annotation to tmpfiles
    **************************************************************************************************/
 
   /* Check the magic Stockholm header line, allowing blank lines */
-  do {
-    status = msafile_getline(afp);
-    if     (status == eslEOF) return;
-    else if(status != eslOK)  esl_fatal("--small parse error. problem reading line %d of msafile", afp->linenumber);
-  } while (esl_str_IsBlank(afp->buf));
-    
-  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
-  while ((status2 = msafile_getline(afp)) == eslOK) {
-    s = afp->buf;
-    while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
-    
-    if (*s == '#') { /* only lines we'll regurgitate are '#=GS DE' lines, we don't even check other lines for validity */
-      if (strncmp(s, "#=GS", 4) == 0) {
-	/* we don't validate the sequence exists, this would require storing all seqnames */
-	s = afp->buf;
-	if (esl_strtok(&s, " \t\n\r", &gs)      != eslOK) esl_fatal("small mem parse failed (line %d): bad #=GS line", afp->linenumber);
-	if (esl_strtok(&s, " \t\n\r", &seqname) != eslOK) esl_fatal("small mem parse failed (line %d): bad #=GS line", afp->linenumber);
-	if (esl_strtok(&s, " \t\n\r", &tag)     != eslOK) esl_fatal("small mem parse failed (line %d): bad #=GS line", afp->linenumber);
-	if (esl_strtok(&s, "\n\r",    &text)    != eslOK) esl_fatal("small mem parse failed (line %d): bad #=GS line", afp->linenumber);
-	if(strcmp(tag , "AC") == 0) { 
-	  if(ac_fp == NULL) { /* first AC line, open tmpfile */
-	    if (esl_tmpfile(ac_tmpfile, &ac_fp) != eslOK) esl_fatal("small mem parse failed, unable to open accession tmpfile");
-	  }
-	  fprintf(ac_fp, "%s %s\n", seqname, text);
+  do { 
+    status = eslx_msafile_GetLine(afp, &p, &n);
+    if      (status == eslEOF) return; 
+    else if (status != eslOK)  esl_fatal("small mem parse error. problem reading line %d of msafile", (int) afp->linenumber);
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n  ||                 /* skip blank lines             */
+	       (esl_memstrpfx(afp->line, afp->n, "#")                         /* and skip comment lines       */
+	   && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));            /* but stop on Stockholm header */
+
+  if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
+
+  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+    {
+      while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
+
+      if (esl_memstrpfx(p, n, "#=GS"))
+	{ /* only lines we need to check are AC and DE lines, we don't even check other lines for validity */
+	  if (esl_memtok(&p, &n, " \t", &gs,      &gslen)      != eslOK) esl_fatal("small mem parse failed (line %d) in a way that can't happen",                      (int) afp->linenumber);
+	  if (esl_memtok(&p, &n, " \t", &seqname, &seqnamelen) != eslOK) esl_fatal("small mem parse failed (line %d): #=GS line missing <seqname>, <tag>, annotation", (int) afp->linenumber);
+	  if (esl_memtok(&p, &n, " \t", &tag,     &taglen)     != eslOK) esl_fatal("small mem parse failed (line %d): #=GS line missing <tag>, annotation",            (int) afp->linenumber);
+	  if (! esl_memstrcmp(gs, gslen, "#=GS"))                        esl_fatal("small mem parse failed (line %d): faux #=GS line?",                                (int) afp->linenumber);
+
+	  if (esl_memstrcmp(tag, taglen, "AC"))
+	    { 
+	      if (! ac_fp && esl_tmpfile(ac_tmpfile, &ac_fp) != eslOK) esl_fatal("small mem parse failed, unable to open accession tmpfile");
+	      fprintf(ac_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p);
+	    }
+	  if (esl_memstrcmp(tag, taglen, "DE"))
+	    { 
+	      if (! de_fp && esl_tmpfile(de_tmpfile, &de_fp) != eslOK) esl_fatal("small mem parse failed, unable to open description tmpfile");
+	      fprintf(de_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p);
+	    }
 	}
-	if(strcmp(tag , "DE") == 0) { 
-	  if(de_fp == NULL) { /* first DE line, open tmpfile */
-	    if (esl_tmpfile(de_tmpfile, &de_fp) != eslOK) esl_fatal("small mem parse failed, unable to open description tmpfile");
-	  }
-	  fprintf(de_fp, "%s %s\n", seqname, text);
-	}
-      }
-    } /* end of 'if (*s == '#')' */ 
-    else if (strncmp(s, "//",   2) == 0) {
-      reached_eof = FALSE;
-      /* End of alignment. Normal way out, but check to see if there are any more alignments first */
-      do {
-	status = msafile_getline(afp);
-	if (status == eslEOF) { 
-	  reached_eof = TRUE;
-	  break;
-	}
-	else if(status != eslOK)  esl_fatal("--small parse error. problem reading line %d of msafile", afp->linenumber);
-      } while (esl_str_IsBlank(afp->buf));
-      if(! reached_eof && strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse failed (line %d) unexpected lines after the end of first alignment", afp->linenumber);
-      /* else reached_eof == FALSE: more alignments exist, go ahead and regurgitate the first alignment, inform caller we didn't read final alignment by setting <ret_reached_eof> as FALSE */
-      break; /* normal way out */
+      else if (esl_memstrpfx(p, n, "//")) break;
     }
-  }
-  /* If we saw a normal // end, we would've successfully read a line,
-   * so when we get here, status (from the line read) should be eslOK.
-   */ 
-  if (status2 != eslOK) esl_fatal("--small parse failed (line %d): didn't find // at end of alignment", afp->linenumber);
-  /* done with pass 1, close alifile and reopen it */
-  esl_msafile_Close(afp);
-  if((status = esl_msafile_Open(alifile, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("--small, second pass, unable to open file %s for reading", alifile);
+  if      (status == eslEOF) esl_fatal("small mem parse failed (line %d): missing // terminator", (int) afp->linenumber);
+  else if (status != eslOK)  esl_fatal("small mem parse failed (line %d) with code %d", (int) afp->linenumber, status);
   
-  /******************************************************************************************
-   * Pass 2, rewind the tmpfiles and the alifile, step through each, outputting appropriately
-   ******************************************************************************************/
-  if(ac_fp != NULL) { /* open the tmpfile with the seq accessions */
+  /* The regurgitate_*() functions are limited, and only deal with single-record Pfam files. 
+   * If there appears to be more data in the file, drop the reached_eof flag.
+   */
+  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+    {
+      while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
+      if    (esl_memstrpfx(p, n, "# STOCKHOLM 1.")) break;
+      if    (n && ! esl_memstrpfx(p, n, "#"))       esl_fatal("small mem parse failed (line %d): unexpected data", (int) afp->linenumber);
+    }
+  if      (status == eslOK)  reached_eof = FALSE;
+  else if (status == eslEOF) reached_eof = TRUE;
+  else esl_fatal("--small parse error. problem reading line %d of msafile", (int) afp->linenumber);
+
+  /*****************************************************************
+   * Pass 1 complete; rewind (close/reopen) all files
+   *****************************************************************/
+
+  eslx_msafile_Close(afp);
+  if ((status = eslx_msafile_Open(NULL, alifile, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK)
+    esl_fatal("--small, second pass, unable to open file %s for reading", alifile);
+  
+  if (ac_fp) { /* open the tmpfile with the seq accessions */
     rewind(ac_fp);
     if((status = esl_fgets(&(ac_buf), &(ac_buflen), ac_fp)) != eslOK) esl_fatal("--small accession tmpfile parse failed");
     ac_s = ac_buf;
     if (esl_strtok_adv(&ac_s, " \t\n\r", &ac_seqname, NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
     if (esl_strtok_adv(&ac_s, "\n\r",    &ac,         NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
   }
-  if(de_fp != NULL) { /* open the tmpfile with the seq descriptions */
+  if (de_fp) { /* open the tmpfile with the seq descriptions */
     rewind(de_fp);
     if((status = esl_fgets(&(de_buf), &(de_buflen), de_fp)) != eslOK) esl_fatal("--small description tmpfile parse failed");
     de_s = de_buf;
     if (esl_strtok_adv(&de_s, " \t\n\r", &de_seqname, NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
     if (esl_strtok_adv(&de_s, "\n\r",    &de,         NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
   }
-  /* Check the magic Stockholm header line, allowing blank lines */
-  do {
-    status = msafile_getline(afp);
-    if     (status == eslEOF) return;
-    else if(status != eslOK)  esl_fatal("--small parse error pass 2. problem reading line %d of msafile", afp->linenumber);
-  } while (esl_str_IsBlank(afp->buf));
-  
-  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0) esl_fatal("--small parse pass 2 failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
-  while ((status2 = msafile_getline(afp)) == eslOK) {
-    s = afp->buf;
-    while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
-    if (*s == '#' || *s == '\n' || *s == '\r') { /* comment or blank line, do nothing */ ; } 
-    else if (strncmp(s, "//",   2) == 0)    { break; /* normal way out */ }
-    else { /* sequence line */
-      /* parse line into temporary strings */
-      s = afp->buf;
-      if (esl_strtok_adv(&s, " \t\n\r", &seqname, NULL,  NULL) != eslOK) esl_fatal("--small parse pass 2 failed (line %d): bad sequence line", afp->linenumber);
-      if (esl_strtok_adv(&s, " \t\n\r", &aseq, &aseqlen, NULL) != eslOK) esl_fatal("--small parse pass 2 failed (line %d): bad sequence line", afp->linenumber);
-      /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
-      if(nseq_read == 0) { if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) esl_fatal("small mem parse failed unable to copy seqname"); }
-      else if(strcmp(first_seqname, seqname) == 0) { esl_fatal("--small parse pass 2 failed (line %d): two seqs named %s. Alignment appears to be in interleaved Stockholm (not Pfam) format.", afp->linenumber, seqname); }
-      nseq_read++;
-      /* determine if we have an accesion and/or a description for this sequence */
-      have_de = have_ac = FALSE;
-      if(ac_seqname != NULL && (strcmp(ac_seqname, seqname) == 0)) have_ac = TRUE;
-      if(de_seqname != NULL && (strcmp(de_seqname, seqname) == 0)) have_de = TRUE;
-      if(rename != NULL) { 
-	fprintf(ofp, ">%s.%d%s%s%s%s\n", rename, nseq_read, (have_ac ? " " : "") , (have_ac ? ac : ""), (have_de ? " " : "") , (have_de ? de : "")); 
-      }
-      else {
-	fprintf(ofp, ">%s%s%s%s%s\n", seqname, (have_ac ? " " : "") , (have_ac ? ac : ""), (have_de ? " " : "") , (have_de ? de : "")); 
-      }
-      if(have_ac) {
-	status = esl_fgets(&(ac_buf), &(ac_buflen), ac_fp);
-	if(status == eslEOF) { 
-	  ac_seqname = NULL;
-	}
-	else if (status == eslOK) { 
-	  ac_s = ac_buf;
-	  if (esl_strtok_adv(&ac_s, " \t\n\r", &ac_seqname, NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
-	  if (esl_strtok_adv(&ac_s, "\n\r",    &ac,         NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
-	}
-      }
-      if(have_de) {
-	status = esl_fgets(&(de_buf), &(de_buflen), de_fp);
-	if(status == eslEOF) { 
-	  de_seqname = NULL;
-	}
-	else if (status == eslOK) { 
-	  de_s = de_buf;
-	  if (esl_strtok_adv(&de_s, " \t\n\r", &de_seqname, NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
-	  if (esl_strtok_adv(&de_s, "\n\r",    &de,         NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
-	}
-      }
 
-      /* now print sequence, after converting symbols as nec */
-      if (rfrom != NULL)  symconvert(aseq, rfrom, rto);
-      if (gapsym != NULL) symconvert(aseq, "-_.", gapsym);
-      if (force_lower)    symconvert(aseq,
-				           "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-					   "abcdefghijklmnopqrstuvwxyz");
-      if (force_upper)    symconvert(aseq,
-				  	   "abcdefghijklmnopqrstuvwxyz",
-					   "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-      if (force_rna)      symconvert(aseq, "Tt", "Uu");
-      if (force_dna)      symconvert(aseq, "Uu", "Tt");
-      if (iupac_to_n)     symconvert(aseq, 
-					   "RYMKSWHBVDrymkswhbvd",
-					   "NNNNNNNNNNnnnnnnnnnn");
-      if (x_is_bad)     symconvert(aseq,   "Xx", "Nn");
+  /******************************************************************************************
+   * Pass 2, step through files, outputting appropriately
+   ******************************************************************************************/
 
-      pos = 0;
-      while (pos < aseqlen) { 
-	acpl = (aseqlen - pos > 60)? 60 : aseqlen - pos;
-	strncpy(aseqbuf, aseq + pos, acpl);
-	aseqbuf[acpl] = '\0';
-	fprintf(ofp, "%s\n", aseqbuf);	      
-	pos += 60;
-      }
+  do { 
+    status = eslx_msafile_GetLine(afp, &p, &n);
+    if      (status == eslEOF) return; 
+    else if (status != eslOK)  esl_fatal("small mem parse pass 2 error. problem reading line %d of msafile", (int) afp->linenumber);
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n  ||                 /* skip blank lines             */
+	       (esl_memstrpfx(afp->line, afp->n, "#")                         /* and skip comment lines       */
+	   && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));            /* but stop on Stockholm header */
+
+  if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse pass 2 failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
+
+  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+    {
+      while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
+
+      if      (!n || *p == '#')           continue;	    /* skip blank lines, comments */
+      else if (esl_memstrpfx(p, n, "//")) break;	    /* end of alignment: end of record */
+      else 
+	{ /* sequence line. parse line into temporary strings */
+	  if (esl_memtok(&p, &n, " \t", &seqname, &seqnamelen) != eslOK) esl_fatal("small mem parse pass 2 failed (line %d): no seq name", (int) afp->linenumber);
+	  if (esl_memtok(&p, &n, " \t", &aseq,    &aseqlen)    != eslOK) esl_fatal("small mem parse pass 2 failed (line %d): no aseq",     (int) afp->linenumber);
+
+	  /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
+	  if (nseq_read == 0) { if ((status = esl_memstrdup(seqname, seqnamelen, &(first_seqname))) != eslOK) esl_fatal("small mem parse failed: unable to copy seqname"); }
+	  else if (esl_memstrcmp(seqname, seqnamelen, first_seqname)) esl_fatal("--small parse pass 2 failed (line %d): two seqs named %s. Alignment appears to be in interleaved Stockholm (not Pfam) format.", (int) afp->linenumber, seqname); 
+	  nseq_read++;
+
+	  /* determine if we have an accession and/or description for this sequence */
+	  have_de = have_ac = FALSE;
+	  if (ac_seqname && (esl_memstrcmp(seqname, seqnamelen, ac_seqname))) have_ac = TRUE;
+	  if (de_seqname && (esl_memstrcmp(seqname, seqnamelen, de_seqname))) have_de = TRUE;
+
+	  if (rename) fprintf(ofp, ">%s.%d%s%s%s%s\n",          rename, nseq_read, (have_ac ? " " : "") , (have_ac ? ac : ""), (have_de ? " " : "") , (have_de ? de : "")); 
+	  else        fprintf(ofp, ">%.*s%s%s%s%s\n", (int) seqnamelen, seqname,   (have_ac ? " " : "") , (have_ac ? ac : ""), (have_de ? " " : "") , (have_de ? de : "")); 
+
+	  /* load next ac, de */
+	  if (have_ac) {
+	    status = esl_fgets(&(ac_buf), &(ac_buflen), ac_fp);
+	    if      (status == eslEOF) ac_seqname = NULL;
+	    else if (status == eslOK) { 
+	      ac_s = ac_buf;
+	      if (esl_strtok_adv(&ac_s, " \t\n\r", &ac_seqname, NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
+	      if (esl_strtok_adv(&ac_s, "\n\r",    &ac,         NULL, NULL) != eslOK) esl_fatal("--small accession tmpfile parse failed");
+	    }
+	  }
+	  if (have_de) {
+	    status = esl_fgets(&(de_buf), &(de_buflen), de_fp);
+	    if(status == eslEOF) de_seqname = NULL;
+	    else if (status == eslOK) { 
+	      de_s = de_buf;
+	      if (esl_strtok_adv(&de_s, " \t\n\r", &de_seqname, NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
+	      if (esl_strtok_adv(&de_s, "\n\r",    &de,         NULL, NULL) != eslOK) esl_fatal("--small description tmpfile parse failed");
+	    }
+	  }
+
+	  /* now print sequence, after converting symbols as nec */
+	  /* remember, aseq itself is part of an ESL_BUFFER and you
+	     can't write to it, so symconverts have to be on the
+	     copy */
+	  for (apos = 0; apos < aseqlen; apos += cpl)
+	    {
+	      acpl = (aseqlen - apos > cpl ? cpl : aseqlen - apos);
+	      strncpy(aseqbuf, aseq + apos, acpl);
+	      aseqbuf[acpl] = '\0';
+
+	      if (rfrom)       symconvert(aseqbuf, rfrom, rto);
+	      if (gapsym)      symconvert(aseqbuf, "-_.", gapsym);
+	      if (force_lower) symconvert(aseqbuf,
+					  "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+					  "abcdefghijklmnopqrstuvwxyz");
+	      if (force_upper) symconvert(aseqbuf,
+					  "abcdefghijklmnopqrstuvwxyz",
+					  "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	      if (force_rna)   symconvert(aseqbuf, "Tt", "Uu");
+	      if (force_dna)   symconvert(aseqbuf, "Uu", "Tt");
+	      if (iupac_to_n)  symconvert(aseqbuf, 
+					  "RYMKSWHBVDrymkswhbvd",
+					  "NNNNNNNNNNnnnnnnnnnn");
+	      if (x_is_bad)    symconvert(aseqbuf,   "Xx", "Nn");
+
+	      fprintf(ofp, "%s\n", aseqbuf);	      
+	    }
+	}
     }
-  }
   /* If we saw a normal // end, we would've successfully read a line,
    * so when we get here, status (from the line read) should be eslOK.
    */ 
-  if (status2 != eslOK)   esl_fatal("--small parse pass 2 failed (line %d): didn't find // at end of alignment", afp->linenumber);
-  if (de_seqname != NULL) esl_fatal("--small parse pass 2 failed, sequence %s with #=GS DE line does not exist in alignment or is in different order.", de_seqname);
+  if (status != eslOK) esl_fatal("--small parse pass 2 failed (line %d): didn't find // at end of alignment", (int) afp->linenumber);
+  if (ac_seqname)      esl_fatal("--small parse pass 2 failed, sequence %s with #=GS AC line does not exist in alignment or is in different order.", ac_seqname);
+  if (de_seqname)      esl_fatal("--small parse pass 2 failed, sequence %s with #=GS DE line does not exist in alignment or is in different order.", de_seqname);
 
-  if(ac_fp != NULL) fclose(ac_fp);
-  if(de_fp != NULL) fclose(de_fp);
-  esl_msafile_Close(afp);
+  if (ac_fp) fclose(ac_fp);
+  if (de_fp) fclose(de_fp);
+  eslx_msafile_Close(afp);
 
-  if(first_seqname != NULL) free(first_seqname);
-  if(ac_buf != NULL)        free(ac_buf);
-  if(de_buf != NULL)        free(de_buf);
+  if (first_seqname) free(first_seqname);
+  if (ac_buf)        free(ac_buf);
+  if (de_buf)        free(de_buf);
 
   *ret_reached_eof = reached_eof;
   return;
 }
-
-/* determine_spacelen
- *                   
- * Determine number of consecutive ' ' characters 
- * in the string pointed to by s.
- */
-static int
-determine_spacelen(char *s)
-{
-  int spacelen = 0;
-  while (*s == ' ') { spacelen++; s++; } 
-  return spacelen;
-}
-
 
 /* regurgitate_pfam_as_pfam()
  * 
@@ -719,149 +674,167 @@ determine_spacelen(char *s)
  * Returns <eslOK> on success. 
  * Returns <eslEOF> if there are no more alignments in <afp>.
  * Returns <eslEFORMAT> if parse fails because of a file format
- * problem, in which case afp->errbuf is set to contain a formatted
+ * problem, in which case afp->errmsg is set to contain a formatted
  * message that indicates the cause of the problem.
  */
 static int
-regurgitate_pfam_as_pfam(ESL_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, char *rfrom, char *rto)
+regurgitate_pfam_as_pfam(ESLX_MSAFILE *afp, FILE *ofp, char *gapsym, int force_lower, int force_upper, int force_rna, int force_dna, int iupac_to_n, int x_is_bad, int wussify, int dewuss, int fullwuss, char *rfrom, char *rto)
 {
-  char      *s = NULL;
-  int        status;
-  int        status2;
-  char      *gc = NULL;
-  char      *gr = NULL;
-  char      *seqname = NULL;
+  char      *p;
+  esl_pos_t  n;
   char      *first_seqname = NULL;
-  int        namelen;
-  char      *tag = NULL;
-  int        taglen;
-  char      *text = NULL;
-  int        textlen = 0;
+  char      *gx      = NULL;
+  char      *seqname = NULL;
+  char      *tag     = NULL;
+  char      *text    = NULL;
+  esl_pos_t  gxlen, namelen, taglen, textlen;
   int        nseq_read = 0;
   int        parse_gc_and_gr;
-  int        spacelen, spacelen2;
   int        flushpoint = 10000;
   int        exp_alen = -1;
+  char      *buf      = NULL;
+  esl_pos_t  pos, pos2;
+  int        status;
+
 
   parse_gc_and_gr = (wussify || dewuss || fullwuss) ? TRUE : FALSE; /* should we parse out GR/GC lines and check if they're SS lines? */
-
-  if (feof(afp->f))  { status = eslEOF; goto ERROR; }
-  afp->errbuf[0] = '\0';
+  afp->errmsg[0] = '\0';
    
   /* Check the magic Stockholm header line.
    * We have to skip blank lines here, else we perceive
    * trailing blank lines in a file as a format error when
    * reading in multi-record mode.
    */
-  do {
-    if ((status = msafile_getline(afp)) != eslOK) goto ERROR; /* includes EOF  */
-  } while (esl_str_IsBlank(afp->buf));
-  
-  if (strncmp(afp->buf, "# STOCKHOLM 1.", 14) != 0)
-    ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): missing \"# STOCKHOLM\" header", afp->linenumber);
-  fprintf(ofp, "%s", afp->buf);
+  /* Check the magic Stockholm header line, allowing blank lines */
+  do { 
+    status = eslx_msafile_GetLine(afp, &p, &n);
+    if      (status == eslEOF) return eslEOF; 
+    else if (status != eslOK)  esl_fatal("small mem parse error. problem reading line %d of msafile", (int) afp->linenumber);
+    fprintf(ofp, "%.*s\n", (int) afp->n, afp->line);
+  } while (esl_memspn(afp->line, afp->n, " \t") == afp->n  ||                 /* skip blank lines             */
+	       (esl_memstrpfx(afp->line, afp->n, "#")                         /* and skip comment lines       */
+	   && ! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM")));            /* but stop on Stockholm header */
 
-  /* Read the alignment file one line at a time.
-   */
-  while ((status2 = msafile_getline(afp)) == eslOK) { 
-    if(afp->linenumber % flushpoint == 0) fflush(ofp);
-    s = afp->buf;
-    while (*s == ' ' || *s == '\t') s++;  /* skip leading whitespace */
+  if (! esl_memstrpfx(afp->line, afp->n, "# STOCKHOLM 1.")) esl_fatal("small mem parse failed (line %d): missing \"# STOCKHOLM\" header", (int) afp->linenumber);
+
+  /* Read the alignment file one line at a time.  */
+  while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK) 
+    {
+      if ((int) afp->linenumber % flushpoint == 0) fflush(ofp);
+      while (n && ( *p == ' ' || *p == '\t')) { p++; n--; } /* skip leading whitespace */
     
-    if (*s == '#') {
-      if (parse_gc_and_gr && strncmp(s, "#=GC", 4) == 0) { 
-	/* parse line into temporary strings */
-	s = afp->buf;
-	if (esl_strtok    (&s, " \t\n\r", &gc)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
-	if (esl_strtok_adv(&s, " \t\n\r", &tag,  &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
-	spacelen = determine_spacelen(s);
-	if (esl_strtok_adv(&s, " \t\n\r", &text, &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line", afp->linenumber);
+      if      (!n)                          fprintf(ofp, "\n");
+      else if (esl_memstrpfx(p, n, "//")) { fprintf(ofp, "//\n"); break; } /* normal way out */
+      else if (*p == '#') 
+	{
+	  if (parse_gc_and_gr && esl_memstrpfx(p, n, "#=GC")) 
+	    {  	/* parse line into temporary strings */
+	      if (esl_memtok(&p, &n, " \t",  &gx,   &gxlen)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad #=GC line", (int) afp->linenumber);
+	      if (esl_memtok(&p, &n, " \t",  &tag,  &taglen)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad #=GC line", (int) afp->linenumber);
+	      if (esl_memtok(&p, &n,  " \t", &text, &textlen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad #=GC line", (int) afp->linenumber);
+	      pos = text - afp->line; /* pos: position of first aligned char on line; total width of annotation tag w/spaces */
 	
-	/* verify alignment length */
-	if(exp_alen == -1) exp_alen = textlen;
-	else if(exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
+	      /* verify alignment length */
+	      if      (exp_alen == -1)      exp_alen = textlen;
+	      else if (exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad #=GC line, len %d, expected %d", (int) afp->linenumber, (int) textlen, (int) exp_alen);
 	
-	if(strcmp(tag, "SS_cons") == 0) {
-	  if     (wussify)  esl_kh2wuss(text, text);
-	  else if(dewuss)   esl_wuss2kh(text, text);
-	  else if(fullwuss) { 
-	    status = esl_wuss_full(text, text);
-	    if      (status == eslESYNTAX) esl_fatal("Bad SS_cons line: not in WUSS format, alifile line: %d", afp->linenumber);
-	    else if (status != eslOK)      esl_fatal("Conversion of SS_cons line failed, code %d, alifile line: %d", status, afp->linenumber);
+	      /* we need to make a writable string copy of the annotation, to edit it */
+	      ESL_REALLOC(buf, sizeof(char) * (textlen+1));
+	      esl_memstrcpy(text, textlen, buf);
+	     
+	      if (esl_memstrcmp(tag, taglen, "SS_cons")) 
+		{
+		  if      (wussify)  esl_kh2wuss(buf, buf);
+		  else if (dewuss)   esl_wuss2kh(buf, buf);
+		  else if (fullwuss) 
+		    { 
+		      status = esl_wuss_full(buf, buf);
+		      if      (status == eslESYNTAX) esl_fatal("Bad SS_cons line: not in WUSS format, alifile line: %d", (int) afp->linenumber);
+		      else if (status != eslOK)      esl_fatal("Conversion of SS_cons line failed, code %d, alifile line: %d", status, (int) afp->linenumber);
+		    }
+		}		  
+	      fprintf(ofp, "#=GC %.*s%*s%s\n", (int) taglen, tag, (int) (pos-taglen-5), "", buf);
+	    }
+	  else if (parse_gc_and_gr && esl_memstrpfx(p, n, "#=GR") == 0) 
+	    { 
+	      /* parse line into temporary strings */
+	      if (esl_memtok(&p, &n, " \t", &gx,      &gxlen)   != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad #=GR line", (int) afp->linenumber);
+	      if (esl_memtok(&p, &n, " \t", &seqname, &namelen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad #=GR line", (int) afp->linenumber);
+	      if (esl_memtok(&p, &n, " \t", &tag,     &taglen)  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad #=GR line", (int) afp->linenumber);
+	      pos = tag   - afp->line;
+	      if (esl_memtok(&p, &n, " \t", &text,    &textlen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad #=GR line", (int) afp->linenumber);
+	      pos2 = text - afp->line;
+
+	      /* we need to make a writable string copy of the annotation, to edit it */
+	      ESL_REALLOC(buf, sizeof(char) * (textlen+1));
+	      esl_memstrcpy(text, textlen, buf);
+
+	      /* verify alignment length */
+	      if      (exp_alen == -1)      exp_alen = textlen;
+	      else if (exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad seq line, len %d, expected %d", (int) afp->linenumber, (int) textlen, (int) exp_alen);
+	
+	      if (esl_memstrcmp(tag, taglen, "SS") == 0) 
+		{
+		  if      (wussify)  esl_kh2wuss(buf, buf);
+		  else if (dewuss)   esl_wuss2kh(buf, buf);
+		  else if (fullwuss) { 
+		    status = esl_wuss_full(buf, buf);
+		    if      (status == eslESYNTAX) esl_fatal("Bad SS line: not in WUSS format, alifile line: %d", (int) afp->linenumber);
+		    else if (status != eslOK)      esl_fatal("Conversion of SS line failed, code %d, alifile line: %d", status, (int) afp->linenumber);
+		  }
+		}		  
+
+	      fprintf(ofp, "#=GR %.*s%*s%.*s%*s%s\n", (int) namelen, seqname, (int) (pos-namelen-5), "", (int) taglen, tag, (int) (pos2-pos-taglen), "", buf);
+	    }
+	  else { /* '#' prefixed line that is not #=GR (or it is #=GR and wussify,dewuss,fullwuss are all FALSE) */
+	    fprintf(ofp, "%.*s\n", (int) afp->n, afp->line); /* print the line */
 	  }
-	}		  
-	fprintf(ofp, "#=GC %-*s %s\n", taglen+spacelen, tag, text);
-      }
-      else if (parse_gc_and_gr && strncmp(s, "#=GR", 4) == 0) { 
-	/* parse line into temporary strings */
-	s = afp->buf;
-	if (esl_strtok    (&s, " \t\n\r", &gr)                      != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad #=GR line", afp->linenumber);
-	if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad #=GR line", afp->linenumber);
-	spacelen = determine_spacelen(s);
-	if (esl_strtok_adv(&s, " \t\n\r", &tag,    &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad #=GR line", afp->linenumber);
-	spacelen2 = determine_spacelen(s);
-	if (esl_strtok_adv(&s, " \t\n\r", &text,  &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad #=GR line", afp->linenumber);
-	/* verify alignment length */
-	if      (exp_alen == -1)      exp_alen = textlen;
-	else if (exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad seq line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
-	
-	if(strcmp(tag, "SS") == 0) {
-	  if     (wussify)  esl_kh2wuss(text, text);
-	  else if(dewuss)   esl_wuss2kh(text, text);
-	  else if(fullwuss) { 
-	    status = esl_wuss_full(text, text);
-	    if      (status == eslESYNTAX) esl_fatal("Bad SS line: not in WUSS format, alifile line: %d", afp->linenumber);
-	    else if (status != eslOK)      esl_fatal("Conversion of SS line failed, code %d, alifile line: %d", status, afp->linenumber);
-	  }
-	}		  
-	fprintf(ofp, "#=GR %-*s %-*s %s\n", namelen+spacelen, seqname, taglen+spacelen2, tag, text);
-      }
-      else { /* '#' prefixed line that is not #=GR (or it is #=GR and wussify,dewuss,fullwuss are all FALSE) */
-	fprintf(ofp, "%s", afp->buf); /* print the line */
-      }
-    } /* end of 'if (*s == '#')' */ 
-    else if (strncmp(s, "//",   2) == 0)   { break; /* normal way out */ }
-    else if (*s == '\n' || *s == '\r')     { fprintf(ofp, "%s", afp->buf); continue; }
-    else { /* sequence line */
-      /* parse line into temporary strings */
-      s = afp->buf;
-      if (esl_strtok_adv(&s, " \t\n\r", &seqname, &namelen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad sequence line", afp->linenumber);
-      spacelen = determine_spacelen(s);
-      if (esl_strtok_adv(&s, " \t\n\r", &text,    &textlen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): bad sequence line", afp->linenumber);
-      /* verify alignment length */
-      if     (exp_alen == -1)      exp_alen = textlen;
-      else if(exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad seq line, len %d, expected %d", afp->linenumber, textlen, exp_alen);
+	} /* end of 'if (*s == '#')' */ 
+      else 
+	{ /* sequence line */
+	  if (esl_memtok(&p, &n, " \t", &seqname, &namelen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad sequence line", (int) afp->linenumber);
+	  if (esl_memtok(&p, &n, " \t", &text,    &textlen) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errmsg, "--small parse failed (line %d): bad sequence line", (int) afp->linenumber);
+	  pos = text - afp->line;
+
+	  /* verify alignment length */
+	  if     (exp_alen == -1)      exp_alen = textlen;
+	  else if(exp_alen != textlen) ESL_XFAIL(eslEFORMAT, afp->errmsg, "small mem parse failed (line %d): bad seq line, len %d, expected %d", (int) afp->linenumber, (int) textlen, (int) exp_alen);
       
-      /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
-      if(nseq_read == 0) { if ((status = esl_strdup(seqname, -1, &(first_seqname))) != eslOK) goto ERROR; }
-      else if(strcmp(first_seqname, seqname) == 0) { ESL_XFAIL(eslEFORMAT, afp->errbuf, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with esl-reformat.", afp->linenumber, seqname); }
-      nseq_read++;
+	  /* make sure we haven't just read a second line of the first sequence in file (we must be in Pfam 1 line/seq file) */
+	  if (nseq_read == 0) { if ((status = esl_memstrdup(seqname, namelen, &(first_seqname))) != eslOK) goto ERROR; }
+	  else if (esl_memstrcmp(seqname, namelen, first_seqname)) { ESL_XFAIL(eslEFORMAT, afp->errmsg, "parse failed (line %d): two seqs named %s. Alignment appears to be in Stockholm format. Reformat to Pfam with esl-reformat.", (int) afp->linenumber, seqname); }
+	  nseq_read++;
       
-      /* make adjustments as necessary */
-      if (rfrom != NULL)  symconvert(text, rfrom, rto);
-      if (gapsym != NULL) symconvert(text, "-_.", gapsym);
-      else                symconvert(text, "-_.", "-"); /* AFA default is to have gap characters as '-' */
-      if (force_lower)    symconvert(text,
-				     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-				     "abcdefghijklmnopqrstuvwxyz");
-      if (force_upper)    symconvert(text,
-				     "abcdefghijklmnopqrstuvwxyz",
-				     "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-      if (force_rna)      symconvert(text, "Tt", "Uu");
-      if (force_dna)      symconvert(text, "Uu", "Tt");
-      if (iupac_to_n)     symconvert(text, 
-				     "RYMKSWHBVDrymkswhbvd",
-				     "NNNNNNNNNNnnnnnnnnnn");
-      if (x_is_bad)       symconvert(text,   "Xx", "Nn");
-      /* print it out */
-      fprintf(ofp, "%-*s %s\n", namelen+spacelen, seqname, text);
+	  /* we need to make a writable string copy of the annotation, to edit it */
+	  ESL_REALLOC(buf, sizeof(char) * (textlen+1));
+	  esl_memstrcpy(text, textlen, buf);
+
+	  /* make adjustments as necessary */
+	  if (rfrom)       symconvert(buf, rfrom, rto);
+	  if (gapsym)      symconvert(buf, "-_.", gapsym);
+	  if (force_lower) symconvert(buf,
+				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+				      "abcdefghijklmnopqrstuvwxyz");
+	  if (force_upper) symconvert(buf,
+				      "abcdefghijklmnopqrstuvwxyz",
+				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	  if (force_rna)   symconvert(buf, "Tt", "Uu");
+	  if (force_dna)   symconvert(buf, "Uu", "Tt");
+	  if (iupac_to_n)  symconvert(buf, 
+				      "RYMKSWHBVDrymkswhbvd",
+				      "NNNNNNNNNNnnnnnnnnnn");
+	  if (x_is_bad)    symconvert(buf,   "Xx", "Nn");
+	  /* print it out */
+	  fprintf(ofp, "%.*s%*s%s\n", (int) namelen, seqname, (int) (pos-namelen), "", buf);
+	}
     }
-  }
+
   /* If we saw a normal // end, we would've successfully read a line,
    * so when we get here, status (from the line read) should be eslOK.
    */ 
-  if (status2 != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "--small parse failed (line %d): didn't find // at end of alignment", afp->linenumber);
-  if (first_seqname     != NULL) free(first_seqname);
+  if (status != eslOK) esl_fatal("--small parse failed (line %d): didn't find // at end of alignment", (int) afp->linenumber);
+  if (first_seqname) free(first_seqname);
+  if (buf)           free(buf);
   return eslOK;
 
  ERROR:
@@ -907,5 +880,8 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $URL$
+ * SVN $Id$            
  *****************************************************************/
 

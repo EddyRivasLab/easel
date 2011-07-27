@@ -249,7 +249,10 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   ESL_STOCKHOLM_PARSEDATA *pd       = NULL;
   char                    *p;
   esl_pos_t                n;
+  int                      idx;
   int                      status;
+
+  ESL_DASSERT1( (afp->format == eslMSAFILE_PFAM || afp->format == eslMSAFILE_STOCKHOLM) );
 
   afp->errmsg[0] = '\0';
 
@@ -309,8 +312,18 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   else if (status != eslOK)  goto ERROR;
   if (pd->nblock == 0)       ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data followed Stockholm header");
 
+
   msa->nseq = pd->nseq;
   msa->alen = pd->alen;
+
+  /* Stockholm file can set weights. If eslMSA_HASWGTS flag is up, at least one was set: then all must be. */
+  if (msa->flags & eslMSA_HASWGTS)
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	if (msa->wgt[idx] == -1.0) ESL_XFAIL(eslEFORMAT, afp->errmsg, "stockholm record ended without a weight for %s", msa->sqname[idx]);
+    }
+  else if (( status = esl_msa_SetDefaultWeights(msa)) != eslOK) goto ERROR;
+
   stockholm_parsedata_Destroy(pd, msa);
   *ret_msa  = msa;
   return eslOK;
@@ -333,8 +346,6 @@ esl_msafile_stockholm_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   return eslEINCONCEIVABLE;
 }
 /*--------------- end, api for stockholm i/o --------------------*/
-
-
 
 
 /*****************************************************************
@@ -2245,11 +2256,12 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   /* guessing both the format and the alphabet should work: this is a digital open */
   if ( (status = eslx_msafile_Open(&abc, filename, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: digital open", testnumber);  
   if (abc->type   != expected_alphatype)                                                            esl_fatal("stockholm good file test %d failed: alphabet autodetection", testnumber);
-  if (afp->format != eslMSAFILE_STOCKHOLM)                                                          esl_fatal("stockholm good file test %d failed: format autodetection",   testnumber);
+  if (afp->format != eslMSAFILE_STOCKHOLM)                                                          esl_fatal("stockholm good file test %d failed: format autodetection",   testnumber); /* eslMSAFILE_PFAM is autodetected as STOCKHOLM, and that's fine */
 
   /* This is a digital read, using <abc>. */
   if ( (status = esl_msafile_stockholm_Read(afp, &msa1))   != eslOK) esl_fatal("stockholm good file test %d failed: msa read, digital", testnumber);  
   if (msa1->nseq != expected_nseq || msa1->alen != expected_alen)    esl_fatal("stockholm good file test %d failed: nseq/alen",         testnumber);
+  if (esl_msa_Validate(msa1, NULL) != eslOK)                         esl_fatal("stockholm good file test %d failed: msa1 invalid",      testnumber);
   eslx_msafile_Close(afp);  
 
   /* write it back out to a new tmpfile (digital write) */
@@ -2261,6 +2273,7 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
   if ( (status = eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: text mode open", testnumber);  
   if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                                    != eslOK) esl_fatal("stockholm good file test %d failed: msa read, text", testnumber);  
   if (msa2->nseq != expected_nseq || msa2->alen != expected_alen)                                     esl_fatal("stockholm good file test %d failed: nseq/alen",      testnumber);
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                          esl_fatal("stockholm good file test %d failed: msa2 invalid",   testnumber);
   eslx_msafile_Close(afp);
   
   /* write it back out to a new tmpfile (text write) */
@@ -2271,7 +2284,8 @@ utest_goodfile(char *filename, int testnumber, int expected_alphatype, int expec
 
   /* open and read it in digital mode */
   if ( (status = eslx_msafile_Open(&abc, tmpfile1, NULL, eslMSAFILE_PFAM, NULL, &afp)) != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital mode open", testnumber);  
-  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital msa read", testnumber);  
+  if ( (status = esl_msafile_stockholm_Read(afp, &msa2))                               != eslOK) esl_fatal("stockholm good file test %d failed: 2nd digital msa read",  testnumber);  
+  if (esl_msa_Validate(msa2, NULL) != eslOK)                                                     esl_fatal("stockholm good file test %d failed: msa2 invalid",          testnumber);
   eslx_msafile_Close(afp);
 
   /* this msa <msa2> should be identical to <msa1> */

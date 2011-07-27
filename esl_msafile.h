@@ -101,6 +101,7 @@ extern int   eslx_msafile_fmtdata_Copy(ESLX_MSAFILE_FMTDATA *src,  ESLX_MSAFILE_
 
 /* 3. Utilities for different file formats */
 extern int   eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTDATA *fmtd); 
+extern int   eslx_msafile_IsMultiRecord(int fmt);
 extern int   eslx_msafile_EncodeFormat(char *fmtstring);
 extern char *eslx_msafile_DecodeFormat(int fmt);
 

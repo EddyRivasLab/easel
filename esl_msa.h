@@ -34,9 +34,9 @@ typedef struct {
    * (The important stuff.)
    */
   /*::cexcerpt::msa_mandatory::begin::*/
-  char  **aseq;       /* alignment itself, [0..nseq-1][0..alen-1]                */
-  char  **sqname;     /* sequence names, [0..nseq-1][]                           */
-  double *wgt;        /* sequence weights [0..nseq-1]                            */
+  char  **aseq;       /* alignment itself, [0..nseq-1][0..alen-1], \0-terminated */
+  char  **sqname;     /* sequence names [0..nseq-1][], \0-terminated             */
+  double *wgt;        /* sequence weights [0..nseq-1], default 1.0               */
   int64_t alen;       /* length of alignment (columns); or (if growable) -1      */
   int     nseq;       /* number of seqs in alignment; or (if growable) blocksize */
   int     flags;      /* flags for what info has been set                        */
@@ -130,7 +130,7 @@ typedef struct {
 /* Flags for msa->flags
  */
 #define eslMSA_HASWGTS (1 << 0)  /* 1 if wgts were set, 0 if default 1.0's */
-#define eslMSA_DIGITAL (1 << 1)  /* if ax[][] is used instead of aseq[][]  */
+#define eslMSA_DIGITAL (1 << 1)	 /* if ax[][] is used instead of aseq[][]  */  
 
                                      
 /* Object: ESL_MSAFILE
@@ -192,6 +192,8 @@ extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
 
+extern int      esl_msa_Validate(const ESL_MSA *msa, char *errmsg);
+
 extern int      esl_msa_SetName          (ESL_MSA *msa, const char *s, esl_pos_t n);
 extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *s, esl_pos_t n);
 extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *s, esl_pos_t n);
@@ -199,6 +201,7 @@ extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *s, esl_pos_t
 extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
 extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
 extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int      esl_msa_SetDefaultWeights(ESL_MSA *msa);
 
 extern int      esl_msa_FormatName          (ESL_MSA *msa, const char *name,    ...);
 extern int      esl_msa_FormatDesc          (ESL_MSA *msa, const char *desc,    ...);
@@ -236,8 +239,6 @@ extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
 /* 5. General i/o API, all alignment formats */
 extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
 extern int   esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
-extern int   esl_msa_EncodeFormat(char *fmtstring);
-extern char *esl_msa_DecodeFormat(int fmt);
 extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
 
 /* 6. Memory efficient reading/writing in Pfam format (augmentation: keyhash, for regurgitating some but not all seqs) */

@@ -13,6 +13,7 @@
 #include "esl_alphabet.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_distance.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
@@ -141,7 +142,7 @@ main(int argc, char **argv)
   alifile = esl_opt_GetArg(go, 1);
 
   if (esl_opt_IsOn(go, "--informat")) {
-    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (esl_opt_GetBoolean(go, "--small") && fmt != eslMSAFILE_PFAM) esl_fatal("--small requires --informat pfam\n");     
   }
@@ -265,7 +266,7 @@ main(int argc, char **argv)
 	  printf("%-6d %-20s %10s %7d %7" PRId64 " %12" PRId64, 
 		 nali, 
 		 msa->name,
-		 esl_msa_DecodeFormat(afp->format),
+		 eslx_msafile_DecodeFormat(afp->format),
 		 nseq,
 		 alen,
 		 nres);
@@ -285,7 +286,7 @@ main(int argc, char **argv)
 	  printf("Alignment number:    %d\n",     nali);
 	  if (msa->name != NULL)
 	    printf("Alignment name:      %s\n",        msa->name); 
-	  printf("Format:              %s\n",          esl_msa_DecodeFormat(afp->format));
+	  printf("Format:              %s\n",          eslx_msafile_DecodeFormat(afp->format));
 	  printf("Number of sequences: %d\n",          nseq);
 	  printf("Alignment length:    %" PRId64 "\n", alen);
 	  printf("Total # residues:    %" PRId64 "\n", nres);

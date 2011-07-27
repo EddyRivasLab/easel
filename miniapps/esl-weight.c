@@ -12,6 +12,7 @@
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 #include "esl_random.h"
 
@@ -83,7 +84,7 @@ main(int argc, char **argv)
   msafile = esl_opt_GetArg(go, 1);
 
   if (esl_opt_IsOn(go, "--informat")) {
-    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
 

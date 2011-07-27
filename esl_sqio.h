@@ -19,6 +19,7 @@
 #endif
 #ifdef eslAUGMENT_MSA
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #endif
 
 /*::cexcerpt::sq_sqio_data::begin::*/

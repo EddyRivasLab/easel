@@ -613,13 +613,42 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTD
 }
 
 
+/* Function:  eslx_msafile_IsMultiRecord()
+ * Synopsis:  Test if a format supports multiple MSAs per file.
+ *
+ * Purpose:   Return <TRUE> if MSA file format <fmt> supports
+ *            more than one MSA record per file. Return <FALSE>
+ *            otherwise (including the cases of <fmt> being
+ *            invalid or <eslMSAFILE_UNKNOWN>).
+ */
+int
+eslx_msafile_IsMultiRecord(int fmt)
+{
+  switch (fmt) {
+  case eslMSAFILE_UNKNOWN:     return FALSE;
+  case eslMSAFILE_STOCKHOLM:   return TRUE;
+  case eslMSAFILE_PFAM:        return TRUE;
+  case eslMSAFILE_A2M:         return FALSE;
+  case eslMSAFILE_PSIBLAST:    return FALSE;
+  case eslMSAFILE_SELEX:       return FALSE;
+  case eslMSAFILE_AFA:         return FALSE;
+  case eslMSAFILE_CLUSTAL:     return FALSE;
+  case eslMSAFILE_CLUSTALLIKE: return FALSE;
+  case eslMSAFILE_PHYLIP:      return FALSE;
+  case eslMSAFILE_PHYLIPS:     return FALSE;
+  default:                     return FALSE;
+  }
+  return FALSE;			/* keep compilers happy */
+}
+  
+
 /* Function:  eslx_msafile_EncodeFormat()
  * Synopsis:  Convert text string to an MSA file format code.
  *
  * Purpose:   Given a text string, match it case-insensitively
  *            against a list of possible formats, and return the
  *            appropriate MSA file format code. For example,
- *            <esl_msa_EncodeFormat("Stockholm")> returns
+ *            <eslx_msafile_EncodeFormat("Stockholm")> returns
  *            <eslMSAFILE_STOCKHOLM>.
  *            
  *            If the format is unrecognized, return
@@ -724,9 +753,9 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
   else if (status != eslOK) goto ERROR;
 
   alen = ncons = 0;
-  nupper = nlower = ndash = ndot = nother = 0;
   for (nseq = 0; nseq < max_nseq; nseq++)
     {
+      nupper = nlower = ndash = ndot = nother = 0;
       while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK)  
 	{
 	  while (n && isspace(*p)) { p++; n--; }    
@@ -961,6 +990,9 @@ eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   case eslMSAFILE_AFA:          status = esl_msafile_afa_Read      (afp, &msa); break;
   case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_Read  (afp, &msa); break;
   case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_Read  (afp, &msa); break;
+  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_Read(afp, &msa); break;
+  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_Read   (afp, &msa); break;
+  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_Read   (afp, &msa); break;
   case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_Read (afp, &msa); break;
   case eslMSAFILE_SELEX:        status = esl_msafile_selex_Read    (afp, &msa); break;
   case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_Read(afp, &msa); break;

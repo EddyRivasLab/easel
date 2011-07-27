@@ -16,6 +16,7 @@
 #include "esl_keyhash.h"
 #include "esl_ssi.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 
 
 static char banner[] = "retrieve multiple sequence alignment(s) from a file";
@@ -87,7 +88,7 @@ main(int argc, char **argv)
   if (esl_opt_ArgNumber(go) < 1)                       cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
 
   if (esl_opt_IsOn(go, "--informat")) {
-    fmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
   alifile = esl_opt_GetArg(go, 1);

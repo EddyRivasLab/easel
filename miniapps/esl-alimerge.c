@@ -169,12 +169,12 @@ main(int argc, char **argv)
   } else ofp = stdout;
 
   if (esl_opt_IsOn(go, "--informat")) {
-    infmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
     if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
     if (do_small && infmt != eslMSAFILE_PFAM) esl_fatal("small memory mode requires Pfam formatted alignments"); 
   }
   if (esl_opt_IsOn(go, "--outformat")) {
-    outfmt = esl_msa_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+    outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
     if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
     if (do_small && outfmt != eslMSAFILE_PFAM) esl_fatal("we can only output Pfam formatted alignments in small memory mode"); 
   }
