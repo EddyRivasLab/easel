@@ -131,4 +131,7 @@ extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $URL$
+ * SVN $Id$
  *****************************************************************/

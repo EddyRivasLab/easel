@@ -8,8 +8,10 @@
  *    5. Reading an MSA from an ESLX_MSAFILE.
  *    6. Writing an MSA to a stream.
  *    7. Utilities used by specific format parsers.
- *    8. Examples.
- *    9. Copyright and license.
+ *    8. Unit tests.
+ *    9. Test driver.
+ *   10. Examples.
+ *   11. Copyright and license.
  */
 #include "esl_config.h"
 
@@ -952,7 +954,6 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *# 5. Reading MSAs from input
  *****************************************************************/
 
-
 /* Function:  eslx_msafile_Read()
  * Synopsis:  Read next MSA from input.
  *
@@ -1080,14 +1081,16 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
   int status;
 
   switch (fmt) {
-  case eslMSAFILE_STOCKHOLM:   status = esl_msafile_stockholm_Write(fp, msa, eslMSAFILE_STOCKHOLM);   break;
-  case eslMSAFILE_PFAM:        status = esl_msafile_stockholm_Write(fp, msa, eslMSAFILE_PFAM);        break;
-  case eslMSAFILE_A2M:         status = esl_msafile_a2m_Write      (fp, msa);                         break;
-  case eslMSAFILE_PSIBLAST:    status = esl_msafile_psiblast_Write (fp, msa);                         break;
-  case eslMSAFILE_SELEX:       status = esl_msafile_selex_Write    (fp, msa);                         break;
-  case eslMSAFILE_AFA:         status = esl_msafile_afa_Write      (fp, msa);                         break;
-  case eslMSAFILE_CLUSTAL:     status = esl_msafile_clustal_Write  (fp, msa, eslMSAFILE_CLUSTAL);     break;
-  case eslMSAFILE_CLUSTALLIKE: status = esl_msafile_clustal_Write  (fp, msa, eslMSAFILE_CLUSTALLIKE); break;
+  case eslMSAFILE_STOCKHOLM:   status = esl_msafile_stockholm_Write(fp, msa, eslMSAFILE_STOCKHOLM);     break;
+  case eslMSAFILE_PFAM:        status = esl_msafile_stockholm_Write(fp, msa, eslMSAFILE_PFAM);          break;
+  case eslMSAFILE_A2M:         status = esl_msafile_a2m_Write      (fp, msa);                           break;
+  case eslMSAFILE_PSIBLAST:    status = esl_msafile_psiblast_Write (fp, msa);                           break;
+  case eslMSAFILE_SELEX:       status = esl_msafile_selex_Write    (fp, msa);                           break;
+  case eslMSAFILE_AFA:         status = esl_msafile_afa_Write      (fp, msa);                           break;
+  case eslMSAFILE_CLUSTAL:     status = esl_msafile_clustal_Write  (fp, msa, eslMSAFILE_CLUSTAL);       break;
+  case eslMSAFILE_CLUSTALLIKE: status = esl_msafile_clustal_Write  (fp, msa, eslMSAFILE_CLUSTALLIKE);   break;
+  case eslMSAFILE_PHYLIP:      status = esl_msafile_phylip_Write   (fp, msa, eslMSAFILE_PHYLIP,  NULL); break;
+  case eslMSAFILE_PHYLIPS:     status = esl_msafile_phylip_Write   (fp, msa, eslMSAFILE_PHYLIPS, NULL); break;
   default:                     ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
   return status;
@@ -1153,13 +1156,161 @@ eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
   if (opt_n) *opt_n = 0;
   return status;
 }
+/*--------------- end, parser utilities -------------------------*/
 
 
 
 /*****************************************************************
- * 8. Examples.
+ * 8. Unit tests
  *****************************************************************/
-#ifdef eslAUGMENT_ALPHABET
+#ifdef eslMSAFILE_TESTDRIVE
+
+static void
+utest_format2format(int fmt1, int fmt2)
+{
+  char          msg[]        = "esl_msafile: format2format unit test failed";
+  char          tmpfile1[32] = "esltmpXXXXXX";
+  char          tmpfile2[32] = "esltmpXXXXXX";
+  char          tmpfile3[32] = "esltmpXXXXXX";
+  FILE         *ofp = NULL;
+  ESL_MSA      *msa1, *msa2, *msa3, *msa4;
+  ESLX_MSAFILE *afp;
+  int           alphatype    = eslAMINO;
+  ESL_ALPHABET *abc          = esl_alphabet_Create(alphatype);
+  ESL_ALPHABET *abc2         = NULL;
+
+  /* The test alignment has to have a shorter seq1, to make A2M format distinct from AFA. (w/ no RF line, A2M defaults to using 1st seq as consensus)
+   * It must be longer than 60 residues, to make Phylip interleaved distinct from Phylip sequential.
+   */
+  char *testmsa = "\
+# STOCKHOLM 1.0\n\
+seq1    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpq------ACDEFGHIKLMNPQRSTVWYacde......mnpqrstvwyACDEFGHI______RSTVWYacdefghiklmnpqrstvwy\n\
+seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy\n\
+//\n";
+
+  /* Create the test msa, msa1, digital mode, no autodetections */
+  if ( eslx_msafile_OpenMem(&abc, testmsa, strlen(testmsa), eslMSAFILE_STOCKHOLM, NULL, &afp) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Read(afp, &msa1) != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+
+  /* Write it to tmpfile1 in fmt1. (This exercises writing of digital MSAs, in all <fmt1> formats) */
+  if ( esl_tmpfile_named(tmpfile1, &ofp)   != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Write(ofp, msa1, fmt1) != eslOK) esl_fatal(msg);
+  fclose(ofp);
+
+  /* Read it back from <fmt1> in TEXT mode (verbatim), with format autodetection */
+  if ( eslx_msafile_Open(NULL, tmpfile1, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (fmt1 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
+  if (fmt1 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
+  if ( eslx_msafile_Read(afp, &msa2) != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+
+  /* Write it to tmpfile2 in fmt2. (This exercises writing of text-mode MSAs, in all <fmt2> formats) */
+  if ( esl_tmpfile_named(tmpfile2, &ofp)   != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Write(ofp, msa2, fmt2) != eslOK) esl_fatal(msg);
+  fclose(ofp);
+
+  /* Read it back in TEXT mode. */
+  if ( eslx_msafile_Open(NULL, tmpfile2, NULL, eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal(msg);
+  if (fmt2 == eslMSAFILE_PFAM     && afp->format == eslMSAFILE_STOCKHOLM) afp->format = eslMSAFILE_PFAM;
+  if (fmt2 == eslMSAFILE_PSIBLAST && afp->format == eslMSAFILE_SELEX)     afp->format = eslMSAFILE_PSIBLAST;
+  if ( eslx_msafile_Read(afp, &msa3) != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+
+  /* Write it to tmpfile4 in fmt2. (This exercises writing of digital-mode MSAs, in all <fmt2> formats */
+  if ( esl_tmpfile_named(tmpfile3, &ofp)   != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Write(ofp, msa3, fmt2) != eslOK) esl_fatal(msg);
+  fclose(ofp);
+
+  /* Read it back in DIGITAL mode, with alphabet autodetection but not format */
+  if ( eslx_msafile_Open(&abc2, tmpfile3, NULL, fmt2, NULL, &afp) != eslOK) esl_fatal(msg);
+  if ( eslx_msafile_Read(afp, &msa4) != eslOK) esl_fatal(msg);
+  eslx_msafile_Close(afp);
+
+  /* Now:
+   *   msa1 = digital mode test alignment, created from Stockholm string
+   *   msa2 = TEXT mode, read from <fmt1> tmpfile1 
+   *   msa3 = TEXT mode, read from <fmt2> tmpfile2
+   *   msa4 = digital mode, read from <fmt2> tmpfile3
+   * So we expect:
+   *   msa2==msa3
+   *   msa1==msa4
+   */
+
+  /* some normalization before comparing alignments. */
+  esl_msa_SymConvert(msa2, "abcdefghijklmnopqrstuvwxyz.", "ABCDEFGHIJKLMNOPQRSTUVWXYZ-");
+  esl_msa_SymConvert(msa3, "abcdefghijklmnopqrstuvwxyz.", "ABCDEFGHIJKLMNOPQRSTUVWXYZ-");
+
+  if (msa2->rf) { free (msa2->rf); msa2->rf = NULL; }
+  if (msa3->rf) { free (msa3->rf); msa3->rf = NULL; }
+  if (msa4->rf) { free (msa4->rf); msa4->rf = NULL; }
+
+  if (esl_msa_Compare(msa2, msa3) != eslOK) esl_fatal(msg);
+  if (esl_msa_Compare(msa1, msa4) != eslOK) esl_fatal(msg);
+
+  remove(tmpfile1);
+  remove(tmpfile2);
+  remove(tmpfile3);     
+  esl_msa_Destroy(msa1);
+  esl_msa_Destroy(msa2); 
+  esl_msa_Destroy(msa3);  
+  esl_msa_Destroy(msa4);
+  esl_alphabet_Destroy(abc);
+  esl_alphabet_Destroy(abc2);
+}
+#endif /*eslMSAFILE_TESTDRIVE*/
+/*----------------- end, unit tests -----------------------------*/
+
+
+/*****************************************************************
+ * 9. Test driver
+ *****************************************************************/
+#ifdef eslMSAFILE_TESTDRIVE
+
+/* compile: gcc -g -Wall -I. -L. -o esl_msafile_utest -DeslMSAFILE_TESTDRIVE esl_msafile.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_msafile_utest -DeslMSAFILE_TESTDRIVE esl_msafile.c -leasel -lm
+ * run:     ./esl_msafile_utest
+ */
+#include "esl_config.h"
+
+#include <stdio.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_msafile.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs  incomp  help                docgrp */
+  {"-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",                            0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for MSA input/output format module";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go          = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  int fmt1, fmt2;
+  
+  for (fmt1 = eslMSAFILE_STOCKHOLM; fmt1 <= eslMSAFILE_PHYLIPS; fmt1++)
+    for (fmt2 = eslMSAFILE_STOCKHOLM; fmt2 <= eslMSAFILE_PHYLIPS; fmt2++)
+      utest_format2format(fmt1, fmt2);
+
+  esl_getopts_Destroy(go);
+  exit(0);
+}
+
+#endif /*eslMSAFILE_TESTDRIVE*/
+/*----------------- end, test driver ----------------------------*/
+
+
+
+/*****************************************************************
+ * 10. Examples.
+ *****************************************************************/
+
 #ifdef eslMSAFILE_EXAMPLE
 /*::cexcerpt::msafile_example::begin::*/
 #include <stdio.h>
@@ -1182,7 +1333,7 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <msafile>";
-static char banner[] = "example of digital MSA reading using the msafile module";
+static char banner[] = "example of multiple alignment input and output using the msafile module(s)";
 
 int
 main(int argc, char **argv)
@@ -1199,22 +1350,23 @@ main(int argc, char **argv)
   int           nali      = 0;
   int           status;
 
-  /* Choose the output file format */
-  outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
-  if (outfmt == eslMSAFILE_UNKNOWN) 
-    esl_fatal("%s is not a valid MSA file format for --outformat", esl_opt_GetString(go, "--outformat"));
-
-  /* If you know the alphabet you want, create it */
+  /* If you know the alphabet you want, create it - you'll pass it to eslx_msafile_Open() */
   if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
   else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
 
-  /* If you know the MSA file format, set it */
+  /* If you know the MSA file format, set it (<infmt>, here). */
   if (esl_opt_IsOn(go, "--informat") &&
       (infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"))) == eslMSAFILE_UNKNOWN)
     esl_fatal("%s is not a valid MSA file format for --informat", esl_opt_GetString(go, "--informat"));
 
-  /* Open in text or digital mode. If fmt is unknown, guess format; if abc unknown, guess alphabet */
+  /* Open in text or digital mode.
+   *   To let the Open() function autoguess the format, you pass <infmt=eslMSAFILE_UNKNOWN>. 
+   *   To let it autoguess the alphabet, you set <abc=NULL> and pass <&abc>.
+   *   To open in text mode instead of digital, you pass <NULL> for the alphabet argument.
+   * eslx_msafile_OpenFailure() is a convenience, printing various diagnostics of any
+   * open failure to <stderr>. You can of course handle your own diagnostics instead.
+   */
   if (textmode) status = eslx_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp);
   else          status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp);
   if (status != eslOK)   eslx_msafile_OpenFailure(afp, status);
@@ -1224,9 +1376,14 @@ main(int argc, char **argv)
     printf("# Alphabet:  %s\n", (afp->abc ? esl_abc_DecodeType(afp->abc->type) : "text mode"));
   }
 
-  /* Now the MSA's that you read are digital data in msa->ax[] */
+  /* Choose the output file format */
+  if ( (outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"))) == eslMSAFILE_UNKNOWN)
+    esl_fatal("%s is not a valid MSA file format for --outformat", esl_opt_GetString(go, "--outformat"));
+
   while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
-    {
+    {	
+      /* if digital MSA: msa->ax[idx=0..nseq-1][acol=1..alen] is the alignment data; 
+       * if text MSA:  msa->aseq[idx=0..nseq-1][acol=0..alen-1] */
       nali++;
       
       if (showinfo) printf("# alignment %5d: %15s: %6d seqs, %5d columns\n\n", nali, msa->name, (int) msa->nseq, (int) msa->alen);
@@ -1234,7 +1391,7 @@ main(int argc, char **argv)
 
       esl_msa_Destroy(msa);
     }
-  if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+  if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status); /* a convenience, like eslx_msafile_OpenFailure() */
 
   esl_alphabet_Destroy(abc);
   eslx_msafile_Close(afp);
@@ -1243,8 +1400,6 @@ main(int argc, char **argv)
 }
 /*::cexcerpt::msafile_example::end::*/
 #endif /*eslMSAFILE_EXAMPLE*/
-#endif /*eslAUGMENT_ALPHABET*/
-
 /*------------------------ end of examples -----------------------*/
       
 
