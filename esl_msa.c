@@ -1488,6 +1488,50 @@ esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...)
  ERROR:
   return status;
 }
+
+/* Function:  esl_msa_CheckUniqueNames()
+ * Synopsis:  Check if all seq names are unique.
+ *
+ * Purpose:   Check whether all the sequence names in <msa>
+ *            are unique; if so, return <eslOK>, and if not,
+ *            return <eslFAIL>. 
+ * 
+ *            Stockholm files require names to be unique.  This
+ *            function lets us check whether we need to munge seqnames
+ *            before writing a Stockholm file.
+ *            
+ *            The check uses a keyhash, so it's efficient.
+ *
+ * Args:      msa   - alignment
+ *
+ * Returns:   <eslOK> if names are unique.
+ *            <eslFAIL> if not.
+ *
+ * Throws:    <eslMEM> on allocation failure.
+ */
+int
+esl_msa_CheckUniqueNames(const ESL_MSA *msa)
+{
+  ESL_KEYHASH *kh     = NULL;
+  int          idx;
+  int          status = TRUE;
+
+  if  ((kh = esl_keyhash_Create()) == NULL) { status = eslEMEM; goto ERROR; }
+  for (idx = 0; idx < msa->nseq; idx++)
+    {
+      status = esl_keyhash_Store(kh, msa->sqname[idx], -1, NULL);
+      if      (status == eslEDUP) { status = eslFAIL; break; }
+      else if (status != eslOK)   goto ERROR;
+    }
+  esl_keyhash_Destroy(kh);
+  return status;
+
+ ERROR:
+  if (kh) esl_keyhash_Destroy(kh);
+  return status;
+
+}
+
 /*------------- end of ESL_MSA functions ------------------------*/
 
 

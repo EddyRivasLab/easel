@@ -304,6 +304,7 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 	  else if (esl_memstrpfx(p, n, "#=GS")) { if ((status = stockholm_parse_gs     (afp, pd, msa, p, n)) != eslOK) goto ERROR; }
 	  else if (esl_memstrpfx(p, n, "#=GC")) { if ((status = stockholm_parse_gc     (afp, pd, msa, p, n)) != eslOK) goto ERROR; }
 	  else if (esl_memstrpfx(p, n, "#=GR")) { if ((status = stockholm_parse_gr     (afp, pd, msa, p, n)) != eslOK) goto ERROR; }
+	  else if (esl_memstrcmp(p, n, "# STOCKHOLM 1.0")) ESL_XFAIL(eslEFORMAT, afp->errmsg, "two # STOCKHOLM 1.0 headers in a row?");
 	  else                                  { if ((status = stockholm_parse_comment(         msa, p, n)) != eslOK) goto ERROR; }
 	}
       else if (                                       (status = stockholm_parse_sq     (afp, pd, msa, p, n)) != eslOK) goto ERROR;
@@ -844,7 +845,7 @@ stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
   /* Which seqidx is this?
    * In first block:
    *    1. If #=GS lines set sqname[] completely, then it's pd->si.
-   *    2. If #=GS lines set sqname[] partially or out of order, then name is in the keyhash.
+   *    2. If #=GS lines set sqname[] partially or out of order, then name may be in the keyhash.
    *    3. If we haven't seen name before, then we'll add it: seqidx = pd->nseq, add name to keyhash, possibly reallocate.
    * In subsequent blocks, use recorded indices and linetypes:
    *    4. seqidx = saved bidx[]; should be expecting a SQ line; name should match expected name.
@@ -867,6 +868,8 @@ stockholm_parse_sq(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 
       if (! esl_memstrcmp(seqname, seqnamelen, msa->sqname[seqidx])) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected seq name %.*s; expected %s from prev block order", (int) seqnamelen, seqname, msa->sqname[seqidx]);
     }
+
+  if ( pd->bi > 0 && pd->sqlen[seqidx] == pd->alen + pd->alen_b) ESL_FAIL(eslEFORMAT, afp->errmsg, "duplicate seq name %.*s", (int) seqnamelen, seqname);
 
 #ifdef eslAUGMENT_ALPHABET 
   if (  afp->abc ) {
@@ -1059,34 +1062,49 @@ static int
 stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 {
   int  i, j;
-  int  maxname;		/* maximum name length     */
-  int  maxgf;		/* max #=GF tag length     */
-  int  maxgc;		/* max #=GC tag length     */
-  int  maxgr; 		/* max #=GR tag length     */
-  int  margin;        	/* total left margin width */
-  int  gslen;		/* length of a #=GS tag    */
+  int  maxname;		          /* maximum name length     */
+  int  maxgf;		          /* max #=GF tag length     */
+  int  maxgc;		          /* max #=GC tag length     */
+  int  maxgr; 		          /* max #=GR tag length     */
+  int  margin;               	  /* total left margin width */
+  int  gslen;		          /* length of a #=GS tag    */
   char *buf = NULL;
   int  currpos;
   char *s, *tok;
   int  acpl;            /* actual number of character per line */
+  int  make_uniquenames = FALSE;  /* TRUE if we force names to be unique */
+  int  uniqwidth = 0;
+  int  tmpnseq;
   int  status;
   
+  /* Stockholm files require unique seqnames. Don't allow the writer
+   * to create an invalid file. 
+   */
+  status = esl_msa_CheckUniqueNames(msa);
+  if      (status == eslFAIL) {
+    make_uniquenames = TRUE;
+    for (tmpnseq = msa->nseq; tmpnseq; tmpnseq /= 10) uniqwidth++;  /* how wide the uniqizing numbers need to be */
+    uniqwidth++; 		/* uniqwidth includes the '|' */
+  } else if (status != eslOK) goto ERROR;
+
   /* Figure out how much space we need for name + markup
    * to keep the alignment in register. 
    *
    * The left margin of an alignment block can be composed of:
    * 
-   * <seqname>                      max length: maxname + 1
+   * <seqname>                      max length: uniqwidth + maxname + 1
    * #=GC <gc_tag>                  max length: 4 + 1 + maxgc + 1
-   * #=GR <seqname> <gr_tag>        max length: 4 + 1 + maxname + 1 + maxgr + 1
+   * #=GR <seqname> <gr_tag>        max length: 4 + 1 + uniqwidth + maxname + 1 + maxgr + 1
    * 
    * <margin> is the max of these. It is the total length of the
    * left margin that we need to leave, inclusive of the last space.
    * 
    * Then when we output, we do:
-   * name:  <leftmargin-1>
+   * name:  <leftmargin-uniqwidth-1>
    * gc:    #=GC <leftmargin-6>
-   * gr:    #=GR <maxname> <leftmargin-maxname-7>
+   * gr:    #=GR <uniqwidth><maxname> <leftmargin-maxname-uniqwidth-7>
+   *
+   * because uniqwidth includes the |, field widths for uniqizing must be uniqwidth-1
    *
    * xref STL9/p17
    */
@@ -1106,15 +1124,18 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
   if (msa->sa && maxgr < 2) maxgr = 2;
   if (msa->pp && maxgr < 2) maxgr = 2;
 
-  margin = maxname + 1;
-  if (maxgc > 0 && maxgc+6 > margin) margin = maxgc+6;
-  if (maxgr > 0 && maxname+maxgr+7 > margin) margin = maxname+maxgr+7; 
+  margin = uniqwidth + maxname + 1;
+  if (maxgc > 0 && maxgc+6 > margin)                   margin = maxgc+6;
+  if (maxgr > 0 && uniqwidth+maxname+maxgr+7 > margin) margin = uniqwidth+maxname+maxgr+7; 
   
   /* Allocate a tmp buffer to hold sequence chunks in  */
   ESL_ALLOC(buf, sizeof(char) * (cpl+1));
 
   /* Magic Stockholm header */
   fprintf(fp, "# STOCKHOLM 1.0\n");
+
+  /* Warning about uniqization */
+  if (make_uniquenames) fprintf(fp, "# WARNING: seq names have been made unique by adding a prefix of \"<seq#>|\"\n");
 
  /* Free text comment section */
   for (i = 0;  i < msa->ncomment; i++)
@@ -1145,19 +1166,26 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
   /* GS section: per-sequence annotation */
   if (msa->flags & eslMSA_HASWGTS) {
     for (i = 0; i < msa->nseq; i++) 
-      fprintf(fp, "#=GS %-*s WT %.2f\n", maxname, msa->sqname[i], msa->wgt[i]);		
+      if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s WT %.2f\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->wgt[i]);		
+      else                  fprintf(fp, "#=GS %-*s WT %.2f\n",                     maxname, msa->sqname[i], msa->wgt[i]);   
     fprintf(fp, "\n");
   }
 
   if (msa->sqacc) {
     for (i = 0; i < msa->nseq; i++) 
-      if (msa->sqacc[i]) fprintf(fp, "#=GS %-*s AC %s\n", maxname, msa->sqname[i], msa->sqacc[i]);
+      if (msa->sqacc[i]) {
+	if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s AC %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqacc[i]);
+	else                  fprintf(fp, "#=GS %-*s AC %s\n",                      maxname, msa->sqname[i], msa->sqacc[i]);
+      }
     fprintf(fp, "\n");
   }
 
   if (msa->sqdesc) {
     for (i = 0; i < msa->nseq; i++) 
-      if (msa->sqdesc[i]) fprintf(fp, "#=GS %-*s DE %s\n", maxname, msa->sqname[i], msa->sqdesc[i]);
+      if (msa->sqdesc[i]) {
+	if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s DE %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqdesc[i]);
+	else                  fprintf(fp, "#=GS %-*s DE %s\n",                      maxname, msa->sqname[i], msa->sqdesc[i]);
+      }
     fprintf(fp, "\n");
   }
  
@@ -1175,10 +1203,8 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	if (msa->gs[i][j]) {
 	  s = msa->gs[i][j];
 	  while (esl_strtok(&s, "\n", &tok) == eslOK)
-	    fprintf(fp, "#=GS %-*s %-*s %s\n", 
-		    maxname, msa->sqname[j],
-		    gslen,   msa->gs_tag[i], 
-		    tok);
+	    if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s %-*s %s\n", uniqwidth-1, i,  maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok);
+	    else                  fprintf(fp, "#=GS %-*s %-*s %s\n",                       maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok);
 	}
       fprintf(fp, "\n");
     }
@@ -1198,24 +1224,29 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i] + currpos + 1, acpl, buf);
 #endif
 	  if (! msa->abc) strncpy(buf, msa->aseq[i] + currpos, acpl);
-	  fprintf(fp, "%-*s %s\n", margin-1, msa->sqname[i], buf);
+	  if (make_uniquenames) fprintf(fp, "%0*d|%-*s %s\n", uniqwidth-1, i, margin-uniqwidth-1, msa->sqname[i], buf);
+	  else                  fprintf(fp, "%-*s %s\n",                      margin-1,           msa->sqname[i], buf);
 
 	  if (msa->ss && msa->ss[i]) {
 	    strncpy(buf, msa->ss[i] + currpos, acpl);
-	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "SS", buf);
+	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SS", buf);
+	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SS", buf);
 	  }
 	  if (msa->sa && msa->sa[i]) {
 	    strncpy(buf, msa->sa[i] + currpos, acpl);
-	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "SA", buf);
+	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SA", buf);
+	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SA", buf);
 	  }
 	  if (msa->pp && msa->pp[i]) {
 	    strncpy(buf, msa->pp[i] + currpos, acpl);
-	    fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, "PP", buf);
+	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "PP", buf);
+	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "PP", buf);
 	  }
 	  for (j = 0; j < msa->ngr; j++)
 	    if (msa->gr[j][i]) {
 	      strncpy(buf, msa->gr[j][i] + currpos, acpl);
-	      fprintf(fp, "#=GR %-*s %-*s %s\n", maxname, msa->sqname[i], margin-maxname-7, msa->gr_tag[j], buf);
+	      if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, msa->gr_tag[j], buf);
+	      else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           msa->gr_tag[j], buf);
 	    }
 	}
 

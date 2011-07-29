@@ -211,7 +211,7 @@ extern int      esl_msa_FormatSeqName       (ESL_MSA *msa, int idx, const char *
 extern int      esl_msa_FormatSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
 extern int      esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
 
-
+extern int      esl_msa_CheckUniqueNames(const ESL_MSA *msa);
 
 /* 2. The ESL_MSAFILE object */
 extern int  esl_msafile_Open(const char *filename, int format, const char *env, 
