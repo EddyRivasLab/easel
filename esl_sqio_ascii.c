@@ -34,6 +34,7 @@
 #endif 
 #ifdef eslAUGMENT_MSA
 #include "esl_msa.h"		/* msa aug adds ability to read MSAs as unaligned seqs  */
+#include "esl_msafile.h"
 #endif
 #ifdef eslAUGMENT_SSI
 #include "esl_ssi.h"		/* ssi aug adds ability to randomly access sequences/subsequences */
@@ -111,7 +112,6 @@ static int  fileheader_hmmpgmd(ESL_SQFILE *sqfp);
 
 /* Function:  esl_sqascii_Open()
  * Synopsis:  Open a sequence file for reading.
- * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
  * Purpose:   Open a sequence file <filename> for reading. 
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
@@ -152,6 +152,7 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   /* before we go any further, make sure we can handle the format */
   if (format == eslSQFILE_NCBI) return eslENOTFOUND;
 
+  /* Default initializations */
   ascii->fp           = NULL;
   ascii->do_gzip      = FALSE;
   ascii->do_stdin     = FALSE;
@@ -194,74 +195,83 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
   ascii->curbpl     = -1;	
   ascii->ssi        = NULL;
 
-  if (strcmp(filename, "-") == 0) /* stdin special case */
+  /* MSA formats are handled entirely by msafile module - 
+   * let it  handle stdin, .gz, etc
+   */
+  if (! esl_sqio_IsAlignment(format))
     {
-      ascii->fp       = stdin;
-      ascii->do_stdin = TRUE;
-    }
-  else
-    { /* Check the current working directory first. */
-      if ((ascii->fp = fopen(filename, "r")) == NULL) {
-	status = eslENOTFOUND; 
-	goto ERROR;
-      }
-    }
+      if (strcmp(filename, "-") == 0) /* stdin special case */
+	{
+	  ascii->fp       = stdin;
+	  ascii->do_stdin = TRUE;
+	}
+      else
+	{ /* Check the current working directory first. */
+	  if ((ascii->fp = fopen(filename, "r")) == NULL) {
+	    status = eslENOTFOUND; 
+	    goto ERROR;
+	  }
+	}
 
-  /* Deal with the .gz special case: to popen(), "success" only means
-   * it found and executed gzip -dc.  If gzip -dc doesn't find our
-   * file, popen() still blithely returns success, so we have to be
-   * sure the file exists. That's why we fopen()'ed it above, only to
-   * close it and popen() it here.
-   */                           
+      /* Deal with the .gz special case: to popen(), "success" only means
+       * it found and executed gzip -dc.  If gzip -dc doesn't find our
+       * file, popen() still blithely returns success, so we have to be
+       * sure the file exists. That's why we fopen()'ed it above, only to
+       * close it and popen() it here.
+       */                           
 #ifdef HAVE_POPEN
-  n = strlen(filename);
-  if (n > 3 && strcmp(filename+n-3, ".gz") == 0) 
-    {
-      char *cmd;
-      fclose(ascii->fp);
-      ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
-      sprintf(cmd, "gzip -dc %s", filename);
-      ascii->fp = popen(cmd, "r");
-      if (ascii->fp == NULL) { status = eslENOTFOUND; goto ERROR; }
-      ascii->do_gzip  = TRUE;
-      free(cmd);
-    }
+      n = strlen(filename);
+      if (n > 3 && strcmp(filename+n-3, ".gz") == 0) 
+	{
+	  char *cmd;
+	  fclose(ascii->fp);
+	  ESL_ALLOC(cmd, sizeof(char) * (n+1+strlen("gzip -dc ")));
+	  sprintf(cmd, "gzip -dc %s", filename);
+	  ascii->fp = popen(cmd, "r");
+	  if (ascii->fp == NULL) { status = eslENOTFOUND; goto ERROR; }
+	  ascii->do_gzip  = TRUE;
+	  free(cmd);
+	}
 #endif /*HAVE_POPEN*/
 
-  /* If we don't know the format yet, autodetect it now. */
-  if (format == eslSQFILE_UNKNOWN)
-    {
-      if ((status = sqascii_GuessFileFormat(sqfp, &format)) != eslOK) goto ERROR;
-      sqfp->format = format;
+      /* If we don't know the format yet, try to autodetect it now. */
+      if (format == eslSQFILE_UNKNOWN)
+	{
+	  status = sqascii_GuessFileFormat(sqfp, &format);
+	  if      (status == eslOK)      sqfp->format = format;
+	  else if (status != eslEFORMAT) goto ERROR; /* <format> might still be eslSQFILE_UNKNOWN, for MSA files  */
+	}
 
-      /* An open issue here: 
-       * 
-       * GuessFileFormat() may need to peek at first lines of stream,
-       * if it couldn't guess format from filename suffix.
-       * 
-       * If we find it's an alignment file, we will try
-       * esl_msafile_Open() on it below; if it's a file, that's fine,
-       * but if we're reading a gzip or stdin stream, we can't back up.
-       * 
-       * For sequence formats, the SQFILE structure includes a recording
-       * mechanism (sqfp->mem), but we don't have any ability to pass this
-       * record over to a newly opened ESL_MSAFILE.
-       * 
-       * One fix would be to abstract a "recorded stream" object in Easel,
-       * which could be used to guess file formats, then passed to a newly
-       * opened msa or seq file object.
-       * 
-       * For now, the patch is to return an error.
-       * 
-       * This exposes another issue with our design: we have no way of
-       * returning a more informative error than the eslEFORMAT code,
-       * meaning "couldn't determine format".
+      /* If the format is still unknown, it may be an MSA file.  The
+       * msafile module is capable of autodetecting format even in a .gz
+       * or stdin pipe, but the stuff above has already read from these
+       * nonrewindable sources, trying to guess an unaligned format.  We
+       * could open a second .gz pipe, but that's ugly; and in any case,
+       * we can't rewind stdin. Eventually, this will get resolved, by
+       * having sqio open an ESL_BUFFER, then doing an
+       * eslx_msafile_OpenBuffer() if we need to hand control to the
+       * msafile module. For now, sqio is already documented to be
+       * unable to autodetect MSA file formats in stdin or .gz pipes,
+       * so leave it that way.
        */
-      if (esl_sqio_IsAlignment(format) && (ascii->do_gzip || ascii->do_stdin)) { 
-	status = eslEFORMAT; 
-	goto ERROR;
-      }
+      if (format == eslSQFILE_UNKNOWN && (ascii->do_gzip || ascii->do_stdin)) 
+	{ status = eslEFORMAT; goto ERROR; }
     }
+
+  /* If format is definitely an MSA, open it through the msafile interface.
+   * Or, if format is still unknown, try to open the file as an MSA file,
+   * using msafile autodetection. 
+   */
+#ifdef eslAUGMENT_MSA
+  if (format == eslSQFILE_UNKNOWN || esl_sqio_IsAlignment(format))
+    {
+      status = eslx_msafile_Open(NULL, filename, NULL, format, NULL, &(ascii->afp));
+      if (status != eslOK) { status = eslEFORMAT; goto ERROR; } /* This was our last attempt. Failure to open == failure to detect format */
+      sqfp->format = format = ascii->afp->format;
+    }
+#endif
+  if (format == eslSQFILE_UNKNOWN) { status = eslEFORMAT; goto ERROR; }
+
 
   /* Configure the <sqfp>'s parser and inmaps for this format. */
   if (!esl_sqio_IsAlignment(format)) 
@@ -276,25 +286,8 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
       case eslSQFILE_HMMPGMD:  	config_fasta(sqfp);   	inmap_fasta(sqfp,   NULL);	break;
       default:	status = eslEFORMAT; goto ERROR;
       }
-    }
-  else
-    {
-      ascii->is_linebased = TRUE;
-      ascii->eof_is_ok    = FALSE;	/* no-op for msa's */
-      ascii->parse_header = NULL;  	/* no-op for msa's */
-      ascii->skip_header  = NULL;  	/* no-op for msa's */
-      ascii->parse_end    = NULL;       /* no-op for msa's */
-#ifdef eslAUGMENT_MSA
-      status = esl_msafile_Open(filename, format, NULL, &(ascii->afp));
-#else
-      status = eslEFORMAT;
-#endif
-      if (status != eslOK) goto ERROR;
-    }
 
-  /* Preload the first line or chunk of file. */
-  if (!esl_sqio_IsAlignment(format))
-    {
+      /* Preload the first line or chunk of file. */
       status = loadbuf(sqfp);
       if      (status == eslEOF) { status = eslEFORMAT; goto ERROR; }
       else if (status != eslOK)  { goto ERROR; }
@@ -308,8 +301,15 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
       case eslSQFILE_HMMPGMD:   status = fileheader_hmmpgmd(sqfp); break;
       default:                  status = eslOK;                    break;
       }
-
       if (status != eslOK) goto ERROR;
+    }
+  else
+    {
+      ascii->is_linebased = TRUE;
+      ascii->eof_is_ok    = FALSE;	/* no-op for msa's */
+      ascii->parse_header = NULL;  	/* no-op for msa's */
+      ascii->skip_header  = NULL;  	/* no-op for msa's */
+      ascii->parse_end    = NULL;       /* no-op for msa's */
     }
 
   /* initialize the function pointers for the ascii routines */
@@ -351,24 +351,20 @@ esl_sqascii_Open(char *filename, int format, ESL_SQFILE *sqfp)
 
 /* Function:  sqascii_GuessFileFormat()
  * Synopsis:  Guess the format of an open <ESL_SQFILE>.
- * Incept:    SRE, Mon Jun 20 19:07:44 2005 [St. Louis]
  *
  * Purpose:   Try to guess the sequence file format of <sqfp>, and
  *            return the format code in <*ret_fmt>.
  *            
  *            First we attempt to guess based on the <filename>'s
  *            suffix. <*.fa> is assumed to be in FASTA format; <*.gb>
- *            is assumed to be in GenBank format; <*.sto> or <*.stk>
- *            are assumed to be in Stockholm multiple alignment file
- *            format.
+ *            is assumed to be in GenBank format.
  *            
  *            If that fails, we attempt to guess based on peeking at
  *            the first nonblank line of <filename>. If the line
  *            starts with $>$, we assume FASTA format; if the line
  *            starts with <ID>, we assume EMBL format; if the line
  *            starts with <LOCUS> or it contains the string <Genetic
- *            Sequence Data Bank> we assume GenBank format; if it
- *            starts with \verb+# STOCKHOLM+ we assume Stockholm format.
+ *            Sequence Data Bank> we assume GenBank format.
  *            
  *            If that fails too, return an <eslEFORMAT> error, and
  *            <*ret_fmt> is set to <eslSQFILE_UNKNOWN>.
@@ -414,9 +410,6 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   /* Attempt to guess file format based on file name suffix. */
   if      (strncmp(sfx, ".fa",  3) == 0)  { *ret_fmt = eslSQFILE_FASTA;      return eslOK; }
   else if (strncmp(sfx, ".gb",  3) == 0)  { *ret_fmt = eslSQFILE_GENBANK;    return eslOK; }
-  else if (strncmp(sfx, ".sto", 4) == 0)  { *ret_fmt = eslMSAFILE_STOCKHOLM; return eslOK; }
-  else if (strncmp(sfx, ".stk", 4) == 0)  { *ret_fmt = eslMSAFILE_STOCKHOLM; return eslOK; }
-  else if (strncmp(sfx, ".a2m", 4) == 0)  { *ret_fmt = eslMSAFILE_A2M;       return eslOK; }
     
   /* If that didn't work, we'll have a peek at the stream; 
    * turn recording on, and set for line based input.
@@ -438,9 +431,6 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
   else if (strncmp(ascii->buf, "ID   ", 5)    == 0)                  *ret_fmt = eslSQFILE_EMBL;
   else if (strncmp(ascii->buf, "LOCUS   ", 8) == 0)                  *ret_fmt = eslSQFILE_GENBANK;
   else if (strstr(ascii->buf, "Genetic Sequence Data Bank") != NULL) *ret_fmt = eslSQFILE_GENBANK;
-#ifdef eslAUGMENT_MSA
-  else if (strncmp(ascii->buf, "# STOCKHOLM", 11) == 0)              *ret_fmt = eslMSAFILE_STOCKHOLM;
-#endif
 
   /* reset the sqfp */
   ascii->mpos         = 0;
@@ -461,8 +451,7 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
 
 /* Function:  sqascii_Position()
  * Synopsis:  Reposition an open sequence file to an offset.
- * Incept:    SRE, Tue Mar 28 13:21:47 2006 [St. Louis]
- *
+  *
  * Purpose:   Reposition an open <sqfp> to offset <offset>.
  *            <offset> would usually be the first byte of a
  *            desired sequence record.
@@ -502,13 +491,13 @@ sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
 
   if (ascii->do_stdin)                  ESL_EXCEPTION(eslEINVAL, "can't Position() in standard input");
   if (ascii->do_gzip)                   ESL_EXCEPTION(eslEINVAL, "can't Position() in a gzipped file");
-  if (offset < 0)                      ESL_EXCEPTION(eslEINVAL, "bad offset");
+  if (offset < 0)                       ESL_EXCEPTION(eslEINVAL, "bad offset");
   if (offset > 0 && ascii->afp != NULL) ESL_EXCEPTION(eslEINVAL, "can't use esl_sqfile_Position() w/ nonzero offset on MSA file");
 
   if (esl_sqio_IsAlignment(sqfp->format)) 
     {	/* msa file: close and reopen. maybe sometime we'll have esl_msafile_Rewind() */
         /* we have already verified that offset==0 for MSA file */
-      esl_msafile_Close(ascii->afp);
+      eslx_msafile_Close(ascii->afp);
       if (ascii->msa != NULL) esl_msa_Destroy(ascii->msa);
       ascii->afp = NULL;
       ascii->msa = NULL;
@@ -520,7 +509,7 @@ sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
          EFORMAT error can't occur because we know the format and
          don't use autodetection.
        */
-      status = esl_msafile_Open(sqfp->filename, sqfp->format, NULL, &(ascii->afp));
+      status = eslx_msafile_Open(NULL, sqfp->filename, NULL, sqfp->format, NULL, &(ascii->afp));
       if      (status == eslENOTFOUND) ESL_EXCEPTION(eslENOTFOUND, "failed to reopen alignment file");
       else if (status != eslOK)        return status;
     }
@@ -569,7 +558,7 @@ sqascii_Close(ESL_SQFILE *sqfp)
 #endif
 
 #ifdef eslAUGMENT_MSA
-  if (ascii->afp      != NULL) esl_msafile_Close(ascii->afp);
+  if (ascii->afp      != NULL) eslx_msafile_Close(ascii->afp);
   if (ascii->msa      != NULL) esl_msa_Destroy(ascii->msa);
 #endif /*eslAUGMENT_MSA*/
 
@@ -639,7 +628,7 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
   else
     {
 #ifdef eslAUGMENT_MSA
-      status = esl_msafile_SetDigital(ascii->afp, abc);
+      eslx_msafile_SetDigital(ascii->afp, abc);
 #else
       status = eslEFORMAT;
 #endif
@@ -688,7 +677,7 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
   /* Special case: for MSA files, hand this off to msafile_GuessAlphabet. */
 #ifdef eslAUGMENT_MSA
-  if (esl_sqio_IsAlignment(sqfp->format)) return esl_msafile_GuessAlphabet(ascii->afp, ret_type);
+  if (esl_sqio_IsAlignment(sqfp->format)) return eslx_msafile_GuessAlphabet(ascii->afp, ret_type);
 #endif
 
   /* set the sqfp to record; we'll rewind afterwards and use the recording */
@@ -796,11 +785,11 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
 	{ /* we need to load a new alignment? */
 	  esl_msa_Destroy(ascii->msa);
-	  status = esl_msa_Read(ascii->afp, &(ascii->msa));
+	  status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
 	  if (status == eslEFORMAT)
 	    { /* oops, a parse error; upload the error info from afp to sqfp */
 	      ascii->linenumber = ascii->afp->linenumber;
-	      strcpy(ascii->errbuf, ascii->afp->errbuf); /* errbufs same size! */ 
+	      strcpy(ascii->errbuf, ascii->afp->errmsg); /* errbufs same size! */ 
 	      return eslEFORMAT;
 	    }
 	  if (status != eslOK) return status;
@@ -892,11 +881,11 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
 	{ /* we need to load a new alignment? */
 	  esl_msa_Destroy(ascii->msa);
-	  status = esl_msa_Read(ascii->afp, &(ascii->msa));
+	  status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
 	  if (status == eslEFORMAT)
 	    { /* oops, a parse error; upload the error info from afp to sqfp */
 	      ascii->linenumber = ascii->afp->linenumber;
-	      strcpy(ascii->errbuf, ascii->afp->errbuf); /* errbufs same size! */ 
+	      strcpy(ascii->errbuf, ascii->afp->errmsg); /* errbufs same size! */ 
 	      return eslEFORMAT;
 	    }
 	  if (status != eslOK) return status;
@@ -999,11 +988,11 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
 	{ /* we need to load a new alignment? */
 	  esl_msa_Destroy(ascii->msa);
-	  status = esl_msa_Read(ascii->afp, &(ascii->msa));
+	  status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
 	  if (status == eslEFORMAT)
 	    { /* oops, a parse error; upload the error info from afp to sqfp */
 	      ascii->linenumber = ascii->afp->linenumber;
-	      strcpy(ascii->errbuf, ascii->afp->errbuf); /* errbufs same size! */ 
+	      strcpy(ascii->errbuf, ascii->afp->errmsg); /* errbufs same size! */ 
 	      return eslEFORMAT;
 	    }
 	  if (status != eslOK) return status;
@@ -1179,11 +1168,11 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
       if (ascii->msa == NULL || ascii->idx >= ascii->msa->nseq)
 	{ /* need new alignment? */
 	  esl_msa_Destroy(ascii->msa);
-	  status = esl_msa_Read(ascii->afp, &(ascii->msa));
+	  status = eslx_msafile_Read(ascii->afp, &(ascii->msa));
 	  if (status == eslEFORMAT)
 	    { /* oops, a parse error; upload the error info from afp to sqfp */
 	      ascii->linenumber = ascii->afp->linenumber;
-	      strcpy(ascii->errbuf, ascii->afp->errbuf); /* errbufs same size! */ 
+	      strcpy(ascii->errbuf, ascii->afp->errmsg); /* errbufs same size! */ 
 	      return eslEFORMAT;
 	    }
 	  else if (status != eslOK) goto ERROR;

@@ -1,8 +1,4 @@
 # Easel's test suite, in sqc command format
-#
-# SRE, Wed Mar 22 11:27:39 2006
-# SVN $Id$
-#
 
 #################################################################
 # Test drivers for each module.
@@ -26,6 +22,7 @@
 1 exercise mem-utest          @esl_mem_utest@
 1 exercise msa-utest          @esl_msa_utest@
 1 exercise msafile            @esl_msafile_utest@
+1 exercise msafile2           @esl_msafile2_utest@
 1 exercise msafile-a2m        @esl_msafile_a2m_utest@
 1 exercise msafile-afa        @esl_msafile_afa_utest@
 1 exercise msafile-clustal    @esl_msafile_clustal_utest@
@@ -83,3 +80,64 @@
 # swat
 # interface_gsl
 # interface_lapack
+
+################################################################
+# valgrind tests (optional. 'make SQCLEVEL=3 check'
+################################################################
+
+3 valgrind alphabet-utest     @esl_alphabet_utest@
+3 valgrind cluster-utest      @esl_cluster_utest@
+3 valgrind dirichlet-utest    @esl_dirichlet_utest@
+3 valgrind distance-utest     @esl_distance_utest@
+3 valgrind dmatrix-utest      @esl_dmatrix_utest@
+3 valgrind easel-utest        @easel_utest@
+3 valgrind exponential-utest  @esl_exponential_utest@
+3 valgrind fileparser-utest   @esl_fileparser_utest@
+3 valgrind gamma-utest        @esl_gamma_utest@
+3 valgrind getopts-utest      @esl_getopts_utest@
+3 valgrind gumbel-utest       @esl_gumbel_utest@
+3 valgrind histogram-utest    @esl_histogram_utest@
+3 valgrind hyperexp-utest     @esl_hyperexp_utest@
+3 valgrind keyhash-utest      @esl_keyhash_utest@
+3 valgrind mem-utest          @esl_mem_utest@
+3 valgrind msa-utest          @esl_msa_utest@
+3 valgrind msafile            @esl_msafile_utest@
+3 valgrind msafile2           @esl_msafile2_utest@
+3 valgrind msafile-a2m        @esl_msafile_a2m_utest@
+3 valgrind msafile-afa        @esl_msafile_afa_utest@
+3 valgrind msafile-clustal    @esl_msafile_clustal_utest@
+3 valgrind msafile-phylip     @esl_msafile_phylip_utest@
+3 valgrind msafile-psiblast   @esl_msafile_psiblast_utest@
+3 valgrind msafile-selex      @esl_msafile_selex_utest@
+3 valgrind msafile-stockholm  @esl_msafile_stockholm_utest@
+3 valgrind msacluster-utest   @esl_msacluster_utest@
+3 valgrind msaweight-utest    @esl_msaweight_utest@
+3 valgrind random-utest       @esl_random_utest@
+3 valgrind randomseq-utest    @esl_randomseq_utest@
+3 valgrind ratematrix-utest   @esl_ratematrix_utest@
+3 valgrind recorder-utest     @esl_recorder_utest@
+3 valgrind regexp-utest       @esl_regexp_utest@
+3 valgrind rootfinder-utest   @esl_rootfinder_utest@
+3 valgrind scorematrix-utest  @esl_scorematrix_utest@
+3 valgrind sq-utest           @esl_sq_utest@
+3 valgrind sqio-utest         @esl_sqio_utest@
+3 valgrind sse-utest          @esl_sse_utest@
+3 valgrind ssi-utest          @esl_ssi_utest@
+3 valgrind stack-utest        @esl_stack_utest@
+3 valgrind stats-utest        @esl_stats_utest@
+3 valgrind stretchexp-utest   @esl_stretchexp_utest@
+3 valgrind tree-utest         @esl_tree_utest@
+3 valgrind vectorops-utest    @esl_vectorops_utest@
+3 valgrind weibull-utest      @esl_weibull_utest@
+3 valgrind wuss-utest         @esl_wuss_utest@
+
+###  esl_buffer_utest exercises valgrind bug #258294 on OSX
+###  still open in valgrind 3.6.1 (Feb 2011)
+###  reinstate the test when valgrind updates
+# 3 valgrind buffer-utest       @esl_buffer_utest@
+
+
+################################################################
+# SVN $URL$
+# SVN $Id: testsuite.sqc 714 2011-07-29 21:26:26Z eddys $
+################################################################

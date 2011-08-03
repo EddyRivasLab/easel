@@ -2133,19 +2133,20 @@ main(int argc, char **argv)
  */
 #include "easel.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_distance.h"
 #include "esl_tree.h"
 
 int main(int argc, char **argv)
 {
-  ESL_TREE    *tree;
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  ESL_DMATRIX *D;
+  ESL_TREE     *tree = NULL;
+  ESLX_MSAFILE *afp  = NULL;
+  ESL_MSA      *msa  = NULL;
+  ESL_DMATRIX  *D    = NULL;
 
-  esl_msafile_Open(argv[1], eslMSAFILE_UNKNOWN, NULL, &afp);
-  esl_msa_Read(afp, &msa);
-  esl_msafile_Close(afp);
+  eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp);
+  eslx_msafile_Read(afp, &msa);
+  eslx_msafile_Close(afp);
 
   esl_dst_CDiffMx(msa->aseq, msa->nseq, &D);
   esl_tree_UPGMA(D, &tree);

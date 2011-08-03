@@ -1,16 +1,13 @@
-/* Multiple sequence alignment file i/o.
- * 
+/* Multiple sequence alignments 
  */
 #ifndef eslMSA_INCLUDED
 #define eslMSA_INCLUDED
+
 #include <stdio.h>
 
-#ifdef eslAUGMENT_KEYHASH
-#include <esl_keyhash.h>
-#endif
-#include "esl_alphabet.h"
-#include "esl_ssi.h"
-
+#include "esl_alphabet.h"	/* digital alphabets                         */
+#include "esl_keyhash.h"	/* string hashes, for mapping uniq seq names */
+#include "esl_ssi.h"		/* indexes of large flatfiles on disk        */
 
 /* The following constants define the Pfam/Rfam cutoff set we propagate
  * from Stockholm format msa's into HMMER and Infernal models.
@@ -127,132 +124,56 @@ typedef struct {
 
 
 
-/* Flags for msa->flags
- */
+/* Flags for msa->flags */
 #define eslMSA_HASWGTS (1 << 0)  /* 1 if wgts were set, 0 if default 1.0's */
 #define eslMSA_DIGITAL (1 << 1)	 /* if ax[][] is used instead of aseq[][]  */  
 
-                                     
-/* Object: ESL_MSAFILE
- * 
- * Defines an alignment file that we open for reading.
- */
-typedef struct {
-  FILE *f;                      /* open file pointer                         */
-  char *fname;			/* name of file. used for diagnostic output  */
-  int   linenumber;		/* what line are we on in the file           */
-  char  errbuf[eslERRBUFSIZE];  /* buffer for holding parse error info       */
 
-  char *buf;			/* buffer for line input w/ sre_fgets()      */
-  int   buflen;			/* current allocated length for buf          */
+/* Declarations of the API */
 
-  int   do_gzip;		/* TRUE if f is "gzip -dc |" (will pclose(f))*/
-  int   do_stdin;		/* TRUE if f is stdin (won't close f)        */
-  int   format;			/* format of alignment file we're reading    */
-
-  int   do_digital;		/* TRUE to digitize seqs directly into ax    */
-#if defined(eslAUGMENT_ALPHABET)
-  const ESL_ALPHABET *abc;	/* AUGMENTATION (alphabet): digitized input  */
-#else
-  void               *abc;
-#endif
-
-#if defined(eslAUGMENT_SSI)		/* AUGMENTATION: SSI indexing of an MSA db   */
-  ESL_SSI *ssi;		        /* open SSI index file; or NULL, if none.    */
-#else
-  void    *ssi;
-#endif
-
-  ESL_MSA *msa_cache;		/* occasional lookahead at next MSA; GuessAlphabet() */
-} ESL_MSAFILE;
-
-
-/* Alignment file format codes.
- * Must coexist with sqio unaligned file format codes.
- * Rules:
- *     - 0 is an unknown/unassigned format 
- *     - <=100 reserved for unaligned formats
- *     - >100 reserved for aligned formats
- */
-#define eslMSAFILE_UNKNOWN   0	  /* unknown format                              */
-#define eslMSAFILE_STOCKHOLM 101  /* Stockholm format, interleaved               */
-#define eslMSAFILE_PFAM      102  /* Pfam/Rfam one-line-per-seq Stockholm format */
-#define eslMSAFILE_A2M       103  /* UCSC SAM's fasta-like a2m format            */
-#define eslMSAFILE_PSIBLAST  104  /* NCBI PSI-BLAST alignment format             */
-#define eslMSAFILE_SELEX     105  /* old SELEX format (largely obsolete)         */
-#define eslMSAFILE_AFA       106  /* aligned FASTA format                        */
-#define eslMSAFILE_CLUSTAL   107  /* see esl_msafile_clustal for implementation  */
-
-/* Declarations of the API
- */
 /* 1. The ESL_MSA object */
 extern ESL_MSA *esl_msa_Create(int nseq, int64_t alen);
-extern void     esl_msa_Destroy(ESL_MSA *msa);
 extern int      esl_msa_Expand(ESL_MSA *msa);
 extern int      esl_msa_Copy (const ESL_MSA *msa, ESL_MSA *new);
 extern ESL_MSA *esl_msa_Clone(const ESL_MSA *msa);
+extern void     esl_msa_Destroy(ESL_MSA *msa);
 
-extern int      esl_msa_Validate(const ESL_MSA *msa, char *errmsg);
-
-extern int      esl_msa_SetName          (ESL_MSA *msa, const char *s, esl_pos_t n);
-extern int      esl_msa_SetDesc          (ESL_MSA *msa, const char *s, esl_pos_t n);
-extern int      esl_msa_SetAccession     (ESL_MSA *msa, const char *s, esl_pos_t n);
-extern int      esl_msa_SetAuthor        (ESL_MSA *msa, const char *s, esl_pos_t n);
-extern int      esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
-extern int      esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
-extern int      esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
-extern int      esl_msa_SetDefaultWeights(ESL_MSA *msa);
-
-extern int      esl_msa_FormatName          (ESL_MSA *msa, const char *name,    ...);
-extern int      esl_msa_FormatDesc          (ESL_MSA *msa, const char *desc,    ...);
-extern int      esl_msa_FormatAccession     (ESL_MSA *msa, const char *acc,     ...);
-extern int      esl_msa_FormatAuthor        (ESL_MSA *msa, const char *author,  ...);
-extern int      esl_msa_FormatSeqName       (ESL_MSA *msa, int idx, const char *name, ...);
-extern int      esl_msa_FormatSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
-extern int      esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
-
-extern int      esl_msa_CheckUniqueNames(const ESL_MSA *msa);
-
-/* 2. The ESL_MSAFILE object */
-extern int  esl_msafile_Open(const char *filename, int format, const char *env, 
-			     ESL_MSAFILE **ret_msafp);
-extern void esl_msafile_Close(ESL_MSAFILE *afp);
-
-/* 3. Digital mode MSA's (augmentation: alphabet) */
+/* 2. Digital mode MSA's (augmentation: alphabet) */
 #ifdef eslAUGMENT_ALPHABET
 extern int      esl_msa_GuessAlphabet(const ESL_MSA *msa, int *ret_type);
 extern ESL_MSA *esl_msa_CreateDigital(const ESL_ALPHABET *abc, int nseq, int64_t alen);
 extern int      esl_msa_Digitize(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errmsg);
 extern int      esl_msa_Textize(ESL_MSA *msa);
 extern int      esl_msa_ConvertDegen2X(ESL_MSA *msa);
-extern int      esl_msafile_GuessAlphabet(ESL_MSAFILE *msafp, int *ret_type);
-extern int      esl_msafile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 
-					int format, const char *env, ESL_MSAFILE **ret_msafp);
-extern int      esl_msafile_SetDigital(ESL_MSAFILE *msafp, const ESL_ALPHABET *abc);
-#endif
+#endif /*eslAUGMENT_ALPHABET*/
 
-/* 4. Random MSA database access (augmentation: ssi) */
-#ifdef eslAUGMENT_SSI
-extern int  esl_msafile_PositionByKey(ESL_MSAFILE *afp, const char *name);
-#endif
+/* 3. Setting or checking data fields in an ESL_MSA */
+extern int esl_msa_SetName          (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int esl_msa_SetDesc          (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int esl_msa_SetAccession     (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int esl_msa_SetAuthor        (ESL_MSA *msa, const char *s, esl_pos_t n);
+extern int esl_msa_SetSeqName       (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int esl_msa_SetSeqAccession  (ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n);
+extern int esl_msa_SetDefaultWeights(ESL_MSA *msa);
 
-/* 5. General i/o API, all alignment formats */
-extern int   esl_msa_Read(ESL_MSAFILE *afp, ESL_MSA **ret_msa);
-extern int   esl_msa_Write(FILE *fp, ESL_MSA *msa, int fmt);
-extern int   esl_msa_GuessFileFormat(ESL_MSAFILE *afp);
+extern int esl_msa_FormatName          (ESL_MSA *msa, const char *name,    ...);
+extern int esl_msa_FormatDesc          (ESL_MSA *msa, const char *desc,    ...);
+extern int esl_msa_FormatAccession     (ESL_MSA *msa, const char *acc,     ...);
+extern int esl_msa_FormatAuthor        (ESL_MSA *msa, const char *author,  ...);
+extern int esl_msa_FormatSeqName       (ESL_MSA *msa, int idx, const char *name, ...);
+extern int esl_msa_FormatSeqAccession  (ESL_MSA *msa, int idx, const char *acc, ...);
+extern int esl_msa_FormatSeqDescription(ESL_MSA *msa, int idx, const char *desc, ...);
 
-/* 6. Memory efficient reading/writing in Pfam format (augmentation: keyhash, for regurgitating some but not all seqs) */
-extern int   esl_msa_ReadInfoPfam(ESL_MSAFILE *afp, FILE *listfp, ESL_ALPHABET *abc, int64_t known_alen, char *known_rf, char *known_ss_cons, ESL_MSA **ret_msa, 
-				  int *opt_nseq, int64_t *opt_alen, int *opt_ngs, int *opt_maxname, int *opt_maxgf, int *opt_maxgc, int *opt_maxgr, 
-				  double ***opt_abc_ct, double ***opt_pp_ct, double ****opt_bp_ct, int **opt_spos_ct, int **opt_epos_ct);
-#ifdef eslAUGMENT_KEYHASH
-extern int   esl_msa_RegurgitatePfam(ESL_MSAFILE *afp, FILE *ofp, int maxname, int maxgf, int maxgc, int maxgr,
-				     int do_header, int do_trailer, int do_blanks, int do_comments, int do_gf, 
-				     int do_gs, int do_gc, int do_gr, int do_aseq, ESL_KEYHASH *seqs2regurg, ESL_KEYHASH *seqs2skip, 
-				     int *useme, int *add2me, int exp_alen, char gapchar2add, int *opt_nseq_read, int *opt_nseq_written);
-#endif
+extern int esl_msa_AddComment(ESL_MSA *msa, char *p,   esl_pos_t n);
+extern int esl_msa_AddGF     (ESL_MSA *msa, char *tag, esl_pos_t taglen,            char *value, esl_pos_t vlen);
+extern int esl_msa_AddGS     (ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value, esl_pos_t vlen);
+extern int esl_msa_AppendGC  (ESL_MSA *msa, char *tag, char *value);
+extern int esl_msa_AppendGR  (ESL_MSA *msa, char *tag, int sqidx, char *value);
 
-/* 7. Miscellaneous functions for manipulating MSAs */
+extern int esl_msa_CheckUniqueNames(const ESL_MSA *msa);
+
+/* 4. Miscellaneous functions for manipulating MSAs */
 extern int esl_msa_ReasonableRF (ESL_MSA *msa, double symfrac, char *rfline);
 extern int esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh);
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
@@ -260,21 +181,23 @@ extern int esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme);
 extern int esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf);
 extern int esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps);
 extern int esl_msa_SymConvert(ESL_MSA *msa, const char *oldsyms, const char *newsyms);
-extern int esl_msa_AddComment(ESL_MSA *msa, char *p,   esl_pos_t n);
-extern int esl_msa_AddGF     (ESL_MSA *msa, char *tag, esl_pos_t taglen,            char *value, esl_pos_t vlen);
-extern int esl_msa_AddGS     (ESL_MSA *msa, char *tag, esl_pos_t taglen, int sqidx, char *value, esl_pos_t vlen);
-extern int esl_msa_AppendGC  (ESL_MSA *msa, char *tag, char *value);
-extern int esl_msa_AppendGR  (ESL_MSA *msa, char *tag, int sqidx, char *value);
 extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
-/* 8. Debugging/development routines */
+extern int esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *useme);
+extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme);
+
+/* 5. Debugging, testing, development */
+extern int      esl_msa_Validate(const ESL_MSA *msa, char *errmsg);
 extern ESL_MSA *esl_msa_CreateFromString(const char *s, int fmt);
 extern int      esl_msa_Compare         (ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareMandatory(ESL_MSA *a1, ESL_MSA *a2);
 extern int      esl_msa_CompareOptional (ESL_MSA *a1, ESL_MSA *a2);
-
-
 #endif /*eslMSA_INCLUDED*/
+
+
 /*****************************************************************
  * @LICENSE@
+ * 
+ * SVN $URL$
+ * SVN $Id$
  *****************************************************************/

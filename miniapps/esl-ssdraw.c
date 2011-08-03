@@ -3,7 +3,6 @@
  * with templates derived from Gutell's CRW (Comparative RNA Website,
  * http://www.rna.ccbb.utexas.edu/). 
  *
- * EPN, Mon Jun 23 14:46:05 2008
  */
 #include "esl_config.h"
 
@@ -21,6 +20,8 @@
 #include "esl_getopts.h"
 #include "esl_keyhash.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile2.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_stack.h"
@@ -449,6 +450,7 @@ typedef struct ss_postscript_s {
   int     *uaseqlenA;   /* [0..ps->msa->nseq-1] unaligned sequence length for all sequences in the MSA, only computed if --indi */
   int     *seqidxA;     /* [0..ps->npage-1] the sequence index in the MSA each page corresponds to, only valid if --indi */
   ESL_MSA *msa;         /* pointer to MSA this object corresponds to */
+  const ESL_ALPHABET *abc;	/* ptr to alphabet used to decipher gap chars (msa itself is text mode) */
 } SSPostscript_t;
 
 static SSPostscript_t *create_sspostscript(const ESL_GETOPTS *go);
@@ -479,7 +481,7 @@ static int  parse_regurgitate_section(ESL_FILEPARSER *efp, char *errbuf, SSPosts
 static int  parse_text_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  parse_lines_section(ESL_FILEPARSER *efp, char *errbuf, SSPostscript_t *ps);
 static int  validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf);
-static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf);
+static int  validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, const ESL_ALPHABET *abc, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf);
 static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_masklen, int *ret_mask_has_internal_zeroes);
 static void PairCount(const ESL_ALPHABET *abc, double *counters, ESL_DSQ syml, ESL_DSQ symr, double wt);
 static int  get_command(const ESL_GETOPTS *go, char *errbuf, char **ret_command);
@@ -489,10 +491,10 @@ static int  set_onecell_values(char *errbuf, float *vec, int ncolvals, float *on
 static int  add_mask_to_ss_postscript(SSPostscript_t *ps, char *mask);
 static int  draw_masked_block(FILE *fp, float x, float y, float *colvec, int do_circle_mask, int do_square_mask, int do_x_mask, int do_border, float cellsize);
 static int  draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int page, int pageidx2print);
-static void get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
+static void get_insert_info_from_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct);
 static void get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, int64_t msa_alen, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct);
 static void get_insert_info_from_ifile(char *ifile, int rflen, int msa_nseq, ESL_KEYHASH *useme_keyhash, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct, int **ret_soff_ct, int **ret_eoff_ct);
-static int  count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
+static int  count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct);
 static int  get_consensus_seqs_from_abc_ct(const ESL_GETOPTS *go,SSPostscript_t *ps, char *errbuf, double **abc_ct, ESL_ALPHABET *abc, int64_t msa_alen);
 static int  infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double **abc_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int hc_onecell_idx, FILE *tabfp);
 static int  mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPostscript_t *ps, double ***bp_ct, int msa_nseq, float ***hc_scheme, int hc_scheme_idx, int hc_nbins, float **hc_onecell, int ss_idx, int zerores_idx, FILE *tabfp);
@@ -508,7 +510,7 @@ static int  colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostsc
 static int  diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL_MSA *msa, char *mask2, float **hc_onecell, int incboth_idx, int inc1_idx, int inc2_idx, int excboth_idx);
 static int  drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, float ***hc_scheme, int hc_scheme_idx, int hc_nbins);
 static int  expertfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps);
-static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
+static int  get_pp_idx(const ESL_ALPHABET *abc, char ppchar);
 static int  get_span_ct(int *msa_rf2a_map, int64_t alen, int rflen, int nseq, int *spos_ct, int *epos_ct, int *srfoff_ct, int *erfoff_ct, int **ret_span_ct);
 static int  is_watson_crick_bp(char i, char j);
 static int  is_gu_or_ug_bp(char i, char j);
@@ -578,7 +580,8 @@ main(int argc, char **argv)
   char           *templatefile = NULL;  /* template file, specifying >= 1 SS diagrams 
 		  		         * (each must have a unique consensus length) */
   int             fmt;		        /* format code for alifile         */
-  ESL_MSAFILE    *afp     = NULL;	/* open alignment file             */
+  ESLX_MSAFILE   *afp     = NULL;	/* open alignment file, normal interface              */
+  ESL_MSAFILE2   *afp2    = NULL;	/* open alignment file, legacy small-memory interface */
   ESL_MSA        *msa     = NULL;	/* one multiple sequence alignment */
   int             status;		/* easel return code               */
   int             rflen;                 /* non-gap RF (consensus) length of each alignment */
@@ -959,14 +962,24 @@ main(int argc, char **argv)
    *****************************************/
   
   do_small = esl_opt_GetBoolean(go, "--small") ? TRUE : FALSE;
-  fmt = do_small ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM;
-  status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
+  fmt      = do_small ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM;
+  abc      = esl_alphabet_Create(eslRNA);                       /* Assert RNA alphabet */
 
-  /* Assert RNA */
-  abc = esl_alphabet_Create(eslRNA);
+  /* <abc> is only used for gap counting, I believe
+   * alignments are opened in TEXT mode.
+   */
+
+  if (do_small)
+    {
+      status = esl_msafile2_Open(alifile, NULL, &afp2);
+      if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
+      else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
+    }
+  else
+    {
+      status = eslx_msafile_Open(NULL, alifile, NULL, fmt, NULL, &afp);
+      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+    }
 
   /* Read the mask files, if nec */
   if(esl_opt_IsOn(go, "--mask")) { 
@@ -985,28 +998,31 @@ main(int argc, char **argv)
   /**********************
    * Read the alignment *
    **********************/
-  status = (do_small) ? 
-    esl_msa_ReadInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
-    esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
-  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status == eslEOF)     esl_fatal("No alignments found in file %s\n", alifile);
-  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n%s", status, afp);
+  if (do_small)
+    {
+      status = esl_msafile2_ReadInfoPfam(afp2, NULL, abc, -1, NULL, NULL, &msa, &msa_nseq, &msa_alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL);
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp2->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp2->errbuf);
+      else if (status == eslEOF)     esl_fatal("No alignments found in file %s\n", alifile);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n%s", status, afp2);
 
-  if(do_small) { 
-    msa->alen = msa_alen; }
-  else         
-    { 
-    msa_nseq = msa->nseq; 
-    msa_alen = msa->alen; 
-  }
+      msa->alen = msa_alen; 
+    }
+  else
+    {
+      status = eslx_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
 
-  msa->abc = abc;
+      msa_nseq = msa->nseq; 
+      msa_alen = msa->alen; 
+    }
+
   if(msa->rf == NULL) esl_fatal("First MSA in %s does not have RF annotation.", alifile);
+
   /* determine non-gap RF length (consensus length) */
   rflen = 0;
   for(apos = 0; apos < msa->alen; apos++) { 
-    if(esl_abc_CIsResidue(msa->abc, msa->rf[apos])) {  
+    if(esl_abc_CIsResidue(abc, msa->rf[apos])) {  
       rflen++;
     }
   }
@@ -1079,17 +1095,17 @@ main(int argc, char **argv)
      * To do this, we close the alifile and reopen it, so we can read the 1st
      * alignment again.
      */
-    esl_msafile_Close(afp);
-    status = esl_msafile_Open(alifile, fmt, NULL, &afp);
+    esl_msafile2_Close(afp2);
+    status = esl_msafile2_Open(alifile, NULL, &afp2);
     if      (status == eslENOTFOUND) esl_fatal("2nd pass, alignment file %s doesn't exist or is not readable\n", alifile);
     else if (status == eslEFORMAT)   esl_fatal("2nd pass, couldn't determine format of alignment %s\n", alifile);
     else if (status != eslOK)        esl_fatal("2nd pass, alignment file open failed with error %d\n", status);
     
-    status = esl_msa_ReadInfoPfam(afp, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &spos_ct, &epos_ct);
-    if      (status == eslEFORMAT) esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
-    else if (status == eslEINVAL)  esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp->errbuf);
+    status = esl_msafile2_ReadInfoPfam(afp2, NULL, abc, msa_alen, msa->rf, msa->ss_cons, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &bp_ct, &spos_ct, &epos_ct);
+    if      (status == eslEFORMAT) esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp2->errbuf);
+    else if (status == eslEINVAL)  esl_fatal("2nd pass, Alignment file parse error:\n%s\n", afp2->errbuf);
     else if (status == eslEOF)     esl_fatal("2nd pass, No alignments found in file %s\n", alifile);
-    else if (status != eslOK)      esl_fatal("2nd pass, Alignment file read failed with error code %d\n%s", status, afp);
+    else if (status != eslOK)      esl_fatal("2nd pass, Alignment file read failed with error code %d\n", status);
   }
 
   /* if we get here, the postscript file has been successfully read; now we open the output file */
@@ -1108,16 +1124,16 @@ main(int argc, char **argv)
   if(mask != NULL) add_mask_to_ss_postscript(ps, mask);
   if(mask != NULL && ps->rflen != masklen) esl_fatal("MSA has consensus (non-gap RF) length of %d which != lane mask length of %d from mask file %s.", rflen, masklen, esl_opt_GetString(go, "--mask"));
   
-  if((status = validate_and_update_sspostscript_given_msa(go, ps, msa, msa_nseq, errbuf)) != eslOK) esl_fatal(errbuf);
+  if ((status = validate_and_update_sspostscript_given_msa(go, abc, ps, msa, msa_nseq, errbuf)) != eslOK) esl_fatal(errbuf);
 
   /* get the information we need from the alignment */
   if(! do_small) { /* derive counts from the msa for postscript diagrams, we do this our functions for drawing diagrams work in small mem or big mem mode */
-    if((status = count_msa(msa, errbuf, &(abc_ct), &(bp_ct), (do_prob ? &(pp_ct) : NULL), &(spos_ct), &(epos_ct))) != eslOK) esl_fatal(errbuf);
+    if((status = count_msa(abc, msa, errbuf, &(abc_ct), &(bp_ct), (do_prob ? &(pp_ct) : NULL), &(spos_ct), &(epos_ct))) != eslOK) esl_fatal(errbuf);
   }    
   if (esl_opt_GetBoolean(go, "--prob") && pp_ct == NULL) esl_fatal("--prob requires all sequences have PP annotation");
 
   /* read the insert file, if nec, we have to do this before we determine the span count in case inserts have been removed from the msa,
-   * in which case the spos_ct and epos_ct's from either count_msa or esl_msa_ReadInfo() could be slightly incorrect, we'll use
+   * in which case the spos_ct and epos_ct's from either count_msa or esl_msafile2_ReadInfoPfam() could be slightly incorrect, we'll use
    * srfoff_ct and erfoff_ct from get_insert_info_from_ifile() to correct them when we derive span_ct from spos_ct and epos_ct together in get_span_ct(). */
   if(esl_opt_IsOn(go, "--ifile")) { 
     get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, &(nseq_with_ins_ct), &(nins_ct), NULL, &srfoff_ct, &erfoff_ct); /* dies with esl_fatal() upon an error */
@@ -1168,7 +1184,7 @@ main(int argc, char **argv)
       get_insert_info_from_abc_ct(abc_ct, abc, msa->rf, msa_alen, ps->rflen, &(nseq_with_ins_ct), &(nins_ct)); /* dies with esl_fatal() upon an error */
     }
     else { 
-      get_insert_info_from_msa(msa, ps->rflen, &(nseq_with_ins_ct), &(nins_ct), NULL); /* dies with esl_fatal() upon an error */
+      get_insert_info_from_msa(abc, msa, ps->rflen, &(nseq_with_ins_ct), &(nins_ct), NULL); /* dies with esl_fatal() upon an error */
     }
     /* now draw the insert diagram */
     if(do_ifreq) { 
@@ -1219,7 +1235,7 @@ main(int argc, char **argv)
       get_insert_info_from_ifile((esl_opt_GetString(go, "--ifile")), ps->rflen, msa_nseq, NULL, NULL, NULL, &(per_seq_ins_ct), NULL, NULL); /* dies with esl_fatal() upon an error */
     }
     else { 
-      get_insert_info_from_msa(msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
+      get_insert_info_from_msa(abc, msa, ps->rflen, NULL, NULL, &per_seq_ins_ct); /* dies with esl_fatal() upon an error */
     }
     /* we have msa and per_seq_ins_ct for all possible combos of --small and --ifile, 
      * draw the individual sequence pages */
@@ -1272,7 +1288,8 @@ main(int argc, char **argv)
   if(date != NULL) free(date);
   free_sspostscript(ps);
   esl_alphabet_Destroy(abc);
-  esl_msafile_Close(afp);
+  if (afp)  eslx_msafile_Close(afp);
+  if (afp2) esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
   free(hc_nbins);
   for(z = 0; z < NOC; z++) free(hc_onecell[z]);
@@ -1363,6 +1380,7 @@ create_sspostscript(const ESL_GETOPTS *go)
   ps->uaseqlenA    = NULL;
   ps->seqidxA      = NULL;
   ps->msa          = NULL;
+  ps->abc          = NULL;
   return ps;
 
  ERROR: esl_fatal("create_sspostscript(): memory allocation error.");
@@ -3494,13 +3512,13 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
     spos = epos = -1;
     /* determine first and final non-gap position */
     for(apos = 0; apos < msa->alen; apos++) { /* find first non-gap RF position */
-      if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+      if((! esl_abc_CIsGap(abc, msa->aseq[i][apos]))) { 
 	spos = apos;
 	break;
       }
     }
     for(apos = msa->alen-1; apos >= 0; apos--) { 
-      if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos]))) { 
+      if((! esl_abc_CIsGap(abc, msa->aseq[i][apos]))) { 
 	epos = apos;
 	break;
       }
@@ -3514,15 +3532,15 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       nins_s = per_seq_ins_ct[i][rfpos+1];
       apos_is_internal = TRUE; /* set to FALSE below if apos < spos || apos > epos */
       
-      if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
+      if(! esl_abc_CIsGap(abc, msa->aseq[i][apos])) ps->uaseqlenA[i]++;
       ps->uaseqlenA[i] += nins_s;
       ps->rAA[pp][rfpos] = msa->aseq[i][apos];
       if(do_outline) {
-	if((! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) &&                  /* aseq is not a gap at this posn */
-	   (esl_abc_CIsCanonical(msa->abc, ps->msa_cseq_maj[rfpos])) &&         /* cseq is canonical at this posn */
+	if((! esl_abc_CIsGap(abc, msa->aseq[i][apos])) &&                  /* aseq is not a gap at this posn */
+	   (esl_abc_CIsCanonical(abc, ps->msa_cseq_maj[rfpos])) &&         /* cseq is canonical at this posn */
 	   (toupper(msa->aseq[i][apos]) != toupper(ps->msa_cseq_maj[rfpos]))) { /* aseq != cseq at this posn */
 	  cur_cfreq = abc_ct[apos][esl_abc_DigitizeSymbol(abc, toupper(ps->msa_cseq_maj[rfpos]))] / 
-	    esl_vec_DSum(abc_ct[apos], msa->abc->K);
+	    esl_vec_DSum(abc_ct[apos], abc->K);
 	  if(cur_cfreq > 0.75) { ps->otypeAA[pp][rfpos] = OUTLINE_MAX_IDX; noutline_max++; }
 	  else                 { ps->otypeAA[pp][rfpos] = OUTLINE_MIN_IDX; noutline_min++; }
 	}
@@ -3756,8 +3774,8 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 	else { 
 	  ps->rAA[pp][rfpos] = ' '; /* no need to add color to a ' ' */
 	}
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) {
-	  if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	if(! esl_abc_CIsGap(abc, msa->aseq[i][apos])) {
+	  if((ppidx = get_pp_idx(abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
 	  if(ppidx == 11) ESL_FAIL(eslEFORMAT, errbuf, "nongap nucleotide: %c, annotated with gap #=GR PP char: %c", msa->aseq[i][apos], msa->pp[i][apos]);
 	  within_mask = (ps->mask != NULL && ps->mask[rfpos] == '1') ? TRUE : FALSE;
 	  if((status = set_scheme_values(errbuf, ps->bcolAAA[pp][rfpos], NCMYK, hc_scheme[hc_scheme_idx_p], ppavgA[ppidx], ps->sclAA[pp], within_mask, NULL)) != eslOK) return status;
@@ -3833,13 +3851,13 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     spos = epos = -1;
     /* determine first and final non-gap position */
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { /* find first non-gap RF position */
-      if(! esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rfpos])) { 
+      if(! esl_abc_CIsGap(ps->abc, ps->msa_cseq_maj[rfpos])) { 
 	spos = rfpos;
 	break;
       }
     }
     for(rfpos = ps->rflen-1; rfpos >= 0; rfpos--) { 
-      if(! esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rfpos])) { 
+      if(! esl_abc_CIsGap(ps->abc, ps->msa_cseq_maj[rfpos])) { 
 	epos = rfpos;
 	break;
       }
@@ -3858,8 +3876,8 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 	rpos = ps->msa_ct[rfpos+1]-1;
 	lpos_is_internal = ((lpos < spos) || (lpos > epos)) ? FALSE : TRUE;
 	rpos_is_internal = ((rpos < spos) || (rpos > epos)) ? FALSE : TRUE;
-	lpos_is_gap      = esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[lpos]) ? TRUE : FALSE;
-	rpos_is_gap      = esl_abc_CIsGap(ps->msa->abc, ps->msa_cseq_maj[rpos]) ? TRUE : FALSE;
+	lpos_is_gap      = esl_abc_CIsGap(ps->abc, ps->msa_cseq_maj[lpos]) ? TRUE : FALSE;
+	rpos_is_gap      = esl_abc_CIsGap(ps->abc, ps->msa_cseq_maj[rpos]) ? TRUE : FALSE;
 	if(lpos_is_internal && rpos_is_internal) { /* BP is either Watson-Crick, G:U/U:G, non-canonical, internal double-gap bp or internal half-gap bp */
 	  if(is_watson_crick_bp(ps->msa_cseq_maj[lpos], ps->msa_cseq_maj[rpos])) { /* watson-crick */
 	    if((status = set_onecell_values(errbuf, ps->rcolAAA[pp][rfpos], NCMYK, hc_onecell[wcbp_idx_s])) != eslOK) return status;
@@ -3968,7 +3986,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
   pp = orig_npage;
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
     apos = ps->msa_rf2a_map[rfpos];
-    if(esl_abc_CIsCanonical(msa->abc, msa->rf[apos])) seen_canonical = TRUE;
+    if(esl_abc_CIsCanonical(ps->abc, msa->rf[apos])) seen_canonical = TRUE;
     ps->rAA[pp][rfpos] = msa->rf[apos];
   }
   /* if seen_canonical is still FALSE, the reference sequences is probably all 'x's, so we don't color by bp type */
@@ -4061,7 +4079,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * 
  * Returns eslOK upon success.
  */
-int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct)
+int count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_bp_ct, double ***ret_pp_ct, int **ret_spos_ct, int **ret_epos_ct)
 {
   int status;
   double  **abc_ct = NULL;
@@ -4101,14 +4119,14 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
   ESL_ALLOC(abc_ct, sizeof(double *) * msa->alen); 
   ESL_ALLOC(bp_ct,  sizeof(double **) * msa->alen); 
   for(apos = 0; apos < msa->alen; apos++) { 
-    ESL_ALLOC(abc_ct[apos], sizeof(double) * (msa->abc->K+1));
-    esl_vec_DSet(abc_ct[apos], (msa->abc->K+1), 0.);
+    ESL_ALLOC(abc_ct[apos], sizeof(double) * (abc->K+1));
+    esl_vec_DSet(abc_ct[apos], (abc->K+1), 0.);
     /* careful ct is indexed 1..alen, not 0..alen-1 */
     if(ct[(apos+1)] > (apos+1)) { /* apos+1 is an 'i' in an i:j pair, where i < j */
-      ESL_ALLOC(bp_ct[apos], sizeof(double *) * (msa->abc->Kp));
-      for(x = 0; x < msa->abc->Kp; x++) { 
-	ESL_ALLOC(bp_ct[apos][x], sizeof(double) * (msa->abc->Kp));
-	esl_vec_DSet(bp_ct[apos][x], msa->abc->Kp, 0.);
+      ESL_ALLOC(bp_ct[apos], sizeof(double *) * (abc->Kp));
+      for(x = 0; x < abc->Kp; x++) { 
+	ESL_ALLOC(bp_ct[apos][x], sizeof(double) * (abc->Kp));
+	esl_vec_DSet(bp_ct[apos][x], abc->Kp, 0.);
       }
     }
     else { /* apos+1 is not an 'i' in an i:j pair, where i < j, set to NULL */
@@ -4122,10 +4140,10 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
 
   for(i = 0; i < msa->nseq; i++) { 
     seen_start = FALSE;
-    if((status = esl_abc_Digitize(msa->abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
+    if((status = esl_abc_Digitize(abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
     for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
-      if((status = esl_abc_DCount(msa->abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting nucleotide %d of seq %d", apos, i);
-      if(! esl_abc_XIsGap(msa->abc, tmp_dsq[apos+1])) { 
+      if((status = esl_abc_DCount(abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting nucleotide %d of seq %d", apos, i);
+      if(! esl_abc_XIsGap(abc, tmp_dsq[apos+1])) { 
 	if(! seen_start) { 
 	  spos_ct[apos]++;
 	  seen_start = TRUE;
@@ -4143,7 +4161,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
     if(ret_pp_ct != NULL) { 
       if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "--prob requires all sequences in the alignment have PP, seq %d does not.", i+1);
       for(apos = 0; apos < msa->alen; apos++) { /* update appropriate pp count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
-	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	if((ppidx = get_pp_idx(abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
 	pp_ct[apos][ppidx] += 1.;
       }
     }
@@ -4163,7 +4181,7 @@ int count_msa(ESL_MSA *msa, char *errbuf, double ***ret_abc_ct, double ****ret_b
  ERROR:
   if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
   if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, msa->abc->Kp);
+  if(bp_ct  != NULL)  esl_Free3D((void ***) bp_ct, msa->alen, abc->Kp);
   if(spos_ct != NULL) free(spos_ct);
   if(epos_ct != NULL) free(epos_ct);
   if(tmp_dsq != NULL) free(tmp_dsq);
@@ -6051,7 +6069,7 @@ validate_justread_sspostscript(SSPostscript_t *ps, char *errbuf)
  * Purpose:  Validate that a sspostscript works with a MSA.
  */ 
 static int 
-validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf)
+validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, const ESL_ALPHABET *abc, SSPostscript_t *ps, ESL_MSA *msa, int msa_nseq, char *errbuf)
 {
   int status;
   int *msa_ct;
@@ -6063,6 +6081,7 @@ validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t
   int rflen = 0;
 
   ps->msa = msa;
+  ps->abc = abc;
 
   /* contract check */
   if(msa->rf == NULL)      ESL_FAIL(eslEINVAL, errbuf, "Error, msa does not have RF annotation.");
@@ -6070,7 +6089,7 @@ validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t
 
   /* count non-gap RF columns */
   for(apos = 0; apos < msa->alen; apos++) { 
-    if(esl_abc_CIsResidue(msa->abc, msa->rf[apos]))
+    if(esl_abc_CIsResidue(abc, msa->rf[apos]))
       rflen++;
   }
   if(ps->rflen != rflen) ESL_FAIL(eslEINVAL, errbuf, "validate_and_update_sspostscript_given_msa(), expected consensus length of %d in MSA, but read %d\n", ps->rflen, rflen);
@@ -6081,7 +6100,7 @@ validate_and_update_sspostscript_given_msa(const ESL_GETOPTS *go, SSPostscript_t
   esl_vec_ISet(a2rf_map, msa->alen, -1); 
   rfpos = 0;
   for(apos = 0; apos < msa->alen; apos++) {
-    if(esl_abc_CIsResidue(msa->abc, msa->rf[apos])) {
+    if(esl_abc_CIsResidue(abc, msa->rf[apos])) {
       rf2a_map[rfpos] = apos;
       a2rf_map[apos]  = rfpos;
       rfpos++;
@@ -6317,7 +6336,7 @@ draw_header_and_footer(FILE *fp, const ESL_GETOPTS *go, char *errbuf, SSPostscri
  * Returns void. Dies with an informative error message upon an error.
  */
 void
-get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct)
+get_insert_info_from_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, int **ret_nins_ct, int ***ret_per_seq_ins_ct)
 {
   int             status;
   int             i;
@@ -6343,13 +6362,13 @@ get_insert_info_from_msa(ESL_MSA *msa, int rflen, int **ret_nseq_with_ins_ct, in
   /* fill per_seq_ins_ct, nseq_with_ins_ct */
   rfpos = 0;
   for(apos = 0; apos < msa->alen; apos++) { 
-    if(esl_abc_CIsResidue(msa->abc, msa->rf[apos])) {
+    if(esl_abc_CIsResidue(abc, msa->rf[apos])) {
       rfpos++;
       if(rfpos > rflen) esl_fatal("Error in get_insert_info_from_msa(), expected consensus length (%d) is incorrect."); 
     }
     else { 
       for(i = 0; i < msa->nseq; i++) { 
-	if(! esl_abc_CIsGap(msa->abc, msa->aseq[i][apos])) { 
+	if(! esl_abc_CIsGap(abc, msa->aseq[i][apos])) { 
 	  per_seq_ins_ct[i][rfpos]++;
 	  nins_ct[rfpos]++;
 	  if(per_seq_ins_ct[i][rfpos] == 1) nseq_with_ins_ct[rfpos]++;
@@ -6763,7 +6782,7 @@ get_insert_info_from_abc_ct(double **abc_ct, ESL_ALPHABET *abc, char *msa_rf, in
  * Anything else (including missing or nonnucleotide) return -1;
  */
 int
-get_pp_idx(ESL_ALPHABET *abc, char ppchar)
+get_pp_idx(const ESL_ALPHABET *abc, char ppchar)
 {
   if(esl_abc_CIsGap(abc, ppchar)) return 11;
   if(ppchar == '*')               return 10;
@@ -7461,3 +7480,10 @@ void define_outline_procedure(FILE *fp)
   */
   return;
 }
+
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * SVN $URL$
+ * SVN $Id$
+ *****************************************************************/

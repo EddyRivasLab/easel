@@ -1,7 +1,5 @@
 /* esl-compalign - compare two multiple sequence alignments
  *
- * EPN, Sun Aug  3 14:57:35 2008
- * From squid's compalign: Sean Eddy, Tue Nov  3 07:46:59 1992
  */
 #include "esl_config.h"
 
@@ -14,6 +12,7 @@
 #include "esl_getopts.h"
 #include "esl_sq.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
 
@@ -50,7 +49,7 @@ main(int argc, char **argv)
   int          kstatus, tstatus;/* return code from Easel routine  */
   int          fmt;		/* expected format of kfile, tfile */
   char        *kfile, *tfile;   /* known, test structure file      */
-  ESL_MSAFILE *kfp, *tfp;       /* open kfile, tfile               */
+  ESLX_MSAFILE *kfp, *tfp;      /* open kfile, tfile               */
   ESL_MSA     *ka,  *ta; 	/* known, trusted alignment        */
   int64_t      klen, tlen;	/* lengths of dealigned seqs       */
   int          i;		/* counter over sequences          */
@@ -80,14 +79,13 @@ main(int argc, char **argv)
   int    *cor_ti_seq;          /* [0..i..nseq-1] = x, in predicted aln, number of correctly predicted residues inserted in seq i */
 
   int     *seqlen;             /* [0..i..nseq-1] = x, unaligned seq i has length x */
-  ESL_ALPHABET *abc;           /* alphabet for all alignments */
+  ESL_ALPHABET *abc = NULL;    /* alphabet for all alignments */
   int      rflen, t_rflen;     /* non-gap RF length (consensus lengths) */
   int   status;
   char *namedashes;
   int ni;
   int namewidth = 8; /* length of 'seq name' */
   int cor_tm, cor_ti, km, ki; /* correct predicted match, correct predicted insert, total match, total insert */
-  int type;          /* alphabet type */
   char *mask = NULL;
   int masklen;
   ESL_DSQ *ks;
@@ -150,25 +148,12 @@ main(int argc, char **argv)
    * Open the two Stockholm files.
    ***********************************************/
 
-  if (esl_msafile_Open(kfile, fmt, NULL, &kfp) != eslOK)
-    esl_fatal("Failed to open trusted structure file %s for reading", kfile);
-  if (esl_msafile_Open(tfile, fmt, NULL, &tfp) != eslOK)
-    esl_fatal("Failed to open test structure file %s for reading", tfile);
-  
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-  else {
-    status = esl_msafile_GuessAlphabet(kfp, &type);
-    if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", kfile);
-    else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", kfp->errbuf);
-    else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", kfile);
-    else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", kfile);
-    abc = esl_alphabet_Create(type);
-  }
-  /* set both as same alphabet */
-  esl_msafile_SetDigital(kfp, abc);
-  esl_msafile_SetDigital(tfp, abc);
+
+  if ( (kstatus = eslx_msafile_Open(&abc, kfile, NULL, fmt, NULL, &kfp)) != eslOK) eslx_msafile_OpenFailure(kfp, kstatus);
+  if ( (tstatus = eslx_msafile_Open(&abc, tfile, NULL, fmt, NULL, &tfp)) != eslOK) eslx_msafile_OpenFailure(tfp, tstatus);
 
   do_post = esl_opt_GetBoolean(go, "-p");
 
@@ -186,11 +171,10 @@ main(int argc, char **argv)
    * this means looping over all seqs in all alignments.
    ***********************************************/
   nali = 0;
-  while (1)
+  while ( (kstatus = eslx_msafile_Read(kfp, &ka)) != eslEOF)
     {
-      kstatus = esl_msa_Read(kfp, &ka);
-      tstatus = esl_msa_Read(tfp, &ta);
-      if (kstatus != eslOK || tstatus != eslOK) break; /* normal or errors. */
+      if (  kstatus                                != eslOK) eslx_msafile_ReadFailure(kfp, kstatus);
+      if ( (tstatus = eslx_msafile_Read(tfp, &ta)) != eslOK) eslx_msafile_ReadFailure(tfp, tstatus);
 
       nali++;
       if((nali > 1) && (esl_opt_IsOn(go, "--c2dfile"))) esl_fatal("--c2dfile is only meant for msafiles with single alignments"); 
@@ -497,27 +481,6 @@ main(int argc, char **argv)
       esl_msa_Destroy(ta);
     }
 
-    /* At this point, we should have EOF status on both
-   * alignment files; if we don't, there's an error we have to handle.
-   */
-  if (kstatus != eslEOF || tstatus != eslEOF)
-    {
-      if (kstatus == eslEFORMAT)
-	esl_fatal("Parse error, line %d of trusted file %s:\n%s\n",
-		  kfp->linenumber, kfp->fname, kfp->errbuf);
-      if (tstatus == eslEFORMAT)
-	esl_fatal("Parse error, line %d of test file %s:\n%s\n",
-		  tfp->linenumber, tfp->fname, tfp->errbuf);
-      if (kstatus == eslOK) 
-	esl_fatal("Trusted file has more data than test file\n");
-      if (tstatus == eslOK)
-	esl_fatal("Test file has more data than trusted file\n");
-      if (kstatus != eslEOF)
-	esl_fatal("read error %d for trusted file\n", kstatus);
-      if (tstatus != eslEOF)
-	esl_fatal("read error %d for test file\n", tstatus);
-    }
-
   if(mask != NULL) free(mask);
   if(dfp != NULL) { 
     fclose(dfp);
@@ -525,8 +488,8 @@ main(int argc, char **argv)
   }
 	   
   esl_getopts_Destroy(go);
-  esl_msafile_Close(tfp);
-  esl_msafile_Close(kfp);
+  eslx_msafile_Close(tfp);
+  eslx_msafile_Close(kfp);
   return 0;
 
  ERROR:

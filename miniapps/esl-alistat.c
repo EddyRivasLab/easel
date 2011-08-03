@@ -10,6 +10,7 @@
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_msafile2.h"
 #include "esl_distance.h"
 #include "esl_vectorops.h"
 #include "esl_wuss.h"
@@ -61,7 +62,7 @@ main(int argc, char **argv)
   char         *alifile = NULL;	               /* alignment file name             */
   int           fmt     = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
   ESLX_MSAFILE *afp     = NULL;		       /* open msa file                   */
-  ESL_MSAFILE  *old_afp = NULL;	               /* open msa file, legacy (--small) */
+  ESL_MSAFILE2 *old_afp = NULL;	               /* open msa file, legacy (--small) */
   ESL_MSA      *msa     = NULL;	               /* one multiple sequence alignment */
   int           nali;		               /* number of alignments read       */
   int           i;		               /* counter over seqs               */
@@ -162,7 +163,7 @@ main(int argc, char **argv)
     {
       if (! abc) esl_fatal("--small requires one of --amino, --dna, --rna be specified.");
 
-      status = esl_msafile_OpenDigital(abc, alifile, fmt, NULL, &old_afp);
+      status = esl_msafile2_OpenDigital(abc, alifile, NULL, &old_afp);
       if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
       else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
       else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
@@ -231,7 +232,7 @@ main(int argc, char **argv)
   fmt = (esl_opt_GetBoolean(go, "--small") ? old_afp->format : afp->format);
 
   while ( (status = ( esl_opt_GetBoolean(go, "--small") ? 
-		      esl_msa_ReadInfoPfam(old_afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
+		      esl_msafile2_ReadInfoPfam(old_afp, listfp, abc, -1, NULL, NULL, &msa, &nseq, &alen, NULL, NULL, NULL, NULL, NULL, &abc_ct, &pp_ct, NULL, NULL, NULL) :
 		      eslx_msafile_Read        (afp, &msa))) == eslOK)
     { 
       nali++;
@@ -298,7 +299,7 @@ main(int argc, char **argv)
       /* Dump data to optional output files, if nec */
       if(esl_opt_IsOn(go, "--list")) {
 	if(! esl_opt_GetBoolean(go, "--small")) { 
-	    /* only print sequence name to list file if ! --small, else we already have in esl_msa_ReadInfoPfam() */
+	    /* only print sequence name to list file if ! --small, else we already have in esl_msafile2_ReadInfoPfam() */
 	    for(i = 0; i < msa->nseq; i++) fprintf(listfp, "%s\n", msa->sqname[i]);
 	}
       }
@@ -411,7 +412,7 @@ main(int argc, char **argv)
 
 
   if (afp)     eslx_msafile_Close(afp);
-  if (old_afp) esl_msafile_Close(old_afp);
+  if (old_afp) esl_msafile2_Close(old_afp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   return 0;
@@ -1135,5 +1136,5 @@ static int check_msa_weights(ESL_MSA *msa)
  * @LICENSE@
  *
  * SVN $URL$
- * SVN $Id$
+ * SVN $Id: esl-alistat.c 712 2011-07-27 22:15:08Z eddys $
  *****************************************************************/

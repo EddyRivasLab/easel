@@ -31,12 +31,12 @@ check:
 	@echo 
 	@echo Running Easel test suite...
 	@echo
-	@${srcdir}/../devkit/sqc 2 ${srcdir}/testsuite.sqc .. ${srcdir}/..
+	@${srcdir}/../devkit/sqc ${SQCLEVEL} ${srcdir}/testsuite.sqc .. ${srcdir}/..
 
 dcheck: 
 	@echo    Running developer testsuite...
 	@echo -n Running unit tests...
-	@${top_srcdir}/devkit/sqc -D ${srcdir} 2 ${srcdir}/testsuite.sqc . .. ../miniapps/ ${srcdir}  >  utest.report
+	@${srcdir}/../devkit/sqc ${SQCLEVEL} ${srcdir}/testsuite.sqc .. ${srcdir}/..  >  utest.report
 	@echo    done. [See utest.report]
 	@echo -n Testing that all drivers compile...
 	@env CC="${CC}" CFLAGS="${CFLAGS}" ./driver_report.pl       >  driver.report

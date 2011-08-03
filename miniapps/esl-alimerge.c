@@ -14,6 +14,8 @@
 #include "esl_fileparser.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile2.h"
 #include "esl_sqio.h"
 #include "esl_stopwatch.h"
 #include "esl_vectorops.h"
@@ -70,12 +72,12 @@ main(int argc, char **argv)
   char         *listfile = NULL;	       /* list file name (stays NULL unless --list) */
   int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for input alifiles  */
   int           outfmt  = eslMSAFILE_UNKNOWN;  /* format code for output ali      */
-  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file             */
+  ESLX_MSAFILE *afp     = NULL;	               /* open alignment file, normal interface */
+  ESL_MSAFILE2 *afp2    = NULL;	               /* open alignment file, small-mem interface */
   FILE         *ofp;		               /* output file (default is stdout) */
   char        **alifile_list = NULL;           /* list of alignment files to merge */
   int           nalifile;                      /* size of alifile_list             */
   int           do_stall;                      /* used to stall when debugging     */
-  int           abctype;                       /* alphabet type */
   int           fi;                            /* counter over alignment files */
   int           ai, ai2;                       /* counters over alignments */
   int           nali_tot;                      /* number of alignments in all files */
@@ -231,6 +233,15 @@ main(int argc, char **argv)
   ESL_ALLOC(alenA,  sizeof(int64_t) * nalloc);
   if(do_rfonly) ESL_ALLOC(usemeA, sizeof(int *) * nalloc);
 
+  /* abc handling is weird. We only use alphabet to define gap characters in this miniapp.
+   * msa's are actually read in text mode. Thus eslRNA suffices for anything.
+   */
+  if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
+  else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
+  else if (do_small)                      	abc = esl_alphabet_Create(eslRNA); /* alphabet is only used to define gap characters, so (in this miniapp) we're okay specifying RNA for any alignment (even non-RNA ones) */
+  else                                          abc = esl_alphabet_Create(eslRNA); /* ditto */
+
   /****************************************************************
    *  Read alignments one at a time, storing them all, separately *
    ****************************************************************/
@@ -241,33 +252,25 @@ main(int argc, char **argv)
   ESL_ALLOC(nali_per_file, sizeof(int) * nalifile);
   esl_vec_ISet(nali_per_file, nalifile, 0);
 
-  for(fi = 0; fi < nalifile; fi++) { 
-    status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp);
-    if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
-    else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile_list[fi]);
-    else if (status != eslOK)        esl_fatal("Alignment file %s open failed with error %d\n", alifile_list[fi], status);
+  for (fi = 0; fi < nalifile; fi++) { 
+    
+    if (do_small) 
+      {
+	status  = esl_msafile2_Open(alifile_list[fi], NULL, &afp2);
+	if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
+	else if (status != eslOK)        esl_fatal("Alignment file %s open failed with error %d\n", alifile_list[fi], status);
+      }
+    else 
+      {
+	status = eslx_msafile_Open(NULL, alifile_list[fi], NULL, infmt, NULL, &afp);
+	if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+      }
 
-    if(abc == NULL) { /* this will only be true of first alignment in the first file */
-      if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
-      else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
-      else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-      else if (do_small) {
-	abc = esl_alphabet_Create(eslRNA);
-	/* alphabet is only used to define gap characters, so (in this miniapp) we're okay specifying RNA for any alignment (even non-RNA ones) */
-      }
-      else { 
-	status = esl_msafile_GuessAlphabet(afp, &abctype);
-	if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile_list[fi]);
-	else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
-	else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile_list[fi]);
-	else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile_list[fi]);
-	abc = esl_alphabet_Create(abctype);
-      }
-    }
+
     /* while loop: while we have an alignment in current alignment file, (statement looks weird b/c we use a different function if --small) */
     while((status = (do_small) ? 
-	   esl_msa_ReadInfoPfam(afp, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
-	   esl_msa_Read        (afp, &(msaA[ai]))) == eslOK) { 
+	   esl_msafile2_ReadInfoPfam(afp2, NULL, NULL, -1, NULL,NULL, &(msaA[ai]), &nseq_cur, &alen_cur, &ngs_cur, &maxname_cur, &maxgf_cur, &maxgc_cur, &maxgr_cur, NULL, NULL, NULL, NULL, NULL) : 
+	   eslx_msafile_Read        (afp, &(msaA[ai]))) == eslOK) { 
 
       if(msaA[ai]->rf == NULL) esl_fatal("Error, all alignments must have #=GC RF annotation; alignment %d of file %d does not (%s)\n", nali_per_file[fi], (fi+1), alifile_list[fi]); 
       msaA[ai]->abc = abc; /* msa's are read in text mode, so this is (currently) only used to define gap characters, it doesn't even have to be the correct alphabet. if --small, this is set as RNA regardless of input */
@@ -331,12 +334,20 @@ main(int argc, char **argv)
 	free(tmpstr);
       }
       ai++;
-    } /* end of while esl_msa_Read() loop */
-    if      (status == eslEFORMAT) esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp->errbuf);
-    else if (status == eslEINVAL)  esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp->errbuf);
-    else if (status != eslEOF)     esl_fatal("Alignment file %s, read failed with error code %d\n", alifile_list[fi], status);
-    if(nali_per_file[fi] == 0)     esl_fatal("Failed to read any alignments from file %s %s\n", alifile_list[fi], afp->errbuf);
-    esl_msafile_Close(afp);
+    } /* end of while eslx_msafile_Read() loop */
+
+    if (do_small) 
+      {
+	if      (status == eslEFORMAT) esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp2->errbuf);
+	else if (status == eslEINVAL)  esl_fatal("Alignment file %s, parse error:\n%s\n", alifile_list[fi], afp2->errbuf);
+	else if (status != eslEOF)     esl_fatal("Alignment file %s, read failed with error code %d\n", alifile_list[fi], status);
+      }
+    else if (status != eslEOF) eslx_msafile_ReadFailure(afp, status);
+
+    if(nali_per_file[fi] == 0)     esl_fatal("Failed to read any alignments from file %s\n", alifile_list[fi]);
+
+    if (do_small) esl_msafile2_Close(afp2);
+    else          eslx_msafile_Close(afp);
   } /* end of for (fi=0; fi < nalifile; fi++) */
   nali_tot = ai;
   
@@ -368,7 +379,7 @@ main(int argc, char **argv)
   if((status = validate_and_copy_msa_annotation(go, outfmt, mmsa, msaA, nali_tot, clen, alen_mmsa, maxinsert, errbuf)) != eslOK)
     esl_fatal("Error while checking and copying individual MSA annotation to merged MSA:%s\n", errbuf);
   
-  if(do_small) { 
+  if (do_small) { 
     /* Small memory mode, do up to 2 more passes through the input alignments:
      * pass 2 will output only GS data at top of output alignment file (only performed if >= 1 GS line read in input files 
      * pass 3 will output all aligned data at to output alignment file (always performed) 
@@ -388,38 +399,39 @@ main(int argc, char **argv)
     if(gs_exists) { 
       ai = 0;
       for(fi = 0; fi < nalifile; fi++) { 
-	status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp); /* this should work b/c it did on the first pass */
+	/* we're in small memory mode... */
+	status = esl_msafile2_Open(alifile_list[fi], NULL, &afp2); /* this should work b/c it did on the first pass */
 	if      (status == eslENOTFOUND) esl_fatal("Second pass, alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
 	else if (status == eslEFORMAT)   esl_fatal("Second pass, couldn't determine format of alignment %s\n", alifile_list[fi]);
 	else if (status != eslOK)        esl_fatal("Second pass, alignment file %s open failed with error %d\n", alifile_list[fi], status);
 	
 	for(ai2 = 0; ai2 < nali_per_file[fi]; ai2++) { 
-	  status = esl_msa_RegurgitatePfam(afp, ofp, 
-					   maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag (irrelevant here) */
-					   FALSE, /* regurgitate stockholm header ? */
-					   FALSE, /* regurgitate // trailer ? */
-					   FALSE, /* regurgitate blank lines */
-					   FALSE, /* regurgitate comments */
-					   FALSE, /* regurgitate GF ? */
-					   TRUE,  /* regurgitate GS ? */
-					   FALSE, /* regurgitate GC ? */
-					   FALSE, /* regurgitate GR ? */
-					   FALSE, /* regurgitate aseq ? */
-					   NULL,  /* regurgitate all seqs, not a subset */ 
-					   NULL,  /* regurgitate all seqs, not a subset */ 
-					   NULL,  /* we're not keeping a subset of columns */
-					   NULL,  /* we're not adding all gap columns */
-					   alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					   '.',   /* gap char, irrelevant */
-					   NULL,  /* don't return num seqs read */
-					   NULL); /* don't return num seqs regurgitated */
+	  status = esl_msafile2_RegurgitatePfam(afp2, ofp, 
+						maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag (irrelevant here) */
+						FALSE, /* regurgitate stockholm header ? */
+						FALSE, /* regurgitate // trailer ? */
+						FALSE, /* regurgitate blank lines */
+						FALSE, /* regurgitate comments */
+						FALSE, /* regurgitate GF ? */
+						TRUE,  /* regurgitate GS ? */
+						FALSE, /* regurgitate GC ? */
+						FALSE, /* regurgitate GR ? */
+						FALSE, /* regurgitate aseq ? */
+						NULL,  /* regurgitate all seqs, not a subset */ 
+						NULL,  /* regurgitate all seqs, not a subset */ 
+						NULL,  /* we're not keeping a subset of columns */
+						NULL,  /* we're not adding all gap columns */
+						alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
+						'.',   /* gap char, irrelevant */
+						NULL,  /* don't return num seqs read */
+						NULL); /* don't return num seqs regurgitated */
 	  if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
-	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
+	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp2->errbuf); 
 	  free(ngapA);
 	  ai++;
 	  fflush(ofp);
 	}
-	esl_msafile_Close(afp);
+	esl_msafile2_Close(afp2);
       }
       fprintf(ofp, "\n"); /* a single blank line to separate GS annotation from aligned data */
     }
@@ -427,7 +439,7 @@ main(int argc, char **argv)
     /* do another (either second or third) pass through alignment files, outputting aligned sequence data (and GR) as we go */
     ai = 0;
     for(fi = 0; fi < nalifile; fi++) { 
-      status = esl_msafile_Open(alifile_list[fi], infmt, NULL, &afp); /* this should work b/c it did on the first pass */
+      status = esl_msafile2_Open(alifile_list[fi], NULL, &afp2); /* this should work b/c it did on the first pass */
       if      (status == eslENOTFOUND) esl_fatal("Second pass, alignment file %s doesn't exist or is not readable\n", alifile_list[fi]);
       else if (status == eslEFORMAT)   esl_fatal("Second pass, couldn't determine format of alignment %s\n", alifile_list[fi]);
       else if (status != eslOK)        esl_fatal("Second pass, alignment file %s open failed with error %d\n", alifile_list[fi], status);
@@ -439,35 +451,35 @@ main(int argc, char **argv)
 	  if((status = determine_gap_columns_to_add(msaA[ai], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
 	    esl_fatal("error determining number of all gap columns to add to alignment %d of file %s", ai2, alifile_list[fi]);
 	}
-	status = esl_msa_RegurgitatePfam(afp, ofp,
-					 maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag */
-					 FALSE, /* regurgitate stockholm header ? */
-					 FALSE, /* regurgitate // trailer ? */
-					 FALSE, /* regurgitate blank lines */
-					 FALSE, /* regurgitate comments */
-					 FALSE, /* regurgitate GF ? */
-					 FALSE, /* regurgitate GS ? */
-					 FALSE, /* regurgitate GC ? */
-					 TRUE,  /* regurgitate GR ? */
-					 TRUE,  /* regurgitate aseq ? */
-					 NULL,  /* regurgitate all seqs, not a subset */ 
-					 NULL,  /* regurgitate all seqs, not a subset */ 
-					 (do_rfonly) ? usemeA[ai] : NULL, 
-					 (do_rfonly) ? NULL       : ngapA,
-					 alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
-					 '.',
-					 NULL,  /* don't return num seqs read */
-					 NULL); /* don't return num seqs regurgitated */
+	status = esl_msafile2_RegurgitatePfam(afp2, ofp,
+					      maxname, maxgf, maxgc, maxgr, /* max width of a seq name, gf tag, gc tag, gr tag */
+					      FALSE, /* regurgitate stockholm header ? */
+					      FALSE, /* regurgitate // trailer ? */
+					      FALSE, /* regurgitate blank lines */
+					      FALSE, /* regurgitate comments */
+					      FALSE, /* regurgitate GF ? */
+					      FALSE, /* regurgitate GS ? */
+					      FALSE, /* regurgitate GC ? */
+					      TRUE,  /* regurgitate GR ? */
+					      TRUE,  /* regurgitate aseq ? */
+					      NULL,  /* regurgitate all seqs, not a subset */ 
+					      NULL,  /* regurgitate all seqs, not a subset */ 
+					      (do_rfonly) ? usemeA[ai] : NULL, 
+					      (do_rfonly) ? NULL       : ngapA,
+					      alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
+					      '.',
+					      NULL,  /* don't return num seqs read */
+					      NULL); /* don't return num seqs regurgitated */
 
 	if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
-	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp->errbuf); 
+	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp2->errbuf); 
 	free(ngapA);
 	esl_msa_Destroy(msaA[ai]);
 	msaA[ai] = NULL;
 	ai++;
 	fflush(ofp);
       }
-      esl_msafile_Close(afp);
+      esl_msafile2_Close(afp2);
     }
     /* finally, write GC annotation and '//' line */
     margin = maxname + 1;
@@ -487,7 +499,7 @@ main(int argc, char **argv)
     if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "done.\n#\n"); fflush(stdout); }
     mmsa->alen = alen_mmsa; /* it was -1, b/c we filled in each seq as we marched through each msaA[] alignment */
     if(ofp != stdout) { fprintf(stdout, "# Saving alignment to file %s ... ", esl_opt_GetString(go, "-o")); }
-    status = esl_msa_Write(ofp, mmsa, outfmt);
+    status = eslx_msafile_Write(ofp, mmsa, outfmt);
     if(status != eslOK) esl_fatal("Error, during alignment output; status code: %d\n", status);
   }
   if(ofp != stdout) { 

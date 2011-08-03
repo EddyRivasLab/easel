@@ -810,7 +810,6 @@ esl_opt_IsDefault(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_IsOn()
  * Synopsis:  Returns <TRUE> if option is set to a non-<NULL> value.
- * Incept:    SRE, Sat Feb 14 09:29:58 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option is on (set to a non-<NULL>
  *            value). 
@@ -1975,9 +1974,10 @@ main(void)
   fclose(f2);
 
   /* Put some test vars in the environment.
+   * (Note: apparently, on some OS's (Mac OS/X), setenv() necessarily leaks memory.)
    */
-  putenv("FOOTEST=");
-  putenv("HOSTTEST=wasp.cryptogenomicon.org");
+  setenv("FOOTEST",  "",                         1);
+  setenv("HOSTTEST", "wasp.cryptogenomicon.org", 1);
 
   /* Open the test config files for reading.
    */

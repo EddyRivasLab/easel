@@ -40,7 +40,7 @@
 
 typedef struct {
   /* information about the size of the growing alignment parse */
-  int       nseq;		/* # of sqnames currently stored, sqname[0..nseq-1]. Becomes msa->nseq when done */
+  int       nseq;		/* # of sqnames currently stored, sqname[0..nseq-1]. Copy of msa->nseq */
   int64_t   alen;		/* alignment length not including current block being parsed. Becomes msa->alen when done */
 
   /* Having to do with the expected order of lines in each Stockholm block: */
@@ -284,7 +284,7 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 	    else            { if (pd->nseq_b < pd->nseq)  ESL_XFAIL(eslEFORMAT, afp->errmsg, "number of seqs in block did not match number annotated by #=GS lines"); };
 	    if (pd->nblock) { if (pd->bi != pd->npb)      ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected number of lines in alignment block"); }
 
-	    pd->nseq     = pd->nseq_b;
+	    pd->nseq     = msa->nseq = pd->nseq_b;
 	    pd->alen    += pd->alen_b;
 	    pd->in_block = FALSE;
 	    pd->npb      = pd->bi;
@@ -313,8 +313,6 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
   else if (status != eslOK)  goto ERROR;
   if (pd->nblock == 0)       ESL_XFAIL(eslEFORMAT, afp->errmsg, "no alignment data followed Stockholm header");
 
-
-  msa->nseq = pd->nseq;
   msa->alen = pd->alen;
 
   /* Stockholm file can set weights. If eslMSA_HASWGTS flag is up, at least one was set: then all must be. */
@@ -964,6 +962,7 @@ stockholm_get_seqidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *name, esl_
 
   if ( (status = esl_msa_SetSeqName(msa, seqidx, name, n)) != eslOK) goto ERROR;
   pd->nseq++;
+  msa->nseq = pd->nseq;		/* pd->nseq and msa->nseq must stay in lockstep */
 
   *ret_idx = seqidx;
   return eslOK;

@@ -19,6 +19,7 @@
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_distance.h"
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
@@ -63,8 +64,8 @@ main(int argc, char **argv)
   char         *alifile1= NULL;	/* alignment 1 file name           */
   char         *alifile2= NULL;	/* alignment 2 file name           */
   int           fmt;		/* format code for alifiles        */
-  ESL_MSAFILE  *afp1    = NULL;	/* open alignment file 1           */
-  ESL_MSAFILE  *afp2    = NULL;	/* open alignment file 2           */
+  ESLX_MSAFILE *afp1    = NULL;	/* open alignment file 1           */
+  ESLX_MSAFILE *afp2    = NULL;	/* open alignment file 2           */
   ESL_MSA      *msa1    = NULL;	/* multiple sequence alignment 1   */
   ESL_MSA      *msa2    = NULL;	/* multiple sequence alignment 2   */
   int           status;		/* easel return code               */
@@ -111,52 +112,22 @@ main(int argc, char **argv)
   fmt             = eslMSAFILE_STOCKHOLM;
 
   /***********************************************
-   * Open the MSA file; determine alphabet; set for digital input
+   * Open the MSA files
    ***********************************************/
 
-  status = esl_msafile_Open(alifile1, fmt, NULL, &afp1);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile1);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", alifile1);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file 1 open failed with error %d\n", status);
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-  else {
-    int type;
-    status = esl_msafile_GuessAlphabet(afp1, &type);
-    if (status == eslENOALPHABET)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile1);
-    else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp1->errbuf);
-    else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile1);
-    else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile1);
-    abc = esl_alphabet_Create(type);
-  }
-  esl_msafile_SetDigital(afp1, abc);
 
-  status = esl_msafile_OpenDigital(abc, alifile2, eslMSAFILE_STOCKHOLM, NULL, &afp2);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile2);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", alifile2);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file 1 open failed with error %d\n", status);
+  if ( (status = eslx_msafile_Open(&abc, alifile1, NULL, fmt, NULL, &afp1)) != eslOK) eslx_msafile_OpenFailure(afp1, status);
+  if ( (status = eslx_msafile_Open(&abc, alifile2, NULL, fmt, NULL, &afp2)) != eslOK) eslx_msafile_OpenFailure(afp2, status);
 
   /******************************************************************
    * Read first alignment from each file, we only use the first one 
    ******************************************************************/
-  if((status = esl_msa_Read(afp1, &msa1)) != eslOK) { 
-    if(status == eslEFORMAT)   esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp1->linenumber, afp1->fname, afp1->errbuf, afp1->buf);	
-    else if (status != eslEOF) esl_fatal("Alignment file read failed of %s with error code %d\n", alifile1, status);
-    else                       esl_fatal("No alignments found in file %s\n", alifile1);
-  }
 
-  if((status = esl_msa_Read(afp2, &msa2)) != eslOK) { 
-    if(status == eslEFORMAT)   esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", afp2->linenumber, afp2->fname, afp2->errbuf, afp2->buf);	
-    else if (status != eslEOF) esl_fatal("Alignment file read of %s failed with error code %d\n", alifile2, status);
-    else                       esl_fatal("No alignments found in file %s\n", alifile2);
-  }
+  if ((status = eslx_msafile_Read(afp1, &msa1)) != eslOK) eslx_msafile_ReadFailure(afp1, status);
+  if ((status = eslx_msafile_Read(afp2, &msa2)) != eslOK) eslx_msafile_ReadFailure(afp2, status);
 
   /* map the alignments in msa1 and msa2 */
   if(! esl_opt_IsOn(go, "--submap")) { 
@@ -178,8 +149,8 @@ main(int argc, char **argv)
   
   /* Cleanup, normal return
    */
-  esl_msafile_Close(afp1);
-  esl_msafile_Close(afp2);
+  eslx_msafile_Close(afp1);
+  eslx_msafile_Close(afp2);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   esl_msa_Destroy(msa1);
@@ -187,8 +158,8 @@ main(int argc, char **argv)
   return 0;
   
  ERROR:
-  if (afp1)   esl_msafile_Close(afp1);
-  if (afp2)   esl_msafile_Close(afp2);
+  if (afp1)   eslx_msafile_Close(afp1);
+  if (afp2)   eslx_msafile_Close(afp2);
   if (go)     esl_getopts_Destroy(go);
   if (msa1)   esl_msa_Destroy(msa1);
   if (msa2)   esl_msa_Destroy(msa2);

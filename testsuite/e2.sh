@@ -1,6 +1,7 @@
 #! /bin/sh
 
-# Usage: ./e2.sh <esl-seqstat> <stockholm file>
+# Usage:    ./e2.sh <esl-seqstat> <stockholm file>
+# Example:  ./e2.sh ../miniapps/esl-seqstat ../formats/stockholm.1
 #
 # This tests that                 % cat foo.sto | esl-seqstat -
 # produces an error message:      Format of seqfile - unrecognized.

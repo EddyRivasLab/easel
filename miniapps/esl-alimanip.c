@@ -1,8 +1,4 @@
 /* Manipulate a multiple sequence alignment in various ways.
- *
- * Derived from easel's esl-alistat which was from squid's alistat (1995)
- * EPN, Fri Aug 10 08:52:30 2007
- * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -20,6 +16,8 @@
 #include "esl_getopts.h"
 #include "esl_keyhash.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_msafile2.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"
 #include "esl_stack.h"
@@ -79,8 +77,8 @@ static ESL_OPTIONS options[] = {
   /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
   { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
   { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
-  { "--informat",  eslARG_STRING,FALSE, NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                       1 },
-  { "--outformat", eslARG_STRING,FALSE, NULL, NULL,      NULL, NULL, NULL,                      "specify that output format be <s>",                              1 },
+  { "--informat",  eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                       1 },
+  { "--outformat", eslARG_STRING,NULL,  NULL,NULL,  NULL, NULL,NULL,                       "specify that output format be <s>",                              1 },
   { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
   /* options for removing/trimming/reordering sequences */
   { "--lnfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=2", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",      2 },
@@ -140,14 +138,14 @@ main(int argc, char **argv)
   int           infmt   = eslMSAFILE_UNKNOWN; /* format code for alifile    */
   int           outfmt  = eslMSAFILE_UNKNOWN; /* format code for output ali */
   int           i;              /* counter */
-  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
+  ESLX_MSAFILE *afp     = NULL;	/* open ali file, normal interface           */
+  ESL_MSAFILE2 *afp2    = NULL; /* open ali file, legacy small-mem interface */
   ESL_MSA      *msa     = NULL;	/* one multiple sequence alignment */
   int           status;		/* easel return code               */
   int           nali;		/* number of alignments read       */
   FILE         *ofp;		/* output file (default is stdout) */
   char          errbuf[eslERRBUFSIZE];
   int           median;         /* median length seq in msa */
-  int           type;           /* alphabet type */
   float         minlen;         /* min length seq we'll keep */
   float         maxlen;         /* max length seq we'll keep */
   ESL_MSA      *new_msa;        /* a new MSA object created from the msa we read from a file */
@@ -201,6 +199,8 @@ main(int argc, char **argv)
   ESL_KEYHASH    *seqname_keyhash;      /* keyhash of sequence names listed in list file <f>, with <f> from --seq-k <f> --seq-r <f> */
   int             nseq_read = 0;        /* number of sequences read from current alignment */
   int             nseq_regurged = 0;     /* number of sequences regurgitated from current alignment */
+
+
   /***********************************************
    * Parse command line
    ***********************************************/
@@ -221,7 +221,6 @@ main(int argc, char **argv)
       esl_usage (stdout, argv[0], usage);
       puts("\nwhere basic options are:");
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("  (valid formats are: stockholm [default], pfam, a2m, psiblast, afa)");
       puts("\noptions for removing/reordering/trimming sequences:");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
       puts("\noptions for adding/removing alignment annotation:");
@@ -238,7 +237,6 @@ main(int argc, char **argv)
       esl_usage (stdout, argv[0], usage);
       puts("\nwhere basic options are:");
       esl_opt_DisplayHelp(stdout, go, 1, 2, 80);
-      puts("  (valid formats are: stockholm [default], pfam, a2m, psiblast, afa)");
       puts("\noptions for removing/reordering/trimming sequences:");
       esl_opt_DisplayHelp(stdout, go, 2, 2, 80); 
       puts("\noptions for adding/removing alignment annotation:");
@@ -265,31 +263,55 @@ main(int argc, char **argv)
   alifile = esl_opt_GetArg(go, 1);
 
   /* get informat and outformat */
-  if (esl_opt_IsOn(go, "--informat")) {
-    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
-    if (esl_opt_GetBoolean(go, "--small") && infmt != eslMSAFILE_PFAM) esl_fatal("--small requires --informat pfam\n");     
-  }
-  if (esl_opt_IsOn(go, "--outformat")) {
-    outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
-    if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
-    if (esl_opt_GetBoolean(go, "--small") && outfmt != eslMSAFILE_PFAM) esl_fatal("--small and --outformat <f> only works if <f> is 'pfam'\n");     
-  }
-  else if (esl_opt_GetBoolean(go, "--small")) { outfmt = eslMSAFILE_PFAM; }
-  else                                        { outfmt = eslMSAFILE_STOCKHOLM; }
+  if (esl_opt_GetBoolean(go, "--small")) 
+    {
+      infmt  = eslMSAFILE_PFAM; 
+      outfmt = eslMSAFILE_PFAM; 
+    }
+  else
+    {
+      outfmt = eslMSAFILE_STOCKHOLM;
+    }
+
+  if (esl_opt_IsOn(go, "--informat"))
+    {
+      infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+      if (infmt == eslMSAFILE_UNKNOWN)
+	esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+      if (esl_opt_GetBoolean(go, "--small") && infmt != eslMSAFILE_PFAM)
+	esl_fatal("--small requires (and defaults to) pfam format\ncan't set --informat %s\n", esl_opt_GetString(go, "--informat")); 
+    }
+
+  if (esl_opt_IsOn(go, "--outformat"))
+    {
+      outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat"));
+      if (outfmt == eslMSAFILE_UNKNOWN)
+	esl_fatal("%s is not a valid input sequence file format for --outformat", esl_opt_GetString(go, "--outformat")); 
+      if (esl_opt_GetBoolean(go, "--small") && outfmt != eslMSAFILE_PFAM)
+	esl_fatal("--small requires (and defaults to) pfam format\ncan't set --outformat %s\n", esl_opt_GetString(go, "--outformat")); 
+    }
 
   /***********************************************
    * Open the MSA file; determine alphabet; set for digital input
    ***********************************************/
 
-  status = esl_msafile_Open(alifile, infmt, NULL, &afp);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file open failed with error %d\n", status);
-  infmt = afp->format;
+  if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
+  else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--small"))   esl_fatal("Must specify an alphabet (--amino, --dna, --rna) to use --small");
+
+  if (esl_opt_GetBoolean(go, "--small")) 
+    {
+      status = esl_msafile2_OpenDigital(abc, alifile, NULL, &afp2);
+      if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
+      else if (status != eslOK)        esl_fatal("Alignment file %s open failed with error %d\n", alifile, status);
+    }
+  else
+    {
+      if ( (status = eslx_msafile_Open(&abc, alifile, NULL, infmt, NULL, &afp)) != eslOK)
+	eslx_msafile_OpenFailure(afp, status);
+      infmt = afp->format;
+    }
 
   /* Check for incompatible options that require Stockholm/Pfam as input or output format */
   if((esl_opt_IsOn(go, "--mask2rf")) && (outfmt != eslMSAFILE_STOCKHOLM) && (outfmt != eslMSAFILE_PFAM)) esl_fatal("with --mask2rf, the the output format must be stockholm/pfam format");
@@ -311,20 +333,6 @@ main(int argc, char **argv)
     if ((ofp = fopen(esl_opt_GetString(go, "-o"), "w")) == NULL) 
 	esl_fatal("Failed to open -o output file %s\n", esl_opt_GetString(go, "-o"));
     } else ofp = stdout;
-
-  if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
-  else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
-  else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-  else {
-    if (esl_opt_GetBoolean(go, "--small")) esl_fatal("--small requires one of --amino, --dna, --rna be specified.");
-    status = esl_msafile_GuessAlphabet(afp, &type);
-    if (status == eslENOALPHABET)    esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
-    else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
-    else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile);
-    else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile);
-    abc = esl_alphabet_Create(type);
-  }
-  esl_msafile_SetDigital(afp, abc);
 
   do_id_cluster     = ((esl_opt_IsOn(go, "--cn-id"))  || (esl_opt_IsOn(go, "--cs-id"))  || (esl_opt_IsOn(go, "--cx-id"))) ? TRUE : FALSE;
   do_insert_cluster = ((esl_opt_IsOn(go, "--cn-ins")) || (esl_opt_IsOn(go, "--cs-ins")) || (esl_opt_IsOn(go, "--cx-ins")))? TRUE : FALSE;
@@ -377,11 +385,9 @@ main(int argc, char **argv)
 
   nali = 0;
   if (! esl_opt_GetBoolean(go, "--small")) { 
-    while ((status = esl_msa_Read(afp, &msa)) == eslOK)
+    while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
       {
-	if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);      
+	if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
 	nali++;
 
 	/* if RF exists, get i_am_rf array[0..alen] which tells us which positions are non-gap RF positions
@@ -636,7 +642,7 @@ main(int argc, char **argv)
 	  nmin = esl_opt_IsOn(go, "--c-nmin") ? esl_opt_GetInteger(go, "--c-nmin") : 1;
 	  for(m = 0; m < nmsa; m++) { 
 	    if(cmsa[m]->nseq >= nmin) { 
-	      status = esl_msa_Write(ofp, cmsa[m], outfmt);
+	      status = eslx_msafile_Write(ofp, cmsa[m], outfmt);
 	      if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	      else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
 	    }
@@ -658,7 +664,7 @@ main(int argc, char **argv)
 	 * Output alignment *
 	 ********************/
 	if(! esl_opt_IsOn(go, "-M")) { /* if -M, we already output the alignments in minorize_msa() */
-	  status = esl_msa_Write(ofp, msa, outfmt);
+	  status = eslx_msafile_Write(ofp, msa, outfmt);
 	  if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	  else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
 	}
@@ -669,54 +675,38 @@ main(int argc, char **argv)
 	if(pp_ct    != NULL) { esl_Free2D((void **) pp_ct, msa->alen);  pp_ct    = NULL; }
 	if(i_am_rf  != NULL) { free(i_am_rf);                           i_am_rf  = NULL; }
 	if(rf2a_map != NULL) { free(rf2a_map);                          rf2a_map = NULL; }
-      }
-    /* If an msa read failed, we drop out to here with an informative status code. 
-     */
-    if      (status == eslEFORMAT) 
-      esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
-		afp->linenumber, afp->fname, afp->errbuf, afp->buf);	
-    else if (status != eslEOF)
-      esl_fatal("Alignment file read failed with error code %d\n", status);
-    else if (nali   == 0)
-      esl_fatal("No alignments found in file %s\n", alifile);
+      }	/* end loop over msa's */
+    if (nali   == 0) esl_fatal("No alignments found in file %s\n", alifile);
   } /* end of 'if (! esl_opt_IsOn(go, "--small"))' */
-  else { /* --small enabled */
-    /* First, a paranoid check first, the following should never be false based on earlier checks */
-    if((! esl_opt_IsOn(go, "--seq-r")) && (! esl_opt_IsOn(go, "--seq-k"))) esl_fatal("--small requires either --seq-r or --seq-k");
-    /* We've already read list file <f>, seqlist holds the seqlist_n sequences read from <f> (<f> from either --seq-k <f> or --seq-r <f>) */
-    seqname_keyhash = esl_keyhash_Create();
-    for(n = 0; n < seqlist_n; n++) { 
-      status = esl_keyhash_Store(seqname_keyhash, seqlist[n], -1, NULL); 
-      if(status == eslEDUP)     { esl_fatal("Error sequence %s listed twice in a input list file.", seqlist[n]); }
-      else if (status != eslOK) { esl_fatal("Error adding sequence %s to keyhash", seqlist[n]); }
-    }
-    status = eslOK;
-    if(infmt == eslMSAFILE_PFAM && outfmt == eslMSAFILE_PFAM) { 
-      while((status = esl_msa_RegurgitatePfam(afp, ofp, 
-					      -1, -1, -1, -1, /* don't care about max width of fields */
-					      TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
-					      esl_opt_IsOn(go, "--seq-k") ? seqname_keyhash : NULL, /* if --seq-k <f> keep seqs from list file <f> */
-					      esl_opt_IsOn(go, "--seq-r") ? seqname_keyhash : NULL, /* if --seq-r <f> remove seqs from list file <f> */
-					      NULL, NULL, -1, '.', &nseq_read, &nseq_regurged)) == eslOK) 
+
+  else 
+    { /* --small enabled */
+      /* First, a paranoid check first, the following should never be false based on earlier checks */
+      if((! esl_opt_IsOn(go, "--seq-r")) && (! esl_opt_IsOn(go, "--seq-k"))) esl_fatal("--small requires either --seq-r or --seq-k");
+      /* We've already read list file <f>, seqlist holds the seqlist_n sequences read from <f> (<f> from either --seq-k <f> or --seq-r <f>) */
+      seqname_keyhash = esl_keyhash_Create();
+      for (n = 0; n < seqlist_n; n++) 
+	{ 
+	  status = esl_keyhash_Store(seqname_keyhash, seqlist[n], -1, NULL); 
+	  if(status == eslEDUP)     { esl_fatal("Error sequence %s listed twice in a input list file.", seqlist[n]); }
+	  else if (status != eslOK) { esl_fatal("Error adding sequence %s to keyhash", seqlist[n]); }
+	}
+
+      while ((status = esl_msafile2_RegurgitatePfam(afp2, ofp, 
+						    -1, -1, -1, -1, /* don't care about max width of fields */
+						    TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, /* regurgitate all non-seq info */
+						    esl_opt_IsOn(go, "--seq-k") ? seqname_keyhash : NULL, /* if --seq-k <f> keep seqs from list file <f> */
+						    esl_opt_IsOn(go, "--seq-r") ? seqname_keyhash : NULL, /* if --seq-r <f> remove seqs from list file <f> */
+						    NULL, NULL, -1, '.', &nseq_read, &nseq_regurged)) == eslOK) 
 	{ 
 	  nali++;
-	  if(esl_opt_IsOn(go, "--seq-k") && (nseq_regurged != seqlist_n)) { 
-	    esl_msafile_Close(afp);
-	    if(esl_opt_IsOn(go, "-o")) fclose(ofp);
+	  if      (esl_opt_IsOn(go, "--seq-k") && (nseq_regurged != seqlist_n))  
 	    esl_fatal("Error, in alignment %d, did not find %d of the sequences listed in %s", nali, (seqlist_n - nseq_regurged), esl_opt_GetString(go, "--seq-k"));
-	  } 
-	  else if(esl_opt_IsOn(go, "--seq-r") && ((nseq_read - nseq_regurged) != seqlist_n)) { 
-	    esl_msafile_Close(afp);
-	    if(esl_opt_IsOn(go, "-o")) fclose(ofp);
+	  else if (esl_opt_IsOn(go, "--seq-r") && ((nseq_read - nseq_regurged) != seqlist_n))  
 	    esl_fatal("Error, in alignment %d, did not find %d of the sequences listed in %s", nali, (seqlist_n - (nseq_read - nseq_regurged)), esl_opt_GetString(go, "--seq-r"));
-	  }
 	}
     }
-    else { /* this is actually unnecessary, we should never reach this point due to earlier checks */
-      esl_fatal("--small only works if input/output format are both either pfam or afa");
-    }
-    esl_keyhash_Destroy(seqname_keyhash);
-  }
+
   /* Cleanup, normal return
    */
   if(seqlist != NULL) { 
@@ -725,7 +715,7 @@ main(int argc, char **argv)
   }
 
   if(esl_opt_IsOn(go, "-o")) { 
-fclose(ofp);
+    fclose(ofp);
     if(nali > 1) printf("# %d alignments saved to file %s.\n", nali, esl_opt_GetString(go, "-o"));
     else         printf("# Alignment saved to file %s.\n", esl_opt_GetString(go, "-o"));
   }
@@ -738,7 +728,8 @@ fclose(ofp);
     printf("# Distance matri{x,ces} saved to file %s.\n", esl_opt_GetString(go, "--c-mx"));
   }
 
-  esl_msafile_Close(afp);
+  if (esl_opt_GetBoolean(go, "--small")) esl_msafile2_Close(afp2);
+  else                                   eslx_msafile_Close(afp);
   esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   
@@ -2891,9 +2882,9 @@ minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *
   }
   if((status = reorder_msa(msa, order, errbuf)) != eslOK) return status;
 
-  esl_msa_Write(fp, msa, outfmt);
+  eslx_msafile_Write(fp, msa, outfmt);
   for(m = 0; m < nmin; m++) { 
-    esl_msa_Write(fp, minor_msaA[m], outfmt);
+    eslx_msafile_Write(fp, minor_msaA[m], outfmt);
     esl_msa_Destroy(minor_msaA[m]);
   }
   free(minor_msaA);
@@ -3305,3 +3296,10 @@ compare_ints(const void *el1, const void *el2)
   else if ((* ((int *) el1)) < (* ((int *) el2)))  return -1;
   return 0;
 }
+
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * $SVN $URL$
+ * SVN $Id: esl-alimanip.c 711 2011-07-27 20:06:15Z eddys $
+ *****************************************************************/

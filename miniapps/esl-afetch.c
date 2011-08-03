@@ -1,8 +1,4 @@
 /* Fetch an MSA from a multi-MSA database (such as Pfam or Rfam).
- * 
- * From squid's afetch (1999)
- * SRE, Mon May 28 08:00:47 2007 [Janelia] [Chemical Brothers, Exit Planet Dust]
- * SVN $Id$
  */
 #include "esl_config.h"
 
@@ -14,6 +10,7 @@
 #include "esl_getopts.h"
 #include "esl_fileparser.h"
 #include "esl_keyhash.h"
+#include "esl_mem.h"
 #include "esl_ssi.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
@@ -52,28 +49,31 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
 }
 
 static ESL_OPTIONS options[] = {
-  /* name       type        default env   range togs  reqs  incomp      help                                                   docgroup */
-  { "-h",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
-  { "-f",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
-  { "-o",         eslARG_OUTFILE,FALSE, NULL, NULL, NULL, NULL,"-O,--index",   "output alignments to file <f> instead of stdout",   0 },
-  { "-O",         eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",              0 },
-  { "--informat", eslARG_STRING, FALSE, NULL, NULL, NULL, NULL, NULL,          "specify that <msafile> is in format <s>",           0 },
-  { "--index",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL, NULL,          "index the <msafile>, creating <msafile>.ssi",       0 },
+  /* name             type           default env   range togs  reqs  incomp      help                                                   docgroup */
+  { "-h",         eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL, NULL,          "help; show brief info on version and usage",        0 },
+  { "-f",         eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL,"--index",      "second cmdline arg is a file of names to retrieve", 0 },
+  { "-o",         eslARG_OUTFILE,     FALSE, NULL, NULL, NULL, NULL,"-O,--index",   "output alignments to file <f> instead of stdout",   0 },
+  { "-O",         eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL,"-o,-f,--index","output alignment to file named <key>",              0 },
+  { "--informat", eslARG_STRING,      FALSE, NULL, NULL, NULL, NULL, NULL,          "specify that <msafile> is in format <s>",           0 },
+  { "--outformat",eslARG_STRING,"Stockholm", NULL, NULL, NULL, NULL, "--index",     "output fetched alignment(s) in format <s>",         0 },
+  { "--index",    eslARG_NONE,        FALSE, NULL, NULL, NULL, NULL, NULL,          "index the <msafile>, creating <msafile>.ssi",       0 },
   { 0,0,0,0,0,0,0,0,0,0 },
 };
 
-static void create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp);
-static void multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp);
-static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp);
-static void regurgitate_one_stockholm_entry(FILE *ofp, ESL_MSAFILE *afp);
+static void create_ssi_index(ESL_GETOPTS *go, ESLX_MSAFILE *afp);
+static void multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp, ESL_SSI *ssi);
+static void onefetch  (ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key,     ESLX_MSAFILE *afp, ESL_SSI *ssi);
+static void regurgitate_one_stockholm_entry(FILE *ofp,                        ESLX_MSAFILE *afp);
 
 int
 main(int argc, char **argv)
 {
   ESL_GETOPTS  *go      = NULL;	               /* application configuration       */
   char         *alifile = NULL;	               /* alignment file name             */
-  int           fmt     = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
-  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file             */
+  int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
+  int           outfmt  = eslMSAFILE_UNKNOWN;  /* output format for fetched msa's */
+  ESLX_MSAFILE *afp     = NULL;	               /* open alignment file             */
+  ESL_SSI      *ssi     = NULL;		       /* open SSI index file             */
   FILE         *ofp     = NULL;	               /* output stream for alignments    */
   int           status;		               /* easel return code               */
 
@@ -88,17 +88,39 @@ main(int argc, char **argv)
   if (esl_opt_ArgNumber(go) < 1)                       cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
 
   if (esl_opt_IsOn(go, "--informat")) {
-    fmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
-    if (fmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input sequence file format for --informat", esl_opt_GetString(go, "--informat")); 
+    infmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--informat"));
+    if (infmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid input alignment file format for --informat", esl_opt_GetString(go, "--informat")); 
   }
+
+  outfmt = eslx_msafile_EncodeFormat(esl_opt_GetString(go, "--outformat")); 
+  if (outfmt == eslMSAFILE_UNKNOWN) esl_fatal("%s is not a valid output alignment file format for --outformat", esl_opt_GetString(go, "--outformat")); 
+
   alifile = esl_opt_GetArg(go, 1);
   
   /* Open the alignment file.  */
-  status  = esl_msafile_Open(alifile, fmt, NULL, &afp);
-  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
-  
+  if ( (status  = eslx_msafile_Open(NULL, alifile, NULL, infmt, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+
+  /* Open the SSI index, if any */
+  if (! esl_opt_GetBoolean(go, "--index")) 
+    {
+      if (afp->bf->mode_is == eslBUFFER_FILE    ||
+	  afp->bf->mode_is == eslBUFFER_ALLFILE ||
+	  afp->bf->mode_is == eslBUFFER_MMAP)
+	{
+	  char *ssifile = NULL;
+	  esl_sprintf(&ssifile, "%s.ssi", afp->bf->filename);
+      
+	  status = esl_ssi_Open(ssifile, &ssi);
+	  if      (status == eslERANGE )   esl_fatal("SSI index %s has 64-bit offsets; this system doesn't support them", ssifile);
+	  else if (status == eslEFORMAT)   esl_fatal("SSI index %s has an unrecognized format. Try recreating, w/ esl-afetch --index", ssifile);
+	  else if (status == eslENOTFOUND) ssi = NULL;
+	  else if (status != eslOK)        esl_fatal("SSI index %s: open failed, error code %d\n", ssifile, status);
+	  
+	  free(ssifile);
+	}
+    }
+
   /* Open the output file, if any
    */
   if (esl_opt_GetBoolean(go, "-O")) 
@@ -122,16 +144,16 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "-f"))
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      multifetch(go, ofp, esl_opt_GetArg(go, 2), afp);
+      multifetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp, ssi);
     }
   else 
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      onefetch(go, ofp, esl_opt_GetArg(go, 2), afp);
+      onefetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp, ssi);
       if (ofp != stdout) printf("\n\nRetrieved alignment %s.\n",  esl_opt_GetArg(go, 2));
     }
 
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
   esl_getopts_Destroy(go);
   exit(0);
 }
@@ -141,7 +163,7 @@ main(int argc, char **argv)
  * Both name and accession of MSAs are stored as keys.
  */
 static void
-create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
+create_ssi_index(ESL_GETOPTS *go, ESLX_MSAFILE *afp)
 {
   ESL_NEWSSI *ns      = NULL;
   ESL_MSA    *msa     = NULL;
@@ -150,39 +172,40 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
   uint16_t    fh;
   int         status;
 
-  if (afp->ssi != NULL) 
-    esl_fatal("Alignment file %s already has an SSI index. Delete or move it first.\n", afp->fname);
+  if (afp->bf->mode_is != eslBUFFER_FILE &&
+      afp->bf->mode_is != eslBUFFER_ALLFILE &&
+      afp->bf->mode_is != eslBUFFER_MMAP)
+    esl_fatal("<msafile> must be a regular file to be SSI indexed");
 
-  esl_strdup(afp->fname, -1, &ssifile);
-  esl_strcat(&ssifile, -1, ".ssi", 4);
+  esl_sprintf(&ssifile, "%s.ssi", afp->bf->filename);
+
   status = esl_newssi_Open(ssifile, FALSE, &ns);
   if      (status == eslENOTFOUND)   esl_fatal("failed to open SSI index %s", ssifile);
   else if (status == eslEOVERWRITE)  esl_fatal("SSI index %s already exists; delete or rename it", ssifile);
   else if (status != eslOK)          esl_fatal("failed to create a new SSI index");
 
-  if (esl_newssi_AddFile(ns, afp->fname, afp->format, &fh) != eslOK)
-    esl_fatal("Failed to add MSA file %s to new SSI index\n", afp->fname);
+  if (esl_newssi_AddFile(ns, afp->bf->filename, afp->format, &fh) != eslOK)
+    esl_fatal("Failed to add MSA file %s to new SSI index\n", afp->bf->filename);
 
   printf("Working...    "); 
   fflush(stdout);
   
-  while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
+  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+      if (status != eslOK) 
+	eslx_msafile_ReadFailure(afp, status);
+
       nali++;
 
-      if (msa->name == NULL) 
+      if (! msa->name)
 	esl_fatal("Every alignment in file must have a name to be indexed. Failed to find name of alignment #%d\n", nali);
 
-      if (esl_newssi_AddKey(ns, msa->name, fh, msa->offset, 0, 0) != eslOK)
+      if (esl_newssi_AddKey(ns, msa->name, fh, msa->offset, 0, 0) != eslOK) 
 	esl_fatal("Failed to add key %s to SSI index", msa->name);
 
-      if (msa->acc != NULL) {
-	if (esl_newssi_AddAlias(ns, msa->acc, msa->name) != eslOK)
-	  esl_fatal("Failed to add secondary key %s to SSI index", msa->acc);
-      }
+      if (msa->acc && esl_newssi_AddAlias(ns, msa->acc, msa->name) != eslOK)
+	esl_fatal("Failed to add secondary key %s to SSI index", msa->acc);
+      
       esl_msa_Destroy(msa);
     }
   
@@ -190,10 +213,9 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
     esl_fatal("Failed to write keys to ssi file %s\n", ssifile);
 
   printf("done.\n");
-  if (ns->nsecondary > 0) 
-    printf("Indexed %d alignments (%ld names and %ld accessions).\n", nali, (long) ns->nprimary, (long) ns->nsecondary);
-  else 
-    printf("Indexed %d alignments (%ld names).\n", nali, (long) ns->nprimary);
+
+  if (ns->nsecondary) printf("Indexed %d alignments (%ld names and %ld accessions).\n", nali, (long) ns->nprimary, (long) ns->nsecondary);
+  else                printf("Indexed %d alignments (%ld names).\n", nali, (long) ns->nprimary);
   printf("SSI index written to file %s\n", ssifile);
 
   free(ssifile);
@@ -215,7 +237,7 @@ create_ssi_index(ESL_GETOPTS *go, ESL_MSAFILE *afp)
  * the order they occur in the MSA file.
  */
 static void
-multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
+multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp, ESL_SSI *ssi)
 {
   ESL_KEYHASH    *keys   = esl_keyhash_Create();
   ESL_FILEPARSER *efp    = NULL;
@@ -238,24 +260,23 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
       status = esl_keyhash_Store(keys, key, keylen, &keyidx);
       if (status == eslEDUP) esl_fatal("MSA key %s occurs more than once in file %s\n", key, keyfile);
 	
-      if (afp->ssi != NULL) { onefetch(go, ofp, key, afp);  nali++; }
+      if (ssi) { onefetch(go, ofp, outfmt, key, afp, ssi);  nali++; }
 
     }
 
-  if (afp->ssi == NULL) 
+  if (! ssi)
     {
-      while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
+      while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
 	{
+	  if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
 	  nali++;
-	  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+
 	  if (msa->name == NULL) 
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
 	  if ( (esl_keyhash_Lookup(keys, msa->name, -1, NULL) == eslOK) ||
 	       (msa->acc != NULL && esl_keyhash_Lookup(keys, msa->acc, -1, NULL) == eslOK))
-	    esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+	    eslx_msafile_Write(ofp, msa, outfmt);
 
 	  esl_msa_Destroy(msa);
 	}
@@ -276,30 +297,39 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_MSAFILE *afp)
  * the one we're after.
  */
 static void
-onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
+onefetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key, ESLX_MSAFILE *afp, ESL_SSI *ssi)
 {
-  int status;
+  ESL_MSA *msa  = NULL;
+  int      nali = 1;
+  int      status;
 
-  if (afp->ssi != NULL)
+  if (ssi)
     {
-      status = esl_msafile_PositionByKey(afp, key);
-      if      (status == eslENOTFOUND) esl_fatal("MSA %s not found in SSI index for file %s\n", key, afp->fname);
-      else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", afp->fname);
-      else if (status != eslOK)        esl_fatal("Failed to look up location of MSA %s in SSI index of file %s\n", key, afp->fname);
+      status = eslx_msafile_PositionByKey(afp, key);
+      if      (status == eslENOTFOUND) esl_fatal("MSA %s not found in SSI index for file %s\n", key, afp->bf->filename);
+      else if (status == eslEFORMAT)   esl_fatal("Failed to parse SSI index for %s\n", afp->bf->filename);
+      else if (status != eslOK)        esl_fatal("Failed to look up location of MSA %s in SSI index of file %s\n", key, afp->bf->filename);
       
-      regurgitate_one_stockholm_entry(ofp, afp);
+      if ( (afp->format == eslMSAFILE_STOCKHOLM && outfmt == eslMSAFILE_STOCKHOLM) ||
+	   (afp->format == eslMSAFILE_PFAM      && outfmt == eslMSAFILE_PFAM))
+	{
+	  regurgitate_one_stockholm_entry(ofp, afp);
+	}
+      else
+	{
+	  if ((status = eslx_msafile_Read(afp, &msa)) != eslOK)
+	    eslx_msafile_ReadFailure(afp, status);
+	  
+	  eslx_msafile_Write(ofp, msa, outfmt);
+	  esl_msa_Destroy(msa);
+	}
     }
   else
-    {
-      ESL_MSA *msa;
-      int      nali = 1;
-      
-      while ((status = esl_msa_Read(afp, &msa)) != eslEOF)
+    { /* without an index, we have to brute-force search the file */
+      while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
 	{
-	  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-	  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
-	  if (msa->name == NULL) 
+	  if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+	  if (! msa->name)
 	    esl_fatal("Every alignment in file must have a name to be retrievable. Failed to find name of alignment #%d\n", nali);
 
 	  if (strcmp(key, msa->name) == 0 || (msa->acc != NULL && strcmp(key, msa->acc) == 0))
@@ -309,9 +339,9 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
 	  esl_msa_Destroy(msa);
 	}
 
-      if (msa == NULL) esl_fatal("Failed to find alignment %s\n", key);
+      if (! msa) esl_fatal("Failed to find alignment %s\n", key);
 
-      esl_msa_Write(ofp, msa, eslMSAFILE_STOCKHOLM);
+      eslx_msafile_Write(ofp, msa, outfmt);
       esl_msa_Destroy(msa);
     }
 }
@@ -322,21 +352,26 @@ onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_MSAFILE *afp)
  * we reach the end-of-alignment marker.
  */
 static void
-regurgitate_one_stockholm_entry(FILE *ofp, ESL_MSAFILE *afp)
+regurgitate_one_stockholm_entry(FILE *ofp, ESLX_MSAFILE *afp)
 {
-  int status;
-  char *buf = NULL;
-  int   n   = 0;
+  char      *p;
+  esl_pos_t  n;
+  int        status;
 
-  while ((status = esl_fgets(&buf, &n, afp->f)) == eslOK) {
-    fputs(buf, ofp);
-    if (strncmp(buf, "//", 2) == 0) break;
-  }
-  if      (status == eslEOF) 
-    esl_fatal("Reached end of file before finding // termination line for alignment");
-  else if (status != eslOK)
-    esl_fatal("Failure in reading alignment line by line");
-
-  if (buf != NULL) free(buf);
+  while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
+    {
+      fwrite(p, sizeof(char), n, ofp);
+      fputs("\n", ofp);
+      if (esl_memstrpfx(p, n, "//")) break;
+    }
+  if      (status == eslEOF) esl_fatal("Reached end of file before finding // termination line for alignment");
+  else if (status != eslOK)  esl_fatal("Failure in reading alignment line by line");
 }
   
+
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * SVN $URL$
+ * SVN $Id$
+ *****************************************************************/

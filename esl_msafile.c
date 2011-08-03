@@ -5,13 +5,14 @@
  *    2. ESLX_MSAFILE_FMTDATA: optional added constraints on formats.
  *    3. Guessing file formats.
  *    4. Guessing alphabets.
- *    5. Reading an MSA from an ESLX_MSAFILE.
- *    6. Writing an MSA to a stream.
- *    7. Utilities used by specific format parsers.
- *    8. Unit tests.
- *    9. Test driver.
- *   10. Examples.
- *   11. Copyright and license.
+ *    5. Random MSA flatfile access. [augmentation: ssi]
+ *    6. Reading an MSA from an ESLX_MSAFILE.
+ *    7. Writing an MSA to a stream.
+ *    8. Utilities used by specific format parsers.
+ *    9. Unit tests.
+ *   10. Test driver.
+ *   11. Examples.
+ *   12. Copyright and license.
  */
 #include "esl_config.h"
 
@@ -163,7 +164,7 @@ static int msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format
  *            an error state, containing a user-directed error message
  *            in <afp->errmsg> and (if relevant) the full path to
  *            <msafile> that we attempted to open in
- *            <afp->bf->filename>. See <esl_msafile_OpenFailure()> for
+ *            <afp->bf->filename>. See <eslx_msafile_OpenFailure()> for
  *            a function that gives a standard way of reporting these
  *            diagnostics to <stderr>.
  *            
@@ -185,6 +186,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, const char *env, 
     ESL_XFAIL(status, afp->errmsg, "%s", afp->bf->errmsg); /* ENOTFOUND; FAIL are normal here */
 
   if ( (status = msafile_OpenBuffer(byp_abc, afp->bf, format, fmtd, afp)) != eslOK) goto ERROR;
+
   *ret_afp = afp; 
   return eslOK;
 
@@ -210,7 +212,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, const char *env, 
  *            mandatory.
  */
 int
-eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, char *p, esl_pos_t n, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp)
+eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, const char *p, esl_pos_t n, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp)
 {
   ESLX_MSAFILE *afp = NULL;
   int status;
@@ -301,7 +303,41 @@ eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status)
   exit(status);
 }
 
-/* Function:  esl_msafile_Close()
+/* Function:  eslx_msafile_SetDigital()
+ * Synopsis:  Convert an open text-mode ESLX_MSAFILE to digital mode.
+ *
+ * Purpose:   Convert the open <afp> from text mode to digital mode,
+ *            using alphabet <abc>.
+ *
+ * Note:      This function is only here for legacy support: it's
+ *            called by esl_sqio, which still uses an outdated
+ *            open / guess alphabet / set digital pattern. When 
+ *            sqio is upgraded next, this function should be removed.
+ */
+int
+eslx_msafile_SetDigital(ESLX_MSAFILE *afp, const ESL_ALPHABET *abc)
+{
+  int status;
+
+  afp->abc = abc;
+
+  switch (afp->format) {
+  case eslMSAFILE_A2M:          status = esl_msafile_a2m_SetInmap(      afp); break;
+  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
+  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
+  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_SetInmap(afp); break;
+  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_SetInmap(   afp); break;
+  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_SetInmap(   afp); break;
+  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;
+  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
+  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
+  default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such alignment file format");
+  }
+  return status;
+}
+
+/* Function:  eslx_msafile_Close()
  * Synopsis:  Close an open <ESLX_MSAFILE>.
  */
 void
@@ -951,7 +987,60 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 
 
 /*****************************************************************
- *# 5. Reading MSAs from input
+ *# 5. Random msa flatfile database access (with SSI)
+ *****************************************************************/
+#ifdef eslAUGMENT_SSI
+
+/* Function:  esl_msafile_PositionByKey()
+ * Synopsis:  Use SSI to reposition file to start of named MSA.
+ *
+ * Purpose:   Reposition <afp> so that the next MSA we read
+ *            will be the one named (or accessioned) <key>.
+ *
+ * Returns:   <eslOK> on success, and the file <afp> is repositioned
+ *            such that the next <eslx_msafile_Read()> call will read the
+ *            alignment named <key>.
+ *            
+ *            Returns <eslENOTFOUND> if <key> isn't found in the index
+ *            for <afp>. 
+ *            
+ *            Returns <eslEFORMAT> if something goes wrong trying to
+ *            read the index, indicating some sort of file format
+ *            problem in the SSI file.
+ *
+ * Throws:    <eslENODATA> if there's no open SSI index;
+ *            <eslEINVAL> if the <offset> is invalid, either requiring rewind
+ *              of a nonrewindable stream, or off the end of the data;
+ *            <eslESYS> if a system call such as <fread()> fails;
+ *            <eslEMEM> on allocation failure.
+ *            In all these cases, the state of the <afp> is uncertain
+ *            and may be corrupt; the application should not continue
+ *            to use it.
+ */
+int
+eslx_msafile_PositionByKey(ESLX_MSAFILE *afp, const char *key)
+{
+  uint16_t fh;
+  off_t    offset;
+  int      status;
+
+  if (afp->ssi == NULL) ESL_EXCEPTION(eslENODATA, "Need an open SSI index to call eslx_msafile_PositionByKey()");
+  if ((status = esl_ssi_FindName(afp->ssi, key, &fh, &offset, NULL, NULL)) != eslOK) return status; /* eslENOTFOUND|eslEFORMAT [eslEMEM] */
+  if ((status = esl_buffer_SetOffset(afp->bf, offset))                     != eslOK) return status; /* [eslEINVAL|eslESYS|eslEMEM] */
+
+  /* The linenumber gets messed up after a file positioning. Best we can do
+   * is to turn it off (set it to -1). FIX THIS next time SSI format is 
+   * changed: add linenumber to a primary key record.
+   */
+  afp->linenumber = -1; 
+  return eslOK;
+}
+#endif /*eslAUGMENT_SSI*/
+/*------------- end of functions added by SSI augmentation -------------------*/
+
+
+/*****************************************************************
+ *# 6. Reading MSAs from input
  *****************************************************************/
 
 /* Function:  eslx_msafile_Read()
@@ -983,24 +1072,35 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 int
 eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 {
-  ESL_MSA *msa    = NULL;
-  int      status = eslOK;
-  
+  ESL_MSA  *msa    = NULL;
+  int       status = eslOK;
+#ifdef eslAUGMENT_SSI
+  esl_pos_t offset = esl_buffer_GetOffset(afp->bf);
+#endif
+
   switch (afp->format) {
-  case eslMSAFILE_A2M:          status = esl_msafile_a2m_Read      (afp, &msa); break;
-  case eslMSAFILE_AFA:          status = esl_msafile_afa_Read      (afp, &msa); break;
-  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_Read  (afp, &msa); break;
-  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_Read  (afp, &msa); break;
-  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_Read(afp, &msa); break;
-  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_Read   (afp, &msa); break;
-  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_Read   (afp, &msa); break;
-  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_Read (afp, &msa); break;
-  case eslMSAFILE_SELEX:        status = esl_msafile_selex_Read    (afp, &msa); break;
-  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_Read(afp, &msa); break;
+  case eslMSAFILE_A2M:          if ((status = esl_msafile_a2m_Read      (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_AFA:          if ((status = esl_msafile_afa_Read      (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_CLUSTAL:      if ((status = esl_msafile_clustal_Read  (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_CLUSTALLIKE:  if ((status = esl_msafile_clustal_Read  (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PFAM:         if ((status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PHYLIP:       if ((status = esl_msafile_phylip_Read   (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PHYLIPS:      if ((status = esl_msafile_phylip_Read   (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PSIBLAST:     if ((status = esl_msafile_psiblast_Read (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_SELEX:        if ((status = esl_msafile_selex_Read    (afp, &msa)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_STOCKHOLM:    if ((status = esl_msafile_stockholm_Read(afp, &msa)) != eslOK) goto ERROR; break;
   default:                      ESL_EXCEPTION(eslEINCONCEIVABLE, "no such msa file format");
   }
   
+#ifdef eslAUGMENT_SSI
+  msa->offset = offset;
+#endif
   *ret_msa = msa;
+  return eslOK;
+
+ ERROR:
+  if (msa) esl_msa_Destroy(msa);
+  *ret_msa = NULL;
   return status;
 }
 
@@ -1052,7 +1152,7 @@ eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status)
 
 
 /*****************************************************************
- *# 6. Writing an MSA to a stream.
+ *# 7. Writing an MSA to a stream.
  *****************************************************************/
 
 /* Function:  eslx_msafile_Write()
@@ -1100,7 +1200,7 @@ eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)
 
 
 /*****************************************************************
- *# 7. Utilities used by specific format parsers.
+ *# 8. Utilities used by specific format parsers.
  *****************************************************************/
 
 /* Function:  eslx_msafile_GetLine()
@@ -1161,9 +1261,10 @@ eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
 
 
 /*****************************************************************
- * 8. Unit tests
+ * 9. Unit tests
  *****************************************************************/
 #ifdef eslMSAFILE_TESTDRIVE
+
 
 static void
 utest_format2format(int fmt1, int fmt2)
@@ -1258,12 +1359,13 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   esl_alphabet_Destroy(abc);
   esl_alphabet_Destroy(abc2);
 }
+
 #endif /*eslMSAFILE_TESTDRIVE*/
 /*----------------- end, unit tests -----------------------------*/
 
 
 /*****************************************************************
- * 9. Test driver
+ * 10. Test driver
  *****************************************************************/
 #ifdef eslMSAFILE_TESTDRIVE
 
@@ -1308,7 +1410,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 10. Examples.
+ * 11. Examples.
  *****************************************************************/
 
 #ifdef eslMSAFILE_EXAMPLE
@@ -1406,7 +1508,7 @@ main(int argc, char **argv)
 /*****************************************************************
  * @LICENSE@
  *
- * SVN $Id$
  * SVN $URL$
+ * SVN $Id$
  *****************************************************************/
 

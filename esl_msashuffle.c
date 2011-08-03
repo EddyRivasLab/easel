@@ -23,7 +23,6 @@
 
 /* Function:  esl_msashuffle_Shuffle()
  * Synopsis:  Shuffle an alignment's columns.
- * Incept:    SRE, Tue Jan 22 10:10:57 2008 [Janelia]
  *
  * Purpose:   Returns a column-shuffled version of <msa> in <shuf>,
  *            using random generator <r>. Shuffling by columns

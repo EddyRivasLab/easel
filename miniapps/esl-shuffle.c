@@ -105,32 +105,27 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
 
 
 /* msa_shuffling()
- * SRE, Tue Jan 22 08:39:51 2008 [Market Street Cafe, Leesburg]
  * 
  * Shuffling multiple sequence alignments
  */
 static int
 msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 {
-  char        *msafile = esl_opt_GetArg(go, 1);
-  int          infmt   = eslMSAFILE_UNKNOWN;
-  ESL_MSAFILE *afp     = NULL;
-  ESL_MSA     *msa     = NULL;
-  ESL_MSA     *shuf    = NULL;
-  int          N       = esl_opt_GetInteger(go, "-N");
-  int          i;
-  int          status, mstatus;
+  char         *msafile = esl_opt_GetArg(go, 1);
+  int           infmt   = eslMSAFILE_UNKNOWN;
+  ESLX_MSAFILE *afp     = NULL;
+  ESL_MSA      *msa     = NULL;
+  ESL_MSA      *shuf    = NULL;
+  int           N       = esl_opt_GetInteger(go, "-N");
+  int           i;
+  int           status;
 
-  status = esl_msafile_Open(msafile, infmt, NULL, &afp);
-  if (status == eslENOTFOUND)    esl_fatal("Alignment file %s isn't readable\n", msafile);
-  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of %s\n",  msafile);
-  else if (status != eslOK)      esl_fatal("Alignment file open failed (error %d)\n", status);
+  if ( (status = eslx_msafile_Open(NULL, msafile, NULL, infmt, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
   
-  while ((mstatus = esl_msa_Read(afp, &msa)) != eslEOF)
+  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
     {
-      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n", status);
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
 
       shuf = esl_msa_Clone(msa);
 
@@ -158,19 +153,19 @@ msa_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	    }
 	  }
 
-	  esl_msa_Write(ofp, shuf, outfmt);
+	  eslx_msafile_Write(ofp, shuf, afp->format);
 	}
 
       esl_msa_Destroy(shuf);
       esl_msa_Destroy(msa);
     }
 
+  eslx_msafile_Close(afp);
   return eslOK;
 }
 
 
 /* seq_generation()
- * SRE, Tue Jan 22 08:38:58 2008 [Market Street Cafe, Leesburg]
  *
  * Generating sequences.
  */

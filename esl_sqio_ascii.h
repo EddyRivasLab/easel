@@ -15,6 +15,7 @@
 #endif
 #ifdef eslAUGMENT_MSA
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #endif
 
 /* set the max residue count to 1 meg when reading a block */
@@ -65,9 +66,9 @@ typedef struct esl_sqascii_s {
 
   /* MSA augmentation confers reading MSA files as sequential seq files. */
 #if defined(eslAUGMENT_MSA)
-  ESL_MSAFILE *afp;	      /* open ESL_MSAFILE for reading           */
-  ESL_MSA     *msa;	      /* preloaded alignment to draw seqs from  */
-  int          idx;	      /* index of next seq to return, 0..nseq-1 */
+  ESLX_MSAFILE *afp;	      /* open ESLX_MSAFILE for reading           */
+  ESL_MSA      *msa;	      /* preloaded alignment to draw seqs from  */
+  int           idx;	      /* index of next seq to return, 0..nseq-1 */
 #else
   void        *afp; 	      /* NULL */
   void        *msa;           /* NULL */

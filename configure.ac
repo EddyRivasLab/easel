@@ -420,6 +420,7 @@ AC_TYPE_OFF_T
 
 AC_CHECK_FUNCS(mkstemp)
 AC_CHECK_FUNCS(popen)
+AC_CHECK_FUNCS(putenv)
 AC_CHECK_FUNCS(strcasecmp)
 AC_CHECK_FUNCS(times)
 AC_CHECK_FUNCS(getpid)

@@ -79,11 +79,13 @@
 #undef HAVE_GETPID
 #undef HAVE_MKSTEMP
 #undef HAVE_POPEN
+#undef HAVE_PUTENV
 #undef HAVE_STAT
 #undef HAVE_STRCASECMP
 #undef HAVE_SYSCONF
 #undef HAVE_SYSCTL
 #undef HAVE_TIMES
+
 
 /*****************************************************************
  * Available augmentations.

@@ -102,6 +102,7 @@ HDRS = 	easel.h\
 	esl_msa.h\
 	esl_msacluster.h\
 	esl_msafile.h\
+	esl_msafile2.h\
 	esl_msafile_a2m.h\
 	esl_msafile_afa.h\
 	esl_msafile_clustal.h\
@@ -162,6 +163,7 @@ OBJS =	easel.o\
 	esl_msa.o\
 	esl_msacluster.o\
 	esl_msafile.o\
+	esl_msafile2.o\
 	esl_msafile_a2m.o\
 	esl_msafile_afa.o\
 	esl_msafile_clustal.o\
@@ -229,6 +231,7 @@ UTESTS =\
 	esl_msa_utest\
 	esl_msacluster_utest\
 	esl_msafile_utest\
+	esl_msafile2_utest\
 	esl_msafile_a2m_utest\
 	esl_msafile_afa_utest\
 	esl_msafile_clustal_utest\
@@ -294,8 +297,6 @@ EXAMPLES = \
         esl_keyhash_example\
         esl_minimizer_example\
         esl_mixgev_example\
-        esl_msa_example\
-        esl_msa_example2\
         esl_msafile_example\
 	esl_msafile_a2m_example\
 	esl_msafile_a2m_example2\

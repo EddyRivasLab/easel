@@ -1113,6 +1113,7 @@ main(int argc, char **argv)
 {
   ESL_GETOPTS  *go  = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
   ESL_ALPHABET *abc = NULL;
+  ESLX_MSAFILE *afp = NULL;
   ESL_MSA      *msa = NULL;
   int           do_stall = FALSE;
   int           my_rank;
@@ -1125,20 +1126,19 @@ main(int argc, char **argv)
   /* Get a test MSA and alphabet. */
   if (esl_opt_GetString(go, "-m") != NULL) 
     {
-      ESL_MSAFILE *afp = NULL;
-      int atype;
-
-      if (esl_msafile_Open(esl_opt_GetString(go, "-m"), eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal("msa file open failed");
-      if (esl_msafile_GuessAlphabet(afp, &atype)                                        != eslOK) esl_fatal("couldn't guess alphabet");
-      abc = esl_alphabet_Create(atype);
-      if (esl_opt_GetBoolean(go, "-x")) esl_msafile_SetDigital(afp, abc);
-      if (esl_msa_Read(afp, &msa)                                                       != eslOK) esl_fatal("msa read failed");
-      esl_msafile_Close(afp);
+      if (eslx_msafile_Open(&abc, esl_opt_GetString(go, "-m"), eslMSAFILE_UNKNOWN, NULL, &afp) != eslOK) esl_fatal("msa file open failed");
+      if (eslx_msafile_Read(afp, &msa)                                                         != eslOK) esl_fatal("msa read failed");
+      eslx_msafile_Close(afp);
     }
   else
     {
       abc = esl_alphabet_Create(eslAMINO);
-      msa = esl_msa_CreateFromString("# STOCKHOLM 1.0\n\nNIFE_CLOPA GYVGS\nNIFD_AZOVI GFDGF\nNIFD_BRAJA GYDGF\nNIFK_ANASP GYQGG\n//\n", eslMSAFILE_STOCKHOLM);      
+      if ( (eslx_msafile_OpenMem(&abc, 
+				 "# STOCKHOLM 1.0\n\nNIFE_CLOPA GYVGS\nNIFD_AZOVI GFDGF\nNIFD_BRAJA GYDGF\nNIFK_ANASP GYQGG\n//\n",
+				 -1, eslMSAFILE_STOCKHOLM, NULL, &afp)) != eslOK)
+	esl_fatal("msa creation failed");
+      if (eslx_msafile_Read(afp, &msa) != eslOK) esl_fatal("msa read failed");
+      eslx_msafile_Close(afp);
     }
 
 

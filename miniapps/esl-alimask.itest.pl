@@ -145,7 +145,7 @@ for($pass = 0; $pass < 4; $pass++) {
 	    if ($output !~ /aAAAAAAAcCCCCCCGGGgg/)                                            { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
 	}
 	else { 
-            if ($output !~ /aAAAAAAACCCCCCCGGGgg/)                                            { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
+            if ($output !~ /AAAAAAAACCCCCCCGGGGG/)                                            { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
 	}
 
 	$output = `$eslalimask $smallA[$pass] --rna --outformat psiblast $afileA[$pass] $tmppfx.fullmask 2>&1`;
@@ -154,7 +154,7 @@ for($pass = 0; $pass < 4; $pass++) {
 	    if ($output !~ /aAAA\-AAAA\-\-c\-CCCCCC\-\-GGGgg/)                                { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
 	}
 	else {
-	    if ($output !~ /aAAA\-AAAA\-\-C\-CCCCCC\-\-GGGgg/)                                { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
+	    if ($output !~ /AAAA\-AAAA\-\-C\-CCCCCC\-\-GGGGG/)                                { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
 	}
 
 	$output = `$eslalimask $smallA[$pass] --rna --outformat afa $afileA[$pass] $tmppfx.fullmask 2>&1`;

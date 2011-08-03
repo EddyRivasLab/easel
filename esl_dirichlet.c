@@ -38,7 +38,6 @@
  *****************************************************************/
 
 /* Function:  esl_mixdchlet_Create()
- * Incept:    SRE, Fri Apr  8 10:44:34 2005 [St. Louis]
  *
  * Purpose:   Create a new mixture Dirichlet prior with <N> components,
  *            each with <K> parameters.
@@ -246,7 +245,6 @@ esl_mixdchlet_Copy(ESL_MIXDCHLET *d, ESL_MIXDCHLET *d_dst)
 
 
 /* Function:  esl_mixdchlet_Destroy()
- * Incept:    SRE, Fri Apr  8 11:00:19 2005 [St. Louis]
  *
  * Purpose:   Free's the mixture Dirichlet <pri>.
  */
@@ -264,7 +262,6 @@ esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri)
 
 
 /* Function:  esl_mixdchlet_Dump()
- * Incept:    ER, Fri Apr  8 11:00:19 2005 [Janelia]
  *
  * Purpose:   Dump the mixture Dirichlet <d>.
  */
@@ -811,7 +808,6 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 
 
 /* Function:  esl_mixdchlet_Fit_Multipass()
- * Incept:    TW, Wed Nov  4 15:00:02 EST 2009 [Janelia]
  *
  * Purpose:   Given a set of count vectors <c>, find maximum
  *            likelihood mixdchlet parameters. A number <reps>
@@ -841,63 +837,62 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 int
 esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *r, double **c, int nc, int reps, ESL_MIXDCHLET *best_md, int verbose)
 {
-	int i, q, k, status;
-	double best_lk = -eslINFINITY;
-	double lk;
-	ESL_MIXDCHLET *md = esl_mixdchlet_Create(best_md->N, best_md->K);
+  int i, q, k, status;
+  double best_lk = -eslINFINITY;
+  double lk;
+  ESL_MIXDCHLET *md = esl_mixdchlet_Create(best_md->N, best_md->K);
+  int err_cnt = 0;
+  
+  for (i=0; i<reps; i++) 
+    {
+      /* for each pass, establish a new random starting point */
+      for (q = 0; q < md->N; q++) 
+	{
+	  md->pq[q] = esl_rnd_UniformPositive(r);
 
-	int err_cnt = 0;
+	  for (k = 0; k < md->K; k++)
+	    md->alpha[q][k] = 10.0 * esl_rnd_UniformPositive(r);
+	}
+      esl_vec_DNorm(md->pq, md->N);
 
-	for (i=0; i<reps; i++) {
+      /* then use Fit to do local search */
+      status = esl_mixdchlet_Fit(c, nc, md, 0);
+      if (status != eslOK) {
+	err_cnt++;
+	if (err_cnt==2*reps) {
+	  goto ERROR;
+	} else {
+	  i--; /* try another starting point */
+	  continue;
+	}
+      }
+      esl_dirichlet_LogProbDataSet_Mixture (nc, c, md, &lk);
 
-		//for each pass, establish a new random starting point
-		for (q = 0; q < md->N; q++) {
-	    md->pq[q] = esl_rnd_UniformPositive(r);
-
-	     for (k = 0; k < md->K; k++)
-	       md->alpha[q][k] = 10.0*esl_rnd_UniformPositive(r);
-	  }
-	  esl_vec_DNorm(md->pq, md->N);
-
-	  //then use Fit to do local search
-	  status = esl_mixdchlet_Fit(c, nc, md, 0);
-	  if (status != eslOK) {
-		  err_cnt++;
-		  if (err_cnt==2*reps) {
-			  goto ERROR;
-		  } else {
-			  i--; // try another starting point
-			  continue;
-		  }
-	  }
-
-	  esl_dirichlet_LogProbDataSet_Mixture (nc, c, md, &lk);
-
-	  if (verbose>0) {
-		  fprintf(stderr, "Repetition # %d\n------------\n", i);
-		  esl_mixdchlet_Dump(stderr, md);
-		  fprintf(stderr, "llk = %.3f  (vs best = %.3f)\n", lk, best_lk);
-	  }
-
-	  if (lk > best_lk) {
-		  if (verbose>0)
-			  fprintf(stderr, "... so copy md -> best_md\n");
-		  best_lk = lk;
-		  esl_mixdchlet_Copy(md, best_md);
-	  }
+      if (verbose)
+	{
+	  fprintf(stderr, "Repetition # %d\n------------\n", i);
+	  esl_mixdchlet_Dump(stderr, md);
+	  fprintf(stderr, "llk = %.3f  (vs best = %.3f)\n", lk, best_lk);
 	}
 
-	if (verbose>0) {
-		fprintf(stdout, "\n\n----------------\nbest mixture:\n");
-		esl_mixdchlet_Dump(stdout, best_md);
-		fprintf(stdout, "llk = %.3f", best_lk);
+      if (lk > best_lk) 
+	{
+	  if (verbose) fprintf(stderr, "... so copy md -> best_md\n");
+	  best_lk = lk;
+	  esl_mixdchlet_Copy(md, best_md);
 	}
+    }
 
+  if (verbose) 
+    {
+      fprintf(stdout, "\n\n----------------\nbest mixture:\n");
+      esl_mixdchlet_Dump(stdout, best_md);
+      fprintf(stdout, "llk = %.3f", best_lk);
+    }
 
-	ERROR:
-	  if (md   != NULL) free(md);
-	  return status;
-
+ ERROR:
+  esl_mixdchlet_Destroy(md);
+  return status;
 }
 
 #endif /*eslAUGMENT_MINIMIZER*/

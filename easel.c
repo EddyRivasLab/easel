@@ -1229,6 +1229,7 @@ esl_str_GetMaxWidth(char **s, int n)
  *****************************************************************/
 
 /* Function:  esl_FileExists()
+ * Synopsis:  Return TRUE if <filename> exists and is readable, else FALSE.
  *
  * Purpose:   Returns TRUE if <filename> exists and is readable, else FALSE.
  *     
@@ -1255,6 +1256,7 @@ esl_FileExists(const char *filename)
 
 
 /* Function:  esl_FileTail()
+ * Synopsis:  Extract filename, removing path prefix.
  *
  * Purpose:   Given a full pathname <path>, extract the filename
  *            without the directory path; return it via  

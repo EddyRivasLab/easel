@@ -1335,15 +1335,17 @@ main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  ESL_MSAFILE *afp; 
-  ESL_MSA     *msa;
-  ESL_DMATRIX *P;
-  int          status;
-  int          i,j;
-  double       min, avg, max;
+  ESLX_MSAFILE *afp; 
+  ESL_MSA      *msa;
+  ESL_DMATRIX  *P;
+  int           i,j;
+  double        min, avg, max;
+  int           status;
 
-  esl_msafile_Open(argv[1], eslMSAFILE_UNKNOWN, NULL, &afp);
-  esl_msa_Read(afp, &msa);
+  if ((status = eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+  if ((status = eslx_msafile_Read(afp, &msa)) != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
 
   esl_dst_CPairIdMx(msa->aseq, msa->nseq, &P);
 
@@ -1365,7 +1367,7 @@ int main(int argc, char **argv)
 
   esl_dmatrix_Destroy(P);
   esl_msa_Destroy(msa);
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
   return 0;
 }
 /*::cexcerpt::distance_example::end::*/

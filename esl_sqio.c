@@ -44,6 +44,8 @@
 
 /* Optional MSA<->sqio interoperability */
 #ifdef eslAUGMENT_MSA
+#include "esl_msa.h"
+#include "esl_msafile.h"
 static int convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa);
 #endif
 
@@ -284,7 +286,6 @@ sqfile_open(const char *filename, int format, const char *env, ESL_SQFILE **ret_
 
 /* Function:  esl_sqfile_OpenDigital()
  * Synopsis:  Open an <ESL_SQFILE> for digital input.
- * Incept:    SRE, Fri May  9 09:17:48 2008 [Janelia]
  *
  * Purpose:   Same as <esl_sqfile_Open()>, but we will expect all
  *            sequence input to conform to the digital alphabet <abc>.
@@ -317,7 +318,6 @@ esl_sqfile_OpenDigital(const ESL_ALPHABET *abc, const char *filename, int format
 
 /* Function:  esl_sqfile_SetDigital()
  * Synopsis:  Set an open <ESL_SQFILE> to read in digital mode.
- * Incept:    SRE, Fri May  9 09:21:31 2008 [Janelia]
  *
  * Purpose:   Given an <ESL_SQFILE> that's already been opened,
  *            configure it to expect subsequent input to conform
@@ -345,7 +345,6 @@ esl_sqfile_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
 
 /* Function:  esl_sqfile_GuessAlphabet()
  * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>.
- * Incept:    SRE, Sun Feb 24 17:14:55 2008 [UA5315 to St. Louis]
  *
  * Purpose:   After opening <sqfp>, attempt to guess what alphabet
  *            its sequences are in, by inspecting the first sequence
@@ -1342,7 +1341,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
   if (esl_sqio_IsAlignment(format))
     {
       if ((status = convert_sq_to_msa(s, &msa)) != eslOK) return status;
-      status = esl_msa_Write(fp, msa, format);
+      status = eslx_msafile_Write(fp, msa, format);
       esl_msa_Destroy(msa);
       return status;
     }

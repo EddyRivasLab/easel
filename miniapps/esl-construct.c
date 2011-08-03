@@ -67,7 +67,7 @@ main(int argc, char **argv)
   ESL_ALPHABET *abc     = NULL;	/* biological alphabet             */
   char         *alifile = NULL;	/* alignment file name             */
   int           fmt;		/* format code for alifiles        */
-  ESL_MSAFILE  *afp     = NULL;	/* open alignment file             */
+  ESLX_MSAFILE *afp     = NULL;	/* open alignment file             */
   ESL_MSA      *msa     = NULL;	/* multiple sequence alignment     */
   int           status;		/* easel return code               */
 
@@ -122,7 +122,6 @@ main(int argc, char **argv)
   int          *nmates_r2l;                    /* half matrix, nmate_r2l[j] = <x>, j < nmate_r2l[j], there are <x> different left  mates i for j */
 
   int           lmax;                          /* with -l, maximum number of conflicts to allow */
-  int           type;                          /* alphabet type */
   int           namewidth = 18;                 /* length of 'SS_cons(consensus)' */
   char         *namedashes = NULL;             /* to store underline for seq name */
 
@@ -177,25 +176,11 @@ main(int argc, char **argv)
    * Open the MSA file; determine alphabet; set for digital input
    ***********************************************/
 
-  status = esl_msafile_Open(alifile, fmt, NULL, &afp);
-  if (status == eslENOTFOUND) 
-    esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT) 
-    esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK) 
-    esl_fatal("Alignment file open failed with error %d\n", status);
-  if (esl_opt_GetBoolean(go, "--dna"))          abc = esl_alphabet_Create(eslDNA);
-  else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-  else {
-    status = esl_msafile_GuessAlphabet(afp, &type);
-    if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
-    else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
-    else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile);
-    else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile);
-    if(type == eslAMINO)            esl_fatal("Alignment file must be RNA or DNA.\n", alifile);
-    abc = esl_alphabet_Create(type);
-  }
-  esl_msafile_SetDigital(afp, abc);
+  if      (esl_opt_GetBoolean(go, "--dna"))  abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--rna"))  abc = esl_alphabet_Create(eslRNA);
+
+  if ( (status = eslx_msafile_Open(&abc, alifile, NULL, fmt, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
 
   /* open output file */
   if (esl_opt_GetString(go, "-o") != NULL) {
@@ -238,8 +223,10 @@ main(int argc, char **argv)
   have_cons = FALSE;
   lmax = esl_opt_GetInteger(go, "--lmax");
   if(esl_opt_GetBoolean(go, "-v")) be_verbose = TRUE; 
-  while ((status = esl_msa_Read(afp, &msa)) == eslOK)
+
+  while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
       nali++;
 
       /* determine max length name */
@@ -658,7 +645,7 @@ main(int argc, char **argv)
 	if((status = esl_ct2wuss(cons_ct, msa->alen, sscons)) != eslOK) goto ERROR;
 	if(msa->ss_cons != NULL) { free(msa->ss_cons); msa->ss_cons = NULL; }
 	if((status = esl_strcat(&(msa->ss_cons), -1, sscons, msa->alen)) != eslOK) goto ERROR;
-	status = esl_msa_Write(ofp, msa, (esl_opt_GetBoolean(go, "--pfam") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
+	status = eslx_msafile_Write(ofp, msa, (esl_opt_GetBoolean(go, "--pfam") ? eslMSAFILE_PFAM : eslMSAFILE_STOCKHOLM));
 	if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
 	else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
       }
@@ -671,16 +658,7 @@ main(int argc, char **argv)
       free(bp);
       esl_msa_Destroy(msa);
     }
-
-  /* If an msa read failed, we drop out to here with an informative status code. 
-   */
-  if      (status == eslEFORMAT) 
-    esl_fatal("Alignment file parse error, line %d of file %s:\n%s\nOffending line is:\n%s\n", 
-	      afp->linenumber, afp->fname, afp->errbuf, afp->buf);	
-  else if (status != eslEOF)
-    esl_fatal("Alignment file read failed with error code %d\n", status);
-  else if (nali   == 0)
-    esl_fatal("No alignments found in file %s\n", alifile);
+  if (nali == 0) esl_fatal("No alignments found in file %s\n", alifile);
 
   /* Cleanup, normal return
    */
@@ -689,16 +667,16 @@ main(int argc, char **argv)
     printf("# Alignment(s) saved to file %s\n", esl_opt_GetString(go, "-o"));
     fclose(ofp);
   }
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
   esl_getopts_Destroy(go);
   return 0;
 
  ERROR:
-  if(afp != NULL) esl_msafile_Close(afp);
-  if(go  != NULL) esl_getopts_Destroy(go);
-  if(msa != NULL) esl_msa_Destroy(msa);
-  if(lfp != NULL) fclose(lfp);
-  if(ofp != NULL) fclose(ofp);
+  if(afp) eslx_msafile_Close(afp);
+  if(go)  esl_getopts_Destroy(go);
+  if(msa) esl_msa_Destroy(msa);
+  if(lfp) fclose(lfp);
+  if(ofp) fclose(ofp);
   esl_fatal("ERROR\n");
   return 1;
   

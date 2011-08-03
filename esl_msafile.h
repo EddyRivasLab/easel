@@ -5,11 +5,10 @@
 
 #include <stdio.h>
 
-#include "esl_buffer.h"
-#include "esl_msa.h"
-
-#include "esl_alphabet.h"	/* AUGMENTATION: adds ability to use digital alphabet */
-#include "esl_ssi.h"        	/* AUGMENTATION: adds ability to use SSI file indices */
+#include "esl_alphabet.h"	/* digital alphabets                         */
+#include "esl_buffer.h"		/* string hashes, for mapping uniq seq names */
+#include "esl_msa.h"		/* ESL_MSA structure                         */
+#include "esl_ssi.h"        	/* indexes of large flatfiles on disk        */
 
 /* Object: ESLX_MSAFILE_FMTDATA
  * 
@@ -90,9 +89,10 @@ typedef struct {
 
 /* 1. Opening/closing an ESLX_MSAFILE */
 extern int   eslx_msafile_Open      (ESL_ALPHABET **byp_abc, const char *msafile, const char *env, int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
-extern int   eslx_msafile_OpenMem   (ESL_ALPHABET **byp_abc, char *p, esl_pos_t n,                 int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
+extern int   eslx_msafile_OpenMem   (ESL_ALPHABET **byp_abc, const char *p, esl_pos_t n,           int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
 extern int   eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf,                       int format, ESLX_MSAFILE_FMTDATA *fmtd, ESLX_MSAFILE **ret_afp);
 extern void  eslx_msafile_OpenFailure(ESLX_MSAFILE *afp, int status);
+extern int   eslx_msafile_SetDigital (ESLX_MSAFILE *afp, const ESL_ALPHABET *abc);
 extern void  eslx_msafile_Close(ESLX_MSAFILE *afp);
 
 /* 2. ESLX_MSAFILE_FMTDATA: optional extra constraints on formats */
@@ -110,14 +110,19 @@ extern char *eslx_msafile_DecodeFormat(int fmt);
 extern int eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type);
 #endif
 
-/* 5. Reading an MSA from an ESLX_MSAFILE */
+/* 5. Random access in a MSA flatfile database */
+#ifdef eslAUGMENT_SSI
+extern int eslx_msafile_PositionByKey(ESLX_MSAFILE *afp, const char *key);
+#endif
+
+/* 6. Reading an MSA from an ESLX_MSAFILE */
 extern int  eslx_msafile_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa);
 extern void eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status);
 
-/* 6. Writing an MSA to a stream */
+/* 7. Writing an MSA to a stream */
 extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
 
-/* 7. Utilities for specific parsers */
+/* 8. Utilities for specific parsers */
 extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
 
 #include "esl_msafile_a2m.h"

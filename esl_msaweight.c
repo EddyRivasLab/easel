@@ -594,6 +594,7 @@ utest_BLOSUM(ESL_ALPHABET *abc, ESL_MSA *msa, double maxid, double *expect)
  */
 #include "easel.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 
 int
@@ -712,6 +713,7 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 #include "esl_vectorops.h"
 
@@ -738,11 +740,11 @@ static char usage[] = "Usage: ./regression [-options] <msa_file>";
 int 
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go;
-  char        *msafile;
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  float       *sqd;
+  ESL_GETOPTS  *go;
+  char         *msafile;
+  ESLX_MSAFILE *afp;
+  ESL_MSA      *msa;
+  float        *sqd;
   int          status;
   int          nbad;
   int          nali    = 0;
@@ -786,9 +788,13 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  esl_msafile_Open(msafile, eslMSAFILE_UNKNOWN, NULL, &afp);
-  while (esl_msa_Read(afp, &msa) == eslOK)
+  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+
+  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
       nali++;
@@ -828,7 +834,7 @@ main(int argc, char **argv)
       esl_msa_Destroy(msa);
       free(sqd);
     } 
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
 
   if (nbadali == 0) 
     printf("OK: all weights identical between squid and Easel in %d alignment(s)\n", nali);
@@ -862,6 +868,7 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 #include "esl_vectorops.h"
 #include "esl_stopwatch.h"
@@ -885,16 +892,17 @@ int
 main(int argc, char **argv)
 {
   ESL_STOPWATCH *w;
-  ESL_GETOPTS *go;
-  char        *msafile;
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  int          do_gsc;
-  int          do_pb;
-  int          do_blosum;
-  int          maxN;
-  double       maxid;
-  double       cpu;
+  ESL_GETOPTS   *go;
+  char          *msafile;
+  ESLX_MSAFILE  *afp;
+  ESL_MSA       *msa;
+  int            do_gsc;
+  int            do_pb;
+  int            do_blosum;
+  int            maxN;
+  double         maxid;
+  double         cpu;
+  int            status;
 
   /* Process command line
    */
@@ -924,9 +932,12 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  esl_msafile_Open(msafile, eslMSAFILE_UNKNOWN, NULL, &afp);
-  while (esl_msa_Read(afp, &msa) == eslOK)
+  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+
+  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF) 
     {
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
       esl_stopwatch_Start(w);
@@ -940,7 +951,7 @@ main(int argc, char **argv)
       printf("%-20s %6d  %6d  %.3f\n", msa->name, msa->alen, msa->nseq, cpu);
       esl_msa_Destroy(msa);
     } 
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
 
   esl_stopwatch_Destroy(w);
   return eslOK;
@@ -966,6 +977,7 @@ main(int argc, char **argv)
 #include "easel.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 #include "esl_vectorops.h"
 
@@ -987,21 +999,20 @@ static char usage[] = "Usage: ./stats [-options] <msa_file>";
 int 
 main(int argc, char **argv)
 {
-  ESL_GETOPTS *go;
-  char        *msafile;
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  int          do_gsc;
-  int          do_pb;
-  int          do_blosum;
-  int          maxN;
-  double       maxid;
-  int          nsmall, nbig;
-  int          i;
+  ESL_GETOPTS  *go;
+  char         *msafile;
+  ESLX_MSAFILE *afp;
+  ESL_MSA      *msa;
+  int           do_gsc;
+  int           do_pb;
+  int           do_blosum;
+  int           maxN;
+  double        maxid;
+  int           nsmall, nbig;
+  int           i;
+  int           status;
 
-
-  /* Process command line
-   */
+  /* Process command line  */
   go = esl_getopts_Create(options);
   if (esl_opt_ProcessCmdline(go, argc, argv) != eslOK) esl_fatal("%s", go->errbuf);
   if (esl_opt_VerifyConfig(go)               != eslOK) esl_fatal("%s", go->errbuf);
@@ -1026,9 +1037,12 @@ main(int argc, char **argv)
 
   /* Weight one or more alignments from input file
    */
-  esl_msafile_Open(msafile, eslMSAFILE_UNKNOWN, NULL, &afp);
-  while (esl_msa_Read(afp, &msa) == eslOK)
+  if ((status = eslx_msafile_Open(NULL, msafile, NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+
+  while ( (status = eslx_msafile_Read(afp, &msa)) != eslEOF)
     {
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
       if (maxN > 0 && msa->nseq > maxN) { esl_msa_Destroy(msa); continue; }
 
       if      (do_gsc) 	  esl_msaweight_GSC(msa);
@@ -1050,7 +1064,7 @@ main(int argc, char **argv)
 	     nbig);
       esl_msa_Destroy(msa);
     } 
-  esl_msafile_Close(afp);
+  eslx_msafile_Close(afp);
   return eslOK;
 }
 #endif /* eslMSAWEIGHT_STATS */
@@ -1073,17 +1087,21 @@ main(int argc, char **argv)
  */
 #include "easel.h"
 #include "esl_msa.h"
+#include "esl_msafile.h"
 #include "esl_msaweight.h"
 
 int main(int argc, char **argv)
 {
-  ESL_MSAFILE *afp;
-  ESL_MSA     *msa;
-  int i;
+  ESLX_MSAFILE *afp;
+  ESL_MSA      *msa;
+  int           i;
+  int           status;
 
-  esl_msafile_Open(argv[1], eslMSAFILE_UNKNOWN, NULL, &afp);
-  esl_msa_Read(afp, &msa);
-  esl_msafile_Close(afp);
+  if ( (status = eslx_msafile_Open(NULL, argv[1], NULL, eslMSAFILE_UNKNOWN, NULL, &afp)) != eslOK)
+    eslx_msafile_OpenFailure(afp, status);
+  if ( (status = eslx_msafile_Read(afp, &msa)) != eslOK)
+    eslx_msafile_ReadFailure(afp, status);
+  eslx_msafile_Close(afp);
 
   esl_msaweight_GSC(msa);
   

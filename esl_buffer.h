@@ -42,7 +42,7 @@ typedef struct {
 extern int esl_buffer_Open      (const char *filename, const char *envvar, ESL_BUFFER **ret_bf);
 extern int esl_buffer_OpenFile  (const char *filename,                     ESL_BUFFER **ret_bf);
 extern int esl_buffer_OpenPipe  (const char *filename, const char *cmdfmt, ESL_BUFFER **ret_bf);
-extern int esl_buffer_OpenMem   (char *p,               esl_pos_t  n,      ESL_BUFFER **ret_bf);
+extern int esl_buffer_OpenMem   (const char *p,         esl_pos_t  n,      ESL_BUFFER **ret_bf);
 extern int esl_buffer_OpenStream(FILE *fp,                                 ESL_BUFFER **ret_bf);
 extern int esl_buffer_Close(ESL_BUFFER *bf);
 

@@ -381,11 +381,11 @@ esl_rsq_CShuffleKmers(ESL_RANDOMNESS *r, const char *s, int K, char *shuffled)
   if (shuffled != s) strcpy(shuffled, s);
   ESL_ALLOC(swap, sizeof(char) * K);
   while (W > 1) 
-    {
-      i = esl_rnd_Roll(r, W);	                                  /* pick a word          */
-      strncpy(swap,                   shuffled + P + i*K,     K); /* copy it to tmp space */
-      strncpy(shuffled + P + i*K,     shuffled + P + (W-1)*K, K); /* move word W-1 to i   */
-      strncpy(shuffled + P + (W-1)*K, swap,                   K); /* move word i to W-1   */
+    {	/* use memmove, not strncpy or memcpy, because i==W-1 creates an overlap case */
+      i = esl_rnd_Roll(r, W);	                                                 /* pick a word          */
+      memmove(swap,                   shuffled + P + i*K,     K * sizeof(char)); /* copy it to tmp space */
+      memmove(shuffled + P + i*K,     shuffled + P + (W-1)*K, K * sizeof(char)); /* move word W-1 to i   */
+      memmove(shuffled + P + (W-1)*K, swap,                   K * sizeof(char)); /* move word i to W-1   */
       W--;
     }
   free(swap);
@@ -860,7 +860,6 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
 
 /* Function:  esl_rsq_XShuffleKmers()
  * Synopsis:  Shuffle k-mers in a digital sequence.
- * Incept:    SRE, Tue Nov 17 18:58:00 2009 [NHGRI retreat, Gettysburg]
  *
  * Purpose:   Same as <esl_rsq_CShuffleKmers()>, but shuffle digital 
  *            sequence <dsq> of length <L> into digital result <shuffled>.
@@ -886,11 +885,11 @@ esl_rsq_XShuffleKmers(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_D
   if (shuffled != dsq) esl_abc_dsqcpy(dsq, L, shuffled);
   ESL_ALLOC(swap, sizeof(char) * K);
   while (W > 1) 
-    {
-      i = esl_rnd_Roll(r, W);	                                 /* pick a word          */
-      memcpy(swap,                   shuffled + P + i*K,     K); /* copy it to tmp space */
-      memcpy(shuffled + P + i*K,     shuffled + P + (W-1)*K, K); /* move word W-1 to i   */
-      memcpy(shuffled + P + (W-1)*K, swap,                   K); /* move word i to W-1   */
+    {				/* use memmove, not memcpy, because i==W-1 is an overlap case */
+      i = esl_rnd_Roll(r, W);	                                                 /* pick a word          */
+      memmove(swap,                   shuffled + P + i*K,     K * sizeof(char)); /* copy it to tmp space */
+      memmove(shuffled + P + i*K,     shuffled + P + (W-1)*K, K * sizeof(char)); /* move word W-1 to i   */
+      memmove(shuffled + P + (W-1)*K, swap,                   K * sizeof(char)); /* move word i to W-1   */
       W--;
     }
   free(swap);

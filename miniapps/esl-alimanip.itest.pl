@@ -160,7 +160,7 @@ if ($output !~ /AAAAAA--AAAA---CC-CCCCCCC-C--GGGGGGGGG/) { die "FAIL: alignment 
 
 $output = `$eslalimanip --rna --outformat psiblast $tmppfx.stk 2>&1`;
 if ($? != 0)                                             { die "FAIL: esl-alimanip failed unexpectedly";}
-if ($output !~ /aAAAAa--AAAa---cc-CCCCCCc-c--GGGGggggg/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /aaAAAA--AAAA---Cc-cCCCCCC-C--GGGGGgggg/) { die "FAIL: alignment manipulated incorrectly"; }
 
 $output = `$eslalimanip --rna --outformat a2m $tmppfx.stk 2>&1`;
 if ($? != 0)                                    { die "FAIL: esl-alimanip failed unexpectedly";}

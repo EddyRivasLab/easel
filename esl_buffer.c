@@ -162,7 +162,6 @@ esl_buffer_Open(const char *filename, const char *envvar, ESL_BUFFER **ret_bf)
 
 /* Function:  esl_buffer_OpenFile()
  * Synopsis:  Open a file.
- * Incept:    SRE, Fri Dec 31 23:41:33 2010 [Zaragoza]
  *
  * Purpose:   Open <filename> for reading. Return an open <ESL_BUFFER> in
  *            <*ret_bf>.
@@ -247,7 +246,6 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
 
 /* Function:  esl_buffer_OpenPipe()
  * Synopsis:  Open a file through a command's stdout pipe (e.g. gunzip).
- * Incept:    SRE, Fri Dec 31 23:52:40 2010 [Zaragoza]
  *
  * Purpose:   Run the command <cmdfmt> on <filename> and capture its <stdout>
  *            stream for parsing. Return the open <ESL_BUFFER> in
@@ -399,7 +397,6 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
 
 /* Function:  esl_buffer_OpenMem()
  * Synopsis:  "Open" an existing string for parsing.
- * Incept:    SRE, Mon Jan 24 08:55:20 2011 [Janelia]
  *
  * Purpose:   Given a buffer or string <p> of length <n>, turn it into
  *            an <ESL_BUFFER>. Return the new buffer in <*ret_bf>.
@@ -422,14 +419,14 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
  *            On any exception, <*ret_bf> is <NULL>.
  */
 int
-esl_buffer_OpenMem(char *p, esl_pos_t n, ESL_BUFFER **ret_bf)
+esl_buffer_OpenMem(const char *p, esl_pos_t n, ESL_BUFFER **ret_bf)
 {
   ESL_BUFFER *bf = NULL;
   int         status;
 
   if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
 
-  bf->mem     = p;
+  bf->mem     = (char *) p;	/* force discard of const qualifier; this is ok; mem won't be altered in eslBUFFER_STRING mode */
   bf->n       = (n == -1) ? strlen(p) : n;
   bf->mode_is = eslBUFFER_STRING;
 
@@ -449,7 +446,6 @@ esl_buffer_OpenMem(char *p, esl_pos_t n, ESL_BUFFER **ret_bf)
 
 /* Function:  esl_buffer_OpenStream()
  * Synopsis:  "Open" an existing stream for parsing.
- * Incept:    SRE, Mon Jan 24 11:19:23 2011 [UCSF]
  *
  * Purpose:   Given an open stream <fp> for reading, create an
  *            <ESL_BUFFER> around it.
@@ -2816,7 +2812,8 @@ main(int argc, char **argv)
 
 	//printf("allocation: %" PRId64 "\n", bf->balloc);
 
-	esl_buffer_Close(bf); bf = NULL; 
+	esl_buffer_Close(bf);                 bf    = NULL; 
+	if (fp)    { fclose(fp);              fp    = NULL; }
 	if (bftmp) { esl_buffer_Close(bftmp); bftmp = NULL; }
       }
 

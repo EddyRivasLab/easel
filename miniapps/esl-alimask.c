@@ -1,7 +1,4 @@
 /* Remove columns from a multiple sequence alignment.
- * 
- * EPN, Wed Dec 23 11:15:32 2009
- * SVN $Id: esl-alistat.c 393 2009-09-27 12:04:55Z eddys $
  */
 #include "esl_config.h"
 
@@ -14,6 +11,7 @@
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msafile.h"
+#include "esl_msafile2.h"
 #include "esl_regexp.h"
 #include "esl_stopwatch.h"
 #include "esl_vectorops.h"
@@ -86,7 +84,8 @@ main(int argc, char **argv)
   char         *alifile = NULL;	               /* alignment file name             */
   int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
   int           outfmt  = eslMSAFILE_UNKNOWN;  /* format code for output ali      */
-  ESL_MSAFILE  *afp     = NULL;	               /* open alignment file             */
+  ESLX_MSAFILE *afp     = NULL;	               /* open alignment file  normal version           */
+  ESL_MSAFILE2 *afp2    = NULL;		       /* open alignment file: legacy small-mem version */
   FILE         *ofp;		               /* output file (default is stdout) */
   ESL_MSA      *msa     = NULL;	               /* one multiple sequence alignment */
   int           status;		               /* easel return code               */
@@ -289,51 +288,53 @@ main(int argc, char **argv)
   /****************************************
    * Open the MSA file; determine alphabet 
    ****************************************/
-  status = esl_msafile_Open(alifile, infmt, NULL, &afp);
-  if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
-  else if (status == eslEFORMAT)   esl_fatal("Couldn't determine format of alignment %s\n", alifile);
-  else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n");
 
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
-  else if (do_small) { /* we need the alphabet specified */
-    esl_fatal("With --small, the alphabet must be specified with --amino, --rna, or --dna.");
-  }
-  else {
-    int type;
-    status = esl_msafile_GuessAlphabet(afp, &type);
-    if (status == eslENOALPHABET)   esl_fatal("Failed to guess the bio alphabet used in %s.\nUse --dna, --rna, or --amino option to specify it.", alifile);
-    else if (status == eslEFORMAT)  esl_fatal("Alignment file parse failed: %s\n", afp->errbuf);
-    else if (status == eslENODATA)  esl_fatal("Alignment file %s is empty\n", alifile);
-    else if (status != eslOK)       esl_fatal("Failed to read alignment file %s\n", alifile);
-    abc = esl_alphabet_Create(type);
-  }
-  
+  else if (do_small)                            esl_fatal("With --small, the alphabet must be specified with --amino, --rna, or --dna.");
+
+  /* alphabet is only used to define gaps. alignment file is actually opened in text mode! */
+
+  if (do_small)
+    {
+      status = esl_msafile2_Open(alifile, NULL, &afp2);
+      if      (status == eslENOTFOUND) esl_fatal("Alignment file %s doesn't exist or is not readable\n", alifile);
+      else if (status != eslOK)        esl_fatal("Alignment file open failed with error %d\n", status);
+    }
+  else
+    {
+      status = eslx_msafile_Open(NULL, alifile, NULL, infmt, NULL, &afp);
+      if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
+    }
+
   /* If nec, read mask from the mask file */
-  if(do_maskfile) if((status = read_mask_file(maskfile, errbuf, &useme_mfile, &file_mlen)) != eslOK) esl_fatal(errbuf);
+  if (do_maskfile) if((status = read_mask_file(maskfile, errbuf, &useme_mfile, &file_mlen)) != eslOK) esl_fatal(errbuf);
   
   /************************************************************************************
    * Read the first MSA in the file (we only mask first aln) and verify we can mask it.
    ************************************************************************************/
-  status = (do_small) ? 
-    esl_msa_ReadInfoPfam(afp, NULL, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
-			       (do_gapthresh) ? &abc_ct : NULL,
-			       (do_postprob)  ? &pp_ct  : NULL, 
-			       NULL, NULL, NULL) :               /* we don't want bp_ct, srfpos_ct nor erfpos_ct */
-    esl_msa_Read              (afp, &msa); /* if ! do_small, we read full aln into memory */
-  if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp->errbuf);
-  else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n%s", status, afp);
 
-  /* a few memory-mode-specific checks/assignments */
-  if(do_small) { 
-    msa->alen = orig_alen; /* for convenience, but be careful, the msa doesn't actually have any aseq or ax */
-  }
-  else { 
-    orig_alen = msa->alen;
-    if(do_postprob && msa->pp == NULL && (! esl_opt_IsOn(go, "--ppcons"))) esl_fatal("-p was enabled, but the MSA has no posterior probability (#=GR PP) annotation.");
-  }
+  if (do_small) 
+    {
+      status = esl_msafile2_ReadInfoPfam(afp2, NULL, abc, -1, NULL, NULL, &msa, &nseq, &orig_alen, NULL, NULL, NULL, NULL, NULL, 
+					 (do_gapthresh) ? &abc_ct : NULL,
+					 (do_postprob)  ? &pp_ct  : NULL, 
+					 NULL, NULL, NULL);               /* we don't want bp_ct, srfpos_ct nor erfpos_ct */
+      if      (status == eslEFORMAT) esl_fatal("Alignment file parse error:\n%s\n", afp2->errbuf);
+      else if (status == eslEINVAL)  esl_fatal("Alignment file parse error:\n%s\n", afp2->errbuf);
+      else if (status != eslOK)      esl_fatal("Alignment file read failed with error code %d\n%s", status, afp);      
+
+      msa->alen = orig_alen; /* for convenience, but be careful, the msa doesn't actually have any aseq or ax */
+    }
+  else
+    {
+      status = eslx_msafile_Read(afp, &msa); /* if ! do_small, we read full aln into memory */
+      if (status != eslOK) eslx_msafile_ReadFailure(afp, status);
+
+      orig_alen = msa->alen;
+      if(do_postprob && msa->pp == NULL && (! esl_opt_IsOn(go, "--ppcons"))) esl_fatal("-p was enabled, but the MSA has no posterior probability (#=GR PP) annotation.");
+    }
 
   /* Allocate and initialize i_am_eligible array, which defines which
    * positions we'll consider keeping. If msa->rf == NULL or --keepins
@@ -523,40 +524,39 @@ main(int argc, char **argv)
   /************************
    * Output the alignment *
    ************************/
-  if(! do_small) { /* we have the full msa stored, just write it */
-    status = esl_msa_Write(ofp, msa, outfmt);
-    if      (status == eslEMEM) esl_fatal("Memory error when outputting alignment\n");
-    else if (status != eslOK)   esl_fatal("Writing alignment file failed with error %d\n", status);
-  }
+  if (! do_small) 
+    {
+      eslx_msafile_Write(ofp, msa, outfmt);
+    }
   else { 
     /* do_small==TRUE, we don't have the full msa stored, 
      * we must regurgitate it, removing unwanted columns as we do. 
      * First, close then reopen alifile so we can reread (first) alignment (no esl_msafile_Position() exists yet) 
      */
-    esl_msafile_Close(afp);
-    status = esl_msafile_Open(alifile, infmt, NULL, &afp); /* this should work b/c it did on the first pass */
+    esl_msafile2_Close(afp2);
+    status = esl_msafile2_OpenDigital(abc, alifile, NULL, &afp2); /* this should work b/c it did on the first pass */
     if      (status == eslENOTFOUND) esl_fatal("Second pass: alignment file %s doesn't exist or is not readable\n", alifile);
     else if (status == eslEFORMAT)   esl_fatal("Second pass: couldn't determine format of alignment %s\n", alifile);
     else if (status != eslOK)        esl_fatal("Second pass: alignment file open failed with error %d\n");
-    status = esl_msa_RegurgitatePfam(afp, ofp, 
-				     -1, -1, -1, -1, /* max width of seq names, gf,gc,gr tags unknown, we'll use margin length from file */
-				     TRUE,           /* regurgitate stockholm header ? */
-				     TRUE,           /* regurgitate // trailer ? */
-				     TRUE,           /* regurgitate blank lines */
-				     TRUE,           /* regurgitate comments */
-				     TRUE,           /* regurgitate GF ? */
-				     TRUE,           /* regurgitate GS ? */
-				     TRUE,           /* regurgitate GC ? */
-				     TRUE,           /* regurgitate GR ? */
-				     TRUE,           /* regurgitate aseq ? */
-				     NULL,           /* regurgitate all seqs, not a subset */ 
-				     NULL,           /* regurgitate all seqs, not a subset */ 
-				     useme_final,    /* which columns to keep */
-				     NULL,           /* we're not adding any columns */
-				     msa->alen,      /* expected length, not strictly necessary */
-				     '.',            /* gapchar, irrelevant in this context */
-				     NULL,           /* don't return num seqs read */
-				     NULL);          /* don't return num seqs regurgitated */
+    status = esl_msafile2_RegurgitatePfam(afp2, ofp, 
+					  -1, -1, -1, -1, /* max width of seq names, gf,gc,gr tags unknown, we'll use margin length from file */
+					  TRUE,           /* regurgitate stockholm header ? */
+					  TRUE,           /* regurgitate // trailer ? */
+					  TRUE,           /* regurgitate blank lines */
+					  TRUE,           /* regurgitate comments */
+					  TRUE,           /* regurgitate GF ? */
+					  TRUE,           /* regurgitate GS ? */
+					  TRUE,           /* regurgitate GC ? */
+					  TRUE,           /* regurgitate GR ? */
+					  TRUE,           /* regurgitate aseq ? */
+					  NULL,           /* regurgitate all seqs, not a subset */ 
+					  NULL,           /* regurgitate all seqs, not a subset */ 
+					  useme_final,    /* which columns to keep */
+					  NULL,           /* we're not adding any columns */
+					  msa->alen,      /* expected length, not strictly necessary */
+					  '.',            /* gapchar, irrelevant in this context */
+					  NULL,           /* don't return num seqs read */
+					  NULL);          /* don't return num seqs regurgitated */
     if(status == eslEOF) esl_fatal("Second pass, unable to reread alignment");
     if(status != eslOK)  esl_fatal("Second pass, error rereading alignment");
   }
@@ -597,20 +597,21 @@ main(int argc, char **argv)
   }
 
   /* Clean up, normal return */
-  if(rf2a_map      != NULL) free(rf2a_map);
-  if(useme_mfile   != NULL) free(useme_mfile);
-  if(useme_g       != NULL) free(useme_g);
-  if(useme_pp      != NULL) free(useme_pp);
-  if(useme_final   != NULL) free(useme_final);
-  if(i_am_rf       != NULL) free(i_am_rf);
-  if(i_am_eligible != NULL) free(i_am_eligible);
-  if(pp_ct         != NULL) esl_Free2D((void **) pp_ct,  orig_alen);
-  if(abc_ct        != NULL) esl_Free2D((void **) abc_ct, orig_alen);
-  if(gap_ct        != NULL) free(gap_ct);
-  if(msa           != NULL) esl_msa_Destroy(msa);
-  if(abc           != NULL) esl_alphabet_Destroy(abc);
-  if(w             != NULL) esl_stopwatch_Destroy(w);
-  esl_msafile_Close(afp);
+  if (rf2a_map)      free(rf2a_map);
+  if (useme_mfile)   free(useme_mfile);
+  if (useme_g)       free(useme_g);
+  if (useme_pp)      free(useme_pp);
+  if (useme_final)   free(useme_final);
+  if (i_am_rf)       free(i_am_rf);
+  if (i_am_eligible) free(i_am_eligible);
+  if (pp_ct)         esl_Free2D((void **) pp_ct,  orig_alen);
+  if (abc_ct)        esl_Free2D((void **) abc_ct, orig_alen);
+  if (gap_ct)        free(gap_ct);
+  if (msa)           esl_msa_Destroy(msa);
+  if (abc)           esl_alphabet_Destroy(abc);
+  if (w)             esl_stopwatch_Destroy(w);
+  if (afp)           eslx_msafile_Close(afp);
+  if (afp2)          esl_msafile2_Close(afp2);
   esl_getopts_Destroy(go);
   return 0;
 
@@ -868,7 +869,7 @@ static int mask_based_on_gapfreq(double *gap_ct, int64_t alen, int nseq, float g
  *
  * This mapping of PP chars to return values should probably be 
  * stored in some internal map structure somewhere, instead of 
- * only existing in this function as used by esl_msa_ReadInfoPfam().
+ * only existing in this function as used by esl_msafile2_ReadInfoPfam().
  */
 static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 {
@@ -1200,3 +1201,10 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
   esl_regexp_Destroy(re);
   return eslOK;
 }
+
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $URL$
+ * SVN $Id: esl-alistat.c 393 2009-09-27 12:04:55Z eddys $
+ *****************************************************************/

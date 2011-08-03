@@ -29,7 +29,6 @@ static int  binary_search(ESL_SSI *ssi, const char *key, uint32_t klen, off_t ba
 
 /* Function:  esl_ssi_Open()
  * Synopsis:  Open an SSI index as an <ESL_SSI>.
- * Incept:    SRE, Mon Mar  6 10:52:42 2006 [St. Louis]
  *
  * Purpose:   Open the SSI index file <filename>, and returns a pointer
  *            to the new <ESL_SSI> object in <ret_ssi>.
@@ -145,7 +144,6 @@ esl_ssi_Open(const char *filename, ESL_SSI **ret_ssi)
 
 /* Function: esl_ssi_FindName()
  * Synopsis: Look up a primary or secondary key.
- * Date:     SRE, Sun Dec 31 13:55:31 2000 [St. Louis]
  *
  * Purpose:  Looks up the string <key> in index <ssi>.
  *           <key> can be either a primary or secondary key. If <key>

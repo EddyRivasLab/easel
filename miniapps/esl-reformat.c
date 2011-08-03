@@ -882,6 +882,6 @@ parse_replace_string(const char *rstring, char **ret_from, char **ret_to)
  * @LICENSE@
  *
  * SVN $URL$
- * SVN $Id$            
+ * SVN $Id: esl-reformat.c 711 2011-07-27 20:06:15Z eddys $            
  *****************************************************************/
 

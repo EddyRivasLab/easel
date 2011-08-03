@@ -208,7 +208,7 @@ esl_msafile_selex_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *            Caller is responsible for free'ing this
  *            <ESL_MSA>.
  *
- * Args:      afp     - open <ESL_MSAFILE>
+ * Args:      afp     - open <ESLX_MSAFILE>
  *            ret_msa - RETURN: newly parsed <ESL_MSA>
  *
  * Returns:   <eslOK> on success.
@@ -256,7 +256,7 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 
       nblocks++;
     }
-  /* selex_read_block took care of destroying the block */
+  /* selex_read_block took care of destroying the block! */
   if (status != eslEOF || nblocks == 0) goto ERROR;
 
   msa->offset = 0;
@@ -423,6 +423,7 @@ selex_block_Destroy(ESL_SELEX_BLOCK *b)
   if (b->ltype)   free(b->ltype);
   if (b->lpos)    free(b->lpos);
   if (b->rpos)    free(b->rpos);
+  free(b);
   return;
 }
 /*------- end, internal functions for input line blocks ---------*/
