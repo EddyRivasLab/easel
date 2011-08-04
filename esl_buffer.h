@@ -26,6 +26,7 @@ typedef struct {
   esl_pos_t  baseoffset;          /* offset of byte mem[0] in the stream                   */
 
   esl_pos_t  anchor;	          /* buf[anchor..n-1] safe from overwrite [-1=unset]       */
+  int        nanchor;		  /* number of anchors set at <anchor>                     */
 
   FILE      *fp;	          /* open stream; NULL if already entirely in memory       */
   char      *filename;	          /* for diagnostics. filename; or NULL (stdin, string)    */

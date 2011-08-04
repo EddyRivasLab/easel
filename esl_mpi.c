@@ -573,7 +573,6 @@ esl_sq_MPIRecv(int source, int tag, MPI_Comm comm, const ESL_ALPHABET *abc, char
 
 /* Function:  esl_msa_MPISend()
  * Synopsis:  Send essential msa info as an MPI work unit.
- * Incept:    SRE, Fri Jun  1 10:28:57 2007 [Janelia]
  *
  * Purpose:   Sends the essential elements of a multiple alignment <msa> 
  *            as a work unit to MPI process <dest> (<dest> ranges from <0..nproc-1>),

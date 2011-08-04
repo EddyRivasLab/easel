@@ -693,7 +693,6 @@ esl_buffer_SetOffset(ESL_BUFFER *bf, esl_pos_t offset)
 
 /* Function:  esl_buffer_SetAnchor()
  * Synopsis:  Sets an anchor in an input stream.
- * Incept:    SRE, Thu Feb 10 08:54:12 2011 [Janelia]
  *
  * Purpose:   Set an anchor at byte <offset> (in input coords) in
  *            input <bf>: which means, keep everything from this byte
@@ -730,8 +729,16 @@ esl_buffer_SetAnchor(ESL_BUFFER *bf, esl_pos_t offset)
   if (offset < bf->baseoffset || offset > bf->baseoffset + bf->n)
     ESL_EXCEPTION(eslEINVAL, "can't set an anchor outside current buffer");
 
-  if (bf->anchor == -1 || offset-bf->baseoffset < bf->anchor)
-    bf->anchor = offset-bf->baseoffset;
+  if (bf->anchor == -1  || offset-bf->baseoffset < bf->anchor)
+    {   /* setting a new anchor */
+      bf->anchor  = offset-bf->baseoffset;
+      bf->nanchor = 1;
+    }
+  else if (offset-bf->baseoffset == bf->anchor) 
+    { /* reinforcing an anchor */
+      bf->nanchor++;
+    }
+
   return eslOK;
 }
 
@@ -784,7 +791,6 @@ esl_buffer_SetStableAnchor(ESL_BUFFER *bf, esl_pos_t offset)
 
 /* Function:  esl_buffer_RaiseAnchor()
  * Synopsis:  Raise an anchor.
- * Incept:    SRE, Wed Feb  2 07:37:31 2011 [Janelia]
  *
  * Purpose:   Declare that an anchor previously set at <offset>
  *            in buffer <bf> may be raised. 
@@ -811,7 +817,10 @@ esl_buffer_RaiseAnchor(ESL_BUFFER *bf, esl_pos_t offset)
   if (bf->anchor > offset - bf->baseoffset)
     ESL_EXCEPTION(eslEINVAL, "anchor is proximal to current active anchor");
 
-  if (bf->anchor ==  offset - bf->baseoffset) bf->anchor = -1;
+  if (bf->anchor ==  offset - bf->baseoffset) {
+    bf->nanchor--;
+    if (bf->nanchor == 0) bf->anchor = -1;
+  }
   return eslOK;
 }
 /*--------------- end, ESL_BUFFER manipulation ------------------*/
