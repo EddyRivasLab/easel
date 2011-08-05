@@ -664,7 +664,7 @@ esl_rnd_DChoose(ESL_RANDOMNESS *r, const double *p, int N)
 
   /* we need to deal with finite roundoff error in p's sum */
   for (i = 0; i < N; i++) norm += p[i];
-  ESL_DASSERT1(norm > 0.999 && norm < 1.001);
+  ESL_DASSERT1((norm > 0.999 && norm < 1.001));
 
   for (i = 0; i < N; i++)
     {
@@ -686,7 +686,7 @@ esl_rnd_FChoose(ESL_RANDOMNESS *r, const float *p, int N)
   int    i;                     /* counter over the probs */
 
   for (i = 0; i < N; i++) norm += p[i];
-  ESL_DASSERT1(norm > 0.99 && norm < 1.01);
+  ESL_DASSERT1((norm > 0.99 && norm < 1.01));
 
   for (i = 0; i < N; i++)
     {
@@ -742,8 +742,8 @@ esl_rnd_DChooseCDF(ESL_RANDOMNESS *r, const double *cdf, int N)
   double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0 */
   int    i;
 
-  ESL_DASSERT1(cdf[0] >= 0.0);
-  ESL_DASSERT1(cdf[N-1] > 0.999 && cdf[N-1] < 1.001);
+  ESL_DASSERT1((cdf[0] >= 0.0));
+  ESL_DASSERT1((cdf[N-1] > 0.999 && cdf[N-1] < 1.001));
 
   for (i = 0; i < N; i++)
     if (roll < cdf[i] / cdf[N-1]) return i; 
@@ -756,8 +756,8 @@ esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
   double roll = esl_random(r);	/* uniform 0.0 <= x < 1.0. must be double, not float, to guarantee x <1 */
   int    i;
 
-  ESL_DASSERT1(cdf[0] >= 0.0);
-  ESL_DASSERT1(cdf[N-1] > 0.99 && cdf[N-1] < 1.01);
+  ESL_DASSERT1((cdf[0] >= 0.0));
+  ESL_DASSERT1((cdf[N-1] > 0.99 && cdf[N-1] < 1.01));
 
   for (i = 0; i < N; i++) 
     if (roll < cdf[i]/cdf[N-1]) return i; 

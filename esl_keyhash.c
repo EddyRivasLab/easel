@@ -72,7 +72,7 @@ esl_keyhash_Create(void)
 ESL_KEYHASH *
 esl_keyhash_CreateCustom(uint32_t hashsize, int kalloc, int salloc)
 {
-  ESL_DASSERT1(hashsize && ((hashsize & (hashsize-1)) == 0)); /* hashsize is a power of 2 (bitshifting trickery) */
+  ESL_DASSERT1((hashsize && ((hashsize & (hashsize-1)) == 0))); /* hashsize is a power of 2 (bitshifting trickery) */
   return keyhash_create(hashsize, kalloc, salloc);
 }
 
