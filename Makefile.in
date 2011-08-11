@@ -206,6 +206,7 @@ BENCHMARKS =\
 	esl_buffer_benchmark\
 	esl_keyhash_benchmark\
 	esl_mem_benchmark\
+	esl_sse_benchmark\
 	esl_random_benchmark
 
 EXPERIMENTS = \
@@ -554,17 +555,46 @@ implode:
 	-rm -f LICENSE.tag
 
 TAGS:
-	find . -name \*.c     | xargs etags    -
-	find . -name \*.h     | xargs etags -a -
-	find . -name \*.pl    | xargs etags -a -
-	find . -name \*.sh    | xargs etags -a -
-	find . -name \*.tex   | xargs etags -a -
-	find . -name \*.man   | xargs etags -a -
-	find . -name \*.in    | xargs etags -a -
-	find . -name \*.sqc   | xargs etags -a -
-	find . -name 00README | xargs etags -a -
-	etags -a 00CHECKLIST COPYRIGHT configure.ac aclocal.m4
+	-rm -f ${top_srcdir}/TAGS
+	make tags-append	
+
+tags-append:
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/00CHECKLIST
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/BUGTRAX
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/INSTALL
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/LICENSE
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/aclocal.m4
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/configure.ac
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/*.c
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/*.h
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/*.tex
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/00README
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/*.pl
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/*.pm
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/blast*
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/fasta*
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/h2*
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/demotic/hmmer*
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/devkit/*
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/documentation/*.in
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/documentation/*.tex
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/miniapps/*.in
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/miniapps/*.c
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/miniapps/*.man
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/miniapps/*.pl
+
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/testsuite/*.in
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/testsuite/*.pl
+	etags -o ${top_srcdir}/TAGS -a ${srcdir}/testsuite/*.sqc
 
 ################################################################
 # @LICENSE@
+#
+# SVN $URL$
+# SVN $Id$
 ################################################################

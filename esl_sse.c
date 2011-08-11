@@ -271,8 +271,9 @@ main(int argc, char **argv)
   esl_stopwatch_Display(stdout, w, "# vector CPU time: ");
 
   /* If you don't do something with x and xv, the compiler may optimize them away */
-  printf("%g  => many scalar logf,expf cycles => %g\n", origx, N, x);
-  printf("%g  => many vector logf,expf cycles => ", origx, N); esl_sse_dump_ps(stdout, xv); printf("\n");
+  printf("%g  => many scalar logf,expf cycles => %g\n", origx, x);
+  printf("%g  => many vector logf,expf cycles => ", origx);
+  esl_sse_dump_ps(stdout, xv); printf("\n");
 
   esl_stopwatch_Destroy(w);
   esl_getopts_Destroy(go);
