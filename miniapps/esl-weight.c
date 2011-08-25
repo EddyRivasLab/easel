@@ -69,7 +69,6 @@ main(int argc, char **argv)
   ESLX_MSAFILE   *afp      = NULL;
   ESL_MSA        *msa      = NULL;
   int             status;
-  char           *outfile; /* output file, or NULL*/
   FILE           *ofp;	   /* output stream       */
 
   /* Parse command line */
@@ -86,7 +85,7 @@ main(int argc, char **argv)
   }
 
   ofp = (esl_opt_GetString (go, "-o") == NULL ? stdout : fopen(esl_opt_GetString(go, "-o"), "w"));
-  if (! ofp)     esl_fatal("Failed to open output file %s\n", outfile);
+  if (! ofp)  esl_fatal("Failed to open output file %s\n", esl_opt_GetString(go, "-o"));
 
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
