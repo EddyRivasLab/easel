@@ -121,11 +121,8 @@ typedef struct esl_sqcache_s {
 #define eslSQFILE_DDBJ         4     /* DDBJ (currently passed to GenBank parser */
 #define eslSQFILE_UNIPROT      5     /* UniProt (passed to EMBL parser) */
 #define eslSQFILE_NCBI         6     /* NCBI (blast db) */
-#define eslSQFILE_DAEMON       7     /* Special FASTA format used by daemons */
-#define eslSQFILE_DAEMON  7	/* Farrar's "daemon" format for hmmpgmd queries: fasta with // end-of-record terminator */
-#define eslSQFILE_HMMPGMD 8	/* Farrar's hmmpgmd database format: fasta w/ extra header line starting in '#' */
-#define eslSQFILE_DAEMON  7	/* Farrar's "daemon" format for hmmpgmd queries: fasta with // end-of-record terminator */
-#define eslSQFILE_HMMPGMD 8	/* Farrar's hmmpgmd database format: fasta w/ extra header line starting in '#' */
+#define eslSQFILE_DAEMON       7     /* Farrar's "daemon" format for hmmpgmd queries: fasta with // end-of-record terminator */
+#define eslSQFILE_HMMPGMD      8     /* Farrar's hmmpgmd database format: fasta w/ extra header line starting in '#' */
 /*::cexcerpt::sq_sqio_format::end::*/
 
 

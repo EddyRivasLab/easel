@@ -10,6 +10,8 @@
  *   7. Test driver
  *   8. Example
  *   9. Copyright and license information.
+ *
+ * See: http://evolution.genetics.washington.edu/phylip/doc/sequence.html
  */
 #include "esl_config.h"
 

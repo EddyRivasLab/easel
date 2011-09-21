@@ -58,6 +58,7 @@ MODULES = easel\
 	  esl_mpi\
 	  esl_msa\
 	  esl_msacluster\
+	  esl_msafile\
 	  esl_msaweight\
 	  esl_normal\
 	  esl_paml\
