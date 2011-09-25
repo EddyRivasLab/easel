@@ -780,6 +780,8 @@ esl_sqio_EncodeFormat(char *fmtstring)
   if (strcasecmp(fmtstring, "uniprot")   == 0) return eslSQFILE_UNIPROT;
   if (strcasecmp(fmtstring, "daemon")    == 0) return eslSQFILE_DAEMON;
   if (strcasecmp(fmtstring, "hmmpgmd")   == 0) return eslSQFILE_HMMPGMD;
+  if (strcasecmp(fmtstring, "fmindex")   == 0) return eslSQFILE_FMINDEX;
+
 
 #ifdef eslAUGMENT_NCBI
   if (strcasecmp(fmtstring, "ncbi")      == 0) return eslSQFILE_NCBI;
