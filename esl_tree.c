@@ -149,7 +149,7 @@ esl_tree_CreateFromString(char *s)
   ESL_TREE *T           = NULL;
 
   if (esl_tmpfile(tmpfile, &fp)         != eslOK) goto ERROR;
-  fprintf(fp, "%s", s);
+  fputs(s, fp);
   rewind(fp);
   if (esl_tree_ReadNewick(fp, NULL, &T) != eslOK) goto ERROR;
   fclose(fp);
