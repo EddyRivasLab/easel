@@ -331,7 +331,7 @@ esl_root_NewtonRaphson(ESL_ROOTFINDER *R, double guess, double *ret_x)
 
     /* Test for convergence. */
     if (R->fx == 0) break;	/* an exact root, lucky */
-    if ( (fabs(R->x - R->x0) < R->abs_tolerance + R->rel_tolerance*R->x) || fabs(R->fx < R->residual_tol)) break;
+    if ( (fabs(R->x - R->x0) < R->abs_tolerance + R->rel_tolerance*R->x) || fabs(R->fx) < R->residual_tol) break;
   }
 
   *ret_x = R->x;
