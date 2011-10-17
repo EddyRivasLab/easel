@@ -1554,7 +1554,7 @@ esl_abc_DecodeType(int type)
   case eslNONSTANDARD: return "custom";
   default:             break;
   }
-  esl_exception(eslEINVAL, __FILE__, __LINE__, "no such alphabet type code %d\n", type);
+  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__, "no such alphabet type code %d\n", type);
   return NULL;
 }
 

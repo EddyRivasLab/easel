@@ -67,6 +67,7 @@ static esl_exception_handler_f esl_exception_handler = NULL;
  *            Something wicked this way came.
  *            
  * Args:      errcode     - Easel error code, such as eslEINVAL. See easel.h.
+ *            use_errno   - if TRUE, also use perror() to report POSIX errno message.
  *            sourcefile  - Name of offending source file; normally __FILE__.
  *            sourceline  - Name of offending source line; normally __LINE__.
  *            format      - <sprintf()> formatted exception message, followed
@@ -75,18 +76,17 @@ static esl_exception_handler_f esl_exception_handler = NULL;
  *                          
  * Returns:   void. 
  *
- * Throws:    (no abnormal error conditions)
- *            (Of course. Who watches the watchers?)
+ * Throws:    No abnormal error conditions. (Who watches the watchers?)
  */
 void
-esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
+esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, ...)
 {
   va_list argp;
 
   if (esl_exception_handler != NULL) 
     {
       va_start(argp, format);
-      (*esl_exception_handler)(errcode, sourcefile, sourceline, format, argp);
+      (*esl_exception_handler)(errcode, use_errno, sourcefile, sourceline, format, argp);
       va_end(argp);
       return;
     } 
@@ -97,6 +97,7 @@ esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
       vfprintf(stderr, format, argp);
       va_end(argp);
       fprintf(stderr, "\n");
+      if (use_errno && errno) perror("system error");
       fflush(stderr);
       abort();
     }
@@ -113,6 +114,10 @@ esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
  *            <errcode> is an Easel error code, such as
  *            <eslEINVAL>. See <easel.h> for a list of all codes.
  * 
+ *            <use_errno> is TRUE for POSIX system call failures. The
+ *            handler may then use POSIX <errno> to format/print an
+ *            additional message, using <perror()> or <strerror_r()>.
+ *           
  *            <sourcefile> is the name of the Easel source code file
  *            in which the exception occurred, and <sourceline> is 
  *            the line number.
@@ -130,7 +135,7 @@ esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...)
  * Throws:    (no abnormal error conditions)
  */
 void
-esl_exception_SetHandler(void (*handler)(int errcode, char *sourcefile, int sourceline, char *format, va_list argp))
+esl_exception_SetHandler(void (*handler)(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp))
 { 
   esl_exception_handler = handler; 
 }
@@ -174,6 +179,7 @@ esl_exception_ResetDefaultHandler(void)
  *           registered by the application.
  *           
  * Args:      errcode     - Easel error code, such as eslEINVAL. See easel.h.
+ *            use_errno   - TRUE on POSIX system call failures; use <errno> 
  *            sourcefile  - Name of offending source file; normally __FILE__.
  *            sourceline  - Name of offending source line; normally __LINE__.
  *            format      - <sprintf()> formatted exception message.
@@ -185,7 +191,7 @@ esl_exception_ResetDefaultHandler(void)
  * Throws:    (no abnormal error conditions)
  */
 void
-esl_nonfatal_handler(int errcode, char *sourcefile, int sourceline, char *format, va_list argp)
+esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp)
 {
   return; 
 }
@@ -325,23 +331,31 @@ esl_Free3D(void ***p, int dim1, int dim2)
  *    EASEL_COPYRIGHT "Copyright (C) 2004-2007 HHMI Janelia Farm Research Campus"
  *    EASEL_LICENSE   "Freely licensed under the Janelia Software License."
  *
- * Returns:   (void)
+ * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on write error.
  */
-void
+int
 esl_banner(FILE *fp, char *progname, char *banner)
 {
   char *appname = NULL;
+  int   status;
 
-  if (esl_FileTail(progname, FALSE, &appname) != eslOK) appname = progname;
+  if ((status = esl_FileTail(progname, FALSE, &appname)) != eslOK) return status;
 
-  fprintf(fp, "# %s :: %s\n", appname, banner);
-  fprintf(fp, "# Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE);
-  fprintf(fp, "# %s\n", EASEL_COPYRIGHT);
-  fprintf(fp, "# %s\n", EASEL_LICENSE);
-  fprintf(fp, "# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  if (fprintf(fp, "# %s :: %s\n", appname, banner)                                               < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+  if (fprintf(fp, "# Easel %s (%s)\n", EASEL_VERSION, EASEL_DATE)                                < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+  if (fprintf(fp, "# %s\n", EASEL_COPYRIGHT)                                                     < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+  if (fprintf(fp, "# %s\n", EASEL_LICENSE)                                                       < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+  if (fprintf(fp, "# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
 
-  if (appname != NULL) free(appname);
-  return;
+  if (appname) free(appname);
+  return eslOK;
+
+ ERROR:
+  if (appname) free(appname);
+  return status;
 }
 
 
@@ -376,20 +390,28 @@ esl_banner(FILE *fp, char *progname, char *banner)
  *              Usage: esl-compstruct [options] <trusted file> <test file>
  *            \end{cchunk}  
  *              
- * Returns:   (void).
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEWRITE> on write failure.
  */
-void
+int
 esl_usage(FILE *fp, char *progname, char *usage)
 {
   char *appname = NULL;
+  int   status;
 
-  if (esl_FileTail(progname, FALSE, &appname) != eslOK) appname = progname;
-  fprintf(fp, "Usage: %s %s\n", appname, usage);
-  if (appname != NULL) free(appname);
-  return;
+  if ( (status = esl_FileTail(progname, FALSE, &appname)) != eslOK) return status;
+
+  if (fprintf(fp, "Usage: %s %s\n", appname, usage) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+
+  if (appname) free(appname);
+  return eslOK;
+
+ ERROR:
+  if (appname) free(appname);
+  return status;
 }
-
-
 /*-------------------- end, standard miniapp banner --------------------------*/
 
 

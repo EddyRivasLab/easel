@@ -824,7 +824,7 @@ esl_sqio_DecodeFormat(int fmt)
 #endif
   default:                   break;
   }
-  esl_exception(eslEINVAL, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
+  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__,  "no such sqio format code %d", fmt);
   return NULL;
 }
 

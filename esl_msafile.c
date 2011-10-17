@@ -745,7 +745,7 @@ eslx_msafile_DecodeFormat(int fmt)
   case eslMSAFILE_PHYLIPS:     return "PHYLIP (sequential)";
   default:                     break;
   }
-  esl_exception(eslEINVAL, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
+  esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__, "no such msa format code %d\n", fmt);
   return NULL;
 }
 

@@ -2,7 +2,6 @@
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
- *
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -42,27 +41,40 @@
  * macro expansion.
  */
 /*::cexcerpt::error_macros::begin::*/
-#define ESL_FAIL(code, errbuf, ...) do {\
-     if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);\
-     return code; }\
-     while (0)
+#define ESL_FAIL(code, errbuf, ...) do {				\
+    if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);	\
+    return code; }							\
+  while (0)
 
-#define ESL_XFAIL(code, errbuf, ...) do {\
-     status = code;\
-     if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);\
-     goto ERROR; }\
-     while (0)
+#define ESL_XFAIL(code, errbuf, ...) do {				\
+    status = code;							\
+    if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);	\
+    goto ERROR; }							\
+  while (0)
 
-#define ESL_EXCEPTION(code, ...)  do {\
-     esl_exception(code, __FILE__, __LINE__, __VA_ARGS__);\
-     return code; }\
-     while (0)
+#define ESL_EXCEPTION(code, ...)  do {					\
+    esl_exception(code, FALSE, __FILE__, __LINE__, __VA_ARGS__);	\
+    return code; }							\
+  while (0)
 
-#define ESL_XEXCEPTION(code, ...)  do {\
-     status = code;\
-     esl_exception(code, __FILE__, __LINE__, __VA_ARGS__);\
-     goto ERROR; }\
-     while (0)
+#define ESL_XEXCEPTION(code, ...)  do {					\
+    status = code;							\
+    esl_exception(code, FALSE, __FILE__, __LINE__, __VA_ARGS__);	\
+    goto ERROR; }							\
+  while (0)
+
+#define ESL_EXCEPTION_SYS(code, ...) do {				\
+    status = code;							\
+    esl_exception(code, TRUE, __FILE__, __LINE__, __VA_ARGS__);		\
+    return code; }							\
+  while (0)
+
+#define ESL_XEXCEPTION_SYS(code, ...)  do {				\
+    status = code;							\
+    esl_exception(code, TRUE, __FILE__, __LINE__, __VA_ARGS__);	\
+    goto ERROR; }							\
+  while (0)
+
 /*::cexcerpt::error_macros::end::*/
 
 
@@ -96,6 +108,7 @@
 #define eslEUNIMPLEMENTED 24    /* feature is unimplemented     */
 #define eslENOFORMAT      25	/* couldn't guess file format   */
 #define eslENOALPHABET    26	/* couldn't guess seq alphabet  */
+#define eslEWRITE         27   	/* write failed (fprintf, etc)  */
 /*::cexcerpt::statuscodes::end::*/
 
 
@@ -120,7 +133,7 @@
 #define ESL_ALLOC(p, size) do {\
     if (((p) = malloc(size)) == NULL && (size)) {	\
        status = eslEMEM;\
-       esl_exception(eslEMEM, __FILE__, __LINE__, "malloc of size %d failed", size);\
+       esl_exception(eslEMEM, FALSE, __FILE__, __LINE__, "malloc of size %d failed", size); \
        goto ERROR;\
      }} while (0)
 
@@ -130,7 +143,7 @@
      if ((tmp) != NULL) (p) = (tmp);\
      else {\
        status = eslEMEM;\
-       esl_exception(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
+       esl_exception(eslEMEM, FALSE, __FILE__, __LINE__, "realloc for size %d failed", newsize);	\
        goto ERROR;\
      }} while (0)
 
@@ -141,7 +154,7 @@
      if ((esltmpp) != NULL) (p) = (esltmpp);\
      else {\
        status = eslEMEM;\
-       esl_exception(eslEMEM, __FILE__, __LINE__, "realloc for size %d failed", newsize);\
+       esl_exception(eslEMEM, FALSE, __FILE__, __LINE__, "realloc for size %d failed", newsize); \
        goto ERROR;\
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
@@ -332,11 +345,11 @@ typedef void ESL_KEYHASH;
  *****************************************************************/
 
 /* 1. Error handling. */
-typedef void (*esl_exception_handler_f)(int errcode, char *sourcefile, int sourceline, char *format, va_list argp);
-extern void esl_exception(int errcode, char *sourcefile, int sourceline, char *format, ...);
+typedef void (*esl_exception_handler_f)(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp);
+extern void esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, ...);
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
-extern void esl_nonfatal_handler(int errcode, char *sourcefile, int sourceline, char *format, va_list argp);
+extern void esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp);
 extern void esl_fatal(const char *format, ...);
 
 /* 2. Memory allocation/deallocation conventions. */
@@ -344,8 +357,8 @@ extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 /* 3. Standard banner for Easel miniapplications. */
-extern void esl_banner(FILE *fp, char *progname, char *banner);
-extern void esl_usage (FILE *fp, char *progname, char *usage);
+extern int  esl_banner(FILE *fp, char *progname, char *banner);
+extern int  esl_usage (FILE *fp, char *progname, char *usage);
 
 /* 4. Improved replacements for some C library functions */
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
@@ -402,3 +415,11 @@ extern int  esl_composition_SW50(double *f);
 
 
 #endif /*eslEASEL_INCLUDED*/
+
+
+/*****************************************************************
+ * @LICENSE@
+ * 
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/

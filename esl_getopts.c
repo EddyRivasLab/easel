@@ -442,7 +442,6 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
 
 /* Function:  esl_opt_ProcessEnvironment()
  * Synopsis:  Parses options in the environment.
- * Incept:    SRE, Thu Jan 13 10:17:58 2005 [St. Louis]
  *
  * Purpose:   For any option defined in <g> that can be modified
  *            by an environment variable, check the environment
@@ -456,6 +455,7 @@ esl_opt_ProcessConfigfile(ESL_GETOPTS *g, char *filename, FILE *fp)
  *            
  * Returns:   <eslOK> on success, and <g> is loaded with all
  *            options specified in the environment.
+ *
  *            Returns <eslEINVAL> on user input problems, 
  *            including type/range check failures, and 
  *            sets <g->errbuf> to a useful error message.
@@ -1027,7 +1027,6 @@ esl_opt_GetArg(const ESL_GETOPTS *g, int which)
 
 /* Function:  esl_opt_DisplayHelp()
  * Synopsis:  Formats one-line help for each option.
- * Incept:    SRE, Sun Feb 26 12:36:07 2006 [St. Louis]
  *
  * Purpose:   For each option in <go>, print one line of brief
  *            documentation for it, consisting of the option name
@@ -1059,7 +1058,8 @@ esl_opt_GetArg(const ESL_GETOPTS *g, int which)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEINVAL> if one or more help lines are too long for
- *            the specified <textwidth>.
+ *                        the specified <textwidth>.
+ *            <eslEWRITE> if a write fails.
  */
 int
 esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
@@ -1070,6 +1070,7 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
   int show_defaults;
   int show_ranges;
   int i, n;
+  int status;
 
   /* Figure out the field widths we need in the output.
    */
@@ -1111,46 +1112,42 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
       show_defaults = FALSE;
       show_ranges   = FALSE;
     }
-  else
-    ESL_EXCEPTION(eslEINVAL, "Help line too long");
+  else ESL_EXCEPTION(eslEINVAL, "Help line too long");
 
-
-  /* Format and print the options in this docgroup.
-   */
+  /* Format and print the options in this docgroup. */
   for (i = 0; i < go->nopts; i++)
     if (! docgroup || docgroup == go->opt[i].docgrouptag)
       {
-	fprintf(ofp, "%*s", indent, "");
+	if (fprintf(ofp, "%*s", indent, "")      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
 	n = 0;
-	fprintf(ofp, "%s",  go->opt[i].name);
+	if (fprintf(ofp, "%s",  go->opt[i].name) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
 	n += strlen(go->opt[i].name);
 
 	switch (go->opt[i].type) {
 	case eslARG_NONE:    break;
-	case eslARG_INT:     fprintf(ofp, " <n>"); n += 4; break;
-	case eslARG_REAL:    fprintf(ofp, " <x>"); n += 4; break;
-	case eslARG_CHAR:    fprintf(ofp, " <c>"); n += 4; break;
-	case eslARG_STRING:  fprintf(ofp, " <s>"); n += 4; break;
-	case eslARG_INFILE:  fprintf(ofp, " <f>"); n += 4; break;
-	case eslARG_OUTFILE: fprintf(ofp, " <f>"); n += 4; break;
+	case eslARG_INT:     if (fprintf(ofp, " <n>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
+	case eslARG_REAL:    if (fprintf(ofp, " <x>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
+	case eslARG_CHAR:    if (fprintf(ofp, " <c>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
+	case eslARG_STRING:  if (fprintf(ofp, " <s>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
+	case eslARG_INFILE:  if (fprintf(ofp, " <f>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
+	case eslARG_OUTFILE: if (fprintf(ofp, " <f>") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); n += 4; break;
 	}
 
-	fprintf(ofp, "%*s", optwidth-n, "");
-	fprintf(ofp, " :");
+	if (fprintf(ofp, "%*s", optwidth-n, "") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+	if (fprintf(ofp, " :")                  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
 
 	if (go->opt[i].help != NULL)
-	  fprintf(ofp, " %s", go->opt[i].help);
+	  { if (fprintf(ofp, " %s", go->opt[i].help) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); }
 	
 	if (show_defaults && go->opt[i].defval != NULL) 
 	  if (go->opt[i].type != eslARG_CHAR || *(go->opt[i].defval) != '\0')
-	    fprintf(ofp, "  [%s]", go->opt[i].defval);
+	    { if (fprintf(ofp, "  [%s]", go->opt[i].defval) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); }
 
 	if (show_ranges && go->opt[i].range != NULL)
-	  fprintf(ofp, "  (%s)", go->opt[i].range);
+	  { if (fprintf(ofp, "  (%s)", go->opt[i].range) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); }
 
-	fprintf(ofp, "\n");
+	if (fprintf(ofp, "\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
       }
-
   return eslOK;
 }
 /*------------------ end of the public API -----------------------*/
