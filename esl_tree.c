@@ -1138,7 +1138,6 @@ newick_parse_branchlength(FILE *fp, char *buf, int *pos, int *nc, double *ret_d)
 
 /* Function:  esl_tree_ReadNewick()
  * Synopsis:  Input a Newick format tree.
- * Incept:    SRE, Wed Oct 25 09:25:19 2006 [Janelia]
  *
  * Purpose:   Read a Newick format tree from an open input stream <fp>.
  *            Return the new tree in <ret_T>. 
@@ -1364,6 +1363,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	{ 			
 	  if ((status = esl_stack_IPop(vs, &v)) != eslOK) goto ERROR;
 	  if (buf[pos] != ',') continue;
+	  if (esl_tree_Grow(T) != eslOK) { status = eslEMEM; goto ERROR; };	/* c.f. memory management note: check that we can add new node */
 
 	  /* v = the interior node that is multifurcated.
            * What we're going to do is to create a new node y; move the existing right child of v 
@@ -1419,7 +1419,6 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
  *****************************************************************/
 
 /* Function:  esl_tree_Compare()
- * Incept:    SRE, Fri Sep 22 14:05:09 2006 [Janelia]
  *
  * Purpose:   Given two trees <T1> and <T2> for the same
  *            set of <N> taxa, compare the topologies of the
@@ -1731,7 +1730,6 @@ cluster_engine(ESL_DMATRIX *D_original, int mode, ESL_TREE **ret_T)
 
 
 /* Function:  esl_tree_UPGMA()
- * Incept:    SRE, Wed May  3 15:14:17 2006 [St. Louis]
  *
  * Purpose:   Given distance matrix <D>, use the UPGMA algorithm
  *            to construct a tree <T>.
@@ -1748,7 +1746,6 @@ esl_tree_UPGMA(ESL_DMATRIX *D, ESL_TREE **ret_T)
 }
 
 /* Function:  esl_tree_WPGMA()
- * Incept:    SRE, Wed May  3 15:47:13 2006 [St. Louis]
  *
  * Purpose:   Given distance matrix <D>, use the WPGMA algorithm
  *            to construct a tree <T>.
@@ -1765,7 +1762,6 @@ esl_tree_WPGMA(ESL_DMATRIX *D, ESL_TREE **ret_T)
 }
 
 /* Function:  esl_tree_SingleLinkage()
- * Incept:    SRE, Wed May  3 15:49:06 2006 [St. Louis]
  *
  * Purpose:   Given distance matrix <D>, construct a single-linkage
  *            (minimum distances) clustering tree <T>.
@@ -1782,7 +1778,6 @@ esl_tree_SingleLinkage(ESL_DMATRIX *D, ESL_TREE **ret_T)
 }
 
 /* Function:  esl_tree_CompleteLinkage()
- * Incept:    SRE, Wed May  3 15:49:14 2006 [St. Louis]
  *
  * Purpose:   Given distance matrix <D>, construct a complete-linkage
  *            (maximum distances) clustering tree <T>.
@@ -1807,7 +1802,6 @@ esl_tree_CompleteLinkage(ESL_DMATRIX *D, ESL_TREE **ret_T)
 
 /* Function:  esl_tree_Simulate()
  * Synopsis:  Generate a random rooted ultrametric tree.
- * Incept:    SRE, Mon Oct  2 11:36:22 2006 [Janelia]
  *
  * Purpose:   Generate a random rooted ultrametric tree of <N> taxa,
  *            using the algorithm of Kuhner and Felsenstein (1994).
@@ -1933,7 +1927,6 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
 
 /* Function:  esl_tree_ToDistanceMatrix()
  * Synopsis:  Obtain a pairwise distance matrix from a tree.
- * Incept:    SRE, Fri Oct  6 13:50:37 2006 [Janelia]
  *
  * Purpose:   Given tree <T>, calculate a pairwise distance matrix
  *            and return it in <ret_D>.

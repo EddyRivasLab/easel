@@ -2639,7 +2639,7 @@ esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum)
  *
  * Returns:   <eslOK> on success.
  *            <eslESYNTAX> if SS string 
- *            following esl_wuss_nopseudo() is inconsistent.
+ *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted 
  *            SS, this should be impossible.
  *
@@ -2683,7 +2683,7 @@ esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *
  * Synopsis:  Remove all annotated bps about to be broken by column downselect.
  *
  * Purpose:   Given an array <useme> (0..alen-1) of TRUE/FALSE flags,
- *            remove any basepair from SS_cons and individual SS
+ *            remove any basepair from <SS_cons> and individual SS
  *            annotation in alignment columns (i,j) for which either
  *            <useme[i-1]> or <useme[j-1]> is FALSE.  Called
  *            automatically from <esl_msa_ColumnSubset()> with same
@@ -2693,8 +2693,8 @@ esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *
  *            untouched.
  *
  * Returns:   <eslOK> on success.
- *            <eslESYNTAX> if WUSS string for SS_cons or msa->ss 
- *            following esl_wuss_nopseudo() is inconsistent.
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
  *            <eslEINVAL> if a derived ct array implies a pknotted 
  *            SS, this should be impossible
  *            
