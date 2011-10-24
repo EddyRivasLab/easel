@@ -394,6 +394,7 @@ esl_msafile_a2m_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  * Returns:   <eslOK> on success.
  * 
  * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
@@ -414,10 +415,10 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
   for (i = 0; i < msa->nseq; i++)
     {
       /* Construct the name/description line */
-      fprintf(fp, ">%s", msa->sqname[i]);
-      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) fprintf(fp, " %s", msa->sqacc[i]);
-      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) fprintf(fp, " %s", msa->sqdesc[i]);
-      fputc('\n', fp);
+      if (fprintf(fp, ">%s", msa->sqname[i])                                                      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed");
+      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) { if (fprintf(fp, " %s", msa->sqacc[i])  < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
+      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
+      if (fputc('\n', fp)                                                                         < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); 
 
 #ifdef eslAUGMENT_ALPHABET
       if (msa->abc)
@@ -439,7 +440,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 		  else if (! do_dotless) { buf[bpos++] = '.'; }
 		}
 	      buf[bpos] = '\0';
-	      if (bpos) fprintf(fp, "%s\n", buf);	      
+	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed");}
 	    }
 	}
 #endif
@@ -463,7 +464,7 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
 		  
 		}
 	      buf[bpos] = '\0';
-	      if (bpos) fprintf(fp, "%s\n", buf);	      
+	      if (bpos) { if (fprintf(fp, "%s\n", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "a2m msa file write failed"); }
 	    } 
 	}
     } /* end, loop over sequences in the MSA */
@@ -475,9 +476,6 @@ esl_msafile_a2m_Write(FILE *fp, const ESL_MSA *msa)
   if (buf) free(buf);
   return status;
 }
-
-
-
 /*------------- end, API for i/o of a2m format ------------------*/
 
 

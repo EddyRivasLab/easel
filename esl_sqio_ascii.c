@@ -533,7 +533,6 @@ sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
 
 /* Function:  sqascii_Close()
  * Synopsis:  Close a sequence file.
- * Incept:    SRE, Thu Dec 23 13:19:43 2004 [St. Louis]
  *
  * Purpose:   Closes an open <sqfp>.
  *
@@ -590,7 +589,6 @@ sqascii_Close(ESL_SQFILE *sqfp)
 
 /* Function:  sqascii_SetDigital()
  * Synopsis:  Set an open <ESL_SQFILE> to read in digital mode.
- * Incept:    SRE, Fri May  9 09:21:31 2008 [Janelia]
  *
  * Purpose:   Given an <ESL_SQFILE> that's already been opened,
  *            configure it to expect subsequent input to conform
@@ -639,7 +637,6 @@ sqascii_SetDigital(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc)
 
 /* Function:  sqascii_GuessAlphabet()
  * Synopsis:  Guess the alphabet of an open <ESL_SQFILE>.
- * Incept:    SRE, Sun Feb 24 17:14:55 2008 [UA5315 to St. Louis]
  *
  * Purpose:   After opening <sqfp>, attempt to guess what alphabet
  *            its sequences are in, by inspecting the first sequence
@@ -715,7 +712,6 @@ sqascii_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 /* Function:  sqascii_IsRewindable()
  * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
- * Incept:    SRE, Mon Feb 16 10:32:13 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
  *            to an offset of zero), in order to read it a second
@@ -731,7 +727,6 @@ sqascii_IsRewindable(const ESL_SQFILE *sqfp)
 
 /* Function:  sqascii_GetError()
  * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
- * Incept:    SRE, Mon Feb 16 10:32:13 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
  *            to an offset of zero), in order to read it a second
@@ -750,7 +745,6 @@ sqascii_GetError(const ESL_SQFILE *sqfp)
 
 /* Function:  sqascii_Read()
  * Synopsis:  Read the next sequence from a file.
- * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
  *            <sq>. Caller provides an allocated and initialized <s>, which
@@ -851,7 +845,6 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  sqascii_ReadInfo()
  * Synopsis:  Read sequence info, but not the sequence itself.
- * Incept:    SRE, Fri May 16 09:24:21 2008 [Janelia]
  *
  * Purpose:   Read the next sequence from open sequence file <sqfp>,
  *            but don't store the sequence (or secondary structure).
@@ -953,7 +946,6 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  sqascii_ReadSequence()
  * Synopsis:  Read the next sequence from a file.
- * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
  *            <sq>. Caller provides an allocated and initialized <s>, which
@@ -1054,7 +1046,6 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  sqascii_ReadWindow()
  * Synopsis:  Read next window of sequence.
- * Incept:    SRE, Fri May 16 13:42:51 2008 [Janelia]
  *
  * Purpose:   Read a next window of <W> residues from open file <sqfp>,
  *            keeping <C> residues from the previous window as
@@ -1440,7 +1431,6 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
 /* Function:  sqascii_ReadBlock()
  * Synopsis:  Read the next block of sequences from a file.
- * Incept:    
  *
  * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
  *            <sqBlock>.
@@ -1568,7 +1558,6 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
 
 /* Function:  sqascii_Echo()
  * Synopsis:  Echo a sequence's record onto output stream.
- * Incept:    SRE, Wed Apr  2 16:32:21 2008 [Janelia]
  *
  * Purpose:   Given a complete <sq> that we have read by some means
  *            from an open <sqfp>; echo that sequence's record
@@ -1657,7 +1646,6 @@ sqascii_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 /* Function:  sqascii_OpenSSI()
  * Synopsis:  Opens an SSI index associated with a sequence file.
- * Incept:    SRE, Wed Apr  2 10:21:04 2008 [Janelia]
  *
  * Purpose:   Opens an SSI index file associated with the already open
  *            sequence file <sqfp>. If successful, the necessary
@@ -1720,7 +1708,6 @@ sqascii_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
 
 /* Function:  sqascii_PositionByKey()
  * Synopsis:  Use SSI to reposition seq file to a particular sequence.
- * Incept:    SRE, Wed Apr  2 09:51:11 2008 [Janelia]
  *
  * Purpose:   Reposition <sqfp> so that the next sequence we read will
  *            be the one named (or accessioned) <key>.
@@ -1770,7 +1757,6 @@ sqascii_PositionByKey(ESL_SQFILE *sqfp, const char *key)
 
 /* Function:  sqascii_PositionByNumber()
  * Synopsis:  Use SSI to reposition by sequence number
- * Incept:    SRE, Wed Apr  2 17:24:38 2008 [Janelia]
  *
  * Purpose:   Reposition <sqfp> so that the next sequence we 
  *            read will be the <which>'th sequence, where <which>
@@ -1819,7 +1805,6 @@ sqascii_PositionByNumber(ESL_SQFILE *sqfp, int which)
 
 /* Function:  sqascii_Fetch()
  * Synopsis:  Fetch a complete sequence, using SSI indexing.
- * Incept:    SRE, Fri May 16 13:25:00 2008 [Janelia]
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
  *            the repositionable, open sequence file <sqfp>.
@@ -1850,7 +1835,6 @@ sqascii_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
   
 /* Function:  sqascii_FetchInfo()
  * Synopsis:  Fetch a sequence's info, using SSI indexing.
- * Incept:    SRE, Fri May 16 13:25:00 2008 [Janelia]
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
  *            the repositionable, open sequence file <sqfp>, reading
@@ -1883,7 +1867,6 @@ sqascii_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 
 /* Function:  sqascii_FetchSubseq()
  * Synopsis:  Fetch a subsequence, using SSI indexing.
- * Incept:    SRE, Tue May 13 11:00:04 2008 [Janelia]
  *
  * Purpose:   Fetch subsequence <start..end> from a sequence named (or
  *            accessioned) <source>, in the repositionable, open sequence file <sqfp>.
@@ -3042,7 +3025,6 @@ end_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  esl_sqascii_WriteFasta()
  * Synopsis:  Write a sequence in FASTA foramt
- * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
  * Purpose:   Write sequence <sq> in FASTA format to the open stream <fp>.
  * 
@@ -3052,6 +3034,7 @@ end_fasta(ESL_SQFILE *sqfp, ESL_SQ *sq)
  * Returns:   <eslOK> on success.
  *             
  * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEWRITE> on system write error.
  */
 int
 esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
@@ -3060,11 +3043,11 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
   int64_t  pos;
 
   if (save_offsets) sq->roff = ftello(fp);
-  fprintf(fp, ">%s", sq->name);
-  if (sq->acc[0]  != 0) fprintf(fp, " %s", sq->acc);
-  if (sq->desc[0] != 0) fprintf(fp, " %s", sq->desc);
+  if (fprintf(fp, ">%s", sq->name)                     < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
+  if (sq->acc[0]  != 0 && fprintf(fp, " %s", sq->acc)  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
+  if (sq->desc[0] != 0 && fprintf(fp, " %s", sq->desc) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
   if (save_offsets) sq->hoff = ftello(fp);
-  fputc('\n', fp);
+  if (fputc('\n', fp)                                  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
 
   buf[60] = '\0';
   if (save_offsets) sq->doff = ftello(fp);
@@ -3072,7 +3055,7 @@ esl_sqascii_WriteFasta(FILE *fp, ESL_SQ *sq, int save_offsets)
     {
       if (sq->dsq != NULL) esl_abc_TextizeN(sq->abc, sq->dsq+pos+1, 60, buf);
       else                 strncpy(buf, sq->seq+pos, 60);
-      fprintf(fp, "%s\n", buf);
+      if (fprintf(fp, "%s\n", buf) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "fasta seq write failed");
     }
   if (save_offsets) sq->eoff = ftello(fp) - 1;
   return eslOK;

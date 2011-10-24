@@ -58,7 +58,6 @@ static int  sqfile_open(const char *filename, int format, const char *env, ESL_S
 
 /* Function:  esl_sqfile_Open()
  * Synopsis:  Open a sequence file for reading.
- * Incept:    SRE, Thu Feb 17 08:22:16 2005 [St. Louis]
  *
  * Purpose:   Open a sequence file <filename> for reading. 
  *            The opened <ESL_SQFILE> is returned through <ret_sqfp>.
@@ -97,7 +96,6 @@ esl_sqfile_Open(const char *filename, int format, const char *env, ESL_SQFILE **
 
 /* Function:  esl_sqfile_Position()
  * Synopsis:  Reposition an open sequence file to an offset.
- * Incept:    SRE, Tue Mar 28 13:21:47 2006 [St. Louis]
  *
  * Purpose:   Reposition an open <sqfp> to offset <offset>.
  *            <offset> would usually be the first byte of a
@@ -137,7 +135,6 @@ esl_sqfile_Position(ESL_SQFILE *sqfp, off_t offset)
 
 /* Function:  esl_sqfile_Close()
  * Synopsis:  Close a sequence file.
- * Incept:    SRE, Thu Dec 23 13:19:43 2004 [St. Louis]
  *
  * Purpose:   Closes an open <sqfp>.
  *
@@ -380,7 +377,6 @@ esl_sqfile_GuessAlphabet(ESL_SQFILE *sqfp, int *ret_type)
 
 /* Function:  esl_sqfile_Cache()
  * Synopsis:  Read a database into memory.
- * Incept:    MSF, Fri Aug 20 2010 [Janelia]
  *
  * Purpose:   Read an entire database into memory building a cached
  *            structure <ESL_SQCACHE>.  The cache structure has basic
@@ -624,7 +620,6 @@ ERROR:
 
 /* Function:  esl_sqfile_Free()
  * Synopsis:  Free a cached database <ESL_SQCACHE>.
- * Incept:    MSF, Fri Aug 20 2010 [Janelia]
  *
  * Purpose:   Frees all the memory used to cache the sequence database.
  *
@@ -661,7 +656,6 @@ esl_sqfile_Free(ESL_SQCACHE *sqcache)
 
 /* Function:  esl_sqfile_IsRewindable()
  * Synopsis:  Return <TRUE> if <sqfp> can be rewound.
- * Incept:    SRE, Mon Feb 16 10:32:13 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if <sqfp> can be rewound (positioned 
  *            to an offset of zero), in order to read it a second
@@ -676,7 +670,6 @@ esl_sqfile_IsRewindable(const ESL_SQFILE *sqfp)
 
 /* Function:  esl_sqfile_GetErrorBuf()
  * Synopsis:  Return the error buffer
- * Incept:    MSF, Tue Jan 5, 2010 [Janelia]
  *
  * Purpose:   Returns the pointer to the error buffer.
  *            Each parser is responsible for formatting
@@ -694,7 +687,6 @@ esl_sqfile_GetErrorBuf(const ESL_SQFILE *sqfp)
 
 /* Function:  esl_sqio_Ignore()
  * Synopsis:  Sets the input map to ignore one or more input characters.
- * Incept:    SRE, Tue Sep 23 08:17:51 2008 [Janelia]
  *
  * Purpose:   Set the input map of the open <sqfp> to allow
  *            the characters in the string <ignoredchars> to appear
@@ -717,7 +709,6 @@ esl_sqio_Ignore(ESL_SQFILE *sqfp, const char *ignoredchars)
 
 /* Function:  esl_sqio_AcceptAs()
  * Synopsis:  Map a list of additional characters.
- * Incept:    SRE, Tue Sep 23 08:18:29 2008 [Janelia]
  *
  * Purpose:   Set the input map of the open <sqfp> to allow the 
  *            characters in the string <xchars> to appear in 
@@ -757,7 +748,6 @@ esl_sqio_AcceptAs(ESL_SQFILE *sqfp, char *xchars, char readas)
 
 /* Function:  esl_sqio_EncodeFormat()
  * Synopsis:  Convert a string to an internal format code.
- * Incept:    SRE, Sun Feb 27 09:18:36 2005 [St. Louis]
  *
  * Purpose:   Given <fmtstring>, return format code.  For example, if
  *            <fmtstring> is "fasta", returns <eslSQFILE_FASTA>. Returns 
@@ -794,7 +784,6 @@ esl_sqio_EncodeFormat(char *fmtstring)
 
 /* Function:  esl_sqio_DecodeFormat()
  * Synopsis:  Returns descriptive string for file format code.
- * Incept:    SRE, Sun Feb 27 09:24:04 2005 [St. Louis]
  *
  * Purpose:   Given a format code <fmt>, returns a string label for
  *            that format. For example, if <fmt> is <eslSQFILE_FASTA>,
@@ -830,7 +819,6 @@ esl_sqio_DecodeFormat(int fmt)
 
 /* Function:  esl_sqio_IsAlignment()
  * Synopsis:  Return TRUE for alignment file format codes.
- * Incept:    SRE, Sun Feb 27 09:36:23 2005 [St. Louis]
  *
  * Purpose:   Returns TRUE if <fmt> is an alignment file
  *            format code; else returns FALSE.
@@ -855,7 +843,6 @@ esl_sqio_IsAlignment(int fmt)
 
 /* Function:  esl_sqio_Read()
  * Synopsis:  Read the next sequence from a file.
- * Incept:    SRE, Thu Feb 17 14:24:21 2005 [St. Louis]
  *
  * Purpose:   Reads the next sequence from open sequence file <sqfp> into 
  *            <sq>. Caller provides an allocated and initialized <s>, which
@@ -883,7 +870,6 @@ esl_sqio_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  esl_sqio_ReadInfo()
  * Synopsis:  Read sequence info, but not the sequence itself.
- * Incept:    SRE, Fri May 16 09:24:21 2008 [Janelia]
  *
  * Purpose:   Read the next sequence from open sequence file <sqfp>,
  *            but don't store the sequence (or secondary structure).
@@ -906,7 +892,6 @@ esl_sqio_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  esl_sqio_ReadSequence()
  * Synopsis:  Read sequence, but not the header itself.
- * Incept:    SRE, Fri May 16 09:24:21 2008 [Janelia]
  *
  * Purpose:   Read the next sequence from open sequence file <sqfp>,
  *            skipping over the header data.  Upon successful return, 
@@ -928,7 +913,6 @@ esl_sqio_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 
 /* Function:  esl_sqio_ReadWindow()
  * Synopsis:  Read next window of sequence.
- * Incept:    SRE, Fri May 16 13:42:51 2008 [Janelia]
  *
  * Purpose:   Read a next window of <W> residues from open file <sqfp>,
  *            keeping <C> residues from the previous window as
@@ -1029,7 +1013,6 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
 /* Function:  esl_sqio_ReadBlock()
  * Synopsis:  Read the next block of sequences from a file.
- * Incept:    
  *
  * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
  *            <sqBlock>.
@@ -1055,7 +1038,6 @@ esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, in
 
 /* Function:  esl_sqio_Echo()
  * Synopsis:  Echo a sequence's record onto output stream.
- * Incept:    SRE, Wed Apr  2 16:32:21 2008 [Janelia]
  *
  * Purpose:   Given a complete <sq> that we have read by some means
  *            from an open <sqfp>; echo that sequence's record
@@ -1097,7 +1079,6 @@ esl_sqio_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 
 /* Function:  esl_sqfile_OpenSSI()
  * Synopsis:  Opens an SSI index associated with a sequence file.
- * Incept:    SRE, Wed Apr  2 10:21:04 2008 [Janelia]
  *
  * Purpose:   Opens an SSI index file associated with the already open
  *            sequence file <sqfp>. If successful, the necessary
@@ -1145,7 +1126,6 @@ esl_sqfile_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
 
 /* Function:  esl_sqfile_PositionByKey()
  * Synopsis:  Use SSI to reposition seq file to a particular sequence.
- * Incept:    SRE, Wed Apr  2 09:51:11 2008 [Janelia]
  *
  * Purpose:   Reposition <sqfp> so that the next sequence we read will
  *            be the one named (or accessioned) <key>.
@@ -1187,7 +1167,6 @@ esl_sqfile_PositionByKey(ESL_SQFILE *sqfp, const char *key)
 
 /* Function:  esl_sqfile_PositionByNumber()
  * Synopsis:  Use SSI to reposition by sequence number
- * Incept:    SRE, Wed Apr  2 17:24:38 2008 [Janelia]
  *
  * Purpose:   Reposition <sqfp> so that the next sequence we 
  *            read will be the <which>'th sequence, where <which>
@@ -1228,7 +1207,6 @@ esl_sqfile_PositionByNumber(ESL_SQFILE *sqfp, int which)
 
 /* Function:  esl_sqio_Fetch()
  * Synopsis:  Fetch a complete sequence, using SSI indexing.
- * Incept:    SRE, Fri May 16 13:25:00 2008 [Janelia]
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
  *            the repositionable, open sequence file <sqfp>.
@@ -1252,7 +1230,6 @@ esl_sqio_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
   
 /* Function:  esl_sqio_FetchInfo()
  * Synopsis:  Fetch a sequence's info, using SSI indexing.
- * Incept:    SRE, Fri May 16 13:25:00 2008 [Janelia]
  *
  * Purpose:   Fetch a sequence named (or accessioned) <key> from
  *            the repositionable, open sequence file <sqfp>, reading
@@ -1278,7 +1255,6 @@ esl_sqio_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 
 /* Function:  esl_sqio_FetchSubseq()
  * Synopsis:  Fetch a subsequence, using SSI indexing.
- * Incept:    SRE, Tue May 13 11:00:04 2008 [Janelia]
  *
  * Purpose:   Fetch subsequence <start..end> from a sequence named (or
  *            accessioned) <source>, in the repositionable, open sequence file <sqfp>.
@@ -1323,7 +1299,6 @@ esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_
 
 /* Function:  esl_sqio_Write()
  * Synopsis:  Write a sequence to a file.
- * Incept:    SRE, Fri Feb 25 16:10:32 2005 [St. Louis]
  *
  * Purpose:   Write sequence <s> to an open FILE <fp> in 
  *            file format <format>.  If <update> is true,
@@ -1332,6 +1307,7 @@ esl_sqio_FetchSubseq(ESL_SQFILE *sqfp, const char *source, int64_t start, int64_
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on system write error, such as filled disk.
  */
 int
 esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
@@ -1362,13 +1338,8 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
 
 
 
-/*****************************************************************
- *# 6. Writing sequences.
- *****************************************************************/
-
 /* Function:  esl_sqio_Parse()
  * Synopsis:  Parse a sequence already read into a buffer.
- * Incept:    MSF, Fri Aug 13 2010 [Janelia]
  *
  * Purpose:   Parse the buffer <buf> for a sequence <s> of type
  *            <format>.  The buffer must contain the entire sequence.
@@ -1394,11 +1365,10 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
     status = esl_sqascii_Parse(buf, size, s, format);
     break;
   default: 
-    ESL_EXCEPTION(eslEINVAL, "can't write that format");
+    ESL_EXCEPTION(eslEINVAL, "can't parse that format");
   }
   return status;
 }
-/*-------------------- writing sequences  -----------------------*/
 
 
 
@@ -1408,7 +1378,6 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
 
 #ifdef eslAUGMENT_MSA
 /* convert_sq_to_msa()
- * SRE, Fri Feb 25 16:06:18 2005
  * 
  * Given a <sq>, create and return an "MSA" through <ret_msa>, which
  * contains only the single unaligned sequence. <sq> is 

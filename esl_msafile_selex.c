@@ -286,6 +286,8 @@ esl_msafile_selex_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on any system write error, such
+ *             as a filled disk.
  */
 int
 esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
@@ -307,9 +309,9 @@ esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
 
   for (apos = 0; apos < msa->alen; apos += cpl)
     {
-      if (apos)         fprintf(fp, "\n");
-      if (msa->ss_cons) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=CS", cpl, msa->ss_cons+apos);
-      if (msa->rf)      fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=RF", cpl, msa->rf+apos);
+      if (apos         && fprintf(fp, "\n")                                                      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
+      if (msa->ss_cons && fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=CS", cpl, msa->ss_cons+apos) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
+      if (msa->rf      && fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=RF", cpl, msa->rf+apos)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
 
       for (i = 0; i < msa->nseq; i++)
 	{
@@ -317,10 +319,10 @@ esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
 #endif
 	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
-	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);	  
+	  if (fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
 
-	  if (msa->ss && msa->ss[i]) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SS", cpl, msa->ss[i]+apos);
-	  if (msa->sa && msa->sa[i]) fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SA", cpl, msa->sa[i]+apos);
+	  if (msa->ss && msa->ss[i]) { if (fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SS", cpl, msa->ss[i]+apos) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed"); }
+	  if (msa->sa && msa->sa[i]) { if (fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=SA", cpl, msa->sa[i]+apos) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed"); }
 	}
     }
 

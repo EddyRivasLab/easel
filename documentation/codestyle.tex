@@ -1,33 +1,34 @@
 
-This chapter describes Easel from a developer's perspective. It shows
-how a module's source code is organized, written, tested, and
+This chapter describes Easel from a developer's perspective. It will
+show you how a module's source code is organized, written, tested, and
 documented. Besides providing guidance for implementing new Easel
-code, it should also help in understanding the structure of existing
-code.
+code, it should also help you understand the structure of existing
+Easel code.
 
 We expect Easel to constantly evolve -- not only in its code, but also
-in its style. By writing down a ``style'' for the code, the aim is not
-to enforce foolish consistency. Rather, one way we try to manage the
-complexity of our large codebase is to continuously cajole Easel code
-into a clean and consistent presentation. We try to organize code
-modules in similar ways, use certain naming conventions, and channel
-similar functions towards common \esldef{interfaces} that provide
-common calling conventions and behaviors.
+in its style. By writing down a code style, the aim is not to enforce
+foolish consistencies. Rather, one way we try to manage the complexity
+of our large codebase is to continuously cajole Easel code toward a
+clean and consistent presentation. We try to organize code modules in
+similar ways, use certain naming conventions, and channel similar
+functions towards common \esldef{interfaces} that provide common
+calling conventions and behaviors. 
 
 Because it's evolving, not all Easel code obeys the code style
-described in this chapter. Think of the Easel code style as a sort of
-local building ordinance. Any new construction should always
-comply. Older construction is ``grandfathered in'' and does not have
-to immediately conform to the current rules. When it comes time to
-renovate older construction, though, it's also time to bring it up to
-the current standards.
+described in this chapter. Think of the Easel code style as a local
+building ordinance. Any new construction should always comply, but
+older construction is grandfathered in and does not have to
+immediately conform to the current rules. When it comes time to
+renovate older construction, it's also time to bring it up to the
+current standards.
 
 For a concrete example we will focus primarily on one Easel module,
 the \eslmod{buffer} module. We'll take a bottom up approach, starting
 from the overall organization of the module and working down into
 details. If you're a starting developer, you might have preferred a
 bottom-up description; you might just want to know how to write or
-improve a single Easel function, for example. In that case, skim.
+improve a single Easel function, for example. In that case, skim
+ahead.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Table: Easel naming conventions
@@ -132,13 +133,13 @@ Easel \ccode{.c} files are larger than most coding styles would
 advocate. Easel module code is designed to be \emph{read}, to be
 \emph{self-documenting}, to contain its own \emph{testing methods},
 and to provide useful \emph{working examples}.  Thus the size of the
-files might be a little deceptive, compared to C code that's solely
-implementating some functions. In general, relatively little of an
-Easel module's \ccode{.c} file is the actual module implementation.
-Typically, well more than half of an Easel \ccode{.c} file is
+files is a little deceptive, compared to C code that's solely
+implementating some functions. In general, relatively little (perhaps
+a quarter) of an Easel module's \ccode{.c} file is the actual module
+implementation.  Typically, around half of an Easel \ccode{.c} file is
 documentation, and much of this gets automatically parsed into the PDF
-userguide. Then of the actual code, most of it generally consists of
-driver code for testing and examples.
+userguide. Then of the actual code, around half of that often consists
+of drivers for unit testing and examples.
 
 Module files are organized into a somewhat stereotypical set of
 sections, to facilitate navigating the code, as follows.
@@ -146,12 +147,8 @@ sections, to facilitate navigating the code, as follows.
 The \ccode{.c} file starts with a comment that contains the {\bfseries
   table of contents}. The table of contents helps us navigate a long
 Easel source file. This initial comment also includes a short
-description of the module's purpose; an incept stamp (initials and
-date) to help track the provenance of this file \footnote{A nostalgic
-  note about where the code was started and the music we were
-  listening to may also be noted on the incept line.}; and \ccode{SVN
-  \$Id\$} and \ccode{SVN \$URL\$} tags that are filled in by
-Subversion. It may also contain miscellaneous notes.
+description of the module's purpose. It may also contain miscellaneous
+notes.
 
 For example, from the \eslmod{buffer} module:
 
@@ -238,7 +235,10 @@ the following, in this order:
   \ccode{@LICENSE@} tag. This placeholder is automatically replaced by
   the correct license statement at packaging time. This gives us the
   ability to package specially licensed versions, in addition to the
-  usual open source version.
+  usual open source version. Automatically generated Subversion
+  \ccode{SVN \$Id\$} and \ccode{SVN \$URL\$} information often appears
+  here too.
+
 \end{description}
 
 %%%%%%%%%%%%%%%%
@@ -430,12 +430,12 @@ add others in the future.
 \subsection{Driver programs}
 %%%%%%%%%%%%%%%%
 
-Perhaps the most unusual (and innovative?) thing about Easel modules
-is how we embed {\bfseries driver programs} directly in the module's
+Perhaps the most unusual (innovative?) thing about Easel modules is
+how we embed {\bfseries driver programs} directly in the module's
 \ccode{.c} file. Driver programs include our unit tests, benchmarks,
 and working examples. These small programs are enclosed in
 standardized \ccode{\#ifdef}'s that enable them to be conditionally
-compiled. 
+compiled.
 
 None of these programs are installed by \ccode{make install}.  Test
 drivers are compiled as part of \ccode{make check}.  A \ccode{make
@@ -671,13 +671,13 @@ none           & If qualified as \ccode{const}, a pointer
 \subsubsection{conventions for exception handling}
 %%%%
 
-Easel functions should {\bfseries never} exit, except through a normal
-return or through the exception handler. When you write Easel code you
-must {\bfseries always} deal with the case when the caller has
-registered a nonfatal exception handler, causing thrown exceptions to
-return a nonzero code rather than exiting. The Easel library is
-designed to be used in programs that can't just suddenly crash out
-with an error message (such as a graphical user interface
+Easel functions {\bfseries should never exit except through an Easel
+  return code or through the Easel exception handler}. When you write
+Easel code you must {\bfseries always} deal with the case when the
+caller has registered a nonfatal exception handler, causing thrown
+exceptions to return a nonzero code rather than exiting. The Easel
+library is designed to be used in programs that can't just suddenly
+crash out with an error message (such as a graphical user interface
 environment), and programs that have specialized error handlers
 because they don't even have access to a \ccode{stderr} stream on a
 terminal (such as a UNIX daemon).
@@ -1253,6 +1253,10 @@ crashing out of production code.)
 Prints the internals of an object in human-readable, easily parsable
 tabular ASCII form. Useful during debugging and development to view
 the entire object at a glance. Returns \ccode{eslOK} on success.
+Unlike a more robust \ccode{\_Write()} call, \ccode{\_Dump()} call may
+assume that all its writes will succeed, and does not need to check
+return status of \ccode{fprintf()} or other system calls, because it
+is not intended for production use.
 
 \end{sreapi}
 
@@ -1265,6 +1269,11 @@ the entire object at a glance. Returns \ccode{eslOK} on success.
 {\item[\_Write(fp, obj)]}
 Writes something from an object to an output stream \ccode{fp}. Used
 for exporting and saving files in official data exchange formats.
+\ccode{\_Write()} functions must be robust to system write errors,
+such as filling or unexpectedly disconnecting a disk. They must check
+return status of all system calls, and throw an \ccode{eslEWRITE}
+error on any failures.
+
 
 \hypertarget{ifc:Compare}
 {\item[\_Compare*(obj1, obj2...)]}

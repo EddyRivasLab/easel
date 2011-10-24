@@ -64,7 +64,6 @@
   while (0)
 
 #define ESL_EXCEPTION_SYS(code, ...) do {				\
-    status = code;							\
     esl_exception(code, TRUE, __FILE__, __LINE__, __VA_ARGS__);		\
     return code; }							\
   while (0)

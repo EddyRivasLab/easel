@@ -322,6 +322,7 @@ esl_msafile_psiblast_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEWRITE> on any system write failure, such as filled disk.
  */
 int
 esl_msafile_psiblast_Write(FILE *fp, const ESL_MSA *msa)
@@ -374,10 +375,11 @@ esl_msafile_psiblast_Write(FILE *fp, const ESL_MSA *msa)
 		}
 	    }
 	  buf[acpl] = '\0';	      
-	  fprintf(fp, "%-*s  %s\n", maxnamewidth, msa->sqname[i], buf);
+	  if (fprintf(fp, "%-*s  %s\n", maxnamewidth, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "psiblast msa write failed");
 	}  /* end loop over sequences */
 
-      if (pos + cpl < msa->alen) fputc('\n', fp);
+      if (pos + cpl < msa->alen) 
+	{ if (fputc('\n', fp) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "psiblast msa write failed"); }
     }
   free(buf);
   return eslOK;

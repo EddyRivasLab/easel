@@ -1,8 +1,5 @@
 /* Hyperexponential (mixture exponential) distributions.
  * 
- * SRE, Mon Aug 15 08:32:33 2005 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslHYPEREXP_INCLUDED
 #define eslHYPEREXP_INCLUDED
@@ -34,7 +31,7 @@ extern int           esl_hyperexp_Copy(ESL_HYPEREXP *src, ESL_HYPEREXP *dest);
 extern int           esl_hyperexp_FixedUniformMixture(ESL_HYPEREXP *h);
 extern int           esl_hyperexp_SortComponents(ESL_HYPEREXP *h);
 extern int           esl_hyperexp_Write(FILE *fp, ESL_HYPEREXP *hxp);
-extern int           esl_hyperexp_WriteOneLine(FILE *fp, ESL_HYPEREXP *hxp);
+extern int           esl_hyperexp_Dump(FILE *fp, ESL_HYPEREXP *hxp);
 #ifdef eslAUGMENT_FILEPARSER
 extern int           esl_hyperexp_Read(ESL_FILEPARSER *ef, ESL_HYPEREXP **ret_hxp);
 extern int           esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp);
@@ -72,4 +69,7 @@ extern int esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h);
 #endif /*eslHYPEREXP_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/

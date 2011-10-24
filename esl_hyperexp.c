@@ -1,6 +1,4 @@
 /* Statistical routines for hyperexponential distributions.
- * 
- * xref STL9/140  
  */
 #include "esl_config.h"
 
@@ -28,11 +26,10 @@
 #endif
 
 /****************************************************************************
- * Routines for the ESL_HYPEREXP object
+ *# Routines for the ESL_HYPEREXP object
  ****************************************************************************/ 
 
 /* Function:  esl_hyperexp_Create()
- * Incept:    SRE, Mon Aug 15 08:40:44 2005 [St. Louis]
  *
  * Purpose:   Creates an object to hold parameters for a <K>-component
  *            hyperexponential. 
@@ -81,7 +78,6 @@ esl_hyperexp_Create(int K)
 }
 
 /* Function:  esl_hyperexp_Destroy()
- * Incept:    SRE, Mon Aug 15 08:53:50 2005 [St. Louis]
  *
  * Purpose:   Deallocates the hyperexponential parameter object <h>.
  *
@@ -103,7 +99,6 @@ esl_hyperexp_Destroy(ESL_HYPEREXP *h)
   
 
 /* Function:  esl_hyperexp_Copy()
- * Incept:    SRE, Mon Aug 15 08:58:17 2005 [St. Louis]
  *
  * Purpose:   Makes a copy of the hyperexponential parameter object <src>
  *            in <dest>. Caller must have already allocated <dest> to have
@@ -138,7 +133,6 @@ esl_hyperexp_Copy(ESL_HYPEREXP *src, ESL_HYPEREXP *dest)
 }
 
 /* Function:  esl_hyperexp_FixedUniformMixture()
- * Incept:    SRE, Thu Sep  8 10:00:03 2005 [St. Louis]
  *
  * Purpose:   Set the mixture coeffients to a uniform (1/K) distribution,
  *            and fix them there so they aren't estimable parameters.
@@ -154,7 +148,6 @@ esl_hyperexp_FixedUniformMixture(ESL_HYPEREXP *h)
 
 
 /* Function:  esl_hyperexp_SortComponents()
- * Incept:    SRE, Thu Sep  8 10:09:29 2005 [St. Louis]
  *
  * Purpose:   Rearrange the components in a hyperexponential in
  *            order of lambda values, with the highest lambda first.
@@ -184,42 +177,43 @@ esl_hyperexp_SortComponents(ESL_HYPEREXP *h)
 
 
 /* Function:  esl_hyperexp_Write()
- * Incept:    SRE, Thu Sep  1 09:34:33 2005 [St. Louis]
  *
  * Purpose:   Write hyperexponential parameters from <hxp> to an open <fp>.
  *            
  *            The output format is suitable for input by <esl_hyperexp_Read()>.
  *
  * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEWRITE> on any write error.
  */
 int
 esl_hyperexp_Write(FILE *fp, ESL_HYPEREXP *hxp)
 {
   int k;
 
-  fprintf(fp, "%8d     # number of components\n", hxp->K);
-  fprintf(fp, "%8.2f   # mu (for all components)\n", hxp->mu);
+  if (fprintf(fp, "%8d     # number of components\n", hxp->K)     < 0) ESL_EXCEPTION(eslEWRITE, "hyperexp write failed");
+  if (fprintf(fp, "%8.2f   # mu (for all components)\n", hxp->mu) < 0) ESL_EXCEPTION(eslEWRITE, "hyperexp write failed");
   for (k = 0; k < hxp->K; k++)
-    fprintf(fp, "%8.6f %12.6f  # q[%d], lambda[%d]\n",
-	    hxp->q[k], hxp->lambda[k], k, k);
+    if (fprintf(fp, "%8.6f %12.6f  # q[%d], lambda[%d]\n",
+		hxp->q[k], hxp->lambda[k], k, k)                  < 0) ESL_EXCEPTION(eslEWRITE, "hyperexp write failed");
   return eslOK;
 }
 
 
-/* Function:  esl_hyperexp_WriteOneLine()
- * Incept:    SRE, Thu Sep  1 09:43:28 2005 [St. Louis]
+/* Function:  esl_hyperexp_Dump()
  *
- * Purpose:   Write hyperexponential parameters from <hxp> to an open <fp>,
+ * Purpose:   Dump hyperexponential parameters from <hxp> to an open <fp>,
  *            all on one line with no comments.
  *            
- *            The output format is suitable for input by <esl_hyperexp_Read()>,
- *            but it's intended more as a diagnostic dump of the contents
- *            of the object.
+ *            The output format is suitable for input by
+ *            <esl_hyperexp_Read()>, like <esl_hyperexp_Write()>,
+ *            though it's intended as a diagnostic dump of the
+ *            contents of the object.
  *
  * Returns:   <eslOK> on success.
  */
 int
-esl_hyperexp_WriteOneLine(FILE *fp, ESL_HYPEREXP *hxp)
+esl_hyperexp_Dump(FILE *fp, ESL_HYPEREXP *hxp)
 {
   int k;
 
@@ -244,7 +238,6 @@ esl_hyperexp_WriteOneLine(FILE *fp, ESL_HYPEREXP *hxp)
  */
 
 /* Function:  esl_hxp_pdf()
- * Incept:    SRE, Mon Aug 15 09:17:34 2005 [St. Louis]
  *
  * Purpose:   Returns the probability density function $P(X=x)$ for
  *            quantile <x>, given hyperexponential parameters <h>.
@@ -264,7 +257,6 @@ esl_hxp_pdf(double x, ESL_HYPEREXP *h)
 
 
 /* Function:  esl_hxp_logpdf()
- * Incept:    SRE, Mon Aug 15 09:25:45 2005 [St. Louis]
  *
  * Purpose:   Returns the log of the PDF ($\log P(X=x)$) for quantile <x>,
  *            given hyperexponential parameters <h>.
@@ -288,7 +280,6 @@ esl_hxp_logpdf(double x, ESL_HYPEREXP *h)
 }
 
 /* Function:  esl_hxp_cdf()
- * Incept:    SRE, Mon Aug 15 09:48:44 2005 [St. Louis]
  *
  * Purpose:   Returns the cumulative distribution function $P(X \leq x)$
  *            for quantile <x>, given hyperexponential parameters <h>.
@@ -307,7 +298,6 @@ esl_hxp_cdf(double x, ESL_HYPEREXP *h)
 }
 
 /* Function:  esl_hxp_logcdf()
- * Incept:    SRE, Mon Aug 15 09:52:31 2005 [St. Louis]
  *
  * Purpose:   Returns the log of the CDF $\log P(X \leq x)$
  *            for quantile <x>, given hyperexponential parameters <h>.
@@ -330,7 +320,6 @@ esl_hxp_logcdf(double x, ESL_HYPEREXP *h)
 
 
 /* Function:  esl_hxp_surv()
- * Incept:    SRE, Mon Aug 15 09:57:39 2005 [St. Louis]
  *
  * Purpose:   Returns the survivor function $P(X > x)$ (1-CDF)
  *            for quantile <x>, given hyperexponential parameters <h>.
@@ -350,7 +339,6 @@ esl_hxp_surv(double x, ESL_HYPEREXP *h)
 
   
 /* Function:  esl_hxp_logsurv()
- * Incept:    SRE, Mon Aug 15 10:00:46 2005 [St. Louis]
  *
  * Purpose:   Returns the log survivor function $\log P(X > x)$ (log(1-CDF))
  *            for quantile <x>, given hyperexponential parameters <h>.
@@ -372,7 +360,6 @@ esl_hxp_logsurv(double x, ESL_HYPEREXP *h)
 }
 
 /* Function:  esl_hxp_invcdf()
- * Incept:    SRE, Sun Aug 21 15:32:29 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse CDF for a hyperexponential <h>
  *            returning the quantile <x> at which the CDF is <p>.
@@ -421,7 +408,6 @@ esl_hxp_invcdf(double p, ESL_HYPEREXP *h)
  ****************************************************************************/ 
 
 /* Function:  esl_hxp_generic_pdf()
- * Incept:    SRE, Thu Aug 25 08:07:27 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of PDF call.
  */
@@ -433,7 +419,6 @@ esl_hxp_generic_pdf(double x, void *params)
 }
 
 /* Function:  esl_hxp_generic_cdf()
- * Incept:    SRE, Wed Aug 17 13:17:08 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of CDF call.
  */
@@ -445,7 +430,6 @@ esl_hxp_generic_cdf(double x, void *params)
 }
 
 /* Function:  esl_hxp_generic_surv()
- * Incept:    SRE, Thu Aug 25 08:07:50 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of survivor function.
  */
@@ -457,7 +441,6 @@ esl_hxp_generic_surv(double x, void *params)
 }
 
 /* Function:  esl_hxp_generic_invcdf()
- * Incept:    SRE, Sun Aug 21 15:35:41 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of inverse CDF.
  */
@@ -479,14 +462,15 @@ esl_hxp_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_hxp_Plot()
- * Incept:    SRE, Mon Aug 15 10:06:35 2005 [St. Louis]
  *
  * Purpose:   Plot some function <func> (for instance, <esl_hxp_pdf()>)
  *            for hyperexponential parameters <h>, for a range of
  *            quantiles x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
- * Returns:   <eslOK>.
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error. 
  */
 int
 esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
@@ -495,8 +479,8 @@ esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
 {
   double x;
   for (x = xmin; x <= xmax; x += xstep)
-    fprintf(fp, "%f\t%g\n", x, (*func)(x, h));
-  fprintf(fp, "&\n");
+    if (fprintf(fp, "%f\t%g\n", x, (*func)(x, h)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hyperexp plot write failed");
+  if (fprintf(fp, "&\n")                          < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hyperexp plot write failed");
   return eslOK;
 }
 /*-------------------- end plot dumping routines ---------------------------*/
@@ -510,7 +494,6 @@ esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_hxp_Sample()
- * Incept:    SRE, Mon Aug 15 10:10:26 2005 [St. Louis]
  *
  * Purpose:   Sample a random variate x from a hyperexponential <h>, 
  *            given random number source <r>.
@@ -532,7 +515,6 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_FILEPARSER
 /* Function:  esl_hyperexp_Read()
- * Incept:    SRE, Thu Sep  1 08:20:46 2005 [St. Louis]
  *
  * Purpose:   Reads hyperexponential parameters from an open <e>.
  *            which is an <ESL_FILEPARSER> tokenizer for an open stream.
@@ -617,7 +599,6 @@ esl_hyperexp_Read(ESL_FILEPARSER *e, ESL_HYPEREXP **ret_hxp)
 }
 
 /* Function:  esl_hyperexp_ReadFile()
- * Incept:    SRE, Thu Sep  1 08:57:47 2005 [St. Louis]
  *
  * Purpose:   Convenience wrapper around <esl_hyperexp_Read()> that takes
  *            a filename as an argument, instead of an open <ESL_FILEPARSER>.
@@ -807,7 +788,6 @@ hyperexp_complete_gradient(double *p, int np, void *dptr, double *dp)
 
 
 /* Function:  esl_hxp_FitGuess()
- * Incept:    SRE, Mon Aug 15 14:02:02 2005 [St. Louis]
  *
  * Purpose:   Given a sorted vector of <n> observed data samples <x[]>,
  *            from smallest <x[0]> to largest <x[n-1]>, calculate a
@@ -849,7 +829,6 @@ esl_hxp_FitGuess(double *x, int n, ESL_HYPEREXP *h)
 }
 
 /* Function:  esl_hxp_FitComplete()
- * Incept:    SRE, Mon Aug 15 14:11:19 2005 [St. Louis]
  *
  * Purpose:   Given a vector of <n> observed data samples <x[]> 
  *            (sorted or unsorted), and an initial guess <h> for
@@ -1030,7 +1009,6 @@ hyperexp_complete_binned_gradient(double *p, int np, void *dptr, double *dp)
 }
 
 /* Function:  esl_hxp_FitGuessBinned()
- * Incept:    SRE, Mon Aug 15 14:02:02 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <g> with binned observations;
  *            obtain a very crude guesstimate of a fit -- suitable only 
@@ -1081,7 +1059,6 @@ esl_hxp_FitGuessBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 
 
 /* Function:  esl_hxp_FitCompleteBinned()
- * Incept:    SRE, Tue Aug 16 13:30:43 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <g> with binned observations, where each
  *            bin i holds some number of observed samples x with values from 
@@ -1316,7 +1293,7 @@ main(int argc, char **argv)
     }
   if (do_fixmix) esl_hyperexp_FixedUniformMixture(hxp);	/* overrides q's above */
 
-  if (be_verbose) esl_hyperexp_WriteOneLine(stdout, hxp);
+  if (be_verbose) esl_hyperexp_Dump(stdout, hxp);
 
   r = esl_randomness_Create(42);
   h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
@@ -1341,7 +1318,7 @@ main(int argc, char **argv)
   esl_hxp_FitGuess(data, ndata, ehxp);  
   esl_hxp_FitComplete(data, ndata, ehxp);
 
-  if (be_verbose) esl_hyperexp_WriteOneLine(stdout, ehxp);
+  if (be_verbose) esl_hyperexp_Dump(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
      ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
@@ -1365,7 +1342,7 @@ main(int argc, char **argv)
 
   esl_hxp_FitGuessBinned(h, ehxp);  
   esl_hxp_FitCompleteBinned(h, ehxp);
-  if (be_verbose)  esl_hyperexp_WriteOneLine(stdout, ehxp);
+  if (be_verbose)  esl_hyperexp_Dump(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
      ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
@@ -1409,3 +1386,5 @@ main(int argc, char **argv)
  * SVN $Id$
  * SVN $URL$
  *****************************************************************/
+
+/* xref STL9/140 */

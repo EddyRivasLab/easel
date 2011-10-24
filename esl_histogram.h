@@ -109,7 +109,7 @@ extern int esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val,
 
 /* Output/display of binned data:
  */
-extern int esl_histogram_Print       (FILE *fp, ESL_HISTOGRAM *h);
+extern int esl_histogram_Write       (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_Plot        (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotQQ      (FILE *fp, ESL_HISTOGRAM *h, 

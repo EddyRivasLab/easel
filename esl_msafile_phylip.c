@@ -325,6 +325,7 @@ esl_msafile_phylip_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  *
  * Throws:    <eslEINVAL> if <format> isn't <eslMSAFILE_PHYLIP> or <eslMSAFILE_PHYLIPS>.
  *            <eslEMEM> on allocation failure.
+ *            <eslEWRITE> on any system write error, such as a filled disk.
  */
 int
 esl_msafile_phylip_Write(FILE *fp, const ESL_MSA *msa, int format, ESLX_MSAFILE_FMTDATA *opt_fmtd)
@@ -471,6 +472,10 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
   return status;
 }
 
+/* Write an interleaved PHYLIP file.
+ * Returns <eslOK> on success.
+ * Throws <eslEWRITE> on any system write error.
+ */
 static int
 phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt_fmtd)
 {
@@ -484,11 +489,11 @@ phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt
   ESL_ALLOC(buf, sizeof(char) * (rpl+1));
   buf[rpl] = '\0';
 
-  fprintf(fp, " %d %" PRId64, msa->nseq, msa->alen);
+  if (fprintf(fp, " %d %" PRId64, msa->nseq, msa->alen) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "interleaved phylip write failed");
 
   for (apos = 0; apos < msa->alen; apos += rpl)
     {
-      fprintf(fp, "\n");
+      if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "interleaved phylip write failed");
       for (idx = 0; idx < msa->nseq; idx++)
 	{
 #ifdef eslAUGMENT_ALPHABET 
@@ -504,8 +509,8 @@ phylip_interleaved_Write(FILE *fp, const ESL_MSA *msa, ESLX_MSAFILE_FMTDATA *opt
 	      phylip_rectify_output_seq_text(buf);
 	    }
 
-	  if (apos == 0) fprintf(fp, "%-*.*s %s\n", namewidth, namewidth, msa->sqname[idx], buf);
-	  else           fprintf(fp, "%s\n", buf);
+	  if (apos == 0) { if (fprintf(fp, "%-*.*s %s\n", namewidth, namewidth, msa->sqname[idx], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "interleaved phylip write failed"); }
+	  else           { if (fprintf(fp, "%s\n", buf)                                                < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "interleaved phylip write failed"); }
 	}
     }
   free(buf);

@@ -1174,6 +1174,7 @@ eslx_msafile_ReadFailure(ESLX_MSAFILE *afp, int status)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on any system write error, such as a filled disk.
  */
 int
 eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt)

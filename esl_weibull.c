@@ -35,7 +35,6 @@
 
 
 /* Function:  esl_wei_pdf()
- * Incept:    SRE, Tue Aug  9 13:42:17 2005 [St. Louis]
  *
  * Purpose:   Calculates the Weibull pdf $P(X=x)$, given quantile <x>,
  *            offset <mu>, and parameters <lambda> and <tau>.
@@ -60,7 +59,6 @@ esl_wei_pdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_wei_logpdf()
- * Incept:    SRE, Tue Aug  9 13:42:07 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the
  *            Weibull, $\log P(X=x)$, given quantile <x>,
@@ -84,7 +82,6 @@ esl_wei_logpdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_wei_cdf()
- * Incept:    SRE, Tue Aug  9 15:19:06 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function for the
  *            Weibull, $P(X \leq x)$, given quantile <x>,
@@ -102,7 +99,6 @@ esl_wei_cdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_wei_logcdf()
- * Incept:    SRE, Tue Aug  9 15:21:52 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function for a
  *            Weibull, $P(X \leq x)$, given quantile <x>,
@@ -123,7 +119,6 @@ esl_wei_logcdf(double x, double mu, double lambda, double tau)
 
 
 /* Function:  esl_wei_surv()
- * Incept:    SRE, Tue Aug  9 15:23:06 2005 [St. Louis]
  *
  * Purpose:   Calculates the survivor function, $P(X>x)$ (that is, 1-CDF,
  *            the right tail probability mass) for a Weibull
@@ -142,7 +137,6 @@ esl_wei_surv(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_wei_logsurv()
- * Incept:    SRE, Tue Aug  9 15:33:53 2005 [St. Louis]
  *
  * Purpose:   Calculates the log survivor function, $\log P(X>x)$ (that is, 
  *            log(1-CDF), the right tail log probability mass) for a 
@@ -161,7 +155,6 @@ esl_wei_logsurv(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_wei_invcdf()
- * Incept:    SRE, Sun Aug 21 14:50:00 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse CDF for a Weibull distribution
  *            with parameters <mu>, <lambda>, and <tau>, returning
@@ -182,7 +175,6 @@ esl_wei_invcdf(double p, double mu, double lambda, double tau)
  ****************************************************************************/ 
 
 /* Function:  esl_wei_generic_pdf()
- * Incept:    SRE, Thu Aug 25 08:04:48 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_wei_pdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -196,7 +188,6 @@ esl_wei_generic_pdf(double x, void *params)
 }
 
 /* Function:  esl_wei_generic_cdf()
- * Incept:    SRE, Fri Aug 19 09:34:26 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_wei_cdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -210,7 +201,6 @@ esl_wei_generic_cdf(double x, void *params)
 }
 
 /* Function:  esl_wei_generic_surv()
- * Incept:    SRE, Fri Aug 19 09:34:26 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_wei_surv()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -224,7 +214,6 @@ esl_wei_generic_surv(double x, void *params)
 }
 
 /* Function:  esl_wei_generic_invcdf()
- * Incept:    SRE, Sun Aug 21 14:51:33 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_wei_invcdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -245,14 +234,15 @@ esl_wei_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_wei_Plot()
- * Incept:    SRE, Fri Aug 19 09:38:02 2005 [St. Louis]
  *
  * Purpose:   Plot some Weibull function <func> (for instance, <esl_wei_pdf()>)
  *            for Weibull parameters <mu>, <lambda>, and <tau>, for a range of
  *            quantiles x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
- * Returns:   <eslOK>.
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
@@ -262,8 +252,8 @@ esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
   double x;
   for (x = xmin; x <= xmax; x += xstep)
     if (x > mu || tau >= 1.) /* don't try to plot at mu where pdf blows up */
-      fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau));
-  fprintf(fp, "&\n");
+      if (fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "weibull plot write failed");
+  if (fprintf(fp, "&\n")                                          < 0) ESL_EXCEPTION_SYS(eslEWRITE, "weibull plot write failed");
   return eslOK;
 }
 /*-------------------- end plot dumping routines ---------------------------*/
@@ -278,7 +268,6 @@ esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
 #ifdef eslAUGMENT_RANDOM
 
 /* Function:  esl_wei_Sample()
- * Incept:    SRE, Tue Aug  9 13:42:28 2005 [St. Louis]
  *
  * Purpose:   Sample a Weibull random variate,
  *            by the transformation method.
@@ -336,7 +325,6 @@ wei_func(double *p, int nparam, void *dptr)
 }
 
 /* Function:  esl_wei_FitComplete()
- * Incept:    SRE, Tue Aug  9 13:55:37 2005 [St. Louis]
  *
  * Purpose:   Given an array of <n> samples <x[0]..x[n-1>, fit
  *            them to a stretched exponential distribution starting
@@ -453,7 +441,6 @@ wei_binned_func(double *p, int nparam, void *dptr)
 }
 
 /* Function:  esl_wei_FitCompleteBinned()
- * Incept:    SRE, Sun Aug 21 15:17:45 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <g> with binned observations, where each
  *            bin i holds some number of observed samples x with values from 

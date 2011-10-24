@@ -274,6 +274,8 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  *            msa - MSA to write
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write failure, such as filled disk.
  */
 int
 esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
@@ -281,14 +283,14 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
   int     i;
   int64_t pos;
   char    buf[61];
-  int     acpl;       /* actual number of character per line */
+  int     acpl;       /* actual number of characters per line */
   
   for (i = 0; i < msa->nseq; i++)
     {
-      fprintf(fp, ">%s", msa->sqname[i]);
-      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) fprintf(fp, " %s", msa->sqacc[i]);
-      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) fprintf(fp, " %s", msa->sqdesc[i]);
-      fputc('\n', fp);
+      if (fprintf(fp, ">%s", msa->sqname[i])                                                      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
+      if (msa->sqacc  != NULL && msa->sqacc[i]  != NULL) { if (fprintf(fp, " %s", msa->sqacc[i])  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed"); }
+      if (msa->sqdesc != NULL && msa->sqdesc[i] != NULL) { if (fprintf(fp, " %s", msa->sqdesc[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed"); }
+      if (fputc('\n', fp)                                                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
 
       pos = 0;
       while (pos < msa->alen)
@@ -300,7 +302,7 @@ esl_msafile_afa_Write(FILE *fp, const ESL_MSA *msa)
 	  if (! msa->abc) strncpy(buf, msa->aseq[i] + pos, acpl);
 
 	  buf[acpl] = '\0';
-	  fprintf(fp, "%s\n", buf);	      
+	  if (fprintf(fp, "%s\n", buf) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "afa msa file write failed");
 	  pos += 60;
 	}
     } 

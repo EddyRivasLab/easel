@@ -1017,6 +1017,8 @@ esl_scorematrix_Read(ESL_FILEPARSER *efp, const ESL_ALPHABET *abc, ESL_SCOREMATR
  *            sequence alignment software.
  *
  * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
@@ -1026,21 +1028,22 @@ esl_scorematrix_Write(FILE *fp, const ESL_SCOREMATRIX *S)
   int nc = S->nc;
   
   /* The header line, with column labels for residues */
-  fprintf(fp, "  ");
-  for (a = 0; a < nc; a++) fprintf(fp, "  %c ", S->outorder[a]);
-  fprintf(fp, "\n");
+  if (fprintf(fp, "  ") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed"); 
+  for (a = 0; a < nc; a++) 
+    { if (fprintf(fp, "  %c ", S->outorder[a]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed"); }
+  if (fprintf(fp, "\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed");
   
   /* The data */
   for (a = 0; a < nc; a++)
     {
-      fprintf(fp, "%c ", S->outorder[a]);
+      if (fprintf(fp, "%c ", S->outorder[a]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed");
       for (b = 0; b < nc; b++)
 	{
 	  x = esl_abc_DigitizeSymbol(S->abc_r, S->outorder[a]);
 	  y = esl_abc_DigitizeSymbol(S->abc_r, S->outorder[b]);
-	  fprintf(fp, "%3d ", S->s[x][y]);
+	  if (fprintf(fp, "%3d ", S->s[x][y]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed");
 	}
-      fprintf(fp, "\n");
+      if (fprintf(fp, "\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "score matrix write failed");
     }
   return eslOK;
 }

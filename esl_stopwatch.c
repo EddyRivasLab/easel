@@ -12,7 +12,6 @@
  *****************************************************************/
 
 /* Function:  esl_stopwatch_Create()
- * Incept:    SRE, Wed Feb 22 20:15:05 2006 [St. Louis]
  *
  * Purpose:   Creates a new stopwatch.
  *
@@ -39,7 +38,6 @@ esl_stopwatch_Create(void)
 }
 
 /* Function:  esl_stopwatch_Destroy()
- * Incept:    SRE, Thu Feb 23 07:09:23 2006 [St. Louis]
  *
  * Purpose:   Frees an <ESL_STOPWATCH>.
  */
@@ -53,7 +51,6 @@ esl_stopwatch_Destroy(ESL_STOPWATCH *w)
 
 
 /* Function:  esl_stopwatch_Start()
- * Incept:    SRE, Sat Feb 25 10:41:00 2006 [St. Louis]
  *
  * Purpose:   Start a stopwatch. This sets the base 
  *            for elapsed, cpu, and system time difference
@@ -78,7 +75,6 @@ esl_stopwatch_Start(ESL_STOPWATCH *w)
 }
 
 /* Function:  esl_stopwatch_Stop()
- * Incept:    SRE, Sat Feb 25 10:42:26 2006 [St. Louis]
  *
  * Purpose:   Stop a stopwatch. Record and store elapsed,
  *            cpu, and system time difference relative to the
@@ -147,7 +143,6 @@ format_time_string(char *buf, double sec, int do_frac)
 }
 
 /* Function:  esl_stopwatch_Display()
- * Incept:    SRE, Sat Feb 25 10:51:09 2006 [St. Louis]
  *
  * Purpose:   Output a usage summary line from a stopped
  *            stopwatch, showing elapsed, cpu, and system time
@@ -166,32 +161,31 @@ format_time_string(char *buf, double sec, int do_frac)
  *            prefix  - output line prefix ("" for nothing)
  *
  * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEWRITE> on any system write error, such as filled disk.
+
  */
 int 
 esl_stopwatch_Display(FILE *fp, ESL_STOPWATCH *w, char *prefix)
 {
-  char buf[128];	/* (safely holds up to 10^14 years) */
+  char buf[128];	/* (safely holds up to 10^14 years; I'll be dead by then) */
   
-  if (prefix == NULL)
-    fputs("CPU Time: ", fp);
-  else 
-    fputs(prefix, fp);
+  if (prefix == NULL) { if (fputs("CPU Time: ", fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stopwatch display write failed"); }
+  else                { if (fputs(prefix, fp)       < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stopwatch display write failed"); }
 
   format_time_string(buf, w->user+w->sys, TRUE);
 #ifdef HAVE_TIMES
-  fprintf(fp, "%.2fu %.2fs %s ", w->user, w->sys, buf);
+  if (fprintf(fp, "%.2fu %.2fs %s ", w->user, w->sys, buf) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stopwatch display write failed"); 
 #else
-  fprintf(fp, "%.2fu %s ", w->user, buf);
+  if (fprintf(fp, "%.2fu %s ", w->user, buf)               < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stopwatch display write failed"); 
 #endif
-
   format_time_string(buf, w->elapsed, TRUE);
-  fprintf(fp, "Elapsed: %s\n", buf);
+  if (fprintf(fp, "Elapsed: %s\n", buf)                    < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stopwatch display write failed"); 
   return eslOK;
 }
   
 
 /* Function:  esl_stopwatch_Include()
- * Incept:    SRE, Sat Feb 25 10:47:17 2006 [St. Louis]
  *
  * Purpose:   Merge the cpu and system times from a slave into
  *            a master stopwatch. Both watches must be

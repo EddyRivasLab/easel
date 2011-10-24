@@ -47,7 +47,6 @@ static int process_optlist(ESL_GETOPTS *g, char **ret_s, int *ret_opti);
 
 /* Function:  esl_getopts_Create()
  * Synopsis:  Create a new <ESL_GETOPTS> object.
- * Incept:    SRE, Tue Jan 11 11:24:16 2005 [St. Louis]
  *
  * Purpose:   Creates an <ESL_GETOPTS> object, given the
  *            array of valid options <opt> (NULL-element-terminated).
@@ -133,7 +132,6 @@ esl_getopts_Create(ESL_OPTIONS *opt)
 
 /* Function:  esl_getopts_CreateDefaultApp()
  * Synopsis:  Initialize a standard Easel application.
- * Incept:    SRE, Wed Jun 13 16:21:22 2007 [Janelia]
  *
  * Purpose:   Carry out the usual sequence of events in initializing a
  *            small Easel-based application: parses the command line,
@@ -223,7 +221,6 @@ esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **a
 
 /* Function:  esl_getopts_Reuse()
  * Synopsis:  Reset application state to default.
- * Incept:    SRE, Thu Dec  4 10:35:36 2008 [Janelia]
  *
  * Purpose:   Reset application configuration <g> to initial defaults,
  *            as if it were newly created (before any 
@@ -267,7 +264,6 @@ esl_getopts_Reuse(ESL_GETOPTS *g)
 
 /* Function:  esl_getopts_Destroy()
  * Synopsis:  Destroys an <ESL_GETOPTS> object.
- * Incept:    SRE, Thu Jan 13 08:55:10 2005 [St. Louis]
  *
  * Purpose:   Free's a created <ESL_GETOPTS> object.
  *
@@ -300,7 +296,6 @@ esl_getopts_Destroy(ESL_GETOPTS *g)
 
 /* Function:  esl_getopts_Dump()
  * Synopsis:  Dumps a summary of a <ESL_GETOPTS> configuration.
- * Incept:    SRE, Tue Jan 18 09:11:39 2005 [St. Louis]
  *
  * Purpose:   Dump the state of <g> to an output stream
  *            <ofp>, often stdout or stderr.
@@ -345,7 +340,6 @@ esl_getopts_Dump(FILE *ofp, ESL_GETOPTS *g)
 
 /* Function:  esl_opt_ProcessConfigfile()
  * Synopsis:  Parses options in a config file.
- * Incept:    SRE, Thu Jan 13 10:25:43 2005 [St. Louis]
  *
  * Purpose:   Given an open configuration file <fp> (and
  *            its name <filename>, for error reporting),
@@ -483,7 +477,6 @@ esl_opt_ProcessEnvironment(ESL_GETOPTS *g)
 
 /* Function:  esl_opt_ProcessCmdline()
  * Synopsis:  Parses options from the command line.
- * Incept:    SRE, Wed Jan 12 10:12:43 2005 [St. Louis]
  *
  * Purpose:   Process a command line (<argc> and <argv>), parsing out
  *            and setting application options in <g>. Option arguments
@@ -556,7 +549,6 @@ esl_opt_ProcessCmdline(ESL_GETOPTS *g, int argc, char **argv)
 
 /* Function:  esl_opt_ProcessSpoof()
  * Synopsis:  Parses a string as if it were a command line.
- * Incept:    SRE, Thu Dec  4 10:23:43 2008 [Janelia]
  *
  * Purpose:   Process the string <cmdline> as if it were a 
  *            complete command line. 
@@ -609,7 +601,6 @@ esl_opt_ProcessSpoof(ESL_GETOPTS *g, const char *cmdline)
 
 /* Function:  esl_opt_VerifyConfig()
  * Synopsis:  Validates configuration after options are set.
- * Incept:    SRE, Wed Jan 12 10:21:46 2005 [St. Louis]
  *
  * Purpose:   Given a <g> that we think is fully configured now --
  *            from config file(s), environment, and command line --
@@ -700,7 +691,6 @@ esl_opt_VerifyConfig(ESL_GETOPTS *g)
 
 /* Function:  esl_opt_ArgNumber()
  * Synopsis:  Returns number of command line arguments.
- * Incept:    SRE, Mon May 28 09:18:52 2007 [Janelia]
  *
  * Purpose:   Returns the number of command line arguments.
  *            
@@ -718,7 +708,6 @@ esl_opt_ArgNumber(const ESL_GETOPTS *g)
 
 /* Function:  esl_opt_SpoofCmdline()
  * Synopsis:  Create faux command line from current option configuration.
- * Incept:    SRE, Thu Dec  4 09:48:21 2008 [Janelia]
  *
  * Purpose:   Given the current configuration state of the application
  *            <g>, create a command line that would recreate the same
@@ -788,7 +777,6 @@ esl_opt_SpoofCmdline(const ESL_GETOPTS *g, char **ret_cmdline)
 
 /* Function:  esl_opt_IsDefault()
  * Synopsis:  Returns <TRUE> if option remained at default setting.
- * Incept:    SRE, Wed Jan  3 11:19:25 2007 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option <optname> is in its
  *            default state; returns <FALSE> if <optname> was 
@@ -840,7 +828,6 @@ esl_opt_IsOn(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_IsUsed()
  * Synopsis:  Returns <TRUE> if option is on, and this is not the default.
- * Incept:    SRE, Sat Feb 14 08:57:11 2009 [Janelia]
  *
  * Purpose:   Returns <TRUE> if option <optname> is in use: it has been
  *            set to a non-default value, and that value correspond to
@@ -888,7 +875,6 @@ esl_opt_GetSetter(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_GetBoolean()
  * Synopsis:  Retrieve <TRUE>/<FALSE> for a boolean option.
- * Incept:    SRE, Wed Jan 12 13:46:09 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured TRUE/FALSE value for option <optname>
  *            from <g>.
@@ -909,7 +895,6 @@ esl_opt_GetBoolean(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_GetInteger()
  * Synopsis:  Retrieve value of an integer option.
- * Incept:    SRE, Wed Jan 12 11:37:28 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
  *            from <g>.
@@ -928,7 +913,6 @@ esl_opt_GetInteger(const ESL_GETOPTS *g, char *optname)
 		
 /* Function:  esl_opt_GetReal()
  * Synopsis:  Retrieve value of a real-valued option.
- * Incept:    SRE, Wed Jan 12 13:46:27 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
  *            from <g>.
@@ -948,7 +932,6 @@ esl_opt_GetReal(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_GetChar()
  * Synopsis:  Retrieve value of a character option.
- * Incept:    SRE, Wed Jan 12 13:47:36 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
  *            from <g>.
@@ -968,7 +951,6 @@ esl_opt_GetChar(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_GetString()
  * Synopsis:  Retrieve value of a string option.
- * Incept:    SRE, Wed Jan 12 13:47:36 2005 [St. Louis]
  *
  * Purpose:   Retrieves the configured value for option <optname>
  *            from <g>.
@@ -995,7 +977,6 @@ esl_opt_GetString(const ESL_GETOPTS *g, char *optname)
 
 /* Function:  esl_opt_GetArg()
  * Synopsis:  Retrieve numbered command line argument.
- * Incept:    SRE, Thu Jan 13 09:21:34 2005 [St. Louis]
  *
  * Purpose:   Returns a pointer to command line argument number
  *            <which>, where <which> ranges from <1..n> for <n>
@@ -1070,7 +1051,6 @@ esl_opt_DisplayHelp(FILE *ofp, ESL_GETOPTS *go, int docgroup, int indent,
   int show_defaults;
   int show_ranges;
   int i, n;
-  int status;
 
   /* Figure out the field widths we need in the output.
    */

@@ -334,6 +334,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
  * Returns:   <eslOK> on success.
  *
  * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
@@ -363,23 +364,23 @@ esl_msafile_clustal_Write(FILE *fp, const ESL_MSA *msa, int fmt)
   if (! msa->abc && (status = make_text_consensus_line(msa, &consline))   != eslOK) goto ERROR;
 
   /* The magic header */
-  if      (fmt == eslMSAFILE_CLUSTAL)     fprintf(fp, "CLUSTAL 2.1 multiple sequence alignment\n");
-  else if (fmt == eslMSAFILE_CLUSTALLIKE) fprintf(fp, "EASEL (%s) multiple sequence alignment\n", EASEL_VERSION);
+  if      (fmt == eslMSAFILE_CLUSTAL)     { if (fprintf(fp, "CLUSTAL 2.1 multiple sequence alignment\n")               < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed");  }
+  else if (fmt == eslMSAFILE_CLUSTALLIKE) { if (fprintf(fp, "EASEL (%s) multiple sequence alignment\n", EASEL_VERSION) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed");  }
 
   /* The alignment */
   for (apos = 0; apos < msa->alen; apos += cpl)
     {
-      fprintf(fp, "\n");
+      if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
       for (i = 0; i < msa->nseq; i++)
 	{
 #ifdef eslAUGMENT_ALPHABET 
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i]+apos+1, cpl, buf);
 #endif
 	  if (! msa->abc) strncpy(buf, msa->aseq[i]+apos, cpl);
-	  fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf);
+	  if (fprintf(fp, "%-*s %s\n", maxnamelen, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
 	}
       strncpy(buf, consline+apos, cpl);
-      fprintf(fp, "%-*s %s\n", maxnamelen, "", buf);
+      if (fprintf(fp, "%-*s %s\n", maxnamelen, "", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "clustal msa write failed"); 
     }
 
   free(buf);

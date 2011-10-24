@@ -335,6 +335,25 @@ esl_msafile_stockholm_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
 }
 
 
+/* Function:  esl_msafile_stockholm_Write()
+ * Synopsis:  Write a Stockholm format alignment to a stream.
+ *
+ * Purpose:   Write alignment <msa> to output stream <fp>, in Stockholm
+ *            format. <fmt> may either be <eslMSAFILE_STOCKHOLM> or
+ *            <eslMSAFILE_PFAM>.  <eslMSAFILE_PFAM> puts the alignment
+ *            into a single block, one alignment line per sequence.
+ *            <eslMSAFILE_STOCKHOLM> is a multiple block format, with
+ *            a width of 200 aligned residues per line.
+ *
+ * Args:      fp  - open output stream, writable
+ *            msa - alignment to write
+ *            fmt - eslMSAFILE_STOCKHOLM | eslMSAFILE_PFAM
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ *            <eslEWRITE> on any system write error, such as filled disk.
+ */
 int
 esl_msafile_stockholm_Write(FILE *fp, const ESL_MSA *msa, int fmt)
 {
@@ -1057,6 +1076,11 @@ stockholm_get_gc_tagidx(ESL_MSA *msa, ESL_STOCKHOLM_PARSEDATA *pd, char *tag, es
  * 5. Internal: writing Stockholm/Pfam format
  *****************************************************************/
 
+/* stockholm_write()
+ * Returns: <eslOK> on success.
+ * Throws:  <eslEMEM> on allocation error.
+ *          <eslEWRITE> on any system write error.
+ */
 static int
 stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 {
@@ -1131,61 +1155,61 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
   ESL_ALLOC(buf, sizeof(char) * (cpl+1));
 
   /* Magic Stockholm header */
-  fprintf(fp, "# STOCKHOLM 1.0\n");
+  if (fprintf(fp, "# STOCKHOLM 1.0\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
 
   /* Warning about uniqization */
-  if (make_uniquenames) fprintf(fp, "# WARNING: seq names have been made unique by adding a prefix of \"<seq#>|\"\n");
+  if (make_uniquenames && fprintf(fp, "# WARNING: seq names have been made unique by adding a prefix of \"<seq#>|\"\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
 
  /* Free text comment section */
   for (i = 0;  i < msa->ncomment; i++)
-    fprintf(fp, "#%s\n", msa->comment[i]);
-  if (msa->ncomment > 0) fprintf(fp, "\n");
+    if (fprintf(fp, "#%s\n", msa->comment[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+  if (msa->ncomment > 0 && fprintf(fp, "\n")  < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
 
    /* GF section: per-file annotation */
-  if (msa->name) fprintf(fp, "#=GF %-*s %s\n", maxgf, "ID", msa->name);
-  if (msa->acc)  fprintf(fp, "#=GF %-*s %s\n", maxgf, "AC", msa->acc);
-  if (msa->desc) fprintf(fp, "#=GF %-*s %s\n", maxgf, "DE", msa->desc);
-  if (msa->au)   fprintf(fp, "#=GF %-*s %s\n", maxgf, "AU", msa->au);
+  if (msa->name && fprintf(fp, "#=GF %-*s %s\n", maxgf, "ID", msa->name) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+  if (msa->acc  && fprintf(fp, "#=GF %-*s %s\n", maxgf, "AC", msa->acc)  < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+  if (msa->desc && fprintf(fp, "#=GF %-*s %s\n", maxgf, "DE", msa->desc) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+  if (msa->au   && fprintf(fp, "#=GF %-*s %s\n", maxgf, "AU", msa->au)   < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
   
   /* Thresholds are hacky. Pfam has two. Rfam has one. */
-  if      (msa->cutset[eslMSA_GA1] && msa->cutset[eslMSA_GA2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "GA", msa->cutoff[eslMSA_GA1], msa->cutoff[eslMSA_GA2]);
-  else if (msa->cutset[eslMSA_GA1])                            fprintf(fp, "#=GF %-*s %.1f\n",      maxgf, "GA", msa->cutoff[eslMSA_GA1]);
+  if      (msa->cutset[eslMSA_GA1] && msa->cutset[eslMSA_GA2]) { if (fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "GA", msa->cutoff[eslMSA_GA1], msa->cutoff[eslMSA_GA2]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+  else if (msa->cutset[eslMSA_GA1])                            { if (fprintf(fp, "#=GF %-*s %.1f\n",      maxgf, "GA", msa->cutoff[eslMSA_GA1])                          < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 
-  if      (msa->cutset[eslMSA_NC1] && msa->cutset[eslMSA_NC2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "NC", msa->cutoff[eslMSA_NC1], msa->cutoff[eslMSA_NC2]);
-  else if (msa->cutset[eslMSA_NC1])                            fprintf(fp, "#=GF %-*s %.1f\n",	    maxgf, "NC", msa->cutoff[eslMSA_NC1]);
+  if      (msa->cutset[eslMSA_NC1] && msa->cutset[eslMSA_NC2]) { if (fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "NC", msa->cutoff[eslMSA_NC1], msa->cutoff[eslMSA_NC2]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+  else if (msa->cutset[eslMSA_NC1])                            { if (fprintf(fp, "#=GF %-*s %.1f\n",	    maxgf, "NC", msa->cutoff[eslMSA_NC1])                        < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 
-  if      (msa->cutset[eslMSA_TC1] && msa->cutset[eslMSA_TC2]) fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "TC", msa->cutoff[eslMSA_TC1], msa->cutoff[eslMSA_TC2]);
-  else if (msa->cutset[eslMSA_TC1])                            fprintf(fp, "#=GF %-*s %.1f\n", 	    maxgf, "TC", msa->cutoff[eslMSA_TC1]);
+  if      (msa->cutset[eslMSA_TC1] && msa->cutset[eslMSA_TC2]) { if (fprintf(fp, "#=GF %-*s %.1f %.1f\n", maxgf, "TC", msa->cutoff[eslMSA_TC1], msa->cutoff[eslMSA_TC2]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+  else if (msa->cutset[eslMSA_TC1])                            { if (fprintf(fp, "#=GF %-*s %.1f\n", 	    maxgf, "TC", msa->cutoff[eslMSA_TC1])                        < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 
   for (i = 0; i < msa->ngf; i++)
-    fprintf(fp, "#=GF %-*s %s\n", maxgf, msa->gf_tag[i], msa->gf[i]); 
-  fprintf(fp, "\n");
+    if (fprintf(fp, "#=GF %-*s %s\n", maxgf, msa->gf_tag[i], msa->gf[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
+  if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
 
   
   /* GS section: per-sequence annotation */
   if (msa->flags & eslMSA_HASWGTS) {
     for (i = 0; i < msa->nseq; i++) 
-      if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s WT %.2f\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->wgt[i]);		
-      else                  fprintf(fp, "#=GS %-*s WT %.2f\n",                     maxname, msa->sqname[i], msa->wgt[i]);   
-    fprintf(fp, "\n");
+      if (make_uniquenames) { if (fprintf(fp, "#=GS %0*d|%-*s WT %.2f\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->wgt[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+      else                  { if (fprintf(fp, "#=GS %-*s WT %.2f\n",                      maxname, msa->sqname[i], msa->wgt[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+    if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
   }
 
   if (msa->sqacc) {
     for (i = 0; i < msa->nseq; i++) 
       if (msa->sqacc[i]) {
-	if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s AC %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqacc[i]);
-	else                  fprintf(fp, "#=GS %-*s AC %s\n",                      maxname, msa->sqname[i], msa->sqacc[i]);
+	if (make_uniquenames) { if (fprintf(fp, "#=GS %0*d|%-*s AC %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqacc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	else                  { if (fprintf(fp, "#=GS %-*s AC %s\n",                      maxname, msa->sqname[i], msa->sqacc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
       }
-    fprintf(fp, "\n");
+    if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
   }
 
   if (msa->sqdesc) {
     for (i = 0; i < msa->nseq; i++) 
       if (msa->sqdesc[i]) {
-	if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s DE %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqdesc[i]);
-	else                  fprintf(fp, "#=GS %-*s DE %s\n",                      maxname, msa->sqname[i], msa->sqdesc[i]);
+	if (make_uniquenames) { if (fprintf(fp, "#=GS %0*d|%-*s DE %s\n", uniqwidth-1, i, maxname, msa->sqname[i], msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	else                  { if (fprintf(fp, "#=GS %-*s DE %s\n",                      maxname, msa->sqname[i], msa->sqdesc[i]) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
       }
-    fprintf(fp, "\n");
+    if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
   }
  
   /* Multiannotated GS tags are possible; for example, 
@@ -1202,10 +1226,10 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	if (msa->gs[i][j]) {
 	  s = msa->gs[i][j];
 	  while (esl_strtok(&s, "\n", &tok) == eslOK)
-	    if (make_uniquenames) fprintf(fp, "#=GS %0*d|%-*s %-*s %s\n", uniqwidth-1, i,  maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok);
-	    else                  fprintf(fp, "#=GS %-*s %-*s %s\n",                       maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok);
+	    if (make_uniquenames) { if (fprintf(fp, "#=GS %0*d|%-*s %-*s %s\n", uniqwidth-1, i,  maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	    else                  { if (fprintf(fp, "#=GS %-*s %-*s %s\n",                       maxname, msa->sqname[j], gslen, msa->gs_tag[i], tok) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 	}
-      fprintf(fp, "\n");
+      if (fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
     }
 
   /* Alignment section:
@@ -1215,7 +1239,7 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
     {
       acpl = (msa->alen - currpos > cpl)? cpl : msa->alen - currpos;
       buf[acpl] = '\0';  	/* this suffices to terminate for all uses of buf[] in this block */
-      if (currpos > 0) fprintf(fp, "\n");
+      if (currpos > 0 && fprintf(fp, "\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
 
       for (i = 0; i < msa->nseq; i++)
 	{
@@ -1223,54 +1247,54 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	  if (msa->abc)   esl_abc_TextizeN(msa->abc, msa->ax[i] + currpos + 1, acpl, buf);
 #endif
 	  if (! msa->abc) strncpy(buf, msa->aseq[i] + currpos, acpl);
-	  if (make_uniquenames) fprintf(fp, "%0*d|%-*s %s\n", uniqwidth-1, i, margin-uniqwidth-1, msa->sqname[i], buf);
-	  else                  fprintf(fp, "%-*s %s\n",                      margin-1,           msa->sqname[i], buf);
+	  if (make_uniquenames) { if (fprintf(fp, "%0*d|%-*s %s\n", uniqwidth-1, i, margin-uniqwidth-1, msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	  else                  { if (fprintf(fp, "%-*s %s\n",                      margin-1,           msa->sqname[i], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 
 	  if (msa->ss && msa->ss[i]) {
 	    strncpy(buf, msa->ss[i] + currpos, acpl);
-	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SS", buf);
-	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SS", buf);
+	    if (make_uniquenames) { if (fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SS", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	    else                  { if (fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SS", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 	  }
 	  if (msa->sa && msa->sa[i]) {
 	    strncpy(buf, msa->sa[i] + currpos, acpl);
-	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SA", buf);
-	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SA", buf);
+	    if (make_uniquenames) { if (fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "SA", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	    else                  { if (fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "SA", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 	  }
 	  if (msa->pp && msa->pp[i]) {
 	    strncpy(buf, msa->pp[i] + currpos, acpl);
-	    if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "PP", buf);
-	    else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "PP", buf);
+	    if (make_uniquenames) { if (fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, "PP", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	    else                  { if (fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           "PP", buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 	  }
 	  for (j = 0; j < msa->ngr; j++)
 	    if (msa->gr[j][i]) {
 	      strncpy(buf, msa->gr[j][i] + currpos, acpl);
-	      if (make_uniquenames) fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, msa->gr_tag[j], buf);
-	      else                  fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           msa->gr_tag[j], buf);
+	      if (make_uniquenames) { if (fprintf(fp, "#=GR %0*d|%-*s %-*s %s\n", uniqwidth-1, i, maxname, msa->sqname[i], margin-maxname-uniqwidth-7, msa->gr_tag[j], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
+	      else                  { if (fprintf(fp, "#=GR %-*s %-*s %s\n",                      maxname, msa->sqname[i], margin-maxname-7,           msa->gr_tag[j], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); }
 	    }
 	}
 
       if (msa->ss_cons) {
 	strncpy(buf, msa->ss_cons + currpos, acpl);
-	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", buf);
+	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "SS_cons", buf)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
       }
       if (msa->sa_cons) {
 	strncpy(buf, msa->sa_cons + currpos, acpl);
-	fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", buf);
+	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "SA_cons", buf)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       if (msa->pp_cons) {
 	strncpy(buf, msa->pp_cons + currpos, acpl);
-	fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf);
+	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       if (msa->rf) {
 	strncpy(buf, msa->rf + currpos, acpl);
-	fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf);
+	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       for (j = 0; j < msa->ngc; j++) {
 	strncpy(buf, msa->gc[j] + currpos, acpl);
-	fprintf(fp, "#=GC %-*s %s\n", margin-6, msa->gc_tag[j], buf);
+	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, msa->gc_tag[j], buf) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
     }
-  fprintf(fp, "//\n");
+  if (fprintf(fp, "//\n") < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed"); 
   free(buf);
   return eslOK;
 

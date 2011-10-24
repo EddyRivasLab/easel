@@ -6,7 +6,6 @@
  *  4. Test driver.
  *  5. Example code.
  *  6. License and copyright information.
- * 
  */
 #include "esl_config.h"
 
@@ -220,7 +219,6 @@ esl_ssi_FindName(ESL_SSI *ssi, const char *key, uint16_t *ret_fh, off_t *ret_rof
 
 /* Function:  esl_ssi_FindNumber()
  * Synopsis:  Look up the n'th primary key.
- * Incept:    SRE, Mon Jan  1 19:42:42 2001 [St. Louis]
  *
  * Purpose:   Looks up primary key number <nkey> in the open index
  *            <ssi>.  <nkey> ranges from <0..ssi->nprimary-1>. When
@@ -502,7 +500,6 @@ esl_ssi_FileInfo(ESL_SSI *ssi, uint16_t fh, char **ret_filename, int *ret_format
 
 /* Function:  esl_ssi_Close()
  * Synopsis:  Close an SSI index.
- * Incept:    SRE, Mon Mar  6 13:40:17 2006 [St. Louis]
  *
  * Purpose:   Close an open SSI index <ssi>.
  * 
@@ -610,7 +607,6 @@ static int skeysort(const void *k1, const void *k2);
 
 /* Function:  esl_newssi_Open()
  * Synopsis:  Create a new <ESL_NEWSSI>.
- * Incept:    SRE, Tue Jan  2 11:23:25 2001 [St. Louis]
  *
  * Purpose:   Creates and returns a <ESL_NEWSSI>, in order to create a 
  *            new SSI index file.
@@ -688,7 +684,6 @@ esl_newssi_Open(const char *ssifile, int allow_overwrite, ESL_NEWSSI **ret_newss
 
 /* Function:  esl_newssi_AddFile()
  * Synopsis:  Add a filename to a growing index.
- * Incept:    SRE, Tue Mar  7 08:57:39 2006 [St. Louis]
  *
  * Purpose:   Registers the file <filename> into the new index <ns>,
  *            along with its format code <fmt>. The index assigns it
@@ -748,7 +743,6 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
 
 /* Function:  esl_newssi_SetSubseq()
  * Synopsis:  Declare that file is suitable for fast subseq lookup.
- * Incept:    SRE, Tue Mar  7 09:03:59 2006 [St. Louis]
  *
  * Purpose:   Declare that the file associated with handle <fh> is
  *            suitable for fast subsequence lookup, because it has
@@ -827,11 +821,11 @@ esl_newssi_SetSubseq(ESL_NEWSSI *ns, uint16_t fh, uint32_t bpl, uint32_t rpl)
  *                          number of primary keys;
  *           <eslENOTFOUND> if we needed to open external tmp files, but
  *                          the attempt to open them failed.
- *           <eslENOSPACE>  if writing to tmp file fails, probably because 
- *                          no space is left on the filesystem.
  *           
  * Throws:   <eslEINVAL> on an invalid argument;
- *           <eslEMEM>   on allocation failure.       
+ *           <eslEMEM>   on allocation failure;
+ *           <eslEWRITE> on any system error writing to tmp file, such
+ *                       as filling the filesystem.
  */
 int
 esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh, 
@@ -861,11 +855,11 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
       if (sizeof(off_t) == 4) {
 	if (fprintf(ns->ptmp, "%s\t%d\t%" PRIu32 "\t%" PRIu32 "\t%" PRIi64 "\n", 
 		    key, fh, (uint32_t) r_off, (uint32_t) d_off, L) <= 0) 
-	  ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+	  ESL_XEXCEPTION_SYS(eslEWRITE, "ssi key tmp file write failed");
       } else {
 	if (fprintf(ns->ptmp, "%s\t%d\t%" PRIu64 "\t%" PRIu64 "\t%" PRIi64 "\n", 
 		    key, fh, (uint64_t) r_off, (uint64_t) d_off, L) <= 0)
-	  ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+	  ESL_XEXCEPTION_SYS(eslEWRITE, "ssi key tmp file write failed");
       }
       ns->nprimary++;
     }
@@ -894,7 +888,6 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
 
 /* Function:  esl_newssi_AddAlias()
  * Synopsis:  Add a secondary key (alias) to a growing index.
- * Incept:    SRE, Tue Mar  7 15:49:43 2006 [St. Louis]
  *
  * Purpose:   Registers secondary key <alias> in index <ns>, and 
  *            map it to the primary key <key>. <key> must already
@@ -910,10 +903,9 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
  *                           number of secondary keys that can be stored;
  *            <eslENOTFOUND> if we needed to open external tmp files, but
  *                           the attempt to open them failed.
- *            <eslENOSPACE>  if writing to a tmp file fails, probably because
- *                           we're out of space on the device.
  *
- * Throws:    (no abnormal error conditions)
+ * Throws:    <eslEWRITE>   on any system error writing to tmp file, such 
+ *                          as running out of space on the device.
  */
 int
 esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
@@ -936,7 +928,7 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
   /* if external mode: write info to disk. */
   if (ns->external) 
     {
-      if (fprintf(ns->stmp, "%s\t%s\n", alias, key) <= 0) ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+      if (fprintf(ns->stmp, "%s\t%s\n", alias, key) <= 0) ESL_XEXCEPTION_SYS(eslEWRITE, "ssi alias tmp file write failed");
       ns->nsecondary++;
     }
   else
@@ -959,7 +951,6 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
 
 /* Function:  esl_newssi_Write()
  * Synopsis:  Save a new index to an SSI file.
- * Incept:    SRE, Tue Mar  7 16:06:09 2006 [St. Louis]
  *
  * Purpose:   Writes the complete index <ns> in SSI format to its file.
  *            
@@ -971,11 +962,11 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
  *            
  * Returns:   <eslOK>       on success;
  *            <eslERANGE>   if index size exceeds system's maximum file size;
- *            <eslENOSPACE> if a write fails, presumably because the filesystem is full;
  *            <eslESYS>     if any of the steps of an external sort fail.
  *
  * Throws:    <eslEINVAL> on invalid argument, including too-long tmpfile names;
- *            <eslEMEM>   on buffer allocation failure.
+ *            <eslEMEM>   on buffer allocation failure;
+ *            <eslEWRITE> on any system write failure, including filled disk.  
  */
 int
 esl_newssi_Write(ESL_NEWSSI *ns)
@@ -1092,7 +1083,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
       esl_fwrite_offset(ns->ssifp, foffset)    != eslOK ||
       esl_fwrite_offset(ns->ssifp, poffset)    != eslOK ||
       esl_fwrite_offset(ns->ssifp, soffset)    != eslOK) 
-    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI header -- out of space on device?");
+    ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
 
   /* Write the file section
    */
@@ -1108,7 +1099,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 	  esl_fwrite_u32(ns->ssifp, file_flags)         != eslOK    ||
 	  esl_fwrite_u32(ns->ssifp, ns->bpl[i])         != eslOK    ||
 	  esl_fwrite_u32(ns->ssifp, ns->rpl[i])         != eslOK)
-	ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI file section -- out of space on device?");
+	ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
     }
 
   /* Write the primary key section
@@ -1126,7 +1117,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 	      esl_fwrite_offset(ns->ssifp, pkey.r_off)   != eslOK    ||
 	      esl_fwrite_offset(ns->ssifp, pkey.d_off)   != eslOK    ||
 	      esl_fwrite_i64(   ns->ssifp, pkey.len)     != eslOK)
-	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI primary key section -- out of space on device?");
+	    ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
 	}
     } 
   else 
@@ -1140,7 +1131,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 	      esl_fwrite_offset(ns->ssifp, ns->pkeys[i].r_off) != eslOK    ||
 	      esl_fwrite_offset(ns->ssifp, ns->pkeys[i].d_off) != eslOK    ||
 	      esl_fwrite_i64(   ns->ssifp, ns->pkeys[i].len)   != eslOK)
-	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI primary key section -- out of space on device?");
+	    ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
 	}
     }
 
@@ -1158,7 +1149,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 
 	  if (fwrite(sk, sizeof(char), ns->slen, ns->ssifp) != ns->slen ||
 	      fwrite(pk, sizeof(char), ns->plen, ns->ssifp) != ns->plen) 
-	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI secondary key section -- out of space on device?");
+	    ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
 	}
     } 
   else 
@@ -1170,7 +1161,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 
 	  if (fwrite(sk, sizeof(char), ns->slen, ns->ssifp) != ns->slen ||
 	      fwrite(pk, sizeof(char), ns->plen, ns->ssifp) != ns->plen)
-	    ESL_XFAIL(eslENOSPACE, ns->errbuf, "write failed, in SSI secondary key section -- out of space on device?");
+	    ESL_XEXCEPTION_SYS(eslEWRITE, "ssi write failed");
 	} 
     }
 
@@ -1194,7 +1185,6 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 
 /* Function:  esl_newssi_Close()
  * Synopsis:  Free an <ESL_NEWSSI>.
- * Incept:    SRE, Tue Mar  7 08:13:27 2006 [St. Louis]
  *
  * Purpose:   Frees a <ESL_NEWSSI>.
  */
@@ -1290,8 +1280,9 @@ current_newssi_size(const ESL_NEWSSI *ns)
  * Free current memory, turn over control to the tmpfiles.
  *           
  * Return <eslOK>        on success; 
- *        <eslENOTFOUND> if we can't open a tmpfile for writing;
- *        <eslENOSPACE>  if a write fails.
+ *        <eslENOTFOUND> if we can't open a tmpfile for writing.
+ * 
+ * Throw  <eslEWRITE>    if a write fails.
  */
 static int
 activate_external_sort(ESL_NEWSSI *ns)
@@ -1315,7 +1306,7 @@ activate_external_sort(ESL_NEWSSI *ns)
 		  (unsigned long) ns->pkeys[i].r_off, 
 		  (unsigned long) ns->pkeys[i].d_off, 
 		  (unsigned long) ns->pkeys[i].len) <= 0)
-	ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+	ESL_XEXCEPTION_SYS(eslEWRITE, "ssi key tmp file write failed");
     } else {
       if (fprintf(ns->ptmp, "%s\t%u\t%llu\t%llu\t%lu\n", 
 		  ns->pkeys[i].key, 
@@ -1323,12 +1314,12 @@ activate_external_sort(ESL_NEWSSI *ns)
 		  (unsigned long long) ns->pkeys[i].r_off, 
 		  (unsigned long long) ns->pkeys[i].d_off, 
 		  (unsigned long)      ns->pkeys[i].len) <= 0)
-	ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+	ESL_XEXCEPTION_SYS(eslEWRITE, "ssi key tmp file write failed");
     }
   }
   for (i = 0; i < ns->nsecondary; i++)
     if (fprintf(ns->stmp, "%s\t%s\n", ns->skeys[i].key, ns->skeys[i].pkey) <= 0)
-      ESL_XFAIL(eslENOSPACE, ns->errbuf, "fprintf() failed; out of disk space?");
+      ESL_XEXCEPTION_SYS(eslEWRITE, "ssi alias tmp file write failed");
   
   /* Free the memory now that we've flushed our lists to disk
    */
@@ -1651,7 +1642,6 @@ esl_fwrite_i64(FILE *fp, int64_t n)
 
 /* Function:  esl_fread_offset()
  * Synopsis:  Read an offset portably.
- * Incept:    SRE, Fri Mar  3 13:19:41 2006 [St. Louis]
  *
  * Purpose:   Read a file offset from the stream <fp> (which would usually
  *            be a save file), and store it in <ret_offset>.
@@ -1714,7 +1704,6 @@ esl_fread_offset(FILE *fp, int sz, off_t *ret_offset)
 
 /* Function:  esl_fwrite_offset()
  * Synopsis:  Write an offset portably.
- * Incept:    SRE, Fri Mar  3 13:35:04 2006 [St. Louis]
  *
  * Purpose:   Portably write (save) <offset> to the stream <fp>, in network
  *            byte order. 
@@ -1974,7 +1963,6 @@ int main(int argc, char **argv)
   /* Save the index to disk */
   status = esl_newssi_Write(ns);
   if      (status == eslERANGE)   esl_fatal("SSI index file size exceeds maximum allowed by your filesystem");
-  else if (status == eslENOSPACE) esl_fatal("SSI index write failed: %s", ns->errbuf);
   else if (status == eslESYS)     esl_fatal("SSI index sort failed: %s", ns->errbuf);
   else if (status != eslOK)       esl_fatal("SSI index save failed: %s", ns->errbuf);
   esl_newssi_Close(ns);  

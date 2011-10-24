@@ -45,7 +45,6 @@
  */
 
 /* Function:  esl_exp_pdf()
- * Incept:    SRE, Wed Aug 10 08:30:46 2005 [St. Louis]
  *
  * Purpose:   Calculates the probability density function for the
  *            exponential, $P(X=x)$, given value <x>, offset <mu>,
@@ -59,7 +58,6 @@ esl_exp_pdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_exp_logpdf()
- * Incept:    SRE, Wed Aug 10 08:35:06 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the
  *            exponential, $P(X=x)$, given value <x>, offset <mu>,
@@ -79,7 +77,6 @@ esl_exp_logpdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_exp_cdf()
- * Incept:    SRE, Wed Aug 10 08:36:04 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function for the
  *            exponential, $P(X \leq x)$, given value <x>, offset <mu>,
@@ -98,7 +95,6 @@ esl_exp_cdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_exp_logcdf()
- * Incept:    SRE, Wed Aug 10 10:03:28 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function
  *            for the exponential, $log P(X \leq x)$, given value <x>,
@@ -122,7 +118,6 @@ esl_exp_logcdf(double x, double mu, double lambda)
 }
 
 /* Function:  esl_exp_surv()
- * Incept:    SRE, Wed Aug 10 10:14:49 2005 [St. Louis]
  *
  * Purpose:   Calculates the survivor function, $P(X>x)$ (that is, 1-CDF,
  *            the right tail probability mass) for an exponential distribution,
@@ -136,7 +131,6 @@ esl_exp_surv(double x, double mu, double lambda)
 }
 
 /* Function:  esl_exp_logsurv()
- * Incept:    SRE, Wed Aug 10 10:14:49 2005 [St. Louis]
  *
  * Purpose:   Calculates the log survivor function, $\log P(X>x)$ (that is,
  *            log(1-CDF), the log of the right tail probability mass) for an 
@@ -152,7 +146,6 @@ esl_exp_logsurv(double x, double mu, double lambda)
 
 
 /* Function:  esl_exp_invcdf()
- * Incept:    SRE, Sun Aug 21 12:22:24 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse of the CDF; given a <cdf> value
  *            $0 <= p < 1$, returns the value $x$ at which the CDF
@@ -173,7 +166,6 @@ esl_exp_invcdf(double p, double mu, double lambda)
  *****************************************************************/ 
 
 /* Function:  esl_exp_generic_pdf()
- * Incept:    SRE, Thu Aug 25 07:58:34 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of PDF.
  */
@@ -185,7 +177,6 @@ esl_exp_generic_pdf(double x, void *params)
 }
 
 /* Function:  esl_exp_generic_cdf()
- * Incept:    SRE, Sun Aug 21 12:25:25 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of CDF.
  */
@@ -197,7 +188,6 @@ esl_exp_generic_cdf(double x, void *params)
 }
 
 /* Function:  esl_exp_generic_surv()
- * Incept:    SRE, Thu Aug 25 07:59:05 2005[St. Louis]
  *
  * Purpose:   Generic-API version of survival function.
  */
@@ -209,7 +199,6 @@ esl_exp_generic_surv(double x, void *params)
 }
 
 /* Function:  esl_exp_generic_invcdf()
- * Incept:    SRE, Sun Aug 21 12:25:59 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of inverse CDF.
  */
@@ -228,14 +217,15 @@ esl_exp_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_exp_Plot()
- * Incept:    SRE, Sun Aug 21 13:16:26 2005 [St. Louis]
  *
  * Purpose:   Plot some exponential function <func> (for instance,
  *            <esl_exp_pdf()>) for parameters <mu> and <lambda>, for
  *            a range of values x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
- * Returns:   <eslOK>.
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error, such as a filled disk.
  */
 int
 esl_exp_Plot(FILE *fp, double mu, double lambda, 
@@ -244,8 +234,8 @@ esl_exp_Plot(FILE *fp, double mu, double lambda,
 {
   double x;
   for (x = xmin; x <= xmax; x += xstep)
-    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda));
-  fprintf(fp, "&\n");
+    if (fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "exponential plot write failed");
+  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "exponential plot write failed");
   return eslOK;
 }
 /*-------------------- end plot dumping routines ---------------------------*/
@@ -258,7 +248,6 @@ esl_exp_Plot(FILE *fp, double mu, double lambda,
 #ifdef eslAUGMENT_RANDOM
 
 /* Function:  esl_exp_Sample()
- * Incept:    SRE, Wed Aug 10 10:46:51 2005 [St. Louis]
  *
  * Purpose:   Sample an exponential random variate
  *            by the transformation method, given offset <mu>
@@ -286,7 +275,6 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
  ****************************************************************************/ 
 
 /* Function:  esl_exp_FitComplete()
- * Incept:    SRE, Wed Aug 10 10:53:47 2005 [St. Louis]
  *
  * Purpose:   Given an array of <n> samples <x[0]..x[n-1]>, fit
  *            them to an exponential distribution.
@@ -322,7 +310,6 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 }
 
 /* Function:  esl_exp_FitCompleteScale()
- * Incept:    SRE, Wed Apr 25 11:18:22 2007 [Janelia]
  *
  * Purpose:   Given an array of <n> samples <x[0]..x[n-1]>, fit
  *            them to an exponential distribution of known location
@@ -357,7 +344,6 @@ esl_exp_FitCompleteScale(double *x, int n, double mu, double *ret_lambda)
 
 #ifdef eslAUGMENT_HISTOGRAM
 /* Function:  esl_exp_FitCompleteBinned()
- * Incept:    SRE, Sun Aug 21 13:07:22 2005 [St. Louis]
  *
  * Purpose:   Fit a complete exponential distribution to the observed
  *            binned data in a histogram <g>, where each

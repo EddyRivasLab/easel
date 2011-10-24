@@ -41,7 +41,6 @@
  ****************************************************************************/ 
 
 /* Function:  esl_gev_pdf()
- * Incept:    SRE, Tue Jul 12 10:53:19 2005 [St. Louis]
  *
  * Purpose:   Calculates the probability density function for the 
  *            generalized extreme value distribution, $P(X=x)$, given
@@ -67,7 +66,6 @@ esl_gev_pdf(double x, double mu, double lambda, double alpha)
 }
 
 /* Function:  esl_gev_logpdf()
- * Incept:    SRE, Tue Jul 12 16:43:13 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the
  *            generalized extreme value distribution, $\log P(X=x)$, 
@@ -96,7 +94,6 @@ esl_gev_logpdf(double x, double mu, double lambda, double alpha)
 
 
 /* Function:  esl_gev_cdf()
- * Incept:    SRE, Tue Jul 12 16:45:55 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function for the
  *            generalized extreme value distribution, $P(X \leq x)$, 
@@ -124,7 +121,6 @@ esl_gev_cdf(double x, double mu, double lambda, double alpha)
 
 
 /* Function:  esl_gev_logcdf()
- * Incept:    SRE, Tue Jul 12 17:15:49 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function for a
  *            generalized extreme value distribution, $\log P(X \leq x)$, 
@@ -152,7 +148,6 @@ esl_gev_logcdf(double x, double mu, double lambda, double alpha)
 
 
 /* Function:  esl_gev_surv()
- * Incept:    SRE, Wed Jul 13 07:41:12 2005 [St. Louis]
  *
  * Purpose:   Calculates the survivor function, $P(X>x)$ (that is, 1-cdf),
  *            the right tail's probability mass,  given quantile <x> and
@@ -179,7 +174,6 @@ esl_gev_surv(double x, double mu, double lambda, double alpha)
 
 
 /* Function:  esl_gev_logsurv()
- * Incept:    SRE, Wed Jul 13 08:14:48 2005 [St. Louis]
  *
  * Purpose:   Calculates the log survivor function $\log P(X>x)$ for a 
  *            generalized extreme value distribution (that is, 
@@ -217,7 +211,6 @@ esl_gev_logsurv(double x, double mu, double lambda, double alpha)
 }
 
 /* Function:  esl_gev_invcdf()
- * Incept:    SRE, Sun Aug 21 14:14:14 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse CDF of the GEV: given a probability
  *            <p> ($0 < p < 1$), returns the quantile <x> which would
@@ -241,7 +234,6 @@ esl_gev_invcdf(double p, double mu, double lambda, double alpha)
  *****************************************************************/ 
 
 /* Function:  esl_gev_generic_pdf()
- * Incept:    SRE, Thu Aug 25 08:00:06 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of PDF.
  */
@@ -253,7 +245,6 @@ esl_gev_generic_pdf(double x, void *params)
 }
 
 /* Function:  esl_gev_generic_cdf()
- * Incept:    SRE, Sun Aug 21 14:18:19 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of CDF.
  */
@@ -265,7 +256,6 @@ esl_gev_generic_cdf(double x, void *params)
 }
 
 /* Function:  esl_gev_generic_surv()
- * Incept:    SRE, Thu Aug 25 08:02:17 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of survival function.
  */
@@ -277,7 +267,6 @@ esl_gev_generic_surv(double x, void *params)
 }
 
 /* Function:  esl_gev_generic_invcdf()
- * Incept:    SRE, Sun Aug 21 14:18:41 2005 [St. Louis]
  *
  * Purpose:   Generic-API version of inverse CDF.
  */
@@ -296,14 +285,15 @@ esl_gev_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_gev_Plot()
- * Incept:    SRE, Sun Aug 21 14:20:34 2005 [St. Louis]
  *
  * Purpose:   Plot some GEV function <func> (for instance,
  *            <esl_gev_pdf()>) for parameters <mu> and <lambda>, for
  *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
- * Returns:   <eslOK>.
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
@@ -312,8 +302,8 @@ esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
 {
   double x;
   for (x = xmin; x <= xmax; x += xstep)
-    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, alpha));
-  fprintf(fp, "&\n");
+    if (fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, alpha)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "gev plot write failed");
+  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "gev plot write failed");
   return eslOK;
 }
 /*-------------------- end plot dumping routines ---------------------------*/
@@ -326,7 +316,6 @@ esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gev_Sample()
- * Incept:    SRE, Wed Jul 13 08:30:49 2005 [St. Louis]
  *
  * Purpose:   Sample a GEV-distributed random variate,
  *            by the transformation method.
@@ -542,7 +531,6 @@ fitting_engine(struct gev_data *data,
 
 
 /* Function:  esl_gev_FitComplete()
- * Incept:    SRE, Mon Jul 18 17:36:02 2005 [St. Louis]
  *
  * Purpose:   Given an array of <n> GEV-distributed samples <x[0]..x[n-1>,
  *            return maximum likelihood parameters <ret_mu>, 
@@ -583,7 +571,6 @@ esl_gev_FitComplete(double *x, int n,
 }
 
 /* Function:  esl_gev_FitCensored()
- * Incept:    SRE, Fri Jul 29 09:44:39 2005 [St. Louis]
  *
  * Purpose:   Given a left-censored array of <n> GEV-distributed samples
  *            <x[0]..x[n-1>, the number of censored samples <z>, and

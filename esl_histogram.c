@@ -30,7 +30,6 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
 
 /* Function:  esl_histogram_Create()
  * Synopsis:  Create a new <ESL_HISTOGRAM>.
- * Incept:    SRE, Fri Jul  1 13:40:26 2005 [St. Louis]
  *
  * Purpose:   Creates and returns a new histogram object, initially
  *            allocated to count scores $>$ <xmin> and $<=$ <xmax> into
@@ -120,7 +119,6 @@ esl_histogram_Create(double xmin, double xmax, double w)
 
 /* Function:  esl_histogram_CreateFull()
  * Synopsis:  A <ESL_HISTOGRAM> to keep all data samples.
- * Incept:    SRE, Tue Jul 26 13:19:27 2005 [St. Louis]
  *
  * Purpose:   Alternative form of <esl_histogram_Create()> that 
  *            creates a more complex histogram that will contain not just the 
@@ -150,7 +148,6 @@ esl_histogram_CreateFull(double xmin, double xmax, double w)
 
 /* Function:  esl_histogram_Destroy()
  * Synopsis:  Frees a <ESL_HISTOGRAM>.
- * Incept:    SRE, Sat Jul  2 19:41:17 2005 [St. Louis]
  *
  * Purpose:   Frees an <ESL_HISTOGRAM> object <h>.
  */
@@ -167,7 +164,6 @@ esl_histogram_Destroy(ESL_HISTOGRAM *h)
 
 /* Function:  esl_histogram_Score2Bin()
  * Synopsis:  Given a real-valued <x>; calculate integer bin <b>
- * Incept:    SRE, Sun Dec 13 20:24:42 2009 [Yokohama]
  *
  * Purpose:   For a real-valued <x>, figure out what bin it would
  *            go into in the histogram <h>; return this value in
@@ -208,7 +204,6 @@ esl_histogram_Score2Bin(ESL_HISTOGRAM *h, double x, int *ret_b)
 
 /* Function:  esl_histogram_Add()
  * Synopsis:  Add a sample to the histogram.
- * Incept:    SRE, Sat Jul  2 19:41:45 2005 [St. Louis]
  *
  * Purpose:   Adds score <x> to a histogram <h>.
  *           
@@ -319,7 +314,6 @@ esl_histogram_Add(ESL_HISTOGRAM *h, double x)
   
 
 /* esl_histogram_sort()
- * Incept:    SRE, Thu Aug 18 10:45:46 2005 [St. Louis]
  *
  * Purpose:   Sort the raw scores in a full histogram, from smallest to
  *            largest. Has no effect on a normal histogram, or on a full
@@ -346,7 +340,6 @@ esl_histogram_sort(ESL_HISTOGRAM *h)
 
 /* Function:  esl_histogram_DeclareCensoring()
  * Synopsis:  Collected data were left-censored.
- * Incept:    SRE, Tue Aug 23 10:00:14 2005 [St. Louis]
  *
  * Purpose:   Declare that the dataset collected in <h> is known to be a
  *            censored distribution, where <z> samples were unobserved because
@@ -382,7 +375,6 @@ esl_histogram_DeclareCensoring(ESL_HISTOGRAM *h, int z, double phi)
 
 /* Function:  esl_histogram_DeclareRounding()
  * Synopsis:  Declare collected data were no more accurate than bins.
- * Incept:    SRE, Tue Jan 31 13:52:10 2006 [St. Louis]
  *
  * Purpose:   Declare that the data sample values in the histogram <h>
  *            are rounded off. Ideally, your bins in <h> should exactly 
@@ -401,7 +393,6 @@ esl_histogram_DeclareRounding(ESL_HISTOGRAM *h)
 
 /* Function:  esl_histogram_SetTail()
  * Synopsis:  Declare only tail $>$ some threshold is considered "observed".
- * Incept:    SRE, Tue Aug 23 09:01:10 2005 [St. Louis]
  *
  * Purpose:   Suggest a threshold <phi> to split a histogram <h>
  *            into "unobserved" data (values $\leq \phi$) and "observed" 
@@ -462,7 +453,6 @@ esl_histogram_SetTail(ESL_HISTOGRAM *h, double phi, double *ret_newmass)
 
 /* Function:  esl_histogram_SetTailByMass()
  * Synopsis:  Declare only right tail mass is considered "observed".
- * Incept:    SRE, Tue Aug 23 08:10:39 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> (with or without raw data samples),
  *            find a cutoff score that at least fraction <pmass> of the samples
@@ -519,7 +509,6 @@ esl_histogram_SetTailByMass(ESL_HISTOGRAM *h, double pmass, double *ret_newmass)
 
 /* Function:  esl_histogram_GetRank()
  * Synopsis:  Retrieve n'th high score.
- * Incept:    SRE, Thu Jul 28 08:39:52 2005 [St. Louis]
  *
  * Purpose:   Retrieve the <rank>'th highest score from a 
  *            full histogram <h>. <rank> is <1..n>, for
@@ -556,7 +545,6 @@ esl_histogram_GetRank(ESL_HISTOGRAM *h, int rank, double *ret_x)
 
 /* Function:  esl_histogram_GetData()
  * Synopsis:  Retrieve vector of all raw scores.
- * Incept:    SRE, Fri Jan 27 07:57:21 2006 [St. Louis]
  *
  * Purpose:   Retrieve the raw data values from the histogram <h>.
  *            Return them in the vector <ret_x>, and the number
@@ -605,7 +593,6 @@ esl_histogram_GetData(ESL_HISTOGRAM *h, double **ret_x, int *ret_n)
 
 /* Function:  esl_histogram_GetTail()
  * Synopsis:  Retrieve all raw scores above some threshold.
- * Incept:    SRE, Fri Jan 27 07:56:38 2006 [St. Louis]
  *
  * Purpose:   Given a full histogram <h>, retrieve all data values 
  *            above the threshold <phi> in the right (high scoring) 
@@ -672,7 +659,6 @@ esl_histogram_GetTail(ESL_HISTOGRAM *h, double phi,
 
 /* Function:  esl_histogram_GetTailByMass()
  * Synopsis:  Retrieve all raw scores in right tail mass.
- * Incept:    SRE, Sun Jan 29 17:56:37 2006 [St. Louis]
  *
  * Purpose:   Given a full histogram <h>, retrieve the data values in
  *            the right (high scoring) tail, as a pointer <ret_x>
@@ -738,7 +724,6 @@ esl_histogram_GetTailByMass(ESL_HISTOGRAM *h, double pmass,
 
 /* Function:  esl_histogram_SetExpect()
  * Synopsis:  Set expected counts for complete distribution.
- * Incept:    SRE, Wed Aug 17 17:36:58 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> containing some number of empirically
  *            observed binned counts, and a pointer to a function <(*cdf)()>
@@ -790,7 +775,6 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
 
 /* Function:  esl_histogram_SetExpectedTail()
  * Synopsis:  Set expected counts for right tail.
- * Incept:    SRE, Mon Jan 30 08:57:57 2006 [St. Louis]
  *
  * Purpose:   Given a histogram <h>, and a pointer to a generic function
  *            <(*cdf)()> that describes the expected cumulative
@@ -858,28 +842,30 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
  * 5. Output and display of binned data.
  *****************************************************************/ 
 
-/* Function:  esl_histogram_Print() 
- * Synopsis:  Print a "pretty" ASCII histogram.
- * Incept:    SRE, Sat Jul  2 16:03:37 2005 [St. Louis]
+/* Function:  esl_histogram_Write() 
+ * Synopsis:  Write a "pretty" ASCII histogram to a stream.
  *
- * Purpose:   Print a "prettified" display histogram <h> to a file 
- *            pointer <fp>.
- *            Deliberately a look-and-feel clone of Bill Pearson's 
- *            excellent FASTA output.
+ * Purpose:   Print a "prettified" display histogram <h> to a file
+ *            pointer <fp>.  Deliberately a look-and-feel clone of
+ *            Bill Pearson's excellent FASTA output.
  *            
  *            Also displays expected binned counts, if they've been
  *            set.
  *            
- *            Display will only work well if the bin width (w) is 0.1 or more,
- *            because the score labels are only shown to one decimal point.
+ *            Display will only work well if the bin width (w) is 0.1
+ *            or more, because the score labels are only shown to one
+ *            decimal point.
  * 
  * Args:      fp     - open file to print to (stdout works)
  *            h      - histogram to print
  *
  * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEWRITE> on any system write error, such as a
+ *                        filled disk.
  */
 int
-esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
+esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 {
   int      i;
   double   x;
@@ -935,9 +921,10 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 
   /* Print the histogram
    */
-  fprintf(fp, "%6s %6s %6s  (one = represents %llu sequences)\n", 
-	  "score", "obs", "exp", (unsigned long long) units);
-  fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---");
+  if (fprintf(fp, "%6s %6s %6s  (one = represents %llu sequences)\n", 
+	      "score", "obs", "exp", (unsigned long long) units) < 0) 
+    ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+  if (fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
   buffer[80] = '\0';
   buffer[79] = '\n';
   for (i = h->imin; i <= h->imax; i++)
@@ -956,7 +943,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 	    num = 1+(lowcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
 	  }
-	  fputs(buffer, fp);
+	  if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
 	  continue;
 	}
       else if (i == ihighbound && i != h->imax)
@@ -966,7 +953,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 	    num = 1+(highcount-1) / units;
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
 	  }
-	  fputs(buffer, fp);
+	  if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
 	  continue;
 	}
 
@@ -1009,7 +996,7 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
 
       /* Print the line
        */
-      fputs(buffer, fp);
+      if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
     }
 
   return eslOK;
@@ -1017,13 +1004,14 @@ esl_histogram_Print(FILE *fp, ESL_HISTOGRAM *h)
   
 /* Function:  esl_histogram_Plot()
  * Synopsis:  Output a histogram in xmgrace XY format.
- * Incept:    SRE, Mon Jan 30 11:09:01 2006 [St. Louis]
  *
  * Purpose:   Print observed (and expected, if set) binned counts
  *            in a histogram <h> to open file pointer <fp>
  *            in xmgrace XY input file format.
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error.
  */
 int
 esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
@@ -1037,9 +1025,9 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
     if (h->obs[i] > 0)
       {
 	x = esl_histogram_Bin2LBound(h,i);
-	fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]);
+	if (fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
       }
-  fprintf(fp, "&\n");
+  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
 
   /* Second data set is the theoretical (expected) histogram
    */
@@ -1049,16 +1037,15 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 	if (h->expect[i] > 0.)	/* >0 suffices to remove censored region */
 	  {
 	    x = esl_histogram_Bin2LBound(h,i);
-	    fprintf(fp, "%.2f %g\n", x, h->expect[i]);
+	    if (fprintf(fp, "%.2f %g\n", x, h->expect[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
 	  }
-      fprintf(fp, "&\n");
+      if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
     }
   return eslOK;
 }
 
 /* Function:  esl_histogram_PlotSurvival()
  * Synopsis:  Output $P(X>x)$ in xmgrace XY format.
- * Incept:    SRE, Mon Jan 30 11:11:05 2006 [St. Louis]
  *
  * Purpose:   Given a histogram <h>, output the observed (and
  *            expected, if available) survival function $P(X>x)$
@@ -1074,6 +1061,8 @@ esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
  *            looking like it was artificially truncated.
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error.
  */
 int
 esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
@@ -1086,16 +1075,16 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
   /* The observed binned counts:
    */
   if (h->obs[h->imax] > 1) 
-    fprintf(fp, "%f\t%g\n", h->xmax, 1.0 / (double) h->Nc);
+    if (fprintf(fp, "%f\t%g\n", h->xmax, 1.0 / (double) h->Nc) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram survival plot write failed");
   for (i = h->imax; i >= h->imin; i--)
     {
       if (h->obs[i] > 0) {
 	c   += h->obs[i];
 	ai = esl_histogram_Bin2LBound(h, i);
-	fprintf(fp, "%f\t%g\n", ai, (double) c / (double) h->Nc);
+	if (fprintf(fp, "%f\t%g\n", ai, (double) c / (double) h->Nc) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram survival plot write failed");
       }
     }
-  fprintf(fp, "&\n");
+  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram survival plot write failed");
 
   /* The expected binned counts:
    */
@@ -1107,17 +1096,16 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
 	  if (h->expect[i] > 0.) { 
 	    esum += h->expect[i];        /* some worry about 1+eps=1 problem here */
 	    ai = esl_histogram_Bin2LBound(h, i);
-	    fprintf(fp, "%f\t%g\n", ai, esum / (double) h->Nc);
+	    if (fprintf(fp, "%f\t%g\n", ai, esum / (double) h->Nc) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram survival plot write failed");
 	  }
 	}
-      fprintf(fp, "&\n");
+      if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram survival plot write failed");
     }
   return eslOK;
 }
 
 /* Function:  esl_histogram_PlotQQ()
  * Synopsis:  Output a Q-Q plot in xmgrace XY format.
- * Incept:    SRE, Sat Aug 20 14:15:01 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> containing an empirically observed
  *            distribution, and a pointer to a function <(*invcdf)()>
@@ -1131,6 +1119,8 @@ esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h)
  *            if only a tail was fit).
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error.
  */
 int
 esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h, 
@@ -1165,16 +1155,16 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
       if (h->is_tailfit) cdf = (cdf + h->tailmass - 1.) / (h->tailmass);
 
       bi = esl_histogram_Bin2UBound(h, i);
-      fprintf(fp, "%f\t%f\n", bi, (*invcdf)(cdf, params));
+      if (fprintf(fp, "%f\t%f\n", bi, (*invcdf)(cdf, params)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram QQ plot write failed");
     }
-  fprintf(fp, "&\n");
+  if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram QQ plot write failed");
 
   /* Plot a 45-degree expected QQ line:
    */
   bi = esl_histogram_Bin2LBound(h, bbase);
-  fprintf(fp, "%f\t%f\n", bi,  bi);
-  fprintf(fp, "%f\t%f\n", h->xmax, h->xmax);
-  fprintf(fp, "&\n");
+  if (fprintf(fp, "%f\t%f\n", bi,  bi)          < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram QQ plot write failed");
+  if (fprintf(fp, "%f\t%f\n", h->xmax, h->xmax) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram QQ plot write failed");
+  if (fprintf(fp, "&\n")                        < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram QQ plot write failed");
 
   return eslOK;
 }
@@ -1183,7 +1173,6 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
 
 /* Function:  esl_histogram_Goodness()
  * Synopsis:  Evaluate fit between observed, expected. 
- * Incept:    SRE, Wed Aug 17 12:46:05 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <h> with observed and expected counts,
  *            where, for the expected counts, <nfitted> ($\geq 0$)
@@ -1683,7 +1672,7 @@ main(int argc, char **argv)
       if (ascfile != NULL)
 	{
 	  outfp = fopen(ascfile, "w");
-	  esl_histogram_Print(outfp, h1);
+	  esl_histogram_Write(outfp, h1);
 	  fclose(outfp);
 	}
       if (plotfile != NULL)
@@ -1787,7 +1776,7 @@ main(int argc, char **argv)
   params[1] = lambda;
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
-  esl_histogram_Print(stdout, h);
+  esl_histogram_Write(stdout, h);
   esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
@@ -1839,7 +1828,7 @@ main(int argc, char **argv)
   params[1] = lambda;
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
-  esl_histogram_Print(stdout, h);
+  esl_histogram_Write(stdout, h);
   esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
@@ -1891,7 +1880,7 @@ main(int argc, char **argv)
   params[1] = lambda;
   esl_histogram_SetExpectedTail(h, mu, 0.1, &esl_exp_generic_cdf, &params);
 
-  esl_histogram_Print(stdout, h);
+  esl_histogram_Write(stdout, h);
   esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
@@ -1945,7 +1934,7 @@ main(int argc, char **argv)
   params[1] = lambda;
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
-  esl_histogram_Print(stdout, h);
+  esl_histogram_Write(stdout, h);
   esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
@@ -1998,7 +1987,7 @@ main(int argc, char **argv)
   params[1] = lambda;
   esl_histogram_SetExpectedTail(h, mu, actual_mass, &esl_exp_generic_cdf, &params);
 
-  esl_histogram_Print(stdout, h);
+  esl_histogram_Write(stdout, h);
   esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);

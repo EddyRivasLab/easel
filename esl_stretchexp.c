@@ -32,7 +32,6 @@
  */
 
 /* Function:  esl_sxp_pdf()
- * Incept:    SRE, Fri Aug 19 11:17:47 2005 [St. Louis]
  *
  * Purpose:   Calculates the probability density function for the 
  *            stretched exponential pdf, $P(X=x)$, given
@@ -55,7 +54,6 @@ esl_sxp_pdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_logpdf()
- * Incept:    SRE, Fri Aug 19 11:27:32 2005 [St. Louis]
  *
  * Purpose:   Calculates the log probability density function for the 
  *            stretched exponential pdf, $\log P(X=x)$, given
@@ -77,7 +75,6 @@ esl_sxp_logpdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_cdf()
- * Incept:    SRE, Fri Aug 19 11:30:55 2005 [St. Louis]
  *
  * Purpose:   Calculates the cumulative distribution function for the 
  *            stretched exponential pdf, $P(X \leq x)$, given
@@ -97,7 +94,6 @@ esl_sxp_cdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_logcdf()
- * Incept:    SRE, Fri Aug 19 11:37:20 2005 [St. Louis]
  *
  * Purpose:   Calculates the log of the cumulative distribution function for the 
  *            stretched exponential pdf, $\log P(X \leq x)$, given
@@ -115,7 +111,6 @@ esl_sxp_logcdf(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_surv()
- * Incept:    SRE, Fri Aug 19 11:38:24 2005 [St. Louis]
  *
  * Purpose:   Calculates the survival function for the 
  *            stretched exponential pdf, $P(X > x)$, given
@@ -134,7 +129,6 @@ esl_sxp_surv(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_logsurv()
- * Incept:    SRE, Fri Aug 19 11:38:24 2005 [St. Louis]
  *
  * Purpose:   Calculates the log survival function for the 
  *            stretched exponential pdf, $\log P(X > x)$, given
@@ -153,7 +147,6 @@ esl_sxp_logsurv(double x, double mu, double lambda, double tau)
 }
 
 /* Function:  esl_sxp_invcdf()
- * Incept:    SRE, Sat Aug 20 14:42:06 2005 [St. Louis]
  *
  * Purpose:   Calculates the inverse CDF for a stretched exponential
  *            with parameters <mu>, <lambda>, and <tau>, returning
@@ -203,7 +196,6 @@ esl_sxp_invcdf(double p, double mu, double lambda, double tau)
  ****************************************************************************/ 
 
 /* Function:  esl_sxp_generic_pdf()
- * Incept:    SRE, Thu Aug 25 08:06:14 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_sxp_pdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -217,7 +209,6 @@ esl_sxp_generic_pdf(double x, void *params)
 }
 
 /* Function:  esl_sxp_generic_cdf()
- * Incept:    SRE, Fri Aug 19 13:54:26 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_sxp_cdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -231,7 +222,6 @@ esl_sxp_generic_cdf(double x, void *params)
 }
 
 /* Function:  esl_sxp_generic_surv()
- * Incept:    SRE, Thu Aug 25 08:06:33 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_sxp_surv()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -245,7 +235,6 @@ esl_sxp_generic_surv(double x, void *params)
 }
 
 /* Function:  esl_sxp_generic_invcdf()
- * Incept:    SRE, Sat Aug 20 14:46:55 2005 [St. Louis]
  *
  * Purpose:   Generic-API wrapper around <esl_sxp_invcdf()>, taking
  *            a void ptr to a double array containing $\mu$, $\lambda$,
@@ -266,14 +255,15 @@ esl_sxp_generic_invcdf(double p, void *params)
  ****************************************************************************/ 
 
 /* Function:  esl_sxp_Plot()
- * Incept:    SRE, Fri Aug 19 11:48:27 2005 [St. Louis]
  *
  * Purpose:   Plot some stretched exponential function <func> (for instance,
  *            <esl_sxp_pdf()>) for parameters <mu>, <lambda>, and <tau>, for
  *            a range of quantiles x from <xmin> to <xmax> in steps of <xstep>;
  *            output to an open stream <fp> in xmgrace XY input format.
  *
- * Returns:   <eslOK>.
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEWRITE> on any system write error, such as filled disk.
  */
 int
 esl_sxp_Plot(FILE *fp, double mu, double lambda, double tau,
@@ -282,8 +272,8 @@ esl_sxp_Plot(FILE *fp, double mu, double lambda, double tau,
 {
   double x;
   for (x = xmin; x <= xmax; x += xstep)
-    fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau));
-  fprintf(fp, "&\n");
+    if (fprintf(fp, "%f\t%g\n", x, (*func)(x, mu, lambda, tau)) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stretchexp plot write failed");
+  if (fprintf(fp, "&\n")                                        < 0) ESL_EXCEPTION_SYS(eslEWRITE, "stretchexp plot write failed");
   return eslOK;
 }
 /*-------------------- end plot dumping routines ---------------------------*/
@@ -296,7 +286,6 @@ esl_sxp_Plot(FILE *fp, double mu, double lambda, double tau,
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_sxp_Sample()
- * Incept:    SRE, Fri Aug 19 13:39:36 2005 [St. Louis]
  *
  * Purpose:   Sample a stretched exponential random variate,
  *            by a change of variable from a Gamma sample.
@@ -345,7 +334,6 @@ sxp_complete_func(double *p, int np, void *dptr)
 }
 
 /* Function:  esl_sxp_FitComplete()
- * Incept:    SRE, Fri Aug 19 15:25:42 2005 [St. Louis]
  *
  * Purpose:   Given a vector of <n> observed data samples <x[]>,
  *            find maximum likelihood parameters by conjugate gradient 
@@ -433,7 +421,6 @@ sxp_complete_binned_func(double *p, int np, void *dptr)
 }
 
 /* Function:  esl_sxp_FitCompleteBinned()
- * Incept:    SRE, Sat Aug 20 13:28:00 2005 [St. Louis]
  *
  * Purpose:   Given a histogram <g> with binned observations, where each
  *            bin i holds some number of observed samples x with values from 

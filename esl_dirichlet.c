@@ -159,11 +159,6 @@ esl_mixdchlet_PerfectBipartiteMatchExists(int **A, int N )
 
 /* Function:  esl_mixdchlet_Compare()
  * Synopsis:  Compare two mixture Dirichlets for equality.
- * Incept:    SRE, Sat May 30 09:37:40 2009 [Stockholm]
- * Modified:  TW, Fri Nov  6 10:55:20 EST 2009 [janelia]
- *            (the original comparison assumed that component order
- *             was in agreement between the two mixtures. This need
- *             not be the case for mixtures to be isomorphic)
  *
  * Purpose:   Compare mixture Dirichlet objects <d1> and <d2>
  *            for equality. For real numbered values, equality
@@ -181,49 +176,47 @@ esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol)
   if (d1->N != d2->N) return eslFAIL;
   if (d1->K != d2->K) return eslFAIL;
 
-
   //set up a 2-D matrix, to store the pairs of components that meet tolerance requirements
   int **A;
   ESL_ALLOC(A, d1->N * sizeof(int*));
   for (i=0; i<d1->N; i++)
-	  ESL_ALLOC(A[i], d1->N * sizeof(int) );
+    ESL_ALLOC(A[i], d1->N * sizeof(int) );
 
   // Fill in matrix - OK if component i from d1 is a viable match with component q from d2
   for (i=0; i<d1->N; i++)
-  {
-	  for (j=0; j<d1->N; j++)
-	  {
-		  A[i][j] = esl_DCompare( d1->pq[i], d2->pq[j], tol);
-		  if (A[i][j] == eslOK)
-			  A[i][j] = esl_vec_DCompare(d1->alpha[i], d2->alpha[j], d1->K, tol) ;
-	  }
-  }
+    {
+      for (j=0; j<d1->N; j++)
+	{
+	  A[i][j] = esl_DCompare( d1->pq[i], d2->pq[j], tol);
+	  if (A[i][j] == eslOK)
+	    A[i][j] = esl_vec_DCompare(d1->alpha[i], d2->alpha[j], d1->K, tol) ;
+	}
+    }
 
-  /* In most cases, there should be only a one-to-one mapping (if any), which is easy to test.
-   But in the unlikely case of a many-to-one mapping, we need to do a little more.
-   The problem amounts to asking whether there exists a perfect bipartite matching (aka the marriage problem)
-  */
+  /* In most cases, there should be only a one-to-one mapping (if
+   * any), which is easy to test.  But in the unlikely case of a
+   * many-to-one mapping, we need to do a little more.  The problem
+   * amounts to asking whether there exists a perfect bipartite
+   * matching (aka the marriage problem)
+   */
   status = esl_mixdchlet_PerfectBipartiteMatchExists( A, d1->N);
 
-  ERROR:
-
+  /* fallthrough*/
+ ERROR:
   for (i=0; i<d1->N; i++)
-	  free (A[i]);
+    free (A[i]);
   free (A);
-
   return status;
-
 }
 
 
 
 /* Function:  esl_mixdchlet_Copy()
- * Synopsis:  Copies mixture dirichlet object <d> to <d_dst>.
- *            Both objects are of size <N> and <K>.  
- *            <d> is unchanged. 
- * Incept:    ER, Thu Jun 18 10:30:06 2009 [Janelia]
+ * Synopsis:  Copy a mixture Dirichlet object.
  *
- * Purpose:                      
+ * Purpose:   Copies mixture dirichlet object <d> to <d_dst>.
+ *            Both objects are of size <N> and <K>.  
+ *            <d> is unchanged.                    
  *
  * Returns:   <eslOK> on equality; <eslFAIL> otherwise.
  */
@@ -283,7 +276,6 @@ esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d)
 
 
 /* Function:  esl_mixdchlet_MPParameters()
- * Incept:    SRE, Sat Apr  9 14:28:26 2005 [St. Louis]
  *
  * Purpose:   Parameter estimation for a count vector <c> of cardinality
  *            <K>, and a mixture Dirichlet prior <pri>. Calculates
@@ -343,7 +335,6 @@ esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, do
  *****************************************************************/
 
 /* Function:  esl_dirichlet_LogProbData()
- * Incept:    SRE, Tue Nov  2 14:22:37 2004 [St. Louis]
  *
  * Purpose:   Given an observed count vector $c[0..K-1]$, 
  *            and a simple Dirichlet density parameterized by
@@ -390,16 +381,15 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
 }
 
 /* Function:  esl_dirichlet_LogProbData_Mixture()
- * Incept:    ER, Wed Jun 17 14:41:23 EDT 2009 [janelia]
  *
  * Purpose:   Given an observed count vector $c[0..K-1]$, 
  *            and a mixture Dirichlet density parameterized by
- *			  $\alpha_1[0..K-1]$ ... $\alpha_N[0..K-1]$,
+ *		$\alpha_1[0..K-1]$ ... $\alpha_N[0..K-1]$,
  *            calculate $\log \sum_i pq_i * P(c \mid \alpha_i)$.
  *            
  *
  * Args:      c          - count vector, [0..K-1]
- *            d      - Dirichlet parameters, [0..K-1]
+ *            d          - Dirichlet parameters, [0..K-1]
  *            ret_answer - RETURN: log P(c | \alpha)
  *
  * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
@@ -434,7 +424,6 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
 
 
 /* esl_dirichlet_LogProbDataSet_Mixture()
- * Incept:    TW, Wed Nov  4 14:10:22 EST 2009 [janelia]
  *
  * Purpose:   Given an observed set of count vectors $c[0..N-1][0..K-1]$, 
  *            and a mixture Dirichlet density parameterized by
@@ -442,12 +431,11 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
  *            calculate $ \sum_n \log \sum_i pq_i * P(c[n] \mid \alpha_i)$.
  *            This is a convenience function, which simply wraps
  *            esl_dirichlet_LogProbData_Mixture
- *            
  *
  * Args:      ntrials      - number of count vectors (aka N)
- *            counts      - count vector set, [0..N-1][0..K-1]
- *            md      - Dirichlet parameters
- *            ret_answer - RETURN: log P(c | \alpha)
+ *            counts       - count vector set, [0..N-1][0..K-1]
+ *            md           - Dirichlet parameters
+ *            ret_answer   - RETURN: log P(c | \alpha)
  *
  * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
  *            in <ret_answer>.
@@ -459,16 +447,16 @@ esl_dirichlet_LogProbDataSet_Mixture(int ntrials, double** counts, ESL_MIXDCHLET
   int i;
 
   *ret_answer = 0;
-  for (i = 0; i < ntrials; i++) {
-    esl_dirichlet_LogProbData_Mixture(counts[i], md, &val);
-    *ret_answer += val;
-  }
+  for (i = 0; i < ntrials; i++) 
+    {
+      esl_dirichlet_LogProbData_Mixture(counts[i], md, &val);
+      *ret_answer += val;
+    }
   return eslOK;
 }
 
 
 /* Function:  esl_dirichlet_LogProbProbs()
- * Incept:    SRE, Sat Apr  9 14:35:17 2005 [St. Louis]
  *
  * Purpose:   Given Dirichlet parameter vector <alpha> and a probability
  *            vector <p>, both of cardinality <K>; return
@@ -726,7 +714,6 @@ mixdchlet_complete_gradient(double *p, int np, void *dptr, double *dp)
  }
 
 /* Function:  esl_mixdchlet_Fit()
- * Incept:    ER, Wed Jun 17 10:58:50 2009 [Janelia]
  *
  * Purpose:   Given a count vector <c>, and an initial guess <d> for
  *            a mixdchlet, find maximum likelihood parameters
@@ -903,8 +890,8 @@ esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *r, double **c, int nc, int reps, ESL
  *# 3. Sampling from Dirichlets: requires <esl_random>
  *****************************************************************/
 #ifdef eslAUGMENT_RANDOM
+
 /* Function:  esl_dirichlet_DSample()
- * Incept:    SRE, Tue Nov  2 14:30:31 2004 [St. Louis]
  *
  * Purpose:   Given a Dirichlet density parameterized by $\alpha[0..K-1]$,
  *            sample a probability vector $p[0..K-1]$ from
@@ -930,7 +917,6 @@ esl_dirichlet_DSample(ESL_RANDOMNESS *r, double *alpha, int K, double *p)
 }
 
 /* Function:  esl_dirichlet_FSample()
- * Incept:    SRE, Sat Jan  6 17:09:05 2007 [Casa de Gatos]
  *
  * Purpose:   Same as <esl_dirichlet_DSample()>, except it
  *            works in single-precision floats, not doubles.
@@ -947,7 +933,6 @@ esl_dirichlet_FSample(ESL_RANDOMNESS *r, float *alpha, int K, float *p)
 }
 
 /* Function:  esl_dirichlet_DSampleUniform()
- * Incept:    SRE, Thu Aug 11 10:12:49 2005 [St. Louis]
  *
  * Purpose:   Sample a probability vector $p[0..K-1]$ uniformly, by
  *            sampling from a Dirichlet of $\alpha_i = 1.0 \forall i$.
@@ -971,7 +956,6 @@ esl_dirichlet_DSampleUniform(ESL_RANDOMNESS *r, int K, double *p)
 }
 
 /* Function:  esl_dirichlet_FSampleUniform()
- * Incept:    SRE, Sat Jan  6 17:10:54 2007 [Casa de Gatos]
  *
  * Purpose:   Same as <esl_dirichlet_DSampleUniform()>, except it
  *            works in single-precision floats, not doubles.
@@ -988,7 +972,6 @@ esl_dirichlet_FSampleUniform(ESL_RANDOMNESS *r, int K, float *p)
 
 
 /* Function:  esl_dirichlet_SampleBeta()
- * Incept:    SRE, Sat Oct 25 12:20:31 2003 [Stanford]
  *
  * Purpose:   Samples from a Beta(theta1, theta2) density, leaves answer
  *            in <ret_answer>. (Special case of sampling Dirichlet.)
@@ -1013,8 +996,8 @@ esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1, double theta2, double
  *# 4. Reading mixture Dirichlets from files [requires esl_fileparser]
  *****************************************************************/
 #ifdef eslAUGMENT_FILEPARSER 
+
 /* Function:  esl_mixdchlet_Read()
- * Incept:    SRE, Fri Apr  8 12:47:03 2005 [St. Louis]
  *
  * Purpose:   Reads a mixture Dirichlet from an open stream <efp>, using the 
  *            <ESL_FILEPARSER> token-based parser. 
@@ -1092,7 +1075,6 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
 
 /* Function:  esl_mixdchlet_Write()
  * Synopsis:  Write a mixture Dirichlet to an open output stream.
- * Incept:    SRE, Sat May 30 09:30:39 2009 [Stockholm]
  *
  * Purpose:   Write mixture Dirichlet <d> to open output stream <d>.
  *
@@ -1100,19 +1082,21 @@ esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri)
  *            d    - mixture Dirichlet to write
  * 
  * Returns:   <eslOK> on success.
+ * 
+ * Throws:    <eslEWRITE> on any write error, such as filled disk.
  */
 int
 esl_mixdchlet_Write(FILE *fp, ESL_MIXDCHLET *d)
 {
   int q,i;
 
-  fprintf(fp, "%d %d\n", d->K, d->N);
+  if (fprintf(fp, "%d %d\n", d->K, d->N)         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "mixture dirichlet write failed");
   for (q = 0; q < d->N; q++)
     {
-      fprintf(fp, "%.3f ", d->pq[q]);
+      if (fprintf(fp, "%.3f ", d->pq[q])         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "mixture dirichlet write failed");
       for (i = 0; i < d->K; i++)
-	fprintf(fp, "%.3f ", d->alpha[q][i]);
-      fprintf(fp, "\n");
+	if (fprintf(fp, "%.3f ", d->alpha[q][i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "mixture dirichlet write failed");
+      if (fprintf(fp, "\n")                      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "mixture dirichlet write failed");
     }
   return eslOK;
 }
@@ -1156,8 +1140,7 @@ utest_io(ESL_MIXDCHLET *d, double tol)
   return;
 }
 
-/* Original by SRE
- * Modified by TW Wed Nov  4 17:06:28 EST 2009
+/*
  * For any given sampling effort, there is always a possibility that the resulting
  * count vector will have a higher likelihood under the wrong component than under the
  * correct component. This unit test runs multiple inferences and only fail if
@@ -1227,16 +1210,16 @@ utest_inference(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, i
 
   }
 
-  if (fail_cnt_1 > 2 || fail_cnt_2 > 2 || fail_cnt_3 > 0) { // these numbers are only meaningful for the
-	  char m1[100], m2[100], m3[100], m4[100], final_msg[500];
-	  sprintf(m1, "Out of %d total trials:", ntrials);
-	  sprintf(m2, "* classification sampled probability vector, failed %d times", fail_cnt_1);
-	  sprintf(m3, "* classification sampled count vector, failed %d times", fail_cnt_2);
-	  sprintf(m4, "* gross error in posterior probs estimated from counts, %d times", fail_cnt_3);
+  if (fail_cnt_1 > 2 || fail_cnt_2 > 2 || fail_cnt_3 > 0) { 
+    char m1[100], m2[100], m3[100], m4[100], final_msg[500];
+    sprintf(m1, "Out of %d total trials:", ntrials);
+    sprintf(m2, "* classification sampled probability vector, failed %d times", fail_cnt_1);
+    sprintf(m3, "* classification sampled count vector, failed %d times", fail_cnt_2);
+    sprintf(m4, "* gross error in posterior probs estimated from counts, %d times", fail_cnt_3);
 
-	  sprintf(final_msg, "%s\n%s\n%s\n%s\n%s\n", m1, m2, m3, m4, msg );
-
-	  esl_fatal(final_msg);
+    sprintf(final_msg, "%s\n%s\n%s\n%s\n%s\n", m1, m2, m3, m4, msg );
+    
+    esl_fatal(final_msg);
   }
 
   free(counts);
@@ -1247,8 +1230,7 @@ utest_inference(ESL_RANDOMNESS *r, ESL_MIXDCHLET *d, int ntrials, int ncounts, i
 }
 
 
-/* Original code by ER.
- * Modified by TW Wed Nov  4 17:02:28 EST 2009
+/*
  * Performs two tests:
  * (1) Check to see if the inferred mixdchlt is similar to true one;
  * (2) Check if the likelihood under the inferred mixdchlt is at least as good as under the true mixdchlt.
@@ -1512,3 +1494,4 @@ main(int argc, char **argv)
  * SVN $Id$
  * SVN $URL$
  *****************************************************************/
+
