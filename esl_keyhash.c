@@ -154,7 +154,7 @@ esl_keyhash_Sizeof(const ESL_KEYHASH *kh)
 }
 
 /* Function:  esl_keyhash_Reuse()
- * Synopsis:  Reuse a keyhash.
+ * Synopsis:  Recycle a keyhash.
  *
  * Purpose:   Empties keyhash <kh> so it can be reused without
  *            creating a new one. 

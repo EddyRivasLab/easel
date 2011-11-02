@@ -827,7 +827,7 @@ special names are called \esldef{common interfaces}.
   & \ccode{esl\_tree\_Grow()} \\
 
 \ccode{\_Reuse}
-  & Reinitialize an object for reuse, reusing as much of its existing
+  & Recycle an object, reinitializing it while reusing as much of its existing
     allocation(s) as possible.
   & [standard]
   & \ccode{esl\_keyhash\_Reuse()} \\
@@ -1121,7 +1121,11 @@ to \ccode{\_Reuse()} the same object instead:
 
 A \ccode{\_Reuse()} interface takes an existing object and
 reinitializes it as a new object, while reusing as much memory as
-possible. It replaces a \ccode{\_Destroy()/\_Create()} pair. A
+possible. Any state information that was specific to the problem the
+object was just used for is reinitialized. Any allocations and state
+information specific to those allocations are preserved (to the extent
+possible).  A \ccode{\_Reuse()} call should exactly replace (and be
+equivalent to) a \ccode{\_Destroy()/\_Create()} pair. A
 \ccode{\_Reuse()} interface does not care whether the object was
 originally created by a \ccode{\_Create()} or a \ccode{\_Inflate()}
 call (see below), or whether the object is growable or not (if it was
