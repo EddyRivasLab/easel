@@ -2,6 +2,18 @@
  *
  * Core functionality of easel: errors, memory allocations, constants,
  * and configuration for portability.
+ * 
+ * Contents:
+ *   1. Macros implementing Easel error handling conventions
+ *   2. Macros implementing Easel memory allocation conventions
+ *   3. Macros implementing Easel function argument conventions
+ *   4. Macros implementing Easel debugging output conventions
+ *   5. Defined constants
+ *   6. Basic support for Easel digitized biosequences
+ *   7. Miscellaneous
+ *   8. Void declarations of missing augmentations
+ *   9. API declarations of easel.c
+ *  10. Copyright and license.
  */
 #ifndef eslEASEL_INCLUDED
 #define eslEASEL_INCLUDED
@@ -20,7 +32,7 @@
 #endif
 
 /*****************************************************************
- * Macros implementing Easel's error handling conventions
+ * 1. Macros implementing Easel's error handling conventions
  *****************************************************************/
 /* Many objects contain a fixed length "errbuf" for failure
  * diagnostics: ESL_FAIL() and ESL_XFAIL() fill this buffer.
@@ -116,7 +128,7 @@
 
 
 /*****************************************************************
- * Macros implementing Easel's memory allocation conventions
+ * 2. Macros implementing Easel's memory allocation conventions
  *****************************************************************/
 /* ESL_ALLOC(), ESL_RALLOC():
  * 
@@ -158,8 +170,10 @@
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
 
+
+
 /*****************************************************************
- * Macros implementing Easel's function argument conventions
+ * 3. Macros implementing Easel's function argument conventions
  *****************************************************************/
 
 #define esl_byp_IsInternal(p) ((p) == NULL)
@@ -167,8 +181,9 @@
 #define esl_byp_IsProvided(p) ((p) != NULL && (*p) != NULL)
 
 
+
 /*****************************************************************
- * Macros implementing Easel's debugging output conventions
+ * 4. Macros implementing Easel's debugging output conventions
  *****************************************************************/
 /* Debugging hooks, w/ three levels (1-3).
  */
@@ -202,8 +217,9 @@
 
 
 /*****************************************************************
- * Defined constants
+ * 5. Defined constants
  *****************************************************************/
+
 /* Making sure TRUE/FALSE are defined, for convenience */
 #ifndef TRUE
 #define TRUE 1
@@ -251,10 +267,16 @@
 #define eslSMALLX1    5e-9
 
 
+/* Convert MB,GB,TB to bytes, using binary definitions (2^20, 2^30, 2^40)
+ * More pedantically: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).
+ */
+#define ESL_MBYTES(x) ((x) * 1048576) 
+#define ESL_GBYTES(x) ((x) * 1024 * 1048576) 
+#define ESL_TBYTES(x) ((x) * 1024 * 1024 * 1048576)
 
 
 /*****************************************************************
- * Basic support for Easel's digitized biosequences.
+ * 6. Basic support for Easel's digitized biosequences.
  *****************************************************************/
 
 /* Most of this support is in the alphabet module, but we externalize 
@@ -289,7 +311,7 @@ typedef uint8_t ESL_DSQ;
 
 
 /*****************************************************************
- * Miscellaneous.
+ * 7. Miscellaneous.
  *****************************************************************/
 /* A placeholder for helping w/ portability of filenames/paths.
  * I think, but have not tested, that:
@@ -330,7 +352,7 @@ typedef uint8_t ESL_DSQ;
 typedef int64_t esl_pos_t;
 
 /*****************************************************************
- * Void declarations of missing augmentations
+ * 8. Void declarations of missing augmentations
  *****************************************************************/
 #ifndef eslAUGMENT_ALPHABET
 typedef void ESL_ALPHABET;
@@ -340,7 +362,7 @@ typedef void ESL_KEYHASH;
 #endif
 
 /*****************************************************************
- * The API declarations for easel.c
+ * 9. The API declarations for easel.c
  *****************************************************************/
 
 /* 1. Error handling. */
