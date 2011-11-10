@@ -1,12 +1,7 @@
-/* Header file for vectorops.c
- * 
- * SRE, Tue Oct  1 15:23:37 2002 [St. Louis]
- * SVN $Id$
- * SVN $URL$
+/* Vector operations.
  */
 #ifndef eslVECTOROPS_INCLUDED
 #define eslVECTOROPS_INCLUDED
-
 
 extern void   esl_vec_DSet(double *vec, int n, double value);
 extern void   esl_vec_FSet(float  *vec, int n, float  value);
@@ -43,6 +38,10 @@ extern int    esl_vec_ICompare(const int    *vec1, const int    *vec2, int n);
 extern void   esl_vec_DSwap(double *vec1, double *vec2, int n);
 extern void   esl_vec_FSwap(float  *vec1, float  *vec2, int n);
 extern void   esl_vec_ISwap(int    *vec1, int    *vec2, int n);
+
+extern void   esl_vec_DReverse(double *vec, double *rev, int n);
+extern void   esl_vec_FReverse(float  *vec, float  *rev, int n);
+extern void   esl_vec_IReverse(int    *vec, int    *rev, int n);
 
 extern double esl_vec_DDot(double *vec1, double *vec2, int n);
 extern float  esl_vec_FDot(float  *vec1, float  *vec2, int n);
@@ -115,4 +114,7 @@ extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol, char *errbuf)
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
