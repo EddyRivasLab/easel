@@ -57,6 +57,7 @@
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
 
+1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!    @miniapps/esl-afetch@    %TESTPFX%
 1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%
 1 exercise esl-alimap         !miniapps/esl-alimap.itest.pl!    @miniapps/esl-alimap@    %TESTPFX%
 1 exercise esl-alimask        !miniapps/esl-alimask.itest.pl!   @miniapps/esl-alimask@   %TESTPFX%

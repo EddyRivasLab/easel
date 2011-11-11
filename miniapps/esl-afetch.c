@@ -61,8 +61,8 @@ static ESL_OPTIONS options[] = {
 };
 
 static void create_ssi_index(ESL_GETOPTS *go, ESLX_MSAFILE *afp);
-static void multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp, ESL_SSI *ssi);
-static void onefetch  (ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key,     ESLX_MSAFILE *afp, ESL_SSI *ssi);
+static void multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp);
+static void onefetch  (ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key,     ESLX_MSAFILE *afp);
 static void regurgitate_one_stockholm_entry(FILE *ofp,                        ESLX_MSAFILE *afp);
 
 int
@@ -73,7 +73,6 @@ main(int argc, char **argv)
   int           infmt   = eslMSAFILE_UNKNOWN;  /* format code for alifile         */
   int           outfmt  = eslMSAFILE_UNKNOWN;  /* output format for fetched msa's */
   ESLX_MSAFILE *afp     = NULL;	               /* open alignment file             */
-  ESL_SSI      *ssi     = NULL;		       /* open SSI index file             */
   FILE         *ofp     = NULL;	               /* output stream for alignments    */
   int           status;		               /* easel return code               */
 
@@ -111,10 +110,10 @@ main(int argc, char **argv)
 	  char *ssifile = NULL;
 	  esl_sprintf(&ssifile, "%s.ssi", afp->bf->filename);
       
-	  status = esl_ssi_Open(ssifile, &ssi);
+	  status = esl_ssi_Open(ssifile, &(afp->ssi));
 	  if      (status == eslERANGE )   esl_fatal("SSI index %s has 64-bit offsets; this system doesn't support them", ssifile);
 	  else if (status == eslEFORMAT)   esl_fatal("SSI index %s has an unrecognized format. Try recreating, w/ esl-afetch --index", ssifile);
-	  else if (status == eslENOTFOUND) ssi = NULL;
+	  else if (status == eslENOTFOUND) afp->ssi = NULL;
 	  else if (status != eslOK)        esl_fatal("SSI index %s: open failed, error code %d\n", ssifile, status);
 	  
 	  free(ssifile);
@@ -144,12 +143,12 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "-f"))
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      multifetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp, ssi);
+      multifetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp);
     }
   else 
     {
       if (esl_opt_ArgNumber(go) != 2) cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");        
-      onefetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp, ssi);
+      onefetch(go, ofp, outfmt, esl_opt_GetArg(go, 2), afp);
       if (ofp != stdout) printf("\n\nRetrieved alignment %s.\n",  esl_opt_GetArg(go, 2));
     }
 
@@ -237,7 +236,7 @@ create_ssi_index(ESL_GETOPTS *go, ESLX_MSAFILE *afp)
  * the order they occur in the MSA file.
  */
 static void
-multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp, ESL_SSI *ssi)
+multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *afp)
 {
   ESL_KEYHASH    *keys   = esl_keyhash_Create();
   ESL_FILEPARSER *efp    = NULL;
@@ -260,11 +259,11 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *
       status = esl_keyhash_Store(keys, key, keylen, &keyidx);
       if (status == eslEDUP) esl_fatal("MSA key %s occurs more than once in file %s\n", key, keyfile);
 	
-      if (ssi) { onefetch(go, ofp, outfmt, key, afp, ssi);  nali++; }
+      if (afp->ssi) { onefetch(go, ofp, outfmt, key, afp);  nali++; }
 
     }
 
-  if (! ssi)
+  if (! afp->ssi)
     {
       while ((status = eslx_msafile_Read(afp, &msa)) != eslEOF)
 	{
@@ -297,13 +296,13 @@ multifetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *keyfile, ESLX_MSAFILE *
  * the one we're after.
  */
 static void
-onefetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key, ESLX_MSAFILE *afp, ESL_SSI *ssi)
+onefetch(ESL_GETOPTS *go, FILE *ofp, int outfmt, char *key, ESLX_MSAFILE *afp)
 {
   ESL_MSA *msa  = NULL;
   int      nali = 1;
   int      status;
 
-  if (ssi)
+  if (afp->ssi)
     {
       status = eslx_msafile_PositionByKey(afp, key);
       if      (status == eslENOTFOUND) esl_fatal("MSA %s not found in SSI index for file %s\n", key, afp->bf->filename);
