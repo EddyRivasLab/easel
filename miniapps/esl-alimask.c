@@ -289,12 +289,16 @@ main(int argc, char **argv)
    * Open the MSA file; determine alphabet 
    ****************************************/
 
+  /* abc handling is weird. We only use alphabet to define gap characters in this miniapp
+   * unless do_small is TRUE. msa's are actually read in text mode. Thus if do_small is FALSE,
+   * eslRNA suffices for anything. If do_small is TRUE, we need the alphabet so we 
+   * require --amino,--dna, or --rna below.
+   */
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
   else if (esl_opt_GetBoolean(go, "--rna"))     abc = esl_alphabet_Create(eslRNA);
   else if (do_small)                            esl_fatal("With --small, the alphabet must be specified with --amino, --rna, or --dna.");
-
-  /* alphabet is only used to define gaps. alignment file is actually opened in text mode! */
+  else                                          abc = esl_alphabet_Create(eslRNA); /* alphabet is only used to define gap characters, so (in this miniapp) we're okay specifying RNA for any alignment (even non-RNA ones) */
 
   if (do_small)
     {
