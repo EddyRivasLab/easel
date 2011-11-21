@@ -33,6 +33,8 @@ static ESL_ALPHABET *create_amino(void);
 static ESL_ALPHABET *create_coins(void);
 static ESL_ALPHABET *create_dice(void);
 
+static int set_complementarity(ESL_ALPHABET *a);
+
 /* Function:  esl_alphabet_Create()
  * Synopsis:  Create alphabet of a standard type.
  *
@@ -112,9 +114,10 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   /* Allocation/init, level 1.
    */
   ESL_ALLOC(a, sizeof(ESL_ALPHABET));
-  a->sym    = NULL;
-  a->degen  = NULL;
-  a->ndegen = NULL;
+  a->sym        = NULL;
+  a->degen      = NULL;
+  a->ndegen     = NULL;
+  a->complement = NULL;
   
   /* Allocation/init, level 2.
    */
@@ -162,7 +165,6 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   a->ndegen[Kp-3]  = K;
   for (x = 0; x < a->K; x++) a->degen[Kp-3][x] = 1;
 
-  a->complement = NULL;
   return a;
 
  ERROR:
@@ -171,38 +173,6 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
 }
 
 
-/* define_complementarity()
- * Builds the "complement" lookup table for DNA, RNA alphabets.
- */
-static int
-define_complementarity(ESL_ALPHABET *a)
-{
-  int  status;
-  
-  ESL_ALLOC(a->complement, sizeof(ESL_DSQ) * a->Kp);
-  a->complement[0] = 3;	   /* A->T */
-  a->complement[1] = 2;    /* C->G */
-  a->complement[2] = 1;    /* G->C */
-  a->complement[3] = 0;    /* T->A */
-  a->complement[4] = 4;    /* -  - */
-  a->complement[5] = 6;	   /* R->Y */
-  a->complement[6] = 5;    /* Y->R */
-  a->complement[7] = 8;    /* M->K */
-  a->complement[8] = 7;    /* K->M */
-  a->complement[9] = 9;    /* S  S */
-  a->complement[10]= 10;   /* W  W */
-  a->complement[11]= 14;   /* H->D */
-  a->complement[12]= 13;   /* B->V */
-  a->complement[13]= 12;   /* V->B */
-  a->complement[14]= 11;   /* D->H */
-  a->complement[15]= 15;   /* N  N */
-  a->complement[16]= 16;   /* ~  ~ */
-  return eslOK;
-
- ERROR:
-  return status;
-}
-
 /* create_rna(): 
  * Creates a standard RNA alphabet.
  */
@@ -210,6 +180,7 @@ static ESL_ALPHABET *
 create_rna(void)
 {
   ESL_ALPHABET *a = NULL;
+  int           status;
 
   /* Create the fundamental alphabet
    */
@@ -237,9 +208,13 @@ create_rna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGU");  
 
-  if (define_complementarity(a) != eslOK) return NULL;
+  if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
 
   return a;
+
+ ERROR:
+  esl_alphabet_Destroy(a);
+  return NULL;
 }
 
 
@@ -250,6 +225,7 @@ static ESL_ALPHABET *
 create_dna(void)
 {
   ESL_ALPHABET *a = NULL;
+  int           status;
 
   /* Create the fundamental alphabet.
    */
@@ -277,8 +253,12 @@ create_dna(void)
   esl_alphabet_SetDegeneracy(a, 'V', "ACG");
   esl_alphabet_SetDegeneracy(a, 'D', "AGT");  
 
-  if (define_complementarity(a) != eslOK) return NULL;
+  if ( (status = set_complementarity(a)) != eslOK) goto ERROR;
   return a;
+
+ ERROR:
+  esl_alphabet_Destroy(a);
+  return NULL;
 }
 
 
@@ -364,6 +344,42 @@ create_dice(void)
   return a;
 }
   
+/* set_complementarity()
+ * Builds the "complement" lookup table for DNA, RNA alphabets.
+ * 
+ * Throws <eslEINVAL> if the alphabet isn't <eslDNA> or <eslRNA>.
+ */
+static int
+set_complementarity(ESL_ALPHABET *a)
+{
+  int  status;
+
+  if (a->type != eslRNA && a->type != eslDNA)
+    ESL_EXCEPTION(eslEINVAL, "alphabet isn't nucleic: no complementarity to set");
+  
+  ESL_ALLOC(a->complement, sizeof(ESL_DSQ) * a->Kp);
+  a->complement[0] = 3;	   /* A->T */
+  a->complement[1] = 2;    /* C->G */
+  a->complement[2] = 1;    /* G->C */
+  a->complement[3] = 0;    /* T->A */
+  a->complement[4] = 4;    /* -  - */
+  a->complement[5] = 6;	   /* R->Y */
+  a->complement[6] = 5;    /* Y->R */
+  a->complement[7] = 8;    /* M->K */
+  a->complement[8] = 7;    /* K->M */
+  a->complement[9] = 9;    /* S  S */
+  a->complement[10]= 10;   /* W  W */
+  a->complement[11]= 14;   /* H->D */
+  a->complement[12]= 13;   /* B->V */
+  a->complement[13]= 12;   /* V->B */
+  a->complement[14]= 11;   /* D->H */
+  a->complement[15]= 15;   /* N  N */
+  a->complement[16]= 16;   /* ~  ~ */
+  return eslOK;
+
+ ERROR:
+  return status;
+}
 
 
 /* Function:  esl_alphabet_SetEquiv()
@@ -518,6 +534,24 @@ esl_alphabet_SetIgnored(ESL_ALPHABET *a, const char *ignoredchars)
   return eslOK;
 }
 
+
+/* Function:  esl_alphabet_Sizeof()
+ * Synopsis:  Returns size of an alphabet object, in bytes.
+ *
+ * Purpose:   Returns the size of alphabet <a> object, in bytes.
+ */
+size_t
+esl_alphabet_Sizeof(ESL_ALPHABET *a)
+{
+  size_t n = 0;
+  n += sizeof(ESL_ALPHABET);
+  n += sizeof(char) * a->Kp;	                   /* a->sym        */
+  n += sizeof(char *) * a->Kp;	                   /* a->degen      */
+  n += sizeof(char) * (a->Kp * a->K);              /* a->degen[][]  */ 
+  n += sizeof(int)  * a->Kp;	                   /* a->ndegen     */
+  if (a->complement) n += sizeof(ESL_DSQ) * a->Kp; /* a->complement */
+  return n;
+}
 
 /* Function:  esl_alphabet_Destroy()
  * Synopsis:  Frees an alphabet object.

@@ -19,14 +19,14 @@
 /* Structure: ESL_ALPHABET
  */
 typedef struct {
-  int      type;	     /* eslDNA, eslRNA, eslAMINO, or eslNONSTANDARD     */
-  int      K;		     /* uniq alphabet size: 4 or 20                     */
-  int      Kp;		     /* total size: alphabet + degen + gap + missing    */
-  char    *sym;              /* "ACGT-RYMKSWHBVDN~", for instance    [0..Kp-1]  */
-  ESL_DSQ  inmap[128];       /* inmap['A'] = 0, etc: dsq[] index for a symbol   */
-  char   **degen;            /* 1/0, which syms inc which res [0..Kp-1][0..K-1] */
-  int     *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]    */
-  ESL_DSQ *complement;       /* map a digital symbol to its complement [0..Kp-1]*/
+  int      type;	     /* eslDNA, eslRNA, eslAMINO, eslNONSTANDARD, etc.                 */
+  int      K;		     /* uniq alphabet size: 4 or 20                                    */
+  int      Kp;		     /* total size: alphabet + degen + gap + missing                   */
+  char    *sym;              /* "ACGT-RYMKSWHBVDN~", for instance    [0..Kp-1]                 */
+  ESL_DSQ  inmap[128];       /* inmap['A'] = 0, etc: dsq[] index for a symbol                  */
+  char   **degen;            /* 1/0, which syms inc which res [0..Kp-1][0..K-1]                */
+  int     *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]                   */
+  ESL_DSQ *complement;       /* maps sym to complements, [0..Kp-1]; NULL if <type> not DNA/RNA */
 } ESL_ALPHABET;
 
 
@@ -40,6 +40,7 @@ extern int           esl_alphabet_SetEquiv(ESL_ALPHABET *a, char sym, char c);
 extern int           esl_alphabet_SetCaseInsensitive(ESL_ALPHABET *a);
 extern int           esl_alphabet_SetDegeneracy(ESL_ALPHABET *a, char c, char *ds);
 extern int           esl_alphabet_SetIgnored(ESL_ALPHABET *a, const char *ignoredchars);
+extern size_t        esl_alphabet_Sizeof(ESL_ALPHABET *a);
 extern void          esl_alphabet_Destroy(ESL_ALPHABET *a);
 
 /* 2. Digitized sequences.
