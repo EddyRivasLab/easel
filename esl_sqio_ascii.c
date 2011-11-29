@@ -1460,98 +1460,108 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   int     i = 0;
   int     size = 0;
   int     status = eslOK;
+  ESL_SQ *tmpsq = NULL;
   sqBlock->count = 0;
 
   if ( !long_target  )
   {  /* in these cases, an individual sequence won't ever be really long,
 		     so just read in a sequence at a time  */
-
-	  for (i = 0; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
-	  {
-		  status = sqascii_Read(sqfp, sqBlock->list + i);
-		  if (status != eslOK) break;
-		  size += sqBlock->list[i].n;
-		  ++sqBlock->count;
-	  }
+    for (i = 0; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
+      {
+	status = sqascii_Read(sqfp, sqBlock->list + i);
+	if (status != eslOK) break;
+	size += sqBlock->list[i].n;
+	++sqBlock->count;
+      }
   }
   else
-  { /* DNA, not an alignment.  Might be really long sequences */
-
-	  /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
-	  if (max_residues < 0)
-		  max_residues = MAX_RESIDUE_COUNT;
-
-    ESL_SQ *tmpsq = esl_sq_Create();
-
-	  //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
-	  //incomplete part of it's full sequence. Read another overlapping window.
-    if (! sqBlock->complete )
-	  {
-		  //overloading C as indicator of how big C should be for this window reading action
-		  status = sqascii_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
-		  if (status == eslOK)
-		  {
-			  sqBlock->count = i = 1;
-			  size = sqBlock->list->n;
-			  if (sqBlock->list->n >= max_residues)
-			  { // Filled the block with a single very long window.
-				  sqBlock->complete = FALSE;  // There's probably more left for the next block.
-				  return status;
-			  }
-			  else
-			  {
-				  // Burn off EOD (see notes for similar entry ~25 lines below), then go fetch the next sequence
-				  esl_sq_Reuse(tmpsq);
-				  tmpsq->start =  sqBlock->list->start ;
-				  tmpsq->C = 0;
-				  status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
-				  if (status != eslEOD) return status; //surprising
-			  }
-		  }
-		  else if (status == eslEOD)
-		  { // turns out there isn't any more of the sequence to read, after all
-		  }
-		  else
-		  {
-			  return status;
-		  }
-	  } // otherwise, just start at the beginning
-
-
-	  for (  ; i < sqBlock->listSize && size < max_residues; ++i)
-	  {
+    { /* DNA, not an alignment.  Might be really long sequences */
+      
+      /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
+      if (max_residues < 0)
+	max_residues = MAX_RESIDUE_COUNT;
+      
+      tmpsq = esl_sq_Create();
+      
+      //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
+      //incomplete part of it's full sequence. Read another overlapping window.
+      if (! sqBlock->complete )
+	{
+	  //overloading C as indicator of how big C should be for this window reading action
+	  status = sqascii_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
+	  if (status == eslOK)
+	    {
+	      sqBlock->count = i = 1;
+	      size = sqBlock->list->n;
+	      if (sqBlock->list->n >= max_residues)
+		{ // Filled the block with a single very long window.
+		  sqBlock->complete = FALSE;  // There's probably more left for the next block.
+		  if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+		  return status;
+		}
+	      else
+		{
+		  // Burn off EOD (see notes for similar entry ~25 lines below), then go fetch the next sequence
 		  esl_sq_Reuse(tmpsq);
-		  status = sqascii_ReadWindow(sqfp, 0, max_residues, sqBlock->list + i);
-		  if (status != eslOK) break; // end of sequences
-
-		  size += sqBlock->list[i].n;
-		  ++(sqBlock->count);
-		  if (sqBlock->list[i].n >= max_residues)
-		  { // a full window worth of sequence was read
-			  sqBlock->complete = FALSE; // there's probably more for the next block
-			  return status;
+		  tmpsq->start =  sqBlock->list->start ;
+		  tmpsq->C = 0;
+		  status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
+		  if (status != eslEOD) { 
+		    if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+		    return status; //surprising
 		  }
-		  else
-		  {
-			  /* Sequence was finished before filling a full window. Need to burn off the EOD value that will be
-			     returned by the next ReadWindow call. Can just use a tmp sq, after setting a couple
-			     values ReadWindow needs to see for correct processing.
-			   */
-			  esl_sq_Reuse(tmpsq);
-			  tmpsq->start =  sqBlock->list[i].start ;
-			  tmpsq->C = 0;
-			  status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
-			  if (status != eslEOD) return status; //surprising
-			  status = eslOK;
-		  }
-	  }
-	  esl_sq_Destroy(tmpsq);
-  }
-
+		}
+	    }
+	  else if (status == eslEOD)
+	    { // turns out there isn't any more of the sequence to read, after all
+	    }
+	  else
+	    {
+	      if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+	      return status;
+	    }
+	} // otherwise, just start at the beginning
+      
+      
+      for (  ; i < sqBlock->listSize && size < max_residues; ++i)
+	{
+	  esl_sq_Reuse(tmpsq);
+	  status = sqascii_ReadWindow(sqfp, 0, max_residues, sqBlock->list + i);
+	  if (status != eslOK) break; // end of sequences
+	  
+	  size += sqBlock->list[i].n;
+	  ++(sqBlock->count);
+	  if (sqBlock->list[i].n >= max_residues)
+	    { // a full window worth of sequence was read
+	      sqBlock->complete = FALSE; // there's probably more for the next block
+	      if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+	      return status;
+	    }
+	  else
+	    {
+	      /* Sequence was finished before filling a full window. Need to burn off the EOD value that will be
+		 returned by the next ReadWindow call. Can just use a tmp sq, after setting a couple
+		 values ReadWindow needs to see for correct processing.
+	      */
+	      esl_sq_Reuse(tmpsq);
+	      tmpsq->start =  sqBlock->list[i].start ;
+	      tmpsq->C = 0;
+	      status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
+	      if (status != eslEOD) { 
+		if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+		return status; //surprising
+	      }
+	      status = eslOK;
+	    }
+	}
+    }
+  
   /* EOF will be returned only in the case were no sequences were read */
   if (status == eslEOF && i > 0) status = eslOK;
-
+  
   sqBlock->complete = TRUE;
+
+  if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 
   return status;
 }
