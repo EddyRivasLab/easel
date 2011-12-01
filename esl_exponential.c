@@ -281,11 +281,13 @@ esl_exp_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
  *            Return maximum likelihood parameters <ret_mu> and <ret_lambda>.
  *
  * Args:      x          - complete exponentially-distributed data [0..n-1]
- *            n          - number of samples in <x>
+ *            n          - number of samples in <x>  (n>0)
  *            ret_mu     - lower bound of the distribution (all x_i >= mu)
  *            ret_lambda - RETURN: maximum likelihood estimate of lambda
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if n=0 (no data).
  *
  * Xref:      STL9/138.
  */
@@ -295,8 +297,9 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   double mu, mean;
   int    i;
 
-  /* ML mu is the lowest score. mu=x is ok in the exponential.
-   */
+  if (!n) ESL_EXCEPTION(eslEINVAL, "empty data vector provided for exponential fit");
+
+  /* ML mu is the lowest score. mu=x is ok in the exponential. */
   mu = x[0];
   for (i = 1; i < n; i++) if (x[i] < mu) mu = x[i];
 
