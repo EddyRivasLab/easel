@@ -498,7 +498,7 @@ main(int argc, char **argv)
 	  status = esl_sqfile_Open(esl_opt_GetString(go, "--trim"), eslSQFILE_UNKNOWN, NULL, &(trimfp));
 	  if (status == eslENOTFOUND)    esl_fatal("File %s doesn't exist or is not readable\n", esl_opt_GetString(go, "--trim"));
 	  else if (status == eslEFORMAT) esl_fatal("Couldn't determine format of sequence file %s\n", esl_opt_GetString(go, "--trim"));
-	  else if (status == eslEINVAL)  esl_fatal("Can’t autodetect stdin or .gz."); 
+	  else if (status == eslEINVAL)  esl_fatal("Can't autodetect stdin or .gz."); 
 	  else if (status != eslOK)      esl_fatal("Sequence file open failed with error %d\n", status);
 	  /* read the sequences */
 	  read_sqfile(trimfp, msa->abc, msa->nseq, &trim_sq); /* dies on failure */
