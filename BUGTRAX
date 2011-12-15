@@ -1,3 +1,39 @@
+ID              e7
+TITLE           with icc v12, esl_random() sequence is changed
+AFFECTS         -
+FIXED_IN        -
+STATUS          CLOSED
+XREF            SRE:notebook/1213-icc12-random/
+REPORTED_BY     detected in unit tests when we switched to icc v12
+OPENED_DATE     SRE, Thu Dec 15 11:32:35 2011
+CLOSED_DATE     SRE, Thu Dec 15 11:58:08 2011
+DESCRIPTION     
+   When we upgraded to Intel icc version 12, in HMMER, the
+   nhmmer_generic unit test failed. Travis traced it to esl-shuffle
+   generating a different sequence, despite fixed RNG seed. The
+   problem only occurs with icc -O -fPIC.
+
+   In esl_random.c::mersenne_fill_table(), the MT incantation is
+      y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
+      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[y & 0x1];
+   with y declared as an unsigned 32-bit int. 
+
+   The problem is mag01[y & 0x1]. I think icc12 *may* (depending on
+   optimization and other flags) be casting y to a signed int before
+   it does the binary AND. The result of casting a large unsigned y to
+   a signed int is implementation-defined and unsafe, so if the
+   compiler does indeed try to cast y to signed int we're in trouble.
+
+   The fix is to dictate the cast explicitly:
+      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
+   and this should be guaranteed to work, because we know that the
+   result of (y & 0x1) is 0 or 1, and C99 guarantees that we can
+   safely cast it to signed int 0 or 1.
+
+   Arguably this is a compiler bug. The C99 standard says that an
+   array index may be any integer type; it does not specify signed or
+   unsigned.
+//
 ID              e6
 TITLE           Running out of disk space corrupts outputs
 AFFECTS         HMMER 3.0 and earlier

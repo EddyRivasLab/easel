@@ -2,14 +2,15 @@
  * Provides both a fast generator and a strong generator.
  *
  *  1. The ESL_RANDOMNESS object.
- *  2. The generators and esl_random().
- *  3. Other fundamental sampling (including Gaussian, gamma).
- *  4. Multinomial sampling from discrete probability n-vectors.
- *  5. Benchmark driver
- *  6. Unit tests.
- *  7. Test driver.
- *  8. Example.
- *  9. Copyright and license information.
+ *  2. The generators, esl_random().
+ *  3. Debugging/development tools.
+ *  4. Other fundamental sampling (including Gaussian, gamma).
+ *  5. Multinomial sampling from discrete probability n-vectors.
+ *  6. Benchmark driver
+ *  7. Unit tests.
+ *  8. Test driver.
+ *  9. Example.
+ * 10. Copyright and license information.
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
@@ -17,6 +18,7 @@
 #include "esl_config.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -337,16 +339,17 @@ mersenne_fill_table(ESL_RANDOMNESS *r)
   for (z = 0; z < 227; z++)	/* 227 = N-M = 624-397 */
     {
       y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
-      r->mt[z] = r->mt[z+397] ^ (y>>1) ^ mag01[y & 0x1];
+      r->mt[z] = r->mt[z+397] ^ (y>>1) ^ mag01[(int)(y & 0x1)]; /* yes, the (int) cast is necessary; xref bug #e7; some compilers may try to cast y to signed int otherwise, to use it in an array index */
     }
   for (; z < 623; z++)
     {
       y = (r->mt[z] & 0x80000000) | (r->mt[z+1] & 0x7fffffff);
-      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[y & 0x1];
+      r->mt[z] = r->mt[z-227] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
     }
   y = (r->mt[623] & 0x80000000) | (r->mt[0] & 0x7fffffff);
-  r->mt[623] = r->mt[396] ^ (y>>1) ^ mag01[y & 0x1];
+  r->mt[623] = r->mt[396] ^ (y>>1) ^ mag01[(int)(y & 0x1)];
   r->mti = 0;
+
   return;
 }
 
@@ -396,7 +399,44 @@ jenkins_mix3(uint32_t a, uint32_t b, uint32_t c)
 
 
 /*****************************************************************
- *# 3. Other fundamental sampling (including Gaussian, gamma)
+ *# 3. Debugging and development tools
+ *****************************************************************/ 
+
+/* Function:  esl_randomness_Dump()
+ * Synopsis:  Dump ESL_RANDOMNESS object to stream, for debugging/examination.
+ */
+int
+esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r)
+{
+  if (r->type == eslRND_FAST)
+    {
+      fputs      ("type  = knuth\n", fp );
+      fprintf(fp, "state = %" PRIu32 "\n", r->x);
+      fprintf(fp, "seed  = %" PRIu32 "\n", r->seed);      
+    }
+  else if (r->type == eslRND_MERSENNE)
+    {
+      int i,j;
+
+      fputs      ("type    = mersenne twister\n", fp );
+      fprintf(fp, "mti     = %d (0..623)\n", r->mti);
+      fprintf(fp, "mt[mti] = %" PRIu32 "\n", r->mt[r->mti]);
+
+      fprintf(fp, "%6d: ", 0);
+      for (i = 0, j=0; i < 624; i++)
+	{
+	  fprintf(fp, "%11" PRIu32 " ", r->mt[i]);
+	  if (++j == 20) { fprintf(fp, "\n%6d: ", i+1); j=0; }
+	}
+      fputs("\n", fp);
+    }
+  return eslOK;
+}
+/*----------- end, debugging/development tools ------------------*/
+
+
+/*****************************************************************
+ *# 4. Other fundamental sampling (including Gaussian, gamma)
  *****************************************************************/ 
 
 /* Function: esl_rnd_UniformPositive()
@@ -632,7 +672,7 @@ esl_rnd_Gamma(ESL_RANDOMNESS *r, double a)
 
 
 /*****************************************************************
- *# 4. Multinomial sampling from discrete probability n-vectors
+ *# 5. Multinomial sampling from discrete probability n-vectors
  *****************************************************************/ 
 
 /* Function:  esl_rnd_DChoose()
@@ -767,7 +807,7 @@ esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
 
 
 /*****************************************************************
- * 5. Benchmark driver
+ * 6. Benchmark driver
  *****************************************************************/
 #ifdef eslRANDOM_BENCHMARK
 /*
@@ -837,7 +877,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 6. Unit tests.
+ * 7. Unit tests.
  *****************************************************************/
 
 #ifdef eslRANDOM_TESTDRIVE
@@ -976,7 +1016,7 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
 
 
 /*****************************************************************
- * 7. Test driver.
+ * 8. Test driver.
  *****************************************************************/
 #ifdef eslRANDOM_TESTDRIVE
 /* gcc -g -Wall -o esl_random_utest -L. -I. -DeslRANDOM_TESTDRIVE esl_random.c -leasel -lm
@@ -1067,11 +1107,11 @@ save_bitfile(char *bitfile, ESL_RANDOMNESS *r, int n)
 
 
 /*****************************************************************
- * 8. Example.
+ * 9. Example.
  *****************************************************************/
 #ifdef eslRANDOM_EXAMPLE
 /*::cexcerpt::random_example::begin::*/
-/* compile: gcc -g -Wall -I. -o random_example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
+/* compile: gcc -g -Wall -I. -o esl_random_example -DeslRANDOM_EXAMPLE esl_random.c easel.c -lm
  * run:     ./random_example 42
  */
 #include <stdio.h>
@@ -1082,12 +1122,18 @@ int
 main(int argc, char **argv)
 {
   long            seed = atoi(argv[1]);
-  ESL_RANDOMNESS *r    = esl_randomness_CreateFast(seed); 
-  int             n    = 10;
+  ESL_RANDOMNESS *r    = esl_randomness_Create(seed); 
+  int             n    = 1076;
 
   printf("RNG seed: %" PRIu32 "\n", esl_randomness_GetSeed(r));
   printf("A sequence of %d pseudorandom numbers:\n", n);
   while (n--)  printf("%f\n", esl_random(r));
+  
+  esl_randomness_Dump(stdout, r);
+  printf("%f\n", esl_random(r));
+
+  esl_randomness_Dump(stdout, r);
+  printf("%f\n", esl_random(r));
 
   esl_randomness_Destroy(r);
   return 0;

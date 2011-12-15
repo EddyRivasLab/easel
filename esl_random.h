@@ -32,13 +32,17 @@ extern uint32_t        esl_randomness_GetSeed(const ESL_RANDOMNESS *r);
  */
 extern double esl_random(ESL_RANDOMNESS *r);
 
-/* 3. Other fundamental sampling (including Gaussian, gamma).
+/* 3. Debugging/development tools.
+ */
+extern int esl_randomness_Dump(FILE *fp, ESL_RANDOMNESS *r);
+
+/* 4. Other fundamental sampling (including Gaussian, gamma).
  */
 extern double esl_rnd_UniformPositive(ESL_RANDOMNESS *r);
 extern double esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev);
 extern double esl_rnd_Gamma(ESL_RANDOMNESS *r, double a);
 
-/* 4. Multinomial sampling from discrete probability n-vectors.
+/* 5. Multinomial sampling from discrete probability n-vectors.
  */
 extern int    esl_rnd_DChoose   (ESL_RANDOMNESS *r, const double *p,   int N);
 extern int    esl_rnd_FChoose   (ESL_RANDOMNESS *r, const float  *p,   int N);
