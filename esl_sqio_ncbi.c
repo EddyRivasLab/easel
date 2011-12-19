@@ -988,142 +988,142 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
   /* Negative W indicates reverse complement direction */
   if (W < 0)	
-    {
-      if (sq->L == -1) ESL_EXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
+  {
+    if (sq->L == -1) ESL_EXCEPTION(eslESYNTAX, "Can't read reverse complement until you've read forward strand");
 
-      /* update the sequence index */
-      if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK) 
-	ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning database to sequence %" PRId64, sq->idx);
+    /* update the sequence index */
+    if ((status = sqncbi_Position(sqfp, sq->idx)) != eslOK)
+      ESL_FAIL(eslEINVAL, ncbi->errbuf, "Unexpected error positioning database to sequence %" PRId64, sq->idx);
 
-      if (sq->end == 1) 
-	{ /* last end == 1 means last window was the final one on reverse strand,
-	   * so we're EOD; jump back to last forward position. 
-	   */
-	  sq->start      = 0;
-	  sq->end        = 0;
-	  sq->C          = 0;
-	  sq->W          = 0;
-	  sq->n          = 0;
-	  /* sq->L stays as it is */
-	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
-	  else                 sq->seq[0] = '\0';
-
-	  return eslEOD;
-	}
-
-      /* If s == 0, we haven't read any reverse windows yet; 
-       * init reading from sq->L
+    if (sq->end == 1)
+    { /* last end == 1 means last window was the final one on reverse strand,
+       * so we're EOD; jump back to last forward position.
        */
-      W = -W;
-      if (sq->start == 0)	
-	{
-	  sq->start        = ESL_MAX(1, (sq->L - W + 1)); 
-	  sq->end          = sq->start;
-	  sq->C            = 0;
-	}
-      else
-	{ /* Else, we're continuing to next window; prv was <end>..<start> */
-	  sq->C     = ESL_MIN(C, sq->L - sq->end + 1);  /* based on prev window's end */
-	  sq->start = ESL_MAX(1, (sq->end - W));
-	  W         = sq->end - sq->start + sq->C;
-	  sq->end   = sq->start;
-	}
+        sq->start      = 0;
+        sq->end        = 0;
+        sq->C          = 0;
+        sq->W          = 0;
+        sq->n          = 0;
+        /* sq->L stays as it is */
+        if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
+        else                 sq->seq[0] = '\0';
 
-      /* grab the subseq and rev comp it */
-      if ((status = esl_sq_GrowTo(sq, W)) != eslOK) return status;
-      sq->n = 0;
-      if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
-      else                             status = read_nres_dna(sqfp, sq, W, &nres);
+        return eslEOD;
+    }
+
+    /* If s == 0, we haven't read any reverse windows yet;
+     * init reading from sq->L
+     */
+    W = -W;
+    if (sq->start == 0)
+    {
+      sq->start        = ESL_MAX(1, (sq->L - W + 1));
+      sq->end          = sq->start;
+      sq->C            = 0;
+    }
+    else
+    { /* Else, we're continuing to next window; prv was <end>..<start> */
+      sq->C     = ESL_MIN(C, sq->L - sq->end + 1);  /* based on prev window's end */
+      sq->start = ESL_MAX(1, (sq->end - W));
+      W         = sq->end - sq->start + sq->C;
+      sq->end   = sq->start;
+    }
+
+    /* grab the subseq and rev comp it */
+    if ((status = esl_sq_GrowTo(sq, W)) != eslOK) return status;
+    sq->n = 0;
+    if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
+    else                             status = read_nres_dna(sqfp, sq, W, &nres);
       
-      if (status != eslOK || nres != W) {
-	ESL_EXCEPTION(eslECORRUPT, "Failed to extract %d..%d", sq->start, sq->end);
-      } else {
-	sq->end        = sq->start + nres - 1;	  
-	sq->W          = nres - sq->C;	  
-      }
+    if (status != eslOK || nres != W) {
+      ESL_EXCEPTION(eslECORRUPT, "Failed to extract %d..%d", sq->start, sq->end);
+    } else {
+      sq->end        = sq->start + nres - 1;
+      sq->W          = nres - sq->C;
+    }
 
-      status = esl_sq_ReverseComplement(sq);
-      if      (status    == eslEINVAL) ESL_FAIL(eslEINVAL, ncbi->errbuf, "can't reverse complement that seq - it's not DNA/RNA");
-      else if (status    != eslOK)     return status;
+    status = esl_sq_ReverseComplement(sq);
+    if      (status    == eslEINVAL) ESL_FAIL(eslEINVAL, ncbi->errbuf, "can't reverse complement that seq - it's not DNA/RNA");
+    else if (status    != eslOK)     return status;
 
-      return eslOK;
-    } 
+    return eslOK;
+  }
 
   /* Else, we're reading the forward strand */
   else 
-    { /* sq->start == 0 means we haven't read any windows on this sequence yet...
+  { /* sq->start == 0 means we haven't read any windows on this sequence yet...
        * it's a new record, and we need to initialize with the header and
        * the first window. This is the only case that we're allowed to return
        * EOF from.
        */
-      if (sq->start == 0)
-	{
-	  index = ncbi->index + 1;
-	  if (index >= ncbi->num_seq) return eslEOF;
+    if (sq->start == 0)
+    {
+      index = ncbi->index + 1;
+      if (index >= ncbi->num_seq) return eslEOF;
 
-	  /* get the sequence and header offsets */
-	  if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
+      /* get the sequence and header offsets */
+      if ((status = pos_sequence(ncbi, index)) != eslOK) return status;
 
-	  /* Disk offset bookkeeping */
-	  sq->idx  = ncbi->index;
-	  sq->roff = ncbi->roff;
-	  sq->doff = ncbi->doff;
-	  sq->hoff = ncbi->hoff;
-	  sq->eoff = ncbi->eoff;
+      /* Disk offset bookkeeping */
+      sq->idx  = ncbi->index;
+      sq->roff = ncbi->roff;
+      sq->doff = ncbi->doff;
+      sq->hoff = ncbi->hoff;
+      sq->eoff = ncbi->eoff;
 
-	  ncbi->seq_cpos = -1;
-	  ncbi->seq_L    = -1;
+      ncbi->seq_cpos = -1;
+      ncbi->seq_L    = -1;
 
-	  /* read and parse the ncbi header */
-	  if ((status = parse_header(ncbi, sq)) != eslOK) return status;
+      /* read and parse the ncbi header */
+      if ((status = parse_header(ncbi, sq)) != eslOK) return status;
 
-	  sq->start    = 1;
-	  sq->C        = 0;	/* no context in first window                   */
-	  sq->L        = -1;	/* won't be known 'til EOD.                     */
-	  ncbi->seq_L  = -1;	/* init to 0, so we can count residues as we go */
-	  esl_sq_SetSource(sq, sq->name);
-	}
-      else
-	{ /* else we're reading a window other than first; slide context over. */
-	  sq->C = ESL_MIN(C, sq->n);
-
-	  /* if the case where the window is smaller than the context and the
-	   * context is not full, it is not necessary to move the context part
-	   * of the sequence that has been read in.
-	   */
-	  if (sq->C >= C) {
-	    if (sq->seq != NULL) memmove(sq->seq,   sq->seq + sq->n - sq->C,     sq->C);
-	    else                 memmove(sq->dsq+1, sq->dsq + sq->n - sq->C + 1, sq->C);
-	    sq->start = sq->end - sq->C + 1;
-	    sq->n = C;
-	  }
-	}      
-
-      if ((status = esl_sq_GrowTo(sq, C+W)) != eslOK)                return status; /* EMEM    */
-      if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
-      else                             status = read_nres_dna(sqfp, sq, W, &nres);
-
-      if (status == eslEOD)	
-	{
-	  sq->start  = 0;
-	  sq->end    = 0;
-	  sq->C      = 0;
-	  sq->W      = 0;
-	  sq->n      = 0;
-
-	  if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL; /* erase the saved context */
-	  else                 sq->seq[0] = '\0';
-
-	  return eslEOD;
-	}
-      else if (status == eslOK)
-	{ /* Forward strand is still in progress. <= W residues were read. Return eslOK. */
-	  sq->end        = sq->start + sq->C + nres - 1;	  
-	  sq->W          = nres;	  
-	  return eslOK;
-	}
-      else return status;	/* EFORMAT,EMEM */
+      sq->start    = 1;
+      sq->C        = 0;	/* no context in first window                   */
+      sq->L        = -1;	/* won't be known 'til EOD.                     */
+      ncbi->seq_L  = -1;	/* init to 0, so we can count residues as we go */
+      esl_sq_SetSource(sq, sq->name);
     }
+    else
+    { /* else we're reading a window other than first; slide context over. */
+      sq->C = ESL_MIN(C, sq->n);
+
+      /* if the case where the window is smaller than the context and the
+       * context is not full, it is not necessary to move the context part
+       * of the sequence that has been read in.
+       */
+      if (sq->C >= C) {
+        if (sq->seq != NULL) memmove(sq->seq,   sq->seq + sq->n - sq->C,     sq->C);
+        else                 memmove(sq->dsq+1, sq->dsq + sq->n - sq->C + 1, sq->C);
+        sq->start = sq->end - sq->C + 1;
+        sq->n = C;
+      }
+    }
+
+    if ((status = esl_sq_GrowTo(sq, C+W)) != eslOK)                return status; /* EMEM    */
+    if (ncbi->alphatype == eslAMINO) status = read_nres_amino(sqfp, sq, W, &nres);
+    else                             status = read_nres_dna(sqfp, sq, W, &nres);
+
+    if (status == eslEOD)
+    {
+      sq->start  = 0;
+      sq->end    = 0;
+      sq->C      = 0;
+      sq->W      = 0;
+      sq->n      = 0;
+
+      if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL; /* erase the saved context */
+      else                 sq->seq[0] = '\0';
+
+      return eslEOD;
+    }
+    else if (status == eslOK)
+    { /* Forward strand is still in progress. <= W residues were read. Return eslOK. */
+      sq->end        = sq->start + sq->C + nres - 1;
+      sq->W          = nres;
+      return eslOK;
+    }
+    else return status;	/* EFORMAT,EMEM */
+  }
   /*NOTREACHED*/
   return eslOK;
 }
@@ -1158,6 +1158,8 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	  int     i = 0;
 	  int     size = 0;
 	  int     status = eslOK;
+	  ESL_SQ *tmpsq;
+
 	  sqBlock->count = 0;
 
 	  if ( !long_target  )
@@ -1179,11 +1181,11 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 		  if (max_residues < 0)
 			  max_residues = MAX_RESIDUE_COUNT;
 
-	      ESL_SQ *tmpsq = esl_sq_Create();
+		  tmpsq = esl_sq_Create();
 
 		  //if complete flag set to FALSE, then the prior block must have ended with a window that was a possibly
 		  //incomplete part of it's full sequence. Read another overlaping window.
-	      if (! sqBlock->complete )
+		  if (! sqBlock->complete )
 		  {
 			  //overloading C as indicator of how big C should be for this window reading action
 			  status = sqncbi_ReadWindow(sqfp, sqBlock->list->C, max_residues, sqBlock->list);
@@ -1193,8 +1195,23 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 				  size = sqBlock->list->n;
 				  if (sqBlock->list->n >= max_residues)
 				  { // Filled the block with a single very long window.
-					  sqBlock->complete = FALSE;  // There's probably more left for the next block.
-					  return status;
+
+				    if ( sqBlock->list->n == sqfp->data.ncbi.seq_L) {
+				      sqBlock->complete = TRUE;
+				      esl_sq_Reuse(tmpsq);
+				      tmpsq->start =  sqBlock->list->start ;
+				      tmpsq->C = 0;
+				      status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq); // burn off the EOD
+              if (status == eslEOD) // otherwise, the unexpected status will be returned
+                status = eslOK;
+
+				    } else {
+				      sqBlock->complete = FALSE;
+				    }
+
+	          if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+	          return status;
+
 				  }
 				  else
 				  {
@@ -1203,7 +1220,10 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 					  tmpsq->start =  sqBlock->list->start ;
 					  tmpsq->C = 0;
 					  status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq);
-					  if (status != eslEOD) return status; //surprising
+					  if (status != eslEOD) {
+					    if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+					    return status; //surprising
+					  }
 				  }
 			  }
 			  else if (status == eslEOD)
@@ -1212,6 +1232,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 			  }
 			  else
 			  {
+			    if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 				  return status;
 			  }
 		  } // otherwise, just start at the beginning
@@ -1222,14 +1243,29 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 			  esl_sq_Reuse(tmpsq);
 			  status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq);
 			  if (status != eslOK) break; // end of sequences
-			  esl_sq_Copy(tmpsq, sqBlock->list + i);
 
-			  size += tmpsq->n;
+			  size += sqBlock->list[i].n;
 			  ++(sqBlock->count);
-			  if (tmpsq->n >= max_residues)
-			  { // read a full window worth of sequence
-				  sqBlock->complete = FALSE; // there's probably more for the next block
-				  return status;
+			  if (sqBlock->list[i].n >= max_residues)
+		     { // a full window worth of sequence was read
+
+          if ( sqBlock->list[i].n == sqfp->data.ncbi.seq_L) {
+             sqBlock->complete = TRUE;
+             esl_sq_Reuse(tmpsq);
+             tmpsq->start =  sqBlock->list->start ;
+             tmpsq->C = 0;
+             status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq); // burn off the EOD
+             if (status == eslEOD) // otherwise, the unexpected status will be returned
+                status = eslOK;
+
+           } else {
+             sqBlock->complete = FALSE;
+           }
+
+
+		       if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+		       return status;
+
 			  }
 			  else
 			  {
@@ -1241,17 +1277,21 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 				  tmpsq->start =  sqBlock->list[i].start ;
 				  tmpsq->C = 0;
 				  status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq);
-				  if (status != eslEOD) return status; //surprising
+		       if (status != eslEOD) {
+		         if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+		         return status; //surprising
+		       }
 				  status = eslOK;
 			  }
 		  }
-		  esl_sq_Destroy(tmpsq);
 	  }
 
 	  /* EOF will be returned only in the case were no sequences were read */
 	  if (status == eslEOF && i > 0) status = eslOK;
 
 	  sqBlock->complete = TRUE;
+
+	  if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 
 	  return status;
 }
