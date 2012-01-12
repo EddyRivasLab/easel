@@ -379,7 +379,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   char      *seqname;              /* ptr to a sequence name */
   int        namelen;              /* length of a sequence name */
   char      *first_seqname = NULL; /* name of first sequence read */
-  char      *gc, *gr;              /* for storing GC, GR, temporarily */
+  char      *gf, *gc, *gr;         /* for storing '#=GF', '#=GC', '#=GR', temporarily */
   char      *tag;                  /* a GC or GR tag */
   int        taglen;               /* length of a tag */
   char      *text;                 /* text string */
@@ -490,7 +490,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
 	    }
 	    else if (opt_maxgf != NULL) { /* we need to parse out GF tag len to see if it is > maxgf */
 	      s = afp->buf;
-	      if (esl_strtok    (&s, " \t\n\r", &gc)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
+	      if (esl_strtok    (&s, " \t\n\r", &gf)                  != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
 	      if (esl_strtok_adv(&s, " \t\n\r", &tag,  &taglen, NULL) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GF line", afp->linenumber);
 	      maxgf = ESL_MAX(maxgf, taglen); 
 	    }
@@ -649,7 +649,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   }
   /* same as for maxgc, but now for maxgf */
   if(ret_msa != NULL && opt_maxgf != NULL) { 
-    for(i = 0; i < msa->ngf; i++) maxgf = ESL_MAX(maxgf, strlen(msa->gf[i])); 
+    for(i = 0; i < msa->ngf; i++) maxgf = ESL_MAX(maxgf, strlen(msa->gf_tag[i])); 
     if (msa->name != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("ID") */
     if (msa->desc != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("DE") */
     if (msa->acc  != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("AC") */
