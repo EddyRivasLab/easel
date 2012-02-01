@@ -1130,15 +1130,27 @@ esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
  *            The input <ct[0..25]> array contains observed counts of 
  *            the letters A..Z, case-insensitive. 
  *            
- *            Provided that the compositions contains more than 10
- *            residues, the composition is called <eslDNA> if it
- *            consists only of the residues ACGTN and all four of ACGT
- *            occur (and analogously for <eslRNA>, ACGU$+$N); and it
- *            calls the sequence <eslAMINO> either if it contains an
- *            amino-specific letter (EFIJLOPQZ), or if it contains at
- *            least 15 of the 20 canonical amino acids and consists
- *            only of canonical amino acids or X.
+ *            The composition <ct> must contain more than 10 residues.
+ *
+ *            If it contains $\geq$98\% ACGTN and all four of the
+ *            residues ACGT occur, call it <eslDNA>. (Analogously for
+ *            ACGUN, ACGU: call <eslRNA>.)
  *            
+ *            If it contains any amino-specific residue (EFIJLPQZ),
+ *            call it <eslAMINO>.  
+ *            
+ *            If it consists of $\geq$98\% canonical aa residues or X,
+ *            and at least 15 of the different 20 aa residues occur,
+ *            and the number of residues that are canonical aa/degenerate
+ *            nucleic (DHKMRSVWY) is greater than the number of canonicals
+ *            for both amino and nucleic (ACG); then call it <eslAMINO>.
+ *            
+ *            These rules are empirical. We aim to be very
+ *            conservative, essentially never making a false call; we
+ *            err towards calling <eslUNKNOWN>. The test is to
+ *            classify every individual sequence in NR and NT (or
+ *            equiv large messy sequence database) and have no false
+ *            positives.
  *
  * Returns:   <eslOK> on success, and <*ret_type> is set to
  *            <eslAMINO>, <eslRNA>, or <eslDNA>.
@@ -1146,6 +1158,20 @@ esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
  *            Returns <eslENOALPHABET> if unable to determine the
  *            alphabet type; in this case, <*ret_type> is set to 
  *            <eslUNKNOWN>.
+ *            
+ * Notes:     As of Jan 2011:
+ *               nr         10M seqs :  6999 unknown,  0 misclassified 
+ *               Pfam full  13M seqs :  7930 unknown,  0 misclassified
+ *               Pfam seed  500K seqs:   366 unknown,  0 misclassified
+ *               trembl     14M seqs :  7748 unknown,  0 misclassified
+ *               
+ *               nt         10M seqs : 35620 unknown,  0 misclassified
+ *               Rfam full   3M seqs :  8146 unknown,  0 misclassified
+ *               Rfam seed  27K seqs :    49 unknown,  0 misclassified
+ *               
+ * xref:      esl_alphabet_example3 collects per-sequence classification
+ *            2012/0201-easel-guess-alphabet
+ *            J1/62; 2007-0517-easel-guess-alphabet
  */
 int
 esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
@@ -1171,9 +1197,9 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
 
   if      (n  <= 10)                                                type = eslUNKNOWN;
   else if (n1 > 0)                                                  type = eslAMINO; /* contains giveaway, aa-only chars */
-  else if (n2+nt+nn == n && x2+xt == 4)                             type = eslDNA;   /* all DNA canon (or N), all four seen */
-  else if (n2+nu+nn == n && x2+xu == 4)                             type = eslRNA;   /* all RNA canon (or N), all four seen */
-  else if (n1+n2+n3+nn+nt+nx == n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; /* all aa canon (or X); more aa canon than ambig; all 20 seen */
+  else if (n-(n2+nt+nn) <= 0.02*n && x2+xt == 4)                    type = eslDNA;   /* nearly all DNA canon (or N), all four seen */
+  else if (n-(n2+nu+nn) <= 0.02*n && x2+xu == 4)                    type = eslRNA;   /* nearly all RNA canon (or N), all four seen */
+  else if (n-(n1+n2+n3+nn+nt+nx) <= 0.02*n && n3>n2 && x1+x2+x3+xn+xt >= 15) type = eslAMINO; /* nearly all aa canon (or X); more aa canon than ambig; all 20 seen */
   
   *ret_type = type;
   if (type == eslUNKNOWN) return eslENOALPHABET;
@@ -2393,6 +2419,44 @@ int main(void)
 }
 /*::cexcerpt::alphabet_example2::end::*/
 #endif /*eslALPHABET_EXAMPLE2*/
+
+
+
+#ifdef eslALPHABET_EXAMPLE3
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_sq.h"
+#include "esl_sqio.h"
+
+int 
+main(int argc, char **argv)
+{
+  ESL_SQ     *sq      = esl_sq_Create();
+  ESL_SQFILE *sqfp;
+  int         format  = eslSQFILE_UNKNOWN;
+  char       *seqfile = argv[1];
+  int         type;
+  int         status;
+
+  status = esl_sqfile_Open(seqfile, format, NULL, &sqfp);
+  if      (status == eslENOTFOUND) esl_fatal("No such file.");
+  else if (status == eslEFORMAT)   esl_fatal("Format unrecognized.");
+  else if (status != eslOK)        esl_fatal("Open failed, code %d.", status);
+
+  while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
+  {
+    esl_sq_GuessAlphabet(sq, &type);
+    printf("%-25s %s\n", sq->name, esl_abc_DecodeType(type));
+    esl_sq_Reuse(sq);
+  }
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s - %s\n", sqfp->filename, sqfp->get_error(sqfp));     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s", status, sqfp->filename);
+  
+  esl_sq_Destroy(sq);
+  esl_sqfile_Close(sqfp);
+  return 0;
+}
+#endif /*eslALPHABET_EXAMPLE3*/
 
 
 /*****************************************************************  

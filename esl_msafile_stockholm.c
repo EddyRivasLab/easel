@@ -134,7 +134,7 @@ esl_msafile_stockholm_SetInmap(ESLX_MSAFILE *afp)
 /* Function:  esl_msafile_stockholm_GuessAlphabet()
  * Synopsis:  Guess the alphabet of an open Stockholm MSA file.
  *
- * Purpose:   Guess the alpbabet of the sequences in open
+ * Purpose:   Guess the alphabet of the sequences in open
  *            Stockholm-format MSA file <afp>.
  *            
  *            On a normal return, <*ret_type> is set to <eslDNA>,

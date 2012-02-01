@@ -756,7 +756,6 @@ esl_sq_Textize(ESL_SQ *sq)
 
 /* Function:  esl_sq_GuessAlphabet()
  * Synopsis:  Guess alphabet type of a single sequence.
- * Incept:    SRE, Wed May 16 11:03:44 2007 [Janelia]
  *
  * Purpose:   Guess the alphabet type of biosequence <sq>, and store the
  *            guess in <*ret_type>.
@@ -769,38 +768,20 @@ esl_sq_Textize(ESL_SQ *sq)
  *            
  *            The sequence must contain more than 10 residues, or it
  *            is called <eslUNKNOWN>.
- *            
- *            Specifically, this routine calls the sequence <eslDNA>
- *            if it consists only of the residues <ACGTN> and all four
- *            of <ACGT> occur. (And analogously for <eslRNA>,
- *            <ACGUN>.)  It calls the sequence <eslAMINO> either if it
- *            contains an amino-specific letter (<EFIJLOPQZ>), or if
- *            it contains at least 15 of the 20 canonical amino acids
- *            and consists only of canonical amino acids or <X>.
-
- *            Thus DNA sequences containing IUPAC degeneracies other
- *            than N are called <eslUNKNOWN>, rather than hazarding a
- *            guess. It may be possible to improve on this in the
- *            future by using residue occurrence frequencies.
- *            
- *            Note that a sequence of <ATATATA...> will be called
- *            <eslUNKNOWN>, whereas a sequence <ACGTACGTACGT...>
- *            (which could conceivably be "ala-cys-gly-thr...") will
- *            be called <eslDNA>. Peptides of simple mono and di-amino
- *            acid compositions do occur, but I have not (yet) seen a
- *            peptide consisting only of all four residues <ACGT>.
- *            
- *            The routine is designed to be conservative, calling
- *            <eslUNKNOWN> rather than making errors. In a test on the
- *            Oct 2006 version of the NCBI nonredundant databases,
- *            this routine called 0 <eslDNA> and 5694 <eslUNKNOWN> on
- *            4.0M protein sequences (99.9\% classification with no
- *            false positives) and 0 <eslAMINO> and 155756
- *            <eslUNKNOWN> in 4.4M DNA sequences (96\% classification
- *            with no false positives). (Well, actually, one DNA call
- *            was made in the protein database, but this was an
- *            exception that proves the rule; that entry was indeed a
- *            DNA contaminant. It has since been removed by NCBI.)
+ *
+ *            For details on the rules used to classify a residue
+ *            composition, see <esl_abc_GuessAlphabet()>. The rules
+ *            are good but not perfect. We err on the conservative
+ *            side, calling <eslUNKNOWN> rather than making
+ *            classification errors. However, errors are possible; an
+ *            example is a protein sequence <ACGTACGTACGT...>
+ *            ("ala-cys-gly-thr..."), which will be called <eslDNA>,
+ *            because it contains all and only DNA residues.
+ *
+ *            The routine is tested on large sequence databases to
+ *            make sure there are zero false positive classifications
+ *            on known sequences. See <esl_abc_GuessAlphabet() for
+ *            details of these tests, and crossreferences.
  *
  * Returns:   <eslOK> on success, and <*ret_type> is set to
  *            <eslAMINO>, <eslRNA>, or <eslDNA>.
@@ -809,7 +790,7 @@ esl_sq_Textize(ESL_SQ *sq)
  *            alphabet type; in this case, <*ret_type> is set to 
  *            <eslUNKNOWN>.
  *
- * Xref:      J1/62; 2007/0517-easel-guess-alphabet
+ * Xref:      See notes on esl_alphabet.c::esl_abc_GuessAlphabet()
  */
 int
 esl_sq_GuessAlphabet(ESL_SQ *sq, int *ret_type)

@@ -412,7 +412,9 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
     } 
   else if (byp_abc)		/* Digital mode, and caller wants us to guess and create an alphabet */
     {
-      if ((status = eslx_msafile_GuessAlphabet(afp, &alphatype)) != eslOK) goto ERROR; /* includes normal ENOALPHABET, EFORMAT, ENODATA */
+      status = eslx_msafile_GuessAlphabet(afp, &alphatype);
+      if      (status == eslENOALPHABET) ESL_XFAIL(eslENOALPHABET, afp->errmsg, "couldn't guess alphabet (maybe try --dna/--rna/--amino if available)");
+      else if (status != eslOK)          goto ERROR;
       if ( (abc = esl_alphabet_Create(alphatype))                == NULL) { status = eslEMEM; goto ERROR; }
     }    
 #endif

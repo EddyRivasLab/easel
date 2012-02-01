@@ -272,6 +272,7 @@ EXAMPLES = \
         easel_example\
         esl_alphabet_example\
         esl_alphabet_example2\
+	esl_alphabet_example3\
 	esl_buffer_example\
 	esl_buffer_example2\
 	esl_buffer_example3\
