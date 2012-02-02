@@ -170,6 +170,17 @@
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
 
+/* Convert MB,GB,TB to bytes, using binary definitions (2^20, 2^30, 2^40)
+ * More pedantically: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).
+ */
+#define ESL_MBYTES(x) ((x) * 1048576) 
+#define ESL_GBYTES(x) ((x) * 1024 * 1048576) 
+#define ESL_TBYTES(x) ((x) * 1024 * 1024 * 1048576)
+
+/* Round integer <n> up to the nearest multiple of <m>. 
+ * Particularly useful when dealing w/ memory alignment issues.
+ */
+#define ESL_UPROUND(n, m)  ( ((n) + (m)-1) / (m) * (m))
 
 
 /*****************************************************************
@@ -265,14 +276,6 @@
  * Same threshold appears to be optimal for float or double x. xref STL9/138.
  */
 #define eslSMALLX1    5e-9
-
-
-/* Convert MB,GB,TB to bytes, using binary definitions (2^20, 2^30, 2^40)
- * More pedantically: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).
- */
-#define ESL_MBYTES(x) ((x) * 1048576) 
-#define ESL_GBYTES(x) ((x) * 1024 * 1048576) 
-#define ESL_TBYTES(x) ((x) * 1024 * 1024 * 1048576)
 
 
 /*****************************************************************
