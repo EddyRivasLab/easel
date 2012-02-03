@@ -1292,13 +1292,14 @@ passed.
 {\item[code = \_Encode*(char *s)]}
 
 Given a string \ccode{<s>}, match it case-insensitively against a list
-of possible string values and convert it to an internal
-\ccode{\#define} or \ccode{enum} code. For example,
+of possible string values and convert this visible representation to
+its internal \ccode{\#define} or \ccode{enum} code. For example,
 \ccode{esl\_sqio\_EncodeFormat("fasta")} returns
 \ccode{eslSQFILE\_FASTA}. If the string is not recognized, returns a
 code signifying ``unknown''. This needs to be a normal return (not a
-thrown error) because we will often use an \ccode{Encode} function to
-convert user input to internal codes.
+thrown error) because the string might come from user input, and might
+be invalid.
+
 
 \hypertarget{ifc:Decode}
 {\item[char *s = \_Decode*(int code)]}

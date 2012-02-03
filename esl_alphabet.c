@@ -1190,10 +1190,10 @@ esl_abc_GuessAlphabet(const int64_t *ct, int *ret_type)
   for (i = 0; aaonly[i]   != '\0'; i++) { x = ct[aaonly[i]   - 'A']; if (x > 0) { n1 += x; x1++; } }
   for (i = 0; allcanon[i] != '\0'; i++) { x = ct[allcanon[i] - 'A']; if (x > 0) { n2 += x; x2++; } }
   for (i = 0; aacanon[i]  != '\0'; i++) { x = ct[aacanon[i]  - 'A']; if (x > 0) { n3 += x; x3++; } }
-  nt = ct['T' - 'A']; xt = (nt > 0) ? 1 : 0;
-  nu = ct['U' - 'A']; xu = (nu > 0) ? 1 : 0;
+  nt = ct['T' - 'A']; xt = (nt ? 1 : 0);
+  nu = ct['U' - 'A']; xu = (nu ? 1 : 0);
   nx = ct['X' - 'A']; 
-  nn = ct['N' - 'A']; 
+  nn = ct['N' - 'A']; xn = (nn ? 1 : 0);
 
   if      (n  <= 10)                                                type = eslUNKNOWN;
   else if (n1 > 0)                                                  type = eslAMINO; /* contains giveaway, aa-only chars */
