@@ -1145,12 +1145,12 @@ esl_abc_ConvertDegen2X(const ESL_ALPHABET *abc, ESL_DSQ *dsq)
  *            nucleic (DHKMRSVWY) is greater than the number of canonicals
  *            for both amino and nucleic (ACG); then call it <eslAMINO>.
  *            
- *            These rules are empirical. We aim to be very
- *            conservative, essentially never making a false call; we
- *            err towards calling <eslUNKNOWN>. The test is to
- *            classify every individual sequence in NR and NT (or
- *            equiv large messy sequence database) and have no false
- *            positives.
+ *            We aim to be very conservative, essentially never making
+ *            a false call; we err towards calling <eslUNKNOWN> if
+ *            unsure. Our test is to classify every individual
+ *            sequence in NCBI NR and NT (or equiv large messy
+ *            sequence database) with no false positives, only correct
+ *            calls or <eslUNKNOWN>.
  *
  * Returns:   <eslOK> on success, and <*ret_type> is set to
  *            <eslAMINO>, <eslRNA>, or <eslDNA>.
