@@ -115,7 +115,7 @@ esl_sse_hmin_ps(__m128 a, float *ret_min)
 {
   a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 3, 2, 1)));
   a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
-  _mm_store_ss(ret_max, a);
+  _mm_store_ss(ret_min, a);
 }
 
 /* Function:  esl_sse_hsum_ps()
