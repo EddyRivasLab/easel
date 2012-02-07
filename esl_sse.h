@@ -1,10 +1,16 @@
-#ifdef HAVE_SSE2
+
 /* Vectorized routines for Intel/AMD, using Streaming SIMD Extensions (SSE).
+ *
+ * This header file, unusually, provides many complete function
+ * implementations; this is so that they can be inlined by the
+ * compiler, for maximum efficiency.
  * 
- * SRE, Sun Dec 16 10:01:41 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
+ * Contents:
+ *    1. Function declarations (from esl_sse.c)
+ *    2. Inlined utilities for ps vectors (4 floats in __m128)
+ *    3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  */
+#ifdef HAVE_SSE2
 #ifndef eslSSE_INCLUDED
 #define eslSSE_INCLUDED
 
@@ -14,28 +20,32 @@
 #include <xmmintrin.h>		/* SSE  */
 #include <emmintrin.h>		/* SSE2 */
 
-
-extern __m128  esl_sse_logf(__m128 x);
-extern __m128  esl_sse_expf(__m128 x);
-extern void    esl_sse_dump_ps(FILE *fp, __m128 v);
-
-/*****************************************************************
- * if the compiler does not support SSE2 cast functions replace 
- * the calls with C casts.  this is needed for older versions of 
- * gcc, 3.4.
- *****************************************************************/
+/* Some compilers (gcc 3.4) did not implement SSE2 cast functions 
+ * on the theory that they're unnecessary no-ops -- but then
+ * code that has proper SSE cast calls doesn't compile. Provide 
+ * the no-ops.
+ */
 #ifndef HAVE_SSE2_CAST
 #define _mm_castps_si128(x) (__m128i)(x)
 #define _mm_castsi128_ps(x) (__m128)(x)
 #endif
 
+
+
 /*****************************************************************
- * Inline utility functions for ps vectors (4 floats in a __m128)
+ * 1. Function declarations (from esl_sse.c)
+ *****************************************************************/
+extern __m128  esl_sse_logf(__m128 x);
+extern __m128  esl_sse_expf(__m128 x);
+extern void    esl_sse_dump_ps(FILE *fp, __m128 v);
+
+
+/*****************************************************************
+ * 2. Inline utilities for ps vectors (4 floats in __m128)
  *****************************************************************/
 
 /* Function:  esl_sse_select_ps()
  * Synopsis:  SSE equivalent of <vec_sel()>
- * Incept:    SRE, Sun Dec 16 12:39:03 2007 [Janelia]
  *
  * Purpose:   Vector select. Returns a vector <r[z] = a[z]> where <mask[z]>
  *            is all 0's; <r[z] = b[z]> where <mask[z]> is all 1's.
@@ -62,7 +72,6 @@ esl_sse_select_ps(__m128 a, __m128 b, __m128 mask)
 
 /* Function:  esl_sse_any_gt_ps()
  * Synopsis:  Returns TRUE if any a[z] > b[z]
- * Incept:    SRE, Wed Jul 30 11:44:59 2008 [Janelia]
  *
  * Purpose:   Returns TRUE if any a[z] > b[z] in two
  *            <ps> vectors of floats.
@@ -80,7 +89,6 @@ esl_sse_any_gt_ps(__m128 a, __m128 b)
 
 /* Function:  esl_sse_hmax_ps()
  * Synopsis:  Find the maximum of elements in a vector.
- * Incept:    SRE, Wed Aug  6 10:00:11 2008 [Janelia]
  *
  * Purpose:   Find the maximum valued element in the four float elements
  *            in <a>, and return that maximum value in <*ret_max>.
@@ -95,9 +103,23 @@ esl_sse_hmax_ps(__m128 a, float *ret_max)
   _mm_store_ss(ret_max, a);
 }
 
+
+/* Function:  esl_sse_hmin_ps()
+ * Synopsis:  Find the minimum of elements in a vector.
+ *
+ * Purpose:   Find the minimum valued element in the four float elements
+ *            in <a> and return that minimum value in <*ret_min>.
+ */
+static inline void
+esl_sse_hmin_ps(__m128 a, float *ret_min)
+{
+  a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 3, 2, 1)));
+  a = _mm_min_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2)));
+  _mm_store_ss(ret_max, a);
+}
+
 /* Function:  esl_sse_hsum_ps()
  * Synopsis:  Takes the horizontal sum of elements in a vector.
- * Incept:    SRE, Sat Aug 16 15:50:33 2008 [Janelia]
  *
  * Purpose:   Add the four float elements in vector <a>; return
  *            that sum in <*ret_sum>.
@@ -113,7 +135,6 @@ esl_sse_hsum_ps(__m128 a, float *ret_sum)
 
 /* Function:  esl_sse_rightshift_ps()
  * Synopsis:  Shift vector elements to the right.
- * Incept:    SRE, Thu Jul 31 17:13:59 2008 [Janelia]
  *
  * Purpose:   Returns a vector containing
  *            <{ b[0] a[0] a[1] a[2] }>:
@@ -129,7 +150,6 @@ esl_sse_rightshift_ps(__m128 a, __m128 b)
 
 /* Function:  esl_sse_leftshift_ps()
  * Synopsis:  Shift vector elements to the left.
- * Incept:    SRE, Thu Jul 31 17:22:02 2008 [Janelia]
  *
  * Purpose:   Returns a vector containing
  *            <{ a[1] a[2] a[3] b[0]}>:
@@ -144,13 +164,14 @@ esl_sse_leftshift_ps(__m128 a, __m128 b)
   return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 3, 2, 1));  /* now a[1] a[2] a[3] b[0] */
 }
 
+
+
 /*****************************************************************
- * inlined utilities for epu8 vectors (16 uchars in a __m128i)
+ * 3. Inlined utilities for epu8 vectors (16 uchars in __m128i)
  *****************************************************************/ 
 
 /* Function:  esl_sse_any_gt_epu8()
  * Synopsis:  Returns TRUE if any a[z] > b[z].
- * Incept:    SRE, Wed Jul 30 11:27:09 2008 [Janelia]
  *
  * Purpose:   Return TRUE if any <a[z] > b[z]> for <z=0..15>
  *            in two <epu8> vectors of unsigned chars.
@@ -180,7 +201,6 @@ esl_sse_any_gt_epi16(__m128i a, __m128i b)
 
 /* Function:  esl_sse_hmax_epu8()
  * Synopsis:  Return the max of the 16 elements in epu8 vector.
- * Incept:    SRE, Wed Jul 30 11:31:33 2008 [Janelia]
  *
  * Purpose:   Returns the maximum value of the 16 elements in
  *            an <epu8> vector.
@@ -197,7 +217,6 @@ esl_sse_hmax_epu8(__m128i a)
 
 /* Function:  esl_sse_hmax_epi16()
  * Synopsis:  Return the max of the 8 elements in epi16 vector.
- * Incept:    SRE, Wed Jul 30 11:31:33 2008 [Janelia]
  *
  * Purpose:   Returns the maximum value of the 16 elements in
  *            an <epu8> vector.
@@ -214,3 +233,9 @@ esl_sse_hmax_epi16(__m128i a)
 
 #endif /*eslSSE_INCLUDED*/
 #endif /*HAVE_SSE2*/
+/*****************************************************************
+ * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ *****************************************************************/
