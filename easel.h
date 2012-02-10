@@ -338,6 +338,8 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
+static inline float esl_logf(float x) { return (x == 0.0 ? -eslINFINITY : logf(x)); }
+
 /* Typedef: <esl_pos_t> 
  * 
  * <esl_pos_t> is a signed integer type suitable for safe casting
