@@ -1840,6 +1840,50 @@ esl_FCompare(float a, float b, float tol)
   return eslFAIL;
 }
 
+/* Function:  esl_DCompareAbs()
+ *
+ * Purpose:   Compare two floating point scalars <a> and <b> for
+ *            approximate equality, by absolute difference.  Return
+ *            <eslOK> if equal, <eslFAIL> if not.
+ *            
+ *            Equality is defined as <fabs(a-b) \leq tol> for finite
+ *            <a,b>; or <inf=inf>, <NaN=NaN> when either value is not
+ *            finite.
+ *            
+ *            Generally it is preferable to compare floating point
+ *            numbers for equality using relative difference: see
+ *            <esl_{DF}Compare()>, and also Knuth's Seminumerical
+ *            Algorithms. However, cases arise where absolute
+ *            difference comparison is preferred. One such case is in
+ *            comparing the log probability values of DP matrices,
+ *            where numerical error tends to accumulate on an absolute
+ *            scale, dependent more on the number of terms than on
+ *            their magnitudes. DP cells with values that happen to be
+ *            very close to zero can have high relative differences.
+ */
+int
+esl_DCompareAbs(double a, double b, double tol)
+{
+  if (isinf(a) && isinf(b))            return eslOK;
+  if (isnan(a) && isnan(b))            return eslOK;
+  if (!isfinite(a) || !isfinite(b))    return eslFAIL;
+  if (fabs(a-b) <= tol)                return eslOK;
+  return eslFAIL;
+}
+int
+esl_FCompareAbs(float a, float b, float tol)
+{ 
+  if (isinf(a) && isinf(b))            return eslOK;
+  if (isnan(a) && isnan(b))            return eslOK;
+  if (!isfinite(a) || !isfinite(b))    return eslFAIL;
+  if (fabs(a-b) <= tol)                return eslOK;
+  return eslFAIL;
+}
+
+
+
+
+
 /* Function:  esl_CCompare()
  * Synopsis:  Compare two optional strings for equality.
  *

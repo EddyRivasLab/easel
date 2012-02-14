@@ -429,8 +429,10 @@ extern int  esl_tmpfile_named(char *basename6X, FILE **ret_fp);
 extern int  esl_getcwd(char **ret_cwd);
 
 /* 8. Typed comparison routines. */
-extern int  esl_DCompare(double a, double b, double tol);
-extern int  esl_FCompare(float  a, float  b, float  tol);
+extern int  esl_DCompare   (double a, double b, double tol);
+extern int  esl_FCompare   (float  a, float  b, float  tol);
+extern int  esl_DCompareAbs(double a, double b, double tol);
+extern int  esl_FCompareAbs(float  a, float  b, float  tol);
 extern int  esl_CCompare(char *s1, char *s2);
 
 /* 9. Commonly used background composition (iid) frequencies. */
