@@ -340,6 +340,45 @@ esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const dou
 }
 
 
+/* Function:  esl_scorematrix_JointToConditionalOnQuery()
+ * Synopsis:  Convert a joint probability matrix to conditional probs P(b|a)
+ *
+ * Purpose:   Given a joint probability matrix <P> that has been calculated
+ *            by <esl_scorematrix_ProbifyGivenBG()> or <esl_scorematrix_Probify()>
+ *            (or one that obeys the same conditions; see below), 
+ *            convert the joint probabilities <P(a,b)> to conditional 
+ *            probabilities <P(b | a)>, where <b> is a residue in the target,
+ *            and <a> is a residue in the query.
+ *            
+ *            $P(b \mid a) = P(ab) / P(a)$, where $P(a) = \sum_b P(ab)$.
+ *
+ *            All values in <P> involving the codes for gap,
+ *            nonresidue, and missing data (codes <K>,<Kp-2>, and
+ *            <Kp-1>) are 0.0, not probabilities. Only rows/columns
+ *            <i=0..K,K+1..Kp-3> are valid probability vectors.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      J9/87.
+ */
+int
+esl_scorematrix_JointToConditionalOnQuery(const ESL_ALPHABET *abc, ESL_DMATRIX *P)
+{
+  int a,b;
+
+  /* P(b|a) = P(ab) / P(a) 
+   * and P(a) = P(a,X), the value at [a][Kp-3] 
+   */
+  for (a = 0; a < abc->Kp-2; a++)
+    for (b = 0; b < abc->Kp-2; b++)
+      P->mx[a][b] = (P->mx[a][abc->Kp-3] == 0.0 ? 0.0 : P->mx[a][b] / P->mx[a][abc->Kp-3]);
+  return eslOK;
+}
+
+
+
 /* Function:  esl_scorematrix_Destroy()
  * Synopsis:  Frees a matrix.
  *
@@ -1087,18 +1126,35 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  * Synopsis:  Obtain $P_{ij}$ for matrix with known $\lambda$ and background. 
  *
  * Purpose:   Given a score matrix <S> and known query and target
- *            background frequencies <fi> and <fj>, calculate scale
+ *            background frequencies <fi> and <fj> respectively, calculate scale
  *            <lambda> and implicit target probabilities \citep{Altschul01}. 
  *            Optionally returns either (or both) in <opt_lambda> and <opt_P>.
  *
  *            The implicit target probabilities are returned in a
- *            newly allocated $K \times K$ <ESL_DMATRIX>, over only
- *            the canonical (typically 4 or 20) residues in the
- *            residue alphabet.
+ *            newly allocated $Kp \times Kp$ <ESL_DMATRIX>, over both
+ *            the canonical (typically K=4 or K=20) residues in the
+ *            residue alphabet, and the degenerate residue codes.
+ *            Only actual residue degeneracy can have nonzero values
+ *            for <p_ij>; by convention, all values involving the
+ *            special codes for gap, nonresidue, and missing data
+ *            (<K>, <Kp-2>, <Kp-1>) are 0.
+ *            
+ *            If the caller wishes to convert this joint probability
+ *            matrix to conditionals, it can take advantage of the
+ *            fact that the degenerate probability <P(X,j)> is our
+ *            marginalized <pj>, and <P(i,X)> is <pi>. 
+ *             i.e., <P(j|i) = P(i,j) / P(i) = P(i,j) / P(X,j)>.
+ *            Those X values are <P->mx[i][esl_abc_GetUnknown(abc)]>,
+ *            <P->mx[esl_abc_GetUnknown(abc)][j]>; equivalently, just use
+ *            code <Kp-3> for X.
+ *             
+ *            By convention, i is always the query sequence, and j is
+ *            always the target. We do not assume symmetry in the
+ *            scoring system, though that is usually the case.
  *            
  * Args:      S          - score matrix
- *            fi         - background frequencies for sequence i
- *            fj         - background frequencies for sequence j
+ *            fi         - background frequencies for query sequence i
+ *            fj         - background frequencies for target sequence j
  *            opt_lambda - optRETURN: calculated $\lambda$ parameter
  *            opt_P      - optRETURN: implicit target probabilities $p_{ij}$; a KxK DMATRIX.                  
  *
@@ -1116,7 +1172,6 @@ int
 esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
 		       double *opt_lambda, ESL_DMATRIX **opt_P)
 {
-  int    status;
   ESL_ROOTFINDER *R = NULL;
   ESL_DMATRIX    *P = NULL;
   struct lambda_params p;
@@ -1124,9 +1179,9 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
   double lambda;
   int    i,j;
   double fx, dfx;
+  int    status;
 
-  /* First, solve for lambda by rootfinding.
-   */
+  /* First, solve for lambda by rootfinding. */
   /* Set up the data passed to the lambda_fdf function. */
   p.fi = fi;
   p.fj = fj;
@@ -1148,8 +1203,7 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
   if ((    R   = esl_rootfinder_CreateFDF(lambda_fdf, &p) )         == NULL) { status = eslEMEM; goto ERROR; }
   if (( status = esl_root_NewtonRaphson(R, lambda_guess, &lambda))  != eslOK) goto ERROR;
   
-  /* Now, given solution for lambda, calculate P
-   */
+  /* Now, given solution for lambda, calculate P */
   if (opt_P != NULL) 
     {
       if ((P = esl_dmatrix_Create(S->Kp, S->Kp)) == NULL) { status = eslEMEM; goto ERROR; }
@@ -1180,27 +1234,35 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
  * esl_scorematrix_ProbifyGivenBG() to set degenerate residue
  * probabilities once probs for canonical residues are known.
  * 
- * Input: P->mx[i][j] are joint probabilities p_ij for the canonical alphabet 0..abc->K-1,
- *        but P matrix is allocated for Kp X Kp
+ * Input: P->mx[i][j] are joint probabilities p_ij for the canonical
+ *        alphabet 0..abc->K-1, but P matrix is allocated for Kp X Kp.
  * 
- * Fill in [i][j'=K..Kp-1], [i'=K..Kp-1][j], and [i'=K..Kp-1][j'=K..Kp-1] for degeneracies i',j'
- * Any p_ij involving a gap (K), nonresidue (Kp-2), or missing data (Kp-1) character is set to 0.0 by convention.
+ * Fill in [i][j'=K..Kp-1], [i'=K..Kp-1][j], and
+ * [i'=K..Kp-1][j'=K..Kp-1] for degeneracies i',j'. Any p_ij involving
+ * a gap (K), nonresidue (Kp-2), or missing data (Kp-1) character is
+ * set to 0.0 by convention.
  *
  * Don't assume symmetry. 
  * 
- * If <fi> or <fj> background probability vectors are non-<NULL>, set them too.
- * (Corresponding to the assumption of background = marginal probs, rather than
- *  background being given.)
+ * If <fi> or <fj> background probability vectors are non-<NULL>, set
+ * them too.  (Corresponding to the assumption of background =
+ * marginal probs, rather than background being given.) This takes
+ * advantage of the fact that P(X,i) is already the marginalized p_i,
+ * and P(j,X) is p_j.
  */
 static int
 set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double *fj)
 {
-  int i,j,ip,jp;
+  int i,j;	/* indices into canonical codes  */
+  int ip,jp;	/* indices into degenerate codes */
 
+  /* sum to get [i=0..K] canonicals to [jp=K+1..Kp-3] degeneracies; 
+   * and [jp=K,Kp-2,Kp-1] set to 0.0
+   */
   for (i = 0; i < abc->K; i++)
     {
       P->mx[i][abc->K] = 0.0;
-      for (jp = abc->K+1; jp < abc->Kp; jp++)
+      for (jp = abc->K+1; jp < abc->Kp-2; jp++)
 	{
 	  P->mx[i][jp] = 0.0;
 	  for (j = 0; j < abc->K; j++)
@@ -1210,10 +1272,12 @@ set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double
       P->mx[i][abc->Kp-1] = 0.0;
     }
 
-  esl_vec_DSet(P->mx[abc->K],    abc->Kp, 0.0); /* gap row */
+  esl_vec_DSet(P->mx[abc->K], abc->Kp, 0.0); /* gap row: all 0.0 by convention */
 
+  /* [ip][all] */
   for (ip = abc->K+1; ip < abc->Kp-2; ip++)
     {
+      /* [ip][j]: degenerate i, canonical j */
       for (j = 0; j < abc->K; j++)      
 	{
 	  P->mx[ip][j] = 0.0;
@@ -1222,7 +1286,8 @@ set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double
 	}
       P->mx[ip][abc->K] = 0.0;
 
-      for (jp = abc->K+1; jp < abc->Kp; jp++)      
+      /* [ip][jp]: both positions degenerate */
+      for (jp = abc->K+1; jp < abc->Kp-2; jp++)      
 	{
 	  P->mx[ip][jp] = 0.0;
 	  for (j = 0; j < abc->K; j++)
@@ -1232,8 +1297,8 @@ set_degenerate_probs(const ESL_ALPHABET *abc, ESL_DMATRIX *P, double *fi, double
       P->mx[ip][abc->Kp-1] = 0.0;      
     }
 
-  esl_vec_DSet(P->mx[abc->Kp-2], abc->Kp, 0.0); /* nonresidue data ~ row   */
-  esl_vec_DSet(P->mx[abc->Kp-1], abc->Kp, 0.0); /* missing data ~ row   */
+  esl_vec_DSet(P->mx[abc->Kp-2], abc->Kp, 0.0); /* nonresidue data * row, all 0.0 */
+  esl_vec_DSet(P->mx[abc->Kp-1], abc->Kp, 0.0); /* missing data ~ row, all 0.0    */
 
   if (fi != NULL) { /* fi[i'] = p(i',X) */
     fi[abc->K] = 0.0;
@@ -1485,7 +1550,9 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
  *            $0..K-1$ in S, to calculate joint probabilities for all
  *            canonical residues. Joint and background probabilities 
  *            involving degenerate residues are then calculated by
- *            appropriate marginalizations.
+ *            appropriate marginalizations. See notes on
+ *            <esl_scorematrix_ProbifyGivenBG()> about how probabilities
+ *            involving degeneracy codes are calculated.
  *
  *            This implements an algorithm described in
  *            \citep{YuAltschul03} and \citep{YuAltschul05}.
@@ -1577,6 +1644,7 @@ esl_scorematrix_Probify(const ESL_SCOREMATRIX *S, ESL_DMATRIX **opt_P, double **
   return status;
 }
 /*---------- end, implicit prob basis, bg unknown ---------------*/
+
 
 
 
@@ -1798,14 +1866,10 @@ main(int argc, char **argv)
   int              a,b;
 
   esl_scorematrix_Set("BLOSUM62", S);
-  
   esl_scorematrix_Probify(S, &Q, &fa, &fb, &slambda);
 #if 0
-  for (a = 0; a < abc->K; a++)
-    for (b = 0; b < abc->K; b++)
-      Q->mx[a][b] /= fa[a];	/* Q->mx[a][b] is now P(b | a) */
+  esl_scorematrix_JointToConditionalOnQuery(abc, Q); /* Q->mx[a][b] is now P(b | a) */
 #endif
-  
   esl_dmatrix_Dump(stdout, Q, abc->sym, abc->sym);
   
   esl_dmatrix_Destroy(Q);
@@ -2137,9 +2201,9 @@ int main(int argc, char **argv)
   printf("Relative entropy = %.4f bits\n", D); 
   printf("Expected score   = %.4f bits\n", E * lambda * eslCONST_LOG2R);
 
-  printf("p_ij's are:\n");  esl_dmatrix_Dump(stdout, P2, abc->sym, abc->sym);
-  printf("fi's are:\n");    esl_vec_DDump(stdout, fi, S->K, abc->sym);
-  printf("fj's are:\n");    esl_vec_DDump(stdout, fj, S->K, abc->sym);
+  printf("p_ij's are:\n");   esl_dmatrix_Dump(stdout, P2, abc->sym, abc->sym);
+  printf("fi's are:\n");     esl_vec_DDump(stdout, fi, S->K, abc->sym);
+  printf("fj's are:\n");     esl_vec_DDump(stdout, fj, S->K, abc->sym);
   printf("============================================================\n\n");
 
 

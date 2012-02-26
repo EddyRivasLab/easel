@@ -44,6 +44,7 @@ extern int              esl_scorematrix_IsSymmetric(const ESL_SCOREMATRIX *S);
 extern int              esl_scorematrix_ExpectedScore(ESL_SCOREMATRIX *S, double *fi, double *fj, double *ret_E);
 extern int              esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
 						   double lambda, double *ret_D);
+extern int              esl_scorematrix_JointToConditionalOnQuery(const ESL_ALPHABET *abc, ESL_DMATRIX *P);
 extern void             esl_scorematrix_Destroy(ESL_SCOREMATRIX *S);
 
 /* 2. Some classic score matrices */
