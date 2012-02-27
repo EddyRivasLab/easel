@@ -106,8 +106,8 @@ esl_scorematrix_Copy(const ESL_SCOREMATRIX *src, ESL_SCOREMATRIX *dest)
   if (src->abc_r->type != dest->abc_r->type || src->K != dest->K || src->Kp != dest->Kp)
     ESL_EXCEPTION(eslEINCOMPAT, "source and dest score matrix types don't match");
 
-  for (i = 0; i < src->K; i++)
-    for (j = 0; j < src->K; j++)
+  for (i = 0; i < src->Kp; i++)
+    for (j = 0; j < src->Kp; j++)
       dest->s[i][j] = src->s[i][j];
   for (i = 0; i < src->Kp; i++)
     dest->isval[i] = src->isval[i];
