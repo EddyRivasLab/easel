@@ -1363,6 +1363,7 @@ esl_sqio_Parse(char *buf, int size, ESL_SQ *s, int format)
   case eslSQFILE_FASTA:    
   case eslSQFILE_DAEMON:   
     status = esl_sqascii_Parse(buf, size, s, format);
+
     break;
   default: 
     ESL_EXCEPTION(eslEINVAL, "can't parse that format");
@@ -2350,8 +2351,8 @@ main(int argc, char **argv)
 
 #ifdef eslSQIO_EXAMPLE3
 /*::cexcerpt::sqio_example3::begin::*/
-/* compile: gcc -g -Wall -I. -L. -o sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
- * run:     ./example <sequence file>
+/* compile: gcc -g -Wall -I. -L. -o esl_sqio_example3 -DeslSQIO_EXAMPLE3 esl_sqio.c -leasel -lm
+ * run:     ./esl_sqio_example3
  */
 #include "easel.h"
 #include "esl_alphabet.h"
@@ -2359,7 +2360,7 @@ main(int argc, char **argv)
 #include "esl_sqio.h"
 
 int
-main(int argc, char **argv)
+main(void)
 {
   ESL_ALPHABET *abc       = NULL;
   ESL_SQ       *sq        = NULL;
@@ -2376,8 +2377,8 @@ main(int argc, char **argv)
   sq  = esl_sq_CreateDigital(abc);
 
   status = esl_sqio_Parse(test, strlen(test), sq, format);
-  if      (status == eslEFORMAT) esl_fatal("Parse failed\n");     
-  else if (status != eslEOF)     esl_fatal("Unexpected error parsing buffer", status);
+  if      (status == eslEFORMAT) esl_fatal("Parse failed, invalid format");
+  else if (status != eslOK)      esl_fatal("Unexpected error %d", status);
   
   esl_sq_Destroy(sq);
   esl_alphabet_Destroy(abc);
