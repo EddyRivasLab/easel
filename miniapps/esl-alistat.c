@@ -335,9 +335,11 @@ main(int argc, char **argv)
 	if((status = dump_residue_info(rinfofp, abc, abc_ct, use_weights, nali, alen, nseq, i_am_rf, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
       if(esl_opt_IsOn(go, "--pcinfo")) {
+	if(pp_ct == NULL) esl_fatal("Error: --pcinfo requires all alignments have #=GR PP annotation, but alignment %d does not", nali);
 	if((status = dump_posterior_column_info(pcinfofp, pp_ct, use_weights, nali, alen, nseq, i_am_rf, msa->name, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
       if(esl_opt_IsOn(go, "--psinfo")) {
+	if(msa->pp == NULL) esl_fatal("Error: --psinfo requires all alignments have #=GR PP annotation, but alignment %d does not", nali);
 	if((status = dump_posterior_sequence_info(psinfofp, msa, nali, alifile, errbuf) != eslOK)) esl_fatal(errbuf);
       }
       if( esl_opt_IsOn(go, "--iinfo")) {
@@ -521,11 +523,12 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
 
     /* get PP counts, if nec  */
     if(pp_ct != NULL) { 
-      if(msa->pp[i] == NULL) ESL_FAIL(eslEINVAL, errbuf, "not all sequences alignment %d have PP, seq %d does not.", nali, i+1);
-      for(apos = 0; apos < msa->alen; apos++) { 
-	if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
-	  if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-	  pp_ct[apos][ppidx] += seqwt;
+      if(msa->pp[i] != NULL) { 
+	for(apos = 0; apos < msa->alen; apos++) { 
+	  if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
+	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	    pp_ct[apos][ppidx] += seqwt;
+	  }
 	}
       }
     }
@@ -821,20 +824,22 @@ static int dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *
   fprintf(fp, "  %7s\n", "-------");
 
   for(i = 0; i < msa->nseq; i++) { 
-    fprintf(fp, "  %7d  %-40s", i+1, msa->sqname[i]);
-    sum = 0.;
-    esl_vec_ISet(seq_pp_ct, nppvals, 0);
-    for(apos = 0; apos < msa->alen; apos++) { 
-      if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
-      seq_pp_ct[ppidx]++;
+    if(msa->pp[i] != NULL) { 
+      fprintf(fp, "  %7d  %-40s", i+1, msa->sqname[i]);
+      sum = 0.;
+      esl_vec_ISet(seq_pp_ct, nppvals, 0);
+      for(apos = 0; apos < msa->alen; apos++) { 
+	if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	seq_pp_ct[ppidx]++;
+      }
+      nnongap = esl_vec_ISum(seq_pp_ct, 11);
+      fprintf(fp, "  %7d", nnongap);
+      for(p = 0; p < nppvals-1; p++) { /* don't include gaps in per-sequence output */
+	fprintf(fp, "  %7d", seq_pp_ct[p]);
+	if(p <= 10) sum += (float) seq_pp_ct[p] * ppavgA[p];
+      }
+      fprintf(fp, "  %.5f\n", sum / (float) nnongap);
     }
-    nnongap = esl_vec_ISum(seq_pp_ct, 11);
-    fprintf(fp, "  %7d", nnongap);
-    for(p = 0; p < nppvals-1; p++) { /* don't include gaps in per-sequence output */
-      fprintf(fp, "  %7d", seq_pp_ct[p]);
-      if(p <= 10) sum += (float) seq_pp_ct[p] * ppavgA[p];
-    }
-    fprintf(fp, "  %.5f\n", sum / (float) nnongap);
   }
   fprintf(fp, "//\n");
 
