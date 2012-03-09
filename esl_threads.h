@@ -6,6 +6,8 @@
 #ifndef eslTHREADS_INCLUDED
 #define eslTHREADS_INCLUDED
 
+#include <pthread.h>
+
 typedef struct {
   int             threadCount;      /* number of active worker threads                           */
   pthread_t      *threadId;	    /* threadId for each worker thread; [0..threadCount-1]       */

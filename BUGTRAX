@@ -1,3 +1,16 @@
+ID              e8
+TITLE           esl_threads fails to compile
+AFFECTS         -
+FIXED_IN        -
+STATUS          CLOSED
+XREF            -
+REPORTED_BY     "Campbell, Christopher D" <christopher-campbell@uiowa.edu>
+OPENED_DATE     SRE, Thu Mar  8 23:04:52 2012
+CLOSED_DATE     SRE, Thu Mar  8 23:04:53 2012
+DESCRIPTION     
+  HMMER3.0 failed to build for him with MPI support; he traced
+  problem to esl_threads.h, which was missing an #include <pthread.h>.
+//
 ID              e7
 TITLE           with icc v12, esl_random() sequence is changed
 AFFECTS         -
@@ -33,6 +46,8 @@ DESCRIPTION
    Arguably this is a compiler bug. The C99 standard says that an
    array index may be any integer type; it does not specify signed or
    unsigned.
+
+   [note added 8 Mar 2012: Intel support confirmed, compiler bug.]
 //
 ID              e6
 TITLE           Running out of disk space corrupts outputs
