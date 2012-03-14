@@ -227,18 +227,19 @@ esl_msafile_afa_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
      */
     this_alen = 0;
     while ((status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)
-      {
-	while (n && isspace(*p)) { p++; n--; } /* tolerate and skip leading whitespace on line */
-	if (n  == 0)   continue;	       /* tolerate and skip blank lines */
-	if (*p == '>') break;
+    {
+      while (n && isspace(*p)) { p++; n--; } /* tolerate and skip leading whitespace on line */
+      if (n  == 0)   continue;	       /* tolerate and skip blank lines */
+      if (*p == '>') break;
 
 #ifdef eslAUGMENT_ALPHABET
-	if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); } 
+      if (msa->abc)   { status = esl_abc_dsqcat(afp->inmap, &(msa->ax[idx]),   &this_alen, p, n); }
 #endif
-	if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &this_alen, p, n); }
-	if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
-	else if (status != eslOK)  goto ERROR;
-      }
+      if (! msa->abc) { status = esl_strmapcat (afp->inmap, &(msa->aseq[idx]), &this_alen, p, n); }
+      if (status == eslEINVAL)   ESL_XFAIL(eslEFORMAT, afp->errmsg, "one or more invalid sequence characters");
+      else if (status != eslOK)  goto ERROR;
+    }
+    if (this_alen == 0)            ESL_XFAIL(eslEFORMAT, afp->errmsg, "sequence %s has alen %" PRId64 , msa->sqname[idx], this_alen);
     if (alen && alen != this_alen) ESL_XFAIL(eslEFORMAT, afp->errmsg, "sequence %s has alen %" PRId64 "; expected %" PRId64, msa->sqname[idx], this_alen, alen);
 
     alen = this_alen;
