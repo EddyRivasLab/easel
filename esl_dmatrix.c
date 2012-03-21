@@ -232,10 +232,10 @@ esl_dmatrix_Clone(const ESL_DMATRIX *A)
 /* Function:  esl_dmatrix_Compare()
  *
  * Purpose:   Compares matrix <A> to matrix <B> element by element,
- *            using <esl_DCompare()> on each cognate element pair, 
- *            with equality defined by a fractional tolerance <tol>.
- *            If all elements are equal, return <eslOK>; if any
- *            elements differ, return <eslFAIL>. 
+ *            using <esl_DCompare()> on each cognate element pair,
+ *            with relative equality defined by a fractional tolerance
+ *            <tol>.  If all elements are equal, return <eslOK>; if
+ *            any elements differ, return <eslFAIL>.
  *            
  *            <A> and <B> may be of different types; for example,
  *            a packed upper triangular matrix A is compared to
@@ -262,12 +262,57 @@ esl_dmatrix_Compare(const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol)
 	for (j = 0; j < A->m; j++)
 	  {
 	    if (A->type == eslUPPER && i > j) x1 = 0.;
-	    else                                         x1 = A->mx[i][j];
+	    else                              x1 = A->mx[i][j];
 
 	    if (B->type == eslUPPER && i > j) x2 = 0.;
-	    else                                         x2 = B->mx[i][j];
+	    else                              x2 = B->mx[i][j];
 
 	    if (esl_DCompare(x1, x2, tol) == eslFAIL) return eslFAIL;
+	  }
+    }
+  return eslOK;
+}
+
+
+/* Function:  esl_dmatrix_CompareAbs()
+ *
+ * Purpose:   Compares matrix <A> to matrix <B> element by element,
+ *            using <esl_DCompareAbs()> on each cognate element pair,
+ *            with absolute equality defined by a absolute difference tolerance
+ *            <tol>.  If all elements are equal, return <eslOK>; if
+ *            any elements differ, return <eslFAIL>.
+ *            
+ *            <A> and <B> may be of different types; for example,
+ *            a packed upper triangular matrix A is compared to
+ *            a general matrix B by assuming <A->mx[i][j] = 0.> for
+ *            all $i>j$.
+ */
+int
+esl_dmatrix_CompareAbs(const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol)
+{
+  int i,j,c;
+  double x1,x2;
+
+  if (A->n != B->n) return eslFAIL;
+  if (A->m != B->m) return eslFAIL;
+
+  if (A->type == B->type) 
+    {  /* simple case. */
+      for (c = 0; c < A->ncells; c++) /* can deal w/ packed or unpacked storage */
+	if (esl_DCompareAbs(A->mx[0][c], B->mx[0][c], tol) == eslFAIL) return eslFAIL;
+    }
+  else 
+    { /* comparing matrices of different types */
+      for (i = 0; i < A->n; i++)
+	for (j = 0; j < A->m; j++)
+	  {
+	    if (A->type == eslUPPER && i > j) x1 = 0.;
+	    else                              x1 = A->mx[i][j];
+
+	    if (B->type == eslUPPER && i > j) x2 = 0.;
+	    else                              x2 = B->mx[i][j];
+
+	    if (esl_DCompareAbs(x1, x2, tol) == eslFAIL) return eslFAIL;
 	  }
     }
   return eslOK;

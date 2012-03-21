@@ -29,11 +29,12 @@ typedef struct {
 extern ESL_DMATRIX *esl_dmatrix_Create(int n, int m);
 extern ESL_DMATRIX *esl_dmatrix_CreateUpper(int n);
 extern int          esl_dmatrix_Destroy(ESL_DMATRIX *A);
-extern int          esl_dmatrix_Copy   (const ESL_DMATRIX *src, ESL_DMATRIX *dest);
-extern ESL_DMATRIX *esl_dmatrix_Clone  (const ESL_DMATRIX *old);
-extern int          esl_dmatrix_Compare(const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol);
-extern int          esl_dmatrix_Set    (ESL_DMATRIX *A, double x);
-extern int          esl_dmatrix_SetZero(ESL_DMATRIX *A);
+extern int          esl_dmatrix_Copy       (const ESL_DMATRIX *src, ESL_DMATRIX *dest);
+extern ESL_DMATRIX *esl_dmatrix_Clone      (const ESL_DMATRIX *old);
+extern int          esl_dmatrix_Compare    (const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol);
+extern int          esl_dmatrix_CompareAbs (const ESL_DMATRIX *A, const ESL_DMATRIX *B, double tol);
+extern int          esl_dmatrix_Set        (ESL_DMATRIX *A, double x);
+extern int          esl_dmatrix_SetZero    (ESL_DMATRIX *A);
 extern int          esl_dmatrix_SetIdentity(ESL_DMATRIX *A);
 
 /* 2. Debugging/validation for ESL_DMATRIX. */
