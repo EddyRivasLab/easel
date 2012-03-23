@@ -295,14 +295,15 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   /* alen, nseq were already set by Create() */
   new->flags = msa->flags;
 
-  esl_strdup(msa->name, -1, &(new->name));
-  esl_strdup(msa->desc, -1, &(new->desc));
-  esl_strdup(msa->acc,  -1, &(new->acc));
-  esl_strdup(msa->au,    -1, &(new->au));
-  esl_strdup(msa->ss_cons,   -1, &(new->ss_cons));
-  esl_strdup(msa->sa_cons,   -1, &(new->sa_cons));
-  esl_strdup(msa->pp_cons,   -1, &(new->pp_cons));
-  esl_strdup(msa->rf,    -1, &(new->rf));
+  esl_strdup(msa->name,    -1, &(new->name));
+  esl_strdup(msa->desc,    -1, &(new->desc));
+  esl_strdup(msa->acc,     -1, &(new->acc));
+  esl_strdup(msa->au,      -1, &(new->au));
+  esl_strdup(msa->ss_cons, -1, &(new->ss_cons));
+  esl_strdup(msa->sa_cons, -1, &(new->sa_cons));
+  esl_strdup(msa->pp_cons, -1, &(new->pp_cons));
+  esl_strdup(msa->rf,      -1, &(new->rf));
+  esl_strdup(msa->mm,      -1, &(new->mm));
 
   if (msa->sqacc != NULL) {
     ESL_ALLOC(new->sqacc, sizeof(char **) * msa->nseq);
@@ -480,6 +481,7 @@ esl_msa_Destroy(ESL_MSA *msa)
   if (msa->sa_cons != NULL) free(msa->sa_cons);
   if (msa->pp_cons != NULL) free(msa->pp_cons);
   if (msa->rf      != NULL) free(msa->rf);
+  if (msa->mm      != NULL) free(msa->mm);
   if (msa->sslen   != NULL) free(msa->sslen);
   if (msa->salen   != NULL) free(msa->salen);
   if (msa->pplen   != NULL) free(msa->pplen);  
@@ -562,6 +564,7 @@ msa_create_mostly(int nseq, int64_t alen)
   msa->sa_cons = NULL;
   msa->pp_cons = NULL;
   msa->rf      = NULL;
+  msa->mm      = NULL;
   msa->sqacc   = NULL;
   msa->sqdesc  = NULL;
   msa->ss      = NULL;
@@ -2224,6 +2227,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   if ((status = esl_strdup(msa->sa_cons, msa->alen, &(new->sa_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->pp_cons, msa->alen, &(new->pp_cons))) != eslOK) goto ERROR;
   if ((status = esl_strdup(msa->rf,      msa->alen, &(new->rf)))      != eslOK) goto ERROR;
+  if ((status = esl_strdup(msa->mm,      msa->alen, &(new->mm)))      != eslOK) goto ERROR;
 
   for (i = 0; i < eslMSA_NCUTS; i++) {
     new->cutoff[i] = msa->cutoff[i];
@@ -2318,6 +2322,7 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
 	  if (msa->sa_cons != NULL) msa->sa_cons[npos] = msa->sa_cons[opos];
 	  if (msa->pp_cons != NULL) msa->pp_cons[npos] = msa->pp_cons[opos];
 	  if (msa->rf      != NULL) msa->rf[npos]      = msa->rf[opos];
+	  if (msa->mm      != NULL) msa->mm[npos]      = msa->mm[opos];
 	  for (i = 0; i < msa->ngc; i++)
 	    msa->gc[i][npos] = msa->gc[i][opos];
 	}
@@ -2805,6 +2810,7 @@ esl_msa_Validate(const ESL_MSA *msa, char *errmsg)
   if (msa->sa_cons && strlen(msa->sa_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "SA_cons wrong length");
   if (msa->pp_cons && strlen(msa->pp_cons) != msa->alen) ESL_FAIL(eslFAIL, errmsg, "PP_cons wrong length");
   if (msa->rf      && strlen(msa->rf)      != msa->alen) ESL_FAIL(eslFAIL, errmsg, "RF wrong length");
+  if (msa->mm      && strlen(msa->mm   )   != msa->alen) ESL_FAIL(eslFAIL, errmsg, "MM wrong length");
 
   return eslOK;
 }
@@ -2922,6 +2928,7 @@ esl_msa_CompareOptional(ESL_MSA *a1, ESL_MSA *a2)
   if (esl_CCompare(a1->sa_cons, a2->sa_cons) != eslOK) return eslFAIL;
   if (esl_CCompare(a1->pp_cons, a2->pp_cons) != eslOK) return eslFAIL;
   if (esl_CCompare(a1->rf,      a2->rf)      != eslOK) return eslFAIL;
+  if (esl_CCompare(a1->mm,      a2->mm)      != eslOK) return eslFAIL;
   
   if (a1->sqacc != NULL && a2->sqacc != NULL) {
     for (i = 0; i < a1->nseq; i++) if (esl_CCompare(a1->sqacc[i], a2->sqacc[i]) != eslOK) return eslFAIL;

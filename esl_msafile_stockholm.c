@@ -37,6 +37,7 @@
 #define eslSTOCKHOLM_LINE_GR_SA     8
 #define eslSTOCKHOLM_LINE_GR_PP     9
 #define eslSTOCKHOLM_LINE_GR_OTHER  10
+#define eslSTOCKHOLM_LINE_GC_MM     11
 
 typedef struct {
   /* information about the size of the growing alignment parse */
@@ -62,7 +63,8 @@ typedef struct {
   int64_t    ssconslen;		/* current length of #=GC SS_cons annotation */
   int64_t    saconslen;		/* current length of #=GC SA_cons annotation */
   int64_t    ppconslen;		/* current length of #=GC PP_cons annotation */
-  int64_t    rflen;		/* current length of #=GC RF annotation */
+  int64_t    rflen;		    /* current length of #=GC RF annotation */
+  int64_t    mmasklen;    /* current length of #=GC MM annotation */
   int64_t   *sqlen;		/* current lengths of ax[0..nseq-1] or aseq[0..nseq-1]  */
   int64_t   *sslen;		/* current lengths of ss[0..nseq-1] */
   int64_t   *salen;		/* current lengths of sa[0..nseq-1] */
@@ -404,6 +406,7 @@ stockholm_parsedata_Create(ESL_MSA *msa)
   pd->saconslen     = 0;
   pd->ppconslen     = 0;
   pd->rflen         = 0;
+  pd->mmasklen      = 0;
   pd->sqlen         = NULL;
   pd->sslen         = NULL;
   pd->salen         = NULL;
@@ -682,6 +685,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       else if (esl_memstrcmp(tag, taglen, "SA_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC SA_cons; earlier block(s) in different order?"); }
       else if (esl_memstrcmp(tag, taglen, "PP_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC PP_cons; earlier block(s) in different order?"); }
       else if (esl_memstrcmp(tag, taglen, "RF"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC RF; earlier block(s) in different order?");      }
+      else if (esl_memstrcmp(tag, taglen, "MM"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_MM)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC MMask; earlier block(s) in different order?");      }
       else if (                                             pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC line; earlier block(s) in different order?");
     }
   else				/* First block */
@@ -692,6 +696,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       else if (esl_memstrcmp(tag, taglen, "SA_cons"))  pd->blinetype[pd->bi] = eslSTOCKHOLM_LINE_GC_SACONS;
       else if (esl_memstrcmp(tag, taglen, "PP_cons"))  pd->blinetype[pd->bi] = eslSTOCKHOLM_LINE_GC_PPCONS;
       else if (esl_memstrcmp(tag, taglen, "RF"))       pd->blinetype[pd->bi] = eslSTOCKHOLM_LINE_GC_RF;
+      else if (esl_memstrcmp(tag, taglen, "MM"))       pd->blinetype[pd->bi] = eslSTOCKHOLM_LINE_GC_MM;
       else                                             pd->blinetype[pd->bi] = eslSTOCKHOLM_LINE_GC_OTHER;
       pd->bidx[pd->bi]      = -1;
     }
@@ -718,6 +723,12 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {
       if (pd->rflen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC RF line in block");
       if ((status = esl_strcat(&(msa->rf), pd->rflen, p, n)) != eslOK) return status; /* [eslEMEM] */
+      pd->rflen += n;
+    }
+  else if (pd->blinetype[pd->bi] == eslSTOCKHOLM_LINE_GC_MM)
+    {
+      if (pd->mmasklen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC MM line in block");
+      if ((status = esl_strcat(&(msa->mm), pd->mmasklen, p, n)) != eslOK) return status; /* [eslEMEM] */
       pd->rflen += n;
     }
   else
@@ -1138,6 +1149,7 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 
   maxgc   = esl_str_GetMaxWidth(msa->gc_tag, msa->ngc);
   if (msa->rf      && maxgc < 2) maxgc = 2;
+  if (msa->mm      && maxgc < 2) maxgc = 2;
   if (msa->ss_cons && maxgc < 7) maxgc = 7;
   if (msa->sa_cons && maxgc < 7) maxgc = 7;
   if (msa->pp_cons && maxgc < 7) maxgc = 7;
@@ -1286,8 +1298,12 @@ stockholm_write(FILE *fp, const ESL_MSA *msa, int64_t cpl)
 	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "PP_cons", buf)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       if (msa->rf) {
-	strncpy(buf, msa->rf + currpos, acpl);
-	if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+  strncpy(buf, msa->rf + currpos, acpl);
+  if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "RF", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
+      }
+      if (msa->mm) {
+  strncpy(buf, msa->mm + currpos, acpl);
+  if (fprintf(fp, "#=GC %-*s %s\n", margin-6, "MM", buf)           < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "stockholm msa write failed");
       }
       for (j = 0; j < msa->ngc; j++) {
 	strncpy(buf, msa->gc[j] + currpos, acpl);

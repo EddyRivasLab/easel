@@ -46,6 +46,7 @@
 #define eslSELEX_LINE_CS 3
 #define eslSELEX_LINE_SS 4
 #define eslSELEX_LINE_SA 5
+#define eslSELEX_LINE_MM 6
 
 typedef struct {
   char     **line;		/* line[0..nlines-1][0..llen-1]: memory lines in input buffer */
@@ -312,6 +313,7 @@ esl_msafile_selex_Write(FILE *fp, const ESL_MSA *msa)
       if (apos         && fprintf(fp, "\n")                                                      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
       if (msa->ss_cons && fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=CS", cpl, msa->ss_cons+apos) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
       if (msa->rf      && fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=RF", cpl, msa->rf+apos)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
+      if (msa->mm      && fprintf(fp, "%-*s %.*s\n", maxnamelen, "#=MM", cpl, msa->mm+apos)      < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "selex msa write failed");
 
       for (i = 0; i < msa->nseq; i++)
 	{
@@ -539,7 +541,7 @@ static int
 selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
 {
   ESL_MSA  *msa = NULL;
-  int       nrf, ncs, nss, nsa, nseq;
+  int       nrf, nmm, ncs, nss, nsa, nseq;
   int       has_ss, has_sa;
   char     *p, *tok;
   esl_pos_t n,  ntok;
@@ -553,6 +555,7 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
   for (idx = 0; idx < b->nlines; idx++)
     {
       if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { b->ltype[idx] = eslSELEX_LINE_RF; nrf++; }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=MM")) { b->ltype[idx] = eslSELEX_LINE_MM; nmm++; }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { b->ltype[idx] = eslSELEX_LINE_CS; ncs++; }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { b->ltype[idx] = eslSELEX_LINE_SS; nss++; has_ss = TRUE; }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { b->ltype[idx] = eslSELEX_LINE_SA; nsa++; has_sa = TRUE; }
@@ -620,6 +623,7 @@ selex_other_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
   for (idx = 0; idx < b->nlines; idx++)
     {
       if      (esl_memstrpfx(b->line[idx], b->llen[idx], "#=RF")) { if (b->ltype[idx] != eslSELEX_LINE_RF) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=RF line isn't in expected order in block"); } }
+      else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=MM")) { if (b->ltype[idx] != eslSELEX_LINE_MM) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=MM line isn't in expected order in block"); } }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=CS")) { if (b->ltype[idx] != eslSELEX_LINE_CS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=CS line isn't in expected order in block"); } }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SS")) { if (b->ltype[idx] != eslSELEX_LINE_SS) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SS line isn't in expected order in block"); } }
       else if (esl_memstrpfx(b->line[idx], b->llen[idx], "#=SA")) { if (b->ltype[idx] != eslSELEX_LINE_SA) { selex_ErrorInBlock(afp, b, idx); ESL_FAIL(eslEFORMAT, afp->errmsg, "#=SA line isn't in expected order in block"); } }
@@ -716,6 +720,7 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
       else 
 	{			/* annotation append: not mapped, characters are copied exactly as they are */
 	  if      (b->ltype[idx] == eslSELEX_LINE_RF) { ESL_REALLOC(msa->rf,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->rf;         }
+	  if      (b->ltype[idx] == eslSELEX_LINE_MM) { ESL_REALLOC(msa->mm,         sizeof(char) * (msa->alen + nadd + 1)); p = msa->mm;         }
 	  else if (b->ltype[idx] == eslSELEX_LINE_CS) { ESL_REALLOC(msa->ss_cons,    sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss_cons;    }
 	  else if (b->ltype[idx] == eslSELEX_LINE_SS) { ESL_REALLOC(msa->ss[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->ss[seqi-1]; }
 	  else if (b->ltype[idx] == eslSELEX_LINE_SA) { ESL_REALLOC(msa->sa[seqi-1], sizeof(char) * (msa->alen + nadd + 1)); p = msa->sa[seqi-1]; }

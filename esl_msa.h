@@ -59,6 +59,7 @@ typedef struct {
   char  *sa_cons;   /* consensus surface access, or NULL; [0..alen-1], even in digital mode */
   char  *pp_cons;   /* consensus posterior prob, or NULL; [0..alen-1], even in digital mode */
   char  *rf;        /* reference coord system, or NULL;   [0..alen-1], even in digital mode */
+  char  *mm;        /* model mask, or NULL;   [0..alen-1], even in digital mode             */
   char **sqacc;     /* accession numbers for sequences i                                    */
   char **sqdesc;    /* description lines for sequences i                                    */
   char **ss;        /* per-seq secondary structures, or NULL                                */

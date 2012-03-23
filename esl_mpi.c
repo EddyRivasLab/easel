@@ -706,6 +706,7 @@ esl_msa_MPIPackSize(const ESL_MSA *msa, MPI_Comm comm, int *ret_n)
   status = esl_mpi_PackOptSize(msa->sa_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;     if (status != eslOK) goto ERROR;
   status = esl_mpi_PackOptSize(msa->pp_cons, msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;     if (status != eslOK) goto ERROR;
   status = esl_mpi_PackOptSize(msa->rf,      msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;     if (status != eslOK) goto ERROR;
+  status = esl_mpi_PackOptSize(msa->mm,   msa->alen+1, MPI_CHAR,          comm, &sz); n += sz;     if (status != eslOK) goto ERROR;
   status = MPI_Pack_size      (             eslMSA_NCUTS, MPI_FLOAT,         comm, &sz); n += sz;     if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
   status = MPI_Pack_size      (             eslMSA_NCUTS, MPI_INT,           comm, &sz); n += sz;     if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
 
@@ -780,6 +781,7 @@ esl_msa_MPIPack(const ESL_MSA *msa, char *buf, int n, int *position, MPI_Comm co
   status = esl_mpi_PackOpt(msa->sa_cons,          msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = esl_mpi_PackOpt(msa->pp_cons,          msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = esl_mpi_PackOpt(msa->rf,               msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
+  status = esl_mpi_PackOpt(msa->mm,            msa->alen+1, MPI_CHAR,          buf, n, position,  comm); if (status != eslOK) return status;
   status = MPI_Pack       ((void *) msa->cutoff, eslMSA_NCUTS, MPI_FLOAT,         buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
   status = MPI_Pack       ((void *) msa->cutset, eslMSA_NCUTS, MPI_INT,           buf, n, position,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
 
@@ -851,6 +853,7 @@ esl_msa_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm 
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->sa_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->pp_cons), NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->rf)     , NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
+  status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(msa->mm)  , NULL,  MPI_CHAR,    comm); if (status != eslOK) goto ERROR;
   status = MPI_Unpack       (buf, n, pos,  msa->cutoff,      eslMSA_NCUTS,  MPI_FLOAT,   comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
   status = MPI_Unpack       (buf, n, pos,  msa->cutset,      eslMSA_NCUTS,  MPI_INT,     comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
 
@@ -1027,7 +1030,8 @@ utest_MSASendRecv(ESL_ALPHABET *abc, ESL_MSA *msa, int my_rank, int nproc)
 	      (esl_CCompare(msa->ss_cons, xmsa->ss_cons) != eslOK) ||
 	      (esl_CCompare(msa->sa_cons, xmsa->sa_cons) != eslOK) ||
 	      (esl_CCompare(msa->pp_cons, xmsa->pp_cons) != eslOK) ||
-	      (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK))
+	      (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK) ||
+	      (esl_CCompare(msa->mm,   xmsa->mm)   != eslOK))
 	    esl_fatal("Received MSA is not identical to what was sent.");
 
 	  esl_msa_Destroy(xmsa);
@@ -1072,7 +1076,8 @@ utest_MSAPackUnpack(ESL_ALPHABET *abc, ESL_MSA *msa, int my_rank, int nproc)
       (esl_CCompare(msa->ss_cons, xmsa->ss_cons) != eslOK) ||
       (esl_CCompare(msa->sa_cons, xmsa->sa_cons) != eslOK) ||
       (esl_CCompare(msa->pp_cons, xmsa->pp_cons) != eslOK) ||
-      (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK))
+      (esl_CCompare(msa->rf,      xmsa->rf)      != eslOK) ||
+      (esl_CCompare(msa->mm,   xmsa->mm)   != eslOK))
     esl_fatal("Unpacked MSA is not identical to what was packed.");
   
   esl_msa_Destroy(xmsa);

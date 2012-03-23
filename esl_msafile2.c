@@ -643,6 +643,7 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
   if(ret_msa != NULL && opt_maxgc != NULL) { 
     for(i = 0; i < msa->ngc; i++) maxgc = ESL_MAX(maxgc, strlen(msa->gc_tag[i])); 
     if (msa->rf      != NULL)     maxgc = ESL_MAX(maxgc, 2); /* 2 == strlen("RF") */
+    if (msa->mm      != NULL)     maxgc = ESL_MAX(maxgc, 2); /* 2 == strlen("MM") */
     if (msa->ss_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("SS_cons") */
     if (msa->sa_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("SA_cons") */
     if (msa->pp_cons != NULL)     maxgc = ESL_MAX(maxgc, 7); /* 7 == strlen("PP_cons") */
@@ -654,7 +655,6 @@ esl_msafile2_ReadInfoPfam(ESL_MSAFILE2 *afp, FILE *listfp, ESL_ALPHABET *abc, in
     if (msa->desc != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("DE") */
     if (msa->acc  != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("AC") */
     if (msa->au   != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("AU") */
-    if (msa->rf   != NULL) maxgf = ESL_MAX(maxgf, 2); /* 2 == strlen("RF") */
   }
 
   if (first_seqname) free(first_seqname);
@@ -1298,6 +1298,7 @@ parse_gc(ESL_MSA *msa, char *buf)
   else if (strcmp(tag, "SA_cons") == 0)  status = esl_strcat(&(msa->sa_cons), -1, text, len);
   else if (strcmp(tag, "PP_cons") == 0)  status = esl_strcat(&(msa->pp_cons), -1, text, len);
   else if (strcmp(tag, "RF")      == 0)  status = esl_strcat(&(msa->rf),      -1, text, len);
+  else if (strcmp(tag, "MM")      == 0)  status = esl_strcat(&(msa->mm),      -1, text, len);
   else                                   status = esl_msa_AppendGC(msa, tag, text);
 
   return status;
