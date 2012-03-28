@@ -759,12 +759,12 @@ eslx_msafile_DecodeFormat(int fmt)
  * Let alen  = # of residues+gaps per sequence
  * Let ncons = # of uppercase + '-': consensus positions in A2M
  * 
- * If two seqs have same ncons, different alen, and no dots, that's a
+ * If two seqs have same nonzero ncons, different alen, and no dots, that's a
  * positive identification of dotless A2M.
  * 
  * If two seqs have same alen but different ncons, that positive id of
  * AFA.
- * 
+ *
  * If we get ~100 sequences in and we still haven't decided, just call
  * it AFA.
  */
@@ -779,6 +779,7 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
   int       nseq;
   int       nupper, nlower, ndash, ndot, nother;
   int       alen, ncons;
+  int       saw_other = FALSE;
   int       status;
 
   anchor = esl_buffer_GetOffset(bf);
@@ -812,20 +813,23 @@ msafile_guess_afalike(ESL_BUFFER *bf, int *ret_format)
 	    }
 	}
       if (status != eslOK && status != eslEOF) goto ERROR;
-      if (nother) { format = eslMSAFILE_AFA; goto DONE; } /* A2M only permits -. plus alphabetic */
+      if (nother) saw_other = TRUE; /* A2M is strict: only allows .-[a-z][A-Z] */
 
       if (nseq == 0)
 	{
-	  alen  = nupper+nlower+ndash+ndot;
+	  alen  = nupper+nlower+ndash+ndot+nother;
 	  ncons = nupper+ndash;
 	}
       else
-	{
-	  if (         nupper+nlower+ndash+ndot == alen && nupper+ndash != ncons) { format = eslMSAFILE_AFA; goto DONE; }
-	  if (!ndot && nupper+nlower+ndash      != alen && nupper+ndash == ncons) { format = eslMSAFILE_A2M; goto DONE; }
+	{ /* in ungapped alignments w/ no insertions, we can't distinguish AFA, A2M. These are *positive* id tests  */
+	  if (                                nupper+nlower+ndash+ndot+nother == alen && nupper+ndash != ncons) { format = eslMSAFILE_AFA; goto DONE; }
+	  if (ncons && !saw_other && !ndot && nupper+nlower+ndash             != alen && nupper+ndash == ncons) { format = eslMSAFILE_A2M; goto DONE; }
+	  /* and there's a *negative* id test, for an unaligned FASTA file: must have nonzero ncons to be A2M, must have equal-length seqs to be AFA */
+	  /* the example we're catching here is an unaligned FASTA file of all lower case residues: don't call that A2M. Hence the test for nonzero <ncons> */
+	  if (!ncons && nupper+nlower+ndash+ndot+nother != alen) { format = eslMSAFILE_UNKNOWN; goto DONE; }
 	}
     }
-  format = eslMSAFILE_AFA;
+  format = eslMSAFILE_AFA;	/* if we haven't positively id'ed A2M vs AFA, it probably doesn't matter (gapless alignment): call it AFA */
   /* deliberate flowthrough */
  DONE:
   esl_buffer_SetOffset(bf, anchor);   /* Rewind to where we were. */
@@ -1363,6 +1367,24 @@ seq2    ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWYacdefghiklmn
   esl_alphabet_Destroy(abc2);
 }
 
+static void
+utest_tricky_format_decisions(void)
+{
+  ESLX_MSAFILE *afp;
+  int status;
+
+  /* an all-lower case unaligned FASTA file should not get called A2M format
+   * an A2M file should have at least one consensus column, not be all-insert.
+   */
+  char *testmsa1 = "\
+>seq1\n\
+aaaaaa\n\
+>seq2\n\
+aaaaa\n";
+  status = eslx_msafile_OpenMem(NULL, testmsa1, strlen(testmsa1), eslMSAFILE_UNKNOWN, NULL, &afp);
+  if      (status == eslOK)        esl_fatal("testmsa1 erroneously detected as %s", eslx_msafile_DecodeFormat(afp->format));
+  else if (status != eslENOFORMAT) esl_fatal("tricky_format_decisions test failed");
+}
 #endif /*eslMSAFILE_TESTDRIVE*/
 /*----------------- end, unit tests -----------------------------*/
 
@@ -1402,6 +1424,8 @@ main(int argc, char **argv)
   for (fmt1 = eslMSAFILE_STOCKHOLM; fmt1 <= eslMSAFILE_PHYLIPS; fmt1++)
     for (fmt2 = eslMSAFILE_STOCKHOLM; fmt2 <= eslMSAFILE_PHYLIPS; fmt2++)
       utest_format2format(fmt1, fmt2);
+
+  utest_tricky_format_decisions();
 
   esl_getopts_Destroy(go);
   exit(0);

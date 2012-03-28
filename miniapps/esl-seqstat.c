@@ -3,6 +3,12 @@
  * SRE, Sun Feb 24 15:33:53 2008 [UA5315 to St. Louis]
  * SVN $Id$  
  * from squid's seqstat (1994)
+ * 
+ * Wish list:
+ *   - add an option for printing sequence names only.
+ *     This would facilitate using esl-seqstat in incantations (with
+ *     esl-selectn and esl-sfetch) to extract subsets of sequences
+ *     from a large file.
  */
 #include "esl_config.h"
 
@@ -224,3 +230,5 @@ show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64
     
   return;
 }
+
+
