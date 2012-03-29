@@ -1384,6 +1384,8 @@ aaaaa\n";
   status = eslx_msafile_OpenMem(NULL, testmsa1, strlen(testmsa1), eslMSAFILE_UNKNOWN, NULL, &afp);
   if      (status == eslOK)        esl_fatal("testmsa1 erroneously detected as %s", eslx_msafile_DecodeFormat(afp->format));
   else if (status != eslENOFORMAT) esl_fatal("tricky_format_decisions test failed");
+
+  eslx_msafile_Close(afp);
 }
 #endif /*eslMSAFILE_TESTDRIVE*/
 /*----------------- end, unit tests -----------------------------*/
