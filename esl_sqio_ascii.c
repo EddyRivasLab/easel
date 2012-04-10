@@ -1534,10 +1534,9 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
 
     for (  ; i < sqBlock->listSize && size < max_residues; ++i)
     {
-//      if (i==61)
-//        printf(".");
 
      esl_sq_Reuse(tmpsq);
+     esl_sq_Reuse(sqBlock->list + i);
      status = sqascii_ReadWindow(sqfp, 0, max_residues-size , sqBlock->list + i); //max_residues-size, so the block size is limited to max_residues
      if (status != eslOK) break; // end of sequences
 
