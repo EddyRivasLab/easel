@@ -685,7 +685,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       else if (esl_memstrcmp(tag, taglen, "SA_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_SACONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC SA_cons; earlier block(s) in different order?"); }
       else if (esl_memstrcmp(tag, taglen, "PP_cons")) { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_PPCONS) ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC PP_cons; earlier block(s) in different order?"); }
       else if (esl_memstrcmp(tag, taglen, "RF"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_RF)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC RF; earlier block(s) in different order?");      }
-      else if (esl_memstrcmp(tag, taglen, "MM"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_MM)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC MMask; earlier block(s) in different order?");      }
+      else if (esl_memstrcmp(tag, taglen, "MM"))      { if (pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_MM)     ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC MM; earlier block(s) in different order?");      }
       else if (                                             pd->blinetype[pd->bi] != eslSTOCKHOLM_LINE_GC_OTHER)  ESL_FAIL(eslEFORMAT, afp->errmsg, "unexpected #=GC line; earlier block(s) in different order?");
     }
   else				/* First block */
@@ -729,7 +729,7 @@ stockholm_parse_gc(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {
       if (pd->mmasklen != pd->alen) ESL_FAIL(eslEFORMAT, afp->errmsg, "more than one #=GC MM line in block");
       if ((status = esl_strcat(&(msa->mm), pd->mmasklen, p, n)) != eslOK) return status; /* [eslEMEM] */
-      pd->rflen += n;
+      pd->mmasklen += n;
     }
   else
     {
