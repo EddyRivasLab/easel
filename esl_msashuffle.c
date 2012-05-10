@@ -1,8 +1,9 @@
-/* Shuffling or bootstrapping alignments.
+/* Shuffling, bootstrapping, permuting alignments, by column or row.
  * 
  * Table of contents:
- *    1. Randomizing MSAs.
- *    2. Shuffling pairwise (QRNA) alignments.
+ *    1. Randomizing MSAs by column.
+ *    2. Permuting sequence order (i.e. by row)
+ *    3. Shuffling pairwise (QRNA) alignments.
  */
 #include "esl_config.h"
 
@@ -18,7 +19,7 @@
 
 
 /*****************************************************************
- * 1. Randomizing MSAs
+ * 1. Randomizing MSAs by column.
  *****************************************************************/ 
 
 /* Function:  esl_msashuffle_Shuffle()
@@ -173,8 +174,68 @@ esl_msashuffle_Bootstrap(ESL_RANDOMNESS *r, ESL_MSA *msa, ESL_MSA *bootsample)
   return eslOK;
 }
 
+
 /*****************************************************************
- * 2. Shuffling pairwise (QRNA) alignments
+ * 2. Permuting the sequence order 
+ *****************************************************************/
+
+/* Function:  esl_msashuffle_PermuteSequenceOrder()
+ * Synopsis:  Permutes the order of the sequences.
+ *
+ * Purpose:   Randomly permute the order of the sequences in <msa>,
+ *            and any associated sequence annotation, in place.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_msashuffle_PermuteSequenceOrder(ESL_RANDOMNESS *r, ESL_MSA *msa)
+{
+  void   *tmp;
+  double  tmpwgt;
+  int64_t tmplen;
+  int     N, i, tag;
+
+  for (N = msa->nseq; N > 1; N--)
+    {
+      i = esl_rnd_Roll(r, N);	/* idx = 0..N-1 */
+      
+      if ( ! (msa->flags & eslMSA_DIGITAL)) { tmp = msa->aseq[i]; msa->aseq[i] = msa->aseq[N-1]; msa->aseq[N-1] = tmp; }
+#ifdef eslAUGMENT_ALPHABET
+      else 	                            { tmp = msa->ax[i];   msa->ax[i]   = msa->ax[N-1];   msa->ax[N-1]   = tmp; }
+#endif
+      tmp    = msa->sqname[i]; msa->sqname[i] = msa->sqname[N-1]; msa->sqname[N-1] = tmp;
+      tmpwgt = msa->wgt[i];    msa->wgt[i]    = msa->wgt[N-1];    msa->wgt[N-1]    = tmpwgt;
+
+      if (msa->sqacc)  { tmp    = msa->sqacc[i];  msa->sqacc[i]  = msa->sqacc[N-1];  msa->sqacc[N-1]  = tmp;    }
+      if (msa->sqdesc) { tmp    = msa->sqdesc[i]; msa->sqdesc[i] = msa->sqdesc[N-1]; msa->sqdesc[N-1] = tmp;    }
+      if (msa->ss)     { tmp    = msa->ss[i];     msa->ss[i]     = msa->ss[N-1];     msa->ss[N-1]     = tmp;    }
+      if (msa->sa)     { tmp    = msa->sa[i];     msa->sa[i]     = msa->sa[N-1];     msa->sa[N-1]     = tmp;    }
+      if (msa->pp)     { tmp    = msa->pp[i];     msa->pp[i]     = msa->pp[N-1];     msa->pp[N-1]     = tmp;    }
+      if (msa->sqlen)  { tmplen = msa->sqlen[i];  msa->sqlen[i]  = msa->sqlen[N-1];  msa->sqlen[N-1]  = tmplen; }
+      if (msa->sslen)  { tmplen = msa->sslen[i];  msa->sslen[i]  = msa->sslen[N-1];  msa->sslen[N-1]  = tmplen; }
+      if (msa->salen)  { tmplen = msa->salen[i];  msa->salen[i]  = msa->salen[N-1];  msa->salen[N-1]  = tmplen; }
+      if (msa->pplen)  { tmplen = msa->pplen[i];  msa->pplen[i]  = msa->pplen[N-1];  msa->pplen[N-1]  = tmplen; }
+
+      for (tag = 0; tag < msa->ngs; tag++) if (msa->gs[tag]) { tmp = msa->gs[tag][i]; msa->gs[tag][i] = msa->gs[tag][N-1]; msa->gs[tag][N-1] = tmp; }
+      for (tag = 0; tag < msa->ngr; tag++) if (msa->gr[tag]) { tmp = msa->gr[tag][i]; msa->gr[tag][i] = msa->gr[tag][N-1]; msa->gr[tag][N-1] = tmp; }
+    }
+
+  /* if <msa> has a keyhash that maps seqname => seqidx, we'll need to rebuild it. */
+  if (msa->index) 
+    {
+      esl_keyhash_Reuse(msa->index);
+      for (i = 0; i < msa->nseq; i++)
+	esl_keyhash_Store(msa->index, msa->sqname[i], -1, NULL);
+    }
+
+  return eslOK;
+}
+
+
+/*****************************************************************
+ * 3. Shuffling pairwise (QRNA) alignments
  *****************************************************************/ 
 #ifdef eslAUGMENT_ALPHABET
 /* Function: esl_msashuffle_XQRNA()
@@ -368,6 +429,85 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
   return status;
 }
 #endif /*eslAUGMENT_ALPHABET*/
+
+
+/*****************************************************************
+ * 4. Example.
+ *****************************************************************/
+#ifdef eslMSASHUFFLE_EXAMPLE
+#include <stdio.h>
+#include "easel.h"
+#include "esl_alphabet.h"
+#include "esl_getopts.h"
+#include "esl_msa.h"
+#include "esl_msafile.h"
+#include "esl_random.h"
+
+static ESL_OPTIONS options[] = {
+  /* name             type          default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",          eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",        0 },
+  { "--dna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use DNA alphabet",                            0 },
+  { "--rna",       eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use RNA alphabet",                            0 },
+  { "--amino",     eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use protein alphabet",                        0 },
+  { "--text",      eslARG_NONE,       FALSE,  NULL, NULL,  NULL,  NULL, NULL, "use text mode: no digital alphabet",          0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <msafile>";
+static char banner[] = "example of multiple alignment shuffling/permuting";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS    *go        = esl_getopts_CreateDefaultApp(options, 1, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng       = esl_randomness_Create(0);
+  char           *msafile   = esl_opt_GetArg(go, 1);
+  int             fmt       = eslMSAFILE_UNKNOWN;
+  ESL_ALPHABET   *abc       = NULL;
+  ESLX_MSAFILE   *afp       = NULL;
+  ESL_MSA        *msa       = NULL;
+  int             textmode  = esl_opt_GetBoolean(go, "--text");
+  int             nali      = 0;
+  int             status;
+
+  /* If you know the alphabet you want, create it - you'll pass it to eslx_msafile_Open() */
+  if      (esl_opt_GetBoolean(go, "--rna"))   abc = esl_alphabet_Create(eslRNA);
+  else if (esl_opt_GetBoolean(go, "--dna"))   abc = esl_alphabet_Create(eslDNA);
+  else if (esl_opt_GetBoolean(go, "--amino")) abc = esl_alphabet_Create(eslAMINO); 
+
+  /* Open in text or digital mode.
+   *   To let the Open() function autoguess the format, you pass <infmt=eslMSAFILE_UNKNOWN>. 
+   *   To let it autoguess the alphabet, you set <abc=NULL> and pass <&abc>.
+   *   To open in text mode instead of digital, you pass <NULL> for the alphabet argument.
+   * eslx_msafile_OpenFailure() is a convenience, printing various diagnostics of any
+   * open failure to <stderr>. You can of course handle your own diagnostics instead.
+   */
+  if (textmode) status = eslx_msafile_Open(NULL, msafile, NULL, fmt, NULL, &afp);
+  else          status = eslx_msafile_Open(&abc, msafile, NULL, fmt, NULL, &afp);
+  if (status != eslOK)   eslx_msafile_OpenFailure(afp, status);
+  
+  fmt = afp->format;
+
+  while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
+    {	
+      /* if digital MSA: msa->ax[idx=0..nseq-1][acol=1..alen] is the alignment data; 
+       * if text MSA:  msa->aseq[idx=0..nseq-1][acol=0..alen-1] */
+      nali++;
+      
+      /* permute it */
+      esl_msashuffle_PermuteSequenceOrder(rng, msa);
+
+      eslx_msafile_Write(stdout, msa, fmt);
+      esl_msa_Destroy(msa);
+    }
+  if (nali == 0 || status != eslEOF) eslx_msafile_ReadFailure(afp, status); /* a convenience, like eslx_msafile_OpenFailure() */
+
+  esl_alphabet_Destroy(abc);
+  eslx_msafile_Close(afp);
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
+  exit(0);
+}
+#endif
 
 /*****************************************************************
  * @LICENSE@

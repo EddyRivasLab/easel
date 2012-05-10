@@ -103,9 +103,9 @@ typedef struct {
   char  **gc;                   /* [0..ngc-1][0..alen-1] markup         */
   int     ngc;                  /* number of #=GC tag types             */
 
-  char  **gr_tag;               /* markup tags for unparsed #=GR lines   */
-  char ***gr;                   /* [0..ngr][0..nseq-1][0..alen-1] markup */
-  int     ngr;			/* number of #=GR tag types              */
+  char  **gr_tag;               /* markup tags for unparsed #=GR lines     */
+  char ***gr;                   /* [0..ngr-1][0..nseq-1][0..alen-1] markup */
+  int     ngr;			/* number of #=GR tag types                */
 
   /* Optional augmentation w/ keyhashes. 
    * This can significantly speed up parsing of large alignments

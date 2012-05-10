@@ -315,6 +315,7 @@ EXAMPLES = \
 	esl_msafile_stockholm_example\
 	esl_msafile_stockholm_example2\
         esl_msacluster_example\
+        esl_msashuffle_example\
         esl_msaweight_example\
         esl_normal_example\
         esl_normal_example2\
