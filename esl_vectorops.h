@@ -110,6 +110,13 @@ extern int    esl_vec_FValidate(float  *vec, int n, float  tol, char *errbuf);
 extern int    esl_vec_DLogValidate(double *vec, int n, double tol, char *errbuf);
 extern int    esl_vec_FLogValidate(float  *vec, int n, float  tol, char *errbuf);
 
+#ifdef eslAUGMENT_RANDOM
+#include "esl_random.h"
+extern int esl_vec_DShuffle(ESL_RANDOMNESS *r, double *v, int n);
+extern int esl_vec_FShuffle(ESL_RANDOMNESS *r, float  *v, int n);
+extern int esl_vec_IShuffle(ESL_RANDOMNESS *r, int    *v, int n);
+#endif
+
 #endif /* eslVECTOROPS_INCLUDED */
 
 /*****************************************************************

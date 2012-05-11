@@ -186,6 +186,9 @@ extern int esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum);
 
 extern int esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *useme);
 extern int esl_msa_RemoveBrokenBasepairs(ESL_MSA *msa, char *errbuf, const int *useme);
+#ifdef eslAUGMENT_KEYHASH
+extern int esl_msa_Hash(ESL_MSA *msa);
+#endif
 
 /* 5. Debugging, testing, development */
 extern int      esl_msa_Validate(const ESL_MSA *msa, char *errmsg);

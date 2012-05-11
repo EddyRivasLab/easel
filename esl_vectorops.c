@@ -1237,6 +1237,58 @@ esl_vec_FLogValidate(float *vec, int n, float tol, char *errbuf)
   return eslOK;
 }
 
+#ifdef eslAUGMENT_RANDOM
+#include "esl_random.h"
+
+/* Function:  esl_vec_DShuffle()
+ * Synopsis:  Shuffle a vector, in place.
+ *
+ * Purpose:   Shuffle a vector <v> of <n> items, using the
+ *            random number generator <r>.
+ */
+int
+esl_vec_DShuffle(ESL_RANDOMNESS *r, double *v, int n)
+{
+  double swap;
+  int    pos;
+  for ( ; n > 1; n--)
+    {
+      pos = esl_rnd_Roll(r, n);
+      swap = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+int
+esl_vec_FShuffle(ESL_RANDOMNESS *r, float *v, int n)
+{
+  float swap;
+  int   pos;
+  for ( ; n > 1; n--)
+    {
+      pos = esl_rnd_Roll(r, n);
+      swap = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+int
+esl_vec_IShuffle(ESL_RANDOMNESS *r, int *v, int n)
+{
+  int swap;
+  int pos;
+  for ( ; n > 1; n--)
+    {
+      pos = esl_rnd_Roll(r, n);
+      swap = v[pos]; 
+      v[pos] = v[n-1];
+      v[n-1] = swap;
+    }
+  return eslOK;
+}
+#endif /*eslAUGMENT_RANDOM*/
 
 
 /*****************************************************************

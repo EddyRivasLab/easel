@@ -2746,6 +2746,49 @@ msa_get_rlen(const ESL_MSA *msa, int seqidx)
     }
   return rlen;
 }
+
+
+#ifdef eslAUGMENT_KEYHASH
+/* Function:  esl_msa_Hash()
+ * Synopsis:  Hash sequence names, internally, for faster access/lookup.
+ *
+ * Purpose:   Caller wants to map sequence names to integer index in the
+ *            <ESL_MSA> structure, using the internal <msa->index> keyhash.
+ *            Create (or recreate) that index.
+ *            
+ *            Each sequence name must be unique. If not, returns
+ *            <eslEDUP>, and <msa->index> is <NULL> (if it already
+ *            existed, it is destroyed).
+ *
+ * Returns:   <eslOK> on success, and <msa->index> is available for 
+ *            keyhash lookups.
+ *            
+ *            <eslEDUP> if any sequence names are duplicated, and 
+ *            <msa->index> is <NULL>.
+ *
+ * Throws:    <eslEMEM> on allocation error.
+ */
+int
+esl_msa_Hash(ESL_MSA *msa)
+{
+  int idx;
+  int status;
+
+  if   (msa->index)  esl_keyhash_Reuse(msa->index);
+  else  msa->index = esl_keyhash_Create();
+  if (! msa->index) { status = eslEMEM; goto ERROR; }
+  
+  for (idx = 0; idx < msa->nseq; idx++)
+    if ((status = esl_keyhash_Store(msa->index, msa->sqname[idx], -1, NULL)) != eslOK) goto ERROR;
+
+  return eslOK;
+
+ ERROR:
+  if (msa->index) { esl_keyhash_Destroy(msa->index); msa->index = NULL; }
+  return status;
+}
+#endif /*eslAUGMENT_KEYHASH*/
+
 /*----------------- end of misc MSA functions -------------------*/
 
 
