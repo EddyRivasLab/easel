@@ -1479,9 +1479,6 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   else
   { /* DNA, not an alignment.  Might be really long sequences */
       
-    /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
-    if (max_residues < 0)
-      max_residues = MAX_RESIDUE_COUNT;
       
     tmpsq = esl_sq_Create();
 
@@ -1519,6 +1516,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
             if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
             return status; //surprising
           }
+          sqBlock->list->L = tmpsq->L;
         }
       }
       else if (status == eslEOD)
@@ -1537,7 +1535,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
 
      esl_sq_Reuse(tmpsq);
      esl_sq_Reuse(sqBlock->list + i);
-     status = sqascii_ReadWindow(sqfp, 0, max_residues-size , sqBlock->list + i); //max_residues-size, so the block size is limited to max_residues
+     status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
      if (status != eslOK) break; // end of sequences
 
      size += sqBlock->list[i].n - sqBlock->list[i].C;
@@ -1572,6 +1570,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
          if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
          return status; //surprising
        }
+       sqBlock->list[i].L = tmpsq->L;
        status = eslOK;
      }
     }

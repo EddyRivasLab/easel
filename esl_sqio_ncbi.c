@@ -1224,6 +1224,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 					    if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 					    return status; //surprising
 					  }
+	          sqBlock->list->L = tmpsq->L;
 				  }
 			  }
 			  else if (status == eslEOD)
@@ -1241,10 +1242,11 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 		  for (  ; i < sqBlock->listSize && size < max_residues; ++i)
 		  {
 			  esl_sq_Reuse(tmpsq);
+			  esl_sq_Reuse(sqBlock->list + i);
 			  status = sqncbi_ReadWindow(sqfp, 0, max_residues, tmpsq);
 			  if (status != eslOK) break; // end of sequences
 
-			  size += sqBlock->list[i].n;
+			  size += sqBlock->list[i].n - sqBlock->list[i].C;
 			  ++(sqBlock->count);
 			  if (sqBlock->list[i].n >= max_residues)
 		     { // a full window worth of sequence was read
@@ -1281,6 +1283,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 		         if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 		         return status; //surprising
 		       }
+		       sqBlock->list[i].L = tmpsq->L;
 				  status = eslOK;
 			  }
 		  }
