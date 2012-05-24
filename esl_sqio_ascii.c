@@ -1478,8 +1478,6 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   }
   else
   { /* DNA, not an alignment.  Might be really long sequences */
-      
-      
     tmpsq = esl_sq_Create();
 
     //if complete flag is set to FALSE, then the prior block must have ended with a window that was a possibly
@@ -1532,12 +1530,10 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
 
     for (  ; i < sqBlock->listSize && size < max_residues; ++i)
     {
-
      esl_sq_Reuse(tmpsq);
      esl_sq_Reuse(sqBlock->list + i);
      status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
      if (status != eslOK) break; // end of sequences
-
      size += sqBlock->list[i].n - sqBlock->list[i].C;
 
      ++(sqBlock->count);
@@ -1575,7 +1571,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
      }
     }
   }
-  
+
   /* EOF will be returned only in the case were no sequences were read */
   if (status == eslEOF && i > 0) status = eslOK;
   
@@ -2246,6 +2242,7 @@ seebuf(ESL_SQFILE *sqfp, int64_t maxn, int64_t *opt_nres, int64_t *opt_endpos)
   for (bpos = ascii->bpos; nres < maxn && bpos < ascii->nc; bpos++)
   {
       sym = ascii->buf[bpos];
+      //printf ("nres: %d, bpos: %d  (%d)\n", nres, bpos, sym);
       if (!isascii(sym)) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Line %" PRId64 ": non-ASCII character %c in sequence", ascii->linenumber, sym); 
       x   = sqfp->inmap[sym];
 
@@ -2366,22 +2363,26 @@ static int
 skip_whitespace(ESL_SQFILE *sqfp)
 {
   int status;
+  int c;
   ESL_DSQ x;
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
   if (ascii->nc == 0)
     return eslEOF;
 
-  x  = sqfp->inmap[(int) ascii->buf[ascii->bpos]];
+  c = (int) ascii->buf[ascii->bpos];
+  x  = sqfp->inmap[c];
 
-  while (x > 127) {
+  while ( isspace(c) ) {
+
     ascii->bpos++;
 
     if (ascii->bpos == ascii->nc)
       if ((status = loadbuf(sqfp)) == eslEOF)
         return eslEOF;
 
-    x  = sqfp->inmap[(int) ascii->buf[ascii->bpos]];
+    c = (int) ascii->buf[ascii->bpos];
+    x  = sqfp->inmap[c];
     if (x == eslDSQ_EOD)
       return eslEOD;
   }
@@ -2432,7 +2433,6 @@ read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *op
   int     status      = eslOK;
   
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
-
   status = seebuf(sqfp, nskip+nres, &n, &epos);
   while (status == eslOK && nskip - n > 0) {
     nskip   -= n;
