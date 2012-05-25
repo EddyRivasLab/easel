@@ -214,11 +214,13 @@ main(int argc, char **argv)
       /* determine non-gap RF length */
       rflen = 0;
       for(apos = 1; apos <= ka->alen; apos++) { 
-	if(! (esl_abc_CIsGap(ka->abc, ka->rf[(apos-1)]))) rflen++;
+	if((! esl_abc_CIsGap    (ka->abc, ka->rf[apos-1])) && 
+	   (! esl_abc_CIsMissing(ka->abc, ka->rf[apos-1]))) rflen++;
       }
       t_rflen = 0;
       for(apos = 1; apos <= ta->alen; apos++) { 
-	if(! (esl_abc_CIsGap(ta->abc, ta->rf[(apos-1)]))) t_rflen++;
+	if((! esl_abc_CIsGap       (ta->abc, ta->rf[apos-1])) && 
+	   (! esl_abc_CIsMissing   (ta->abc, ta->rf[apos-1]))) t_rflen++;
       }
       if(t_rflen != rflen) esl_fatal("Trusted alignment non-gap RF length (%d) != predicted alignment non-gap RF length (%d).\n", rflen, t_rflen);
 
@@ -281,14 +283,15 @@ main(int argc, char **argv)
 	uapos = rfpos = 0;
 	for(apos = 1; apos <= ka->alen; apos++) { 
 	  is_rfpos = FALSE;
-	  if(! (esl_abc_CIsGap(ka->abc, ka->rf[(apos-1)]))) { 
+	  if((! esl_abc_CIsGap       (ka->abc, ka->rf[apos-1])) &&
+	     (! esl_abc_CIsMissing   (ka->abc, ka->rf[apos-1]))) { 
 	    rfpos++; is_rfpos = TRUE;
 	  }
 	  if(! esl_abc_XIsGap(ka->abc, ka->ax[i][apos])) { 
 	    uapos++;
 	    kp[i][uapos] = (is_rfpos) ? rfpos : (-1 * rfpos);
 	    if(is_rfpos) { km_pos[rfpos]++; km_seq[i]++; }
-	    else        { ki_pos[rfpos]++; ki_seq[i]++; }
+	    else         { ki_pos[rfpos]++; ki_seq[i]++; }
 	  }
 	}
       }
@@ -298,9 +301,8 @@ main(int argc, char **argv)
 	uapos = rfpos = 0;
 	for(apos = 1; apos <= ta->alen; apos++) { 
 	  is_rfpos = FALSE;
-	  if((! esl_abc_CIsGap(abc, ta->rf[(apos-1)])) && 
-	     (! esl_abc_CIsMissing(abc, ta->rf[(apos-1)])) && 
-	     (! esl_abc_CIsNonresidue(abc, ta->rf[(apos-1)]))) { 
+	  if((! esl_abc_CIsGap       (abc, ta->rf[apos-1])) && 
+	     (! esl_abc_CIsMissing   (abc, ta->rf[apos-1]))) { 
 	    rfpos++; is_rfpos = TRUE;
 	    if(do_post) { 
 	      do_post_for_this_rfpos = (mask != NULL && mask[rfpos-1] == '0') ? FALSE : TRUE;
