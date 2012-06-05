@@ -92,7 +92,6 @@ static void multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQF
 static void onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, 
 			    char *key, uint32_t given_start, uint32_t given_end);
 static int  parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
-static void infernal_name_subseq(char **ret_name, const char *name, ...);
 
 int
 main(int argc, char **argv)
