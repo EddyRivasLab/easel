@@ -282,63 +282,6 @@ where
 may be FASTA, GenBank, EMBL, UniProt, DDBJ, or Stockholm.  This string
 is case-insensitive ("genbank" or "GenBank" both work, for example).
 
-.TP
-.BI --tabfile " <f>"
-With the 
-.B -C 
-and 
-.B -f 
-options, specify that the 
-.I subseq-coord-file
-was output as file 
-.I <f> 
-by the 
-.B cmsearch
-program of the 
-.B Infernal 
-package with the
-.BI  --tabfile " <f>"
-option to
-.B cmsearch.
-The subsequences listed in the tab file will be fetched. The names of
-those sequences will have the model name (if available), hit
-coordinates, bit score, E-value (if available) and GC content appended
-to them. 
-
-.TP
-.B --shortname
-With the 
-.B -C 
-and 
-.B -f 
-and
-.B --tabfile
-options, do not append the model name, bit score, E-value nor GC
-content to the names of the fetched sequences.
-
-.TP
-.BI --Tmin
-With the 
-.B -C 
-and 
-.B -f 
-and
-.B --tabfile
-options, only fetch sequences with bit scores greater than or equal to
-.I <x>.
-
-.TP
-.BI --Emax
-With the 
-.B -C 
-and 
-.B -f 
-and
-.B --tabfile 
-options, only fetch sequences with E-values less than (better than) or
-equal to 
-.I <x>.
-
 .SH AUTHOR
 
 Easel and its documentation are @EASEL_COPYRIGHT@.
