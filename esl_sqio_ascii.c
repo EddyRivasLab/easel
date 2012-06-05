@@ -2350,12 +2350,13 @@ skipbuf(ESL_SQFILE *sqfp, int64_t nskip)
  * Like skipbuf(), but instead of skipping a fixed number of
  * residues, skip forward until one of three conditions is met:
  *
- * (1) a non-whitespace character in the current sequence is
- *     reached;  set ascii->bpos to that character's position,
- *     and return eslOK;
- * (2) end of the sequence record (a character indicating
+ * (1) end of the sequence record (a character indicating
  *     the beginning of a new sequence); set ascii->bpos
  *     to the beginning of the new record, and return eslEOD;
+ * (2) a non-whitespace character in the current sequence is
+ *     reached that does not indicate the end of a sequence
+ *     record; set ascii->bpos to that character's position,
+ *     and return eslOK;
  * (3) end of file;  return eslEOF.
  *
  */
@@ -2383,10 +2384,9 @@ skip_whitespace(ESL_SQFILE *sqfp)
 
     c = (int) ascii->buf[ascii->bpos];
     x  = sqfp->inmap[c];
-    if (x == eslDSQ_EOD)
-      return eslEOD;
   }
-
+  if (x == eslDSQ_EOD)
+    return eslEOD;
 
   return eslOK;
 }
