@@ -21,6 +21,8 @@ extern double esl_exp_logcdf (double x, double mu, double lambda);
 extern double esl_exp_surv   (double x, double mu, double lambda);
 extern double esl_exp_logsurv(double x, double mu, double lambda);
 extern double esl_exp_invcdf (double p, double mu, double lambda);
+extern double esl_exp_invsurv(double p, double mu, double lambda);
+
 
 extern double esl_exp_generic_pdf   (double x, void *params);
 extern double esl_exp_generic_cdf   (double x, void *params);

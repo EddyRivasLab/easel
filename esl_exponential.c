@@ -156,6 +156,24 @@ esl_exp_invcdf(double p, double mu, double lambda)
 {
   return mu - 1/lambda * log(1. - p);
 }
+
+
+
+/* Function:  esl_exp_invsurv()
+ *
+ * Purpose:   Calculates the inverse of the survivor function, the score
+ *            at which the right tail's mass is $0 <= p < 1$, for an
+ *            exponential function with parameters <mu> and <lambda>.
+ */
+double
+esl_exp_invsurv(double p, double mu, double lambda)
+{
+
+  return mu - 1./lambda * log(p);
+}
+/*------------------ end of densities and distributions --------------------*/
+
+
 /*------------------ end of densities and distributions --------------------*/
 
 
