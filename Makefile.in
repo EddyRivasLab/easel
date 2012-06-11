@@ -333,6 +333,7 @@ EXAMPLES = \
         esl_ssi_example2\
         esl_stack_example\
         esl_stats_example\
+        esl_stats_example2\
         esl_stopwatch_example\
         esl_stretchexp_example\
         esl_threads_example\

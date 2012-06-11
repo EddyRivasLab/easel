@@ -1,11 +1,16 @@
-/* Foundation for the statistics modules.
+/* Foundation and miscellenea for the statistics modules.
  * 
  * Contents:
- *   1. The stats API.
- *   2. Unit tests.
- *   3. Test driver.
- *   4. Example.
- *   5. License and copyright information.
+ *   1. Summary statistics (means, variances)
+ *   2. Special functions
+ *   3. Standard statistical tests
+ *   4. Data fitting.
+ *   5. Unit tests.
+ *   6. Test driver.
+ *   7. Examples.
+ *      - driver for linear regression
+ *      - driver for G-test
+ *   8. License and copyright information.
  * 
  */
 #include "esl_config.h"
@@ -16,9 +21,12 @@
 #include "esl_stats.h"
 
 
+/*****************************************************************
+ * 1. Summary statistics calculations (means, variances)
+ *****************************************************************/
+
 /* Function:  esl_stats_DMean()
  * Synopsis:  Calculates mean and $\sigma^2$ for samples $x_i$.
- * Incept:    SRE, Tue Jul 19 11:04:00 2005 [St. Louis]
  *
  * Purpose:   Calculates the sample mean and $s^2$, the unbiased
  *            estimator of the population variance, for a
@@ -84,11 +92,16 @@ esl_stats_IMean(const int *x, int n, double *opt_mean, double *opt_var)
   if (opt_var  != NULL)  *opt_var  = (sqsum - sum*sum/(double)n) / ((double)n-1);
   return eslOK;
 }
+/*--------------- end, summary statistics -----------------------*/
 
+
+
+/*****************************************************************
+ * 2. Special functions.
+ *****************************************************************/
 
 /* Function:  esl_stats_LogGamma()
  * Synopsis:  Calculates $\log \Gamma(x)$.
- * Incept:    SRE, Tue Nov  2 13:47:01 2004 [St. Louis]
  *
  * Purpose:   Returns natural log of $\Gamma(x)$, for $x > 0$.
  * 
@@ -145,7 +158,6 @@ esl_stats_LogGamma(double x, double *ret_answer)
 
 /* Function:  esl_stats_Psi()
  * Synopsis:  Calculates $\Psi(x)$ (the digamma function).
- * Incept:    SRE, Tue Nov 15 13:57:59 2005 [St. Louis]
  *
  * Purpose:   Computes $\Psi(x)$ (the "digamma" function), which is
  *            the derivative of log of the Gamma function:
@@ -329,6 +341,72 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
   /*NOTREACHED*/
   return eslOK;
 }
+/*----------------- end, special functions ----------------------*/
+
+
+/*****************************************************************
+ * 3. Standard statistical tests.
+ *****************************************************************/
+
+/* Function:  esl_stats_GTest()
+ * Synopsis:  Calculates a G-test on 2 vs. 1 binomials.
+ *
+ * Purpose:   In experiment a, we've drawn <ca> successes in <na> total
+ *            trials; in experiment b, we've drawn <cb> successes in
+ *            <nb> total trials. Are the counts different enough to
+ *            conclude that the two experiments are different? The
+ *            null hypothesis is that the successes in both experiments
+ *            were drawn from the same binomial distribution with
+ *            per-trial probability $p$. The tested hypothesis is that
+ *            experiments a,b have different binomial probabilities
+ *            $p_a,p_b$. The G-test is a log-likelihood-ratio statistic,
+ *            assuming maximum likelihood values for $p,p_a,p_b$. 
+ *            $2G$ is distributed approximately as $\Chi^2(1)$, which
+ *            we use to calculate a P-value for the G statistic. 
+ *            
+ * Args:      ca    - number of positives in experiment a
+ *            na    - total number in experiment a
+ *            cb    - number of positives in experiment b
+ *            nb    - total number in experiment b
+ *            ret_G - RETURN: G statistic, a log likelihood ratio, in nats     
+ *            ret_P - RETURN: P-value for the G-statistic
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ *
+ * Xref:      Archive1999/0906-sagescore/sagescore.c
+ */
+int
+esl_stats_GTest(int ca, int na, int cb, int nb, double *ret_G, double *ret_P)
+{
+  double a,b,c,d,n;
+  double G = 0.;
+
+  a = (double) ca;
+  b = (double) (na - ca);
+  c = (double) cb;
+  d = (double) (nb - cb);
+  n = (double) na+nb;
+
+  /* Yes, the calculation here is correct; algebraic 
+   * rearrangement of the log-likelihood-ratio with 
+   * p_a = ca/na, p_b = cb/nb, and p = (ca+cb)/(na+nb).
+   * Guard against 0 probabilities; assume 0 log 0 => 0. 
+   */
+  if (a   > 0.) G  = a * log(a);
+  if (b   > 0.) G += b * log(b);
+  if (c   > 0.) G += c * log(c);
+  if (d   > 0.) G += d * log(d);
+  if (n   > 0.) G += n * log(n);
+  if (a+b > 0.) G -= (a+b) * log(a+b);
+  if (c+d > 0.) G -= (c+d) * log(c+d);
+  if (a+c > 0.) G -= (a+c) * log(a+c);
+  if (b+d > 0.) G -= (b+d) * log(b+d);
+
+  *ret_G = G;
+  return esl_stats_IncompleteGamma( 0.5, G, NULL, ret_P);
+}
 
 
 /* Function:  esl_stats_ChiSquaredTest()
@@ -356,7 +434,13 @@ esl_stats_ChiSquaredTest(int v, double x, double *ret_answer)
 {
   return esl_stats_IncompleteGamma((double)v/2, x/2, NULL, ret_answer);
 }
+/*----------------- end, statistical tests  ---------------------*/
 
+
+
+/*****************************************************************
+ * 4. Data fitting.
+ *****************************************************************/
 
 /* Function:  esl_stats_LinearRegression()
  * Synopsis:  Fit data to a straight line.
@@ -544,13 +628,12 @@ esl_stats_LinearRegression(const double *x, const double *y, const double *sigma
   if (opt_Q       != NULL) *opt_Q       = 0.;
   return status;
 }
-/*---------------- end of API implementation --------------------*/
-
+/*------------------- end, data fitting -------------------------*/
 
 
 
 /*****************************************************************
- * 2. Unit tests.
+ * 5. Unit tests.
  *****************************************************************/
 #ifdef eslSTATS_TESTDRIVE
 #include "esl_random.h"
@@ -681,7 +764,7 @@ utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
 
 
 /*****************************************************************
- * 3. Test driver.
+ * 6. Test driver.
  *****************************************************************/
 #ifdef eslSTATS_TESTDRIVE
 /* gcc -g -Wall -o stats_utest  -L. -I. -DeslSTATS_TESTDRIVE esl_stats.c -leasel -lm
@@ -729,7 +812,7 @@ main(int argc, char **argv)
 
 
 /*****************************************************************
- * 4. Example.
+ * 7. Examples.
  *****************************************************************/
 
 /* Compile:  gcc -g -Wall -o example -I. -DeslSTATS_EXAMPLE esl_stats.c esl_random.c easel.c -lm  
@@ -781,9 +864,44 @@ int main(void)
   exit(0);
 }
 /*::cexcerpt::stats_example::end::*/
-#endif
+#endif /* eslSTATS_EXAMPLE */
 
-/*--------------------- end of example --------------------------*/
+
+#ifdef eslSTATS_EXAMPLE2
+
+#include <stdlib.h>
+
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_stats.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE,  NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",    0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options] <ca> <na> <cb> <nb>";
+static char banner[] = "example from the stats module: using a G-test";
+
+int
+main(int argc, char **argv)
+{
+  ESL_GETOPTS  *go  = esl_getopts_CreateDefaultApp(options, 4, argc, argv, banner, usage);
+  int           ca  = strtol(esl_opt_GetArg(go, 1), NULL, 10);
+  int           na  = strtol(esl_opt_GetArg(go, 2), NULL, 10);
+  int           cb  = strtol(esl_opt_GetArg(go, 3), NULL, 10);
+  int           nb  = strtol(esl_opt_GetArg(go, 4), NULL, 10);
+  double        G, P;
+  int           status;
+  
+  if (ca > na || cb > nb) esl_fatal("argument order wrong? expect ca, na, cb, nb for ca/na, cb/nb");
+ 
+  if ( (status = esl_stats_GTest(ca, na, cb, nb, &G, &P)) != eslOK) esl_fatal("G-test failed?");
+  printf("%-10.3g %12.2f\n", P, G);
+  exit(0);
+}
+#endif /* eslSTATS_EXAMPLE2 */
+/*--------------------- end of examples -------------------------*/
 
 
 
