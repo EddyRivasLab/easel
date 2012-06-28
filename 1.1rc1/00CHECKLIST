@@ -1,0 +1,192 @@
+Checklist for an Easel release
+SRE, Mon Mar 24 10:39:52 2008
+-------------------------------------------------
+When editing this 00CHECKLIST, edit it in the trunk, not in a release
+branch; it isn't included in releases anyway.
+
+Subversion repository:  https://svn.janelia.org/eddylab/eddys/easel
+Trunk:                  https://svn.janelia.org/eddylab/eddys/easel/trunk/
+
+
+Easel follows an 'unstable trunk' policy.
+Each major release goes onto a stable branch.
+Every release (even minor ones) is tagged.
+
+Release types: major releases, minor releases, and snapshots. A major
+release gets its own branch. A minor release puts bug fixes into a
+major branch. A snapshot is from the development trunk.
+
+Version naming:                                        example
+major    <lineage>.<major-release>                      2.1
+minor    <lineage>.<major-release>.<minor-release>      2.1.1
+alpha    <lineage>.<major-release>a<n>                  2.1a1 
+beta     <lineage>.<major-release>b<n>                  2.1b1 
+snapshot <lineage>.<major-release>.snap<yyyymmdd>       2.1.snap20080325
+
+When Easel is bundled into part of a larger release, it gets the
+version of the larger release with a one-letter prefix indicating
+which package bundled it: for example, for HMMER 3.0a1, Easel would be
+versioned as version "h3.0a1".
+
+
+1. Announce intent to release to all developers. 
+   Commit working copies on all machines.
+   Check for stray uncommitted files:
+	 ./configure
+         make distclean
+         svn update
+	 svn status
+   Clean up any stray files identified by 'svn status'.
+   'svn add' and 'svn commit' as needed to commit new or modified files.
+
+
+2. For a major release (where we're about to create a new branch):
+   First test the development trunk.
+   Compile should be entirely clean when compiled -Wall.
+   'make check' should be clean.
+   '(cd documentation; make)' should work
+   'make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk RELEASE=snapxxx dist' should work.
+
+   When trunk is clean, 
+   svn commit
+   We're (usually) next going to move out of the trunk to the release branch.
+
+
+3. For a major release, create stable release branch from the trunk.
+   All subsequent bugfix releases will happen in this branch, while trunk keeps moving.
+
+   svn copy https://svn.janelia.org/eddylab/eddys/easel/trunk\
+            https://svn.janelia.org/eddylab/eddys/easel/branches/0.1\
+            -m "created 0.1 release branch"          
+
+
+4. Move into working copy of the release.
+ 
+   For a dev snapshot, this is the normal working copy.
+   For a major or minor release, this is a working copy of the appropriate branch:
+       cd ~/releases
+       svn checkout https://svn.janelia.org/eddylab/eddys/easel/branches/0.1 easel
+
+   Don't call this working directory "easel-xx"; just call it "easel",
+   because later "make dist" is going to try to create "easel-xx" as
+   the actual release directory.
+
+5. Test.
+
+
+6. Write the release notes.
+   For the first time on a new release branch, it's handy to look
+   at the svn log. Replace "1534" below with the last release's SVN rev.
+	 svn log -r 1534:HEAD | more
+         emacs documentation/release-notes/RELEASE-${RELEASE}
+	 svn add documentation/release-notes/RELEASE-${RELEASE}
+
+   These release notes will be merged back into the trunk later, if
+   we're in a branch.
+
+
+7. Update the copyright, year stamps
+	- configure.ac (release, relcode, date)
+	- COPYRIGHT (year only)
+
+
+8. Commit to SVN; include release number in the log message
+	 svn commit
+
+
+9. Tag.
+   We don't bother to tag snapshots.
+   For a new major release, or a bugfix minor release,
+   this tag is from the relevant branch:
+     svn copy https://svn.janelia.org/eddylab/eddys/easel/branches/0.1\
+              https://svn.janelia.org/eddylab/eddys/easel/tags/0.1\
+              -m "tagged Easel 0.1 release, from 0.1 stable branch"          
+
+
+10. Make the distribution tarball.
+  (Remaking configure scripts w/ autoconf is needed)
+	 make distclean
+         autoconf
+	 ./configure          <-- makes a Makefile (needed for "make dist")
+
+     major or minor:
+	 make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/tags/0.1 dist
+     snapshot:
+	 make REPOSITORY=https://svn.janelia.org/eddylab/eddys/easel/trunk RELEASE=snap20080325 dist
+
+   Alternatively, make -n dist' and execute commands yourself one at a
+   time, under a Bourne shell like 'bash' so the for loops work.
+
+   This exports into a easel-$RELEASE directory, alongside the
+   easel working directory in ~/releases/. The tarball is also
+   left in ~/releases/.
+   
+   Go into easel-$RELEASE and make sure it looks good from the
+   perspective of a new user: start by reading the README's.
+
+
+
+11. Build and test the release copy (on login-eddy)
+         ssh login-eddy
+	 cd releases/easel-xx
+	 env CFLAGS="-O3" ./configure 
+	 make
+	 make check
+
+
+12. Put on the FTP site. (on selab)
+          scp 00README                selab:/opt/www/ftp/pub/software/easel/
+          scp COPYRIGHT               selab:/opt/www/ftp/pub/software/easel/
+          scp Userguide.pdf           selab:/opt/www/ftp/pub/software/easel/
+          scp ../easel-0.1.tar.gz     selab:/opt/www/ftp/pub/software/easel/
+          ssh selab  rm -f /opt/www/ftp/pub/software/easel/easel.tar.gz
+          ssh selab  "(cd /opt/www/ftp/pub/software/easel; ln -s easel-0.1.tar.gz easel.tar.gz)"
+
+13. Update the web site
+	 cd ~/web/easel/
+         emacs index.html 
+         make
+	 texclean
+         svn commit
+
+
+14. Clean up. 
+    Don't remove the old directory though, 
+    we will (should) use it for regression testing at the next release.
+	cd ~/releases
+        mv easel-0.1.tar.gz ~/Archive/
+        cd easel
+	make distclean
+
+
+15. Merge the changes from the "stabilized" release branch back into the trunk.
+
+    If you're doing a minor bugfix release on a stable branch, you know the
+    revs that introduced the bugfixes; merge them explicitly. For example:
+       cd ~/src/easel
+       svn update
+       svn merge -r 1990:1992 https://svn.janelia.org/eddylab/eddys/easel/branches/0.1
+    
+    If you're doing a major release on a new stable branch:
+    First identify the rev #'s for when we made the release branch.
+    In the release working copy:
+       svn log --verbose --stop-on-copy 
+
+    Go back to working copies of the trunks, and merge the release branches into it.
+       cd ../easel
+       svn update
+       svn merge -r 173:HEAD https://svn.janelia.org/eddylab/eddys/easel/branches/0.8
+
+    Now, the merge will always screw up the svn:externals. Reset them.
+       cd ..
+       svn propedit svn:externals .
+          easel   https://svn.janelia.org/eddylab/eddys/easel/trunk
+
+    Commit.
+       svn commit 
+
+
+Release history
+Version        Date                                    SVN revision
+--------       ----------------------------------      -------------
+
