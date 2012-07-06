@@ -482,7 +482,7 @@ esl_stack_Convert2String(ESL_STACK *cs)
 
   /* NUL-terminate; which might require a +1 realloc if we're unlucky */
   if (cs->n == cs->nalloc) 
-    ESL_RALLOC(cs->cdata, tmp, sizeof(char) * (cs->nalloc +1));
+    ESL_RALLOC(s, tmp, sizeof(char) * (cs->nalloc +1));
   s[cs->n] = '\0';
 
   /* Destroy the stack; return the string. */
