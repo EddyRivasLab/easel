@@ -444,9 +444,7 @@ AC_CONFIG_FILES([Makefile])
 if test -e "LICENSE.sh.in"; then
   AC_CONFIG_FILES(LICENSE.sh)
 fi
-if test -e "documentation/Makefile.in"; then
-  AC_CONFIG_FILES([documentation/Makefile])
-fi
+AC_CONFIG_FILES([documentation/Makefile])
 
 
 # 13. voila!
