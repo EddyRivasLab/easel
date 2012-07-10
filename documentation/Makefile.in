@@ -105,6 +105,9 @@ TEXFILES = \
 pdf:    current.pdf
 
 current.pdf: symlinks.stamp autodoc.stamp cexcerpt.stamp
+	@for prog in pdflatex bibtex; do \
+	  command -v $$prog >/dev/null 2>&1 || { echo >&2 "The $$prog program is required to build the Userguide, but it's not installed. Aborting."; exit 1; } \
+	done
 	@echo "     LATEX current.pdf  (see latex.log for output)"
 	@pdflatex -interaction=nonstopmode main  > latex.log 2>&1
 	@bibtex   main                          >> latex.log 2>&1
