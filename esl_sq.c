@@ -27,6 +27,9 @@
 #endif
 #include "esl_sq.h"
 
+#include "esl_vectorops.h"
+
+
 /* Shared parts of text/digital creation functions (defined in "internal functions" section) */
 static ESL_SQ *sq_create(int do_digital);
 static ESL_SQ *sq_create_from(const char *name, const char *desc, const char *acc);
@@ -1476,6 +1479,29 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
   *ret_checksum = val;
   return eslOK;
 }
+
+
+
+/* Function:  esl_sq_GetFrequencies()
+ * Synopsis:  compute character frequencies
+ *
+ * Purpose:   Given a sequence <dsq>, length <sq_len>, and alphabet <abc>,
+ *            compute frequencies, and store in pre-allocated <f>
+ */
+int
+esl_sq_GetFrequencies(const ESL_DSQ *dsq, int sq_len, const ESL_ALPHABET *abc, float *f)
+{
+  int k;
+  esl_vec_FSet (f, abc->K, 0);
+  for (k=0 ; k < sq_len; k++) {
+    if(esl_abc_XIsGap(abc, dsq[k])) esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__, "in p7_bg_SetFreqFromSequence(), res %d is a gap!%s\n", "");
+    esl_abc_FCount(abc, f, dsq[k], 1.);
+  }
+  esl_vec_FNorm(f, abc->K);
+  return eslOK;
+}
+
+
 
 /*----------------------  end, other functions -------------------*/
 
