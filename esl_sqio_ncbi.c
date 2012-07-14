@@ -1247,8 +1247,9 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 			  if (status != eslOK) break; // end of sequences
 
 			  size += sqBlock->list[i].n - sqBlock->list[i].C;
+			  sqBlock->list[i].L = sqfp->data.ncbi.seq_L;
 			  ++(sqBlock->count);
-			  if (sqBlock->list[i].n >= max_residues)
+			  if (size >= max_residues)
 		     { // a full window worth of sequence was read
 
           if ( sqBlock->list[i].n == sqfp->data.ncbi.seq_L) {
@@ -1283,7 +1284,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 		         if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
 		         return status; //surprising
 		       }
-		       sqBlock->list[i].L = tmpsq->L;
+		       //sqBlock->list[i].L = tmpsq->L;
 				  status = eslOK;
 			  }
 		  }

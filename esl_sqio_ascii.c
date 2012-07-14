@@ -1530,12 +1530,14 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
 
     for (  ; i < sqBlock->listSize && size < max_residues; ++i)
     {
+
      esl_sq_Reuse(tmpsq);
      esl_sq_Reuse(sqBlock->list + i);
      status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
      if (status != eslOK) break; // end of sequences
-     size += sqBlock->list[i].n - sqBlock->list[i].C;
 
+     size += sqBlock->list[i].n - sqBlock->list[i].C;
+     //sqBlock->list[i].L = sqfp->data.ascii.L;
      ++(sqBlock->count);
      if (size >= max_residues)
      { // a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
