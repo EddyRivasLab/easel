@@ -39,7 +39,6 @@ are given.
 Print brief help;  includes version number and summary of
 all options, including expert options.
 
-
 .TP
 .BI -o " <f>"
 Save the resulting, modified alignment in Stockholm format to a file
@@ -81,16 +80,27 @@ is enabled, and the source code.
 
 .SH EXPERT OPTIONS
 
+.TP 
+.BI --lnfract " <x>"
+Remove any sequences with length less than 
+.I <x>
+fraction the length of the median length sequence in the alignment.
 
 .TP 
-.BI --lfract " <x>"
-Remove any sequences with length less than 
+.BI --lxfract " <x>"
+Remove any sequences with length more than 
 .I <x>
 fraction the length of the median length sequence in the alignment.
 
 .TP 
 .BI --lmin " <n>"
 Remove any sequences with length less than 
+.I <n>
+residues.
+
+.TP 
+.BI --lmax " <n>"
+Remove any sequences with length more than 
 .I <n>
 residues.
 
@@ -115,6 +125,7 @@ Remove any sequences with names listed in file
 Sequence names listed in 
 .I <f>
 can be separated by tabs, new lines, or spaces.
+The file must be in Stockholm format for this option to work. 
 
 .TP 
 .BI --seq-k " <f>"
@@ -131,6 +142,7 @@ but the order from
 will be used if the 
 .B --k-reorder
 option is enabled.
+The file must be in Stockholm format for this option to work. 
 
 .TP 
 .BI --small
@@ -230,6 +242,17 @@ tree is output in Newick format to
 .I <f>.
 
 .TP 
+.BI --reorder " <f>"
+Reorder sequences to the order listed in file 
+.I <f>.
+Each sequence in the alignment must be listed in 
+.I <f>.
+Use
+.B --k-reorder
+to reorder only a subset of sequences to a subset alignment file. 
+The file must be in Stockholm format for this option to work. 
+
+.TP 
 .BI --mask2rf " <f>"
 Read in the 'mask' file 
 .I <f>
@@ -268,17 +291,17 @@ Add annotation to the alignment numbering the non-gap (non '.') #=GC
 RF columns of the alignment. 
 
 .TP 
-.BI --sindi 
-Annotate individual secondary structures for each sequence by imposing
-the consensus secondary structure defined by the #=GC SS_cons
-annotation. 
-
-.TP 
 .BI --rm-gc " <s>"
 Remove certain types of #=GC annotation from the alignment. 
 .I "<s>" 
 must be either "RF", "SS_cons", "SA_cons", or "PP_cons",
 at present.
+
+.TP 
+.BI --sindi 
+Annotate individual secondary structures for each sequence by imposing
+the consensus secondary structure defined by the #=GC SS_cons
+annotation. 
 
 .TP 
 .BI --post2pp 
