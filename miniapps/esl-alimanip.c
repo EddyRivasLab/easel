@@ -404,6 +404,9 @@ main(int argc, char **argv)
 	 * (<f> from either --seq-k <f>, --seq-r <f>, --reorder <f>) 
 	 */
 	if ( esl_opt_IsOn(go, "--seq-k") || esl_opt_IsOn(go, "--seq-r") || esl_opt_IsOn(go, "--reorder")) {
+	  if((afp->format != eslMSAFILE_STOCKHOLM) && (afp->format != eslMSAFILE_PFAM)) {
+	    esl_fatal("--seq-k, --seq-r, --reorder only work on Stockholm formatted alignments");
+	  }
 	  if( esl_opt_IsOn(go, "--seq-k")) { 
 	    if((status = msa_keep_or_remove_seqs(msa, errbuf, seqlist, seqlist_n, TRUE, (esl_opt_GetBoolean(go, "--k-reorder")), nali, &new_msa)) != eslOK)        esl_fatal(errbuf);	  
 	    /* new_msa is msa but only with seqs listed in --seq-k <f> file */
