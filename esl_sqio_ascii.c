@@ -1490,6 +1490,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
       {
         sqBlock->count = i = 1;
         size = sqBlock->list->n - sqBlock->list->C;
+        sqBlock->list->L = sqfp->data.ascii.L;
         if (size == max_residues)
         { // Filled the block with a single very long window.
 
@@ -1514,7 +1515,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
             if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
             return status; //surprising
           }
-          sqBlock->list->L = tmpsq->L;
+          //sqBlock->list->L = tmpsq->L;
         }
       }
       else if (status == eslEOD)
@@ -1537,7 +1538,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
      if (status != eslOK) break; // end of sequences
 
      size += sqBlock->list[i].n - sqBlock->list[i].C;
-     //sqBlock->list[i].L = sqfp->data.ascii.L;
+     sqBlock->list[i].L = sqfp->data.ascii.L;
      ++(sqBlock->count);
      if (size >= max_residues)
      { // a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
@@ -1568,7 +1569,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
          if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
          return status; //surprising
        }
-       sqBlock->list[i].L = tmpsq->L;
+       //sqBlock->list[i].L = tmpsq->L;
        status = eslOK;
      }
     }
