@@ -191,6 +191,12 @@
 #define esl_byp_IsReturned(p) ((p) != NULL && (*p) == NULL)
 #define esl_byp_IsProvided(p) ((p) != NULL && (*p) != NULL)
 
+/* Sometimes a shared function API dictates arguments that a function
+ * doesn't use, and we want to silence compiler warnings about this.
+ * Putting ESL_UNUSED(x) in the function, for an unused argument <x>,
+ * should silence the compiler, and should generate a no-op.
+ */
+#define ESL_UNUSED(x) (void)(sizeof((x)))
 
 
 /*****************************************************************
