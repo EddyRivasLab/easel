@@ -7,6 +7,7 @@
 
 #include "easel.h"
 #include "esl_stack.h"
+#include "esl_vectorops.h"
 #include "esl_wuss.h"
 
 /* Function:  esl_wuss2ct()
@@ -126,9 +127,14 @@ esl_wuss2ct(char *ss, int len, int *ct)
  *            format string <ss>. <ss> must be allocated for at least
  *            n+1 chars (+1 for the terminal NUL). 
  *
- *            Currently limited to nonpseudoknotted structures. Attempting
- *            to convert a pseudoknot-containing <ct> will return an
- *            <eslEINVAL> error.
+ *            ER, Sat Aug 18 13:22:03 EDT 2012 
+ *            esl_ct2wuss() extended to deal with pseudoknottes structures.
+ *            Pseudoknots are annotated as AA...aa, BB...bb,..., ZZ..zz.
+ *            Attemting to convert a <ct> that requires more letters
+ *            than [A-Z] will return an <eslEINVAL> error.
+ *
+ *            Attempting to convert a <ct> that involves tertiary interactions
+ *            will return an <eslEINVAL> error.
  *
  * Returns:   <eslOK> on success.
  *            <eslEINVAL> if <ct> contains a pseudoknot.
@@ -139,111 +145,169 @@ esl_wuss2ct(char *ss, int len, int *ct)
 int
 esl_ct2wuss(int *ct, int n, char *ss)
 {
-  ESL_STACK *pda    = NULL;	/* main stack  */
-  ESL_STACK *aux    = NULL;	/* aux storage */
-  int        status = eslEMEM;	/* exit status 'til proven otherwise */
-  int        i,j;
-  int        nfaces;
+  int       *cct    = NULL;      /* copy of ct vector */
+  ESL_STACK *pda    = NULL;	 /* main stack  */
+  ESL_STACK *auxpk  = NULL;	 /* aux stack for pseudoknots */
+  ESL_STACK *auxss  = NULL;	 /* aux stack for single stranded */
+  int        status = eslEMEM;	 /* exit status 'til proven otherwise */
+  int        i,j;                /* sequence indices */
+  int        nfaces;             
   int        minface;
+  int        npk = 0;            /* number of pseudoknots */
+  int        npairs = 0;         /* total number of basepairs */
+  int        npairs_reached = 0; /* number of basepairs found so far */
+  int        found_partner;      /* true if we've found left partner of a given base in stack pda */
 
-  ss[0] = '\0';	/* in case we abort, and caller does something dumb w/ ss */  
-
-  if ((pda = esl_stack_ICreate()) == NULL) goto FINISH;
-  if ((aux = esl_stack_ICreate()) == NULL) goto FINISH;
-
+  /* total number of basepairs */
+  for (j = 1; j <= n; j ++) { if (ct[j] > 0 && j < ct[j]) npairs ++; }
+  
+  /* Copy of ct.
+   * If a pseudoknotted structure, cct will be modified later.
+   */
+  ESL_ALLOC(cct, sizeof(int)*(n+1));
+  esl_vec_ICopy(ct, (n+1), cct);
+  
+  /* init ss[] to single stranded */
+  for (j = 0; j < n; j ++) { ss[j] = ':'; }  
+ 
+  if ((pda   = esl_stack_ICreate()) == NULL) goto FINISH;
+  if ((auxpk = esl_stack_ICreate()) == NULL) goto FINISH;
+  if ((auxss = esl_stack_ICreate()) == NULL) goto FINISH;
+  
   for (j = 1; j <= n; j++)
     {
-      if (ct[j] == 0)	/* unpaired: push j. */
+      if (cct[j] == 0)	/* unpaired: push j. */
 	{
 	  if (esl_stack_IPush(pda, j) != eslOK) goto FINISH;
 	}
-      else if (ct[j] > j) /* left side of a bp: push j. */
+      else if (cct[j] > j) /* left side of a bp: push j. */
 	{
 	  if (esl_stack_IPush(pda, j) != eslOK) goto FINISH;
 	}
-      else   /* right side of a bp; main routine: resolve a subseq */
+      else   /* right side of a bp; main routine: fingh the left partner */
 	{
-	  /* Pop back until we find the left partner of i;
-           * store SS residues in aux;
-           * keep track of #faces and the maximum face depth.
+	  found_partner = FALSE;
+	  /* Pop back until we find the left partner of j;
+	   * In case this is not a nested structure, finding
+	   * the left partner of j will require to put bases 
+	   * aside into stack auxpk.
+	   *
+	   * After we find the left partner of j,
+	   * store single stranded residues in auxss;
+	   * keep track of #faces and the maximum face depth.
 	   */
 	  nfaces  = 0;
 	  minface = -1;
-	  while (1) 
+	 
+	  while (esl_stack_ObjectCount(pda)) 
 	    {
 	      if (esl_stack_IPop(pda, &i) != eslOK) goto FINISH;
-
+	      
 	      if (i < 0) 		/* a face counter */
 		{
 		  nfaces++;
 		  if (i < minface) minface = i;
 		}
-	      else if (ct[i] == j) 
-		break;		/* we found the i,j pair. */
-	      else if (ct[i] == 0) 
-		{
-		  if (esl_stack_IPush(aux, i) != eslOK) goto FINISH;
+	      else if (cct[i] == j) { /* we found the i,j pair. */
+		
+		found_partner = TRUE;
+		/* Now we know i,j pair; and we know how many faces are
+		 * above them; and we know the max depth of those faces.
+		 * That's enough to label the pair in WUSS notation.
+		 * if nfaces == 0, minface is -1; <> a closing bp of a hairpin.
+		 * if nfaces == 1, inherit minface, we're continuing a stem.
+		 * if nfaces > 1, bump minface in depth; we're closing a bifurc.
+		 */
+		if (nfaces > 1 && minface > -4) minface--;
+		switch (minface) {
+		case -1: ss[i-1] = '<'; ss[j-1] = '>'; break;
+		case -2: ss[i-1] = '('; ss[j-1] = ')'; break;
+		case -3: ss[i-1] = '['; ss[j-1] = ']'; break;
+		case -4: ss[i-1] = '{'; ss[j-1] = '}'; break;
+		default:
+		  esl_stack_Destroy(pda); esl_stack_Destroy(auxpk); esl_stack_Destroy(auxss); free(cct); 
+		  ESL_EXCEPTION(eslEINCONCEIVABLE, "no such face code");
 		}
-	      else /* ct[i]>0, != j: i is paired, but not to j: pseudoknot! */
-		{
-		  esl_stack_Destroy(pda); esl_stack_Destroy(aux);	 
-		  ESL_EXCEPTION(eslEINVAL, "pseudoknots not permitted yet");
-		}
-	    }
-	  
-	  /* Now we know i,j pair; and we know how many faces are
-	   * above them; and we know the max depth of those faces.
-	   * That's enough to label the pair in WUSS notation.
-	   * if nfaces == 0, minface is -1; <> a closing bp of a hairpin.
-	   * if nfaces == 1, inherit minface, we're continuing a stem.
-	   * if nfaces > 1, bump minface in depth; we're closing a bifurc.
-	   */
-	  if (nfaces > 1 && minface > -4) minface--;
-	  switch (minface) {
-	  case -1: ss[i-1] = '<'; ss[j-1] = '>'; break;
-	  case -2: ss[i-1] = '('; ss[j-1] = ')'; break;
-	  case -3: ss[i-1] = '['; ss[j-1] = ']'; break;
-	  case -4: ss[i-1] = '{'; ss[j-1] = '}'; break;
-	  default:
-	    esl_stack_Destroy(pda); esl_stack_Destroy(aux);
-	    ESL_EXCEPTION(eslEINCONCEIVABLE, "no such face code");
-	  }
-	  if (esl_stack_IPush(pda, minface) != eslOK) goto FINISH;
-
-	  /* Now, aux contains all the unpaired residues we need to label,
-	   * according to the # of faces "above" them:
-	   *  nfaces = 0: hairpin loop
-	   *  nfaces = 1: bulge or interior loop
-	   *  nfaces > 1: multifurc
-	   */
-	  while (esl_stack_IPop(aux, &i) == eslOK)
-	    {
-	      switch (nfaces) {
-	      case 0:  ss[i-1] = '_'; break;
-	      case 1:  ss[i-1] = '-'; break;
-	      default: ss[i-1] = ','; break; /* nfaces > 1 */
+		if (esl_stack_IPush(pda, minface) != eslOK) goto FINISH;
+		
+		npairs_reached ++;		
+		
+		/* Now, aux contains all the unpaired residues we need to label,
+		 * according to the # of faces "above" them:
+		 *  nfaces = 0: hairpin loop
+		 *  nfaces = 1: bulge or interior loop
+		 *  nfaces > 1: multifurc
+		 */
+		while (esl_stack_IPop(auxss, &i) == eslOK)
+		  {
+		    switch (nfaces) {
+		    case 0:  ss[i-1] = '_'; break;
+		    case 1:  ss[i-1] = '-'; break;
+		    default: ss[i-1] = ','; break; /* nfaces > 1 */
+		    }
+		  }
+		break;
 	      }
-	    }
+	    
+	      else if (cct[i] == 0) 
+		{
+		  /* add to auxss only if originally sigle stranded */
+		  if (ct[i] == 0) { if (esl_stack_IPush(auxss, i) != eslOK) goto FINISH; }
+		}
+	      else /* cct[i]>0, != j: i is paired, but not to j: pseudoknot! */
+		{
+		  /* i is in the way to find j's left partner. Move i to a secondary
+		   * stack auxpk.  We deal with auxpk after we find j's left partner.
+		   */
+		  if (esl_stack_IPush(auxpk, i) != eslOK) goto FINISH;
+		}
+	    } 
 	  
-	} /* finished processing a subseq enclosed by a bp */
-    } /* finished loop over j: end position on seq, 1..n*/
+	  if (!found_partner) {
+	    esl_stack_Destroy(pda); esl_stack_Destroy(auxpk); esl_stack_Destroy(auxss); free(cct); 
+	    ESL_EXCEPTION(eslEINVAL, "likely a tertiary interaction");
+	  }
 
-  /* Anything that's left in the pda is either a face counter
-   * or external single-strand. Face counters are negative; 
-   * position indices are positive.
-   */
-  while (esl_stack_IPop(pda, &i) == eslOK) 
-    if (i > 0) ss[i-1] = ':';
-  ss[n] = '\0';
+	} /* finished finding the left partner of j */
+      
+      /* After we've found the left partner of j, resolve pk in auxpk.
+       * Then, remove the pseudoknot from cct so we can find the rest of the structure.
+       */
+      if (esl_stack_ObjectCount(auxpk)) {
+	npk ++;
+	while (esl_stack_IPop(auxpk, &i) == eslOK && cct[i] > 0) { 
+	  npairs_reached ++;
+	  if (npk-1+(int)('a') <= (int)('z')) {
+	    if (i < cct[i]) {
+	      ss[i-1]      = (char)(npk-1+(int)('A'));
+	      ss[cct[i]-1] = (char)(npk-1+(int)('a'));
+	    }
+	    else {
+	      ss[i-1]      = (char)(npk-1+(int)('a'));
+	      ss[cct[i]-1] = (char)(npk-1+(int)('A'));
+	    }
+
+	    /* remove pseudoknotted pair from cct */
+	    cct[i]     = 0;
+	    cct[ct[i]] = 0;
+	  }
+	  else  ESL_EXCEPTION(eslEINVAL, "Don't have enough letters to describe this pseudoknot.");
+	}		  
+      } /* finished loop over j: end position on seq, 1..n*/ 
+    }
+ 
   status = eslOK;
 
+ ERROR:
  FINISH:
-  if (pda != NULL) esl_stack_Destroy(pda);
-  if (aux != NULL) esl_stack_Destroy(aux);
+  if (npairs != npairs_reached) 		  
+    ESL_EXCEPTION(eslFAIL, "found %d out of %d pairs.", npairs_reached, npairs);
+  if (cct   != NULL) free(cct);
+  if (pda   != NULL) esl_stack_Destroy(pda);
+  if (auxpk != NULL) esl_stack_Destroy(auxpk);
+  if (auxss != NULL) esl_stack_Destroy(auxss);
   return status;
 }
-
-
 
 /* Function:  esl_wuss2kh()
  * Incept:    SRE, Tue Feb 15 10:05:35 2005 [St. Louis]
@@ -413,13 +477,16 @@ esl_wuss_nopseudo(char *ss1, char *ss2)
 
 
 #ifdef eslWUSS_TESTDRIVE
-/* gcc -g -Wall -o test -I. -DeslWUSS_TESTDRIVE wuss.c stack.c easel.c
- * ./test
+/* gcc -g -Wall -o testwuss -I. -DeslWUSS_TESTDRIVE esl_wuss.c esl_random.c esl_stack.c esl_vectorops.c easel.c
+ * ./testwuss
  */
+
 #include <stdlib.h>
 
 #include "easel.h"
+#include "esl_random.h"
 #include "esl_stack.h"
+#include "esl_vectorops.h"
 #include "esl_wuss.h"
 
 int
@@ -470,11 +537,16 @@ main(int argc, char **argv)
   for (i = 1; i <= len; i++)
     if (ct1[i] > i) nbp++;
   if (nbp != nbp_true + npk) abort();
-
-  if (esl_wuss2kh(ss, ss)       != eslOK) abort();
-  if (esl_kh2wuss(ss, ss)      != eslOK) abort();
-  if (esl_wuss2ct(ss, len, ct2) != eslOK) abort();
   
+  if (esl_wuss2kh(ss, ss)       != eslOK) abort();
+  if (esl_kh2wuss(ss, ss)       != eslOK) abort();
+  if (esl_wuss2ct(ss, len, ct2) != eslOK) abort();
+  for (i = 1; i <= len; i++)
+    if (ct1[i] != ct2[i]) abort();
+  
+  /* test of pseudoknots */
+  if (esl_ct2wuss(ct1, len, ss2) != eslOK) abort();
+  if (esl_wuss2ct(ss2, len, ct2) != eslOK) abort();
   for (i = 1; i <= len; i++)
     if (ct1[i] != ct2[i]) abort();
 
