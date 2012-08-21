@@ -246,6 +246,11 @@ esl_vec_ICopy(const int *src, const int n, int *dest)
  *            for floating point comparisons, and strict equality
  *            for integer comparisons. Return <eslOK>
  *            if the vectors are equal, and <eslFAIL> if not.
+ *            
+ *            If <n=0>, the test always succeeds. In this case, either
+ *            <vec1> and <vec2> (or both) may be <NULL>.  This
+ *            accommodates an occasional convention of leaving empty
+ *            vectors <NULL>.
  *
  *            <esl_vec_FCompare()> and <esl_vec_ICompare()> do the same,
  *            for float and integer vectors.
