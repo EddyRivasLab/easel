@@ -9,6 +9,7 @@
 
 extern int esl_wuss2ct(char *ss, int len, int *ct);
 extern int esl_ct2wuss(int *ct, int n, char *ss);
+extern int esl_ct2simplewuss(int *ct, int n, char *ss);
 extern int esl_wuss2kh(char *ss, char *kh);
 extern int esl_kh2wuss(char *kh, char *ss);
 extern int esl_wuss_full(char *oldss, char *newss);
