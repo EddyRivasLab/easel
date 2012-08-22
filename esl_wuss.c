@@ -137,7 +137,6 @@ esl_wuss2ct(char *ss, int len, int *ct)
  *            will return an <eslEINVAL> error.
  *
  * Returns:   <eslOK> on success.
- *            <eslEINVAL> if <ct> contains a pseudoknot.
  * 
  * Throws:    <eslEMEM> on allocation failure.
  *            <eslEINCONCEIVABLE> on internal failure.
@@ -365,7 +364,6 @@ esl_ct2wuss(int *ct, int n, char *ss)
  *            will return an <eslEINVAL> error.
  *
  * Returns:   <eslOK> on success.
- *            <eslEINVAL> if <ct> contains a pseudoknot.
  * 
  * Throws:    <eslEMEM> on allocation failure.
  *            <eslEINCONCEIVABLE> on internal failure.
