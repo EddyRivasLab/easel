@@ -140,10 +140,10 @@ AC_ARG_ENABLE(modular,[AS_HELP_STRING([--enable-modular],[compile and prepare mo
     AC_DEFINE(eslLIBRARY)
   ])
 
-# --enable-debugging      - enable basic debugging code
+# --enable-debugging      - enable basic debugging code (level 1)
 # --enable-debugging=x    - also set verbosity level to <x> (1-3)
 #
-# At all levels, including 0, replaces CFLAGS w/ "-g -Wall" (so it assumes gcc).
+# At all levels, replaces CFLAGS w/ "-g -Wall" (so it assumes gcc).
 # Sets the eslDEBUGLEVEL preprocessor symbol to <x>
 #
 AC_ARG_ENABLE(debugging,
@@ -152,7 +152,7 @@ AS_HELP_STRING([--enable-debugging=x],[also set diagnostics verbosity level to <
 enable_debugging=$enableval, enable_debugging=no)
 
 case $enable_debugging in
-   yes)  AC_DEFINE(eslDEBUGLEVEL, 0);;
+   yes)  AC_DEFINE(eslDEBUGLEVEL, 1);;
      1)  AC_DEFINE(eslDEBUGLEVEL, 1);;
      2)  AC_DEFINE(eslDEBUGLEVEL, 2);;
      3)  AC_DEFINE(eslDEBUGLEVEL, 3);;

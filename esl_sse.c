@@ -146,9 +146,37 @@ esl_sse_logf(__m128 x)
  *            Valid for all IEEE754 floats $x_z$.
  *            
  * Xref:      J2/71
+ *            J10/62: bugfix, minlogf/maxlogf range was too wide; 
+ *                    (k+127) must be >=0 and <=255, so (k+127)<<23
+ *                    is a valid IEEE754 float, without touching 
+ *                    the sign bit. Pommier had this right in the
+ *                    first place, and I didn't understand.
  * 
  * Note:      Derived from an SSE1 implementation by Julian
  *            Pommier. Converted to SSE2.
+ *            
+ *            Note on maxlogf/minlogf, which are close to but not
+ *            exactly 127.5/log2 [J10/63]. We need -127<=k<=128, so
+ *            k+127 is 0..255, a valid IEEE754 8-bit exponent
+ *            (0..255), so the bit pattern (k+127)<<23 is IEEE754
+ *            single-precision for 2^k.  If k=-127, we get IEEE754 0.
+ *            If k=128, we get IEEE754 +inf.  If k<-127, k+127 is
+ *            negative and we get screwed up.  If k>128, k+127
+ *            overflows the 8-bit exponent and sets the sign bit.  So
+ *            for x' (base 2) < -127.5 we must definitely return e^x ~
+ *            0; for x' < 126.5 we're going to calculate 0 anyway
+ *            (because k=floor(-126.5-epsilon+0.5) = -127).  So any
+ *            minlogf between -126.5 log2 ... -127.5 log2 will suffice
+ *            as the cutoff. Ditto for 126.5 log2 .. 127.5log2.
+ *            That's 87.68312 .. 88.3762655.  I think Pommier's
+ *            thinking is, you don't want to get to close to the
+ *            edges, lest fp roundoff error screw you (he may have
+ *            consider 1 ulp carefully, I can't tell), but otherwise
+ *            you may as well put your bounds close to the outer edge;
+ *            so 
+ *              maxlogf =  127.5 log(2) - epsilon 
+ *              minlogf = -127.5 log(2) + epsilon 
+ *            for an epsilon that happen to be ~ 3e-6.
  */
 __m128 
 esl_sse_expf(__m128 x) 
@@ -156,8 +184,8 @@ esl_sse_expf(__m128 x)
   static float cephes_p[6] = { 1.9875691500E-4f, 1.3981999507E-3f, 8.3334519073E-3f, 
 			       4.1665795894E-2f, 1.6666665459E-1f, 5.0000001201E-1f };
   static float cephes_c[2] = { 0.693359375f,    -2.12194440e-4f };
-  static float maxlogf     =   88.72283905206835;  /* log(2^128)  */
-  static float minlogf     = -103.27892990343185;  /* log(2^-149) */
+  static float maxlogf     =  88.3762626647949f;  /* 127.5 log(2) - epsilon. above this, 0.5+x/log2 gives k>128 and breaks 2^k "float" construction, because (k+127)<<23 must be a valid IEEE754 exponent 0..255 */
+  static float minlogf     = -88.3762626647949f;  /*-127.5 log(2) + epsilon. below this, 0.5+x/log2 gives k<-127 and breaks 2^k, see above */
   __m128i k;
   __m128  mask, tmp, fx, z, y, minmask, maxmask;
   
@@ -358,6 +386,30 @@ utest_expf(ESL_GETOPTS *go)
   if (! isinf(r.x[1]))  esl_fatal("expf(large x)  should be inf");
   if (r.x[2] != 0.0f)   esl_fatal("expf(-large x) should be 0");
 
+  /* Make sure we are correct around the problematic ~minlogf boundary:
+   *  (1) e^x for x < -127.5 log2 + epsilon is 0, because that's our minlogf barrier.
+   *  (2) e^x for  -127.5 log2 < x < -126.5 log2 is 0 too, but is actually calculated
+   *  (3) e^x for  -126.5 log2 < x should be finite (and close to FLT_MIN)
+   *
+   *  minlogf = -127.5 log(2) + epsilon = -88.3762626647949;
+   *        and -126.5 log(2)           = -87.68311834
+   *  so for
+   *     (1): expf(-88.3763)  => 0
+   *     (2): expf(-88.3762)  => 0
+   *     (3): expf(-87.6832)   => 0
+   *     (4): expf(-87.6831)   => <FLT_MIN (subnormal) : ~8.31e-39 (may become 0 in flush-to-zero mode for subnormals)
+   */
+  x   = _mm_set_ps(-88.3763, -88.3762, -87.6832, -87.6831);
+  r.v = esl_sse_expf(x); 
+  if (esl_opt_GetBoolean(go, "-v")) {
+    printf("expf");
+    esl_sse_dump_ps(stdout, x);    printf(" ==> ");
+    esl_sse_dump_ps(stdout, r.v);  printf("\n");
+  }
+  if ( r.x[0] >= FLT_MIN) esl_fatal("expf( -126.5 log2 + eps) should be around FLT_MIN");
+  if ( r.x[1] != 0.0f)    esl_fatal("expf( -126.5 log2 - eps) should be 0.0 (by calculation)");
+  if ( r.x[2] != 0.0f)    esl_fatal("expf( -127.5 log2 + eps) should be 0.0 (by calculation)");
+  if ( r.x[3] != 0.0f)    esl_fatal("expf( -127.5 log2 - eps) should be 0.0 (by min bound): %g", r.x[0]);
 }
 
 /* utest_odds():  test accuracy of logf, expf on odds ratios,
