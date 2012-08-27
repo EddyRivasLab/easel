@@ -1528,53 +1528,59 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
        }
     } // otherwise, just start at the beginning
 
-
-    for (  ; i < sqBlock->listSize && size < max_residues; ++i)
-    {
-
-     esl_sq_Reuse(tmpsq);
-     esl_sq_Reuse(sqBlock->list + i);
-     status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
-     if (status != eslOK) break; // end of sequences
-
-     size += sqBlock->list[i].n - sqBlock->list[i].C;
-     sqBlock->list[i].L = sqfp->data.ascii.L;
-     ++(sqBlock->count);
-     if (size >= max_residues)
-     { // a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
-
-       sqBlock->complete = FALSE; // default value, unless overridden below
-
-       status = skip_whitespace(sqfp);
-       if ( status != eslOK ) { // either EOD or end of buffer (EOF) was reached before the next character was seen
-         sqBlock->complete = TRUE;
-         status = eslOK;
-       }
-
-       if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
-       return status;
-
-     }
-     else
-     {
-       /* Sequence finished, but haven't yet reached max_residues. Need to burn off the EOD value
-          that will be returned by the next ReadWindow call. Can just use a tmp sq, after setting
-          a couple values ReadWindow needs to see for correct processing.
-       */
-       esl_sq_Reuse(tmpsq);
-       tmpsq->start =  sqBlock->list[i].start ;
-       tmpsq->C = 0;
-       status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
-       if (status != eslEOD) {
-         if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
-         return status; //surprising
-       }
-       //sqBlock->list[i].L = tmpsq->L;
-       status = eslOK;
-     }
+    for (  ; i < sqBlock->listSize && size < max_residues; ++i) { 
+      esl_sq_Reuse(tmpsq);
+      esl_sq_Reuse(sqBlock->list + i);
+      status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
+      if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
+      size += sqBlock->list[i].n - sqBlock->list[i].C;
+      sqBlock->list[i].L = sqfp->data.ascii.L;
+      ++(sqBlock->count);
+      if (size >= max_residues) { 
+	// a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
+	
+	sqBlock->complete = FALSE; // default value, unless overridden below
+	
+	status = skip_whitespace(sqfp);
+	if ( status != eslOK ) { // either EOD or end of buffer (EOF) was reached before the next character was seen
+	  sqBlock->complete = TRUE;
+	  status = eslOK;
+	}
+	
+	if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+	return status;
+      }
+      else if(status == eslEOD) { 
+	/* We've read an empty sequence of length 0, rare, but
+	 * possible, and we need to be able to handle it
+	 * gracefully. Ensure L is 0, set status to eslOK and move
+	 * on, we've already incremented sqBlock->count by 1
+	 * above. This means our block may contain zero-length
+	 * sequences when we return (that is, we still add these
+	 * seqs onto the block instead of skipping them altogether).
+	 */
+	sqBlock->list[i].L = 0; /* actually, this should already be 0... */
+	status = eslOK;
+      }
+      else { 
+	/* Sequence finished, but haven't yet reached max_residues. Need to burn off the EOD value
+	   that will be returned by the next ReadWindow call. Can just use a tmp sq, after setting
+	   a couple values ReadWindow needs to see for correct processing.
+	*/
+	esl_sq_Reuse(tmpsq);
+	tmpsq->start =  sqBlock->list[i].start ;
+	tmpsq->C = 0;
+	status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
+	if (status != eslEOD) {
+	  if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+	  return status; //surprising
+	}
+	//sqBlock->list[i].L = tmpsq->L;
+	status = eslOK;
+      }
     }
   }
-
+  
   /* EOF will be returned only in the case were no sequences were read */
   if (status == eslEOF && i > 0) status = eslOK;
   
