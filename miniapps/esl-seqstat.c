@@ -155,7 +155,7 @@ main(int argc, char **argv)
 	  }
 
 	  if (esl_opt_GetBoolean(go, "-a")) {
-	    printf("= %-20s %8" PRId64 " %s\n", sq->name, sq->L, (sq->desc != NULL) ? sq->desc : "");
+	    printf("= %-25s %8" PRId64 " %s\n", sq->name, sq->L, (sq->desc != NULL) ? sq->desc : "");
 	  }
 
 	  nres += sq->L;
