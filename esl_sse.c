@@ -438,7 +438,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       if (odds == 0.0) esl_fatal("whoa, odds ratio can't be 0!\n");
 
       r1.v      = esl_sse_logf(_mm_set1_ps(odds));  /* r1.x[z] = log(p1/p2) */
-      scalar_r1 = logf(odds);
+      scalar_r1 = log(odds);
 
       err1       = (r1.x[0] == 0. && scalar_r1 == 0.) ? 0.0 : 2 * fabs(r1.x[0] - scalar_r1) / fabs(r1.x[0] + scalar_r1);
       if (err1 > maxerr1) maxerr1 = err1;
@@ -446,7 +446,7 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
       if (isnan(avgerr1)) esl_fatal("whoa, what?\n");
 
       r2.v      = esl_sse_expf(r1.v);        /* and back to odds */
-      scalar_r2 = expf(r1.x[0]);
+      scalar_r2 = exp(r1.x[0]);
 
       err2       = (r2.x[0] == 0. && scalar_r2 == 0.) ? 0.0 : 2 * fabs(r2.x[0] - scalar_r2) / fabs(r2.x[0] + scalar_r2);
       if (err2 > maxerr2) maxerr2 = err2;
@@ -456,16 +456,16 @@ utest_odds(ESL_GETOPTS *go, ESL_RANDOMNESS *r)
 	printf("%13.7g  %13.7g  %13.7g  %13.7g  %13.7g  %13.7g  %13.7g\n", odds, scalar_r1, r1.x[0], scalar_r2, r2.x[0], err1, err2);
     }
 
-  if (avgerr1 > 1e-8) esl_fatal("average error on logf() is intolerable\n");
-  if (maxerr1 > 1e-6) esl_fatal("maximum error on logf() is intolerable\n");
-  if (avgerr2 > 1e-8) esl_fatal("average error on expf() is intolerable\n");
-  if (maxerr2 > 1e-6) esl_fatal("maximum error on expf() is intolerable\n");
-
   if (verbose) {
     printf("Average [max] logf() relative error in %d odds trials:  %13.8g  [%13.8g]\n", N, avgerr1, maxerr1);
     printf("Average [max] expf() relative error in %d odds trials:  %13.8g  [%13.8g]\n", N, avgerr2, maxerr2);
     printf("(random seed : %" PRIu32 ")\n", esl_randomness_GetSeed(r));
   }
+
+  if (avgerr1 > 1e-8) esl_fatal("average error on logf() is intolerable\n");
+  if (maxerr1 > 1e-6) esl_fatal("maximum error on logf() is intolerable\n");
+  if (avgerr2 > 1e-8) esl_fatal("average error on expf() is intolerable\n");
+  if (maxerr2 > 1e-6) esl_fatal("maximum error on expf() is intolerable\n");
 }
 #endif /*eslSSE_TESTDRIVE*/
 
