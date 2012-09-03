@@ -1245,11 +1245,20 @@ debugging, failures are classified as normal (returned) errors.
 (Throwing exceptions instead would give the caller no flexibility in
 dealing with failed validations.) The caller can then print an
 appropriately informative failure message, using the \ccode{errbuf},
-for example. (A \ccode{\_Validate()} call might also be included in
-production code, so it needs to use the \ccode{errbuf} mechanism to
-return its informative failure message; it cannot, for instance, call
-\ccode{esl\_fatal()} or the like directly, because that would mean
-crashing out of production code.)
+for example. (That is, a \ccode{\_Validate()} call might also be
+included in production code, so it needs to use the \ccode{errbuf}
+mechanism to return its informative failure message;
+\ccode{\_Validate()} cannot, for instance, call \ccode{esl\_fatal()}
+or the like directly, because that would mean crashing out of
+production code.)
+
+A \ccode{\_Validate()} function is not intended to test all possible
+invalid states of an object, even if that were feasible. Rather, the
+goal is to automatically catch future problems we've already seen in
+past debugging and testing. So a \ccode{\_Validate()} function is a
+place to systematically organize a set of checks that essentially
+amount to regression tests against past debugging/testing efforts.
+
 
 \hypertarget{ifc:Dump}
 {\item[\_Dump*(FILE *fp, obj...)]}
