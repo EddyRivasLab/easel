@@ -120,6 +120,7 @@
 #define eslENOFORMAT      25	/* couldn't guess file format   */
 #define eslENOALPHABET    26	/* couldn't guess seq alphabet  */
 #define eslEWRITE         27   	/* write failed (fprintf, etc)  */
+#define eslEINACCURATE    28    /* return val may be inaccurate */
 /*::cexcerpt::statuscodes::end::*/
 
 
