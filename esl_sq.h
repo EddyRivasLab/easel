@@ -122,6 +122,13 @@ typedef struct {
   off_t    doff;	   /* data offset (start of sequence data); -1 if none */
   off_t    eoff;	   /* offset to last byte of record; -1 if unknown     */
 
+  /* Optional information for extra residue markups.
+   * The number of them, and their tags are arbitrary
+   */
+  char  **xr_tag;          /* markup tags for extra residue markups [0..ntr-1][free-text], [0..ntr-1][free-text], or NULL */
+  char  **xr;              /* annotations for extra residue markups [0..ntr-1][0..n-1],    [0..ntr-1][1..n],      or NULL */
+  int     nxr;		   /* number of extra residue markups                                                             */
+
   /* Copy of a pointer to the alphabet, if digital mode */
 #if defined(eslAUGMENT_ALPHABET)
   const ESL_ALPHABET *abc; /* reference to the alphabet for <dsq>              */
