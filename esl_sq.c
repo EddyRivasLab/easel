@@ -273,12 +273,26 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
 
   /* If <src> has structure annotation and <dst> does not, initialize an allocation in <dst> */
   if (src->ss != NULL && dst->ss  == NULL) ESL_ALLOC(dst->ss, sizeof(char) * dst->salloc);
+
   /* similarly for optional extra residue markups */
-  if (src->nxr > 0 && dst->nxr == 0) {
+  if (src->nxr > 0) {
+    if (dst->nxr > 0) {
+      for (x = 0; x < dst->nxr; x++) {
+	if (dst->xr[x]     != NULL) { free(dst->xr[x]);     dst->xr[x]     = NULL; }
+	if (dst->xr_tag[x] != NULL) { free(dst->xr_tag[x]); dst->xr_tag[x] = NULL; }
+      }     
+      if (dst->xr     != NULL) { free(dst->xr);     dst->xr     = NULL; }
+      if (dst->xr_tag != NULL) { free(dst->xr_tag); dst->xr_tag = NULL; }
+    }
+    
     dst->nxr = src->nxr;
-    for (x = 0; x < src->nxr; x++) 
-      if (src->xr_tag[x] != NULL)  ESL_ALLOC(dst->xr_tag[x], sizeof(char) * dst->nalloc);
-      if (src->xr[x]     != NULL)  ESL_ALLOC(dst->xr[x],     sizeof(char) * dst->salloc);
+    ESL_ALLOC(dst->xr_tag, sizeof(char *) * dst->nxr);
+    ESL_ALLOC(dst->xr,     sizeof(char *) * dst->nxr);
+    
+    for (x = 0; x < dst->nxr; x++) {
+      ESL_ALLOC(dst->xr_tag[x], sizeof(char) * src->nalloc);
+      ESL_ALLOC(dst->xr[x],     sizeof(char) * src->salloc);
+    }
   }
   
   if ((status = esl_sq_SetName     (dst, src->name))   != eslOK) goto ERROR;
@@ -289,7 +303,7 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
 
   if (src->seq != NULL && dst->seq != NULL) /* text to text */
     {
-      strcpy(dst->seq, src->seq);
+    strcpy(dst->seq, src->seq);
       if (src->ss != NULL) strcpy(dst->ss, src->ss);
       for (x = 0; x < src->nxr; x++) 
 	if (src->xr[x] != NULL) strcpy(dst->xr[x], src->xr[x]);
@@ -325,7 +339,7 @@ esl_sq_Copy(const ESL_SQ *src, ESL_SQ *dst)
 	if (src->xr[x] != NULL) { strcpy(dst->xr[x]+1, src->xr[x]+1); dst->xr[x][0] = '\0'; }
     }
 #endif
-  
+   
   for (x = 0; x < src->nxr; x++) 
     if (src->xr_tag[x] != NULL) strcpy(dst->xr_tag[x], src->xr_tag[x]);
 
@@ -2317,6 +2331,8 @@ utest_ExtraResMarkups()
   ESL_MSA             *msa1 = NULL;
   ESL_MSA             *msa2 = NULL;
   ESL_SQ              *sq   = NULL;
+  ESL_SQ              *sq1  = NULL;
+  ESL_SQ              *sq2  = NULL;
 
   strcpy(tmpfile, "esltmpXXXXXX"); 
   if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
@@ -2331,12 +2347,22 @@ utest_ExtraResMarkups()
   if (esl_sq_GetFromMSA(msa1, 0, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
   if (esl_sq_GetFromMSA(msa1, 1, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
   if (esl_sq_GetFromMSA(msa1, 2, sq) != eslOK) esl_fatal(msg); esl_sq_Reuse(sq);
-  if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
+  if (esl_sq_GetFromMSA(msa1, 5, sq) != eslOK) esl_fatal(msg); 
+
+  /* test of sq_Copy */
+  sq1 = esl_sq_Create();
+  sq2 = esl_sq_CreateDigital(abc);
+  esl_sq_Copy(sq, sq1);
+  esl_sq_Copy(sq, sq2);
+  esl_sq_Destroy(sq1);
+  esl_sq_Destroy(sq2);
+  esl_sq_Destroy(sq);
   
   if (esl_sq_FetchFromMSA(msa1, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
   if (esl_sq_FetchFromMSA(msa1, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
   if (esl_sq_FetchFromMSA(msa1, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
   if (esl_sq_FetchFromMSA(msa1, 5, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
+
   
   /* Text msa to text sq */
   eslx_msafile_Open(NULL, tmpfile, NULL, eslMSAFILE_STOCKHOLM, NULL, &afp2);  
@@ -2351,8 +2377,16 @@ utest_ExtraResMarkups()
   if (esl_sq_FetchFromMSA(msa2, 0, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
   if (esl_sq_FetchFromMSA(msa2, 1, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
   if (esl_sq_FetchFromMSA(msa2, 2, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); esl_sq_Destroy(sq);
-  
+  if (esl_sq_FetchFromMSA(msa2, 5, &sq) != eslOK) esl_fatal(msg); 
+  /* test of sq_Copy */
+  sq1 = esl_sq_Create();
+  sq2 = esl_sq_CreateDigital(abc);
+  esl_sq_Copy(sq, sq1);
+  esl_sq_Copy(sq, sq2);
+  esl_sq_Destroy(sq1);
+  esl_sq_Destroy(sq2);
+  esl_sq_Destroy(sq);
+
   /* clean up */
   remove(tmpfile);
   eslx_msafile_Close(afp1);
