@@ -291,29 +291,29 @@ esl_sq_MPIPackSize(ESL_SQ *sq, MPI_Comm comm, int *ret_n)
   int   x;       /* index for optional extra residue markups */
   int   sz;
 
-  status = MPI_Pack_size        (                        1, MPI_INT,           comm, &sz); n += 5*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size        (                        1, MPI_UNSIGNED_LONG, comm, &sz); n += 7*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size        (               sq->nalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size        (               sq->aalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size        (               sq->dalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-  status = MPI_Pack_size        (             sq->srcalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                          1, MPI_INT,           comm, &sz); n += 5*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                          1, MPI_UNSIGNED_LONG, comm, &sz); n += 7*sz; if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                 sq->nalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                 sq->aalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (                 sq->dalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+  status = MPI_Pack_size        (               sq->srcalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
 
   /* sequence, digital or text; the ss and extra residue markups are optional */
   if (sq->dsq != NULL) {
-    status = MPI_Pack_size      (                   sq->n+2, MPI_UNSIGNED_CHAR, comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-    status = esl_mpi_PackOptSize(sq->ss,            sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+    status = MPI_Pack_size      (                    sq->n+2, MPI_UNSIGNED_CHAR, comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+    status = esl_mpi_PackOptSize(sq->ss,             sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
     for (x = 0; x < sq->nxr; x ++) {
-      status = esl_mpi_PackOptSize(sq->xr_tag[x],   sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
-      status = esl_mpi_PackOptSize(sq->xr[x],       sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+      status = esl_mpi_PackOptSize(sq->xr_tag[x], sq->nalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+      status = esl_mpi_PackOptSize(sq->xr[x],        sq->n+2, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
     }
     
   }
   else { 
-    status = MPI_Pack_size      (                   sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
-    status = esl_mpi_PackOptSize(sq->ss,            sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+    status = MPI_Pack_size      (                    sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != 0)     ESL_XEXCEPTION(eslESYS, "pack size failed");
+    status = esl_mpi_PackOptSize(sq->ss,             sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
     for (x = 0; x < sq->nxr; x ++) {
-      status = esl_mpi_PackOptSize(sq->xr_tag[x],   sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
-      status = esl_mpi_PackOptSize(sq->xr[x],       sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+      status = esl_mpi_PackOptSize(sq->xr_tag[x], sq->nalloc, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
+      status = esl_mpi_PackOptSize(sq->xr[x],        sq->n+1, MPI_CHAR,          comm, &sz); n += sz;   if (status != eslOK) goto ERROR;
       }
     
   }
@@ -399,7 +399,7 @@ esl_sq_MPIPack(ESL_SQ *sq, char *buf, int n, int *pos, MPI_Comm comm)
     status = MPI_Pack       (sq->dsq,                                    sq->n+2, MPI_UNSIGNED_CHAR, buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
     status = esl_mpi_PackOpt(sq->ss,                                     sq->n+2, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
     for (x = 0; x < sq->nxr; x ++) {
-      status = esl_mpi_PackOpt(sq->xr_tag[x],                            sq->n+2, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
+      status = esl_mpi_PackOpt(sq->xr_tag[x],                         sq->nalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
       status = esl_mpi_PackOpt(sq->xr[x],                                sq->n+2, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
     }
   }
@@ -407,7 +407,7 @@ esl_sq_MPIPack(ESL_SQ *sq, char *buf, int n, int *pos, MPI_Comm comm)
     status = MPI_Pack       (sq->seq,                                    sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != 0)     ESL_EXCEPTION(eslESYS, "pack failed");
     status = esl_mpi_PackOpt(sq->ss,                                     sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
     for (x = 0; x < sq->nxr; x ++) {
-      status = esl_mpi_PackOpt(sq->xr_tag[x],                            sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
+      status = esl_mpi_PackOpt(sq->xr_tag[x],                         sq->nalloc, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
       status = esl_mpi_PackOpt(sq->xr[x],                                sq->n+1, MPI_CHAR,          buf, n, pos,  comm); if (status != eslOK) return status;
     }
   }
@@ -504,7 +504,7 @@ esl_sq_MPIUnpack(const ESL_ALPHABET *abc, char *buf, int n, int *pos, MPI_Comm c
   else {
     status = MPI_Unpack     (buf, n, pos, sq->seq,                       sq->n+1, MPI_CHAR,           comm); if (status != 0)     ESL_XEXCEPTION(eslESYS, "mpi unpack failed");
   }
-   
+
   /* unpack the optional ss */
   status = esl_mpi_UnpackOpt(buf, n, pos, (void **) &(sq->ss),              NULL, MPI_CHAR,           comm); if (status != eslOK) goto ERROR;
   
