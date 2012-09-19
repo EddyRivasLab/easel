@@ -798,7 +798,11 @@ if test "$ac_test_CFLAGS" != "set"; then
      CFLAGS="-O3 -fomit-frame-pointer"
 
      # -malign-double for x86 systems
-     AX_CHECK_COMPILER_FLAGS(-malign-double, CFLAGS="$CFLAGS -malign-double")
+     # SRE: no, that's a bad idea; 
+     #  on 32bit Ubuntu Linux systems, for example, this
+     #  causes an odd and buggy interaction with _FILE_OFFSET_BITS (LFS)
+     #  and fstat().
+     #     AX_CHECK_COMPILER_FLAGS(-malign-double, CFLAGS="$CFLAGS -malign-double")
 
      #  -fstrict-aliasing for gcc-2.95+
      AX_CHECK_COMPILER_FLAGS(-fstrict-aliasing,
