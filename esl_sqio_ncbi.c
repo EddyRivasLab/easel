@@ -1193,6 +1193,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 			  {
 				  sqBlock->count = i = 1;
 				  size = sqBlock->list->n;
+				  sqBlock->list[i].L = sqfp->data.ncbi.seq_L;
 				  if (sqBlock->list->n >= max_residues)
 				  { // Filled the block with a single very long window.
 
