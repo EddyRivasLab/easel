@@ -528,6 +528,9 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
     c->tax_id = sq->tax_id;
     c->seq    = NULL;
     c->ss     = NULL;
+    c->nxr    = 0;
+    c->xr_tag = NULL;
+    c->xr     = NULL;
 
     /* copy the digitized sequence */
     memcpy(res_ptr + 1, sq->dsq + 1, sq->n + 1);
@@ -576,6 +579,9 @@ esl_sqfile_Cache(const ESL_ALPHABET *abc, const char *seqfile, int fmt, const ch
   c->tax_id   = -1;
   c->seq      = NULL;
   c->ss       = NULL;
+  c->nxr      = 0;
+  c->xr_tag   = NULL;
+  c->xr       = NULL;
 
   c->dsq      = res_ptr;
   c->n        = 0;
@@ -1395,6 +1401,7 @@ static int
 convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
 {
   ESL_MSA *msa;
+  int      x;        /* counter for extra-residue markups */
   int      status;
 
 #ifdef eslAUGMENT_ALPHABET
@@ -1435,6 +1442,27 @@ convert_sq_to_msa(ESL_SQ *sq, ESL_MSA **ret_msa)
       if ((status = esl_strdup(sq->ss, -1, &(msa->ss[0]))) != eslOK) goto ERROR;     	
 
     }
+
+  if (sq->nxr > 0) {
+    msa->ngr = sq->nxr;
+    ESL_ALLOC(msa->gr,     sizeof(char **) * msa->ngr);    
+    ESL_ALLOC(msa->gr_tag, sizeof(char  *) * msa->ngr);
+
+    for (x = 0; x < msa->ngr; x ++) {
+      ESL_ALLOC(msa->gr[x],     sizeof(char *));  
+      ESL_ALLOC(msa->gr_tag[x], sizeof(char));
+   
+#ifdef eslAUGMENT_ALPHABET
+      if (sq->dsq != NULL) {	/* sq->xr is 1..L in digital mode; but msa->gr is always 0..L-1 */
+	if ((status = esl_strdup(sq->xr[x]+1, -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;
+      } else
+#endif
+      if ((status = esl_strdup(sq->xr[x], -1, &(msa->gr[x][0]))) != eslOK) goto ERROR;     	
+
+      if ((status = esl_strdup(sq->xr_tag[x], -1, &(msa->gr_tag[x]))) != eslOK) goto ERROR;     	  
+    }
+  }
+
   msa->alen = sq->n;
   msa->nseq = 1;
   *ret_msa = msa;
