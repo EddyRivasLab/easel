@@ -2283,10 +2283,12 @@ esl_msa_ColumnSubset(ESL_MSA *msa, char *errbuf, const int *useme)
   int     idx;			/* sequence index */
   int     i;			/* markup index */
 
-  /* Remove any basepairs from SS_cons and individual sequence SS
+  /* For RNA/DNA digital alignments only:
+   * Remove any basepairs from SS_cons and individual sequence SS
    * for aln columns i,j for which useme[i-1] or useme[j-1] are FALSE 
    */
-  if ((status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) return status;
+  if ( msa->abc && (msa->abc->type == eslRNA || msa->abc->type == eslDNA) &&
+       (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) return status;
 
   /* Since we're minimizing, we can overwrite in place, within the msa
    * we've already got. 
@@ -2374,11 +2376,12 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
   int     idx;		/* sequence index */
   int     status;
   int     rf_is_nongap; /* TRUE if current position is not a gap in msa->rf OR msa->rf is NULL */
-  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
 
 #ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
   if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
     {
+      ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
+
       for (apos = 1; apos <= msa->alen; apos++)
 	{
 	  rf_is_nongap = ((msa->rf != NULL) && 
@@ -2396,34 +2399,89 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
 	    if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
 	  }
 	}
+      if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
+      free(useme);
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
     {
-      for (apos = 0; apos < msa->alen; apos++)
-	{
-	  rf_is_nongap = ((msa->rf != NULL) && 
-			  (strchr(gaps, msa->rf[apos]) == NULL)) ?
-	    TRUE : FALSE;
-	  if(rf_is_nongap && consider_rf) { /* RF is not a gap and consider_rf is TRUE, keep this column */
-	    useme[apos] = TRUE;
-	  }
-	  else { /* check all seqs to see if this column is all gaps */
-	    for (idx = 0; idx < msa->nseq; idx++)
-	      if (strchr(gaps, msa->aseq[idx][apos]) == NULL)
-		break;
-	    if (idx == msa->nseq) useme[apos] = FALSE; else useme[apos] = TRUE;
-	  }
-	}
+      if ( (status = esl_msa_MinimGapsText(msa, errbuf, gaps, consider_rf, FALSE)) != eslOK) goto ERROR;
     }
-  if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) return status;
-  free(useme);
+
   return eslOK;
 
  ERROR:
   if (useme != NULL) free(useme);
   return status;
 }
+
+/* Function:  esl_msa_MinimGapsText()
+ * Synopsis:  Remove columns containing all gap symbols, from text mode msa
+ *
+ * Purpose:   Same as esl_msa_MinimGaps(), but specialized for a text mode
+ *            alignment where we don't know the alphabet. The issue is what 
+ *            to do about RNA secondary structure annotation (SS, SS_cons) 
+ *            when we remove columns, which can remove one side of a bp and
+ *            invalidate the annotation string. For digital alignments,
+ *            <esl_msa_MinimGaps()> knows the alphabet and will fix base pairs
+ *            for RNA/DNA alignments. For text mode, though, we have to 
+ *            get told to do it, because the default behavior for text mode
+ *            alis is to assume that the alphabet is totally arbitrary, and we're
+ *            not allowed to make assumptions about its symbols' meaning.
+ *            Hence, the <fix_bps> flag here. 
+ *            
+ *            Ditto for the <gaps> string: we don't know what symbols
+ *            are supposed to be gaps unless we're told something like 
+ *            <"-_.~">.
+ *
+ * Args:      msa         - alignment to remove all-gap cols from
+ *            errbuf      - if non-<NULL>, space for an informative error message on failure
+ *            gaps        - string of gap characters
+ *            consider_rf - if TRUE, also consider gap/nongap cols in RF annotation line
+ *            fix_bps     - if TRUE, fix any broken bps in SS/SS_cons annotation lines.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure. 
+ *            Possibilities from <esl_msa_ColumnSubset()> call:
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted SS.
+ */
+int
+esl_msa_MinimGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf, int fix_bps)
+{
+  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int64_t apos;		/* column index   */
+  int     idx;		/* sequence index */
+  int     status;
+  int     rf_is_nongap; /* TRUE if current position is not a gap in msa->rf OR msa->rf is NULL */
+
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is just to deal w/ alen=0 special case */
+
+  for (apos = 0; apos < msa->alen; apos++)
+    {
+      rf_is_nongap = ((msa->rf != NULL) && (strchr(gaps, msa->rf[apos]) == NULL)) ?  TRUE : FALSE;
+      if (rf_is_nongap && consider_rf) useme[apos] = TRUE;  /* RF is not a gap and consider_rf is TRUE, keep this column */
+      else
+	{ /* check all seqs to see if this column is all gaps */
+	  for (idx = 0; idx < msa->nseq; idx++)
+	    if (strchr(gaps, msa->aseq[idx][apos]) == NULL) break;
+	  useme[apos] = (idx == msa->nseq ? FALSE : TRUE);
+	}
+    }
+
+  if (fix_bps && (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) goto ERROR;
+  if (           (status = esl_msa_ColumnSubset         (msa, errbuf, useme)) != eslOK) goto ERROR;
+
+  free(useme);
+  return eslOK;
+  
+ ERROR:
+  if (useme) free(useme);
+  return status;
+}
+
 
 /* Function:  esl_msa_NoGaps()
  * Synopsis:  Remove columns containing any gap symbol.
@@ -2466,11 +2524,11 @@ esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
   int     idx;		/* sequence index */
   int     status;
 
-  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
-
 #ifdef eslAUGMENT_ALPHABET	   /* digital mode case */
   if (msa->flags & eslMSA_DIGITAL) /* be careful of off-by-one: useme is 0..L-1 indexed */
     {
+      ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
+
       for (apos = 1; apos <= msa->alen; apos++)
 	{
 	  for (idx = 0; idx < msa->nseq; idx++)
@@ -2479,25 +2537,76 @@ esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
 	      break;
 	  if (idx == msa->nseq) useme[apos-1] = TRUE; else useme[apos-1] = FALSE;
 	}
+
+      if ((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
+      free(useme);
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
     {
-      for (apos = 0; apos < msa->alen; apos++)
-	{
-	  for (idx = 0; idx < msa->nseq; idx++)
-	    if (strchr(gaps, msa->aseq[idx][apos]) != NULL)
-	      break;
-	  if (idx == msa->nseq) useme[apos] = TRUE; else useme[apos] = FALSE;
-	}
+      if ((status = esl_msa_NoGapsText(msa, errbuf, gaps, FALSE)) != eslOK) goto ERROR;
     }
-
-  esl_msa_ColumnSubset(msa, errbuf, useme);
-  free(useme);
   return eslOK;
 
  ERROR:
   if (useme != NULL) free(useme);
+  return status;
+}
+
+
+/* Function:  esl_msa_NoGapsText()
+ * Synopsis:  Remove columns containing any gap symbol at all, for text mode msa.
+ *
+ * Purpose:   Like <esl_msa_NoGaps()> but specialized for textmode <msa> where
+ *            we don't know the alphabet, yet might need to fix alphabet-dependent
+ *            problems. 
+ *            
+ *            Like <esl_msa_MinimGapsText()>, the alphabet-dependent issue we might
+ *            want to fix is RNA secondary structure annotation (SS, SS_cons); 
+ *            removing a column might remove one side of a base pair annotation, and
+ *            invalidate a secondary structure string. <fix_bps> tells the function
+ *            that SS and SS_cons are RNA WUSS format strings, and the function is
+ *            allowed to edit (and fix) them. Normally, in text mode msa's, we
+ *            are not allowed to interpret any meaning of symbols.
+ *
+ * Args:      msa     - alignment to remove any-gap cols from
+ *            errbuf  - if non-<NULL>, space for an informative error message on failure
+ *            gaps    - string of gap characters
+ *            fix_bps - if TRUE, fix any broken bps in SS/SS_cons annotation lines
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            Possibilities from <esl_msa_ColumnSubset()> call:
+ *            <eslESYNTAX> if WUSS string for <SS_cons> or <msa->ss>
+ *            following <esl_wuss_nopseudo()> is inconsistent.
+ *            <eslEINVAL> if a derived ct array implies a pknotted SS.
+ */
+int
+esl_msa_NoGapsText(ESL_MSA *msa, char *errbuf, const char *gaps, int fix_bps)
+{
+  int    *useme = NULL;	/* array of TRUE/FALSE flags for which cols to keep */
+  int64_t apos;		/* column index */
+  int     idx;		/* sequence index */
+  int     status;
+
+  ESL_ALLOC(useme, sizeof(int) * (msa->alen+1)); /* +1 is only to deal with alen=0 special case */
+
+  for (apos = 0; apos < msa->alen; apos++)
+    {
+      for (idx = 0; idx < msa->nseq; idx++)
+	if (strchr(gaps, msa->aseq[idx][apos]) != NULL) break;
+      useme[apos] = (idx == msa->nseq ? TRUE : FALSE);
+    }
+  
+  if (fix_bps && (status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme)) != eslOK) goto ERROR;
+  if (           (status = esl_msa_ColumnSubset         (msa, errbuf, useme)) != eslOK) goto ERROR;
+  
+  free(useme);
+  return eslOK;
+  
+ ERROR:
+  if (useme) free(useme);
   return status;
 }
 

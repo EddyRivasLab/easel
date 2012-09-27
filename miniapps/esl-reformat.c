@@ -94,6 +94,7 @@ main(int argc, char **argv)
   int    fullwuss;		/* TRUE to convert simple WUSS to full WUSS  */
   char  *rename; 		/* if non-NULL rename seqs to <s>.<n>        */
   int    do_small;		/* TRUE to operate in small memory mode      */
+  int    do_fixbps;		/* TRUE to assume SS/SS_cons are for WUSS RNA*/
   char  *rstring;               /* <s> from --replace <s>                    */
   char  *rfrom, *rto;           /* <s1> and <s2> from --replace <s>=<s1>:<s2>*/
   int    reached_eof;           /* reached EOF? used only in small mem mode  */
@@ -158,6 +159,7 @@ main(int argc, char **argv)
   rename      = esl_opt_GetString (go, "--rename");
   do_small    = esl_opt_GetBoolean(go, "--small");
   rstring     = esl_opt_GetString( go, "--replace");
+  do_fixbps   = (force_rna || force_dna || wussify || dewuss || fullwuss) ? TRUE : FALSE;
 
   /* if --small, make sure infmt == pfam and (outfmt == afa || outfmt == pfam) */
   if(do_small && (infmt != eslMSAFILE_PFAM || (outfmt != eslMSAFILE_AFA && outfmt != eslMSAFILE_PFAM)))  
@@ -188,9 +190,8 @@ main(int argc, char **argv)
   if (esl_sqio_IsAlignment(outfmt))
     {
       ESLX_MSAFILE *afp;
-      ESL_MSA     *msa;
+      ESL_MSA      *msa;
 
-      /* use text mode, deliberately, for maximum generality of conversion */
       status = eslx_msafile_Open(NULL, infile, NULL, infmt, NULL, &afp);
       if (status != eslOK) eslx_msafile_OpenFailure(afp, status);
 
@@ -227,8 +228,8 @@ main(int argc, char **argv)
 	    if (nali > 1 && ! eslx_msafile_IsMultiRecord(outfmt))
 	      esl_fatal("Input file contains >1 alignments, but %s formatted output file can only contain 1", eslx_msafile_DecodeFormat(outfmt));
 
-	    if (do_mingap)    if((status = esl_msa_MinimGaps(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"))) != eslOK) esl_fatal(errbuf);
-	    if (do_nogap)     if((status = esl_msa_NoGaps   (msa, errbuf, "-_.~"))                                     != eslOK) esl_fatal(errbuf);
+	    if (do_mingap)    if((status = esl_msa_MinimGapsText(msa, errbuf, "-_.~", esl_opt_GetBoolean(go, "--keeprf"), do_fixbps)) != eslOK) esl_fatal(errbuf);
+	    if (do_nogap)     if((status = esl_msa_NoGapsText   (msa, errbuf, "-_.~", do_fixbps))                                     != eslOK) esl_fatal(errbuf);
 	    if (rfrom)        esl_msa_SymConvert(msa, rfrom, rto);
 	    if (gapsym)       esl_msa_SymConvert(msa, "-_.", gapsym);
 	    if (force_lower)  esl_msa_SymConvert(msa,
@@ -287,8 +288,8 @@ main(int argc, char **argv)
 	    eslx_msafile_Write(ofp, msa, outfmt);
 	    esl_msa_Destroy(msa);
 	  }
-	eslx_msafile_Close(afp);
-      } 
+      }
+      eslx_msafile_Close(afp);
     } /* end of alignment->alignment conversion */
   else
     { /* else: conversion to unaligned file formats */

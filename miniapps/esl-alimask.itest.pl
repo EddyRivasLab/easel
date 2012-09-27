@@ -110,7 +110,7 @@ for($pass = 0; $pass < 4; $pass++) {
     if ($output !~ /aAAA\.AAAA\.\.c\.CCCCCC\.\.GGGgg/)                                        { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     if ($output !~ /\.555\.4\*44\.\.\.\.888888\.\.899\.\./)                                   { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     if ($have_rfA[$pass]) { 
-	if ($output !~ /:::::::::::::<<_______>>::/)                                          { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
+	if ($output !~ /.............<<<.....>>>../)                                          { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     }
     
     system("$eslalimask $smallA[$pass] --rna -q -o $tmppfx.out $afileA[$pass] $tmppfx.fullmask > /dev/null");
@@ -127,7 +127,7 @@ for($pass = 0; $pass < 4; $pass++) {
     if ($output !~ /aAAA\.AAAA\.\.c\.CCCCCC\.\.GGGgg/)                                        { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     if ($output !~ /\.555\.4\*44\.\.\.\.888888\.\.899\.\./)                                   { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     if ($have_rfA[$pass]) { 
-	if ($output !~ /:::::::::::::<<_______>>::/)                                          { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
+	if ($output !~ /.............<<<.....>>>../)                                          { die "FAIL: alignment masked incorrectly on pass $pass2write"; }
     }
 
     $output = `$eslalimask $smallA[$pass] --rna --outformat pfam $afileA[$pass] $tmppfx.fullmask 2>&1`;

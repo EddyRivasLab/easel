@@ -907,8 +907,8 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 
 	      /* output, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 	      if(useme  != NULL) { 
-		/* if this is a GC SS_cons line, remove broken basepairs first */
-		if(strncmp(tag, "SS_cons", 7) == 0) {
+		/* if this is a GC SS_cons line, remove broken basepairs first - only if it's in WUSS RNA format (NOT for a protein SS!) */
+		if (strncmp(tag, "SS_cons", 7) == 0 && afp->abc && (afp->abc->type == eslRNA || afp->abc->type == eslDNA)) {
 		  if((status = esl_msa_RemoveBrokenBasepairsFromSS(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GC SS_cons line", afp->linenumber);
 		}
 		shrink_string(text, useme, exp_alen); /* this is done in place on text */
@@ -973,7 +973,7 @@ esl_msafile2_RegurgitatePfam(ESL_MSAFILE2 *afp, FILE *ofp, int maxname, int maxg
 		  /* output GR, after optionally removing some characters (if useme != NULL) or adding gaps (if add2me != NULL) (contract enforces only one can be non-null) */
 		  if(useme  != NULL) { 
 		    /* if this is a GR SS line, remove broken basepairs first */
-		    if(strncmp(tag, "SS", 2) == 0) {
+		    if( strncmp(tag, "SS", 2) == 0 && afp->abc && (afp->abc->type == eslRNA || afp->abc->type == eslDNA)) {
 		      if((status = esl_msa_RemoveBrokenBasepairsFromSS(text, afp->errbuf, textlen, useme)) != eslOK) ESL_XFAIL(eslEFORMAT, afp->errbuf, "small mem parse failed (line %d): bad #=GR SS line", afp->linenumber);
 		    }
 		    shrink_string(text, useme, exp_alen); /* this is done in place on text */

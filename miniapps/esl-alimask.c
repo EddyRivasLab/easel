@@ -522,7 +522,9 @@ main(int argc, char **argv)
    * Unless --small enabled, mask the alignment *
    ************************************************/
   if(! do_small) { 
-    if((status = esl_msa_ColumnSubset(msa, errbuf, useme_final)) != eslOK) esl_fatal(errbuf);
+    if (abc && (abc->type == eslRNA || abc->type == eslDNA) &&
+	(status = esl_msa_RemoveBrokenBasepairs(msa, errbuf, useme_final)) != eslOK) esl_fatal(errbuf);
+    if ((status = esl_msa_ColumnSubset         (msa, errbuf, useme_final)) != eslOK) esl_fatal(errbuf);
   } /* else we'll do it as we regurgitate it upon rereading below */
 
   /************************
