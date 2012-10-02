@@ -39,7 +39,7 @@ static ESL_OPTIONS options[] = {
   { "--rna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains RNA sequence",        1 },
   { "--dna",      eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains DNA sequence",        1 },
   { "--amino",    eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, ALPH_OPTS, "specify that <seqfile> contains protein sequence",    1 },
-  { "--comptbl",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "alternative output: a table of residue compositions for each seq", 1 },
+  { "--comptbl",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "alternative output: a table of residue compositions per seq", 1 },
   { "--stall",    eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL,      NULL, "arrest after start: for debugging under gdb",        99 },  
   { 0,0,0,0,0,0,0,0,0,0 },
 };
