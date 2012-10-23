@@ -17,7 +17,7 @@ print ALIFILE << "EOF";
 # STOCKHOLM 1.0
 seq1     aaAAAA.AAAA...Cc.cCCCCCC.C..GGGGGgggg
 seq2     ..AAAAaAAAAaacCcccCCCCCCcCccGGGGG....
-#=GC RF ..AAAA.AAAA...C...CCCCCC.c..GGGGG....
+#=GC RF  ..AAAA.AAAA...C...CCCCCC.c..GGGGG....
 //
 EOF
 close ALIFILE;
@@ -28,7 +28,7 @@ print ALIFILE << "EOF";
 #=GS seq3 DE sequence 3 is the best!
 seq3     AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
 seq4     AAAAAaaAAAaccccC-CccCCCCccccccgGggGGggGGg
-#=GC RF AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
+#=GC RF  AAAAA..AAA.....CCC..CCCC~...c..G..GG..GG.
 //
 EOF
 close ALIFILE;
@@ -39,7 +39,7 @@ print ALIFILE << "EOF";
 #=GS seq5 DE kachow
 seq5     AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
 seq6     AAAAAaaAAAaccccC-CccCCCCccccccgGggGGggGGg
-#=GC RF AAAAA..AAA.....CCC..CCCC....c..G..GG..GG.
+#=GC RF  AAAAA..AAA.....CCC..CCCC~~..c..G..GG..GG.
 //
 EOF
 close ALIFILE;
@@ -73,11 +73,10 @@ if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
 $output = `$eslalimerge --rna --list $tmppfx.list 2>&1`;
-if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
-if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
-if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
-if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
-
+if ($? != 0)                                                                                 { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($output !~ /sequence 3 is the best/)                                                     { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/)  { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccc\.cccgGggGGggGGg\.\.\./)             { die "FAIL: alignments merged incorrectly"; }
 system("$eslalimerge --rna -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
 $output = `cat $tmppfx.out`;
@@ -141,10 +140,10 @@ if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\
 if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
 $output = `$eslalimerge --small --rna --list $tmppfx.list 2>&1`;
-if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
-if ($output !~ /sequence 3 is the best/)                                                  { die "FAIL: alignments merged incorrectly"; }
-if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
-if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccccccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
+if ($? != 0)                                                                                { die "FAIL: esl-alimerge failed unexpectedly"; }
+if ($output !~ /sequence 3 is the best/)                                                    { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /aaAAAA\.A\.\.AAA\.\.\.\.\.Cc\.cCC\.\.CCCC\.\.\.\.\.C\.\.G\.\.GG\.\.GGgggg/) { die "FAIL: alignments merged incorrectly"; }
+if ($output !~ /\.\.AAAA\.AaaAAAaccccC\.\.\.\-CccCCCCccc\.cccgGggGGggGGg\.\.\./)            { die "FAIL: alignments merged incorrectly"; }
 
 system("$eslalimerge --small --rna -o $tmppfx.out $tmppfx.1 $tmppfx.2 > /dev/null");
 if ($? != 0)                                                                              { die "FAIL: esl-alimerge failed unexpectedly"; }
