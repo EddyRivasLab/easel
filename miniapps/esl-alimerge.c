@@ -34,15 +34,16 @@ static char usage2[]  = "[options] --list <file listing n > 1 ali files to merge
   afa";
 
 static void read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile);
-static void update_maxinsert(ESL_MSA *msa, int clen, int64_t alen, int *maxinsert);
-static int  validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int clen, int nmsa, int alen_merged, int *maxinsert, char *errbuf);
-static int  add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_merged, char *errbuf);
-static int  gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str);
+static int  update_maxgap_and_maxmis(ESL_MSA *msa, char *errbuf, int clen, int64_t alen, int *maxgap, int *maxmis); 
+static int  validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int clen, int nmsa, int alen_merged, int *maxgap, int *maxmis, char *errbuf);
+static int  add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxmis, int clen, int alen_merged);
+static int  inflate_string_with_gaps_and_missing(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, int *nmisA, char mischar, char **ret_dst_str);
 static int  validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *other_str, int64_t len);
-static int  determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_ngapA, char *errbuf);
+static int  determine_gap_columns_to_add(ESL_MSA *msa, int *maxgap, int *maxmis, int clen, int **ret_ngapA, int **ret_nmisA, int **ret_neitherA, char *errbuf);
 static void write_pfam_msa_top(FILE *fp, ESL_MSA *msa);
 static void write_pfam_msa_gc(FILE *fp, ESL_MSA *msa, int maxwidth);
 static int64_t maxwidth(char **s, int n);
+static int  rfchar_is_nongap_nonmissing(const ESL_ALPHABET *abc, char rfchar);
  
 static ESL_OPTIONS options[] = {
   /* name         type          default  env   range togs reqs  incomp           help                                                             docgroup */
@@ -88,7 +89,9 @@ main(int argc, char **argv)
   int64_t      *alenA = NULL;                  /* [0..nali_tot-1] alignment length of input msas (even after 
 						* potentially removingeinserts (--rfonly)) */
   ESL_MSA     **msaA = NULL;                   /* [0..nali_tot-1] all msas read from all files */
-  int          *maxinsert = NULL;              /* [0..cpos..rflen+1] max number of inserts 
+  int          *maxgap = NULL;                 /* [0..cpos..cm->clen+1] max number of gap columns
+						* before each consensus position in all alignments */
+  int          *maxmis = NULL;                 /* [0..cpos..cm->clen+1] max number of missing data columns
 						* before each consensus position in all alignments */
   int           nalloc = 0;                    /* current size of msaA */
   int           chunksize = 10;                /* size to increase nalloc by when realloc'ing */
@@ -104,12 +107,15 @@ main(int argc, char **argv)
   ESL_STOPWATCH *w  = NULL;                    /* for timing the merge, only used if -o enabled */
   int           do_small;                      /* TRUE if --small, operate in special small memory mode, aln seq data is not stored */
   int           do_rfonly;                     /* TRUE if --rfonly, output only non-gap RF columns (remove all insert columns) */
-  int          *ngapA = NULL;                  /* [0..alen] number of gap columns to add after each alignment column when merging */
+  int          *ngapA = NULL;              /* [0..alen] number of insert gap columns to add after each alignment column when merging */
+  int          *nmisA = NULL;               /* [0..alen] number of missing data ('~') gap columns to add after each alignment column when merging */
+  int          *neitherA = NULL;           /* [0..apos..alen] = ngapA[apos] + nmisA[apos] */
 
   /* output formatting, only relevant if -v */
   char      *namedashes = NULL;                /* string of dashes, an underline */
   int        ni;                               /* counter                        */
   int        namewidth;                        /* max width of file name         */
+  int        tmp_len;                          /* current width of merged aln    */
 
   /* variables only used in small mode (--small) */
   int           ngs_cur;                       /* number of GS lines in current alignment (only used if do_small) */
@@ -305,32 +311,40 @@ main(int argc, char **argv)
       /* either store consensus (non-gap RF) length (if first aln), or verify it is what we expect */
       cur_clen = 0;
       for(apos = 0; apos < (int) msaA[ai]->alen; apos++) { 
-	if(! esl_abc_CIsGap(msaA[ai]->abc, msaA[ai]->rf[apos])) cur_clen++;
+	if(rfchar_is_nongap_nonmissing(msaA[ai]->abc, msaA[ai]->rf[apos])) cur_clen++; 
       }
-      if(ai == 0) { /* first alignment, store clen, allocate maxinsert */
+      if(ai == 0) { /* first alignment, store clen, allocate maxgap, maxmis */
 	clen = cur_clen;
-	ESL_ALLOC(maxinsert, sizeof(int) * (clen+1)); 
-	esl_vec_ISet(maxinsert, (clen+1), 0);
+	ESL_ALLOC(maxgap, sizeof(int) * (clen+1)); 
+	esl_vec_ISet(maxgap, (clen+1), 0);
+	ESL_ALLOC(maxmis, sizeof(int) * (clen+1)); 
+	esl_vec_ISet(maxmis, (clen+1), 0); /* these will all stay 0 unless we see '~' in the alignments */
       }
       else if(cur_clen != clen) { 
 	esl_fatal("Error, all alignments must have identical non-gap #=GC RF lengths; expected (RF length of first ali read): %d,\nalignment %d of file %d length is %d (%s))\n", clen, nali_per_file[fi], (fi+1), cur_clen, alifile_list[fi]); 
       }
+      
 
       if(do_rfonly) { 
-	/* Remove all columns that are gaps in the RF annotation, we keep an array of usemes, 
+	/* Remove all columns that are gaps/missing data in the RF annotation, we keep an array of usemes, 
 	 * one per aln, in case of --small, so we know useme upon second pass of alignment files */
 	ESL_ALLOC(usemeA[ai], sizeof(int) * (msaA[ai]->alen));
-	for(apos = 0; apos < msaA[ai]->alen; apos++) { usemeA[ai][apos] = (esl_abc_CIsGap(abc, msaA[ai]->rf[apos])) ? FALSE : TRUE; }
+	for(apos = 0; apos < msaA[ai]->alen; apos++) { usemeA[ai][apos] = (rfchar_is_nongap_nonmissing(abc, msaA[ai]->rf[apos])) ? TRUE : FALSE; }
 	if((status = esl_msa_ColumnSubset(msaA[ai], errbuf, usemeA[ai])) != eslOK) { 
 	  esl_fatal("status code: %d removing gap RF columns for msa %d from file %s:\n%s", status, (ai+1), alifile_list[fi], errbuf);
 	}
       }
       else { /* --rfonly not enabled, determine max number inserts between each position */
-      	update_maxinsert(msaA[ai], clen, msaA[ai]->alen, maxinsert);
+	/* update_maxgap_and_maxmis checks to make sure the msa follows our rule for missing data and gaps:
+	 * for all positions x..y b/t any two adjacent nongap RF positions (x-1 and y+1 are nongap RF positions) 
+	 * all missing data columns '~' must come before all gap positions ('.', '-', or '_')
+	 */
+      	if((status = update_maxgap_and_maxmis(msaA[ai], errbuf, clen, msaA[ai]->alen, maxgap, maxmis)) != eslOK) esl_fatal(errbuf);
       }
       if(esl_opt_GetBoolean(go, "-v")) { 
 	if((status = esl_FileTail(alifile_list[fi], FALSE, &tmpstr)) != eslOK) esl_fatal("Memory allocation error.");
-	fprintf(stdout, "  %7d  %-*s  %7d  %9d  %9" PRId64 "  %13d  %8d\n", (fi+1),  namewidth, tmpstr, (ai+1), nseq_cur, msaA[ai]->alen, nseq_tot, (clen+esl_vec_ISum(maxinsert, (clen+1))));
+	tmp_len = clen + esl_vec_ISum(maxgap, clen+1) + esl_vec_ISum(maxmis, clen+1);
+	fprintf(stdout, "  %7d  %-*s  %7d  %9d  %9" PRId64 "  %13d  %8d\n", (fi+1),  namewidth, tmpstr, (ai+1), nseq_cur, msaA[ai]->alen, nseq_tot, tmp_len);
 	free(tmpstr);
       }
       ai++;
@@ -369,14 +383,14 @@ main(int argc, char **argv)
    * the individual msas (in msaA[]) in memory. 
    */     
   mmsa = esl_msa_Create(nseq_tot, -1); 
-  alen_mmsa = clen + esl_vec_ISum(maxinsert, (clen+1)); 
+  alen_mmsa = clen + esl_vec_ISum(maxgap, clen+1) + esl_vec_ISum(maxmis, clen+1); 
       
   /* Determine what annotation from the input alignments 
    * we will include in the merged MSA.
    * See comments in header of validate_and_copy_msa_annotation()
    * for rules on what we include.
    */
-  if((status = validate_and_copy_msa_annotation(go, outfmt, mmsa, msaA, nali_tot, clen, alen_mmsa, maxinsert, errbuf)) != eslOK)
+  if((status = validate_and_copy_msa_annotation(go, outfmt, mmsa, msaA, nali_tot, clen, alen_mmsa, maxgap, maxmis, errbuf)) != eslOK)
     esl_fatal("Error while checking and copying individual MSA annotation to merged MSA:%s\n", errbuf);
   
   if (do_small) { 
@@ -427,7 +441,6 @@ main(int argc, char **argv)
 						NULL); /* don't return num seqs regurgitated */
 	  if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	  if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp2->errbuf); 
-	  free(ngapA);
 	  ai++;
 	  fflush(ofp);
 	}
@@ -448,7 +461,7 @@ main(int argc, char **argv)
 	/* determine how many all gap columns to insert after each alignment position
 	 * of the child msa when copying it to the merged msa */
 	if(! do_rfonly) { 
-	  if((status = determine_gap_columns_to_add(msaA[ai], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
+	  if((status = determine_gap_columns_to_add(msaA[ai], maxgap, maxmis, clen, &(ngapA), &(nmisA), &(neitherA), errbuf)) != eslOK) 
 	    esl_fatal("error determining number of all gap columns to add to alignment %d of file %s", ai2, alifile_list[fi]);
 	}
 	status = esl_msafile2_RegurgitatePfam(afp2, ofp,
@@ -465,7 +478,7 @@ main(int argc, char **argv)
 					      NULL,  /* regurgitate all seqs, not a subset */ 
 					      NULL,  /* regurgitate all seqs, not a subset */ 
 					      (do_rfonly) ? usemeA[ai] : NULL, 
-					      (do_rfonly) ? NULL       : ngapA,
+					      (do_rfonly) ? NULL       : neitherA,
 					      alenA[ai], /* alignment length, as we read it in first pass (inserts may have been removed since then) */
 					      '.',
 					      NULL,  /* don't return num seqs read */
@@ -474,6 +487,8 @@ main(int argc, char **argv)
 	if(status == eslEOF) esl_fatal("Second pass, error out of alignments too soon, when trying to read aln %d of file %s", ai2, alifile_list[fi]); 
 	if(status != eslOK)  esl_fatal("Second pass, error reading alignment %d of file %s: %s", ai2, alifile_list[fi], afp2->errbuf); 
 	free(ngapA);
+	free(nmisA);
+	free(neitherA);
 	esl_msa_Destroy(msaA[ai]);
 	msaA[ai] = NULL;
 	ai++;
@@ -491,7 +506,7 @@ main(int argc, char **argv)
   else { /* ! do_small: for each input alignment in msaA[], add all aligned data to mmsa, then free it  */
     if(esl_opt_GetBoolean(go, "-v")) { fprintf(stdout, "#\n# Merging alignments ... "); fflush(stdout); }
     for(ai = 0; ai < nali_tot; ai++) { 
-      if((status = add_msa(mmsa, msaA[ai], maxinsert, clen, alen_mmsa, errbuf)) != eslOK) 
+      if((status = add_msa(mmsa, errbuf, msaA[ai], maxgap, maxmis, clen, alen_mmsa)) != eslOK) 
 	esl_fatal("Error, merging alignment %d of %d:\n%s.", (ai+1), nali_tot, errbuf);  
       esl_msa_Destroy(msaA[ai]); /* note: the aligned sequences will have already been freed in add_msa() */
       msaA[ai] = NULL;
@@ -529,7 +544,7 @@ main(int argc, char **argv)
   if(alenA != NULL)         free(alenA);
   if(namedashes != NULL)    free(namedashes);
   if(msaA != NULL)          free(msaA);
-  if(maxinsert != NULL)     free(maxinsert);
+  if(maxgap != NULL)     free(maxgap);
   if(mmsa != NULL)          esl_msa_Destroy(mmsa);
   if(abc  != NULL)          esl_alphabet_Destroy(abc);
   if(w    != NULL)          esl_stopwatch_Destroy(w);
@@ -590,49 +605,62 @@ read_list_file(char *listfile, char ***ret_alifile_list, int *ret_nalifile)
   return; /*NOTREACHED*/
 }
 
-/* Function: update_maxinsert
+
+/* Function: update_maxgap_and_maxmis
  * Date:     EPN, Sun Nov 22 09:40:48 2009
+ *           (stolen from Infernal's cmalign.c)
  * 
- * Update maxinsert[] an array that keeps track of 
- * the max number of inserted (gap #=GC RF) columns
- * before each cpos (consensus (non-gap #=GC RF) column).
+ * Update maxgap[] and maxmis[], arrays that keeps track of the max
+ * number of gap columns and missing data columns ('~' gap #=GC RF)
+ * columns before each cpos (consensus (non-gap #=GC RF) column)
  *
- * Consensus columns are index [0..cpos..(clen-1)].
+ * We require that all missing columns between cpos x and x+1 occur before
+ * all gap columns between cpos x and x+1.
  * 
- * maxinsert[0]      is number of inserts before 1st cpos.
- * maxinsert[clen-1] is number of inserts before final cpos.
- * maxinsert[clen]   is number of inserts after  final cpos.
+ * Consensus columns are index [0..cpos..clen].
  * 
- * Caller has already checked that msa->rf != NULL
- * and its non-gap length is clen. If we find either
- * of these is not true, we die (but this shouldn't happen).
+ * max{gap,mis}[0]      is number of gap/missing columns before 1st cpos.
+ * max{gap,mis}[clen-1] is number of gap/missing columns before final cpos.
+ * max{gap,mis}[clen]   is number of gap/missing columns after  final cpos.
  * 
- * Returns: void.
+ * Returns: eslOK on success.
+ *          eslEINVAL if msa->rf is NULL, nongap RF length is not clen of
+ *                    for any two cpos x and x+1, a gap column precedes a
+ *                    missing data column.
+ * 
  */
-void
-update_maxinsert(ESL_MSA *msa, int clen, int64_t alen, int *maxinsert) 
+int
+update_maxgap_and_maxmis(ESL_MSA *msa, char *errbuf, int clen, int64_t alen, int *maxgap, int *maxmis) 
 {
   int apos;
   int cpos = 0;
-  int nins = 0;
+  int ngap = 0;
+  int nmis = 0;
 
   for(apos = 0; apos < alen; apos++) { 
     if(esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
-      nins++;
+      ngap++;
     }
-    else { 
-      maxinsert[cpos] = ESL_MAX(maxinsert[cpos], nins);
+    else if (esl_abc_CIsMissing(msa->abc, msa->rf[apos])) { 
+      nmis++;
+      if(ngap > 0) ESL_FAIL(eslEINVAL, errbuf, "after nongap RF pos %d, %d gap columns precede a missing data column (none should)", cpos, ngap);
+    }
+    else {
+      maxgap[cpos] = ESL_MAX(maxgap[cpos], ngap);
+      maxmis[cpos] = ESL_MAX(maxmis[cpos], nmis);
       cpos++;
-      nins = 0;
+      ngap = 0;
+      nmis = 0;
     }
   }
       
-  /* update final value, maxinsert[clen+1], the number of inserts
+  /* update final value, max{ins,el}[clen+1], the number of inserts
    * after the final consensus position */
-  maxinsert[cpos] = ESL_MAX(maxinsert[cpos], nins);
-  if(cpos != clen) esl_fatal("Unexpected error in update_maxinsert(), expected clen (%d) not equal to actual clen (%d).\n", clen, cpos);
+  maxgap[cpos] = ESL_MAX(maxgap[cpos], ngap);
+  maxmis[cpos] = ESL_MAX(maxmis[cpos], nmis);
+  if(cpos != clen) ESL_FAIL(eslEINVAL, errbuf, "second pass expected clen (%d) not equal to actual clen (%d).\n", clen, cpos);
 
-  return;
+  return eslOK;
 }
 
 /* Function: validate_and_copy_msa_annotation
@@ -668,16 +696,18 @@ update_maxinsert(ESL_MSA *msa, int clen, int64_t alen, int *maxinsert)
  *          if !eslOK, errbuf is filled before return
  */
 int
-validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int nmsa, int clen, int alen_merged, int *maxinsert, char *errbuf)
+validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int nmsa, int clen, int alen_merged, int *maxgap, int *maxmis, char *errbuf)
 {
   int status;
-  int *ngapA = NULL;
-  int j;                   /* counter over alignment annotations */
-  int j2;                  /* counter over alignment annotations */
-  int ai;                  /* counter over alignments */
-  char *dealigned  = NULL; /* a temporary, dealigned string */
-  char *dealigned2 = NULL; /* another temporary, dealigned string */
-  char *gapped_out = NULL; /* a temporary string with gaps added to fit into merged aln */
+  int j;                    /* counter over alignment annotations */
+  int j2;                   /* counter over alignment annotations */
+  int ai;                   /* counter over alignments */
+  char *dealigned   = NULL; /* a temporary, dealigned string */
+  char *dealigned2  = NULL; /* another temporary, dealigned string */
+  char *gapped_out  = NULL; /* a temporary string with gaps added to fit into merged aln */
+  int *ngapA    = NULL; /* [0..alen] number of insert gap columns to add after each alignment column when merging */
+  int *nmisA     = NULL; /* [0..alen] number of missing data ('~') gap columns to add after each alignment column when merging */
+  int *neitherA = NULL; /* [0..apos..alen] = ngapA[apos] + nmisA[apos] */
   int do_add;
   int found_tag;
   int be_verbose = FALSE;
@@ -698,7 +728,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   /* First, determine how many all gap columns to insert after each alignment position
    * of the first child msa, so we can (possibly) gap out GC,SS_cons,SA_cons,PP_cons annotation 
    * to appropriate length when adding it to the merged MSA. */
-  if((status = determine_gap_columns_to_add(msaA[0], maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
+  if((status = determine_gap_columns_to_add(msaA[0], maxgap, maxmis, clen, &(ngapA), &(nmisA), &(neitherA), errbuf)) != eslOK) 
     return status;
 
   /* Note: esl_strcmp() can handle NULL strings (they are not identical to non-NULL strings) */
@@ -869,7 +899,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
 	if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
 	if(found_tag && do_add) { 
 	  /* gap out the the GC annotation to fit in merged alignment */
-	  if((status = gapize_string(msaA[0]->gc[j], msaA[0]->alen, alen_merged, ngapA, '.', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create GC tag %s annotation for merged alignment.", msaA[0]->gc_tag[j]);
+	  if((status = inflate_string_with_gaps_and_missing(msaA[0]->gc[j], msaA[0]->alen, alen_merged, neitherA, '.', NULL, '~', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create GC tag %s annotation for merged alignment.", msaA[0]->gc_tag[j]);
 	  if((status = esl_msa_AppendGC(mmsa, msaA[0]->gc_tag[j], gapped_out)) != eslOK) goto ERROR;
 	  free(gapped_out);
 	  gapped_out = NULL;
@@ -912,8 +942,10 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       } /* end of (for(ai = 1...)) */
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
-	/* gap out the the ss_cons to fit in merged alignment */
-	if((status = gapize_string(msaA[0]->ss_cons, msaA[0]->alen, alen_merged, ngapA, '.', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create SS_cons annotation for merged alignment.");
+	/* gap out the the ss_cons to fit in merged alignment, 
+	 * as a special case, we use '~' in SS_cons as we add missing data and gaps
+	 * like we do in RF (for all other annotation we only add gaps) */
+	if((status = inflate_string_with_gaps_and_missing(msaA[0]->ss_cons, msaA[0]->alen, alen_merged, ngapA, '.', nmisA, '~', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create SS_cons annotation for merged alignment.");
 	if(mmsa->ss_cons != NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding SS_cons to merged alignment, it is already non-NULL.");
 	if((status = esl_strdup(gapped_out, alen_merged, &(mmsa->ss_cons))) != eslOK) goto ERROR;
 	free(gapped_out);
@@ -957,7 +989,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
 	/* gap out the the sa_cons to fit in merged alignment */
-	if((status = gapize_string(msaA[0]->sa_cons, msaA[0]->alen, alen_merged, ngapA, '.', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create SA_cons annotation for merged alignment.");
+	if((status = inflate_string_with_gaps_and_missing(msaA[0]->sa_cons, msaA[0]->alen, alen_merged, neitherA, '.', NULL, '~', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create SA_cons annotation for merged alignment.");
 	if(mmsa->sa_cons != NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding SA_cons to merged alignment, it is already non-NULL.");
 	if((status = esl_strdup(gapped_out, alen_merged, &(mmsa->sa_cons))) != eslOK) goto ERROR;
 	free(gapped_out);
@@ -1001,7 +1033,7 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
       if(dealigned != NULL) { free(dealigned); dealigned = NULL; }
       if(do_add) { 
 	/* gap out the the pp_cons to fit in merged alignment */
-	if((status = gapize_string(msaA[0]->pp_cons, msaA[0]->alen, alen_merged, ngapA, '.', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create PP_cons annotation for merged alignment.");
+	if((status = inflate_string_with_gaps_and_missing(msaA[0]->pp_cons, msaA[0]->alen, alen_merged, neitherA, '.', NULL, '~', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create PP_cons annotation for merged alignment.");
 	if(mmsa->pp_cons != NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding PP_cons to merged alignment, it is already non-NULL.");
 	if((status = esl_strdup(gapped_out, alen_merged, &(mmsa->pp_cons))) != eslOK) goto ERROR;
 	free(gapped_out);
@@ -1029,13 +1061,14 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
     if((status = esl_strdealign(dealigned2, dealigned2, "-_.~", NULL)) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "unexpected error dealigning RF of msaA[%d]", ai);
     /* check identity */
     if(esl_strcmp(dealigned, dealigned2) != 0) { 
+      printf("%s\n%s\n", dealigned, dealigned2);
       ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "All alignments must have identical #=GC RF annotation, once gaps (\".\",\"-\",\"_\") are removed.\nAlignment %d de-gapped RF annotation differs from that of alignment 1.\n%s\n%s", ai+1, dealigned, dealigned2);
     }
     if(dealigned2 != NULL) { free(dealigned2); dealigned2 = NULL; }
   }
   if(dealigned  != NULL) { free(dealigned);  dealigned = NULL; }
   /* gap out the the RF to fit in merged alignment */
-  if((status = gapize_string(msaA[0]->rf, msaA[0]->alen, alen_merged, ngapA, '.', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create RF annotation for merged alignment.");
+  if((status = inflate_string_with_gaps_and_missing(msaA[0]->rf, msaA[0]->alen, alen_merged, ngapA, '.', nmisA, '~', &(gapped_out))) != eslOK) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding gaps to create RF annotation for merged alignment.");
   if(mmsa->rf != NULL) ESL_XFAIL(eslEINCONCEIVABLE, errbuf, "Error adding RF to merged alignment, it is already non-NULL.");
   if((status = esl_strdup(gapped_out, alen_merged, &(mmsa->rf))) != eslOK) goto ERROR;
   free(gapped_out);
@@ -1068,39 +1101,40 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
  * annotation, including sqname, sqdesc, sqacc, pp, ss,
  * sa, as well as non-parsed GS and GR annotation.
  * 
- * <maxinsert>[0..clen] is an array specifying the 
+ * <maxgap>[0..clen] is an array specifying the 
  * number of inserted columns necessary between
  * each consensus position.
  * 
- * maxinsert[0]      is number of inserts before 1st cpos.
- * maxinsert[clen-1] is number of inserts before final cpos.
- * maxinsert[clen]   is number of inserts after  final cpos.
+ * max{gap,mis}[0]      is number of gaps/missing columns before 1st cpos.
+ * max{gap,mis}[clen-1] is number of gaps/missing columns before final cpos.
+ * max{gap,mis}[clen]   is number of gaps/missing columns after  final cpos.
  * 
  * <alen_merged> is the number of columns in the merged
  * alignment. This is the non-gap RF length plus the
- * sum of the maxinsert vector.
+ * sum of the maxgap vector.
  * 
  * Returns: eslOK on success.
  *          eslEMEM on memory allocation failure.
  */
 int
-add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_merged, char *errbuf)
+add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxmis, int clen, int alen_merged)
 {
   int status;
-  int i;              /* counter over sequences in msa_to_add */
-  int j;              /* counter over alignment annotations */
-  int mi;             /* counter over sequences in mmsa */
-  void *tmp;          /* for reallocations */
-  char *tmpstr;       /* used for copying GR annotation */
-  int nseq_existing;  /* number of sequences already added to mmsa, by previous calls of this function */
-  int *ngapA = NULL;  /* number of all gap columns to add after each alignment position to fill
-		       * it out to width of final, merged alignment */
+  int i;                 /* counter over sequences in msa_to_add */
+  int j;                 /* counter over alignment annotations */
+  int mi;                /* counter over sequences in mmsa */
+  void *tmp;             /* for reallocations */
+  char *tmpstr;          /* used for copying GR annotation */
+  int  nseq_existing;    /* number of sequences already added to mmsa, by previous calls of this function */
+  int *ngapA = NULL;     /* [0..alen] number of insert gap columns to add after each alignment column when merging */
+  int *nmisA = NULL;     /* [0..alen] number of missing data ('~') gap columns to add after each alignment column when merging */
+  int *neitherA = NULL;  /* [0..apos..alen] = ngapA[apos] + nmisA[apos] */
 
   nseq_existing = mmsa->nseq;
 
   /* determine how many all gap columns to insert after each alignment position
    * of the child msa when copying it to the merged msa */
-  if((status = determine_gap_columns_to_add(msa_to_add, maxinsert, clen, &(ngapA), errbuf)) != eslOK) 
+  if((status = determine_gap_columns_to_add(msa_to_add, maxgap, maxmis, clen, &(ngapA), &(nmisA), &(neitherA), errbuf)) != eslOK) 
     return status;
 
   nseq_existing = mmsa->nseq; 
@@ -1110,7 +1144,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
   for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
       esl_strdup(msa_to_add->sqname[i], -1, &(mmsa->sqname[mi]));
 
-      if((status = gapize_string(msa_to_add->aseq[i], msa_to_add->alen, alen_merged, ngapA, '.', &(mmsa->aseq[mi]))) != eslOK) 
+      if((status = inflate_string_with_gaps_and_missing(msa_to_add->aseq[i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(mmsa->aseq[mi]))) != eslOK) 
 	ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d.\n", i+1);
       free(msa_to_add->aseq[i]); /* free immediately */
       msa_to_add->aseq[i] = NULL;
@@ -1186,7 +1220,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
     }
     for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
       if(msa_to_add->pp[i] != NULL) { 
-	if((status = gapize_string(msa_to_add->pp[i], msa_to_add->alen, alen_merged, ngapA, '.', &(mmsa->pp[mi]))) != eslOK) 
+	if((status = inflate_string_with_gaps_and_missing(msa_to_add->pp[i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(mmsa->pp[mi]))) != eslOK) 
 	  ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d posterior probabilities.\n", i+1);
 	free(msa_to_add->pp[i]); /* free immediately */
 	msa_to_add->pp[i] = NULL;
@@ -1215,7 +1249,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
     }
     for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
       if(msa_to_add->ss[i] != NULL) { 
-	if((status = gapize_string(msa_to_add->ss[i], msa_to_add->alen, alen_merged, ngapA, '.', &(mmsa->ss[mi]))) != eslOK) 
+	if((status = inflate_string_with_gaps_and_missing(msa_to_add->ss[i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(mmsa->ss[mi]))) != eslOK) 
 	  ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d secondary structure.\n", i+1);
 	free(msa_to_add->ss[i]); /* free immediately */
 	msa_to_add->ss[i] = NULL;
@@ -1244,7 +1278,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
     }
     for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
       if(msa_to_add->sa[i] != NULL) { 
-	if((status = gapize_string(msa_to_add->sa[i], msa_to_add->alen, alen_merged, ngapA, '.', &(mmsa->sa[mi]))) != eslOK) 
+	if((status = inflate_string_with_gaps_and_missing(msa_to_add->sa[i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(mmsa->sa[mi]))) != eslOK) 
 	  ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d surface accessibility.\n", i+1);
 	free(msa_to_add->sa[i]); /* free immediately */
 	msa_to_add->sa[i] = NULL;
@@ -1281,7 +1315,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
     for(j = 0; j < msa_to_add->ngr; j++) { 
       for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
 	if(msa_to_add->gr[j][i] != NULL) {
-	  if((status = gapize_string(msa_to_add->gr[j][i], msa_to_add->alen, alen_merged, ngapA, '.', &(tmpstr))) != eslOK) 
+	  if((status = inflate_string_with_gaps_and_missing(msa_to_add->gr[j][i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(tmpstr))) != eslOK) 
 	    ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d GR annotation.\n", i+1);
 	  if((status = esl_msa_AppendGR(mmsa, msa_to_add->gr_tag[j], mi, tmpstr)) != eslOK)
 	    ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d GR annotation.\n", i+1);
@@ -1299,7 +1333,9 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
   /* update nseq in mmsa */
   mmsa->nseq += msa_to_add->nseq;
 
-  if(ngapA != NULL) free(ngapA);
+  if(ngapA    != NULL) free(ngapA);
+  if(nmisA     != NULL) free(nmisA);
+  if(neitherA != NULL) free(neitherA);
   return eslOK;
   
  ERROR:
@@ -1307,16 +1343,21 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
   return status;
 }
 
-/* gapize_string
+/* inflate_string_with_gaps_and_missing
  *                   
  * Given a string, create a new one that is a copy of it, 
- * but with gaps added before each position (apos) as specified 
- * by ngapA[0..apos..len]. <gapchar> specifies the gap character
- * to add.
+ * but with missing data and gaps added before each position (apos) 
+ * as specified by n{gap,mis}A[0..apos..len]. <gapchar> and <mischar>
+ * specify the gap character and missing data character. Either
+ * ngapA or nmisA can be either be NULL, if so they're treated as if
+ * they're all zeroes (no gaps/missing data will be added anywhere).
  * 
- * ngapA[0]       - number of gaps to add before first posn
- * ngapA[apos]    - number of gaps to add before posn apos
- * ngapA[src_len] - number of gaps to add after  final posn
+ * n{gap,mis}A[0]       - number of gaps/missing to add before first posn
+ * n{gap,mis}A[apos]    - number of gaps/missing to add before posn apos
+ * n{gap,mis}A[src_len] - number of gaps/missing to add after  final posn
+ *
+ * By convention, missing data symbols are always put before gap symbols
+ * when more than 1 of each are to be placed after the some nongap RF position.
  * 
  * ret_str is allocated here.
  *
@@ -1324,7 +1365,7 @@ add_msa(ESL_MSA *mmsa, ESL_MSA *msa_to_add, int *maxinsert, int clen, int alen_m
  *         eslEMEM on memory error.
  */
 int 
-gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str)
+inflate_string_with_gaps_and_missing(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, int *nmisA, char mischar, char **ret_dst_str)
 {
   int status;
   int src_apos = 0;
@@ -1336,12 +1377,14 @@ gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char 
   dst_str[dst_len] = '\0';
 
   /* add gaps before first position */
-  for(i = 0; i < ngapA[0]; i++) dst_str[dst_apos++] = gapchar;
+  if(nmisA) for(i = 0; i < nmisA[0]; i++) dst_str[dst_apos++] = mischar;
+  if(ngapA) for(i = 0; i < ngapA[0]; i++) dst_str[dst_apos++] = gapchar;
 
   /* add gaps after every position */
   for(src_apos = 0; src_apos < src_len; src_apos++) { 
     dst_str[dst_apos++] = src_str[src_apos];
-    for(i = 0; i < ngapA[(src_apos+1)]; i++) dst_str[dst_apos++] = gapchar;
+    if(nmisA) for(i = 0; i < nmisA[(src_apos+1)]; i++) dst_str[dst_apos++] = mischar;
+    if(ngapA) for(i = 0; i < ngapA[(src_apos+1)]; i++) dst_str[dst_apos++] = gapchar;
   }
 
   *ret_dst_str = dst_str;
@@ -1350,6 +1393,7 @@ gapize_string(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char 
  ERROR: 
   return eslEMEM;
 }
+
 
 /* validate_no_nongaps_in_rf_gaps
  *                   
@@ -1367,88 +1411,162 @@ validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *othe
 {
   int64_t i;
   for(i = 0; i < len; i++) { 
-    if((esl_abc_CIsGap(abc, rf_str[i])) && (! esl_abc_CIsGap(abc, other_str[i]))) return FALSE;
+    if((! rfchar_is_nongap_nonmissing(abc, rf_str[i])) && (rfchar_is_nongap_nonmissing(abc, other_str[i]))) return FALSE;
   }
   return TRUE;
 }
 
 /* determine_gap_columns_to_add
- *                   
- * Given <maxinsert>, an array of the number of gap RF (inserts) 
- * positions between each non-gap RF (consensus) position in the 
- * eventual merged alignment, calculate how many inserts we need to
- * add at each position of <msa> to expand it out to the
+ * (stolen and slightly modified from Infernal 1.1rc1's cmalign.c)
+ *
+ * Given <maxgap> and <maxmis>, two arrays of the number of gap RF
+ * positions and '~' RF (missing data) after each non-gap RF 
+ * (consensus) position in the eventual final merged alignment, 
+ * calculate how many inserts and missing data inserts
+ * we need to add at each position of <msa> to expand it out to the 
  * appropriate size of the eventual merged alignment.
  * 
- * maxinsert[0]      is number of inserts before 1st cpos in merged aln
- * maxinsert[cpos]   is number of inserts after  final cpos in merged aln
- *                   for cpos = 1..clen 
+ * max{gap,mis}[0]      is number of gaps/missing before 1st cpos in merged aln
+ * max{gap,mis}[cpos]   is number of gaps/missing after cpos in merged aln
+ *                             for cpos = 1..clen 
  * clen is the number of non-gap RF positions in msa (and in eventual merged msa).             
  * 
- * We allocate fill and return ret_ngapA[0..msa->alen] here.
+ * We allocate fill and return ret_ngapA[0..msa->alen], ret_nmisA[0..msa->alen], 
+ * and ret_neitherA[0..msa->alen] here.
  *
- * ret_ngapA[0]      is number of inserts to add before 1st position of msa 
- * ret_ngapA[apos]   is number of inserts to add after alignment position apos
- *                   for apos = 1..msa->alen
+ * ret_n{gap,mis}gapA[0]      is number of gaps/missing to add before 1st position of msa 
+ * ret_n{gap,mis}gapA[apos]   is number of gaps/missing to add after alignment position apos
+ *                             for apos = 1..msa->alen
+ * 
+ * ret_neitherA[apos] = ngapA[apos] + nmisA[apos]
+ * 
+ * This is similar to the esl_msa.c helper function of the same name,
+ * but that function does not bother with missing data '~'.
  * 
  * Returns eslOK on success.
- *         eslEMEM on memory allocation error 
+ *         eslEMEM on memory alloaction error 
+ *         eslEINVAL if gaps occur before missing data b/t any two nongap RF posns
  *         eslERANGE if a value exceeds what we expected (based on earlier
  *                   checks before this function was entered).
  *         if !eslOK, errbuf if filled.
  */
 int
-determine_gap_columns_to_add(ESL_MSA *msa, int *maxinsert, int clen, int **ret_ngapA, char *errbuf)
+determine_gap_columns_to_add(ESL_MSA *msa, int *maxgap, int *maxmis, int clen, int **ret_ngapA, int **ret_nmisA, int **ret_neitherA, char *errbuf)
 {
-  int apos;
-  int apos_for_inserts;
-  int prv_apos = 0;  /* alignment position corresponding to consensus position cpos-1 */
-  int cpos = 0;
-  int nins = 0;
-  int *ngapA = NULL;
   int status;
+  int apos;
+  int prv_cpos = 0;  /* alignment position corresponding to consensus position cpos-1 */
+  int cpos = 0;
+  int ngap = 0;
+  int nmis = 0;
+  int *ngapA    = NULL;
+  int *nmisA    = NULL;
+  int *neitherA = NULL;
 
-  ESL_ALLOC(ngapA, sizeof(int) * (msa->alen+1));
-  esl_vec_ISet(ngapA, (msa->alen+1), 0);
+  /* contract check */
+  if(maxmis[0] != 0) ESL_FAIL(eslEINVAL, errbuf, "missing characters exist prior to first cpos, this shouldn't happen.\n");
+
+  ESL_ALLOC(ngapA,    sizeof(int) * (msa->alen+1));
+  ESL_ALLOC(nmisA,    sizeof(int) * (msa->alen+1));
+  ESL_ALLOC(neitherA, sizeof(int) * (msa->alen+1));
+  esl_vec_ISet(ngapA,    (msa->alen+1), 0);
+  esl_vec_ISet(nmisA,    (msa->alen+1), 0);
+  esl_vec_ISet(neitherA, (msa->alen+1), 0);
   
   for(apos = 0; apos < msa->alen; apos++) { 
-    if(esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
-      nins++;
+    if(esl_abc_CIsMissing(msa->abc, msa->rf[apos])) { 
+      nmis++;
+      if(ngap > 0) ESL_FAIL(eslEINVAL, errbuf, "after nongap RF pos %d, %d gap columns precede a missing data column (none should)", cpos, ngap);
     }
-    else { 
-      if(maxinsert[cpos] < nins) { 
-	ESL_XFAIL(eslERANGE, errbuf, "%d inserts before cpos %d greater than max expected (%d).\n", nins, cpos, maxinsert[cpos]); 
+    else if(esl_abc_CIsGap(msa->abc, msa->rf[apos])) { 
+      ngap++;
+    }
+    else { /* a consensus position */
+      /* a few sanity checks */
+      if(ngap  > maxgap[cpos]) ESL_FAIL(eslEINCONCEIVABLE, errbuf, "%d inserts before cpos %d greater than max expected (%d).\n", ngap, cpos, maxgap[cpos]); 
+      if(nmis  > maxmis[cpos]) ESL_FAIL(eslEINCONCEIVABLE, errbuf, "%d EL inserts before cpos %d greater than max expected (%d).\n", nmis, cpos, maxmis[cpos]); 
+
+      if (cpos == 0) { 
+	/* gaps and/or missing data before first consensus position: flush right */
+	if(maxgap[cpos] > 0 && maxmis[cpos] == 0) { /* most common case */
+	  ngapA[prv_cpos]  = maxgap[cpos] - ngap; /* flush right gaps (no missing) */
+	}
+	else if(maxgap[cpos] == 0 && maxmis[cpos] > 0) { 
+	  nmisA[prv_cpos]  = maxmis[cpos] - nmis; /* flush right missing (no gaps) */
+	}
+	else if(maxgap[cpos] > 0 && maxmis[cpos] > 0) { 
+	  /* missing data (ELs) is always 5' of gaps */
+	  nmisA[prv_cpos]      = maxmis[cpos] - nmis; /* flush right */
+	  ngapA[prv_cpos+nmis] = maxgap[cpos] - ngap; /* flush right, after missing */
+	}
       }
-
-      if (cpos == 0)  
-	apos_for_inserts = prv_apos; /* inserts before first position: flush right (so add all-gap columns after leftmost column) */
-      else 
-	apos_for_inserts = apos - ((apos - prv_apos) / 2); /* all other positions: split inserts */
-
-      ngapA[apos_for_inserts] = maxinsert[cpos] - nins;
+      else {
+	/* gaps and/missing data after interior consensus position (i.e. not before 1st cpos or after last)
+	 * Determine where to place inserts and/or missing data.
+	 * Handle each of 4 possibilities separately, note that if 
+	 * maxgap[cpos] == 0 then ngap == 0, and if maxmis[cpos] == 0 then nmis == 0 (see sanity check above). 
+	 */
+	if(maxgap[cpos] >  0 && maxmis[cpos] == 0) { /* most common case */
+	  ngapA[prv_cpos + 1 + (ngap/2)] = maxgap[cpos] - ngap; /* internal cpos: split */
+	}
+	else if(maxgap[cpos] == 0 && maxmis[cpos] > 0) { 
+	  nmisA[prv_cpos + 1 + (nmis/2)] = maxmis[cpos] - nmis; /* internal cpos: split */
+	}
+	else if(maxgap[cpos] >  0 && maxmis[cpos] > 0) { 
+	  /* missing data is always 5' of gaps */
+	  nmisA[prv_cpos + 1 +        (nmis/2)] = maxmis[cpos] - nmis; /* internal cpos: split */
+	  ngapA[prv_cpos + 1 + nmis + (ngap/2)] = maxgap[cpos] - ngap; /* internal cpos: split */
+	}
+	/* final case is if (maxgap[cpos] == 0 && maxmis[cpos] == 0) 
+	 * in this case we do nothing. 
+	 */
+      }
       cpos++;
-      prv_apos = apos;
-      nins = 0;
+      prv_cpos = apos;
+      ngap = 0;
+      nmis = 0;
     }
   }
-  /* deal with final consensus position */
-  apos_for_inserts = apos; /* inserts after final position: flush left (so add all-gap columns after rightmost column) */
-  ngapA[apos_for_inserts] = maxinsert[cpos] - nins;
+  /* deal with gaps and missing data after final consensus position */
 
-  /* validate that clen is what it should be */
+  /* first, validate that clen is what it should be */
   if(cpos != clen) { 
     if(ngapA != NULL) free(ngapA);
-    ESL_XFAIL(eslERANGE, errbuf, "consensus length (%d) is not the expected length (%d).", cpos, clen);
+    if(nmisA != NULL) free(nmisA);
+    if(neitherA != NULL) free(neitherA);
+    ESL_FAIL(eslEINCONCEIVABLE, errbuf, "consensus length (%d) is not the expected length (%d).", cpos, clen);
+  }
+  
+  if(maxgap[cpos] > 0 && maxmis[cpos] == 0) { /* most common case */
+    ngapA[prv_cpos + 1 + ngap] = maxgap[cpos] - ngap; /* flush left gaps (no missing) */
+  }
+  else if(maxgap[cpos] == 0 && maxmis[cpos] > 0) { 
+    nmisA[prv_cpos + 1 + nmis] = maxmis[cpos] - nmis; /* flush left missing (no gaps) */
+  }
+  else if(maxgap[cpos] > 0 && maxmis[cpos] > 0) { 
+    /* missing data (ELs) is always 5' of gaps */
+    nmisA[prv_cpos + 1 + nmis]        = maxmis[cpos] - nmis; /* flush left */
+    ngapA[prv_cpos + 1 + nmis + ngap] = maxgap[cpos] - ngap; /* flush left, after missing */
   }
 
-  *ret_ngapA = ngapA;
+  /* determine neitherA[], the number of gaps due to either inserts or missing data after each apos */
+  for(apos = 0; apos <= msa->alen; apos++) { 
+    neitherA[apos] = ngapA[apos] + nmisA[apos];
+  }
+
+  *ret_ngapA  = ngapA;
+  *ret_nmisA = nmisA;
+  *ret_neitherA = neitherA;
+
   return eslOK;
 
  ERROR: 
-  if (ngapA) free(ngapA);
-  return status;
+  if(ngapA    != NULL) free(ngapA);
+  if(nmisA    != NULL) free(nmisA);
+  if(neitherA != NULL) free(neitherA);
+  ESL_FAIL(status, errbuf, "Memory allocation error.");
+  return status; /*NEVERREACHED*/
 }
-
 
 /* write_pfam_msa_top
  *                   
@@ -1556,3 +1674,13 @@ maxwidth(char **s, int n)
   return max;
 }
 
+/* rfchar_is_nongap_nonmissing()
+ * Return FALSE if a character from RF annotation is 
+ * a gap or a missing character, else return TRUE.
+ */
+static int 
+rfchar_is_nongap_nonmissing(const ESL_ALPHABET *abc, char rfchar) { 
+  if(esl_abc_CIsGap    (abc, rfchar)) return FALSE;
+  if(esl_abc_CIsMissing(abc, rfchar)) return FALSE;
+  return TRUE;
+}
