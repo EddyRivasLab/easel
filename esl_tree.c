@@ -389,7 +389,6 @@ esl_tree_RenumberNodes(ESL_TREE *T)
   int        status;
   int        needs_rearranging = FALSE;
 
-
   /* Pass 1. Preorder traverse of T by its children links;
    *         construct map[old] -> new.
    */
@@ -410,9 +409,8 @@ esl_tree_RenumberNodes(ESL_TREE *T)
    *         (traversal order doesn't matter here)
    */
   if (( T2 = esl_tree_Create(T->nalloc)) == NULL) { status = eslEMEM; goto ERROR; };
-  T2->N = T->N;
   if (T->nodelabel   != NULL) {
-    ESL_ALLOC(T2->nodelabel,   sizeof(char *) * (T2->nalloc-1));
+    ESL_ALLOC(T2->nodelabel,  sizeof(char *) * (T2->nalloc-1));
     for (v = 0; v < T2->nalloc-1; v++) T2->nodelabel[v] = NULL;
   }
   if (T->taxaparent != NULL)  {
@@ -431,15 +429,15 @@ esl_tree_RenumberNodes(ESL_TREE *T)
       T2->rd[map[v]]     = T->rd[v];
   
       if (T->taxaparent != NULL) {
-	if (T->left[v]  <= 0) T2->taxaparent[T->left[v]]  = map[v];
-	if (T->right[v] <= 0) T2->taxaparent[T->right[v]] = map[v];
+	if (T->left[v]  <= 0) T2->taxaparent[-(T->left[v])]  = map[v];
+	if (T->right[v] <= 0) T2->taxaparent[-(T->right[v])] = map[v];
       }
 
-      if (T->nodelabel != NULL)
-	T2->nodelabel[map[v]] = T2->nodelabel[v];
+      if (T->nodelabel != NULL) 
+	esl_strdup(T->nodelabel[v], -1, &(T2->nodelabel[map[v]]));
     }
 
-  /* Finally, swap the new guts of T2 with the old guts of T;
+ /* Finally, swap the new guts of T2 with the old guts of T;
    * destroy T2 and return. T is now renumbered.
    */
   ESL_SWAP(T->parent,     T2->parent,      int *);
@@ -648,6 +646,7 @@ static int
 newick_validate_unquoted(char *label)
 {
   char *sptr;
+
   for (sptr = label; *sptr != '\0'; sptr++)
     {
       if (! isprint(*sptr))                  return eslFAIL;
@@ -756,7 +755,7 @@ newick_write_nodelabel(FILE *fp, ESL_TREE *T, int v)
   else if (newick_validate_quoted(T->nodelabel[v]) == eslOK)
     status = newick_write_quoted(fp, T->nodelabel[v]);
   else
-    ESL_EXCEPTION(eslECORRUPT, "bad node label");
+    ESL_EXCEPTION(eslECORRUPT, "bad node label\n");
 
   return status;
 }
@@ -1396,6 +1395,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
     }
 
   esl_tree_RenumberNodes(T);
+
   esl_stack_Destroy(cs);
   esl_stack_Destroy(vs);
   *ret_T = T;
