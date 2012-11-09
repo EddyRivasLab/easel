@@ -287,7 +287,7 @@ main(int argc, char **argv)
 	     (! esl_abc_CIsMissing   (ka->abc, ka->rf[apos-1]))) { 
 	    rfpos++; is_rfpos = TRUE;
 	  }
-	  if(! esl_abc_XIsGap(ka->abc, ka->ax[i][apos])) { 
+	  if(esl_abc_XIsResidue(ka->abc, ka->ax[i][apos])) { 
 	    uapos++;
 	    kp[i][uapos] = (is_rfpos) ? rfpos : (-1 * rfpos);
 	    if(is_rfpos) { km_pos[rfpos]++; km_seq[i]++; }
@@ -308,7 +308,7 @@ main(int argc, char **argv)
 	      do_post_for_this_rfpos = (mask != NULL && mask[rfpos-1] == '0') ? FALSE : TRUE;
 	    }
 	  }
-	  if(! esl_abc_XIsGap(ta->abc, ta->ax[i][apos])) { 
+	  if(esl_abc_XIsResidue(ta->abc, ta->ax[i][apos])) { 
 	    uapos++;
 	    tp[i][uapos] = (is_rfpos) ? rfpos : (-1 * rfpos);
 	    if(do_post) { 
@@ -489,6 +489,7 @@ main(int argc, char **argv)
     printf("# Draw file of per-column stats saved to file: %s\n", esl_opt_GetString(go, "--c2dfile"));
   }
 	   
+  if(abc) esl_alphabet_Destroy(abc);
   esl_getopts_Destroy(go);
   eslx_msafile_Close(tfp);
   eslx_msafile_Close(kfp);
