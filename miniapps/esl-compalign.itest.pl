@@ -46,6 +46,23 @@ simpex-82          --ACGUUUUG-GAACGGGUC-C-ACC
 EOF
 close ALIFILE;
 
+open(ALIFILE, ">$tmppfx.3") || die "FAIL: couldn't open $tmppfx.3 for writing alifile";
+print ALIFILE << "EOF";
+# STOCKHOLM 1.0
+#=GF AU Infernal 0.1
+
+simpex-17          ~~~AGACUUCGGG---CUCGUAACAG
+#=GR simpex-17 PP  ...69*****775...4466777888
+simpex-39          aaAAUACGUCGGCUGAAUCACCAGUA
+#=GR simpex-39 PP  **************************
+simpex-82          --ACGUUUUG-GAACGGGUC-C-ACC
+#=GR simpex-82 PP  ..99998886.777755544.2.358
+#=GC SS_cons       ..::::::::::::::::::::::::
+#=GC RF            ..AAgACUUCGGAucggGCaAcAuUc
+//
+EOF
+close ALIFILE;
+
 open(MASKFILE, ">$tmppfx.mask") || die "FAIL: couldn't open $tmppfx.mask for writing alifile";
 print MASKFILE << "EOF";
 110111011011101110011101
@@ -53,7 +70,7 @@ EOF
 close MASKFILE;
 
 $output = `$eslcompalign -h`;
-if ($? != 0)                                         { die "FAIL: esl-compalign failed unexpectedly"; }
+if ($? != 0)                                          { die "FAIL: esl-compalign failed unexpectedly"; }
 if ($output !~ /Usage: esl-compalign/)                { die "FAIL: help output not right"; }
 
 $output = `$eslcompalign --rna $tmppfx.1 $tmppfx.2 2>&1`;
@@ -78,9 +95,16 @@ if ($? != 0)                                      { die "FAIL: esl-compalign fai
 $output = `cat $tmppfx.dfile`;
 if ($output !~ /^0.000 0.33\d+ 0.000 0.000/)        { die "FAIL: alignments compared incorrectly."; }
 
+#Test that esl-compalign can handle '~' characters annotating fragments, a la hmmbuild -O in hmmer3.
+$output = `$eslcompalign --rna $tmppfx.1 $tmppfx.3 2>&1`;
+if ($? != 0)                                                                                                                                { die "FAIL: esl-compalign failed unexpectedly";}
+if ($output !~ /simpex-17      20        16 \/       20  \(0.80\d+\)         0 \/        0  \(0.000\)        16 \/       20  \(0.80\d+\)/)      { die "FAIL: alignments compared incorrectly"; }
+if ($output !~ /\# \*all\*           -        53 \/       64  \(0.82\d+\)         2 \/        3  \(0.66\d+\)        55 \/       67  \(0.82\d+\)/) { die "FAIL: alignments compared incorrectly"; }
+
 print "ok\n"; 
 unlink "$tmppfx.1";
 unlink "$tmppfx.2";
+unlink "$tmppfx.3";
 unlink "$tmppfx.dfile";
 unlink "$tmppfx.mask";
 exit 0;
