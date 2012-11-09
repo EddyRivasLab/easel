@@ -1,5 +1,23 @@
 /* Merge alignments into a single alignment based on their reference (RF) annotation.
  * 
+ * Special care is taken to be consistent with missing data '~'
+ * annotation in two different contexts. 
+ * 
+ * First, from Infernal 1.1rc2 and later cmalign and cmsearch -A
+ * output alignments: '~' can occur in GC RF and SS_cons
+ * annotation. The '~' after a given nongap/nonmissing RF position x
+ * (and before nongap/nonmissing RF position x+1) must all occur 5' of
+ * all inserted positions (gap: '.') that occur between x and x+1.
+ *
+ * Second, from HMMER3, hmmbuild reads and writes '~' in sequences to
+ * mark the ends of fragments. Any fragment must begin and end with a
+ * contiguous string of 1 or more '~'. '~' characters are not allowed
+ * within sequences anywhere except within these leading and trailing
+ * contiguous stretches.
+ * 
+ * esl-alimerge will accept as input and produce as output alignments
+ * that are consistent with both of these conventions.
+ *
  * EPN, Fri Nov 20 16:28:59 2009
  */
 #include "esl_config.h"
@@ -38,6 +56,7 @@ static int  update_maxgap_and_maxmis(ESL_MSA *msa, char *errbuf, int clen, int64
 static int  validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mmsa, ESL_MSA **msaA, int clen, int nmsa, int alen_merged, int *maxgap, int *maxmis, char *errbuf);
 static int  add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxmis, int clen, int alen_merged);
 static int  inflate_string_with_gaps_and_missing(char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, int *nmisA, char mischar, char **ret_dst_str);
+static int  inflate_seq_with_gaps(const ESL_ALPHABET *abc, char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str);
 static int  validate_no_nongaps_in_rf_gaps(const ESL_ALPHABET *abc, char *rf_str, char *other_str, int64_t len);
 static int  determine_gap_columns_to_add(ESL_MSA *msa, int *maxgap, int *maxmis, int clen, int **ret_ngapA, int **ret_nmisA, int **ret_neitherA, char *errbuf);
 static void write_pfam_msa_top(FILE *fp, ESL_MSA *msa);
@@ -544,7 +563,8 @@ main(int argc, char **argv)
   if(alenA != NULL)         free(alenA);
   if(namedashes != NULL)    free(namedashes);
   if(msaA != NULL)          free(msaA);
-  if(maxgap != NULL)     free(maxgap);
+  if(maxgap != NULL)        free(maxgap);
+  if(maxmis != NULL)        free(maxmis);
   if(mmsa != NULL)          esl_msa_Destroy(mmsa);
   if(abc  != NULL)          esl_alphabet_Destroy(abc);
   if(w    != NULL)          esl_stopwatch_Destroy(w);
@@ -1078,7 +1098,9 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   if(dealigned  != NULL) free(dealigned);
   if(dealigned2 != NULL) free(dealigned2);
   if(gapped_out != NULL) free(gapped_out);
-  if(ngapA != NULL) free(ngapA);
+  if(ngapA      != NULL) free(ngapA);
+  if(nmisA      != NULL) free(nmisA);
+  if(neitherA   != NULL) free(neitherA);
   return eslOK;
   
  ERROR:
@@ -1086,6 +1108,8 @@ validate_and_copy_msa_annotation(const ESL_GETOPTS *go, int outfmt, ESL_MSA *mms
   if(dealigned2 != NULL) free(dealigned2);
   if(gapped_out != NULL) free(gapped_out);
   if(ngapA      != NULL) free(ngapA);
+  if(nmisA      != NULL) free(nmisA);
+  if(neitherA   != NULL) free(neitherA);
   return status;
 }
 
@@ -1144,8 +1168,9 @@ add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxm
   for(i = 0, mi = nseq_existing; i < msa_to_add->nseq; i++, mi++) { 
       esl_strdup(msa_to_add->sqname[i], -1, &(mmsa->sqname[mi]));
 
-      if((status = inflate_string_with_gaps_and_missing(msa_to_add->aseq[i], msa_to_add->alen, alen_merged, neitherA, '.', NULL, '~', &(mmsa->aseq[mi]))) != eslOK) 
-	ESL_XFAIL(status, errbuf, "Memory allocation error when copying sequence number %d.\n", i+1);
+      status = inflate_seq_with_gaps(msa_to_add->abc, msa_to_add->aseq[i], msa_to_add->alen, alen_merged, neitherA, '.', &(mmsa->aseq[mi]));
+      if     (status == eslEMEM)   ESL_XFAIL(status, errbuf, "Out of memory adding sequence %s", mmsa->sqname[mi]);
+      else if(status != eslOK)     ESL_XFAIL(status, errbuf, "Found internal missing data symbols in seq: %s", mmsa->sqname[mi]);
       free(msa_to_add->aseq[i]); /* free immediately */
       msa_to_add->aseq[i] = NULL;
   }
@@ -1385,6 +1410,105 @@ inflate_string_with_gaps_and_missing(char *src_str, int64_t src_len, int64_t dst
     dst_str[dst_apos++] = src_str[src_apos];
     if(nmisA) for(i = 0; i < nmisA[(src_apos+1)]; i++) dst_str[dst_apos++] = mischar;
     if(ngapA) for(i = 0; i < ngapA[(src_apos+1)]; i++) dst_str[dst_apos++] = gapchar;
+  }
+
+  *ret_dst_str = dst_str;
+  return eslOK;
+
+ ERROR: 
+  return eslEMEM;
+}
+
+
+/* inflate_seq_with_gaps()
+ *                   
+ * Given an aligned sequence, create a new one that is a copy of it,
+ * but with gaps added before each position (apos) as specified by
+ * ngapA[0..apos..len]. <gapchar> specifies the gap character.
+ *
+ * This function follows the HMMER3 convention of using '~' to mark
+ * fragment sequences. If a sequence is a fragment, the first and final
+ * string of gaps (contiguous gaps) will be marked as '~'. That is, 
+ * the 1st column will necessarily be a '~' and the last will be a '~'.
+ * This function takes care to add '~' as gap characters in fragments, 
+ * where appropriate, to follow HMMER3 convention.
+ * 
+ * This function is importantly different from inflate_string_with_gaps_and_missing() 
+ * in that it does not allow internal '~' missing data characters to
+ * be added (which are dictated by nmisA[] in inflate_string_with_gaps_and_missing())
+ * Those '~' are possible in Infernal output alignments only in 
+ * #=GC RF and #=GC SS_cons alignment.
+ *
+ * It only adds '~' as necessary to the beginning and ends of fragments.
+ * 
+ * ngapA[0]       - number of gaps/missing to add before first posn
+ * ngapA[apos]    - number of gaps/missing to add before posn apos
+ * ngapA[src_len] - number of gaps/missing to add after  final posn
+ *
+ * ret_str is allocated here.
+ *
+ * Returns eslOK on success.
+ *         eslEMEM on memory error.
+ *         eslEINVAL if sequence (src_str) has an internal missing
+ *           data symbol that violates HMMER3 convention.
+ */
+int 
+inflate_seq_with_gaps(const ESL_ALPHABET *abc, char *src_str, int64_t src_len, int64_t dst_len, int *ngapA, char gapchar, char **ret_dst_str)
+{
+  int status;
+  int src_apos = 0;
+  int dst_apos  = 0;
+  int src_flpos = 0; /* position of rightmost '~' in contiguous string that begins at position 0 */
+  int src_frpos = 0; /* position of leftmost  '~' in contiguous string that ends   at position src_len-1 */
+  int i;
+  char *dst_str;
+  char char2add;
+  int  i_am_fragment = FALSE;
+
+  ESL_ALLOC(dst_str, sizeof(char) * (dst_len+1));
+  dst_str[dst_len] = '\0';
+
+  /* determine if sequence is a fragment, and determine src_flpos and src_frpos */
+  src_flpos = 0; 
+  while(src_flpos < src_len && esl_abc_CIsMissing(abc, src_str[src_flpos])) { src_flpos++; }
+  src_flpos--; /* we overshot by 1 */
+  /* src_flpos is now rightmost '~' in stretch of '~' that begin at position 0, so 
+   * it's -1 if sequence is not a fragment (there are no leading '~' in src_str) 
+   */
+
+  src_frpos = src_len-1; 
+  while(src_frpos > -1 && esl_abc_CIsMissing(abc, src_str[src_frpos])) { src_frpos--; }
+  src_frpos++; /* we overshot by 1 */
+  /* src_frpos is now leftmost '~' in stretch of '~' that end at position src_len-1, so 
+   * it's src_len if sequence is not a fragment (there are no trailing '~' in src_str)
+   */
+  i_am_fragment = (src_flpos != -1 || src_frpos != src_len) ? TRUE : FALSE;
+
+  /* Now verify that we don't have any internal '~' characters */
+  for(src_apos = src_flpos+1; src_apos <= src_frpos-1; src_apos++) { 
+    if(esl_abc_CIsMissing(abc, src_str[src_apos])) return eslEINVAL;
+  }
+
+  /* add gaps before first position */
+  src_apos = 0;
+  if(i_am_fragment) { 
+    char2add = ((src_flpos >= src_apos) || (src_frpos <= src_apos)) ? esl_abc_CGetMissing(abc) : gapchar;
+  }
+  else { 
+    char2add = gapchar; 
+  }
+  if(ngapA) for(i = 0; i < ngapA[0]; i++) dst_str[dst_apos++] = char2add;
+
+  /* add gaps or missing character after every position */
+  for(src_apos = 0; src_apos < src_len; src_apos++) { 
+    dst_str[dst_apos++] = src_str[src_apos];
+    if(i_am_fragment) { 
+      char2add = ((src_flpos >= src_apos) || (src_frpos <= src_apos)) ? esl_abc_CGetMissing(abc) : gapchar;
+    }
+    else { 
+      char2add = gapchar; 
+    }
+    for(i = 0; i < ngapA[(src_apos+1)]; i++) dst_str[dst_apos++] = char2add;
   }
 
   *ret_dst_str = dst_str;
