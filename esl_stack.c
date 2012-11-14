@@ -759,6 +759,8 @@ esl_stack_ReleaseCond(ESL_STACK *s)
  *****************************************************************/
 #ifdef eslSTACK_TESTDRIVE
 
+#include "esl_random.h"
+
 static void
 utest_integer(void)
 {
@@ -867,13 +869,10 @@ utest_convert2string(void)
   free(result);	/* after Convert2String, only the string itself remains to be free'd */
 }
 
-
-#ifdef eslAUGMENT_RANDOM
 static void
-utest_shuffle(void)
+utest_shuffle(ESL_RANDOMNESS *r)
 {
   char           *msg  = "stack shuffle unit test failed";
-  ESL_RANDOMNESS *r    = esl_randomness_Create(42);
   ESL_STACK      *s    = esl_stack_ICreate();
   int             n    = ESL_STACK_INITALLOC*2+1;      /* exercises reallocation */
   int            *seen = malloc(sizeof(int) * n);
@@ -894,9 +893,47 @@ utest_shuffle(void)
   
   free(seen);
   esl_stack_Destroy(s);
-  esl_randomness_Destroy(r);
 }
-#endif /*eslAUGMENT_RANDOM*/
+
+/* discard all elems in the stack > thresh */
+static int
+discard_function(void *elemp, void *paramp)
+{
+  int elem   =  * (int *) elemp;
+  int thresh =  * (int *) paramp;
+  return (elem > thresh) ? TRUE : FALSE;
+}
+
+static void
+utest_discard_selected(ESL_RANDOMNESS *r)
+{
+  char *msg = "stack: DiscardSelected() unit test failed";
+  ESL_STACK      *ns = esl_stack_ICreate();
+  int              n = 1000;
+  int         thresh = 42;
+  int          npass = 0;
+  int            val;
+  int              i;
+
+  for (i = 0; i < n; i++)
+    {
+      val = esl_rnd_Roll(r, 100) + 1;
+      if (val <= thresh) npass++;
+      esl_stack_IPush(ns, val);
+    }
+  
+  if (esl_stack_DiscardSelected(ns, discard_function, &thresh) != eslOK) esl_fatal(msg);
+
+  if (esl_stack_ObjectCount(ns) != npass) esl_fatal(msg);
+  while (esl_stack_IPop(ns, &val) == eslOK)
+    {
+      if (val > thresh) esl_fatal(msg);
+      npass--;
+    }
+  if (npass != 0) esl_fatal(msg);
+  esl_stack_Destroy(ns);
+}
+
 
 #ifdef HAVE_PTHREAD
 /* Unit test for using a stack as part of an idiom
@@ -1013,52 +1050,6 @@ utest_interthread_comm(void)
   return;
 }
 #endif /* HAVE_PTHREAD -- pthread-specific utests */
-
-
-#ifdef HAVE_PTHREAD
-
-/* discard all elems in the stack > thresh */
-static int
-discard_function(void *elemp, void *paramp)
-{
-  int elem   =  * (int *) elemp;
-  int thresh =  * (int *) paramp;
-  return (elem > thresh) ? TRUE : FALSE;
-}
-
-static void
-utest_DiscardSelected(void)
-{
-  char *msg = "stack: DiscardSelected() unit test failed";
-  ESL_STACK      *ns = esl_stack_ICreate();
-  ESL_RANDOMNESS  *r = esl_randomness_CreateFast(0);
-  int              n = 1000;
-  int              thresh = 42;
-  int              npass = 0;
-  int              val;
-  int              i;
-
-  for (i = 0; i < n; i++)
-    {
-      val = esl_rnd_Roll(r, 100) + 1;
-      if (val <= thresh) npass++;
-      esl_stack_IPush(ns, val);
-    }
-  
-  if (esl_stack_DiscardSelected(ns, discard_function, &thresh) != eslOK) esl_fatal(msg);
-
-  if (esl_stack_ObjectCount(ns) != npass) esl_fatal(msg);
-  while (esl_stack_IPop(ns, &val) == eslOK)
-    {
-      if (val > thresh) esl_fatal(msg);
-      npass--;
-    }
-  if (npass != 0) esl_fatal(msg);
-
-  esl_randomness_Destroy(r);
-  esl_stack_Destroy(ns);
-}
-#endif /* HAVE_PTHREAD*/
 #endif /*eslSTACK_TESTDRIVE*/
 /*---------------- end of unit tests ----------------------------*/
 
@@ -1068,16 +1059,15 @@ utest_DiscardSelected(void)
 /*****************************************************************
  * 6. Test driver.
  *****************************************************************/
-
-/*****************************************************************
+#ifdef eslSTACK_TESTDRIVE
+/*
  * Test driver and API example for the pushdown stack module.
  * To compile:
  *    gcc -g -Wall -I. -L. -DeslSTACK_TESTDRIVE -o testdrive esl_stack.c -leasel -lm
  * To run:
  *    ./testdrive
- * Returns 0 (success) w/ no output, or returns nonzero and says why.
- *****************************************************************/
-
+ * Returns 0 (success), or returns nonzero and says why.
+ */
 /* why Pop() into a void *obj_p, instead of directly into int *obj, in
  * the test of the pointer stack? On PowerPC/Linux, using gcc -O3,
  * trying to Pop() into *obj causes a "dereferencing type-punned
@@ -1088,24 +1078,45 @@ utest_DiscardSelected(void)
  * suspicious that it's a gcc optimizer bug. Pop()'ing into a void *
  * avoids the issue altogether. (SRE, Feb 22 2008 J2/119)
  */
-#ifdef eslSTACK_TESTDRIVE
+#include "easel.h"
+#include "esl_getopts.h"
+#include "esl_random.h"
+#include "esl_stack.h"
+
+static ESL_OPTIONS options[] = {
+  /* name           type      default  env  range toggles reqs incomp  help                                       docgroup*/
+  { "-h",        eslARG_NONE,   FALSE, NULL, NULL,  NULL,  NULL, NULL, "show brief help on version and usage",           0 },
+  { "-s",        eslARG_INT,      "0", NULL, NULL,  NULL,  NULL, NULL, "set random number seed to <n>",                  0 },
+  {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+static char usage[]  = "[-options]";
+static char banner[] = "unit test driver for esl_stack module";
+
 int 
-main(void)
+main(int argc, char **argv)
 {
+  ESL_GETOPTS    *go  = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
+
   utest_integer();
   utest_char();
   utest_pointer();
   utest_convert2string();
-
-#ifdef eslAUGMENT_RANDOM
-  utest_shuffle();
-#endif
+  utest_shuffle(rng);
+  utest_discard_selected(rng);
 
 #ifdef HAVE_PTHREAD
   utest_interthread_comm();
-  utest_DiscardSelected();
 #endif
 
+  esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
+  
+
+  fprintf(stderr, "#  status = ok\n");
   return eslOK;
 }
 #endif /*eslSTACK_TESTDRIVE*/
