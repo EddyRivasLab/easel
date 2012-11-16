@@ -1247,6 +1247,7 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
    */
   while ((status = esl_stack_CPop(cs, &c)) == eslOK)
     {
+ 
       if (newick_skip_whitespace(fp, buf, &pos, &nc) != eslOK) 
 	ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
 
@@ -1263,8 +1264,6 @@ esl_tree_ReadNewick(FILE *fp, char *errbuf, ESL_TREE **ret_T)
 	{
 	  if (buf[pos] != ';')
 	    ESL_XFAIL(eslEFORMAT, errbuf, "expected a semicolon, saw %c.", buf[pos]);
-	  if (newick_advance_buffer(fp, buf, &pos, &nc) == eslEOF)
-	    ESL_XFAIL(eslEFORMAT, errbuf, "file ended prematurely.");
 	  break;		/* end of the Newick file */
 	}
 
