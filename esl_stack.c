@@ -741,10 +741,11 @@ esl_stack_ReleaseCond(ESL_STACK *s)
   if (pthread_mutex_lock(s->mutex)    != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");
   if (pthread_cond_broadcast(s->cond) != 0) ESL_EXCEPTION(eslESYS, "pthread_cond_broadcast() failure");
 
-  pthread_cond_destroy(s->cond);
+  /* You can't free s->cond yet; you can only set the flag. 
+   *  Reason: you may have workers that are ALREADY in a wait state, in pthread_cond_wait(), 
+   *  and that function depends on s->cond.
+   */
   s->do_cond = FALSE;
-  free(s->cond);
-  s->cond    = NULL;
 
   if (pthread_mutex_unlock(s->mutex)  != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_unlock() failure");  
   return eslOK;
@@ -958,9 +959,9 @@ utest_discard_selected(ESL_RANDOMNESS *r)
  *   nonthreaded code in main()). 
  */
 struct threadtest_s {
-  ESL_STACK *input;
-  ESL_STACK *working;
-  ESL_STACK *output;
+  ESL_STACK *input;		/* faux "work unit" queue that the pusher_thread() processes*/
+  ESL_STACK *working;		/* interthread communication: pusher puts work on this stack, popper pulls it off */
+  ESL_STACK *output;		/* popper_thread() puts "finished" units on this stack */
 };
 
 static void *
