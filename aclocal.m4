@@ -26,13 +26,16 @@
 # This is used in the src/Makefile.in.
 #
 AC_DEFUN(CHECK_GNU_MAKE,[ 
-  AC_MSG_CHECKING(whether your make is GNU make)
-  foundGNUmake='nope, assuming sysv make.' ;
+  AC_MSG_CHECKING(whether you have a GNU make)
+  foundGNUmake='nope, so we assume you will use a sysv-compatible make.' ;
   EXEC_DEPENDENCY=[\$\$\@.o] ;
-  if ( make --version nothing 2> /dev/null | grep GNU > /dev/null ) ;  then
-     foundGNUmake='yes, it is.' ;
-     EXEC_DEPENDENCY='%: %.o' ;
-  fi
+  for a in "$MAKE" make gmake gnumake ; do
+    if test -z "$a" ; then continue ; fi ;
+    if  ( sh -c "$a --version" 2> /dev/null | grep GNU 2>&1 > /dev/null ) ; then
+      foundGNUmake='yes, you do; and we assume you will use it!' ;
+      EXEC_DEPENDENCY='%: %.o' ;
+    fi
+  done
   AC_MSG_RESULT($foundGNUmake)
   AC_SUBST(EXEC_DEPENDENCY)
 ])
