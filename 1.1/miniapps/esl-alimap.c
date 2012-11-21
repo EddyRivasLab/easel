@@ -478,7 +478,7 @@ map_sub_msas(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa1, ESL_MSA *msa2, 
   for(apos1 = 0; apos1 < msa1->alen; apos1++) mask[apos1] = '0';
   mask[msa1->alen] = '\0';
 
-  ESL_ALLOC(msa1_to_msa2_map, sizeof(int) * msa1->alen+1);
+  ESL_ALLOC(msa1_to_msa2_map, sizeof(int) * (msa1->alen+1));
   esl_vec_ISet(msa1_to_msa2_map, (msa1->alen+1), -1);
 
   /* both alignments must have same 'named' sequences in same order */
