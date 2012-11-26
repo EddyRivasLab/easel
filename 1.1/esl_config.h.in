@@ -41,7 +41,6 @@
 #undef HAVE_SYS_TYPES_H
 #undef HAVE_SYS_SYSCTL_H
 #undef HAVE_ENDIAN_H
-#undef HAVE_NETINET_IN_H	/* On FreeBSD, you need netinet/in.h for struct sockaddr_in */
 
 /* Types
  */
