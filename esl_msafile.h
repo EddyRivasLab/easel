@@ -58,7 +58,7 @@ typedef struct {
   char                *line;	      /* line read from <bf> by <esl_msafile_GetLine()>        */
   esl_pos_t            n;	      /* length of line in bytes (line is not NUL-terminated)  */
   int64_t              linenumber;    /* input linenumber for diagnostics; -1 if we lose track */
-  esl_pos_t            lineoffset;    /* offset of start of <line> in <bf> input               */
+  esl_pos_t            lineoffset;    /* offset of start of <line> in <bf>; -1 if line unset   */
 
   ESL_DSQ              inmap[128];    /* input map, 0..127                                     */
   const ESL_ALPHABET  *abc;	      /* non-NULL if augmented and in digital mode             */
@@ -124,6 +124,7 @@ extern int eslx_msafile_Write(FILE *fp, ESL_MSA *msa, int fmt);
 
 /* 8. Utilities for specific parsers */
 extern int eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n);
+extern int eslx_msafile_PutLine(ESLX_MSAFILE *afp);
 
 #include "esl_msafile_a2m.h"
 #include "esl_msafile_afa.h"

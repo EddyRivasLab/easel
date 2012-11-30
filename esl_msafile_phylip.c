@@ -456,8 +456,11 @@ phylip_interleaved_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_
     /* now status can be: read error, EOF, or OK.  */
   } while (status == eslOK && alen < alen_stated);
 
-  /* End of all blocks. We swallowed blank lines following last block, so we should be EOF. Validate the overall <alen> */
-  if      (status == eslOK)     ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected trailing data: more sequences than expected? header said %d", nseq);
+  /* End of all blocks. We swallowed blank lines following last block,
+   * so we should be EOF; unless we're in a seqboot file, in which
+   * case we just read the first line of the next MSA.
+   */
+  if      (status == eslOK)     eslx_msafile_PutLine(afp); /* put <nseq> <alen> line back in the stream, so we will read it properly w/ next msa read */
   else if (status != eslEOF)    goto ERROR;
   else if (alen != alen_stated) ESL_XFAIL(eslEFORMAT, afp->errmsg, "alignment length disagrees with header: header said %d, parsed %" PRId64, alen_stated, alen);
 
@@ -580,8 +583,10 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
       else if (alen   != alen_stated)                ESL_XFAIL(eslEFORMAT, afp->errmsg, "aligned length of sequence disagrees with header: header says %d, parsed %" PRId64, alen_stated, alen);
     } /* end looping over all seqs */
 
-  /* we should be EOF; we've swallowed all trailing blank lines */
-  if (status != eslEOF) ESL_XFAIL(eslEFORMAT, afp->errmsg, "unexpected trailing data: more sequences than expected? header said %d", nseq);
+  /* we should be EOF; we've swallowed all trailing blank lines.
+   * Exception: if we're in a seqboot file, we just read the <nseq> <alen> line of the next msa record; push it back on stream
+   */
+  if (status == eslOK) eslx_msafile_PutLine(afp);
 
   msa->nseq = nseq;
   msa->alen = alen;
@@ -1479,6 +1484,52 @@ utest_badfile(char *filename, int testnumber, int expected_alphatype, int expect
   esl_msa_Destroy(msa);
 }
 
+/* PHYLIP's seqboot program can output many MSAs to the same phylip file.
+ * For this reason (only), we allow PHYLIP format to have multiple MSAs per file.
+ * PHYLIP format 'officially' does not document this!
+ */
+static void
+utest_seqboot(void)
+{
+  char  msg[] = "seqboot unit test failed";
+  char  tmpfile[32];
+  FILE *ofp;
+  int   expected_fmt;
+  int   expected_alphatype;
+  int   expected_nseq;
+  int   expected_alen;
+  int   expected_nali;
+  int   i;
+  ESL_ALPHABET *abc = NULL;
+  ESLX_MSAFILE *afp = NULL;
+  ESL_MSA      *msa = NULL;
+
+  /* Write a tmp testfile with good1 concatenated 3 times. */
+  expected_nali = 3;
+  strcpy(tmpfile, "esltmpXXXXXX");
+  if (esl_tmpfile_named(tmpfile, &ofp) != eslOK) esl_fatal(msg);
+  for (i = 0; i < expected_nali; i++)
+    utest_write_good1(ofp, &expected_fmt, &expected_alphatype, &expected_nseq, &expected_alen);
+  fclose(ofp);
+  
+  /* open it and loop over it, reading MSAs. there should be 3, of the expected size.  */
+  if (eslx_msafile_Open(&abc, tmpfile, /*env=*/NULL, eslMSAFILE_UNKNOWN, /*fmtd=*/NULL, &afp) != eslOK) esl_fatal(msg);
+  if (abc->type   != expected_alphatype) esl_fatal(msg);
+  if (afp->format != expected_fmt)       esl_fatal(msg);
+  i = 0;
+  while ( eslx_msafile_Read(afp, &msa) == eslOK)
+    {
+      i++;
+      if (msa->nseq != expected_nseq) esl_fatal(msg);
+      if (msa->alen != expected_alen) esl_fatal(msg);
+      esl_msa_Destroy(msa);
+    }
+  if (i != expected_nali) esl_fatal(msg);
+
+  eslx_msafile_Close(afp);
+  esl_alphabet_Destroy(abc);
+}
+
 #endif /*eslMSAFILE_PHYLIP_TESTDRIVE*/
 /*---------------------- end, unit tests ------------------------*/
 
@@ -1573,6 +1624,9 @@ main(int argc, char **argv)
       utest_badfile(tmpfile, testnumber, expected_alphatype, expected_errstatus, expected_linenumber, expected_errmsg);
       remove(tmpfile);
     }
+
+  /* Other tests */
+  utest_seqboot();
 
   esl_getopts_Destroy(go);
   return 0;

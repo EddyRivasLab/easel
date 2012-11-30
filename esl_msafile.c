@@ -674,8 +674,8 @@ eslx_msafile_IsMultiRecord(int fmt)
   case eslMSAFILE_AFA:         return FALSE;
   case eslMSAFILE_CLUSTAL:     return FALSE;
   case eslMSAFILE_CLUSTALLIKE: return FALSE;
-  case eslMSAFILE_PHYLIP:      return FALSE;
-  case eslMSAFILE_PHYLIPS:     return FALSE;
+  case eslMSAFILE_PHYLIP:      return TRUE; /* because seqboot. undocumented in phylip,  phylip format can come out multi-msa */
+  case eslMSAFILE_PHYLIPS:     return TRUE; /* ditto */
   default:                     return FALSE;
   }
   return FALSE;			/* keep compilers happy */
@@ -1257,12 +1257,51 @@ eslx_msafile_GetLine(ESLX_MSAFILE *afp, char **opt_p, esl_pos_t *opt_n)
  ERROR:
   afp->line       = NULL;
   afp->n          = 0;
-  afp->lineoffset = 0;
+  afp->lineoffset = -1;
   /* leave linenumber alone. on EOF, it is the number of lines in the file, and that might be useful. */
   if (opt_p) *opt_p = NULL;
   if (opt_n) *opt_n = 0;
   return status;
 }
+
+
+/* Function:  eslx_msafile_PutLine()
+ * Synopsis:  Put the line we just read back in the input stream
+ *
+ * Purpose:   Put the line we just read back in the input stream
+ *            and unset <afp->line> and its associated information
+ *            internally. The next <eslx_msafile_GetLine()> call 
+ *            will read exactly the same line again.
+ * 
+ *            This gets used in parsing files that contain multiple
+ *            MSAs. If the way we determine that an MSA record has
+ *            ended is by reading the first line of the next MSA
+ *            record, then we may want to stuff it back in the input
+ *            buffer, so it gets parsed properly as part of the next
+ *            record.  In Pfam/Stockholm parsing we don't have to
+ *            do this, because the first line is just a format code,
+ *            with no record-specific data. But in PHYLIP multiple MSA
+ *            format, for example, the first line is nseq,alen.
+ *            
+ * Args:      afp  - the open input stream
+ *
+ * Returns:   <eslOK> on succes
+ *
+ * Throws:    <eslEMEM>, <eslESYS>, <eslEINCONCEIVABLE> if the
+ *            <esl_buffer_Set()> call fails.
+ */
+int
+eslx_msafile_PutLine(ESLX_MSAFILE *afp)
+{
+  int status;
+  if ((status = esl_buffer_Set(afp->bf, afp->line, 0)) != eslOK) return status;
+  afp->line       = NULL;
+  afp->n          = 0;
+  if (afp->linenumber != -1) afp->linenumber--;
+  afp->lineoffset = -1;
+  return eslOK;
+}
+
 /*--------------- end, parser utilities -------------------------*/
 
 
