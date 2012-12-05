@@ -18,6 +18,9 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_SYS_PARAM_H		/* On OpenBSD, sys/sysctl.h requires sys/param.h */
+#include <sys/param.h>
+#endif
 #ifdef HAVE_SYS_SYSCTL_H
 #include <sys/sysctl.h>
 #endif
