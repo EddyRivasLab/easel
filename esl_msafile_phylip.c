@@ -105,10 +105,10 @@ esl_msafile_phylip_SetInmap(ESLX_MSAFILE *afp)
 #endif
   if (! afp->abc)
     {
-      for (sym = 1; sym < 128; sym++)   afp->inmap[sym] = eslDSQ_ILLEGAL;
-      for (sym = 'a'; sym < 'z'; sym++) afp->inmap[sym] = sym;
-      for (sym = 'A'; sym < 'Z'; sym++) afp->inmap[sym] = sym;
-      for (sym = '0'; sym < '9'; sym++) afp->inmap[sym] = eslDSQ_IGNORED;
+      for (sym = 1; sym < 128; sym++)    afp->inmap[sym] = eslDSQ_ILLEGAL;
+      for (sym = 'a'; sym <= 'z'; sym++) afp->inmap[sym] = sym;
+      for (sym = 'A'; sym <= 'Z'; sym++) afp->inmap[sym] = sym;
+      for (sym = '0'; sym <= '9'; sym++) afp->inmap[sym] = eslDSQ_IGNORED;
       afp->inmap['-']  = '-';
       afp->inmap['*']  = '*';
       afp->inmap['?']  = '?';
