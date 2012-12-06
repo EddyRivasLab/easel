@@ -30,14 +30,24 @@
 #                     Useful when debugging individual failed tests - saves
 #                     having to rerun the whole testsuite.
 #
+#    -V             - Run 'valgrind' test types. Caller asserts that valgrind
+#                     is installed on this system. This option may also be
+#                     set by setting environment variable SQC_VALGRIND nonzero.
+#
+#    -M             - Run 'mpi' test types. Caller asserts that mpiexec is
+#                     installed on this system. This option may also be set
+#                     by setting env variable SQC_MPI nonzero.
 # Examples: 
 #    % sqc 2 exercises.sqc .. .. 
 #
-#
+# (Allowing -M, -V to also be set in the environment simplifies life when
+#  we're calling sqc via a 'make check', where we don't really have control
+#  over the cmdline options, but we can control our system environment.)
+# 
 # For each (non-prep) test in the command file, a one-line summary
 # of the result is printed. The format of this line is:
 #     <testtype> <test #> [<test name>]...   <status>
-# where <testtype> is exercise, valgrind, regression, benchmark, or
+# where <testtype> is exercise, valgrind, mpi, regression, benchmark, or
 # fail; <test #> is a counter, separate for each type; <test name> is
 # the one-word name for this test; and <status> is the result of the
 # test. The format for <status> is described later.
@@ -53,7 +63,7 @@
 #             in one command file.
 #
 #    type:    One of the following keywords: 
-#             prep, exercise, valgrind, regression, benchmark, fail
+#             prep, exercise, valgrind, mpi, regression, benchmark, fail
 #             See below for description of each.
 # 
 #    name:    One word, <=20 characters, naming this test.
@@ -179,6 +189,19 @@
 #                FAILED [command failed]
 #                FAILED [crash!]
 #
+#             Valgrind tests are only run if -V cmdline option is used,
+#             or if SQC_VALGRIND environment variable is set nonzero.
+#
+# mpi:        An MPI-specific exercise.
+#             
+#             The command includes 'mpiexec'; for example, 
+#             "mpiexec -n 2 ./my_mpi_unit_test"
+#
+#             MPI exercises are only run if the -M cmdline option is used,
+#             or if SQC_MPI environment variable is set nonzero.
+#
+#             Output line format is the same as for an exercise.
+# 
 # regression: The same command template is processed and run twice;
 #             once under a "new" build (<top_builddir> and <top_srcdir>)
 #             and once under an "old" build of the same software 
@@ -209,16 +232,36 @@
 # SRE, Tue Aug  6 11:16:39 2002
 # SVN $Id: sqc 1796 2007-01-03 22:36:44Z eddys $
 
-require "getopts.pl";
-require "importenv.pl";
+use Getopt::Std;
 
-# Parse our command line
+# Parse our command line options
 #
-&Getopts('vx:');
+getopts('vx:VM');
 if ($opt_v) { $verbose          = 1;      }
 if ($opt_x) { $only_do_test_num = $opt_x; }
+if ($opt_V) { $do_valgrind      = 1;      }
+if ($opt_M) { $do_mpi           = 1;      }
 
+# Parse our environment
+#
+if ($ENV{"SQC_VALGRIND"} != 0) { $do_valgrind = 1; }
+if ($ENV{"SQC_MPI"}      != 0) { $do_mpi      = 1; }
 
+# Trust but verify
+#
+if ($do_valgrind) 
+{
+    $output = `valgrind --version 2>&1`;
+    if ($?) { die "couldn't run valgrind. Don't set -V cmdline option, don't set SQC_VALGRIND env variable."; }
+}
+if ($do_mpi)
+{
+    $output = `mpiexec -V 2>&1`;
+    if ($?) { die "couldn't run mpiexec. Don't set -M cmdline option, don't set SQC_MPI env variable."; }
+}
+
+# Parse command line arguments
+#
 if ($#ARGV == 3)
 {
     $setlevel     = shift;
@@ -265,10 +308,14 @@ while (<COMMANDS>) {
     #
     if ($testtype eq "exercise"   || 
 	$testtype eq "valgrind"   ||
+	$testtype eq "mpi"        ||
 	$testtype eq "regression" ||
 	$testtype eq "fail"       ||
 	$testtype eq "benchmark") 
     {
+	if ($testtype eq "valgrind") { $valgrind_ntests++; if (! $do_valgrind) { next COMMAND; } }
+	if ($testtype eq "mpi")      { $mpi_ntests++;      if (! $do_mpi)      { next COMMAND; } }
+
 	$ntest++;
 	if ($only_do_test_num && $only_do_test_num != $ntest) { next COMMAND; }
 	printf("  %10s %4d [%20s] ...     ", $testtype, $ntest, $testname);
@@ -359,7 +406,7 @@ while (<COMMANDS>) {
 	if ($status1 != 0) { die "prep command [$testname] at line $linenum failed with status $status1\n"; }
     } 
 
-    elsif ($testtype eq "exercise") 
+    elsif ($testtype eq "exercise" || $testtype eq "mpi") 
     {
 	if    (($status1>>8)    == 1) { print "FAILED [command failed]\n";   $badtest++; }
 	elsif ( $status1        != 0) { print "FAILED [crash!]\n";           $badtest++; }
