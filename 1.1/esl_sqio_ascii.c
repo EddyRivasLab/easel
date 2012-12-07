@@ -459,7 +459,7 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
  *            
  *            Only normal sequence files can be positioned to a
  *            nonzero offset. If <sqfp> corresponds to a standard
- *            input stream or gunzip stream, it may not be
+ *            input stream or gzip -dc stream, it may not be
  *            repositioned. If <sqfp> corresponds to a multiple
  *            sequence alignment file, the only legal <offset>
  *            is 0, to rewind the file to the beginning and 

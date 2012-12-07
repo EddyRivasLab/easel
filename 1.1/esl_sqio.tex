@@ -146,12 +146,12 @@ The module can read compressed sequence files. If the \ccode{seqfile}
 argument to \ccode{esl\_sqfile\_Open()} ends in \ccode{.gz}, the file is
 assumed to be compressed with \ccode{gzip}; instead of opening it
 normally, \ccode{esl\_sqfile\_Open()} opens it as a pipe from
-\ccode{gunzip -dc}. Your system must support pipes to use this -
+\ccode{gzip -dc}. Your system must support pipes to use this -
 specifically, it must support the \ccode{popen()} system call (POSIX.2
 compliant operating systems do). The \ccode{configure} script
 automatically checks this at compile-time and defines
 \ccode{HAVE\_POPEN} appropriately. Obviously, the user must also have
-\ccode{gunzip} installed and in his PATH.
+\ccode{gzip} installed and in his PATH.
 
 For both special cases, the catch is that you can't use format
 autodetection; you must provide a valid known format code when you

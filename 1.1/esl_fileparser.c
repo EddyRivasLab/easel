@@ -320,7 +320,7 @@ esl_fileparser_NextLine(ESL_FILEPARSER *efp)
  *            with the peeked data in the context of the
  *            <ESL_FILEPARSER>. The caller cannot simply close and
  *            reopen the stream, because the stream may be a pipe
- *            (<stdin> or <gunzip -dc> for example).
+ *            (<stdin> or <gzip -dc> for example).
  *            
  *            The caller passes the bytes it peeked at with <fread()>
  *            in <prefix>, and the number of bytes it peeked at in

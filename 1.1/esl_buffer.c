@@ -109,8 +109,8 @@ static int buffer_counttok (ESL_BUFFER *bf, const char *sep, esl_pos_t *ret_nc);
  * Returns:   <eslOK> on success; <*ret_bf> is the new <ESL_BUFFER>.
  * 
  *            <eslENOTFOUND> if file isn't found or isn't readable.
- *            <eslFAIL> if gunzip fails on a .gz file, probably 
- *            because gzip executable isn't found in PATH. 
+ *            <eslFAIL> if gzip -dc fails on a .gz file, probably 
+ *            because a gzip executable isn't found in PATH. 
  *            
  *            On any normal error, <*ret_bf> is still returned,
  *            in an unset state, with a user-directed error message
@@ -148,7 +148,7 @@ esl_buffer_Open(const char *filename, const char *envvar, ESL_BUFFER **ret_bf)
 
   n = strlen(path);
   if (n > 3 && strcmp(filename+n-3, ".gz") == 0)   /* if .gz => gzip -dc */
-    { if ( (status = esl_buffer_OpenPipe(path, "gunzip -dc %s 2>/dev/null", ret_bf)) != eslOK) goto ERROR; }
+    { if ( (status = esl_buffer_OpenPipe(path, "gzip -dc %s 2>/dev/null", ret_bf)) != eslOK) goto ERROR; }
   else
     { if ( (status = esl_buffer_OpenFile(path, ret_bf)) != eslOK) goto ERROR; }
 
@@ -253,7 +253,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
  *            
  *            <cmdfmt> has a restricted format; it is a <printf()>-style
  *            format string with a single <%s>, where <filename> is to
- *            be substituted. An example <cmdfmt> is "gunzip -dc %s
+ *            be substituted. An example <cmdfmt> is "gzip -dc %s
  *            2>/dev/null".
  *            
  *            <filename> is checked for existence and read permission
@@ -280,7 +280,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
  *            is longer than the buffer's <pagesize>, we may not
  *            accurately detect error conditions. If you must capture
  *            <stderr> (for example with a <cmdfmt> like
- *            "gunzip -dc %s 2>&1") be aware that the parser may
+ *            "gzip -dc %s 2>&1") be aware that the parser may
  *            see that output as "successful" execution, if it's long
  *            enough.
  *            
@@ -2860,7 +2860,7 @@ int main(int argc, char **argv)
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
   
   while (( status = esl_buffer_GetLine(bf, &p, &n)) == eslOK) 
@@ -2899,7 +2899,7 @@ int main(int argc, char **argv)
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
   
   while ( (status = esl_buffer_GetToken(bf, " \t\r\n", &tok, &n)) == eslOK)
@@ -2941,7 +2941,7 @@ int main(int argc, char **argv)
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
   
   while (1) 
@@ -3092,7 +3092,7 @@ main(int argc, char **argv)
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
 
   while ( (status = example_read_fasta(bf, &seqname, &seqdesc, &seq, &seqlen)) == eslOK)
@@ -3195,7 +3195,7 @@ main(int argc, char **argv)
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
   if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gunzip failed: %s", bf->errmsg);
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
 
   while ( (status = example_read_lineblock(bf, &lines, &lens, &nlines)) == eslOK)
