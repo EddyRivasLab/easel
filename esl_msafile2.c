@@ -63,7 +63,7 @@ static int msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **r
  *           <filename> is "-", then the alignment is read from
  *           <stdin>. If <filename> ends in ".gz", then the file is
  *           assumed to be compressed by gzip, and it is opened as a
- *           pipe from <gunzip -dc>. (Auto-decompression of gzipp'ed files
+ *           pipe from <gzip -dc>. (Auto-decompression of gzipp'ed files
  *           is only available on POSIX-compliant systems w/ popen(), when 
  *           <HAVE_POPEN> is defined at compile-time.)
  *          
@@ -131,7 +131,7 @@ esl_msafile2_Close(ESL_MSAFILE2 *afp)
  *            
  * Args:      abc      - pointer to internal alphabet
  *            filename - name of alignment data file to open;
- *                       if "*.gz", attempt to read through <gunzip -dc> using <popen()>;
+ *                       if "*.gz", attempt to read through <gzip -dc> using <popen()>;
  *                       or "-" for stdin 
  *            env      - NULL, or the name of an environment variable from which
  *                       to retrieve a colon-delimited directory list to search
@@ -147,7 +147,7 @@ esl_msafile2_Close(ESL_MSAFILE2 *afp)
  *           
  * Throws:   <eslEMEM> on allocation failure.
  *           <eslEINVAL> if format autodetection is attempted on 
- *           stdin or a gunzip pipe.
+ *           stdin or a gzip -dc pipe.
  */
 int
 esl_msafile2_OpenDigital(const ESL_ALPHABET *abc, const char *filename, 

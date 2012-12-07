@@ -267,9 +267,9 @@ The module can read compressed alignment files.  If the
 \ccode{filename} passed to \ccode{esl\_msafile\_Open()} ends in
 \ccode{.gz}, the file is assumed to be compressed with gzip. Instead
 of opening it normally, \ccode{esl\_msafile\_Open()} opens it as a pipe
-through \ccode{gunzip -dc}. Obviously this only works on a POSIX
+through \ccode{gzip -dc}. Obviously this only works on a POSIX
 system -- pipes have to work, specifically the \ccode{popen()} system
-call -- and \ccode{gunzip} must be installed and in the PATH.
+call -- and \ccode{gzip} must be installed and in the PATH.
 
 The module can also read from a standard input pipe. If the
 \ccode{filename} passed to \ccode{esl\_msafile\_Open()} is \ccode{-},
