@@ -1129,91 +1129,63 @@ esl_str_IsBlank(char *s)
 }
 
 /* Function:  esl_str_IsInteger()
- * Synopsis:  Return TRUE if <s> is an integer; else FALSE.
+ * Synopsis:  Return TRUE if <s> represents an integer; else FALSE.
  *
  * Purpose:   Given a NUL-terminated string <s>, return TRUE
- *            if the complete string is convertible to an integer 
- *            by the rules of <atoi()>.
+ *            if the complete string is convertible to a base-10 integer 
+ *            by the rules of <strtol()> or <atoi()>. 
  *            
- *            Leading whitespace is skipped. A leading sign character
- *            + or - is allowed. A prefix of 0x or 0X indicates
- *            a hexadecimal number follows; a prefix of 0 indicates
- *            that an octal number follows.
+ *            Leading and trailing whitespace is allowed, but otherwise
+ *            the entire string <s> must be convertable. (Unlike <strtol()>
+ *            itself, which will convert a prefix. ' 99 foo' converts
+ *            to 99, but <esl_str_IsInteger()> will return FALSE.
  *            
  *            If <s> is <NULL>, FALSE is returned.
  */
 int
 esl_str_IsInteger(char *s)
 {
-  int hex = FALSE;
+  char *endp;
+  long  val;
 
-  if (s == NULL) return FALSE;
-  while (isspace((int) (*s))) s++;      /* skip whitespace */
-  if (*s == '-' || *s == '+') s++;      /* skip leading sign */
-				        /* skip leading conversion signals */
-  if ((strncmp(s, "0x", 2) == 0 && (int) strlen(s) > 2) ||
-      (strncmp(s, "0X", 2) == 0 && (int) strlen(s) > 2))
-    {
-      s += 2;
-      hex = 1;
-    }
-  else if (*s == '0' && (int) strlen(s) > 1)
-    s++;
-				/* examine remainder for garbage chars */
-  if (!hex)  while (*s != '\0') { if (!isdigit ((int) (*s))) return FALSE; s++; }
-  else       while (*s != '\0') { if (!isxdigit((int) (*s))) return FALSE; s++; }
+  if (s == NULL) return FALSE;	        /* it's NULL */
+  val = strtol(s, &endp, 10);
+  if (endp == s) return FALSE;          /* strtol() can't convert it */
+  for (s = endp; *s != '\0'; s++)
+    if (! isspace(*s)) return FALSE;    /* it has trailing nonconverted nonwhitespace */
   return TRUE;
 }
 
 /* Function:  esl_str_IsReal()
- * Synopsis:  Return TRUE if <s> is a real number; else FALSE.
+ * Synopsis:  Return TRUE if string <s> represents a real number; else FALSE.
  *
  * Purpose:   Given a NUL-terminated string <s>, return <TRUE>
- *            if the string is convertible to a floating-point
- *            real number by the rules of <atof()>. 
+ *            if the string is completely convertible to a floating-point
+ *            real number by the rules of <strtod()> and <atof()>. 
+ *            (Which allow for exponential forms, hexadecimal forms,
+ *            and case-insensitive INF, INFINITY, NAN, all w/ optional
+ *            leading +/- sign.)
+ * 
+ *            No trailing garbage is allowed, unlike <strtod()>. The
+ *            entire string must be convertible, allowing leading and
+ *            trailing whitespace is allowed. '99.0 foo' converts
+ *            to 99.0 with <strtod()> but is <FALSE> for 
+ *            <esl_str_IsReal()>. '  99.0  ' is <TRUE>.
  *            
- *            Leading space is skipped. A leading sign of either
- *            + or - is allowed. Scientific notation is expressed
- *            with either e or E, as in 1.0e12 or 2.1E42.
+ *            If <s> is <NULL>, return <FALSE>.
  */
 int
 esl_str_IsReal(char *s)
 {
-  int gotdecimal = 0;
-  int gotexp     = 0;
-  int gotreal    = 0;
+  char   *endp;
+  double  val;
 
-  if (s == NULL) return FALSE;
-
-  while (isspace((int) (*s))) s++; /* skip leading whitespace */
-  if (*s == '-' || *s == '+') s++; /* skip leading sign */
-
-  /* Examine remainder for garbage. Allowed one '.' and
-   * one 'e' or 'E'; if both '.' and e/E occur, '.'
-   * must be first.
-   */
-  while (*s != '\0')
-    {
-      if (isdigit((int) (*s))) 	gotreal++;
-      else if (*s == '.')
-	{
-	  if (gotdecimal) return FALSE; /* can't have two */
-	  if (gotexp)     return FALSE; /* e/E preceded . */
-	  else gotdecimal++;
-	}
-      else if (*s == 'e' || *s == 'E')
-	{
-	  if (gotexp) return FALSE;	/* can't have two */
-	  else gotexp++;
-	}
-      else if (isspace((int) (*s)))
-	break;
-      s++;
-    }
-
-  while (isspace((int) (*s))) s++;         /* skip trailing whitespace */
-  if (*s == '\0' && gotreal) return TRUE;
-  else return FALSE;
+  if (! s) return FALSE;		      /* <s> is NULL */
+  val = strtod(s, &endp);
+  if (val == 0.0f && endp == s) return FALSE; /* strtod() can't convert it */
+  for (s = endp; *s != '\0'; s++)
+    if (! isspace(*s)) return FALSE;          /* it has trailing nonconverted nonwhitespace */
+  return TRUE;
 }
 
 
@@ -2069,6 +2041,39 @@ esl_composition_SW50(double *f)
 #ifdef eslEASEL_TESTDRIVE
 
 static void
+utest_IsInteger(void)
+{
+  char *goodones[] = { " 99 " };
+  char *badones[]  = {  "",  " 99 foo " };
+  int ngood = sizeof(goodones) / sizeof(char *);
+  int nbad  = sizeof(badones)  / sizeof(char *);
+  int i;
+
+  for (i = 0; i < ngood; i++)
+    if (! esl_str_IsInteger(goodones[i])) esl_fatal("esl_str_IsInteger() should have recognized %s", goodones[i]);
+  for (i = 0; i < nbad;  i++)
+    if (  esl_str_IsInteger(badones[i]))  esl_fatal("esl_str_IsInteger() should not have recognized %s", badones[i]);
+}
+
+static void
+utest_IsReal(void)
+{
+  char *goodones[] = { "99", " \t 99", "-99.00", "+99.00e-12", "+0xabc.defp-12",  "  +INFINITY", "-nan" };
+  char *badones[] = {  "", 
+		       "FIBB_BOVIN/67-212",	/* testing for a fixed bug, 17 Dec 2012, reported by ER */
+  };
+  int ngood = sizeof(goodones) / sizeof(char *);
+  int nbad  = sizeof(badones)  / sizeof(char *);
+  int i;
+
+  for (i = 0; i < ngood; i++)
+    if (! esl_str_IsReal(goodones[i])) esl_fatal("esl_str_IsReal() should have recognized %s", goodones[i]);
+  for (i = 0; i < nbad;  i++)
+    if (  esl_str_IsReal(badones[i]))  esl_fatal("esl_str_IsReal() should not have recognized %s", badones[i]);
+}
+
+
+static void
 utest_strmapcat(void)
 {
   char      *msg  = "esl_strmapcat() unit test failed";
@@ -2236,6 +2241,8 @@ int main(void)
   esl_exception_SetHandler(&esl_nonfatal_handler);
 #endif
 
+  utest_IsInteger();
+  utest_IsReal();
   utest_strmapcat();
   utest_strtok();
   utest_sprintf();
