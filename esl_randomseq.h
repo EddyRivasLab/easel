@@ -1,13 +1,25 @@
 /* Generating, shuffling, and randomizing sequences.
- * 
- * SRE, Thu Apr 24 09:38:13 2008 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslRANDOMSEQ_INCLUDED
 #define eslRANDOMSEQ_INCLUDED
 
 #include "esl_random.h"
+
+/* Control flag passed to esl_rsq_Sample():                          */
+#define eslRSQ_SAMPLE_ALNUM  1	/* isalpha | isdigit                 */
+#define eslRSQ_SAMPLE_ALPHA  2	/* islower | isupper                 */
+#define eslRSQ_SAMPLE_LOWER  3	/* ASCII: a-z                        */
+#define eslRSQ_SAMPLE_UPPER  4	/* ASCII: A-Z                        */
+#define eslRSQ_SAMPLE_DIGIT  5	/* 0-9                               */
+#define eslRSQ_SAMPLE_XDIGIT 6	/* 0-9, a-f, A-F                     */
+#define eslRSQ_SAMPLE_CNTRL  7	/* ASCII: 0..0x1F, plus 0x7F (DEL)   */
+#define eslRSQ_SAMPLE_GRAPH  8  /* isprint && ! ' ' (space)          */
+#define eslRSQ_SAMPLE_SPACE  9	/* ' ', '\f', '\n', '\r', '\t', '\v' */
+#define eslRSQ_SAMPLE_BLANK  10	/* ' ', '\t'                         */
+#define eslRSQ_SAMPLE_PRINT  11 /* ASCII: 0x20 ' ' through 0x7E '~'  */
+#define eslRSQ_SAMPLE_PUNCT  12	/* isprint && !(isspace || isalnum)  */
+
+
 
 /* 1. Generating iid sequences. */
 extern int esl_rsq_IID  (ESL_RANDOMNESS *r, const char *alphabet, const double *p, int K, int L, char *s);
@@ -42,5 +54,8 @@ extern int esl_rsq_XMarkov1  (ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int 
 #endif /*eslRANDOMSEQ_INCLUDED*/
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
 
