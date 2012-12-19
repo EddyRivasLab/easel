@@ -40,6 +40,14 @@
  *    If you do not want invalid input regex syntax to halt your application,
  *    you can install a custom error handler that can handle
  *    the eslESYNTAX errors as you wish.
+ *****************************************************************
+ * TODO:
+ *  - would be great to have an esl_regexp_Sample(), which sampled
+ *    strings from a regexp. We could use this in unit tests that 
+ *    need to stress edge cases (generating strings with unusual
+ *    but legal characters, for example). We would probably want
+ *    to implement some artificial limits on repeat operators,
+ *    to keep length of sampled seq reasonable.
  */
 #include "esl_config.h"
 

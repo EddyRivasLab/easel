@@ -6,17 +6,17 @@ code, it should also help you understand the structure of existing
 Easel code.
 
 We expect Easel to constantly evolve -- not only in its code, but also
-in its style. By writing down a code style, the aim is not to enforce
-foolish consistencies. Rather, one way we try to manage the complexity
-of our large codebase is to continuously cajole Easel code toward a
-clean and consistent presentation. We try to organize code modules in
-similar ways, use certain naming conventions, and channel similar
-functions towards common \esldef{interfaces} that provide common
-calling conventions and behaviors. 
+in its style. The aim of talking about our code style is not to
+enforce foolish consistencies. Rather, one way we try to manage the
+complexity of our large codebase is to continuously cajole Easel code
+toward a clean and consistent presentation. We try to organize code
+modules in similar ways, use certain naming conventions, and channel
+similar functions towards common \esldef{interfaces} that provide
+common calling conventions and behaviors.
 
-Because it's evolving, not all Easel code obeys the code style
-described in this chapter. Think of the Easel code style as a local
-building ordinance. Any new construction should always comply, but
+But because it's evolving, not all Easel code obeys the code style
+described in this chapter. Think of the Easel code style as your local
+building ordinances. Any new construction should always comply, but
 older construction is grandfathered in and does not have to
 immediately conform to the current rules. When it comes time to
 renovate older construction, it's also time to bring it up to the
@@ -430,12 +430,11 @@ add others in the future.
 \subsection{Driver programs}
 %%%%%%%%%%%%%%%%
 
-Perhaps the most unusual (innovative?) thing about Easel modules is
-how we embed {\bfseries driver programs} directly in the module's
-\ccode{.c} file. Driver programs include our unit tests, benchmarks,
-and working examples. These small programs are enclosed in
-standardized \ccode{\#ifdef}'s that enable them to be conditionally
-compiled.
+An unusual (innovative?) thing about Easel modules is how we embed
+{\bfseries driver programs} directly in the module's \ccode{.c}
+file. Driver programs include our unit tests, benchmarks, and working
+examples. These small programs are enclosed in standardized
+\ccode{\#ifdef}'s that enable them to be conditionally compiled.
 
 None of these programs are installed by \ccode{make install}.  Test
 drivers are compiled as part of \ccode{make check}.  A \ccode{make
@@ -837,6 +836,8 @@ special names are called \esldef{common interfaces}.
   & size, in bytes
   & - \\
 
+
+
  \multicolumn{4}{c}{\bfseries Accessing information in objects}\\
 
 \ccode{\_Is}
@@ -872,11 +873,18 @@ special names are called \esldef{common interfaces}.
   & [standard]
   & \ccode{esl\_msa\_FormatName()} \\
 
+
+
  \multicolumn{4}{c}{\bfseries Debugging}\\
 \ccode{\_Validate}
   & Run validation tests on the internal state of an object.
   & [standard]
   & \ccode{esl\_tree\_Validate()} \\
+
+\ccode{\_Compare}
+  & Compare two objects to each other for equality (or close enough).
+  & [standard]
+  & \ccode{esl\_msa\_Compare()} \\
 
 \ccode{\_Dump}
   & Dump a verbose, possibly ugly, but developer-readable output 
@@ -884,17 +892,19 @@ special names are called \esldef{common interfaces}.
   & [standard]
   & \ccode{esl\_keyhash\_Dump()} \\
 
+\ccode{\_TestSample}
+  & Sample a mostly syntactically correct object for test purposes
+  & [standard]
+  & \ccode{p7\_tophits\_TestSample()} \\
+
+
+
  \multicolumn{4}{c}{\bfseries Miscellaneous}\\
 
 \ccode{\_Write}
   & Write something from an object to an output stream.
   & [standard]
   & \ccode{esl\_msa\_Write()} \\
-
-\ccode{\_Compare}
-  & Compare two objects (for equality, for instance)
-  & [standard]
-  & \ccode{esl\_msa\_Compare()} \\
 
 \ccode{\_Encode}
   & Convert a user-readable string (such as ``fasta'') to an
@@ -1259,35 +1269,6 @@ past debugging and testing. So a \ccode{\_Validate()} function is a
 place to systematically organize a set of checks that essentially
 amount to regression tests against past debugging/testing efforts.
 
-
-\hypertarget{ifc:Dump}
-{\item[\_Dump*(FILE *fp, obj...)]}
-
-Prints the internals of an object in human-readable, easily parsable
-tabular ASCII form. Useful during debugging and development to view
-the entire object at a glance. Returns \ccode{eslOK} on success.
-Unlike a more robust \ccode{\_Write()} call, \ccode{\_Dump()} call may
-assume that all its writes will succeed, and does not need to check
-return status of \ccode{fprintf()} or other system calls, because it
-is not intended for production use.
-
-\end{sreapi}
-
-%%%%%%%%%%%%%%%%
-\subsection{Miscellaneous other interfaces}
-%%%%%%%%%%%%%%%%
-
-\begin{sreapi}
-\hypertarget{ifc:Write}
-{\item[\_Write(fp, obj)]}
-Writes something from an object to an output stream \ccode{fp}. Used
-for exporting and saving files in official data exchange formats.
-\ccode{\_Write()} functions must be robust to system write errors,
-such as filling or unexpectedly disconnecting a disk. They must check
-return status of all system calls, and throw an \ccode{eslEWRITE}
-error on any failures.
-
-
 \hypertarget{ifc:Compare}
 {\item[\_Compare*(obj1, obj2...)]}
 
@@ -1314,6 +1295,59 @@ is to set the \ccode{killmenow} flag to \ccode{FALSE} by default (to
 prevent it from being active in distro or production code) and set it
 to \ccode{TRUE} only when a flag indicates that development/debugging
 is in progress (such as HMMER's \ccode{p7_DEBUGGING} flag).
+
+
+\hypertarget{ifc:Dump}
+{\item[\_Dump*(FILE *fp, obj...)]}
+
+Prints the internals of an object in human-readable, easily parsable
+tabular ASCII form. Useful during debugging and development to view
+the entire object at a glance. Returns \ccode{eslOK} on success.
+Unlike a more robust \ccode{\_Write()} call, \ccode{\_Dump()} call may
+assume that all its writes will succeed, and does not need to check
+return status of \ccode{fprintf()} or other system calls, because it
+is not intended for production use.
+
+
+\hypertarget{ifc:TestSample}
+{\item[\_TestSample(ESL_RANDOMNESS *rng, ..., OBJTYPE **ret_obj)]}
+
+Create an object filled with randomly sampled values for all data
+elements. The aim is to exercise valid values and ranges, and
+presence/absence of optional information and allocations, but not to
+obsess about internal semantic consistency. For example, we use
+\ccode{\_TestSample()} calls in testing MPI send/receive
+communications routines, where we don't care so much about the meaning
+of the object's contents, as we do about faithful transmission of any
+object with valid contents. 
+
+A \ccode{\_TestSample()} call produces an object that is sufficiently
+valid for other debugging tools, including \ccode{\_Dump()},
+\ccode{\_Compare()}, and \ccode{\_Validate()}. However, because
+elements may be randomly sampled independently, in ways that don't
+respect interdependencies, the object may contain data inconsistencies
+that make the object invalid for other purposes.  Contrast
+\ccode{\_Sample()} routines, which generate fully valid objects for
+all purposes, but which may not exercise the object's fields as
+thoroughly.
+
+\end{sreapi}
+
+%%%%%%%%%%%%%%%%
+\subsection{Miscellaneous other interfaces}
+%%%%%%%%%%%%%%%%
+
+\begin{sreapi}
+\hypertarget{ifc:Write}
+{\item[\_Write(fp, obj)]}
+Writes something from an object to an output stream \ccode{fp}. Used
+for exporting and saving files in official data exchange formats.
+\ccode{\_Write()} functions must be robust to system write errors,
+such as filling or unexpectedly disconnecting a disk. They must check
+return status of all system calls, and throw an \ccode{eslEWRITE}
+error on any failures.
+
+
 
 
 \hypertarget{ifc:Encode}
@@ -1382,6 +1416,14 @@ may affect a function.
 Every function, procedure, and macro in the exposed API shall be
 tested by one or more unit tests. The unit tests aim for complete code
 coverage. This is measured by code coverage tests using \ccode{gcov}.
+
+Write unit tests. Remember that the purpose isn't so much to test
+whether your code works; the purpose is to test whether your code
+\emph{still} works, months or years from now when someone who didn't
+take the time to understand it fully has to make modifications. If
+that someone breaks your code and the unit tests fail, they know they
+need to do more. If someone breaks your code and the unit tests don't
+help them notice, it's your fault as much as theirs.
 
 
 %%%%%%%%%%%%%%%%

@@ -33,6 +33,10 @@
 #include <sys/types.h>
 #endif
 
+#ifdef HAVE_MPI
+#include <mpi.h>		/* MPI_Abort() may be used in esl_fatal() or other program killers */
+#endif
+
 #include "easel.h"
 
 
@@ -53,8 +57,9 @@ static esl_exception_handler_f esl_exception_handler = NULL;
  *            a non-fatal exception handler.
  *            
  *            Easel programs normally call one of the exception-handling
- *            wrappers <ESL_EXCEPTION()> or <ESL_XEXCEPTION()>, rather
- *            than calling  <esl_exception> directly.
+ *            wrappers <ESL_EXCEPTION()> or <ESL_XEXCEPTION()>, which
+ *            handle the overhead of passing in <use_errno>, <sourcefile>,
+ *            and <sourceline>. <esl_exception> is rarely called directly.
  *            
  *            If no custom exception handler has been registered, the
  *            default behavior is to print a brief message to <stderr>
@@ -65,6 +70,10 @@ static esl_exception_handler_f esl_exception_handler = NULL;
  *            
  *            Fatal exception (source file foo.c, line 42):
  *            Something wicked this way came.
+ *
+ *            Additionally, in an MPI parallel program, the default fatal 
+ *            handler aborts all processes (with <MPI_Abort()>), not just
+ *            the one that called <esl_exception()>. 
  *            
  * Args:      errcode     - Easel error code, such as eslEINVAL. See easel.h.
  *            use_errno   - if TRUE, also use perror() to report POSIX errno message.
@@ -82,6 +91,9 @@ void
 esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, ...)
 {
   va_list argp;
+#ifdef HAVE_MPI
+  int     mpiflag;
+#endif
 
   if (esl_exception_handler != NULL) 
     {
@@ -99,6 +111,10 @@ esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char
       fprintf(stderr, "\n");
       if (use_errno && errno) perror("system error");
       fflush(stderr);
+#ifdef HAVE_MPI
+      MPI_Initialized(&mpiflag);                 /* we're assuming we can do this, even in a corrupted, dying process...? */
+      if (mpiflag) MPI_Abort(MPI_COMM_WORLD, 1);
+#endif
       abort();
     }
 }
@@ -212,6 +228,10 @@ esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourcelin
  *            AND the error is guaranteed to be a coding error. For an example,
  *            see <esl_opt_IsOn()>, which triggers a violation if the code
  *            checks for an option that isn't in the code.
+ *            
+ *            In an MPI-parallel program, the entire job is
+ *            terminated; all processes are aborted (<MPI_Abort()>,
+ *            not just the one that called <esl_fatal()>.
  * 
  * Args:      format  - <sprintf()> formatted exception message, followed
  *                      by any additional necessary arguments for that 
@@ -225,12 +245,20 @@ void
 esl_fatal(const char *format, ...)
 {
   va_list argp;
+#ifdef HAVE_MPI
+  int mpiflag;
+#endif
 
   va_start(argp, format);
   vfprintf(stderr, format, argp);
   va_end(argp);
   fprintf(stderr, "\n");
   fflush(stderr);
+
+#ifdef HAVE_MPI
+  MPI_Initialized(&mpiflag);
+  if (mpiflag) MPI_Abort(MPI_COMM_WORLD, 1);
+#endif
   exit(1);
 }
 /*---------------- end, error handling conventions --------------*/

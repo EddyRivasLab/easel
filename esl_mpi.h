@@ -1,8 +1,5 @@
 /* Support for MPI parallelization.
  * 
- * SRE, Sat Jun  2 09:07:25 2007 [Janelia]
- * SVN $Id$
- * SVN $URL$
  */
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
 #ifndef eslMPI_INCLUDED
@@ -45,4 +42,8 @@ extern int esl_stopwatch_MPIReduce(ESL_STOPWATCH *w, int root, MPI_Comm comm);
 
 /*****************************************************************
  * @LICENSE@
+ *
+ * SRE, Sat Jun  2 09:07:25 2007 [Janelia]
+ * SVN $Id$
+ * SVN $URL$
  *****************************************************************/
