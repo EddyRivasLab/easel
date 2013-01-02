@@ -58,8 +58,8 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
  *            better suited for fitting distributions and goodness-of-fit
  *            testing, use <esl_histogram_CreateFull()>.
  *  
- * Args:      xmin - caller guesses that minimum score will be > xmin
- *            xmax - caller guesses that max score will be <= xmax
+ * Args:      bmin - caller guesses that minimum score will be > bmin
+ *            bmax - caller guesses that max score will be <= bmax
  *            w    - size of bins (1.0, for example)
  *            
  * Returns:   ptr to new <ESL_HISTOGRAM> object, which caller is responsible
@@ -68,7 +68,7 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
  * Throws:    <NULL> on allocation failure.
  */
 ESL_HISTOGRAM *
-esl_histogram_Create(double xmin, double xmax, double w)
+esl_histogram_Create(double bmin, double bmax, double w)
 {
   ESL_HISTOGRAM *h = NULL;
   int status;
@@ -80,9 +80,9 @@ esl_histogram_Create(double xmin, double xmax, double w)
   h->xmax      = -DBL_MAX;
   h->n         = 0;
   h->obs       = NULL;		/* will get allocated below... */
-  h->bmin      = xmin;		/* bmin/bmax are the allocated bounds */
-  h->bmax      = xmax;
-  h->nb        = (int)((xmax-xmin)/w);
+  h->bmin      = bmin;		/* bmin/bmax are the allocated bounds */
+  h->bmax      = bmax;
+  h->nb        = (int)((bmax-bmin)/w);
   h->imin      = h->nb;
   h->imax      = -1;
   h->w         = w;
@@ -128,10 +128,10 @@ esl_histogram_Create(double xmin, double xmax, double w)
  *            tests, but will consume more memory. 
  */
 ESL_HISTOGRAM *
-esl_histogram_CreateFull(double xmin, double xmax, double w)
+esl_histogram_CreateFull(double bmin, double bmax, double w)
 {
   int status;
-  ESL_HISTOGRAM *h = esl_histogram_Create(xmin, xmax, w);
+  ESL_HISTOGRAM *h = esl_histogram_Create(bmin, bmax, w);
   if (h == NULL) return NULL;
 
   h->n      = 0;		/* make sure */
