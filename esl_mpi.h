@@ -4,12 +4,37 @@
 #if defined(HAVE_MPI) && defined(eslLIBRARY)
 #ifndef eslMPI_INCLUDED
 #define eslMPI_INCLUDED
-#include "mpi.h"
+#include <mpi.h>
 
 #include "esl_alphabet.h"
 #include "esl_msa.h"
 #include "esl_sq.h"
 #include "esl_stopwatch.h"
+
+/* Many MPI implementations are not MPI2.2 compliant, and do not
+ * support new MPI2.2 datatypes; work around that absence. [J10/152]
+ * This configuration is better here than esl_config.h.in, because
+ * we need to #include <mpi.h> first to see if the system MPI does
+ * the right thing, and esl_config.h.in is intended to be included
+ * BEFORE any system includes.
+ */
+#if MPI_VERSION < 2 || MPI_SUBVERSION < 2
+#ifndef MPI_INT64_T
+#define MPI_INT64_T  MPI_LONG_LONG_INT
+#endif
+#ifndef MPI_UINT64_T
+#define MPI_UINT64_T MPI_UNSIGNED_LONG_LONG
+#endif
+#ifndef MPI_UINT32_T
+#define MPI_UINT32_T MPI_UNSIGNED
+#endif
+#ifndef MPI_INT16_T
+#define MPI_INT16_T  MPI_SHORT
+#endif
+#ifndef MPI_UINT8_T
+#define MPI_UINT8_T  MPI_UNSIGNED_CHAR
+#endif
+#endif /*MPI_VERSION,MPI_SUBVERSION*/
 
 /* 1. Communicating optional arrays */
 extern int esl_mpi_PackOpt(void *inbuf, int incount, MPI_Datatype type, void *pack_buf, 
