@@ -1597,24 +1597,39 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 
 
 
-/* Function:  esl_sq_GetFrequencies()
- * Synopsis:  compute character frequencies
+/* Function:  esl_sq_TallyCounts()
+ * Synopsis:  compute character counts
  *
- * Purpose:   Given a sequence <dsq>, length <sq_len>, and alphabet <abc>,
- *            compute frequencies, and store in pre-allocated <f>
+ * Purpose:   Given an ESL_SQ <sq>, compute counts of all observed
+ * residues. Will count degeneracies as partial observations of the
+ * K canonical residues. Gaps, missing data, and not-a-residue
+ * characters will be ignored (so \sum_x f[x] is not necessarily
+ * == L!). The array <*f> needs to be allocated for sq->abc->K
+ * values.
+ *
+ * The vector is not zeroed out, allowing counts to be gathered from
+ * a collection of ESL_SQ's.
  */
 int
-esl_sq_GetFrequencies(const ESL_DSQ *dsq, int sq_len, const ESL_ALPHABET *abc, float *f)
+esl_sq_TallyCounts(const ESL_SQ *sq, float *f)
 {
-  int k;
-  esl_vec_FSet (f, abc->K, 0);
-  for (k=0 ; k < sq_len; k++) {
-    if(esl_abc_XIsGap(abc, dsq[k])) esl_exception(eslEINVAL, FALSE, __FILE__, __LINE__, "in p7_bg_SetFreqFromSequence(), res %d is a gap!%s\n", "");
-    esl_abc_FCount(abc, f, dsq[k], 1.);
+  int i;
+
+  if (sq->seq != NULL) {   /* text */
+    for (i=0 ; i < sq->n; i++) {
+      if(! esl_abc_CIsGap(sq->abc, sq->seq[i])) // ignore gap characters
+        esl_abc_FCount(sq->abc, f, sq->abc->inmap[(int) sq->seq[i]], 1.);
+    }
+  } else  { /* digital sequence; 0 is a sentinel       */
+    for (i=1 ; i <= sq->n; i++) {
+      if(! esl_abc_XIsGap(sq->abc, sq->dsq[i])) // ignore gap characters
+        esl_abc_FCount(sq->abc, f, sq->dsq[i], 1.);
+    }
   }
-  esl_vec_FNorm(f, abc->K);
+
   return eslOK;
 }
+
 
 
 /*----------------------  end, other functions -------------------*/
