@@ -60,8 +60,6 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
   puts("  retrieved; in protein sequence, this is an error. The -r option is another way to revcomp.");
   puts("\n other options:");
   esl_opt_DisplayHelp(stdout, go, 3, 2, 80);
-  puts("\n options for retreiving subsequences from cmsearch tab file (require -C and -f):");
-  esl_opt_DisplayHelp(stdout, go, 4, 2, 80);
   exit(0);
 }
 
