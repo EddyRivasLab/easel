@@ -429,12 +429,19 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
     {
       if (esl_fileparser_GetTokenOnLine(efp, &newname, &n1) != eslOK)
 	esl_fatal("Failed to read subseq name on line %d of file %s\n", efp->linenumber, gdffile);
+
       if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read start coord on line %d of file %s\n", efp->linenumber, gdffile);
       start = atoi(s);
+      if(start <= 0) 
+	esl_fatal("Read invalid start coord %d on line %d of file %s (must be positive integer)\n", start, efp->linenumber, gdffile);
+
       if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read end coord on line %d of file %s\n", efp->linenumber, gdffile);
       end   = atoi(s);
+      if(end <= 0) 
+	esl_fatal("Read invalid end coord %d on line %d of file %s (must be positive integer)\n", end, efp->linenumber, gdffile);
+
       if (esl_fileparser_GetTokenOnLine(efp, &source, &n2) != eslOK)
 	esl_fatal("Failed to read source seq name on line %d of file %s\n", efp->linenumber, gdffile);
 
@@ -489,7 +496,11 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
   
   *ret_start = atol(tok1);
   *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
-  
+
+  /* '0' is invalid start/end, check for that */
+  if(*ret_start == 0)                  esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <from>");
+  if(tok2[0] != '\0' && *ret_end == 0) esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <to>");
+
   esl_regexp_Destroy(re);
   return eslOK;
 }
