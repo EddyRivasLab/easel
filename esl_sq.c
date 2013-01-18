@@ -1620,11 +1620,13 @@ esl_sq_TallyCounts(const ESL_SQ *sq, float *f)
       if(! esl_abc_CIsGap(sq->abc, sq->seq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->abc->inmap[(int) sq->seq[i]], 1.);
     }
+#ifdef eslAUGMENT_ALPHABET
   } else  { /* digital sequence; 0 is a sentinel       */
     for (i=1 ; i <= sq->n; i++) {
       if(! esl_abc_XIsGap(sq->abc, sq->dsq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->dsq[i], 1.);
     }
+#endif
   }
 
   return eslOK;
@@ -2411,6 +2413,52 @@ utest_ExtraResMarkups()
   esl_alphabet_Destroy(abc);
 } 
 
+static void
+utest_TallyCounts()
+{
+  char         *msg  = "failure in utest_TallyCounts()";
+  ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
+  char         *name = "seqname";
+  char         *acc  = "XX00001";
+  char         *desc = "test sequence description";
+  char         *seq  = "GGGAATTCCC";
+  char         *ss   = "xxxx...xxx";
+  ESL_SQ       *sq   = NULL;
+  float        *cnts = NULL;
+  int          status;
+
+  ESL_ALLOC(cnts, abc->Kp * sizeof(float));
+
+
+  if ((sq = esl_sq_CreateFrom(name, seq, desc, acc, ss))    == NULL)  esl_fatal(msg);
+  sq->abc = abc;
+  esl_sq_TallyCounts(sq, cnts);
+  if (cnts[0] != 2)  esl_fatal(msg);
+  if (cnts[1] != 3)  esl_fatal(msg);
+  if (cnts[2] != 3)  esl_fatal(msg);
+  if (cnts[3] != 2)  esl_fatal(msg);
+
+
+#ifdef eslAUGMENT_ALPHABET
+  esl_sq_Digitize(abc, sq);
+  esl_vec_FSet (cnts, abc->K, 0);
+  esl_sq_TallyCounts(sq, cnts);
+  if (cnts[0] != 2)  esl_fatal(msg);
+  if (cnts[1] != 3)  esl_fatal(msg);
+  if (cnts[2] != 3)  esl_fatal(msg);
+  if (cnts[3] != 2)  esl_fatal(msg);
+  return;
+  esl_sq_Destroy(sq);
+#endif
+  return;
+
+
+ERROR:
+  esl_fatal(msg);
+  return;
+}
+
+
 #endif /* eslSQ_TESTDRIVE*/
 /*--------------------- end, unit tests -------------------------*/
 
@@ -2453,6 +2501,7 @@ main(int argc, char **argv)
   utest_Create();
   utest_Set(r);
   utest_Format(r);
+  utest_TallyCounts();
 
 #ifdef eslAUGMENT_ALPHABET
   utest_CreateDigital();
