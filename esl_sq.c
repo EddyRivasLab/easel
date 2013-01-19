@@ -2432,6 +2432,7 @@ utest_TallyCounts()
 
   if ((sq = esl_sq_CreateFrom(name, seq, desc, acc, ss))    == NULL)  esl_fatal(msg);
   sq->abc = abc;
+  esl_vec_FSet (cnts, abc->K, 0);
   esl_sq_TallyCounts(sq, cnts);
   if (cnts[0] != 2)  esl_fatal(msg);
   if (cnts[1] != 3)  esl_fatal(msg);
