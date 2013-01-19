@@ -1597,7 +1597,7 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 
 
 
-/* Function:  esl_sq_TallyCounts()
+/* Function:  esl_sq_CountResidues()
  * Synopsis:  compute character counts
  *
  * Purpose:   Given an ESL_SQ <sq>, compute counts of all observed
@@ -1611,7 +1611,7 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
  * a collection of ESL_SQ's.
  */
 int
-esl_sq_TallyCounts(const ESL_SQ *sq, float *f)
+esl_sq_CountResidues(const ESL_SQ *sq, float *f)
 {
   int i;
 
@@ -2413,10 +2413,11 @@ utest_ExtraResMarkups()
   esl_alphabet_Destroy(abc);
 } 
 
+/* test counting residues in a sq */
 static void
-utest_TallyCounts()
+utest_CountResidues()
 {
-  char         *msg  = "failure in utest_TallyCounts()";
+  char         *msg  = "failure in utest_CountResidues()";
   ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
   char         *name = "seqname";
   char         *acc  = "XX00001";
@@ -2433,7 +2434,7 @@ utest_TallyCounts()
   if ((sq = esl_sq_CreateFrom(name, seq, desc, acc, ss))    == NULL)  esl_fatal(msg);
   sq->abc = abc;
   esl_vec_FSet (cnts, abc->K, 0);
-  esl_sq_TallyCounts(sq, cnts);
+  esl_sq_CountResidues(sq, cnts);
   if (cnts[0] != 2)  esl_fatal(msg);
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
@@ -2443,7 +2444,7 @@ utest_TallyCounts()
 #ifdef eslAUGMENT_ALPHABET
   esl_sq_Digitize(abc, sq);
   esl_vec_FSet (cnts, abc->K, 0);
-  esl_sq_TallyCounts(sq, cnts);
+  esl_sq_CountResidues(sq, cnts);
   if (cnts[0] != 2)  esl_fatal(msg);
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
@@ -2502,7 +2503,7 @@ main(int argc, char **argv)
   utest_Create();
   utest_Set(r);
   utest_Format(r);
-  utest_TallyCounts();
+  utest_CountResidues();
 
 #ifdef eslAUGMENT_ALPHABET
   utest_CreateDigital();
