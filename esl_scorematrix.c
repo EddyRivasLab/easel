@@ -22,6 +22,7 @@
 
 #include "easel.h"
 #include "esl_alphabet.h"
+#include "esl_composition.h"
 #include "esl_dmatrix.h"
 #include "esl_fileparser.h"
 #include "esl_rootfinder.h"
@@ -351,6 +352,8 @@ esl_scorematrix_RelEntropy(const ESL_SCOREMATRIX *S, const double *fi, const dou
  *            and <a> is a residue in the query.
  *            
  *            $P(b \mid a) = P(ab) / P(a)$, where $P(a) = \sum_b P(ab)$.
+ *            
+ *            The value stored in <P->mx[a][b]> is $P(b \mid a)$.
  *
  *            All values in <P> involving the codes for gap,
  *            nonresidue, and missing data (codes <K>,<Kp-2>, and

@@ -18,6 +18,7 @@
 #include <math.h>
 
 #include "easel.h"
+#include "esl_composition.h"
 #include "esl_getopts.h"
 #include "esl_sq.h"
 #include "esl_sqio.h"

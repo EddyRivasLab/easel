@@ -10,6 +10,7 @@
 #include "esl_config.h"
 
 #include "easel.h"
+#include "esl_composition.h"
 #include "esl_scorematrix.h"
 
 #define eslSWAT_PROHIBIT -999999999

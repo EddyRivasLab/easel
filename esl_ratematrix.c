@@ -40,6 +40,7 @@
 #include <math.h>
 
 #include "easel.h"
+#include "esl_composition.h"
 #include "esl_dmatrix.h"
 #include "esl_vectorops.h"
 #include "esl_ratematrix.h"

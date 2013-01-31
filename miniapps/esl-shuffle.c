@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "easel.h"
+#include "esl_composition.h"
 #include "esl_getopts.h"
 #include "esl_msa.h"
 #include "esl_msashuffle.h"

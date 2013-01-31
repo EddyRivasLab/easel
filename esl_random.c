@@ -825,6 +825,7 @@ esl_rnd_FChooseCDF(ESL_RANDOMNESS *r, const float *cdf, int N)
 
  */
 #include "easel.h"
+#include "esl_composition.h"
 #include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_stopwatch.h"
