@@ -345,7 +345,8 @@ typedef uint8_t ESL_DSQ;
 #define ESL_MIN(a,b)          (((a)<(b))?(a):(b))
 #define ESL_MAX(a,b)          (((a)>(b))?(a):(b))
 
-static inline float esl_logf(float x) { return (x == 0.0 ? -eslINFINITY : logf(x)); }
+static inline float esl_logf(float x)  { return (x == 0.0 ? -eslINFINITY : logf(x)); }
+static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCONST_LOG2R * logf(x)); }
 
 /* Typedef: <esl_pos_t> 
  * 
