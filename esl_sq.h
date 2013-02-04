@@ -177,7 +177,7 @@ extern int     esl_sq_SetCoordComplete(ESL_SQ *sq, int64_t L);
 extern int     esl_sq_CAddResidue (ESL_SQ *sq, char c);
 extern int     esl_sq_ReverseComplement(ESL_SQ *sq);
 extern int     esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum);
-extern int     esl_sq_CountResidues(const ESL_SQ *sq, float *f);
+extern int     esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f);
 
 #ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ *esl_sq_CreateDigital(const ESL_ALPHABET *abc);

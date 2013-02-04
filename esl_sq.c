@@ -1601,28 +1601,39 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
  * Synopsis:  compute character counts
  *
  * Purpose:   Given an ESL_SQ <sq>, compute counts of all observed
- * residues. Will count degeneracies as partial observations of the
- * K canonical residues. Gaps, missing data, and not-a-residue
- * characters will be ignored (so \sum_x f[x] is not necessarily
- * == L!). The array <*f> needs to be allocated for sq->abc->K
- * values.
+ * residues in the range between <start> and <start>+<L>-1. Note
+ * that a text-mode sequence starts at 0, while a digital-mode
+ * sequence starts at 1. Will count degeneracies as partial
+ * observations of the K canonical residues. Gaps, missing data,
+ * and not-a-residue characters will be ignored (so \sum_x f[x] is
+ * not necessarily == L!). The array <*f> needs to be allocated for
+ * sq->abc->K values.
  *
  * The vector is not zeroed out, allowing counts to be gathered from
  * a collection of ESL_SQ's.
+ *
+ * Returns:   <eslOK> on success, <eslERANGE> when start or L are
+ * outside the range of the sequence.
  */
 int
-esl_sq_CountResidues(const ESL_SQ *sq, float *f)
+esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)
 {
   int i;
 
   if (sq->seq != NULL) {   /* text */
-    for (i=0 ; i < sq->n; i++) {
+    if (start<0 || start+L>sq->n)
+      return eslERANGE; //range out of sequence bounds
+
+    for (i=start ; i < start+L; i++) {
       if(! esl_abc_CIsGap(sq->abc, sq->seq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->abc->inmap[(int) sq->seq[i]], 1.);
     }
 #ifdef eslAUGMENT_ALPHABET
   } else  { /* digital sequence; 0 is a sentinel       */
-    for (i=1 ; i <= sq->n; i++) {
+    if (start<1 || start+L>sq->n+1)
+      return eslERANGE; //range out of sequence bounds
+
+    for (i=start ; i < start+L; i++) {
       if(! esl_abc_XIsGap(sq->abc, sq->dsq[i])) // ignore gap characters
         esl_abc_FCount(sq->abc, f, sq->dsq[i], 1.);
     }
@@ -2434,7 +2445,7 @@ utest_CountResidues()
   if ((sq = esl_sq_CreateFrom(name, seq, desc, acc, ss))    == NULL)  esl_fatal(msg);
   sq->abc = abc;
   esl_vec_FSet (cnts, abc->K, 0);
-  esl_sq_CountResidues(sq, cnts);
+  esl_sq_CountResidues(sq, 0, sq->n, cnts);
   if (cnts[0] != 2)  esl_fatal(msg);
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
@@ -2444,7 +2455,7 @@ utest_CountResidues()
 #ifdef eslAUGMENT_ALPHABET
   esl_sq_Digitize(abc, sq);
   esl_vec_FSet (cnts, abc->K, 0);
-  esl_sq_CountResidues(sq, cnts);
+  esl_sq_CountResidues(sq, 1, sq->n, cnts);
   if (cnts[0] != 2)  esl_fatal(msg);
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
