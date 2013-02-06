@@ -1137,6 +1137,8 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  *            newly allocated $Kp \times Kp$ <ESL_DMATRIX>, over both
  *            the canonical (typically K=4 or K=20) residues in the
  *            residue alphabet, and the degenerate residue codes.
+ *            Values involving degenerate residue codes are marginal
+ *            probabilities (i.e. summed over the degeneracy).
  *            Only actual residue degeneracy can have nonzero values
  *            for <p_ij>; by convention, all values involving the
  *            special codes for gap, nonresidue, and missing data
@@ -1173,7 +1175,7 @@ lambda_fdf(double lambda, void *params, double *ret_fx, double *ret_dfx)
  */
 int
 esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const double *fj, 
-		       double *opt_lambda, ESL_DMATRIX **opt_P)
+			       double *opt_lambda, ESL_DMATRIX **opt_P)
 {
   ESL_ROOTFINDER *R = NULL;
   ESL_DMATRIX    *P = NULL;
@@ -1240,7 +1242,8 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
  * Input: P->mx[i][j] are joint probabilities p_ij for the canonical
  *        alphabet 0..abc->K-1, but P matrix is allocated for Kp X Kp.
  * 
- * Fill in [i][j'=K..Kp-1], [i'=K..Kp-1][j], and
+ * Calculate marginal sums for all i,j pairs involving degeneracy
+ * codes. Fill in [i][j'=K..Kp-1], [i'=K..Kp-1][j], and
  * [i'=K..Kp-1][j'=K..Kp-1] for degeneracies i',j'. Any p_ij involving
  * a gap (K), nonresidue (Kp-2), or missing data (Kp-1) character is
  * set to 0.0 by convention.
