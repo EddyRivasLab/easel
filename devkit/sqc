@@ -318,7 +318,7 @@ while (<COMMANDS>) {
 
 	$ntest++;
 	if ($only_do_test_num && $only_do_test_num != $ntest) { next COMMAND; }
-	printf("  %10s %4d [%20s] ...     ", $testtype, $ntest, $testname);
+	printf("  %10s %4d [%21s] ...     ", $testtype, $ntest, $testname);
     } 
     elsif ($testtype ne "prep") 
     {
