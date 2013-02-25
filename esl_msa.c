@@ -2418,9 +2418,9 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
 /* Function:  esl_msa_MinimGapsText()
  * Synopsis:  Remove columns containing all gap symbols, from text mode msa
  *
- * Purpose:   Same as esl_msa_MinimGaps(), but specialized for a text mode
+ * Purpose:   Same as esl\_msa\_MinimGaps(), but specialized for a text mode
  *            alignment where we don't know the alphabet. The issue is what 
- *            to do about RNA secondary structure annotation (SS, SS_cons) 
+ *            to do about RNA secondary structure annotation (SS, SS\_cons)
  *            when we remove columns, which can remove one side of a bp and
  *            invalidate the annotation string. For digital alignments,
  *            <esl_msa_MinimGaps()> knows the alphabet and will fix base pairs
@@ -2438,7 +2438,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
  *            errbuf      - if non-<NULL>, space for an informative error message on failure
  *            gaps        - string of gap characters
  *            consider_rf - if TRUE, also consider gap/nongap cols in RF annotation line
- *            fix_bps     - if TRUE, fix any broken bps in SS/SS_cons annotation lines.
+ *            fix_bps     - if TRUE, fix any broken bps in SS/SS\_cons annotation lines.
  *
  * Returns:   <eslOK> on success.
  *
@@ -2562,17 +2562,17 @@ esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
  *            problems. 
  *            
  *            Like <esl_msa_MinimGapsText()>, the alphabet-dependent issue we might
- *            want to fix is RNA secondary structure annotation (SS, SS_cons); 
+ *            want to fix is RNA secondary structure annotation (SS, SS\_cons);
  *            removing a column might remove one side of a base pair annotation, and
  *            invalidate a secondary structure string. <fix_bps> tells the function
- *            that SS and SS_cons are RNA WUSS format strings, and the function is
+ *            that SS and SS\_cons are RNA WUSS format strings, and the function is
  *            allowed to edit (and fix) them. Normally, in text mode msa's, we
  *            are not allowed to interpret any meaning of symbols.
  *
  * Args:      msa     - alignment to remove any-gap cols from
  *            errbuf  - if non-<NULL>, space for an informative error message on failure
  *            gaps    - string of gap characters
- *            fix_bps - if TRUE, fix any broken bps in SS/SS_cons annotation lines
+ *            fix_bps - if TRUE, fix any broken bps in SS/SS\_cons annotation lines
  *
  * Returns:   <eslOK> on success.
  *

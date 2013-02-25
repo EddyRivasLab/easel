@@ -997,7 +997,7 @@ eslx_msafile_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
  *****************************************************************/
 #ifdef eslAUGMENT_SSI
 
-/* Function:  esl_msafile_PositionByKey()
+/* Function:  eslx_msafile_PositionByKey()
  * Synopsis:  Use SSI to reposition file to start of named MSA.
  *
  * Purpose:   Reposition <afp> so that the next MSA we read

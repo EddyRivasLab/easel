@@ -128,7 +128,7 @@ esl_wuss2ct(char *ss, int len, int *ct)
  *            n+1 chars (+1 for the terminal NUL). 
  *
  *            ER, Sat Aug 18 13:22:03 EDT 2012 
- *            esl_ct2wuss() extended to deal with pseudoknottes structures.
+ *            esl\_ct2wuss() extended to deal with pseudoknots structures.
  *            Pseudoknots are annotated as AA...aa, BB...bb,..., ZZ..zz.
  *            Attemting to convert a <ct> that requires more letters
  *            than [A-Z] will return an <eslEINVAL> error.

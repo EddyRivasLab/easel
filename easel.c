@@ -1845,7 +1845,7 @@ esl_FCompare(float a, float b, float tol)
  *            approximate equality, by absolute difference.  Return
  *            <eslOK> if equal, <eslFAIL> if not.
  *            
- *            Equality is defined as <fabs(a-b) \leq tol> for finite
+ *            Equality is defined as <fabs(a-b) $\leq$ tol> for finite
  *            <a,b>; or <inf=inf>, <NaN=NaN> when either value is not
  *            finite.
  *            

@@ -361,8 +361,9 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
  *            experiments a,b have different binomial probabilities
  *            $p_a,p_b$. The G-test is a log-likelihood-ratio statistic,
  *            assuming maximum likelihood values for $p,p_a,p_b$. 
- *            $2G$ is distributed approximately as $\Chi^2(1)$, which
- *            we use to calculate a P-value for the G statistic. 
+ *            $2G$ is distributed approximately as $X^2(1)$,
+ *            %"X" is "Chi"
+ *            which we use to calculate a P-value for the G statistic.
  *            
  * Args:      ca    - number of positives in experiment a
  *            na    - total number in experiment a

@@ -13,8 +13,8 @@
 
 \usepackage{ifthen}
 \newboolean{completedraft}
-%\setboolean{completedraft}{true}   %  if compiling the entire guide
-\setboolean{completedraft}{false}   %  if writing/testing a piece at a time
+\setboolean{completedraft}{true}   %  if compiling the entire guide
+%\setboolean{completedraft}{false}   %  if writing/testing a piece at a time
 
 \input{macros}
 
@@ -49,7 +49,7 @@
 \ifthenelse{\boolean{completedraft}}{
    \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-   \chapter{\eslmod{easel}: the foundation}
+   \chapter{\eslmodincmd{easel}: the foundation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    \begin{quote}
    \emph{Lack of skill dictates economy of style.} 
@@ -69,7 +69,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{sq}: single biological sequences}
+   \section{\eslmodincmd{sq}: single biological sequences}
    \input{esl_sq}
    \subsection{Functions in the sq module}
   \input{autotext/esl_sq_functions}
@@ -77,7 +77,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{msa}: Multiple sequence alignments and i/o}
+   \section{\eslmodincmd{msa}: Multiple sequence alignments and i/o}
    \input{esl_msa}
    \subsection{Functions in the msa module}
    \input{autotext/esl_msa_functions}
@@ -85,7 +85,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{alphabet}: digitized biosequences}
+   \section{\eslmodincmd{alphabet}: digitized biosequences}
    \input{esl_alphabet}
    \subsection{Functions in the alphabet module}
    \input{autotext/esl_alphabet_functions}
@@ -93,7 +93,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{randomseq}: sampling random sequences}
+   \section{\eslmodincmd{randomseq}: sampling random sequences}
    \input{esl_randomseq}
    \subsection{Functions in the randomseq module}
    \input{autotext/esl_randomseq_functions}
@@ -101,7 +101,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{sqio}: i/o of unaligned sequence files}
+   \section{\eslmodincmd{sqio}: i/o of unaligned sequence files}
    \input{esl_sqio}
    \subsection{Functions in the sqio module}
    \input{autotext/esl_sqio_functions}
@@ -109,7 +109,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{ssi}: indexing flatfiles for record retrieval}
+   \section{\eslmodincmd{ssi}: indexing flatfiles for record retrieval}
    \input{esl_ssi}
    \subsection{Functions in the ssi module}
    \input{autotext/esl_ssi_functions}
@@ -123,7 +123,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{msacluster}: Clustering aligned sequence families}
+   \section{\eslmodincmd{msacluster}: Clustering aligned sequence families}
    \input{esl_msacluster}
    \subsection{Functions in the msacluster module}
    \input{autotext/esl_msacluster_functions}
@@ -131,7 +131,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{msaweight}: Ad hoc sequence weighting}
+   \section{\eslmodincmd{msaweight}: Ad hoc sequence weighting}
    \begin{quote}
     \emph{... as if someone were to buy several copies of the morning
     newspaper to assure himself that what is said is true.}\\
@@ -142,14 +142,19 @@
    \input{autotext/esl_msaweight_functions}
 }{}
 
-%\ifthenelse{\boolean{completedraft}}{
+\ifthenelse{\boolean{completedraft}}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    \chapter{Multiple sequence alignment formats}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-   \section{\eslmod{msafile}: input/output of multiple sequence alignments}
-   \input{esl_msafile}
-%}{}
+   \section{\eslmodincmd{msafile}: input/output of multiple sequence alignments}
+%   \input{esl_msafile}
+   
+%   \subsection{Functions in the msafile module}
+%   \input{autotext/esl_msafile_functions}
+  
+   
+}{}
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% \chapter{Pairwise sequence alignment}
@@ -166,7 +171,7 @@
 %% \end{quote}
 
 %% \newpage
-%% \section{\eslmod{swat}: Smith/Waterman local alignment}
+%% \section{\eslmodincmd{swat}: Smith/Waterman local alignment}
 %% \input{esl_swat}
 %% \subsection{Functions in the swat module}
 %% \input{autotext/esl_swat_functions}
@@ -186,7 +191,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{scorematrix}: Pairwise alignment scores}
+   \section{\eslmodincmd{scorematrix}: Pairwise alignment scores}
    \input{esl_scorematrix}
    \subsection{Functions in the scorematrix module}
    \input{autotext/esl_scorematrix_functions}
@@ -194,7 +199,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{ratematrix}: Continuous-time Markov models of evolution}
+   \section{\eslmodincmd{ratematrix}: Continuous-time Markov models of evolution}
    \input{esl_ratematrix}
    \subsection{Functions in the ratematrix module}
    \input{autotext/esl_ratematrix_functions}
@@ -202,7 +207,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{paml}: Reading data files from PAML}
+   \section{\eslmodincmd{paml}: Reading data files from PAML}
    \input{esl_paml}
    \subsection{Functions in the paml module}
    \input{autotext/esl_paml_functions}
@@ -216,7 +221,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{wuss}: RNA secondary structure annotation}
+   \section{\eslmodincmd{wuss}: RNA secondary structure annotation}
    \input{esl_wuss}
    \subsection{Functions in the wuss module}
    \input{autotext/esl_wuss_functions}
@@ -230,7 +235,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{vectorops}: Vector operations}
+   \section{\eslmodincmd{vectorops}: Vector operations}
    \input{esl_vectorops}
    \subsection{Functions in the vectorops module}
    \input{autotext/esl_vectorops_functions}
@@ -238,7 +243,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{dmatrix}: 2D matrices and linear algebra}
+   \section{\eslmodincmd{dmatrix}: 2D matrices and linear algebra}
    \input{esl_dmatrix}
    \subsection{Functions in the dmatrix module}
    \input{autotext/esl_dmatrix_functions}
@@ -246,7 +251,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{minimizer}: Conjugate gradient descent}
+   \section{\eslmodincmd{minimizer}: Conjugate gradient descent}
    \input{esl_minimizer}
    \subsection{Functions in the minimizer module}
    \input{autotext/esl_minimizer_functions}
@@ -254,7 +259,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{rootfinder}: One-dimensional rootfinding}
+   \section{\eslmodincmd{rootfinder}: One-dimensional rootfinding}
    \input{esl_rootfinder}
    \subsection{Functions in the rootfinder module}
    \input{autotext/esl_rootfinder_functions}
@@ -268,7 +273,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{tree}: Phylogenetic trees}
+   \section{\eslmodincmd{tree}: Phylogenetic trees}
    \input{esl_tree}
    \subsection{Functions in the tree module}
    \input{autotext/esl_tree_functions}
@@ -276,7 +281,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
    \newpage
-   \section{\eslmod{distance}: Distance calculations}
+   \section{\eslmodincmd{distance}: Distance calculations}
    \input{esl_distance}
    \subsection{Functions in the distance module}
    \input{autotext/esl_distance_functions}
@@ -292,7 +297,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{stats}: Basic statistics routines}
+\section{\eslmodincmd{stats}: Basic statistics routines}
 \input{esl_stats}
 \subsection{Functions in the stats module}
 \input{autotext/esl_stats_functions}
@@ -300,7 +305,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{histogram}: Collecting histograms}
+\section{\eslmodincmd{histogram}: Collecting histograms}
 \input{esl_histogram}
 \subsection{Functions in the histogram module}
 \input{autotext/esl_histogram_functions}
@@ -308,7 +313,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{dirichlet}: Beta, Gamma, Dirichlet densities and priors}
+\section{\eslmodincmd{dirichlet}: Beta, Gamma, Dirichlet densities and priors}
 \input{esl_dirichlet}
 \subsection{Functions in the dirichlet module}
 \input{autotext/esl_dirichlet_functions}
@@ -316,7 +321,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{exponential}: Exponential distributions}
+\section{\eslmodincmd{exponential}: Exponential distributions}
 \input{esl_exponential}
 \subsection{Functions in the exponential module}
 \input{autotext/esl_exponential_functions}
@@ -324,7 +329,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{gamma}: Gamma distributions}
+\section{\eslmodincmd{gamma}: Gamma distributions}
 \input{esl_gamma}
 \subsection{Functions in the gamma module}
 \input{autotext/esl_gamma_functions}
@@ -332,7 +337,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{gev}: Generalized extreme value distributions}
+\section{\eslmodincmd{gev}: Generalized extreme value distributions}
 \input{esl_gev}
 \subsection{Functions in the gev module}
 \input{autotext/esl_gev_functions}
@@ -340,7 +345,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{gumbel}: Type I extreme value (Gumbel) statistics}
+\section{\eslmodincmd{gumbel}: Type I extreme value (Gumbel) statistics}
 \input{esl_gumbel}
 \subsection{Functions in the gumbel module}
 \input{autotext/esl_gumbel_functions}
@@ -348,7 +353,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{hyperexp}: Hyperexponential distributions}
+\section{\eslmodincmd{hyperexp}: Hyperexponential distributions}
 \input{esl_hyperexp}
 \subsection{Functions in the hyperexp module}
 \input{autotext/esl_hyperexp_functions}
@@ -356,7 +361,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{mixdchlet}: Mixture Dirichlet distributions}
+\section{\eslmodincmd{mixdchlet}: Mixture Dirichlet distributions}
 %\input{esl_mixdchlet}
 \subsection{Functions in the mixdchlet module}
 %\input{autotext/esl_mixdchlet_functions}
@@ -364,7 +369,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{mixgev}: Mixture generalized extreme value distributions}
+\section{\eslmodincmd{mixgev}: Mixture generalized extreme value distributions}
 %\input{esl_mixgev}
 \subsection{Functions in the mixgev module}
 \input{autotext/esl_mixgev_functions}
@@ -372,7 +377,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{normal}: Normal (Gaussian) distributions}
+\section{\eslmodincmd{normal}: Normal (Gaussian) distributions}
 \input{esl_normal}
 \subsection{Functions in the normal module}
 \input{autotext/esl_normal_functions}
@@ -380,7 +385,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{stretchexp}: Stretched exponential distributions}
+\section{\eslmodincmd{stretchexp}: Stretched exponential distributions}
 \input{esl_stretchexp}
 \subsection{Functions in the stretchexp module}
 \input{autotext/esl_stretchexp_functions}
@@ -388,7 +393,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{weibull}: Weibull distributions}
+\section{\eslmodincmd{weibull}: Weibull distributions}
 \input{esl_weibull}
 \subsection{Functions in the weibull module}
 \input{autotext/esl_weibull_functions}
@@ -403,7 +408,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{buffer}: reading from any sort of input}
+\section{\eslmodincmd{buffer}: reading from any sort of input}
 \input{esl_buffer}
 \subsection{Functions in the buffer module}
 \input{autotext/esl_buffer_functions}
@@ -411,7 +416,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{cluster}: single linkage clustering}
+\section{\eslmodincmd{cluster}: single linkage clustering}
 \input{esl_cluster}
 \subsection{Functions in the cluster module}
 \input{autotext/esl_cluster_functions}
@@ -419,7 +424,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{fileparser}: token-based data file input}
+\section{\eslmodincmd{fileparser}: token-based data file input}
 \input{esl_fileparser}
 \subsection{Functions in the fileparser module}
 \input{autotext/esl_fileparser_functions}
@@ -427,7 +432,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{getopts}: command line parsing}
+\section{\eslmodincmd{getopts}: command line parsing}
 \input{esl_getopts}
 \subsection{Functions in the getopts module}
 \input{autotext/esl_getopts_functions}
@@ -435,7 +440,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{keyhash}: associative hashes}
+\section{\eslmodincmd{keyhash}: associative hashes}
 \input{esl_keyhash}
 \subsection{Functions in the keyhash module}
 \input{autotext/esl_keyhash_functions}
@@ -443,7 +448,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{random}: pseudorandom numbers and sampling}
+\section{\eslmodincmd{random}: pseudorandom numbers and sampling}
 \begin{quote}
 \emph{Nec Babylonios temptaris numeros.} \hspace{3em} -- Horace, Ode
 1.11. \\ 
@@ -456,7 +461,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{regexp}: regular expression matching}
+\section{\eslmodincmd{regexp}: regular expression matching}
 \input{esl_regexp}
 \subsection{Functions in the regexp module}
 \input{autotext/esl_regexp_functions}
@@ -464,7 +469,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{stack}: pushdown stacks for integers, chars, and pointers}
+\section{\eslmodincmd{stack}: pushdown stacks for integers, chars, and pointers}
 \input{esl_stack}
 \subsection{Functions in the stack module}
 \input{autotext/esl_stack_functions}
@@ -472,7 +477,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{stopwatch}: timing parts of programs}
+\section{\eslmodincmd{stopwatch}: timing parts of programs}
 \input{esl_stopwatch}
 \subsection{Functions in the stopwatch module}
 \input{autotext/esl_stopwatch_functions}
@@ -487,7 +492,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{sse}: SIMD minivectors on Intel and AMD }
+\section{\eslmodincmd{sse}: SIMD minivectors on Intel and AMD }
 \input{esl_sse}
 \subsection{Functions in the sse module}
 \input{autotext/esl_sse_functions}
@@ -495,7 +500,7 @@
 
 \ifthenelse{\boolean{completedraft}}{
 \newpage
-\section{\eslmod{mpi}: MPI parallelization}
+\section{\eslmodincmd{mpi}: MPI parallelization}
 \input{esl_mpi}
 \subsection{Functions in the MPI module}
 \input{autotext/esl_mpi_functions}
@@ -560,9 +565,10 @@
 }{}
 
 \newpage
-\newcommand{\bibfont}{\footnotesize}
+%\newcommand{\bibfont}{\footnotesize}
 \bibliographystyle{abbrvnat}
-\bibliography{master,lab,books,new}
+%\bibliography{master,lab,books,new}
+\bibliography{master,lab,books}
 
 \end{document}
 

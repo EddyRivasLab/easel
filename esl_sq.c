@@ -889,7 +889,7 @@ esl_sq_Textize(ESL_SQ *sq)
  *
  *            The routine is tested on large sequence databases to
  *            make sure there are zero false positive classifications
- *            on known sequences. See <esl_abc_GuessAlphabet() for
+ *            on known sequences. See <esl_abc_GuessAlphabet()> for
  *            details of these tests, and crossreferences.
  *
  * Returns:   <eslOK> on success, and <*ret_type> is set to
@@ -1600,20 +1600,20 @@ esl_sq_Checksum(const ESL_SQ *sq, uint32_t *ret_checksum)
 /* Function:  esl_sq_CountResidues()
  * Synopsis:  compute character counts
  *
- * Purpose:   Given an ESL_SQ <sq>, compute counts of all observed
- * residues in the range between <start> and <start>+<L>-1. Note
- * that a text-mode sequence starts at 0, while a digital-mode
- * sequence starts at 1. Will count degeneracies as partial
- * observations of the K canonical residues. Gaps, missing data,
- * and not-a-residue characters will be ignored (so \sum_x f[x] is
- * not necessarily == L!). The array <*f> needs to be allocated for
- * sq->abc->K values.
+ * Purpose:   Given an ESL\_SQ <sq>, compute counts of all observed
+ *            residues in the range between <start> and <start>+<L>-1. Note
+ *            that a text-mode sequence starts at 0, while a digital-mode
+ *            sequence starts at 1. Will count degeneracies as partial
+ *            observations of the K canonical residues. Gaps, missing data,
+ *            and not-a-residue characters will be ignored (so $\sum_x f[x]$ is
+ *            not necessarily == L!). The array <*f> needs to be allocated for
+ *            sq->abc->K values.
  *
- * The vector is not zeroed out, allowing counts to be gathered from
- * a collection of ESL_SQ's.
+ *            The vector is not zeroed out, allowing counts to be gathered from
+ *            a collection of ESL\_SQs.
  *
  * Returns:   <eslOK> on success, <eslERANGE> when start or L are
- * outside the range of the sequence.
+ *            outside the range of the sequence.
  */
 int
 esl_sq_CountResidues(const ESL_SQ *sq, int start, int L, float *f)

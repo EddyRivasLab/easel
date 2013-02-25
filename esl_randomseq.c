@@ -59,7 +59,7 @@
  *            | <eslRSQ_SAMPLE_PUNCT>  |  ispunct()  |
  *
  *            Note that with <eslRSQ_SAMPLE_CNTRL>, your string
- *            may sample NUL control characters (<\0>), in addition to
+ *            may sample NUL control characters (<0>), in addition to
  *            the string-terminating one at <(*ret_s)[L]>, so <strlen(*ret_s)>
  *            may not equal <L> in this case.
  *
