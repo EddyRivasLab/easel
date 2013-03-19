@@ -306,29 +306,29 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   esl_strdup(msa->mm,      -1, &(new->mm));
 
   if (msa->sqacc != NULL) {
-    ESL_ALLOC(new->sqacc, sizeof(char **) * msa->nseq);
-    for (i = 0; i < msa->nseq; i++)
-      esl_strdup(msa->sqacc[i], -1, &(new->sqacc[i]));
+    ESL_ALLOC(new->sqacc, sizeof(char **) * new->sqalloc);
+    for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sqacc[i], -1, &(new->sqacc[i]));
+    for (     ; i < new->sqalloc; i++) new->sqacc[i] = NULL;
   }
   if (msa->sqdesc != NULL) {
-    ESL_ALLOC(new->sqdesc, sizeof(char **) * msa->nseq);
-    for (i = 0; i < msa->nseq; i++)
-      esl_strdup(msa->sqdesc[i], -1, &(new->sqdesc[i]));
+    ESL_ALLOC(new->sqdesc, sizeof(char **) * new->sqalloc);
+    for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sqdesc[i], -1, &(new->sqdesc[i]));
+    for (     ; i < new->sqalloc; i++) new->sqdesc[i] = NULL;
   }
   if (msa->ss != NULL) {
-    ESL_ALLOC(new->ss, sizeof(char **) * msa->nseq);
-    for (i = 0; i < msa->nseq; i++)
-      esl_strdup(msa->ss[i], -1, &(new->ss[i]));
+    ESL_ALLOC(new->ss, sizeof(char **) * new->sqalloc);
+    for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->ss[i], -1, &(new->ss[i]));
+    for (     ; i < new->sqalloc; i++) new->ss[i] = NULL;
   }
   if (msa->sa != NULL) {
     ESL_ALLOC(new->sa, sizeof(char **) * msa->nseq);
-    for (i = 0; i < msa->nseq; i++)
-      esl_strdup(msa->sa[i], -1, &(new->sa[i]));
+    for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sa[i], -1, &(new->sa[i]));
+    for (     ; i < new->sqalloc; i++) new->sa[i] = NULL;
   }
   if (msa->pp != NULL) {
     ESL_ALLOC(new->pp, sizeof(char **) * msa->nseq);
-    for (i = 0; i < msa->nseq; i++)
-      esl_strdup(msa->pp[i], -1, &(new->pp[i]));
+    for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->pp[i], -1, &(new->pp[i]));
+    for (     ; i < new->sqalloc; i++) new->pp[i] = NULL;
   }
   
   for (x = 0; x < eslMSA_NCUTS; x++) {
