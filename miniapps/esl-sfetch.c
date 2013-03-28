@@ -51,7 +51,8 @@ cmdline_help(char *argv0, ESL_GETOPTS *go)
   esl_opt_DisplayHelp(stdout, go, 2, 2, 80);
   puts("\n  On command line, subseq coords are separated by any nonnumeric, nonspace character(s).");
   puts("  for example, -c 23..100 or -c 23/100 or -c 23-100 all work.\n");
-  puts("  Additionally, to retrieve a suffix to the end, omit the end coord; -c 23: will work.");
+  puts("  Additionally, to retrieve a suffix to the end, omit the end coord or set it to zero; -c 23.. ");
+  puts("  will work, as will -c 23..0\n");
   puts("  By default, the subseq will be named <source name>/<from>-<to>. To assign a name of");
   puts("  your choice, use -n <newname>.\n");
   puts("  In retrieving subsequences listed in a file (-C -f, or just -Cf), each line of the file");
@@ -70,6 +71,7 @@ static ESL_OPTIONS options[] = {
   { "-O",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL,              "-o,-f,--index",      "output sequence to file named <key>",               1 },
   { "-n",          eslARG_STRING, FALSE,  NULL, NULL, NULL, NULL,              "-f,--index",         "rename the sequence <s>",                           1 },
   { "-r",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, NULL,              "--index",            "reverse complement the seq(s)",                     1 },
+
 
   { "-c",          eslARG_STRING, FALSE,  NULL, NULL, NULL, NULL,              "-f,--index",         "retrieve subsequence coords <from>..<to>",          2 },
   { "-C",          eslARG_NONE,   FALSE,  NULL, NULL, NULL, "-f",              "--index",            "<namefile> in <f> contains subseq coords too",      2 },
@@ -439,8 +441,8 @@ multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *gdffile, ESL_SQFILE *sqfp)
       if (esl_fileparser_GetTokenOnLine(efp, &s, NULL) != eslOK)
 	esl_fatal("Failed to read end coord on line %d of file %s\n", efp->linenumber, gdffile);
       end   = atoi(s);
-      if(end <= 0) 
-	esl_fatal("Read invalid end coord %d on line %d of file %s (must be positive integer)\n", end, efp->linenumber, gdffile);
+      if(end < 0)
+	esl_fatal("Read invalid end coord %d on line %d of file %s (must be positive integer, or 0 for full length)\n", end, efp->linenumber, gdffile);
 
       if (esl_fileparser_GetTokenOnLine(efp, &source, &n2) != eslOK)
 	esl_fatal("Failed to read source seq name on line %d of file %s\n", efp->linenumber, gdffile);
@@ -497,9 +499,8 @@ parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
   *ret_start = atol(tok1);
   *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
 
-  /* '0' is invalid start/end, check for that */
+  /* '0' is invalid start, check for that */
   if(*ret_start == 0)                  esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <from>");
-  if(tok2[0] != '\0' && *ret_end == 0) esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <to>");
 
   esl_regexp_Destroy(re);
   return eslOK;
