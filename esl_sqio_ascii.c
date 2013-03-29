@@ -2470,10 +2470,13 @@ read_nres(ESL_SQFILE *sqfp, ESL_SQ *sq, int64_t nskip, int64_t nres, int64_t *op
       status = seebuf(sqfp, nres, &n, &epos);
     }
 
+
   if        (status == eslEOF) { 
     if (! ascii->eof_is_ok) ESL_FAIL(eslEFORMAT, ascii->errbuf, "Premature EOF before end of seq record");
     n = 0;
-  } 
+  } else if  (status == eslEFORMAT) {
+    return status;
+  }
 
   n = ESL_MIN(nres, n); 
   addbuf(sqfp, sq, n);   /* bpos now at last residue + 1 if OK/EOD, 0 if EOF  */
