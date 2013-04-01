@@ -63,7 +63,8 @@ PROGS = esl-afetch\
 	esl-sfetch\
 	esl-shuffle\
 	esl-ssdraw\
-	esl-weight
+  esl-stranslate\
+	esl-weight\
 
 PROGOBJS =\
 	esl-afetch.o\
@@ -86,7 +87,8 @@ PROGOBJS =\
 	esl-sfetch.o\
 	esl-shuffle.o\
 	esl-ssdraw.o\
-	esl-weight.o
+  esl-stranslate.o\
+	esl-weight.o\
 
 
 # beautification magic stolen from git 

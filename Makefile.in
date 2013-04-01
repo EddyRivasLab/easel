@@ -133,6 +133,7 @@ HDRS = 	easel.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
 	esl_threads.h\
+  esl_translate.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_vmx.h\
@@ -195,6 +196,7 @@ OBJS =	easel.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
 	esl_threads.o\
+  esl_translate.o\
 	esl_tree.o\
 	esl_vectorops.o\
 	esl_vmx.o\
