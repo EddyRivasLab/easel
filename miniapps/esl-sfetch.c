@@ -91,7 +91,6 @@ static void onefetch(ESL_GETOPTS *go, FILE *ofp, char *key, ESL_SQFILE *sqfp);
 static void multifetch_subseq(ESL_GETOPTS *go, FILE *ofp, char *keyfile, ESL_SQFILE *sqfp);
 static void onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, 
 			    char *key, uint32_t given_start, uint32_t given_end);
-static int  parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
 
 int
 main(int argc, char **argv)
@@ -188,7 +187,10 @@ main(int argc, char **argv)
 	{
 	  uint32_t start, end;
 
-	  parse_coord_string(cstring, &start, &end);
+	  status = esl_regexp_ParseCoordString(cstring, &start, &end);
+	  if (status == eslESYNTAX) esl_fatal("-c takes arg of subseq coords <from>..<to>; %s not recognized", cstring);
+	  if (status == eslFAIL)    esl_fatal("Failed to find <from> or <to> coord in %s", cstring);
+
 	  onefetch_subseq(go, ofp, sqfp, newname, key, start, end);
 	  if (ofp != stdout) printf("\n\nRetrieved subsequence %s/%d-%d.\n",  key, start, end);
 	}
@@ -485,23 +487,3 @@ onefetch_subseq(ESL_GETOPTS *go, FILE *ofp, ESL_SQFILE *sqfp, char *newname, cha
 }
 
 
-static int
-parse_coord_string(const char *cstring, uint32_t *ret_start, uint32_t *ret_end)
-{
-  ESL_REGEXP *re = esl_regexp_Create();
-  char        tok1[32];
-  char        tok2[32];
-
-  if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) esl_fatal("-c takes arg of subseq coords <from>..<to>; %s not recognized", cstring);
-  if (esl_regexp_SubmatchCopy(re, 1, tok1, 32)            != eslOK) esl_fatal("Failed to find <from> coord in %s", cstring);
-  if (esl_regexp_SubmatchCopy(re, 2, tok2, 32)            != eslOK) esl_fatal("Failed to find <to> coord in %s",   cstring);
-  
-  *ret_start = atol(tok1);
-  *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
-
-  /* '0' is invalid start, check for that */
-  if(*ret_start == 0)                  esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <from>");
-
-  esl_regexp_Destroy(re);
-  return eslOK;
-}

@@ -65,6 +65,8 @@ extern char *esl_regexp_SubmatchDup(ESL_REGEXP *machine, int elem);
 extern int   esl_regexp_SubmatchCopy(ESL_REGEXP *machine, int elem, char *buffer, int nc);
 extern int   esl_regexp_SubmatchCoords(ESL_REGEXP *machine, char *origin, int elem, 
 				       int *ret_start, int *ret_end);
+extern int   esl_regexp_ParseCoordString(const char *cstring, uint32_t *ret_start, uint32_t *ret_end);
+
 #endif /*eslREGEXP_INCLUDED*/
 /*****************************************************************
  * @LICENSE@

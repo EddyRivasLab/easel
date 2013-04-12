@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "easel.h"
 #include "esl_getopts.h"
@@ -21,7 +22,7 @@ static char usage[] = "[-options] <format> <seqfile>\n\
   Output format choices: Unaligned      Aligned    \n\
                          -----------    -------    \n\
                          fasta          a2m        \n\
-                                        afa        \n\
+                         hmmpgmd        afa        \n\
                                         clustal    \n\
                                         clustallike\n\
                                         pfam       \n\
@@ -57,6 +58,7 @@ static ESL_OPTIONS options[] = {
   { "--rename",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "rename and number each sequence <s>.<n>",            0 },
   { "--replace",  eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "<s> = <s1>:<s2> replace characters in <s1> with those in <s2>", 0},
   { "--small",    eslARG_NONE,   FALSE, NULL, NULL, NULL, NULL,       INCOMPATWITHSMALLOPT,  "use minimal RAM, input must be pfam, output must be afa or pfam",0 },
+  { "--id_map",   eslARG_STRING, FALSE, NULL, NULL, NULL, NULL,       NULL,                  "if format is hmmpgmd, put the id map into file <s>", 0 },
   { 0,0,0,0,0,0,0,0 },
 };
 
@@ -78,6 +80,7 @@ main(int argc, char **argv)
   int          outfmt     = eslSQFILE_UNKNOWN;		/* output format as a code                 */
   int          status;		                        /* return code from an Easel call          */
   FILE        *ofp;		                        /* output stream                           */
+
 
   char  *outfile;		/* output file, or NULL                      */
   int    force_rna;		/* TRUE to force RNA alphabet                */
@@ -101,6 +104,8 @@ main(int argc, char **argv)
   int    idx;                   /* counter over sequences                    */
   int    nali;                  /* number of alignments read                 */
   char   errbuf[eslERRBUFSIZE]; /* for error messages                        */
+
+
 
   /*****************************************************************
    * Parse the command line
@@ -298,54 +303,113 @@ main(int argc, char **argv)
 
       status = esl_sqfile_Open(infile, infmt, NULL, &sqfp);
       if (status == eslENOTFOUND)
-	esl_fatal("Couldn't open seqfile %s\n", infile);
+        esl_fatal("Couldn't open seqfile %s\n", infile);
       else if (status == eslEFORMAT)
-	esl_fatal("Couldn't determine format of seqfile %s\n", infile);      
+        esl_fatal("Couldn't determine format of seqfile %s\n", infile);
       else if (status == eslEINVAL)
-	esl_fatal("Can't autodetect format of stdin or .gz; use --informat\n");
+        esl_fatal("Can't autodetect format of stdin or .gz; use --informat\n");
       else if (status != eslOK)
-	esl_fatal("Open of seqfile %s failed, code %d\n", infile, status);
+        esl_fatal("Open of seqfile %s failed, code %d\n", infile, status);
       
       if ( esl_opt_IsOn(go, "--ignore"))  esl_sqio_Ignore  (sqfp, esl_opt_GetString(go, "--ignore"));
       if ( esl_opt_IsOn(go, "--acceptx")) esl_sqio_AcceptAs(sqfp, esl_opt_GetString(go, "--acceptx"), 'X');
 
       sq  = esl_sq_Create();
+
+      if ( outfmt == eslSQFILE_HMMPGMD ) {
+        int     res_cnt = 0;
+        char    timestamp[32];
+        time_t  date;
+        char   *mapfile;
+        FILE   *mapfp;               /* output stream for the map file                       */
+
+        //will need to make two passes through the file, one to get sequence count, one to convert sequences
+        if (! esl_sqfile_IsRewindable(sqfp))
+          esl_fatal("Target sequence file %s isn't rewindable; can't produce a file in hmmpgmd format", infile);
+
+
+        //pick map file name, and open the file
+        if (esl_opt_IsUsed(go, "--id_map")) {
+          mapfile =  esl_opt_GetString( go, "--id_map");
+        } else {
+          esl_strdup(infile, -1, &mapfile);  // there will be an infile, because stdin was restricted above
+          esl_strcat(&mapfile, -1, ".map", 4);
+        }
+        if ((mapfp = fopen(mapfile, "w")) == NULL)
+            esl_fatal("Failed to open map output file %s\n", mapfile);
+
+        //get counts, and write out the map file
+        idx = 0;
+        while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
+          res_cnt += sq->n;
+          fprintf(mapfp, "%d %s", idx+1, sq->name);
+          if (sq->desc != NULL)
+            fprintf(mapfp, " %s", sq->desc);
+          fprintf(mapfp, "\n");
+          esl_sq_Reuse(sq);
+          idx++;
+        }
+
+        fclose(mapfp);
+
+        /* status should be eslEOF on normal end; if it isn't, deal w/ error */
+        if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
+                   sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
+        else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+                   status, sqfp->filename);
+
+        /* Print the first line of the hmmpgmd format, which contains database information.
+         * #<res_count> <seq_count> <db_count> <db_sequences_1> <db_sequences_before_removing_duplicates_1> <db_sequences_2> <db_sequences_before_removing_duplicates_2>  ... <date_stamp>
+         * It shoves all sequences into a single database, #1.
+         */
+        date = time(NULL);
+        ctime_r(&date, timestamp);
+        fprintf(ofp, "#%d %d %d %d %d %s", res_cnt, idx, 1, idx, idx, timestamp);
+
+        esl_sqfile_Position(sqfp, 0);
+      }
+
+
       idx = 0;
       while ((status = esl_sqio_Read(sqfp, sq)) == eslOK)
-	{
-	  if (rfrom!=NULL) symconvert(sq->seq, rfrom, rto);
-	  if (force_lower) symconvert(sq->seq, 
-				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-				      "abcdefghijklmnopqrstuvwxyz");
-	  if (force_upper) symconvert(sq->seq, 
-				      "abcdefghijklmnopqrstuvwxyz",
-				      "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-	  if (force_rna)   symconvert(sq->seq, "Tt", "Uu");
-	  if (force_dna)   symconvert(sq->seq, "Uu", "Tt");
-	  if (iupac_to_n)  symconvert(sq->seq, 
-				      "RYMKSWHBVDrymkswhbvd",
-				      "NNNNNNNNNNnnnnnnnnnn");
-	  if (x_is_bad)    symconvert(sq->seq, "Xx", "Nn");
-	  
-	  if (wussify && sq->ss != NULL) esl_kh2wuss(sq->ss, sq->ss);	    
-	  if (dewuss  && sq->ss != NULL) esl_wuss2kh(sq->ss, sq->ss);	    
+      {
+        if (rfrom!=NULL) symconvert(sq->seq, rfrom, rto);
+        if (force_lower) symconvert(sq->seq,
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                  "abcdefghijklmnopqrstuvwxyz");
+        if (force_upper) symconvert(sq->seq,
+                  "abcdefghijklmnopqrstuvwxyz",
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        if (force_rna)   symconvert(sq->seq, "Tt", "Uu");
+        if (force_dna)   symconvert(sq->seq, "Uu", "Tt");
+        if (iupac_to_n)  symconvert(sq->seq,
+                  "RYMKSWHBVDrymkswhbvd",
+                  "NNNNNNNNNNnnnnnnnnnn");
+        if (x_is_bad)    symconvert(sq->seq, "Xx", "Nn");
 
-	  if (fullwuss && sq->ss != NULL)
-	    {
-	      status = esl_wuss_full(sq->ss, sq->ss);
-	      if (status == eslESYNTAX) 
-		esl_fatal("Bad SS for %s: not in WUSS format\n", sq->name);
-	      else if (status != eslOK)
-		esl_fatal("Conversion of SS for %s failed, code %d\n", 
-			  sq->name, status);
-	    }
+        if (wussify && sq->ss != NULL) esl_kh2wuss(sq->ss, sq->ss);
+        if (dewuss  && sq->ss != NULL) esl_wuss2kh(sq->ss, sq->ss);
 
-	  if (rename) esl_sq_FormatName(sq, "%s.%d", rename, idx+1);
+        if (fullwuss && sq->ss != NULL)
+        {
+            status = esl_wuss_full(sq->ss, sq->ss);
+            if (status == eslESYNTAX)
+              esl_fatal("Bad SS for %s: not in WUSS format\n", sq->name);
+            else if (status != eslOK)
+              esl_fatal("Conversion of SS for %s failed, code %d\n",
+            sq->name, status);
+        }
 
-	  esl_sqio_Write(ofp, sq, outfmt, FALSE);
-	  esl_sq_Reuse(sq);
-	  idx++;
-	}
+        if ( outfmt == eslSQFILE_HMMPGMD ) {
+          esl_sq_FormatName(sq, "%d 1", idx+1);
+          esl_sq_FormatDesc(sq, "");
+        } else {
+          if (rename) esl_sq_FormatName(sq, "%s.%d", rename, idx+1);
+        }
+        esl_sqio_Write(ofp, sq, outfmt, FALSE);
+        esl_sq_Reuse(sq);
+        idx++;
+      }
       /* status should be eslEOF on normal end; if it isn't, deal w/ error */
       if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
 					       sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));

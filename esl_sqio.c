@@ -1333,6 +1333,7 @@ esl_sqio_Write(FILE *fp, ESL_SQ *s, int format, int update)
 
   switch (format) {
   case eslSQFILE_FASTA:   
+  case eslSQFILE_HMMPGMD:
     status = esl_sqascii_WriteFasta(fp, s, update); 
     break;
   default: 
