@@ -512,6 +512,9 @@ esl_vec_IMin(const int *vec, int n)
  *            in <vec>. In case of ties, the element with the smallest index
  *            is returned. 
  *            
+ *            <n> can be 0 and <vec> can be <NULL>, in which case the
+ *            function returns 0.
+ *            
  *            <esl_vec_FArgMax()> and <esl_vec_IArgMax()> do the same,
  *            for float and integer vectors.
  *            
