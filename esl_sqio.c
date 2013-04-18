@@ -1037,9 +1037,9 @@ esl_sqio_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 int
-esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int long_target)
+esl_sqio_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
 {
-  return sqfp->read_block(sqfp, sqBlock, max_residues, long_target);
+  return sqfp->read_block(sqfp, sqBlock, max_residues, max_sequences, long_target);
 }
 
 /* Function:  esl_sqio_Echo()

@@ -49,7 +49,7 @@ static int   sqncbi_Read           (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadInfo       (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadSequence   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqncbi_ReadWindow     (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int long_target);
+static int   sqncbi_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
 static int   sqncbi_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 static int   sqncbi_IsRewindable   (const ESL_SQFILE *sqfp);
@@ -575,7 +575,6 @@ sqncbi_Position(ESL_SQFILE *sqfp, off_t offset)
   status = pos_sequence(ncbi, offset);
   return status;
 }
-
 
 /* Function:  sqncbi_Close()
  * Synopsis:  Close a sequence file.
@@ -1135,11 +1134,17 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
  *            <sqBlock>.
  *
- *            Because sequences in a database can exceed MAX_RESIDUE_COUNT,
- *            this function uses ReadWindow to read restricted-size chunks
- *            of sequence, and must allow for the possibility that a
- *            request will be made to continue reading a partly-read
- *            sequence
+ *            In the case that <long_target> is false, the sequences are
+ *            expected to be protein - individual sequences won't be long
+ *            so read them in one-whole-sequence at a time. If <max_sequences>
+ *            is set to a number > 0 read <max_sequences> sequences.
+ *
+ *            If <long_target> is true, the sequences are expected to be DNA.
+ *            Because sequences in a DNA database can exceed MAX_RESIDUE_COUNT,
+ *            this function uses ReadWindow to read chunks of sequence no
+ *            larger than <max_residues>, and must allow for the possibility that
+ *            a request will be made to continue reading a partly-read
+ *            sequence.
  *
  * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
  * 
@@ -1153,7 +1158,7 @@ sqncbi_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 static int
-sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int long_target)
+sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
 {
 	  int     i = 0;
 	  int     size = 0;
@@ -1166,7 +1171,10 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	  {  /* in these cases, an individual sequence won't ever be really long,
 			     so just read in a sequence at a time  */
 
-		  for (i = 0; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
+	    if (max_sequences < 1 || max_sequences > sqBlock->listSize)
+	      max_sequences = sqBlock->listSize;
+
+		  for (i = 0; i < max_sequences && size < MAX_RESIDUE_COUNT; ++i)
 		  {
 			  status = sqncbi_Read(sqfp, sqBlock->list + i);
 			  if (status != eslOK) break;
@@ -1179,7 +1187,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 
 		  /*this variable is used instead of the MAX_RESIDUE_COUNT macro because impl_dummy may require shorter sequences to fit in memory*/
 		  if (max_residues < 0)
-			  max_residues = MAX_RESIDUE_COUNT;
+		    max_residues = MAX_RESIDUE_COUNT;
 
 		  tmpsq = esl_sq_Create();
 

@@ -300,6 +300,8 @@ main(int argc, char **argv)
     { /* else: conversion to unaligned file formats */
       ESL_SQFILE  *sqfp;	/* open input sequence file                */
       ESL_SQ      *sq;		/* an input sequence                       */
+      char        *mapfile;  /* file name into which an hmmpgmd map file should be written */
+      FILE        *mapfp;    /* output stream for the map file                       */
 
       status = esl_sqfile_Open(infile, infmt, NULL, &sqfp);
       if (status == eslENOTFOUND)
@@ -320,8 +322,6 @@ main(int argc, char **argv)
         int     res_cnt = 0;
         char    timestamp[32];
         time_t  date;
-        char   *mapfile;
-        FILE   *mapfp;               /* output stream for the map file                       */
 
         //will need to make two passes through the file, one to get sequence count, one to convert sequences
         if (! esl_sqfile_IsRewindable(sqfp))
@@ -342,15 +342,9 @@ main(int argc, char **argv)
         idx = 0;
         while ((status = esl_sqio_Read(sqfp, sq)) == eslOK) {
           res_cnt += sq->n;
-          fprintf(mapfp, "%d %s", idx+1, sq->name);
-          if (sq->desc != NULL)
-            fprintf(mapfp, " %s", sq->desc);
-          fprintf(mapfp, "\n");
           esl_sq_Reuse(sq);
           idx++;
         }
-
-        fclose(mapfp);
 
         /* status should be eslEOF on normal end; if it isn't, deal w/ error */
         if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s):\n%s\n",
@@ -364,6 +358,7 @@ main(int argc, char **argv)
          */
         date = time(NULL);
         ctime_r(&date, timestamp);
+        fprintf(mapfp, "%d\n", idx);
         fprintf(ofp, "#%d %d %d %d %d %s", res_cnt, idx, 1, idx, idx, timestamp);
 
         esl_sqfile_Position(sqfp, 0);
@@ -401,6 +396,7 @@ main(int argc, char **argv)
         }
 
         if ( outfmt == eslSQFILE_HMMPGMD ) {
+          fprintf(mapfp, "%d %s %s\n", idx+1, sq->name?sq->name:"", sq->desc?sq->desc:"");
           esl_sq_FormatName(sq, "%d 1", idx+1);
           esl_sq_FormatDesc(sq, "");
         } else {
@@ -416,6 +412,9 @@ main(int argc, char **argv)
       else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
 					       status, sqfp->filename);
       
+      if ( outfmt == eslSQFILE_HMMPGMD )
+        fclose(mapfp);
+
       esl_sq_Destroy(sq);
       esl_sqfile_Close(sqfp);
     } /* end of unaligned seq conversion */

@@ -52,7 +52,7 @@ static int   sqascii_Read           (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadInfo       (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadSequence   (ESL_SQFILE *sqfp, ESL_SQ *sq);
 static int   sqascii_ReadWindow     (ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq);
-static int   sqascii_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int long_target);
+static int   sqascii_ReadBlock      (ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target);
 static int   sqascii_Echo           (ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp);
 
 static int   sqascii_IsRewindable   (const ESL_SQFILE *sqfp);
@@ -1436,9 +1436,15 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  * Purpose:   Reads a block of sequences from open sequence file <sqfp> into 
  *            <sqBlock>.
  *
- *            Because sequences in a database can exceed MAX_RESIDUE_COUNT,
- *            this function uses ReadWindow to read restricted-size chunks
- *            of sequence, and must allow for the possibility that a
+ *            In the case that <long_target> is false, the sequences are
+ *            expected to be protein - individual sequences won't be long
+ *            so read them in one-whole-sequence at a time. If <limit> is set
+ *            to a number > 0 read <limit> sequences.
+ *
+ *            If <long_target> is true, the sequences are expected to be DNA.
+ *            Because sequences in a DNA database can exceed MAX_RESIDUE_COUNT,
+ *            this function uses ReadWindow to read chunks of sequence no
+ *            larger than <limit>, and must allow for the possibility that a
  *            request will be made to continue reading a partly-read
  *            sequence
  *
@@ -1456,7 +1462,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *            <eslEINCONCEIVABLE> on internal error.
  */
 static int
-sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int long_target)
+sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int max_sequences, int long_target)
 {
   int     i = 0;
   int     size = 0;
@@ -1464,13 +1470,19 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
   ESL_SQ *tmpsq = NULL;
 
   sqBlock->count = 0;
+  if (max_sequences < 1 || max_sequences > sqBlock->listSize)
+    max_sequences = sqBlock->listSize;
+
+
 
   if ( !long_target  )
   {  /* in these cases, an individual sequence won't ever be really long,
       so just read in a sequence at a time  */
-    for (i = 0; i < sqBlock->listSize && size < MAX_RESIDUE_COUNT; ++i)
+
+    for (i = 0; i < max_sequences && size < MAX_RESIDUE_COUNT; ++i)
     {
       status = sqascii_Read(sqfp, sqBlock->list + i);
+
       if (status != eslOK) break;
       size += sqBlock->list[i].n;
       ++sqBlock->count;
@@ -1528,7 +1540,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
        }
     } // otherwise, just start at the beginning
 
-    for (  ; i < sqBlock->listSize && size < max_residues; ++i) { 
+    for (  ; i < max_sequences && size < max_residues; ++i) {
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
       status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
@@ -1536,7 +1548,7 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
       size += sqBlock->list[i].n - sqBlock->list[i].C;
       sqBlock->list[i].L = sqfp->data.ascii.L;
       ++(sqBlock->count);
-      if (size >= max_residues) { 
+      if (size >= max_residues) {
 	// a full window worth of sequence has been read; did we reach the end of the final sequence in the block?
 	
 	sqBlock->complete = FALSE; // default value, unless overridden below
