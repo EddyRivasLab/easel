@@ -2429,7 +2429,6 @@ static void
 utest_CountResidues()
 {
   char         *msg  = "failure in utest_CountResidues()";
-  ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
   char         *name = "seqname";
   char         *acc  = "XX00001";
   char         *desc = "test sequence description";
@@ -2438,6 +2437,7 @@ utest_CountResidues()
   ESL_SQ       *sq   = NULL;
   float        *cnts = NULL;
   int          status;
+  ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
 
   ESL_ALLOC(cnts, abc->Kp * sizeof(float));
 
@@ -2460,13 +2460,19 @@ utest_CountResidues()
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
   if (cnts[3] != 2)  esl_fatal(msg);
-  return;
-  esl_sq_Destroy(sq);
 #endif
+
+  free(cnts);
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
   return;
 
 
 ERROR:
+  if (cnts != NULL) free(cnts);
+  if (sq != NULL)   esl_sq_Destroy(sq);
+  if (abc != NULL)  esl_alphabet_Destroy(abc);
+
   esl_fatal(msg);
   return;
 }
