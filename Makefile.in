@@ -399,10 +399,10 @@ ${UTESTS}:  libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 # Benchmark compilation:
 # Name construction much like unit tests.
@@ -420,10 +420,10 @@ ${BENCHMARKS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 ${EXPERIMENTS}: libeasel.a
 	@BASENAME=`echo $@ | sed -e 's/_experiment//'| sed -e 's/^esl_//'` ;\
@@ -434,10 +434,10 @@ ${EXPERIMENTS}: libeasel.a
 	   else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi;\
 	if test ${V} ;\
-	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 
 ${EXAMPLES}: libeasel.a
@@ -448,10 +448,10 @@ ${EXAMPLES}: libeasel.a
            else DFILE=${srcdir}/esl_$${BASENAME}.c ;\
         fi ;\
 	if test ${V}; \
-	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm" ;\
+	   then echo "${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}" ;\
 	   else echo '    ' GEN $@ ;\
 	fi ;\
-	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm
+	${CC} ${CFLAGS} ${SIMDFLAGS} ${DEFS} ${LDFLAGS} -o $@ -I. -I${srcdir} -L. -D$${DFLAG} $${DFILE} -leasel -lm ${LIBS}
 
 # install:   installs libeasel.a in ${libdir}/
 #            installs Easel headers in ${includedir}/
