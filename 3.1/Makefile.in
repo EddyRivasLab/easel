@@ -485,7 +485,11 @@ uninstall:
 # "make clean" removes almost everything except configuration files
 #
 clean:
+#Use 'ifneq' instead of 'test -e' because the '+@' in QUIET_SUBDIR0 can't 
+#be passed to the shell. Note that ifneq breaks if indented.
+ifneq (,$(wildcard ./documentation/.))
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} clean
+endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	-rm -f ${OBJS} libeasel.a
@@ -502,7 +506,10 @@ clean:
 
 
 distclean: clean
+#See above for explanation of 'ifneq' usage
+ifneq (,$(wildcard ./documentation/.))
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
+endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
 	-rm esl_config.h
