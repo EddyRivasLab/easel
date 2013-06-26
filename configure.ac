@@ -62,7 +62,7 @@
 #     EASEL_VERSION    e.g. "1.9a"
 #
 AC_PREREQ(2.60)
-AC_INIT(Easel, i1.1rc3, eddys@janelia.hhmi.org, easel)
+AC_INIT(Easel, i1.1rc4, eddys@janelia.hhmi.org, easel)
 AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
 # remember if the user is overriding CFLAGS
