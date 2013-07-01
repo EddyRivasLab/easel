@@ -92,6 +92,7 @@ HDRS = 	easel.h\
 	esl_getopts.h\
 	esl_gev.h\
 	esl_gumbel.h\
+	esl_heap.h\
 	esl_histogram.h\
 	esl_hmm.h\
 	esl_hyperexp.h\
@@ -133,7 +134,7 @@ HDRS = 	easel.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
 	esl_threads.h\
-  esl_translate.h\
+	esl_translate.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_vmx.h\
@@ -155,6 +156,7 @@ OBJS =	easel.o\
 	esl_getopts.o\
 	esl_gev.o\
 	esl_gumbel.o\
+	esl_heap.o\
 	esl_histogram.o\
 	esl_hmm.o\
 	esl_hyperexp.o\
@@ -196,7 +198,7 @@ OBJS =	easel.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
 	esl_threads.o\
-  esl_translate.o\
+	esl_translate.o\
 	esl_tree.o\
 	esl_vectorops.o\
 	esl_vmx.o\
@@ -229,6 +231,7 @@ UTESTS =\
 	esl_gamma_utest\
 	esl_getopts_utest\
 	esl_gumbel_utest\
+	esl_heap_utest\
 	esl_histogram_utest\
 	esl_hyperexp_utest\
 	esl_keyhash_utest\
