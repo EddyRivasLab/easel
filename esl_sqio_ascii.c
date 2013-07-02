@@ -1404,7 +1404,7 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
 
       if (ascii->nc > 0) {
         ascii->bookmark_offset  = ascii->boff+ascii->bpos; /* remember where the next seq starts. */
-        ascii->bookmark_linenum = ascii->bookmark_linenum;
+        //ascii->bookmark_linenum = ascii->bookmark_linenum;
       } else {
         ascii->bookmark_offset  = 0;                     /* signals for EOF, no more seqs        */
         ascii->bookmark_linenum = 0;
@@ -1438,15 +1438,16 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
  *
  *            In the case that <long_target> is false, the sequences are
  *            expected to be protein - individual sequences won't be long
- *            so read them in one-whole-sequence at a time. If <limit> is set
- *            to a number > 0 read <limit> sequences.
+ *            so read them in one-whole-sequence at a time. If <max_sequences> is set
+ *            to a number > 0 read <max_sequences> sequences, up to at most
+ *            MAX_RESIDUE_COUNT residues.
  *
  *            If <long_target> is true, the sequences are expected to be DNA.
  *            Because sequences in a DNA database can exceed MAX_RESIDUE_COUNT,
  *            this function uses ReadWindow to read chunks of sequence no
- *            larger than <limit>, and must allow for the possibility that a
+ *            larger than <max_residues>, and must allow for the possibility that a
  *            request will be made to continue reading a partly-read
- *            sequence
+ *            sequence. This case also respects the <max_sequences> limit.
  *
  * Returns:   <eslOK> on success; the new sequence is stored in <sqBlock>.
  * 
