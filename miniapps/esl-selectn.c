@@ -1,4 +1,7 @@
-/* Select <n> random lines from a file and print them.
+/* Select <m> random lines from a file and print them.
+ *
+ * Uses a reservoir sort - O(m) in space, single pass on the input,
+ * never reads the entire input into memory.
  *
  * SRE, Fri Jun 13 08:17:53 2008 [Janelia]
  * SVN $Id$
@@ -49,16 +52,16 @@ int
 main(int argc, char **argv)
 {
   ESL_GETOPTS    *go       = NULL; 
-  ESL_RANDOMNESS *r        = NULL;
-  int             nselect  = 0;
+  ESL_RANDOMNESS *rng      = NULL;
   char           *filename = NULL;
   FILE           *fp       = NULL;
-  char          **larr     = NULL;
+  int             m        = 0;	     /* number of lines to sample         */
+  char          **larr     = NULL;   /* sampled line ptr array, [0..m-1]  */
   char           *buf      = NULL;
   int             buflen   = 0;
-  char           *tmp      = NULL;
-  int             i,j;
-  int             n;
+  int             n;		     /* number of lines read so far */
+  int             r;		     /* random #, 0..n-1            */
+  int             i;
 
   /* Parse command line */
   go = esl_getopts_Create(options);
@@ -67,12 +70,11 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "-h") )                   cmdline_help(argv[0], go);
   if (esl_opt_ArgNumber(go) != 2)                      cmdline_failure(argv[0], "Incorrect number of command line arguments.\n");
 
-  nselect  = atoi(esl_opt_GetArg(go, 1));
+  m        = atoi(esl_opt_GetArg(go, 1));
   filename = esl_opt_GetArg(go, 2);
+  rng      = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
 
-  r = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
-
-  if ((larr = malloc(sizeof(char *) * nselect)) == NULL) esl_fatal("allocation failed");
+  if ((larr = malloc(sizeof(char *) * m)) == NULL) esl_fatal("allocation failed");
 
   if (strcmp(filename, "-") == 0) fp = stdin;
   else {
@@ -83,27 +85,28 @@ main(int argc, char **argv)
    while (esl_fgets(&buf, &buflen, fp) == eslOK)
      {
        n++;
-       i = esl_rnd_Roll(r, n);
-       if (i < nselect) {
-	 for (j = i; j < nselect && j < n; j++)
-	   {
-	     tmp     = larr[j];
-	     larr[j] = buf;
-	     buf     = tmp;
-	   }
-	 free(buf);
-	 buf    = NULL;
-	 buflen = 0; 
+       if (n <= m) { 
+	 larr[n-1] = buf; 
+	 buf       = NULL;
+	 buflen    = 0;
+       } else {
+	 r = esl_rnd_Roll(rng, n);
+	 if (r < m) {
+	   free(larr[r]);
+	   larr[r] = buf;
+	   buf     = NULL;
+	   buflen  = 0;
+	 }
        }
-     }  
+     }
 
-   for (i = 0; i < nselect; i++) printf("%s", larr[i]);
+   for (i = 0; i < m; i++) printf("%s", larr[i]);
 
    if (fp != stdin) fclose(fp);
-   for (i = 0; i < nselect; i++) free(larr[i]);
+   for (i = 0; i < m; i++) free(larr[i]);
    free(larr);
-   free(buf);
-   esl_randomness_Destroy(r);
+   if (buf) free(buf);
+   esl_randomness_Destroy(rng);
    esl_getopts_Destroy(go);
    return 0;
 }
