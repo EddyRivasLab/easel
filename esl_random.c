@@ -102,19 +102,37 @@ esl_randomness_Create(uint32_t seed)
  * Synopsis:  Create the alternative fast generator.
  *
  * Purpose:   Same as <esl_randomness_Create()>, except that a simple
- *            linear congruential generator will be used.
+ *            linear congruential generator (LCG) will be used.
+ *            
+ *            This is a low quality generator. Successive samples from
+ *            an LCG are correlated, and it has a relatively short
+ *            period. IT SHOULD NOT BE USED FOR SERIOUS
+ *            SIMULATIONS. Rather, it's a quick and dirty RNG where
+ *            you're sure that speed is more important than the
+ *            quality of your random numbers. For a high quality RNG,
+ *            use <esl_randomness_Create()> instead.
  *            
  *            This is a $(a=69069, c=1)$ LCG, with a period of
- *            $2^{32}$. Because of the relatively short period, this
- *            generator should not be used for serious simulations
- *            involving large samples.
+ *            $2^{32}$. 
+ *            
+ *            It is about 20x faster to initialize the generator, and
+ *            about 25\% faster to sample each number, compared to the
+ *            default Mersenne Twister. (In most cases, this speed
+ *            differential is not worth the degradation in
+ *            quality. Since we made MT our default generator, the
+ *            speed advantage of the LCG essentially disappeared, so
+ *            in some sense this is legacy code.)
  *
- *            The properties of this generator are not as good as the
- *            default Mersenne Twister, but it is faster, especially
- *            if you only need a small number of samples from the
- *            generator; it is about 20x faster to initialize the
- *            generator, and about 25\% faster to sample a number, 
- *            compared to the default.
+ *            Here's an example of how serial correlation arises in an
+ *            LCG, and how it can lead to serious (and difficult to
+ *            diagnose) failure in a Monte Carlo simulation. Recall
+ *            that an LCG calculates $x_{i+1} = ax_i + c$. Suppose
+ *            $x_i$ is small: in the range 0..6000, say, as a specific
+ *            example. Now $x_{i+1}$ cannot be larger than 4.1e8, for
+ *            an LCG with $a=69069$,$c=1$. So if you take a sample and
+ *            test whether it is $< 1e-6$ (say), the next sample will
+ *            be in a range of about 0..0.1, rather than being uniform
+ *            on 0..1.
  *
  * Args:      seed $>= 0$.
  *
