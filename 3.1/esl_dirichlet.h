@@ -29,8 +29,10 @@ extern int            esl_mixdchlet_Copy(ESL_MIXDCHLET *d, ESL_MIXDCHLET *d_dst)
 extern int            esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d);
 extern void           esl_mixdchlet_Destroy(ESL_MIXDCHLET *pri);
 extern int            esl_mixdchlet_MPParameters(double *c, int K,
-						 ESL_MIXDCHLET *pri, double *mix, 
-						 double *p);
+						                                     ESL_MIXDCHLET *pri, double *mix, double *p);
+extern int            esl_mixdchlet_BILD_score(double *c, int K, int N, ESL_MIXDCHLET *pri,
+                                               double *mix, double *bg, double *q);
+
 
 extern int esl_dirichlet_LogProbData(double *c, double *alpha, int K, 
 				     double *ret_answer);

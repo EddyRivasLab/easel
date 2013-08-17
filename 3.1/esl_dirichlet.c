@@ -274,6 +274,38 @@ esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d)
   return eslOK;
 }
 
+/* esl_dirichlet_MixturePosterior()
+ *
+ * Purpose:   For a count vector <c> of cardinality <K>, and a
+ *            mixture Dirichlet prior <pri>. Calculate mix[],
+ *            the posterior probability P(q | c) of mixture
+ *            component q given the count vector c. Caller must
+ *            provide allocated space for <mix>, of length <K>.
+ *
+ * Returns:   <eslOK> on success, <mix> contains posterior probabilities of
+ *            the Dirichlet components.
+ */
+static int
+esl_dirichlet_MixturePosterior(double *c, int K, ESL_MIXDCHLET *pri, double *mix)
+{
+  int q;      /* counter over mixture components */
+  double val;
+
+  for (q = 0; q < pri->N; q++) {
+    if (pri->pq[q] > 0.0) {
+      esl_dirichlet_LogProbData(c, pri->alpha[q], K, &val);
+      mix[q] =  val + log(pri->pq[q]);
+    }
+    else
+    {
+      mix[q] = -HUGE_VAL;
+    }
+  }
+
+  esl_vec_DLogNorm(mix, pri->N); /* mix[q] is now P(q|c) */
+
+  return eslOK;
+}
 
 /* Function:  esl_mixdchlet_MPParameters()
  *
@@ -286,7 +318,7 @@ esl_mixdchlet_Dump(FILE *fp, ESL_MIXDCHLET *d)
  *            of length <K>.
  *
  * Returns:   <eslOK> on success; <mix> contains posterior probabilities of
- *            the Dirichlet components, and <p> contains mean posterior 
+ *            the Dirichlet components, and <p> contains mean posterior
  *            probability parameter estimates.
  *
  * Throws:    <esl_EINCOMPAT> if <pri> has different cardinality than <c>.
@@ -296,7 +328,6 @@ esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, do
 {
   int q;			/* counter over mixture components */
   int x;
-  double val;
   double totc;
   double tota;
   
@@ -305,16 +336,11 @@ esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, do
   /* Calculate mix[], the posterior probability
    * P(q | c) of mixture component q given the count vector c.
    */
-  for (q = 0; q < pri->N; q++)
-    if (pri->pq[q] > 0.0)  
-      {
-	esl_dirichlet_LogProbData(c, pri->alpha[q], K, &val);
-	mix[q] =  val + log(pri->pq[q]);
-      }
-    else
-      mix[q] = -HUGE_VAL;
-  esl_vec_DLogNorm(mix, pri->N); /* mix[q] is now P(q|c) */
+  esl_dirichlet_MixturePosterior(c, K, pri, mix);
 
+
+  /* Compute mean posterior estimates for probability parameters
+   */
   totc = esl_vec_DSum(c, K);
   esl_vec_DSet(p, K, 0.);
   for (x = 0; x < K; x++)
@@ -325,6 +351,85 @@ esl_mixdchlet_MPParameters(double *c, int K, ESL_MIXDCHLET *pri, double *mix, do
       }
   /* should be normalized already, but for good measure: */
   esl_vec_DNorm(p, K);
+  return eslOK;
+}
+
+
+/* Function:  esl_mixdchlet_BILD_score()
+ *
+ * Purpose:   Compute the BILD score (sensu Altschul et al PLos Compbio 2010)
+ *            for a given count vector <c> of cardinality (alphabet size) <K>,
+ *            under a mixture Dirichlet prior <pri>, and a background
+ *            character distribution <bg>, also cardinality K. The score is
+ *            in bits. Also computes posterior values for (1) Dirichlet mixture
+ *            coefficients ($P(q \mid c)$, performed and returned in a previously
+ *            allocated array, <mix>).
+ *
+ *            Caller must provide allocated space for <mix> (length K), and
+ *            <q> (length 1).
+ *
+ * Returns:   <eslOK> on success; <mix> contains posterior probabilities of
+ *            the Dirichlet components, and <sc> contains the BILD score of
+ *            observation under the prior and bg.
+ *
+ * Throws:    <esl_EINCOMPAT> if <pri> has different cardinality than <c>.
+ */
+int
+esl_mixdchlet_BILD_score(double *c, int K, int N, ESL_MIXDCHLET *pri,
+                   double *mix, double *bg, double *sc)
+{
+  int i;      /* counter over mixture components */
+  int j;
+  double tmp;
+  double val;
+  double totc;
+  double tota;
+
+  if (K != pri->K) ESL_EXCEPTION(eslEINCOMPAT, "cvec's K != mixture Dirichlet's K");
+  if (N != pri->N) ESL_EXCEPTION(eslEINCOMPAT, "cvec's N != mixture Dirichlet's N");
+
+  /* Calculate mix[], the posterior probability
+   * P(q | c) of mixture component q given the count vector c.
+   */
+  esl_dirichlet_MixturePosterior(c, K, pri, mix);
+
+
+  /* Compute probability of observing the given count vector
+   * under the mixture Dirichlet prior, which depends on the
+   * posterior.
+   */
+  *sc = 0.0;
+  totc = esl_vec_DSum(c, K);
+  for (i = 0; i < N; i++) {
+    if (mix[i] > 0) {
+      tota = esl_vec_DSum(pri->alpha[i], K);
+      esl_stats_LogGamma(tota, &tmp);
+      val = tmp;
+
+      esl_stats_LogGamma(tota + totc, &tmp);
+      val -= tmp;
+
+      for (j = 0; j < K; j++) {
+        esl_stats_LogGamma(pri->alpha[i][j] + c[j], &tmp);
+        val += tmp;
+        esl_stats_LogGamma(pri->alpha[i][j], &tmp);
+        val -= tmp;
+      }
+
+      *sc += mix[i] * exp(val);
+    }
+  }
+
+  /* At this point, sc holds the Q value from the Altschul paper.
+   * Get the odds ratio by dividing by the product of background
+   * probabilities for observed counts, (accounting for sequence
+   * weighting).
+   */
+  for (j = 0; j < K; j++) {
+    *sc /= pow(bg[j], c[j]);
+  }
+  *sc = log(*sc)*eslCONST_LOG2R;
+
   return eslOK;
 }
 /*---------------- end, ESL_MIXDCHLET ---------------------------*/
@@ -454,7 +559,6 @@ esl_dirichlet_LogProbDataSet_Mixture(int ntrials, double** counts, ESL_MIXDCHLET
     }
   return eslOK;
 }
-
 
 /* Function:  esl_dirichlet_LogProbProbs()
  *
@@ -1140,6 +1244,62 @@ utest_io(ESL_MIXDCHLET *d, double tol)
   return;
 }
 
+static void
+utest_bild()
+{
+  char           *msg         = "esl_dirichlet: BILD unit test failed";
+  ESL_MIXDCHLET  *d           = NULL;
+  int             K           = 4;
+  int             N           = 2;
+  double         *counts;
+  double         *mix;
+  double         *bg;
+  double          sc;
+
+
+  /* Create a mixture Dirichlet */
+  if ((d = esl_mixdchlet_Create(N, K)) == NULL) esl_fatal(msg);
+  //esl_vec_DSet(d->pq,       N, 1.0/N);
+  d->pq[0]       = 0.4;
+  d->pq[1]       = 0.6;
+
+  d->alpha[0][0] = 0.1;
+  d->alpha[0][1] = 0.2;
+  d->alpha[0][2] = 0.3;
+  d->alpha[0][3] = 0.4;
+  esl_vec_DSet(d->alpha[1], K, 1.0);
+
+
+  //simulate count vector
+  counts = malloc(K*sizeof(double));
+  counts[0] = 3.0; //2.2;
+  counts[1] = 1.0; //0.9;
+  counts[2] = 0.0; //4.5;
+  counts[3] = 0.0; //3.0;
+
+  //simulate background probabilities
+  bg = malloc(K*sizeof(double));
+  esl_vec_DSet(bg, K, 1.0/K);
+
+  //allocate working space
+  mix = malloc(K*sizeof(double));
+
+  esl_mixdchlet_BILD_score(counts, K, N, d, mix, bg, &sc);
+
+  if (esl_DCompare(sc, 0.701, 0.001) != eslOK)
+    esl_fatal(msg);
+
+//  fprintf(stderr, "Score is %.3f\n", sc);
+
+  esl_mixdchlet_Destroy(d);
+  free(bg);
+  free(counts);
+  free(mix);
+
+  return;
+}
+
+
 /*
  * For any given sampling effort, there is always a possibility that the resulting
  * count vector will have a higher likelihood under the wrong component than under the
@@ -1393,7 +1553,9 @@ main(int argc, char **argv)
   utest_io(d, tol);
   utest_fit(r, d, ntrials, ncounts, tol, nfit_reps, be_verbose);
   utest_inference(r, d, ntrials, ncounts, be_verbose);
- 
+  utest_bild();
+
+
   esl_randomness_Destroy(r);
   esl_mixdchlet_Destroy(d);
   esl_getopts_Destroy(go);
