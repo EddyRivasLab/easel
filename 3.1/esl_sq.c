@@ -211,29 +211,28 @@ esl_sq_Grow(ESL_SQ *sq, int64_t *opt_nsafe)
 int
 esl_sq_GrowTo(ESL_SQ *sq, int64_t n)
 {
-  void *tmp;
   int   x;        /* index for optional extra residue markups */
   int   status;
 
   if (sq->seq != NULL)		/* text mode */
     {
       if (n+1 > sq->salloc) {
-	ESL_RALLOC(sq->seq, tmp, (n+1) * sizeof(char));
-	if (sq->ss != NULL) ESL_RALLOC(sq->ss, tmp, (n+1) * sizeof(char));
-	for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
-	  if (sq->xr[x] != NULL)  ESL_RALLOC(sq->xr[x],  tmp, (n+1) * sizeof(char));
-	sq->salloc = n+1;
+        ESL_REALLOC(sq->seq, (n+1) * sizeof(char));
+        if (sq->ss != NULL) ESL_REALLOC(sq->ss, (n+1) * sizeof(char));
+        for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
+          if (sq->xr[x] != NULL)  ESL_REALLOC(sq->xr[x],  (n+1) * sizeof(char));
+        sq->salloc = n+1;
       }
     }
   else				/* digital mode */
     {
       if (n+2 > sq->salloc) {
-	ESL_RALLOC(sq->dsq, tmp, (n+2) * sizeof(ESL_DSQ));
-	if (sq->ss != NULL) ESL_RALLOC(sq->ss, tmp, (n+2) * sizeof(char));
-	for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
-	  if (sq->xr[x] != NULL)  ESL_RALLOC(sq->xr[x],  tmp, (n+2) * sizeof(char));
-	
-	sq->salloc = n+2;
+        ESL_REALLOC(sq->dsq, (n+2) * sizeof(ESL_DSQ));
+        if (sq->ss != NULL) ESL_REALLOC(sq->ss, (n+2) * sizeof(char));
+        for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
+          if (sq->xr[x] != NULL)  ESL_REALLOC(sq->xr[x],  (n+2) * sizeof(char));
+
+        sq->salloc = n+2;
       }
     }
   return eslOK;
