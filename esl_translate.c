@@ -389,7 +389,7 @@ int esl_trans_seq_stop_split(ESL_SQ *in, ESL_SQ ***out, int *outCount)
       x++;
     }
     
-    //if(in->seq[x-1] == '*') (*outCount)--; //do this test instead of running inside the while loop, in case there are multiple consecutive stop codons
+    if(in->seq[x-1] == '*') (*outCount)--; //do this test instead of running inside the while loop, in case there are multiple consecutive stop codons
     ESL_ALLOC(*out, sizeof(ESL_SQ*) * *outCount);
     
     x = front = 0;
