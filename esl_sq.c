@@ -211,29 +211,28 @@ esl_sq_Grow(ESL_SQ *sq, int64_t *opt_nsafe)
 int
 esl_sq_GrowTo(ESL_SQ *sq, int64_t n)
 {
-  void *tmp;
   int   x;        /* index for optional extra residue markups */
   int   status;
 
   if (sq->seq != NULL)		/* text mode */
     {
       if (n+1 > sq->salloc) {
-	ESL_RALLOC(sq->seq, tmp, (n+1) * sizeof(char));
-	if (sq->ss != NULL) ESL_RALLOC(sq->ss, tmp, (n+1) * sizeof(char));
-	for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
-	  if (sq->xr[x] != NULL)  ESL_RALLOC(sq->xr[x],  tmp, (n+1) * sizeof(char));
-	sq->salloc = n+1;
+        ESL_REALLOC(sq->seq, (n+1) * sizeof(char));
+        if (sq->ss != NULL) ESL_REALLOC(sq->ss, (n+1) * sizeof(char));
+        for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
+          if (sq->xr[x] != NULL)  ESL_REALLOC(sq->xr[x],  (n+1) * sizeof(char));
+        sq->salloc = n+1;
       }
     }
   else				/* digital mode */
     {
       if (n+2 > sq->salloc) {
-	ESL_RALLOC(sq->dsq, tmp, (n+2) * sizeof(ESL_DSQ));
-	if (sq->ss != NULL) ESL_RALLOC(sq->ss, tmp, (n+2) * sizeof(char));
-	for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
-	  if (sq->xr[x] != NULL)  ESL_RALLOC(sq->xr[x],  tmp, (n+2) * sizeof(char));
-	
-	sq->salloc = n+2;
+        ESL_REALLOC(sq->dsq, (n+2) * sizeof(ESL_DSQ));
+        if (sq->ss != NULL) ESL_REALLOC(sq->ss, (n+2) * sizeof(char));
+        for (x = 0; x < sq->nxr; x++) /* optional extra residue markups */
+          if (sq->xr[x] != NULL)  ESL_REALLOC(sq->xr[x],  (n+2) * sizeof(char));
+
+        sq->salloc = n+2;
       }
     }
   return eslOK;
@@ -2429,7 +2428,6 @@ static void
 utest_CountResidues()
 {
   char         *msg  = "failure in utest_CountResidues()";
-  ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
   char         *name = "seqname";
   char         *acc  = "XX00001";
   char         *desc = "test sequence description";
@@ -2438,6 +2436,7 @@ utest_CountResidues()
   ESL_SQ       *sq   = NULL;
   float        *cnts = NULL;
   int          status;
+  ESL_ALPHABET *abc  = esl_alphabet_Create(eslDNA);
 
   ESL_ALLOC(cnts, abc->Kp * sizeof(float));
 
@@ -2460,13 +2459,19 @@ utest_CountResidues()
   if (cnts[1] != 3)  esl_fatal(msg);
   if (cnts[2] != 3)  esl_fatal(msg);
   if (cnts[3] != 2)  esl_fatal(msg);
-  return;
-  esl_sq_Destroy(sq);
 #endif
+
+  free(cnts);
+  esl_sq_Destroy(sq);
+  esl_alphabet_Destroy(abc);
   return;
 
 
 ERROR:
+  if (cnts != NULL) free(cnts);
+  if (sq != NULL)   esl_sq_Destroy(sq);
+  if (abc != NULL)  esl_alphabet_Destroy(abc);
+
   esl_fatal(msg);
   return;
 }

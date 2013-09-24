@@ -1,3 +1,20 @@
+ID              e9
+TITLE           Segmentation fault in esl-stranslate
+AFFECTS         H3.1b1 
+FIXED_IN        -
+STATUS          CLOSED
+XREF            -
+REPORTED_BY     Jaina Mistry <jaina@ebi.ac.uk>
+OPENED_DATE     TJW, Tue Sep 24 04:57:08 2013
+CLOSED_DATE     TJW, Tue Sep 24 04:57:08 2013
+DESCRIPTION     
+  esl-stranslate crashed with seg fault if any of the 6 frames
+  ended with a stop codon. An extra sequence object was
+  created to hold the "next" ORF, but no ORF followed; the
+  result was a sequence object with no name or sequence, 
+  and a resulting seg fault when that sequence's information
+  was printed. 
+//
 ID              e8
 TITLE           esl_threads fails to compile
 AFFECTS         -

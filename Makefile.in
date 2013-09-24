@@ -16,10 +16,10 @@
 #
 top_srcdir = @top_srcdir@
 srcdir     = @srcdir@
-VPATH      = @srcdir@ 
+VPATH      = @srcdir@
 SHELL      = /bin/sh
 
-# Package information 
+# Package information
 #
 PACKAGE         = @PACKAGE_NAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
@@ -58,14 +58,14 @@ LIBS     = @LIBS@ @PTHREAD_LIBS@
 # Other tools
 #
 COMPRESS = gzip
-AR       = @AR@ 
+AR       = @AR@
 RANLIB   = @RANLIB@
 INSTALL  = @INSTALL@
 
-# beautification magic stolen from git 
+# beautification magic stolen from git
 #
 QUIET_SUBDIR0 = +${MAKE} -C #space separator after -c
-QUIET_SUBDIR1 = 
+QUIET_SUBDIR1 =
 ifndef V
 	QUIET_CC      = @echo '    ' CC $@;
 	QUIET_GEN     = @echo '    ' GEN $@;
@@ -365,7 +365,7 @@ all:    libeasel.a .FORCE
 dev:    libeasel.a ${UTESTS} ${BENCHMARKS} ${EXPERIMENTS} ${EXAMPLES} .FORCE
 	${QUIET_SUBDIR0}miniapps  ${QUIET_SUBDIR1} dev
 
-tests:  ${UTESTS}  
+tests:  ${UTESTS}
 	${QUIET_SUBDIR0}miniapps ${QUIET_SUBDIR1} tests
 
 check:  ${UTESTS} .FORCE
@@ -376,18 +376,18 @@ pdf:
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} pdf
 
 libeasel.a:  ${OBJS}
-	${QUIET_AR}${AR} -r libeasel.a $(OBJS) > /dev/null 2>&1 
+	${QUIET_AR}${AR} -r libeasel.a $(OBJS) > /dev/null 2>&1
 	@${RANLIB} libeasel.a
 
 .FORCE:
 
 ${OBJS}: ${HDRS} esl_config.h
 
-.c.o: 
-	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<		
+.c.o:
+	${QUIET_CC}${CC} -I. -I${srcdir} ${CFLAGS} ${SIMDFLAGS} ${DEFS} -o $@ -c $<
 
 # Unit test compilation:
-# 
+#
 # To compile unit tests, we need to construct a command line
 # from module basename, module's testdriver flag, and module's
 # C file. This is accomplished via a complex-looking shell scripture;
@@ -488,7 +488,11 @@ uninstall:
 # "make clean" removes almost everything except configuration files
 #
 clean:
+#Use 'ifneq' instead of 'test -e' because the '+@' in QUIET_SUBDIR0 can't
+#be passed to the shell. Note that ifneq breaks if indented.
+ifneq (,$(wildcard ./documentation/.))
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} clean
+endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} clean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} clean
 	-rm -f ${OBJS} libeasel.a
@@ -505,7 +509,10 @@ clean:
 
 
 distclean: clean
+#See above for explanation of 'ifneq' usage
+ifneq (,$(wildcard ./documentation/.))
 	${QUIET_SUBDIR0}documentation ${QUIET_SUBDIR1} distclean
+endif
 	${QUIET_SUBDIR0}testsuite     ${QUIET_SUBDIR1} distclean
 	${QUIET_SUBDIR0}miniapps      ${QUIET_SUBDIR1} distclean
 	-rm esl_config.h
@@ -566,7 +573,7 @@ implode:
 
 TAGS:
 	-rm -f ${top_srcdir}/TAGS
-	make tags-append	
+	make tags-append
 
 tags-append:
 	etags -o ${top_srcdir}/TAGS -a ${srcdir}/00CHECKLIST

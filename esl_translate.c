@@ -87,7 +87,7 @@
    if(minimumResidues <= 0) minimumResidues = 15;  //default minimum shard size
    
    if(out == NULL) return eslFAIL;
-   
+
    for(x = 0; x < 3; x++)
    {
      //get one of the three forward reading frames
@@ -114,8 +114,9 @@
             
        *fromStart = '\0';
        strcpy(workbench, splits[x][y]->name);
+       free(splits[x][y]->name); //this memory is no longer needed; new memory will be allocated below
        //substitute residue index numbers for nucleotide ones
-       sprintf(splits[x][y]->name, "%s%dto%d", workbench, x+1+3*(fromNum-1), x+3*(toNum));
+       esl_sprintf(&(splits[x][y]->name), "%s%dto%d", workbench, x+1+3*(fromNum-1), x+3*(toNum));
        }
    }
    for(x = 0; x < 3; x++)
@@ -139,13 +140,14 @@
        toStart[-2]='\0';
        fromNum = atoi(fromStart);
        toStart[-2]='t';
-              
+
        *fromStart = '\0';
        strcpy(workbench, splits[x+3][y]->name);
-       sprintf(splits[x+3][y]->name, "%s%dto%d", workbench, (int)in->n-(x+1+3*(fromNum-1)), (int)in->n-(x+3*(toNum)));
+       free(splits[x+3][y]->name); //this memory is no longer needed; new memory will be allocated below
+       esl_sprintf(&(splits[x+3][y]->name), "%s%dto%d", workbench, (int)in->n-(x+1+3*(fromNum-1)), (int)in->n-(x+3*(toNum)));
        }
    }
-   
+
    //count the number of shards which are at least the minimum size
    for(x = 0; x < 6; x++)
    {
@@ -154,9 +156,10 @@
        if(splits[x][y]->n >= minimumResidues) totalStops++;
      }
    }
-   
+
    ESL_ALLOC(*out, totalStops * sizeof(ESL_SQ*));
       
+
    //copy shards of minimum size into newly allocated output array
    //or erase the ones that are too small
    for(x = 0; x < 6; x++)
@@ -386,6 +389,7 @@ int esl_trans_seq_stop_split(ESL_SQ *in, ESL_SQ ***out, int *outCount)
       x++;
     }
     
+    if(in->seq[x-1] == '*') (*outCount)--; //do this test instead of running inside the while loop, in case there are multiple consecutive stop codons
     ESL_ALLOC(*out, sizeof(ESL_SQ*) * *outCount);
     
     x = front = 0;
