@@ -17,6 +17,7 @@
 #include "esl_getopts.h"
 #include "esl_histogram.h"
 #include "esl_exponential.h"
+#include "esl_gev.h"
 #include "esl_gumbel.h"
 
 
@@ -37,17 +38,19 @@ static ESL_OPTIONS options[] = {
   {"--max",       eslARG_REAL,  "100.",NULL,NULL, NULL,NULL,NULL,"initial upper bound of histogram",                  3 },
   {"--surv",      eslARG_NONE,   FALSE,NULL,NULL, NULL,NULL,NULL,"output survival plot, not histogram",               3 },
    
-  {"--gumbel",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution",                 4 }, 
-  {"--trunc",     eslARG_REAL,  NULL,  NULL,NULL, NULL,"--gumbel",NULL,"with --gumbel, specify data is truncated, min value is <x>",                 4 }, 
-  {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",           4 },
+  {"--gumbel",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution",                  4 }, 
+  {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",            4 },
+  {"--gev",       eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a generalized EVD (Frechet or Weibull)", 4 }, 
+  {"--trunc",     eslARG_REAL,  NULL,  NULL,NULL, NULL,"--gumbel",NULL,"with --gumbel, specify data are truncated, min value is <x>",                 4 }, 
   {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
   {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
   {"--showgum",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known Gumbel for comparison",              4 }, 
   {"--showexp",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known exponential tail for comparison",    4 },
+  {"--showgev",   eslARG_NONE,  FALSE, NULL,NULL, NULL,"--mu",NULL,"plot a known GEV for comparison",                 4 },
+  {"--alpha",     eslARG_REAL,  "0.0", NULL,NULL, NULL,NULL,NULL,"set known alpha (GEV shape parameter)",             4 },
   {"--lambda",    eslARG_REAL,"0.693", NULL,NULL, NULL,NULL,NULL,"set known lambda",                                  4 },    
   {"--mu",        eslARG_REAL,  "0.0", NULL,NULL, NULL,NULL,NULL,"set known mu",                                      4 },    
   {"-t",          eslARG_REAL, "0.01", NULL,NULL, NULL,NULL,NULL,"set tail mass to fit to",                           4 },    
-
   { 0,0,0,0,0,0,0,0,0,0},
 };
 
@@ -70,9 +73,10 @@ main(int argc, char **argv)
 
   double *xv;
   int     n;
-  double  params[2];
+  double  params[3];		/* mu, lambda, alpha */
   double  lambda;
   double  mu;
+  double  alpha;
   double  tailp;
 
   /*****************************************************************
@@ -110,6 +114,8 @@ main(int argc, char **argv)
   hmax        = esl_opt_GetReal   (go, "--max");
   lambda      = esl_opt_GetReal   (go, "--lambda");
   mu          = esl_opt_GetReal   (go, "--mu");
+  alpha       = esl_opt_GetReal   (go, "--alpha");
+
 
   if (esl_opt_ArgNumber(go) != 1) 
     {
@@ -183,10 +189,13 @@ main(int argc, char **argv)
   if (esl_opt_GetBoolean(go, "--gumbel"))
     {
       esl_histogram_GetData(h, &xv, &n);
-      if(! esl_opt_IsDefault(go, "--trunc"))  
-	esl_gumbel_FitTruncated(xv, n, esl_opt_GetReal(go, "--trunc"), &(params[0]), &(params[1]));
-      else 
-	esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1]));
+      if(! esl_opt_IsDefault(go, "--trunc")) {
+	if (esl_gumbel_FitTruncated(xv, n, esl_opt_GetReal(go, "--trunc"), &(params[0]), &(params[1])) != eslOK)
+	  esl_fatal("gumbel truncated fit failed");
+      } else {
+	if (esl_gumbel_FitComplete(xv, n, &(params[0]), &(params[1])) != eslOK)
+	  esl_fatal("gumbel complete fit failed");
+      }
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
       printf("# Gumbel fit: mu = %f  lambda = %f\n", params[0], params[1]);
@@ -195,7 +204,8 @@ main(int argc, char **argv)
     {
       params[1] = lambda;
       esl_histogram_GetData(h, &xv, &n);
-      esl_gumbel_FitCompleteLoc(xv, n, params[1], &(params[0]));
+      if (esl_gumbel_FitCompleteLoc(xv, n, params[1], &(params[0])) != eslOK)
+	esl_fatal("gumbel location-only complete fit failed");
       esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
       printf("# Gumbel fit with forced lambda = %f:  mu = %f\n", params[1], params[0]);
@@ -203,7 +213,8 @@ main(int argc, char **argv)
   else if (esl_opt_GetBoolean(go, "--exptail"))
     {
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
-      esl_exp_FitComplete(xv, n, &(params[0]), &(params[1]));
+      if (esl_exp_FitComplete(xv, n, &(params[0]), &(params[1])) != eslOK)
+	esl_fatal("exponential complete fit failed");
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
 
       printf("# Exponential fit to %.2f%% tail: lambda = %f\n", tailp*100.0, params[1]);
@@ -214,6 +225,15 @@ main(int argc, char **argv)
       esl_histogram_GetTailByMass(h, tailp, &xv, &n, NULL);
       params[0] = xv[0];	/* might be able to do better than minimum score, but this'll do */
       esl_histogram_SetExpectedTail(h, params[0], tailp, &esl_exp_generic_cdf, &params);
+    }
+  else if (esl_opt_GetBoolean(go, "--gev"))
+    {
+      esl_histogram_GetData(h, &xv, &n);
+      if (esl_gev_FitComplete(xv, n, &(params[0]), &(params[1]), &(params[2])) != eslOK)
+	esl_fatal("generalized EVD complete data fit failed");
+      esl_histogram_SetExpect(h, &esl_gev_generic_cdf, &params);
+      
+      printf("# generalized EVD fit: mu = %f  lambda = %f  alpha = %f\n", params[0], params[1], params[2]);
     }
   else if (esl_opt_GetBoolean(go, "--showgum"))
     {
@@ -227,7 +247,13 @@ main(int argc, char **argv)
       params[1] = lambda;
       esl_histogram_SetExpectedTail(h, mu, tailp, &esl_exp_generic_cdf, &params);
     }
-      
+  else if (esl_opt_GetBoolean(go, "--showgev"))
+    {
+      params[0] = mu;
+      params[1] = lambda;
+      params[2] = alpha;
+      esl_histogram_SetExpect(h, &esl_gev_generic_cdf, &params);
+    } 
 
   /*****************************************************************
    * Output

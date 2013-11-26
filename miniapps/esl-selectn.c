@@ -1,6 +1,6 @@
 /* Select <m> random lines from a file and print them.
  *
- * Uses a reservoir sort - O(m) in space, single pass on the input,
+ * Uses a reservoir sample - O(m) in space, single pass on the input,
  * never reads the entire input into memory.
  *
  * SRE, Fri Jun 13 08:17:53 2008 [Janelia]

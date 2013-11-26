@@ -1,22 +1,24 @@
 /* Statistical routines for Gumbel (type I extreme value) distributions.
  * 
  * Contents:
- *   1. Routine for evaluating densities and distributions
+ *   1. Routines for evaluating densities and distributions
  *   2. Generic API routines: for general interface w/ histogram module
- *   3. Routines for dumping plots to files
- *   4. Routines for sampling (requires random module)
- *   5. Maximum likelihood fitting to data (requires minimizer module)
- *   6. Stats driver
- *   7. Unit tests
- *   8. Test driver
- *   9. Example
- *  10. Copyright and license information
+ *   3. Dumping plots to files
+ *   4. Sampling (augmentation: random module)
+ *   5. ML fitting to complete data
+ *   6. ML fitting to censored data  (x_i >= phi; z known)
+ *   7. ML fitting to truncated data (x_i >= phi; z unknown) (augmentation: minimizer)
+ *   8. Stats driver
+ *   9. Unit tests
+ *  10. Test driver
+ *  11. Example
+ *  12. Copyright and license information
  * 
- * Note: SRE, Mon Aug  6 13:42:09 2007
- * ML fitting routines will be prone to over/underfitting 
- * problems for scores outside a "normal" range, because
- * of exp(-lambda * x) calls. The Lawless ML estimation
- * may eventually need to be recast in log space.
+ * To-do: SRE, Mon Aug  6 13:42:09 2007
+ *   ML fitting routines will be prone to over/underfitting 
+ *   problems for scores outside a "normal" range, because
+ *   of exp(-lambda * x) calls. The Lawless ML estimation
+ *   may eventually need to be recast in log space.
  */
 #include "esl_config.h"
 
@@ -318,12 +320,7 @@ esl_gumbel_Sample(ESL_RANDOMNESS *r, double mu, double lambda)
 
 
 /*****************************************************************
- * 5. Routines for maximum likelihood fitting Gumbels to data
- * (fitting truncated distributions requires augmentation w/ minimizer module)
- *****************************************************************/ 
-
-/*****************************************************************
- * Complete data, maximum a posteriori parameters
+ * 5. Maximum likelihood fitting to complete data
  *****************************************************************/ 
 
 /* lawless416()
@@ -368,24 +365,39 @@ lawless416(double *x, int n, double lambda, double *ret_f, double *ret_df)
 
 /* Function: esl_gumbel_FitComplete()
  * Synopsis: Estimates $\mu$, $\lambda$ from complete data.
- * Date:     SRE, Fri Nov 14 07:56:29 1997 [St. Louis] - HMMER's EVDMaxLikelyFit()
  * 
- * Purpose:  Given an array of Gumbel-distributed samples <x[0]..x[n-1]>,
- *           find maximum likelihood parameters <mu> and <lambda>.
+ * Purpose:  Given an array of Gumbel-distributed samples
+ *           <x[0]..x[n-1]>, find maximum likelihood parameters <mu>
+ *           and <lambda>.
  *           
- * Algorithm: Uses approach described in [Lawless82]. Solves
- *            for lambda using Newton/Raphson iterations,
- *            then substitutes lambda into Lawless' equation 4.1.5
- *            to get mu. 
+ *           The number of samples <n> must be reasonably large to get
+ *           an accurate fit. <n=100> suffices to get an accurate
+ *           location parameter $\mu$ (to about 1% error), but
+ *           <n~10000> is required to get a similarly accurate
+ *           estimate of $\lambda$. It's probably a bad idea to try to
+ *           fit a Gumbel to less than about 1000 data points.
+ *
+ *           On a very small number of samples, the fit can fail
+ *           altogether, in which case the routine will return a
+ *           <eslENORESULT> code. Caller must check for this.
+ *           
+ *           Uses approach described in [Lawless82]. Solves for lambda
+ *           using Newton/Raphson iterations, then substitutes lambda
+ *           into Lawless' equation 4.1.5 to get mu.
  *           
  * Args:     x          - list of Gumbel distributed samples
- *           n          - number of samples
- *           ret_mu     : RETURN: ML estimate of mu
- *           ret_lambda : RETURN: ML estimate of lambda
+ *           n          - number of samples (n>1)
+ *           ret_mu     - RETURN: ML estimate of mu
+ *           ret_lambda - RETURN: ML estimate of lambda
  *           
  * Returns:  <eslOK> on success.
  * 
- * Throws:   <eslENOHALT> if the fit doesn't converge.
+ *           <eslEINVAL> if n<=1.
+ *           <eslENORESULT> if the fit fails, likely because the
+ *           number of samples is too small. On either error,
+ *           <*ret_mu> and <*ret_lambda> are 0.0.  These are classed
+ *           as failures (normal errors) because the data vector may
+ *           have been provided by a user.
  */
 int
 esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
@@ -397,6 +409,9 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   double  esum;                 /* \sum e^(-lambda xi) */ 
   double  tol = 1e-5;
   int     i;
+  int     status;
+
+  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
 
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
@@ -424,7 +439,7 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   if (i == 100)
     {
       double left, right, mid;
-      ESL_DPRINTF1(("esl_gumbel_FitComplete(): Newton/Raphson failed; switchover to bisection"));
+      ESL_DPRINTF2(("esl_gumbel_FitComplete(): Newton/Raphson failed; switchover to bisection\n"));
 
       /* First bracket the root */
       left  = 0.;	                 	/* for sure */
@@ -433,8 +448,13 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
       while (fx > 0.) 
 	{		
 	  right *= 2.;		/* arbitrary leap to the right */
-	  if (right > 100.) /* no reasonable lambda should be > 100, we assert */
-	    ESL_EXCEPTION(eslENOHALT, "Failed to bracket root in esl_gumbel_FitComplete().");
+	  if (right > 1000.)    /* no reasonable lambda should be > 1000, we assert */
+	    { 
+	      ESL_DPRINTF2(("Failed to bracket root in esl_gumbel_FitComplete()."));
+	      status = eslENORESULT; 
+	      goto FAILURE;
+	    }
+	      
 	  lawless416(x, n, right, &fx, &dfx);
 	}
 
@@ -447,8 +467,14 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 	  if (fx > 0.)	left = mid;
 	  else          right = mid;
 	}
+
+      /* Too many iterations? Give up. */
       if (i == 100) 
-	ESL_EXCEPTION(eslENOHALT, "Even bisection search failed in esl_gumbel_FitComplete().");
+	{
+	  ESL_DPRINTF2(("Even bisection search failed in esl_gumbel_FitComplete().\n"));
+	  status = eslENORESULT;
+	  goto FAILURE;
+	}
 
       lambda = mid;
     }
@@ -463,6 +489,11 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   *ret_lambda = lambda;
   *ret_mu     = mu;   
   return eslOK;
+
+ FAILURE:
+  *ret_mu     = 0.0;
+  *ret_lambda = 0.0;
+  return status;
 }
 
 /* Function:  esl_gumbel_FitCompleteLoc()
@@ -473,7 +504,8 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
  *            (or otherwise fixed) <lambda>, find a maximum
  *            likelihood estimate for location parameter <mu>.
  *            
- * Algorithm: A straightforward simplification of FitComplete().           
+ *            Algorithm is a straightforward simplification of
+ *            <esl_gumbel_FitComplete()>.
  *
  * Args:     x          - list of Gumbel distributed samples
  *           n          - number of samples
@@ -481,18 +513,19 @@ esl_gumbel_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
  *           ret_mu     : RETURN: ML estimate of mu
  *           
  * Returns:  <eslOK> on success.
+ *           
+ *           <eslEINVAL> if n<=1; on this error, <*ret_mu> = 0.
  *
- * Throws:    (no abnormal error conditions)
- * 
- * Note:     Here and in FitComplete(), we have a potential
- *           under/overflow problem. We ought to be doing the
- *           esum in log space.
+ * Throws:   (no abnormal error conditions)
  */
 int
 esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
 {
   double esum;
   int    i;
+  int    status;
+
+  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
 
   /* Substitute into Lawless 4.1.5 to find mu */
   esum = 0.;
@@ -508,6 +541,10 @@ esl_gumbel_FitCompleteLoc(double *x, int n, double lambda, double *ret_mu)
   *ret_mu     = mean - 0.57722/lambda;
   return eslOK;
 #endif
+
+ FAILURE:
+  *ret_mu = 0.;
+  return status;
 }
 
 
@@ -535,8 +572,9 @@ direct_mv_fit(double *x, int n, double *ret_mu, double *ret_lambda)
 
 
 /*****************************************************************
- * Censored data, MAP/ML parameters
+ * 6. Maximum likelihood fitting to censored data (x_i >= phi; z known)
  *****************************************************************/ 
+
 /* lawless422()
  * SRE, Mon Nov 17 09:42:48 1997 [St. Louis]
  * 
@@ -592,12 +630,11 @@ lawless422(double *x, int n, int z, double phi,
 
 /* Function: esl_gumbel_FitCensored()
  * Synopsis: Estimates $\mu$, $\lambda$ from censored data.
- * Date:     SRE, Mon Nov 17 10:01:05 1997 [St. Louis]
  * 
- * Purpose: Given a left-censored array of Gumbel-distributed samples
- *          <x[0]..x[n-1]>, the number of censored samples <z>, and the
- *          censoring value <phi> (all <x[i]> $>$ <phi>).
- *          Find maximum likelihood parameters <mu> and <lambda>.
+ * Purpose:  Given a left-censored array of Gumbel-distributed samples
+ *           <x[0]..x[n-1]>, the number of censored samples <z>, and
+ *           the censoring value <phi> (all <x[i]> $\geq$ <phi>).  Find
+ *           maximum likelihood parameters <mu> and <lambda>.
  *           
  * Algorithm: Uses approach described in [Lawless82]. Solves
  *            for lambda using Newton/Raphson iterations;
@@ -608,16 +645,20 @@ lawless422(double *x, int n, int z, double phi,
  *           n          - number of observed samples
  *           z          - number of censored samples
  *           phi        - censoring value (all x_i >= phi)
- *           ret_mu     : RETURN: ML estimate of mu
- *           ret_lambda : RETURN: ML estimate of lambda
+ *           ret_mu     - RETURN: ML estimate of mu
+ *           ret_lambda - RETURN: ML estimate of lambda
  *           
  * Returns:  <eslOK> on success.
- *
- * Throws:   <eslENOHALT> if the fit doesn't converge.
+ * 
+ *           <eslEINVAL> if n<=1. 
+ *           <eslENORESULT> if the fit fails, likey because the number
+ *           of samples is too small.
+ *           On either error, <*ret_mu> and <*ret_lambda> are 0.0.
+ *           These are classed as failures (normal errors) because the
+ *           data vector may have been provided by a user.
  */
 int
-esl_gumbel_FitCensored(double *x, int n, int z, double phi, 
-		       double *ret_mu, double *ret_lambda)
+esl_gumbel_FitCensored(double *x, int n, int z, double phi, double *ret_mu, double *ret_lambda)
 {
   double variance;
   double lambda, mu;
@@ -626,6 +667,9 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
   double esum;                  /* \sum e^(-lambda xi) */ 
   double tol = 1e-5;
   int    i;
+  int    status;
+
+  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
 
   /* 1. Find an initial guess at lambda
    *    (Evans/Hastings/Peacock, Statistical Distributions, 2000, p.86)
@@ -653,17 +697,21 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
   if (i == 100)
     {
       double left, right, mid;
-      ESL_DPRINTF1(("esl_gumbel_FitCensored(): Newton/Raphson failed; switched to bisection"));
+      ESL_DPRINTF2(("esl_gumbel_FitCensored(): Newton/Raphson failed; switched to bisection\n"));
 
       /* First bracket the root */
-      left  = 0.;		/* we know that's the left bound */
+      left  = 0.;		               /* we know that's the left bound */
       right = eslCONST_PI / sqrt(6.*variance); /* start from here, move "right"... */
       lawless422(x, n, z, phi, right, &fx, &dfx);
       while (fx > 0.)
 	{
 	  right *= 2.;
-	  if (right > 100.) /* no reasonable lambda should be > 100, we assert */
-	    ESL_EXCEPTION(eslENOHALT, "Failed to bracket root in esl_gumbel_FitCensored().");
+	  if (right > 1000.) /* no reasonable lambda should be > 1000, we assert */
+	    {
+	      ESL_DPRINTF2(("Failed to bracket root in esl_gumbel_FitCensored()."));
+	      status = eslENORESULT;
+	      goto FAILURE;
+	    }
 	  lawless422(x, n, z, phi, right, &fx, &dfx);
 	}
 
@@ -677,7 +725,11 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
 	  else          right = mid;
 	}
       if (i == 100) 
-	ESL_EXCEPTION(eslENOHALT, "Even bisection search failed in esl_gumbel_FitCensored().");
+	{
+	  ESL_DPRINTF2(("Even bisection search failed in esl_gumbel_FitCensored().\n"));
+	  status = eslENORESULT;
+	  goto FAILURE;
+	}
       lambda = mid;
     }
 
@@ -692,6 +744,11 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
   *ret_lambda = lambda;
   *ret_mu     = mu;   
   return eslOK;
+
+ FAILURE:
+  *ret_lambda = 0.0;
+  *ret_mu     = 0.0;
+  return status;
 }
 
 
@@ -700,7 +757,7 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
  *
  * Purpose:   Given a left-censored array of Gumbel distributed samples
  *            <x[0>..x[n-1]>, the number of censored samples <z>, and the censoring
- *            value <phi> (where all <x[i]> $>$ <phi>), and a known
+ *            value <phi> (where all <x[i]> $\geq$ <phi>), and a known
  *            (or at least fixed) <lambda>;
  *            find the maximum likelihood estimate of the location
  *            parameter $\mu$ and return it in <ret_mu>.
@@ -712,9 +769,11 @@ esl_gumbel_FitCensored(double *x, int n, int z, double phi,
  *           z          - number of censored samples
  *           phi        - censoring value (all x_i >= phi)
  *           lambda     - known scale parameter $\lambda$      
- *           ret_mu     : RETURN: ML estimate of $\mu$
+ *           ret_mu     - RETURN: ML estimate of $\mu$
  *           
  * Returns:   <eslOK> on success.
+ *
+ *            <eslEINVAL> if n<=1; on this error, <*ret_mu> = 0.
  *
  * Throws:    (no abnormal error conditions)
  */
@@ -724,6 +783,9 @@ esl_gumbel_FitCensoredLoc(double *x, int n, int z, double phi, double lambda,
 {
   double esum;
   int    i;
+  int    status;
+
+  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
 
   /* Immediately substitute into Lawless 4.2.3 to find mu, because
    * lambda is known.
@@ -732,13 +794,18 @@ esl_gumbel_FitCensoredLoc(double *x, int n, int z, double phi, double lambda,
   for (i = 0; i < n; i++) 	          /* contribution from observed data */
     esum  += exp(-lambda * x[i]);
   esum += z * exp(-1. * lambda * phi);    /* term from censored data */
+
   *ret_mu = -log(esum / (double) n) / lambda;        
   return eslOK;
+
+ FAILURE:
+  *ret_mu = 0.;
+  return status;
 }
 
 
 /*****************************************************************
- * Truncated data, MAP parameters (requires minimizer augmentation)
+ * 7. Maximum likelihood fitting to truncated data (x_i >= phi and z unknown) (requires minimizer augmentation)
  *****************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 /* Easel's conjugate gradient descent code allows a single void ptr to
@@ -877,22 +944,40 @@ tevd_grad(double *p, int nparam, void *dptr, double *dp)
  *            ret_lambda - RETURN: ML estimate of lambda
  *
  * Returns:   <eslOK> on success.
- *
- * Throws:    <eslENOHALT> if the fit doesn't converge.
+ * 
+ *            <eslEINVAL> if n<=1.
+ *            <eslENORESULT> if the fit fails, likely because the
+ *            number of samples <n> is too small, or because the
+ *            truncation threshold is high enough that the tail
+ *            looks like a scale-free exponential and we can't
+ *            obtain <mu>.
+ *            On either error, <*ret_mu> and <*ret_lambda> are 
+ *            returned as 0.0.
+ *            These are "normal" (returned) errors because 
+ *            the data might be provided directly by a user.
  */
 int
-esl_gumbel_FitTruncated(double *x, int n, double phi, 
-			double *ret_mu, double *ret_lambda)
+esl_gumbel_FitTruncated(double *x, int n, double phi, double *ret_mu, double *ret_lambda)
 {
   struct tevd_data data;
   double wrk[8];		/* workspace for CG: 4 tmp vectors of size 2 */
   double p[2];			/* mu, w;  lambda = e^w */
   double u[2];			/* max initial step size for mu, lambda */
-  int    status;
   double mean, variance;
   double mu, lambda;
   double fx;
+  int    i;
+  int    status;
   
+  /* Can't fit to n<=1 */
+  if (n <= 1) { status = eslEINVAL; goto FAILURE; }
+  
+  /* Can fail on small <n>. One way is if x_i are all identical, so
+   * ML lambda is undefined. 
+   */
+  for (i = 1; i < n; i++) if (x[i] != x[0]) break;
+  if  (i == n) { status = eslENORESULT; goto FAILURE; }
+
   data.x   = x;
   data.n   = n;
   data.phi = phi;
@@ -921,16 +1006,22 @@ esl_gumbel_FitTruncated(double *x, int n, double phi,
   status = esl_min_ConjugateGradientDescent(p, u, 2, 
 					    &tevd_func, &tevd_grad,(void *)(&data),
 					    1e-4, wrk, &fx);
+  if (status != eslOK) { status = eslENORESULT; goto FAILURE; }
   
   *ret_mu     = p[0];
   *ret_lambda = exp(p[1]);	/* reverse the c.o.v. */
+  return status;
+
+ FAILURE:
+  *ret_mu     = 0.0;
+  *ret_lambda = 0.0;
   return status;
 }
 #endif /*eslAUGMENT_MINIMIZER*/
 /*------------------------ end of fitting --------------------------------*/
 
 /*****************************************************************
- * 6. Stats driver
+ * 8. Stats driver
  *****************************************************************/
 #ifdef eslGUMBEL_STATS
 /* compile: gcc -g -O2 -Wall -I. -L. -o stats -DeslGUMBEL_STATS esl_gumbel.c -leasel -lm
@@ -992,7 +1083,8 @@ main(int argc, char **argv)
 	      x[i] = esl_gumbel_Sample(r, mu, lambda);
 
 	    /*direct_mv_fit(x, totalN[exp], &est_mu, &est_lambda);*/
-	    esl_gumbel_FitComplete(x, totalN[exp], &est_mu, &est_lambda);
+	    if (esl_gumbel_FitComplete(x, totalN[exp], &est_mu, &est_lambda) != eslOK)
+	      esl_fatal("gumbel complete fit fit failed");
 	  
 	    printf("complete %6d %6d %9.5f %9.5f %8.6f %8.6f\n", 
 		   totalN[exp], totalN[exp], mu, est_mu, lambda, est_lambda);
@@ -1013,7 +1105,8 @@ main(int argc, char **argv)
 		val = esl_gumbel_Sample(r, mu, lambda);
 		if (val >= phi) x[n++] = val;
 	      }
-	    esl_gumbel_FitCensored(x, n, totalN[exp]-n, phi, &est_mu, &est_lambda);
+	    if (esl_gumbel_FitCensored(x, n, totalN[exp]-n, phi, &est_mu, &est_lambda) != eslOK)
+	      esl_fatal("gumbel censored fit failed");
 	  
 	    printf("censored %6d %6d %9.5f %9.5f %8.6f %8.6f\n", 
 		   totalN[exp], n, mu, est_mu, lambda, est_lambda);
@@ -1035,7 +1128,8 @@ main(int argc, char **argv)
 		val = esl_gumbel_Sample(r, mu, lambda);
 		if (val >= phi) x[n++] = val;
 	      }
-	    esl_gumbel_FitTruncated(x, n, phi, &est_mu, &est_lambda);
+	    if (esl_gumbel_FitTruncated(x, n, phi, &est_mu, &est_lambda) != eslOK)
+	      esl_fatal("gumbel truncated fit failed");
 	  
 	    printf("truncated %6d %6d %9.5f %9.5f %8.6f %8.6f\n", 
 		   totalN[exp], n, mu, est_mu, lambda, est_lambda);
@@ -1055,7 +1149,8 @@ main(int argc, char **argv)
 	    for (i = 0; i < totalN[exp]; i++)
 	      x[i] = esl_gumbel_Sample(r, mu, lambda);
 
-	    esl_gumbel_FitCompleteLoc(x, totalN[exp], lambda, &est_mu);
+	    if (esl_gumbel_FitCompleteLoc(x, totalN[exp], lambda, &est_mu) != eslOK)
+	      esl_fatal("gumbel location-only complete fit failed");
 	  
 	    printf("location %6d %6d %9.5f %9.5f\n",
 		   totalN[exp], totalN[exp], mu, est_mu);
@@ -1071,88 +1166,193 @@ main(int argc, char **argv)
 #endif /*eslGUMBEL_STATS*/
 
 /*****************************************************************
- * 7. Unit tests.
- *****************************************************************/ 
-
-
-/*****************************************************************
- * 8. Test driver.
+ * 9. Unit tests.
  *****************************************************************/ 
 #ifdef eslGUMBEL_TESTDRIVE
-/* compile: gcc -g -Wall -I. -o test -DeslGUMBEL_TESTDRIVE -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER esl_gumbel.c esl_random.c esl_minimizer.c esl_vectorops.c easel.c -lm
- * run:     ./test
+
+#include "esl_getopts.h"
+#include "esl_random.h"
+
+static void
+utest_fitting(ESL_RANDOMNESS *rng)
+{
+  char    msg[]   = "esl_gumbel: fitting unit test failed";
+  int     totalN  = 10000;
+  double  pmu     = -20.;
+  double  plambda = 0.4;
+  double  phi     = -20.;
+  double *x       = NULL;
+  int     i;
+  int     n;
+  double  mu;
+  double  lambda;
+  int     status;
+
+  /* Simulate a complete Gumbel distributed dataset of <totalN> samples */
+  ESL_ALLOC(x, sizeof(double) * totalN);
+  for (i = 0; i < totalN; i++)
+    x[i] = esl_gumbel_Sample(rng, pmu, plambda);
+
+  /* Complete data fitting.
+   * Don't tolerate more than 1% error in mu, 3% in lambda.
+   */
+  if ((status = esl_gumbel_FitComplete(x, totalN, &mu, &lambda)) != eslOK) esl_fatal(msg);
+  if (fabs((mu    -pmu)    /pmu)     > 0.01) esl_fatal(msg);
+  if (fabs((lambda-plambda)/plambda) > 0.03) esl_fatal(msg);
+
+  /* Complete data, known lambda; fit location <mu>
+   */
+  if ((status = esl_gumbel_FitCompleteLoc(x, totalN, plambda, &mu)) != eslOK) esl_fatal(msg);
+  if (fabs((mu   - pmu) / pmu)      > 0.01) esl_fatal(msg);
+
+
+  /* Left censor/truncate the data set, to <n> values x_i >= phi;
+   * <Ntotal-n> are censored
+   */
+  for (n=0, i = 0; i < totalN; i++)
+    if (x[i] >= phi) x[n++] = x[i];
+
+  /* Censored fitting.
+   * Don't tolerate more than 1% error in mu, 4% in lambda.
+   */
+  if ((status = esl_gumbel_FitCensored(x, n, totalN-n, phi, &mu, &lambda)) != eslOK) esl_fatal(msg);
+  if (fabs((mu     - pmu)    /pmu)     > 0.01) esl_fatal(msg);
+  if (fabs((lambda - plambda)/plambda) > 0.04) esl_fatal(msg);
+
+  /* Censored data, known lambda; fit location <mu>
+   */
+  if ((status = esl_gumbel_FitCensoredLoc(x, n, totalN-n, phi, plambda, &mu)) != eslOK) esl_fatal(msg);
+  if (fabs((mu   - pmu) / pmu) > 0.01) esl_fatal(msg);
+
+  /* Truncated fitting.
+   * Don't tolerate more than 5% error in mu, 8% in lambda.
+   */
+#ifdef eslAUGMENT_MINIMIZER
+  if ((status = esl_gumbel_FitTruncated(x, n, phi, &mu, &lambda)) != eslOK) esl_fatal(msg);
+  if (fabs((mu     - pmu)    /pmu)     > 0.05) esl_fatal(msg);
+  if (fabs((lambda - plambda)/plambda) > 0.08) esl_fatal(msg);
+#endif /*eslAUGMENT_MINIMIZER*/
+  
+  free(x);
+  return;
+
+ ERROR:
+  if (x) free(x);
+  esl_fatal("allocation failure in esl_gumbel : fitting unit test");
+}
+
+
+static void
+utest_fit_failure(void)
+{
+  char   msg[] = "esl_gumbel: fit_failure unit test failed";
+  double x[10];
+  double mu;
+  double lambda;
+  int    status;
+
+  x[0] = 1.0;
+  x[1] = 1.0;
+
+  /* n=0 or 1 => eslEINVAL. */
+  status = esl_gumbel_FitComplete(x, 1, &mu, &lambda);
+  if (status != eslEINVAL)    esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  /* Test for failure on small n => eslENORESULT */
+  status = esl_gumbel_FitComplete(x, 2, &mu, &lambda);
+  if (status != eslENORESULT) esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  /* FitCompleteLoc() invalid on n=0,1; but always succeeds for n>1 */
+  status = esl_gumbel_FitCompleteLoc(x, 1, 1.0, &mu);
+  if (status != eslEINVAL)    esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+
+  /* FitCensored() is eslEINVAL on n=0,1, like FitComplete().
+   */
+  status = esl_gumbel_FitCensored(x, 1, 1, 0.0, &mu, &lambda);
+  if (status != eslEINVAL)    esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  /* FitCensored() can fail on small n, w/ eslENORESULT */
+  status = esl_gumbel_FitCensored(x, 2, 1, 0.0, &mu, &lambda);
+  if (status != eslENORESULT) esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  /* FitCensoredLoc()invalid on n=0,1; but always succeeds for n>1 */
+  status = esl_gumbel_FitCensoredLoc(x, 1, 1, 0.0, 1.0, &mu);
+  if (status != eslEINVAL)    esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+
+  /* FitTruncated() w/ n=0,1 => eslEINVAL. */
+  status = esl_gumbel_FitTruncated(x, 1, 0.0, &mu, &lambda);
+  if (status != eslEINVAL)    esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  /* FitTruncated() can fail on small n, w/ eslENORESULT */
+  status = esl_gumbel_FitTruncated(x, 2, 0.0, &mu, &lambda);
+  if (status != eslENORESULT) esl_fatal(msg);
+  if (mu     != 0.0)          esl_fatal(msg);
+  if (lambda != 0.0)          esl_fatal(msg);
+
+  return;
+}
+#endif /*eslGUMBEL_TESTDRIVE*/
+
+/*****************************************************************
+ * 10. Test driver.
+ *****************************************************************/ 
+#ifdef eslGUMBEL_TESTDRIVE
+/* compile: gcc -g -Wall -I. -L. -o esl_gumbel_utest -DeslGUMBEL_TESTDRIVE esl_gumbel.c -leasel -lm
+ *  (gcov): gcc -g -Wall -fprofile-arcs -ftest-coverage -I. -L. -o esl_gumbel_utest -DeslGUMBEL_TESTDRIVE esl_gumbel.c -leasel -lm
+ * run:       ./esl_gumbel_utest
+ * coverage:  ./esl_gumbel_utest; gcov esl_gumbel.c; more esl_gumbel.c.gcov
  */
 #include <stdio.h>
 
 #include "easel.h"
+#include "esl_getopts.h"
 #include "esl_random.h"
 #include "esl_minimizer.h"
 #include "esl_gumbel.h"
+#include "esl_stats.h"
+
+static ESL_OPTIONS options[] = {
+   /* name  type         default  env   range togs  reqs incomp  help                        docgrp */
+  { "-h",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "show help and usage",           0},
+  { "-s",  eslARG_INT,      "42", NULL, NULL, NULL, NULL, NULL, "set random number seed to <n>", 0},
+  { "-v",  eslARG_NONE,    FALSE, NULL, NULL, NULL, NULL, NULL, "verbose: show verbose output",  0},
+  { 0,0,0,0,0,0,0,0,0,0},
+};
+static char usage[]  = "[-options]";
+static char banner[] = "test driver for Gumbel distribution routines";
 
 int
 main(int argc, char **argv)
 {
-  ESL_RANDOMNESS *r = NULL;
-  int    totalN;
-  int    n;
-  double phi;		/* truncation threshold. */
-  int    i;
-  double *x = NULL;
-  double  mu, lambda;
-  double  est_mu, est_lambda;
-  int     status;
+  ESL_GETOPTS    *go         = esl_getopts_CreateDefaultApp(options, 0, argc, argv, banner, usage);
+  ESL_RANDOMNESS *rng        = esl_randomness_Create(esl_opt_GetInteger(go, "-s"));
+  int             be_verbose = esl_opt_GetBoolean(go, "-v");
 
-  totalN = 10000;
-  mu     = -20.;
-  lambda = 0.4;
-  phi    = -20.;
+  if (be_verbose) printf("seed = %" PRIu32 "\n", esl_randomness_GetSeed(rng));
 
-  r = esl_randomness_Create(42); /* make the sims reproducible */
-  ESL_ALLOC(x, sizeof(double) * totalN);
-  
-  /* Test complete data fitting on simulated data.
-   * Don't tolerate more than 1% error in mu, 3% in lambda.
-   */
-  for (i = 0; i < totalN; i++)
-    x[i] = esl_gumbel_Sample(r, mu, lambda);
-  esl_gumbel_FitComplete(x, totalN, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.03) abort();
+  utest_fitting(rng);
+  utest_fit_failure();
 
-  /* Test censored fitting on simulated data, for 
-   * the right tail mass above the mode.
-   * Don't tolerate more than 1% error in mu, 4% in lambda.
-   */
-  for (n=0, i = 0; i < totalN; i++)
-    if (x[i] >= phi) x[n++] = x[i];
-  esl_gumbel_FitCensored(x, n, totalN-n, phi, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.01) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.04) abort();
-
-  /* Test truncated fitting on simulated data.
-   * Don't tolerate more than 5% error in mu, 8% in lambda.
-   */
-#ifdef eslAUGMENT_MINIMIZER
-  esl_gumbel_FitTruncated(x, n, phi, &est_mu, &est_lambda);
-  if (fabs((est_mu    -mu)    /mu)     > 0.05) abort();
-  if (fabs((est_lambda-lambda)/lambda) > 0.08) abort();
-#endif /*eslAUGMENT_MINIMIZER*/
-
-
-  free(x);
-  esl_randomness_Destroy(r);
+  esl_randomness_Destroy(rng);
   return 0;
-
- ERROR:
-  if (x != NULL) free(x);
-  if (r != NULL) esl_randomness_Destroy(r);
-  return status;
 }
 #endif /*eslGUMBEL_TESTDRIVE*/
 
 
 /*****************************************************************
- * 9. Example.
+ * 11. Example.
  *****************************************************************/ 
 #ifdef eslGUMBEL_EXAMPLE
 /*::cexcerpt::gumbel_example::begin::*/
@@ -1189,8 +1389,9 @@ main(int argc, char **argv)
   z = esl_gumbel_cdf(min, mu, lambda);             /* left tail p~1e-4 < min */
   printf("min = %6.1f  P(<=min) = %g\n", min, z);
 
-  esl_gumbel_FitComplete(x, n, &est_mu, &est_lambda); /* fit params to the data */
-  
+  if (esl_gumbel_FitComplete(x, n, &est_mu, &est_lambda) != eslOK) /* fit params to the data */
+    esl_fatal("gumbel ML complete data fit failed");
+
   z = 100. * fabs((est_mu - mu) / mu);
   printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
 	 mu, est_mu, z);

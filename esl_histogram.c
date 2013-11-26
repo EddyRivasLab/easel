@@ -814,7 +814,7 @@ esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val, double pmass,
   if (h->expect == NULL)  ESL_ALLOC(h->expect, sizeof(double) * h->nb);
 
   if ((status = esl_histogram_Score2Bin(h, base_val, &(h->emin))) != eslOK) return status;
-  h->emin += 1;
+  //  h->emin += 1;
   esl_vec_DSet(h->expect, h->emin, 0.);
 
   for (b = h->emin; b < h->nb; b++)
@@ -1583,28 +1583,28 @@ main(int argc, char **argv)
 	  fstrategy == FIT_COMPLETE)
 	{
 	  esl_histogram_GetData(h, &xv, &n);
-	  esl_gumbel_FitComplete(xv, n, &(ep[0]), &ep[1]);
+	  if (esl_gumbel_FitComplete(xv, n, &(ep[0]), &ep[1]) != eslOK) esl_fatal("gumbel complete fit failed");
 	}
       else if (cstrategy == COLLECT_COMPLETE &&
 	       bstrategy == FIT_SAMPLES &&
 	       fstrategy == FIT_CENSORED)
 	{
 	  esl_histogram_GetTailByMass(h, cmass, &xv, &n, &z);
-	  esl_gumbel_FitCensored(xv, n, z, xv[0], &(ep[0]), &ep[1]);
+	  if (esl_gumbel_FitCensored(xv, n, z, xv[0], &(ep[0]), &ep[1]) != eslOK) esl_fatal("gumbel censored fit failed");
 	}
       else if (cstrategy == COLLECT_COMPLETE &&
 	       bstrategy == FIT_SAMPLES &&
 	       fstrategy == FIT_TAIL)
 	{
 	  esl_histogram_GetTailByMass(h, tailmass, &xv, &n, &z);
-	  esl_exp_FitComplete(xv, n, &(ep[0]), &ep[1]);
+	  if (esl_exp_FitComplete(xv, n, &(ep[0]), &ep[1]) != eslOK) esl_fatal("exponential complete fit failed");
 	}
       else if (cstrategy == COLLECT_CENSORED &&
 	       bstrategy == FIT_SAMPLES &&
 	       fstrategy == FIT_CENSORED)
 	{
 	  esl_histogram_GetData(h, &xv, &n);
-	  esl_gumbel_FitCensored(xv, n, h->z, h->phi, &(ep[0]), &ep[1]);
+	  if (esl_gumbel_FitCensored(xv, n, h->z, h->phi, &(ep[0]), &ep[1]) != eslOK) esl_fatal("gumbel censored fit failed");
 	}
       else if (cstrategy == COLLECT_COMPLETE &&
 	       bstrategy == FIT_BINNED &&
@@ -1612,7 +1612,7 @@ main(int argc, char **argv)
 	{
 	  tailmass = save_tailmass; /* reset to original for each trial. */
 	  esl_histogram_SetTailByMass(h, tailmass, &tailmass);
-	  esl_exp_FitCompleteBinned(h, &(ep[0]), &ep[1]);
+	  if (esl_exp_FitCompleteBinned(h, &(ep[0]), &ep[1]) != eslOK) esl_fatal("exponential binned complete fit failed");
 	}
       else
 	ESL_EXCEPTION(eslEINVAL, "not a scenario we currently test");
@@ -1770,7 +1770,8 @@ main(int argc, char **argv)
   }
 
   esl_histogram_GetData(h, &xv, &n);
-  esl_gumbel_FitComplete(xv, n, &mu, &lambda);
+  if (esl_gumbel_FitComplete(xv, n, &mu, &lambda) != eslOK)
+    esl_fatal("gumbel complete data fit failed");
 
   params[0] = mu;
   params[1] = lambda;
@@ -1822,7 +1823,8 @@ main(int argc, char **argv)
   }
 
   esl_histogram_GetTailByMass(h, 0.5, &xv, &n, &z); /* fit to right 50% */
-  esl_gumbel_FitCensored(xv, n, z, xv[0], &mu, &lambda);
+  if (esl_gumbel_FitCensored(xv, n, z, xv[0], &mu, &lambda) != eslOK)
+    esl_fatal("gumbel censored fit failed");
 
   params[0] = mu;
   params[1] = lambda;
@@ -1928,7 +1930,8 @@ main(int argc, char **argv)
   }
 
   esl_histogram_GetData(h, &xv, &n);
-  esl_gumbel_FitCensored(xv, n, z, phi, &mu, &lambda);
+  if (esl_gumbel_FitCensored(xv, n, z, phi, &mu, &lambda) != eslOK)
+    esl_fatal("gumbel censored fit failed");
 
   params[0] = mu;
   params[1] = lambda;

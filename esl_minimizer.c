@@ -434,12 +434,10 @@ esl_min_ConjugateGradientDescent(double *x, double *u, int n,
 
   oldfx = (*func)(x, n, prm);	/* init the objective function */
   
-  /* Bail out if the function is +/-inf: this can happen if the caller
+  /* Bail out if the function is +/-inf or nan: this can happen if the caller
    * has screwed something up, or has chosen a bad start point.
    */
-  if (oldfx == eslINFINITY || oldfx == -eslINFINITY)
-	  ESL_EXCEPTION(eslERANGE, "minimum not finite");
-
+  if (! isfinite(oldfx)) ESL_EXCEPTION(eslERANGE, "minimum not finite");
 
   if (dfunc != NULL) 
     {

@@ -30,8 +30,8 @@ input is read from
 .I stdin.
 
 .pp
-The algorithm used is efficient, requiring only a single pass through
-.I filename
+Uses a reservoir sampling algorithm, which is efficient: requires only a single pass through
+.I filename,
 and memory storage proportional to 
 .I nlines
 (and importantly, not to the size of

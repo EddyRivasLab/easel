@@ -10,7 +10,7 @@ variety of sources and contributors, as noted in the appropriate
 places in individual files. Copyright holders and contributors
 include:
 
-  Free Software Foundation, Inc.    configure
+  Free Software Foundation, Inc.    configure	
   Matteo Frigo                      aclocal.m4
   Steven G. Johnson                 aclocal.m4
   Stephen Moshier                   esl_sse.c,esl_vmx.c   

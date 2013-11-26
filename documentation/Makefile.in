@@ -54,11 +54,9 @@ MODULES = easel\
 	  esl_hyperexp\
 	  esl_keyhash\
 	  esl_minimizer\
-	  esl_mixgev\
 	  esl_mpi\
 	  esl_msa\
 	  esl_msacluster\
-	  esl_msafile\
 	  esl_msaweight\
 	  esl_normal\
 	  esl_paml\
@@ -80,6 +78,9 @@ MODULES = easel\
 	  esl_vectorops\
 	  esl_weibull\
 	  esl_wuss
+
+#	  esl_mixgev
+#	  esl_msafile
 #	  esl_swat
 
 TEXFILES = \
