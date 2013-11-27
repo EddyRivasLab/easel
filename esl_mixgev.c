@@ -1,8 +1,23 @@
-/* esl_mixgev.c
- * Statistical routines for mixtures of generalized extreme value 
- * distributions.
+/* Statistical routines for mixtures of generalized extreme value distributions.
  * 
- * xref SRE:STL9/139  
+ * Contents:
+ *   1. The ESL_MIXGEV object
+ *   2. Evaluating densities and distributions
+ *   3. Generic API routines: for general interface w/ histogram module
+ *   4. Dumping plots to xmgrace XY format
+ *   5. Sampling                    (augmentation: random)
+ *   6. ML fitting to complete data (augmentation: minimizer)
+ *   7. Example
+ *   8. Copyright and license information
+ *   
+ * Xrefs:
+ *  SRE:STL9/139  original implementation
+ *  
+ * To-do:
+ *   - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *     on failure due to small n. Compare esl_gumbel. xref J12/93. 
+ *     SRE, Wed Nov 27 11:02:14 2013
+ *     
  */
 #include "esl_config.h"
 
@@ -27,7 +42,7 @@
 
 
 /****************************************************************************
- * Routines for the ESL_MIXGEV object
+ * 1. The ESL_MIXGEV object
  ****************************************************************************/ 
 
 /* Function:  esl_mixgev_Create()
@@ -170,7 +185,7 @@ esl_mixgev_ForceGumbel(ESL_MIXGEV *mg, int which)
 
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 2. Evaluating densities and distributions
  ****************************************************************************/ 
 
 /* Function:  esl_mixgev_pdf()
@@ -326,7 +341,7 @@ esl_mixgev_invcdf(double p, ESL_MIXGEV *mg)
 
 
 /****************************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 3. Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
 /* Function:  esl_mixgev_generic_pdf()
@@ -382,7 +397,7 @@ esl_mixgev_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots to xmgrace XY format
+ * 4. Dumping plots to xmgrace XY format
  ****************************************************************************/ 
 
 /* Function:  esl_mixgev_Plot()
@@ -414,7 +429,7 @@ esl_mixgev_Plot(FILE *fp, ESL_MIXGEV *mg,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 5. Sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 
@@ -440,7 +455,7 @@ esl_mixgev_Sample(ESL_RANDOMNESS *r, ESL_MIXGEV *mg)
 
 
 /****************************************************************************
- * Maximum likelihood fitting to mixture GEV distributions
+ * 6. ML fitting to complete data (augmentation: minimizer)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 

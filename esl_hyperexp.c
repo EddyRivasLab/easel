@@ -1,4 +1,26 @@
 /* Statistical routines for hyperexponential distributions.
+ * 
+ * Contents:
+ *   1. The ESL_HYPEREXP object
+ *   2. Evaluating densities and distributions
+ *   3. Generic API routines: for general interface w/ histogram module
+ *   4. Dumping plots for files
+ *   5. Sampling                    (augmentation: random)
+ *   6. File input                  (augmentation: fileparser)
+ *   7. ML fitting to complete data (augmentation: minimizer)
+ *   8. ML fitting to binned data   (augmentation: histogram, minimizer)
+ *   9. Test driver
+ *  10. Example
+ *  11. Copyright and license information
+ *   
+ * Xrefs:
+ *   STL9/140     :  original implementation
+ *   STL9/143-144 :  ML fitting to binned data  
+ *   
+ * To-do:
+ *   - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *     on failure due to small n. Compare esl_gumbel. xref J12/93.  
+ *     SRE, Wed Nov 27 11:17:59 2013
  */
 #include "esl_config.h"
 
@@ -26,7 +48,7 @@
 #endif
 
 /****************************************************************************
- *# Routines for the ESL_HYPEREXP object
+ *# 1. The ESL_HYPEREXP object
  ****************************************************************************/ 
 
 /* Function:  esl_hyperexp_Create()
@@ -230,7 +252,7 @@ esl_hyperexp_Dump(FILE *fp, ESL_HYPEREXP *hxp)
 
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 2. Evaluating densities and distributions
  ****************************************************************************/ 
 /* all lambda_k > 0
  * all q_k are probabilities, \sum_k q_k = 1 [watch out for q_k=0 in log(q_k)].
@@ -404,7 +426,7 @@ esl_hxp_invcdf(double p, ESL_HYPEREXP *h)
 
 
 /****************************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 3. Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
 /* Function:  esl_hxp_generic_pdf()
@@ -458,7 +480,7 @@ esl_hxp_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 4. Dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_hxp_Plot()
@@ -490,7 +512,7 @@ esl_hxp_Plot(FILE *fp, ESL_HYPEREXP *h,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 5. Sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_hxp_Sample()
@@ -511,7 +533,7 @@ esl_hxp_Sample(ESL_RANDOMNESS *r, ESL_HYPEREXP *h)
 
 
 /****************************************************************************
- * File input (mixture models are a little too complex to set on commandline)
+ * 6. File input (mixture models are a little too complex to set on commandline)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_FILEPARSER
 /* Function:  esl_hyperexp_Read()
@@ -649,7 +671,7 @@ esl_hyperexp_ReadFile(char *filename, ESL_HYPEREXP **ret_hxp)
 
 
 /****************************************************************************
- * Maximum likelihood fitting, complete unbinned data
+ * 7. ML fitting to complete data
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 /* This structure is used to sneak the data into minimizer's generic
@@ -909,7 +931,7 @@ esl_hxp_FitComplete(double *x, int n, ESL_HYPEREXP *h)
 
 
 /****************************************************************************
- * Maximum likelihood fitting, complete binned data         xref STL9/143-144
+ * 8. Maximum likelihood fitting, complete binned data         xref STL9/143-144
  ****************************************************************************/ 
 #ifdef eslAUGMENT_HISTOGRAM
 /* minimizer API only allows us one generic void ptr to pass
@@ -1137,81 +1159,11 @@ esl_hxp_FitCompleteBinned(ESL_HISTOGRAM *g, ESL_HYPEREXP *h)
 
 
 
-/****************************************************************************
- * Example main()
- ****************************************************************************/ 
-#ifdef eslHYPEREXP_EXAMPLE
-/*::cexcerpt::hyperexp_example::begin::*/
-/* compile: 
-   gcc -g -Wall -I. -o example -DeslHYPEREXP_EXAMPLE\
-     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
-      esl_hyperexp.c esl_exponential.c esl_histogram.c esl_random.c esl_minimizer.c\
-       esl_stats.c esl_vectorops.c easel.c -lm
- * run:     ./example
- */
-#include <stdio.h>
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_histogram.h"
-#include "esl_hyperexp.h"
-
-int
-main(int argc, char **argv)
-{
-  ESL_RANDOMNESS *r;		/* source of random numbers        */
-  ESL_HISTOGRAM  *h;		/* histogram to store the data     */
-  ESL_HYPEREXP   *hxp;		/* hyperexponential to sample from */
-  ESL_HYPEREXP   *ehxp;		/* estimated hyperexponential      */
-  double      x;		/* sampled data point              */
-  int         n = 100000;	/* number of samples               */
-  double     *data;
-  int         ndata;
-  int         i;
-
-  hxp = esl_hyperexp_Create(3);
-  hxp->mu = -2.0;
-  hxp->q[0]      = 0.6;    hxp->q[1]      = 0.3;   hxp->q[2]      = 0.1; 
-  hxp->lambda[0] = 1.0;    hxp->lambda[1] = 0.3;   hxp->lambda[2] = 0.1;
-
-  r   = esl_randomness_Create(0);
-  h   = esl_histogram_CreateFull(hxp->mu, 100, 1.0);
-
-  for (i = 0; i < n; i++)
-    {
-      x    = esl_hxp_Sample(r, hxp);
-      esl_histogram_Add(h, x);
-    }
-  esl_histogram_GetData(h, &data, &ndata);
-
-  /* Plot the empirical (sampled) and expected survivals */
-  esl_histogram_PlotSurvival(stdout, h);
-  esl_hxp_Plot(stdout, hxp, &esl_hxp_surv, h->xmin, h->xmax, 0.1);
-
-  /* ML fit to complete data, and plot fitted survival curve */
-  ehxp = esl_hyperexp_Create(3);
-  esl_hxp_FitGuess(data, ndata, ehxp);
-  esl_hxp_FitComplete(data, ndata, ehxp);
-  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
-
-  /* ML fit to binned data, plot fitted survival curve  */
-  esl_hxp_FitGuessBinned(h, ehxp);
-  esl_hxp_FitCompleteBinned(h, ehxp);
-  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
-
-  esl_randomness_Destroy(r);
-  esl_histogram_Destroy(h);
-  esl_hyperexp_Destroy(hxp);
-  esl_hyperexp_Destroy(ehxp);
-  return 0;
-}
-/*::cexcerpt::hyperexp_example::end::*/
-#endif /*eslHYPEREXP_EXAMPLE*/
-
 
 
 
 /****************************************************************************
- * Test driver
+ * 9. Test driver
  ****************************************************************************/ 
 #ifdef eslHYPEREXP_TESTDRIVE
 /* Compile:
@@ -1380,6 +1332,76 @@ main(int argc, char **argv)
 }
 #endif /*eslHYPEREXP_TESTDRIVE*/
 
+/****************************************************************************
+ * Example main()
+ ****************************************************************************/ 
+#ifdef eslHYPEREXP_EXAMPLE
+/*::cexcerpt::hyperexp_example::begin::*/
+/* compile: 
+   gcc -g -Wall -I. -o example -DeslHYPEREXP_EXAMPLE\
+     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
+      esl_hyperexp.c esl_exponential.c esl_histogram.c esl_random.c esl_minimizer.c\
+       esl_stats.c esl_vectorops.c easel.c -lm
+ * run:     ./example
+ */
+#include <stdio.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_hyperexp.h"
+
+int
+main(int argc, char **argv)
+{
+  ESL_RANDOMNESS *r;		/* source of random numbers        */
+  ESL_HISTOGRAM  *h;		/* histogram to store the data     */
+  ESL_HYPEREXP   *hxp;		/* hyperexponential to sample from */
+  ESL_HYPEREXP   *ehxp;		/* estimated hyperexponential      */
+  double      x;		/* sampled data point              */
+  int         n = 100000;	/* number of samples               */
+  double     *data;
+  int         ndata;
+  int         i;
+
+  hxp = esl_hyperexp_Create(3);
+  hxp->mu = -2.0;
+  hxp->q[0]      = 0.6;    hxp->q[1]      = 0.3;   hxp->q[2]      = 0.1; 
+  hxp->lambda[0] = 1.0;    hxp->lambda[1] = 0.3;   hxp->lambda[2] = 0.1;
+
+  r   = esl_randomness_Create(0);
+  h   = esl_histogram_CreateFull(hxp->mu, 100, 1.0);
+
+  for (i = 0; i < n; i++)
+    {
+      x    = esl_hxp_Sample(r, hxp);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_GetData(h, &data, &ndata);
+
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_hxp_Plot(stdout, hxp, &esl_hxp_surv, h->xmin, h->xmax, 0.1);
+
+  /* ML fit to complete data, and plot fitted survival curve */
+  ehxp = esl_hyperexp_Create(3);
+  esl_hxp_FitGuess(data, ndata, ehxp);
+  esl_hxp_FitComplete(data, ndata, ehxp);
+  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_hxp_FitGuessBinned(h, ehxp);
+  esl_hxp_FitCompleteBinned(h, ehxp);
+  esl_hxp_Plot(stdout, ehxp, &esl_hxp_surv,  h->xmin, h->xmax, 0.1);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
+  esl_hyperexp_Destroy(hxp);
+  esl_hyperexp_Destroy(ehxp);
+  return 0;
+}
+/*::cexcerpt::hyperexp_example::end::*/
+#endif /*eslHYPEREXP_EXAMPLE*/
+
 /*****************************************************************
  * @LICENSE@
  *
@@ -1387,4 +1409,4 @@ main(int argc, char **argv)
  * SVN $URL$
  *****************************************************************/
 
-/* xref STL9/140 */
+

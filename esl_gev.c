@@ -1,5 +1,24 @@
 /* Statistical routines for generalized extreme value (GEV) distributions.
  *
+ * Contents:
+ *    1. Evaluating densities and distributions
+ *    2. Generic API routines: for general interface w/ histogram module
+ *    3. Dumping plots to files
+ *    4. Sampling (requires augmentation w/ random module)
+ *    5. ML fitting to complete or censored data
+ *    6. Stats driver
+ *    7. Example
+ *    8. Copyright and license information
+ *    
+ * Xref:
+ *    STL9/118, 2005/0712-easel-gev-impl. Verified against evd package in R.
+ *    
+ * To-do:
+ *    - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *      on failure due to small n. Compare esl_gumbel. xref J12/93.
+ *      SRE, Wed Nov 27 11:18:07 2013
+ *
+ *****************************************************************
  * GEV distribution 
  *     G(x) = exp{ -[1 + \alpha \lambda(x - \mu)]^{-1/\alpha} }
  * where:
@@ -15,9 +34,6 @@
  *   [Coles01] 
  *   S. Coles, An Introduction to Statistical Modeling of Extreme Values, 
  *   Springer, 2001.
- *            
- * Xref: 
- *   STL9/118, 2005/0712-easel-gev-impl. Verified against evd package in R.
  */
 #include "esl_config.h"
 
@@ -37,7 +53,7 @@
 #endif
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 1. Evaluating densities and distributions
  ****************************************************************************/ 
 
 /* Function:  esl_gev_pdf()
@@ -230,7 +246,7 @@ esl_gev_invcdf(double p, double mu, double lambda, double alpha)
 
 
 /*****************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 2. Generic API routines: for general interface w/ histogram module
  *****************************************************************/ 
 
 /* Function:  esl_gev_generic_pdf()
@@ -281,7 +297,7 @@ esl_gev_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 3. Dumping plots to files
  ****************************************************************************/ 
 
 /* Function:  esl_gev_Plot()
@@ -312,7 +328,7 @@ esl_gev_Plot(FILE *fp, double mu, double lambda, double alpha,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 4. Sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gev_Sample()
@@ -334,7 +350,7 @@ esl_gev_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double alpha)
 
 
 /****************************************************************************
- * Maximum likelihood fitting to GEV distributions
+ * 5. ML fitting to complete or censored data
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 /* Easel's conjugate gradient descent code allows a single void ptr to
@@ -616,70 +632,9 @@ esl_gev_FitCensored(double *x, int n, int z, double phi,
 
 
 
-
-
 /****************************************************************************
- * Example, test, and stats drivers
+ * 6. Stats driver
  ****************************************************************************/ 
-/* Example main()
- */
-#ifdef eslGEV_EXAMPLE
-/*::cexcerpt::gev_example::begin::*/
-/* compile: 
-     gcc -g -Wall -I. -o example -DeslGEV_EXAMPLE -DeslAUGMENT_RANDOM\
-       -DeslAUGMENT_MINIMIZER esl_gev.c esl_random.c esl_minimizer.c\
-       esl_vectorops.c easel.c -lm
- * run:     ./example
- */
-#include <stdio.h>
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_minimizer.h"
-#include "esl_gev.h"
-
-int
-main(int argc, char **argv)
-{
-  double  est_mu, est_lambda, est_alpha;
-  double  z;
-  int     i;
-  int     n         = 10000; 	   /* simulate 10,000 samples */
-  double  mu        = -20.0;       /* with mu = -20    */ 
-  double  lambda    = 0.4;         /* and lambda = 0.4 */
-  double  alpha     = 0.1;	   /* and alpha = 0.1  */
-  double  min       =  9999.;
-  double  max       = -9999.;
-  double *x         = malloc(sizeof(double) * n);
-  ESL_RANDOMNESS *r = esl_randomness_Create(0);;
-
-  for (i = 0; i < n; i++)	/* generate the 10,000 samples */
-    { 
-      x[i] = esl_gev_Sample(r, mu, lambda, alpha);
-      if (x[i] < min) min = x[i];
-      if (x[i] > max) max = x[i];
-    }
-
-  z = esl_gev_surv(max, mu, lambda, alpha);       /* right tail p~1e-4 >= max */
-  printf("max = %6.1f  P(>max)  = %g   E=%6.3f\n", max, z, z*(double)n);
-  z = esl_gev_cdf(min, mu, lambda, alpha);        /* left tail p~1e-4 < min */
-  printf("min = %6.1f  P(<=min) = %g   E=%6.3f\n", min, z, z*(double)n);
-
-  esl_gev_FitComplete(x, n, &est_mu, &est_lambda, &est_alpha);
- 
-  printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
-	 mu,     est_mu,     100. * fabs((est_mu - mu) / mu));
-  printf("Parametric lambda = %6.2f.  Estimated lambda = %6.2f.  Difference = %.1f%%.\n",
-	 lambda, est_lambda, 100. * fabs((est_lambda - lambda) /lambda));
-  printf("Parametric alpha  = %6.4f.  Estimated alpha  = %6.4f.  Difference = %.1f%%.\n",
-	 alpha,  est_alpha,  100. * fabs((est_alpha - alpha) /alpha));
-
-  free(x);
-  esl_randomness_Destroy(r);
-  return 0;
-}
-/*::cexcerpt::gev_example::end::*/
-#endif /*eslGEV_EXAMPLE*/
-
 
 #ifdef eslGEV_STATS
 /* compile: 
@@ -971,6 +926,66 @@ stats_fittest(FILE *fp, int ntrials, int n, double mu, double lambda, double alp
 }
 #endif /*eslGEV_STATS*/
 
+
+/*****************************************************************
+ * 7. Example
+ *****************************************************************/
+#ifdef eslGEV_EXAMPLE
+/*::cexcerpt::gev_example::begin::*/
+/* compile: 
+     gcc -g -Wall -I. -o example -DeslGEV_EXAMPLE -DeslAUGMENT_RANDOM\
+       -DeslAUGMENT_MINIMIZER esl_gev.c esl_random.c esl_minimizer.c\
+       esl_vectorops.c easel.c -lm
+ * run:     ./example
+ */
+#include <stdio.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_minimizer.h"
+#include "esl_gev.h"
+
+int
+main(int argc, char **argv)
+{
+  double  est_mu, est_lambda, est_alpha;
+  double  z;
+  int     i;
+  int     n         = 10000; 	   /* simulate 10,000 samples */
+  double  mu        = -20.0;       /* with mu = -20    */ 
+  double  lambda    = 0.4;         /* and lambda = 0.4 */
+  double  alpha     = 0.1;	   /* and alpha = 0.1  */
+  double  min       =  9999.;
+  double  max       = -9999.;
+  double *x         = malloc(sizeof(double) * n);
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);;
+
+  for (i = 0; i < n; i++)	/* generate the 10,000 samples */
+    { 
+      x[i] = esl_gev_Sample(r, mu, lambda, alpha);
+      if (x[i] < min) min = x[i];
+      if (x[i] > max) max = x[i];
+    }
+
+  z = esl_gev_surv(max, mu, lambda, alpha);       /* right tail p~1e-4 >= max */
+  printf("max = %6.1f  P(>max)  = %g   E=%6.3f\n", max, z, z*(double)n);
+  z = esl_gev_cdf(min, mu, lambda, alpha);        /* left tail p~1e-4 < min */
+  printf("min = %6.1f  P(<=min) = %g   E=%6.3f\n", min, z, z*(double)n);
+
+  esl_gev_FitComplete(x, n, &est_mu, &est_lambda, &est_alpha);
+ 
+  printf("Parametric mu     = %6.1f.  Estimated mu     = %6.2f.  Difference = %.1f%%.\n",
+	 mu,     est_mu,     100. * fabs((est_mu - mu) / mu));
+  printf("Parametric lambda = %6.2f.  Estimated lambda = %6.2f.  Difference = %.1f%%.\n",
+	 lambda, est_lambda, 100. * fabs((est_lambda - lambda) /lambda));
+  printf("Parametric alpha  = %6.4f.  Estimated alpha  = %6.4f.  Difference = %.1f%%.\n",
+	 alpha,  est_alpha,  100. * fabs((est_alpha - alpha) /alpha));
+
+  free(x);
+  esl_randomness_Destroy(r);
+  return 0;
+}
+/*::cexcerpt::gev_example::end::*/
+#endif /*eslGEV_EXAMPLE*/
 
 
 /*****************************************************************

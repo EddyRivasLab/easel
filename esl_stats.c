@@ -433,7 +433,7 @@ esl_stats_GTest(int ca, int na, int cb, int nb, double *ret_G, double *ret_P)
 int
 esl_stats_ChiSquaredTest(int v, double x, double *ret_answer)
 {
-  return esl_stats_IncompleteGamma((double)v/2, x/2, NULL, ret_answer);
+  return esl_stats_IncompleteGamma((double)v/2., x/2., NULL, ret_answer);
 }
 /*----------------- end, statistical tests  ---------------------*/
 

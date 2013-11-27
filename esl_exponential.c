@@ -13,6 +13,11 @@
  *  10. Copyright and license information
  *
  * xref STL9/138  
+ * 
+ * To do:
+ *    - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *      on failure due to small n. Compare esl_gumbel. xref J12/93.
+ *      SRE, Wed Nov 27 11:03:07 2013
  */
 #include "esl_config.h"
 

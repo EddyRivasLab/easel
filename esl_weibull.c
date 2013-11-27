@@ -3,12 +3,18 @@
  * Contents:
  *   1. Routines for evaluating densities and distributions.
  *   2. Generic API routines, for general interface w/ histogram module
- *   3. Routines for dumping plots to files
- *   4. Routines for sampling (requires augmentation w/ random module)
- *   5. Maximum likelihood fitting (requires augmentation w/ minimizer)
- *   6. Test driver
- *   7. Example 
- *   8. Copyright and licence information.
+ *   3. Dumping plots to files
+ *   4. Sampling                    (augmentation: random)
+ *   5. ML fitting to complete data (augmentation: minimizer)
+ *   6. ML fitting to binned data   (augmentation: histogram, minimizer)
+ *   7. Test driver
+ *   8. Example 
+ *   9. Copyright and licence information.
+ *   
+ * To-do:
+ *    - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *      on failure due to small n. Compare esl_gumbel. xref J12/93.  
+ *      SRE, Wed Nov 27 11:13:48 2013
  */
 #include "esl_config.h"
 
@@ -240,7 +246,7 @@ esl_wei_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * 3. Routines for dumping plots for files
+ * 3. Dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_wei_Plot()
@@ -273,7 +279,7 @@ esl_wei_Plot(FILE *fp, double mu, double lambda, double tau,
 
 
 /****************************************************************************
- * 4. Routines for sampling (requires augmentation w/ random module)
+ * 4. Sampling (augmentation: random)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 
@@ -294,7 +300,7 @@ esl_wei_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 
 
 /****************************************************************************
- * 5. Maximum likelihood fitting
+ * 5. ML fitting to complete data (augmentation: minimizer)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 /* Easel's conjugate gradient descent code allows a single void ptr to
@@ -403,8 +409,14 @@ esl_wei_FitComplete(double *x, int n, double *ret_mu,
   *ret_tau    = exp(p[1]);
   return status;
 }
+#endif /*eslAUGMENT_MINIMIZER*/
+
+/*****************************************************************
+ * 6. ML fitting to binned data (augmentation: histogram, minimizer)
+ *****************************************************************/
 
 #ifdef eslAUGMENT_HISTOGRAM
+#ifdef eslAUGMENT_MINIMIZER
 struct wei_binned_data {
   ESL_HISTOGRAM *h;	/* contains the binned observed data        */
   double  mu;		/* mu is considered to be known, not fitted */
@@ -542,7 +554,7 @@ esl_wei_FitCompleteBinned(ESL_HISTOGRAM *h, double *ret_mu,
 
 
 /****************************************************************************
- * 6. Test driver
+ * 7. Test driver
  ****************************************************************************/ 
 #ifdef eslWEIBULL_TESTDRIVE
 /* Compile:
@@ -661,7 +673,7 @@ main(int argc, char **argv)
 #endif /*eslWEIBULL_TESTDRIVE*/
 
 /****************************************************************************
- * 7. Example main()
+ * 8. Example 
  ****************************************************************************/ 
 #ifdef eslWEIBULL_EXAMPLE
 /*::cexcerpt::wei_example::begin::*/

@@ -103,9 +103,9 @@ extern int esl_histogram_SetExpect(ESL_HISTOGRAM *h,
 				   double (*cdf)(double x, void *params),
 				   void *params);
 extern int esl_histogram_SetExpectedTail(ESL_HISTOGRAM *h, double base_val,
-				double pmass,
-				double (*cdf)(double x, void *params), 
- 			        void *params);
+					 double pmass,
+					 double (*cdf)(double x, void *params), 
+					 void *params);
 
 /* Output/display of binned data:
  */
@@ -113,7 +113,7 @@ extern int esl_histogram_Write       (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_Plot        (FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotSurvival(FILE *fp, ESL_HISTOGRAM *h);
 extern int esl_histogram_PlotQQ      (FILE *fp, ESL_HISTOGRAM *h, 
-			      double (*invcdf)(double, void *), void *params);
+				      double (*invcdf)(double, void *), void *params);
 
 /* Goodness of fit testing
  */

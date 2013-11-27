@@ -10,6 +10,11 @@
  *   6. Test driver
  *   7. Example
  *   8. Copyright and license information
+ *   
+ * To-do:
+ *   -  Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *      on failure due to small n. Compare esl_gumbel. xref J12/93.
+ *      SRE, Wed Nov 27 11:18:12 2013
  */
 #include <esl_config.h>
 

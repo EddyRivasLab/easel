@@ -1,6 +1,23 @@
 /* Statistical routines for stretched exponential distributions.
  * 
- * xref STL9/146
+ * Contents:
+ *   1. Evaluating densities and distributions
+ *   2. Generic API routines: for general interface w/ histogram module
+ *   3. Dumping plots for files
+ *   4. Sampling                    (augmentation: random)
+ *   5. ML fitting to complete data (augmentation: minimizer)  
+ *   6. ML fitting to binned data   (augmentation: histogram, minimizer)
+ *   7. Test driver
+ *   8. Example
+ *   9. Copyright and license information
+ *   
+ * Xrefs:
+ *    STL9/146 : original implementation
+ *    
+ * To-do:
+ *   - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *     on failure due to small n. Compare esl_gumbel. xref J12/93.    
+ *     SRE, Wed Nov 27 11:07:44 2013
  */
 #include <esl_config.h>
 
@@ -23,7 +40,7 @@
 #endif
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 1. Evaluating densities and distributions
  ****************************************************************************/ 
 /* mu <= x < infinity   
  *    [x=mu is no problem, but watch out for evaluating log(0) when it is]
@@ -192,7 +209,7 @@ esl_sxp_invcdf(double p, double mu, double lambda, double tau)
 
 
 /****************************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 2. Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
 /* Function:  esl_sxp_generic_pdf()
@@ -251,7 +268,7 @@ esl_sxp_generic_invcdf(double p, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 3. Dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_sxp_Plot()
@@ -282,7 +299,7 @@ esl_sxp_Plot(FILE *fp, double mu, double lambda, double tau,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random, dirichlet modules)
+ * 4. Sampling (augmentation: random)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_sxp_Sample()
@@ -305,7 +322,7 @@ esl_sxp_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 
 
 /****************************************************************************
- * Maximum likelihood fitting
+ * 5. ML fitting to complete data (augmentation: minimizer)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_MINIMIZER
 /* This structure is used to sneak the data into minimizer's generic
@@ -380,8 +397,14 @@ esl_sxp_FitComplete(double *x, int n,
   *ret_tau    = exp(p[1]);
   return eslOK;
 }
+#endif /*eslAUGMENT_MINIMIZER*/
 
+
+/****************************************************************************
+ * 6. ML fitting to binned data (augmentation: histogram, minimizer)
+ ****************************************************************************/ 
 #ifdef eslAUGMENT_HISTOGRAM
+#ifdef eslAUGMENT_MINIMIZER
 struct sxp_binned_data {
   ESL_HISTOGRAM *g;	/* contains the binned data    */
   double mu;		/* mu is not a learnable param */
@@ -483,70 +506,11 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
 #endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/
 
-/****************************************************************************
- * Example main()
- ****************************************************************************/ 
-#ifdef eslSTRETCHEXP_EXAMPLE
-/*::cexcerpt::sxp_example::begin::*/
-/* compile:
-   gcc -g -Wall -I. -o example -DeslSTRETCHEXP_EXAMPLE\
-     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
-      esl_stretchexp.c esl_histogram.c esl_random.c esl_minimizer.c esl_stats.c esl_vectorops.c easel.c -lm
- */
-#include <stdio.h>
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_histogram.h"
-#include "esl_stretchexp.h"
-
-int
-main(int argc, char **argv)
-{
-  double mu         = -50.0;
-  double lambda     = 2.5;
-  double tau        = 0.7;
-  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
-  ESL_RANDOMNESS *r = esl_randomness_Create(0);
-  int    n          = 10000;
-  double *data;
-  int     ndata;
-  double emu, elam, etau;
-  int    i;
-  double x;
-
-  for (i = 0; i < n; i++)
-    {
-      x  =  esl_sxp_Sample(r, mu, lambda, tau);
-      esl_histogram_Add(h, x);
-    }
-  esl_histogram_GetData(h, &data, &ndata);
-
-  /* Plot the empirical (sampled) and expected survivals */
-  esl_histogram_PlotSurvival(stdout, h);
-  esl_sxp_Plot(stdout, mu, lambda, tau,
-	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
-
-  /* ML fit to complete data, and plot fitted survival curve */
-  esl_sxp_FitComplete(data, ndata, &emu, &elam, &etau);
-  esl_sxp_Plot(stdout, emu, elam, etau,
-	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
-
-  /* ML fit to binned data, plot fitted survival curve  */
-  esl_sxp_FitCompleteBinned(h, &emu, &elam, &etau);
-  esl_sxp_Plot(stdout, emu, elam, etau,
-	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
-
-  esl_randomness_Destroy(r);
-  esl_histogram_Destroy(h);
-  return 0;
-}
-/*::cexcerpt::sxp_example::end::*/
-#endif /*eslSTRETCHEXP_EXAMPLE*/
 
 
 
 /****************************************************************************
- * Test driver
+ * 7. Test driver
  ****************************************************************************/ 
 #ifdef eslSTRETCHEXP_TESTDRIVE
 /* gcc -g -Wall -I. -L . -o stretchexp_utest -DeslSTRETCHEXP_TESTDRIVE esl_stretchexp.c -leasel -lm
@@ -668,6 +632,65 @@ main(int argc, char **argv)
 }
 #endif /*eslSTRETCHEXP_TESTDRIVE*/
 
+/****************************************************************************
+ * Example main()
+ ****************************************************************************/ 
+#ifdef eslSTRETCHEXP_EXAMPLE
+/*::cexcerpt::sxp_example::begin::*/
+/* compile:
+   gcc -g -Wall -I. -o example -DeslSTRETCHEXP_EXAMPLE\
+     -DeslAUGMENT_HISTOGRAM -DeslAUGMENT_RANDOM -DeslAUGMENT_MINIMIZER\
+      esl_stretchexp.c esl_histogram.c esl_random.c esl_minimizer.c esl_stats.c esl_vectorops.c easel.c -lm
+ */
+#include <stdio.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_stretchexp.h"
+
+int
+main(int argc, char **argv)
+{
+  double mu         = -50.0;
+  double lambda     = 2.5;
+  double tau        = 0.7;
+  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
+  int    n          = 10000;
+  double *data;
+  int     ndata;
+  double emu, elam, etau;
+  int    i;
+  double x;
+
+  for (i = 0; i < n; i++)
+    {
+      x  =  esl_sxp_Sample(r, mu, lambda, tau);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_GetData(h, &data, &ndata);
+
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_sxp_Plot(stdout, mu, lambda, tau,
+	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to complete data, and plot fitted survival curve */
+  esl_sxp_FitComplete(data, ndata, &emu, &elam, &etau);
+  esl_sxp_Plot(stdout, emu, elam, etau,
+	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to binned data, plot fitted survival curve  */
+  esl_sxp_FitCompleteBinned(h, &emu, &elam, &etau);
+  esl_sxp_Plot(stdout, emu, elam, etau,
+	       &esl_sxp_surv,  h->xmin, h->xmax, 0.1);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
+  return 0;
+}
+/*::cexcerpt::sxp_example::end::*/
+#endif /*eslSTRETCHEXP_EXAMPLE*/
 
 /*****************************************************************
  * @LICENSE@

@@ -877,7 +877,9 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
   int      pos;			  /* position in output line buffer */
   uint64_t lowcount, highcount;	  
   int      ilowbound, ihighbound; 
+  int      nlines;
   int      emptybins = 3;
+
 
   /* Find out how we'll scale the histogram.  We have 58 characters to
    * play with on a standard 80-column terminal display: leading "%6.1f
@@ -917,16 +919,22 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 		/* maxbar might need to be raised now; then set our units  */
   if (lowcount  > maxbar) maxbar = lowcount;
   if (highcount > maxbar) maxbar = highcount;
-  units = ((maxbar-1)/ 58) + 1;
 
-  /* Print the histogram
+  if (maxbar > 0) units = ((maxbar-1)/ 58) + 1;
+  else            units = 0;	                 /* watch out for an empty histogram w/ no data points. */
+
+  /* Print the histogram header
    */
   if (fprintf(fp, "%6s %6s %6s  (one = represents %llu sequences)\n", 
 	      "score", "obs", "exp", (unsigned long long) units) < 0) 
     ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
-  if (fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+  if (fprintf(fp, "%6s %6s %6s\n", "-----", "---", "---") < 0)
+    ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+
+  /* Print the histogram itself */
   buffer[80] = '\0';
   buffer[79] = '\n';
+  nlines     = 0;		/* Count the # of lines we print, so we know if it ends up being zero */
   for (i = h->imin; i <= h->imax; i++)
     {
       memset(buffer, ' ', 79 * sizeof(char));
@@ -944,6 +952,7 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
 	  }
 	  if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+	  nlines++;
 	  continue;
 	}
       else if (i == ihighbound && i != h->imax)
@@ -954,6 +963,7 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 	    for (pos = 21; num > 0; num--)  buffer[pos++] = '=';
 	  }
 	  if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+	  nlines++;
 	  continue;
 	}
 
@@ -972,10 +982,8 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 	    sprintf(buffer, "%6.1f %6.2e %6.2e|", x, (double) h->obs[i], h->expect[i]);
 	  else
 	    sprintf(buffer, "%6.1f %6.2e %6s|",   x, (double) h->obs[i], "-");
-
 	}
       buffer[21] = ' ';		/* sprintf writes a null char; replace it */
-
 
       /* Mark the histogram bar for observed hits
        */ 
@@ -997,7 +1005,11 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
       /* Print the line
        */
       if (fputs(buffer, fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");
+      nlines++;
     }
+
+  if (nlines == 0 && fprintf(fp, "[histogram contained no data points]\n") < 0)
+    ESL_EXCEPTION_SYS(eslEWRITE, "histogram write failed");    
 
   return eslOK;
 }
@@ -1193,9 +1205,21 @@ esl_histogram_PlotQQ(FILE *fp, ESL_HISTOGRAM *h,
  *            The two tests should give similar
  *            probabilities. However, both tests are sensitive to
  *            arbitrary choices in how the data are binned, and
- *            neither seems to be on an entirely sound theoretical footing.
+ *            neither seems to be on an entirely sound theoretical
+ *            footing.
+ *
+ *            On some datasets, pathological and/or very small, it may
+ *            be impossible to calculate goodness of fit
+ *            statistics. In this case, <eslENORESULT> is returned.
  *            
  * Returns:   <eslOK> on success.
+ *
+ *            <eslENORESULT> if the data are such that goodness-of-fit
+ *            statistics can't be calculated, probably because there
+ *            just aren't many data points. On this error, <*ret_G>
+ *            and <*ret_X2> are 0.0, and <*ret_Gp> and <*ret_X2p> are
+ *            1.0. (Because suppose n=1: then any fit to a single data
+ *            point is "perfect".)
  *
  * Throws:    <eslEINVAL> if expected counts have not been set in
  *            the histogram; <eslERANGE> or <eslENOHALT> on different internal
@@ -1241,6 +1265,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
       nobs += h->obs[i];
       if (h->obs[i] > hmax) hmax = h->obs[i];
     }
+  if (nobs == 0) { status = eslENORESULT; goto ERROR; }
 
   /* Figure out how many eval bins we'd like to have, then allocate
    * for re-binning.
@@ -1257,8 +1282,8 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
    * The most important thing seems to be to get the # of counts
    * in each bin to be roughly equal.
    */
-  nb   = 2* (int) pow((double) nobs, 0.4); /* "desired" nb. */
-  minc = 1 + nobs / (2*nb);	/* arbitrarily set min = 1/2 of the target # */
+  nb   = 2* (int) pow((double) nobs, 0.4);      /* "desired" nb. */
+  minc = 1 + nobs / (2*nb);	                /* arbitrarily set min = 1/2 of the target # */
   ESL_ALLOC(obs,  sizeof(uint64_t) * (nb*2+1)); /* final nb must be <= 2*nb+1 */
   ESL_ALLOC(exp,  sizeof(double)   * (nb*2+1));
   ESL_ALLOC(topx, sizeof(double)   * (nb*2+1));
@@ -1292,6 +1317,12 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   topx[i-1]  = esl_histogram_Bin2UBound(h, h->imax);
   nb         = i;		/* nb is now actual # of bins, not target */
 
+  /* We have to have at least one degree of freedom, else
+   * goodness-of-fit testing isn't defined (and moreover, will
+   * fail numerically if we proceed)
+   */
+  if (nb-nfitted-1 <= 0) { status = eslENORESULT; goto ERROR; }
+
   /* Calculate the X^2 statistic: \sum (obs_i - exp_i)^2 / exp_i */
   X2 = 0.;
   for (i = 0; i < nb; i++)
@@ -1300,15 +1331,17 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
       X2 += tmp*tmp / exp[i];
     }
   /* X^2 is distributed approximately chi^2. */
-  if (nb-nfitted >= 0 && X2 != eslINFINITY)
-    {
-      status = esl_stats_ChiSquaredTest(nb-nfitted, X2, &X2p);
-      if (status != eslOK) return status;
-    }
-  else X2p = 0.;
+  if (X2 == 0.) 
+    X2p = 1.0;
+  else if (X2 != eslINFINITY) {
+    if ((status = esl_stats_ChiSquaredTest(nb-nfitted, X2, &X2p)) != eslOK) goto ERROR;
+  }
+  else 
+    X2p = 0.;
 
   /* The G test assumes that #exp=#obs (the X^2 test didn't).
    * If that's not true, renormalize to make it so. 
+   * This normalization subtracts a degree of freedom.
    */
   nobs = 0;
   nexp = 0.;
@@ -1327,35 +1360,35 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
   G *= 2;
   
   /* G is distributed approximately as \chi^2.
-   * -1 is because total #obs=#exp (which is must be)
+   * -1 is because total #obs=#exp 
    */
-  ESL_DASSERT1( (G >= 0.));
-  if (nb-nfitted-1 >= 0 && G != eslINFINITY)
+  if (G == 0.)
+    Gp = 1.0;
+  else if (G != eslINFINITY)
     {
-      status = esl_stats_ChiSquaredTest(nb-nfitted-1, G, &Gp);
-      if (status != eslOK) return status;
+      if ((status = esl_stats_ChiSquaredTest(nb-nfitted-1, G, &Gp)) != eslOK) goto ERROR;
     }
   else Gp = 0.;
 
-  if (ret_nbins != NULL) *ret_nbins = nb;
-  if (ret_G     != NULL) *ret_G     = G;
-  if (ret_Gp    != NULL) *ret_Gp    = Gp;
-  if (ret_X2    != NULL) *ret_X2    = X2;
-  if (ret_X2p   != NULL) *ret_X2p   = X2p;
+  if (ret_nbins) *ret_nbins = nb;
+  if (ret_G)     *ret_G     = G;
+  if (ret_Gp)    *ret_Gp    = Gp;
+  if (ret_X2)    *ret_X2    = X2;
+  if (ret_X2p)   *ret_X2p   = X2p;
   free(obs);
   free(exp);
   free(topx);
   return eslOK;
 
  ERROR:
-  if (ret_nbins != NULL) *ret_nbins = 0;
-  if (ret_G     != NULL) *ret_G     = 0.;
-  if (ret_Gp    != NULL) *ret_Gp    = 0.;
-  if (ret_X2    != NULL) *ret_X2    = 0.;
-  if (ret_X2p   != NULL) *ret_X2p   = 0.;
-  if (obs  != NULL) free(obs);
-  if (exp  != NULL) free(exp);
-  if (topx != NULL) free(topx);
+  if (ret_nbins) *ret_nbins = 0;
+  if (ret_G)     *ret_G     = 0.;
+  if (ret_Gp)    *ret_Gp    = 1.;
+  if (ret_X2)    *ret_X2    = 0.;
+  if (ret_X2p)   *ret_X2p   = 1.;
+  if (obs)       free(obs);
+  if (exp)       free(exp);
+  if (topx)      free(topx);
   return status;
 }
 
@@ -1655,7 +1688,8 @@ main(int argc, char **argv)
       /* Evaluate goodness-of-fit
        */
       nfitted =  (ntest == 0)? 2 : 0;
-      esl_histogram_Goodness(h1, nfitted, &nbins, &G, &Gp, &X2, &X2p);
+      if (esl_histogram_Goodness(h1, nfitted, &nbins, &G, &Gp, &X2, &X2p) != eslOK)
+	esl_fatal("esl_histogram unit testing: goodness-of-fit failed");
 
       /* Track minimum goodness of fit probs, for automated testing
        */
@@ -1778,7 +1812,9 @@ main(int argc, char **argv)
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
   esl_histogram_Write(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  if (esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p) != eslOK)
+    esl_fatal("goodness of fit testing failed");
+
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
 
@@ -1831,7 +1867,9 @@ main(int argc, char **argv)
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
   esl_histogram_Write(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  if (esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p) != eslOK)
+    esl_fatal("goodness of fit testing failed");
+
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
 
@@ -1883,7 +1921,9 @@ main(int argc, char **argv)
   esl_histogram_SetExpectedTail(h, mu, 0.1, &esl_exp_generic_cdf, &params);
 
   esl_histogram_Write(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  if (esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p) != eslOK)
+    esl_fatal("goodness of fit testing failed");
+
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
 
@@ -1938,7 +1978,9 @@ main(int argc, char **argv)
   esl_histogram_SetExpect(h, &esl_gumbel_generic_cdf, &params);
 
   esl_histogram_Write(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  if (esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p) != eslOK)
+    esl_fatal("goodness of fit testing failed");
+
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
 
@@ -1984,14 +2026,17 @@ main(int argc, char **argv)
 
   esl_histogram_SetTailByMass(h, 0.1, &actual_mass);
   esl_histogram_DeclareRounding(h);
-  esl_exp_FitCompleteBinned(h, &mu, &lambda);
+  if (esl_exp_FitCompleteBinned(h, &mu, &lambda) != eslOK)
+    esl_fatal("exponential ML fitting failed");
 
   params[0] = mu;
   params[1] = lambda;
   esl_histogram_SetExpectedTail(h, mu, actual_mass, &esl_exp_generic_cdf, &params);
 
   esl_histogram_Write(stdout, h);
-  esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p);
+  if (esl_histogram_Goodness(h, 0, NULL, &G, &Gp, &X2, &X2p) != eslOK)
+    esl_fatal("goodness of fit testing failed");
+
   printf("G   = %f  p = %f\n", G, Gp);
   printf("X^2 = %f  p = %f\n", X2, X2p);
 

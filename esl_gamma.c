@@ -1,6 +1,21 @@
 /* Statistical routines for gamma distributions.
  * 
- * xref STL10/65
+ * Contents:
+ *   1. Routines for evaluating densities and distributions
+ *   2. Generic API routines: for general interface w/ histogram module
+ *   3. Dumping plots for files
+ *   4. Sampling (requires augmentation w/ random module)
+ *   5. ML fitting to complete data
+ *   6. Test driver
+ *   7. Example
+ *   8. Copyright and license information
+ *   
+ * Xref:  STL10/65
+ * 
+ * To do:
+ *    - Fit*() functions should return eslEINVAL on n=0, eslENORESULT
+ *      on failure due to small n. Compare esl_gumbel. xref J12/93.
+ *      SRE, Wed Nov 27 11:18:19 2013
  */
 #include "esl_config.h"
 
@@ -21,7 +36,7 @@ static double tau_function(double tau, double mean, double logsum);
 
 
 /****************************************************************************
- * Routines for evaluating densities and distributions
+ * 1. Routines for evaluating densities and distributions
  ****************************************************************************/ 
 
 /* Function:  esl_gam_pdf()
@@ -190,7 +205,7 @@ esl_gam_invcdf(double p, double mu, double lambda, double tau)
 
 
 /****************************************************************************
- * Generic API routines: for general interface w/ histogram module
+ * 2. Generic API routines: for general interface w/ histogram module
  ****************************************************************************/ 
 
 /* Function:  esl_gam_generic_pdf()
@@ -252,7 +267,7 @@ esl_gam_generic_invcdf(double x, void *params)
 
 
 /****************************************************************************
- * Routines for dumping plots for files
+ * 3. Dumping plots for files
  ****************************************************************************/ 
 
 /* Function:  esl_gam_Plot()
@@ -281,7 +296,7 @@ esl_gam_Plot(FILE *fp, double mu, double lambda, double tau,
 
 
 /****************************************************************************
- * Routines for sampling (requires augmentation w/ random module)
+ * 4. Sampling (requires augmentation w/ random module)
  ****************************************************************************/ 
 #ifdef eslAUGMENT_RANDOM
 /* Function:  esl_gam_Sample()
@@ -302,7 +317,7 @@ esl_gam_Sample(ESL_RANDOMNESS *r, double mu, double lambda, double tau)
 
 
 /****************************************************************************
- * Maximum likelihood fitting
+ * 5. ML fitting to complete data
  ****************************************************************************/ 
 
 /* Function:  esl_gam_FitComplete()
@@ -448,66 +463,9 @@ tau_function(double tau, double mean, double logsum)
 }
 
 
-/****************************************************************************
- * Example main()
- ****************************************************************************/ 
-#ifdef eslGAMMA_EXAMPLE
-/*::cexcerpt::gam_example::begin::*/
-/* compile:
-   gcc -g -Wall -I. -o example -DeslGAMMA_EXAMPLE\
-     -DeslAUGMENT_RANDOM -DeslAUGMENT_HISTOGRAM\
-     esl_gamma.c esl_random.c esl_histogram.c esl_stats.c easel.c -lm
- */
-#include <stdio.h>
-#include "easel.h"
-#include "esl_random.h"
-#include "esl_histogram.h"
-#include "esl_gamma.h"
-
-int
-main(int argc, char **argv)
-{
-  double mu         = -5.0;
-  double lambda     = 2.0;
-  double tau        = 0.7;
-  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
-  ESL_RANDOMNESS *r = esl_randomness_Create(0);
-  int    n          = 10000;
-  double elam, etau;
-  int    i;
-  double x;
-  double *data;
-  int     ndata;
-
-  /* Take <n> gamma-distributed random samples. */
-  for (i = 0; i < n; i++)
-    {
-      x  =  esl_gam_Sample(r, mu, lambda, tau);
-      esl_histogram_Add(h, x);
-    }
-  esl_histogram_GetData(h, &data, &ndata);
-
-  /* Plot the empirical (sampled) and expected survivals */
-  esl_histogram_PlotSurvival(stdout, h);
-  esl_gam_Plot(stdout, mu, lambda, tau,
-	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
-
-  /* ML fit to complete data, and plot fitted survival curve */
-  esl_gam_FitComplete(data, ndata, mu, &elam, &etau);
-  esl_gam_Plot(stdout, mu, elam, etau,
-	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
-
-  esl_randomness_Destroy(r);
-  esl_histogram_Destroy(h);
-  return 0;
-}
-/*::cexcerpt::gam_example::end::*/
-#endif /*eslGAMMA_EXAMPLE*/
-
-
 
 /****************************************************************************
- * Test driver
+ * 6. Test driver
  ****************************************************************************/ 
 #ifdef eslGAMMA_TESTDRIVE
 /* Compile:
@@ -620,6 +578,64 @@ main(int argc, char **argv)
   return 0;
 }
 #endif /*eslGAMMA_TESTDRIVE*/
+
+/****************************************************************************
+ * Example main()
+ ****************************************************************************/ 
+#ifdef eslGAMMA_EXAMPLE
+/*::cexcerpt::gam_example::begin::*/
+/* compile:
+   gcc -g -Wall -I. -o example -DeslGAMMA_EXAMPLE\
+     -DeslAUGMENT_RANDOM -DeslAUGMENT_HISTOGRAM\
+     esl_gamma.c esl_random.c esl_histogram.c esl_stats.c easel.c -lm
+ */
+#include <stdio.h>
+#include "easel.h"
+#include "esl_random.h"
+#include "esl_histogram.h"
+#include "esl_gamma.h"
+
+int
+main(int argc, char **argv)
+{
+  double mu         = -5.0;
+  double lambda     = 2.0;
+  double tau        = 0.7;
+  ESL_HISTOGRAM  *h = esl_histogram_CreateFull(mu, 100., 0.1);
+  ESL_RANDOMNESS *r = esl_randomness_Create(0);
+  int    n          = 10000;
+  double elam, etau;
+  int    i;
+  double x;
+  double *data;
+  int     ndata;
+
+  /* Take <n> gamma-distributed random samples. */
+  for (i = 0; i < n; i++)
+    {
+      x  =  esl_gam_Sample(r, mu, lambda, tau);
+      esl_histogram_Add(h, x);
+    }
+  esl_histogram_GetData(h, &data, &ndata);
+
+  /* Plot the empirical (sampled) and expected survivals */
+  esl_histogram_PlotSurvival(stdout, h);
+  esl_gam_Plot(stdout, mu, lambda, tau,
+	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
+
+  /* ML fit to complete data, and plot fitted survival curve */
+  esl_gam_FitComplete(data, ndata, mu, &elam, &etau);
+  esl_gam_Plot(stdout, mu, elam, etau,
+	       &esl_gam_surv,  h->xmin, h->xmax, 0.1);
+
+  esl_randomness_Destroy(r);
+  esl_histogram_Destroy(h);
+  return 0;
+}
+/*::cexcerpt::gam_example::end::*/
+#endif /*eslGAMMA_EXAMPLE*/
+
+
 
 /*****************************************************************
  * @LICENSE@

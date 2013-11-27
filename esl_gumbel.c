@@ -14,11 +14,13 @@
  *  11. Example
  *  12. Copyright and license information
  * 
- * To-do: SRE, Mon Aug  6 13:42:09 2007
- *   ML fitting routines will be prone to over/underfitting 
- *   problems for scores outside a "normal" range, because
- *   of exp(-lambda * x) calls. The Lawless ML estimation
- *   may eventually need to be recast in log space.
+ * To-do:
+ *   - ML fitting routines will be prone to over/underfitting 
+ *     problems for scores outside a "normal" range, because
+ *     of exp(-lambda * x) calls. The Lawless ML estimation
+ *     may eventually need to be recast in log space.
+ *     SRE, Mon Aug  6 13:42:09 2007
+ *
  */
 #include "esl_config.h"
 
