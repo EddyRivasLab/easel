@@ -15,6 +15,7 @@ include:
   Steven G. Johnson                 aclocal.m4
   Stephen Moshier                   esl_sse.c,esl_vmx.c   
   Julien Pommier                    esl_sse.c,esl_vmx.c   
+  Sun Microsystems, Inc.            esl_stats.c::esl_erfc()
   Christophe Tournayre              aclocal.m4
   David Wheeler                     easel.c::esl_tmpfile()
   University of Toronto             esl_regexp.c

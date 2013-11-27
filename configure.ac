@@ -471,11 +471,11 @@ AC_CHECK_FUNCS(getcwd)
 AC_CHECK_FUNCS(chmod)
 AC_CHECK_FUNCS(stat)
 AC_CHECK_FUNCS(fstat)
+AC_CHECK_FUNCS(erfc)
 AC_FUNC_FSEEKO
 
 # 11. Checks for system services 
 AC_SYS_LARGEFILE
-
 
 # 12. Write out esl_config.h header and the Makefiles
 AC_CONFIG_HEADERS([esl_config.h])

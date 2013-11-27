@@ -301,6 +301,8 @@ while (<COMMANDS>) {
 
     chomp;
     ($testlevel, $testtype, $testname, $cmdtemplate) = split(' ', $_, 4);
+
+    # Skip test is it's harder than our set level.
     if ($setlevel < $testlevel) { next COMMAND; }
 
     # Make sure it's a valid test type;
@@ -313,8 +315,18 @@ while (<COMMANDS>) {
 	$testtype eq "fail"       ||
 	$testtype eq "benchmark") 
     {
+	# In verbose mode, if any test calls for valgrind but we're not set up to run
+	# valgrind, issue one warning. Ditto for mpi tests. It's easy to forget
+	# the need for -V/SQC_VALGRIND, or -M/SQC_MPI.
+	if ($verbose && $testtype eq "valgrind" && ! do_valgrind && $valgrind_ntests == 0) 
+	    print ("[WARNING: valgrind commands not running: use -V or export SQC_VALGRIND=1 to enable valgrind tests]");
+	if ($verbose && $testtype eq "mpi"      && ! do_mpi      && $mpi_ntests == 0) 
+	    print ("[WARNING: mpi tests present but not run: use -M or export SQC_MPI=1 to enable mpi tests]");
+
 	if ($testtype eq "valgrind") { $valgrind_ntests++; if (! $do_valgrind) { next COMMAND; } }
 	if ($testtype eq "mpi")      { $mpi_ntests++;      if (! $do_mpi)      { next COMMAND; } }
+
+
 
 	$ntest++;
 	if ($only_do_test_num && $only_do_test_num != $ntest) { next COMMAND; }

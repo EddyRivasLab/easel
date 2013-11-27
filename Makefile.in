@@ -248,6 +248,7 @@ UTESTS =\
 	esl_msafile_selex_utest\
 	esl_msafile_stockholm_utest\
 	esl_msaweight_utest\
+	esl_normal_utest\
 	esl_random_utest\
 	esl_randomseq_utest\
 	esl_ratematrix_utest\
@@ -270,7 +271,6 @@ UTESTS =\
 #	minimizer_utest\
 #	mixgev_utest\
 #	mpi_utest\
-#	normal_utest\
 #	paml_utest\
 #	stopwatch_utest\
 #	swat_utest\
@@ -325,7 +325,6 @@ EXAMPLES = \
         esl_msashuffle_example\
         esl_msaweight_example\
         esl_normal_example\
-        esl_normal_example2\
         esl_random_example\
         esl_rootfinder_example\
         esl_rootfinder_example2\

@@ -9,9 +9,10 @@ extern int esl_stats_FMean(const float  *x, int n, double *opt_mean, double *opt
 extern int esl_stats_IMean(const int    *x, int n, double *opt_mean, double *opt_var);
 
 /* 2. Special functions */
-extern int esl_stats_LogGamma(double x, double *ret_answer);
-extern int esl_stats_Psi(double x, double *ret_answer);
-extern int esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax);
+extern int    esl_stats_LogGamma(double x, double *ret_answer);
+extern int    esl_stats_Psi(double x, double *ret_answer);
+extern int    esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax);
+extern double esl_stats_erfc(double x);
 
 /* 3. Standard statistical tests */
 extern int esl_stats_GTest(int ca, int na, int cb, int nb, double *ret_G, double *ret_P);
@@ -22,6 +23,12 @@ extern int esl_stats_LinearRegression(const double *x, const double *y, const do
 				      double *opt_a,       double *opt_b,
 				      double *opt_sigma_a, double *opt_sigma_b, double *opt_cov_ab,
 				      double *opt_cc,      double *opt_Q);
+
+/* Portability. */
+#ifndef HAVE_ERFC
+#define erfc(x)  esl_stats_erfc(x)
+#endif
+
 #endif /*eslSTATS_INCLUDED*/
 /*****************************************************************
  * @LICENSE@

@@ -7,9 +7,6 @@
  * behaviour of system includes and system libraries. An example
  * is large file support.
  * 
- * SRE, Fri Mar  3 08:03:32 2006 [St. Louis]
- * SVN $Id$
- * SVN $URL$
  */
 #ifndef eslCONFIG_INCLUDED
 #define eslCONFIG_INCLUDED
@@ -93,7 +90,7 @@
 #undef HAVE_SYSCONF
 #undef HAVE_SYSCTL
 #undef HAVE_TIMES
-
+#undef HAVE_ERFC
 
 /*****************************************************************
  * Available augmentations.
@@ -148,6 +145,11 @@
 
 
 #endif /*eslCONFIG_INCLUDED*/
+
 /*****************************************************************
  * @LICENSE@
+ *
+ * SVN $Id$
+ * SVN $URL$
+ * SRE, Fri Mar  3 08:03:32 2006 [St. Louis]
  *****************************************************************/

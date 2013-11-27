@@ -33,6 +33,7 @@
 1 exercise msafile-selex      @esl_msafile_selex_utest@
 1 exercise msafile-stockholm  @esl_msafile_stockholm_utest@
 1 exercise msaweight-utest    @esl_msaweight_utest@
+1 exercise normal-utest       @esl_normal_utest@
 1 exercise random-utest       @esl_random_utest@
 1 exercise randomseq-utest    @esl_randomseq_utest@
 1 exercise ratematrix-utest   @esl_ratematrix_utest@
@@ -77,14 +78,13 @@
 # minimizer
 # mixgev
 # mpi
-# normal
 # paml
 # swat
 # interface_gsl
 # interface_lapack
 
 ################################################################
-# valgrind tests (optional. 'make SQCLEVEL=3 check'
+# valgrind tests (optional. 'export SQC_VALGRIND=1; make SQCLEVEL=3 check'
 ################################################################
 
 3 valgrind alphabet-utest     @esl_alphabet_utest@
@@ -114,6 +114,7 @@
 3 valgrind msafile-stockholm  @esl_msafile_stockholm_utest@
 3 valgrind msacluster-utest   @esl_msacluster_utest@
 3 valgrind msaweight-utest    @esl_msaweight_utest@
+3 valgrind normal-utest       @esl_normal_utest@
 3 valgrind random-utest       @esl_random_utest@
 3 valgrind randomseq-utest    @esl_randomseq_utest@
 3 valgrind ratematrix-utest   @esl_ratematrix_utest@
@@ -143,3 +144,4 @@
 # SVN $URL$
 # SVN $Id: testsuite.sqc 714 2011-07-29 21:26:26Z eddys $
 ################################################################
+

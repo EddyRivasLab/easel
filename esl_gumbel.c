@@ -1348,6 +1348,7 @@ main(int argc, char **argv)
   utest_fit_failure();
 
   esl_randomness_Destroy(rng);
+  esl_getopts_Destroy(go);
   return 0;
 }
 #endif /*eslGUMBEL_TESTDRIVE*/
