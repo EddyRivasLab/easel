@@ -363,11 +363,14 @@ esl_buffer_OpenPipe(const char *filename, const char *cmdfmt, ESL_BUFFER **ret_b
    */   
   if (bf->n < bf->pagesize) 
     {
-      if (ferror(bf->fp))      ESL_XEXCEPTION(eslESYS, "fread() failed");
+      /* Delayed exception throwing. If popen() failed, ferror() may be set too; evaluate what happened to popen() first. */
+      status = (ferror(bf->fp) ? eslESYS : eslOK);
       if (pclose(bf->fp) != 0) {
 	bf->fp = NULL;		/* error block is going to try to pclose() too */
 	ESL_XFAIL(eslFAIL, bf->errmsg, "pipe command '%s' did not succeed", cmd);
       }
+      /* now deal with an fread() error. */
+      if (status != eslOK) ESL_XEXCEPTION(eslESYS, "fread() failed"); 
       bf->fp      = NULL;
       bf->balloc  = 0;
       bf->mode_is = eslBUFFER_ALLFILE;
@@ -1701,7 +1704,7 @@ buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
     }
 
   nread = fread(bf->mem+bf->n, sizeof(char), bf->pagesize, bf->fp);
-  if (nread == 0 && ferror(bf->fp)) ESL_EXCEPTION(eslESYS, "fread() failure");
+  if (nread == 0 && !feof(bf->fp) && ferror(bf->fp)) ESL_EXCEPTION(eslESYS, "fread() failure");
 
   bf->n += nread;
   if (nread == 0 && bf->pos == bf->n) return eslEOF; else return eslOK;
