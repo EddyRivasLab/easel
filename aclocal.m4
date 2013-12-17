@@ -434,18 +434,28 @@ fi
 #################################################################
 # Macro: AX_GCC_X86_CPUID
 # Usage: AX_GCC_X86_CPUID(OP)
-# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
-#           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-07-29
-# Source:   http://autoconf-archive.cryp.to/ax_gcc_x86_cpuid.html
+# Authors:  Copyright (c) 2008 Steven G. Johnson <stevenj@alum.mit.edu>
+#           Copyright (c) 2008 Matteo Frigo
+# Version:  2010-03-01
+# Source:   http://www.gnu.org/software/autoconf-archive/ax_gcc_x86_cpuid.html
 #
-# Runs 'cpuid' with opcode 'OP'. 
-# Sets cache variable ax_cv_gcc_x86_cpuid_OP to "eax:ebx:ecx:edx"
-# where these are the registers set by 'cpuid'.
-# If cpuid fails, variable is set to the string "unknown".
-# This macro is required by AX_EXT; see below.
+#   On Pentium and later x86 processors, with gcc or a compiler that has a
+#   compatible syntax for inline assembly instructions, run a small program
+#   that executes the cpuid instruction with input OP. This can be used to
+#   detect the CPU type.
 #
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
+#   On output, the values of the eax, ebx, ecx, and edx registers are stored
+#   as hexadecimal strings as "eax:ebx:ecx:edx" in the cache variable
+#   ax_cv_gcc_x86_cpuid_OP.
+#
+#   If the cpuid instruction fails (because you are running a
+#   cross-compiler, or because you are not using gcc, or because you are on
+#   a processor that doesn't have this instruction), ax_cv_gcc_x86_cpuid_OP
+#   is set to the string "unknown".
+#
+#   This macro mainly exists to be used in AX_GCC_ARCHFLAG.
+#
+#   Everything below is verbatim from the archive. DO NOT MODIFY IT.
 #
 AC_DEFUN([AX_GCC_X86_CPUID],
 [AC_REQUIRE([AC_PROG_CC])
@@ -467,7 +477,10 @@ AC_CACHE_CHECK(for x86 cpuid $1 output, ax_cv_gcc_x86_cpuid_$1,
      [ax_cv_gcc_x86_cpuid_$1=unknown])])
 AC_LANG_POP([C])
 ])
-
+#
+# AX_GCC_X86_CPUID macro end.
+# ****************************************************************
+# ****************************************************************
 
 
 #################################################################
@@ -503,42 +516,190 @@ AC_CACHE_CHECK([for _AC_LANG compiler vendor], ax_cv_[]_AC_LANG_ABBREV[]_compile
 # ****************************************************************
 
 
+#################################################################
+# Macro: AX_CHECK_PREPROC_FLAG
+# Usage: AX_CHECK_PREPROC_FLAG(FLAG, [ACTION-SUCCESS], [ACTION-FAILURE], [EXTRA-FLAGS], [INPUT])
+# Authors:  Copyright (c) 2008 Guido U. Draheim <guidod@gmx.de>
+#           Copyright (c) 2011 Maarten Bosmans <mkbosmans@gmail.com>
+#
+# Version:  2013-12-11
+# Source:   http://www.gnu.org/software/autoconf-archive/ax_check_preproc_flag.html
+#
+#   Check whether the given FLAG works with the current language's
+#   preprocessor or gives an error.  (Warnings, however, are ignored)
+#
+#   ACTION-SUCCESS/ACTION-FAILURE are shell commands to execute on
+#   success/failure.
+#
+#   If EXTRA-FLAGS is defined, it is added to the preprocessor's default
+#   flags when the check is done.  The check is thus made with the flags:
+#   "CPPFLAGS EXTRA-FLAGS FLAG".  This can for example be used to force the
+#   preprocessor to issue an error when a bad flag is given.
+#
+#   INPUT gives an alternative input source to AC_PREPROC_IFELSE.
+#
+#   NOTE: Implementation based on AX_CFLAGS_GCC_OPTION. Please keep this
+#   macro in sync with AX_CHECK_{COMPILE,LINK}_FLAG.
+#
+#   Everything below is verbatim from the archive. DO NOT MODIFY IT.
+#
+AC_DEFUN([AX_CHECK_PREPROC_FLAG],
+[AC_PREREQ(2.59)dnl for _AC_LANG_PREFIX
+AS_VAR_PUSHDEF([CACHEVAR],[ax_cv_check_[]_AC_LANG_ABBREV[]cppflags_$4_$1])dnl
+AC_CACHE_CHECK([whether _AC_LANG preprocessor accepts $1], CACHEVAR, [
+  ax_check_save_flags=$CPPFLAGS
+  CPPFLAGS="$CPPFLAGS $4 $1"
+  AC_PREPROC_IFELSE([m4_default([$5],[AC_LANG_PROGRAM()])],
+    [AS_VAR_SET(CACHEVAR,[yes])],
+    [AS_VAR_SET(CACHEVAR,[no])])
+  CPPFLAGS=$ax_check_save_flags])
+AS_IF([test x"AS_VAR_GET(CACHEVAR)" = xyes],
+  [m4_default([$2], :)],
+  [m4_default([$3], :)])
+AS_VAR_POPDEF([CACHEVAR])dnl
+])dnl AX_CHECK_PREPROC_FLAGS
+#
+# AX_CHECK_PREPROC_FLAG macro end.
+# ****************************************************************
+# ****************************************************************
+
+
+#################################################################
+# Macro: AX_CHECK_LINK_FLAG
+# Usage: AX_CHECK_LINK_FLAG(FLAG, [ACTION-SUCCESS], [ACTION-FAILURE], [EXTRA-FLAGS], [INPUT])
+# Authors:  Copyright (c) 2008 Guido U. Draheim <guidod@gmx.de>
+#           Copyright (c) 2011 Maarten Bosmans <mkbosmans@gmail.com>
+#
+# Version:  2013-12-11
+# Source:   http://www.gnu.org/software/autoconf-archive/ax_check_link_flag.html
+#
+#   Check whether the given FLAG works with the linker or gives an error.
+#   (Warnings, however, are ignored)
+#
+#   ACTION-SUCCESS/ACTION-FAILURE are shell commands to execute on
+#   success/failure.
+#
+#   If EXTRA-FLAGS is defined, it is added to the linker's default flags
+#   when the check is done.  The check is thus made with the flags: "LDFLAGS
+#   EXTRA-FLAGS FLAG".  This can for example be used to force the linker to
+#   issue an error when a bad flag is given.
+#
+#   INPUT gives an alternative input source to AC_LINK_IFELSE.
+#
+#   NOTE: Implementation based on AX_CFLAGS_GCC_OPTION. Please keep this
+#   macro in sync with AX_CHECK_{PREPROC,COMPILE}_FLAG.
+#
+#   Everything below is verbatim from the archive. DO NOT MODIFY IT.
+#
+AC_DEFUN([AX_CHECK_LINK_FLAG],
+[AS_VAR_PUSHDEF([CACHEVAR],[ax_cv_check_ldflags_$4_$1])dnl
+AC_CACHE_CHECK([whether the linker accepts $1], CACHEVAR, [
+  ax_check_save_flags=$LDFLAGS
+  LDFLAGS="$LDFLAGS $4 $1"
+  AC_LINK_IFELSE([m4_default([$5],[AC_LANG_PROGRAM()])],
+    [AS_VAR_SET(CACHEVAR,[yes])],
+    [AS_VAR_SET(CACHEVAR,[no])])
+  LDFLAGS=$ax_check_save_flags])
+AS_IF([test x"AS_VAR_GET(CACHEVAR)" = xyes],
+  [m4_default([$2], :)],
+  [m4_default([$3], :)])
+AS_VAR_POPDEF([CACHEVAR])dnl
+])dnl AX_CHECK_LINK_FLAGS
+#
+# AX_CHECK_LINK_FLAG macro end.
+# ****************************************************************
+# ****************************************************************
+
+
+#################################################################
+# Macro: AX_CHECK_COMPILE_FLAG
+# Usage: AX_CHECK_COMPILE_FLAG(FLAG, [ACTION-SUCCESS], [ACTION-FAILURE], [EXTRA-FLAGS], [INPUT])
+# Authors:  Copyright (c) 2008 Guido U. Draheim <guidod@gmx.de>
+#           Copyright (c) 2011 Maarten Bosmans <mkbosmans@gmail.com>
+#
+# Version:  2013-12-11
+# Source:   http://www.gnu.org/software/autoconf-archive/ax_check_compile_flag.html
+#
+#   Check whether the given FLAG works with the current language's compiler
+#   or gives an error.  (Warnings, however, are ignored)
+#
+#   ACTION-SUCCESS/ACTION-FAILURE are shell commands to execute on
+#   success/failure.
+#
+#   If EXTRA-FLAGS is defined, it is added to the current language's default
+#   flags (e.g. CFLAGS) when the check is done.  The check is thus made with
+#   the flags: "CFLAGS EXTRA-FLAGS FLAG".  This can for example be used to
+#   force the compiler to issue an error when a bad flag is given.
+#
+#   INPUT gives an alternative input source to AC_COMPILE_IFELSE.
+#
+#   NOTE: Implementation based on AX_CFLAGS_GCC_OPTION. Please keep this
+#   macro in sync with AX_CHECK_{PREPROC,LINK}_FLAG.
+#
+#   Everything below is verbatim from the archive. DO NOT MODIFY IT.
+#
+AC_DEFUN([AX_CHECK_COMPILE_FLAG],
+[AC_PREREQ(2.59)dnl for _AC_LANG_PREFIX
+AS_VAR_PUSHDEF([CACHEVAR],[ax_cv_check_[]_AC_LANG_ABBREV[]flags_$4_$1])dnl
+AC_CACHE_CHECK([whether _AC_LANG compiler accepts $1], CACHEVAR, [
+  ax_check_save_flags=$[]_AC_LANG_PREFIX[]FLAGS
+  _AC_LANG_PREFIX[]FLAGS="$[]_AC_LANG_PREFIX[]FLAGS $4 $1"
+  AC_COMPILE_IFELSE([m4_default([$5],[AC_LANG_PROGRAM()])],
+    [AS_VAR_SET(CACHEVAR,[yes])],
+    [AS_VAR_SET(CACHEVAR,[no])])
+  _AC_LANG_PREFIX[]FLAGS=$ax_check_save_flags])
+AS_IF([test x"AS_VAR_GET(CACHEVAR)" = xyes],
+  [m4_default([$2], :)],
+  [m4_default([$3], :)])
+AS_VAR_POPDEF([CACHEVAR])dnl
+])dnl AX_CHECK_COMPILE_FLAGS
+#
+# AX_CHECK_COMPILE_FLAG macro end.
+# ****************************************************************
+# ****************************************************************
+
 
 #################################################################
 # Macro: AX_GCC_ARCHFLAG
 # Usage: AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
 # Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
 #           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-07-29
+# Version:  2013-12-11
 # Source:   http://autoconf-archive.cryp.to/ax_gcc_archflag.html
 #
-# This macro tries to guess the "native" arch corresponding to the
-# target architecture for use with gcc's -march=arch or -mtune=arch
-# flags. If found, the cache variable $ax_cv_gcc_archflag is set to this
-# flag and ACTION-SUCCESS is executed; otherwise $ax_cv_gcc_archflag is
-# is set to "unknown" and ACTION-FAILURE is executed. The default
-# ACTION-SUCCESS is to add $ax_cv_gcc_archflag to the end of $CFLAGS.
+#   This macro tries to guess the "native" arch corresponding to the target
+#   architecture for use with gcc's -march=arch or -mtune=arch flags. If
+#   found, the cache variable $ax_cv_gcc_archflag is set to this flag and
+#   ACTION-SUCCESS is executed; otherwise $ax_cv_gcc_archflag is set to
+#   "unknown" and ACTION-FAILURE is executed. The default ACTION-SUCCESS is
+#   to add $ax_cv_gcc_archflag to the end of $CFLAGS.
 #
-# PORTABLE? should be either [yes] (default) or [no]. In the former
-# case, the flag is set to -mtune (or equivalent) so that the
-# architecture is only used for tuning, but the instruction set used is
-# still portable. In the latter case, the flag is set to -march (or
-# equivalent) so that architecture-specific instructions are enabled.
+#   PORTABLE? should be either [yes] (default) or [no]. In the former case,
+#   the flag is set to -mtune (or equivalent) so that the architecture is
+#   only used for tuning, but the instruction set used is still portable. In
+#   the latter case, the flag is set to -march (or equivalent) so that
+#   architecture-specific instructions are enabled.
 #
-# The user can specify --with-gcc-arch=<arch> in order to override the
-# macro's choice of architecture, or --without-gcc-arch to disable this.
+#   The user can specify --with-gcc-arch=<arch> in order to override the
+#   macro's choice of architecture, or --without-gcc-arch to disable this.
 #
-# When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
-# called unless the user specified --with-gcc-arch manually.
+#   When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
+#   called unless the user specified --with-gcc-arch manually.
 #
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
+#   Requires macros: AX_CHECK_COMPILE_FLAG, AX_GCC_X86_CPUID
+#
+#   (The main emphasis here is on recent CPUs, on the principle that doing
+#   high-performance computing on old hardware is uncommon.)
+#
+#   Everything below is verbatim from the archive. DO NOT MODIFY IT.
 #
 AC_DEFUN([AX_GCC_ARCHFLAG],
 [AC_REQUIRE([AC_PROG_CC])
 AC_REQUIRE([AC_CANONICAL_HOST])
+AC_REQUIRE([AC_PROG_SED])
 
-AC_ARG_WITH(gcc-arch, [AC_HELP_STRING([--with-gcc-arch=<arch>], [use architecture <arch> for gcc -march/-mtune, instead of guessing])],
-        ax_gcc_arch=$withval, ax_gcc_arch=yes)
+AC_ARG_WITH(gcc-arch, [AS_HELP_STRING([--with-gcc-arch=<arch>], [use architecture <arch> for gcc -march/-mtune, instead of guessing])],
+    ax_gcc_arch=$withval, ax_gcc_arch=yes)
 
 AC_MSG_CHECKING([for gcc architecture flag])
 AC_MSG_RESULT([])
@@ -552,60 +713,69 @@ if test "x$ax_gcc_arch" = xyes; then
 ax_gcc_arch=""
 if test "$cross_compiling" = no; then
 case $host_cpu in
-  i[[3456]]86*|x86_64*) # use cpuid codes, in part from x86info-1.7 by D. Jones
+  i[[3456]]86*|x86_64*|amd64*) # use cpuid codes
      AX_GCC_X86_CPUID(0)
      AX_GCC_X86_CPUID(1)
      case $ax_cv_gcc_x86_cpuid_0 in
        *:756e6547:*:*) # Intel
           case $ax_cv_gcc_x86_cpuid_1 in
-            *5[[48]]?:*:*:*) ax_gcc_arch="pentium-mmx pentium" ;;
-            *5??:*:*:*) ax_gcc_arch=pentium ;;
-            *6[[3456]]?:*:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
-            *6a?:*[[01]]:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
-            *6a?:*[[234]]:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
-            *6[[9d]]?:*:*:*) ax_gcc_arch="pentium-m pentium3 pentiumpro" ;;
-            *6[[78b]]?:*:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
-            *6??:*:*:*) ax_gcc_arch=pentiumpro ;;
-            *f3[[347]]:*:*:*|*f4[1347]:*:*:*)
-                case $host_cpu in
-                  x86_64*) ax_gcc_arch="nocona pentium4 pentiumpro" ;;
-                  *) ax_gcc_arch="prescott pentium4 pentiumpro" ;;
-                esac ;;
-            *f??:*:*:*) ax_gcc_arch="pentium4 pentiumpro";;
+        *5[[48]]?:*:*:*) ax_gcc_arch="pentium-mmx pentium" ;;
+        *5??:*:*:*) ax_gcc_arch=pentium ;;
+        *1?6[[7d]]?:*:*:*) ax_gcc_arch="penryn core2 pentium-m pentium3 pentiumpro" ;;
+        *1?6[[aef]]?:*:*:*|*2?6[[5cef]]?:*:*:*) ax_gcc_arch="corei7 core2 pentium-m pentium3 pentiumpro" ;;
+        *1?6c?:*:*:*|*[[23]]?66?:*:*:*) ax_gcc_arch="atom core2 pentium-m pentium3 pentiumpro" ;;
+        *2?6[[ad]]?:*:*:*) ax_gcc_arch="corei7-avx corei7 core2 pentium-m pentium3 pentiumpro" ;;
+        *[[1-9a-f]]?6??:*:*:*) ax_gcc_arch="core2 pentiumpro" ;;
+        *6[[3456]]?:*:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
+        *6a?:*[[01]]:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
+        *6a?:*[[234]]:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
+        *6[[9de]]?:*:*:*) ax_gcc_arch="pentium-m pentium3 pentiumpro" ;;
+        *6[[78b]]?:*:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
+        *6f?:*:*:*) ax_gcc_arch="core2 pentium-m pentium3 pentiumpro" ;;
+        *6??:*:*:*) ax_gcc_arch=pentiumpro ;;
+        *f3[[347]]:*:*:*|*f4[1347]:*:*:*|*f6?:*:*:*)
+        case $host_cpu in
+              x86_64*) ax_gcc_arch="nocona pentium4 pentiumpro" ;;
+              *) ax_gcc_arch="prescott pentium4 pentiumpro" ;;
+            esac ;;
+        *f??:*:*:*) ax_gcc_arch="pentium4 pentiumpro";;
           esac ;;
        *:68747541:*:*) # AMD
           case $ax_cv_gcc_x86_cpuid_1 in
-            *5[[67]]?:*:*:*) ax_gcc_arch=k6 ;;
-            *5[[8d]]?:*:*:*) ax_gcc_arch="k6-2 k6" ;;
-            *5[[9]]?:*:*:*) ax_gcc_arch="k6-3 k6" ;;
-            *60?:*:*:*) ax_gcc_arch=k7 ;;
-            *6[[12]]?:*:*:*) ax_gcc_arch="athlon k7" ;;
-            *6[[34]]?:*:*:*) ax_gcc_arch="athlon-tbird k7" ;;
-            *67?:*:*:*) ax_gcc_arch="athlon-4 athlon k7" ;;
-            *6[[68a]]?:*:*:*)
-               AX_GCC_X86_CPUID(0x80000006) # L2 cache size
-               case $ax_cv_gcc_x86_cpuid_0x80000006 in
+        *5[[67]]?:*:*:*) ax_gcc_arch=k6 ;;
+        *5[[8d]]?:*:*:*) ax_gcc_arch="k6-2 k6" ;;
+        *5[[9]]?:*:*:*) ax_gcc_arch="k6-3 k6" ;;
+        *60?:*:*:*) ax_gcc_arch=k7 ;;
+        *6[[12]]?:*:*:*) ax_gcc_arch="athlon k7" ;;
+        *6[[34]]?:*:*:*) ax_gcc_arch="athlon-tbird k7" ;;
+        *67?:*:*:*) ax_gcc_arch="athlon-4 athlon k7" ;;
+        *6[[68a]]?:*:*:*)
+           AX_GCC_X86_CPUID(0x80000006) # L2 cache size
+           case $ax_cv_gcc_x86_cpuid_0x80000006 in
                  *:*:*[[1-9a-f]]??????:*) # (L2 = ecx >> 16) >= 256
-                        ax_gcc_arch="athlon-xp athlon-4 athlon k7" ;;
+            ax_gcc_arch="athlon-xp athlon-4 athlon k7" ;;
                  *) ax_gcc_arch="athlon-4 athlon k7" ;;
-               esac ;;
-            *f[[4cef8b]]?:*:*:*) ax_gcc_arch="athlon64 k8" ;;
-            *f5?:*:*:*) ax_gcc_arch="opteron k8" ;;
-            *f7?:*:*:*) ax_gcc_arch="athlon-fx opteron k8" ;;
-            *f??:*:*:*) ax_gcc_arch="k8" ;;
-          esac ;;
-        *:746e6543:*:*) # IDT
-           case $ax_cv_gcc_x86_cpuid_1 in
-             *54?:*:*:*) ax_gcc_arch=winchip-c6 ;;
-             *58?:*:*:*) ax_gcc_arch=winchip2 ;;
-             *6[[78]]?:*:*:*) ax_gcc_arch=c3 ;;
-             *69?:*:*:*) ax_gcc_arch="c3-2 c3" ;;
            esac ;;
+        *5??f??:*:*:*) ax_gcc_arch="btver1 amdfam10 k8" ;;
+        *6??f??:*:*:*) ax_gcc_arch="bdver1 amdfam10 k8" ;;
+        *[[1-9a-f]]??f??:*:*:*) ax_gcc_arch="amdfam10 k8" ;;
+        *f[[4cef8b]]?:*:*:*) ax_gcc_arch="athlon64 k8" ;;
+        *f5?:*:*:*) ax_gcc_arch="opteron k8" ;;
+        *f7?:*:*:*) ax_gcc_arch="athlon-fx opteron k8" ;;
+        *f??:*:*:*) ax_gcc_arch="k8" ;;
+          esac ;;
+    *:746e6543:*:*) # IDT
+       case $ax_cv_gcc_x86_cpuid_1 in
+         *54?:*:*:*) ax_gcc_arch=winchip-c6 ;;
+         *58?:*:*:*) ax_gcc_arch=winchip2 ;;
+         *6[[78]]?:*:*:*) ax_gcc_arch=c3 ;;
+         *69?:*:*:*) ax_gcc_arch="c3-2 c3" ;;
+       esac ;;
      esac
      if test x"$ax_gcc_arch" = x; then # fallback
-        case $host_cpu in
-          i586*) ax_gcc_arch=pentium ;;
-          i686*) ax_gcc_arch=pentiumpro ;;
+    case $host_cpu in
+      i586*) ax_gcc_arch=pentium ;;
+      i686*) ax_gcc_arch=pentiumpro ;;
         esac
      fi
      ;;
@@ -613,7 +783,7 @@ case $host_cpu in
   sparc*)
      AC_PATH_PROG([PRTDIAG], [prtdiag], [prtdiag], [$PATH:/usr/platform/`uname -i`/sbin/:/usr/platform/`uname -m`/sbin/])
      cputype=`(((grep cpu /proc/cpuinfo | cut -d: -f2) ; ($PRTDIAG -v |grep -i sparc) ; grep -i cpu /var/run/dmesg.boot ) | head -n 1) 2> /dev/null`
-     cputype=`echo "$cputype" | tr -d ' -' |tr $as_cr_LETTERS $as_cr_letters`
+     cputype=`echo "$cputype" | tr -d ' -' | $SED 's/SPARCIIi/SPARCII/' |tr $as_cr_LETTERS $as_cr_letters`
      case $cputype in
          *ultrasparciv*) ax_gcc_arch="ultrasparc4 ultrasparc3 ultrasparc v9" ;;
          *ultrasparciii*) ax_gcc_arch="ultrasparc3 ultrasparc v9" ;;
@@ -635,8 +805,8 @@ case $host_cpu in
   alphaev79) ax_gcc_arch="ev79 ev7 ev69 ev68 ev67" ;;
 
   powerpc*)
-     cputype=`((grep cpu /proc/cpuinfo | head -n 1 | cut -d: -f2 | cut -d, -f1 | sed 's/ //g') ; /usr/bin/machine ; /bin/machine; grep CPU /var/run/dmesg.boot | head -n 1 | cut -d" " -f2) 2> /dev/null`
-     cputype=`echo $cputype | sed -e 's/ppc//g;s/ *//g'`
+     cputype=`((grep cpu /proc/cpuinfo | head -n 1 | cut -d: -f2 | cut -d, -f1 | $SED 's/ //g') ; /usr/bin/machine ; /bin/machine; grep CPU /var/run/dmesg.boot | head -n 1 | cut -d" " -f2) 2> /dev/null`
+     cputype=`echo $cputype | $SED -e 's/ppc//g;s/ *//g'`
      case $cputype in
        *750*) ax_gcc_arch="750 G3" ;;
        *740[[0-9]]*) ax_gcc_arch="$cputype 7400 G4" ;;
@@ -665,7 +835,7 @@ for arch in $ax_gcc_arch; do
     flags="-march=$arch -mcpu=$arch -m$arch"
   fi
   for flag in $flags; do
-    AX_CHECK_COMPILER_FLAGS($flag, [ax_cv_gcc_archflag=$flag; break])
+    AX_CHECK_COMPILE_FLAG($flag, [ax_cv_gcc_archflag=$flag; break])
   done
   test "x$ax_cv_gcc_archflag" = xunknown || break
 done
