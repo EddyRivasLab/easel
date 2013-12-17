@@ -191,7 +191,7 @@ eslx_msafile_Open(ESL_ALPHABET **byp_abc, const char *msafile, const char *env, 
   return eslOK;
 
  ERROR:  /* on normal errors, afp is returned in an error state */
-  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || status == eslENOALPHABET)
     { afp->abc = NULL; *ret_afp = afp;}
   else 
     { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
@@ -225,7 +225,7 @@ eslx_msafile_OpenMem(ESL_ALPHABET **byp_abc, const char *p, esl_pos_t n, int for
   return eslOK;
 
  ERROR:
-  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || status == eslENOALPHABET)
     { afp->abc = NULL; *ret_afp = afp;}
   else 
     { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
@@ -254,7 +254,7 @@ eslx_msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX
   return eslOK;
 
  ERROR:
-  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || eslENOALPHABET) 
+  if (status == eslENOTFOUND || status == eslFAIL || status == eslEFORMAT || status == eslENODATA || status == eslENOALPHABET)
     { afp->abc = NULL; *ret_afp = afp;}
   else 
     { if (afp) eslx_msafile_Close(afp);  *ret_afp = NULL; }
