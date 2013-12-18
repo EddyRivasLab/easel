@@ -1961,6 +1961,7 @@ msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
  *****************************************************************/
 
 static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
+static int msa_get_alibounds(const ESL_MSA *msa, int seqidx, int64_t *first, int64_t *last);
 
 /* Function:  esl_msa_ReasonableRF()
  * Synopsis:  Determine a reasonable #=RF line marking "consensus" columns.
@@ -2066,9 +2067,11 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
  * Purpose:   Use a heuristic to define sequence fragments (as opposed
  *            to "full length" sequences) in alignment <msa>.
  *            
- *            The rule is that if the sequence has a raw (unaligned)
- *            length not greater than <fragthresh> times the alignment
- *            length in columns, the sequence is defined as a fragment.
+ *            The rule is that if the range of a sequence in the alignment
+ *            (the number of alignment columns between the first and last
+ *            positions of the sequence) is not greater than <fragthresh>
+ *            times the length of the alignment, the sequence is defined
+ *            as a fragment.
  *            
  *            For each fragment, all leading and trailing gap symbols
  *            (all gaps before the first residue and after the last
@@ -2083,43 +2086,49 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
  *            fragments.
  *
  * Args:      msa        - alignment in which to define and mark seq fragments 
- *            fragthresh - define frags if rlen <= fragthresh * alen.
+ *            fragthresh - define frags if seqrange <= fragthresh * alen.
  *
  * Returns:   <eslOK> on success.
  */
 int
 esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh)
 {
-  int    i;
-  int    pos;
+  int      i;
+  int      pos;
+  int64_t  first;
+  int64_t  last;
+
 
   for (i = 0; i < msa->nseq; i++)
-    if (msa_get_rlen(msa, i) <= fragthresh * msa->alen)
-      {  
+  {
+    msa_get_alibounds(msa, i, &first, &last);
+    if ((last-first+1) <= fragthresh * msa->alen)
+    {
 #ifdef eslAUGMENT_ALPHABET
-	if (msa->flags & eslMSA_DIGITAL) {
-	  for (pos = 1; pos <= msa->alen; pos++) {
-	    if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
-	    msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
-	  }
-	  for (pos = msa->alen; pos >= 1; pos--) {	  
-	    if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
-	    msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
-	  }
-	}
-#endif
-	if (! (msa->flags & eslMSA_DIGITAL)) 
-	  {
-	    for (pos = 0; pos < msa->alen; pos++) {
-	      if (isalnum(msa->aseq[i][pos])) break;
-	      msa->aseq[i][pos] = '~';
-	    }
-	    for (pos = msa->alen-1; pos >= 0; pos--) {	  
-	      if (isalnum(msa->aseq[i][pos])) break;
-	      msa->aseq[i][pos] = '~';
-	    }
-	  }
+      if (msa->flags & eslMSA_DIGITAL) {
+        for (pos = 1; pos <= msa->alen; pos++) {
+          if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
+          msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
+        }
+        for (pos = msa->alen; pos >= 1; pos--) {
+          if (esl_abc_XIsResidue(msa->abc, msa->ax[i][pos])) break;
+          msa->ax[i][pos] = esl_abc_XGetMissing(msa->abc);
+        }
       }
+#endif
+      if (! (msa->flags & eslMSA_DIGITAL))
+      {
+        for (pos = 0; pos < msa->alen; pos++) {
+          if (isalnum(msa->aseq[i][pos])) break;
+          msa->aseq[i][pos] = '~';
+        }
+        for (pos = msa->alen-1; pos >= 0; pos--) {
+          if (isalnum(msa->aseq[i][pos])) break;
+          msa->aseq[i][pos] = '~';
+        }
+      }
+    }
+  }
   return eslOK;
 }
 
@@ -2854,6 +2863,34 @@ msa_get_rlen(const ESL_MSA *msa, int seqidx)
 	if (isalnum(msa->aseq[seqidx][pos])) rlen++;
     }
   return rlen;
+}
+
+
+/* msa_get_alibounds()
+ *
+ * Returns the alignment range (<first> and <last> positions in <msa>) of
+ * of sequence number <seqidx>.
+ */
+static int
+msa_get_alibounds(const ESL_MSA *msa, int seqidx, int64_t *first, int64_t *last)
+{
+#ifdef eslAUGMENT_ALPHABET
+  if (msa->flags & eslMSA_DIGITAL)
+  {
+    *first = 1;
+    while (*first <= msa->alen &&  !esl_abc_XIsResidue(msa->abc, msa->ax[seqidx][*first]))  (*first)++;
+    *last = msa->alen;
+    while (*last > 0           &&  !esl_abc_XIsResidue(msa->abc, msa->ax[seqidx][*last]))   (*last)--;
+  }
+#endif
+  if (! (msa->flags & eslMSA_DIGITAL))
+  {
+    *first = 0;
+    while (*first < msa->alen  &&  !isalnum(msa->aseq[seqidx][*first]))  (*first)++;
+    *last = msa->alen - 1;
+    while (*last < msa->alen   &&  !isalnum(msa->aseq[seqidx][*last]))   (*last)--;
+  }
+  return eslOK;
 }
 
 
