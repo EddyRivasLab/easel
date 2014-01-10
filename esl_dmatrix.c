@@ -6,15 +6,16 @@
  * Table of contents:
  *   1. The ESL_DMATRIX object
  *   2. Debugging/validation code for ESL_DMATRIX
- *   3. The ESL_PERMUTATION object
- *   4. Debugging/validation code for ESL_PERMUTATION
- *   5. The rest of the dmatrix API
- *   6. Optional: Interoperability with GSL
- *   7. Optional: Interfaces to LAPACK
- *   8. Unit tests
- *   9. Test driver
- *  10. Examples
- *  11. Copyright and license 
+ *   3. Visualization tools
+ *   4. The ESL_PERMUTATION object
+ *   5. Debugging/validation code for ESL_PERMUTATION
+ *   6. The rest of the dmatrix API
+ *   7. Optional: Interoperability with GSL
+ *   8. Optional: Interfaces to LAPACK
+ *   9. Unit tests
+ *  10. Test driver
+ *  11. Examples
+ *  12. Copyright and license 
  *
  * To do:
  *   - eventually probably want additional matrix types
@@ -366,7 +367,9 @@ esl_dmatrix_SetIdentity(ESL_DMATRIX *A)
   return eslOK;
 }
   
-
+/*****************************************************************
+ * 2. Debugging, validation code
+ *****************************************************************/
 
 /* Function:  esl_dmatrix_Dump()
  * Incept:    SRE, Mon Nov 29 19:21:20 2004 [St. Louis]
@@ -421,8 +424,140 @@ esl_dmatrix_Dump(FILE *ofp, const ESL_DMATRIX *A, const char *rowlabel, const ch
   return eslOK;
 }
 
+
 /*****************************************************************
- * 3. The ESL_PERMUTATION object.
+ * 3. Visualization tools
+ *****************************************************************/
+
+/* Function:  esl_dmatrix_PlotHeatMap()
+ * Synopsis:  Export a heat map visualization, in PostScript
+ *
+ * Purpose:   Export a heat map visualization of the matrix in <D>
+ *            to open stream <fp>, in PostScript format. 
+ *            
+ *            All values between <min> and <max> in <D> are rescaled
+ *            linearly and assigned to shades. Values below <min>
+ *            are assigned to the lowest shade; values above <max>, to
+ *            the highest shade.
+ *
+ *            The plot is hardcoded to be a full US 8x11.5" page,
+ *            with at least a 20pt margin.
+ *
+ *            Several color schemes are enumerated in the code
+ *            but all but one is commented out. The currently enabled
+ *            scheme is a 10-class scheme consisting of the 9-class
+ *            Reds from colorbrewer2.org plus a blue background class.
+ *          
+ * Note:      Binning rules basically follow same convention as
+ *            esl_histogram. nb = xmax-xmin/w, so w = xmax-xmin/nb; 
+ *            picking bin is (int) ceil((x - xmin)/w) - 1. (xref
+ *            esl_histogram_Score2Bin()). This makes bin b contain
+ *            values bw+min < x <= (b+1)w+min. (Which means that 
+ *            min itself falls in bin -1, whoops - but we catch
+ *            all bin<0 and bin>=nshades and put them in the extremes.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_dmatrix_PlotHeatMap(FILE *fp, ESL_DMATRIX *D, double min, double max)
+{
+#if 0
+  /*
+   * This color scheme roughly follows Tufte, Envisioning Information,
+   * p.91, where he shows a beautiful bathymetric chart. The CMYK
+   * values conjoin two recommendations from ColorBrewer (Cindy Brewer
+   * and Mark Harrower, colorbrewer2.org), specifically the 9-class
+   * sequential2 Blues and 9-class sequential YlOrBr.
+   */
+  int    nshades   = 18;
+  double cyan[]    = { 1.00, 1.00, 0.90, 0.75, 0.57, 0.38, 0.24, 0.13, 0.03,
+                       0.00, 0.00, 0.00, 0.00, 0.00, 0.07, 0.20, 0.40, 0.60};
+  double magenta[] = { 0.55, 0.45, 0.34, 0.22, 0.14, 0.08, 0.06, 0.03, 0.01,
+                       0.00, 0.03, 0.11, 0.23, 0.40, 0.55, 0.67, 0.75, 0.80};
+  double yellow[]  = { 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+                       0.10, 0.25, 0.40, 0.65, 0.80, 0.90, 1.00, 1.00, 1.00};
+  double black[]   = { 0.30, 0.07, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+                       0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00};
+#endif
+#if 0
+  /* colorbrewer2.org 5-class YlOrBr scheme: sequential, multihue, 5-class, CMYK */
+  int    nshades   = 5;
+  double cyan[]    = { 0.00, 0.00, 0.00, 0.15, 0.40 };
+  double magenta[] = { 0.00, 0.15, 0.40, 0.60, 0.75 };
+  double yellow[]  = { 0.17, 0.40, 0.80, 0.95, 1.00 };
+  double black[]   = { 0,    0,    0,    0,    0    };
+#endif
+#if 0
+  /* colorbrewer2.org 9-class YlOrBr scheme, +zero class */
+  int    nshades   = 10;
+  double cyan[]    = { 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.07, 0.20, 0.40, 0.60 };
+  double magenta[] = { 0.00, 0.00, 0.03, 0.11, 0.23, 0.40, 0.55, 0.67, 0.75, 0.80 };
+  double yellow[]  = { 0.00, 0.10, 0.25, 0.40, 0.65, 0.80, 0.90, 1.00, 1.00, 1.00 };
+  double black[]   = { 0.05, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00 };
+#endif
+  /* colorbrewer2.org 9-class Reds + zero class as dim blue */
+  int    nshades   = 10;
+  double cyan[]    = { 0.30, 0.00, 0.00, 0.00, 0.00, 0.00, 0.05, 0.20, 0.35, 0.60 };
+  double magenta[] = { 0.03, 0.04, 0.12, 0.27, 0.43, 0.59, 0.77, 0.90, 0.95, 1.00 };
+  double yellow[]  = { 0.00, 0.04, 0.12, 0.27, 0.43, 0.59, 0.72, 0.80, 0.85, 0.90 };
+  double black[]   = { 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00 };
+
+  int    pageheight = 792;
+  int    pagewidth  = 612;
+  double w;                     
+  int    i,j;
+  int    bin;
+  float  boxsize;               /* box size in points */
+  float  xcoord, ycoord;        /* postscript coords in points */
+  float  leftmargin;
+  float  bottommargin;
+
+  /* Set some defaults that might become arguments later.
+   */
+  leftmargin  = 20.;
+  bottommargin = 20.;
+
+  /* Determine some working parameters 
+   */
+  w = (max-min) / (double) nshades; /* w = bin size for assigning values->colors*/
+  boxsize = ESL_MIN( (pageheight - (bottommargin * 2.)) / (float) D->n, 
+                     (pagewidth - (leftmargin * 2.))   / (float) D->m);
+  
+  /* or start from j=i, to do diagonals */
+  for (i = 0; i < D->n; i++)
+    for (j = 0; j < D->m; j++)
+      {
+        xcoord = (float) j * boxsize + leftmargin;
+        ycoord = (float) (D->n-i+1) * boxsize + bottommargin;
+
+        if      (D->mx[i][j] == -eslINFINITY) bin = 0;
+        else if (D->mx[i][j] ==  eslINFINITY) bin = nshades-1;
+        else {
+          bin    = (int) ceil((D->mx[i][j] - min) / w) - 1;
+          if (bin < 0)        bin = 0;
+          if (bin >= nshades) bin = nshades-1;
+        }
+
+        fprintf(fp, "newpath\n");
+        fprintf(fp, "  %.2f %.2f moveto\n", xcoord, ycoord);
+        fprintf(fp, "  0  %.2f rlineto\n", boxsize);
+        fprintf(fp, "  %.2f 0  rlineto\n", boxsize);
+        fprintf(fp, "  0 -%.2f rlineto\n", boxsize);
+        fprintf(fp, "  closepath\n");
+        fprintf(fp, " %.2f %.2f %.2f %.2f setcmykcolor\n",
+                cyan[bin], magenta[bin], yellow[bin], black[bin]);
+        fprintf(fp, "  fill\n");
+      }
+  fprintf(fp, "showpage\n");
+  return eslOK;
+}
+
+
+
+/*****************************************************************
+ * 4. The ESL_PERMUTATION object.
  *****************************************************************/
 
 /* Function:  esl_permutation_Create()
@@ -491,7 +626,7 @@ esl_permutation_Reuse(ESL_PERMUTATION *P)
 
 
 /*****************************************************************
- * 4. Debugging/validation for ESL_PERMUTATION.
+ * 5. Debugging/validation for ESL_PERMUTATION.
  *****************************************************************/
 
 /* Function:  esl_permutation_Dump()
@@ -537,7 +672,7 @@ esl_permutation_Dump(FILE *ofp, const ESL_PERMUTATION *P, const char *rowlabel, 
 }
 
 /*****************************************************************
- * 5. The rest of the dmatrix API.
+ * 6. The rest of the dmatrix API.
  *****************************************************************/
 
 
@@ -1127,7 +1262,7 @@ esl_dmx_Invert(const ESL_DMATRIX *A, ESL_DMATRIX *Ai)
 
 
 /*****************************************************************
- * 6. Optional: interoperability with GSL
+ * 7. Optional: interoperability with GSL
  *****************************************************************/
 #ifdef HAVE_LIBGSL
 
@@ -1166,7 +1301,7 @@ esl_dmx_UnmorphGSL(const gsl_matrix *G, ESL_DMATRIX **ret_E)
 #endif /*HAVE_LIBGSL*/
 
 /*****************************************************************
- * 7. Optional: Interfaces to LAPACK
+ * 8. Optional: Interfaces to LAPACK
  *****************************************************************/
 #ifdef HAVE_LIBLAPACK
 
@@ -1308,7 +1443,7 @@ esl_dmx_Diagonalize(const ESL_DMATRIX *A, double **ret_Er, double **ret_Ei,
 #endif /*HAVE_LIBLAPACK*/
 
 /*****************************************************************
- * 8. Unit tests
+ * 9. Unit tests
  *****************************************************************/ 
 #ifdef eslDMATRIX_TESTDRIVE
 
@@ -1374,7 +1509,7 @@ utest_Invert(ESL_DMATRIX *A)
 
 
 /*****************************************************************
- * 9. Test driver
+ * 10. Test driver
  *****************************************************************/ 
 
 /*   gcc -g -Wall -o test -I. -L. -DeslDMATRIX_TESTDRIVE esl_dmatrix.c -leasel -lm
@@ -1411,7 +1546,7 @@ int main(void)
 
 
 /*****************************************************************
- * 10. Examples
+ * 11. Examples
  *****************************************************************/ 
 
 /*   gcc -g -Wall -o example -I. -DeslDMATRIX_EXAMPLE esl_dmatrix.c easel.c -lm

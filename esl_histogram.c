@@ -32,31 +32,36 @@ static int esl_histogram_sort(ESL_HISTOGRAM *h);
  * Synopsis:  Create a new <ESL_HISTOGRAM>.
  *
  * Purpose:   Creates and returns a new histogram object, initially
- *            allocated to count scores $>$ <xmin> and $<=$ <xmax> into
- *            bins of width <w>. Thus, a total of <xmax>-<xmin>/<w> bins
+ *            allocated to count values $>$ <bmin> and $<=$ <bmax> into
+ *            bins of width <w>. Thus, a total of <bmax>-<bmin>/<w> bins
  *            are initially created. 
  *            
- *            The lower bound <xmin> and the width <w> permanently
+ *            The lower bound <bmin> and the width <w> permanently
  *            determine the offset and width of the binning, but not
  *            the range.  For example, <esl_histogram_Create(-100,
- *            100, 0.5)> would init the object to collect scores into
+ *            100, 0.5)> would initialize the object to collect scores into
  *            400 bins $[-100< x \leq -99.5],[-99.5 < x \leq
  *            -99.0]...[99.5 <x \leq 100.0]$.  Aside from this, the
- *            range specified by the bounds <xmin> and <xmax> only
+ *            range specified by the bounds <bmin> and <bmax> only
  *            needs to be an initial guess. The histogram object will
  *            reallocate itself dynamically as needed to accommodate
  *            scores that exceed current bounds.
  *
- *            You can be sloppy about <xmax>; it does not have to
+ *            You can be sloppy about <bmax>; it does not have to
  *            exactly match a bin upper bound. The initial allocation
  *            is for all full-width bins with upper bounds $\leq
- *            xmax$.
+ *            bmax$.
  *
  *            <esl_histogram_Create()> creates a simplified histogram
  *            object that collates only the "display" histogram. For
  *            a more complex object that also keeps the raw data samples,
  *            better suited for fitting distributions and goodness-of-fit
  *            testing, use <esl_histogram_CreateFull()>.
+ *            
+ *            There is currently no way to alter where the equals sign
+ *            is, in setting the bin bounds: that is, you can't make bins
+ *            that have <bmin> $\leq x$ and $x <$ <bmax>, alas.
+
  *  
  * Args:      bmin - caller guesses that minimum score will be > bmin
  *            bmax - caller guesses that max score will be <= bmax
