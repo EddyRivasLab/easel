@@ -301,8 +301,9 @@ seq_shuffling(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
 	  }
 
 	  /* Set the name of the shuffled sequence */
-	  if (N > 1) esl_sq_FormatName(shuff, "%s-shuffled-%d", sq->name, i);
-	  else       esl_sq_FormatName(shuff, "%s-shuffled", sq->name);
+	  if (esl_opt_GetBoolean(go, "-r")) esl_sq_FormatName(shuff, "%s-reversed",    sq->name, i);
+	  else if (N > 1)                   esl_sq_FormatName(shuff, "%s-shuffled-%d", sq->name, i);
+	  else                              esl_sq_FormatName(shuff, "%s-shuffled",    sq->name);
 
 	  /* Output the resulting sequence */
 	  esl_sqio_Write(ofp, shuff, outfmt, FALSE);
