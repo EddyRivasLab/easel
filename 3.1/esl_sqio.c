@@ -814,6 +814,7 @@ esl_sqio_DecodeFormat(int fmt)
   case eslSQFILE_UNIPROT:    return "UniProt";
   case eslSQFILE_DAEMON:     return "daemon";
   case eslSQFILE_HMMPGMD:    return "hmmpgmd";
+  case eslSQFILE_FMINDEX:    return "hmmerfm";
 #ifdef eslAUGMENT_NCBI
   case eslSQFILE_NCBI:       return "NCBI";
 #endif
