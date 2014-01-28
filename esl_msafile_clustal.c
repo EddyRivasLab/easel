@@ -124,7 +124,10 @@ esl_msafile_clustal_GuessAlphabet(ESLX_MSAFILE *afp, int *ret_type)
 	  x = toupper(p[pos]) - 'A';
 	  ct[x]++;
 	  nres++; 	  
-	}
+	} 
+      /* note that GuessAlphabet() is robust against the optional coord lines
+       * and the annotation lines -- it only counts ascii characters.
+       */
 
       /* try to stop early, checking after 500, 5000, and 50000 residues: */
       if (step < nsteps && nres > threshold[step]) {
@@ -238,7 +241,7 @@ esl_msafile_clustal_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
       for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  name_len   = pos - name_start;
       for (pos = pos+1; pos < n; pos++) if (! isspace(p[pos])) break;  seq_start  = pos;      
       if (pos >= n) ESL_XFAIL(eslEFORMAT, afp->errmsg, "invalid alignment line");
-      for (pos = n-1; pos > 0; pos--)   if (! isspace(p[pos])) break;  seq_len    = pos - seq_start + 1;
+      for (pos = pos+1; pos < n; pos++) if (  isspace(p[pos])) break;  seq_len    = pos - seq_start; /* expect one block; ignore trailing stuff, inc. optional coords */
 
       if (idx == 0) {
 	block_seq_start = seq_start;
@@ -658,6 +661,33 @@ utest_write_good2(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq,
   *ret_alen      = 73;
 }
 
+/* An example of clustal format with optional sequence coords;
+ * a quickly-taken subset of a larger alignment reported as a bug.
+ */
+static void
+utest_write_good3(FILE *ofp, int *ret_format, int *ret_alphatype, int *ret_nseq, int *ret_alen)
+{
+  fputs("CLUSTAL 2.1 multiple sequence alignment\n", ofp);
+  fputs("\n", ofp);
+  fputs("gi|85091828|ref|XP_959093.1|        MSDFTSKVKVLRDGQKPEFPSN----ANTLEYAQSLDAQDELRHFRNEFI 46\n", ofp);
+  fputs("gi|70993990|ref|XP_751842.1|        ----MSTNGTLS---KPEFPAN----AASKEYAASLDAADPFAGFREKFI 39\n", ofp);
+  fputs("gi|71001376|ref|XP_755369.1|        ---MGSRLHVQVIHGGPPLPYKDDIRAFGKEYAEQLDAQDPLRRFRDEFI 47\n", ofp);
+  fputs("gi|71744026|ref|XP_803513.1|        -----------------------------------MDRNDPLQVHRDAFN 15\n", ofp);
+  fputs("                                                                                 :  : \n",    ofp);
+  fputs("\n", ofp);
+  fputs("gi|85091828|ref|XP_959093.1|        IPTRASLKKKALDGI--------------IPGTQANGTTTSTDADTPCIY 82\n", ofp);
+  fputs("gi|70993990|ref|XP_751842.1|        IPSKANIASTKLA----------------KPGLSSE----------PCIY 63\n", ofp);
+  fputs("gi|71001376|ref|XP_755369.1|        IPSKKDLKRKTLFPNDGMYSCGHPICFANTSCACVHAAETEETSDEKCIY 97\n", ofp);
+  fputs("gi|71744026|ref|XP_803513.1|        IPKRRDGS--------------------------------------DHVY 27\n", ofp);
+  fputs("                                                                                     *\n",    ofp);
+
+  *ret_format    = eslMSAFILE_CLUSTAL;
+  *ret_alphatype = eslAMINO;
+  *ret_nseq      = 4;
+  *ret_alen      = 100;
+}
+
+
 static void
 utest_goodfile(char *filename, int testnumber, int expected_format, int expected_alphatype, int expected_nseq, int expected_alen)
 {
@@ -880,7 +910,7 @@ main(int argc, char **argv)
   char            stkfile[32] = "esltmpstkXXXXXX";
   FILE           *alnfp, *stkfp;
   int             testnumber;
-  int             ngoodtests = 2;
+  int             ngoodtests = 3;
   char            tmpfile[32];
   FILE           *ofp;
   int             expected_format;
@@ -905,6 +935,7 @@ main(int argc, char **argv)
       switch (testnumber) {
       case  1:  utest_write_good1 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
       case  2:  utest_write_good2 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
+      case  3:  utest_write_good3 (ofp, &expected_format, &expected_alphatype, &expected_nseq, &expected_alen); break;
       }
       fclose(ofp);
       utest_goodfile(tmpfile, testnumber, expected_format, expected_alphatype, expected_nseq, expected_alen);

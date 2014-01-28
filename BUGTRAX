@@ -1,3 +1,16 @@
+ID              e10
+TITLE           Clustal format allows optional trailing coords
+AFFECTS         -
+FIXED_IN        -
+STATUS          CLOSED
+XREF            -
+REPORTED_BY     sumudu <sumudu@fiserlab.org>, 27 Jan 2014
+OPENED_DATE     28 Jan 2014
+CLOSED_DATE     28 Jan 2014
+DESCRIPTION     
+  Clustal format allows an optional trailing seq coord number
+  on each line, but we weren't allowing for that.
+//
 ID              e9
 TITLE           Segmentation fault in esl-stranslate
 AFFECTS         H3.1b1 
