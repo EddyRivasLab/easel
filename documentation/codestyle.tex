@@ -1,26 +1,25 @@
 
-This chapter describes Easel from a developer's perspective. It will
-show you how a module's source code is organized, written, tested, and
-documented. Besides providing guidance for implementing new Easel
-code, it should also help you understand the structure of existing
-Easel code.
+This chapter describes Easel from a developer's perspective. It shows
+how a module's source code is organized, written, tested, and
+documented. It should help you with implementing new Easel code, and
+also with understanding the structure of existing Easel code.
 
-We expect Easel to constantly evolve -- not only in its code, but also
-in its style. The aim of talking about our code style is not to
-enforce foolish consistencies. Rather, one way we try to manage the
-complexity of our large codebase is to continuously cajole Easel code
-toward a clean and consistent presentation. We try to organize code
-modules in similar ways, use certain naming conventions, and channel
-similar functions towards common \esldef{interfaces} that provide
-common calling conventions and behaviors.
+We expect Easel to constantly evolve, both in code and in style.
+Talking about our code style does not mean we enforce foolish
+consistency. Rather, the goal is aspirational; one way we try to
+manage the complexity of our growing codebase is to continuously
+cajole Easel code toward a clean and consistent presentation. We try
+to organize code modules in similar ways, use certain naming
+conventions, and channel similar functions towards common
+\esldef{interfaces} that provide common calling conventions and
+behaviors.
 
-But because it's evolving, not all Easel code obeys the code style
-described in this chapter. Think of the Easel code style as your local
-building ordinances. Any new construction should always comply, but
-older construction is grandfathered in and does not have to
-immediately conform to the current rules. When it comes time to
-renovate older construction, it's also time to bring it up to the
-current standards.
+But because it evolves, not all Easel code obeys the code style
+described in this chapter. Easel code style is like a local building
+ordinance. Any new construction should comply. Older construction is
+grandfathered in and does not have to immediately conform to the
+current rules. When it comes time to renovate, it's also time to bring
+the old work up to the current standards.
 
 For a concrete example we will focus primarily on one Easel module,
 the \eslmod{buffer} module. We'll take a bottom up approach, starting
@@ -134,12 +133,11 @@ advocate. Easel module code is designed to be \emph{read}, to be
 \emph{self-documenting}, to contain its own \emph{testing methods},
 and to provide useful \emph{working examples}.  Thus the size of the
 files is a little deceptive, compared to C code that's solely
-implementating some functions. In general, relatively little (perhaps
-a quarter) of an Easel module's \ccode{.c} file is the actual module
-implementation.  Typically, around half of an Easel \ccode{.c} file is
-documentation, and much of this gets automatically parsed into the PDF
-userguide. Then of the actual code, around half of that often consists
-of drivers for unit testing and examples.
+implementating some functions. In general, only about a a quarter of
+an Easel module's \ccode{.c} file is the actual module implementation.
+Typically, around half of an Easel \ccode{.c} file is documentation,
+and much of this gets automatically parsed into the PDF userguide. The
+rest consists of drivers for unit testing and examples.
 
 Module files are organized into a somewhat stereotypical set of
 sections, to facilitate navigating the code, as follows.
@@ -821,9 +819,14 @@ special names are called \esldef{common interfaces}.
  \multicolumn{4}{c}{\bfseries Managing memory allocation}\\
 
 \ccode{\_Grow}
-  & Expand the allocation in an existing object.
+  & Expand the allocation in an existing object, typically by doubling.
   & [standard]
   & \ccode{esl\_tree\_Grow()} \\
+
+\ccode{\_GrowTo}
+  & Reallocate object if necessary for some new data size.
+  & [standard]
+  & \ccode{esl\_sq\_GrowTo()} \\
 
 \ccode{\_Reuse}
   & Recycle an object, reinitializing it while reusing as much of its existing
@@ -935,16 +938,28 @@ contains valid data.
 
 \begin{sreapi}
 \hypertarget{ifc:Create} 
-{\item[\_Create(N)]}
+{\item[\_Create(n, nredline)]}
 
 A \ccode{\_Create()} interface takes any necessary initialization or
 size information as arguments (there may not be any), and it returns a
 pointer to the newly allocated object. If an (optional) number of
-elements \ccode{N} is provided, this specifies the number of elements
-that the object is going to contain (thus, creating a fixed-size
-object; contrast the \ccode{\_CreateGrowable()} interface).  In the
-event of any failure, the a \ccode{\_Create} procedure throws
-\ccode{NULL}.
+elements \ccode{n} is provided, this specifies the number of elements
+that the object is going to contain (for a fixed-size object) or the
+initial allocation size (for a resizable object). In the event of any
+failure, the a \ccode{\_Create} procedure throws \ccode{NULL}.
+
+Some resizeable objects take a \ccode{nredline} parameter that
+controls an additional memory management rule. These objects are
+allowed to \ccode{_GrowTo()} arbitrary size, but when they exceed an
+allocation size of \ccode{nredline}, they shrink back to the
+\ccode{nredline} limit upon the next call to \ccode{_Reuse()}.  The
+idea is to be able to briefly handle rare extremely large problems in
+memory, without permanently committing the resizeable object to the
+most extreme size. 
+
+At least one module (\ccode{esl\_tree}) allows for creating either a
+fixed-size or a resizeable object; in this case, there is a
+\ccode{\_CreateGrowable()} call for the resizeable version.
 
 \hypertarget{ifc:Destroy} 
 {\item[\_Destroy(obj)]}
@@ -1051,11 +1066,11 @@ convention, which is the opposite order).
 %%%%%%%%%%%%%%%%
 
 %%%%
-  \subsubsection{growable objects}
+  \subsubsection{resizable objects}
 %%%%
 
 Some objects need to be reallocated and expanded during their use.
-These objects are called \esldef{growable}.
+These objects are called \esldef{resizable}.
 
 In some cases, the whole purpose of the object is to have elements
 added to it, such as \ccode{ESL\_STACK} (pushdown stacks) and
@@ -1065,41 +1080,42 @@ object keeps track of both its current contents size (often
 \ccode{obj->N}) and the current allocation size (often
 \ccode{obj->nalloc}). 
 
-In some other cases, objects might be either growable or not,
-depending on how they're being used. This happens, for instance, when
-we have routines for parsing input data to create a new object, and we
+In at least one case, an object might be either growable or not,
+depending on how it's being used. This happens, for instance, when we
+have routines for parsing input data to create a new object, and we
 need to dynamically reallocate as we go because the input doesn't tell
 us the total size when we start. For instance, with \ccode{ESL\_TREE}
 (phylogenetic trees), sometimes we know exactly the size of the tree
 we need to create (because we're making a tree ourselves), and
-sometimes we need to create a growable object (because we're reading a
+sometimes we need to create a resizable object (because we're reading a
 tree from a file). In these cases, the normal \ccode{\_Create()}
 interface creates a static, nongrowable object of known size, and a
 \ccode{\_CreateGrowable()} interface specifies an initial allocation
-for a growable object.
+for a resizable object.
 
-Easel usually handles its own reallocation of growable objects. For
-instance, many growable objects have an interface called something
+Easel usually handles its own reallocation of resizable objects. For
+instance, many resizable objects have an interface called something
 like \ccode{\_Add()} or \ccode{\_Push()} for storing the next element
 in the object, and this interface will deal with increasing allocation
 size as needed.  In a few cases, a public \ccode{\_Grow()} interface
 is provided for reallocating an object to a larger size, in cases
 where a caller might need to grow the object itself. \ccode{\_Grow()}
-only increases an allocation when it is necessary, so that a caller
-can call \ccode{\_Grow()} before every attempt to add a new
-element. An example of where a public \ccode{\_Grow()} interface is
-generally provided is when an object might be input from different
-file formats, and an application may need to create its own
-parser. Although creating an input parser requires familiarity with
-the Easel object's internal data structures, at least the
-\ccode{\_Grow()} interface frees the caller from having to understand
-its memory management.
+only increases an allocation when it is necessary, and it makes that
+check immediately and efficiently, so that a caller can call
+\ccode{\_Grow()} before every attempt to add a new element without
+worrying about efficiency. An example of where a public
+\ccode{\_Grow()} interface is generally provided is when an object
+might be input from different file formats, and an application may
+need to create its own parser. Although creating an input parser
+requires familiarity with the Easel object's internal data structures,
+at least the \ccode{\_Grow()} interface frees the caller from having
+to understand its memory management.
 
-Growable objects waste memory, because they are overallocated in order
-to reduce the number of calls to \ccode{malloc()}.  The wastage is
-bounded (to a maximum of two-fold, for the default doubling
-strategies, once an object has exceeded its initial allocation size)
-but nonetheless may not always be tolerable. 
+Resizable objects necessarily waste some memory, because they are
+overallocated in order to reduce the number of calls to
+\ccode{malloc()}.  The wastage is bounded (to a maximum of two-fold,
+for the default doubling strategies, once an object has exceeded its
+initial allocation size) but nonetheless may not always be tolerable.
 
 In summary: 
 
@@ -1110,8 +1126,15 @@ In summary:
 A \ccode{\_Grow()} function checks to see if \ccode{obj} can hold
 another element. If not, it increases the allocation, according to
 internally stored rules on reallocation strategy (usually, by
-doubling). A \ccode{\_GrowTo()} function reallocates an object to a
-specified size.
+doubling). 
+
+\begin{sreapi}
+\hypertarget{ifc:GrowTo}
+{\item[\_GrowTo(obj, n)]}
+
+A \ccode{\_GrowTo()} function checks to see \ccode{obj} is large
+enough to hold \ccode{n} elements. If not, it reallocates to at least
+that size.
 \end{sreapi}
 
 %%%%
@@ -1135,11 +1158,16 @@ possible. Any state information that was specific to the problem the
 object was just used for is reinitialized. Any allocations and state
 information specific to those allocations are preserved (to the extent
 possible).  A \ccode{\_Reuse()} call should exactly replace (and be
-equivalent to) a \ccode{\_Destroy()/\_Create()} pair. A
-\ccode{\_Reuse()} interface does not care whether the object was
-originally created by a \ccode{\_Create()} or a \ccode{\_Inflate()}
-call (see below), or whether the object is growable or not (if it was
-growable, it remains growable).
+equivalent to) a \ccode{\_Destroy()/\_Create()} pair. If the object is
+growable, it typically would keep the last allocation size, and it
+must keep at least the same allocation size that a default
+\ccode{_Create()} call would give.
+
+If the object is arbitrarily resizeable and it has a \ccode{nredline}
+control on its memory, the allocation is shrunk back to
+\ccode{nredline} (which must be at least the default initial
+allocation).
+
 \end{sreapi}
 
 For example:
