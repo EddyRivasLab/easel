@@ -209,12 +209,11 @@
 # SRE, Tue Aug  6 11:16:39 2002
 # SVN $Id: sqc 1796 2007-01-03 22:36:44Z eddys $
 
-require "getopts.pl";
-require "importenv.pl";
+use Getopt::Std;
 
 # Parse our command line
 #
-&Getopts('vx:');
+getopts('vx');
 if ($opt_v) { $verbose          = 1;      }
 if ($opt_x) { $only_do_test_num = $opt_x; }
 
