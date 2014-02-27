@@ -884,6 +884,10 @@ esl_strtok_adv(char **s, char *delim, char **ret_tok, int *opt_toklen, char *opt
   int   n      = 0;
   int   status = eslEOL;  /* unless proven otherwise */
 
+  /* contract checks */
+  ESL_DASSERT1(( s     != NULL ));
+  ESL_DASSERT1(( delim != NULL ));
+
   tok += strspn(tok, delim);
   if (! *tok) tok = NULL;         /* if *tok = 0, EOL, no token left */
   else
