@@ -994,14 +994,14 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
   int ualen;
 
   if(! (msa->flags & eslMSA_DIGITAL))
-    ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), msa must be digitized.");
+    ESL_FAIL(eslEINVAL, errbuf, "in trim_msa(), msa must be digitized.");
 
   ESL_ALLOC(aseq,  sizeof(char) * (msa->alen+1));
 
   for(i = 0; i < msa->nseq; i++)
     {
-      if (sq[i]->dsq == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq's must be digitized.");
-      if (sq[i]->n   == 0)    ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is zero-length\n", i);
+      if (sq[i]->dsq == NULL) ESL_FAIL(eslEINVAL, errbuf, "in trim_msa(), sq's must be digitized.");
+      if (sq[i]->n   == 0)    ESL_FAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is zero-length\n", i);
 
       ESL_ALLOC(a2ua_map, sizeof(int) * (msa->alen+1));
       esl_vec_ISet(a2ua_map, (msa->alen+1), -1);
@@ -1026,7 +1026,7 @@ static int trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf)
       esl_strdup(aseq, -1, &(uaseq));
       esl_strdealign(uaseq, uaseq, "-_.~", NULL);
       offset = strstr(uaseq, uasubseq); /* we'll replace the first occurence of uasubseq in uaseq */
-      if(offset == NULL) ESL_XFAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
+      if(offset == NULL) ESL_FAIL(eslEINVAL, errbuf, "in trim_msa(), sq[%d] is not a subseq of msa seq %d\n", i, i);
       uastart = offset  - uaseq + 1;
       uaend   = uastart + strlen(uasubseq) - 1;
       astart  = ua2a_map[uastart];
@@ -1478,6 +1478,7 @@ expand_msa2mask(char *errbuf, ESL_MSA *msa, char *xmask, ESL_MSA **newmsa)
   free(nzeroesA);
 
   return eslOK;
+
  ERROR:
   return status;
 }
@@ -1612,9 +1613,9 @@ msa_remove_truncated_seqs(ESL_MSA *msa, char *errbuf, int ntrunc, int *i_am_rf, 
   ESL_MSA *new_msa;
 
   /* contract check */
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in msa_remove_truncated_seqs(), msa must be digitized.");
-  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --detrunc.");
-  if(i_am_rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "internal error, msa_remove_truncated_seq() i_am_rf is NULL.");
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in msa_remove_truncated_seqs(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --detrunc.");
+  if(i_am_rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, msa_remove_truncated_seq() i_am_rf is NULL.");
 
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);
 
@@ -1715,7 +1716,7 @@ number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf)
   int tagidx;
 
   /* contract check */
-  if(!do_all && i_am_rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "number_columns() called but MSA has no #=GC RF annotation.");
+  if(!do_all && i_am_rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "number_columns() called but MSA has no #=GC RF annotation.");
 
   alen_ndigits = int_ndigits(msa->alen);
   tagwidth = do_all ? (3+alen_ndigits) : (5+alen_ndigits); /* "COL.X" or RFCOL.X" */
@@ -2717,8 +2718,8 @@ static int find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf,
   int i;
 
   /* contract check */
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in find_seqs_with_given_insert(), msa must be digitized.");
-  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --seq-ins.");
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in find_seqs_with_given_insert(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --seq-ins.");
 
   ESL_ALLOC(useme,sizeof(int) * (msa->nseq));
   ESL_ALLOC(ict,  sizeof(int *) * (msa->alen+2));
@@ -2741,7 +2742,7 @@ static int find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf,
 	  }	  
     }
   clen = rfpos;
-  if(target > clen) ESL_XFAIL(eslEINVAL, errbuf, "--seq-ins <n> enabled with <n> = %d, but non-gap RF length of alignment is only %d columns.", target, clen);
+  if(target > clen) ESL_FAIL(eslEINVAL, errbuf, "--seq-ins <n> enabled with <n> = %d, but non-gap RF length of alignment is only %d columns.", target, clen);
 
   for(i = 0; i < msa->nseq; i++) { 
     /* printf("ict[target:%d][i:%d]: %d, min: %d max: %d\n", target, i, ict[target][i], min, max); */
@@ -2966,7 +2967,7 @@ add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa
   char *newstr;
   /* contract check */
   if(! (msa->flags & eslMSA_DIGITAL))
-    ESL_XFAIL(eslEINVAL, errbuf, "in add_gap_columns_to_msa(), msa must be digitized.");
+    ESL_FAIL(eslEINVAL, errbuf, "in add_gap_columns_to_msa(), msa must be digitized.");
   for(apos = 0; apos <= msa->alen; apos++)
     nnew += toadd[apos];
 
