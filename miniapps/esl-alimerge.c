@@ -1359,12 +1359,14 @@ add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxm
   mmsa->nseq += msa_to_add->nseq;
 
   if(ngapA    != NULL) free(ngapA);
-  if(nmisA     != NULL) free(nmisA);
+  if(nmisA    != NULL) free(nmisA);
   if(neitherA != NULL) free(neitherA);
   return eslOK;
   
  ERROR:
-  if(ngapA != NULL) free(ngapA);
+  if(ngapA    != NULL) free(ngapA);
+  if(nmisA    != NULL) free(nmisA);
+  if(neitherA != NULL) free(neitherA);
   return status;
 }
 

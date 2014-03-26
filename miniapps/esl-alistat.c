@@ -864,9 +864,9 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, i
   double nseq;
 
   /* contract check */
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_XFAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
-  if(msa->rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iinfo.");
-  if(i_am_rf == NULL) ESL_XFAIL(eslEINVAL, errbuf, "internal error, dump_insert_info() i_am_rf is NULL.");
+  if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
+  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iinfo.");
+  if(i_am_rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, dump_insert_info() i_am_rf is NULL.");
   if(use_weights && msa->wgt == NULL) ESL_FAIL(eslEINCOMPAT, errbuf, "dump_insert_info(): use_weights==TRUE but msa->wgt == NULL");
 
   ESL_ALLOC(total_ict, sizeof(double) * (msa->alen+2));
@@ -934,7 +934,8 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, i
   return eslOK;
 
  ERROR:
-  return status;
+  ESL_FAIL(eslEMEM, errbuf, "dump_insert_info(): out of memory");
+  return status; /* NOT REACHED */
 }
 
 /* dump_column_residue_counts
