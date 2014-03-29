@@ -319,7 +319,7 @@ main(int argc, char **argv)
       sq  = esl_sq_Create();
 
       if ( outfmt == eslSQFILE_HMMPGMD ) {
-        int     res_cnt = 0;
+        int64_t res_cnt = 0;
         char    timestamp[32];
         time_t  date;
 
@@ -359,7 +359,7 @@ main(int argc, char **argv)
         date = time(NULL);
         ctime_r(&date, timestamp);
         fprintf(mapfp, "%d\n", idx);
-        fprintf(ofp, "#%d %d %d %d %d %s", res_cnt, idx, 1, idx, idx, timestamp);
+        fprintf(ofp, "#%" PRId64 " %d %d %d %d %s", res_cnt, idx, 1, idx, idx, timestamp);
 
         esl_sqfile_Position(sqfp, 0);
       }

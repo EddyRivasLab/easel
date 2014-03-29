@@ -141,8 +141,17 @@ esl_getopts_Create(ESL_OPTIONS *opt)
  *            
  *            <options> is an array of <ESL_OPTIONS> structures describing
  *            the options, terminated by an all-<NULL> structure.
- *            <nargs> is the number of command-line arguments
- *            expected. <argc> and <argv> are the command line
+ *
+ *            <nargs> is the number of commandline arguments
+ *            expected. If the number of commandline arguments isn't
+ *            equal to this, an error message is printed, with the
+ *            <usage> string, and <exit()> is called. If <nargs> is
+ *            -1, this check isn't done; if your program deliberately
+ *            has a variable number of commandline arguments (i.e.
+ *            if the number is unknown at compile time), pass -1
+ *            for <nargs>.
+ *
+ *            <argc> and <argv> are the command line
  *            arguments (number and pointer array) from <main()>.
  *            
  *            <banner> is an optional one-line description of the
@@ -208,7 +217,7 @@ esl_getopts_CreateDefaultApp(ESL_OPTIONS *options, int nargs, int argc, char **a
       esl_opt_DisplayHelp(stdout, go, 0, 2, 80);
       exit(0);
     }
-  if (esl_opt_ArgNumber(go) != nargs) 
+  if (nargs != -1 && esl_opt_ArgNumber(go) != nargs) 
     {
       puts("Incorrect number of command line arguments.");
       esl_usage(stdout, argv[0], usage);
