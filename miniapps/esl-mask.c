@@ -119,8 +119,13 @@ main(int argc, char **argv)
   else if (status == eslEINVAL)    cmdline_failure(argv[0], "Can't autodetect stdin or .gz.\n");
   else if (status != eslOK)        cmdline_failure(argv[0], "Open failed, code %d.\n", status);
 
-  if (do_fetching && sqfp->data.ascii.ssi == NULL)
-    cmdline_failure(argv[0], "-R option (random access/fetching) requires %s to be SSI indexed\n", seqfile);
+  if(do_fetching)
+  {
+    status = esl_sqfile_OpenSSI(sqfp, NULL);
+    if      (status == eslEFORMAT)   cmdline_failure(argv[0], "SSI index is in incorrect format\n");
+    else if (status == eslERANGE)    cmdline_failure(argv[0], "SSI index is in 64-bit format and we can't read it\n");
+    else if (status != eslOK)        cmdline_failure(argv[0], "Failed to open SSI index\n");
+  }
 
   /* Open the <maskfile> */
   if (esl_fileparser_Open(maskfile, NULL, &maskefp) != eslOK) 
