@@ -105,6 +105,12 @@ Remove any sequences with length more than
 residues.
 
 .TP 
+.BI --rfnfract " <x>"
+Remove any sequences with nongap RF length less than 
+.I <x>
+fraction the nongap RF length of the alignment.
+
+.TP 
 .BI --detrunc " <n>"
 Remove any sequences that have all gaps in the first 
 .I <n>

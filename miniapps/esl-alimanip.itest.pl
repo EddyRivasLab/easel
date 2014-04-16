@@ -8,7 +8,7 @@
 # EPN, Tue Feb  2 13:19:44 2010
 
 $eslalimanip= shift;
-$tmppfx      = shift;
+$tmppfx     = shift;
 
 if (! -x "$eslalimanip") { die "FAIL: didn't find esl-alimanip binary $eslalimanip"; }
 
@@ -188,6 +188,20 @@ $output = `$eslalimanip --rna --lmin 30 $tmppfx.stk 2>&1`;
 if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
 # should remove seq1 and seq3
 if ($output =~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --lmax 29 $tmppfx.stk 2>&1`;
+if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
+# should remove seq2
+if ($output !~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output =~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
+if ($output !~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
+
+$output = `$eslalimanip --rna --rffract 0.953 $tmppfx.stk 2>&1`;
+if ($? != 0)           { die "FAIL: esl-alimanip failed unexpectedly";}
+# should remove seq3
+if ($output !~ /seq1/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output !~ /seq2/) { die "FAIL: alignment manipulated incorrectly"; }
 if ($output =~ /seq3/) { die "FAIL: alignment manipulated incorrectly"; }
 

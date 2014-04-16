@@ -30,101 +30,102 @@ static char usage[]  = "[options] <msafile>";
 
 #define CLUSTOPTS             "--cn-id,--cs-id,--cx-id,--cn-ins,--cs-ins,--cx-ins" /* Exclusive choice for clustering */
 #define CHOOSESEQOPTS         "--seq-k,--seq-r,--seq-ins,--reorder" /* Exclusive choice for choosing which seqs to keep/remove */
-#define INCOMPATWITHSMALLOPTS "--lnfract,--lxfract,--lmin,--lmax,--detrunc,--k-reorder,--seq-ins,--seq-ni,--seq-xi,--trim,--minpp,--t-keeprf,--tree,--reorder,--mask2rf,--m-keeprf,--num-all,--num-rf,--rm-gc,--sindi,--post2pp" /* Options incompatible with --small (all opts except --seq-k,--seq-r,--informat,--outformat,--rna,--dna,--amino */
+#define INCOMPATWITHSMALLOPTS "--rffract,--lnfract,--lxfract,--lmin,--lmax,--detrunc,--k-reorder,--seq-ins,--seq-ni,--seq-xi,--trim,--minpp,--t-keeprf,--tree,--reorder,--mask2rf,--m-keeprf,--num-all,--num-rf,--rm-gc,--sindi,--post2pp" /* Options incompatible with --small (all opts except --seq-k,--seq-r,--informat,--outformat,--rna,--dna,--amino */
 
-static int  write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
-static int  write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *amask, int amask_len);
-static int  write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *mask_for_rf, int mask_for_rf_len);
-static int  individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
-static int  read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
-static int  trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf);
-static int  prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbuf);
-static int  get_pp_idx(ESL_ALPHABET *abc, char ppchar);
-static int  get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
-static int  reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
-static int  read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
-static int  expand_msa2mask(char *errbuf, ESL_MSA *msa1, char *xmask, ESL_MSA **newmsa1);
-static int  add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
-static int  msa_median_length(ESL_MSA *msa);
-static int  msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa);
-static int  msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa);
-static int  msa_remove_truncated_seqs(ESL_MSA *msa, char *errbuf, int ntrunc, int *i_am_rf, ESL_MSA **ret_new_msa);
-static int  msa_remove_seqs_with_ambiguities(ESL_MSA *msa, int max_nambig, ESL_MSA **ret_new_msa);
-static int  number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf);
-static char digit_to_char(int digit);
-static int  int_ndigits(int i);
-static char get_char_digit_x_from_int(int i, int place);
-static int  read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n);
-static int  msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, int do_reorder, int nali, ESL_MSA **ret_new_msa);
-static int  insert_x_pair_shared(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, int *opt_nshared, int *opt_nins);
-static int  insert_x_pair_shared_length(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, double *opt_nshared, int *opt_nins);
-static int  insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int rflen, int *i_am_rf, int do_length_weight, int do_only_internal_inserts, ESL_DMATRIX **ret_D);
-static int  MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize, float mindiff, int target_nc, int target_nsize, int *ret_num_msa, ESL_MSA ***ret_cmsa, int *ret_xsize, char *errbuf);
-static int  select_node(ESL_TREE *T, double *diff, double mindiff, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, char *errbuf);
+static int   write_rf_gapthresh(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, float gapthresh);
+static int   write_rf_given_alen(ESL_MSA *msa, char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *amask, int amask_len);
+static int   write_rf_given_rflen(ESL_MSA *msa,  char *errbuf, int *i_am_rf, int do_keep_rf_chars, char *mask_for_rf, int mask_for_rf_len);
+static int   individualize_consensus(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa);
+static int   read_sqfile(ESL_SQFILE *sqfp, const ESL_ALPHABET *abc, int nseq, ESL_SQ ***ret_sq);
+static int   trim_msa(ESL_MSA *msa, ESL_SQ **sq, int do_keeprf, char *errbuf);
+static int   prune_msa_based_on_posteriors(ESL_MSA *msa, float min_pp, char *errbuf);
+static int   get_pp_idx(ESL_ALPHABET *abc, char ppchar);
+static int   get_tree_order(ESL_TREE *T, char *errbuf, int **ret_order);
+static int   reorder_msa(ESL_MSA *msa, int *order, char *errbuf);
+static int   read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len);
+static int   expand_msa2mask(char *errbuf, ESL_MSA *msa1, char *xmask, ESL_MSA **newmsa1);
+static int   add_gap_columns_to_msa(char *errbuf, ESL_MSA *msa, int *toadd, ESL_MSA **ret_msa, int do_treat_as_rf_gap);
+static int   msa_median_length(ESL_MSA *msa);
+static int   msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, int *i_am_rf, ESL_MSA **ret_new_msa);
+static int   msa_remove_seqs_above_maxlen(ESL_MSA *msa, float maxlen, ESL_MSA **ret_new_msa);
+static int   msa_remove_truncated_seqs(ESL_MSA *msa, char *errbuf, int ntrunc, int *i_am_rf, ESL_MSA **ret_new_msa);
+static int   msa_remove_seqs_with_ambiguities(ESL_MSA *msa, int max_nambig, ESL_MSA **ret_new_msa);
+static int   number_columns(ESL_MSA *msa, int do_all, int *i_am_rf, char *errbuf);
+static char  digit_to_char(int digit);
+static int   int_ndigits(int i);
+static char  get_char_digit_x_from_int(int i, int place);
+static int   read_seq_name_file(char *filename, char *errbuf, char ***ret_seqlist, int *ret_seqlist_n);
+static int   msa_keep_or_remove_seqs(ESL_MSA *msa, char *errbuf, char **seqlist, int seqlist_n, int do_keep, int do_reorder, int nali, ESL_MSA **ret_new_msa);
+static int   insert_x_pair_shared(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, int *opt_nshared, int *opt_nins);
+static int   insert_x_pair_shared_length(ESL_MSA *msa, int *i_am_rf, int i, int j, int cfirst, int clast, double *opt_pshared, double *opt_nshared, int *opt_nins);
+static int   insert_x_diffmx(const ESL_GETOPTS *go, char *errbuf, ESL_MSA *msa, int rflen, int *i_am_rf, int do_length_weight, int do_only_internal_inserts, ESL_DMATRIX **ret_D);
+static int   MSADivide(ESL_MSA *mmsa, ESL_DMATRIX *D, int do_mindiff, int do_nc, int do_nsize, float mindiff, int target_nc, int target_nsize, int *ret_num_msa, ESL_MSA ***ret_cmsa, int *ret_xsize, char *errbuf);
+static int   select_node(ESL_TREE *T, double *diff, double mindiff, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, char *errbuf);
 static float find_mindiff(ESL_TREE *T, double *diff, int do_nsize, int target, int **ret_clust, int *ret_nc, int *ret_xsize, int *ret_best, float *ret_mindiff, char *errbuf);
-static int  determine_first_last_consensus_columns(ESL_MSA *msa, char *errbuf, int *i_am_rf, int rflen, int **ret_fA, int **ret_lA);
-static int  dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, double *opt_distance, int *opt_nid, int *opt_n);
-static int  dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D);
-static int  find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf, int target, int min, int max, int **ret_useme);
-static int  minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag, int outfmt);
-static int  remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag);
-static int  cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, int *toadd, int nnew, char gapchar);
-static int  map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
-static int  convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali);
-static int  compare_ints(const void *el1, const void *el2);
+static int   determine_first_last_consensus_columns(ESL_MSA *msa, char *errbuf, int *i_am_rf, int rflen, int **ret_fA, int **ret_lA);
+static int   dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, double *opt_distance, int *opt_nid, int *opt_n);
+static int   dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D);
+static int   find_seqs_with_given_insert(ESL_MSA *msa, int *i_am_rf, char *errbuf, int target, int min, int max, int **ret_useme);
+static int   minorize_msa(const ESL_GETOPTS *go, ESL_MSA *msa, char *errbuf, FILE *fp, char *tag, int outfmt);
+static int   remove_gc_markup(ESL_MSA *msa, char *errbuf, char *tag);
+static int   cp_and_add_gaps_to_aseq(char *new_aseq, char *orig_aseq, int alen, int *toadd, int nnew, char gapchar);
+static int   map_rfpos_to_apos(ESL_MSA *msa, ESL_ALPHABET *abc, char *errbuf, int **ret_i_am_rf, int **ret_rf2a_map, int *ret_rflen);
+static int   convert_post_to_pp(ESL_MSA *msa, char *errbuf, int nali);
+static int   compare_ints(const void *el1, const void *el2);
 
 static ESL_OPTIONS options[] = {
-  /* name          type        default  env   range      togs reqs  incomp                      help                                                       docgroup */
-  { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                     1 },
-  { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                   1 },
-  { "--informat",  eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                       1 },
-  { "--outformat", eslARG_STRING,NULL,  NULL,NULL,  NULL, NULL,NULL,                       "specify that output format be <s>",                              1 },
-  { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                    1 },
+  /* name          type        default  env   range      togs reqs  incomp                      help                                                         docgroup */
+  { "-h",          eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "help; show brief info on version and usage",                       1 },
+  { "-o",          eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                       "output the alignment to file <f>, not stdout",                     1 },
+  { "--informat",  eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, NULL,                       "specify that input file is in format <s>",                         1 },
+  { "--outformat", eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL,NULL,                        "specify that output format be <s>",                                1 },
+  { "--devhelp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "show list of undocumented developer options",                      1 },
   /* options for removing/trimming/reordering sequences */
-  { "--lnfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=2", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",      2 },
-  { "--lxfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=3", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <x> fraction of median length",      2 },
-  { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <n> residues",                       2 },
-  { "--lmax",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <n> residues",                       2 },
-  { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/gaps in >= <n> 5' or 3'-most non-gap #=GC RF cols",2 },
-  { "--xambig",    eslARG_INT,   NULL,  NULL, "n>=0",    NULL,NULL, CHOOSESEQOPTS,              "remove sequences with >= <n> ambiguous residues",                2 },
-  { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                 2 },
-  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>",                   2 },
-  { "--small",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, INCOMPATWITHSMALLOPTS,      "w/--seq-r or --seq-k use minimal RAM (no seq reordering)", 2 },
-  { "--k-reorder", eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--seq-k", INCOMPATWITHSMALLOPTS, "with --seq-k <f>, reorder sequences to order in <f>",2 },
-  { "--seq-ins",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/an insert after non-gap RF col <n>",            2 },
-  { "--seq-ni",    eslARG_INT,    "1",  NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at least <n> residue insertions",            2 },
-  { "--seq-xi",    eslARG_INT,"1000000",NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at most  <n> residue insertions",            2 },
-  { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "trim aligned seqs in <msafile> to subseqs in <f>",               2 },
-  { "--t-keeprf",  eslARG_NONE,   NULL, NULL, NULL,      NULL,"--trim", NULL,                   "w/--trim keep GC RF annotation in msa, if it exists",            2 },
-  { "--minpp",     eslARG_REAL,   NULL, NULL, "0<x<=0.95",NULL,NULL,NULL,                       "replace residues with posterior probabilities < <x> with gaps",  2 },
-  { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder MSA to tree order following SLC, save Newick tree to <f>",2 },
-  { "--reorder",   eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder seqs to the order listed in <f>, all seqs must be listed",2 },
+  { "--lnfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=2", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <x> fraction of median length",        2 },
+  { "--lxfract",   eslARG_REAL,  NULL,  NULL, "0<=x<=3", NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <x> fraction of median length",        2 },
+  { "--lmin",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length < <n> residues",                         2 },
+  { "--lmax",      eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove sequences w/length > <n> residues",                         2 },
+  { "--rffract",   eslARG_REAL,  NULL,  NULL, "0<=x<=1", NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/nongap RF len < <x> fraction of aln nongap RF len",  2 },
+  { "--detrunc",   eslARG_INT,   NULL,  NULL, "n>0",     NULL,NULL, CHOOSESEQOPTS,              "remove seqs w/gaps in >= <n> 5' or 3'-most nongap #=GC RF cols",   2 },
+  { "--xambig",    eslARG_INT,   NULL,  NULL, "n>=0",    NULL,NULL, CHOOSESEQOPTS,              "remove sequences with >= <n> ambiguous residues",                  2 },
+  { "--seq-r",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove sequences with names listed in file <f>",                   2 },
+  { "--seq-k",     eslARG_INFILE,NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "remove all seqs *except* those listed in <f>",                     2 },
+  { "--small",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, INCOMPATWITHSMALLOPTS,      "w/--seq-r or --seq-k use minimal RAM (no seq reordering)",         2 },
+  { "--k-reorder", eslARG_NONE,  NULL,  NULL, NULL,      NULL,"--seq-k", INCOMPATWITHSMALLOPTS, "with --seq-k <f>, reorder sequences to order in <f>",              2 },
+  { "--seq-ins",   eslARG_INT,   NULL,  NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "keep only seqs w/an insert after nongap RF col <n>",               2 },
+  { "--seq-ni",    eslARG_INT,    "1",  NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at least <n> residue insertions",              2 },
+  { "--seq-xi",    eslARG_INT,"1000000",NULL, "n>0",     NULL,"--seq-ins", NULL,                "w/--seq-ins require at most  <n> residue insertions",              2 },
+  { "--trim",      eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "trim aligned seqs in <msafile> to subseqs in <f>",                 2 },
+  { "--t-keeprf",  eslARG_NONE,   NULL, NULL, NULL,      NULL,"--trim", NULL,                   "w/--trim keep GC RF annotation in msa, if it exists",              2 },
+  { "--minpp",     eslARG_REAL,   NULL, NULL, "0<x<=0.95",NULL,NULL,NULL,                       "replace residues with posterior probabilities < <x> with gaps",    2 },
+  { "--tree",      eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder MSA to tree order following SLC, save Newick tree to <f>", 2 },
+  { "--reorder",   eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, CHOOSESEQOPTS,              "reorder seqs to the order listed in <f>, all seqs must be listed", 2 },
   /* options for adding/removing alignment annotation */
-  { "--mask2rf",   eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f>",              3 },
-  { "--m-keeprf",  eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--mask2rf", NULL,                "with --mask2rf, do not overwrite nongap RF characters with 'x'", 3 },
-  { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                           3 },
-  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the non-gap RF columns",                3 },
-  { "--rm-gc",     eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--mask2rf",                "remove GC <s> markup, <s> must be RF|SS_cons|SA_cons|PP_cons",   3 },
-  { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "annotate individual secondary structures by imposing consensus", 3 },
+  { "--mask2rf",   eslARG_INFILE, FALSE,NULL, NULL,      NULL,NULL, NULL,                       "set #=GC RF as x=1, gap=0 from 1/0s in 1-line <f>",                3 },
+  { "--m-keeprf",  eslARG_NONE,  FALSE, NULL, NULL,      NULL,"--mask2rf", NULL,                "with --mask2rf, do not overwrite nongap RF characters with 'x'",   3 },
+  { "--num-all",   eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering all columns",                             3 },
+  { "--num-rf",    eslARG_NONE,   NULL, NULL, NULL,      NULL,NULL, NULL,                       "add annotation numbering the nongap RF columns",                   3 },
+  { "--rm-gc",     eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--mask2rf",                "remove GC <s> markup, <s> must be RF|SS_cons|SA_cons|PP_cons",     3 },
+  { "--sindi",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL, NULL,                       "annotate individual secondary structures by imposing consensus",   3 },
   { "--post2pp",   eslARG_NONE,  NULL,  NULL, NULL,      NULL,NULL, NULL,                       "convert infernal 0.72-1.0.2 POST posterior prob annotation to PP", 3 },
   /* options for specifying the alphabet */
-  { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                          4 },
-  { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                              4 },
-  { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                              4 },
+  { "--amino",     eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--dna,--rna",               "<msafile> contains protein alignments",                            4 },
+  { "--dna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--rna",             "<msafile> contains DNA alignments",                                4 },
+  { "--rna",       eslARG_NONE,  FALSE, NULL, NULL,      NULL,NULL,"--amino,--dna",             "<msafile> contains RNA alignments",                                4 },
 
   /* All options below are developer options, only shown if --devhelp invoked */
-  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",    101 },
-  { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity",          101 },
-  { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs",      101 },
-  { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id", 101 },
-  { "--cn-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on insert similarity",          101 },
-  { "--cs-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on inserts s.t. max cluster has <n> seqs",101 },
-  { "--cx-ins",     eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> ins id", 101 },
-  { "--c-nmin",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, NULL,                      "only keep the cluster(s) with number of seqs > <n>",              101 },
-  { "--c-mx",       eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                      "output identity matrix to file <f>",                              101 },
-  { "-M",           eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--seq-r,--seq-k",         "use #=GS tag <s> to define minor alignments, and output them",    101 },
-  { "--M-rf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"-M", NULL,                      "w/-M, impose major #=GC RF onto all minor alns",                  101 },
-  { "--M-gapt",     eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-M", NULL,                      "w/-M, fraction of gaps allowed in non-gap RF columns",            101 },
+  { "--xmask",     eslARG_INFILE, NULL, NULL, NULL,      NULL,NULL, NULL,                       "for each 0 column in <f>, add a 100% gap column to <msafile>",     101 },
+  { "--cn-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on sequence identity",           101 },
+  { "--cs-id",      eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on id s.t max cluster has <n> seqs",       101 },
+  { "--cx-id",      eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> seq id",  101 },
+  { "--cn-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into <n> clusters based on insert similarity",           101 },
+  { "--cs-ins",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, CLUSTOPTS,                 "split MSA into clusters on inserts s.t. max cluster has <n> seqs", 101 },
+  { "--cx-ins",     eslARG_REAL,  NULL,   NULL, "0.<x<1.",NULL,NULL, CLUSTOPTS,                 "split MSA into clusters s.t. no seq b/t 2 clusters > <x> ins id",  101 },
+  { "--c-nmin",     eslARG_INT,   NULL,   NULL, "n>0",    NULL,NULL, NULL,                      "only keep the cluster(s) with number of seqs > <n>",               101 },
+  { "--c-mx",       eslARG_OUTFILE,NULL, NULL, NULL,      NULL,NULL, NULL,                      "output identity matrix to file <f>",                               101 },
+  { "-M",           eslARG_STRING,NULL,  NULL, NULL,      NULL,NULL, "--seq-r,--seq-k",         "use #=GS tag <s> to define minor alignments, and output them",     101 },
+  { "--M-rf",       eslARG_NONE,  NULL,  NULL, NULL,      NULL,"-M", NULL,                      "w/-M, impose major #=GC RF onto all minor alns",                   101 },
+  { "--M-gapt",     eslARG_REAL,  "0.5", NULL, "0<=x<=1", NULL,"-M", NULL,                      "w/-M, fraction of gaps allowed in nongap RF columns",              101 },
 
   { 0,0,0,0,0,0,0,0,0,0 },
 };
@@ -291,9 +292,9 @@ main(int argc, char **argv)
 	esl_fatal("--small requires (and defaults to) pfam format\ncan't set --outformat %s\n", esl_opt_GetString(go, "--outformat")); 
     }
 
-  /***********************************************
+  /***************************************************************
    * Open the MSA file; determine alphabet; set for digital input
-   ***********************************************/
+   ****************************************************************/
 
   if      (esl_opt_GetBoolean(go, "--amino"))   abc = esl_alphabet_Create(eslAMINO);
   else if (esl_opt_GetBoolean(go, "--dna"))     abc = esl_alphabet_Create(eslDNA);
@@ -434,7 +435,7 @@ main(int argc, char **argv)
 	if (esl_opt_IsOn(go, "--lnfract")) {
 	  median = msa_median_length(msa);
 	  minlen = esl_opt_GetReal(go, "--lnfract") * (float) median;
-	  msa_remove_seqs_below_minlen(msa, minlen, &new_msa);
+	  msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
 	  /* new_msa is msa without seqs below minlen, swap ptrs */
 	  esl_msa_Destroy(msa);
 	  msa = new_msa;
@@ -451,7 +452,7 @@ main(int argc, char **argv)
 	}
 	if (esl_opt_IsOn(go, "--lmin")) {
 	  minlen = esl_opt_GetInteger(go, "--lmin");
-	  msa_remove_seqs_below_minlen(msa, minlen, &new_msa);
+	  msa_remove_seqs_below_minlen(msa, minlen, NULL, &new_msa); /* NULL: do not consider only nongap RF positions */
 	  /* new_msa is msa without seqs below minlen, swap ptrs */
 	  esl_msa_Destroy(msa);
 	  msa = new_msa;
@@ -461,6 +462,16 @@ main(int argc, char **argv)
 	  maxlen = esl_opt_GetInteger(go, "--lmax");
 	  msa_remove_seqs_above_maxlen(msa, maxlen, &new_msa);
 	  /* new_msa is msa without seqs below maxlen, swap ptrs */
+	  esl_msa_Destroy(msa);
+	  msa = new_msa;
+	  new_msa = NULL;
+	}
+	if (esl_opt_IsOn(go, "--rffract")) {
+          /* determine nongap RF length */
+          if(msa->rf == NULL) esl_fatal("with --rffract, alignment(s) must have RF annotation, alignment %d does not", nali);
+          minlen = rflen * esl_opt_GetReal(go, "--rffract");
+	  msa_remove_seqs_below_minlen(msa, minlen, i_am_rf, &new_msa);
+	  /* new_msa is msa without seqs below minlen, swap ptrs */
 	  esl_msa_Destroy(msa);
 	  msa = new_msa;
 	  new_msa = NULL;
@@ -1528,13 +1539,15 @@ msa_median_length(ESL_MSA *msa)
 /* Function: msa_remove_seqs_below_minlen()
  * 
  * Purpose:  Remove sequences in MSA whose dealigned length is less than a minimum length.
+ *           If <i_am_rf> is non-NULL, only consider positions that are nongap RF.
  */
 static int
-msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa)
+msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, int *i_am_rf, ESL_MSA **ret_new_msa)
 {
-  int  status;
-  int *useme;
-  int  i;
+  int     status;
+  int    *useme;   /* [0..msa->nseq-1]: 1 to keep sequence, 0 to remove it */
+  int     i, apos; /* sequence index, alignment position */
+  int64_t len;     /* length of current sequence, either nongap length (if i_am_rf == NULL) or nongap RF length (if i_am_rf != NULL) */
 
   ESL_MSA *new_msa;
   ESL_SQ *sq;
@@ -1542,13 +1555,22 @@ msa_remove_seqs_below_minlen(ESL_MSA *msa, float minlen, ESL_MSA **ret_new_msa)
 
   ESL_ALLOC(useme, sizeof(int) * msa->nseq);
   for (i = 0; i < msa->nseq; i++) {
-    esl_sq_GetFromMSA(msa, i, sq);
-    useme[i] = ((float) sq->n >= minlen) ? TRUE : FALSE;
-    /*printf("useme[i:%d]: %d\n", i, useme[i]);*/
-    esl_sq_Reuse(sq);
+    if(i_am_rf != NULL) { 
+      len = 0;
+      for(apos = 1; apos <= msa->alen; apos++) { 
+        if(i_am_rf[(apos-1)] && (! esl_abc_XIsGap(msa->abc, msa->ax[i][apos]))) len++;
+      }
+    }
+    else { /* i_am_rf is NULL, consider the entire sequence */
+      esl_sq_GetFromMSA(msa, i, sq);
+      len = sq->n;
+      esl_sq_Reuse(sq);
+    }
+    useme[i] = ((float) len >= minlen) ? TRUE : FALSE;
+    /*printf("useme[i:%d]: %d (len: %" PRId64 ", minlen: %.2f)\n", i, useme[i], len, minlen);*/
   }
 
-  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences exceed minimum allowed length.");
+  if(esl_vec_ISum(useme, msa->nseq) == 0) esl_fatal("No sequences at or above minimum allowed length.");
   if((status = esl_msa_SequenceSubset(msa, useme, &new_msa)) != eslOK) esl_fatal("esl_msa_SequenceSubset() had a problem.");
   free(useme);
   esl_sq_Destroy(sq);
