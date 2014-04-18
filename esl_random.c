@@ -374,21 +374,20 @@ mersenne_fill_table(ESL_RANDOMNESS *r)
 
 /* choose_arbitrary_seed()
  * Return a 'quasirandom' seed > 0.
- * This could be a *lot* better than it is now; see RFC1750
- * for a discussion of securely seeding RNGs.
+ * This should be ok, but could be better.
+ * See RFC1750 for a discussion of securely seeding RNGs.
  */
 static uint32_t
 choose_arbitrary_seed(void)
 {
-  uint32_t a = (uint32_t) time ((time_t *) NULL);
-  uint32_t b = 87654321;	/* anything nonzero */
-  uint32_t c = 12345678;	/* anything nonzero. jenkins' mix3 needs 3 numbers; add an arbitrary one */
+  uint32_t a = (uint32_t) time ((time_t *) NULL);  
+  uint32_t b = 87654321;	                    // we'll use getpid() below, if we can
+  uint32_t c = (uint32_t) clock();                  // clock() gives time since process invocation, in msec at least, if not usec
   uint32_t seed;
 #ifdef HAVE_GETPID
-  b  = (uint32_t) getpid();	  /* preferable b choice, if we have POSIX getpid(); else both b,c are arbitrary */
+  b  = (uint32_t) getpid();	                    // preferable b choice, if we have POSIX getpid()
 #endif
-  seed = jenkins_mix3(a,b,c);	  /* try to decorrelate closely spaced choices of pid/time */
-
+  seed = jenkins_mix3(a,b,c);	                    // try to decorrelate closely spaced choices of pid/times
   return (seed == 0) ? 42 : seed; /* 42 is entirely arbitrary, just to avoid seed==0. */
 }
 
