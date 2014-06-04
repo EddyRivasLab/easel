@@ -1962,20 +1962,22 @@ msa_set_seq_pp(ESL_MSA *msa, int seqidx, const char *pp)
 
 static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
 
+
 /* Function:  esl_msa_ReasonableRF()
  * Synopsis:  Determine a reasonable #=RF line marking "consensus" columns.
  *
  * Purpose:   Define an <rfline> for the multiple alignment <msa> that
- *            marks consensus columns with an 'x', and non-consensus 
- *            columns with a '.'.
+ *            marks consensus columns with an 'x' (or the consensus
+ *            letter if useconsseq is TRUE), and non-consensus columns
+ *            with a '.'.
  *            
  *            Consensus columns are defined as columns with fractional
  *            occupancy of $\geq$ <symfrac> in residues. For example,
  *            if <symfrac> is 0.7, columns containing $\geq$ 70\%
- *            residues are assigned as 'x' in the <rfline>, roughly
- *            speaking. "Roughly speaking", because the fractional
- *            occupancy is in fact calculated as a weighted frequency
- *            using sequence weights in <msa->wgt>, and because
+ *            residues are assigned as 'x' (or consensus letter) in the
+ *            <rfline>, roughly speaking. "Roughly speaking", because the
+ *            fractional occupancy is in fact calculated as a weighted
+ *            frequency using sequence weights in <msa->wgt>, and because
  *            missing data symbols are ignored in order to be able to
  *            deal with sequence fragments. 
  *            
@@ -2002,9 +2004,10 @@ static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
  *            case, the caller must provide allocated space for at
  *            least <msa->alen+1> chars.
  *            
- * Args:      msa      - MSA to define a consensus RF line for
- *            symfrac  - threshold for defining consensus columns
- *            rfline   - RESULT: string containing x for consensus, . for not
+ * Args:      msa          - MSA to define a consensus RF line for
+ *            symfrac      - threshold for defining consensus columns
+ *            useconsseq   - if FALSE, use x for a consensus position; else use the consensus letter
+ *            rfline       - RESULT: string containing a letter for consensus position, . for not
  *
  * Returns:   <eslOK> on success.
  *
@@ -2016,47 +2019,72 @@ static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
  *            consensus columns when #=RF annotation isn't available.
  */
 int
-esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, char *rfline)
+esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, char *rfline)
 {
+  int status;
   int    apos;
   int    idx;
   double r;
   double totwgt;
-  
+  float *counts;
+
+  if (useconsseq)
+    ESL_ALLOC(counts, msa->abc->K * sizeof(float));
+
 #ifdef eslAUGMENT_ALPHABET
   if (msa->flags & eslMSA_DIGITAL)
-    {
+  {
+
       for (apos = 1; apos <= msa->alen; apos++) 
-	{  
-	  r = totwgt = 0.;
-	  for (idx = 0; idx < msa->nseq; idx++) 
-	    {
-	      if       (esl_abc_XIsResidue(msa->abc, msa->ax[idx][apos])) { r += msa->wgt[idx]; totwgt += msa->wgt[idx]; }
-	      else if  (esl_abc_XIsGap(msa->abc,     msa->ax[idx][apos])) {                     totwgt += msa->wgt[idx]; }
-	      else if  (esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos])) continue;
-	    }
-	  if (r > 0. && r / totwgt >= symfrac) msa->rf[apos-1] = 'x';
-	  else                                 msa->rf[apos-1] = '.';
-	}
-    }
+      {
+        r = totwgt = 0.;
+        esl_vec_FSet(counts, msa->abc->K, 0.0);
+        for (idx = 0; idx < msa->nseq; idx++)
+        {
+          if  (esl_abc_XIsResidue(msa->abc, msa->ax[idx][apos]))
+          {
+            r += msa->wgt[idx]; totwgt += msa->wgt[idx];
+            if (useconsseq) esl_abc_FCount(msa->abc, counts, msa->ax[idx][apos], msa->wgt[idx]);
+          }
+          else if  (esl_abc_XIsGap(msa->abc,     msa->ax[idx][apos]))            totwgt += msa->wgt[idx];
+          else if  (esl_abc_XIsMissing(msa->abc, msa->ax[idx][apos]))            continue;
+        }
+        if (r > 0. && r / totwgt >= symfrac) {
+          if (useconsseq) rfline[apos-1] = msa->abc->sym[esl_vec_FArgMax(counts, msa->abc->K)];
+          else            rfline[apos-1] = 'x';
+        }
+        else              rfline[apos-1] = '.';
+
+      }
+  }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL))
-    {
+  {
       for (apos = 0; apos < msa->alen; apos++) 
-	{  
-	  r = totwgt = 0.;
-	  for (idx = 0; idx < msa->nseq; idx++) 
-	    {
-	      if    (isalpha(msa->aseq[idx][apos])) { r += msa->wgt[idx]; totwgt += msa->wgt[idx]; }
-	      else                                                        totwgt += msa->wgt[idx];
-	    }
-	  if (r > 0. && r / totwgt >= symfrac) msa->rf[apos] = 'x';
-	  else                                 msa->rf[apos] = '.';
-	}
-    }
+      {
+        r = totwgt = 0.;
+        for (idx = 0; idx < msa->nseq; idx++)
+        {
+            if    (isalpha(msa->aseq[idx][apos]))
+            {
+              r += msa->wgt[idx]; totwgt += msa->wgt[idx];
+              if (useconsseq)   esl_abc_FCount(msa->abc, counts, msa->abc->inmap[ (int) msa->aseq[idx][apos] ], msa->wgt[idx]);
+            }
+            else          totwgt += msa->wgt[idx];
+        }
+        if (r > 0. && r / totwgt >= symfrac) {
+          if (useconsseq) rfline[apos-1] = msa->abc->sym[esl_vec_FArgMax(counts, msa->abc->K)];
+          else            rfline[apos] = 'x';
+        }
+        else              rfline[apos] = '.';
+      }
+  }
 
-  msa->rf[msa->alen] = '\0';
+  rfline[msa->alen] = '\0';
   return eslOK;
+
+ERROR:
+  return status;
 }
 
 

@@ -175,7 +175,7 @@ extern int esl_msa_AppendGR  (ESL_MSA *msa, char *tag, int sqidx, char *value);
 extern int esl_msa_CheckUniqueNames(const ESL_MSA *msa);
 
 /* 4. Miscellaneous functions for manipulating MSAs */
-extern int esl_msa_ReasonableRF (ESL_MSA *msa, double symfrac, char *rfline);
+extern int esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, char *rfline);
 extern int esl_msa_MarkFragments(ESL_MSA *msa, double fragthresh);
 extern int esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new);
 extern int esl_msa_ColumnSubset (ESL_MSA *msa, char *errbuf, const int *useme);
