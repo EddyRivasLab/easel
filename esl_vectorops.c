@@ -115,21 +115,38 @@ esl_vec_IIncrement(int *v, int n, int x)
  *            
  *            <esl_vec_FSum()> and <esl_vec_ISum()> do the same,
  *            but for float and integer vectors.
+ *            
+ *            The floating point summations use Kahan compensated
+ *            summation, in order to minimize roundoff error
+ *            accumulation.  Additionally, I believe they are most
+ *            accurate if vec[] is sorted in increasing order, from
+ *            small to large, so you may consider sorting <vec> before
+ *            summing it.
  */
 double 
 esl_vec_DSum(double *vec, int n)
 {
   double sum = 0.;
+  double y,t,c; 
   int    x;
-  for (x = 0; x < n; x++) sum += vec[x];
+
+  c = 0.0;
+  for (x = 0; x < n; x++) {
+    y = vec[x] - c; t = sum + y; c = (t-sum)-y; sum = t; 
+  }
   return sum;
 }
 float 
 esl_vec_FSum(float *vec, int n)
 {
   float sum = 0.;
+  float y,t,c;
   int   x;
-  for (x = 0; x < n; x++) sum += vec[x];
+
+  c = 0.0;
+  for (x = 0; x < n; x++) {
+    y = vec[x] - c; t = sum + y; c = (t-sum)-y; sum = t; 
+  }
   return sum;
 }
 int
