@@ -1033,29 +1033,33 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
 int
 esl_histogram_Plot(FILE *fp, ESL_HISTOGRAM *h)
 {
+  int    imin, imax;
   int    i;
   double x;
 
   /* First data set is the observed histogram
    */
   for (i = h->imin; i <= h->imax; i++)
-    if (h->obs[i] > 0)
-      {
-	x = esl_histogram_Bin2LBound(h,i);
-	if (fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
-      }
+    {
+      x = esl_histogram_Bin2LBound(h,i);
+      if (fprintf(fp, "%f %llu\n", x, (unsigned long long) h->obs[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+    }
   if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
 
   /* Second data set is the theoretical (expected) histogram
    */
   if (h->expect != NULL)
     {
-      for (i = 0; i < h->nb; i++)
-	if (h->expect[i] > 0.)	/* >0 suffices to remove censored region */
-	  {
-	    x = esl_histogram_Bin2LBound(h,i);
-	    if (fprintf(fp, "%.2f %g\n", x, h->expect[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
-	  }
+      for (imin = 0; imin < h->nb; imin++) 
+	if (h->expect[imin] > 0.) break;
+      for (imax = h->nb-1; imax >= 0; imax--)
+	if (h->expect[imax] > 0.) break;
+
+      for (i = imin; i <= imax; i++)
+	{
+	  x = esl_histogram_Bin2LBound(h,i);
+	  if (fprintf(fp, "%f %g\n", x, h->expect[i]) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
+	}
       if (fprintf(fp, "&\n") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "histogram plot write failed");
     }
   return eslOK;

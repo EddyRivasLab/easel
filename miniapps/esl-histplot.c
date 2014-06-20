@@ -19,7 +19,8 @@
 #include "esl_exponential.h"
 #include "esl_gev.h"
 #include "esl_gumbel.h"
-
+#include "esl_normal.h"
+#include "esl_stats.h"
 
 static char banner[] = "collate a data histogram, output xmgrace datafile";
 
@@ -41,6 +42,7 @@ static ESL_OPTIONS options[] = {
   {"--gumbel",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution",                  4 }, 
   {"--exptail",   eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential distribution",            4 },
   {"--gev",       eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a generalized EVD (Frechet or Weibull)", 4 }, 
+  {"--normal",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a normal (Gaussian) distribution",       4 }, 
   {"--trunc",     eslARG_REAL,  NULL,  NULL,NULL, NULL,"--gumbel",NULL,"with --gumbel, specify data are truncated, min value is <x>",                 4 }, 
   {"--gumloc",    eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit data to a Gumbel distribution w/ known lambda", 4 }, 
   {"--exptailloc",eslARG_NONE,  FALSE, NULL,NULL, NULL,NULL,NULL,"fit tail to an exponential tail w/ known lambda",   4 }, 
@@ -234,6 +236,13 @@ main(int argc, char **argv)
       esl_histogram_SetExpect(h, &esl_gev_generic_cdf, &params);
       
       printf("# generalized EVD fit: mu = %f  lambda = %f  alpha = %f\n", params[0], params[1], params[2]);
+    }
+  else if (esl_opt_GetBoolean(go, "--normal"))
+    {
+      esl_histogram_GetData(h, &xv, &n);
+      esl_stats_DMean(xv, n, &(params[0]), &(params[1]));  // params[1] is now the variance...
+      params[1] = sqrt(params[1]);                         //   ... and now the std deviation.
+      esl_histogram_SetExpect(h, &esl_normal_generic_cdf, &params);
     }
   else if (esl_opt_GetBoolean(go, "--showgum"))
     {

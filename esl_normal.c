@@ -2,9 +2,10 @@
  * 
  * Contents:
  *   1. Densities and distributions
- *   2. Unit tests
- *   3. Test driver
- *   4. Example
+ *   2. Generic API, interface to histogram module
+ *   3. Unit tests
+ *   4. Test driver
+ *   5. Example
  *   
  * To-do:
  *   - incomplete API, by the standards of other Easel stats modules.
@@ -122,7 +123,33 @@ esl_normal_surv(double x, double mu, double sigma)
 
 
 /*****************************************************************
- * 2. Unit tests.
+ * 2. Generic API, interface to histogram module
+ *****************************************************************/
+
+double 
+esl_normal_generic_pdf(double x, void *params)
+{
+  double *v = (double *) params;
+  return esl_normal_pdf(x, v[0], v[1]);
+}
+
+double
+esl_normal_generic_cdf(double x, void *params)
+{
+  double *v = (double *) params;
+  return esl_normal_cdf(x, v[0], v[1]);
+}
+
+double
+esl_normal_generic_surv(double x, void *params)
+{
+  double *v = (double *) params;
+  return esl_normal_surv(x, v[0], v[1]);
+}
+
+
+/*****************************************************************
+ * 3. Unit tests.
  *****************************************************************/
 #ifdef eslNORMAL_TESTDRIVE
 static int
@@ -233,7 +260,7 @@ utest_surv(void)
 
 
 /*****************************************************************
- * 3. Test driver.
+ * 4. Test driver.
  *****************************************************************/
 #ifdef eslNORMAL_TESTDRIVE
 /* Compile:
@@ -257,7 +284,7 @@ main(int argc, char **argv)
 #endif /*eslNORMAL_TESTDRIVE*/
 
 /*****************************************************************
- * 4. Example.
+ * 5. Example.
  *****************************************************************/
 
 #ifdef eslNORMAL_EXAMPLE
