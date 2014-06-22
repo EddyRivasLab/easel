@@ -824,7 +824,7 @@ special names are called \esldef{common interfaces}.
   & \ccode{esl\_tree\_Grow()} \\
 
 \ccode{\_GrowTo}
-  & Reallocate object if necessary for some new data size.
+  & Reallocate object (if needed) for some new data size.
   & [standard]
   & \ccode{esl\_sq\_GrowTo()} \\
 
@@ -938,24 +938,28 @@ contains valid data.
 
 \begin{sreapi}
 \hypertarget{ifc:Create} 
-{\item[\_Create(n, nredline)]}
+{\item[\_Create(n)]}
 
 A \ccode{\_Create()} interface takes any necessary initialization or
-size information as arguments (there may not be any), and it returns a
+size information as arguments (there often aren't any), and it returns a
 pointer to the newly allocated object. If an (optional) number of
 elements \ccode{n} is provided, this specifies the number of elements
 that the object is going to contain (for a fixed-size object) or the
 initial allocation size (for a resizable object). In the event of any
 failure, the a \ccode{\_Create} procedure throws \ccode{NULL}.
 
-Some resizeable objects take a \ccode{nredline} parameter that
-controls an additional memory management rule. These objects are
-allowed to \ccode{_GrowTo()} arbitrary size, but when they exceed an
-allocation size of \ccode{nredline}, they shrink back to the
-\ccode{nredline} limit upon the next call to \ccode{_Reuse()}.  The
-idea is to be able to briefly handle rare extremely large problems in
-memory, without permanently committing the resizeable object to the
-most extreme size. 
+The internals of some resizeable objects have an \ccode{nredline}
+parameter that controls an additional memory management rule. These
+objects are allowed to grow to arbitrary size (either by doubling with
+\ccode{\_Grow} or by a specific allocation with \ccode{\_Reinit} or
+\ccode{_GrowTo}) -- but when the object is reused for new data, they
+can be reallocated \emph{downward}, back to the redline
+limit. Specifically, if the allocation size exceeds \ccode{nredline},
+a \ccode{\_Reuse()} or \ccode{\_Reinit()} call will shrink the
+allocation back to the \ccode{nredline} limit.  The idea is for a
+frequently-reused object to be able to briefly handle a rare
+exceptionally large problem, while not permanently committing the
+resizeable object to an extreme allocation size.
 
 At least one module (\ccode{esl\_tree}) allows for creating either a
 fixed-size or a resizeable object; in this case, there is a

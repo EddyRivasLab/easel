@@ -171,8 +171,9 @@
      }} while (0)
 /*::cexcerpt::alloc_macros::end::*/
 
-/* Convert MB,GB,TB to bytes, using binary definitions (2^20, 2^30, 2^40)
- * More pedantically: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).
+/* Convert MiB,GiB,TiB to bytes, using binary definitions (2^20, 2^30, 2^40):
+ * Pedantically speaking, that's: mebibytes (MiB), gibibytes (GiB), tebibytes (TiB).
+ * 1 TB = 10^12 bytes; 1 TiB = 2^40 bytes.
  */
 #define ESL_MBYTES(x) ((x) * 1048576) 
 #define ESL_GBYTES(x) ((x) * 1024 * 1048576) 
