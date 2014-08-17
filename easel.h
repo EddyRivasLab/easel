@@ -96,9 +96,11 @@
  * handled as the caller wishes.                 
  */
 #if (eslDEBUGLEVEL >= 1)
-#define ESL_AOF()  abort()
+#define ESL_AOF()   abort()
+#define ESL_AOG()   abort()
 #else
-#define ESL_AOF()  return eslFAIL
+#define ESL_AOF()   return eslFAIL
+#define ESL_AOG()   goto ERROR
 #endif
 
 
