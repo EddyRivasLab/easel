@@ -231,10 +231,13 @@ esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourcelin
  *            In an MPI-parallel program, the entire job is
  *            terminated; all processes are aborted (<MPI_Abort()>,
  *            not just the one that called <esl_fatal()>.
+ *            
+ *            If caller is feeling lazy and just wants to terminate
+ *            without any informative message, use <abort()>.
  * 
  * Args:      format  - <sprintf()> formatted exception message, followed
  *                      by any additional necessary arguments for that 
- *                      message.
+ *                      message. 
  *
  * Returns:   (void)
  *

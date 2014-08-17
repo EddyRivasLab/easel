@@ -88,6 +88,19 @@
 
 /*::cexcerpt::error_macros::end::*/
 
+/* "Abort or fail" - testing this out as a solution for the
+ * problem that in dev code we want _Compare and _Validate
+ * tests to abort() so we see where exactly why it failed,
+ * whereas in production code, following Easel specs, these
+ * functions must return normal <eslFAIL> errors to be 
+ * handled as the caller wishes.                 
+ */
+#if (eslDEBUGLEVEL >= 1)
+#define ESL_AOF()  abort()
+#else
+#define ESL_AOF()  return eslFAIL
+#endif
+
 
 /* Return codes for error handler
  */
@@ -231,8 +244,6 @@
 #define ESL_DPRINTF3(x)
 #define ESL_DASSERT3(x)
 #endif
-
-
 
 
 /*****************************************************************
