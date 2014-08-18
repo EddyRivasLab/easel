@@ -94,10 +94,12 @@
  * whereas in production code, following Easel specs, these
  * functions must return normal <eslFAIL> errors to be 
  * handled as the caller wishes.                 
+ *
+ * goto ERROR is unreached, of course, but prevents compiler warning of unused ERROR: 
  */
 #if (eslDEBUGLEVEL >= 1)
 #define ESL_AOF()   abort()
-#define ESL_AOG()   abort()
+#define ESL_AOG()   do { abort(); goto ERROR; } while (0)
 #else
 #define ESL_AOF()   return eslFAIL
 #define ESL_AOG()   goto ERROR
