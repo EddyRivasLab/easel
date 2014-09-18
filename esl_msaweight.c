@@ -493,7 +493,7 @@ esl_msaweight_IDFilter(const ESL_MSA *msa, double maxid, ESL_MSA **ret_newmsa)
 	  }
 #endif
 	  
-	  if (ident > maxid)
+	  if (ident >= maxid)
 	    { 
 	      remove = TRUE; 
 	      break; 
