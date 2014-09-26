@@ -75,11 +75,11 @@ fi
 # 3. Info on the package
 ################################################################
 
-EASEL_DATE="February 2013"
-EASEL_COPYRIGHT="Copyright (C) 2008 Howard Hughes Medical Institute"
-EASEL_LICENSE="Freely distributed under the Janelia Farm Software License."
+EASEL_DATE="September 2014"
+EASEL_COPYRIGHT="Copyright (C) 2014 Howard Hughes Medical Institute"
+EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
-EASEL_URL="http://easel.janelia.org/"
+EASEL_URL="http://bioeasel.org/"
 
 # Output variables.
 # (AC_OUTPUT replaces instances of @var@ in input files.)
