@@ -664,12 +664,12 @@ regcomp(const char *exp)
 static char *
 reg(register struct comp *cp, int paren, int *flagp)
 {
-  int status;
   register char *ret = NULL;   /* SRE: NULL init added to silence gcc */
   register char *br;
   register char *ender;
   register int parno = 0;	/* SRE: init added to silence gcc */
-  int flags;
+  int   flags;
+  int   status;
 
   *flagp = HASWIDTH;	/* Tentatively. */
 
@@ -723,7 +723,7 @@ reg(register struct comp *cp, int paren, int *flagp)
   return(ret);
 
  ERROR:
-  return NULL;
+  return (status == eslOK ? ret : NULL);  // fake out: status always non-OK here, this is solely to use <status> and silence compiler warning
 }
 
 /*
@@ -776,11 +776,11 @@ regbranch(register struct comp *cp, int *flagp)
 static char *
 regpiece(register struct comp *cp, int *flagp)
 {
-        int status;
 	register char *ret;
 	register char op;
 	register char *next;
 	int flags;
+        int status;
 
 	ret = regatom(cp, &flags);
 	if (ret == NULL)
@@ -833,7 +833,7 @@ regpiece(register struct comp *cp, int *flagp)
 	return(ret);
 
  ERROR:
-	return NULL;
+	return (status == eslOK ? ret : NULL);  // status is not OK; this construction serves solely to silence compiler warning about unused <status>
 }
 
 /*
@@ -850,7 +850,7 @@ regpiece(register struct comp *cp, int *flagp)
 static char *
 regatom(register struct comp *cp, int *flagp)
 {
-  register char *ret;
+  register char *ret = NULL;
   int flags;
   int status;
 
@@ -978,7 +978,7 @@ regatom(register struct comp *cp, int *flagp)
   return(ret);
   
  ERROR:
-  return NULL;
+  return (status == eslOK ? ret : NULL);  // status is not OK. Construction serves to silence compiler warning about unused <status>.
 }
 
 /*
@@ -1609,9 +1609,9 @@ regsub(const esl__regexp *rp, const char *source, char *dest)
 static char *
 regescape(struct comp *cp, char c)
 {
+  char *ret = NULL;
+  char  x;
   int   status;
-  char *ret;
-  char x;
 
   switch (c) {
     /* escapes: */
@@ -1677,7 +1677,7 @@ regescape(struct comp *cp, char c)
   return ret;
 
  ERROR:
-  return NULL;
+  return (status == eslOK ? ret : NULL);  // status is not OK; construction serves to silence compiler warning about unused <status>
 }
 
 

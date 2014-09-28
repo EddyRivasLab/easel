@@ -1180,10 +1180,9 @@ int
 esl_str_IsInteger(char *s)
 {
   char *endp;
-  long  val;
 
   if (s == NULL) return FALSE;	        /* it's NULL */
-  val = strtol(s, &endp, 10);
+  (void) strtol(s, &endp, 10);		/* don't need result itself, discard to void */
   if (endp == s) return FALSE;          /* strtol() can't convert it */
   for (s = endp; *s != '\0'; s++)
     if (! isspace(*s)) return FALSE;    /* it has trailing nonconverted nonwhitespace */

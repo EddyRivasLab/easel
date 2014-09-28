@@ -79,7 +79,6 @@ main(int argc, char **argv)
   int           do_remove_bps = FALSE;         /* TRUE if -r */
   int           do_consistent = FALSE;         /* TRUE if -c */
   int           do_indi2cons = FALSE;          /* TRUE if --indi <x> */
-  char         *indi2cons; 
   int           have_cons;                     /* TRUE if first alignment has consensus sequence */
   int           do_newcons = FALSE;            /* TRUE if we're creating a new consensus structure
 						* and outputing a new alignment (if -x -f -c or --indi)
@@ -206,7 +205,6 @@ main(int argc, char **argv)
   do_consistent = esl_opt_GetBoolean(go, "-c");
   if(!(esl_opt_IsDefault(go, "--indi"))) { 
     do_indi2cons = TRUE; 
-    indi2cons = esl_opt_GetString(go, "--indi"); 
   }
   if(do_max || do_ffreq || do_fmin || do_remove_bps || do_consistent || do_indi2cons) { 
     do_newcons = TRUE;

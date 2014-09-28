@@ -654,7 +654,7 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
   int       idx, seqi;
   esl_pos_t leftmost, rightmost;
   int64_t   nadd;		/* width of this sequence block, in aligned columns added to msa */
-  esl_pos_t nleft, ntext, nright;
+  esl_pos_t nleft, ntext;
   int64_t   alen;
   int       status;
   
@@ -682,7 +682,7 @@ selex_append_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA *msa)
     {
       nleft  = ((b->lpos[idx] != -1) ? b->lpos[idx] - leftmost         : nadd); /* watch special case of all whitespace on data line, lpos>rpos */
       ntext  = ((b->lpos[idx] != -1) ? b->rpos[idx] - b->lpos[idx] + 1 : 0);
-      nright = ((b->lpos[idx] != -1) ? rightmost    - b->rpos[idx]     : 0);
+      //nright = ((b->lpos[idx] != -1) ? rightmost    - b->rpos[idx]     : 0);  // someday you might want to know nright, but for now the code doesn't use it
 
       if      (b->ltype[idx] == eslSELEX_LINE_SQ)
 	{

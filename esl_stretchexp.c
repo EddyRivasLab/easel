@@ -180,11 +180,10 @@ double
 esl_sxp_invcdf(double p, double mu, double lambda, double tau)
 {
   double x1, x2, xm;		/* low, high guesses at x */
-  double f1, f2, fm;
+  double f2, fm;
   double tol = 1e-6;
 
   x1 = mu;
-  f1 = 0.;
   x2 = mu + 1.;
   do {				/* bracket */
     x2 = x2 + 2.*(x2-x1);
@@ -395,7 +394,7 @@ esl_sxp_FitComplete(double *x, int n,
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
-  return eslOK;
+  return status;
 }
 #endif /*eslAUGMENT_MINIMIZER*/
 
@@ -501,7 +500,7 @@ esl_sxp_FitCompleteBinned(ESL_HISTOGRAM *g,
   *ret_mu     = mu;
   *ret_lambda = exp(p[0]);
   *ret_tau    = exp(p[1]);
-  return eslOK;
+  return status;
 }
 #endif /*eslAUGMENT_HISTOGRAM*/
 #endif /*eslAUGMENT_MINIMIZER*/

@@ -879,7 +879,6 @@ utest_shuffle(ESL_RANDOMNESS *r)
   int            *seen = malloc(sizeof(int) * n);
   int             i;
   int             val;
-  int             appears_shuffled = FALSE;
 
   for (i = 0; i < n; i++) esl_stack_IPush(s, i);
   esl_stack_Shuffle(r, s);
@@ -888,7 +887,6 @@ utest_shuffle(ESL_RANDOMNESS *r)
   i = n-1;
   while (esl_stack_IPop(s, &val) != eslEOD) {
     seen[val]++;
-    if (val != i--) appears_shuffled = TRUE;
   }
   for (i = 0; i < n; i++) if (seen[i] != 1) esl_fatal(msg);
   

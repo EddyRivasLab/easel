@@ -2989,14 +2989,13 @@ int main(void)
   int         n;
   FILE       *fp;
   ESL_BUFFER *bf;
-  int         status;
 
   esl_tmpfile_named(tmpfile, &fp);
   n = strlen(s1)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s1, sizeof(char), n, fp);
   n = strlen(s2)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s2, sizeof(char), n, fp);
   fclose(fp);
 
-  status = esl_buffer_Open(tmpfile, NULL, &bf);
+  esl_buffer_Open(tmpfile, NULL, &bf);
   esl_buffer_Read(bf, sizeof(int), &n);
   esl_buffer_Read(bf, sizeof(char) * n, buf);
   puts(buf);

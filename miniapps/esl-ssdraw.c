@@ -855,10 +855,10 @@ main(int argc, char **argv)
   hc_scheme[RB_6_RL_SCHEME][1][IYELW] = hc_scheme[RB_6_RH_SCHEME][4][IYELW] = hc_scheme[RB_5_RL_SCHEME][1][IYELW] = hc_scheme[RB_5_RL_SCHEME][3][IYELW] = RED2BLUE_2_OF_6_Y;
   hc_scheme[RB_6_RL_SCHEME][1][IBLCK] = hc_scheme[RB_6_RH_SCHEME][4][IBLCK] = hc_scheme[RB_5_RL_SCHEME][1][IBLCK] = hc_scheme[RB_5_RL_SCHEME][3][IBLCK] = RED2BLUE_2_OF_6_K;
 
-  hc_scheme[RB_6_RL_SCHEME][2][ICYAN] = hc_scheme[RB_6_RH_SCHEME][3][ICYAN] = hc_scheme[RB_5_RL_SCHEME][2][ICYAN] = hc_scheme[RB_5_RL_SCHEME][2][ICYAN] = RED2BLUE_3_OF_6_C;
-  hc_scheme[RB_6_RL_SCHEME][2][IMGTA] = hc_scheme[RB_6_RH_SCHEME][3][IMGTA] = hc_scheme[RB_5_RL_SCHEME][2][IMGTA] = hc_scheme[RB_5_RL_SCHEME][2][IMGTA] = RED2BLUE_3_OF_6_M;
-  hc_scheme[RB_6_RL_SCHEME][2][IYELW] = hc_scheme[RB_6_RH_SCHEME][3][IYELW] = hc_scheme[RB_5_RL_SCHEME][2][IYELW] = hc_scheme[RB_5_RL_SCHEME][2][IYELW] = RED2BLUE_3_OF_6_Y;
-  hc_scheme[RB_6_RL_SCHEME][2][IBLCK] = hc_scheme[RB_6_RH_SCHEME][3][IBLCK] = hc_scheme[RB_5_RL_SCHEME][2][IBLCK] = hc_scheme[RB_5_RL_SCHEME][2][IBLCK] = RED2BLUE_3_OF_6_K;
+  hc_scheme[RB_6_RL_SCHEME][2][ICYAN] = hc_scheme[RB_6_RH_SCHEME][3][ICYAN] = hc_scheme[RB_5_RL_SCHEME][2][ICYAN]                                       = RED2BLUE_3_OF_6_C;
+  hc_scheme[RB_6_RL_SCHEME][2][IMGTA] = hc_scheme[RB_6_RH_SCHEME][3][IMGTA] = hc_scheme[RB_5_RL_SCHEME][2][IMGTA]                                       = RED2BLUE_3_OF_6_M;
+  hc_scheme[RB_6_RL_SCHEME][2][IYELW] = hc_scheme[RB_6_RH_SCHEME][3][IYELW] = hc_scheme[RB_5_RL_SCHEME][2][IYELW]                                       = RED2BLUE_3_OF_6_Y;
+  hc_scheme[RB_6_RL_SCHEME][2][IBLCK] = hc_scheme[RB_6_RH_SCHEME][3][IBLCK] = hc_scheme[RB_5_RL_SCHEME][2][IBLCK]                                       = RED2BLUE_3_OF_6_K;
 
   hc_scheme[RB_6_RL_SCHEME][3][ICYAN] = hc_scheme[RB_6_RH_SCHEME][2][ICYAN] = hc_scheme[RB_5_RL_SCHEME][3][ICYAN] = hc_scheme[RB_5_RL_SCHEME][1][ICYAN] = RED2BLUE_4_OF_6_C;
   hc_scheme[RB_6_RL_SCHEME][3][IMGTA] = hc_scheme[RB_6_RH_SCHEME][2][IMGTA] = hc_scheme[RB_5_RL_SCHEME][3][IMGTA] = hc_scheme[RB_5_RL_SCHEME][1][IMGTA] = RED2BLUE_4_OF_6_M;
@@ -1396,7 +1396,7 @@ static int
 setup_sspostscript(SSPostscript_t *ps, char *errbuf)
 {
   float xroom, yroom;
-  float header_fontwidth, header_max_chars;
+  float header_max_chars;
 
   if(ps->rflen == 0) ESL_FAIL(eslEINVAL, errbuf, "Failed to ready any nucleotides in template file.");
 
@@ -1421,7 +1421,7 @@ setup_sspostscript(SSPostscript_t *ps, char *errbuf)
   ps->legx_stats     = ps->pagex_max - PAGE_SIDEBUF - ps->leg_rhs_space - (LEG_EXTRA_COLUMNS * ps->legx_charsize);
 
   /* determine max size of description that will fit in header */
-  header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
+  //header_fontwidth      = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale;   // SRE: appears to be unused.
   ps->headerx_charsize  = (HEADER_FONTSIZE_UNSCALED / COURIER_HEIGHT_WIDTH_RATIO) / ps->scale; 
   header_max_chars      = (int) ((ps->pagex_max - 2*PAGE_SIDEBUF) / ps->headerx_charsize);
   ps->headery_charsize  = (HEADER_FONTSIZE_UNSCALED) / ps->scale; 
@@ -2031,11 +2031,12 @@ draw_legend_column_headers(FILE *fp, SSPostscript_t *ps, int pagenum, char *errb
 {
   int status;
   int i;
-  float x, y, legend_fontsize;
+  float x, y;
+  // float legend_fontsize;
   char *cur_string;
   int cur_width = 0;
 
-  legend_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
+  //legend_fontsize = LEG_FONTSIZE_UNSCALED / ps->scale;
 
   x = ps->legx;
   y = ps->cur_legy;
@@ -4593,7 +4594,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   int p, pp, c, l;
   int rfpos;
   int orig_npage = ps->npage;
-  int apos;
+  //int apos;
   int nzeroins = 0;
   int nzeroins_masked = 0;
   int nfewins = 0;
@@ -4682,7 +4683,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
   /* print info on inserts before rfpos 1 to tabfile, if nec */
   if(tabfp != NULL) { 
-    apos = ps->msa_rf2a_map[0];
+    //apos = ps->msa_rf2a_map[0];
     if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
     ifreq = (float) nseq_with_ins_ct[0] / (float) span_ct[0];
     fprintf(tabfp, "  insertfreq  %6d  %8.5f  %10d  %3d", 0, ifreq, span_ct[0], -1);
@@ -4691,7 +4692,7 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   }
 
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    apos = ps->msa_rf2a_map[rfpos]; 
+    //apos = ps->msa_rf2a_map[rfpos]; 
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
     ifreq = (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos]; /* note we don't need to add one to span_ct, it is [0..rflen-1] */
     if(nseq_with_ins_ct[(rfpos+1)] == 0) {  /* careful, nseq_with_ins_ct goes from 1..rflen, its off-by-one with other arrays */
@@ -4774,7 +4775,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   int p, pp, c, l;
   int rfpos;
   int orig_npage = ps->npage;
-  int apos;
+  //int apos;
   int nzeroins = 0;
   int nzeroins_masked = 0;
   float *limits;
@@ -4857,7 +4858,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
 
   /* print info on inserts before rfpos 1 to tabfile, if nec */
   if(tabfp != NULL) { 
-    apos = ps->msa_rf2a_map[0];
+    //apos = ps->msa_rf2a_map[0];
     if(nseq_with_ins_ct[0] > span_ct[0]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: 0 nseq_with_ins_ct (%d) exceeds span_ct (%d)", nseq_with_ins_ct[0], span_ct[0]);
     ifreq   = (span_ct[0] == 0)          ? 0. : (float) nseq_with_ins_ct[0] / (float) span_ct[0];
     iavglen = (nseq_with_ins_ct[0] == 0) ? 0. : (float) nins_ct[0] / (float) nseq_with_ins_ct[0];
@@ -4867,7 +4868,7 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
   }
 
   for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
-    apos = ps->msa_rf2a_map[rfpos]; 
+    //apos = ps->msa_rf2a_map[rfpos]; 
     if(nseq_with_ins_ct[rfpos+1] > span_ct[rfpos]) ESL_FAIL(eslERANGE, errbuf, "drawing insert page, rfpos: %d nseq_with_ins_ct (%d) exceeds span_ct (%d)", rfpos, nseq_with_ins_ct[rfpos+1], span_ct[rfpos]);
     ifreq   = (span_ct[rfpos] == 0)            ? 0. : (float) nseq_with_ins_ct[rfpos+1] / (float) span_ct[rfpos];
     iavglen = (nseq_with_ins_ct[rfpos+1] == 0) ? 0. : (float) nins_ct[rfpos+1] / (float) nseq_with_ins_ct[rfpos+1];

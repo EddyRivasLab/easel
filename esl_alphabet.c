@@ -51,7 +51,6 @@ static int set_complementarity(ESL_ALPHABET *a);
 ESL_ALPHABET *
 esl_alphabet_Create(int type)
 {
-  int           status;
   ESL_ALPHABET *a;
 
   switch(type) { 
@@ -60,13 +59,9 @@ esl_alphabet_Create(int type)
   case eslAMINO:  a = create_amino(); break;
   case eslCOINS:  a = create_coins(); break;
   case eslDICE:   a = create_dice();  break;
-  default:    
-    ESL_XEXCEPTION(eslEINVAL, "bad alphabet type: unrecognized");
+  default:        esl_fatal("bad alphabet type: unrecognized");  // violation: must be a code error, not user.
   }
   return a;
-
- ERROR:
-  return NULL;
 }
 
 /* Function:  esl_alphabet_CreateCustom()
@@ -1969,10 +1964,8 @@ utest_TextizeN(void)
   char          goodseq[] = "acdefrynacdef";
   ESL_DSQ      *dsq;
   ESL_DSQ      *dptr;
-  int           L;
   int           W;
 
-  L = strlen(goodseq);
   if ((a = esl_alphabet_Create(eslAMINO)) == NULL)  esl_fatal(msg);
   if (esl_abc_CreateDsq(a, goodseq, &dsq) != eslOK) esl_fatal(msg);
 
