@@ -842,9 +842,10 @@ esl_rsq_XShuffleDP(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ 
   ESL_DSQ **E  = NULL;      /* edge lists: E[0] is the edge list from vertex A */
   int     *nE  = NULL;      /* lengths of edge lists */
   int     *iE  = NULL;      /* positions in edge lists */
+  ESL_DSQ *Z   = NULL;      /* connectivity in last edge graph Z */ 
   int      n;	            /* tmp: remaining length of an edge list to be shuffled */
   ESL_DSQ  sf;              /* last character in shuffled */
-  ESL_DSQ *Z;               /* connectivity in last edge graph Z */ 
+
   int      keep_connecting; /* flag used in Z connectivity algorithm */
   int      is_eulerian;	    /* flag used for when we've got a good Z */
   
@@ -1172,12 +1173,12 @@ esl_rsq_XMarkov0(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *m
 int 
 esl_rsq_XMarkov1(ESL_RANDOMNESS *r, const ESL_DSQ *dsq, int L, int K, ESL_DSQ *markoved) 
 {
-  int      status;
+  double **p  = NULL;	/* conditional probabilities p[x][y] = P(y | x) */
+  double  *p0 = NULL;	/* marginal probabilities P(x), just for initial residue. */
   int      i; 
   ESL_DSQ  x,y;
   ESL_DSQ  i0;		/* initial symbol */
-  double **p;		/* conditional probabilities p[x][y] = P(y | x) */
-  double  *p0;		/* marginal probabilities P(x), just for initial residue. */
+  int      status;
 
   /* validate the input string */
   for (i = 1; i <= L; i++)

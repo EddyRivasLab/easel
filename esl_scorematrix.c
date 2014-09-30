@@ -944,19 +944,19 @@ esl_scorematrix_SetFromProbs(ESL_SCOREMATRIX *S, double lambda, const ESL_DMATRI
 int
 esl_scorematrix_SetWAG(ESL_SCOREMATRIX *S, double lambda, double t)
 {
-  int status;
-  int i,j;
   ESL_DMATRIX *Q = NULL;
   ESL_DMATRIX *P = NULL;
   static double wagpi[20];
+  int i,j;
+  int status;
 
   if (S->K != 20) ESL_EXCEPTION(eslEINVAL, "Must be using an amino acid alphabet (K=20) to make WAG-based matrices");
 
-  if (( Q = esl_dmatrix_Create(20, 20)) == NULL)  goto ERROR;
-  if (( P = esl_dmatrix_Create(20, 20)) == NULL)  goto ERROR;
-  if ( esl_composition_WAG(wagpi)       != eslOK) goto ERROR;
-  if ( esl_rmx_SetWAG(Q, wagpi)         != eslOK) goto ERROR;
-  if ( esl_dmx_Exp(Q, t, P)             != eslOK) goto ERROR;
+  if (( Q = esl_dmatrix_Create(20, 20))     == NULL)  { status = eslEMEM; goto ERROR; }
+  if (( P = esl_dmatrix_Create(20, 20))     == NULL)  { status = eslEMEM; goto ERROR; }
+  if ((status = esl_composition_WAG(wagpi)) != eslOK) goto ERROR;
+  if ((status = esl_rmx_SetWAG(Q, wagpi))   != eslOK) goto ERROR;
+  if ((status = esl_dmx_Exp(Q, t, P))       != eslOK) goto ERROR;
 
   for (i = 0; i < 20; i++) 
     for (j = 0; j < 20; j++)

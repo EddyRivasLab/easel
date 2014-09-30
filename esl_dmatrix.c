@@ -1201,10 +1201,10 @@ esl_dmx_Invert(const ESL_DMATRIX *A, ESL_DMATRIX *Ai)
 
   /* Copy A to LU, and do an LU decomposition.
    */
-  if ((LU = esl_dmatrix_Create(A->n, A->m)) == NULL)  goto ERROR;
-  if ((P  = esl_permutation_Create(A->n))   == NULL)  goto ERROR;
-  if ( esl_dmatrix_Copy(A, LU)              != eslOK) goto ERROR;
-  if ( esl_dmx_LUP_decompose(LU, P)         != eslOK) goto ERROR;
+  if ((LU = esl_dmatrix_Create(A->n, A->m))    == NULL)  { status = eslEMEM; goto ERROR; }
+  if ((P  = esl_permutation_Create(A->n))      == NULL)  { status = eslEMEM; goto ERROR; }
+  if (( status = esl_dmatrix_Copy(A, LU))      != eslOK) goto ERROR;
+  if (( status = esl_dmx_LUP_decompose(LU, P)) != eslOK) goto ERROR;
 
   /* Now we have:
    *   PA = LU

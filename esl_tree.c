@@ -1106,7 +1106,7 @@ newick_parse_branchlength(FILE *fp, char *buf, int *pos, int *nc, double *ret_d)
   ESL_ALLOC(branch, sizeof(char) * nalloc);
 
   if (buf[*pos] != ':') { status = eslEFORMAT; goto ERROR; }
-  if (newick_advance_buffer(fp, buf, pos, nc) != eslOK)  goto ERROR;
+  if (( status = newick_advance_buffer(fp, buf, pos, nc)) != eslOK)  goto ERROR;
 
   while (1) {
     if (strchr("(]",          buf[*pos]) != NULL) { status = eslEFORMAT; goto ERROR; }
@@ -1845,7 +1845,7 @@ esl_tree_Simulate(ESL_RANDOMNESS *r, int N, ESL_TREE **ret_T)
    * node (in <branchpapa>) and a 0/1 flag (in <branchside>)
    * for the branch to the left vs. right child.
    */
-  if ((T = esl_tree_Create(N)) == NULL)  goto ERROR;
+  if ((T = esl_tree_Create(N)) == NULL)  { status = eslEMEM; goto ERROR; }
   ESL_ALLOC(branchpapa, sizeof(int) * N);
   ESL_ALLOC(branchside, sizeof(int) * N);
   

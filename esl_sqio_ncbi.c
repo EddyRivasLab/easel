@@ -1163,7 +1163,7 @@ sqncbi_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int 
 	  int     i = 0;
 	  int     size = 0;
 	  int     status = eslOK;
-	  ESL_SQ *tmpsq;
+	  ESL_SQ *tmpsq  = NULL;
 
 	  sqBlock->count = 0;
 

@@ -51,7 +51,7 @@ static int set_complementarity(ESL_ALPHABET *a);
 ESL_ALPHABET *
 esl_alphabet_Create(int type)
 {
-  ESL_ALPHABET *a;
+  ESL_ALPHABET *a = NULL;
 
   switch(type) { 
   case eslRNA:    a = create_rna();   break;
@@ -97,7 +97,7 @@ esl_alphabet_Create(int type)
 ESL_ALPHABET *
 esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
 {
-  ESL_ALPHABET *a;
+  ESL_ALPHABET *a = NULL;
   int           c,x,y;
   int           status;
 

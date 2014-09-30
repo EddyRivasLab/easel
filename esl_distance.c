@@ -346,6 +346,8 @@ esl_dst_XJukesCantor(const ESL_ALPHABET *abc, const ESL_DSQ *ax, const ESL_DSQ *
  * Throws:    <eslEINVAL> if a seq has a different
  *            length than others. On failure, <ret_D> is returned <NULL>
  *            and state of inputs is unchanged.
+ *            
+ *            <eslEMEM> on allocation failure.
  */
 int
 esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
@@ -354,7 +356,7 @@ esl_dst_CPairIdMx(char **as, int N, ESL_DMATRIX **ret_S)
   int status;
   int i,j;
 
-  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
+  if (( S = esl_dmatrix_Create(N,N) ) == NULL) { status = eslEMEM; goto ERROR; }
   
   for (i = 0; i < N; i++)
     {
@@ -459,6 +461,8 @@ esl_dst_CDiffMx(char **as, int N, ESL_DMATRIX **ret_D)
  *            <eslEDIVZERO> if some pair of sequences had no aligned
  *            residues. On failure, <D> and <V> are both returned <NULL>
  *            and state of inputs is unchanged.
+ *            
+ *            <eslEMEM> on allocation failure.
  */
 int
 esl_dst_CJukesCantorMx(int K, char **aseq, int nseq, 
@@ -469,8 +473,8 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
   ESL_DMATRIX *V = NULL;
   int          i,j;
 
-  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
-  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
+  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) { status = eslEMEM; goto ERROR; }
+  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) { status = eslEMEM; goto ERROR; }
 
   for (i = 0; i < nseq; i++)
     {
@@ -532,6 +536,8 @@ esl_dst_CJukesCantorMx(int K, char **aseq, int nseq,
  * Throws:    <eslEINVAL> if a seq has a different
  *            length than others. On failure, <ret_S> is returned <NULL>
  *            and state of inputs is unchanged.
+ *            
+ *            <eslEMEM> on allocation failure.
  */
 int
 esl_dst_XPairIdMx(const ESL_ALPHABET *abc,  ESL_DSQ **ax, int N, ESL_DMATRIX **ret_S)
@@ -540,7 +546,7 @@ esl_dst_XPairIdMx(const ESL_ALPHABET *abc,  ESL_DSQ **ax, int N, ESL_DMATRIX **r
   ESL_DMATRIX *S = NULL;
   int i,j;
 
-  if (( S = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
+  if (( S = esl_dmatrix_Create(N,N) ) == NULL) { status = eslEMEM; goto ERROR; }
   
   for (i = 0; i < N; i++)
     {
@@ -643,6 +649,8 @@ esl_dst_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_
  *            <eslEDIVZERO> if some pair of sequences had no aligned
  *            residues. On failure, <D> and <V> are both returned <NULL>
  *            and state of inputs is unchanged.
+ *            
+ *            <eslEMEM> on allocation failure.
  */
 int
 esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq, 
@@ -653,8 +661,8 @@ esl_dst_XJukesCantorMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int nseq,
   int          status;
   int          i,j;
 
-  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
-  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) goto ERROR;
+  if (( D = esl_dmatrix_Create(nseq, nseq) ) == NULL) { status = eslEMEM; goto ERROR; }
+  if (( V = esl_dmatrix_Create(nseq, nseq) ) == NULL) { status = eslEMEM; goto ERROR; }
 
   for (i = 0; i < nseq; i++)
     {

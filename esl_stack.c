@@ -556,7 +556,8 @@ esl_stack_DiscardTopN(ESL_STACK *s, int n)
 int
 esl_stack_DiscardSelected(ESL_STACK *s, int (*discard_func)(void *, void *), void *param)
 {
-  int opos, npos;
+  int opos;
+  int npos = 0;
 
 #ifdef HAVE_PTHREAD
   if (s->do_mutex && pthread_mutex_lock(s->mutex) != 0) ESL_EXCEPTION(eslESYS, "pthread_mutex_lock() failure");

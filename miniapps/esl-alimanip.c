@@ -2699,11 +2699,11 @@ dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *a
 int
 dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
 {
-  int status;
   ESL_DMATRIX *D = NULL;
   int i,j;
+  int status;
 
-  if (( D = esl_dmatrix_Create(N,N) ) == NULL) goto ERROR;
+  if (( D = esl_dmatrix_Create(N,N) ) == NULL) { status = eslEMEM; goto ERROR; }
   
   for (i = 0; i < N; i++)
     {

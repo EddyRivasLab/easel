@@ -2041,7 +2041,7 @@ static int
 loadmem(ESL_SQFILE *sqfp)
 {
   void *tmp;
-  int   n;
+  int   n = 0;
   int   status;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;

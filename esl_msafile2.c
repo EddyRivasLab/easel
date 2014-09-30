@@ -233,14 +233,14 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
        */
       if ((afp->f = fopen(filename, "r")) != NULL)
 	{
-	  if (esl_strdup(filename, n, &ssifile)                      != eslOK) goto ERROR;
-	  if (esl_strcat(&ssifile, n, ".ssi", 4)                     != eslOK) goto ERROR;
+	  if ((status = esl_strdup(filename, n, &ssifile))           != eslOK) goto ERROR;
+	  if ((status = esl_strcat(&ssifile, n, ".ssi", 4))          != eslOK) goto ERROR;
 	  if ((status = esl_strdup(filename, n, &(afp->fname)))      != eslOK) goto ERROR;
 	}
       else if (esl_FileEnvOpen(filename, env, &(afp->f), &envfile) == eslOK)
 	{
-	  if (esl_strdup(envfile, n, &ssifile)                      != eslOK) goto ERROR;
-	  if (esl_strcat(&ssifile, n, ".ssi", 4)                    != eslOK) goto ERROR;
+	  if ((status = esl_strdup(envfile, n, &ssifile))           != eslOK) goto ERROR;
+	  if ((status = esl_strcat(&ssifile, n, ".ssi", 4))         != eslOK) goto ERROR;
 	  if ((status = esl_strdup(envfile, n, &(afp->fname)))      != eslOK) goto ERROR;
 	}
       else 

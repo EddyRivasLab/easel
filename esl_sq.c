@@ -1717,7 +1717,7 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
     xr[x]     = NULL;
     if (msa->gr[x][which] != NULL) {
       xr[sq->nxr] = msa->gr[x][which];
-      if (msa->gr_tag[x] != NULL) xr_tag[sq->nxr] = msa->gr_tag[x]; else goto ERROR; 
+      if (msa->gr_tag[x] != NULL) xr_tag[sq->nxr] = msa->gr_tag[x]; else { status = eslEINVAL; goto ERROR;  }
       sq->nxr ++;
     } 
   }

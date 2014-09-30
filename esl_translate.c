@@ -238,11 +238,11 @@ int esl_trans_s2p(ESL_SQ *in, ESL_SQ **out, int frameshift, int rcFlag)
 
   int status;
 
-  int codon;     //progress in counting current codon
-  char *aaseq;   //hold the protein sequence to be output
-  char *aaptr;   //pointer records progress in writing to output
-  char *readseq; //pointer records progress in reading nucleotide sequence
-  int read_dg;   //index into digital sequence
+  int codon;            // progress in counting current codon
+  char *aaseq = NULL;   // hold the protein sequence to be output
+  char *aaptr;          // pointer records progress in writing to output
+  char *readseq;        // pointer records progress in reading nucleotide sequence
+  int read_dg;          // index into digital sequence
   
   ESL_ALPHABET *abc = esl_alphabet_Create(eslDNA);
   char errbuf[256]; //validateseq demands this

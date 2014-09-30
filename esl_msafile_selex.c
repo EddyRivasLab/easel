@@ -550,7 +550,7 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
 
   afp->errmsg[0] = '\0';
 
-  nrf = ncs = nss = nsa = nseq = 0;
+  nrf = nmm = ncs = nss = nsa = nseq = 0;
   has_ss = has_sa = FALSE;
   for (idx = 0; idx < b->nlines; idx++)
     {
@@ -591,7 +591,7 @@ selex_first_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK *b, ESL_MSA **ret_msa)
       if ( esl_memtok(&p, &n, " \t", &tok, &ntok) != eslOK) ESL_XEXCEPTION(eslEINCONCEIVABLE, "can't happen"); /* because a block by definition consists of non-blank lines */
       if (b->ltype[idx] == eslSELEX_LINE_SQ) /* otherwise, first token is #=XX marking annotation of some sort */
 	{
-	  if ( esl_msa_SetSeqName(msa, seqi, tok, ntok)   != eslOK) goto ERROR;
+	  if ((status = esl_msa_SetSeqName(msa, seqi, tok, ntok)) != eslOK) goto ERROR;
 	  seqi++;
 	}
       b->lpos[idx] = (n ? p-b->line[idx] : -1);  /* set lpos[] to position of first seq or annotation residue */

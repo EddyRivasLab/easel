@@ -2304,9 +2304,11 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   ESL_BUFFER *bf;
   char       *p;
   esl_pos_t   n;
-  esl_pos_t   thisoffset, testoffset1, testoffset2;
-  int         testline1 = -1;
-  int         thisline, testline2;
+  esl_pos_t   thisoffset, testoffset1;
+  esl_pos_t   testoffset2 = -1;
+  int         testline1   = -1;
+  int         testline2   = -2;
+  int         thisline; 
 #ifdef HAVE_GZIP
   char        gzipfile[32];
   char        cmd[256];     
