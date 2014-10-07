@@ -64,6 +64,8 @@ sub parse (*) {
     @ali_tend       = ();	# End position on target
     @ali_qali       = ();       # Aligned string from query
     @ali_tali       = ();       # Aligned string from target (subject)
+    @ali_hitidx     = ();       # index of hit 
+    $hitidx = -1;
     
     # Now, loop over the lines of our input, and parse 'em.
     #
@@ -134,6 +136,7 @@ sub parse (*) {
 	elsif ($parsing_alilist) {
 	    if (/^>\s*(\S+)\s*(.*)$/) {
 		$target = $1;
+		$hitidx ++;
 		$target_desc{$target} = $2;
 
 		$_ = <$fh>; 
@@ -141,19 +144,21 @@ sub parse (*) {
 		    $target_len{$target} = $1;
 		} 
 	    } 
-	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+),?/) { # WU
+	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+), /) { # WU
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_score[$nali-1]    = $1;
 		$ali_bitscore[$nali-1] = $2;
 		$ali_evalue[$nali-1]   = $3;
+		$ali_hitidx[$nali-1]   = $hitidx;
 	    } 
-	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+),?/) { # NCBI
+	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+), /) { # NCBI
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_bitscore[$nali-1] = $1;
 		$ali_score[$nali-1]    = $2;
 		$ali_evalue[$nali-1]   = &repair_evalue($3);
+		$ali_hitidx[$nali-1]   = $hitidx;
 	    }
 	    elsif (/^ Identities = (\d+)\/(\d+) \((\d+)%\).+Positives = (\d+).+\((\d+)%/) { # NCBI or WU
 		$ali_nident[$nali-1]     = $1;
@@ -161,6 +166,7 @@ sub parse (*) {
 		$ali_identity[$nali-1]   = $3;
 		$ali_npos[$nali-1]       = $4;
 		$ali_positive[$nali-1]   = $5;
+		$ali_hitidx[$nali-1]     = $hitidx;
 		$firstchunk = 1;
 	    } 
 	    elsif (/^ Identities = (\d+)\/(\d+) \((\d+)%\).+/) { # NCBI megablast : no Positives
@@ -169,6 +175,7 @@ sub parse (*) {
 		$ali_identity[$nali-1]   = $3;
 		$ali_npos[$nali-1]       = $1;
 		$ali_positive[$nali-1]   = $3;
+		$ali_hitidx[$nali-1]     = $hitidx;
 		$firstchunk = 1;
 	    }		
 	    elsif (/^Query:?\s+(\d+)\s+(\S+)\s+(\d+)\s*$/) {
