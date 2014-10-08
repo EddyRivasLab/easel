@@ -144,7 +144,7 @@ sub parse (*) {
 		    $target_len{$target} = $1;
 		} 
 	    } 
-	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect = (\S+), /) { # WU
+	    elsif (/^ Score =\s+(\d+) \((\S+) bits\), Expect\s+=\s+(\S+), /) { # WU
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_score[$nali-1]    = $1;
@@ -152,7 +152,7 @@ sub parse (*) {
 		$ali_evalue[$nali-1]   = $3;
 		$ali_hitidx[$nali-1]   = $hitidx;
 	    } 
-	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect = (\S+), /) { # NCBI
+	    elsif (/^ Score =\s+(\S+) bits \((\S+)\),\s*Expect\s+=\s+(\S+), /) { # NCBI
 		$nali++;
 		$ali_target[$nali-1]   = $target;
 		$ali_bitscore[$nali-1] = $1;
