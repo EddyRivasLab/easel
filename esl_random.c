@@ -14,6 +14,13 @@
  *  
  * See http://csrc.nist.gov/rng/ for the NIST random number
  * generation test suite.
+ *
+ * It'd be nice if we had a debugging/unit testing mode in which
+ * esl_random() deliberately generated extreme values, such as 0 for
+ * example. Routines that use esl_random() can be sensitive to whether
+ * the interval 0,1 is open or closed. We should be able to test for
+ * problems with interval endpoints without taking enormous numbers of
+ * samples.
  */
 #include "esl_config.h"
 
@@ -483,6 +490,13 @@ esl_rnd_UniformPositive(ESL_RANDOMNESS *r)
  *            and James Lovato (M.D. Anderson Cancer Center, Texas
  *            USA) using the method described in
  *            \citep{AhrensDieter73}.
+ *            
+ *            Original algorithm said to use uniform deviates on [0,1)
+ *            interval (i.e. <esl_random()>), but this appears to be
+ *            wrong.  Use uniform deviates on (0,1) interval instead
+ *            (i.e., <esl_rnd_UniformPositive()>). RANLIB, GNU Octave
+ *            have made this alteration, possibly inadvertently.
+ *            [xref cryptogenomicon post, 13 Oct 2014].
  * 
  * Method:    Impenetrability of the code is to be blamed on 
  *            FORTRAN/f2c lineage.
@@ -528,7 +542,7 @@ esl_rnd_Gaussian(ESL_RANDOMNESS *r, double mean, double stddev)
     8.781922E-2,9.930398E-2,0.11556,0.1404344,0.1836142,0.2790016,0.7010474
   };
 
-  u = esl_random(r);
+  u = esl_rnd_UniformPositive(r);
   s = 0.0;
   if(u > 0.5) s = 1.0;
   u += (u-s);
@@ -556,18 +570,18 @@ S60:
   /*
    * CENTER CONTINUED
    */
-  u = esl_random(r);
+  u = esl_rnd_UniformPositive(r);
   w = u*(a[i]-aa);
   tt = (0.5*w+aa)*w;
   goto S80;
 S70:
   tt = u;
-  ustar = esl_random(r);
+  ustar = esl_rnd_UniformPositive(r);
 S80:
   if(ustar > tt) goto S50;
-  u = esl_random(r);
+  u = esl_rnd_UniformPositive(r);
   if(ustar >= u) goto S70;
-  ustar = esl_random(r);
+  ustar = esl_rnd_UniformPositive(r);
   goto S40;
 S100:
   /*
@@ -579,6 +593,7 @@ S100:
 S110:
   aa += d[i-1];
   i += 1;
+  ESL_DASSERT1(( i <= 31 ));
 S120:
   u += u;
   if(u < 1.0) goto S110;
@@ -590,11 +605,11 @@ S140:
 S150:
   tt = u;
 S160:
-  ustar = esl_random(r);
+  ustar = esl_rnd_UniformPositive(r);
   if(ustar > tt) goto S50;
-  u = esl_random(r);
+  u = esl_rnd_UniformPositive(r);
   if(ustar >= u) goto S150;
-  u = esl_random(r);
+  u = esl_rnd_UniformPositive(r);
   goto S140;
 }
 
@@ -1027,8 +1042,6 @@ utest_choose(ESL_RANDOMNESS *r, int n, int nbins, int be_verbose)
   free(ct);
   return;
 }
- 
-
 #endif /*eslRANDOM_TESTDRIVE*/
 /*-------------------- end, unit tests --------------------------*/
 
@@ -1078,6 +1091,10 @@ main(int argc, char **argv)
   int             n          = esl_opt_GetInteger(go, "-n");
   int             be_verbose = esl_opt_GetBoolean(go, "-v");
 
+  fprintf(stderr, "## %s\n", argv[0]);
+  fprintf(stderr, "#  rng seed 1 (slow) = %" PRIu32 "\n", esl_randomness_GetSeed(r1));
+  fprintf(stderr, "#  rng seed 2 (fast) = %" PRIu32 "\n", esl_randomness_GetSeed(r2));
+
   utest_random(r1, n, nbins, be_verbose);
   utest_choose(r1, n, nbins, be_verbose);
   utest_random(r2, n, nbins, be_verbose);
@@ -1085,6 +1102,8 @@ main(int argc, char **argv)
 
   if (mtbitfile) save_bitfile(mtbitfile, r1, n);
   if (kbitfile)  save_bitfile(kbitfile,  r2, n);
+
+  fprintf(stderr, "#  status = ok\n");
 
   esl_randomness_Destroy(r1);
   esl_randomness_Destroy(r2);
