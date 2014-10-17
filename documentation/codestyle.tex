@@ -1280,19 +1280,29 @@ aren't. Additionally, if the caller provides a non-\ccode{NULL}
 message buffer \ccode{errbuf}, on failure, an informative message
 describing the reason for the failure is formatted and left in
 \ccode{errbuf}. If the caller provides this message buffer, it must
-allocate it for at least \ccode{p7\_ERRBUFSIZE} characters.
+allocate it for at least \ccode{eslERRBUFSIZE} characters.
 
-Because a \ccode{\_Validate()} call is primarily intended for
-debugging, failures are classified as normal (returned) errors.
-(Throwing exceptions instead would give the caller no flexibility in
-dealing with failed validations.) The caller can then print an
-appropriately informative failure message, using the \ccode{errbuf},
-for example. (That is, a \ccode{\_Validate()} call might also be
-included in production code, so it needs to use the \ccode{errbuf}
-mechanism to return its informative failure message;
-\ccode{\_Validate()} cannot, for instance, call \ccode{esl\_fatal()}
-or the like directly, because that would mean crashing out of
-production code.)
+Failures in \ccode{\_Validate()} routines are handled by
+\ccode{ESL\_FAIL()} (or \ccode{ESL\_XFAIL()}, if the validation
+routine needs to do any memory cleanup).  Validation failures are
+classified as normal (returned) errors so that \ccode{\_Validate()}
+routines can be used in production code -- for example, to validate
+user input.
+
+At the same time, because the \ccode{ESL\_FAIL()} and
+\ccode{ESL\_XFAIL()} macros call the stub \ccode{esl\_fail()}, you can
+set a debugging breakpoint on \ccode{esl\_fail} to get a
+\ccode{\_Validate()} routine fail immediately at whatever test
+failed. 
+
+The \ccode{errbuf} message therefore can be coarse-grained
+(``validation of object X failed'') or fine-grained (``in object X,
+data element Y fails test Z''). A validation of user input (which we
+expect to fail often) should be fine-grained, to return maximally
+useful information about what the user did wrong. A validation of
+internal data can be very coarse-grained, knowing that a developer can
+simply set a breakpoint in \ccode{esl\_fail()} to get at exactly where
+a validation failed.
 
 A \ccode{\_Validate()} function is not intended to test all possible
 invalid states of an object, even if that were feasible. Rather, the
@@ -1310,24 +1320,21 @@ differ. When the comparison involves floating point scalar
 comparisons, a fractional tolerance argument \ccode{tol} is also
 passed. 
 
-\ccode{\_Compare()} functions return \ccode{eslFAIL} rather than
-throwing an exception, because they may be used in a context where a
-``failure'' is expected; for example, when using
-\ccode{esl\_dmatrix\_Compare()} as a test for successful convergence of
-a matrix algebra routine. The main use of \ccode{\_Compare()} functions
-is in unit tests. In a \ccode{make check} in a distribution, we
-generally want a unit test to detect failure and report its own error
-message, as opposed to throwing an exception immediately. During
-debugging and development, a problem with this style is that we don't
-get to see where the comparison failed. This is particularly
-frustrating in complicated data structures. Our code often gets around
-this by providing a compile-time flag (often called \ccode{killmenow})
-which cause the routine to immediately \ccode{abort()}. A common idiom
-is to set the \ccode{killmenow} flag to \ccode{FALSE} by default (to
-prevent it from being active in distro or production code) and set it
-to \ccode{TRUE} only when a flag indicates that development/debugging
-is in progress (such as HMMER's \ccode{p7\_DEBUGGING} flag).
+Failures in \ccode{\_Compare()} functions are handled by
+\ccode{ESL\_FAIL()} (or \ccode{ESL\_XFAIL()}, if the validation
+routine needs to do any memory cleanup), because they may be used in a
+context where a ``failure'' is expected; for example, when using
+\ccode{esl\_dmatrix\_Compare()} as a test for successful convergence
+of a matrix algebra routine. 
 
+However, the main use of \ccode{\_Compare()} functions is in unit
+tests. During debugging and development, we want to see exactly where
+a comparison failed, and we don't want to have to write a bunch
+laboriously informative error messages to get that information.
+Instead we can exploit the fact that the \ccode{ESL\_FAIL()} and
+\ccode{ESL\_XFAIL()} macros call the stub \ccode{esl\_fail()}; you can
+set a debugging breakpoint in \ccode{esl\_fail()} to stop execution in
+the failure macros.
 
 \hypertarget{ifc:Dump}
 {\item[\_Dump*(FILE *fp, obj...)]}

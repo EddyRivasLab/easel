@@ -44,6 +44,36 @@
  *****************************************************************/
 static esl_exception_handler_f esl_exception_handler = NULL;
 
+/* Function:  esl_fail()
+ * Synopsis:  Handle a normal failure code/message before returning to caller.
+ *
+ * Purpose:   A "failure" is a normal error that we want to handle
+ *            without terminating the program; we're going to return
+ *            control to the caller with a nonzero error code and
+ *            (optionally) an informative error message formatted
+ *            in <errbuf>.
+ *            
+ *            <esl_fail()> is called internally by the <ESL_FAIL()>
+ *            and <ESL_XFAIL()> macros (see easel.h). The reason to
+ *            have the failure macros call such a simple little
+ *            function is to give us a convenient debugging
+ *            breakpoint. For example, in a <_Validate()> routine that
+ *            needs to do a normal return to a caller, you can set a
+ *            breakpoint in <esl_fail()> to see exactly where the
+ *            validation failed.
+ */
+void
+esl_fail(char *errbuf, const char *format, ...)
+{
+  if (format) {
+    va_list ap;
+    va_start(ap, format);
+    if (errbuf) vsnprintf(errbuf, eslERRBUFSIZE, format, ap);
+    va_end(ap);
+  }
+}
+
+
 /* Function:  esl_exception()
  * Synopsis:  Throw an exception.
  *

@@ -45,22 +45,28 @@
  * ESL_XEXCEPTION() - throwing an exception, with cleanup.
  * 
  * The X versions (with cleanup) require the caller to have an
- * <int status> variable and a <ERROR:> goto target in scope.
+ * <int status> variable and a <ERROR:> goto target in scope, 
+ * which, yes, is a little hacky.
  *
  * Wrapping these macros in <while(0)> loops allows a statement:
  *       if (something) ESL_XEXCEPTION(code,mesg);
  * without the trailing semicolon becoming a null statement after 
  * macro expansion.
+ *
+ * All esl_fail() does is vsnprintf() to the <errbuf>; the reason to
+ * have ESL_FAIL and ESL_XFAIL call esl_fail() is to enable us to set
+ * a debugging breakpoint in esl_fail(), so we can break execution at
+ * a normal failure.
  */
 /*::cexcerpt::error_macros::begin::*/
 #define ESL_FAIL(code, errbuf, ...) do {				\
-    if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);	\
+    esl_fail(errbuf, __VA_ARGS__);                                      \
     return code; }							\
   while (0)
 
 #define ESL_XFAIL(code, errbuf, ...) do {				\
     status = code;							\
-    if (errbuf != NULL) snprintf(errbuf, eslERRBUFSIZE, __VA_ARGS__);	\
+    esl_fail(errbuf, __VA_ARGS__);                                      \
     goto ERROR; }							\
   while (0)
 
@@ -85,25 +91,9 @@
     esl_exception(code, TRUE, __FILE__, __LINE__, __VA_ARGS__);	\
     goto ERROR; }							\
   while (0)
-
 /*::cexcerpt::error_macros::end::*/
 
-/* "Abort or fail" - testing this out as a solution for the
- * problem that in dev code we want _Compare and _Validate
- * tests to abort() so we see where exactly why it failed,
- * whereas in production code, following Easel specs, these
- * functions must return normal <eslFAIL> errors to be 
- * handled as the caller wishes.                 
- *
- * goto ERROR is unreached, of course, but prevents compiler warning of unused ERROR: 
- */
-#if (eslDEBUGLEVEL >= 1)
-#define ESL_AOF()   abort()
-#define ESL_AOG()   do { abort(); goto ERROR; } while (0)
-#else
-#define ESL_AOF()   return eslFAIL
-#define ESL_AOG()   goto ERROR
-#endif
+
 
 
 /* Return codes for error handler
@@ -397,6 +387,7 @@ typedef void ESL_KEYHASH;
 
 /* 1. Error handling. */
 typedef void (*esl_exception_handler_f)(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp);
+extern void esl_fail(char *errbuf, const char *format, ...);
 extern void esl_exception(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, ...);
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
