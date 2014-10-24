@@ -54,11 +54,11 @@ sub parse (*) {
     @ali_tend       = ();	# End position on target
     @ali_qali       = ();       # Aligned string from query
     @ali_tali       = ();       # Aligned string from target (subject)
+    @ali_hitidx     = ();       # index of hit 
 
     # Now, loop over the lines of our input, and parse 'em.
     #
     while (<$fh>) {
-
 	if ($parsing_header) {
 	    if (/^Scores for complete sequences /) { # seq section starts with this line
 		$parsing_header  = 0;
@@ -94,7 +94,11 @@ sub parse (*) {
 	}
 
 	elsif ($parsing_domains) {
-	    if (/^>>\s*(\S+)/) { $curr_ali_target = $1; }
+	    if (/^\s*$/) { }
+
+	    elsif (/^\s*Domain annotation/) { }
+
+	    elsif (/^\>\>\s*(\S+)\s*/) { $curr_ali_target = $1; }
 
 	    elsif (/^\s*\d+\s+\S\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S\S\s+(\d+)\s+(\d+)\s+\S\S\s+(\d+)\s+(\d+)\s+\S\S\s+\S+\s*$/)
                   #     #    score  bias  c-Evalue  i-Evalue hmmfrom  hmm to    alifrom  ali to    envfrom  env to     acc
@@ -108,14 +112,33 @@ sub parse (*) {
 		$ali_qend[$nali]     = $4;
 		$ali_tstart[$nali]   = $5;
 		$ali_tend[$nali]     = $6;
-		$nali++;
+		$ali_hitidx[$nali]   = $nhits-1;
+		$nali ++;
 	    }
+	    elsif (/^\s+Alignments for each domain/) {
+		$parsing_domains = 0;
+		$parsing_alis    = 1;
+	    }
+	}
 
+	elsif ($parsing_alis) {
+	    if (/^\s*$/) { }
+
+	    elsif (/^\s*\=\=\s+domain\s+(\d+)\s+/) {
+		$whichali = $1-1;
+	    }
+	    elsif (/^\s+$queryname\s+\d+\s+(\S+)\s+\d+\s*$/) {
+		$ali_qali[$whichali]  .= $1;
+	    } 
+	    elsif (/^\s+$ali_target[$whichali]\s+\d+\s+(\S+)\s+\d+\s*$/) {
+		$ali_tali[$whichali]  .= $1;
+	    }
 	    elsif (/\/\//) { return 1; } # normal return after each query.
+	    else { next; }
 	}
     }
 
-    if ($parsing_domains) { return 1; } else { return 0;  }
+    if ($parsing_alis) { return 1; } else { return 0;  }
 }
 
 sub exblxout {
