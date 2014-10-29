@@ -107,6 +107,69 @@ esl_dst_CPairId(const char *asq1, const char *asq2,
   return status;
 }
 
+/* Function:  esl_dst_CPairMatch()
+ * Synopsis:  Pairwise matches of two aligned text strings.
+ * Incept:    ER, Wed Oct 29 09:02:35 EDT 2014 [janelia]
+ *
+ * Purpose:   Calculates pairwise fractional matches between two
+ *            aligned character strings <asq1> and <asq2>. 
+ *            Return this distance in <opt_pmatch>; return the
+ *            number of matches counted in <opt_nmatch>; and
+ *            return the denominator <alen - double_gaps> in
+ *            <opt_n>.
+ *            
+ *            Alphabetic symbols <[a-zA-Z]> are compared
+ *            case-insensitively for identity. Any nonalphabetic
+ *            character is assumed to be a gap symbol.
+ *            
+ *            This simple comparison rule is unaware of synonyms and
+ *            degeneracies in biological alphabets.  For a more
+ *            sophisticated and biosequence-aware comparison, use
+ *            digitized sequences and the <esl_dst_XPairmatch()> function
+ *            instead. Note that currently <esl_dst_XPairMatch()> does
+ *            not correctly handle degeneracies, but is set up to.
+ *
+ * Args:      asq1         - aligned character string 1
+ *            asq2         - aligned character string 2
+ *            opt_pmatch   - optRETURN: pairwise matches, 0<=x<=1
+ *            opt_nmatch   - optRETURN: # of matches
+ *            opt_n        - optRETURN: denominator alen - double_gaps
+ *
+ * Returns:   <eslOK> on success. <opt_pmatch>, <opt_nmatch>, <opt_n>
+ *            contain the answers (for whichever were passed non-NULL). 
+ *
+ * Throws:    <eslEINVAL> if the strings are different lengths
+ *            (not aligned).
+ */
+int
+esl_dst_CPairMatch(const char *asq1, const char *asq2, 
+		   double *opt_pmatch, int *opt_nmatch, int *opt_n)
+{
+  int     status;
+  int     match;                /* total matched positions              */
+  int     len;                  /* length of alignment (no double gaps) */
+  int     i;                    /* position in aligned seqs             */
+
+  match = len = 0;
+  for (i = 0; asq1[i] != '\0' && asq2[i] != '\0'; i++) 
+    {
+      if (isalpha(asq1[i]) || isalpha(asq2[i])) len++;
+      if (isalpha(asq1[i]) && isalpha(asq2[i])) match++;
+    }
+  if (asq1[i] != '\0' || asq2[i] != '\0') 
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
+
+  if (opt_pmatch != NULL)  *opt_pmatch = ( len==0 ? 0. : (double)match / (double)len);
+  if (opt_nmatch != NULL)  *opt_nmatch = match;
+  if (opt_n      != NULL)  *opt_n      = len;
+  return eslOK;
+
+ ERROR:
+  if (opt_pmatch != NULL)  *opt_pmatch = 0.;
+  if (opt_nmatch != NULL)  *opt_nmatch = 0;
+  if (opt_n      != NULL)  *opt_n      = 0;
+  return status;
+}
 
 /* Function:  esl_dst_CJukesCantor()
  * Synopsis:  Jukes-Cantor distance for two aligned strings.
@@ -251,6 +314,62 @@ esl_dst_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2,
  ERROR:
   if (opt_distance != NULL)  *opt_distance = 0.;
   if (opt_nid      != NULL)  *opt_nid      = 0;
+  if (opt_n        != NULL)  *opt_n        = 0;
+  return status;
+}
+
+/* Function:  esl_dst_XPairMatch()
+ * Synopsis:  Pairwise matches of two aligned digital seqs.
+ * Incept:    ER, Wed Oct 29 09:09:07 EDT 2014 [janelia]
+ *
+ * Purpose:   Digital version of <esl_dst_CPairMatch()>: <adsq1> and
+ *            <adsq2> are digitized aligned sequences, in alphabet
+ *            <abc>. Otherwise, same as <esl_dst_CPairId()> except
+ *            that only canonical residues are counted and checked for
+ *            identity, while <esl_dst_CPairId()> (which has no
+ *            alphabet) counts and checks identity of all alphanumeric
+ *            characters.
+ *
+ * Args:      abc          - digital alphabet in use
+ *            ax1          - aligned digital seq 1
+ *            ax2          - aligned digital seq 2
+ *            opt_pmatch   - optRETURN: pairwise matches, 0<=x<=1
+ *            opt_nmatch   - optRETURN: # of maches
+ *            opt_n        - optRETURN: denominator alen-double_gaps
+ *
+ * Returns:   <eslOK> on success. <opt_distance>, <opt_nmatch>, <opt_n>
+ *            contain the answers, for any of these that were passed
+ *            non-<NULL> pointers.
+ *
+ * Throws:    <eslEINVAL> if the strings are different lengths (not aligned).
+ */
+int
+esl_dst_XPairMatch(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *ax2, 
+		   double *opt_distance, int *opt_nmatch, int *opt_n)
+{
+  int     status;
+  int     match;                /* total matched positions              */
+  int     len;                  /* length of alignment (no double gaps) */
+  int     i;                    /* position in aligned seqs             */
+
+  match = len = 0;
+  for (i = 1; ax1[i] != eslDSQ_SENTINEL && ax2[i] != eslDSQ_SENTINEL; i++) 
+    {
+      if (esl_abc_XIsCanonical(abc, ax1[i]) || esl_abc_XIsCanonical(abc, ax2[i])) len ++;
+      if (esl_abc_XIsCanonical(abc, ax1[i]) && esl_abc_XIsCanonical(abc, ax2[i])) match++;
+    }
+
+  if (ax1[i] != eslDSQ_SENTINEL || ax2[i] != eslDSQ_SENTINEL) 
+    ESL_XEXCEPTION(eslEINVAL, "strings not same length, not aligned");
+
+  if (opt_distance != NULL)  *opt_distance = ( len==0 ? 0. : (double)match / (double)len );
+  if (opt_nmatch   != NULL)  *opt_nmatch   = match;
+  if (opt_n        != NULL)  *opt_n        = len;
+  return eslOK;
+
+ ERROR:
+  if (opt_distance != NULL)  *opt_distance = 0.;
+  if (opt_nmatch   != NULL)  *opt_nmatch   = 0;
   if (opt_n        != NULL)  *opt_n        = 0;
   return status;
 }
@@ -766,6 +885,74 @@ esl_dst_CAverageId(char **as, int N, int max_comparisons, double *ret_id)
   *ret_id = sum;
   return eslOK;
 }
+
+/* Function:  esl_dst_CAverageMatch()
+ * Synopsis:  Calculate avg matches for multiple alignment
+ * Incept:    ER, Wed Oct 29 09:25:09 EDT 2014 [Janelia]
+ *
+ * Purpose:   Calculates the average pairwise fractional matches in
+ *            a multiple sequence alignment <as>, consisting of <N>
+ *            aligned character sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise matches (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dst_CPairMatch()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_match> contains the average
+ *            fractional matches.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_match> is set to 0.
+ */
+int
+esl_dst_CAverageMatch(char **as, int N, int max_comparisons, double *ret_match)
+{
+  int    status;
+  double match;
+  double sum = 0.;
+  int    i,j,n;
+  
+ if (N <= 1) { *ret_match = 1.; return eslOK; }
+  *ret_match = 0.;
+
+  /* Is nseq small enough that we can average over all pairwise comparisons? */
+  if ((N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+	for (j = i+1; j < N; j++)
+	  {
+	    if ((status = esl_dst_CPairMatch(as[i], as[j], &match, NULL, NULL)) != eslOK) return status;
+	    sum += match;
+	  }
+      sum /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else				
+    {
+      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      for (n = 0; n < max_comparisons; n++)
+	{
+	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
+	  if ((status = esl_dst_CPairMatch(as[i], as[j], &match, NULL, NULL)) != eslOK) return status;
+	  sum += match;
+	}
+      sum /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_match = sum;
+  return eslOK;
+}
+
 #endif /* eslAUGMENT_RANDOM */
 
 #if defined(eslAUGMENT_RANDOM) && defined(eslAUGMENT_ALPHABET)
@@ -839,6 +1026,78 @@ esl_dst_XAverageId(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_compari
   *ret_id = sum;
   return eslOK;
 }
+
+/* Function:  esl_dst_XAverageMatch()
+ * Synopsis:  Calculate avg matches for digital MSA 
+ * Incept:    ER, ed Oct 29 09:29:05 EDT 2014 [Janelia]
+ *
+ * Purpose:   Calculates the average pairwise fractional matches in
+ *            a digital multiple sequence alignment <ax>, consisting of <N>
+ *            aligned digital sequences of identical length.
+ *            
+ *            If an exhaustive calculation would require more than
+ *            <max_comparisons> pairwise comparisons, then instead of
+ *            looking at all pairs, calculate the average over a
+ *            stochastic sample of <max_comparisons> random pairs.
+ *            This allows the routine to work efficiently even on very
+ *            deep MSAs.
+ *            
+ *            Each fractional pairwise matches (range $[0..$ pid $..1]$
+ *            is calculated using <esl_dst_XPairMatch()>.
+ *
+ * Returns:   <eslOK> on success, and <*ret_match> contains the average
+ *            fractional identity.
+ *
+ * Throws:    <eslEMEM> on allocation failure.
+ *            <eslEINVAL> if any of the aligned sequence pairs aren't 
+ *            of the same length.
+ *            In either case, <*ret_match> is set to 0.
+ */
+int
+esl_dst_XAverageMatch(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, int max_comparisons, double *ret_match)
+{
+  int    status;
+  double match;
+  double sum = 0.;
+  int    i,j,n;
+  
+  if (N <= 1) { *ret_match = 1.; return eslOK; }
+  *ret_match = 0.;
+
+  /* Is N small enough that we can average over all pairwise comparisons? 
+     watch out for numerical overflow in this: Pfam N's easily overflow when squared
+   */
+  if (N <= max_comparisons &&
+      N <= sqrt(2. * max_comparisons) &&
+      (N * (N-1) / 2) <= max_comparisons)
+    {
+      for (i = 0; i < N; i++)
+	for (j = i+1; j < N; j++)
+	  {
+	    if ((status = esl_dst_XPairMatch(abc, ax[i], ax[j], &match, NULL, NULL)) != eslOK) return status;
+	    sum += match;
+	  }
+      sum /= (double) (N * (N-1) / 2);
+    }
+
+  /* If nseq is large, calculate average over a stochastic sample. */
+  else				
+    {
+      ESL_RANDOMNESS *r = esl_randomness_Create(0);
+      for (n = 0; n < max_comparisons; n++)
+	{
+	  do { i = esl_rnd_Roll(r, N); j = esl_rnd_Roll(r, N); } while (j == i); /* make sure j != i */
+	  if ((status = esl_dst_XPairMatch(abc, ax[i], ax[j], &match, NULL, NULL)) != eslOK) return status;
+	  sum += match;
+	}
+      sum /= (double) max_comparisons;
+      esl_randomness_Destroy(r);
+    }
+
+  *ret_match = sum;
+  return eslOK;
+}
+
 #endif /* eslAUGMENT_RANDOM && eslAUGMENT_ALPHABET */
 
 
