@@ -62,7 +62,9 @@ sub parse (*) {
     @ali_tend       = ();	# End position on target
     @ali_qali       = (); # Aligned string from query
     @ali_tali       = (); # Aligned string from target (subject)
-    
+    @ali_hitidx     = ();       # index of hit 
+    $hitidx = -1;
+
     if (defined($save_querycount) && $save_querycount > 1) { # on subsequent queries, we had to use the >>> start line to detect
 	# the end of the prev query; we socked the necessary info away in tmp vars.
 	$querycount = $save_querycount;
@@ -112,6 +114,7 @@ sub parse (*) {
 	elsif ($parsing_alilist) {
 	    if (/^>>(\S+)\s*(.*)\s+\((\d+) \S\S\)\s*$/) {  # the \S\S is either nt or aa
 		$target = $1;
+		$hitidx ++;
 		$target_desc{$target} = $2;
 		if ($3 != $target_len{$target}) { die "can't happen.", "1)", $3, "2)", $target_len{$target}; }
 	    } 
@@ -121,6 +124,7 @@ sub parse (*) {
 		$ali_score[$nali-1]    = $1;
 		$ali_bitscore[$nali-1] = $3;
 		$ali_evalue[$nali-1]   = $4;
+		$ali_hitidx[$nali-1]   = $hitidx;
 	    } 
 	    elsif (/^ initn:\s*\d+\s*init1:\s*\d+\s*opt:\s*(\d+)\s*Z-score:\s*(\S+)\s*bits:\s*(\S+)\s*E\(\d*\):\s*(\S+)\s*$/) { # FASTA
 		$nali++;
@@ -128,6 +132,7 @@ sub parse (*) {
 		$ali_score[$nali-1]    = $1;
 		$ali_bitscore[$nali-1] = $3;
 		$ali_evalue[$nali-1]   = $4;
+		$ali_hitidx[$nali-1]   = $hitidx;
 	    }		
 	    elsif (/^Smith-Waterman score:\s+(\d+);\s+(\S+)% identity .* in (\d+) \S\S overlap \((\d+)-(\d+):(\d+)-(\d+)\)\s*/) {
 		$ali_identity[$nali-1]   = $2;
@@ -140,12 +145,15 @@ sub parse (*) {
 #		$ali_npos[$nali-1]       = $4;
 #		$ali_positive[$nali-1]   = $5;
 		$alilinecount            = 0;
+		$ali_qali[$nali-1]       = ""; 
+		$ali_tali[$nali-1]       = ""; 
+
 	    } 
 	    elsif (/^\S+\s+(\S+)\s*$/) { # only ali lines are right-flushed
 		if ($alilinecount % 2 == 0) {
 		    $ali_qali[$nali-1]  .= $1; 
 		} else {
-		    $ali_qali[$nali-1]  .= $1; 
+		    $ali_tali[$nali-1]  .= $1; 
 		}
 		$alilinecount++;
 	    }
@@ -158,10 +166,27 @@ sub parse (*) {
 		if ($save_queryname eq "") { $save_queryname = "unnamed_query"; }
 		return 1;	# normal return. We've finished output for a query, and stored some info about the next one.
 	    }
-	}
+	}	
     } # this closes the loop over lines in the input stream: at EOF.
+    
+    if ($parsing_alilist) { 
+	for (my $ali = 0; $ali < $nali; $ali ++) {
+	    # the ali lines come along with more residues that are not part of the alignment. Why? oh! why?. REMOVE
+	    my $qlen = length($ali_qali[$ali]);
+	    my $tlen = length($ali_tali[$ali]);
+	    my $q_begremove = $ali_qstart[$ali]-1;
+	    my $t_begremove = $ali_tstart[$ali]-1;
+	    my $q_endremove = $qlen - $ali_qend[$ali];
+	    my $t_endremove = $tlen - $ali_tend[$ali];
 
-    if ($parsing_alilist) { return 1; } else { return 0; }  # at EOF: normal return if we were in the alignment section.
+	    $ali_qali[$ali] =~ s/^(\S{$q_begremove})//;
+	    $ali_qali[$ali] =~ s/(\S{$q_endremove})$//;
+	    $ali_tali[$ali] =~ s/^(\S{$t_begremove})//;
+	    $ali_tali[$ali] =~ s/(\S{$t_endremove})$//;
+	}
+	return 1; 
+    } 
+    else { return 0; }  # at EOF: normal return if we were in the alignment section.
 }
 
 
