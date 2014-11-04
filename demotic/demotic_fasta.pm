@@ -18,6 +18,12 @@ sub parse (*) {
     my $parsing_alilist = 0;
     my $target;
     my $alilinecount = 0;
+    my $prvaliline_isquery = 0;
+    my $ali_qline;
+    my $ali_tline;
+    my $ali_qasq;
+    my $ali_tasq;
+    my $margin;
 
     # Initialize everything... so we can call the parser
     # repeatedly, one call per ssearch output.
@@ -62,6 +68,8 @@ sub parse (*) {
     @ali_tend       = ();	# End position on target
     @ali_qali       = (); # Aligned string from query
     @ali_tali       = (); # Aligned string from target (subject)
+    @ali_qmask      = (); # line in between the two aligned strings
+    @ali_tmask      = (); # line in between the two aligned strings
     @ali_hitidx     = ();       # index of hit 
     $hitidx = -1;
 
@@ -147,15 +155,64 @@ sub parse (*) {
 		$alilinecount            = 0;
 		$ali_qali[$nali-1]       = ""; 
 		$ali_tali[$nali-1]       = ""; 
-
+		$ali_qmask[$nali-1]      = ""; 
+		$ali_tmask[$nali-1]      = ""; 
 	    } 
-	    elsif (/^\S+\s+(\S+)\s*$/) { # only ali lines are right-flushed
-		if ($alilinecount % 2 == 0) {
-		    $ali_qali[$nali-1]  .= $1; 
-		} else {
-		    $ali_tali[$nali-1]  .= $1; 
+	    elsif (/^(\S+)\s+(\S+)\s*$/) { # only ali lines are right-flushed
+		# the usual alignment display is
+		#       ali_query_line
+		#       mask
+		#       ali_target_line
+		#
+		# (1) ends are not flushed, and they can have "extra stuff"
+		#       function calculate_flushedmask() corrects that
+		#
+		# (2) alingments do not need to be complete. (particularly using option -a )
+		#     Meaning at the end AND at the beginning as well, you can end up with one single query line
+		#     or one single target line.
+		#
+		#     ali_query_line
+		#        (no mask)
+		#        (no ali_target_line)
+		#
+		# or 
+		#
+		#         (no ali_query_line)
+		#         (no mask)
+		#     ali_target_line
+		#
+		# or even
+		#
+		#     aliq_query_line
+		#        (no mask)
+		#     ali_target_Line
+		#
+		# why? oh! why? check for that and fix it.
+
+		my $name = $1;
+		my $asq  = $2;
+		if ($name =~ /^$queryname$/) {
+		    $prvaliline_isquery = 1;
+		    $ali_qline = $_; $ali_qline =~ s/\n//;
+		    $ali_qasq = $asq; 
+		    $mask = "";
+		}
+		if ($name =~ /^$ali_target[$nali-1]$/) {
+		    $talilinecount ++;
+		    $ali_tline = $_; $ali_tline =~ s/\n//;
+		    $ali_tasq = $asq;
+		    if ($prvaliline_isquery) {
+			$ali_qali[$nali-1]  .= $ali_qasq; 
+			$ali_tali[$nali-1]  .= $ali_tasq; 
+			$ali_qmask[$nali-1] .= calculate_flushedmask($ali_qline, $mask);
+			$ali_tmask[$nali-1] .= calculate_flushedmask($ali_tline, $mask);
+		    }
+		    $prvaliline_isquery = 0;
 		}
 		$alilinecount++;
+	    }
+	    elsif (/^(\s*[\.\:][\s\.\:]+)$/) {
+		$mask .= $1;
 	    }
 
 	    elsif (/^\s+(\d+)>>>\s*(\S*)\s*(.*)\s*-\s*(\d+) \S\S$/) { # next query is starting. \S\S is "nt" or "aa"
@@ -172,17 +229,11 @@ sub parse (*) {
     if ($parsing_alilist) { 
 	for (my $ali = 0; $ali < $nali; $ali ++) {
 	    # the ali lines come along with more residues that are not part of the alignment. Why? oh! why?. REMOVE
-	    my $qlen = length($ali_qali[$ali]);
-	    my $tlen = length($ali_tali[$ali]);
-	    my $q_begremove = $ali_qstart[$ali]-1;
-	    my $t_begremove = $ali_tstart[$ali]-1;
-	    my $q_endremove = $qlen - $ali_qend[$ali];
-	    my $t_endremove = $tlen - $ali_tend[$ali];
-
-	    $ali_qali[$ali] =~ s/^(\S{$q_begremove})//;
-	    $ali_qali[$ali] =~ s/(\S{$q_endremove})$//;
-	    $ali_tali[$ali] =~ s/^(\S{$t_begremove})//;
-	    $ali_tali[$ali] =~ s/(\S{$t_endremove})$//;
+	    # you cannot remove using ali_{q,t}start and $ali_{q,t}end because those are
+	    # relative to the full sequence. Need to do it by parsing also the line in between (what I call the "mask")
+	    # and finding the first and last ":" or "."
+	    $ali_qali[$ali] = ali_removeflanking($ali_qali[$ali], $ali_qmask[$ali], $ali_qstart[$ali], $ali_qend[$ali]);
+	    $ali_tali[$ali] = ali_removeflanking($ali_tali[$ali], $ali_tmask[$ali], $ali_tstart[$ali], $ali_tend[$ali]);
 	}
 	return 1; 
     } 
@@ -257,6 +308,66 @@ sub profmarkout {
     for ($i = 0; $i < $nhits; $i++) {
 	printf $ofh "%g\t%.1f\t%s\t%s\n", $hit_Eval[$i], $hit_bitscore[$i], $hit_target[$i], $queryname;
     }
+}
+
+sub calculate_flushedmask {
+    my ($asq, $mask) = @_;
+
+    my $lremove = -1;
+    my $flushedasq;
+
+    if ($asq =~ /^(\S+\s+)(\S+)\s*$/) { 
+	$lremove = length($1); 
+	$flushedasq = $2;
+    }
+   
+    my $flushedmask = $mask;
+    $flushedmask =~ s/^(.{$lremove})//;
+    $flushedmask =~ s/\n//;
+
+    if (length($flushedmask) > length($flushedasq)) {
+	while (length($flushedmask) > length($flushedasq)) { 
+	    if ($flushedmask =~ /(\s)$/) { $flushedmask =~ s/(\s)$//; } 
+	}
+    }
+    if (length($flushedmask) < length($flushedasq)) {
+	while (length($flushedmask) < length($flushedasq)) { $flushedmask .= " "; }
+    }
+
+    #printf("\naseq|$asq|\nmask|$mask|\n");
+    #printf("^^aseq|$flushedasq|\n^^mask|$flushedmask|\n");
+
+    return $flushedmask;
+}
+
+
+sub  ali_removeflanking {
+    my ($aseq, $mask) = @_;
+
+    my $taseq = "";
+
+    my $alen = length($aseq);
+    
+    my $apos_start = 0;
+    while ($apos_start < $alen) {
+	my $mval = substr($mask, $apos_start, 1);
+	if ($mval  =~ /[\.\:]/) { last; }
+	$apos_start ++;
+    }
+
+    my $apos_end = $alen-1;
+    while ($apos_end >= 0) {
+	my $mval = substr($mask, $apos_end, 1);
+	if ($mval  =~ /[\.\:]/) { last; }
+	$apos_end --;
+    }
+
+    for (my $apos = $apos_start; $apos <= $apos_end; $apos++) {
+	$taseq .= substr($aseq, $apos, 1);
+    }
+    #print "B:$aseq\nM:$mask\nA:$taseq\n";
+
+    return $taseq;
 }
 
 
