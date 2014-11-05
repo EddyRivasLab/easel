@@ -1025,7 +1025,7 @@ esl_dmx_AddScale(ESL_DMATRIX *A, double k, const ESL_DMATRIX *B)
 
   if (A->n    != B->n)    ESL_EXCEPTION(eslEINVAL, "matrices of different size");
   if (A->m    != B->m)    ESL_EXCEPTION(eslEINVAL, "matrices of different size");
-  if (A->type != A->type) ESL_EXCEPTION(eslEINVAL, "matrices of different type");
+  if (A->type != B->type) ESL_EXCEPTION(eslEINVAL, "matrices of different type");
 
   for (i = 0; i < A->ncells; i++) A->mx[0][i] +=  k * B->mx[0][i];
   return eslOK;

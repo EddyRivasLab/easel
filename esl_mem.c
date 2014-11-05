@@ -451,7 +451,7 @@ esl_memtod(const char *p, esl_pos_t n, double *ret_val)
       ESL_ALLOC(bigbuf, sizeof(char) * (n+1));
       memcpy(bigbuf, p, sizeof(char) * n);
       bigbuf[n] = '\0';
-      *ret_val = strtod(fixedbuf, NULL);
+      *ret_val = strtod(bigbuf, NULL);
       free(bigbuf);
       return eslOK;
     }
@@ -492,7 +492,7 @@ esl_memtof(const char *p, esl_pos_t n, float *ret_val)
       ESL_ALLOC(bigbuf, sizeof(char) * (n+1));
       memcpy(bigbuf, p, sizeof(char) * n);
       bigbuf[n] = '\0';
-      *ret_val = (float) strtod(fixedbuf, NULL);
+      *ret_val = (float) strtod(bigbuf, NULL);
       free(bigbuf);
       return eslOK;
     }

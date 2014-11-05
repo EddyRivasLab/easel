@@ -223,7 +223,7 @@ esl_buffer_OpenFile(const char *filename, ESL_BUFFER **ret_bf)
   if      (filesize != -1 && filesize <= eslBUFFER_SLURPSIZE)  
     { if ((status = buffer_init_file_slurped(bf, filesize)) != eslOK) goto ERROR; }
 #ifdef _POSIX_VERSION
-  else if (filesize != -1 && filesize > eslBUFFER_SLURPSIZE) 
+  else if (filesize > eslBUFFER_SLURPSIZE) 
     { if ((status = buffer_init_file_mmap(bf, filesize))    != eslOK) goto ERROR; }
 #endif
   else

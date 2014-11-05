@@ -605,19 +605,18 @@ esl_strdup(const char *s, int64_t n, char **ret_dup)
   int   status;
   char *new = NULL;
 
-  if (ret_dup != NULL) *ret_dup = NULL;
-  if (s == NULL) return eslOK;
+  if (s == NULL) {*ret_dup = NULL; return eslOK; }
   if (n < 0) n = strlen(s);
 
   ESL_ALLOC(new, sizeof(char) * (n+1));
   strcpy(new, s);
 
-  if (ret_dup != NULL) *ret_dup = new; else free(new);
+  *ret_dup = new; 
   return eslOK;
 
  ERROR:
-  if (new     != NULL) free(new);
-  if (ret_dup != NULL) *ret_dup = NULL;
+  if (new) free(new);
+  *ret_dup = NULL;
   return status;
 }
 
@@ -1010,16 +1009,16 @@ esl_vsprintf(char **ret_s, const char *format, va_list *ap)
   if ((n2 = vsnprintf(s, n1+1, format, *ap)) >= n1) 
     {
       ESL_REALLOC(s, sizeof(char) * (n2+1));
-      if (vsnprintf(s, n2+1, format, ap2) == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
+      if (vsnprintf(s, n2+1, format, ap2) == -1) ESL_XEXCEPTION(eslESYS, "vsnprintf() failed");
     }
-  else if (n2 == -1) ESL_EXCEPTION(eslESYS, "vsnprintf() failed");
+  else if (n2 == -1) ESL_XEXCEPTION(eslESYS, "vsnprintf() failed");
 
   va_end(ap2);
   *ret_s = s;
   return eslOK;
 
  ERROR:
-  if (s != NULL) free(s);
+  if (s) free(s);
   va_end(ap2);
   *ret_s = NULL;
   return status;
@@ -1492,8 +1491,6 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
   int   nf;
   int   status;
 
-  if (ret_newpath != NULL) *ret_newpath = NULL;
-
   lastdot   = strrchr(filename, '.'); /* check for suffix to replace */
   if (lastdot != NULL && 
       strchr(lastdot, eslDIRSLASH) != NULL) 
@@ -1505,12 +1502,12 @@ esl_FileNewSuffix(const char *filename, const char *sfx, char **ret_newpath)
   *(new+nf) = '.';
   strcpy(new+nf+1, sfx);
 
-  if (ret_newpath != NULL) *ret_newpath = new; else free(new);
+  *ret_newpath = new; 
   return eslOK;
 
  ERROR:
-  if (new         != NULL) free(new);
-  if (ret_newpath != NULL) *ret_newpath = NULL;
+  if (new) free(new);
+  *ret_newpath = NULL;
   return status;
 }
 

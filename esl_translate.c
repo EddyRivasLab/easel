@@ -214,9 +214,10 @@
  *                           Will fail if you shift further than sequence available
  *           int rcFlag      True if you want a reverse compliment reading frame, false if you do not
  *
- * Returns:  <eslOK>   on success, out is valid
- *           <eslEMEM> an allocation failed
- *           <eslFAIL> frameshifted too much
+ * Returns:  <eslOK>     on success, out is valid
+ *           <eslEINVAL> input seq doesn't match alphabet
+ *           <eslEMEM>   an allocation failed
+ *           <eslFAIL>   frameshifted too much
  *   
  * Note:     If this function throws a bad return when rc is true, the input sequence
  *           will be left in an altered state.
@@ -251,34 +252,34 @@ int esl_trans_s2p(ESL_SQ *in, ESL_SQ **out, int frameshift, int rcFlag)
   
   (*out) = NULL;
 
-  if(frameshift >= in->n) return eslFAIL;
-  if(!abc) goto ERROR;
+  if (frameshift >= in->n) return eslFAIL;
+  if (!abc) { status = eslEMEM; goto ERROR; }
   
   //make sure we have a nucleotide sequence; could use esl_abc_ValidateSeq but that wants too
   //much boilerplate for the simple bit I need done. doesn't help that i don't care if there are U or T
   //characters but that would test against two alphabets
-  if(in->seq)
-  {
-    if(eslOK != esl_abc_ValidateSeq(abc, in->seq, in->n, errbuf)) goto ERROR;
-  }
+  if (in->seq)
+    {
+      if (eslOK != esl_abc_ValidateSeq(abc, in->seq, in->n, errbuf)) { status = eslEINVAL; goto ERROR; }
+    }
   else if(in->dsq)
-  {
-    if(in->abc->type != eslRNA && in->abc->type != eslDNA) goto ERROR;
-  }
+    {
+      if (in->abc->type != eslRNA && in->abc->type != eslDNA) { status = eslEINVAL; goto ERROR; }
+    }
   else
-  {
-    goto ERROR;
-  }
+    {
+      status = eslEINVAL; goto ERROR;
+    }
 
   
   //apply the reverse compliment
-  if(rcFlag) {if(esl_sq_ReverseComplement(in) != eslOK) goto ERROR;}
+  if (rcFlag) { if(esl_sq_ReverseComplement(in) != eslOK) { status = eslEMEM; goto ERROR;} }
   
   
   ESL_ALLOC(aaseq, (in->n+1) * sizeof(char));
   aaptr = aaseq;
   
-  if(in->seq) //text sequence
+  if (in->seq) //text sequence
   { 
     //get an alphabet to do the lookup with.
     //an ordinary text sequence doesn't have in->abc
@@ -300,10 +301,8 @@ int esl_trans_s2p(ESL_SQ *in, ESL_SQ **out, int frameshift, int rcFlag)
     }
     *aaptr = '\0';
   }
-  else if(in->dsq)  //do it digitally
+  else if (in->dsq)  //do it digitally
   { 
-    if(in->dsq == NULL) goto ERROR;
-    
     read_dg = 1+frameshift; //add one here because digital index 0 is a sentinel
     for(;in->dsq[read_dg] != 255 && in->dsq[read_dg+1] != 255 && in->dsq[read_dg+2] != 255; read_dg += 3)
     {
@@ -314,31 +313,23 @@ int esl_trans_s2p(ESL_SQ *in, ESL_SQ **out, int frameshift, int rcFlag)
     }
     *aaptr = '\0';
   }
-  else
-  {
-    goto ERROR;
-  }
   
   //modify name to record any reading frame adjustments
   sprintf(namestring, "%s_s%d", in->name, frameshift);
   if(rcFlag) strcat(namestring, "_rc");
-  *out = esl_sq_CreateFrom(namestring, aaseq, in->desc, in->acc, in->ss);
-        
-  if(aaseq != NULL) free(aaseq);
+  if ((*out = esl_sq_CreateFrom(namestring, aaseq, in->desc, in->acc, in->ss)) == NULL)  { status = eslEMEM; goto ERROR; }
   
   //return the input to its original state
-  if(rcFlag) {if(esl_sq_ReverseComplement(in) != eslOK) goto ERROR;}
+  if (rcFlag) { if (esl_sq_ReverseComplement(in) != eslOK) {status = eslEMEM; goto ERROR;}}
+  if (aaseq) free(aaseq);
+  if (abc)   esl_alphabet_Destroy(abc);
+  return eslOK;
   
-  if(abc) esl_alphabet_Destroy(abc);
-  if(*out) return eslOK;
-  
-  ERROR:
-    
-  if(abc) esl_alphabet_Destroy(abc);
-  if(aaseq != NULL) free(aaseq);
-  (*out) = NULL;
-  
-  return eslEMEM;
+ ERROR:
+  if (abc)   esl_alphabet_Destroy(abc);
+  if (aaseq) free(aaseq);
+  *out = NULL;
+  return status;
 }
 
 /*************************************************************************

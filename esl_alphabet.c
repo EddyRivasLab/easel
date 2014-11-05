@@ -1262,7 +1262,7 @@ esl_abc_Match(const ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p)
 	{
 	  if (abc->degen[(int)x][i])                            sx += p[i];
 	  if (abc->degen[(int)y][i])                            sy += p[i];
-	  if (abc->degen[(int)x][i] && abc->degen[(int)x][i]) prob += p[i] * p[i];
+	  if (abc->degen[(int)x][i] && abc->degen[(int)y][i]) prob += p[i] * p[i];
 	}
       prob = prob / (sx*sy);
     }
@@ -1274,7 +1274,7 @@ esl_abc_Match(const ESL_ALPHABET *abc, ESL_DSQ x, ESL_DSQ y, double *p)
 	{
 	  if (abc->degen[(int)x][i])                            sx += uniformp;
 	  if (abc->degen[(int)y][i])                            sy += uniformp;
-	  if (abc->degen[(int)x][i] && abc->degen[(int)x][i]) prob += uniformp * uniformp;
+	  if (abc->degen[(int)x][i] && abc->degen[(int)y][i]) prob += uniformp * uniformp;
 	}
       prob = prob / (sx*sy);
     }

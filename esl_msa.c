@@ -2021,12 +2021,12 @@ static int64_t msa_get_rlen(const ESL_MSA *msa, int seqidx);
 int
 esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, char *rfline)
 {
-  int status;
   int    apos;
   int    idx;
   double r;
   double totwgt;
-  float *counts;
+  float *counts = NULL;
+  int    status;
 
   if (useconsseq)
     ESL_ALLOC(counts, msa->abc->K * sizeof(float));
@@ -2081,9 +2081,11 @@ esl_msa_ReasonableRF(ESL_MSA *msa, double symfrac, int useconsseq, char *rfline)
   }
 
   rfline[msa->alen] = '\0';
+  if (counts) free(counts);
   return eslOK;
 
 ERROR:
+  if (counts) free(counts);
   return status;
 }
 

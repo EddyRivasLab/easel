@@ -30,7 +30,7 @@ typedef struct esl_sqncbi_vol_s {
   char      *name;                 /* name of the volume                       */
 
   uint32_t   start_seq;            /* starting sequence number                 */
-  uint32_t   end_seq;              /* starting sequence number                 */
+  uint32_t   end_seq;              /* ending sequence number                   */
 
   uint32_t   hdr_off;              /* disk offset in .pin to header index      */
   uint32_t   seq_off;              /* disk offset to .pin to sequence index    */
