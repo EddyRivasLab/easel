@@ -83,7 +83,10 @@ sub parse (*) {
 
     # Now, loop over the lines of our input, and parse 'em.
     #
+    my $line;
+    my $prvline;
     while (<$fh>) {
+	$line = $_;
 	if ($parsing_header) {
 	    if (/^The best scores are:/) { # start of hit list
 		$parsing_header  = 0;
@@ -191,13 +194,18 @@ sub parse (*) {
 
 		my $name = $1;
 		my $asq  = $2;
-		if ($name =~ /^$queryname$/) {
+
+		#carefull, the alignment part, truncates the names of the query and targets
+		# this is a problem specially if the query and target names start similarly.
+		# it appears that querynames have been truncated to 5 characters and targetnames to 6
+		# also check for a prvline with numbers, but if len < 10 those do not show up either
+		if ($queryname =~ /^$name/ && (length($name) == 5 || $prvline =~ /\s+(\d+)\s*/)) { 
 		    $prvaliline_isquery = 1;
 		    $ali_qline = $_; $ali_qline =~ s/\n//;
 		    $ali_qasq = $asq; 
 		    $mask = "";
 		}
-		if ($name =~ /^$ali_target[$nali-1]$/) {
+		elsif ($ali_target[$nali-1] =~ /^$name/) {
 		    $talilinecount ++;
 		    $ali_tline = $_; $ali_tline =~ s/\n//;
 		    $ali_tasq = $asq;
@@ -211,7 +219,7 @@ sub parse (*) {
 		}
 		$alilinecount++;
 	    }
-	    elsif (/^(\s*[\.\:][\s\.\:]+)$/) {
+	    elsif (/^(\s*[\.\:][\s\.\:]*)$/) {
 		$mask .= $1;
 	    }
 
@@ -223,7 +231,8 @@ sub parse (*) {
 		if ($save_queryname eq "") { $save_queryname = "unnamed_query"; }
 		return 1;	# normal return. We've finished output for a query, and stored some info about the next one.
 	    }
-	}	
+	}
+	$prvline = $line;
     } # this closes the loop over lines in the input stream: at EOF.
     
     if ($parsing_alilist) { 
@@ -236,7 +245,7 @@ sub parse (*) {
 	    $ali_tali[$ali] = ali_removeflanking($ali_tali[$ali], $ali_tmask[$ali], $ali_tstart[$ali], $ali_tend[$ali]);
 	}
 	return 1; 
-    } 
+    }
     else { return 0; }  # at EOF: normal return if we were in the alignment section.
 }
 
