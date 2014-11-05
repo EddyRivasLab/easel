@@ -199,7 +199,7 @@ sub parse (*) {
 		# this is a problem specially if the query and target names start similarly.
 		# it appears that querynames have been truncated to 5 characters and targetnames to 6
 		# also check for a prvline with numbers, but if len < 10 those do not show up either
-		if ($queryname =~ /^$name/ && (length($name) == 5 || $prvline =~ /\s+(\d+)\s*/)) { 
+		if ($queryname =~ /^$name/ && (length($name) <= 5 || $prvline =~ /\s+(\d+)\s*/)) { 
 		    $prvaliline_isquery = 1;
 		    $ali_qline = $_; $ali_qline =~ s/\n//;
 		    $ali_qasq = $asq; 
