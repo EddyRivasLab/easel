@@ -1421,7 +1421,7 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
     }
 #endif /*eslAUGMENT_ALPHABET*/
 
-  ESL_SWAP(sq->start, sq->end, int);
+  ESL_SWAP(sq->start, sq->end, int64_t);
   /* revcomp invalidates any secondary structure annotation */
   if (sq->ss != NULL) { free(sq->ss); sq->ss = NULL; }
   return status;
