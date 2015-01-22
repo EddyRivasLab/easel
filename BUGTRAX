@@ -1,3 +1,35 @@
+ID              e11
+TITLE           Unicode characters in MSA files crash MSA parsers
+AFFECTS         -
+FIXED_IN        -
+STATUS          CLOSED
+XREF            -
+REPORTED_BY     Jody Clements
+OPENED_DATE     SRE, Thu Jan 22 14:22:54 2015
+CLOSED_DATE     SRE, Thu Jan 22 14:22:56 2015
+DESCRIPTION     
+  MSA file parsers require ASCII input because they use an
+  inmap[0..127], but were not validating user input. Unicode
+  characters result in out of bounds accesses and corruption.
+  (Unaligned file parsers do validate.)
+
+  Fix is to have esl_abc_dsqcat_noalloc() (for digital mode) and 
+  esl_strmapcat_noalloc() (for text mode) validate that each char 
+  is ASCII.
+//
+ID              e10
+TITLE           Clustal format allows optional trailing coords
+AFFECTS         -
+FIXED_IN        -
+STATUS          CLOSED
+XREF            -
+REPORTED_BY     sumudu <sumudu@fiserlab.org>, 27 Jan 2014
+OPENED_DATE     28 Jan 2014
+CLOSED_DATE     28 Jan 2014
+DESCRIPTION     
+  Clustal format allows an optional trailing seq coord number
+  on each line, but we weren't allowing for that.
+//
 ID              e9
 TITLE           Segmentation fault in esl-stranslate
 AFFECTS         H3.1b1 
