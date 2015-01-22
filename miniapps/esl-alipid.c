@@ -62,7 +62,7 @@ main(int argc, char **argv)
   if ( ( status = eslx_msafile_Open(&abc, msafile, NULL, infmt, NULL, &afp)) != eslOK)
     eslx_msafile_OpenFailure(afp, status);
 
-  if (header) fprintf(ofp, "\# seqname1 seqname2 %%id nid denomid %%match nmatch denommatch\n");
+  if (header) fprintf(ofp, "# seqname1 seqname2 %%id nid denomid %%match nmatch denommatch\n");
   while ((status = eslx_msafile_Read(afp, &msa)) == eslOK)
     {	
       nali++;
