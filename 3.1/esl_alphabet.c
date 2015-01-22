@@ -963,6 +963,8 @@ esl_abc_dsqcat_noalloc(const ESL_DSQ *inmap, ESL_DSQ *dsq, int64_t *L, const cha
    */
   for (xpos = *L+1, cpos = 0; cpos < n; cpos++)
     {
+      if (! isascii(s[cpos])) { dsq[xpos++] = inmap[0]; status = eslEINVAL; continue; }
+
       x = inmap[(int) s[cpos]];
 
       if       (x <= 127)      dsq[xpos++] = x;
@@ -1626,13 +1628,16 @@ esl_abc_DecodeType(int type)
  *            without error; all its symbols are valid in alphabet
  *            <a>. If so, return <eslOK>. If not, return <eslEINVAL>.
  *            
+ *            If <a> is <NULL>, we still validate that at least the
+ *            <seq> consists only of ASCII characters.
+ *            
  *            <errbuf> is either passed as <NULL>, or a pointer to an
  *            error string buffer allocated by the caller for
  *            <eslERRBUFSIZE> characters. If <errbuf> is non-NULL, and
  *            the sequence is invalid, an error message is placed in
  *            <errbuf>.
  *
- * Args:      a      - digital alphabet
+ * Args:      a      - digital alphabet (or NULL, if unavailable)
  *            seq    - sequence to validate [0..L-1]; NUL-termination unnecessary
  *            L      - length of <seq>
  *            errbuf - NULL, or ptr to <eslERRBUFSIZE> chars of allocated space 
@@ -1651,14 +1656,29 @@ esl_abc_ValidateSeq(const ESL_ALPHABET *a, const char *seq, int64_t L, char *err
   int64_t nbad     = 0;
 
   if (errbuf) *errbuf = 0;
-  for (i = 0; i < L; i++) {
-    if (! esl_abc_CIsValid(a, seq[i])) {
-      if (firstpos == -1) firstpos = i;
-      nbad++;
+
+  
+  if (a)  // If we have digital alphabet <a>, it has an <inmap> we can check against 
+    {
+      for (i = 0; i < L; i++) {
+	if (! esl_abc_CIsValid(a, seq[i])) {
+	  if (firstpos == -1) firstpos = i;
+	  nbad++;
+	}
+      }
     }
-  }
-  if (nbad > 0) ESL_XFAIL(eslEINVAL, errbuf, "%" PRId64 " invalid chars (including %c at pos %" PRId64 ")", 
-			  nbad, seq[firstpos], firstpos);
+  else  // Else, at least validate that the text string is an ASCII text string
+    {
+      for (i = 0; i < L; i++) {
+	if (! isascii(seq[i])) {
+	  if (firstpos == -1) firstpos = i;
+	  nbad++;
+	}
+      }
+    }
+
+  if      (nbad == 1) ESL_XFAIL(eslEINVAL, errbuf, "invalid char %c at pos %" PRId64,                                   seq[firstpos], firstpos+1);
+  else if (nbad >  1) ESL_XFAIL(eslEINVAL, errbuf, "%" PRId64 " invalid chars (including %c at pos %" PRId64 ")", nbad, seq[firstpos], firstpos+1);
   return eslOK;
 
  ERROR:

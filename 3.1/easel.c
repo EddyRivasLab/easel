@@ -770,6 +770,8 @@ esl_strmapcat_noalloc(const ESL_DSQ *inmap, char *dest, int64_t *ldest, const ch
 
   for (xpos = *ldest, cpos = 0; cpos < lsrc; cpos++)
     {
+      if (! isascii(src[cpos])) { dest[xpos++] = inmap[0]; status = eslEINVAL;  continue; }
+
       x = inmap[(int) src[cpos]];
       if       (x <= 127)      dest[xpos++] = x;
       else switch (x) {
