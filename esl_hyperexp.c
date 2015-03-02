@@ -1231,7 +1231,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_EXCEPTION(eslEINVAL, "bad option");
+      else esl_fatal("bad option");
     }
 
   if (paramfile != NULL)
@@ -1251,7 +1251,7 @@ main(int argc, char **argv)
   h = esl_histogram_CreateFull(hxp->mu, 100., binwidth);
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
+      esl_fatal("Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = hxp->mu;
   if (! xmax_set)  xmax  = hxp->mu+ 20*(1. / esl_vec_DMin(hxp->lambda, hxp->K));
@@ -1273,7 +1273,7 @@ main(int argc, char **argv)
   if (be_verbose) esl_hyperexp_Dump(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
+    esl_fatal("Error in (complete) fitted mu > 1%\n");
   for (ek = 0; ek < ehxp->K; ek++)
     {  /* try to match each estimated lambda up to a parametric lambda */
       mindiff = 1.0;
@@ -1287,9 +1287,9 @@ main(int argc, char **argv)
 	  }
 	}
       if (mindiff > 0.50)
-	ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 50%\n");
+	esl_fatal("Error in (complete) fitted lambda > 50%\n");
       if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
-	ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted q > 2-fold%\n");
+	esl_fatal("Error in (complete) fitted q > 2-fold%\n");
     }
 
   esl_hxp_FitGuessBinned(h, ehxp);  
@@ -1297,7 +1297,7 @@ main(int argc, char **argv)
   if (be_verbose)  esl_hyperexp_Dump(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)
-     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
+    esl_fatal("Error in (binned) fitted mu > 1%\n");
   for (ek = 0; ek < ehxp->K; ek++)
     {  /* try to match each estimated lambda up to a parametric lambda */
       mindiff = 1.0;
@@ -1311,9 +1311,9 @@ main(int argc, char **argv)
 	  }
 	}
       if (mindiff > 0.50)
-	ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 50%\n");
+	esl_fatal("Error in (binned) fitted lambda > 50%\n");
       if (fabs( (ehxp->q[ek] - hxp->q[mink]) / hxp->q[mink]) > 1.0)
-	ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted q > 2-fold\n");
+	esl_fatal("Error in (binned) fitted q > 2-fold\n");
     }
 
   if (plot_pdf)     esl_hxp_Plot(pfp, hxp, &esl_hxp_pdf,     xmin, xmax, xstep);

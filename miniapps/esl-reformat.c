@@ -574,12 +574,12 @@ regurgitate_pfam_as_afa(ESLX_MSAFILE *afp, FILE *ofp, char *alifile, char *gapsy
 	  if (esl_memstrcmp(tag, taglen, "AC"))
 	    { 
 	      if (! ac_fp && esl_tmpfile(ac_tmpfile, &ac_fp) != eslOK) esl_fatal("small mem parse failed, unable to open accession tmpfile");
-	      fprintf(ac_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p);
+	      fprintf(ac_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p);  // cppcheck thinks ac_fp is a "possible null pointer deference"; I think it's wrong.
 	    }
 	  if (esl_memstrcmp(tag, taglen, "DE"))
 	    { 
 	      if (! de_fp && esl_tmpfile(de_tmpfile, &de_fp) != eslOK) esl_fatal("small mem parse failed, unable to open description tmpfile");
-	      fprintf(de_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p);
+	      fprintf(de_fp, "%.*s %.*s\n", (int) seqnamelen, seqname, (int) n, p); // cppcheck thinks de_fp is a "possible null pointer deference"; I think it's wrong.
 	    }
 	}
       else if (esl_memstrpfx(p, n, "//")) break;

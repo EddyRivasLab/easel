@@ -1591,6 +1591,8 @@ main(int argc, char **argv)
       bstrategy = FIT_BINNED;
       fstrategy = FIT_TAIL;
     }
+  else
+    esl_fatal("no such test type");
 
 
   for (trial = 0; trial < ntrials; trial++)

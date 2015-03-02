@@ -584,7 +584,7 @@ main(int argc, char **argv)
 
   if (plotfile != NULL) {
     if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
+      esl_fatal("Failed to open plotfile");
   }
 
   for (i = 0; i < n; i++)
@@ -598,23 +598,17 @@ main(int argc, char **argv)
   if (be_verbose)
     printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   emu, elambda, etau);
-  if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted mu > 1%\n");
-  if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
-  if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+  if (fabs( (emu-mu)/mu )             > 0.01) esl_fatal("Error in (complete) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (complete) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (complete) fitted tau > 10%\n");
 
   esl_sxp_FitCompleteBinned(h, &emu, &elambda, &etau);
   if (be_verbose)
     printf("Binned data fit:  mu = %f   lambda = %f   tau = %f\n", 
 	   emu, elambda, etau);
-  if (fabs( (emu-mu)/mu ) > 0.01)
-     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted mu > 1%\n");
-  if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted lambda > 10%\n");
-  if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (binned) fitted tau > 10%\n");
+  if (fabs( (emu-mu)/mu )             > 0.01) esl_fatal("Error in (binned) fitted mu > 1%\n");
+  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (binned) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (binned) fitted tau > 10%\n");
 
   if (plot_pdf)     esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_sxp_Plot(pfp, mu, lambda, tau, &esl_sxp_logpdf,  xmin, xmax, xstep);

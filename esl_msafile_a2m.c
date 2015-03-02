@@ -271,8 +271,8 @@ esl_msafile_a2m_Read(ESLX_MSAFILE *afp, ESL_MSA **ret_msa)
     thislen = 0;		/* count of lowercase, uppercase, and '-': w/o dots, on first pass */
     this_ncons = 0;		/* count of uppercase + '-': number of consensus columns in alignment: must match for all seqs */
     if (nseq) {
-      for (cpos = 0; cpos <= ncons; cpos++)
-	this_nins[cpos] = 0;
+      for (cpos = 0; cpos <= ncons; cpos++) // A little tricksy. <this_nins> is allocated on first seq, when nseq=0. 
+	this_nins[cpos] = 0;                // cppcheck gets confused and erroneously calls "possible null pointer deference"; ignore it.
     }
 
     while ( (status = eslx_msafile_GetLine(afp, &p, &n)) == eslOK)

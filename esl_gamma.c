@@ -532,7 +532,7 @@ main(int argc, char **argv)
       else if (strcmp(argv[opti], "-XL") == 0) { xmin_set  = TRUE; xmin  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XH") == 0) { xmax_set  = TRUE; xmax  = atof(argv[++opti]); }
       else if (strcmp(argv[opti], "-XS") == 0) { xstep_set = TRUE; xstep = atof(argv[++opti]); }
-      else ESL_EXCEPTION(eslEINVAL, "bad option");
+      else esl_fatal("bad option");
     }
 
   if (be_verbose)
@@ -541,8 +541,7 @@ main(int argc, char **argv)
   r = esl_randomness_Create(0);
   h = esl_histogram_CreateFull(mu, 100., binwidth);
   if (plotfile != NULL) {
-    if ((pfp = fopen(plotfile, "w")) == NULL) 
-      ESL_EXCEPTION(eslFAIL, "Failed to open plotfile");
+    if ((pfp = fopen(plotfile, "w")) == NULL) esl_fatal("Failed to open plotfile");
   }
   if (! xmin_set)  xmin  = mu;
   if (! xmax_set)  xmax  = mu+40*(1./lambda);
@@ -557,12 +556,9 @@ main(int argc, char **argv)
 
   esl_gam_FitComplete(data, ndata, mu, &elambda, &etau);
   if (be_verbose)
-    printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", 
-	   mu, elambda, etau);
-  if (fabs( (elambda-lambda)/lambda ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted lambda > 10%\n");
-  if (fabs( (etau-tau)/tau ) > 0.10)
-     ESL_EXCEPTION(eslFAIL, "Error in (complete) fitted tau > 10%\n");
+    printf("Complete data fit:  mu = %f   lambda = %f   tau = %f\n", mu, elambda, etau);
+  if (fabs( (elambda-lambda)/lambda ) > 0.10) esl_fatal("Error in (complete) fitted lambda > 10%\n");
+  if (fabs( (etau-tau)/tau )          > 0.10) esl_fatal("Error in (complete) fitted tau > 10%\n");
 
   if (plot_pdf)     esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_pdf,     xmin, xmax, xstep);
   if (plot_logpdf)  esl_gam_Plot(pfp, mu, lambda, tau, &esl_gam_logpdf,  xmin, xmax, xstep);

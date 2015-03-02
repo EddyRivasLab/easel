@@ -1522,8 +1522,8 @@ pos_sequence(ESL_SQNCBI_DATA *ncbi, int inx)
      * last index is used to point to the end of the last header and sequences.
      */
     if (ncbi->volumes > 0) {
-      cnt = volume->end_seq - inx + 2;
-      start = start - volume->start_seq;
+      cnt = volume->end_seq - inx + 2;     // cppcheck thinks end_seq can be uninitialized here. I think it's wrong.
+      start = start - volume->start_seq;   //  .. and ditto for start_seq.
     } else {
       cnt = ncbi->num_seq - inx + 1;
     }

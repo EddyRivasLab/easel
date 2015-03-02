@@ -3534,6 +3534,7 @@ utest_ZeroLengthMSA(const char *tmpfile)
   for (i = 1; i < z1->nseq; i++) useme[i] = 1;  
   if (esl_msa_SequenceSubset(z1, useme, &z2) != eslOK) esl_fatal(msg);
   esl_msa_Destroy(z1);
+  z1 = NULL;  // we may reuse z1 below.
   /* keep z2; we'll compare it to z3 in the end */
       
 #ifdef eslAUGMENT_ALPHABET

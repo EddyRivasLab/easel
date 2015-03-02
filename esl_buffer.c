@@ -3135,7 +3135,6 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   char       *p;
   esl_pos_t   n;
   esl_pos_t   start_offset;
-  void       *tmp;
   int         status;
 
   /* skip blank lines */
@@ -3150,11 +3149,11 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
 
   /* set pointers to non-blank lines */
   do {
-    ESL_RALLOC(lines, tmp, sizeof(char *) * (nlines+1));
-    ESL_RALLOC(lens,  tmp, sizeof(char *) * (nlines+1));
+    ESL_REALLOC(lines, sizeof(char *)    * (nlines+1));
+    ESL_REALLOC(lens,  sizeof(esl_pos_t) * (nlines+1));
     
-    lines[nlines] = p;
-    lens[nlines]  = n;
+    lines[nlines] = p;   // cppcheck complains about these assignments: "possible null pointer deference";
+    lens[nlines]  = n;   // but cppcheck is wrong. ESL_REALLOC will fail if lines[] or lens[] are NULL.
     nlines++;
   } while ( (status = esl_buffer_GetLine(bf, &p, &n)) == eslOK && esl_memspn(p, n, " \t\r\n") < n);
   
