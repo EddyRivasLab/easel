@@ -3402,11 +3402,11 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) ps->otypeAA[p][rfpos] = OUTLINE_NONE_IDX;
     }
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
     noccl = 2;
     if (do_rescol)  noccl += 5;
     if (do_outline) noccl += 7;
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * noccl);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * noccl);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       if(do_rescol) ESL_ALLOC(ps->rcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
@@ -3417,8 +3417,8 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
       p++;
       ESL_ALLOC(ps->rAA[p], sizeof(char) *  (ps->rflen+1));
       ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+      ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+      ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
       if(do_prob_res) ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
       for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
 	ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
@@ -3838,8 +3838,8 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
   if((status = add_pages_sspostscript(ps, 1, INDIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
-    ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+    ESL_ALLOC(ps->rAA[p],   sizeof(char) *  ps->rflen);
+    ESL_ALLOC(ps->tlAAA[p], sizeof(TextLegend_t *) * 1);
   }
 
   /* fill ps->rAA with nucleotides and gaps for RF sequence */
@@ -3865,7 +3865,7 @@ cons_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
     }
 
     ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
-    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 5);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t *) * 5);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       if(ps->msa_ct[(rfpos+1)] == 0) { /* single stranded */
@@ -3994,7 +3994,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
 
   if(do_rescol && seen_canonical) { /* determine color for the nucleotide, depends if it is single-stranded or basepaired */
     ESL_ALLOC(ps->rcolAAA[pp], sizeof(float *) *  ps->rflen);
-    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t **) * 3);
+    ESL_ALLOC(ps->occlAAA[pp], sizeof(OneCellColorLegend_t *) * 3);
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       ESL_ALLOC(ps->rcolAAA[pp][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
       apos = ps->msa_rf2a_map[rfpos];
@@ -4219,12 +4219,12 @@ infocontent_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) {
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -4392,16 +4392,16 @@ delete_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf, SSPo
   if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 
   for(p = orig_npage; p < ps->npage; p++) { 
-    ESL_ALLOC(ps->bcolAAA[p], sizeof(int *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
+    ESL_ALLOC(ps->sclAA[p],    sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) { 
-      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(int) * NCMYK); /* CMYK colors */
+      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
       if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
 	ESL_ALLOC(ps->rcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
       }
@@ -4614,12 +4614,12 @@ insertfreq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps,
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -4790,12 +4790,12 @@ insertavglen_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *p
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -4960,12 +4960,12 @@ span_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, int *
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -5135,12 +5135,12 @@ avg_posteriors_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errb
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 1);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 1);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(rfpos = 0; rfpos < ps->rflen; rfpos++) { 
       ESL_ALLOC(ps->bcolAAA[p][rfpos], sizeof(float) * NCMYK); /* CMYK colors */
@@ -5303,7 +5303,7 @@ colormask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -5378,7 +5378,7 @@ diffmask_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, E
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->rAA[p], sizeof(char) *  ps->rflen);
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t **) * 4);
+    ESL_ALLOC(ps->occlAAA[p],  sizeof(OneCellColorLegend_t *) * 4);
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
     }
@@ -5446,11 +5446,11 @@ add_pages_sspostscript(SSPostscript_t *ps, int ntoadd, int page_mode)
     ESL_ALLOC(ps->rcolAAA, sizeof(float **) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->bcolAAA, sizeof(float **) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->otypeAA, sizeof(char *) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t ***) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->occlAAA, sizeof(OneCellColorLegend_t **) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->nocclA,  sizeof(int) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->tlAAA,   sizeof(TextLegend_t ***) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->tlAAA,   sizeof(TextLegend_t **) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->ntlA,    sizeof(int) * (ps->npage + ntoadd));
-    ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t **) * (ps->npage + ntoadd));
+    ESL_ALLOC(ps->sclAA,   sizeof(SchemeColorLegend_t *) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->descA,   sizeof(char *) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->modeA,   sizeof(int) * (ps->npage + ntoadd));
     ESL_ALLOC(ps->seqidxA, sizeof(int) * (ps->npage + ntoadd));
@@ -5593,12 +5593,12 @@ mutual_information_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *
 
   for(p = orig_npage; p < ps->npage; p++) { 
     ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
-    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t **) * 2);
+    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
+    ESL_ALLOC(ps->occlAAA[p], sizeof(OneCellColorLegend_t *) * 2);
     if(! esl_opt_GetBoolean(go, "--no-cnt")) { 
       ESL_ALLOC(ps->rAA[p],     sizeof(char) *  ps->rflen);
       ESL_ALLOC(ps->rcolAAA[p], sizeof(float *) * ps->rflen);
-      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t **) * 1);
+      ESL_ALLOC(ps->tlAAA[p],   sizeof(TextLegend_t *) * 1);
     }
     for(c = 0; c < ps->rflen; c++) { 
       ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
@@ -6989,7 +6989,7 @@ drawfile2sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, f
 	  if((status = add_pages_sspostscript(ps, 1, ALIMODE)) != eslOK) ESL_FAIL(status, errbuf, "memory error adding pages to the postscript object.");
 	  for(p = (ps->npage-1); p < ps->npage; p++) { 
 	    ESL_ALLOC(ps->bcolAAA[p], sizeof(float *) * ps->rflen);
-	    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t *) * 1);
+	    ESL_ALLOC(ps->sclAA[p],   sizeof(SchemeColorLegend_t) * 1);
 	    for(c = 0; c < ps->rflen; c++) { 
 	      ESL_ALLOC(ps->bcolAAA[p][c], sizeof(float) * NCMYK); /* CMYK colors */
 	    }

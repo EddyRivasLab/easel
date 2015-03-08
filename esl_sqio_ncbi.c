@@ -536,7 +536,7 @@ sqncbi_Open(ESL_SQNCBI_DATA *ncbi, char *filename)
   }
 
   ncbi->hdr_alloced = INIT_HDR_BUFFER_SIZE;
-  ESL_ALLOC(ncbi->hdr_buf, sizeof(char) * INIT_HDR_BUFFER_SIZE);
+  ESL_ALLOC(ncbi->hdr_buf, sizeof(unsigned char) * INIT_HDR_BUFFER_SIZE);
 
   /* skip the first sentinal byte in the .psq file */
   fgetc(ncbi->fppsq);

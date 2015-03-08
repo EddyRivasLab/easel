@@ -1592,7 +1592,8 @@ buffer_init_file_mmap(ESL_BUFFER *bf, esl_pos_t filesize)
   return eslOK;
 
  ERROR:
-  if (bf->mem != MAP_FAILED) { munmap(bf->mem, bf->n); bf->mem      = NULL; }
+  if (bf->mem != MAP_FAILED) munmap(bf->mem, bf->n); 
+  bf->mem     = NULL; 
   bf->n       = 0;
   bf->mode_is = eslBUFFER_UNSET;
   return status;

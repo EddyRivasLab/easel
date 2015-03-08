@@ -1083,7 +1083,8 @@ esl_dmx_Permute_PA(const ESL_PERMUTATION *P, const ESL_DMATRIX *A, ESL_DMATRIX *
 int
 esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 {
-  int    i,j,k,kpiv;
+  int    i,j,k;
+  int    kpiv = 0;    // initialization serves to quiet overzealous static analyzers
   double max;
   double swap;
 
@@ -1094,8 +1095,9 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
 
   for (k = 0; k < A->n-1; k++)
     {
-      /* Identify our pivot;
-       * find row with maximum value in col[k].
+      /* Identify our pivot; find row with maximum value in col[k]. 
+       * This is guaranteed to succeed and set <kpiv> 
+       * (no matter what a static analyzer tells you)
        */
       max = 0.; 
       for (i = k; i < A->n; i++)

@@ -341,7 +341,7 @@ esl_tree_SetTaxonlabels(ESL_TREE *T, char **names)
   int status;
   
   if (T->taxonlabel != NULL) esl_Free2D((void **) T->taxonlabel, T->N);
-  ESL_ALLOC(T->taxonlabel, sizeof(char **) * T->nalloc);
+  ESL_ALLOC(T->taxonlabel, sizeof(char *) * T->nalloc);
   for (i = 0; i < T->nalloc; i++) T->taxonlabel[i] = NULL;
 
   if (names != NULL) 

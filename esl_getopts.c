@@ -1263,7 +1263,8 @@ set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
  * the index of the option, and return eslOK. <optname>
  * must exactly match one of the options in <g>.
  * 
- * If the option is not found, return eslENOTFOUND.
+ * If the option is not found, return <eslENOTFOUND>; in this
+ * case <*ret_opti> is -1 (and caller should not use it!)
  */
 static int
 get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti)
@@ -1272,6 +1273,7 @@ get_optidx_exactly(const ESL_GETOPTS *g, char *optname, int *ret_opti)
 
   for (i = 0; i < g->nopts; i++)
     if (strcmp(optname, g->opt[i].name) == 0) { *ret_opti = i; return eslOK; }
+  *ret_opti = -1;
   return eslENOTFOUND;
 }
 

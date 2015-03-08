@@ -306,27 +306,27 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   esl_strdup(msa->mm,      -1, &(new->mm));
 
   if (msa->sqacc != NULL) {
-    ESL_ALLOC(new->sqacc, sizeof(char **) * new->sqalloc);
+    ESL_ALLOC(new->sqacc, sizeof(char *) * new->sqalloc);
     for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sqacc[i], -1, &(new->sqacc[i]));
     for (     ; i < new->sqalloc; i++) new->sqacc[i] = NULL;
   }
   if (msa->sqdesc != NULL) {
-    ESL_ALLOC(new->sqdesc, sizeof(char **) * new->sqalloc);
+    ESL_ALLOC(new->sqdesc, sizeof(char *) * new->sqalloc);
     for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sqdesc[i], -1, &(new->sqdesc[i]));
     for (     ; i < new->sqalloc; i++) new->sqdesc[i] = NULL;
   }
   if (msa->ss != NULL) {
-    ESL_ALLOC(new->ss, sizeof(char **) * new->sqalloc);
+    ESL_ALLOC(new->ss, sizeof(char *) * new->sqalloc);
     for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->ss[i], -1, &(new->ss[i]));
     for (     ; i < new->sqalloc; i++) new->ss[i] = NULL;
   }
   if (msa->sa != NULL) {
-    ESL_ALLOC(new->sa, sizeof(char **) * msa->nseq);
+    ESL_ALLOC(new->sa, sizeof(char *) * msa->nseq);
     for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->sa[i], -1, &(new->sa[i]));
     for (     ; i < new->sqalloc; i++) new->sa[i] = NULL;
   }
   if (msa->pp != NULL) {
-    ESL_ALLOC(new->pp, sizeof(char **) * msa->nseq);
+    ESL_ALLOC(new->pp, sizeof(char *) * msa->nseq);
     for (i = 0; i < msa->nseq;    i++) esl_strdup(msa->pp[i], -1, &(new->pp[i]));
     for (     ; i < new->sqalloc; i++) new->pp[i] = NULL;
   }
@@ -337,7 +337,7 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
 
   if (msa->ncomment > 0) {
-    ESL_ALLOC(new->comment, sizeof(char **) * msa->ncomment);
+    ESL_ALLOC(new->comment, sizeof(char *) * msa->ncomment);
     new->ncomment       = msa->ncomment;
     new->alloc_ncomment = msa->ncomment;
     for (i = 0; i < msa->ncomment; i++)
@@ -345,8 +345,8 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
 
   if (msa->ngf > 0) {
-    ESL_ALLOC(new->gf_tag, sizeof(char **) * msa->ngf);
-    ESL_ALLOC(new->gf,     sizeof(char **) * msa->ngf);
+    ESL_ALLOC(new->gf_tag, sizeof(char *) * msa->ngf);
+    ESL_ALLOC(new->gf,     sizeof(char *) * msa->ngf);
     new->ngf       = msa->ngf;
     new->alloc_ngf = msa->ngf;
     for (i = 0; i < msa->ngf; i++) {
@@ -356,11 +356,11 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
 
   if (msa->ngs > 0) {
-    ESL_ALLOC(new->gs_tag, sizeof(char **)  * msa->ngs);
-    ESL_ALLOC(new->gs,     sizeof(char ***) * msa->ngs);
+    ESL_ALLOC(new->gs_tag, sizeof(char *)  * msa->ngs);
+    ESL_ALLOC(new->gs,     sizeof(char **) * msa->ngs);
     new->ngs       = msa->ngs;
     for (i = 0; i < msa->ngs; i++) {
-      ESL_ALLOC(new->gs[i], sizeof(char **) * msa->nseq);
+      ESL_ALLOC(new->gs[i], sizeof(char *) * msa->nseq);
       esl_strdup(msa->gs_tag[i], -1, &(new->gs_tag[i]));
       for (j = 0; j < msa->nseq; j++)
 	esl_strdup(msa->gs[i][j],  -1, &(new->gs[i][j]));
@@ -368,8 +368,8 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
 
   if (msa->ngc > 0) {
-    ESL_ALLOC(new->gc_tag, sizeof(char **) * msa->ngc);
-    ESL_ALLOC(new->gc,     sizeof(char **) * msa->ngc);
+    ESL_ALLOC(new->gc_tag, sizeof(char *) * msa->ngc);
+    ESL_ALLOC(new->gc,     sizeof(char *) * msa->ngc);
     new->ngc       = msa->ngc;
     for (i = 0; i < msa->ngc; i++) {
       esl_strdup(msa->gc_tag[i], -1, &(new->gc_tag[i]));
@@ -378,11 +378,11 @@ esl_msa_Copy(const ESL_MSA *msa, ESL_MSA *new)
   }
   
   if (msa->ngr > 0) {
-    ESL_ALLOC(new->gr_tag, sizeof(char **)  * msa->ngr);
-    ESL_ALLOC(new->gr,     sizeof(char ***) * msa->ngr);
+    ESL_ALLOC(new->gr_tag, sizeof(char *)  * msa->ngr);
+    ESL_ALLOC(new->gr,     sizeof(char **) * msa->ngr);
     new->ngr       = msa->ngr;
     for (i = 0; i < msa->ngr; i++) {
-      ESL_ALLOC(new->gr[i], sizeof(char **) * msa->nseq);
+      ESL_ALLOC(new->gr[i], sizeof(char *) * msa->nseq);
       esl_strdup(msa->gr_tag[i], -1, &(new->gr_tag[i]));
       for (j = 0; j < msa->nseq; j++)
 	esl_strdup(msa->gr[i][j],  -1, &(new->gr[i][j]));
@@ -1717,8 +1717,8 @@ esl_msa_AppendGC(ESL_MSA *msa, char *tag, char *value)
 #else
       tagidx = 0;
 #endif
-      ESL_ALLOC(msa->gc_tag, sizeof(char **));
-      ESL_ALLOC(msa->gc,     sizeof(char **));
+      ESL_ALLOC(msa->gc_tag, sizeof(char *));
+      ESL_ALLOC(msa->gc,     sizeof(char *));
       msa->gc[0]  = NULL;
     }
   else
