@@ -254,7 +254,7 @@ msafile2_open(const char *filename, const char *env, ESL_MSAFILE2 **ret_afp)
    * We should warn, probably, or provide some way for caller to 
    * to know that we've opened the index successfully or not.
    */
-  status = esl_ssi_Open(ssifile, &(afp->ssi)); 
+  esl_ssi_Open(ssifile, &(afp->ssi));
 #endif
 
   if (envfile != NULL) free(envfile);

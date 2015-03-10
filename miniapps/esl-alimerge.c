@@ -1154,14 +1154,12 @@ add_msa(ESL_MSA *mmsa, char *errbuf, ESL_MSA *msa_to_add, int *maxgap, int *maxm
   int *nmisA = NULL;     /* [0..alen] number of missing data ('~') gap columns to add after each alignment column when merging */
   int *neitherA = NULL;  /* [0..apos..alen] = ngapA[apos] + nmisA[apos] */
 
-  nseq_existing = mmsa->nseq;
+  nseq_existing = mmsa->nseq; 
 
   /* determine how many all gap columns to insert after each alignment position
    * of the child msa when copying it to the merged msa */
   if((status = determine_gap_columns_to_add(msa_to_add, maxgap, maxmis, clen, &(ngapA), &(nmisA), &(neitherA), errbuf)) != eslOK) 
     return status;
-
-  nseq_existing = mmsa->nseq; 
 
   /* Append msa_to_add's sequence data and per-sequence annotation to mmsa after adding necessary gaps */
   /* sequence names and aligned sequence data (digitized) */

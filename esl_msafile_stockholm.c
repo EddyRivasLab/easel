@@ -776,7 +776,7 @@ stockholm_parse_gr(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
     {
       if      (pd->si >= 1       && esl_memstrcmp(name, namelen, msa->sqname[pd->si-1])) seqidx = pd->si-1;
       else if (pd->si < pd->nseq && esl_memstrcmp(name, namelen, msa->sqname[pd->si]))   seqidx = pd->si;
-      else  status = stockholm_get_seqidx(msa, pd, name, namelen, &seqidx);
+      else if ((status = stockholm_get_seqidx(msa, pd, name, namelen, &seqidx)) != eslOK) goto ERROR;
       
       if (pd->bi == pd->balloc && (status = stockholm_parsedata_ExpandBlock(pd)) != eslOK) return status;
 

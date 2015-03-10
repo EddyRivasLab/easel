@@ -484,7 +484,6 @@ esl_tree_VerifyUltrametric(ESL_TREE *T)
   for (i = 0; i < T->N; i++)
     {
       d[i]   = 0.0;
-      child  = i;
       parent = T->taxaparent[i];
       if       (T->left[parent]  == -i) d[i] += T->ld[parent];
       else if  (T->right[parent] == -i) d[i] += T->rd[parent];

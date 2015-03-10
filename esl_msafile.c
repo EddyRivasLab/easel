@@ -437,16 +437,16 @@ msafile_OpenBuffer(ESL_ALPHABET **byp_abc, ESL_BUFFER *bf, int format, ESLX_MSAF
    *        some other valid characters "_-.~*" instead.
    */
   switch (afp->format) {
-  case eslMSAFILE_A2M:          status = esl_msafile_a2m_SetInmap(      afp); break;
-  case eslMSAFILE_AFA:          status = esl_msafile_afa_SetInmap(      afp); break;
-  case eslMSAFILE_CLUSTAL:      status = esl_msafile_clustal_SetInmap(  afp); break;
-  case eslMSAFILE_CLUSTALLIKE:  status = esl_msafile_clustal_SetInmap(  afp); break;
-  case eslMSAFILE_PFAM:         status = esl_msafile_stockholm_SetInmap(afp); break;
-  case eslMSAFILE_PHYLIP:       status = esl_msafile_phylip_SetInmap(   afp); break;
-  case eslMSAFILE_PHYLIPS:      status = esl_msafile_phylip_SetInmap(   afp); break;
-  case eslMSAFILE_PSIBLAST:     status = esl_msafile_psiblast_SetInmap( afp); break;
-  case eslMSAFILE_SELEX:        status = esl_msafile_selex_SetInmap(    afp); break;
-  case eslMSAFILE_STOCKHOLM:    status = esl_msafile_stockholm_SetInmap(afp); break;
+  case eslMSAFILE_A2M:          if ((status = esl_msafile_a2m_SetInmap(      afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_AFA:          if ((status = esl_msafile_afa_SetInmap(      afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_CLUSTAL:      if ((status = esl_msafile_clustal_SetInmap(  afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_CLUSTALLIKE:  if ((status = esl_msafile_clustal_SetInmap(  afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PFAM:         if ((status = esl_msafile_stockholm_SetInmap(afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PHYLIP:       if ((status = esl_msafile_phylip_SetInmap(   afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PHYLIPS:      if ((status = esl_msafile_phylip_SetInmap(   afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_PSIBLAST:     if ((status = esl_msafile_psiblast_SetInmap( afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_SELEX:        if ((status = esl_msafile_selex_SetInmap(    afp)) != eslOK) goto ERROR; break;
+  case eslMSAFILE_STOCKHOLM:    if ((status = esl_msafile_stockholm_SetInmap(afp)) != eslOK) goto ERROR; break;
   default: ESL_XEXCEPTION(eslENOFORMAT, "no such alignment file format");
   }
 
@@ -639,7 +639,7 @@ eslx_msafile_GuessFileFormat(ESL_BUFFER *bf, int *ret_fmtcode, ESLX_MSAFILE_FMTD
   else if (fmt_byfirstline == eslMSAFILE_PHYLIP)
     {
       int namewidth;
-      status = esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);
+      esl_msafile_phylip_CheckFileFormat(bf, ret_fmtcode, &namewidth);  // Don't need to check return status. *ret_fmtcode == eslMSAFILE_UNKNOWN if the check fails.
       if      (opt_fmtd)         opt_fmtd->namewidth = namewidth;
       else if (namewidth != 10) *ret_fmtcode = eslMSAFILE_UNKNOWN; /* if we can't store the nonstandard width, we can't allow the caller to think it can parse this */
     }
@@ -929,7 +929,6 @@ msafile_check_selex(ESL_BUFFER *bf)
   if (start_offset != -1) { 
     if (esl_buffer_SetOffset(bf, start_offset)   != eslOK) goto ERROR;
     if (esl_buffer_RaiseAnchor(bf, start_offset) != eslOK) goto ERROR;
-    start_offset = -1;
   }
   return status;
 

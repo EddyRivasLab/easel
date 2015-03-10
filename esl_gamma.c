@@ -352,7 +352,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 
   if ((status = tau_by_moments(x, n, mu, &c, &mean, &logsum) != eslOK)) return status;
   a = b = c;
-  fa=fb=fc = tau_function(c, mean, logsum);
+  fc = tau_function(c, mean, logsum);
 
   /* Rootfinding, 1.: bracketing the root with points a,b.
    */
@@ -363,7 +363,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  b = a * 2.;
 	  fb = tau_function(b, mean, logsum);
 	  if (fb < 0.) break;	/* a,b now bracket */
-	  a = b; fa = fb;	/* else fb>0, so b is a better left bracket than a */
+	  a = b;                /* else fb>0, so b is a better left bracket than a */
 	}
       if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
     }
@@ -374,7 +374,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  a = b/2.;
 	  fa = tau_function(a, mean, logsum);
 	  if (fa > 0.) break;   /* a,b now bracket */
-	  b = a; fb = fa;	/* else fa<0, so a is a better right bracket than b */
+	  b = a;                /* else fa<0, so a is a better right bracket than b */
 	}
       if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
     }  
@@ -386,8 +386,8 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
     {
       c  = (a+b)/2.;		/* bisection */
       fc = tau_function(c, mean, logsum);
-      if      (fc > 0.) { a = c; fa = fc; }
-      else if (fc < 0.) { b = c; fb = fc; }
+      if      (fc > 0.)  a = c;
+      else if (fc < 0.)  b = c;
       else    break;		/* unlikely event that we nail it */
 
       if ((b-a) <= 2.* DBL_EPSILON) { 

@@ -510,7 +510,6 @@ main(int argc, char **argv)
       /* --fmin */
       if(do_fmin) { 
 	/* define ss_cons */
-	nbps = 0;
 	prev_nbps = -1;
 	fthresh = 0.99;
 	inconsistent_flag = pknot_flag = FALSE;

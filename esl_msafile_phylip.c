@@ -697,7 +697,7 @@ phylip_check_interleaved(ESL_BUFFER *bf, int *ret_namewidth)
       if (nblocks == 0) 
 	{
 	  colcodes0 = colcodes;  ncols0    = ncols;
-	  colcodes  = NULL;      ncols     = 0;
+	  colcodes  = NULL;      
 	  /* let's speculate that it's strictly conforming PHYLIP with a namewidth of 10 
 	   * in that case, we'll be able to stop parsing blocks when we reach the full
 	   * alignment length

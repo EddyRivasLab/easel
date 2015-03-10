@@ -306,7 +306,7 @@ esl_msashuffle_XQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, ESL_DSQ *x, ESL_DSQ *
     pos              = esl_rnd_Roll(r, nxy);
     xsym             = xs[xycol[pos]];   ysym             = ys[xycol[pos]];    c            = xycol[pos];   
     xs[xycol[pos]]   = xs[xycol[nxy-1]]; ys[xycol[pos]]   = ys[xycol[nxy-1]];  xycol[pos]   = xycol[nxy-1];
-    xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = xycol[nxy-1];
+    xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = c;
   }
   for (; nx > 1; nx--) {
     pos            = esl_rnd_Roll(r, nx); 
@@ -404,7 +404,7 @@ esl_msashuffle_CQRNA(ESL_RANDOMNESS *r, ESL_ALPHABET *abc, char *x, char *y, cha
     pos              = esl_rnd_Roll(r, nxy);
     xsym             = xs[xycol[pos]];   ysym             = ys[xycol[pos]];    c            = xycol[pos];   
     xs[xycol[pos]]   = xs[xycol[nxy-1]]; ys[xycol[pos]]   = ys[xycol[nxy-1]];  xycol[pos]   = xycol[nxy-1];
-    xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = xycol[nxy-1];
+    xs[xycol[nxy-1]] = xsym;             ys[xycol[nxy-1]] = ysym;              xycol[pos]   = c;
   }
   for (; nx > 1; nx--) {
     pos            = esl_rnd_Roll(r, nx); 

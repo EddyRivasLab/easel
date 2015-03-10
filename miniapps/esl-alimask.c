@@ -500,7 +500,6 @@ main(int argc, char **argv)
   if(do_gapthresh && do_postprob) { 
     for(apos = 0; apos < msa->alen; apos++) 
       useme_final[apos] = (useme_g[apos] && useme_pp[apos]) ? TRUE : FALSE;
-    nkept = esl_vec_ISum(useme_final, (int) msa->alen);
     if(be_verbose) { 
       nkept    = esl_vec_ISum(useme_final, (int) msa->alen);
       if(msa->rf == NULL) fprintf(stdout, "  %-19s  %7" PRId64 "  %7s  %7d  %7d  %7s  %7s  %13s\n", "gapfreq&postprobs", msa->alen, "-",   nkept, (int) msa->alen - nkept, "-", "-", "-");

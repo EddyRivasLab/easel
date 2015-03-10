@@ -2269,7 +2269,6 @@ draw_scheme_colorlegend(const ESL_GETOPTS *go, FILE *fp, SchemeColorLegend_t *sc
     fprintf(fp, "((all colors)) %.2f %.2f moveto show\n", x, y);
 
     /* print stats for excluded by mask */
-    old_x = x;
     x = ps->legx_stats;
     y += (float) ps->leg_cellsize * 0.3125;
     fprintf(fp, "(%4d  %4d) %.2f %.2f moveto show\n", ps->rflen-n1s, 0, x, y);
@@ -3385,8 +3384,6 @@ individuals_sspostscript(const ESL_GETOPTS *go, ESL_ALPHABET *abc, char *errbuf,
   ppavgA[8]  = 0.80;
   ppavgA[9]  = 0.90;
   ppavgA[10] = 0.975;
-
-  if(ps->mask == NULL) { ngap_masked_p = -1; } /* special flag */
 
   /* determine number of pages we'll add */
   new_npage = do_prob ? msa->nseq*2 : msa->nseq; 

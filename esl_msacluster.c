@@ -149,6 +149,8 @@ esl_msacluster_SingleLinkage(const ESL_MSA *msa, double maxid,
 				       workspace, assignment, &nc);
   }
 #endif
+  if (status != eslOK) goto ERROR;
+
 
   if (opt_nin != NULL) 
     {

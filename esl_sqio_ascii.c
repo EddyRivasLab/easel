@@ -793,7 +793,7 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
       
       /* grab next seq from alignment */
       /* this is inefficient; it goes via a temporarily allocated copy of the sequence */
-      status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq);
+      if ((status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq)) != eslOK) return status;
       esl_sq_GrowTo(sq, tmpsq->n);
       esl_sq_Copy(tmpsq, sq);
       esl_sq_Destroy(tmpsq);
@@ -858,6 +858,8 @@ sqascii_Read(ESL_SQFILE *sqfp, ESL_SQ *sq)
  *            avoid reading complete seqs into memory.
  *
  * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEMEM> on allocation error.
  */
 static int
 sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
@@ -888,7 +890,7 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
       
       /* grab next seq from alignment */
       /* this is inefficient; it goes via a temporarily allocated copy of the sequence */
-      status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq);
+      if ((status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq)) != eslOK) return status;
       if (tmpsq->dsq != NULL) tmpsq->dsq[1] = eslDSQ_SENTINEL;
       else                    tmpsq->seq[0] = '\0';
       esl_sq_Copy(tmpsq, sq);
@@ -968,11 +970,10 @@ sqascii_ReadInfo(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int     status;
+  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
   int64_t epos;
   int64_t n;
-
-  ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
+  int     status;
 
 #ifdef eslAUGMENT_MSA
   if (esl_sqio_IsAlignment(sqfp->format))
@@ -994,7 +995,9 @@ sqascii_ReadSequence(ESL_SQFILE *sqfp, ESL_SQ *sq)
       
       /* grab next seq from alignment */
       /* this is inefficient; it goes via a temporarily allocated copy of the sequence */
-      status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq);
+      status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq);  // eslEMEM | eslEOD
+      if (status != eslOK) return status;
+
       esl_sq_GrowTo(sq, tmpsq->n);
       esl_sq_Copy(tmpsq, sq);
       esl_sq_Destroy(tmpsq);

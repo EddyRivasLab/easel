@@ -1093,7 +1093,6 @@ esl_newssi_Write(ESL_NEWSSI *ns)
       if (ns->bpl[i] > 0 && ns->rpl[i] > 0) file_flags |= eslSSI_FASTSUBSEQ;
       strncpy(fk, ns->filenames[i], ns->flen);
 
-      status     = eslFAIL;
       if (fwrite(fk, sizeof(char), ns->flen, ns->ssifp) != ns->flen ||
 	  esl_fwrite_u32(ns->ssifp, ns->fileformat[i])  != eslOK    ||
 	  esl_fwrite_u32(ns->ssifp, file_flags)         != eslOK    ||
