@@ -472,6 +472,116 @@ esl_usage(FILE *fp, char *progname, char *usage)
   if (appname) free(appname);
   return status;
 }
+
+
+/* Function:  esl_dataheader()
+ * Synopsis:  Standard #-prefixed header lines for output data table
+ *
+ * Purpose:   Print column headers for a space-delimited, fixed-column-width
+ *            data table to <fp>.
+ * 
+ *            Takes a variable number of argument pairs. Each pair is
+ *            <width, label>. The absolute value of <width> is the max
+ *            width of the column. <label> is the column label.
+ *            
+ *            If <width> is negative, left justify the label. (This is
+ *            supposed to mirror the %-8s vs %8s of a printf format.)
+ *             
+ *            Caller marks the end of the argument list
+ *            with a 0 sentinel.
+ *            
+ *            Example: <esl_dataheader(stdout, 8, "name", 3, "A", -4, "B", 0)>
+ *            gives three columns:
+ *            
+ *            # name     A B
+ *            #------- --- ----
+ *            
+ *            The <width> arguments match the widths given in
+ *            <fprintf()>'s or whatever generates the data rows.
+ *            Because the first header line is prefixed by '# ', the
+ *            first column's width argument is inclusive of these two
+ *            extra chars, and therefore the first column label must
+ *            have no more than its <width>-2 chars.  For all other
+ *            column labels, a label's length cannot exceed its
+ *            <width>.
+ *            
+ *            Up to 1024 columns are allowed. (The only reason there's
+ *            a limit is because you're going to forget to add the -1
+ *            sentinel, so we don't want to risk a <while(1)> infinite
+ *            loop.)
+ *
+ * Args:      <fp>                 : output stream
+ *            [<width>, <label]... : width, label pairs
+ *            0                   : sentinel for end of argument list
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    <eslEINVAL> if a label is too wide for its width, or if
+ *            the number of columns exceeds the max limit.
+ *            <eslEWRITE> if a write to <fp> fails, which can happen
+ *            if a disk fills up, for example.
+ */
+int 
+esl_dataheader(FILE *fp, ...)
+{
+  va_list ap, ap2;
+  int     width, len;
+  char   *s;
+  int     col     = 0;
+  int     maxcols = 1024;  // limit, to avoid scary while(1) alternative
+  int     leftjustify;
+  int     status;
+
+  va_start(ap, fp);
+  va_copy(ap2, ap);
+  if ( fputc('#', fp) == EOF) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+  for (col = 0; col < maxcols; col++)
+    {
+      width = va_arg(ap, int);
+      if (width == 0) break;
+      if (width < 0)  { leftjustify = TRUE;  width = -width; }
+      else            { leftjustify = FALSE;                 }
+      if (col == 0)  width -= 2;   // First column header -2 char for the "# " prefix
+
+      s   = va_arg(ap, char *);
+      len = strlen(s);
+      if (len > width) {
+	if (col == 0) ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): first arg (%s) too wide for %d-char column ('# ' leader took 2 chars)", col, s, width+2);
+	else          ESL_XEXCEPTION(eslEINVAL, "esl_dataheader(): arg %d (%s) too wide for %d-char column", col, s, width);
+      }
+
+      if (leftjustify) { if ( fprintf(fp, " %-*s", width, s) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed"); }
+      else             { if ( fprintf(fp, " %*s",  width, s) < 0) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed"); }
+    }
+  if (col == maxcols)          ESL_XEXCEPTION(    eslEINVAL, "esl_dataheader(): too many args");
+  if ( fputc('\n', fp) == EOF) ESL_XEXCEPTION_SYS(eslEWRITE, "write failed");
+
+  maxcols = col;
+  for (col = 0; col < maxcols; col++)
+    {
+      width = va_arg(ap2, int);
+      if (width < 0) width = -width;
+      if (col == 0) width -= 1;   
+      s = va_arg(ap2, char *);
+
+      if (col == 0) { if ( fputc('#', fp)   == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");  }
+      else          { if ( fputc(' ', fp)   == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");  }
+      while (width--) 
+	if ( fputc('-', fp) == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); 
+    }
+  if (fputc('\n', fp)       == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed"); 
+
+  va_end(ap);
+  va_end(ap2);
+  return eslOK;
+  
+ ERROR:
+  va_end(ap);
+  va_end(ap2);
+  return status;
+}
+
+
 /*-------------------- end, standard miniapp banner --------------------------*/
 
 

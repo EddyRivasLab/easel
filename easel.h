@@ -399,8 +399,9 @@ extern void esl_Free2D(void  **p, int dim1);
 extern void esl_Free3D(void ***p, int dim1, int dim2);
 
 /* 3. Standard banner for Easel miniapplications. */
-extern int  esl_banner(FILE *fp, char *progname, char *banner);
-extern int  esl_usage (FILE *fp, char *progname, char *usage);
+extern int  esl_banner    (FILE *fp, char *progname, char *banner);
+extern int  esl_usage     (FILE *fp, char *progname, char *usage);
+extern int  esl_dataheader(FILE *fp, ...);
 
 /* 4. Improved replacements for some C library functions */
 extern int  esl_fgets(char **buf, int *n, FILE *fp);
