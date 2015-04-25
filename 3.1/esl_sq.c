@@ -1434,11 +1434,12 @@ esl_sq_XAddResidue(ESL_SQ *sq, ESL_DSQ x)
  *            complement (such as amino acids), an <eslEINCOMPAT>
  *            error is thrown, and the sequence isn't changed at all.
  *            
- *            Gap and missing data characters, if any, are preserved
- *            (in text mode, <._-> are treated as gaps, and <~> as
- *            missing data). Degenerate nucleic acid IUPAC characters
- *            are complemented appropriately.
- *            
+ *            Gap, nonresidues, and missing data characters, if any,
+ *            are preserved (in text mode, <._-> are treated as gaps,
+ *            <*> are nonresidues, and <~> as missing
+ *            data). Degenerate nucleic acid IUPAC characters are
+ *            complemented appropriately.
+ *
  *            The <start/end> coords in <sq> are swapped. (Note that
  *            in the unusual case of sequences of length 1,
  *            <start=end> and we can't unambiguously tell if a seq is
@@ -1506,6 +1507,7 @@ esl_sq_ReverseComplement(ESL_SQ *sq)
 	case '_': sq->seq[i] = '_'; break;
 	case '-': sq->seq[i] = '-'; break;
 	case '~': sq->seq[i] = '~'; break;
+	case '*': sq->seq[i] = '*'; break;
 	default:  sq->seq[i] = 'N'; status = eslEINVAL; break;
 	}
 

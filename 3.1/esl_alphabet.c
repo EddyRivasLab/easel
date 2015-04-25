@@ -357,6 +357,13 @@ set_complementarity(ESL_ALPHABET *a)
   if (a->type != eslRNA && a->type != eslDNA)
     ESL_EXCEPTION(eslEINVAL, "alphabet isn't nucleic: no complementarity to set");
   
+  /* We will assume that Kp=18 and sym="ACGT-RYMKSWHBVDN*~" (or RNA equiv).
+   * Bug #h108 happened because routine fell out of sync w/ a change in alphabet.
+   * Don't let that happen again.
+   */
+  ESL_DASSERT1((      a->Kp == 18  ));
+  ESL_DASSERT1(( a->sym[17] == '~' ));
+
   ESL_ALLOC(a->complement, sizeof(ESL_DSQ) * a->Kp);
   a->complement[0] = 3;	   /* A->T */
   a->complement[1] = 2;    /* C->G */
@@ -374,7 +381,8 @@ set_complementarity(ESL_ALPHABET *a)
   a->complement[13]= 12;   /* V->B */
   a->complement[14]= 11;   /* D->H */
   a->complement[15]= 15;   /* N  N */
-  a->complement[16]= 16;   /* ~  ~ */
+  a->complement[16]= 16;   /* *  * */
+  a->complement[17]= 17;   /* ~  ~ */
   return eslOK;
 
  ERROR:
