@@ -2783,8 +2783,7 @@ esl_msa_Checksum(const ESL_MSA *msa, uint32_t *ret_checksum)
  *
  * Returns:   <eslOK> on success.
  *            <eslESYNTAX> if SS string 
- *            following <esl_wuss_nopseudo()> is inconsistent.
- *            <eslEINVAL> if a derived ct array implies a pknotted 
+  *            <eslEINVAL> if a derived ct array implies a pknotted 
  *            SS, this should be impossible.
  *
  * Throws:    <eslEMEM> on allocation failure.
@@ -2794,14 +2793,11 @@ esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *
 {
   int64_t  apos;                 /* alignment position */
   int     *ct = NULL;	         /* 0..alen-1 base pair partners array for current sequence */
-  char    *ss_nopseudo = NULL;   /* no-pseudoknot version of structure */
   int      status;
 
-  ESL_ALLOC(ct,          sizeof(int)  * (len+1));
-  ESL_ALLOC(ss_nopseudo, sizeof(char) * (len+1));
+  ESL_ALLOC(ct, sizeof(int)  * (len+1));
 
-  esl_wuss_nopseudo(ss, ss_nopseudo);
-  if ((status = esl_wuss2ct(ss_nopseudo, len, ct)) != eslOK) 
+  if ((status = esl_wuss2ct(ss, len, ct)) != eslOK)  
     ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
   for (apos = 1; apos <= len; apos++) { 
     if (!(useme[apos-1])) { 
@@ -2813,13 +2809,11 @@ esl_msa_RemoveBrokenBasepairsFromSS(char *ss, char *errbuf, int len, const int *
   if ((status = esl_ct2wuss(ct, len, ss)) != eslOK) 
     ESL_FAIL(status, errbuf, "Error converting de-knotted bp ct array to WUSS notation.");
   
-  free(ss_nopseudo);
   free(ct);
   return eslOK;
 
  ERROR: 
-  if (ct          != NULL) free(ct);
-  if (ss_nopseudo != NULL) free(ss_nopseudo);
+  if (ct != NULL) free(ct);
   return status; 
 }  
 
