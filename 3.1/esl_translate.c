@@ -233,7 +233,7 @@ int esl_trans_s2p(ESL_SQ *in, ESL_SQ **out, int frameshift, int rcFlag)
                  'I','I','M','I','Q','H','Q','H','P','P','P','P',
                  'R','R','R','R','L','L','L','L','E','D','E','D',
                  'A','A','A','A','G','G','G','G','V','V','V','V',
-                 '*','Y','*','Y','L','F','L','F','*','C','W','C',
+                 '*','Y','*','Y','S','S','S','S','*','C','W','C',
                  'L','F','L','F'};
 
   int status;
