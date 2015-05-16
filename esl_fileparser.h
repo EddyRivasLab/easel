@@ -13,10 +13,6 @@ typedef struct {
   char *s;			/* used by esl_strtok(); current position in buf.  */
   char  commentchar;		/* often '#'                                       */
 
-  char *tok;			/* _NextLine() may remember a token...             */
-  int   toklen;			/* ... and its length                              */
-  char  tokchar;		/* ... and char that got overwritten by \0, if any */
-
   char *filename;		/* name of opened file; or NULL (if just a stream) */
   int   linenumber;		/* what line is loaded into buf; 1..nlines         */
   char  errbuf[eslERRBUFSIZE];  /* for holding error diagnostics                   */

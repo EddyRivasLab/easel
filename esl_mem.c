@@ -405,7 +405,7 @@ esl_memstrdup(const char *p, esl_pos_t n, char **ret_s)
  *
  * Purpose:   Given memory line <p> of length <n>, copy
  *            it to <dest> and NUL-terminate it. Caller must
- *            be sure that <s> is already allocated for
+ *            be sure that <dest> is already allocated for
  *            at least <n+1> bytes.
  *              
  * Returns:   <eslOK> on success.

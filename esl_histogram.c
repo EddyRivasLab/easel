@@ -755,9 +755,9 @@ int
 esl_histogram_SetExpect(ESL_HISTOGRAM *h, 
 			double (*cdf)(double x, void *params), void *params)
 {
-  int    status;
   int    i;
   double ai,bi;			/* ai < x <= bi : lower,upper bounds in bin */
+  int    status;
 
   if (h->expect == NULL) 
     ESL_ALLOC(h->expect, sizeof(double) * h->nb);
@@ -766,6 +766,7 @@ esl_histogram_SetExpect(ESL_HISTOGRAM *h,
     {
       ai = esl_histogram_Bin2LBound(h, i);
       bi = esl_histogram_Bin2UBound(h, i);
+
       h->expect[i] = h->Nc * ( (*cdf)(bi, params) - (*cdf)(ai, params) );
 
       if (h->emin == -1 && h->expect[i] > 0.) h->emin = i;

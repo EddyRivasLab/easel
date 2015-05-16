@@ -89,6 +89,7 @@ HDRS = 	easel.h\
 	esl_exponential.h\
 	esl_fileparser.h\
 	esl_gamma.h\
+	esl_gencode.h\
 	esl_getopts.h\
 	esl_gev.h\
 	esl_gumbel.h\
@@ -153,6 +154,7 @@ OBJS =	easel.o\
 	esl_exponential.o\
 	esl_fileparser.o\
 	esl_gamma.o\
+	esl_gencode.o\
 	esl_getopts.o\
 	esl_gev.o\
 	esl_gumbel.o\
@@ -293,6 +295,7 @@ EXAMPLES = \
         esl_fileparser_example\
         esl_fileparser_example2\
         esl_gamma_example\
+	esl_gencode_example\
         esl_getopts_example\
         esl_getopts_example2\
         esl_gev_example\
@@ -326,6 +329,9 @@ EXAMPLES = \
         esl_msaweight_example\
         esl_normal_example\
         esl_random_example\
+	esl_regexp_example\
+	esl_regexp_example2\
+	esl_regexp_example3\
         esl_rootfinder_example\
         esl_rootfinder_example2\
         esl_scorematrix_example\

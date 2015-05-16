@@ -1685,7 +1685,7 @@ regescape(struct comp *cp, char c)
  * 3 code examples, and the test driver 
  *****************************************************************/
 
-#ifdef eslREGEXP_EXAMPLE1
+#ifdef eslREGEXP_EXAMPLE
 /* Single match example.
  * Find first match of <pattern> in <string>; 
  * print coords of complete match.
@@ -1727,7 +1727,7 @@ main(int argc, char **argv)
   esl_regexp_Destroy(m);
   exit(0);
 }
-#endif /* eslREGEXP_EXAMPLE1*/
+#endif /* eslREGEXP_EXAMPLE*/
 
 
 #ifdef eslREGEXP_EXAMPLE2
