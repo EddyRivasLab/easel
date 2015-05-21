@@ -486,7 +486,7 @@ sqascii_GuessFileFormat(ESL_SQFILE *sqfp, int *ret_fmt)
 static int
 sqascii_Position(ESL_SQFILE *sqfp, off_t offset)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -1184,8 +1184,6 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        sq->C     = ESL_MIN(sq->n, C);
        sq->start = sq->end - sq->C + 1;
        sq->end   = ESL_MIN(tmpsq->L, sq->end + W);
-       sq->n     = sq->end - sq->start + 1;
-       sq->W     = sq->n - sq->C;
     }
     else
     {/* reverse strand */
@@ -1194,25 +1192,11 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        sq->C     = ESL_MIN(sq->n, sq->end + C - 1);
        sq->end   = (sq->start == 0 ? sq->L : sq->end + sq->C - 1);
        sq->start = ESL_MAX(1, sq->end + W - sq->C - 1);
-       sq->n     = sq->end - sq->start + 1;
-       sq->W     = sq->n - sq->C;
     }
 
-    if (sq->W == 0)/* no new sequence? that's the EOD case */
-    {
-       sq->start      = 0;
-       sq->end        = 0;
-       sq->C          = 0;
-       sq->W          = 0;
-       sq->n          = 0;
-       sq->L          = tmpsq->L;
-       if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
-       else                 sq->seq[0] = '\0';
-
-       ascii->idx++;
-       esl_sq_Destroy(tmpsq);
-       return eslEOD;
-    }
+    sq->n     = sq->end - sq->start + 1;
+    sq->W     = sq->n - sq->C;
+    ascii->idx++;  //ready to read the next sequence
 
     /* Copy the sequence frag.  */
     if (tmpsq->ss != NULL && sq->ss == NULL) ESL_ALLOC(sq->ss, sizeof(char) * (sq->salloc)); /* this *must* be for salloc  */
@@ -1542,11 +1526,11 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
          return status;
        }
     } // otherwise, just start at the beginning
-
     for (  ; i < max_sequences && size < max_residues; ++i) {
       esl_sq_Reuse(tmpsq);
       esl_sq_Reuse(sqBlock->list + i);
       status = sqascii_ReadWindow(sqfp, 0, max_residues , sqBlock->list + i);
+
       if (status != eslOK && status != eslEOD) break; /* end of sequences (eslEOF), or we read an empty seq (eslEOD) or error (other)  */
       size += sqBlock->list[i].n - sqBlock->list[i].C;
       sqBlock->list[i].L = sqfp->data.ascii.L;
@@ -1576,17 +1560,20 @@ sqascii_ReadBlock(ESL_SQFILE *sqfp, ESL_SQ_BLOCK *sqBlock, int max_residues, int
         sqBlock->list[i].L = 0; /* actually, this should already be 0... */
         status = eslOK;
       } else {
-        /* Sequence finished, but haven't yet reached max_residues. Need to burn off the EOD value
-           that will be returned by the next ReadWindow call. Can just use a tmp sq, after setting
-           a couple values ReadWindow needs to see for correct processing.
-        */
-        esl_sq_Reuse(tmpsq);
-        tmpsq->start =  sqBlock->list[i].start ;
-        tmpsq->C = 0;
-        status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
-        if (status != eslEOD) {
-          if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
-          return status; //surprising
+        if (!esl_sqio_IsAlignment(sqfp->format)) {
+          /* Sequence finished, but haven't yet reached max_residues. Need to burn off the EOD value
+             that will be returned by the next ReadWindow call. Can just use a tmp sq, after setting
+             a couple values ReadWindow needs to see for correct processing.
+          */
+          esl_sq_Reuse(tmpsq);
+          tmpsq->start =  sqBlock->list[i].start ;
+          tmpsq->C = 0;
+          status = sqascii_ReadWindow(sqfp, 0, max_residues, tmpsq);
+
+          if (status != eslEOD) {
+            if(tmpsq != NULL) esl_sq_Destroy(tmpsq);
+            return status; //surprising
+          }
         }
         //sqBlock->list[i].L = tmpsq->L;
         status = eslOK;
@@ -1734,7 +1721,7 @@ sqascii_Echo(ESL_SQFILE *sqfp, const ESL_SQ *sq, FILE *ofp)
 static int
 sqascii_OpenSSI(ESL_SQFILE *sqfp, const char *ssifile_hint)
 {
-  int status;
+  int status = eslOK;
   
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -1871,7 +1858,7 @@ sqascii_PositionByNumber(ESL_SQFILE *sqfp, int which)
 static int
 sqascii_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -1902,7 +1889,7 @@ sqascii_Fetch(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 static int
 sqascii_FetchInfo(ESL_SQFILE *sqfp, const char *key, ESL_SQ *sq)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -2041,7 +2028,7 @@ static int
 loadmem(ESL_SQFILE *sqfp)
 {
   void *tmp;
-  int   n;
+  int   n=0;
   int   status;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
@@ -2190,7 +2177,7 @@ ERROR:
 static int
 nextchar(ESL_SQFILE *sqfp, char *ret_c)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -2385,7 +2372,7 @@ skipbuf(ESL_SQFILE *sqfp, int64_t nskip)
 static int
 skip_whitespace(ESL_SQFILE *sqfp)
 {
-  int status;
+  int status = eslOK;
   int c;
   ESL_DSQ x;
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
@@ -2742,7 +2729,7 @@ skip_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 end_embl(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
@@ -2920,7 +2907,7 @@ skip_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
 static int
 end_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
 {
-  int status;
+  int status = eslOK;
 
   ESL_SQASCII_DATA *ascii = &sqfp->data.ascii;
 
