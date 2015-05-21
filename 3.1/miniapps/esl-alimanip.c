@@ -2676,7 +2676,7 @@ dst_nongap_XPairId(const ESL_ALPHABET *abc, const ESL_DSQ *ax1, const ESL_DSQ *a
 int
 dst_nongap_XDiffMx(const ESL_ALPHABET *abc, ESL_DSQ **ax, int N, ESL_DMATRIX **ret_D)
 {
-  int status;
+  int status = eslOK;
   ESL_DMATRIX *D = NULL;
   int i,j;
 
