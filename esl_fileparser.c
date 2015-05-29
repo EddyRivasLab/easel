@@ -478,8 +478,10 @@ esl_fileparser_GetRemainingLine(ESL_FILEPARSER *efp, char **ret_s)
 void
 esl_fileparser_Destroy(ESL_FILEPARSER *efp)
 {
-  if (efp->buf != NULL) free(efp->buf);
-  free(efp);
+  if (efp) {
+    if (efp->buf != NULL) free(efp->buf);
+    free(efp);
+  }
 }
 
 /* Function:  esl_fileparser_Close()
@@ -539,8 +541,8 @@ nextline(ESL_FILEPARSER *efp)
     if (len < end) ++len;
 
     if (len + 1 > efp->buflen) {
-      ESL_REALLOC(efp->buf, len * 2);
-      efp->buflen = len * 2;
+      ESL_REALLOC(efp->buf, ESL_MAX(64, len * 2));
+      efp->buflen = ESL_MAX(64, len * 2);
     }
     memcpy(efp->buf, efp->mem_buffer + efp->mem_pos, len);
     efp->buf[len] = 0;

@@ -1174,7 +1174,7 @@ int
 set_option(ESL_GETOPTS *g, int opti, char *optarg, int setby, int do_alloc)
 {
   int   arglen;
-  char *where;
+  char *where = NULL;
   char *s;
   int   togi;
   int   status;
@@ -1571,7 +1571,7 @@ process_stdopt(ESL_GETOPTS *g, int *ret_opti, char **ret_optarg)
 static int
 verify_type_and_range(ESL_GETOPTS *g, int i, char *val, int setby)
 {
-  char *where;
+  char *where = NULL;
 
   if       (setby == eslARG_SETBY_DEFAULT) where = "as default";
   else if  (setby == eslARG_SETBY_CMDLINE) where = "on cmdline";

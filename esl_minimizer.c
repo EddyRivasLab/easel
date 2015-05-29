@@ -292,7 +292,7 @@ brent(double *ori, double *dir, int n,
   esl_vec_DAddScaled(xvec, dir, x, n);
   fx=fv=fw = (*func)(xvec, n, prm);   /* initial function evaluation */
 
-  e     = 0.;
+  d = e = 0.;
   niter = 0;
   while (1) /* algorithm is guaranteed to converge. */
     {

@@ -56,15 +56,16 @@ esl_stack_ICreate(void)
   ns->nalloc   = ESL_STACK_INITALLOC;
   ns->pdata    = NULL;
   ns->cdata    = NULL;
-  ESL_ALLOC(ns->idata, sizeof(int) * ns->nalloc);
+  ns->idata    = NULL;
   ns->n        = 0;
-
 #ifdef HAVE_PTHREAD
   ns->do_mutex = FALSE;
   ns->do_cond  = FALSE;
   ns->mutex    = NULL;
   ns->cond     = NULL;
 #endif  
+
+  ESL_ALLOC(ns->idata, sizeof(int) * ns->nalloc);
   return ns;
 
  ERROR:
@@ -92,15 +93,16 @@ esl_stack_CCreate(void)
   cs->nalloc   = ESL_STACK_INITALLOC;
   cs->idata    = NULL;
   cs->pdata    = NULL;
-  ESL_ALLOC(cs->cdata, sizeof(char) * cs->nalloc);
+  cs->cdata    = NULL;
   cs->n        = 0;
-
 #ifdef HAVE_PTHREAD
   cs->do_mutex = FALSE;
   cs->do_cond  = FALSE;
   cs->mutex    = NULL;
   cs->cond     = NULL;
 #endif  
+
+  ESL_ALLOC(cs->cdata, sizeof(char) * cs->nalloc);
   return cs;
 
  ERROR:
@@ -128,9 +130,8 @@ esl_stack_PCreate(void)
   ps->nalloc   = ESL_STACK_INITALLOC;
   ps->idata    = NULL;
   ps->cdata    = NULL;
-  ESL_ALLOC(ps->pdata, sizeof(void *) * ps->nalloc);
+  ps->pdata    = NULL;
   ps->n        = 0;
-
 #ifdef HAVE_PTHREAD
   ps->do_mutex = FALSE;
   ps->do_cond  = FALSE;
@@ -138,6 +139,7 @@ esl_stack_PCreate(void)
   ps->cond     = NULL;
 #endif  
 
+  ESL_ALLOC(ps->pdata, sizeof(void *) * ps->nalloc);
   return ps;
 
  ERROR:
@@ -172,15 +174,17 @@ esl_stack_Reuse(ESL_STACK *s)
 void
 esl_stack_Destroy(ESL_STACK *s)
 {
-  if (s->idata) free(s->idata);
-  if (s->cdata) free(s->cdata);
-  if (s->pdata) free(s->pdata);
-
+  if (s) 
+    {
+       if (s->idata) free(s->idata);
+       if (s->cdata) free(s->cdata);
+       if (s->pdata) free(s->pdata);
 #ifdef HAVE_PTHREAD
-  if (s->mutex) { pthread_mutex_destroy(s->mutex); free(s->mutex); }
-  if (s->cond)  { pthread_cond_destroy(s->cond);   free(s->cond);  }
+       if (s->mutex) { pthread_mutex_destroy(s->mutex); free(s->mutex); }
+       if (s->cond)  { pthread_cond_destroy(s->cond);   free(s->cond);  }
 #endif
-  free(s);
+       free(s);
+    }
 }
 /*------------------ end, ESL_STACK object ----------------------*/
 

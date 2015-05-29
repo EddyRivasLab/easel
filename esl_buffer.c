@@ -129,11 +129,11 @@ esl_buffer_Open(const char *filename, const char *envvar, ESL_BUFFER **ret_bf)
 
   /* "-" => stdin */
   if (strcmp(filename, "-") == 0) 
-    return esl_buffer_OpenStream(stdin, ret_bf);
+    return esl_buffer_OpenStream(stdin, ret_bf);  
 
   /* else, a file. find its fully qualified path  */
   if (esl_FileExists(filename))   /* look in current working directory */
-    { if ( (status = esl_strdup(filename, -1, &path)) != eslOK) goto ERROR; }
+    { if ( (status = esl_strdup(filename, -1, &path)) != eslOK) { *ret_bf = NULL; goto ERROR; } }
   else {   	       	          /* then search directory list in envvar, if any */
     status = esl_FileEnvOpen(filename, envvar, NULL, &path); 
     if      (status == eslENOTFOUND)  { esl_buffer_OpenFile(filename, ret_bf); goto ERROR; }
@@ -474,6 +474,7 @@ esl_buffer_OpenStream(FILE *fp, ESL_BUFFER **ret_bf)
   int         status;
 
   if ((status = buffer_create(&bf)) != eslOK) goto ERROR;
+  bf->mode_is = eslBUFFER_STREAM;
 
   if (fp == NULL || ferror(fp) || feof(fp)) ESL_XEXCEPTION(eslEINVAL, "invalid stream");
   bf->fp = fp;			/* a copy of <fp>; caller is still responsible for it  */
@@ -485,21 +486,12 @@ esl_buffer_OpenStream(FILE *fp, ESL_BUFFER **ret_bf)
   if (bf->n < bf->pagesize && ferror(bf->fp))
     ESL_XEXCEPTION(eslESYS, "failed to read first chunk of stream");
 
-  bf->mode_is = eslBUFFER_STREAM;
   *ret_bf = bf;
   return eslOK;
 
  ERROR:
-  esl_buffer_Close(bf); bf = NULL;    /* thrown errors  */
-  if (bf)			      /* normal errors  */
-    { /* restore bf to UNSET state */
-      if (bf->mem)  { free(bf->mem); bf->mem = NULL; }
-      bf->fp      = NULL;
-      bf->n       = 0;
-      bf->balloc  = 0;
-      bf->mode_is = eslBUFFER_UNSET;
-    }
-  *ret_bf = bf; /* NULL, if creation failed; otherwise bf->errmsg may be useful to caller */
+  esl_buffer_Close(bf);
+  *ret_bf = NULL;
   return status;
 }
 
@@ -1693,14 +1685,16 @@ buffer_refill(ESL_BUFFER *bf, esl_pos_t nmin)
       else                  { ndel = bf->anchor; bf->anchor = 0; }
       bf->n   -= ndel;
       bf->pos -= ndel;
-      if (bf->n) memmove(bf->mem, bf->mem+ndel, bf->n);
+      if (bf->n) {
+	ESL_DASSERT1(( bf->mem != NULL ));
+	memmove(bf->mem, bf->mem+ndel, bf->n);
+      }
       bf->baseoffset += ndel;
     }
 
   if (bf->n + bf->pagesize > bf->balloc)
     {
-      void *tmp;
-      ESL_RALLOC(bf->mem, tmp, sizeof(char) * (bf->n + bf->pagesize));
+      ESL_REALLOC(bf->mem, sizeof(char) * (bf->n + bf->pagesize));
       bf->balloc = bf->n + bf->pagesize;
     }
 
@@ -2305,7 +2299,8 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   ESL_BUFFER *bf;
   char       *p;
   esl_pos_t   n;
-  esl_pos_t   thisoffset, testoffset1;
+  esl_pos_t   thisoffset;
+  esl_pos_t   testoffset1 = -1;
   esl_pos_t   testoffset2 = -1;
   int         testline1   = -1;
   int         testline2   = -2;
@@ -2365,7 +2360,6 @@ utest_SetOffset(const char *tmpfile, int nlines_expected)
   if ( (fp = fopen(tmpfile, "r"))            == NULL) esl_fatal(msg);
   if (esl_buffer_OpenStream(fp, &bf)        != eslOK) esl_fatal(msg);
 #endif
-  
   if (esl_buffer_SetOffset(bf, testoffset1) != eslOK) esl_fatal(msg);
   if (esl_buffer_GetLine(bf, &p, &n)        != eslOK) esl_fatal(msg);
   utest_compare_line(p, n, testline1);
@@ -2946,7 +2940,7 @@ int main(int argc, char **argv)
   int         status;
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
-  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",     bf->errmsg);
   else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
   
@@ -2992,13 +2986,18 @@ int main(void)
   int         n;
   FILE       *fp;
   ESL_BUFFER *bf;
+  int         status;
 
   esl_tmpfile_named(tmpfile, &fp);
   n = strlen(s1)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s1, sizeof(char), n, fp);
   n = strlen(s2)+1; fwrite(&n, sizeof(int), 1, fp); fwrite(s2, sizeof(char), n, fp);
   fclose(fp);
 
-  esl_buffer_Open(tmpfile, NULL, &bf);
+  status = esl_buffer_Open(tmpfile, NULL, &bf);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",     bf ? bf->errmsg : "(no other diagnostics available)");
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf ? bf->errmsg : "(no other diagnostics available)");
+  else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
+  
   esl_buffer_Read(bf, sizeof(int), &n);
   esl_buffer_Read(bf, sizeof(char) * n, buf);
   puts(buf);
@@ -3096,8 +3095,8 @@ main(int argc, char **argv)
   int         status;
 
   status = esl_buffer_Open(filename, "TESTDIR", &bf);
-  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",   bf->errmsg);
-  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf->errmsg);
+  if      (status == eslENOTFOUND) esl_fatal("open failed: %s",     bf ? bf->errmsg : "(no other diagnostics available)");
+  else if (status == eslFAIL)      esl_fatal("gzip -dc failed: %s", bf ? bf->errmsg : "(no other diagnostics available)");
   else if (status != eslOK)        esl_fatal("open failed with error code %d", status);
 
   while ( (status = example_read_fasta(bf, &seqname, &seqdesc, &seq, &seqlen)) == eslOK)
@@ -3146,7 +3145,7 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
   /* now p[0..n-1] is a non-blank line, start_offset is offset of p[0], point's on start of next line after it */
   
   /* anchor stably at start of line block */
-  status = esl_buffer_SetStableAnchor(bf, start_offset);
+  esl_buffer_SetStableAnchor(bf, start_offset);
 
   /* set pointers to non-blank lines */
   do {
@@ -3164,8 +3163,8 @@ example_read_lineblock(ESL_BUFFER *bf, char ***ret_lines, esl_pos_t **ret_lens, 
    * the line back *before* raising the anchor, because the _Set() function
    * is allowed to relocate the buffer's internal memory.
    */
-  status = esl_buffer_Set(bf, p, 0);
-  status = esl_buffer_RaiseAnchor(bf, start_offset);
+  esl_buffer_Set(bf, p, 0);
+  esl_buffer_RaiseAnchor(bf, start_offset);
 
   *ret_lines  = lines;
   *ret_lens   = lens;

@@ -1308,13 +1308,15 @@ esl_sq_FormatSource(ESL_SQ *sq, const char *source, ...)
 int
 esl_sq_AppendDesc(ESL_SQ *sq, const char *desc)
 {
-  void *tmp;
   int   dlen   = (sq->desc == NULL ? 0 : strlen(sq->desc));
   int   newlen = (desc     == NULL ? 0 : strlen(desc));
   int   status;
   
-  if (dlen + newlen + 1 >= sq->dalloc) { /* +1 for appended space */
-    ESL_RALLOC(sq->desc, tmp, sizeof(char) * (newlen+dlen+eslSQ_DESCCHUNK));
+  if (desc == NULL) return eslOK;
+
+  // sq->desc == NULL check below is logically unnecessary but it silences zealous static analyzers
+  if (sq->desc == NULL || dlen + newlen + 1 >= sq->dalloc) {    // +1 for appended space. 
+    ESL_REALLOC(sq->desc, sizeof(char) * (newlen+dlen+eslSQ_DESCCHUNK));
     sq->dalloc = newlen+dlen+eslSQ_DESCCHUNK;
   }
 
@@ -1711,12 +1713,14 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   if (msa->ss     != NULL) ss   = msa->ss[which]; 
 
   /* a markup for unparsed #=GR lines is converted to a sequence extra residue markup */
-  ESL_ALLOC(xr_tag, sizeof(char *) * msa->ngr);
-  ESL_ALLOC(xr,     sizeof(char *) * msa->ngr);
+  if (msa->ngr) 
+    {
+      ESL_ALLOC(xr_tag, sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr_tag[x] = NULL;
+      ESL_ALLOC(xr,     sizeof(char *) * msa->ngr); for (x = 0; x < msa->ngr; x++) xr[x]     = NULL;
+    }
 
+  sq->nxr = 0;
   for (x = 0; x < msa->ngr; x ++) {
-    xr_tag[x] = NULL;
-    xr[x]     = NULL;
     if (msa->gr[x][which] != NULL) {
       xr[sq->nxr] = msa->gr[x][which];
       if (msa->gr_tag[x] != NULL) xr_tag[sq->nxr] = msa->gr_tag[x]; else { status = eslEINVAL; goto ERROR;  }
@@ -1742,8 +1746,8 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
 	else                strcpy(sq->ss, ss);
 	esl_strdealign(sq->ss, sq->seq, gapchars, NULL);
       }
-      for (x = 0; x < sq->nxr; x ++) {
-	esl_strdup(xr[x],     -1, &(sq->xr[x]));
+      for (x = 0; x < sq->nxr; x++) {
+	esl_strdup(xr[x],     -1, &(sq->xr[x]));              
 	esl_strdup(xr_tag[x], -1, &(sq->xr_tag[x]));
 	esl_strdealign(sq->xr[x], sq->seq, gapchars, NULL);
       }
@@ -1785,15 +1789,13 @@ esl_sq_GetFromMSA(const ESL_MSA *msa, int which, ESL_SQ *sq)
   sq->hoff = -1;
   sq->eoff = -1;
   
-  if (msa->ngr > 0) {
-    free(xr_tag); free(xr);    
-  }
+  if (xr_tag) free(xr_tag); 
+  if (xr)     free(xr);    
   return eslOK;
 
  ERROR:
-  if (msa->ngr > 0) {
-      if (xr_tag != NULL) free(xr_tag); if (xr != NULL) free(xr);
-  }  
+  if (xr_tag) free(xr_tag);
+  if (xr)     free(xr);
   return status;
 }
 
@@ -2002,6 +2004,7 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->name     = NULL;
   sq->acc      = NULL;
   sq->desc     = NULL;
+  sq->source   = NULL;
   sq->tax_id   = -1;
   sq->seq      = NULL;
   sq->dsq      = NULL;	
@@ -2014,17 +2017,17 @@ sq_init(ESL_SQ *sq, int do_digital)
   sq->salloc   = eslSQ_SEQCHUNK; 
   sq->srcalloc = eslSQ_NAMECHUNK; 
 
+  /* optional for extra residue markups */
+  sq->nxr    = 0;
+  sq->xr_tag = NULL;
+  sq->xr     = NULL;
+
   ESL_ALLOC(sq->name,   sizeof(char) * sq->nalloc);
   ESL_ALLOC(sq->acc,    sizeof(char) * sq->aalloc);
   ESL_ALLOC(sq->desc,   sizeof(char) * sq->dalloc);
   ESL_ALLOC(sq->source, sizeof(char) * sq->srcalloc);
   if (do_digital) ESL_ALLOC(sq->dsq,  sizeof(ESL_DSQ) * sq->salloc);
   else            ESL_ALLOC(sq->seq,  sizeof(char)    * sq->salloc);
-
-  /* optional for extra residue markups */
-  sq->nxr    = 0;
-  sq->xr_tag = NULL;
-  sq->xr     = NULL;
 
   esl_sq_Reuse(sq);	/* initialization of sq->n, offsets, and strings */
   return eslOK;
@@ -2050,7 +2053,22 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   sq->seq    = NULL;
   sq->dsq    = NULL;
   sq->ss     = NULL;
-  
+  sq->source = NULL;
+
+  /* optional for extra residue markups */
+  sq->nxr    = 0;
+  sq->xr_tag = NULL;
+  sq->xr     = NULL;
+
+  /* coord bookkeeping has to be set by the parent caller,
+   * because that's where we know the seq length <n>. We don't
+   * know it here.
+   */
+  sq->doff = -1;
+  sq->hoff = -1;
+  sq->roff = -1;
+  sq->eoff = -1;
+
   if (name != NULL)
     {
       n = strlen(name)+1;
@@ -2098,19 +2116,7 @@ sq_create_from(const char *name, const char *desc, const char *acc)
   ESL_ALLOC(sq->source, sizeof(char) * sq->srcalloc);
   sq->source[0] = '\0';
 
-  /* optional for extra residue markups */
-  sq->nxr    = 0;
-  sq->xr_tag = NULL;
-  sq->xr     = NULL;
 
-  /* coord bookkeeping has to be set by the parent caller,
-   * because that's where we know the seq length <n>. We don't
-   * know it here.
-   */
-  sq->doff = -1;
-  sq->hoff = -1;
-  sq->roff = -1;
-  sq->eoff = -1;
   return sq;
 
  ERROR:

@@ -1213,6 +1213,7 @@ main(int argc, char **argv)
   int     xstep_set    = FALSE;
   double  xstep;
   int     do_fixmix    = FALSE;
+  int     status;
 
   for (opti = 1; opti < argc && *(argv[opti]) == '-'; opti++)
     {
@@ -1235,7 +1236,12 @@ main(int argc, char **argv)
     }
 
   if (paramfile != NULL)
-    esl_hyperexp_ReadFile(paramfile, &hxp);
+    {
+      status = esl_hyperexp_ReadFile(paramfile, &hxp);
+      if      (status == eslENOTFOUND) esl_fatal("Param file %s not found", paramfile);
+      else if (status == eslEFORMAT)   esl_fatal("Parse failed: param file %s invalid format", paramfile);
+      else if (status != eslOK)        esl_fatal("Unusual failure opening param file %s", paramfile);
+    }
   else 
     {
       hxp = esl_hyperexp_Create(3);
@@ -1268,7 +1274,7 @@ main(int argc, char **argv)
   ehxp = esl_hyperexp_Create(hxp->K);
   if (do_fixmix) esl_hyperexp_FixedUniformMixture(ehxp);
   esl_hxp_FitGuess(data, ndata, ehxp);  
-  esl_hxp_FitComplete(data, ndata, ehxp);
+  if ( esl_hxp_FitComplete(data, ndata, ehxp) != eslOK) esl_fatal("Failed to fit hyperexponential");
 
   if (be_verbose) esl_hyperexp_Dump(stdout, ehxp);
 
@@ -1293,7 +1299,7 @@ main(int argc, char **argv)
     }
 
   esl_hxp_FitGuessBinned(h, ehxp);  
-  esl_hxp_FitCompleteBinned(h, ehxp);
+  if ( esl_hxp_FitCompleteBinned(h, ehxp) != eslOK) esl_fatal("Failed to fit binned hyperexponential");
   if (be_verbose)  esl_hyperexp_Dump(stdout, ehxp);
 
   if (fabs( (ehxp->mu-hxp->mu)/hxp->mu ) > 0.01)

@@ -75,6 +75,7 @@ main(int argc, char **argv)
   rng      = esl_randomness_Create(esl_opt_GetInteger(go, "--seed"));
 
   if ((larr = malloc(sizeof(char *) * m)) == NULL) esl_fatal("allocation failed");
+  for (i = 0; i < m; i++) larr[i] = NULL;
 
   if (strcmp(filename, "-") == 0) fp = stdin;
   else {

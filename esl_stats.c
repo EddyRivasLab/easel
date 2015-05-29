@@ -246,6 +246,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
   int    iter;			/* iteration counter */
   double pax;			/* P(a,x) */
   double qax;			/* Q(a,x) */
+  int    status;
 
   if (a <= 0.) ESL_EXCEPTION(eslERANGE, "esl_stats_IncompleteGamma(): a must be > 0");
   if (x <  0.) ESL_EXCEPTION(eslERANGE, "esl_stats_IncompleteGamma(): x must be >= 0");
@@ -292,7 +293,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 				/* check for convergence */
 	  if (fabs((nu1-oldp)/nu1) < 1.e-7)
 	    {
-	      esl_stats_LogGamma(a, &qax);	      
+	      if ((status = esl_stats_LogGamma(a, &qax)) != eslOK) return status;	      
 	      qax = nu1 * exp(a * log(x) - x - qax);
 
 	      if (ret_pax != NULL) *ret_pax = 1 - qax;
@@ -327,7 +328,7 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
 	  
 	  if (fabs(val/p) < 1.e-7)
 	    {
-	      esl_stats_LogGamma(a, &pax);
+	      if ((status = esl_stats_LogGamma(a, &pax)) != eslOK) return status;
 	      pax = p * exp(a * log(x) - x - pax);
 
 	      if (ret_pax != NULL) *ret_pax = pax;
@@ -356,6 +357,11 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
  *            Used for cumulative distribution function calculations
  *            for the normal (Gaussian) distribution. See esl_normal
  *            module.
+ *            
+ *            erfc(-inf) = 2.0
+ *            erfc(0)    = 1.0
+ *            erfc(inf)  = 0.0
+ *            erfc(NaN)  = NaN
  *
  * Args:      x : any real-numbered value -inf..inf
  *
@@ -369,6 +375,11 @@ esl_stats_IncompleteGamma(double a, double x, double *ret_pax, double *ret_qax)
  *    Permission to use, copy, modify, and distribute this software is
  *    freely granted, provided that this notice is preserved.
  *    [as posted by eggcrook at stackexchange.com, 21 Dec 2012]
+ *    
+ *    Removed arcane incantations for runtime detection of endianness,
+ *    and for treating IEEE754 doubles as two adjacent uint32_t;
+ *    replaced with ANSI-compliant macros and compile-time detection
+ *    of endianness. [Apr 2015]
  */
 double
 esl_stats_erfc(double x)
@@ -444,11 +455,10 @@ esl_stats_erfc(double x)
   static const double sb6 =  4.74528541206955367215e+02; /* 0x407DA874, 0xE79FE763 */
   static const double sb7 = -2.24409524465858183362e+01; /* 0xC03670E2, 0x42712D62 */
 
-  int n0,hx,ix;
+  int hx,ix;
   double R,S,P,Q,s,y,z,r;
 
-  n0 = ((*(int*)&one)>>29)^1;
-  hx = *(n0+(int*)&x);
+  ESL_GET_HIGHWORD(hx, x);  // SRE: replaced original Sun incantation here.
   ix = hx & 0x7fffffff;
   if (ix>=0x7ff00000) /* erfc(nan)=nan; erfc(+-inf)=0,2 */
     return (double)(((unsigned)hx>>31)<<1)+one/x;
@@ -505,7 +515,7 @@ esl_stats_erfc(double x)
 	  S = one+s*(sb1+s*(sb2+s*(sb3+s*(sb4+s*(sb5+s*(sb6+s*sb7))))));
 	}
       z = x;
-      *(1-n0+(int*)&z) = 0;
+      ESL_SET_LOWWORD(z, 0);  // SRE: replaced original Sun incantation here.
       r = exp(-z*z-0.5625) * exp((z-x)*(z+x)+R/S);
 
       if (hx>0) return r/x;
@@ -819,6 +829,37 @@ esl_stats_LinearRegression(const double *x, const double *y, const double *sigma
 #include <gsl/gsl_sf_gamma.h>
 #endif
 
+
+/* Macros for treating IEEE754 double as two uint32_t halves, with
+ * compile-time handling of endianness; see esl_stats.h.
+ */
+static void
+utest_doublesplitting(ESL_RANDOMNESS *rng)
+{
+  char     msg[] = "esl_stats:: doublesplitting unit test failed";
+  uint32_t ix0, ix1;
+  double   x;
+  double   x2;
+  int      iteration;  // iteration 0 uses x = 2; iteration 1 uses random x = [0,1).
+
+  for (iteration = 0; iteration < 2; iteration++)
+    {
+      x = (iteration == 0 ? 2.0 : esl_random(rng));
+      ESL_GET_WORDS(ix0, ix1, x);
+      ESL_SET_WORDS(x2, ix0, ix1);
+      if (x2 != x) esl_fatal(msg);
+
+      ESL_GET_HIGHWORD(ix0, x);
+      ESL_SET_HIGHWORD(x2,  ix0);
+      if (x2 != x) esl_fatal(msg);
+
+      ESL_GET_LOWWORD(ix0, x);
+      ESL_SET_LOWWORD(x2,  ix0);
+      if (iteration == 0 && ix0 != 0)   esl_fatal(msg);
+      if (x2  != x) esl_fatal(msg);
+    }
+}
+  
 /* The LogGamma() function is rate-limiting in hmmbuild, because it is
  * used so heavily in mixture Dirichlet calculations.
  *    ./configure --with-gsl; [compile test driver]
@@ -934,6 +975,43 @@ utest_LinearRegression(ESL_RANDOMNESS *r, int use_sigma, int be_verbose)
   free(y);
   free(sigma);
 }
+
+static void
+utest_erfc(ESL_RANDOMNESS *rng, int be_verbose)
+{
+  char   msg[] = "esl_stats:: erfc unit test failed";
+  double x;
+  double result;
+  int    i;
+
+  if (be_verbose) {
+    printf("#--------------------------\n");
+    printf("# erfc unit testing...\n");
+  }
+
+  result = esl_stats_erfc( eslNaN);
+  if (! isnan(result)) esl_fatal(msg);
+  if (esl_stats_erfc(-eslINFINITY) != 2.0)    esl_fatal(msg);
+  if (esl_stats_erfc( 0.0)         != 1.0)    esl_fatal(msg);
+  if (esl_stats_erfc( eslINFINITY) != 0.0)    esl_fatal(msg);
+
+  for (i = 0; i < 42; i++)
+    {
+      x      = esl_random(rng) * 10. - 5.;
+      result = esl_stats_erfc(x);
+      if (!isfinite(result)) esl_fatal(msg);
+#ifdef HAVE_ERFC
+      if (esl_DCompare(result, erfc(x), 1e-6) != eslOK) esl_fatal(msg);
+      if (be_verbose)
+	printf("%15f %15f %15f\n", x, result, erfc(x));
+#endif
+    }
+  
+  if (be_verbose)
+    printf("#--------------------------\n");
+  return;
+}
+
 #endif /*eslSTATS_TESTDRIVE*/
 /*-------------------- end of unit tests ------------------------*/
 
@@ -974,6 +1052,8 @@ main(int argc, char **argv)
 
   if (be_verbose) printf("seed = %" PRIu32 "\n", esl_randomness_GetSeed(r));
 
+  utest_doublesplitting(r);
+  utest_erfc(r, be_verbose);
   utest_LogGamma(r, N, be_verbose);
   utest_LinearRegression(r, TRUE,  be_verbose);
   utest_LinearRegression(r, FALSE, be_verbose);

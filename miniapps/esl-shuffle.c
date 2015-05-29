@@ -176,9 +176,9 @@ seq_generation(ESL_GETOPTS *go, ESL_RANDOMNESS *r, FILE *ofp, int outfmt)
   ESL_ALPHABET *abc = NULL;
   ESL_SQ       *sq  = NULL;
   double       *fq  = NULL;
-  int           alphatype;
-  int           N   = esl_opt_GetInteger(go, "-N");
-  int           L   = esl_opt_GetInteger(go, "-L");
+  int           alphatype = eslUNKNOWN;   // static checkers can't see that 1 of --rna, --dna, --amino must be true
+  int           N         = esl_opt_GetInteger(go, "-N");
+  int           L         = esl_opt_GetInteger(go, "-L");
   int           i;
   int           status;
 

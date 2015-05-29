@@ -219,15 +219,16 @@ main(int argc, char **argv)
 static void
 show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64_t nres)
 {
+  double *iid_bg = NULL;;
   int x;
+  int status;
 
   printf("\nResidue composition:\n");
 
   if (abc->type == eslAMINO)
     {
-      double *iid_bg;
-      
-      if ((iid_bg = malloc(sizeof(double) * abc->K)) == NULL) esl_fatal("malloc failed");
+      ESL_DASSERT1(( abc->K == 20 )); // esl_composition_*() functions assume this
+      ESL_ALLOC(iid_bg, sizeof(double) * abc->K);
       esl_composition_SW50(iid_bg);
 
       for (x = 0; x < abc->K; x++)
@@ -247,6 +248,10 @@ show_overall_composition(const ESL_ALPHABET *abc, const double *monoc_all, int64
 	  printf("residue: %c   %10.0f  %.4f\n", abc->sym[x], monoc_all[x], monoc_all[x] / (double) nres);
     }
     
+  return;
+
+ ERROR:
+  if (iid_bg) free(iid_bg);
   return;
 }
 

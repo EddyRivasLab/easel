@@ -319,8 +319,9 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
 {
   double mu, mean;
   int    i;
+  int    status;
 
-  if (!n) ESL_EXCEPTION(eslEINVAL, "empty data vector provided for exponential fit");
+  if (!n) ESL_XEXCEPTION(eslEINVAL, "empty data vector provided for exponential fit");
 
   /* ML mu is the lowest score. mu=x is ok in the exponential. */
   mu = x[0];
@@ -333,6 +334,11 @@ esl_exp_FitComplete(double *x, int n, double *ret_mu, double *ret_lambda)
   *ret_mu     = mu;
   *ret_lambda = 1./mean;	/* ML estimate trivial & analytic */
   return eslOK;
+
+ ERROR:
+  *ret_mu     = 0.0;
+  *ret_lambda = 0.0;
+  return status;
 }
 
 /* Function:  esl_exp_FitCompleteScale()

@@ -92,6 +92,8 @@
 #undef HAVE_TIMES
 #undef HAVE_ERFC
 
+#undef HAVE_FUNC_ATTRIBUTE_NORETURN // Compiler supports __attribute__ tag, which we use to help w/ clang static analysis.
+
 /*****************************************************************
  * Available augmentations.
  * 

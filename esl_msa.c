@@ -91,8 +91,6 @@ static ESL_MSA *msa_create_mostly(int nseq, int64_t alen);
  * Returns:   pointer to new MSA object, w/ all values initialized.
  *           
  * Throws:    <NULL> on allocation failure.          
- *
- * Xref:      squid's MSAAlloc()
  */
 ESL_MSA *
 esl_msa_Create(int nseq, int64_t alen)
@@ -100,6 +98,9 @@ esl_msa_Create(int nseq, int64_t alen)
   int      status;
   ESL_MSA *msa;
   int      i;
+
+  ESL_DASSERT1(( nseq > 0 ));
+  ESL_DASSERT1(( alen >= -1));
 
   msa = msa_create_mostly(nseq, alen); /* aseq is null upon successful return */
   if (msa == NULL) return NULL; /* already threw error in msa_create_mostly, so percolate */
@@ -1151,8 +1152,8 @@ esl_msa_SetSeqAccession(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
   if (msa->sqacc && msa->sqacc[idx]) { free(msa->sqacc[idx]); msa->sqacc[idx] = NULL; }
 
   /* erasure case */
-  if (! s) {				
-    for (i = 0; i < msa->sqalloc; i++) if (msa->sqacc[idx]) break;
+  if (! s && msa->sqacc) {				
+    for (i = 0; i < msa->sqalloc; i++) if (msa->sqacc[i]) break;
     if (i == msa->sqalloc) { free(msa->sqacc); msa->sqacc = NULL; }
     return eslOK;
   }
@@ -1202,9 +1203,9 @@ esl_msa_SetSeqDescription(ESL_MSA *msa, int idx, const char *s, esl_pos_t n)
 
   if (msa->sqdesc && msa->sqdesc[idx]) { free(msa->sqdesc[idx]); msa->sqdesc[idx] = NULL; }
 
-  /* erasure case */
-  if (! s) {				
-    for (i = 0; i < msa->sqalloc; i++) if (msa->sqdesc[idx]) break;
+  /* erasure case. If we just freed the only description, free the entire optional <sqdesc> array */
+  if (! s && msa->sqdesc) {				
+    for (i = 0; i < msa->sqalloc; i++) if (msa->sqdesc[i]) break;
     if (i == msa->sqalloc) { free(msa->sqdesc); msa->sqdesc = NULL; }
     return eslOK;
   }
@@ -2198,6 +2199,8 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
   int  i;
   int  status;
   
+  ESL_DASSERT1(( msa->nseq >  0 ));
+  ESL_DASSERT1(( msa->alen >= 0 ));  // This silences static checkers that think msa->alen might be -1.
   *ret_new = NULL;
 
   nnew = 0; 
@@ -2230,6 +2233,7 @@ esl_msa_SequenceSubset(const ESL_MSA *msa, const int *useme, ESL_MSA **ret_new)
 #endif
 	if (! (msa->flags & eslMSA_DIGITAL))
 	  strcpy(new->aseq[nidx], msa->aseq[oidx]);
+
 	if ((status = esl_strdup(msa->sqname[oidx], -1, &(new->sqname[nidx])))    != eslOK) goto ERROR;
 
 	new->wgt[nidx] = msa->wgt[oidx];
@@ -2429,8 +2433,7 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
 	    if (idx == msa->nseq) useme[apos-1] = FALSE; else useme[apos-1] = TRUE;
 	  }
 	}
-      if((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
-      free(useme);
+      if ((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
@@ -2438,10 +2441,11 @@ esl_msa_MinimGaps(ESL_MSA *msa, char *errbuf, const char *gaps, int consider_rf)
       if ( (status = esl_msa_MinimGapsText(msa, errbuf, gaps, consider_rf, FALSE)) != eslOK) goto ERROR;
     }
 
+  if (useme) free(useme);
   return eslOK;
 
  ERROR:
-  if (useme != NULL) free(useme);
+  if (useme) free(useme);
   return status;
 }
 
@@ -2569,17 +2573,17 @@ esl_msa_NoGaps(ESL_MSA *msa, char *errbuf, const char *gaps)
 	}
 
       if ((status = esl_msa_ColumnSubset(msa, errbuf, useme)) != eslOK) goto ERROR;
-      free(useme);
     }
 #endif
   if (! (msa->flags & eslMSA_DIGITAL)) /* text mode case */
     {
       if ((status = esl_msa_NoGapsText(msa, errbuf, gaps, FALSE)) != eslOK) goto ERROR;
     }
+  if (useme) free(useme);
   return eslOK;
 
  ERROR:
-  if (useme != NULL) free(useme);
+  if (useme) free(useme);
   return status;
 }
 

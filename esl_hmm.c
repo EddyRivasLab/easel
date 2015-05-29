@@ -31,20 +31,20 @@ esl_hmm_Create(const ESL_ALPHABET *abc, int M)
   int      status;
 
   ESL_ALLOC(hmm, sizeof(ESL_HMM));
-  hmm->t = NULL;
-  hmm->e = NULL;
+  hmm->t  = NULL;
+  hmm->e  = NULL;
+  hmm->eo = NULL;
+  hmm->pi = NULL;
 
-  ESL_ALLOC(hmm->t,  sizeof(float *) * M);
-  ESL_ALLOC(hmm->e,  sizeof(float *) * M);
-  ESL_ALLOC(hmm->eo, sizeof(float *) * abc->Kp);
-  hmm->t[0]  = NULL;
-  hmm->e[0]  = NULL;
-  hmm->eo[0] = NULL;
+  ESL_ALLOC(hmm->t,  sizeof(float *) * M);           hmm->t[0]  = NULL;
+  ESL_ALLOC(hmm->e,  sizeof(float *) * M);           hmm->e[0]  = NULL;
+  ESL_ALLOC(hmm->eo, sizeof(float *) * abc->Kp);     hmm->eo[0] = NULL;
+  ESL_ALLOC(hmm->pi, sizeof(float) * (M+1));         // initial transition to state M means a L=0 sequence 
 
-  ESL_ALLOC(hmm->t[0],  sizeof(float) * M * (M+1));  /* state M is the implicit end state */
+  ESL_ALLOC(hmm->t[0],  sizeof(float) * M * (M+1));  // state M is the implicit end state 
   ESL_ALLOC(hmm->e[0],  sizeof(float) * M * abc->K);
   ESL_ALLOC(hmm->eo[0], sizeof(float) * abc->Kp * M);
-  ESL_ALLOC(hmm->pi,    sizeof(float) * (M+1));      /* initial transition to state M means a L=0 sequence */
+
   
   for (k = 1; k < M; k++)
     {

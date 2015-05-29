@@ -583,6 +583,8 @@ esl_permutation_Create(int n)
   int status;
   ESL_PERMUTATION *P = NULL;
 
+  ESL_DASSERT1(( n > 0 ));
+
   ESL_ALLOC(P, sizeof(ESL_PERMUTATION));
   P->pi = NULL;
   P->n  = n;
@@ -1099,7 +1101,7 @@ esl_dmx_LUP_decompose(ESL_DMATRIX *A, ESL_PERMUTATION *P)
        * This is guaranteed to succeed and set <kpiv> 
        * (no matter what a static analyzer tells you)
        */
-      max = 0.; 
+      max  = 0.; 
       for (i = k; i < A->n; i++)
 	if (fabs(A->mx[i][k]) > max) {
 	  max = fabs(A->mx[i][k]);

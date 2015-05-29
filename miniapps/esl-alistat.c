@@ -480,7 +480,7 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
     ESL_ALLOC(ct,  sizeof(int)  * (msa->alen+1));
     ESL_ALLOC(ss_nopseudo, sizeof(char) * (msa->alen+1));
     esl_wuss_nopseudo(msa->ss_cons, ss_nopseudo);
-    if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_FAIL(status, errbuf, "Consensus structure string is inconsistent.");
+    if ((status = esl_wuss2ct(ss_nopseudo, msa->alen, ct)) != eslOK) ESL_XFAIL(status, errbuf, "Consensus structure string is inconsistent.");
     for(apos = 0; apos < msa->alen; apos++) { 
       /* careful ct is indexed 1..alen, not 0..alen-1 */
       if(ct[(apos+1)] > (apos+1)) { /* apos+1 is an 'i' in an i:j pair, where i < j */
@@ -507,7 +507,7 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
 
     for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, ax ranges from 1..msa->alen (but abc_ct is 0..msa->alen-1) */
       if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
-	if((status = esl_abc_DCount(msa->abc, abc_ct[apos], msa->ax[i][apos+1], seqwt)) != eslOK) ESL_FAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
+	if((status = esl_abc_DCount(msa->abc, abc_ct[apos], msa->ax[i][apos+1], seqwt)) != eslOK) ESL_XFAIL(status, errbuf, "problem counting residue %d of seq %d", apos, i);
       }
     }
 
@@ -526,7 +526,7 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
       if(msa->pp[i] != NULL) { 
 	for(apos = 0; apos < msa->alen; apos++) { 
 	  if((! no_ambig) || (! esl_abc_XIsDegenerate(msa->abc, msa->ax[i][apos+1]))) { /* skip ambiguities (degenerate residues) if no_ambig is TRUE */
-	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_FAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
+	    if((ppidx = get_pp_idx(msa->abc, msa->pp[i][apos])) == -1) ESL_XFAIL(eslEFORMAT, errbuf, "bad #=GR PP char: %c", msa->pp[i][apos]);
 	    pp_ct[apos][ppidx] += seqwt;
 	  }
 	}
@@ -534,21 +534,25 @@ static int count_msa(ESL_MSA *msa, char *errbuf, int nali, int no_ambig, int use
     }
   }
 
-  *ret_abc_ct  = abc_ct;
-  if(ret_bp_ct != NULL) *ret_bp_ct = bp_ct; /* we only allocated bp_ct if ret_bp_ct != NULL */
-  if(ret_pp_ct != NULL) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
+  *ret_abc_ct = abc_ct;
+  if (ret_bp_ct) *ret_bp_ct = bp_ct; /* we only allocated bp_ct if ret_bp_ct != NULL */
+  if (ret_pp_ct) *ret_pp_ct = pp_ct; /* we only allocated pp_ct if ret_pp_ct != NULL */
 
-  if(ss_nopseudo != NULL) free(ss_nopseudo);
-  if(ct != NULL) free(ct);
-
+  if (ss_nopseudo) free(ss_nopseudo);
+  if (ct)          free(ct);
   return eslOK;
 
  ERROR:
-  if(abc_ct != NULL)  esl_Free2D((void **) abc_ct, msa->alen);
-  if(bp_ct != NULL)   esl_Free3D((void ***) bp_ct, msa->alen, msa->abc->Kp);
-  if(pp_ct != NULL)   esl_Free2D((void **) pp_ct, msa->alen);
-  ESL_FAIL(status, errbuf, "Error, out of memory while counting important values in the msa.");
-  return status; /* NEVERREACHED */
+  if (abc_ct)      esl_Free2D((void **)  abc_ct, msa->alen);
+  if (bp_ct)       esl_Free3D((void ***) bp_ct,  msa->alen, msa->abc->Kp);
+  if (pp_ct)       esl_Free2D((void **)  pp_ct,  msa->alen);
+  if (ss_nopseudo) free(ss_nopseudo);
+  if (ct)          free(ct);
+
+  *ret_abc_ct = NULL;
+  if (ret_bp_ct) *ret_bp_ct = NULL;
+  if (ret_pp_ct) *ret_pp_ct = NULL;
+  return status; 
 }
 
 
@@ -854,26 +858,28 @@ static int dump_posterior_sequence_info(FILE *fp, ESL_MSA *msa, int nali, char *
  */
 static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, int *i_am_rf, char *alifile, char *errbuf)
 {
-  int status;
-  int apos, rfpos;
-  double **ict;
-  double *total_ict;
-  int i;
-  int rflen;
-  double seqwt; /* weight of current sequence */
-  double nseq;
+  double **ict       = NULL;
+  double  *total_ict = NULL;
+  int      apos, rfpos;
+  int      i;
+  int      rflen;
+  double   seqwt; /* weight of current sequence */
+  double   nseq;
+  int      status;
 
-  /* contract check */
-  if(! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
-  if(msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iinfo.");
-  if(i_am_rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, dump_insert_info() i_am_rf is NULL.");
-  if(use_weights && msa->wgt == NULL) ESL_FAIL(eslEINCOMPAT, errbuf, "dump_insert_info(): use_weights==TRUE but msa->wgt == NULL");
+  /* contract checks */
+  if (! (msa->flags & eslMSA_DIGITAL)) ESL_FAIL(eslEINVAL, errbuf, "in dump_insert_info(), msa must be digitized.");
+  if (msa->rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "No #=GC RF markup in alignment, it is needed for --iinfo.");
+  if (i_am_rf == NULL) ESL_FAIL(eslEINVAL, errbuf, "internal error, dump_insert_info() i_am_rf is NULL.");
+  if (use_weights && msa->wgt == NULL) ESL_FAIL(eslEINCOMPAT, errbuf, "dump_insert_info(): use_weights==TRUE but msa->wgt == NULL");
 
   ESL_ALLOC(total_ict, sizeof(double) * (msa->alen+2));
   esl_vec_DSet(total_ict, (msa->alen+2), 0.);
 
   ESL_ALLOC(ict,  sizeof(double *) * (msa->alen+2));
-  for(i = 0; i <= msa->alen; i++)
+  for (i = 0; i <= msa->alen; i++) ict[i] = NULL;
+
+  for (i = 0; i <= msa->alen; i++)
     {
       ESL_ALLOC(ict[i],  sizeof(double) * (msa->nseq));
       esl_vec_DSet(ict[i], (msa->nseq), 0.);
@@ -882,12 +888,12 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, i
   fprintf(fp, "# Insert information:\n");
   fprintf(fp, "# Alignment file: %s\n", alifile);
   fprintf(fp, "# Alignment idx:  %d\n", nali);
-  if(msa->name != NULL) { fprintf(fp, "# Alignment name: %s\n", msa->name); }
+  if (msa->name) { fprintf(fp, "# Alignment name: %s\n", msa->name); }
   fprintf(fp, "# rfpos is the nongap RF position after which insertions occur\n");
   fprintf(fp, "# An rfpos of '0' indicates insertions before the first nongap RF position\n");
   fprintf(fp, "# Number of sequences: %d\n", msa->nseq);
-  if(use_weights) { fprintf(fp, "# IMPORTANT: Counts are weighted based on sequence weights in alignment file.\n"); }
-  else            { fprintf(fp, "# Sequence weights from alignment were ignored (if they existed).\n"); }
+  if (use_weights) { fprintf(fp, "# IMPORTANT: Counts are weighted based on sequence weights in alignment file.\n"); }
+  else             { fprintf(fp, "# Sequence weights from alignment were ignored (if they existed).\n"); }
   fprintf(fp, "#\n");
 
   fprintf(fp, "# %8s  %10s  %8s  %8s\n", "rfpos",    "nseq w/ins",  "freq ins", "avg len");
@@ -895,12 +901,12 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, i
 
   rflen = 0;
   for(apos = 1; apos <= msa->alen; apos++)
-    if(i_am_rf[apos-1]) rflen++;
+    if (i_am_rf[apos-1]) rflen++;
 
   rfpos = 0;
-  for(apos = 1; apos <= msa->alen; apos++)
+  for (apos = 1; apos <= msa->alen; apos++)
     {
-      if(i_am_rf[apos-1]) rfpos++;
+      if (i_am_rf[apos-1]) rfpos++;
       else {
 	for(i = 0; i < msa->nseq; i++) { 
 	  seqwt = use_weights ? msa->wgt[i] : 1.0;
@@ -930,12 +936,16 @@ static int dump_insert_info(FILE *fp, ESL_MSA *msa, int use_weights, int nali, i
   for(i = 0; i <= msa->alen; i++) free(ict[i]);
   free(ict);
   free(total_ict);
-
   return eslOK;
 
  ERROR:
-  ESL_FAIL(eslEMEM, errbuf, "dump_insert_info(): out of memory");
-  return status; /* NOT REACHED */
+  if (ict) {
+    for (i = 0; i <= msa->alen; i++) 
+      if (ict[i]) free(ict[i]);
+    free(ict);
+  }
+  if (total_ict) free(total_ict);
+  return status; 
 }
 
 /* dump_column_residue_counts

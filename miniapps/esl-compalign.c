@@ -547,32 +547,35 @@ static int get_pp_idx(ESL_ALPHABET *abc, char ppchar)
 int
 read_mask_file(char *filename, char *errbuf, char **ret_mask, int *ret_mask_len)
 {
-  int             status;
-  ESL_FILEPARSER *efp;
+  ESL_FILEPARSER *efp    = NULL;
+  char           *mask   = NULL;
   char           *tok;
-  char           *mask;
   int             toklen;
   int             n;
+  int             status;
 
-  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
+
+  if (esl_fileparser_Open(filename, NULL, &efp) != eslOK) ESL_XFAIL(eslFAIL, errbuf, "failed to open %s in read_mask_file\n", filename);
   esl_fileparser_SetCommentChar(efp, '#');
   
-  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_FAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
+  if((status = esl_fileparser_GetToken(efp, &tok, &toklen)) != eslOK) ESL_XFAIL(eslFAIL, errbuf, "failed to read a single token from %s\n", filename);
 
   ESL_ALLOC(mask, sizeof(char) * (toklen+1));
   for(n = 0; n < toklen; n++) { 
     if((tok[n] == '0') || (tok[n] == '1')) { 
       mask[n] = tok[n];
     }
-    else { ESL_FAIL(eslFAIL, errbuf, "read a non-0 and non-1 character (%c) in the mask file %s\n", tok[n], filename); }
+    else { ESL_XFAIL(eslFAIL, errbuf, "read a non-0 and non-1 character (%c) in the mask file %s\n", tok[n], filename); }
   }
   mask[n] = '\0';
 
-  *ret_mask = mask;
+  *ret_mask     = mask;
   *ret_mask_len = n;
   esl_fileparser_Close(efp);
   return eslOK;
   
  ERROR:
-  return eslEMEM;
+  if (efp)  esl_fileparser_Close(efp);
+  if (mask) free(mask);
+  return status;
 }

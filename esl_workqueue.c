@@ -358,9 +358,10 @@ int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
   int cnt;
   int inx;
   int queueSize;
+  int status;
 
-  if (queue == NULL)                                ESL_EXCEPTION(eslEINVAL, "Invalid queue object");
-  if (pthread_mutex_lock (&queue->queueMutex) != 0) ESL_EXCEPTION(eslESYS,   "mutex lock failed");
+  if (queue == NULL)                                ESL_XEXCEPTION(eslEINVAL, "Invalid queue object");
+  if (pthread_mutex_lock (&queue->queueMutex) != 0) ESL_XEXCEPTION(eslESYS,   "mutex lock failed");
 
   queueSize = queue->queueSize;
 
@@ -369,14 +370,14 @@ int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
     {
 
       /* check to make sure we don't overflow */
-      if (queue->readerQueueCnt >= queueSize) ESL_EXCEPTION(eslEINVAL, "Reader queue overflow");
+      if (queue->readerQueueCnt >= queueSize) ESL_XEXCEPTION(eslEINVAL, "Reader queue overflow");
 
       inx = (queue->readerQueueHead + queue->readerQueueCnt) % queueSize;
       queue->readerQueue[inx] = in;
       cnt = queue->readerQueueCnt++;
       if (cnt == 0)
 	{
-	  if (pthread_cond_signal (&queue->readerQueueCond) != 0) ESL_EXCEPTION(eslESYS, "cond signal failed");
+	  if (pthread_cond_signal (&queue->readerQueueCond) != 0) ESL_XEXCEPTION(eslESYS, "cond signal failed");
 	}
     }
 
@@ -390,7 +391,7 @@ int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
 	  ++queue->pendingWorkers;
 	  while (queue->workerQueueCnt == 0)
 	    {
-	      if (pthread_cond_wait (&queue->workerQueueCond, &queue->queueMutex) != 0) ESL_EXCEPTION(eslESYS, "cond wait failed");
+	      if (pthread_cond_wait (&queue->workerQueueCond, &queue->queueMutex) != 0) ESL_XEXCEPTION(eslESYS, "cond wait failed");
 	    }
 	  --queue->pendingWorkers;
 	}
@@ -402,9 +403,12 @@ int esl_workqueue_WorkerUpdate(ESL_WORK_QUEUE *queue, void *in, void **out)
       --queue->workerQueueCnt;
     }
 
-  if (pthread_mutex_unlock (&queue->queueMutex) != 0) ESL_EXCEPTION(eslESYS, "mutex unlock failed");
-
+  if (pthread_mutex_unlock (&queue->queueMutex) != 0) ESL_XEXCEPTION(eslESYS, "mutex unlock failed");
   return eslOK;
+
+ ERROR:
+  if (out) *out = NULL;
+  return status;
 }
 
 /* Function:  esl_workqueue_Dump()

@@ -367,19 +367,21 @@ esl_regexp_ParseCoordString(const char *cstring, uint32_t *ret_start, uint32_t *
   ESL_REGEXP *re = esl_regexp_Create();
   char        tok1[32];
   char        tok2[32];
+  int         status;
 
-  if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) return eslESYNTAX;
-  if (esl_regexp_SubmatchCopy(re, 1, tok1, 32)            != eslOK) return eslFAIL;
-  if (esl_regexp_SubmatchCopy(re, 2, tok2, 32)            != eslOK) return eslFAIL;
+  if (esl_regexp_Match(re, "^(\\d+)\\D+(\\d*)$", cstring) != eslOK) { status = eslESYNTAX; goto ERROR; }
+  if (esl_regexp_SubmatchCopy(re, 1, tok1, 32)            != eslOK) { status = eslFAIL;    goto ERROR; }
+  if (esl_regexp_SubmatchCopy(re, 2, tok2, 32)            != eslOK) { status = eslFAIL;    goto ERROR; }
 
   *ret_start = atol(tok1);
   *ret_end   = (tok2[0] == '\0') ? 0 : atol(tok2);
 
-  /* '0' is invalid start, check for that */
-  if(*ret_start == 0)                  esl_fatal("-c takes arg of positive integer subseq coords <from>..<to>, read 0 as <from>");
-
   esl_regexp_Destroy(re);
   return eslOK;
+
+ ERROR:
+  esl_regexp_Destroy(re);
+  return status;
 }
 
 

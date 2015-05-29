@@ -147,10 +147,23 @@
  * ESL_REALLOC() is a newer version of ESL_RALLOC() which doesn't
  * need a tmp ptr. All ESL_RALLOC() calls can be safely converted
  * to ESL_REALLOC() calls.
+ * 
+ * The result of malloc(0) is implementation-defined (either NULL or
+ * a ptr that may not be dereferenced), a bit of a hole in the C
+ * standard. In Easel, we want to avoid having NULL as a valid
+ * non-error result of malloc(), because it confuses static analysis
+ * tools when they see dereferences of possibly NULL pointers. We
+ * therefore treat malloc(0) as an eslEMEM error.
  */
 /*::cexcerpt::alloc_macros::begin::*/
 #define ESL_ALLOC(p, size) do {\
-    if (((p) = malloc(size)) == NULL && (size)) {	\
+    if ( size <= 0 ) { \
+       p = NULL; \
+       status = eslEMEM; \
+       esl_exception(status, FALSE, __FILE__, __LINE__, "zero malloc disallowed"); \
+       goto ERROR;\
+    }\
+    if ( ((p) = malloc(size)) == NULL)  { \
        status = eslEMEM;\
        esl_exception(status, FALSE, __FILE__, __LINE__, "malloc of size %d failed", size); \
        goto ERROR;\
@@ -371,6 +384,28 @@ static inline float esl_log2f(float x) { return (x == 0.0 ? -eslINFINITY : eslCO
  */
 typedef int64_t esl_pos_t;
 
+
+/* ESL_ANALYZER_NORETURN
+ *    adds some optional support for clang static analysis. 
+ *    The static analyzer sometimes needs to be clued in when a
+ *    function cannot return: fatal error handlers, for example.
+ *    clang, gcc, and other gcc-like compilers support the __attribute__
+ *    extension on function declarations. We detect this support
+ *    at compile-time in the configure script. Functions that
+ *    don't return are declared like:
+ *       extern void fatal(char *msg, ...) ESL_ANALYZER_NORETURN;    
+ */
+#ifndef ESL_ANALYZER_NORETURN
+#ifdef  HAVE_FUNC_ATTRIBUTE_NORETURN
+#define ESL_ANALYZER_NORETURN __attribute__((__noreturn__))
+#else
+#define ESL_ANALYZER_NORETURN
+#endif
+#endif
+
+
+
+
 /*****************************************************************
  * 8. Void declarations of missing augmentations
  *****************************************************************/
@@ -392,7 +427,7 @@ extern void esl_exception(int errcode, int use_errno, char *sourcefile, int sour
 extern void esl_exception_SetHandler(esl_exception_handler_f);
 extern void esl_exception_ResetDefaultHandler(void);
 extern void esl_nonfatal_handler(int errcode, int use_errno, char *sourcefile, int sourceline, char *format, va_list argp);
-extern void esl_fatal(const char *format, ...);
+extern void esl_fatal(const char *format, ...) ESL_ANALYZER_NORETURN;
 
 /* 2. Memory allocation/deallocation conventions. */
 extern void esl_Free2D(void  **p, int dim1);

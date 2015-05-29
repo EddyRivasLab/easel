@@ -15,7 +15,7 @@
  * All trees are represented as rooted trees, starting from
  * node 0. For N taxa, there are N-1 internal nodes, numbered
  * 0..N-2. Taxa on leaves are numbered 0..N-1, and represented
- * in <parent>, <left>, <right> as negative numbers.
+ * in <left> and <right> as negative numbers.
  * 
  */
 typedef struct {

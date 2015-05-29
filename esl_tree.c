@@ -59,23 +59,6 @@ esl_tree_Create(int ntaxa)
   T->ld     = NULL;
   T->rd     = NULL;
   
-  /* 2nd allocation round */
-  T->N    = ntaxa;
-  ESL_ALLOC(T->parent, sizeof(int)    * (ntaxa-1));
-  ESL_ALLOC(T->left,   sizeof(int)    * (ntaxa-1));
-  ESL_ALLOC(T->right,  sizeof(int)    * (ntaxa-1));
-  ESL_ALLOC(T->ld,     sizeof(double) * (ntaxa-1));
-  ESL_ALLOC(T->rd,     sizeof(double) * (ntaxa-1));
-  
-  for (i = 0; i < ntaxa-1; i++)
-    {
-      T->parent[i] = 0;
-      T->left[i  ] = 0;
-      T->right[i]  = 0;
-      T->ld[i]   = 0.;
-      T->rd[i]   = 0.;
-    }
-
   /* Optional info starts NULL
    */
   T->taxaparent  = NULL;
@@ -95,6 +78,22 @@ esl_tree_Create(int ntaxa)
   T->show_quoted_labels       = FALSE;
   T->show_numeric_taxonlabels = TRUE;
 
+  /* 2nd allocation round */
+  T->N    = ntaxa;
+  ESL_ALLOC(T->parent, sizeof(int)    * (ntaxa-1));
+  ESL_ALLOC(T->left,   sizeof(int)    * (ntaxa-1));
+  ESL_ALLOC(T->right,  sizeof(int)    * (ntaxa-1));
+  ESL_ALLOC(T->ld,     sizeof(double) * (ntaxa-1));
+  ESL_ALLOC(T->rd,     sizeof(double) * (ntaxa-1));
+  
+  for (i = 0; i < ntaxa-1; i++)
+    {
+      T->parent[i] = 0;
+      T->left[i  ] = 0;
+      T->right[i]  = 0;
+      T->ld[i]   = 0.;
+      T->rd[i]   = 0.;
+    }
   T->nalloc = ntaxa;
   return T;
   
@@ -259,8 +258,9 @@ esl_tree_SetTaxaParents(ESL_TREE *T)
   int i;
   int status;
 
-  if (T->taxaparent != NULL) return eslOK; /* map already exists. */
+  if (T->taxaparent != NULL) return eslOK;         // map already exists. 
   ESL_ALLOC(T->taxaparent, sizeof(int) * T->N);
+  for (i = 0; i < T->N; i++) T->taxaparent[i] = 0; // solely to calm static analyzers.
 
   for (i = 0; i < T->N-1; i++)	/* traversal order doesn't matter */
     {
@@ -1026,7 +1026,7 @@ newick_parse_quoted_label(FILE *fp, char *buf, int *pos, int *nc, char **ret_lab
   }
   
   /* backtrack over any trailing whitespace and nul-terminate. */
-  while (isspace(label[n-1]) && n > 0) n--; 
+  while (n>0 && isspace(label[n-1])) n--; 
   label[n] = '\0';
   *ret_label = label;
   return eslOK;

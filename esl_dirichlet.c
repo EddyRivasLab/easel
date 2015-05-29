@@ -58,6 +58,9 @@ esl_mixdchlet_Create(int N, int K)
   ESL_MIXDCHLET *pri = NULL;
   int q;
 
+  ESL_DASSERT1( (N > 0) );
+  ESL_DASSERT1( (K > 0) );
+
   ESL_ALLOC(pri, sizeof(ESL_MIXDCHLET));
   pri->pq = NULL; 
   pri->alpha = NULL;
@@ -67,6 +70,7 @@ esl_mixdchlet_Create(int N, int K)
   pri->alpha[0] = NULL;
 
   ESL_ALLOC(pri->alpha[0], sizeof(double) * N * K);
+  if (pri->alpha[0] == NULL) goto ERROR;               // to silence clang static analysis, which gets overzealous about N=0/K=0 -> NULL result
   for (q = 1; q < N; q++)
     pri->alpha[q] = pri->alpha[0] + q*K;
 
@@ -175,17 +179,17 @@ esl_mixdchlet_PerfectBipartiteMatchExists(int **A, int N )
 int
 esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol)
 {
-  int i,j;
-  int status;
+  int   i,j;
+  int **A = NULL;
+  int   status;
 
   if (d1->N != d2->N) return eslFAIL;
   if (d1->K != d2->K) return eslFAIL;
 
   //set up a 2-D matrix, to store the pairs of components that meet tolerance requirements
-  int **A;
   ESL_ALLOC(A, d1->N * sizeof(int*));
-  for (i=0; i<d1->N; i++)
-    ESL_ALLOC(A[i], d1->N * sizeof(int) );
+  for (i = 0; i < d1->N; i++) A[i] = NULL;
+  for (i = 0; i < d1->N; i++) ESL_ALLOC(A[i], d1->N * sizeof(int) );
 
   // Fill in matrix - OK if component i from d1 is a viable match with component q from d2
   for (i=0; i<d1->N; i++)
@@ -205,12 +209,14 @@ esl_mixdchlet_Compare(ESL_MIXDCHLET *d1, ESL_MIXDCHLET *d2, double tol)
    * matching (aka the marriage problem)
    */
   status = esl_mixdchlet_PerfectBipartiteMatchExists( A, d1->N);
-
-  /* fallthrough*/
+  
+  /* fallthrough */
  ERROR:
-  for (i=0; i<d1->N; i++)
-    free (A[i]);
-  free (A);
+  if (A) {
+    for (i = 0; i < d1->N; i++)
+      if (A[i]) free (A[i]);
+    free (A);
+  }
   return status;
 }
 
@@ -504,6 +510,9 @@ esl_dirichlet_LogProbData(double *c, double *alpha, int K, double *ret_answer)
  *
  * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
  *            in <ret_answer>.
+ *            
+ * Throws:    <eslEMEM> on allocation error. Now <*ret_answer> is 
+ *            <-eslINFINITY>.           
  */
 int
 esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answer)
@@ -529,6 +538,7 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
 
  ERROR:
   free(mixq);
+  *ret_answer = -eslINFINITY;
   return status;
 }
 
@@ -549,20 +559,28 @@ esl_dirichlet_LogProbData_Mixture(double *c, ESL_MIXDCHLET *d, double *ret_answe
  *
  * Returns:   <eslOK> on success, and puts result $\log P(c \mid \alpha)$
  *            in <ret_answer>.
+ *            
+ * Throws:    <eslEMEM> on allocation error. Now <*ret_answer> is            
+ *            <-eslINFINITY>.
  */
 static int 
 esl_dirichlet_LogProbDataSet_Mixture(int ntrials, double** counts, ESL_MIXDCHLET* md, double *ret_answer) 
 {
   double val;
-  int i;
+  int    i;
+  int    status;
 
   *ret_answer = 0;
   for (i = 0; i < ntrials; i++) 
     {
-      esl_dirichlet_LogProbData_Mixture(counts[i], md, &val);
+      if (( status = esl_dirichlet_LogProbData_Mixture(counts[i], md, &val)) != eslOK) goto ERROR;
       *ret_answer += val;
     }
   return eslOK;
+
+ ERROR:
+  *ret_answer = -eslINFINITY;
+  return status;
 }
 
 /* Function:  esl_dirichlet_LogProbProbs()
@@ -884,7 +902,7 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 					    &mixdchlet_complete_gradient,
 					    (void *) (&data), tol, wrk, &fx);
   if (status != eslOK && status != eslENOHALT) // eslENOHALT? Then take what we've got - it's probably pretty good
-	  goto ERROR;
+    goto ERROR;
 
   /* Convert the final parameter vector back to a mixdchlet
    */
@@ -903,6 +921,7 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
 }
 
 
+#ifdef eslAUGMENT_RANDOM
 /* Function:  esl_mixdchlet_Fit_Multipass()
  *
  * Purpose:   Given a set of count vectors <c>, find maximum
@@ -927,29 +946,26 @@ esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose)
  * Returns:   <eslOK> on success, and <best_md> contains the fitted
  *            mixdchlet parameters with best likelihood.
  *
- * Throws:    <eslEMEM> on allocation error, and <d> is left in
- *            in its initial state.
+ * Throws:    <eslEMEM> on allocation error, and the state of <best_md> 
+ *            is undefined.
  */
 int
-esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *r, double **c, int nc, int reps, ESL_MIXDCHLET *best_md, int verbose)
+esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *rng, double **c, int nc, int reps, ESL_MIXDCHLET *best_md, int verbose)
 {
-  int i, q, k, status;
-  double best_lk = -eslINFINITY;
-  double lk;
-  ESL_MIXDCHLET *md = esl_mixdchlet_Create(best_md->N, best_md->K);
-  int err_cnt = 0;
+  ESL_MIXDCHLET *md      = esl_mixdchlet_Create(best_md->N, best_md->K);
+  double         best_lk = -eslINFINITY;
+  int            err_cnt = 0;
+  int            i, q, k;
+  double         lk;
+  int            status;
   
-  for (i=0; i<reps; i++) 
+  for (i = 0; i < reps; i++) 
     {
       /* for each pass, establish a new random starting point */
+      if (( status = esl_dirichlet_DSampleUniform(rng, md->N, md->pq)) != eslOK) goto ERROR;
       for (q = 0; q < md->N; q++) 
-	{
-	  md->pq[q] = esl_rnd_UniformPositive(r);
-
-	  for (k = 0; k < md->K; k++)
-	    md->alpha[q][k] = 10.0 * esl_rnd_UniformPositive(r);
-	}
-      esl_vec_DNorm(md->pq, md->N);
+	for (k = 0; k < md->K; k++)
+	  md->alpha[q][k] = 10.0 * esl_rnd_UniformPositive(rng);
 
       /* then use Fit to do local search */
       status = esl_mixdchlet_Fit(c, nc, md, 0);
@@ -986,10 +1002,14 @@ esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *r, double **c, int nc, int reps, ESL
       fprintf(stdout, "llk = %.3f", best_lk);
     }
 
+  esl_mixdchlet_Destroy(md);
+  return eslOK;
+
  ERROR:
   esl_mixdchlet_Destroy(md);
   return status;
 }
+#endif /*eslAUGMENT_RANDOM*/
 
 #endif /*eslAUGMENT_MINIMIZER*/
 /*----------- end, Dirichlet Maximum likelihood fit from counts ---------------*/

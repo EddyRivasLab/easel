@@ -506,13 +506,13 @@ esl_usage(FILE *fp, char *progname, char *usage)
  *            <width>.
  *            
  *            Up to 1024 columns are allowed. (The only reason there's
- *            a limit is because you're going to forget to add the -1
- *            sentinel, so we don't want to risk a <while(1)> infinite
+ *            a limit is because you're going to forget to add the 0
+ *            sentinel, and we don't want to risk a <while(1)> infinite
  *            loop.)
  *
  * Args:      <fp>                 : output stream
  *            [<width>, <label]... : width, label pairs
- *            0                   : sentinel for end of argument list
+ *            0                    : sentinel for end of argument list
  *
  * Returns:   <eslOK> on success.
  *
@@ -562,7 +562,7 @@ esl_dataheader(FILE *fp, ...)
       width = va_arg(ap2, int);
       if (width < 0) width = -width;
       if (col == 0) width -= 1;   
-      s = va_arg(ap2, char *);
+      (void) va_arg(ap2, char *);
 
       if (col == 0) { if ( fputc('#', fp)   == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");  }
       else          { if ( fputc(' ', fp)   == EOF) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");  }

@@ -543,8 +543,8 @@ phylip_sequential_Read(ESLX_MSAFILE *afp, ESL_MSA *msa, int nseq, int32_t alen_s
   char     *p         = afp->line;
   esl_pos_t n         = afp->n;
   int       idx;
-  int64_t   alen;
-  int       status;
+  int64_t   alen      = 0;
+  int       status    = eslOK;
   
   ESL_ALLOC(namebuf, sizeof(char) * (namewidth+1));
 
@@ -805,7 +805,8 @@ phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth)
   int       nlines     = 0;
   int       nblocks    = 0;
   char     *p, *p0;
-  esl_pos_t n,  n0;
+  esl_pos_t n;
+  esl_pos_t n0         = 0;  // initialization is solely to calm overzealous static analyzers
   int32_t   nseq, alen;
   int       b, c, idx;
   int       nres2, nres1;
@@ -828,6 +829,7 @@ phylip_check_sequential_unknown(ESL_BUFFER *bf, int *ret_namewidth)
   if (nlines % nseq != 0) { status = eslFAIL; goto ERROR; } 
   nblocks = nlines / nseq;
 
+  nw_min = nw_max = 0;
   for (idx = 0; idx < nseq; idx++)
     {
       nres2 = 0;

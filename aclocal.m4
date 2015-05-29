@@ -1,8 +1,21 @@
-# aclocal.m4 contains custom macros used for creating HMMER's
-# configuration script.
+# aclocal.m4 contains custom macros used for creating configuration scripts.
 #
-# SRE, Sun Apr 22 09:26:38 2007 [Janelia]
-# SVN $Id$
+# The aclocal.m4 in Easel is the master copy. HMMER and other projects
+# that depend on Easel create a symlink to the Easel aclocal.m4.
+#
+# Contents:
+#   1. CHECK_GNU_MAKE           Sets EXEC_DEPENDENCY to $$@.o vs. %: %.o for sysv vs. GNU make.
+#   2. ACX_MPI                  Detects MPI installation
+#   3. ACX_PTHREAD              Detects POSIX threads
+#   4. AX_COMPILER_VENDOR       Sets $ax_cv_c_compiler_vendor to gnu, intel, etc.
+#   5. AX_CHECK_COMPILER_FLAGS  Checks for support of a compiler flag. Example: -msse2
+#   6. AX_GCC_FUNC_ATTRIBUTE    Checks for gcc-like support of function __attribute() tags
+#   7. ESL_PIC_FLAGS            Detects whether/how to build PIC (position independent code)
+#   8. Copyright, license info
+#
+# The autoconf macro archive is at: 
+#   http://www.gnu.org/software/ac-archive/
+#
 
 #################################################################
 # Macro: CHECK_GNU_MAKE
@@ -19,11 +32,13 @@
 # I use two different conventions in my Makefiles. Sometimes 
 # executable "foo" has a file "foo.c" - this is the HMMER, Easel, Infernal convention.
 # Sometimes executable "foo" has a file "foo_main.c" - this is
-# the SQUID convention. The configure script sets the
+# my older SQUID convention. The configure script sets the
 # EXEC_DEPENDENCY appropriately: here, HMMER style.
 #
+# Then we can write one Makefile line for all programs in ${PROGS} like so:
+#   ${PROGS}: @EXEC_DEPENDENCY@ 
+#
 # Sets an output variable EXEC_DEPENDENCY. 
-# This is used in the src/Makefile.in.
 #
 AC_DEFUN(CHECK_GNU_MAKE,[ 
   AC_MSG_CHECKING(whether you have a GNU make)
@@ -384,6 +399,41 @@ AC_LANG_RESTORE
 
 
 #################################################################
+# Macro: AX_COMPILER_VENDOR
+# Usage: AX_COMPILER_VENDOR
+# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
+#           Copyright (C) 2007 Matteo Frigo
+# Version:  2007-08-01
+# Source:   http://autoconf-archive.cryp.to/ax_compiler_vendor.html
+#
+# Sets $ax_cv_c_compiler_vendor to gnu, intel, ibm, sun, hp, borland,
+# comeau, dec, cray, kai, lcc, metrowerks, sgi, microsoft, watcom, etc.
+#
+# Everything below is verbatim from the archive. DO NOT MODIFY IT.
+AC_DEFUN([AX_COMPILER_VENDOR],
+[
+AC_CACHE_CHECK([for _AC_LANG compiler vendor], ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor,
+ [ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor=unknown
+  # note: don't check for gcc first since some other compilers define __GNUC__
+  for ventest in intel:__ICC,__ECC,__INTEL_COMPILER ibm:__xlc__,__xlC__,__IBMC__,__IBMCPP__ pathscale:__PATHCC__,__PATHSCALE__ gnu:__GNUC__ sun:__SUNPRO_C,__SUNPRO_CC hp:__HP_cc,__HP_aCC dec:__DECC,__DECCXX,__DECC_VER,__DECCXX_VER borland:__BORLANDC__,__TURBOC__ comeau:__COMO__ cray:_CRAYC kai:__KCC lcc:__LCC__ metrowerks:__MWERKS__ sgi:__sgi,sgi microsoft:_MSC_VER watcom:__WATCOMC__ portland:__PGI; do
+    vencpp="defined("`echo $ventest | cut -d: -f2 | sed 's/,/) || defined(/g'`")"
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[
+#if !($vencpp)
+      thisisanerror;
+#endif
+])], [ax_cv_]_AC_LANG_ABBREV[_compiler_vendor=`echo $ventest | cut -d: -f1`; break])
+  done
+ ])
+])
+#
+# AX_COMPILER_VENDOR macro end.
+# ****************************************************************
+# ****************************************************************
+
+
+
+
+#################################################################
 # Macro: AX_CHECK_COMPILER_FLAGS
 # Usage: AX_CHECK_COMPILER_FLAGS(FLAGS, [ACTION-SUCCESS], [ACTION-FAILURE])
 # Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
@@ -431,422 +481,249 @@ fi
 
 
 
-#################################################################
-# Macro: AX_GCC_X86_CPUID
-# Usage: AX_GCC_X86_CPUID(OP)
-# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
-#           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-07-29
-# Source:   http://autoconf-archive.cryp.to/ax_gcc_x86_cpuid.html
-#
-# Runs 'cpuid' with opcode 'OP'. 
-# Sets cache variable ax_cv_gcc_x86_cpuid_OP to "eax:ebx:ecx:edx"
-# where these are the registers set by 'cpuid'.
-# If cpuid fails, variable is set to the string "unknown".
-# This macro is required by AX_EXT; see below.
-#
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
-#
-AC_DEFUN([AX_GCC_X86_CPUID],
-[AC_REQUIRE([AC_PROG_CC])
-AC_LANG_PUSH([C])
-AC_CACHE_CHECK(for x86 cpuid $1 output, ax_cv_gcc_x86_cpuid_$1,
- [AC_RUN_IFELSE([AC_LANG_PROGRAM([#include <stdio.h>], [
-     int op = $1, eax, ebx, ecx, edx;
-     FILE *f;
-      __asm__("cpuid"
-        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-        : "a" (op));
-     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
-     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
-     fclose(f);
-     return 0;
-])],
-     [ax_cv_gcc_x86_cpuid_$1=`cat conftest_cpuid`; rm -f conftest_cpuid],
-     [ax_cv_gcc_x86_cpuid_$1=unknown; rm -f conftest_cpuid],
-     [ax_cv_gcc_x86_cpuid_$1=unknown])])
-AC_LANG_POP([C])
-])
 
 
 
 #################################################################
-# Macro: AX_COMPILER_VENDOR
-# Usage: AX_COMPILER_VENDOR
-# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
-#           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-08-01
-# Source:   http://autoconf-archive.cryp.to/ax_compiler_vendor.html
+# Macro:   AX_GCC_FUNC_ATTRIBUTE
+# Usage:   AX_GCC_FUNC_ATTRIBUTE(noreturn), for example
+# Author:  Gabriele Svelto <gabriele.svelto@gmail.com>
+# Version: 3?
+# Source:  http://www.gnu.org/software/autoconf-archive/ax_gcc_func_attribute.html
+# Unmodified from the original; can be replaced by a new version.
 #
-# Sets $ax_cv_c_compiler_vendor to gnu, intel, ibm, sun, hp, borland,
-# comeau, dec, cray, kai, lcc, metrowerks, sgi, microsoft, watcom, etc.
+# Defines HAVE_FUNC_ATTRIBUTE_NORETURN (for example).
 #
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
-AC_DEFUN([AX_COMPILER_VENDOR],
-[
-AC_CACHE_CHECK([for _AC_LANG compiler vendor], ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor,
- [ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor=unknown
-  # note: don't check for gcc first since some other compilers define __GNUC__
-  for ventest in intel:__ICC,__ECC,__INTEL_COMPILER ibm:__xlc__,__xlC__,__IBMC__,__IBMCPP__ pathscale:__PATHCC__,__PATHSCALE__ gnu:__GNUC__ sun:__SUNPRO_C,__SUNPRO_CC hp:__HP_cc,__HP_aCC dec:__DECC,__DECCXX,__DECC_VER,__DECCXX_VER borland:__BORLANDC__,__TURBOC__ comeau:__COMO__ cray:_CRAYC kai:__KCC lcc:__LCC__ metrowerks:__MWERKS__ sgi:__sgi,sgi microsoft:_MSC_VER watcom:__WATCOMC__ portland:__PGI; do
-    vencpp="defined("`echo $ventest | cut -d: -f2 | sed 's/,/) || defined(/g'`")"
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[
-#if !($vencpp)
-      thisisanerror;
-#endif
-])], [ax_cv_]_AC_LANG_ABBREV[_compiler_vendor=`echo $ventest | cut -d: -f1`; break])
-  done
- ])
+################################################################
+# ===========================================================================
+#   http://www.gnu.org/software/autoconf-archive/ax_gcc_func_attribute.html
+# ===========================================================================
+#
+# SYNOPSIS
+#
+#   AX_GCC_FUNC_ATTRIBUTE(ATTRIBUTE)
+#
+# DESCRIPTION
+#
+#   This macro checks if the compiler supports one of GCC's function
+#   attributes; many other compilers also provide function attributes with
+#   the same syntax. Compiler warnings are used to detect supported
+#   attributes as unsupported ones are ignored by default so quieting
+#   warnings when using this macro will yield false positives.
+#
+#   The ATTRIBUTE parameter holds the name of the attribute to be checked.
+#
+#   If ATTRIBUTE is supported define HAVE_FUNC_ATTRIBUTE_<ATTRIBUTE>.
+#
+#   The macro caches its result in the ax_cv_have_func_attribute_<attribute>
+#   variable.
+#
+#   The macro currently supports the following function attributes:
+#
+#    alias
+#    aligned
+#    alloc_size
+#    always_inline
+#    artificial
+#    cold
+#    const
+#    constructor
+#    constructor_priority for constructor attribute with priority
+#    deprecated
+#    destructor
+#    dllexport
+#    dllimport
+#    error
+#    externally_visible
+#    flatten
+#    format
+#    format_arg
+#    gnu_inline
+#    hot
+#    ifunc
+#    leaf
+#    malloc
+#    noclone
+#    noinline
+#    nonnull
+#    noreturn
+#    nothrow
+#    optimize
+#    pure
+#    unused
+#    used
+#    visibility
+#    warning
+#    warn_unused_result
+#    weak
+#    weakref
+#
+#   Unsuppored function attributes will be tested with a prototype returning
+#   an int and not accepting any arguments and the result of the check might
+#   be wrong or meaningless so use with care.
+#
+# LICENSE
+#
+#   Copyright (c) 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
+#
+#   Copying and distribution of this file, with or without modification, are
+#   permitted in any medium without royalty provided the copyright notice
+#   and this notice are preserved.  This file is offered as-is, without any
+#   warranty.
+
+#serial 3
+
+AC_DEFUN([AX_GCC_FUNC_ATTRIBUTE], [
+    AS_VAR_PUSHDEF([ac_var], [ax_cv_have_func_attribute_$1])
+
+    AC_CACHE_CHECK([for __attribute__(($1))], [ac_var], [
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([
+            m4_case([$1],
+                [alias], [
+                    int foo( void ) { return 0; }
+                    int bar( void ) __attribute__(($1("foo")));
+                ],
+                [aligned], [
+                    int foo( void ) __attribute__(($1(32)));
+                ],
+                [alloc_size], [
+                    void *foo(int a) __attribute__(($1(1)));
+                ],
+                [always_inline], [
+                    inline __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [artificial], [
+                    inline __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [cold], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [const], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [constructor_priority], [
+                    int foo( void ) __attribute__((__constructor__(65535/2)));
+                ],
+                [constructor], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [deprecated], [
+                    int foo( void ) __attribute__(($1("")));
+                ],
+                [destructor], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [dllexport], [
+                    __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [dllimport], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [error], [
+                    int foo( void ) __attribute__(($1("")));
+                ],
+                [externally_visible], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [flatten], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [format], [
+                    int foo(const char *p, ...) __attribute__(($1(printf, 1, 2)));
+                ],
+                [format_arg], [
+                    char *foo(const char *p) __attribute__(($1(1)));
+                ],
+                [gnu_inline], [
+                    inline __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [hot], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [ifunc], [
+                    int my_foo( void ) { return 0; }
+                    static int (*resolve_foo(void))(void) { return my_foo; }
+                    int foo( void ) __attribute__(($1("resolve_foo")));
+                ],
+                [leaf], [
+                    __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [malloc], [
+                    void *foo( void ) __attribute__(($1));
+                ],
+                [noclone], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [noinline], [
+                    __attribute__(($1)) int foo( void ) { return 0; }
+                ],
+                [nonnull], [
+                    int foo(char *p) __attribute__(($1(1)));
+                ],
+                [noreturn], [
+                    void foo( void ) __attribute__(($1));
+                ],
+                [nothrow], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [optimize], [
+                    __attribute__(($1(3))) int foo( void ) { return 0; }
+                ],
+                [pure], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [unused], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [used], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [visibility], [
+                    int foo_def( void ) __attribute__(($1("default")));
+                    int foo_hid( void ) __attribute__(($1("hidden")));
+                    int foo_int( void ) __attribute__(($1("internal")));
+                    int foo_pro( void ) __attribute__(($1("protected")));
+                ],
+                [warning], [
+                    int foo( void ) __attribute__(($1("")));
+                ],
+                [warn_unused_result], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [weak], [
+                    int foo( void ) __attribute__(($1));
+                ],
+                [weakref], [
+                    static int foo( void ) { return 0; }
+                    static int bar( void ) __attribute__(($1("foo")));
+                ],
+                [
+                 m4_warn([syntax], [Unsupported attribute $1, the test may fail])
+                 int foo( void ) __attribute__(($1));
+                ]
+            )], [])
+            ],
+            dnl GCC doesn't exit with an error if an unknown attribute is
+            dnl provided but only outputs a warning, so accept the attribute
+            dnl only if no warning were issued.
+            [AS_IF([test -s conftest.err],
+                [AS_VAR_SET([ac_var], [no])],
+                [AS_VAR_SET([ac_var], [yes])])],
+            [AS_VAR_SET([ac_var], [no])])
+    ])
+
+    AS_IF([test yes = AS_VAR_GET([ac_var])],
+        [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_FUNC_ATTRIBUTE_$1), 1,
+            [Define to 1 if the system has the `$1' function attribute])], [])
+
+    AS_VAR_POPDEF([ac_var])
 ])
 #
-# AX_COMPILER_VENDOR macro end.
+# AX_GCC_FUNC_ATTRIBUTE macro end
 # ****************************************************************
 # ****************************************************************
 
 
-
-#################################################################
-# Macro: AX_GCC_ARCHFLAG
-# Usage: AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
-# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
-#           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-07-29
-# Source:   http://autoconf-archive.cryp.to/ax_gcc_archflag.html
-#
-# This macro tries to guess the "native" arch corresponding to the
-# target architecture for use with gcc's -march=arch or -mtune=arch
-# flags. If found, the cache variable $ax_cv_gcc_archflag is set to this
-# flag and ACTION-SUCCESS is executed; otherwise $ax_cv_gcc_archflag is
-# is set to "unknown" and ACTION-FAILURE is executed. The default
-# ACTION-SUCCESS is to add $ax_cv_gcc_archflag to the end of $CFLAGS.
-#
-# PORTABLE? should be either [yes] (default) or [no]. In the former
-# case, the flag is set to -mtune (or equivalent) so that the
-# architecture is only used for tuning, but the instruction set used is
-# still portable. In the latter case, the flag is set to -march (or
-# equivalent) so that architecture-specific instructions are enabled.
-#
-# The user can specify --with-gcc-arch=<arch> in order to override the
-# macro's choice of architecture, or --without-gcc-arch to disable this.
-#
-# When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
-# called unless the user specified --with-gcc-arch manually.
-#
-# Everything below is verbatim from the archive. DO NOT MODIFY IT.
-#
-AC_DEFUN([AX_GCC_ARCHFLAG],
-[AC_REQUIRE([AC_PROG_CC])
-AC_REQUIRE([AC_CANONICAL_HOST])
-
-AC_ARG_WITH(gcc-arch, [AC_HELP_STRING([--with-gcc-arch=<arch>], [use architecture <arch> for gcc -march/-mtune, instead of guessing])],
-        ax_gcc_arch=$withval, ax_gcc_arch=yes)
-
-AC_MSG_CHECKING([for gcc architecture flag])
-AC_MSG_RESULT([])
-AC_CACHE_VAL(ax_cv_gcc_archflag,
-[
-ax_cv_gcc_archflag="unknown"
-
-if test "$GCC" = yes; then
-
-if test "x$ax_gcc_arch" = xyes; then
-ax_gcc_arch=""
-if test "$cross_compiling" = no; then
-case $host_cpu in
-  i[[3456]]86*|x86_64*) # use cpuid codes, in part from x86info-1.7 by D. Jones
-     AX_GCC_X86_CPUID(0)
-     AX_GCC_X86_CPUID(1)
-     case $ax_cv_gcc_x86_cpuid_0 in
-       *:756e6547:*:*) # Intel
-          case $ax_cv_gcc_x86_cpuid_1 in
-            *5[[48]]?:*:*:*) ax_gcc_arch="pentium-mmx pentium" ;;
-            *5??:*:*:*) ax_gcc_arch=pentium ;;
-            *6[[3456]]?:*:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
-            *6a?:*[[01]]:*:*) ax_gcc_arch="pentium2 pentiumpro" ;;
-            *6a?:*[[234]]:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
-            *6[[9d]]?:*:*:*) ax_gcc_arch="pentium-m pentium3 pentiumpro" ;;
-            *6[[78b]]?:*:*:*) ax_gcc_arch="pentium3 pentiumpro" ;;
-            *6??:*:*:*) ax_gcc_arch=pentiumpro ;;
-            *f3[[347]]:*:*:*|*f4[1347]:*:*:*)
-                case $host_cpu in
-                  x86_64*) ax_gcc_arch="nocona pentium4 pentiumpro" ;;
-                  *) ax_gcc_arch="prescott pentium4 pentiumpro" ;;
-                esac ;;
-            *f??:*:*:*) ax_gcc_arch="pentium4 pentiumpro";;
-          esac ;;
-       *:68747541:*:*) # AMD
-          case $ax_cv_gcc_x86_cpuid_1 in
-            *5[[67]]?:*:*:*) ax_gcc_arch=k6 ;;
-            *5[[8d]]?:*:*:*) ax_gcc_arch="k6-2 k6" ;;
-            *5[[9]]?:*:*:*) ax_gcc_arch="k6-3 k6" ;;
-            *60?:*:*:*) ax_gcc_arch=k7 ;;
-            *6[[12]]?:*:*:*) ax_gcc_arch="athlon k7" ;;
-            *6[[34]]?:*:*:*) ax_gcc_arch="athlon-tbird k7" ;;
-            *67?:*:*:*) ax_gcc_arch="athlon-4 athlon k7" ;;
-            *6[[68a]]?:*:*:*)
-               AX_GCC_X86_CPUID(0x80000006) # L2 cache size
-               case $ax_cv_gcc_x86_cpuid_0x80000006 in
-                 *:*:*[[1-9a-f]]??????:*) # (L2 = ecx >> 16) >= 256
-                        ax_gcc_arch="athlon-xp athlon-4 athlon k7" ;;
-                 *) ax_gcc_arch="athlon-4 athlon k7" ;;
-               esac ;;
-            *f[[4cef8b]]?:*:*:*) ax_gcc_arch="athlon64 k8" ;;
-            *f5?:*:*:*) ax_gcc_arch="opteron k8" ;;
-            *f7?:*:*:*) ax_gcc_arch="athlon-fx opteron k8" ;;
-            *f??:*:*:*) ax_gcc_arch="k8" ;;
-          esac ;;
-        *:746e6543:*:*) # IDT
-           case $ax_cv_gcc_x86_cpuid_1 in
-             *54?:*:*:*) ax_gcc_arch=winchip-c6 ;;
-             *58?:*:*:*) ax_gcc_arch=winchip2 ;;
-             *6[[78]]?:*:*:*) ax_gcc_arch=c3 ;;
-             *69?:*:*:*) ax_gcc_arch="c3-2 c3" ;;
-           esac ;;
-     esac
-     if test x"$ax_gcc_arch" = x; then # fallback
-        case $host_cpu in
-          i586*) ax_gcc_arch=pentium ;;
-          i686*) ax_gcc_arch=pentiumpro ;;
-        esac
-     fi
-     ;;
-
-  sparc*)
-     AC_PATH_PROG([PRTDIAG], [prtdiag], [prtdiag], [$PATH:/usr/platform/`uname -i`/sbin/:/usr/platform/`uname -m`/sbin/])
-     cputype=`(((grep cpu /proc/cpuinfo | cut -d: -f2) ; ($PRTDIAG -v |grep -i sparc) ; grep -i cpu /var/run/dmesg.boot ) | head -n 1) 2> /dev/null`
-     cputype=`echo "$cputype" | tr -d ' -' |tr $as_cr_LETTERS $as_cr_letters`
-     case $cputype in
-         *ultrasparciv*) ax_gcc_arch="ultrasparc4 ultrasparc3 ultrasparc v9" ;;
-         *ultrasparciii*) ax_gcc_arch="ultrasparc3 ultrasparc v9" ;;
-         *ultrasparc*) ax_gcc_arch="ultrasparc v9" ;;
-         *supersparc*|*tms390z5[[05]]*) ax_gcc_arch="supersparc v8" ;;
-         *hypersparc*|*rt62[[056]]*) ax_gcc_arch="hypersparc v8" ;;
-         *cypress*) ax_gcc_arch=cypress ;;
-     esac ;;
-
-  alphaev5) ax_gcc_arch=ev5 ;;
-  alphaev56) ax_gcc_arch=ev56 ;;
-  alphapca56) ax_gcc_arch="pca56 ev56" ;;
-  alphapca57) ax_gcc_arch="pca57 pca56 ev56" ;;
-  alphaev6) ax_gcc_arch=ev6 ;;
-  alphaev67) ax_gcc_arch=ev67 ;;
-  alphaev68) ax_gcc_arch="ev68 ev67" ;;
-  alphaev69) ax_gcc_arch="ev69 ev68 ev67" ;;
-  alphaev7) ax_gcc_arch="ev7 ev69 ev68 ev67" ;;
-  alphaev79) ax_gcc_arch="ev79 ev7 ev69 ev68 ev67" ;;
-
-  powerpc*)
-     cputype=`((grep cpu /proc/cpuinfo | head -n 1 | cut -d: -f2 | cut -d, -f1 | sed 's/ //g') ; /usr/bin/machine ; /bin/machine; grep CPU /var/run/dmesg.boot | head -n 1 | cut -d" " -f2) 2> /dev/null`
-     cputype=`echo $cputype | sed -e 's/ppc//g;s/ *//g'`
-     case $cputype in
-       *750*) ax_gcc_arch="750 G3" ;;
-       *740[[0-9]]*) ax_gcc_arch="$cputype 7400 G4" ;;
-       *74[[4-5]][[0-9]]*) ax_gcc_arch="$cputype 7450 G4" ;;
-       *74[[0-9]][[0-9]]*) ax_gcc_arch="$cputype G4" ;;
-       *970*) ax_gcc_arch="970 G5 power4";;
-       *POWER4*|*power4*|*gq*) ax_gcc_arch="power4 970";;
-       *POWER5*|*power5*|*gr*|*gs*) ax_gcc_arch="power5 power4 970";;
-       603ev|8240) ax_gcc_arch="$cputype 603e 603";;
-       *) ax_gcc_arch=$cputype ;;
-     esac
-     ax_gcc_arch="$ax_gcc_arch powerpc"
-     ;;
-esac
-fi # not cross-compiling
-fi # guess arch
-
-if test "x$ax_gcc_arch" != x -a "x$ax_gcc_arch" != xno; then
-for arch in $ax_gcc_arch; do
-  if test "x[]m4_default([$1],yes)" = xyes; then # if we require portable code
-    flags="-mtune=$arch"
-    # -mcpu=$arch and m$arch generate nonportable code on every arch except
-    # x86.  And some other arches (e.g. Alpha) don't accept -mtune.  Grrr.
-    case $host_cpu in i*86|x86_64*) flags="$flags -mcpu=$arch -m$arch";; esac
-  else
-    flags="-march=$arch -mcpu=$arch -m$arch"
-  fi
-  for flag in $flags; do
-    AX_CHECK_COMPILER_FLAGS($flag, [ax_cv_gcc_archflag=$flag; break])
-  done
-  test "x$ax_cv_gcc_archflag" = xunknown || break
-done
-fi
-
-fi # $GCC=yes
-])
-AC_MSG_CHECKING([for gcc architecture flag])
-AC_MSG_RESULT($ax_cv_gcc_archflag)
-if test "x$ax_cv_gcc_archflag" = xunknown; then
-  m4_default([$3],:)
-else
-  m4_default([$2], [CFLAGS="$CFLAGS $ax_cv_gcc_archflag"])
-fi
-])
-#
-# AX_GCC_ARCHFLAG macro end.
-# ****************************************************************
-# ****************************************************************
-
-
-#################################################################
-# Macro: AX_CC_MAXOPT
-# Usage: AX_CC_MAXOPT
-# Authors:  Copyright (C) 2007 Steven G. Johnson <stevenj@alum.mit.edu>
-#           Copyright (C) 2007 Matteo Frigo
-# Version:  2007-07-29
-# Source:   http://autoconf-archive.cryp.to/ax_cc_maxopt.html
-#
-# Try to turn on "good" C optimization flags for various compilers and
-# architectures, for some definition of "good". 
-#
-# The user can override the flags by setting the CFLAGS environment
-# variable.  The user can also specify --enable-portable-binary in
-# order to disable any optimization flags that might result in a
-# binary that only runs on the host architecture.
-#
-# Note also that the flags assume that ANSI C aliasing rules are
-# followed by the code (e.g. for gcc's -fstrict-aliasing), and that
-# floating-point computations can be re-ordered as needed.
-#
-# SRE: I've made modifications as follows.
-#  - HMMER relies on IEEE754-compliant math. Don't enable
-#    any options that break compliance; for example, gcc -ffast-math
-#  - similarly, for IBM xlc, add -qstrict.
-#
-AC_DEFUN([AX_CC_MAXOPT],
-[
-AC_REQUIRE([AC_PROG_CC])
-AC_REQUIRE([AX_COMPILER_VENDOR])
-AC_REQUIRE([AC_CANONICAL_HOST])
-
-AC_ARG_ENABLE(portable-binary, [AC_HELP_STRING([--enable-portable-binary], [disable compiler optimizations that would produce unportable binaries])],
-        acx_maxopt_portable=$withval, acx_maxopt_portable=no)
-
-# Try to determine "good" native compiler flags if none specified via CFLAGS
-if test "$ac_test_CFLAGS" != "set"; then
-  CFLAGS=""
-  case $ax_cv_c_compiler_vendor in
-    dec) CFLAGS="-newc -w0 -O5 -ansi_alias -ansi_args -tune host"
-#        CFLAGS="-newc -w0 -O5 -ansi_alias -ansi_args -fp_reorder -tune host"
-         if test "x$acx_maxopt_portable" = xno; then
-           CFLAGS="$CFLAGS -arch host"
-         fi;;
-
-    sun) CFLAGS="-native -xO5 -dalign"
-#        CFLAGS="-native -fast -xO5 -dalign"
-         if test "x$acx_maxopt_portable" = xyes; then
-           CFLAGS="$CFLAGS -xarch=generic"
-         fi;;
-
-    hp)  CFLAGS="+Oall +Optrs_ansi +DSnative"
-         if test "x$acx_maxopt_portable" = xyes; then
-           CFLAGS="$CFLAGS +DAportable"
-         fi;;
-
-    ibm) xlc_opt="-qtune=auto -qstrict"
-         if test "x$acx_maxopt_portable" = xno; then
-            if test "x$XLC_ARCH" = xno; then
-               xlc_opt="-qarch=auto $xlc_opt"
-            else
-               xlc_opt="-qarch=$XLC_ARCH $xlc_opt"
-            fi
-         fi
-         AX_CHECK_COMPILER_FLAGS($xlc_opt,
-                CFLAGS="-O3 -qansialias -w $xlc_opt",
-               [CFLAGS="-O3 -qansialias -w"
-                echo "******************************************************"
-                echo "*  You seem to have the IBM  C compiler.  It is      *"
-                echo "*  recommended for best performance that you use:    *"
-                echo "*                                                    *"
-                echo "*    CFLAGS=-O3 -qarch=xxx -qtune=xxx -qansialias -w *"
-                echo "*                      ^^^        ^^^                *"
-                echo "*  where xxx is pwr2, pwr3, 604, or whatever kind of *"
-                echo "*  CPU you have.  (Set the CFLAGS environment var.   *"
-                echo "*  and re-run configure.)  For more info, man cc.    *"
-                echo "******************************************************"])
-         ;;
-
-    intel) CFLAGS="-O3 -ansi_alias"
-        if test "x$acx_maxopt_portable" = xno; then
-          icc_archflag=unknown
-          icc_flags=""
-          case $host_cpu in
-            i686*|x86_64*)
-              # icc accepts gcc assembly syntax, so these should work:
-              AX_GCC_X86_CPUID(0)
-              AX_GCC_X86_CPUID(1)
-              case $ax_cv_gcc_x86_cpuid_0 in # see AX_GCC_ARCHFLAG
-                *:756e6547:*:*) # Intel
-                  case $ax_cv_gcc_x86_cpuid_1 in
-                    *6a?:*[[234]]:*:*|*6[[789b]]?:*:*:*) icc_flags="-xK";;
-                    *f3[[347]]:*:*:*|*f4[1347]:*:*:*) icc_flags="-xP -xN -xW -xK";;
-                    *f??:*:*:*) icc_flags="-xN -xW -xK";;
-                  esac ;;
-              esac ;;
-          esac
-          if test "x$icc_flags" != x; then
-            for flag in $icc_flags; do
-              AX_CHECK_COMPILER_FLAGS($flag, [icc_archflag=$flag; break])
-            done
-          fi
-          AC_MSG_CHECKING([for icc architecture flag])
-          AC_MSG_RESULT($icc_archflag)
-          if test "x$icc_archflag" != xunknown; then
-            CFLAGS="$CFLAGS $icc_archflag"
-          fi
-        fi
-        ;;
-
-    gnu)
-     # default optimization flags for gcc on all systems
-     CFLAGS="-O3 -fomit-frame-pointer"
-
-     # -malign-double for x86 systems
-     # SRE: no, that's a bad idea; 
-     #  on 32bit Ubuntu Linux systems, for example, this
-     #  causes an odd and buggy interaction with _FILE_OFFSET_BITS (LFS)
-     #  and fstat().
-     #     AX_CHECK_COMPILER_FLAGS(-malign-double, CFLAGS="$CFLAGS -malign-double")
-
-     #  -fstrict-aliasing for gcc-2.95+
-     AX_CHECK_COMPILER_FLAGS(-fstrict-aliasing,
-        CFLAGS="$CFLAGS -fstrict-aliasing")
-
-     # note that we enable "unsafe" fp optimization with other compilers, too
-     # SRE: no, that's a bad idea, don't use this
-#     AX_CHECK_COMPILER_FLAGS(-ffast-math, CFLAGS="$CFLAGS -ffast-math")
-
-     AX_GCC_ARCHFLAG($acx_maxopt_portable)
-     ;;
-  esac
-
-  if test -z "$CFLAGS"; then
-        echo ""
-        echo "********************************************************"
-        echo "* WARNING: Don't know the best CFLAGS for this system  *"
-        echo "* Use ./configure CFLAGS=... to specify your own flags *"
-        echo "* (otherwise, a default of CFLAGS=-O3 will be used)    *"
-        echo "********************************************************"
-        echo ""
-        CFLAGS="-O3"
-  fi
-
-  AX_CHECK_COMPILER_FLAGS($CFLAGS, [], [
-        echo ""
-        echo "********************************************************"
-        echo "* WARNING: The guessed CFLAGS don't seem to work with  *"
-        echo "* your compiler.                                       *"
-        echo "* Use ./configure CFLAGS=... to specify your own flags *"
-        echo "********************************************************"
-        echo ""
-        CFLAGS=""
-  ])
-
-fi
-])
-#
-# AX_CC_MAXOPT macro end.
-# ****************************************************************
-# ****************************************************************
 
 
 ################################################################
@@ -980,3 +857,11 @@ AC_SUBST([PIC_FLAGS])
 # ****************************************************************
 # ****************************************************************
 
+
+
+#################################################################
+# @LICENSE@
+#
+# SVN $Id$
+# SVN $URL$
+#################################################################

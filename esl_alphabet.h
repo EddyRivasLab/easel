@@ -22,7 +22,7 @@ typedef struct {
   int      type;	     /* eslDNA, eslRNA, eslAMINO, eslNONSTANDARD, etc.                 */
   int      K;		     /* uniq alphabet size: 4 or 20                                    */
   int      Kp;		     /* total size: alphabet + degen + gap + missing                   */
-  char    *sym;              /* "ACGT-RYMKSWHBVDN~", for instance    [0..Kp-1]                 */
+  char    *sym;              /* "ACGT-RYMKSWHBVDN*~", for instance    [0..Kp-1]                */
   ESL_DSQ  inmap[128];       /* inmap['A'] = 0, etc: dsq[] index for a symbol                  */
   char   **degen;            /* 1/0, which syms inc which res [0..Kp-1][0..K-1]                */
   int     *ndegen;	     /* # of degenerate residues per code  [0..Kp-1]                   */

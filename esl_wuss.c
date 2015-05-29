@@ -41,8 +41,8 @@ esl_wuss2ct(char *ss, int len, int *ct)
  /* Initialization: always initialize the main pda (0);
   * we'll init the pk pda's on demand.
   */
-  if ((pda[0] = esl_stack_ICreate()) == NULL) goto FINISH;
   for (i = 1; i <= 26; i++) pda[i] = NULL;
+  if ((pda[0] = esl_stack_ICreate()) == NULL) goto FINISH;
 
   for (pos = 0; pos <= len; pos++) ct[pos] = 0;
 

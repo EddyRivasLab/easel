@@ -1679,7 +1679,7 @@ utest_XShufflers(ESL_RANDOMNESS *r, int L, int K)
   /* allocations */
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
   ESL_ALLOC(ds2, sizeof(ESL_DSQ) * (L+2));
-  ESL_ALLOC(p,   sizeof(double)  * K);
+  ESL_ALLOC(p,   sizeof(float)   * K);
   if (composition_allocate(K, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
 
@@ -1789,7 +1789,7 @@ utest_XMarkovs(ESL_RANDOMNESS *r, int L, int K)
   /* allocations */
   ESL_ALLOC(dsq, sizeof(ESL_DSQ) * (L+2));
   ESL_ALLOC(ds2, sizeof(ESL_DSQ) * (L+2));
-  ESL_ALLOC(p,   sizeof(double)  * K);
+  ESL_ALLOC(p,   sizeof(float)   * K);
   if (composition_allocate(K, &m1, &di1) != eslOK) esl_fatal(logmsg);
   if (composition_allocate(K, &m2, &di2) != eslOK) esl_fatal(logmsg);
 

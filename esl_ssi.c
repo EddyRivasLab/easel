@@ -626,6 +626,7 @@ int
 esl_newssi_Open(const char *ssifile, int allow_overwrite, ESL_NEWSSI **ret_newssi)
 {
   ESL_NEWSSI *ns = NULL;
+  int i;
   int status;
 
   ESL_ALLOC(ns, sizeof(ESL_NEWSSI));
@@ -668,11 +669,19 @@ esl_newssi_Open(const char *ssifile, int allow_overwrite, ESL_NEWSSI **ret_newss
   if ((ns->ssifp = fopen(ssifile, "w")) == NULL)  { status = eslENOTFOUND; goto ERROR; }
 
   ESL_ALLOC(ns->filenames,  sizeof(char *)   * eslSSI_FCHUNK);
+  for (i = 0; i < eslSSI_FCHUNK; i++) 
+    ns->filenames[i] = NULL;
   ESL_ALLOC(ns->fileformat, sizeof(uint32_t) * eslSSI_FCHUNK);
   ESL_ALLOC(ns->bpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
   ESL_ALLOC(ns->rpl,        sizeof(uint32_t) * eslSSI_FCHUNK);
   ESL_ALLOC(ns->pkeys,      sizeof(ESL_PKEY) * eslSSI_KCHUNK);
+  for (i = 0; i < eslSSI_KCHUNK; i++) 
+    ns->pkeys[i].key = NULL;
   ESL_ALLOC(ns->skeys,      sizeof(ESL_SKEY) * eslSSI_KCHUNK);
+  for (i = 0; i < eslSSI_KCHUNK; i++) {
+    ns->skeys[i].key  = NULL;
+    ns->skeys[i].pkey = NULL;
+  }
   *ret_newssi = ns;
   return eslOK;
 
@@ -709,6 +718,7 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
 {
   int      status;
   uint16_t fh;
+  int      i;
   int      n;
 
   if (ns->nfiles >= eslSSI_MAXFILES) ESL_XFAIL(eslERANGE, ns->errbuf, "exceeded the maximum number of files an SSI index can store");
@@ -725,11 +735,11 @@ esl_newssi_AddFile(ESL_NEWSSI *ns, const char *filename, int fmt, uint16_t *ret_
   ns->nfiles++;
 
   if (ns->nfiles % eslSSI_FCHUNK == 0) {
-    void  *tmp;
-    ESL_RALLOC(ns->filenames,  tmp, sizeof(char *)   * (ns->nfiles+eslSSI_FCHUNK));
-    ESL_RALLOC(ns->fileformat, tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
-    ESL_RALLOC(ns->bpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
-    ESL_RALLOC(ns->rpl,        tmp, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_REALLOC(ns->filenames,  sizeof(char *)   * (ns->nfiles+eslSSI_FCHUNK));
+    for (i = ns->nfiles; i < ns->nfiles+eslSSI_FCHUNK; i++) ns->filenames[i] = NULL;
+    ESL_REALLOC(ns->fileformat, sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_REALLOC(ns->bpl,        sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
+    ESL_REALLOC(ns->rpl,        sizeof(uint32_t) * (ns->nfiles+eslSSI_FCHUNK));
   }
   *ret_fh = fh;
   return eslOK;
@@ -832,6 +842,7 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
 		  off_t r_off, off_t d_off, int64_t L)
 {
   int status;
+  int i;
   int n;			/* a string length */
   
   if (fh >= eslSSI_MAXFILES)           ESL_XEXCEPTION(eslEINVAL, "invalid fh");
@@ -876,8 +887,9 @@ esl_newssi_AddKey(ESL_NEWSSI *ns, const char *key, uint16_t fh,
 
       /* Reallocate as needed. */
       if (ns->nprimary % eslSSI_KCHUNK == 0) {
-	void *tmp;
-	ESL_RALLOC(ns->pkeys, tmp, sizeof(ESL_PKEY) * (ns->nprimary+eslSSI_KCHUNK));
+	ESL_REALLOC(ns->pkeys, sizeof(ESL_PKEY) * (ns->nprimary+eslSSI_KCHUNK));
+	for (i = ns->nprimary; i < ns->nprimary + eslSSI_KCHUNK; i++)
+	  ns->pkeys[i].key = NULL;
       }
     }
   return eslOK;
@@ -911,6 +923,7 @@ int
 esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
 {
   int status;
+  int i;
   int n;			/* a string length */
   
   if (ns->nsecondary >= eslSSI_MAXKEYS) ESL_XFAIL(eslERANGE, ns->errbuf, "exceeded maximum number of secondary keys allowed");
@@ -938,8 +951,11 @@ esl_newssi_AddAlias(ESL_NEWSSI *ns, const char *alias, const char *key)
       ns->nsecondary++;
 
       if (ns->nsecondary % eslSSI_KCHUNK == 0) {
-	void *tmp;
-	ESL_RALLOC(ns->skeys, tmp, sizeof(ESL_SKEY) * (ns->nsecondary+eslSSI_KCHUNK));
+	ESL_REALLOC(ns->skeys, sizeof(ESL_SKEY) * (ns->nsecondary+eslSSI_KCHUNK));
+	for (i = ns->nsecondary; i < ns->nsecondary+eslSSI_KCHUNK; i++) {
+	  ns->skeys[i].key  = NULL;
+	  ns->skeys[i].pkey = NULL;
+	}
       }
     }
   return eslOK;
@@ -989,6 +1005,9 @@ esl_newssi_Write(ESL_NEWSSI *ns)
   ESL_PKEY pkey;		/* primary key info from external tmpfile   */
   ESL_SKEY skey;		/* secondary key info from external tmpfile */
 
+  if (ns->nsecondary > 0 && ns->slen == 0)
+    ESL_EXCEPTION(eslEINVAL, "zero secondary key length: shouldn't happen");
+
   /* We need fixed-width buffers to get our keys fwrite()'ten in their
    * full binary lengths; pkey->key (for instance) is not guaranteed
    * to be allocated for the final maximum plen. We use strncpy(), not
@@ -998,7 +1017,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
    */
   ESL_ALLOC(fk, sizeof(char) * ns->flen);
   ESL_ALLOC(pk, sizeof(char) * ns->plen);
-  if (ns->slen) ESL_ALLOC(sk, sizeof(char) * ns->slen);
+  if (ns->nsecondary > 0) ESL_ALLOC(sk, sizeof(char) * ns->slen);
 
   /* How big is the index? If it's going to be > 2GB, we better have
    * 64-bit offsets. (2047 (instead of 2048) gives us
@@ -1143,7 +1162,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
 	{
 	  if (esl_fgets(&buf, &n, ns->stmp) != eslOK) ESL_XFAIL(eslESYS, ns->errbuf, "read from sorted secondary key tmpfile failed");
 	  if (parse_skey(buf, &skey)        != eslOK) ESL_XFAIL(eslESYS, ns->errbuf, "parse failed for a line of sorted secondary key tmpfile failed");
-	  strncpy(sk, skey.key,  ns->slen);
+	  strncpy(sk, skey.key,  ns->slen);  // slen > 0 if there are any secondary keys.
 	  strncpy(pk, skey.pkey, ns->plen);
 
 	  if (fwrite(sk, sizeof(char), ns->slen, ns->ssifp) != ns->slen ||
@@ -1153,6 +1172,7 @@ esl_newssi_Write(ESL_NEWSSI *ns)
     } 
   else 
     {
+      /* if ns->nsecondary=0, ns->slen=0 and sk=NULL */
       for (i = 0; i < ns->nsecondary; i++)
 	{
 	  strncpy(sk, ns->skeys[i].key,  ns->slen);
@@ -1792,6 +1812,7 @@ main(int argc, char **argv)
   int    status;
   
   /* Create <nfiles> sequence file names. */
+  ESL_DASSERT1(( nfiles > 0 ));
   ESL_ALLOC(sqfile, sizeof(char *) * nfiles);
   for (j = 0; j < nfiles; j++)
     {
@@ -1870,7 +1891,10 @@ main(int argc, char **argv)
       /* Retrieve it */
       status = esl_ssi_FindName(ssi, query, &fh, &roff, NULL, NULL);
       if (status != eslOK) esl_fatal("didn't find %s in index", query);
-      esl_ssi_FileInfo(ssi, fh, &qfile, &qfmt);      
+
+      status = esl_ssi_FileInfo(ssi, fh, &qfile, &qfmt);      
+      if (status != eslOK) esl_fatal("didn't locate file info for %s", query);
+
       if (esl_sqfile_Open(qfile, qfmt, NULL, &sqfp) != eslOK)
 	esl_fatal("failed to open fasta file %s", qfile);
       esl_sqfile_Position(sqfp, roff);

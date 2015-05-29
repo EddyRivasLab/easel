@@ -350,7 +350,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
   double b, fb;
   int    status;
 
-  if ((status = tau_by_moments(x, n, mu, &c, &mean, &logsum) != eslOK)) return status;
+  if ((status = tau_by_moments(x, n, mu, &c, &mean, &logsum) != eslOK)) goto ERROR;
   a = b = c;
   fc = tau_function(c, mean, logsum);
 
@@ -365,7 +365,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fb < 0.) break;	/* a,b now bracket */
 	  a = b;                /* else fb>0, so b is a better left bracket than a */
 	}
-      if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
+      if (i == 100) ESL_XEXCEPTION(eslENOHALT, "failed to bracket");
     }
   else if (fc < 0.)		/* fx<0 means tau is too large, search left */
     {
@@ -376,7 +376,7 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	  if (fa > 0.) break;   /* a,b now bracket */
 	  b = a;                /* else fa<0, so a is a better right bracket than b */
 	}
-      if (i == 100) ESL_EXCEPTION(eslENOHALT, "failed to bracket");
+      if (i == 100) ESL_XEXCEPTION(eslENOHALT, "failed to bracket");
     }  
   
   /* Rootfinding, 2.: Bisection search.
@@ -395,11 +395,16 @@ esl_gam_FitComplete(double *x, int n, double mu, double *ret_lambda, double *ret
 	break;
       }
     }
-  if (i == 100) ESL_EXCEPTION(eslENOHALT, "bisection search failed");
+  if (i == 100) ESL_XEXCEPTION(eslENOHALT, "bisection search failed");
 
   *ret_lambda = c / mean;
   *ret_tau    = c;
   return eslOK;
+
+ ERROR:
+  *ret_lambda = 0.0;
+  *ret_tau    = 0.0;
+  return status;
 }
 
 /* tau_by_moments()

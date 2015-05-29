@@ -1178,8 +1178,9 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
     if ((status = esl_sq_FetchFromMSA(ascii->msa, ascii->idx, &tmpsq)) != eslOK) goto ERROR;
 
     /*by default, tmpsq is an ascii sequence, convert it to digital if that's what sq is*/
-    if (sq->seq == NULL)
-      esl_sq_Digitize(sq->abc, tmpsq);
+    if (sq->seq == NULL &&
+	(( status = esl_sq_Digitize(sq->abc, tmpsq)) != eslOK)) 
+      goto ERROR;
 
     /* Figure out tmpsq coords we'll put in sq */
     if (W > 0)
@@ -1209,8 +1210,8 @@ sqascii_ReadWindow(ESL_SQFILE *sqfp, int C, int W, ESL_SQ *sq)
        sq->W          = 0;
        sq->n          = 0;
        sq->L          = tmpsq->L;
-       if (sq->dsq != NULL) sq->dsq[1] = eslDSQ_SENTINEL;
-       else                 sq->seq[0] = '\0';
+       if      (sq->dsq) sq->dsq[1] = eslDSQ_SENTINEL;
+       else if (sq->seq) sq->seq[0] = '\0';
 
        ascii->idx++;
        esl_sq_Destroy(tmpsq);

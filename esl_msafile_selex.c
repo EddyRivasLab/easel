@@ -491,7 +491,7 @@ selex_read_block(ESLX_MSAFILE *afp, ESL_SELEX_BLOCK **block_p)
 	   (esl_memstrpfx(afp->line, afp->n, "#") && ! esl_memstrpfx(afp->line, afp->n, "#=")));   /* a SELEX comment line       */
 
   /* if this is first block, allocate block; subsequent blocks reuse it */
-  if (!b && (b = selex_block_Create(16)) == NULL) goto ERROR; 
+  if (!b && (b = selex_block_Create(16)) == NULL) { status = eslEMEM; goto ERROR; }
   
   /* Anchor stably at this point. */
   b->anchor = afp->lineoffset;

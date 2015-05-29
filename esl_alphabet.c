@@ -117,8 +117,8 @@ esl_alphabet_CreateCustom(const char *alphabet, int K, int Kp)
   /* Allocation/init, level 2.
    */
   ESL_ALLOC(a->sym,    sizeof(char)   * (Kp+1));
-  ESL_ALLOC(a->degen,  sizeof(char *) * Kp);
   ESL_ALLOC(a->ndegen, sizeof(int)    * Kp);
+  ESL_ALLOC(a->degen,  sizeof(char *) * Kp);
   a->degen[0] = NULL;
 
   /* Allocation/init, level 3.
@@ -351,7 +351,7 @@ set_complementarity(ESL_ALPHABET *a)
 
   if (a->type != eslRNA && a->type != eslDNA)
     ESL_EXCEPTION(eslEINVAL, "alphabet isn't nucleic: no complementarity to set");
-  
+
   /* We will assume that Kp=18 and sym="ACGT-RYMKSWHBVDN*~" (or RNA equiv).
    * Bug #h108 happened because routine fell out of sync w/ a change in alphabet.
    * Don't let that happen again.
@@ -568,17 +568,18 @@ esl_alphabet_Sizeof(ESL_ALPHABET *a)
 void
 esl_alphabet_Destroy(ESL_ALPHABET *a)
 {
-  if (a == NULL) return;
-
-  if (a->sym      != NULL) free(a->sym);
-  if (a->ndegen   != NULL) free(a->ndegen);
-  if (a->degen    != NULL) 
+  if (a)
     {
-      if (a->degen[0] != NULL) free(a->degen[0]);
-      free(a->degen);
+      if (a->sym)    free(a->sym);
+      if (a->ndegen) free(a->ndegen);
+      if (a->degen)
+	{
+	  if (a->degen[0]) free(a->degen[0]);
+	  free(a->degen);
+	}
+      if (a->complement) free(a->complement);
+      free(a);
     }
-  if (a->complement != NULL) free(a->complement);
-  free(a);
 }
 /*--------------- end, ESL_ALPHABET object ----------------------*/
 

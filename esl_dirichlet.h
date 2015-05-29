@@ -46,13 +46,15 @@ extern int esl_dirichlet_LogProbProbs(double *p, double *alpha, int K,
 #ifdef eslAUGMENT_MINIMIZER
 #include "esl_minimizer.h"
 extern int esl_mixdchlet_Fit(double **c, int nc, ESL_MIXDCHLET *d, int be_verbose);
-
+#ifdef eslAUGMENT_RANDOM
+#include "esl_random.h"
+extern int esl_mixdchlet_Fit_Multipass(ESL_RANDOMNESS *rng, double **c, int nc, int reps, ESL_MIXDCHLET *best_md, int verbose);
+#endif /*eslAUGMENT_RANDOM*/
 #endif /*eslAUGMENT_MINIMIZER*/
 
 /* Optional sampling code, when augmented by random module.
  */
 #ifdef eslAUGMENT_RANDOM
-#include <esl_random.h>
 extern int esl_dirichlet_DSample(ESL_RANDOMNESS *r, double *alpha, int K, double *p);
 extern int esl_dirichlet_FSample(ESL_RANDOMNESS *r, float  *alpha, int K, float  *p);
 extern int esl_dirichlet_DSampleUniform(ESL_RANDOMNESS *r, int K, double *p);
@@ -64,7 +66,7 @@ extern int esl_dirichlet_SampleBeta(ESL_RANDOMNESS *r, double theta1,
 /* Optional file input code, when augmented by fileparser module
  */
 #ifdef eslAUGMENT_FILEPARSER
-#include <esl_fileparser.h>
+#include "esl_fileparser.h"
 extern int esl_mixdchlet_Read(ESL_FILEPARSER *efp,  ESL_MIXDCHLET **ret_pri);
 extern int esl_mixdchlet_Write(FILE *fp,  ESL_MIXDCHLET *d);
 #endif /*eslAUGMENT_FILEPARSER*/

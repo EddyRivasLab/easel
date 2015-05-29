@@ -626,7 +626,7 @@ stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
 
   seqidx = pd->si;
   if (seqidx == pd->nseq || ! esl_memstrcmp(seqname, seqnamelen, msa->sqname[seqidx])) {
-    status = stockholm_get_seqidx(msa, pd, seqname, seqnamelen, &seqidx);
+    stockholm_get_seqidx(msa, pd, seqname, seqnamelen, &seqidx);
   }
 
   if (esl_memstrcmp(tag, taglen, "WT")) 
@@ -635,7 +635,7 @@ stockholm_parse_gs(ESLX_MSAFILE *afp, ESL_STOCKHOLM_PARSEDATA *pd, ESL_MSA *msa,
       if (msa->wgt[seqidx] != -1.0)                          ESL_FAIL(eslEFORMAT, afp->errmsg, "sequence has more than one #=GS <seqname> WT line");
       if (n)                                                 ESL_FAIL(eslEFORMAT, afp->errmsg, "#=GS <seqname> WT line should have only one field, the weight");
       if (! esl_mem_IsReal(tok, toklen))                     ESL_FAIL(eslEFORMAT, afp->errmsg, "value on #=GS <seqname> WT line isn't a real number");
-      if ( esl_memtod(tok, toklen, &(msa->wgt[seqidx])))     return status; /* eslEMEM */
+      if ((status = esl_memtod(tok, toklen, &(msa->wgt[seqidx]))) != eslOK) return status; /* eslEMEM */
       msa->flags |= eslMSA_HASWGTS;
     }
   else if (esl_memstrcmp(tag, taglen, "AC"))

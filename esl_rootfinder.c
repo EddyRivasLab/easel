@@ -248,18 +248,18 @@ esl_root_Bisection(ESL_ROOTFINDER *R, double xl, double xr, double *ret_x)
   int    status;
   double xmag;
 
-  if ((status = esl_rootfinder_SetBrackets(R, xl, xr)) != eslOK) return status;
+  if ((status = esl_rootfinder_SetBrackets(R, xl, xr)) != eslOK) goto ERROR;
 
   while (1) {
     R->iter++;
-    if (R->iter > R->max_iter) ESL_EXCEPTION(eslENOHALT, "failed to converge in Bisection");
+    if (R->iter > R->max_iter) ESL_XEXCEPTION(eslENOHALT, "failed to converge in Bisection");
 
     /* Bisect and evaluate the function */
     R->x  = (R->xl+R->xr)/2.; 	          
     if (R->func != NULL) {
-      if ((status = (*R->func)(R->x, R->params, &(R->fx)))            != eslOK) return status;
+      if ((status = (*R->func)(R->x, R->params, &(R->fx)))            != eslOK) ESL_XEXCEPTION(status, "user-provided function failed");
     } else {
-      if ((status = (*R->fdf) (R->x, R->params, &(R->fx), &(R->dfx))) != eslOK) return status;
+      if ((status = (*R->fdf) (R->x, R->params, &(R->fx), &(R->dfx))) != eslOK) ESL_XEXCEPTION(status, "user-provided function failed");
     }
 
     /* Test for convergence */
@@ -279,6 +279,10 @@ esl_root_Bisection(ESL_ROOTFINDER *R, double xl, double xr, double *ret_x)
   
   *ret_x = R->x;
   return eslOK;
+
+ ERROR:
+  *ret_x = 0.0;
+  return status;
 }
 
 
@@ -371,6 +375,7 @@ static int quadratic_fdf(double x, void *params, double *ret_fx, double *ret_dfx
 static void
 utest_Bisection(void)
 {
+  char            msg[] = "esl_rootfinder:: bisection unit test failed";
   ESL_ROOTFINDER *R = NULL;
   struct polyparams p;
   double x;
@@ -380,14 +385,16 @@ utest_Bisection(void)
   p.b = 9.;
   p.c = -2.;
 
-  R = esl_rootfinder_Create(quadratic_f, &p);
-  esl_root_Bisection(R, 0., 100., &x); /* find the positive root, 0.2 */
-  if (fabs(x-0.2) > R->abs_tolerance) esl_fatal("didn't find root 0.2");
+   /* find the positive root, 0.2 */
+  if (( R = esl_rootfinder_Create(quadratic_f, &p) ) == NULL)  esl_fatal(msg);
+  if (  esl_root_Bisection(R, 0., 100., &x)          != eslOK) esl_fatal(msg);
+  if (  fabs(x-0.2) > R->abs_tolerance)                        esl_fatal(msg);
   esl_rootfinder_Destroy(R);
 
-  R = esl_rootfinder_CreateFDF(quadratic_fdf, &p);
-  esl_root_Bisection(R, -100., 0., &x); /* find the negative root, -2.0 */
-  if (fabs(x+2.) > R->abs_tolerance) esl_fatal("didn't find root -2");
+  /* find the negative root, -2.0 */
+  if (( R = esl_rootfinder_CreateFDF(quadratic_fdf, &p) ) == NULL)  esl_fatal(msg);
+  if (  esl_root_Bisection(R, -100., 0., &x)              != eslOK) esl_fatal(msg);
+  if (  fabs(x+2.) > R->abs_tolerance)                              esl_fatal(msg);
   esl_rootfinder_Destroy(R);
 }
 

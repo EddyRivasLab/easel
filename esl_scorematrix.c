@@ -66,7 +66,7 @@ esl_scorematrix_Create(const ESL_ALPHABET *abc)
   S->path       = NULL;
 
   ESL_ALLOC(S->s, sizeof(int *) * abc->Kp);
-  for (i = 0; i < abc->Kp; i++) S->s[i] = NULL;
+  S->s[0] = NULL;
   ESL_ALLOC(S->isval, sizeof(char) * abc->Kp);
   for (i = 0; i < abc->Kp; i++) S->isval[i] = FALSE;
   ESL_ALLOC(S->outorder, sizeof(char) * (abc->Kp+1));
@@ -800,6 +800,7 @@ esl_scorematrix_Set(const char *name, ESL_SCOREMATRIX *S)
         if (strcmp(ESL_SCOREMATRIX_AA_PRELOADS[which].name, name) == 0) break;
       if (which >= nmat) return eslENOTFOUND;
 
+      ESL_DASSERT1(( S->Kp >= 24 ));  // strcpy below is safe. The assertion tries to convince static analyzer of that.
       strcpy(S->outorder, "ARNDCQEGHILKMFPSTWYVBZX*"); 
       /* All standard PAM, BLOSUM matrices have same list of valid
        * residues. If that ever changes, make <outorder> a data elem in the
@@ -819,6 +820,7 @@ esl_scorematrix_Set(const char *name, ESL_SCOREMATRIX *S)
       if (strcmp(ESL_SCOREMATRIX_NT_PRELOADS[which].name, name) == 0) break;
     if (which >= nmat) return eslENOTFOUND;
 
+    ESL_DASSERT1(( S->Kp >= 15 ));  // strcpy below is safe. The assertion tries to convince static analyzer of that.
     strcpy(S->outorder, "ACGTRYMKSWHBVDN");
 
     /* Transfer scores from static built-in storage */
@@ -1252,12 +1254,13 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
    * f(lambda) is positive; else we may identify the root we don't want
    * at lambda=0.
    */
+  fx           = -1.0;
   lambda_guess = 1. / (double) esl_scorematrix_Max(S);
   for (; lambda_guess < 50.; lambda_guess *= 2.0) {
     lambda_fdf(lambda_guess, &p, &fx, &dfx);
     if (fx > 0) break;
   }
-  if (fx <= 0) ESL_EXCEPTION(eslEINVAL, "Failed to bracket root for solving lambda");
+  if (fx <= 0) ESL_XEXCEPTION(eslEINVAL, "Failed to bracket root for solving lambda");
 
   /* Create a solver and find lambda by Newton/Raphson */
   if ((    R   = esl_rootfinder_CreateFDF(lambda_fdf, &p) )         == NULL) { status = eslEMEM; goto ERROR; }
@@ -1274,17 +1277,15 @@ esl_scorematrix_ProbifyGivenBG(const ESL_SCOREMATRIX *S, const double *fi, const
     }
 
   esl_rootfinder_Destroy(R);
-  if (opt_lambda != NULL) *opt_lambda = lambda;
-  if (opt_P      != NULL) *opt_P      = P;  
+  if (opt_lambda) *opt_lambda = lambda;
+  if (opt_P)      *opt_P      = P;  
   return eslOK;
 
  ERROR:
-  if (R != NULL) esl_rootfinder_Destroy(R);
-  if (opt_lambda != NULL) *opt_lambda = 0.;
-  if (opt_P      != NULL) *opt_P      = NULL;
+  if (R)          esl_rootfinder_Destroy(R);
+  if (opt_lambda) *opt_lambda = 0.;
+  if (opt_P)      *opt_P      = NULL;
   return status;
-
-
 }
 
 
@@ -1509,11 +1510,15 @@ yualtschul_func(double lambda, void *params, double *ret_fx)
       M->mx[i][j] = exp(lambda * S->mx[i][j]);
 
   /* the Y matrix is the inverse of M */
-  if ((status = esl_dmx_Invert(M, Y)) != eslOK) return status;
+  if ((status = esl_dmx_Invert(M, Y)) != eslOK) goto ERROR;
 
   /* We're trying to find the root of \sum_ij Y_ij - 1 = 0 */
   *ret_fx = esl_dmx_Sum(Y) - 1.;
   return eslOK;
+
+ ERROR:
+  *ret_fx = 0.;
+  return status;
 }
 
 /* yualtschul_engine()
@@ -1539,7 +1544,7 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   struct yualtschul_params p;
   double lambda;
   double xl, xr;
-  double fx;
+  double fx  = -1.0;
   int    i,j;
 
   /* Set up a bisection method to find lambda */
@@ -1589,9 +1594,9 @@ yualtschul_engine(ESL_DMATRIX *S, ESL_DMATRIX *P, double *fi, double *fj, double
   return eslOK;
 
  ERROR:
-  if (p.M != NULL) esl_dmatrix_Destroy(p.M);
-  if (p.Y != NULL) esl_dmatrix_Destroy(p.Y);
-  if (R   != NULL) esl_rootfinder_Destroy(R);
+  if (p.M) esl_dmatrix_Destroy(p.M);
+  if (p.Y) esl_dmatrix_Destroy(p.Y);
+  if (R)   esl_rootfinder_Destroy(R);
   return status;
 }
 
@@ -1805,6 +1810,7 @@ main(int argc, char **argv)
     {
       FILE *ofp = NULL;
       if ( (ofp = fopen(mfile, "w")) == NULL) esl_fatal("failed to open %s for writing scorematrix", mfile);
+      ESL_DASSERT1(( S0->Kp >= 20 ));   // the strcpy below is fine. The assertion tries to convince static analyzers of that.
       strcpy(S0->outorder, "ARNDCQEGHILKMFPSTWYV");
       esl_scorematrix_Write(ofp, S0);
       fclose(ofp);

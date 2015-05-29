@@ -118,6 +118,7 @@ main(int argc, char **argv)
   mu          = esl_opt_GetReal   (go, "--mu");
   alpha       = esl_opt_GetReal   (go, "--alpha");
 
+  ESL_DASSERT1(( which_field >= 1 ));
 
   if (esl_opt_ArgNumber(go) != 1) 
     {

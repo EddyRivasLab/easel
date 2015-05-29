@@ -927,7 +927,7 @@ esl_histogram_Write(FILE *fp, ESL_HISTOGRAM *h)
   if (highcount > maxbar) maxbar = highcount;
 
   if (maxbar > 0) units = ((maxbar-1)/ 58) + 1;
-  else            units = 0;	                 /* watch out for an empty histogram w/ no data points. */
+  else            units = 1;	                 /* watch out for an empty histogram w/ no data points. */
 
   /* Print the histogram header
    */
@@ -1322,6 +1322,7 @@ esl_histogram_Goodness(ESL_HISTOGRAM *h,
 	i++;
       }
     }
+  if (i == 0) { status = eslENORESULT; goto ERROR; }
   obs[i-1]  += nobs;		/* add the right tail to final bin */
   exp[i-1]  += nexp;
   topx[i-1]  = esl_histogram_Bin2UBound(h, h->imax);

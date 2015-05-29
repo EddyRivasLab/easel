@@ -1,50 +1,72 @@
 # Process this file with autoconf to produce the Easel configuration script.
 # 
 # reminders to save re-reading autoconf manual for the n'th time:
-#   - output variables:
-#        are defined here as normal shell variables, e.g. FOO="my string"
-#        are made into output variables by calling AC_SUBST(FOO)
-#        any occurrence of @FOO@ in an output file is then substituted
-#        I think this only happens in files we assign w/ AC_CONFIG_FILES;
-#        that's the Makefile.in's.
+#   output variables:
+#      - are defined here as normal shell variables, e.g. FOO="my string"
+#      - are made into output variables by calling AC_SUBST(FOO)
+#      - any occurrence of @FOO@ in an output file is then substituted
+#        This only happens in files we assign w/ AC_CONFIG_FILES;
+#        such as our Makefile.in's, for example.
 #
-#   - C preprocessor symbols:
-#        are defined here by calling AC_DEFINE(FOO) or AC_DEFINE(FOO, [42])
-#        then #undef FOO lines in easel.h.in become #define FOO or #define FOO 42
-#        I think this only happens in header files that we assign
-#        w/ AC_CONFIG_HEADERS -- which means, easel.h.in
+#   C preprocessor symbols:
+#      - are defined here by calling AC_DEFINE(FOO) or AC_DEFINE(FOO, [42])
+#      - then #undef FOO lines in easel.h.in become #define FOO or #define FOO 42
+#        This only happens in header files that we assign
+#        w/ AC_CONFIG_HEADERS, such as easel.h.in
 #
-# SRE, Mon Feb 14 10:51:07 2005
-# SVN $Id$
-#
-# xref autoconf macro archive at:  http://www.gnu.org/software/ac-archive/
-#
-# GNU recommends the following order:
+# Contents:
 #   1. autoconf requirements
 #   2. AC_INIT
 #   3. info on the package
-#   4. checks for programs
-#   5. checks for libraries
-#   6. checks for header files
-#   7. checks for types
-#   8. checks for structures
-#   9. checks for compiler characteristics
-#  10. checks for library functions
+#   4. process ./configure commandline options
+#   5. checks for programs, including ${CC}, ${CFLAGS}
+#   6. checks for libraries
+#   7. checks for header files
+#   8. checks for types
+#   9. checks for structures
+#  10. checks for compiler characteristics
+#  11. checks for library functions
 #  11. checks for system services
 #  12. AC_CONFIG_FILES
 #  13. AC_OUTPUT
-
-
-# AC_INIT information
 #
-# The four AC_INIT args set the following output variables and preprocessor 
+# Order obeys autoconf manual, "standard configure.ac layout".
+
+
+
+################################################################
+# 1. autoconf requirements
+################################################################
+# autoconf 2.61 has a bug in AC_FUNC_FSEEKO; make sure we don't use it.
+AC_PREREQ(2.63)
+
+
+
+################################################################
+# 2. AC_INIT
+################################################################
+AC_INIT(Easel, 0.2dev, sean@eddylab.org, easel)
+AC_MSG_NOTICE([Configuring the Easel library for your system.])
+
+# remember if the user is overriding CFLAGS
+if test x"$CFLAGS" = x; then 
+  sre_cflags_env_set=no
+else
+  sre_cflags_env_set=yes
+fi
+
+################################################################
+# 3. Info on the package
+################################################################
+#
+# The four AC_INIT args above set the following output variables and preprocessor 
 # symbols:
 #     PACKAGE_NAME      <package>     e.g. "Easel"                      
-#     PACKAGE_VERSION   <version>     e.g. "0.1"
-#     PACKAGE_BUGREPORT <bug-report>  e.g. "eddys@janelia.hhmi.org"
+#     PACKAGE_VERSION   <version>     e.g. "0.2"
+#     PACKAGE_BUGREPORT <bug-report>  e.g. "sean@eddylab.org"
 #     PACKAGE_TARNAME   <tarname>     e.g. "easel"
 # From them, AC_INIT automatically derives one more:
-#     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.1"
+#     PACKAGE_STRING    <package> <version>, e.g. "Easel 0.2"
 # Then we define some of our own:
 #     EASEL_DATE        release date: e.g. "February 2005"
 #     EASEL_COPYRIGHT   one-line copyright string
@@ -61,22 +83,9 @@
 # new preprocessor symbol of our own:
 #     EASEL_VERSION    e.g. "1.9a"
 #
-AC_PREREQ(2.60)
-#AC_INIT(Easel, 0.1.snap20080611, eddys@janelia.hhmi.org, easel)
-AC_INIT(Easel, 0.2.snap20130225, eddys@janelia.hhmi.org, easel)
-AC_MSG_NOTICE([Configuring the Easel library for your system.])
 
-# remember if the user is overriding CFLAGS
-if test x"$CFLAGS" = x; then 
-  sre_cflags_env_set=no
-fi
-
-################################################################
-# 3. Info on the package
-################################################################
-
-EASEL_DATE="September 2014"
-EASEL_COPYRIGHT="Copyright (C) 2014 Howard Hughes Medical Institute"
+EASEL_DATE="Apr 2015"
+EASEL_COPYRIGHT="Copyright (C) 2015 Howard Hughes Medical Institute"
 EASEL_LICENSE="Freely distributed under the BSD open source license."
 EASEL_VERSION=$PACKAGE_VERSION
 EASEL_URL="http://bioeasel.org/"
@@ -109,8 +118,7 @@ AC_CANONICAL_HOST
 
 
 ################################################################
-# 3b. ./configure command line options, for optional config
-#     of the package
+# 4. Process ./configure command line options
 ################################################################
 
 # --enable-modular       - configure for use of standalone modules
@@ -205,24 +213,32 @@ AC_ARG_ENABLE(mpi,[AS_HELP_STRING([--enable-mpi],[enable MPI parallelization])],
 
 
 ################################################################
-# 4. Checks for programs
+# 5. Checks for programs, including ${CC} and its ${CFLAGS}
 ################################################################
 
 AC_PROG_CC
 AC_PROG_INSTALL
-# MPI :  set @CC@ to mpicc, sets @MPILIBS@, defines HAVE_MPI. 
+# MPI :  set @CC@ to mpicc;
+#        set @MPILIBS@ if needed (usually not; mpicc deals w/ it);
+#        defines HAVE_MPI. 
 if test "$enable_mpi" = "yes"; then
    ACX_MPI(,AC_MSG_ERROR([MPI library not found for --enable-mpi]))
    CC=$MPICC
 fi
 AC_PROG_CPP
-AX_COMPILER_VENDOR
+
 # AC_PROG_CC_STDC wants to append -c99 to icc; icc doesn't like this.
+# To autodetect icc, we use the AX_COMPILER_VENDOR macro.
+AX_COMPILER_VENDOR
 if test "$ax_cv_c_compiler_vendor" != "intel"; then
   AC_PROG_CC_STDC
 fi
+
 AC_PROG_RANLIB
 AC_PATH_PROG([AR],       [ar],       [:], [$PATH:/usr/ccs/bin:/usr/xpg4/bin])
+
+# CHECK_GNU_MAKE sets EXEC_DEPENDENCY for SYSV vs. GNU make,
+# to support Makefile lines of ${PROGS}: ${EXEC_DEPENDENCY}
 CHECK_GNU_MAKE
 
 # --enable-xlc-arch  Set the code generation for a particular architecture
@@ -250,18 +266,7 @@ elif test "$enable_debugging" != "no"; then
       CFLAGS="-g -Wall"
    fi
 else
-   sre_save_ac_test_cflags="$ac_test_CFLAGS"
-   if test "$sre_cflags_env_set" = "no"; then
-     ac_test_CFLAGS=""
-   fi
-   AX_CC_MAXOPT
-   ac_test_CFLAGS="$sre_save_ac_test_cflags"
-   # That was a workaround. AX_CC_MAXOPT apparently thinks that
-   # $ac_test_CFLAGS only gets set if ${CFLAGS} was set by the
-   # user (in the environment), but that's not so; it gets set
-   # by AC_PROG_CC. Instead of rewriting AX_CC_MAXOPT, we fool
-   # it.
-fi
+   CFLAGS="-O3"
 fi
 
 # Figure out how to generate PIC code for shared libraries
@@ -372,7 +377,10 @@ else
   AC_DEFINE(HAVE_GZIP)
 fi
 
-# 5. Checks for libraries.
+
+################################################################
+# 6. Checks for libraries
+#################################################################
 LIBGSL=
 AS_IF([test "x$with_gsl" != xno],
       [AC_CHECK_LIB([gsl], [gsl_expm1], 
@@ -387,7 +395,11 @@ AS_IF([test "x$with_gsl" != xno],
            [-lgslcblas]
         )])
 
-# 6. Checks for header files.
+
+
+################################################################
+# 7. Checks for headers
+################################################################
 #    Defines preprocessor symbols like HAVE_UNISTD_H
 AC_CHECK_HEADERS([\
   endian.h \
@@ -434,8 +446,9 @@ if test "$enable_vmx" = "yes"; then
 fi
 
 
-
-# 7. Checks for types.
+################################################################
+# 8. Checks for types
+################################################################
 #    - Define WORDS_BIGENDIAN on bigendian platforms.
 #    - Make sure we have C99 exact-size integer types; 
 #      ssi uses 16, 32, and 64-bit ints, and we
@@ -453,10 +466,30 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_OFF_T
 
-# 8. Checks for structures - none
+################################################################
+# 9. Checks for structures - currently none
+#################################################################
+
 
 ################################################################
-# 10. Checks for library functions: define HAVE_FOO
+# 10. Checks for compiler characteristics
+#################################################################
+
+# __attribute__() tags on function declarations
+# HAVE_FUNC_ATTRIBUTE_NORETURN 
+#
+#   The clang static analyzer can't figure out that some of our
+#   varargs-dependent fatal error handlers (esl_fatal(), for example)
+#   cannot return. To tell it so, we take advantage of __attribute__
+#   tags on function declarations, a non-ISO gcc extension, when
+#   available. gcc, clang, and other gcc-like compilers support this.
+# 
+AX_GCC_FUNC_ATTRIBUTE(noreturn)
+
+
+
+################################################################
+# 11. Checks for library functions: define HAVE_FOO
 ################################################################
 
 AC_CHECK_FUNCS(mkstemp)
@@ -472,12 +505,21 @@ AC_CHECK_FUNCS(chmod)
 AC_CHECK_FUNCS(stat)
 AC_CHECK_FUNCS(fstat)
 AC_CHECK_FUNCS(erfc)
+
+AC_CHECK_FUNCS(ntohs, , AC_CHECK_LIB(socket, ntohs))
+AC_CHECK_FUNCS(ntohl, , AC_CHECK_LIB(socket, ntohl))
+AC_CHECK_FUNCS(htons, , AC_CHECK_LIB(socket, htons))
+AC_CHECK_FUNCS(htonl, , AC_CHECK_LIB(socket, htonl))
 AC_FUNC_FSEEKO
 
-# 11. Checks for system services 
+#################################################################
+# 12. System services
+#################################################################
 AC_SYS_LARGEFILE
 
-# 12. Write out esl_config.h header and the Makefiles
+#################################################################
+# 13. Write out esl_config.h header and the Makefiles
+#################################################################
 AC_CONFIG_HEADERS([esl_config.h])
 AC_CONFIG_FILES([miniapps/Makefile])
 AC_CONFIG_FILES([testsuite/Makefile])
@@ -488,7 +530,9 @@ fi
 AC_CONFIG_FILES([documentation/Makefile])
 
 
-# 13. voila!
+#################################################################
+# 14. et voila!
+#################################################################
 AC_OUTPUT
 
 
@@ -500,3 +544,11 @@ Easel configuration:
      host:        $host
      libraries:   ${LIBS} ${LIBGSL} ${PTHREAD_LIBS}
 "
+
+
+#################################################################
+# @LICENSE@
+# 
+# SVN $Id$
+# SVN $URL$
+#################################################################
