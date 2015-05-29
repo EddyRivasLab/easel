@@ -14,13 +14,14 @@
 static ESL_OPTIONS options[] = {
   /* name           type        default  env  range toggles reqs incomp  help                                          docgroup*/
   { "-h",         eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, NULL,  "show brief help on version and usage",             0 },
+  { "-l",         eslARG_INT,      "20", NULL, NULL, NULL,  NULL, NULL,  "minimum ORF length",                               0 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,  NULL, NULL,  "specify that input file is in format <s>",         0 },
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 static char usage[]  = "[-options] <nucleicseqfile>";
 static char banner[] = "six-frame translation of nucleic acid seq to ORFs";
 
-static int output_orf(FILE *outfp, int outformat, ESL_SQ *psq, int *upd_orfcounter);
+static int output_orf(ESL_GETOPTS *go, FILE *outfp, int outformat, ESL_SQ *psq, int *upd_orfcounter);
 
 int
 main(int argc, char **argv)
@@ -88,7 +89,7 @@ main(int argc, char **argv)
 	      if (in_orf[frame])
 		{ 
 		  psq[frame]->end = (windowsize > 0 ? apos-1 : apos+1);
-		  output_orf(outfp, outformat, psq[frame], &orfcounter); 
+		  output_orf(go, outfp, outformat, psq[frame], &orfcounter); 
 		}
 	      frame = (frame+1)%3;
 	      apos  = (windowsize > 0 ? apos+1 : apos-1);
@@ -154,7 +155,7 @@ main(int argc, char **argv)
 	    {
 	      psq[frame]->end = (windowsize > 0 ? apos-4 : apos+4);     // stop codon itself doesn't count in coords.
 	      if (in_orf[frame])
-		output_orf(outfp, outformat, psq[frame], &orfcounter);  // orfcounter is bumped +1 by the call, and psq[frame] is Reuse'd.
+		output_orf(go, outfp, outformat, psq[frame], &orfcounter);  // orfcounter is bumped +1 by the call, and psq[frame] is Reuse'd.
 	      in_orf[frame] = FALSE;
 	    }
 
@@ -187,14 +188,19 @@ main(int argc, char **argv)
 
 
 static int
-output_orf(FILE *outfp, int outformat, ESL_SQ *psq, int *upd_orfcounter)
+output_orf(ESL_GETOPTS *go, FILE *outfp, int outformat, ESL_SQ *psq, int *upd_orfcounter)
 {
-  *upd_orfcounter = (*upd_orfcounter)+1;
-  esl_sq_Grow(psq, /*opt_nsafe=*/NULL);   // Make sure we have room for the sentinel
-  psq->dsq[1+psq->n] = eslDSQ_SENTINEL;   
-  esl_sq_FormatName(psq, "orf%d", *upd_orfcounter);
-  esl_sq_FormatDesc(psq, "source=%s coords=%d..%d length=%d", psq->source, psq->start, psq->end, psq->n);
-  esl_sqio_Write(outfp, psq, outformat, /*sq ssi offset update=*/FALSE);
+  int minlen = esl_opt_GetInteger(go, "-l");
+
+  if (psq->n >= minlen)
+    {
+      *upd_orfcounter = (*upd_orfcounter)+1;
+      esl_sq_Grow(psq, /*opt_nsafe=*/NULL);   // Make sure we have room for the sentinel
+      psq->dsq[1+psq->n] = eslDSQ_SENTINEL;   
+      esl_sq_FormatName(psq, "orf%d", *upd_orfcounter);
+      esl_sq_FormatDesc(psq, "source=%s coords=%d..%d length=%d", psq->source, psq->start, psq->end, psq->n);
+      esl_sqio_Write(outfp, psq, outformat, /*sq ssi offset update=*/FALSE);
+    }
   esl_sq_Reuse(psq);
   return eslOK;
 }
