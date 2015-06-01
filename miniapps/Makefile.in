@@ -63,6 +63,7 @@ PROGS = esl-afetch\
 	esl-sfetch\
 	esl-shuffle\
 	esl-ssdraw\
+	esl-stranslate\
         esl-translate\
 	esl-weight
 
@@ -87,6 +88,7 @@ PROGOBJS =\
 	esl-sfetch.o\
 	esl-shuffle.o\
 	esl-ssdraw.o\
+        esl-stranslate.o\
         esl-translate.o\
 	esl-weight.o
 

@@ -3,7 +3,7 @@
  * Table of contents:
  *   1. NCBI genetic code tables, in Easel digital form
  *   2. ESL_GENCODE object
- *   3. Parsing NCBI genetic code data 
+ *   3. Parsing NCBI genetic code data from external files
  *   4. Debugging/development utilities
  *   5. Examples
  *   6. Copyright and license
@@ -32,99 +32,99 @@
  * The NCBI page has useful information about these code tables, references and caveats.
  */
 
-static const ESL_GENCODE ncbi_trans_tables[] = {
-  { 1, "standard",
+static const ESL_GENCODE esl_transl_tables[] = {
+  { 1, "Standard",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
     NULL, NULL },
   
-  { 2, "vertebrate mitochondrial",
+  { 2, "Vertebrate mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 27, 15, 27, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   *   S   *   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 3, "yeast mitochondrial",
+  { 3, "Yeast mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14, 16, 16, 16, 16,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   T   T   T   T   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 4, "mold, protozoan, coelenterate mitochondrial; Mycoplasma/Spiroplasma",
+  { 4, "Mold, protozoan, coelenterate mitochondrial; Mycoplasma/Spiroplasma",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 5, "invertebrate mitochondrial",
+  { 5, "Invertebrate mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
   /*   K   N   K   N   T   T   T   T   S   S   S   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
   
-  { 6, "ciliate, dasycladacean, Hexamita nuclear",
+  { 6, "Ciliate, dasycladacean, Hexamita nuclear",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 13, 19, 13, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   Q   Y   Q   Y   S   S   S   S   *   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 9, "echinoderm and flatworm mitochondrial",
+  { 9, "Echinoderm and flatworm mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   N   N   K   N   T   T   T   T   S   S   S   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 10, "euplotid nuclear",
+  { 10, "Euplotid nuclear",
    /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15,  1,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   C   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 11, "bacterial, archaeal, and plant plastid",
+  { 11, "Bacterial, archaeal; and plant plastid",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 12, "alternative yeast", 
+  { 12, "Alternative yeast", 
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9, 15,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   S   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   *   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 13, "ascidian mitochondrial", 
+  { 13, "Ascidian mitochondrial", 
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16,  5, 15,  5, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
   /*   K   N   K   N   T   T   T   T   G   S   G   S   M   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 14, "alternative flatworm mitochondrial",
+  { 14, "Alternative flatworm mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 19, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   N   N   K   N   T   T   T   T   S   S   S   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   Y   Y   *   Y   S   S   S   S   W   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 16, "chlorophycean mitochondrial",
+  { 16, "Chlorophycean mitochondrial",
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     {  8, 11,  8, 11, 16, 16, 16, 16, 14, 15, 14, 15,  7,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19,  9, 19, 15, 15, 15, 15, 27,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
   /*   K   N   K   N   T   T   T   T   R   S   R   S   I   I   M   I   Q   H   Q   H   P   P   P   P   R   R   R   R   L   L   L   L   E   D   E   D   A   A   A   A   G   G   G   G   V   V   V   V   *   Y   L   Y   S   S   S   S   *   C   W   C   L   F   L   F */
     NULL, NULL },
 
-  { 21, "trematode mitochondrial", 
+  { 21, "Trematode mitochondrial", 
   /* AAA AAC AAG AAT ACA ACC ACG ACT AGA AGC AGG AGT ATA ATC ATG ATT CAA CAC CAG CAT CCA CCC CCG CCT CGA CGC CGG CGT CTA CTC CTG CTT GAA GAC GAG GAT GCA GCC GCG GCT GGA GGC GGG GGT GTA GTC GTG GTT TAA TAC TAG TAT TCA TCC TCG TCT TGA TGC TGG TGT TTA TTC TTG TTT */
     { 11, 11,  8, 11, 16, 16, 16, 16, 15, 15, 15, 15, 10,  7, 10,  7, 13,  6, 13,  6, 12, 12, 12, 12, 14, 14, 14, 14,  9,  9,  9,  9,  3,  2,  3,  2,  0,  0,  0,  0,  5,  5,  5,  5, 17, 17, 17, 17, 27, 19, 27, 19, 15, 15, 15, 15, 18,  1, 18,  1,  9,  4,  9,  4 },
     {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
@@ -170,22 +170,13 @@ ESL_GENCODE *
 esl_gencode_Create(ESL_ALPHABET *nt_abc, ESL_ALPHABET *aa_abc)
 {
   ESL_GENCODE *gcode = NULL;
-  int digicodon;
   int status;
 
   ESL_ALLOC(gcode, sizeof(ESL_GENCODE));
 
-  /* Default = standard code (NCBI trans table 1) */
-  ESL_DASSERT1((  ncbi_trans_tables[0].trans_table == 1 ));
-  gcode->trans_table =  ncbi_trans_tables[0].trans_table;
-  strcpy(gcode->desc,   ncbi_trans_tables[0].desc);
-  for (digicodon = 0; digicodon < 64; digicodon++)
-    {
-      gcode->basic[digicodon]        = ncbi_trans_tables[0].basic[digicodon];
-      gcode->is_initiator[digicodon] = ncbi_trans_tables[0].is_initiator[digicodon];
-    }
-  gcode->nt_abc = nt_abc;  // Keep a reference to the nucleic alphabet; caller remains responsible for it
-  gcode->aa_abc = aa_abc;  //  ditto for amino alphabet
+  gcode->nt_abc = nt_abc;      // Keep a reference to the nucleic alphabet; caller remains responsible for it
+  gcode->aa_abc = aa_abc;      //  ditto for amino alphabet
+  esl_gencode_Set(gcode, 1);   // Default = standard code (NCBI trans table 1) 
   return gcode;
 
  ERROR:
@@ -200,6 +191,113 @@ esl_gencode_Destroy(ESL_GENCODE *gcode)
   if (gcode)
     free(gcode);
 }
+
+/* Function:  esl_gencode_Set()
+ * Synopsis:  Set one of the NCBI standard genetic codes
+ *
+ * Purpose:   Set <gcode> to use one of the standard NCBI genetic code tables,
+ *            using the NCBI identifier <ncbi_transl_table>. 
+ *            
+ *            <ncbi_transl_table> is an integer from 1..25 (not all of
+ *            which are valid). For example, 1 is the standard code,
+ *            and 6 is the ciliate nuclear code.
+ *            
+ *            The alphabets in <gcode> must be standard Easel
+ *            alphabets: <eslAMINO> for <aa_abc> and either <eslDNA>
+ *            or <eslRNA> for <nt_abc>. This is because <_Set()>
+ *            simply copies precomputed digitized data for the
+ *            appropriate genetic code, and that precomputation is
+ *            done with the standard Easel digital alphabets.  If the
+ *            <aa_abc> and <nt_abc> alphabet reference ptrs in <gcode>
+ *            are set (and this is recommended, but not necessary)
+ *            they're used to verify that the alphabets are Easel
+ *            standard ones.
+ *
+ * Returns:   <eslOK> on success.
+ *            <eslENOTFOUND> if the <ncbi_transl_table> code is not 
+ *            in our available table of genetic codes.
+ *
+ * Throws:    <eslEINVAL> if either of the alphabets in <gcode> are 
+ *            nonstandard.
+ */
+int
+esl_gencode_Set(ESL_GENCODE *gcode,  int ncbi_transl_table)
+{
+  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE);
+  int t, c;
+  
+  if (gcode->nt_abc && (gcode->nt_abc->type != eslDNA && gcode->nt_abc->type != eslRNA))
+    ESL_EXCEPTION(eslEINVAL, "NCBI translation tables are precomputed using Easel standard alphabets; your nucleic alphabet is nonstandard");
+  if (gcode->aa_abc && gcode->aa_abc->type != eslAMINO)
+    ESL_EXCEPTION(eslEINVAL, "NCBI translation tables are precomputed using Easel standard alphabets; your amino alphabet is nonstandard");
+
+  for (t = 0; t < ntables; t++)
+    if ( esl_transl_tables[t].transl_table == ncbi_transl_table) break;
+  if (t == ntables) return eslENOTFOUND;
+  
+  gcode->transl_table = esl_transl_tables[t].transl_table;
+  strcpy(gcode->desc, esl_transl_tables[t].desc);
+  for (c = 0; c < 64; c++)
+    {
+      gcode->basic[c] = esl_transl_tables[t].basic[c];
+      gcode->is_initiator[c] = esl_transl_tables[t].is_initiator[c];
+    }
+  return eslOK;
+}
+
+
+/* Function:  esl_gencode_SetInitiatorAny()
+ * Synopsis:  Set initiator field so ORFs can start with any aa
+ *
+ * Purpose:   Set <gcode> to allow ORFs to start with any amino acid, as
+ *            opposed to looking for initiation codons.
+ *            
+ *            We do this by overwriting the <is_initiator> field to be
+ *            TRUE for all codons except terminators. Because we
+ *            overwrite, the only way to revert a genetic code to use
+ *            its official set of initiators is to reinitialize it
+ *            completely.
+ *
+ * Returns:   <eslOK> on success.
+ *
+ * Throws:    (no abnormal error conditions)
+ */
+int
+esl_gencode_SetInitiatorAny(ESL_GENCODE *gcode)
+{
+  int c; 	
+  for (c = 0; c < 64; c++)
+    gcode->is_initiator[c] = (esl_abc_XIsCanonical(gcode->aa_abc, gcode->basic[c]) ? TRUE : FALSE);
+  return eslOK;
+}
+
+
+/* Function:  esl_gencode_SetInitiatorOnlyAUG
+ * Synopsis:  Set initiator field so ORFs must start with AUG
+ *
+ * Purpose:   Set <gcode> so that ORFs can only start with AUG, as opposed
+ *            to using the possibly larger set of plausible initiator codons
+ *            associated with the standard NCBI genetic codes. (For example,
+ *            the standard code 1 allows ATG, CTG, and UUG initiators.)
+ *            
+ *            We do this by overwriting the <is_initiator> field to be TRUE
+ *            only for the ATG codon.
+ *
+ * Returns:   <eslOK> on success.
+ */
+int
+esl_gencode_SetInitiatorOnlyAUG(ESL_GENCODE *gcode)
+{
+  int c;
+  int atgcodon = 16 * esl_abc_DigitizeSymbol(gcode->nt_abc, 'A') +
+                  4 * esl_abc_DigitizeSymbol(gcode->nt_abc, 'T') +
+                      esl_abc_DigitizeSymbol(gcode->nt_abc, 'G');
+
+  for (c = 0; c < 64; c++) gcode->is_initiator[c] = FALSE;
+  gcode->is_initiator[atgcodon] = TRUE;
+  return eslOK;
+}
+  
 
 
 /*****************************************************************
@@ -336,7 +434,7 @@ esl_gencode_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *nucleic_abc, ESL_ALPHABET *a
 
   
   esl_regexp_Destroy(mach);
-  gcode->trans_table = -1;          // It was initialized to 1, the NCBI standard table; reset
+  gcode->transl_table = -1;         // It was initialized to 1, the NCBI standard table; reset
   gcode->desc[0]     = '\0';        // Was initialized to desc of NCBI table 1; blank it
   gcode->nt_abc      = nucleic_abc;
   gcode->aa_abc      = amino_abc;
@@ -357,6 +455,9 @@ esl_gencode_Read(ESL_FILEPARSER *efp, ESL_ALPHABET *nucleic_abc, ESL_ALPHABET *a
 
 
 /* Translate the digital codon dsq[0..2] */
+/* TODO: This should be a Get because it directly returns.
+ * TODO: Document why it directly returns. Can it not fail?
+ */
 int
 esl_gencode_TranslateCodon(ESL_GENCODE *gcode, ESL_DSQ *dsq)
 {
@@ -408,6 +509,22 @@ esl_gencode_DecodeDigicodon(ESL_GENCODE *gcode, int digicodon, char *codon)
   codon[3] = '\0';
   return codon;
 }
+
+
+int
+esl_gencode_DumpCodeOptions(FILE *ofp)
+{
+  int ntables = sizeof(esl_transl_tables) / sizeof(ESL_GENCODE);
+  int t;
+
+  fprintf(ofp, "id  description\n");
+  fprintf(ofp, "--- -----------------------------------\n");
+  for (t = 0; t < ntables; t++)
+    fprintf(ofp, "%3d %s\n", esl_transl_tables[t].transl_table, esl_transl_tables[t].desc);
+  return eslOK;
+}
+  
+
 
 
 
