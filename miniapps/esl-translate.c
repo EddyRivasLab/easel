@@ -10,6 +10,301 @@
 #include "esl_sq.h"
 #include "esl_sqio.h"
 
+/*****************************************************************
+ * 1. A stateful structure, workstate_s, to support both ReadSeq and ReadWindow()
+ *****************************************************************/
+
+/* struct workstate_s 
+ *   keeps state in DNA sequence <sq>, allowing us to process a sequence
+ *   either in a single gulp (using ReadSeq) or in overlapping windows 
+ *   (using ReadWindow).
+ *
+ *   also contains one-time configuration information
+ */
+struct workstate_s {
+  /* stateful info (which may get updated with each new seq, strand, and/or window): */
+  ESL_SQ *psq[3];     // Growing ORFs in each frame
+  int8_t  in_orf[3];  // TRUE|FALSE: TRUE if we're growing an ORF in this frame
+  int     apos;       // 1..L:  current nucleotide we're on (starting a codon) in <sq>
+  int     frame;      // 0..2:  which frame <apos> is in
+  int     codon;      // 0..63: Digitized codon for apos,apos+1,apos+2
+  int     inval;      // 0..3:  how many apos increments we need to get past an ambiguous nucleotide
+  int     is_revcomp; // TRUE|FALSE: TRUE if we're doing reverse complement strand
+  int     orfcount;   // >=0:   How many ORFs we've processed so far
+
+  /* one-time configuration information (from options) */
+  int     do_watson;         // TRUE|FALSE:  TRUE if we translate the top strand
+  int     do_crick;          // TRUE|FALSE:  TRUE if we translate the reverse complement strand
+  int     using_initiators;  // TRUE|FALSE : TRUE if -m or -M, only valid initiators can start an ORF, and initiator codon always translates to Met
+  int     minlen;            // >=0: minimum orf length that process_orf will deal with
+  FILE   *outfp;             // default stdout: where to write output ORF data
+  int     outformat;         // default eslSQFILE_FASTA: sqfile format to write ORFs in
+};
+
+static void
+workstate_destroy(struct workstate_s *wrk)
+{
+  int f;
+  if (wrk)
+    {
+      for (f = 0; f < 3; f++) esl_sq_Destroy(wrk->psq[f]);
+      free(wrk);
+    }
+}
+
+static struct workstate_s *
+workstate_create(ESL_GETOPTS *go, ESL_GENCODE *gcode)
+{
+  struct workstate_s *wrk = NULL;
+  int    f;
+  int    status;
+
+  ESL_ALLOC(wrk, sizeof(struct workstate_s));
+  for (f = 0; f < 3; f++) wrk->psq[f] = NULL;
+
+  for (f = 0; f < 3; f++)
+    {
+      wrk->psq[f]         = esl_sq_CreateDigital(gcode->aa_abc);
+      wrk->psq[f]->dsq[0] = eslDSQ_SENTINEL;
+      wrk->in_orf[f]      = FALSE;
+    }
+
+  wrk->apos             = 1;
+  wrk->frame            = 0;
+  wrk->codon            = 0;
+  wrk->inval            = 0;
+  wrk->is_revcomp       = FALSE;
+  wrk->orfcount         = 0;
+
+  wrk->do_watson        = (esl_opt_GetBoolean(go, "--crick")  ? FALSE : TRUE);
+  wrk->do_crick         = (esl_opt_GetBoolean(go, "--watson") ? FALSE : TRUE);
+  wrk->using_initiators = ((esl_opt_GetBoolean(go, "-m") || esl_opt_GetBoolean(go, "-M")) ? TRUE : FALSE);
+  wrk->minlen           = esl_opt_GetInteger(go, "-l");
+  wrk->outfp            = stdout;
+  wrk->outformat        = eslSQFILE_FASTA;
+
+  return wrk;
+
+ ERROR:
+  workstate_destroy(wrk);
+  return NULL;
+}
+
+
+
+
+/*****************************************************************
+ * 2. Components shared by the two styles, full or windowed reads
+ *****************************************************************/
+
+static int
+process_orf(struct workstate_s *wrk, ESL_SQ *sq)
+{
+  ESL_SQ *psq = wrk->psq[wrk->frame];
+
+  psq->end = (wrk->is_revcomp ? wrk->apos+1 : wrk->apos-1);
+
+  if (wrk->in_orf[wrk->frame] && psq->n >= wrk->minlen)
+    {
+      wrk->orfcount++;
+      esl_sq_Grow(psq, /*opt_nsafe=*/NULL);
+      psq->dsq[1+psq->n] = eslDSQ_SENTINEL;
+      
+      esl_sq_FormatName(psq, "orf%d", wrk->orfcount);
+      esl_sq_FormatDesc(psq, "source=%s coords=%d..%d length=%d frame=%d  %s", psq->source, psq->start, psq->end, psq->n, wrk->frame + 1 + (wrk->is_revcomp ? 3 : 0), sq->desc);
+      esl_sqio_Write(wrk->outfp, psq, wrk->outformat, /*sq ssi offset update=*/FALSE);
+    }
+
+  esl_sq_Reuse(psq);
+  esl_sq_SetSource(psq, sq->name);
+  wrk->in_orf[wrk->frame] = FALSE;
+  return eslOK;
+}
+
+static void
+process_start(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQ *sq)
+{
+  int f;
+
+  ESL_DASSERT1(( sq->n >= 3 ));     
+
+  for (f = 0; f < 3; f++)
+    {
+      esl_sq_SetSource(wrk->psq[f], sq->name);
+      wrk->in_orf[f] = FALSE;
+    }
+  wrk->frame      = 0;
+  wrk->codon      = 0;
+  wrk->inval      = 0;
+  wrk->is_revcomp = (sq->end > sq->start ? FALSE : TRUE  );   // this test fails for seqs of length 1, but we know that L>=3
+  wrk->apos       = (wrk->is_revcomp ?     sq->L : 1     );
+
+  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[1])) wrk->codon += 4 * sq->dsq[1]; else wrk->inval = 1;
+  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[2])) wrk->codon +=     sq->dsq[2]; else wrk->inval = 2;
+}
+
+
+static int
+process_piece(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQ *sq)
+{
+  ESL_DSQ aa;
+  int     rpos;
+
+  for (rpos = 1; rpos <= sq->n-2; rpos++)
+    {
+      wrk->codon = (wrk->codon * 4) % 64;
+      if   ( esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[rpos+2])) wrk->codon += sq->dsq[rpos+2]; 
+      else wrk->inval = 3;
+
+      /* Translate the current codon starting at <pos>;
+       * see if it's an acceptable initiator 
+       */
+      if (wrk->inval > 0)
+	{
+	  aa =  esl_gencode_TranslateCodon(gcode, sq->dsq+rpos);  // This function can deal with any degeneracy
+	  wrk->inval--; 
+	}
+      else          
+	{
+	  aa = gcode->basic[wrk->codon];                             // If we know the digitized codon has no degeneracy, translation is a simple lookup
+	  if (gcode->is_initiator[wrk->codon] && ! wrk->in_orf[wrk->frame]) 
+	    {
+	      if (wrk->using_initiators)  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
+		aa = esl_abc_DigitizeSymbol(gcode->aa_abc, 'M');
+	      wrk->psq[wrk->frame]->start = wrk->apos;
+	      wrk->in_orf[wrk->frame]     = TRUE;
+	    }
+	}
+
+      /* Stop codon: deal with this ORF sequence and reinitiate */
+      if ( esl_abc_XIsNonresidue(gcode->aa_abc, aa))
+	process_orf(wrk, sq);  
+      
+      /* Otherwise: we have a residue. If we're in an orf (if we've
+       * seen a suitable initiator), add this residue, reallocating as needed. 
+       */
+      if (wrk->in_orf[wrk->frame])
+	{
+	  esl_sq_Grow(wrk->psq[wrk->frame], /*opt_nsafe=*/NULL);
+	  wrk->psq[wrk->frame]->dsq[1+ wrk->psq[wrk->frame]->n] = aa;
+	  wrk->psq[wrk->frame]->n++;
+	}
+
+      /* Advance +1 */
+      if (wrk->is_revcomp) wrk->apos--; else wrk->apos++;
+      wrk->frame = (wrk->frame + 1) % 3;
+    }
+  return eslOK;
+}
+
+
+static int
+process_end(struct workstate_s *wrk, ESL_SQ *sq)
+{
+  int f;
+
+  /* Done with the sequence. Now terminate all the orfs we were working on.
+   * <apos> is sitting at L-1 (or 2, if revcomp) and we're in some <frame> 
+   * there.
+   */
+  ESL_DASSERT1(( (wrk->is_revcomp && wrk->apos == 2) || (! wrk->is_revcomp && wrk->apos == sq->L-1) ));
+  for (f = 0; f < 3; f++) // f counts 0..2, but it is *not* the <frame> index; <frame> is stateful
+    {
+      process_orf(wrk, sq);
+      if (wrk->is_revcomp) wrk->apos--; else wrk->apos++;
+      wrk->frame = (wrk->frame + 1) % 3;
+    }  
+  return eslOK;
+}
+
+
+/*****************************************************************
+ * 3. Main loop for reading complete sequences with ReadSeq()
+ *****************************************************************/
+
+static int
+do_by_sequences(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQFILE *sqfp)
+{
+  ESL_SQ *sq = esl_sq_CreateDigital(gcode->nt_abc);
+  int     status;
+
+  while (( status = esl_sqio_Read(sqfp, sq )) == eslOK)
+    {
+      if (sq->n < 3) continue;
+
+      if (wrk->do_watson) {
+	process_start(gcode, wrk, sq);
+	process_piece(gcode, wrk, sq);
+	process_end(wrk, sq);
+      }
+
+      if (wrk->do_crick) {
+	esl_sq_ReverseComplement(sq);
+	process_start(gcode, wrk, sq);
+	process_piece(gcode, wrk, sq);
+	process_end(wrk, sq);
+      }
+
+      esl_sq_Reuse(sq);
+    }
+  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",
+					   sqfp->filename, sqfp->get_error(sqfp));     
+  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
+					   status, sqfp->filename);
+  
+  esl_sq_Destroy(sq);
+  return eslOK;
+}
+
+
+static int 
+do_by_windows(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQFILE *sqfp)
+{
+  ESL_SQ *sq = esl_sq_CreateDigital(gcode->nt_abc);
+  int     windowsize  = 4092;                // can be any value, but a multiple of 3 makes most sense. windowsize can be +/-; + means reading top strand; - means bottom strand.
+  int     contextsize = 2;                   // contextsize (adjacent window overlap) must be 2, or translation won't work properly.
+  int     wstatus;
+
+  ESL_DASSERT1(( windowsize  % 3 == 0 ));  
+
+  while (( wstatus = esl_sqio_ReadWindow(sqfp, contextsize, windowsize, sq)) != eslEOF)
+    {
+      if (wstatus == eslEOD)
+	{
+	  if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))
+	    process_end(wrk, sq);
+
+	  if (windowsize > 0 && ! wrk->do_crick) { esl_sq_Reuse(sq); continue; } // Don't switch to revcomp if we don't need do. Allows -W --watson to work on nonrewindable streams
+	  if (windowsize < 0) esl_sq_Reuse(sq);             // Do not Reuse the sq on the switch from watson to crick; ReadWindow needs sq->L
+	  windowsize = -windowsize;                         // switch to other strand.
+	  continue;
+	}
+      else if (wstatus == eslEFORMAT) esl_fatal("Parsing failed in sequence file %s:\n%s",          sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
+      else if (wstatus == eslEINVAL)  esl_fatal("Invalid residue(s) found in sequence file %s\n%s", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
+      else if (wstatus != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", wstatus, sqfp->filename);
+
+      /* If we're the first window in this input DNA sequence 
+       * (or the first window in its revcomp), then initialize.
+       * sq->C is the actual context overlap; 0=1st window; 2 (i.e. C)= subsequent.
+       */
+      if (sq->C == 0) 
+	{
+	  if (sq->n < 3) continue; // DNA sequence too short; skip it, don't even bother to revcomp, go to next sequence.
+	  if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))
+	    process_start(gcode, wrk, sq);
+	}
+
+      if ( (windowsize > 0 && wrk->do_watson) || (windowsize < 0 && wrk->do_crick))      
+	process_piece(gcode, wrk, sq);
+    }
+  esl_sq_Destroy(sq);
+  return eslOK;
+}
+
+
+/*****************************************************************
+ * x. main() for the esl-translate program
+ *****************************************************************/
 
 static ESL_OPTIONS options[] = {
   /* name           type        default  env  range toggles reqs incomp  help                                          docgroup*/
@@ -18,6 +313,7 @@ static ESL_OPTIONS options[] = {
   { "-l",         eslARG_INT,      "20", NULL, NULL, NULL,  NULL, NULL,  "minimum ORF length",                            0 },
   { "-m",         eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, "-M",  "ORFs must initiate with AUG only",              0 },
   { "-M",         eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, "-m",  "ORFs must start with allowed initiation codon", 0 },
+  { "-W",         eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, NULL,  "use windowed, memory-efficient seq reading",    0 },
   { "--informat", eslARG_STRING,  FALSE, NULL, NULL, NULL,  NULL, NULL,  "specify that input file is in format <s>",      0 },
   { "--watson",   eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, NULL,  "only translate top strand",                     0 },
   { "--crick",    eslARG_NONE,    FALSE, NULL, NULL, NULL,  NULL, NULL,  "only translate bottom strand",                  0 },
@@ -26,7 +322,6 @@ static ESL_OPTIONS options[] = {
 static char usage[]  = "[-options] <seqfile>";
 static char banner[] = "six-frame translation of nucleic acid seq to ORFs";
 
-static int output_orf(ESL_GETOPTS *go, int on_topstrand, int frame, FILE *outfp, int outformat, ESL_SQ *sq, ESL_SQ *psq, int *upd_orfcounter);
 
 int
 main(int argc, char **argv)
@@ -35,28 +330,12 @@ main(int argc, char **argv)
   ESL_ALPHABET  *nt_abc      = esl_alphabet_Create(eslDNA);
   ESL_ALPHABET  *aa_abc      = esl_alphabet_Create(eslAMINO);
   ESL_GENCODE   *gcode       = NULL;
-  ESL_SQFILE    *sqfp        = NULL;
-  FILE          *outfp       = stdout;
+  struct workstate_s *wrk    = NULL;
   char          *seqfile     = NULL;
   int            informat    = eslSQFILE_UNKNOWN;
-  int            outformat   = eslSQFILE_FASTA;
-  int            windowsize  = 4092;                // can be any value, but a multiple of 3 makes most sense. windowsize can be +/-; + means reading top strand; - means bottom strand.
-  int            contextsize = 2;                   // contextsize (adjacent window overlap) must be 2, or translation won't work properly.
-  ESL_SQ        *sq;                                // DNA sequence window, digital
-  ESL_SQ        *psq[3];                            // Current ORF sequences, for frames 0..2
-  int8_t         in_orf[3];
-  int            frame, f;        // 0..2, counter for which frame we're in.
-  int32_t        codon;           // 0..63, digitally encoded canonical codon
-  int            inval;           // counter for how many nt's we need to get past before we can have a fully canonical triplet again (no degeneracy syms)
-  int            apos;            // absolute position in the DNA sequence, 1..L 
-  int            rpos;            // "relative" position, 1..W in current window
-  int            orfcounter = 0;  // >=1; number of ORFs output so far.
-  ESL_DSQ        aa;              // amino acid residue, translated from current codon
-  int            wstatus;         // return status specifically for DNA sequence window read
+  ESL_SQFILE    *sqfp        = NULL;
   int            status;
   
-  ESL_DASSERT1(( windowsize  % 3 == 0 ));  
-
   /***************************************************************** 
    * command line parsing
    *****************************************************************/
@@ -81,9 +360,6 @@ main(int argc, char **argv)
       puts("\nAvailable NCBI genetic code tables (for -c <id>):");
       esl_gencode_DumpCodeOptions(stdout);
 
-      puts("\n<seqfile> must generally be a file, not a stdin pipe, because reverse");
-      puts("complement requires file repositioning. If <seqfile> is - (i.e. signifying");
-      puts("input from stdin), must also use --watson to restrict translation to top strand.");
       exit(0);
     }
 
@@ -109,8 +385,7 @@ main(int argc, char **argv)
   /* A limitation. The esl_sqio_ReadWindow() interface needs to use SSI positioning
    * to read reverse complement, and that doesn't work on nonrewindable streams.
    */
-  if (! esl_sqfile_IsRewindable(sqfp) && 
-      ! esl_opt_GetBoolean(go, "--watson"))
+  if ( esl_opt_GetBoolean(go, "-W") && ! esl_sqfile_IsRewindable(sqfp) && ! esl_opt_GetBoolean(go, "--watson"))
     esl_fatal("esl-translate can't read reverse complement from a nonrewindable stream (stdin pipe, .gz file, etc).");
 
   /* Set up the genetic code. Default = NCBI 1, the standard code; allow ORFs to start at any aa
@@ -121,135 +396,21 @@ main(int argc, char **argv)
   if      (esl_opt_GetBoolean(go, "-m"))   esl_gencode_SetInitiatorOnlyAUG(gcode);
   else if (! esl_opt_GetBoolean(go, "-M")) esl_gencode_SetInitiatorAny(gcode);      // note this is the default, if neither -m or -M are set
 
-  /* Set up the sq (DNA) and psq (protein) objects
+
+  /* Set up the workstate structure, which contains both stateful 
+   * info about our position in <sqfp> and the DNA <sq>, as well as
+   * one-time config info from options
    */
-  sq    = esl_sq_CreateDigital(nt_abc);
-  for (frame = 0; frame < 3; frame++)
-    {
-      psq[frame]         = esl_sq_CreateDigital(aa_abc);
-      psq[frame]->dsq[0] = eslDSQ_SENTINEL;
-      in_orf[frame]      = 0;
-    }
-  
-  /*****************************************************************
-   * Main loop.
-   * Read DNA sequence file, in windows (thus memory efficiently),
-   * and translate as we go.
-   *****************************************************************/
-  while (( wstatus = esl_sqio_ReadWindow(sqfp, contextsize, windowsize, sq)) != eslEOF)
-    {
-      if (wstatus == eslEOD)
-	{
-	  /*  An edge case: it's possible to have L=0 for an empty sequence. */
-	  if (sq->L == 0) { esl_sq_Reuse(sq); continue; }
+  wrk = workstate_create(go, gcode);
 
-	  /* Terminate all orfs we were working on.
-	   * <apos> is sitting at L-1 (or 2, if revcomp), and we're in some <frame> there.
-	   */
-	  ESL_DASSERT1(( (windowsize > 0 && apos == sq->L-1) || (windowsize < 0 && apos == 2)  ));
-	  for (f = 0; f < 3; f++)  // f counts 0..2; it is *not* the <frame> index, it's just going to make <frame> bump to frame, frame+1, frame+2
-	    {
-	      if (in_orf[frame])    
-		{ 
-		  psq[frame]->end = (windowsize > 0 ? apos-1 : apos+1);
-		  output_orf(go, (windowsize > 0), frame, outfp, outformat, sq, psq[frame], &orfcounter); 
-		  esl_sq_Reuse(psq[frame]);
-		}
-	      frame = (frame+1)%3;  //   ... and the <frame> index advances, wrapping around when needed.
-	      apos  = (windowsize > 0 ? apos+1 : apos-1);
-	    }
-	  if (windowsize < 0) esl_sq_Reuse(sq); // Finished revcomp, so we're done with this DNA seq.
 
-	  if (windowsize > 0 && esl_opt_GetBoolean(go, "--watson")) { esl_sq_Reuse(sq); continue; } // if we're only doing top strand, never use ReadWindow() on revcomp
-	  if (windowsize < 0) esl_sq_Reuse(sq); // If we finished the crick strand, we're done with <sq> and we'll read a new one in next ReadWindow() call
-	  windowsize = -windowsize;             // Switch either to next seq, or to revcomp of this one.
-	  continue;
-	}
-      else if (wstatus == eslEFORMAT) esl_fatal("Parsing failed in sequence file %s:\n%s",          sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
-      else if (wstatus == eslEINVAL)  esl_fatal("Invalid residue(s) found in sequence file %s\n%s", sqfp->filename, esl_sqfile_GetErrorBuf(sqfp));
-      else if (wstatus != eslOK)      esl_fatal("Unexpected error %d reading sequence file %s", wstatus, sqfp->filename);
+  /* The two styles of main processing loop:
+   */
+  if (esl_opt_GetBoolean(go, "-W"))  do_by_windows(gcode, wrk, sqfp);
+  else                               do_by_sequences(gcode, wrk, sqfp);
 
-      /* If we're the first window in this input DNA sequence 
-       * (or the first window in its revcomp), then initialize.
-       * sq->C is the actual context overlap; 0=1st window; 2 (i.e. C)= subsequent.
-       */
-      if (sq->C == 0) 
-	{
-	  if (sq->n < 3) continue; // DNA sequence too short; skip it, don't even bother to revcomp, go to next sequence.
-	  for (frame = 0; frame < 3; frame++)
-	    {
-	      esl_sq_SetSource(psq[frame], sq->name);
-	      in_orf[frame] = FALSE;
-	    }
-	  frame = 0;
-	  codon = 0;
-	  inval = 0;
-	  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[1])) codon += 4 * sq->dsq[1]; else inval = 1;
-	  if (esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[2])) codon +=     sq->dsq[2]; else inval = 2;
-	  apos  = (windowsize > 0 ? 1 : sq->L);  // apos is "absolute position": i.e. position in sequence
-	}
 
-      /* Process the window, starting at position 1.
-       * That's either the 1st nucleotide of the seq (or its revcomp) (if this is the first window);
-       * or it's the 1st nucleotide of the 2nt context overlap.
-       */
-      for (rpos = 1; rpos <= sq->n-2; rpos++)  // rpos is "relative position": i.e. position in current window
-	{
-	  codon = (codon * 4) % 64;
-	  if   ( esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[rpos+2])) codon += sq->dsq[rpos+2]; else inval = 3;
-	  
-	  /* Translate the codon. 
-	   * See if it's an acceptable initiator.
-	   */
-	  if (inval > 0) 
-	    {
-	      aa = esl_gencode_TranslateCodon(gcode, sq->dsq+rpos);  // This function can deal with any degeneracy
-	      inval--; 
-	    }
-	  else          
-	    {
-	      aa = gcode->basic[codon];                             // If we know the digitized codon has no degeneracy, translation is a simple lookup
-	      if (gcode->is_initiator[codon] && ! in_orf[frame]) 
-		{
-		  if (esl_opt_GetBoolean(go, "-m") || esl_opt_GetBoolean(go, "-M"))  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
-		    aa = esl_abc_DigitizeSymbol(aa_abc, 'M');
-		  psq[frame]->start = apos;
-		  in_orf[frame] = TRUE;
-		}
-	    }
-
-	  /* Stop codon: deal with this ORF sequence and reinitiate */
-	  if ( esl_abc_XIsNonresidue(gcode->aa_abc, aa))
-	    {
-	      psq[frame]->end = (windowsize > 0 ? apos-1 : apos+1);           // stop codon itself doesn't count in coords. apos is on first nt of the stop codon, so back it up one.
-	      if (in_orf[frame])
-		{
-		  output_orf(go, (windowsize > 0), frame, outfp, outformat, sq, psq[frame], &orfcounter);  // orfcounter is bumped +1 by the call if an orf is output
-		  esl_sq_Reuse(psq[frame]);		  
-		  esl_sq_SetSource(psq[frame], sq->name);
-		}
-	      in_orf[frame] = FALSE;
-	    }
-
-	  /* Otherwise: we have a residue. If we're in an orf (if we've
-	   * seen a suitable initiator), add this residue, and reallocate
-	   * as needed.
-	   */
-	  if (in_orf[frame]) 
-	    {
-	      esl_sq_Grow(psq[frame], /*opt_nsafe=*/NULL);
-	      psq[frame]->dsq[1+psq[frame]->n] = aa;
-	      psq[frame]->n++;
-	    }
-
-	  if (windowsize > 0) apos++; else apos--;
-	  frame = (frame + 1) % 3;
-	}
-      
-    }
-
-  esl_sq_Destroy(sq);
-  for (f = 0; f < 3; f++) esl_sq_Destroy(psq[f]);
+  workstate_destroy(wrk);
   esl_sqfile_Close(sqfp);
   esl_gencode_Destroy(gcode);
   esl_alphabet_Destroy(aa_abc);
@@ -258,91 +419,6 @@ main(int argc, char **argv)
   return 0;
 }
 
-#if 0
-static int
-do_by_sequences(ESL_SQFILE *sqfp, ESL_GENCODE *gcode)
-{
-  ESL_SQ *sq = esl_sq_CreateDigital(gcode->nt_abc);
-
-  while (( status = esl_sqio_Read(sqfp, sq )) == eslOK)
-    {
-      
 
 
-      esl_sq_ReverseComplement(sq);
 
-
-      esl_sq_Reuse(sq);
-    }
-  if      (status == eslEFORMAT) esl_fatal("Parse failed (sequence file %s)\n%s\n",
-					   sqfp->filename, sqfp->get_error(sqfp));     
-  else if (status != eslEOF)     esl_fatal("Unexpected error %d reading sequence file %s",
-					   status, sqfp->filename);
-  
-  esl_sq_Destroy(sq);
-}
-
-static int
-process_sequence(ESL_GENCODE *gcode, ESL_SQ *sq)
-{
-  int     codon = 0;
-  int     inval = 0;
-  int     frame = 0;
-  int8_t  in_orf[3];
-  ESL_DSQ aa;
-  int     pos;
-  int     f;
-
-  for (f = 0; f < 3; f++)
-    in_orf[f] = FALSE;
-
-  for (pos = 1; pos <= sq->n-2; pos++)
-    {
-      codon = (codon * 4) % 64;
-      if   ( esl_abc_XIsCanonical(gcode->nt_abc, sq->dsq[pos+2])) codon += sq->dsq[pos+2]; 
-      else inval = 3;
-
-      /* Translate the current codon starting at <pos>;
-       * see if it's an acceptable initiator 
-       */
-      if (inval > 0)
-	{
-	  aa =  esl_gencode_TranslateCodon(gcode, sq->dsq+rpos);  // This function can deal with any degeneracy
-	  inval--; 
-	}
-      else          
-	{
-	  aa = gcode->basic[codon];                             // If we know the digitized codon has no degeneracy, translation is a simple lookup
-	  if (gcode->is_initiator[codon] && ! in_orf[frame]) 
-	    {
-	      if (esl_opt_GetBoolean(go, "-m") || esl_opt_GetBoolean(go, "-M"))  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
-		aa = esl_abc_DigitizeSymbol(aa_abc, 'M');
-	      psq[frame]->start = apos;
-	      in_orf[frame] = TRUE;
-	    }
-	}
-	  
-
-    }
-
-}
-#endif /*0*/
-
-
-static int
-output_orf(ESL_GETOPTS *go, int on_topstrand, int frame, FILE *outfp, int outformat, ESL_SQ *sq, ESL_SQ *psq, int *upd_orfcounter)
-{
-  int minlen    = esl_opt_GetInteger(go, "-l");
-  int strand_ok = ((on_topstrand && ! esl_opt_GetBoolean(go, "--crick")) || (! on_topstrand && ! esl_opt_GetBoolean(go, "--watson")));
-
-  if ( strand_ok && psq->n >= minlen)
-    {
-      *upd_orfcounter = (*upd_orfcounter)+1;
-      esl_sq_Grow(psq, /*opt_nsafe=*/NULL);   // Make sure we have room for the sentinel
-      psq->dsq[1+psq->n] = eslDSQ_SENTINEL;   
-      esl_sq_FormatName(psq, "orf%d", *upd_orfcounter);
-      esl_sq_FormatDesc(psq, "source=%s coords=%d..%d length=%d frame=%d  %s", psq->source, psq->start, psq->end, psq->n, frame + 1 + (on_topstrand ? 0 : 3), sq->desc);
-      esl_sqio_Write(outfp, psq, outformat, /*sq ssi offset update=*/FALSE);
-    }
-  return eslOK;
-}

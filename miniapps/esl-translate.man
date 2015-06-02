@@ -21,20 +21,6 @@ outputs a six-frame translation of them as individual open reading
 frames in FASTA format.
 
 .pp
-.I seqfile
-must generally be a normal file, not a stdin pipe or a .gz compressed
-file. Easel is normally capable of reading from pipes or .gz files,
-but such streams are nonrewindable. 
-.B esl_translate's
-way of reading reverse complement requires rewinding/repositioning in
-the file (to move backwards in it). Thus if 
-.I seqfile
-is a stdin pipe or a .gz file, you must also be
-using the
-.I --watson 
-option to restrict translation to the top strand only.
-
-.pp
 By default, only open reading frames greater than 20aa are reported. 
 This minimum ORF length can be changed with the
 .I -l 
@@ -44,7 +30,7 @@ option.
 By default, no specific initiation codon is required, and any amino acid can start an open reading frame.
 This is because
 .I esl-translate
-may be used on eukaryotic genes with introns, or other
+may be used on sequence fragments, eukaryotic genes with introns, or other
 cases where we
 do not want to assume that ORFs are complete coding regions.
 This behavior can be changed. With the 
@@ -54,17 +40,27 @@ option, ORFs start with an initiator AUG Met. With the
 option, ORFs start with any of the initiation codons allowed by the
 genetic code. For example, the "standard" code (NCBI transl_table 1) 
 allows AUG, CUG, and UUG as initiators. When
+.I -m
+or
 .I -M
-is used, an initiator is always translated to Met (even if the initiator
+are used, an initiator is always translated to Met (even if the initiator
 is something like UUG or CUG that doesn't encode Met as an elongator).
 
 .pp
-There is no limit on the length of sequences in 
-.I <seqfile>.
-They may be complete eukaryotic chromosomes. 
-.B esl-translate
-uses a memory-efficient algorithm to scan the input sequences in
-windows, rather than reading entire input sequences into memory.
+If
+.I seqfile
+is - (a single dash), input is read from the stdin pipe. This
+(combined
+with the output being a standard FASTA file) allows
+.B esl-translate 
+to be used in command line incantations.
+If
+.I seqfile
+ends in .gz, it is assumed to be a gzip-compressed file, and 
+Easel will try to read it as a stream from
+.B gunzip -c.
+
+
 
 .SH OUTPUT FORMAT
 
@@ -211,6 +207,21 @@ allowed initiator codons in the NCBI transl_table. In the default
 Standard code, AUG, CUG, and UUG are allowed as initiators. An 
 initiation codon is always translated as Met, even if it does not
 normally encode Met as an elongator.
+
+.TP
+.B -W
+Use a memory-efficient windowed sequence reader.
+The default is to read entire DNA sequences into memory, which
+may become memory limited for some very large eukaryotic chromosomes.
+The windowed reader cannot 
+reverse complement a nonrewindable input stream, so 
+either
+.I <seqfile>
+must be a file,
+or you must use
+.I --watson
+to limit translation to the top strand.
+
 
 .TP
 .BI --informat " <s>"
