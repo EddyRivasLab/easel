@@ -1574,7 +1574,8 @@ The \ccode{valgrind\_report.pl} script in \ccode{testsuite} automates
 valgrind testing for all Easel modules. To run it:
 
 \begin{cchunk} 
-   % testsuite/valgrind_report.pl > valgrind.report
+   % cd testsuite
+   % ./valgrind_report.pl > valgrind.report
 \end{cchunk}
 
 
@@ -1610,13 +1611,62 @@ The \ccode{coverage\_report.pl} script in \ccode{testsuite} automates coverage
 testing for all Easel modules. To run it:
 
 \begin{cchunk} 
-   % testsuite/coverage_report.pl > coverage.report
+   % cd testsuite
+   % coverage_report.pl > coverage.report
 \end{cchunk}
 
 
 %%%%%%%%%%%%%%%%
-\subsection{Using gprof or shark for performance profiling}
+\subsection{Using gprof for performance profiling}
 %%%%%%%%%%%%%%%%
+
+On a Linux machine (gprof does not work on Mac OS/X, apparently):
+
+\begin{cchunk}
+   % make distclean
+   % ./configure --enable-gprof
+   % make
+\end{cchunk}
+
+Run any program you want to profile, then:
+
+\begin{cchunk}
+   % gprof -l <progname>
+\end{cchunk}
+
+%%%%%%%%%%%%%%%%
+\subsection{Using the clang static analyzer, checker}
+%%%%%%%%%%%%%%%%
+
+The clang static analyzer for Mac OS/X is at
+\url{http://clang-analyzer.llvm.org/}. I install it by moving its
+entire distro directory (checker-276, for example) to
+\ccode{/usr/local}, and symlinking to \ccode{checker}.
+My \ccode{bashrc} has:
+
+\begin{cchunk}
+test -d /usr/local/checker         && PATH=${PATH}:/usr/local/checker
+\end{cchunk}
+
+and that puts \prog{scan-build} in my \ccode{PATH}.
+
+To use it:
+
+\begin{cchunk}
+   % scan-build ./configure --enable-debugging
+   % scan-build make
+\end{cchunk}
+
+It'll give you a scan-view command line, including the name of its
+output html file, so you can then visualize and interact with the
+results:
+
+\begin{cchunk}
+   % scan-view /var/folders/blah/baz/foo
+\end{cchunk}
+
+
+
 
 
 

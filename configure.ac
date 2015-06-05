@@ -205,6 +205,7 @@ AS_IF([test "x$check_threads" != xno],
                     fi])])
 
 AC_ARG_ENABLE(gcov,[AS_HELP_STRING([--enable-gcov],[compile for code coverage testing])], enable_gcov=$enableval,  enable_gcov=no)
+AC_ARG_ENABLE(gprof,[AS_HELP_STRING([--enable-gprof],[compile for gcc code profiling])],  enable_gprof=$enableval, enable_gprof=no)
 AC_ARG_ENABLE(sse,[AS_HELP_STRING([--enable-sse],[enable SSE optimizations])] ,           enable_sse=$enableval,   enable_sse=check)
 AC_ARG_ENABLE(vmx,[AS_HELP_STRING([--enable-vmx],[enable Altivec/VMX optimizations])],    enable_vmx=$enableval,   enable_vmx=check)
 AC_ARG_WITH(gsl,[AS_HELP_STRING([--with-gsl],[use the GSL, GNU Scientific Library])],     with_gsl=$withval,       with_gsl=no)
@@ -254,12 +255,18 @@ if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
 fi
 
 # Select our default optimization flags in CFLAGS.
+#  --enable-gcov, --enable-gprof, and --enable-debugging are mutually exclusive.
 #
-if test "$sre_cflags_env_set" = "no"; then
 if test "$enable_gcov" = "yes"; then
-   # --enable-gcov overrides CC too.
-   CC="gcc"
+   if test "$sre_cflags_env_set" = "yes"; then 
+     AC_MSG_ERROR([--enable-gcov overrides CFLAGS, so don't set CFLAGS])
+   fi
    CFLAGS="-g -Wall -fprofile-arcs -ftest-coverage"
+elif test "$enable_gprof" = "yes"; then
+   if test "$sre_cflags_env_set" = "yes"; then 
+     AC_MSG_ERROR([--enable-gprof overrides CFLAGS, so don't set CFLAGS])
+   fi
+   CFLAGS="-O -g -pg"
 elif test "$enable_debugging" != "no"; then
    if test "$GCC" = "yes"; then
       CFLAGS="-g -Wall"
@@ -267,7 +274,7 @@ elif test "$enable_debugging" != "no"; then
 else
    CFLAGS="-O3"
 fi
-fi
+
 
 # Figure out how to generate PIC code for shared libraries
 # This sets @PIC_FLAGS@ output variable

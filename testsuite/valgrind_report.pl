@@ -3,7 +3,8 @@
 # Run the testsuite under Valgrind, to check for memory leakage.
 #
 # Usage: from testsuite directory:
-#    testsuite/valgrind_report.pl
+#    ./valgrind_report.pl
+#
 # This assumes you've already compiled the library. To recompile
 # from scratch, do 
 #    ./driver_report.pl -c
@@ -64,7 +65,7 @@ foreach $module (@modules) {
     if ($? != 0) { printf("                   [VALGRIND FAILED]\n");       next; };
     $nsuccess++;
 
-    if ($output =~ /malloc\/free: in use at exit: (\S+) bytes in (\S+) blocks/)
+    if ($output =~ / definitely lost: (\S+) bytes in (\S+) blocks/)
     {
 	if ($1 > 0) { 
 	    $nleaking++;

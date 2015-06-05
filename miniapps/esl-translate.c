@@ -107,7 +107,8 @@ process_orf(struct workstate_s *wrk, ESL_SQ *sq)
   if (wrk->in_orf[wrk->frame] && psq->n >= wrk->minlen)
     {
       wrk->orfcount++;
-      esl_sq_Grow(psq, /*opt_nsafe=*/NULL);
+      if (psq->n+2 > psq->salloc) 
+	esl_sq_Grow(psq, /*opt_nsafe=*/NULL);
       psq->dsq[1+psq->n] = eslDSQ_SENTINEL;
       
       esl_sq_FormatName(psq, "orf%d", wrk->orfcount);
@@ -192,7 +193,8 @@ process_piece(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQ *sq)
        */
       if (wrk->in_orf[wrk->frame])
 	{
-	  esl_sq_Grow(wrk->psq[wrk->frame], /*opt_nsafe=*/NULL);
+	  if (wrk->psq[wrk->frame]->n + 2 > wrk->psq[wrk->frame]->salloc) 
+	    esl_sq_Grow(wrk->psq[wrk->frame], /*opt_nsafe=*/NULL);
 	  wrk->psq[wrk->frame]->dsq[1+ wrk->psq[wrk->frame]->n] = aa;
 	  wrk->psq[wrk->frame]->n++;
 	}
