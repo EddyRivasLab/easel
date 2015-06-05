@@ -246,7 +246,6 @@ CHECK_GNU_MAKE
 # The xlc compiler on AIX seems to need the -qarch flag to be set for a processor
 # that is VMX enabled.  Otherwise a warning is issued that states the -qenablevmx
 # and -qaltivec flags are ignored.
-AX_COMPILER_VENDOR
 if test "${ax_cv_c_compiler_vendor}" = "ibm"; then
   AC_ARG_WITH(xlc-arch, 
               [AC_HELP_STRING([--with-xlc-arch=<arch>], [specify architecture <arch> for xlc -qarch])],
@@ -267,6 +266,7 @@ elif test "$enable_debugging" != "no"; then
    fi
 else
    CFLAGS="-O3"
+fi
 fi
 
 # Figure out how to generate PIC code for shared libraries

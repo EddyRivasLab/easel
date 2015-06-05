@@ -159,9 +159,16 @@ process_piece(ESL_GENCODE *gcode, struct workstate_s *wrk, ESL_SQ *sq)
       /* Translate the current codon starting at <pos>;
        * see if it's an acceptable initiator 
        */
-      if (wrk->inval > 0)
+      if (wrk->inval > 0) // degenerate codon: needs special, tedious handling
 	{
-	  aa =  esl_gencode_TranslateCodon(gcode, sq->dsq+rpos);  // This function can deal with any degeneracy
+	  aa =  esl_gencode_GetTranslation(gcode, sq->dsq+rpos);                         // This function can deal with any degeneracy
+	  if (! wrk->in_orf[wrk->frame] && esl_gencode_IsInitiator(gcode, sq->dsq+rpos)) //   ...as can IsInitiator.
+	    {
+	      if (wrk->using_initiators)  // If we're using initiation codons, initial codon translates to M even if it's something like UUG or CUG
+		aa = esl_abc_DigitizeSymbol(gcode->aa_abc, 'M');
+	      wrk->in_orf[wrk->frame]     = TRUE;            
+	      wrk->psq[wrk->frame]->start = wrk->apos;
+	    }
 	  wrk->inval--; 
 	}
       else          
@@ -358,7 +365,7 @@ main(int argc, char **argv)
       esl_opt_DisplayHelp(stdout, go, /*docgroup=*/0, /*indent=*/2, /*textwidth=*/80);
 
       puts("\nAvailable NCBI genetic code tables (for -c <id>):");
-      esl_gencode_DumpCodeOptions(stdout);
+      esl_gencode_DumpAltCodeTable(stdout);
 
       exit(0);
     }

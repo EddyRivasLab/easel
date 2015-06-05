@@ -14,6 +14,7 @@
 1 exercise exponential-utest  @esl_exponential_utest@
 1 exercise fileparser-utest   @esl_fileparser_utest@
 1 exercise gamma-utest        @esl_gamma_utest@
+1 exercise gencode-utest      @esl_gencode_utest@
 1 exercise getopts-utest      @esl_getopts_utest@
 1 exercise gumbel-utest       @esl_gumbel_utest@
 1 exercise heap-utest         @esl_heap_utest@
@@ -58,6 +59,8 @@
 1 exercise degen-residues     !testsuite/i1-degen-residues.pl! @@ !! %TESTPFX%
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
+
+1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
 
 1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!    @miniapps/esl-afetch@    %TESTPFX%
 1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%

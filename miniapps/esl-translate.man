@@ -171,6 +171,39 @@ NCBI translation tables is at
 at a link titled
 .I Genetic codes.
 
+.SH IUPAC DEGENERACY CODES IN DNA 
+
+.pp
+DNA sequences may contain IUPAC degeneracy codes, such as N, R, Y,
+etc. If all codons consistent with a degenerate codon translate to the
+same amino acid (or to a stop), that translation is done; otherwise,
+the codon is translated as X (even if one or more compatible codons
+are stops). For example, in the standard code, UAR translates to *
+(stop), GGN translates to G (glycine), NNN translates to X, and UGR
+translates to X (it could be either a UGA stop or a UGG Trp).
+
+.pp
+Degenerate initiation codons are handled essentially the same. If all
+codons consistent with the degenerate codon are legal initiators, then
+the codon is allowed to initiate a new ORF. Stop codons are never
+a legal initiator (not only with 
+.I -m 
+or
+.I -M
+but also with the default of allowing any amino acid to initiate),
+so degenerate codons consistent with a stop cannot be initiators.
+For example, NNN cannot initiate an ORF, nor can UGR -- even
+though they translate to X. This means that we don't translate
+long stretches of N's as long ORFs of X's, which is probably a
+feature, given the prevalence of artificial runs of N's in genome 
+sequence assemblies.
+
+.pp
+Degenerate DNA codons are not translated to degenerate amino acids
+other than X, even when that is possible. For example, SAR and MUH
+are decoded as X, not Z (Q|E) and J (I|L). The extra complexity
+needed for a degenerate to degenerate translation doesn't seem worthwhile.
+
 
 .SH OPTIONS
 
