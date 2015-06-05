@@ -4066,7 +4066,7 @@ rf_seq_sspostscript(const ESL_GETOPTS *go, char *errbuf, SSPostscript_t *ps, ESL
  * <ret_spos_ct> [0..apos..alen-1]
  * - per position count of first nongap position over all seqs.
  *                                
- * <ret_erfpos_ct> [0..apos..alen-1]
+ * <ret_epos_ct> [0..apos..alen-1]
  * - per position count of final nongap position over all seqs.
  *
  * A 'gap' has a looser defintion than in esl_abc here, esl_abc's gap, 
@@ -4138,6 +4138,7 @@ int count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret
 
   for(i = 0; i < msa->nseq; i++) { 
     seen_start = FALSE;
+    epos       = 0;       // all seqs should have at least one residue, so we only need to initialize epos to make static analyzers happy.
     if((status = esl_abc_Digitize(abc, msa->aseq[i], tmp_dsq)) != eslOK) ESL_FAIL(status, errbuf, "problem digitizing sequence %d", i);
     for(apos = 0; apos < msa->alen; apos++) { /* update appropriate abc count, careful, tmp_dsq ranges from 1..msa->alen (not 0..msa->alen-1) */
       if((status = esl_abc_DCount(abc, abc_ct[apos], tmp_dsq[apos+1], 1.0)) != eslOK) ESL_FAIL(status, errbuf, "problem counting nucleotide %d of seq %d", apos, i);
@@ -4146,7 +4147,7 @@ int count_msa(const ESL_ALPHABET *abc, ESL_MSA *msa, char *errbuf, double ***ret
 	  spos_ct[apos]++;
 	  seen_start = TRUE;
 	}
-	epos = apos;
+	epos = apos;     // as noted above: must get called at least once per seq.
       }
       /* get bp count, if nec */
       if(bp_ct[apos] != NULL) { /* our flag for whether position (apos+1) is an 'i' in an i:j pair where i < j */
