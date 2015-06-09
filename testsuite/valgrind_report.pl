@@ -2,34 +2,35 @@
 
 # Run the testsuite under Valgrind, to check for memory leakage.
 #
-# Usage: from testsuite directory:
-#    ./valgrind_report.pl
+# First you have to do a 'make dev' or 'make check', or equiv;
+# all the unit test drivers need to be compiled and present.
 #
-# This assumes you've already compiled the library. To recompile
-# from scratch, do 
-#    ./driver_report.pl -c
+# Usage: 
+#    valgrind_report.pl <top_builddir> <top_srcdir>
 #
-# SRE, Fri Mar  2 08:37:48 2007 [Janelia]
-# SVN $Id$
-require  "getopts.pl";
-&Getopts('c');
-if ($opt_c) { $do_recompile = 1; }
+# Example, in a single directory (source+build):
+#    ./configure --enable-debugging
+#    make dev
+#    testsuite/valgrind_report.pl . .
+#
+# Example, in separate build dir:
+#     mkdir build_dir
+#     cd build_dir
+#     ../configure --enable-debugging
+#     make dev
+#     ../testsuite/valgrind_report.pl . ..
+#
 
-if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};     } else { $CC       = "gcc"; } 
-if ($ENV{'CFLAGS'} ne "") { $CFLAGS = $ENV{'CFLAGS'}; } else { $CFLAGS   = "-g -Wall"; }
+use File::Basename;
+
+if ($#ARGV+1 != 2) { die("Usage: valgrind_report.pl <top_builddir> <top_srcdir>"); }
+$top_builddir = shift;
+$top_srcdir   = shift;
 
 printf("Memory leak testing for Easel, using valgrind:\n\n");
 
-if ($do_recompile) {
-    print("Recompiling...       ");
-    `(cd ..; make clean > /dev/null)`;                      if ($? != 0) { print "[make clean failed]\n"; exit; }
-    `(cd ..; ./configure --enable-debugging > /dev/null)`;  if ($? != 0) { print "[configure failed]\n"; exit; }
-    `(cd ..; make > /dev/null)`;                            if ($? != 0) { print "[make failed]\n"; exit; }
-    print "ok.\n\n";
-}
-
-@modules = <../esl_*.c>;
-unshift(@modules, "../easel.c");
+@modules = <$top_srcdir/esl_*.c>;
+unshift(@modules, "$top_srcdir/easel.c");
 
 $nmodules       = 0;
 $npresent       = 0;
@@ -37,31 +38,31 @@ $ncompiled      = 0;
 $nsuccess       = 0;
 $nleaking       = 0;
 foreach $module (@modules) {
-    $module =~ /^\.\.\/(\S+)/; 
-    $basecfile = $1;
+    $basecfile = fileparse($module);
     $nmodules++;
 
-    # create the eslDMATRIX_TESTDRIVE flag and dmatrix_utest program name from esl_dmatrix.c
+    # create the eslDMATRIX_TESTDRIVE flag and esl_dmatrix_utest program name from esl_dmatrix.c
     if ($basecfile =~ /^(esl_)?(\S+).c/) { 
+        $pfx      = $1;
 	$base     = $2;
-	$progname = $base."_utest";
+	$progname = $pfx.$base."_utest";
 	$base     =~ tr/a-z/A-Z/;
 	$flag     = "esl".$base."_TESTDRIVE";
     }
 
-    printf("%-20s ", $basecfile);
+    printf("%-28s ", $basecfile);
 
     # one way to fail: there isn't a test driver at all
     `grep $flag $module`;
     if ($? != 0) { printf("                   [NO DRIVER]\n");      next; }
     $npresent++;
 
-    `$CC $CFLAGS -I.. -L.. -o $progname -D$flag $module -leasel -lm  >& /dev/null`;
-    if ($? != 0) { printf("                   [COMPILE FAILED]\n");       next; };
+    # Some unit tests aren't compiled.
+    # That can be normal: for example, esl_mpi_utest on a non-MPI system
+    if (! -x "$top_builddir/$progname")  { printf("                   [UTEST NOT COMPILED]\n");       next; }
     $ncompiled++;
-    push @proglist, $progname;
-    
-    $output = `valgrind ./$progname 2>&1`;
+
+    $output = `valgrind $top_builddir/$progname 2>&1`;
     if ($? != 0) { printf("                   [VALGRIND FAILED]\n");       next; };
     $nsuccess++;
 
@@ -78,14 +79,14 @@ foreach $module (@modules) {
 
 printf("\nOf %d total modules in Easel:\n", $nmodules);
 if ($npresent != $nmodules) {
-    printf("   - %d have test drivers, %d do not\n", $npresent, $nmodules-$npresent);
+    printf("   - %d have test drivers written, %d do not\n", $npresent, $nmodules-$npresent);
 } else {
-    printf("   - All %d have test drivers\n", $npresent);
+    printf("   - All %d have test drivers written\n", $npresent);
 }
 if ($ncompiled != $npresent) {
-    printf("   - %d compiled, %d did not\n", $ncompiled, $npresent-$ncompiled);
+    printf("   - %d test drivers were found compiled; %d were not\n", $ncompiled, $npresent-$ncompiled);
 } else {
-    printf("   - All %d compiled\n", $ncompiled);
+    printf("   - All %d test drivers were found compiled\n", $ncompiled);
 }
 if ($nsuccess != $ncompiled) {
     printf("   - %d ran successfully, %d did not\n", $nsuccess, $ncompiled-$nsuccess);
@@ -95,11 +96,12 @@ if ($nsuccess != $ncompiled) {
 
 print "\n";
 if ($nleaking == 0) {
-    printf("None of %d .c's with running test drivers) show memory leaks\n", $nsuccess);
+    printf("None of %d modules with running test drivers show memory leaks\n", $nsuccess);
 } else {
-    printf("%d of %d .c's with running test drivers) are leaking.\n", $nleaking, $nsuccess);
+    printf("%d of %d modules with running test drivers are leaking.\n", $nleaking, $nsuccess);
 }
 
-unlink @proglist;
 
-
+# SRE, Fri Mar  2 08:37:48 2007 [Janelia]
+# SVN $Id$
+# SVN $URL$

@@ -234,6 +234,7 @@ UTESTS =\
 	esl_gumbel_utest\
 	esl_heap_utest\
 	esl_histogram_utest\
+	esl_hmm_utest\
 	esl_hyperexp_utest\
 	esl_keyhash_utest\
 	esl_mem_utest\
@@ -305,6 +306,7 @@ EXAMPLES = \
         esl_histogram_example3\
         esl_histogram_example4\
         esl_histogram_example5\
+        esl_hmm_example\
         esl_hyperexp_example\
         esl_keyhash_example\
         esl_minimizer_example\

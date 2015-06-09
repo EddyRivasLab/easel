@@ -3,41 +3,52 @@
 # Measures testsuite coverage (as percentage of source lines),
 # using gcov.
 #
-# Usage: from testsuite directory:
-#    ./coverage_report.pl
+# Assumes you've already compiled the library, with test drivers only.
 #
-# This assumes you've already compiled the library. To recompile
-# from scratch, do 
-#    ./coverage_report.pl -c
+# Usage:
+#     coverage_report.pl <top_builddir> <top_srcdir>
+#
+# Example usage, in a single directory (source and build):
+#     ./configure --enable-gcov
+#     make tests
+#     testsuite/coverage_report.pl . .
+#     
+# Example usage, in separate build dir
+#     mkdir build_dir
+#     cd build_dir
+#     ../configure --enable-gcov
+#     make tests
+#     ../testsuite/coverage_report.pl . ..
+#    
+#
+# It has to be 'make tests', not 'make dev'. The _utest driver must be
+# the last executable compiled for each module .c file, or gcov will
+# bitch about stamp mismatch between .gcno, .gcda files.  (When you
+# build esl_foo_utest, it generates a .gcno file for esl_foo.c. When
+# you run esl_foo_utest, it generates a .gcda file for esl_foo.c. If
+# you build esl_foo_example before you run esl_foo_utest, you get a
+# mismatch.)
 #
 # It assumes you have 'sloccount' installed, so it can count 
 # ANSI C lines in files with no test driver. If you don't, use
 #    ./coverage_report.pl -s
-#
-# SRE, Thu Mar  1 19:22:57 2007 (Janelia)
-# SVN $Id$
-require  "getopts.pl";
+
+
+use Getopt::Std;
+use File::Basename;
 $have_sloccount = 1;
-&Getopts('cs');
-if ($opt_c) { $do_recompile     = 1; }
+getopts('s');
 if ($opt_s) { $have_sloccount   = 0; }
 
-if ($ENV{'CC'}     ne "") { $CC     = $ENV{'CC'};  } else { $CC       = "gcc"; } 
-$CFLAGS = "-g -Wall -fprofile-arcs -ftest-coverage";
+if ($#ARGV+1 != 2) { die("Usage: coverage_report.pl <top_builddir> <top_srcdir>"); }
+$top_builddir = shift;
+$top_srcdir   = shift;
+
 
 printf("Code coverage test for Easel, using gcov:\n\n");
 
-if ($do_recompile) { 
-    print("Recompiling...      ");
-    `(cd ..; make clean > /dev/null)`;                 if ($? != 0) { print "[make clean failed]\n"; exit; }
-    `(cd ..; ./configure --enable-gcov > /dev/null)`;  if ($? != 0) { print "[configure failed]\n"; exit; }
-    `(cd ..; make > /dev/null)`;                       if ($? != 0) { print "[make failed]\n"; exit; }
-    print "ok.\n\n";
-}
-
-
-@modules = <../esl_*.c>;
-unshift(@modules, "../easel.c");
+@modules = <$top_srcdir/esl_*.c>;
+unshift(@modules, "$top_srcdir/easel.c");
 
 $nmodules       = 0;
 $npresent       = 0;
@@ -46,41 +57,40 @@ $nsuccess       = 0;
 $nlines         = 0;
 $nlines_covered = 0;
 foreach $module (@modules) {
-    $module =~ /^\.\.\/(\S+)/; 
-    $basecfile = $1;
+    $basecfile = fileparse($module);
     $nmodules++;
 
     # create the eslDMATRIX_TESTDRIVE flag and dmatrix_utest program name from esl_dmatrix.c
-    if ($module =~ /^\.\.\/(esl_)?(\S+).c/) { 
+    if ($basecfile =~ /^(esl_)?(\S+).c/) { 
+        $pfx      = $1;
 	$base     = $2;
-	$progname = $base."_utest";
+	$progname = $pfx.$base."_utest";
 	$base     =~ tr/a-z/A-Z/;
 	$flag     = "esl".$base."_TESTDRIVE";
     }
-
-    printf("%-20s ", $basecfile);
+    printf("%-28s ", $basecfile);
 
     # one way to fail: there isn't a test driver at all
     `grep $flag $module`;
-    if ($? != 0) { printf("%6.2f%% coverage  [driver ABSENT]\n", 0);  push @nodriverlist, $module; next; }
+    if ($? != 0) { printf("%20s[NO DRIVER]\n", "");  push @nodriverlist, $module; next; }
     $npresent++;
 
-    `$CC $CFLAGS -I.. -L.. -o $progname -D$flag $module -leasel -lm  >& /dev/null`;
-    if ($? != 0) { printf("%6.2f%% coverage   [compilation FAILED]\n", 0);       next; };
+    # or: there's a test driver but it wasn't compiled. Sometimes normal, such as esl_mpi_utest on non-MPI
+    if (! -x "$top_builddir/$progname") { printf("%20s[UTEST NOT COMPILED]\n", "");       next; }; 
     $ncompiled++;
     
-    `./$progname >& /dev/null`;
-    if ($? != 0) { printf("%6.2f%% coverage   [test driver FAILED ]\n", 0);       next; };
+    `$top_builddir/$progname >& /dev/null`;
+    if ($? != 0) { printf("%20s[UTEST FAILED ]\n", "");       next; };
     $nsuccess++;
 
-    $output = `gcov $module`;
-    if ($output =~ /File.*$module.*\nLines executed:\s*(\d+\.\d+)% of\s+(\d+)/) {
+    $output = `(cd $top_builddir; gcov $basecfile)`;
+    if ($output =~ /File.*$basecfile.*\nLines executed:\s*(\d+\.\d+)% of\s+(\d+)/) {
 	$pct_cvg        = $1;
 	$nlines         += $2;
 	$nlines_covered += $1*$2/100;
 	printf("%6.2f%% coverage\n", $pct_cvg);
     }
-    else {die "failed to parse gcov output";}
+    else { die "failed to parse gcov output";}
 }
 
 if ($have_sloccount) {
@@ -109,9 +119,13 @@ if ($nsuccess != $ncompiled) {
 }
 
 print "\n";
-  printf("Total coverage (of .c's with test drivers): %.2f%%\n", 100.*$nlines_covered / $nlines);
+  printf("Total coverage (of modules with test drivers): %.2f%%\n", 100.*$nlines_covered / $nlines);
 if ($have_sloccount) {
-    printf("Total coverage (including .c files without drivers yet): %.2f%%\n", 100.*$nlines_covered / ($nlines+$nlines_nodrivers));
+    printf("Total coverage (including modules without drivers yet): %.2f%%\n", 100.*$nlines_covered / ($nlines+$nlines_nodrivers));
 }
 
 
+
+#
+# SRE, Thu Mar  1 19:22:57 2007 (Janelia)
+# SVN $Id$

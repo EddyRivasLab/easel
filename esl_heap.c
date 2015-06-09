@@ -330,6 +330,7 @@ main(int argc, char **argv)
 
    esl_getopts_Destroy(go);
    esl_randomness_Destroy(rng);
+   return 0;
 }
 
 #endif /*eslHEAP_TESTDRIVE*/
