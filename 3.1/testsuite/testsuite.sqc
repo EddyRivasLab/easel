@@ -57,6 +57,8 @@
 1 exercise ncbi-indices       !testsuite/i2-ncbi-indices.pl!   @@ !! %TESTPFX%
 1 exercise blank-gf           !testsuite/i3-blank-gf.pl!       @@ !! %TESTPFX%
 
+1 exercise esl-translate      !miniapps/esl-translate.itest.pl! @@ !! %TESTPFX%
+
 1 exercise esl-afetch         !miniapps/esl-afetch.itest.pl!    @miniapps/esl-afetch@    %TESTPFX%
 1 exercise esl-alimanip       !miniapps/esl-alimanip.itest.pl!  @miniapps/esl-alimanip@  %TESTPFX%
 1 exercise esl-alimap         !miniapps/esl-alimap.itest.pl!    @miniapps/esl-alimap@    %TESTPFX%
@@ -95,6 +97,7 @@
 3 valgrind exponential-utest  @esl_exponential_utest@
 3 valgrind fileparser-utest   @esl_fileparser_utest@
 3 valgrind gamma-utest        @esl_gamma_utest@
+3 exercise gencode-utest      @esl_gencode_utest@
 3 valgrind getopts-utest      @esl_getopts_utest@
 3 valgrind gumbel-utest       @esl_gumbel_utest@
 3 valgrind histogram-utest    @esl_histogram_utest@
