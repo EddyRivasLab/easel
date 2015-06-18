@@ -134,7 +134,6 @@ HDRS = 	easel.h\
 	esl_stopwatch.h\
 	esl_stretchexp.h\
 	esl_threads.h\
-  esl_translate.h\
 	esl_tree.h\
 	esl_vectorops.h\
 	esl_vmx.h\
@@ -198,7 +197,6 @@ OBJS =	easel.o\
 	esl_stopwatch.o\
 	esl_stretchexp.o\
 	esl_threads.o\
-  esl_translate.o\
 	esl_tree.o\
 	esl_vectorops.o\
 	esl_vmx.o\
@@ -229,6 +227,7 @@ UTESTS =\
 	esl_exponential_utest\
 	esl_fileparser_utest\
 	esl_gamma_utest\
+	esl_gencode_utest\
 	esl_getopts_utest\
 	esl_gumbel_utest\
 	esl_histogram_utest\
@@ -293,6 +292,7 @@ EXAMPLES = \
         esl_fileparser_example2\
         esl_gamma_example\
         esl_gencode_example\
+		esl_gencode_example2\
         esl_getopts_example\
         esl_getopts_example2\
         esl_gev_example\
@@ -329,7 +329,7 @@ EXAMPLES = \
         esl_random_example\
         esl_regexp_example\
         esl_regexp_example2\
-        esl_regexp_example3\        
+        esl_regexp_example3\
         esl_rootfinder_example\
         esl_rootfinder_example2\
         esl_scorematrix_example\
