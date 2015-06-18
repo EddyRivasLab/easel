@@ -2846,7 +2846,7 @@ header_genbank(ESL_SQFILE *sqfp, ESL_SQ *sq)
     if (strncmp(ascii->buf, "DEFINITION ", 11) == 0)
     {
       s = ascii->buf+12;
-      esl_strchop(s, ascii->nc);
+      esl_strchop(s, ascii->nc-12);
       if ((status = esl_sq_AppendDesc(sq, s)) != eslOK)
         ESL_FAIL(status, ascii->errbuf, "Line %" PRId64 ": failed to parse desc on DEFINITION line", ascii->linenumber);
     }
