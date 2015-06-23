@@ -33,7 +33,8 @@ typedef struct esl_trans_workstate_s {
   int     inval;      // 0..3:  how many apos increments we need to get past an ambiguous nucleotide
   int     is_revcomp; // TRUE|FALSE: TRUE if we're doing reverse complement strand
   int     orfcount;   // >=0:   How many ORFs we've processed so far
-
+  ESL_SQ_BLOCK  *orf_block; // block of sequences to which to write ORFs
+  
   /* one-time configuration information (from options) */
   int     do_watson;         // TRUE|FALSE:  TRUE if we translate the top strand
   int     do_crick;          // TRUE|FALSE:  TRUE if we translate the reverse complement strand

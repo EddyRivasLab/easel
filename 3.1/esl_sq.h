@@ -196,6 +196,7 @@ extern int     esl_sq_FetchFromMSA(const ESL_MSA *msa, int which, ESL_SQ **ret_s
 #endif
 
 extern ESL_SQ_BLOCK *esl_sq_CreateBlock(int count);
+extern int esl_sq_BlockGrowTo(ESL_SQ_BLOCK *sqblock, int newsize, int do_digital, const ESL_ALPHABET *abc);
 #ifdef eslAUGMENT_ALPHABET
 extern ESL_SQ_BLOCK *esl_sq_CreateDigitalBlock(int count, const ESL_ALPHABET *abc);
 #endif
