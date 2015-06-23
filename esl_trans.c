@@ -42,7 +42,8 @@ esl_trans_WorkstateCreate(ESL_GETOPTS *go, ESL_GENCODE *gcode)
   wrk->inval            = 0;
   wrk->is_revcomp       = FALSE;
   wrk->orfcount         = 0;
-
+  wrk->orf_block	    = NULL;
+  
   wrk->do_watson        = (esl_opt_GetBoolean(go, "--crick")  ? FALSE : TRUE);
   wrk->do_crick         = (esl_opt_GetBoolean(go, "--watson") ? FALSE : TRUE);
   wrk->using_initiators = ((esl_opt_GetBoolean(go, "-m") || esl_opt_GetBoolean(go, "-M")) ? TRUE : FALSE);
@@ -68,6 +69,7 @@ esl_trans_WorkstateCreate(ESL_GETOPTS *go, ESL_GENCODE *gcode)
 int
 esl_trans_ProcessOrf(ESL_TRANS_WORKSTATE *wrk, ESL_SQ *sq)
 {
+  int              status   = eslOK;
   ESL_SQ *psq = wrk->psq[wrk->frame];
 
   psq->end = (wrk->is_revcomp ? wrk->apos+1 : wrk->apos-1);
@@ -81,13 +83,32 @@ esl_trans_ProcessOrf(ESL_TRANS_WORKSTATE *wrk, ESL_SQ *sq)
       
       esl_sq_FormatName(psq, "orf%d", wrk->orfcount);
       esl_sq_FormatDesc(psq, "source=%s coords=%d..%d length=%d frame=%d  %s", psq->source, psq->start, psq->end, psq->n, wrk->frame + 1 + (wrk->is_revcomp ? 3 : 0), sq->desc);
-      esl_sqio_Write(wrk->outfp, psq, wrk->outformat, /*sq ssi offset update=*/FALSE);
-    }
+
+	  /* if we do not have a block to write ORFs to then write ORFs to file */
+	  if (wrk->orf_block == NULL)
+	     esl_sqio_Write(wrk->outfp, psq, wrk->outformat, /*sq ssi offset update=*/FALSE);
+	  else 
+	  {   
+         if (wrk->orf_block->count == wrk->orf_block->listSize)
+		 {
+            status = esl_sq_BlockGrowTo(wrk->orf_block, wrk->orf_block->listSize + 1, TRUE, psq->abc);
+		    if (status != eslOK) ESL_XEXCEPTION(eslEMEM, "Cannot increase size of ORF sequence block");
+		 }
+printf("adding seq to block list num %d\n",wrk->orf_block->count);
+//esl_sqio_Write(stdout, psq, eslSQFILE_FASTA, 0);
+//printf("\n");
+          esl_sq_Copy(psq, &(wrk->orf_block->list[wrk->orf_block->count]));
+printf("incrementing block count to %d\n",wrk->orf_block->count+1);
+		  
+		  wrk->orf_block->count++;
+	  }
+	}
 
   esl_sq_Reuse(psq);
   esl_sq_SetSource(psq, sq->name);
   wrk->in_orf[wrk->frame] = FALSE;
-  return eslOK;
+  ERROR:
+  return status;  
 }
 
 void
